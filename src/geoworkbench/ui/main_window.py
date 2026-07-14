@@ -26,11 +26,11 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.data.las_adapter import LasImportError, import_las
-from geoworkbench.domain.models import new_id
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind
+from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.visualization.curve_view import CurveView
 
@@ -39,6 +39,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.project_controller = ProjectController()
+        self.tablet_controller = TabletController(self.session)
         self._selected_track_id: str | None = None
         self.setWindowTitle("GEOLOG GASRATIO@Pixler 0.4")
         self.resize(1580, 960)
@@ -245,6 +246,7 @@ class MainWindow(QMainWindow):
             self._log(f"Проект не открыт: {source.name}: {exc}")
             return
 
+        self.tablet_controller.session = self.session
         self._selected_track_id = None
         self._refresh_tree()
         self._show_current_dataset()
@@ -275,27 +277,11 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Планшет", "Сначала откройте LAS-файл")
             return
 
-        curve_names = [curve.metadata.original_mnemonic for curve in dataset.curves.values()]
-        gas_order = ["TG", "TOTALGAS", "TG_CALC", "C1", "C2", "C3", "IC4", "NC4", "C4", "IC5", "NC5", "C5"]
-        gas_names = [name for name in gas_order if dataset.curve_by_mnemonic(name) is not None]
-        remaining = [name for name in curve_names if name not in gas_names]
-
-        tracks = [
-            TrackDefinition(new_id(), "Глубина", TrackKind.DEPTH, width=120),
-        ]
-        if gas_names:
-            tracks.append(
-                TrackDefinition(new_id(), "Газ", TrackKind.GAS, curve_mnemonics=gas_names[:8], width=360)
-            )
-        for mnemonic in remaining[:3]:
-            tracks.append(
-                TrackDefinition(new_id(), mnemonic, TrackKind.CURVE, curve_mnemonics=[mnemonic], width=250)
-            )
-
-        self.tablet_view.set_layout_model(TabletLayout(tracks))
-        self.session.set_current_tablet_layout(self.tablet_view.layout_model)
+        layout = self.tablet_controller.build_default_layout()
+        self.tablet_view.set_layout_model(layout)
         self.tablet_view.set_dataset(dataset)
-        self._log(f"Построен базовый планшет: треков {len(tracks)}")
+        self._update_title()
+        self._log(f"Построен базовый планшет: треков {len(layout.tracks)}")
 
     def add_track(self, kind: TrackKind) -> None:
         dataset = self.session.current_dataset
@@ -303,35 +289,18 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Планшет", "Сначала откройте LAS-файл")
             return
 
-        mnemonics: list[str] = []
-        title = kind.value
-        width = 250
-        if kind == TrackKind.DEPTH:
-            title = "Глубина"
-            width = 120
-        elif kind == TrackKind.GAS:
-            title = "Газ"
-            for name in ("TG", "TG_CALC", "C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5"):
-                if dataset.curve_by_mnemonic(name) is not None:
-                    mnemonics.append(name)
-            width = 360
-        else:
-            selected = self._select_curve_mnemonics()
-            if not selected:
-                return
-            mnemonics = selected
-            title = " / ".join(selected)
+        mnemonics = self._select_curve_mnemonics() if kind is TrackKind.CURVE else []
+        if kind is TrackKind.CURVE and not mnemonics:
+            return
 
         try:
-            self.tablet_view.add_track(
-                TrackDefinition(new_id(), title, kind, curve_mnemonics=mnemonics, width=width)
-            )
-        except ValueError as exc:
+            track = self.tablet_controller.add_track(kind, mnemonics)
+        except (RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, "Планшет", str(exc))
             return
+        self.tablet_view.refresh_view()
         self.tabs.setCurrentWidget(self.tablet_view)
-        self._log(f"Добавлен трек: {title}")
-        self.session.dirty = True
+        self._log(f"Добавлен трек: {track.title}")
         self._update_title()
 
     def change_selected_track_width(self) -> None:
@@ -342,42 +311,36 @@ class MainWindow(QMainWindow):
             self, "Ширина трека", "Ширина, px:", track.width, 80, 2000, 10
         )
         if accepted:
-            self.tablet_view.layout_model.set_track_width(track.track_id, width)
+            self.tablet_controller.set_track_width(track.track_id, width)
             self._layout_changed(f"Изменена ширина трека {track.title}: {width}px")
 
     def move_selected_track(self, offset: int) -> None:
         track = self._selected_track()
         if track is None:
             return
-        tracks = self.tablet_view.layout_model.tracks
-        current_index = tracks.index(track)
-        target_index = max(0, min(current_index + offset, len(tracks) - 1))
-        if target_index != current_index:
-            self.tablet_view.layout_model.move_track(track.track_id, target_index)
+        if self.tablet_controller.move_track(track.track_id, offset):
             self._layout_changed(f"Перемещён трек: {track.title}")
 
     def hide_selected_track(self) -> None:
         track = self._selected_track()
         if track is None:
             return
-        self.tablet_view.layout_model.set_track_visible(track.track_id, False)
+        self.tablet_controller.hide_track(track.track_id)
         self._selected_track_id = None
         self._layout_changed(f"Скрыт трек: {track.title}")
 
     def show_all_tracks(self) -> None:
-        hidden = [track for track in self.tablet_view.layout_model.tracks if not track.visible]
-        if not hidden:
+        restored_count = self.tablet_controller.show_all_tracks()
+        if restored_count == 0:
             self.statusBar().showMessage("Скрытых треков нет")
             return
-        for track in hidden:
-            self.tablet_view.layout_model.set_track_visible(track.track_id, True)
-        self._layout_changed(f"Показано скрытых треков: {len(hidden)}")
+        self._layout_changed(f"Показано скрытых треков: {restored_count}")
 
     def remove_selected_track(self) -> None:
         track = self._selected_track()
         if track is None:
             return
-        self.tablet_view.layout_model.remove_track(track.track_id)
+        self.tablet_controller.remove_track(track.track_id)
         self._selected_track_id = None
         self._layout_changed(f"Удалён трек: {track.title}")
 
@@ -393,7 +356,6 @@ class MainWindow(QMainWindow):
 
     def _layout_changed(self, message: str) -> None:
         self.tablet_view.refresh_view()
-        self.session.dirty = True
         self._update_title()
         self._log(message)
 
