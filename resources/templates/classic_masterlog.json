@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "name": "Классический мастерлог",
+  "depth_scale": 500,
+  "tracks": [
+    {
+      "type": "stratigraphy",
+      "width_mm": 18
+    },
+    {
+      "type": "drilling",
+      "width_mm": 55
+    },
+    {
+      "type": "construction",
+      "width_mm": 18
+    },
+    {
+      "type": "depth",
+      "width_mm": 18
+    },
+    {
+      "type": "cuttings",
+      "width_mm": 32
+    },
+    {
+      "type": "lba",
+      "width_mm": 12
+    },
+    {
+      "type": "carbonate",
+      "width_mm": 14
+    },
+    {
+      "type": "lithology",
+      "width_mm": 30
+    },
+    {
+      "type": "gas",
+      "width_mm": 65
+    },
+    {
+      "type": "description",
+      "width_mm": 80
+    }
+  ]
+}
