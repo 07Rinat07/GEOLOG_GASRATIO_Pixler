@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "geolog-gasratio-pixler"
-version = "0.2.0"
+version = "0.3.0"
 description = "Desktop workbench for LAS, gas ratio, Pixler profiles and geological masterlogs"
 readme = "README.md"
 requires-python = ">=3.11"

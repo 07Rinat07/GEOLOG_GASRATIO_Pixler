@@ -1,6 +1,80 @@
-.venv/
+# Python bytecode and caches
 __pycache__/
+*.py[cod]
+*$py.class
 .pytest_cache/
-dist/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments and local Python selection
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Build and packaging
 build/
+dist/
 *.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# IDE and operating system
+.idea/
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs, temporary files and runtime state
+logs/
+*.log
+tmp/
+temp/
+.cache/
+*.pid
+*.tmp
+*.bak
+*~
+
+# User projects, exports and generated reports
+projects/*
+!projects/.gitkeep
+exports/*
+!exports/.gitkeep
+reports/*
+!reports/.gitkeep
+output/
+
+# Large/rebuildable runtime caches
+cache/
+thumbnails/
+preview_cache/
+
+# Local databases and journals
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db-journal
+
+# User-specific application state
+user_settings.json
+workspace.json
+recent_projects.json
+
+# Profiling and notebooks
+*.prof
+*.profraw
+.ipynb_checkpoints/

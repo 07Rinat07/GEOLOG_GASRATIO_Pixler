@@ -49,3 +49,41 @@ def test_formula_profile_requires_source() -> None:
         registry.register(
             FormulaProfile("x", "X", "1", "", ("C1",), lambda inputs, params: inputs["C1"])
         )
+
+from pathlib import Path
+
+from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain, Project, Well
+from geoworkbench.storage.atomic_json import save_project
+from geoworkbench.storage.project_codec import load_project
+
+
+def test_project_round_trip(tmp_path: Path) -> None:
+    dataset = Dataset(
+        dataset_id="dataset-1",
+        name="sample",
+        kind=DatasetKind.GTI,
+        depth_domain=DepthDomain.MD,
+        depth=np.array([1000.0, 1001.0]),
+    )
+    dataset.curves["curve-1"] = CurveData(
+        metadata=CurveMetadata(
+            curve_id="curve-1",
+            original_mnemonic="C1",
+            canonical_mnemonic="C1",
+            unit="%abs",
+            description="Methane",
+            source_dataset_id="dataset-1",
+        ),
+        values=np.array([1.0, 2.0]),
+    )
+    well = Well("well-1", "KR-1", datasets={"dataset-1": dataset})
+    project = Project("project-1", "Test", wells={"well-1": well})
+    path = tmp_path / "project.geolog.json"
+
+    save_project(project, path)
+    restored = load_project(path)
+
+    restored_dataset = restored.wells["well-1"].datasets["dataset-1"]
+    assert restored.name == "Test"
+    np.testing.assert_allclose(restored_dataset.depth, [1000.0, 1001.0])
+    np.testing.assert_allclose(restored_dataset.curves["curve-1"].values, [1.0, 2.0])
