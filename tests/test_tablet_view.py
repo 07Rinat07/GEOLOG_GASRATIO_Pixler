@@ -317,3 +317,37 @@ def test_tablet_view_renders_safe_lithology_descriptions(qapp) -> None:
         "Песчаник <b>средний</b>",
     )
     view.close()
+
+
+def test_lithology_text_appears_when_thin_interval_is_zoomed(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([0.0, 500.0, 1000.0]),
+    )
+    view = TabletView()
+    view.resize(800, 600)
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("lithology", "Литология", TrackKind.LITHOLOGY)])
+    )
+    view.set_lithology(
+        [LithologyInterval("thin", 100.0, 101.0, "sandstone", None)],
+        (
+            CatalogLithotype(
+                "sandstone", "SS", "Песчаник", "Sandstone", "rock", "#e7cf8b", "dots", True
+            ),
+        ),
+    )
+    view.show()
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.visible_lithology_text_ids("lithology") == ()
+
+    view.set_visible_depth(99.0, 102.0)
+    qapp.processEvents()
+
+    assert view.visible_lithology_text_ids("lithology") == ("thin",)
+    view.close()

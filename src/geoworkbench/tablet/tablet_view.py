@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.domain.models import CanvasObject, CurveData, Dataset, LithologyInterval
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.tablet.lithology_patterns import lithology_brush
+from geoworkbench.tablet.lithology_labels import lithology_label_is_visible
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.resize import TrackResizeGesture
 from geoworkbench.tablet.sampling import select_visible_samples
@@ -227,6 +228,13 @@ class TabletView(QWidget):
             for item in (rendered.lithology_description_items or {}).values()
         )
 
+    def visible_lithology_text_ids(self, track_id: str) -> tuple[str, ...]:
+        rendered = self._rendered.get(track_id)
+        if rendered is None:
+            raise KeyError(f"Трек не отрисован: {track_id}")
+        items = rendered.lithology_label_items or rendered.lithology_description_items or {}
+        return tuple(interval_id for interval_id, item in items.items() if item.isVisible())
+
     @property
     def visible_depth_range(self) -> tuple[float, float] | None:
         first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
@@ -344,6 +352,7 @@ class TabletView(QWidget):
         self._tracks_layout.addStretch(1)
         if master_plot is not None and visible_top is not None and visible_bottom is not None:
             self._synchronize_depth_ranges(visible_top, visible_bottom)
+            self._update_lithology_text_visibility(visible_top, visible_bottom)
 
     def set_visible_depth(self, top: float, bottom: float) -> None:
         first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
@@ -354,6 +363,7 @@ class TabletView(QWidget):
                     if rendered.plot is not None:
                         rendered.plot.setYRange(top, bottom, padding=0)
                 self._update_visible_curve_data(top, bottom)
+                self._update_lithology_text_visibility(top, bottom)
             finally:
                 self._depth_range_guard = False
 
@@ -527,6 +537,28 @@ class TabletView(QWidget):
                 )
                 item.setData(values, visible_depth)
 
+    def _update_lithology_text_visibility(self, top: float, bottom: float) -> None:
+        intervals = {item.interval_id: item for item in self._lithology}
+        for rendered in self._rendered.values():
+            if rendered.plot is None:
+                continue
+            viewport_height = rendered.plot.viewport().height()
+            for items, minimum_pixels in (
+                (rendered.lithology_label_items or {}, 16),
+                (rendered.lithology_description_items or {}, 34),
+            ):
+                for interval_id, text_item in items.items():
+                    interval = intervals.get(interval_id)
+                    visible = interval is not None and lithology_label_is_visible(
+                        interval.top_depth,
+                        interval.bottom_depth,
+                        top,
+                        bottom,
+                        viewport_height,
+                        minimum_pixels=minimum_pixels,
+                    )
+                    text_item.setVisible(visible)
+
     def _synchronize_depth_ranges(self, top: float, bottom: float) -> None:
         self._depth_range_guard = True
         try:
@@ -544,6 +576,7 @@ class TabletView(QWidget):
             top, bottom = sorted((float(y_range[0]), float(y_range[1])))
             self._update_visible_curve_data(top, bottom)
             self._synchronize_depth_ranges(top, bottom)
+            self._update_lithology_text_visibility(top, bottom)
             self.visible_depth_changed.emit(top, bottom)
         finally:
             self._sync_guard = False
