@@ -2,7 +2,12 @@ import numpy as np
 import pytest
 
 from geoworkbench.calculations.gas_ratio import calculate_basic_ratios, safe_ratio
-from geoworkbench.calculations.pixler import FormulaProfile, FormulaProfileRegistry
+from geoworkbench.calculations.pixler import (
+    FormulaCategory,
+    FormulaControlExample,
+    FormulaProfile,
+    FormulaProfileRegistry,
+)
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.cuttings import next_sample_interval
 from geoworkbench.services.dependency_graph import DependencyGraph
@@ -62,7 +67,21 @@ def test_formula_profile_requires_source() -> None:
     registry = FormulaProfileRegistry()
     with pytest.raises(ValueError):
         registry.register(
-            FormulaProfile("x", "X", "1", "", ("C1",), lambda inputs, params: inputs["C1"])
+            FormulaProfile(
+                profile_id="x",
+                display_name="X",
+                version="1",
+                category=FormulaCategory.OTHER,
+                source="",
+                expression="X = C1",
+                required_inputs=("C1",),
+                input_units={"C1": "%"},
+                output_mnemonic="X",
+                output_unit="%",
+                description="Test",
+                formula=lambda inputs, params: inputs["C1"],
+                control_example=FormulaControlExample({"C1": (1.0,)}, (1.0,)),
+            )
         )
 
 def test_tablet_layout_can_move_tracks() -> None:
