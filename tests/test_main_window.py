@@ -108,3 +108,21 @@ def test_window_persists_width_requested_by_track_widget(qapp) -> None:
     assert session.dirty is True
     assert window.windowTitle().endswith(" *")
     window.close()
+
+
+def test_window_applies_track_settings_from_inspector(qapp) -> None:
+    window = MainWindow()
+    session, layout = make_session()
+    bind_session(window, session)
+    window._show_current_dataset()
+    session.dirty = False
+
+    window._apply_inspector_track_settings("curve", 420, "linear", -10.0, 10.0)
+    qapp.processEvents()
+
+    track = layout.track_by_id("curve")
+    assert track.width == 420
+    assert track.x_min == -10.0
+    assert track.x_max == 10.0
+    assert session.dirty is True
+    window.close()

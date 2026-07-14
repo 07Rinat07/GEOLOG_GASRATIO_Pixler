@@ -129,6 +129,27 @@ def test_controller_updates_visible_depth_only_when_changed() -> None:
     assert session.dirty is False
 
 
+def test_update_track_view_settings_is_atomic_on_validation_error() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    track = next(item for item in layout.tracks if item.kind is TrackKind.GAS)
+    original = (track.width, track.x_scale, track.x_min, track.x_max)
+    session.dirty = False
+
+    with pytest.raises(ValueError, match="положительным"):
+        controller.update_track_view_settings(
+            track.track_id,
+            width=500,
+            x_scale=XScale.LOGARITHMIC,
+            x_min=-1.0,
+            x_max=100.0,
+        )
+
+    assert (track.width, track.x_scale, track.x_min, track.x_max) == original
+    assert session.dirty is False
+
+
 def test_commands_require_selected_dataset() -> None:
     controller = TabletController(ProjectSession())
 

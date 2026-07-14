@@ -47,6 +47,22 @@ class TrackDefinition:
         self.x_min = minimum
         self.x_max = maximum
 
+    def update_view_settings(
+        self,
+        *,
+        width: int,
+        x_scale: XScale,
+        x_min: float | None,
+        x_max: float | None,
+    ) -> None:
+        if width < 80 or width > 2000:
+            raise ValueError("Ширина трека должна быть от 80 до 2000 px")
+        self._validate_x_settings(x_scale, x_min, x_max)
+        self.width = width
+        self.x_scale = x_scale
+        self.x_min = x_min
+        self.x_max = x_max
+
     @staticmethod
     def _validate_x_settings(
         scale: XScale,
@@ -128,6 +144,22 @@ class TabletLayout:
         self.visible_depth_top = top
         self.visible_depth_bottom = bottom
         return True
+
+    def update_track_view_settings(
+        self,
+        track_id: str,
+        *,
+        width: int,
+        x_scale: XScale,
+        x_min: float | None,
+        x_max: float | None,
+    ) -> None:
+        self.track_by_id(track_id).update_view_settings(
+            width=width,
+            x_scale=x_scale,
+            x_min=x_min,
+            x_max=x_max,
+        )
 
     @staticmethod
     def _validate_visible_depth(top: float | None, bottom: float | None) -> None:

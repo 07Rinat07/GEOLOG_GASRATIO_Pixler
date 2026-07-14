@@ -124,6 +124,24 @@ class TabletController:
             self.session.dirty = True
         return changed
 
+    def update_track_view_settings(
+        self,
+        track_id: str,
+        *,
+        width: int,
+        x_scale: XScale,
+        x_min: float | None,
+        x_max: float | None,
+    ) -> None:
+        self._require_layout().update_track_view_settings(
+            track_id,
+            width=width,
+            x_scale=x_scale,
+            x_min=x_min,
+            x_max=x_max,
+        )
+        self.session.dirty = True
+
     def move_track(self, track_id: str, offset: int) -> bool:
         layout = self._require_layout()
         track = layout.track_by_id(track_id)

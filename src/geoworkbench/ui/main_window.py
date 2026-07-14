@@ -32,6 +32,7 @@ from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.tablet_view import TabletView
+from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.visualization.curve_view import CurveView
 
 
@@ -82,9 +83,8 @@ class MainWindow(QMainWindow):
 
     def _create_inspector(self) -> None:
         dock = QDockWidget("Инспектор", self)
-        self.inspector = QTextEdit()
-        self.inspector.setReadOnly(True)
-        self.inspector.setPlainText("Свойства выбранного набора, кривой или трека")
+        self.inspector = TrackInspector()
+        self.inspector.settings_requested.connect(self._apply_inspector_track_settings)
         dock.setWidget(self.inspector)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
@@ -560,16 +560,30 @@ class MainWindow(QMainWindow):
         )
         if track is None:
             return
-        self.inspector.setPlainText(
-            f"Трек: {track.title}\n"
-            f"Тип: {track.kind.value}\n"
-            f"Ширина: {track.width}px\n"
-            f"Кривые: {', '.join(track.curve_mnemonics) or 'нет'}\n"
-            f"Шкала X: {track.x_scale.value}\n"
-            f"Диапазон X: "
-            f"{f'{track.x_min:g}–{track.x_max:g}' if track.x_min is not None else 'авто'}\n"
-            f"Заблокирован: {'да' if track.locked else 'нет'}"
-        )
+        self.inspector.show_track(track)
+
+    def _apply_inspector_track_settings(
+        self,
+        track_id: str,
+        width: int,
+        scale: str,
+        minimum: float | None,
+        maximum: float | None,
+    ) -> None:
+        try:
+            self.tablet_controller.update_track_view_settings(
+                track_id,
+                width=width,
+                x_scale=XScale(scale),
+                x_min=minimum,
+                x_max=maximum,
+            )
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+        except (KeyError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, "Инспектор трека", str(exc))
+            return
+        self._layout_changed(f"Обновлены свойства трека: {track.title}")
+        self.inspector.show_track(track)
 
     def _show_visible_depth(self, top: float, bottom: float) -> None:
         if self.tablet_controller.set_visible_depth(top, bottom):
