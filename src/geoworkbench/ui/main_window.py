@@ -44,12 +44,14 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.controller import TabletController
+from geoworkbench.tablet.lithology_legend import build_lithology_legend
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.ui.lithology_dialog import LithologyDialog
+from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
 from geoworkbench.visualization.curve_view import CurveView
 
@@ -194,6 +196,10 @@ class MainWindow(QMainWindow):
         self.default_tablet_action = QAction("Построить базовый планшет", self)
         self.default_tablet_action.triggered.connect(self.build_default_tablet)
         tablet_menu.addAction(self.default_tablet_action)
+
+        self.lithology_legend_action = QAction("Легенда пород...", self)
+        self.lithology_legend_action.triggered.connect(self.show_lithology_legend)
+        tablet_menu.addAction(self.lithology_legend_action)
 
         add_track_menu = QMenu("Добавить трек", self)
         tablet_menu.addMenu(add_track_menu)
@@ -743,6 +749,14 @@ class MainWindow(QMainWindow):
             self.lithotype_catalog_controller.available(),
         )
         self._update_title()
+
+    def show_lithology_legend(self) -> None:
+        well = self.session.current_well
+        intervals = well.lithology if well is not None else []
+        entries = build_lithology_legend(
+            intervals, self.lithotype_catalog_controller.available()
+        )
+        LithologyLegendDialog(entries, self).exec()
 
     def save_project_as(self) -> None:
         filename, _ = QFileDialog.getSaveFileName(

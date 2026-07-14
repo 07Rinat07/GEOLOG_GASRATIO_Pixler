@@ -33,6 +33,7 @@ class RenderedTrack:
     curve_items: dict[str, pg.PlotDataItem] | None = None
     annotation_items: dict[str, pg.InfiniteLine] | None = None
     lithology_items: dict[str, pg.BarGraphItem] | None = None
+    lithology_label_items: dict[str, pg.TextItem] | None = None
 
 
 def curve_legend_label(curve: CurveData) -> str:
@@ -209,6 +210,12 @@ class TabletView(QWidget):
             raise KeyError(f"Трек не отрисован: {track_id}")
         return tuple((rendered.lithology_items or {}).keys())
 
+    def rendered_lithology_codes(self, track_id: str) -> tuple[str, ...]:
+        rendered = self._rendered.get(track_id)
+        if rendered is None:
+            raise KeyError(f"Трек не отрисован: {track_id}")
+        return tuple(item.toPlainText() for item in (rendered.lithology_label_items or {}).values())
+
     @property
     def visible_depth_range(self) -> tuple[float, float] | None:
         first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
@@ -301,6 +308,7 @@ class TabletView(QWidget):
             )
             annotation_items = self._populate_annotations(track)
             lithology_items = self._populate_lithology(track, definition)
+            lithology_label_items = self._populate_lithology_labels(track, definition)
             if master_plot is None:
                 master_plot = track.plot
             track.plot.sigYRangeChanged.connect(self._on_depth_range_changed)
@@ -313,6 +321,7 @@ class TabletView(QWidget):
                 curve_items,
                 annotation_items,
                 lithology_items,
+                lithology_label_items,
             )
             self._rendered[definition.track_id] = rendered
             self._tracks_layout.addWidget(track)
@@ -418,6 +427,21 @@ class TabletView(QWidget):
             )
             track.plot.addItem(item)
             rendered[interval.interval_id] = item
+        return rendered
+
+    def _populate_lithology_labels(
+        self, track: TabletTrackWidget, definition: TrackDefinition
+    ) -> dict[str, pg.TextItem]:
+        if definition.kind is not TrackKind.LITHOLOGY:
+            return {}
+        rendered: dict[str, pg.TextItem] = {}
+        for interval in self._lithology:
+            lithotype = self._lithotype_catalog.get(interval.lithotype_id)
+            code = lithotype.code if lithotype is not None else interval.lithotype_id
+            label = pg.TextItem(code, color="#202020", anchor=(0.5, 0.5))
+            label.setPos(0.5, (interval.top_depth + interval.bottom_depth) / 2.0)
+            track.plot.addItem(label)
+            rendered[interval.interval_id] = label
         return rendered
 
     def _populate_annotations(self, track: TabletTrackWidget) -> dict[str, pg.InfiniteLine]:

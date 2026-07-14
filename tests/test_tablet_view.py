@@ -289,4 +289,5 @@ def test_tablet_view_renders_lithology_intervals(qapp) -> None:
     qapp.processEvents()
 
     assert view.rendered_lithology_ids("lithology") == ("layer-1",)
+    assert view.rendered_lithology_codes("lithology") == ("SS",)
     view.close()
