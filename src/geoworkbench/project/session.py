@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 
 from geoworkbench.calculations.gas_ratio import calculate_basic_ratios
 from geoworkbench.domain.models import Dataset, Project, Well, new_id
+from geoworkbench.tablet.models import TabletLayout
 
 
 ALIASES: dict[str, tuple[str, ...]] = {
@@ -24,6 +25,7 @@ class ProjectSession:
     project: Project = field(default_factory=lambda: Project(new_id(), "Новый проект"))
     current_well_id: str | None = None
     current_dataset_id: str | None = None
+    tablet_layouts: dict[str, TabletLayout] = field(default_factory=dict)
     dirty: bool = False
 
     def add_dataset(self, dataset: Dataset, well_name: str | None = None) -> Well:
@@ -49,6 +51,17 @@ class ProjectSession:
         if well is None or self.current_dataset_id is None:
             return None
         return well.datasets.get(self.current_dataset_id)
+
+    @property
+    def current_tablet_layout(self) -> TabletLayout | None:
+        if self.current_dataset_id is None:
+            return None
+        return self.tablet_layouts.get(self.current_dataset_id)
+
+    def set_current_tablet_layout(self, layout: TabletLayout) -> None:
+        if self.current_dataset_id is None:
+            raise RuntimeError("Сначала выберите набор данных")
+        self.tablet_layouts[self.current_dataset_id] = layout
 
     def calculate_basic_gas_ratios(self) -> list[str]:
         dataset = self.current_dataset

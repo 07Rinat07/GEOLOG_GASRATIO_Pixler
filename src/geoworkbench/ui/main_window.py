@@ -27,8 +27,9 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.data.las_adapter import LasImportError, import_las
 from geoworkbench.domain.models import new_id
+from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.storage.atomic_json import save_project
+from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.visualization.curve_view import CurveView
@@ -37,8 +38,7 @@ from geoworkbench.visualization.curve_view import CurveView
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.session = ProjectSession()
-        self.project_path: Path | None = None
+        self.project_controller = ProjectController()
         self._selected_track_id: str | None = None
         self.setWindowTitle("GEOLOG GASRATIO@Pixler 0.4")
         self.resize(1580, 960)
@@ -60,6 +60,14 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage("Готово: откройте LAS-файл")
         self._update_title()
+
+    @property
+    def session(self) -> ProjectSession:
+        return self.project_controller.session
+
+    @property
+    def project_path(self) -> Path | None:
+        return self.project_controller.project_path
 
     def _create_project_explorer(self) -> None:
         dock = QDockWidget("Проект", self)
@@ -91,8 +99,13 @@ class MainWindow(QMainWindow):
         tablet_menu = self.menuBar().addMenu("Планшет")
         help_menu = self.menuBar().addMenu("Справка")
 
-        self.open_action = QAction("Открыть LAS...", self)
-        self.open_action.setShortcut("Ctrl+O")
+        self.open_project_action = QAction("Открыть проект...", self)
+        self.open_project_action.setShortcut("Ctrl+O")
+        self.open_project_action.triggered.connect(self.open_project)
+        file_menu.addAction(self.open_project_action)
+
+        self.open_action = QAction("Импортировать LAS...", self)
+        self.open_action.setShortcut("Ctrl+L")
         self.open_action.triggered.connect(self.open_las)
         file_menu.addAction(self.open_action)
 
@@ -156,6 +169,7 @@ class MainWindow(QMainWindow):
     def _create_toolbar(self) -> None:
         toolbar = QToolBar("Основная")
         toolbar.setMovable(False)
+        toolbar.addAction(self.open_project_action)
         toolbar.addAction(self.open_action)
         toolbar.addAction(self.default_tablet_action)
         toolbar.addAction(self.ratio_action)
@@ -202,6 +216,59 @@ class MainWindow(QMainWindow):
         self.tabs.setCurrentWidget(self.tablet_view)
         self.statusBar().showMessage(f"Загружено LAS-файлов: {len(filenames) - len(errors)}")
 
+    def open_project(self) -> None:
+        if self.session.dirty:
+            answer = QMessageBox.question(
+                self,
+                "Открытие проекта",
+                "Несохранённые изменения будут потеряны. Продолжить?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Открыть проект",
+            str(self.project_path or Path.cwd()),
+            "GeoLog Project (*.geolog.json);;JSON (*.json)",
+        )
+        if not filename:
+            return
+
+        source = Path(filename)
+        try:
+            self.project_controller.open_project(source)
+        except (OSError, ProjectFormatError) as exc:
+            QMessageBox.critical(self, "Открытие проекта", str(exc))
+            self._log(f"Проект не открыт: {source.name}: {exc}")
+            return
+
+        self._selected_track_id = None
+        self._refresh_tree()
+        self._show_current_dataset()
+        self.session.dirty = False
+        self._update_title()
+        self._log(f"Проект открыт: {source}")
+        self.statusBar().showMessage(f"Проект открыт: {source.name}")
+
+    def _show_current_dataset(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            self.curve_view.clear()
+            self.tablet_view.set_layout_model(TabletLayout())
+            self.tablet_view.set_dataset(None)
+            return
+        self.curve_view.show_dataset(dataset)
+        self.tablet_view.set_dataset(dataset)
+        saved_layout = self.session.current_tablet_layout
+        if saved_layout is None:
+            self.build_default_tablet()
+        else:
+            self.tablet_view.set_layout_model(saved_layout)
+        self.tabs.setCurrentWidget(self.tablet_view)
+
     def build_default_tablet(self) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
@@ -226,6 +293,7 @@ class MainWindow(QMainWindow):
             )
 
         self.tablet_view.set_layout_model(TabletLayout(tracks))
+        self.session.set_current_tablet_layout(self.tablet_view.layout_model)
         self.tablet_view.set_dataset(dataset)
         self._log(f"Построен базовый планшет: треков {len(tracks)}")
 
@@ -386,15 +454,13 @@ class MainWindow(QMainWindow):
         )
         if not filename:
             return
-        self.project_path = Path(filename)
         try:
-            save_project(self.session.project, self.project_path)
+            saved_path = self.project_controller.save_project(Path(filename))
         except OSError as exc:
             QMessageBox.critical(self, "Сохранение", str(exc))
             return
-        self.session.dirty = False
         self._update_title()
-        self._log(f"Проект сохранён: {self.project_path}")
+        self._log(f"Проект сохранён: {saved_path}")
 
     def _refresh_tree(self) -> None:
         self.tree.clear()
@@ -429,9 +495,8 @@ class MainWindow(QMainWindow):
             self.session.current_dataset_id = dataset_id
             dataset = self.session.current_dataset
             if dataset is not None:
-                self.curve_view.show_dataset(dataset)
-                self.tablet_view.set_dataset(dataset)
-                self.build_default_tablet()
+                self._selected_track_id = None
+                self._show_current_dataset()
         elif data[0] == "curve":
             _, well_id, dataset_id, curve_id = data
             self.session.current_well_id = well_id

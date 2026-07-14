@@ -93,7 +93,7 @@ class TabletView(QWidget):
     def layout_model(self) -> TabletLayout:
         return self._layout_model
 
-    def set_dataset(self, dataset: Dataset) -> None:
+    def set_dataset(self, dataset: Dataset | None) -> None:
         self._dataset = dataset
         self.refresh_view()
 

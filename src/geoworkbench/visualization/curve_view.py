@@ -22,6 +22,10 @@ class CurveView(QWidget):
         layout.addWidget(self._title)
         layout.addWidget(self._plot)
 
+    def clear(self) -> None:
+        self._plot.clear()
+        self._title.setText("Откройте LAS-файл")
+
     def show_dataset(self, dataset: Dataset, selected: list[str] | None = None) -> None:
         self._plot.clear()
         selected_names = selected or [

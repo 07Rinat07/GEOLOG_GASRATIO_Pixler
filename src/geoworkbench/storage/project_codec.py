@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,17 @@ from geoworkbench.domain.models import (
     StratigraphyInterval,
     Well,
 )
+from geoworkbench.tablet.layout_codec import TabletLayoutFormatError, layout_from_dict
+from geoworkbench.tablet.models import TabletLayout
+
+
+PROJECT_FORMAT_VERSION = 2
+
+
+@dataclass(slots=True)
+class ProjectDocument:
+    project: Project
+    tablet_layouts: dict[str, TabletLayout] = field(default_factory=dict)
 
 
 class ProjectFormatError(RuntimeError):
@@ -121,7 +133,43 @@ def project_from_dict(data: dict[str, Any]) -> Project:
     return project
 
 
-def load_project(path: str | Path, *, max_size_mb: int = 512) -> Project:
+def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
+    """Read the current project document or migrate the unversioned legacy payload."""
+    if "format_version" not in data:
+        return ProjectDocument(project_from_dict(data))
+
+    version = data.get("format_version")
+    if not isinstance(version, int) or isinstance(version, bool):
+        raise ProjectFormatError("Версия формата проекта должна быть целым числом")
+    if version != PROJECT_FORMAT_VERSION:
+        raise ProjectFormatError(f"Неподдерживаемая версия формата проекта: {version}")
+
+    project = project_from_dict(_required(data, "project", dict))
+    raw_layouts = _required(data, "tablet_layouts", dict)
+    layouts: dict[str, TabletLayout] = {}
+    for dataset_id, raw_layout in raw_layouts.items():
+        if not isinstance(dataset_id, str) or not dataset_id:
+            raise ProjectFormatError("Идентификатор набора для компоновки должен быть строкой")
+        try:
+            layouts[dataset_id] = layout_from_dict(raw_layout)
+        except TabletLayoutFormatError as exc:
+            raise ProjectFormatError(
+                f"Некорректная компоновка планшета для набора '{dataset_id}'"
+            ) from exc
+
+    known_dataset_ids = {
+        dataset_id
+        for well in project.wells.values()
+        for dataset_id in well.datasets
+    }
+    unknown_dataset_ids = set(layouts) - known_dataset_ids
+    if unknown_dataset_ids:
+        unknown = ", ".join(sorted(unknown_dataset_ids))
+        raise ProjectFormatError(f"Компоновка ссылается на неизвестный набор: {unknown}")
+    return ProjectDocument(project, layouts)
+
+
+def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> ProjectDocument:
     source = Path(path)
     if not source.exists():
         raise FileNotFoundError(source)
@@ -133,4 +181,13 @@ def load_project(path: str | Path, *, max_size_mb: int = 512) -> Project:
         raise ProjectFormatError(f"Не удалось прочитать проект: {source}") from exc
     if not isinstance(raw, dict):
         raise ProjectFormatError("Корень проекта должен быть JSON-объектом")
-    return project_from_dict(raw)
+    try:
+        return project_document_from_dict(raw)
+    except ProjectFormatError:
+        raise
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ProjectFormatError("Файл содержит некорректные данные проекта") from exc
+
+
+def load_project(path: str | Path, *, max_size_mb: int = 512) -> Project:
+    return load_project_document(path, max_size_mb=max_size_mb).project
