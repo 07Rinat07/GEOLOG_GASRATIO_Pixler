@@ -122,3 +122,43 @@ def test_tablet_view_restores_saved_visible_depth_without_emitting_change(qapp) 
     assert view.visible_depth_range == pytest.approx((120.0, 160.0))
     assert emitted == []
     view.close()
+
+
+def test_tablet_view_limits_points_and_updates_them_for_visible_depth(qapp) -> None:
+    depth = np.arange(20_000, dtype=np.float64)
+    dataset = Dataset(
+        "dataset-1",
+        "Large Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    curve = make_curve(dataset.dataset_id, "ROP", "m/h")
+    curve.values = depth * 0.1
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "curve",
+                    "ROP",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["ROP"],
+                )
+            ]
+        )
+    )
+
+    view.set_dataset(dataset)
+    qapp.processEvents()
+    full_count = view.rendered_curve_point_count("curve", "ROP")
+    emitted: list[tuple[float, float]] = []
+    view.visible_depth_changed.connect(lambda top, bottom: emitted.append((top, bottom)))
+    view.set_visible_depth(100.0, 200.0)
+    qapp.processEvents()
+
+    assert full_count == 5000
+    assert view.rendered_curve_point_count("curve", "ROP") == 101
+    assert emitted == []
+    view.close()
