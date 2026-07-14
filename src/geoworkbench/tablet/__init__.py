@@ -4,15 +4,15 @@ from geoworkbench.tablet.layout_codec import (
     layout_from_dict,
     layout_to_dict,
 )
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 
 __all__ = [
+    "DepthViewport",
     "TabletLayout",
     "TabletLayoutFormatError",
     "TrackDefinition",
     "TrackKind",
+    "XScale",
     "layout_from_dict",
     "layout_to_dict",
 ]
-
-__all__ = ["DepthViewport", "TabletLayout", "TrackDefinition", "TrackKind"]

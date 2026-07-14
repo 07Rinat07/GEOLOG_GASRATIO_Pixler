@@ -12,7 +12,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.tablet.controller import TabletController
-from geoworkbench.tablet.models import TrackKind
+from geoworkbench.tablet.models import TrackKind, XScale
 
 
 def make_session() -> ProjectSession:
@@ -95,6 +95,22 @@ def test_add_curve_track_rejects_unknown_mnemonic() -> None:
 
     with pytest.raises(ValueError, match="UNKNOWN"):
         controller.add_track(TrackKind.CURVE, ["UNKNOWN"])
+
+
+def test_controller_updates_track_x_settings() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    track = next(item for item in layout.tracks if item.kind is TrackKind.GAS)
+    session.dirty = False
+
+    controller.set_track_x_range(track.track_id, 0.1, 100.0)
+    controller.set_track_x_scale(track.track_id, XScale.LOGARITHMIC)
+
+    assert track.x_scale is XScale.LOGARITHMIC
+    assert track.x_min == 0.1
+    assert track.x_max == 100.0
+    assert session.dirty is True
 
 
 def test_commands_require_selected_dataset() -> None:

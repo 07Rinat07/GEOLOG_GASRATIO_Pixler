@@ -2,7 +2,7 @@ import numpy as np
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.ui.main_window import MainWindow
 
 
@@ -76,4 +76,19 @@ def test_window_clears_views_for_project_without_datasets(qapp) -> None:
     assert window.tablet_view.layout_model.tracks == []
     assert window.tablet_view.rendered_track_ids == ()
     assert window.curve_view.title_text == "Откройте LAS-файл"
+    window.close()
+
+
+def test_window_applies_selected_track_x_scale(qapp) -> None:
+    window = MainWindow()
+    session, layout = make_session()
+    bind_session(window, session)
+    window._show_current_dataset()
+    window._selected_track_id = "curve"
+
+    window.set_selected_track_x_scale(XScale.LOGARITHMIC)
+    qapp.processEvents()
+
+    assert layout.track_by_id("curve").x_scale is XScale.LOGARITHMIC
+    assert session.dirty is True
     window.close()

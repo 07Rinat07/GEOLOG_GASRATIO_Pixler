@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from geoworkbench.domain.models import Dataset, new_id
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 
 
 GAS_MNEMONIC_ORDER = (
@@ -103,6 +103,19 @@ class TabletController:
 
     def set_track_width(self, track_id: str, width: int) -> None:
         self._require_layout().set_track_width(track_id, width)
+        self.session.dirty = True
+
+    def set_track_x_scale(self, track_id: str, scale: XScale) -> None:
+        self._require_layout().set_track_x_scale(track_id, scale)
+        self.session.dirty = True
+
+    def set_track_x_range(
+        self,
+        track_id: str,
+        minimum: float | None,
+        maximum: float | None,
+    ) -> None:
+        self._require_layout().set_track_x_range(track_id, minimum, maximum)
         self.session.dirty = True
 
     def move_track(self, track_id: str, offset: int) -> bool:

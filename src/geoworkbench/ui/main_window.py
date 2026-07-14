@@ -29,7 +29,7 @@ from geoworkbench.data.las_adapter import LasImportError, import_las
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectFormatError
-from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind
+from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.visualization.curve_view import CurveView
@@ -142,6 +142,26 @@ class MainWindow(QMainWindow):
         width_action = QAction("Изменить ширину выбранного трека...", self)
         width_action.triggered.connect(self.change_selected_track_width)
         tablet_menu.addAction(width_action)
+
+        linear_scale_action = QAction("Линейная шкала выбранного трека", self)
+        linear_scale_action.triggered.connect(
+            lambda: self.set_selected_track_x_scale(XScale.LINEAR)
+        )
+        tablet_menu.addAction(linear_scale_action)
+
+        log_scale_action = QAction("Логарифмическая шкала выбранного трека", self)
+        log_scale_action.triggered.connect(
+            lambda: self.set_selected_track_x_scale(XScale.LOGARITHMIC)
+        )
+        tablet_menu.addAction(log_scale_action)
+
+        range_action = QAction("Задать диапазон X выбранного трека...", self)
+        range_action.triggered.connect(self.change_selected_track_x_range)
+        tablet_menu.addAction(range_action)
+
+        auto_range_action = QAction("Автоматический диапазон X выбранного трека", self)
+        auto_range_action.triggered.connect(self.reset_selected_track_x_range)
+        tablet_menu.addAction(auto_range_action)
 
         move_left_action = QAction("Переместить выбранный трек влево", self)
         move_left_action.triggered.connect(lambda: self.move_selected_track(-1))
@@ -321,6 +341,48 @@ class MainWindow(QMainWindow):
         if self.tablet_controller.move_track(track.track_id, offset):
             self._layout_changed(f"Перемещён трек: {track.title}")
 
+    def set_selected_track_x_scale(self, scale: XScale) -> None:
+        track = self._selected_track()
+        if track is None:
+            return
+        try:
+            self.tablet_controller.set_track_x_scale(track.track_id, scale)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Шкала трека", str(exc))
+            return
+        scale_name = "логарифмическая" if scale is XScale.LOGARITHMIC else "линейная"
+        self._layout_changed(f"Шкала трека {track.title}: {scale_name}")
+
+    def change_selected_track_x_range(self) -> None:
+        track = self._selected_track()
+        if track is None:
+            return
+        default_minimum = track.x_min if track.x_min is not None else 0.1
+        default_maximum = track.x_max if track.x_max is not None else 100.0
+        minimum, accepted = QInputDialog.getDouble(
+            self, "Диапазон X", "Минимум:", default_minimum, -1e300, 1e300, 6
+        )
+        if not accepted:
+            return
+        maximum, accepted = QInputDialog.getDouble(
+            self, "Диапазон X", "Максимум:", default_maximum, -1e300, 1e300, 6
+        )
+        if not accepted:
+            return
+        try:
+            self.tablet_controller.set_track_x_range(track.track_id, minimum, maximum)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Диапазон трека", str(exc))
+            return
+        self._layout_changed(f"Диапазон трека {track.title}: {minimum:g}–{maximum:g}")
+
+    def reset_selected_track_x_range(self) -> None:
+        track = self._selected_track()
+        if track is None:
+            return
+        self.tablet_controller.set_track_x_range(track.track_id, None, None)
+        self._layout_changed(f"Автоматический диапазон трека: {track.title}")
+
     def hide_selected_track(self) -> None:
         track = self._selected_track()
         if track is None:
@@ -492,6 +554,9 @@ class MainWindow(QMainWindow):
             f"Тип: {track.kind.value}\n"
             f"Ширина: {track.width}px\n"
             f"Кривые: {', '.join(track.curve_mnemonics) or 'нет'}\n"
+            f"Шкала X: {track.x_scale.value}\n"
+            f"Диапазон X: "
+            f"{f'{track.x_min:g}–{track.x_max:g}' if track.x_min is not None else 'авто'}\n"
             f"Заблокирован: {'да' if track.locked else 'нет'}"
         )
 

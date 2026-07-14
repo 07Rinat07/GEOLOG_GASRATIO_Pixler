@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.domain.models import Dataset
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 
 
 @dataclass(slots=True)
@@ -174,14 +174,25 @@ class TabletView(QWidget):
             return
 
         track.plot.setLabel("bottom", definition.title)
+        logarithmic = definition.x_scale is XScale.LOGARITHMIC
+        track.plot.setLogMode(x=logarithmic, y=False)
         for mnemonic in definition.curve_mnemonics:
             curve = self._dataset.curve_by_mnemonic(mnemonic)
             if curve is None:
                 continue
             values = np.asarray(curve.values, dtype=float)
             valid = np.isfinite(values) & np.isfinite(depth)
+            if logarithmic:
+                valid &= values > 0
             if np.any(valid):
                 track.plot.plot(values[valid], depth[valid], name=mnemonic)
+        if definition.x_min is not None and definition.x_max is not None:
+            minimum = definition.x_min
+            maximum = definition.x_max
+            if logarithmic:
+                minimum = float(np.log10(minimum))
+                maximum = float(np.log10(maximum))
+            track.plot.setXRange(minimum, maximum, padding=0)
 
     def _on_master_y_range_changed(self, _view_box, ranges) -> None:
         if self._sync_guard:

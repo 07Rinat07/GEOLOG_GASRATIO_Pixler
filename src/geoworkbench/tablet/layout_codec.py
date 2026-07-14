@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+from copy import deepcopy
+
+from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 
 
-LAYOUT_FORMAT_VERSION = 1
+LAYOUT_FORMAT_VERSION = 2
 
 
 class TabletLayoutFormatError(ValueError):
@@ -24,6 +26,9 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                 "width": track.width,
                 "visible": track.visible,
                 "locked": track.locked,
+                "x_scale": track.x_scale.value,
+                "x_min": track.x_min,
+                "x_max": track.x_max,
             }
             for track in layout.tracks
         ],
@@ -33,6 +38,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
 def layout_from_dict(data: object) -> TabletLayout:
     if not isinstance(data, dict):
         raise TabletLayoutFormatError("Компоновка планшета должна быть JSON-объектом")
+    data = _migrate_layout(data)
     if data.get("version") != LAYOUT_FORMAT_VERSION:
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     raw_tracks = data.get("tracks")
@@ -59,6 +65,8 @@ def _track_from_dict(data: object) -> TrackDefinition:
     width = data.get("width", 260)
     visible = data.get("visible", True)
     locked = data.get("locked", False)
+    raw_x_min = data.get("x_min")
+    raw_x_max = data.get("x_max")
     if not isinstance(track_id, str) or not track_id.strip():
         raise TypeError("track_id должен быть непустой строкой")
     if not isinstance(title, str) or not title.strip():
@@ -71,6 +79,9 @@ def _track_from_dict(data: object) -> TrackDefinition:
         raise TypeError("width должен быть целым числом")
     if not isinstance(visible, bool) or not isinstance(locked, bool):
         raise TypeError("visible и locked должны быть логическими значениями")
+    for name, value in (("x_min", raw_x_min), ("x_max", raw_x_max)):
+        if value is not None and (not isinstance(value, (int, float)) or isinstance(value, bool)):
+            raise TypeError(f"{name} должен быть числом или null")
 
     return TrackDefinition(
         track_id=track_id,
@@ -80,4 +91,25 @@ def _track_from_dict(data: object) -> TrackDefinition:
         width=width,
         visible=visible,
         locked=locked,
+        x_scale=XScale(data.get("x_scale", XScale.LINEAR.value)),
+        x_min=float(raw_x_min) if raw_x_min is not None else None,
+        x_max=float(raw_x_max) if raw_x_max is not None else None,
     )
+
+
+def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
+    version = data.get("version")
+    if version == LAYOUT_FORMAT_VERSION:
+        return data
+    if version != 1:
+        raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
+    migrated = deepcopy(data)
+    migrated["version"] = 2
+    tracks = migrated.get("tracks")
+    if isinstance(tracks, list):
+        for track in tracks:
+            if isinstance(track, dict):
+                track.setdefault("x_scale", XScale.LINEAR.value)
+                track.setdefault("x_min", None)
+                track.setdefault("x_max", None)
+    return migrated
