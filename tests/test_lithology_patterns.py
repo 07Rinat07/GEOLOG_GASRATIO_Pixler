@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt
 
-from geoworkbench.tablet.lithology_patterns import lithology_brush
+from geoworkbench.tablet.lithology_patterns import lithology_brush, supported_pattern_keys
 
 
 def test_lithology_brush_uses_pattern_and_safe_color_fallback(qapp) -> None:
@@ -11,3 +11,4 @@ def test_lithology_brush_uses_pattern_and_safe_color_fallback(qapp) -> None:
     assert patterned.color().name() == "#e7cf8b"
     assert fallback.style() is Qt.BrushStyle.SolidPattern
     assert fallback.color().name() == "#b0b0b0"
+    assert "sandstone_bricks" in supported_pattern_keys()

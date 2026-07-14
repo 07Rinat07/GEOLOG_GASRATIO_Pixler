@@ -12,10 +12,22 @@ def test_catalog_dialog_adds_project_lithotype(qapp) -> None:
     dialog.name_en_input.setText("Oil sand")
     dialog.category_input.setText("sedimentary")
     dialog.color_input.setText("#a07840")
-    dialog.pattern_input.setText("dots")
+    dialog.pattern_input.setCurrentText("dots")
 
     dialog._add()
 
     assert session.project.lithotypes["oil_sand"].code == "OS"
     assert dialog.table.rowCount() > len(session.project.lithotypes)
+    dialog.close()
+
+
+def test_catalog_dialog_updates_pattern_preview(qapp) -> None:
+    dialog = LithotypeCatalogDialog(LithotypeCatalogController(ProjectSession()))
+
+    dialog.color_input.setText("#112233")
+    dialog.pattern_input.setCurrentText("carbonate")
+    qapp.processEvents()
+
+    assert dialog.pattern_preview._color == "#112233"
+    assert dialog.pattern_preview._pattern_key == "carbonate"
     dialog.close()

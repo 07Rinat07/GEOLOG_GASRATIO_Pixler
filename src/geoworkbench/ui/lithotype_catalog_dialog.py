@@ -4,7 +4,10 @@ from collections.abc import Callable
 from typing import cast
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPaintEvent, QPainter, QPen
 from PySide6.QtWidgets import (
+    QColorDialog,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -19,6 +22,29 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
+from geoworkbench.tablet.lithology_patterns import lithology_brush, supported_pattern_keys
+
+
+class LithologyPatternPreview(QWidget):
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._color = "#c9a66b"
+        self._pattern_key = "solid"
+        self.setMinimumHeight(64)
+        self.setObjectName("lithology-pattern-preview")
+
+    def set_pattern(self, color: str, pattern_key: str) -> None:
+        self._color = color
+        self._pattern_key = pattern_key
+        self.update()
+
+    def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802
+        painter = QPainter(self)
+        painter.setPen(QPen(QColor("#404040"), 1))
+        painter.setBrush(lithology_brush(self._color, self._pattern_key))
+        painter.drawRect(self.rect().adjusted(1, 1, -2, -2))
+        painter.end()
+        super().paintEvent(event)
 
 
 class LithotypeCatalogDialog(QDialog):
@@ -47,17 +73,30 @@ class LithotypeCatalogDialog(QDialog):
         self.name_en_input = QLineEdit()
         self.category_input = QLineEdit()
         self.color_input = QLineEdit("#c9a66b")
-        self.pattern_input = QLineEdit()
+        self.pattern_input = QComboBox()
+        self.pattern_input.setEditable(True)
+        self.pattern_input.addItems(supported_pattern_keys())
         for label, field in (
             ("ID", self.id_input),
             ("Код", self.code_input),
             ("Название (RU)", self.name_ru_input),
             ("Название (EN)", self.name_en_input),
             ("Категория", self.category_input),
-            ("Цвет #RRGGBB", self.color_input),
             ("Ключ узора", self.pattern_input),
         ):
             form.addRow(label, field)
+        color_row = QWidget()
+        color_layout = QHBoxLayout(color_row)
+        color_layout.setContentsMargins(0, 0, 0, 0)
+        color_layout.addWidget(self.color_input)
+        self.color_button = QPushButton("Выбрать...")
+        self.color_button.clicked.connect(self._choose_color)
+        color_layout.addWidget(self.color_button)
+        form.addRow("Цвет #RRGGBB", color_row)
+        self.pattern_preview = LithologyPatternPreview()
+        form.addRow("Предпросмотр", self.pattern_preview)
+        self.color_input.textChanged.connect(self._update_preview)
+        self.pattern_input.currentTextChanged.connect(self._update_preview)
         root.addLayout(form)
 
         actions = QHBoxLayout()
@@ -76,6 +115,7 @@ class LithotypeCatalogDialog(QDialog):
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
+        self._update_preview()
 
     def _refresh(self) -> None:
         records = self.controller.available()
@@ -115,7 +155,7 @@ class LithotypeCatalogDialog(QDialog):
         self.name_en_input.setText(name_en.text())
         self.category_input.setText(category.text())
         self.color_input.setText(color.text())
-        self.pattern_input.setText(pattern.text())
+        self.pattern_input.setCurrentText(pattern.text())
 
     def _clear_form(self) -> None:
         self.table.clearSelection()
@@ -126,9 +166,9 @@ class LithotypeCatalogDialog(QDialog):
             self.name_ru_input,
             self.name_en_input,
             self.category_input,
-            self.pattern_input,
         ):
             field.clear()
+        self.pattern_input.setCurrentText("solid")
         self.color_input.setText("#c9a66b")
         self.id_input.setFocus()
 
@@ -140,7 +180,18 @@ class LithotypeCatalogDialog(QDialog):
             self.name_en_input.text(),
             self.category_input.text(),
             self.color_input.text(),
-            self.pattern_input.text(),
+            self.pattern_input.currentText(),
+        )
+
+    def _choose_color(self) -> None:
+        initial = QColor(self.color_input.text())
+        selected = QColorDialog.getColor(initial, self, "Цвет литотипа")
+        if selected.isValid():
+            self.color_input.setText(selected.name())
+
+    def _update_preview(self) -> None:
+        self.pattern_preview.set_pattern(
+            self.color_input.text(), self.pattern_input.currentText()
         )
 
     def _add(self) -> None:

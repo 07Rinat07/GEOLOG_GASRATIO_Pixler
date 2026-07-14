@@ -22,6 +22,10 @@ _PATTERN_STYLES = {
 }
 
 
+def supported_pattern_keys() -> tuple[str, ...]:
+    return tuple(_PATTERN_STYLES)
+
+
 def lithology_brush(color: str, pattern_key: str) -> QBrush:
     parsed_color = QColor(color)
     if not parsed_color.isValid():
