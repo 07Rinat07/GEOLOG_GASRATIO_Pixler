@@ -32,6 +32,7 @@ from geoworkbench.calculations.interval_statistics import calculate_interval_sta
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.data.las_adapter import LasExportError, LasImportError, import_las
 from geoworkbench.project.controller import ProjectController
+from geoworkbench.project.description_template_controller import DescriptionTemplateController
 from geoworkbench.project.curve_editing_controller import (
     CurveEditingController,
     CurveEditOutcome,
@@ -49,6 +50,7 @@ from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
+from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
@@ -70,6 +72,7 @@ class MainWindow(QMainWindow):
         self.depth_annotation_controller = DepthAnnotationController(self.session)
         self.lithology_controller = LithologyController(self.session)
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
+        self.description_template_controller = DescriptionTemplateController(self.session)
         self._selected_track_id: str | None = None
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
@@ -180,6 +183,10 @@ class MainWindow(QMainWindow):
         self.lithotype_catalog_action = QAction("Справочник пород и литотипов...", self)
         self.lithotype_catalog_action.triggered.connect(self.show_lithotype_catalog)
         edit_menu.addAction(self.lithotype_catalog_action)
+
+        self.description_templates_action = QAction("Шаблоны описаний пород...", self)
+        self.description_templates_action.triggered.connect(self.show_description_templates)
+        edit_menu.addAction(self.description_templates_action)
 
         self.ratio_action = QAction("Рассчитать базовые Gas Ratio", self)
         self.ratio_action.triggered.connect(self.calculate_ratios)
@@ -356,6 +363,7 @@ class MainWindow(QMainWindow):
         self.depth_annotation_controller.history.clear()
         self.lithology_controller.session = self.session
         self.lithotype_catalog_controller.session = self.session
+        self.description_template_controller.session = self.session
         self._update_curve_edit_actions()
         self._selected_track_id = None
         self._refresh_tree()
@@ -733,6 +741,7 @@ class MainWindow(QMainWindow):
             self.lithology_controller,
             self,
             catalog=self.lithotype_catalog_controller.available(),
+            description_templates=self.description_template_controller.available(),
         ).exec()
         well = self.session.current_well
         self.tablet_view.set_lithology(
@@ -749,6 +758,10 @@ class MainWindow(QMainWindow):
             well.lithology if well is not None else [],
             self.lithotype_catalog_controller.available(),
         )
+        self._update_title()
+
+    def show_description_templates(self) -> None:
+        DescriptionTemplatesDialog(self.description_template_controller, self).exec()
         self._update_title()
 
     def show_lithology_legend(self) -> None:

@@ -190,3 +190,4 @@ class Project:
     name: str
     wells: dict[str, Well] = field(default_factory=dict)
     lithotypes: dict[str, ProjectLithotype] = field(default_factory=dict)
+    description_templates: dict[str, str] = field(default_factory=dict)

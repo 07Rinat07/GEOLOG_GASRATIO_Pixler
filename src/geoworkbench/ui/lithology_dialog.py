@@ -30,6 +30,7 @@ class LithologyDialog(QDialog):
         parent: QWidget | None = None,
         *,
         catalog: tuple[CatalogLithotype, ...] | None = None,
+        description_templates: tuple[tuple[str, str], ...] = (),
     ) -> None:
         super().__init__(parent)
         self.controller = controller
@@ -51,10 +52,16 @@ class LithologyDialog(QDialog):
         for item in self.catalog:
             self.lithotype_input.addItem(f"{item.name_ru} ({item.lithotype_id})", item.lithotype_id)
         self.description_input = QLineEdit()
+        self.template_input = QComboBox()
+        self.template_input.addItem("Выберите шаблон...", None)
+        for name, text in description_templates:
+            self.template_input.addItem(name, text)
+        self.template_input.currentIndexChanged.connect(self._insert_template)
         form.addRow("Кровля", self.top_input)
         form.addRow("Подошва", self.bottom_input)
         form.addRow("ID литотипа", self.lithotype_input)
         form.addRow("Описание", self.description_input)
+        form.addRow("Шаблон описания", self.template_input)
         root.addLayout(form)
 
         actions = QHBoxLayout()
@@ -160,3 +167,8 @@ class LithologyDialog(QDialog):
     def _lithotype_id(self) -> str:
         data = self.lithotype_input.currentData()
         return str(data) if data is not None else self.lithotype_input.currentText().strip()
+
+    def _insert_template(self, index: int) -> None:
+        text = self.template_input.itemData(index)
+        if isinstance(text, str):
+            self.description_input.setText(text)

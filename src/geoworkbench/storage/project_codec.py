@@ -31,7 +31,7 @@ from geoworkbench.storage.project_migrations import (
 )
 
 
-PROJECT_FORMAT_VERSION = 3
+PROJECT_FORMAT_VERSION = 4
 
 
 @dataclass(slots=True)
@@ -154,6 +154,13 @@ def project_from_dict(data: dict[str, Any]) -> Project:
                 f"ID записи литотипа '{lithotype_id}' не совпадает с содержимым"
             )
         project.lithotypes[lithotype_id] = record
+    raw_templates = data.get("description_templates", {})
+    if not isinstance(raw_templates, dict) or not all(
+        isinstance(name, str) and isinstance(text, str)
+        for name, text in raw_templates.items()
+    ):
+        raise ProjectFormatError("Поле 'description_templates' должно быть строковым объектом")
+    project.description_templates = dict(raw_templates)
     return project
 
 

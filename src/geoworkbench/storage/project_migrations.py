@@ -90,10 +90,21 @@ def _migrate_v2_to_v3(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v3_to_v4(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 3 не содержит объекта 'project'")
+    project.setdefault("description_templates", {})
+    migrated["format_version"] = 4
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
 DEFAULT_PROJECT_MIGRATIONS.register(2, _migrate_v2_to_v3)
+DEFAULT_PROJECT_MIGRATIONS.register(3, _migrate_v3_to_v4)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

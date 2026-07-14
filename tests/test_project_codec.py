@@ -56,6 +56,7 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     project.lithotypes["oil_sand"] = ProjectLithotype(
         "oil_sand", "OS", "Нефтенасыщенный песок", "Oil sand", "sedimentary", "#a07840", "dots"
     )
+    project.description_templates["Песчаник"] = "Песчаник серый, мелкозернистый"
 
     save_project(project, target, tablet_layouts={"dataset-1": layout})
     document = load_project_document(target)
@@ -63,6 +64,7 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     assert document.project.name == "Test project"
     assert document.tablet_layouts["dataset-1"] == layout
     assert document.project.lithotypes["oil_sand"].code == "OS"
+    assert document.project.description_templates["Песчаник"].startswith("Песчаник")
     assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == (
         PROJECT_FORMAT_VERSION
     )
