@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from geoworkbench.domain.models import (
     CurveData,
@@ -93,4 +94,31 @@ def test_logarithmic_track_omits_curve_without_positive_values(qapp) -> None:
     qapp.processEvents()
 
     assert view.legend_labels("log") == ()
+    view.close()
+
+
+def test_tablet_view_restores_saved_visible_depth_without_emitting_change(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 150.0, 200.0]),
+    )
+    view = TabletView()
+    emitted: list[tuple[float, float]] = []
+    view.visible_depth_changed.connect(lambda top, bottom: emitted.append((top, bottom)))
+    view.set_layout_model(
+        TabletLayout(
+            [TrackDefinition("depth", "Глубина", TrackKind.DEPTH)],
+            visible_depth_top=120.0,
+            visible_depth_bottom=160.0,
+        )
+    )
+
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.visible_depth_range == pytest.approx((120.0, 160.0))
+    assert emitted == []
     view.close()

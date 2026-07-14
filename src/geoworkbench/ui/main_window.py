@@ -561,6 +561,8 @@ class MainWindow(QMainWindow):
         )
 
     def _show_visible_depth(self, top: float, bottom: float) -> None:
+        if self.tablet_controller.set_visible_depth(top, bottom):
+            self._update_title()
         self.statusBar().showMessage(f"Видимый интервал: {top:.2f}–{bottom:.2f} м")
 
     def _update_title(self) -> None:

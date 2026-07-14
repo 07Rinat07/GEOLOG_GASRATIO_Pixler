@@ -113,6 +113,22 @@ def test_controller_updates_track_x_settings() -> None:
     assert session.dirty is True
 
 
+def test_controller_updates_visible_depth_only_when_changed() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    session.dirty = False
+
+    assert controller.set_visible_depth(100.0, 200.0) is True
+    assert layout.visible_depth_top == 100.0
+    assert layout.visible_depth_bottom == 200.0
+    assert session.dirty is True
+
+    session.dirty = False
+    assert controller.set_visible_depth(100.0, 200.0) is False
+    assert session.dirty is False
+
+
 def test_commands_require_selected_dataset() -> None:
     controller = TabletController(ProjectSession())
 

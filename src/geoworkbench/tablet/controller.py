@@ -118,6 +118,12 @@ class TabletController:
         self._require_layout().set_track_x_range(track_id, minimum, maximum)
         self.session.dirty = True
 
+    def set_visible_depth(self, top: float, bottom: float) -> bool:
+        changed = self._require_layout().set_visible_depth(top, bottom)
+        if changed:
+            self.session.dirty = True
+        return changed
+
     def move_track(self, track_id: str, offset: int) -> bool:
         layout = self._require_layout()
         track = layout.track_by_id(track_id)

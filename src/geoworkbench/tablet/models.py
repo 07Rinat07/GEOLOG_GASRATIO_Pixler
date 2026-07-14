@@ -68,6 +68,11 @@ class TrackDefinition:
 @dataclass(slots=True)
 class TabletLayout:
     tracks: list[TrackDefinition] = field(default_factory=list)
+    visible_depth_top: float | None = None
+    visible_depth_bottom: float | None = None
+
+    def __post_init__(self) -> None:
+        self._validate_visible_depth(self.visible_depth_top, self.visible_depth_bottom)
 
     def add_track(self, track: TrackDefinition, index: int | None = None) -> None:
         if any(existing.track_id == track.track_id for existing in self.tracks):
@@ -115,3 +120,22 @@ class TabletLayout:
         maximum: float | None,
     ) -> None:
         self.track_by_id(track_id).set_x_range(minimum, maximum)
+
+    def set_visible_depth(self, top: float | None, bottom: float | None) -> bool:
+        self._validate_visible_depth(top, bottom)
+        if self.visible_depth_top == top and self.visible_depth_bottom == bottom:
+            return False
+        self.visible_depth_top = top
+        self.visible_depth_bottom = bottom
+        return True
+
+    @staticmethod
+    def _validate_visible_depth(top: float | None, bottom: float | None) -> None:
+        if (top is None) != (bottom is None):
+            raise ValueError("Границы видимого интервала должны задаваться вместе")
+        if top is None or bottom is None:
+            return
+        if not isfinite(top) or not isfinite(bottom):
+            raise ValueError("Границы видимого интервала должны быть конечными")
+        if top >= bottom:
+            raise ValueError("Верхняя граница глубины должна быть меньше нижней")

@@ -47,11 +47,14 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     source.set_track_visible("gas", False)
     source.set_track_x_range("gas", 0.1, 1000.0)
     source.set_track_x_scale("gas", XScale.LOGARITHMIC)
+    source.set_visible_depth(1200.0, 1300.0)
 
     restored = layout_from_dict(layout_to_dict(source))
 
     assert restored == source
     assert restored.tracks[0].kind is TrackKind.DEPTH
+    assert restored.visible_depth_top == 1200.0
+    assert restored.visible_depth_bottom == 1300.0
 
 
 def test_layout_codec_migrates_v1_x_settings_to_linear_auto_range() -> None:
@@ -74,6 +77,31 @@ def test_layout_codec_migrates_v1_x_settings_to_linear_auto_range() -> None:
     assert track.x_min is None
     assert track.x_max is None
     assert payload["version"] == 1
+
+
+def test_layout_codec_migrates_v2_to_auto_depth_range() -> None:
+    payload = {
+        "version": 2,
+        "tracks": [],
+    }
+
+    restored = layout_from_dict(payload)
+
+    assert restored.visible_depth_top is None
+    assert restored.visible_depth_bottom is None
+    assert payload["version"] == 2
+
+
+@pytest.mark.parametrize(
+    ("top", "bottom"),
+    [(100.0, 100.0), (101.0, 100.0), (None, 100.0), (float("nan"), 100.0)],
+)
+def test_layout_rejects_invalid_visible_depth(
+    top: float | None,
+    bottom: float | None,
+) -> None:
+    with pytest.raises(ValueError):
+        TabletLayout(visible_depth_top=top, visible_depth_bottom=bottom)
 
 
 @pytest.mark.parametrize(

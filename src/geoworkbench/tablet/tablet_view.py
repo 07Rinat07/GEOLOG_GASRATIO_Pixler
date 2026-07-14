@@ -79,6 +79,7 @@ class TabletView(QWidget):
         self._layout_model = TabletLayout()
         self._rendered: dict[str, RenderedTrack] = {}
         self._sync_guard = False
+        self._depth_range_guard = False
 
         self._container = QWidget()
         self._tracks_layout = QHBoxLayout(self._container)
@@ -109,6 +110,15 @@ class TabletView(QWidget):
             return self._rendered[track_id].legend_labels
         except KeyError as exc:
             raise KeyError(f"Трек не отрисован: {track_id}") from exc
+
+    @property
+    def visible_depth_range(self) -> tuple[float, float] | None:
+        first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
+        if first is None:
+            return None
+        y_range = first.getViewBox().viewRange()[1]
+        top, bottom = sorted((float(y_range[0]), float(y_range[1])))
+        return top, bottom
 
     def set_dataset(self, dataset: Dataset | None) -> None:
         self._dataset = dataset
@@ -169,12 +179,24 @@ class TabletView(QWidget):
         depth = np.asarray(self._dataset.depth, dtype=float)
         finite = depth[np.isfinite(depth)]
         if master_plot is not None and finite.size:
-            master_plot.setYRange(float(np.min(finite)), float(np.max(finite)), padding=0.01)
+            top = self._layout_model.visible_depth_top
+            bottom = self._layout_model.visible_depth_bottom
+            if top is None or bottom is None:
+                top = float(np.min(finite))
+                bottom = float(np.max(finite))
+            self._set_plot_depth_range(master_plot, top, bottom)
 
     def set_visible_depth(self, top: float, bottom: float) -> None:
         first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
         if first is not None:
-            first.setYRange(top, bottom, padding=0)
+            self._set_plot_depth_range(first, top, bottom)
+
+    def _set_plot_depth_range(self, plot: pg.PlotWidget, top: float, bottom: float) -> None:
+        self._depth_range_guard = True
+        try:
+            plot.setYRange(top, bottom, padding=0)
+        finally:
+            self._depth_range_guard = False
 
     def _populate_track(
         self,
@@ -221,11 +243,11 @@ class TabletView(QWidget):
         return tuple(legend_labels)
 
     def _on_master_y_range_changed(self, _view_box, ranges) -> None:
-        if self._sync_guard:
+        if self._sync_guard or self._depth_range_guard:
             return
         self._sync_guard = True
         try:
-            y_range = ranges[1]
-            self.visible_depth_changed.emit(float(y_range[0]), float(y_range[1]))
+            y_range = sorted((float(ranges[1][0]), float(ranges[1][1])))
+            self.visible_depth_changed.emit(y_range[0], y_range[1])
         finally:
             self._sync_guard = False

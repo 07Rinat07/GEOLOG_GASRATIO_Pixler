@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import Any
-
 from copy import deepcopy
+from typing import Any
 
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 
 
-LAYOUT_FORMAT_VERSION = 2
+LAYOUT_FORMAT_VERSION = 3
 
 
 class TabletLayoutFormatError(ValueError):
@@ -17,6 +16,8 @@ class TabletLayoutFormatError(ValueError):
 def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
     return {
         "version": LAYOUT_FORMAT_VERSION,
+        "visible_depth_top": layout.visible_depth_top,
+        "visible_depth_bottom": layout.visible_depth_bottom,
         "tracks": [
             {
                 "track_id": track.track_id,
@@ -45,7 +46,23 @@ def layout_from_dict(data: object) -> TabletLayout:
     if not isinstance(raw_tracks, list):
         raise TabletLayoutFormatError("Поле 'tracks' должно быть списком")
 
-    layout = TabletLayout()
+    raw_depth_top = data.get("visible_depth_top")
+    raw_depth_bottom = data.get("visible_depth_bottom")
+    for name, value in (
+        ("visible_depth_top", raw_depth_top),
+        ("visible_depth_bottom", raw_depth_bottom),
+    ):
+        if value is not None and (not isinstance(value, (int, float)) or isinstance(value, bool)):
+            raise TabletLayoutFormatError(f"{name} должен быть числом или null")
+    try:
+        layout = TabletLayout(
+            visible_depth_top=float(raw_depth_top) if raw_depth_top is not None else None,
+            visible_depth_bottom=(
+                float(raw_depth_bottom) if raw_depth_bottom is not None else None
+            ),
+        )
+    except ValueError as exc:
+        raise TabletLayoutFormatError("Некорректный видимый интервал глубины") from exc
     for index, raw_track in enumerate(raw_tracks):
         try:
             track = _track_from_dict(raw_track)
@@ -101,15 +118,19 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version != 1:
+    if version not in (1, 2):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
-    migrated["version"] = 2
-    tracks = migrated.get("tracks")
-    if isinstance(tracks, list):
-        for track in tracks:
-            if isinstance(track, dict):
-                track.setdefault("x_scale", XScale.LINEAR.value)
-                track.setdefault("x_min", None)
-                track.setdefault("x_max", None)
+    if version == 1:
+        migrated["version"] = 2
+        tracks = migrated.get("tracks")
+        if isinstance(tracks, list):
+            for track in tracks:
+                if isinstance(track, dict):
+                    track.setdefault("x_scale", XScale.LINEAR.value)
+                    track.setdefault("x_min", None)
+                    track.setdefault("x_max", None)
+    migrated["version"] = 3
+    migrated.setdefault("visible_depth_top", None)
+    migrated.setdefault("visible_depth_bottom", None)
     return migrated
