@@ -37,6 +37,7 @@ from geoworkbench.project.curve_editing_controller import (
     CurveEditOutcome,
 )
 from geoworkbench.project.annotation_controller import DepthAnnotationController
+from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectFormatError
@@ -47,6 +48,7 @@ from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
+from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.visualization.curve_view import CurveView
 
 
@@ -62,6 +64,7 @@ class MainWindow(QMainWindow):
             self.session, self.formula_registry
         )
         self.depth_annotation_controller = DepthAnnotationController(self.session)
+        self.lithology_controller = LithologyController(self.session)
         self._selected_track_id: str | None = None
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
@@ -164,6 +167,10 @@ class MainWindow(QMainWindow):
         self.annotations_action = QAction("Глубинные заметки...", self)
         self.annotations_action.triggered.connect(self.show_depth_annotations)
         edit_menu.addAction(self.annotations_action)
+
+        self.lithology_action = QAction("Литологические интервалы...", self)
+        self.lithology_action.triggered.connect(self.show_lithology_editor)
+        edit_menu.addAction(self.lithology_action)
 
         self.ratio_action = QAction("Рассчитать базовые Gas Ratio", self)
         self.ratio_action.triggered.connect(self.calculate_ratios)
@@ -328,6 +335,7 @@ class MainWindow(QMainWindow):
         self.formula_execution_controller.session = self.session
         self.depth_annotation_controller.session = self.session
         self.depth_annotation_controller.history.clear()
+        self.lithology_controller.session = self.session
         self._update_curve_edit_actions()
         self._selected_track_id = None
         self._refresh_tree()
@@ -690,6 +698,14 @@ class MainWindow(QMainWindow):
         DepthAnnotationsDialog(self.depth_annotation_controller, self).exec()
         well = self.session.current_well
         self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
+        self._update_title()
+
+    def show_lithology_editor(self) -> None:
+        if self.session.current_well is None:
+            QMessageBox.information(self, "Литология", "Сначала выберите скважину")
+            return
+        LithologyDialog(self.lithology_controller, self).exec()
+        self._refresh_tree()
         self._update_title()
 
     def save_project_as(self) -> None:

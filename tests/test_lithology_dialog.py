@@ -1,0 +1,26 @@
+import numpy as np
+from PySide6.QtWidgets import QTableWidget
+
+from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+from geoworkbench.project.lithology_controller import LithologyController
+from geoworkbench.project.session import ProjectSession
+from geoworkbench.ui.lithology_dialog import LithologyDialog
+
+
+def test_lithology_dialog_adds_interval(qapp) -> None:
+    dataset = Dataset("dataset", "Well", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 200.0]))
+    session = ProjectSession()
+    session.add_dataset(dataset)
+    dialog = LithologyDialog(LithologyController(session))
+    dialog.top_input.setValue(100.0)
+    dialog.bottom_input.setValue(150.0)
+    dialog.lithotype_input.setText("sandstone")
+    dialog.description_input.setText("Песчаник")
+
+    dialog._add()
+
+    table = dialog.findChild(QTableWidget, "lithology-intervals-table")
+    assert table is not None
+    assert table.rowCount() == 1
+    assert table.item(0, 2).text() == "sandstone"
+    dialog.close()
