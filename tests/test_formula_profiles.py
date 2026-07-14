@@ -6,6 +6,7 @@ from geoworkbench.calculations.pixler import (
     FormulaControlExample,
     FormulaProfile,
     FormulaProfileRegistry,
+    build_sourced_formula_registry,
 )
 
 
@@ -102,11 +103,37 @@ def test_registry_rejects_mismatched_input_shapes_and_result_shape() -> None:
 )
 def test_registry_rejects_incomplete_passport(changes: dict[str, object]) -> None:
     source = make_profile()
-    values = {
-        field: getattr(source, field)
-        for field in source.__dataclass_fields__
-    }
+    values = {field: getattr(source, field) for field in source.__dataclass_fields__}
     values.update(changes)
 
     with pytest.raises(ValueError):
         FormulaProfileRegistry().register(FormulaProfile(**values))
+
+
+def test_sourced_haworth_and_pixler_profiles() -> None:
+    registry = build_sourced_formula_registry()
+    inputs = {
+        "C1": np.array([80.0]),
+        "C2": np.array([10.0]),
+        "C3": np.array([5.0]),
+        "IC4": np.array([1.0]),
+        "NC4": np.array([2.0]),
+        "IC5": np.array([1.0]),
+        "NC5": np.array([1.0]),
+    }
+
+    assert len(registry.available()) == 7
+    np.testing.assert_allclose(registry.calculate("haworth.wetness", inputs), [20.0])
+    np.testing.assert_allclose(registry.calculate("haworth.balance", inputs), [9.0])
+    np.testing.assert_allclose(registry.calculate("haworth.character", inputs), [1.0])
+    np.testing.assert_allclose(registry.calculate("pixler.c1_c4", inputs), [80.0 / 3.0])
+    assert "10.2118/2254-PA" in registry.passport("pixler.c1_c2").source
+
+
+def test_sourced_profiles_return_nan_for_zero_denominator() -> None:
+    registry = build_sourced_formula_registry()
+    result = registry.calculate(
+        "pixler.c1_c2",
+        {"C1": np.array([1.0]), "C2": np.array([0.0])},
+    )
+    assert np.isnan(result[0])
