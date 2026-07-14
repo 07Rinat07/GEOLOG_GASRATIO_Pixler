@@ -93,6 +93,10 @@ class TabletView(QWidget):
     def layout_model(self) -> TabletLayout:
         return self._layout_model
 
+    @property
+    def rendered_track_ids(self) -> tuple[str, ...]:
+        return tuple(self._rendered)
+
     def set_dataset(self, dataset: Dataset | None) -> None:
         self._dataset = dataset
         self.refresh_view()

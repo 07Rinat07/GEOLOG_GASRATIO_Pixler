@@ -22,6 +22,10 @@ class CurveView(QWidget):
         layout.addWidget(self._title)
         layout.addWidget(self._plot)
 
+    @property
+    def title_text(self) -> str:
+        return self._title.text()
+
     def clear(self) -> None:
         self._plot.clear()
         self._title.setText("Откройте LAS-файл")
