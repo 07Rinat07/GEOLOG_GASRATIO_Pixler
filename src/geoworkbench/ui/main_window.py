@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench import __version__
+from geoworkbench.calculations.controller import FormulaExecutionController
+from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.data.las_adapter import LasExportError, LasImportError, import_las
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.curve_editing_controller import (
@@ -40,6 +42,7 @@ from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
+from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.visualization.curve_view import CurveView
 
 
@@ -50,6 +53,10 @@ class MainWindow(QMainWindow):
         self.tablet_controller = TabletController(self.session)
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller = DatasetExportController(self.session)
+        self.formula_registry = build_all_sourced_formula_registry()
+        self.formula_execution_controller = FormulaExecutionController(
+            self.session, self.formula_registry
+        )
         self._selected_track_id: str | None = None
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
@@ -153,9 +160,9 @@ class MainWindow(QMainWindow):
         self.ratio_action.triggered.connect(self.calculate_ratios)
         calc_menu.addAction(self.ratio_action)
 
-        pixler_action = QAction("Pixler: профили формул", self)
-        pixler_action.triggered.connect(self.show_pixler_status)
-        calc_menu.addAction(pixler_action)
+        self.formula_action = QAction("Профили формул и расчёт...", self)
+        self.formula_action.triggered.connect(self.show_formula_profiles)
+        calc_menu.addAction(self.formula_action)
 
         self.default_tablet_action = QAction("Построить базовый планшет", self)
         self.default_tablet_action.triggered.connect(self.build_default_tablet)
@@ -166,6 +173,7 @@ class MainWindow(QMainWindow):
         for title, kind in (
             ("Глубина", TrackKind.DEPTH),
             ("Газовые компоненты", TrackKind.GAS),
+            ("DEXP / NCT", TrackKind.DEXP),
             ("Кривая", TrackKind.CURVE),
         ):
             action = QAction(title, self)
@@ -303,6 +311,7 @@ class MainWindow(QMainWindow):
         self.tablet_controller.session = self.session
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller.session = self.session
+        self.formula_execution_controller.session = self.session
         self._update_curve_edit_actions()
         self._selected_track_id = None
         self._refresh_tree()
@@ -424,9 +433,7 @@ class MainWindow(QMainWindow):
         self._update_curve_edit_actions()
         self._update_title()
         affected = ", ".join(outcome.affected_mnemonics) or "нет"
-        self._log(
-            f"{outcome.operation}: {outcome.mnemonic}; зависимые STALE: {affected}"
-        )
+        self._log(f"{outcome.operation}: {outcome.mnemonic}; зависимые STALE: {affected}")
 
     def _update_curve_edit_actions(self) -> None:
         self.undo_action.setEnabled(self.curve_editing_controller.history.can_undo)
@@ -612,13 +619,26 @@ class MainWindow(QMainWindow):
         self._update_title()
         self.statusBar().showMessage("Базовые Gas Ratio пересчитаны")
 
-    def show_pixler_status(self) -> None:
-        QMessageBox.information(
+    def show_formula_profiles(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(self, "Расчёт формулы", "Сначала выберите набор данных")
+            return
+        dialog = FormulaExecutionDialog(
+            dataset,
+            self.formula_registry,
+            self.formula_execution_controller,
             self,
-            "Pixler",
-            "Движок профилей Pixler создан. Конкретные формулы не зашиты без "
-            "подтверждённой методики и источника.",
         )
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.execution_result is None:
+            return
+        result = dialog.execution_result
+        self.curve_view.show_dataset(dataset, [result.output_mnemonic])
+        self.tablet_view.set_dataset(dataset)
+        self._refresh_tree()
+        self._update_title()
+        self._log(f"Рассчитана кривая {result.output_mnemonic}: {result.profile_id}")
+        self.statusBar().showMessage(f"Рассчитана кривая {result.output_mnemonic}")
 
     def save_project_as(self) -> None:
         filename, _ = QFileDialog.getSaveFileName(
@@ -648,7 +668,9 @@ class MainWindow(QMainWindow):
             root.addChild(well_item)
             for dataset in well.datasets.values():
                 dataset_item = QTreeWidgetItem([f"{dataset.name} ({dataset.kind.value})"])
-                dataset_item.setData(0, Qt.ItemDataRole.UserRole, ("dataset", well.well_id, dataset.dataset_id))
+                dataset_item.setData(
+                    0, Qt.ItemDataRole.UserRole, ("dataset", well.well_id, dataset.dataset_id)
+                )
                 well_item.addChild(dataset_item)
                 for curve in dataset.curves.values():
                     curve_item = QTreeWidgetItem([curve.metadata.original_mnemonic])

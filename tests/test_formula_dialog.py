@@ -1,0 +1,58 @@
+import numpy as np
+from PySide6.QtWidgets import QComboBox, QDialog
+
+from geoworkbench.calculations.controller import FormulaExecutionController
+from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
+from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+from geoworkbench.project.session import ProjectSession
+from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
+
+
+def make_dialog() -> tuple[FormulaExecutionDialog, ProjectSession]:
+    dataset = Dataset("dataset", "Drilling", DatasetKind.GTI, DepthDomain.MD, np.array([1.0]))
+    for mnemonic, unit, value in (
+        ("ROP", "ft/h", 60.0),
+        ("RPM", "rpm", 100.0),
+        ("WOB", "lbf", 50_000.0),
+        ("BS", "in", 10.0),
+    ):
+        dataset.upsert_curve(mnemonic, np.array([value]), unit=unit, provenance="source")
+    session = ProjectSession()
+    session.add_dataset(dataset)
+    registry = build_all_sourced_formula_registry()
+    return FormulaExecutionDialog(
+        dataset,
+        registry,
+        FormulaExecutionController(session, registry),
+    ), session
+
+
+def test_formula_dialog_shows_passport_and_builds_mapping(qapp) -> None:
+    dialog, _ = make_dialog()
+    index = dialog.profile_selector.findData("dexp.jorden_shirley")
+    dialog.profile_selector.setCurrentIndex(index)
+
+    assert "10.2118/1407-PA" in dialog.passport_label.text()
+    assert set(dialog.input_selectors) == {"ROP_FPH", "RPM", "WOB_LBF", "BIT_IN"}
+    assert dialog.findChild(QComboBox, "formula-input-RPM") is not None
+    dialog.close()
+
+
+def test_formula_dialog_executes_selected_profile(qapp) -> None:
+    dialog, session = make_dialog()
+    dialog.profile_selector.setCurrentIndex(dialog.profile_selector.findData("dexp.jorden_shirley"))
+    for input_name, mnemonic in {
+        "ROP_FPH": "ROP",
+        "RPM": "RPM",
+        "WOB_LBF": "WOB",
+        "BIT_IN": "BS",
+    }.items():
+        dialog.input_selectors[input_name].setCurrentText(mnemonic)
+
+    dialog._execute()
+
+    assert dialog.result() == QDialog.DialogCode.Accepted
+    assert dialog.execution_result is not None
+    assert session.current_dataset is not None
+    assert session.current_dataset.curve_by_mnemonic("DEXP") is not None
+    dialog.close()

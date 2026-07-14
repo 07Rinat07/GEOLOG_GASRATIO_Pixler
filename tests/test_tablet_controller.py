@@ -97,6 +97,31 @@ def test_add_curve_track_rejects_unknown_mnemonic() -> None:
         controller.add_track(TrackKind.CURVE, ["UNKNOWN"])
 
 
+def test_dexp_track_collects_available_derived_curves() -> None:
+    session = make_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.upsert_curve("DEXP", np.array([1.0, 1.1]), unit="dimensionless")
+    dataset.upsert_curve("DEXPC", np.array([0.9, 1.0]), unit="dimensionless")
+    controller = TabletController(session)
+    controller.build_default_layout()
+    layout = session.current_tablet_layout
+    assert layout is not None
+
+    track = next(item for item in layout.tracks if item.kind is TrackKind.DEXP)
+
+    assert track.title == "DEXP / NCT"
+    assert track.curve_mnemonics == ["DEXP", "DEXPC"]
+    assert track.width == 320
+
+
+def test_add_dexp_track_requires_calculated_curves() -> None:
+    controller = TabletController(make_session())
+    controller.build_default_layout()
+    with pytest.raises(ValueError, match="DEXP/NCT"):
+        controller.add_track(TrackKind.DEXP)
+
+
 def test_controller_updates_track_x_settings() -> None:
     session = make_session()
     controller = TabletController(session)

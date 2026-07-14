@@ -21,6 +21,7 @@ GAS_MNEMONIC_ORDER = (
     "NC5",
     "C5",
 )
+DEXP_MNEMONIC_ORDER = ("DEXP", "DEXPC", "NCT", "DEXPC_NCT")
 
 
 @dataclass(slots=True)
@@ -48,6 +49,20 @@ class TabletController:
                     width=360,
                 )
             )
+        dexp_names = [
+            name for name in DEXP_MNEMONIC_ORDER if dataset.curve_by_mnemonic(name) is not None
+        ]
+        if dexp_names:
+            tracks.append(
+                TrackDefinition(
+                    new_id(),
+                    "DEXP / NCT",
+                    TrackKind.DEXP,
+                    curve_mnemonics=dexp_names,
+                    width=320,
+                )
+            )
+            remaining = [name for name in remaining if name not in dexp_names]
         tracks.extend(
             TrackDefinition(
                 new_id(),
@@ -79,11 +94,17 @@ class TabletController:
         elif kind is TrackKind.GAS:
             title = "Газ"
             mnemonics = [
-                name
-                for name in GAS_MNEMONIC_ORDER
-                if dataset.curve_by_mnemonic(name) is not None
+                name for name in GAS_MNEMONIC_ORDER if dataset.curve_by_mnemonic(name) is not None
             ]
             width = 360
+        elif kind is TrackKind.DEXP:
+            title = "DEXP / NCT"
+            mnemonics = [
+                name for name in DEXP_MNEMONIC_ORDER if dataset.curve_by_mnemonic(name) is not None
+            ]
+            if not mnemonics:
+                raise ValueError("В наборе нет рассчитанных кривых DEXP/NCT")
+            width = 320
         elif not mnemonics:
             raise ValueError("Выберите хотя бы одну кривую")
         else:

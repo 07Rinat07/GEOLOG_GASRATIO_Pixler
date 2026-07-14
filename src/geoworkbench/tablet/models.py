@@ -9,6 +9,7 @@ class TrackKind(StrEnum):
     DEPTH = "depth"
     CURVE = "curve"
     GAS = "gas"
+    DEXP = "dexp"
     LITHOLOGY = "lithology"
     CUTTINGS = "cuttings"
     STRATIGRAPHY = "stratigraphy"
