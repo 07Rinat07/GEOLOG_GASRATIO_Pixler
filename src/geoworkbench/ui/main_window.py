@@ -36,6 +36,7 @@ from geoworkbench.project.curve_editing_controller import (
     CurveEditingController,
     CurveEditOutcome,
 )
+from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectFormatError
@@ -44,6 +45,7 @@ from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
+from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.visualization.curve_view import CurveView
 
@@ -59,6 +61,7 @@ class MainWindow(QMainWindow):
         self.formula_execution_controller = FormulaExecutionController(
             self.session, self.formula_registry
         )
+        self.depth_annotation_controller = DepthAnnotationController(self.session)
         self._selected_track_id: str | None = None
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
@@ -157,6 +160,10 @@ class MainWindow(QMainWindow):
         self.redo_action.triggered.connect(self.redo_curve_edit)
         self.redo_action.setEnabled(False)
         edit_menu.addAction(self.redo_action)
+
+        self.annotations_action = QAction("Глубинные заметки...", self)
+        self.annotations_action.triggered.connect(self.show_depth_annotations)
+        edit_menu.addAction(self.annotations_action)
 
         self.ratio_action = QAction("Рассчитать базовые Gas Ratio", self)
         self.ratio_action.triggered.connect(self.calculate_ratios)
@@ -318,6 +325,7 @@ class MainWindow(QMainWindow):
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller.session = self.session
         self.formula_execution_controller.session = self.session
+        self.depth_annotation_controller.session = self.session
         self._update_curve_edit_actions()
         self._selected_track_id = None
         self._refresh_tree()
@@ -669,6 +677,13 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Статистика", "В интервале нет числовых кривых")
             return
         IntervalStatisticsDialog(depth_top, depth_bottom, statistics, self).exec()
+
+    def show_depth_annotations(self) -> None:
+        if self.session.current_well is None:
+            QMessageBox.information(self, "Заметки", "Сначала выберите скважину")
+            return
+        DepthAnnotationsDialog(self.depth_annotation_controller, self).exec()
+        self._update_title()
 
     def save_project_as(self) -> None:
         filename, _ = QFileDialog.getSaveFileName(
