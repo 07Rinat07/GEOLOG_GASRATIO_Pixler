@@ -5,9 +5,14 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QDialog,
+    QDialogButtonBox,
     QDockWidget,
     QFileDialog,
+    QInputDialog,
     QLabel,
+    QListWidget,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -17,6 +22,7 @@ from PySide6.QtWidgets import (
     QToolBar,
     QTreeWidget,
     QTreeWidgetItem,
+    QVBoxLayout,
 )
 
 from geoworkbench.data.las_adapter import LasImportError, import_las
@@ -33,6 +39,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.session = ProjectSession()
         self.project_path: Path | None = None
+        self._selected_track_id: str | None = None
         self.setWindowTitle("GEOLOG GASRATIO@Pixler 0.4")
         self.resize(1580, 960)
 
@@ -116,6 +123,31 @@ class MainWindow(QMainWindow):
             action = QAction(title, self)
             action.triggered.connect(lambda _checked=False, value=kind: self.add_track(value))
             add_track_menu.addAction(action)
+
+        tablet_menu.addSeparator()
+        width_action = QAction("Изменить ширину выбранного трека...", self)
+        width_action.triggered.connect(self.change_selected_track_width)
+        tablet_menu.addAction(width_action)
+
+        move_left_action = QAction("Переместить выбранный трек влево", self)
+        move_left_action.triggered.connect(lambda: self.move_selected_track(-1))
+        tablet_menu.addAction(move_left_action)
+
+        move_right_action = QAction("Переместить выбранный трек вправо", self)
+        move_right_action.triggered.connect(lambda: self.move_selected_track(1))
+        tablet_menu.addAction(move_right_action)
+
+        hide_action = QAction("Скрыть выбранный трек", self)
+        hide_action.triggered.connect(self.hide_selected_track)
+        tablet_menu.addAction(hide_action)
+
+        show_all_action = QAction("Показать все скрытые треки", self)
+        show_all_action.triggered.connect(self.show_all_tracks)
+        tablet_menu.addAction(show_all_action)
+
+        remove_action = QAction("Удалить выбранный трек", self)
+        remove_action.triggered.connect(self.remove_selected_track)
+        tablet_menu.addAction(remove_action)
 
         about_action = QAction("О программе", self)
         about_action.triggered.connect(self.show_about)
@@ -216,10 +248,11 @@ class MainWindow(QMainWindow):
                     mnemonics.append(name)
             width = 360
         else:
-            first = next(iter(dataset.curves.values()), None)
-            if first is not None:
-                title = first.metadata.original_mnemonic
-                mnemonics = [title]
+            selected = self._select_curve_mnemonics()
+            if not selected:
+                return
+            mnemonics = selected
+            title = " / ".join(selected)
 
         try:
             self.tablet_view.add_track(
@@ -230,6 +263,94 @@ class MainWindow(QMainWindow):
             return
         self.tabs.setCurrentWidget(self.tablet_view)
         self._log(f"Добавлен трек: {title}")
+        self.session.dirty = True
+        self._update_title()
+
+    def change_selected_track_width(self) -> None:
+        track = self._selected_track()
+        if track is None:
+            return
+        width, accepted = QInputDialog.getInt(
+            self, "Ширина трека", "Ширина, px:", track.width, 80, 2000, 10
+        )
+        if accepted:
+            self.tablet_view.layout_model.set_track_width(track.track_id, width)
+            self._layout_changed(f"Изменена ширина трека {track.title}: {width}px")
+
+    def move_selected_track(self, offset: int) -> None:
+        track = self._selected_track()
+        if track is None:
+            return
+        tracks = self.tablet_view.layout_model.tracks
+        current_index = tracks.index(track)
+        target_index = max(0, min(current_index + offset, len(tracks) - 1))
+        if target_index != current_index:
+            self.tablet_view.layout_model.move_track(track.track_id, target_index)
+            self._layout_changed(f"Перемещён трек: {track.title}")
+
+    def hide_selected_track(self) -> None:
+        track = self._selected_track()
+        if track is None:
+            return
+        self.tablet_view.layout_model.set_track_visible(track.track_id, False)
+        self._selected_track_id = None
+        self._layout_changed(f"Скрыт трек: {track.title}")
+
+    def show_all_tracks(self) -> None:
+        hidden = [track for track in self.tablet_view.layout_model.tracks if not track.visible]
+        if not hidden:
+            self.statusBar().showMessage("Скрытых треков нет")
+            return
+        for track in hidden:
+            self.tablet_view.layout_model.set_track_visible(track.track_id, True)
+        self._layout_changed(f"Показано скрытых треков: {len(hidden)}")
+
+    def remove_selected_track(self) -> None:
+        track = self._selected_track()
+        if track is None:
+            return
+        self.tablet_view.layout_model.remove_track(track.track_id)
+        self._selected_track_id = None
+        self._layout_changed(f"Удалён трек: {track.title}")
+
+    def _selected_track(self) -> TrackDefinition | None:
+        if self._selected_track_id is None:
+            QMessageBox.information(self, "Планшет", "Сначала выберите трек на планшете")
+            return None
+        try:
+            return self.tablet_view.layout_model.track_by_id(self._selected_track_id)
+        except KeyError:
+            self._selected_track_id = None
+            return None
+
+    def _layout_changed(self, message: str) -> None:
+        self.tablet_view.refresh_view()
+        self.session.dirty = True
+        self._update_title()
+        self._log(message)
+
+    def _select_curve_mnemonics(self) -> list[str]:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            return []
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Выбор кривых трека")
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel("Выберите одну или несколько кривых:"))
+        curve_list = QListWidget()
+        curve_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        for curve in dataset.curves.values():
+            curve_list.addItem(curve.metadata.original_mnemonic)
+        layout.addWidget(curve_list)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return []
+        return [item.text() for item in curve_list.selectedItems()]
 
     def calculate_ratios(self) -> None:
         try:
@@ -332,6 +453,7 @@ class MainWindow(QMainWindow):
                 )
 
     def _show_track_in_inspector(self, track_id: str) -> None:
+        self._selected_track_id = track_id
         track = next(
             (item for item in self.tablet_view.layout_model.tracks if item.track_id == track_id),
             None,

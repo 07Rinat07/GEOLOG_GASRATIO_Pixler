@@ -6,6 +6,8 @@ from geoworkbench.calculations.pixler import FormulaProfile, FormulaProfileRegis
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.cuttings import next_sample_interval
 from geoworkbench.services.dependency_graph import DependencyGraph
+from geoworkbench.tablet.depth_viewport import DepthViewport
+from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 
 
 def test_next_interval() -> None:
@@ -49,10 +51,6 @@ def test_formula_profile_requires_source() -> None:
         registry.register(
             FormulaProfile("x", "X", "1", "", ("C1",), lambda inputs, params: inputs["C1"])
         )
-
-from geoworkbench.tablet.depth_viewport import DepthViewport
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
-
 
 def test_tablet_layout_can_move_tracks() -> None:
     layout = TabletLayout(

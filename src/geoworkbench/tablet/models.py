@@ -47,6 +47,12 @@ class TabletLayout:
                 return self.tracks.pop(index)
         raise KeyError(track_id)
 
+    def track_by_id(self, track_id: str) -> TrackDefinition:
+        for track in self.tracks:
+            if track.track_id == track_id:
+                return track
+        raise KeyError(track_id)
+
     def move_track(self, track_id: str, target_index: int) -> None:
         track = self.remove_track(track_id)
         target_index = max(0, min(target_index, len(self.tracks)))
@@ -54,3 +60,11 @@ class TabletLayout:
 
     def visible_tracks(self) -> list[TrackDefinition]:
         return [track for track in self.tracks if track.visible]
+
+    def set_track_width(self, track_id: str, width: int) -> None:
+        if width < 80:
+            raise ValueError("Ширина трека должна быть не меньше 80 px")
+        self.track_by_id(track_id).width = width
+
+    def set_track_visible(self, track_id: str, visible: bool) -> None:
+        self.track_by_id(track_id).visible = visible

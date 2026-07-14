@@ -32,6 +32,61 @@ pip install -e ".[dev]"
 geolog-gasratio-pixler
 ```
 
+## Локальный запуск в Linux
+
+Для Debian/Ubuntu сначала установите Python и системные библиотеки, необходимые Qt:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  python3 python3-venv python3-pip \
+  libgl1 libegl1 libxkbcommon-x11-0 libxcb-cursor0
+```
+
+Перейдите в каталог проекта, создайте виртуальное окружение и установите зависимости:
+
+```bash
+cd GEOLOG_GASRATIO_Pixler
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+Запустите приложение:
+
+```bash
+geolog-gasratio-pixler
+```
+
+При следующих запусках достаточно активировать уже созданное окружение:
+
+```bash
+cd GEOLOG_GASRATIO_Pixler
+source .venv/bin/activate
+geolog-gasratio-pixler
+```
+
+Если приложение запускается на сервере без графической сессии, окно Qt не откроется.
+Для обычного локального запуска должен быть доступен дисплей X11 или Wayland.
+
+## Среда разработки
+
+После создания и активации виртуального окружения установите runtime- и
+dev-зависимости одной командой:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Основные проверки:
+
+```bash
+pytest -q
+ruff check src tests
+mypy src
+```
+
 ## Документация
 
 Подробный план, требования, архитектура и описание инкрементов находятся в каталоге `docs/`.

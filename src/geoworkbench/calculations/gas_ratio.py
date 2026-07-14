@@ -62,7 +62,7 @@ def calculate_basic_ratios(curves: dict[str, Array]) -> dict[str, GasRatioResult
         ),
     }
 
-    available_components = {
+    available_components: dict[str, NDArray[np.float64]] = {
         name: normalized[name]
         for name in ("C1", "C2", "C3", "IC4", "NC4", "C4", "IC5", "NC5", "C5")
         if name in normalized

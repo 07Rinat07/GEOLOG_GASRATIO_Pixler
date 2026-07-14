@@ -95,29 +95,31 @@ class TabletView(QWidget):
 
     def set_dataset(self, dataset: Dataset) -> None:
         self._dataset = dataset
-        self.render()
+        self.refresh_view()
 
     def set_layout_model(self, layout_model: TabletLayout) -> None:
         self._layout_model = layout_model
-        self.render()
+        self.refresh_view()
 
     def add_track(self, definition: TrackDefinition) -> None:
         self._layout_model.add_track(definition)
-        self.render()
+        self.refresh_view()
 
     def remove_track(self, track_id: str) -> None:
         self._layout_model.remove_track(track_id)
-        self.render()
+        self.refresh_view()
 
     def clear(self) -> None:
         while self._tracks_layout.count():
             item = self._tracks_layout.takeAt(0)
+            if item is None:
+                continue
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
         self._rendered.clear()
 
-    def render(self) -> None:
+    def refresh_view(self) -> None:
         self.clear()
         if self._dataset is None:
             label = QLabel("Откройте LAS-файл для построения планшета")
