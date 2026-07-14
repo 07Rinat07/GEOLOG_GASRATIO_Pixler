@@ -208,6 +208,7 @@ class MainWindow(QMainWindow):
             ("Газовые компоненты", TrackKind.GAS),
             ("DEXP / NCT", TrackKind.DEXP),
             ("Литология", TrackKind.LITHOLOGY),
+            ("Описание пород", TrackKind.TEXT),
             ("Кривая", TrackKind.CURVE),
         ):
             action = QAction(title, self)

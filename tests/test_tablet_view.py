@@ -291,3 +291,29 @@ def test_tablet_view_renders_lithology_intervals(qapp) -> None:
     assert view.rendered_lithology_ids("lithology") == ("layer-1",)
     assert view.rendered_lithology_codes("lithology") == ("SS",)
     view.close()
+
+
+def test_tablet_view_renders_safe_lithology_descriptions(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 150.0, 200.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("description", "Описание", TrackKind.TEXT)])
+    )
+    view.set_lithology(
+        [LithologyInterval("layer-1", 110.0, 160.0, "sandstone", "Песчаник <b>средний</b>")],
+        (),
+    )
+
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.rendered_lithology_descriptions("description") == (
+        "Песчаник <b>средний</b>",
+    )
+    view.close()

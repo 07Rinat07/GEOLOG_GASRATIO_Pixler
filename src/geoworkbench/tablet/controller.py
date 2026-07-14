@@ -43,6 +43,9 @@ class TabletController:
             tracks.append(
                 TrackDefinition(new_id(), "Литология", TrackKind.LITHOLOGY, width=180)
             )
+            tracks.append(
+                TrackDefinition(new_id(), "Описание пород", TrackKind.TEXT, width=320)
+            )
         if gas_names:
             tracks.append(
                 TrackDefinition(
@@ -112,6 +115,10 @@ class TabletController:
         elif kind is TrackKind.LITHOLOGY:
             title = "Литология"
             width = 180
+            mnemonics = []
+        elif kind is TrackKind.TEXT:
+            title = "Описание пород"
+            width = 320
             mnemonics = []
         elif not mnemonics:
             raise ValueError("Выберите хотя бы одну кривую")

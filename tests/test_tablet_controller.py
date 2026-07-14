@@ -7,6 +7,7 @@ from geoworkbench.domain.models import (
     Dataset,
     DatasetKind,
     DepthDomain,
+    LithologyInterval,
     Project,
     Well,
 )
@@ -131,6 +132,31 @@ def test_add_lithology_track_does_not_require_curves() -> None:
     assert track.kind is TrackKind.LITHOLOGY
     assert track.curve_mnemonics == []
     assert track.title == "Литология"
+
+
+def test_default_layout_adds_lithology_and_description_tracks() -> None:
+    session = make_session()
+    assert session.current_well is not None
+    session.current_well.lithology.append(
+        LithologyInterval("layer", 1.0, 2.0, "sandstone", "Песчаник")
+    )
+
+    layout = TabletController(session).build_default_layout()
+
+    kinds = [track.kind for track in layout.tracks]
+    assert TrackKind.LITHOLOGY in kinds
+    assert TrackKind.TEXT in kinds
+
+
+def test_add_description_track_does_not_require_curves() -> None:
+    controller = TabletController(make_session())
+    controller.build_default_layout()
+
+    track = controller.add_track(TrackKind.TEXT)
+
+    assert track.title == "Описание пород"
+    assert track.width == 320
+    assert track.curve_mnemonics == []
 
 
 def test_controller_updates_track_x_settings() -> None:
