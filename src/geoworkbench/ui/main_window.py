@@ -27,12 +27,13 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench import __version__
-from geoworkbench.data.las_adapter import LasImportError, import_las
+from geoworkbench.data.las_adapter import LasExportError, LasImportError, import_las
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.curve_editing_controller import (
     CurveEditingController,
     CurveEditOutcome,
 )
+from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
@@ -48,6 +49,7 @@ class MainWindow(QMainWindow):
         self.project_controller = ProjectController()
         self.tablet_controller = TabletController(self.session)
         self.curve_editing_controller = CurveEditingController(self.session)
+        self.dataset_export_controller = DatasetExportController(self.session)
         self._selected_track_id: str | None = None
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
@@ -124,6 +126,10 @@ class MainWindow(QMainWindow):
         self.save_action.setShortcut("Ctrl+S")
         self.save_action.triggered.connect(self.save_project_as)
         file_menu.addAction(self.save_action)
+
+        self.export_las_action = QAction("Экспортировать текущий dataset в LAS...", self)
+        self.export_las_action.triggered.connect(self.export_current_las)
+        file_menu.addAction(self.export_las_action)
 
         self.pencil_action = QAction("Карандаш кривой", self)
         self.pencil_action.setCheckable(True)
@@ -296,6 +302,7 @@ class MainWindow(QMainWindow):
 
         self.tablet_controller.session = self.session
         self.curve_editing_controller = CurveEditingController(self.session)
+        self.dataset_export_controller.session = self.session
         self._update_curve_edit_actions()
         self._selected_track_id = None
         self._refresh_tree()
@@ -322,6 +329,45 @@ class MainWindow(QMainWindow):
         else:
             self.tablet_view.set_layout_model(saved_layout)
         self.tabs.setCurrentWidget(self.tablet_view)
+
+    def export_current_las(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(self, "Экспорт LAS", "Сначала выберите набор данных")
+            return
+        initial = Path.cwd() / f"{dataset.name}_edited.las"
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Экспортировать LAS",
+            str(initial),
+            "LAS (*.las)",
+        )
+        if not filename:
+            return
+        target = Path(filename)
+        overwrite = False
+        if target.exists():
+            answer = QMessageBox.question(
+                self,
+                "Экспорт LAS",
+                f"Файл уже существует:\n{target.name}\n\nЗаменить его?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+            overwrite = True
+        try:
+            exported = self.dataset_export_controller.export_current_las(
+                target,
+                overwrite=overwrite,
+            )
+        except (FileExistsError, LasExportError, OSError, RuntimeError) as exc:
+            QMessageBox.critical(self, "Экспорт LAS", str(exc))
+            self._log(f"LAS не экспортирован: {exc}")
+            return
+        self._log(f"LAS экспортирован: {exported}")
+        self.statusBar().showMessage(f"LAS экспортирован: {exported.name}")
 
     def toggle_curve_edit_mode(self, enabled: bool) -> None:
         if enabled and not self.curve_view.set_edit_mode(True):
@@ -700,6 +746,6 @@ class MainWindow(QMainWindow):
             f"Версия {__version__}\n\n"
             "Автор: Сармулдин Ринат\n"
             "E-mail: ura07srr@gmail.com\n\n"
-            "Реализовано: загрузка LAS, базовые Gas Ratio, версионированные проекты и "
-            "настраиваемый многотрековый планшет с синхронной шкалой глубины.",
+            "Реализовано: загрузка и безопасный экспорт LAS, базовые Gas Ratio, "
+            "версионированные проекты, многотрековый планшет и редактор кривых с Undo/Redo.",
         )

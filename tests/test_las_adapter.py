@@ -1,28 +1,14 @@
 import numpy as np
 import pytest
 
-from geoworkbench.data.las_adapter import LasImportError, import_las
-
-
-class FakeArray:
-    def __init__(self, values: list[float]) -> None:
-        self.values = values
-
-    def to_numpy(self, *, dtype, copy: bool) -> np.ndarray:
-        return np.array(self.values, dtype=dtype, copy=copy)
-
-
-class FakeFrame:
-    def __init__(self) -> None:
-        self.index = FakeArray([100.0, 101.0])
-        self.columns = ["C1", "ROP"]
-        self._values = {
-            "C1": FakeArray([1.0, 2.0]),
-            "ROP": FakeArray([10.0, 12.0]),
-        }
-
-    def __getitem__(self, column: str) -> FakeArray:
-        return self._values[column]
+from geoworkbench.data.las_adapter import LasExportError, LasImportError, export_las, import_las
+from geoworkbench.domain.models import (
+    CurveData,
+    CurveMetadata,
+    Dataset,
+    DatasetKind,
+    DepthDomain,
+)
 
 
 class FakeHeaderItem:
@@ -35,14 +21,20 @@ class FakeHeaderItem:
 
 class FakeLas:
     curves = [
+        FakeHeaderItem("DEPT", unit="m", descr="Depth"),
         FakeHeaderItem("C1", unit="%", descr="Methane"),
         FakeHeaderItem("ROP", unit="m/h", descr="Rate of penetration"),
     ]
     well = [FakeHeaderItem("WELL", "Test Well")]
     params = [FakeHeaderItem("RUN", "1")]
+    index = np.array([100.0, 101.0])
+    _values = {
+        "C1": np.array([1.0, 2.0]),
+        "ROP": np.array([10.0, 12.0]),
+    }
 
-    def df(self) -> FakeFrame:
-        return FakeFrame()
+    def __getitem__(self, mnemonic: str) -> np.ndarray:
+        return self._values[mnemonic]
 
 
 def test_import_las_builds_dataset_with_metadata(tmp_path, monkeypatch) -> None:
@@ -91,3 +83,70 @@ def test_import_las_wraps_parser_errors(tmp_path, monkeypatch) -> None:
 
     assert isinstance(error.value.__cause__, ValueError)
     assert str(source) in str(error.value)
+
+
+def make_export_dataset(source_path=None) -> Dataset:
+    dataset = Dataset(
+        "dataset-1",
+        "Edited",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0]),
+        source_path=source_path,
+        headers={"WELL": "Test Well"},
+    )
+    curve = CurveData(
+        CurveMetadata("curve-1", "ROP", "ROP", "m/h", "Rate", dataset.dataset_id),
+        np.array([10.0, 20.0, 30.0]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    return dataset
+
+
+def test_export_las_round_trip_preserves_depth_curve_and_metadata(tmp_path) -> None:
+    target = tmp_path / "edited.las"
+
+    export_las(make_export_dataset(), target)
+    restored = import_las(target)
+
+    np.testing.assert_allclose(restored.depth, [100.0, 101.0, 102.0])
+    rop = restored.curve_by_mnemonic("ROP")
+    assert rop is not None
+    np.testing.assert_allclose(rop.values, [10.0, 20.0, 30.0])
+    assert rop.metadata.unit == "m/h"
+    assert restored.headers["WELL"] == "Test Well"
+
+
+def test_export_las_never_overwrites_source_file(tmp_path) -> None:
+    source = tmp_path / "source.las"
+    source.write_text("original", encoding="utf-8")
+
+    with pytest.raises(LasExportError, match="Исходный LAS"):
+        export_las(make_export_dataset(source), source, overwrite=True)
+
+    assert source.read_text(encoding="utf-8") == "original"
+
+
+def test_export_las_requires_explicit_overwrite(tmp_path) -> None:
+    target = tmp_path / "existing.las"
+    target.write_text("existing", encoding="utf-8")
+
+    with pytest.raises(FileExistsError):
+        export_las(make_export_dataset(), target)
+
+    assert target.read_text(encoding="utf-8") == "existing"
+
+
+def test_export_las_removes_temporary_file_after_write_failure(tmp_path, monkeypatch) -> None:
+    target = tmp_path / "failed.las"
+
+    def fail_write(*args, **kwargs) -> None:
+        raise OSError("write failed")
+
+    monkeypatch.setattr("geoworkbench.data.las_adapter.lasio.LASFile.write", fail_write)
+
+    with pytest.raises(LasExportError, match="Не удалось экспортировать"):
+        export_las(make_export_dataset(), target)
+
+    assert not target.exists()
+    assert list(tmp_path.iterdir()) == []
