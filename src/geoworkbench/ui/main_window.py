@@ -48,6 +48,7 @@ class MainWindow(QMainWindow):
         self.curve_view = CurveView()
         self.tablet_view = TabletView()
         self.tablet_view.track_selected.connect(self._show_track_in_inspector)
+        self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
         self.tabs.addTab(self.curve_view, "LAS / Газовые кривые")
         self.tabs.addTab(self.tablet_view, "Планшет")
@@ -333,6 +334,16 @@ class MainWindow(QMainWindow):
         if accepted:
             self.tablet_controller.set_track_width(track.track_id, width)
             self._layout_changed(f"Изменена ширина трека {track.title}: {width}px")
+
+    def _change_track_width_from_drag(self, track_id: str, width: int) -> None:
+        try:
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+            self.tablet_controller.set_track_width(track_id, width)
+        except (KeyError, ValueError) as exc:
+            QMessageBox.warning(self, "Ширина трека", str(exc))
+            self.tablet_view.refresh_view()
+            return
+        self._layout_changed(f"Изменена ширина трека {track.title}: {width}px")
 
     def move_selected_track(self, offset: int) -> None:
         track = self._selected_track()

@@ -5,6 +5,7 @@ from geoworkbench.tablet.layout_codec import (
     layout_to_dict,
 )
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.resize import TrackResizeGesture
 
 __all__ = [
     "DepthViewport",
@@ -12,6 +13,7 @@ __all__ = [
     "TabletLayoutFormatError",
     "TrackDefinition",
     "TrackKind",
+    "TrackResizeGesture",
     "XScale",
     "layout_from_dict",
     "layout_to_dict",

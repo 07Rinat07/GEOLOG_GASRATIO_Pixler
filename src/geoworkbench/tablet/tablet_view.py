@@ -4,7 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.resize import TrackResizeGesture
 
 
 @dataclass(slots=True)
@@ -35,10 +37,14 @@ def curve_legend_label(curve: CurveData) -> str:
 
 class TabletTrackWidget(QFrame):
     selected = Signal(str)
+    width_change_requested = Signal(str, int)
+
+    RESIZE_MARGIN = 6
 
     def __init__(self, definition: TrackDefinition) -> None:
         super().__init__()
         self.definition = definition
+        self._resize_gesture: TrackResizeGesture | None = None
         self.setObjectName(f"track-{definition.track_id}")
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setMinimumWidth(definition.width)
@@ -61,15 +67,77 @@ class TabletTrackWidget(QFrame):
         layout.addWidget(self.title)
         layout.addWidget(self.plot)
 
+        for target in (self.title, self.plot, self.plot.viewport()):
+            target.setMouseTracking(True)
+            target.installEventFilter(self)
+
     def mousePressEvent(self, event) -> None:  # type: ignore[override]
+        if self._handle_resize_event(event):
+            return
         self.selected.emit(self.definition.track_id)
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:  # type: ignore[override]
+        if self._handle_resize_event(event):
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:  # type: ignore[override]
+        if self._handle_resize_event(event):
+            return
+        super().mouseReleaseEvent(event)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        if isinstance(event, QMouseEvent) and self._handle_resize_event(event, watched):
+            return True
+        return super().eventFilter(watched, event)
+
+    def _handle_resize_event(self, event: QMouseEvent, watched: QObject | None = None) -> bool:
+        event_type = event.type()
+        global_position = event.globalPosition().toPoint()
+        in_resize_zone = self._in_resize_zone(global_position)
+        cursor_target = watched if isinstance(watched, QWidget) else self
+
+        if event_type == QEvent.Type.MouseMove and self._resize_gesture is None:
+            cursor = Qt.CursorShape.SizeHorCursor if in_resize_zone else Qt.CursorShape.ArrowCursor
+            cursor_target.setCursor(cursor)
+            return False
+        if (
+            event_type == QEvent.Type.MouseButtonPress
+            and event.button() == Qt.MouseButton.LeftButton
+            and in_resize_zone
+        ):
+            self._resize_gesture = TrackResizeGesture(self.width(), global_position.x())
+            self.setCursor(Qt.CursorShape.SizeHorCursor)
+            return True
+        if event_type == QEvent.Type.MouseMove and self._resize_gesture is not None:
+            width = self._resize_gesture.width_at(global_position.x())
+            self.setFixedWidth(width)
+            return True
+        if (
+            event_type == QEvent.Type.MouseButtonRelease
+            and event.button() == Qt.MouseButton.LeftButton
+            and self._resize_gesture is not None
+        ):
+            width = self._resize_gesture.width_at(global_position.x())
+            self._resize_gesture = None
+            self.setFixedWidth(width)
+            self.unsetCursor()
+            if width != self.definition.width:
+                self.width_change_requested.emit(self.definition.track_id, width)
+            return True
+        return self._resize_gesture is not None
+
+    def _in_resize_zone(self, global_position: QPoint) -> bool:
+        local_x = self.mapFromGlobal(global_position).x()
+        return self.width() - self.RESIZE_MARGIN <= local_x <= self.width() + self.RESIZE_MARGIN
 
 
 class TabletView(QWidget):
     """Многотрековый планшет с общей синхронизированной шкалой глубины."""
 
     track_selected = Signal(str)
+    track_width_change_requested = Signal(str, int)
     visible_depth_changed = Signal(float, float)
 
     def __init__(self) -> None:
@@ -165,6 +233,7 @@ class TabletView(QWidget):
         for definition in visible:
             track = TabletTrackWidget(definition)
             track.selected.connect(self.track_selected)
+            track.width_change_requested.connect(self.track_width_change_requested)
             legend_labels = self._populate_track(track, definition)
             if master_plot is None:
                 master_plot = track.plot

@@ -92,3 +92,19 @@ def test_window_applies_selected_track_x_scale(qapp) -> None:
     assert layout.track_by_id("curve").x_scale is XScale.LOGARITHMIC
     assert session.dirty is True
     window.close()
+
+
+def test_window_persists_width_requested_by_track_widget(qapp) -> None:
+    window = MainWindow()
+    session, layout = make_session()
+    bind_session(window, session)
+    window._show_current_dataset()
+    session.dirty = False
+
+    window.tablet_view.track_width_change_requested.emit("curve", 340)
+    qapp.processEvents()
+
+    assert layout.track_by_id("curve").width == 340
+    assert session.dirty is True
+    assert window.windowTitle().endswith(" *")
+    window.close()
