@@ -1,6 +1,15 @@
 import numpy as np
 
-from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
+from geoworkbench.domain.models import (
+    CurveData,
+    CurveMetadata,
+    Dataset,
+    DatasetKind,
+    DepthDomain,
+    Project,
+    Well,
+)
+from geoworkbench.project.curve_editing_controller import CurveEditingController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.ui.main_window import MainWindow
@@ -15,6 +24,11 @@ def make_session() -> tuple[ProjectSession, TabletLayout]:
         np.array([100.0, 101.0]),
     )
     well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
+    curve = CurveData(
+        CurveMetadata("curve-1", "ROP", "ROP", "m/h", None, dataset.dataset_id),
+        np.array([1.0, 2.0]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
     layout = TabletLayout(
         [
             TrackDefinition("depth", "Глубина", TrackKind.DEPTH, width=120),
@@ -33,6 +47,8 @@ def make_session() -> tuple[ProjectSession, TabletLayout]:
 def bind_session(window: MainWindow, session: ProjectSession) -> None:
     window.project_controller.session = session
     window.tablet_controller.session = session
+    window.curve_editing_controller = CurveEditingController(session)
+    window._update_curve_edit_actions()
 
 
 def test_window_restores_saved_layout(qapp) -> None:
@@ -125,4 +141,28 @@ def test_window_applies_track_settings_from_inspector(qapp) -> None:
     assert track.x_min == -10.0
     assert track.x_max == 10.0
     assert session.dirty is True
+    window.close()
+
+
+def test_window_applies_curve_edit_and_updates_undo_redo_actions(qapp) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    dataset = session.current_dataset
+    assert dataset is not None
+    curve = dataset.curves["curve-1"]
+
+    window._apply_curve_draw_edit("curve-1", np.array([0]), np.array([10.0]))
+    qapp.processEvents()
+
+    assert curve.values[0] == 10.0
+    assert window.undo_action.isEnabled() is True
+    assert window.redo_action.isEnabled() is False
+
+    window.undo_curve_edit()
+    assert curve.values[0] == 1.0
+    assert window.redo_action.isEnabled() is True
+
+    window.redo_curve_edit()
+    assert curve.values[0] == 10.0
     window.close()

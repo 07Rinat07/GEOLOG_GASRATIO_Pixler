@@ -15,6 +15,7 @@ from geoworkbench.services.edit_history import CurveEditCommand, CurveEditHistor
 @dataclass(frozen=True, slots=True)
 class CurveEditOutcome:
     operation: Literal["edit", "undo", "redo"]
+    dataset_id: str
     curve_id: str
     mnemonic: str
     affected_mnemonics: tuple[str, ...]
@@ -76,6 +77,7 @@ class CurveEditingController:
         self.session.dirty = True
         return CurveEditOutcome(
             operation=operation,
+            dataset_id=dataset.dataset_id,
             curve_id=curve.metadata.curve_id,
             mnemonic=curve.metadata.original_mnemonic,
             affected_mnemonics=affected,

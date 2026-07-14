@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
@@ -28,6 +29,10 @@ from PySide6.QtWidgets import (
 from geoworkbench import __version__
 from geoworkbench.data.las_adapter import LasImportError, import_las
 from geoworkbench.project.controller import ProjectController
+from geoworkbench.project.curve_editing_controller import (
+    CurveEditingController,
+    CurveEditOutcome,
+)
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
@@ -42,12 +47,14 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.project_controller = ProjectController()
         self.tablet_controller = TabletController(self.session)
+        self.curve_editing_controller = CurveEditingController(self.session)
         self._selected_track_id: str | None = None
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
 
         self.tabs = QTabWidget()
         self.curve_view = CurveView()
+        self.curve_view.edit_requested.connect(self._apply_curve_draw_edit)
         self.tablet_view = TabletView()
         self.tablet_view.track_selected.connect(self._show_track_in_inspector)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
@@ -98,6 +105,7 @@ class MainWindow(QMainWindow):
 
     def _create_actions(self) -> None:
         file_menu = self.menuBar().addMenu("Файл")
+        edit_menu = self.menuBar().addMenu("Правка")
         calc_menu = self.menuBar().addMenu("Расчёты")
         tablet_menu = self.menuBar().addMenu("Планшет")
         help_menu = self.menuBar().addMenu("Справка")
@@ -116,6 +124,24 @@ class MainWindow(QMainWindow):
         self.save_action.setShortcut("Ctrl+S")
         self.save_action.triggered.connect(self.save_project_as)
         file_menu.addAction(self.save_action)
+
+        self.pencil_action = QAction("Карандаш кривой", self)
+        self.pencil_action.setCheckable(True)
+        self.pencil_action.setShortcut("E")
+        self.pencil_action.toggled.connect(self.toggle_curve_edit_mode)
+        edit_menu.addAction(self.pencil_action)
+
+        self.undo_action = QAction("Отменить редактирование", self)
+        self.undo_action.setShortcut("Ctrl+Z")
+        self.undo_action.triggered.connect(self.undo_curve_edit)
+        self.undo_action.setEnabled(False)
+        edit_menu.addAction(self.undo_action)
+
+        self.redo_action = QAction("Повторить редактирование", self)
+        self.redo_action.setShortcut("Ctrl+Shift+Z")
+        self.redo_action.triggered.connect(self.redo_curve_edit)
+        self.redo_action.setEnabled(False)
+        edit_menu.addAction(self.redo_action)
 
         self.ratio_action = QAction("Рассчитать базовые Gas Ratio", self)
         self.ratio_action.triggered.connect(self.calculate_ratios)
@@ -269,6 +295,8 @@ class MainWindow(QMainWindow):
             return
 
         self.tablet_controller.session = self.session
+        self.curve_editing_controller = CurveEditingController(self.session)
+        self._update_curve_edit_actions()
         self._selected_track_id = None
         self._refresh_tree()
         self._show_current_dataset()
@@ -278,6 +306,8 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Проект открыт: {source.name}")
 
     def _show_current_dataset(self) -> None:
+        if hasattr(self, "pencil_action"):
+            self.pencil_action.setChecked(False)
         dataset = self.session.current_dataset
         if dataset is None:
             self.curve_view.clear()
@@ -292,6 +322,69 @@ class MainWindow(QMainWindow):
         else:
             self.tablet_view.set_layout_model(saved_layout)
         self.tabs.setCurrentWidget(self.tablet_view)
+
+    def toggle_curve_edit_mode(self, enabled: bool) -> None:
+        if enabled and not self.curve_view.set_edit_mode(True):
+            self.pencil_action.setChecked(False)
+            QMessageBox.information(
+                self,
+                "Редактор кривой",
+                "Выберите одну кривую двойным щелчком в дереве проекта",
+            )
+            return
+        if not enabled:
+            self.curve_view.set_edit_mode(False)
+
+    def _apply_curve_draw_edit(
+        self,
+        curve_id: str,
+        indices: object,
+        new_values: object,
+    ) -> None:
+        try:
+            outcome = self.curve_editing_controller.edit_curve(
+                curve_id,
+                np.asarray(indices, dtype=np.int64),
+                np.asarray(new_values, dtype=np.float64),
+                description="Карандаш",
+            )
+        except (IndexError, KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, "Редактор кривой", str(exc))
+            return
+        self._after_curve_edit(outcome)
+
+    def undo_curve_edit(self) -> None:
+        try:
+            outcome = self.curve_editing_controller.undo()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, "Отмена редактирования", str(exc))
+            return
+        self._after_curve_edit(outcome)
+
+    def redo_curve_edit(self) -> None:
+        try:
+            outcome = self.curve_editing_controller.redo()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, "Повтор редактирования", str(exc))
+            return
+        self._after_curve_edit(outcome)
+
+    def _after_curve_edit(self, outcome: CurveEditOutcome) -> None:
+        dataset = self.session.current_dataset
+        if dataset is not None and dataset.dataset_id == outcome.dataset_id:
+            self.curve_view.show_dataset(dataset, [outcome.mnemonic])
+            self.curve_view.set_edit_mode(self.pencil_action.isChecked())
+            self.tablet_view.set_dataset(dataset)
+        self._update_curve_edit_actions()
+        self._update_title()
+        affected = ", ".join(outcome.affected_mnemonics) or "нет"
+        self._log(
+            f"{outcome.operation}: {outcome.mnemonic}; зависимые STALE: {affected}"
+        )
+
+    def _update_curve_edit_actions(self) -> None:
+        self.undo_action.setEnabled(self.curve_editing_controller.history.can_undo)
+        self.redo_action.setEnabled(self.curve_editing_controller.history.can_redo)
 
     def build_default_tablet(self) -> None:
         dataset = self.session.current_dataset
