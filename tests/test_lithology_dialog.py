@@ -14,7 +14,7 @@ def test_lithology_dialog_adds_interval(qapp) -> None:
     dialog = LithologyDialog(LithologyController(session))
     dialog.top_input.setValue(100.0)
     dialog.bottom_input.setValue(150.0)
-    dialog.lithotype_input.setText("sandstone")
+    dialog.lithotype_input.setCurrentIndex(dialog.lithotype_input.findData("sandstone"))
     dialog.description_input.setText("Песчаник")
 
     dialog._add()

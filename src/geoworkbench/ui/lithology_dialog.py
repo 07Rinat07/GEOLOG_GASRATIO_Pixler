@@ -5,6 +5,7 @@ from collections.abc import Callable
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
+    QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
@@ -17,13 +18,22 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.catalogs.lithotypes import load_lithotype_catalog
 from geoworkbench.project.lithology_controller import LithologyController
+from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 
 
 class LithologyDialog(QDialog):
-    def __init__(self, controller: LithologyController, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        controller: LithologyController,
+        parent: QWidget | None = None,
+        *,
+        catalog: tuple[CatalogLithotype, ...] | None = None,
+    ) -> None:
         super().__init__(parent)
         self.controller = controller
+        self.catalog = catalog if catalog is not None else load_lithotype_catalog()
         self.setWindowTitle("Литологические интервалы")
         self.resize(820, 520)
         root = QVBoxLayout(self)
@@ -36,7 +46,10 @@ class LithologyDialog(QDialog):
         form = QFormLayout()
         self.top_input = self._depth_input()
         self.bottom_input = self._depth_input()
-        self.lithotype_input = QLineEdit()
+        self.lithotype_input = QComboBox()
+        self.lithotype_input.setEditable(True)
+        for item in self.catalog:
+            self.lithotype_input.addItem(f"{item.name_ru} ({item.lithotype_id})", item.lithotype_id)
         self.description_input = QLineEdit()
         form.addRow("Кровля", self.top_input)
         form.addRow("Подошва", self.bottom_input)
@@ -95,7 +108,11 @@ class LithologyDialog(QDialog):
         assert description_item is not None
         self.top_input.setValue(float(top_item.text()))
         self.bottom_input.setValue(float(bottom_item.text()))
-        self.lithotype_input.setText(lithotype_item.text())
+        index = self.lithotype_input.findData(lithotype_item.text())
+        if index >= 0:
+            self.lithotype_input.setCurrentIndex(index)
+        else:
+            self.lithotype_input.setEditText(lithotype_item.text())
         self.description_input.setText(description_item.text())
 
     def _add(self) -> None:
@@ -103,7 +120,7 @@ class LithologyDialog(QDialog):
             lambda: self.controller.add(
                 self.top_input.value(),
                 self.bottom_input.value(),
-                self.lithotype_input.text(),
+                self._lithotype_id(),
                 description=self.description_input.text(),
             )
         ):
@@ -119,7 +136,7 @@ class LithologyDialog(QDialog):
                 interval_id,
                 top_depth=self.top_input.value(),
                 bottom_depth=self.bottom_input.value(),
-                lithotype_id=self.lithotype_input.text(),
+                lithotype_id=self._lithotype_id(),
                 description=self.description_input.text(),
             )
         )
@@ -139,3 +156,7 @@ class LithologyDialog(QDialog):
             return False
         self._refresh()
         return True
+
+    def _lithotype_id(self) -> str:
+        data = self.lithotype_input.currentData()
+        return str(data) if data is not None else self.lithotype_input.currentText().strip()

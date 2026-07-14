@@ -10,11 +10,11 @@ from geoworkbench.storage.project_migrations import (
 def test_default_registry_migrates_legacy_payload_through_every_version() -> None:
     legacy = {"project_id": "p", "name": "Project", "wells": {}}
 
-    migrated = migrate_project_payload(legacy, 2)
+    migrated = migrate_project_payload(legacy, 3)
 
     assert migrated == {
-        "format_version": 2,
-        "project": legacy,
+        "format_version": 3,
+        "project": {**legacy, "lithotypes": {}},
         "tablet_layouts": {},
     }
     assert "format_version" not in legacy
@@ -23,9 +23,9 @@ def test_default_registry_migrates_legacy_payload_through_every_version() -> Non
 def test_default_registry_migrates_v1_payload_to_v2() -> None:
     project = {"project_id": "p", "name": "Project", "wells": {}}
 
-    migrated = migrate_project_payload({"format_version": 1, "project": project}, 2)
+    migrated = migrate_project_payload({"format_version": 1, "project": project}, 3)
 
-    assert migrated["project"] == project
+    assert migrated["project"] == {**project, "lithotypes": {}}
     assert migrated["tablet_layouts"] == {}
 
 
@@ -52,7 +52,7 @@ def test_registry_rejects_duplicate_source_version() -> None:
         registry.register(0, lambda payload: {"format_version": 1})
 
 
-@pytest.mark.parametrize("version", [3, "2", True, -1])
+@pytest.mark.parametrize("version", [4, "2", True, -1])
 def test_registry_rejects_unsupported_or_invalid_version(version: object) -> None:
     with pytest.raises(ProjectMigrationError):
-        migrate_project_payload({"format_version": version}, 2)  # type: ignore[dict-item]
+        migrate_project_payload({"format_version": version}, 3)  # type: ignore[dict-item]

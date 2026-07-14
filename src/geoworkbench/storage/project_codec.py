@@ -19,6 +19,7 @@ from geoworkbench.domain.models import (
     DepthDomain,
     LithologyInterval,
     Project,
+    ProjectLithotype,
     StratigraphyInterval,
     Well,
 )
@@ -30,7 +31,7 @@ from geoworkbench.storage.project_migrations import (
 )
 
 
-PROJECT_FORMAT_VERSION = 2
+PROJECT_FORMAT_VERSION = 3
 
 
 @dataclass(slots=True)
@@ -92,7 +93,9 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
         parameters={str(k): str(v) for k, v in dict(data.get("parameters", {})).items()},
     )
     curve_map = _required(data, "curves", dict)
-    dataset.curves = {str(curve_id): _curve_from_dict(curve) for curve_id, curve in curve_map.items()}
+    dataset.curves = {
+        str(curve_id): _curve_from_dict(curve) for curve_id, curve in curve_map.items()
+    }
     for curve in dataset.curves.values():
         if curve.values.shape != dataset.depth.shape:
             raise ProjectFormatError(
@@ -108,7 +111,9 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
         name=str(_required(data, "name", str)),
     )
     datasets = _required(data, "datasets", dict)
-    well.datasets = {str(dataset_id): _dataset_from_dict(item) for dataset_id, item in datasets.items()}
+    well.datasets = {
+        str(dataset_id): _dataset_from_dict(item) for dataset_id, item in datasets.items()
+    }
     well.lithology = [LithologyInterval(**item) for item in data.get("lithology", [])]
     well.cuttings = [
         CuttingsSample(
@@ -134,6 +139,21 @@ def project_from_dict(data: dict[str, Any]) -> Project:
     )
     wells = _required(data, "wells", dict)
     project.wells = {str(well_id): _well_from_dict(item) for well_id, item in wells.items()}
+    raw_lithotypes = data.get("lithotypes", {})
+    if not isinstance(raw_lithotypes, dict):
+        raise ProjectFormatError("Поле 'lithotypes' должно быть объектом")
+    for lithotype_id, item in raw_lithotypes.items():
+        if not isinstance(lithotype_id, str) or not isinstance(item, dict):
+            raise ProjectFormatError("Запись справочника литотипов имеет неверный формат")
+        try:
+            record = ProjectLithotype(**item)
+        except TypeError as exc:
+            raise ProjectFormatError(f"Некорректная запись литотипа '{lithotype_id}'") from exc
+        if record.lithotype_id != lithotype_id:
+            raise ProjectFormatError(
+                f"ID записи литотипа '{lithotype_id}' не совпадает с содержимым"
+            )
+        project.lithotypes[lithotype_id] = record
     return project
 
 
@@ -158,9 +178,7 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
             ) from exc
 
     known_dataset_ids = {
-        dataset_id
-        for well in project.wells.values()
-        for dataset_id in well.datasets
+        dataset_id for well in project.wells.values() for dataset_id in well.datasets
     }
     unknown_dataset_ids = set(layouts) - known_dataset_ids
     if unknown_dataset_ids:

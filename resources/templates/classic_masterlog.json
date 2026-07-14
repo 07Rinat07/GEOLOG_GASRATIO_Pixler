@@ -36,6 +36,10 @@
       "width_mm": 30
     },
     {
+      "type": "inclination",
+      "width_mm": 18
+    },
+    {
       "type": "gas",
       "width_mm": 65
     },

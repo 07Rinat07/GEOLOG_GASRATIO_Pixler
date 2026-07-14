@@ -162,6 +162,17 @@ class CanvasObject:
     properties: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True, slots=True)
+class ProjectLithotype:
+    lithotype_id: str
+    code: str
+    name_ru: str
+    name_en: str
+    category: str
+    color: str
+    pattern_key: str
+
+
 @dataclass(slots=True)
 class Well:
     well_id: str
@@ -178,3 +189,4 @@ class Project:
     project_id: str
     name: str
     wells: dict[str, Well] = field(default_factory=dict)
+    lithotypes: dict[str, ProjectLithotype] = field(default_factory=dict)

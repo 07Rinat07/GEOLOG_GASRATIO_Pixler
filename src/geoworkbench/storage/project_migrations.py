@@ -80,9 +80,20 @@ def _migrate_v1_to_v2(payload: ProjectPayload) -> ProjectPayload:
     }
 
 
+def _migrate_v2_to_v3(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 2 не содержит объекта 'project'")
+    project.setdefault("lithotypes", {})
+    migrated["format_version"] = 3
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
+DEFAULT_PROJECT_MIGRATIONS.register(2, _migrate_v2_to_v3)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:
