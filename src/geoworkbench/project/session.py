@@ -26,34 +26,10 @@ class ProjectSession:
     current_dataset_id: str | None = None
     dirty: bool = False
 
-    def new_project(self, name: str = "Новый проект") -> None:
-        self.project = Project(new_id(), name)
-        self.current_well_id = None
-        self.current_dataset_id = None
-        self.dirty = False
-
-    def replace_project(self, project: Project) -> None:
-        self.project = project
-        self.current_well_id = next(iter(project.wells), None)
-        well = self.current_well
-        self.current_dataset_id = next(iter(well.datasets), None) if well else None
-        self.dirty = False
-
-    def select_dataset(self, well_id: str, dataset_id: str) -> Dataset:
-        try:
-            well = self.project.wells[well_id]
-            dataset = well.datasets[dataset_id]
-        except KeyError as exc:
-            raise KeyError("Выбранная скважина или набор данных не найдены") from exc
-        self.current_well_id = well_id
-        self.current_dataset_id = dataset_id
-        return dataset
-
     def add_dataset(self, dataset: Dataset, well_name: str | None = None) -> Well:
         well = self.current_well
-        incoming_name = well_name or dataset.headers.get("WELL") or dataset.name
         if well is None:
-            well = Well(new_id(), incoming_name)
+            well = Well(new_id(), well_name or dataset.headers.get("WELL") or dataset.name)
             self.project.wells[well.well_id] = well
             self.current_well_id = well.well_id
         well.datasets[dataset.dataset_id] = dataset

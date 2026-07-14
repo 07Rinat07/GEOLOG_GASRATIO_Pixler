@@ -3,8 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
-.mypy_cache/
 .ruff_cache/
+.mypy_cache/
 .pyright/
 .coverage
 .coverage.*
@@ -17,17 +17,16 @@ env/
 ENV/
 .python-version
 
-# Build and packaging
+# Packaging and build output
 build/
 dist/
 *.egg-info/
 .eggs/
 pip-wheel-metadata/
 
-# IDE and operating system
+# IDE and OS files
 .idea/
 .vscode/
-*.code-workspace
 .DS_Store
 Thumbs.db
 desktop.ini
@@ -35,46 +34,39 @@ desktop.ini
 # Local configuration and secrets
 .env
 .env.*
-!.env.example
 *.local
 
-# Logs, temporary files and runtime state
+# Logs and temporary files
 logs/
 *.log
 tmp/
 temp/
 .cache/
-*.pid
 *.tmp
 *.bak
-*~
 
-# User projects, exports and generated reports
+# Runtime user data and generated output
 projects/*
 !projects/.gitkeep
 exports/*
 !exports/.gitkeep
-reports/*
-!reports/.gitkeep
+reports/
 output/
-
-# Large/rebuildable runtime caches
-cache/
-thumbnails/
+attachments/*
+!attachments/.gitkeep
 preview_cache/
+thumbnails/
 
 # Local databases and journals
 *.sqlite-journal
-*.sqlite-wal
-*.sqlite-shm
 *.db-journal
+*.wal
+*.shm
 
-# User-specific application state
+# User workspace settings
 user_settings.json
 workspace.json
-recent_projects.json
 
-# Profiling and notebooks
-*.prof
-*.profraw
-.ipynb_checkpoints/
+# Qt generated cache
+*.qmlc
+*.jsc

@@ -3,12 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QCloseEvent
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QDockWidget,
     QFileDialog,
     QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QStatusBar,
     QTabWidget,
@@ -18,17 +19,13 @@ from PySide6.QtWidgets import (
     QTreeWidgetItem,
 )
 
-from geoworkbench import __version__
 from geoworkbench.data.las_adapter import LasImportError, import_las
+from geoworkbench.domain.models import new_id
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.storage import ProjectFormatError, load_project, save_project
+from geoworkbench.storage.atomic_json import save_project
+from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind
+from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.visualization.curve_view import CurveView
-
-
-ROLE_KIND = Qt.ItemDataRole.UserRole
-ROLE_WELL_ID = Qt.ItemDataRole.UserRole + 1
-ROLE_DATASET_ID = Qt.ItemDataRole.UserRole + 2
-ROLE_CURVE_ID = Qt.ItemDataRole.UserRole + 3
 
 
 class MainWindow(QMainWindow):
@@ -36,12 +33,16 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.session = ProjectSession()
         self.project_path: Path | None = None
-        self.resize(1500, 920)
+        self.setWindowTitle("GEOLOG GASRATIO@Pixler 0.4")
+        self.resize(1580, 960)
 
         self.tabs = QTabWidget()
         self.curve_view = CurveView()
+        self.tablet_view = TabletView()
+        self.tablet_view.track_selected.connect(self._show_track_in_inspector)
+        self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
         self.tabs.addTab(self.curve_view, "LAS / Газовые кривые")
-        self.tabs.addTab(QLabel("Многотрековый планшет реализуется следующим инкрементом"), "Планшет")
+        self.tabs.addTab(self.tablet_view, "Планшет")
         self.setCentralWidget(self.tabs)
 
         self._create_project_explorer()
@@ -50,23 +51,23 @@ class MainWindow(QMainWindow):
         self._create_actions()
         self._create_toolbar()
         self.setStatusBar(QStatusBar())
-        self.statusBar().showMessage("Готово: создайте проект или откройте LAS-файл")
-        self._refresh_tree()
+        self.statusBar().showMessage("Готово: откройте LAS-файл")
         self._update_title()
 
     def _create_project_explorer(self) -> None:
         dock = QDockWidget("Проект", self)
         self.tree = QTreeWidget()
         self.tree.setHeaderLabel("Project Explorer")
-        self.tree.itemSelectionChanged.connect(self._on_tree_selection)
+        self.tree.itemDoubleClicked.connect(self._activate_tree_item)
         dock.setWidget(self.tree)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
+        self._refresh_tree()
 
     def _create_inspector(self) -> None:
         dock = QDockWidget("Инспектор", self)
         self.inspector = QTextEdit()
         self.inspector.setReadOnly(True)
-        self.inspector.setPlainText("Выберите проект, скважину, набор данных или кривую")
+        self.inspector.setPlainText("Свойства выбранного набора, кривой или трека")
         dock.setWidget(self.inspector)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
@@ -80,34 +81,18 @@ class MainWindow(QMainWindow):
     def _create_actions(self) -> None:
         file_menu = self.menuBar().addMenu("Файл")
         calc_menu = self.menuBar().addMenu("Расчёты")
+        tablet_menu = self.menuBar().addMenu("Планшет")
         help_menu = self.menuBar().addMenu("Справка")
 
-        self.new_action = QAction("Новый проект", self)
-        self.new_action.setShortcut("Ctrl+N")
-        self.new_action.triggered.connect(self.new_project)
-        file_menu.addAction(self.new_action)
+        self.open_action = QAction("Открыть LAS...", self)
+        self.open_action.setShortcut("Ctrl+O")
+        self.open_action.triggered.connect(self.open_las)
+        file_menu.addAction(self.open_action)
 
-        self.open_project_action = QAction("Открыть проект...", self)
-        self.open_project_action.setShortcut("Ctrl+Shift+O")
-        self.open_project_action.triggered.connect(self.open_project)
-        file_menu.addAction(self.open_project_action)
-
-        self.open_las_action = QAction("Добавить LAS...", self)
-        self.open_las_action.setShortcut("Ctrl+O")
-        self.open_las_action.triggered.connect(self.open_las)
-        file_menu.addAction(self.open_las_action)
-
-        file_menu.addSeparator()
-
-        self.save_action = QAction("Сохранить", self)
+        self.save_action = QAction("Сохранить проект как...", self)
         self.save_action.setShortcut("Ctrl+S")
-        self.save_action.triggered.connect(self.save_project)
+        self.save_action.triggered.connect(self.save_project_as)
         file_menu.addAction(self.save_action)
-
-        self.save_as_action = QAction("Сохранить проект как...", self)
-        self.save_as_action.setShortcut("Ctrl+Shift+S")
-        self.save_as_action.triggered.connect(self.save_project_as)
-        file_menu.addAction(self.save_as_action)
 
         self.ratio_action = QAction("Рассчитать базовые Gas Ratio", self)
         self.ratio_action.triggered.connect(self.calculate_ratios)
@@ -117,6 +102,21 @@ class MainWindow(QMainWindow):
         pixler_action.triggered.connect(self.show_pixler_status)
         calc_menu.addAction(pixler_action)
 
+        self.default_tablet_action = QAction("Построить базовый планшет", self)
+        self.default_tablet_action.triggered.connect(self.build_default_tablet)
+        tablet_menu.addAction(self.default_tablet_action)
+
+        add_track_menu = QMenu("Добавить трек", self)
+        tablet_menu.addMenu(add_track_menu)
+        for title, kind in (
+            ("Глубина", TrackKind.DEPTH),
+            ("Газовые компоненты", TrackKind.GAS),
+            ("Кривая", TrackKind.CURVE),
+        ):
+            action = QAction(title, self)
+            action.triggered.connect(lambda _checked=False, value=kind: self.add_track(value))
+            add_track_menu.addAction(action)
+
         about_action = QAction("О программе", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
@@ -124,97 +124,112 @@ class MainWindow(QMainWindow):
     def _create_toolbar(self) -> None:
         toolbar = QToolBar("Основная")
         toolbar.setMovable(False)
-        toolbar.addAction(self.new_action)
-        toolbar.addAction(self.open_project_action)
-        toolbar.addAction(self.open_las_action)
-        toolbar.addSeparator()
+        toolbar.addAction(self.open_action)
+        toolbar.addAction(self.default_tablet_action)
         toolbar.addAction(self.ratio_action)
-        toolbar.addSeparator()
         toolbar.addAction(self.save_action)
         self.addToolBar(toolbar)
 
-    def _confirm_discard_changes(self) -> bool:
-        if not self.session.dirty:
-            return True
-        answer = QMessageBox.question(
-            self,
-            "Несохранённые изменения",
-            "В проекте есть несохранённые изменения. Продолжить без сохранения?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        return answer == QMessageBox.StandardButton.Yes
-
-    def new_project(self) -> None:
-        if not self._confirm_discard_changes():
-            return
-        self.session.new_project()
-        self.project_path = None
-        self.curve_view.clear_view()
-        self.inspector.setPlainText("Новый пустой проект")
-        self._refresh_tree()
-        self._update_title()
-        self._log("Создан новый проект")
-
-    def open_project(self) -> None:
-        if not self._confirm_discard_changes():
-            return
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            "Открыть проект",
-            "",
-            "GeoLog Project (*.geolog.json);;JSON (*.json)",
-        )
-        if not filename:
-            return
-        try:
-            project = load_project(filename)
-        except (OSError, ProjectFormatError) as exc:
-            QMessageBox.critical(self, "Ошибка проекта", str(exc))
-            self._log(f"ОШИБКА открытия проекта: {exc}")
-            return
-
-        self.session.replace_project(project)
-        self.project_path = Path(filename)
-        self._refresh_tree()
-        dataset = self.session.current_dataset
-        if dataset is not None:
-            self.curve_view.show_dataset(dataset)
-            self._show_dataset_inspector(dataset)
-        else:
-            self.curve_view.clear_view()
-        self._update_title()
-        self._log(f"Открыт проект: {filename}")
-        self.statusBar().showMessage(f"Открыт проект {Path(filename).name}")
-
     def open_las(self) -> None:
-        filenames, _ = QFileDialog.getOpenFileNames(self, "Добавить LAS", "", "LAS (*.las)")
+        filenames, _ = QFileDialog.getOpenFileNames(self, "Открыть LAS", "", "LAS (*.las)")
         if not filenames:
             return
-        loaded = 0
+
         last_dataset = None
         last_well = None
+        errors: list[str] = []
         for filename in filenames:
             try:
                 dataset = import_las(filename)
                 well = self.session.add_dataset(dataset)
+                last_dataset = dataset
+                last_well = well
+                self._log(f"Загружен LAS: {filename}")
             except (OSError, LasImportError) as exc:
-                self._log(f"ОШИБКА LAS {filename}: {exc}")
-                continue
-            loaded += 1
-            last_dataset = dataset
-            last_well = well
-            self._log(f"Загружен LAS: {filename}")
+                errors.append(f"{Path(filename).name}: {exc}")
+                self._log(f"ОШИБКА: {filename}: {exc}")
 
-        if loaded == 0 or last_dataset is None or last_well is None:
-            QMessageBox.warning(self, "LAS", "Ни один LAS-файл не был загружен")
+        if last_dataset is None or last_well is None:
+            QMessageBox.critical(self, "Ошибка LAS", "\n".join(errors) or "Файлы не загружены")
             return
 
         self.curve_view.show_dataset(last_dataset)
-        self._show_dataset_inspector(last_dataset, last_well.name)
+        self.tablet_view.set_dataset(last_dataset)
+        self.build_default_tablet()
+        self.inspector.setPlainText(
+            f"Скважина: {last_well.name}\n"
+            f"Набор: {last_dataset.name}\n"
+            f"Кривых: {len(last_dataset.curves)}\n"
+            f"Отсчётов: {len(last_dataset.depth)}\n"
+            f"Диапазон: {last_dataset.depth[0]:.2f}–{last_dataset.depth[-1]:.2f}"
+        )
+        if errors:
+            QMessageBox.warning(self, "Часть LAS не загружена", "\n".join(errors))
         self._refresh_tree()
         self._update_title()
-        self.statusBar().showMessage(f"Загружено LAS-файлов: {loaded}")
+        self.tabs.setCurrentWidget(self.tablet_view)
+        self.statusBar().showMessage(f"Загружено LAS-файлов: {len(filenames) - len(errors)}")
+
+    def build_default_tablet(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(self, "Планшет", "Сначала откройте LAS-файл")
+            return
+
+        curve_names = [curve.metadata.original_mnemonic for curve in dataset.curves.values()]
+        gas_order = ["TG", "TOTALGAS", "TG_CALC", "C1", "C2", "C3", "IC4", "NC4", "C4", "IC5", "NC5", "C5"]
+        gas_names = [name for name in gas_order if dataset.curve_by_mnemonic(name) is not None]
+        remaining = [name for name in curve_names if name not in gas_names]
+
+        tracks = [
+            TrackDefinition(new_id(), "Глубина", TrackKind.DEPTH, width=120),
+        ]
+        if gas_names:
+            tracks.append(
+                TrackDefinition(new_id(), "Газ", TrackKind.GAS, curve_mnemonics=gas_names[:8], width=360)
+            )
+        for mnemonic in remaining[:3]:
+            tracks.append(
+                TrackDefinition(new_id(), mnemonic, TrackKind.CURVE, curve_mnemonics=[mnemonic], width=250)
+            )
+
+        self.tablet_view.set_layout_model(TabletLayout(tracks))
+        self.tablet_view.set_dataset(dataset)
+        self._log(f"Построен базовый планшет: треков {len(tracks)}")
+
+    def add_track(self, kind: TrackKind) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(self, "Планшет", "Сначала откройте LAS-файл")
+            return
+
+        mnemonics: list[str] = []
+        title = kind.value
+        width = 250
+        if kind == TrackKind.DEPTH:
+            title = "Глубина"
+            width = 120
+        elif kind == TrackKind.GAS:
+            title = "Газ"
+            for name in ("TG", "TG_CALC", "C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5"):
+                if dataset.curve_by_mnemonic(name) is not None:
+                    mnemonics.append(name)
+            width = 360
+        else:
+            first = next(iter(dataset.curves.values()), None)
+            if first is not None:
+                title = first.metadata.original_mnemonic
+                mnemonics = [title]
+
+        try:
+            self.tablet_view.add_track(
+                TrackDefinition(new_id(), title, kind, curve_mnemonics=mnemonics, width=width)
+            )
+        except ValueError as exc:
+            QMessageBox.warning(self, "Планшет", str(exc))
+            return
+        self.tabs.setCurrentWidget(self.tablet_view)
+        self._log(f"Добавлен трек: {title}")
 
     def calculate_ratios(self) -> None:
         try:
@@ -227,6 +242,7 @@ class MainWindow(QMainWindow):
         dataset = self.session.current_dataset
         assert dataset is not None
         self.curve_view.show_dataset(dataset, created)
+        self.tablet_view.set_dataset(dataset)
         self._log(f"Созданы/обновлены кривые: {', '.join(created)}")
         self._refresh_tree()
         self._update_title()
@@ -236,15 +252,9 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Pixler",
-            "Движок профилей Pixler создан. Формулы добавляются только вместе с "
-            "подтверждённой методикой, источником, единицами и контрольным примером.",
+            "Движок профилей Pixler создан. Конкретные формулы не зашиты без "
+            "подтверждённой методики и источника.",
         )
-
-    def save_project(self) -> None:
-        if self.project_path is None:
-            self.save_project_as()
-            return
-        self._write_project(self.project_path)
 
     def save_project_as(self) -> None:
         filename, _ = QFileDialog.getSaveFileName(
@@ -256,102 +266,92 @@ class MainWindow(QMainWindow):
         if not filename:
             return
         self.project_path = Path(filename)
-        self._write_project(self.project_path)
-
-    def _write_project(self, path: Path) -> None:
         try:
-            save_project(self.session.project, path)
+            save_project(self.session.project, self.project_path)
         except OSError as exc:
             QMessageBox.critical(self, "Сохранение", str(exc))
             return
         self.session.dirty = False
         self._update_title()
-        self._log(f"Проект сохранён: {path}")
-        self.statusBar().showMessage(f"Проект сохранён: {path.name}")
+        self._log(f"Проект сохранён: {self.project_path}")
 
     def _refresh_tree(self) -> None:
         self.tree.clear()
         root = QTreeWidgetItem([self.session.project.name])
-        root.setData(0, ROLE_KIND, "project")
+        root.setData(0, Qt.ItemDataRole.UserRole, ("project", self.session.project.project_id))
         self.tree.addTopLevelItem(root)
         for well in self.session.project.wells.values():
             well_item = QTreeWidgetItem([well.name])
-            well_item.setData(0, ROLE_KIND, "well")
-            well_item.setData(0, ROLE_WELL_ID, well.well_id)
+            well_item.setData(0, Qt.ItemDataRole.UserRole, ("well", well.well_id))
             root.addChild(well_item)
             for dataset in well.datasets.values():
                 dataset_item = QTreeWidgetItem([f"{dataset.name} ({dataset.kind.value})"])
-                dataset_item.setData(0, ROLE_KIND, "dataset")
-                dataset_item.setData(0, ROLE_WELL_ID, well.well_id)
-                dataset_item.setData(0, ROLE_DATASET_ID, dataset.dataset_id)
+                dataset_item.setData(0, Qt.ItemDataRole.UserRole, ("dataset", well.well_id, dataset.dataset_id))
                 well_item.addChild(dataset_item)
                 for curve in dataset.curves.values():
                     curve_item = QTreeWidgetItem([curve.metadata.original_mnemonic])
-                    curve_item.setData(0, ROLE_KIND, "curve")
-                    curve_item.setData(0, ROLE_WELL_ID, well.well_id)
-                    curve_item.setData(0, ROLE_DATASET_ID, dataset.dataset_id)
-                    curve_item.setData(0, ROLE_CURVE_ID, curve.metadata.curve_id)
+                    curve_item.setData(
+                        0,
+                        Qt.ItemDataRole.UserRole,
+                        ("curve", well.well_id, dataset.dataset_id, curve.metadata.curve_id),
+                    )
                     dataset_item.addChild(curve_item)
         root.setExpanded(True)
 
-    def _on_tree_selection(self) -> None:
-        selected = self.tree.selectedItems()
-        if not selected:
+    def _activate_tree_item(self, item: QTreeWidgetItem) -> None:
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if not data:
             return
-        item = selected[0]
-        kind = item.data(0, ROLE_KIND)
-        if kind == "project":
-            self.inspector.setPlainText(
-                f"Проект: {self.session.project.name}\nСкважин: {len(self.session.project.wells)}"
-            )
-            return
-        if kind == "well":
-            well = self.session.project.wells[item.data(0, ROLE_WELL_ID)]
-            self.inspector.setPlainText(f"Скважина: {well.name}\nНаборов данных: {len(well.datasets)}")
-            return
+        if data[0] == "dataset":
+            _, well_id, dataset_id = data
+            self.session.current_well_id = well_id
+            self.session.current_dataset_id = dataset_id
+            dataset = self.session.current_dataset
+            if dataset is not None:
+                self.curve_view.show_dataset(dataset)
+                self.tablet_view.set_dataset(dataset)
+                self.build_default_tablet()
+        elif data[0] == "curve":
+            _, well_id, dataset_id, curve_id = data
+            self.session.current_well_id = well_id
+            self.session.current_dataset_id = dataset_id
+            dataset = self.session.current_dataset
+            if dataset is None:
+                return
+            curve = dataset.curves.get(curve_id)
+            if curve is not None:
+                mnemonic = curve.metadata.original_mnemonic
+                self.curve_view.show_dataset(dataset, [mnemonic])
+                self.tabs.setCurrentWidget(self.curve_view)
+                self.inspector.setPlainText(
+                    f"Кривая: {mnemonic}\n"
+                    f"Единица: {curve.metadata.unit or 'не задана'}\n"
+                    f"Описание: {curve.metadata.description or 'нет'}\n"
+                    f"Версия: {curve.version}\n"
+                    f"Происхождение: {curve.metadata.provenance}"
+                )
 
-        well_id = item.data(0, ROLE_WELL_ID)
-        dataset_id = item.data(0, ROLE_DATASET_ID)
-        dataset = self.session.select_dataset(well_id, dataset_id)
-        if kind == "dataset":
-            self.curve_view.show_dataset(dataset)
-            self._show_dataset_inspector(dataset)
-            return
-        if kind == "curve":
-            curve_id = item.data(0, ROLE_CURVE_ID)
-            curve = dataset.curves[curve_id]
-            self.curve_view.show_dataset(dataset, [curve.metadata.original_mnemonic])
-            finite = int((~__import__("numpy").isnan(curve.values)).sum())
-            self.inspector.setPlainText(
-                f"Кривая: {curve.metadata.original_mnemonic}\n"
-                f"Каноническая мнемоника: {curve.metadata.canonical_mnemonic or '—'}\n"
-                f"Единица: {curve.metadata.unit or '—'}\n"
-                f"Описание: {curve.metadata.description or '—'}\n"
-                f"Версия: {curve.version}\n"
-                f"Происхождение: {curve.metadata.provenance}\n"
-                f"Конечных значений: {finite}/{len(curve.values)}"
-            )
-
-    def _show_dataset_inspector(self, dataset, well_name: str | None = None) -> None:
-        depth_range = "нет данных"
-        if len(dataset.depth):
-            depth_range = f"{dataset.depth[0]:.2f}–{dataset.depth[-1]:.2f}"
-        self.inspector.setPlainText(
-            (f"Скважина: {well_name}\n" if well_name else "")
-            + f"Набор: {dataset.name}\n"
-            + f"Тип: {dataset.kind.value}\n"
-            + f"Кривых: {len(dataset.curves)}\n"
-            + f"Отсчётов: {len(dataset.depth)}\n"
-            + f"Диапазон: {depth_range}\n"
-            + f"Источник: {dataset.source_path or '—'}"
+    def _show_track_in_inspector(self, track_id: str) -> None:
+        track = next(
+            (item for item in self.tablet_view.layout_model.tracks if item.track_id == track_id),
+            None,
         )
+        if track is None:
+            return
+        self.inspector.setPlainText(
+            f"Трек: {track.title}\n"
+            f"Тип: {track.kind.value}\n"
+            f"Ширина: {track.width}px\n"
+            f"Кривые: {', '.join(track.curve_mnemonics) or 'нет'}\n"
+            f"Заблокирован: {'да' if track.locked else 'нет'}"
+        )
+
+    def _show_visible_depth(self, top: float, bottom: float) -> None:
+        self.statusBar().showMessage(f"Видимый интервал: {top:.2f}–{bottom:.2f} м")
 
     def _update_title(self) -> None:
         marker = " *" if self.session.dirty else ""
-        filename = f" — {self.project_path.name}" if self.project_path else ""
-        self.setWindowTitle(
-            f"GEOLOG GASRATIO@Pixler {__version__} — {self.session.project.name}{filename}{marker}"
-        )
+        self.setWindowTitle(f"GEOLOG GASRATIO@Pixler 0.4 — {self.session.project.name}{marker}")
 
     def _log(self, text: str) -> None:
         self.issues.append(text)
@@ -360,15 +360,9 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "GEOLOG GASRATIO@Pixler",
-            f"Версия {__version__}\n\n"
+            "Версия 0.4.0\n\n"
             "Автор: Сармулдин Ринат\n"
             "E-mail: ura07srr@gmail.com\n\n"
-            "LAS/ГИС, ГТИ, газовый каротаж, литология, шламограмма, "
-            "стратиграфия, корреляция и мастерлоги.",
+            "Реализовано: загрузка нескольких LAS, просмотр кривых, базовые Gas Ratio, "
+            "атомарное сохранение и фундамент многотрекового планшета с общей шкалой глубины.",
         )
-
-    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt API
-        if self._confirm_discard_changes():
-            event.accept()
-        else:
-            event.ignore()

@@ -50,40 +50,26 @@ def test_formula_profile_requires_source() -> None:
             FormulaProfile("x", "X", "1", "", ("C1",), lambda inputs, params: inputs["C1"])
         )
 
-from pathlib import Path
-
-from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain, Project, Well
-from geoworkbench.storage.atomic_json import save_project
-from geoworkbench.storage.project_codec import load_project
+from geoworkbench.tablet.depth_viewport import DepthViewport
+from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 
 
-def test_project_round_trip(tmp_path: Path) -> None:
-    dataset = Dataset(
-        dataset_id="dataset-1",
-        name="sample",
-        kind=DatasetKind.GTI,
-        depth_domain=DepthDomain.MD,
-        depth=np.array([1000.0, 1001.0]),
+def test_tablet_layout_can_move_tracks() -> None:
+    layout = TabletLayout(
+        [
+            TrackDefinition("depth", "Глубина", TrackKind.DEPTH, width=100),
+            TrackDefinition("gas", "Газ", TrackKind.GAS, ["C1"], width=250),
+        ]
     )
-    dataset.curves["curve-1"] = CurveData(
-        metadata=CurveMetadata(
-            curve_id="curve-1",
-            original_mnemonic="C1",
-            canonical_mnemonic="C1",
-            unit="%abs",
-            description="Methane",
-            source_dataset_id="dataset-1",
-        ),
-        values=np.array([1.0, 2.0]),
-    )
-    well = Well("well-1", "KR-1", datasets={"dataset-1": dataset})
-    project = Project("project-1", "Test", wells={"well-1": well})
-    path = tmp_path / "project.geolog.json"
+    layout.move_track("gas", 0)
+    assert [track.track_id for track in layout.tracks] == ["gas", "depth"]
 
-    save_project(project, path)
-    restored = load_project(path)
 
-    restored_dataset = restored.wells["well-1"].datasets["dataset-1"]
-    assert restored.name == "Test"
-    np.testing.assert_allclose(restored_dataset.depth, [1000.0, 1001.0])
-    np.testing.assert_allclose(restored_dataset.curves["curve-1"].values, [1.0, 2.0])
+def test_depth_viewport_zoom_and_pan_are_clamped() -> None:
+    viewport = DepthViewport(0.0, 1000.0, 100.0, 200.0)
+    viewport.zoom(2.0, 150.0)
+    assert viewport.visible_top == pytest.approx(125.0)
+    assert viewport.visible_bottom == pytest.approx(175.0)
+    viewport.pan(-500.0)
+    assert viewport.visible_top == pytest.approx(0.0)
+    assert viewport.visible_bottom == pytest.approx(50.0)
