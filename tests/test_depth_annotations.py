@@ -39,3 +39,23 @@ def test_depth_annotation_validates_text_and_dataset_range() -> None:
         controller.add(150.0, "  ")
     with pytest.raises(ValueError, match="вне"):
         controller.add(300.0, "Вне диапазона")
+
+
+def test_depth_annotation_history_undoes_and_redoes_crud() -> None:
+    controller = make_controller()
+    created = controller.add(150.0, "Первая")
+    controller.update(created.annotation_id, depth=160.0, text="Изменена")
+    controller.remove(created.annotation_id)
+
+    assert controller.available() == ()
+    assert controller.undo() == "Удаление глубинной заметки"
+    assert controller.available()[0].text == "Изменена"
+    assert controller.undo() == "Изменение глубинной заметки"
+    assert controller.available()[0].text == "Первая"
+    assert controller.undo() == "Добавление глубинной заметки"
+    assert controller.available() == ()
+
+    assert controller.redo() == "Добавление глубинной заметки"
+    assert controller.redo() == "Изменение глубинной заметки"
+    assert controller.redo() == "Удаление глубинной заметки"
+    assert controller.available() == ()

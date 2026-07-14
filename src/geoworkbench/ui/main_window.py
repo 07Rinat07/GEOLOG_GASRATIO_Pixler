@@ -327,6 +327,7 @@ class MainWindow(QMainWindow):
         self.dataset_export_controller.session = self.session
         self.formula_execution_controller.session = self.session
         self.depth_annotation_controller.session = self.session
+        self.depth_annotation_controller.history.clear()
         self._update_curve_edit_actions()
         self._selected_track_id = None
         self._refresh_tree()

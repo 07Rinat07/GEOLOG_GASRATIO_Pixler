@@ -50,12 +50,18 @@ class DepthAnnotationsDialog(QDialog):
         add_button = QPushButton("Добавить")
         update_button = QPushButton("Изменить")
         remove_button = QPushButton("Удалить")
+        self.undo_button = QPushButton("Отменить")
+        self.redo_button = QPushButton("Повторить")
         add_button.clicked.connect(self._add)
         update_button.clicked.connect(self._update)
         remove_button.clicked.connect(self._remove)
+        self.undo_button.clicked.connect(self._undo)
+        self.redo_button.clicked.connect(self._redo)
         actions.addWidget(add_button)
         actions.addWidget(update_button)
         actions.addWidget(remove_button)
+        actions.addWidget(self.undo_button)
+        actions.addWidget(self.redo_button)
         root.addLayout(actions)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
@@ -71,6 +77,8 @@ class DepthAnnotationsDialog(QDialog):
             self.table.setItem(row, 0, depth_item)
             self.table.setItem(row, 1, QTableWidgetItem(annotation.text))
         self.table.resizeColumnsToContents()
+        self.undo_button.setEnabled(self.controller.history.can_undo)
+        self.redo_button.setEnabled(self.controller.history.can_redo)
 
     def _selected_id(self) -> str | None:
         row = self.table.currentRow()
@@ -113,6 +121,12 @@ class DepthAnnotationsDialog(QDialog):
             QMessageBox.information(self, "Заметки", "Сначала выберите заметку")
             return
         self._run(lambda: self.controller.remove(annotation_id))
+
+    def _undo(self) -> None:
+        self._run(self.controller.undo)
+
+    def _redo(self) -> None:
+        self._run(self.controller.redo)
 
     def _run(self, operation: Callable[[], object]) -> bool:
         try:

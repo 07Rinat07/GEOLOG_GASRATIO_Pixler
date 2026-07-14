@@ -26,4 +26,12 @@ def test_depth_annotations_dialog_adds_and_lists_annotation(qapp) -> None:
     assert table is not None
     assert table.rowCount() == 1
     assert table.item(0, 1).text() == "Маркер"
+    assert dialog.undo_button.isEnabled() is True
+
+    dialog._undo()
+    assert table.rowCount() == 0
+    assert dialog.redo_button.isEnabled() is True
+
+    dialog._redo()
+    assert table.rowCount() == 1
     dialog.close()
