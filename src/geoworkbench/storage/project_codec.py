@@ -24,6 +24,10 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.tablet.layout_codec import TabletLayoutFormatError, layout_from_dict
 from geoworkbench.tablet.models import TabletLayout
+from geoworkbench.storage.project_migrations import (
+    ProjectMigrationError,
+    migrate_project_payload,
+)
 
 
 PROJECT_FORMAT_VERSION = 2
@@ -134,15 +138,11 @@ def project_from_dict(data: dict[str, Any]) -> Project:
 
 
 def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
-    """Read the current project document or migrate the unversioned legacy payload."""
-    if "format_version" not in data:
-        return ProjectDocument(project_from_dict(data))
-
-    version = data.get("format_version")
-    if not isinstance(version, int) or isinstance(version, bool):
-        raise ProjectFormatError("Версия формата проекта должна быть целым числом")
-    if version != PROJECT_FORMAT_VERSION:
-        raise ProjectFormatError(f"Неподдерживаемая версия формата проекта: {version}")
+    """Migrate and reconstruct a project document using the current schema."""
+    try:
+        data = migrate_project_payload(data, PROJECT_FORMAT_VERSION)
+    except ProjectMigrationError as exc:
+        raise ProjectFormatError(str(exc)) from exc
 
     project = project_from_dict(_required(data, "project", dict))
     raw_layouts = _required(data, "tablet_layouts", dict)

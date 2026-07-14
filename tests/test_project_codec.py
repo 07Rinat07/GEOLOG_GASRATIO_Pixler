@@ -82,7 +82,19 @@ def test_unversioned_project_is_loaded_as_legacy_document() -> None:
     assert document.tablet_layouts == {}
 
 
-@pytest.mark.parametrize("version", [0, 1, 99, "2", True])
+def test_v1_project_is_migrated_to_current_document() -> None:
+    document = project_document_from_dict(
+        {
+            "format_version": 1,
+            "project": {"project_id": "p", "name": "P", "wells": {}},
+        }
+    )
+
+    assert document.project.project_id == "p"
+    assert document.tablet_layouts == {}
+
+
+@pytest.mark.parametrize("version", [99, "2", True, -1])
 def test_project_document_rejects_unsupported_version(version: object) -> None:
     with pytest.raises(ProjectFormatError):
         project_document_from_dict(
