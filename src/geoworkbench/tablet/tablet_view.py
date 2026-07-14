@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 
 
@@ -24,6 +24,13 @@ class RenderedTrack:
     definition: TrackDefinition
     widget: QWidget
     plot: pg.PlotWidget | None = None
+    legend_labels: tuple[str, ...] = ()
+
+
+def curve_legend_label(curve: CurveData) -> str:
+    mnemonic = curve.metadata.original_mnemonic
+    unit = (curve.metadata.unit or "").strip()
+    return f"{mnemonic} [{unit}]" if unit else mnemonic
 
 
 class TabletTrackWidget(QFrame):
@@ -97,6 +104,12 @@ class TabletView(QWidget):
     def rendered_track_ids(self) -> tuple[str, ...]:
         return tuple(self._rendered)
 
+    def legend_labels(self, track_id: str) -> tuple[str, ...]:
+        try:
+            return self._rendered[track_id].legend_labels
+        except KeyError as exc:
+            raise KeyError(f"Трек не отрисован: {track_id}") from exc
+
     def set_dataset(self, dataset: Dataset | None) -> None:
         self._dataset = dataset
         self.refresh_view()
@@ -142,13 +155,13 @@ class TabletView(QWidget):
         for definition in visible:
             track = TabletTrackWidget(definition)
             track.selected.connect(self.track_selected)
-            self._populate_track(track, definition)
+            legend_labels = self._populate_track(track, definition)
             if master_plot is None:
                 master_plot = track.plot
                 master_plot.sigYRangeChanged.connect(self._on_master_y_range_changed)
             else:
                 track.plot.setYLink(master_plot)
-            rendered = RenderedTrack(definition, track, track.plot)
+            rendered = RenderedTrack(definition, track, track.plot, legend_labels)
             self._rendered[definition.track_id] = rendered
             self._tracks_layout.addWidget(track)
 
@@ -163,7 +176,11 @@ class TabletView(QWidget):
         if first is not None:
             first.setYRange(top, bottom, padding=0)
 
-    def _populate_track(self, track: TabletTrackWidget, definition: TrackDefinition) -> None:
+    def _populate_track(
+        self,
+        track: TabletTrackWidget,
+        definition: TrackDefinition,
+    ) -> tuple[str, ...]:
         assert self._dataset is not None
         depth = np.asarray(self._dataset.depth, dtype=float)
 
@@ -171,12 +188,14 @@ class TabletView(QWidget):
             track.plot.setLabel("left", "Глубина", units="м")
             track.plot.hideAxis("bottom")
             track.plot.setMouseEnabled(x=False, y=True)
-            return
+            return ()
 
         track.plot.setLabel("bottom", definition.title)
         logarithmic = definition.x_scale is XScale.LOGARITHMIC
         track.plot.setLogMode(x=logarithmic, y=False)
-        for mnemonic in definition.curve_mnemonics:
+        legend_labels: list[str] = []
+        legend_created = False
+        for index, mnemonic in enumerate(definition.curve_mnemonics):
             curve = self._dataset.curve_by_mnemonic(mnemonic)
             if curve is None:
                 continue
@@ -185,7 +204,13 @@ class TabletView(QWidget):
             if logarithmic:
                 valid &= values > 0
             if np.any(valid):
-                track.plot.plot(values[valid], depth[valid], name=mnemonic)
+                if not legend_created:
+                    track.plot.addLegend(offset=(5, 5))
+                    legend_created = True
+                label = curve_legend_label(curve)
+                pen = pg.mkPen(pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))))
+                track.plot.plot(values[valid], depth[valid], pen=pen, name=label)
+                legend_labels.append(label)
         if definition.x_min is not None and definition.x_max is not None:
             minimum = definition.x_min
             maximum = definition.x_max
@@ -193,6 +218,7 @@ class TabletView(QWidget):
                 minimum = float(np.log10(minimum))
                 maximum = float(np.log10(maximum))
             track.plot.setXRange(minimum, maximum, padding=0)
+        return tuple(legend_labels)
 
     def _on_master_y_range_changed(self, _view_box, ranges) -> None:
         if self._sync_guard:
