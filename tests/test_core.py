@@ -20,6 +20,19 @@ def test_draw_interpolation() -> None:
     np.testing.assert_allclose(result, [10, 15, 20])
 
 
+def test_draw_interpolation_rejects_invalid_points() -> None:
+    depth = np.array([0.0, 1.0, 2.0])
+    with pytest.raises(ValueError, match="минимум две"):
+        interpolate_drawn_curve(depth, [DrawPoint(0.0, 1.0)])
+    with pytest.raises(ValueError, match="уникальными"):
+        interpolate_drawn_curve(depth, [DrawPoint(1.0, 1.0), DrawPoint(1.0, 2.0)])
+    with pytest.raises(ValueError, match="конечные"):
+        interpolate_drawn_curve(
+            depth,
+            [DrawPoint(0.0, 1.0), DrawPoint(2.0, float("nan"))],
+        )
+
+
 def test_dependency_graph() -> None:
     graph = DependencyGraph()
     graph.add_dependency("C1", "TG")
