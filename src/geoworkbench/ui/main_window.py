@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench import __version__
 from geoworkbench.calculations.controller import FormulaExecutionController
+from geoworkbench.calculations.interval_statistics import calculate_interval_statistics
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.data.las_adapter import LasExportError, LasImportError, import_las
 from geoworkbench.project.controller import ProjectController
@@ -43,6 +44,7 @@ from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
+from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.visualization.curve_view import CurveView
 
 
@@ -163,6 +165,10 @@ class MainWindow(QMainWindow):
         self.formula_action = QAction("Профили формул и расчёт...", self)
         self.formula_action.triggered.connect(self.show_formula_profiles)
         calc_menu.addAction(self.formula_action)
+
+        self.interval_statistics_action = QAction("Статистика видимого интервала...", self)
+        self.interval_statistics_action.triggered.connect(self.show_interval_statistics)
+        calc_menu.addAction(self.interval_statistics_action)
 
         self.default_tablet_action = QAction("Построить базовый планшет", self)
         self.default_tablet_action.triggered.connect(self.build_default_tablet)
@@ -639,6 +645,30 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._log(f"Рассчитана кривая {result.output_mnemonic}: {result.profile_id}")
         self.statusBar().showMessage(f"Рассчитана кривая {result.output_mnemonic}")
+
+    def show_interval_statistics(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(self, "Статистика", "Сначала выберите набор данных")
+            return
+        visible_range = self.tablet_view.visible_depth_range
+        if visible_range is None:
+            finite_depth = dataset.depth[np.isfinite(dataset.depth)]
+            if finite_depth.size == 0:
+                QMessageBox.warning(self, "Статистика", "В наборе нет корректной глубины")
+                return
+            depth_top, depth_bottom = float(np.min(finite_depth)), float(np.max(finite_depth))
+        else:
+            depth_top, depth_bottom = visible_range
+        try:
+            statistics = calculate_interval_statistics(dataset, depth_top, depth_bottom)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Статистика", str(exc))
+            return
+        if not statistics:
+            QMessageBox.information(self, "Статистика", "В интервале нет числовых кривых")
+            return
+        IntervalStatisticsDialog(depth_top, depth_bottom, statistics, self).exec()
 
     def save_project_as(self) -> None:
         filename, _ = QFileDialog.getSaveFileName(
