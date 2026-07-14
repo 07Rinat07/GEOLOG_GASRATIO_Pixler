@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from geoworkbench import __version__
 from geoworkbench.data.las_adapter import LasImportError, import_las
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.session import ProjectSession
@@ -42,7 +43,7 @@ class MainWindow(QMainWindow):
         self.project_controller = ProjectController()
         self.tablet_controller = TabletController(self.session)
         self._selected_track_id: str | None = None
-        self.setWindowTitle("GEOLOG GASRATIO@Pixler 0.4")
+        self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
 
         self.tabs = QTabWidget()
@@ -592,7 +593,9 @@ class MainWindow(QMainWindow):
 
     def _update_title(self) -> None:
         marker = " *" if self.session.dirty else ""
-        self.setWindowTitle(f"GEOLOG GASRATIO@Pixler 0.4 — {self.session.project.name}{marker}")
+        self.setWindowTitle(
+            f"GEOLOG GASRATIO@Pixler {__version__} — {self.session.project.name}{marker}"
+        )
 
     def _log(self, text: str) -> None:
         self.issues.append(text)
@@ -601,9 +604,9 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "GEOLOG GASRATIO@Pixler",
-            "Версия 0.4.0\n\n"
+            f"Версия {__version__}\n\n"
             "Автор: Сармулдин Ринат\n"
             "E-mail: ura07srr@gmail.com\n\n"
-            "Реализовано: загрузка нескольких LAS, просмотр кривых, базовые Gas Ratio, "
-            "атомарное сохранение и фундамент многотрекового планшета с общей шкалой глубины.",
+            "Реализовано: загрузка LAS, базовые Gas Ratio, версионированные проекты и "
+            "настраиваемый многотрековый планшет с синхронной шкалой глубины.",
         )
