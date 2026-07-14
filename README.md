@@ -101,3 +101,45 @@ E-mail: **ura07srr@gmail.com**
 Проект находится в активной разработке. Формулы Pixler, Wetness, Balance, Character,
 коэффициента флюидности и D-экспоненты добавляются только после фиксации источника,
 единиц измерения и контрольного примера.
+
+## Proprietary License
+
+Copyright (c) 2026 Rinat Sarmuldin
+
+All rights reserved.
+
+### 1. Ownership
+
+The source code, assets, documentation, and all related materials in this repository
+("Software") are proprietary and owned by Rinat Sarmuldin.
+
+### 2. No automatic grant of rights
+
+No right, license, or permission is granted to use, copy, modify, merge, publish,
+distribute, sublicense, sell, or create derivative works of the Software, in whole or
+in part, without prior written permission from the copyright owner.
+
+### 3. Allowed without separate agreement
+
+You may view this repository and clone/download it only for personal, non-commercial,
+read-only evaluation.
+
+### 4. Commercial and production use
+
+Any commercial use, internal company use, SaaS use, production deployment, redistribution,
+or modification requires prior written permission from the copyright owner.
+
+### 5. Third-party components
+
+Third-party libraries and tools included in this project are subject to their own
+licenses. This license does not limit rights granted by those third-party licenses.
+
+### 6. Warranty disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, AND NON-INFRINGEMENT.
+
+### 7. Contact for permissions
+
+For licensing and usage permissions, contact: ura07srr@gmail.com
