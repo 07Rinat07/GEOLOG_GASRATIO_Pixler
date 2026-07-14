@@ -122,6 +122,17 @@ def test_add_dexp_track_requires_calculated_curves() -> None:
         controller.add_track(TrackKind.DEXP)
 
 
+def test_add_lithology_track_does_not_require_curves() -> None:
+    controller = TabletController(make_session())
+    controller.build_default_layout()
+
+    track = controller.add_track(TrackKind.LITHOLOGY)
+
+    assert track.kind is TrackKind.LITHOLOGY
+    assert track.curve_mnemonics == []
+    assert track.title == "Литология"
+
+
 def test_controller_updates_track_x_settings() -> None:
     session = make_session()
     controller = TabletController(session)

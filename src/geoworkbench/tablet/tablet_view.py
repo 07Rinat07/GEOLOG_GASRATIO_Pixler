@@ -16,7 +16,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.domain.models import CanvasObject, CurveData, Dataset
+from geoworkbench.domain.models import CanvasObject, CurveData, Dataset, LithologyInterval
+from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
+from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.resize import TrackResizeGesture
 from geoworkbench.tablet.sampling import select_visible_samples
@@ -30,6 +32,7 @@ class RenderedTrack:
     legend_labels: tuple[str, ...] = ()
     curve_items: dict[str, pg.PlotDataItem] | None = None
     annotation_items: dict[str, pg.InfiniteLine] | None = None
+    lithology_items: dict[str, pg.BarGraphItem] | None = None
 
 
 def curve_legend_label(curve: CurveData) -> str:
@@ -150,6 +153,8 @@ class TabletView(QWidget):
         pg.setConfigOptions(antialias=False)
         self._dataset: Dataset | None = None
         self._canvas_objects: tuple[CanvasObject, ...] = ()
+        self._lithology: tuple[LithologyInterval, ...] = ()
+        self._lithotype_catalog: dict[str, CatalogLithotype] = {}
         self._layout_model = TabletLayout()
         self._rendered: dict[str, RenderedTrack] = {}
         self._sync_guard = False
@@ -198,6 +203,12 @@ class TabletView(QWidget):
             raise KeyError(f"Трек не отрисован: {track_id}")
         return tuple((rendered.annotation_items or {}).keys())
 
+    def rendered_lithology_ids(self, track_id: str) -> tuple[str, ...]:
+        rendered = self._rendered.get(track_id)
+        if rendered is None:
+            raise KeyError(f"Трек не отрисован: {track_id}")
+        return tuple((rendered.lithology_items or {}).keys())
+
     @property
     def visible_depth_range(self) -> tuple[float, float] | None:
         first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
@@ -221,6 +232,15 @@ class TabletView(QWidget):
 
     def set_canvas_objects(self, canvas_objects: list[CanvasObject]) -> None:
         self._canvas_objects = tuple(canvas_objects)
+        self.refresh_view()
+
+    def set_lithology(
+        self,
+        intervals: list[LithologyInterval],
+        catalog: tuple[CatalogLithotype, ...],
+    ) -> None:
+        self._lithology = tuple(intervals)
+        self._lithotype_catalog = {item.lithotype_id: item for item in catalog}
         self.refresh_view()
 
     def set_layout_model(self, layout_model: TabletLayout) -> None:
@@ -280,6 +300,7 @@ class TabletView(QWidget):
                 visible_bottom,
             )
             annotation_items = self._populate_annotations(track)
+            lithology_items = self._populate_lithology(track, definition)
             if master_plot is None:
                 master_plot = track.plot
             track.plot.sigYRangeChanged.connect(self._on_depth_range_changed)
@@ -291,6 +312,7 @@ class TabletView(QWidget):
                 legend_labels,
                 curve_items,
                 annotation_items,
+                lithology_items,
             )
             self._rendered[definition.track_id] = rendered
             self._tracks_layout.addWidget(track)
@@ -324,6 +346,12 @@ class TabletView(QWidget):
         if definition.kind == TrackKind.DEPTH:
             track.plot.setLabel("left", "Глубина", units="м")
             track.plot.hideAxis("bottom")
+            track.plot.setMouseEnabled(x=False, y=True)
+            return (), {}
+
+        if definition.kind == TrackKind.LITHOLOGY:
+            track.plot.hideAxis("bottom")
+            track.plot.setXRange(0.0, 1.0, padding=0)
             track.plot.setMouseEnabled(x=False, y=True)
             return (), {}
 
@@ -369,6 +397,28 @@ class TabletView(QWidget):
                 maximum = float(np.log10(maximum))
             track.plot.setXRange(minimum, maximum, padding=0)
         return tuple(legend_labels), curve_items
+
+    def _populate_lithology(
+        self, track: TabletTrackWidget, definition: TrackDefinition
+    ) -> dict[str, pg.BarGraphItem]:
+        if definition.kind is not TrackKind.LITHOLOGY:
+            return {}
+        rendered: dict[str, pg.BarGraphItem] = {}
+        for interval in self._lithology:
+            lithotype = self._lithotype_catalog.get(interval.lithotype_id)
+            color = lithotype.color if lithotype is not None else "#b0b0b0"
+            pattern = lithotype.pattern_key if lithotype is not None else "solid"
+            item = pg.BarGraphItem(
+                x=[0.5],
+                y=[(interval.top_depth + interval.bottom_depth) / 2.0],
+                width=1.0,
+                height=interval.bottom_depth - interval.top_depth,
+                brush=lithology_brush(color, pattern),
+                pen=pg.mkPen("#303030", width=0.7),
+            )
+            track.plot.addItem(item)
+            rendered[interval.interval_id] = item
+        return rendered
 
     def _populate_annotations(self, track: TabletTrackWidget) -> dict[str, pg.InfiniteLine]:
         rendered: dict[str, pg.InfiniteLine] = {}

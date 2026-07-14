@@ -39,6 +39,10 @@ class TabletController:
         remaining = [name for name in curve_names if name not in gas_names]
 
         tracks = [TrackDefinition(new_id(), "Глубина", TrackKind.DEPTH, width=120)]
+        if self.session.current_well is not None and self.session.current_well.lithology:
+            tracks.append(
+                TrackDefinition(new_id(), "Литология", TrackKind.LITHOLOGY, width=180)
+            )
         if gas_names:
             tracks.append(
                 TrackDefinition(
@@ -105,6 +109,10 @@ class TabletController:
             if not mnemonics:
                 raise ValueError("В наборе нет рассчитанных кривых DEXP/NCT")
             width = 320
+        elif kind is TrackKind.LITHOLOGY:
+            title = "Литология"
+            width = 180
+            mnemonics = []
         elif not mnemonics:
             raise ValueError("Выберите хотя бы одну кривую")
         else:

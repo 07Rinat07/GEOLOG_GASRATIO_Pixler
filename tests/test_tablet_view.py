@@ -9,7 +9,9 @@ from geoworkbench.domain.models import (
     Dataset,
     DatasetKind,
     DepthDomain,
+    LithologyInterval,
 )
+from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.tablet_view import TabletTrackWidget, TabletView, curve_legend_label
 
@@ -252,4 +254,39 @@ def test_tablet_view_renders_depth_annotations_on_every_track(qapp) -> None:
 
     assert view.rendered_annotation_ids("depth") == ("note-1",)
     assert view.rendered_annotation_ids("curve") == ("note-1",)
+    view.close()
+
+
+def test_tablet_view_renders_lithology_intervals(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 150.0, 200.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("lithology", "Литология", TrackKind.LITHOLOGY)])
+    )
+    view.set_lithology(
+        [LithologyInterval("layer-1", 110.0, 160.0, "sandstone", "Песчаник")],
+        (
+            CatalogLithotype(
+                "sandstone",
+                "SS",
+                "Песчаник",
+                "Sandstone",
+                "sedimentary",
+                "#e7cf8b",
+                "sandstone_bricks",
+                True,
+            ),
+        ),
+    )
+
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.rendered_lithology_ids("lithology") == ("layer-1",)
     view.close()

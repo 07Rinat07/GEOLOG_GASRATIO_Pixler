@@ -201,6 +201,7 @@ class MainWindow(QMainWindow):
             ("Глубина", TrackKind.DEPTH),
             ("Газовые компоненты", TrackKind.GAS),
             ("DEXP / NCT", TrackKind.DEXP),
+            ("Литология", TrackKind.LITHOLOGY),
             ("Кривая", TrackKind.CURVE),
         ):
             action = QAction(title, self)
@@ -292,6 +293,10 @@ class MainWindow(QMainWindow):
         self.curve_view.show_dataset(last_dataset)
         self.tablet_view.set_dataset(last_dataset)
         self.tablet_view.set_canvas_objects(last_well.canvas_objects)
+        self.tablet_view.set_lithology(
+            last_well.lithology,
+            self.lithotype_catalog_controller.available(),
+        )
         self.build_default_tablet()
         self.inspector.setPlainText(
             f"Скважина: {last_well.name}\n"
@@ -362,11 +367,16 @@ class MainWindow(QMainWindow):
             self.tablet_view.set_layout_model(TabletLayout())
             self.tablet_view.set_dataset(None)
             self.tablet_view.set_canvas_objects([])
+            self.tablet_view.set_lithology([], self.lithotype_catalog_controller.available())
             return
         self.curve_view.show_dataset(dataset)
         self.tablet_view.set_dataset(dataset)
         well = self.session.current_well
         self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
+        self.tablet_view.set_lithology(
+            well.lithology if well is not None else [],
+            self.lithotype_catalog_controller.available(),
+        )
         saved_layout = self.session.current_tablet_layout
         if saved_layout is None:
             self.build_default_tablet()
@@ -717,11 +727,21 @@ class MainWindow(QMainWindow):
             self,
             catalog=self.lithotype_catalog_controller.available(),
         ).exec()
+        well = self.session.current_well
+        self.tablet_view.set_lithology(
+            well.lithology if well is not None else [],
+            self.lithotype_catalog_controller.available(),
+        )
         self._refresh_tree()
         self._update_title()
 
     def show_lithotype_catalog(self) -> None:
         LithotypeCatalogDialog(self.lithotype_catalog_controller, self).exec()
+        well = self.session.current_well
+        self.tablet_view.set_lithology(
+            well.lithology if well is not None else [],
+            self.lithotype_catalog_controller.available(),
+        )
         self._update_title()
 
     def save_project_as(self) -> None:
