@@ -6,6 +6,7 @@ from geoworkbench.calculations.pixler import (
     FormulaControlExample,
     FormulaProfile,
     FormulaProfileRegistry,
+    build_all_sourced_formula_registry,
     build_sourced_formula_registry,
 )
 
@@ -135,5 +136,52 @@ def test_sourced_profiles_return_nan_for_zero_denominator() -> None:
     result = registry.calculate(
         "pixler.c1_c2",
         {"C1": np.array([1.0]), "C2": np.array([0.0])},
+    )
+    assert np.isnan(result[0])
+
+
+def test_sourced_d_exponent_profiles() -> None:
+    registry = build_all_sourced_formula_registry()
+    d_value = registry.calculate(
+        "dexp.jorden_shirley",
+        {
+            "ROP_FPH": np.array([60.0]),
+            "RPM": np.array([100.0]),
+            "WOB_LBF": np.array([50_000.0]),
+            "BIT_IN": np.array([10.0]),
+        },
+    )
+    corrected = registry.calculate(
+        "dexp.rehm_mcclendon_corrected",
+        {
+            "DEXP": d_value,
+            "RHO_N_PPG": np.array([9.0]),
+            "RHO_A_PPG": np.array([12.0]),
+        },
+    )
+
+    np.testing.assert_allclose(d_value, [1.6368638103758524])
+    np.testing.assert_allclose(corrected, d_value * 0.75)
+    graph = registry.build_dependency_graph()
+    assert graph.affected_outputs({"ROP_FPH"}) == ["DEXP", "DEXPC"]
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        (0.0, 100.0, 50_000.0, 10.0),
+        (60.0, 0.0, 50_000.0, 10.0),
+        (60.0, 100.0, 0.0, 10.0),
+        (60.0, 100.0, 50_000.0, 0.0),
+    ],
+)
+def test_d_exponent_invalid_log_domain_returns_nan(values: tuple[float, ...]) -> None:
+    registry = build_all_sourced_formula_registry()
+    result = registry.calculate(
+        "dexp.jorden_shirley",
+        {
+            name: np.array([value])
+            for name, value in zip(("ROP_FPH", "RPM", "WOB_LBF", "BIT_IN"), values, strict=True)
+        },
     )
     assert np.isnan(result[0])

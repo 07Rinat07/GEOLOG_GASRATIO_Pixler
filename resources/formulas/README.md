@@ -24,6 +24,10 @@ Character, коэффициента флюидности и D-экспонент
 - Haworth `Wh`, `Bh`, `Ch` для компонентов C1-C5;
 - Pixler `C1/C2`, `C1/C3`, `C1/(iC4+nC4)`, `C1/(iC5+nC5)`.
 
+`build_all_sourced_formula_registry()` дополнительно регистрирует профили
+Jorden–Shirley `DEXP` и Rehm–McClendon `DEXPC`. Описание единиц и ограничений:
+[`docs/DEXP_FORMULAS.md`](../../docs/DEXP_FORMULAS.md).
+
 Полные библиографические записи, ссылки и ограничения применения находятся в
 [`docs/MUD_GAS_FORMULAS.md`](../../docs/MUD_GAS_FORMULAS.md). Значения всех
 газовых компонентов в одной формуле должны быть выражены в одинаковых единицах.

@@ -202,9 +202,38 @@ PIXLER_SOURCE = (
     "Pixler, B.O. (1969). Formation Evaluation by Analysis of Hydrocarbon Ratios. "
     "Journal of Petroleum Technology 21(6), 665-670. DOI: 10.2118/2254-PA."
 )
+DEXP_SOURCE = (
+    "Jorden, J.R., Shirley, O.J. (1966). Application of Drilling Performance Data "
+    "to Overpressure Detection. Journal of Petroleum Technology 18(11), 1387-1394. "
+    "DOI: 10.2118/1407-PA."
+)
+CORRECTED_DEXP_SOURCE = (
+    "Rehm, W.A., McClendon, R. (1971). Measurement of Formation Pressure from "
+    "Drilling Data. SPE 3601-MS. DOI: 10.2118/3601-MS."
+)
 _GAS_UNITS = {
     name: "same concentration unit" for name in ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5")
 }
+
+
+def _d_exponent(inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+    rop_term = safe_ratio(inputs["ROP_FPH"], 60.0 * inputs["RPM"])
+    weight_term = safe_ratio(12.0 * inputs["WOB_LBF"], 1_000_000.0 * inputs["BIT_IN"])
+    result = np.full(rop_term.shape, np.nan, dtype=np.float64)
+    valid = (
+        np.isfinite(rop_term)
+        & np.isfinite(weight_term)
+        & (rop_term > 0.0)
+        & (weight_term > 0.0)
+        & ~np.isclose(weight_term, 1.0)
+    )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        result[valid] = np.log10(rop_term[valid]) / np.log10(weight_term[valid])
+    return result
+
+
+def _corrected_d_exponent(inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+    return inputs["DEXP"] * safe_ratio(inputs["RHO_N_PPG"], inputs["RHO_A_PPG"])
 
 
 def sourced_gas_ratio_profiles() -> tuple[FormulaProfile, ...]:
@@ -331,5 +360,64 @@ def sourced_gas_ratio_profiles() -> tuple[FormulaProfile, ...]:
 def build_sourced_formula_registry() -> FormulaProfileRegistry:
     registry = FormulaProfileRegistry()
     for profile in sourced_gas_ratio_profiles():
+        registry.register(profile)
+    return registry
+
+
+def sourced_d_exponent_profiles() -> tuple[FormulaProfile, FormulaProfile]:
+    """Return d-exponent profiles without assuming a default normal mud density."""
+
+    d_profile = FormulaProfile(
+        profile_id="dexp.jorden_shirley",
+        display_name="Jorden-Shirley d-exponent",
+        version="1.0.0",
+        category=FormulaCategory.DEXP,
+        source=DEXP_SOURCE,
+        expression="d = log10(ROP/(60*RPM)) / log10(12*WOB/(10^6*BIT))",
+        required_inputs=("ROP_FPH", "RPM", "WOB_LBF", "BIT_IN"),
+        input_units={
+            "ROP_FPH": "ft/h",
+            "RPM": "rev/min",
+            "WOB_LBF": "lbf",
+            "BIT_IN": "in",
+        },
+        output_mnemonic="DEXP",
+        output_unit="dimensionless",
+        description="Нормализованный показатель механической скорости проходки.",
+        formula=_d_exponent,
+        control_example=FormulaControlExample(
+            inputs={
+                "ROP_FPH": (60.0,),
+                "RPM": (100.0,),
+                "WOB_LBF": (50_000.0,),
+                "BIT_IN": (10.0,),
+            },
+            expected=(1.6368638103758524,),
+        ),
+    )
+    corrected_profile = FormulaProfile(
+        profile_id="dexp.rehm_mcclendon_corrected",
+        display_name="Rehm-McClendon corrected d-exponent",
+        version="1.0.0",
+        category=FormulaCategory.DEXP,
+        source=CORRECTED_DEXP_SOURCE,
+        expression="dc = d * (rho_n / rho_a)",
+        required_inputs=("DEXP", "RHO_N_PPG", "RHO_A_PPG"),
+        input_units={"DEXP": "dimensionless", "RHO_N_PPG": "ppg", "RHO_A_PPG": "ppg"},
+        output_mnemonic="DEXPC",
+        output_unit="dimensionless",
+        description="d-экспонента с поправкой на фактическую плотность раствора.",
+        formula=_corrected_d_exponent,
+        control_example=FormulaControlExample(
+            inputs={"DEXP": (1.5,), "RHO_N_PPG": (9.0,), "RHO_A_PPG": (12.0,)},
+            expected=(1.125,),
+        ),
+    )
+    return d_profile, corrected_profile
+
+
+def build_all_sourced_formula_registry() -> FormulaProfileRegistry:
+    registry = build_sourced_formula_registry()
+    for profile in sourced_d_exponent_profiles():
         registry.register(profile)
     return registry
