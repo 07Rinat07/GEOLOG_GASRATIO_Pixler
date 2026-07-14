@@ -3,6 +3,7 @@ import pyqtgraph as pg
 import pytest
 
 from geoworkbench.domain.models import (
+    CanvasObject,
     CurveData,
     CurveMetadata,
     Dataset,
@@ -209,4 +210,46 @@ def test_user_depth_change_updates_samples_and_linked_tracks(qapp) -> None:
     assert view.track_depth_range("depth") == pytest.approx((100.0, 200.0))
     assert view.track_depth_range("curve") == pytest.approx((100.0, 200.0))
     assert view.rendered_curve_point_count("curve", "ROP") == 101
+    view.close()
+
+
+def test_tablet_view_renders_depth_annotations_on_every_track(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 150.0, 200.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Глубина", TrackKind.DEPTH),
+                TrackDefinition("curve", "Curve", TrackKind.CURVE),
+            ]
+        )
+    )
+    view.set_canvas_objects(
+        [
+            CanvasObject(
+                "note-1",
+                "depth_annotation",
+                "depth",
+                0.0,
+                150.0,
+                1.0,
+                0.0,
+                top_depth=150.0,
+                bottom_depth=150.0,
+                properties={"text": "Газопроявление"},
+            )
+        ]
+    )
+
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.rendered_annotation_ids("depth") == ("note-1",)
+    assert view.rendered_annotation_ids("curve") == ("note-1",)
     view.close()

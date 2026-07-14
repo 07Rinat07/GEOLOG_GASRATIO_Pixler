@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.domain.models import CanvasObject, CurveData, Dataset
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.resize import TrackResizeGesture
 from geoworkbench.tablet.sampling import select_visible_samples
@@ -29,6 +29,7 @@ class RenderedTrack:
     plot: pg.PlotWidget | None = None
     legend_labels: tuple[str, ...] = ()
     curve_items: dict[str, pg.PlotDataItem] | None = None
+    annotation_items: dict[str, pg.InfiniteLine] | None = None
 
 
 def curve_legend_label(curve: CurveData) -> str:
@@ -55,7 +56,9 @@ class TabletTrackWidget(QFrame):
 
         self.title = QLabel(definition.title)
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.title.setStyleSheet("font-weight: 600; padding: 5px; border-bottom: 1px solid palette(mid);")
+        self.title.setStyleSheet(
+            "font-weight: 600; padding: 5px; border-bottom: 1px solid palette(mid);"
+        )
 
         self.plot = pg.PlotWidget()
         self.plot.showGrid(x=True, y=True, alpha=0.2)
@@ -146,6 +149,7 @@ class TabletView(QWidget):
         super().__init__()
         pg.setConfigOptions(antialias=False)
         self._dataset: Dataset | None = None
+        self._canvas_objects: tuple[CanvasObject, ...] = ()
         self._layout_model = TabletLayout()
         self._rendered: dict[str, RenderedTrack] = {}
         self._sync_guard = False
@@ -188,6 +192,12 @@ class TabletView(QWidget):
         x_values, _ = rendered.curve_items[mnemonic].getData()
         return 0 if x_values is None else len(x_values)
 
+    def rendered_annotation_ids(self, track_id: str) -> tuple[str, ...]:
+        rendered = self._rendered.get(track_id)
+        if rendered is None:
+            raise KeyError(f"Трек не отрисован: {track_id}")
+        return tuple((rendered.annotation_items or {}).keys())
+
     @property
     def visible_depth_range(self) -> tuple[float, float] | None:
         first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
@@ -207,6 +217,10 @@ class TabletView(QWidget):
 
     def set_dataset(self, dataset: Dataset | None) -> None:
         self._dataset = dataset
+        self.refresh_view()
+
+    def set_canvas_objects(self, canvas_objects: list[CanvasObject]) -> None:
+        self._canvas_objects = tuple(canvas_objects)
         self.refresh_view()
 
     def set_layout_model(self, layout_model: TabletLayout) -> None:
@@ -265,6 +279,7 @@ class TabletView(QWidget):
                 visible_top,
                 visible_bottom,
             )
+            annotation_items = self._populate_annotations(track)
             if master_plot is None:
                 master_plot = track.plot
             track.plot.sigYRangeChanged.connect(self._on_depth_range_changed)
@@ -275,6 +290,7 @@ class TabletView(QWidget):
                 track.plot,
                 legend_labels,
                 curve_items,
+                annotation_items,
             )
             self._rendered[definition.track_id] = rendered
             self._tracks_layout.addWidget(track)
@@ -353,6 +369,33 @@ class TabletView(QWidget):
                 maximum = float(np.log10(maximum))
             track.plot.setXRange(minimum, maximum, padding=0)
         return tuple(legend_labels), curve_items
+
+    def _populate_annotations(self, track: TabletTrackWidget) -> dict[str, pg.InfiniteLine]:
+        rendered: dict[str, pg.InfiniteLine] = {}
+        for item in self._canvas_objects:
+            if item.object_type != "depth_annotation" or item.anchor_type != "depth":
+                continue
+            depth = item.top_depth if item.top_depth is not None else item.y
+            if not np.isfinite(depth):
+                continue
+            line = pg.InfiniteLine(
+                pos=float(depth),
+                angle=0,
+                movable=False,
+                pen=pg.mkPen("#d97706", width=1, style=Qt.PenStyle.DashLine),
+            )
+            text = str(item.properties.get("text", "")).strip()
+            if text:
+                pg.InfLineLabel(
+                    line,
+                    text=text,
+                    position=0.02,
+                    rotateAxis=(1, 0),
+                    anchor=(0, 1),
+                )
+            track.plot.addItem(line)
+            rendered[item.object_id] = line
+        return rendered
 
     def _update_visible_curve_data(self, top: float, bottom: float) -> None:
         if self._dataset is None:

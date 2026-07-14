@@ -277,6 +277,7 @@ class MainWindow(QMainWindow):
 
         self.curve_view.show_dataset(last_dataset)
         self.tablet_view.set_dataset(last_dataset)
+        self.tablet_view.set_canvas_objects(last_well.canvas_objects)
         self.build_default_tablet()
         self.inspector.setPlainText(
             f"Скважина: {last_well.name}\n"
@@ -343,9 +344,12 @@ class MainWindow(QMainWindow):
             self.curve_view.clear()
             self.tablet_view.set_layout_model(TabletLayout())
             self.tablet_view.set_dataset(None)
+            self.tablet_view.set_canvas_objects([])
             return
         self.curve_view.show_dataset(dataset)
         self.tablet_view.set_dataset(dataset)
+        well = self.session.current_well
+        self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
         saved_layout = self.session.current_tablet_layout
         if saved_layout is None:
             self.build_default_tablet()
@@ -683,6 +687,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Заметки", "Сначала выберите скважину")
             return
         DepthAnnotationsDialog(self.depth_annotation_controller, self).exec()
+        well = self.session.current_well
+        self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
         self._update_title()
 
     def save_project_as(self) -> None:
