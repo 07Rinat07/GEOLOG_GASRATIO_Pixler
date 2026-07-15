@@ -7,8 +7,18 @@ from pathlib import Path
 
 import numpy as np
 
-from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain, new_id
-from geoworkbench.services.index_detection import IndexColumn, detect_index_candidates
+from geoworkbench.domain.models import (
+    CurveData,
+    CurveMetadata,
+    Dataset,
+    DatasetIndex,
+    DatasetKind,
+    DepthDomain,
+    IndexType,
+    new_id,
+)
+from geoworkbench.services.index_detection import IndexCandidate, IndexColumn, detect_index_candidates
+from geoworkbench.services.time_normalization import normalize_iso8601_strings
 
 
 class CsvImportError(RuntimeError):
@@ -96,14 +106,12 @@ def import_csv(
                 f"Строка {number}: ожидалось колонок {width}, получено {len(row)}"
             )
     null_tokens = {token.strip().casefold() for token in plan.null_tokens}
-    numeric_columns = [
-        _parse_numeric_column(data_rows, position, name, null_tokens)
-        for position, name in enumerate(probe.columns)
-    ]
-    index_values = numeric_columns[index_position]
-    candidate = detect_index_candidates(
-        [IndexColumn("csv-index", plan.index_column, None, None, index_values)]
-    )[0]
+    index_values, candidate, index_mnemonic, index_unit = _parse_index_column(
+        data_rows,
+        index_position,
+        plan.index_column,
+        null_tokens,
+    )
     domain = {
         "tvd": DepthDomain.TVD,
         "tvdss": DepthDomain.TVDSS,
@@ -111,19 +119,45 @@ def import_csv(
         "datetime": DepthDomain.TIME,
     }.get(candidate.index_type.value, DepthDomain.MD)
     dataset_id = new_id()
-    dataset = Dataset(
-        dataset_id,
-        probe.path.stem,
-        kind,
-        domain,
-        index_values,
-        source_path=probe.path,
-    )
-    dataset.active_index.mnemonic = plan.index_column
-    dataset.active_index.index_type = candidate.index_type
-    dataset.active_index.role = candidate.role
-    dataset.active_index.confidence = candidate.confidence
-    dataset.active_index.evidence = candidate.evidence
+    if candidate.index_type is IndexType.DATETIME:
+        index_id = f"{dataset_id}:csv-index"
+        typed_index = DatasetIndex(
+            index_id,
+            index_mnemonic,
+            candidate.index_type,
+            candidate.role,
+            index_unit,
+            index_values,
+            confidence=candidate.confidence,
+            evidence=candidate.evidence,
+            datetime_format=candidate.datetime_format,
+            timezone=candidate.timezone,
+        )
+        dataset = Dataset(
+            dataset_id,
+            probe.path.stem,
+            kind,
+            domain,
+            np.arange(len(data_rows), dtype=np.float64),
+            source_path=probe.path,
+            indexes={index_id: typed_index},
+            active_index_id=index_id,
+        )
+    else:
+        dataset = Dataset(
+            dataset_id,
+            probe.path.stem,
+            kind,
+            domain,
+            index_values,
+            source_path=probe.path,
+        )
+        dataset.active_index.mnemonic = index_mnemonic
+        dataset.active_index.unit = index_unit
+        dataset.active_index.index_type = candidate.index_type
+        dataset.active_index.role = candidate.role
+        dataset.active_index.confidence = candidate.confidence
+        dataset.active_index.evidence = candidate.evidence
     for position, header in enumerate(probe.columns):
         if position == index_position:
             continue
@@ -139,7 +173,7 @@ def import_csv(
                 dataset_id,
                 provenance=f"csv:{probe.path.name}",
             ),
-            numeric_columns[position],
+            _parse_numeric_column(data_rows, position, header, null_tokens),
         )
     return CsvImportResult(dataset, probe.delimiter, probe.encoding, len(data_rows))
 
@@ -163,6 +197,37 @@ def _parse_numeric_column(
                 f"Колонка {name}, строка {index + 2}: ожидалось число, получено {text!r}"
             ) from exc
     return values
+
+
+def _parse_index_column(
+    rows: list[list[str]],
+    position: int,
+    header: str,
+    null_tokens: set[str],
+) -> tuple[np.ndarray, IndexCandidate, str, str | None]:
+    mnemonic, unit = _split_header(header)
+    try:
+        numeric = _parse_numeric_column(rows, position, header, null_tokens)
+    except CsvImportError as numeric_error:
+        raw = np.asarray(
+            [
+                "" if row[position].strip().casefold() in null_tokens else row[position].strip()
+                for row in rows
+            ]
+        )
+        normalized = normalize_iso8601_strings(raw)
+        if normalized is None or any(
+            "смешаны значения" in warning for warning in normalized.warnings
+        ):
+            raise numeric_error
+        candidate = detect_index_candidates(
+            [IndexColumn("csv-index", mnemonic, unit, None, raw)]
+        )[0]
+        return normalized.values, candidate, mnemonic, unit
+    candidate = detect_index_candidates(
+        [IndexColumn("csv-index", mnemonic, unit, None, numeric)]
+    )[0]
+    return numeric, candidate, mnemonic, unit
 
 
 def _detect_delimiter(text: str) -> str:

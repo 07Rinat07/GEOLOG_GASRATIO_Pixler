@@ -79,3 +79,47 @@ def test_probe_rejects_duplicate_headers_and_wrong_encoding(tmp_path) -> None:
 def test_plan_validates_delimiter() -> None:
     with pytest.raises(ValueError, match="одного символа"):
         CsvImportPlan(delimiter=";;")
+
+
+def test_import_csv_accepts_iso8601_time_index_with_timezone(tmp_path) -> None:
+    source = tmp_path / "time.csv"
+    source.write_text(
+        "RECORD_TIME,C1 [%]\n"
+        "2026-07-15T10:00:00+05:00,1.2\n"
+        "2026-07-15T10:00:01+05:00,1.3\n",
+        encoding="utf-8",
+    )
+
+    result = import_csv(source, CsvImportPlan(index_column="RECORD_TIME"))
+
+    index = result.dataset.active_index
+    assert index.index_type is IndexType.DATETIME
+    assert index.role is IndexRole.TIME
+    assert index.datetime_format == "ISO8601"
+    assert index.timezone == "UTC+05:00"
+    np.testing.assert_array_equal(
+        index.values,
+        np.array(["2026-07-15T05:00:00", "2026-07-15T05:00:01"], dtype="datetime64[ns]"),
+    )
+    np.testing.assert_allclose(result.dataset.curve_by_mnemonic("C1").values, [1.2, 1.3])
+
+
+def test_import_csv_keeps_naive_iso_time_without_assuming_utc(tmp_path) -> None:
+    source = tmp_path / "naive.csv"
+    source.write_text(
+        "DATE,C1\n2026-07-15T10:00:00,1\n2026-07-15T10:00:01,2\n",
+        encoding="utf-8",
+    )
+
+    result = import_csv(source, CsvImportPlan(index_column="DATE"))
+
+    assert result.dataset.active_index.index_type is IndexType.DATETIME
+    assert result.dataset.active_index.timezone is None
+
+
+def test_import_csv_rejects_non_iso_string_index(tmp_path) -> None:
+    source = tmp_path / "bad-time.csv"
+    source.write_text("DATE,C1\n15.07.2026 10:00,1\n", encoding="utf-8")
+
+    with pytest.raises(CsvImportError, match="ожидалось число"):
+        import_csv(source, CsvImportPlan(index_column="DATE"))
