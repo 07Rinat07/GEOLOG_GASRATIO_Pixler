@@ -1,4 +1,11 @@
-from geoworkbench.data.lossless_las import NewlineStyle, parse_lossless_las
+import pytest
+
+from geoworkbench.data.lossless_las import (
+    LasSectionEditError,
+    NewlineStyle,
+    parse_lossless_las,
+    replace_section_roles,
+)
 
 
 def test_lossless_document_preserves_exact_bytes_and_section_order() -> None:
@@ -54,3 +61,52 @@ def test_lossless_document_without_sections_keeps_preamble() -> None:
     assert document.sections == ()
     assert document.preamble == raw
     assert document.to_bytes() == raw
+
+
+def test_replace_section_roles_preserves_preamble_unknown_sections_and_order() -> None:
+    raw = (
+        b"# preamble\r\n"
+        b"~V\r\nVERS. 1.2\r\n"
+        b"~Other Vendor Data\r\n# exact comment\r\nVALUE. 42\r\n"
+        b"~A\r\n100 1\r\n"
+    )
+    document = parse_lossless_las(raw)
+
+    changed = replace_section_roles(
+        document,
+        {
+            "version": b"~Version\r\nVERS. 2.0\r\n",
+            "ascii": b"~ASCII\r\n100 9\r\n",
+        },
+    )
+
+    assert changed.preamble == b"# preamble\r\n"
+    assert b"~Other Vendor Data\r\n# exact comment\r\nVALUE. 42\r\n" in changed.to_bytes()
+    assert [section.name for section in changed.sections] == ["version", "other", "ascii"]
+    assert changed.to_bytes().endswith(b"~ASCII\r\n100 9\r\n")
+
+
+def test_replace_section_roles_rejects_wrong_or_ambiguous_section() -> None:
+    duplicate = parse_lossless_las(b"~W\nA. 1\n~Well\nB. 2\n~A\n1\n")
+
+    with pytest.raises(LasSectionEditError, match="неоднозначная"):
+        replace_section_roles(duplicate, {"well": b"~Well\nWELL. TEST\n"})
+    with pytest.raises(LasSectionEditError, match="не может заменить"):
+        replace_section_roles(duplicate, {"ascii": b"~Curve\nDEPT.M\n"})
+
+
+def test_replace_section_requires_line_boundary_before_following_section() -> None:
+    document = parse_lossless_las(b"~V\nVERS. 1.2\n~A\n1\n")
+
+    with pytest.raises(LasSectionEditError, match="переводом строки"):
+        replace_section_roles(document, {"version": b"~V\nVERS. 2.0"})
+
+
+def test_utf8_bom_is_preserved_as_preamble_when_section_is_replaced() -> None:
+    document = parse_lossless_las(b"\xef\xbb\xbf~V\r\nVERS. 1.2\r\n~A\r\n1\r\n")
+
+    changed = replace_section_roles(document, {"version": b"~V\r\nVERS. 2.0\r\n"})
+
+    assert document.preamble == b"\xef\xbb\xbf"
+    assert changed.to_bytes().startswith(b"\xef\xbb\xbf~V")
+    assert changed.to_bytes().count(b"\xef\xbb\xbf") == 1

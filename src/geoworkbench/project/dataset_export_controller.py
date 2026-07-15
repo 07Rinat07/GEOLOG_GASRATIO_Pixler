@@ -15,4 +15,9 @@ class DatasetExportController:
         dataset = self.session.current_dataset
         if dataset is None:
             raise RuntimeError("Сначала выберите набор данных")
-        return export_las(dataset, target, overwrite=overwrite)
+        return export_las(
+            dataset,
+            target,
+            overwrite=overwrite,
+            source_document=self.session.source_documents.get(dataset.dataset_id),
+        )

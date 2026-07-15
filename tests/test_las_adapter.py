@@ -219,6 +219,35 @@ def test_export_las_round_trip_preserves_depth_curve_and_metadata(tmp_path) -> N
     assert restored.headers["WELL"] == "Test Well"
 
 
+def test_lossless_export_preserves_custom_section_and_updates_data(tmp_path) -> None:
+    source = tmp_path / "source.las"
+    custom_section = b"~Other Vendor Block\r\n# keep this exact\r\nVENDOR_CODE. 42\r\n"
+    source.write_bytes(
+        b"~Version Information\r\n"
+        b"VERS. 2.0 : LAS version\r\n"
+        b"WRAP. NO : one line per depth\r\n"
+        b"~Well Information\r\n"
+        b"STRT.M 100\r\nSTOP.M 101\r\nSTEP.M 1\r\nNULL. -999.25\r\nWELL. TEST\r\n"
+        b"~Curve Information\r\n"
+        b"DEPT.M : Depth\r\nC1.% : Methane\r\n"
+        + custom_section
+        + b"~ASCII Log Data\r\n100 1\r\n101 2\r\n"
+    )
+    imported = import_las_with_report(source)
+    imported.dataset.curve_by_mnemonic("C1").values[0] = 9.0  # type: ignore[union-attr]
+    target = tmp_path / "edited.las"
+
+    export_las(imported.dataset, target, source_document=imported.source_document)
+
+    exported_bytes = target.read_bytes()
+    assert custom_section in exported_bytes
+    assert b"\r\n" in exported_bytes
+    restored = import_las(target)
+    c1 = restored.curve_by_mnemonic("C1")
+    assert c1 is not None
+    assert c1.values[0] == pytest.approx(9.0)
+
+
 def test_export_las_never_overwrites_source_file(tmp_path) -> None:
     source = tmp_path / "source.las"
     source.write_text("original", encoding="utf-8")

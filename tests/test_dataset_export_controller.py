@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
+from geoworkbench.data.lossless_las import parse_lossless_las
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.session import ProjectSession
 
@@ -21,11 +22,12 @@ def test_export_controller_uses_current_dataset(tmp_path, monkeypatch) -> None:
         project=Project("project-1", "Project", wells={well.well_id: well}),
         current_well_id=well.well_id,
         current_dataset_id=dataset.dataset_id,
+        source_documents={dataset.dataset_id: parse_lossless_las(b"~A\n1\n")},
     )
-    captured: list[tuple[Dataset, Path, bool]] = []
+    captured: list[tuple[Dataset, Path, bool, object]] = []
 
-    def fake_export(selected, target, *, overwrite=False):
-        captured.append((selected, target, overwrite))
+    def fake_export(selected, target, *, overwrite=False, source_document=None):
+        captured.append((selected, target, overwrite, source_document))
         return target
 
     monkeypatch.setattr(
@@ -37,7 +39,7 @@ def test_export_controller_uses_current_dataset(tmp_path, monkeypatch) -> None:
     result = DatasetExportController(session).export_current_las(target, overwrite=True)
 
     assert result == target
-    assert captured == [(dataset, target, True)]
+    assert captured == [(dataset, target, True, session.source_documents[dataset.dataset_id])]
 
 
 def test_export_controller_requires_current_dataset(tmp_path) -> None:

@@ -16,7 +16,15 @@ from geoworkbench.data.las_import_report import (
     LasIssueSeverity,
     LasSourceSnapshot,
 )
-from geoworkbench.data.lossless_las import LosslessLasDocument, read_lossless_las
+from geoworkbench.data.lossless_las import (
+    LasSectionEditError,
+    LosslessLasDocument,
+    NewlineStyle,
+    parse_lossless_las,
+    read_lossless_las,
+    replace_section_roles,
+    section_role,
+)
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
@@ -262,6 +270,7 @@ def export_las(
     target: str | Path,
     *,
     overwrite: bool = False,
+    source_document: LosslessLasDocument | None = None,
 ) -> Path:
     destination = Path(target)
     if destination.suffix.casefold() != ".las":
@@ -295,11 +304,74 @@ def export_las(
     os.close(fd)
     try:
         las.write(temporary_name, version=2.0)
+        if source_document is not None:
+            generated = parse_lossless_las(Path(temporary_name).read_bytes())
+            composed = _compose_lossless_export(source_document, generated)
+            Path(temporary_name).write_bytes(composed.to_bytes())
         os.replace(temporary_name, destination)
+    except LasExportError:
+        Path(temporary_name).unlink(missing_ok=True)
+        raise
     except Exception as exc:
         Path(temporary_name).unlink(missing_ok=True)
         raise LasExportError(f"Не удалось экспортировать LAS: {destination}") from exc
     return destination
+
+
+def _compose_lossless_export(
+    source: LosslessLasDocument,
+    generated: LosslessLasDocument,
+) -> LosslessLasDocument:
+    generated_by_role = {
+        role: generated.section_bytes(section)
+        for section in generated.sections
+        if (role := section_role(section.name)) is not None
+    }
+    source_roles = {
+        role
+        for section in source.sections
+        if (role := section_role(section.name)) is not None
+    }
+    required_roles = {"version", "well", "curve", "ascii"}
+    missing = required_roles - source_roles
+    if missing:
+        raise LasExportError(
+            "Lossless-экспорт невозможен: отсутствуют секции " + ", ".join(sorted(missing))
+        )
+    missing_generated = source_roles - set(generated_by_role)
+    if missing_generated:
+        raise LasExportError(
+            "Lossless-экспорт невозможен: генератор не создал секции "
+            + ", ".join(sorted(missing_generated))
+        )
+    replacements = {
+        role: _adapt_generated_section(payload, source)
+        for role, payload in generated_by_role.items()
+        if role in source_roles
+    }
+    try:
+        return replace_section_roles(source, replacements)
+    except LasSectionEditError as exc:
+        raise LasExportError(f"Lossless-экспорт секций невозможен: {exc}") from exc
+
+
+def _adapt_generated_section(payload: bytes, source: LosslessLasDocument) -> bytes:
+    text = payload.decode("utf-8")
+    if source.newline_style is not NewlineStyle.MIXED:
+        newline = {
+            NewlineStyle.CRLF: "\r\n",
+            NewlineStyle.CR: "\r",
+            NewlineStyle.LF: "\n",
+            NewlineStyle.NONE: "\n",
+        }[source.newline_style]
+        text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", newline)
+    try:
+        target_encoding = "utf-8" if source.encoding == "utf-8-sig" else source.encoding
+        return text.encode(target_encoding)
+    except UnicodeEncodeError as exc:
+        raise LasExportError(
+            f"Новые данные нельзя представить в исходной кодировке {source.encoding}"
+        ) from exc
 
 
 def _build_las_file(dataset: Dataset) -> lasio.LASFile:
