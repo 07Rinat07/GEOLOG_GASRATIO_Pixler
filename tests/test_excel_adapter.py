@@ -1,4 +1,6 @@
 from datetime import date, time
+from shutil import copyfile
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -73,7 +75,46 @@ def test_excel_rejects_missing_sheet_and_invalid_extension(tmp_path) -> None:
 
     with pytest.raises(ExcelImportError, match="не найден"):
         probe_excel(source, sheet_name="Unknown")
-    text = tmp_path / "logging.xls"
-    text.write_text("legacy", encoding="utf-8")
-    with pytest.raises(ExcelImportError, match="XLSX/XLSM"):
+    text = tmp_path / "logging.ods"
+    text.write_text("unsupported", encoding="utf-8")
+    with pytest.raises(ExcelImportError, match="XLS/XLSX/XLSM"):
         probe_excel(text)
+
+
+def test_xls_uses_isolated_libreoffice_conversion(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "legacy.xls"
+    source.write_bytes(b"legacy binary workbook")
+    converted_template = tmp_path / "converted.xlsx"
+    make_workbook(converted_template)
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(
+        "geoworkbench.data.excel_adapter._find_libreoffice", lambda: "/usr/bin/soffice"
+    )
+
+    def convert(command, **kwargs):
+        commands.append(command)
+        output = command[command.index("--outdir") + 1]
+        copyfile(converted_template, f"{output}/legacy.xlsx")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr("geoworkbench.data.excel_adapter.subprocess.run", convert)
+
+    result = import_excel(source, ExcelImportPlan("Logging", 2, "DEPTH [m]"))
+
+    np.testing.assert_allclose(result.dataset.depth, [100.0, 100.5])
+    assert "--headless" in commands[0]
+    assert any(item.startswith("-env:UserInstallation=") for item in commands[0])
+
+
+def test_formula_workbook_requires_libreoffice_for_recalculation(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "formula.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["DEPTH", "TOTAL"])
+    sheet.append([100.0, "=1+2"])
+    workbook.save(source)
+    monkeypatch.setattr("geoworkbench.data.excel_adapter._find_libreoffice", lambda: None)
+
+    with pytest.raises(ExcelImportError, match="libreoffice-calc"):
+        import_excel(source, ExcelImportPlan(sheet.title, 1, "DEPTH"))

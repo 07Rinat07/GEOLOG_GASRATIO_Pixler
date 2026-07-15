@@ -484,7 +484,7 @@ class MainWindow(QMainWindow):
             self,
             "Импортировать Excel",
             "",
-            "Excel (*.xlsx *.xlsm)",
+            "Excel (*.xls *.xlsx *.xlsm)",
         )
         if not filename:
             return
