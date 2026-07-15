@@ -100,6 +100,8 @@
   "formula.profile.dexp.jorden_shirley.description": "Нормализованный показатель механической скорости проходки.",
   "formula.profile.dexp.rehm_mcclendon.name": "Скорректированная d-экспонента Rehm–McClendon",
   "formula.profile.dexp.rehm_mcclendon.description": "d-экспонента с поправкой на фактическую плотность бурового раствора.",
+  "formula.profile.gas.normalized_c1_us20140379265.name": "Нормализованный метан C1",
+  "formula.profile.gas.normalized_c1_us20140379265.description": "C1 с поправкой на расход раствора, скорость проходки и диаметр долота.",
   "statistics.action": "Статистика видимого интервала...",
   "statistics.title": "Статистика",
   "statistics.interval_title": "Статистика глубинного интервала",

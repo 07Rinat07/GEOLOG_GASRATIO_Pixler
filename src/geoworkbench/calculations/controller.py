@@ -14,6 +14,7 @@ _UNIT_ALIASES = {
     "lbf": {"lbf", "lb", "lbs"},
     "in": {"in", "inch", "inches"},
     "ppg": {"ppg", "lb/gal", "lbs/gal"},
+    "gpm": {"gpm", "gal/min", "us gal/min"},
     "dimensionless": {"dimensionless", "ratio", "-", "1"},
 }
 

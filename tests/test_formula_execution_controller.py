@@ -68,3 +68,27 @@ def test_controller_requires_complete_mapping() -> None:
             "dexp.jorden_shirley",
             {"ROP_FPH": "ROP", "RPM": "RPM", "WOB_LBF": "WOB"},
         )
+
+
+def test_controller_creates_normalized_gas_curve() -> None:
+    session = make_session()
+    assert session.current_dataset is not None
+    for mnemonic, unit, values in (
+        ("C1", "%", [10.0, 20.0]),
+        ("FLOW", "gpm", [500.0, 500.0]),
+    ):
+        session.current_dataset.upsert_curve(
+            mnemonic, np.array(values), unit=unit, provenance="source"
+        )
+    controller = FormulaExecutionController(session, build_all_sourced_formula_registry())
+
+    result = controller.execute(
+        "gas.normalized_c1_us20140379265",
+        {"C1": "C1", "FLOW_GPM": "FLOW", "ROP_FPH": "ROP", "BIT_IN": "BS"},
+    )
+
+    assert result.output_mnemonic == "C1_NORM"
+    assert result.curve.metadata.provenance.startswith(
+        "calculation:gas.normalized_c1_us20140379265:"
+    )
+    np.testing.assert_allclose(result.curve.values, [29.0 / 3.0, 29.0 / 3.0])

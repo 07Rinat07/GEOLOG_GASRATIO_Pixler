@@ -46,7 +46,10 @@ class FormulaExecutionDialog(QDialog):
         self.profile_selector = QComboBox()
         self.profile_selector.setObjectName("formula-profile-selector")
         for profile in registry.available():
-            self.profile_selector.addItem(profile.display_name, profile.profile_id)
+            display_name = self.localizer.catalog.get(
+                f"formula.profile.{profile.profile_id}.name", profile.display_name
+            )
+            self.profile_selector.addItem(display_name, profile.profile_id)
         root.addWidget(self.profile_selector)
 
         self.passport_label = QLabel()

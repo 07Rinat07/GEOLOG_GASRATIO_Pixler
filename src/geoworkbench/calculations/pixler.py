@@ -211,6 +211,11 @@ CORRECTED_DEXP_SOURCE = (
     "Rehm, W.A., McClendon, R. (1971). Measurement of Formation Pressure from "
     "Drilling Data. SPE 3601-MS. DOI: 10.2118/3601-MS."
 )
+NORMALIZED_GAS_SOURCE = (
+    "US20140379265A1 / EP2772775A1. Real-time method for determining porosity "
+    "and water saturation using gas and mud logging data, Equation 2. "
+    "https://patents.google.com/patent/US20140379265A1/en"
+)
 _GAS_UNITS = {
     name: "same concentration unit" for name in ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5")
 }
@@ -234,6 +239,50 @@ def _d_exponent(inputs: dict[str, Array], parameters: dict[str, float]) -> Array
 
 def _corrected_d_exponent(inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
     return inputs["DEXP"] * safe_ratio(inputs["RHO_N_PPG"], inputs["RHO_A_PPG"])
+
+
+def _normalized_c1(inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+    numerator = 11.6 * inputs["C1"] * inputs["FLOW_GPM"]
+    denominator = inputs["ROP_FPH"] * np.square(inputs["BIT_IN"])
+    return safe_ratio(numerator, denominator)
+
+
+def sourced_normalized_gas_profiles() -> tuple[FormulaProfile, ...]:
+    """Return drilling-parameter-normalized gas profiles with explicit field units."""
+
+    return (
+        FormulaProfile(
+            profile_id="gas.normalized_c1_us20140379265",
+            display_name="Drilling-normalized methane C1",
+            version="1.0.0",
+            category=FormulaCategory.GAS_RATIO,
+            source=NORMALIZED_GAS_SOURCE,
+            expression="C1_NORM = 11.6 * C1 * FLOW_GPM / (ROP_FPH * BIT_IN^2)",
+            required_inputs=("C1", "FLOW_GPM", "ROP_FPH", "BIT_IN"),
+            input_units={
+                "C1": "same concentration unit",
+                "FLOW_GPM": "gpm",
+                "ROP_FPH": "ft/h",
+                "BIT_IN": "in",
+            },
+            output_mnemonic="C1_NORM",
+            output_unit="normalized gas units",
+            description=(
+                "Метан C1, нормализованный по расходу раствора, скорости проходки "
+                "и диаметру долота."
+            ),
+            formula=_normalized_c1,
+            control_example=FormulaControlExample(
+                inputs={
+                    "C1": (10.0,),
+                    "FLOW_GPM": (500.0,),
+                    "ROP_FPH": (50.0,),
+                    "BIT_IN": (10.0,),
+                },
+                expected=(11.6,),
+            ),
+        ),
+    )
 
 
 def sourced_gas_ratio_profiles() -> tuple[FormulaProfile, ...]:
@@ -418,6 +467,8 @@ def sourced_d_exponent_profiles() -> tuple[FormulaProfile, FormulaProfile]:
 
 def build_all_sourced_formula_registry() -> FormulaProfileRegistry:
     registry = build_sourced_formula_registry()
+    for profile in sourced_normalized_gas_profiles():
+        registry.register(profile)
     for profile in sourced_d_exponent_profiles():
         registry.register(profile)
     return registry

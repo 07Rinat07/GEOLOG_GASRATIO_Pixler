@@ -100,6 +100,8 @@
   "formula.profile.dexp.jorden_shirley.description": "Normalized indicator of the rate of penetration.",
   "formula.profile.dexp.rehm_mcclendon.name": "Rehm–McClendon corrected d-exponent",
   "formula.profile.dexp.rehm_mcclendon.description": "d-exponent corrected for the actual drilling-fluid density.",
+  "formula.profile.gas.normalized_c1_us20140379265.name": "Drilling-normalized methane C1",
+  "formula.profile.gas.normalized_c1_us20140379265.description": "C1 corrected for mud flow, rate of penetration, and bit size.",
   "statistics.action": "Visible interval statistics...",
   "statistics.title": "Statistics",
   "statistics.interval_title": "Depth interval statistics",

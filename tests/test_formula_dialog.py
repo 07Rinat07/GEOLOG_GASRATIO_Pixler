@@ -75,4 +75,8 @@ def test_formula_dialog_uses_english_catalog(qapp) -> None:
     assert "Normalized indicator of the rate of penetration" in dialog.passport_label.text()
     assert buttons.button(QDialogButtonBox.StandardButton.Ok).text() == "Calculate"
     assert buttons.button(QDialogButtonBox.StandardButton.Cancel).text() == "Cancel"
+    normalized_index = dialog.profile_selector.findData(
+        "gas.normalized_c1_us20140379265"
+    )
+    assert dialog.profile_selector.itemText(normalized_index) == "Drilling-normalized methane C1"
     dialog.close()

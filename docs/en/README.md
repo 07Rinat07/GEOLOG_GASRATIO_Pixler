@@ -89,5 +89,11 @@ The command calculates the unambiguous arithmetic ratios C1/C2, C1/C3, C2/C3, C1
 and the `TG_CALC` sum of available components. The command and statuses are available in
 RU/KK/EN; calculated-curve mnemonics are not translated.
 
+## Normalized gas
+
+In Formula Profiles, select “Drilling-normalized methane C1” and map C1, mud flow in gpm, ROP
+in ft/h, and bit size in inches. The resulting `C1_NORM` curve is added to the dataset and shown
+immediately; source curves are unchanged. See `docs/NORMALIZED_GAS.md` for the method passport.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.

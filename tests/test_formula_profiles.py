@@ -163,7 +163,28 @@ def test_sourced_d_exponent_profiles() -> None:
     np.testing.assert_allclose(d_value, [1.6368638103758524])
     np.testing.assert_allclose(corrected, d_value * 0.75)
     graph = registry.build_dependency_graph()
-    assert graph.affected_outputs({"ROP_FPH"}) == ["DEXP", "DEXPC"]
+    affected = graph.affected_outputs({"ROP_FPH"})
+    assert set(affected) == {"C1_NORM", "DEXP", "DEXPC"}
+    assert affected.index("DEXP") < affected.index("DEXPC")
+
+
+def test_sourced_normalized_gas_profile() -> None:
+    registry = build_all_sourced_formula_registry()
+    result = registry.calculate(
+        "gas.normalized_c1_us20140379265",
+        {
+            "C1": np.array([10.0, 20.0, 10.0]),
+            "FLOW_GPM": np.array([500.0, 500.0, 500.0]),
+            "ROP_FPH": np.array([50.0, 100.0, 0.0]),
+            "BIT_IN": np.array([10.0, 10.0, 10.0]),
+        },
+    )
+
+    np.testing.assert_allclose(result[:2], [11.6, 11.6])
+    assert np.isnan(result[2])
+    passport = registry.passport("gas.normalized_c1_us20140379265")
+    assert "US20140379265A1" in passport.source
+    assert passport.output_mnemonic == "C1_NORM"
 
 
 @pytest.mark.parametrize(
