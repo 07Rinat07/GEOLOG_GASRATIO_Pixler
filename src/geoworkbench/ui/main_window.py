@@ -37,6 +37,7 @@ from geoworkbench.data.las_adapter import (
 )
 from geoworkbench.data.las_import_report import LasIssueSeverity
 from geoworkbench.data.las_import_policy import LasImportMode, evaluate_las_import
+from geoworkbench.data.csv_adapter import CsvImportError, import_csv
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
@@ -61,6 +62,7 @@ from geoworkbench.tablet.lithology_legend import build_lithology_legend
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.branding import application_icon, logo_pixmap
+from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDialog
@@ -173,6 +175,10 @@ class MainWindow(QMainWindow):
         self.open_action.setShortcut("Ctrl+L")
         self.open_action.triggered.connect(self.open_las)
         file_menu.addAction(self.open_action)
+
+        self.open_csv_action = QAction("Импортировать CSV/TXT...", self)
+        self.open_csv_action.triggered.connect(self.open_csv)
+        file_menu.addAction(self.open_csv_action)
 
         self.save_action = QAction("Сохранить проект как...", self)
         self.save_action.setShortcut("Ctrl+S")
@@ -438,6 +444,34 @@ class MainWindow(QMainWindow):
         self._update_title()
         self.tabs.setCurrentWidget(self.tablet_view)
         self.statusBar().showMessage(f"Загружено LAS-файлов: {len(filenames) - len(errors)}")
+
+    def open_csv(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Импортировать CSV/TXT",
+            "",
+            "Табличные данные (*.csv *.txt);;CSV (*.csv);;TXT (*.txt)",
+        )
+        if not filename:
+            return
+        dialog = CsvImportDialog(Path(filename), self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            result = import_csv(filename, dialog.import_plan())
+            self.session.add_dataset(result.dataset)
+        except (CsvImportError, FileNotFoundError, OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Импорт CSV", str(exc))
+            self._log(f"CSV не импортирован: {exc}")
+            return
+        self._refresh_tree()
+        self._show_current_dataset()
+        self._update_title()
+        self._log(
+            f"Импортирован CSV: {filename}; строк: {result.row_count}; "
+            f"разделитель: {result.delimiter!r}; кодировка: {result.encoding}"
+        )
+        self.statusBar().showMessage(f"CSV импортирован: {Path(filename).name}")
 
     def open_project(self) -> None:
         if self.session.dirty:
