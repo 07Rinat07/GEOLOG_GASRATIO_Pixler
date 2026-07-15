@@ -35,6 +35,7 @@ from geoworkbench.data.las_adapter import (
     LasImportError,
     import_las_with_report,
 )
+from geoworkbench.data.las_import_report import LasIssueSeverity
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
 from geoworkbench.project.depth_axis_controller import DepthAxisController
@@ -326,6 +327,7 @@ class MainWindow(QMainWindow):
                     issue.message
                     for issue in import_result.report.issues
                     if issue.code != "index-descending"
+                    and issue.severity is not LasIssueSeverity.INFO
                 )
                 if report_messages:
                     import_warnings.append(

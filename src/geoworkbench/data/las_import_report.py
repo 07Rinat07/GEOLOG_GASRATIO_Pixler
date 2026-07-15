@@ -27,6 +27,9 @@ class LasSourceSnapshot:
     path: Path
     size_bytes: int
     sha256: str
+    encoding: str
+    newline_style: str
+    section_names: tuple[str, ...]
     las_version: str | None
     wrap: str | None
     null_value: float | None

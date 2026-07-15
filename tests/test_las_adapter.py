@@ -96,6 +96,9 @@ def test_import_las_with_report_captures_source_and_depth_diagnostics(
 
     assert result.report.source.size_bytes == len(raw)
     assert result.report.source.sha256 == sha256(raw).hexdigest()
+    assert result.source_document.to_bytes() == raw
+    assert result.report.source.encoding == "utf-8"
+    assert result.report.source.section_names == ()
     assert result.report.source.las_version == "2.0"
     assert result.report.source.wrap == "NO"
     assert result.report.source.null_value == pytest.approx(-999.25)
@@ -134,6 +137,25 @@ def test_import_report_detects_header_mismatch_and_duplicate_mnemonics(
     assert "header-strt-mismatch" in codes
     assert report.warning_count == len(report.issues)
     assert not report.has_errors
+
+
+def test_import_report_detects_source_section_structure(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "sections.las"
+    source.write_bytes(
+        b"~V\r\nVERS. 2.0\r\n"
+        b"~W\r\nNULL. -999.25\n"
+        b"~W\nWELL. TEST\n"
+        b"~C\nDEPT.M\nC1.%\n"
+    )
+    monkeypatch.setattr("geoworkbench.data.las_adapter.lasio.read", lambda *a, **k: FakeLas())
+
+    report = import_las_with_report(source).report
+    codes = {issue.code for issue in report.issues}
+
+    assert report.source.section_names == ("v", "w", "w", "c")
+    assert "duplicate-sections" in codes
+    assert "missing-ascii-section" in codes
+    assert "mixed-newlines" in codes
 
 
 def test_import_las_rejects_missing_file(tmp_path) -> None:

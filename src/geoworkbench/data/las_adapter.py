@@ -4,7 +4,6 @@ import os
 import tempfile
 from collections import Counter
 from dataclasses import dataclass
-from hashlib import sha256
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -17,6 +16,7 @@ from geoworkbench.data.las_import_report import (
     LasIssueSeverity,
     LasSourceSnapshot,
 )
+from geoworkbench.data.lossless_las import LosslessLasDocument, read_lossless_las
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
@@ -40,6 +40,7 @@ class LasExportError(RuntimeError):
 class LasImportResult:
     dataset: Dataset
     report: LasImportReport
+    source_document: LosslessLasDocument
 
 
 def import_las(path: str | Path, kind: DatasetKind = DatasetKind.GTI) -> Dataset:
@@ -59,6 +60,7 @@ def import_las_with_report(
         raise LasImportError(f"Ожидался LAS-файл, получен: {source.suffix}")
 
     try:
+        source_document = read_lossless_las(source)
         las = lasio.read(source, ignore_header_errors=True)
         depth = np.asarray(las.index, dtype=np.float64).copy()
     except Exception as exc:
@@ -96,15 +98,13 @@ def import_las_with_report(
         dataset.parameters = {str(item.mnemonic): str(item.value) for item in las.params}
     except Exception as exc:
         raise LasImportError(f"Некорректные данные LAS-файла: {source}") from exc
-    size_bytes, source_sha256 = _source_fingerprint(source)
-    report = _build_import_report(source, size_bytes, source_sha256, las, depth)
-    return LasImportResult(dataset=dataset, report=report)
+    report = _build_import_report(source, source_document, las, depth)
+    return LasImportResult(dataset=dataset, report=report, source_document=source_document)
 
 
 def _build_import_report(
     source: Path,
-    size_bytes: int,
-    source_sha256: str,
+    source_document: LosslessLasDocument,
     las: Any,
     depth: np.ndarray,
 ) -> LasImportReport:
@@ -114,13 +114,18 @@ def _build_import_report(
     null_text = _section_value(getattr(las, "well", ()), "NULL")
     snapshot = LasSourceSnapshot(
         path=source,
-        size_bytes=size_bytes,
-        sha256=source_sha256,
+        size_bytes=source_document.size_bytes,
+        sha256=source_document.sha256,
+        encoding=source_document.encoding,
+        newline_style=source_document.newline_style,
+        section_names=tuple(section.name for section in source_document.sections),
         las_version=version,
         wrap=wrap,
         null_value=_optional_float(null_text),
     )
     issues: list[LasImportIssue] = []
+
+    _append_structure_issues(issues, source_document)
 
     if version is None:
         issues.append(_warning("missing-version", "В LAS не удалось определить версию VERS"))
@@ -228,14 +233,28 @@ def _warning(code: str, message: str) -> LasImportIssue:
     return LasImportIssue(code, LasIssueSeverity.WARNING, message)
 
 
-def _source_fingerprint(source: Path) -> tuple[int, str]:
-    digest = sha256()
-    size_bytes = 0
-    with source.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            size_bytes += len(chunk)
-            digest.update(chunk)
-    return size_bytes, digest.hexdigest()
+def _append_structure_issues(
+    issues: list[LasImportIssue],
+    document: LosslessLasDocument,
+) -> None:
+    if not document.sections:
+        issues.append(_warning("missing-sections", "В исходнике не найдены секции LAS"))
+        return
+    names = [section.name for section in document.sections]
+    counts = Counter(names)
+    repeated = sorted(name for name, count in counts.items() if name and count > 1)
+    if repeated:
+        issues.append(
+            _warning(
+                "duplicate-sections",
+                "Повторяющиеся секции LAS: " + ", ".join(repeated),
+            )
+        )
+    ascii_aliases = {"a", "ascii", "ascii_log_data", "log_data"}
+    if not any(name in ascii_aliases for name in names):
+        issues.append(_warning("missing-ascii-section", "Не найдена секция данных ASCII"))
+    if document.newline_style.value == "mixed":
+        issues.append(_warning("mixed-newlines", "В исходнике смешаны типы перевода строк"))
 
 
 def export_las(
