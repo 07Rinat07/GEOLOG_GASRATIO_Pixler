@@ -173,6 +173,12 @@ class MainWindow(QMainWindow):
         self.open_project_action.triggered.connect(self.open_project)
         file_menu.addAction(self.open_project_action)
 
+        self.open_data_action = QAction("Импортировать данные...", self)
+        self.open_data_action.setShortcut("Ctrl+I")
+        self.open_data_action.triggered.connect(self.open_data)
+        file_menu.addAction(self.open_data_action)
+        file_menu.addSeparator()
+
         self.open_action = QAction("Импортировать LAS...", self)
         self.open_action.setShortcut("Ctrl+L")
         self.open_action.triggered.connect(self.open_las)
@@ -326,11 +332,33 @@ class MainWindow(QMainWindow):
         toolbar = QToolBar("Основная")
         toolbar.setMovable(False)
         toolbar.addAction(self.open_project_action)
-        toolbar.addAction(self.open_action)
+        toolbar.addAction(self.open_data_action)
         toolbar.addAction(self.default_tablet_action)
         toolbar.addAction(self.ratio_action)
         toolbar.addAction(self.save_action)
         self.addToolBar(toolbar)
+
+    def open_data(self) -> None:
+        importers = {
+            "LAS 1.2/2.0": self.open_las,
+            "CSV/TXT": self.open_csv,
+            "Excel XLS/XLSX/XLSM": self.open_excel,
+        }
+        selected, accepted = QInputDialog.getItem(
+            self,
+            "Универсальный импорт",
+            "Тип источника данных",
+            list(importers),
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        importer = importers.get(selected)
+        if importer is None:
+            QMessageBox.warning(self, "Универсальный импорт", "Неизвестный тип источника")
+            return
+        importer()
 
     def open_las(self) -> None:
         mode_labels = {

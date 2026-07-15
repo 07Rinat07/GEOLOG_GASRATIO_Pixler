@@ -79,6 +79,38 @@ def test_open_las_stops_when_import_mode_is_cancelled(qapp, monkeypatch) -> None
     window.close()
 
 
+def test_universal_import_dispatches_selected_format(qapp, monkeypatch) -> None:
+    window = MainWindow()
+    called: list[str] = []
+    window.open_las = lambda: called.append("las")  # type: ignore[method-assign]
+    window.open_csv = lambda: called.append("csv")  # type: ignore[method-assign]
+    window.open_excel = lambda: called.append("excel")  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QInputDialog.getItem",
+        lambda *args, **kwargs: ("Excel XLS/XLSX/XLSM", True),
+    )
+
+    window.open_data()
+
+    assert called == ["excel"]
+    window.close()
+
+
+def test_universal_import_stops_when_cancelled(qapp, monkeypatch) -> None:
+    window = MainWindow()
+    called: list[str] = []
+    window.open_las = lambda: called.append("las")  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QInputDialog.getItem",
+        lambda *args, **kwargs: ("LAS 1.2/2.0", False),
+    )
+
+    window.open_data()
+
+    assert called == []
+    window.close()
+
+
 def test_window_restores_saved_layout(qapp) -> None:
     window = MainWindow()
     assert not window.windowIcon().isNull()
