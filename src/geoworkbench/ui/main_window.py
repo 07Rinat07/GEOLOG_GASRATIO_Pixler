@@ -41,6 +41,7 @@ from geoworkbench.project.curve_editing_controller import (
 from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
+from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectFormatError
@@ -56,6 +57,7 @@ from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
+from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.visualization.curve_view import CurveView
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 
@@ -76,6 +78,7 @@ class MainWindow(QMainWindow):
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
         self.description_template_controller = DescriptionTemplateController(self.session)
         self.depth_axis_controller = DepthAxisController(self.session)
+        self.las_range_editing_controller = LasRangeEditingController(self.session)
         self._selected_track_id: str | None = None
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
@@ -87,7 +90,13 @@ class MainWindow(QMainWindow):
         self.tablet_view.track_selected.connect(self._show_track_in_inspector)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
+        self.las_table_editor = LasTableEditor(self.las_range_editing_controller)
+        self.las_table_editor.dataset_edited.connect(self._after_table_edit)
+        self.las_table_editor.edit_failed.connect(
+            lambda message: QMessageBox.warning(self, "LAS Editor", message)
+        )
         self.tabs.addTab(self.curve_view, "LAS / Газовые кривые")
+        self.tabs.addTab(self.las_table_editor, "LAS таблица")
         self.tabs.addTab(self.tablet_view, "Планшет")
         self.setCentralWidget(self.tabs)
 
@@ -317,6 +326,7 @@ class MainWindow(QMainWindow):
             return
 
         self.curve_view.show_dataset(last_dataset)
+        self.las_table_editor.set_dataset(last_dataset)
         self.tablet_view.set_dataset(last_dataset)
         self.tablet_view.set_canvas_objects(last_well.canvas_objects)
         self.tablet_view.set_lithology(
@@ -386,6 +396,7 @@ class MainWindow(QMainWindow):
         self.lithotype_catalog_controller.session = self.session
         self.description_template_controller.session = self.session
         self.depth_axis_controller.session = self.session
+        self.las_range_editing_controller.session = self.session
         self._update_curve_edit_actions()
         self._selected_track_id = None
         self._refresh_tree()
@@ -401,12 +412,14 @@ class MainWindow(QMainWindow):
         dataset = self.session.current_dataset
         if dataset is None:
             self.curve_view.clear()
+            self.las_table_editor.set_dataset(None)
             self.tablet_view.set_layout_model(TabletLayout())
             self.tablet_view.set_dataset(None)
             self.tablet_view.set_canvas_objects([])
             self.tablet_view.set_lithology([], self.lithotype_catalog_controller.available())
             return
         self.curve_view.show_dataset(dataset)
+        self.las_table_editor.set_dataset(dataset)
         self.tablet_view.set_dataset(dataset)
         well = self.session.current_well
         self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
@@ -512,10 +525,21 @@ class MainWindow(QMainWindow):
             self.curve_view.show_dataset(dataset, [outcome.mnemonic])
             self.curve_view.set_edit_mode(self.pencil_action.isChecked())
             self.tablet_view.set_dataset(dataset)
+            self.las_table_editor.set_dataset(dataset)
         self._update_curve_edit_actions()
         self._update_title()
         affected = ", ".join(outcome.affected_mnemonics) or "нет"
         self._log(f"{outcome.operation}: {outcome.mnemonic}; зависимые STALE: {affected}")
+
+    def _after_table_edit(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            return
+        self.curve_view.show_dataset(dataset)
+        self.tablet_view.set_dataset(dataset)
+        self._refresh_tree()
+        self._update_title()
+        self.statusBar().showMessage("Значение изменено; газовые производные пересчитаны")
 
     def _update_curve_edit_actions(self) -> None:
         self.undo_action.setEnabled(self.curve_editing_controller.history.can_undo)

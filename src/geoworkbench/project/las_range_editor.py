@@ -76,6 +76,19 @@ class LasRangeEditingController:
         }
         self._execute(curve_ids, indices, values, "Заполнение постоянным значением")
 
+    def edit_cell(self, curve_id: str, row: int, value: float) -> None:
+        dataset = self._require_dataset()
+        if row < 0 or row >= dataset.depth.size:
+            raise IndexError("Строка выходит за границы dataset")
+        if not np.isfinite(value):
+            raise ValueError("Значение должно быть конечным")
+        self._execute(
+            [curve_id],
+            np.array([row], dtype=np.int64),
+            {curve_id: np.array([value], dtype=np.float64)},
+            f"Табличное редактирование строки {row + 1}",
+        )
+
     def fill_uniform_noise(
         self,
         curve_ids: list[str],
