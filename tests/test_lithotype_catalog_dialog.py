@@ -1,5 +1,8 @@
+from PySide6.QtWidgets import QDialogButtonBox, QPushButton
+
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
 
 
@@ -30,4 +33,25 @@ def test_catalog_dialog_updates_pattern_preview(qapp) -> None:
 
     assert dialog.pattern_preview._color == "#112233"
     assert dialog.pattern_preview._pattern_key == "carbonate"
+    dialog.close()
+
+
+def test_catalog_dialog_localizes_labels_without_using_them_as_state(qapp) -> None:
+    dialog = LithotypeCatalogDialog(
+        LithotypeCatalogController(ProjectSession()),
+        language=AppLanguage.EN,
+    )
+    buttons = dialog.findChild(QDialogButtonBox)
+
+    assert buttons is not None
+    assert dialog.windowTitle() == "Rock and lithotype catalog"
+    assert dialog.table.horizontalHeaderItem(0).text() == "Source"
+    assert dialog.table.horizontalHeaderItem(7).text() == "Pattern"
+    assert dialog.table.item(0, 0).text() == "System"
+    dialog.table.setCurrentCell(0, 0)
+    qapp.processEvents()
+    assert dialog.id_input.isReadOnly() is True
+    assert dialog.findChild(QPushButton, "catalog-new-button").text() == "New record"
+    assert dialog.findChild(QPushButton, "catalog-add-button").text() == "Add"
+    assert buttons.button(QDialogButtonBox.StandardButton.Close).text() == "Close"
     dialog.close()

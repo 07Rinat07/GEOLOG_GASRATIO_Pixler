@@ -56,5 +56,10 @@ available in RU/KK/EN; template content remains user-authored and is not transla
 The legend lists symbols, codes, names, and lithotype IDs used in the current well. Its UI is
 available in RU/KK/EN; codes, IDs, colors, and patterns remain identical across languages.
 
+## Lithotype catalog
+
+The catalog lists system and project rocks and creates project records with a code, RU/EN names,
+category, color, and pattern. System records are protected from modification.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.

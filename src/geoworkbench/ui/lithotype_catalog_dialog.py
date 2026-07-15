@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
+from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.lithology_patterns import lithology_brush, supported_pattern_keys
 
 
@@ -49,25 +50,39 @@ class LithologyPatternPreview(QWidget):
 
 class LithotypeCatalogDialog(QDialog):
     def __init__(
-        self, controller: LithotypeCatalogController, parent: QWidget | None = None
+        self,
+        controller: LithotypeCatalogController,
+        parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
     ) -> None:
         super().__init__(parent)
+        self.localizer = Localizer.create(language)
         self.controller = controller
-        self.setWindowTitle("Справочник пород и литотипов")
+        self.setWindowTitle(self._t("catalog.window_title"))
         self.resize(1100, 620)
 
         root = QVBoxLayout(self)
         self.table = QTableWidget(0, 8)
         self.table.setObjectName("lithotype-catalog-table")
         self.table.setHorizontalHeaderLabels(
-            ["Источник", "Код", "ID", "Название", "Name", "Категория", "Цвет", "Узор"]
+            [
+                self._t("catalog.source"),
+                self._t("catalog.code"),
+                self._t("catalog.id"),
+                self._t("catalog.name_ru"),
+                self._t("catalog.name_en"),
+                self._t("catalog.category"),
+                self._t("catalog.color"),
+                self._t("catalog.pattern"),
+            ]
         )
         self.table.itemSelectionChanged.connect(self._load_selected)
         root.addWidget(self.table)
 
         form = QFormLayout()
         self.id_input = QLineEdit()
-        self.id_input.setPlaceholderText("например, oil_sand")
+        self.id_input.setPlaceholderText(self._t("catalog.id_example"))
         self.code_input = QLineEdit()
         self.name_ru_input = QLineEdit()
         self.name_en_input = QLineEdit()
@@ -77,52 +92,59 @@ class LithotypeCatalogDialog(QDialog):
         self.pattern_input.setEditable(True)
         self.pattern_input.addItems(supported_pattern_keys())
         for label, field in (
-            ("ID", self.id_input),
-            ("Код", self.code_input),
-            ("Название (RU)", self.name_ru_input),
-            ("Название (EN)", self.name_en_input),
-            ("Категория", self.category_input),
-            ("Ключ узора", self.pattern_input),
+            (self._t("catalog.id"), self.id_input),
+            (self._t("catalog.code"), self.code_input),
+            (self._t("catalog.name_ru"), self.name_ru_input),
+            (self._t("catalog.name_en"), self.name_en_input),
+            (self._t("catalog.category"), self.category_input),
+            (self._t("catalog.pattern_key"), self.pattern_input),
         ):
             form.addRow(label, field)
         color_row = QWidget()
         color_layout = QHBoxLayout(color_row)
         color_layout.setContentsMargins(0, 0, 0, 0)
         color_layout.addWidget(self.color_input)
-        self.color_button = QPushButton("Выбрать...")
+        self.color_button = QPushButton(self._t("common.choose"))
         self.color_button.clicked.connect(self._choose_color)
         color_layout.addWidget(self.color_button)
-        form.addRow("Цвет #RRGGBB", color_row)
+        form.addRow(self._t("catalog.color_hex"), color_row)
         self.pattern_preview = LithologyPatternPreview()
-        form.addRow("Предпросмотр", self.pattern_preview)
+        form.addRow(self._t("catalog.preview"), self.pattern_preview)
         self.color_input.textChanged.connect(self._update_preview)
         self.pattern_input.currentTextChanged.connect(self._update_preview)
         root.addLayout(form)
 
         actions = QHBoxLayout()
-        for title, handler in (
-            ("Новая запись", self._clear_form),
-            ("Добавить", self._add),
-            ("Изменить", self._update),
-            ("Удалить", self._remove),
+        for object_name, title, handler in (
+            ("catalog-new-button", self._t("catalog.new"), self._clear_form),
+            ("catalog-add-button", self._t("common.add"), self._add),
+            ("catalog-update-button", self._t("common.update"), self._update),
+            ("catalog-remove-button", self._t("common.remove"), self._remove),
         ):
             button = QPushButton(title)
+            button.setObjectName(object_name)
             button.clicked.connect(handler)
             actions.addWidget(button)
         root.addLayout(actions)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
+            self._t("common.close")
+        )
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
         self._update_preview()
+
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
 
     def _refresh(self) -> None:
         records = self.controller.available()
         self.table.setRowCount(len(records))
         for row, record in enumerate(records):
             values = (
-                "Системный" if record.system else "Проектный",
+                self._t("catalog.system") if record.system else self._t("catalog.project"),
                 record.code,
                 record.lithotype_id,
                 record.name_ru,
@@ -149,7 +171,7 @@ class LithotypeCatalogDialog(QDialog):
             cast(QTableWidgetItem, item) for item in values
         )
         self.id_input.setText(lithotype_id.text())
-        self.id_input.setReadOnly(source.text() == "Системный")
+        self.id_input.setReadOnly(bool(source.data(Qt.ItemDataRole.UserRole + 1)))
         self.code_input.setText(code.text())
         self.name_ru_input.setText(name_ru.text())
         self.name_en_input.setText(name_en.text())
@@ -185,7 +207,7 @@ class LithotypeCatalogDialog(QDialog):
 
     def _choose_color(self) -> None:
         initial = QColor(self.color_input.text())
-        selected = QColorDialog.getColor(initial, self, "Цвет литотипа")
+        selected = QColorDialog.getColor(initial, self, self._t("catalog.color_title"))
         if selected.isValid():
             self.color_input.setText(selected.name())
 
@@ -200,7 +222,9 @@ class LithotypeCatalogDialog(QDialog):
     def _update(self) -> None:
         lithotype_id = self._selected_id()
         if lithotype_id is None:
-            QMessageBox.information(self, "Справочник", "Выберите проектную запись")
+            QMessageBox.information(
+                self, self._t("catalog.title"), self._t("catalog.select_project")
+            )
             return
         _, code, name_ru, name_en, category, color, pattern = self._values()
         self._run(
@@ -218,7 +242,9 @@ class LithotypeCatalogDialog(QDialog):
     def _remove(self) -> None:
         lithotype_id = self._selected_id()
         if lithotype_id is None:
-            QMessageBox.information(self, "Справочник", "Выберите проектную запись")
+            QMessageBox.information(
+                self, self._t("catalog.title"), self._t("catalog.select_project")
+            )
             return
         self._run(lambda: self.controller.remove(lithotype_id))
 
@@ -231,7 +257,7 @@ class LithotypeCatalogDialog(QDialog):
         try:
             operation()
         except (KeyError, ValueError) as exc:
-            QMessageBox.warning(self, "Справочник", str(exc))
+            QMessageBox.warning(self, self._t("catalog.title"), str(exc))
             return False
         self._refresh()
         return True

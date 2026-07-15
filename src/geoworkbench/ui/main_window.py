@@ -262,7 +262,7 @@ class MainWindow(QMainWindow):
         self.lithology_action.triggered.connect(self.show_lithology_editor)
         edit_menu.addAction(self.lithology_action)
 
-        self.lithotype_catalog_action = QAction("Справочник пород и литотипов...", self)
+        self.lithotype_catalog_action = QAction(self._t("catalog.action"), self)
         self.lithotype_catalog_action.triggered.connect(self.show_lithotype_catalog)
         edit_menu.addAction(self.lithotype_catalog_action)
 
@@ -1090,7 +1090,9 @@ class MainWindow(QMainWindow):
         self._update_title()
 
     def show_lithotype_catalog(self) -> None:
-        LithotypeCatalogDialog(self.lithotype_catalog_controller, self).exec()
+        LithotypeCatalogDialog(
+            self.lithotype_catalog_controller, self, language=self.language
+        ).exec()
         well = self.session.current_well
         self.tablet_view.set_lithology(
             well.lithology if well is not None else [],
