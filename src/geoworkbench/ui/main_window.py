@@ -1094,7 +1094,15 @@ class MainWindow(QMainWindow):
         if dialog.exec() != QDialog.DialogCode.Accepted or dialog.execution_result is None:
             return
         result = dialog.execution_result
-        self.curve_view.show_dataset(dataset, [result.output_mnemonic])
+        passport = self.formula_registry.passport(result.profile_id)
+        mapping = dialog.selected_mapping()
+        gas_inputs = [
+            mapping[name]
+            for name in passport.required_inputs
+            if passport.input_units[name] == "same concentration unit"
+        ]
+        visible_curves = list(dict.fromkeys([*gas_inputs, result.output_mnemonic]))
+        self.curve_view.show_dataset(dataset, visible_curves)
         self.tablet_view.set_dataset(dataset)
         self._refresh_tree()
         self._update_title()

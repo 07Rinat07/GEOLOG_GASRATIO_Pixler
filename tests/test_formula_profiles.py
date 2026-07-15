@@ -164,7 +164,7 @@ def test_sourced_d_exponent_profiles() -> None:
     np.testing.assert_allclose(corrected, d_value * 0.75)
     graph = registry.build_dependency_graph()
     affected = graph.affected_outputs({"ROP_FPH"})
-    assert set(affected) == {"C1_NORM", "DEXP", "DEXPC"}
+    assert {"C1_NORM", "C2_NORM", "TG_NORM", "DEXP", "DEXPC"} <= set(affected)
     assert affected.index("DEXP") < affected.index("DEXPC")
 
 
@@ -185,6 +185,51 @@ def test_sourced_normalized_gas_profile() -> None:
     passport = registry.passport("gas.normalized_c1_us20140379265")
     assert "US20140379265A1" in passport.source
     assert passport.output_mnemonic == "C1_NORM"
+
+
+@pytest.mark.parametrize(
+    ("profile_id", "component", "output"),
+    [
+        ("gas.normalized_c1_reference_us20150060054", "C1", "C1_NORM_REF"),
+        ("gas.normalized_c2_reference_us20150060054", "C2", "C2_NORM"),
+        ("gas.normalized_c3_reference_us20150060054", "C3", "C3_NORM"),
+        ("gas.normalized_ic4_reference_us20150060054", "IC4", "IC4_NORM"),
+        ("gas.normalized_nc4_reference_us20150060054", "NC4", "NC4_NORM"),
+        ("gas.normalized_ic5_reference_us20150060054", "IC5", "IC5_NORM"),
+        ("gas.normalized_nc5_reference_us20150060054", "NC5", "NC5_NORM"),
+    ],
+)
+def test_reference_normalization_profiles(profile_id: str, component: str, output: str) -> None:
+    registry = build_all_sourced_formula_registry()
+    result = registry.calculate(
+        profile_id,
+        {
+            component: np.array([10.0]), "FLOW_GPM": np.array([600.0]),
+            "ROP_FPH": np.array([100.0]), "BIT_IN": np.array([5.0]),
+        },
+        {"ROP_REF_FPH": 50.0, "BIT_REF_IN": 10.0, "FLOW_REF_GPM": 500.0,
+         "GAS_SYSTEM_EFFICIENCY": 1.0},
+    )
+    np.testing.assert_allclose(result, [24.0])
+    passport = registry.passport(profile_id)
+    assert passport.output_mnemonic == output
+    assert "US20150060054A1" in passport.source
+
+
+def test_reference_normalized_total_gas() -> None:
+    registry = build_all_sourced_formula_registry()
+    components = ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5")
+    result = registry.calculate(
+        "gas.normalized_total_reference_us20150060054",
+        {
+            **{name: np.array([1.0]) for name in components},
+            "FLOW_GPM": np.array([500.0]), "ROP_FPH": np.array([50.0]),
+            "BIT_IN": np.array([10.0]),
+        },
+        {"ROP_REF_FPH": 50.0, "BIT_REF_IN": 10.0, "FLOW_REF_GPM": 500.0,
+         "GAS_SYSTEM_EFFICIENCY": 1.0},
+    )
+    np.testing.assert_allclose(result, [7.0])
 
 
 @pytest.mark.parametrize(

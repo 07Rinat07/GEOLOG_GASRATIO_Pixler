@@ -37,6 +37,7 @@ class FormulaExecutionController:
         input_mapping: Mapping[str, str],
         *,
         output_mnemonic: str | None = None,
+        parameters: Mapping[str, float] | None = None,
     ) -> FormulaExecutionResult:
         dataset = self._require_dataset()
         passport = self.registry.passport(profile_id)
@@ -62,6 +63,7 @@ class FormulaExecutionController:
         values = self.registry.calculate(
             profile_id,
             {name: curve.values for name, curve in curves.items()},
+            parameters,
         )
         curve = dataset.upsert_curve(
             destination,

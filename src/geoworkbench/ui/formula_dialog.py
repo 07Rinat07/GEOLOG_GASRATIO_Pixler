@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QLabel,
+    QDoubleSpinBox,
     QMessageBox,
     QVBoxLayout,
     QWidget,
@@ -39,6 +40,7 @@ class FormulaExecutionDialog(QDialog):
         self.controller = controller
         self.execution_result: FormulaExecutionResult | None = None
         self.input_selectors: dict[str, QComboBox] = {}
+        self.parameter_editors: dict[str, QDoubleSpinBox] = {}
         self.setWindowTitle(self._t("formula.profiles_title"))
         self.resize(680, 480)
 
@@ -85,10 +87,14 @@ class FormulaExecutionDialog(QDialog):
     def selected_mapping(self) -> dict[str, str]:
         return {name: selector.currentText() for name, selector in self.input_selectors.items()}
 
+    def selected_parameters(self) -> dict[str, float]:
+        return {name: editor.value() for name, editor in self.parameter_editors.items()}
+
     def _refresh_profile(self) -> None:
         while self.mapping_form.rowCount():
             self.mapping_form.removeRow(0)
         self.input_selectors.clear()
+        self.parameter_editors.clear()
         if self.profile_selector.currentIndex() < 0:
             self.passport_label.setText(self._t("formula.no_profiles"))
             return
@@ -118,12 +124,21 @@ class FormulaExecutionDialog(QDialog):
             unit = passport.input_units[input_name]
             self.mapping_form.addRow(f"{input_name} [{unit}]", selector)
             self.input_selectors[input_name] = selector
+        for name, specification in passport.parameters.items():
+            editor = QDoubleSpinBox()
+            editor.setObjectName(f"formula-parameter-{name}")
+            editor.setRange(specification.minimum, 1_000_000_000.0)
+            editor.setDecimals(6)
+            editor.setValue(0.0)
+            self.mapping_form.addRow(f"{name} [{specification.unit}]", editor)
+            self.parameter_editors[name] = editor
 
     def _execute(self) -> None:
         try:
             self.execution_result = self.controller.execute(
                 self.selected_profile_id(),
                 self.selected_mapping(),
+                parameters=self.selected_parameters(),
             )
         except (KeyError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("formula.calculation"), str(exc))

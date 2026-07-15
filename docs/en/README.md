@@ -99,6 +99,8 @@ RU/KK/EN; calculated-curve mnemonics are not translated.
 In Formula Profiles, select “Drilling-normalized methane C1” and map C1, mud flow in gpm, ROP
 in ft/h, and bit size in inches. The resulting `C1_NORM` curve is added to the dataset and shown
 immediately; source curves are unchanged. See `docs/NORMALIZED_GAS.md` for the method passport.
+Separate reference profiles create normalized C1–C5/isomer curves and `TG_NORM`; the engineer
+must enter reference ROP, flow, bit diameter, and gas-system efficiency.
 
 ## DEXP, NCT, and overpressure indicators
 

@@ -79,4 +79,12 @@ def test_formula_dialog_uses_english_catalog(qapp) -> None:
         "gas.normalized_c1_us20140379265"
     )
     assert dialog.profile_selector.itemText(normalized_index) == "Drilling-normalized methane C1"
+    reference_index = dialog.profile_selector.findData(
+        "gas.normalized_total_reference_us20150060054"
+    )
+    assert dialog.profile_selector.itemText(reference_index) == "Reference-normalized total gas"
+    dialog.profile_selector.setCurrentIndex(reference_index)
+    assert set(dialog.parameter_editors) == {
+        "ROP_REF_FPH", "BIT_REF_IN", "FLOW_REF_GPM", "GAS_SYSTEM_EFFICIENCY"
+    }
     dialog.close()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Callable, Mapping
 
@@ -33,6 +33,13 @@ class FormulaControlExample:
 
 
 @dataclass(frozen=True, slots=True)
+class FormulaParameter:
+    unit: str
+    description: str
+    minimum: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
 class FormulaProfile:
     profile_id: str
     display_name: str
@@ -47,6 +54,7 @@ class FormulaProfile:
     description: str
     formula: Formula
     control_example: FormulaControlExample
+    parameters: Mapping[str, FormulaParameter] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +70,7 @@ class FormulaPassport:
     output_mnemonic: str
     output_unit: str
     description: str
+    parameters: Mapping[str, FormulaParameter]
 
 
 class FormulaProfileRegistry:
@@ -98,6 +107,7 @@ class FormulaProfileRegistry:
             output_mnemonic=profile.output_mnemonic,
             output_unit=profile.output_unit,
             description=profile.description,
+            parameters=dict(profile.parameters),
         )
 
     def calculate(
@@ -191,6 +201,11 @@ class FormulaProfileRegistry:
         if missing_example_inputs:
             missing = ", ".join(sorted(missing_example_inputs))
             raise ValueError(f"В контрольном примере отсутствуют входы: {missing}")
+        example_parameters = profile.control_example.parameters or {}
+        missing_parameters = set(profile.parameters) - set(example_parameters)
+        if missing_parameters:
+            missing = ", ".join(sorted(missing_parameters))
+            raise ValueError(f"В контрольном примере отсутствуют параметры: {missing}")
 
 
 HAWORTH_SOURCE = (
@@ -215,6 +230,11 @@ NORMALIZED_GAS_SOURCE = (
     "US20140379265A1 / EP2772775A1. Real-time method for determining porosity "
     "and water saturation using gas and mud logging data, Equation 2. "
     "https://patents.google.com/patent/US20140379265A1/en"
+)
+REFERENCE_NORMALIZED_GAS_SOURCE = (
+    "US20150060054A1. Modeling and Production of Tight Hydrocarbon Reservoirs; "
+    "generic detected-gas normalization GN = G*(ROPN/ROP)*(DN/D)^2*(Q/QN)*(1/E). "
+    "https://patents.google.com/patent/US20150060054A1/en"
 )
 _GAS_UNITS = {
     name: "same concentration unit" for name in ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5")
@@ -247,10 +267,45 @@ def _normalized_c1(inputs: dict[str, Array], parameters: dict[str, float]) -> Ar
     return safe_ratio(numerator, denominator)
 
 
+def _reference_normalized(values: Array, inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+    rop_ref = parameters["ROP_REF_FPH"]
+    bit_ref = parameters["BIT_REF_IN"]
+    flow_ref = parameters["FLOW_REF_GPM"]
+    efficiency = parameters["GAS_SYSTEM_EFFICIENCY"]
+    if min(rop_ref, bit_ref, flow_ref, efficiency) <= 0.0:
+        raise ValueError("Эталонные параметры и эффективность должны быть больше нуля")
+    factor = safe_ratio(np.full_like(values, rop_ref), inputs["ROP_FPH"])
+    factor *= np.square(safe_ratio(np.full_like(values, bit_ref), inputs["BIT_IN"]))
+    factor *= safe_ratio(inputs["FLOW_GPM"], np.full_like(values, flow_ref))
+    factor /= efficiency
+    return values * factor
+
+
+_REFERENCE_PARAMETERS = {
+    "ROP_REF_FPH": FormulaParameter("ft/h", "Эталонная скорость проходки"),
+    "BIT_REF_IN": FormulaParameter("in", "Эталонный диаметр долота"),
+    "FLOW_REF_GPM": FormulaParameter("gpm", "Эталонный расход раствора"),
+    "GAS_SYSTEM_EFFICIENCY": FormulaParameter("fraction", "Эффективность газовой системы"),
+}
+_REFERENCE_EXAMPLE_PARAMETERS = {
+    "ROP_REF_FPH": 50.0,
+    "BIT_REF_IN": 10.0,
+    "FLOW_REF_GPM": 500.0,
+    "GAS_SYSTEM_EFFICIENCY": 1.0,
+}
+
+
+def _component_reference_formula(component: str) -> Formula:
+    def calculate(inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+        return _reference_normalized(inputs[component], inputs, parameters)
+
+    return calculate
+
+
 def sourced_normalized_gas_profiles() -> tuple[FormulaProfile, ...]:
     """Return drilling-parameter-normalized gas profiles with explicit field units."""
 
-    return (
+    legacy = (
         FormulaProfile(
             profile_id="gas.normalized_c1_us20140379265",
             display_name="Drilling-normalized methane C1",
@@ -283,6 +338,75 @@ def sourced_normalized_gas_profiles() -> tuple[FormulaProfile, ...]:
             ),
         ),
     )
+    component_profiles: list[FormulaProfile] = []
+    for component in ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5"):
+        output = f"{component}_NORM_REF" if component == "C1" else f"{component}_NORM"
+        component_profiles.append(
+            FormulaProfile(
+                profile_id=f"gas.normalized_{component.lower()}_reference_us20150060054",
+                display_name=f"Reference-normalized {component}",
+                version="1.0.0",
+                category=FormulaCategory.GAS_RATIO,
+                source=REFERENCE_NORMALIZED_GAS_SOURCE,
+                expression=(
+                    f"{output} = {component} * (ROP_REF/ROP) * (BIT_REF/BIT)^2 "
+                    "* (FLOW/FLOW_REF) / E"
+                ),
+                required_inputs=(component, "FLOW_GPM", "ROP_FPH", "BIT_IN"),
+                input_units={
+                    component: "same concentration unit",
+                    "FLOW_GPM": "gpm",
+                    "ROP_FPH": "ft/h",
+                    "BIT_IN": "in",
+                },
+                output_mnemonic=output,
+                output_unit="normalized gas units",
+                description=f"Компонент {component}, приведённый к явно заданным условиям.",
+                formula=_component_reference_formula(component),
+                control_example=FormulaControlExample(
+                    inputs={
+                        component: (10.0,), "FLOW_GPM": (500.0,),
+                        "ROP_FPH": (50.0,), "BIT_IN": (10.0,),
+                    },
+                    expected=(10.0,),
+                    parameters=_REFERENCE_EXAMPLE_PARAMETERS,
+                ),
+                parameters=_REFERENCE_PARAMETERS,
+            )
+        )
+
+    total_components = ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5")
+    total_profile = FormulaProfile(
+        profile_id="gas.normalized_total_reference_us20150060054",
+        display_name="Reference-normalized total gas",
+        version="1.0.0",
+        category=FormulaCategory.GAS_RATIO,
+        source=REFERENCE_NORMALIZED_GAS_SOURCE,
+        expression="TG_NORM = SUM(C1..NC5) * (ROP_REF/ROP) * (BIT_REF/BIT)^2 * (FLOW/FLOW_REF) / E",
+        required_inputs=(*total_components, "FLOW_GPM", "ROP_FPH", "BIT_IN"),
+        input_units={
+            **{name: "same concentration unit" for name in total_components},
+            "FLOW_GPM": "gpm", "ROP_FPH": "ft/h", "BIT_IN": "in",
+        },
+        output_mnemonic="TG_NORM",
+        output_unit="normalized gas units",
+        description="Сумма C1–C5, приведённая к явно заданным эталонным условиям.",
+        formula=lambda inputs, parameters: _reference_normalized(
+            sum((inputs[name] for name in total_components), np.zeros_like(inputs["C1"])),
+            inputs,
+            parameters,
+        ),
+        control_example=FormulaControlExample(
+            inputs={
+                **{name: (1.0,) for name in total_components},
+                "FLOW_GPM": (500.0,), "ROP_FPH": (50.0,), "BIT_IN": (10.0,),
+            },
+            expected=(7.0,),
+            parameters=_REFERENCE_EXAMPLE_PARAMETERS,
+        ),
+        parameters=_REFERENCE_PARAMETERS,
+    )
+    return (*legacy, *component_profiles, total_profile)
 
 
 def sourced_gas_ratio_profiles() -> tuple[FormulaProfile, ...]:
