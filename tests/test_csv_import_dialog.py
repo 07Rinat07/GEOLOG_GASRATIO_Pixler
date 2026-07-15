@@ -1,5 +1,6 @@
-from PySide6.QtWidgets import QTableWidget
+from PySide6.QtWidgets import QDialogButtonBox, QTableWidget
 
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 
 
@@ -50,4 +51,17 @@ def test_csv_import_dialog_builds_composite_time_plan(qapp, tmp_path) -> None:
     assert plan.time_column == "TIME"
     assert plan.date_format == "%d.%m.%Y"
     assert plan.timezone == "Asia/Oral"
+    dialog.close()
+
+
+def test_csv_import_dialog_uses_english_catalog(qapp, tmp_path) -> None:
+    source = tmp_path / "logging.csv"
+    source.write_text("DEPTH,C1\n100,1\n", encoding="utf-8")
+    dialog = CsvImportDialog(source, language=AppLanguage.EN)
+    buttons = dialog.findChild(QDialogButtonBox)
+
+    assert dialog.windowTitle() == "CSV import — logging.csv"
+    assert dialog.composite_time.text().startswith("Combine the DATE")
+    assert dialog.timezone.placeholderText().startswith("for example")
+    assert buttons.button(QDialogButtonBox.StandardButton.Cancel).text() == "Cancel"
     dialog.close()

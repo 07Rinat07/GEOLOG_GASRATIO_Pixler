@@ -24,13 +24,21 @@ from geoworkbench.data.excel_adapter import (
     excel_sheet_names,
     probe_excel,
 )
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class ExcelImportDialog(QDialog):
-    def __init__(self, source: Path, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        source: Path,
+        parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
         super().__init__(parent)
+        self.localizer = Localizer.create(language)
         self.source = source
-        self.setWindowTitle(f"Импорт Excel — {source.name}")
+        self.setWindowTitle(self._t("excel.title", name=source.name))
         root = QVBoxLayout(self)
         form = QFormLayout()
         self.sheet = QComboBox()
@@ -38,21 +46,21 @@ class ExcelImportDialog(QDialog):
         self.header_row.setRange(1, 1_000_000)
         self.header_row.setValue(1)
         self.index_column = QComboBox()
-        self.composite_time = QCheckBox("Объединить индексную колонку DATE с отдельной TIME")
+        self.composite_time = QCheckBox(self._t("import.combine_datetime"))
         self.composite_time.toggled.connect(self._update_composite_controls)
         self.time_column = QComboBox()
         self.date_format = QLineEdit("%Y-%m-%d")
         self.time_format = QLineEdit("%H:%M:%S")
         self.timezone = QLineEdit()
-        self.timezone.setPlaceholderText("например Asia/Oral или UTC+05:00")
-        form.addRow("Лист", self.sheet)
-        form.addRow("Строка заголовка", self.header_row)
-        form.addRow("Индексная колонка", self.index_column)
+        self.timezone.setPlaceholderText(self._t("import.timezone_example"))
+        form.addRow(self._t("excel.sheet"), self.sheet)
+        form.addRow(self._t("excel.header_row"), self.header_row)
+        form.addRow(self._t("import.index_column"), self.index_column)
         form.addRow(self.composite_time)
-        form.addRow("Колонка TIME", self.time_column)
-        form.addRow("Формат DATE", self.date_format)
-        form.addRow("Формат TIME", self.time_format)
-        form.addRow("Часовой пояс", self.timezone)
+        form.addRow(self._t("import.time_column"), self.time_column)
+        form.addRow(self._t("import.date_format"), self.date_format)
+        form.addRow(self._t("import.time_format"), self.time_format)
+        form.addRow(self._t("import.timezone"), self.timezone)
         root.addLayout(form)
         self.status = QLabel()
         root.addWidget(self.status)
@@ -63,11 +71,16 @@ class ExcelImportDialog(QDialog):
         )
         buttons.accepted.connect(self._accept_if_valid)
         buttons.rejected.connect(self.reject)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self._t("common.ok"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self._t("common.cancel"))
         root.addWidget(buttons)
         self.sheet.currentTextChanged.connect(self._refresh)
         self.header_row.valueChanged.connect(self._refresh)
         self._load_sheets()
         self._update_composite_controls(False)
+
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
 
     def import_plan(self) -> ExcelImportPlan:
         return ExcelImportPlan(
@@ -120,7 +133,9 @@ class ExcelImportDialog(QDialog):
             if self.sheet.currentText() in result.sheet_names
             else 1
         )
-        self.status.setText(f"Лист: {sheet_number}; колонок: {len(result.columns)}")
+        self.status.setText(
+            self._t("excel.preview_status", sheet=sheet_number, columns=len(result.columns))
+        )
         self.index_column.clear()
         self.index_column.addItems(result.columns)
         self.time_column.clear()
@@ -140,13 +155,13 @@ class ExcelImportDialog(QDialog):
 
     def _accept_if_valid(self) -> None:
         if not self.index_column.currentText().strip():
-            self.status.setText("Выберите индексную колонку")
+            self.status.setText(self._t("import.select_index"))
             return
         if self.composite_time.isChecked() and (
             not self.time_column.currentText().strip()
             or self.time_column.currentText() == self.index_column.currentText()
         ):
-            self.status.setText("Для DATE+TIME выберите две разные колонки")
+            self.status.setText(self._t("import.select_distinct_datetime"))
             return
         self.accept()
 

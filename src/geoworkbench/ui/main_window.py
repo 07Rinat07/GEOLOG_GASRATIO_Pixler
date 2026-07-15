@@ -526,7 +526,7 @@ class MainWindow(QMainWindow):
         )
         if not filename:
             return
-        dialog = CsvImportDialog(Path(filename), self)
+        dialog = CsvImportDialog(Path(filename), self, language=self.language)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         try:
@@ -554,7 +554,7 @@ class MainWindow(QMainWindow):
         )
         if not filename:
             return
-        dialog = ExcelImportDialog(Path(filename), self)
+        dialog = ExcelImportDialog(Path(filename), self, language=self.language)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         try:

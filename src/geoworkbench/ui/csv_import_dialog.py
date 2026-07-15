@@ -18,39 +18,47 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.data.csv_adapter import CsvImportError, CsvImportPlan, probe_csv
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class CsvImportDialog(QDialog):
-    def __init__(self, source: Path, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        source: Path,
+        parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
         super().__init__(parent)
+        self.localizer = Localizer.create(language)
         self.source = source
-        self.setWindowTitle(f"Импорт CSV — {source.name}")
+        self.setWindowTitle(self._t("csv.title", name=source.name))
         self.resize(760, 440)
         root = QVBoxLayout(self)
         form = QFormLayout()
         self.encoding = QComboBox()
         self.encoding.addItems(["utf-8-sig", "utf-8", "cp1251", "latin-1"])
         self.delimiter = QComboBox()
-        for label, value in (("Авто", None), (";", ";"), (",", ","), ("TAB", "\t"), ("|", "|")):
+        for label, value in ((self._t("common.auto"), None), (";", ";"), (",", ","), ("TAB", "\t"), ("|", "|")):
             self.delimiter.addItem(label, value)
         self.index_column = QComboBox()
-        self.composite_time = QCheckBox("Объединить индексную колонку DATE с отдельной TIME")
+        self.composite_time = QCheckBox(self._t("import.combine_datetime"))
         self.composite_time.toggled.connect(self._update_composite_controls)
         self.time_column = QComboBox()
         self.date_format = QLineEdit("%Y-%m-%d")
         self.time_format = QLineEdit("%H:%M:%S")
         self.timezone = QLineEdit()
-        self.timezone.setPlaceholderText("например Asia/Oral или UTC+05:00")
-        form.addRow("Кодировка", self.encoding)
-        form.addRow("Разделитель", self.delimiter)
-        form.addRow("Индексная колонка", self.index_column)
+        self.timezone.setPlaceholderText(self._t("import.timezone_example"))
+        form.addRow(self._t("csv.encoding"), self.encoding)
+        form.addRow(self._t("csv.delimiter"), self.delimiter)
+        form.addRow(self._t("import.index_column"), self.index_column)
         form.addRow(self.composite_time)
-        form.addRow("Колонка TIME", self.time_column)
-        form.addRow("Формат DATE", self.date_format)
-        form.addRow("Формат TIME", self.time_format)
-        form.addRow("Часовой пояс", self.timezone)
+        form.addRow(self._t("import.time_column"), self.time_column)
+        form.addRow(self._t("import.date_format"), self.date_format)
+        form.addRow(self._t("import.time_format"), self.time_format)
+        form.addRow(self._t("import.timezone"), self.timezone)
         root.addLayout(form)
-        refresh = QPushButton("Обновить предпросмотр")
+        refresh = QPushButton(self._t("import.refresh_preview"))
         refresh.clicked.connect(self._refresh_probe)
         root.addWidget(refresh)
         self.status = QLabel()
@@ -64,9 +72,14 @@ class CsvImportDialog(QDialog):
         )
         buttons.accepted.connect(self._accept_if_valid)
         buttons.rejected.connect(self.reject)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self._t("common.ok"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self._t("common.cancel"))
         root.addWidget(buttons)
         self._refresh_probe()
         self._update_composite_controls(False)
+
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
 
     def import_plan(self) -> CsvImportPlan:
         index = self.index_column.currentText().strip() or None
@@ -99,7 +112,11 @@ class CsvImportDialog(QDialog):
             self.preview.setColumnCount(0)
             return
         self.status.setText(
-            f"Определён разделитель {result.delimiter!r}; показано до {len(result.preview_rows)} строк"
+            self._t(
+                "csv.preview_status",
+                delimiter=repr(result.delimiter),
+                rows=len(result.preview_rows),
+            )
         )
         self.index_column.clear()
         self.index_column.addItems(result.columns)
@@ -121,13 +138,13 @@ class CsvImportDialog(QDialog):
 
     def _accept_if_valid(self) -> None:
         if not self.index_column.currentText().strip():
-            self.status.setText("Выберите индексную колонку")
+            self.status.setText(self._t("import.select_index"))
             return
         if self.composite_time.isChecked() and (
             not self.time_column.currentText().strip()
             or self.time_column.currentText() == self.index_column.currentText()
         ):
-            self.status.setText("Для DATE+TIME выберите две разные колонки")
+            self.status.setText(self._t("import.select_distinct_datetime"))
             return
         self.accept()
 

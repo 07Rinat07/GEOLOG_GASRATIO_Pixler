@@ -1,5 +1,7 @@
 from openpyxl import Workbook
+from PySide6.QtWidgets import QDialogButtonBox
 
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
 
 
@@ -46,4 +48,21 @@ def test_excel_dialog_builds_composite_time_plan(qapp, tmp_path) -> None:
     assert plan.time_column == "TIME"
     assert plan.date_format == "%d.%m.%Y"
     assert plan.timezone == "Asia/Oral"
+    dialog.close()
+
+
+def test_excel_dialog_uses_kazakh_catalog(qapp, tmp_path) -> None:
+    source = tmp_path / "logging.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["DEPTH", "C1"])
+    sheet.append([100.0, 1.0])
+    workbook.save(source)
+    dialog = ExcelImportDialog(source, language=AppLanguage.KK)
+    buttons = dialog.findChild(QDialogButtonBox)
+
+    assert dialog.windowTitle() == "Excel импорттау — logging.xlsx"
+    assert dialog.composite_time.text().endswith("біріктіру")
+    assert dialog.timezone.placeholderText().startswith("мысалы")
+    assert buttons.button(QDialogButtonBox.StandardButton.Cancel).text() == "Бас тарту"
     dialog.close()
