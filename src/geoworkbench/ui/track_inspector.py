@@ -16,13 +16,15 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.tablet.models import TrackDefinition, XScale
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class TrackInspector(QWidget):
     settings_requested = Signal(str, int, str, object, object)
 
-    def __init__(self) -> None:
+    def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__()
+        self.localizer = Localizer.create(language)
         self._track_id: str | None = None
         self._stack = QStackedWidget()
 
@@ -39,24 +41,26 @@ class TrackInspector(QWidget):
         form = QFormLayout()
         self.width_input = QSpinBox()
         self.width_input.setRange(80, 2000)
-        form.addRow("Ширина, px", self.width_input)
+        form.addRow(self._t("inspector.width"), self.width_input)
 
         self.scale_input = QComboBox()
-        self.scale_input.addItem("Линейная", XScale.LINEAR.value)
-        self.scale_input.addItem("Логарифмическая", XScale.LOGARITHMIC.value)
-        form.addRow("Шкала X", self.scale_input)
+        self.scale_input.addItem(self._t("inspector.linear"), XScale.LINEAR.value)
+        self.scale_input.addItem(
+            self._t("inspector.logarithmic"), XScale.LOGARITHMIC.value
+        )
+        form.addRow(self._t("inspector.x_scale"), self.scale_input)
 
-        self.auto_range_input = QCheckBox("Автоматически")
+        self.auto_range_input = QCheckBox(self._t("common.auto"))
         self.auto_range_input.toggled.connect(self._update_range_enabled)
-        form.addRow("Диапазон X", self.auto_range_input)
+        form.addRow(self._t("inspector.x_range"), self.auto_range_input)
 
         self.minimum_input = self._range_spin_box()
         self.maximum_input = self._range_spin_box()
-        form.addRow("Минимум X", self.minimum_input)
-        form.addRow("Максимум X", self.maximum_input)
+        form.addRow(self._t("inspector.x_minimum"), self.minimum_input)
+        form.addRow(self._t("inspector.x_maximum"), self.maximum_input)
         editor_layout.addLayout(form)
 
-        self.apply_button = QPushButton("Применить")
+        self.apply_button = QPushButton(self._t("common.apply"))
         self.apply_button.clicked.connect(self._emit_settings)
         editor_layout.addWidget(self.apply_button)
         editor_layout.addStretch(1)
@@ -65,7 +69,10 @@ class TrackInspector(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.addWidget(self._stack)
-        self.setPlainText("Свойства выбранного набора, кривой или трека")
+        self.setPlainText(self._t("inspector.default"))
+
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
 
     def setPlainText(self, text: str) -> None:  # noqa: N802
         self._track_id = None
@@ -76,8 +83,9 @@ class TrackInspector(QWidget):
         self._track_id = track.track_id
         self._summary.setText(
             f"{track.title}\n"
-            f"Тип: {track.kind.value}\n"
-            f"Кривые: {', '.join(track.curve_mnemonics) or 'нет'}"
+            f"{self._t('inspector.type')}: {track.kind.value}\n"
+            f"{self._t('inspector.curves')}: "
+            f"{', '.join(track.curve_mnemonics) or self._t('common.none')}"
         )
         self.width_input.setValue(track.width)
         self.scale_input.setCurrentIndex(

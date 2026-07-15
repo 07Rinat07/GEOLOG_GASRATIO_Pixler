@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.tablet.models import TrackDefinition, TrackKind, XScale
 from geoworkbench.ui.track_inspector import TrackInspector
 
@@ -46,4 +47,24 @@ def test_inspector_emits_none_for_automatic_range(qapp) -> None:
 
     assert emitted[0][-2:] == (None, None)
     assert inspector.minimum_input.isEnabled() is False
+    inspector.close()
+
+
+def test_inspector_uses_selected_language_without_changing_scale_values(qapp) -> None:
+    inspector = TrackInspector(language=AppLanguage.EN)
+    inspector.show_track(
+        TrackDefinition(
+            "curve",
+            "Gamma Ray",
+            TrackKind.CURVE,
+            curve_mnemonics=["GR"],
+        )
+    )
+
+    assert inspector.apply_button.text() == "Apply"
+    assert inspector.scale_input.itemText(0) == "Linear"
+    assert inspector.scale_input.itemData(0) == XScale.LINEAR.value
+    assert inspector.scale_input.itemText(1) == "Logarithmic"
+    assert "Type: curve" in inspector._summary.text()
+    assert "Curves: GR" in inspector._summary.text()
     inspector.close()

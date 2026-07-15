@@ -161,7 +161,7 @@ class MainWindow(QMainWindow):
     def _create_project_explorer(self) -> None:
         dock = QDockWidget(self._t("dock.project"), self)
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabel("Project Explorer")
+        self.tree.setHeaderLabel(self._t("explorer.title"))
         self.tree.itemDoubleClicked.connect(self._activate_tree_item)
         dock.setWidget(self.tree)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
@@ -169,7 +169,7 @@ class MainWindow(QMainWindow):
 
     def _create_inspector(self) -> None:
         dock = QDockWidget(self._t("dock.inspector"), self)
-        self.inspector = TrackInspector()
+        self.inspector = TrackInspector(language=self.language)
         self.inspector.settings_requested.connect(self._apply_inspector_track_settings)
         dock.setWidget(self.inspector)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
@@ -492,11 +492,12 @@ class MainWindow(QMainWindow):
         )
         self.build_default_tablet()
         self.inspector.setPlainText(
-            f"Скважина: {last_well.name}\n"
-            f"Набор: {last_dataset.name}\n"
-            f"Кривых: {len(last_dataset.curves)}\n"
-            f"Отсчётов: {len(last_dataset.depth)}\n"
-            f"Диапазон: {last_dataset.depth[0]:.2f}–{last_dataset.depth[-1]:.2f}"
+            f"{self._t('inspector.well')}: {last_well.name}\n"
+            f"{self._t('inspector.dataset')}: {last_dataset.name}\n"
+            f"{self._t('inspector.curves')}: {len(last_dataset.curves)}\n"
+            f"{self._t('inspector.samples')}: {len(last_dataset.depth)}\n"
+            f"{self._t('inspector.range')}: "
+            f"{last_dataset.depth[0]:.2f}–{last_dataset.depth[-1]:.2f}"
         )
         if errors:
             QMessageBox.warning(self, "Часть LAS не загружена", "\n".join(errors))
@@ -1296,11 +1297,13 @@ class MainWindow(QMainWindow):
                 self.curve_view.show_dataset(dataset, [mnemonic])
                 self.tabs.setCurrentWidget(self.curve_view)
                 self.inspector.setPlainText(
-                    f"Кривая: {mnemonic}\n"
-                    f"Единица: {curve.metadata.unit or 'не задана'}\n"
-                    f"Описание: {curve.metadata.description or 'нет'}\n"
-                    f"Версия: {curve.version}\n"
-                    f"Происхождение: {curve.metadata.provenance}"
+                    f"{self._t('inspector.curve')}: {mnemonic}\n"
+                    f"{self._t('inspector.unit')}: "
+                    f"{curve.metadata.unit or self._t('common.unset')}\n"
+                    f"{self._t('inspector.description')}: "
+                    f"{curve.metadata.description or self._t('common.none')}\n"
+                    f"{self._t('inspector.version')}: {curve.version}\n"
+                    f"{self._t('inspector.provenance')}: {curve.metadata.provenance}"
                 )
         elif data[0] == "track":
             _, well_id, dataset_id, track_id = data
@@ -1346,7 +1349,7 @@ class MainWindow(QMainWindow):
             )
             track = self.tablet_view.layout_model.track_by_id(track_id)
         except (KeyError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, "Инспектор трека", str(exc))
+            QMessageBox.warning(self, self._t("inspector.title"), str(exc))
             return
         self._layout_changed(f"Обновлены свойства трека: {track.title}")
         self.inspector.show_track(track)

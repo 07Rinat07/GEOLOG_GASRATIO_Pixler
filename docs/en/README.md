@@ -61,5 +61,11 @@ available in RU/KK/EN; codes, IDs, colors, and patterns remain identical across 
 The catalog lists system and project rocks and creates project records with a code, RU/EN names,
 category, color, and pattern. System records are protected from modification.
 
+## Track Inspector
+
+The inspector displays dataset, curve, or track details and configures width, linear or
+logarithmic scale, and the X range. Labels are available in RU/KK/EN; model values are stable
+and are not translated.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.
