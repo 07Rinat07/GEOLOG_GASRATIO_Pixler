@@ -342,6 +342,14 @@ class MainWindow(QMainWindow):
         auto_range_action.triggered.connect(self.reset_selected_track_x_range)
         tablet_menu.addAction(auto_range_action)
 
+        depth_range_action = QAction(self._t("tablet.set_depth_range"), self)
+        depth_range_action.triggered.connect(self.change_visible_depth_range)
+        tablet_menu.addAction(depth_range_action)
+
+        full_depth_action = QAction(self._t("tablet.full_depth_range"), self)
+        full_depth_action.triggered.connect(self.reset_visible_depth_range)
+        tablet_menu.addAction(full_depth_action)
+
         move_left_action = QAction(self._t("tablet.move_left"), self)
         move_left_action.triggered.connect(lambda: self.move_selected_track(-1))
         tablet_menu.addAction(move_left_action)
@@ -940,6 +948,52 @@ class MainWindow(QMainWindow):
         self.tablet_controller.set_track_x_range(track.track_id, None, None)
         self._layout_changed(self._t("tablet.auto_range_set", title=track.title))
 
+    def change_visible_depth_range(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(
+                self, self._t("tablet.title"), self._t("tablet.open_first")
+            )
+            return
+        finite_depth = dataset.depth[np.isfinite(dataset.depth)]
+        if finite_depth.size < 2:
+            QMessageBox.information(self, self._t("tablet.title"), self._t("statistics.no_depth"))
+            return
+        current = self.tablet_view.visible_depth_range
+        default_top = current[0] if current is not None else float(np.min(finite_depth))
+        default_bottom = current[1] if current is not None else float(np.max(finite_depth))
+        top, accepted = QInputDialog.getDouble(
+            self, self._t("tablet.depth_range_title"), self._t("tablet.depth_top"),
+            default_top, float(np.min(finite_depth)), float(np.max(finite_depth)), 3,
+        )
+        if not accepted:
+            return
+        bottom, accepted = QInputDialog.getDouble(
+            self, self._t("tablet.depth_range_title"), self._t("tablet.depth_bottom"),
+            default_bottom, float(np.min(finite_depth)), float(np.max(finite_depth)), 3,
+        )
+        if not accepted:
+            return
+        try:
+            self.tablet_controller.set_visible_depth(top, bottom)
+        except ValueError as exc:
+            QMessageBox.warning(self, self._t("tablet.depth_range_title"), str(exc))
+            return
+        self.tablet_view.set_visible_depth(top, bottom)
+        self._layout_changed(
+            self._t("tablet.depth_range_changed", top=f"{top:g}", bottom=f"{bottom:g}")
+        )
+
+    def reset_visible_depth_range(self) -> None:
+        if self.session.current_tablet_layout is None:
+            QMessageBox.information(
+                self, self._t("tablet.title"), self._t("tablet.build_first")
+            )
+            return
+        self.tablet_controller.reset_visible_depth()
+        self.tablet_view.refresh_view()
+        self._layout_changed(self._t("tablet.full_depth_restored"))
+
     def hide_selected_track(self) -> None:
         track = self._selected_track()
         if track is None:
@@ -1388,7 +1442,32 @@ class MainWindow(QMainWindow):
         )
         if track is None:
             return
-        self.inspector.show_track(track)
+        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
+
+    def _track_data_range(self, track: TrackDefinition) -> tuple[float, float] | None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            return None
+        finite_parts = []
+        for mnemonic in track.curve_mnemonics:
+            curve = dataset.curve_by_mnemonic(mnemonic)
+            if curve is None:
+                continue
+            values = curve.values[np.isfinite(curve.values)]
+            if track.x_scale is XScale.LOGARITHMIC:
+                values = values[values > 0.0]
+            if values.size:
+                finite_parts.append(values)
+        if not finite_parts:
+            return None
+        values = np.concatenate(finite_parts)
+        minimum, maximum = float(np.min(values)), float(np.max(values))
+        if minimum == maximum:
+            if track.x_scale is XScale.LOGARITHMIC:
+                return minimum / 1.05, maximum * 1.05
+            padding = max(abs(minimum) * 0.05, 1.0)
+            return minimum - padding, maximum + padding
+        return minimum, maximum
 
     def _apply_inspector_track_settings(
         self,
@@ -1411,7 +1490,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, self._t("inspector.title"), str(exc))
             return
         self._layout_changed(f"Обновлены свойства трека: {track.title}")
-        self.inspector.show_track(track)
+        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
 
     def _show_visible_depth(self, top: float, bottom: float) -> None:
         if self.tablet_controller.set_visible_depth(top, bottom):

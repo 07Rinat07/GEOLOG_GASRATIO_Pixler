@@ -78,6 +78,11 @@ mnemonics, and values are not translated.
 The log-display menu builds the default tracks, adds user-selected curves, and controls track
 width, scale, range, order, and visibility. All commands are available in RU/KK/EN.
 
+Each column supports an automatic X range or manually entered minimum and maximum values in the
+Track Inspector. Switching to manual mode starts from the actual data range for that column. The
+visible depth interval can also be entered numerically from the log-layout menu; “Show full depth
+range” restores automatic full-depth display.
+
 ## Correcting depth order
 
 The editor reports the depth direction and can safely create a new dataset with ascending depth.

@@ -68,3 +68,19 @@ def test_inspector_uses_selected_language_without_changing_scale_values(qapp) ->
     assert "Type: curve" in inspector._summary.text()
     assert "Curves: GR" in inspector._summary.text()
     inspector.close()
+
+
+def test_inspector_uses_data_range_when_switching_from_auto_to_manual(qapp) -> None:
+    inspector = TrackInspector()
+    inspector.show_track(
+        TrackDefinition("curve", "Curve", TrackKind.CURVE),
+        suggested_range=(-12.5, 87.25),
+    )
+
+    assert inspector.auto_range_input.isChecked() is True
+    assert inspector.minimum_input.value() == -12.5
+    assert inspector.maximum_input.value() == 87.25
+    inspector.auto_range_input.setChecked(False)
+    assert inspector.minimum_input.isEnabled() is True
+    assert inspector.maximum_input.isEnabled() is True
+    inspector.close()

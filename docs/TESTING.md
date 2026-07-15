@@ -55,6 +55,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Track Inspector UI | RU/KK/EN summary/settings and stable linear/logarithmic model values |
 | Data Inspector UI | RU/KK/EN tabs/tables/messages, curve metadata, indexes and LAS header controls |
 | Tablet workflow UI | RU/KK/EN menus/dialogs/messages and stable TrackKind/XScale values |
+| Graph ranges | Per-track auto/manual X range, data-derived defaults and manual/full depth interval |
 | Depth normalization UI | RU/KK/EN directions/confirmation and non-destructive copy workflow |
 | Basic Gas Ratio UI | RU/KK/EN command/status/log with stable calculated curve mnemonics |
 | Normalized gas | Source passport, control example, unit validation, NaN domain and C1_NORM curve provenance |

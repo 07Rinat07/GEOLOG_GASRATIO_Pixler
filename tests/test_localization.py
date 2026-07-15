@@ -57,6 +57,8 @@ def test_main_window_uses_selected_language_for_shell(qapp) -> None:
     tablet_labels = [action.text() for action in tablet_menu.actions()]
     assert "Add track" in tablet_labels
     assert "Show all hidden tracks" in tablet_labels
+    assert "Set visible depth interval..." in tablet_labels
+    assert "Show full depth range" in tablet_labels
     assert window.statusBar().currentMessage() == "Ready: import data"
     window.close()
 

@@ -188,6 +188,13 @@ def test_controller_updates_visible_depth_only_when_changed() -> None:
 
     session.dirty = False
     assert controller.set_visible_depth(100.0, 200.0) is False
+
+    assert controller.reset_visible_depth() is True
+    assert layout.visible_depth_top is None
+    assert layout.visible_depth_bottom is None
+    assert session.dirty is True
+    session.dirty = False
+    assert controller.reset_visible_depth() is False
     assert session.dirty is False
 
 

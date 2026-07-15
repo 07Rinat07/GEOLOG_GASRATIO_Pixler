@@ -79,7 +79,12 @@ class TrackInspector(QWidget):
         self._text.setPlainText(text)
         self._stack.setCurrentIndex(0)
 
-    def show_track(self, track: TrackDefinition) -> None:
+    def show_track(
+        self,
+        track: TrackDefinition,
+        *,
+        suggested_range: tuple[float, float] | None = None,
+    ) -> None:
         self._track_id = track.track_id
         self._summary.setText(
             f"{track.title}\n"
@@ -93,8 +98,9 @@ class TrackInspector(QWidget):
         )
         automatic = track.x_min is None or track.x_max is None
         self.auto_range_input.setChecked(automatic)
-        self.minimum_input.setValue(track.x_min if track.x_min is not None else 0.1)
-        self.maximum_input.setValue(track.x_max if track.x_max is not None else 100.0)
+        fallback = suggested_range or (0.1, 100.0)
+        self.minimum_input.setValue(track.x_min if track.x_min is not None else fallback[0])
+        self.maximum_input.setValue(track.x_max if track.x_max is not None else fallback[1])
         self._update_range_enabled(automatic)
         self._stack.setCurrentIndex(1)
 

@@ -160,6 +160,12 @@ class TabletController:
             self.session.dirty = True
         return changed
 
+    def reset_visible_depth(self) -> bool:
+        changed = self._require_layout().set_visible_depth(None, None)
+        if changed:
+            self.session.dirty = True
+        return changed
+
     def update_track_view_settings(
         self,
         track_id: str,
