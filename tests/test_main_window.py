@@ -53,6 +53,31 @@ def bind_session(window: MainWindow, session: ProjectSession) -> None:
     window._update_curve_edit_actions()
 
 
+def test_open_las_stops_when_import_mode_is_cancelled(qapp, monkeypatch) -> None:
+    window = MainWindow()
+    file_dialog_called = False
+
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QInputDialog.getItem",
+        lambda *args, **kwargs: ("", False),
+    )
+
+    def unexpected_file_dialog(*args, **kwargs):
+        nonlocal file_dialog_called
+        file_dialog_called = True
+        return ([], "")
+
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QFileDialog.getOpenFileNames",
+        unexpected_file_dialog,
+    )
+
+    window.open_las()
+
+    assert not file_dialog_called
+    window.close()
+
+
 def test_window_restores_saved_layout(qapp) -> None:
     window = MainWindow()
     session, layout = make_session()

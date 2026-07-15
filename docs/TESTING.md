@@ -42,6 +42,7 @@ Qt-тесты запускаются с платформой `offscreen`, нас
 | Curve Metadata Editor | Мнемоники, UOM, описания, конфликты с индексами, Undo/Redo и canonical ID |
 | Import provenance | Project v7 round-trip, legacy migration, schema validation и hash mismatch |
 | LAS source profile | Версия, WRAP, NULL, кодировка, fingerprint, artifact status и export defaults |
+| LAS import policy | Clean/warning/error для strict, compatible и manual review |
 | Проект и миграции | Round-trip, legacy-версии, повреждённые данные |
 | Атомарное хранение | Успешная замена и очистка после сбоя |
 | Контроллеры | Сценарии через repository/model без Qt |

@@ -36,6 +36,7 @@ from geoworkbench.data.las_adapter import (
     import_las_with_report,
 )
 from geoworkbench.data.las_import_report import LasIssueSeverity
+from geoworkbench.data.las_import_policy import LasImportMode, evaluate_las_import
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
@@ -318,6 +319,22 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
     def open_las(self) -> None:
+        mode_labels = {
+            "Совместимый — открыть с предупреждениями": LasImportMode.COMPATIBLE,
+            "Строгий — блокировать любые предупреждения": LasImportMode.STRICT,
+            "Ручная проверка — подтверждать каждый проблемный файл": LasImportMode.MANUAL,
+        }
+        selected_mode, accepted = QInputDialog.getItem(
+            self,
+            "Режим импорта LAS",
+            "Политика диагностических сообщений",
+            list(mode_labels),
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        import_mode = mode_labels[selected_mode]
         filenames, _ = QFileDialog.getOpenFileNames(self, "Открыть LAS", "", "LAS (*.las)")
         if not filenames:
             return
@@ -330,6 +347,26 @@ class MainWindow(QMainWindow):
         for filename in filenames:
             try:
                 import_result = import_las_with_report(filename)
+                decision = evaluate_las_import(import_result.report, import_mode)
+                if not decision.accepted:
+                    messages = "\n  ".join(issue.message for issue in decision.blocking_issues)
+                    raise LasImportError(
+                        f"режим {import_mode.value} отклонил файл:\n  {messages}"
+                    )
+                if decision.requires_confirmation:
+                    messages = "\n".join(
+                        f"• {issue.message}" for issue in decision.review_issues
+                    )
+                    answer = QMessageBox.question(
+                        self,
+                        f"Ручная проверка: {Path(filename).name}",
+                        messages + "\n\nОткрыть файл без автоматического исправления?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No,
+                    )
+                    if answer is not QMessageBox.StandardButton.Yes:
+                        self._log(f"LAS пропущен после ручной проверки: {filename}")
+                        continue
                 dataset = import_result.dataset
                 well = self.session.add_dataset(
                     dataset,
@@ -338,7 +375,10 @@ class MainWindow(QMainWindow):
                 )
                 last_dataset = dataset
                 last_well = well
-                if analyze_depth_axis(dataset.depth).direction is DepthDirection.DESCENDING:
+                if (
+                    import_mode is LasImportMode.COMPATIBLE
+                    and analyze_depth_axis(dataset.depth).direction is DepthDirection.DESCENDING
+                ):
                     descending_files.append(Path(filename).name)
                 report_messages = tuple(
                     issue.message
@@ -346,7 +386,7 @@ class MainWindow(QMainWindow):
                     if issue.code != "index-descending"
                     and issue.severity is not LasIssueSeverity.INFO
                 )
-                if report_messages:
+                if report_messages and import_mode is LasImportMode.COMPATIBLE:
                     import_warnings.append(
                         f"{Path(filename).name}:\n  " + "\n  ".join(report_messages)
                     )

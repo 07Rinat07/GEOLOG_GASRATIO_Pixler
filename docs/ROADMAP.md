@@ -31,7 +31,7 @@ Roadmap следует зависимостям продукта, а не ном
    - готово: редактор кривых, единиц и описаний с Undo/Redo;
    - готово: профиль и отчёт диагностики LAS 1.2/2.0;
 2. **0.8 Universal Import**
-   - strict/compatible/manual режимы LAS;
+   - готово: strict/compatible/manual режимы принятия LAS по import report;
    - нормализация Unix timestamp, строковых дат и часовых поясов;
    - общий мастер импорта;
    - CSV и TXT;
