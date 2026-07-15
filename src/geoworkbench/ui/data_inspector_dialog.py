@@ -5,8 +5,10 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QDialogButtonBox,
+    QComboBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -18,12 +20,22 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.data_inspector_controller import DataInspectorController
+from geoworkbench.project.header_editing_controller import (
+    HeaderEditingController,
+    HeaderSection,
+)
 
 
 class DataInspectorDialog(QDialog):
-    def __init__(self, controller: DataInspectorController, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        controller: DataInspectorController,
+        header_controller: HeaderEditingController | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.controller = controller
+        self.header_controller = header_controller or HeaderEditingController(controller.session)
         self.setWindowTitle("Сведения о данных и индексах")
         self.resize(980, 620)
         root = QVBoxLayout(self)
@@ -71,6 +83,53 @@ class DataInspectorDialog(QDialog):
         self.issue_table.setObjectName("import-issues")
         self.issue_table.setHorizontalHeaderLabels(["Уровень", "Код", "Сообщение"])
         self.tabs.addTab(self.issue_table, "Диагностика импорта")
+
+        header_page = QWidget()
+        header_layout = QVBoxLayout(header_page)
+        section_row = QHBoxLayout()
+        section_row.addWidget(QLabel("Секция"))
+        self.header_section = QComboBox()
+        self.header_section.setObjectName("header-section")
+        self.header_section.addItem("WELL", HeaderSection.WELL)
+        self.header_section.addItem("PARAMETER", HeaderSection.PARAMETER)
+        self.header_section.currentIndexChanged.connect(self._refresh_header)
+        section_row.addWidget(self.header_section)
+        section_row.addStretch()
+        header_layout.addLayout(section_row)
+        self.header_table = QTableWidget(0, 3)
+        self.header_table.setObjectName("las-header")
+        self.header_table.setHorizontalHeaderLabels(["Мнемоника", "Значение", "Управление"])
+        self.header_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.header_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.header_table.itemSelectionChanged.connect(self._load_header_entry)
+        header_layout.addWidget(self.header_table)
+        editor_row = QHBoxLayout()
+        self.header_mnemonic = QLineEdit()
+        self.header_mnemonic.setObjectName("header-mnemonic")
+        self.header_mnemonic.setPlaceholderText("Мнемоника")
+        self.header_value = QLineEdit()
+        self.header_value.setObjectName("header-value")
+        self.header_value.setPlaceholderText("Значение")
+        editor_row.addWidget(self.header_mnemonic)
+        editor_row.addWidget(self.header_value, 1)
+        header_layout.addLayout(editor_row)
+        header_actions = QHBoxLayout()
+        for label, handler in (
+            ("Добавить", self._add_header_entry),
+            ("Изменить", self._update_header_entry),
+            ("Удалить", self._remove_header_entry),
+            ("Отменить", self._undo_header),
+            ("Повторить", self._redo_header),
+        ):
+            button = QPushButton(label)
+            button.clicked.connect(handler)
+            header_actions.addWidget(button)
+        header_actions.addStretch()
+        header_layout.addLayout(header_actions)
+        header_layout.addWidget(
+            QLabel("STRT, STOP, STEP и NULL изменяются глубинными операциями и планом экспорта.")
+        )
+        self.tabs.addTab(header_page, "LAS-заголовок")
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
@@ -133,6 +192,77 @@ class DataInspectorDialog(QDialog):
             for column, value in enumerate((issue.severity.value, issue.code, issue.message)):
                 self.issue_table.setItem(row, column, QTableWidgetItem(value))
         self.issue_table.resizeColumnsToContents()
+        self._refresh_header()
+
+    def _current_header_section(self) -> HeaderSection:
+        value = self.header_section.currentData()
+        return value if isinstance(value, HeaderSection) else HeaderSection.WELL
+
+    def _refresh_header(self) -> None:
+        entries = self.header_controller.entries(self._current_header_section())
+        self.header_table.setRowCount(len(entries))
+        for row, entry in enumerate(entries):
+            self.header_table.setItem(row, 0, QTableWidgetItem(entry.mnemonic))
+            self.header_table.setItem(row, 1, QTableWidgetItem(entry.value))
+            self.header_table.setItem(
+                row, 2, QTableWidgetItem("глубина/экспорт" if entry.protected else "редактор")
+            )
+        self.header_table.resizeColumnsToContents()
+
+    def _load_header_entry(self) -> None:
+        row = self.header_table.currentRow()
+        mnemonic = self.header_table.item(row, 0) if row >= 0 else None
+        value = self.header_table.item(row, 1) if row >= 0 else None
+        self.header_mnemonic.setText(mnemonic.text() if mnemonic is not None else "")
+        self.header_value.setText(value.text() if value is not None else "")
+
+    def _add_header_entry(self) -> None:
+        self._run_header_action(
+            lambda: self.header_controller.add(
+                self._current_header_section(),
+                self.header_mnemonic.text(),
+                self.header_value.text(),
+            )
+        )
+
+    def _update_header_entry(self) -> None:
+        row = self.header_table.currentRow()
+        original = self.header_table.item(row, 0) if row >= 0 else None
+        if original is None:
+            QMessageBox.information(self, "LAS-заголовок", "Сначала выберите запись")
+            return
+        self._run_header_action(
+            lambda: self.header_controller.update(
+                self._current_header_section(),
+                original.text(),
+                self.header_mnemonic.text(),
+                self.header_value.text(),
+            )
+        )
+
+    def _remove_header_entry(self) -> None:
+        row = self.header_table.currentRow()
+        item = self.header_table.item(row, 0) if row >= 0 else None
+        if item is None:
+            QMessageBox.information(self, "LAS-заголовок", "Сначала выберите запись")
+            return
+        self._run_header_action(
+            lambda: self.header_controller.remove(self._current_header_section(), item.text())
+        )
+
+    def _undo_header(self) -> None:
+        self._run_header_action(self.header_controller.undo)
+
+    def _redo_header(self) -> None:
+        self._run_header_action(self.header_controller.redo)
+
+    def _run_header_action(self, action) -> None:
+        try:
+            action()
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, "LAS-заголовок", str(exc))
+            return
+        self._refresh()
 
     def _selected_index_id(self) -> str | None:
         row = self.index_table.currentRow()

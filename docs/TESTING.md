@@ -38,6 +38,7 @@ Qt-тесты запускаются с платформой `offscreen`, нас
 | LAS ExportPlan | Версия, WRAP, NULL, точность, предупреждения и блокирующие ошибки |
 | Multi-index | Legacy compatibility, active depth/time, detection evidence и project v6 round-trip |
 | Data Inspector | Summary, indexes, missing curve values, import issues и ручной active index |
+| LAS Header Editor | WELL/PARAMETER, координаты, защищённые поля, синхронизация имени и Undo/Redo |
 | Import provenance | Project v7 round-trip, legacy migration, schema validation и hash mismatch |
 | Проект и миграции | Round-trip, legacy-версии, повреждённые данные |
 | Атомарное хранение | Успешная замена и очистка после сбоя |

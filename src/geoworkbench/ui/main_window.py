@@ -39,6 +39,7 @@ from geoworkbench.data.las_import_report import LasIssueSeverity
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
+from geoworkbench.project.header_editing_controller import HeaderEditingController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
 from geoworkbench.project.depth_axis_controller import DepthAxisController
 from geoworkbench.project.curve_editing_controller import (
@@ -79,6 +80,7 @@ class MainWindow(QMainWindow):
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller = DatasetExportController(self.session)
         self.data_inspector_controller = DataInspectorController(self.session)
+        self.header_editing_controller = HeaderEditingController(self.session)
         self.formula_registry = build_all_sourced_formula_registry()
         self.formula_execution_controller = FormulaExecutionController(
             self.session, self.formula_registry
@@ -426,6 +428,8 @@ class MainWindow(QMainWindow):
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller.session = self.session
         self.data_inspector_controller.session = self.session
+        self.header_editing_controller.session = self.session
+        self.header_editing_controller.clear_history()
         self.formula_execution_controller.session = self.session
         self.depth_annotation_controller.session = self.session
         self.depth_annotation_controller.history.clear()
@@ -543,12 +547,14 @@ class MainWindow(QMainWindow):
         if self.session.current_dataset is None:
             QMessageBox.information(self, "Сведения о данных", "Сначала выберите dataset")
             return
-        previous_index_id = self.session.current_dataset.active_index_id
-        DataInspectorDialog(self.data_inspector_controller, self).exec()
-        if self.session.current_dataset.active_index_id != previous_index_id:
-            self._show_current_dataset()
-            self._refresh_tree()
-            self._update_title()
+        DataInspectorDialog(
+            self.data_inspector_controller,
+            self.header_editing_controller,
+            self,
+        ).exec()
+        self._show_current_dataset()
+        self._refresh_tree()
+        self._update_title()
 
     def toggle_curve_edit_mode(self, enabled: bool) -> None:
         if enabled and not self.curve_view.set_edit_mode(True):
