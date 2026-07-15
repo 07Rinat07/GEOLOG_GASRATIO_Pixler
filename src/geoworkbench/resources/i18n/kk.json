@@ -77,5 +77,16 @@
   "export.continue_question": "Экспорттауды жалғастыру керек пе?",
   "export.save_title": "LAS экспорттау",
   "export.overwrite_question": "Файл бұрыннан бар:\n{name}\n\nОны ауыстыру керек пе?",
-  "export.success": "LAS экспортталды: {name}"
+  "export.success": "LAS экспортталды: {name}",
+  "formula.profiles_title": "Есептеу формулаларының профильдері",
+  "formula.calculate": "Есептеу",
+  "formula.no_profiles": "Тіркелген профильдер жоқ",
+  "formula.output": "Шығыс",
+  "formula.source": "Дереккөз",
+  "formula.calculation": "Формуланы есептеу",
+  "formula.select_dataset": "Алдымен деректер жинағын таңдаңыз",
+  "formula.profile.dexp.jorden_shirley.name": "Jorden–Shirley d-экспонентасы",
+  "formula.profile.dexp.jorden_shirley.description": "Бұрғылаудың механикалық жылдамдығының нормаланған көрсеткіші.",
+  "formula.profile.dexp.rehm_mcclendon.name": "Rehm–McClendon түзетілген d-экспонентасы",
+  "formula.profile.dexp.rehm_mcclendon.description": "Бұрғылау ерітіндісінің нақты тығыздығына түзетілген d-экспонента."
 }

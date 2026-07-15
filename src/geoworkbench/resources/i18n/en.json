@@ -77,5 +77,16 @@
   "export.continue_question": "Continue exporting?",
   "export.save_title": "Export LAS",
   "export.overwrite_question": "The file already exists:\n{name}\n\nReplace it?",
-  "export.success": "LAS exported: {name}"
+  "export.success": "LAS exported: {name}",
+  "formula.profiles_title": "Calculation formula profiles",
+  "formula.calculate": "Calculate",
+  "formula.no_profiles": "No registered profiles",
+  "formula.output": "Output",
+  "formula.source": "Source",
+  "formula.calculation": "Formula calculation",
+  "formula.select_dataset": "Select a dataset first",
+  "formula.profile.dexp.jorden_shirley.name": "Jorden–Shirley d-exponent",
+  "formula.profile.dexp.jorden_shirley.description": "Normalized indicator of the rate of penetration.",
+  "formula.profile.dexp.rehm_mcclendon.name": "Rehm–McClendon corrected d-exponent",
+  "formula.profile.dexp.rehm_mcclendon.description": "d-exponent corrected for the actual drilling-fluid density."
 }

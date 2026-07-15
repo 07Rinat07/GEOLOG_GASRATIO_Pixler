@@ -23,5 +23,10 @@ Undo/Redo. Every command and selection validation message uses the selected lang
 The export dialog configures LAS 1.2/2.0, WRAP, NULL, precision, and custom-section
 preservation. Settings, warnings, and overwrite confirmation use the selected language.
 
+## Calculation formulas
+
+Formula Profiles displays the passport, expression, output, source, and input-curve mapping.
+DEXP names and descriptions are available in RU/KK/EN; formulas and units are not translated.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.

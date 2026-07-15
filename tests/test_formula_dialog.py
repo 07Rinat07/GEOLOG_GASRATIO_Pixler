@@ -1,14 +1,17 @@
 import numpy as np
-from PySide6.QtWidgets import QComboBox, QDialog
+from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox
 
 from geoworkbench.calculations.controller import FormulaExecutionController
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 
 
-def make_dialog() -> tuple[FormulaExecutionDialog, ProjectSession]:
+def make_dialog(
+    language: AppLanguage = AppLanguage.RU,
+) -> tuple[FormulaExecutionDialog, ProjectSession]:
     dataset = Dataset("dataset", "Drilling", DatasetKind.GTI, DepthDomain.MD, np.array([1.0]))
     for mnemonic, unit, value in (
         ("ROP", "ft/h", 60.0),
@@ -24,6 +27,7 @@ def make_dialog() -> tuple[FormulaExecutionDialog, ProjectSession]:
         dataset,
         registry,
         FormulaExecutionController(session, registry),
+        language=language,
     ), session
 
 
@@ -55,4 +59,20 @@ def test_formula_dialog_executes_selected_profile(qapp) -> None:
     assert dialog.execution_result is not None
     assert session.current_dataset is not None
     assert session.current_dataset.curve_by_mnemonic("DEXP") is not None
+    dialog.close()
+
+
+def test_formula_dialog_uses_english_catalog(qapp) -> None:
+    dialog, _ = make_dialog(AppLanguage.EN)
+    buttons = dialog.findChild(QDialogButtonBox)
+    dialog.profile_selector.setCurrentIndex(
+        dialog.profile_selector.findData("dexp.jorden_shirley")
+    )
+
+    assert dialog.windowTitle() == "Calculation formula profiles"
+    assert "Output:" in dialog.passport_label.text()
+    assert "Source:" in dialog.passport_label.text()
+    assert "Normalized indicator of the rate of penetration" in dialog.passport_label.text()
+    assert buttons.button(QDialogButtonBox.StandardButton.Ok).text() == "Calculate"
+    assert buttons.button(QDialogButtonBox.StandardButton.Cancel).text() == "Cancel"
     dialog.close()

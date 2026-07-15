@@ -1001,13 +1001,16 @@ class MainWindow(QMainWindow):
     def show_formula_profiles(self) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
-            QMessageBox.information(self, "Расчёт формулы", "Сначала выберите набор данных")
+            QMessageBox.information(
+                self, self._t("formula.calculation"), self._t("formula.select_dataset")
+            )
             return
         dialog = FormulaExecutionDialog(
             dataset,
             self.formula_registry,
             self.formula_execution_controller,
             self,
+            language=self.language,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted or dialog.execution_result is None:
             return

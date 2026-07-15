@@ -77,5 +77,16 @@
   "export.continue_question": "Продолжить экспорт?",
   "export.save_title": "Экспортировать LAS",
   "export.overwrite_question": "Файл уже существует:\n{name}\n\nЗаменить его?",
-  "export.success": "LAS экспортирован: {name}"
+  "export.success": "LAS экспортирован: {name}",
+  "formula.profiles_title": "Профили расчётных формул",
+  "formula.calculate": "Рассчитать",
+  "formula.no_profiles": "Нет зарегистрированных профилей",
+  "formula.output": "Выход",
+  "formula.source": "Источник",
+  "formula.calculation": "Расчёт формулы",
+  "formula.select_dataset": "Сначала выберите набор данных",
+  "formula.profile.dexp.jorden_shirley.name": "d-экспонента Jorden–Shirley",
+  "formula.profile.dexp.jorden_shirley.description": "Нормализованный показатель механической скорости проходки.",
+  "formula.profile.dexp.rehm_mcclendon.name": "Скорректированная d-экспонента Rehm–McClendon",
+  "formula.profile.dexp.rehm_mcclendon.description": "d-экспонента с поправкой на фактическую плотность бурового раствора."
 }

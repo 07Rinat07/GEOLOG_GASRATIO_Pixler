@@ -17,6 +17,7 @@ from geoworkbench.calculations.controller import (
 )
 from geoworkbench.calculations.pixler import FormulaProfileRegistry
 from geoworkbench.domain.models import Dataset
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class FormulaExecutionDialog(QDialog):
@@ -28,14 +29,17 @@ class FormulaExecutionDialog(QDialog):
         registry: FormulaProfileRegistry,
         controller: FormulaExecutionController,
         parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
     ) -> None:
         super().__init__(parent)
+        self.localizer = Localizer.create(language)
         self.dataset = dataset
         self.registry = registry
         self.controller = controller
         self.execution_result: FormulaExecutionResult | None = None
         self.input_selectors: dict[str, QComboBox] = {}
-        self.setWindowTitle("Профили расчётных формул")
+        self.setWindowTitle(self._t("formula.profiles_title"))
         self.resize(680, 480)
 
         root = QVBoxLayout(self)
@@ -57,12 +61,20 @@ class FormulaExecutionDialog(QDialog):
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Рассчитать")
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText(
+            self._t("formula.calculate")
+        )
+        self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(
+            self._t("common.cancel")
+        )
         self.buttons.accepted.connect(self._execute)
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)
         self.profile_selector.currentIndexChanged.connect(self._refresh_profile)
         self._refresh_profile()
+
+    def _t(self, key: str) -> str:
+        return self.localizer.text(key)
 
     def selected_profile_id(self) -> str:
         return str(self.profile_selector.currentData())
@@ -75,14 +87,22 @@ class FormulaExecutionDialog(QDialog):
             self.mapping_form.removeRow(0)
         self.input_selectors.clear()
         if self.profile_selector.currentIndex() < 0:
-            self.passport_label.setText("Нет зарегистрированных профилей")
+            self.passport_label.setText(self._t("formula.no_profiles"))
             return
         passport = self.registry.passport(self.selected_profile_id())
+        profile_key = self.selected_profile_id()
+        display_name = self.localizer.catalog.get(
+            f"formula.profile.{profile_key}.name", passport.display_name
+        )
+        description = self.localizer.catalog.get(
+            f"formula.profile.{profile_key}.description", passport.description
+        )
         self.passport_label.setText(
-            f"<b>{passport.display_name}</b> · v{passport.version}<br>"
+            f"<b>{display_name}</b> · v{passport.version}<br>"
             f"{passport.expression}<br><br>"
-            f"Выход: {passport.output_mnemonic} [{passport.output_unit}]<br>"
-            f"Источник: {passport.source}<br><br>{passport.description}"
+            f"{self._t('formula.output')}: {passport.output_mnemonic} "
+            f"[{passport.output_unit}]<br>"
+            f"{self._t('formula.source')}: {passport.source}<br><br>{description}"
         )
         curve_names = [curve.metadata.original_mnemonic for curve in self.dataset.curves.values()]
         for input_name in passport.required_inputs:
@@ -103,6 +123,6 @@ class FormulaExecutionDialog(QDialog):
                 self.selected_mapping(),
             )
         except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, "Расчёт формулы", str(exc))
+            QMessageBox.warning(self, self._t("formula.calculation"), str(exc))
             return
         self.accept()
