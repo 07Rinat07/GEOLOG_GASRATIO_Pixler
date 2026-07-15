@@ -52,6 +52,16 @@ class CalculationState(StrEnum):
     FROZEN = "frozen"
 
 
+class CanvasAnchorType(StrEnum):
+    FREE = "free"
+    DEPTH = "depth"
+    TIME = "time"
+    PARAMETER = "parameter"
+    INTERVAL = "interval"
+    TRACK = "track"
+    PAGE = "page"
+
+
 @dataclass(frozen=True, slots=True)
 class CurveMetadata:
     curve_id: str
@@ -311,6 +321,42 @@ class CanvasObject:
     height: float
     top_depth: float | None = None
     bottom_depth: float | None = None
+    time_value: str | None = None
+    parameter_mnemonic: str | None = None
+    track_id: str | None = None
+    properties: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class MasterlogHeaderElement:
+    element_id: str
+    element_type: str
+    x_mm: float
+    y_mm: float
+    width_mm: float
+    height_mm: float
+    properties: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class MasterlogColumnTemplate:
+    column_id: str
+    title: str
+    column_type: str
+    width_mm: float
+    curve_mnemonics: list[str] = field(default_factory=list)
+    properties: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class MasterlogTemplate:
+    template_id: str
+    name: str
+    page_format: str = "roll"
+    depth_scale: int = 500
+    header_height_mm: float = 45.0
+    header_elements: list[MasterlogHeaderElement] = field(default_factory=list)
+    columns: list[MasterlogColumnTemplate] = field(default_factory=list)
     properties: dict[str, Any] = field(default_factory=dict)
 
 
@@ -343,3 +389,4 @@ class Project:
     wells: dict[str, Well] = field(default_factory=dict)
     lithotypes: dict[str, ProjectLithotype] = field(default_factory=dict)
     description_templates: dict[str, str] = field(default_factory=dict)
+    masterlog_templates: dict[str, MasterlogTemplate] = field(default_factory=dict)

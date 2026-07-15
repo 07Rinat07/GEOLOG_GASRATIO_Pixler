@@ -77,7 +77,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | LAS Header Editor | VERSION/WELL/PARAMETER, защищённые поля, координаты, NULL, синхронизация и Undo/Redo |
 | LAS Table Editor | RU/KK/EN, ячейки, multi-cell selection, constant/noise, copy/paste и gas recalc |
 | Curve Metadata Editor | Мнемоники, UOM, описания, конфликты с индексами, Undo/Redo и canonical ID |
-| Import provenance | Project v7 round-trip, legacy migration, schema validation и hash mismatch |
+| Project persistence | Project v8 round-trip, Masterlog templates/anchors, legacy migration, import provenance, schema validation и hash mismatch |
 | LAS source profile | Версия, WRAP, NULL, кодировка, fingerprint, artifact status и export defaults |
 | LAS import policy | Clean/warning/error для strict, compatible и manual review |
 | Проект и миграции | Round-trip, legacy-версии, повреждённые данные |

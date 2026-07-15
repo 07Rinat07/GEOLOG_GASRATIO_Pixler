@@ -159,6 +159,16 @@ def _migrate_v6_to_v7(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v7_to_v8(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 7 не содержит объекта 'project'")
+    project.setdefault("masterlog_templates", {})
+    migrated["format_version"] = 8
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -167,6 +177,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(3, _migrate_v3_to_v4)
 DEFAULT_PROJECT_MIGRATIONS.register(4, _migrate_v4_to_v5)
 DEFAULT_PROJECT_MIGRATIONS.register(5, _migrate_v5_to_v6)
 DEFAULT_PROJECT_MIGRATIONS.register(6, _migrate_v6_to_v7)
+DEFAULT_PROJECT_MIGRATIONS.register(7, _migrate_v7_to_v8)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

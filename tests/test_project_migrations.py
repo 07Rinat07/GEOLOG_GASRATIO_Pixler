@@ -33,6 +33,22 @@ def test_default_registry_migrates_v1_payload_to_v2() -> None:
     assert migrated["tablet_layouts"] == {}
 
 
+def test_v7_project_migrates_with_empty_masterlog_templates() -> None:
+    payload = {
+        "format_version": 7,
+        "project": {"project_id": "p", "name": "Project", "wells": {}},
+        "tablet_layouts": {},
+        "source_artifacts": {},
+        "import_reports": {},
+    }
+
+    migrated = migrate_project_payload(payload, 8)
+
+    assert migrated["format_version"] == 8
+    assert migrated["project"]["masterlog_templates"] == {}
+    assert "masterlog_templates" not in payload["project"]
+
+
 def test_registry_rejects_missing_migration_step() -> None:
     registry = ProjectMigrationRegistry()
 

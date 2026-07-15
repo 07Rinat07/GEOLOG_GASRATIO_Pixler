@@ -21,6 +21,9 @@ from geoworkbench.domain.models import (
     IndexRole,
     IndexType,
     LithologyInterval,
+    MasterlogColumnTemplate,
+    MasterlogHeaderElement,
+    MasterlogTemplate,
     Project,
     ProjectLithotype,
     StratigraphyInterval,
@@ -48,7 +51,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 7
+PROJECT_FORMAT_VERSION = 8
 
 
 @dataclass(slots=True)
@@ -297,6 +300,39 @@ def project_from_dict(data: dict[str, Any]) -> Project:
     ):
         raise ProjectFormatError("Поле 'description_templates' должно быть строковым объектом")
     project.description_templates = dict(raw_templates)
+    raw_masterlog_templates = data.get("masterlog_templates", {})
+    if not isinstance(raw_masterlog_templates, dict):
+        raise ProjectFormatError("Поле 'masterlog_templates' должно быть объектом")
+    for template_id, item in raw_masterlog_templates.items():
+        if not isinstance(template_id, str) or not isinstance(item, dict):
+            raise ProjectFormatError("Запись шаблона мастерлога имеет неверный формат")
+        try:
+            header_elements = [
+                MasterlogHeaderElement(**element)
+                for element in item.get("header_elements", [])
+            ]
+            columns = [
+                MasterlogColumnTemplate(**column) for column in item.get("columns", [])
+            ]
+            template = MasterlogTemplate(
+                template_id=str(_required(item, "template_id", str)),
+                name=str(_required(item, "name", str)),
+                page_format=str(item.get("page_format", "roll")),
+                depth_scale=int(item.get("depth_scale", 500)),
+                header_height_mm=float(item.get("header_height_mm", 45.0)),
+                header_elements=header_elements,
+                columns=columns,
+                properties=dict(item.get("properties", {})),
+            )
+        except (TypeError, ValueError) as exc:
+            raise ProjectFormatError(
+                f"Некорректный шаблон мастерлога '{template_id}'"
+            ) from exc
+        if template.template_id != template_id:
+            raise ProjectFormatError(
+                f"ID шаблона мастерлога '{template_id}' не совпадает с содержимым"
+            )
+        project.masterlog_templates[template_id] = template
     return project
 
 

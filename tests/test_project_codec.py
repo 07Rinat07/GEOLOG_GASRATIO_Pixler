@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from geoworkbench.domain.models import (
+    CanvasObject,
     CurveData,
     CurveMetadata,
     Dataset,
@@ -13,6 +14,9 @@ from geoworkbench.domain.models import (
     DepthDomain,
     IndexRole,
     IndexType,
+    MasterlogColumnTemplate,
+    MasterlogHeaderElement,
+    MasterlogTemplate,
     Project,
     ProjectLithotype,
     Well,
@@ -105,6 +109,46 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == (
         PROJECT_FORMAT_VERSION
     )
+
+
+def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -> None:
+    target = tmp_path / "masterlog.geolog.json"
+    project = make_project()
+    project.masterlog_templates["standard"] = MasterlogTemplate(
+        template_id="standard",
+        name="Standard Masterlog",
+        page_format="A3",
+        depth_scale=200,
+        header_elements=[
+            MasterlogHeaderElement(
+                "logo", "image", 5.0, 5.0, 30.0, 20.0, {"asset_ref": "sha256:logo"}
+            )
+        ],
+        columns=[
+            MasterlogColumnTemplate("gas", "Gas", "curves", 35.0, ["TG", "C1"])
+        ],
+    )
+    project.wells["well-1"].canvas_objects.append(
+        CanvasObject(
+            "show", "symbol", "parameter", 10.0, 20.0, 8.0, 8.0,
+            top_depth=1250.0,
+            time_value="2026-07-15T10:30:00+05:00",
+            parameter_mnemonic="ROP",
+            track_id="drilling",
+            properties={"symbol_id": "oil_show"},
+        )
+    )
+
+    save_project(project, target)
+    restored = load_project(target)
+
+    template = restored.masterlog_templates["standard"]
+    assert template.page_format == "A3"
+    assert template.columns[0].curve_mnemonics == ["TG", "C1"]
+    assert template.header_elements[0].properties["asset_ref"] == "sha256:logo"
+    canvas_object = restored.wells["well-1"].canvas_objects[0]
+    assert canvas_object.parameter_mnemonic == "ROP"
+    assert canvas_object.time_value.endswith("+05:00")
 
 
 def test_project_document_round_trip_preserves_lossless_source(tmp_path) -> None:

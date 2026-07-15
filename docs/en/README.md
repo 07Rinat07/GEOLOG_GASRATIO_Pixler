@@ -109,3 +109,9 @@ lithology, drilling conditions, sensor quality, and other pressure-evaluation me
 
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.
+
+## Masterlog forms and symbols
+
+The project format now stores named forms with editable headers and column sets. Symbols, labels,
+and images can be anchored to depth, time, a parameter, an interval, a track, a page, or positioned
+freely. The visual designer and print renderer are planned next.
