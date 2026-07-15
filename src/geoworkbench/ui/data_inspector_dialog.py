@@ -362,7 +362,8 @@ class DataInspectorDialog(QDialog):
             f"STRT={self._number(summary.calculated_start)}, "
             f"STOP={self._number(summary.calculated_stop)}, "
             f"STEP={self._number(summary.calculated_step)}\n"
-            f"{self._t('data.direction')}: {summary.direction.value}; "
+            f"{self._t('data.direction')}: "
+            f"{self._t(f'depth.direction.{summary.direction.value}')}; "
             f"{self._t('data.uniform_step')}: "
             f"{self._t('common.yes') if summary.uniform else self._t('common.no')}\n{issues}"
         )

@@ -93,5 +93,6 @@ def test_data_inspector_dialog_uses_selected_language(qapp) -> None:
     assert dialog.curve_table.horizontalHeaderItem(2).text() == "Description"
     assert "The dataset has no saved LAS import report" in dialog.source_text.toPlainText()
     assert dialog.header_table.item(1, 2).text() == "editor"
+    assert "Direction: ascending" in dialog.depth_header_summary.toPlainText()
     assert buttons.button(QDialogButtonBox.StandardButton.Close).text() == "Close"
     dialog.close()

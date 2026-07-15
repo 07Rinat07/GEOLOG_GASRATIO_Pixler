@@ -231,5 +231,13 @@
   "tablet.auto_range_set": "Тректің автоматты ауқымы: {title}", "tablet.track_hidden": "Трек жасырылды: {title}",
   "tablet.no_hidden": "Жасырын тректер жоқ", "tablet.hidden_shown": "Көрсетілген жасырын тректер: {count}",
   "tablet.track_removed": "Трек жойылды: {title}", "tablet.select_track": "Алдымен планшеттен тректі таңдаңыз",
-  "tablet.select_curves_title": "Трек қисықтарын таңдау", "tablet.select_curves_prompt": "Бір немесе бірнеше қисықты таңдаңыз:"
+  "tablet.select_curves_title": "Трек қисықтарын таңдау", "tablet.select_curves_prompt": "Бір немесе бірнеше қисықты таңдаңыз:",
+  "depth.create_copy_action": "Тереңдігі өсу ретімен орналасқан көшірме жасау...",
+  "depth.title": "Тереңдік реті", "depth.confirm_title": "Түзетілген көшірме жасау",
+  "depth.confirm_message": "Тереңдігі өсу ретімен орналасқан және қисықтары кері аударылған жаңа деректер жинағы жасалады. Бастапқы LAS пен деректер жинағы өзгеріссіз қалады. Жалғастыру керек пе?",
+  "depth.no_reversal": "Автоматты кері аудару қажет емес: {direction}",
+  "depth.copy_created": "Тереңдігі өсу ретімен орналасқан көшірме жасалды: {name}",
+  "depth.direction.ascending": "өсу ретімен", "depth.direction.descending": "кему ретімен",
+  "depth.direction.mixed": "аралас", "depth.direction.constant": "тұрақты",
+  "depth.direction.unknown": "белгісіз"
 }

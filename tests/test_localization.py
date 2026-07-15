@@ -45,6 +45,7 @@ def test_main_window_uses_selected_language_for_shell(qapp) -> None:
     assert window.tabs.tabText(0) == "LAS / Gas curves"
     assert window.open_data_action.text() == "Import data..."
     assert window.default_tablet_action.text() == "Build default log display"
+    assert window.normalize_depth_action.text() == "Create a copy with ascending depth..."
     tablet_menu_action = next(
         action
         for action in window.menuBar().actions()
@@ -63,3 +64,9 @@ def test_print_vocabulary_is_available_in_three_languages() -> None:
     assert Localizer.create(AppLanguage.RU).text("print.well") == "Скважина"
     assert Localizer.create(AppLanguage.KK).text("print.well") == "Ұңғыма"
     assert Localizer.create(AppLanguage.EN).text("print.well") == "Well"
+
+
+def test_depth_directions_are_available_in_three_languages() -> None:
+    assert Localizer.create(AppLanguage.RU).text("depth.direction.descending") == "по убыванию"
+    assert Localizer.create(AppLanguage.KK).text("depth.direction.descending") == "кему ретімен"
+    assert Localizer.create(AppLanguage.EN).text("depth.direction.descending") == "descending"

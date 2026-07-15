@@ -271,7 +271,7 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(self.description_templates_action)
 
         self.normalize_depth_action = QAction(
-            "Создать копию с глубиной по возрастанию...", self
+            self._t("depth.create_copy_action"), self
         )
         self.normalize_depth_action.triggered.connect(self.create_ascending_depth_copy)
         edit_menu.addAction(self.normalize_depth_action)
@@ -1128,20 +1128,22 @@ class MainWindow(QMainWindow):
         try:
             report = self.depth_axis_controller.analyze_current()
         except RuntimeError as exc:
-            QMessageBox.information(self, "Порядок глубины", str(exc))
+            QMessageBox.information(self, self._t("depth.title"), str(exc))
             return
         if report.direction is not DepthDirection.DESCENDING:
             QMessageBox.information(
                 self,
-                "Порядок глубины",
-                f"Автоматический разворот не требуется: {report.direction.value}",
+                self._t("depth.title"),
+                self._t(
+                    "depth.no_reversal",
+                    direction=self._t(f"depth.direction.{report.direction.value}"),
+                ),
             )
             return
         answer = QMessageBox.question(
             self,
-            "Создать исправленную копию",
-            "Будет создан новый dataset с возрастающей глубиной и развёрнутыми кривыми. "
-            "Исходный LAS и исходный dataset останутся без изменений. Продолжить?",
+            self._t("depth.confirm_title"),
+            self._t("depth.confirm_message"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )
@@ -1150,12 +1152,12 @@ class MainWindow(QMainWindow):
         try:
             result = self.depth_axis_controller.create_ascending_copy()
         except (RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, "Порядок глубины", str(exc))
+            QMessageBox.warning(self, self._t("depth.title"), str(exc))
             return
         self._show_current_dataset()
         self._refresh_tree()
         self._update_title()
-        self._log(f"Создана копия с возрастающей глубиной: {result.name}")
+        self._log(self._t("depth.copy_created", name=result.name))
 
     def show_lithology_legend(self) -> None:
         well = self.session.current_well

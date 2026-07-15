@@ -235,5 +235,13 @@
   "tablet.auto_range_set": "Автоматический диапазон трека: {title}", "tablet.track_hidden": "Скрыт трек: {title}",
   "tablet.no_hidden": "Скрытых треков нет", "tablet.hidden_shown": "Показано скрытых треков: {count}",
   "tablet.track_removed": "Удалён трек: {title}", "tablet.select_track": "Сначала выберите трек на планшете",
-  "tablet.select_curves_title": "Выбор кривых трека", "tablet.select_curves_prompt": "Выберите одну или несколько кривых:"
+  "tablet.select_curves_title": "Выбор кривых трека", "tablet.select_curves_prompt": "Выберите одну или несколько кривых:",
+  "depth.create_copy_action": "Создать копию с глубиной по возрастанию...",
+  "depth.title": "Порядок глубины", "depth.confirm_title": "Создать исправленную копию",
+  "depth.confirm_message": "Будет создан новый dataset с возрастающей глубиной и развёрнутыми кривыми. Исходный LAS и исходный dataset останутся без изменений. Продолжить?",
+  "depth.no_reversal": "Автоматический разворот не требуется: {direction}",
+  "depth.copy_created": "Создана копия с возрастающей глубиной: {name}",
+  "depth.direction.ascending": "по возрастанию", "depth.direction.descending": "по убыванию",
+  "depth.direction.mixed": "смешанное", "depth.direction.constant": "постоянное",
+  "depth.direction.unknown": "неизвестное"
 }

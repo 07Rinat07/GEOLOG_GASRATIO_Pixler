@@ -230,5 +230,13 @@
   "tablet.auto_range_set": "Automatic track range: {title}", "tablet.track_hidden": "Track hidden: {title}",
   "tablet.no_hidden": "There are no hidden tracks", "tablet.hidden_shown": "Hidden tracks shown: {count}",
   "tablet.track_removed": "Track removed: {title}", "tablet.select_track": "Select a track in the log display first",
-  "tablet.select_curves_title": "Select track curves", "tablet.select_curves_prompt": "Select one or more curves:"
+  "tablet.select_curves_title": "Select track curves", "tablet.select_curves_prompt": "Select one or more curves:",
+  "depth.create_copy_action": "Create a copy with ascending depth...",
+  "depth.title": "Depth order", "depth.confirm_title": "Create corrected copy",
+  "depth.confirm_message": "A new dataset with ascending depth and reversed curves will be created. The source LAS and source dataset will remain unchanged. Continue?",
+  "depth.no_reversal": "Automatic reversal is not required: {direction}",
+  "depth.copy_created": "Ascending-depth copy created: {name}",
+  "depth.direction.ascending": "ascending", "depth.direction.descending": "descending",
+  "depth.direction.mixed": "mixed", "depth.direction.constant": "constant",
+  "depth.direction.unknown": "unknown"
 }

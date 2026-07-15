@@ -78,5 +78,10 @@ mnemonics, and values are not translated.
 The log-display menu builds the default tracks, adds user-selected curves, and controls track
 width, scale, range, order, and visibility. All commands are available in RU/KK/EN.
 
+## Correcting depth order
+
+The editor reports the depth direction and can safely create a new dataset with ascending depth.
+The source LAS and source dataset are never modified.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.
