@@ -115,6 +115,11 @@ lithology, drilling conditions, sensor quality, and other pressure-evaluation me
 example `100 * (C2 + C3) / (C1 + C2 + C3)`. Supported operations are `+`, `-`, `*`, `/`, power,
 and `abs`, `sqrt`, `log10`, `minimum`, `maximum`. Source LAS curves cannot be overwritten.
 
+## Engineer profile
+
+Select “Engineer profile...” from the language menu. Multiple local profiles can store an
+engineer name and organization; the active profile persists between application runs.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.
 

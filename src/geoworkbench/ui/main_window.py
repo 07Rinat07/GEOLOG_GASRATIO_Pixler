@@ -88,6 +88,7 @@ from geoworkbench.services.localization import (
     LanguageSettings,
     Localizer,
 )
+from geoworkbench.services.user_profiles import UserProfileSettings
 
 
 class MainWindow(QMainWindow):
@@ -96,11 +97,13 @@ class MainWindow(QMainWindow):
         *,
         language: AppLanguage = AppLanguage.RU,
         language_settings: LanguageSettings | None = None,
+        user_profile_settings: UserProfileSettings | None = None,
     ) -> None:
         super().__init__()
         self.language = language
         self.localizer = Localizer.create(language)
         self.language_settings = language_settings or LanguageSettings.system()
+        self.user_profile_settings = user_profile_settings or UserProfileSettings.system()
         self.project_controller = ProjectController()
         self.tablet_controller = TabletController(self.session)
         self.curve_editing_controller = CurveEditingController(self.session)
@@ -229,6 +232,10 @@ class MainWindow(QMainWindow):
             action.triggered.connect(lambda checked=False, value=language: self.change_language(value))
             language_group.addAction(action)
             language_menu.addAction(action)
+        language_menu.addSeparator()
+        self.user_profile_action = QAction(self._t("profile.action"), self)
+        self.user_profile_action.triggered.connect(self.select_user_profile)
+        language_menu.addAction(self.user_profile_action)
 
         self.save_action = QAction("Сохранить проект как...", self)
         self.save_action.setShortcut("Ctrl+S")
@@ -422,6 +429,39 @@ class MainWindow(QMainWindow):
             self,
             self._t("language.changed.title"),
             self._t("language.changed.message", language=LANGUAGE_NAMES[language]),
+        )
+
+    def select_user_profile(self) -> None:
+        profiles = self.user_profile_settings.profiles()
+        create_label = self._t("profile.create")
+        labels = [f"{item.display_name} — {item.organization}" for item in profiles]
+        selected, accepted = QInputDialog.getItem(
+            self, self._t("profile.title"), self._t("profile.select"),
+            [*labels, create_label], 0, False,
+        )
+        if not accepted:
+            return
+        if selected == create_label:
+            name, accepted = QInputDialog.getText(
+                self, self._t("profile.title"), self._t("profile.name")
+            )
+            if not accepted:
+                return
+            organization, accepted = QInputDialog.getText(
+                self, self._t("profile.title"), self._t("profile.organization")
+            )
+            if not accepted:
+                return
+            try:
+                profile = self.user_profile_settings.create(name, organization)
+            except ValueError as exc:
+                QMessageBox.warning(self, self._t("profile.title"), str(exc))
+                return
+        else:
+            index = labels.index(selected)
+            profile = self.user_profile_settings.select(profiles[index].profile_id)
+        self.statusBar().showMessage(
+            self._t("profile.active", name=profile.display_name)
         )
 
     def open_las(self) -> None:
