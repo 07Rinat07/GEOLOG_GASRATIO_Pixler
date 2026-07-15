@@ -46,6 +46,7 @@ def test_main_window_uses_selected_language_for_shell(qapp) -> None:
     assert window.open_data_action.text() == "Import data..."
     assert window.default_tablet_action.text() == "Build default log display"
     assert window.normalize_depth_action.text() == "Create a copy with ascending depth..."
+    assert window.ratio_action.text() == "Calculate basic Gas Ratios"
     tablet_menu_action = next(
         action
         for action in window.menuBar().actions()

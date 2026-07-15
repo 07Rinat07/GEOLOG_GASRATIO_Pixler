@@ -83,5 +83,11 @@ width, scale, range, order, and visibility. All commands are available in RU/KK/
 The editor reports the depth direction and can safely create a new dataset with ascending depth.
 The source LAS and source dataset are never modified.
 
+## Basic Gas Ratios
+
+The command calculates the unambiguous arithmetic ratios C1/C2, C1/C3, C2/C3, C1/(C2+C3),
+and the `TG_CALC` sum of available components. The command and statuses are available in
+RU/KK/EN; calculated-curve mnemonics are not translated.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.

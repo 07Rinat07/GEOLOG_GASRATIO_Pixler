@@ -239,5 +239,9 @@
   "depth.copy_created": "Тереңдігі өсу ретімен орналасқан көшірме жасалды: {name}",
   "depth.direction.ascending": "өсу ретімен", "depth.direction.descending": "кему ретімен",
   "depth.direction.mixed": "аралас", "depth.direction.constant": "тұрақты",
-  "depth.direction.unknown": "белгісіз"
+  "depth.direction.unknown": "белгісіз",
+  "ratio.action": "Негізгі Gas Ratio есептеу", "ratio.title": "Gas Ratio",
+  "ratio.failed": "Есептеу орындалмады: {error}",
+  "ratio.curves_updated": "Қисықтар жасалды/жаңартылды: {curves}",
+  "ratio.completed": "Негізгі Gas Ratio қайта есептелді"
 }

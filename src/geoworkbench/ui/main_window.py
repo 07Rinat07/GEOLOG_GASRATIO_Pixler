@@ -276,7 +276,7 @@ class MainWindow(QMainWindow):
         self.normalize_depth_action.triggered.connect(self.create_ascending_depth_copy)
         edit_menu.addAction(self.normalize_depth_action)
 
-        self.ratio_action = QAction("Рассчитать базовые Gas Ratio", self)
+        self.ratio_action = QAction(self._t("ratio.action"), self)
         self.ratio_action.triggered.connect(self.calculate_ratios)
         calc_menu.addAction(self.ratio_action)
 
@@ -1002,18 +1002,18 @@ class MainWindow(QMainWindow):
         try:
             created = self.session.calculate_basic_gas_ratios()
         except (RuntimeError, KeyError, ValueError) as exc:
-            QMessageBox.warning(self, "Gas Ratio", str(exc))
-            self._log(f"Расчёт не выполнен: {exc}")
+            QMessageBox.warning(self, self._t("ratio.title"), str(exc))
+            self._log(self._t("ratio.failed", error=str(exc)))
             return
 
         dataset = self.session.current_dataset
         assert dataset is not None
         self.curve_view.show_dataset(dataset, created)
         self.tablet_view.set_dataset(dataset)
-        self._log(f"Созданы/обновлены кривые: {', '.join(created)}")
+        self._log(self._t("ratio.curves_updated", curves=", ".join(created)))
         self._refresh_tree()
         self._update_title()
-        self.statusBar().showMessage("Базовые Gas Ratio пересчитаны")
+        self.statusBar().showMessage(self._t("ratio.completed"))
 
     def show_formula_profiles(self) -> None:
         dataset = self.session.current_dataset

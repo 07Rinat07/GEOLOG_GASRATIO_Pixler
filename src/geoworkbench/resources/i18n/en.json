@@ -238,5 +238,9 @@
   "depth.copy_created": "Ascending-depth copy created: {name}",
   "depth.direction.ascending": "ascending", "depth.direction.descending": "descending",
   "depth.direction.mixed": "mixed", "depth.direction.constant": "constant",
-  "depth.direction.unknown": "unknown"
+  "depth.direction.unknown": "unknown",
+  "ratio.action": "Calculate basic Gas Ratios", "ratio.title": "Gas Ratio",
+  "ratio.failed": "Calculation failed: {error}",
+  "ratio.curves_updated": "Curves created/updated: {curves}",
+  "ratio.completed": "Basic Gas Ratios recalculated"
 }

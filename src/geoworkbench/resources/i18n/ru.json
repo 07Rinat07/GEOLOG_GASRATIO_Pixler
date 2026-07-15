@@ -243,5 +243,9 @@
   "depth.copy_created": "Создана копия с возрастающей глубиной: {name}",
   "depth.direction.ascending": "по возрастанию", "depth.direction.descending": "по убыванию",
   "depth.direction.mixed": "смешанное", "depth.direction.constant": "постоянное",
-  "depth.direction.unknown": "неизвестное"
+  "depth.direction.unknown": "неизвестное",
+  "ratio.action": "Рассчитать базовые Gas Ratio", "ratio.title": "Gas Ratio",
+  "ratio.failed": "Расчёт не выполнен: {error}",
+  "ratio.curves_updated": "Созданы/обновлены кривые: {curves}",
+  "ratio.completed": "Базовые Gas Ratio пересчитаны"
 }
