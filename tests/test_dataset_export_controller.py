@@ -26,7 +26,8 @@ def test_export_controller_uses_current_dataset(tmp_path, monkeypatch) -> None:
     )
     captured: list[tuple[Dataset, Path, bool, object]] = []
 
-    def fake_export(selected, target, *, overwrite=False, source_document=None):
+    def fake_export(selected, target, *, overwrite=False, source_document=None, plan=None):
+        assert plan is None
         captured.append((selected, target, overwrite, source_document))
         return target
 

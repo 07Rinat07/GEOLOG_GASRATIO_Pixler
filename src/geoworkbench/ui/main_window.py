@@ -36,6 +36,7 @@ from geoworkbench.data.las_adapter import (
     import_las_with_report,
 )
 from geoworkbench.data.las_import_report import LasIssueSeverity
+from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
 from geoworkbench.project.depth_axis_controller import DepthAxisController
@@ -63,6 +64,7 @@ from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
 from geoworkbench.ui.las_table_editor import LasTableEditor
+from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
 from geoworkbench.visualization.curve_view import CurveView
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 
@@ -465,6 +467,34 @@ class MainWindow(QMainWindow):
         if dataset is None:
             QMessageBox.information(self, "Экспорт LAS", "Сначала выберите набор данных")
             return
+        plan_dialog = LasExportPlanDialog(self)
+        if plan_dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        plan = plan_dialog.export_plan()
+        analysis = self.dataset_export_controller.analyze_current_las_export(plan)
+        errors = [
+            issue.message
+            for issue in analysis.issues
+            if issue.severity is ExportIssueSeverity.ERROR
+        ]
+        if errors:
+            QMessageBox.critical(self, "Экспорт LAS невозможен", "\n".join(errors))
+            return
+        warnings = [
+            issue.message
+            for issue in analysis.issues
+            if issue.severity is ExportIssueSeverity.WARNING
+        ]
+        if warnings:
+            answer = QMessageBox.question(
+                self,
+                "Предупреждения экспорта LAS",
+                "\n".join(warnings) + "\n\nПродолжить экспорт?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer is not QMessageBox.StandardButton.Yes:
+                return
         initial = Path.cwd() / f"{dataset.name}_edited.las"
         filename, _ = QFileDialog.getSaveFileName(
             self,
@@ -491,6 +521,7 @@ class MainWindow(QMainWindow):
             exported = self.dataset_export_controller.export_current_las(
                 target,
                 overwrite=overwrite,
+                plan=plan,
             )
         except (FileExistsError, LasExportError, OSError, RuntimeError) as exc:
             QMessageBox.critical(self, "Экспорт LAS", str(exc))

@@ -10,7 +10,8 @@ from geoworkbench.data.las_adapter import (
     import_las,
     import_las_with_report,
 )
-from geoworkbench.services.depth_axis import DepthDirection
+from geoworkbench.data.las_export_plan import LasExportPlan, LasExportVersion
+from geoworkbench.data.lossless_las import parse_lossless_las
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
@@ -18,6 +19,7 @@ from geoworkbench.domain.models import (
     DatasetKind,
     DepthDomain,
 )
+from geoworkbench.services.depth_axis import DepthDirection
 
 
 class FakeHeaderItem:
@@ -246,6 +248,56 @@ def test_lossless_export_preserves_custom_section_and_updates_data(tmp_path) -> 
     c1 = restored.curve_by_mnemonic("C1")
     assert c1 is not None
     assert c1.values[0] == pytest.approx(9.0)
+
+
+def test_export_plan_controls_version_wrap_null_and_precision(tmp_path) -> None:
+    dataset = make_export_dataset()
+    dataset.curve_by_mnemonic("ROP").values[:] = [10.123456, np.nan, 30.0]  # type: ignore[union-attr]
+    target = tmp_path / "planned.las"
+
+    export_las(
+        dataset,
+        target,
+        plan=LasExportPlan(
+            version=LasExportVersion.V1_2,
+            wrap=True,
+            null_value=-1234.5,
+            precision=3,
+        ),
+    )
+
+    written = target.read_text(encoding="utf-8")
+    parsed = import_las_with_report(target)
+    assert parsed.report.source.las_version == "1.2"
+    assert parsed.report.source.wrap == "YES"
+    assert parsed.report.source.null_value == pytest.approx(-1234.5)
+    assert "10.123" in written
+    assert "-1234.5" in written
+
+
+def test_export_plan_can_explicitly_disable_custom_section_preservation(tmp_path) -> None:
+    source = parse_lossless_las(b"~Other\nCUSTOM. keep\n")
+    target = tmp_path / "plain.las"
+
+    export_las(
+        make_export_dataset(),
+        target,
+        source_document=source,
+        plan=LasExportPlan(preserve_custom_sections=False),
+    )
+
+    assert b"CUSTOM. keep" not in target.read_bytes()
+
+
+def test_export_refuses_null_collision_before_creating_file(tmp_path) -> None:
+    dataset = make_export_dataset()
+    dataset.curve_by_mnemonic("ROP").values[0] = -9999.25  # type: ignore[union-attr]
+    target = tmp_path / "collision.las"
+
+    with pytest.raises(LasExportError, match="NULL совпадает"):
+        export_las(dataset, target, plan=LasExportPlan(null_value=-9999.25))
+
+    assert not target.exists()
 
 
 def test_export_las_never_overwrites_source_file(tmp_path) -> None:

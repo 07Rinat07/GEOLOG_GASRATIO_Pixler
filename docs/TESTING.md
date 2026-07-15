@@ -35,6 +35,7 @@ Qt-тесты запускаются с платформой `offscreen`, нас
 | Lossless LAS | Точный byte round-trip, BOM/кодировка, переводы строк, порядок секций |
 | Source artifacts | Save As, SHA-256/размер, tamper detection и защита пути |
 | Lossless export | Замена известных секций, сохранение custom bytes, BOM/CRLF и конфликты |
+| LAS ExportPlan | Версия, WRAP, NULL, точность, предупреждения и блокирующие ошибки |
 | Проект и миграции | Round-trip, legacy-версии, повреждённые данные |
 | Атомарное хранение | Успешная замена и очистка после сбоя |
 | Контроллеры | Сценарии через repository/model без Qt |

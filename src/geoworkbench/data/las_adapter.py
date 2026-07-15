@@ -16,6 +16,7 @@ from geoworkbench.data.las_import_report import (
     LasIssueSeverity,
     LasSourceSnapshot,
 )
+from geoworkbench.data.las_export_plan import LasExportPlan, analyze_las_export
 from geoworkbench.data.lossless_las import (
     LasSectionEditError,
     LosslessLasDocument,
@@ -271,7 +272,9 @@ def export_las(
     *,
     overwrite: bool = False,
     source_document: LosslessLasDocument | None = None,
+    plan: LasExportPlan | None = None,
 ) -> Path:
+    export_plan = plan or LasExportPlan()
     destination = Path(target)
     if destination.suffix.casefold() != ".las":
         raise LasExportError("Файл экспорта должен иметь расширение .las")
@@ -281,6 +284,9 @@ def export_las(
         raise FileExistsError(destination)
     if dataset.depth.ndim != 1:
         raise LasExportError("Шкала глубины должна быть одномерной")
+    analysis = analyze_las_export(dataset, export_plan, source_document)
+    if not analysis.can_export:
+        raise LasExportError("; ".join(issue.message for issue in analysis.errors))
 
     mnemonics: set[str] = {"dept"}
     for curve in dataset.curves.values():
@@ -295,7 +301,7 @@ def export_las(
         mnemonics.add(normalized)
 
     destination.parent.mkdir(parents=True, exist_ok=True)
-    las = _build_las_file(dataset)
+    las = _build_las_file(dataset, null_value=export_plan.null_value)
     fd, temporary_name = tempfile.mkstemp(
         prefix=f".{destination.name}.",
         suffix=".tmp",
@@ -303,8 +309,13 @@ def export_las(
     )
     os.close(fd)
     try:
-        las.write(temporary_name, version=2.0)
-        if source_document is not None:
+        las.write(
+            temporary_name,
+            version=export_plan.version.writer_value,
+            wrap=export_plan.wrap,
+            fmt=export_plan.number_format,
+        )
+        if source_document is not None and export_plan.preserve_custom_sections:
             generated = parse_lossless_las(Path(temporary_name).read_bytes())
             composed = _compose_lossless_export(source_document, generated)
             Path(temporary_name).write_bytes(composed.to_bytes())
@@ -374,7 +385,7 @@ def _adapt_generated_section(payload: bytes, source: LosslessLasDocument) -> byt
         ) from exc
 
 
-def _build_las_file(dataset: Dataset) -> lasio.LASFile:
+def _build_las_file(dataset: Dataset, *, null_value: float) -> lasio.LASFile:
     las = lasio.LASFile()
     depth_unit = "ms" if dataset.depth_domain is DepthDomain.TIME else "m"
     las.append_curve("DEPT", np.asarray(dataset.depth, dtype=np.float64), unit=depth_unit)
@@ -387,6 +398,7 @@ def _build_las_file(dataset: Dataset) -> lasio.LASFile:
         )
     _apply_header_values(las.well, dataset.headers)
     _apply_header_values(las.params, dataset.parameters)
+    las.well["NULL"].value = null_value
     return las
 
 
