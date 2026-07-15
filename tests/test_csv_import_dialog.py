@@ -31,3 +31,23 @@ def test_csv_import_dialog_allows_cp1251_reprobe(qapp, tmp_path) -> None:
 
     assert dialog.index_column.currentText() == "ГЛУБИНА"
     dialog.close()
+
+
+def test_csv_import_dialog_builds_composite_time_plan(qapp, tmp_path) -> None:
+    source = tmp_path / "time.csv"
+    source.write_text("DATE,TIME,C1\n15.07.2026,10:00:00,1\n", encoding="utf-8")
+    dialog = CsvImportDialog(source)
+    dialog.index_column.setCurrentText("DATE")
+    dialog.composite_time.setChecked(True)
+    dialog.time_column.setCurrentText("TIME")
+    dialog.date_format.setText("%d.%m.%Y")
+    dialog.time_format.setText("%H:%M:%S")
+    dialog.timezone.setText("Asia/Oral")
+
+    plan = dialog.import_plan()
+
+    assert plan.index_column == "DATE"
+    assert plan.time_column == "TIME"
+    assert plan.date_format == "%d.%m.%Y"
+    assert plan.timezone == "Asia/Oral"
+    dialog.close()

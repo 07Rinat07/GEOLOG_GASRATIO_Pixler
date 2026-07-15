@@ -14,11 +14,13 @@ from geoworkbench.domain.models import (
     DatasetIndex,
     DatasetKind,
     DepthDomain,
+    IndexRole,
     IndexType,
     new_id,
 )
 from geoworkbench.services.index_detection import IndexCandidate, IndexColumn, detect_index_candidates
 from geoworkbench.services.time_normalization import normalize_iso8601_strings
+from geoworkbench.services.time_normalization import normalize_date_time_columns
 
 
 class CsvImportError(RuntimeError):
@@ -30,6 +32,10 @@ class CsvImportPlan:
     encoding: str = "utf-8-sig"
     delimiter: str | None = None
     index_column: str | None = None
+    time_column: str | None = None
+    date_format: str = "%Y-%m-%d"
+    time_format: str = "%H:%M:%S"
+    timezone: str | None = None
     null_tokens: tuple[str, ...] = ("", "NULL", "NA", "N/A", "NAN", "-999.25")
 
     def __post_init__(self) -> None:
@@ -39,6 +45,8 @@ class CsvImportPlan:
             raise ValueError("Разделитель CSV должен состоять из одного символа")
         if not self.null_tokens:
             raise ValueError("Нужно указать хотя бы один маркер отсутствующих данных")
+        if self.time_column is not None and (not self.date_format or not self.time_format):
+            raise ValueError("Для DATE+TIME нужны форматы обеих колонок")
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +99,14 @@ def import_csv(
         index_position = probe.columns.index(plan.index_column)
     except ValueError as exc:
         raise CsvImportError(f"Индексная колонка не найдена: {plan.index_column}") from exc
+    time_position: int | None = None
+    if plan.time_column is not None:
+        if plan.time_column == plan.index_column:
+            raise CsvImportError("Колонки DATE и TIME должны различаться")
+        try:
+            time_position = probe.columns.index(plan.time_column)
+        except ValueError as exc:
+            raise CsvImportError(f"Колонка TIME не найдена: {plan.time_column}") from exc
     try:
         with probe.path.open("r", encoding=probe.encoding, newline="") as stream:
             rows = list(csv.reader(stream, delimiter=probe.delimiter))
@@ -106,12 +122,21 @@ def import_csv(
                 f"Строка {number}: ожидалось колонок {width}, получено {len(row)}"
             )
     null_tokens = {token.strip().casefold() for token in plan.null_tokens}
-    index_values, candidate, index_mnemonic, index_unit = _parse_index_column(
-        data_rows,
-        index_position,
-        plan.index_column,
-        null_tokens,
-    )
+    if time_position is None:
+        index_values, candidate, index_mnemonic, index_unit = _parse_index_column(
+            data_rows,
+            index_position,
+            plan.index_column,
+            null_tokens,
+        )
+    else:
+        index_values, candidate, index_mnemonic, index_unit = _parse_composite_index(
+            data_rows,
+            index_position,
+            time_position,
+            plan,
+            null_tokens,
+        )
     domain = {
         "tvd": DepthDomain.TVD,
         "tvdss": DepthDomain.TVDSS,
@@ -159,7 +184,7 @@ def import_csv(
         dataset.active_index.confidence = candidate.confidence
         dataset.active_index.evidence = candidate.evidence
     for position, header in enumerate(probe.columns):
-        if position == index_position:
+        if position == index_position or position == time_position:
             continue
         mnemonic, unit = _split_header(header)
         curve_id = new_id()
@@ -228,6 +253,44 @@ def _parse_index_column(
         [IndexColumn("csv-index", mnemonic, unit, None, numeric)]
     )[0]
     return numeric, candidate, mnemonic, unit
+
+
+def _parse_composite_index(
+    rows: list[list[str]],
+    date_position: int,
+    time_position: int,
+    plan: CsvImportPlan,
+    null_tokens: set[str],
+) -> tuple[np.ndarray, IndexCandidate, str, None]:
+    dates = np.asarray(
+        ["" if row[date_position].strip().casefold() in null_tokens else row[date_position].strip() for row in rows]
+    )
+    times = np.asarray(
+        ["" if row[time_position].strip().casefold() in null_tokens else row[time_position].strip() for row in rows]
+    )
+    try:
+        normalized = normalize_date_time_columns(
+            dates,
+            times,
+            date_format=plan.date_format,
+            time_format=plan.time_format,
+            timezone_name=plan.timezone,
+        )
+    except ValueError as exc:
+        raise CsvImportError(f"Не удалось нормализовать DATE+TIME: {exc}") from exc
+    mnemonic = f"{plan.index_column}_{plan.time_column}"
+    candidate = IndexCandidate(
+        "csv-composite-index",
+        mnemonic,
+        IndexType.DATETIME,
+        IndexRole.TIME,
+        1.0,
+        (f"явное объединение {plan.index_column} + {plan.time_column}",),
+        normalized.warnings,
+        normalized.datetime_format,
+        normalized.timezone,
+    )
+    return normalized.values, candidate, mnemonic, None
 
 
 def _detect_delimiter(text: str) -> str:

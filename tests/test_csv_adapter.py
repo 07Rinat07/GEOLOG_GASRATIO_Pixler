@@ -123,3 +123,47 @@ def test_import_csv_rejects_non_iso_string_index(tmp_path) -> None:
 
     with pytest.raises(CsvImportError, match="ожидалось число"):
         import_csv(source, CsvImportPlan(index_column="DATE"))
+
+
+def test_import_csv_combines_date_and_time_with_timezone(tmp_path) -> None:
+    source = tmp_path / "composite.csv"
+    source.write_text(
+        "DATE;TIME;C1\n15.07.2026;10:00:00;1.2\n15.07.2026;10:00:01;1.3\n",
+        encoding="utf-8",
+    )
+
+    result = import_csv(
+        source,
+        CsvImportPlan(
+            delimiter=";",
+            index_column="DATE",
+            time_column="TIME",
+            date_format="%d.%m.%Y",
+            time_format="%H:%M:%S",
+            timezone="Asia/Oral",
+        ),
+    )
+
+    index = result.dataset.active_index
+    assert index.mnemonic == "DATE_TIME"
+    assert index.datetime_format == "%d.%m.%Y %H:%M:%S"
+    assert index.timezone == "Asia/Oral"
+    np.testing.assert_array_equal(
+        index.values,
+        np.array(["2026-07-15T05:00:00", "2026-07-15T05:00:01"], dtype="datetime64[ns]"),
+    )
+    assert result.dataset.curve_by_mnemonic("TIME") is None
+    np.testing.assert_allclose(result.dataset.curve_by_mnemonic("C1").values, [1.2, 1.3])
+
+
+def test_import_csv_validates_composite_time_mapping(tmp_path) -> None:
+    source = tmp_path / "composite.csv"
+    source.write_text("DATE,TIME,C1\n15.07.2026,10:00,1\n", encoding="utf-8")
+
+    with pytest.raises(CsvImportError, match="должны различаться"):
+        import_csv(source, CsvImportPlan(index_column="DATE", time_column="DATE"))
+    with pytest.raises(CsvImportError, match="Строка 1"):
+        import_csv(
+            source,
+            CsvImportPlan(index_column="DATE", time_column="TIME", timezone="UTC"),
+        )
