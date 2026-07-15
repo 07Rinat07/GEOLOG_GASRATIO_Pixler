@@ -115,5 +115,18 @@
   "annotations.select_first": "Select an annotation first",
   "annotations.select_well": "Select a well first",
   "annotations.tree": "Depth annotations ({count})",
-  "annotations.default": "Annotation"
+  "annotations.default": "Annotation",
+  "lithology.action": "Lithology intervals...",
+  "lithology.title": "Lithology",
+  "lithology.window_title": "Lithology intervals",
+  "lithology.top": "Top",
+  "lithology.bottom": "Bottom",
+  "lithology.lithotype": "Lithotype",
+  "lithology.lithotype_id": "Lithotype ID",
+  "lithology.description": "Description",
+  "lithology.description_template": "Description template",
+  "lithology.select_template": "Select a template...",
+  "lithology.select_interval": "Select an interval first",
+  "lithology.select_well": "Select a well first",
+  "lithology.tree": "Lithology ({count})"
 }

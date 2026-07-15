@@ -115,5 +115,18 @@
   "annotations.select_first": "Алдымен ескертпені таңдаңыз",
   "annotations.select_well": "Алдымен ұңғыманы таңдаңыз",
   "annotations.tree": "Тереңдік ескертпелері ({count})",
-  "annotations.default": "Ескертпе"
+  "annotations.default": "Ескертпе",
+  "lithology.action": "Литологиялық аралықтар...",
+  "lithology.title": "Литология",
+  "lithology.window_title": "Литологиялық аралықтар",
+  "lithology.top": "Қабат төбесі",
+  "lithology.bottom": "Қабат табаны",
+  "lithology.lithotype": "Литотип",
+  "lithology.lithotype_id": "Литотип ID-і",
+  "lithology.description": "Сипаттама",
+  "lithology.description_template": "Сипаттама үлгісі",
+  "lithology.select_template": "Үлгіні таңдаңыз...",
+  "lithology.select_interval": "Алдымен аралықты таңдаңыз",
+  "lithology.select_well": "Алдымен ұңғыманы таңдаңыз",
+  "lithology.tree": "Литология ({count})"
 }

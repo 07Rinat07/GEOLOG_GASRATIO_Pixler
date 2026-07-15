@@ -258,7 +258,7 @@ class MainWindow(QMainWindow):
         self.annotations_action.triggered.connect(self.show_depth_annotations)
         edit_menu.addAction(self.annotations_action)
 
-        self.lithology_action = QAction("Литологические интервалы...", self)
+        self.lithology_action = QAction(self._t("lithology.action"), self)
         self.lithology_action.triggered.connect(self.show_lithology_editor)
         edit_menu.addAction(self.lithology_action)
 
@@ -1070,13 +1070,16 @@ class MainWindow(QMainWindow):
 
     def show_lithology_editor(self) -> None:
         if self.session.current_well is None:
-            QMessageBox.information(self, "Литология", "Сначала выберите скважину")
+            QMessageBox.information(
+                self, self._t("lithology.title"), self._t("lithology.select_well")
+            )
             return
         LithologyDialog(
             self.lithology_controller,
             self,
             catalog=self.lithotype_catalog_controller.available(),
             description_templates=self.description_template_controller.available(),
+            language=self.language,
         ).exec()
         well = self.session.current_well
         self.tablet_view.set_lithology(
@@ -1208,7 +1211,7 @@ class MainWindow(QMainWindow):
                         tracks_item.addChild(track_item)
             if well.lithology:
                 lithology_item = QTreeWidgetItem(
-                    [f"Литология ({len(well.lithology)})"]
+                    [self._t("lithology.tree", count=len(well.lithology))]
                 )
                 lithology_item.setData(
                     0, Qt.ItemDataRole.UserRole, ("lithology", well.well_id)

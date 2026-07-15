@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.catalogs.lithotypes import load_lithotype_catalog
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class LithologyDialog(QDialog):
@@ -31,16 +32,26 @@ class LithologyDialog(QDialog):
         *,
         catalog: tuple[CatalogLithotype, ...] | None = None,
         description_templates: tuple[tuple[str, str], ...] = (),
+        language: AppLanguage = AppLanguage.RU,
     ) -> None:
         super().__init__(parent)
+        self.language = language
+        self.localizer = Localizer.create(language)
         self.controller = controller
         self.catalog = catalog if catalog is not None else load_lithotype_catalog()
-        self.setWindowTitle("Литологические интервалы")
+        self.setWindowTitle(self._t("lithology.window_title"))
         self.resize(820, 520)
         root = QVBoxLayout(self)
         self.table = QTableWidget(0, 4)
         self.table.setObjectName("lithology-intervals-table")
-        self.table.setHorizontalHeaderLabels(["Кровля", "Подошва", "Литотип", "Описание"])
+        self.table.setHorizontalHeaderLabels(
+            [
+                self._t("lithology.top"),
+                self._t("lithology.bottom"),
+                self._t("lithology.lithotype"),
+                self._t("lithology.description"),
+            ]
+        )
         self.table.itemSelectionChanged.connect(self._load_selected)
         root.addWidget(self.table)
 
@@ -50,34 +61,42 @@ class LithologyDialog(QDialog):
         self.lithotype_input = QComboBox()
         self.lithotype_input.setEditable(True)
         for item in self.catalog:
-            self.lithotype_input.addItem(f"{item.name_ru} ({item.lithotype_id})", item.lithotype_id)
+            name = item.name_en if language is AppLanguage.EN else item.name_ru
+            self.lithotype_input.addItem(f"{name} ({item.lithotype_id})", item.lithotype_id)
         self.description_input = QLineEdit()
         self.template_input = QComboBox()
-        self.template_input.addItem("Выберите шаблон...", None)
+        self.template_input.addItem(self._t("lithology.select_template"), None)
         for name, text in description_templates:
             self.template_input.addItem(name, text)
         self.template_input.currentIndexChanged.connect(self._insert_template)
-        form.addRow("Кровля", self.top_input)
-        form.addRow("Подошва", self.bottom_input)
-        form.addRow("ID литотипа", self.lithotype_input)
-        form.addRow("Описание", self.description_input)
-        form.addRow("Шаблон описания", self.template_input)
+        form.addRow(self._t("lithology.top"), self.top_input)
+        form.addRow(self._t("lithology.bottom"), self.bottom_input)
+        form.addRow(self._t("lithology.lithotype_id"), self.lithotype_input)
+        form.addRow(self._t("lithology.description"), self.description_input)
+        form.addRow(self._t("lithology.description_template"), self.template_input)
         root.addLayout(form)
 
         actions = QHBoxLayout()
-        for title, handler in (
-            ("Добавить", self._add),
-            ("Изменить", self._update),
-            ("Удалить", self._remove),
+        for object_name, title, handler in (
+            ("lithology-add-button", self._t("common.add"), self._add),
+            ("lithology-update-button", self._t("common.update"), self._update),
+            ("lithology-remove-button", self._t("common.remove"), self._remove),
         ):
             button = QPushButton(title)
+            button.setObjectName(object_name)
             button.clicked.connect(handler)
             actions.addWidget(button)
         root.addLayout(actions)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
+            self._t("common.close")
+        )
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
+
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
 
     @staticmethod
     def _depth_input() -> QDoubleSpinBox:
@@ -136,7 +155,9 @@ class LithologyDialog(QDialog):
     def _update(self) -> None:
         interval_id = self._selected_id()
         if interval_id is None:
-            QMessageBox.information(self, "Литология", "Сначала выберите интервал")
+            QMessageBox.information(
+                self, self._t("lithology.title"), self._t("lithology.select_interval")
+            )
             return
         self._run(
             lambda: self.controller.update(
@@ -151,7 +172,9 @@ class LithologyDialog(QDialog):
     def _remove(self) -> None:
         interval_id = self._selected_id()
         if interval_id is None:
-            QMessageBox.information(self, "Литология", "Сначала выберите интервал")
+            QMessageBox.information(
+                self, self._t("lithology.title"), self._t("lithology.select_interval")
+            )
             return
         self._run(lambda: self.controller.remove(interval_id))
 
@@ -159,7 +182,7 @@ class LithologyDialog(QDialog):
         try:
             operation()
         except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, "Литология", str(exc))
+            QMessageBox.warning(self, self._t("lithology.title"), str(exc))
             return False
         self._refresh()
         return True

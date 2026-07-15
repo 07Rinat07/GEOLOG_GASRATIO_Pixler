@@ -115,5 +115,18 @@
   "annotations.select_first": "Сначала выберите заметку",
   "annotations.select_well": "Сначала выберите скважину",
   "annotations.tree": "Глубинные заметки ({count})",
-  "annotations.default": "Заметка"
+  "annotations.default": "Заметка",
+  "lithology.action": "Литологические интервалы...",
+  "lithology.title": "Литология",
+  "lithology.window_title": "Литологические интервалы",
+  "lithology.top": "Кровля",
+  "lithology.bottom": "Подошва",
+  "lithology.lithotype": "Литотип",
+  "lithology.lithotype_id": "ID литотипа",
+  "lithology.description": "Описание",
+  "lithology.description_template": "Шаблон описания",
+  "lithology.select_template": "Выберите шаблон...",
+  "lithology.select_interval": "Сначала выберите интервал",
+  "lithology.select_well": "Сначала выберите скважину",
+  "lithology.tree": "Литология ({count})"
 }

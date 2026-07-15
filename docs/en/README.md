@@ -40,5 +40,11 @@ The editor adds, updates, and removes comments at a specified depth with Undo/Re
 The interface and project-tree node are available in RU/KK/EN; user-entered text is not
 translated.
 
+## Lithology intervals
+
+The editor sets interval top, bottom, lithotype, and description and supports description
+templates. The UI is available in RU/KK/EN; lithotype IDs and user descriptions remain
+unchanged.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.
