@@ -214,5 +214,22 @@
   "data.uniform_step": "біркелкі қадам", "data.protected": "қызметтік өріс", "data.editor": "редактор",
   "data.select_entry": "Алдымен жазбаны таңдаңыз", "data.none_bullet": "• жоқ",
   "data.evidence": "Негіздеме", "data.warnings": "Ескертулер", "data.select_index": "Алдымен индексті таңдаңыз",
-  "data.select_dataset": "Алдымен деректер жинағын таңдаңыз"
+  "data.select_dataset": "Алдымен деректер жинағын таңдаңыз",
+  "tablet.title": "Планшет", "tablet.build_default": "Негізгі планшетті құру", "tablet.add_track": "Трек қосу",
+  "tablet.track.depth": "Тереңдік", "tablet.track.gas": "Газ компоненттері", "tablet.track.lithology": "Литология",
+  "tablet.track.description": "Тау жыныстарының сипаттамасы", "tablet.track.curve": "Қисық", "tablet.change_width": "Таңдалған тректің енін өзгерту...",
+  "tablet.linear_scale": "Таңдалған тректің сызықтық шкаласы", "tablet.log_scale": "Таңдалған тректің логарифмдік шкаласы",
+  "tablet.set_range": "Таңдалған тректің X ауқымын орнату...", "tablet.auto_range": "Таңдалған тректің автоматты X ауқымы",
+  "tablet.move_left": "Таңдалған тректі солға жылжыту", "tablet.move_right": "Таңдалған тректі оңға жылжыту",
+  "tablet.hide": "Таңдалған тректі жасыру", "tablet.show_all": "Барлық жасырын тректерді көрсету", "tablet.remove": "Таңдалған тректі жою",
+  "tablet.open_first": "Алдымен LAS файлын ашыңыз", "tablet.default_built": "Негізгі планшет құрылды: {count} трек",
+  "tablet.track_added": "Трек қосылды: {title}", "tablet.width_title": "Трек ені", "tablet.width_prompt": "Ені, px:",
+  "tablet.width_changed": "{title} трегінің ені өзгертілді: {width}px", "tablet.track_moved": "Трек жылжытылды: {title}",
+  "tablet.scale_title": "Трек шкаласы", "tablet.scale_changed": "{title} трегінің шкаласы: {scale}",
+  "tablet.range_title": "X ауқымы", "tablet.minimum": "Минимум:", "tablet.maximum": "Максимум:",
+  "tablet.range_error_title": "Трек ауқымы", "tablet.range_changed": "{title} трегінің ауқымы: {minimum}–{maximum}",
+  "tablet.auto_range_set": "Тректің автоматты ауқымы: {title}", "tablet.track_hidden": "Трек жасырылды: {title}",
+  "tablet.no_hidden": "Жасырын тректер жоқ", "tablet.hidden_shown": "Көрсетілген жасырын тректер: {count}",
+  "tablet.track_removed": "Трек жойылды: {title}", "tablet.select_track": "Алдымен планшеттен тректі таңдаңыз",
+  "tablet.select_curves_title": "Трек қисықтарын таңдау", "tablet.select_curves_prompt": "Бір немесе бірнеше қисықты таңдаңыз:"
 }

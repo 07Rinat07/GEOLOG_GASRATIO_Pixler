@@ -214,5 +214,21 @@
   "data.uniform_step": "uniform step", "data.protected": "protected field", "data.editor": "editor",
   "data.select_entry": "Select an entry first", "data.none_bullet": "• none",
   "data.evidence": "Evidence", "data.warnings": "Warnings", "data.select_index": "Select an index first",
-  "data.select_dataset": "Select a dataset first"
+  "data.select_dataset": "Select a dataset first",
+  "tablet.title": "Log display", "tablet.build_default": "Build default log display", "tablet.add_track": "Add track",
+  "tablet.track.depth": "Depth", "tablet.track.gas": "Gas components", "tablet.track.lithology": "Lithology",
+  "tablet.track.description": "Rock description", "tablet.track.curve": "Curve", "tablet.change_width": "Change selected track width...",
+  "tablet.linear_scale": "Linear scale for selected track", "tablet.log_scale": "Logarithmic scale for selected track",
+  "tablet.set_range": "Set selected track X range...", "tablet.auto_range": "Automatic X range for selected track",
+  "tablet.move_left": "Move selected track left", "tablet.move_right": "Move selected track right", "tablet.hide": "Hide selected track",
+  "tablet.show_all": "Show all hidden tracks", "tablet.remove": "Remove selected track", "tablet.open_first": "Open a LAS file first",
+  "tablet.default_built": "Default log display built: {count} tracks", "tablet.track_added": "Track added: {title}",
+  "tablet.width_title": "Track width", "tablet.width_prompt": "Width, px:", "tablet.width_changed": "Track {title} width changed: {width}px",
+  "tablet.track_moved": "Track moved: {title}", "tablet.scale_title": "Track scale", "tablet.scale_changed": "Track {title} scale: {scale}",
+  "tablet.range_title": "X range", "tablet.minimum": "Minimum:", "tablet.maximum": "Maximum:",
+  "tablet.range_error_title": "Track range", "tablet.range_changed": "Track {title} range: {minimum}–{maximum}",
+  "tablet.auto_range_set": "Automatic track range: {title}", "tablet.track_hidden": "Track hidden: {title}",
+  "tablet.no_hidden": "There are no hidden tracks", "tablet.hidden_shown": "Hidden tracks shown: {count}",
+  "tablet.track_removed": "Track removed: {title}", "tablet.select_track": "Select a track in the log display first",
+  "tablet.select_curves_title": "Select track curves", "tablet.select_curves_prompt": "Select one or more curves:"
 }

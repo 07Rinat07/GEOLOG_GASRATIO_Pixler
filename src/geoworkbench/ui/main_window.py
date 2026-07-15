@@ -288,7 +288,7 @@ class MainWindow(QMainWindow):
         self.interval_statistics_action.triggered.connect(self.show_interval_statistics)
         calc_menu.addAction(self.interval_statistics_action)
 
-        self.default_tablet_action = QAction("Построить базовый планшет", self)
+        self.default_tablet_action = QAction(self._t("tablet.build_default"), self)
         self.default_tablet_action.triggered.connect(self.build_default_tablet)
         tablet_menu.addAction(self.default_tablet_action)
 
@@ -296,62 +296,62 @@ class MainWindow(QMainWindow):
         self.lithology_legend_action.triggered.connect(self.show_lithology_legend)
         tablet_menu.addAction(self.lithology_legend_action)
 
-        add_track_menu = QMenu("Добавить трек", self)
+        add_track_menu = QMenu(self._t("tablet.add_track"), self)
         tablet_menu.addMenu(add_track_menu)
         for title, kind in (
-            ("Глубина", TrackKind.DEPTH),
-            ("Газовые компоненты", TrackKind.GAS),
+            (self._t("tablet.track.depth"), TrackKind.DEPTH),
+            (self._t("tablet.track.gas"), TrackKind.GAS),
             ("DEXP / NCT", TrackKind.DEXP),
-            ("Литология", TrackKind.LITHOLOGY),
-            ("Описание пород", TrackKind.TEXT),
-            ("Кривая", TrackKind.CURVE),
+            (self._t("tablet.track.lithology"), TrackKind.LITHOLOGY),
+            (self._t("tablet.track.description"), TrackKind.TEXT),
+            (self._t("tablet.track.curve"), TrackKind.CURVE),
         ):
             action = QAction(title, self)
             action.triggered.connect(lambda _checked=False, value=kind: self.add_track(value))
             add_track_menu.addAction(action)
 
         tablet_menu.addSeparator()
-        width_action = QAction("Изменить ширину выбранного трека...", self)
+        width_action = QAction(self._t("tablet.change_width"), self)
         width_action.triggered.connect(self.change_selected_track_width)
         tablet_menu.addAction(width_action)
 
-        linear_scale_action = QAction("Линейная шкала выбранного трека", self)
+        linear_scale_action = QAction(self._t("tablet.linear_scale"), self)
         linear_scale_action.triggered.connect(
             lambda: self.set_selected_track_x_scale(XScale.LINEAR)
         )
         tablet_menu.addAction(linear_scale_action)
 
-        log_scale_action = QAction("Логарифмическая шкала выбранного трека", self)
+        log_scale_action = QAction(self._t("tablet.log_scale"), self)
         log_scale_action.triggered.connect(
             lambda: self.set_selected_track_x_scale(XScale.LOGARITHMIC)
         )
         tablet_menu.addAction(log_scale_action)
 
-        range_action = QAction("Задать диапазон X выбранного трека...", self)
+        range_action = QAction(self._t("tablet.set_range"), self)
         range_action.triggered.connect(self.change_selected_track_x_range)
         tablet_menu.addAction(range_action)
 
-        auto_range_action = QAction("Автоматический диапазон X выбранного трека", self)
+        auto_range_action = QAction(self._t("tablet.auto_range"), self)
         auto_range_action.triggered.connect(self.reset_selected_track_x_range)
         tablet_menu.addAction(auto_range_action)
 
-        move_left_action = QAction("Переместить выбранный трек влево", self)
+        move_left_action = QAction(self._t("tablet.move_left"), self)
         move_left_action.triggered.connect(lambda: self.move_selected_track(-1))
         tablet_menu.addAction(move_left_action)
 
-        move_right_action = QAction("Переместить выбранный трек вправо", self)
+        move_right_action = QAction(self._t("tablet.move_right"), self)
         move_right_action.triggered.connect(lambda: self.move_selected_track(1))
         tablet_menu.addAction(move_right_action)
 
-        hide_action = QAction("Скрыть выбранный трек", self)
+        hide_action = QAction(self._t("tablet.hide"), self)
         hide_action.triggered.connect(self.hide_selected_track)
         tablet_menu.addAction(hide_action)
 
-        show_all_action = QAction("Показать все скрытые треки", self)
+        show_all_action = QAction(self._t("tablet.show_all"), self)
         show_all_action.triggered.connect(self.show_all_tracks)
         tablet_menu.addAction(show_all_action)
 
-        remove_action = QAction("Удалить выбранный трек", self)
+        remove_action = QAction(self._t("tablet.remove"), self)
         remove_action.triggered.connect(self.remove_selected_track)
         tablet_menu.addAction(remove_action)
 
@@ -822,7 +822,9 @@ class MainWindow(QMainWindow):
     def build_default_tablet(self) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
-            QMessageBox.information(self, "Планшет", "Сначала откройте LAS-файл")
+            QMessageBox.information(
+                self, self._t("tablet.title"), self._t("tablet.open_first")
+            )
             return
 
         layout = self.tablet_controller.build_default_layout()
@@ -830,12 +832,14 @@ class MainWindow(QMainWindow):
         self.tablet_view.set_dataset(dataset)
         self._refresh_tree()
         self._update_title()
-        self._log(f"Построен базовый планшет: треков {len(layout.tracks)}")
+        self._log(self._t("tablet.default_built", count=len(layout.tracks)))
 
     def add_track(self, kind: TrackKind) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
-            QMessageBox.information(self, "Планшет", "Сначала откройте LAS-файл")
+            QMessageBox.information(
+                self, self._t("tablet.title"), self._t("tablet.open_first")
+            )
             return
 
         mnemonics = self._select_curve_mnemonics() if kind is TrackKind.CURVE else []
@@ -845,12 +849,12 @@ class MainWindow(QMainWindow):
         try:
             track = self.tablet_controller.add_track(kind, mnemonics)
         except (RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, "Планшет", str(exc))
+            QMessageBox.warning(self, self._t("tablet.title"), str(exc))
             return
         self.tablet_view.refresh_view()
         self._refresh_tree()
         self.tabs.setCurrentWidget(self.tablet_view)
-        self._log(f"Добавлен трек: {track.title}")
+        self._log(self._t("tablet.track_added", title=track.title))
         self._update_title()
 
     def change_selected_track_width(self) -> None:
@@ -858,28 +862,31 @@ class MainWindow(QMainWindow):
         if track is None:
             return
         width, accepted = QInputDialog.getInt(
-            self, "Ширина трека", "Ширина, px:", track.width, 80, 2000, 10
+            self,
+            self._t("tablet.width_title"),
+            self._t("tablet.width_prompt"),
+            track.width, 80, 2000, 10,
         )
         if accepted:
             self.tablet_controller.set_track_width(track.track_id, width)
-            self._layout_changed(f"Изменена ширина трека {track.title}: {width}px")
+            self._layout_changed(self._t("tablet.width_changed", title=track.title, width=width))
 
     def _change_track_width_from_drag(self, track_id: str, width: int) -> None:
         try:
             track = self.tablet_view.layout_model.track_by_id(track_id)
             self.tablet_controller.set_track_width(track_id, width)
         except (KeyError, ValueError) as exc:
-            QMessageBox.warning(self, "Ширина трека", str(exc))
+            QMessageBox.warning(self, self._t("tablet.width_title"), str(exc))
             self.tablet_view.refresh_view()
             return
-        self._layout_changed(f"Изменена ширина трека {track.title}: {width}px")
+        self._layout_changed(self._t("tablet.width_changed", title=track.title, width=width))
 
     def move_selected_track(self, offset: int) -> None:
         track = self._selected_track()
         if track is None:
             return
         if self.tablet_controller.move_track(track.track_id, offset):
-            self._layout_changed(f"Перемещён трек: {track.title}")
+            self._layout_changed(self._t("tablet.track_moved", title=track.title))
 
     def set_selected_track_x_scale(self, scale: XScale) -> None:
         track = self._selected_track()
@@ -888,10 +895,10 @@ class MainWindow(QMainWindow):
         try:
             self.tablet_controller.set_track_x_scale(track.track_id, scale)
         except ValueError as exc:
-            QMessageBox.warning(self, "Шкала трека", str(exc))
+            QMessageBox.warning(self, self._t("tablet.scale_title"), str(exc))
             return
-        scale_name = "логарифмическая" if scale is XScale.LOGARITHMIC else "линейная"
-        self._layout_changed(f"Шкала трека {track.title}: {scale_name}")
+        scale_name = self._t("inspector.logarithmic") if scale is XScale.LOGARITHMIC else self._t("inspector.linear")
+        self._layout_changed(self._t("tablet.scale_changed", title=track.title, scale=scale_name))
 
     def change_selected_track_x_range(self) -> None:
         track = self._selected_track()
@@ -900,28 +907,30 @@ class MainWindow(QMainWindow):
         default_minimum = track.x_min if track.x_min is not None else 0.1
         default_maximum = track.x_max if track.x_max is not None else 100.0
         minimum, accepted = QInputDialog.getDouble(
-            self, "Диапазон X", "Минимум:", default_minimum, -1e300, 1e300, 6
+            self, self._t("tablet.range_title"), self._t("tablet.minimum"),
+            default_minimum, -1e300, 1e300, 6,
         )
         if not accepted:
             return
         maximum, accepted = QInputDialog.getDouble(
-            self, "Диапазон X", "Максимум:", default_maximum, -1e300, 1e300, 6
+            self, self._t("tablet.range_title"), self._t("tablet.maximum"),
+            default_maximum, -1e300, 1e300, 6,
         )
         if not accepted:
             return
         try:
             self.tablet_controller.set_track_x_range(track.track_id, minimum, maximum)
         except ValueError as exc:
-            QMessageBox.warning(self, "Диапазон трека", str(exc))
+            QMessageBox.warning(self, self._t("tablet.range_error_title"), str(exc))
             return
-        self._layout_changed(f"Диапазон трека {track.title}: {minimum:g}–{maximum:g}")
+        self._layout_changed(self._t("tablet.range_changed", title=track.title, minimum=f"{minimum:g}", maximum=f"{maximum:g}"))
 
     def reset_selected_track_x_range(self) -> None:
         track = self._selected_track()
         if track is None:
             return
         self.tablet_controller.set_track_x_range(track.track_id, None, None)
-        self._layout_changed(f"Автоматический диапазон трека: {track.title}")
+        self._layout_changed(self._t("tablet.auto_range_set", title=track.title))
 
     def hide_selected_track(self) -> None:
         track = self._selected_track()
@@ -929,14 +938,14 @@ class MainWindow(QMainWindow):
             return
         self.tablet_controller.hide_track(track.track_id)
         self._selected_track_id = None
-        self._layout_changed(f"Скрыт трек: {track.title}")
+        self._layout_changed(self._t("tablet.track_hidden", title=track.title))
 
     def show_all_tracks(self) -> None:
         restored_count = self.tablet_controller.show_all_tracks()
         if restored_count == 0:
-            self.statusBar().showMessage("Скрытых треков нет")
+            self.statusBar().showMessage(self._t("tablet.no_hidden"))
             return
-        self._layout_changed(f"Показано скрытых треков: {restored_count}")
+        self._layout_changed(self._t("tablet.hidden_shown", count=restored_count))
 
     def remove_selected_track(self) -> None:
         track = self._selected_track()
@@ -944,11 +953,13 @@ class MainWindow(QMainWindow):
             return
         self.tablet_controller.remove_track(track.track_id)
         self._selected_track_id = None
-        self._layout_changed(f"Удалён трек: {track.title}")
+        self._layout_changed(self._t("tablet.track_removed", title=track.title))
 
     def _selected_track(self) -> TrackDefinition | None:
         if self._selected_track_id is None:
-            QMessageBox.information(self, "Планшет", "Сначала выберите трек на планшете")
+            QMessageBox.information(
+                self, self._t("tablet.title"), self._t("tablet.select_track")
+            )
             return None
         try:
             return self.tablet_view.layout_model.track_by_id(self._selected_track_id)
@@ -967,9 +978,9 @@ class MainWindow(QMainWindow):
         if dataset is None:
             return []
         dialog = QDialog(self)
-        dialog.setWindowTitle("Выбор кривых трека")
+        dialog.setWindowTitle(self._t("tablet.select_curves_title"))
         layout = QVBoxLayout(dialog)
-        layout.addWidget(QLabel("Выберите одну или несколько кривых:"))
+        layout.addWidget(QLabel(self._t("tablet.select_curves_prompt")))
         curve_list = QListWidget()
         curve_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         for curve in dataset.curves.values():
@@ -978,6 +989,8 @@ class MainWindow(QMainWindow):
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self._t("common.ok"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self._t("common.cancel"))
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)

@@ -44,6 +44,17 @@ def test_main_window_uses_selected_language_for_shell(qapp) -> None:
 
     assert window.tabs.tabText(0) == "LAS / Gas curves"
     assert window.open_data_action.text() == "Import data..."
+    assert window.default_tablet_action.text() == "Build default log display"
+    tablet_menu_action = next(
+        action
+        for action in window.menuBar().actions()
+        if action.text() == "Log layout"
+    )
+    tablet_menu = tablet_menu_action.menu()
+    assert tablet_menu is not None
+    tablet_labels = [action.text() for action in tablet_menu.actions()]
+    assert "Add track" in tablet_labels
+    assert "Show all hidden tracks" in tablet_labels
     assert window.statusBar().currentMessage() == "Ready: import data"
     window.close()
 

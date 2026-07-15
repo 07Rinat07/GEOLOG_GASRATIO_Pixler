@@ -54,6 +54,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Lithotype Catalog UI | RU/KK/EN table/form/actions and language-independent system/project state |
 | Track Inspector UI | RU/KK/EN summary/settings and stable linear/logarithmic model values |
 | Data Inspector UI | RU/KK/EN tabs/tables/messages, curve metadata, indexes and LAS header controls |
+| Tablet workflow UI | RU/KK/EN menus/dialogs/messages and stable TrackKind/XScale values |
 | LAS и другие входные форматы | Успешный импорт, повреждённый файл, неверный тип |
 | CSV/TXT import | Delimiter, encoding, preview, numeric/ISO/DATE+TIME index, timezone, units, NULL и bad rows |
 | Excel import | XLS/XLSX/XLSM, LibreOffice, формулы, листы, header, DATE+TIME UI и ошибки |

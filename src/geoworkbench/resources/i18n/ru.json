@@ -218,5 +218,22 @@
   "data.protected": "служебное поле", "data.editor": "редактор",
   "data.select_entry": "Сначала выберите запись", "data.none_bullet": "• нет",
   "data.evidence": "Обоснование", "data.warnings": "Предупреждения",
-  "data.select_index": "Сначала выберите индекс", "data.select_dataset": "Сначала выберите dataset"
+  "data.select_index": "Сначала выберите индекс", "data.select_dataset": "Сначала выберите dataset",
+  "tablet.title": "Планшет", "tablet.build_default": "Построить базовый планшет", "tablet.add_track": "Добавить трек",
+  "tablet.track.depth": "Глубина", "tablet.track.gas": "Газовые компоненты", "tablet.track.lithology": "Литология",
+  "tablet.track.description": "Описание пород", "tablet.track.curve": "Кривая", "tablet.change_width": "Изменить ширину выбранного трека...",
+  "tablet.linear_scale": "Линейная шкала выбранного трека", "tablet.log_scale": "Логарифмическая шкала выбранного трека",
+  "tablet.set_range": "Задать диапазон X выбранного трека...", "tablet.auto_range": "Автоматический диапазон X выбранного трека",
+  "tablet.move_left": "Переместить выбранный трек влево", "tablet.move_right": "Переместить выбранный трек вправо",
+  "tablet.hide": "Скрыть выбранный трек", "tablet.show_all": "Показать все скрытые треки", "tablet.remove": "Удалить выбранный трек",
+  "tablet.open_first": "Сначала откройте LAS-файл", "tablet.default_built": "Построен базовый планшет: треков {count}",
+  "tablet.track_added": "Добавлен трек: {title}", "tablet.width_title": "Ширина трека", "tablet.width_prompt": "Ширина, px:",
+  "tablet.width_changed": "Изменена ширина трека {title}: {width}px", "tablet.track_moved": "Перемещён трек: {title}",
+  "tablet.scale_title": "Шкала трека", "tablet.scale_changed": "Шкала трека {title}: {scale}",
+  "tablet.range_title": "Диапазон X", "tablet.minimum": "Минимум:", "tablet.maximum": "Максимум:",
+  "tablet.range_error_title": "Диапазон трека", "tablet.range_changed": "Диапазон трека {title}: {minimum}–{maximum}",
+  "tablet.auto_range_set": "Автоматический диапазон трека: {title}", "tablet.track_hidden": "Скрыт трек: {title}",
+  "tablet.no_hidden": "Скрытых треков нет", "tablet.hidden_shown": "Показано скрытых треков: {count}",
+  "tablet.track_removed": "Удалён трек: {title}", "tablet.select_track": "Сначала выберите трек на планшете",
+  "tablet.select_curves_title": "Выбор кривых трека", "tablet.select_curves_prompt": "Выберите одну или несколько кривых:"
 }
