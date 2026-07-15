@@ -28,7 +28,7 @@ geoworkbench = "geoworkbench.app.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-geoworkbench = ["resources/*.json", "resources/*.png"]
+geoworkbench = ["resources/*.json", "resources/*.png", "resources/i18n/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

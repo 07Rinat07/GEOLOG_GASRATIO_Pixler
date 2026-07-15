@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -77,11 +77,25 @@ from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
 from geoworkbench.visualization.curve_view import CurveView
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
+from geoworkbench.services.localization import (
+    LANGUAGE_NAMES,
+    AppLanguage,
+    LanguageSettings,
+    Localizer,
+)
 
 
 class MainWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+        language_settings: LanguageSettings | None = None,
+    ) -> None:
         super().__init__()
+        self.language = language
+        self.localizer = Localizer.create(language)
+        self.language_settings = language_settings or LanguageSettings.system()
         self.project_controller = ProjectController()
         self.tablet_controller = TabletController(self.session)
         self.curve_editing_controller = CurveEditingController(self.session)
@@ -116,9 +130,9 @@ class MainWindow(QMainWindow):
         self.las_table_editor.edit_failed.connect(
             lambda message: QMessageBox.warning(self, "LAS Editor", message)
         )
-        self.tabs.addTab(self.curve_view, "LAS / Газовые кривые")
-        self.tabs.addTab(self.las_table_editor, "LAS таблица")
-        self.tabs.addTab(self.tablet_view, "Планшет")
+        self.tabs.addTab(self.curve_view, self._t("tab.curves"))
+        self.tabs.addTab(self.las_table_editor, self._t("tab.table"))
+        self.tabs.addTab(self.tablet_view, self._t("tab.tablet"))
         self.setCentralWidget(self.tabs)
 
         self._create_project_explorer()
@@ -127,8 +141,11 @@ class MainWindow(QMainWindow):
         self._create_actions()
         self._create_toolbar()
         self.setStatusBar(QStatusBar())
-        self.statusBar().showMessage("Готово: откройте LAS-файл")
+        self.statusBar().showMessage(self._t("app.ready"))
         self._update_title()
+
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
 
     @property
     def session(self) -> ProjectSession:
@@ -139,7 +156,7 @@ class MainWindow(QMainWindow):
         return self.project_controller.project_path
 
     def _create_project_explorer(self) -> None:
-        dock = QDockWidget("Проект", self)
+        dock = QDockWidget(self._t("dock.project"), self)
         self.tree = QTreeWidget()
         self.tree.setHeaderLabel("Project Explorer")
         self.tree.itemDoubleClicked.connect(self._activate_tree_item)
@@ -148,32 +165,33 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
 
     def _create_inspector(self) -> None:
-        dock = QDockWidget("Инспектор", self)
+        dock = QDockWidget(self._t("dock.inspector"), self)
         self.inspector = TrackInspector()
         self.inspector.settings_requested.connect(self._apply_inspector_track_settings)
         dock.setWidget(self.inspector)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
     def _create_issues_panel(self) -> None:
-        dock = QDockWidget("Ошибки и журнал", self)
+        dock = QDockWidget(self._t("dock.log"), self)
         self.issues = QTextEdit()
         self.issues.setReadOnly(True)
         dock.setWidget(self.issues)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
 
     def _create_actions(self) -> None:
-        file_menu = self.menuBar().addMenu("Файл")
-        edit_menu = self.menuBar().addMenu("Правка")
-        calc_menu = self.menuBar().addMenu("Расчёты")
-        tablet_menu = self.menuBar().addMenu("Планшет")
-        help_menu = self.menuBar().addMenu("Справка")
+        file_menu = self.menuBar().addMenu(self._t("menu.file"))
+        edit_menu = self.menuBar().addMenu(self._t("menu.edit"))
+        calc_menu = self.menuBar().addMenu(self._t("menu.calculations"))
+        tablet_menu = self.menuBar().addMenu(self._t("menu.tablet"))
+        language_menu = self.menuBar().addMenu(self._t("menu.language"))
+        help_menu = self.menuBar().addMenu(self._t("menu.help"))
 
         self.open_project_action = QAction("Открыть проект...", self)
         self.open_project_action.setShortcut("Ctrl+O")
         self.open_project_action.triggered.connect(self.open_project)
         file_menu.addAction(self.open_project_action)
 
-        self.open_data_action = QAction("Импортировать данные...", self)
+        self.open_data_action = QAction(self._t("import.universal"), self)
         self.open_data_action.setShortcut("Ctrl+I")
         self.open_data_action.triggered.connect(self.open_data)
         file_menu.addAction(self.open_data_action)
@@ -191,6 +209,16 @@ class MainWindow(QMainWindow):
         self.open_excel_action = QAction("Импортировать Excel...", self)
         self.open_excel_action.triggered.connect(self.open_excel)
         file_menu.addAction(self.open_excel_action)
+
+        language_group = QActionGroup(self)
+        language_group.setExclusive(True)
+        for language, name in LANGUAGE_NAMES.items():
+            action = QAction(name, self)
+            action.setCheckable(True)
+            action.setChecked(language is self.language)
+            action.triggered.connect(lambda checked=False, value=language: self.change_language(value))
+            language_group.addAction(action)
+            language_menu.addAction(action)
 
         self.save_action = QAction("Сохранить проект как...", self)
         self.save_action.setShortcut("Ctrl+S")
@@ -346,8 +374,8 @@ class MainWindow(QMainWindow):
         }
         selected, accepted = QInputDialog.getItem(
             self,
-            "Универсальный импорт",
-            "Тип источника данных",
+            self._t("import.title"),
+            self._t("import.source_type"),
             list(importers),
             0,
             False,
@@ -359,6 +387,16 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Универсальный импорт", "Неизвестный тип источника")
             return
         importer()
+
+    def change_language(self, language: AppLanguage) -> None:
+        if language is self.language:
+            return
+        self.language_settings.save(language)
+        QMessageBox.information(
+            self,
+            self._t("language.changed.title"),
+            self._t("language.changed.message", language=LANGUAGE_NAMES[language]),
+        )
 
     def open_las(self) -> None:
         mode_labels = {
