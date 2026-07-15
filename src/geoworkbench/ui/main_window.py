@@ -30,7 +30,11 @@ from geoworkbench import __version__
 from geoworkbench.calculations.controller import FormulaExecutionController
 from geoworkbench.calculations.interval_statistics import calculate_interval_statistics
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
-from geoworkbench.data.las_adapter import LasExportError, LasImportError, import_las
+from geoworkbench.data.las_adapter import (
+    LasExportError,
+    LasImportError,
+    import_las_with_report,
+)
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
 from geoworkbench.project.depth_axis_controller import DepthAxisController
@@ -308,14 +312,25 @@ class MainWindow(QMainWindow):
         last_well = None
         errors: list[str] = []
         descending_files: list[str] = []
+        import_warnings: list[str] = []
         for filename in filenames:
             try:
-                dataset = import_las(filename)
+                import_result = import_las_with_report(filename)
+                dataset = import_result.dataset
                 well = self.session.add_dataset(dataset)
                 last_dataset = dataset
                 last_well = well
                 if analyze_depth_axis(dataset.depth).direction is DepthDirection.DESCENDING:
                     descending_files.append(Path(filename).name)
+                report_messages = tuple(
+                    issue.message
+                    for issue in import_result.report.issues
+                    if issue.code != "index-descending"
+                )
+                if report_messages:
+                    import_warnings.append(
+                        f"{Path(filename).name}:\n  " + "\n  ".join(report_messages)
+                    )
                 self._log(f"Загружен LAS: {filename}")
             except (OSError, LasImportError) as exc:
                 errors.append(f"{Path(filename).name}: {exc}")
@@ -343,6 +358,12 @@ class MainWindow(QMainWindow):
         )
         if errors:
             QMessageBox.warning(self, "Часть LAS не загружена", "\n".join(errors))
+        if import_warnings:
+            QMessageBox.warning(
+                self,
+                "Диагностика LAS",
+                "\n\n".join(import_warnings),
+            )
         if descending_files:
             QMessageBox.warning(
                 self,

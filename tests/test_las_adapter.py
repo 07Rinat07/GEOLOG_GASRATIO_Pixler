@@ -1,7 +1,16 @@
+from hashlib import sha256
+
 import numpy as np
 import pytest
 
-from geoworkbench.data.las_adapter import LasExportError, LasImportError, export_las, import_las
+from geoworkbench.data.las_adapter import (
+    LasExportError,
+    LasImportError,
+    export_las,
+    import_las,
+    import_las_with_report,
+)
+from geoworkbench.services.depth_axis import DepthDirection
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
@@ -20,12 +29,19 @@ class FakeHeaderItem:
 
 
 class FakeLas:
+    version = [FakeHeaderItem("VERS", "2.0"), FakeHeaderItem("WRAP", "NO")]
     curves = [
         FakeHeaderItem("DEPT", unit="m", descr="Depth"),
         FakeHeaderItem("C1", unit="%", descr="Methane"),
         FakeHeaderItem("ROP", unit="m/h", descr="Rate of penetration"),
     ]
-    well = [FakeHeaderItem("WELL", "Test Well")]
+    well = [
+        FakeHeaderItem("WELL", "Test Well"),
+        FakeHeaderItem("STRT", "100"),
+        FakeHeaderItem("STOP", "101"),
+        FakeHeaderItem("STEP", "1"),
+        FakeHeaderItem("NULL", "-999.25"),
+    ]
     params = [FakeHeaderItem("RUN", "1")]
     index = np.array([100.0, 101.0])
     _values = {
@@ -54,6 +70,70 @@ def test_import_las_builds_dataset_with_metadata(tmp_path, monkeypatch) -> None:
     np.testing.assert_allclose(c1.values, [1.0, 2.0])
     assert dataset.headers["WELL"] == "Test Well"
     assert dataset.parameters["RUN"] == "1"
+
+
+def test_import_las_with_report_captures_source_and_depth_diagnostics(
+    tmp_path, monkeypatch
+) -> None:
+    source = tmp_path / "descending.las"
+    raw = b"exact LAS source\n"
+    source.write_bytes(raw)
+
+    class DescendingLas(FakeLas):
+        index = np.array([101.0, 100.0])
+        well = [
+            FakeHeaderItem("STRT", "101"),
+            FakeHeaderItem("STOP", "100"),
+            FakeHeaderItem("STEP", "-1"),
+            FakeHeaderItem("NULL", "-999.25"),
+        ]
+
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.lasio.read", lambda *args, **kwargs: DescendingLas()
+    )
+
+    result = import_las_with_report(source)
+
+    assert result.report.source.size_bytes == len(raw)
+    assert result.report.source.sha256 == sha256(raw).hexdigest()
+    assert result.report.source.las_version == "2.0"
+    assert result.report.source.wrap == "NO"
+    assert result.report.source.null_value == pytest.approx(-999.25)
+    assert result.report.depth_axis.direction is DepthDirection.DESCENDING
+    assert any(issue.code == "index-descending" for issue in result.report.issues)
+
+
+def test_import_report_detects_header_mismatch_and_duplicate_mnemonics(
+    tmp_path, monkeypatch
+) -> None:
+    source = tmp_path / "diagnostics.las"
+    source.write_text("fake", encoding="utf-8")
+
+    class ProblemLas(FakeLas):
+        curves = [
+            FakeHeaderItem("DEPT"),
+            FakeHeaderItem("C1"),
+            FakeHeaderItem("c1"),
+        ]
+        well = [
+            FakeHeaderItem("STRT", "99"),
+            FakeHeaderItem("STOP", "101"),
+            FakeHeaderItem("STEP", "1"),
+        ]
+        _values = {"C1": np.array([1.0, 2.0]), "c1": np.array([1.0, 2.0])}
+
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.lasio.read", lambda *args, **kwargs: ProblemLas()
+    )
+
+    report = import_las_with_report(source).report
+    codes = {issue.code for issue in report.issues}
+
+    assert "duplicate-mnemonics" in codes
+    assert "missing-null" in codes
+    assert "header-strt-mismatch" in codes
+    assert report.warning_count == len(report.issues)
+    assert not report.has_errors
 
 
 def test_import_las_rejects_missing_file(tmp_path) -> None:
