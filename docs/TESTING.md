@@ -25,6 +25,21 @@ git diff --check
 Qt-тесты запускаются с платформой `offscreen`, настроенной в `tests/conftest.py`, и не
 требуют активной графической сессии.
 
+## Проверка пакета
+
+Инструменты сборки устанавливаются в игнорируемое виртуальное окружение:
+
+```bash
+.venv/bin/python -m pip install -e '.[dev]'
+.venv/bin/python -m build --wheel --no-isolation
+unzip -t dist/*.whl
+unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
+```
+
+`setuptools` и `wheel` объявлены в `[build-system]`, а CLI `build` входит в dev extras.
+Каталоги `.venv/`, `build/`, `dist/` и `*.egg-info/` находятся в `.gitignore` и не должны
+попадать в коммиты.
+
 ## Матрица тестов
 
 | Область | Тип проверки |
