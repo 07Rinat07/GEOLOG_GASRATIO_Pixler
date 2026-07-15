@@ -146,6 +146,7 @@ class DataInspectorDialog(QDialog):
         self.header_section.setObjectName("header-section")
         self.header_section.addItem("WELL", HeaderSection.WELL)
         self.header_section.addItem("PARAMETER", HeaderSection.PARAMETER)
+        self.header_section.addItem("VERSION", HeaderSection.VERSION)
         self.header_section.currentIndexChanged.connect(self._refresh_header)
         section_row.addWidget(self.header_section)
         section_row.addStretch()
@@ -203,7 +204,10 @@ class DataInspectorDialog(QDialog):
         header_actions.addStretch()
         header_layout.addLayout(header_actions)
         header_layout.addWidget(
-            QLabel("STRT, STOP, STEP и NULL изменяются глубинными операциями и планом экспорта.")
+            QLabel(
+                "VERS/WRAP изменяются в плане экспорта; STRT/STOP/STEP/NULL — глубинными "
+                "операциями."
+            )
         )
         self.tabs.addTab(header_page, "LAS-заголовок")
 
@@ -364,7 +368,7 @@ class DataInspectorDialog(QDialog):
             self.header_table.setItem(row, 0, QTableWidgetItem(entry.mnemonic))
             self.header_table.setItem(row, 1, QTableWidgetItem(entry.value))
             self.header_table.setItem(
-                row, 2, QTableWidgetItem("глубина/экспорт" if entry.protected else "редактор")
+                row, 2, QTableWidgetItem("служебное поле" if entry.protected else "редактор")
             )
         self.header_table.resizeColumnsToContents()
 

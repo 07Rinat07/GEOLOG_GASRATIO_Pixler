@@ -72,6 +72,7 @@ def test_import_las_builds_dataset_with_metadata(tmp_path, monkeypatch) -> None:
     assert c1.metadata.unit == "%"
     assert c1.metadata.description == "Methane"
     np.testing.assert_allclose(c1.values, [1.0, 2.0])
+    assert dataset.version_headers == {"VERS": "2.0", "WRAP": "NO"}
     assert dataset.headers["WELL"] == "Test Well"
     assert dataset.parameters["RUN"] == "1"
 
@@ -221,6 +222,7 @@ def make_export_dataset(source_path=None) -> Dataset:
         DepthDomain.MD,
         np.array([100.0, 101.0, 102.0]),
         source_path=source_path,
+        version_headers={"DLM": "SPACE"},
         headers={"WELL": "Test Well"},
     )
     curve = CurveData(
@@ -242,6 +244,7 @@ def test_export_las_round_trip_preserves_depth_curve_and_metadata(tmp_path) -> N
     assert rop is not None
     np.testing.assert_allclose(rop.values, [10.0, 20.0, 30.0])
     assert rop.metadata.unit == "m/h"
+    assert restored.version_headers["DLM"] == "SPACE"
     assert restored.headers["WELL"] == "Test Well"
 
 

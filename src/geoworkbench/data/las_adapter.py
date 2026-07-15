@@ -132,6 +132,7 @@ def import_las_with_report(
                 ),
                 values=values,
             )
+        dataset.version_headers = {str(item.mnemonic): str(item.value) for item in las.version}
         dataset.headers = {str(item.mnemonic): str(item.value) for item in las.well}
         dataset.parameters = {str(item.mnemonic): str(item.value) for item in las.params}
     except Exception as exc:
@@ -433,6 +434,10 @@ def _build_las_file(dataset: Dataset, *, null_value: float) -> lasio.LASFile:
             unit=curve.metadata.unit or "",
             descr=curve.metadata.description or "",
         )
+    _apply_header_values(
+        las.version,
+        {key: value for key, value in dataset.version_headers.items() if key not in {"VERS", "WRAP"}},
+    )
     _apply_header_values(las.well, dataset.headers)
     _apply_header_values(las.params, dataset.parameters)
     las.well["NULL"].value = null_value

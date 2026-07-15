@@ -24,6 +24,7 @@ def make_controller() -> HeaderEditingController:
         DatasetKind.GTI,
         DepthDomain.MD,
         np.array([100.0, 101.0]),
+        version_headers={"VERS": "2.0", "WRAP": "NO", "DLM": "SPACE"},
         headers={"WELL": "Old Well", "STRT": "100", "LAT": "51.2"},
         parameters={"RUN": "1"},
     )
@@ -60,6 +61,22 @@ def test_add_rename_and_remove_parameter_are_reversible() -> None:
     ]
     controller.undo()
     assert {entry.mnemonic for entry in controller.entries(HeaderSection.PARAMETER)} == {"MUD", "RUN"}
+
+
+def test_edits_custom_version_header_and_protects_export_fields() -> None:
+    controller = make_controller()
+
+    controller.update(HeaderSection.VERSION, "DLM", "DLM", "COMMA")
+
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    assert dataset.version_headers["DLM"] == "COMMA"
+    with pytest.raises(ValueError, match="планом экспорта"):
+        controller.update(HeaderSection.VERSION, "VERS", "VERS", "1.2")
+    with pytest.raises(ValueError, match="планом экспорта"):
+        controller.remove(HeaderSection.VERSION, "WRAP")
+    controller.undo()
+    assert dataset.version_headers["DLM"] == "SPACE"
 
 
 @pytest.mark.parametrize("mnemonic", ["STRT", "STOP", "STEP", "NULL"])

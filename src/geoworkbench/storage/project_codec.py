@@ -218,6 +218,9 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
             depth_domain=depth_domain,
             depth=np.asarray(_required(data, "depth", list), dtype=np.float64),
             source_path=Path(data["source_path"]) if data.get("source_path") else None,
+            version_headers={
+                str(k): str(v) for k, v in dict(data.get("version_headers", {})).items()
+            },
             headers={str(k): str(v) for k, v in dict(data.get("headers", {})).items()},
             parameters={str(k): str(v) for k, v in dict(data.get("parameters", {})).items()},
             indexes=indexes,

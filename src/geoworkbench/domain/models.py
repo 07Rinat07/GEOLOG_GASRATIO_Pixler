@@ -138,6 +138,7 @@ class Dataset:
     parameters: dict[str, str] = field(default_factory=dict)
     indexes: dict[str, DatasetIndex] = field(default_factory=dict)
     active_index_id: str | None = None
+    version_headers: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.depth = np.asarray(self.depth, dtype=np.float64)

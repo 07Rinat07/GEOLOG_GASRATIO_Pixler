@@ -14,6 +14,7 @@ from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 
 
 class HeaderSection(StrEnum):
+    VERSION = "VERSION"
     WELL = "WELL"
     PARAMETER = "PARAMETER"
 
@@ -43,6 +44,7 @@ class DepthHeaderSummary:
 class _HeaderSnapshot:
     well_id: str
     dataset_id: str
+    version_headers: tuple[tuple[str, str], ...]
     headers: tuple[tuple[str, str], ...]
     parameters: tuple[tuple[str, str], ...]
     well_name: str
@@ -64,6 +66,7 @@ class HeaderEditingController:
 
     _MNEMONIC = re.compile(r"^[A-Z][A-Z0-9_-]{0,31}$")
     _PROTECTED = frozenset({"STRT", "STOP", "STEP", "NULL"})
+    _VERSION_PROTECTED = frozenset({"VERS", "WRAP"})
     _LATITUDE = frozenset({"LAT", "LATI", "LATITUDE"})
     _LONGITUDE = frozenset({"LON", "LONG", "LONGITUDE"})
 
@@ -82,7 +85,12 @@ class HeaderEditingController:
     def entries(self, section: HeaderSection) -> tuple[HeaderEntry, ...]:
         values = self._values(section)
         return tuple(
-            HeaderEntry(key, value, section is HeaderSection.WELL and key in self._PROTECTED)
+            HeaderEntry(
+                key,
+                value,
+                (section is HeaderSection.WELL and key in self._PROTECTED)
+                or (section is HeaderSection.VERSION and key in self._VERSION_PROTECTED),
+            )
             for key, value in sorted(values.items(), key=lambda item: item[0].casefold())
         )
 
@@ -258,6 +266,7 @@ class HeaderEditingController:
         if self._snapshot() != expected:
             raise RuntimeError("LAS-заголовок был изменён вне истории команд")
         dataset = self._dataset()
+        dataset.version_headers = dict(replacement.version_headers)
         dataset.headers = dict(replacement.headers)
         dataset.parameters = dict(replacement.parameters)
         self._well().name = replacement.well_name
@@ -267,6 +276,7 @@ class HeaderEditingController:
         return _HeaderSnapshot(
             self._well().well_id,
             dataset.dataset_id,
+            tuple(dataset.version_headers.items()),
             tuple(dataset.headers.items()),
             tuple(dataset.parameters.items()),
             self._well().name,
@@ -274,6 +284,8 @@ class HeaderEditingController:
 
     def _values(self, section: HeaderSection) -> dict[str, str]:
         dataset = self._dataset()
+        if section is HeaderSection.VERSION:
+            return dataset.version_headers
         return dataset.headers if section is HeaderSection.WELL else dataset.parameters
 
     def _validate(self, section: HeaderSection, mnemonic: str, value: str) -> tuple[str, str]:
@@ -291,6 +303,10 @@ class HeaderEditingController:
         return key, normalized_value
 
     def _ensure_mutable(self, section: HeaderSection, mnemonic: str) -> None:
+        if section is HeaderSection.VERSION and mnemonic in self._VERSION_PROTECTED:
+            raise ValueError(
+                f"{mnemonic} управляется планом экспорта; измените версию или WRAP при сохранении"
+            )
         if section is HeaderSection.WELL and mnemonic in self._PROTECTED:
             raise ValueError(
                 f"{mnemonic} управляется данными глубины и планом экспорта; "

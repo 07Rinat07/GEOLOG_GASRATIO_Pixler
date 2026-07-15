@@ -84,6 +84,11 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
         [TrackDefinition("gas", "Газ", TrackKind.GAS, ["C1"], width=420, visible=False)]
     )
     project = make_project()
+    project.wells["well-1"].datasets["dataset-1"].version_headers = {
+        "VERS": "2.0",
+        "WRAP": "NO",
+        "DLM": "SPACE",
+    }
     project.lithotypes["oil_sand"] = ProjectLithotype(
         "oil_sand", "OS", "Нефтенасыщенный песок", "Oil sand", "sedimentary", "#a07840", "dots"
     )
@@ -96,6 +101,7 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     assert document.tablet_layouts["dataset-1"] == layout
     assert document.project.lithotypes["oil_sand"].code == "OS"
     assert document.project.description_templates["Песчаник"].startswith("Песчаник")
+    assert document.project.wells["well-1"].datasets["dataset-1"].version_headers["DLM"] == "SPACE"
     assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == (
         PROJECT_FORMAT_VERSION
     )

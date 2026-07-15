@@ -55,7 +55,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Multi-index | Legacy compatibility, active depth/time, detection evidence и project v6 round-trip |
 | Time normalization | ISO-8601, DATE+TIME, custom format, IANA/offset/naive, DST, NaT и Unix scale |
 | Data Inspector | Summary, indexes, missing curve values, import issues и ручной active index |
-| LAS Header Editor | WELL/PARAMETER, координаты, глубинная сводка, NULL, синхронизация и Undo/Redo |
+| LAS Header Editor | VERSION/WELL/PARAMETER, защищённые поля, координаты, NULL, синхронизация и Undo/Redo |
 | Curve Metadata Editor | Мнемоники, UOM, описания, конфликты с индексами, Undo/Redo и canonical ID |
 | Import provenance | Project v7 round-trip, legacy migration, schema validation и hash mismatch |
 | LAS source profile | Версия, WRAP, NULL, кодировка, fingerprint, artifact status и export defaults |
