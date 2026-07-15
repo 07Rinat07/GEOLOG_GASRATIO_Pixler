@@ -46,5 +46,10 @@ The editor sets interval top, bottom, lithotype, and description and supports de
 templates. The UI is available in RU/KK/EN; lithotype IDs and user descriptions remain
 unchanged.
 
+## Description templates
+
+The editor stores reusable rock-description names and text in the project. Its interface is
+available in RU/KK/EN; template content remains user-authored and is not translated automatically.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.

@@ -128,5 +128,12 @@
   "lithology.select_template": "Үлгіні таңдаңыз...",
   "lithology.select_interval": "Алдымен аралықты таңдаңыз",
   "lithology.select_well": "Алдымен ұңғыманы таңдаңыз",
-  "lithology.tree": "Литология ({count})"
+  "lithology.tree": "Литология ({count})",
+  "templates.action": "Тау жыныстары сипаттамасының үлгілері...",
+  "templates.title": "Үлгілер",
+  "templates.window_title": "Тау жыныстары сипаттамасының үлгілері",
+  "templates.name": "Атауы",
+  "templates.text": "Мәтін",
+  "templates.select_first": "Алдымен үлгіні таңдаңыз",
+  "templates.tree": "Сипаттама үлгілері ({count})"
 }

@@ -128,5 +128,12 @@
   "lithology.select_template": "Select a template...",
   "lithology.select_interval": "Select an interval first",
   "lithology.select_well": "Select a well first",
-  "lithology.tree": "Lithology ({count})"
+  "lithology.tree": "Lithology ({count})",
+  "templates.action": "Rock description templates...",
+  "templates.title": "Templates",
+  "templates.window_title": "Rock description templates",
+  "templates.name": "Name",
+  "templates.text": "Text",
+  "templates.select_first": "Select a template first",
+  "templates.tree": "Description templates ({count})"
 }

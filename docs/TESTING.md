@@ -49,6 +49,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Interval Statistics UI | RU/KK/EN title, interval, count/min/max/mean headers and validation messages |
 | Depth Annotations UI | RU/KK/EN title, columns, actions, close button and project-tree label |
 | Lithology Intervals UI | RU/KK/EN labels/actions, EN catalog names and stable lithotype IDs |
+| Description Templates UI | RU/KK/EN title, columns, actions, close button and project-tree label |
 | LAS и другие входные форматы | Успешный импорт, повреждённый файл, неверный тип |
 | CSV/TXT import | Delimiter, encoding, preview, numeric/ISO/DATE+TIME index, timezone, units, NULL и bad rows |
 | Excel import | XLS/XLSX/XLSM, LibreOffice, формулы, листы, header, DATE+TIME UI и ошибки |

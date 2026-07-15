@@ -128,5 +128,12 @@
   "lithology.select_template": "Выберите шаблон...",
   "lithology.select_interval": "Сначала выберите интервал",
   "lithology.select_well": "Сначала выберите скважину",
-  "lithology.tree": "Литология ({count})"
+  "lithology.tree": "Литология ({count})",
+  "templates.action": "Шаблоны описаний пород...",
+  "templates.title": "Шаблоны",
+  "templates.window_title": "Шаблоны описаний пород",
+  "templates.name": "Название",
+  "templates.text": "Текст",
+  "templates.select_first": "Сначала выберите шаблон",
+  "templates.tree": "Шаблоны описаний ({count})"
 }

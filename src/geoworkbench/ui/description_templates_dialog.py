@@ -18,42 +18,57 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class DescriptionTemplatesDialog(QDialog):
     def __init__(
-        self, controller: DescriptionTemplateController, parent: QWidget | None = None
+        self,
+        controller: DescriptionTemplateController,
+        parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
     ) -> None:
         super().__init__(parent)
+        self.localizer = Localizer.create(language)
         self.controller = controller
-        self.setWindowTitle("Шаблоны описаний пород")
+        self.setWindowTitle(self._t("templates.window_title"))
         self.resize(760, 520)
         root = QVBoxLayout(self)
         self.table = QTableWidget(0, 2)
         self.table.setObjectName("description-templates-table")
-        self.table.setHorizontalHeaderLabels(["Название", "Текст"])
+        self.table.setHorizontalHeaderLabels(
+            [self._t("templates.name"), self._t("templates.text")]
+        )
         self.table.itemSelectionChanged.connect(self._load_selected)
         root.addWidget(self.table)
         form = QFormLayout()
         self.name_input = QLineEdit()
         self.text_input = QTextEdit()
-        form.addRow("Название", self.name_input)
-        form.addRow("Текст", self.text_input)
+        form.addRow(self._t("templates.name"), self.name_input)
+        form.addRow(self._t("templates.text"), self.text_input)
         root.addLayout(form)
         actions = QHBoxLayout()
-        for title, handler in (
-            ("Добавить", self._add),
-            ("Изменить", self._update),
-            ("Удалить", self._remove),
+        for object_name, title, handler in (
+            ("template-add-button", self._t("common.add"), self._add),
+            ("template-update-button", self._t("common.update"), self._update),
+            ("template-remove-button", self._t("common.remove"), self._remove),
         ):
             button = QPushButton(title)
+            button.setObjectName(object_name)
             button.clicked.connect(handler)
             actions.addWidget(button)
         root.addLayout(actions)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
+            self._t("common.close")
+        )
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
+
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
 
     def _refresh(self) -> None:
         templates = self.controller.available()
@@ -86,7 +101,9 @@ class DescriptionTemplatesDialog(QDialog):
     def _update(self) -> None:
         original_name = self._selected_name()
         if original_name is None:
-            QMessageBox.information(self, "Шаблоны", "Сначала выберите шаблон")
+            QMessageBox.information(
+                self, self._t("templates.title"), self._t("templates.select_first")
+            )
             return
         self._run(
             lambda: self.controller.update(
@@ -97,7 +114,9 @@ class DescriptionTemplatesDialog(QDialog):
     def _remove(self) -> None:
         name = self._selected_name()
         if name is None:
-            QMessageBox.information(self, "Шаблоны", "Сначала выберите шаблон")
+            QMessageBox.information(
+                self, self._t("templates.title"), self._t("templates.select_first")
+            )
             return
         self._run(lambda: self.controller.remove(name))
 
@@ -105,6 +124,6 @@ class DescriptionTemplatesDialog(QDialog):
         try:
             operation()
         except (KeyError, ValueError) as exc:
-            QMessageBox.warning(self, "Шаблоны", str(exc))
+            QMessageBox.warning(self, self._t("templates.title"), str(exc))
             return
         self._refresh()

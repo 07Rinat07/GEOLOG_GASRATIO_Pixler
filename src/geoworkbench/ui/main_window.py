@@ -266,7 +266,7 @@ class MainWindow(QMainWindow):
         self.lithotype_catalog_action.triggered.connect(self.show_lithotype_catalog)
         edit_menu.addAction(self.lithotype_catalog_action)
 
-        self.description_templates_action = QAction("Шаблоны описаний пород...", self)
+        self.description_templates_action = QAction(self._t("templates.action"), self)
         self.description_templates_action.triggered.connect(self.show_description_templates)
         edit_menu.addAction(self.description_templates_action)
 
@@ -1099,7 +1099,9 @@ class MainWindow(QMainWindow):
         self._update_title()
 
     def show_description_templates(self) -> None:
-        DescriptionTemplatesDialog(self.description_template_controller, self).exec()
+        DescriptionTemplatesDialog(
+            self.description_template_controller, self, language=self.language
+        ).exec()
         self._refresh_tree()
         self._update_title()
 
@@ -1168,7 +1170,12 @@ class MainWindow(QMainWindow):
         self.tree.addTopLevelItem(root)
         if self.session.project.description_templates:
             templates_item = QTreeWidgetItem(
-                [f"Шаблоны описаний ({len(self.session.project.description_templates)})"]
+                [
+                    self._t(
+                        "templates.tree",
+                        count=len(self.session.project.description_templates),
+                    )
+                ]
             )
             templates_item.setData(0, Qt.ItemDataRole.UserRole, ("description_templates",))
             root.addChild(templates_item)
