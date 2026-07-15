@@ -508,6 +508,7 @@ class MainWindow(QMainWindow):
         layout = self.tablet_controller.build_default_layout()
         self.tablet_view.set_layout_model(layout)
         self.tablet_view.set_dataset(dataset)
+        self._refresh_tree()
         self._update_title()
         self._log(f"Построен базовый планшет: треков {len(layout.tracks)}")
 
@@ -527,6 +528,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Планшет", str(exc))
             return
         self.tablet_view.refresh_view()
+        self._refresh_tree()
         self.tabs.setCurrentWidget(self.tablet_view)
         self._log(f"Добавлен трек: {track.title}")
         self._update_title()
@@ -636,6 +638,7 @@ class MainWindow(QMainWindow):
 
     def _layout_changed(self, message: str) -> None:
         self.tablet_view.refresh_view()
+        self._refresh_tree()
         self._update_title()
         self._log(message)
 
@@ -731,6 +734,7 @@ class MainWindow(QMainWindow):
         DepthAnnotationsDialog(self.depth_annotation_controller, self).exec()
         well = self.session.current_well
         self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
+        self._refresh_tree()
         self._update_title()
 
     def show_lithology_editor(self) -> None:
@@ -762,6 +766,7 @@ class MainWindow(QMainWindow):
 
     def show_description_templates(self) -> None:
         DescriptionTemplatesDialog(self.description_template_controller, self).exec()
+        self._refresh_tree()
         self._update_title()
 
     def show_lithology_legend(self) -> None:
@@ -794,6 +799,16 @@ class MainWindow(QMainWindow):
         root = QTreeWidgetItem([self.session.project.name])
         root.setData(0, Qt.ItemDataRole.UserRole, ("project", self.session.project.project_id))
         self.tree.addTopLevelItem(root)
+        if self.session.project.description_templates:
+            templates_item = QTreeWidgetItem(
+                [f"Шаблоны описаний ({len(self.session.project.description_templates)})"]
+            )
+            templates_item.setData(0, Qt.ItemDataRole.UserRole, ("description_templates",))
+            root.addChild(templates_item)
+            for name in sorted(
+                self.session.project.description_templates, key=str.casefold
+            ):
+                templates_item.addChild(QTreeWidgetItem([name]))
         for well in self.session.project.wells.values():
             well_item = QTreeWidgetItem([well.name])
             well_item.setData(0, Qt.ItemDataRole.UserRole, ("well", well.well_id))
@@ -812,6 +827,63 @@ class MainWindow(QMainWindow):
                         ("curve", well.well_id, dataset.dataset_id, curve.metadata.curve_id),
                     )
                     dataset_item.addChild(curve_item)
+                layout = self.session.tablet_layouts.get(dataset.dataset_id)
+                if layout is not None and layout.tracks:
+                    tracks_item = QTreeWidgetItem([f"Слои планшета ({len(layout.tracks)})"])
+                    dataset_item.addChild(tracks_item)
+                    for position, track in enumerate(layout.tracks, start=1):
+                        state = "" if track.visible else " [скрыт]"
+                        track_item = QTreeWidgetItem(
+                            [f"{position}. {track.title}{state}"]
+                        )
+                        track_item.setData(
+                            0,
+                            Qt.ItemDataRole.UserRole,
+                            ("track", well.well_id, dataset.dataset_id, track.track_id),
+                        )
+                        tracks_item.addChild(track_item)
+            if well.lithology:
+                lithology_item = QTreeWidgetItem(
+                    [f"Литология ({len(well.lithology)})"]
+                )
+                lithology_item.setData(
+                    0, Qt.ItemDataRole.UserRole, ("lithology", well.well_id)
+                )
+                well_item.addChild(lithology_item)
+                for interval in well.lithology:
+                    child = QTreeWidgetItem(
+                        [
+                            f"{interval.top_depth:g}–{interval.bottom_depth:g} м: "
+                            f"{interval.lithotype_id}"
+                        ]
+                    )
+                    child.setData(
+                        0,
+                        Qt.ItemDataRole.UserRole,
+                        ("lithology_interval", well.well_id, interval.interval_id),
+                    )
+                    lithology_item.addChild(child)
+            annotations = [
+                item for item in well.canvas_objects if item.object_type == "depth_annotation"
+            ]
+            if annotations:
+                annotations_item = QTreeWidgetItem(
+                    [f"Глубинные заметки ({len(annotations)})"]
+                )
+                annotations_item.setData(
+                    0, Qt.ItemDataRole.UserRole, ("annotations", well.well_id)
+                )
+                well_item.addChild(annotations_item)
+                for annotation in annotations:
+                    text = str(annotation.properties.get("text", "Заметка"))
+                    depth = annotation.top_depth if annotation.top_depth is not None else annotation.y
+                    child = QTreeWidgetItem([f"{depth:g} м: {text}"])
+                    child.setData(
+                        0,
+                        Qt.ItemDataRole.UserRole,
+                        ("annotation", well.well_id, annotation.object_id),
+                    )
+                    annotations_item.addChild(child)
         root.setExpanded(True)
 
     def _activate_tree_item(self, item: QTreeWidgetItem) -> None:
@@ -845,6 +917,21 @@ class MainWindow(QMainWindow):
                     f"Версия: {curve.version}\n"
                     f"Происхождение: {curve.metadata.provenance}"
                 )
+        elif data[0] == "track":
+            _, well_id, dataset_id, track_id = data
+            self.session.current_well_id = well_id
+            self.session.current_dataset_id = dataset_id
+            self._show_current_dataset()
+            self._show_track_in_inspector(track_id)
+            self.tabs.setCurrentWidget(self.tablet_view)
+        elif data[0] in ("lithology", "lithology_interval"):
+            self.session.current_well_id = data[1]
+            self.show_lithology_editor()
+        elif data[0] in ("annotations", "annotation"):
+            self.session.current_well_id = data[1]
+            self.show_depth_annotations()
+        elif data[0] == "description_templates":
+            self.show_description_templates()
 
     def _show_track_in_inspector(self, track_id: str) -> None:
         self._selected_track_id = track_id

@@ -1,11 +1,13 @@
 import numpy as np
 
 from geoworkbench.domain.models import (
+    CanvasObject,
     CurveData,
     CurveMetadata,
     Dataset,
     DatasetKind,
     DepthDomain,
+    LithologyInterval,
     Project,
     Well,
 )
@@ -165,4 +167,69 @@ def test_window_applies_curve_edit_and_updates_undo_redo_actions(qapp) -> None:
 
     window.redo_curve_edit()
     assert curve.values[0] == 10.0
+    window.close()
+
+
+def test_project_tree_contains_geology_annotations_templates_and_tracks(qapp) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    well = session.current_well
+    assert well is not None
+    well.lithology.append(LithologyInterval("layer", 100.0, 101.0, "sandstone", None))
+    well.canvas_objects.append(
+        CanvasObject(
+            "note",
+            "depth_annotation",
+            "depth",
+            0.0,
+            100.5,
+            1.0,
+            0.0,
+            top_depth=100.5,
+            properties={"text": "Контакт"},
+        )
+    )
+    session.project.description_templates["Песчаник"] = "Описание"
+    bind_session(window, session)
+
+    window._refresh_tree()
+
+    labels: list[str] = []
+    iterator = window.tree.invisibleRootItem()
+
+    def collect(item) -> None:
+        labels.append(item.text(0))
+        for index in range(item.childCount()):
+            collect(item.child(index))
+
+    collect(iterator)
+    assert any(label.startswith("Литология (1)") for label in labels)
+    assert any(label.startswith("Глубинные заметки (1)") for label in labels)
+    assert any(label.startswith("Шаблоны описаний (1)") for label in labels)
+    assert any(label.startswith("Слои планшета (2)") for label in labels)
+    window.close()
+
+
+def test_project_tree_track_activation_selects_inspector_track(qapp) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    window._refresh_tree()
+
+    track_item = None
+    iterator = window.tree.invisibleRootItem()
+    pending = [iterator]
+    while pending:
+        item = pending.pop()
+        data = item.data(0, 256)
+        if data and data[0] == "track" and data[-1] == "curve":
+            track_item = item
+            break
+        pending.extend(item.child(index) for index in range(item.childCount()))
+
+    assert track_item is not None
+    window._activate_tree_item(track_item)
+
+    assert window._selected_track_id == "curve"
+    assert "Curve" in window.inspector._summary.text()
     window.close()
