@@ -67,6 +67,7 @@ def test_data_inspector_exposes_summary_curves_indexes_and_issues() -> None:
     summary = controller.summary()
     indexes = controller.indexes()
     curves = controller.curves()
+    source = controller.source_inspection()
 
     assert summary.well_name == "Test Well"
     assert summary.index_count == 2
@@ -74,6 +75,38 @@ def test_data_inspector_exposes_summary_curves_indexes_and_issues() -> None:
     assert indexes[0].active
     assert curves[0].missing_count == 1
     assert controller.import_issues()[0].code == "test-warning"
+    assert source is not None
+    assert source.version == "2.0"
+    assert source.artifact_status == "отсутствует"
+    assert source.warning_count == 1
+
+
+def test_data_inspector_reports_verified_lossless_artifact() -> None:
+    controller = make_controller()
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    report = controller.session.import_reports[dataset.dataset_id]
+    from geoworkbench.data.lossless_las import parse_lossless_las
+
+    document = parse_lossless_las(b"test")
+    controller.session.source_documents[dataset.dataset_id] = document
+    controller.session.import_reports[dataset.dataset_id] = LasImportReport(
+        LasSourceSnapshot(
+            report.source.path,
+            document.size_bytes,
+            document.sha256,
+            document.encoding,
+            document.newline_style.value,
+            (),
+            "2.0",
+            "NO",
+            -999.25,
+        ),
+        report.depth_axis,
+        (),
+    )
+
+    assert controller.source_inspection().artifact_status == "проверен"  # type: ignore[union-attr]
 
 
 def test_data_inspector_changes_active_index_and_marks_session_dirty() -> None:

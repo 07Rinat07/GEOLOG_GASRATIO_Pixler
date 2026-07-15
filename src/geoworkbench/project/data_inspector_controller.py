@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from geoworkbench.data.las_import_report import LasImportIssue
+from geoworkbench.data.las_import_report import LasImportIssue, LasIssueSeverity
 from geoworkbench.domain.models import Dataset, DatasetIndex, IndexRole, IndexType
 from geoworkbench.project.session import ProjectSession
 
@@ -45,6 +45,23 @@ class CurveInspection:
     description: str | None
     sample_count: int
     missing_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class LasSourceInspection:
+    path: str
+    version: str | None
+    wrap: str | None
+    null_value: float | None
+    encoding: str
+    newline_style: str
+    size_bytes: int
+    sha256: str
+    sections: tuple[str, ...]
+    artifact_status: str
+    info_count: int
+    warning_count: int
+    error_count: int
 
 
 @dataclass(slots=True)
@@ -92,6 +109,37 @@ class DataInspectorController:
         dataset = self._dataset()
         report = self.session.import_reports.get(dataset.dataset_id)
         return report.issues if report is not None else ()
+
+    def source_inspection(self) -> LasSourceInspection | None:
+        dataset = self._dataset()
+        report = self.session.import_reports.get(dataset.dataset_id)
+        if report is None:
+            return None
+        source = report.source
+        artifact = self.session.source_documents.get(dataset.dataset_id)
+        if artifact is None:
+            artifact_status = "отсутствует"
+        elif artifact.size_bytes == source.size_bytes and artifact.sha256 == source.sha256:
+            artifact_status = "проверен"
+        else:
+            artifact_status = "не совпадает с fingerprint"
+        return LasSourceInspection(
+            path=str(source.path),
+            version=source.las_version,
+            wrap=source.wrap,
+            null_value=source.null_value,
+            encoding=source.encoding,
+            newline_style=source.newline_style,
+            size_bytes=source.size_bytes,
+            sha256=source.sha256,
+            sections=source.section_names,
+            artifact_status=artifact_status,
+            info_count=sum(issue.severity is LasIssueSeverity.INFO for issue in report.issues),
+            warning_count=sum(
+                issue.severity is LasIssueSeverity.WARNING for issue in report.issues
+            ),
+            error_count=sum(issue.severity is LasIssueSeverity.ERROR for issue in report.issues),
+        )
 
     def set_active_index(self, index_id: str) -> None:
         dataset = self._dataset()

@@ -5,8 +5,11 @@ import pytest
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
 from geoworkbench.data.lossless_las import parse_lossless_las
+from geoworkbench.data.las_export_plan import LasExportVersion
+from geoworkbench.data.las_import_report import LasImportReport, LasSourceSnapshot
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
 
 
 def test_export_controller_uses_current_dataset(tmp_path, monkeypatch) -> None:
@@ -66,4 +69,38 @@ def test_default_export_plan_uses_typed_header_null() -> None:
 
     plan = DatasetExportController(session).default_las_plan()
 
+    assert plan.null_value == pytest.approx(-999.25)
+
+
+def test_default_export_plan_preserves_source_version_wrap_and_null() -> None:
+    dataset = Dataset(
+        "dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([1.0])
+    )
+    well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
+    report = LasImportReport(
+        LasSourceSnapshot(
+            Path("source.las"),
+            1,
+            "0" * 64,
+            "utf-8",
+            "lf",
+            ("version", "well", "curve", "ascii"),
+            "1.2",
+            "YES",
+            -999.25,
+        ),
+        DepthAxisReport(DepthDirection.UNKNOWN, 1.0, 1.0, None, True, 0, 0, 0),
+        (),
+    )
+    session = ProjectSession(
+        project=Project("project-1", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+        current_dataset_id=dataset.dataset_id,
+        import_reports={dataset.dataset_id: report},
+    )
+
+    plan = DatasetExportController(session).default_las_plan()
+
+    assert plan.version is LasExportVersion.V1_2
+    assert plan.wrap is True
     assert plan.null_value == pytest.approx(-999.25)

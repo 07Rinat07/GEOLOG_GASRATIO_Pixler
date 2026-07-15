@@ -121,6 +121,11 @@ class DataInspectorDialog(QDialog):
         self.issue_table.setHorizontalHeaderLabels(["Уровень", "Код", "Сообщение"])
         self.tabs.addTab(self.issue_table, "Диагностика импорта")
 
+        self.source_text = QPlainTextEdit()
+        self.source_text.setObjectName("las-source-profile")
+        self.source_text.setReadOnly(True)
+        self.tabs.addTab(self.source_text, "LAS-источник")
+
         header_page = QWidget()
         header_layout = QVBoxLayout(header_page)
         section_row = QHBoxLayout()
@@ -254,6 +259,25 @@ class DataInspectorDialog(QDialog):
             for column, value in enumerate((issue.severity.value, issue.code, issue.message)):
                 self.issue_table.setItem(row, column, QTableWidgetItem(value))
         self.issue_table.resizeColumnsToContents()
+        source = self.controller.source_inspection()
+        if source is None:
+            self.source_text.setPlainText("Для dataset нет сохранённого отчёта LAS-импорта.")
+        else:
+            sections = ", ".join(source.sections) or "—"
+            self.source_text.setPlainText(
+                f"Путь источника: {source.path}\n"
+                f"Версия LAS: {source.version or '—'}\n"
+                f"WRAP: {source.wrap or '—'}\n"
+                f"NULL: {self._number(source.null_value)}\n"
+                f"Кодировка: {source.encoding}\n"
+                f"Переводы строк: {source.newline_style}\n"
+                f"Размер: {source.size_bytes} байт\n"
+                f"SHA-256: {source.sha256}\n"
+                f"Секции: {sections}\n"
+                f"Lossless-артефакт: {source.artifact_status}\n"
+                "Диагностика: "
+                f"info={source.info_count}, warning={source.warning_count}, error={source.error_count}"
+            )
         self._refresh_header()
 
     def _current_header_section(self) -> HeaderSection:

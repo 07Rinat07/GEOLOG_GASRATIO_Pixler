@@ -5,7 +5,12 @@ from math import isfinite
 from pathlib import Path
 
 from geoworkbench.data.las_adapter import export_las
-from geoworkbench.data.las_export_plan import LasExportAnalysis, LasExportPlan, analyze_las_export
+from geoworkbench.data.las_export_plan import (
+    LasExportAnalysis,
+    LasExportPlan,
+    LasExportVersion,
+    analyze_las_export,
+)
 from geoworkbench.project.session import ProjectSession
 
 
@@ -29,7 +34,20 @@ class DatasetExportController:
         report = self.session.import_reports.get(dataset.dataset_id)
         if null_value is None and report is not None:
             null_value = report.source.null_value
-        return LasExportPlan(null_value=null_value if null_value is not None else -9999.25)
+        version = LasExportVersion.V2_0
+        wrap = False
+        if report is not None:
+            source_version = (report.source.las_version or "").strip()
+            if source_version.startswith("1.2"):
+                version = LasExportVersion.V1_2
+            elif source_version.startswith("2"):
+                version = LasExportVersion.V2_0
+            wrap = (report.source.wrap or "").strip().casefold() in {"yes", "y", "true", "1"}
+        return LasExportPlan(
+            version=version,
+            wrap=wrap,
+            null_value=null_value if null_value is not None else -9999.25,
+        )
 
     def analyze_current_las_export(
         self,

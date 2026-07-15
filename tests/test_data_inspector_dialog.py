@@ -54,12 +54,15 @@ def test_data_inspector_dialog_renders_and_activates_index(qapp) -> None:
     issues = dialog.findChild(QTableWidget, "import-issues")
     headers = dialog.findChild(QTableWidget, "las-header")
     depth_summary = dialog.findChild(QPlainTextEdit, "depth-header-summary")
+    source_profile = dialog.findChild(QPlainTextEdit, "las-source-profile")
     assert indexes is not None and indexes.rowCount() == 2
     assert curves is not None and curves.rowCount() == 1
     assert issues is not None and issues.rowCount() == 0
     assert headers is not None and headers.rowCount() == 2
     assert headers.item(1, 2).text() == "редактор"
     assert depth_summary is not None and "STRT=1" in depth_summary.toPlainText()
+    assert source_profile is not None
+    assert "нет сохранённого отчёта" in source_profile.toPlainText()
 
     curves.selectRow(0)
     dialog.curve_mnemonic.setText("CH4")
