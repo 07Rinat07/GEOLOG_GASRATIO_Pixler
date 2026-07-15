@@ -280,11 +280,11 @@ class MainWindow(QMainWindow):
         self.ratio_action.triggered.connect(self.calculate_ratios)
         calc_menu.addAction(self.ratio_action)
 
-        self.formula_action = QAction("Профили формул и расчёт...", self)
+        self.formula_action = QAction(self._t("formula.action"), self)
         self.formula_action.triggered.connect(self.show_formula_profiles)
         calc_menu.addAction(self.formula_action)
 
-        self.interval_statistics_action = QAction("Статистика видимого интервала...", self)
+        self.interval_statistics_action = QAction(self._t("statistics.action"), self)
         self.interval_statistics_action.triggered.connect(self.show_interval_statistics)
         calc_menu.addAction(self.interval_statistics_action)
 
@@ -1025,13 +1025,17 @@ class MainWindow(QMainWindow):
     def show_interval_statistics(self) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
-            QMessageBox.information(self, "Статистика", "Сначала выберите набор данных")
+            QMessageBox.information(
+                self, self._t("statistics.title"), self._t("statistics.select_dataset")
+            )
             return
         visible_range = self.tablet_view.visible_depth_range
         if visible_range is None:
             finite_depth = dataset.depth[np.isfinite(dataset.depth)]
             if finite_depth.size == 0:
-                QMessageBox.warning(self, "Статистика", "В наборе нет корректной глубины")
+                QMessageBox.warning(
+                    self, self._t("statistics.title"), self._t("statistics.no_depth")
+                )
                 return
             depth_top, depth_bottom = float(np.min(finite_depth)), float(np.max(finite_depth))
         else:
@@ -1039,12 +1043,16 @@ class MainWindow(QMainWindow):
         try:
             statistics = calculate_interval_statistics(dataset, depth_top, depth_bottom)
         except ValueError as exc:
-            QMessageBox.warning(self, "Статистика", str(exc))
+            QMessageBox.warning(self, self._t("statistics.title"), str(exc))
             return
         if not statistics:
-            QMessageBox.information(self, "Статистика", "В интервале нет числовых кривых")
+            QMessageBox.information(
+                self, self._t("statistics.title"), self._t("statistics.no_curves")
+            )
             return
-        IntervalStatisticsDialog(depth_top, depth_bottom, statistics, self).exec()
+        IntervalStatisticsDialog(
+            depth_top, depth_bottom, statistics, self, language=self.language
+        ).exec()
 
     def show_depth_annotations(self) -> None:
         if self.session.current_well is None:

@@ -28,5 +28,11 @@ preservation. Settings, warnings, and overwrite confirmation use the selected la
 Formula Profiles displays the passport, expression, output, source, and input-curve mapping.
 DEXP names and descriptions are available in RU/KK/EN; formulas and units are not translated.
 
+## Interval statistics
+
+Visible interval statistics reports the point count, minimum, maximum, and mean for numeric
+curves. Labels and messages are available in RU/KK/EN; source curve mnemonics and units remain
+unchanged.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.
