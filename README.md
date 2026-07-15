@@ -55,6 +55,7 @@
   распознавание кандидатов с confidence, evidence и warnings.
 - Data Inspector со сводкой WELL, индексами, кривыми, диагностикой импорта и ручным выбором
   active index без удаления остальных колонок.
+- персистентный import provenance проекта v7 с проверкой отчёта по SHA-256 lossless-источника.
 
 ## Запуск в Windows
 

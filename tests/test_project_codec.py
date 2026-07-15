@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -17,6 +18,13 @@ from geoworkbench.domain.models import (
     Well,
 )
 from geoworkbench.data.lossless_las import parse_lossless_las
+from geoworkbench.data.las_import_report import (
+    LasImportIssue,
+    LasImportReport,
+    LasIssueSeverity,
+    LasSourceSnapshot,
+)
+from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.project_codec import (
     PROJECT_FORMAT_VERSION,
@@ -49,6 +57,25 @@ def make_project() -> Project:
     )
     well = Well("well-1", "Well 1", datasets={dataset.dataset_id: dataset})
     return Project("project-1", "Test project", wells={well.well_id: well})
+
+
+def make_import_report(raw: bytes) -> LasImportReport:
+    source = parse_lossless_las(raw)
+    return LasImportReport(
+        LasSourceSnapshot(
+            path=Path("source.las"),
+            size_bytes=source.size_bytes,
+            sha256=source.sha256,
+            encoding=source.encoding,
+            newline_style=source.newline_style.value,
+            section_names=tuple(section.name for section in source.sections),
+            las_version="2.0",
+            wrap="NO",
+            null_value=-999.25,
+        ),
+        DepthAxisReport(DepthDirection.ASCENDING, 100.0, 101.0, 1.0, True, 0, 0, 0),
+        (LasImportIssue("test", LasIssueSeverity.WARNING, "Test warning"),),
+    )
 
 
 def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
@@ -85,6 +112,43 @@ def test_project_document_round_trip_preserves_lossless_source(tmp_path) -> None
     payload = json.loads(target.read_text(encoding="utf-8"))
     assert payload["source_artifacts"]["dataset-1"]["sha256"] == source.sha256
     assert "raw_bytes" not in target.read_text(encoding="utf-8")
+
+
+def test_project_document_round_trip_preserves_import_report(tmp_path) -> None:
+    target = tmp_path / "report.geolog.json"
+    raw = b"~V\nVERS. 2.0\n~W\nNULL. -999.25\n~C\nDEPT.M\n~A\n100\n101\n"
+    source = parse_lossless_las(raw)
+    report = make_import_report(raw)
+
+    save_project(
+        make_project(),
+        target,
+        source_documents={"dataset-1": source},
+        import_reports={"dataset-1": report},
+    )
+    restored = load_project_document(target)
+
+    restored_report = restored.import_reports["dataset-1"]
+    assert restored_report.source.sha256 == source.sha256
+    assert restored_report.depth_axis.direction is DepthDirection.ASCENDING
+    assert restored_report.issues[0].code == "test"
+
+
+def test_project_load_rejects_report_artifact_fingerprint_mismatch(tmp_path) -> None:
+    target = tmp_path / "mismatch.geolog.json"
+    raw = b"~V\nVERS. 2.0\n~W\nNULL. -999.25\n~C\nDEPT.M\n~A\n100\n101\n"
+    save_project(
+        make_project(),
+        target,
+        source_documents={"dataset-1": parse_lossless_las(raw)},
+        import_reports={"dataset-1": make_import_report(raw)},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["import_reports"]["dataset-1"]["source"]["sha256"] = "0" * 64
+    target.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ProjectFormatError, match="не соответствует source artifact"):
+        load_project_document(target)
 
 
 def test_project_document_round_trip_preserves_multiple_indexes(tmp_path) -> None:
@@ -184,6 +248,18 @@ def test_v5_project_migrates_depth_to_primary_index(tmp_path) -> None:
 
     assert restored.active_index.index_type is IndexType.MD
     np.testing.assert_array_equal(restored.active_index.values, restored.depth)
+
+
+def test_v6_project_migrates_with_empty_import_reports(tmp_path) -> None:
+    target = tmp_path / "v6.geolog.json"
+    save_project(make_project(), target)
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["format_version"] = 6
+    payload.pop("import_reports")
+
+    document = project_document_from_dict(payload)
+
+    assert document.import_reports == {}
 
 
 @pytest.mark.parametrize("version", [99, "2", True, -1])

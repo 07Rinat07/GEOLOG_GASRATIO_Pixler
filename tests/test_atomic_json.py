@@ -1,9 +1,15 @@
 import json
+from pathlib import Path
 
 import pytest
 
 from geoworkbench.domain.models import Project
 from geoworkbench.data.lossless_las import parse_lossless_las
+from geoworkbench.data.las_import_report import (
+    LasImportReport,
+    LasSourceSnapshot,
+)
+from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.project_codec import PROJECT_FORMAT_VERSION
 
@@ -42,6 +48,26 @@ def test_atomic_save_rejects_source_for_unknown_dataset(tmp_path) -> None:
             Project("project-1", "Project"),
             target,
             source_documents={"missing": parse_lossless_las(b"~A\n1\n")},
+        )
+
+    assert not target.exists()
+
+
+def test_atomic_save_rejects_report_for_unknown_dataset(tmp_path) -> None:
+    target = tmp_path / "project.geolog.json"
+    report = LasImportReport(
+        LasSourceSnapshot(
+            Path("source.las"), 0, "0" * 64, "utf-8", "none", (), None, None, None
+        ),
+        DepthAxisReport(DepthDirection.UNKNOWN, None, None, None, False, 0, 0, 0),
+        (),
+    )
+
+    with pytest.raises(ValueError, match="неизвестный набор"):
+        save_project(
+            Project("project-1", "Project"),
+            target,
+            import_reports={"missing": report},
         )
 
     assert not target.exists()

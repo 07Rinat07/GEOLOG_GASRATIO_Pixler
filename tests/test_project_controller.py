@@ -5,6 +5,8 @@ import pytest
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
 from geoworkbench.data.lossless_las import parse_lossless_las
+from geoworkbench.data.las_import_report import LasImportReport, LasSourceSnapshot
+from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectDocument
@@ -80,6 +82,26 @@ def test_controller_preserves_source_documents_across_open_and_save() -> None:
 
     assert session.source_documents["dataset-1"] is source
     assert repository.document.source_documents["dataset-1"] is source
+
+
+def test_controller_preserves_import_reports_across_open_and_save() -> None:
+    document = make_document()
+    report = LasImportReport(
+        LasSourceSnapshot(
+            Path("source.las"), 0, "0" * 64, "utf-8", "none", (), None, None, None
+        ),
+        DepthAxisReport(DepthDirection.UNKNOWN, None, None, None, False, 0, 0, 0),
+        (),
+    )
+    document.import_reports["dataset-1"] = report
+    repository = MemoryProjectRepository(document)
+    controller = ProjectController(repository=repository)
+
+    session = controller.open_project(Path("project.geolog.json"))
+    controller.save_project(Path("saved.geolog.json"))
+
+    assert session.import_reports["dataset-1"] is report
+    assert repository.document.import_reports["dataset-1"] is report
 
 
 def test_controller_requires_save_path() -> None:

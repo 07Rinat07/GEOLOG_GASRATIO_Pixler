@@ -23,6 +23,7 @@ class ProjectController:
             project=document.project,
             tablet_layouts=document.tablet_layouts,
             source_documents=document.source_documents,
+            import_reports=document.import_reports,
         )
         self._select_first_dataset(session)
         session.dirty = False
@@ -38,6 +39,7 @@ class ProjectController:
             project=self.session.project,
             tablet_layouts=self.session.tablet_layouts,
             source_documents=self.session.source_documents,
+            import_reports=self.session.import_reports,
         )
         self.repository.save(document, destination)
         self.project_path = destination

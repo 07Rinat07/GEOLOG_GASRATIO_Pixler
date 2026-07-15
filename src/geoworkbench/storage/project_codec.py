@@ -33,6 +33,14 @@ from geoworkbench.storage.project_migrations import (
     migrate_project_payload,
 )
 from geoworkbench.data.lossless_las import LosslessLasDocument
+from geoworkbench.data.las_import_report import (
+    LasImportIssue,
+    LasImportReport,
+    LasIssueSeverity,
+    LasSourceSnapshot,
+    validate_import_report,
+)
+from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
 from geoworkbench.storage.source_artifacts import (
     SourceArtifactError,
     load_source_documents,
@@ -40,7 +48,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 6
+PROJECT_FORMAT_VERSION = 7
 
 
 @dataclass(slots=True)
@@ -48,6 +56,7 @@ class ProjectDocument:
     project: Project
     tablet_layouts: dict[str, TabletLayout] = field(default_factory=dict)
     source_documents: dict[str, LosslessLasDocument] = field(default_factory=dict)
+    import_reports: dict[str, LasImportReport] = field(default_factory=dict)
 
 
 class ProjectFormatError(RuntimeError):
@@ -58,6 +67,13 @@ def _required(data: dict[str, Any], key: str, expected: type) -> Any:
     value = data.get(key)
     if not isinstance(value, expected):
         raise ProjectFormatError(f"Поле '{key}' отсутствует или имеет неверный тип")
+    return value
+
+
+def _required_int(data: dict[str, Any], key: str) -> int:
+    value = data.get(key)
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ProjectFormatError(f"Поле '{key}' отсутствует или не является целым числом")
     return value
 
 
@@ -115,6 +131,66 @@ def _index_from_dict(data: dict[str, Any]) -> DatasetIndex:
         )
     except (TypeError, ValueError) as exc:
         raise ProjectFormatError("Некорректные данные индекса") from exc
+
+
+def _import_report_from_dict(data: dict[str, Any]) -> LasImportReport:
+    source_data = _required(data, "source", dict)
+    depth_data = _required(data, "depth_axis", dict)
+    raw_sections = _required(source_data, "section_names", list)
+    if not all(isinstance(item, str) for item in raw_sections):
+        raise ProjectFormatError("section_names отчёта должен быть списком строк")
+    try:
+        source = LasSourceSnapshot(
+            path=Path(_required(source_data, "path", str)),
+            size_bytes=_required_int(source_data, "size_bytes"),
+            sha256=str(_required(source_data, "sha256", str)),
+            encoding=str(_required(source_data, "encoding", str)),
+            newline_style=str(_required(source_data, "newline_style", str)),
+            section_names=tuple(raw_sections),
+            las_version=source_data.get("las_version"),
+            wrap=source_data.get("wrap"),
+            null_value=_optional_float_field(source_data, "null_value"),
+        )
+        depth_axis = DepthAxisReport(
+            direction=DepthDirection(str(_required(depth_data, "direction", str))),
+            start=_optional_float_field(depth_data, "start"),
+            stop=_optional_float_field(depth_data, "stop"),
+            nominal_step=_optional_float_field(depth_data, "nominal_step"),
+            is_uniform=bool(_required(depth_data, "is_uniform", bool)),
+            duplicate_count=_required_int(depth_data, "duplicate_count"),
+            missing_count=_required_int(depth_data, "missing_count"),
+            gap_count=_required_int(depth_data, "gap_count"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректный source/depth provenance") from exc
+    raw_issues = _required(data, "issues", list)
+    issues: list[LasImportIssue] = []
+    try:
+        for item in raw_issues:
+            if not isinstance(item, dict):
+                raise TypeError("issue должен быть объектом")
+            issues.append(
+                LasImportIssue(
+                    code=str(_required(item, "code", str)),
+                    severity=LasIssueSeverity(str(_required(item, "severity", str))),
+                    message=str(_required(item, "message", str)),
+                )
+            )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректный список import issues") from exc
+    report = LasImportReport(source, depth_axis, tuple(issues))
+    try:
+        validate_import_report(report)
+    except ValueError as exc:
+        raise ProjectFormatError(str(exc)) from exc
+    return report
+
+
+def _optional_float_field(data: dict[str, Any], key: str) -> float | None:
+    value = data.get(key)
+    if isinstance(value, bool):
+        raise ProjectFormatError(f"Поле '{key}' не может быть логическим")
+    return float(value) if value is not None else None
 
 
 def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
@@ -256,7 +332,21 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
     if unknown_artifact_ids:
         unknown = ", ".join(sorted(unknown_artifact_ids))
         raise ProjectFormatError(f"Source artifact ссылается на неизвестный набор: {unknown}")
-    return ProjectDocument(project, layouts)
+    raw_reports = data.get("import_reports", {})
+    if not isinstance(raw_reports, dict):
+        raise ProjectFormatError("Поле import_reports должно быть объектом")
+    reports = {
+        str(dataset_id): _import_report_from_dict(item)
+        for dataset_id, item in raw_reports.items()
+        if isinstance(item, dict)
+    }
+    if len(reports) != len(raw_reports):
+        raise ProjectFormatError("Запись import report должна быть объектом")
+    unknown_report_ids = set(reports) - known_dataset_ids
+    if unknown_report_ids:
+        unknown = ", ".join(sorted(unknown_report_ids))
+        raise ProjectFormatError(f"Import report ссылается на неизвестный набор: {unknown}")
+    return ProjectDocument(project, layouts, import_reports=reports)
 
 
 def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> ProjectDocument:
@@ -277,6 +367,7 @@ def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> Projec
             document.source_documents = load_source_documents(
                 source, dict(raw.get("source_artifacts", {}))
             )
+            _validate_report_artifact_consistency(document)
         except SourceArtifactError as exc:
             raise ProjectFormatError(str(exc)) from exc
         return document
@@ -288,3 +379,13 @@ def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> Projec
 
 def load_project(path: str | Path, *, max_size_mb: int = 512) -> Project:
     return load_project_document(path, max_size_mb=max_size_mb).project
+
+
+def _validate_report_artifact_consistency(document: ProjectDocument) -> None:
+    for dataset_id in set(document.source_documents) & set(document.import_reports):
+        source = document.source_documents[dataset_id]
+        report_source = document.import_reports[dataset_id].source
+        if source.size_bytes != report_source.size_bytes or source.sha256 != report_source.sha256:
+            raise ProjectFormatError(
+                f"Import report не соответствует source artifact dataset {dataset_id}"
+            )

@@ -149,6 +149,16 @@ def _migrate_v5_to_v6(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v6_to_v7(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 6 не содержит объекта 'project'")
+    migrated.setdefault("import_reports", {})
+    migrated["format_version"] = 7
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -156,6 +166,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(2, _migrate_v2_to_v3)
 DEFAULT_PROJECT_MIGRATIONS.register(3, _migrate_v3_to_v4)
 DEFAULT_PROJECT_MIGRATIONS.register(4, _migrate_v4_to_v5)
 DEFAULT_PROJECT_MIGRATIONS.register(5, _migrate_v5_to_v6)
+DEFAULT_PROJECT_MIGRATIONS.register(6, _migrate_v6_to_v7)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

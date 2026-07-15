@@ -944,7 +944,7 @@ class MainWindow(QMainWindow):
             return
         try:
             saved_path = self.project_controller.save_project(Path(filename))
-        except OSError as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.critical(self, "Сохранение", str(exc))
             return
         self._update_title()
