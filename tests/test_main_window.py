@@ -1,4 +1,5 @@
 import numpy as np
+from PySide6.QtWidgets import QMessageBox
 
 from geoworkbench.domain.models import (
     CanvasObject,
@@ -80,6 +81,7 @@ def test_open_las_stops_when_import_mode_is_cancelled(qapp, monkeypatch) -> None
 
 def test_window_restores_saved_layout(qapp) -> None:
     window = MainWindow()
+    assert not window.windowIcon().isNull()
     session, layout = make_session()
     bind_session(window, session)
 
@@ -88,6 +90,24 @@ def test_window_restores_saved_layout(qapp) -> None:
 
     assert window.tablet_view.layout_model is layout
     assert set(window.tablet_view.rendered_track_ids) == {"depth", "curve"}
+    window.close()
+
+
+def test_about_dialog_contains_logo(qapp, monkeypatch) -> None:
+    window = MainWindow()
+    captured: list[QMessageBox] = []
+
+    def capture(dialog: QMessageBox) -> int:
+        captured.append(dialog)
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", capture)
+
+    window.show_about()
+
+    assert len(captured) == 1
+    assert not captured[0].iconPixmap().isNull()
+    assert "Сармулдин Ринат" in captured[0].text()
     window.close()
 
 

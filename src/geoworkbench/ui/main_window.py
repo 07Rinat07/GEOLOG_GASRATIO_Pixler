@@ -60,6 +60,7 @@ from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.lithology_legend import build_lithology_legend
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
+from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDialog
@@ -95,6 +96,7 @@ class MainWindow(QMainWindow):
         self.depth_axis_controller = DepthAxisController(self.session)
         self.las_range_editing_controller = LasRangeEditingController(self.session)
         self._selected_track_id: str | None = None
+        self.setWindowIcon(application_icon())
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
 
@@ -1191,12 +1193,15 @@ class MainWindow(QMainWindow):
         self.issues.append(text)
 
     def show_about(self) -> None:
-        QMessageBox.information(
-            self,
-            "GEOLOG GASRATIO@Pixler",
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("GEOLOG GASRATIO@Pixler")
+        dialog.setIconPixmap(logo_pixmap(280))
+        dialog.setText(
             f"Версия {__version__}\n\n"
             "Автор: Сармулдин Ринат\n"
             "E-mail: ura07srr@gmail.com\n\n"
             "Реализовано: загрузка и безопасный экспорт LAS, базовые Gas Ratio, "
-            "версионированные проекты, многотрековый планшет и редактор кривых с Undo/Redo.",
+            "версионированные проекты, многотрековый планшет и редактор кривых с Undo/Redo."
         )
+        dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+        dialog.exec()
