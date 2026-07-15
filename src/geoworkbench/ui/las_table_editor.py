@@ -2,10 +2,19 @@ from __future__ import annotations
 
 import numpy as np
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex, Qt, Signal
-from PySide6.QtWidgets import QAbstractItemView, QLabel, QTableView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QPushButton,
+    QTableView,
+    QVBoxLayout,
+    QWidget,
+)
 
 from geoworkbench.domain.models import Dataset
-from geoworkbench.project.las_range_editor import LasRangeEditingController
+from geoworkbench.project.las_range_editor import LasRangeEditingController, RangeClipboard
 
 
 class LasTableModel(QAbstractTableModel):
@@ -107,6 +116,8 @@ class LasTableEditor(QWidget):
 
     def __init__(self, controller: LasRangeEditingController) -> None:
         super().__init__()
+        self.controller = controller
+        self.clipboard: RangeClipboard | None = None
         self.model = LasTableModel(controller)
         self.model.dataset_edited.connect(self.dataset_edited)
         self.model.edit_failed.connect(self.edit_failed)
@@ -122,7 +133,118 @@ class LasTableEditor(QWidget):
         )
         root = QVBoxLayout(self)
         root.addWidget(self.hint)
+        actions = QHBoxLayout()
+        for label, handler in (
+            ("Заполнить значением", self.fill_constant),
+            ("Заполнить шумом", self.fill_noise),
+            ("Копировать интервал", self.copy_selection),
+            ("Вставить", self.paste_selection),
+            ("Отменить", self.undo),
+            ("Повторить", self.redo),
+        ):
+            button = QPushButton(label)
+            button.clicked.connect(handler)
+            actions.addWidget(button)
+        actions.addStretch()
+        root.addLayout(actions)
         root.addWidget(self.table)
 
     def set_dataset(self, dataset: Dataset | None) -> None:
         self.model.set_dataset(dataset)
+        self.clipboard = None
+
+    def fill_constant(self) -> None:
+        value, accepted = QInputDialog.getDouble(
+            self, "Заполнение интервала", "Значение", decimals=8
+        )
+        if accepted:
+            self._run_selection_action(
+                lambda curve_ids, top, bottom: self.controller.set_constant(
+                    curve_ids, top, bottom, value
+                )
+            )
+
+    def fill_noise(self) -> None:
+        minimum, accepted = QInputDialog.getDouble(
+            self, "Случайные значения", "Минимум", 0.5, decimals=8
+        )
+        if not accepted:
+            return
+        maximum, accepted = QInputDialog.getDouble(
+            self, "Случайные значения", "Максимум", 5.0, decimals=8
+        )
+        if not accepted:
+            return
+        seed, accepted = QInputDialog.getInt(self, "Случайные значения", "Seed", 42)
+        if accepted:
+            self._run_selection_action(
+                lambda curve_ids, top, bottom: self.controller.fill_uniform_noise(
+                    curve_ids, top, bottom, minimum, maximum, seed=seed
+                )
+            )
+
+    def copy_selection(self) -> None:
+        try:
+            curve_ids, top, bottom = self._selected_range()
+            self.clipboard = self.controller.copy(curve_ids, top, bottom)
+        except (KeyError, RuntimeError, ValueError) as exc:
+            self.edit_failed.emit(str(exc))
+
+    def paste_selection(self) -> None:
+        if self.clipboard is None:
+            self.edit_failed.emit("Сначала скопируйте интервал")
+            return
+        dataset = self.model.dataset
+        rows = {index.row() for index in self.table.selectedIndexes()}
+        if dataset is None or not rows:
+            self.edit_failed.emit("Выберите начальную строку вставки")
+            return
+        try:
+            self.controller.paste(self.clipboard, float(dataset.depth[min(rows)]))
+        except (KeyError, RuntimeError, ValueError) as exc:
+            self.edit_failed.emit(str(exc))
+            return
+        self._refresh_after_operation()
+
+    def undo(self) -> None:
+        self._run_history_action(self.controller.undo)
+
+    def redo(self) -> None:
+        self._run_history_action(self.controller.redo)
+
+    def _run_selection_action(self, action) -> None:
+        try:
+            action(*self._selected_range())
+        except (KeyError, RuntimeError, ValueError) as exc:
+            self.edit_failed.emit(str(exc))
+            return
+        self._refresh_after_operation()
+
+    def _run_history_action(self, action) -> None:
+        try:
+            action()
+        except RuntimeError as exc:
+            self.edit_failed.emit(str(exc))
+            return
+        self._refresh_after_operation()
+
+    def _selected_range(self) -> tuple[list[str], float, float]:
+        dataset = self.model.dataset
+        selected = self.table.selectedIndexes()
+        if dataset is None:
+            raise RuntimeError("Сначала выберите dataset")
+        rows = {index.row() for index in selected}
+        columns = sorted({index.column() for index in selected if index.column() > 0})
+        if not rows or not columns:
+            raise ValueError("Выберите значения одной или нескольких кривых")
+        if len(rows) != max(rows) - min(rows) + 1:
+            raise ValueError("Строки диапазона должны идти подряд")
+        curves = list(dataset.curves.values())
+        curve_ids = [curves[column - 1].metadata.curve_id for column in columns]
+        depths = np.asarray([dataset.depth[row] for row in rows], dtype=np.float64)
+        return curve_ids, float(np.min(depths)), float(np.max(depths))
+
+    def _refresh_after_operation(self) -> None:
+        self.model.beginResetModel()
+        self.model.endResetModel()
+        self.dataset_edited.emit()

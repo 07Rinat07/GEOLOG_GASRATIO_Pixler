@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QItemSelectionModel, Qt
 
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.las_range_editor import LasRangeEditingController
@@ -61,4 +61,58 @@ def test_table_model_keeps_depth_and_calculated_curves_read_only(qapp) -> None:
 
     assert not (model.flags(model.index(0, 0)) & Qt.ItemFlag.ItemIsEditable)
     assert not (model.flags(model.index(0, total_column)) & Qt.ItemFlag.ItemIsEditable)
+    editor.close()
+
+
+def test_table_range_fill_and_undo_use_selected_cells(qapp, monkeypatch) -> None:
+    editor, dataset = make_editor()
+    editor.set_dataset(dataset)
+    model = editor.model
+    selection = editor.table.selectionModel()
+    c1_column = next(
+        column
+        for column in range(model.columnCount())
+        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("C1")
+    )
+    for row in (1, 2):
+        selection.select(
+            model.index(row, c1_column),
+            QItemSelectionModel.SelectionFlag.Select,
+        )
+    monkeypatch.setattr(
+        "geoworkbench.ui.las_table_editor.QInputDialog.getDouble",
+        lambda *args, **kwargs: (25.0, True),
+    )
+
+    editor.fill_constant()
+
+    np.testing.assert_allclose(dataset.curves["c1"].values, [10, 25, 25])
+    total = dataset.curve_by_mnemonic("TG_CALC")
+    assert total is not None
+    np.testing.assert_allclose(total.values, [13, 28, 28])
+    editor.undo()
+    np.testing.assert_allclose(dataset.curves["c1"].values, [10, 10, 10])
+    editor.close()
+
+
+def test_table_copy_and_paste_selected_interval(qapp) -> None:
+    editor, dataset = make_editor()
+    editor.set_dataset(dataset)
+    model = editor.model
+    selection = editor.table.selectionModel()
+    c1_column = next(
+        column
+        for column in range(model.columnCount())
+        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("C1")
+    )
+    dataset.curves["c1"].values[:] = [1, 2, 3]
+    for row in (0, 1):
+        selection.select(model.index(row, c1_column), QItemSelectionModel.SelectionFlag.Select)
+    editor.copy_selection()
+    selection.clearSelection()
+    selection.select(model.index(1, c1_column), QItemSelectionModel.SelectionFlag.Select)
+
+    editor.paste_selection()
+
+    np.testing.assert_allclose(dataset.curves["c1"].values, [1, 1, 2])
     editor.close()
