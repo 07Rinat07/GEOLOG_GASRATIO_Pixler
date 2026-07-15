@@ -1,5 +1,13 @@
 # GEOLOG GASRATIO@Pixler
 
+<p align="center">
+  <img
+    src="src/geoworkbench/resources/geologist-logo.png"
+    alt="GEOLOGIST — Offshore Exploration"
+    width="460"
+  >
+</p>
+
 Расширяемое настольное приложение для работы с LAS/ГИС, ГТИ, газовым каротажем,
 литологией, шламограммой, стратиграфией, корреляцией скважин и печатью мастерлогов.
 
