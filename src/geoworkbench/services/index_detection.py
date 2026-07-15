@@ -7,6 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from geoworkbench.domain.models import IndexRole, IndexType
+from geoworkbench.services.time_normalization import normalize_iso8601_strings
 
 
 _DEPTH_MNEMONICS = {
@@ -50,6 +51,8 @@ class IndexCandidate:
     confidence: float
     evidence: tuple[str, ...]
     warnings: tuple[str, ...]
+    datetime_format: str | None = None
+    timezone: str | None = None
 
 
 def detect_index_candidates(columns: Iterable[IndexColumn]) -> tuple[IndexCandidate, ...]:
@@ -67,6 +70,8 @@ def _detect_column(column: IndexColumn) -> IndexCandidate:
     score = 0.0
     role = IndexRole.GENERIC
     index_type = IndexType.GENERIC
+    datetime_format: str | None = None
+    timezone_name: str | None = None
 
     if mnemonic in _DEPTH_MNEMONICS:
         role = IndexRole.DEPTH
@@ -113,21 +118,41 @@ def _detect_column(column: IndexColumn) -> IndexCandidate:
         role, index_type = IndexRole.TIME, IndexType.DATETIME
         score = max(score, 0.85)
         evidence.append("тип значений datetime64")
+        datetime_format = "datetime64[ns]"
+        warnings.append("datetime64 не кодирует исходный часовой пояс")
         numeric = values.astype("datetime64[ns]").astype(np.int64).astype(np.float64)
     else:
-        try:
-            numeric = values.astype(np.float64)
-        except (TypeError, ValueError):
-            warnings.append("значения не являются числовыми или datetime64")
-            return IndexCandidate(
-                column.curve_id,
-                column.mnemonic,
-                index_type,
-                role,
-                min(score, 1.0),
-                tuple(evidence),
-                tuple(warnings),
-            )
+        normalized_time = normalize_iso8601_strings(values)
+        if normalized_time is not None and not any(
+            "смешаны значения" in warning for warning in normalized_time.warnings
+        ):
+            role, index_type = IndexRole.TIME, IndexType.DATETIME
+            score = max(score, 0.85)
+            evidence.append("строковые значения соответствуют ISO 8601")
+            warnings.extend(normalized_time.warnings)
+            datetime_format = normalized_time.datetime_format
+            timezone_name = normalized_time.timezone
+            integer_values = normalized_time.values.astype("datetime64[ns]").astype(np.int64)
+            numeric = integer_values.astype(np.float64)
+            numeric[np.isnat(normalized_time.values)] = np.nan
+        else:
+            if normalized_time is not None:
+                warnings.extend(normalized_time.warnings)
+            try:
+                numeric = values.astype(np.float64)
+            except (TypeError, ValueError):
+                warnings.append("значения не являются числовыми, datetime64 или ISO 8601")
+                return IndexCandidate(
+                    column.curve_id,
+                    column.mnemonic,
+                    index_type,
+                    role,
+                    min(score, 1.0),
+                    tuple(evidence),
+                    tuple(warnings),
+                    datetime_format,
+                    timezone_name,
+                )
 
     finite = numeric[np.isfinite(numeric)]
     if finite.size < 2:
@@ -146,10 +171,12 @@ def _detect_column(column: IndexColumn) -> IndexCandidate:
         else:
             warnings.append("обнаружены повторяющиеся значения")
         timestamp_scale = _unix_timestamp_scale(finite)
-        if role is IndexRole.TIME and timestamp_scale is not None:
+        if role is IndexRole.TIME and timestamp_scale is not None and datetime_format is None:
             index_type = IndexType.DATETIME
             score += 0.15
             evidence.append(f"правдоподобный Unix timestamp ({timestamp_scale})")
+            datetime_format = f"unix-{timestamp_scale}"
+            timezone_name = "UTC"
 
     return IndexCandidate(
         curve_id=column.curve_id,
@@ -159,6 +186,8 @@ def _detect_column(column: IndexColumn) -> IndexCandidate:
         confidence=min(score, 1.0),
         evidence=tuple(evidence),
         warnings=tuple(warnings),
+        datetime_format=datetime_format,
+        timezone=timezone_name,
     )
 
 

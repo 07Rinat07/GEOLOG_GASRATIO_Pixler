@@ -32,7 +32,8 @@ Roadmap следует зависимостям продукта, а не ном
    - готово: профиль и отчёт диагностики LAS 1.2/2.0;
 2. **0.8 Universal Import**
    - готово: strict/compatible/manual режимы принятия LAS по import report;
-   - нормализация Unix timestamp, строковых дат и часовых поясов;
+   - готово: Unix timestamp и ISO-8601 с timezone provenance;
+   - составные DATE+TIME и ручной выбор формата/часового пояса;
    - общий мастер импорта;
    - CSV и TXT;
    - Excel как опциональная analysis-зависимость;

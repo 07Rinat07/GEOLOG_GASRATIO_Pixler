@@ -55,10 +55,22 @@ class DataInspectorDialog(QDialog):
 
         indexes_page = QWidget()
         indexes_layout = QVBoxLayout(indexes_page)
-        self.index_table = QTableWidget(0, 9)
+        self.index_table = QTableWidget(0, 11)
         self.index_table.setObjectName("data-indexes")
         self.index_table.setHorizontalHeaderLabels(
-            ["Активный", "Мнемоника", "Тип", "Роль", "Единица", "Точек", "Начало", "Конец", "Confidence"]
+            [
+                "Активный",
+                "Мнемоника",
+                "Тип",
+                "Роль",
+                "Единица",
+                "Точек",
+                "Начало",
+                "Конец",
+                "Confidence",
+                "Формат даты",
+                "Часовой пояс",
+            ]
         )
         self.index_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.index_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -227,6 +239,8 @@ class DataInspectorDialog(QDialog):
                 index.start or "—",
                 index.stop or "—",
                 f"{index.confidence:.0%}",
+                index.datetime_format or "—",
+                index.timezone or "не задан",
             )
             for column, value in enumerate(index_values):
                 item = QTableWidgetItem(value)

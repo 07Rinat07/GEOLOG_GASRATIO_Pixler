@@ -108,6 +108,8 @@ def import_las_with_report(
     dataset.active_index.unit = str(index_curve.unit) if index_curve.unit else None
     dataset.active_index.confidence = index_candidate.confidence
     dataset.active_index.evidence = index_candidate.evidence
+    dataset.active_index.datetime_format = index_candidate.datetime_format
+    dataset.active_index.timezone = index_candidate.timezone
     if index_candidate.confidence >= 0.7:
         dataset.active_index.index_type = index_candidate.index_type
         dataset.active_index.role = index_candidate.role

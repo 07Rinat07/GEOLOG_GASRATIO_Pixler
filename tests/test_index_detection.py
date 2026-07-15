@@ -44,6 +44,8 @@ def test_detect_index_candidates_recognizes_unix_milliseconds() -> None:
     assert candidate.index_type is IndexType.DATETIME
     assert candidate.role is IndexRole.TIME
     assert any("Unix timestamp (ms)" in item for item in candidate.evidence)
+    assert candidate.datetime_format == "unix-ms"
+    assert candidate.timezone == "UTC"
 
 
 def test_detect_index_candidates_reports_mixed_direction_and_duplicates() -> None:
@@ -71,3 +73,35 @@ def test_datetime64_column_is_recognized_without_string_guessing() -> None:
     assert candidate.index_type is IndexType.DATETIME
     assert candidate.role is IndexRole.TIME
     assert candidate.confidence >= 0.85
+    assert candidate.datetime_format == "datetime64[ns]"
+    assert any("часовой пояс" in warning for warning in candidate.warnings)
+
+
+def test_iso8601_string_column_is_recognized_with_timezone_provenance() -> None:
+    candidate = detect_index_candidates(
+        [
+            IndexColumn(
+                "date",
+                "RECORD_TIME",
+                None,
+                "Record date",
+                np.array(["2026-01-01T00:00:00+05:00", "2026-01-01T00:00:01+05:00"]),
+            )
+        ]
+    )[0]
+
+    assert candidate.index_type is IndexType.DATETIME
+    assert candidate.role is IndexRole.TIME
+    assert candidate.datetime_format == "ISO8601"
+    assert candidate.timezone == "UTC+05:00"
+    assert any("ISO 8601" in item for item in candidate.evidence)
+
+
+def test_naive_iso8601_candidate_warns_about_missing_timezone() -> None:
+    candidate = detect_index_candidates(
+        [IndexColumn("date", "DATE", None, None, np.array(["2026-01-01", "2026-01-02"]))]
+    )[0]
+
+    assert candidate.index_type is IndexType.DATETIME
+    assert candidate.timezone is None
+    assert any("часовой пояс отсутствует" in warning for warning in candidate.warnings)

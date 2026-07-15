@@ -35,6 +35,8 @@ class IndexInspection:
     evidence: tuple[str, ...]
     warnings: tuple[str, ...]
     active: bool
+    datetime_format: str | None
+    timezone: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,6 +193,8 @@ class DataInspectorController:
             evidence=index.evidence,
             warnings=tuple(warnings),
             active=active,
+            datetime_format=index.datetime_format,
+            timezone=index.timezone,
         )
 
 
