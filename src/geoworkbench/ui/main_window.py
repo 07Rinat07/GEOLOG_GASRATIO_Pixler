@@ -254,7 +254,7 @@ class MainWindow(QMainWindow):
         self.redo_action.setEnabled(False)
         edit_menu.addAction(self.redo_action)
 
-        self.annotations_action = QAction("Глубинные заметки...", self)
+        self.annotations_action = QAction(self._t("annotations.action"), self)
         self.annotations_action.triggered.connect(self.show_depth_annotations)
         edit_menu.addAction(self.annotations_action)
 
@@ -1056,9 +1056,13 @@ class MainWindow(QMainWindow):
 
     def show_depth_annotations(self) -> None:
         if self.session.current_well is None:
-            QMessageBox.information(self, "Заметки", "Сначала выберите скважину")
+            QMessageBox.information(
+                self, self._t("annotations.title"), self._t("annotations.select_well")
+            )
             return
-        DepthAnnotationsDialog(self.depth_annotation_controller, self).exec()
+        DepthAnnotationsDialog(
+            self.depth_annotation_controller, self, language=self.language
+        ).exec()
         well = self.session.current_well
         self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
         self._refresh_tree()
@@ -1228,14 +1232,16 @@ class MainWindow(QMainWindow):
             ]
             if annotations:
                 annotations_item = QTreeWidgetItem(
-                    [f"Глубинные заметки ({len(annotations)})"]
+                    [self._t("annotations.tree", count=len(annotations))]
                 )
                 annotations_item.setData(
                     0, Qt.ItemDataRole.UserRole, ("annotations", well.well_id)
                 )
                 well_item.addChild(annotations_item)
                 for annotation in annotations:
-                    text = str(annotation.properties.get("text", "Заметка"))
+                    text = str(
+                        annotation.properties.get("text", self._t("annotations.default"))
+                    )
                     depth = annotation.top_depth if annotation.top_depth is not None else annotation.y
                     child = QTreeWidgetItem([f"{depth:g} м: {text}"])
                     child.setData(

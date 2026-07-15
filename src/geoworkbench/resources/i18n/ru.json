@@ -47,6 +47,9 @@
   "common.undo": "Отменить",
   "common.redo": "Повторить",
   "common.close": "Закрыть",
+  "common.add": "Добавить",
+  "common.update": "Изменить",
+  "common.remove": "Удалить",
   "table.hint": "Двойной щелчок изменяет исходное значение. Расчётные кривые обновляются автоматически.",
   "table.fill_constant": "Заполнить значением",
   "table.fill_noise": "Заполнить шумом",
@@ -103,5 +106,14 @@
   "statistics.mean": "Среднее",
   "statistics.select_dataset": "Сначала выберите набор данных",
   "statistics.no_depth": "В наборе нет конечных значений глубины",
-  "statistics.no_curves": "В интервале нет числовых кривых"
+  "statistics.no_curves": "В интервале нет числовых кривых",
+  "annotations.action": "Глубинные заметки...",
+  "annotations.title": "Заметки",
+  "annotations.window_title": "Глубинные заметки",
+  "annotations.depth": "Глубина",
+  "annotations.comment": "Комментарий",
+  "annotations.select_first": "Сначала выберите заметку",
+  "annotations.select_well": "Сначала выберите скважину",
+  "annotations.tree": "Глубинные заметки ({count})",
+  "annotations.default": "Заметка"
 }

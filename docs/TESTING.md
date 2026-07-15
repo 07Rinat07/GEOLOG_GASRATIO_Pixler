@@ -47,6 +47,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Расчёты и domain-модели | Модульные тесты численных результатов и ограничений |
 | Formula Profiles UI | RU/KK/EN passport labels, localized DEXP descriptions, mapping and execution |
 | Interval Statistics UI | RU/KK/EN title, interval, count/min/max/mean headers and validation messages |
+| Depth Annotations UI | RU/KK/EN title, columns, actions, close button and project-tree label |
 | LAS и другие входные форматы | Успешный импорт, повреждённый файл, неверный тип |
 | CSV/TXT import | Delimiter, encoding, preview, numeric/ISO/DATE+TIME index, timezone, units, NULL и bad rows |
 | Excel import | XLS/XLSX/XLSM, LibreOffice, формулы, листы, header, DATE+TIME UI и ошибки |

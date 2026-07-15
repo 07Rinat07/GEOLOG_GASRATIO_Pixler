@@ -47,6 +47,9 @@
   "common.undo": "Болдырмау",
   "common.redo": "Қайталау",
   "common.close": "Жабу",
+  "common.add": "Қосу",
+  "common.update": "Өзгерту",
+  "common.remove": "Жою",
   "table.hint": "Бастапқы мәнді өзгерту үшін екі рет басыңыз. Есептелген қисықтар автоматты түрде жаңартылады.",
   "table.fill_constant": "Мәнмен толтыру",
   "table.fill_noise": "Шумен толтыру",
@@ -103,5 +106,14 @@
   "statistics.mean": "Орташа",
   "statistics.select_dataset": "Алдымен деректер жинағын таңдаңыз",
   "statistics.no_depth": "Деректер жинағында жарамды тереңдік мәндері жоқ",
-  "statistics.no_curves": "Аралықта сандық қисықтар жоқ"
+  "statistics.no_curves": "Аралықта сандық қисықтар жоқ",
+  "annotations.action": "Тереңдік ескертпелері...",
+  "annotations.title": "Ескертпелер",
+  "annotations.window_title": "Тереңдік ескертпелері",
+  "annotations.depth": "Тереңдік",
+  "annotations.comment": "Түсініктеме",
+  "annotations.select_first": "Алдымен ескертпені таңдаңыз",
+  "annotations.select_well": "Алдымен ұңғыманы таңдаңыз",
+  "annotations.tree": "Тереңдік ескертпелері ({count})",
+  "annotations.default": "Ескертпе"
 }

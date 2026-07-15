@@ -47,6 +47,9 @@
   "common.undo": "Undo",
   "common.redo": "Redo",
   "common.close": "Close",
+  "common.add": "Add",
+  "common.update": "Update",
+  "common.remove": "Remove",
   "table.hint": "Double-click to edit a source value. Calculated curves update automatically.",
   "table.fill_constant": "Fill with value",
   "table.fill_noise": "Fill with noise",
@@ -103,5 +106,14 @@
   "statistics.mean": "Mean",
   "statistics.select_dataset": "Select a dataset first",
   "statistics.no_depth": "The dataset has no finite depth values",
-  "statistics.no_curves": "The interval contains no numeric curves"
+  "statistics.no_curves": "The interval contains no numeric curves",
+  "annotations.action": "Depth annotations...",
+  "annotations.title": "Annotations",
+  "annotations.window_title": "Depth annotations",
+  "annotations.depth": "Depth",
+  "annotations.comment": "Comment",
+  "annotations.select_first": "Select an annotation first",
+  "annotations.select_well": "Select a well first",
+  "annotations.tree": "Depth annotations ({count})",
+  "annotations.default": "Annotation"
 }

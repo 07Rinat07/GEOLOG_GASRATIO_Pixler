@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.annotation_controller import DepthAnnotationController
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class DepthAnnotationsDialog(QDialog):
@@ -25,15 +26,20 @@ class DepthAnnotationsDialog(QDialog):
         self,
         controller: DepthAnnotationController,
         parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
     ) -> None:
         super().__init__(parent)
+        self.localizer = Localizer.create(language)
         self.controller = controller
-        self.setWindowTitle("Глубинные заметки")
+        self.setWindowTitle(self._t("annotations.window_title"))
         self.resize(700, 460)
         root = QVBoxLayout(self)
         self.table = QTableWidget(0, 2)
         self.table.setObjectName("depth-annotations-table")
-        self.table.setHorizontalHeaderLabels(["Глубина", "Комментарий"])
+        self.table.setHorizontalHeaderLabels(
+            [self._t("annotations.depth"), self._t("annotations.comment")]
+        )
         self.table.itemSelectionChanged.connect(self._load_selected)
         root.addWidget(self.table)
 
@@ -42,16 +48,19 @@ class DepthAnnotationsDialog(QDialog):
         self.depth_input.setRange(-100_000.0, 100_000.0)
         self.depth_input.setDecimals(3)
         self.text_input = QLineEdit()
-        form.addRow("Глубина", self.depth_input)
-        form.addRow("Комментарий", self.text_input)
+        form.addRow(self._t("annotations.depth"), self.depth_input)
+        form.addRow(self._t("annotations.comment"), self.text_input)
         root.addLayout(form)
 
         actions = QHBoxLayout()
-        add_button = QPushButton("Добавить")
-        update_button = QPushButton("Изменить")
-        remove_button = QPushButton("Удалить")
-        self.undo_button = QPushButton("Отменить")
-        self.redo_button = QPushButton("Повторить")
+        add_button = QPushButton(self._t("common.add"))
+        add_button.setObjectName("annotation-add-button")
+        update_button = QPushButton(self._t("common.update"))
+        update_button.setObjectName("annotation-update-button")
+        remove_button = QPushButton(self._t("common.remove"))
+        remove_button.setObjectName("annotation-remove-button")
+        self.undo_button = QPushButton(self._t("common.undo"))
+        self.redo_button = QPushButton(self._t("common.redo"))
         add_button.clicked.connect(self._add)
         update_button.clicked.connect(self._update)
         remove_button.clicked.connect(self._remove)
@@ -64,9 +73,15 @@ class DepthAnnotationsDialog(QDialog):
         actions.addWidget(self.redo_button)
         root.addLayout(actions)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
+            self._t("common.close")
+        )
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
+
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
 
     def _refresh(self) -> None:
         annotations = self.controller.available()
@@ -105,7 +120,9 @@ class DepthAnnotationsDialog(QDialog):
     def _update(self) -> None:
         annotation_id = self._selected_id()
         if annotation_id is None:
-            QMessageBox.information(self, "Заметки", "Сначала выберите заметку")
+            QMessageBox.information(
+                self, self._t("annotations.title"), self._t("annotations.select_first")
+            )
             return
         self._run(
             lambda: self.controller.update(
@@ -118,7 +135,9 @@ class DepthAnnotationsDialog(QDialog):
     def _remove(self) -> None:
         annotation_id = self._selected_id()
         if annotation_id is None:
-            QMessageBox.information(self, "Заметки", "Сначала выберите заметку")
+            QMessageBox.information(
+                self, self._t("annotations.title"), self._t("annotations.select_first")
+            )
             return
         self._run(lambda: self.controller.remove(annotation_id))
 
@@ -132,7 +151,7 @@ class DepthAnnotationsDialog(QDialog):
         try:
             operation()
         except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, "Заметки", str(exc))
+            QMessageBox.warning(self, self._t("annotations.title"), str(exc))
             return False
         self._refresh()
         return True

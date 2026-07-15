@@ -34,5 +34,11 @@ Visible interval statistics reports the point count, minimum, maximum, and mean 
 curves. Labels and messages are available in RU/KK/EN; source curve mnemonics and units remain
 unchanged.
 
+## Depth annotations
+
+The editor adds, updates, and removes comments at a specified depth with Undo/Redo support.
+The interface and project-tree node are available in RU/KK/EN; user-entered text is not
+translated.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.
