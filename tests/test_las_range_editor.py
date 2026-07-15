@@ -1,0 +1,72 @@
+import numpy as np
+
+from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
+from geoworkbench.project.las_range_editor import LasRangeEditingController
+from geoworkbench.project.session import ProjectSession
+
+
+def make_editor() -> tuple[LasRangeEditingController, Dataset]:
+    dataset = Dataset(
+        "dataset",
+        "LAS",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.arange(100.0, 106.0),
+    )
+    for mnemonic, values in (
+        ("C1", [10, 10, 10, 10, 10, 10]),
+        ("C2", [2, 2, 2, 2, 2, 2]),
+        ("C3", [1, 1, 1, 1, 1, 1]),
+    ):
+        curve_id = mnemonic.lower()
+        dataset.curves[curve_id] = CurveData(
+            CurveMetadata(curve_id, mnemonic, mnemonic, "%", None, dataset.dataset_id),
+            np.asarray(values, dtype=np.float64),
+        )
+    session = ProjectSession()
+    session.add_dataset(dataset)
+    session.calculate_basic_gas_ratios()
+    session.dirty = False
+    return LasRangeEditingController(session), dataset
+
+
+def test_constant_range_edit_recalculates_gas_outputs_and_undo() -> None:
+    editor, dataset = make_editor()
+
+    editor.set_constant(["c1"], 101.0, 103.0, 20.0)
+
+    np.testing.assert_allclose(dataset.curves["c1"].values, [10, 20, 20, 20, 10, 10])
+    total = dataset.curve_by_mnemonic("TG_CALC")
+    ratio = dataset.curve_by_mnemonic("C1_C2")
+    assert total is not None and ratio is not None
+    np.testing.assert_allclose(total.values, [13, 23, 23, 23, 13, 13])
+    np.testing.assert_allclose(ratio.values, [5, 10, 10, 10, 5, 5])
+
+    editor.undo()
+
+    np.testing.assert_allclose(dataset.curves["c1"].values, [10, 10, 10, 10, 10, 10])
+    np.testing.assert_allclose(total.values, [13, 13, 13, 13, 13, 13])
+
+
+def test_uniform_noise_is_bounded_and_reproducible_after_undo_redo() -> None:
+    editor, dataset = make_editor()
+
+    editor.fill_uniform_noise(["c2"], 100.0, 105.0, 0.5, 5.0, seed=42)
+    generated = dataset.curves["c2"].values.copy()
+
+    assert np.all((generated >= 0.5) & (generated <= 5.0))
+    editor.undo()
+    editor.redo()
+    np.testing.assert_allclose(dataset.curves["c2"].values, generated)
+
+
+def test_copy_and_paste_interval_updates_all_selected_curves() -> None:
+    editor, dataset = make_editor()
+    dataset.curves["c1"].values[:] = [1, 2, 3, 4, 5, 6]
+    dataset.curves["c2"].values[:] = [10, 20, 30, 40, 50, 60]
+    clipboard = editor.copy(["c1", "c2"], 100.0, 101.0)
+
+    editor.paste(clipboard, 103.0)
+
+    np.testing.assert_allclose(dataset.curves["c1"].values, [1, 2, 3, 1, 2, 6])
+    np.testing.assert_allclose(dataset.curves["c2"].values, [10, 20, 30, 10, 20, 60])
