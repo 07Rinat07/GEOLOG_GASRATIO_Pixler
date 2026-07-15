@@ -38,6 +38,7 @@ from geoworkbench.data.las_adapter import (
 from geoworkbench.data.las_import_report import LasIssueSeverity
 from geoworkbench.data.las_import_policy import LasImportMode, evaluate_las_import
 from geoworkbench.data.csv_adapter import CsvImportError, import_csv
+from geoworkbench.data.excel_adapter import ExcelImportError, import_excel
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
@@ -63,6 +64,7 @@ from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
+from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDialog
@@ -179,6 +181,10 @@ class MainWindow(QMainWindow):
         self.open_csv_action = QAction("Импортировать CSV/TXT...", self)
         self.open_csv_action.triggered.connect(self.open_csv)
         file_menu.addAction(self.open_csv_action)
+
+        self.open_excel_action = QAction("Импортировать Excel...", self)
+        self.open_excel_action.triggered.connect(self.open_excel)
+        file_menu.addAction(self.open_excel_action)
 
         self.save_action = QAction("Сохранить проект как...", self)
         self.save_action.setShortcut("Ctrl+S")
@@ -472,6 +478,31 @@ class MainWindow(QMainWindow):
             f"разделитель: {result.delimiter!r}; кодировка: {result.encoding}"
         )
         self.statusBar().showMessage(f"CSV импортирован: {Path(filename).name}")
+
+    def open_excel(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Импортировать Excel",
+            "",
+            "Excel (*.xlsx *.xlsm)",
+        )
+        if not filename:
+            return
+        dialog = ExcelImportDialog(Path(filename), self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            result = import_excel(filename, dialog.import_plan())
+            self.session.add_dataset(result.dataset)
+        except (ExcelImportError, FileNotFoundError, OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Импорт Excel", str(exc))
+            self._log(f"Excel не импортирован: {exc}")
+            return
+        self._refresh_tree()
+        self._show_current_dataset()
+        self._update_title()
+        self._log(f"Импортирован Excel: {filename}; строк: {result.row_count}")
+        self.statusBar().showMessage(f"Excel импортирован: {Path(filename).name}")
 
     def open_project(self) -> None:
         if self.session.dirty:

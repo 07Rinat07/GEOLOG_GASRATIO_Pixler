@@ -47,6 +47,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Расчёты и domain-модели | Модульные тесты численных результатов и ограничений |
 | LAS и другие входные форматы | Успешный импорт, повреждённый файл, неверный тип |
 | CSV/TXT import | Delimiter, encoding, preview, numeric/ISO/DATE+TIME index, timezone, units, NULL и bad rows |
+| Excel import | XLSX, листы, строка заголовка, preview, native date/time, индекс и ошибки книги |
 | Диагностика LAS | Отпечаток источника, версия, NULL, направление, дубликаты и заголовок |
 | Lossless LAS | Точный byte round-trip, BOM/кодировка, переводы строк, порядок секций |
 | Source artifacts | Save As, SHA-256/размер, tamper detection и защита пути |
