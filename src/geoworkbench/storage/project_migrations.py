@@ -110,12 +110,52 @@ def _migrate_v4_to_v5(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v5_to_v6(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 5 не содержит объекта 'project'")
+    wells = project.get("wells")
+    if not isinstance(wells, dict):
+        raise ProjectMigrationError("Проект версии 5 не содержит объекта wells")
+    for well in wells.values():
+        if not isinstance(well, dict) or not isinstance(well.get("datasets"), dict):
+            raise ProjectMigrationError("Некорректная структура datasets версии 5")
+        for dataset_id, dataset in well["datasets"].items():
+            if not isinstance(dataset_id, str) or not isinstance(dataset, dict):
+                raise ProjectMigrationError("Некорректный dataset версии 5")
+            depth = dataset.get("depth")
+            domain = dataset.get("depth_domain")
+            if not isinstance(depth, list) or domain not in {"md", "tvd", "tvdss", "time"}:
+                raise ProjectMigrationError("Dataset версии 5 не содержит depth/depth_domain")
+            index_id = f"{dataset_id}:primary-index"
+            is_time = domain == "time"
+            dataset["indexes"] = {
+                index_id: {
+                    "index_id": index_id,
+                    "mnemonic": "TIME" if is_time else "DEPT",
+                    "index_type": "relative_time" if is_time else domain,
+                    "role": "time" if is_time else "depth",
+                    "unit": "ms" if is_time else "m",
+                    "values": depth,
+                    "confidence": 1.0,
+                    "evidence": ["project v5 depth/depth_domain migration"],
+                    "datetime_format": None,
+                    "timezone": None,
+                }
+            }
+            dataset["active_index_id"] = index_id
+    migrated["format_version"] = 6
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
 DEFAULT_PROJECT_MIGRATIONS.register(2, _migrate_v2_to_v3)
 DEFAULT_PROJECT_MIGRATIONS.register(3, _migrate_v3_to_v4)
 DEFAULT_PROJECT_MIGRATIONS.register(4, _migrate_v4_to_v5)
+DEFAULT_PROJECT_MIGRATIONS.register(5, _migrate_v5_to_v6)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

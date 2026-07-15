@@ -21,6 +21,21 @@ class DepthDomain(StrEnum):
     TIME = "time"
 
 
+class IndexType(StrEnum):
+    MD = "md"
+    TVD = "tvd"
+    TVDSS = "tvdss"
+    RELATIVE_TIME = "relative_time"
+    DATETIME = "datetime"
+    GENERIC = "generic"
+
+
+class IndexRole(StrEnum):
+    DEPTH = "depth"
+    TIME = "time"
+    GENERIC = "generic"
+
+
 class DatasetKind(StrEnum):
     GTI = "gti"
     GIS = "gis"
@@ -57,6 +72,60 @@ class CurveData:
 
 
 @dataclass(slots=True)
+class DatasetIndex:
+    index_id: str
+    mnemonic: str
+    index_type: IndexType
+    role: IndexRole
+    unit: str | None
+    values: NDArray[Any]
+    confidence: float = 1.0
+    evidence: tuple[str, ...] = ()
+    datetime_format: str | None = None
+    timezone: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.index_id, str) or not self.index_id:
+            raise ValueError("index_id должен быть непустой строкой")
+        if not isinstance(self.mnemonic, str) or not self.mnemonic.strip():
+            raise ValueError("Мнемоника индекса должна быть непустой строкой")
+        if not isinstance(self.index_type, IndexType) or not isinstance(self.role, IndexRole):
+            raise ValueError("Тип и роль индекса должны использовать поддерживаемые значения")
+        if self.unit is not None and not isinstance(self.unit, str):
+            raise ValueError("Единица индекса должна быть строкой")
+        if not isinstance(self.evidence, tuple) or not all(
+            isinstance(item, str) for item in self.evidence
+        ):
+            raise ValueError("Evidence индекса должен быть tuple строк")
+        if self.datetime_format is not None and not isinstance(self.datetime_format, str):
+            raise ValueError("Формат datetime должен быть строкой")
+        if self.timezone is not None and not isinstance(self.timezone, str):
+            raise ValueError("Часовой пояс должен быть строкой")
+        values = np.asarray(self.values)
+        if self.index_type is IndexType.DATETIME:
+            if np.issubdtype(values.dtype, np.datetime64):
+                values = values.astype("datetime64[ns]")
+            elif np.issubdtype(values.dtype, np.integer):
+                values = values.astype(np.int64).astype("datetime64[ns]")
+            else:
+                raise ValueError("DATETIME индекс должен содержать datetime64 или Unix ns")
+        elif self.role in {IndexRole.DEPTH, IndexRole.TIME}:
+            try:
+                values = values.astype(np.float64)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("Глубинный/временной индекс должен быть числовым") from exc
+        self.values = values.copy()
+        if self.values.ndim != 1:
+            raise ValueError("Индекс dataset должен быть одномерным")
+        if isinstance(self.confidence, bool) or not isinstance(
+            self.confidence, (int, float, np.integer, np.floating)
+        ):
+            raise ValueError("Confidence индекса должен быть числом")
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("Confidence индекса должен находиться в диапазоне 0–1")
+
+
+@dataclass(slots=True)
 class Dataset:
     dataset_id: str
     name: str
@@ -67,6 +136,58 @@ class Dataset:
     source_path: Path | None = None
     headers: dict[str, str] = field(default_factory=dict)
     parameters: dict[str, str] = field(default_factory=dict)
+    indexes: dict[str, DatasetIndex] = field(default_factory=dict)
+    active_index_id: str | None = None
+
+    def __post_init__(self) -> None:
+        self.depth = np.asarray(self.depth, dtype=np.float64)
+        if self.depth.ndim != 1:
+            raise ValueError("Шкала depth должна быть одномерной")
+        if not self.indexes:
+            primary = _legacy_depth_index(self.dataset_id, self.depth_domain, self.depth)
+            self.indexes[primary.index_id] = primary
+            self.active_index_id = primary.index_id
+        elif self.active_index_id is None:
+            self.active_index_id = next(iter(self.indexes))
+        self._validate_indexes()
+        active = self.active_index
+        if active.role is IndexRole.DEPTH:
+            self.depth = np.asarray(active.values, dtype=np.float64)
+            self.depth_domain = _depth_domain_for_index(active.index_type)
+
+    @property
+    def active_index(self) -> DatasetIndex:
+        if self.active_index_id is None or self.active_index_id not in self.indexes:
+            raise RuntimeError("Активный индекс dataset не определён")
+        return self.indexes[self.active_index_id]
+
+    def add_index(self, index: DatasetIndex, *, make_active: bool = False) -> None:
+        if index.index_id in self.indexes:
+            raise ValueError(f"Индекс уже существует: {index.index_id}")
+        if index.values.shape != self.depth.shape:
+            raise ValueError("Размер нового индекса не совпадает с dataset")
+        self.indexes[index.index_id] = index
+        if make_active:
+            self.set_active_index(index.index_id)
+
+    def set_active_index(self, index_id: str) -> None:
+        try:
+            index = self.indexes[index_id]
+        except KeyError as exc:
+            raise KeyError(f"Неизвестный индекс dataset: {index_id}") from exc
+        self.active_index_id = index_id
+        if index.role is IndexRole.DEPTH:
+            self.depth = np.asarray(index.values, dtype=np.float64)
+            self.depth_domain = _depth_domain_for_index(index.index_type)
+
+    def _validate_indexes(self) -> None:
+        if self.active_index_id not in self.indexes:
+            raise ValueError("Активный индекс отсутствует в indexes")
+        for index_id, index in self.indexes.items():
+            if index.index_id != index_id:
+                raise ValueError("Ключ indexes не совпадает с index_id")
+            if index.values.shape != self.depth.shape:
+                raise ValueError(f"Размер индекса {index.mnemonic} не совпадает с dataset")
 
     def curve_by_mnemonic(self, mnemonic: str) -> CurveData | None:
         wanted = mnemonic.casefold()
@@ -110,6 +231,36 @@ class Dataset:
         )
         self.curves[curve_id] = curve
         return curve
+
+
+def _legacy_depth_index(
+    dataset_id: str,
+    depth_domain: DepthDomain,
+    values: NDArray[np.float64],
+) -> DatasetIndex:
+    index_type = {
+        DepthDomain.MD: IndexType.MD,
+        DepthDomain.TVD: IndexType.TVD,
+        DepthDomain.TVDSS: IndexType.TVDSS,
+        DepthDomain.TIME: IndexType.RELATIVE_TIME,
+    }[depth_domain]
+    role = IndexRole.TIME if depth_domain is DepthDomain.TIME else IndexRole.DEPTH
+    return DatasetIndex(
+        index_id=f"{dataset_id}:primary-index",
+        mnemonic="TIME" if role is IndexRole.TIME else "DEPT",
+        index_type=index_type,
+        role=role,
+        unit="ms" if role is IndexRole.TIME else "m",
+        values=values,
+        evidence=("legacy depth/depth_domain compatibility",),
+    )
+
+
+def _depth_domain_for_index(index_type: IndexType) -> DepthDomain:
+    try:
+        return DepthDomain(index_type.value)
+    except ValueError as exc:
+        raise ValueError(f"Тип {index_type.value} не является глубинным") from exc
 
 
 @dataclass(slots=True)

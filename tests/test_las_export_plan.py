@@ -12,8 +12,11 @@ from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
     Dataset,
+    DatasetIndex,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
 )
 
 
@@ -91,3 +94,25 @@ def test_las_1_2_plan_is_explicit_compatibility_warning() -> None:
 
     assert analysis.can_export
     assert any(issue.code == "legacy-version" for issue in analysis.issues)
+
+
+def test_export_analysis_warns_about_secondary_index_and_blocks_active_time() -> None:
+    dataset = make_dataset()
+    dataset.add_index(
+        DatasetIndex(
+            "time",
+            "TIME",
+            IndexType.RELATIVE_TIME,
+            IndexRole.TIME,
+            "s",
+            np.array([0.0, 1.0]),
+        ),
+        make_active=True,
+    )
+
+    analysis = analyze_las_export(dataset, LasExportPlan())
+    codes = {issue.code for issue in analysis.issues}
+
+    assert not analysis.can_export
+    assert "time-index-not-supported" in codes
+    assert "additional-indexes-omitted" in codes

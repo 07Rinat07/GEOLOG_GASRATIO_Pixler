@@ -36,6 +36,7 @@ Qt-тесты запускаются с платформой `offscreen`, нас
 | Source artifacts | Save As, SHA-256/размер, tamper detection и защита пути |
 | Lossless export | Замена известных секций, сохранение custom bytes, BOM/CRLF и конфликты |
 | LAS ExportPlan | Версия, WRAP, NULL, точность, предупреждения и блокирующие ошибки |
+| Multi-index | Legacy compatibility, active depth/time, detection evidence и project v6 round-trip |
 | Проект и миграции | Round-trip, legacy-версии, повреждённые данные |
 | Атомарное хранение | Успешная замена и очистка после сбоя |
 | Контроллеры | Сценарии через repository/model без Qt |

@@ -89,7 +89,18 @@ custom sections. `analyze_las_export()` выполняется до выбора
 Dataset развивается от единственного массива `depth` к набору типизированных индексов.
 Глубина, относительное время, абсолютное время, MD, TVD и TVDSS являются отдельными
 колонками; выбор active index не удаляет остальные данные. Текущее `Dataset.depth`
-сохраняется как временный compatibility view только для глубинного планшета.
+сохраняется как compatibility view активного глубинного индекса. Временной индекс может быть
+активным, но не подменяет `depth`, пока планшет использует depth renderer.
+
+Формат проекта версии 6 хранит `Dataset.indexes` и `active_index_id`. Миграция версии 5
+создаёт первичный MD/TVD/TVDSS либо relative-time индекс из старых `depth/depth_domain`.
+Datetime нормализуется в `datetime64[ns]` и сериализуется как Unix ns. Все индексы обязаны
+иметь ту же длину, что и строки dataset.
+
+`IndexDetectionService` не зависит от LAS и Qt. Он ранжирует колонки и возвращает
+`IndexCandidate` с типом, ролью, confidence, evidence и warnings. Сейчас поддерживаются
+числовые глубины, относительное время, `datetime64` и Unix s/ms/us/ns. Строковые даты и
+часовые пояса остаются этапом normalization service.
 
 Импорт разделён на probe/parser, распознавание индексов, нормализацию, контроль качества и
 application review. Ни `lasio`, ни будущие DLIS/WITSML-библиотеки не попадают в Domain.

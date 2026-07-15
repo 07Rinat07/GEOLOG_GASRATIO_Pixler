@@ -234,10 +234,10 @@ print_engine/
 
 ## 12. Этапы внедрения без поломки проекта
 
-1. Чистые модели `DatasetIndex`, `IndexCandidate`, `ImportIssue` и тестовые фикстуры.
-2. `IndexDetectionService` для числовых DEPTH/TIME и Unix timestamp.
+1. [готово] Чистые модели `DatasetIndex`, `IndexCandidate` и тестовые фикстуры.
+2. [готово] `IndexDetectionService` для числовых DEPTH/TIME, datetime64 и Unix timestamp.
 3. Data Inspector с кандидатами, confidence и ручным выбором.
-4. Формат проекта с несколькими индексами и миграцией текущего `depth`.
+4. [готово] Формат проекта v6 с несколькими индексами и миграцией текущего `depth`.
 5. Временной normalization/QC и строковые даты.
 6. Strict/compatible/manual import pipeline.
 7. Time renderer и выбор active index.

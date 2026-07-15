@@ -11,6 +11,7 @@ from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
     Dataset,
+    DatasetIndex,
     DatasetKind,
     new_id,
 )
@@ -109,6 +110,25 @@ def create_ascending_depth_copy(dataset: Dataset, *, name: str | None = None) ->
     if report.direction is not DepthDirection.DESCENDING:
         raise ValueError("Автоматический разворот доступен только для убывающей глубины")
     dataset_id = new_id()
+    index_ids = {
+        old_id: f"{dataset_id}:index:{position}"
+        for position, old_id in enumerate(dataset.indexes, start=1)
+    }
+    indexes = {
+        index_ids[old_id]: DatasetIndex(
+            index_id=index_ids[old_id],
+            mnemonic=index.mnemonic,
+            index_type=index.index_type,
+            role=index.role,
+            unit=index.unit,
+            values=np.asarray(index.values[::-1]).copy(),
+            confidence=index.confidence,
+            evidence=index.evidence + (f"reverse-depth:{dataset.dataset_id}",),
+            datetime_format=index.datetime_format,
+            timezone=index.timezone,
+        )
+        for old_id, index in dataset.indexes.items()
+    }
     result = Dataset(
         dataset_id=dataset_id,
         name=name or f"{dataset.name} — глубина по возрастанию",
@@ -118,6 +138,8 @@ def create_ascending_depth_copy(dataset: Dataset, *, name: str | None = None) ->
         source_path=dataset.source_path,
         headers=dict(dataset.headers),
         parameters=dict(dataset.parameters),
+        indexes=indexes,
+        active_index_id=index_ids[dataset.active_index_id],  # type: ignore[index]
     )
     for curve in dataset.curves.values():
         metadata = curve.metadata

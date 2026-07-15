@@ -18,6 +18,8 @@ from geoworkbench.domain.models import (
     Dataset,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
 )
 from geoworkbench.services.depth_axis import DepthDirection
 
@@ -106,6 +108,28 @@ def test_import_las_with_report_captures_source_and_depth_diagnostics(
     assert result.report.source.null_value == pytest.approx(-999.25)
     assert result.report.depth_axis.direction is DepthDirection.DESCENDING
     assert any(issue.code == "index-descending" for issue in result.report.issues)
+
+
+def test_import_las_detects_relative_time_index(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "time.las"
+    source.write_text("fake", encoding="utf-8")
+
+    class TimeLas(FakeLas):
+        curves = [
+            FakeHeaderItem("TIME", unit="s", descr="Elapsed time"),
+            FakeHeaderItem("C1", unit="%", descr="Methane"),
+        ]
+        index = np.array([0.0, 1.0])
+        _values = {"C1": np.array([1.0, 2.0])}
+
+    monkeypatch.setattr("geoworkbench.data.las_adapter.lasio.read", lambda *a, **k: TimeLas())
+
+    dataset = import_las(source)
+
+    assert dataset.depth_domain is DepthDomain.TIME
+    assert dataset.active_index.role is IndexRole.TIME
+    assert dataset.active_index.index_type is IndexType.RELATIVE_TIME
+    assert dataset.active_index.confidence >= 0.7
 
 
 def test_import_report_detects_header_mismatch_and_duplicate_mnemonics(

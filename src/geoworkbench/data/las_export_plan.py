@@ -8,7 +8,7 @@ from math import isfinite
 import numpy as np
 
 from geoworkbench.data.lossless_las import LosslessLasDocument, section_role
-from geoworkbench.domain.models import Dataset, DepthDomain
+from geoworkbench.domain.models import Dataset, DepthDomain, IndexRole
 
 
 class LasExportVersion(StrEnum):
@@ -81,11 +81,24 @@ def analyze_las_export(
     source_document: LosslessLasDocument | None = None,
 ) -> LasExportAnalysis:
     issues: list[LasExportIssue] = []
-    if dataset.depth_domain is DepthDomain.TIME:
+    if dataset.depth_domain is DepthDomain.TIME or dataset.active_index.role is IndexRole.TIME:
         issues.append(
             _error(
                 "time-index-not-supported",
                 "Временной индекс нельзя экспортировать как глубинный LAS без явного mapping",
+            )
+        )
+    additional_indexes = [
+        index.mnemonic
+        for index_id, index in dataset.indexes.items()
+        if index_id != dataset.active_index_id
+    ]
+    if additional_indexes:
+        issues.append(
+            _warning(
+                "additional-indexes-omitted",
+                "LAS сохранит одну индексную колонку; дополнительные индексы не войдут в файл: "
+                + ", ".join(additional_indexes),
             )
         )
     if dataset.depth.ndim != 1 or dataset.depth.size == 0:

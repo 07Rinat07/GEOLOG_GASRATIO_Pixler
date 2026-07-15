@@ -7,8 +7,11 @@ from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
     Dataset,
+    DatasetIndex,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
     Project,
     ProjectLithotype,
     Well,
@@ -84,6 +87,38 @@ def test_project_document_round_trip_preserves_lossless_source(tmp_path) -> None
     assert "raw_bytes" not in target.read_text(encoding="utf-8")
 
 
+def test_project_document_round_trip_preserves_multiple_indexes(tmp_path) -> None:
+    target = tmp_path / "indexes.geolog.json"
+    project = make_project()
+    dataset = project.wells["well-1"].datasets["dataset-1"]
+    dataset.add_index(
+        DatasetIndex(
+            "record-time",
+            "DATETIME",
+            IndexType.DATETIME,
+            IndexRole.TIME,
+            None,
+            np.array(["2026-01-01", "2026-01-02"], dtype="datetime64[D]"),
+            confidence=0.95,
+            evidence=("test datetime",),
+            timezone="UTC",
+        ),
+        make_active=True,
+    )
+
+    save_project(project, target)
+    restored = load_project_document(target).project.wells["well-1"].datasets["dataset-1"]
+
+    assert restored.active_index_id == "record-time"
+    assert restored.active_index.index_type is IndexType.DATETIME
+    assert restored.active_index.timezone == "UTC"
+    assert restored.active_index.values.dtype == np.dtype("datetime64[ns]")
+    np.testing.assert_array_equal(
+        restored.active_index.values,
+        np.array(["2026-01-01", "2026-01-02"], dtype="datetime64[ns]"),
+    )
+
+
 def test_load_project_keeps_project_only_api_compatible(tmp_path) -> None:
     target = tmp_path / "test.geolog.json"
     save_project(make_project(), target)
@@ -134,6 +169,21 @@ def test_v4_project_is_migrated_with_empty_source_artifacts() -> None:
 
     assert document.project.project_id == "p"
     assert document.source_documents == {}
+
+
+def test_v5_project_migrates_depth_to_primary_index(tmp_path) -> None:
+    target = tmp_path / "v5.geolog.json"
+    save_project(make_project(), target)
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["format_version"] = 5
+    dataset_payload = payload["project"]["wells"]["well-1"]["datasets"]["dataset-1"]
+    dataset_payload.pop("indexes")
+    dataset_payload.pop("active_index_id")
+
+    restored = project_document_from_dict(payload).project.wells["well-1"].datasets["dataset-1"]
+
+    assert restored.active_index.index_type is IndexType.MD
+    np.testing.assert_array_equal(restored.active_index.values, restored.depth)
 
 
 @pytest.mark.parametrize("version", [99, "2", True, -1])

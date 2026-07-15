@@ -51,6 +51,8 @@
 - lossless-aware экспорт новой LAS-копии с обновлением стандартных и побайтным переносом
   пользовательских секций, комментариев, BOM и стиля строк.
 - диалог `ExportPlan` для LAS 1.2/2.0, WRAP, NULL и точности с анализом ошибок и потерь до записи.
+- типизированные индексы MD/TVD/TVDSS/TIME/DATETIME/GENERIC, безопасный active index и
+  распознавание кандидатов с confidence, evidence и warnings.
 
 ## Запуск в Windows
 

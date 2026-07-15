@@ -1,7 +1,16 @@
 import numpy as np
 import pytest
 
-from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.models import (
+    CurveData,
+    CurveMetadata,
+    Dataset,
+    DatasetIndex,
+    DatasetKind,
+    DepthDomain,
+    IndexRole,
+    IndexType,
+)
 from geoworkbench.services.depth_axis import (
     DepthDirection,
     analyze_depth_axis,
@@ -45,6 +54,16 @@ def test_ascending_copy_reverses_every_curve_and_preserves_source() -> None:
         CurveMetadata("gr", "GR", "GR", "API", "Gamma", source.dataset_id),
         np.array([30.0, 20.0, 10.0]),
     )
+    source.add_index(
+        DatasetIndex(
+            "time",
+            "TIME",
+            IndexType.RELATIVE_TIME,
+            IndexRole.TIME,
+            "s",
+            np.array([0.0, 1.0, 2.0]),
+        )
+    )
 
     result = create_ascending_depth_copy(source)
 
@@ -54,3 +73,5 @@ def test_ascending_copy_reverses_every_curve_and_preserves_source() -> None:
     np.testing.assert_allclose(source.curve_by_mnemonic("GR").values, [30.0, 20.0, 10.0])
     assert result.kind is DatasetKind.DERIVED
     assert result.headers == {"STRT": "100", "STOP": "102", "STEP": "1"}
+    result_time = next(index for index in result.indexes.values() if index.role is IndexRole.TIME)
+    np.testing.assert_allclose(result_time.values, [2.0, 1.0, 0.0])

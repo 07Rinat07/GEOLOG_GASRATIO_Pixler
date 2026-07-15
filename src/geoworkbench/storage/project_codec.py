@@ -15,8 +15,11 @@ from geoworkbench.domain.models import (
     CuttingsComponent,
     CuttingsSample,
     Dataset,
+    DatasetIndex,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
     LithologyInterval,
     Project,
     ProjectLithotype,
@@ -37,7 +40,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 5
+PROJECT_FORMAT_VERSION = 6
 
 
 @dataclass(slots=True)
@@ -82,6 +85,38 @@ def _curve_from_dict(data: dict[str, Any]) -> CurveData:
     )
 
 
+def _index_from_dict(data: dict[str, Any]) -> DatasetIndex:
+    try:
+        index_type = IndexType(str(_required(data, "index_type", str)))
+        role = IndexRole(str(_required(data, "role", str)))
+    except ValueError as exc:
+        raise ProjectFormatError("Неизвестный тип или роль индекса") from exc
+    raw_values = _required(data, "values", list)
+    values = (
+        np.asarray(raw_values, dtype=np.int64).astype("datetime64[ns]")
+        if index_type is IndexType.DATETIME
+        else np.asarray(raw_values, dtype=np.float64)
+    )
+    evidence = data.get("evidence", [])
+    if not isinstance(evidence, list) or not all(isinstance(item, str) for item in evidence):
+        raise ProjectFormatError("Evidence индекса должен быть списком строк")
+    try:
+        return DatasetIndex(
+            index_id=str(_required(data, "index_id", str)),
+            mnemonic=str(_required(data, "mnemonic", str)),
+            index_type=index_type,
+            role=role,
+            unit=data.get("unit"),
+            values=values,
+            confidence=float(data.get("confidence", 1.0)),
+            evidence=tuple(evidence),
+            datetime_format=data.get("datetime_format"),
+            timezone=data.get("timezone"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректные данные индекса") from exc
+
+
 def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
     try:
         kind = DatasetKind(str(_required(data, "kind", str)))
@@ -89,16 +124,31 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
     except ValueError as exc:
         raise ProjectFormatError("Неизвестный тип набора данных или шкалы глубины") from exc
 
-    dataset = Dataset(
-        dataset_id=str(_required(data, "dataset_id", str)),
-        name=str(_required(data, "name", str)),
-        kind=kind,
-        depth_domain=depth_domain,
-        depth=np.asarray(_required(data, "depth", list), dtype=np.float64),
-        source_path=Path(data["source_path"]) if data.get("source_path") else None,
-        headers={str(k): str(v) for k, v in dict(data.get("headers", {})).items()},
-        parameters={str(k): str(v) for k, v in dict(data.get("parameters", {})).items()},
-    )
+    raw_indexes = data.get("indexes", {})
+    if not isinstance(raw_indexes, dict):
+        raise ProjectFormatError("Поле indexes должно быть объектом")
+    indexes = {
+        str(index_id): _index_from_dict(item)
+        for index_id, item in raw_indexes.items()
+        if isinstance(item, dict)
+    }
+    if len(indexes) != len(raw_indexes):
+        raise ProjectFormatError("Запись индекса должна быть объектом")
+    try:
+        dataset = Dataset(
+            dataset_id=str(_required(data, "dataset_id", str)),
+            name=str(_required(data, "name", str)),
+            kind=kind,
+            depth_domain=depth_domain,
+            depth=np.asarray(_required(data, "depth", list), dtype=np.float64),
+            source_path=Path(data["source_path"]) if data.get("source_path") else None,
+            headers={str(k): str(v) for k, v in dict(data.get("headers", {})).items()},
+            parameters={str(k): str(v) for k, v in dict(data.get("parameters", {})).items()},
+            indexes=indexes,
+            active_index_id=data.get("active_index_id"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Файл содержит некорректные данные dataset") from exc
     curve_map = _required(data, "curves", dict)
     dataset.curves = {
         str(curve_id): _curve_from_dict(curve) for curve_id, curve in curve_map.items()

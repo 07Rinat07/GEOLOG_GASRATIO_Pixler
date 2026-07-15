@@ -32,9 +32,12 @@ from geoworkbench.domain.models import (
     Dataset,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
     new_id,
 )
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection, analyze_depth_axis
+from geoworkbench.services.index_detection import IndexColumn, detect_index_candidates
 
 
 class LasImportError(RuntimeError):
@@ -75,15 +78,39 @@ def import_las_with_report(
     except Exception as exc:
         raise LasImportError(f"Не удалось прочитать LAS-файл: {source}") from exc
 
+    index_curve = list(las.curves)[0]
+    index_candidate = detect_index_candidates(
+        (
+            IndexColumn(
+                curve_id="source-index",
+                mnemonic=str(index_curve.mnemonic),
+                unit=str(index_curve.unit) if index_curve.unit else None,
+                description=str(index_curve.descr) if index_curve.descr else None,
+                values=depth,
+            ),
+        )
+    )[0]
+    depth_domain = (
+        _candidate_depth_domain(index_candidate.role, index_candidate.index_type)
+        if index_candidate.confidence >= 0.7
+        else DepthDomain.MD
+    )
     dataset_id = new_id()
     dataset = Dataset(
         dataset_id=dataset_id,
         name=source.stem,
         kind=kind,
-        depth_domain=DepthDomain.MD,
+        depth_domain=depth_domain,
         depth=depth,
         source_path=source,
     )
+    dataset.active_index.mnemonic = str(index_curve.mnemonic)
+    dataset.active_index.unit = str(index_curve.unit) if index_curve.unit else None
+    dataset.active_index.confidence = index_candidate.confidence
+    dataset.active_index.evidence = index_candidate.evidence
+    if index_candidate.confidence >= 0.7:
+        dataset.active_index.index_type = index_candidate.index_type
+        dataset.active_index.role = index_candidate.role
 
     try:
         for item in list(las.curves)[1:]:
@@ -240,6 +267,14 @@ def _optional_float(value: str | None) -> float | None:
 
 def _warning(code: str, message: str) -> LasImportIssue:
     return LasImportIssue(code, LasIssueSeverity.WARNING, message)
+
+
+def _candidate_depth_domain(role: IndexRole, index_type: IndexType) -> DepthDomain:
+    if role is IndexRole.TIME:
+        return DepthDomain.TIME
+    if index_type in {IndexType.MD, IndexType.TVD, IndexType.TVDSS}:
+        return DepthDomain(index_type.value)
+    return DepthDomain.MD
 
 
 def _append_structure_issues(
