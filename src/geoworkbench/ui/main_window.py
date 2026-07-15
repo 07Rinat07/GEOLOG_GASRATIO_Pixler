@@ -39,6 +39,7 @@ from geoworkbench.data.las_import_report import LasIssueSeverity
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
+from geoworkbench.project.curve_metadata_controller import CurveMetadataController
 from geoworkbench.project.header_editing_controller import HeaderEditingController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
 from geoworkbench.project.depth_axis_controller import DepthAxisController
@@ -81,6 +82,7 @@ class MainWindow(QMainWindow):
         self.dataset_export_controller = DatasetExportController(self.session)
         self.data_inspector_controller = DataInspectorController(self.session)
         self.header_editing_controller = HeaderEditingController(self.session)
+        self.curve_metadata_controller = CurveMetadataController(self.session)
         self.formula_registry = build_all_sourced_formula_registry()
         self.formula_execution_controller = FormulaExecutionController(
             self.session, self.formula_registry
@@ -430,6 +432,8 @@ class MainWindow(QMainWindow):
         self.data_inspector_controller.session = self.session
         self.header_editing_controller.session = self.session
         self.header_editing_controller.clear_history()
+        self.curve_metadata_controller.session = self.session
+        self.curve_metadata_controller.clear_history()
         self.formula_execution_controller.session = self.session
         self.depth_annotation_controller.session = self.session
         self.depth_annotation_controller.history.clear()
@@ -553,6 +557,7 @@ class MainWindow(QMainWindow):
         DataInspectorDialog(
             self.data_inspector_controller,
             self.header_editing_controller,
+            self.curve_metadata_controller,
             self,
         ).exec()
         self._show_current_dataset()

@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.data_inspector_controller import DataInspectorController
+from geoworkbench.project.curve_metadata_controller import CurveMetadataController
 from geoworkbench.project.header_editing_controller import (
     HeaderEditingController,
     HeaderSection,
@@ -32,11 +33,15 @@ class DataInspectorDialog(QDialog):
         self,
         controller: DataInspectorController,
         header_controller: HeaderEditingController | None = None,
+        curve_metadata_controller: CurveMetadataController | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.controller = controller
         self.header_controller = header_controller or HeaderEditingController(controller.session)
+        self.curve_metadata_controller = curve_metadata_controller or CurveMetadataController(
+            controller.session
+        )
         self.setWindowTitle("Сведения о данных и индексах")
         self.resize(980, 620)
         root = QVBoxLayout(self)
@@ -73,12 +78,43 @@ class DataInspectorDialog(QDialog):
         indexes_layout.addWidget(self.index_details)
         self.tabs.addTab(indexes_page, "Индексы")
 
+        curves_page = QWidget()
+        curves_layout = QVBoxLayout(curves_page)
         self.curve_table = QTableWidget(0, 6)
         self.curve_table.setObjectName("data-curves")
         self.curve_table.setHorizontalHeaderLabels(
             ["Мнемоника", "Единица", "Описание", "Точек", "Пропусков", "Curve ID"]
         )
-        self.tabs.addTab(self.curve_table, "Кривые")
+        self.curve_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.curve_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.curve_table.itemSelectionChanged.connect(self._load_curve_metadata)
+        curves_layout.addWidget(self.curve_table)
+        curve_editor = QHBoxLayout()
+        self.curve_mnemonic = QLineEdit()
+        self.curve_mnemonic.setObjectName("curve-mnemonic")
+        self.curve_mnemonic.setPlaceholderText("Мнемоника")
+        self.curve_unit = QLineEdit()
+        self.curve_unit.setObjectName("curve-unit")
+        self.curve_unit.setPlaceholderText("Единица")
+        self.curve_description = QLineEdit()
+        self.curve_description.setObjectName("curve-description")
+        self.curve_description.setPlaceholderText("Описание")
+        curve_editor.addWidget(self.curve_mnemonic)
+        curve_editor.addWidget(self.curve_unit)
+        curve_editor.addWidget(self.curve_description, 1)
+        curves_layout.addLayout(curve_editor)
+        curve_actions = QHBoxLayout()
+        for label, handler in (
+            ("Изменить", self._update_curve_metadata),
+            ("Отменить", self._undo_curve_metadata),
+            ("Повторить", self._redo_curve_metadata),
+        ):
+            button = QPushButton(label)
+            button.clicked.connect(handler)
+            curve_actions.addWidget(button)
+        curve_actions.addStretch()
+        curves_layout.addLayout(curve_actions)
+        self.tabs.addTab(curves_page, "Кривые")
 
         self.issue_table = QTableWidget(0, 3)
         self.issue_table.setObjectName("import-issues")
@@ -206,7 +242,10 @@ class DataInspectorDialog(QDialog):
                 curve.curve_id,
             )
             for column, value in enumerate(curve_values):
-                self.curve_table.setItem(row, column, QTableWidgetItem(value))
+                item = QTableWidgetItem(value)
+                if column == 0:
+                    item.setData(Qt.ItemDataRole.UserRole, curve.curve_id)
+                self.curve_table.setItem(row, column, item)
         self.curve_table.resizeColumnsToContents()
 
         issues = self.controller.import_issues()
@@ -220,6 +259,51 @@ class DataInspectorDialog(QDialog):
     def _current_header_section(self) -> HeaderSection:
         value = self.header_section.currentData()
         return value if isinstance(value, HeaderSection) else HeaderSection.WELL
+
+    def _selected_curve_id(self) -> str | None:
+        row = self.curve_table.currentRow()
+        item = self.curve_table.item(row, 0) if row >= 0 else None
+        value = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+        return value if isinstance(value, str) else None
+
+    def _load_curve_metadata(self) -> None:
+        row = self.curve_table.currentRow()
+        mnemonic = self.curve_table.item(row, 0) if row >= 0 else None
+        unit = self.curve_table.item(row, 1) if row >= 0 else None
+        description = self.curve_table.item(row, 2) if row >= 0 else None
+        self.curve_mnemonic.setText(mnemonic.text() if mnemonic is not None else "")
+        self.curve_unit.setText("" if unit is None or unit.text() == "—" else unit.text())
+        self.curve_description.setText(
+            "" if description is None or description.text() == "—" else description.text()
+        )
+
+    def _update_curve_metadata(self) -> None:
+        curve_id = self._selected_curve_id()
+        if curve_id is None:
+            QMessageBox.information(self, "Кривые", "Сначала выберите кривую")
+            return
+        self._run_curve_metadata_action(
+            lambda: self.curve_metadata_controller.update(
+                curve_id,
+                mnemonic=self.curve_mnemonic.text(),
+                unit=self.curve_unit.text(),
+                description=self.curve_description.text(),
+            )
+        )
+
+    def _undo_curve_metadata(self) -> None:
+        self._run_curve_metadata_action(self.curve_metadata_controller.undo)
+
+    def _redo_curve_metadata(self) -> None:
+        self._run_curve_metadata_action(self.curve_metadata_controller.redo)
+
+    def _run_curve_metadata_action(self, action) -> None:
+        try:
+            action()
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, "Кривые", str(exc))
+            return
+        self._refresh()
 
     def _refresh_header(self) -> None:
         summary = self.header_controller.depth_summary()

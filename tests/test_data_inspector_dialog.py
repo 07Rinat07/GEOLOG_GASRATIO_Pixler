@@ -2,6 +2,8 @@ import numpy as np
 from PySide6.QtWidgets import QPlainTextEdit, QTableWidget
 
 from geoworkbench.domain.models import (
+    CurveData,
+    CurveMetadata,
     Dataset,
     DatasetIndex,
     DatasetKind,
@@ -34,6 +36,10 @@ def make_controller() -> DataInspectorController:
             np.array([0.0, 1.0]),
         )
     )
+    dataset.curves["c1"] = CurveData(
+        CurveMetadata("c1", "C1", "C1", "%", "Methane", dataset.dataset_id),
+        np.array([1.0, 2.0]),
+    )
     session.add_dataset(dataset)
     session.dirty = False
     return DataInspectorController(session)
@@ -49,11 +55,18 @@ def test_data_inspector_dialog_renders_and_activates_index(qapp) -> None:
     headers = dialog.findChild(QTableWidget, "las-header")
     depth_summary = dialog.findChild(QPlainTextEdit, "depth-header-summary")
     assert indexes is not None and indexes.rowCount() == 2
-    assert curves is not None and curves.rowCount() == 0
+    assert curves is not None and curves.rowCount() == 1
     assert issues is not None and issues.rowCount() == 0
     assert headers is not None and headers.rowCount() == 2
     assert headers.item(1, 2).text() == "редактор"
     assert depth_summary is not None and "STRT=1" in depth_summary.toPlainText()
+
+    curves.selectRow(0)
+    dialog.curve_mnemonic.setText("CH4")
+    dialog.curve_unit.setText("ppm")
+    dialog.curve_description.setText("Methane ppm")
+    dialog._update_curve_metadata()
+    assert controller.session.current_dataset.curves["c1"].metadata.original_mnemonic == "CH4"  # type: ignore[union-attr]
 
     indexes.selectRow(1)
     dialog._activate_selected_index()
