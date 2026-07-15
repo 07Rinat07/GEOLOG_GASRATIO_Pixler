@@ -17,4 +17,5 @@ class JsonProjectRepository:
             document.project,
             target,
             tablet_layouts=document.tablet_layouts,
+            source_documents=document.source_documents,
         )

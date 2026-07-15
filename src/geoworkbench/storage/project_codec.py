@@ -29,15 +29,22 @@ from geoworkbench.storage.project_migrations import (
     ProjectMigrationError,
     migrate_project_payload,
 )
+from geoworkbench.data.lossless_las import LosslessLasDocument
+from geoworkbench.storage.source_artifacts import (
+    SourceArtifactError,
+    load_source_documents,
+    validate_artifact_manifest,
+)
 
 
-PROJECT_FORMAT_VERSION = 4
+PROJECT_FORMAT_VERSION = 5
 
 
 @dataclass(slots=True)
 class ProjectDocument:
     project: Project
     tablet_layouts: dict[str, TabletLayout] = field(default_factory=dict)
+    source_documents: dict[str, LosslessLasDocument] = field(default_factory=dict)
 
 
 class ProjectFormatError(RuntimeError):
@@ -191,6 +198,14 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
     if unknown_dataset_ids:
         unknown = ", ".join(sorted(unknown_dataset_ids))
         raise ProjectFormatError(f"Компоновка ссылается на неизвестный набор: {unknown}")
+    try:
+        artifact_manifest = validate_artifact_manifest(data.get("source_artifacts", {}))
+    except SourceArtifactError as exc:
+        raise ProjectFormatError(str(exc)) from exc
+    unknown_artifact_ids = set(artifact_manifest) - known_dataset_ids
+    if unknown_artifact_ids:
+        unknown = ", ".join(sorted(unknown_artifact_ids))
+        raise ProjectFormatError(f"Source artifact ссылается на неизвестный набор: {unknown}")
     return ProjectDocument(project, layouts)
 
 
@@ -207,7 +222,14 @@ def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> Projec
     if not isinstance(raw, dict):
         raise ProjectFormatError("Корень проекта должен быть JSON-объектом")
     try:
-        return project_document_from_dict(raw)
+        document = project_document_from_dict(raw)
+        try:
+            document.source_documents = load_source_documents(
+                source, dict(raw.get("source_artifacts", {}))
+            )
+        except SourceArtifactError as exc:
+            raise ProjectFormatError(str(exc)) from exc
+        return document
     except ProjectFormatError:
         raise
     except (KeyError, TypeError, ValueError) as exc:

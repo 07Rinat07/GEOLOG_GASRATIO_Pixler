@@ -13,6 +13,7 @@ from geoworkbench.domain.models import (
     ProjectLithotype,
     Well,
 )
+from geoworkbench.data.lossless_las import parse_lossless_las
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.project_codec import (
     PROJECT_FORMAT_VERSION,
@@ -70,6 +71,19 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     )
 
 
+def test_project_document_round_trip_preserves_lossless_source(tmp_path) -> None:
+    target = tmp_path / "test.geolog.json"
+    source = parse_lossless_las(b"~V\r\nVERS. 2.0\r\n~A\r\n100 1\r\n")
+
+    save_project(make_project(), target, source_documents={"dataset-1": source})
+    document = load_project_document(target)
+
+    assert document.source_documents["dataset-1"].to_bytes() == source.to_bytes()
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["source_artifacts"]["dataset-1"]["sha256"] == source.sha256
+    assert "raw_bytes" not in target.read_text(encoding="utf-8")
+
+
 def test_load_project_keeps_project_only_api_compatible(tmp_path) -> None:
     target = tmp_path / "test.geolog.json"
     save_project(make_project(), target)
@@ -100,6 +114,26 @@ def test_v1_project_is_migrated_to_current_document() -> None:
 
     assert document.project.project_id == "p"
     assert document.tablet_layouts == {}
+    assert document.source_documents == {}
+
+
+def test_v4_project_is_migrated_with_empty_source_artifacts() -> None:
+    document = project_document_from_dict(
+        {
+            "format_version": 4,
+            "project": {
+                "project_id": "p",
+                "name": "P",
+                "wells": {},
+                "lithotypes": {},
+                "description_templates": {},
+            },
+            "tablet_layouts": {},
+        }
+    )
+
+    assert document.project.project_id == "p"
+    assert document.source_documents == {}
 
 
 @pytest.mark.parametrize("version", [99, "2", True, -1])

@@ -22,6 +22,7 @@ class ProjectController:
         session = ProjectSession(
             project=document.project,
             tablet_layouts=document.tablet_layouts,
+            source_documents=document.source_documents,
         )
         self._select_first_dataset(session)
         session.dirty = False
@@ -36,6 +37,7 @@ class ProjectController:
         document = ProjectDocument(
             project=self.session.project,
             tablet_layouts=self.session.tablet_layouts,
+            source_documents=self.session.source_documents,
         )
         self.repository.save(document, destination)
         self.project_path = destination

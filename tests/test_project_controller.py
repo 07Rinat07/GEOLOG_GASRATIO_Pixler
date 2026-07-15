@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
+from geoworkbench.data.lossless_las import parse_lossless_las
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectDocument
@@ -65,6 +66,20 @@ def test_controller_saves_current_session_through_repository() -> None:
     assert repository.saved_target == target
     assert repository.document.project is session.project
     assert session.dirty is False
+
+
+def test_controller_preserves_source_documents_across_open_and_save() -> None:
+    document = make_document()
+    source = parse_lossless_las(b"~A\n1\n")
+    document.source_documents["dataset-1"] = source
+    repository = MemoryProjectRepository(document)
+    controller = ProjectController(repository=repository)
+
+    session = controller.open_project(Path("project.geolog.json"))
+    controller.save_project(Path("saved.geolog.json"))
+
+    assert session.source_documents["dataset-1"] is source
+    assert repository.document.source_documents["dataset-1"] is source
 
 
 def test_controller_requires_save_path() -> None:

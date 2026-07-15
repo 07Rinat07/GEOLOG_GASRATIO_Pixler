@@ -318,7 +318,10 @@ class MainWindow(QMainWindow):
             try:
                 import_result = import_las_with_report(filename)
                 dataset = import_result.dataset
-                well = self.session.add_dataset(dataset)
+                well = self.session.add_dataset(
+                    dataset,
+                    source_document=import_result.source_document,
+                )
                 last_dataset = dataset
                 last_well = well
                 if analyze_depth_axis(dataset.depth).direction is DepthDirection.DESCENDING:
