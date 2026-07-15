@@ -245,5 +245,11 @@
   "ratio.action": "Негізгі Gas Ratio есептеу", "ratio.title": "Gas Ratio",
   "ratio.failed": "Есептеу орындалмады: {error}",
   "ratio.curves_updated": "Қисықтар жасалды/жаңартылды: {curves}",
-  "ratio.completed": "Негізгі Gas Ratio қайта есептелді"
+  "ratio.completed": "Негізгі Gas Ratio қайта есептелді",
+  "nct.action": "NCT және DEXPC ауытқуын құру...", "nct.title": "Қалыпты тығыздалу тренді",
+  "nct.window_title": "DEXPC бойынша NCT калибрлеу", "nct.calibration_top": "Калибрлеу төбесі",
+  "nct.calibration_bottom": "Калибрлеу табаны", "nct.minimum_points": "Ең аз нүктелер",
+  "nct.calculate": "NCT құру", "nct.warning": "Аса жоғары қабаттық қысым күдігі жоқ қалыпты тығыздалған сазды аралықты таңдаңыз. Теріс DEXPC−NCT тек диагностикалық белгі болып табылады.",
+  "nct.result": "NCT құрылды: {points} нүкте, еңіс {slope}, RMSE {rmse}",
+  "nct.completed": "NCT және DEXPC−NCT {points} нүкте бойынша құрылды"
 }

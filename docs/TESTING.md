@@ -58,6 +58,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Depth normalization UI | RU/KK/EN directions/confirmation and non-destructive copy workflow |
 | Basic Gas Ratio UI | RU/KK/EN command/status/log with stable calculated curve mnemonics |
 | Normalized gas | Source passport, control example, unit validation, NaN domain and C1_NORM curve provenance |
+| DEXP/NCT | DEXP/DEXPC profiles, explicit NCT calibration, DEXPC−NCT curve and RU/KK/EN dialog |
 | LAS и другие входные форматы | Успешный импорт, повреждённый файл, неверный тип |
 | CSV/TXT import | Delimiter, encoding, preview, numeric/ISO/DATE+TIME index, timezone, units, NULL и bad rows |
 | Excel import | XLS/XLSX/XLSM, LibreOffice, формулы, листы, header, DATE+TIME UI и ошибки |

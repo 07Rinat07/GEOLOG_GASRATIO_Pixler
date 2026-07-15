@@ -95,5 +95,12 @@ In Formula Profiles, select “Drilling-normalized methane C1” and map C1, mud
 in ft/h, and bit size in inches. The resulting `C1_NORM` curve is added to the dataset and shown
 immediately; source curves are unchanged. See `docs/NORMALIZED_GAS.md` for the method passport.
 
+## DEXP, NCT, and overpressure indicators
+
+Calculate `DEXP` and then `DEXPC` through Formula Profiles. The NCT command requests a normally
+compacted shale calibration interval, creates `NCT` and `DEXPC_NCT`, and displays all three
+curves. A negative deviation supports an overpressure hypothesis but must be checked against
+lithology, drilling conditions, sensor quality, and other pressure-evaluation methods.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.

@@ -249,5 +249,11 @@
   "ratio.action": "Рассчитать базовые Gas Ratio", "ratio.title": "Gas Ratio",
   "ratio.failed": "Расчёт не выполнен: {error}",
   "ratio.curves_updated": "Созданы/обновлены кривые: {curves}",
-  "ratio.completed": "Базовые Gas Ratio пересчитаны"
+  "ratio.completed": "Базовые Gas Ratio пересчитаны",
+  "nct.action": "Построить NCT и отклонение DEXPC...", "nct.title": "Нормальный тренд уплотнения",
+  "nct.window_title": "Калибровка NCT по DEXPC", "nct.calibration_top": "Верх калибровки",
+  "nct.calibration_bottom": "Низ калибровки", "nct.minimum_points": "Минимум точек",
+  "nct.calculate": "Построить NCT", "nct.warning": "Выберите нормально уплотнённый глинистый интервал без предполагаемого АВПД. Отрицательное DEXPC−NCT — только диагностический признак.",
+  "nct.result": "NCT построен: точек {points}, наклон {slope}, RMSE {rmse}",
+  "nct.completed": "NCT и DEXPC−NCT построены по {points} точкам"
 }

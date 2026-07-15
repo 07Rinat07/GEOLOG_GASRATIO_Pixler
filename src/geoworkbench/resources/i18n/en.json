@@ -244,5 +244,11 @@
   "ratio.action": "Calculate basic Gas Ratios", "ratio.title": "Gas Ratio",
   "ratio.failed": "Calculation failed: {error}",
   "ratio.curves_updated": "Curves created/updated: {curves}",
-  "ratio.completed": "Basic Gas Ratios recalculated"
+  "ratio.completed": "Basic Gas Ratios recalculated",
+  "nct.action": "Build NCT and DEXPC deviation...", "nct.title": "Normal compaction trend",
+  "nct.window_title": "Calibrate NCT from DEXPC", "nct.calibration_top": "Calibration top",
+  "nct.calibration_bottom": "Calibration bottom", "nct.minimum_points": "Minimum points",
+  "nct.calculate": "Build NCT", "nct.warning": "Select a normally compacted shale interval without suspected overpressure. Negative DEXPC−NCT is a diagnostic indicator only.",
+  "nct.result": "NCT built: {points} points, slope {slope}, RMSE {rmse}",
+  "nct.completed": "NCT and DEXPC−NCT built from {points} points"
 }

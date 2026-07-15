@@ -53,6 +53,7 @@ from geoworkbench.project.curve_editing_controller import (
 from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
+from geoworkbench.project.nct_controller import NctCalculationController
 from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.session import ProjectSession
@@ -73,6 +74,7 @@ from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
+from geoworkbench.ui.nct_dialog import NctCalculationDialog
 from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
 from geoworkbench.visualization.curve_view import CurveView
@@ -112,6 +114,7 @@ class MainWindow(QMainWindow):
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
         self.description_template_controller = DescriptionTemplateController(self.session)
         self.depth_axis_controller = DepthAxisController(self.session)
+        self.nct_calculation_controller = NctCalculationController(self.session)
         self.las_range_editing_controller = LasRangeEditingController(self.session)
         self._selected_track_id: str | None = None
         self.setWindowIcon(application_icon())
@@ -283,6 +286,10 @@ class MainWindow(QMainWindow):
         self.formula_action = QAction(self._t("formula.action"), self)
         self.formula_action.triggered.connect(self.show_formula_profiles)
         calc_menu.addAction(self.formula_action)
+
+        self.nct_action = QAction(self._t("nct.action"), self)
+        self.nct_action.triggered.connect(self.calculate_nct)
+        calc_menu.addAction(self.nct_action)
 
         self.interval_statistics_action = QAction(self._t("statistics.action"), self)
         self.interval_statistics_action.triggered.connect(self.show_interval_statistics)
@@ -618,6 +625,7 @@ class MainWindow(QMainWindow):
         self.lithotype_catalog_controller.session = self.session
         self.description_template_controller.session = self.session
         self.depth_axis_controller.session = self.session
+        self.nct_calculation_controller.session = self.session
         self.las_range_editing_controller.session = self.session
         self._update_curve_edit_actions()
         self._selected_track_id = None
@@ -1070,6 +1078,39 @@ class MainWindow(QMainWindow):
         IntervalStatisticsDialog(
             depth_top, depth_bottom, statistics, self, language=self.language
         ).exec()
+
+    def calculate_nct(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(
+                self, self._t("nct.title"), self._t("formula.select_dataset")
+            )
+            return
+        finite_depth = dataset.depth[np.isfinite(dataset.depth)]
+        if finite_depth.size < 2:
+            QMessageBox.information(self, self._t("nct.title"), self._t("statistics.no_depth"))
+            return
+        dialog = NctCalculationDialog(
+            self.nct_calculation_controller,
+            float(np.min(finite_depth)),
+            float(np.max(finite_depth)),
+            self,
+            language=self.language,
+        )
+        if (
+            dialog.exec() != QDialog.DialogCode.Accepted
+            or dialog.calculation_result is None
+        ):
+            return
+        self.curve_view.show_dataset(dataset, ["DEXPC", "NCT", "DEXPC_NCT"])
+        self.tablet_view.set_dataset(dataset)
+        self._refresh_tree()
+        self._update_title()
+        self.statusBar().showMessage(
+            self._t(
+                "nct.completed", points=dialog.calculation_result.calibration_points
+            )
+        )
 
     def show_depth_annotations(self) -> None:
         if self.session.current_well is None:
