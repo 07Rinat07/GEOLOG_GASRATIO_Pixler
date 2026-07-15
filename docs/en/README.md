@@ -13,5 +13,10 @@ Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, or Excel. 
 never modified. The CSV/TXT and Excel wizards use the selected language for index, DATE/TIME,
 time-zone, preview, and validation controls.
 
+## Table editing
+
+The LAS table supports direct values, constant or noise interval fills, copy/paste, and
+Undo/Redo. Every command and selection validation message uses the selected language.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.

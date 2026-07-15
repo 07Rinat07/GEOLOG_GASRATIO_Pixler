@@ -15,15 +15,17 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.las_range_editor import LasRangeEditingController, RangeClipboard
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class LasTableModel(QAbstractTableModel):
     edit_failed = Signal(str)
     dataset_edited = Signal()
 
-    def __init__(self, controller: LasRangeEditingController) -> None:
+    def __init__(self, controller: LasRangeEditingController, localizer: Localizer) -> None:
         super().__init__()
         self.controller = controller
+        self.localizer = localizer
         self.dataset: Dataset | None = None
 
     def set_dataset(self, dataset: Dataset | None) -> None:
@@ -81,7 +83,7 @@ class LasTableModel(QAbstractTableModel):
             return False
         if index.column() == 0:
             self.edit_failed.emit(
-                "Индекс глубины изменяется отдельной операцией с предварительной проверкой"
+                self.localizer.text("table.depth_readonly")
             )
             return False
         curves_before = len(self.dataset.curves)
@@ -114,11 +116,17 @@ class LasTableEditor(QWidget):
     dataset_edited = Signal()
     edit_failed = Signal(str)
 
-    def __init__(self, controller: LasRangeEditingController) -> None:
+    def __init__(
+        self,
+        controller: LasRangeEditingController,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
         super().__init__()
+        self.localizer = Localizer.create(language)
         self.controller = controller
         self.clipboard: RangeClipboard | None = None
-        self.model = LasTableModel(controller)
+        self.model = LasTableModel(controller, self.localizer)
         self.model.dataset_edited.connect(self.dataset_edited)
         self.model.edit_failed.connect(self.edit_failed)
         self.table = QTableView()
@@ -128,19 +136,17 @@ class LasTableEditor(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.table.setAlternatingRowColors(True)
         self.table.setSortingEnabled(False)
-        self.hint = QLabel(
-            "Двойной щелчок изменяет исходное значение. Расчётные кривые обновляются автоматически."
-        )
+        self.hint = QLabel(self._t("table.hint"))
         root = QVBoxLayout(self)
         root.addWidget(self.hint)
         actions = QHBoxLayout()
         for label, handler in (
-            ("Заполнить значением", self.fill_constant),
-            ("Заполнить шумом", self.fill_noise),
-            ("Копировать интервал", self.copy_selection),
-            ("Вставить", self.paste_selection),
-            ("Отменить", self.undo),
-            ("Повторить", self.redo),
+            (self._t("table.fill_constant"), self.fill_constant),
+            (self._t("table.fill_noise"), self.fill_noise),
+            (self._t("table.copy_interval"), self.copy_selection),
+            (self._t("table.paste"), self.paste_selection),
+            (self._t("common.undo"), self.undo),
+            (self._t("common.redo"), self.redo),
         ):
             button = QPushButton(label)
             button.clicked.connect(handler)
@@ -149,13 +155,16 @@ class LasTableEditor(QWidget):
         root.addLayout(actions)
         root.addWidget(self.table)
 
+    def _t(self, key: str) -> str:
+        return self.localizer.text(key)
+
     def set_dataset(self, dataset: Dataset | None) -> None:
         self.model.set_dataset(dataset)
         self.clipboard = None
 
     def fill_constant(self) -> None:
         value, accepted = QInputDialog.getDouble(
-            self, "Заполнение интервала", "Значение", decimals=8
+            self, self._t("table.fill_title"), self._t("table.value"), decimals=8
         )
         if accepted:
             self._run_selection_action(
@@ -166,16 +175,18 @@ class LasTableEditor(QWidget):
 
     def fill_noise(self) -> None:
         minimum, accepted = QInputDialog.getDouble(
-            self, "Случайные значения", "Минимум", 0.5, decimals=8
+            self, self._t("table.noise_title"), self._t("table.minimum"), 0.5, decimals=8
         )
         if not accepted:
             return
         maximum, accepted = QInputDialog.getDouble(
-            self, "Случайные значения", "Максимум", 5.0, decimals=8
+            self, self._t("table.noise_title"), self._t("table.maximum"), 5.0, decimals=8
         )
         if not accepted:
             return
-        seed, accepted = QInputDialog.getInt(self, "Случайные значения", "Seed", 42)
+        seed, accepted = QInputDialog.getInt(
+            self, self._t("table.noise_title"), self._t("table.seed"), 42
+        )
         if accepted:
             self._run_selection_action(
                 lambda curve_ids, top, bottom: self.controller.fill_uniform_noise(
@@ -192,12 +203,12 @@ class LasTableEditor(QWidget):
 
     def paste_selection(self) -> None:
         if self.clipboard is None:
-            self.edit_failed.emit("Сначала скопируйте интервал")
+            self.edit_failed.emit(self._t("table.copy_first"))
             return
         dataset = self.model.dataset
         rows = {index.row() for index in self.table.selectedIndexes()}
         if dataset is None or not rows:
-            self.edit_failed.emit("Выберите начальную строку вставки")
+            self.edit_failed.emit(self._t("table.select_paste_row"))
             return
         try:
             self.controller.paste(self.clipboard, float(dataset.depth[min(rows)]))
@@ -232,13 +243,13 @@ class LasTableEditor(QWidget):
         dataset = self.model.dataset
         selected = self.table.selectedIndexes()
         if dataset is None:
-            raise RuntimeError("Сначала выберите dataset")
+            raise RuntimeError(self._t("table.select_dataset"))
         rows = {index.row() for index in selected}
         columns = sorted({index.column() for index in selected if index.column() > 0})
         if not rows or not columns:
-            raise ValueError("Выберите значения одной или нескольких кривых")
+            raise ValueError(self._t("table.select_curves"))
         if len(rows) != max(rows) - min(rows) + 1:
-            raise ValueError("Строки диапазона должны идти подряд")
+            raise ValueError(self._t("table.contiguous_rows"))
         curves = list(dataset.curves.values())
         curve_ids = [curves[column - 1].metadata.curve_id for column in columns]
         depths = np.asarray([dataset.depth[row] for row in rows], dtype=np.float64)

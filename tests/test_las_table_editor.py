@@ -1,9 +1,11 @@
 import numpy as np
 from PySide6.QtCore import QItemSelectionModel, Qt
+from PySide6.QtWidgets import QPushButton
 
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.las_table_editor import LasTableEditor
 
 
@@ -115,4 +117,21 @@ def test_table_copy_and_paste_selected_interval(qapp) -> None:
     editor.paste_selection()
 
     np.testing.assert_allclose(dataset.curves["c1"].values, [1, 1, 2])
+    editor.close()
+
+
+def test_table_editor_uses_english_catalog(qapp) -> None:
+    editor, dataset = make_editor()
+    english = LasTableEditor(editor.controller, language=AppLanguage.EN)
+    english.set_dataset(dataset)
+    labels = {button.text() for button in english.findChildren(QPushButton)}
+    errors: list[str] = []
+    english.edit_failed.connect(errors.append)
+
+    english.paste_selection()
+
+    assert english.hint.text().startswith("Double-click")
+    assert {"Fill with value", "Fill with noise", "Copy interval", "Paste"} <= labels
+    assert errors == ["Copy an interval first"]
+    english.close()
     editor.close()

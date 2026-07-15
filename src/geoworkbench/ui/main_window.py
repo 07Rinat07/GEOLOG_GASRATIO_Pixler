@@ -125,7 +125,10 @@ class MainWindow(QMainWindow):
         self.tablet_view.track_selected.connect(self._show_track_in_inspector)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
-        self.las_table_editor = LasTableEditor(self.las_range_editing_controller)
+        self.las_table_editor = LasTableEditor(
+            self.las_range_editing_controller,
+            language=self.language,
+        )
         self.las_table_editor.dataset_edited.connect(self._after_table_edit)
         self.las_table_editor.edit_failed.connect(
             lambda message: QMessageBox.warning(self, "LAS Editor", message)
