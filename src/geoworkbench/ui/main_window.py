@@ -292,7 +292,7 @@ class MainWindow(QMainWindow):
         self.default_tablet_action.triggered.connect(self.build_default_tablet)
         tablet_menu.addAction(self.default_tablet_action)
 
-        self.lithology_legend_action = QAction("Легенда пород...", self)
+        self.lithology_legend_action = QAction(self._t("legend.action"), self)
         self.lithology_legend_action.triggered.connect(self.show_lithology_legend)
         tablet_menu.addAction(self.lithology_legend_action)
 
@@ -1142,9 +1142,16 @@ class MainWindow(QMainWindow):
         well = self.session.current_well
         intervals = well.lithology if well is not None else []
         entries = build_lithology_legend(
-            intervals, self.lithotype_catalog_controller.available()
+            intervals,
+            self.lithotype_catalog_controller.available(),
+            name_resolver=(
+                (lambda item: item.name_en)
+                if self.language is AppLanguage.EN
+                else (lambda item: item.name_ru)
+            ),
+            unknown_name=self._t("legend.unknown"),
         )
-        LithologyLegendDialog(entries, self).exec()
+        LithologyLegendDialog(entries, self, language=self.language).exec()
 
     def save_project_as(self) -> None:
         filename, _ = QFileDialog.getSaveFileName(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Callable
 
 from geoworkbench.domain.models import LithologyInterval
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
@@ -18,6 +19,9 @@ class LithologyLegendEntry:
 def build_lithology_legend(
     intervals: list[LithologyInterval] | tuple[LithologyInterval, ...],
     catalog: tuple[CatalogLithotype, ...],
+    *,
+    name_resolver: Callable[[CatalogLithotype], str] | None = None,
+    unknown_name: str = "Неизвестный литотип",
 ) -> tuple[LithologyLegendEntry, ...]:
     definitions = {item.lithotype_id: item for item in catalog}
     result: list[LithologyLegendEntry] = []
@@ -32,7 +36,7 @@ def build_lithology_legend(
                 LithologyLegendEntry(
                     interval.lithotype_id,
                     interval.lithotype_id,
-                    interval.description or "Неизвестный литотип",
+                    interval.description or unknown_name,
                     "#b0b0b0",
                     "solid",
                 )
@@ -42,7 +46,7 @@ def build_lithology_legend(
             LithologyLegendEntry(
                 definition.lithotype_id,
                 definition.code,
-                definition.name_ru,
+                name_resolver(definition) if name_resolver is not None else definition.name_ru,
                 definition.color,
                 definition.pattern_key,
             )

@@ -51,5 +51,10 @@ unchanged.
 The editor stores reusable rock-description names and text in the project. Its interface is
 available in RU/KK/EN; template content remains user-authored and is not translated automatically.
 
+## Lithology legend
+
+The legend lists symbols, codes, names, and lithotype IDs used in the current well. Its UI is
+available in RU/KK/EN; codes, IDs, colors, and patterns remain identical across languages.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.

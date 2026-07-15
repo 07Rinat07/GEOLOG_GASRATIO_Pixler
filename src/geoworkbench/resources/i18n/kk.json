@@ -135,5 +135,13 @@
   "templates.name": "Атауы",
   "templates.text": "Мәтін",
   "templates.select_first": "Алдымен үлгіні таңдаңыз",
-  "templates.tree": "Сипаттама үлгілері ({count})"
+  "templates.tree": "Сипаттама үлгілері ({count})",
+  "legend.action": "Тау жыныстарының шартты белгілері...",
+  "legend.window_title": "Тау жыныстарының шартты белгілері",
+  "legend.empty": "Ағымдағы ұңғымада литологиялық аралықтар жоқ",
+  "legend.symbol": "Шартты белгі",
+  "legend.code": "Код",
+  "legend.rock": "Тау жынысы",
+  "legend.id": "ID",
+  "legend.unknown": "Белгісіз литотип"
 }

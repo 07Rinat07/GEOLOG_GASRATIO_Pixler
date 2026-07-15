@@ -135,5 +135,13 @@
   "templates.name": "Название",
   "templates.text": "Текст",
   "templates.select_first": "Сначала выберите шаблон",
-  "templates.tree": "Шаблоны описаний ({count})"
+  "templates.tree": "Шаблоны описаний ({count})",
+  "legend.action": "Легенда пород...",
+  "legend.window_title": "Легенда пород",
+  "legend.empty": "В текущей скважине нет литологических интервалов",
+  "legend.symbol": "Знак",
+  "legend.code": "Код",
+  "legend.rock": "Порода",
+  "legend.id": "ID",
+  "legend.unknown": "Неизвестный литотип"
 }

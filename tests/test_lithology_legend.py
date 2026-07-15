@@ -31,3 +31,28 @@ def test_legend_preserves_unknown_lithotype() -> None:
     assert legend[0].code == "legacy_rock"
     assert legend[0].name == "Старая порода"
     assert legend[0].color == "#b0b0b0"
+
+
+def test_legend_supports_localized_catalog_names() -> None:
+    intervals = [LithologyInterval("interval", 100.0, 110.0, "sandstone")]
+    catalog = (
+        CatalogLithotype(
+            "sandstone",
+            "SS",
+            "Песчаник",
+            "Sandstone",
+            "sedimentary",
+            "#e7cf8b",
+            "dots",
+            True,
+        ),
+    )
+
+    legend = build_lithology_legend(
+        intervals,
+        catalog,
+        name_resolver=lambda item: item.name_en,
+        unknown_name="Unknown lithotype",
+    )
+
+    assert legend[0].name == "Sandstone"

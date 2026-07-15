@@ -135,5 +135,13 @@
   "templates.name": "Name",
   "templates.text": "Text",
   "templates.select_first": "Select a template first",
-  "templates.tree": "Description templates ({count})"
+  "templates.tree": "Description templates ({count})",
+  "legend.action": "Lithology legend...",
+  "legend.window_title": "Lithology legend",
+  "legend.empty": "The current well has no lithology intervals",
+  "legend.symbol": "Symbol",
+  "legend.code": "Code",
+  "legend.rock": "Rock",
+  "legend.id": "ID",
+  "legend.unknown": "Unknown lithotype"
 }
