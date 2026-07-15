@@ -38,6 +38,7 @@ from geoworkbench.data.las_adapter import (
 from geoworkbench.data.las_import_report import LasIssueSeverity
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.project.controller import ProjectController
+from geoworkbench.project.data_inspector_controller import DataInspectorController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
 from geoworkbench.project.depth_axis_controller import DepthAxisController
 from geoworkbench.project.curve_editing_controller import (
@@ -59,6 +60,7 @@ from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDialog
+from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
@@ -76,6 +78,7 @@ class MainWindow(QMainWindow):
         self.tablet_controller = TabletController(self.session)
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller = DatasetExportController(self.session)
+        self.data_inspector_controller = DataInspectorController(self.session)
         self.formula_registry = build_all_sourced_formula_registry()
         self.formula_execution_controller = FormulaExecutionController(
             self.session, self.formula_registry
@@ -172,6 +175,10 @@ class MainWindow(QMainWindow):
         self.export_las_action = QAction("Экспортировать текущий dataset в LAS...", self)
         self.export_las_action.triggered.connect(self.export_current_las)
         file_menu.addAction(self.export_las_action)
+
+        self.data_inspector_action = QAction("Сведения о данных и индексах...", self)
+        self.data_inspector_action.triggered.connect(self.show_data_inspector)
+        file_menu.addAction(self.data_inspector_action)
 
         self.pencil_action = QAction("Карандаш кривой", self)
         self.pencil_action.setCheckable(True)
@@ -323,6 +330,7 @@ class MainWindow(QMainWindow):
                 well = self.session.add_dataset(
                     dataset,
                     source_document=import_result.source_document,
+                    import_report=import_result.report,
                 )
                 last_dataset = dataset
                 last_well = well
@@ -417,6 +425,7 @@ class MainWindow(QMainWindow):
         self.tablet_controller.session = self.session
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller.session = self.session
+        self.data_inspector_controller.session = self.session
         self.formula_execution_controller.session = self.session
         self.depth_annotation_controller.session = self.session
         self.depth_annotation_controller.history.clear()
@@ -529,6 +538,17 @@ class MainWindow(QMainWindow):
             return
         self._log(f"LAS экспортирован: {exported}")
         self.statusBar().showMessage(f"LAS экспортирован: {exported.name}")
+
+    def show_data_inspector(self) -> None:
+        if self.session.current_dataset is None:
+            QMessageBox.information(self, "Сведения о данных", "Сначала выберите dataset")
+            return
+        previous_index_id = self.session.current_dataset.active_index_id
+        DataInspectorDialog(self.data_inspector_controller, self).exec()
+        if self.session.current_dataset.active_index_id != previous_index_id:
+            self._show_current_dataset()
+            self._refresh_tree()
+            self._update_title()
 
     def toggle_curve_edit_mode(self, enabled: bool) -> None:
         if enabled and not self.curve_view.set_edit_mode(True):

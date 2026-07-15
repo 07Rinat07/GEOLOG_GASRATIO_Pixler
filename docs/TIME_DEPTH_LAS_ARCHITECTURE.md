@@ -236,7 +236,8 @@ print_engine/
 
 1. [готово] Чистые модели `DatasetIndex`, `IndexCandidate` и тестовые фикстуры.
 2. [готово] `IndexDetectionService` для числовых DEPTH/TIME, datetime64 и Unix timestamp.
-3. Data Inspector с кандидатами, confidence и ручным выбором.
+3. [готово для сохранённых индексов] Data Inspector с confidence, evidence и ручным выбором;
+   review всех сырых колонок будет расширен в Universal Import.
 4. [готово] Формат проекта v6 с несколькими индексами и миграцией текущего `depth`.
 5. Временной normalization/QC и строковые даты.
 6. Strict/compatible/manual import pipeline.

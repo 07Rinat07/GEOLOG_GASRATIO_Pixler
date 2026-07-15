@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from geoworkbench.calculations.gas_ratio import calculate_basic_ratios
 from geoworkbench.domain.models import Dataset, Project, Well, new_id
 from geoworkbench.data.lossless_las import LosslessLasDocument
+from geoworkbench.data.las_import_report import LasImportReport
 from geoworkbench.tablet.models import TabletLayout
 
 
@@ -28,6 +29,7 @@ class ProjectSession:
     current_dataset_id: str | None = None
     tablet_layouts: dict[str, TabletLayout] = field(default_factory=dict)
     source_documents: dict[str, LosslessLasDocument] = field(default_factory=dict)
+    import_reports: dict[str, LasImportReport] = field(default_factory=dict)
     dirty: bool = False
 
     def add_dataset(
@@ -36,6 +38,7 @@ class ProjectSession:
         well_name: str | None = None,
         *,
         source_document: LosslessLasDocument | None = None,
+        import_report: LasImportReport | None = None,
     ) -> Well:
         well = self.current_well
         if well is None:
@@ -45,6 +48,8 @@ class ProjectSession:
         well.datasets[dataset.dataset_id] = dataset
         if source_document is not None:
             self.source_documents[dataset.dataset_id] = source_document
+        if import_report is not None:
+            self.import_reports[dataset.dataset_id] = import_report
         self.current_dataset_id = dataset.dataset_id
         self.dirty = True
         return well

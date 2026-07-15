@@ -53,6 +53,8 @@
 - диалог `ExportPlan` для LAS 1.2/2.0, WRAP, NULL и точности с анализом ошибок и потерь до записи.
 - типизированные индексы MD/TVD/TVDSS/TIME/DATETIME/GENERIC, безопасный active index и
   распознавание кандидатов с confidence, evidence и warnings.
+- Data Inspector со сводкой WELL, индексами, кривыми, диагностикой импорта и ручным выбором
+  active index без удаления остальных колонок.
 
 ## Запуск в Windows
 
