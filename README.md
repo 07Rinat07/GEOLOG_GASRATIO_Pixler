@@ -181,7 +181,7 @@ mypy src
 
 ## Автор
 
-**Сармулдин Ринат**  
+**Rinat Sarmuldin (Сармулдин Ринат)**<br>
 E-mail: **ura07srr@gmail.com**
 
 ## Статус

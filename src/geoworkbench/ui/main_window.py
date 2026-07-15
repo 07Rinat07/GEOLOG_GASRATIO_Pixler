@@ -1512,7 +1512,7 @@ class MainWindow(QMainWindow):
         dialog.setIconPixmap(logo_pixmap(280))
         dialog.setText(
             f"Версия {__version__}\n\n"
-            "Автор: Сармулдин Ринат\n"
+            "Автор: Rinat Sarmuldin (Сармулдин Ринат)\n"
             "E-mail: ura07srr@gmail.com\n\n"
             "Реализовано: загрузка и безопасный экспорт LAS, базовые Gas Ratio, "
             "версионированные проекты, многотрековый планшет и редактор кривых с Undo/Redo."
