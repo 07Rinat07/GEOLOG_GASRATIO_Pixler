@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QPlainTextEdit, QTableWidget
+from PySide6.QtWidgets import QDialogButtonBox, QPlainTextEdit, QTableWidget
 
 from geoworkbench.domain.models import (
     CurveData,
@@ -13,6 +13,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.data_inspector_controller import DataInspectorController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
 
 
@@ -76,4 +77,21 @@ def test_data_inspector_dialog_renders_and_activates_index(qapp) -> None:
 
     assert controller.session.current_dataset.active_index_id == "time"  # type: ignore[union-attr]
     assert indexes.item(1, 0).text() == "●"
+    dialog.close()
+
+
+def test_data_inspector_dialog_uses_selected_language(qapp) -> None:
+    dialog = DataInspectorDialog(make_controller(), language=AppLanguage.EN)
+    buttons = dialog.findChild(QDialogButtonBox)
+
+    assert buttons is not None
+    assert dialog.windowTitle() == "Data and index information"
+    assert [dialog.tabs.tabText(index) for index in range(dialog.tabs.count())] == [
+        "Summary", "Indexes", "Curves", "Import diagnostics", "LAS source", "LAS header"
+    ]
+    assert dialog.index_table.horizontalHeaderItem(0).text() == "Active"
+    assert dialog.curve_table.horizontalHeaderItem(2).text() == "Description"
+    assert "The dataset has no saved LAS import report" in dialog.source_text.toPlainText()
+    assert dialog.header_table.item(1, 2).text() == "editor"
+    assert buttons.button(QDialogButtonBox.StandardButton.Close).text() == "Close"
     dialog.close()

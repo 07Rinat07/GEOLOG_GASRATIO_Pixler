@@ -26,6 +26,7 @@ from geoworkbench.project.header_editing_controller import (
     HeaderEditingController,
     HeaderSection,
 )
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class DataInspectorDialog(QDialog):
@@ -35,14 +36,17 @@ class DataInspectorDialog(QDialog):
         header_controller: HeaderEditingController | None = None,
         curve_metadata_controller: CurveMetadataController | None = None,
         parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
     ) -> None:
         super().__init__(parent)
+        self.localizer = Localizer.create(language)
         self.controller = controller
         self.header_controller = header_controller or HeaderEditingController(controller.session)
         self.curve_metadata_controller = curve_metadata_controller or CurveMetadataController(
             controller.session
         )
-        self.setWindowTitle("Сведения о данных и индексах")
+        self.setWindowTitle(self._t("data.window_title"))
         self.resize(980, 620)
         root = QVBoxLayout(self)
         self.tabs = QTabWidget()
@@ -51,7 +55,7 @@ class DataInspectorDialog(QDialog):
         self.summary_text = QPlainTextEdit()
         self.summary_text.setObjectName("data-summary")
         self.summary_text.setReadOnly(True)
-        self.tabs.addTab(self.summary_text, "Сводка")
+        self.tabs.addTab(self.summary_text, self._t("data.summary"))
 
         indexes_page = QWidget()
         indexes_layout = QVBoxLayout(indexes_page)
@@ -59,17 +63,10 @@ class DataInspectorDialog(QDialog):
         self.index_table.setObjectName("data-indexes")
         self.index_table.setHorizontalHeaderLabels(
             [
-                "Активный",
-                "Мнемоника",
-                "Тип",
-                "Роль",
-                "Единица",
-                "Точек",
-                "Начало",
-                "Конец",
-                "Confidence",
-                "Формат даты",
-                "Часовой пояс",
+                self._t("data.active"), self._t("data.mnemonic"), self._t("data.type"),
+                self._t("data.role"), self._t("data.unit"), self._t("data.points"),
+                self._t("data.start"), self._t("data.stop"), self._t("data.confidence"),
+                self._t("data.date_format"), self._t("data.timezone"),
             ]
         )
         self.index_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -77,7 +74,7 @@ class DataInspectorDialog(QDialog):
         self.index_table.itemSelectionChanged.connect(self._show_index_details)
         indexes_layout.addWidget(self.index_table)
         actions = QHBoxLayout()
-        activate_button = QPushButton("Сделать индекс активным")
+        activate_button = QPushButton(self._t("data.activate_index"))
         activate_button.clicked.connect(self._activate_selected_index)
         actions.addWidget(activate_button)
         actions.addStretch()
@@ -86,16 +83,17 @@ class DataInspectorDialog(QDialog):
         self.index_details.setObjectName("index-details")
         self.index_details.setReadOnly(True)
         self.index_details.setMaximumHeight(150)
-        indexes_layout.addWidget(QLabel("Обоснование и предупреждения"))
+        indexes_layout.addWidget(QLabel(self._t("data.evidence_warnings")))
         indexes_layout.addWidget(self.index_details)
-        self.tabs.addTab(indexes_page, "Индексы")
+        self.tabs.addTab(indexes_page, self._t("data.indexes"))
 
         curves_page = QWidget()
         curves_layout = QVBoxLayout(curves_page)
         self.curve_table = QTableWidget(0, 6)
         self.curve_table.setObjectName("data-curves")
         self.curve_table.setHorizontalHeaderLabels(
-            ["Мнемоника", "Единица", "Описание", "Точек", "Пропусков", "Curve ID"]
+            [self._t("data.mnemonic"), self._t("data.unit"), self._t("data.description"),
+             self._t("data.points"), self._t("data.missing"), "Curve ID"]
         )
         self.curve_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.curve_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -104,44 +102,46 @@ class DataInspectorDialog(QDialog):
         curve_editor = QHBoxLayout()
         self.curve_mnemonic = QLineEdit()
         self.curve_mnemonic.setObjectName("curve-mnemonic")
-        self.curve_mnemonic.setPlaceholderText("Мнемоника")
+        self.curve_mnemonic.setPlaceholderText(self._t("data.mnemonic"))
         self.curve_unit = QLineEdit()
         self.curve_unit.setObjectName("curve-unit")
-        self.curve_unit.setPlaceholderText("Единица")
+        self.curve_unit.setPlaceholderText(self._t("data.unit"))
         self.curve_description = QLineEdit()
         self.curve_description.setObjectName("curve-description")
-        self.curve_description.setPlaceholderText("Описание")
+        self.curve_description.setPlaceholderText(self._t("data.description"))
         curve_editor.addWidget(self.curve_mnemonic)
         curve_editor.addWidget(self.curve_unit)
         curve_editor.addWidget(self.curve_description, 1)
         curves_layout.addLayout(curve_editor)
         curve_actions = QHBoxLayout()
         for label, handler in (
-            ("Изменить", self._update_curve_metadata),
-            ("Отменить", self._undo_curve_metadata),
-            ("Повторить", self._redo_curve_metadata),
+            (self._t("common.update"), self._update_curve_metadata),
+            (self._t("common.undo"), self._undo_curve_metadata),
+            (self._t("common.redo"), self._redo_curve_metadata),
         ):
             button = QPushButton(label)
             button.clicked.connect(handler)
             curve_actions.addWidget(button)
         curve_actions.addStretch()
         curves_layout.addLayout(curve_actions)
-        self.tabs.addTab(curves_page, "Кривые")
+        self.tabs.addTab(curves_page, self._t("data.curves"))
 
         self.issue_table = QTableWidget(0, 3)
         self.issue_table.setObjectName("import-issues")
-        self.issue_table.setHorizontalHeaderLabels(["Уровень", "Код", "Сообщение"])
-        self.tabs.addTab(self.issue_table, "Диагностика импорта")
+        self.issue_table.setHorizontalHeaderLabels(
+            [self._t("data.severity"), self._t("data.code"), self._t("data.message")]
+        )
+        self.tabs.addTab(self.issue_table, self._t("data.import_diagnostics"))
 
         self.source_text = QPlainTextEdit()
         self.source_text.setObjectName("las-source-profile")
         self.source_text.setReadOnly(True)
-        self.tabs.addTab(self.source_text, "LAS-источник")
+        self.tabs.addTab(self.source_text, self._t("data.las_source"))
 
         header_page = QWidget()
         header_layout = QVBoxLayout(header_page)
         section_row = QHBoxLayout()
-        section_row.addWidget(QLabel("Секция"))
+        section_row.addWidget(QLabel(self._t("data.section")))
         self.header_section = QComboBox()
         self.header_section.setObjectName("header-section")
         self.header_section.addItem("WELL", HeaderSection.WELL)
@@ -157,7 +157,7 @@ class DataInspectorDialog(QDialog):
         self.depth_header_summary.setMaximumHeight(125)
         header_layout.addWidget(self.depth_header_summary)
         depth_actions = QHBoxLayout()
-        synchronize_button = QPushButton("Синхронизировать STRT/STOP/STEP")
+        synchronize_button = QPushButton(self._t("data.sync_depth"))
         synchronize_button.setObjectName("synchronize-depth-header")
         synchronize_button.clicked.connect(self._synchronize_depth_header)
         depth_actions.addWidget(synchronize_button)
@@ -167,7 +167,7 @@ class DataInspectorDialog(QDialog):
         self.null_value.setDecimals(8)
         self.null_value.setRange(-1e100, 1e100)
         depth_actions.addWidget(self.null_value)
-        null_button = QPushButton("Применить NULL")
+        null_button = QPushButton(self._t("data.apply_null"))
         null_button.setObjectName("apply-header-null")
         null_button.clicked.connect(self._set_null_value)
         depth_actions.addWidget(null_button)
@@ -175,7 +175,9 @@ class DataInspectorDialog(QDialog):
         header_layout.addLayout(depth_actions)
         self.header_table = QTableWidget(0, 3)
         self.header_table.setObjectName("las-header")
-        self.header_table.setHorizontalHeaderLabels(["Мнемоника", "Значение", "Управление"])
+        self.header_table.setHorizontalHeaderLabels(
+            [self._t("data.mnemonic"), self._t("data.value"), self._t("data.control")]
+        )
         self.header_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.header_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.header_table.itemSelectionChanged.connect(self._load_header_entry)
@@ -183,20 +185,20 @@ class DataInspectorDialog(QDialog):
         editor_row = QHBoxLayout()
         self.header_mnemonic = QLineEdit()
         self.header_mnemonic.setObjectName("header-mnemonic")
-        self.header_mnemonic.setPlaceholderText("Мнемоника")
+        self.header_mnemonic.setPlaceholderText(self._t("data.mnemonic"))
         self.header_value = QLineEdit()
         self.header_value.setObjectName("header-value")
-        self.header_value.setPlaceholderText("Значение")
+        self.header_value.setPlaceholderText(self._t("data.value"))
         editor_row.addWidget(self.header_mnemonic)
         editor_row.addWidget(self.header_value, 1)
         header_layout.addLayout(editor_row)
         header_actions = QHBoxLayout()
         for label, handler in (
-            ("Добавить", self._add_header_entry),
-            ("Изменить", self._update_header_entry),
-            ("Удалить", self._remove_header_entry),
-            ("Отменить", self._undo_header),
-            ("Повторить", self._redo_header),
+            (self._t("common.add"), self._add_header_entry),
+            (self._t("common.update"), self._update_header_entry),
+            (self._t("common.remove"), self._remove_header_entry),
+            (self._t("common.undo"), self._undo_header),
+            (self._t("common.redo"), self._redo_header),
         ):
             button = QPushButton(label)
             button.clicked.connect(handler)
@@ -205,29 +207,32 @@ class DataInspectorDialog(QDialog):
         header_layout.addLayout(header_actions)
         header_layout.addWidget(
             QLabel(
-                "VERS/WRAP изменяются в плане экспорта; STRT/STOP/STEP/NULL — глубинными "
-                "операциями."
+                self._t("data.header_hint")
             )
         )
-        self.tabs.addTab(header_page, "LAS-заголовок")
+        self.tabs.addTab(header_page, self._t("data.las_header"))
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
+
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
 
     def _refresh(self) -> None:
         summary = self.controller.summary()
         headers = "\n".join(f"  {key}: {value}" for key, value in summary.headers) or "  —"
         self.summary_text.setPlainText(
-            f"Скважина: {summary.well_name}\n"
+            f"{self._t('data.well')}: {summary.well_name}\n"
             f"Dataset: {summary.dataset_name}\n"
-            f"Источник: {summary.source_path or '—'}\n"
-            f"Отсчётов: {summary.sample_count}\n"
-            f"Кривых: {summary.curve_count}\n"
-            f"Индексов: {summary.index_count}\n"
-            f"Активный индекс: {summary.active_index_id}\n\n"
-            f"Заголовки WELL:\n{headers}"
+            f"{self._t('data.source')}: {summary.source_path or '—'}\n"
+            f"{self._t('data.samples')}: {summary.sample_count}\n"
+            f"{self._t('data.curves')}: {summary.curve_count}\n"
+            f"{self._t('data.indexes')}: {summary.index_count}\n"
+            f"{self._t('data.active_index')}: {summary.active_index_id}\n\n"
+            f"{self._t('data.well_headers')}:\n{headers}"
         )
 
         indexes = self.controller.indexes()
@@ -244,7 +249,7 @@ class DataInspectorDialog(QDialog):
                 index.stop or "—",
                 f"{index.confidence:.0%}",
                 index.datetime_format or "—",
-                index.timezone or "не задан",
+                index.timezone or self._t("common.unset"),
             )
             for column, value in enumerate(index_values):
                 item = QTableWidgetItem(value)
@@ -279,21 +284,21 @@ class DataInspectorDialog(QDialog):
         self.issue_table.resizeColumnsToContents()
         source = self.controller.source_inspection()
         if source is None:
-            self.source_text.setPlainText("Для dataset нет сохранённого отчёта LAS-импорта.")
+            self.source_text.setPlainText(self._t("data.no_las_report"))
         else:
             sections = ", ".join(source.sections) or "—"
             self.source_text.setPlainText(
-                f"Путь источника: {source.path}\n"
-                f"Версия LAS: {source.version or '—'}\n"
+                f"{self._t('data.source_path')}: {source.path}\n"
+                f"{self._t('data.las_version')}: {source.version or '—'}\n"
                 f"WRAP: {source.wrap or '—'}\n"
                 f"NULL: {self._number(source.null_value)}\n"
-                f"Кодировка: {source.encoding}\n"
-                f"Переводы строк: {source.newline_style}\n"
-                f"Размер: {source.size_bytes} байт\n"
+                f"{self._t('data.encoding')}: {source.encoding}\n"
+                f"{self._t('data.newlines')}: {source.newline_style}\n"
+                f"{self._t('data.size')}: {source.size_bytes} {self._t('data.bytes')}\n"
                 f"SHA-256: {source.sha256}\n"
-                f"Секции: {sections}\n"
-                f"Lossless-артефакт: {source.artifact_status}\n"
-                "Диагностика: "
+                f"{self._t('data.sections')}: {sections}\n"
+                f"{self._t('data.lossless_artifact')}: {source.artifact_status}\n"
+                f"{self._t('data.diagnostics')}: "
                 f"info={source.info_count}, warning={source.warning_count}, error={source.error_count}"
             )
         self._refresh_header()
@@ -322,7 +327,9 @@ class DataInspectorDialog(QDialog):
     def _update_curve_metadata(self) -> None:
         curve_id = self._selected_curve_id()
         if curve_id is None:
-            QMessageBox.information(self, "Кривые", "Сначала выберите кривую")
+            QMessageBox.information(
+                self, self._t("data.curves"), self._t("data.select_curve")
+            )
             return
         self._run_curve_metadata_action(
             lambda: self.curve_metadata_controller.update(
@@ -343,20 +350,21 @@ class DataInspectorDialog(QDialog):
         try:
             action()
         except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, "Кривые", str(exc))
+            QMessageBox.warning(self, self._t("data.curves"), str(exc))
             return
         self._refresh()
 
     def _refresh_header(self) -> None:
         summary = self.header_controller.depth_summary()
-        issues = "\n".join(f"• {issue}" for issue in summary.issues) or "• расхождений нет"
+        issues = "\n".join(f"• {issue}" for issue in summary.issues) or self._t("data.no_issues")
         self.depth_header_summary.setPlainText(
-            "Расчёт по текущей глубинной шкале: "
+            f"{self._t('data.depth_calculation')}: "
             f"STRT={self._number(summary.calculated_start)}, "
             f"STOP={self._number(summary.calculated_stop)}, "
             f"STEP={self._number(summary.calculated_step)}\n"
-            f"Направление: {summary.direction.value}; "
-            f"равномерный шаг: {'да' if summary.uniform else 'нет'}\n{issues}"
+            f"{self._t('data.direction')}: {summary.direction.value}; "
+            f"{self._t('data.uniform_step')}: "
+            f"{self._t('common.yes') if summary.uniform else self._t('common.no')}\n{issues}"
         )
         if summary.null_value is not None:
             self.null_value.setValue(summary.null_value)
@@ -368,7 +376,11 @@ class DataInspectorDialog(QDialog):
             self.header_table.setItem(row, 0, QTableWidgetItem(entry.mnemonic))
             self.header_table.setItem(row, 1, QTableWidgetItem(entry.value))
             self.header_table.setItem(
-                row, 2, QTableWidgetItem("служебное поле" if entry.protected else "редактор")
+                row,
+                2,
+                QTableWidgetItem(
+                    self._t("data.protected") if entry.protected else self._t("data.editor")
+                ),
             )
         self.header_table.resizeColumnsToContents()
 
@@ -392,7 +404,9 @@ class DataInspectorDialog(QDialog):
         row = self.header_table.currentRow()
         original = self.header_table.item(row, 0) if row >= 0 else None
         if original is None:
-            QMessageBox.information(self, "LAS-заголовок", "Сначала выберите запись")
+            QMessageBox.information(
+                self, self._t("data.las_header"), self._t("data.select_entry")
+            )
             return
         self._run_header_action(
             lambda: self.header_controller.update(
@@ -407,7 +421,9 @@ class DataInspectorDialog(QDialog):
         row = self.header_table.currentRow()
         item = self.header_table.item(row, 0) if row >= 0 else None
         if item is None:
-            QMessageBox.information(self, "LAS-заголовок", "Сначала выберите запись")
+            QMessageBox.information(
+                self, self._t("data.las_header"), self._t("data.select_entry")
+            )
             return
         self._run_header_action(
             lambda: self.header_controller.remove(self._current_header_section(), item.text())
@@ -431,7 +447,7 @@ class DataInspectorDialog(QDialog):
         try:
             action()
         except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, "LAS-заголовок", str(exc))
+            QMessageBox.warning(self, self._t("data.las_header"), str(exc))
             return
         self._refresh()
 
@@ -454,18 +470,23 @@ class DataInspectorDialog(QDialog):
         if inspection is None:
             self.index_details.clear()
             return
-        evidence = "\n".join(f"• {item}" for item in inspection.evidence) or "• нет"
-        warnings = "\n".join(f"• {item}" for item in inspection.warnings) or "• нет"
-        self.index_details.setPlainText(f"Evidence:\n{evidence}\n\nWarnings:\n{warnings}")
+        evidence = "\n".join(f"• {item}" for item in inspection.evidence) or self._t("data.none_bullet")
+        warnings = "\n".join(f"• {item}" for item in inspection.warnings) or self._t("data.none_bullet")
+        self.index_details.setPlainText(
+            f"{self._t('data.evidence')}:\n{evidence}\n\n"
+            f"{self._t('data.warnings')}:\n{warnings}"
+        )
 
     def _activate_selected_index(self) -> None:
         index_id = self._selected_index_id()
         if index_id is None:
-            QMessageBox.information(self, "Индексы", "Сначала выберите индекс")
+            QMessageBox.information(
+                self, self._t("data.indexes"), self._t("data.select_index")
+            )
             return
         try:
             self.controller.set_active_index(index_id)
         except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, "Индексы", str(exc))
+            QMessageBox.warning(self, self._t("data.indexes"), str(exc))
             return
         self._refresh()

@@ -232,7 +232,7 @@ class MainWindow(QMainWindow):
         self.export_las_action.triggered.connect(self.export_current_las)
         file_menu.addAction(self.export_las_action)
 
-        self.data_inspector_action = QAction("Сведения о данных и индексах...", self)
+        self.data_inspector_action = QAction(self._t("data.action"), self)
         self.data_inspector_action.triggered.connect(self.show_data_inspector)
         file_menu.addAction(self.data_inspector_action)
 
@@ -732,13 +732,16 @@ class MainWindow(QMainWindow):
 
     def show_data_inspector(self) -> None:
         if self.session.current_dataset is None:
-            QMessageBox.information(self, "Сведения о данных", "Сначала выберите dataset")
+            QMessageBox.information(
+                self, self._t("data.title"), self._t("data.select_dataset")
+            )
             return
         DataInspectorDialog(
             self.data_inspector_controller,
             self.header_editing_controller,
             self.curve_metadata_controller,
             self,
+            language=self.language,
         ).exec()
         self._show_current_dataset()
         self._refresh_tree()

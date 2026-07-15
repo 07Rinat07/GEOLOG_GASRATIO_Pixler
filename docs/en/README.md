@@ -67,5 +67,11 @@ The inspector displays dataset, curve, or track details and configures width, li
 logarithmic scale, and the X range. Labels are available in RU/KK/EN; model values are stable
 and are not translated.
 
+## Data and index information
+
+Data Inspector provides the summary, indexes, curves, import diagnostics, LAS source profile,
+and LAS header editor. All tabs and commands are available in RU/KK/EN; source diagnostics,
+mnemonics, and values are not translated.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.
