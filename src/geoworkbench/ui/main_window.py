@@ -480,7 +480,10 @@ class MainWindow(QMainWindow):
         if dataset is None:
             QMessageBox.information(self, "Экспорт LAS", "Сначала выберите набор данных")
             return
-        plan_dialog = LasExportPlanDialog(self)
+        plan_dialog = LasExportPlanDialog(
+            self,
+            initial=self.dataset_export_controller.default_las_plan(),
+        )
         if plan_dialog.exec() != QDialog.DialogCode.Accepted:
             return
         plan = plan_dialog.export_plan()

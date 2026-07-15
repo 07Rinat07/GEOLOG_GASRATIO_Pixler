@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QComboBox,
+    QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -96,6 +97,28 @@ class DataInspectorDialog(QDialog):
         section_row.addWidget(self.header_section)
         section_row.addStretch()
         header_layout.addLayout(section_row)
+        self.depth_header_summary = QPlainTextEdit()
+        self.depth_header_summary.setObjectName("depth-header-summary")
+        self.depth_header_summary.setReadOnly(True)
+        self.depth_header_summary.setMaximumHeight(125)
+        header_layout.addWidget(self.depth_header_summary)
+        depth_actions = QHBoxLayout()
+        synchronize_button = QPushButton("Синхронизировать STRT/STOP/STEP")
+        synchronize_button.setObjectName("synchronize-depth-header")
+        synchronize_button.clicked.connect(self._synchronize_depth_header)
+        depth_actions.addWidget(synchronize_button)
+        depth_actions.addWidget(QLabel("NULL"))
+        self.null_value = QDoubleSpinBox()
+        self.null_value.setObjectName("header-null-value")
+        self.null_value.setDecimals(8)
+        self.null_value.setRange(-1e100, 1e100)
+        depth_actions.addWidget(self.null_value)
+        null_button = QPushButton("Применить NULL")
+        null_button.setObjectName("apply-header-null")
+        null_button.clicked.connect(self._set_null_value)
+        depth_actions.addWidget(null_button)
+        depth_actions.addStretch()
+        header_layout.addLayout(depth_actions)
         self.header_table = QTableWidget(0, 3)
         self.header_table.setObjectName("las-header")
         self.header_table.setHorizontalHeaderLabels(["Мнемоника", "Значение", "Управление"])
@@ -199,6 +222,20 @@ class DataInspectorDialog(QDialog):
         return value if isinstance(value, HeaderSection) else HeaderSection.WELL
 
     def _refresh_header(self) -> None:
+        summary = self.header_controller.depth_summary()
+        issues = "\n".join(f"• {issue}" for issue in summary.issues) or "• расхождений нет"
+        self.depth_header_summary.setPlainText(
+            "Расчёт по текущей глубинной шкале: "
+            f"STRT={self._number(summary.calculated_start)}, "
+            f"STOP={self._number(summary.calculated_stop)}, "
+            f"STEP={self._number(summary.calculated_step)}\n"
+            f"Направление: {summary.direction.value}; "
+            f"равномерный шаг: {'да' if summary.uniform else 'нет'}\n{issues}"
+        )
+        if summary.null_value is not None:
+            self.null_value.setValue(summary.null_value)
+        else:
+            self.null_value.setValue(-9999.25)
         entries = self.header_controller.entries(self._current_header_section())
         self.header_table.setRowCount(len(entries))
         for row, entry in enumerate(entries):
@@ -256,6 +293,14 @@ class DataInspectorDialog(QDialog):
     def _redo_header(self) -> None:
         self._run_header_action(self.header_controller.redo)
 
+    def _synchronize_depth_header(self) -> None:
+        self._run_header_action(self.header_controller.synchronize_depth_fields)
+
+    def _set_null_value(self) -> None:
+        self._run_header_action(
+            lambda: self.header_controller.set_null_value(self.null_value.value())
+        )
+
     def _run_header_action(self, action) -> None:
         try:
             action()
@@ -263,6 +308,10 @@ class DataInspectorDialog(QDialog):
             QMessageBox.warning(self, "LAS-заголовок", str(exc))
             return
         self._refresh()
+
+    @staticmethod
+    def _number(value: float | None) -> str:
+        return "—" if value is None else f"{value:.10g}"
 
     def _selected_index_id(self) -> str | None:
         row = self.index_table.currentRow()

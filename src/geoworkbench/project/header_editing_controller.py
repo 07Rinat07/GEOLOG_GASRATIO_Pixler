@@ -3,10 +3,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
+from math import isfinite
 from typing import Callable
 
-from geoworkbench.domain.models import Dataset, Well
+import numpy as np
+
+from geoworkbench.domain.models import Dataset, IndexRole, Well
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 
 
 class HeaderSection(StrEnum):
@@ -19,6 +23,20 @@ class HeaderEntry:
     mnemonic: str
     value: str
     protected: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class DepthHeaderSummary:
+    calculated_start: float | None
+    calculated_stop: float | None
+    calculated_step: float | None
+    declared_start: float | None
+    declared_stop: float | None
+    declared_step: float | None
+    null_value: float | None
+    direction: DepthDirection
+    uniform: bool
+    issues: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +84,93 @@ class HeaderEditingController:
         return tuple(
             HeaderEntry(key, value, section is HeaderSection.WELL and key in self._PROTECTED)
             for key, value in sorted(values.items(), key=lambda item: item[0].casefold())
+        )
+
+    def depth_summary(self) -> DepthHeaderSummary:
+        dataset = self._dataset()
+        report = analyze_depth_axis(dataset.depth)
+        signed_step = report.nominal_step
+        if signed_step is not None and report.direction is DepthDirection.DESCENDING:
+            signed_step = -signed_step
+        declared = {
+            key: self._optional_float(dataset.headers.get(key))
+            for key in ("STRT", "STOP", "STEP", "NULL")
+        }
+        issues: list[str] = []
+        if dataset.active_index.role is not IndexRole.DEPTH:
+            issues.append("Активный индекс не является глубинным; синхронизация отключена")
+        for key, actual in (
+            ("STRT", report.start),
+            ("STOP", report.stop),
+            ("STEP", signed_step),
+        ):
+            value = declared[key]
+            if value is None:
+                issues.append(f"{key} отсутствует или не является числом")
+            elif actual is not None and not np.isclose(value, actual, rtol=1e-6, atol=1e-9):
+                issues.append(f"{key}={value:g} не совпадает с данными ({actual:g})")
+        if declared["NULL"] is None:
+            issues.append("NULL отсутствует или не является конечным числом")
+        if not report.is_uniform:
+            issues.append("Шаг активного глубинного индекса неоднороден")
+        if report.direction not in {DepthDirection.ASCENDING, DepthDirection.DESCENDING}:
+            issues.append(f"Направление глубины: {report.direction.value}")
+        return DepthHeaderSummary(
+            report.start,
+            report.stop,
+            signed_step,
+            declared["STRT"],
+            declared["STOP"],
+            declared["STEP"],
+            declared["NULL"],
+            report.direction,
+            report.is_uniform,
+            tuple(issues),
+        )
+
+    def synchronize_depth_fields(self) -> None:
+        dataset = self._dataset()
+        report = analyze_depth_axis(dataset.depth)
+        if dataset.active_index.role is not IndexRole.DEPTH:
+            raise ValueError("Для синхронизации выберите активный глубинный индекс")
+        if (
+            report.start is None
+            or report.stop is None
+            or report.nominal_step is None
+            or not report.is_uniform
+            or report.missing_count
+            or report.duplicate_count
+            or report.direction not in {DepthDirection.ASCENDING, DepthDirection.DESCENDING}
+        ):
+            raise ValueError("Синхронизация доступна только для конечной равномерной монотонной глубины")
+        signed_step = (
+            -report.nominal_step
+            if report.direction is DepthDirection.DESCENDING
+            else report.nominal_step
+        )
+
+        def apply() -> None:
+            dataset.headers.update(
+                STRT=f"{report.start:.15g}",
+                STOP=f"{report.stop:.15g}",
+                STEP=f"{signed_step:.15g}",
+            )
+
+        self._change("Синхронизация STRT/STOP/STEP", apply)
+
+    def set_null_value(self, value: float) -> None:
+        if isinstance(value, bool) or not isinstance(value, (int, float, np.integer, np.floating)):
+            raise ValueError("NULL должен быть числом")
+        normalized = float(value)
+        if not isfinite(normalized):
+            raise ValueError("NULL должен быть конечным числом")
+        dataset = self._dataset()
+        arrays = [dataset.depth, *(curve.values for curve in dataset.curves.values())]
+        if any(np.any(np.asarray(array) == normalized) for array in arrays):
+            raise ValueError("NULL совпадает с реальным значением dataset")
+        self._change(
+            "Изменение NULL",
+            lambda: dataset.headers.__setitem__("NULL", f"{normalized:.15g}"),
         )
 
     def add(self, section: HeaderSection, mnemonic: str, value: str) -> None:
@@ -191,6 +296,16 @@ class HeaderEditingController:
                 f"{mnemonic} управляется данными глубины и планом экспорта; "
                 "используйте глубинные операции"
             )
+
+    @staticmethod
+    def _optional_float(value: str | None) -> float | None:
+        if value is None:
+            return None
+        try:
+            number = float(value.strip().replace(",", "."))
+        except ValueError:
+            return None
+        return number if isfinite(number) else None
 
     @staticmethod
     def _validate_coordinate(value: str, minimum: float, maximum: float, label: str) -> None:

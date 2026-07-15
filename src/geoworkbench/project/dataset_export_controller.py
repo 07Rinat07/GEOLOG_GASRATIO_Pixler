@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from pathlib import Path
 
 from geoworkbench.data.las_adapter import export_las
@@ -11,6 +12,24 @@ from geoworkbench.project.session import ProjectSession
 @dataclass(slots=True)
 class DatasetExportController:
     session: ProjectSession
+
+    def default_las_plan(self) -> LasExportPlan:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            raise RuntimeError("Сначала выберите набор данных")
+        null_value: float | None = None
+        raw_null = dataset.headers.get("NULL")
+        if raw_null is not None:
+            try:
+                candidate = float(raw_null.strip().replace(",", "."))
+                if isfinite(candidate):
+                    null_value = candidate
+            except ValueError:
+                pass
+        report = self.session.import_reports.get(dataset.dataset_id)
+        if null_value is None and report is not None:
+            null_value = report.source.null_value
+        return LasExportPlan(null_value=null_value if null_value is not None else -9999.25)
 
     def analyze_current_las_export(
         self,

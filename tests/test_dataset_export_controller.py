@@ -46,3 +46,24 @@ def test_export_controller_uses_current_dataset(tmp_path, monkeypatch) -> None:
 def test_export_controller_requires_current_dataset(tmp_path) -> None:
     with pytest.raises(RuntimeError, match="набор данных"):
         DatasetExportController(ProjectSession()).export_current_las(tmp_path / "result.las")
+
+
+def test_default_export_plan_uses_typed_header_null() -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([1.0]),
+        headers={"NULL": "-999.25"},
+    )
+    well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
+    session = ProjectSession(
+        project=Project("project-1", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+        current_dataset_id=dataset.dataset_id,
+    )
+
+    plan = DatasetExportController(session).default_las_plan()
+
+    assert plan.null_value == pytest.approx(-999.25)
