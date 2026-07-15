@@ -34,6 +34,8 @@ class ExcelImportPlan:
             raise ValueError("Нужно выбрать лист Excel")
         if self.header_row < 1:
             raise ValueError("Номер строки заголовка должен быть положительным")
+        if self.time_column is not None and (not self.date_format or not self.time_format):
+            raise ValueError("Для DATE+TIME нужны форматы обеих колонок")
 
 
 @dataclass(frozen=True, slots=True)
