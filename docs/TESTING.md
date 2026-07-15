@@ -37,7 +37,7 @@ Qt-тесты запускаются с платформой `offscreen`, нас
 | Lossless export | Замена известных секций, сохранение custom bytes, BOM/CRLF и конфликты |
 | LAS ExportPlan | Версия, WRAP, NULL, точность, предупреждения и блокирующие ошибки |
 | Multi-index | Legacy compatibility, active depth/time, detection evidence и project v6 round-trip |
-| Time normalization | ISO-8601 UTC/offset/naive/mixed, NaT, Unix scale и timezone provenance |
+| Time normalization | ISO-8601, DATE+TIME, custom format, IANA/offset/naive, DST, NaT и Unix scale |
 | Data Inspector | Summary, indexes, missing curve values, import issues и ручной active index |
 | LAS Header Editor | WELL/PARAMETER, координаты, глубинная сводка, NULL, синхронизация и Undo/Redo |
 | Curve Metadata Editor | Мнемоники, UOM, описания, конфликты с индексами, Undo/Redo и canonical ID |

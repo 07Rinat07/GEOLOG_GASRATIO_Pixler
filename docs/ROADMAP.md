@@ -33,7 +33,8 @@ Roadmap следует зависимостям продукта, а не ном
 2. **0.8 Universal Import**
    - готово: strict/compatible/manual режимы принятия LAS по import report;
    - готово: Unix timestamp и ISO-8601 с timezone provenance;
-   - составные DATE+TIME и ручной выбор формата/часового пояса;
+   - готово ядро: составные DATE+TIME и ручной формат/часовой пояс;
+   - UI mapping колонок времени в общем мастере импорта;
    - общий мастер импорта;
    - CSV и TXT;
    - Excel как опциональная analysis-зависимость;
