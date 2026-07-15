@@ -55,6 +55,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Source artifacts | Save As, SHA-256/размер, tamper detection и защита пути |
 | Lossless export | Замена известных секций, сохранение custom bytes, BOM/CRLF и конфликты |
 | LAS ExportPlan | Версия, WRAP, NULL, точность, предупреждения и блокирующие ошибки |
+| LAS Export UI | RU/KK/EN labels, compatibility version, custom sections and dialog buttons |
 | Multi-index | Legacy compatibility, active depth/time, detection evidence и project v6 round-trip |
 | Time normalization | ISO-8601, DATE+TIME, custom format, IANA/offset/naive, DST, NaT и Unix scale |
 | Data Inspector | Summary, indexes, missing curve values, import issues и ручной active index |

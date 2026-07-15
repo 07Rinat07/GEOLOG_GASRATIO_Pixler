@@ -11,17 +11,27 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.data.las_export_plan import LasExportPlan, LasExportVersion
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class LasExportPlanDialog(QDialog):
-    def __init__(self, parent=None, *, initial: LasExportPlan | None = None) -> None:
+    def __init__(
+        self,
+        parent=None,
+        *,
+        initial: LasExportPlan | None = None,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Параметры экспорта LAS")
+        self.localizer = Localizer.create(language)
+        self.setWindowTitle(self._t("export.plan_title"))
         plan = initial or LasExportPlan()
 
         self.version_combo = QComboBox()
         self.version_combo.addItem("LAS 2.0", LasExportVersion.V2_0.value)
-        self.version_combo.addItem("LAS 1.2 (совместимость)", LasExportVersion.V1_2.value)
+        self.version_combo.addItem(
+            self._t("export.las12_compatibility"), LasExportVersion.V1_2.value
+        )
         self.version_combo.setCurrentIndex(self.version_combo.findData(plan.version.value))
 
         self.wrap_check = QCheckBox("WRAP=YES")
@@ -33,26 +43,31 @@ class LasExportPlanDialog(QDialog):
         self.precision_spin = QSpinBox()
         self.precision_spin.setRange(1, 15)
         self.precision_spin.setValue(plan.precision)
-        self.preserve_check = QCheckBox("Переносить пользовательские секции и комментарии")
+        self.preserve_check = QCheckBox(self._t("export.preserve_custom"))
         self.preserve_check.setChecked(plan.preserve_custom_sections)
 
         layout = QFormLayout(self)
-        layout.addRow("Версия", self.version_combo)
-        layout.addRow("Перенос строк", self.wrap_check)
+        layout.addRow(self._t("export.version"), self.version_combo)
+        layout.addRow(self._t("export.wrap"), self.wrap_check)
         layout.addRow("NULL", self.null_spin)
-        layout.addRow("Знаков после запятой", self.precision_spin)
+        layout.addRow(self._t("export.precision"), self.precision_spin)
         layout.addRow(self.preserve_check)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self._t("common.ok"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self._t("common.cancel"))
         layout.addRow(buttons)
+
+    def _t(self, key: str) -> str:
+        return self.localizer.text(key)
 
     def export_plan(self) -> LasExportPlan:
         version_value = self.version_combo.currentData()
         if not isinstance(version_value, str):
-            raise RuntimeError("Не выбрана версия LAS")
+            raise RuntimeError(self._t("export.select_version"))
         return LasExportPlan(
             version=LasExportVersion(version_value),
             wrap=self.wrap_check.isChecked(),

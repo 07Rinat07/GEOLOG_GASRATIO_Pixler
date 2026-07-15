@@ -18,5 +18,10 @@ time-zone, preview, and validation controls.
 The LAS table supports direct values, constant or noise interval fills, copy/paste, and
 Undo/Redo. Every command and selection validation message uses the selected language.
 
+## LAS export
+
+The export dialog configures LAS 1.2/2.0, WRAP, NULL, precision, and custom-section
+preservation. Settings, warnings, and overwrite confirmation use the selected language.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.

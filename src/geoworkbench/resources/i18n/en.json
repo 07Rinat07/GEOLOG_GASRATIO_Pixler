@@ -62,5 +62,20 @@
   "table.select_dataset": "Select a dataset first",
   "table.select_curves": "Select values from one or more curves",
   "table.contiguous_rows": "The selected interval rows must be contiguous",
-  "table.depth_readonly": "Edit the depth index through the dedicated validated operation"
+  "table.depth_readonly": "Edit the depth index through the dedicated validated operation",
+  "export.title": "LAS export",
+  "export.plan_title": "LAS export settings",
+  "export.las12_compatibility": "LAS 1.2 (compatibility)",
+  "export.preserve_custom": "Preserve custom sections and comments",
+  "export.version": "Version",
+  "export.wrap": "Line wrapping",
+  "export.precision": "Decimal places",
+  "export.select_version": "Select a LAS version",
+  "export.select_dataset": "Select a dataset first",
+  "export.blocked": "LAS export is not possible",
+  "export.warnings": "LAS export warnings",
+  "export.continue_question": "Continue exporting?",
+  "export.save_title": "Export LAS",
+  "export.overwrite_question": "The file already exists:\n{name}\n\nReplace it?",
+  "export.success": "LAS exported: {name}"
 }

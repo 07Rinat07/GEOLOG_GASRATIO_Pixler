@@ -62,5 +62,20 @@
   "table.select_dataset": "Сначала выберите dataset",
   "table.select_curves": "Выберите значения одной или нескольких кривых",
   "table.contiguous_rows": "Строки диапазона должны идти подряд",
-  "table.depth_readonly": "Индекс глубины изменяется отдельной операцией с предварительной проверкой"
+  "table.depth_readonly": "Индекс глубины изменяется отдельной операцией с предварительной проверкой",
+  "export.title": "Экспорт LAS",
+  "export.plan_title": "Параметры экспорта LAS",
+  "export.las12_compatibility": "LAS 1.2 (совместимость)",
+  "export.preserve_custom": "Переносить пользовательские секции и комментарии",
+  "export.version": "Версия",
+  "export.wrap": "Перенос строк",
+  "export.precision": "Знаков после запятой",
+  "export.select_version": "Не выбрана версия LAS",
+  "export.select_dataset": "Сначала выберите набор данных",
+  "export.blocked": "Экспорт LAS невозможен",
+  "export.warnings": "Предупреждения экспорта LAS",
+  "export.continue_question": "Продолжить экспорт?",
+  "export.save_title": "Экспортировать LAS",
+  "export.overwrite_question": "Файл уже существует:\n{name}\n\nЗаменить его?",
+  "export.success": "LAS экспортирован: {name}"
 }

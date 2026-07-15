@@ -658,11 +658,14 @@ class MainWindow(QMainWindow):
     def export_current_las(self) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
-            QMessageBox.information(self, "Экспорт LAS", "Сначала выберите набор данных")
+            QMessageBox.information(
+                self, self._t("export.title"), self._t("export.select_dataset")
+            )
             return
         plan_dialog = LasExportPlanDialog(
             self,
             initial=self.dataset_export_controller.default_las_plan(),
+            language=self.language,
         )
         if plan_dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -674,7 +677,7 @@ class MainWindow(QMainWindow):
             if issue.severity is ExportIssueSeverity.ERROR
         ]
         if errors:
-            QMessageBox.critical(self, "Экспорт LAS невозможен", "\n".join(errors))
+            QMessageBox.critical(self, self._t("export.blocked"), "\n".join(errors))
             return
         warnings = [
             issue.message
@@ -684,8 +687,8 @@ class MainWindow(QMainWindow):
         if warnings:
             answer = QMessageBox.question(
                 self,
-                "Предупреждения экспорта LAS",
-                "\n".join(warnings) + "\n\nПродолжить экспорт?",
+                self._t("export.warnings"),
+                "\n".join(warnings) + "\n\n" + self._t("export.continue_question"),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -694,7 +697,7 @@ class MainWindow(QMainWindow):
         initial = Path.cwd() / f"{dataset.name}_edited.las"
         filename, _ = QFileDialog.getSaveFileName(
             self,
-            "Экспортировать LAS",
+            self._t("export.save_title"),
             str(initial),
             "LAS (*.las)",
         )
@@ -705,8 +708,8 @@ class MainWindow(QMainWindow):
         if target.exists():
             answer = QMessageBox.question(
                 self,
-                "Экспорт LAS",
-                f"Файл уже существует:\n{target.name}\n\nЗаменить его?",
+                self._t("export.title"),
+                self._t("export.overwrite_question", name=target.name),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -720,11 +723,11 @@ class MainWindow(QMainWindow):
                 plan=plan,
             )
         except (FileExistsError, LasExportError, OSError, RuntimeError) as exc:
-            QMessageBox.critical(self, "Экспорт LAS", str(exc))
+            QMessageBox.critical(self, self._t("export.title"), str(exc))
             self._log(f"LAS не экспортирован: {exc}")
             return
         self._log(f"LAS экспортирован: {exported}")
-        self.statusBar().showMessage(f"LAS экспортирован: {exported.name}")
+        self.statusBar().showMessage(self._t("export.success", name=exported.name))
 
     def show_data_inspector(self) -> None:
         if self.session.current_dataset is None:

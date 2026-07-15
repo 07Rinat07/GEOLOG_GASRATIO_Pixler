@@ -62,5 +62,20 @@
   "table.select_dataset": "Алдымен деректер жинағын таңдаңыз",
   "table.select_curves": "Бір немесе бірнеше қисықтың мәндерін таңдаңыз",
   "table.contiguous_rows": "Аралық жолдары қатар орналасуы керек",
-  "table.depth_readonly": "Тереңдік индексін алдын ала тексерілетін арнайы операциямен өзгертіңіз"
+  "table.depth_readonly": "Тереңдік индексін алдын ала тексерілетін арнайы операциямен өзгертіңіз",
+  "export.title": "LAS экспорттау",
+  "export.plan_title": "LAS экспорттау параметрлері",
+  "export.las12_compatibility": "LAS 1.2 (үйлесімділік)",
+  "export.preserve_custom": "Пайдаланушы бөлімдері мен түсініктемелерін сақтау",
+  "export.version": "Нұсқа",
+  "export.wrap": "Жолдарды тасымалдау",
+  "export.precision": "Ондық таңбалар саны",
+  "export.select_version": "LAS нұсқасын таңдаңыз",
+  "export.select_dataset": "Алдымен деректер жинағын таңдаңыз",
+  "export.blocked": "LAS экспорттау мүмкін емес",
+  "export.warnings": "LAS экспорттау ескертулері",
+  "export.continue_question": "Экспорттауды жалғастыру керек пе?",
+  "export.save_title": "LAS экспорттау",
+  "export.overwrite_question": "Файл бұрыннан бар:\n{name}\n\nОны ауыстыру керек пе?",
+  "export.success": "LAS экспортталды: {name}"
 }
