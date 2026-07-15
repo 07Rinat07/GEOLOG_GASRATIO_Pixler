@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench import __version__
 from geoworkbench.calculations.controller import FormulaExecutionController
+from geoworkbench.calculations.custom_formula import formula_inputs
 from geoworkbench.calculations.interval_statistics import calculate_interval_statistics
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.data.las_adapter import (
@@ -43,6 +44,7 @@ from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
 from geoworkbench.project.curve_metadata_controller import CurveMetadataController
+from geoworkbench.project.custom_formula_controller import CustomFormulaController
 from geoworkbench.project.header_editing_controller import HeaderEditingController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
 from geoworkbench.project.depth_axis_controller import DepthAxisController
@@ -67,6 +69,7 @@ from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
+from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDialog
 from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
@@ -109,6 +112,7 @@ class MainWindow(QMainWindow):
         self.formula_execution_controller = FormulaExecutionController(
             self.session, self.formula_registry
         )
+        self.custom_formula_controller = CustomFormulaController(self.session)
         self.depth_annotation_controller = DepthAnnotationController(self.session)
         self.lithology_controller = LithologyController(self.session)
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
@@ -286,6 +290,10 @@ class MainWindow(QMainWindow):
         self.formula_action = QAction(self._t("formula.action"), self)
         self.formula_action.triggered.connect(self.show_formula_profiles)
         calc_menu.addAction(self.formula_action)
+
+        self.custom_formula_action = QAction("Пользовательские формулы...", self)
+        self.custom_formula_action.triggered.connect(self.show_custom_formulas)
+        calc_menu.addAction(self.custom_formula_action)
 
         self.nct_action = QAction(self._t("nct.action"), self)
         self.nct_action.triggered.connect(self.calculate_nct)
@@ -627,6 +635,7 @@ class MainWindow(QMainWindow):
         self.curve_metadata_controller.session = self.session
         self.curve_metadata_controller.clear_history()
         self.formula_execution_controller.session = self.session
+        self.custom_formula_controller.session = self.session
         self.depth_annotation_controller.session = self.session
         self.depth_annotation_controller.history.clear()
         self.lithology_controller.session = self.session
@@ -1108,6 +1117,30 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._log(f"Рассчитана кривая {result.output_mnemonic}: {result.profile_id}")
         self.statusBar().showMessage(f"Рассчитана кривая {result.output_mnemonic}")
+
+    def show_custom_formulas(self) -> None:
+        dialog = CustomFormulaDialog(
+            self.custom_formula_controller, self, language=self.language
+        )
+        dialog.exec()
+        if dialog.calculated_mnemonic is None or self.session.current_dataset is None:
+            return
+        definition = next(
+            (
+                item
+                for item in self.session.project.custom_formulas.values()
+                if item.output_mnemonic == dialog.calculated_mnemonic
+            ),
+            None,
+        )
+        inputs = formula_inputs(definition.expression) if definition else ()
+        self.curve_view.show_dataset(
+            self.session.current_dataset,
+            [*inputs, dialog.calculated_mnemonic],
+        )
+        self.tablet_view.set_dataset(self.session.current_dataset)
+        self._refresh_tree()
+        self._update_title()
 
     def show_interval_statistics(self) -> None:
         dataset = self.session.current_dataset

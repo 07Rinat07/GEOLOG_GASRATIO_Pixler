@@ -8,6 +8,7 @@ from geoworkbench.domain.models import (
     CanvasObject,
     CurveData,
     CurveMetadata,
+    CustomFormulaDefinition,
     Dataset,
     DatasetIndex,
     DatasetKind,
@@ -97,6 +98,9 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
         "oil_sand", "OS", "Нефтенасыщенный песок", "Oil sand", "sedimentary", "#a07840", "dots"
     )
     project.description_templates["Песчаник"] = "Песчаник серый, мелкозернистый"
+    project.custom_formulas["wetness"] = CustomFormulaDefinition(
+        "wetness", "Wetness", "100 * (C2 + C3) / (C1 + C2 + C3)", "WH_USER", "%"
+    )
 
     save_project(project, target, tablet_layouts={"dataset-1": layout})
     document = load_project_document(target)
@@ -105,6 +109,7 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     assert document.tablet_layouts["dataset-1"] == layout
     assert document.project.lithotypes["oil_sand"].code == "OS"
     assert document.project.description_templates["Песчаник"].startswith("Песчаник")
+    assert document.project.custom_formulas["wetness"].output_mnemonic == "WH_USER"
     assert document.project.wells["well-1"].datasets["dataset-1"].version_headers["DLM"] == "SPACE"
     assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == (
         PROJECT_FORMAT_VERSION

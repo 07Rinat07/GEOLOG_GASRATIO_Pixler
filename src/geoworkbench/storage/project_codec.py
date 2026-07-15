@@ -12,6 +12,7 @@ from geoworkbench.domain.models import (
     CanvasObject,
     CurveData,
     CurveMetadata,
+    CustomFormulaDefinition,
     CuttingsComponent,
     CuttingsSample,
     Dataset,
@@ -51,7 +52,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 8
+PROJECT_FORMAT_VERSION = 9
 
 
 @dataclass(slots=True)
@@ -333,6 +334,19 @@ def project_from_dict(data: dict[str, Any]) -> Project:
                 f"ID шаблона мастерлога '{template_id}' не совпадает с содержимым"
             )
         project.masterlog_templates[template_id] = template
+    raw_formulas = data.get("custom_formulas", {})
+    if not isinstance(raw_formulas, dict):
+        raise ProjectFormatError("Поле 'custom_formulas' должно быть объектом")
+    for formula_id, item in raw_formulas.items():
+        if not isinstance(formula_id, str) or not isinstance(item, dict):
+            raise ProjectFormatError("Запись пользовательской формулы имеет неверный формат")
+        try:
+            formula = CustomFormulaDefinition(**item)
+        except TypeError as exc:
+            raise ProjectFormatError(f"Некорректная формула '{formula_id}'") from exc
+        if formula.formula_id != formula_id:
+            raise ProjectFormatError(f"ID формулы '{formula_id}' не совпадает с содержимым")
+        project.custom_formulas[formula_id] = formula
     return project
 
 

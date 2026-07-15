@@ -109,6 +109,12 @@ compacted shale calibration interval, creates `NCT` and `DEXPC_NCT`, and display
 curves. A negative deviation supports an overpressure hypothesis but must be checked against
 lithology, drilling conditions, sensor quality, and other pressure-evaluation methods.
 
+## Custom formulas
+
+“Calculations → Custom formulas” creates and stores project formulas using curve mnemonics, for
+example `100 * (C2 + C3) / (C1 + C2 + C3)`. Supported operations are `+`, `-`, `*`, `/`, power,
+and `abs`, `sqrt`, `log10`, `minimum`, `maximum`. Source LAS curves cannot be overwritten.
+
 The complete engineering documentation currently lives in the parent `docs` directory and
 is being migrated into synchronized RU/KK/EN user guides.
 

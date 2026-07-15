@@ -361,6 +361,17 @@ class MasterlogTemplate:
 
 
 @dataclass(frozen=True, slots=True)
+class CustomFormulaDefinition:
+    formula_id: str
+    name: str
+    expression: str
+    output_mnemonic: str
+    output_unit: str
+    description: str = ""
+    version: int = 1
+
+
+@dataclass(frozen=True, slots=True)
 class ProjectLithotype:
     lithotype_id: str
     code: str
@@ -390,3 +401,4 @@ class Project:
     lithotypes: dict[str, ProjectLithotype] = field(default_factory=dict)
     description_templates: dict[str, str] = field(default_factory=dict)
     masterlog_templates: dict[str, MasterlogTemplate] = field(default_factory=dict)
+    custom_formulas: dict[str, CustomFormulaDefinition] = field(default_factory=dict)

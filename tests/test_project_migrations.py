@@ -49,6 +49,18 @@ def test_v7_project_migrates_with_empty_masterlog_templates() -> None:
     assert "masterlog_templates" not in payload["project"]
 
 
+def test_v8_project_migrates_with_empty_custom_formulas() -> None:
+    payload = {
+        "format_version": 8,
+        "project": {"project_id": "p", "name": "Project", "wells": {}},
+        "tablet_layouts": {}, "source_artifacts": {}, "import_reports": {},
+    }
+
+    migrated = migrate_project_payload(payload, 9)
+
+    assert migrated["project"]["custom_formulas"] == {}
+
+
 def test_registry_rejects_missing_migration_step() -> None:
     registry = ProjectMigrationRegistry()
 
