@@ -33,6 +33,7 @@ from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.data.las_adapter import LasExportError, LasImportError, import_las
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
+from geoworkbench.project.depth_axis_controller import DepthAxisController
 from geoworkbench.project.curve_editing_controller import (
     CurveEditingController,
     CurveEditOutcome,
@@ -56,6 +57,7 @@ from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
 from geoworkbench.visualization.curve_view import CurveView
+from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 
 
 class MainWindow(QMainWindow):
@@ -73,6 +75,7 @@ class MainWindow(QMainWindow):
         self.lithology_controller = LithologyController(self.session)
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
         self.description_template_controller = DescriptionTemplateController(self.session)
+        self.depth_axis_controller = DepthAxisController(self.session)
         self._selected_track_id: str | None = None
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
@@ -188,6 +191,12 @@ class MainWindow(QMainWindow):
         self.description_templates_action.triggered.connect(self.show_description_templates)
         edit_menu.addAction(self.description_templates_action)
 
+        self.normalize_depth_action = QAction(
+            "Создать копию с глубиной по возрастанию...", self
+        )
+        self.normalize_depth_action.triggered.connect(self.create_ascending_depth_copy)
+        edit_menu.addAction(self.normalize_depth_action)
+
         self.ratio_action = QAction("Рассчитать базовые Gas Ratio", self)
         self.ratio_action.triggered.connect(self.calculate_ratios)
         calc_menu.addAction(self.ratio_action)
@@ -289,12 +298,15 @@ class MainWindow(QMainWindow):
         last_dataset = None
         last_well = None
         errors: list[str] = []
+        descending_files: list[str] = []
         for filename in filenames:
             try:
                 dataset = import_las(filename)
                 well = self.session.add_dataset(dataset)
                 last_dataset = dataset
                 last_well = well
+                if analyze_depth_axis(dataset.depth).direction is DepthDirection.DESCENDING:
+                    descending_files.append(Path(filename).name)
                 self._log(f"Загружен LAS: {filename}")
             except (OSError, LasImportError) as exc:
                 errors.append(f"{Path(filename).name}: {exc}")
@@ -321,6 +333,15 @@ class MainWindow(QMainWindow):
         )
         if errors:
             QMessageBox.warning(self, "Часть LAS не загружена", "\n".join(errors))
+        if descending_files:
+            QMessageBox.warning(
+                self,
+                "Обратный порядок глубины",
+                "Глубина записана по убыванию:\n"
+                + "\n".join(descending_files)
+                + "\n\nОригинал не изменён. Для исправления используйте: "
+                "Правка → Создать копию с глубиной по возрастанию.",
+            )
         self._refresh_tree()
         self._update_title()
         self.tabs.setCurrentWidget(self.tablet_view)
@@ -364,6 +385,7 @@ class MainWindow(QMainWindow):
         self.lithology_controller.session = self.session
         self.lithotype_catalog_controller.session = self.session
         self.description_template_controller.session = self.session
+        self.depth_axis_controller.session = self.session
         self._update_curve_edit_actions()
         self._selected_track_id = None
         self._refresh_tree()
@@ -768,6 +790,39 @@ class MainWindow(QMainWindow):
         DescriptionTemplatesDialog(self.description_template_controller, self).exec()
         self._refresh_tree()
         self._update_title()
+
+    def create_ascending_depth_copy(self) -> None:
+        try:
+            report = self.depth_axis_controller.analyze_current()
+        except RuntimeError as exc:
+            QMessageBox.information(self, "Порядок глубины", str(exc))
+            return
+        if report.direction is not DepthDirection.DESCENDING:
+            QMessageBox.information(
+                self,
+                "Порядок глубины",
+                f"Автоматический разворот не требуется: {report.direction.value}",
+            )
+            return
+        answer = QMessageBox.question(
+            self,
+            "Создать исправленную копию",
+            "Будет создан новый dataset с возрастающей глубиной и развёрнутыми кривыми. "
+            "Исходный LAS и исходный dataset останутся без изменений. Продолжить?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if answer is not QMessageBox.StandardButton.Yes:
+            return
+        try:
+            result = self.depth_axis_controller.create_ascending_copy()
+        except (RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, "Порядок глубины", str(exc))
+            return
+        self._show_current_dataset()
+        self._refresh_tree()
+        self._update_title()
+        self._log(f"Создана копия с возрастающей глубиной: {result.name}")
 
     def show_lithology_legend(self) -> None:
         well = self.session.current_well
