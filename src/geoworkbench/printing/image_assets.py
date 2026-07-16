@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from hashlib import sha256
@@ -37,12 +38,15 @@ def create_png_asset(source: Path) -> ImageAsset:
 
 
 def save_image_assets(project_path: Path, assets: dict[str, ImageAsset]) -> dict[str, Any]:
-    if not assets:
-        return {}
     directory = _asset_directory(project_path)
     if directory.is_symlink():
         raise ImageAssetError("Каталог image assets не может быть символической ссылкой")
-    directory.mkdir(parents=True, exist_ok=True)
+    if assets:
+        directory.mkdir(parents=True, exist_ok=True)
+    elif not directory.exists():
+        return {}
+    if not directory.is_dir():
+        raise ImageAssetError("Путь image assets должен быть каталогом")
     manifest: dict[str, Any] = {}
     for asset_id, asset in assets.items():
         _validate_asset(asset_id, asset)
@@ -60,6 +64,7 @@ def save_image_assets(project_path: Path, assets: dict[str, ImageAsset]) -> dict
             "media_type": asset.media_type,
             "original_name": asset.original_name,
         }
+    _remove_orphaned_assets(directory, set(manifest))
     return manifest
 
 
@@ -115,6 +120,20 @@ def _validate_asset(asset_id: str, asset: ImageAsset) -> None:
 
 def _asset_directory(project_path: Path) -> Path:
     return project_path.parent / f"{project_path.name}.assets" / "images"
+
+
+def _remove_orphaned_assets(directory: Path, live_asset_ids: set[str]) -> None:
+    live_names = {
+        f"{asset_id.removeprefix('sha256:')}.png" for asset_id in live_asset_ids
+    }
+    for candidate in directory.iterdir():
+        if (
+            candidate.name not in live_names
+            and re.fullmatch(r"[0-9a-f]{64}\.png", candidate.name)
+            and candidate.is_file()
+            and not candidate.is_symlink()
+        ):
+            candidate.unlink()
 
 
 def _atomic_write(target: Path, payload: bytes) -> None:

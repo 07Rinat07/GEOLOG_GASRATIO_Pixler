@@ -55,3 +55,23 @@ def test_image_asset_rejects_symlinked_storage_directory(tmp_path) -> None:
 
     with pytest.raises(ImageAssetError):
         load_image_assets(project, {})
+
+
+def test_image_asset_save_removes_only_orphaned_managed_png_files(tmp_path) -> None:
+    source = tmp_path / "logo.png"
+    source.write_bytes(PNG)
+    project = tmp_path / "well.geolog.json"
+    asset = create_png_asset(source)
+    manifest = save_image_assets(project, {asset.asset_id: asset})
+    managed = tmp_path / manifest[asset.asset_id]["path"]
+    directory = managed.parent
+    unrelated = directory / "notes.txt"
+    unrelated.write_text("keep", encoding="utf-8")
+    symlink = directory / ("f" * 64 + ".png")
+    symlink.symlink_to(unrelated)
+
+    assert save_image_assets(project, {}) == {}
+
+    assert not managed.exists()
+    assert unrelated.read_text(encoding="utf-8") == "keep"
+    assert symlink.is_symlink()
