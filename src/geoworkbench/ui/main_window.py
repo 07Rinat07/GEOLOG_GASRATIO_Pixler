@@ -64,6 +64,7 @@ from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.models import CurveLineStyle, CurveStyle
 from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.lithology_legend import build_lithology_legend
 from geoworkbench.tablet.tablet_view import TabletView
@@ -194,6 +195,9 @@ class MainWindow(QMainWindow):
         dock = QDockWidget(self._t("dock.inspector"), self)
         self.inspector = TrackInspector(language=self.language)
         self.inspector.settings_requested.connect(self._apply_inspector_track_settings)
+        self.inspector.curve_style_requested.connect(
+            self._apply_inspector_curve_style
+        )
         dock.setWidget(self.inspector)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
@@ -1824,6 +1828,30 @@ class MainWindow(QMainWindow):
         if self.tablet_controller.set_visible_depth(top, bottom):
             self._update_title()
         self.statusBar().showMessage(f"Видимый интервал: {top:.2f}–{bottom:.2f} м")
+
+    def _apply_inspector_curve_style(
+        self,
+        track_id: str,
+        mnemonic: str,
+        color: str,
+        width: float,
+        line_style: str,
+    ) -> None:
+        try:
+            style = CurveStyle(
+                color=color,
+                width=width,
+                line_style=CurveLineStyle(line_style),
+            )
+            self.tablet_controller.set_curve_style(track_id, mnemonic, style)
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+        except (KeyError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("inspector.title"), str(exc))
+            return
+        self._layout_changed(
+            self._t("inspector.style_updated", mnemonic=mnemonic)
+        )
+        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
 
     def _update_title(self) -> None:
         marker = " *" if self.session.dirty else ""

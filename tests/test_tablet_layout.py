@@ -5,7 +5,14 @@ from geoworkbench.tablet.layout_codec import (
     layout_from_dict,
     layout_to_dict,
 )
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    CurveLineStyle,
+    CurveStyle,
+    TabletLayout,
+    TrackDefinition,
+    TrackKind,
+    XScale,
+)
 
 
 def make_layout() -> TabletLayout:
@@ -48,6 +55,9 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     source.set_track_x_range("gas", 0.1, 1000.0)
     source.set_track_x_scale("gas", XScale.LOGARITHMIC)
     source.set_visible_depth(1200.0, 1300.0)
+    source.track_by_id("gas").set_curve_style(
+        "C1", CurveStyle("#ff0000", 2.5, CurveLineStyle.DASH)
+    )
 
     restored = layout_from_dict(layout_to_dict(source))
 
@@ -55,6 +65,46 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     assert restored.tracks[0].kind is TrackKind.DEPTH
     assert restored.visible_depth_top == 1200.0
     assert restored.visible_depth_bottom == 1300.0
+    assert restored.track_by_id("gas").curve_style("C1") == CurveStyle(
+        "#ff0000", 2.5, CurveLineStyle.DASH
+    )
+
+
+def test_layout_codec_migrates_v3_without_curve_styles() -> None:
+    restored = layout_from_dict(
+        {
+            "version": 3,
+            "visible_depth_top": None,
+            "visible_depth_bottom": None,
+            "tracks": [
+                {
+                    "track_id": "curve",
+                    "title": "Curve",
+                    "kind": "curve",
+                    "curve_mnemonics": ["GR"],
+                }
+            ],
+        }
+    )
+    assert restored.track_by_id("curve").curve_styles == {}
+
+
+@pytest.mark.parametrize(
+    "style",
+    [
+        CurveStyle("#AABBCC", 0.5, CurveLineStyle.SOLID),
+        CurveStyle("#000000", 10.0, CurveLineStyle.DASH_DOT),
+    ],
+)
+def test_curve_style_accepts_supported_boundaries(style: CurveStyle) -> None:
+    assert style.color.startswith("#")
+
+
+def test_curve_style_rejects_invalid_color_and_width() -> None:
+    with pytest.raises(ValueError, match="RRGGBB"):
+        CurveStyle("red")
+    with pytest.raises(ValueError, match="0.5"):
+        CurveStyle("#ff0000", 0.1)
 
 
 def test_layout_codec_migrates_v1_x_settings_to_linear_auto_range() -> None:

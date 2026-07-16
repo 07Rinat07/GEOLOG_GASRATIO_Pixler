@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QSpinBox,
     QStackedWidget,
@@ -15,17 +16,19 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.tablet.models import TrackDefinition, XScale
+from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackDefinition, XScale
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class TrackInspector(QWidget):
     settings_requested = Signal(str, int, str, object, object)
+    curve_style_requested = Signal(str, str, str, float, str)
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__()
         self.localizer = Localizer.create(language)
         self._track_id: str | None = None
+        self._current_track: TrackDefinition | None = None
         self._stack = QStackedWidget()
 
         self._text = QTextEdit()
@@ -60,6 +63,28 @@ class TrackInspector(QWidget):
         form.addRow(self._t("inspector.x_maximum"), self.maximum_input)
         editor_layout.addLayout(form)
 
+        style_form = QFormLayout()
+        self.curve_input = QComboBox()
+        self.curve_input.currentTextChanged.connect(self._load_curve_style)
+        style_form.addRow(self._t("inspector.style_curve"), self.curve_input)
+        self.color_input = QLineEdit()
+        self.color_input.setPlaceholderText("#2563eb")
+        style_form.addRow(self._t("inspector.color"), self.color_input)
+        self.line_width_input = QDoubleSpinBox()
+        self.line_width_input.setRange(0.5, 10.0)
+        self.line_width_input.setDecimals(1)
+        style_form.addRow(self._t("inspector.line_width"), self.line_width_input)
+        self.line_style_input = QComboBox()
+        for style in CurveLineStyle:
+            self.line_style_input.addItem(
+                self._t(f"inspector.line_style.{style.value}"), style.value
+            )
+        style_form.addRow(self._t("inspector.line_style"), self.line_style_input)
+        editor_layout.addLayout(style_form)
+        self.style_button = QPushButton(self._t("inspector.apply_style"))
+        self.style_button.clicked.connect(self._emit_curve_style)
+        editor_layout.addWidget(self.style_button)
+
         self.apply_button = QPushButton(self._t("common.apply"))
         self.apply_button.clicked.connect(self._emit_settings)
         editor_layout.addWidget(self.apply_button)
@@ -76,6 +101,7 @@ class TrackInspector(QWidget):
 
     def setPlainText(self, text: str) -> None:  # noqa: N802
         self._track_id = None
+        self._current_track = None
         self._text.setPlainText(text)
         self._stack.setCurrentIndex(0)
 
@@ -86,6 +112,7 @@ class TrackInspector(QWidget):
         suggested_range: tuple[float, float] | None = None,
     ) -> None:
         self._track_id = track.track_id
+        self._current_track = track
         self._summary.setText(
             f"{track.title}\n"
             f"{self._t('inspector.type')}: {track.kind.value}\n"
@@ -102,6 +129,12 @@ class TrackInspector(QWidget):
         self.minimum_input.setValue(track.x_min if track.x_min is not None else fallback[0])
         self.maximum_input.setValue(track.x_max if track.x_max is not None else fallback[1])
         self._update_range_enabled(automatic)
+        self.curve_input.blockSignals(True)
+        self.curve_input.clear()
+        self.curve_input.addItems(track.curve_mnemonics)
+        self.curve_input.blockSignals(False)
+        self._load_curve_style(self.curve_input.currentText())
+        self.style_button.setEnabled(bool(track.curve_mnemonics))
         self._stack.setCurrentIndex(1)
 
     @staticmethod
@@ -129,4 +162,28 @@ class TrackInspector(QWidget):
             str(self.scale_input.currentData()),
             minimum,
             maximum,
+        )
+
+    def _load_curve_style(self, mnemonic: str) -> None:
+        track = self._current_track
+        if track is None or not mnemonic:
+            self.color_input.setText("")
+            return
+        style = track.curve_style(mnemonic) or CurveStyle()
+        self.color_input.setText(style.color)
+        self.line_width_input.setValue(style.width)
+        self.line_style_input.setCurrentIndex(
+            self.line_style_input.findData(style.line_style.value)
+        )
+
+    def _emit_curve_style(self) -> None:
+        mnemonic = self.curve_input.currentText()
+        if self._track_id is None or not mnemonic:
+            return
+        self.curve_style_requested.emit(
+            self._track_id,
+            mnemonic,
+            self.color_input.text().strip(),
+            self.line_width_input.value(),
+            str(self.line_style_input.currentData()),
         )

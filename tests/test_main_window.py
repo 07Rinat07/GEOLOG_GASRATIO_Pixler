@@ -18,6 +18,7 @@ from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.models import CurveLineStyle
 from geoworkbench.ui.main_window import MainWindow
 
 
@@ -223,6 +224,25 @@ def test_window_applies_track_settings_from_inspector(qapp) -> None:
     assert track.width == 420
     assert track.x_min == -10.0
     assert track.x_max == 10.0
+    assert session.dirty is True
+    window.close()
+
+
+def test_window_applies_curve_style_from_inspector(qapp) -> None:
+    window = MainWindow()
+    session, layout = make_session()
+    layout.track_by_id("curve").curve_mnemonics = ["ROP"]
+    bind_session(window, session)
+    window._show_current_dataset()
+    session.dirty = False
+
+    window._apply_inspector_curve_style("curve", "ROP", "#445566", 2.5, "dash")
+
+    style = layout.track_by_id("curve").curve_style("ROP")
+    assert style is not None
+    assert style.color == "#445566"
+    assert style.width == 2.5
+    assert style.line_style is CurveLineStyle.DASH
     assert session.dirty is True
     window.close()
 

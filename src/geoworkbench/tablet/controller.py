@@ -4,7 +4,13 @@ from dataclasses import dataclass
 
 from geoworkbench.domain.models import Dataset, new_id
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    CurveStyle,
+    TabletLayout,
+    TrackDefinition,
+    TrackKind,
+    XScale,
+)
 
 
 GAS_MNEMONIC_ORDER = (
@@ -182,6 +188,12 @@ class TabletController:
             x_min=x_min,
             x_max=x_max,
         )
+        self.session.dirty = True
+
+    def set_curve_style(
+        self, track_id: str, mnemonic: str, style: CurveStyle
+    ) -> None:
+        self._require_layout().track_by_id(track_id).set_curve_style(mnemonic, style)
         self.session.dirty = True
 
     def move_track(self, track_id: str, offset: int) -> bool:

@@ -1,6 +1,7 @@
 import numpy as np
 import pyqtgraph as pg
 import pytest
+from PySide6.QtCore import Qt
 
 from geoworkbench.domain.models import (
     CanvasObject,
@@ -12,7 +13,14 @@ from geoworkbench.domain.models import (
     LithologyInterval,
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    CurveLineStyle,
+    CurveStyle,
+    TabletLayout,
+    TrackDefinition,
+    TrackKind,
+    XScale,
+)
 from geoworkbench.tablet.tablet_view import TabletTrackWidget, TabletView, curve_legend_label
 
 
@@ -65,6 +73,37 @@ def test_tablet_view_exposes_rendered_legend_labels(qapp) -> None:
     qapp.processEvents()
 
     assert view.legend_labels("curves") == ("C1 [%]", "ROP")
+    view.close()
+
+
+def test_tablet_view_applies_saved_curve_pen_style(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 101.0])
+    )
+    curve = make_curve(dataset.dataset_id, "C1", "%")
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "gas",
+                    "Gas",
+                    TrackKind.GAS,
+                    curve_mnemonics=["C1"],
+                    curve_styles={
+                        "C1": CurveStyle("#123456", 3.5, CurveLineStyle.DASH_DOT)
+                    },
+                )
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+
+    pen = view._rendered["gas"].curve_items["C1"].opts["pen"]
+    assert pen.color().name() == "#123456"
+    assert pen.widthF() == 3.5
+    assert pen.style() == Qt.PenStyle.DashDotLine
     view.close()
 
 

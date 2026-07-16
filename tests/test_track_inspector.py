@@ -2,7 +2,13 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.tablet.models import TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    CurveLineStyle,
+    CurveStyle,
+    TrackDefinition,
+    TrackKind,
+    XScale,
+)
 from geoworkbench.ui.track_inspector import TrackInspector
 
 
@@ -83,4 +89,31 @@ def test_inspector_uses_data_range_when_switching_from_auto_to_manual(qapp) -> N
     inspector.auto_range_input.setChecked(False)
     assert inspector.minimum_input.isEnabled() is True
     assert inspector.maximum_input.isEnabled() is True
+    inspector.close()
+
+
+def test_inspector_edits_selected_curve_style(qapp) -> None:
+    inspector = TrackInspector(language=AppLanguage.EN)
+    track = TrackDefinition(
+        "gas",
+        "Gas",
+        TrackKind.GAS,
+        curve_mnemonics=["C1", "C2"],
+        curve_styles={"C2": CurveStyle("#00ff00", 3.0, CurveLineStyle.DOT)},
+    )
+    emitted: list[tuple[object, ...]] = []
+    inspector.curve_style_requested.connect(lambda *args: emitted.append(args))
+    inspector.show_track(track)
+    inspector.curve_input.setCurrentText("C2")
+
+    assert inspector.color_input.text() == "#00ff00"
+    assert inspector.line_width_input.value() == 3.0
+    inspector.color_input.setText("#112233")
+    inspector.line_width_input.setValue(2.5)
+    inspector.line_style_input.setCurrentIndex(
+        inspector.line_style_input.findData(CurveLineStyle.DASH.value)
+    )
+    QTest.mouseClick(inspector.style_button, Qt.MouseButton.LeftButton)
+
+    assert emitted == [("gas", "C2", "#112233", 2.5, "dash")]
     inspector.close()

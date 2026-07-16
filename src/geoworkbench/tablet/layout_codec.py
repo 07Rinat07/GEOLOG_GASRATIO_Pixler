@@ -3,10 +3,17 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    CurveLineStyle,
+    CurveStyle,
+    TabletLayout,
+    TrackDefinition,
+    TrackKind,
+    XScale,
+)
 
 
-LAYOUT_FORMAT_VERSION = 3
+LAYOUT_FORMAT_VERSION = 4
 
 
 class TabletLayoutFormatError(ValueError):
@@ -30,6 +37,14 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                 "x_scale": track.x_scale.value,
                 "x_min": track.x_min,
                 "x_max": track.x_max,
+                "curve_styles": {
+                    mnemonic: {
+                        "color": style.color,
+                        "width": style.width,
+                        "line_style": style.line_style.value,
+                    }
+                    for mnemonic, style in track.curve_styles.items()
+                },
             }
             for track in layout.tracks
         ],
@@ -84,6 +99,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
     locked = data.get("locked", False)
     raw_x_min = data.get("x_min")
     raw_x_max = data.get("x_max")
+    raw_curve_styles = data.get("curve_styles", {})
     if not isinstance(track_id, str) or not track_id.strip():
         raise TypeError("track_id должен быть непустой строкой")
     if not isinstance(title, str) or not title.strip():
@@ -99,6 +115,19 @@ def _track_from_dict(data: object) -> TrackDefinition:
     for name, value in (("x_min", raw_x_min), ("x_max", raw_x_max)):
         if value is not None and (not isinstance(value, (int, float)) or isinstance(value, bool)):
             raise TypeError(f"{name} должен быть числом или null")
+    if not isinstance(raw_curve_styles, dict):
+        raise TypeError("curve_styles должен быть JSON-объектом")
+    curve_styles: dict[str, CurveStyle] = {}
+    for mnemonic, raw_style in raw_curve_styles.items():
+        if not isinstance(mnemonic, str) or not isinstance(raw_style, dict):
+            raise TypeError("Некорректная настройка кривой")
+        curve_styles[mnemonic] = CurveStyle(
+            color=raw_style.get("color", "#2563eb"),
+            width=raw_style.get("width", 1.5),
+            line_style=CurveLineStyle(
+                raw_style.get("line_style", CurveLineStyle.SOLID.value)
+            ),
+        )
 
     return TrackDefinition(
         track_id=track_id,
@@ -111,6 +140,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         x_scale=XScale(data.get("x_scale", XScale.LINEAR.value)),
         x_min=float(raw_x_min) if raw_x_min is not None else None,
         x_max=float(raw_x_max) if raw_x_max is not None else None,
+        curve_styles=curve_styles,
     )
 
 
@@ -118,7 +148,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2):
+    if version not in (1, 2, 3):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -133,4 +163,10 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     migrated["version"] = 3
     migrated.setdefault("visible_depth_top", None)
     migrated.setdefault("visible_depth_bottom", None)
+    migrated["version"] = 4
+    tracks = migrated.get("tracks")
+    if isinstance(tracks, list):
+        for track in tracks:
+            if isinstance(track, dict):
+                track.setdefault("curve_styles", {})
     return migrated

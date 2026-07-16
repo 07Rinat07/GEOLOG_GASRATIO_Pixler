@@ -13,7 +13,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.tablet.controller import TabletController
-from geoworkbench.tablet.models import TrackKind, XScale
+from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackKind, XScale
 
 
 def make_session() -> ProjectSession:
@@ -76,6 +76,20 @@ def test_track_commands_update_layout_and_dirty_state() -> None:
     assert layout.track_by_id(track.track_id).visible is False
     assert controller.show_all_tracks() == 1
     assert controller.remove_track(track.track_id) is track
+    assert session.dirty is True
+
+
+def test_controller_sets_curve_style_and_marks_project_dirty() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    track = next(item for item in layout.tracks if item.kind is TrackKind.GAS)
+    session.dirty = False
+    style = CurveStyle("#abcdef", 2.0, CurveLineStyle.DOT)
+
+    controller.set_curve_style(track.track_id, "C1", style)
+
+    assert track.curve_style("C1") == style
     assert session.dirty is True
 
 

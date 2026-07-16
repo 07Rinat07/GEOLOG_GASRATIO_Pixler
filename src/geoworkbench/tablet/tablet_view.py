@@ -21,7 +21,13 @@ from geoworkbench.domain.models import CanvasObject, CurveData, Dataset, Litholo
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.tablet.lithology_labels import lithology_label_is_visible
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    CurveLineStyle,
+    TabletLayout,
+    TrackDefinition,
+    TrackKind,
+    XScale,
+)
 from geoworkbench.tablet.resize import TrackResizeGesture
 from geoworkbench.tablet.sampling import select_visible_samples
 
@@ -408,7 +414,25 @@ class TabletView(QWidget):
                     track.plot.addLegend(offset=(5, 5))
                     legend_created = True
                 label = curve_legend_label(curve)
-                pen = pg.mkPen(pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))))
+                style = definition.curve_style(mnemonic)
+                pen = (
+                    pg.mkPen(
+                        style.color,
+                        width=style.width,
+                        style={
+                            CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
+                            CurveLineStyle.DASH: Qt.PenStyle.DashLine,
+                            CurveLineStyle.DOT: Qt.PenStyle.DotLine,
+                            CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
+                        }[style.line_style],
+                    )
+                    if style is not None
+                    else pg.mkPen(
+                        pg.intColor(
+                            index, hues=max(1, len(definition.curve_mnemonics))
+                        )
+                    )
+                )
                 if visible_top is None or visible_bottom is None:
                     visible_values = np.array([], dtype=np.float64)
                     visible_depth = np.array([], dtype=np.float64)

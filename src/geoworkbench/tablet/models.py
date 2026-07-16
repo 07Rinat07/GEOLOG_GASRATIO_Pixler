@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 from math import isfinite
+import re
 
 
 class TrackKind(StrEnum):
@@ -21,6 +22,30 @@ class XScale(StrEnum):
     LOGARITHMIC = "logarithmic"
 
 
+class CurveLineStyle(StrEnum):
+    SOLID = "solid"
+    DASH = "dash"
+    DOT = "dot"
+    DASH_DOT = "dash_dot"
+
+
+@dataclass(frozen=True, slots=True)
+class CurveStyle:
+    color: str = "#2563eb"
+    width: float = 1.5
+    line_style: CurveLineStyle = CurveLineStyle.SOLID
+
+    def __post_init__(self) -> None:
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", self.color):
+            raise ValueError("Цвет кривой должен быть в формате #RRGGBB")
+        if isinstance(self.width, bool) or not isinstance(self.width, (int, float)):
+            raise ValueError("Толщина линии должна быть числом")
+        if not isfinite(self.width) or not 0.5 <= self.width <= 10.0:
+            raise ValueError("Толщина линии должна быть от 0.5 до 10 px")
+        if not isinstance(self.line_style, CurveLineStyle):
+            raise ValueError("Стиль линии не поддерживается")
+
+
 @dataclass(slots=True)
 class TrackDefinition:
     track_id: str
@@ -33,11 +58,16 @@ class TrackDefinition:
     x_scale: XScale = XScale.LINEAR
     x_min: float | None = None
     x_max: float | None = None
+    curve_styles: dict[str, CurveStyle] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.width < 80:
             raise ValueError("Ширина трека должна быть не меньше 80 px")
         self._validate_x_settings(self.x_scale, self.x_min, self.x_max)
+        if not all(isinstance(key, str) and key.strip() for key in self.curve_styles):
+            raise ValueError("Ключи стилей кривых должны быть непустыми строками")
+        if not all(isinstance(style, CurveStyle) for style in self.curve_styles.values()):
+            raise ValueError("Настройки кривых должны использовать CurveStyle")
 
     def set_x_scale(self, scale: XScale) -> None:
         self._validate_x_settings(scale, self.x_min, self.x_max)
@@ -63,6 +93,17 @@ class TrackDefinition:
         self.x_scale = x_scale
         self.x_min = x_min
         self.x_max = x_max
+
+    def set_curve_style(self, mnemonic: str, style: CurveStyle) -> None:
+        normalized = mnemonic.strip()
+        if normalized not in self.curve_mnemonics:
+            raise KeyError(f"Кривая отсутствует в треке: {mnemonic}")
+        if not isinstance(style, CurveStyle):
+            raise ValueError("Настройки кривой должны использовать CurveStyle")
+        self.curve_styles[normalized] = style
+
+    def curve_style(self, mnemonic: str) -> CurveStyle | None:
+        return self.curve_styles.get(mnemonic)
 
     @staticmethod
     def _validate_x_settings(
