@@ -42,6 +42,11 @@ from geoworkbench.data.csv_adapter import CsvImportError, import_csv
 from geoworkbench.data.excel_adapter import ExcelImportError, import_excel
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.data.selection_export import SelectionExportError
+from geoworkbench.data.visualization_export import (
+    VisualizationExportError,
+    export_widget_png,
+    export_widget_svg,
+)
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
 from geoworkbench.project.curve_metadata_controller import CurveMetadataController
@@ -279,6 +284,12 @@ class MainWindow(QMainWindow):
         export_excel_action = QAction(self._t("selection_export.excel_action"), self)
         export_excel_action.triggered.connect(self.export_selected_excel)
         file_menu.addAction(export_excel_action)
+        export_png_action = QAction(self._t("visual_export.png_action"), self)
+        export_png_action.triggered.connect(lambda: self.export_active_visualization("png"))
+        file_menu.addAction(export_png_action)
+        export_svg_action = QAction(self._t("visual_export.svg_action"), self)
+        export_svg_action.triggered.connect(lambda: self.export_active_visualization("svg"))
+        file_menu.addAction(export_svg_action)
 
         self.data_inspector_action = QAction(self._t("data.action"), self)
         self.data_inspector_action.triggered.connect(self.show_data_inspector)
@@ -983,6 +994,47 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.No,
         )
         return True if answer == QMessageBox.StandardButton.Yes else None
+
+    def export_active_visualization(self, export_format: str) -> None:
+        current = self.tabs.currentWidget()
+        if current not in (self.curve_view, self.tablet_view):
+            QMessageBox.information(
+                self,
+                self._t("visual_export.title"),
+                self._t("visual_export.select_view"),
+            )
+            return
+        suffix = ".svg" if export_format == "svg" else ".png"
+        file_filter = "SVG (*.svg)" if export_format == "svg" else "PNG (*.png)"
+        view_name = "tablet" if current is self.tablet_view else "curves"
+        target_name = f"{view_name}{suffix}"
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("visual_export.save_title"),
+            str(Path.cwd() / target_name),
+            file_filter,
+        )
+        if not filename:
+            return
+        target = Path(filename)
+        if target.suffix.casefold() != suffix:
+            target = target.with_suffix(suffix)
+        overwrite = self._confirm_export_overwrite(target)
+        if overwrite is None:
+            return
+        try:
+            exported = (
+                export_widget_svg(current, target, overwrite=overwrite)
+                if export_format == "svg"
+                else export_widget_png(current, target, overwrite=overwrite)
+            )
+        except (FileExistsError, OSError, VisualizationExportError) as exc:
+            QMessageBox.critical(self, self._t("visual_export.title"), str(exc))
+            self._log(self._t("visual_export.failed", error=str(exc)))
+            return
+        message = self._t("visual_export.success", name=exported.name)
+        self._log(message)
+        self.statusBar().showMessage(message)
 
     def show_data_inspector(self) -> None:
         if self.session.current_dataset is None:

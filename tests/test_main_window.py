@@ -325,6 +325,25 @@ def test_window_exports_synchronized_selection_to_csv(qapp, tmp_path, monkeypatc
     window.close()
 
 
+def test_window_exports_active_curve_view_to_png(qapp, tmp_path, monkeypatch) -> None:
+    window = MainWindow()
+    window.resize(800, 600)
+    window.show()
+    window.tabs.setCurrentWidget(window.curve_view)
+    qapp.processEvents()
+    target = tmp_path / "curves.png"
+    monkeypatch.setattr(
+        QFileDialog,
+        "getSaveFileName",
+        lambda *args, **kwargs: (str(target), "PNG (*.png)"),
+    )
+
+    window.export_active_visualization("png")
+
+    assert target.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    window.close()
+
+
 def test_window_applies_curve_edit_and_updates_undo_redo_actions(qapp) -> None:
     window = MainWindow()
     session, _ = make_session()
