@@ -237,6 +237,8 @@
   "data.indexes": "Indexes", "data.description": "Description", "data.missing": "Missing",
   "data.curves": "Curves", "data.severity": "Severity", "data.code": "Code", "data.message": "Message",
   "data.add_curve": "Add curve",
+  "data.remove_curve": "Remove curve", "data.remove_curve_title": "Remove user curve",
+  "data.remove_curve_confirm": "The curve will be removed from the dataset. This action can be reverted with Undo. Continue?",
   "data.import_diagnostics": "Import diagnostics", "data.las_source": "LAS source", "data.section": "Section",
   "data.sync_depth": "Synchronize STRT/STOP/STEP", "data.apply_null": "Apply NULL",
   "data.value": "Value", "data.control": "Control", "data.las_header": "LAS header",

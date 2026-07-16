@@ -117,6 +117,7 @@ class DataInspectorDialog(QDialog):
         for label, handler in (
             (self._t("data.add_curve"), self._add_curve),
             (self._t("common.update"), self._update_curve_metadata),
+            (self._t("data.remove_curve"), self._remove_curve),
             (self._t("common.undo"), self._undo_curve_metadata),
             (self._t("common.redo"), self._redo_curve_metadata),
         ):
@@ -348,6 +349,26 @@ class DataInspectorDialog(QDialog):
                 unit=self.curve_unit.text(),
                 description=self.curve_description.text(),
             )
+        )
+
+    def _remove_curve(self) -> None:
+        curve_id = self._selected_curve_id()
+        if curve_id is None:
+            QMessageBox.information(
+                self, self._t("data.curves"), self._t("data.select_curve")
+            )
+            return
+        answer = QMessageBox.question(
+            self,
+            self._t("data.remove_curve_title"),
+            self._t("data.remove_curve_confirm"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer is not QMessageBox.StandardButton.Yes:
+            return
+        self._run_curve_metadata_action(
+            lambda: self.curve_metadata_controller.remove(curve_id)
         )
 
     def _undo_curve_metadata(self) -> None:

@@ -25,7 +25,15 @@ class CurveCreationCommand:
     description: str
 
 
-CurveCatalogCommand = CurveMetadataCommand | CurveCreationCommand
+@dataclass(frozen=True, slots=True)
+class CurveRemovalCommand:
+    dataset_id: str
+    curve: CurveData
+    position: int
+    description: str
+
+
+CurveCatalogCommand = CurveMetadataCommand | CurveCreationCommand | CurveRemovalCommand
 
 
 @dataclass(slots=True)
@@ -126,6 +134,29 @@ class CurveMetadataController:
         self.session.dirty = True
         return curve
 
+    def remove(self, curve_id: str) -> CurveData:
+        dataset = self._dataset()
+        curve = self._curve(dataset, curve_id)
+        if curve.metadata.provenance != "user":
+            raise ValueError(
+                "Удалять можно только кривые, созданные пользователем в текущем проекте"
+            )
+        position = list(dataset.curves).index(curve_id)
+        del dataset.curves[curve_id]
+        self._undo_stack.append(
+            CurveRemovalCommand(
+                dataset.dataset_id,
+                curve,
+                position,
+                f"Удаление кривой {curve.metadata.original_mnemonic}",
+            )
+        )
+        if len(self._undo_stack) > self.max_commands:
+            del self._undo_stack[0]
+        self._redo_stack.clear()
+        self.session.dirty = True
+        return curve
+
     def undo(self) -> str:
         if not self._undo_stack:
             raise RuntimeError("Нет изменений метаданных кривых для отмены")
@@ -133,8 +164,10 @@ class CurveMetadataController:
         self._require_current_command_dataset(command)
         if isinstance(command, CurveMetadataCommand):
             self._restore(command.curve, command.after, command.before)
-        else:
+        elif isinstance(command, CurveCreationCommand):
             self._remove_created_curve(command)
+        else:
+            self._restore_removed_curve(command)
         self._undo_stack.pop()
         self._redo_stack.append(command)
         self.session.dirty = True
@@ -147,8 +180,10 @@ class CurveMetadataController:
         self._require_current_command_dataset(command)
         if isinstance(command, CurveMetadataCommand):
             self._restore(command.curve, command.before, command.after)
-        else:
+        elif isinstance(command, CurveCreationCommand):
             self._restore_created_curve(command)
+        else:
+            self._remove_again(command)
         self._redo_stack.pop()
         self._undo_stack.append(command)
         self.session.dirty = True
@@ -217,6 +252,22 @@ class CurveMetadataController:
             command.curve.metadata.description,
         )
         dataset.curves[curve_id] = command.curve
+
+    def _restore_removed_curve(self, command: CurveRemovalCommand) -> None:
+        dataset = self._dataset()
+        curve_id = command.curve.metadata.curve_id
+        if curve_id in dataset.curves:
+            raise RuntimeError("Идентификатор удалённой кривой уже занят")
+        items = list(dataset.curves.items())
+        items.insert(command.position, (curve_id, command.curve))
+        dataset.curves = dict(items)
+
+    def _remove_again(self, command: CurveRemovalCommand) -> None:
+        dataset = self._dataset()
+        curve_id = command.curve.metadata.curve_id
+        if dataset.curves.get(curve_id) is not command.curve:
+            raise RuntimeError("Удалённая кривая была изменена вне истории команд")
+        del dataset.curves[curve_id]
 
     @staticmethod
     def _curve(dataset: Dataset, curve_id: str) -> CurveData:

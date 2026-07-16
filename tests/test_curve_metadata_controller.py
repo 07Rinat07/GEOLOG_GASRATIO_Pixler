@@ -130,3 +130,27 @@ def test_create_curve_rejects_export_index_and_undo_after_value_edit() -> None:
     curve.version += 1
     with pytest.raises(RuntimeError, match="пользовательские правки"):
         controller.undo()
+
+
+def test_remove_user_curve_preserves_values_and_order_through_undo_redo() -> None:
+    controller = make_controller()
+    curve = controller.create(mnemonic="ROP", unit="m/h", description="Rate")
+    curve.values[:] = [10.0, 20.0]
+    curve.version += 1
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    original_order = list(dataset.curves)
+
+    controller.remove(curve.metadata.curve_id)
+    assert curve.metadata.curve_id not in dataset.curves
+    controller.undo()
+    assert list(dataset.curves) == original_order
+    np.testing.assert_allclose(dataset.curves[curve.metadata.curve_id].values, [10.0, 20.0])
+    controller.redo()
+    assert curve.metadata.curve_id not in dataset.curves
+
+
+def test_remove_rejects_imported_curve() -> None:
+    controller = make_controller()
+    with pytest.raises(ValueError, match="созданные пользователем"):
+        controller.remove("c1")

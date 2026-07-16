@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QDialogButtonBox, QPlainTextEdit, QTableWidget
+from PySide6.QtWidgets import QDialogButtonBox, QMessageBox, QPlainTextEdit, QTableWidget
 
 from geoworkbench.domain.models import (
     CurveData,
@@ -113,4 +113,28 @@ def test_data_inspector_dialog_adds_empty_user_curve(qapp) -> None:
     assert curve is not None
     assert np.isnan(curve.values).all()
     assert dialog.curve_table.rowCount() == 2
+    dialog.close()
+
+
+def test_data_inspector_dialog_confirms_and_removes_user_curve(qapp, monkeypatch) -> None:
+    controller = make_controller()
+    dialog = DataInspectorDialog(controller)
+    dialog.curve_mnemonic.setText("ROP")
+    dialog.curve_unit.setText("m/h")
+    dialog.curve_description.setText("Rate")
+    dialog._add_curve()
+    dialog.curve_table.selectRow(1)
+    monkeypatch.setattr(
+        "geoworkbench.ui.data_inspector_dialog.QMessageBox.question",
+        lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
+    )
+
+    dialog._remove_curve()
+
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    assert dataset.curve_by_mnemonic("ROP") is None
+    assert dialog.curve_table.rowCount() == 1
+    dialog._undo_curve_metadata()
+    assert dataset.curve_by_mnemonic("ROP") is not None
     dialog.close()
