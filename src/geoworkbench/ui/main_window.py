@@ -56,6 +56,7 @@ from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.nct_controller import NctCalculationController
+from geoworkbench.project.new_las_controller import NewLasController
 from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.session import ProjectSession
@@ -79,6 +80,7 @@ from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
 from geoworkbench.ui.nct_dialog import NctCalculationDialog
+from geoworkbench.ui.new_las_dialog import NewLasDialog
 from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
 from geoworkbench.visualization.curve_view import CurveView
@@ -124,6 +126,7 @@ class MainWindow(QMainWindow):
         self.description_template_controller = DescriptionTemplateController(self.session)
         self.depth_axis_controller = DepthAxisController(self.session)
         self.nct_calculation_controller = NctCalculationController(self.session)
+        self.new_las_controller = NewLasController(self.session)
         self.las_range_editing_controller = LasRangeEditingController(self.session)
         self.dataset_selection = DatasetIntervalSelection()
         self._selected_track_id: str | None = None
@@ -207,6 +210,11 @@ class MainWindow(QMainWindow):
         self.open_project_action.setShortcut("Ctrl+O")
         self.open_project_action.triggered.connect(self.open_project)
         file_menu.addAction(self.open_project_action)
+
+        self.new_las_action = QAction(self._t("new_las.action"), self)
+        self.new_las_action.setShortcut("Ctrl+N")
+        self.new_las_action.triggered.connect(self.create_new_las)
+        file_menu.addAction(self.new_las_action)
 
         self.open_data_action = QAction(self._t("import.universal"), self)
         self.open_data_action.setShortcut("Ctrl+I")
@@ -701,6 +709,7 @@ class MainWindow(QMainWindow):
         self.depth_axis_controller.clear_resample_history()
         self._update_resample_actions()
         self.nct_calculation_controller.session = self.session
+        self.new_las_controller.session = self.session
         self.las_range_editing_controller.session = self.session
         self._update_curve_edit_actions()
         self._selected_track_id = None
@@ -738,6 +747,20 @@ class MainWindow(QMainWindow):
         else:
             self.tablet_view.set_layout_model(saved_layout)
         self.tabs.setCurrentWidget(self.tablet_view)
+
+    def create_new_las(self) -> None:
+        dialog = NewLasDialog(self, language=self.language)
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.plan is None:
+            return
+        try:
+            dataset = self.new_las_controller.create(dialog.plan)
+        except ValueError as exc:
+            QMessageBox.warning(self, self._t("new_las.title"), str(exc))
+            return
+        self._show_current_dataset()
+        self._refresh_tree()
+        self._update_title()
+        self._log(self._t("new_las.created", name=dataset.name))
 
     def export_current_las(self) -> None:
         dataset = self.session.current_dataset

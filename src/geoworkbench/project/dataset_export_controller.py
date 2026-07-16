@@ -36,6 +36,17 @@ class DatasetExportController:
             null_value = report.source.null_value
         version = LasExportVersion.V2_0
         wrap = False
+        declared_version = dataset.version_headers.get("VERS", "").strip()
+        if declared_version.startswith("1.2"):
+            version = LasExportVersion.V1_2
+        elif declared_version.startswith("2"):
+            version = LasExportVersion.V2_0
+        wrap = dataset.version_headers.get("WRAP", "").strip().casefold() in {
+            "yes",
+            "y",
+            "true",
+            "1",
+        }
         if report is not None:
             source_version = (report.source.las_version or "").strip()
             if source_version.startswith("1.2"):

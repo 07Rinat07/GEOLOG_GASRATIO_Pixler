@@ -104,3 +104,27 @@ def test_default_export_plan_preserves_source_version_wrap_and_null() -> None:
     assert plan.version is LasExportVersion.V1_2
     assert plan.wrap is True
     assert plan.null_value == pytest.approx(-999.25)
+
+
+def test_default_export_plan_uses_declared_headers_without_source_report() -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "New LAS",
+        DatasetKind.USER,
+        DepthDomain.MD,
+        np.array([0.0, 1.0]),
+        headers={"NULL": "-999.0"},
+        version_headers={"VERS": "1.2", "WRAP": "YES"},
+    )
+    well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
+    session = ProjectSession(
+        project=Project("project-1", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+        current_dataset_id=dataset.dataset_id,
+    )
+
+    plan = DatasetExportController(session).default_las_plan()
+
+    assert plan.version is LasExportVersion.V1_2
+    assert plan.wrap is True
+    assert plan.null_value == pytest.approx(-999.0)

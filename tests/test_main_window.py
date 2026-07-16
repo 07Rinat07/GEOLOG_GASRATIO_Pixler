@@ -277,6 +277,28 @@ def test_window_creates_and_undoes_resampled_copy(qapp, monkeypatch) -> None:
     window.close()
 
 
+def test_window_creates_new_las_dataset(qapp, monkeypatch) -> None:
+    window = MainWindow(language=AppLanguage.EN)
+
+    def accept_small_grid(dialog) -> QDialog.DialogCode:
+        dialog.stop_input.setValue(1.0)
+        dialog.step_input.setValue(0.5)
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.NewLasDialog.exec", accept_small_grid
+    )
+
+    window.create_new_las()
+
+    dataset = window.session.current_dataset
+    assert dataset is not None
+    assert dataset.name == "New LAS"
+    np.testing.assert_allclose(dataset.depth, [0.0, 0.5, 1.0])
+    assert window.session.dirty is True
+    window.close()
+
+
 def test_project_tree_contains_geology_annotations_templates_and_tracks(qapp) -> None:
     window = MainWindow()
     session, _ = make_session()
