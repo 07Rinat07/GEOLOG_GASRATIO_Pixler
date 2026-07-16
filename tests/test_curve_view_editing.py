@@ -11,6 +11,7 @@ from geoworkbench.domain.models import (
     DepthDomain,
 )
 from geoworkbench.services.curve_editing import DrawPoint
+from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.visualization.curve_view import CurveView
 
 
@@ -92,4 +93,20 @@ def test_curve_view_mouse_drag_emits_edit_request(qapp) -> None:
     assert len(emitted) == 1
     assert emitted[0][0] == "curve-1"
     assert len(emitted[0][1]) >= 1
+    view.close()
+
+
+def test_curve_view_region_and_shared_selection_stay_synchronized(qapp) -> None:
+    dataset, _ = make_dataset()
+    selection = DatasetIntervalSelection()
+    view = CurveView(selection)
+    view.show_dataset(dataset)
+
+    selection.select(dataset, 101.0, 102.0)
+    assert view._selection_region is not None
+    assert view._selection_region.getRegion() == (101.0, 102.0)
+
+    view._selection_region.setRegion((100.0, 101.0))
+    view._selection_region.sigRegionChangeFinished.emit(view._selection_region)
+    assert selection.interval == (100.0, 101.0)
     view.close()

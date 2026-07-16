@@ -89,6 +89,7 @@ from geoworkbench.services.localization import (
     LanguageSettings,
     Localizer,
 )
+from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.user_profiles import UserProfileSettings
 
 
@@ -124,13 +125,14 @@ class MainWindow(QMainWindow):
         self.depth_axis_controller = DepthAxisController(self.session)
         self.nct_calculation_controller = NctCalculationController(self.session)
         self.las_range_editing_controller = LasRangeEditingController(self.session)
+        self.dataset_selection = DatasetIntervalSelection()
         self._selected_track_id: str | None = None
         self.setWindowIcon(application_icon())
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
 
         self.tabs = QTabWidget()
-        self.curve_view = CurveView()
+        self.curve_view = CurveView(self.dataset_selection)
         self.curve_view.edit_requested.connect(self._apply_curve_draw_edit)
         self.tablet_view = TabletView()
         self.tablet_view.track_selected.connect(self._show_track_in_inspector)
@@ -139,6 +141,7 @@ class MainWindow(QMainWindow):
         self.las_table_editor = LasTableEditor(
             self.las_range_editing_controller,
             language=self.language,
+            selection=self.dataset_selection,
         )
         self.las_table_editor.dataset_edited.connect(self._after_table_edit)
         self.las_table_editor.edit_failed.connect(

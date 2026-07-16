@@ -6,6 +6,7 @@ from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, Datase
 from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.ui.las_table_editor import LasTableEditor
 
 
@@ -141,4 +142,26 @@ def test_table_editor_uses_english_catalog(qapp) -> None:
     } <= labels
     assert errors == ["Copy an interval first"]
     english.close()
+    editor.close()
+
+
+def test_table_selection_is_synchronized_with_shared_depth_interval(qapp) -> None:
+    shared = DatasetIntervalSelection()
+    editor, dataset = make_editor()
+    synchronized = LasTableEditor(editor.controller, selection=shared)
+    synchronized.set_dataset(dataset)
+
+    shared.select(dataset, 101.0, 102.0)
+
+    selected = synchronized.table.selectedIndexes()
+    assert {(index.row(), index.column()) for index in selected} == {(1, 0), (2, 0)}
+
+    model = synchronized.model
+    synchronized.table.selectionModel().select(
+        model.index(0, 1),
+        QItemSelectionModel.SelectionFlag.ClearAndSelect,
+    )
+    assert shared.interval == (100.0, 100.0)
+    assert shared.curve_ids == ("c1",)
+    synchronized.close()
     editor.close()

@@ -1,7 +1,15 @@
 from __future__ import annotations
 
 import numpy as np
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex, Qt, Signal
+from PySide6.QtCore import (
+    QAbstractTableModel,
+    QItemSelection,
+    QItemSelectionModel,
+    QModelIndex,
+    QPersistentModelIndex,
+    Qt,
+    Signal,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -16,6 +24,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.las_range_editor import LasRangeEditingController, RangeClipboard
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 
 
 class LasTableModel(QAbstractTableModel):
@@ -121,10 +130,13 @@ class LasTableEditor(QWidget):
         controller: LasRangeEditingController,
         *,
         language: AppLanguage = AppLanguage.RU,
+        selection: DatasetIntervalSelection | None = None,
     ) -> None:
         super().__init__()
         self.localizer = Localizer.create(language)
         self.controller = controller
+        self.selection = selection or DatasetIntervalSelection()
+        self._applying_shared_selection = False
         self.clipboard: RangeClipboard | None = None
         self.model = LasTableModel(controller, self.localizer)
         self.model.dataset_edited.connect(self.dataset_edited)
@@ -132,6 +144,8 @@ class LasTableEditor(QWidget):
         self.table = QTableView()
         self.table.setObjectName("las-data-table")
         self.table.setModel(self.model)
+        self.table.selectionModel().selectionChanged.connect(self._publish_selection)
+        self.selection.changed.connect(self._apply_shared_selection)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.table.setAlternatingRowColors(True)
@@ -163,6 +177,70 @@ class LasTableEditor(QWidget):
     def set_dataset(self, dataset: Dataset | None) -> None:
         self.model.set_dataset(dataset)
         self.clipboard = None
+        if dataset is None or self.selection.dataset_id != dataset.dataset_id:
+            self.selection.clear()
+        else:
+            self._apply_shared_selection()
+
+    def _publish_selection(self) -> None:
+        if self._applying_shared_selection:
+            return
+        dataset = self.model.dataset
+        selected = self.table.selectedIndexes()
+        if dataset is None or not selected:
+            return
+        rows = {index.row() for index in selected}
+        columns = sorted({index.column() for index in selected if index.column() > 0})
+        curves = list(dataset.curves.values())
+        curve_ids = tuple(curves[column - 1].metadata.curve_id for column in columns)
+        depths = dataset.depth[np.asarray(sorted(rows), dtype=np.int64)]
+        try:
+            self.selection.select(
+                dataset, float(np.min(depths)), float(np.max(depths)), curve_ids
+            )
+        except (KeyError, ValueError):
+            return
+
+    def _apply_shared_selection(self) -> None:
+        dataset = self.model.dataset
+        interval = self.selection.interval
+        if (
+            dataset is None
+            or interval is None
+            or self.selection.dataset_id != dataset.dataset_id
+        ):
+            return
+        indices = np.flatnonzero(
+            np.isfinite(dataset.depth)
+            & (dataset.depth >= interval[0])
+            & (dataset.depth <= interval[1])
+        )
+        if indices.size == 0 or self.model.columnCount() == 0:
+            return
+        curve_columns = {
+            curve.metadata.curve_id: column
+            for column, curve in enumerate(dataset.curves.values(), start=1)
+        }
+        columns = [
+            curve_columns[curve_id]
+            for curve_id in self.selection.curve_ids
+            if curve_id in curve_columns
+        ] or [0]
+        selection = QItemSelection()
+        for column in columns:
+            selection.select(
+                self.model.index(int(indices[0]), column),
+                self.model.index(int(indices[-1]), column),
+            )
+        self._applying_shared_selection = True
+        try:
+            self.table.selectionModel().select(
+                selection,
+                QItemSelectionModel.SelectionFlag.ClearAndSelect,
+            )
+            self.table.scrollTo(self.model.index(int(indices[0]), columns[0]))
+        finally:
+            self._applying_shared_selection = False
 
     def fill_constant(self) -> None:
         value, accepted = QInputDialog.getDouble(
