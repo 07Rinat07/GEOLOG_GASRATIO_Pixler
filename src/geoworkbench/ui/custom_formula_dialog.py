@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
-    QMessageBox, QPushButton, QVBoxLayout, QWidget,
+    QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
+    QMessageBox, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.calculations.custom_formula import CustomFormulaError, formula_inputs
 from geoworkbench.domain.models import CustomFormulaDefinition
-from geoworkbench.project.custom_formula_controller import CustomFormulaController
+from geoworkbench.project.custom_formula_controller import (
+    CustomFormulaController,
+    FormulaBatchPlan,
+)
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -17,11 +20,56 @@ _TEXT = {
     AppLanguage.KK: ("Пайдаланушы формулалары", "Жаңа формула", "Атауы", "Шығыс мнемоникасы", "Нәтиже бірлігі", "Формула", "Сипаттама", "Табылған кірістер", "Жаңа", "Сақтау", "Жою", "Есептеу", "Жабу", "Есептелген қисық"),
 }
 
+_BATCH_TEXT = {
+    AppLanguage.RU: ("Пересчитать все...", "Предварительный анализ формул", "Формула", "Выход", "Конечных", "Минимум", "Максимум", "Изменится", "Применить"),
+    AppLanguage.EN: ("Recalculate all...", "Formula batch preview", "Formula", "Output", "Finite", "Minimum", "Maximum", "Changed", "Apply"),
+    AppLanguage.KK: ("Барлығын қайта есептеу...", "Формулаларды алдын ала талдау", "Формула", "Шығыс", "Соңғы", "Минимум", "Максимум", "Өзгереді", "Қолдану"),
+}
+
+
+class FormulaBatchPreviewDialog(QDialog):
+    def __init__(
+        self,
+        plan: FormulaBatchPlan,
+        parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
+        super().__init__(parent)
+        text = _BATCH_TEXT[language]
+        self.setWindowTitle(text[1])
+        self.resize(760, 360)
+        root = QVBoxLayout(self)
+        table = QTableWidget(len(plan.previews), 6)
+        table.setObjectName("formula-batch-preview")
+        table.setHorizontalHeaderLabels(text[2:8])
+        for row, preview in enumerate(plan.previews):
+            values = (
+                preview.name,
+                preview.output_mnemonic,
+                str(preview.finite_count),
+                "—" if preview.minimum is None else f"{preview.minimum:.8g}",
+                "—" if preview.maximum is None else f"{preview.maximum:.8g}",
+                str(preview.changed_count),
+            )
+            for column, value in enumerate(values):
+                table.setItem(row, column, QTableWidgetItem(value))
+        table.resizeColumnsToContents()
+        root.addWidget(table)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(text[8])
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+
 
 class CustomFormulaDialog(QDialog):
     def __init__(self, controller: CustomFormulaController, parent: QWidget | None = None, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__(parent)
         self.controller = controller
+        self.language = language
         self.text = _TEXT[language]
         self.calculated_mnemonic: str | None = None
         self.setWindowTitle(self.text[0])
@@ -51,6 +99,7 @@ class CustomFormulaDialog(QDialog):
         for text, handler in (
             (self.text[8], self._new), (self.text[9], self._save),
             (self.text[10], self._delete), (self.text[11], self._calculate),
+            (_BATCH_TEXT[language][0], self._calculate_all),
             (self.text[12], self.accept),
         ):
             button = QPushButton(text)
@@ -122,6 +171,24 @@ class CustomFormulaDialog(QDialog):
         self.calculated_mnemonic = curve.metadata.original_mnemonic
         self._refresh(stored.formula_id)
         QMessageBox.information(self, self.text[5], f"{self.text[13]} {self.calculated_mnemonic}")
+
+    def _calculate_all(self) -> None:
+        try:
+            plan = self.controller.analyze_batch()
+        except (CustomFormulaError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self.text[0], str(exc))
+            return
+        preview = FormulaBatchPreviewDialog(plan, self, language=self.language)
+        if preview.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            curves = self.controller.apply_batch(plan)
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self.text[0], str(exc))
+            return
+        if curves:
+            self.calculated_mnemonic = curves[-1].metadata.original_mnemonic
+        self._refresh(self.selector.currentData())
 
     def _preview_inputs(self) -> None:
         try:
