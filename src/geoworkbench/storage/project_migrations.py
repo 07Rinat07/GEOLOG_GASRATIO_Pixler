@@ -179,6 +179,16 @@ def _migrate_v8_to_v9(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v9_to_v10(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 9 не содержит объекта 'project'")
+    migrated.setdefault("tablet_presets", {})
+    migrated["format_version"] = 10
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -189,6 +199,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(5, _migrate_v5_to_v6)
 DEFAULT_PROJECT_MIGRATIONS.register(6, _migrate_v6_to_v7)
 DEFAULT_PROJECT_MIGRATIONS.register(7, _migrate_v7_to_v8)
 DEFAULT_PROJECT_MIGRATIONS.register(8, _migrate_v8_to_v9)
+DEFAULT_PROJECT_MIGRATIONS.register(9, _migrate_v9_to_v10)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

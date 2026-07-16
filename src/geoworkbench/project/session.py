@@ -28,6 +28,7 @@ class ProjectSession:
     current_well_id: str | None = None
     current_dataset_id: str | None = None
     tablet_layouts: dict[str, TabletLayout] = field(default_factory=dict)
+    tablet_presets: dict[str, TabletLayout] = field(default_factory=dict)
     source_documents: dict[str, LosslessLasDocument] = field(default_factory=dict)
     import_reports: dict[str, LasImportReport] = field(default_factory=dict)
     dirty: bool = False

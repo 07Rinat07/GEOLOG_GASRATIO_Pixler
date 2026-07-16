@@ -33,6 +33,7 @@ def save_project(
     target: Path,
     *,
     tablet_layouts: dict[str, TabletLayout] | None = None,
+    tablet_presets: dict[str, TabletLayout] | None = None,
     source_documents: dict[str, LosslessLasDocument] | None = None,
     import_reports: dict[str, LasImportReport] | None = None,
 ) -> None:
@@ -67,6 +68,10 @@ def save_project(
         "tablet_layouts": {
             dataset_id: layout_to_dict(layout)
             for dataset_id, layout in (tablet_layouts or {}).items()
+        },
+        "tablet_presets": {
+            name: layout_to_dict(layout)
+            for name, layout in (tablet_presets or {}).items()
         },
         "source_artifacts": source_artifacts,
         "import_reports": {

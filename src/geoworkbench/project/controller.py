@@ -22,6 +22,7 @@ class ProjectController:
         session = ProjectSession(
             project=document.project,
             tablet_layouts=document.tablet_layouts,
+            tablet_presets=document.tablet_presets,
             source_documents=document.source_documents,
             import_reports=document.import_reports,
         )
@@ -38,6 +39,7 @@ class ProjectController:
         document = ProjectDocument(
             project=self.session.project,
             tablet_layouts=self.session.tablet_layouts,
+            tablet_presets=self.session.tablet_presets,
             source_documents=self.session.source_documents,
             import_reports=self.session.import_reports,
         )

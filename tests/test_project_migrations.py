@@ -61,6 +61,16 @@ def test_v8_project_migrates_with_empty_custom_formulas() -> None:
     assert migrated["project"]["custom_formulas"] == {}
 
 
+def test_v9_project_migrates_with_empty_tablet_presets() -> None:
+    payload = {"format_version": 9, "project": {}}
+
+    migrated = migrate_project_payload(payload, 10)
+
+    assert migrated["format_version"] == 10
+    assert migrated["tablet_presets"] == {}
+    assert "tablet_presets" not in payload
+
+
 def test_registry_rejects_missing_migration_step() -> None:
     registry = ProjectMigrationRegistry()
 

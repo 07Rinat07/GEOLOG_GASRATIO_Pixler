@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QDialog, QMessageBox
+from PySide6.QtWidgets import QDialog, QInputDialog, QMessageBox
 
 from geoworkbench.domain.models import (
     CanvasObject,
@@ -258,6 +258,30 @@ def test_window_applies_grid_from_inspector(qapp) -> None:
 
     track = layout.track_by_id("curve")
     assert (track.grid_x, track.grid_y, track.grid_alpha) == (False, True, 0.55)
+    assert session.dirty is True
+    window.close()
+
+
+def test_window_applies_selected_tablet_preset(qapp, monkeypatch) -> None:
+    window = MainWindow()
+    session, layout = make_session()
+    preset = TabletLayout(
+        [TrackDefinition("preset-depth", "Depth", TrackKind.DEPTH, width=180)]
+    )
+    session.tablet_presets["Standard"] = preset
+    bind_session(window, session)
+    window._show_current_dataset()
+    monkeypatch.setattr(
+        QInputDialog,
+        "getItem",
+        lambda *args, **kwargs: ("Standard", True),
+    )
+
+    window.apply_tablet_preset()
+
+    assert session.current_tablet_layout is not layout
+    assert session.current_tablet_layout is not preset
+    assert window.tablet_view.rendered_track_ids == ("preset-depth",)
     assert session.dirty is True
     window.close()
 

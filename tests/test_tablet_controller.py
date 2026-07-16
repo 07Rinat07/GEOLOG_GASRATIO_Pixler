@@ -106,6 +106,36 @@ def test_controller_sets_track_grid_and_marks_project_dirty() -> None:
     assert session.dirty is True
 
 
+def test_controller_saves_and_applies_independent_preset_copy() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    source = controller.build_default_layout()
+    source.tracks[0].width = 180
+
+    controller.save_preset("  Standard  ")
+    source.tracks[0].width = 320
+    restored = controller.apply_preset("Standard")
+
+    assert restored is session.current_tablet_layout
+    assert restored is not session.tablet_presets["Standard"]
+    assert restored.tracks[0].width == 180
+    restored.tracks[0].width = 400
+    assert session.tablet_presets["Standard"].tracks[0].width == 180
+
+
+def test_controller_deletes_preset_and_rejects_empty_name() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    controller.build_default_layout()
+
+    with pytest.raises(ValueError, match="пустым"):
+        controller.save_preset("   ")
+    controller.save_preset("Temporary")
+    controller.delete_preset("Temporary")
+
+    assert session.tablet_presets == {}
+
+
 def test_move_at_layout_boundary_does_not_mark_session_dirty() -> None:
     session = make_session()
     controller = TabletController(session)

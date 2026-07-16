@@ -52,13 +52,14 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 9
+PROJECT_FORMAT_VERSION = 10
 
 
 @dataclass(slots=True)
 class ProjectDocument:
     project: Project
     tablet_layouts: dict[str, TabletLayout] = field(default_factory=dict)
+    tablet_presets: dict[str, TabletLayout] = field(default_factory=dict)
     source_documents: dict[str, LosslessLasDocument] = field(default_factory=dict)
     import_reports: dict[str, LasImportReport] = field(default_factory=dict)
 
@@ -377,6 +378,17 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
     if unknown_dataset_ids:
         unknown = ", ".join(sorted(unknown_dataset_ids))
         raise ProjectFormatError(f"Компоновка ссылается на неизвестный набор: {unknown}")
+    raw_presets = _required(data, "tablet_presets", dict)
+    presets: dict[str, TabletLayout] = {}
+    for name, raw_layout in raw_presets.items():
+        if not isinstance(name, str) or not name.strip():
+            raise ProjectFormatError("Имя шаблона планшета должно быть непустой строкой")
+        try:
+            presets[name] = layout_from_dict(raw_layout)
+        except TabletLayoutFormatError as exc:
+            raise ProjectFormatError(
+                f"Некорректный шаблон планшета '{name}'"
+            ) from exc
     try:
         artifact_manifest = validate_artifact_manifest(data.get("source_artifacts", {}))
     except SourceArtifactError as exc:
@@ -399,7 +411,9 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
     if unknown_report_ids:
         unknown = ", ".join(sorted(unknown_report_ids))
         raise ProjectFormatError(f"Import report ссылается на неизвестный набор: {unknown}")
-    return ProjectDocument(project, layouts, import_reports=reports)
+    return ProjectDocument(
+        project, layouts, presets, import_reports=reports
+    )
 
 
 def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> ProjectDocument:

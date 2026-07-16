@@ -373,6 +373,16 @@ class MainWindow(QMainWindow):
         self.default_tablet_action.triggered.connect(self.build_default_tablet)
         tablet_menu.addAction(self.default_tablet_action)
 
+        save_preset_action = QAction(self._t("tablet.preset_save"), self)
+        save_preset_action.triggered.connect(self.save_tablet_preset)
+        tablet_menu.addAction(save_preset_action)
+        apply_preset_action = QAction(self._t("tablet.preset_apply"), self)
+        apply_preset_action.triggered.connect(self.apply_tablet_preset)
+        tablet_menu.addAction(apply_preset_action)
+        delete_preset_action = QAction(self._t("tablet.preset_delete"), self)
+        delete_preset_action.triggered.connect(self.delete_tablet_preset)
+        tablet_menu.addAction(delete_preset_action)
+
         self.lithology_legend_action = QAction(self._t("legend.action"), self)
         self.lithology_legend_action.triggered.connect(self.show_lithology_legend)
         tablet_menu.addAction(self.lithology_legend_action)
@@ -980,6 +990,66 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
         self._log(self._t("tablet.default_built", count=len(layout.tracks)))
+
+    def save_tablet_preset(self) -> None:
+        if self.session.current_tablet_layout is None:
+            QMessageBox.information(
+                self, self._t("tablet.title"), self._t("tablet.build_first")
+            )
+            return
+        name, accepted = QInputDialog.getText(
+            self, self._t("tablet.preset_save"), self._t("tablet.preset_name")
+        )
+        if not accepted:
+            return
+        try:
+            self.tablet_controller.save_preset(name)
+        except (RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("tablet.title"), str(exc))
+            return
+        normalized = name.strip()
+        self._update_title()
+        self._log(self._t("tablet.preset_saved", name=normalized))
+
+    def apply_tablet_preset(self) -> None:
+        name = self._select_tablet_preset(self._t("tablet.preset_apply"))
+        if name is None:
+            return
+        try:
+            layout = self.tablet_controller.apply_preset(name)
+        except (KeyError, RuntimeError) as exc:
+            QMessageBox.warning(self, self._t("tablet.title"), str(exc))
+            return
+        self._selected_track_id = None
+        self.tablet_view.set_layout_model(layout)
+        self.tablet_view.set_dataset(self.session.current_dataset)
+        self._refresh_tree()
+        self._update_title()
+        self._log(self._t("tablet.preset_applied", name=name))
+
+    def delete_tablet_preset(self) -> None:
+        name = self._select_tablet_preset(self._t("tablet.preset_delete"))
+        if name is None:
+            return
+        try:
+            self.tablet_controller.delete_preset(name)
+        except KeyError as exc:
+            QMessageBox.warning(self, self._t("tablet.title"), str(exc))
+            return
+        self._update_title()
+        self._log(self._t("tablet.preset_deleted", name=name))
+
+    def _select_tablet_preset(self, title: str) -> str | None:
+        names = sorted(self.session.tablet_presets, key=str.casefold)
+        if not names:
+            QMessageBox.information(
+                self, self._t("tablet.title"), self._t("tablet.preset_empty")
+            )
+            return None
+        name, accepted = QInputDialog.getItem(
+            self, title, self._t("tablet.preset_name"), names, 0, False
+        )
+        return name if accepted else None
 
     def add_track(self, kind: TrackKind) -> None:
         dataset = self.session.current_dataset

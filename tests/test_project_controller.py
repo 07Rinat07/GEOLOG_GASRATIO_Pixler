@@ -104,6 +104,20 @@ def test_controller_preserves_import_reports_across_open_and_save() -> None:
     assert repository.document.import_reports["dataset-1"] is report
 
 
+def test_controller_preserves_tablet_presets_across_open_and_save() -> None:
+    document = make_document()
+    preset = TabletLayout([TrackDefinition("curve", "Curve", TrackKind.CURVE)])
+    document.tablet_presets["Standard"] = preset
+    repository = MemoryProjectRepository(document)
+    controller = ProjectController(repository=repository)
+
+    session = controller.open_project(Path("project.geolog.json"))
+    controller.save_project(Path("saved.geolog.json"))
+
+    assert session.tablet_presets["Standard"] is preset
+    assert repository.document.tablet_presets["Standard"] is preset
+
+
 def test_controller_requires_save_path() -> None:
     controller = ProjectController(repository=MemoryProjectRepository(make_document()))
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 
 from geoworkbench.domain.models import Dataset, new_id
@@ -200,6 +201,31 @@ class TabletController:
         self, track_id: str, show_x: bool, show_y: bool, alpha: float
     ) -> None:
         self._require_layout().track_by_id(track_id).set_grid(show_x, show_y, alpha)
+        self.session.dirty = True
+
+    def save_preset(self, name: str) -> None:
+        normalized = name.strip()
+        if not normalized:
+            raise ValueError("Имя шаблона не может быть пустым")
+        if len(normalized) > 100:
+            raise ValueError("Имя шаблона не должно превышать 100 символов")
+        self.session.tablet_presets[normalized] = deepcopy(self._require_layout())
+        self.session.dirty = True
+
+    def apply_preset(self, name: str) -> TabletLayout:
+        try:
+            preset = self.session.tablet_presets[name]
+        except KeyError as exc:
+            raise KeyError(f"Шаблон планшета не найден: {name}") from exc
+        layout = deepcopy(preset)
+        self.session.set_current_tablet_layout(layout)
+        self.session.dirty = True
+        return layout
+
+    def delete_preset(self, name: str) -> None:
+        if name not in self.session.tablet_presets:
+            raise KeyError(f"Шаблон планшета не найден: {name}")
+        del self.session.tablet_presets[name]
         self.session.dirty = True
 
     def move_track(self, track_id: str, offset: int) -> bool:

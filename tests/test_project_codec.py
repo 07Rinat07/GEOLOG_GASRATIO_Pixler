@@ -102,11 +102,20 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
         "wetness", "Wetness", "100 * (C2 + C3) / (C1 + C2 + C3)", "WH_USER", "%"
     )
 
-    save_project(project, target, tablet_layouts={"dataset-1": layout})
+    preset = TabletLayout(
+        [TrackDefinition("preset-depth", "Depth", TrackKind.DEPTH, width=150)]
+    )
+    save_project(
+        project,
+        target,
+        tablet_layouts={"dataset-1": layout},
+        tablet_presets={"Standard": preset},
+    )
     document = load_project_document(target)
 
     assert document.project.name == "Test project"
     assert document.tablet_layouts["dataset-1"] == layout
+    assert document.tablet_presets["Standard"] == preset
     assert document.project.lithotypes["oil_sand"].code == "OS"
     assert document.project.description_templates["Песчаник"].startswith("Песчаник")
     assert document.project.custom_formulas["wetness"].output_mnemonic == "WH_USER"
