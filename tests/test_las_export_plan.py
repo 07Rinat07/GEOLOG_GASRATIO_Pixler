@@ -116,3 +116,42 @@ def test_export_analysis_warns_about_secondary_index_and_blocks_active_time() ->
     assert not analysis.can_export
     assert "time-index-not-supported" in codes
     assert "additional-indexes-omitted" in codes
+
+
+def test_export_analysis_reports_structured_multi_index_losses() -> None:
+    dataset = make_dataset()
+    dataset.add_index(
+        DatasetIndex(
+            "time-index",
+            "DATE_TIME",
+            IndexType.DATETIME,
+            IndexRole.TIME,
+            None,
+            np.array(["2026-01-01", "2026-01-02"], dtype="datetime64[ns]"),
+            timezone="UTC",
+        )
+    )
+    dataset.add_index(
+        DatasetIndex(
+            "tvd-index",
+            "TVD",
+            IndexType.TVD,
+            IndexRole.DEPTH,
+            "m",
+            np.array([99.0, 100.0]),
+        )
+    )
+
+    analysis = analyze_las_export(dataset, LasExportPlan())
+
+    assert analysis.can_export is True
+    assert analysis.has_data_loss is True
+    assert [loss.field_id for loss in analysis.losses] == ["time-index", "tvd-index"]
+    assert analysis.losses[0].index_type is IndexType.DATETIME
+    assert analysis.losses[0].sample_count == 2
+    warning = next(
+        issue for issue in analysis.issues if issue.code == "additional-indexes-omitted"
+    )
+    assert "time-index" in warning.message
+    assert "type=datetime" in warning.message
+    assert "JSON или Parquet" in warning.message

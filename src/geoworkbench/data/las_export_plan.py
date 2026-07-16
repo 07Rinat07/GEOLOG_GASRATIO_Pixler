@@ -8,7 +8,7 @@ from math import isfinite
 import numpy as np
 
 from geoworkbench.data.lossless_las import LosslessLasDocument, section_role
-from geoworkbench.domain.models import Dataset, DepthDomain, IndexRole
+from geoworkbench.domain.models import Dataset, DepthDomain, IndexRole, IndexType
 
 
 class LasExportVersion(StrEnum):
@@ -62,9 +62,21 @@ class LasExportIssue:
 
 
 @dataclass(frozen=True, slots=True)
+class LasExportLoss:
+    field_id: str
+    mnemonic: str
+    index_type: IndexType
+    role: IndexRole
+    unit: str | None
+    sample_count: int
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
 class LasExportAnalysis:
     plan: LasExportPlan
     issues: tuple[LasExportIssue, ...]
+    losses: tuple[LasExportLoss, ...] = ()
 
     @property
     def can_export(self) -> bool:
@@ -74,6 +86,10 @@ class LasExportAnalysis:
     def errors(self) -> tuple[LasExportIssue, ...]:
         return tuple(issue for issue in self.issues if issue.severity is ExportIssueSeverity.ERROR)
 
+    @property
+    def has_data_loss(self) -> bool:
+        return bool(self.losses)
+
 
 def analyze_las_export(
     dataset: Dataset,
@@ -81,6 +97,7 @@ def analyze_las_export(
     source_document: LosslessLasDocument | None = None,
 ) -> LasExportAnalysis:
     issues: list[LasExportIssue] = []
+    losses: list[LasExportLoss] = []
     if dataset.depth_domain is DepthDomain.TIME or dataset.active_index.role is IndexRole.TIME:
         issues.append(
             _error(
@@ -89,16 +106,34 @@ def analyze_las_export(
             )
         )
     additional_indexes = [
-        index.mnemonic
+        index
         for index_id, index in dataset.indexes.items()
         if index_id != dataset.active_index_id
     ]
     if additional_indexes:
+        losses.extend(
+            LasExportLoss(
+                field_id=index.index_id,
+                mnemonic=index.mnemonic,
+                index_type=index.index_type,
+                role=index.role,
+                unit=index.unit,
+                sample_count=int(index.values.size),
+                reason="LAS 1.2/2.0 поддерживает одну индексную колонку",
+            )
+            for index in additional_indexes
+        )
+        details = "; ".join(
+            f"{index.mnemonic} [id={index.index_id}, type={index.index_type.value}, "
+            f"role={index.role.value}, unit={index.unit or '—'}]"
+            for index in additional_indexes
+        )
         issues.append(
             _warning(
                 "additional-indexes-omitted",
-                "LAS сохранит одну индексную колонку; дополнительные индексы не войдут в файл: "
-                + ", ".join(additional_indexes),
+                "LAS сохранит только активную индексную колонку; будут потеряны: "
+                + details
+                + ". Для сохранения всех индексов используйте JSON или Parquet.",
             )
         )
     if dataset.depth.ndim != 1 or dataset.depth.size == 0:
@@ -173,7 +208,7 @@ def analyze_las_export(
                 "LAS 1.2 выбран для совместимости; возможности LAS 2.0 в нём недоступны",
             )
         )
-    return LasExportAnalysis(plan, tuple(issues))
+    return LasExportAnalysis(plan, tuple(issues), tuple(losses))
 
 
 def _warning(code: str, message: str) -> LasExportIssue:
