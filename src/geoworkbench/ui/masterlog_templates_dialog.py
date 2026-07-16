@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.masterlog_columns_dialog import MasterlogColumnsDialog
+from geoworkbench.ui.masterlog_header_dialog import MasterlogHeaderDialog
 
 
 class MasterlogTemplatesDialog(QDialog):
@@ -38,12 +39,14 @@ class MasterlogTemplatesDialog(QDialog):
         self.copy_button = QPushButton(self._t("common.copy"))
         self.rename_button = QPushButton(self._t("common.rename"))
         self.columns_button = QPushButton(self._t("masterlog_columns.action"))
+        self.header_button = QPushButton(self._t("masterlog_header.action"))
         self.delete_button = QPushButton(self._t("common.delete"))
         close_button = QPushButton(self._t("common.close"))
         self.create_button.clicked.connect(self._create)
         self.copy_button.clicked.connect(self._copy)
         self.rename_button.clicked.connect(self._rename)
         self.columns_button.clicked.connect(self._edit_columns)
+        self.header_button.clicked.connect(self._edit_header)
         self.delete_button.clicked.connect(self._delete)
         close_button.clicked.connect(self.accept)
         buttons = QHBoxLayout()
@@ -52,6 +55,7 @@ class MasterlogTemplatesDialog(QDialog):
             self.copy_button,
             self.rename_button,
             self.columns_button,
+            self.header_button,
             self.delete_button,
         ):
             buttons.addWidget(button)
@@ -133,6 +137,18 @@ class MasterlogTemplatesDialog(QDialog):
         if template_id is None:
             return
         MasterlogColumnsDialog(
+            self.controller,
+            template_id,
+            self,
+            language=self.localizer.language,
+        ).exec()
+        self.refresh()
+
+    def _edit_header(self) -> None:
+        template_id = self._selected_id()
+        if template_id is None:
+            return
+        MasterlogHeaderDialog(
             self.controller,
             template_id,
             self,
