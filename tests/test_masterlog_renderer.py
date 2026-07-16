@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from PySide6.QtPrintSupport import QPrinter
 
 from geoworkbench.domain.models import (
@@ -11,6 +12,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.masterlog_renderer import (
+    MasterlogRenderError,
     curve_x_range,
     configure_masterlog_printer,
     export_masterlog_pdf,
@@ -19,6 +21,8 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_size_mm,
     render_masterlog_to_printer,
 )
+from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
+from geoworkbench.services.localization import AppLanguage
 
 
 def make_template() -> MasterlogTemplate:
@@ -170,3 +174,33 @@ def test_masterlog_qprinter_uses_same_multipage_renderer(qapp, tmp_path) -> None
     payload = target.read_bytes()
     assert payload.startswith(b"%PDF")
     assert b"/Count 3" in payload
+
+
+def test_masterlog_output_interval_changes_page_ranges_and_language(qapp, tmp_path) -> None:
+    dataset = Dataset(
+        "dataset-output",
+        "Output log",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(100.0, 400.0, 301),
+    )
+    session = ProjectSession()
+    session.add_dataset(dataset, "Well")
+    template = make_template()
+    template.page_format = "A4"
+    settings = MasterlogOutputSettings(150.0, 300.0, AppLanguage.EN)
+
+    assert masterlog_page_ranges(template, session, settings) == (
+        (150.0, 272.5),
+        (272.5, 300.0),
+    )
+    target = tmp_path / "interval.pdf"
+    export_masterlog_pdf(template, session, target, settings=settings)
+    assert b"/Count 2" in target.read_bytes()
+
+    with pytest.raises(MasterlogRenderError):
+        masterlog_page_ranges(
+            template,
+            session,
+            MasterlogOutputSettings(50.0, 300.0),
+        )

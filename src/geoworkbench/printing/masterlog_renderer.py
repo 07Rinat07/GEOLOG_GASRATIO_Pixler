@@ -23,6 +23,8 @@ from PySide6.QtPrintSupport import QPrinter
 from geoworkbench.domain.models import Dataset, MasterlogColumnTemplate, MasterlogHeaderElement, MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.header_fields import resolve_header_field
+from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class MasterlogRenderError(RuntimeError):
@@ -57,9 +59,23 @@ def masterlog_size_mm(
 
 
 def masterlog_page_ranges(
-    template: MasterlogTemplate, session: ProjectSession
+    template: MasterlogTemplate,
+    session: ProjectSession,
+    settings: MasterlogOutputSettings | None = None,
 ) -> tuple[tuple[float, float], ...]:
-    depth_range = masterlog_depth_range(session)
+    available_range = masterlog_depth_range(session)
+    depth_range: tuple[float, float] | None
+    if settings is not None:
+        if available_range is None:
+            raise MasterlogRenderError("Dataset не содержит печатного глубинного интервала")
+        if (
+            settings.depth_top < available_range[0]
+            or settings.depth_bottom > available_range[1]
+        ):
+            raise MasterlogRenderError("Интервал выпуска выходит за границы active dataset")
+        depth_range = settings.depth_range
+    else:
+        depth_range = available_range
     if depth_range is None:
         return ()
     if template.page_format.casefold() == "roll":
@@ -103,6 +119,7 @@ def paint_masterlog(
     *,
     depth_range: tuple[float, float] | None = None,
     canvas_size_mm: QSizeF | None = None,
+    page_label: str | None = None,
 ) -> None:
     effective_range = depth_range or masterlog_depth_range(session)
     size = canvas_size_mm or masterlog_size_mm(
@@ -124,6 +141,16 @@ def paint_masterlog(
     for element in template.header_elements:
         _paint_header_element(painter, element, session)
     _paint_columns(painter, template, size, session, effective_range)
+    if page_label:
+        font = QFont()
+        font.setPointSizeF(6.5)
+        painter.setFont(font)
+        painter.setPen(QColor("#475569"))
+        painter.drawText(
+            QRectF(2.0, size.height() - 5.0, size.width() - 4.0, 4.0),
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            page_label,
+        )
     painter.restore()
 
 
@@ -133,6 +160,7 @@ def export_masterlog_pdf(
     target: str | Path,
     *,
     overwrite: bool = False,
+    settings: MasterlogOutputSettings | None = None,
 ) -> Path:
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
@@ -148,7 +176,7 @@ def export_masterlog_pdf(
     painter: QPainter | None = None
     try:
         writer = QPdfWriter(str(temporary))
-        writer.setPageSize(_page_size(template, session))
+        writer.setPageSize(_page_size(template, session, settings))
         writer.setPageMargins(QMarginsF(0.0, 0.0, 0.0, 0.0), QPageLayout.Unit.Millimeter)
         writer.setResolution(300)
         writer.setTitle(template.name)
@@ -156,7 +184,7 @@ def export_masterlog_pdf(
         painter = QPainter()
         if not painter.begin(writer):
             raise MasterlogRenderError("Не удалось запустить masterlog PDF renderer")
-        paint_masterlog_pages(painter, writer, template, session)
+        paint_masterlog_pages(painter, writer, template, session, settings=settings)
         if not painter.end():
             raise MasterlogRenderError("Не удалось завершить masterlog PDF renderer")
         if not temporary.exists() or temporary.stat().st_size == 0:
@@ -174,9 +202,12 @@ def export_masterlog_pdf(
 
 
 def configure_masterlog_printer(
-    printer: QPrinter, template: MasterlogTemplate, session: ProjectSession
+    printer: QPrinter,
+    template: MasterlogTemplate,
+    session: ProjectSession,
+    settings: MasterlogOutputSettings | None = None,
 ) -> None:
-    printer.setPageSize(_page_size(template, session))
+    printer.setPageSize(_page_size(template, session, settings))
     printer.setPageMargins(
         QMarginsF(0.0, 0.0, 0.0, 0.0), QPageLayout.Unit.Millimeter
     )
@@ -184,13 +215,16 @@ def configure_masterlog_printer(
 
 
 def render_masterlog_to_printer(
-    printer: QPrinter, template: MasterlogTemplate, session: ProjectSession
+    printer: QPrinter,
+    template: MasterlogTemplate,
+    session: ProjectSession,
+    settings: MasterlogOutputSettings | None = None,
 ) -> None:
     painter = QPainter()
     if not painter.begin(printer):
         raise MasterlogRenderError("Не удалось запустить системный masterlog renderer")
     try:
-        paint_masterlog_pages(painter, printer, template, session)
+        paint_masterlog_pages(painter, printer, template, session, settings=settings)
     finally:
         if painter.isActive() and not painter.end():
             raise MasterlogRenderError("Не удалось завершить системный masterlog renderer")
@@ -201,10 +235,14 @@ def paint_masterlog_pages(
     device: PagedPaintDevice,
     template: MasterlogTemplate,
     session: ProjectSession,
+    *,
+    settings: MasterlogOutputSettings | None = None,
 ) -> None:
     page_size_mm = device.pageLayout().fullRect(QPageLayout.Unit.Millimeter).size()
-    page_ranges = masterlog_page_ranges(template, session)
+    page_ranges = masterlog_page_ranges(template, session, settings)
     segments: tuple[tuple[float, float] | None, ...] = page_ranges or (None,)
+    language = settings.language if settings is not None else AppLanguage.RU
+    localizer = Localizer.create(language)
     for page_index, page_range in enumerate(segments):
         if page_index and not device.newPage():
             raise MasterlogRenderError("Не удалось создать следующую страницу masterlog")
@@ -215,15 +253,26 @@ def paint_masterlog_pages(
             session,
             depth_range=page_range,
             canvas_size_mm=page_size_mm,
+            page_label=localizer.text(
+                "masterlog_output.page", page=page_index + 1, pages=len(segments)
+            ),
         )
 
 
-def _page_size(template: MasterlogTemplate, session: ProjectSession) -> QPageSize:
+def _page_size(
+    template: MasterlogTemplate,
+    session: ProjectSession,
+    settings: MasterlogOutputSettings | None = None,
+) -> QPageSize:
     if template.page_format.upper() == "A3":
         return QPageSize(QPageSize.PageSizeId.A3)
     if template.page_format.upper() == "A4":
         return QPageSize(QPageSize.PageSizeId.A4)
-    size = masterlog_size_mm(template, session)
+    size = masterlog_size_mm(
+        template,
+        session,
+        depth_range=settings.depth_range if settings is not None else None,
+    )
     return QPageSize(size, QPageSize.Unit.Millimeter, "Masterlog roll")
 
 

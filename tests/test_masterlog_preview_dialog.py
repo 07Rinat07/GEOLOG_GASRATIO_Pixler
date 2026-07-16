@@ -1,16 +1,19 @@
 from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.masterlog_preview_dialog import MasterlogPreviewDialog
 
 
 def test_masterlog_preview_dialog_uses_selected_template(qapp) -> None:
     template = MasterlogTemplate("standard", "Daily form")
+    settings = MasterlogOutputSettings(100.0, 200.0, AppLanguage.EN)
 
     dialog = MasterlogPreviewDialog(
-        template, ProjectSession(), language=AppLanguage.EN
+        template, ProjectSession(), language=AppLanguage.EN, settings=settings
     )
 
     assert dialog.windowTitle() == "Masterlog preview — Daily form"
     assert dialog.preview.template is template
+    assert dialog.preview.settings is settings
     dialog.close()

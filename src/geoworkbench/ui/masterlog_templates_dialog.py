@@ -28,7 +28,10 @@ from geoworkbench.printing.masterlog_renderer import (
     configure_masterlog_printer,
     export_masterlog_pdf,
     render_masterlog_to_printer,
+    masterlog_depth_range,
 )
+from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
+from geoworkbench.ui.masterlog_output_dialog import MasterlogOutputDialog
 
 
 class MasterlogTemplatesDialog(QDialog):
@@ -192,11 +195,15 @@ class MasterlogTemplatesDialog(QDialog):
         template_id = self._selected_id()
         if template_id is None:
             return
+        settings = self._ask_output_settings()
+        if settings is None:
+            return
         MasterlogPreviewDialog(
             self.controller.session.project.masterlog_templates[template_id],
             self.controller.session,
             self,
             language=self.localizer.language,
+            settings=settings,
         ).exec()
 
     def _export_pdf(self) -> None:
@@ -204,6 +211,9 @@ class MasterlogTemplatesDialog(QDialog):
         if template_id is None:
             return
         template = self.controller.session.project.masterlog_templates[template_id]
+        settings = self._ask_output_settings()
+        if settings is None:
+            return
         filename, _ = QFileDialog.getSaveFileName(
             self,
             self._t("masterlog_preview.export_pdf"),
@@ -224,7 +234,13 @@ class MasterlogTemplatesDialog(QDialog):
             if answer != QMessageBox.StandardButton.Yes:
                 return
         try:
-            export_masterlog_pdf(template, self.controller.session, target, overwrite=True)
+            export_masterlog_pdf(
+                template,
+                self.controller.session,
+                target,
+                overwrite=True,
+                settings=settings,
+            )
         except (OSError, MasterlogRenderError) as exc:
             QMessageBox.critical(self, self.windowTitle(), str(exc))
             return
@@ -239,8 +255,13 @@ class MasterlogTemplatesDialog(QDialog):
         if template_id is None:
             return
         template = self.controller.session.project.masterlog_templates[template_id]
+        settings = self._ask_output_settings()
+        if settings is None:
+            return
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        configure_masterlog_printer(printer, template, self.controller.session)
+        configure_masterlog_printer(
+            printer, template, self.controller.session, settings
+        )
         dialog = QPrintPreviewDialog(printer, self)
         dialog.setWindowTitle(
             self._t("masterlog_preview.system_title", name=template.name)
@@ -249,13 +270,35 @@ class MasterlogTemplatesDialog(QDialog):
         def paint(requested_printer: QPrinter) -> None:
             try:
                 render_masterlog_to_printer(
-                    requested_printer, template, self.controller.session
+                    requested_printer, template, self.controller.session, settings
                 )
             except MasterlogRenderError as exc:
                 QMessageBox.critical(self, self.windowTitle(), str(exc))
 
         dialog.paintRequested.connect(paint)
         dialog.exec()
+
+    def _ask_output_settings(self) -> MasterlogOutputSettings | None:
+        depth_range = masterlog_depth_range(self.controller.session)
+        if depth_range is None:
+            QMessageBox.information(
+                self,
+                self.windowTitle(),
+                self._t("masterlog_output.no_depth"),
+            )
+            return None
+        dialog = MasterlogOutputDialog(
+            depth_range,
+            self,
+            language=self.localizer.language,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        try:
+            return dialog.settings()
+        except ValueError as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return None
 
     def _run(self, operation: Callable[[], object]) -> None:
         try:
