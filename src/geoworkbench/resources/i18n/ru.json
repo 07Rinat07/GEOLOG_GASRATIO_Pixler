@@ -77,6 +77,7 @@
   "masterlog_preview.action": "Предпросмотр...", "masterlog_preview.title": "Предпросмотр мастерлога — {name}",
   "masterlog_preview.export_pdf": "Экспорт PDF...", "masterlog_preview.overwrite": "Файл {name} существует. Заменить?",
   "masterlog_preview.exported": "Masterlog PDF экспортирован: {name}",
+  "masterlog_preview.system_action": "Системный предпросмотр...", "masterlog_preview.system_title": "Печать мастерлога — {name}",
   "masterlog_templates.action": "Шаблоны мастерлога...", "masterlog_templates.title": "Шаблоны мастерлога",
   "masterlog_templates.item": "{name} — версия {version}", "masterlog_templates.select": "Выберите шаблон",
   "masterlog_templates.name": "Имя шаблона:", "masterlog_templates.create": "Создать шаблон",

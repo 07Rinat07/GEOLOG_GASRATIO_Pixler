@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtPrintSupport import QPrinter, QPrintPreviewDialog
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -22,7 +23,12 @@ from geoworkbench.ui.masterlog_columns_dialog import MasterlogColumnsDialog
 from geoworkbench.ui.masterlog_header_dialog import MasterlogHeaderDialog
 from geoworkbench.ui.masterlog_assets_dialog import MasterlogAssetsDialog
 from geoworkbench.ui.masterlog_preview_dialog import MasterlogPreviewDialog
-from geoworkbench.printing.masterlog_renderer import MasterlogRenderError, export_masterlog_pdf
+from geoworkbench.printing.masterlog_renderer import (
+    MasterlogRenderError,
+    configure_masterlog_printer,
+    export_masterlog_pdf,
+    render_masterlog_to_printer,
+)
 
 
 class MasterlogTemplatesDialog(QDialog):
@@ -48,6 +54,9 @@ class MasterlogTemplatesDialog(QDialog):
         self.assets_button = QPushButton(self._t("masterlog_assets.action"))
         self.preview_button = QPushButton(self._t("masterlog_preview.action"))
         self.export_button = QPushButton(self._t("masterlog_preview.export_pdf"))
+        self.print_preview_button = QPushButton(
+            self._t("masterlog_preview.system_action")
+        )
         self.delete_button = QPushButton(self._t("common.delete"))
         close_button = QPushButton(self._t("common.close"))
         self.create_button.clicked.connect(self._create)
@@ -58,6 +67,7 @@ class MasterlogTemplatesDialog(QDialog):
         self.assets_button.clicked.connect(self._edit_assets)
         self.preview_button.clicked.connect(self._preview)
         self.export_button.clicked.connect(self._export_pdf)
+        self.print_preview_button.clicked.connect(self._system_preview)
         self.delete_button.clicked.connect(self._delete)
         close_button.clicked.connect(self.accept)
         buttons = QHBoxLayout()
@@ -70,6 +80,7 @@ class MasterlogTemplatesDialog(QDialog):
             self.assets_button,
             self.preview_button,
             self.export_button,
+            self.print_preview_button,
             self.delete_button,
         ):
             buttons.addWidget(button)
@@ -222,6 +233,29 @@ class MasterlogTemplatesDialog(QDialog):
             self.windowTitle(),
             self._t("masterlog_preview.exported", name=target.name),
         )
+
+    def _system_preview(self) -> None:
+        template_id = self._selected_id()
+        if template_id is None:
+            return
+        template = self.controller.session.project.masterlog_templates[template_id]
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        configure_masterlog_printer(printer, template, self.controller.session)
+        dialog = QPrintPreviewDialog(printer, self)
+        dialog.setWindowTitle(
+            self._t("masterlog_preview.system_title", name=template.name)
+        )
+
+        def paint(requested_printer: QPrinter) -> None:
+            try:
+                render_masterlog_to_printer(
+                    requested_printer, template, self.controller.session
+                )
+            except MasterlogRenderError as exc:
+                QMessageBox.critical(self, self.windowTitle(), str(exc))
+
+        dialog.paintRequested.connect(paint)
+        dialog.exec()
 
     def _run(self, operation: Callable[[], object]) -> None:
         try:

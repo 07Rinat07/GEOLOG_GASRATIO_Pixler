@@ -77,6 +77,7 @@
   "masterlog_preview.action": "Алдын ала қарау...", "masterlog_preview.title": "Мастерлогты алдын ала қарау — {name}",
   "masterlog_preview.export_pdf": "PDF экспорттау...", "masterlog_preview.overwrite": "{name} файлы бар. Ауыстыру керек пе?",
   "masterlog_preview.exported": "Masterlog PDF экспортталды: {name}",
+  "masterlog_preview.system_action": "Жүйелік алдын ала қарау...", "masterlog_preview.system_title": "Мастерлогты басып шығару — {name}",
   "masterlog_templates.action": "Мастерлог үлгілері...", "masterlog_templates.title": "Мастерлог үлгілері",
   "masterlog_templates.item": "{name} — {version} нұсқа", "masterlog_templates.select": "Үлгіні таңдаңыз",
   "masterlog_templates.name": "Үлгі атауы:", "masterlog_templates.create": "Үлгі жасау",

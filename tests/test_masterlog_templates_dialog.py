@@ -18,4 +18,5 @@ def test_masterlog_templates_dialog_lists_name_and_version(qapp) -> None:
     assert dialog.assets_button.text() == "Images..."
     assert dialog.preview_button.text() == "Preview..."
     assert dialog.export_button.text() == "Export PDF..."
+    assert dialog.print_preview_button.text() == "System preview..."
     dialog.close()

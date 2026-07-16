@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
+from typing import Protocol
 
 import numpy as np
 from PySide6.QtCore import QLineF, QMarginsF, QRectF, QSizeF, Qt
@@ -17,6 +18,7 @@ from PySide6.QtGui import (
     QPdfWriter,
     QPen,
 )
+from PySide6.QtPrintSupport import QPrinter
 
 from geoworkbench.domain.models import Dataset, MasterlogColumnTemplate, MasterlogHeaderElement, MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
@@ -25,6 +27,13 @@ from geoworkbench.printing.header_fields import resolve_header_field
 
 class MasterlogRenderError(RuntimeError):
     pass
+
+
+class PagedPaintDevice(Protocol):
+    def width(self) -> int: ...
+    def height(self) -> int: ...
+    def pageLayout(self) -> QPageLayout: ...
+    def newPage(self) -> bool: ...
 
 
 def masterlog_size_mm(
@@ -147,20 +156,7 @@ def export_masterlog_pdf(
         painter = QPainter()
         if not painter.begin(writer):
             raise MasterlogRenderError("Не удалось запустить masterlog PDF renderer")
-        page_size_mm = writer.pageLayout().fullRect(QPageLayout.Unit.Millimeter).size()
-        page_ranges = masterlog_page_ranges(template, session)
-        segments: tuple[tuple[float, float] | None, ...] = page_ranges or (None,)
-        for page_index, page_range in enumerate(segments):
-            if page_index and not writer.newPage():
-                raise MasterlogRenderError("Не удалось создать следующую страницу masterlog PDF")
-            paint_masterlog(
-                painter,
-                QRectF(0.0, 0.0, float(writer.width()), float(writer.height())),
-                template,
-                session,
-                depth_range=page_range,
-                canvas_size_mm=page_size_mm,
-            )
+        paint_masterlog_pages(painter, writer, template, session)
         if not painter.end():
             raise MasterlogRenderError("Не удалось завершить masterlog PDF renderer")
         if not temporary.exists() or temporary.stat().st_size == 0:
@@ -175,6 +171,51 @@ def export_masterlog_pdf(
         if painter is not None and painter.isActive():
             painter.end()
     return destination
+
+
+def configure_masterlog_printer(
+    printer: QPrinter, template: MasterlogTemplate, session: ProjectSession
+) -> None:
+    printer.setPageSize(_page_size(template, session))
+    printer.setPageMargins(
+        QMarginsF(0.0, 0.0, 0.0, 0.0), QPageLayout.Unit.Millimeter
+    )
+    printer.setFullPage(True)
+
+
+def render_masterlog_to_printer(
+    printer: QPrinter, template: MasterlogTemplate, session: ProjectSession
+) -> None:
+    painter = QPainter()
+    if not painter.begin(printer):
+        raise MasterlogRenderError("Не удалось запустить системный masterlog renderer")
+    try:
+        paint_masterlog_pages(painter, printer, template, session)
+    finally:
+        if painter.isActive() and not painter.end():
+            raise MasterlogRenderError("Не удалось завершить системный masterlog renderer")
+
+
+def paint_masterlog_pages(
+    painter: QPainter,
+    device: PagedPaintDevice,
+    template: MasterlogTemplate,
+    session: ProjectSession,
+) -> None:
+    page_size_mm = device.pageLayout().fullRect(QPageLayout.Unit.Millimeter).size()
+    page_ranges = masterlog_page_ranges(template, session)
+    segments: tuple[tuple[float, float] | None, ...] = page_ranges or (None,)
+    for page_index, page_range in enumerate(segments):
+        if page_index and not device.newPage():
+            raise MasterlogRenderError("Не удалось создать следующую страницу masterlog")
+        paint_masterlog(
+            painter,
+            QRectF(0.0, 0.0, float(device.width()), float(device.height())),
+            template,
+            session,
+            depth_range=page_range,
+            canvas_size_mm=page_size_mm,
+        )
 
 
 def _page_size(template: MasterlogTemplate, session: ProjectSession) -> QPageSize:

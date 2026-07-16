@@ -1,4 +1,5 @@
 import numpy as np
+from PySide6.QtPrintSupport import QPrinter
 
 from geoworkbench.domain.models import (
     Dataset,
@@ -11,10 +12,12 @@ from geoworkbench.domain.models import (
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.masterlog_renderer import (
     curve_x_range,
+    configure_masterlog_printer,
     export_masterlog_pdf,
     masterlog_depth_range,
     masterlog_page_ranges,
     masterlog_size_mm,
+    render_masterlog_to_printer,
 )
 
 
@@ -137,6 +140,32 @@ def test_masterlog_a4_pdf_contains_multiple_pages(qapp, tmp_path) -> None:
     target = tmp_path / "multipage.pdf"
 
     export_masterlog_pdf(template, session, target)
+
+    payload = target.read_bytes()
+    assert payload.startswith(b"%PDF")
+    assert b"/Count 3" in payload
+
+
+def test_masterlog_qprinter_uses_same_multipage_renderer(qapp, tmp_path) -> None:
+    dataset = Dataset(
+        "dataset-printer",
+        "Printer log",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(100.0, 400.0, 301),
+    )
+    dataset.upsert_curve("TG", np.linspace(1.0, 100.0, 301))
+    session = ProjectSession()
+    session.add_dataset(dataset, "Well")
+    template = make_template()
+    template.page_format = "A4"
+    target = tmp_path / "printer.pdf"
+    printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+    printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
+    printer.setOutputFileName(str(target))
+    configure_masterlog_printer(printer, template, session)
+
+    render_masterlog_to_printer(printer, template, session)
 
     payload = target.read_bytes()
     assert payload.startswith(b"%PDF")
