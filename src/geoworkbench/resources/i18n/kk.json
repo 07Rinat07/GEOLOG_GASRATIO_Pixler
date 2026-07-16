@@ -68,6 +68,8 @@
   "masterlog_header.invalid_color": "Сызықтың жарамды түсін енгізіңіз",
   "masterlog_header.text_color": "Мәтін түсі", "masterlog_header.font_size": "Мәтін өлшемі, мм",
   "masterlog_header.invalid_text_color": "Мәтіннің жарамды түсін енгізіңіз",
+  "masterlog_header.image": "Кескін", "masterlog_header.import_png": "PNG импорттау...",
+  "masterlog_header.select_image": "PNG кескінін таңдаңыз немесе импорттаңыз",
   "masterlog_templates.action": "Мастерлог үлгілері...", "masterlog_templates.title": "Мастерлог үлгілері",
   "masterlog_templates.item": "{name} — {version} нұсқа", "masterlog_templates.select": "Үлгіні таңдаңыз",
   "masterlog_templates.name": "Үлгі атауы:", "masterlog_templates.create": "Үлгі жасау",

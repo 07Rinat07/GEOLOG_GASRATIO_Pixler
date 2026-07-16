@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QPen
+from PySide6.QtGui import QColor, QPen, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QFileDialog,
     QHBoxLayout,
     QGraphicsScene,
     QGraphicsView,
@@ -25,6 +27,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.domain.models import MasterlogHeaderElement
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.printing.header_fields import SUPPORTED_HEADER_FIELDS, resolve_header_field
+from geoworkbench.printing.image_assets import ImageAsset, ImageAssetError, create_png_asset
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
@@ -35,9 +38,12 @@ class HeaderElementDialog(QDialog):
         *,
         element: MasterlogHeaderElement | None = None,
         language: AppLanguage = AppLanguage.RU,
+        image_assets: dict[str, ImageAsset] | None = None,
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
+        self.image_assets = image_assets or {}
+        self.imported_assets: dict[str, ImageAsset] = {}
         self.setWindowTitle(self.localizer.text("masterlog_header.properties"))
         self.type_input = QComboBox()
         self.type_input.addItems(["text", "field", "image", "line"])
@@ -92,6 +98,23 @@ class HeaderElementDialog(QDialog):
                 self.line_color_input.setText(color)
             if isinstance(width, (int, float)) and not isinstance(width, bool):
                 self.line_width_input.setValue(float(width))
+        self.image_input = QComboBox()
+        for asset in self.image_assets.values():
+            self.image_input.addItem(asset.original_name, asset.asset_id)
+        asset_ref = element.properties.get("asset_ref") if element else None
+        if isinstance(asset_ref, str):
+            index = self.image_input.findData(asset_ref)
+            if index < 0:
+                self.image_input.addItem(asset_ref, asset_ref)
+                index = self.image_input.count() - 1
+            self.image_input.setCurrentIndex(index)
+        self.image_import_button = QPushButton(
+            self.localizer.text("masterlog_header.import_png")
+        )
+        self.image_import_button.clicked.connect(self._import_png)
+        image_row = QHBoxLayout()
+        image_row.addWidget(self.image_input, 1)
+        image_row.addWidget(self.image_import_button)
         layout = QFormLayout(self)
         layout.addRow(self.localizer.text("masterlog_header.type"), self.type_input)
         for label, control in zip(
@@ -112,10 +135,12 @@ class HeaderElementDialog(QDialog):
         self.line_width_label = QLabel(self.localizer.text("masterlog_header.line_width"))
         self.text_color_label = QLabel(self.localizer.text("masterlog_header.text_color"))
         self.font_size_label = QLabel(self.localizer.text("masterlog_header.font_size"))
+        self.image_label = QLabel(self.localizer.text("masterlog_header.image"))
         layout.addRow(self.text_label, self.text_input)
         layout.addRow(self.field_label, self.field_input)
         layout.addRow(self.text_color_label, self.text_color_input)
         layout.addRow(self.font_size_label, self.font_size_input)
+        layout.addRow(self.image_label, image_row)
         layout.addRow(self.line_color_label, self.line_color_input)
         layout.addRow(self.line_width_label, self.line_width_input)
         layout.addRow(self.properties_label, self.properties_input)
@@ -136,13 +161,37 @@ class HeaderElementDialog(QDialog):
         self.text_color_input.setVisible(element_type in {"text", "field"})
         self.font_size_input.setVisible(element_type in {"text", "field"})
         self.properties_input.setVisible(element_type == "image")
+        self.image_input.setVisible(element_type == "image")
+        self.image_import_button.setVisible(element_type == "image")
         self.text_label.setVisible(element_type == "text")
         self.field_label.setVisible(element_type == "field")
         self.line_color_label.setVisible(element_type == "line")
         self.line_width_label.setVisible(element_type == "line")
         self.text_color_label.setVisible(element_type in {"text", "field"})
         self.font_size_label.setVisible(element_type in {"text", "field"})
-        self.properties_label.setVisible(element_type == "image")
+        self.image_label.setVisible(element_type == "image")
+        self.properties_label.setVisible(False)
+
+    def _import_png(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            self.localizer.text("masterlog_header.import_png"),
+            "",
+            "PNG (*.png)",
+        )
+        if not filename:
+            return
+        try:
+            asset = create_png_asset(Path(filename))
+        except (OSError, ImageAssetError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self.imported_assets[asset.asset_id] = asset
+        index = self.image_input.findData(asset.asset_id)
+        if index < 0:
+            self.image_input.addItem(asset.original_name, asset.asset_id)
+            index = self.image_input.count() - 1
+        self.image_input.setCurrentIndex(index)
 
     def values(self) -> tuple[str, float, float, float, float, dict[str, object]]:
         element_type = self.type_input.currentText()
@@ -167,6 +216,11 @@ class HeaderElementDialog(QDialog):
                 "color": color.name(),
                 "width": self.line_width_input.value(),
             }
+        elif element_type == "image":
+            asset_ref = self.image_input.currentData()
+            if not isinstance(asset_ref, str) or not asset_ref:
+                raise ValueError(self.localizer.text("masterlog_header.select_image"))
+            properties = {"asset_ref": asset_ref}
         else:
             properties = json.loads(self.properties_input.text())
             if not isinstance(properties, dict):
@@ -279,6 +333,8 @@ class MasterlogHeaderDialog(QDialog):
                 colors[element.element_type],
             )
             rectangle.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+            if element.element_type == "image" and self._add_image_preview(element):
+                continue
             label = self.preview_scene.addText(self._preview_text(element))
             color, font_size = self._text_style(element)
             label.setDefaultTextColor(color)
@@ -323,6 +379,25 @@ class MasterlogHeaderDialog(QDialog):
         )
         return color, size
 
+    def _add_image_preview(self, element: MasterlogHeaderElement) -> bool:
+        asset_ref = element.properties.get("asset_ref")
+        asset = (
+            self.controller.session.image_assets.get(asset_ref)
+            if isinstance(asset_ref, str)
+            else None
+        )
+        if asset is None:
+            return False
+        pixmap = QPixmap()
+        if not pixmap.loadFromData(asset.payload) or pixmap.isNull():
+            return False
+        item = self.preview_scene.addPixmap(pixmap)
+        scale = min(element.width_mm / pixmap.width(), element.height_mm / pixmap.height())
+        item.setScale(scale)
+        item.setPos(element.x_mm, element.y_mm)
+        item.setToolTip(asset.original_name)
+        return True
+
     def _preview_text(self, element: MasterlogHeaderElement) -> str:
         if element.element_type == "text":
             value = element.properties.get("text")
@@ -345,7 +420,11 @@ class MasterlogHeaderDialog(QDialog):
         )
 
     def _add(self) -> None:
-        dialog = HeaderElementDialog(self, language=self.localizer.language)
+        dialog = HeaderElementDialog(
+            self,
+            language=self.localizer.language,
+            image_assets=self.controller.session.image_assets,
+        )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._apply(dialog, None)
 
@@ -353,7 +432,10 @@ class MasterlogHeaderDialog(QDialog):
         element = self._selected()
         if element:
             dialog = HeaderElementDialog(
-                self, element=element, language=self.localizer.language
+                self,
+                element=element,
+                language=self.localizer.language,
+                image_assets=self.controller.session.image_assets,
             )
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self._apply(dialog, element.element_id)
@@ -384,6 +466,10 @@ class MasterlogHeaderDialog(QDialog):
                 )
         except (ValueError, json.JSONDecodeError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
+        else:
+            if dialog.imported_assets:
+                self.controller.session.image_assets.update(dialog.imported_assets)
+                self.controller.session.dirty = True
         self.refresh()
 
     def _remove(self) -> None:

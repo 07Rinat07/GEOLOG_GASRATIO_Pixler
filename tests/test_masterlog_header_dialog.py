@@ -1,7 +1,21 @@
+import base64
+from hashlib import sha256
+
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.image_assets import ImageAsset
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.masterlog_header_dialog import HeaderElementDialog, MasterlogHeaderDialog
+
+
+PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+
+
+def make_image_asset() -> ImageAsset:
+    digest = sha256(PNG).hexdigest()
+    return ImageAsset(f"sha256:{digest}", "logo.png", "image/png", PNG)
 
 
 def test_masterlog_header_dialog_lists_elements(qapp) -> None:
@@ -86,6 +100,32 @@ def test_header_element_dialog_builds_line_properties(qapp) -> None:
     dialog.close()
 
 
+def test_header_element_dialog_selects_project_png_asset(qapp) -> None:
+    asset = make_image_asset()
+    dialog = HeaderElementDialog(image_assets={asset.asset_id: asset})
+    dialog.type_input.setCurrentText("image")
+
+    assert dialog.image_input.currentText() == "logo.png"
+    assert dialog.values()[-1] == {"asset_ref": asset.asset_id}
+    dialog.close()
+
+
+def test_header_element_dialog_stages_png_import_until_apply(qapp, tmp_path, monkeypatch) -> None:
+    source = tmp_path / "new-logo.png"
+    source.write_bytes(PNG)
+    dialog = HeaderElementDialog()
+    monkeypatch.setattr(
+        "geoworkbench.ui.masterlog_header_dialog.QFileDialog.getOpenFileName",
+        lambda *args, **kwargs: (str(source), "PNG (*.png)"),
+    )
+
+    dialog._import_png()
+
+    assert len(dialog.imported_assets) == 1
+    assert dialog.image_input.currentText() == "new-logo.png"
+    dialog.close()
+
+
 def test_header_preview_draws_line_with_safe_style_fallback(qapp) -> None:
     controller = MasterlogTemplateController(ProjectSession())
     template = controller.create("Standard")
@@ -127,6 +167,26 @@ def test_header_preview_applies_text_style_with_safe_fallback(qapp) -> None:
 
     assert color.name() == "#0f172a"
     assert size == 3.5
+    dialog.close()
+
+
+def test_header_preview_renders_project_png_asset(qapp) -> None:
+    asset = make_image_asset()
+    session = ProjectSession(image_assets={asset.asset_id: asset})
+    controller = MasterlogTemplateController(session)
+    template = controller.create("Standard")
+    element = controller.add_header_element(
+        template.template_id,
+        element_type="image",
+        x_mm=2,
+        y_mm=3,
+        width_mm=20,
+        height_mm=10,
+        properties={"asset_ref": asset.asset_id},
+    )
+    dialog = MasterlogHeaderDialog(controller, template.template_id)
+
+    assert dialog._add_image_preview(element)
     dialog.close()
 
 
