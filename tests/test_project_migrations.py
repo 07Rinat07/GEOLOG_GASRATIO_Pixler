@@ -81,6 +81,19 @@ def test_v10_project_migrates_with_empty_export_profiles() -> None:
     assert "export_profiles" not in payload["project"]
 
 
+def test_v12_project_adds_kazakh_lithotype_name_without_mutating_source() -> None:
+    payload = {
+        "format_version": 12,
+        "project": {"lithotypes": {"custom": {"name_ru": "Порода"}}},
+    }
+
+    migrated = migrate_project_payload(payload, 13)
+
+    assert migrated["format_version"] == 13
+    assert migrated["project"]["lithotypes"]["custom"]["name_kk"] == "Порода"
+    assert "name_kk" not in payload["project"]["lithotypes"]["custom"]
+
+
 def test_registry_rejects_missing_migration_step() -> None:
     registry = ProjectMigrationRegistry()
 

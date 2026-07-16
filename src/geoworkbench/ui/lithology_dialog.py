@@ -61,7 +61,12 @@ class LithologyDialog(QDialog):
         self.lithotype_input = QComboBox()
         self.lithotype_input.setEditable(True)
         for item in self.catalog:
-            name = item.name_en if language is AppLanguage.EN else item.name_ru
+            if language is AppLanguage.KK:
+                name = item.name_kk or item.name_ru
+            elif language is AppLanguage.EN:
+                name = item.name_en
+            else:
+                name = item.name_ru
             self.lithotype_input.addItem(f"{name} ({item.lithotype_id})", item.lithotype_id)
         self.description_input = QLineEdit()
         self.template_input = QComboBox()

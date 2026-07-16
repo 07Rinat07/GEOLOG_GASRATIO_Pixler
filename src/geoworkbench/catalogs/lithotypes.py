@@ -20,6 +20,7 @@ class LithotypeDefinition:
     category: str
     color: str
     pattern_key: str
+    name_kk: str = ""
 
 
 def load_lithotype_catalog(path: str | Path | None = None) -> tuple[LithotypeDefinition, ...]:
@@ -47,6 +48,7 @@ def load_lithotype_catalog(path: str | Path | None = None) -> tuple[LithotypeDef
             category=str(entry.get("category", "")).strip(),
             color=str(entry.get("color", "")).strip(),
             pattern_key=str(entry.get("pattern_key", "")).strip(),
+            name_kk=str(entry.get("name_kk", entry.get("name_ru", ""))).strip(),
         )
         if not _ID_PATTERN.fullmatch(definition.lithotype_id):
             raise ValueError(f"Некорректный ID литотипа: {definition.lithotype_id!r}")
@@ -57,6 +59,7 @@ def load_lithotype_catalog(path: str | Path | None = None) -> tuple[LithotypeDef
                 definition.code,
                 definition.name_ru,
                 definition.name_en,
+                definition.name_kk,
                 definition.category,
                 definition.pattern_key,
             )

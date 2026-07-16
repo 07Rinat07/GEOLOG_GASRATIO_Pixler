@@ -208,6 +208,25 @@ def _migrate_v11_to_v12(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v12_to_v13(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 12 не содержит объекта 'project'")
+    lithotypes = project.get("lithotypes", {})
+    if not isinstance(lithotypes, dict):
+        raise ProjectMigrationError("Проект версии 12 содержит некорректный справочник литотипов")
+    for item in lithotypes.values():
+        if not isinstance(item, dict):
+            raise ProjectMigrationError("Некорректная запись литотипа версии 12")
+        name_ru = item.get("name_ru")
+        if not isinstance(name_ru, str):
+            raise ProjectMigrationError("Литотип версии 12 не содержит русского названия")
+        item.setdefault("name_kk", name_ru)
+    migrated["format_version"] = 13
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -221,6 +240,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(8, _migrate_v8_to_v9)
 DEFAULT_PROJECT_MIGRATIONS.register(9, _migrate_v9_to_v10)
 DEFAULT_PROJECT_MIGRATIONS.register(10, _migrate_v10_to_v11)
 DEFAULT_PROJECT_MIGRATIONS.register(11, _migrate_v11_to_v12)
+DEFAULT_PROJECT_MIGRATIONS.register(12, _migrate_v12_to_v13)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

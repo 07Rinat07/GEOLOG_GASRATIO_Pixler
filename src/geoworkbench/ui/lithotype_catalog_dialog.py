@@ -63,7 +63,7 @@ class LithotypeCatalogDialog(QDialog):
         self.resize(1100, 620)
 
         root = QVBoxLayout(self)
-        self.table = QTableWidget(0, 8)
+        self.table = QTableWidget(0, 9)
         self.table.setObjectName("lithotype-catalog-table")
         self.table.setHorizontalHeaderLabels(
             [
@@ -71,6 +71,7 @@ class LithotypeCatalogDialog(QDialog):
                 self._t("catalog.code"),
                 self._t("catalog.id"),
                 self._t("catalog.name_ru"),
+                self._t("catalog.name_kk"),
                 self._t("catalog.name_en"),
                 self._t("catalog.category"),
                 self._t("catalog.color"),
@@ -85,6 +86,7 @@ class LithotypeCatalogDialog(QDialog):
         self.id_input.setPlaceholderText(self._t("catalog.id_example"))
         self.code_input = QLineEdit()
         self.name_ru_input = QLineEdit()
+        self.name_kk_input = QLineEdit()
         self.name_en_input = QLineEdit()
         self.category_input = QLineEdit()
         self.color_input = QLineEdit("#c9a66b")
@@ -95,6 +97,7 @@ class LithotypeCatalogDialog(QDialog):
             (self._t("catalog.id"), self.id_input),
             (self._t("catalog.code"), self.code_input),
             (self._t("catalog.name_ru"), self.name_ru_input),
+            (self._t("catalog.name_kk"), self.name_kk_input),
             (self._t("catalog.name_en"), self.name_en_input),
             (self._t("catalog.category"), self.category_input),
             (self._t("catalog.pattern_key"), self.pattern_input),
@@ -148,6 +151,7 @@ class LithotypeCatalogDialog(QDialog):
                 record.code,
                 record.lithotype_id,
                 record.name_ru,
+                record.name_kk,
                 record.name_en,
                 record.category,
                 record.color,
@@ -164,16 +168,17 @@ class LithotypeCatalogDialog(QDialog):
         row = self.table.currentRow()
         if row < 0:
             return
-        values = [self.table.item(row, column) for column in range(8)]
+        values = [self.table.item(row, column) for column in range(9)]
         if any(item is None for item in values):
             return
-        source, code, lithotype_id, name_ru, name_en, category, color, pattern = (
+        source, code, lithotype_id, name_ru, name_kk, name_en, category, color, pattern = (
             cast(QTableWidgetItem, item) for item in values
         )
         self.id_input.setText(lithotype_id.text())
         self.id_input.setReadOnly(bool(source.data(Qt.ItemDataRole.UserRole + 1)))
         self.code_input.setText(code.text())
         self.name_ru_input.setText(name_ru.text())
+        self.name_kk_input.setText(name_kk.text())
         self.name_en_input.setText(name_en.text())
         self.category_input.setText(category.text())
         self.color_input.setText(color.text())
@@ -186,6 +191,7 @@ class LithotypeCatalogDialog(QDialog):
             self.id_input,
             self.code_input,
             self.name_ru_input,
+            self.name_kk_input,
             self.name_en_input,
             self.category_input,
         ):
@@ -194,7 +200,7 @@ class LithotypeCatalogDialog(QDialog):
         self.color_input.setText("#c9a66b")
         self.id_input.setFocus()
 
-    def _values(self) -> tuple[str, str, str, str, str, str, str]:
+    def _values(self) -> tuple[str, str, str, str, str, str, str, str]:
         return (
             self.id_input.text(),
             self.code_input.text(),
@@ -203,6 +209,7 @@ class LithotypeCatalogDialog(QDialog):
             self.category_input.text(),
             self.color_input.text(),
             self.pattern_input.currentText(),
+            self.name_kk_input.text(),
         )
 
     def _choose_color(self) -> None:
@@ -226,7 +233,7 @@ class LithotypeCatalogDialog(QDialog):
                 self, self._t("catalog.title"), self._t("catalog.select_project")
             )
             return
-        _, code, name_ru, name_en, category, color, pattern = self._values()
+        _, code, name_ru, name_en, category, color, pattern, name_kk = self._values()
         self._run(
             lambda: self.controller.update(
                 lithotype_id,
@@ -236,6 +243,7 @@ class LithotypeCatalogDialog(QDialog):
                 category=category,
                 color=color,
                 pattern_key=pattern,
+                name_kk=name_kk,
             )
         )
 

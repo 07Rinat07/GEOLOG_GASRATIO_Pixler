@@ -63,3 +63,15 @@ def test_lithology_dialog_uses_english_catalog_and_labels(qapp) -> None:
     assert dialog.findChild(QPushButton, "lithology-add-button").text() == "Add"
     assert buttons.button(QDialogButtonBox.StandardButton.Close).text() == "Close"
     dialog.close()
+
+
+def test_lithology_dialog_uses_kazakh_catalog_names(qapp) -> None:
+    session = ProjectSession()
+    session.project.wells["well"] = Well("well", "Well")
+    session.current_well_id = "well"
+    dialog = LithologyDialog(LithologyController(session), language=AppLanguage.KK)
+
+    sandstone = dialog.lithotype_input.findData("sandstone")
+
+    assert dialog.lithotype_input.itemText(sandstone) == "Құмтас (sandstone)"
+    dialog.close()

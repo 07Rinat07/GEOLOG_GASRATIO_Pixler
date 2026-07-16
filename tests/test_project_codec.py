@@ -96,7 +96,7 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
         "DLM": "SPACE",
     }
     project.lithotypes["oil_sand"] = ProjectLithotype(
-        "oil_sand", "OS", "Нефтенасыщенный песок", "Oil sand", "sedimentary", "#a07840", "dots"
+        "oil_sand", "OS", "Нефтенасыщенный песок", "Oil sand", "sedimentary", "#a07840", "dots", "Мұнайлы құм"
     )
     project.description_templates["Песчаник"] = "Песчаник серый, мелкозернистый"
     project.custom_formulas["wetness"] = CustomFormulaDefinition(
@@ -121,6 +121,7 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     assert document.tablet_layouts["dataset-1"] == layout
     assert document.tablet_presets["Standard"] == preset
     assert document.project.lithotypes["oil_sand"].code == "OS"
+    assert document.project.lithotypes["oil_sand"].name_kk == "Мұнайлы құм"
     assert document.project.description_templates["Песчаник"].startswith("Песчаник")
     assert document.project.custom_formulas["wetness"].output_mnemonic == "WH_USER"
     assert document.project.export_profiles["gas-profile"].curve_mnemonics == (

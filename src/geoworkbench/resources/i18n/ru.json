@@ -288,6 +288,7 @@
   "catalog.code": "Код",
   "catalog.id": "ID",
   "catalog.name_ru": "Название (RU)",
+  "catalog.name_kk": "Название (KK)",
   "catalog.name_en": "Название (EN)",
   "catalog.category": "Категория",
   "catalog.color": "Цвет",

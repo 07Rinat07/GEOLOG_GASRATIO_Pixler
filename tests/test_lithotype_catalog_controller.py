@@ -10,7 +10,7 @@ def test_project_lithotype_lifecycle_marks_project_dirty() -> None:
     controller = LithotypeCatalogController(session)
 
     created = controller.add(
-        "oil_sand", "os", "Нефтенасыщенный песок", "Oil sand", "sedimentary", "#A07840", "dots"
+        "oil_sand", "os", "Нефтенасыщенный песок", "Oil sand", "sedimentary", "#A07840", "dots", "Мұнайлы құм"
     )
     updated = controller.update(
         "oil_sand",
@@ -20,10 +20,12 @@ def test_project_lithotype_lifecycle_marks_project_dirty() -> None:
         category="sedimentary",
         color="#a07840",
         pattern_key="dense_dots",
+        name_kk="Мұнайлы құм",
     )
     removed = controller.remove("oil_sand")
 
     assert created.system is False
+    assert created.localized_name("kk") == "Мұнайлы құм"
     assert updated.code == "OS2"
     assert removed.lithotype_id == "oil_sand"
     assert session.project.lithotypes == {}

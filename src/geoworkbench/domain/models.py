@@ -444,6 +444,7 @@ class ProjectLithotype:
     category: str
     color: str
     pattern_key: str
+    name_kk: str = ""
 
 
 @dataclass(slots=True)

@@ -2073,11 +2073,7 @@ class MainWindow(QMainWindow):
         entries = build_lithology_legend(
             intervals,
             self.lithotype_catalog_controller.available(),
-            name_resolver=(
-                (lambda item: item.name_en)
-                if self.language is AppLanguage.EN
-                else (lambda item: item.name_ru)
-            ),
+            name_resolver=lambda item: item.localized_name(self.language.value),
             unknown_name=self._t("legend.unknown"),
         )
         LithologyLegendDialog(entries, self, language=self.language).exec()

@@ -23,6 +23,14 @@ class CatalogLithotype:
     color: str
     pattern_key: str
     system: bool
+    name_kk: str = ""
+
+    def localized_name(self, language: str) -> str:
+        if language == "kk":
+            return self.name_kk or self.name_ru
+        if language == "en":
+            return self.name_en
+        return self.name_ru
 
 
 @dataclass(slots=True)
@@ -43,8 +51,11 @@ class LithotypeCatalogController:
         category: str,
         color: str,
         pattern_key: str,
+        name_kk: str = "",
     ) -> CatalogLithotype:
-        record = self._validate(lithotype_id, code, name_ru, name_en, category, color, pattern_key)
+        record = self._validate(
+            lithotype_id, code, name_ru, name_en, category, color, pattern_key, name_kk
+        )
         self._ensure_unique(record)
         self.session.project.lithotypes[record.lithotype_id] = record
         self.session.dirty = True
@@ -60,10 +71,13 @@ class LithotypeCatalogController:
         category: str,
         color: str,
         pattern_key: str,
+        name_kk: str = "",
     ) -> CatalogLithotype:
         if lithotype_id not in self.session.project.lithotypes:
             raise KeyError(f"Пользовательский литотип не найден: {lithotype_id}")
-        record = self._validate(lithotype_id, code, name_ru, name_en, category, color, pattern_key)
+        record = self._validate(
+            lithotype_id, code, name_ru, name_en, category, color, pattern_key, name_kk
+        )
         self._ensure_unique(record, excluded_id=lithotype_id)
         self.session.project.lithotypes[lithotype_id] = record
         self.session.dirty = True
@@ -106,12 +120,14 @@ class LithotypeCatalogController:
         category: str,
         color: str,
         pattern_key: str,
+        name_kk: str = "",
     ) -> ProjectLithotype:
         values = {
             "ID": lithotype_id.strip(),
             "код": code.strip().upper(),
             "русское название": name_ru.strip(),
             "английское название": name_en.strip(),
+            "казахское название": name_kk.strip() or name_ru.strip(),
             "категория": category.strip(),
             "цвет": color.strip(),
             "ключ узора": pattern_key.strip(),
@@ -133,6 +149,7 @@ class LithotypeCatalogController:
             category=values["категория"],
             color=values["цвет"].lower(),
             pattern_key=values["ключ узора"],
+            name_kk=values["казахское название"],
         )
 
     @staticmethod
@@ -146,6 +163,7 @@ class LithotypeCatalogController:
             item.color,
             item.pattern_key,
             True,
+            item.name_kk,
         )
 
     @staticmethod
@@ -159,4 +177,5 @@ class LithotypeCatalogController:
             item.color,
             item.pattern_key,
             False,
+            item.name_kk or item.name_ru,
         )
