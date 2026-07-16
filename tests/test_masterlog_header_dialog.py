@@ -29,12 +29,36 @@ def test_masterlog_header_dialog_lists_elements(qapp) -> None:
     dialog.close()
 
 
-def test_header_element_dialog_parses_json_properties(qapp) -> None:
-    dialog = HeaderElementDialog()
-    dialog.type_input.setCurrentText("field")
-    dialog.properties_input.setText('{"field": "well.name"}')
+def test_header_element_dialog_builds_typed_properties(qapp) -> None:
+    dialog = HeaderElementDialog(language=AppLanguage.EN)
+    dialog.type_input.setCurrentText("text")
+    dialog.text_input.setText("Daily masterlog")
+    assert dialog.values()[-1] == {"text": "Daily masterlog"}
 
+    dialog.type_input.setCurrentText("field")
+    dialog.field_input.setCurrentText("well.name")
     assert dialog.values()[-1] == {"field": "well.name"}
+    assert dialog.windowTitle() == "Header element properties"
+    dialog.close()
+
+
+def test_header_element_dialog_preserves_unknown_legacy_field(qapp) -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+    element = controller.add_header_element(
+        template.template_id,
+        element_type="field",
+        x_mm=0,
+        y_mm=0,
+        width_mm=30,
+        height_mm=10,
+        properties={"field": "legacy.custom"},
+    )
+
+    dialog = HeaderElementDialog(element=element)
+
+    assert dialog.field_input.currentText() == "legacy.custom"
+    assert dialog.values()[-1] == {"field": "legacy.custom"}
     dialog.close()
 
 

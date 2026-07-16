@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QGraphicsScene,
     QGraphicsView,
+    QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
@@ -23,14 +24,21 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.domain.models import MasterlogHeaderElement
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
-from geoworkbench.printing.header_fields import resolve_header_field
+from geoworkbench.printing.header_fields import SUPPORTED_HEADER_FIELDS, resolve_header_field
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class HeaderElementDialog(QDialog):
-    def __init__(self, parent=None, *, element: MasterlogHeaderElement | None = None) -> None:
+    def __init__(
+        self,
+        parent=None,
+        *,
+        element: MasterlogHeaderElement | None = None,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Свойства элемента шапки")
+        self.localizer = Localizer.create(language)
+        self.setWindowTitle(self.localizer.text("masterlog_header.properties"))
         self.type_input = QComboBox()
         self.type_input.addItems(["text", "field", "image", "line"])
         if element:
@@ -49,27 +57,66 @@ class HeaderElementDialog(QDialog):
         self.properties_input = QLineEdit(
             json.dumps(element.properties, ensure_ascii=False) if element else "{}"
         )
+        self.text_input = QLineEdit()
+        text_value = element.properties.get("text") if element else None
+        if isinstance(text_value, (str, int, float)):
+            self.text_input.setText(str(text_value))
+        self.field_input = QComboBox()
+        self.field_input.addItems(SUPPORTED_HEADER_FIELDS)
+        field_value = element.properties.get("field") if element else None
+        if isinstance(field_value, str) and field_value not in SUPPORTED_HEADER_FIELDS:
+            self.field_input.addItem(field_value)
+        if isinstance(field_value, str):
+            self.field_input.setCurrentText(field_value)
         layout = QFormLayout(self)
-        layout.addRow("Тип", self.type_input)
+        layout.addRow(self.localizer.text("masterlog_header.type"), self.type_input)
         for label, control in zip(
-            ("X, мм", "Y, мм", "Ширина, мм", "Высота, мм"), self.inputs, strict=True
+            (
+                self.localizer.text("masterlog_header.x"),
+                self.localizer.text("masterlog_header.y"),
+                self.localizer.text("masterlog_header.width"),
+                self.localizer.text("masterlog_header.height"),
+            ),
+            self.inputs,
+            strict=True,
         ):
             layout.addRow(label, control)
-        layout.addRow("Свойства JSON", self.properties_input)
+        self.text_label = QLabel(self.localizer.text("masterlog_header.text"))
+        self.field_label = QLabel(self.localizer.text("masterlog_header.field"))
+        self.properties_label = QLabel(self.localizer.text("masterlog_header.json"))
+        layout.addRow(self.text_label, self.text_input)
+        layout.addRow(self.field_label, self.field_input)
+        layout.addRow(self.properties_label, self.properties_input)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
+        self.type_input.currentTextChanged.connect(self._update_property_inputs)
+        self._update_property_inputs(self.type_input.currentText())
+
+    def _update_property_inputs(self, element_type: str) -> None:
+        self.text_input.setVisible(element_type == "text")
+        self.field_input.setVisible(element_type == "field")
+        self.properties_input.setVisible(element_type in {"image", "line"})
+        self.text_label.setVisible(element_type == "text")
+        self.field_label.setVisible(element_type == "field")
+        self.properties_label.setVisible(element_type in {"image", "line"})
 
     def values(self) -> tuple[str, float, float, float, float, dict[str, object]]:
-        properties = json.loads(self.properties_input.text())
-        if not isinstance(properties, dict):
-            raise ValueError("Свойства должны быть JSON-объектом")
+        element_type = self.type_input.currentText()
+        if element_type == "text":
+            properties: dict[str, object] = {"text": self.text_input.text()}
+        elif element_type == "field":
+            properties = {"field": self.field_input.currentText()}
+        else:
+            properties = json.loads(self.properties_input.text())
+            if not isinstance(properties, dict):
+                raise ValueError(self.localizer.text("masterlog_header.json_object"))
         x_input, y_input, width_input, height_input = self.inputs
         return (
-            self.type_input.currentText(),
+            element_type,
             x_input.value(),
             y_input.value(),
             width_input.value(),
@@ -198,14 +245,16 @@ class MasterlogHeaderDialog(QDialog):
         )
 
     def _add(self) -> None:
-        dialog = HeaderElementDialog(self)
+        dialog = HeaderElementDialog(self, language=self.localizer.language)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._apply(dialog, None)
 
     def _edit(self) -> None:
         element = self._selected()
         if element:
-            dialog = HeaderElementDialog(self, element=element)
+            dialog = HeaderElementDialog(
+                self, element=element, language=self.localizer.language
+            )
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self._apply(dialog, element.element_id)
 
