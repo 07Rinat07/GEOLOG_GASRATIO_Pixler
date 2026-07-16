@@ -23,6 +23,16 @@ def test_controller_adds_ascending_copy_without_replacing_source() -> None:
     assert session.dirty is True
     np.testing.assert_allclose(source.depth, [2.0, 1.0, 0.0])
 
+    assert controller.can_undo_ascending_copy
+    controller.undo_ascending_copy()
+    assert session.current_dataset is source
+    assert set(well.datasets) == {"source"}
+    assert controller.can_redo_ascending_copy
+
+    assert controller.redo_ascending_copy() is result
+    assert session.current_dataset is result
+    assert set(well.datasets) == {"source", result.dataset_id}
+
 
 def test_controller_resample_copy_supports_undo_and_redo() -> None:
     session = ProjectSession()

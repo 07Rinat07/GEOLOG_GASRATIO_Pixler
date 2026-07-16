@@ -465,6 +465,36 @@ def test_window_creates_and_undoes_resampled_copy(qapp, monkeypatch) -> None:
     window.close()
 
 
+def test_window_creates_and_undoes_ascending_depth_copy(qapp, monkeypatch) -> None:
+    window = MainWindow(language=AppLanguage.EN)
+    session, _ = make_session()
+    source = session.current_dataset
+    assert source is not None
+    source.depth[:] = [101.0, 100.0]
+    source.active_index.values[:] = source.depth
+    bind_session(window, session)
+    window.depth_axis_controller.session = session
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QMessageBox.question",
+        lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
+    )
+
+    window.create_ascending_depth_copy()
+
+    well = session.current_well
+    assert well is not None
+    assert len(well.datasets) == 2
+    assert window.undo_normalize_depth_action.isEnabled()
+    window.undo_ascending_depth_copy()
+    assert set(well.datasets) == {"dataset-1"}
+    assert session.current_dataset is source
+    assert window.redo_normalize_depth_action.isEnabled()
+    window.redo_ascending_depth_copy()
+    assert len(well.datasets) == 2
+    assert window.undo_normalize_depth_action.isEnabled()
+    window.close()
+
+
 def test_window_creates_new_las_dataset(qapp, monkeypatch) -> None:
     window = MainWindow(language=AppLanguage.EN)
 

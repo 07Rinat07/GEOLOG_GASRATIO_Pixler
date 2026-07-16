@@ -17,6 +17,8 @@ from geoworkbench.services.depth_axis import (
 @dataclass(slots=True)
 class DepthAxisController:
     session: ProjectSession
+    _ascending_source_id: str | None = None
+    _ascending_dataset: Dataset | None = None
     _resample_source_id: str | None = None
     _resampled_dataset: Dataset | None = None
 
@@ -25,6 +27,18 @@ class DepthAxisController:
         well = self.session.current_well
         result = self._resampled_dataset
         return bool(well is not None and result is not None and result.dataset_id in well.datasets)
+
+    @property
+    def can_undo_ascending_copy(self) -> bool:
+        well = self.session.current_well
+        result = self._ascending_dataset
+        return bool(well is not None and result is not None and result.dataset_id in well.datasets)
+
+    @property
+    def can_redo_ascending_copy(self) -> bool:
+        well = self.session.current_well
+        result = self._ascending_dataset
+        return bool(well is not None and result is not None and result.dataset_id not in well.datasets)
 
     @property
     def can_redo_resample(self) -> bool:
@@ -41,6 +55,27 @@ class DepthAxisController:
         well = self.session.current_well
         if well is None:
             raise RuntimeError("Сначала выберите скважину")
+        well.datasets[result.dataset_id] = result
+        self._ascending_source_id = source.dataset_id
+        self._ascending_dataset = result
+        self.session.current_dataset_id = result.dataset_id
+        self.session.dirty = True
+        return result
+
+    def undo_ascending_copy(self) -> None:
+        well = self.session.current_well
+        result = self._ascending_dataset
+        if well is None or result is None or result.dataset_id not in well.datasets:
+            raise RuntimeError("Нет исправления порядка глубины для отмены")
+        del well.datasets[result.dataset_id]
+        self.session.current_dataset_id = self._ascending_source_id
+        self.session.dirty = True
+
+    def redo_ascending_copy(self) -> Dataset:
+        well = self.session.current_well
+        result = self._ascending_dataset
+        if well is None or result is None or result.dataset_id in well.datasets:
+            raise RuntimeError("Нет исправления порядка глубины для повтора")
         well.datasets[result.dataset_id] = result
         self.session.current_dataset_id = result.dataset_id
         self.session.dirty = True
@@ -81,7 +116,9 @@ class DepthAxisController:
         self.session.dirty = True
         return result
 
-    def clear_resample_history(self) -> None:
+    def clear_history(self) -> None:
+        self._ascending_source_id = None
+        self._ascending_dataset = None
         self._resample_source_id = None
         self._resampled_dataset = None
 

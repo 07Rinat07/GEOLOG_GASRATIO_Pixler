@@ -373,6 +373,14 @@ class MainWindow(QMainWindow):
         )
         self.normalize_depth_action.triggered.connect(self.create_ascending_depth_copy)
         edit_menu.addAction(self.normalize_depth_action)
+        self.undo_normalize_depth_action = QAction(self._t("depth.undo"), self)
+        self.undo_normalize_depth_action.triggered.connect(self.undo_ascending_depth_copy)
+        self.undo_normalize_depth_action.setEnabled(False)
+        edit_menu.addAction(self.undo_normalize_depth_action)
+        self.redo_normalize_depth_action = QAction(self._t("depth.redo"), self)
+        self.redo_normalize_depth_action.triggered.connect(self.redo_ascending_depth_copy)
+        self.redo_normalize_depth_action.setEnabled(False)
+        edit_menu.addAction(self.redo_normalize_depth_action)
 
         self.resample_depth_action = QAction(self._t("resample.action"), self)
         self.resample_depth_action.triggered.connect(self.create_resampled_depth_copy)
@@ -819,8 +827,8 @@ class MainWindow(QMainWindow):
         self.lithotype_catalog_controller.session = self.session
         self.description_template_controller.session = self.session
         self.depth_axis_controller.session = self.session
-        self.depth_axis_controller.clear_resample_history()
-        self._update_resample_actions()
+        self.depth_axis_controller.clear_history()
+        self._update_depth_axis_actions()
         self.nct_calculation_controller.session = self.session
         self.new_las_controller.session = self.session
         self.las_range_editing_controller.session = self.session
@@ -1895,7 +1903,33 @@ class MainWindow(QMainWindow):
         self._show_current_dataset()
         self._refresh_tree()
         self._update_title()
+        self._update_depth_axis_actions()
         self._log(self._t("depth.copy_created", name=result.name))
+
+    def undo_ascending_depth_copy(self) -> None:
+        answer = QMessageBox.question(
+            self,
+            self._t("depth.undo_title"),
+            self._t("depth.undo_confirm"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer is not QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.depth_axis_controller.undo_ascending_copy()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("depth.title"), str(exc))
+            return
+        self._after_depth_axis_history(self._t("depth.undone"))
+
+    def redo_ascending_depth_copy(self) -> None:
+        try:
+            result = self.depth_axis_controller.redo_ascending_copy()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("depth.title"), str(exc))
+            return
+        self._after_depth_axis_history(self._t("depth.redone", name=result.name))
 
     def create_resampled_depth_copy(self) -> None:
         try:
@@ -1915,7 +1949,7 @@ class MainWindow(QMainWindow):
         self._show_current_dataset()
         self._refresh_tree()
         self._update_title()
-        self._update_resample_actions()
+        self._update_depth_axis_actions()
         self._log(self._t("resample.created", name=result.name))
 
     def show_curve_transfer(self) -> None:
@@ -2055,10 +2089,24 @@ class MainWindow(QMainWindow):
         self._show_current_dataset()
         self._refresh_tree()
         self._update_title()
-        self._update_resample_actions()
+        self._update_depth_axis_actions()
         self._log(message)
 
-    def _update_resample_actions(self) -> None:
+    def _after_depth_axis_history(self, message: str) -> None:
+        self._show_current_dataset()
+        self._refresh_tree()
+        self._update_title()
+        self._update_depth_axis_actions()
+        self._log(message)
+
+    def _update_depth_axis_actions(self) -> None:
+        if hasattr(self, "undo_normalize_depth_action"):
+            self.undo_normalize_depth_action.setEnabled(
+                self.depth_axis_controller.can_undo_ascending_copy
+            )
+            self.redo_normalize_depth_action.setEnabled(
+                self.depth_axis_controller.can_redo_ascending_copy
+            )
         if hasattr(self, "undo_resample_action"):
             self.undo_resample_action.setEnabled(
                 self.depth_axis_controller.can_undo_resample
