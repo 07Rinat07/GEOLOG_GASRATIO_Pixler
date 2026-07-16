@@ -10,11 +10,13 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
     QInputDialog,
     QLabel,
+    QMenu,
     QPushButton,
     QTableView,
     QVBoxLayout,
@@ -150,6 +152,8 @@ class LasTableEditor(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.table.setAlternatingRowColors(True)
         self.table.setSortingEnabled(False)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._show_context_menu)
         self.hint = QLabel(self._t("table.hint"))
         root = QVBoxLayout(self)
         root.addWidget(self.hint)
@@ -170,6 +174,7 @@ class LasTableEditor(QWidget):
         actions.addStretch()
         root.addLayout(actions)
         root.addWidget(self.table)
+        self._create_context_actions()
 
     def _t(self, key: str) -> str:
         return self.localizer.text(key)
@@ -274,6 +279,52 @@ class LasTableEditor(QWidget):
                 )
             )
 
+    def shift_values(self) -> None:
+        offset, accepted = QInputDialog.getDouble(
+            self,
+            self._t("table.shift_title"),
+            self._t("table.offset"),
+            decimals=8,
+        )
+        if accepted:
+            self._run_selection_action(
+                lambda curve_ids, top, bottom: self.controller.add_constant(
+                    curve_ids, top, bottom, offset
+                )
+            )
+
+    def multiply_values(self) -> None:
+        factor, accepted = QInputDialog.getDouble(
+            self,
+            self._t("table.multiply_title"),
+            self._t("table.factor"),
+            1.0,
+            decimals=8,
+        )
+        if accepted:
+            self._run_selection_action(
+                lambda curve_ids, top, bottom: self.controller.multiply(
+                    curve_ids, top, bottom, factor
+                )
+            )
+
+    def smooth_values(self) -> None:
+        window, accepted = QInputDialog.getInt(
+            self,
+            self._t("table.smooth_title"),
+            self._t("table.window"),
+            3,
+            3,
+            999,
+            2,
+        )
+        if accepted:
+            self._run_selection_action(
+                lambda curve_ids, top, bottom: self.controller.smooth_moving_average(
+                    curve_ids, top, bottom, window
+                )
+            )
+
     def set_missing(self) -> None:
         self._run_selection_action(self.controller.set_missing)
 
@@ -345,3 +396,18 @@ class LasTableEditor(QWidget):
         self.model.beginResetModel()
         self.model.endResetModel()
         self.dataset_edited.emit()
+
+    def _create_context_actions(self) -> None:
+        self.shift_action = QAction(self._t("table.shift"), self)
+        self.shift_action.triggered.connect(self.shift_values)
+        self.multiply_action = QAction(self._t("table.multiply"), self)
+        self.multiply_action.triggered.connect(self.multiply_values)
+        self.smooth_action = QAction(self._t("table.smooth"), self)
+        self.smooth_action.triggered.connect(self.smooth_values)
+
+    def _show_context_menu(self, position) -> None:
+        menu = QMenu(self)
+        menu.addAction(self.shift_action)
+        menu.addAction(self.multiply_action)
+        menu.addAction(self.smooth_action)
+        menu.exec(self.table.viewport().mapToGlobal(position))

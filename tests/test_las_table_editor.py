@@ -1,5 +1,6 @@
 import numpy as np
 from PySide6.QtCore import QItemSelectionModel, Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QPushButton
 
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
@@ -164,4 +165,25 @@ def test_table_selection_is_synchronized_with_shared_depth_interval(qapp) -> Non
     assert shared.interval == (100.0, 100.0)
     assert shared.curve_ids == ("c1",)
     synchronized.close()
+    editor.close()
+
+
+def test_table_context_shift_operates_on_selected_curve(qapp, monkeypatch) -> None:
+    editor, dataset = make_editor()
+    editor.set_dataset(dataset)
+    model = editor.model
+    editor.table.selectionModel().select(
+        model.index(1, 1),
+        QItemSelectionModel.SelectionFlag.ClearAndSelect,
+    )
+    monkeypatch.setattr(
+        "geoworkbench.ui.las_table_editor.QInputDialog.getDouble",
+        lambda *args, **kwargs: (5.0, True),
+    )
+
+    editor.shift_action.trigger()
+
+    assert dataset.curves["c1"].values[1] == 15.0
+    action_labels = {action.text() for action in editor.findChildren(QAction)}
+    assert {"Сдвинуть значения...", "Умножить значения...", "Сгладить значения..."} <= action_labels
     editor.close()

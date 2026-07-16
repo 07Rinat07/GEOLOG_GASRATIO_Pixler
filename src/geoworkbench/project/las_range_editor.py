@@ -86,6 +86,84 @@ class LasRangeEditingController:
         }
         self._execute(curve_ids, indices, values, "Замена значений пропусками")
 
+    def add_constant(
+        self,
+        curve_ids: list[str],
+        depth_top: float,
+        depth_bottom: float,
+        offset: float,
+    ) -> None:
+        if not np.isfinite(offset):
+            raise ValueError("Смещение должно быть конечным")
+        dataset = self._require_dataset()
+        indices = self._selected_indices(depth_top, depth_bottom)
+        curves = self._require_curves(dataset, curve_ids)
+        values = {
+            curve.metadata.curve_id: np.asarray(
+                curve.values[indices] + offset, dtype=np.float64
+            )
+            for curve in curves
+        }
+        self._execute(
+            curve_ids, indices, values, f"Сдвиг значений на {offset:g}"
+        )
+
+    def multiply(
+        self,
+        curve_ids: list[str],
+        depth_top: float,
+        depth_bottom: float,
+        factor: float,
+    ) -> None:
+        if not np.isfinite(factor):
+            raise ValueError("Множитель должен быть конечным")
+        dataset = self._require_dataset()
+        indices = self._selected_indices(depth_top, depth_bottom)
+        curves = self._require_curves(dataset, curve_ids)
+        values = {
+            curve.metadata.curve_id: np.asarray(
+                curve.values[indices] * factor, dtype=np.float64
+            )
+            for curve in curves
+        }
+        self._execute(
+            curve_ids, indices, values, f"Умножение значений на {factor:g}"
+        )
+
+    def smooth_moving_average(
+        self,
+        curve_ids: list[str],
+        depth_top: float,
+        depth_bottom: float,
+        window: int,
+    ) -> None:
+        if isinstance(window, bool) or not isinstance(window, (int, np.integer)):
+            raise ValueError("Размер окна должен быть целым числом")
+        if window < 3 or window % 2 == 0:
+            raise ValueError("Размер окна должен быть нечётным числом не меньше 3")
+        dataset = self._require_dataset()
+        indices = self._selected_indices(depth_top, depth_bottom)
+        if window > indices.size:
+            raise ValueError("Размер окна превышает выбранный интервал")
+        curves = self._require_curves(dataset, curve_ids)
+        kernel = np.ones(window, dtype=np.float64)
+        values: dict[str, NDArray[np.float64]] = {}
+        for curve in curves:
+            selected = np.asarray(curve.values[indices], dtype=np.float64)
+            finite = np.isfinite(selected)
+            totals = np.convolve(np.where(finite, selected, 0.0), kernel, mode="same")
+            counts = np.convolve(finite.astype(np.float64), kernel, mode="same")
+            smoothed = np.full(selected.shape, np.nan, dtype=np.float64)
+            writable = finite & (counts > 0)
+            smoothed[writable] = totals[writable] / counts[writable]
+            values[curve.metadata.curve_id] = smoothed
+        self._execute(
+            curve_ids,
+            indices,
+            values,
+            f"Скользящее среднее, окно {window}",
+        )
+
     def interpolate_missing(
         self, curve_ids: list[str], depth_top: float, depth_bottom: float
     ) -> None:

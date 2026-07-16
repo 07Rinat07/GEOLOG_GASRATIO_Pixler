@@ -108,3 +108,40 @@ def test_interpolation_groups_different_curve_gaps_in_one_undo_command() -> None
     editor.undo()
     assert np.isnan(dataset.curves["c1"].values[1])
     assert np.isnan(dataset.curves["c2"].values[2])
+
+
+def test_shift_and_multiply_ranges_preserve_missing_values_and_support_undo() -> None:
+    editor, dataset = make_editor()
+    dataset.curves["c1"].values[:] = [1, np.nan, 3, 4, 5, 6]
+
+    editor.add_constant(["c1"], 100.0, 102.0, 2.0)
+    np.testing.assert_allclose(
+        dataset.curves["c1"].values, [3, np.nan, 5, 4, 5, 6], equal_nan=True
+    )
+    editor.multiply(["c1"], 101.0, 103.0, 10.0)
+    np.testing.assert_allclose(
+        dataset.curves["c1"].values, [3, np.nan, 50, 40, 5, 6], equal_nan=True
+    )
+    editor.undo()
+    np.testing.assert_allclose(
+        dataset.curves["c1"].values, [3, np.nan, 5, 4, 5, 6], equal_nan=True
+    )
+
+
+def test_moving_average_uses_selected_interval_and_keeps_gaps() -> None:
+    editor, dataset = make_editor()
+    dataset.curves["c1"].values[:] = [1, 2, np.nan, 8, 10, 12]
+
+    editor.smooth_moving_average(["c1"], 100.0, 104.0, 3)
+
+    np.testing.assert_allclose(
+        dataset.curves["c1"].values,
+        [1.5, 1.5, np.nan, 9.0, 9.0, 12.0],
+        equal_nan=True,
+    )
+
+
+def test_moving_average_validates_window() -> None:
+    editor, _ = make_editor()
+    with np.testing.assert_raises_regex(ValueError, "нечётным"):
+        editor.smooth_moving_average(["c1"], 100.0, 105.0, 4)
