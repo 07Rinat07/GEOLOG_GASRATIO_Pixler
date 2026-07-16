@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.domain.models import MasterlogHeaderElement
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
+from geoworkbench.printing.header_fields import resolve_header_field
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
@@ -164,7 +165,7 @@ class MasterlogHeaderDialog(QDialog):
                 colors[element.element_type],
             )
             rectangle.setToolTip(json.dumps(element.properties, ensure_ascii=False))
-            label = self.preview_scene.addText(element.element_type)
+            label = self.preview_scene.addText(self._preview_text(element))
             label.setDefaultTextColor(QColor("#0f172a"))
             label.setScale(0.35)
             label.setPos(element.x_mm + 1.0, element.y_mm + 0.5)
@@ -174,6 +175,18 @@ class MasterlogHeaderDialog(QDialog):
         self.preview.fitInView(
             self.preview_scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio
         )
+
+    def _preview_text(self, element: MasterlogHeaderElement) -> str:
+        if element.element_type == "text":
+            value = element.properties.get("text")
+            return str(value) if isinstance(value, (str, int, float)) else "text"
+        if element.element_type == "field":
+            field_name = element.properties.get("field")
+            if not isinstance(field_name, str):
+                return "{field}"
+            resolved = resolve_header_field(self.controller.session, field_name)
+            return resolved if resolved is not None else "{" + field_name + "}"
+        return element.element_type
 
     def _selected(self) -> MasterlogHeaderElement | None:
         item = self.list.currentItem()

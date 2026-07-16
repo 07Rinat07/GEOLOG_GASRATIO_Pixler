@@ -36,3 +36,31 @@ def test_header_element_dialog_parses_json_properties(qapp) -> None:
 
     assert dialog.values()[-1] == {"field": "well.name"}
     dialog.close()
+
+
+def test_header_preview_resolves_whitelisted_field_and_marks_unknown(qapp) -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+    known = controller.add_header_element(
+        template.template_id,
+        element_type="field",
+        x_mm=0,
+        y_mm=0,
+        width_mm=30,
+        height_mm=10,
+        properties={"field": "project.name"},
+    )
+    unknown = controller.add_header_element(
+        template.template_id,
+        element_type="field",
+        x_mm=35,
+        y_mm=0,
+        width_mm=30,
+        height_mm=10,
+        properties={"field": "project.secret"},
+    )
+    dialog = MasterlogHeaderDialog(controller, template.template_id)
+
+    assert dialog._preview_text(known) == "Новый проект"
+    assert dialog._preview_text(unknown) == "{project.secret}"
+    dialog.close()
