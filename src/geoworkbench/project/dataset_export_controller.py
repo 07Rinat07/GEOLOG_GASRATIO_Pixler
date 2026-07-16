@@ -11,6 +11,11 @@ from geoworkbench.data.las_export_plan import (
     LasExportVersion,
     analyze_las_export,
 )
+from geoworkbench.data.selection_export import (
+    export_selection_excel,
+    export_selection_text,
+)
+from geoworkbench.domain.models import Dataset
 from geoworkbench.project.session import ProjectSession
 
 
@@ -90,3 +95,49 @@ class DatasetExportController:
             source_document=self.session.source_documents.get(dataset.dataset_id),
             plan=plan,
         )
+
+    def export_current_selection_text(
+        self,
+        target: Path,
+        curve_ids: list[str],
+        depth_top: float,
+        depth_bottom: float,
+        *,
+        delimiter: str = ",",
+        overwrite: bool = False,
+    ) -> Path:
+        dataset = self._require_current_dataset()
+        return export_selection_text(
+            dataset,
+            target,
+            curve_ids,
+            depth_top,
+            depth_bottom,
+            delimiter=delimiter,
+            overwrite=overwrite,
+        )
+
+    def export_current_selection_excel(
+        self,
+        target: Path,
+        curve_ids: list[str],
+        depth_top: float,
+        depth_bottom: float,
+        *,
+        overwrite: bool = False,
+    ) -> Path:
+        dataset = self._require_current_dataset()
+        return export_selection_excel(
+            dataset,
+            target,
+            curve_ids,
+            depth_top,
+            depth_bottom,
+            overwrite=overwrite,
+        )
+
+    def _require_current_dataset(self) -> Dataset:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            raise RuntimeError("Сначала выберите набор данных")
+        return dataset

@@ -41,6 +41,7 @@ from geoworkbench.data.las_import_policy import LasImportMode, evaluate_las_impo
 from geoworkbench.data.csv_adapter import CsvImportError, import_csv
 from geoworkbench.data.excel_adapter import ExcelImportError, import_excel
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
+from geoworkbench.data.selection_export import SelectionExportError
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
 from geoworkbench.project.curve_metadata_controller import CurveMetadataController
@@ -271,6 +272,13 @@ class MainWindow(QMainWindow):
         self.export_las_action = QAction("Экспортировать текущий dataset в LAS...", self)
         self.export_las_action.triggered.connect(self.export_current_las)
         file_menu.addAction(self.export_las_action)
+
+        export_csv_action = QAction(self._t("selection_export.csv_action"), self)
+        export_csv_action.triggered.connect(self.export_selected_csv)
+        file_menu.addAction(export_csv_action)
+        export_excel_action = QAction(self._t("selection_export.excel_action"), self)
+        export_excel_action.triggered.connect(self.export_selected_excel)
+        file_menu.addAction(export_excel_action)
 
         self.data_inspector_action = QAction(self._t("data.action"), self)
         self.data_inspector_action.triggered.connect(self.show_data_inspector)
@@ -889,6 +897,92 @@ class MainWindow(QMainWindow):
             return
         self._log(f"LAS экспортирован: {exported}")
         self.statusBar().showMessage(self._t("export.success", name=exported.name))
+
+    def export_selected_csv(self) -> None:
+        self._export_selected_table("csv")
+
+    def export_selected_excel(self) -> None:
+        self._export_selected_table("xlsx")
+
+    def _export_selected_table(self, export_format: str) -> None:
+        dataset = self.session.current_dataset
+        selection = self.dataset_selection
+        if dataset is None:
+            QMessageBox.information(
+                self, self._t("selection_export.title"), self._t("export.select_dataset")
+            )
+            return
+        if selection.dataset_id != dataset.dataset_id or selection.interval is None:
+            QMessageBox.information(
+                self,
+                self._t("selection_export.title"),
+                self._t("selection_export.select_interval"),
+            )
+            return
+        if not selection.curve_ids:
+            QMessageBox.information(
+                self,
+                self._t("selection_export.title"),
+                self._t("selection_export.select_curves"),
+            )
+            return
+        is_excel = export_format == "xlsx"
+        suffix = ".xlsx" if is_excel else ".csv"
+        file_filter = "Excel (*.xlsx)" if is_excel else "CSV (*.csv)"
+        initial = Path.cwd() / f"{dataset.name}_selection{suffix}"
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("selection_export.save_title"),
+            str(initial),
+            file_filter,
+        )
+        if not filename:
+            return
+        target = Path(filename)
+        if target.suffix.casefold() != suffix:
+            target = target.with_suffix(suffix)
+        overwrite = self._confirm_export_overwrite(target)
+        if overwrite is None:
+            return
+        depth_top, depth_bottom = selection.interval
+        try:
+            if is_excel:
+                exported = self.dataset_export_controller.export_current_selection_excel(
+                    target,
+                    list(selection.curve_ids),
+                    depth_top,
+                    depth_bottom,
+                    overwrite=overwrite,
+                )
+            else:
+                exported = self.dataset_export_controller.export_current_selection_text(
+                    target,
+                    list(selection.curve_ids),
+                    depth_top,
+                    depth_bottom,
+                    delimiter=",",
+                    overwrite=overwrite,
+                )
+        except (FileExistsError, KeyError, OSError, RuntimeError, ValueError, SelectionExportError) as exc:
+            QMessageBox.critical(self, self._t("selection_export.title"), str(exc))
+            self._log(self._t("selection_export.failed", error=str(exc)))
+            return
+        self._log(self._t("selection_export.success", name=exported.name))
+        self.statusBar().showMessage(
+            self._t("selection_export.success", name=exported.name)
+        )
+
+    def _confirm_export_overwrite(self, target: Path) -> bool | None:
+        if not target.exists():
+            return False
+        answer = QMessageBox.question(
+            self,
+            self._t("selection_export.title"),
+            self._t("export.overwrite_question", name=target.name),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return True if answer == QMessageBox.StandardButton.Yes else None
 
     def show_data_inspector(self) -> None:
         if self.session.current_dataset is None:

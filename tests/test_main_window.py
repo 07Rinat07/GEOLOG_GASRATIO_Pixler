@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QDialog, QInputDialog, QMessageBox
+from PySide6.QtWidgets import QDialog, QFileDialog, QInputDialog, QMessageBox
 
 from geoworkbench.domain.models import (
     CanvasObject,
@@ -54,6 +54,7 @@ def make_session() -> tuple[ProjectSession, TabletLayout]:
 def bind_session(window: MainWindow, session: ProjectSession) -> None:
     window.project_controller.session = session
     window.tablet_controller.session = session
+    window.dataset_export_controller.session = session
     window.curve_editing_controller = CurveEditingController(session)
     window._update_curve_edit_actions()
 
@@ -297,6 +298,30 @@ def test_window_applies_selected_tablet_preset(qapp, monkeypatch) -> None:
     assert session.current_tablet_layout is not preset
     assert window.tablet_view.rendered_track_ids == ("preset-depth",)
     assert session.dirty is True
+    window.close()
+
+
+def test_window_exports_synchronized_selection_to_csv(qapp, tmp_path, monkeypatch) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    dataset = session.current_dataset
+    assert dataset is not None
+    window.dataset_selection.select(dataset, 100.0, 101.0, ("curve-1",))
+    target = tmp_path / "selection.csv"
+    monkeypatch.setattr(
+        QFileDialog,
+        "getSaveFileName",
+        lambda *args, **kwargs: (str(target), "CSV (*.csv)"),
+    )
+
+    window.export_selected_csv()
+
+    assert target.read_text(encoding="utf-8").splitlines() == [
+        "DEPTH [m],ROP [m/h]",
+        "100,1",
+        "101,2",
+    ]
     window.close()
 
 

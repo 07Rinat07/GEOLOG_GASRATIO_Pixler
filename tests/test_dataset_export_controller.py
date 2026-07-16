@@ -3,7 +3,15 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
+from geoworkbench.domain.models import (
+    CurveData,
+    CurveMetadata,
+    Dataset,
+    DatasetKind,
+    DepthDomain,
+    Project,
+    Well,
+)
 from geoworkbench.data.lossless_las import parse_lossless_las
 from geoworkbench.data.las_export_plan import LasExportVersion
 from geoworkbench.data.las_import_report import LasImportReport, LasSourceSnapshot
@@ -49,6 +57,41 @@ def test_export_controller_uses_current_dataset(tmp_path, monkeypatch) -> None:
 def test_export_controller_requires_current_dataset(tmp_path) -> None:
     with pytest.raises(RuntimeError, match="набор данных"):
         DatasetExportController(ProjectSession()).export_current_las(tmp_path / "result.las")
+
+
+def test_export_controller_exports_current_selection_to_csv_and_excel(tmp_path) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0]),
+    )
+    dataset.curves["rop"] = CurveData(
+        CurveMetadata("rop", "ROP", "ROP", "m/h", None, dataset.dataset_id),
+        np.array([10.0, 20.0, 30.0]),
+    )
+    well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
+    session = ProjectSession(
+        project=Project("project-1", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+        current_dataset_id=dataset.dataset_id,
+    )
+    controller = DatasetExportController(session)
+
+    csv_target = controller.export_current_selection_text(
+        tmp_path / "selection.csv", ["rop"], 101.0, 102.0
+    )
+    excel_target = controller.export_current_selection_excel(
+        tmp_path / "selection.xlsx", ["rop"], 101.0, 102.0
+    )
+
+    assert csv_target.read_text(encoding="utf-8").splitlines() == [
+        "DEPTH [m],ROP [m/h]",
+        "101,20",
+        "102,30",
+    ]
+    assert excel_target.read_bytes().startswith(b"PK")
 
 
 def test_default_export_plan_uses_typed_header_null() -> None:
