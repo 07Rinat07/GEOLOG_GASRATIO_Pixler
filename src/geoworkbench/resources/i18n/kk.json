@@ -118,6 +118,8 @@
   "visual_export.save_title": "Визуализацияны экспорттау",
   "visual_export.success": "Визуализация экспортталды: {name}",
   "visual_export.failed": "Визуализация экспортталмады: {error}",
+  "print.preview_action": "Графикті/планшетті басып шығаруды алдын ала қарау...",
+  "print.preview_title": "Басып шығаруды алдын ала қарау",
   "export_profile.title": "Экспорт профильдері", "export_profile.save": "Таңдалған қисықтар профилін сақтау...",
   "export_profile.apply": "Қисықтар профилін қолдану...", "export_profile.delete": "Қисықтар профилін жою...",
   "export_profile.name": "Профиль атауы:", "export_profile.empty": "Сақталған экспорт профильдері жоқ",

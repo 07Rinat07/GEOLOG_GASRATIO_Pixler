@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QActionGroup
+from PySide6.QtPrintSupport import QPrintPreviewDialog, QPrinter
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -71,6 +72,7 @@ from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.widget_print import render_widget_to_printer
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.models import CurveLineStyle, CurveStyle
@@ -296,6 +298,9 @@ class MainWindow(QMainWindow):
         export_pdf_action = QAction(self._t("visual_export.pdf_action"), self)
         export_pdf_action.triggered.connect(lambda: self.export_active_visualization("pdf"))
         file_menu.addAction(export_pdf_action)
+        print_preview_action = QAction(self._t("print.preview_action"), self)
+        print_preview_action.triggered.connect(self.preview_active_visualization)
+        file_menu.addAction(print_preview_action)
         file_menu.addSeparator()
         save_export_profile_action = QAction(self._t("export_profile.save"), self)
         save_export_profile_action.triggered.connect(self.save_export_profile)
@@ -1065,6 +1070,25 @@ class MainWindow(QMainWindow):
         message = self._t("visual_export.success", name=exported.name)
         self._log(message)
         self.statusBar().showMessage(message)
+
+    def preview_active_visualization(self) -> None:
+        current = self.tabs.currentWidget()
+        if current not in (self.curve_view, self.tablet_view):
+            QMessageBox.information(
+                self,
+                self._t("print.preview_title"),
+                self._t("visual_export.select_view"),
+            )
+            return
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        dialog = QPrintPreviewDialog(printer, self)
+        dialog.setWindowTitle(self._t("print.preview_title"))
+        dialog.paintRequested.connect(
+            lambda requested_printer: render_widget_to_printer(
+                current, requested_printer
+            )
+        )
+        dialog.exec()
 
     def save_export_profile(self) -> None:
         dataset = self.session.current_dataset
