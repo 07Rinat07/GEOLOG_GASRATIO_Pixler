@@ -95,6 +95,40 @@ def test_masterlog_symbol_validates_references_range_and_history() -> None:
     controller.remove(created.object_id, "standard")
     assert controller.undo() == "Удаление обозначения masterlog"
     assert controller.available("standard") == (created,)
+
+
+def test_masterlog_symbol_supports_validated_interval_anchor() -> None:
+    controller = make_controller()
+    asset_ref = next(iter(controller.session.image_assets))
+
+    created = controller.add(
+        "standard",
+        depth=125.0,
+        bottom_depth=175.0,
+        anchor_type="interval",
+        column_id="gas",
+        asset_ref=asset_ref,
+        width_mm=10.0,
+        height_mm=8.0,
+        label="Zone",
+    )
+
+    assert created.anchor_type == "interval"
+    assert created.top_depth == 125.0
+    assert created.bottom_depth == 175.0
+    assert controller.session.current_well is not None
+    assert controller.session.current_well.canvas_objects[0].anchor_type == "interval"
+    with pytest.raises(ValueError, match="Низ интервала"):
+        controller.add(
+            "standard",
+            depth=175.0,
+            bottom_depth=125.0,
+            anchor_type="interval",
+            column_id="gas",
+            asset_ref=asset_ref,
+            width_mm=8.0,
+            height_mm=8.0,
+        )
     assert controller.undo() == "Добавление обозначения masterlog"
     assert controller.available("standard") == ()
     controller.redo()

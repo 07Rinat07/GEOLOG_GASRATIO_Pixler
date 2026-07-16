@@ -127,6 +127,6 @@ is being migrated into synchronized RU/KK/EN user guides.
 
 The project format stores named forms with editable headers and column sets. The image manager now
 provides built-in vector symbols, safe PNG/SVG import, thumbnails, renaming, and protected removal.
-The depth-symbol editor selects a form column, depth, dimensions, and label with Undo/Redo support.
-Symbols print in the correct track and page segment through the independent millimetre renderer.
-Additional anchor types will be added in later releases.
+The depth-symbol editor selects a form column, point depth or interval, dimensions, and label with
+Undo/Redo support. Points and stretched intervals print in the correct track and are clipped across
+page segments by the independent millimetre renderer. Time, parameter, and free anchors will follow.

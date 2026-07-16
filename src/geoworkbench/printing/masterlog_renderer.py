@@ -480,17 +480,27 @@ def _paint_depth_symbols(
     for item in well.canvas_objects:
         if (
             item.object_type != "masterlog_symbol"
-            or item.anchor_type != "depth"
+            or item.anchor_type not in {"depth", "interval"}
             or item.track_id != column.column_id
             or item.properties.get("template_id") != template.template_id
         ):
             continue
-        depth = item.top_depth if item.top_depth is not None else item.y
+        symbol_top = item.top_depth if item.top_depth is not None else item.y
+        symbol_bottom = (
+            item.bottom_depth
+            if item.anchor_type == "interval" and item.bottom_depth is not None
+            else symbol_top
+        )
         if (
-            not isinstance(depth, (int, float))
-            or isinstance(depth, bool)
-            or not isfinite(float(depth))
-            or not top <= depth <= bottom
+            not isinstance(symbol_top, (int, float))
+            or isinstance(symbol_top, bool)
+            or not isinstance(symbol_bottom, (int, float))
+            or isinstance(symbol_bottom, bool)
+            or not isfinite(float(symbol_top))
+            or not isfinite(float(symbol_bottom))
+            or float(symbol_bottom) < top
+            or float(symbol_top) > bottom
+            or float(symbol_bottom) < float(symbol_top)
         ):
             continue
         asset_ref = item.properties.get("asset_ref")
@@ -507,8 +517,17 @@ def _paint_depth_symbols(
         ):
             continue
         width = min(max(float(item.width), 1.0), rect.width())
-        height = min(max(float(item.height), 1.0), rect.height())
-        y = rect.top() + (float(depth) - top) / (bottom - top) * rect.height()
+        y_top = rect.top() + (max(float(symbol_top), top) - top) / (bottom - top) * rect.height()
+        if item.anchor_type == "interval":
+            y_bottom = (
+                rect.top()
+                + (min(float(symbol_bottom), bottom) - top) / (bottom - top) * rect.height()
+            )
+            height = max(y_bottom - y_top, 0.1)
+            y = (y_top + y_bottom) / 2.0
+        else:
+            height = min(max(float(item.height), 1.0), rect.height())
+            y = y_top
         symbol_rect = QRectF(rect.center().x() - width / 2.0, y - height / 2.0, width, height)
         if not draw_image_asset(painter, symbol_rect, asset):
             continue

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from math import isfinite
 
 from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
@@ -94,6 +95,26 @@ def analyze_masterlog_output(
                 issues.append(
                     _issue(
                         "missing_symbol_column",
+                        PreflightSeverity.WARNING,
+                        element=item.object_id,
+                    )
+                )
+            symbol_top = item.top_depth if item.top_depth is not None else item.y
+            symbol_bottom = item.bottom_depth
+            invalid_anchor = item.anchor_type not in {"depth", "interval"}
+            invalid_interval = item.anchor_type == "interval" and (
+                not isinstance(symbol_top, (int, float))
+                or isinstance(symbol_top, bool)
+                or not isinstance(symbol_bottom, (int, float))
+                or isinstance(symbol_bottom, bool)
+                or not isfinite(float(symbol_top))
+                or not isfinite(float(symbol_bottom))
+                or float(symbol_bottom) <= float(symbol_top)
+            )
+            if invalid_anchor or invalid_interval:
+                issues.append(
+                    _issue(
+                        "invalid_symbol_interval",
                         PreflightSeverity.WARNING,
                         element=item.object_id,
                     )

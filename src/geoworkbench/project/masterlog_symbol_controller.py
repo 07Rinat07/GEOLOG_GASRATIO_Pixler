@@ -17,12 +17,18 @@ MASTERLOG_SYMBOL_TYPE = "masterlog_symbol"
 @dataclass(frozen=True, slots=True)
 class PlacedMasterlogSymbol:
     object_id: str
-    depth: float
+    anchor_type: str
+    top_depth: float
+    bottom_depth: float
     column_id: str
     asset_ref: str
     width_mm: float
     height_mm: float
     label: str
+
+    @property
+    def depth(self) -> float:
+        return self.top_depth
 
 
 @dataclass(slots=True)
@@ -38,7 +44,7 @@ class MasterlogSymbolController:
             if item.object_type == MASTERLOG_SYMBOL_TYPE
             and item.properties.get("template_id") == template_id
         ]
-        return tuple(sorted(result, key=lambda item: (item.depth, item.object_id)))
+        return tuple(sorted(result, key=lambda item: (item.top_depth, item.object_id)))
 
     def add(
         self,
@@ -50,23 +56,40 @@ class MasterlogSymbolController:
         width_mm: float,
         height_mm: float,
         label: str = "",
+        anchor_type: str = "depth",
+        bottom_depth: float | None = None,
     ) -> PlacedMasterlogSymbol:
         values = self._validate(
-            template_id, depth, column_id, asset_ref, width_mm, height_mm, label
+            template_id,
+            anchor_type,
+            depth,
+            bottom_depth,
+            column_id,
+            asset_ref,
+            width_mm,
+            height_mm,
+            label,
         )
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
-        normalized_depth, normalized_width, normalized_height, normalized_label = values
+        (
+            normalized_anchor,
+            normalized_top,
+            normalized_bottom,
+            normalized_width,
+            normalized_height,
+            normalized_label,
+        ) = values
         item = CanvasObject(
             new_id(),
             MASTERLOG_SYMBOL_TYPE,
-            "depth",
+            normalized_anchor,
             0.0,
-            normalized_depth,
+            normalized_top,
             normalized_width,
             normalized_height,
-            top_depth=normalized_depth,
-            bottom_depth=normalized_depth,
+            top_depth=normalized_top,
+            bottom_depth=normalized_bottom,
             track_id=column_id,
             properties={
                 "template_id": template_id,
@@ -90,17 +113,35 @@ class MasterlogSymbolController:
         width_mm: float,
         height_mm: float,
         label: str = "",
+        anchor_type: str = "depth",
+        bottom_depth: float | None = None,
     ) -> PlacedMasterlogSymbol:
         values = self._validate(
-            template_id, depth, column_id, asset_ref, width_mm, height_mm, label
+            template_id,
+            anchor_type,
+            depth,
+            bottom_depth,
+            column_id,
+            asset_ref,
+            width_mm,
+            height_mm,
+            label,
         )
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
         item = self._require_item(object_id, template_id)
-        normalized_depth, normalized_width, normalized_height, normalized_label = values
-        item.y = normalized_depth
-        item.top_depth = normalized_depth
-        item.bottom_depth = normalized_depth
+        (
+            normalized_anchor,
+            normalized_top,
+            normalized_bottom,
+            normalized_width,
+            normalized_height,
+            normalized_label,
+        ) = values
+        item.anchor_type = normalized_anchor
+        item.y = normalized_top
+        item.top_depth = normalized_top
+        item.bottom_depth = normalized_bottom
         item.track_id = column_id
         item.width = normalized_width
         item.height = normalized_height
@@ -132,39 +173,61 @@ class MasterlogSymbolController:
     def _validate(
         self,
         template_id: str,
-        depth: float,
+        anchor_type: str,
+        top_depth: float,
+        bottom_depth: float | None,
         column_id: str,
         asset_ref: str,
         width_mm: float,
         height_mm: float,
         label: str,
-    ) -> tuple[float, float, float, str]:
+    ) -> tuple[str, float, float, float, float, str]:
         template = self._require_template(template_id)
         if not any(column.column_id == column_id for column in template.columns):
             raise ValueError("Колонка обозначения отсутствует в форме masterlog")
         if asset_ref not in self.session.image_assets:
             raise ValueError("Графический ресурс обозначения отсутствует в проекте")
-        numbers = (depth, width_mm, height_mm)
+        normalized_anchor = anchor_type.strip().casefold()
+        if normalized_anchor not in {"depth", "interval"}:
+            raise ValueError("Привязка обозначения должна быть depth или interval")
+        effective_bottom = top_depth if normalized_anchor == "depth" else bottom_depth
+        numbers = (top_depth, effective_bottom, width_mm, height_mm)
         if any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in numbers):
             raise ValueError("Глубина и размеры обозначения должны быть числами")
-        normalized_depth = float(depth)
+        if effective_bottom is None:
+            raise ValueError("Для интервального обозначения требуется низ интервала")
+        normalized_top = float(top_depth)
+        normalized_bottom = float(effective_bottom)
         normalized_width = float(width_mm)
         normalized_height = float(height_mm)
-        if not all(isfinite(value) for value in (normalized_depth, normalized_width, normalized_height)):
+        if not all(
+            isfinite(value)
+            for value in (normalized_top, normalized_bottom, normalized_width, normalized_height)
+        ):
             raise ValueError("Глубина и размеры обозначения должны быть конечными")
+        if normalized_anchor == "interval" and normalized_bottom <= normalized_top:
+            raise ValueError("Низ интервала должен быть больше верха")
         if not 1.0 <= normalized_width <= 50.0 or not 1.0 <= normalized_height <= 50.0:
             raise ValueError("Размер обозначения должен быть от 1 до 50 мм")
         dataset = self.session.current_dataset
         if dataset is not None:
             finite_depth = dataset.depth[np.isfinite(dataset.depth)]
             if finite_depth.size and not (
-                float(np.min(finite_depth)) <= normalized_depth <= float(np.max(finite_depth))
+                float(np.min(finite_depth)) <= normalized_top
+                and normalized_bottom <= float(np.max(finite_depth))
             ):
                 raise ValueError("Глубина обозначения находится вне текущего набора данных")
         normalized_label = label.strip()
         if len(normalized_label) > 200:
             raise ValueError("Подпись обозначения не должна превышать 200 символов")
-        return normalized_depth, normalized_width, normalized_height, normalized_label
+        return (
+            normalized_anchor,
+            normalized_top,
+            normalized_bottom,
+            normalized_width,
+            normalized_height,
+            normalized_label,
+        )
 
     def _require_template(self, template_id: str) -> MasterlogTemplate:
         try:
@@ -192,7 +255,13 @@ class MasterlogSymbolController:
     def _to_symbol(item: CanvasObject) -> PlacedMasterlogSymbol:
         return PlacedMasterlogSymbol(
             item.object_id,
+            item.anchor_type if item.anchor_type in {"depth", "interval"} else "depth",
             float(item.top_depth if item.top_depth is not None else item.y),
+            float(
+                item.bottom_depth
+                if item.bottom_depth is not None
+                else item.top_depth if item.top_depth is not None else item.y
+            ),
             str(item.track_id or ""),
             str(item.properties.get("asset_ref", "")),
             float(item.width),

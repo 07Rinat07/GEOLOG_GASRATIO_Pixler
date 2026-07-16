@@ -46,10 +46,27 @@ def test_masterlog_symbols_dialog_adds_and_undoes_symbol(qapp) -> None:
     table = dialog.findChild(QTableWidget, "masterlog-symbols-table")
     assert table is not None
     assert table.rowCount() == 1
-    assert table.item(0, 3).text() == "Gas show"
+    assert table.item(0, 4).text() == "Gas show"
     assert dialog.undo_button.isEnabled()
     dialog._undo()
     assert table.rowCount() == 0
     dialog._redo()
     assert table.rowCount() == 1
+    dialog.close()
+
+
+def test_masterlog_symbols_dialog_adds_interval(qapp) -> None:
+    controller = make_controller()
+    dialog = MasterlogSymbolsDialog(controller, "standard", language=AppLanguage.EN)
+    dialog.anchor_input.setCurrentIndex(dialog.anchor_input.findData("interval"))
+    dialog.depth_input.setValue(120.0)
+    dialog.bottom_depth_input.setValue(180.0)
+
+    dialog._add()
+
+    symbol = controller.available("standard")[0]
+    assert symbol.anchor_type == "interval"
+    assert symbol.bottom_depth == 180.0
+    assert dialog.table.item(0, 0).text() == "120–180"
+    assert dialog.height_input.isEnabled() is False
     dialog.close()

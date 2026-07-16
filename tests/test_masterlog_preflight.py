@@ -105,3 +105,31 @@ def test_masterlog_preflight_reports_broken_depth_symbol_references() -> None:
         "missing_asset",
         "missing_symbol_column",
     }
+
+
+def test_masterlog_preflight_reports_invalid_symbol_interval() -> None:
+    session = make_session()
+    template = MasterlogTemplate(
+        "standard",
+        "Standard",
+        columns=[MasterlogColumnTemplate("gas", "Gas", "curves", 40.0)],
+    )
+    assert session.current_well is not None
+    session.current_well.canvas_objects.append(
+        CanvasObject(
+            "zone", "masterlog_symbol", "interval", 0.0, 180.0, 8.0, 8.0,
+            top_depth=180.0,
+            bottom_depth=120.0,
+            track_id="gas",
+            properties={"template_id": "standard", "asset_ref": "missing"},
+        )
+    )
+
+    report = analyze_masterlog_output(
+        template, session, MasterlogOutputSettings(100.0, 200.0)
+    )
+
+    assert {issue.code for issue in report.warnings} == {
+        "missing_asset",
+        "invalid_symbol_interval",
+    }

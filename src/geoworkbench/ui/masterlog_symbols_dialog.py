@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
     QLineEdit,
+    QLabel,
     QMessageBox,
     QPushButton,
     QTableWidget,
@@ -38,11 +39,12 @@ class MasterlogSymbolsDialog(QDialog):
         self.setWindowTitle(self._t("masterlog_symbols.title"))
         self.resize(760, 480)
         root = QVBoxLayout(self)
-        self.table = QTableWidget(0, 4)
+        self.table = QTableWidget(0, 5)
         self.table.setObjectName("masterlog-symbols-table")
         self.table.setHorizontalHeaderLabels(
             [
                 self._t("masterlog_symbols.depth"),
+                self._t("masterlog_symbols.anchor"),
                 self._t("masterlog_symbols.column"),
                 self._t("masterlog_symbols.image"),
                 self._t("masterlog_symbols.label"),
@@ -56,6 +58,12 @@ class MasterlogSymbolsDialog(QDialog):
         self.depth_input = QDoubleSpinBox()
         self.depth_input.setRange(-100_000.0, 100_000.0)
         self.depth_input.setDecimals(3)
+        self.anchor_input = QComboBox()
+        self.anchor_input.addItem(self._t("masterlog_symbols.point"), "depth")
+        self.anchor_input.addItem(self._t("masterlog_symbols.interval"), "interval")
+        self.bottom_depth_input = QDoubleSpinBox()
+        self.bottom_depth_input.setRange(-100_000.0, 100_000.0)
+        self.bottom_depth_input.setDecimals(3)
         self.column_input = QComboBox()
         for column in template.columns:
             self.column_input.addItem(column.title, column.column_id)
@@ -73,13 +81,18 @@ class MasterlogSymbolsDialog(QDialog):
             control.setSuffix(" mm")
         self.label_input = QLineEdit()
         self.label_input.setMaxLength(200)
+        form.addRow(self._t("masterlog_symbols.anchor"), self.anchor_input)
         form.addRow(self._t("masterlog_symbols.depth"), self.depth_input)
+        self.bottom_depth_label = QLabel(self._t("masterlog_symbols.bottom_depth"))
+        form.addRow(self.bottom_depth_label, self.bottom_depth_input)
         form.addRow(self._t("masterlog_symbols.column"), self.column_input)
         form.addRow(self._t("masterlog_symbols.image"), self.asset_input)
         form.addRow(self._t("masterlog_symbols.width"), self.width_input)
         form.addRow(self._t("masterlog_symbols.height"), self.height_input)
         form.addRow(self._t("masterlog_symbols.label"), self.label_input)
         root.addLayout(form)
+        self.anchor_input.currentIndexChanged.connect(self._update_anchor_inputs)
+        self._update_anchor_inputs()
 
         actions = QHBoxLayout()
         add_button = QPushButton(self._t("common.add"))
@@ -111,17 +124,27 @@ class MasterlogSymbolsDialog(QDialog):
         columns = {item.column_id: item.title for item in template.columns}
         assets = self.controller.session.image_assets
         for row, symbol in enumerate(symbols):
-            depth = QTableWidgetItem(f"{symbol.depth:g}")
+            depth_text = (
+                f"{symbol.top_depth:g}–{symbol.bottom_depth:g}"
+                if symbol.anchor_type == "interval"
+                else f"{symbol.top_depth:g}"
+            )
+            depth = QTableWidgetItem(depth_text)
             depth.setData(Qt.ItemDataRole.UserRole, symbol.object_id)
             self.table.setItem(row, 0, depth)
-            self.table.setItem(row, 1, QTableWidgetItem(columns.get(symbol.column_id, symbol.column_id)))
+            self.table.setItem(
+                row,
+                1,
+                QTableWidgetItem(self._t(f"masterlog_symbols.{symbol.anchor_type}")),
+            )
+            self.table.setItem(row, 2, QTableWidgetItem(columns.get(symbol.column_id, symbol.column_id)))
             asset = assets.get(symbol.asset_ref)
             self.table.setItem(
                 row,
-                2,
+                3,
                 QTableWidgetItem(asset.original_name if asset is not None else symbol.asset_ref),
             )
-            self.table.setItem(row, 3, QTableWidgetItem(symbol.label))
+            self.table.setItem(row, 4, QTableWidgetItem(symbol.label))
         self.table.resizeColumnsToContents()
         self.undo_button.setEnabled(self.controller.history.can_undo)
         self.redo_button.setEnabled(self.controller.history.can_redo)
@@ -136,16 +159,22 @@ class MasterlogSymbolsDialog(QDialog):
         if selected is None:
             return
         symbol = next(item for item in self.controller.available(self.template_id) if item.object_id == selected)
-        self.depth_input.setValue(symbol.depth)
+        self.anchor_input.setCurrentIndex(self.anchor_input.findData(symbol.anchor_type))
+        self.depth_input.setValue(symbol.top_depth)
+        self.bottom_depth_input.setValue(symbol.bottom_depth)
         self.column_input.setCurrentIndex(self.column_input.findData(symbol.column_id))
         self.asset_input.setCurrentIndex(self.asset_input.findData(symbol.asset_ref))
         self.width_input.setValue(symbol.width_mm)
         self.height_input.setValue(symbol.height_mm)
         self.label_input.setText(symbol.label)
 
-    def _values(self) -> tuple[float, str, str, float, float, str]:
+    def _values(self) -> tuple[str, float, float | None, str, str, float, float, str]:
         return (
+            str(self.anchor_input.currentData() or "depth"),
             self.depth_input.value(),
+            self.bottom_depth_input.value()
+            if self.anchor_input.currentData() == "interval"
+            else None,
             str(self.column_input.currentData() or ""),
             str(self.asset_input.currentData() or ""),
             self.width_input.value(),
@@ -154,7 +183,7 @@ class MasterlogSymbolsDialog(QDialog):
         )
 
     def _add(self) -> None:
-        depth, column_id, asset_ref, width, height, label = self._values()
+        anchor, depth, bottom, column_id, asset_ref, width, height, label = self._values()
         self._run(
             lambda: self.controller.add(
                 self.template_id,
@@ -164,6 +193,8 @@ class MasterlogSymbolsDialog(QDialog):
                 width_mm=width,
                 height_mm=height,
                 label=label,
+                anchor_type=anchor,
+                bottom_depth=bottom,
             )
         )
 
@@ -172,7 +203,7 @@ class MasterlogSymbolsDialog(QDialog):
         if selected is None:
             self._select_first()
             return
-        depth, column_id, asset_ref, width, height, label = self._values()
+        anchor, depth, bottom, column_id, asset_ref, width, height, label = self._values()
         self._run(
             lambda: self.controller.update(
                 selected,
@@ -183,6 +214,8 @@ class MasterlogSymbolsDialog(QDialog):
                 width_mm=width,
                 height_mm=height,
                 label=label,
+                anchor_type=anchor,
+                bottom_depth=bottom,
             )
         )
 
@@ -203,6 +236,12 @@ class MasterlogSymbolsDialog(QDialog):
         QMessageBox.information(
             self, self.windowTitle(), self._t("masterlog_symbols.select_first")
         )
+
+    def _update_anchor_inputs(self) -> None:
+        interval = self.anchor_input.currentData() == "interval"
+        self.bottom_depth_label.setVisible(interval)
+        self.bottom_depth_input.setVisible(interval)
+        self.height_input.setEnabled(not interval)
 
     def _run(self, operation: Callable[[], object]) -> bool:
         try:
