@@ -3,6 +3,11 @@ import json
 import pytest
 
 from geoworkbench.services.user_profiles import EngineerProfile, UserProfileSettings
+from geoworkbench.printing.page_settings import (
+    PrintOrientation,
+    PrintPageFormat,
+    PrintPageSettings,
+)
 
 
 class MemorySettings:
@@ -63,3 +68,30 @@ def test_invalid_or_corrupt_profiles_do_not_break_startup() -> None:
 def test_rejects_empty_name() -> None:
     with pytest.raises(ValueError, match="Имя инженера"):
         UserProfileSettings(MemorySettings()).create("   ")
+
+
+def test_print_page_settings_persist_per_active_profile() -> None:
+    storage = MemorySettings()
+    settings = UserProfileSettings(storage)
+    first = settings.create("First")
+    first_page = PrintPageSettings(
+        PrintPageFormat.A3, PrintOrientation.LANDSCAPE
+    )
+    settings.save_print_page_settings(first_page)
+    second = settings.create("Second")
+
+    assert settings.print_page_settings() == PrintPageSettings()
+    settings.save_print_page_settings(
+        PrintPageSettings(PrintPageFormat.A4, PrintOrientation.LANDSCAPE)
+    )
+    settings.select(first.profile_id)
+    assert settings.print_page_settings() == first_page
+    settings.select(second.profile_id)
+    assert settings.print_page_settings().orientation is PrintOrientation.LANDSCAPE
+
+
+def test_corrupt_print_page_settings_fall_back_to_defaults() -> None:
+    storage = MemorySettings()
+    storage.values["users/print_page/default"] = '{"page_format": "letter"}'
+
+    assert UserProfileSettings(storage).print_page_settings() == PrintPageSettings()

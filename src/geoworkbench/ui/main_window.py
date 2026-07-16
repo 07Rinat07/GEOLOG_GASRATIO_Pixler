@@ -73,7 +73,6 @@ from geoworkbench.project.dataset_export_controller import DatasetExportControll
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.widget_print import render_widget_to_printer
-from geoworkbench.printing.page_settings import PrintPageSettings
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.models import CurveLineStyle, CurveStyle
@@ -150,7 +149,7 @@ class MainWindow(QMainWindow):
         self.las_range_editing_controller = LasRangeEditingController(self.session)
         self.dataset_selection = DatasetIntervalSelection()
         self._selected_track_id: str | None = None
-        self.print_page_settings = PrintPageSettings()
+        self.print_page_settings = self.user_profile_settings.print_page_settings()
         self.setWindowIcon(application_icon())
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
@@ -587,6 +586,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(
             self._t("profile.active", name=profile.display_name)
         )
+        self.print_page_settings = self.user_profile_settings.print_page_settings()
 
     def open_las(self) -> None:
         mode_labels = {
@@ -1113,6 +1113,7 @@ class MainWindow(QMainWindow):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         self.print_page_settings = dialog.page_settings()
+        self.user_profile_settings.save_print_page_settings(self.print_page_settings)
         self.statusBar().showMessage(
             self._t(
                 "print.page_updated",

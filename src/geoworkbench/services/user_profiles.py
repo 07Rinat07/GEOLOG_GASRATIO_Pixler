@@ -7,6 +7,12 @@ from uuid import uuid4
 
 from PySide6.QtCore import QSettings
 
+from geoworkbench.printing.page_settings import (
+    PrintOrientation,
+    PrintPageFormat,
+    PrintPageSettings,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class EngineerProfile:
@@ -84,6 +90,43 @@ class UserProfileSettings:
             active.profile_id if active else None
         )
         self._store(profiles, next_active)
+
+    def print_page_settings(self) -> PrintPageSettings:
+        key = self._print_settings_key()
+        raw = self.settings.value(key, "")
+        try:
+            payload = json.loads(str(raw))
+            if not isinstance(payload, dict):
+                return PrintPageSettings()
+            page_format = payload.get("page_format")
+            orientation = payload.get("orientation")
+            if not isinstance(page_format, str) or not isinstance(orientation, str):
+                return PrintPageSettings()
+            return PrintPageSettings(
+                PrintPageFormat(page_format),
+                PrintOrientation(orientation),
+            )
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return PrintPageSettings()
+
+    def save_print_page_settings(self, value: PrintPageSettings) -> None:
+        if not isinstance(value, PrintPageSettings):
+            raise TypeError("Настройки страницы должны использовать PrintPageSettings")
+        self.settings.setValue(
+            self._print_settings_key(),
+            json.dumps(
+                {
+                    "page_format": value.page_format.value,
+                    "orientation": value.orientation.value,
+                }
+            ),
+        )
+        self.settings.sync()
+
+    def _print_settings_key(self) -> str:
+        active = self.active()
+        profile_id = active.profile_id if active is not None else "default"
+        return f"users/print_page/{profile_id}"
 
     def _store(self, profiles: tuple[EngineerProfile, ...], active_id: str | None) -> None:
         self.settings.setValue(
