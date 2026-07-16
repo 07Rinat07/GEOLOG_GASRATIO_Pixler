@@ -7,6 +7,7 @@ from geoworkbench.domain.models import Dataset, Project, Well, new_id
 from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_import_report import LasImportReport
 from geoworkbench.tablet.models import TabletLayout
+from geoworkbench.printing.image_assets import ImageAsset
 
 
 ALIASES: dict[str, tuple[str, ...]] = {
@@ -31,6 +32,7 @@ class ProjectSession:
     tablet_presets: dict[str, TabletLayout] = field(default_factory=dict)
     source_documents: dict[str, LosslessLasDocument] = field(default_factory=dict)
     import_reports: dict[str, LasImportReport] = field(default_factory=dict)
+    image_assets: dict[str, ImageAsset] = field(default_factory=dict)
     dirty: bool = False
 
     def add_dataset(

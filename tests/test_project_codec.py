@@ -205,6 +205,23 @@ def test_project_document_round_trip_preserves_lossless_source(tmp_path) -> None
     assert "raw_bytes" not in target.read_text(encoding="utf-8")
 
 
+def test_project_document_round_trip_preserves_png_asset(tmp_path) -> None:
+    from geoworkbench.printing.image_assets import create_png_asset
+
+    target = tmp_path / "image.geolog.json"
+    source = tmp_path / "logo.png"
+    source.write_bytes(b"\x89PNG\r\n\x1a\nproject-logo")
+    asset = create_png_asset(source)
+
+    save_project(make_project(), target, image_assets={asset.asset_id: asset})
+    restored = load_project_document(target)
+
+    assert restored.image_assets[asset.asset_id].payload == asset.payload
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["format_version"] == PROJECT_FORMAT_VERSION
+    assert payload["image_assets"][asset.asset_id]["media_type"] == "image/png"
+
+
 def test_project_document_round_trip_preserves_import_report(tmp_path) -> None:
     target = tmp_path / "report.geolog.json"
     raw = b"~V\nVERS. 2.0\n~W\nNULL. -999.25\n~C\nDEPT.M\n~A\n100\n101\n"

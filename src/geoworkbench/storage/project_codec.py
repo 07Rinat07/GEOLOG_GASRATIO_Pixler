@@ -46,6 +46,7 @@ from geoworkbench.data.las_import_report import (
     validate_import_report,
 )
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
+from geoworkbench.printing.image_assets import ImageAsset, ImageAssetError, load_image_assets
 from geoworkbench.storage.source_artifacts import (
     SourceArtifactError,
     load_source_documents,
@@ -53,7 +54,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 11
+PROJECT_FORMAT_VERSION = 12
 
 
 @dataclass(slots=True)
@@ -63,6 +64,7 @@ class ProjectDocument:
     tablet_presets: dict[str, TabletLayout] = field(default_factory=dict)
     source_documents: dict[str, LosslessLasDocument] = field(default_factory=dict)
     import_reports: dict[str, LasImportReport] = field(default_factory=dict)
+    image_assets: dict[str, ImageAsset] = field(default_factory=dict)
 
 
 class ProjectFormatError(RuntimeError):
@@ -464,6 +466,10 @@ def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> Projec
             )
             _validate_report_artifact_consistency(document)
         except SourceArtifactError as exc:
+            raise ProjectFormatError(str(exc)) from exc
+        try:
+            document.image_assets = load_image_assets(source, raw.get("image_assets", {}))
+        except ImageAssetError as exc:
             raise ProjectFormatError(str(exc)) from exc
         return document
     except ProjectFormatError:

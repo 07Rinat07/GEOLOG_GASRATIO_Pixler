@@ -14,6 +14,7 @@ from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_import_report import LasImportReport, validate_import_report
 from geoworkbench.storage.source_artifacts import save_source_documents
 from geoworkbench.storage.project_codec import PROJECT_FORMAT_VERSION
+from geoworkbench.printing.image_assets import ImageAsset, save_image_assets
 from geoworkbench.tablet.layout_codec import layout_to_dict
 from geoworkbench.tablet.models import TabletLayout
 
@@ -36,6 +37,7 @@ def save_project(
     tablet_presets: dict[str, TabletLayout] | None = None,
     source_documents: dict[str, LosslessLasDocument] | None = None,
     import_reports: dict[str, LasImportReport] | None = None,
+    image_assets: dict[str, ImageAsset] | None = None,
 ) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     documents = source_documents or {}
@@ -62,6 +64,7 @@ def save_project(
         ):
             raise ValueError(f"Import report не соответствует source document: {dataset_id}")
     source_artifacts = save_source_documents(target, documents)
+    image_asset_manifest = save_image_assets(target, image_assets or {})
     document = {
         "format_version": PROJECT_FORMAT_VERSION,
         "project": asdict(project),
@@ -74,6 +77,7 @@ def save_project(
             for name, layout in (tablet_presets or {}).items()
         },
         "source_artifacts": source_artifacts,
+        "image_assets": image_asset_manifest,
         "import_reports": {
             dataset_id: asdict(report) for dataset_id, report in reports.items()
         },

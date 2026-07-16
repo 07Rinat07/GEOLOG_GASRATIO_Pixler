@@ -20,4 +20,5 @@ class JsonProjectRepository:
             tablet_presets=document.tablet_presets,
             source_documents=document.source_documents,
             import_reports=document.import_reports,
+            image_assets=document.image_assets,
         )
