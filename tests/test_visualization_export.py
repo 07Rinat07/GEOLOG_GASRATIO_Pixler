@@ -7,6 +7,11 @@ from geoworkbench.data.visualization_export import (
     export_widget_png,
     export_widget_svg,
 )
+from geoworkbench.printing.page_settings import (
+    PrintOrientation,
+    PrintPageFormat,
+    PrintPageSettings,
+)
 
 
 def test_visualization_export_writes_valid_png_and_svg(qapp, tmp_path) -> None:
@@ -31,7 +36,13 @@ def test_visualization_export_writes_valid_pdf(qapp, tmp_path) -> None:
     widget.show()
     qapp.processEvents()
 
-    target = export_widget_pdf(widget, tmp_path / "plot.pdf")
+    target = export_widget_pdf(
+        widget,
+        tmp_path / "plot.pdf",
+        page_settings=PrintPageSettings(
+            PrintPageFormat.A3, PrintOrientation.LANDSCAPE
+        ),
+    )
 
     payload = target.read_bytes()
     assert payload.startswith(b"%PDF-")

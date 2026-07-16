@@ -73,6 +73,7 @@ from geoworkbench.project.dataset_export_controller import DatasetExportControll
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.widget_print import render_widget_to_printer
+from geoworkbench.printing.page_settings import PrintPageSettings
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.models import CurveLineStyle, CurveStyle
@@ -99,6 +100,7 @@ from geoworkbench.ui.nct_dialog import NctCalculationDialog
 from geoworkbench.ui.new_las_dialog import NewLasDialog
 from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
+from geoworkbench.ui.print_page_dialog import PrintPageDialog
 from geoworkbench.visualization.curve_view import CurveView
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 from geoworkbench.services.localization import (
@@ -148,6 +150,7 @@ class MainWindow(QMainWindow):
         self.las_range_editing_controller = LasRangeEditingController(self.session)
         self.dataset_selection = DatasetIntervalSelection()
         self._selected_track_id: str | None = None
+        self.print_page_settings = PrintPageSettings()
         self.setWindowIcon(application_icon())
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
@@ -301,6 +304,9 @@ class MainWindow(QMainWindow):
         print_preview_action = QAction(self._t("print.preview_action"), self)
         print_preview_action.triggered.connect(self.preview_active_visualization)
         file_menu.addAction(print_preview_action)
+        page_setup_action = QAction(self._t("print.page_setup_action"), self)
+        page_setup_action.triggered.connect(self.configure_print_page)
+        file_menu.addAction(page_setup_action)
         file_menu.addSeparator()
         save_export_profile_action = QAction(self._t("export_profile.save"), self)
         save_export_profile_action.triggered.connect(self.save_export_profile)
@@ -1057,12 +1063,18 @@ class MainWindow(QMainWindow):
         if overwrite is None:
             return
         try:
-            exporters = {
-                "png": export_widget_png,
-                "svg": export_widget_svg,
-                "pdf": export_widget_pdf,
-            }
-            exported = exporters[export_format](current, target, overwrite=overwrite)
+            if export_format == "pdf":
+                exported = export_widget_pdf(
+                    current,
+                    target,
+                    overwrite=overwrite,
+                    page_settings=self.print_page_settings,
+                )
+            else:
+                exporters = {"png": export_widget_png, "svg": export_widget_svg}
+                exported = exporters[export_format](
+                    current, target, overwrite=overwrite
+                )
         except (FileExistsError, OSError, VisualizationExportError) as exc:
             QMessageBox.critical(self, self._t("visual_export.title"), str(exc))
             self._log(self._t("visual_export.failed", error=str(exc)))
@@ -1081,6 +1093,8 @@ class MainWindow(QMainWindow):
             )
             return
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer.setPageSize(self.print_page_settings.qt_page_size)
+        printer.setPageOrientation(self.print_page_settings.qt_orientation)
         dialog = QPrintPreviewDialog(printer, self)
         dialog.setWindowTitle(self._t("print.preview_title"))
         dialog.paintRequested.connect(
@@ -1089,6 +1103,25 @@ class MainWindow(QMainWindow):
             )
         )
         dialog.exec()
+
+    def configure_print_page(self) -> None:
+        dialog = PrintPageDialog(
+            self,
+            initial=self.print_page_settings,
+            language=self.language,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self.print_page_settings = dialog.page_settings()
+        self.statusBar().showMessage(
+            self._t(
+                "print.page_updated",
+                format=self.print_page_settings.page_format.value.upper(),
+                orientation=self._t(
+                    f"print.{self.print_page_settings.orientation.value}"
+                ),
+            )
+        )
 
     def save_export_profile(self) -> None:
         dataset = self.session.current_dataset

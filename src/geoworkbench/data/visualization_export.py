@@ -5,9 +5,11 @@ import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QPoint, QRect
-from PySide6.QtGui import QPageSize, QPainter, QPdfWriter
+from PySide6.QtGui import QPainter, QPdfWriter
 from PySide6.QtSvg import QSvgGenerator
 from PySide6.QtWidgets import QWidget
+
+from geoworkbench.printing.page_settings import PrintPageSettings
 
 
 class VisualizationExportError(RuntimeError):
@@ -67,7 +69,11 @@ def export_widget_svg(
 
 
 def export_widget_pdf(
-    widget: QWidget, target: str | Path, *, overwrite: bool = False
+    widget: QWidget,
+    target: str | Path,
+    *,
+    overwrite: bool = False,
+    page_settings: PrintPageSettings | None = None,
 ) -> Path:
     destination = Path(target)
     _validate_destination(destination, ".pdf", overwrite)
@@ -79,7 +85,9 @@ def export_widget_pdf(
     painter: QPainter | None = None
     try:
         writer = QPdfWriter(str(temporary))
-        writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+        settings = page_settings or PrintPageSettings()
+        writer.setPageSize(settings.qt_page_size)
+        writer.setPageOrientation(settings.qt_orientation)
         writer.setResolution(300)
         writer.setTitle("GEOLOG GASRATIO@Pixler visualization")
         writer.setCreator("GEOLOG GASRATIO@Pixler")
