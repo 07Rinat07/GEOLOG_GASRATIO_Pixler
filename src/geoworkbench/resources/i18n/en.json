@@ -85,6 +85,8 @@
   "table.select_curves": "Select values from one or more curves",
   "table.contiguous_rows": "The selected interval rows must be contiguous",
   "table.depth_readonly": "Edit the depth index through the dedicated validated operation",
+  "curve.cursor_empty": "Move the pointer over the plot to inspect values",
+  "curve.cursor_depth": "Depth: {depth} {unit}",
   "export.title": "LAS export",
   "export.plan_title": "LAS export settings",
   "export.las12_compatibility": "LAS 1.2 (compatibility)",

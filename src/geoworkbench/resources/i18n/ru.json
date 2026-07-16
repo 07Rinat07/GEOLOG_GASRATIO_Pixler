@@ -85,6 +85,8 @@
   "table.select_curves": "Выберите значения одной или нескольких кривых",
   "table.contiguous_rows": "Строки диапазона должны идти подряд",
   "table.depth_readonly": "Индекс глубины изменяется отдельной операцией с предварительной проверкой",
+  "curve.cursor_empty": "Наведите курсор на график, чтобы увидеть значения",
+  "curve.cursor_depth": "Глубина: {depth} {unit}",
   "export.title": "Экспорт LAS",
   "export.plan_title": "Параметры экспорта LAS",
   "export.las12_compatibility": "LAS 1.2 (совместимость)",

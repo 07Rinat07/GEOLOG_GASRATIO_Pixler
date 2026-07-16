@@ -141,7 +141,7 @@ class MainWindow(QMainWindow):
         self.resize(1580, 960)
 
         self.tabs = QTabWidget()
-        self.curve_view = CurveView(self.dataset_selection)
+        self.curve_view = CurveView(self.dataset_selection, language=self.language)
         self.curve_view.edit_requested.connect(self._apply_curve_draw_edit)
         self.tablet_view = TabletView()
         self.tablet_view.track_selected.connect(self._show_track_in_inspector)

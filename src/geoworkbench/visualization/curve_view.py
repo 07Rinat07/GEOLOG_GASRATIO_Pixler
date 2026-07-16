@@ -9,13 +9,20 @@ from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
+from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class CurveView(QWidget):
     edit_requested = Signal(str, object, object)
 
-    def __init__(self, selection: DatasetIntervalSelection | None = None) -> None:
+    def __init__(
+        self,
+        selection: DatasetIntervalSelection | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
         super().__init__()
+        self.localizer = Localizer.create(language)
         self.selection = selection or DatasetIntervalSelection()
         self.selection.changed.connect(self._apply_shared_selection)
         self._dataset: Dataset | None = None
@@ -24,6 +31,8 @@ class CurveView(QWidget):
         self._draw_points: list[DrawPoint] = []
         self._displayed_curve_ids: tuple[str, ...] = ()
         self._selection_region: pg.LinearRegionItem | None = None
+        self._cursor_horizontal: pg.InfiniteLine | None = None
+        self._cursor_vertical: pg.InfiniteLine | None = None
         self._applying_shared_selection = False
         self._plot = pg.PlotWidget()
         self._plot.showGrid(x=True, y=True, alpha=0.25)
@@ -33,11 +42,18 @@ class CurveView(QWidget):
         self._plot.viewport().setMouseTracking(True)
         self._title = QLabel("Откройте LAS-файл")
         self._title.setStyleSheet("font-weight: 600; padding: 6px;")
+        self._cursor_label = QLabel(self._t("curve.cursor_empty"))
+        self._cursor_label.setObjectName("curve-cursor-values")
+        self._cursor_label.setStyleSheet("padding: 4px 6px;")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._title)
+        layout.addWidget(self._cursor_label)
         layout.addWidget(self._plot)
+
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
 
     @property
     def title_text(self) -> str:
@@ -47,6 +63,10 @@ class CurveView(QWidget):
     def can_edit(self) -> bool:
         return self._dataset is not None and self._editable_curve is not None
 
+    @property
+    def cursor_text(self) -> str:
+        return self._cursor_label.text()
+
     def clear(self) -> None:
         self._dataset = None
         self._editable_curve = None
@@ -54,6 +74,9 @@ class CurveView(QWidget):
         self._displayed_curve_ids = ()
         self._plot.clear()
         self._selection_region = None
+        self._cursor_horizontal = None
+        self._cursor_vertical = None
+        self._cursor_label.setText(self._t("curve.cursor_empty"))
         self._title.setText("Откройте LAS-файл")
 
     def set_edit_mode(self, enabled: bool) -> bool:
@@ -69,6 +92,9 @@ class CurveView(QWidget):
         self._displayed_curve_ids = ()
         self._plot.clear()
         self._selection_region = None
+        self._cursor_horizontal = None
+        self._cursor_vertical = None
+        self._cursor_label.setText(self._t("curve.cursor_empty"))
         selected_names = selected or [
             curve.metadata.original_mnemonic for curve in list(dataset.curves.values())[:6]
         ]
@@ -89,6 +115,7 @@ class CurveView(QWidget):
             displayed_curve_ids.append(curve.metadata.curve_id)
         self._displayed_curve_ids = tuple(displayed_curve_ids)
         self._plot.getViewBox().invertY(True)
+        self._create_cursor_lines()
         finite_depth = dataset.depth[np.isfinite(dataset.depth)]
         if finite_depth.size:
             self._selection_region = pg.LinearRegionItem(
@@ -115,6 +142,61 @@ class CurveView(QWidget):
         )
         if self._edit_mode and not self.can_edit:
             self.set_edit_mode(False)
+
+    def show_cursor_at_depth(self, depth: float, value: float | None = None) -> bool:
+        dataset = self._dataset
+        if dataset is None or not np.isfinite(depth):
+            return False
+        finite = np.flatnonzero(np.isfinite(dataset.depth))
+        if finite.size == 0:
+            return False
+        nearest = int(finite[np.argmin(np.abs(dataset.depth[finite] - depth))])
+        snapped_depth = float(dataset.depth[nearest])
+        depth_unit = "ms" if dataset.depth_domain.value == "time" else "m"
+        parts = [
+            self._t(
+                "curve.cursor_depth",
+                depth=f"{snapped_depth:.8g}",
+                unit=depth_unit,
+            )
+        ]
+        for curve_id in self._displayed_curve_ids:
+            curve = dataset.curves.get(curve_id)
+            if curve is None:
+                continue
+            sample = float(curve.values[nearest])
+            rendered = f"{sample:.8g}" if np.isfinite(sample) else "—"
+            unit = f" {curve.metadata.unit}" if curve.metadata.unit else ""
+            parts.append(f"{curve.metadata.original_mnemonic}: {rendered}{unit}")
+        self._cursor_label.setText("  |  ".join(parts))
+        if self._cursor_horizontal is not None:
+            self._cursor_horizontal.setPos(snapped_depth)
+            self._cursor_horizontal.show()
+        if self._cursor_vertical is not None:
+            if value is not None and np.isfinite(value):
+                self._cursor_vertical.setPos(value)
+                self._cursor_vertical.show()
+            else:
+                self._cursor_vertical.hide()
+        return True
+
+    def _create_cursor_lines(self) -> None:
+        pen = pg.mkPen((90, 90, 90, 170), width=1, style=Qt.PenStyle.DashLine)
+        self._cursor_horizontal = pg.InfiniteLine(angle=0, movable=False, pen=pen)
+        self._cursor_vertical = pg.InfiniteLine(angle=90, movable=False, pen=pen)
+        self._cursor_horizontal.setZValue(30)
+        self._cursor_vertical.setZValue(30)
+        self._plot.addItem(self._cursor_horizontal)
+        self._plot.addItem(self._cursor_vertical)
+        self._cursor_horizontal.hide()
+        self._cursor_vertical.hide()
+
+    def _hide_cursor(self) -> None:
+        if self._cursor_horizontal is not None:
+            self._cursor_horizontal.hide()
+        if self._cursor_vertical is not None:
+            self._cursor_vertical.hide()
+        self._cursor_label.setText(self._t("curve.cursor_empty"))
 
     def _publish_region_selection(self) -> None:
         if (
@@ -166,9 +248,17 @@ class CurveView(QWidget):
         return True
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
-        if watched is not self._plot.viewport() or not isinstance(event, QMouseEvent):
+        if watched is not self._plot.viewport():
+            return super().eventFilter(watched, event)
+        if event.type() == QEvent.Type.Leave:
+            self._hide_cursor()
+            return super().eventFilter(watched, event)
+        if not isinstance(event, QMouseEvent):
             return super().eventFilter(watched, event)
         if not self._edit_mode:
+            if event.type() == QEvent.Type.MouseMove:
+                position = self._view_position(event)
+                self.show_cursor_at_depth(float(position.y()), float(position.x()))
             return super().eventFilter(watched, event)
         event_type = event.type()
         if event_type == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
@@ -190,7 +280,10 @@ class CurveView(QWidget):
         return True
 
     def _draw_point(self, event: QMouseEvent) -> DrawPoint:
+        view_position = self._view_position(event)
+        return DrawPoint(depth=float(view_position.y()), value=float(view_position.x()))
+
+    def _view_position(self, event: QMouseEvent):
         local_position = self._plot.mapFromGlobal(event.globalPosition().toPoint())
         scene_position = self._plot.mapToScene(local_position)
-        view_position = self._plot.getViewBox().mapSceneToView(scene_position)
-        return DrawPoint(depth=float(view_position.y()), value=float(view_position.x()))
+        return self._plot.getViewBox().mapSceneToView(scene_position)

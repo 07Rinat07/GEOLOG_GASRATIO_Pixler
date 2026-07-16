@@ -12,6 +12,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.services.curve_editing import DrawPoint
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.visualization.curve_view import CurveView
 
 
@@ -109,4 +110,36 @@ def test_curve_view_region_and_shared_selection_stay_synchronized(qapp) -> None:
     view._selection_region.setRegion((100.0, 101.0))
     view._selection_region.sigRegionChangeFinished.emit(view._selection_region)
     assert selection.interval == (100.0, 101.0)
+    view.close()
+
+
+def test_curve_view_cursor_snaps_to_sample_and_shows_visible_values(qapp) -> None:
+    dataset, _ = make_dataset()
+    dataset.curves["curve-2"] = CurveData(
+        CurveMetadata("curve-2", "C1", "C1", "%", None, dataset.dataset_id),
+        np.array([10.0, 20.0, np.nan, 40.0]),
+    )
+    view = CurveView(language=AppLanguage.EN)
+    view.show_dataset(dataset, ["ROP", "C1"])
+
+    assert view.show_cursor_at_depth(101.6, 2.5)
+
+    assert view.cursor_text == "Depth: 102 m  |  ROP: 3 m/h  |  C1: — %"
+    assert view._cursor_horizontal is not None
+    assert view._cursor_horizontal.value() == 102.0
+    assert view._cursor_horizontal.isVisible()
+    assert view._cursor_vertical is not None
+    assert view._cursor_vertical.value() == 2.5
+    view._hide_cursor()
+    assert view.cursor_text == "Move the pointer over the plot to inspect values"
+    assert not view._cursor_horizontal.isVisible()
+    view.close()
+
+
+def test_curve_view_cursor_requires_dataset_and_finite_depth(qapp) -> None:
+    view = CurveView()
+    assert not view.show_cursor_at_depth(100.0)
+    dataset, _ = make_dataset()
+    view.show_dataset(dataset)
+    assert not view.show_cursor_at_depth(np.nan)
     view.close()
