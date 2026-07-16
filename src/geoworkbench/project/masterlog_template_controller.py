@@ -12,7 +12,7 @@ from geoworkbench.domain.models import (
     new_id,
 )
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.printing.image_assets import ImageAsset
+from geoworkbench.printing.image_assets import ImageAsset, validate_image_asset
 
 
 class MasterlogTemplateController:
@@ -285,6 +285,17 @@ class MasterlogTemplateController:
             asset = self.session.image_assets.pop(asset_id)
         except KeyError as exc:
             raise KeyError(f"Image asset не найден: {asset_id}") from exc
+        self.session.dirty = True
+        return asset
+
+    def install_image_asset(self, asset: ImageAsset) -> ImageAsset:
+        validate_image_asset(asset.asset_id, asset)
+        existing = self.session.image_assets.get(asset.asset_id)
+        if existing is not None:
+            if existing.payload != asset.payload or existing.media_type != asset.media_type:
+                raise ValueError(f"Конфликт содержимого image asset: {asset.asset_id}")
+            return existing
+        self.session.image_assets[asset.asset_id] = asset
         self.session.dirty = True
         return asset
 

@@ -74,6 +74,7 @@
   "masterlog_assets.item": "{name} — {size} bytes — {usage}", "masterlog_assets.used": "used by: {templates}",
   "masterlog_assets.unused": "unused", "masterlog_assets.select": "Select an image",
   "masterlog_assets.rename": "Rename image", "masterlog_assets.name": "Image name:",
+  "masterlog_assets.add_symbol": "Add symbol", "masterlog_symbols.gas_show": "Gas show", "masterlog_symbols.core": "Core", "masterlog_symbols.casing": "Casing", "masterlog_symbols.formation_boundary": "Formation boundary",
   "masterlog_preview.action": "Preview...", "masterlog_preview.title": "Masterlog preview — {name}",
   "masterlog_preview.export_pdf": "Export PDF...", "masterlog_preview.overwrite": "File {name} exists. Replace it?",
   "masterlog_preview.exported": "Masterlog PDF exported: {name}",

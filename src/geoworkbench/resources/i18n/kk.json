@@ -74,6 +74,7 @@
   "masterlog_assets.item": "{name} — {size} байт — {usage}", "masterlog_assets.used": "қолданылады: {templates}",
   "masterlog_assets.unused": "қолданылмайды", "masterlog_assets.select": "Кескінді таңдаңыз",
   "masterlog_assets.rename": "Кескін атауын өзгерту", "masterlog_assets.name": "Кескін атауы:",
+  "masterlog_assets.add_symbol": "Белгі қосу", "masterlog_symbols.gas_show": "Газ белгісі", "masterlog_symbols.core": "Керн", "masterlog_symbols.casing": "Шегендеу құбыры", "masterlog_symbols.formation_boundary": "Қабат шекарасы",
   "masterlog_preview.action": "Алдын ала қарау...", "masterlog_preview.title": "Мастерлогты алдын ала қарау — {name}",
   "masterlog_preview.export_pdf": "PDF экспорттау...", "masterlog_preview.overwrite": "{name} файлы бар. Ауыстыру керек пе?",
   "masterlog_preview.exported": "Masterlog PDF экспортталды: {name}",

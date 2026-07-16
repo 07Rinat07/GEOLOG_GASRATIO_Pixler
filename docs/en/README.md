@@ -125,6 +125,7 @@ is being migrated into synchronized RU/KK/EN user guides.
 
 ## Masterlog forms and symbols
 
-The project format now stores named forms with editable headers and column sets. Symbols, labels,
-and images can be anchored to depth, time, a parameter, an interval, a track, a page, or positioned
-freely. The visual designer and print renderer are planned next.
+The project format stores named forms with editable headers and column sets. The image manager now
+provides built-in vector symbols, safe PNG/SVG import, thumbnails, renaming, and protected removal.
+Forms use an independent millimetre-based print renderer. Anchoring symbols to depth and other
+objects will be expanded in later releases.

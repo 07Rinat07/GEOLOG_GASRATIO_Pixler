@@ -212,6 +212,20 @@ def test_masterlog_template_controller_renames_image_metadata_without_changing_i
         controller.rename_image_asset(asset.asset_id, "../logo.png")
 
 
+def test_masterlog_template_controller_installs_content_addressed_asset_once() -> None:
+    session = ProjectSession()
+    controller = MasterlogTemplateController(session)
+    payload = b"\x89PNG\r\n\x1a\nasset"
+    digest = sha256(payload).hexdigest()
+    asset = ImageAsset(f"sha256:{digest}", "symbol.png", "image/png", payload)
+
+    assert controller.install_image_asset(asset) is asset
+    session.dirty = False
+    assert controller.install_image_asset(asset) is asset
+    assert len(session.image_assets) == 1
+    assert not session.dirty
+
+
 def test_masterlog_template_controller_configures_page_geometry() -> None:
     controller = MasterlogTemplateController(ProjectSession())
     template = controller.create("Standard")

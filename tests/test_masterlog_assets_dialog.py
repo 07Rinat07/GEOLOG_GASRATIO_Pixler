@@ -35,3 +35,24 @@ def test_masterlog_assets_dialog_lists_renames_and_removes_unused(
     assert dialog.list.count() == 0
     assert session.image_assets == {}
     dialog.close()
+
+
+def test_masterlog_assets_dialog_installs_builtin_symbol_once(qapp) -> None:
+    session = ProjectSession()
+    controller = MasterlogTemplateController(session)
+    dialog = MasterlogAssetsDialog(controller, language=AppLanguage.EN)
+
+    dialog.symbol_input.setCurrentIndex(0)
+    dialog._add_symbol()
+    installed = next(iter(session.image_assets.values()))
+
+    assert installed.media_type == "image/svg+xml"
+    assert installed.original_name == "Gas show.svg"
+    assert not dialog.list.item(0).icon().isNull()
+    assert session.dirty
+
+    session.dirty = False
+    dialog._add_symbol()
+    assert len(session.image_assets) == 1
+    assert not session.dirty
+    dialog.close()
