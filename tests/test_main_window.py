@@ -13,6 +13,7 @@ from geoworkbench.domain.models import (
     Well,
 )
 from geoworkbench.project.curve_editing_controller import CurveEditingController
+from geoworkbench.project.curve_transfer_controller import CurveTransferController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
@@ -296,6 +297,38 @@ def test_window_creates_new_las_dataset(qapp, monkeypatch) -> None:
     assert dataset.name == "New LAS"
     np.testing.assert_allclose(dataset.depth, [0.0, 0.5, 1.0])
     assert window.session.dirty is True
+    window.close()
+
+
+def test_window_inserts_curves_and_updates_transfer_history_actions(qapp, monkeypatch) -> None:
+    window = MainWindow(language=AppLanguage.EN)
+    session, _ = make_session()
+    target = session.current_dataset
+    well = session.current_well
+    assert target is not None and well is not None
+    source = Dataset(
+        "source", "Source GIS", DatasetKind.GIS, DepthDomain.MD, target.depth.copy()
+    )
+    source.curves["gr"] = CurveData(
+        CurveMetadata("gr", "GR", "GR", "API", None, source.dataset_id),
+        np.array([10.0, 20.0]),
+    )
+    well.datasets[source.dataset_id] = source
+    bind_session(window, session)
+    window.curve_transfer_controller = CurveTransferController(session)
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.CurveTransferDialog.exec",
+        lambda self: QDialog.DialogCode.Accepted,
+    )
+
+    window.show_curve_transfer()
+
+    transferred = target.curve_by_mnemonic("GR")
+    assert transferred is not None
+    assert window.undo_transfer_action.isEnabled()
+    window.undo_curve_transfer()
+    assert target.curve_by_mnemonic("GR") is None
+    assert window.redo_transfer_action.isEnabled()
     window.close()
 
 

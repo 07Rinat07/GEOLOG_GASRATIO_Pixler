@@ -44,6 +44,7 @@ from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
 from geoworkbench.project.curve_metadata_controller import CurveMetadataController
+from geoworkbench.project.curve_transfer_controller import CurveTransferController
 from geoworkbench.project.custom_formula_controller import CustomFormulaController
 from geoworkbench.project.header_editing_controller import HeaderEditingController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
@@ -68,6 +69,7 @@ from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
+from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
 from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
@@ -115,6 +117,7 @@ class MainWindow(QMainWindow):
         self.data_inspector_controller = DataInspectorController(self.session)
         self.header_editing_controller = HeaderEditingController(self.session)
         self.curve_metadata_controller = CurveMetadataController(self.session)
+        self.curve_transfer_controller = CurveTransferController(self.session)
         self.formula_registry = build_all_sourced_formula_registry()
         self.formula_execution_controller = FormulaExecutionController(
             self.session, self.formula_registry
@@ -313,6 +316,18 @@ class MainWindow(QMainWindow):
         self.redo_resample_action.triggered.connect(self.redo_depth_resample)
         self.redo_resample_action.setEnabled(False)
         edit_menu.addAction(self.redo_resample_action)
+
+        self.transfer_curves_action = QAction(self._t("transfer.action"), self)
+        self.transfer_curves_action.triggered.connect(self.show_curve_transfer)
+        edit_menu.addAction(self.transfer_curves_action)
+        self.undo_transfer_action = QAction(self._t("transfer.undo"), self)
+        self.undo_transfer_action.triggered.connect(self.undo_curve_transfer)
+        self.undo_transfer_action.setEnabled(False)
+        edit_menu.addAction(self.undo_transfer_action)
+        self.redo_transfer_action = QAction(self._t("transfer.redo"), self)
+        self.redo_transfer_action.triggered.connect(self.redo_curve_transfer)
+        self.redo_transfer_action.setEnabled(False)
+        edit_menu.addAction(self.redo_transfer_action)
 
         self.ratio_action = QAction(self._t("ratio.action"), self)
         self.ratio_action.triggered.connect(self.calculate_ratios)
@@ -698,6 +713,9 @@ class MainWindow(QMainWindow):
         self.header_editing_controller.clear_history()
         self.curve_metadata_controller.session = self.session
         self.curve_metadata_controller.clear_history()
+        self.curve_transfer_controller.session = self.session
+        self.curve_transfer_controller.clear_history()
+        self._update_transfer_actions()
         self.formula_execution_controller.session = self.session
         self.custom_formula_controller.session = self.session
         self.depth_annotation_controller.session = self.session
@@ -1396,6 +1414,62 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._update_resample_actions()
         self._log(self._t("resample.created", name=result.name))
+
+    def show_curve_transfer(self) -> None:
+        if self.session.current_dataset is None:
+            QMessageBox.information(
+                self, self._t("transfer.title"), self._t("data.select_dataset")
+            )
+            return
+        dialog = CurveTransferDialog(
+            self.curve_transfer_controller, self, language=self.language
+        )
+        if (
+            dialog.exec() != QDialog.DialogCode.Accepted
+            or dialog.analysis is None
+            or dialog.source_dataset_id is None
+        ):
+            return
+        try:
+            curves = self.curve_transfer_controller.apply(
+                dialog.source_dataset_id,
+                dialog.selected_curve_ids,
+                dialog.analysis,
+            )
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("transfer.title"), str(exc))
+            return
+        self._after_curve_transfer(
+            self._t("transfer.completed", count=len(curves))
+        )
+
+    def undo_curve_transfer(self) -> None:
+        try:
+            self.curve_transfer_controller.undo()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("transfer.title"), str(exc))
+            return
+        self._after_curve_transfer(self._t("transfer.undone"))
+
+    def redo_curve_transfer(self) -> None:
+        try:
+            self.curve_transfer_controller.redo()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("transfer.title"), str(exc))
+            return
+        self._after_curve_transfer(self._t("transfer.redone"))
+
+    def _after_curve_transfer(self, message: str) -> None:
+        self._show_current_dataset()
+        self._refresh_tree()
+        self._update_title()
+        self._update_transfer_actions()
+        self._log(message)
+
+    def _update_transfer_actions(self) -> None:
+        if hasattr(self, "undo_transfer_action"):
+            self.undo_transfer_action.setEnabled(self.curve_transfer_controller.can_undo)
+            self.redo_transfer_action.setEnabled(self.curve_transfer_controller.can_redo)
 
     def undo_depth_resample(self) -> None:
         answer = QMessageBox.question(

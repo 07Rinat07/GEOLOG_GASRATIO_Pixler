@@ -40,6 +40,15 @@ class CurveTransferController:
             self._dataset(source_dataset_id), self._target_dataset()
         )
 
+    def available_sources(self) -> tuple[Dataset, ...]:
+        target = self._target_dataset()
+        return tuple(
+            dataset
+            for well in self.session.project.wells.values()
+            for dataset in well.datasets.values()
+            if dataset.dataset_id != target.dataset_id
+        )
+
     def apply(
         self,
         source_dataset_id: str,
