@@ -13,6 +13,7 @@ from geoworkbench.printing.masterlog_renderer import (
     curve_x_range,
     export_masterlog_pdf,
     masterlog_depth_range,
+    masterlog_page_ranges,
     masterlog_size_mm,
 )
 
@@ -99,3 +100,44 @@ def test_masterlog_pdf_renders_active_dataset_curves(qapp, tmp_path) -> None:
 
     assert target.read_bytes().startswith(b"%PDF")
     assert target.stat().st_size > 1000
+
+
+def test_masterlog_a4_page_ranges_follow_depth_scale() -> None:
+    dataset = Dataset(
+        "dataset-long",
+        "Long log",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 200.0, 300.0, 400.0]),
+    )
+    session = ProjectSession()
+    session.add_dataset(dataset, "Well")
+    template = make_template()
+    template.page_format = "A4"
+    template.depth_scale = 500
+
+    ranges = masterlog_page_ranges(template, session)
+
+    assert ranges == ((100.0, 222.5), (222.5, 345.0), (345.0, 400.0))
+
+
+def test_masterlog_a4_pdf_contains_multiple_pages(qapp, tmp_path) -> None:
+    dataset = Dataset(
+        "dataset-long",
+        "Long log",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(100.0, 400.0, 301),
+    )
+    dataset.upsert_curve("TG", np.linspace(1.0, 100.0, 301))
+    session = ProjectSession()
+    session.add_dataset(dataset, "Well")
+    template = make_template()
+    template.page_format = "A4"
+    target = tmp_path / "multipage.pdf"
+
+    export_masterlog_pdf(template, session, target)
+
+    payload = target.read_bytes()
+    assert payload.startswith(b"%PDF")
+    assert b"/Count 3" in payload

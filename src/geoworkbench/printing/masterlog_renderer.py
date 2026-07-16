@@ -28,25 +28,47 @@ class MasterlogRenderError(RuntimeError):
 
 
 def masterlog_size_mm(
-    template: MasterlogTemplate, session: ProjectSession | None = None
+    template: MasterlogTemplate,
+    session: ProjectSession | None = None,
+    *,
+    depth_range: tuple[float, float] | None = None,
 ) -> QSizeF:
     columns_width = sum(column.width_mm for column in template.columns)
     width = max(25.0, columns_width, 210.0 if template.page_format != "roll" else 0.0)
-    depth_range = masterlog_depth_range(session) if session is not None else None
+    if depth_range is None and session is not None:
+        depth_range = masterlog_depth_range(session)
     if depth_range is not None:
-        depth_scale = (
-            template.depth_scale
-            if isinstance(template.depth_scale, int)
-            and not isinstance(template.depth_scale, bool)
-            and template.depth_scale > 0
-            else 500
-        )
+        depth_scale = _depth_scale(template)
         body_height = 12.0 + (depth_range[1] - depth_range[0]) * 1000.0 / depth_scale
     else:
         body_height = template.properties.get("body_height_mm", 200.0)
         if not isinstance(body_height, (int, float)) or isinstance(body_height, bool):
             body_height = 200.0
     return QSizeF(width, template.header_height_mm + max(25.0, min(float(body_height), 4955.0)))
+
+
+def masterlog_page_ranges(
+    template: MasterlogTemplate, session: ProjectSession
+) -> tuple[tuple[float, float], ...]:
+    depth_range = masterlog_depth_range(session)
+    if depth_range is None:
+        return ()
+    if template.page_format.casefold() == "roll":
+        return (depth_range,)
+    page_size = _fixed_page_size_mm(template)
+    depth_scale = _depth_scale(template)
+    plot_height_mm = page_size.height() - template.header_height_mm - 12.0
+    if plot_height_mm <= 0:
+        raise MasterlogRenderError("Высота шапки не оставляет места для глубинных колонок")
+    capacity = plot_height_mm * depth_scale / 1000.0
+    top, bottom = depth_range
+    ranges: list[tuple[float, float]] = []
+    page_top = top
+    while page_top < bottom:
+        page_bottom = min(bottom, page_top + capacity)
+        ranges.append((page_top, page_bottom))
+        page_top = page_bottom
+    return tuple(ranges)
 
 
 def masterlog_depth_range(session: ProjectSession | None) -> tuple[float, float] | None:
@@ -69,8 +91,14 @@ def paint_masterlog(
     target: QRectF,
     template: MasterlogTemplate,
     session: ProjectSession,
+    *,
+    depth_range: tuple[float, float] | None = None,
+    canvas_size_mm: QSizeF | None = None,
 ) -> None:
-    size = masterlog_size_mm(template, session)
+    effective_range = depth_range or masterlog_depth_range(session)
+    size = canvas_size_mm or masterlog_size_mm(
+        template, session, depth_range=effective_range
+    )
     scale = min(target.width() / size.width(), target.height() / size.height())
     painter.save()
     painter.translate(
@@ -86,7 +114,7 @@ def paint_masterlog(
     )
     for element in template.header_elements:
         _paint_header_element(painter, element, session)
-    _paint_columns(painter, template, size, session)
+    _paint_columns(painter, template, size, session, effective_range)
     painter.restore()
 
 
@@ -119,12 +147,20 @@ def export_masterlog_pdf(
         painter = QPainter()
         if not painter.begin(writer):
             raise MasterlogRenderError("Не удалось запустить masterlog PDF renderer")
-        paint_masterlog(
-            painter,
-            QRectF(0.0, 0.0, float(writer.width()), float(writer.height())),
-            template,
-            session,
-        )
+        page_size_mm = writer.pageLayout().fullRect(QPageLayout.Unit.Millimeter).size()
+        page_ranges = masterlog_page_ranges(template, session)
+        segments: tuple[tuple[float, float] | None, ...] = page_ranges or (None,)
+        for page_index, page_range in enumerate(segments):
+            if page_index and not writer.newPage():
+                raise MasterlogRenderError("Не удалось создать следующую страницу masterlog PDF")
+            paint_masterlog(
+                painter,
+                QRectF(0.0, 0.0, float(writer.width()), float(writer.height())),
+                template,
+                session,
+                depth_range=page_range,
+                canvas_size_mm=page_size_mm,
+            )
         if not painter.end():
             raise MasterlogRenderError("Не удалось завершить masterlog PDF renderer")
         if not temporary.exists() or temporary.stat().st_size == 0:
@@ -148,6 +184,22 @@ def _page_size(template: MasterlogTemplate, session: ProjectSession) -> QPageSiz
         return QPageSize(QPageSize.PageSizeId.A4)
     size = masterlog_size_mm(template, session)
     return QPageSize(size, QPageSize.Unit.Millimeter, "Masterlog roll")
+
+
+def _fixed_page_size_mm(template: MasterlogTemplate) -> QSizeF:
+    if template.page_format.upper() == "A3":
+        return QSizeF(297.0, 420.0)
+    return QSizeF(210.0, 297.0)
+
+
+def _depth_scale(template: MasterlogTemplate) -> int:
+    return (
+        template.depth_scale
+        if isinstance(template.depth_scale, int)
+        and not isinstance(template.depth_scale, bool)
+        and template.depth_scale > 0
+        else 500
+    )
 
 
 def _paint_header_element(
@@ -182,11 +234,11 @@ def _paint_columns(
     template: MasterlogTemplate,
     size: QSizeF,
     session: ProjectSession,
+    depth_range: tuple[float, float] | None,
 ) -> None:
     x = 0.0
     top = template.header_height_mm
     header_height = 12.0
-    depth_range = masterlog_depth_range(session)
     dataset = session.current_dataset
     for column in template.columns:
         rect = QRectF(x, top, column.width_mm, size.height() - top)
