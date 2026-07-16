@@ -31,6 +31,10 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_depth_range,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
+from geoworkbench.printing.masterlog_preflight import (
+    MasterlogPreflightIssue,
+    analyze_masterlog_output,
+)
 from geoworkbench.ui.masterlog_output_dialog import MasterlogOutputDialog
 from geoworkbench.ui.masterlog_page_dialog import MasterlogPageDialog
 
@@ -227,8 +231,11 @@ class MasterlogTemplatesDialog(QDialog):
         settings = self._ask_output_settings()
         if settings is None:
             return
+        template = self.controller.session.project.masterlog_templates[template_id]
+        if not self._confirm_preflight(template, settings):
+            return
         MasterlogPreviewDialog(
-            self.controller.session.project.masterlog_templates[template_id],
+            template,
             self.controller.session,
             self,
             language=self.localizer.language,
@@ -242,6 +249,8 @@ class MasterlogTemplatesDialog(QDialog):
         template = self.controller.session.project.masterlog_templates[template_id]
         settings = self._ask_output_settings()
         if settings is None:
+            return
+        if not self._confirm_preflight(template, settings):
             return
         filename, _ = QFileDialog.getSaveFileName(
             self,
@@ -287,6 +296,8 @@ class MasterlogTemplatesDialog(QDialog):
         settings = self._ask_output_settings()
         if settings is None:
             return
+        if not self._confirm_preflight(template, settings):
+            return
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         configure_masterlog_printer(
             printer, template, self.controller.session, settings
@@ -328,6 +339,45 @@ class MasterlogTemplatesDialog(QDialog):
         except ValueError as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return None
+
+    def _confirm_preflight(
+        self, template, settings: MasterlogOutputSettings
+    ) -> bool:
+        report = analyze_masterlog_output(
+            template, self.controller.session, settings
+        )
+        summary = self._t("masterlog_preflight.pages", pages=report.page_count)
+        if report.errors:
+            QMessageBox.critical(
+                self,
+                self._t("masterlog_preflight.title"),
+                summary + "\n\n" + self._format_preflight_issues(report.errors),
+            )
+            return False
+        if report.warnings:
+            answer = QMessageBox.question(
+                self,
+                self._t("masterlog_preflight.title"),
+                summary
+                + "\n\n"
+                + self._format_preflight_issues(report.warnings)
+                + "\n\n"
+                + self._t("masterlog_preflight.continue"),
+            )
+            return answer == QMessageBox.StandardButton.Yes
+        return True
+
+    def _format_preflight_issues(
+        self, issues: tuple[MasterlogPreflightIssue, ...]
+    ) -> str:
+        return "\n".join(
+            "• "
+            + self._t(
+                f"masterlog_preflight.{issue.code}",
+                **dict(issue.values),
+            )
+            for issue in issues
+        )
 
     def _run(self, operation: Callable[[], object]) -> None:
         try:

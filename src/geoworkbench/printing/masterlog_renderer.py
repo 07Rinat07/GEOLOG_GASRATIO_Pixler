@@ -126,6 +126,20 @@ def masterlog_column_groups(
     return tuple(groups)
 
 
+def masterlog_page_size_mm(
+    template: MasterlogTemplate,
+    session: ProjectSession,
+    settings: MasterlogOutputSettings | None = None,
+) -> QSizeF:
+    if template.page_format.casefold() == "roll":
+        return masterlog_size_mm(
+            template,
+            session,
+            depth_range=settings.depth_range if settings is not None else None,
+        )
+    return _fixed_page_size_mm(template)
+
+
 def masterlog_depth_range(session: ProjectSession | None) -> tuple[float, float] | None:
     dataset = session.current_dataset if session is not None else None
     if dataset is None:
