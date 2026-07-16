@@ -5,8 +5,11 @@ import pytest
 
 from geoworkbench.domain.models import (
     Dataset,
+    DatasetIndex,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
     MasterlogColumnTemplate,
     MasterlogTemplate,
 )
@@ -25,6 +28,13 @@ def make_controller() -> MasterlogSymbolController:
     session = ProjectSession()
     session.add_dataset(dataset, "Well")
     dataset.upsert_curve("TG", np.array([1.0, 100.0]))
+    dataset.add_index(
+        DatasetIndex(
+            "time", "TIME", IndexType.DATETIME, IndexRole.TIME, "UTC",
+            np.array(["2026-07-15T05:00:00", "2026-07-15T05:00:10"], dtype="datetime64[ns]"),
+            timezone="UTC",
+        )
+    )
     template = MasterlogTemplate(
         "standard",
         "Standard",
@@ -166,3 +176,23 @@ def test_masterlog_symbol_supports_parameter_anchor_from_column_curve() -> None:
             width_mm=8.0,
             height_mm=8.0,
         )
+
+
+def test_masterlog_symbol_maps_time_anchor_to_depth_explicitly() -> None:
+    controller = make_controller()
+    asset_ref = next(iter(controller.session.image_assets))
+
+    created = controller.add(
+        "standard",
+        depth=0.0,
+        anchor_type="time",
+        time_value="2026-07-15T10:00:09+05:00",
+        column_id="gas",
+        asset_ref=asset_ref,
+        width_mm=8.0,
+        height_mm=8.0,
+    )
+
+    assert created.anchor_type == "time"
+    assert created.top_depth == 200.0
+    assert created.time_value == "2026-07-15T10:00:09+05:00"

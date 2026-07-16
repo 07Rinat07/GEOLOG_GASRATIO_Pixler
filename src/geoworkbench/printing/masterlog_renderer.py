@@ -480,7 +480,7 @@ def _paint_depth_symbols(
     for item in well.canvas_objects:
         if (
             item.object_type != "masterlog_symbol"
-            or item.anchor_type not in {"depth", "interval", "parameter"}
+            or item.anchor_type not in {"depth", "interval", "parameter", "time"}
             or item.track_id != column.column_id
             or item.properties.get("template_id") != template.template_id
         ):

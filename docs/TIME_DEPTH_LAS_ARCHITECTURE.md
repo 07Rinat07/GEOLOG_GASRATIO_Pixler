@@ -253,7 +253,8 @@ print_engine/
 5. Временной normalization/QC и строковые даты.
 6. Strict/compatible/manual import pipeline.
 7. Time renderer и выбор active index.
-8. Resampling и TIME↔DEPTH derived mappings.
+8. [частично] Безопасный nearest-row TIME↔DEPTH resolver для событий: ровно одна пара индексов,
+   отказ при неоднозначной глубине; derived mappings, повторы и профили агрегации запланированы.
 9. Экспорт с анализом потерь и временная печать.
 
 ## 13. LAS Editor и композиция файлов

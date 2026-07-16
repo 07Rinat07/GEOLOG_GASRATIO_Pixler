@@ -5,8 +5,11 @@ from PySide6.QtWidgets import QTableWidget
 
 from geoworkbench.domain.models import (
     Dataset,
+    DatasetIndex,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
     MasterlogColumnTemplate,
     MasterlogTemplate,
 )
@@ -24,6 +27,13 @@ def make_controller() -> MasterlogSymbolController:
     session = ProjectSession()
     session.add_dataset(dataset, "Well")
     dataset.upsert_curve("TG", np.array([1.0, 100.0]))
+    dataset.add_index(
+        DatasetIndex(
+            "time", "TIME", IndexType.DATETIME, IndexRole.TIME, "UTC",
+            np.array(["2026-07-15T05:00:00", "2026-07-15T05:00:10"], dtype="datetime64[ns]"),
+            timezone="UTC",
+        )
+    )
     session.project.masterlog_templates["standard"] = MasterlogTemplate(
         "standard",
         "Standard",
@@ -86,4 +96,19 @@ def test_masterlog_symbols_dialog_adds_parameter_anchor(qapp) -> None:
     assert symbol.anchor_type == "parameter"
     assert symbol.parameter_mnemonic == "TG"
     assert dialog.parameter_input.isVisibleTo(dialog) is True
+    dialog.close()
+
+
+def test_masterlog_symbols_dialog_adds_time_anchor(qapp) -> None:
+    controller = make_controller()
+    dialog = MasterlogSymbolsDialog(controller, "standard", language=AppLanguage.EN)
+    dialog.anchor_input.setCurrentIndex(dialog.anchor_input.findData("time"))
+    dialog.time_input.setText("2026-07-15T10:00:09+05:00")
+
+    dialog._add()
+
+    symbol = controller.available("standard")[0]
+    assert symbol.anchor_type == "time"
+    assert symbol.top_depth == 200.0
+    assert dialog.time_input.isVisibleTo(dialog) is True
     dialog.close()

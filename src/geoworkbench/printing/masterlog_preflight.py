@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from math import isfinite
 
+import numpy as np
+
 from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
@@ -12,6 +14,10 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_column_groups,
     masterlog_page_ranges,
     masterlog_page_size_mm,
+)
+from geoworkbench.services.time_depth_mapping import (
+    TimeDepthMappingError,
+    resolve_time_to_depth,
 )
 
 
@@ -101,7 +107,7 @@ def analyze_masterlog_output(
                 )
             symbol_top = item.top_depth if item.top_depth is not None else item.y
             symbol_bottom = item.bottom_depth
-            invalid_anchor = item.anchor_type not in {"depth", "interval", "parameter"}
+            invalid_anchor = item.anchor_type not in {"depth", "interval", "parameter", "time"}
             invalid_interval = item.anchor_type == "interval" and (
                 not isinstance(symbol_top, (int, float))
                 or isinstance(symbol_top, bool)
@@ -119,6 +125,24 @@ def analyze_masterlog_output(
                         element=item.object_id,
                     )
                 )
+            if item.anchor_type == "time":
+                try:
+                    if dataset is None or item.time_value is None:
+                        raise TimeDepthMappingError("Нет TIME↔DEPTH mapping")
+                    mapped = resolve_time_to_depth(dataset, item.time_value)
+                    stored_depth = item.top_depth if item.top_depth is not None else item.y
+                    if not isinstance(stored_depth, (int, float)) or not np.isclose(
+                        float(stored_depth), mapped.depth
+                    ):
+                        raise TimeDepthMappingError("Сохранённая глубина устарела")
+                except TimeDepthMappingError:
+                    issues.append(
+                        _issue(
+                            "invalid_symbol_time",
+                            PreflightSeverity.WARNING,
+                            element=item.object_id,
+                        )
+                    )
             if item.anchor_type == "parameter":
                 column = columns_by_id.get(str(item.track_id))
                 mnemonic = item.parameter_mnemonic

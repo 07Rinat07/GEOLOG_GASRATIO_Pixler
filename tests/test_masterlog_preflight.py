@@ -3,8 +3,11 @@ import numpy as np
 from geoworkbench.domain.models import (
     CanvasObject,
     Dataset,
+    DatasetIndex,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
     MasterlogColumnTemplate,
     MasterlogHeaderElement,
     MasterlogTemplate,
@@ -161,4 +164,40 @@ def test_masterlog_preflight_reports_invalid_symbol_parameter() -> None:
     assert {issue.code for issue in report.warnings} == {
         "missing_asset",
         "invalid_symbol_parameter",
+    }
+
+
+def test_masterlog_preflight_reports_stale_time_depth_mapping() -> None:
+    session = make_session()
+    assert session.current_dataset is not None
+    session.current_dataset.add_index(
+        DatasetIndex(
+            "time", "TIME", IndexType.RELATIVE_TIME, IndexRole.TIME, "s",
+            np.linspace(0.0, 200.0, 201),
+        )
+    )
+    template = MasterlogTemplate(
+        "standard",
+        "Standard",
+        columns=[MasterlogColumnTemplate("gas", "Gas", "curves", 40.0, ["TG"])],
+    )
+    assert session.current_well is not None
+    session.current_well.canvas_objects.append(
+        CanvasObject(
+            "time", "masterlog_symbol", "time", 0.0, 999.0, 8.0, 8.0,
+            top_depth=999.0,
+            bottom_depth=999.0,
+            time_value="50",
+            track_id="gas",
+            properties={"template_id": "standard", "asset_ref": "missing"},
+        )
+    )
+
+    report = analyze_masterlog_output(
+        template, session, MasterlogOutputSettings(100.0, 200.0)
+    )
+
+    assert {issue.code for issue in report.warnings} == {
+        "missing_asset",
+        "invalid_symbol_time",
     }

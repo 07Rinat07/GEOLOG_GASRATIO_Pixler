@@ -62,6 +62,7 @@ class MasterlogSymbolsDialog(QDialog):
         self.anchor_input.addItem(self._t("masterlog_symbols.point"), "depth")
         self.anchor_input.addItem(self._t("masterlog_symbols.interval"), "interval")
         self.anchor_input.addItem(self._t("masterlog_symbols.parameter"), "parameter")
+        self.anchor_input.addItem(self._t("masterlog_symbols.time"), "time")
         self.bottom_depth_input = QDoubleSpinBox()
         self.bottom_depth_input.setRange(-100_000.0, 100_000.0)
         self.bottom_depth_input.setDecimals(3)
@@ -69,6 +70,7 @@ class MasterlogSymbolsDialog(QDialog):
         for column in template.columns:
             self.column_input.addItem(column.title, column.column_id)
         self.parameter_input = QComboBox()
+        self.time_input = QLineEdit()
         self.asset_input = QComboBox()
         for asset in sorted(
             controller.session.image_assets.values(),
@@ -84,12 +86,15 @@ class MasterlogSymbolsDialog(QDialog):
         self.label_input = QLineEdit()
         self.label_input.setMaxLength(200)
         form.addRow(self._t("masterlog_symbols.anchor"), self.anchor_input)
-        form.addRow(self._t("masterlog_symbols.depth"), self.depth_input)
+        self.depth_label = QLabel(self._t("masterlog_symbols.depth"))
+        form.addRow(self.depth_label, self.depth_input)
         self.bottom_depth_label = QLabel(self._t("masterlog_symbols.bottom_depth"))
         form.addRow(self.bottom_depth_label, self.bottom_depth_input)
         form.addRow(self._t("masterlog_symbols.column"), self.column_input)
         self.parameter_label = QLabel(self._t("masterlog_symbols.parameter"))
         form.addRow(self.parameter_label, self.parameter_input)
+        self.time_label = QLabel(self._t("masterlog_symbols.time_value"))
+        form.addRow(self.time_label, self.time_input)
         form.addRow(self._t("masterlog_symbols.image"), self.asset_input)
         form.addRow(self._t("masterlog_symbols.width"), self.width_input)
         form.addRow(self._t("masterlog_symbols.height"), self.height_input)
@@ -172,6 +177,7 @@ class MasterlogSymbolsDialog(QDialog):
         self.parameter_input.setCurrentIndex(
             self.parameter_input.findData(symbol.parameter_mnemonic)
         )
+        self.time_input.setText(symbol.time_value or "")
         self.asset_input.setCurrentIndex(self.asset_input.findData(symbol.asset_ref))
         self.width_input.setValue(symbol.width_mm)
         self.height_input.setValue(symbol.height_mm)
@@ -179,7 +185,9 @@ class MasterlogSymbolsDialog(QDialog):
 
     def _values(
         self,
-    ) -> tuple[str, float, float | None, str, str, float, float, str, str | None]:
+    ) -> tuple[
+        str, float, float | None, str, str, float, float, str, str | None, str | None
+    ]:
         return (
             str(self.anchor_input.currentData() or "depth"),
             self.depth_input.value(),
@@ -194,10 +202,13 @@ class MasterlogSymbolsDialog(QDialog):
             str(self.parameter_input.currentData() or "")
             if self.anchor_input.currentData() == "parameter"
             else None,
+            self.time_input.text() if self.anchor_input.currentData() == "time" else None,
         )
 
     def _add(self) -> None:
-        anchor, depth, bottom, column_id, asset_ref, width, height, label, parameter = self._values()
+        (
+            anchor, depth, bottom, column_id, asset_ref, width, height, label, parameter, time_value
+        ) = self._values()
         self._run(
             lambda: self.controller.add(
                 self.template_id,
@@ -210,6 +221,7 @@ class MasterlogSymbolsDialog(QDialog):
                 anchor_type=anchor,
                 bottom_depth=bottom,
                 parameter_mnemonic=parameter,
+                time_value=time_value,
             )
         )
 
@@ -218,7 +230,9 @@ class MasterlogSymbolsDialog(QDialog):
         if selected is None:
             self._select_first()
             return
-        anchor, depth, bottom, column_id, asset_ref, width, height, label, parameter = self._values()
+        (
+            anchor, depth, bottom, column_id, asset_ref, width, height, label, parameter, time_value
+        ) = self._values()
         self._run(
             lambda: self.controller.update(
                 selected,
@@ -232,6 +246,7 @@ class MasterlogSymbolsDialog(QDialog):
                 anchor_type=anchor,
                 bottom_depth=bottom,
                 parameter_mnemonic=parameter,
+                time_value=time_value,
             )
         )
 
@@ -256,11 +271,16 @@ class MasterlogSymbolsDialog(QDialog):
     def _update_anchor_inputs(self) -> None:
         interval = self.anchor_input.currentData() == "interval"
         parameter = self.anchor_input.currentData() == "parameter"
+        time_anchor = self.anchor_input.currentData() == "time"
         self.bottom_depth_label.setVisible(interval)
         self.bottom_depth_input.setVisible(interval)
         self.height_input.setEnabled(not interval)
         self.parameter_label.setVisible(parameter)
         self.parameter_input.setVisible(parameter)
+        self.time_label.setVisible(time_anchor)
+        self.time_input.setVisible(time_anchor)
+        self.depth_label.setVisible(not time_anchor)
+        self.depth_input.setVisible(not time_anchor)
 
     def _refresh_parameter_input(self) -> None:
         selected = self.parameter_input.currentData()

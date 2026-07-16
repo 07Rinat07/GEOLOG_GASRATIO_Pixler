@@ -130,4 +130,5 @@ provides built-in vector symbols, safe PNG/SVG import, thumbnails, renaming, and
 The depth-symbol editor selects a form column, point depth or interval, dimensions, and label with
 Undo/Redo support. Points and stretched intervals print in the correct track and are clipped across
 page segments by the independent millimetre renderer. Parameter anchors derive their X position
-from the selected curve and the column's linear/log scale. Time, page, and free anchors will follow.
+from the selected curve and the column's linear/log scale. Time anchors use a unique TIME/DEPTH
+index pair and reject ambiguous depth matches. Page and free anchors will follow.
