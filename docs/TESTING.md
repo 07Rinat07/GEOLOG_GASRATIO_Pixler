@@ -18,6 +18,9 @@
 ```bash
 .venv/bin/pytest -q
 .venv/bin/ruff check src tests
+
+# Производительность экранного peak sampling на 2 млн отсчётов
+PYTHONPATH=src .venv/bin/python benchmarks/benchmark_curve_sampling.py
 .venv/bin/mypy src
 git diff --check
 ```

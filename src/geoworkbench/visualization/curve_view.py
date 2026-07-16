@@ -10,6 +10,7 @@ from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.tablet.sampling import MAX_RENDERED_POINTS, select_visible_samples
 
 
 class CurveView(QWidget):
@@ -106,11 +107,20 @@ class CurveView(QWidget):
             mnemonic = curve.metadata.original_mnemonic
             if mnemonic not in selected_names:
                 continue
-            values = np.asarray(curve.values, dtype=float)
-            valid = np.isfinite(values) & np.isfinite(dataset.depth)
-            if not np.any(valid):
+            values = np.asarray(curve.values, dtype=np.float64)
+            finite_depth = dataset.depth[np.isfinite(dataset.depth)]
+            if finite_depth.size == 0:
                 continue
-            self._plot.plot(values[valid], dataset.depth[valid], name=mnemonic)
+            visible_values, visible_depth = select_visible_samples(
+                np.asarray(dataset.depth, dtype=np.float64),
+                values,
+                float(np.min(finite_depth)),
+                float(np.max(finite_depth)),
+                max_points=MAX_RENDERED_POINTS,
+            )
+            if visible_depth.size == 0:
+                continue
+            self._plot.plot(visible_values, visible_depth, name=mnemonic)
             count += 1
             displayed_curve_ids.append(curve.metadata.curve_id)
         self._displayed_curve_ids = tuple(displayed_curve_ids)

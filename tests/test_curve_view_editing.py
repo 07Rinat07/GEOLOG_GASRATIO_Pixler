@@ -143,3 +143,30 @@ def test_curve_view_cursor_requires_dataset_and_finite_depth(qapp) -> None:
     view.show_dataset(dataset)
     assert not view.show_cursor_at_depth(np.nan)
     view.close()
+
+
+def test_curve_view_limits_screen_points_but_preserves_peak(qapp) -> None:
+    depth = np.arange(100_000, dtype=np.float64)
+    dataset = Dataset(
+        "large", "Large", DatasetKind.GTI, DepthDomain.MD, depth
+    )
+    values = np.zeros_like(depth)
+    values[54_321] = 1234.0
+    curve = CurveData(
+        CurveMetadata("curve", "TG", "TG", "%", None, dataset.dataset_id),
+        values,
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = CurveView()
+
+    view.show_dataset(dataset, ["TG"])
+
+    items = view._plot.listDataItems()
+    assert len(items) == 1
+    plotted_values, plotted_depth = items[0].getData()
+    assert plotted_values is not None and plotted_depth is not None
+    assert plotted_depth.size <= 5000
+    assert np.max(plotted_values) == 1234.0
+    assert 54_321.0 in plotted_depth
+    assert dataset.curves["curve"].values.size == 100_000
+    view.close()

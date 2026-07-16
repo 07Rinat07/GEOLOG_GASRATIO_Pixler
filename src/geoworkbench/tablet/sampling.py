@@ -31,6 +31,23 @@ def select_visible_samples(
         valid &= values > 0
     indices = np.flatnonzero(valid)
     if indices.size > max_points:
-        positions = np.linspace(0, indices.size - 1, max_points, dtype=np.int64)
-        indices = indices[positions]
+        indices = _peak_preserving_indices(indices, values, max_points)
     return values[indices], depth[indices]
+
+
+def _peak_preserving_indices(
+    indices: NDArray[np.int64], values: NDArray[np.float64], max_points: int
+) -> NDArray[np.int64]:
+    if max_points == 2:
+        return indices[[0, -1]]
+    interior = indices[1:-1]
+    bucket_count = max(1, (max_points - 2) // 2)
+    selected = [int(indices[0]), int(indices[-1])]
+    for bucket in np.array_split(interior, bucket_count):
+        if bucket.size == 0:
+            continue
+        bucket_values = values[bucket]
+        selected.extend(
+            (int(bucket[int(np.argmin(bucket_values))]), int(bucket[int(np.argmax(bucket_values))]))
+        )
+    return np.asarray(sorted(set(selected)), dtype=np.int64)

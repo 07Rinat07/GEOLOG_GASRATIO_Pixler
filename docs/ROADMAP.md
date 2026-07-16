@@ -149,7 +149,9 @@ Roadmap следует зависимостям продукта, а не ном
    - далее: массовый пересчёт по графу зависимостей и сравнение результата до применения;
    - TIME↔DEPTH mapping, повторные проходы и профили агрегации.
 8. **Graph performance follow-up**
-   - benchmark и безопасное включение PyQtGraph `clipToView` + auto `peak` downsampling;
+   - готово: depth-aware peak sampling до 5000 экранных точек для Curve View и Tablet View;
+   - готово: standalone benchmark на 2 млн отсчётов с проверкой сохранения пика;
+   - встроенные PyQtGraph `clipToView`/auto downsampling отклонены для depth-view из-за немонотонной X;
    - будущий Time View через `DateAxisItem` только поверх нормализованного времени;
    - подробности: `docs/PLOTTING_REFERENCE_REVIEW.md`.
 9. **0.14 Correlation & Interchange**

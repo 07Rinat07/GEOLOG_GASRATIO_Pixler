@@ -49,6 +49,23 @@ def test_select_visible_samples_can_require_positive_values() -> None:
     np.testing.assert_allclose(selected_depth, [3.0])
 
 
+def test_select_visible_samples_preserves_narrow_peaks_and_valleys() -> None:
+    depth = np.arange(100_000, dtype=np.float64)
+    values = np.zeros_like(depth)
+    values[12_345] = 900.0
+    values[67_890] = -700.0
+
+    selected_values, selected_depth = select_visible_samples(
+        depth, values, 0.0, 99_999.0, max_points=1000
+    )
+
+    assert selected_depth.size <= 1000
+    assert np.max(selected_values) == 900.0
+    assert np.min(selected_values) == -700.0
+    assert 12_345.0 in selected_depth
+    assert 67_890.0 in selected_depth
+
+
 def test_select_visible_samples_rejects_invalid_input() -> None:
     with pytest.raises(ValueError, match="одинаковую форму"):
         select_visible_samples(np.array([1.0]), np.array([1.0, 2.0]), 0.0, 2.0)
