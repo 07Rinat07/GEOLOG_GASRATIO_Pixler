@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
+    QInputDialog,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -30,10 +31,13 @@ class MasterlogAssetsDialog(QDialog):
         self.list = QListWidget()
         self.list.setObjectName("masterlog-assets-list")
         self.delete_button = QPushButton(self.localizer.text("common.delete"))
+        self.rename_button = QPushButton(self.localizer.text("common.rename"))
         close_button = QPushButton(self.localizer.text("common.close"))
         self.delete_button.clicked.connect(self._delete)
+        self.rename_button.clicked.connect(self._rename)
         close_button.clicked.connect(self.accept)
         buttons = QHBoxLayout()
+        buttons.addWidget(self.rename_button)
         buttons.addWidget(self.delete_button)
         buttons.addStretch(1)
         buttons.addWidget(close_button)
@@ -69,11 +73,8 @@ class MasterlogAssetsDialog(QDialog):
             self.list.addItem(item)
 
     def _delete(self) -> None:
-        item = self.list.currentItem()
+        item = self._selected_item()
         if item is None:
-            QMessageBox.information(
-                self, self.windowTitle(), self.localizer.text("masterlog_assets.select")
-            )
             return
         try:
             self.controller.remove_image_asset(
@@ -83,3 +84,32 @@ class MasterlogAssetsDialog(QDialog):
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
         self.refresh()
+
+    def _rename(self) -> None:
+        item = self._selected_item()
+        if item is None:
+            return
+        asset_id = str(item.data(Qt.ItemDataRole.UserRole))
+        asset = self.controller.session.image_assets[asset_id]
+        name, accepted = QInputDialog.getText(
+            self,
+            self.localizer.text("masterlog_assets.rename"),
+            self.localizer.text("masterlog_assets.name"),
+            text=asset.original_name,
+        )
+        if not accepted:
+            return
+        try:
+            self.controller.rename_image_asset(asset_id, name)
+        except (KeyError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self.refresh()
+
+    def _selected_item(self) -> QListWidgetItem | None:
+        item = self.list.currentItem()
+        if item is None:
+            QMessageBox.information(
+                self, self.windowTitle(), self.localizer.text("masterlog_assets.select")
+            )
+        return item

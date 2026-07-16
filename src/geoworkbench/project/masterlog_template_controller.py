@@ -211,6 +211,27 @@ class MasterlogTemplateController:
         self.session.dirty = True
         return asset
 
+    def rename_image_asset(self, asset_id: str, name: str) -> ImageAsset:
+        normalized = name.strip()
+        if (
+            not normalized
+            or len(normalized) > 255
+            or "/" in normalized
+            or "\\" in normalized
+            or any(ord(character) < 32 for character in normalized)
+        ):
+            raise ValueError(
+                "Имя PNG asset должно содержать 1–255 символов без путей и управляющих символов"
+            )
+        try:
+            asset = self.session.image_assets[asset_id]
+        except KeyError as exc:
+            raise KeyError(f"PNG asset не найден: {asset_id}") from exc
+        renamed = replace(asset, original_name=normalized)
+        self.session.image_assets[asset_id] = renamed
+        self.session.dirty = True
+        return renamed
+
     @staticmethod
     def _header_index(template: MasterlogTemplate, element_id: str) -> int:
         for index, element in enumerate(template.header_elements):

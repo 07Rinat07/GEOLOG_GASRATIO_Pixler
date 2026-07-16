@@ -195,6 +195,23 @@ def test_masterlog_template_controller_protects_referenced_image_asset() -> None
     assert session.dirty
 
 
+def test_masterlog_template_controller_renames_image_metadata_without_changing_id() -> None:
+    session = ProjectSession()
+    controller = MasterlogTemplateController(session)
+    payload = b"\x89PNG\r\n\x1a\nasset"
+    digest = sha256(payload).hexdigest()
+    asset = ImageAsset(f"sha256:{digest}", "logo.png", "image/png", payload)
+    session.image_assets[asset.asset_id] = asset
+
+    renamed = controller.rename_image_asset(asset.asset_id, "  Operator logo  ")
+
+    assert renamed.asset_id == asset.asset_id
+    assert renamed.payload == asset.payload
+    assert renamed.original_name == "Operator logo"
+    with pytest.raises(ValueError):
+        controller.rename_image_asset(asset.asset_id, "../logo.png")
+
+
 @pytest.mark.parametrize(
     ("element_type", "x_mm", "width_mm"),
     [("script", 0.0, 10.0), ("text", -1.0, 10.0), ("text", 0.0, 0.0)],

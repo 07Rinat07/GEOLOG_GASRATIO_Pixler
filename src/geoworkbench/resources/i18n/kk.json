@@ -73,6 +73,7 @@
   "masterlog_assets.action": "Кескіндер...", "masterlog_assets.title": "Мастерлог кескіндері",
   "masterlog_assets.item": "{name} — {size} байт — {usage}", "masterlog_assets.used": "қолданылады: {templates}",
   "masterlog_assets.unused": "қолданылмайды", "masterlog_assets.select": "Кескінді таңдаңыз",
+  "masterlog_assets.rename": "Кескін атауын өзгерту", "masterlog_assets.name": "Кескін атауы:",
   "masterlog_templates.action": "Мастерлог үлгілері...", "masterlog_templates.title": "Мастерлог үлгілері",
   "masterlog_templates.item": "{name} — {version} нұсқа", "masterlog_templates.select": "Үлгіні таңдаңыз",
   "masterlog_templates.name": "Үлгі атауы:", "masterlog_templates.create": "Үлгі жасау",

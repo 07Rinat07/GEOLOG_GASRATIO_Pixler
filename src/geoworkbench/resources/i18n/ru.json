@@ -73,6 +73,7 @@
   "masterlog_assets.action": "Изображения...", "masterlog_assets.title": "Изображения мастерлога",
   "masterlog_assets.item": "{name} — {size} байт — {usage}", "masterlog_assets.used": "используется: {templates}",
   "masterlog_assets.unused": "не используется", "masterlog_assets.select": "Выберите изображение",
+  "masterlog_assets.rename": "Переименовать изображение", "masterlog_assets.name": "Имя изображения:",
   "masterlog_templates.action": "Шаблоны мастерлога...", "masterlog_templates.title": "Шаблоны мастерлога",
   "masterlog_templates.item": "{name} — версия {version}", "masterlog_templates.select": "Выберите шаблон",
   "masterlog_templates.name": "Имя шаблона:", "masterlog_templates.create": "Создать шаблон",
