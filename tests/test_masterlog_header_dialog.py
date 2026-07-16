@@ -3,6 +3,7 @@ from hashlib import sha256
 
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.image_asset_rendering import image_asset_pixmap
 from geoworkbench.printing.image_assets import ImageAsset
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.masterlog_header_dialog import HeaderElementDialog, MasterlogHeaderDialog
@@ -11,6 +12,7 @@ from geoworkbench.ui.masterlog_header_dialog import HeaderElementDialog, Masterl
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
 )
+SVG = b'<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"><rect width="20" height="10" fill="#f00"/></svg>'
 
 
 def make_image_asset() -> ImageAsset:
@@ -31,9 +33,7 @@ def test_masterlog_header_dialog_lists_elements(qapp) -> None:
         properties={"text": "Title"},
     )
 
-    dialog = MasterlogHeaderDialog(
-        controller, template.template_id, language=AppLanguage.EN
-    )
+    dialog = MasterlogHeaderDialog(controller, template.template_id, language=AppLanguage.EN)
 
     assert dialog.windowTitle() == "Masterlog header elements"
     assert dialog.list.item(0).text() == "text | 5,6 | 80×10 mm"
@@ -119,7 +119,7 @@ def test_header_element_dialog_stages_png_import_until_apply(qapp, tmp_path, mon
         lambda *args, **kwargs: (str(source), "PNG (*.png)"),
     )
 
-    dialog._import_png()
+    dialog._import_image()
 
     assert len(dialog.imported_assets) == 1
     assert dialog.image_input.currentText() == "new-logo.png"
@@ -136,11 +136,29 @@ def test_header_element_dialog_reuses_duplicate_project_png(qapp, tmp_path, monk
         lambda *args, **kwargs: (str(source), "PNG (*.png)"),
     )
 
-    dialog._import_png()
+    dialog._import_image()
 
     assert dialog.imported_assets == {}
     assert dialog.image_input.currentText() == "logo.png"
     assert dialog.image_input.currentData() == asset.asset_id
+    dialog.close()
+
+
+def test_header_element_dialog_imports_safe_svg(qapp, tmp_path, monkeypatch) -> None:
+    source = tmp_path / "vector-logo.svg"
+    source.write_bytes(SVG)
+    dialog = HeaderElementDialog()
+    monkeypatch.setattr(
+        "geoworkbench.ui.masterlog_header_dialog.QFileDialog.getOpenFileName",
+        lambda *args, **kwargs: (str(source), "Images (*.png *.svg)"),
+    )
+
+    dialog._import_image()
+
+    asset = next(iter(dialog.imported_assets.values()))
+    assert asset.media_type == "image/svg+xml"
+    assert not image_asset_pixmap(asset).isNull()
+    assert dialog.image_input.currentText() == "vector-logo.svg"
     dialog.close()
 
 

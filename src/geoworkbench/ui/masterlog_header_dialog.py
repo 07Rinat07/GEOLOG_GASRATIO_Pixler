@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QPen, QPixmap
+from PySide6.QtGui import QColor, QPen
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -27,7 +27,13 @@ from PySide6.QtWidgets import (
 from geoworkbench.domain.models import MasterlogHeaderElement
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.printing.header_fields import SUPPORTED_HEADER_FIELDS, resolve_header_field
-from geoworkbench.printing.image_assets import ImageAsset, ImageAssetError, create_png_asset
+from geoworkbench.printing.image_asset_rendering import image_asset_pixmap
+from geoworkbench.printing.image_assets import (
+    ImageAsset,
+    ImageAssetError,
+    create_png_asset,
+    create_svg_asset,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
@@ -108,10 +114,8 @@ class HeaderElementDialog(QDialog):
                 self.image_input.addItem(asset_ref, asset_ref)
                 index = self.image_input.count() - 1
             self.image_input.setCurrentIndex(index)
-        self.image_import_button = QPushButton(
-            self.localizer.text("masterlog_header.import_png")
-        )
-        self.image_import_button.clicked.connect(self._import_png)
+        self.image_import_button = QPushButton(self.localizer.text("masterlog_header.import_image"))
+        self.image_import_button.clicked.connect(self._import_image)
         image_row = QHBoxLayout()
         image_row.addWidget(self.image_input, 1)
         image_row.addWidget(self.image_import_button)
@@ -172,17 +176,22 @@ class HeaderElementDialog(QDialog):
         self.image_label.setVisible(element_type == "image")
         self.properties_label.setVisible(False)
 
-    def _import_png(self) -> None:
+    def _import_image(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
             self,
-            self.localizer.text("masterlog_header.import_png"),
+            self.localizer.text("masterlog_header.import_image"),
             "",
-            "PNG (*.png)",
+            "Images (*.png *.svg)",
         )
         if not filename:
             return
         try:
-            asset = create_png_asset(Path(filename))
+            source = Path(filename)
+            asset = (
+                create_svg_asset(source)
+                if source.suffix.casefold() == ".svg"
+                else create_png_asset(source)
+            )
         except (OSError, ImageAssetError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
@@ -342,12 +351,8 @@ class MasterlogHeaderDialog(QDialog):
             label.setDefaultTextColor(color)
             label.setScale(font_size / 10.0)
             label.setPos(element.x_mm + 1.0, element.y_mm + 0.5)
-        self.preview_scene.setSceneRect(
-            QRectF(-2.0, -2.0, header_width + 4.0, header_height + 4.0)
-        )
-        self.preview.fitInView(
-            self.preview_scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio
-        )
+        self.preview_scene.setSceneRect(QRectF(-2.0, -2.0, header_width + 4.0, header_height + 4.0))
+        self.preview.fitInView(self.preview_scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     @staticmethod
     def _line_pen(element: MasterlogHeaderElement) -> QPen:
@@ -390,8 +395,8 @@ class MasterlogHeaderDialog(QDialog):
         )
         if asset is None:
             return False
-        pixmap = QPixmap()
-        if not pixmap.loadFromData(asset.payload) or pixmap.isNull():
+        pixmap = image_asset_pixmap(asset)
+        if pixmap.isNull():
             return False
         item = self.preview_scene.addPixmap(pixmap)
         scale = min(element.width_mm / pixmap.width(), element.height_mm / pixmap.height())

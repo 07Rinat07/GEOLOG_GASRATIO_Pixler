@@ -11,7 +11,6 @@ from PySide6.QtCore import QLineF, QMarginsF, QRectF, QSizeF, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
-    QImage,
     QPageLayout,
     QPageSize,
     QPainter,
@@ -24,6 +23,7 @@ from PySide6.QtPrintSupport import QPrinter
 from geoworkbench.domain.models import Dataset, MasterlogColumnTemplate, MasterlogHeaderElement, MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.header_fields import resolve_header_field
+from geoworkbench.printing.image_asset_rendering import draw_image_asset
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.services.localization import AppLanguage, Localizer
 
@@ -401,9 +401,7 @@ def _paint_header_element(
         asset_ref = element.properties.get("asset_ref")
         asset = session.image_assets.get(asset_ref) if isinstance(asset_ref, str) else None
         if asset is not None:
-            image = QImage.fromData(asset.payload)
-            if not image.isNull():
-                painter.drawImage(rect, image)
+            draw_image_asset(painter, rect, asset)
         return
     text = _header_text(element, session)
     color = _color(element.properties.get("color"), "#0f172a")

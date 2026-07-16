@@ -49,7 +49,7 @@ class MasterlogTemplateController:
         for asset_id, asset in image_assets.items():
             existing = self.session.image_assets.get(asset_id)
             if existing is not None and existing.payload != asset.payload:
-                raise ValueError(f"Конфликт содержимого PNG asset: {asset_id}")
+                raise ValueError(f"Конфликт содержимого image asset: {asset_id}")
         template = replace(
             deepcopy(source),
             template_id=new_id(),
@@ -279,12 +279,12 @@ class MasterlogTemplateController:
         references = self.image_asset_references(asset_id)
         if references:
             raise ValueError(
-                "PNG asset используется в шаблонах: " + ", ".join(references)
+                "Image asset используется в шаблонах: " + ", ".join(references)
             )
         try:
             asset = self.session.image_assets.pop(asset_id)
         except KeyError as exc:
-            raise KeyError(f"PNG asset не найден: {asset_id}") from exc
+            raise KeyError(f"Image asset не найден: {asset_id}") from exc
         self.session.dirty = True
         return asset
 
@@ -298,12 +298,12 @@ class MasterlogTemplateController:
             or any(ord(character) < 32 for character in normalized)
         ):
             raise ValueError(
-                "Имя PNG asset должно содержать 1–255 символов без путей и управляющих символов"
+                "Имя image asset должно содержать 1–255 символов без путей и управляющих символов"
             )
         try:
             asset = self.session.image_assets[asset_id]
         except KeyError as exc:
-            raise KeyError(f"PNG asset не найден: {asset_id}") from exc
+            raise KeyError(f"Image asset не найден: {asset_id}") from exc
         renamed = replace(asset, original_name=normalized)
         self.session.image_assets[asset_id] = renamed
         self.session.dirty = True

@@ -21,7 +21,8 @@ from geoworkbench.printing.image_assets import (
 from geoworkbench.project.session import ProjectSession
 
 
-MASTERLOG_PACKAGE_VERSION = 1
+MASTERLOG_PACKAGE_VERSION = 2
+SUPPORTED_MASTERLOG_PACKAGE_VERSIONS = {1, MASTERLOG_PACKAGE_VERSION}
 MAX_MASTERLOG_PACKAGE_BYTES = 25 * 1024 * 1024
 
 
@@ -56,7 +57,7 @@ def export_masterlog_package(
     missing = referenced - set(session.image_assets)
     if missing:
         raise MasterlogPackageError(
-            "Пакет содержит отсутствующие PNG assets: " + ", ".join(sorted(missing))
+            "Пакет содержит отсутствующие image assets: " + ", ".join(sorted(missing))
         )
     assets: dict[str, Any] = {}
     for asset_id in sorted(referenced):
@@ -108,10 +109,15 @@ def load_masterlog_package(source: str | Path) -> MasterlogPackage:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise MasterlogPackageError("Не удалось прочитать пакет masterlog") from exc
-    if not isinstance(raw, dict) or raw.get("package_version") != MASTERLOG_PACKAGE_VERSION:
+    package_version = raw.get("package_version") if isinstance(raw, dict) else None
+    if (
+        not isinstance(package_version, int)
+        or isinstance(package_version, bool)
+        or package_version not in SUPPORTED_MASTERLOG_PACKAGE_VERSIONS
+    ):
         raise MasterlogPackageError("Версия пакета masterlog не поддерживается")
     template = _template_from_dict(raw.get("template"))
-    assets = _assets_from_dict(raw.get("image_assets"))
+    assets = _assets_from_dict(raw.get("image_assets"), package_version)
     referenced = {
         asset_ref
         for element in template.header_elements
@@ -119,7 +125,7 @@ def load_masterlog_package(source: str | Path) -> MasterlogPackage:
         and isinstance((asset_ref := element.properties.get("asset_ref")), str)
     }
     if referenced - set(assets):
-        raise MasterlogPackageError("Пакет masterlog не содержит все связанные PNG assets")
+        raise MasterlogPackageError("Пакет masterlog не содержит все связанные image assets")
     return MasterlogPackage(template, assets)
 
 
@@ -139,13 +145,13 @@ def _template_from_dict(raw: object) -> MasterlogTemplate:
         raise MasterlogPackageError("Шаблон в пакете masterlog некорректен") from exc
 
 
-def _assets_from_dict(raw: object) -> dict[str, ImageAsset]:
+def _assets_from_dict(raw: object, package_version: int) -> dict[str, ImageAsset]:
     if not isinstance(raw, dict):
         raise MasterlogPackageError("Поле image_assets пакета должно быть объектом")
     assets: dict[str, ImageAsset] = {}
     for asset_id, item in raw.items():
         if not isinstance(asset_id, str) or not isinstance(item, dict):
-            raise MasterlogPackageError("Запись PNG asset в пакете некорректна")
+            raise MasterlogPackageError("Запись image asset в пакете некорректна")
         name = item.get("original_name")
         encoded = item.get("payload_base64")
         if (
@@ -155,15 +161,18 @@ def _assets_from_dict(raw: object) -> dict[str, ImageAsset]:
             or "/" in name
             or "\\" in name
             or any(ord(character) < 32 for character in name)
-            or item.get("media_type") != "image/png"
+            or item.get("media_type") not in {"image/png", "image/svg+xml"}
             or not isinstance(encoded, str)
         ):
-            raise MasterlogPackageError("Метаданные PNG asset в пакете некорректны")
+            raise MasterlogPackageError("Метаданные image asset в пакете некорректны")
+        media_type = str(item["media_type"])
+        if package_version == 1 and media_type != "image/png":
+            raise MasterlogPackageError("Пакет masterlog v1 поддерживает только PNG assets")
         try:
             payload = base64.b64decode(encoded, validate=True)
         except (ValueError, TypeError) as exc:
-            raise MasterlogPackageError("PNG asset содержит некорректный base64") from exc
-        asset = ImageAsset(asset_id, name, "image/png", payload)
+            raise MasterlogPackageError("Image asset содержит некорректный base64") from exc
+        asset = ImageAsset(asset_id, name, media_type, payload)
         try:
             validate_image_asset(asset_id, asset)
         except ImageAssetError as exc:
