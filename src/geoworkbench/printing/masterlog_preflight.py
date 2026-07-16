@@ -79,7 +79,7 @@ def analyze_masterlog_output(
                 )
     well = session.current_well
     if well is not None:
-        column_ids = {column.column_id for column in template.columns}
+        columns_by_id = {column.column_id: column for column in template.columns}
         for item in well.canvas_objects:
             if (
                 item.object_type != "masterlog_symbol"
@@ -91,7 +91,7 @@ def analyze_masterlog_output(
                 issues.append(
                     _issue("missing_asset", PreflightSeverity.WARNING, element=item.object_id)
                 )
-            if item.track_id not in column_ids:
+            if item.track_id not in columns_by_id:
                 issues.append(
                     _issue(
                         "missing_symbol_column",
@@ -101,7 +101,7 @@ def analyze_masterlog_output(
                 )
             symbol_top = item.top_depth if item.top_depth is not None else item.y
             symbol_bottom = item.bottom_depth
-            invalid_anchor = item.anchor_type not in {"depth", "interval"}
+            invalid_anchor = item.anchor_type not in {"depth", "interval", "parameter"}
             invalid_interval = item.anchor_type == "interval" and (
                 not isinstance(symbol_top, (int, float))
                 or isinstance(symbol_top, bool)
@@ -119,6 +119,23 @@ def analyze_masterlog_output(
                         element=item.object_id,
                     )
                 )
+            if item.anchor_type == "parameter":
+                column = columns_by_id.get(str(item.track_id))
+                mnemonic = item.parameter_mnemonic
+                if (
+                    column is None
+                    or not isinstance(mnemonic, str)
+                    or mnemonic not in column.curve_mnemonics
+                    or dataset is None
+                    or dataset.curve_by_mnemonic(mnemonic) is None
+                ):
+                    issues.append(
+                        _issue(
+                            "invalid_symbol_parameter",
+                            PreflightSeverity.WARNING,
+                            element=item.object_id,
+                        )
+                    )
     if dataset is not None:
         for column in template.columns:
             if (

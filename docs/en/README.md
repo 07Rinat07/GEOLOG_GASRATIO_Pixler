@@ -129,4 +129,5 @@ The project format stores named forms with editable headers and column sets. The
 provides built-in vector symbols, safe PNG/SVG import, thumbnails, renaming, and protected removal.
 The depth-symbol editor selects a form column, point depth or interval, dimensions, and label with
 Undo/Redo support. Points and stretched intervals print in the correct track and are clipped across
-page segments by the independent millimetre renderer. Time, parameter, and free anchors will follow.
+page segments by the independent millimetre renderer. Parameter anchors derive their X position
+from the selected curve and the column's linear/log scale. Time, page, and free anchors will follow.

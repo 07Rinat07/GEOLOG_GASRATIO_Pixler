@@ -23,10 +23,11 @@ def make_controller() -> MasterlogSymbolController:
     )
     session = ProjectSession()
     session.add_dataset(dataset, "Well")
+    dataset.upsert_curve("TG", np.array([1.0, 100.0]))
     session.project.masterlog_templates["standard"] = MasterlogTemplate(
         "standard",
         "Standard",
-        columns=[MasterlogColumnTemplate("gas", "Gas", "curves", 40.0)],
+        columns=[MasterlogColumnTemplate("gas", "Gas", "curves", 40.0, ["TG"])],
     )
     payload = b'<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>'
     digest = sha256(payload).hexdigest()
@@ -69,4 +70,20 @@ def test_masterlog_symbols_dialog_adds_interval(qapp) -> None:
     assert symbol.bottom_depth == 180.0
     assert dialog.table.item(0, 0).text() == "120–180"
     assert dialog.height_input.isEnabled() is False
+    dialog.close()
+
+
+def test_masterlog_symbols_dialog_adds_parameter_anchor(qapp) -> None:
+    controller = make_controller()
+    dialog = MasterlogSymbolsDialog(controller, "standard", language=AppLanguage.EN)
+    dialog.anchor_input.setCurrentIndex(dialog.anchor_input.findData("parameter"))
+    dialog.depth_input.setValue(190.0)
+
+    assert dialog.parameter_input.currentData() == "TG"
+    dialog._add()
+
+    symbol = controller.available("standard")[0]
+    assert symbol.anchor_type == "parameter"
+    assert symbol.parameter_mnemonic == "TG"
+    assert dialog.parameter_input.isVisibleTo(dialog) is True
     dialog.close()

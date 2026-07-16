@@ -24,10 +24,11 @@ def make_controller() -> MasterlogSymbolController:
     )
     session = ProjectSession()
     session.add_dataset(dataset, "Well")
+    dataset.upsert_curve("TG", np.array([1.0, 100.0]))
     template = MasterlogTemplate(
         "standard",
         "Standard",
-        columns=[MasterlogColumnTemplate("gas", "Gas", "curves", 40.0)],
+        columns=[MasterlogColumnTemplate("gas", "Gas", "curves", 40.0, ["TG"])],
     )
     session.project.masterlog_templates[template.template_id] = template
     digest = sha256(SVG).hexdigest()
@@ -133,3 +134,35 @@ def test_masterlog_symbol_supports_validated_interval_anchor() -> None:
     assert controller.available("standard") == ()
     controller.redo()
     assert controller.available("standard") == (created,)
+
+
+def test_masterlog_symbol_supports_parameter_anchor_from_column_curve() -> None:
+    controller = make_controller()
+    asset_ref = next(iter(controller.session.image_assets))
+
+    created = controller.add(
+        "standard",
+        depth=190.0,
+        anchor_type="parameter",
+        parameter_mnemonic="TG",
+        column_id="gas",
+        asset_ref=asset_ref,
+        width_mm=8.0,
+        height_mm=8.0,
+    )
+
+    assert created.anchor_type == "parameter"
+    assert created.parameter_mnemonic == "TG"
+    assert controller.session.current_well is not None
+    assert controller.session.current_well.canvas_objects[0].parameter_mnemonic == "TG"
+    with pytest.raises(ValueError, match="выбранную колонку"):
+        controller.add(
+            "standard",
+            depth=150.0,
+            anchor_type="parameter",
+            parameter_mnemonic="ROP",
+            column_id="gas",
+            asset_ref=asset_ref,
+            width_mm=8.0,
+            height_mm=8.0,
+        )

@@ -480,7 +480,7 @@ def _paint_depth_symbols(
     for item in well.canvas_objects:
         if (
             item.object_type != "masterlog_symbol"
-            or item.anchor_type not in {"depth", "interval"}
+            or item.anchor_type not in {"depth", "interval", "parameter"}
             or item.track_id != column.column_id
             or item.properties.get("template_id") != template.template_id
         ):
@@ -528,7 +528,19 @@ def _paint_depth_symbols(
         else:
             height = min(max(float(item.height), 1.0), rect.height())
             y = y_top
-        symbol_rect = QRectF(rect.center().x() - width / 2.0, y - height / 2.0, width, height)
+        center_x = rect.center().x()
+        if item.anchor_type == "parameter":
+            parameter_x = _parameter_symbol_x(
+                rect,
+                column,
+                session.current_dataset,
+                item.parameter_mnemonic,
+                float(symbol_top),
+            )
+            if parameter_x is None:
+                continue
+            center_x = parameter_x
+        symbol_rect = QRectF(center_x - width / 2.0, y - height / 2.0, width, height)
         if not draw_image_asset(painter, symbol_rect, asset):
             continue
         label = item.properties.get("label")
@@ -593,6 +605,42 @@ def curve_x_range(
         padding = max(abs(minimum) * 0.05, 1.0)
         return minimum - padding, maximum + padding
     return minimum, maximum
+
+
+def _parameter_symbol_x(
+    rect: QRectF,
+    column: MasterlogColumnTemplate,
+    dataset: Dataset | None,
+    mnemonic: str | None,
+    depth: float,
+) -> float | None:
+    if dataset is None or not mnemonic or mnemonic not in column.curve_mnemonics:
+        return None
+    curve = dataset.curve_by_mnemonic(mnemonic)
+    x_range = curve_x_range(column, dataset)
+    if curve is None or x_range is None:
+        return None
+    depths = np.asarray(dataset.active_index.values, dtype=np.float64)
+    values = np.asarray(curve.values, dtype=np.float64)
+    if depths.shape != values.shape:
+        return None
+    valid = np.isfinite(depths) & np.isfinite(values)
+    if column.x_scale == "logarithmic":
+        valid &= values > 0
+    if not np.any(valid):
+        return None
+    indexes = np.flatnonzero(valid)
+    nearest = int(indexes[np.argmin(np.abs(depths[indexes] - depth))])
+    value = float(values[nearest])
+    minimum, maximum = x_range
+    if column.x_scale == "logarithmic":
+        if value <= 0 or minimum <= 0 or maximum <= 0:
+            return None
+        value, minimum, maximum = map(float, np.log10((value, minimum, maximum)))
+    if maximum <= minimum:
+        return None
+    fraction = min(1.0, max(0.0, (value - minimum) / (maximum - minimum)))
+    return rect.left() + rect.width() * fraction
 
 
 def _paint_curve_column(

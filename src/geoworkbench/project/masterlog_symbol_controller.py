@@ -25,6 +25,7 @@ class PlacedMasterlogSymbol:
     width_mm: float
     height_mm: float
     label: str
+    parameter_mnemonic: str | None
 
     @property
     def depth(self) -> float:
@@ -58,6 +59,7 @@ class MasterlogSymbolController:
         label: str = "",
         anchor_type: str = "depth",
         bottom_depth: float | None = None,
+        parameter_mnemonic: str | None = None,
     ) -> PlacedMasterlogSymbol:
         values = self._validate(
             template_id,
@@ -69,6 +71,7 @@ class MasterlogSymbolController:
             width_mm,
             height_mm,
             label,
+            parameter_mnemonic,
         )
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
@@ -79,6 +82,7 @@ class MasterlogSymbolController:
             normalized_width,
             normalized_height,
             normalized_label,
+            normalized_parameter,
         ) = values
         item = CanvasObject(
             new_id(),
@@ -91,6 +95,7 @@ class MasterlogSymbolController:
             top_depth=normalized_top,
             bottom_depth=normalized_bottom,
             track_id=column_id,
+            parameter_mnemonic=normalized_parameter,
             properties={
                 "template_id": template_id,
                 "asset_ref": asset_ref,
@@ -115,6 +120,7 @@ class MasterlogSymbolController:
         label: str = "",
         anchor_type: str = "depth",
         bottom_depth: float | None = None,
+        parameter_mnemonic: str | None = None,
     ) -> PlacedMasterlogSymbol:
         values = self._validate(
             template_id,
@@ -126,6 +132,7 @@ class MasterlogSymbolController:
             width_mm,
             height_mm,
             label,
+            parameter_mnemonic,
         )
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
@@ -137,12 +144,14 @@ class MasterlogSymbolController:
             normalized_width,
             normalized_height,
             normalized_label,
+            normalized_parameter,
         ) = values
         item.anchor_type = normalized_anchor
         item.y = normalized_top
         item.top_depth = normalized_top
         item.bottom_depth = normalized_bottom
         item.track_id = column_id
+        item.parameter_mnemonic = normalized_parameter
         item.width = normalized_width
         item.height = normalized_height
         item.properties.update(asset_ref=asset_ref, label=normalized_label)
@@ -181,16 +190,18 @@ class MasterlogSymbolController:
         width_mm: float,
         height_mm: float,
         label: str,
-    ) -> tuple[str, float, float, float, float, str]:
+        parameter_mnemonic: str | None,
+    ) -> tuple[str, float, float, float, float, str, str | None]:
         template = self._require_template(template_id)
-        if not any(column.column_id == column_id for column in template.columns):
+        column = next((item for item in template.columns if item.column_id == column_id), None)
+        if column is None:
             raise ValueError("Колонка обозначения отсутствует в форме masterlog")
         if asset_ref not in self.session.image_assets:
             raise ValueError("Графический ресурс обозначения отсутствует в проекте")
         normalized_anchor = anchor_type.strip().casefold()
-        if normalized_anchor not in {"depth", "interval"}:
-            raise ValueError("Привязка обозначения должна быть depth или interval")
-        effective_bottom = top_depth if normalized_anchor == "depth" else bottom_depth
+        if normalized_anchor not in {"depth", "interval", "parameter"}:
+            raise ValueError("Привязка обозначения должна быть depth, interval или parameter")
+        effective_bottom = top_depth if normalized_anchor != "interval" else bottom_depth
         numbers = (top_depth, effective_bottom, width_mm, height_mm)
         if any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in numbers):
             raise ValueError("Глубина и размеры обозначения должны быть числами")
@@ -220,6 +231,13 @@ class MasterlogSymbolController:
         normalized_label = label.strip()
         if len(normalized_label) > 200:
             raise ValueError("Подпись обозначения не должна превышать 200 символов")
+        normalized_parameter: str | None = None
+        if normalized_anchor == "parameter":
+            normalized_parameter = (parameter_mnemonic or "").strip()
+            if not normalized_parameter or normalized_parameter not in column.curve_mnemonics:
+                raise ValueError("Параметр обозначения должен входить в выбранную колонку")
+            if dataset is None or dataset.curve_by_mnemonic(normalized_parameter) is None:
+                raise ValueError("Кривая параметрического обозначения отсутствует")
         return (
             normalized_anchor,
             normalized_top,
@@ -227,6 +245,7 @@ class MasterlogSymbolController:
             normalized_width,
             normalized_height,
             normalized_label,
+            normalized_parameter,
         )
 
     def _require_template(self, template_id: str) -> MasterlogTemplate:
@@ -255,7 +274,9 @@ class MasterlogSymbolController:
     def _to_symbol(item: CanvasObject) -> PlacedMasterlogSymbol:
         return PlacedMasterlogSymbol(
             item.object_id,
-            item.anchor_type if item.anchor_type in {"depth", "interval"} else "depth",
+            item.anchor_type
+            if item.anchor_type in {"depth", "interval", "parameter"}
+            else "depth",
             float(item.top_depth if item.top_depth is not None else item.y),
             float(
                 item.bottom_depth
@@ -267,4 +288,5 @@ class MasterlogSymbolController:
             float(item.width),
             float(item.height),
             str(item.properties.get("label", "")),
+            item.parameter_mnemonic,
         )

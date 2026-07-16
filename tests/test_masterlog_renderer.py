@@ -25,6 +25,7 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_size_mm,
     paint_masterlog,
     render_masterlog_to_printer,
+    _parameter_symbol_x,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.services.localization import AppLanguage
@@ -101,6 +102,21 @@ def test_masterlog_curve_range_supports_auto_linear_and_logarithmic() -> None:
     column = make_template().columns[1]
 
     assert curve_x_range(column, dataset) == (1.0, 1000.0)
+
+
+def test_parameter_symbol_x_follows_linear_and_log_column_scale() -> None:
+    dataset = make_session_with_curves().current_dataset
+    assert dataset is not None
+    column = make_template().columns[1]
+    rect = QRectF(0.0, 0.0, 100.0, 200.0)
+
+    linear = _parameter_symbol_x(rect, column, dataset, "TG", 150.0)
+    column.x_scale = "logarithmic"
+    logarithmic = _parameter_symbol_x(rect, column, dataset, "TG", 150.0)
+
+    assert linear == pytest.approx(9.91, abs=0.1)
+    assert logarithmic == pytest.approx(66.67, abs=0.1)
+    assert _parameter_symbol_x(rect, column, dataset, "ROP", 150.0) is None
     column.x_scale = "logarithmic"
     assert curve_x_range(column, dataset) == (1.0, 1000.0)
 

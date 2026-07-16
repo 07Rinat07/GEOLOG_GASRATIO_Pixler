@@ -133,3 +133,32 @@ def test_masterlog_preflight_reports_invalid_symbol_interval() -> None:
         "missing_asset",
         "invalid_symbol_interval",
     }
+
+
+def test_masterlog_preflight_reports_invalid_symbol_parameter() -> None:
+    session = make_session()
+    template = MasterlogTemplate(
+        "standard",
+        "Standard",
+        columns=[MasterlogColumnTemplate("gas", "Gas", "curves", 40.0, ["TG"])],
+    )
+    assert session.current_well is not None
+    session.current_well.canvas_objects.append(
+        CanvasObject(
+            "parameter", "masterlog_symbol", "parameter", 0.0, 150.0, 8.0, 8.0,
+            top_depth=150.0,
+            bottom_depth=150.0,
+            parameter_mnemonic="ROP",
+            track_id="gas",
+            properties={"template_id": "standard", "asset_ref": "missing"},
+        )
+    )
+
+    report = analyze_masterlog_output(
+        template, session, MasterlogOutputSettings(100.0, 200.0)
+    )
+
+    assert {issue.code for issue in report.warnings} == {
+        "missing_asset",
+        "invalid_symbol_parameter",
+    }
