@@ -1,5 +1,7 @@
 import numpy as np
 import pytest
+from PySide6.QtCore import QRectF
+from PySide6.QtGui import QImage, QPainter
 from PySide6.QtPrintSupport import QPrinter
 
 from geoworkbench.domain.models import (
@@ -11,6 +13,7 @@ from geoworkbench.domain.models import (
     MasterlogTemplate,
 )
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.image_assets import create_svg_asset
 from geoworkbench.printing.masterlog_renderer import (
     MasterlogRenderError,
     curve_x_range,
@@ -20,6 +23,7 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_column_groups,
     masterlog_page_ranges,
     masterlog_size_mm,
+    paint_masterlog,
     render_masterlog_to_printer,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
@@ -108,6 +112,43 @@ def test_masterlog_pdf_renders_active_dataset_curves(qapp, tmp_path) -> None:
 
     assert target.read_bytes().startswith(b"%PDF")
     assert target.stat().st_size > 1000
+
+
+def test_masterlog_renders_depth_symbol_in_bound_column(qapp, tmp_path) -> None:
+    session = make_session_with_curves()
+    template = MasterlogTemplate(
+        "symbols",
+        "Symbols",
+        depth_scale=500,
+        header_height_mm=40.0,
+        columns=[MasterlogColumnTemplate("gas", "Gas", "curves", 40.0)],
+    )
+    session.project.masterlog_templates[template.template_id] = template
+    source = tmp_path / "red.svg"
+    source.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="#ff0000"/></svg>',
+        encoding="utf-8",
+    )
+    asset = create_svg_asset(source)
+    session.image_assets[asset.asset_id] = asset
+    from geoworkbench.project.masterlog_symbol_controller import MasterlogSymbolController
+
+    MasterlogSymbolController(session).add(
+        template.template_id,
+        depth=150.0,
+        column_id="gas",
+        asset_ref=asset.asset_id,
+        width_mm=8.0,
+        height_mm=8.0,
+    )
+    image = QImage(400, 2520, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+    paint_masterlog(painter, QRectF(0.0, 0.0, 400.0, 2520.0), template, session)
+    painter.end()
+
+    color = image.pixelColor(200, 1520)
+    assert color.red() > 200 and color.green() < 80 and color.blue() < 80
 
 
 def test_masterlog_a4_page_ranges_follow_depth_scale() -> None:

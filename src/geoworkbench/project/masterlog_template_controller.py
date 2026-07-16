@@ -126,6 +126,15 @@ class MasterlogTemplateController:
 
     def delete(self, template_id: str) -> MasterlogTemplate:
         template = self._require(template_id)
+        if any(
+            item.object_type == "masterlog_symbol"
+            and item.properties.get("template_id") == template_id
+            for well in self.session.project.wells.values()
+            for item in well.canvas_objects
+        ):
+            raise ValueError(
+                "Форма masterlog используется глубинными обозначениями; сначала удалите их"
+            )
         del self.session.project.masterlog_templates[template_id]
         self.session.dirty = True
         return template
@@ -265,7 +274,7 @@ class MasterlogTemplateController:
         return True
 
     def image_asset_references(self, asset_id: str) -> tuple[str, ...]:
-        return tuple(
+        references = {
             template.name
             for template in self.session.project.masterlog_templates.values()
             if any(
@@ -273,7 +282,20 @@ class MasterlogTemplateController:
                 and element.properties.get("asset_ref") == asset_id
                 for element in template.header_elements
             )
-        )
+        }
+        template_names = {
+            template_id: template.name
+            for template_id, template in self.session.project.masterlog_templates.items()
+        }
+        for well in self.session.project.wells.values():
+            for item in well.canvas_objects:
+                if (
+                    item.object_type == "masterlog_symbol"
+                    and item.properties.get("asset_ref") == asset_id
+                ):
+                    template_id = item.properties.get("template_id")
+                    references.add(template_names.get(str(template_id), well.name))
+        return tuple(sorted(references))
 
     def remove_image_asset(self, asset_id: str) -> ImageAsset:
         references = self.image_asset_references(asset_id)

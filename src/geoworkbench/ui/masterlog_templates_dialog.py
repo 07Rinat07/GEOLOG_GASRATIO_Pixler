@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
+from geoworkbench.project.masterlog_symbol_controller import MasterlogSymbolController
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.masterlog_columns_dialog import MasterlogColumnsDialog
 from geoworkbench.ui.masterlog_header_dialog import MasterlogHeaderDialog
@@ -42,6 +43,7 @@ from geoworkbench.printing.masterlog_package import (
 )
 from geoworkbench.ui.masterlog_output_dialog import MasterlogOutputDialog
 from geoworkbench.ui.masterlog_page_dialog import MasterlogPageDialog
+from geoworkbench.ui.masterlog_symbols_dialog import MasterlogSymbolsDialog
 
 
 class MasterlogTemplatesDialog(QDialog):
@@ -65,6 +67,7 @@ class MasterlogTemplatesDialog(QDialog):
         self.columns_button = QPushButton(self._t("masterlog_columns.action"))
         self.header_button = QPushButton(self._t("masterlog_header.action"))
         self.assets_button = QPushButton(self._t("masterlog_assets.action"))
+        self.symbols_button = QPushButton(self._t("masterlog_symbols.action"))
         self.page_button = QPushButton(self._t("masterlog_page.action"))
         self.preview_button = QPushButton(self._t("masterlog_preview.action"))
         self.export_button = QPushButton(self._t("masterlog_preview.export_pdf"))
@@ -85,6 +88,7 @@ class MasterlogTemplatesDialog(QDialog):
         self.columns_button.clicked.connect(self._edit_columns)
         self.header_button.clicked.connect(self._edit_header)
         self.assets_button.clicked.connect(self._edit_assets)
+        self.symbols_button.clicked.connect(self._edit_symbols)
         self.page_button.clicked.connect(self._edit_page)
         self.preview_button.clicked.connect(self._preview)
         self.export_button.clicked.connect(self._export_pdf)
@@ -101,6 +105,7 @@ class MasterlogTemplatesDialog(QDialog):
             self.columns_button,
             self.header_button,
             self.assets_button,
+            self.symbols_button,
             self.page_button,
             self.preview_button,
             self.export_button,
@@ -210,6 +215,17 @@ class MasterlogTemplatesDialog(QDialog):
     def _edit_assets(self) -> None:
         MasterlogAssetsDialog(
             self.controller,
+            self,
+            language=self.localizer.language,
+        ).exec()
+
+    def _edit_symbols(self) -> None:
+        template_id = self._selected_id()
+        if template_id is None:
+            return
+        MasterlogSymbolsDialog(
+            MasterlogSymbolController(self.controller.session),
+            template_id,
             self,
             language=self.localizer.language,
         ).exec()

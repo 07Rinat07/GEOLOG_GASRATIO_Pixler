@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from math import isfinite
 from pathlib import Path
 from collections.abc import Sequence
 from typing import Protocol
@@ -456,7 +457,73 @@ def _paint_columns(
                 _paint_depth_axis(painter, plot_rect, depth_range)
             else:
                 _paint_curve_column(painter, plot_rect, column, dataset, depth_range)
+            _paint_depth_symbols(painter, plot_rect, template, column, session, depth_range)
         x += column.width_mm
+
+
+def _paint_depth_symbols(
+    painter: QPainter,
+    rect: QRectF,
+    template: MasterlogTemplate,
+    column: MasterlogColumnTemplate,
+    session: ProjectSession,
+    depth_range: tuple[float, float],
+) -> None:
+    well = session.current_well
+    if well is None:
+        return
+    top, bottom = depth_range
+    if bottom <= top:
+        return
+    painter.save()
+    painter.setClipRect(rect)
+    for item in well.canvas_objects:
+        if (
+            item.object_type != "masterlog_symbol"
+            or item.anchor_type != "depth"
+            or item.track_id != column.column_id
+            or item.properties.get("template_id") != template.template_id
+        ):
+            continue
+        depth = item.top_depth if item.top_depth is not None else item.y
+        if (
+            not isinstance(depth, (int, float))
+            or isinstance(depth, bool)
+            or not isfinite(float(depth))
+            or not top <= depth <= bottom
+        ):
+            continue
+        asset_ref = item.properties.get("asset_ref")
+        asset = session.image_assets.get(asset_ref) if isinstance(asset_ref, str) else None
+        if asset is None:
+            continue
+        if (
+            not isinstance(item.width, (int, float))
+            or isinstance(item.width, bool)
+            or not isinstance(item.height, (int, float))
+            or isinstance(item.height, bool)
+            or not isfinite(float(item.width))
+            or not isfinite(float(item.height))
+        ):
+            continue
+        width = min(max(float(item.width), 1.0), rect.width())
+        height = min(max(float(item.height), 1.0), rect.height())
+        y = rect.top() + (float(depth) - top) / (bottom - top) * rect.height()
+        symbol_rect = QRectF(rect.center().x() - width / 2.0, y - height / 2.0, width, height)
+        if not draw_image_asset(painter, symbol_rect, asset):
+            continue
+        label = item.properties.get("label")
+        if isinstance(label, str) and label:
+            painter.setPen(QColor("#0f172a"))
+            font = QFont()
+            font.setPointSizeF(6.0)
+            painter.setFont(font)
+            painter.drawText(
+                QRectF(symbol_rect.right() + 0.5, y - 2.5, rect.right() - symbol_rect.right(), 5.0),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                label,
+            )
+    painter.restore()
 
 
 def _paint_depth_axis(

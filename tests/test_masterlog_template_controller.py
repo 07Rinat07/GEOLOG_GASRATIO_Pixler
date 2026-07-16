@@ -1,7 +1,8 @@
-import pytest
 from hashlib import sha256
 
-from geoworkbench.domain.models import MasterlogColumnTemplate
+import pytest
+
+from geoworkbench.domain.models import CanvasObject, MasterlogColumnTemplate, Well
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.printing.image_assets import ImageAsset
 from geoworkbench.project.session import ProjectSession
@@ -224,6 +225,32 @@ def test_masterlog_template_controller_installs_content_addressed_asset_once() -
     assert controller.install_image_asset(asset) is asset
     assert len(session.image_assets) == 1
     assert not session.dirty
+
+
+def test_masterlog_template_controller_protects_template_and_asset_used_by_depth_symbol() -> None:
+    session = ProjectSession()
+    controller = MasterlogTemplateController(session)
+    template = controller.create("Standard")
+    payload = b"\x89PNG\r\n\x1a\nasset"
+    digest = sha256(payload).hexdigest()
+    asset = ImageAsset(f"sha256:{digest}", "symbol.png", "image/png", payload)
+    session.image_assets[asset.asset_id] = asset
+    well = Well("well", "Well")
+    well.canvas_objects.append(
+        CanvasObject(
+            "show", "masterlog_symbol", "depth", 0.0, 100.0, 8.0, 8.0,
+            top_depth=100.0,
+            track_id="gas",
+            properties={"template_id": template.template_id, "asset_ref": asset.asset_id},
+        )
+    )
+    session.project.wells[well.well_id] = well
+
+    assert controller.image_asset_references(asset.asset_id) == ("Standard",)
+    with pytest.raises(ValueError, match="обозначениями"):
+        controller.delete(template.template_id)
+    with pytest.raises(ValueError, match="Standard"):
+        controller.remove_image_asset(asset.asset_id)
 
 
 def test_masterlog_template_controller_configures_page_geometry() -> None:

@@ -171,12 +171,12 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
     )
     project.wells["well-1"].canvas_objects.append(
         CanvasObject(
-            "show", "symbol", "parameter", 10.0, 20.0, 8.0, 8.0,
+            "show", "masterlog_symbol", "parameter", 10.0, 20.0, 8.0, 8.0,
             top_depth=1250.0,
             time_value="2026-07-15T10:30:00+05:00",
             parameter_mnemonic="ROP",
             track_id="drilling",
-            properties={"symbol_id": "oil_show"},
+            properties={"symbol_id": "oil_show", "template_id": "standard"},
         )
     )
 
@@ -198,6 +198,8 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
     canvas_object = restored.wells["well-1"].canvas_objects[0]
     assert canvas_object.parameter_mnemonic == "ROP"
     assert canvas_object.time_value.endswith("+05:00")
+    assert canvas_object.object_type == "masterlog_symbol"
+    assert canvas_object.properties["template_id"] == "standard"
 
 
 def test_project_document_round_trip_preserves_lossless_source(tmp_path) -> None:

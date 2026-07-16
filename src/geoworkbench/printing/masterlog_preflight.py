@@ -76,6 +76,28 @@ def analyze_masterlog_output(
                         element=element.element_id,
                     )
                 )
+    well = session.current_well
+    if well is not None:
+        column_ids = {column.column_id for column in template.columns}
+        for item in well.canvas_objects:
+            if (
+                item.object_type != "masterlog_symbol"
+                or item.properties.get("template_id") != template.template_id
+            ):
+                continue
+            asset_ref = item.properties.get("asset_ref")
+            if not isinstance(asset_ref, str) or asset_ref not in session.image_assets:
+                issues.append(
+                    _issue("missing_asset", PreflightSeverity.WARNING, element=item.object_id)
+                )
+            if item.track_id not in column_ids:
+                issues.append(
+                    _issue(
+                        "missing_symbol_column",
+                        PreflightSeverity.WARNING,
+                        element=item.object_id,
+                    )
+                )
     if dataset is not None:
         for column in template.columns:
             if (
