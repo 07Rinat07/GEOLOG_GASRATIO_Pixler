@@ -9,6 +9,7 @@ from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
     CustomFormulaDefinition,
+    ExportProfile,
     Dataset,
     DatasetIndex,
     DatasetKind,
@@ -101,6 +102,9 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     project.custom_formulas["wetness"] = CustomFormulaDefinition(
         "wetness", "Wetness", "100 * (C2 + C3) / (C1 + C2 + C3)", "WH_USER", "%"
     )
+    project.export_profiles["gas-profile"] = ExportProfile(
+        "gas-profile", "Gas profile", ("C1", "C2")
+    )
 
     preset = TabletLayout(
         [TrackDefinition("preset-depth", "Depth", TrackKind.DEPTH, width=150)]
@@ -119,6 +123,10 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     assert document.project.lithotypes["oil_sand"].code == "OS"
     assert document.project.description_templates["Песчаник"].startswith("Песчаник")
     assert document.project.custom_formulas["wetness"].output_mnemonic == "WH_USER"
+    assert document.project.export_profiles["gas-profile"].curve_mnemonics == (
+        "C1",
+        "C2",
+    )
     assert document.project.wells["well-1"].datasets["dataset-1"].version_headers["DLM"] == "SPACE"
     assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == (
         PROJECT_FORMAT_VERSION

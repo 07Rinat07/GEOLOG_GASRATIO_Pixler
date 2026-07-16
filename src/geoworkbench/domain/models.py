@@ -372,6 +372,25 @@ class CustomFormulaDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class ExportProfile:
+    profile_id: str
+    name: str
+    curve_mnemonics: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.profile_id.strip() or not self.name.strip():
+            raise ValueError("ID и имя профиля экспорта не могут быть пустыми")
+        if len(self.name) > 100:
+            raise ValueError("Имя профиля экспорта не должно превышать 100 символов")
+        if not self.curve_mnemonics:
+            raise ValueError("Профиль экспорта должен содержать хотя бы одну кривую")
+        if any(not mnemonic.strip() for mnemonic in self.curve_mnemonics):
+            raise ValueError("Мнемоники профиля экспорта не могут быть пустыми")
+        if len(set(self.curve_mnemonics)) != len(self.curve_mnemonics):
+            raise ValueError("Мнемоники профиля экспорта не должны повторяться")
+
+
+@dataclass(frozen=True, slots=True)
 class ProjectLithotype:
     lithotype_id: str
     code: str
@@ -402,3 +421,4 @@ class Project:
     description_templates: dict[str, str] = field(default_factory=dict)
     masterlog_templates: dict[str, MasterlogTemplate] = field(default_factory=dict)
     custom_formulas: dict[str, CustomFormulaDefinition] = field(default_factory=dict)
+    export_profiles: dict[str, ExportProfile] = field(default_factory=dict)

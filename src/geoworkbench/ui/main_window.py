@@ -290,6 +290,16 @@ class MainWindow(QMainWindow):
         export_svg_action = QAction(self._t("visual_export.svg_action"), self)
         export_svg_action.triggered.connect(lambda: self.export_active_visualization("svg"))
         file_menu.addAction(export_svg_action)
+        file_menu.addSeparator()
+        save_export_profile_action = QAction(self._t("export_profile.save"), self)
+        save_export_profile_action.triggered.connect(self.save_export_profile)
+        file_menu.addAction(save_export_profile_action)
+        apply_export_profile_action = QAction(self._t("export_profile.apply"), self)
+        apply_export_profile_action.triggered.connect(self.apply_export_profile)
+        file_menu.addAction(apply_export_profile_action)
+        delete_export_profile_action = QAction(self._t("export_profile.delete"), self)
+        delete_export_profile_action.triggered.connect(self.delete_export_profile)
+        file_menu.addAction(delete_export_profile_action)
 
         self.data_inspector_action = QAction(self._t("data.action"), self)
         self.data_inspector_action.triggered.connect(self.show_data_inspector)
@@ -1035,6 +1045,93 @@ class MainWindow(QMainWindow):
         message = self._t("visual_export.success", name=exported.name)
         self._log(message)
         self.statusBar().showMessage(message)
+
+    def save_export_profile(self) -> None:
+        dataset = self.session.current_dataset
+        selection = self.dataset_selection
+        if dataset is None or selection.dataset_id != dataset.dataset_id:
+            QMessageBox.information(
+                self, self._t("export_profile.title"), self._t("export_profile.select_curves")
+            )
+            return
+        if not selection.curve_ids:
+            QMessageBox.information(
+                self, self._t("export_profile.title"), self._t("export_profile.select_curves")
+            )
+            return
+        name, accepted = QInputDialog.getText(
+            self, self._t("export_profile.save"), self._t("export_profile.name")
+        )
+        if not accepted:
+            return
+        try:
+            profile = self.dataset_export_controller.save_selection_profile(
+                name, list(selection.curve_ids)
+            )
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("export_profile.title"), str(exc))
+            return
+        self._update_title()
+        self._log(self._t("export_profile.saved", name=profile.name))
+
+    def apply_export_profile(self) -> None:
+        profile_id = self._select_export_profile(self._t("export_profile.apply"))
+        if profile_id is None:
+            return
+        dataset = self.session.current_dataset
+        if dataset is None:
+            return
+        try:
+            curve_ids = self.dataset_export_controller.resolve_profile_curve_ids(profile_id)
+            interval = (
+                self.dataset_selection.interval
+                if self.dataset_selection.dataset_id == dataset.dataset_id
+                else None
+            )
+            if interval is None:
+                finite_depth = dataset.depth[np.isfinite(dataset.depth)]
+                if finite_depth.size == 0:
+                    raise ValueError("В наборе нет конечных значений глубины")
+                interval = (float(np.min(finite_depth)), float(np.max(finite_depth)))
+            self.dataset_selection.select(dataset, *interval, curve_ids)
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("export_profile.title"), str(exc))
+            return
+        profile = self.session.project.export_profiles[profile_id]
+        self._log(self._t("export_profile.applied", name=profile.name))
+
+    def delete_export_profile(self) -> None:
+        profile_id = self._select_export_profile(self._t("export_profile.delete"))
+        if profile_id is None:
+            return
+        profile = self.session.project.export_profiles[profile_id]
+        try:
+            self.dataset_export_controller.delete_selection_profile(profile_id)
+        except KeyError as exc:
+            QMessageBox.warning(self, self._t("export_profile.title"), str(exc))
+            return
+        self._update_title()
+        self._log(self._t("export_profile.deleted", name=profile.name))
+
+    def _select_export_profile(self, title: str) -> str | None:
+        profiles = sorted(
+            self.session.project.export_profiles.values(),
+            key=lambda profile: profile.name.casefold(),
+        )
+        if not profiles:
+            QMessageBox.information(
+                self, self._t("export_profile.title"), self._t("export_profile.empty")
+            )
+            return None
+        labels = [profile.name for profile in profiles]
+        selected, accepted = QInputDialog.getItem(
+            self, title, self._t("export_profile.name"), labels, 0, False
+        )
+        if not accepted:
+            return None
+        return next(
+            profile.profile_id for profile in profiles if profile.name == selected
+        )
 
     def show_data_inspector(self) -> None:
         if self.session.current_dataset is None:

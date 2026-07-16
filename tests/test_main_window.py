@@ -344,6 +344,37 @@ def test_window_exports_active_curve_view_to_png(qapp, tmp_path, monkeypatch) ->
     window.close()
 
 
+def test_window_saves_and_applies_export_curve_profile(qapp, monkeypatch) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    dataset = session.current_dataset
+    assert dataset is not None
+    window.dataset_selection.select(dataset, 100.0, 101.0, ("curve-1",))
+    monkeypatch.setattr(
+        QInputDialog,
+        "getText",
+        lambda *args, **kwargs: ("Drilling", True),
+    )
+
+    window.save_export_profile()
+
+    profile = next(iter(session.project.export_profiles.values()))
+    assert profile.name == "Drilling"
+    assert profile.curve_mnemonics == ("ROP",)
+    window.dataset_selection.clear()
+    monkeypatch.setattr(
+        QInputDialog,
+        "getItem",
+        lambda *args, **kwargs: ("Drilling", True),
+    )
+    window.apply_export_profile()
+
+    assert window.dataset_selection.interval == (100.0, 101.0)
+    assert window.dataset_selection.curve_ids == ("curve-1",)
+    window.close()
+
+
 def test_window_applies_curve_edit_and_updates_undo_redo_actions(qapp) -> None:
     window = MainWindow()
     session, _ = make_session()

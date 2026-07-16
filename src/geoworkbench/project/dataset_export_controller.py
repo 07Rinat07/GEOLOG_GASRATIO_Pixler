@@ -15,13 +15,61 @@ from geoworkbench.data.selection_export import (
     export_selection_excel,
     export_selection_text,
 )
-from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.models import Dataset, ExportProfile, new_id
 from geoworkbench.project.session import ProjectSession
 
 
 @dataclass(slots=True)
 class DatasetExportController:
     session: ProjectSession
+
+    def save_selection_profile(self, name: str, curve_ids: list[str]) -> ExportProfile:
+        dataset = self._require_current_dataset()
+        normalized_name = name.strip()
+        if not normalized_name:
+            raise ValueError("Имя профиля экспорта не может быть пустым")
+        if any(
+            profile.name.casefold() == normalized_name.casefold()
+            for profile in self.session.project.export_profiles.values()
+        ):
+            raise ValueError(f"Профиль экспорта уже существует: {normalized_name}")
+        missing = [curve_id for curve_id in curve_ids if curve_id not in dataset.curves]
+        if missing:
+            raise KeyError(f"Кривые не найдены: {', '.join(missing)}")
+        mnemonics = tuple(
+            dict.fromkeys(
+                dataset.curves[curve_id].metadata.original_mnemonic
+                for curve_id in curve_ids
+            )
+        )
+        profile = ExportProfile(new_id(), normalized_name, mnemonics)
+        self.session.project.export_profiles[profile.profile_id] = profile
+        self.session.dirty = True
+        return profile
+
+    def resolve_profile_curve_ids(self, profile_id: str) -> tuple[str, ...]:
+        try:
+            profile = self.session.project.export_profiles[profile_id]
+        except KeyError as exc:
+            raise KeyError(f"Профиль экспорта не найден: {profile_id}") from exc
+        dataset = self._require_current_dataset()
+        resolved: list[str] = []
+        missing: list[str] = []
+        for mnemonic in profile.curve_mnemonics:
+            curve = dataset.curve_by_mnemonic(mnemonic)
+            if curve is None:
+                missing.append(mnemonic)
+            else:
+                resolved.append(curve.metadata.curve_id)
+        if missing:
+            raise ValueError("В текущем наборе отсутствуют кривые: " + ", ".join(missing))
+        return tuple(resolved)
+
+    def delete_selection_profile(self, profile_id: str) -> None:
+        if profile_id not in self.session.project.export_profiles:
+            raise KeyError(f"Профиль экспорта не найден: {profile_id}")
+        del self.session.project.export_profiles[profile_id]
+        self.session.dirty = True
 
     def default_las_plan(self) -> LasExportPlan:
         dataset = self.session.current_dataset

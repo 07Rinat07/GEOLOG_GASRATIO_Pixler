@@ -71,6 +71,16 @@ def test_v9_project_migrates_with_empty_tablet_presets() -> None:
     assert "tablet_presets" not in payload
 
 
+def test_v10_project_migrates_with_empty_export_profiles() -> None:
+    payload = {"format_version": 10, "project": {}}
+
+    migrated = migrate_project_payload(payload, 11)
+
+    assert migrated["format_version"] == 11
+    assert migrated["project"]["export_profiles"] == {}
+    assert "export_profiles" not in payload["project"]
+
+
 def test_registry_rejects_missing_migration_step() -> None:
     registry = ProjectMigrationRegistry()
 

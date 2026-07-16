@@ -29,6 +29,7 @@ from geoworkbench.domain.models import (
     ProjectLithotype,
     StratigraphyInterval,
     Well,
+    ExportProfile,
 )
 from geoworkbench.tablet.layout_codec import TabletLayoutFormatError, layout_from_dict
 from geoworkbench.tablet.models import TabletLayout
@@ -52,7 +53,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 10
+PROJECT_FORMAT_VERSION = 11
 
 
 @dataclass(slots=True)
@@ -348,6 +349,32 @@ def project_from_dict(data: dict[str, Any]) -> Project:
         if formula.formula_id != formula_id:
             raise ProjectFormatError(f"ID формулы '{formula_id}' не совпадает с содержимым")
         project.custom_formulas[formula_id] = formula
+    raw_export_profiles = data.get("export_profiles", {})
+    if not isinstance(raw_export_profiles, dict):
+        raise ProjectFormatError("Поле 'export_profiles' должно быть объектом")
+    for profile_id, item in raw_export_profiles.items():
+        if not isinstance(profile_id, str) or not isinstance(item, dict):
+            raise ProjectFormatError("Запись профиля экспорта имеет неверный формат")
+        raw_mnemonics = item.get("curve_mnemonics")
+        if not isinstance(raw_mnemonics, list) or not all(
+            isinstance(value, str) for value in raw_mnemonics
+        ):
+            raise ProjectFormatError("Кривые профиля экспорта должны быть списком строк")
+        try:
+            profile = ExportProfile(
+                profile_id=str(_required(item, "profile_id", str)),
+                name=str(_required(item, "name", str)),
+                curve_mnemonics=tuple(raw_mnemonics),
+            )
+        except ValueError as exc:
+            raise ProjectFormatError(
+                f"Некорректный профиль экспорта '{profile_id}'"
+            ) from exc
+        if profile.profile_id != profile_id:
+            raise ProjectFormatError(
+                f"ID профиля экспорта '{profile_id}' не совпадает с содержимым"
+            )
+        project.export_profiles[profile_id] = profile
     return project
 
 

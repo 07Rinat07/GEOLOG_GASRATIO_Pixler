@@ -9,6 +9,7 @@ from geoworkbench.domain.models import (
     Dataset,
     DatasetKind,
     DepthDomain,
+    ExportProfile,
     Project,
     Well,
 )
@@ -92,6 +93,48 @@ def test_export_controller_exports_current_selection_to_csv_and_excel(tmp_path) 
         "102,30",
     ]
     assert excel_target.read_bytes().startswith(b"PK")
+
+
+def test_export_controller_saves_resolves_and_deletes_curve_profile() -> None:
+    dataset = Dataset(
+        "dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([1.0])
+    )
+    dataset.curves["curve-c1"] = CurveData(
+        CurveMetadata("curve-c1", "C1", "C1", "%", None, dataset.dataset_id),
+        np.array([10.0]),
+    )
+    well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
+    session = ProjectSession(
+        project=Project("project-1", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+        current_dataset_id=dataset.dataset_id,
+    )
+    controller = DatasetExportController(session)
+
+    profile = controller.save_selection_profile(" Gas ", ["curve-c1"])
+
+    assert profile.name == "Gas"
+    assert profile.curve_mnemonics == ("C1",)
+    assert controller.resolve_profile_curve_ids(profile.profile_id) == ("curve-c1",)
+    assert session.dirty is True
+    controller.delete_selection_profile(profile.profile_id)
+    assert session.project.export_profiles == {}
+
+
+def test_export_profile_reports_missing_mnemonics() -> None:
+    dataset = Dataset(
+        "dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([1.0])
+    )
+    well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
+    session = ProjectSession(
+        project=Project("project-1", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+        current_dataset_id=dataset.dataset_id,
+    )
+    session.project.export_profiles["gas"] = ExportProfile("gas", "Gas", ("C1",))
+
+    with pytest.raises(ValueError, match="C1"):
+        DatasetExportController(session).resolve_profile_curve_ids("gas")
 
 
 def test_default_export_plan_uses_typed_header_null() -> None:
