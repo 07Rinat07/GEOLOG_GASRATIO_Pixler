@@ -6,14 +6,19 @@ from geoworkbench.domain.models import Dataset
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.depth_axis import (
     DepthAxisReport,
+    DepthResamplePlan,
+    analyze_depth_resample,
     analyze_depth_axis,
     create_ascending_depth_copy,
+    create_resampled_depth_copy,
 )
 
 
 @dataclass(slots=True)
 class DepthAxisController:
     session: ProjectSession
+    _resample_source_id: str | None = None
+    _resampled_dataset: Dataset | None = None
 
     def analyze_current(self) -> DepthAxisReport:
         return analyze_depth_axis(self._require_dataset().depth)
@@ -24,6 +29,41 @@ class DepthAxisController:
         well = self.session.current_well
         if well is None:
             raise RuntimeError("Сначала выберите скважину")
+        well.datasets[result.dataset_id] = result
+        self.session.current_dataset_id = result.dataset_id
+        self.session.dirty = True
+        return result
+
+    def analyze_resample(self, start: float, stop: float, step: float) -> DepthResamplePlan:
+        return analyze_depth_resample(self._require_dataset(), start, stop, step)
+
+    def create_resampled_copy(self, plan: DepthResamplePlan) -> Dataset:
+        source = self._require_dataset()
+        result = create_resampled_depth_copy(source, plan)
+        well = self.session.current_well
+        if well is None:
+            raise RuntimeError("Сначала выберите скважину")
+        well.datasets[result.dataset_id] = result
+        self._resample_source_id = source.dataset_id
+        self._resampled_dataset = result
+        self.session.current_dataset_id = result.dataset_id
+        self.session.dirty = True
+        return result
+
+    def undo_resample(self) -> None:
+        well = self.session.current_well
+        result = self._resampled_dataset
+        if well is None or result is None or result.dataset_id not in well.datasets:
+            raise RuntimeError("Нет ресэмплинга для отмены")
+        del well.datasets[result.dataset_id]
+        self.session.current_dataset_id = self._resample_source_id
+        self.session.dirty = True
+
+    def redo_resample(self) -> Dataset:
+        well = self.session.current_well
+        result = self._resampled_dataset
+        if well is None or result is None or result.dataset_id in well.datasets:
+            raise RuntimeError("Нет ресэмплинга для повтора")
         well.datasets[result.dataset_id] = result
         self.session.current_dataset_id = result.dataset_id
         self.session.dirty = True
