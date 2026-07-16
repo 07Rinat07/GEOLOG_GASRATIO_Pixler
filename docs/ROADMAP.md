@@ -157,7 +157,10 @@ Roadmap следует зависимостям продукта, а не ном
    - подробности: `docs/PLOTTING_REFERENCE_REVIEW.md`.
 9. **0.14 Correlation & Interchange**
    - корреляция скважин;
-   - DLIS/LIS после исследования библиотек и лицензий;
+   - общий artifact inventory/report для внешних больших datasets;
+   - DLIS v1/LIS79 read-only через optional `dlisio`, frame/channel mapping и QC;
+   - GIS foundation: CRS, GeoPackage, Shapefile compatibility и GeoTIFF через optional GDAL;
+   - типизированная Report Model и DOCX из версионированного шаблона;
    - WITSML после определения безопасного профиля подключения.
 10. **0.15 User Profiles & Personal Library**
    - готово: профиль инженера, имя, организация, стабильный ID и переключение;
@@ -170,6 +173,14 @@ Roadmap следует зависимостям продукта, а не ном
 11. **1.0 Stable**
    - восстановление, производительность, совместимость формата;
    - документация, установщик и регрессионная матрица.
+12. **1.1 Seismic, Reservoir & 3D**
+   - SEG-Y read-only inventory и windowed 2D viewer на optional `segyio`;
+   - chunked multidimensional storage через Xarray/HDF5/NetCDF;
+   - spatial/grid domain model и GRDECL/EGRID read-first adapter на optional XTGeo;
+   - PyVista/VTK 3D для скважин, поверхностей и ограниченных slices с level-of-detail;
+   - simulator-specific export profiles для Eclipse/CMG/tNavigator с preflight;
+   - RESCUE/Petrel compatibility spike без обещания поддержки до spec/fixtures/loss audit;
+   - подробности: `docs/INDUSTRY_FORMATS_PLAN.md`.
 
 ## Приоритеты после отраслевого аудита
 
@@ -180,15 +191,17 @@ Roadmap следует зависимостям продукта, а не ном
 4. Общий SelectionModel таблицы и графика, затем рабочее место сращивания/ресэмплинга.
 5. Единый command stack, граф зависимостей формул, UOM и словарь свойств PWLS.
 6. Пользовательские профили и личная библиотека после стабилизации схем формул/шаблонов.
-7. DLIS/RP66 как изолированный адаптер; WITSML 2.1/ETP 1.2 как сетевой коннектор.
+7. DLIS/RP66 как первый изолированный отраслевой адаптер, затем GIS/DOCX; WITSML 2.1/ETP 1.2
+   остаётся отдельным сетевым коннектором.
+8. SEG-Y и GRDECL не блокируют 1.0: они входят в 1.1 после artifact/chunk/spatial foundation.
 
 WITSML не реализуется внутри LAS-парсера. Его разработка начинается после нескольких
 индексов, типизированных каналов, UOM и устойчивого локального хранилища.
 
 ## Ближайший рекомендуемый срез
 
-`0.9 Table & Metadata Editor`: добавить операции с пропусками, интерполяцию и ресэмплинг с
-Undo/Redo, затем связать табличное выделение с графиком через общий SelectionModel. После
-этого начать Print Studio с CRUD сохранённых форм, редактора колонок и библиотеки
-обозначений. Параллельно подготовить метаданные владельца для личной библиотеки, не меняя
-проектные формулы до появления миграции и preview конфликтов.
+Завершить текущие незакрытые сценарии Table/Visualization/Print Studio и стабилизировать 1.0.
+Первый новый отраслевой vertical slice после этого: общая модель внешнего artifact и import
+report → read-only DLIS inventory → выбор frame/channels → импорт производного multi-index
+Dataset без изменения источника. GIS и DOCX используют ту же provenance/report foundation;
+SEG-Y и grid/3D начинаются после появления windowed/chunked storage boundary.

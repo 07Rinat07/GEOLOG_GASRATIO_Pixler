@@ -65,6 +65,14 @@ custom sections. `analyze_las_export()` выполняется до выбора
 
 Данные кривых хранятся в NumPy/колоночном хранилище. SQLite предназначен для метаданных, интервалов, каталогов и истории, а не для отдельной строки на каждый отсчёт.
 
+Отраслевые многомерные данные используют отдельную storage boundary: SEG-Y, GRDECL/EGRID,
+GeoTIFF, NetCDF и HDF5 остаются внешними content-addressed artifacts либо chunked datasets.
+Проект хранит fingerprint, inventory, mapping, CRS/units, provenance и производные previews.
+SQLite является первым локальным metadata repository; SQLAlchemy/PostgreSQL добавляется только
+для совместного серверного режима. NoSQL и хранение отдельной SQL-строки на каждый seismic/grid
+sample не входят в архитектуру. Матрица адаптеров и этапы описаны в
+`docs/INDUSTRY_FORMATS_PLAN.md`.
+
 Экранный рендер виртуализирован и рисует видимый диапазон. Печатный рендер работает в миллиметрах и формирует PDF постранично.
 
 ## Tablet Engine
