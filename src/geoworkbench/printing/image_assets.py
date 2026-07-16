@@ -118,6 +118,10 @@ def _validate_asset(asset_id: str, asset: ImageAsset) -> None:
         raise ImageAssetError("PNG asset превышает лимит 10 МБ")
 
 
+def validate_image_asset(asset_id: str, asset: ImageAsset) -> None:
+    _validate_asset(asset_id, asset)
+
+
 def _asset_directory(project_path: Path) -> Path:
     return project_path.parent / f"{project_path.name}.assets" / "images"
 

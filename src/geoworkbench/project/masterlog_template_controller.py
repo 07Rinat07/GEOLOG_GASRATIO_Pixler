@@ -39,6 +39,28 @@ class MasterlogTemplateController:
         self.session.dirty = True
         return template
 
+    def import_template(
+        self,
+        source: MasterlogTemplate,
+        image_assets: dict[str, ImageAsset],
+        name: str,
+    ) -> MasterlogTemplate:
+        normalized = self._validate_unique_name(name)
+        for asset_id, asset in image_assets.items():
+            existing = self.session.image_assets.get(asset_id)
+            if existing is not None and existing.payload != asset.payload:
+                raise ValueError(f"Конфликт содержимого PNG asset: {asset_id}")
+        template = replace(
+            deepcopy(source),
+            template_id=new_id(),
+            name=normalized,
+            version=1,
+        )
+        self.session.project.masterlog_templates[template.template_id] = template
+        self.session.image_assets.update(image_assets)
+        self.session.dirty = True
+        return template
+
     def rename(self, template_id: str, name: str) -> MasterlogTemplate:
         template = self._require(template_id)
         normalized = self._validate_unique_name(name, exclude_id=template_id)

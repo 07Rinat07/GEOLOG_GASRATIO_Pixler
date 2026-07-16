@@ -35,6 +35,11 @@ from geoworkbench.printing.masterlog_preflight import (
     MasterlogPreflightIssue,
     analyze_masterlog_output,
 )
+from geoworkbench.printing.masterlog_package import (
+    MasterlogPackageError,
+    export_masterlog_package,
+    load_masterlog_package,
+)
 from geoworkbench.ui.masterlog_output_dialog import MasterlogOutputDialog
 from geoworkbench.ui.masterlog_page_dialog import MasterlogPageDialog
 
@@ -66,6 +71,12 @@ class MasterlogTemplatesDialog(QDialog):
         self.print_preview_button = QPushButton(
             self._t("masterlog_preview.system_action")
         )
+        self.package_import_button = QPushButton(
+            self._t("masterlog_package.import_action")
+        )
+        self.package_export_button = QPushButton(
+            self._t("masterlog_package.export_action")
+        )
         self.delete_button = QPushButton(self._t("common.delete"))
         close_button = QPushButton(self._t("common.close"))
         self.create_button.clicked.connect(self._create)
@@ -78,6 +89,8 @@ class MasterlogTemplatesDialog(QDialog):
         self.preview_button.clicked.connect(self._preview)
         self.export_button.clicked.connect(self._export_pdf)
         self.print_preview_button.clicked.connect(self._system_preview)
+        self.package_import_button.clicked.connect(self._import_package)
+        self.package_export_button.clicked.connect(self._export_package)
         self.delete_button.clicked.connect(self._delete)
         close_button.clicked.connect(self.accept)
         buttons = QHBoxLayout()
@@ -92,6 +105,8 @@ class MasterlogTemplatesDialog(QDialog):
             self.preview_button,
             self.export_button,
             self.print_preview_button,
+            self.package_import_button,
+            self.package_export_button,
             self.delete_button,
         ):
             buttons.addWidget(button)
@@ -377,6 +392,81 @@ class MasterlogTemplatesDialog(QDialog):
                 **dict(issue.values),
             )
             for issue in issues
+        )
+
+    def _export_package(self) -> None:
+        template_id = self._selected_id()
+        if template_id is None:
+            return
+        template = self.controller.session.project.masterlog_templates[template_id]
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("masterlog_package.export_action"),
+            str(Path.cwd() / f"{template.name}.masterlog.json"),
+            "Masterlog JSON (*.json)",
+        )
+        if not filename:
+            return
+        target = Path(filename)
+        if target.suffix.casefold() != ".json":
+            target = target.with_suffix(".json")
+        if target.exists():
+            answer = QMessageBox.question(
+                self,
+                self.windowTitle(),
+                self._t("masterlog_preview.overwrite", name=target.name),
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        try:
+            export_masterlog_package(
+                template, self.controller.session, target, overwrite=True
+            )
+        except (OSError, MasterlogPackageError) as exc:
+            QMessageBox.critical(self, self.windowTitle(), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self.windowTitle(),
+            self._t("masterlog_package.exported", name=target.name),
+        )
+
+    def _import_package(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            self._t("masterlog_package.import_action"),
+            str(Path.cwd()),
+            "Masterlog JSON (*.json)",
+        )
+        if not filename:
+            return
+        try:
+            package = load_masterlog_package(filename)
+        except (OSError, MasterlogPackageError) as exc:
+            QMessageBox.critical(self, self.windowTitle(), str(exc))
+            return
+        answer = QMessageBox.question(
+            self,
+            self._t("masterlog_package.preview_title"),
+            self._t(
+                "masterlog_package.preview",
+                name=package.template.name,
+                columns=len(package.template.columns),
+                elements=len(package.template.header_elements),
+                assets=len(package.image_assets),
+            ),
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        name = self._ask_name(
+            self._t("masterlog_package.import_name"), package.template.name
+        )
+        if name is None:
+            return
+        self._run(
+            lambda: self.controller.import_template(
+                package.template, package.image_assets, name
+            )
         )
 
     def _run(self, operation: Callable[[], object]) -> None:
