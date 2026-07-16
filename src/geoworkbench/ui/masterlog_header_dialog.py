@@ -68,6 +68,18 @@ class HeaderElementDialog(QDialog):
             self.field_input.addItem(field_value)
         if isinstance(field_value, str):
             self.field_input.setCurrentText(field_value)
+        self.line_color_input = QLineEdit("#334155")
+        self.line_width_input = QDoubleSpinBox()
+        self.line_width_input.setRange(0.1, 20.0)
+        self.line_width_input.setDecimals(2)
+        self.line_width_input.setValue(0.6)
+        if element and element.element_type == "line":
+            color = element.properties.get("color")
+            width = element.properties.get("width")
+            if isinstance(color, str):
+                self.line_color_input.setText(color)
+            if isinstance(width, (int, float)) and not isinstance(width, bool):
+                self.line_width_input.setValue(float(width))
         layout = QFormLayout(self)
         layout.addRow(self.localizer.text("masterlog_header.type"), self.type_input)
         for label, control in zip(
@@ -84,8 +96,12 @@ class HeaderElementDialog(QDialog):
         self.text_label = QLabel(self.localizer.text("masterlog_header.text"))
         self.field_label = QLabel(self.localizer.text("masterlog_header.field"))
         self.properties_label = QLabel(self.localizer.text("masterlog_header.json"))
+        self.line_color_label = QLabel(self.localizer.text("masterlog_header.line_color"))
+        self.line_width_label = QLabel(self.localizer.text("masterlog_header.line_width"))
         layout.addRow(self.text_label, self.text_input)
         layout.addRow(self.field_label, self.field_input)
+        layout.addRow(self.line_color_label, self.line_color_input)
+        layout.addRow(self.line_width_label, self.line_width_input)
         layout.addRow(self.properties_label, self.properties_input)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -99,10 +115,14 @@ class HeaderElementDialog(QDialog):
     def _update_property_inputs(self, element_type: str) -> None:
         self.text_input.setVisible(element_type == "text")
         self.field_input.setVisible(element_type == "field")
-        self.properties_input.setVisible(element_type in {"image", "line"})
+        self.line_color_input.setVisible(element_type == "line")
+        self.line_width_input.setVisible(element_type == "line")
+        self.properties_input.setVisible(element_type == "image")
         self.text_label.setVisible(element_type == "text")
         self.field_label.setVisible(element_type == "field")
-        self.properties_label.setVisible(element_type in {"image", "line"})
+        self.line_color_label.setVisible(element_type == "line")
+        self.line_width_label.setVisible(element_type == "line")
+        self.properties_label.setVisible(element_type == "image")
 
     def values(self) -> tuple[str, float, float, float, float, dict[str, object]]:
         element_type = self.type_input.currentText()
@@ -110,6 +130,14 @@ class HeaderElementDialog(QDialog):
             properties: dict[str, object] = {"text": self.text_input.text()}
         elif element_type == "field":
             properties = {"field": self.field_input.currentText()}
+        elif element_type == "line":
+            color = QColor(self.line_color_input.text().strip())
+            if not color.isValid():
+                raise ValueError(self.localizer.text("masterlog_header.invalid_color"))
+            properties = {
+                "color": color.name(),
+                "width": self.line_width_input.value(),
+            }
         else:
             properties = json.loads(self.properties_input.text())
             if not isinstance(properties, dict):
@@ -201,6 +229,16 @@ class MasterlogHeaderDialog(QDialog):
             )
             item.setData(Qt.ItemDataRole.UserRole, element.element_id)
             self.list.addItem(item)
+            if element.element_type == "line":
+                line = self.preview_scene.addLine(
+                    element.x_mm,
+                    element.y_mm,
+                    element.x_mm + element.width_mm,
+                    element.y_mm + element.height_mm,
+                    self._line_pen(element),
+                )
+                line.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+                continue
             rectangle = self.preview_scene.addRect(
                 QRectF(
                     element.x_mm,
@@ -222,6 +260,22 @@ class MasterlogHeaderDialog(QDialog):
         self.preview.fitInView(
             self.preview_scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio
         )
+
+    @staticmethod
+    def _line_pen(element: MasterlogHeaderElement) -> QPen:
+        color_value = element.properties.get("color", "#334155")
+        width_value = element.properties.get("width", 0.6)
+        color = QColor(color_value) if isinstance(color_value, str) else QColor("#334155")
+        if not color.isValid():
+            color = QColor("#334155")
+        width = (
+            float(width_value)
+            if isinstance(width_value, (int, float))
+            and not isinstance(width_value, bool)
+            and 0.1 <= float(width_value) <= 20.0
+            else 0.6
+        )
+        return QPen(color, width)
 
     def _preview_text(self, element: MasterlogHeaderElement) -> str:
         if element.element_type == "text":

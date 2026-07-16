@@ -62,6 +62,39 @@ def test_header_element_dialog_preserves_unknown_legacy_field(qapp) -> None:
     dialog.close()
 
 
+def test_header_element_dialog_builds_line_properties(qapp) -> None:
+    dialog = HeaderElementDialog(language=AppLanguage.EN)
+    dialog.type_input.setCurrentText("line")
+    dialog.line_color_input.setText("#ff0000")
+    dialog.line_width_input.setValue(1.25)
+
+    assert dialog.values()[-1] == {"color": "#ff0000", "width": 1.25}
+    dialog.close()
+
+
+def test_header_preview_draws_line_with_safe_style_fallback(qapp) -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+    controller.add_header_element(
+        template.template_id,
+        element_type="line",
+        x_mm=5,
+        y_mm=6,
+        width_mm=80,
+        height_mm=10,
+        properties={"color": "invalid", "width": 1000},
+    )
+
+    dialog = MasterlogHeaderDialog(controller, template.template_id)
+    line = next(item for item in dialog.preview_scene.items() if hasattr(item, "line"))
+
+    assert line.pen().color().name() == "#334155"
+    assert line.pen().widthF() == 0.6
+    assert line.line().x2() == 85.0
+    assert line.line().y2() == 16.0
+    dialog.close()
+
+
 def test_header_preview_resolves_whitelisted_field_and_marks_unknown(qapp) -> None:
     controller = MasterlogTemplateController(ProjectSession())
     template = controller.create("Standard")

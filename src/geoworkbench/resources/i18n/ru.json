@@ -64,6 +64,8 @@
   "masterlog_header.x": "X, мм", "masterlog_header.y": "Y, мм", "masterlog_header.width": "Ширина, мм", "masterlog_header.height": "Высота, мм",
   "masterlog_header.text": "Текст", "masterlog_header.field": "Поле", "masterlog_header.json": "Свойства JSON",
   "masterlog_header.json_object": "Свойства должны быть JSON-объектом",
+  "masterlog_header.line_color": "Цвет линии", "masterlog_header.line_width": "Толщина линии",
+  "masterlog_header.invalid_color": "Укажите корректный цвет линии",
   "masterlog_templates.action": "Шаблоны мастерлога...", "masterlog_templates.title": "Шаблоны мастерлога",
   "masterlog_templates.item": "{name} — версия {version}", "masterlog_templates.select": "Выберите шаблон",
   "masterlog_templates.name": "Имя шаблона:", "masterlog_templates.create": "Создать шаблон",
