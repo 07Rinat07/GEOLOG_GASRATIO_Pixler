@@ -126,6 +126,24 @@ def test_header_element_dialog_stages_png_import_until_apply(qapp, tmp_path, mon
     dialog.close()
 
 
+def test_header_element_dialog_reuses_duplicate_project_png(qapp, tmp_path, monkeypatch) -> None:
+    source = tmp_path / "duplicate-name.png"
+    source.write_bytes(PNG)
+    asset = make_image_asset()
+    dialog = HeaderElementDialog(image_assets={asset.asset_id: asset})
+    monkeypatch.setattr(
+        "geoworkbench.ui.masterlog_header_dialog.QFileDialog.getOpenFileName",
+        lambda *args, **kwargs: (str(source), "PNG (*.png)"),
+    )
+
+    dialog._import_png()
+
+    assert dialog.imported_assets == {}
+    assert dialog.image_input.currentText() == "logo.png"
+    assert dialog.image_input.currentData() == asset.asset_id
+    dialog.close()
+
+
 def test_header_preview_draws_line_with_safe_style_fallback(qapp) -> None:
     controller = MasterlogTemplateController(ProjectSession())
     template = controller.create("Standard")

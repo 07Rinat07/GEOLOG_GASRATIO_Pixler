@@ -186,10 +186,12 @@ class HeaderElementDialog(QDialog):
         except (OSError, ImageAssetError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
-        self.imported_assets[asset.asset_id] = asset
+        selected_asset = self.image_assets.get(asset.asset_id)
+        if selected_asset is None:
+            selected_asset = self.imported_assets.setdefault(asset.asset_id, asset)
         index = self.image_input.findData(asset.asset_id)
         if index < 0:
-            self.image_input.addItem(asset.original_name, asset.asset_id)
+            self.image_input.addItem(selected_asset.original_name, selected_asset.asset_id)
             index = self.image_input.count() - 1
         self.image_input.setCurrentIndex(index)
 
