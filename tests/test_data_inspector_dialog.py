@@ -96,3 +96,21 @@ def test_data_inspector_dialog_uses_selected_language(qapp) -> None:
     assert "Direction: ascending" in dialog.depth_header_summary.toPlainText()
     assert buttons.button(QDialogButtonBox.StandardButton.Close).text() == "Close"
     dialog.close()
+
+
+def test_data_inspector_dialog_adds_empty_user_curve(qapp) -> None:
+    controller = make_controller()
+    dialog = DataInspectorDialog(controller, language=AppLanguage.EN)
+    dialog.curve_mnemonic.setText("ROP")
+    dialog.curve_unit.setText("m/h")
+    dialog.curve_description.setText("Rate of penetration")
+
+    dialog._add_curve()
+
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    curve = dataset.curve_by_mnemonic("ROP")
+    assert curve is not None
+    assert np.isnan(curve.values).all()
+    assert dialog.curve_table.rowCount() == 2
+    dialog.close()

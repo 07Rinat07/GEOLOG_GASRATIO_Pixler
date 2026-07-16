@@ -238,6 +238,7 @@
   "data.activate_index": "Сделать индекс активным", "data.evidence_warnings": "Обоснование и предупреждения",
   "data.indexes": "Индексы", "data.description": "Описание", "data.missing": "Пропусков",
   "data.curves": "Кривые", "data.severity": "Уровень", "data.code": "Код",
+  "data.add_curve": "Добавить кривую",
   "data.message": "Сообщение", "data.import_diagnostics": "Диагностика импорта",
   "data.las_source": "LAS-источник", "data.section": "Секция",
   "data.sync_depth": "Синхронизировать STRT/STOP/STEP", "data.apply_null": "Применить NULL",

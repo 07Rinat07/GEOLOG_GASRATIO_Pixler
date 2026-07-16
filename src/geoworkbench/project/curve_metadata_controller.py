@@ -3,7 +3,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field, replace
 
-from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset
+import numpy as np
+
+from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, new_id
 from geoworkbench.project.session import ProjectSession
 
 
@@ -16,12 +18,22 @@ class CurveMetadataCommand:
     description: str
 
 
+@dataclass(frozen=True, slots=True)
+class CurveCreationCommand:
+    dataset_id: str
+    curve: CurveData
+    description: str
+
+
+CurveCatalogCommand = CurveMetadataCommand | CurveCreationCommand
+
+
 @dataclass(slots=True)
 class CurveMetadataController:
     session: ProjectSession
     max_commands: int = 100
-    _undo_stack: list[CurveMetadataCommand] = field(default_factory=list, init=False)
-    _redo_stack: list[CurveMetadataCommand] = field(default_factory=list, init=False)
+    _undo_stack: list[CurveCatalogCommand] = field(default_factory=list, init=False)
+    _redo_stack: list[CurveCatalogCommand] = field(default_factory=list, init=False)
 
     _MNEMONIC = re.compile(r"^[A-Z][A-Z0-9_-]{0,31}$")
 
@@ -75,12 +87,54 @@ class CurveMetadataController:
         self._redo_stack.clear()
         self.session.dirty = True
 
+    def create(self, *, mnemonic: str, unit: str, description: str) -> CurveData:
+        dataset = self._dataset()
+        normalized_mnemonic = mnemonic.strip().upper()
+        normalized_unit = unit.strip() or None
+        normalized_description = description.strip() or None
+        self._validate(
+            dataset,
+            None,
+            normalized_mnemonic,
+            normalized_unit,
+            normalized_description,
+        )
+        curve_id = new_id()
+        curve = CurveData(
+            CurveMetadata(
+                curve_id=curve_id,
+                original_mnemonic=normalized_mnemonic,
+                canonical_mnemonic=None,
+                unit=normalized_unit,
+                description=normalized_description,
+                source_dataset_id=dataset.dataset_id,
+                provenance="user",
+            ),
+            np.full(dataset.depth.shape, np.nan, dtype=np.float64),
+        )
+        dataset.curves[curve_id] = curve
+        self._undo_stack.append(
+            CurveCreationCommand(
+                dataset.dataset_id,
+                curve,
+                f"Создание кривой {normalized_mnemonic}",
+            )
+        )
+        if len(self._undo_stack) > self.max_commands:
+            del self._undo_stack[0]
+        self._redo_stack.clear()
+        self.session.dirty = True
+        return curve
+
     def undo(self) -> str:
         if not self._undo_stack:
             raise RuntimeError("Нет изменений метаданных кривых для отмены")
         command = self._undo_stack[-1]
         self._require_current_command_dataset(command)
-        self._restore(command.curve, command.after, command.before)
+        if isinstance(command, CurveMetadataCommand):
+            self._restore(command.curve, command.after, command.before)
+        else:
+            self._remove_created_curve(command)
         self._undo_stack.pop()
         self._redo_stack.append(command)
         self.session.dirty = True
@@ -91,7 +145,10 @@ class CurveMetadataController:
             raise RuntimeError("Нет изменений метаданных кривых для повтора")
         command = self._redo_stack[-1]
         self._require_current_command_dataset(command)
-        self._restore(command.curve, command.before, command.after)
+        if isinstance(command, CurveMetadataCommand):
+            self._restore(command.curve, command.before, command.after)
+        else:
+            self._restore_created_curve(command)
         self._redo_stack.pop()
         self._undo_stack.append(command)
         self.session.dirty = True
@@ -104,14 +161,16 @@ class CurveMetadataController:
     def _validate(
         self,
         dataset: Dataset,
-        curve: CurveData,
+        curve: CurveData | None,
         mnemonic: str,
         unit: str | None,
         description: str | None,
     ) -> None:
         if not self._MNEMONIC.fullmatch(mnemonic):
             raise ValueError("Мнемоника: A–Z, затем A–Z, 0–9, '_' или '-', максимум 32 символа")
-        reserved = {index.mnemonic.casefold() for index in dataset.indexes.values()}
+        reserved = {"dept"} | {
+            index.mnemonic.casefold() for index in dataset.indexes.values()
+        }
         if mnemonic.casefold() in reserved:
             raise ValueError(f"Мнемоника зарезервирована индексом dataset: {mnemonic}")
         for existing in dataset.curves.values():
@@ -125,7 +184,7 @@ class CurveMetadataController:
         if description is not None and len(description) > 500:
             raise ValueError("Описание не должно превышать 500 символов")
 
-    def _require_current_command_dataset(self, command: CurveMetadataCommand) -> None:
+    def _require_current_command_dataset(self, command: CurveCatalogCommand) -> None:
         if self._dataset().dataset_id != command.dataset_id:
             raise RuntimeError("История относится к другому dataset")
 
@@ -134,6 +193,30 @@ class CurveMetadataController:
         if curve.metadata != expected:
             raise RuntimeError("Метаданные кривой были изменены вне истории команд")
         curve.metadata = replacement
+
+    def _remove_created_curve(self, command: CurveCreationCommand) -> None:
+        dataset = self._dataset()
+        if dataset.curves.get(command.curve.metadata.curve_id) is not command.curve:
+            raise RuntimeError("Созданная кривая была изменена вне истории команд")
+        if command.curve.version != 1 or not np.all(np.isnan(command.curve.values)):
+            raise RuntimeError(
+                "Кривая уже содержит пользовательские правки и не может быть удалена через Undo"
+            )
+        del dataset.curves[command.curve.metadata.curve_id]
+
+    def _restore_created_curve(self, command: CurveCreationCommand) -> None:
+        dataset = self._dataset()
+        curve_id = command.curve.metadata.curve_id
+        if curve_id in dataset.curves:
+            raise RuntimeError("Идентификатор созданной кривой уже занят")
+        self._validate(
+            dataset,
+            None,
+            command.curve.metadata.original_mnemonic,
+            command.curve.metadata.unit,
+            command.curve.metadata.description,
+        )
+        dataset.curves[curve_id] = command.curve
 
     @staticmethod
     def _curve(dataset: Dataset, curve_id: str) -> CurveData:

@@ -236,6 +236,7 @@
   "data.activate_index": "Индексті белсенді ету", "data.evidence_warnings": "Негіздеме мен ескертулер",
   "data.indexes": "Индекстер", "data.description": "Сипаттама", "data.missing": "Бос мәндер",
   "data.curves": "Қисықтар", "data.severity": "Деңгей", "data.code": "Код", "data.message": "Хабар",
+  "data.add_curve": "Қисық қосу",
   "data.import_diagnostics": "Импорт диагностикасы", "data.las_source": "LAS дереккөзі", "data.section": "Бөлім",
   "data.sync_depth": "STRT/STOP/STEP синхрондау", "data.apply_null": "NULL қолдану",
   "data.value": "Мән", "data.control": "Басқару", "data.las_header": "LAS тақырыбы",

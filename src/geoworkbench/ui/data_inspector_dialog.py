@@ -115,6 +115,7 @@ class DataInspectorDialog(QDialog):
         curves_layout.addLayout(curve_editor)
         curve_actions = QHBoxLayout()
         for label, handler in (
+            (self._t("data.add_curve"), self._add_curve),
             (self._t("common.update"), self._update_curve_metadata),
             (self._t("common.undo"), self._undo_curve_metadata),
             (self._t("common.redo"), self._redo_curve_metadata),
@@ -334,6 +335,15 @@ class DataInspectorDialog(QDialog):
         self._run_curve_metadata_action(
             lambda: self.curve_metadata_controller.update(
                 curve_id,
+                mnemonic=self.curve_mnemonic.text(),
+                unit=self.curve_unit.text(),
+                description=self.curve_description.text(),
+            )
+        )
+
+    def _add_curve(self) -> None:
+        self._run_curve_metadata_action(
+            lambda: self.curve_metadata_controller.create(
                 mnemonic=self.curve_mnemonic.text(),
                 unit=self.curve_unit.text(),
                 description=self.curve_description.text(),

@@ -101,3 +101,32 @@ def test_history_detects_external_metadata_change() -> None:
 
     with pytest.raises(RuntimeError, match="вне истории"):
         controller.undo()
+
+
+def test_create_curve_initializes_missing_values_and_supports_undo_redo() -> None:
+    controller = make_controller()
+
+    curve = controller.create(mnemonic="rop", unit="m/h", description="Penetration rate")
+
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    assert dataset.curves[curve.metadata.curve_id] is curve
+    assert curve.metadata.original_mnemonic == "ROP"
+    assert curve.metadata.provenance == "user"
+    assert np.isnan(curve.values).all()
+    controller.undo()
+    assert curve.metadata.curve_id not in dataset.curves
+    controller.redo()
+    assert dataset.curves[curve.metadata.curve_id] is curve
+
+
+def test_create_curve_rejects_export_index_and_undo_after_value_edit() -> None:
+    controller = make_controller()
+    with pytest.raises(ValueError, match="индексом"):
+        controller.create(mnemonic="DEPT", unit="m", description="Reserved")
+
+    curve = controller.create(mnemonic="ROP", unit="m/h", description="Rate")
+    curve.values[0] = 10.0
+    curve.version += 1
+    with pytest.raises(RuntimeError, match="пользовательские правки"):
+        controller.undo()
