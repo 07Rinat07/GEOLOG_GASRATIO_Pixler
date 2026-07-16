@@ -105,6 +105,8 @@ class UserProfileSettings:
             return PrintPageSettings(
                 PrintPageFormat(page_format),
                 PrintOrientation(orientation),
+                float(payload.get("custom_width_mm", 210.0)),
+                float(payload.get("custom_height_mm", 297.0)),
             )
         except (json.JSONDecodeError, TypeError, ValueError):
             return PrintPageSettings()
@@ -118,6 +120,8 @@ class UserProfileSettings:
                 {
                     "page_format": value.page_format.value,
                     "orientation": value.orientation.value,
+                    "custom_width_mm": value.custom_width_mm,
+                    "custom_height_mm": value.custom_height_mm,
                 }
             ),
         )

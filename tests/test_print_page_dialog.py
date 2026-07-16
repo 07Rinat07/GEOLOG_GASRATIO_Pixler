@@ -1,4 +1,5 @@
 from PySide6.QtGui import QPageLayout, QPageSize
+import pytest
 
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
@@ -20,11 +21,29 @@ def test_print_page_settings_map_to_qt_page_layout() -> None:
 
 def test_print_page_dialog_round_trips_settings(qapp) -> None:
     initial = PrintPageSettings(
-        PrintPageFormat.A3, PrintOrientation.LANDSCAPE
+        PrintPageFormat.CUSTOM, PrintOrientation.LANDSCAPE, 420.0, 900.0
     )
     dialog = PrintPageDialog(initial=initial, language=AppLanguage.EN)
 
     assert dialog.windowTitle() == "Page setup"
     assert dialog.page_settings() == initial
     assert dialog.orientation_combo.currentText() == "Landscape"
+    assert dialog.width_input.isEnabled() is True
+    assert dialog.width_input.value() == 420.0
     dialog.close()
+
+
+def test_custom_print_page_maps_millimeter_dimensions() -> None:
+    settings = PrintPageSettings(
+        PrintPageFormat.CUSTOM, PrintOrientation.PORTRAIT, 300.0, 1200.0
+    )
+
+    size = settings.qt_page_size.size(QPageSize.Unit.Millimeter)
+    assert size.width() == 300.0
+    assert size.height() == 1200.0
+
+
+@pytest.mark.parametrize("width", [0.0, 5000.1, float("nan"), True])
+def test_print_page_settings_reject_invalid_custom_width(width: object) -> None:
+    with pytest.raises(ValueError, match="ширина"):
+        PrintPageSettings(custom_width_mm=width)  # type: ignore[arg-type]

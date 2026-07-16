@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QFormLayout
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
+)
 
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
@@ -26,6 +32,9 @@ class PrintPageDialog(QDialog):
         self.format_combo = QComboBox()
         self.format_combo.addItem("A4", PrintPageFormat.A4.value)
         self.format_combo.addItem("A3", PrintPageFormat.A3.value)
+        self.format_combo.addItem(
+            self._t("print.custom"), PrintPageFormat.CUSTOM.value
+        )
         self.format_combo.setCurrentIndex(
             self.format_combo.findData(settings.page_format.value)
         )
@@ -39,10 +48,15 @@ class PrintPageDialog(QDialog):
         self.orientation_combo.setCurrentIndex(
             self.orientation_combo.findData(settings.orientation.value)
         )
+        self.width_input = self._dimension_input(settings.custom_width_mm)
+        self.height_input = self._dimension_input(settings.custom_height_mm)
+        self.format_combo.currentIndexChanged.connect(self._update_custom_enabled)
 
         layout = QFormLayout(self)
         layout.addRow(self._t("print.page_format"), self.format_combo)
         layout.addRow(self._t("print.orientation"), self.orientation_combo)
+        layout.addRow(self._t("print.width_mm"), self.width_input)
+        layout.addRow(self._t("print.height_mm"), self.height_input)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -53,6 +67,7 @@ class PrintPageDialog(QDialog):
             self._t("common.cancel")
         )
         layout.addRow(buttons)
+        self._update_custom_enabled()
 
     def _t(self, key: str) -> str:
         return self.localizer.text(key)
@@ -61,4 +76,20 @@ class PrintPageDialog(QDialog):
         return PrintPageSettings(
             PrintPageFormat(str(self.format_combo.currentData())),
             PrintOrientation(str(self.orientation_combo.currentData())),
+            self.width_input.value(),
+            self.height_input.value(),
         )
+
+    @staticmethod
+    def _dimension_input(value: float) -> QDoubleSpinBox:
+        control = QDoubleSpinBox()
+        control.setRange(25.0, 5000.0)
+        control.setDecimals(1)
+        control.setSuffix(" mm")
+        control.setValue(value)
+        return control
+
+    def _update_custom_enabled(self) -> None:
+        custom = self.format_combo.currentData() == PrintPageFormat.CUSTOM.value
+        self.width_input.setEnabled(custom)
+        self.height_input.setEnabled(custom)

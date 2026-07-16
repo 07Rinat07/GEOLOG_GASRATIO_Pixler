@@ -75,7 +75,7 @@ def test_print_page_settings_persist_per_active_profile() -> None:
     settings = UserProfileSettings(storage)
     first = settings.create("First")
     first_page = PrintPageSettings(
-        PrintPageFormat.A3, PrintOrientation.LANDSCAPE
+        PrintPageFormat.CUSTOM, PrintOrientation.LANDSCAPE, 420.0, 1200.0
     )
     settings.save_print_page_settings(first_page)
     second = settings.create("Second")
