@@ -31,14 +31,17 @@ class CurveView(QWidget):
         self._edit_mode = False
         self._draw_points: list[DrawPoint] = []
         self._displayed_curve_ids: tuple[str, ...] = ()
+        self._curve_items: dict[str, pg.PlotDataItem] = {}
         self._selection_region: pg.LinearRegionItem | None = None
         self._cursor_horizontal: pg.InfiniteLine | None = None
         self._cursor_vertical: pg.InfiniteLine | None = None
         self._applying_shared_selection = False
+        self._depth_range_guard = False
         self._plot = pg.PlotWidget()
         self._plot.showGrid(x=True, y=True, alpha=0.25)
         self._plot.setLabel("left", "Глубина", units="м")
         self._plot.setLabel("bottom", "Значение")
+        self._plot.sigYRangeChanged.connect(self._on_depth_range_changed)
         self._plot.viewport().installEventFilter(self)
         self._plot.viewport().setMouseTracking(True)
         self._title = QLabel("Откройте LAS-файл")
@@ -73,6 +76,7 @@ class CurveView(QWidget):
         self._editable_curve = None
         self._draw_points.clear()
         self._displayed_curve_ids = ()
+        self._curve_items.clear()
         self._plot.clear()
         self._selection_region = None
         self._cursor_horizontal = None
@@ -87,11 +91,14 @@ class CurveView(QWidget):
         return self._edit_mode
 
     def show_dataset(self, dataset: Dataset, selected: list[str] | None = None) -> None:
+        self._depth_range_guard = True
         self._dataset = dataset
         self._editable_curve = None
         self._draw_points.clear()
         self._displayed_curve_ids = ()
+        self._curve_items.clear()
         self._plot.clear()
+        self._plot.getViewBox().disableAutoRange(axis=pg.ViewBox.YAxis)
         self._selection_region = None
         self._cursor_horizontal = None
         self._cursor_vertical = None
@@ -99,6 +106,7 @@ class CurveView(QWidget):
         selected_names = selected or [
             curve.metadata.original_mnemonic for curve in list(dataset.curves.values())[:6]
         ]
+        finite_depth = dataset.depth[np.isfinite(dataset.depth)]
         if len(selected_names) == 1:
             self._editable_curve = dataset.curve_by_mnemonic(selected_names[0])
         count = 0
@@ -108,7 +116,6 @@ class CurveView(QWidget):
             if mnemonic not in selected_names:
                 continue
             values = np.asarray(curve.values, dtype=np.float64)
-            finite_depth = dataset.depth[np.isfinite(dataset.depth)]
             if finite_depth.size == 0:
                 continue
             visible_values, visible_depth = select_visible_samples(
@@ -120,13 +127,21 @@ class CurveView(QWidget):
             )
             if visible_depth.size == 0:
                 continue
-            self._plot.plot(visible_values, visible_depth, name=mnemonic)
+            self._curve_items[curve.metadata.curve_id] = self._plot.plot(
+                visible_values, visible_depth, name=mnemonic
+            )
             count += 1
             displayed_curve_ids.append(curve.metadata.curve_id)
         self._displayed_curve_ids = tuple(displayed_curve_ids)
         self._plot.getViewBox().invertY(True)
+        if finite_depth.size:
+            self._plot.setYRange(
+                float(np.min(finite_depth)),
+                float(np.max(finite_depth)),
+                padding=0,
+            )
+        self._depth_range_guard = False
         self._create_cursor_lines()
-        finite_depth = dataset.depth[np.isfinite(dataset.depth)]
         if finite_depth.size:
             self._selection_region = pg.LinearRegionItem(
                 values=(float(np.min(finite_depth)), float(np.max(finite_depth))),
@@ -152,6 +167,34 @@ class CurveView(QWidget):
         )
         if self._edit_mode and not self.can_edit:
             self.set_edit_mode(False)
+
+    def _update_visible_curve_data(self, top: float, bottom: float) -> None:
+        if self._dataset is None:
+            return
+        depth = np.asarray(self._dataset.depth, dtype=np.float64)
+        for curve_id, item in self._curve_items.items():
+            curve = self._dataset.curves.get(curve_id)
+            if curve is None:
+                item.setData([], [])
+                continue
+            values, visible_depth = select_visible_samples(
+                depth,
+                np.asarray(curve.values, dtype=np.float64),
+                top,
+                bottom,
+                max_points=MAX_RENDERED_POINTS,
+            )
+            item.setData(values, visible_depth)
+
+    def _on_depth_range_changed(self, _view_box, y_range) -> None:
+        if self._depth_range_guard:
+            return
+        top, bottom = sorted((float(y_range[0]), float(y_range[1])))
+        self._depth_range_guard = True
+        try:
+            self._update_visible_curve_data(top, bottom)
+        finally:
+            self._depth_range_guard = False
 
     def show_cursor_at_depth(self, depth: float, value: float | None = None) -> bool:
         dataset = self._dataset

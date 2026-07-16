@@ -145,6 +145,18 @@ def test_curve_view_cursor_requires_dataset_and_finite_depth(qapp) -> None:
     view.close()
 
 
+def test_curve_view_accepts_dataset_without_curves(qapp) -> None:
+    dataset, _ = make_dataset()
+    dataset.curves.clear()
+    view = CurveView()
+
+    view.show_dataset(dataset)
+
+    assert view._curve_items == {}
+    assert "показано кривых — 0" in view.title_text
+    view.close()
+
+
 def test_curve_view_limits_screen_points_but_preserves_peak(qapp) -> None:
     depth = np.arange(100_000, dtype=np.float64)
     dataset = Dataset(
@@ -168,5 +180,28 @@ def test_curve_view_limits_screen_points_but_preserves_peak(qapp) -> None:
     assert plotted_depth.size <= 5000
     assert np.max(plotted_values) == 1234.0
     assert 54_321.0 in plotted_depth
+    assert dataset.curves["curve"].values.size == 100_000
+    view.close()
+
+
+def test_curve_view_restores_full_detail_for_visible_depth_range(qapp) -> None:
+    depth = np.arange(100_000, dtype=np.float64)
+    dataset = Dataset("large", "Large", DatasetKind.GTI, DepthDomain.MD, depth)
+    values = np.sin(depth / 10.0)
+    curve = CurveData(
+        CurveMetadata("curve", "TG", "TG", "%", None, dataset.dataset_id),
+        values,
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = CurveView()
+    view.show_dataset(dataset, ["TG"])
+
+    view._plot.setYRange(50_000.0, 50_250.0, padding=0)
+    qapp.processEvents()
+
+    plotted_values, plotted_depth = view._curve_items["curve"].getData()
+    assert plotted_values is not None and plotted_depth is not None
+    np.testing.assert_array_equal(plotted_depth, depth[50_000:50_251])
+    np.testing.assert_allclose(plotted_values, values[50_000:50_251])
     assert dataset.curves["curve"].values.size == 100_000
     view.close()

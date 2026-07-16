@@ -15,9 +15,13 @@ def main() -> None:
     started = perf_counter()
     sampled_values, _ = select_visible_samples(depth, values, 0.0, 20_000.0)
     elapsed = perf_counter() - started
+    zoom_started = perf_counter()
+    zoom_values, _ = select_visible_samples(depth, values, 9_995.0, 10_005.0)
+    zoom_elapsed = perf_counter() - zoom_started
     print(
         f"source={count} rendered={sampled_values.size} "
-        f"peak={float(np.max(sampled_values)):g} elapsed={elapsed:.4f}s"
+        f"peak={float(np.max(sampled_values)):g} elapsed={elapsed:.4f}s "
+        f"zoom_rendered={zoom_values.size} zoom_elapsed={zoom_elapsed:.4f}s"
     )
 
 

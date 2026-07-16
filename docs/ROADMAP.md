@@ -150,7 +150,8 @@ Roadmap следует зависимостям продукта, а не ном
    - TIME↔DEPTH mapping, повторные проходы и профили агрегации.
 8. **Graph performance follow-up**
    - готово: depth-aware peak sampling до 5000 экранных точек для Curve View и Tablet View;
-   - готово: standalone benchmark на 2 млн отсчётов с проверкой сохранения пика;
+   - готово: пересэмплирование Curve View при зуме с возвратом исходной детализации;
+   - готово: standalone benchmark на 2 млн отсчётов для обзора и видимого depth-окна;
    - встроенные PyQtGraph `clipToView`/auto downsampling отклонены для depth-view из-за немонотонной X;
    - будущий Time View через `DateAxisItem` только поверх нормализованного времени;
    - подробности: `docs/PLOTTING_REFERENCE_REVIEW.md`.
