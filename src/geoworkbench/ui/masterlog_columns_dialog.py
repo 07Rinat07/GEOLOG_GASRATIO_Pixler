@@ -1,0 +1,176 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+)
+
+from geoworkbench.domain.models import MasterlogColumnTemplate, MasterlogTemplate
+from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
+from geoworkbench.services.localization import AppLanguage, Localizer
+
+
+class ColumnPropertiesDialog(QDialog):
+    def __init__(self, parent=None, *, column: MasterlogColumnTemplate | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Свойства колонки")
+        self.title_input = QLineEdit(column.title if column else "")
+        self.type_input = QComboBox()
+        self.type_input.setEditable(True)
+        self.type_input.addItems(["curves", "depth", "lithology", "text"])
+        if column:
+            self.type_input.setCurrentText(column.column_type)
+        self.width_input = QDoubleSpinBox()
+        self.width_input.setRange(5.0, 200.0)
+        self.width_input.setSuffix(" mm")
+        self.width_input.setValue(column.width_mm if column else 30.0)
+        self.curves_input = QLineEdit(
+            ", ".join(column.curve_mnemonics) if column else ""
+        )
+        layout = QFormLayout(self)
+        layout.addRow("Название", self.title_input)
+        layout.addRow("Тип", self.type_input)
+        layout.addRow("Ширина", self.width_input)
+        layout.addRow("Кривые", self.curves_input)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def values(self) -> tuple[str, str, float, list[str]]:
+        curves = [value.strip() for value in self.curves_input.text().split(",")]
+        return (
+            self.title_input.text(),
+            self.type_input.currentText(),
+            self.width_input.value(),
+            [value for value in curves if value],
+        )
+
+
+class MasterlogColumnsDialog(QDialog):
+    def __init__(
+        self,
+        controller: MasterlogTemplateController,
+        template_id: str,
+        parent=None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
+        super().__init__(parent)
+        self.controller = controller
+        self.template_id = template_id
+        self.localizer = Localizer.create(language)
+        self.setWindowTitle(self.localizer.text("masterlog_columns.title"))
+        self.resize(680, 420)
+        self.list = QListWidget()
+        buttons = QHBoxLayout()
+        for text, handler in (
+            (self.localizer.text("common.create"), self._add),
+            (self.localizer.text("common.edit"), self._edit),
+            ("←", lambda: self._move(-1)),
+            ("→", lambda: self._move(1)),
+            (self.localizer.text("common.delete"), self._remove),
+        ):
+            button = QPushButton(text)
+            button.clicked.connect(handler)
+            buttons.addWidget(button)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.list)
+        layout.addLayout(buttons)
+        self.refresh()
+
+    @property
+    def template(self) -> MasterlogTemplate:
+        return self.controller.session.project.masterlog_templates[self.template_id]
+
+    def refresh(self) -> None:
+        self.list.clear()
+        for column in self.template.columns:
+            curves = ", ".join(column.curve_mnemonics) or "—"
+            item = QListWidgetItem(
+                f"{column.title} | {column.column_type} | {column.width_mm:g} mm | {curves}"
+            )
+            item.setData(Qt.ItemDataRole.UserRole, column.column_id)
+            self.list.addItem(item)
+
+    def _selected_column(self) -> MasterlogColumnTemplate | None:
+        item = self.list.currentItem()
+        if item is None:
+            QMessageBox.information(self, self.windowTitle(), "Выберите колонку")
+            return None
+        column_id = str(item.data(Qt.ItemDataRole.UserRole))
+        return next(column for column in self.template.columns if column.column_id == column_id)
+
+    def _add(self) -> None:
+        dialog = ColumnPropertiesDialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        title, column_type, width, curves = dialog.values()
+        self._run(
+            lambda: self.controller.add_column(
+                self.template_id,
+                title=title,
+                column_type=column_type,
+                width_mm=width,
+                curve_mnemonics=curves,
+            )
+        )
+
+    def _edit(self) -> None:
+        column = self._selected_column()
+        if column is None:
+            return
+        dialog = ColumnPropertiesDialog(self, column=column)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        title, column_type, width, curves = dialog.values()
+        self._run(
+            lambda: self.controller.update_column(
+                self.template_id,
+                column.column_id,
+                title=title,
+                column_type=column_type,
+                width_mm=width,
+                curve_mnemonics=curves,
+            )
+        )
+
+    def _remove(self) -> None:
+        column = self._selected_column()
+        if column is not None:
+            self._run(
+                lambda: self.controller.remove_column(
+                    self.template_id, column.column_id
+                )
+            )
+
+    def _move(self, offset: int) -> None:
+        column = self._selected_column()
+        if column is not None:
+            self._run(
+                lambda: self.controller.move_column(
+                    self.template_id, column.column_id, offset
+                )
+            )
+
+    def _run(self, operation: Callable[[], object]) -> None:
+        try:
+            operation()
+        except (KeyError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+        self.refresh()

@@ -31,3 +31,53 @@ def test_masterlog_template_rejects_duplicate_name() -> None:
 
     with pytest.raises(ValueError, match="существует"):
         controller.create(" standard ")
+
+
+def test_masterlog_template_controller_manages_column_lifecycle() -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+    first = controller.add_column(
+        template.template_id,
+        title="Depth",
+        column_type="depth",
+        width_mm=15.0,
+    )
+    second = controller.add_column(
+        template.template_id,
+        title="Gas",
+        column_type="curves",
+        width_mm=35.0,
+        curve_mnemonics=["C1", "C2", "C1"],
+    )
+
+    assert second.curve_mnemonics == ["C1", "C2"]
+    assert controller.move_column(template.template_id, second.column_id, -1) is True
+    updated = controller.update_column(
+        template.template_id,
+        first.column_id,
+        title="Measured depth",
+        column_type="depth",
+        width_mm=20.0,
+        curve_mnemonics=[],
+    )
+    assert updated.width_mm == 20.0
+    assert [column.column_id for column in template.columns] == [
+        second.column_id,
+        first.column_id,
+    ]
+    controller.remove_column(template.template_id, second.column_id)
+    assert [column.column_id for column in template.columns] == [first.column_id]
+    assert template.version == 6
+
+
+def test_masterlog_column_rejects_unsafe_width() -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+
+    with pytest.raises(ValueError, match="5 до 200"):
+        controller.add_column(
+            template.template_id,
+            title="Bad",
+            column_type="curves",
+            width_mm=2.0,
+        )

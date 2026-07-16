@@ -56,6 +56,7 @@
   "common.redo": "Redo",
   "common.close": "Close",
   "common.create": "Create", "common.copy": "Copy", "common.rename": "Rename", "common.delete": "Delete",
+  "common.edit": "Edit", "masterlog_columns.action": "Columns...", "masterlog_columns.title": "Masterlog columns",
   "masterlog_templates.action": "Masterlog templates...", "masterlog_templates.title": "Masterlog templates",
   "masterlog_templates.item": "{name} — version {version}", "masterlog_templates.select": "Select a template",
   "masterlog_templates.name": "Template name:", "masterlog_templates.create": "Create template",

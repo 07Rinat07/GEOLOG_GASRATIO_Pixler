@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.masterlog_columns_dialog import MasterlogColumnsDialog
 
 
 class MasterlogTemplatesDialog(QDialog):
@@ -36,11 +37,13 @@ class MasterlogTemplatesDialog(QDialog):
         self.create_button = QPushButton(self._t("common.create"))
         self.copy_button = QPushButton(self._t("common.copy"))
         self.rename_button = QPushButton(self._t("common.rename"))
+        self.columns_button = QPushButton(self._t("masterlog_columns.action"))
         self.delete_button = QPushButton(self._t("common.delete"))
         close_button = QPushButton(self._t("common.close"))
         self.create_button.clicked.connect(self._create)
         self.copy_button.clicked.connect(self._copy)
         self.rename_button.clicked.connect(self._rename)
+        self.columns_button.clicked.connect(self._edit_columns)
         self.delete_button.clicked.connect(self._delete)
         close_button.clicked.connect(self.accept)
         buttons = QHBoxLayout()
@@ -48,6 +51,7 @@ class MasterlogTemplatesDialog(QDialog):
             self.create_button,
             self.copy_button,
             self.rename_button,
+            self.columns_button,
             self.delete_button,
         ):
             buttons.addWidget(button)
@@ -123,6 +127,18 @@ class MasterlogTemplatesDialog(QDialog):
         template_id = self._selected_id()
         if template_id is not None:
             self._run(lambda: self.controller.delete(template_id))
+
+    def _edit_columns(self) -> None:
+        template_id = self._selected_id()
+        if template_id is None:
+            return
+        MasterlogColumnsDialog(
+            self.controller,
+            template_id,
+            self,
+            language=self.localizer.language,
+        ).exec()
+        self.refresh()
 
     def _run(self, operation: Callable[[], object]) -> None:
         try:
