@@ -17,6 +17,7 @@ from geoworkbench.printing.masterlog_renderer import (
     configure_masterlog_printer,
     export_masterlog_pdf,
     masterlog_depth_range,
+    masterlog_column_groups,
     masterlog_page_ranges,
     masterlog_size_mm,
     render_masterlog_to_printer,
@@ -221,3 +222,42 @@ def test_masterlog_custom_page_size_controls_pagination(qapp, tmp_path) -> None:
     target = tmp_path / "custom.pdf"
     export_masterlog_pdf(template, session, target)
     assert b"/Count 2" in target.read_bytes()
+
+
+def test_masterlog_orientation_controls_horizontal_column_groups() -> None:
+    template = make_template()
+    template.page_format = "A4"
+    template.columns = [
+        MasterlogColumnTemplate(f"column-{index}", f"Column {index}", "curves", 80.0)
+        for index in range(3)
+    ]
+
+    portrait = masterlog_column_groups(template, 210.0)
+    template.properties["orientation"] = "landscape"
+    landscape = masterlog_column_groups(template, 297.0)
+
+    assert [len(group) for group in portrait] == [2, 1]
+    assert [len(group) for group in landscape] == [3]
+
+
+def test_masterlog_pdf_combines_column_and_depth_pages(qapp, tmp_path) -> None:
+    dataset = Dataset(
+        "dataset-wide",
+        "Wide log",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(100.0, 300.0, 201),
+    )
+    session = ProjectSession()
+    session.add_dataset(dataset, "Well")
+    template = make_template()
+    template.page_format = "A4"
+    template.columns = [
+        MasterlogColumnTemplate(f"column-{index}", f"Column {index}", "curves", 80.0)
+        for index in range(3)
+    ]
+    target = tmp_path / "wide.pdf"
+
+    export_masterlog_pdf(template, session, target)
+
+    assert b"/Count 4" in target.read_bytes()

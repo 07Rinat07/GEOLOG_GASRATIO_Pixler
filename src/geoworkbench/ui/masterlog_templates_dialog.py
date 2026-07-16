@@ -207,7 +207,7 @@ class MasterlogTemplatesDialog(QDialog):
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        page_format, scale, header, width, height = dialog.values()
+        page_format, orientation, scale, header, width, height = dialog.values()
         self._run(
             lambda: self.controller.configure_page(
                 template_id,
@@ -216,6 +216,7 @@ class MasterlogTemplatesDialog(QDialog):
                 header_height_mm=header,
                 custom_width_mm=width,
                 custom_height_mm=height,
+                orientation=orientation,
             )
         )
 

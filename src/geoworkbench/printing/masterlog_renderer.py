@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Protocol
 
 import numpy as np
@@ -46,9 +47,9 @@ def masterlog_size_mm(
 ) -> QSizeF:
     columns_width = sum(column.width_mm for column in template.columns)
     minimum_width = (
-        _custom_page_size_mm(template).width()
-        if template.page_format.casefold() == "custom"
-        else 210.0 if template.page_format.casefold() != "roll" else 0.0
+        _fixed_page_size_mm(template).width()
+        if template.page_format.casefold() != "roll"
+        else 0.0
     )
     width = max(25.0, columns_width, minimum_width)
     if depth_range is None and session is not None:
@@ -101,6 +102,30 @@ def masterlog_page_ranges(
     return tuple(ranges)
 
 
+def masterlog_column_groups(
+    template: MasterlogTemplate, page_width_mm: float
+) -> tuple[tuple[MasterlogColumnTemplate, ...], ...]:
+    if template.page_format.casefold() == "roll" or not template.columns:
+        return (tuple(template.columns),)
+    groups: list[tuple[MasterlogColumnTemplate, ...]] = []
+    current: list[MasterlogColumnTemplate] = []
+    current_width = 0.0
+    for column in template.columns:
+        if column.width_mm > page_width_mm:
+            raise MasterlogRenderError(
+                f"Колонка '{column.title}' шире печатной страницы"
+            )
+        if current and current_width + column.width_mm > page_width_mm:
+            groups.append(tuple(current))
+            current = []
+            current_width = 0.0
+        current.append(column)
+        current_width += column.width_mm
+    if current:
+        groups.append(tuple(current))
+    return tuple(groups)
+
+
 def masterlog_depth_range(session: ProjectSession | None) -> tuple[float, float] | None:
     dataset = session.current_dataset if session is not None else None
     if dataset is None:
@@ -125,6 +150,7 @@ def paint_masterlog(
     depth_range: tuple[float, float] | None = None,
     canvas_size_mm: QSizeF | None = None,
     page_label: str | None = None,
+    columns: Sequence[MasterlogColumnTemplate] | None = None,
 ) -> None:
     effective_range = depth_range or masterlog_depth_range(session)
     size = canvas_size_mm or masterlog_size_mm(
@@ -145,7 +171,14 @@ def paint_masterlog(
     )
     for element in template.header_elements:
         _paint_header_element(painter, element, session)
-    _paint_columns(painter, template, size, session, effective_range)
+    _paint_columns(
+        painter,
+        template,
+        size,
+        session,
+        effective_range,
+        columns if columns is not None else template.columns,
+    )
     if page_label:
         font = QFont()
         font.setPointSizeF(6.5)
@@ -182,6 +215,7 @@ def export_masterlog_pdf(
     try:
         writer = QPdfWriter(str(temporary))
         writer.setPageSize(_page_size(template, session, settings))
+        writer.setPageOrientation(_page_orientation(template))
         writer.setPageMargins(QMarginsF(0.0, 0.0, 0.0, 0.0), QPageLayout.Unit.Millimeter)
         writer.setResolution(300)
         writer.setTitle(template.name)
@@ -213,6 +247,7 @@ def configure_masterlog_printer(
     settings: MasterlogOutputSettings | None = None,
 ) -> None:
     printer.setPageSize(_page_size(template, session, settings))
+    printer.setPageOrientation(_page_orientation(template))
     printer.setPageMargins(
         QMarginsF(0.0, 0.0, 0.0, 0.0), QPageLayout.Unit.Millimeter
     )
@@ -246,9 +281,11 @@ def paint_masterlog_pages(
     page_size_mm = device.pageLayout().fullRect(QPageLayout.Unit.Millimeter).size()
     page_ranges = masterlog_page_ranges(template, session, settings)
     segments: tuple[tuple[float, float] | None, ...] = page_ranges or (None,)
+    groups = masterlog_column_groups(template, page_size_mm.width())
+    pages = tuple((group, segment) for group in groups for segment in segments)
     language = settings.language if settings is not None else AppLanguage.RU
     localizer = Localizer.create(language)
-    for page_index, page_range in enumerate(segments):
+    for page_index, (columns, page_range) in enumerate(pages):
         if page_index and not device.newPage():
             raise MasterlogRenderError("Не удалось создать следующую страницу masterlog")
         paint_masterlog(
@@ -259,8 +296,9 @@ def paint_masterlog_pages(
             depth_range=page_range,
             canvas_size_mm=page_size_mm,
             page_label=localizer.text(
-                "masterlog_output.page", page=page_index + 1, pages=len(segments)
+                "masterlog_output.page", page=page_index + 1, pages=len(pages)
             ),
+            columns=columns,
         )
 
 
@@ -289,10 +327,14 @@ def _page_size(
 
 def _fixed_page_size_mm(template: MasterlogTemplate) -> QSizeF:
     if template.page_format.upper() == "A3":
-        return QSizeF(297.0, 420.0)
-    if template.page_format.casefold() == "custom":
-        return _custom_page_size_mm(template)
-    return QSizeF(210.0, 297.0)
+        size = QSizeF(297.0, 420.0)
+    elif template.page_format.casefold() == "custom":
+        size = _custom_page_size_mm(template)
+    else:
+        size = QSizeF(210.0, 297.0)
+    if _page_orientation(template) is QPageLayout.Orientation.Landscape:
+        return QSizeF(size.height(), size.width())
+    return size
 
 
 def _custom_page_size_mm(template: MasterlogTemplate) -> QSizeF:
@@ -313,6 +355,14 @@ def _custom_page_size_mm(template: MasterlogTemplate) -> QSizeF:
         else 297.0
     )
     return QSizeF(valid_width, valid_height)
+
+
+def _page_orientation(template: MasterlogTemplate) -> QPageLayout.Orientation:
+    return (
+        QPageLayout.Orientation.Landscape
+        if template.properties.get("orientation") == "landscape"
+        else QPageLayout.Orientation.Portrait
+    )
 
 
 def _depth_scale(template: MasterlogTemplate) -> int:
@@ -358,12 +408,13 @@ def _paint_columns(
     size: QSizeF,
     session: ProjectSession,
     depth_range: tuple[float, float] | None,
+    columns: Sequence[MasterlogColumnTemplate],
 ) -> None:
     x = 0.0
     top = template.header_height_mm
     header_height = 12.0
     dataset = session.current_dataset
-    for column in template.columns:
+    for column in columns:
         rect = QRectF(x, top, column.width_mm, size.height() - top)
         painter.setPen(QPen(QColor("#334155"), 0.25))
         painter.drawRect(rect)

@@ -141,7 +141,11 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
         name="Standard Masterlog",
         page_format="A3",
         depth_scale=200,
-        properties={"custom_width_mm": 250.0, "custom_height_mm": 500.0},
+        properties={
+            "custom_width_mm": 250.0,
+            "custom_height_mm": 500.0,
+            "orientation": "landscape",
+        },
         header_elements=[
             MasterlogHeaderElement(
                 "logo", "image", 5.0, 5.0, 30.0, 20.0, {"asset_ref": "sha256:logo"}
@@ -183,6 +187,7 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
     assert template.page_format == "A3"
     assert template.properties["custom_width_mm"] == 250.0
     assert template.properties["custom_height_mm"] == 500.0
+    assert template.properties["orientation"] == "landscape"
     assert template.columns[0].curve_mnemonics == ["TG", "C1"]
     assert template.columns[0].x_scale == "logarithmic"
     assert template.columns[0].show_legend is False

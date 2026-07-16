@@ -223,6 +223,7 @@ def test_masterlog_template_controller_configures_page_geometry() -> None:
         header_height_mm=35.0,
         custom_width_mm=250.0,
         custom_height_mm=500.0,
+        orientation="landscape",
     )
 
     assert updated.page_format == "custom"
@@ -230,6 +231,7 @@ def test_masterlog_template_controller_configures_page_geometry() -> None:
     assert updated.header_height_mm == 35.0
     assert updated.properties["custom_width_mm"] == 250.0
     assert updated.properties["custom_height_mm"] == 500.0
+    assert updated.properties["orientation"] == "landscape"
     assert updated.version == 2
     with pytest.raises(ValueError):
         controller.configure_page(

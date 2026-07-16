@@ -85,6 +85,7 @@
   "masterlog_page.format": "Format", "masterlog_page.scale": "Scale 1:N", "masterlog_page.header_height": "Header height, mm",
   "masterlog_page.width": "Width, mm", "masterlog_page.height": "Height, mm",
   "masterlog_page.a4": "A4", "masterlog_page.a3": "A3", "masterlog_page.custom": "Custom", "masterlog_page.roll": "Roll",
+  "masterlog_page.orientation": "Orientation", "masterlog_page.portrait": "Portrait", "masterlog_page.landscape": "Landscape",
   "masterlog_templates.action": "Masterlog templates...", "masterlog_templates.title": "Masterlog templates",
   "masterlog_templates.item": "{name} — version {version}", "masterlog_templates.select": "Select a template",
   "masterlog_templates.name": "Template name:", "masterlog_templates.create": "Create template",

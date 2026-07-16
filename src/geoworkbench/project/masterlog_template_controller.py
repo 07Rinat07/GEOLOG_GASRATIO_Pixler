@@ -56,6 +56,7 @@ class MasterlogTemplateController:
         header_height_mm: float,
         custom_width_mm: float = 210.0,
         custom_height_mm: float = 297.0,
+        orientation: str = "portrait",
     ) -> MasterlogTemplate:
         template = self._require(template_id)
         formats = {"a4": "A4", "a3": "A3", "custom": "custom", "roll": "roll"}
@@ -79,9 +80,17 @@ class MasterlogTemplateController:
             raise ValueError("Высота шапки masterlog должна быть от 5 до 500 мм")
         if not 25.0 <= custom_width_mm <= 5000.0 or not 25.0 <= custom_height_mm <= 5000.0:
             raise ValueError("Пользовательский лист должен быть от 25 до 5000 мм")
-        page_height = {"A4": 297.0, "A3": 420.0, "custom": custom_height_mm}.get(
-            normalized_format
-        )
+        normalized_orientation = orientation.strip().casefold()
+        if normalized_orientation not in {"portrait", "landscape"}:
+            raise ValueError("Ориентация masterlog должна быть portrait или landscape")
+        page_height = {
+            ("A4", "portrait"): 297.0,
+            ("A4", "landscape"): 210.0,
+            ("A3", "portrait"): 420.0,
+            ("A3", "landscape"): 297.0,
+            ("custom", "portrait"): custom_height_mm,
+            ("custom", "landscape"): custom_width_mm,
+        }.get((normalized_format, normalized_orientation))
         if page_height is not None and header_height_mm + 12.0 >= page_height:
             raise ValueError("Высота шапки не оставляет места для глубинных колонок")
         template.page_format = normalized_format
@@ -89,6 +98,7 @@ class MasterlogTemplateController:
         template.header_height_mm = float(header_height_mm)
         template.properties["custom_width_mm"] = float(custom_width_mm)
         template.properties["custom_height_mm"] = float(custom_height_mm)
+        template.properties["orientation"] = normalized_orientation
         self._touch(template)
         return template
 

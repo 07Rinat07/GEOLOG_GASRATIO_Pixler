@@ -39,6 +39,16 @@ class MasterlogPageDialog(QDialog):
         self.header_input.setRange(5.0, 500.0)
         self.header_input.setDecimals(1)
         self.header_input.setValue(template.header_height_mm)
+        self.orientation_input = QComboBox()
+        for value in ("portrait", "landscape"):
+            self.orientation_input.addItem(
+                self.localizer.text(f"masterlog_page.{value}"), value
+            )
+        orientation = template.properties.get("orientation", "portrait")
+        orientation_index = self.orientation_input.findData(orientation)
+        self.orientation_input.setCurrentIndex(
+            orientation_index if orientation_index >= 0 else 0
+        )
         self.width_input = QDoubleSpinBox()
         self.height_input = QDoubleSpinBox()
         for control, key, fallback in (
@@ -62,6 +72,9 @@ class MasterlogPageDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout = QFormLayout(self)
         layout.addRow(self.localizer.text("masterlog_page.format"), self.format_input)
+        layout.addRow(
+            self.localizer.text("masterlog_page.orientation"), self.orientation_input
+        )
         layout.addRow(self.localizer.text("masterlog_page.scale"), self.scale_input)
         layout.addRow(self.localizer.text("masterlog_page.header_height"), self.header_input)
         layout.addRow(self.width_label, self.width_input)
@@ -80,9 +93,10 @@ class MasterlogPageDialog(QDialog):
         ):
             widget.setVisible(visible)
 
-    def values(self) -> tuple[str, int, float, float, float]:
+    def values(self) -> tuple[str, str, int, float, float, float]:
         return (
             str(self.format_input.currentData()),
+            str(self.orientation_input.currentData()),
             self.scale_input.value(),
             self.header_input.value(),
             self.width_input.value(),

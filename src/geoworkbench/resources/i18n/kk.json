@@ -85,6 +85,7 @@
   "masterlog_page.format": "Пішім", "masterlog_page.scale": "Масштаб 1:N", "masterlog_page.header_height": "Тақырып биіктігі, мм",
   "masterlog_page.width": "Ені, мм", "masterlog_page.height": "Биіктігі, мм",
   "masterlog_page.a4": "A4", "masterlog_page.a3": "A3", "masterlog_page.custom": "Пайдаланушы", "masterlog_page.roll": "Орам",
+  "masterlog_page.orientation": "Бағдар", "masterlog_page.portrait": "Кітаптық", "masterlog_page.landscape": "Альбомдық",
   "masterlog_templates.action": "Мастерлог үлгілері...", "masterlog_templates.title": "Мастерлог үлгілері",
   "masterlog_templates.item": "{name} — {version} нұсқа", "masterlog_templates.select": "Үлгіні таңдаңыз",
   "masterlog_templates.name": "Үлгі атауы:", "masterlog_templates.create": "Үлгі жасау",

@@ -85,6 +85,7 @@
   "masterlog_page.format": "Формат", "masterlog_page.scale": "Масштаб 1:N", "masterlog_page.header_height": "Высота шапки, мм",
   "masterlog_page.width": "Ширина, мм", "masterlog_page.height": "Высота, мм",
   "masterlog_page.a4": "A4", "masterlog_page.a3": "A3", "masterlog_page.custom": "Пользовательский", "masterlog_page.roll": "Рулон",
+  "masterlog_page.orientation": "Ориентация", "masterlog_page.portrait": "Книжная", "masterlog_page.landscape": "Альбомная",
   "masterlog_templates.action": "Шаблоны мастерлога...", "masterlog_templates.title": "Шаблоны мастерлога",
   "masterlog_templates.item": "{name} — версия {version}", "masterlog_templates.select": "Выберите шаблон",
   "masterlog_templates.name": "Имя шаблона:", "masterlog_templates.create": "Создать шаблон",
