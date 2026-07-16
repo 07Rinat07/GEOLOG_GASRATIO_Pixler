@@ -344,6 +344,25 @@ def test_window_exports_active_curve_view_to_png(qapp, tmp_path, monkeypatch) ->
     window.close()
 
 
+def test_window_exports_active_tablet_to_pdf(qapp, tmp_path, monkeypatch) -> None:
+    window = MainWindow()
+    window.resize(800, 600)
+    window.show()
+    window.tabs.setCurrentWidget(window.tablet_view)
+    qapp.processEvents()
+    target = tmp_path / "tablet.pdf"
+    monkeypatch.setattr(
+        QFileDialog,
+        "getSaveFileName",
+        lambda *args, **kwargs: (str(target), "PDF (*.pdf)"),
+    )
+
+    window.export_active_visualization("pdf")
+
+    assert target.read_bytes().startswith(b"%PDF-")
+    window.close()
+
+
 def test_window_saves_and_applies_export_curve_profile(qapp, monkeypatch) -> None:
     window = MainWindow()
     session, _ = make_session()

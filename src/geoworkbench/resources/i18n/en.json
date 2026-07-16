@@ -113,6 +113,7 @@
   "visual_export.title": "Visualization export",
   "visual_export.png_action": "Export current chart/tablet to PNG...",
   "visual_export.svg_action": "Export current chart/tablet to SVG...",
+  "visual_export.pdf_action": "Export current chart/tablet to PDF...",
   "visual_export.select_view": "Open the chart or tablet tab",
   "visual_export.save_title": "Export visualization",
   "visual_export.success": "Visualization exported: {name}",

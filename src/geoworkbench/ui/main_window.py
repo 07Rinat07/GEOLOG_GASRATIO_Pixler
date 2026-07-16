@@ -44,6 +44,7 @@ from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.data.selection_export import SelectionExportError
 from geoworkbench.data.visualization_export import (
     VisualizationExportError,
+    export_widget_pdf,
     export_widget_png,
     export_widget_svg,
 )
@@ -292,6 +293,9 @@ class MainWindow(QMainWindow):
         export_svg_action = QAction(self._t("visual_export.svg_action"), self)
         export_svg_action.triggered.connect(lambda: self.export_active_visualization("svg"))
         file_menu.addAction(export_svg_action)
+        export_pdf_action = QAction(self._t("visual_export.pdf_action"), self)
+        export_pdf_action.triggered.connect(lambda: self.export_active_visualization("pdf"))
+        file_menu.addAction(export_pdf_action)
         file_menu.addSeparator()
         save_export_profile_action = QAction(self._t("export_profile.save"), self)
         save_export_profile_action.triggered.connect(self.save_export_profile)
@@ -1022,8 +1026,15 @@ class MainWindow(QMainWindow):
                 self._t("visual_export.select_view"),
             )
             return
-        suffix = ".svg" if export_format == "svg" else ".png"
-        file_filter = "SVG (*.svg)" if export_format == "svg" else "PNG (*.png)"
+        formats = {
+            "png": (".png", "PNG (*.png)"),
+            "svg": (".svg", "SVG (*.svg)"),
+            "pdf": (".pdf", "PDF (*.pdf)"),
+        }
+        try:
+            suffix, file_filter = formats[export_format]
+        except KeyError as exc:
+            raise ValueError(f"Неподдерживаемый формат визуализации: {export_format}") from exc
         view_name = "tablet" if current is self.tablet_view else "curves"
         target_name = f"{view_name}{suffix}"
         filename, _ = QFileDialog.getSaveFileName(
@@ -1041,11 +1052,12 @@ class MainWindow(QMainWindow):
         if overwrite is None:
             return
         try:
-            exported = (
-                export_widget_svg(current, target, overwrite=overwrite)
-                if export_format == "svg"
-                else export_widget_png(current, target, overwrite=overwrite)
-            )
+            exporters = {
+                "png": export_widget_png,
+                "svg": export_widget_svg,
+                "pdf": export_widget_pdf,
+            }
+            exported = exporters[export_format](current, target, overwrite=overwrite)
         except (FileExistsError, OSError, VisualizationExportError) as exc:
             QMessageBox.critical(self, self._t("visual_export.title"), str(exc))
             self._log(self._t("visual_export.failed", error=str(exc)))

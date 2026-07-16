@@ -3,6 +3,7 @@ import pytest
 
 from geoworkbench.data.visualization_export import (
     VisualizationExportError,
+    export_widget_pdf,
     export_widget_png,
     export_widget_svg,
 )
@@ -21,6 +22,20 @@ def test_visualization_export_writes_valid_png_and_svg(qapp, tmp_path) -> None:
     svg_text = svg.read_text(encoding="utf-8")
     assert "<svg" in svg_text
     assert "GEOLOG visualization" in svg_text
+    widget.close()
+
+
+def test_visualization_export_writes_valid_pdf(qapp, tmp_path) -> None:
+    widget = QLabel("GEOLOG PDF")
+    widget.resize(640, 360)
+    widget.show()
+    qapp.processEvents()
+
+    target = export_widget_pdf(widget, tmp_path / "plot.pdf")
+
+    payload = target.read_bytes()
+    assert payload.startswith(b"%PDF-")
+    assert b"%%EOF" in payload[-1024:]
     widget.close()
 
 

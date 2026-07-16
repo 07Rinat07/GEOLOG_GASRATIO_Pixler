@@ -113,6 +113,7 @@
   "visual_export.title": "Визуализацияны экспорттау",
   "visual_export.png_action": "Ағымдағы графикті/планшетті PNG-ге экспорттау...",
   "visual_export.svg_action": "Ағымдағы графикті/планшетті SVG-ге экспорттау...",
+  "visual_export.pdf_action": "Ағымдағы графикті/планшетті PDF-ке экспорттау...",
   "visual_export.select_view": "График немесе планшет қойындысын ашыңыз",
   "visual_export.save_title": "Визуализацияны экспорттау",
   "visual_export.success": "Визуализация экспортталды: {name}",

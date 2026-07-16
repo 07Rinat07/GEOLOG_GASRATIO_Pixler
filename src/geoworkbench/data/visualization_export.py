@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QPoint, QRect
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QPageSize, QPainter, QPdfWriter
 from PySide6.QtSvg import QSvgGenerator
 from PySide6.QtWidgets import QWidget
 
@@ -60,6 +60,51 @@ def export_widget_svg(
         if isinstance(exc, VisualizationExportError):
             raise
         raise VisualizationExportError(f"Не удалось экспортировать SVG: {destination}") from exc
+    finally:
+        if painter is not None and painter.isActive():
+            painter.end()
+    return destination
+
+
+def export_widget_pdf(
+    widget: QWidget, target: str | Path, *, overwrite: bool = False
+) -> Path:
+    destination = Path(target)
+    _validate_destination(destination, ".pdf", overwrite)
+    width = widget.width()
+    height = widget.height()
+    if width <= 0 or height <= 0:
+        raise VisualizationExportError("Визуализация не имеет допустимого размера")
+    temporary = _temporary_path(destination)
+    painter: QPainter | None = None
+    try:
+        writer = QPdfWriter(str(temporary))
+        writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+        writer.setResolution(300)
+        writer.setTitle("GEOLOG GASRATIO@Pixler visualization")
+        writer.setCreator("GEOLOG GASRATIO@Pixler")
+        painter = QPainter()
+        if not painter.begin(writer):
+            raise VisualizationExportError("Не удалось запустить PDF renderer")
+        page_width = writer.width()
+        page_height = writer.height()
+        scale = min(page_width / width, page_height / height)
+        painter.translate(
+            (page_width - width * scale) / 2.0,
+            (page_height - height * scale) / 2.0,
+        )
+        painter.scale(scale, scale)
+        widget.render(painter, QPoint())
+        if not painter.end():
+            raise VisualizationExportError("Не удалось завершить PDF renderer")
+        if not temporary.exists() or temporary.stat().st_size == 0:
+            raise VisualizationExportError("Не удалось сформировать PDF")
+        os.replace(temporary, destination)
+    except Exception as exc:
+        temporary.unlink(missing_ok=True)
+        if isinstance(exc, VisualizationExportError):
+            raise
+        raise VisualizationExportError(f"Не удалось экспортировать PDF: {destination}") from exc
     finally:
         if painter is not None and painter.isActive():
             painter.end()
