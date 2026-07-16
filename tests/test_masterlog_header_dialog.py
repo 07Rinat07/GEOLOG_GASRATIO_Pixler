@@ -33,11 +33,21 @@ def test_header_element_dialog_builds_typed_properties(qapp) -> None:
     dialog = HeaderElementDialog(language=AppLanguage.EN)
     dialog.type_input.setCurrentText("text")
     dialog.text_input.setText("Daily masterlog")
-    assert dialog.values()[-1] == {"text": "Daily masterlog"}
+    dialog.text_color_input.setText("#123456")
+    dialog.font_size_input.setValue(4.5)
+    assert dialog.values()[-1] == {
+        "text": "Daily masterlog",
+        "color": "#123456",
+        "font_size_mm": 4.5,
+    }
 
     dialog.type_input.setCurrentText("field")
     dialog.field_input.setCurrentText("well.name")
-    assert dialog.values()[-1] == {"field": "well.name"}
+    assert dialog.values()[-1] == {
+        "field": "well.name",
+        "color": "#123456",
+        "font_size_mm": 4.5,
+    }
     assert dialog.windowTitle() == "Header element properties"
     dialog.close()
 
@@ -58,7 +68,11 @@ def test_header_element_dialog_preserves_unknown_legacy_field(qapp) -> None:
     dialog = HeaderElementDialog(element=element)
 
     assert dialog.field_input.currentText() == "legacy.custom"
-    assert dialog.values()[-1] == {"field": "legacy.custom"}
+    assert dialog.values()[-1] == {
+        "field": "legacy.custom",
+        "color": "#0f172a",
+        "font_size_mm": 3.5,
+    }
     dialog.close()
 
 
@@ -92,6 +106,27 @@ def test_header_preview_draws_line_with_safe_style_fallback(qapp) -> None:
     assert line.pen().widthF() == 0.6
     assert line.line().x2() == 85.0
     assert line.line().y2() == 16.0
+    dialog.close()
+
+
+def test_header_preview_applies_text_style_with_safe_fallback(qapp) -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+    element = controller.add_header_element(
+        template.template_id,
+        element_type="text",
+        x_mm=0,
+        y_mm=0,
+        width_mm=30,
+        height_mm=10,
+        properties={"text": "Title", "color": "invalid", "font_size_mm": 1000},
+    )
+    dialog = MasterlogHeaderDialog(controller, template.template_id)
+
+    color, size = dialog._text_style(element)
+
+    assert color.name() == "#0f172a"
+    assert size == 3.5
     dialog.close()
 
 

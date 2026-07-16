@@ -68,6 +68,18 @@ class HeaderElementDialog(QDialog):
             self.field_input.addItem(field_value)
         if isinstance(field_value, str):
             self.field_input.setCurrentText(field_value)
+        self.text_color_input = QLineEdit("#0f172a")
+        self.font_size_input = QDoubleSpinBox()
+        self.font_size_input.setRange(1.0, 50.0)
+        self.font_size_input.setDecimals(1)
+        self.font_size_input.setValue(3.5)
+        if element and element.element_type in {"text", "field"}:
+            text_color = element.properties.get("color")
+            font_size = element.properties.get("font_size_mm")
+            if isinstance(text_color, str):
+                self.text_color_input.setText(text_color)
+            if isinstance(font_size, (int, float)) and not isinstance(font_size, bool):
+                self.font_size_input.setValue(float(font_size))
         self.line_color_input = QLineEdit("#334155")
         self.line_width_input = QDoubleSpinBox()
         self.line_width_input.setRange(0.1, 20.0)
@@ -98,8 +110,12 @@ class HeaderElementDialog(QDialog):
         self.properties_label = QLabel(self.localizer.text("masterlog_header.json"))
         self.line_color_label = QLabel(self.localizer.text("masterlog_header.line_color"))
         self.line_width_label = QLabel(self.localizer.text("masterlog_header.line_width"))
+        self.text_color_label = QLabel(self.localizer.text("masterlog_header.text_color"))
+        self.font_size_label = QLabel(self.localizer.text("masterlog_header.font_size"))
         layout.addRow(self.text_label, self.text_input)
         layout.addRow(self.field_label, self.field_input)
+        layout.addRow(self.text_color_label, self.text_color_input)
+        layout.addRow(self.font_size_label, self.font_size_input)
         layout.addRow(self.line_color_label, self.line_color_input)
         layout.addRow(self.line_width_label, self.line_width_input)
         layout.addRow(self.properties_label, self.properties_input)
@@ -117,19 +133,32 @@ class HeaderElementDialog(QDialog):
         self.field_input.setVisible(element_type == "field")
         self.line_color_input.setVisible(element_type == "line")
         self.line_width_input.setVisible(element_type == "line")
+        self.text_color_input.setVisible(element_type in {"text", "field"})
+        self.font_size_input.setVisible(element_type in {"text", "field"})
         self.properties_input.setVisible(element_type == "image")
         self.text_label.setVisible(element_type == "text")
         self.field_label.setVisible(element_type == "field")
         self.line_color_label.setVisible(element_type == "line")
         self.line_width_label.setVisible(element_type == "line")
+        self.text_color_label.setVisible(element_type in {"text", "field"})
+        self.font_size_label.setVisible(element_type in {"text", "field"})
         self.properties_label.setVisible(element_type == "image")
 
     def values(self) -> tuple[str, float, float, float, float, dict[str, object]]:
         element_type = self.type_input.currentText()
+        text_style: dict[str, object] = {}
+        if element_type in {"text", "field"}:
+            color = QColor(self.text_color_input.text().strip())
+            if not color.isValid():
+                raise ValueError(self.localizer.text("masterlog_header.invalid_text_color"))
+            text_style = {
+                "color": color.name(),
+                "font_size_mm": self.font_size_input.value(),
+            }
         if element_type == "text":
-            properties: dict[str, object] = {"text": self.text_input.text()}
+            properties: dict[str, object] = {"text": self.text_input.text(), **text_style}
         elif element_type == "field":
-            properties = {"field": self.field_input.currentText()}
+            properties = {"field": self.field_input.currentText(), **text_style}
         elif element_type == "line":
             color = QColor(self.line_color_input.text().strip())
             if not color.isValid():
@@ -251,8 +280,9 @@ class MasterlogHeaderDialog(QDialog):
             )
             rectangle.setToolTip(json.dumps(element.properties, ensure_ascii=False))
             label = self.preview_scene.addText(self._preview_text(element))
-            label.setDefaultTextColor(QColor("#0f172a"))
-            label.setScale(0.35)
+            color, font_size = self._text_style(element)
+            label.setDefaultTextColor(color)
+            label.setScale(font_size / 10.0)
             label.setPos(element.x_mm + 1.0, element.y_mm + 0.5)
         self.preview_scene.setSceneRect(
             QRectF(-2.0, -2.0, header_width + 4.0, header_height + 4.0)
@@ -276,6 +306,22 @@ class MasterlogHeaderDialog(QDialog):
             else 0.6
         )
         return QPen(color, width)
+
+    @staticmethod
+    def _text_style(element: MasterlogHeaderElement) -> tuple[QColor, float]:
+        color_value = element.properties.get("color", "#0f172a")
+        size_value = element.properties.get("font_size_mm", 3.5)
+        color = QColor(color_value) if isinstance(color_value, str) else QColor("#0f172a")
+        if not color.isValid():
+            color = QColor("#0f172a")
+        size = (
+            float(size_value)
+            if isinstance(size_value, (int, float))
+            and not isinstance(size_value, bool)
+            and 1.0 <= float(size_value) <= 50.0
+            else 3.5
+        )
+        return color, size
 
     def _preview_text(self, element: MasterlogHeaderElement) -> str:
         if element.element_type == "text":

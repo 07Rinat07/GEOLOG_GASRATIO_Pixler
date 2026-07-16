@@ -66,6 +66,8 @@
   "masterlog_header.json_object": "Properties must be a JSON object",
   "masterlog_header.line_color": "Line color", "masterlog_header.line_width": "Line width",
   "masterlog_header.invalid_color": "Enter a valid line color",
+  "masterlog_header.text_color": "Text color", "masterlog_header.font_size": "Text size, mm",
+  "masterlog_header.invalid_text_color": "Enter a valid text color",
   "masterlog_templates.action": "Masterlog templates...", "masterlog_templates.title": "Masterlog templates",
   "masterlog_templates.item": "{name} — version {version}", "masterlog_templates.select": "Select a template",
   "masterlog_templates.name": "Template name:", "masterlog_templates.create": "Create template",
