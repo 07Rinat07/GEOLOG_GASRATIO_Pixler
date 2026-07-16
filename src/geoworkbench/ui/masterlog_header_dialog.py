@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QColor, QPen
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -10,6 +11,8 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
+    QGraphicsScene,
+    QGraphicsView,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
@@ -88,6 +91,10 @@ class MasterlogHeaderDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.setWindowTitle(self.localizer.text("masterlog_header.title"))
         self.list = QListWidget()
+        self.preview_scene = QGraphicsScene(self)
+        self.preview = QGraphicsView(self.preview_scene)
+        self.preview.setObjectName("masterlog-header-preview")
+        self.preview.setMinimumWidth(360)
         buttons = QHBoxLayout()
         for text, callback in (
             ("+", self._add),
@@ -99,8 +106,11 @@ class MasterlogHeaderDialog(QDialog):
             button = QPushButton(text)
             button.clicked.connect(callback)
             buttons.addWidget(button)
+        content = QHBoxLayout()
+        content.addWidget(self.list, 1)
+        content.addWidget(self.preview, 2)
         layout = QVBoxLayout(self)
-        layout.addWidget(self.list)
+        layout.addLayout(content)
         layout.addLayout(buttons)
         self.resize(700, 420)
         self.refresh()
@@ -111,12 +121,59 @@ class MasterlogHeaderDialog(QDialog):
 
     def refresh(self) -> None:
         self.list.clear()
+        self.preview_scene.clear()
+        header_width = max(
+            210.0,
+            max(
+                (item.x_mm + item.width_mm for item in self.template.header_elements),
+                default=0.0,
+            ),
+        )
+        header_height = max(
+            self.template.header_height_mm,
+            max(
+                (item.y_mm + item.height_mm for item in self.template.header_elements),
+                default=0.0,
+            ),
+            1.0,
+        )
+        self.preview_scene.addRect(
+            QRectF(0.0, 0.0, header_width, header_height),
+            QPen(QColor("#334155"), 0.6),
+        )
+        colors = {
+            "text": QColor("#dbeafe"),
+            "field": QColor("#dcfce7"),
+            "image": QColor("#fef3c7"),
+            "line": QColor("#e2e8f0"),
+        }
         for element in self.template.header_elements:
             item = QListWidgetItem(
                 f"{element.element_type} | {element.x_mm:g},{element.y_mm:g} | {element.width_mm:g}×{element.height_mm:g} mm"
             )
             item.setData(Qt.ItemDataRole.UserRole, element.element_id)
             self.list.addItem(item)
+            rectangle = self.preview_scene.addRect(
+                QRectF(
+                    element.x_mm,
+                    element.y_mm,
+                    element.width_mm,
+                    element.height_mm,
+                ),
+                QPen(QColor("#475569"), 0.4),
+                colors[element.element_type],
+            )
+            rectangle.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+            label = self.preview_scene.addText(element.element_type)
+            label.setDefaultTextColor(QColor("#0f172a"))
+            label.setScale(0.35)
+            label.setPos(element.x_mm + 1.0, element.y_mm + 0.5)
+        self.preview_scene.setSceneRect(
+            QRectF(-2.0, -2.0, header_width + 4.0, header_height + 4.0)
+        )
+        self.preview.fitInView(
+            self.preview_scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio
+        )
 
     def _selected(self) -> MasterlogHeaderElement | None:
         item = self.list.currentItem()

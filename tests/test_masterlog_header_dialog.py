@@ -23,6 +23,9 @@ def test_masterlog_header_dialog_lists_elements(qapp) -> None:
 
     assert dialog.windowTitle() == "Masterlog header elements"
     assert dialog.list.item(0).text() == "text | 5,6 | 80×10 mm"
+    assert dialog.preview.objectName() == "masterlog-header-preview"
+    assert len(dialog.preview_scene.items()) == 3
+    assert dialog.preview_scene.sceneRect().width() == 214.0
     dialog.close()
 
 
