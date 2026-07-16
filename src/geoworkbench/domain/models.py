@@ -358,6 +358,17 @@ class MasterlogTemplate:
     header_elements: list[MasterlogHeaderElement] = field(default_factory=list)
     columns: list[MasterlogColumnTemplate] = field(default_factory=list)
     properties: dict[str, Any] = field(default_factory=dict)
+    version: int = 1
+
+    def __post_init__(self) -> None:
+        if not self.template_id.strip() or not self.name.strip():
+            raise ValueError("ID и имя шаблона мастерлога не могут быть пустыми")
+        if len(self.name) > 200:
+            raise ValueError("Имя шаблона мастерлога не должно превышать 200 символов")
+        if isinstance(self.version, bool) or not isinstance(self.version, int):
+            raise ValueError("Версия шаблона мастерлога должна быть целым числом")
+        if self.version < 1:
+            raise ValueError("Версия шаблона мастерлога должна быть положительной")
 
 
 @dataclass(frozen=True, slots=True)

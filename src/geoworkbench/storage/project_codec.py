@@ -326,6 +326,7 @@ def project_from_dict(data: dict[str, Any]) -> Project:
                 header_elements=header_elements,
                 columns=columns,
                 properties=dict(item.get("properties", {})),
+                version=int(item.get("version", 1)),
             )
         except (TypeError, ValueError) as exc:
             raise ProjectFormatError(

@@ -149,6 +149,7 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
         columns=[
             MasterlogColumnTemplate("gas", "Gas", "curves", 35.0, ["TG", "C1"])
         ],
+        version=3,
     )
     project.wells["well-1"].canvas_objects.append(
         CanvasObject(
@@ -168,6 +169,7 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
     assert template.page_format == "A3"
     assert template.columns[0].curve_mnemonics == ["TG", "C1"]
     assert template.header_elements[0].properties["asset_ref"] == "sha256:logo"
+    assert template.version == 3
     canvas_object = restored.wells["well-1"].canvas_objects[0]
     assert canvas_object.parameter_mnemonic == "ROP"
     assert canvas_object.time_value.endswith("+05:00")

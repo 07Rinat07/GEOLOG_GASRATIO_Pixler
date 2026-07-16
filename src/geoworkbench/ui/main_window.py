@@ -71,6 +71,7 @@ from geoworkbench.project.new_las_controller import NewLasController
 from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
+from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.widget_print import render_widget_to_printer
 from geoworkbench.storage.project_codec import ProjectFormatError
@@ -100,6 +101,7 @@ from geoworkbench.ui.new_las_dialog import NewLasDialog
 from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
 from geoworkbench.ui.print_page_dialog import PrintPageDialog
+from geoworkbench.ui.masterlog_templates_dialog import MasterlogTemplatesDialog
 from geoworkbench.visualization.curve_view import CurveView
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 from geoworkbench.services.localization import (
@@ -147,6 +149,7 @@ class MainWindow(QMainWindow):
         self.nct_calculation_controller = NctCalculationController(self.session)
         self.new_las_controller = NewLasController(self.session)
         self.las_range_editing_controller = LasRangeEditingController(self.session)
+        self.masterlog_template_controller = MasterlogTemplateController(self.session)
         self.dataset_selection = DatasetIntervalSelection()
         self._selected_track_id: str | None = None
         self.print_page_settings = self.user_profile_settings.print_page_settings()
@@ -230,6 +233,7 @@ class MainWindow(QMainWindow):
         edit_menu = self.menuBar().addMenu(self._t("menu.edit"))
         calc_menu = self.menuBar().addMenu(self._t("menu.calculations"))
         tablet_menu = self.menuBar().addMenu(self._t("menu.tablet"))
+        print_menu = self.menuBar().addMenu(self._t("menu.print"))
         language_menu = self.menuBar().addMenu(self._t("menu.language"))
         help_menu = self.menuBar().addMenu(self._t("menu.help"))
 
@@ -306,6 +310,9 @@ class MainWindow(QMainWindow):
         page_setup_action = QAction(self._t("print.page_setup_action"), self)
         page_setup_action.triggered.connect(self.configure_print_page)
         file_menu.addAction(page_setup_action)
+        templates_action = QAction(self._t("masterlog_templates.action"), self)
+        templates_action.triggered.connect(self.show_masterlog_templates)
+        print_menu.addAction(templates_action)
         file_menu.addSeparator()
         save_export_profile_action = QAction(self._t("export_profile.save"), self)
         save_export_profile_action.triggered.connect(self.save_export_profile)
@@ -817,6 +824,7 @@ class MainWindow(QMainWindow):
         self.nct_calculation_controller.session = self.session
         self.new_las_controller.session = self.session
         self.las_range_editing_controller.session = self.session
+        self.masterlog_template_controller.session = self.session
         self._update_curve_edit_actions()
         self._selected_track_id = None
         self._refresh_tree()
@@ -1127,6 +1135,14 @@ class MainWindow(QMainWindow):
                 ),
             )
         )
+
+    def show_masterlog_templates(self) -> None:
+        MasterlogTemplatesDialog(
+            self.masterlog_template_controller,
+            self,
+            language=self.language,
+        ).exec()
+        self._update_title()
 
     def save_export_profile(self) -> None:
         dataset = self.session.current_dataset
