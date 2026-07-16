@@ -71,6 +71,7 @@ from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
+from geoworkbench.ui.depth_resample_dialog import DepthResampleDialog
 from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDialog
 from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
@@ -289,6 +290,18 @@ class MainWindow(QMainWindow):
         )
         self.normalize_depth_action.triggered.connect(self.create_ascending_depth_copy)
         edit_menu.addAction(self.normalize_depth_action)
+
+        self.resample_depth_action = QAction(self._t("resample.action"), self)
+        self.resample_depth_action.triggered.connect(self.create_resampled_depth_copy)
+        edit_menu.addAction(self.resample_depth_action)
+        self.undo_resample_action = QAction(self._t("resample.undo"), self)
+        self.undo_resample_action.triggered.connect(self.undo_depth_resample)
+        self.undo_resample_action.setEnabled(False)
+        edit_menu.addAction(self.undo_resample_action)
+        self.redo_resample_action = QAction(self._t("resample.redo"), self)
+        self.redo_resample_action.triggered.connect(self.redo_depth_resample)
+        self.redo_resample_action.setEnabled(False)
+        edit_menu.addAction(self.redo_resample_action)
 
         self.ratio_action = QAction(self._t("ratio.action"), self)
         self.ratio_action.triggered.connect(self.calculate_ratios)
@@ -682,6 +695,8 @@ class MainWindow(QMainWindow):
         self.lithotype_catalog_controller.session = self.session
         self.description_template_controller.session = self.session
         self.depth_axis_controller.session = self.session
+        self.depth_axis_controller.clear_resample_history()
+        self._update_resample_actions()
         self.nct_calculation_controller.session = self.session
         self.las_range_editing_controller.session = self.session
         self._update_curve_edit_actions()
@@ -1334,6 +1349,68 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
         self._log(self._t("depth.copy_created", name=result.name))
+
+    def create_resampled_depth_copy(self) -> None:
+        try:
+            dialog = DepthResampleDialog(
+                self.depth_axis_controller, self, language=self.language
+            )
+        except (RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("resample.title"), str(exc))
+            return
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.plan is None:
+            return
+        try:
+            result = self.depth_axis_controller.create_resampled_copy(dialog.plan)
+        except (RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("resample.title"), str(exc))
+            return
+        self._show_current_dataset()
+        self._refresh_tree()
+        self._update_title()
+        self._update_resample_actions()
+        self._log(self._t("resample.created", name=result.name))
+
+    def undo_depth_resample(self) -> None:
+        answer = QMessageBox.question(
+            self,
+            self._t("resample.undo_title"),
+            self._t("resample.undo_confirm"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer is not QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.depth_axis_controller.undo_resample()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("resample.title"), str(exc))
+            return
+        self._after_resample_history(self._t("resample.undone"))
+
+    def redo_depth_resample(self) -> None:
+        try:
+            result = self.depth_axis_controller.redo_resample()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("resample.title"), str(exc))
+            return
+        self._after_resample_history(self._t("resample.redone", name=result.name))
+
+    def _after_resample_history(self, message: str) -> None:
+        self._show_current_dataset()
+        self._refresh_tree()
+        self._update_title()
+        self._update_resample_actions()
+        self._log(message)
+
+    def _update_resample_actions(self) -> None:
+        if hasattr(self, "undo_resample_action"):
+            self.undo_resample_action.setEnabled(
+                self.depth_axis_controller.can_undo_resample
+            )
+            self.redo_resample_action.setEnabled(
+                self.depth_axis_controller.can_redo_resample
+            )
 
     def show_lithology_legend(self) -> None:
         well = self.session.current_well

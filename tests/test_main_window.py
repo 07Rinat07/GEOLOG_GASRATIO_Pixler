@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QDialog, QMessageBox
 
 from geoworkbench.domain.models import (
     CanvasObject,
@@ -14,6 +14,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.curve_editing_controller import CurveEditingController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.ui.main_window import MainWindow
 
@@ -245,6 +246,34 @@ def test_window_applies_curve_edit_and_updates_undo_redo_actions(qapp) -> None:
 
     window.redo_curve_edit()
     assert curve.values[0] == 10.0
+    window.close()
+
+
+def test_window_creates_and_undoes_resampled_copy(qapp, monkeypatch) -> None:
+    window = MainWindow(language=AppLanguage.EN)
+    session, _ = make_session()
+    bind_session(window, session)
+    window.depth_axis_controller.session = session
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.DepthResampleDialog.exec",
+        lambda self: QDialog.DialogCode.Accepted,
+    )
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QMessageBox.question",
+        lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
+    )
+
+    window.create_resampled_depth_copy()
+
+    well = session.current_well
+    assert well is not None
+    assert len(well.datasets) == 2
+    assert session.current_dataset_id != "dataset-1"
+    assert window.undo_resample_action.isEnabled()
+    window.undo_depth_resample()
+    assert set(well.datasets) == {"dataset-1"}
+    assert session.current_dataset_id == "dataset-1"
+    assert window.redo_resample_action.isEnabled()
     window.close()
 
 

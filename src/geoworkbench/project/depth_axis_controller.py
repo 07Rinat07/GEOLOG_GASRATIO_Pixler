@@ -20,6 +20,18 @@ class DepthAxisController:
     _resample_source_id: str | None = None
     _resampled_dataset: Dataset | None = None
 
+    @property
+    def can_undo_resample(self) -> bool:
+        well = self.session.current_well
+        result = self._resampled_dataset
+        return bool(well is not None and result is not None and result.dataset_id in well.datasets)
+
+    @property
+    def can_redo_resample(self) -> bool:
+        well = self.session.current_well
+        result = self._resampled_dataset
+        return bool(well is not None and result is not None and result.dataset_id not in well.datasets)
+
     def analyze_current(self) -> DepthAxisReport:
         return analyze_depth_axis(self._require_dataset().depth)
 
@@ -68,6 +80,10 @@ class DepthAxisController:
         self.session.current_dataset_id = result.dataset_id
         self.session.dirty = True
         return result
+
+    def clear_resample_history(self) -> None:
+        self._resample_source_id = None
+        self._resampled_dataset = None
 
     def _require_dataset(self) -> Dataset:
         dataset = self.session.current_dataset
