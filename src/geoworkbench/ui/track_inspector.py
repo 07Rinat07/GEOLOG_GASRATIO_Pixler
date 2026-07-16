@@ -24,6 +24,7 @@ class TrackInspector(QWidget):
     settings_requested = Signal(str, int, str, object, object)
     curve_style_requested = Signal(str, str, str, float, str)
     grid_requested = Signal(str, bool, bool, float)
+    x_axis_label_requested = Signal(str, str)
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__()
@@ -101,6 +102,15 @@ class TrackInspector(QWidget):
         self.grid_button.clicked.connect(self._emit_grid)
         editor_layout.addWidget(self.grid_button)
 
+        axis_form = QFormLayout()
+        self.x_axis_label_input = QLineEdit()
+        self.x_axis_label_input.setMaxLength(100)
+        axis_form.addRow(self._t("inspector.x_axis_label"), self.x_axis_label_input)
+        editor_layout.addLayout(axis_form)
+        self.axis_label_button = QPushButton(self._t("inspector.apply_axis_label"))
+        self.axis_label_button.clicked.connect(self._emit_x_axis_label)
+        editor_layout.addWidget(self.axis_label_button)
+
         self.apply_button = QPushButton(self._t("common.apply"))
         self.apply_button.clicked.connect(self._emit_settings)
         editor_layout.addWidget(self.apply_button)
@@ -154,6 +164,7 @@ class TrackInspector(QWidget):
         self.grid_x_input.setChecked(track.grid_x)
         self.grid_y_input.setChecked(track.grid_y)
         self.grid_alpha_input.setValue(track.grid_alpha)
+        self.x_axis_label_input.setText(track.x_axis_label)
         self._stack.setCurrentIndex(1)
 
     @staticmethod
@@ -215,4 +226,11 @@ class TrackInspector(QWidget):
             self.grid_x_input.isChecked(),
             self.grid_y_input.isChecked(),
             self.grid_alpha_input.value(),
+        )
+
+    def _emit_x_axis_label(self) -> None:
+        if self._track_id is None:
+            return
+        self.x_axis_label_requested.emit(
+            self._track_id, self.x_axis_label_input.text().strip()
         )

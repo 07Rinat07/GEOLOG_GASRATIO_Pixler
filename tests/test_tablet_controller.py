@@ -106,6 +106,19 @@ def test_controller_sets_track_grid_and_marks_project_dirty() -> None:
     assert session.dirty is True
 
 
+def test_controller_sets_track_x_axis_label() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    track = next(item for item in layout.tracks if item.kind is TrackKind.GAS)
+    session.dirty = False
+
+    controller.set_track_x_axis_label(track.track_id, "  Gas, %  ")
+
+    assert track.x_axis_label == "Gas, %"
+    assert session.dirty is True
+
+
 def test_controller_saves_and_applies_independent_preset_copy() -> None:
     session = make_session()
     controller = TabletController(session)

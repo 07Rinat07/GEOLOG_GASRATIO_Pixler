@@ -139,3 +139,20 @@ def test_inspector_edits_track_grid(qapp) -> None:
 
     assert emitted == [("curve", True, False, 0.65)]
     inspector.close()
+
+
+def test_inspector_edits_x_axis_label(qapp) -> None:
+    inspector = TrackInspector(language=AppLanguage.EN)
+    track = TrackDefinition(
+        "curve", "Curve", TrackKind.CURVE, x_axis_label="ROP, m/h"
+    )
+    emitted: list[tuple[object, ...]] = []
+    inspector.x_axis_label_requested.connect(lambda *args: emitted.append(args))
+
+    inspector.show_track(track)
+    assert inspector.x_axis_label_input.text() == "ROP, m/h"
+    inspector.x_axis_label_input.setText("  Rate  ")
+    QTest.mouseClick(inspector.axis_label_button, Qt.MouseButton.LeftButton)
+
+    assert emitted == [("curve", "Rate")]
+    inspector.close()

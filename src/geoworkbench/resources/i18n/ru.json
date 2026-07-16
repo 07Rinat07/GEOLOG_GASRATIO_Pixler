@@ -227,6 +227,8 @@
   "inspector.grid_x": "Вертикальная сетка", "inspector.grid_y": "Горизонтальная сетка",
   "inspector.grid_alpha": "Прозрачность сетки", "inspector.apply_grid": "Применить сетку",
   "inspector.grid_updated": "Обновлены настройки сетки",
+  "inspector.x_axis_label": "Подпись оси X", "inspector.apply_axis_label": "Применить подпись оси",
+  "inspector.axis_label_updated": "Обновлена подпись оси X",
   "inspector.type": "Тип",
   "inspector.well": "Скважина",
   "inspector.dataset": "Набор",

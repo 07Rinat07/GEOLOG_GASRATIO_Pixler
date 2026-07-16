@@ -79,6 +79,7 @@ class TabletTrackWidget(QFrame):
             y=definition.grid_y,
             alpha=definition.grid_alpha,
         )
+        self.plot.setLabel("bottom", definition.x_axis_label)
         self.plot.getViewBox().invertY(True)
         self.plot.setMenuEnabled(False)
         self.plot.setMouseEnabled(x=True, y=True)

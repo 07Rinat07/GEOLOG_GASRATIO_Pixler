@@ -62,6 +62,7 @@ class TrackDefinition:
     grid_x: bool = True
     grid_y: bool = True
     grid_alpha: float = 0.2
+    x_axis_label: str = ""
 
     def __post_init__(self) -> None:
         if self.width < 80:
@@ -72,6 +73,7 @@ class TrackDefinition:
         if not all(isinstance(style, CurveStyle) for style in self.curve_styles.values()):
             raise ValueError("Настройки кривых должны использовать CurveStyle")
         self._validate_grid(self.grid_x, self.grid_y, self.grid_alpha)
+        self._validate_x_axis_label(self.x_axis_label)
 
     def set_x_scale(self, scale: XScale) -> None:
         self._validate_x_settings(scale, self.x_min, self.x_max)
@@ -114,6 +116,18 @@ class TrackDefinition:
         self.grid_x = show_x
         self.grid_y = show_y
         self.grid_alpha = alpha
+
+    def set_x_axis_label(self, label: str) -> None:
+        normalized = label.strip()
+        self._validate_x_axis_label(normalized)
+        self.x_axis_label = normalized
+
+    @staticmethod
+    def _validate_x_axis_label(label: str) -> None:
+        if not isinstance(label, str):
+            raise ValueError("Подпись оси X должна быть строкой")
+        if len(label) > 100:
+            raise ValueError("Подпись оси X не должна превышать 100 символов")
 
     @staticmethod
     def _validate_grid(show_x: bool, show_y: bool, alpha: float) -> None:

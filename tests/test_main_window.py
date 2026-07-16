@@ -262,6 +262,20 @@ def test_window_applies_grid_from_inspector(qapp) -> None:
     window.close()
 
 
+def test_window_applies_x_axis_label_from_inspector(qapp) -> None:
+    window = MainWindow()
+    session, layout = make_session()
+    bind_session(window, session)
+    window._show_current_dataset()
+    session.dirty = False
+
+    window._apply_inspector_x_axis_label("curve", "ROP, m/h")
+
+    assert layout.track_by_id("curve").x_axis_label == "ROP, m/h"
+    assert session.dirty is True
+    window.close()
+
+
 def test_window_applies_selected_tablet_preset(qapp, monkeypatch) -> None:
     window = MainWindow()
     session, layout = make_session()

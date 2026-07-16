@@ -13,7 +13,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 5
+LAYOUT_FORMAT_VERSION = 6
 
 
 class TabletLayoutFormatError(ValueError):
@@ -48,6 +48,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                 "grid_x": track.grid_x,
                 "grid_y": track.grid_y,
                 "grid_alpha": track.grid_alpha,
+                "x_axis_label": track.x_axis_label,
             }
             for track in layout.tracks
         ],
@@ -106,6 +107,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
     raw_grid_x = data.get("grid_x", True)
     raw_grid_y = data.get("grid_y", True)
     raw_grid_alpha = data.get("grid_alpha", 0.2)
+    raw_x_axis_label = data.get("x_axis_label", "")
     if not isinstance(track_id, str) or not track_id.strip():
         raise TypeError("track_id должен быть непустой строкой")
     if not isinstance(title, str) or not title.strip():
@@ -138,6 +140,8 @@ def _track_from_dict(data: object) -> TrackDefinition:
         raise TypeError("grid_x и grid_y должны быть логическими значениями")
     if not isinstance(raw_grid_alpha, (int, float)) or isinstance(raw_grid_alpha, bool):
         raise TypeError("grid_alpha должен быть числом")
+    if not isinstance(raw_x_axis_label, str):
+        raise TypeError("x_axis_label должен быть строкой")
 
     return TrackDefinition(
         track_id=track_id,
@@ -154,6 +158,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         grid_x=raw_grid_x,
         grid_y=raw_grid_y,
         grid_alpha=float(raw_grid_alpha),
+        x_axis_label=raw_x_axis_label,
     )
 
 
@@ -161,7 +166,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2, 3, 4):
+    if version not in (1, 2, 3, 4, 5):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -189,4 +194,9 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 track.setdefault("grid_x", True)
                 track.setdefault("grid_y", True)
                 track.setdefault("grid_alpha", 0.2)
+    migrated["version"] = 6
+    if isinstance(tracks, list):
+        for track in tracks:
+            if isinstance(track, dict):
+                track.setdefault("x_axis_label", "")
     return migrated

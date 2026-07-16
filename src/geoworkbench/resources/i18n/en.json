@@ -227,6 +227,8 @@
   "inspector.grid_x": "Vertical grid", "inspector.grid_y": "Horizontal grid",
   "inspector.grid_alpha": "Grid opacity", "inspector.apply_grid": "Apply grid",
   "inspector.grid_updated": "Grid settings updated",
+  "inspector.x_axis_label": "X-axis label", "inspector.apply_axis_label": "Apply axis label",
+  "inspector.axis_label_updated": "X-axis label updated",
   "inspector.type": "Type",
   "inspector.well": "Well",
   "inspector.dataset": "Dataset",

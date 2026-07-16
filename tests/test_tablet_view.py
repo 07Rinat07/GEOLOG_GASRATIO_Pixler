@@ -124,6 +124,17 @@ def test_track_widget_applies_saved_grid_settings(qapp) -> None:
     widget.close()
 
 
+def test_track_widget_applies_saved_x_axis_label(qapp) -> None:
+    widget = TabletTrackWidget(
+        TrackDefinition(
+            "curve", "Curve", TrackKind.CURVE, x_axis_label="ROP, m/h"
+        )
+    )
+
+    assert widget.plot.getAxis("bottom").labelText == "ROP, m/h"
+    widget.close()
+
+
 def test_logarithmic_track_omits_curve_without_positive_values(qapp) -> None:
     dataset = Dataset(
         "dataset-1",

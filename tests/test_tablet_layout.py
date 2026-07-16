@@ -59,6 +59,7 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
         "C1", CurveStyle("#ff0000", 2.5, CurveLineStyle.DASH)
     )
     source.track_by_id("gas").set_grid(False, True, 0.45)
+    source.track_by_id("gas").set_x_axis_label("Gas, %")
 
     restored = layout_from_dict(layout_to_dict(source))
 
@@ -72,6 +73,7 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     assert restored.track_by_id("gas").grid_x is False
     assert restored.track_by_id("gas").grid_y is True
     assert restored.track_by_id("gas").grid_alpha == 0.45
+    assert restored.track_by_id("gas").x_axis_label == "Gas, %"
 
 
 def test_layout_codec_migrates_v3_without_curve_styles() -> None:
@@ -112,6 +114,19 @@ def test_layout_codec_migrates_v4_with_default_grid() -> None:
     assert track.grid_x is True
     assert track.grid_y is True
     assert track.grid_alpha == 0.2
+
+
+def test_layout_codec_migrates_v5_with_empty_axis_label() -> None:
+    restored = layout_from_dict(
+        {
+            "version": 5,
+            "tracks": [
+                {"track_id": "curve", "title": "Curve", "kind": "curve"}
+            ],
+        }
+    )
+
+    assert restored.track_by_id("curve").x_axis_label == ""
 
 
 @pytest.mark.parametrize("alpha", [-0.01, 1.01, float("nan"), True])

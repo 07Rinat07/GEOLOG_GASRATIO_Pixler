@@ -227,6 +227,8 @@
   "inspector.grid_x": "Тік тор", "inspector.grid_y": "Көлденең тор",
   "inspector.grid_alpha": "Тор мөлдірлігі", "inspector.apply_grid": "Торды қолдану",
   "inspector.grid_updated": "Тор параметрлері жаңартылды",
+  "inspector.x_axis_label": "X осінің белгісі", "inspector.apply_axis_label": "Ось белгісін қолдану",
+  "inspector.axis_label_updated": "X осінің белгісі жаңартылды",
   "inspector.type": "Түрі",
   "inspector.well": "Ұңғыма",
   "inspector.dataset": "Деректер жинағы",
