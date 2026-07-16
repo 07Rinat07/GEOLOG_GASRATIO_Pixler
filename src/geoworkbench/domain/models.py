@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from math import isfinite
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -346,6 +347,25 @@ class MasterlogColumnTemplate:
     width_mm: float
     curve_mnemonics: list[str] = field(default_factory=list)
     properties: dict[str, Any] = field(default_factory=dict)
+    x_scale: str = "linear"
+    x_min: float | None = None
+    x_max: float | None = None
+    show_legend: bool = True
+
+    def __post_init__(self) -> None:
+        if self.x_scale not in {"linear", "logarithmic"}:
+            raise ValueError("Шкала колонки должна быть linear или logarithmic")
+        if (self.x_min is None) != (self.x_max is None):
+            raise ValueError("Границы X колонки должны задаваться вместе")
+        if self.x_min is not None and self.x_max is not None:
+            if not isfinite(self.x_min) or not isfinite(self.x_max):
+                raise ValueError("Границы X колонки должны быть конечными")
+            if self.x_min >= self.x_max:
+                raise ValueError("Минимум X колонки должен быть меньше максимума")
+            if self.x_scale == "logarithmic" and self.x_min <= 0:
+                raise ValueError("Логарифмический диапазон колонки должен быть положительным")
+        if not isinstance(self.show_legend, bool):
+            raise ValueError("Видимость легенды должна быть логическим значением")
 
 
 @dataclass(slots=True)

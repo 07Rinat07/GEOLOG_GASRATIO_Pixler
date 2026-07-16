@@ -57,6 +57,8 @@
   "common.close": "Закрыть",
   "common.create": "Создать", "common.copy": "Копировать", "common.rename": "Переименовать", "common.delete": "Удалить",
   "common.edit": "Изменить", "masterlog_columns.action": "Колонки...", "masterlog_columns.title": "Колонки мастерлога",
+  "masterlog_columns.properties": "Свойства колонки", "masterlog_columns.name": "Название",
+  "masterlog_columns.show_legend": "Показывать легенду",
   "masterlog_templates.action": "Шаблоны мастерлога...", "masterlog_templates.title": "Шаблоны мастерлога",
   "masterlog_templates.item": "{name} — версия {version}", "masterlog_templates.select": "Выберите шаблон",
   "masterlog_templates.name": "Имя шаблона:", "masterlog_templates.create": "Создать шаблон",

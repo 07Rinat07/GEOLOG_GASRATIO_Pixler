@@ -57,6 +57,8 @@
   "common.close": "Жабу",
   "common.create": "Жасау", "common.copy": "Көшіру", "common.rename": "Атын өзгерту", "common.delete": "Жою",
   "common.edit": "Өзгерту", "masterlog_columns.action": "Бағандар...", "masterlog_columns.title": "Мастерлог бағандары",
+  "masterlog_columns.properties": "Баған қасиеттері", "masterlog_columns.name": "Атауы",
+  "masterlog_columns.show_legend": "Легенданы көрсету",
   "masterlog_templates.action": "Мастерлог үлгілері...", "masterlog_templates.title": "Мастерлог үлгілері",
   "masterlog_templates.item": "{name} — {version} нұсқа", "masterlog_templates.select": "Үлгіні таңдаңыз",
   "masterlog_templates.name": "Үлгі атауы:", "masterlog_templates.create": "Үлгі жасау",

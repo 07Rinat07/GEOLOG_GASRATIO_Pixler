@@ -147,7 +147,17 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
             )
         ],
         columns=[
-            MasterlogColumnTemplate("gas", "Gas", "curves", 35.0, ["TG", "C1"])
+            MasterlogColumnTemplate(
+                "gas",
+                "Gas",
+                "curves",
+                35.0,
+                ["TG", "C1"],
+                x_scale="logarithmic",
+                x_min=0.1,
+                x_max=1000.0,
+                show_legend=False,
+            )
         ],
         version=3,
     )
@@ -168,6 +178,8 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
     template = restored.masterlog_templates["standard"]
     assert template.page_format == "A3"
     assert template.columns[0].curve_mnemonics == ["TG", "C1"]
+    assert template.columns[0].x_scale == "logarithmic"
+    assert template.columns[0].show_legend is False
     assert template.header_elements[0].properties["asset_ref"] == "sha256:logo"
     assert template.version == 3
     canvas_object = restored.wells["well-1"].canvas_objects[0]

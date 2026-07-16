@@ -5,6 +5,7 @@ from collections.abc import Callable
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
+    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -24,9 +25,16 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class ColumnPropertiesDialog(QDialog):
-    def __init__(self, parent=None, *, column: MasterlogColumnTemplate | None = None) -> None:
+    def __init__(
+        self,
+        parent=None,
+        *,
+        column: MasterlogColumnTemplate | None = None,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Свойства колонки")
+        localizer = Localizer.create(language)
+        self.setWindowTitle(localizer.text("masterlog_columns.properties"))
         self.title_input = QLineEdit(column.title if column else "")
         self.type_input = QComboBox()
         self.type_input.setEditable(True)
@@ -40,26 +48,65 @@ class ColumnPropertiesDialog(QDialog):
         self.curves_input = QLineEdit(
             ", ".join(column.curve_mnemonics) if column else ""
         )
+        self.scale_input = QComboBox()
+        self.scale_input.addItem(localizer.text("inspector.linear"), "linear")
+        self.scale_input.addItem(
+            localizer.text("inspector.logarithmic"), "logarithmic"
+        )
+        self.scale_input.setCurrentIndex(
+            self.scale_input.findData(column.x_scale if column else "linear")
+        )
+        self.auto_range_input = QCheckBox(localizer.text("common.auto"))
+        self.auto_range_input.setChecked(
+            column is None or column.x_min is None or column.x_max is None
+        )
+        self.minimum_input = QDoubleSpinBox()
+        self.maximum_input = QDoubleSpinBox()
+        for control in (self.minimum_input, self.maximum_input):
+            control.setRange(-1e12, 1e12)
+            control.setDecimals(6)
+        self.minimum_input.setValue(column.x_min if column and column.x_min is not None else 0.1)
+        self.maximum_input.setValue(column.x_max if column and column.x_max is not None else 100.0)
+        self.legend_input = QCheckBox(localizer.text("masterlog_columns.show_legend"))
+        self.legend_input.setChecked(column.show_legend if column else True)
+        self.auto_range_input.toggled.connect(self._update_range_enabled)
         layout = QFormLayout(self)
-        layout.addRow("Название", self.title_input)
-        layout.addRow("Тип", self.type_input)
-        layout.addRow("Ширина", self.width_input)
-        layout.addRow("Кривые", self.curves_input)
+        layout.addRow(localizer.text("masterlog_columns.name"), self.title_input)
+        layout.addRow(localizer.text("inspector.type"), self.type_input)
+        layout.addRow(localizer.text("inspector.width"), self.width_input)
+        layout.addRow(localizer.text("inspector.curves"), self.curves_input)
+        layout.addRow(localizer.text("inspector.x_scale"), self.scale_input)
+        layout.addRow(self.auto_range_input)
+        layout.addRow(localizer.text("inspector.x_minimum"), self.minimum_input)
+        layout.addRow(localizer.text("inspector.x_maximum"), self.maximum_input)
+        layout.addRow(self.legend_input)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
+        self._update_range_enabled(self.auto_range_input.isChecked())
 
-    def values(self) -> tuple[str, str, float, list[str]]:
+    def values(
+        self,
+    ) -> tuple[str, str, float, list[str], str, float | None, float | None, bool]:
         curves = [value.strip() for value in self.curves_input.text().split(",")]
+        automatic = self.auto_range_input.isChecked()
         return (
             self.title_input.text(),
             self.type_input.currentText(),
             self.width_input.value(),
             [value for value in curves if value],
+            str(self.scale_input.currentData()),
+            None if automatic else self.minimum_input.value(),
+            None if automatic else self.maximum_input.value(),
+            self.legend_input.isChecked(),
         )
+
+    def _update_range_enabled(self, automatic: bool) -> None:
+        self.minimum_input.setEnabled(not automatic)
+        self.maximum_input.setEnabled(not automatic)
 
 
 class MasterlogColumnsDialog(QDialog):
@@ -117,10 +164,10 @@ class MasterlogColumnsDialog(QDialog):
         return next(column for column in self.template.columns if column.column_id == column_id)
 
     def _add(self) -> None:
-        dialog = ColumnPropertiesDialog(self)
+        dialog = ColumnPropertiesDialog(self, language=self.localizer.language)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        title, column_type, width, curves = dialog.values()
+        title, column_type, width, curves, scale, x_min, x_max, legend = dialog.values()
         self._run(
             lambda: self.controller.add_column(
                 self.template_id,
@@ -128,6 +175,10 @@ class MasterlogColumnsDialog(QDialog):
                 column_type=column_type,
                 width_mm=width,
                 curve_mnemonics=curves,
+                x_scale=scale,
+                x_min=x_min,
+                x_max=x_max,
+                show_legend=legend,
             )
         )
 
@@ -135,10 +186,12 @@ class MasterlogColumnsDialog(QDialog):
         column = self._selected_column()
         if column is None:
             return
-        dialog = ColumnPropertiesDialog(self, column=column)
+        dialog = ColumnPropertiesDialog(
+            self, column=column, language=self.localizer.language
+        )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        title, column_type, width, curves = dialog.values()
+        title, column_type, width, curves, scale, x_min, x_max, legend = dialog.values()
         self._run(
             lambda: self.controller.update_column(
                 self.template_id,
@@ -147,6 +200,10 @@ class MasterlogColumnsDialog(QDialog):
                 column_type=column_type,
                 width_mm=width,
                 curve_mnemonics=curves,
+                x_scale=scale,
+                x_min=x_min,
+                x_max=x_max,
+                show_legend=legend,
             )
         )
 

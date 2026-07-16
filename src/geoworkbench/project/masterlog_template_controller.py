@@ -57,10 +57,15 @@ class MasterlogTemplateController:
         column_type: str,
         width_mm: float,
         curve_mnemonics: list[str] | None = None,
+        x_scale: str = "linear",
+        x_min: float | None = None,
+        x_max: float | None = None,
+        show_legend: bool = True,
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         column = self._validated_column(
-            new_id(), title, column_type, width_mm, curve_mnemonics or []
+            new_id(), title, column_type, width_mm, curve_mnemonics or [],
+            x_scale, x_min, x_max, show_legend,
         )
         template.columns.append(column)
         self._touch(template)
@@ -75,10 +80,15 @@ class MasterlogTemplateController:
         column_type: str,
         width_mm: float,
         curve_mnemonics: list[str],
+        x_scale: str = "linear",
+        x_min: float | None = None,
+        x_max: float | None = None,
+        show_legend: bool = True,
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         column = self._validated_column(
-            column_id, title, column_type, width_mm, curve_mnemonics
+            column_id, title, column_type, width_mm, curve_mnemonics,
+            x_scale, x_min, x_max, show_legend,
         )
         index = self._column_index(template, column_id)
         template.columns[index] = column
@@ -117,6 +127,10 @@ class MasterlogTemplateController:
         column_type: str,
         width_mm: float,
         curve_mnemonics: list[str],
+        x_scale: str,
+        x_min: float | None,
+        x_max: float | None,
+        show_legend: bool,
     ) -> MasterlogColumnTemplate:
         normalized_title = title.strip()
         normalized_type = column_type.strip()
@@ -135,6 +149,10 @@ class MasterlogTemplateController:
             normalized_type,
             float(width_mm),
             mnemonics,
+            x_scale=x_scale,
+            x_min=x_min,
+            x_max=x_max,
+            show_legend=show_legend,
         )
 
     def _touch(self, template: MasterlogTemplate) -> None:
