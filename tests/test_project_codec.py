@@ -157,6 +157,9 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
                 x_min=0.1,
                 x_max=1000.0,
                 show_legend=False,
+                line_color="#112233",
+                line_width=2.5,
+                line_style="dash",
             )
         ],
         version=3,
@@ -180,6 +183,8 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
     assert template.columns[0].curve_mnemonics == ["TG", "C1"]
     assert template.columns[0].x_scale == "logarithmic"
     assert template.columns[0].show_legend is False
+    assert template.columns[0].line_color == "#112233"
+    assert template.columns[0].line_style == "dash"
     assert template.header_elements[0].properties["asset_ref"] == "sha256:logo"
     assert template.version == 3
     canvas_object = restored.wells["well-1"].canvas_objects[0]

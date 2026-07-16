@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from math import isfinite
 from pathlib import Path
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -351,6 +352,9 @@ class MasterlogColumnTemplate:
     x_min: float | None = None
     x_max: float | None = None
     show_legend: bool = True
+    line_color: str = "#2563eb"
+    line_width: float = 1.5
+    line_style: str = "solid"
 
     def __post_init__(self) -> None:
         if self.x_scale not in {"linear", "logarithmic"}:
@@ -366,6 +370,16 @@ class MasterlogColumnTemplate:
                 raise ValueError("Логарифмический диапазон колонки должен быть положительным")
         if not isinstance(self.show_legend, bool):
             raise ValueError("Видимость легенды должна быть логическим значением")
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", self.line_color):
+            raise ValueError("Цвет линии колонки должен быть в формате #RRGGBB")
+        if isinstance(self.line_width, bool) or not isinstance(
+            self.line_width, (int, float)
+        ):
+            raise ValueError("Толщина линии колонки должна быть числом")
+        if not isfinite(self.line_width) or not 0.5 <= self.line_width <= 10.0:
+            raise ValueError("Толщина линии колонки должна быть от 0.5 до 10 px")
+        if self.line_style not in {"solid", "dash", "dot", "dash_dot"}:
+            raise ValueError("Стиль линии колонки не поддерживается")
 
 
 @dataclass(slots=True)

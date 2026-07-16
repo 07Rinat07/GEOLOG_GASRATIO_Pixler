@@ -52,12 +52,18 @@ def test_masterlog_template_controller_manages_column_lifecycle() -> None:
         x_min=0.1,
         x_max=1000.0,
         show_legend=False,
+        line_color="#112233",
+        line_width=2.5,
+        line_style="dash",
     )
 
     assert second.curve_mnemonics == ["C1", "C2"]
     assert second.x_scale == "logarithmic"
     assert second.x_min == 0.1
     assert second.show_legend is False
+    assert second.line_color == "#112233"
+    assert second.line_width == 2.5
+    assert second.line_style == "dash"
     assert controller.move_column(template.template_id, second.column_id, -1) is True
     updated = controller.update_column(
         template.template_id,
@@ -103,4 +109,18 @@ def test_masterlog_column_rejects_invalid_logarithmic_range() -> None:
             x_scale="logarithmic",
             x_min=0.0,
             x_max=100.0,
+        )
+
+
+def test_masterlog_column_rejects_invalid_line_style() -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+
+    with pytest.raises(ValueError, match="RRGGBB"):
+        controller.add_column(
+            template.template_id,
+            title="Gas",
+            column_type="curves",
+            width_mm=30.0,
+            line_color="blue",
         )

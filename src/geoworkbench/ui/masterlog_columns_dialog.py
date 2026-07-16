@@ -69,6 +69,19 @@ class ColumnPropertiesDialog(QDialog):
         self.maximum_input.setValue(column.x_max if column and column.x_max is not None else 100.0)
         self.legend_input = QCheckBox(localizer.text("masterlog_columns.show_legend"))
         self.legend_input.setChecked(column.show_legend if column else True)
+        self.color_input = QLineEdit(column.line_color if column else "#2563eb")
+        self.line_width_input = QDoubleSpinBox()
+        self.line_width_input.setRange(0.5, 10.0)
+        self.line_width_input.setDecimals(1)
+        self.line_width_input.setValue(column.line_width if column else 1.5)
+        self.line_style_input = QComboBox()
+        for value in ("solid", "dash", "dot", "dash_dot"):
+            self.line_style_input.addItem(
+                localizer.text(f"inspector.line_style.{value}"), value
+            )
+        self.line_style_input.setCurrentIndex(
+            self.line_style_input.findData(column.line_style if column else "solid")
+        )
         self.auto_range_input.toggled.connect(self._update_range_enabled)
         layout = QFormLayout(self)
         layout.addRow(localizer.text("masterlog_columns.name"), self.title_input)
@@ -80,6 +93,9 @@ class ColumnPropertiesDialog(QDialog):
         layout.addRow(localizer.text("inspector.x_minimum"), self.minimum_input)
         layout.addRow(localizer.text("inspector.x_maximum"), self.maximum_input)
         layout.addRow(self.legend_input)
+        layout.addRow(localizer.text("inspector.color"), self.color_input)
+        layout.addRow(localizer.text("inspector.line_width"), self.line_width_input)
+        layout.addRow(localizer.text("inspector.line_style"), self.line_style_input)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -90,7 +106,19 @@ class ColumnPropertiesDialog(QDialog):
 
     def values(
         self,
-    ) -> tuple[str, str, float, list[str], str, float | None, float | None, bool]:
+    ) -> tuple[
+        str,
+        str,
+        float,
+        list[str],
+        str,
+        float | None,
+        float | None,
+        bool,
+        str,
+        float,
+        str,
+    ]:
         curves = [value.strip() for value in self.curves_input.text().split(",")]
         automatic = self.auto_range_input.isChecked()
         return (
@@ -102,6 +130,9 @@ class ColumnPropertiesDialog(QDialog):
             None if automatic else self.minimum_input.value(),
             None if automatic else self.maximum_input.value(),
             self.legend_input.isChecked(),
+            self.color_input.text().strip(),
+            self.line_width_input.value(),
+            str(self.line_style_input.currentData()),
         )
 
     def _update_range_enabled(self, automatic: bool) -> None:
@@ -167,7 +198,10 @@ class MasterlogColumnsDialog(QDialog):
         dialog = ColumnPropertiesDialog(self, language=self.localizer.language)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        title, column_type, width, curves, scale, x_min, x_max, legend = dialog.values()
+        (
+            title, column_type, width, curves, scale, x_min, x_max, legend,
+            color, line_width, line_style,
+        ) = dialog.values()
         self._run(
             lambda: self.controller.add_column(
                 self.template_id,
@@ -179,6 +213,9 @@ class MasterlogColumnsDialog(QDialog):
                 x_min=x_min,
                 x_max=x_max,
                 show_legend=legend,
+                line_color=color,
+                line_width=line_width,
+                line_style=line_style,
             )
         )
 
@@ -191,7 +228,10 @@ class MasterlogColumnsDialog(QDialog):
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        title, column_type, width, curves, scale, x_min, x_max, legend = dialog.values()
+        (
+            title, column_type, width, curves, scale, x_min, x_max, legend,
+            color, line_width, line_style,
+        ) = dialog.values()
         self._run(
             lambda: self.controller.update_column(
                 self.template_id,
@@ -204,6 +244,9 @@ class MasterlogColumnsDialog(QDialog):
                 x_min=x_min,
                 x_max=x_max,
                 show_legend=legend,
+                line_color=color,
+                line_width=line_width,
+                line_style=line_style,
             )
         )
 

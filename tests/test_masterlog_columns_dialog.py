@@ -38,6 +38,11 @@ def test_column_properties_dialog_returns_normalized_curve_list(qapp) -> None:
     dialog.minimum_input.setValue(0.1)
     dialog.maximum_input.setValue(100.0)
     dialog.legend_input.setChecked(False)
+    dialog.color_input.setText("#112233")
+    dialog.line_width_input.setValue(2.5)
+    dialog.line_style_input.setCurrentIndex(
+        dialog.line_style_input.findData("dash")
+    )
 
     assert dialog.windowTitle() == "Column properties"
     assert dialog.values() == (
@@ -49,5 +54,8 @@ def test_column_properties_dialog_returns_normalized_curve_list(qapp) -> None:
         0.1,
         100.0,
         False,
+        "#112233",
+        2.5,
+        "dash",
     )
     dialog.close()

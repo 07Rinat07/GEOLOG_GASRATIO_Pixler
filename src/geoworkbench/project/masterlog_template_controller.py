@@ -61,11 +61,15 @@ class MasterlogTemplateController:
         x_min: float | None = None,
         x_max: float | None = None,
         show_legend: bool = True,
+        line_color: str = "#2563eb",
+        line_width: float = 1.5,
+        line_style: str = "solid",
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         column = self._validated_column(
             new_id(), title, column_type, width_mm, curve_mnemonics or [],
             x_scale, x_min, x_max, show_legend,
+            line_color, line_width, line_style,
         )
         template.columns.append(column)
         self._touch(template)
@@ -84,11 +88,15 @@ class MasterlogTemplateController:
         x_min: float | None = None,
         x_max: float | None = None,
         show_legend: bool = True,
+        line_color: str = "#2563eb",
+        line_width: float = 1.5,
+        line_style: str = "solid",
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         column = self._validated_column(
             column_id, title, column_type, width_mm, curve_mnemonics,
             x_scale, x_min, x_max, show_legend,
+            line_color, line_width, line_style,
         )
         index = self._column_index(template, column_id)
         template.columns[index] = column
@@ -131,6 +139,9 @@ class MasterlogTemplateController:
         x_min: float | None,
         x_max: float | None,
         show_legend: bool,
+        line_color: str,
+        line_width: float,
+        line_style: str,
     ) -> MasterlogColumnTemplate:
         normalized_title = title.strip()
         normalized_type = column_type.strip()
@@ -153,6 +164,9 @@ class MasterlogTemplateController:
             x_min=x_min,
             x_max=x_max,
             show_legend=show_legend,
+            line_color=line_color.strip(),
+            line_width=line_width,
+            line_style=line_style,
         )
 
     def _touch(self, template: MasterlogTemplate) -> None:
