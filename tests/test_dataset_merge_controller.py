@@ -4,6 +4,7 @@ import pytest
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.tablet.models import TabletLayout
 
 
 def make_controller() -> tuple[DatasetMergeController, Dataset, Dataset]:
@@ -37,11 +38,15 @@ def test_merge_controller_creates_copy_and_supports_undo_redo() -> None:
     assert well is not None
     assert controller.session.current_dataset is result
     assert set(well.datasets) == {"source", "target", result.dataset_id}
+    layout = TabletLayout()
+    controller.session.tablet_layouts[result.dataset_id] = layout
     controller.undo()
     assert controller.session.current_dataset is target
     assert set(well.datasets) == {"source", "target"}
+    assert result.dataset_id not in controller.session.tablet_layouts
     assert controller.redo() is result
     assert controller.session.current_dataset is result
+    assert controller.session.tablet_layouts[result.dataset_id] is layout
 
 
 def test_merge_controller_blocks_undo_after_result_edit() -> None:

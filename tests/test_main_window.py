@@ -14,6 +14,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.curve_editing_controller import CurveEditingController
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
+from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
@@ -329,6 +330,39 @@ def test_window_inserts_curves_and_updates_transfer_history_actions(qapp, monkey
     window.undo_curve_transfer()
     assert target.curve_by_mnemonic("GR") is None
     assert window.redo_transfer_action.isEnabled()
+    window.close()
+
+
+def test_window_merges_datasets_and_updates_history_actions(qapp, monkeypatch) -> None:
+    window = MainWindow(language=AppLanguage.EN)
+    session, _ = make_session()
+    target = session.current_dataset
+    well = session.current_well
+    assert target is not None and well is not None
+    source = Dataset(
+        "source", "Source GIS", DatasetKind.GIS, DepthDomain.MD, np.array([99.0, 100.0])
+    )
+    source.curves["gr"] = CurveData(
+        CurveMetadata("gr", "GR", "GR", "API", None, source.dataset_id),
+        np.array([9.0, 10.0]),
+    )
+    well.datasets[source.dataset_id] = source
+    bind_session(window, session)
+    window.dataset_merge_controller = DatasetMergeController(session)
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.DatasetMergeDialog.exec",
+        lambda self: QDialog.DialogCode.Accepted,
+    )
+
+    window.show_dataset_merge()
+
+    merged = session.current_dataset
+    assert merged is not None and merged.dataset_id not in {"dataset-1", "source"}
+    np.testing.assert_allclose(merged.depth, [99.0, 100.0, 101.0])
+    assert window.undo_merge_action.isEnabled()
+    window.undo_dataset_merge()
+    assert session.current_dataset is target
+    assert window.redo_merge_action.isEnabled()
     window.close()
 
 

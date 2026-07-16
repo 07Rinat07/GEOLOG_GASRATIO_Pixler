@@ -60,6 +60,7 @@ from geoworkbench.project.nct_controller import NctCalculationController
 from geoworkbench.project.new_las_controller import NewLasController
 from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
+from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
@@ -77,6 +78,7 @@ from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.depth_resample_dialog import DepthResampleDialog
 from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDialog
 from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
+from geoworkbench.ui.dataset_merge_dialog import DatasetMergeDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
@@ -114,6 +116,7 @@ class MainWindow(QMainWindow):
         self.tablet_controller = TabletController(self.session)
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller = DatasetExportController(self.session)
+        self.dataset_merge_controller = DatasetMergeController(self.session)
         self.data_inspector_controller = DataInspectorController(self.session)
         self.header_editing_controller = HeaderEditingController(self.session)
         self.curve_metadata_controller = CurveMetadataController(self.session)
@@ -328,6 +331,18 @@ class MainWindow(QMainWindow):
         self.redo_transfer_action.triggered.connect(self.redo_curve_transfer)
         self.redo_transfer_action.setEnabled(False)
         edit_menu.addAction(self.redo_transfer_action)
+
+        self.merge_datasets_action = QAction(self._t("merge.action"), self)
+        self.merge_datasets_action.triggered.connect(self.show_dataset_merge)
+        edit_menu.addAction(self.merge_datasets_action)
+        self.undo_merge_action = QAction(self._t("merge.undo"), self)
+        self.undo_merge_action.triggered.connect(self.undo_dataset_merge)
+        self.undo_merge_action.setEnabled(False)
+        edit_menu.addAction(self.undo_merge_action)
+        self.redo_merge_action = QAction(self._t("merge.redo"), self)
+        self.redo_merge_action.triggered.connect(self.redo_dataset_merge)
+        self.redo_merge_action.setEnabled(False)
+        edit_menu.addAction(self.redo_merge_action)
 
         self.ratio_action = QAction(self._t("ratio.action"), self)
         self.ratio_action.triggered.connect(self.calculate_ratios)
@@ -708,6 +723,9 @@ class MainWindow(QMainWindow):
         self.tablet_controller.session = self.session
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller.session = self.session
+        self.dataset_merge_controller.session = self.session
+        self.dataset_merge_controller.clear_history()
+        self._update_merge_actions()
         self.data_inspector_controller.session = self.session
         self.header_editing_controller.session = self.session
         self.header_editing_controller.clear_history()
@@ -1442,6 +1460,58 @@ class MainWindow(QMainWindow):
         self._after_curve_transfer(
             self._t("transfer.completed", count=len(curves))
         )
+
+    def show_dataset_merge(self) -> None:
+        if self.session.current_dataset is None:
+            QMessageBox.information(
+                self, self._t("merge.title"), self._t("data.select_dataset")
+            )
+            return
+        dialog = DatasetMergeDialog(
+            self.dataset_merge_controller, self, language=self.language
+        )
+        if (
+            dialog.exec() != QDialog.DialogCode.Accepted
+            or dialog.analysis is None
+            or dialog.source_dataset_id is None
+        ):
+            return
+        try:
+            result = self.dataset_merge_controller.create(
+                dialog.source_dataset_id, dialog.analysis
+            )
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("merge.title"), str(exc))
+            return
+        self._after_dataset_merge(self._t("merge.completed", name=result.name))
+
+    def undo_dataset_merge(self) -> None:
+        try:
+            self.dataset_merge_controller.undo()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("merge.title"), str(exc))
+            return
+        self._after_dataset_merge(self._t("merge.undone"))
+
+    def redo_dataset_merge(self) -> None:
+        try:
+            result = self.dataset_merge_controller.redo()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("merge.title"), str(exc))
+            return
+        self._after_dataset_merge(self._t("merge.redone", name=result.name))
+
+    def _after_dataset_merge(self, message: str) -> None:
+        self._show_current_dataset()
+        self._refresh_tree()
+        self._update_title()
+        self._update_merge_actions()
+        self._log(message)
+
+    def _update_merge_actions(self) -> None:
+        if hasattr(self, "undo_merge_action"):
+            self.undo_merge_action.setEnabled(self.dataset_merge_controller.can_undo)
+            self.redo_merge_action.setEnabled(self.dataset_merge_controller.can_redo)
 
     def undo_curve_transfer(self) -> None:
         try:

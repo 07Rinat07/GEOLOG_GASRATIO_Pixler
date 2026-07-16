@@ -7,6 +7,7 @@ import numpy as np
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.tablet.models import TabletLayout
 from geoworkbench.services.dataset_merge import (
     DatasetMergeAnalysis,
     analyze_dataset_merge,
@@ -20,6 +21,7 @@ class DatasetMergeController:
     _target_dataset_id: str | None = None
     _merged_dataset: Dataset | None = None
     _merged_signature: str | None = None
+    _merged_layout: TabletLayout | None = None
 
     @property
     def can_undo(self) -> bool:
@@ -72,6 +74,7 @@ class DatasetMergeController:
             raise RuntimeError(
                 "Результат сращивания содержит последующие правки; Undo заблокирован"
             )
+        self._merged_layout = self.session.tablet_layouts.pop(merged.dataset_id, None)
         del well.datasets[merged.dataset_id]
         self.session.current_dataset_id = self._target_dataset_id
         self.session.dirty = True
@@ -82,6 +85,8 @@ class DatasetMergeController:
         if well is None or merged is None or merged.dataset_id in well.datasets:
             raise RuntimeError("Нет сращивания для повтора")
         well.datasets[merged.dataset_id] = merged
+        if self._merged_layout is not None:
+            self.session.tablet_layouts[merged.dataset_id] = self._merged_layout
         self.session.current_dataset_id = merged.dataset_id
         self.session.dirty = True
         return merged
@@ -90,6 +95,7 @@ class DatasetMergeController:
         self._target_dataset_id = None
         self._merged_dataset = None
         self._merged_signature = None
+        self._merged_layout = None
 
     def _target(self) -> Dataset:
         dataset = self.session.current_dataset
