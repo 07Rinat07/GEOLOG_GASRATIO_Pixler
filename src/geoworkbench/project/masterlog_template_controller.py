@@ -47,6 +47,51 @@ class MasterlogTemplateController:
         self.session.dirty = True
         return template
 
+    def configure_page(
+        self,
+        template_id: str,
+        *,
+        page_format: str,
+        depth_scale: int,
+        header_height_mm: float,
+        custom_width_mm: float = 210.0,
+        custom_height_mm: float = 297.0,
+    ) -> MasterlogTemplate:
+        template = self._require(template_id)
+        formats = {"a4": "A4", "a3": "A3", "custom": "custom", "roll": "roll"}
+        try:
+            normalized_format = formats[page_format.strip().casefold()]
+        except KeyError as exc:
+            raise ValueError("Формат masterlog должен быть A4, A3, custom или roll") from exc
+        if isinstance(depth_scale, bool) or not isinstance(depth_scale, int):
+            raise ValueError("Масштаб masterlog должен быть целым числом")
+        if not 10 <= depth_scale <= 10000:
+            raise ValueError("Масштаб masterlog должен быть от 1:10 до 1:10000")
+        dimensions = (header_height_mm, custom_width_mm, custom_height_mm)
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not isfinite(value)
+            for value in dimensions
+        ):
+            raise ValueError("Размеры masterlog должны быть конечными числами")
+        if not 5.0 <= header_height_mm <= 500.0:
+            raise ValueError("Высота шапки masterlog должна быть от 5 до 500 мм")
+        if not 25.0 <= custom_width_mm <= 5000.0 or not 25.0 <= custom_height_mm <= 5000.0:
+            raise ValueError("Пользовательский лист должен быть от 25 до 5000 мм")
+        page_height = {"A4": 297.0, "A3": 420.0, "custom": custom_height_mm}.get(
+            normalized_format
+        )
+        if page_height is not None and header_height_mm + 12.0 >= page_height:
+            raise ValueError("Высота шапки не оставляет места для глубинных колонок")
+        template.page_format = normalized_format
+        template.depth_scale = depth_scale
+        template.header_height_mm = float(header_height_mm)
+        template.properties["custom_width_mm"] = float(custom_width_mm)
+        template.properties["custom_height_mm"] = float(custom_height_mm)
+        self._touch(template)
+        return template
+
     def delete(self, template_id: str) -> MasterlogTemplate:
         template = self._require(template_id)
         del self.session.project.masterlog_templates[template_id]

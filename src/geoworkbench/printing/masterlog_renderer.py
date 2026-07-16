@@ -45,7 +45,12 @@ def masterlog_size_mm(
     depth_range: tuple[float, float] | None = None,
 ) -> QSizeF:
     columns_width = sum(column.width_mm for column in template.columns)
-    width = max(25.0, columns_width, 210.0 if template.page_format != "roll" else 0.0)
+    minimum_width = (
+        _custom_page_size_mm(template).width()
+        if template.page_format.casefold() == "custom"
+        else 210.0 if template.page_format.casefold() != "roll" else 0.0
+    )
+    width = max(25.0, columns_width, minimum_width)
     if depth_range is None and session is not None:
         depth_range = masterlog_depth_range(session)
     if depth_range is not None:
@@ -268,6 +273,12 @@ def _page_size(
         return QPageSize(QPageSize.PageSizeId.A3)
     if template.page_format.upper() == "A4":
         return QPageSize(QPageSize.PageSizeId.A4)
+    if template.page_format.casefold() == "custom":
+        return QPageSize(
+            _custom_page_size_mm(template),
+            QPageSize.Unit.Millimeter,
+            "Masterlog custom",
+        )
     size = masterlog_size_mm(
         template,
         session,
@@ -279,7 +290,29 @@ def _page_size(
 def _fixed_page_size_mm(template: MasterlogTemplate) -> QSizeF:
     if template.page_format.upper() == "A3":
         return QSizeF(297.0, 420.0)
+    if template.page_format.casefold() == "custom":
+        return _custom_page_size_mm(template)
     return QSizeF(210.0, 297.0)
+
+
+def _custom_page_size_mm(template: MasterlogTemplate) -> QSizeF:
+    width = template.properties.get("custom_width_mm", 210.0)
+    height = template.properties.get("custom_height_mm", 297.0)
+    valid_width = (
+        float(width)
+        if isinstance(width, (int, float))
+        and not isinstance(width, bool)
+        and 25.0 <= float(width) <= 5000.0
+        else 210.0
+    )
+    valid_height = (
+        float(height)
+        if isinstance(height, (int, float))
+        and not isinstance(height, bool)
+        and 25.0 <= float(height) <= 5000.0
+        else 297.0
+    )
+    return QSizeF(valid_width, valid_height)
 
 
 def _depth_scale(template: MasterlogTemplate) -> int:

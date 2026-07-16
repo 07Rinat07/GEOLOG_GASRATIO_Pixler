@@ -204,3 +204,20 @@ def test_masterlog_output_interval_changes_page_ranges_and_language(qapp, tmp_pa
             session,
             MasterlogOutputSettings(50.0, 300.0),
         )
+
+
+def test_masterlog_custom_page_size_controls_pagination(qapp, tmp_path) -> None:
+    session = make_session_with_curves()
+    template = make_template()
+    template.page_format = "custom"
+    template.properties["custom_width_mm"] = 250.0
+    template.properties["custom_height_mm"] = 200.0
+    template.depth_scale = 500
+
+    assert masterlog_page_ranges(template, session) == (
+        (100.0, 174.0),
+        (174.0, 200.0),
+    )
+    target = tmp_path / "custom.pdf"
+    export_masterlog_pdf(template, session, target)
+    assert b"/Count 2" in target.read_bytes()

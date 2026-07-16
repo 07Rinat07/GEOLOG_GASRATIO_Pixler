@@ -212,6 +212,36 @@ def test_masterlog_template_controller_renames_image_metadata_without_changing_i
         controller.rename_image_asset(asset.asset_id, "../logo.png")
 
 
+def test_masterlog_template_controller_configures_page_geometry() -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+
+    updated = controller.configure_page(
+        template.template_id,
+        page_format="custom",
+        depth_scale=200,
+        header_height_mm=35.0,
+        custom_width_mm=250.0,
+        custom_height_mm=500.0,
+    )
+
+    assert updated.page_format == "custom"
+    assert updated.depth_scale == 200
+    assert updated.header_height_mm == 35.0
+    assert updated.properties["custom_width_mm"] == 250.0
+    assert updated.properties["custom_height_mm"] == 500.0
+    assert updated.version == 2
+    with pytest.raises(ValueError):
+        controller.configure_page(
+            template.template_id,
+            page_format="custom",
+            depth_scale=5,
+            header_height_mm=35.0,
+            custom_width_mm=250.0,
+            custom_height_mm=500.0,
+        )
+
+
 @pytest.mark.parametrize(
     ("element_type", "x_mm", "width_mm"),
     [("script", 0.0, 10.0), ("text", -1.0, 10.0), ("text", 0.0, 0.0)],

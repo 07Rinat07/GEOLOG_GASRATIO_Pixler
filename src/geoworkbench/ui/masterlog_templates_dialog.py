@@ -32,6 +32,7 @@ from geoworkbench.printing.masterlog_renderer import (
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.ui.masterlog_output_dialog import MasterlogOutputDialog
+from geoworkbench.ui.masterlog_page_dialog import MasterlogPageDialog
 
 
 class MasterlogTemplatesDialog(QDialog):
@@ -55,6 +56,7 @@ class MasterlogTemplatesDialog(QDialog):
         self.columns_button = QPushButton(self._t("masterlog_columns.action"))
         self.header_button = QPushButton(self._t("masterlog_header.action"))
         self.assets_button = QPushButton(self._t("masterlog_assets.action"))
+        self.page_button = QPushButton(self._t("masterlog_page.action"))
         self.preview_button = QPushButton(self._t("masterlog_preview.action"))
         self.export_button = QPushButton(self._t("masterlog_preview.export_pdf"))
         self.print_preview_button = QPushButton(
@@ -68,6 +70,7 @@ class MasterlogTemplatesDialog(QDialog):
         self.columns_button.clicked.connect(self._edit_columns)
         self.header_button.clicked.connect(self._edit_header)
         self.assets_button.clicked.connect(self._edit_assets)
+        self.page_button.clicked.connect(self._edit_page)
         self.preview_button.clicked.connect(self._preview)
         self.export_button.clicked.connect(self._export_pdf)
         self.print_preview_button.clicked.connect(self._system_preview)
@@ -81,6 +84,7 @@ class MasterlogTemplatesDialog(QDialog):
             self.columns_button,
             self.header_button,
             self.assets_button,
+            self.page_button,
             self.preview_button,
             self.export_button,
             self.print_preview_button,
@@ -190,6 +194,30 @@ class MasterlogTemplatesDialog(QDialog):
             self,
             language=self.localizer.language,
         ).exec()
+
+    def _edit_page(self) -> None:
+        template_id = self._selected_id()
+        if template_id is None:
+            return
+        template = self.controller.session.project.masterlog_templates[template_id]
+        dialog = MasterlogPageDialog(
+            template,
+            self,
+            language=self.localizer.language,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        page_format, scale, header, width, height = dialog.values()
+        self._run(
+            lambda: self.controller.configure_page(
+                template_id,
+                page_format=page_format,
+                depth_scale=scale,
+                header_height_mm=header,
+                custom_width_mm=width,
+                custom_height_mm=height,
+            )
+        )
 
     def _preview(self) -> None:
         template_id = self._selected_id()
