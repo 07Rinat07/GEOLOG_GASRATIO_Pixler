@@ -70,3 +70,41 @@ def test_copy_and_paste_interval_updates_all_selected_curves() -> None:
 
     np.testing.assert_allclose(dataset.curves["c1"].values, [1, 2, 3, 1, 2, 6])
     np.testing.assert_allclose(dataset.curves["c2"].values, [10, 20, 30, 10, 20, 60])
+
+
+def test_set_missing_and_interpolate_use_depth_and_support_undo() -> None:
+    editor, dataset = make_editor()
+    dataset.depth[:] = [100.0, 100.5, 102.0, 103.0, 104.0, 105.0]
+    dataset.curves["c1"].values[:] = [10.0, 0.0, 0.0, 40.0, 50.0, 60.0]
+
+    editor.set_missing(["c1"], 100.5, 102.0)
+    assert np.isnan(dataset.curves["c1"].values[1:3]).all()
+
+    editor.interpolate_missing(["c1"], 100.5, 102.0)
+    np.testing.assert_allclose(dataset.curves["c1"].values, [10, 15, 30, 40, 50, 60])
+    editor.undo()
+    assert np.isnan(dataset.curves["c1"].values[1:3]).all()
+    editor.undo()
+    np.testing.assert_allclose(dataset.curves["c1"].values, [10, 0, 0, 40, 50, 60])
+
+
+def test_interpolation_does_not_extrapolate_edge_gaps() -> None:
+    editor, dataset = make_editor()
+    dataset.curves["c1"].values[:] = [np.nan, 10, 20, 30, 40, 50]
+
+    with np.testing.assert_raises_regex(ValueError, "ограниченных с двух сторон"):
+        editor.interpolate_missing(["c1"], 100.0, 100.0)
+
+
+def test_interpolation_groups_different_curve_gaps_in_one_undo_command() -> None:
+    editor, dataset = make_editor()
+    dataset.curves["c1"].values[:] = [10, np.nan, 30, 40, 50, 60]
+    dataset.curves["c2"].values[:] = [2, 4, np.nan, 8, 10, 12]
+
+    editor.interpolate_missing(["c1", "c2"], 101.0, 102.0)
+
+    np.testing.assert_allclose(dataset.curves["c1"].values, [10, 20, 30, 40, 50, 60])
+    np.testing.assert_allclose(dataset.curves["c2"].values, [2, 4, 6, 8, 10, 12])
+    editor.undo()
+    assert np.isnan(dataset.curves["c1"].values[1])
+    assert np.isnan(dataset.curves["c2"].values[2])

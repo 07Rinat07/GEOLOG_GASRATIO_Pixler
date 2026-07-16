@@ -142,6 +142,8 @@ class LasTableEditor(QWidget):
         actions = QHBoxLayout()
         for label, handler in (
             (self._t("table.fill_constant"), self.fill_constant),
+            (self._t("table.set_missing"), self.set_missing),
+            (self._t("table.interpolate"), self.interpolate_missing),
             (self._t("table.fill_noise"), self.fill_noise),
             (self._t("table.copy_interval"), self.copy_selection),
             (self._t("table.paste"), self.paste_selection),
@@ -193,6 +195,12 @@ class LasTableEditor(QWidget):
                     curve_ids, top, bottom, minimum, maximum, seed=seed
                 )
             )
+
+    def set_missing(self) -> None:
+        self._run_selection_action(self.controller.set_missing)
+
+    def interpolate_missing(self) -> None:
+        self._run_selection_action(self.controller.interpolate_missing)
 
     def copy_selection(self) -> None:
         try:

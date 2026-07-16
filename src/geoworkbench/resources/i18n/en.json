@@ -58,6 +58,8 @@
   "common.no": "no",
   "table.hint": "Double-click to edit a source value. Calculated curves update automatically.",
   "table.fill_constant": "Fill with value",
+  "table.set_missing": "Clear values",
+  "table.interpolate": "Interpolate gaps",
   "table.fill_noise": "Fill with noise",
   "table.copy_interval": "Copy interval",
   "table.paste": "Paste",

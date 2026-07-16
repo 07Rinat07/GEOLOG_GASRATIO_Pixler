@@ -131,7 +131,14 @@ def test_table_editor_uses_english_catalog(qapp) -> None:
     english.paste_selection()
 
     assert english.hint.text().startswith("Double-click")
-    assert {"Fill with value", "Fill with noise", "Copy interval", "Paste"} <= labels
+    assert {
+        "Fill with value",
+        "Clear values",
+        "Interpolate gaps",
+        "Fill with noise",
+        "Copy interval",
+        "Paste",
+    } <= labels
     assert errors == ["Copy an interval first"]
     english.close()
     editor.close()

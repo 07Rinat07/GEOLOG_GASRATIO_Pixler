@@ -76,6 +76,63 @@ class LasRangeEditingController:
         }
         self._execute(curve_ids, indices, values, "Заполнение постоянным значением")
 
+    def set_missing(
+        self, curve_ids: list[str], depth_top: float, depth_bottom: float
+    ) -> None:
+        indices = self._selected_indices(depth_top, depth_bottom)
+        values = {
+            curve_id: np.full(indices.size, np.nan, dtype=np.float64)
+            for curve_id in curve_ids
+        }
+        self._execute(curve_ids, indices, values, "Замена значений пропусками")
+
+    def interpolate_missing(
+        self, curve_ids: list[str], depth_top: float, depth_bottom: float
+    ) -> None:
+        dataset = self._require_dataset()
+        selected_indices = self._selected_indices(depth_top, depth_bottom)
+        curves = self._require_curves(dataset, curve_ids)
+        changes: dict[str, tuple[NDArray[np.int64], NDArray[np.float64]]] = {}
+
+        for curve in curves:
+            targets = selected_indices[
+                np.isnan(curve.values[selected_indices])
+                & np.isfinite(dataset.depth[selected_indices])
+            ]
+            if targets.size == 0:
+                continue
+            anchors = np.flatnonzero(
+                np.isfinite(dataset.depth) & np.isfinite(curve.values)
+            ).astype(np.int64)
+            if anchors.size < 2:
+                continue
+            order = np.argsort(dataset.depth[anchors], kind="stable")
+            anchor_depth = dataset.depth[anchors[order]]
+            if np.any(np.diff(anchor_depth) <= 0):
+                raise ValueError(
+                    "Линейная интерполяция требует уникального монотонного индекса"
+                )
+            bounded = targets[
+                (dataset.depth[targets] >= anchor_depth[0])
+                & (dataset.depth[targets] <= anchor_depth[-1])
+            ]
+            if bounded.size == 0:
+                continue
+            changes[curve.metadata.curve_id] = (
+                bounded,
+                np.interp(
+                    dataset.depth[bounded],
+                    anchor_depth,
+                    curve.values[anchors[order]],
+                ),
+            )
+
+        if not changes:
+            raise ValueError(
+                "В выбранном интервале нет ограниченных с двух сторон пропусков"
+            )
+        self._execute_changes(changes, "Линейная интерполяция пропусков")
+
     def edit_cell(self, curve_id: str, row: int, value: float) -> None:
         dataset = self._require_dataset()
         if row < 0 or row >= dataset.depth.size:
@@ -177,13 +234,27 @@ class LasRangeEditingController:
         values_by_curve_id: dict[str, NDArray[np.float64]],
         description: str,
     ) -> None:
+        self._execute_changes(
+            {
+                curve_id: (indices, values_by_curve_id[curve_id])
+                for curve_id in curve_ids
+            },
+            description,
+        )
+
+    def _execute_changes(
+        self,
+        changes: dict[str, tuple[NDArray[np.int64], NDArray[np.float64]]],
+        description: str,
+    ) -> None:
         dataset = self._require_dataset()
+        curve_ids = list(changes)
         curves = self._require_curves(dataset, curve_ids)
         commands = tuple(
             CurveEditCommand.create(
                 curve,
-                indices,
-                np.asarray(values_by_curve_id[curve.metadata.curve_id], dtype=np.float64),
+                np.asarray(changes[curve.metadata.curve_id][0], dtype=np.int64),
+                np.asarray(changes[curve.metadata.curve_id][1], dtype=np.float64),
                 description=description,
             )
             for curve in curves
