@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import replace
+from math import isfinite
+from typing import Any
 
 from geoworkbench.domain.models import (
     MasterlogColumnTemplate,
+    MasterlogHeaderElement,
     MasterlogTemplate,
     new_id,
 )
@@ -121,6 +124,104 @@ class MasterlogTemplateController:
         template.columns.insert(target, template.columns.pop(index))
         self._touch(template)
         return True
+
+    def add_header_element(
+        self,
+        template_id: str,
+        *,
+        element_type: str,
+        x_mm: float,
+        y_mm: float,
+        width_mm: float,
+        height_mm: float,
+        properties: dict[str, Any] | None = None,
+    ) -> MasterlogHeaderElement:
+        template = self._require(template_id)
+        element = self._validated_header_element(
+            new_id(), element_type, x_mm, y_mm, width_mm, height_mm,
+            properties or {},
+        )
+        template.header_elements.append(element)
+        self._touch(template)
+        return element
+
+    def update_header_element(
+        self,
+        template_id: str,
+        element_id: str,
+        *,
+        element_type: str,
+        x_mm: float,
+        y_mm: float,
+        width_mm: float,
+        height_mm: float,
+        properties: dict[str, Any],
+    ) -> MasterlogHeaderElement:
+        template = self._require(template_id)
+        index = self._header_index(template, element_id)
+        element = self._validated_header_element(
+            element_id, element_type, x_mm, y_mm, width_mm, height_mm, properties
+        )
+        template.header_elements[index] = element
+        self._touch(template)
+        return element
+
+    def remove_header_element(
+        self, template_id: str, element_id: str
+    ) -> MasterlogHeaderElement:
+        template = self._require(template_id)
+        element = template.header_elements.pop(self._header_index(template, element_id))
+        self._touch(template)
+        return element
+
+    def move_header_element(
+        self, template_id: str, element_id: str, offset: int
+    ) -> bool:
+        template = self._require(template_id)
+        index = self._header_index(template, element_id)
+        target = max(0, min(index + offset, len(template.header_elements) - 1))
+        if target == index:
+            return False
+        template.header_elements.insert(target, template.header_elements.pop(index))
+        self._touch(template)
+        return True
+
+    @staticmethod
+    def _header_index(template: MasterlogTemplate, element_id: str) -> int:
+        for index, element in enumerate(template.header_elements):
+            if element.element_id == element_id:
+                return index
+        raise KeyError(f"Элемент шапки мастерлога не найден: {element_id}")
+
+    @staticmethod
+    def _validated_header_element(
+        element_id: str,
+        element_type: str,
+        x_mm: float,
+        y_mm: float,
+        width_mm: float,
+        height_mm: float,
+        properties: dict[str, Any],
+    ) -> MasterlogHeaderElement:
+        normalized_type = element_type.strip()
+        if not element_id or normalized_type not in {"text", "field", "image", "line"}:
+            raise ValueError("Тип элемента шапки должен быть text, field, image или line")
+        values = (x_mm, y_mm, width_mm, height_mm)
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not isfinite(value)
+            for value in values
+        ):
+            raise ValueError("Геометрия элемента шапки должна состоять из конечных чисел")
+        if x_mm < 0 or y_mm < 0 or not 0.1 <= width_mm <= 5000 or not 0.1 <= height_mm <= 5000:
+            raise ValueError("Координаты должны быть неотрицательными, размеры — 0.1–5000 мм")
+        if not isinstance(properties, dict):
+            raise ValueError("Свойства элемента шапки должны быть объектом")
+        return MasterlogHeaderElement(
+            element_id, normalized_type, float(x_mm), float(y_mm),
+            float(width_mm), float(height_mm), deepcopy(properties),
+        )
 
     def _column_index(self, template: MasterlogTemplate, column_id: str) -> int:
         for index, column in enumerate(template.columns):
