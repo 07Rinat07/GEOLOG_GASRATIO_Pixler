@@ -48,6 +48,7 @@ from geoworkbench.data.visualization_export import (
     export_widget_svg,
 )
 from geoworkbench.data.dataset_json_export import DatasetJsonExportError
+from geoworkbench.data.dataset_parquet_export import DatasetParquetExportError
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
 from geoworkbench.project.curve_metadata_controller import CurveMetadataController
@@ -304,6 +305,9 @@ class MainWindow(QMainWindow):
         export_json_action = QAction(self._t("json_export.action"), self)
         export_json_action.triggered.connect(self.export_current_json)
         file_menu.addAction(export_json_action)
+        export_parquet_action = QAction(self._t("parquet_export.action"), self)
+        export_parquet_action.triggered.connect(self.export_current_parquet)
+        file_menu.addAction(export_parquet_action)
 
         self.data_inspector_action = QAction(self._t("data.action"), self)
         self.data_inspector_action.triggered.connect(self.show_data_inspector)
@@ -1167,6 +1171,39 @@ class MainWindow(QMainWindow):
             self._log(self._t("json_export.failed", error=str(exc)))
             return
         message = self._t("json_export.success", name=exported.name)
+        self._log(message)
+        self.statusBar().showMessage(message)
+
+    def export_current_parquet(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(
+                self, self._t("parquet_export.title"), self._t("export.select_dataset")
+            )
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("parquet_export.save_title"),
+            str(Path.cwd() / f"{dataset.name}.parquet"),
+            "Parquet (*.parquet)",
+        )
+        if not filename:
+            return
+        target = Path(filename)
+        if target.suffix.casefold() != ".parquet":
+            target = target.with_suffix(".parquet")
+        overwrite = self._confirm_export_overwrite(target)
+        if overwrite is None:
+            return
+        try:
+            exported = self.dataset_export_controller.export_current_parquet(
+                target, overwrite=overwrite
+            )
+        except (DatasetParquetExportError, FileExistsError, OSError, RuntimeError) as exc:
+            QMessageBox.critical(self, self._t("parquet_export.title"), str(exc))
+            self._log(self._t("parquet_export.failed", error=str(exc)))
+            return
+        message = self._t("parquet_export.success", name=exported.name)
         self._log(message)
         self.statusBar().showMessage(message)
 

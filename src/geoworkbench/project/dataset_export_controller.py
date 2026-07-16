@@ -6,6 +6,7 @@ from pathlib import Path
 
 from geoworkbench.data.las_adapter import export_las
 from geoworkbench.data.dataset_json_export import export_dataset_json
+from geoworkbench.data.dataset_parquet_export import export_dataset_parquet
 from geoworkbench.data.las_export_plan import (
     LasExportAnalysis,
     LasExportPlan,
@@ -187,6 +188,13 @@ class DatasetExportController:
 
     def export_current_json(self, target: Path, *, overwrite: bool = False) -> Path:
         return export_dataset_json(
+            self._require_current_dataset(), target, overwrite=overwrite
+        )
+
+    def export_current_parquet(
+        self, target: Path, *, overwrite: bool = False
+    ) -> Path:
+        return export_dataset_parquet(
             self._require_current_dataset(), target, overwrite=overwrite
         )
 
