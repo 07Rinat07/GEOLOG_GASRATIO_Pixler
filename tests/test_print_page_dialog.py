@@ -43,6 +43,34 @@ def test_custom_print_page_maps_millimeter_dimensions() -> None:
     assert size.height() == 1200.0
 
 
+def test_roll_page_length_follows_content_aspect_and_is_bounded() -> None:
+    settings = PrintPageSettings(
+        PrintPageFormat.ROLL, PrintOrientation.LANDSCAPE, 300.0, 297.0
+    )
+
+    regular = settings.page_size_for_content(1000, 3000).size(
+        QPageSize.Unit.Millimeter
+    )
+    bounded = settings.page_size_for_content(100, 10000).size(
+        QPageSize.Unit.Millimeter
+    )
+
+    assert regular.width() == 300.0
+    assert regular.height() == 900.0
+    assert bounded.height() == 5000.0
+    assert settings.qt_orientation is QPageLayout.Orientation.Portrait
+
+
+def test_roll_dialog_enables_width_but_not_manual_height(qapp) -> None:
+    dialog = PrintPageDialog(
+        initial=PrintPageSettings(page_format=PrintPageFormat.ROLL)
+    )
+
+    assert dialog.width_input.isEnabled() is True
+    assert dialog.height_input.isEnabled() is False
+    dialog.close()
+
+
 @pytest.mark.parametrize("width", [0.0, 5000.1, float("nan"), True])
 def test_print_page_settings_reject_invalid_custom_width(width: object) -> None:
     with pytest.raises(ValueError, match="ширина"):

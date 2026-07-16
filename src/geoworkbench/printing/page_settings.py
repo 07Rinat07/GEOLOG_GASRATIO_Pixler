@@ -12,6 +12,7 @@ class PrintPageFormat(StrEnum):
     A4 = "a4"
     A3 = "a3"
     CUSTOM = "custom"
+    ROLL = "roll"
 
 
 class PrintOrientation(StrEnum):
@@ -40,7 +41,7 @@ class PrintPageSettings:
 
     @property
     def qt_page_size(self) -> QPageSize:
-        if self.page_format is PrintPageFormat.CUSTOM:
+        if self.page_format in {PrintPageFormat.CUSTOM, PrintPageFormat.ROLL}:
             return QPageSize(
                 QSizeF(self.custom_width_mm, self.custom_height_mm),
                 QPageSize.Unit.Millimeter,
@@ -53,8 +54,25 @@ class PrintPageSettings:
         )
         return QPageSize(page_id)
 
+    def page_size_for_content(self, width: int, height: int) -> QPageSize:
+        if width <= 0 or height <= 0:
+            raise ValueError("Размер содержимого должен быть положительным")
+        if self.page_format is not PrintPageFormat.ROLL:
+            return self.qt_page_size
+        roll_height = min(
+            5000.0,
+            max(25.0, self.custom_width_mm * height / width),
+        )
+        return QPageSize(
+            QSizeF(self.custom_width_mm, roll_height),
+            QPageSize.Unit.Millimeter,
+            "Roll",
+        )
+
     @property
     def qt_orientation(self) -> QPageLayout.Orientation:
+        if self.page_format is PrintPageFormat.ROLL:
+            return QPageLayout.Orientation.Portrait
         if self.orientation is PrintOrientation.LANDSCAPE:
             return QPageLayout.Orientation.Landscape
         return QPageLayout.Orientation.Portrait

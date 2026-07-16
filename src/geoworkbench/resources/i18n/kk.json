@@ -124,6 +124,7 @@
   "print.page_format": "Бет пішімі", "print.orientation": "Бағдар",
   "print.portrait": "Кітаптық", "print.landscape": "Альбомдық",
   "print.custom": "Пайдаланушы", "print.width_mm": "Ені, мм", "print.height_mm": "Биіктігі, мм",
+  "print.roll": "Орам (автоматты ұзындық)",
   "print.page_updated": "Басып шығару беті: {format}, {orientation}",
   "export_profile.title": "Экспорт профильдері", "export_profile.save": "Таңдалған қисықтар профилін сақтау...",
   "export_profile.apply": "Қисықтар профилін қолдану...", "export_profile.delete": "Қисықтар профилін жою...",

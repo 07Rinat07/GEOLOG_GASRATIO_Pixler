@@ -1093,7 +1093,11 @@ class MainWindow(QMainWindow):
             )
             return
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        printer.setPageSize(self.print_page_settings.qt_page_size)
+        printer.setPageSize(
+            self.print_page_settings.page_size_for_content(
+                current.width(), current.height()
+            )
+        )
         printer.setPageOrientation(self.print_page_settings.qt_orientation)
         dialog = QPrintPreviewDialog(printer, self)
         dialog.setWindowTitle(self._t("print.preview_title"))

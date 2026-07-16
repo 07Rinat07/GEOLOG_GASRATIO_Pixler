@@ -86,7 +86,7 @@ def export_widget_pdf(
     try:
         writer = QPdfWriter(str(temporary))
         settings = page_settings or PrintPageSettings()
-        writer.setPageSize(settings.qt_page_size)
+        writer.setPageSize(settings.page_size_for_content(width, height))
         writer.setPageOrientation(settings.qt_orientation)
         writer.setResolution(300)
         writer.setTitle("GEOLOG GASRATIO@Pixler visualization")

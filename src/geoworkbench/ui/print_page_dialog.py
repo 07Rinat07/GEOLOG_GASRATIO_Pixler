@@ -35,6 +35,9 @@ class PrintPageDialog(QDialog):
         self.format_combo.addItem(
             self._t("print.custom"), PrintPageFormat.CUSTOM.value
         )
+        self.format_combo.addItem(
+            self._t("print.roll"), PrintPageFormat.ROLL.value
+        )
         self.format_combo.setCurrentIndex(
             self.format_combo.findData(settings.page_format.value)
         )
@@ -90,6 +93,8 @@ class PrintPageDialog(QDialog):
         return control
 
     def _update_custom_enabled(self) -> None:
-        custom = self.format_combo.currentData() == PrintPageFormat.CUSTOM.value
-        self.width_input.setEnabled(custom)
-        self.height_input.setEnabled(custom)
+        selected = self.format_combo.currentData()
+        self.width_input.setEnabled(
+            selected in {PrintPageFormat.CUSTOM.value, PrintPageFormat.ROLL.value}
+        )
+        self.height_input.setEnabled(selected == PrintPageFormat.CUSTOM.value)

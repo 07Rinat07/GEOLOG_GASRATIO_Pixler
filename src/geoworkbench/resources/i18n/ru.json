@@ -124,6 +124,7 @@
   "print.page_format": "Формат страницы", "print.orientation": "Ориентация",
   "print.portrait": "Книжная", "print.landscape": "Альбомная",
   "print.custom": "Пользовательский", "print.width_mm": "Ширина, мм", "print.height_mm": "Высота, мм",
+  "print.roll": "Рулон (автодлина)",
   "print.page_updated": "Страница печати: {format}, {orientation}",
   "export_profile.title": "Профили экспорта", "export_profile.save": "Сохранить профиль выбранных кривых...",
   "export_profile.apply": "Применить профиль кривых...", "export_profile.delete": "Удалить профиль кривых...",

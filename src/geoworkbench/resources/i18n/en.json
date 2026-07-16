@@ -124,6 +124,7 @@
   "print.page_format": "Page format", "print.orientation": "Orientation",
   "print.portrait": "Portrait", "print.landscape": "Landscape",
   "print.custom": "Custom", "print.width_mm": "Width, mm", "print.height_mm": "Height, mm",
+  "print.roll": "Roll (automatic length)",
   "print.page_updated": "Print page: {format}, {orientation}",
   "export_profile.title": "Export profiles", "export_profile.save": "Save selected curve profile...",
   "export_profile.apply": "Apply curve profile...", "export_profile.delete": "Delete curve profile...",
