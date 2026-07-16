@@ -5,6 +5,7 @@ from math import isfinite
 from pathlib import Path
 
 from geoworkbench.data.las_adapter import export_las
+from geoworkbench.data.dataset_json_export import export_dataset_json
 from geoworkbench.data.las_export_plan import (
     LasExportAnalysis,
     LasExportPlan,
@@ -182,6 +183,11 @@ class DatasetExportController:
             depth_top,
             depth_bottom,
             overwrite=overwrite,
+        )
+
+    def export_current_json(self, target: Path, *, overwrite: bool = False) -> Path:
+        return export_dataset_json(
+            self._require_current_dataset(), target, overwrite=overwrite
         )
 
     def _require_current_dataset(self) -> Dataset:

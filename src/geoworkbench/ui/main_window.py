@@ -47,6 +47,7 @@ from geoworkbench.data.visualization_export import (
     export_widget_png,
     export_widget_svg,
 )
+from geoworkbench.data.dataset_json_export import DatasetJsonExportError
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
 from geoworkbench.project.curve_metadata_controller import CurveMetadataController
@@ -300,6 +301,9 @@ class MainWindow(QMainWindow):
         delete_export_profile_action = QAction(self._t("export_profile.delete"), self)
         delete_export_profile_action.triggered.connect(self.delete_export_profile)
         file_menu.addAction(delete_export_profile_action)
+        export_json_action = QAction(self._t("json_export.action"), self)
+        export_json_action.triggered.connect(self.export_current_json)
+        file_menu.addAction(export_json_action)
 
         self.data_inspector_action = QAction(self._t("data.action"), self)
         self.data_inspector_action.triggered.connect(self.show_data_inspector)
@@ -1132,6 +1136,39 @@ class MainWindow(QMainWindow):
         return next(
             profile.profile_id for profile in profiles if profile.name == selected
         )
+
+    def export_current_json(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(
+                self, self._t("json_export.title"), self._t("export.select_dataset")
+            )
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("json_export.save_title"),
+            str(Path.cwd() / f"{dataset.name}.json"),
+            "JSON (*.json)",
+        )
+        if not filename:
+            return
+        target = Path(filename)
+        if target.suffix.casefold() != ".json":
+            target = target.with_suffix(".json")
+        overwrite = self._confirm_export_overwrite(target)
+        if overwrite is None:
+            return
+        try:
+            exported = self.dataset_export_controller.export_current_json(
+                target, overwrite=overwrite
+            )
+        except (DatasetJsonExportError, FileExistsError, OSError, RuntimeError) as exc:
+            QMessageBox.critical(self, self._t("json_export.title"), str(exc))
+            self._log(self._t("json_export.failed", error=str(exc)))
+            return
+        message = self._t("json_export.success", name=exported.name)
+        self._log(message)
+        self.statusBar().showMessage(message)
 
     def show_data_inspector(self) -> None:
         if self.session.current_dataset is None:

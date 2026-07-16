@@ -375,6 +375,25 @@ def test_window_saves_and_applies_export_curve_profile(qapp, monkeypatch) -> Non
     window.close()
 
 
+def test_window_exports_current_dataset_to_json(qapp, tmp_path, monkeypatch) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    target = tmp_path / "dataset.json"
+    monkeypatch.setattr(
+        QFileDialog,
+        "getSaveFileName",
+        lambda *args, **kwargs: (str(target), "JSON (*.json)"),
+    )
+
+    window.export_current_json()
+
+    payload = target.read_text(encoding="utf-8")
+    assert '"dataset_id": "dataset-1"' in payload
+    assert '"original_mnemonic": "ROP"' in payload
+    window.close()
+
+
 def test_window_applies_curve_edit_and_updates_undo_redo_actions(qapp) -> None:
     window = MainWindow()
     session, _ = make_session()
