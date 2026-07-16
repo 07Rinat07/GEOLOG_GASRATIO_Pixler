@@ -18,6 +18,7 @@ from geoworkbench.project.masterlog_template_controller import MasterlogTemplate
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.masterlog_columns_dialog import MasterlogColumnsDialog
 from geoworkbench.ui.masterlog_header_dialog import MasterlogHeaderDialog
+from geoworkbench.ui.masterlog_assets_dialog import MasterlogAssetsDialog
 
 
 class MasterlogTemplatesDialog(QDialog):
@@ -40,6 +41,7 @@ class MasterlogTemplatesDialog(QDialog):
         self.rename_button = QPushButton(self._t("common.rename"))
         self.columns_button = QPushButton(self._t("masterlog_columns.action"))
         self.header_button = QPushButton(self._t("masterlog_header.action"))
+        self.assets_button = QPushButton(self._t("masterlog_assets.action"))
         self.delete_button = QPushButton(self._t("common.delete"))
         close_button = QPushButton(self._t("common.close"))
         self.create_button.clicked.connect(self._create)
@@ -47,6 +49,7 @@ class MasterlogTemplatesDialog(QDialog):
         self.rename_button.clicked.connect(self._rename)
         self.columns_button.clicked.connect(self._edit_columns)
         self.header_button.clicked.connect(self._edit_header)
+        self.assets_button.clicked.connect(self._edit_assets)
         self.delete_button.clicked.connect(self._delete)
         close_button.clicked.connect(self.accept)
         buttons = QHBoxLayout()
@@ -56,6 +59,7 @@ class MasterlogTemplatesDialog(QDialog):
             self.rename_button,
             self.columns_button,
             self.header_button,
+            self.assets_button,
             self.delete_button,
         ):
             buttons.addWidget(button)
@@ -155,6 +159,13 @@ class MasterlogTemplatesDialog(QDialog):
             language=self.localizer.language,
         ).exec()
         self.refresh()
+
+    def _edit_assets(self) -> None:
+        MasterlogAssetsDialog(
+            self.controller,
+            self,
+            language=self.localizer.language,
+        ).exec()
 
     def _run(self, operation: Callable[[], object]) -> None:
         try:

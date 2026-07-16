@@ -1,7 +1,9 @@
 import pytest
+from hashlib import sha256
 
 from geoworkbench.domain.models import MasterlogColumnTemplate
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
+from geoworkbench.printing.image_assets import ImageAsset
 from geoworkbench.project.session import ProjectSession
 
 
@@ -164,6 +166,33 @@ def test_masterlog_template_controller_manages_header_elements() -> None:
     controller.remove_header_element(template.template_id, logo.element_id)
     assert [item.element_id for item in template.header_elements] == [title.element_id]
     assert template.version == 6
+
+
+def test_masterlog_template_controller_protects_referenced_image_asset() -> None:
+    session = ProjectSession()
+    controller = MasterlogTemplateController(session)
+    payload = b"\x89PNG\r\n\x1a\nasset"
+    digest = sha256(payload).hexdigest()
+    asset = ImageAsset(f"sha256:{digest}", "logo.png", "image/png", payload)
+    session.image_assets[asset.asset_id] = asset
+    template = controller.create("Standard")
+    element = controller.add_header_element(
+        template.template_id,
+        element_type="image",
+        x_mm=0,
+        y_mm=0,
+        width_mm=20,
+        height_mm=10,
+        properties={"asset_ref": asset.asset_id},
+    )
+
+    assert controller.image_asset_references(asset.asset_id) == ("Standard",)
+    with pytest.raises(ValueError, match="Standard"):
+        controller.remove_image_asset(asset.asset_id)
+
+    controller.remove_header_element(template.template_id, element.element_id)
+    assert controller.remove_image_asset(asset.asset_id) is asset
+    assert session.dirty
 
 
 @pytest.mark.parametrize(

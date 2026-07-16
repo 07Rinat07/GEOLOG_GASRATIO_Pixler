@@ -12,6 +12,7 @@ from geoworkbench.domain.models import (
     new_id,
 )
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.image_assets import ImageAsset
 
 
 class MasterlogTemplateController:
@@ -185,6 +186,30 @@ class MasterlogTemplateController:
         template.header_elements.insert(target, template.header_elements.pop(index))
         self._touch(template)
         return True
+
+    def image_asset_references(self, asset_id: str) -> tuple[str, ...]:
+        return tuple(
+            template.name
+            for template in self.session.project.masterlog_templates.values()
+            if any(
+                element.element_type == "image"
+                and element.properties.get("asset_ref") == asset_id
+                for element in template.header_elements
+            )
+        )
+
+    def remove_image_asset(self, asset_id: str) -> ImageAsset:
+        references = self.image_asset_references(asset_id)
+        if references:
+            raise ValueError(
+                "PNG asset используется в шаблонах: " + ", ".join(references)
+            )
+        try:
+            asset = self.session.image_assets.pop(asset_id)
+        except KeyError as exc:
+            raise KeyError(f"PNG asset не найден: {asset_id}") from exc
+        self.session.dirty = True
+        return asset
 
     @staticmethod
     def _header_index(template: MasterlogTemplate, element_id: str) -> int:
