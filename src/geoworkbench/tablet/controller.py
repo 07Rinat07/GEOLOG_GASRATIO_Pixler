@@ -196,6 +196,12 @@ class TabletController:
         self._require_layout().track_by_id(track_id).set_curve_style(mnemonic, style)
         self.session.dirty = True
 
+    def set_track_grid(
+        self, track_id: str, show_x: bool, show_y: bool, alpha: float
+    ) -> None:
+        self._require_layout().track_by_id(track_id).set_grid(show_x, show_y, alpha)
+        self.session.dirty = True
+
     def move_track(self, track_id: str, offset: int) -> bool:
         layout = self._require_layout()
         track = layout.track_by_id(track_id)

@@ -23,6 +23,7 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 class TrackInspector(QWidget):
     settings_requested = Signal(str, int, str, object, object)
     curve_style_requested = Signal(str, str, str, float, str)
+    grid_requested = Signal(str, bool, bool, float)
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__()
@@ -85,6 +86,21 @@ class TrackInspector(QWidget):
         self.style_button.clicked.connect(self._emit_curve_style)
         editor_layout.addWidget(self.style_button)
 
+        grid_form = QFormLayout()
+        self.grid_x_input = QCheckBox(self._t("inspector.grid_x"))
+        self.grid_y_input = QCheckBox(self._t("inspector.grid_y"))
+        self.grid_alpha_input = QDoubleSpinBox()
+        self.grid_alpha_input.setRange(0.0, 1.0)
+        self.grid_alpha_input.setSingleStep(0.05)
+        self.grid_alpha_input.setDecimals(2)
+        grid_form.addRow(self.grid_x_input)
+        grid_form.addRow(self.grid_y_input)
+        grid_form.addRow(self._t("inspector.grid_alpha"), self.grid_alpha_input)
+        editor_layout.addLayout(grid_form)
+        self.grid_button = QPushButton(self._t("inspector.apply_grid"))
+        self.grid_button.clicked.connect(self._emit_grid)
+        editor_layout.addWidget(self.grid_button)
+
         self.apply_button = QPushButton(self._t("common.apply"))
         self.apply_button.clicked.connect(self._emit_settings)
         editor_layout.addWidget(self.apply_button)
@@ -135,6 +151,9 @@ class TrackInspector(QWidget):
         self.curve_input.blockSignals(False)
         self._load_curve_style(self.curve_input.currentText())
         self.style_button.setEnabled(bool(track.curve_mnemonics))
+        self.grid_x_input.setChecked(track.grid_x)
+        self.grid_y_input.setChecked(track.grid_y)
+        self.grid_alpha_input.setValue(track.grid_alpha)
         self._stack.setCurrentIndex(1)
 
     @staticmethod
@@ -186,4 +205,14 @@ class TrackInspector(QWidget):
             self.color_input.text().strip(),
             self.line_width_input.value(),
             str(self.line_style_input.currentData()),
+        )
+
+    def _emit_grid(self) -> None:
+        if self._track_id is None:
+            return
+        self.grid_requested.emit(
+            self._track_id,
+            self.grid_x_input.isChecked(),
+            self.grid_y_input.isChecked(),
+            self.grid_alpha_input.value(),
         )

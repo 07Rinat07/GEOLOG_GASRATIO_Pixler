@@ -198,6 +198,7 @@ class MainWindow(QMainWindow):
         self.inspector.curve_style_requested.connect(
             self._apply_inspector_curve_style
         )
+        self.inspector.grid_requested.connect(self._apply_inspector_grid)
         dock.setWidget(self.inspector)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
@@ -1851,6 +1852,20 @@ class MainWindow(QMainWindow):
         self._layout_changed(
             self._t("inspector.style_updated", mnemonic=mnemonic)
         )
+        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
+
+    def _apply_inspector_grid(
+        self, track_id: str, show_x: bool, show_y: bool, alpha: float
+    ) -> None:
+        try:
+            self.tablet_controller.set_track_grid(
+                track_id, show_x, show_y, alpha
+            )
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+        except (KeyError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("inspector.title"), str(exc))
+            return
+        self._layout_changed(self._t("inspector.grid_updated"))
         self.inspector.show_track(track, suggested_range=self._track_data_range(track))
 
     def _update_title(self) -> None:

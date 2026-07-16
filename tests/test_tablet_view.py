@@ -107,6 +107,23 @@ def test_tablet_view_applies_saved_curve_pen_style(qapp) -> None:
     view.close()
 
 
+def test_track_widget_applies_saved_grid_settings(qapp) -> None:
+    widget = TabletTrackWidget(
+        TrackDefinition(
+            "curve",
+            "Curve",
+            TrackKind.CURVE,
+            grid_x=True,
+            grid_y=False,
+            grid_alpha=0.4,
+        )
+    )
+
+    assert widget.plot.getAxis("bottom").grid == pytest.approx(102.0)
+    assert widget.plot.getAxis("left").grid is False
+    widget.close()
+
+
 def test_logarithmic_track_omits_curve_without_positive_values(qapp) -> None:
     dataset = Dataset(
         "dataset-1",

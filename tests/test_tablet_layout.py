@@ -58,6 +58,7 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     source.track_by_id("gas").set_curve_style(
         "C1", CurveStyle("#ff0000", 2.5, CurveLineStyle.DASH)
     )
+    source.track_by_id("gas").set_grid(False, True, 0.45)
 
     restored = layout_from_dict(layout_to_dict(source))
 
@@ -68,6 +69,9 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     assert restored.track_by_id("gas").curve_style("C1") == CurveStyle(
         "#ff0000", 2.5, CurveLineStyle.DASH
     )
+    assert restored.track_by_id("gas").grid_x is False
+    assert restored.track_by_id("gas").grid_y is True
+    assert restored.track_by_id("gas").grid_alpha == 0.45
 
 
 def test_layout_codec_migrates_v3_without_curve_styles() -> None:
@@ -87,6 +91,33 @@ def test_layout_codec_migrates_v3_without_curve_styles() -> None:
         }
     )
     assert restored.track_by_id("curve").curve_styles == {}
+
+
+def test_layout_codec_migrates_v4_with_default_grid() -> None:
+    restored = layout_from_dict(
+        {
+            "version": 4,
+            "tracks": [
+                {
+                    "track_id": "curve",
+                    "title": "Curve",
+                    "kind": "curve",
+                    "curve_styles": {},
+                }
+            ],
+        }
+    )
+
+    track = restored.track_by_id("curve")
+    assert track.grid_x is True
+    assert track.grid_y is True
+    assert track.grid_alpha == 0.2
+
+
+@pytest.mark.parametrize("alpha", [-0.01, 1.01, float("nan"), True])
+def test_track_rejects_invalid_grid_alpha(alpha: object) -> None:
+    with pytest.raises(ValueError, match="Прозрачность сетки"):
+        TrackDefinition("curve", "Curve", TrackKind.CURVE, grid_alpha=alpha)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(

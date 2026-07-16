@@ -93,6 +93,19 @@ def test_controller_sets_curve_style_and_marks_project_dirty() -> None:
     assert session.dirty is True
 
 
+def test_controller_sets_track_grid_and_marks_project_dirty() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    track = next(item for item in layout.tracks if item.kind is TrackKind.GAS)
+    session.dirty = False
+
+    controller.set_track_grid(track.track_id, False, True, 0.35)
+
+    assert (track.grid_x, track.grid_y, track.grid_alpha) == (False, True, 0.35)
+    assert session.dirty is True
+
+
 def test_move_at_layout_boundary_does_not_mark_session_dirty() -> None:
     session = make_session()
     controller = TabletController(session)

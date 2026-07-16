@@ -117,3 +117,25 @@ def test_inspector_edits_selected_curve_style(qapp) -> None:
 
     assert emitted == [("gas", "C2", "#112233", 2.5, "dash")]
     inspector.close()
+
+
+def test_inspector_edits_track_grid(qapp) -> None:
+    inspector = TrackInspector(language=AppLanguage.EN)
+    track = TrackDefinition(
+        "curve", "Curve", TrackKind.CURVE, grid_x=False, grid_y=True, grid_alpha=0.4
+    )
+    emitted: list[tuple[object, ...]] = []
+    inspector.grid_requested.connect(lambda *args: emitted.append(args))
+
+    inspector.show_track(track)
+
+    assert inspector.grid_x_input.isChecked() is False
+    assert inspector.grid_y_input.isChecked() is True
+    assert inspector.grid_alpha_input.value() == 0.4
+    inspector.grid_x_input.setChecked(True)
+    inspector.grid_y_input.setChecked(False)
+    inspector.grid_alpha_input.setValue(0.65)
+    QTest.mouseClick(inspector.grid_button, Qt.MouseButton.LeftButton)
+
+    assert emitted == [("curve", True, False, 0.65)]
+    inspector.close()

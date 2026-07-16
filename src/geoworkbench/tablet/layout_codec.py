@@ -13,7 +13,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 4
+LAYOUT_FORMAT_VERSION = 5
 
 
 class TabletLayoutFormatError(ValueError):
@@ -45,6 +45,9 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                     }
                     for mnemonic, style in track.curve_styles.items()
                 },
+                "grid_x": track.grid_x,
+                "grid_y": track.grid_y,
+                "grid_alpha": track.grid_alpha,
             }
             for track in layout.tracks
         ],
@@ -100,6 +103,9 @@ def _track_from_dict(data: object) -> TrackDefinition:
     raw_x_min = data.get("x_min")
     raw_x_max = data.get("x_max")
     raw_curve_styles = data.get("curve_styles", {})
+    raw_grid_x = data.get("grid_x", True)
+    raw_grid_y = data.get("grid_y", True)
+    raw_grid_alpha = data.get("grid_alpha", 0.2)
     if not isinstance(track_id, str) or not track_id.strip():
         raise TypeError("track_id должен быть непустой строкой")
     if not isinstance(title, str) or not title.strip():
@@ -128,6 +134,10 @@ def _track_from_dict(data: object) -> TrackDefinition:
                 raw_style.get("line_style", CurveLineStyle.SOLID.value)
             ),
         )
+    if not isinstance(raw_grid_x, bool) or not isinstance(raw_grid_y, bool):
+        raise TypeError("grid_x и grid_y должны быть логическими значениями")
+    if not isinstance(raw_grid_alpha, (int, float)) or isinstance(raw_grid_alpha, bool):
+        raise TypeError("grid_alpha должен быть числом")
 
     return TrackDefinition(
         track_id=track_id,
@@ -141,6 +151,9 @@ def _track_from_dict(data: object) -> TrackDefinition:
         x_min=float(raw_x_min) if raw_x_min is not None else None,
         x_max=float(raw_x_max) if raw_x_max is not None else None,
         curve_styles=curve_styles,
+        grid_x=raw_grid_x,
+        grid_y=raw_grid_y,
+        grid_alpha=float(raw_grid_alpha),
     )
 
 
@@ -148,7 +161,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2, 3):
+    if version not in (1, 2, 3, 4):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -169,4 +182,11 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
         for track in tracks:
             if isinstance(track, dict):
                 track.setdefault("curve_styles", {})
+    migrated["version"] = 5
+    if isinstance(tracks, list):
+        for track in tracks:
+            if isinstance(track, dict):
+                track.setdefault("grid_x", True)
+                track.setdefault("grid_y", True)
+                track.setdefault("grid_alpha", 0.2)
     return migrated

@@ -74,7 +74,11 @@ class TabletTrackWidget(QFrame):
         )
 
         self.plot = pg.PlotWidget()
-        self.plot.showGrid(x=True, y=True, alpha=0.2)
+        self.plot.showGrid(
+            x=definition.grid_x,
+            y=definition.grid_y,
+            alpha=definition.grid_alpha,
+        )
         self.plot.getViewBox().invertY(True)
         self.plot.setMenuEnabled(False)
         self.plot.setMouseEnabled(x=True, y=True)

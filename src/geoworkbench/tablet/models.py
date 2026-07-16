@@ -59,6 +59,9 @@ class TrackDefinition:
     x_min: float | None = None
     x_max: float | None = None
     curve_styles: dict[str, CurveStyle] = field(default_factory=dict)
+    grid_x: bool = True
+    grid_y: bool = True
+    grid_alpha: float = 0.2
 
     def __post_init__(self) -> None:
         if self.width < 80:
@@ -68,6 +71,7 @@ class TrackDefinition:
             raise ValueError("Ключи стилей кривых должны быть непустыми строками")
         if not all(isinstance(style, CurveStyle) for style in self.curve_styles.values()):
             raise ValueError("Настройки кривых должны использовать CurveStyle")
+        self._validate_grid(self.grid_x, self.grid_y, self.grid_alpha)
 
     def set_x_scale(self, scale: XScale) -> None:
         self._validate_x_settings(scale, self.x_min, self.x_max)
@@ -104,6 +108,21 @@ class TrackDefinition:
 
     def curve_style(self, mnemonic: str) -> CurveStyle | None:
         return self.curve_styles.get(mnemonic)
+
+    def set_grid(self, show_x: bool, show_y: bool, alpha: float) -> None:
+        self._validate_grid(show_x, show_y, alpha)
+        self.grid_x = show_x
+        self.grid_y = show_y
+        self.grid_alpha = alpha
+
+    @staticmethod
+    def _validate_grid(show_x: bool, show_y: bool, alpha: float) -> None:
+        if not isinstance(show_x, bool) or not isinstance(show_y, bool):
+            raise ValueError("Параметры видимости сетки должны быть логическими")
+        if isinstance(alpha, bool) or not isinstance(alpha, (int, float)):
+            raise ValueError("Прозрачность сетки должна быть числом")
+        if not isfinite(alpha) or not 0.0 <= alpha <= 1.0:
+            raise ValueError("Прозрачность сетки должна быть от 0 до 1")
 
     @staticmethod
     def _validate_x_settings(
