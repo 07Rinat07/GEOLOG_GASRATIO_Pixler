@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
+    QFileDialog,
     QHBoxLayout,
     QInputDialog,
     QListWidget,
@@ -19,6 +21,8 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.masterlog_columns_dialog import MasterlogColumnsDialog
 from geoworkbench.ui.masterlog_header_dialog import MasterlogHeaderDialog
 from geoworkbench.ui.masterlog_assets_dialog import MasterlogAssetsDialog
+from geoworkbench.ui.masterlog_preview_dialog import MasterlogPreviewDialog
+from geoworkbench.printing.masterlog_renderer import MasterlogRenderError, export_masterlog_pdf
 
 
 class MasterlogTemplatesDialog(QDialog):
@@ -42,6 +46,8 @@ class MasterlogTemplatesDialog(QDialog):
         self.columns_button = QPushButton(self._t("masterlog_columns.action"))
         self.header_button = QPushButton(self._t("masterlog_header.action"))
         self.assets_button = QPushButton(self._t("masterlog_assets.action"))
+        self.preview_button = QPushButton(self._t("masterlog_preview.action"))
+        self.export_button = QPushButton(self._t("masterlog_preview.export_pdf"))
         self.delete_button = QPushButton(self._t("common.delete"))
         close_button = QPushButton(self._t("common.close"))
         self.create_button.clicked.connect(self._create)
@@ -50,6 +56,8 @@ class MasterlogTemplatesDialog(QDialog):
         self.columns_button.clicked.connect(self._edit_columns)
         self.header_button.clicked.connect(self._edit_header)
         self.assets_button.clicked.connect(self._edit_assets)
+        self.preview_button.clicked.connect(self._preview)
+        self.export_button.clicked.connect(self._export_pdf)
         self.delete_button.clicked.connect(self._delete)
         close_button.clicked.connect(self.accept)
         buttons = QHBoxLayout()
@@ -60,6 +68,8 @@ class MasterlogTemplatesDialog(QDialog):
             self.columns_button,
             self.header_button,
             self.assets_button,
+            self.preview_button,
+            self.export_button,
             self.delete_button,
         ):
             buttons.addWidget(button)
@@ -166,6 +176,52 @@ class MasterlogTemplatesDialog(QDialog):
             self,
             language=self.localizer.language,
         ).exec()
+
+    def _preview(self) -> None:
+        template_id = self._selected_id()
+        if template_id is None:
+            return
+        MasterlogPreviewDialog(
+            self.controller.session.project.masterlog_templates[template_id],
+            self.controller.session,
+            self,
+            language=self.localizer.language,
+        ).exec()
+
+    def _export_pdf(self) -> None:
+        template_id = self._selected_id()
+        if template_id is None:
+            return
+        template = self.controller.session.project.masterlog_templates[template_id]
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("masterlog_preview.export_pdf"),
+            str(Path.cwd() / f"{template.name}.pdf"),
+            "PDF (*.pdf)",
+        )
+        if not filename:
+            return
+        target = Path(filename)
+        if target.suffix.casefold() != ".pdf":
+            target = target.with_suffix(".pdf")
+        if target.exists():
+            answer = QMessageBox.question(
+                self,
+                self.windowTitle(),
+                self._t("masterlog_preview.overwrite", name=target.name),
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        try:
+            export_masterlog_pdf(template, self.controller.session, target, overwrite=True)
+        except (OSError, MasterlogRenderError) as exc:
+            QMessageBox.critical(self, self.windowTitle(), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self.windowTitle(),
+            self._t("masterlog_preview.exported", name=target.name),
+        )
 
     def _run(self, operation: Callable[[], object]) -> None:
         try:
