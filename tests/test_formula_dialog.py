@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox
+from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QTableWidget
 
 from geoworkbench.calculations.controller import FormulaExecutionController
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
@@ -39,6 +39,17 @@ def test_formula_dialog_shows_passport_and_builds_mapping(qapp) -> None:
     assert "10.2118/1407-PA" in dialog.passport_label.text()
     assert set(dialog.input_selectors) == {"ROP_FPH", "RPM", "WOB_LBF", "BIT_IN"}
     assert dialog.findChild(QComboBox, "formula-input-RPM") is not None
+    mapping = dialog.findChild(QTableWidget, "formula-mapping-passport")
+    assert mapping is not None
+    assert mapping.rowCount() == 5
+    rpm_row = next(
+        row for row in range(mapping.rowCount()) if mapping.item(row, 0).text().startswith("RPM")
+    )
+    assert mapping.item(rpm_row, 1).text() == "RPM"
+    assert mapping.item(rpm_row, 3).text() == "rpm"
+    assert mapping.item(rpm_row, 4).text() == "source"
+    assert mapping.item(4, 1).text() == "DEXP"
+    assert mapping.item(4, 2).text() == "отсутствует"
     dialog.close()
 
 

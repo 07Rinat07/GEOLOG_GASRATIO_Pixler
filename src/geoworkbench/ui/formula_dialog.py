@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QDoubleSpinBox,
     QMessageBox,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -19,6 +21,19 @@ from geoworkbench.calculations.controller import (
 from geoworkbench.calculations.pixler import FormulaProfileRegistry
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.localization import AppLanguage, Localizer
+
+
+_MAPPING_HEADERS = {
+    AppLanguage.RU: ("Роль", "Кривая", "Curve ID", "Единица", "Происхождение", "Состояние", "отсутствует"),
+    AppLanguage.EN: ("Role", "Curve", "Curve ID", "Unit", "Provenance", "State", "missing"),
+    AppLanguage.KK: ("Рөлі", "Қисық", "Curve ID", "Бірлік", "Шығу тегі", "Күйі", "жоқ"),
+}
+
+_STATE_TEXT = {
+    AppLanguage.RU: {"current": "актуально", "stale": "устарело", "calculating": "рассчитывается", "error": "ошибка", "frozen": "зафиксировано"},
+    AppLanguage.EN: {"current": "current", "stale": "stale", "calculating": "calculating", "error": "error", "frozen": "frozen"},
+    AppLanguage.KK: {"current": "өзекті", "stale": "ескірген", "calculating": "есептелуде", "error": "қате", "frozen": "бекітілген"},
+}
 
 
 class FormulaExecutionDialog(QDialog):
@@ -35,6 +50,7 @@ class FormulaExecutionDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
+        self.language = language
         self.dataset = dataset
         self.registry = registry
         self.controller = controller
@@ -62,6 +78,11 @@ class FormulaExecutionDialog(QDialog):
         self.mapping_widget = QWidget()
         self.mapping_form = QFormLayout(self.mapping_widget)
         root.addWidget(self.mapping_widget)
+
+        self.mapping_details = QTableWidget(0, 6)
+        self.mapping_details.setObjectName("formula-mapping-passport")
+        self.mapping_details.setHorizontalHeaderLabels(_MAPPING_HEADERS[language][:6])
+        root.addWidget(self.mapping_details)
 
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -124,6 +145,7 @@ class FormulaExecutionDialog(QDialog):
             unit = passport.input_units[input_name]
             self.mapping_form.addRow(f"{input_name} [{unit}]", selector)
             self.input_selectors[input_name] = selector
+            selector.currentTextChanged.connect(self._refresh_mapping_details)
         for name, specification in passport.parameters.items():
             editor = QDoubleSpinBox()
             editor.setObjectName(f"formula-parameter-{name}")
@@ -132,6 +154,49 @@ class FormulaExecutionDialog(QDialog):
             editor.setValue(0.0)
             self.mapping_form.addRow(f"{name} [{specification.unit}]", editor)
             self.parameter_editors[name] = editor
+        self._refresh_mapping_details()
+
+    def _refresh_mapping_details(self) -> None:
+        if self.profile_selector.currentIndex() < 0:
+            self.mapping_details.setRowCount(0)
+            return
+        passport = self.registry.passport(self.selected_profile_id())
+        rows: list[tuple[str, str, str, str, str, str]] = []
+        missing = _MAPPING_HEADERS[self.language][6]
+        for input_name in passport.required_inputs:
+            selector = self.input_selectors.get(input_name)
+            mnemonic = selector.currentText() if selector is not None else ""
+            curve = self.dataset.curve_by_mnemonic(mnemonic) if mnemonic else None
+            rows.append(
+                (
+                    f"{input_name} [{passport.input_units[input_name]}]",
+                    mnemonic or missing,
+                    curve.metadata.curve_id if curve is not None else missing,
+                    (curve.metadata.unit or "—") if curve is not None else "—",
+                    curve.metadata.provenance if curve is not None else "—",
+                    _STATE_TEXT[self.language][curve.state.value]
+                    if curve is not None
+                    else missing,
+                )
+            )
+        output = self.dataset.curve_by_mnemonic(passport.output_mnemonic)
+        rows.append(
+            (
+                self._t("formula.output"),
+                passport.output_mnemonic,
+                output.metadata.curve_id if output is not None else missing,
+                (output.metadata.unit or passport.output_unit) if output is not None else passport.output_unit,
+                output.metadata.provenance if output is not None else "—",
+                _STATE_TEXT[self.language][output.state.value]
+                if output is not None
+                else missing,
+            )
+        )
+        self.mapping_details.setRowCount(len(rows))
+        for row, values in enumerate(rows):
+            for column, value in enumerate(values):
+                self.mapping_details.setItem(row, column, QTableWidgetItem(value))
+        self.mapping_details.resizeColumnsToContents()
 
     def _execute(self) -> None:
         try:
