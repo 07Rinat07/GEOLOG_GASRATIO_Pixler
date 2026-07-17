@@ -3,6 +3,7 @@ import pytest
 
 from geoworkbench.calculations.custom_formula import CustomFormulaError
 from geoworkbench.domain.models import (
+    CalculationState,
     CurveData,
     CurveMetadata,
     CustomFormulaDefinition,
@@ -121,3 +122,76 @@ def test_batch_undo_blocks_output_changed_after_apply() -> None:
 
     with pytest.raises(RuntimeError, match="Undo заблокирован"):
         controller.undo_batch()
+
+
+def test_formula_update_marks_transitive_outputs_stale_and_refreshes_passport() -> None:
+    controller, dataset = make_controller()
+    controller.save(CustomFormulaDefinition("first", "First", "C1 + 1", "FIRST", "%"))
+    controller.save(
+        CustomFormulaDefinition("second", "Second", "FIRST * 2", "SECOND", "%")
+    )
+    controller.apply_batch(controller.analyze_batch())
+    first = dataset.curve_by_mnemonic("FIRST")
+    second = dataset.curve_by_mnemonic("SECOND")
+    assert first is not None and second is not None
+
+    stored = controller.save(
+        CustomFormulaDefinition("first", "First v2", "C1 + 2", "FIRST", "ppm")
+    )
+
+    assert stored.version == 2
+    assert first.state is CalculationState.STALE
+    assert second.state is CalculationState.STALE
+    assert not controller.can_undo_batch
+
+    recalculated = controller.calculate("first")
+
+    assert recalculated.state is CalculationState.CURRENT
+    assert second.state is CalculationState.STALE
+    assert recalculated.metadata.description == "First v2"
+    assert recalculated.metadata.unit == "ppm"
+    assert recalculated.metadata.provenance == "custom-formula:first:2"
+    np.testing.assert_allclose(recalculated.values, [3.0, 4.0, 5.0])
+
+
+def test_formula_delete_marks_removed_output_and_consumers_stale() -> None:
+    controller, dataset = make_controller()
+    controller.save(CustomFormulaDefinition("first", "First", "C1 + 1", "FIRST", "%"))
+    controller.save(
+        CustomFormulaDefinition("second", "Second", "FIRST * 2", "SECOND", "%")
+    )
+    controller.apply_batch(controller.analyze_batch())
+
+    controller.delete("first")
+
+    first = dataset.curve_by_mnemonic("FIRST")
+    second = dataset.curve_by_mnemonic("SECOND")
+    assert first is not None and first.state is CalculationState.STALE
+    assert second is not None and second.state is CalculationState.STALE
+
+
+def test_formula_update_invalidates_matching_outputs_in_other_dataset() -> None:
+    controller, _ = make_controller()
+    controller.save(CustomFormulaDefinition("first", "First", "C1 + 1", "FIRST", "%"))
+    other = Dataset(
+        "other", "Other", DatasetKind.GTI, DepthDomain.MD, np.array([0.0, 1.0, 2.0])
+    )
+    other.curves["first-other"] = CurveData(
+        CurveMetadata(
+            "first-other",
+            "FIRST",
+            "FIRST",
+            "%",
+            "First",
+            other.dataset_id,
+            "custom-formula:first:1",
+        ),
+        np.array([2.0, 3.0, 4.0]),
+    )
+    well = controller.session.current_well
+    assert well is not None
+    well.datasets[other.dataset_id] = other
+
+    controller.save(CustomFormulaDefinition("first", "First", "C1 + 2", "FIRST", "%"))
+
+    assert other.curves["first-other"].state is CalculationState.STALE

@@ -12,7 +12,12 @@ from geoworkbench.calculations.custom_formula import (
     evaluate_formula,
     validate_definition,
 )
-from geoworkbench.domain.models import CustomFormulaDefinition, CurveData, Dataset
+from geoworkbench.domain.models import (
+    CalculationState,
+    CustomFormulaDefinition,
+    CurveData,
+    Dataset,
+)
 from geoworkbench.project.session import ProjectSession
 
 
@@ -80,13 +85,22 @@ class CustomFormulaController:
         previous = formulas.get(definition.formula_id)
         stored = replace(definition, version=(previous.version + 1 if previous else 1))
         formulas[stored.formula_id] = stored
+        changed_outputs = {stored.output_mnemonic.strip().upper()}
+        if previous is not None:
+            changed_outputs.add(previous.output_mnemonic.strip().upper())
+        self._mark_stale(_dependent_outputs(formulas, changed_outputs))
+        self.clear_history()
         self.session.dirty = True
         return stored
 
     def delete(self, formula_id: str) -> None:
-        if formula_id not in self.session.project.custom_formulas:
+        formulas = self.session.project.custom_formulas
+        if formula_id not in formulas:
             raise KeyError(f"Неизвестная формула: {formula_id}")
-        del self.session.project.custom_formulas[formula_id]
+        output = formulas[formula_id].output_mnemonic.strip().upper()
+        del formulas[formula_id]
+        self._mark_stale(_dependent_outputs(formulas, {output}))
+        self.clear_history()
         self.session.dirty = True
 
     def calculate(self, formula_id: str) -> CurveData:
@@ -109,6 +123,11 @@ class CustomFormulaController:
             description=definition.name,
             provenance=f"custom-formula:{definition.formula_id}:{definition.version}",
         )
+        _update_curve_passport(curve, definition)
+        downstream = _dependent_outputs(
+            self.session.project.custom_formulas, {destination}
+        ) - {destination}
+        self._mark_stale(downstream, datasets=(dataset,))
         self.session.dirty = True
         return curve
 
@@ -214,15 +233,15 @@ class CustomFormulaController:
         results: list[CurveData] = []
         for formula_id, values in zip(plan.ordered_formula_ids, plan.values, strict=True):
             definition = self.session.project.custom_formulas[formula_id]
-            results.append(
-                dataset.upsert_curve(
+            curve = dataset.upsert_curve(
                     definition.output_mnemonic.strip().upper(),
                     np.asarray(values, dtype=np.float64).copy(),
                     unit=definition.output_unit,
                     description=definition.name,
                     provenance=f"custom-formula:{definition.formula_id}:{definition.version}",
                 )
-            )
+            _update_curve_passport(curve, definition)
+            results.append(curve)
         self._batch_command = _FormulaBatchCommand(
             dataset.dataset_id,
             before,
@@ -274,6 +293,25 @@ class CustomFormulaController:
 
     def clear_history(self) -> None:
         self._batch_command = None
+
+    def _mark_stale(
+        self,
+        mnemonics: set[str],
+        *,
+        datasets: tuple[Dataset, ...] | None = None,
+    ) -> None:
+        targets = datasets or tuple(
+            dataset
+            for well in self.session.project.wells.values()
+            for dataset in well.datasets.values()
+        )
+        for dataset in targets:
+            for mnemonic in mnemonics:
+                curve = dataset.curve_by_mnemonic(mnemonic)
+                if curve is not None and curve.metadata.provenance.startswith(
+                    "custom-formula:"
+                ):
+                    curve.state = CalculationState.STALE
 
     def _batch_history(self, *, applied: bool) -> tuple[_FormulaBatchCommand, Dataset]:
         command = self._batch_command
@@ -337,3 +375,32 @@ def _same_curve(current: CurveData, expected: CurveData) -> bool:
         and current.state == expected.state
         and np.array_equal(current.values, expected.values, equal_nan=True)
     )
+
+
+def _dependent_outputs(
+    formulas: dict[str, CustomFormulaDefinition], changed: set[str]
+) -> set[str]:
+    affected = set(changed)
+    while True:
+        discovered = {
+            definition.output_mnemonic.strip().upper()
+            for definition in formulas.values()
+            if set(validate_definition(definition)) & affected
+        }
+        expanded = affected | discovered
+        if expanded == affected:
+            return affected
+        affected = expanded
+
+
+def _update_curve_passport(
+    curve: CurveData, definition: CustomFormulaDefinition
+) -> None:
+    curve.metadata = replace(
+        curve.metadata,
+        canonical_mnemonic=definition.output_mnemonic.strip().upper(),
+        unit=definition.output_unit,
+        description=definition.name,
+        provenance=f"custom-formula:{definition.formula_id}:{definition.version}",
+    )
+    curve.state = CalculationState.CURRENT
