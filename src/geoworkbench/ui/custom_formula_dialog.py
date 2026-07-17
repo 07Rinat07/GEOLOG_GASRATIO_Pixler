@@ -21,9 +21,9 @@ _TEXT = {
 }
 
 _BATCH_TEXT = {
-    AppLanguage.RU: ("Пересчитать все...", "Предварительный анализ формул", "Формула", "Выход", "Конечных", "Минимум", "Максимум", "Изменится", "Применить"),
-    AppLanguage.EN: ("Recalculate all...", "Formula batch preview", "Formula", "Output", "Finite", "Minimum", "Maximum", "Changed", "Apply"),
-    AppLanguage.KK: ("Барлығын қайта есептеу...", "Формулаларды алдын ала талдау", "Формула", "Шығыс", "Соңғы", "Минимум", "Максимум", "Өзгереді", "Қолдану"),
+    AppLanguage.RU: ("Пересчитать все...", "Предварительный анализ формул", "Формула", "Выход", "Конечных", "Минимум", "Максимум", "Изменится", "Применить", "Отменить массовый пересчёт", "Повторить массовый пересчёт"),
+    AppLanguage.EN: ("Recalculate all...", "Formula batch preview", "Formula", "Output", "Finite", "Minimum", "Maximum", "Changed", "Apply", "Undo batch recalculation", "Redo batch recalculation"),
+    AppLanguage.KK: ("Барлығын қайта есептеу...", "Формулаларды алдын ала талдау", "Формула", "Шығыс", "Соңғы", "Минимум", "Максимум", "Өзгереді", "Қолдану", "Жаппай қайта есептеуді болдырмау", "Жаппай қайта есептеуді қайталау"),
 }
 
 
@@ -72,6 +72,7 @@ class CustomFormulaDialog(QDialog):
         self.language = language
         self.text = _TEXT[language]
         self.calculated_mnemonic: str | None = None
+        self.dataset_changed = False
         self.setWindowTitle(self.text[0])
         self.resize(720, 360)
         root = QVBoxLayout(self)
@@ -100,13 +101,22 @@ class CustomFormulaDialog(QDialog):
             (self.text[8], self._new), (self.text[9], self._save),
             (self.text[10], self._delete), (self.text[11], self._calculate),
             (_BATCH_TEXT[language][0], self._calculate_all),
-            (self.text[12], self.accept),
         ):
             button = QPushButton(text)
             button.clicked.connect(handler)
             buttons.addWidget(button)
+        self.undo_batch_button = QPushButton(_BATCH_TEXT[language][9])
+        self.undo_batch_button.clicked.connect(self._undo_batch)
+        buttons.addWidget(self.undo_batch_button)
+        self.redo_batch_button = QPushButton(_BATCH_TEXT[language][10])
+        self.redo_batch_button.clicked.connect(self._redo_batch)
+        buttons.addWidget(self.redo_batch_button)
+        close_button = QPushButton(self.text[12])
+        close_button.clicked.connect(self.accept)
+        buttons.addWidget(close_button)
         root.addLayout(buttons)
         self._refresh()
+        self._update_batch_actions()
 
     def _refresh(self, selected_id: str | None = None) -> None:
         self.selector.blockSignals(True)
@@ -169,6 +179,7 @@ class CustomFormulaDialog(QDialog):
             QMessageBox.warning(self, "Формула", str(exc))
             return
         self.calculated_mnemonic = curve.metadata.original_mnemonic
+        self.dataset_changed = True
         self._refresh(stored.formula_id)
         QMessageBox.information(self, self.text[5], f"{self.text[13]} {self.calculated_mnemonic}")
 
@@ -188,7 +199,35 @@ class CustomFormulaDialog(QDialog):
             return
         if curves:
             self.calculated_mnemonic = curves[-1].metadata.original_mnemonic
+        self.dataset_changed = True
         self._refresh(self.selector.currentData())
+        self._update_batch_actions()
+
+    def _undo_batch(self) -> None:
+        try:
+            self.controller.undo_batch()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self.text[0], str(exc))
+            return
+        self.calculated_mnemonic = None
+        self.dataset_changed = True
+        self._update_batch_actions()
+
+    def _redo_batch(self) -> None:
+        try:
+            curves = self.controller.redo_batch()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self.text[0], str(exc))
+            return
+        self.calculated_mnemonic = (
+            curves[-1].metadata.original_mnemonic if curves else None
+        )
+        self.dataset_changed = True
+        self._update_batch_actions()
+
+    def _update_batch_actions(self) -> None:
+        self.undo_batch_button.setEnabled(self.controller.can_undo_batch)
+        self.redo_batch_button.setEnabled(self.controller.can_redo_batch)
 
     def _preview_inputs(self) -> None:
         try:

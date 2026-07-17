@@ -821,6 +821,7 @@ class MainWindow(QMainWindow):
         self._update_transfer_actions()
         self.formula_execution_controller.session = self.session
         self.custom_formula_controller.session = self.session
+        self.custom_formula_controller.clear_history()
         self.depth_annotation_controller.session = self.session
         self.depth_annotation_controller.history.clear()
         self.lithology_controller.session = self.session
@@ -1733,7 +1734,7 @@ class MainWindow(QMainWindow):
             self.custom_formula_controller, self, language=self.language
         )
         dialog.exec()
-        if dialog.calculated_mnemonic is None or self.session.current_dataset is None:
+        if not dialog.dataset_changed or self.session.current_dataset is None:
             return
         definition = next(
             (
@@ -1746,7 +1747,9 @@ class MainWindow(QMainWindow):
         inputs = formula_inputs(definition.expression) if definition else ()
         self.curve_view.show_dataset(
             self.session.current_dataset,
-            [*inputs, dialog.calculated_mnemonic],
+            [*inputs, dialog.calculated_mnemonic]
+            if dialog.calculated_mnemonic is not None
+            else None,
         )
         self.tablet_view.set_dataset(self.session.current_dataset)
         self._refresh_tree()

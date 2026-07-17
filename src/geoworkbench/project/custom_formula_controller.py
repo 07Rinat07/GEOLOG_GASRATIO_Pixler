@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -11,7 +12,7 @@ from geoworkbench.calculations.custom_formula import (
     evaluate_formula,
     validate_definition,
 )
-from geoworkbench.domain.models import CustomFormulaDefinition, CurveData
+from geoworkbench.domain.models import CustomFormulaDefinition, CurveData, Dataset
 from geoworkbench.project.session import ProjectSession
 
 
@@ -36,9 +37,42 @@ class FormulaBatchPlan:
     values: tuple[NDArray[np.float64], ...]
 
 
+@dataclass(slots=True)
+class _FormulaBatchCommand:
+    dataset_id: str
+    before: dict[str, CurveData | None]
+    after: dict[str, CurveData]
+    formula_versions: tuple[tuple[str, int], ...]
+    applied: bool = True
+    redo_curve_versions: tuple[tuple[str, int], ...] = ()
+
+
 class CustomFormulaController:
     def __init__(self, session: ProjectSession) -> None:
         self.session = session
+        self._batch_command: _FormulaBatchCommand | None = None
+
+    @property
+    def can_undo_batch(self) -> bool:
+        command = self._batch_command
+        dataset = self.session.current_dataset
+        return bool(
+            command is not None
+            and command.applied
+            and dataset is not None
+            and dataset.dataset_id == command.dataset_id
+        )
+
+    @property
+    def can_redo_batch(self) -> bool:
+        command = self._batch_command
+        dataset = self.session.current_dataset
+        return bool(
+            command is not None
+            and not command.applied
+            and dataset is not None
+            and dataset.dataset_id == command.dataset_id
+        )
 
     def save(self, definition: CustomFormulaDefinition) -> CustomFormulaDefinition:
         validate_definition(definition)
@@ -171,6 +205,12 @@ class CustomFormulaController:
         )
         if curve_versions != plan.curve_versions or formula_versions != plan.formula_versions:
             raise RuntimeError("Данные или формулы изменились после предварительного анализа")
+        before = {
+            preview.output_mnemonic: deepcopy(
+                dataset.curve_by_mnemonic(preview.output_mnemonic)
+            )
+            for preview in plan.previews
+        }
         results: list[CurveData] = []
         for formula_id, values in zip(plan.ordered_formula_ids, plan.values, strict=True):
             definition = self.session.project.custom_formulas[formula_id]
@@ -183,8 +223,70 @@ class CustomFormulaController:
                     provenance=f"custom-formula:{definition.formula_id}:{definition.version}",
                 )
             )
+        self._batch_command = _FormulaBatchCommand(
+            dataset.dataset_id,
+            before,
+            {
+                curve.metadata.original_mnemonic.strip().upper(): deepcopy(curve)
+                for curve in results
+            },
+            formula_versions,
+        )
         self.session.dirty = True
         return tuple(results)
+
+    def undo_batch(self) -> None:
+        command, dataset = self._batch_history(applied=True)
+        for mnemonic, expected in command.after.items():
+            current = dataset.curve_by_mnemonic(mnemonic)
+            if current is None or not _same_curve(current, expected):
+                raise RuntimeError(
+                    f"Кривая {mnemonic} изменилась после массового пересчёта; Undo заблокирован"
+                )
+        for mnemonic, snapshot in command.before.items():
+            current = dataset.curve_by_mnemonic(mnemonic)
+            if current is not None:
+                del dataset.curves[current.metadata.curve_id]
+            if snapshot is not None:
+                dataset.curves[snapshot.metadata.curve_id] = deepcopy(snapshot)
+        command.applied = False
+        command.redo_curve_versions = _curve_versions(dataset)
+        self.session.dirty = True
+
+    def redo_batch(self) -> tuple[CurveData, ...]:
+        command, dataset = self._batch_history(applied=False)
+        if (
+            _curve_versions(dataset) != command.redo_curve_versions
+            or _formula_versions(self.session) != command.formula_versions
+        ):
+            raise RuntimeError("Данные или формулы изменились после Undo; Redo заблокирован")
+        restored: list[CurveData] = []
+        for mnemonic, snapshot in command.after.items():
+            current = dataset.curve_by_mnemonic(mnemonic)
+            if current is not None:
+                del dataset.curves[current.metadata.curve_id]
+            curve = deepcopy(snapshot)
+            dataset.curves[curve.metadata.curve_id] = curve
+            restored.append(curve)
+        command.applied = True
+        self.session.dirty = True
+        return tuple(restored)
+
+    def clear_history(self) -> None:
+        self._batch_command = None
+
+    def _batch_history(self, *, applied: bool) -> tuple[_FormulaBatchCommand, Dataset]:
+        command = self._batch_command
+        dataset = self.session.current_dataset
+        if (
+            command is None
+            or command.applied is not applied
+            or dataset is None
+            or dataset.dataset_id != command.dataset_id
+        ):
+            action = "отмены" if applied else "повтора"
+            raise RuntimeError(f"Нет массового пересчёта формул для {action}")
+        return command, dataset
 
 
 def _formula_order(
@@ -213,3 +315,25 @@ def _formula_order(
         for required in remaining.values():
             required.difference_update(ready)
     return tuple(ordered)
+
+
+def _curve_versions(dataset: Dataset) -> tuple[tuple[str, int], ...]:
+    return tuple(sorted((curve_id, curve.version) for curve_id, curve in dataset.curves.items()))
+
+
+def _formula_versions(session: ProjectSession) -> tuple[tuple[str, int], ...]:
+    return tuple(
+        sorted(
+            (item.formula_id, item.version)
+            for item in session.project.custom_formulas.values()
+        )
+    )
+
+
+def _same_curve(current: CurveData, expected: CurveData) -> bool:
+    return (
+        current.metadata == expected.metadata
+        and current.version == expected.version
+        and current.state == expected.state
+        and np.array_equal(current.values, expected.values, equal_nan=True)
+    )

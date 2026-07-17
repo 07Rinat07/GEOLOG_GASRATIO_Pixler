@@ -63,4 +63,16 @@ def test_custom_formula_dialog_applies_accepted_batch_preview(qapp, monkeypatch)
     assert curve is not None
     np.testing.assert_allclose(curve.values, [2.0, 4.0])
     assert dialog.calculated_mnemonic == "DOUBLE"
+    assert dialog.dataset_changed
+    assert dialog.undo_batch_button.isEnabled()
+
+    dialog._undo_batch()
+    assert controller.session.current_dataset.curve_by_mnemonic("DOUBLE") is None
+    assert dialog.redo_batch_button.isEnabled()
+
+    dialog._redo_batch()
+    restored = controller.session.current_dataset.curve_by_mnemonic("DOUBLE")
+    assert restored is not None
+    np.testing.assert_allclose(restored.values, [2.0, 4.0])
+    assert dialog.undo_batch_button.isEnabled()
     dialog.close()
