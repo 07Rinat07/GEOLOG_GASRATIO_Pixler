@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.calculations.custom_formula import CustomFormulaError, formula_inputs
 from geoworkbench.domain.models import CustomFormulaDefinition
 from geoworkbench.project.custom_formula_controller import (
+    CustomFormulaCalculationPassport,
     CustomFormulaController,
     FormulaBatchPlan,
 )
@@ -15,9 +16,9 @@ from geoworkbench.services.localization import AppLanguage
 
 
 _TEXT = {
-    AppLanguage.RU: ("Пользовательские формулы", "Новая формула", "Название", "Выходная мнемоника", "Единица результата", "Формула", "Описание", "Найденные входы", "Новая", "Сохранить", "Удалить", "Рассчитать", "Закрыть", "Рассчитана кривая"),
-    AppLanguage.EN: ("Custom formulas", "New formula", "Name", "Output mnemonic", "Output unit", "Formula", "Description", "Detected inputs", "New", "Save", "Delete", "Calculate", "Close", "Calculated curve"),
-    AppLanguage.KK: ("Пайдаланушы формулалары", "Жаңа формула", "Атауы", "Шығыс мнемоникасы", "Нәтиже бірлігі", "Формула", "Сипаттама", "Табылған кірістер", "Жаңа", "Сақтау", "Жою", "Есептеу", "Жабу", "Есептелген қисық"),
+    AppLanguage.RU: ("Пользовательские формулы", "Новая формула", "Название", "Выходная мнемоника", "Единица результата", "Формула", "Описание", "Найденные входы", "Новая", "Сохранить", "Удалить", "Рассчитать", "Закрыть", "Рассчитана кривая", "Показать расчёт..."),
+    AppLanguage.EN: ("Custom formulas", "New formula", "Name", "Output mnemonic", "Output unit", "Formula", "Description", "Detected inputs", "New", "Save", "Delete", "Calculate", "Close", "Calculated curve", "Show calculation..."),
+    AppLanguage.KK: ("Пайдаланушы формулалары", "Жаңа формула", "Атауы", "Шығыс мнемоникасы", "Нәтиже бірлігі", "Формула", "Сипаттама", "Табылған кірістер", "Жаңа", "Сақтау", "Жою", "Есептеу", "Жабу", "Есептелген қисық", "Есепті көрсету..."),
 }
 
 _BATCH_TEXT = {
@@ -25,6 +26,68 @@ _BATCH_TEXT = {
     AppLanguage.EN: ("Recalculate all...", "Formula batch preview", "Formula", "Output", "Finite", "Minimum", "Maximum", "Changed", "Apply", "Undo batch recalculation", "Redo batch recalculation"),
     AppLanguage.KK: ("Барлығын қайта есептеу...", "Формулаларды алдын ала талдау", "Формула", "Шығыс", "Соңғы", "Минимум", "Максимум", "Өзгереді", "Қолдану", "Жаппай қайта есептеуді болдырмау", "Жаппай қайта есептеуді қайталау"),
 }
+
+_PASSPORT_TEXT = {
+    AppLanguage.RU: ("Паспорт расчёта", "Версия", "Выход", "Выходная кривая", "Запрошено", "Фактически", "Единица", "Происхождение", "Состояние", "отсутствует", "Закрыть"),
+    AppLanguage.EN: ("Calculation passport", "Version", "Output", "Output curve", "Requested", "Actual", "Unit", "Provenance", "State", "missing", "Close"),
+    AppLanguage.KK: ("Есеп паспорты", "Нұсқа", "Шығыс", "Шығыс қисығы", "Сұралған", "Нақты", "Бірлік", "Шығу тегі", "Күйі", "жоқ", "Жабу"),
+}
+
+_STATE_TEXT = {
+    AppLanguage.RU: {"current": "актуально", "stale": "устарело", "calculating": "рассчитывается", "error": "ошибка", "frozen": "зафиксировано"},
+    AppLanguage.EN: {"current": "current", "stale": "stale", "calculating": "calculating", "error": "error", "frozen": "frozen"},
+    AppLanguage.KK: {"current": "өзекті", "stale": "ескірген", "calculating": "есептелуде", "error": "қате", "frozen": "бекітілген"},
+}
+
+
+class CustomFormulaPassportDialog(QDialog):
+    def __init__(
+        self,
+        passport: CustomFormulaCalculationPassport,
+        parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
+        super().__init__(parent)
+        text = _PASSPORT_TEXT[language]
+        self.setWindowTitle(text[0])
+        self.resize(820, 420)
+        root = QVBoxLayout(self)
+        summary = QLabel(
+            f"<b>{passport.name}</b> · {text[1]} {passport.version}<br>"
+            f"<code>{passport.expression}</code><br>"
+            f"{text[2]}: {passport.output_mnemonic} [{passport.output_unit}]"
+        )
+        summary.setObjectName("custom-formula-passport-summary")
+        summary.setTextInteractionFlags(summary.textInteractionFlags())
+        root.addWidget(summary)
+        entries = (*passport.inputs, passport.output)
+        table = QTableWidget(len(entries), 5)
+        table.setObjectName("custom-formula-passport-curves")
+        table.setHorizontalHeaderLabels(text[4:9])
+        for row, entry in enumerate(entries):
+            actual = entry.actual_mnemonic or text[9]
+            values = (
+                entry.requested_mnemonic,
+                actual,
+                entry.unit or "—",
+                entry.provenance or "—",
+                _STATE_TEXT[language][entry.state.value]
+                if entry.state is not None
+                else text[9],
+            )
+            for column, value in enumerate(values):
+                table.setItem(row, column, QTableWidgetItem(value))
+        table.resizeColumnsToContents()
+        root.addWidget(table)
+        output_id = passport.output.curve_id or text[9]
+        output_label = QLabel(f"{text[3]} ID: {output_id}")
+        output_label.setObjectName("custom-formula-passport-output")
+        root.addWidget(output_label)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(text[10])
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
 
 
 class FormulaBatchPreviewDialog(QDialog):
@@ -100,6 +163,7 @@ class CustomFormulaDialog(QDialog):
         for text, handler in (
             (self.text[8], self._new), (self.text[9], self._save),
             (self.text[10], self._delete), (self.text[11], self._calculate),
+            (self.text[14], self._show_calculation),
             (_BATCH_TEXT[language][0], self._calculate_all),
         ):
             button = QPushButton(text)
@@ -202,6 +266,20 @@ class CustomFormulaDialog(QDialog):
         self.dataset_changed = True
         self._refresh(self.selector.currentData())
         self._update_batch_actions()
+
+    def _show_calculation(self) -> None:
+        formula_id = self.selector.currentData()
+        if not isinstance(formula_id, str):
+            QMessageBox.information(self, self.text[0], self.text[1])
+            return
+        try:
+            passport = self.controller.calculation_passport(formula_id)
+        except (CustomFormulaError, KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self.text[0], str(exc))
+            return
+        CustomFormulaPassportDialog(
+            passport, self, language=self.language
+        ).exec()
 
     def _undo_batch(self) -> None:
         try:

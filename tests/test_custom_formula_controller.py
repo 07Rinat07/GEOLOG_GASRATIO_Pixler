@@ -195,3 +195,30 @@ def test_formula_update_invalidates_matching_outputs_in_other_dataset() -> None:
     controller.save(CustomFormulaDefinition("first", "First", "C1 + 2", "FIRST", "%"))
 
     assert other.curves["first-other"].state is CalculationState.STALE
+
+
+def test_calculation_passport_exposes_inputs_output_and_versioned_provenance() -> None:
+    controller, _ = make_controller()
+    controller.save(CustomFormulaDefinition("first", "First", "C1 + C2", "FIRST", "%"))
+
+    missing = controller.calculation_passport("first")
+
+    assert [item.requested_mnemonic for item in missing.inputs] == ["C1", "C2"]
+    assert missing.inputs[0].curve_id == "c1"
+    assert missing.inputs[0].provenance == "source"
+    assert missing.inputs[1].curve_id is None
+    assert missing.output.curve_id is None
+
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    dataset.curves["c2"] = CurveData(
+        CurveMetadata("c2", "C2", "C2", "%", None, dataset.dataset_id),
+        np.array([10.0, 20.0, 30.0]),
+    )
+    controller.calculate("first")
+    passport = controller.calculation_passport("first")
+
+    assert passport.version == 1
+    assert passport.expression == "C1 + C2"
+    assert passport.output.state is CalculationState.CURRENT
+    assert passport.output.provenance == "custom-formula:first:1"

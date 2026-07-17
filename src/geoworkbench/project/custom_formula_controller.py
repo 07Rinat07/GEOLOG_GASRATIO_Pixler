@@ -42,6 +42,29 @@ class FormulaBatchPlan:
     values: tuple[NDArray[np.float64], ...]
 
 
+@dataclass(frozen=True, slots=True)
+class FormulaCurvePassport:
+    requested_mnemonic: str
+    curve_id: str | None
+    actual_mnemonic: str | None
+    unit: str | None
+    provenance: str | None
+    state: CalculationState | None
+
+
+@dataclass(frozen=True, slots=True)
+class CustomFormulaCalculationPassport:
+    formula_id: str
+    name: str
+    version: int
+    expression: str
+    output_mnemonic: str
+    output_unit: str
+    description: str
+    inputs: tuple[FormulaCurvePassport, ...]
+    output: FormulaCurvePassport
+
+
 @dataclass(slots=True)
 class _FormulaBatchCommand:
     dataset_id: str
@@ -130,6 +153,31 @@ class CustomFormulaController:
         self._mark_stale(downstream, datasets=(dataset,))
         self.session.dirty = True
         return curve
+
+    def calculation_passport(self, formula_id: str) -> CustomFormulaCalculationPassport:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            raise RuntimeError("Сначала выберите набор данных")
+        try:
+            definition = self.session.project.custom_formulas[formula_id]
+        except KeyError as exc:
+            raise KeyError(f"Неизвестная формула: {formula_id}") from exc
+        inputs = tuple(
+            _curve_passport(dataset, mnemonic)
+            for mnemonic in validate_definition(definition)
+        )
+        output_mnemonic = definition.output_mnemonic.strip().upper()
+        return CustomFormulaCalculationPassport(
+            definition.formula_id,
+            definition.name,
+            definition.version,
+            definition.expression,
+            output_mnemonic,
+            definition.output_unit,
+            definition.description,
+            inputs,
+            _curve_passport(dataset, output_mnemonic),
+        )
 
     def analyze_batch(self) -> FormulaBatchPlan:
         dataset = self.session.current_dataset
@@ -404,3 +452,17 @@ def _update_curve_passport(
         provenance=f"custom-formula:{definition.formula_id}:{definition.version}",
     )
     curve.state = CalculationState.CURRENT
+
+
+def _curve_passport(dataset: Dataset, mnemonic: str) -> FormulaCurvePassport:
+    curve = dataset.curve_by_mnemonic(mnemonic)
+    if curve is None:
+        return FormulaCurvePassport(mnemonic, None, None, None, None, None)
+    return FormulaCurvePassport(
+        mnemonic,
+        curve.metadata.curve_id,
+        curve.metadata.original_mnemonic,
+        curve.metadata.unit,
+        curve.metadata.provenance,
+        curve.state,
+    )

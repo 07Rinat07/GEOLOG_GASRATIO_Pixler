@@ -147,6 +147,7 @@ Roadmap следует зависимостям продукта, а не ном
    - готово: reference-нормализация C1–C5/изомеров и TG_NORM с ручными ROP/FLOW/BIT/E;
    - готово: сохраняемые пользовательские формулы, versioned provenance и транзитивный STALE;
    - готово: массовый пересчёт пользовательских формул по зависимостям с preview и Undo/Redo;
+   - готово: паспорт пользовательской формулы с входами, состояниями и provenance результата;
    - TIME↔DEPTH mapping, повторные проходы и профили агрегации.
 8. **Graph performance follow-up**
    - готово: depth-aware peak sampling до 5000 экранных точек для Curve View и Tablet View;

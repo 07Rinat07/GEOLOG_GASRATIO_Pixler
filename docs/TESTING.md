@@ -62,7 +62,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Depth normalization UI | RU/KK/EN directions/confirmation and non-destructive copy workflow |
 | Basic Gas Ratio UI | RU/KK/EN command/status/log with stable calculated curve mnemonics |
 | Normalized gas | C1 и reference C1–C5/TG profiles, passports, parameters, units, control examples, NaN domain и provenance |
-| Custom formulas | Safe AST, input inference, NaN domain, versioned provenance, transitive STALE, batch preview/order и conflict-safe Undo/Redo |
+| Custom formulas | Safe AST, versioned provenance, transitive STALE, batch preview/Undo/Redo и RU/KK/EN calculation passport с missing inputs |
 | User profiles | Stable ID, persistence, selection, update, active-profile deletion and corrupt settings |
 | DEXP/NCT | DEXP/DEXPC profiles, explicit NCT calibration, DEXPC−NCT curve and RU/KK/EN dialog |
 | LAS и другие входные форматы | Успешный импорт, повреждённый файл, неверный тип |

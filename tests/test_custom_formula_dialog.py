@@ -14,6 +14,7 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.custom_formula_dialog import (
     CustomFormulaDialog,
+    CustomFormulaPassportDialog,
     FormulaBatchPreviewDialog,
 )
 
@@ -75,4 +76,20 @@ def test_custom_formula_dialog_applies_accepted_batch_preview(qapp, monkeypatch)
     assert restored is not None
     np.testing.assert_allclose(restored.values, [2.0, 4.0])
     assert dialog.undo_batch_button.isEnabled()
+    dialog.close()
+
+
+def test_custom_formula_passport_dialog_shows_missing_and_provenance(qapp) -> None:
+    controller = make_controller()
+    passport = controller.calculation_passport("double")
+    dialog = CustomFormulaPassportDialog(passport, language=AppLanguage.EN)
+    table = dialog.findChild(QTableWidget, "custom-formula-passport-curves")
+
+    assert dialog.windowTitle() == "Calculation passport"
+    assert table is not None
+    assert table.rowCount() == 2
+    assert table.item(0, 0).text() == "C1"
+    assert table.item(0, 3).text() == "source"
+    assert table.item(1, 0).text() == "DOUBLE"
+    assert table.item(1, 1).text() == "missing"
     dialog.close()
