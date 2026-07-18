@@ -18,6 +18,7 @@
 
 Пользовательские руководства: [Русский](docs/ru/README.md) ·
 [Қазақша](docs/kk/README.md) · [English](docs/en/README.md).
+Регламент обязательного обновления инструкций: [Documentation Policy](docs/DOCUMENTATION_POLICY.md).
 
 Реализовано:
 

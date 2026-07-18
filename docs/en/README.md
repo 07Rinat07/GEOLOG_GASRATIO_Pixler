@@ -132,3 +132,33 @@ Undo/Redo support. Points and stretched intervals print in the correct track and
 page segments by the independent millimetre renderer. Parameter anchors derive their X position
 from the selected curve and the column's linear/log scale. Time anchors use a unique TIME/DEPTH
 index pair and reject ambiguous depth matches. Page and free anchors will follow.
+
+### Forms and independent headers
+
+Open “Print → Masterlog forms” and select “From preset...”. Choose a field, gas-evaluation, or
+geological preset and save it under a project-specific name. The application creates an independent
+copy, so column, scale, or LAS mapping changes do not modify the built-in preset or another form.
+Use “Header” and “Apply header preset...” to install an independently editable header copy.
+
+### Mouse interval filling
+
+In Masterlog preview, select “Fill lithology” or “Fill cuttings”. Hold the left mouse button and
+drag from interval top to bottom. Choose one rock for lithology, or enter multiple cuttings
+percentages whose total is exactly 100%. Overlapping intervals are rejected.
+
+### Point inspection and PDF callouts
+
+In “Inspect” mode, click a curve to see its column, nearest real sample, depth, value, unit, and
+description. Lithology and cuttings clicks report interval top, bottom, rocks, and description.
+“Pin for PDF” adds the callout to preview, system printing, and PDF. “Callouts...” lists pinned
+items and removes obsolete ones.
+
+## Synchronized depth cursor
+
+Select the red “Визирная линия” toolbar action or press `V`. A left click places one synchronized
+horizontal line across every track; drag the line to move it. The “Cursor values” dock lists the
+nearest actual sample depth and every unique curve value from visible tracks.
+
+Use “Edit → Настроить визирную линию...” to select color and width. Color, width, and enabled state
+are stored separately for the active engineer profile. Press the action or `V` again to restore
+normal plot navigation.
