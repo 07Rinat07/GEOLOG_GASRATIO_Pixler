@@ -1,7 +1,8 @@
 import numpy as np
 import pyqtgraph as pg
 import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QWheelEvent
 
 from geoworkbench.domain.models import (
     CanvasObject,
@@ -104,6 +105,7 @@ def test_tablet_uses_single_unscaled_depth_axis(qapp) -> None:
     assert depth_axis.isVisible()
     assert depth_axis.autoSIPrefix is False
     assert not curve_axis.isVisible()
+    assert view._rendered["depth"].plot.toolTip().startswith("Колесо — прокрутка")
     view.close()
 
 
@@ -401,6 +403,113 @@ def test_tablet_view_restores_saved_visible_depth_without_emitting_change(qapp) 
 
     assert view.visible_depth_range == pytest.approx((120.0, 160.0))
     assert emitted == []
+    view.close()
+
+
+def test_tablet_clamps_saved_depth_window_to_loaded_las(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Loaded LAS",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([1000.0, 1100.0, 1220.0]),
+    )
+    layout = TabletLayout(
+        [TrackDefinition("depth", "Глубина", TrackKind.DEPTH)],
+        visible_depth_top=943.0,
+        visible_depth_bottom=1268.0,
+    )
+    view = TabletView()
+    emitted: list[tuple[float, float]] = []
+    view.visible_depth_changed.connect(lambda top, bottom: emitted.append((top, bottom)))
+    view.set_layout_model(layout)
+
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.visible_depth_range == pytest.approx((1000.0, 1220.0))
+    assert (layout.visible_depth_top, layout.visible_depth_bottom) == (1000.0, 1220.0)
+    assert emitted == []
+    view.close()
+
+
+def test_tablet_zoom_and_wheel_style_scroll_stay_inside_las_and_sync_tracks(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Loaded LAS",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([1000.0, 1100.0, 1220.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Глубина", TrackKind.DEPTH),
+                TrackDefinition("curve", "Curve", TrackKind.CURVE),
+            ]
+        )
+    )
+    emitted: list[tuple[float, float]] = []
+    view.visible_depth_changed.connect(lambda top, bottom: emitted.append((top, bottom)))
+    view.set_dataset(dataset)
+
+    assert view.zoom_depth(0.5)
+    assert view.visible_depth_range == pytest.approx((1055.0, 1165.0))
+    assert view.scroll_depth(10.0)
+
+    assert view.visible_depth_range == pytest.approx((1110.0, 1220.0))
+    assert view.track_depth_range("depth") == pytest.approx((1110.0, 1220.0))
+    assert view.track_depth_range("curve") == pytest.approx((1110.0, 1220.0))
+    assert emitted == pytest.approx([(1055.0, 1165.0), (1110.0, 1220.0)])
+    view.close()
+
+
+def test_tablet_mouse_wheel_scrolls_and_control_wheel_zooms_depth(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Loaded LAS",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([1000.0, 1100.0, 1220.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(TabletLayout([TrackDefinition("depth", "Глубина", TrackKind.DEPTH)]))
+    view.resize(500, 500)
+    view.show()
+    view.set_dataset(dataset)
+    qapp.processEvents()
+    plot = view._rendered["depth"].plot
+    assert plot is not None
+    viewport = plot.viewport()
+
+    zoom_event = QWheelEvent(
+        QPointF(10.0, 10.0),
+        QPointF(10.0, 10.0),
+        QPoint(),
+        QPoint(0, 120),
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.ControlModifier,
+        Qt.ScrollPhase.ScrollUpdate,
+        False,
+    )
+    qapp.sendEvent(viewport, zoom_event)
+
+    assert view.visible_depth_range == pytest.approx((1022.0, 1198.0))
+
+    scroll_event = QWheelEvent(
+        QPointF(10.0, 10.0),
+        QPointF(10.0, 10.0),
+        QPoint(),
+        QPoint(0, -120),
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+        Qt.ScrollPhase.ScrollUpdate,
+        False,
+    )
+    qapp.sendEvent(viewport, scroll_event)
+
+    assert view.visible_depth_range == pytest.approx((1043.12, 1219.12))
     view.close()
 
 

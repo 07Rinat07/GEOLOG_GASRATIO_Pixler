@@ -6,7 +6,7 @@ from html import escape
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -27,6 +27,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
+from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.tablet.lithology_labels import lithology_label_is_visible
 from geoworkbench.tablet.models import (
@@ -69,7 +70,7 @@ class TabletTrackWidget(QFrame):
 
     RESIZE_MARGIN = 6
 
-    def __init__(self, definition: TrackDefinition) -> None:
+    def __init__(self, definition: TrackDefinition, navigation_hint: str = "") -> None:
         super().__init__()
         self.definition = definition
         self._resize_gesture: TrackResizeGesture | None = None
@@ -97,6 +98,7 @@ class TabletTrackWidget(QFrame):
         self.plot.getViewBox().invertY(True)
         self.plot.setMenuEnabled(False)
         self.plot.setMouseEnabled(x=True, y=True)
+        self.plot.setToolTip(navigation_hint)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -178,9 +180,12 @@ class TabletView(QWidget):
     visible_depth_changed = Signal(float, float)
     cursor_changed = Signal(float, str)
 
-    def __init__(self) -> None:
+    def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__()
         pg.setConfigOptions(antialias=False)
+        self._navigation_hint = Localizer.create(language).text(
+            "tablet.depth_navigation_hint"
+        )
         self._dataset: Dataset | None = None
         self._canvas_objects: tuple[CanvasObject, ...] = ()
         self._lithology: tuple[LithologyInterval, ...] = ()
@@ -196,6 +201,7 @@ class TabletView(QWidget):
         self._cursor_guard = False
         self._cursor_color = "#dc2626"
         self._cursor_width = 2.0
+        self._depth_viewports: dict[QObject, pg.PlotWidget] = {}
 
         self._container = QWidget()
         self._tracks_layout = QHBoxLayout(self._container)
@@ -475,6 +481,7 @@ class TabletView(QWidget):
         self.refresh_view()
 
     def clear(self) -> None:
+        self._depth_viewports.clear()
         while self._tracks_layout.count():
             item = self._tracks_layout.takeAt(0)
             if item is None:
@@ -506,10 +513,15 @@ class TabletView(QWidget):
         if finite_depth.size and (visible_top is None or visible_bottom is None):
             visible_top = float(np.min(finite_depth))
             visible_bottom = float(np.max(finite_depth))
+        elif visible_top is not None and visible_bottom is not None:
+            visible_top, visible_bottom = self._normalize_depth_window(
+                visible_top, visible_bottom
+            )
+            self._layout_model.set_visible_depth(visible_top, visible_bottom)
 
         master_plot: pg.PlotWidget | None = None
         for definition in visible:
-            track = TabletTrackWidget(definition)
+            track = TabletTrackWidget(definition, self._navigation_hint)
             track.selected.connect(self.track_selected)
             track.width_change_requested.connect(self.track_width_change_requested)
             legend_labels, curve_items = self._populate_track(
@@ -527,8 +539,10 @@ class TabletView(QWidget):
             stratigraphy_items = self._populate_stratigraphy(track, definition)
             if master_plot is None:
                 master_plot = track.plot
+            view_box = track.plot.getViewBox()
+            view_box.disableAutoRange(axis=pg.ViewBox.YAxis)
+            self._apply_depth_limits(view_box)
             track.plot.sigYRangeChanged.connect(self._on_depth_range_changed)
-            track.plot.getViewBox().disableAutoRange(axis=pg.ViewBox.YAxis)
             rendered = RenderedTrack(
                 definition,
                 track,
@@ -545,6 +559,9 @@ class TabletView(QWidget):
             )
             self._rendered[definition.track_id] = rendered
             self._install_cursor(rendered)
+            viewport = track.plot.viewport()
+            viewport.installEventFilter(self)
+            self._depth_viewports[viewport] = track.plot
             self._tracks_layout.addWidget(track)
 
         self._tracks_layout.addStretch(1)
@@ -586,18 +603,113 @@ class TabletView(QWidget):
         self.set_cursor_depth(float(line.value()))
 
     def set_visible_depth(self, top: float, bottom: float) -> None:
+        self._apply_visible_depth(top, bottom, emit_change=False)
+
+    def scroll_depth(self, steps: float) -> bool:
+        current = self.visible_depth_range
+        if current is None or not np.isfinite(steps) or steps == 0:
+            return False
+        span = current[1] - current[0]
+        shift = span * 0.12 * float(steps)
+        return self._apply_visible_depth(
+            current[0] + shift,
+            current[1] + shift,
+            emit_change=True,
+        )
+
+    def zoom_depth(self, factor: float) -> bool:
+        current = self.visible_depth_range
+        if current is None or not np.isfinite(factor) or factor <= 0:
+            return False
+        center = (current[0] + current[1]) / 2.0
+        half_span = (current[1] - current[0]) * float(factor) / 2.0
+        return self._apply_visible_depth(
+            center - half_span,
+            center + half_span,
+            emit_change=True,
+        )
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        if watched in self._depth_viewports and isinstance(event, QWheelEvent):
+            delta = event.angleDelta().y()
+            if delta == 0:
+                delta = event.pixelDelta().y()
+            steps = float(delta) / 120.0
+            if steps:
+                if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                    self.zoom_depth(0.8**steps)
+                else:
+                    self.scroll_depth(-steps)
+            event.accept()
+            return True
+        return super().eventFilter(watched, event)
+
+    def _apply_visible_depth(self, top: float, bottom: float, *, emit_change: bool) -> bool:
         first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
-        if first is not None:
-            self._depth_range_guard = True
-            try:
-                for rendered in self._rendered.values():
-                    if rendered.plot is not None:
-                        rendered.plot.setYRange(top, bottom, padding=0)
-                self._update_visible_curve_data(top, bottom)
-                self._update_lithology_text_visibility(top, bottom)
-                self._update_stratigraphy_text_visibility(top, bottom)
-            finally:
-                self._depth_range_guard = False
+        if first is None or not np.isfinite(top) or not np.isfinite(bottom) or top == bottom:
+            return False
+        normalized_top, normalized_bottom = self._normalize_depth_window(top, bottom)
+        current = self.visible_depth_range
+        changed = current is None or not np.allclose(
+            current, (normalized_top, normalized_bottom), rtol=0.0, atol=1e-9
+        )
+        self._depth_range_guard = True
+        try:
+            for rendered in self._rendered.values():
+                if rendered.plot is not None:
+                    rendered.plot.setYRange(normalized_top, normalized_bottom, padding=0)
+            self._update_visible_curve_data(normalized_top, normalized_bottom)
+            self._update_lithology_text_visibility(normalized_top, normalized_bottom)
+            self._update_stratigraphy_text_visibility(normalized_top, normalized_bottom)
+        finally:
+            self._depth_range_guard = False
+        if changed and emit_change:
+            self.visible_depth_changed.emit(normalized_top, normalized_bottom)
+        return changed
+
+    def _depth_bounds(self) -> tuple[float, float] | None:
+        if self._dataset is None:
+            return None
+        finite = np.asarray(self._dataset.depth, dtype=float)
+        finite = finite[np.isfinite(finite)]
+        if finite.size < 2:
+            return None
+        return float(np.min(finite)), float(np.max(finite))
+
+    def _normalize_depth_window(self, top: float, bottom: float) -> tuple[float, float]:
+        requested_top, requested_bottom = sorted((float(top), float(bottom)))
+        bounds = self._depth_bounds()
+        if bounds is None:
+            return requested_top, requested_bottom
+        data_top, data_bottom = bounds
+        data_span = data_bottom - data_top
+        requested_span = requested_bottom - requested_top
+        if requested_span >= data_span:
+            return data_top, data_bottom
+        minimum_span = max(data_span / 100_000.0, np.finfo(float).eps)
+        span = max(requested_span, minimum_span)
+        normalized_top = requested_top
+        normalized_bottom = requested_top + span
+        if normalized_top < data_top:
+            normalized_top = data_top
+            normalized_bottom = data_top + span
+        if normalized_bottom > data_bottom:
+            normalized_bottom = data_bottom
+            normalized_top = data_bottom - span
+        return normalized_top, normalized_bottom
+
+    def _apply_depth_limits(self, view_box: pg.ViewBox) -> None:
+        bounds = self._depth_bounds()
+        if bounds is None:
+            return
+        top, bottom = bounds
+        span = bottom - top
+        view_box.setLimits(
+            yMin=top,
+            yMax=bottom,
+            minYRange=max(span / 100_000.0, np.finfo(float).eps),
+            maxYRange=span,
+        )
 
     def _populate_track(
         self,
@@ -630,6 +742,7 @@ class TabletView(QWidget):
             return (), {}
 
         track.plot.setLabel("bottom", definition.title)
+        track.plot.setMouseEnabled(x=False, y=True)
         logarithmic = definition.x_scale is XScale.LOGARITHMIC
         track.plot.setLogMode(x=logarithmic, y=False)
         legend_labels: list[str] = []
@@ -969,7 +1082,9 @@ class TabletView(QWidget):
             return
         self._sync_guard = True
         try:
-            top, bottom = sorted((float(y_range[0]), float(y_range[1])))
+            top, bottom = self._normalize_depth_window(
+                float(y_range[0]), float(y_range[1])
+            )
             self._update_visible_curve_data(top, bottom)
             self._synchronize_depth_ranges(top, bottom)
             self._update_lithology_text_visibility(top, bottom)

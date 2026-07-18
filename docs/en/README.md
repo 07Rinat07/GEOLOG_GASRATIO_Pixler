@@ -85,6 +85,11 @@ track; adjacent tracks follow it synchronously without repeated axes. The defaul
 a logarithmic scale so Total Gas and minor components remain visible together; it can be changed
 in the Track Inspector.
 
+Depth navigation works over every track: the wheel scrolls up/down, `Ctrl+wheel` changes the
+depth zoom, and dragging pans. The range is clamped to the actual minimum and maximum of the
+loaded LAS, so navigation cannot move into an empty area outside the well. Hover over a plot to
+see the same controls in a tooltip.
+
 Each column supports an automatic X range or manually entered minimum and maximum values in the
 Track Inspector. Switching to manual mode starts from the actual data range for that column. The
 visible depth interval can also be entered numerically from the log-layout menu; “Show full depth

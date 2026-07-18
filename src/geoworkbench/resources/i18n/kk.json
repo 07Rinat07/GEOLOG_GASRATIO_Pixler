@@ -369,6 +369,7 @@
   "data.select_dataset": "Алдымен деректер жинағын таңдаңыз",
   "tablet.title": "Планшет", "tablet.build_default": "Негізгі планшетті құру", "tablet.add_track": "Трек қосу",
   "tablet.track.depth": "Тереңдік", "tablet.track.gas": "Газ компоненттері", "tablet.track.lithology": "Литология", "tablet.track.stratigraphy": "Стратиграфия", "tablet.track.cuttings": "Шламограмма", "tablet.track.calcimetry": "Кальциметрия", "tablet.track.lba": "ЛБА",
+  "tablet.depth_navigation_hint": "Дөңгелек — тереңдікті айналдыру; Ctrl+дөңгелек — масштаб; сүйреу — панорамалау",
   "tablet.track.description": "Тау жыныстарының сипаттамасы", "tablet.track.curve": "Қисық", "tablet.change_width": "Таңдалған тректің енін өзгерту...",
   "tablet.linear_scale": "Таңдалған тректің сызықтық шкаласы", "tablet.log_scale": "Таңдалған тректің логарифмдік шкаласы",
   "tablet.set_range": "Таңдалған тректің X ауқымын орнату...", "tablet.auto_range": "Таңдалған тректің автоматты X ауқымы",

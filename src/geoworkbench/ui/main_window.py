@@ -169,7 +169,7 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.curve_view = CurveView(self.dataset_selection, language=self.language)
         self.curve_view.edit_requested.connect(self._apply_curve_draw_edit)
-        self.tablet_view = TabletView()
+        self.tablet_view = TabletView(language=self.language)
         self.tablet_view.set_cursor_style(
             self.cursor_line_settings.color, self.cursor_line_settings.width
         )
