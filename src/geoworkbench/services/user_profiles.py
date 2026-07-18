@@ -21,6 +21,13 @@ class EngineerProfile:
     organization: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class CursorLineSettings:
+    color: str = "#dc2626"
+    width: float = 2.0
+    enabled: bool = False
+
+
 @dataclass(slots=True)
 class UserProfileSettings:
     settings: Any
@@ -86,8 +93,10 @@ class UserProfileSettings:
         if len(profiles) == len(self.profiles()):
             raise KeyError(f"Неизвестный профиль: {profile_id}")
         active = self.active()
-        next_active = profiles[0].profile_id if active and active.profile_id == profile_id and profiles else (
-            active.profile_id if active else None
+        next_active = (
+            profiles[0].profile_id
+            if active and active.profile_id == profile_id and profiles
+            else (active.profile_id if active else None)
         )
         self._store(profiles, next_active)
 
@@ -127,10 +136,44 @@ class UserProfileSettings:
         )
         self.settings.sync()
 
+    def cursor_line_settings(self) -> CursorLineSettings:
+        raw = self.settings.value(self._cursor_settings_key(), "")
+        try:
+            payload = json.loads(str(raw))
+            if not isinstance(payload, dict):
+                return CursorLineSettings()
+            color = str(payload.get("color", "#dc2626"))
+            width = float(payload.get("width", 2.0))
+            enabled = payload.get("enabled", False)
+            if (
+                len(color) != 7
+                or not color.startswith("#")
+                or any(character not in "0123456789abcdefABCDEF" for character in color[1:])
+                or not 0.5 <= width <= 10.0
+                or not isinstance(enabled, bool)
+            ):
+                return CursorLineSettings()
+            return CursorLineSettings(color.lower(), width, enabled)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return CursorLineSettings()
+
+    def save_cursor_line_settings(self, value: CursorLineSettings) -> None:
+        if not isinstance(value, CursorLineSettings):
+            raise TypeError("Настройки визира должны использовать CursorLineSettings")
+        self.settings.setValue(
+            self._cursor_settings_key(), json.dumps(asdict(value), ensure_ascii=False)
+        )
+        self.settings.sync()
+
     def _print_settings_key(self) -> str:
         active = self.active()
         profile_id = active.profile_id if active is not None else "default"
         return f"users/print_page/{profile_id}"
+
+    def _cursor_settings_key(self) -> str:
+        active = self.active()
+        profile_id = active.profile_id if active is not None else "default"
+        return f"users/cursor_line/{profile_id}"
 
     def _store(self, profiles: tuple[EngineerProfile, ...], active_id: str | None) -> None:
         self.settings.setValue(

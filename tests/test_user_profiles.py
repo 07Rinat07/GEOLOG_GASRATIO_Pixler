@@ -2,7 +2,11 @@ import json
 
 import pytest
 
-from geoworkbench.services.user_profiles import EngineerProfile, UserProfileSettings
+from geoworkbench.services.user_profiles import (
+    CursorLineSettings,
+    EngineerProfile,
+    UserProfileSettings,
+)
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
     PrintPageFormat,
@@ -37,7 +41,8 @@ def test_profiles_are_named_persistent_and_selectable() -> None:
     assert settings.select(rinat.profile_id) == rinat
     assert UserProfileSettings(storage).active() == rinat
     assert {item.display_name for item in settings.profiles()} == {
-        "Rinat Sarmuldin", "Other Engineer"
+        "Rinat Sarmuldin",
+        "Other Engineer",
     }
 
 
@@ -95,3 +100,26 @@ def test_corrupt_print_page_settings_fall_back_to_defaults() -> None:
     storage.values["users/print_page/default"] = '{"page_format": "letter"}'
 
     assert UserProfileSettings(storage).print_page_settings() == PrintPageSettings()
+
+
+def test_cursor_line_settings_persist_per_active_profile() -> None:
+    storage = MemorySettings()
+    settings = UserProfileSettings(storage)
+
+    settings.save_cursor_line_settings(CursorLineSettings("#123456", 3.5, True))
+
+    assert UserProfileSettings(storage).cursor_line_settings() == CursorLineSettings(
+        "#123456", 3.5, True
+    )
+    profile = settings.create("Engineer")
+    assert settings.cursor_line_settings() == CursorLineSettings()
+    settings.save_cursor_line_settings(CursorLineSettings("#abcdef", 1.0, False))
+    settings.select(profile.profile_id)
+    assert settings.cursor_line_settings().color == "#abcdef"
+
+
+def test_corrupt_cursor_line_settings_fall_back_to_defaults() -> None:
+    storage = MemorySettings()
+    storage.values["users/cursor_line/default"] = '{"color":"red","width":99}'
+
+    assert UserProfileSettings(storage).cursor_line_settings() == CursorLineSettings()

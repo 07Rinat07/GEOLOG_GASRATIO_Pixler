@@ -114,7 +114,7 @@ from geoworkbench.services.localization import (
     Localizer,
 )
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
-from geoworkbench.services.user_profiles import UserProfileSettings
+from geoworkbench.services.user_profiles import CursorLineSettings, UserProfileSettings
 
 
 class MainWindow(QMainWindow):
@@ -157,6 +157,7 @@ class MainWindow(QMainWindow):
         self.dataset_selection = DatasetIntervalSelection()
         self._selected_track_id: str | None = None
         self.print_page_settings = self.user_profile_settings.print_page_settings()
+        self.cursor_line_settings = self.user_profile_settings.cursor_line_settings()
         self.setWindowIcon(application_icon())
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.resize(1580, 960)
@@ -165,6 +166,9 @@ class MainWindow(QMainWindow):
         self.curve_view = CurveView(self.dataset_selection, language=self.language)
         self.curve_view.edit_requested.connect(self._apply_curve_draw_edit)
         self.tablet_view = TabletView()
+        self.tablet_view.set_cursor_style(
+            self.cursor_line_settings.color, self.cursor_line_settings.width
+        )
         self.tablet_view.track_selected.connect(self._show_track_in_inspector)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
@@ -186,9 +190,11 @@ class MainWindow(QMainWindow):
         self._create_project_explorer()
         self._create_inspector()
         self._create_issues_panel()
+        self._create_cursor_panel()
         self._create_actions()
         self._create_toolbar()
         self.setStatusBar(QStatusBar())
+        self.cursor_line_action.setChecked(self.cursor_line_settings.enabled)
         self.statusBar().showMessage(self._t("app.ready"))
         self._update_title()
 
@@ -228,6 +234,14 @@ class MainWindow(QMainWindow):
         self.issues.setReadOnly(True)
         dock.setWidget(self.issues)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+
+    def _create_cursor_panel(self) -> None:
+        self.cursor_dock = QDockWidget("Параметры по визиру", self)
+        self.cursor_values = QTextEdit()
+        self.cursor_values.setReadOnly(True)
+        self.cursor_dock.setWidget(self.cursor_values)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.cursor_dock)
+        self.cursor_dock.hide()
 
     def _create_actions(self) -> None:
         file_menu = self.menuBar().addMenu(self._t("menu.file"))
@@ -561,6 +575,11 @@ class MainWindow(QMainWindow):
 
     def toggle_cursor_line(self, enabled: bool) -> None:
         self.tablet_view.set_cursor_enabled(enabled)
+        self.cursor_dock.setVisible(enabled)
+        self.cursor_line_settings = CursorLineSettings(
+            self.cursor_line_settings.color, self.cursor_line_settings.width, enabled
+        )
+        self.user_profile_settings.save_cursor_line_settings(self.cursor_line_settings)
         if enabled:
             self.tabs.setCurrentWidget(self.tablet_view)
         else:
@@ -570,6 +589,7 @@ class MainWindow(QMainWindow):
         del depth
         if self.cursor_line_action.isChecked():
             self.statusBar().showMessage(summary)
+            self.cursor_values.setPlainText(summary.replace(" | ", "\n"))
 
     def configure_cursor_line(self) -> None:
         color = QColorDialog.getColor(parent=self, title="Цвет визирной линии")
@@ -586,6 +606,10 @@ class MainWindow(QMainWindow):
         )
         if accepted:
             self.tablet_view.set_cursor_style(color.name(), width)
+            self.cursor_line_settings = CursorLineSettings(
+                color.name(), width, self.cursor_line_action.isChecked()
+            )
+            self.user_profile_settings.save_cursor_line_settings(self.cursor_line_settings)
 
     def open_data(self) -> None:
         importers = {
