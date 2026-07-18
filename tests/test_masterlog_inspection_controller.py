@@ -27,6 +27,11 @@ def test_pin_inspection_creates_printable_template_scoped_callout() -> None:
     assert "TG: 1 %" in str(item.properties["text"])
     assert session.dirty is True
 
+    assert MasterlogInspectionController(session).available("form") == (item,)
+    removed = MasterlogInspectionController(session).remove("form", item.object_id)
+    assert removed is item
+    assert MasterlogInspectionController(session).available("form") == ()
+
 
 def test_pin_interval_preserves_top_and_bottom() -> None:
     session = ProjectSession()

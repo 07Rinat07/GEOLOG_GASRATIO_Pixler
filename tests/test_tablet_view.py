@@ -111,6 +111,12 @@ def test_tablet_cursor_line_is_synchronized_and_reports_all_curve_values(qapp) -
     assert all(item.cursor_line is not None for item in view._rendered.values())
     assert all(item.cursor_line.value() == 151.0 for item in view._rendered.values())
     assert view.cursor_summary(151.0) == "Глубина: 150 м | C1: 2 % | ROP: 20 m/h"
+    view.set_cursor_style("#123456", 3.5)
+    assert all(
+        item.cursor_line.pen.color().name() == "#123456" and item.cursor_line.pen.widthF() == 3.5
+        for item in view._rendered.values()
+        if item.cursor_line is not None
+    )
     view.close()
 
 

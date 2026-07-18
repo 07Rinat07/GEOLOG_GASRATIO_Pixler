@@ -21,6 +21,7 @@ def test_masterlog_preview_dialog_uses_selected_template(qapp) -> None:
     assert dialog.cuttings_button.text() == "Fill cuttings"
     assert dialog.pin_button.text() == "Pin for PDF"
     assert not dialog.pin_button.isEnabled()
+    assert dialog.callouts_button.text() == "Callouts..."
     dialog._set_mode("lithology")
     assert dialog.preview.selection_mode == "lithology"
     assert dialog.lithology_button.isChecked()

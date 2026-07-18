@@ -180,6 +180,7 @@ class TabletView(QWidget):
         self._cursor_depth: float | None = None
         self._cursor_guard = False
         self._cursor_color = "#dc2626"
+        self._cursor_width = 2.0
 
         self._container = QWidget()
         self._tracks_layout = QHBoxLayout(self._container)
@@ -321,6 +322,17 @@ class TabletView(QWidget):
             self._cursor_guard = False
         self.cursor_changed.emit(bounded, self.cursor_summary(bounded))
 
+    def set_cursor_style(self, color: str, width: float) -> None:
+        if not pg.mkColor(color).isValid():
+            raise ValueError("Некорректный цвет визирной линии")
+        if not np.isfinite(width) or not 0.5 <= width <= 10.0:
+            raise ValueError("Толщина визирной линии должна быть от 0.5 до 10 px")
+        self._cursor_color = color
+        self._cursor_width = float(width)
+        for rendered in self._rendered.values():
+            if rendered.cursor_line is not None:
+                rendered.cursor_line.setPen(pg.mkPen(self._cursor_color, width=self._cursor_width))
+
     def cursor_summary(self, depth: float) -> str:
         if self._dataset is None:
             return ""
@@ -434,7 +446,7 @@ class TabletView(QWidget):
             pos=self._cursor_depth or 0.0,
             angle=0,
             movable=True,
-            pen=pg.mkPen(self._cursor_color, width=2),
+            pen=pg.mkPen(self._cursor_color, width=self._cursor_width),
             hoverPen=pg.mkPen("#ef4444", width=3),
         )
         line.setVisible(self._cursor_enabled and self._cursor_depth is not None)

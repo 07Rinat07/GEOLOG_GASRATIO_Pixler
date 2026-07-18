@@ -31,6 +31,7 @@ from geoworkbench.printing.masterlog_inspection import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.masterlog_interval_fill_dialog import CuttingsCompositionDialog
+from geoworkbench.ui.masterlog_callouts_dialog import MasterlogCalloutsDialog
 
 
 class MasterlogPreviewWidget(QWidget):
@@ -173,6 +174,14 @@ class MasterlogPreviewDialog(QDialog):
         self.preview.inspection_selected.connect(
             lambda inspection: self.pin_button.setEnabled(inspection is not None)
         )
+        self.callouts_button = QPushButton(
+            {
+                AppLanguage.RU: "Выноски...",
+                AppLanguage.KK: "Белгілер...",
+                AppLanguage.EN: "Callouts...",
+            }[language]
+        )
+        self.callouts_button.clicked.connect(self._manage_callouts)
         for button, mode in (
             (self.inspect_button, None),
             (self.lithology_button, "lithology"),
@@ -182,6 +191,7 @@ class MasterlogPreviewDialog(QDialog):
             button.clicked.connect(lambda checked=False, value=mode: self._set_mode(value))
             tools.addWidget(button)
         tools.addWidget(self.pin_button)
+        tools.addWidget(self.callouts_button)
         self.inspect_button.setChecked(True)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
@@ -233,6 +243,16 @@ class MasterlogPreviewDialog(QDialog):
                 AppLanguage.EN: "The callout is pinned and will be included in the PDF.",
             }[self.language],
         )
+
+    def _manage_callouts(self) -> None:
+        dialog = MasterlogCalloutsDialog(
+            MasterlogInspectionController(self.session),
+            self.preview.template.template_id,
+            language=self.language,
+            parent=self,
+        )
+        dialog.exec()
+        self.preview.update()
 
     def _fill_lithology(self, top: float, bottom: float) -> None:
         catalog = LithotypeCatalogController(self.session).available()

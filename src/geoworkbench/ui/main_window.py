@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QDialogButtonBox,
+    QColorDialog,
     QDockWidget,
     QFileDialog,
     QInputDialog,
@@ -354,6 +355,9 @@ class MainWindow(QMainWindow):
         self.cursor_line_action.setShortcut("V")
         self.cursor_line_action.toggled.connect(self.toggle_cursor_line)
         edit_menu.addAction(self.cursor_line_action)
+        self.cursor_style_action = QAction("Настроить визирную линию...", self)
+        self.cursor_style_action.triggered.connect(self.configure_cursor_line)
+        edit_menu.addAction(self.cursor_style_action)
 
         self.undo_action = QAction("Отменить редактирование", self)
         self.undo_action.setShortcut("Ctrl+Z")
@@ -566,6 +570,22 @@ class MainWindow(QMainWindow):
         del depth
         if self.cursor_line_action.isChecked():
             self.statusBar().showMessage(summary)
+
+    def configure_cursor_line(self) -> None:
+        color = QColorDialog.getColor(parent=self, title="Цвет визирной линии")
+        if not color.isValid():
+            return
+        width, accepted = QInputDialog.getDouble(
+            self,
+            "Визирная линия",
+            "Толщина, px",
+            2.0,
+            0.5,
+            10.0,
+            1,
+        )
+        if accepted:
+            self.tablet_view.set_cursor_style(color.name(), width)
 
     def open_data(self) -> None:
         importers = {
