@@ -23,6 +23,7 @@ from geoworkbench.services.curve_catalog import (
     recommended_curve_mnemonics,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 
 
 class LasCurveBrowser(QWidget):
@@ -122,14 +123,14 @@ class LasCurveBrowser(QWidget):
                 self._entries[entry.mnemonic] = entry
                 item = QTreeWidgetItem(
                     [
-                        entry.mnemonic,
-                        entry.canonical_mnemonic or "—",
-                        entry.unit or "—",
+                        clean_mnemonic(entry.mnemonic),
+                        clean_mnemonic(entry.canonical_mnemonic) if entry.canonical_mnemonic else "—",
+                        clean_display_text(entry.unit) if entry.unit else "—",
                         self._category_label(entry.category),
                         f"{entry.coverage_percent:.1f}%",
                         entry.range_text,
                         entry.reference_range_text,
-                        entry.description or "—",
+                        clean_display_text(entry.description) if entry.description else "—",
                     ]
                 )
                 item.setData(0, Qt.ItemDataRole.UserRole, entry.mnemonic)

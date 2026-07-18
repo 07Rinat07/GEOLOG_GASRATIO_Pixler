@@ -38,6 +38,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection, analyze_depth_axis
 from geoworkbench.services.index_detection import IndexColumn, detect_index_candidates
+from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 
 
 class LasImportError(RuntimeError):
@@ -83,9 +84,9 @@ def import_las_with_report(
         (
             IndexColumn(
                 curve_id="source-index",
-                mnemonic=str(index_curve.mnemonic),
-                unit=str(index_curve.unit) if index_curve.unit else None,
-                description=str(index_curve.descr) if index_curve.descr else None,
+                mnemonic=clean_mnemonic(index_curve.mnemonic, fallback="DEPT"),
+                unit=clean_display_text(index_curve.unit) if index_curve.unit else None,
+                description=clean_display_text(index_curve.descr) if index_curve.descr else None,
                 values=depth,
             ),
         )
@@ -104,8 +105,8 @@ def import_las_with_report(
         depth=depth,
         source_path=source,
     )
-    dataset.active_index.mnemonic = str(index_curve.mnemonic)
-    dataset.active_index.unit = str(index_curve.unit) if index_curve.unit else None
+    dataset.active_index.mnemonic = clean_mnemonic(index_curve.mnemonic, fallback="DEPT")
+    dataset.active_index.unit = clean_display_text(index_curve.unit) if index_curve.unit else None
     dataset.active_index.confidence = index_candidate.confidence
     dataset.active_index.evidence = index_candidate.evidence
     dataset.active_index.datetime_format = index_candidate.datetime_format
@@ -116,8 +117,9 @@ def import_las_with_report(
 
     try:
         for item in list(las.curves)[1:]:
-            mnemonic = str(item.mnemonic)
-            values = np.asarray(las[mnemonic], dtype=np.float64).copy()
+            raw_mnemonic = str(item.mnemonic)
+            mnemonic = clean_mnemonic(raw_mnemonic)
+            values = np.asarray(las[raw_mnemonic], dtype=np.float64).copy()
             if values.shape != depth.shape:
                 raise ValueError(f"Размер кривой {mnemonic} не совпадает со шкалой глубины")
             curve_id = new_id()
@@ -126,15 +128,15 @@ def import_las_with_report(
                     curve_id=curve_id,
                     original_mnemonic=mnemonic,
                     canonical_mnemonic=mnemonic.upper(),
-                    unit=str(item.unit) if item.unit else None,
-                    description=str(item.descr) if item.descr else None,
+                    unit=clean_display_text(item.unit) if item.unit else None,
+                    description=clean_display_text(item.descr) if item.descr else None,
                     source_dataset_id=dataset_id,
                 ),
                 values=values,
             )
-        dataset.version_headers = {str(item.mnemonic): str(item.value) for item in las.version}
-        dataset.headers = {str(item.mnemonic): str(item.value) for item in las.well}
-        dataset.parameters = {str(item.mnemonic): str(item.value) for item in las.params}
+        dataset.version_headers = {clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.version}
+        dataset.headers = {clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.well}
+        dataset.parameters = {clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.params}
     except Exception as exc:
         raise LasImportError(f"Некорректные данные LAS-файла: {source}") from exc
     report = _build_import_report(source, source_document, las, depth)
