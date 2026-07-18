@@ -455,6 +455,7 @@ def _paint_columns(
             max(0.1, size.height() - top - header_height),
         )
         if depth_range is not None and dataset is not None:
+            _paint_column_grid(painter, plot_rect, column)
             if column.column_type == "depth":
                 _paint_depth_axis(painter, plot_rect, depth_range)
             elif column.column_type == "stratigraphy":
@@ -478,6 +479,61 @@ def _paint_columns(
             _paint_depth_symbols(painter, plot_rect, template, column, session, depth_range)
             _paint_inspection_callouts(painter, plot_rect, template, column, session, depth_range)
         x += column.width_mm
+
+
+def _paint_column_grid(
+    painter: QPainter,
+    rect: QRectF,
+    column: MasterlogColumnTemplate,
+) -> None:
+    if not column.grid_x and not column.grid_y:
+        return
+    major_color = QColor("#64748b")
+    major_color.setAlphaF(column.grid_alpha)
+    minor_color = QColor("#94a3b8")
+    minor_color.setAlphaF(column.grid_alpha * 0.45)
+    major = column.grid_major_divisions
+    minor = column.grid_minor_divisions
+    painter.save()
+    painter.setClipRect(rect)
+
+    def draw_axis(vertical: bool) -> None:
+        for major_index in range(major + 1):
+            fraction = major_index / major
+            position = (
+                rect.left() + rect.width() * fraction
+                if vertical
+                else rect.top() + rect.height() * fraction
+            )
+            painter.setPen(QPen(major_color, 0.2))
+            if vertical:
+                painter.drawLine(QLineF(position, rect.top(), position, rect.bottom()))
+            else:
+                painter.drawLine(QLineF(rect.left(), position, rect.right(), position))
+            if major_index == major:
+                continue
+            painter.setPen(QPen(minor_color, 0.1))
+            for minor_index in range(1, minor):
+                sub_fraction = (major_index + minor_index / minor) / major
+                sub_position = (
+                    rect.left() + rect.width() * sub_fraction
+                    if vertical
+                    else rect.top() + rect.height() * sub_fraction
+                )
+                if vertical:
+                    painter.drawLine(
+                        QLineF(sub_position, rect.top(), sub_position, rect.bottom())
+                    )
+                else:
+                    painter.drawLine(
+                        QLineF(rect.left(), sub_position, rect.right(), sub_position)
+                    )
+
+    if column.grid_x:
+        draw_axis(True)
+    if column.grid_y:
+        draw_axis(False)
+    painter.restore()
 
 
 def _paint_column_heading(

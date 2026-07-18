@@ -95,6 +95,11 @@ def test_masterlog_template_controller_manages_column_lifecycle() -> None:
             "C1": MasterlogCurveStyle("#abcdef", 3.0, "dot", 0.2, 200.0),
             "STALE": MasterlogCurveStyle(),
         },
+        grid_x=True,
+        grid_y=True,
+        grid_major_divisions=4,
+        grid_minor_divisions=5,
+        grid_alpha=0.3,
     )
 
     assert second.curve_mnemonics == ["C1", "C2"]
@@ -105,6 +110,11 @@ def test_masterlog_template_controller_manages_column_lifecycle() -> None:
     assert second.line_width == 2.5
     assert second.line_style == "dash"
     assert second.curve_styles == {"C1": MasterlogCurveStyle("#abcdef", 3.0, "dot", 0.2, 200.0)}
+    assert second.grid_x is True
+    assert second.grid_y is True
+    assert second.grid_major_divisions == 4
+    assert second.grid_minor_divisions == 5
+    assert second.grid_alpha == 0.3
     assert controller.move_column(template.template_id, second.column_id, -1) is True
     updated = controller.update_column(
         template.template_id,
@@ -123,6 +133,37 @@ def test_masterlog_template_controller_manages_column_lifecycle() -> None:
     controller.remove_column(template.template_id, second.column_id)
     assert [column.column_id for column in template.columns] == [first.column_id]
     assert template.version == 6
+
+
+def test_masterlog_column_update_preserves_grid_when_omitted() -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+    column = controller.add_column(
+        template.template_id,
+        title="Gas",
+        column_type="curves",
+        width_mm=35.0,
+        grid_x=True,
+        grid_y=True,
+        grid_major_divisions=4,
+        grid_minor_divisions=8,
+        grid_alpha=0.4,
+    )
+
+    updated = controller.update_column(
+        template.template_id,
+        column.column_id,
+        title="Gas curves",
+        column_type="curves",
+        width_mm=40.0,
+        curve_mnemonics=[],
+    )
+
+    assert updated.grid_x is True
+    assert updated.grid_y is True
+    assert updated.grid_major_divisions == 4
+    assert updated.grid_minor_divisions == 8
+    assert updated.grid_alpha == 0.4
 
 
 def test_masterlog_column_rejects_unsafe_width() -> None:
@@ -165,6 +206,30 @@ def test_masterlog_column_rejects_invalid_line_style() -> None:
             column_type="curves",
             width_mm=30.0,
             line_color="blue",
+        )
+
+
+@pytest.mark.parametrize(
+    ("grid_settings", "message"),
+    [
+        ({"grid_major_divisions": 0}, "от 1 до 20"),
+        ({"grid_minor_divisions": 21}, "от 1 до 20"),
+        ({"grid_alpha": 1.1}, "от 0 до 1"),
+    ],
+)
+def test_masterlog_column_rejects_invalid_grid_settings(
+    grid_settings: dict[str, int | float], message: str
+) -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+
+    with pytest.raises(ValueError, match=message):
+        controller.add_column(
+            template.template_id,
+            title="Gas",
+            column_type="curves",
+            width_mm=30.0,
+            **grid_settings,
         )
 
 

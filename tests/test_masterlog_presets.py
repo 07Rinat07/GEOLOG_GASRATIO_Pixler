@@ -47,6 +47,14 @@ def test_builtin_masterlog_presets_are_unique_and_cover_core_tracks() -> None:
     assert set(gas.curve_styles) == set(gas.curve_mnemonics)
     assert len({style.color for style in gas.curve_styles.values()}) > 1
     assert gas.curve_styles["TG"].x_min == 1.0
+    assert gas.grid_x is True
+    assert gas.grid_y is True
+    assert gas.grid_major_divisions == 5
+    assert gas.grid_minor_divisions == 5
+    assert gas.grid_alpha == 0.22
+    depth = next(column for column in field.template.columns if column.column_id == "depth")
+    assert depth.grid_x is False
+    assert depth.grid_y is False
 
 
 def test_form_preset_creates_independent_project_copy() -> None:

@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
 )
 
@@ -121,6 +122,33 @@ class ColumnPropertiesDialog(QDialog):
         self.line_style_input.setCurrentIndex(
             self.line_style_input.findData(column.line_style if column else "solid")
         )
+        self.grid_x_input = QCheckBox(
+            {
+                AppLanguage.RU: "Вертикальная сетка",
+                AppLanguage.KK: "Тік тор",
+                AppLanguage.EN: "Vertical grid",
+            }[language]
+        )
+        self.grid_y_input = QCheckBox(
+            {
+                AppLanguage.RU: "Горизонтальная сетка",
+                AppLanguage.KK: "Көлденең тор",
+                AppLanguage.EN: "Horizontal grid",
+            }[language]
+        )
+        self.grid_x_input.setChecked(column.grid_x if column else True)
+        self.grid_y_input.setChecked(column.grid_y if column else True)
+        self.grid_major_input = QSpinBox()
+        self.grid_minor_input = QSpinBox()
+        for grid_control in (self.grid_major_input, self.grid_minor_input):
+            grid_control.setRange(1, 20)
+        self.grid_major_input.setValue(column.grid_major_divisions if column else 5)
+        self.grid_minor_input.setValue(column.grid_minor_divisions if column else 5)
+        self.grid_alpha_input = QDoubleSpinBox()
+        self.grid_alpha_input.setRange(0.0, 1.0)
+        self.grid_alpha_input.setSingleStep(0.05)
+        self.grid_alpha_input.setDecimals(2)
+        self.grid_alpha_input.setValue(column.grid_alpha if column else 0.25)
         self.auto_range_input.toggled.connect(self._update_range_enabled)
         layout = QFormLayout(self)
         layout.addRow(localizer.text("masterlog_columns.name"), self.title_input)
@@ -135,6 +163,16 @@ class ColumnPropertiesDialog(QDialog):
         layout.addRow(localizer.text("inspector.color"), self.color_input)
         layout.addRow(localizer.text("inspector.line_width"), self.line_width_input)
         layout.addRow(localizer.text("inspector.line_style"), self.line_style_input)
+        layout.addRow(self.grid_x_input)
+        layout.addRow(self.grid_y_input)
+        grid_labels = {
+            AppLanguage.RU: ("Крупные деления", "Мелкие деления", "Прозрачность сетки"),
+            AppLanguage.KK: ("Негізгі бөліністер", "Ұсақ бөліністер", "Тор мөлдірлігі"),
+            AppLanguage.EN: ("Major divisions", "Minor divisions", "Grid opacity"),
+        }[language]
+        layout.addRow(grid_labels[0], self.grid_major_input)
+        layout.addRow(grid_labels[1], self.grid_minor_input)
+        layout.addRow(grid_labels[2], self.grid_alpha_input)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -198,6 +236,15 @@ class ColumnPropertiesDialog(QDialog):
             for mnemonic, style in self._curve_styles.items()
             if mnemonic in selected
         }
+
+    def grid_settings(self) -> tuple[bool, bool, int, int, float]:
+        return (
+            self.grid_x_input.isChecked(),
+            self.grid_y_input.isChecked(),
+            self.grid_major_input.value(),
+            self.grid_minor_input.value(),
+            self.grid_alpha_input.value(),
+        )
 
     def _edit_curve_styles(self, language: AppLanguage) -> None:
         mnemonics = [
@@ -530,6 +577,7 @@ class MasterlogColumnsDialog(QDialog):
             line_width,
             line_style,
         ) = dialog.values()
+        grid_x, grid_y, grid_major, grid_minor, grid_alpha = dialog.grid_settings()
         self._run(
             lambda: self.controller.add_column(
                 self.template_id,
@@ -545,6 +593,11 @@ class MasterlogColumnsDialog(QDialog):
                 line_width=line_width,
                 line_style=line_style,
                 curve_styles=dialog.curve_styles(),
+                grid_x=grid_x,
+                grid_y=grid_y,
+                grid_major_divisions=grid_major,
+                grid_minor_divisions=grid_minor,
+                grid_alpha=grid_alpha,
             )
         )
 
@@ -612,6 +665,7 @@ def edit_masterlog_column(
         line_width,
         line_style,
     ) = dialog.values()
+    grid_x, grid_y, grid_major, grid_minor, grid_alpha = dialog.grid_settings()
     controller.update_column(
         template_id,
         column_id,
@@ -627,5 +681,10 @@ def edit_masterlog_column(
         line_width=line_width,
         line_style=line_style,
         curve_styles=dialog.curve_styles(),
+        grid_x=grid_x,
+        grid_y=grid_y,
+        grid_major_divisions=grid_major,
+        grid_minor_divisions=grid_minor,
+        grid_alpha=grid_alpha,
     )
     return True

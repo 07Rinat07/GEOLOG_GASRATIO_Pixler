@@ -165,6 +165,10 @@ Select “Curve styles...” in a graphical column to configure each mnemonic's 
 width, solid/dash/dot line, and optional individual X range. Without an individual range, the
 column range remains the fallback. The printed header shows each mnemonic and range in its curve
 color.
+The same dialog independently enables vertical and horizontal engineering grids and configures
+major divisions, minor subdivisions within each major interval, and line opacity. Graphical columns
+in the built-in field presets include a grid by default. Existing forms keep it disabled until it is
+enabled in column properties; the settings are stored with the form and applied to PDF output.
 
 ### Mouse interval filling
 

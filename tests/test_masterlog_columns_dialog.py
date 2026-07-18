@@ -58,6 +58,7 @@ def test_column_properties_dialog_returns_normalized_curve_list(qapp) -> None:
         2.5,
         "dash",
     )
+    assert dialog.grid_settings() == (True, True, 5, 5, 0.25)
     dialog.close()
 
 

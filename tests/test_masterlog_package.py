@@ -44,6 +44,11 @@ def make_template_and_session() -> tuple[MasterlogTemplate, ProjectSession]:
                 40.0,
                 ["TG"],
                 curve_styles={"TG": MasterlogCurveStyle("#ff0000", 2.5, "dash", 1.0, 1000.0)},
+                grid_x=True,
+                grid_y=True,
+                grid_major_divisions=4,
+                grid_minor_divisions=8,
+                grid_alpha=0.35,
             ),
         ],
         properties={"orientation": "landscape"},
@@ -75,6 +80,11 @@ def test_masterlog_package_round_trip_and_independent_install(tmp_path) -> None:
     assert imported.version == 1
     assert imported.columns[1].curve_styles["TG"].line_style == "dash"
     assert imported.columns[1].curve_styles["TG"].x_max == 1000.0
+    assert imported.columns[1].grid_x is True
+    assert imported.columns[1].grid_y is True
+    assert imported.columns[1].grid_major_divisions == 4
+    assert imported.columns[1].grid_minor_divisions == 8
+    assert imported.columns[1].grid_alpha == 0.35
     assert destination.image_assets == package.image_assets
     with pytest.raises(ValueError):
         controller.import_template(package.template, package.image_assets, "Imported portable")

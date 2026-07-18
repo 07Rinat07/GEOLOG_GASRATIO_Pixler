@@ -31,6 +31,7 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_size_mm,
     paint_masterlog,
     render_masterlog_to_printer,
+    _paint_column_grid,
     _parameter_symbol_x,
     visible_lithology_intervals,
     masterlog_curve_bindings,
@@ -148,6 +149,29 @@ def test_masterlog_curve_uses_individual_style_and_range() -> None:
     assert style.line_style == "dot"
     assert curve_display_range(column, dataset, "C1") == (1.0, 40.0)
     assert curve_display_range(column, dataset, "TG") == (0.0, 1000.0)
+
+
+def test_masterlog_column_grid_draws_configured_major_and_minor_lines(qapp) -> None:
+    image = QImage(100, 100, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill("white")
+    column = MasterlogColumnTemplate(
+        "gas",
+        "Gas",
+        "curves",
+        40.0,
+        grid_x=True,
+        grid_y=True,
+        grid_major_divisions=2,
+        grid_minor_divisions=2,
+        grid_alpha=1.0,
+    )
+    painter = QPainter(image)
+
+    _paint_column_grid(painter, QRectF(10.0, 10.0, 80.0, 80.0), column)
+    painter.end()
+
+    assert image.pixelColor(50, 25).name() != "#ffffff"
+    assert image.pixelColor(25, 50).name() != "#ffffff"
 
 
 def test_parameter_symbol_x_follows_linear_and_log_column_scale() -> None:

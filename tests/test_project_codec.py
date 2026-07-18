@@ -284,6 +284,11 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
                     "TG": MasterlogCurveStyle("#ff0000", 2.0, "solid", 0.1, 1000.0),
                     "C1": MasterlogCurveStyle("#00aa00", 1.0, "dot", 1.0, 100.0),
                 },
+                grid_x=True,
+                grid_y=True,
+                grid_major_divisions=4,
+                grid_minor_divisions=8,
+                grid_alpha=0.35,
             )
         ],
         version=3,
@@ -315,6 +320,11 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
     assert template.columns[0].line_style == "dash"
     assert template.columns[0].curve_styles["TG"].color == "#ff0000"
     assert template.columns[0].curve_styles["C1"].x_min == 1.0
+    assert template.columns[0].grid_x is True
+    assert template.columns[0].grid_y is True
+    assert template.columns[0].grid_major_divisions == 4
+    assert template.columns[0].grid_minor_divisions == 8
+    assert template.columns[0].grid_alpha == 0.35
     assert template.header_elements[0].properties["asset_ref"] == "sha256:logo"
     assert template.version == 3
     canvas_object = restored.wells["well-1"].canvas_objects[0]

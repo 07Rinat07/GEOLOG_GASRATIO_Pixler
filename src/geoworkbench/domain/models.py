@@ -413,6 +413,11 @@ class MasterlogColumnTemplate:
     line_width: float = 1.5
     line_style: str = "solid"
     curve_styles: dict[str, MasterlogCurveStyle] = field(default_factory=dict)
+    grid_x: bool = False
+    grid_y: bool = False
+    grid_major_divisions: int = 5
+    grid_minor_divisions: int = 5
+    grid_alpha: float = 0.25
 
     def __post_init__(self) -> None:
         if self.x_scale not in {"linear", "logarithmic"}:
@@ -447,6 +452,15 @@ class MasterlogColumnTemplate:
             style.x_min is not None and style.x_min <= 0 for style in self.curve_styles.values()
         ):
             raise ValueError("Логарифмический диапазон кривой Masterlog должен быть положительным")
+        if not isinstance(self.grid_x, bool) or not isinstance(self.grid_y, bool):
+            raise ValueError("Видимость сетки Masterlog должна быть логической")
+        for value in (self.grid_major_divisions, self.grid_minor_divisions):
+            if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 20:
+                raise ValueError("Деления сетки Masterlog должны быть от 1 до 20")
+        if isinstance(self.grid_alpha, bool) or not isinstance(self.grid_alpha, (int, float)):
+            raise ValueError("Прозрачность сетки Masterlog должна быть числом")
+        if not isfinite(self.grid_alpha) or not 0.0 <= self.grid_alpha <= 1.0:
+            raise ValueError("Прозрачность сетки Masterlog должна быть от 0 до 1")
 
 
 @dataclass(slots=True)

@@ -226,6 +226,11 @@ def _columns(
                 x_min=x_min,
                 x_max=x_max,
                 curve_styles=styles,
+                grid_x=bool(curves),
+                grid_y=bool(curves),
+                grid_major_divisions=5,
+                grid_minor_divisions=5,
+                grid_alpha=0.22,
             )
         )
     return columns

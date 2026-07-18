@@ -234,6 +234,11 @@ class MasterlogTemplateController:
         line_width: float = 1.5,
         line_style: str = "solid",
         curve_styles: dict[str, MasterlogCurveStyle] | None = None,
+        grid_x: bool = False,
+        grid_y: bool = False,
+        grid_major_divisions: int = 5,
+        grid_minor_divisions: int = 5,
+        grid_alpha: float = 0.25,
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         column = self._validated_column(
@@ -250,6 +255,11 @@ class MasterlogTemplateController:
             line_width,
             line_style,
             curve_styles or {},
+            grid_x,
+            grid_y,
+            grid_major_divisions,
+            grid_minor_divisions,
+            grid_alpha,
         )
         template.columns.append(column)
         self._touch(template)
@@ -272,6 +282,11 @@ class MasterlogTemplateController:
         line_width: float = 1.5,
         line_style: str = "solid",
         curve_styles: dict[str, MasterlogCurveStyle] | None = None,
+        grid_x: bool | None = None,
+        grid_y: bool | None = None,
+        grid_major_divisions: int | None = None,
+        grid_minor_divisions: int | None = None,
+        grid_alpha: float | None = None,
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         existing = template.columns[self._column_index(template, column_id)]
@@ -289,6 +304,15 @@ class MasterlogTemplateController:
             line_width,
             line_style,
             existing.curve_styles if curve_styles is None else curve_styles,
+            existing.grid_x if grid_x is None else grid_x,
+            existing.grid_y if grid_y is None else grid_y,
+            existing.grid_major_divisions
+            if grid_major_divisions is None
+            else grid_major_divisions,
+            existing.grid_minor_divisions
+            if grid_minor_divisions is None
+            else grid_minor_divisions,
+            existing.grid_alpha if grid_alpha is None else grid_alpha,
         )
         column.properties = deepcopy(existing.properties)
         index = self._column_index(template, column_id)
@@ -502,6 +526,11 @@ class MasterlogTemplateController:
         line_width: float,
         line_style: str,
         curve_styles: dict[str, MasterlogCurveStyle],
+        grid_x: bool,
+        grid_y: bool,
+        grid_major_divisions: int,
+        grid_minor_divisions: int,
+        grid_alpha: float,
     ) -> MasterlogColumnTemplate:
         normalized_title = title.strip()
         normalized_type = column_type.strip()
@@ -537,6 +566,11 @@ class MasterlogTemplateController:
             line_width=line_width,
             line_style=line_style,
             curve_styles=normalized_styles,
+            grid_x=grid_x,
+            grid_y=grid_y,
+            grid_major_divisions=grid_major_divisions,
+            grid_minor_divisions=grid_minor_divisions,
+            grid_alpha=grid_alpha,
         )
 
     def _touch(self, template: MasterlogTemplate) -> None:
