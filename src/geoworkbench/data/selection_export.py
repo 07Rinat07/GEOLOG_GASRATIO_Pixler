@@ -10,12 +10,16 @@ from pathlib import Path
 import numpy as np
 from openpyxl import Workbook  # type: ignore[import-untyped]
 
+from geoworkbench.data.number_format import format_decimal_number
 from geoworkbench.domain.models import CurveData, Dataset, DatasetIndex, IndexRole, IndexType
 from geoworkbench.services.dataset_selection import depth_interval_indices
 
 
 class SelectionExportError(RuntimeError):
     pass
+
+
+EXCEL_DECIMAL_NUMBER_FORMAT = "0.##############################"
 
 
 def export_selection_text(
@@ -145,7 +149,7 @@ def _excel_indexes(dataset: Dataset) -> tuple[DatasetIndex, ...]:
 
 
 def _number(value: float) -> str:
-    return "" if not np.isfinite(value) else f"{float(value):.15g}"
+    return "" if not np.isfinite(value) else format_decimal_number(float(value))
 
 
 def _excel_index_value(index: DatasetIndex, row: int) -> object:
@@ -194,6 +198,8 @@ def _write_xlsx(path: Path, data_rows: list[list[object]], metadata_rows: list[l
         for cell in row:
             if isinstance(cell.value, datetime):
                 cell.number_format = "yyyy-mm-dd hh:mm:ss.000"
+            elif isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool):
+                cell.number_format = EXCEL_DECIMAL_NUMBER_FORMAT
     data_sheet.freeze_panes = "A2"
     metadata_sheet = workbook.create_sheet("Metadata")
     for row in metadata_rows:

@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.data.number_format import format_decimal_number
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.las_range_editor import LasRangeEditingController, RangeClipboard
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -65,8 +66,12 @@ class LasTableModel(QAbstractTableModel):
             return None
         value = self._value(index.row(), index.column())
         if role == Qt.ItemDataRole.EditRole:
-            return "" if not np.isfinite(value) else f"{value:.15g}"
-        return "—" if not np.isfinite(value) else f"{value:.8g}"
+            return "" if not np.isfinite(value) else format_decimal_number(value)
+        return (
+            "—"
+            if not np.isfinite(value)
+            else format_decimal_number(value, precision=8)
+        )
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole):  # type: ignore[override]  # noqa: E501, N802
         if role != Qt.ItemDataRole.DisplayRole or self.dataset is None:

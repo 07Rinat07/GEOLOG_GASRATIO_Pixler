@@ -53,6 +53,26 @@ def test_table_model_edits_source_value_and_recalculates_outputs(qapp) -> None:
     editor.close()
 
 
+def test_table_model_displays_and_edits_small_values_without_scientific_notation(qapp) -> None:
+    editor, dataset = make_editor()
+    dataset.curves["c2"].values[0] = 5.2e-5
+    editor.set_dataset(dataset)
+    model = editor.model
+    c2_column = next(
+        column
+        for column in range(model.columnCount())
+        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("C2")
+    )
+    index = model.index(0, c2_column)
+
+    assert model.data(index, Qt.ItemDataRole.DisplayRole) == "0.000052"
+    assert model.data(index, Qt.ItemDataRole.EditRole) == "0.000052"
+    assert "e" not in model.data(index, Qt.ItemDataRole.EditRole).casefold()
+    assert model.setData(index, "0,000053") is True
+    assert dataset.curves["c2"].values[0] == 0.000053
+    editor.close()
+
+
 def test_table_model_keeps_depth_and_calculated_curves_read_only(qapp) -> None:
     editor, dataset = make_editor()
     editor.set_dataset(dataset)

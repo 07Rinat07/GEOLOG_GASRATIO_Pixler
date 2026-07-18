@@ -17,6 +17,9 @@ time-zone, preview, and validation controls.
 
 The LAS table supports direct values, constant or noise interval fills, copy/paste, and
 Undo/Redo. Every command and selection validation message uses the selected language.
+Small values are displayed and opened for editing in plain decimal notation, for example
+`0.000052` instead of `5.2e-05`. Selected-interval CSV export uses the same notation, while
+Excel keeps the value numeric and applies a decimal cell format.
 
 ## LAS export
 

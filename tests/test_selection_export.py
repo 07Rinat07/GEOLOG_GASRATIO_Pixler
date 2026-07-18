@@ -4,7 +4,11 @@ import zipfile
 
 import numpy as np
 
-from geoworkbench.data.selection_export import export_selection_excel, export_selection_text
+from geoworkbench.data.selection_export import (
+    EXCEL_DECIMAL_NUMBER_FORMAT,
+    export_selection_excel,
+    export_selection_text,
+)
 from openpyxl import load_workbook
 
 from geoworkbench.domain.models import (
@@ -54,6 +58,18 @@ def test_text_export_contains_only_selected_interval_and_curves(tmp_path) -> Non
     ]
 
 
+def test_text_export_writes_small_values_without_scientific_notation(tmp_path) -> None:
+    dataset = make_dataset()
+    dataset.curves["c1"].values[1] = 5.2e-5
+    target = tmp_path / "small-values.csv"
+
+    export_selection_text(dataset, target, ["c1"], 101.0, 101.0, delimiter=",")
+
+    with target.open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.reader(stream))
+    assert rows[1] == ["101", "0.000052"]
+
+
 def test_excel_export_is_valid_openxml_with_data_and_metadata_sheets(tmp_path) -> None:
     target = tmp_path / "selection.xlsx"
 
@@ -69,6 +85,19 @@ def test_excel_export_is_valid_openxml_with_data_and_metadata_sheets(tmp_path) -
     assert "DEPTH [m]" in data_sheet
     assert "C1 [%]" in data_sheet
     assert "Well data" in metadata_sheet
+
+
+def test_excel_export_keeps_small_values_numeric_with_decimal_format(tmp_path) -> None:
+    dataset = make_dataset()
+    dataset.curves["c1"].values[1] = 5.2e-5
+    target = tmp_path / "small-values.xlsx"
+
+    export_selection_excel(dataset, target, ["c1"], 101.0, 101.0)
+
+    cell = load_workbook(target, data_only=True)["Data"]["B2"]
+    assert cell.value == 0.000052
+    assert cell.data_type == "n"
+    assert cell.number_format == EXCEL_DECIMAL_NUMBER_FORMAT
 
 
 def test_excel_export_formats_datetime_index_as_excel_date_and_time(tmp_path) -> None:
