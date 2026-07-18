@@ -32,6 +32,7 @@ from geoworkbench.printing.masterlog_inspection import (
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.masterlog_interval_fill_dialog import CuttingsCompositionDialog
 from geoworkbench.ui.masterlog_callouts_dialog import MasterlogCalloutsDialog
+from geoworkbench.ui.sample_analysis_dialog import SampleAnalysisDialog
 
 
 class MasterlogPreviewWidget(QWidget):
@@ -162,6 +163,13 @@ class MasterlogPreviewDialog(QDialog):
                 AppLanguage.EN: "Fill cuttings",
             }[language]
         )
+        self.analysis_button = QPushButton(
+            {
+                AppLanguage.RU: "Кальциметрия / ЛБА",
+                AppLanguage.KK: "Кальциметрия / ЛБА",
+                AppLanguage.EN: "Calcimetry / LBA",
+            }[language]
+        )
         self.pin_button = QPushButton(
             {
                 AppLanguage.RU: "Закрепить для PDF",
@@ -186,6 +194,7 @@ class MasterlogPreviewDialog(QDialog):
             (self.inspect_button, None),
             (self.lithology_button, "lithology"),
             (self.cuttings_button, "cuttings"),
+            (self.analysis_button, "analysis"),
         ):
             button.setCheckable(True)
             button.clicked.connect(lambda checked=False, value=mode: self._set_mode(value))
@@ -209,13 +218,16 @@ class MasterlogPreviewDialog(QDialog):
         self.inspect_button.setChecked(mode is None)
         self.lithology_button.setChecked(mode == "lithology")
         self.cuttings_button.setChecked(mode == "cuttings")
+        self.analysis_button.setChecked(mode == "analysis")
 
     def _fill_interval(self, top: float, bottom: float, mode: str) -> None:
         try:
             if mode == "lithology":
                 self._fill_lithology(top, bottom)
-            else:
+            elif mode == "cuttings":
                 self._fill_cuttings(top, bottom)
+            else:
+                self._fill_analysis(top, bottom)
         except (RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
         else:
@@ -276,3 +288,19 @@ class MasterlogPreviewDialog(QDialog):
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             CuttingsController(self.session).add(top, bottom, dialog.components())
+
+    def _fill_analysis(self, top: float, bottom: float) -> None:
+        well = self.session.current_well
+        sample = next(
+            (
+                item
+                for item in (well.cuttings if well is not None else ())
+                if abs(item.top_depth - top) <= 1e-6 and abs(item.bottom_depth - bottom) <= 1e-6
+            ),
+            None,
+        )
+        dialog = SampleAnalysisDialog(
+            top, bottom, language=self.language, sample=sample, parent=self
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            CuttingsController(self.session).set_analysis(top, bottom, **dialog.values())

@@ -4,6 +4,7 @@ from PySide6.QtCore import QPointF, QRectF
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
+    CuttingsSample,
     Dataset,
     DatasetKind,
     DepthDomain,
@@ -78,3 +79,46 @@ def test_click_on_lithology_returns_interval_and_description() -> None:
     assert result is not None
     assert result.interval == (400.0, 600.0)
     assert result.description == "Құмтас — Fine grained"
+
+
+def test_click_on_calcimetry_and_lba_returns_sample_interval() -> None:
+    session = _session()
+    assert session.current_well is not None
+    session.current_well.cuttings.append(
+        CuttingsSample(
+            "sample",
+            400.0,
+            600.0,
+            calcite_percent=60.0,
+            dolomite_percent=25.0,
+            lba_type_id="Oil show",
+            lba_intensity=4,
+            lba_color="yellow",
+            lba_cut="Streaming",
+        )
+    )
+    template = MasterlogTemplate(
+        "form",
+        "Form",
+        header_height_mm=45.0,
+        columns=[
+            MasterlogColumnTemplate("calc", "Calcimetry", "calcimetry", 50.0),
+            MasterlogColumnTemplate("lba", "LBA", "lba", 50.0),
+        ],
+    )
+
+    calc = inspect_masterlog_point(QPointF(47.0, 128.5), QRectF(0, 0, 100, 257), template, session)
+    lba = inspect_masterlog_point(
+        QPointF(53.0, 128.5),
+        QRectF(0, 0, 100, 257),
+        template,
+        session,
+        language=AppLanguage.EN,
+    )
+
+    assert calc is not None and calc.interval == (400.0, 600.0)
+    assert calc.description == (
+        "Кальцит CaCO₃: 60%; Доломит CaMg(CO₃)₂: 25%; Нерастворимый остаток: 15%"
+    )
+    assert lba is not None and lba.interval == (400.0, 600.0)
+    assert lba.description == "Oil show; Intensity: 4; yellow; Streaming"

@@ -171,6 +171,51 @@ def test_tablet_renders_percentage_cuttings_track_and_cursor_summary(qapp) -> No
     view.close()
 
 
+def test_tablet_renders_calcimetry_lba_and_cursor_summary(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 105.0, 110.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("calc", "Calcimetry", TrackKind.CALCIMETRY, width=220),
+                TrackDefinition("lba", "LBA", TrackKind.LBA, width=260),
+            ]
+        )
+    )
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "sample",
+                100.0,
+                110.0,
+                calcite_percent=65.0,
+                dolomite_percent=20.0,
+                lba_type_id="Oil show",
+                lba_intensity=3,
+                lba_color="yellow",
+                lba_cut="Streaming",
+            )
+        ]
+    )
+    view.set_dataset(dataset)
+
+    calc_items = view._rendered["calc"].analysis_items
+    lba_items = view._rendered["lba"].analysis_items
+    summary = view.cursor_summary(105.0)
+
+    assert calc_items is not None and len(calc_items["sample"]) == 3
+    assert lba_items is not None and len(lba_items["sample"]) == 1
+    assert ("Кальциметрия: CaCO₃ 65%; CaMg(CO₃)₂ 20%; нераств. остаток 15%") in summary
+    assert "ЛБА: Oil show; I=3; yellow; Streaming" in summary
+    view.close()
+
+
 def test_tablet_view_applies_saved_curve_pen_style(qapp) -> None:
     dataset = Dataset(
         "dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 101.0])

@@ -9,6 +9,8 @@ from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
     CustomFormulaDefinition,
+    CuttingsComponent,
+    CuttingsSample,
     ExportProfile,
     Dataset,
     DatasetIndex,
@@ -107,6 +109,29 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     project.export_profiles["gas-profile"] = ExportProfile(
         "gas-profile", "Gas profile", ("C1", "C2")
     )
+    project.wells["well-1"].cuttings.append(
+        CuttingsSample(
+            "sample-1",
+            100.0,
+            101.0,
+            [CuttingsComponent("oil_sand", 100.0)],
+            lba_group=3,
+            lba_type_id="Oil show",
+            lba_intensity=3,
+            lba_color="yellow",
+            lba_distribution="spotted",
+            lba_cut="Streaming",
+            lba_cut_speed="Fast",
+            lba_cut_color="Straw",
+            lba_residue_type="Good",
+            lba_residue_color="Amber",
+            lba_odour="Moderate",
+            lba_stain="Spotty",
+            lba_description="direct fluorescence",
+            calcite_percent=55.0,
+            dolomite_percent=20.0,
+        )
+    )
     dataset = project.wells["well-1"].datasets["dataset-1"]
     dataset.add_index(
         DatasetIndex(
@@ -149,6 +174,23 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
         "C1",
         "C2",
     )
+    sample = document.project.wells["well-1"].cuttings[0]
+    assert sample.calcite_percent == 55.0
+    assert sample.dolomite_percent == 20.0
+    assert sample.insoluble_residue_percent == 25.0
+    assert sample.lba_group == 3
+    assert sample.lba_type_id == "Oil show"
+    assert sample.lba_intensity == 3
+    assert sample.lba_color == "yellow"
+    assert sample.lba_distribution == "spotted"
+    assert sample.lba_cut == "Streaming"
+    assert sample.lba_cut_speed == "Fast"
+    assert sample.lba_cut_color == "Straw"
+    assert sample.lba_residue_type == "Good"
+    assert sample.lba_residue_color == "Amber"
+    assert sample.lba_odour == "Moderate"
+    assert sample.lba_stain == "Spotty"
+    assert sample.lba_description == "direct fluorescence"
     assert (
         document.project.time_depth_mapping_profiles["time-depth"].aggregation_policy
         is TimeDepthAggregationPolicy.LAST

@@ -151,10 +151,30 @@ track → Cuttings” to add a 0–100% track. Component widths follow their per
 lithotype catalog color and pattern. The default layout adds this track automatically when samples
 exist, and the synchronized cursor reports the sample composition.
 
+### Interval calcimetry and LBA
+
+In Masterlog preview, select “Calcimetry / LBA” and drag an interval with the left mouse button.
+On the Calcimetry tab, enter the measured calcite `CaCO₃` and dolomite `CaMg(CO₃)₂`
+fractions from 0 to 100%; their sum cannot exceed 100%. Once both are entered, insoluble residue
+is calculated as `100 − Ca − Dol` and shown as the third part of the percentage bar. A blank field
+means not measured, while an entered zero is a measured result.
+
+On the LBA tab, record bitumoid group/type, intensity from 1 to 5, and fluorescence color/form.
+When available, add solvent-cut type, speed and color, residue type/color, odour, stain and a
+free-text description. Lists remain editable for project-specific classifications. Selecting
+exactly the same interval again loads the saved values for correction.
+
+The sample results are stored in the project and included in Masterlog/PDF, point inspection and
+the depth cursor. Add Calcimetry and LBA from “Log display → Add track”; the default layout adds
+them automatically when data exists. The application records field/laboratory observations; it
+does not replace instrument calibration or infer hydrocarbon saturation from fluorescence alone.
+See [`docs/CALCIMETRY_LBA.md`](../CALCIMETRY_LBA.md) for method notes and sources.
+
 ### Point inspection and PDF callouts
 
 In “Inspect” mode, click a curve to see its column, nearest real sample, depth, value, unit, and
-description. Lithology and cuttings clicks report interval top, bottom, rocks, and description.
+description. Lithology, cuttings, calcimetry and LBA clicks report interval top, bottom, results,
+and description.
 “Pin for PDF” adds the callout to preview, system printing, and PDF. “Callouts...” lists pinned
 items and removes obsolete ones.
 

@@ -267,8 +267,27 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
             top_depth=float(item["top_depth"]),
             bottom_depth=float(item["bottom_depth"]),
             components=[CuttingsComponent(**component) for component in item.get("components", [])],
+            lba_group=(int(item["lba_group"]) if item.get("lba_group") is not None else None),
             lba_type_id=item.get("lba_type_id"),
             lba_intensity=item.get("lba_intensity"),
+            lba_color=item.get("lba_color"),
+            lba_distribution=item.get("lba_distribution"),
+            lba_cut=item.get("lba_cut"),
+            lba_cut_speed=item.get("lba_cut_speed"),
+            lba_cut_color=item.get("lba_cut_color"),
+            lba_residue_type=item.get("lba_residue_type"),
+            lba_residue_color=item.get("lba_residue_color"),
+            lba_odour=item.get("lba_odour"),
+            lba_stain=item.get("lba_stain"),
+            lba_description=item.get("lba_description"),
+            calcite_percent=(
+                float(item["calcite_percent"]) if item.get("calcite_percent") is not None else None
+            ),
+            dolomite_percent=(
+                float(item["dolomite_percent"])
+                if item.get("dolomite_percent") is not None
+                else None
+            ),
             description=item.get("description"),
         )
         for item in data.get("cuttings", [])

@@ -50,7 +50,39 @@ class TabletController:
             tracks.append(TrackDefinition(new_id(), "Литология", TrackKind.LITHOLOGY, width=180))
             tracks.append(TrackDefinition(new_id(), "Описание пород", TrackKind.TEXT, width=320))
         if self.session.current_well is not None and self.session.current_well.cuttings:
-            tracks.append(TrackDefinition(new_id(), "Шламограмма", TrackKind.CUTTINGS, width=240))
+            if any(item.components for item in self.session.current_well.cuttings):
+                tracks.append(
+                    TrackDefinition(new_id(), "Шламограмма", TrackKind.CUTTINGS, width=240)
+                )
+            if any(
+                item.calcite_percent is not None or item.dolomite_percent is not None
+                for item in self.session.current_well.cuttings
+            ):
+                tracks.append(
+                    TrackDefinition(new_id(), "Кальциметрия", TrackKind.CALCIMETRY, width=220)
+                )
+            if any(
+                any(
+                    value is not None and value != ""
+                    for value in (
+                        item.lba_type_id,
+                        item.lba_group,
+                        item.lba_intensity,
+                        item.lba_color,
+                        item.lba_distribution,
+                        item.lba_cut,
+                        item.lba_cut_speed,
+                        item.lba_cut_color,
+                        item.lba_residue_type,
+                        item.lba_residue_color,
+                        item.lba_odour,
+                        item.lba_stain,
+                        item.lba_description,
+                    )
+                )
+                for item in self.session.current_well.cuttings
+            ):
+                tracks.append(TrackDefinition(new_id(), "ЛБА", TrackKind.LBA, width=260))
         if gas_names:
             tracks.append(
                 TrackDefinition(
@@ -124,6 +156,14 @@ class TabletController:
         elif kind is TrackKind.CUTTINGS:
             title = "Шламограмма"
             width = 240
+            mnemonics = []
+        elif kind is TrackKind.CALCIMETRY:
+            title = "Кальциметрия"
+            width = 220
+            mnemonics = []
+        elif kind is TrackKind.LBA:
+            title = "ЛБА"
+            width = 260
             mnemonics = []
         elif kind is TrackKind.TEXT:
             title = "Описание пород"

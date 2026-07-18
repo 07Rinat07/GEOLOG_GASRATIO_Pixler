@@ -499,6 +499,8 @@ class MainWindow(QMainWindow):
             ("DEXP / NCT", TrackKind.DEXP),
             (self._t("tablet.track.lithology"), TrackKind.LITHOLOGY),
             (self._t("tablet.track.cuttings"), TrackKind.CUTTINGS),
+            (self._t("tablet.track.calcimetry"), TrackKind.CALCIMETRY),
+            (self._t("tablet.track.lba"), TrackKind.LBA),
             (self._t("tablet.track.description"), TrackKind.TEXT),
             (self._t("tablet.track.curve"), TrackKind.CURVE),
         ):

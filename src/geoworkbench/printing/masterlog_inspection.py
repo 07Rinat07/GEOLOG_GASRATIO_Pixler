@@ -85,6 +85,8 @@ def inspect_masterlog_point(
         return _inspect_lithology(column, depth, session, language)
     if column.column_type == "cuttings":
         return _inspect_cuttings(column, depth, session, language)
+    if column.column_type in {"calcimetry", "lba"}:
+        return _inspect_sample_analysis(column, depth, session, language)
     if column.column_type == "depth":
         return MasterlogInspection(column.column_id, column.title, depth)
     return _inspect_curves(column, x_mm, depth, template, session)
@@ -170,6 +172,72 @@ def _inspect_cuttings(
     ]
     if sample.description:
         parts.append(sample.description)
+    return MasterlogInspection(
+        column.column_id,
+        column.title,
+        depth,
+        description="; ".join(parts),
+        interval=(sample.top_depth, sample.bottom_depth),
+    )
+
+
+def _inspect_sample_analysis(
+    column: MasterlogColumnTemplate,
+    depth: float,
+    session: ProjectSession,
+    language: AppLanguage,
+) -> MasterlogInspection:
+    well = session.current_well
+    sample = next(
+        (
+            item
+            for item in (well.cuttings if well is not None else ())
+            if item.top_depth <= depth <= item.bottom_depth
+        ),
+        None,
+    )
+    if sample is None:
+        return MasterlogInspection(column.column_id, column.title, depth)
+    labels = {
+        AppLanguage.RU: ("Кальцит", "Доломит", "Интенсивность"),
+        AppLanguage.KK: ("Кальцит", "Доломит", "Қарқындылық"),
+        AppLanguage.EN: ("Calcite", "Dolomite", "Intensity"),
+    }[language]
+    if column.column_type == "calcimetry":
+        parts = []
+        if sample.calcite_percent is not None:
+            parts.append(f"{labels[0]} CaCO₃: {sample.calcite_percent:g}%")
+        if sample.dolomite_percent is not None:
+            parts.append(f"{labels[1]} CaMg(CO₃)₂: {sample.dolomite_percent:g}%")
+        if sample.insoluble_residue_percent is not None:
+            residue_label = {
+                AppLanguage.RU: "Нерастворимый остаток",
+                AppLanguage.KK: "Ерімейтін қалдық",
+                AppLanguage.EN: "Insoluble residue",
+            }[language]
+            parts.append(f"{residue_label}: {sample.insoluble_residue_percent:g}%")
+    else:
+        parts = [
+            value
+            for value in (
+                f"Group: {sample.lba_group}" if sample.lba_group is not None else None,
+                sample.lba_type_id,
+                f"{labels[2]}: {sample.lba_intensity}"
+                if sample.lba_intensity is not None
+                else None,
+                sample.lba_color,
+                sample.lba_distribution,
+                sample.lba_cut,
+                sample.lba_cut_speed,
+                sample.lba_cut_color,
+                sample.lba_residue_type,
+                sample.lba_residue_color,
+                sample.lba_odour,
+                sample.lba_stain,
+                sample.lba_description,
+            )
+            if value
+        ]
     return MasterlogInspection(
         column.column_id,
         column.title,

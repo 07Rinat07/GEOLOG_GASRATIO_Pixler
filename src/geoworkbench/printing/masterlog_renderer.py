@@ -464,6 +464,10 @@ def _paint_columns(
                 _paint_lithology_column(painter, plot_rect, session, depth_range)
             elif column.column_type == "cuttings":
                 _paint_cuttings_column(painter, plot_rect, session, depth_range)
+            elif column.column_type == "calcimetry":
+                _paint_calcimetry_column(painter, plot_rect, session, depth_range)
+            elif column.column_type == "lba":
+                _paint_lba_column(painter, plot_rect, session, depth_range)
             elif column.column_type in {"text", "description"}:
                 _paint_lithology_descriptions(painter, plot_rect, session, depth_range, language)
             else:
@@ -621,6 +625,108 @@ def _paint_cuttings_column(
                     f"{code} {component.percentage:g}%",
                 )
             x += width
+    painter.restore()
+
+
+def _paint_calcimetry_column(
+    painter: QPainter,
+    rect: QRectF,
+    session: ProjectSession,
+    depth_range: tuple[float, float],
+) -> None:
+    well = session.current_well
+    if well is None:
+        return
+    top, bottom = depth_range
+    painter.save()
+    painter.setClipRect(rect)
+    for sample in well.cuttings:
+        if sample.bottom_depth < top or sample.top_depth > bottom:
+            continue
+        if sample.calcite_percent is None and sample.dolomite_percent is None:
+            continue
+        y_top = rect.top() + (max(top, sample.top_depth) - top) / (bottom - top) * rect.height()
+        y_bottom = (
+            rect.top() + (min(bottom, sample.bottom_depth) - top) / (bottom - top) * rect.height()
+        )
+        height = max(0.2, y_bottom - y_top)
+        calcite = sample.calcite_percent or 0.0
+        dolomite = sample.dolomite_percent or 0.0
+        residue = sample.insoluble_residue_percent
+        left = rect.left()
+        for value, color in (
+            (calcite, "#22d3ee"),
+            (dolomite, "#a78bfa"),
+            (residue, "#d1d5db"),
+        ):
+            if value is None or value <= 0.0:
+                continue
+            width = rect.width() * value / 100.0
+            painter.fillRect(QRectF(left, y_top, width, height), QColor(color))
+            left += width
+        painter.setPen(QPen(QColor("#334155"), 0.2))
+        painter.drawRect(QRectF(rect.left(), y_top, rect.width(), height))
+        if height >= 5.0:
+            painter.setPen(QColor("#0f172a"))
+            parts = [f"Ca {calcite:g}%", f"Dol {dolomite:g}%"]
+            if residue is not None:
+                parts.append(f"IR {residue:g}%")
+            painter.drawText(
+                QRectF(rect.left() + 0.5, y_top, rect.width() - 1.0, height),
+                Qt.AlignmentFlag.AlignCenter,
+                "  ".join(parts),
+            )
+    painter.restore()
+
+
+def _paint_lba_column(
+    painter: QPainter,
+    rect: QRectF,
+    session: ProjectSession,
+    depth_range: tuple[float, float],
+) -> None:
+    well = session.current_well
+    if well is None:
+        return
+    top, bottom = depth_range
+    painter.save()
+    painter.setClipRect(rect)
+    font = QFont()
+    font.setPointSizeF(5.5)
+    painter.setFont(font)
+    for sample in well.cuttings:
+        fields = [
+            f"G={sample.lba_group}" if sample.lba_group is not None else None,
+            sample.lba_type_id,
+            f"I={sample.lba_intensity}" if sample.lba_intensity is not None else None,
+            sample.lba_color,
+            sample.lba_distribution,
+            f"Cut={sample.lba_cut}" if sample.lba_cut else None,
+            sample.lba_cut_speed,
+            sample.lba_cut_color,
+            f"Residue={sample.lba_residue_type}" if sample.lba_residue_type else None,
+            sample.lba_residue_color,
+            f"Odour={sample.lba_odour}" if sample.lba_odour else None,
+            f"Stain={sample.lba_stain}" if sample.lba_stain else None,
+            sample.lba_description,
+        ]
+        text = "; ".join(value for value in fields if value)
+        if not text or sample.bottom_depth < top or sample.top_depth > bottom:
+            continue
+        y_top = rect.top() + (max(top, sample.top_depth) - top) / (bottom - top) * rect.height()
+        y_bottom = (
+            rect.top() + (min(bottom, sample.bottom_depth) - top) / (bottom - top) * rect.height()
+        )
+        sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
+        painter.fillRect(sample_rect, QColor("#fef3c7"))
+        painter.setPen(QPen(QColor("#92400e"), 0.2))
+        painter.drawRect(sample_rect)
+        if sample_rect.height() >= 3.0:
+            painter.drawText(
+                sample_rect.adjusted(0.5, 0.25, -0.5, -0.25),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
+                text,
+            )
     painter.restore()
 
 

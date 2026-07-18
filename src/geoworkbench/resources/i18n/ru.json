@@ -366,7 +366,7 @@
   "data.evidence": "Обоснование", "data.warnings": "Предупреждения",
   "data.select_index": "Сначала выберите индекс", "data.select_dataset": "Сначала выберите dataset",
   "tablet.title": "Планшет", "tablet.build_default": "Построить базовый планшет", "tablet.add_track": "Добавить трек",
-  "tablet.track.depth": "Глубина", "tablet.track.gas": "Газовые компоненты", "tablet.track.lithology": "Литология", "tablet.track.cuttings": "Шламограмма",
+  "tablet.track.depth": "Глубина", "tablet.track.gas": "Газовые компоненты", "tablet.track.lithology": "Литология", "tablet.track.cuttings": "Шламограмма", "tablet.track.calcimetry": "Кальциметрия", "tablet.track.lba": "ЛБА",
   "tablet.track.description": "Описание пород", "tablet.track.curve": "Кривая", "tablet.change_width": "Изменить ширину выбранного трека...",
   "tablet.linear_scale": "Линейная шкала выбранного трека", "tablet.log_scale": "Логарифмическая шкала выбранного трека",
   "tablet.set_range": "Задать диапазон X выбранного трека...", "tablet.auto_range": "Автоматический диапазон X выбранного трека",

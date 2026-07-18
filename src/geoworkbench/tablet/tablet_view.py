@@ -50,6 +50,7 @@ class RenderedTrack:
     lithology_label_items: dict[str, pg.TextItem] | None = None
     lithology_description_items: dict[str, pg.TextItem] | None = None
     cuttings_items: dict[str, tuple[pg.BarGraphItem, ...]] | None = None
+    analysis_items: dict[str, tuple[object, ...]] | None = None
     cursor_line: pg.InfiniteLine | None = None
 
 
@@ -389,9 +390,35 @@ class TabletView(QWidget):
                 lithotype = self._lithotype_catalog.get(component.lithotype_id)
                 name = lithotype.name_ru if lithotype is not None else component.lithotype_id
                 parts.append(f"{name}: {component.percentage:g}%")
-            values.append(
-                f"Шлам {sample.top_depth:g}–{sample.bottom_depth:g} м: " + "; ".join(parts)
-            )
+            if parts:
+                values.append(
+                    f"Шлам {sample.top_depth:g}–{sample.bottom_depth:g} м: " + "; ".join(parts)
+                )
+            if sample.calcite_percent is not None or sample.dolomite_percent is not None:
+                residue = sample.insoluble_residue_percent
+                values.append(
+                    "Кальциметрия: "
+                    f"CaCO₃ {sample.calcite_percent or 0.0:g}%; "
+                    f"CaMg(CO₃)₂ {sample.dolomite_percent or 0.0:g}%"
+                    + (f"; нераств. остаток {residue:g}%" if residue is not None else "")
+                )
+            lba = [
+                f"G={sample.lba_group}" if sample.lba_group is not None else None,
+                sample.lba_type_id,
+                f"I={sample.lba_intensity}" if sample.lba_intensity is not None else None,
+                sample.lba_color,
+                sample.lba_distribution,
+                sample.lba_cut,
+                sample.lba_cut_speed,
+                sample.lba_cut_color,
+                sample.lba_residue_type,
+                sample.lba_residue_color,
+                sample.lba_odour,
+                sample.lba_stain,
+                sample.lba_description,
+            ]
+            if any(lba):
+                values.append("ЛБА: " + "; ".join(value for value in lba if value))
         seen: set[str] = set()
         for definition in self._layout_model.visible_tracks():
             for mnemonic in definition.curve_mnemonics:
@@ -465,6 +492,7 @@ class TabletView(QWidget):
             lithology_label_items = self._populate_lithology_labels(track, definition)
             lithology_description_items = self._populate_lithology_descriptions(track, definition)
             cuttings_items = self._populate_cuttings(track, definition)
+            analysis_items = self._populate_sample_analysis(track, definition)
             if master_plot is None:
                 master_plot = track.plot
             track.plot.sigYRangeChanged.connect(self._on_depth_range_changed)
@@ -480,6 +508,7 @@ class TabletView(QWidget):
                 lithology_label_items,
                 lithology_description_items,
                 cuttings_items,
+                analysis_items,
             )
             self._rendered[definition.track_id] = rendered
             self._install_cursor(rendered)
@@ -551,7 +580,13 @@ class TabletView(QWidget):
             track.plot.setMouseEnabled(x=False, y=True)
             return (), {}
 
-        if definition.kind in (TrackKind.LITHOLOGY, TrackKind.TEXT):
+        if definition.kind in (
+            TrackKind.LITHOLOGY,
+            TrackKind.CUTTINGS,
+            TrackKind.CALCIMETRY,
+            TrackKind.LBA,
+            TrackKind.TEXT,
+        ):
             track.plot.hideAxis("bottom")
             track.plot.setXRange(0.0, 1.0, padding=0)
             track.plot.setMouseEnabled(x=False, y=True)
@@ -665,6 +700,65 @@ class TabletView(QWidget):
                 items.append(item)
                 left += width
             rendered[sample.sample_id] = tuple(items)
+        return rendered
+
+    def _populate_sample_analysis(
+        self, track: TabletTrackWidget, definition: TrackDefinition
+    ) -> dict[str, tuple[object, ...]]:
+        if definition.kind not in {TrackKind.CALCIMETRY, TrackKind.LBA}:
+            return {}
+        track.plot.hideAxis("bottom")
+        track.plot.setXRange(
+            0.0, 100.0 if definition.kind is TrackKind.CALCIMETRY else 1.0, padding=0
+        )
+        track.plot.setMouseEnabled(x=False, y=True)
+        rendered: dict[str, tuple[object, ...]] = {}
+        for sample in self._cuttings:
+            items: list[object] = []
+            if definition.kind is TrackKind.CALCIMETRY:
+                left = 0.0
+                for value, color in (
+                    (sample.calcite_percent, "#22d3ee"),
+                    (sample.dolomite_percent, "#a78bfa"),
+                    (sample.insoluble_residue_percent, "#d1d5db"),
+                ):
+                    if value is None:
+                        continue
+                    bar = pg.BarGraphItem(
+                        x=[left + value / 2.0],
+                        y=[(sample.top_depth + sample.bottom_depth) / 2.0],
+                        width=value,
+                        height=sample.bottom_depth - sample.top_depth,
+                        brush=pg.mkBrush(color),
+                        pen=pg.mkPen("#334155", width=0.7),
+                    )
+                    track.plot.addItem(bar)
+                    items.append(bar)
+                    left += value
+            else:
+                fields = [
+                    f"G={sample.lba_group}" if sample.lba_group is not None else None,
+                    sample.lba_type_id,
+                    f"I={sample.lba_intensity}" if sample.lba_intensity is not None else None,
+                    sample.lba_color,
+                    sample.lba_distribution,
+                    sample.lba_cut,
+                    sample.lba_cut_speed,
+                    sample.lba_cut_color,
+                    sample.lba_residue_type,
+                    sample.lba_residue_color,
+                    sample.lba_odour,
+                    sample.lba_stain,
+                    sample.lba_description,
+                ]
+                text = "; ".join(value for value in fields if value)
+                if text:
+                    label = pg.TextItem(text, color="#92400e", anchor=(0.0, 0.5))
+                    label.setPos(0.02, (sample.top_depth + sample.bottom_depth) / 2.0)
+                    track.plot.addItem(label)
+                    items.append(label)
+            if items:
+                rendered[sample.sample_id] = tuple(items)
         return rendered
 
     def _populate_lithology_descriptions(

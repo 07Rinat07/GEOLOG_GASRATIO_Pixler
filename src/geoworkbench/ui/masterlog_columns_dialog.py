@@ -38,7 +38,9 @@ class ColumnPropertiesDialog(QDialog):
         self.title_input = QLineEdit(column.title if column else "")
         self.type_input = QComboBox()
         self.type_input.setEditable(True)
-        self.type_input.addItems(["curves", "depth", "lithology", "cuttings", "text"])
+        self.type_input.addItems(
+            ["curves", "depth", "lithology", "cuttings", "calcimetry", "lba", "text"]
+        )
         if column:
             self.type_input.setCurrentText(column.column_type)
         self.width_input = QDoubleSpinBox()

@@ -306,9 +306,28 @@ class CuttingsSample:
     top_depth: float
     bottom_depth: float
     components: list[CuttingsComponent] = field(default_factory=list)
+    lba_group: int | None = None
     lba_type_id: str | None = None
     lba_intensity: int | None = None
+    lba_color: str | None = None
+    lba_distribution: str | None = None
+    lba_cut: str | None = None
+    lba_cut_speed: str | None = None
+    lba_cut_color: str | None = None
+    lba_residue_type: str | None = None
+    lba_residue_color: str | None = None
+    lba_odour: str | None = None
+    lba_stain: str | None = None
+    lba_description: str | None = None
+    calcite_percent: float | None = None
+    dolomite_percent: float | None = None
     description: str | None = None
+
+    @property
+    def insoluble_residue_percent(self) -> float | None:
+        if self.calcite_percent is None or self.dolomite_percent is None:
+            return None
+        return max(0.0, 100.0 - self.calcite_percent - self.dolomite_percent)
 
 
 @dataclass(slots=True)

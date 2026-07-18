@@ -13,6 +13,8 @@ class TrackKind(StrEnum):
     DEXP = "dexp"
     LITHOLOGY = "lithology"
     CUTTINGS = "cuttings"
+    CALCIMETRY = "calcimetry"
+    LBA = "lba"
     STRATIGRAPHY = "stratigraphy"
     TEXT = "text"
 

@@ -8,6 +8,7 @@ from geoworkbench.domain.models import (
     Dataset,
     DatasetKind,
     DepthDomain,
+    CuttingsSample,
     MasterlogColumnTemplate,
     MasterlogHeaderElement,
     MasterlogTemplate,
@@ -178,6 +179,42 @@ def test_masterlog_renders_lithology_and_description_columns(qapp) -> None:
     assert visible_lithology_intervals(session.current_well.lithology, (100.0, 150.0)) == (
         session.current_well.lithology[0],
     )
+
+
+def test_masterlog_renders_calcimetry_and_lba_columns(qapp) -> None:
+    session = make_session_with_curves()
+    assert session.current_well is not None
+    session.current_well.cuttings.append(
+        CuttingsSample(
+            "sample",
+            110.0,
+            160.0,
+            calcite_percent=65.0,
+            dolomite_percent=20.0,
+            lba_type_id="Oil show",
+            lba_intensity=3,
+            lba_color="yellow",
+            lba_cut="Streaming",
+        )
+    )
+    template = MasterlogTemplate(
+        "analysis",
+        "Sample analysis",
+        depth_scale=500,
+        header_height_mm=40.0,
+        columns=[
+            MasterlogColumnTemplate("calc", "Calcimetry", "calcimetry", 50.0),
+            MasterlogColumnTemplate("lba", "LBA", "lba", 50.0),
+        ],
+    )
+    image = QImage(800, 2520, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+
+    paint_masterlog(painter, QRectF(0.0, 0.0, 800.0, 2520.0), template, session)
+    painter.end()
+
+    assert image.pixelColor(100, 1000) != image.pixelColor(700, 100)
 
 
 def test_visible_lithology_intervals_excludes_non_intersecting_layers() -> None:

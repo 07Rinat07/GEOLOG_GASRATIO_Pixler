@@ -19,10 +19,14 @@ def test_masterlog_preview_dialog_uses_selected_template(qapp) -> None:
     assert dialog.inspect_button.text() == "Inspect"
     assert dialog.lithology_button.text() == "Fill lithology"
     assert dialog.cuttings_button.text() == "Fill cuttings"
+    assert dialog.analysis_button.text() == "Calcimetry / LBA"
     assert dialog.pin_button.text() == "Pin for PDF"
     assert not dialog.pin_button.isEnabled()
     assert dialog.callouts_button.text() == "Callouts..."
     dialog._set_mode("lithology")
     assert dialog.preview.selection_mode == "lithology"
     assert dialog.lithology_button.isChecked()
+    dialog._set_mode("analysis")
+    assert dialog.preview.selection_mode == "analysis"
+    assert dialog.analysis_button.isChecked()
     dialog.close()

@@ -4,6 +4,7 @@ import pytest
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
+    CuttingsSample,
     Dataset,
     DatasetKind,
     DepthDomain,
@@ -214,6 +215,44 @@ def test_add_cuttings_track_does_not_require_curves() -> None:
     assert track.title == "Шламограмма"
     assert track.width == 240
     assert track.curve_mnemonics == []
+
+
+@pytest.mark.parametrize(
+    ("kind", "title", "width"),
+    [
+        (TrackKind.CALCIMETRY, "Кальциметрия", 220),
+        (TrackKind.LBA, "ЛБА", 260),
+    ],
+)
+def test_add_sample_analysis_tracks_without_curves(kind, title, width) -> None:
+    controller = TabletController(make_session())
+    controller.build_default_layout()
+
+    track = controller.add_track(kind)
+
+    assert track.title == title
+    assert track.width == width
+    assert track.curve_mnemonics == []
+
+
+def test_default_layout_adds_available_calcimetry_and_lba_tracks() -> None:
+    session = make_session()
+    assert session.current_well is not None
+    session.current_well.cuttings.append(
+        CuttingsSample(
+            "sample",
+            1.0,
+            2.0,
+            calcite_percent=40.0,
+            lba_intensity=2,
+        )
+    )
+
+    kinds = [track.kind for track in TabletController(session).build_default_layout().tracks]
+
+    assert TrackKind.CUTTINGS not in kinds
+    assert TrackKind.CALCIMETRY in kinds
+    assert TrackKind.LBA in kinds
 
 
 def test_default_layout_adds_lithology_and_description_tracks() -> None:
