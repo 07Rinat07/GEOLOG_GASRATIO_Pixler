@@ -79,6 +79,34 @@ def test_tablet_view_exposes_rendered_legend_labels(qapp) -> None:
     view.close()
 
 
+def test_tablet_uses_single_unscaled_depth_axis(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([950.0, 1100.0, 1250.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120),
+                TrackDefinition("curve", "Curve", TrackKind.CURVE, width=220),
+            ]
+        )
+    )
+
+    view.set_dataset(dataset)
+
+    depth_axis = view._rendered["depth"].plot.getAxis("left")
+    curve_axis = view._rendered["curve"].plot.getAxis("left")
+    assert depth_axis.isVisible()
+    assert depth_axis.autoSIPrefix is False
+    assert not curve_axis.isVisible()
+    view.close()
+
+
 def test_tablet_cursor_line_is_synchronized_and_reports_all_curve_values(qapp) -> None:
     dataset = Dataset(
         "dataset-1",

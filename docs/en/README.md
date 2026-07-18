@@ -78,6 +78,13 @@ mnemonics, and values are not translated.
 The log-display menu builds the default tracks, adds user-selected curves, and controls track
 width, scale, range, order, and visibility. All commands are available in RU/KK/EN.
 
+When a mixed LAS is opened, the general chart prioritizes a compatible gas-channel group
+(`TG/TGAS`, `C1–C5`), so numeric lithology and zone codes do not compress the gas curves. Curves
+use distinct colors and a legend. The log display shows one depth scale in metres in the Depth
+track; adjacent tracks follow it synchronously without repeated axes. The default gas track uses
+a logarithmic scale so Total Gas and minor components remain visible together; it can be changed
+in the Track Inspector.
+
 Each column supports an automatic X range or manually entered minimum and maximum values in the
 Track Inspector. Switching to manual mode starts from the actual data range for that column. The
 visible depth interval can also be entered numerically from the log-layout menu; “Show full depth

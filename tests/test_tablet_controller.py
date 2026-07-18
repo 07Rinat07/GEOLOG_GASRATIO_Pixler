@@ -60,7 +60,27 @@ def test_build_default_layout_registers_it_in_session() -> None:
         TrackKind.CURVE,
     ]
     assert layout.tracks[1].curve_mnemonics == ["C1", "C2"]
+    assert layout.tracks[1].x_scale is XScale.LOGARITHMIC
     assert session.dirty is True
+
+
+def test_default_layout_groups_tgas_with_gas_curves() -> None:
+    session = make_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.upsert_curve("TGAS", np.array([3.0, 4.0]), unit="%")
+    dataset.upsert_curve("LITH_CODE", np.array([39.0, 60.0]))
+
+    layout = TabletController(session).build_default_layout()
+
+    gas = next(track for track in layout.tracks if track.kind is TrackKind.GAS)
+    assert gas.curve_mnemonics == ["TGAS", "C1", "C2"]
+    assert gas.x_scale is XScale.LOGARITHMIC
+    assert all(
+        "TGAS" not in track.curve_mnemonics
+        for track in layout.tracks
+        if track.kind is TrackKind.CURVE
+    )
 
 
 def test_track_commands_update_layout_and_dirty_state() -> None:

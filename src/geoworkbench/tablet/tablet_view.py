@@ -92,6 +92,8 @@ class TabletTrackWidget(QFrame):
             alpha=definition.grid_alpha,
         )
         self.plot.setLabel("bottom", definition.x_axis_label)
+        self.plot.getAxis("left").enableAutoSIPrefix(False)
+        self.plot.hideAxis("left")
         self.plot.getViewBox().invertY(True)
         self.plot.setMenuEnabled(False)
         self.plot.setMouseEnabled(x=True, y=True)
@@ -608,6 +610,7 @@ class TabletView(QWidget):
         depth = np.asarray(self._dataset.depth, dtype=float)
 
         if definition.kind == TrackKind.DEPTH:
+            track.plot.showAxis("left")
             track.plot.setLabel("left", "Глубина", units="м")
             track.plot.hideAxis("bottom")
             track.plot.setMouseEnabled(x=False, y=True)

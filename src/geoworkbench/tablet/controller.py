@@ -5,6 +5,11 @@ from dataclasses import dataclass
 
 from geoworkbench.domain.models import Dataset, new_id
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.channel_groups import (
+    DEXP_MNEMONIC_ORDER,
+    GAS_MNEMONIC_ORDER,
+    available_mnemonics,
+)
 from geoworkbench.tablet.models import (
     CurveStyle,
     TabletLayout,
@@ -12,23 +17,6 @@ from geoworkbench.tablet.models import (
     TrackKind,
     XScale,
 )
-
-
-GAS_MNEMONIC_ORDER = (
-    "TG",
-    "TOTALGAS",
-    "TG_CALC",
-    "C1",
-    "C2",
-    "C3",
-    "IC4",
-    "NC4",
-    "C4",
-    "IC5",
-    "NC5",
-    "C5",
-)
-DEXP_MNEMONIC_ORDER = ("DEXP", "DEXPC", "NCT", "DEXPC_NCT")
 
 
 @dataclass(slots=True)
@@ -40,9 +28,7 @@ class TabletController:
     def build_default_layout(self) -> TabletLayout:
         dataset = self._require_dataset()
         curve_names = [curve.metadata.original_mnemonic for curve in dataset.curves.values()]
-        gas_names = [
-            name for name in GAS_MNEMONIC_ORDER if dataset.curve_by_mnemonic(name) is not None
-        ]
+        gas_names = available_mnemonics(dataset, GAS_MNEMONIC_ORDER)
         remaining = [name for name in curve_names if name not in gas_names]
 
         tracks = [TrackDefinition(new_id(), "Глубина", TrackKind.DEPTH, width=120)]
@@ -95,11 +81,10 @@ class TabletController:
                     TrackKind.GAS,
                     curve_mnemonics=gas_names[:8],
                     width=360,
+                    x_scale=XScale.LOGARITHMIC,
                 )
             )
-        dexp_names = [
-            name for name in DEXP_MNEMONIC_ORDER if dataset.curve_by_mnemonic(name) is not None
-        ]
+        dexp_names = available_mnemonics(dataset, DEXP_MNEMONIC_ORDER)
         if dexp_names:
             tracks.append(
                 TrackDefinition(
@@ -135,21 +120,19 @@ class TabletController:
         mnemonics = list(curve_mnemonics or [])
         title = kind.value
         width = 250
+        x_scale = XScale.LINEAR
         if kind is TrackKind.DEPTH:
             title = "Глубина"
             width = 120
             mnemonics = []
         elif kind is TrackKind.GAS:
             title = "Газ"
-            mnemonics = [
-                name for name in GAS_MNEMONIC_ORDER if dataset.curve_by_mnemonic(name) is not None
-            ]
+            mnemonics = available_mnemonics(dataset, GAS_MNEMONIC_ORDER)
             width = 360
+            x_scale = XScale.LOGARITHMIC
         elif kind is TrackKind.DEXP:
             title = "DEXP / NCT"
-            mnemonics = [
-                name for name in DEXP_MNEMONIC_ORDER if dataset.curve_by_mnemonic(name) is not None
-            ]
+            mnemonics = available_mnemonics(dataset, DEXP_MNEMONIC_ORDER)
             if not mnemonics:
                 raise ValueError("В наборе нет рассчитанных кривых DEXP/NCT")
             width = 320
@@ -189,6 +172,7 @@ class TabletController:
             kind,
             curve_mnemonics=mnemonics,
             width=width,
+            x_scale=x_scale,
         )
         self._require_layout().add_track(track)
         self.session.dirty = True

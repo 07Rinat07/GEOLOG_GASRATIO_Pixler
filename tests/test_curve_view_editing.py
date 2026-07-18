@@ -62,11 +62,45 @@ def test_curve_view_requires_single_curve_and_edit_mode(qapp) -> None:
     )
     dataset.curves[second.metadata.curve_id] = second
     view = CurveView()
-    view.show_dataset(dataset)
+    view.show_dataset(dataset, ["ROP", "C1"])
 
     assert view.can_edit is False
     assert view.set_edit_mode(True) is False
     assert view.commit_draw_points([DrawPoint(100.0, 1.0), DrawPoint(101.0, 2.0)]) is False
+    view.close()
+
+
+def test_curve_view_prefers_compatible_gas_curves_and_distinct_colors(qapp) -> None:
+    dataset, _ = make_dataset()
+    dataset.curves = {
+        "lith": CurveData(
+            CurveMetadata("lith", "LITH_CODE", "LITH_CODE", None, None, dataset.dataset_id),
+            np.array([39.0, 39.0, 60.0, 60.0]),
+        ),
+        "c1": CurveData(
+            CurveMetadata("c1", "C1", "C1", "%", None, dataset.dataset_id),
+            np.array([0.1, 0.2, 0.3, 0.4]),
+        ),
+        "c2": CurveData(
+            CurveMetadata("c2", "C2", "C2", "%", None, dataset.dataset_id),
+            np.array([0.01, 0.02, 0.03, 0.04]),
+        ),
+        "tgas": CurveData(
+            CurveMetadata("tgas", "TGAS", "TGAS", "%", None, dataset.dataset_id),
+            np.array([0.2, 0.4, 0.6, 0.8]),
+        ),
+    }
+    view = CurveView()
+
+    view.show_dataset(dataset)
+
+    assert view.displayed_mnemonics == ("TGAS", "C1", "C2")
+    assert "LITH_CODE" not in view.displayed_mnemonics
+    colors = {
+        item.opts["pen"].color().name() for item in view._curve_items.values()
+    }
+    assert len(colors) == 3
+    assert view._plot.getAxis("left").autoSIPrefix is False
     view.close()
 
 

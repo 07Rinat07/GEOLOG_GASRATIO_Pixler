@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
+from geoworkbench.services.channel_groups import default_curve_mnemonics
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.sampling import MAX_RENDERED_POINTS, select_visible_samples
@@ -15,6 +16,15 @@ from geoworkbench.tablet.sampling import MAX_RENDERED_POINTS, select_visible_sam
 
 class CurveView(QWidget):
     edit_requested = Signal(str, object, object)
+
+    CURVE_COLORS = (
+        "#f8fafc",
+        "#22d3ee",
+        "#facc15",
+        "#4ade80",
+        "#fb7185",
+        "#c084fc",
+    )
 
     def __init__(
         self,
@@ -40,7 +50,9 @@ class CurveView(QWidget):
         self._plot = pg.PlotWidget()
         self._plot.showGrid(x=True, y=True, alpha=0.25)
         self._plot.setLabel("left", "Глубина", units="м")
+        self._plot.getAxis("left").enableAutoSIPrefix(False)
         self._plot.setLabel("bottom", "Значение")
+        self._legend = self._plot.addLegend(offset=(8, 8))
         self._plot.sigYRangeChanged.connect(self._on_depth_range_changed)
         self._plot.viewport().installEventFilter(self)
         self._plot.viewport().setMouseTracking(True)
@@ -71,6 +83,16 @@ class CurveView(QWidget):
     def cursor_text(self) -> str:
         return self._cursor_label.text()
 
+    @property
+    def displayed_mnemonics(self) -> tuple[str, ...]:
+        if self._dataset is None:
+            return ()
+        return tuple(
+            curve.metadata.original_mnemonic
+            for curve_id in self._displayed_curve_ids
+            if (curve := self._dataset.curves.get(curve_id)) is not None
+        )
+
     def clear(self) -> None:
         self._dataset = None
         self._editable_curve = None
@@ -78,6 +100,7 @@ class CurveView(QWidget):
         self._displayed_curve_ids = ()
         self._curve_items.clear()
         self._plot.clear()
+        self._legend.clear()
         self._selection_region = None
         self._cursor_horizontal = None
         self._cursor_vertical = None
@@ -98,23 +121,25 @@ class CurveView(QWidget):
         self._displayed_curve_ids = ()
         self._curve_items.clear()
         self._plot.clear()
+        self._legend.clear()
         self._plot.getViewBox().disableAutoRange(axis=pg.ViewBox.YAxis)
         self._selection_region = None
         self._cursor_horizontal = None
         self._cursor_vertical = None
         self._cursor_label.setText(self._t("curve.cursor_empty"))
-        selected_names = selected or [
-            curve.metadata.original_mnemonic for curve in list(dataset.curves.values())[:6]
-        ]
+        selected_names = (
+            default_curve_mnemonics(dataset) if selected is None else selected
+        )
         finite_depth = dataset.depth[np.isfinite(dataset.depth)]
         if len(selected_names) == 1:
             self._editable_curve = dataset.curve_by_mnemonic(selected_names[0])
         count = 0
         displayed_curve_ids: list[str] = []
-        for curve in dataset.curves.values():
-            mnemonic = curve.metadata.original_mnemonic
-            if mnemonic not in selected_names:
+        for selected_mnemonic in selected_names:
+            curve = dataset.curve_by_mnemonic(selected_mnemonic)
+            if curve is None or curve.metadata.curve_id in displayed_curve_ids:
                 continue
+            mnemonic = curve.metadata.original_mnemonic
             values = np.asarray(curve.values, dtype=np.float64)
             if finite_depth.size == 0:
                 continue
@@ -127,8 +152,14 @@ class CurveView(QWidget):
             )
             if visible_depth.size == 0:
                 continue
+            unit = (curve.metadata.unit or "").strip()
+            legend = f"{mnemonic} [{unit}]" if unit else mnemonic
+            color = self.CURVE_COLORS[count % len(self.CURVE_COLORS)]
             self._curve_items[curve.metadata.curve_id] = self._plot.plot(
-                visible_values, visible_depth, name=mnemonic
+                visible_values,
+                visible_depth,
+                name=legend,
+                pen=pg.mkPen(color, width=1.2),
             )
             count += 1
             displayed_curve_ids.append(curve.metadata.curve_id)
