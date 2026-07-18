@@ -3,13 +3,14 @@ from __future__ import annotations
 import csv
 import os
 import tempfile
-import zipfile
+from copy import copy
+from datetime import datetime, timedelta
 from pathlib import Path
-from xml.etree.ElementTree import Element, SubElement, tostring
 
 import numpy as np
+from openpyxl import Workbook  # type: ignore[import-untyped]
 
-from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.domain.models import CurveData, Dataset, DatasetIndex, IndexRole, IndexType
 from geoworkbench.services.dataset_selection import depth_interval_indices
 
 
@@ -61,9 +62,15 @@ def export_selection_excel(
     destination = Path(target)
     _validate_destination(destination, {".xlsx"}, overwrite)
     indices, curves = _selection(dataset, curve_ids, depth_top, depth_bottom)
-    rows: list[list[object]] = [list(_headers(dataset, curves))]
+    export_indexes = _excel_indexes(dataset)
+    header: list[object] = [
+        _index_header(index, primary=index.index_id == dataset.active_index_id)
+        for index in export_indexes
+    ]
+    header.extend(_curve_headers(curves))
+    rows: list[list[object]] = [header]
     rows.extend(
-        [float(dataset.depth[index])]
+        [_excel_index_value(index_value, int(index)) for index_value in export_indexes]
         + [None if not np.isfinite(curve.values[index]) else float(curve.values[index]) for curve in curves]
         for index in indices
     )
@@ -74,6 +81,13 @@ def export_selection_excel(
         ["Rows", int(indices.size)],
         ["Source", str(dataset.source_path or "")],
     ]
+    for index in export_indexes:
+        metadata.extend(
+            [
+                [f"Index {index.mnemonic}", index.index_type.value],
+                [f"Source timezone {index.mnemonic}", index.timezone or ""],
+            ]
+        )
     temporary = _temporary_path(destination)
     try:
         _write_xlsx(temporary, rows, metadata)
@@ -97,19 +111,55 @@ def _selection(
 
 
 def _headers(dataset: Dataset, curves: list[CurveData]) -> list[object]:
-    depth_unit = "ms" if dataset.depth_domain.value == "time" else "m"
-    result: list[object] = [f"DEPTH [{depth_unit}]"]
-    result.extend(
+    return [_index_header(dataset.active_index, primary=True), *_curve_headers(curves)]
+
+
+def _curve_headers(curves: list[CurveData]) -> list[str]:
+    return [
         f"{curve.metadata.original_mnemonic} [{curve.metadata.unit}]"
         if curve.metadata.unit
         else curve.metadata.original_mnemonic
         for curve in curves
+    ]
+
+
+def _index_header(index: DatasetIndex, *, primary: bool) -> str:
+    qualifier = (
+        "UTC"
+        if index.index_type is IndexType.DATETIME and index.timezone is not None
+        else index.unit or ""
     )
-    return result
+    mnemonic = "DEPTH" if primary and index.role is IndexRole.DEPTH else index.mnemonic
+    return f"{mnemonic} [{qualifier}]" if qualifier else mnemonic
+
+
+def _excel_indexes(dataset: Dataset) -> tuple[DatasetIndex, ...]:
+    return (
+        dataset.active_index,
+        *(
+            index
+            for index in dataset.indexes.values()
+            if index.index_id != dataset.active_index_id and index.role is IndexRole.TIME
+        ),
+    )
 
 
 def _number(value: float) -> str:
     return "" if not np.isfinite(value) else f"{float(value):.15g}"
+
+
+def _excel_index_value(index: DatasetIndex, row: int) -> object:
+    if index.role is not IndexRole.TIME or index.index_type is not IndexType.DATETIME:
+        value = np.asarray(index.values)[row]
+        return None if not np.isfinite(value) else float(value)
+    value = np.asarray(index.values)[row].astype("datetime64[ns]")
+    if np.isnat(value):
+        return None
+    nanoseconds = int(value.astype(np.int64))
+    seconds, remainder = divmod(nanoseconds, 1_000_000_000)
+    return datetime(1970, 1, 1) + timedelta(
+        seconds=seconds, microseconds=remainder // 1_000
+    )
 
 
 def _validate_destination(destination: Path, suffixes: set[str], overwrite: bool) -> None:
@@ -131,68 +181,21 @@ def _temporary_path(destination: Path) -> Path:
 
 
 def _write_xlsx(path: Path, data_rows: list[list[object]], metadata_rows: list[list[object]]) -> None:
-    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("[Content_Types].xml", _content_types())
-        archive.writestr("_rels/.rels", _root_relationships())
-        archive.writestr("xl/workbook.xml", _workbook())
-        archive.writestr("xl/_rels/workbook.xml.rels", _workbook_relationships())
-        archive.writestr("xl/worksheets/sheet1.xml", _worksheet(data_rows))
-        archive.writestr("xl/worksheets/sheet2.xml", _worksheet(metadata_rows))
-
-
-def _worksheet(rows: list[list[object]]) -> bytes:
-    root = Element("worksheet", xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main")
-    sheet_data = SubElement(root, "sheetData")
-    for row_number, values in enumerate(rows, start=1):
-        row = SubElement(sheet_data, "row", r=str(row_number))
-        for column_number, value in enumerate(values, start=1):
-            reference = f"{_column_name(column_number)}{row_number}"
-            if isinstance(value, (int, float)) and not isinstance(value, bool):
-                cell = SubElement(row, "c", r=reference)
-                SubElement(cell, "v").text = str(value)
-            else:
-                cell = SubElement(row, "c", r=reference, t="inlineStr")
-                inline = SubElement(cell, "is")
-                SubElement(inline, "t").text = "" if value is None else str(value)
-    return tostring(root, encoding="utf-8", xml_declaration=True)
-
-
-def _column_name(number: int) -> str:
-    result = ""
-    while number:
-        number, remainder = divmod(number - 1, 26)
-        result = chr(65 + remainder) + result
-    return result
-
-
-def _content_types() -> str:
-    return """<?xml version="1.0" encoding="UTF-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-<Default Extension="xml" ContentType="application/xml"/>
-<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-</Types>"""
-
-
-def _root_relationships() -> str:
-    return """<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-</Relationships>"""
-
-
-def _workbook() -> str:
-    return """<?xml version="1.0" encoding="UTF-8"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheets><sheet name="Data" sheetId="1" r:id="rId1"/><sheet name="Metadata" sheetId="2" r:id="rId2"/></sheets>
-</workbook>"""
-
-
-def _workbook_relationships() -> str:
-    return """<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>
-</Relationships>"""
+    workbook = Workbook()
+    data_sheet = workbook.active
+    data_sheet.title = "Data"
+    for row in data_rows:
+        data_sheet.append(row)
+    for cell in data_sheet[1]:
+        font = copy(cell.font)
+        font.bold = True
+        cell.font = font
+    for row in data_sheet.iter_rows(min_row=2):
+        for cell in row:
+            if isinstance(cell.value, datetime):
+                cell.number_format = "yyyy-mm-dd hh:mm:ss.000"
+    data_sheet.freeze_panes = "A2"
+    metadata_sheet = workbook.create_sheet("Metadata")
+    for row in metadata_rows:
+        metadata_sheet.append(row)
+    workbook.save(path)

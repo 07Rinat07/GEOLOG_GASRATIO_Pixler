@@ -1,10 +1,22 @@
 import csv
+from datetime import datetime
 import zipfile
 
 import numpy as np
 
 from geoworkbench.data.selection_export import export_selection_excel, export_selection_text
-from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
+from openpyxl import load_workbook
+
+from geoworkbench.domain.models import (
+    CurveData,
+    CurveMetadata,
+    Dataset,
+    DatasetIndex,
+    DatasetKind,
+    DepthDomain,
+    IndexRole,
+    IndexType,
+)
 
 
 def make_dataset() -> Dataset:
@@ -57,3 +69,63 @@ def test_excel_export_is_valid_openxml_with_data_and_metadata_sheets(tmp_path) -
     assert "DEPTH [m]" in data_sheet
     assert "C1 [%]" in data_sheet
     assert "Well data" in metadata_sheet
+
+
+def test_excel_export_formats_datetime_index_as_excel_date_and_time(tmp_path) -> None:
+    dataset = make_dataset()
+    dataset.add_index(
+        DatasetIndex(
+            "datetime",
+            "DATETIME",
+            IndexType.DATETIME,
+            IndexRole.TIME,
+            None,
+            np.array(
+                [
+                    "2026-07-18T08:15:30.125",
+                    "2026-07-18T08:15:31.250",
+                    "2026-07-18T08:15:32.375",
+                    "2026-07-18T08:15:33.500",
+                ],
+                dtype="datetime64[ns]",
+            ),
+            timezone="UTC",
+        ),
+        make_active=True,
+    )
+    target = tmp_path / "time-selection.xlsx"
+
+    export_selection_excel(dataset, target, ["c1"], 101.0, 102.0)
+
+    workbook = load_workbook(target, data_only=True)
+    data_sheet = workbook["Data"]
+    metadata_sheet = workbook["Metadata"]
+    assert data_sheet["A1"].value == "DATETIME [UTC]"
+    assert data_sheet["A2"].value == datetime(2026, 7, 18, 8, 15, 31, 250000)
+    assert data_sheet["A3"].value == datetime(2026, 7, 18, 8, 15, 32, 375000)
+    assert data_sheet["A2"].number_format == "yyyy-mm-dd hh:mm:ss.000"
+    assert dict(metadata_sheet.values)["Source timezone DATETIME"] == "UTC"
+
+
+def test_excel_depth_export_includes_formatted_secondary_datetime_index(tmp_path) -> None:
+    dataset = make_dataset()
+    dataset.add_index(
+        DatasetIndex(
+            "datetime", "DATETIME", IndexType.DATETIME, IndexRole.TIME, None,
+            np.array(
+                ["2026-07-18T08:00:00", "2026-07-18T08:00:01",
+                 "2026-07-18T08:00:02", "2026-07-18T08:00:03"],
+                dtype="datetime64[ns]",
+            ),
+            timezone="Asia/Oral",
+        )
+    )
+    target = tmp_path / "depth-with-time.xlsx"
+
+    export_selection_excel(dataset, target, ["c1"], 101.0, 102.0)
+
+    sheet = load_workbook(target, data_only=True)["Data"]
+    assert [cell.value for cell in sheet[1]] == ["DEPTH [m]", "DATETIME [UTC]", "C1 [%]"]
+    assert sheet["A2"].value == 101.0
+    assert sheet["B2"].value == datetime(2026, 7, 18, 8, 0, 1)
+    assert sheet["B2"].number_format == "yyyy-mm-dd hh:mm:ss.000"
