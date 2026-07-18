@@ -20,3 +20,9 @@
 - [English](en/README.md)
 
 All user-facing behavior changes must be reflected in all three guides and in the RU/KK/EN localization catalogs.
+
+## Tablet Engine 2.0
+
+- `ROADMAP.md` — updated product sequence and priorities.
+- `PROJECT_PLAN.md` — researched plan through version 1.0.
+- `TABLET_ENGINE_2.md` in `docs/ru`, `docs/kk`, and `docs/en` — user navigation controls.

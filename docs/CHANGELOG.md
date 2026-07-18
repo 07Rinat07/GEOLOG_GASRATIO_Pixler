@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased — Tablet Engine 2.0 navigation foundation
+
+### Added
+
+- a shared `TabletCamera` model for depth and time navigation;
+- cursor-anchored `Ctrl+wheel` zoom;
+- keyboard navigation with Home/End/PageUp/PageDown/Up/Down;
+- middle-button and `Space + left mouse button` viewport panning;
+- focused camera unit tests and GUI navigation regression tests.
+
+### Changed
+
+- wheel scrolling and zoom now use one bounded camera range instead of independent ad-hoc track operations;
+- project roadmap, plan, status, architecture, and RU/KK/EN user documentation were synchronized with the approved plan through version 1.0.
+
 ## Unreleased — Tablet depth/time navigation
 
 ### Русский

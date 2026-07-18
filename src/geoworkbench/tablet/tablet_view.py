@@ -38,6 +38,7 @@ from geoworkbench.domain.models import (
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.tablet.camera import TabletCamera
 from geoworkbench.tablet.interval_interaction import (
     IntervalDragResult,
     IntervalEditMode,
@@ -230,6 +231,7 @@ class TabletTrackWidget(QFrame):
         self.plot.setMenuEnabled(False)
         self.plot.setMouseEnabled(x=True, y=True)
         self.plot.setToolTip(navigation_hint)
+        self.plot.viewport().setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -348,6 +350,10 @@ class TabletView(QWidget):
         self._interval_gesture: _IntervalGesture | None = None
         self._axis_combo_guard = False
         self._scrollbar_guard = False
+        self._camera = TabletCamera()
+        self._pan_viewport: QObject | None = None
+        self._pan_last_position: QPointF | None = None
+        self._space_pressed = False
 
         self._container = QWidget()
         self._tracks_layout = QHBoxLayout(self._container)
@@ -1185,41 +1191,129 @@ class TabletView(QWidget):
 
     def scroll_depth(self, steps: float) -> bool:
         current = self.visible_depth_range
-        if current is None or not np.isfinite(steps) or steps == 0:
+        bounds = self._axis_bounds()
+        if current is None or bounds is None or not np.isfinite(steps) or steps == 0:
             return False
-        span = current[1] - current[0]
-        shift = span * 0.12 * float(steps)
-        return self._apply_visible_depth(
-            current[0] + shift,
-            current[1] + shift,
-            emit_change=True,
-        )
+        self._sync_camera(bounds, current)
+        top, bottom = self._camera.pan_fraction(0.12 * float(steps))
+        return self._apply_visible_depth(top, bottom, emit_change=True)
 
-    def zoom_depth(self, factor: float) -> bool:
+    def zoom_depth(self, factor: float, anchor: float | None = None) -> bool:
         current = self.visible_depth_range
-        if current is None or not np.isfinite(factor) or factor <= 0:
+        bounds = self._axis_bounds()
+        if (
+            current is None
+            or bounds is None
+            or not np.isfinite(factor)
+            or factor <= 0
+        ):
             return False
-        center = (current[0] + current[1]) / 2.0
-        half_span = (current[1] - current[0]) * float(factor) / 2.0
-        return self._apply_visible_depth(
-            center - half_span,
-            center + half_span,
-            emit_change=True,
-        )
+        self._sync_camera(bounds, current)
+        top, bottom = self._camera.zoom(float(factor), anchor=anchor)
+        return self._apply_visible_depth(top, bottom, emit_change=True)
+
+    def _sync_camera(
+        self, bounds: tuple[float, float], current: tuple[float, float]
+    ) -> None:
+        self._camera.set_domain(*bounds, preserve_window=False)
+        self._camera.set_visible_range(*current)
+
+    def _axis_value_at_event(
+        self, plot: pg.PlotWidget, event: QMouseEvent | QWheelEvent
+    ) -> float | None:
+        try:
+            scene_position = plot.mapToScene(event.position().toPoint())
+            value = float(plot.getViewBox().mapSceneToView(scene_position).y())
+        except (AttributeError, TypeError, ValueError):
+            return None
+        return value if np.isfinite(value) else None
+
+    def _keyboard_navigation(self, event: QKeyEvent) -> bool:
+        current = self.visible_depth_range
+        bounds = self._axis_bounds()
+        if current is None or bounds is None:
+            return False
+        self._sync_camera(bounds, current)
+        key = event.key()
+        if key == Qt.Key.Key_Home:
+            target = self._camera.home()
+        elif key == Qt.Key.Key_End:
+            target = self._camera.end()
+        elif key == Qt.Key.Key_PageUp:
+            target = self._camera.pan_fraction(-0.9)
+        elif key == Qt.Key.Key_PageDown:
+            target = self._camera.pan_fraction(0.9)
+        elif key == Qt.Key.Key_Up:
+            target = self._camera.pan_fraction(-0.1)
+        elif key == Qt.Key.Key_Down:
+            target = self._camera.pan_fraction(0.1)
+        else:
+            return False
+        self._apply_visible_depth(*target, emit_change=True)
+        return True
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
-        if watched in self._depth_viewports and isinstance(event, QWheelEvent):
+        plot = self._depth_viewports.get(watched)
+        if plot is not None and isinstance(event, QWheelEvent):
             delta = event.angleDelta().y()
             if delta == 0:
                 delta = event.pixelDelta().y()
             steps = float(delta) / 120.0
             if steps:
                 if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                    self.zoom_depth(0.8**steps)
+                    anchor = self._axis_value_at_event(plot, event)
+                    self.zoom_depth(0.8**steps, anchor=anchor)
                 else:
                     self.scroll_depth(-steps)
             event.accept()
             return True
+        if plot is not None and isinstance(event, QKeyEvent):
+            if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Space:
+                self._space_pressed = True
+                event.accept()
+                return True
+            if event.type() == QEvent.Type.KeyRelease and event.key() == Qt.Key.Key_Space:
+                self._space_pressed = False
+                self._pan_viewport = None
+                self._pan_last_position = None
+                event.accept()
+                return True
+            if event.type() == QEvent.Type.KeyPress and self._keyboard_navigation(event):
+                event.accept()
+                return True
+        if plot is not None and isinstance(event, QMouseEvent):
+            pan_button = event.button() == Qt.MouseButton.MiddleButton or (
+                event.button() == Qt.MouseButton.LeftButton and self._space_pressed
+            )
+            if event.type() == QEvent.Type.MouseButtonPress and pan_button:
+                self._pan_viewport = watched
+                self._pan_last_position = event.position()
+                watched.setProperty("tablet_pan_active", True)
+                event.accept()
+                return True
+            if (
+                event.type() == QEvent.Type.MouseMove
+                and self._pan_viewport is watched
+                and self._pan_last_position is not None
+            ):
+                previous = self._pan_last_position
+                self._pan_last_position = event.position()
+                previous_scene = plot.mapToScene(previous.toPoint())
+                current_scene = plot.mapToScene(event.position().toPoint())
+                previous_axis = plot.getViewBox().mapSceneToView(previous_scene).y()
+                current_axis = plot.getViewBox().mapSceneToView(current_scene).y()
+                self._apply_pan_delta(float(previous_axis - current_axis))
+                event.accept()
+                return True
+            if (
+                event.type() == QEvent.Type.MouseButtonRelease
+                and self._pan_viewport is watched
+            ):
+                self._pan_viewport = None
+                self._pan_last_position = None
+                watched.setProperty("tablet_pan_active", False)
+                event.accept()
+                return True
         rendered = self._interpretation_viewports.get(watched)
         if rendered is not None and isinstance(event, QKeyEvent):
             if event.key() == Qt.Key.Key_Escape and self._interval_gesture is not None:
@@ -1231,6 +1325,15 @@ class TabletView(QWidget):
                 event.accept()
                 return True
         return super().eventFilter(watched, event)
+
+    def _apply_pan_delta(self, delta: float) -> bool:
+        current = self.visible_depth_range
+        bounds = self._axis_bounds()
+        if current is None or bounds is None or not np.isfinite(delta):
+            return False
+        self._sync_camera(bounds, current)
+        top, bottom = self._camera.pan(float(delta))
+        return self._apply_visible_depth(top, bottom, emit_change=True)
 
     def _apply_visible_depth(self, top: float, bottom: float, *, emit_change: bool) -> bool:
         first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)

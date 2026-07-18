@@ -320,3 +320,8 @@ change. Edit the exact label, type, color, and comment in the property panel.
 ## Trainable user mnemonic dictionary
 
 Use “Edit → Sensors and mnemonic reference...” to create mapping rules for LAS files received from other vendors. A rule stores the foreign mnemonic, the application's canonical mnemonic, parameter name, unit, category, compatible track family, aliases, and recommended range. User rules persist between application runs, override the built-in Sensors catalog, and are applied automatically to subsequent LAS files. The dictionary can be imported from or exported to JSON.
+
+
+## Tablet controls
+
+See `TABLET_ENGINE_2.md`.

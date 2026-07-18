@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 import numpy as np
 import pyqtgraph as pg
 import pytest
-from PySide6.QtCore import QPoint, QPointF, Qt
-from PySide6.QtGui import QWheelEvent
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+from PySide6.QtGui import QKeyEvent, QWheelEvent
 
 from geoworkbench.domain.models import (
     CanvasObject,
@@ -498,9 +498,18 @@ def test_tablet_mouse_wheel_scrolls_and_control_wheel_zooms_depth(qapp) -> None:
         Qt.ScrollPhase.ScrollUpdate,
         False,
     )
+    anchor_before = float(
+        plot.getViewBox().mapSceneToView(plot.mapToScene(QPoint(10, 10))).y()
+    )
     qapp.sendEvent(viewport, zoom_event)
 
-    assert view.visible_depth_range == pytest.approx((1022.0, 1198.0))
+    zoomed = view.visible_depth_range
+    assert zoomed is not None
+    assert zoomed[1] - zoomed[0] == pytest.approx(176.0)
+    anchor_after = float(
+        plot.getViewBox().mapSceneToView(plot.mapToScene(QPoint(10, 10))).y()
+    )
+    assert anchor_after == pytest.approx(anchor_before)
 
     scroll_event = QWheelEvent(
         QPointF(10.0, 10.0),
@@ -514,7 +523,10 @@ def test_tablet_mouse_wheel_scrolls_and_control_wheel_zooms_depth(qapp) -> None:
     )
     qapp.sendEvent(viewport, scroll_event)
 
-    assert view.visible_depth_range == pytest.approx((1043.12, 1219.12))
+    scrolled = view.visible_depth_range
+    assert scrolled is not None
+    assert scrolled[1] - scrolled[0] == pytest.approx(176.0)
+    assert scrolled[0] == pytest.approx(zoomed[0] + 21.12)
     view.close()
 
 
@@ -975,4 +987,43 @@ def test_go_to_datetime_centers_visible_time_window(qapp) -> None:
     visible = view.visible_depth_range
     assert visible is not None
     assert sum(visible) / 2.0 == pytest.approx(target)
+    view.close()
+
+
+def test_tablet_keyboard_navigation_moves_camera(qapp) -> None:
+    dataset = Dataset(
+        "dataset-keyboard",
+        "Keyboard navigation",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(0.0, 1000.0, 101),
+    )
+    view = TabletView()
+    view.set_layout_model(TabletLayout([TrackDefinition("depth", "Глубина", TrackKind.DEPTH)]))
+    view.resize(500, 500)
+    view.show()
+    view.set_dataset(dataset)
+    view.set_visible_depth(100.0, 300.0)
+    qapp.processEvents()
+    plot = view._rendered["depth"].plot
+    assert plot is not None
+    viewport = plot.viewport()
+
+    qapp.sendEvent(
+        viewport,
+        QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_PageDown, Qt.KeyboardModifier.NoModifier),
+    )
+    assert view.visible_depth_range == pytest.approx((280.0, 480.0))
+
+    qapp.sendEvent(
+        viewport,
+        QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Home, Qt.KeyboardModifier.NoModifier),
+    )
+    assert view.visible_depth_range == pytest.approx((0.0, 200.0))
+
+    qapp.sendEvent(
+        viewport,
+        QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_End, Qt.KeyboardModifier.NoModifier),
+    )
+    assert view.visible_depth_range == pytest.approx((800.0, 1000.0))
     view.close()
