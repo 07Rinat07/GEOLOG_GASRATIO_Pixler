@@ -4,7 +4,7 @@
 
 **Пакет приложения:** 0.6.0  
 **Формат проекта:** v15  
-**Состояние:** активная разработка; подключён нормализованный справочник Sensors и завершено прямое редактирование интерпретационных интервалов на планшете.
+**Состояние:** активная разработка; завершена синхронная навигация планшета по глубине и времени.
 
 Готово в текущем инкременте:
 
@@ -16,17 +16,21 @@
 - режимы выбора, рисования и изменения границ интервалов непосредственно на планшете;
 - привязка кровли и подошвы к ближайшим отсчётам LAS, preview и отмена жеста через `Esc`;
 - валидация через существующий controller и Undo/Redo для мышиных операций;
+- выбор вертикальной оси MD/TVD/TVDSS/TIME/DATETIME;
+- явная полоса прокрутки, wheel-scroll, `Ctrl+wheel` zoom, панорамирование, переход к значению и полный диапазон;
+- синхронное отображение глубинных объектов во временной шкале через TIME↔DEPTH;
+- сохранение выбранного индекса в layout v8 и миграция layout v1–v7;
 - синхронная локализация RU/KK/EN;
-- regression suite: 743 passed, 1 skipped;
+- regression suite: 750 passed, 1 skipped;
 - Ruff и MyPy: без ошибок по 155 исходным файлам.
 
-Следующий срез: единая selection-модель экспорта интервалов и подготовка рабочего места корреляции нескольких скважин.
+Следующий срез: единая selection-модель экспорта интервалов и подготовка рабочего места корреляции нескольких скважин с общей глубинной/временной навигацией.
 
 ## Қазақша
 
 **Қолданба пакеті:** 0.6.0  
 **Жоба форматы:** v15  
-**Күйі:** белсенді әзірлеу; қалыптандырылған Sensors анықтамалығы қосылып, планшеттегі интерпретациялық аралықтарды тікелей өңдеу аяқталды.
+**Күйі:** белсенді әзірлеу; планшетті тереңдік және уақыт бойынша синхронды навигациялау аяқталды.
 
 Осы инкрементте орындалды:
 
@@ -38,17 +42,21 @@
 - планшетте аралықтарды таңдау, сызу және шекарасын өзгерту режимдері;
 - төбе мен табанды ең жақын LAS өлшеміне байлау, preview және `Esc` арқылы болдырмау;
 - қолданыстағы controller тексеруі және Undo/Redo;
+- MD/TVD/TVDSS/TIME/DATETIME тік осін таңдау;
+- тік айналдыру жолағы, wheel-scroll, `Ctrl+wheel` zoom, панорамалау, мәнге өту және толық ауқым;
+- TIME↔DEPTH арқылы тереңдік объектілерін уақыт шкаласында синхронды көрсету;
+- таңдалған индексті layout v8-де сақтау және layout v1–v7 көшіру;
 - RU/KK/EN локализациясы синхрондалды;
-- regression suite: 743 passed, 1 skipped;
+- regression suite: 750 passed, 1 skipped;
 - Ruff және MyPy: 155 бастапқы файл бойынша қатесіз.
 
-Келесі срез: аралықтарды экспорттаудың бірыңғай selection-моделі және бірнеше ұңғыманы корреляциялау жұмыс орнын дайындау.
+Келесі срез: аралықтарды экспорттаудың бірыңғай selection-моделі және ортақ тереңдік/уақыт навигациясы бар бірнеше ұңғыманы корреляциялау жұмыс орнын дайындау.
 
 ## English
 
 **Application package:** 0.6.0  
 **Project format:** v15  
-**Status:** active development; the normalized Sensors reference is connected and direct tablet interval editing is complete.
+**Status:** active development; synchronized tablet navigation by depth and time is complete.
 
 Completed in this increment:
 
@@ -60,8 +68,12 @@ Completed in this increment:
 - select, draw, and boundary-edit modes directly on the tablet;
 - top/bottom snapping to nearest LAS samples, live preview, and `Esc` cancellation;
 - validation through the existing controller and Undo/Redo for mouse operations;
+- MD/TVD/TVDSS/TIME/DATETIME vertical-axis selection;
+- explicit scrollbar, wheel scrolling, `Ctrl+wheel` zoom, panning, go-to, and full range;
+- synchronized depth-anchored objects on the time axis through TIME↔DEPTH mapping;
+- selected-index persistence in layout v8 and migration of layout v1–v7;
 - synchronized RU/KK/EN localization;
-- regression suite: 743 passed, 1 skipped;
+- regression suite: 750 passed, 1 skipped;
 - Ruff and MyPy: clean across 155 source files.
 
-Next slice: a shared interval-export selection model and groundwork for the multi-well correlation workspace.
+Next slice: a shared interval-export selection model and groundwork for a multi-well correlation workspace with common depth/time navigation.

@@ -265,3 +265,37 @@ def test_layout_codec_rejects_duplicate_track_ids() -> None:
 
     with pytest.raises(TabletLayoutFormatError):
         layout_from_dict({"version": 1, "tracks": [track, track]})
+
+
+def test_layout_codec_round_trip_preserves_vertical_index() -> None:
+    source = make_layout()
+    source.vertical_index_id = "time-index"
+
+    restored = layout_from_dict(layout_to_dict(source))
+
+    assert restored.vertical_index_id == "time-index"
+
+
+def test_layout_codec_migrates_v7_without_vertical_index() -> None:
+    restored = layout_from_dict(
+        {
+            "version": 7,
+            "visible_depth_top": None,
+            "visible_depth_bottom": None,
+            "cursor_depth": None,
+            "tracks": [],
+        }
+    )
+
+    assert restored.vertical_index_id is None
+
+
+def test_switching_vertical_index_resets_incompatible_window_and_cursor() -> None:
+    layout = make_layout()
+    layout.set_visible_depth(1000.0, 1100.0)
+    layout.set_cursor_depth(1050.0)
+
+    assert layout.set_vertical_index("time-index") is True
+    assert layout.visible_depth_top is None
+    assert layout.visible_depth_bottom is None
+    assert layout.cursor_depth is None

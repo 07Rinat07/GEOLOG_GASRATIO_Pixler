@@ -185,6 +185,7 @@ class MainWindow(QMainWindow):
         self.tablet_view.track_selected.connect(self._show_track_in_inspector)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
+        self.tablet_view.vertical_index_changed.connect(self._change_vertical_index_from_tablet)
         self.tablet_view.cursor_changed.connect(self._show_cursor_values)
         self.tablet_view.interpretation_selected.connect(
             self._select_interpretation_from_tablet
@@ -3085,10 +3086,24 @@ class MainWindow(QMainWindow):
         self._layout_changed(f"Обновлены свойства трека: {track.title}")
         self.inspector.show_track(track, suggested_range=self._track_data_range(track))
 
+    def _change_vertical_index_from_tablet(self, index_id: str) -> None:
+        try:
+            changed = self.tablet_controller.set_vertical_index(index_id)
+        except (KeyError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("tablet.title"), str(exc))
+            return
+        if changed:
+            layout = self.session.current_tablet_layout
+            if layout is not None:
+                self.tablet_view.set_layout_model(layout)
+            self._update_title()
+
     def _show_visible_depth(self, top: float, bottom: float) -> None:
         if self.tablet_controller.set_visible_depth(top, bottom):
             self._update_title()
-        self.statusBar().showMessage(f"Видимый интервал: {top:.2f}–{bottom:.2f} м")
+        top_text = self.tablet_view.format_vertical_value(top)
+        bottom_text = self.tablet_view.format_vertical_value(bottom)
+        self.statusBar().showMessage(f"Видимый интервал: {top_text}–{bottom_text}")
 
     def _apply_inspector_curve_style(
         self,

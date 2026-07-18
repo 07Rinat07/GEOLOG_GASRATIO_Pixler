@@ -4,7 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 
 from geoworkbench.catalogs.sensors import active_sensor_catalog
-from geoworkbench.domain.models import Dataset, new_id
+from geoworkbench.domain.models import Dataset, IndexRole, new_id
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.channel_groups import (
     DEXP_MNEMONIC_ORDER,
@@ -94,7 +94,13 @@ class TabletController:
                 )
             )
 
-        layout = TabletLayout(tracks)
+        preferred_index = dataset.active_index
+        if preferred_index.role not in {IndexRole.DEPTH, IndexRole.TIME}:
+            preferred_index = next(
+                (index for index in dataset.indexes.values() if index.role is IndexRole.DEPTH),
+                preferred_index,
+            )
+        layout = TabletLayout(tracks, vertical_index_id=preferred_index.index_id)
         self.session.set_current_tablet_layout(layout)
         self.session.dirty = True
         return layout
@@ -309,6 +315,19 @@ class TabletController:
 
     def set_cursor_depth(self, depth: float) -> bool:
         changed = self._require_layout().set_cursor_depth(depth)
+        if changed:
+            self.session.dirty = True
+        return changed
+
+    def set_vertical_index(self, index_id: str) -> bool:
+        dataset = self._require_dataset()
+        try:
+            index = dataset.indexes[index_id]
+        except KeyError as exc:
+            raise KeyError(f"Неизвестный индекс: {index_id}") from exc
+        if index.role not in {IndexRole.DEPTH, IndexRole.TIME}:
+            raise ValueError("Для планшета можно выбрать только индекс глубины или времени")
+        changed = self._require_layout().set_vertical_index(index_id)
         if changed:
             self.session.dirty = True
         return changed

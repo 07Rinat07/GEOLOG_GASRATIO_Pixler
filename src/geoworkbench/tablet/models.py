@@ -165,11 +165,16 @@ class TabletLayout:
     visible_depth_top: float | None = None
     visible_depth_bottom: float | None = None
     cursor_depth: float | None = None
+    vertical_index_id: str | None = None
 
     def __post_init__(self) -> None:
         self._validate_visible_depth(self.visible_depth_top, self.visible_depth_bottom)
         if self.cursor_depth is not None and not isfinite(self.cursor_depth):
-            raise ValueError("Глубина визира должна быть конечным числом или null")
+            raise ValueError("Положение визира должно быть конечным числом или null")
+        if self.vertical_index_id is not None and (
+            not isinstance(self.vertical_index_id, str) or not self.vertical_index_id.strip()
+        ):
+            raise ValueError("vertical_index_id должен быть непустой строкой или null")
 
     def add_track(self, track: TrackDefinition, index: int | None = None) -> None:
         if any(existing.track_id == track.track_id for existing in self.tracks):
@@ -228,10 +233,23 @@ class TabletLayout:
 
     def set_cursor_depth(self, depth: float | None) -> bool:
         if depth is not None and not isfinite(depth):
-            raise ValueError("Глубина визира должна быть конечным числом или null")
+            raise ValueError("Положение визира должно быть конечным числом или null")
         if self.cursor_depth == depth:
             return False
         self.cursor_depth = depth
+        return True
+
+    def set_vertical_index(self, index_id: str | None) -> bool:
+        if index_id is not None and (not isinstance(index_id, str) or not index_id.strip()):
+            raise ValueError("Идентификатор вертикального индекса должен быть строкой или null")
+        if self.vertical_index_id == index_id:
+            return False
+        self.vertical_index_id = index_id
+        # Диапазон и визир относятся к координатам выбранного индекса. При
+        # переключении глубина/время старые значения использовать нельзя.
+        self.visible_depth_top = None
+        self.visible_depth_bottom = None
+        self.cursor_depth = None
         return True
 
     def update_track_view_settings(

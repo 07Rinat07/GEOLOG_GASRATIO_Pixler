@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from html import escape
 
 import numpy as np
@@ -8,11 +9,16 @@ import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QPushButton,
     QScrollArea,
+    QScrollBar,
     QSizePolicy,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -22,6 +28,9 @@ from geoworkbench.domain.models import (
     CurveData,
     CuttingsSample,
     Dataset,
+    DatasetIndex,
+    IndexRole,
+    IndexType,
     LithologyInterval,
     StratigraphyInterval,
     WellInterpretation,
@@ -91,13 +100,88 @@ def curve_legend_label(curve: CurveData) -> str:
     return f"{mnemonic} [{unit}]" if unit else mnemonic
 
 
+@dataclass(frozen=True, slots=True)
+class VerticalAxisDescriptor:
+    index_id: str
+    label: str
+    unit: str
+    role: IndexRole
+    index_type: IndexType
+
+    @property
+    def is_datetime(self) -> bool:
+        return self.index_type is IndexType.DATETIME
+
+    @property
+    def is_time(self) -> bool:
+        return self.role is IndexRole.TIME
+
+
+class TabletVerticalAxisItem(pg.AxisItem):
+    """Readable vertical labels for depth, relative time and absolute timestamps."""
+
+    def __init__(self, descriptor: VerticalAxisDescriptor) -> None:
+        super().__init__(orientation="left")
+        self.descriptor = descriptor
+
+    def tickStrings(self, values, scale, spacing):  # type: ignore[override]
+        if self.descriptor.is_datetime:
+            return [self._format_datetime(float(value), float(spacing)) for value in values]
+        if self.descriptor.is_time:
+            return [self._format_relative_time(float(value)) for value in values]
+        return [f"{float(value):g}" for value in values]
+
+    @staticmethod
+    def _format_datetime(value: float, spacing: float) -> str:
+        if not np.isfinite(value):
+            return ""
+        try:
+            moment = datetime.fromtimestamp(value, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return ""
+        absolute_spacing = abs(spacing)
+        if absolute_spacing >= 86_400:
+            return moment.strftime("%d.%m.%Y")
+        if absolute_spacing >= 60:
+            return moment.strftime("%d.%m %H:%M")
+        return moment.strftime("%H:%M:%S")
+
+    def _format_relative_time(self, value: float) -> str:
+        if not np.isfinite(value):
+            return ""
+        unit = self.descriptor.unit.casefold()
+        seconds = value
+        if unit in {"ms", "msec", "millisecond", "milliseconds"}:
+            seconds = value / 1_000.0
+        elif unit in {"min", "minute", "minutes", "мин"}:
+            seconds = value * 60.0
+        elif unit in {"h", "hr", "hour", "hours", "ч"}:
+            seconds = value * 3_600.0
+        sign = "-" if seconds < 0 else ""
+        seconds = abs(seconds)
+        if seconds >= 3_600:
+            hours = int(seconds // 3_600)
+            minutes = int((seconds % 3_600) // 60)
+            return f"{sign}{hours:d}:{minutes:02d}"
+        if seconds >= 60:
+            minutes = int(seconds // 60)
+            remain = int(seconds % 60)
+            return f"{sign}{minutes:d}:{remain:02d}"
+        return f"{value:g}"
+
+
 class TabletTrackWidget(QFrame):
     selected = Signal(str)
     width_change_requested = Signal(str, int)
 
     RESIZE_MARGIN = 6
 
-    def __init__(self, definition: TrackDefinition, navigation_hint: str = "") -> None:
+    def __init__(
+        self,
+        definition: TrackDefinition,
+        navigation_hint: str = "",
+        vertical_axis: VerticalAxisDescriptor | None = None,
+    ) -> None:
         super().__init__()
         self.definition = definition
         self._resize_gesture: TrackResizeGesture | None = None
@@ -107,8 +191,14 @@ class TabletTrackWidget(QFrame):
             "QFrame { background: #ffffff; border: 1px solid #cbd5e1; } "
             "QLabel { background: #f8fafc; color: #0f172a; }"
         )
-        self.setMinimumWidth(definition.width)
-        self.setMaximumWidth(definition.width)
+        display_width = definition.width
+        if definition.kind is TrackKind.DEPTH and vertical_axis is not None:
+            if vertical_axis.is_datetime:
+                display_width = max(display_width, 210)
+            elif vertical_axis.is_time:
+                display_width = max(display_width, 150)
+        self.setMinimumWidth(display_width)
+        self.setMaximumWidth(display_width)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
 
         self.title = QLabel(definition.title)
@@ -119,7 +209,10 @@ class TabletTrackWidget(QFrame):
             "border-bottom: 1px solid #cbd5e1;"
         )
 
-        self.plot = pg.PlotWidget()
+        axis_items = (
+            {"left": TabletVerticalAxisItem(vertical_axis)} if vertical_axis is not None else None
+        )
+        self.plot = pg.PlotWidget(axisItems=axis_items)
         self.plot.setBackground("#ffffff")
         for axis_name in ("left", "bottom"):
             axis = self.plot.getAxis(axis_name)
@@ -216,6 +309,7 @@ class TabletView(QWidget):
     track_selected = Signal(str)
     track_width_change_requested = Signal(str, int)
     visible_depth_changed = Signal(float, float)
+    vertical_index_changed = Signal(str)
     cursor_changed = Signal(float, str)
     interpretation_selected = Signal(str)
     interval_selected = Signal(str, str)
@@ -252,6 +346,8 @@ class TabletView(QWidget):
         self._interval_edit_mode = IntervalEditMode.SELECT
         self._interval_creation_type = self._localizer.text("interpretations.default_type")
         self._interval_gesture: _IntervalGesture | None = None
+        self._axis_combo_guard = False
+        self._scrollbar_guard = False
 
         self._container = QWidget()
         self._tracks_layout = QHBoxLayout(self._container)
@@ -265,13 +361,116 @@ class TabletView(QWidget):
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
+        self._axis_combo = QComboBox()
+        self._axis_combo.setMinimumWidth(220)
+        self._axis_combo.currentIndexChanged.connect(self._axis_combo_changed)
+        self._range_label = QLabel("—")
+        self._range_label.setMinimumWidth(220)
+        self._goto_value = QLineEdit()
+        self._goto_value.setMaximumWidth(190)
+        self._goto_value.returnPressed.connect(self._go_to_axis_value)
+        self._goto_button = QPushButton(self._localizer.text("tablet.goto"))
+        self._goto_button.clicked.connect(self._go_to_axis_value)
+        self._zoom_in_button = QToolButton()
+        self._zoom_in_button.setText("+")
+        self._zoom_in_button.setToolTip(self._localizer.text("tablet.zoom_in"))
+        self._zoom_in_button.clicked.connect(lambda: self.zoom_depth(0.8))
+        self._zoom_out_button = QToolButton()
+        self._zoom_out_button.setText("−")
+        self._zoom_out_button.setToolTip(self._localizer.text("tablet.zoom_out"))
+        self._zoom_out_button.clicked.connect(lambda: self.zoom_depth(1.25))
+        self._full_range_button = QPushButton(self._localizer.text("tablet.full_range"))
+        self._full_range_button.clicked.connect(self.show_full_vertical_range)
+
+        navigation = QHBoxLayout()
+        navigation.setContentsMargins(6, 4, 6, 4)
+        navigation.addWidget(QLabel(self._localizer.text("tablet.vertical_axis")))
+        navigation.addWidget(self._axis_combo)
+        navigation.addWidget(self._range_label, 1)
+        navigation.addWidget(self._goto_value)
+        navigation.addWidget(self._goto_button)
+        navigation.addWidget(self._zoom_in_button)
+        navigation.addWidget(self._zoom_out_button)
+        navigation.addWidget(self._full_range_button)
+
+        self._vertical_scrollbar = QScrollBar(Qt.Orientation.Vertical)
+        self._vertical_scrollbar.setRange(0, 0)
+        self._vertical_scrollbar.valueChanged.connect(self._vertical_scrollbar_changed)
+        charts = QHBoxLayout()
+        charts.setContentsMargins(0, 0, 0, 0)
+        charts.setSpacing(0)
+        charts.addWidget(self._scroll, 1)
+        charts.addWidget(self._vertical_scrollbar)
+
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        root.addWidget(self._scroll)
+        root.setSpacing(0)
+        root.addLayout(navigation)
+        root.addLayout(charts, 1)
 
     @property
     def layout_model(self) -> TabletLayout:
         return self._layout_model
+
+    @property
+    def vertical_index_id(self) -> str | None:
+        index = self._vertical_index()
+        return index.index_id if index is not None else None
+
+    @property
+    def vertical_axis_is_time(self) -> bool:
+        index = self._vertical_index()
+        return index is not None and index.role is IndexRole.TIME
+
+    def available_vertical_indexes(self) -> tuple[str, ...]:
+        if self._dataset is None:
+            return ()
+        return tuple(
+            index.index_id
+            for index in self._dataset.indexes.values()
+            if index.role in {IndexRole.DEPTH, IndexRole.TIME}
+            and np.count_nonzero(np.isfinite(self._index_numeric_values(index))) >= 2
+        )
+
+    def set_vertical_index(self, index_id: str, *, emit_signal: bool = False) -> bool:
+        if self._dataset is None or index_id not in self._dataset.indexes:
+            return False
+        index = self._dataset.indexes[index_id]
+        if index.role not in {IndexRole.DEPTH, IndexRole.TIME}:
+            return False
+        changed = self._layout_model.set_vertical_index(index_id)
+        if not changed:
+            return False
+        self._cursor_depth = None
+        self.refresh_view()
+        if emit_signal:
+            self.vertical_index_changed.emit(index_id)
+        return True
+
+    def format_vertical_value(self, value: float) -> str:
+        return self._format_axis_value(value)
+
+    def show_full_vertical_range(self) -> bool:
+        bounds = self._axis_bounds()
+        if bounds is None:
+            return False
+        return self._apply_visible_depth(*bounds, emit_change=True)
+
+    def go_to_vertical_value(self, value: float) -> bool:
+        bounds = self._axis_bounds()
+        current = self.visible_depth_range
+        if bounds is None or not np.isfinite(value):
+            return False
+        data_top, data_bottom = bounds
+        bounded = min(max(float(value), data_top), data_bottom)
+        data_span = data_bottom - data_top
+        if current is None or current[1] - current[0] >= data_span * 0.999999:
+            span = max(data_span * 0.2, data_span / 100_000.0)
+        else:
+            span = current[1] - current[0]
+        return self._apply_visible_depth(
+            bounded - span / 2.0, bounded + span / 2.0, emit_change=True
+        )
 
     @property
     def rendered_track_ids(self) -> tuple[str, ...]:
@@ -521,7 +720,8 @@ class TabletView(QWidget):
     def set_cursor_depth(self, depth: float) -> None:
         if self._dataset is None or not np.isfinite(depth):
             return
-        finite = self._dataset.depth[np.isfinite(self._dataset.depth)]
+        finite = self._axis_values()
+        finite = finite[np.isfinite(finite)]
         if not finite.size:
             return
         bounded = min(max(float(depth), float(np.min(finite))), float(np.max(finite)))
@@ -550,13 +750,17 @@ class TabletView(QWidget):
     def cursor_summary(self, depth: float) -> str:
         if self._dataset is None:
             return ""
-        depths = np.asarray(self._dataset.depth, dtype=float)
-        valid_depth = np.flatnonzero(np.isfinite(depths))
-        if not valid_depth.size:
+        axis_values = self._axis_values()
+        valid_axis = np.flatnonzero(np.isfinite(axis_values))
+        if not valid_axis.size:
             return ""
-        index = int(valid_depth[np.argmin(np.abs(depths[valid_depth] - depth))])
+        index = int(valid_axis[np.argmin(np.abs(axis_values[valid_axis] - depth))])
+        depths = np.asarray(self._dataset.depth, dtype=float)
         sample_depth = float(depths[index])
         values = [f"Глубина: {sample_depth:g} м"]
+        descriptor = self._axis_descriptor()
+        if descriptor is not None and descriptor.is_time:
+            values.insert(0, f"Время: {self._format_axis_value(float(axis_values[index]))}")
         interval = next(
             (
                 item
@@ -695,6 +899,7 @@ class TabletView(QWidget):
 
     def refresh_view(self) -> None:
         self.clear()
+        self._refresh_axis_selector()
         if self._dataset is None:
             label = QLabel("Откройте LAS-файл для построения планшета")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -708,7 +913,7 @@ class TabletView(QWidget):
             self._tracks_layout.addWidget(label)
             return
 
-        depth = np.asarray(self._dataset.depth, dtype=float)
+        depth = self._axis_values()
         finite_depth = depth[np.isfinite(depth)]
         visible_top = self._layout_model.visible_depth_top
         visible_bottom = self._layout_model.visible_depth_bottom
@@ -722,8 +927,9 @@ class TabletView(QWidget):
             self._layout_model.set_visible_depth(visible_top, visible_bottom)
 
         master_plot: pg.PlotWidget | None = None
+        axis_descriptor = self._axis_descriptor()
         for definition in visible:
-            track = TabletTrackWidget(definition, self._navigation_hint)
+            track = TabletTrackWidget(definition, self._navigation_hint, axis_descriptor)
             track.selected.connect(self.track_selected)
             track.width_change_requested.connect(self.track_width_change_requested)
             legend_labels, curve_items = self._populate_track(
@@ -791,6 +997,7 @@ class TabletView(QWidget):
             self._update_lithology_text_visibility(visible_top, visible_bottom)
             self._update_stratigraphy_text_visibility(visible_top, visible_bottom)
             self._apply_interpretation_selection_style()
+        self._update_navigation_controls()
 
     def _install_cursor(self, rendered: RenderedTrack) -> None:
         if rendered.plot is None:
@@ -823,6 +1030,155 @@ class TabletView(QWidget):
         if not self._cursor_enabled or self._cursor_guard:
             return
         self.set_cursor_depth(float(line.value()))
+
+    def _refresh_axis_selector(self) -> None:
+        self._axis_combo_guard = True
+        try:
+            self._axis_combo.clear()
+            if self._dataset is None:
+                self._axis_combo.setEnabled(False)
+                return
+            selected = self.vertical_index_id
+            selected_row = -1
+            for index in self._dataset.indexes.values():
+                values = self._index_numeric_values(index)
+                if (
+                    index.role not in {IndexRole.DEPTH, IndexRole.TIME}
+                    or np.count_nonzero(np.isfinite(values)) < 2
+                ):
+                    continue
+                if index.role is IndexRole.DEPTH:
+                    prefix = self._localizer.text("tablet.depth_axis")
+                elif index.index_type is IndexType.DATETIME:
+                    prefix = self._localizer.text("tablet.datetime_axis")
+                else:
+                    prefix = self._localizer.text("tablet.time_axis")
+                unit = f" [{index.unit}]" if index.unit else ""
+                self._axis_combo.addItem(f"{prefix}: {index.mnemonic}{unit}", index.index_id)
+                if index.index_id == selected:
+                    selected_row = self._axis_combo.count() - 1
+            if selected_row < 0 and self._axis_combo.count():
+                selected_row = 0
+                first = self._axis_combo.itemData(0)
+                if isinstance(first, str):
+                    self._layout_model.vertical_index_id = first
+            self._axis_combo.setCurrentIndex(selected_row)
+            self._axis_combo.setEnabled(self._axis_combo.count() > 1)
+        finally:
+            self._axis_combo_guard = False
+
+    def _axis_combo_changed(self, row: int) -> None:
+        if self._axis_combo_guard or row < 0:
+            return
+        index_id = self._axis_combo.itemData(row)
+        if isinstance(index_id, str):
+            self.vertical_index_changed.emit(index_id)
+            # Signals are synchronous in the main application. If the view is
+            # used standalone and nobody handled the request, still switch the
+            # local layout so the control remains functional.
+            if self._layout_model.vertical_index_id != index_id:
+                self.set_vertical_index(index_id)
+
+    def _update_navigation_controls(self) -> None:
+        current = self.visible_depth_range
+        bounds = self._axis_bounds()
+        enabled = current is not None and bounds is not None
+        for widget in (
+            self._goto_value,
+            self._goto_button,
+            self._zoom_in_button,
+            self._zoom_out_button,
+            self._full_range_button,
+            self._vertical_scrollbar,
+        ):
+            widget.setEnabled(enabled)
+        if not enabled or current is None or bounds is None:
+            self._range_label.setText("—")
+            self._vertical_scrollbar.setRange(0, 0)
+            return
+        top, bottom = current
+        data_top, data_bottom = bounds
+        self._range_label.setText(
+            self._localizer.text(
+                "tablet.visible_range",
+                top=self._format_axis_value(top),
+                bottom=self._format_axis_value(bottom),
+            )
+        )
+        descriptor = self._axis_descriptor()
+        self._goto_value.setPlaceholderText(
+            self._localizer.text(
+                "tablet.goto_time_placeholder"
+                if descriptor is not None and descriptor.is_datetime
+                else "tablet.goto_value_placeholder"
+            )
+        )
+        data_span = data_bottom - data_top
+        visible_span = bottom - top
+        self._scrollbar_guard = True
+        try:
+            if visible_span >= data_span * 0.999999:
+                self._vertical_scrollbar.setRange(0, 0)
+                self._vertical_scrollbar.setPageStep(1)
+                self._vertical_scrollbar.setValue(0)
+            else:
+                maximum = 1_000_000
+                travel = max(data_span - visible_span, np.finfo(float).eps)
+                value = int(round((top - data_top) / travel * maximum))
+                page = max(1, int(round(visible_span / data_span * maximum)))
+                self._vertical_scrollbar.setRange(0, maximum)
+                self._vertical_scrollbar.setPageStep(page)
+                self._vertical_scrollbar.setSingleStep(max(1, page // 10))
+                self._vertical_scrollbar.setValue(max(0, min(maximum, value)))
+        finally:
+            self._scrollbar_guard = False
+
+    def _vertical_scrollbar_changed(self, value: int) -> None:
+        if self._scrollbar_guard:
+            return
+        current = self.visible_depth_range
+        bounds = self._axis_bounds()
+        maximum = self._vertical_scrollbar.maximum()
+        if current is None or bounds is None or maximum <= 0:
+            return
+        span = current[1] - current[0]
+        data_top, data_bottom = bounds
+        travel = max((data_bottom - data_top) - span, 0.0)
+        top = data_top + travel * float(value) / float(maximum)
+        self._apply_visible_depth(top, top + span, emit_change=True)
+
+    def _go_to_axis_value(self) -> None:
+        text = self._goto_value.text().strip()
+        if not text:
+            return
+        value = self._parse_axis_value(text)
+        if value is None:
+            self._goto_value.setStyleSheet("border: 1px solid #dc2626;")
+            return
+        self._goto_value.setStyleSheet("")
+        self.go_to_vertical_value(value)
+
+    def _parse_axis_value(self, text: str) -> float | None:
+        descriptor = self._axis_descriptor()
+        if descriptor is not None and descriptor.is_datetime:
+            try:
+                normalized = text.replace("Z", "+00:00")
+                moment = datetime.fromisoformat(normalized)
+                if moment.tzinfo is None:
+                    moment = moment.replace(tzinfo=timezone.utc)
+                return float(moment.timestamp())
+            except ValueError:
+                try:
+                    parsed = np.datetime64(text, "ns")
+                    if np.isnat(parsed):
+                        return None
+                    return float(parsed.astype(np.int64)) / 1_000_000_000.0
+                except (TypeError, ValueError):
+                    return None
+        try:
+            return float(text.replace(",", "."))
+        except ValueError:
+            return None
 
     def set_visible_depth(self, top: float, bottom: float) -> None:
         self._apply_visible_depth(top, bottom, emit_change=False)
@@ -895,18 +1251,131 @@ class TabletView(QWidget):
             self._update_stratigraphy_text_visibility(normalized_top, normalized_bottom)
         finally:
             self._depth_range_guard = False
+        self._update_navigation_controls()
         if changed and emit_change:
             self.visible_depth_changed.emit(normalized_top, normalized_bottom)
         return changed
 
-    def _depth_bounds(self) -> tuple[float, float] | None:
+    def _vertical_index(self) -> DatasetIndex | None:
         if self._dataset is None:
             return None
-        finite = np.asarray(self._dataset.depth, dtype=float)
+        requested = self._layout_model.vertical_index_id
+        if requested in self._dataset.indexes:
+            index = self._dataset.indexes[requested]
+            if index.role in {IndexRole.DEPTH, IndexRole.TIME}:
+                return index
+        active = self._dataset.active_index
+        if active.role in {IndexRole.DEPTH, IndexRole.TIME}:
+            return active
+        return next(
+            (
+                index
+                for index in self._dataset.indexes.values()
+                if index.role in {IndexRole.DEPTH, IndexRole.TIME}
+            ),
+            None,
+        )
+
+    @staticmethod
+    def _index_numeric_values(index: DatasetIndex) -> np.ndarray:
+        raw = np.asarray(index.values)
+        if index.index_type is IndexType.DATETIME:
+            dates = raw.astype("datetime64[ns]")
+            values = dates.astype(np.int64).astype(np.float64) / 1_000_000_000.0
+            values[np.isnat(dates)] = np.nan
+            return values
+        try:
+            return raw.astype(np.float64)
+        except (TypeError, ValueError):
+            return np.full(raw.shape, np.nan, dtype=np.float64)
+
+    def _axis_values(self) -> np.ndarray:
+        index = self._vertical_index()
+        if index is None:
+            return np.array([], dtype=np.float64)
+        return self._index_numeric_values(index)
+
+    def _axis_descriptor(self) -> VerticalAxisDescriptor | None:
+        index = self._vertical_index()
+        if index is None:
+            return None
+        if index.role is IndexRole.DEPTH:
+            label = self._localizer.text("tablet.depth_axis")
+        elif index.index_type is IndexType.DATETIME:
+            label = self._localizer.text("tablet.datetime_axis")
+        else:
+            label = self._localizer.text("tablet.time_axis")
+        return VerticalAxisDescriptor(
+            index.index_id,
+            label,
+            (index.unit or "").strip(),
+            index.role,
+            index.index_type,
+        )
+
+    def _axis_bounds(self) -> tuple[float, float] | None:
+        finite = self._axis_values()
         finite = finite[np.isfinite(finite)]
         if finite.size < 2:
             return None
-        return float(np.min(finite)), float(np.max(finite))
+        minimum = float(np.min(finite))
+        maximum = float(np.max(finite))
+        if minimum == maximum:
+            return None
+        return minimum, maximum
+
+    def _depth_bounds(self) -> tuple[float, float] | None:
+        # Legacy method name retained for existing code/tests. The returned
+        # interval belongs to the active vertical index (depth or time).
+        return self._axis_bounds()
+
+    def _depth_to_axis_value(self, depth: float) -> float:
+        if self._dataset is None:
+            return float(depth)
+        axis = self._axis_values()
+        source_depth = np.asarray(self._dataset.depth, dtype=float)
+        valid = np.isfinite(source_depth) & np.isfinite(axis)
+        if not np.any(valid):
+            return float(depth)
+        x = source_depth[valid]
+        y = axis[valid]
+        order = np.argsort(x, kind="stable")
+        x = x[order]
+        y = y[order]
+        unique_x, unique_positions = np.unique(x, return_index=True)
+        unique_y = y[unique_positions]
+        if unique_x.size == 1:
+            return float(unique_y[0])
+        return float(np.interp(float(depth), unique_x, unique_y))
+
+    def _axis_to_depth_value(self, value: float) -> float:
+        if self._dataset is None:
+            return float(value)
+        axis = self._axis_values()
+        source_depth = np.asarray(self._dataset.depth, dtype=float)
+        valid = np.isfinite(source_depth) & np.isfinite(axis)
+        if not np.any(valid):
+            return float(value)
+        positions = np.flatnonzero(valid)
+        nearest = positions[int(np.argmin(np.abs(axis[positions] - float(value))))]
+        return float(source_depth[nearest])
+
+    def _depth_interval_to_axis(self, top: float, bottom: float) -> tuple[float, float]:
+        first = self._depth_to_axis_value(top)
+        second = self._depth_to_axis_value(bottom)
+        return (first, second) if first <= second else (second, first)
+
+    def _format_axis_value(self, value: float) -> str:
+        descriptor = self._axis_descriptor()
+        if descriptor is None or not np.isfinite(value):
+            return "—"
+        if descriptor.is_datetime:
+            try:
+                return datetime.fromtimestamp(value, tz=timezone.utc).strftime("%d.%m.%Y %H:%M:%S")
+            except (OverflowError, OSError, ValueError):
+                return "—"
+        suffix = f" {descriptor.unit}" if descriptor.unit else ""
+        return f"{value:g}{suffix}"
 
     def _normalize_depth_window(self, top: float, bottom: float) -> tuple[float, float]:
         requested_top, requested_bottom = sorted((float(top), float(bottom)))
@@ -951,11 +1420,15 @@ class TabletView(QWidget):
         visible_bottom: float | None,
     ) -> tuple[tuple[str, ...], dict[str, pg.PlotDataItem]]:
         assert self._dataset is not None
-        depth = np.asarray(self._dataset.depth, dtype=float)
+        depth = self._axis_values()
 
         if definition.kind == TrackKind.DEPTH:
+            descriptor = self._axis_descriptor()
             track.plot.showAxis("left")
-            track.plot.setLabel("left", "Глубина", units="м")
+            label = descriptor.label if descriptor is not None else "Глубина"
+            unit = descriptor.unit if descriptor is not None else "м"
+            track.title.setText(label)
+            track.plot.setLabel("left", label, units=unit or None)
             track.plot.hideAxis("bottom")
             track.plot.setMouseEnabled(x=False, y=True)
             return (), {}
@@ -1091,11 +1564,14 @@ class TabletView(QWidget):
             lithotype = self._lithotype_catalog.get(interval.lithotype_id)
             color = lithotype.color if lithotype is not None else "#b0b0b0"
             pattern = lithotype.pattern_key if lithotype is not None else "solid"
+            axis_top, axis_bottom = self._depth_interval_to_axis(
+                interval.top_depth, interval.bottom_depth
+            )
             item = pg.BarGraphItem(
                 x=[0.5],
-                y=[(interval.top_depth + interval.bottom_depth) / 2.0],
+                y=[(axis_top + axis_bottom) / 2.0],
                 width=1.0,
-                height=interval.bottom_depth - interval.top_depth,
+                height=max(axis_bottom - axis_top, np.finfo(float).eps),
                 brush=lithology_brush(color, pattern),
                 pen=pg.mkPen("#303030", width=0.7),
             )
@@ -1119,18 +1595,21 @@ class TabletView(QWidget):
         for interval in self._stratigraphy:
             lane = lane_by_rank[interval.rank or ""]
             color = interval.color if pg.mkColor(interval.color).isValid() else "#dbeafe"
+            axis_top, axis_bottom = self._depth_interval_to_axis(
+                interval.top_depth, interval.bottom_depth
+            )
             bar = pg.BarGraphItem(
                 x=[lane + 0.5],
-                y=[(interval.top_depth + interval.bottom_depth) / 2.0],
+                y=[(axis_top + axis_bottom) / 2.0],
                 width=0.94,
-                height=interval.bottom_depth - interval.top_depth,
+                height=max(axis_bottom - axis_top, np.finfo(float).eps),
                 brush=pg.mkBrush(color),
                 pen=pg.mkPen("#334155", width=0.7),
             )
             track.plot.addItem(bar)
             label_text = "\n".join(value for value in (interval.code, interval.name) if value)
             label = pg.TextItem(label_text, color="#0f172a", anchor=(0.5, 0.5))
-            label.setPos(lane + 0.5, (interval.top_depth + interval.bottom_depth) / 2.0)
+            label.setPos(lane + 0.5, (axis_top + axis_bottom) / 2.0)
             track.plot.addItem(label)
             rendered[interval.interval_id] = (bar, label)
         return rendered
@@ -1161,18 +1640,21 @@ class TabletView(QWidget):
         ):
             lane = lane_by_type[interval.interval_type]
             color = interval.color if pg.mkColor(interval.color).isValid() else "#fde68a"
+            axis_top, axis_bottom = self._depth_interval_to_axis(
+                interval.top_depth, interval.bottom_depth
+            )
             bar = pg.BarGraphItem(
                 x=[lane + 0.5],
-                y=[(interval.top_depth + interval.bottom_depth) / 2.0],
+                y=[(axis_top + axis_bottom) / 2.0],
                 width=0.94,
-                height=interval.bottom_depth - interval.top_depth,
+                height=max(axis_bottom - axis_top, np.finfo(float).eps),
                 brush=pg.mkBrush(color),
                 pen=pg.mkPen("#475569", width=0.8),
             )
             track.plot.addItem(bar)
             label_text = f"{interval.interval_type}\n{interval.label}"
             label = pg.TextItem(label_text, color="#0f172a", anchor=(0.5, 0.5))
-            label.setPos(lane + 0.5, (interval.top_depth + interval.bottom_depth) / 2.0)
+            label.setPos(lane + 0.5, (axis_top + axis_bottom) / 2.0)
             label.setToolTip(
                 f"{interval.top_depth:g}–{interval.bottom_depth:g} m\n"
                 f"{interval.interval_type}: {interval.label}"
@@ -1195,11 +1677,12 @@ class TabletView(QWidget):
         ):
             return None
         lane = int(np.floor(float(x_value)))
+        model_depth = self._axis_to_depth_value(depth)
         candidates = [
             item
             for item in interpretation.intervals
             if (rendered.interpretation_lanes or {}).get(item.interval_id) == lane
-            and item.top_depth <= depth <= item.bottom_depth
+            and item.top_depth <= model_depth <= item.bottom_depth
         ]
         if not candidates:
             return None
@@ -1219,7 +1702,7 @@ class TabletView(QWidget):
             or self._interval_edit_mode is IntervalEditMode.SELECT
         ):
             return False
-        snapped = self._snap_depth(depth)
+        snapped = self._snap_depth(self._axis_to_depth_value(depth))
         lane_types = self._interpretation_lane_types(interpretation)
         lane = max(0, int(np.floor(float(x_value))))
         if lane_types:
@@ -1276,7 +1759,9 @@ class TabletView(QWidget):
     def update_interval_drag(self, depth: float) -> bool:
         if self._interval_gesture is None:
             return False
-        self._interval_gesture.current_depth = self._snap_depth(depth)
+        self._interval_gesture.current_depth = self._snap_depth(
+            self._axis_to_depth_value(depth)
+        )
         self._update_interval_preview()
         return True
 
@@ -1284,7 +1769,7 @@ class TabletView(QWidget):
         gesture = self._interval_gesture
         if gesture is None:
             return False
-        gesture.current_depth = self._snap_depth(depth)
+        gesture.current_depth = self._snap_depth(self._axis_to_depth_value(depth))
         result = self._gesture_result()
         self.cancel_interval_interaction(emit_signal=False)
         if result is None:
@@ -1407,8 +1892,9 @@ class TabletView(QWidget):
             top = bottom = gesture.current_depth
         else:
             top, bottom = result.top_depth, result.bottom_depth
-        height = max(bottom - top, self._minimum_depth_span(), 1e-9)
-        middle = (top + bottom) / 2.0
+        axis_top, axis_bottom = self._depth_interval_to_axis(top, bottom)
+        height = max(axis_bottom - axis_top, np.finfo(float).eps)
+        middle = (axis_top + axis_bottom) / 2.0
         options = dict(
             x=[gesture.lane + 0.5],
             y=[middle],
@@ -1434,9 +1920,15 @@ class TabletView(QWidget):
         if rendered.plot is None:
             return 0.0
         y_range = rendered.plot.getViewBox().viewRange()[1]
-        span = abs(float(y_range[1]) - float(y_range[0]))
+        axis_span = abs(float(y_range[1]) - float(y_range[0]))
         height = max(1, rendered.plot.viewport().height())
-        return max(span * 8.0 / height, self._minimum_depth_span())
+        axis_tolerance = axis_span * 8.0 / height
+        center = sum(map(float, y_range)) / 2.0
+        depth_tolerance = abs(
+            self._axis_to_depth_value(center + axis_tolerance)
+            - self._axis_to_depth_value(center)
+        )
+        return max(depth_tolerance, self._minimum_depth_span())
 
     def _interval_for_resize(
         self, rendered: RenderedTrack, lane: int, depth: float, tolerance: float
@@ -1510,6 +2002,9 @@ class TabletView(QWidget):
         rendered: dict[str, tuple[pg.BarGraphItem, ...]] = {}
         for sample in self._cuttings:
             left = 0.0
+            axis_top, axis_bottom = self._depth_interval_to_axis(
+                sample.top_depth, sample.bottom_depth
+            )
             items: list[pg.BarGraphItem] = []
             for component in sample.components:
                 lithotype = self._lithotype_catalog.get(component.lithotype_id)
@@ -1518,9 +2013,9 @@ class TabletView(QWidget):
                 width = float(component.percentage)
                 item = pg.BarGraphItem(
                     x=[left + width / 2.0],
-                    y=[(sample.top_depth + sample.bottom_depth) / 2.0],
+                    y=[(axis_top + axis_bottom) / 2.0],
                     width=width,
-                    height=sample.bottom_depth - sample.top_depth,
+                    height=max(axis_bottom - axis_top, np.finfo(float).eps),
                     brush=lithology_brush(color, pattern),
                     pen=pg.mkPen("#303030", width=0.7),
                 )
@@ -1543,6 +2038,9 @@ class TabletView(QWidget):
         rendered: dict[str, tuple[object, ...]] = {}
         for sample in self._cuttings:
             items: list[object] = []
+            axis_top, axis_bottom = self._depth_interval_to_axis(
+                sample.top_depth, sample.bottom_depth
+            )
             if definition.kind is TrackKind.CALCIMETRY:
                 left = 0.0
                 for value, color in (
@@ -1554,9 +2052,9 @@ class TabletView(QWidget):
                         continue
                     bar = pg.BarGraphItem(
                         x=[left + value / 2.0],
-                        y=[(sample.top_depth + sample.bottom_depth) / 2.0],
+                        y=[(axis_top + axis_bottom) / 2.0],
                         width=value,
-                        height=sample.bottom_depth - sample.top_depth,
+                        height=max(axis_bottom - axis_top, np.finfo(float).eps),
                         brush=pg.mkBrush(color),
                         pen=pg.mkPen("#334155", width=0.7),
                     )
@@ -1582,7 +2080,7 @@ class TabletView(QWidget):
                 text = "; ".join(value for value in fields if value)
                 if text:
                     label = pg.TextItem(text, color="#92400e", anchor=(0.0, 0.5))
-                    label.setPos(0.02, (sample.top_depth + sample.bottom_depth) / 2.0)
+                    label.setPos(0.02, (axis_top + axis_bottom) / 2.0)
                     track.plot.addItem(label)
                     items.append(label)
             if items:
@@ -1604,7 +2102,10 @@ class TabletView(QWidget):
             label.setHtml(
                 f'<div style="width:{text_width}px; color:#202020">{escape(description)}</div>'
             )
-            label.setPos(0.02, (interval.top_depth + interval.bottom_depth) / 2.0)
+            axis_top, axis_bottom = self._depth_interval_to_axis(
+                interval.top_depth, interval.bottom_depth
+            )
+            label.setPos(0.02, (axis_top + axis_bottom) / 2.0)
             track.plot.addItem(label)
             rendered[interval.interval_id] = label
         return rendered
@@ -1619,7 +2120,10 @@ class TabletView(QWidget):
             lithotype = self._lithotype_catalog.get(interval.lithotype_id)
             code = lithotype.code if lithotype is not None else interval.lithotype_id
             label = pg.TextItem(code, color="#202020", anchor=(0.5, 0.5))
-            label.setPos(0.5, (interval.top_depth + interval.bottom_depth) / 2.0)
+            axis_top, axis_bottom = self._depth_interval_to_axis(
+                interval.top_depth, interval.bottom_depth
+            )
+            label.setPos(0.5, (axis_top + axis_bottom) / 2.0)
             track.plot.addItem(label)
             rendered[interval.interval_id] = label
         return rendered
@@ -1633,7 +2137,7 @@ class TabletView(QWidget):
             if not np.isfinite(depth):
                 continue
             line = pg.InfiniteLine(
-                pos=float(depth),
+                pos=self._depth_to_axis_value(float(depth)),
                 angle=0,
                 movable=False,
                 pen=pg.mkPen("#d97706", width=1, style=Qt.PenStyle.DashLine),
@@ -1654,7 +2158,7 @@ class TabletView(QWidget):
     def _update_visible_curve_data(self, top: float, bottom: float) -> None:
         if self._dataset is None:
             return
-        depth = np.asarray(self._dataset.depth, dtype=float)
+        depth = self._axis_values()
         for rendered in self._rendered.values():
             logarithmic = rendered.definition.x_scale is XScale.LOGARITHMIC
             for mnemonic, item in (rendered.curve_items or {}).items():
@@ -1683,9 +2187,14 @@ class TabletView(QWidget):
             ):
                 for interval_id, text_item in items.items():
                     interval = intervals.get(interval_id)
-                    visible = interval is not None and lithology_label_is_visible(
-                        interval.top_depth,
-                        interval.bottom_depth,
+                    axis_interval = (
+                        self._depth_interval_to_axis(interval.top_depth, interval.bottom_depth)
+                        if interval is not None
+                        else None
+                    )
+                    visible = axis_interval is not None and lithology_label_is_visible(
+                        axis_interval[0],
+                        axis_interval[1],
                         top,
                         bottom,
                         viewport_height,
@@ -1704,9 +2213,14 @@ class TabletView(QWidget):
                 label = next((item for item in items if isinstance(item, pg.TextItem)), None)
                 if label is None:
                     continue
-                visible = interval is not None and lithology_label_is_visible(
-                    interval.top_depth,
-                    interval.bottom_depth,
+                axis_interval = (
+                    self._depth_interval_to_axis(interval.top_depth, interval.bottom_depth)
+                    if interval is not None
+                    else None
+                )
+                visible = axis_interval is not None and lithology_label_is_visible(
+                    axis_interval[0],
+                    axis_interval[1],
                     top,
                     bottom,
                     viewport_height,
@@ -1735,6 +2249,7 @@ class TabletView(QWidget):
             self._synchronize_depth_ranges(top, bottom)
             self._update_lithology_text_visibility(top, bottom)
             self._update_stratigraphy_text_visibility(top, bottom)
+            self._update_navigation_controls()
             self.visible_depth_changed.emit(top, bottom)
         finally:
             self._sync_guard = False

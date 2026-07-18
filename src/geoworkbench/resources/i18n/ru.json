@@ -768,5 +768,16 @@
   "interpretations.undo": "Отменить изменение интервала",
   "interpretations.redo": "Повторить изменение интервала",
   "interpretations.undo_done": "Отменено: {description}",
-  "interpretations.redo_done": "Повторено: {description}"
+  "interpretations.redo_done": "Повторено: {description}",
+  "tablet.vertical_axis": "Вертикальная ось",
+  "tablet.depth_axis": "Глубина",
+  "tablet.time_axis": "Время",
+  "tablet.datetime_axis": "Дата и время",
+  "tablet.goto": "Перейти",
+  "tablet.zoom_in": "Увеличить масштаб по вертикали",
+  "tablet.zoom_out": "Уменьшить масштаб по вертикали",
+  "tablet.full_range": "Весь диапазон",
+  "tablet.visible_range": "Показано: {top} — {bottom}",
+  "tablet.goto_value_placeholder": "Глубина или время",
+  "tablet.goto_time_placeholder": "2026-07-18 12:30:00"
 }

@@ -768,5 +768,16 @@
   "interpretations.undo": "Undo interval change",
   "interpretations.redo": "Redo interval change",
   "interpretations.undo_done": "Undone: {description}",
-  "interpretations.redo_done": "Redone: {description}"
+  "interpretations.redo_done": "Redone: {description}",
+  "tablet.vertical_axis": "Vertical axis",
+  "tablet.depth_axis": "Depth",
+  "tablet.time_axis": "Time",
+  "tablet.datetime_axis": "Date and time",
+  "tablet.goto": "Go to",
+  "tablet.zoom_in": "Zoom in vertically",
+  "tablet.zoom_out": "Zoom out vertically",
+  "tablet.full_range": "Full range",
+  "tablet.visible_range": "Visible: {top} — {bottom}",
+  "tablet.goto_value_placeholder": "Depth or time",
+  "tablet.goto_time_placeholder": "2026-07-18 12:30:00"
 }

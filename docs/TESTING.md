@@ -67,6 +67,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Sensors catalog | Schema v1 validation, aliases, Cyrillic/Latin homoglyphs, units, external JSON, viewer search and reference ranges |
 | Mouse interval editing | Depth snapping, create/resize preview, edge choice, cancellation, controller validation and Undo/Redo integration |
 | Graph ranges | Per-track auto/manual X range, data-derived defaults and manual/full depth interval |
+| Tablet depth/time navigation | MD/TVD/TVDSS/TIME/DATETIME selection, datetime labels, wheel zoom/scroll, explicit scrollbar, range clamp, go-to, synchronized tracks and layout v8 migration |
 | Depth normalization UI | RU/KK/EN directions/confirmation and non-destructive copy workflow |
 | Basic Gas Ratio UI | RU/KK/EN command/status/log with stable calculated curve mnemonics |
 | Normalized gas | C1 и reference C1–C5/TG profiles, passports, parameters, units, control examples, NaN domain и provenance |

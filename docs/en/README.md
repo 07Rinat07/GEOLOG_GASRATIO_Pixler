@@ -91,10 +91,16 @@ track; adjacent tracks follow it synchronously without repeated axes. The defaul
 a logarithmic scale so Total Gas and minor components remain visible together; it can be changed
 in the Track Inspector.
 
-Depth navigation works over every track: the wheel scrolls up/down, `Ctrl+wheel` changes the
-depth zoom, and dragging pans. The range is clamped to the actual minimum and maximum of the
-loaded LAS, so navigation cannot move into an empty area outside the well. Hover over a plot to
-see the same controls in a tooltip.
+A vertical-navigation bar is shown above the tablet. The “Vertical axis” list can select a
+recognized MD/TVD/TVDSS depth index or a TIME/DATETIME index. Every track switches together:
+curves, lithology, stratigraphy, interpretation intervals, and cuttings remain aligned through the
+row-wise TIME↔DEPTH relationship.
+
+The wheel scrolls the selected axis, `Ctrl+wheel` changes vertical zoom, and dragging pans. An
+explicit vertical scrollbar is available on the right; `+` and `−` change zoom and “Full range”
+restores the complete interval. “Go to” accepts a depth/numeric time value or an ISO timestamp such
+as `2026-07-18 12:30:00` for DATETIME indexes. Navigation is clamped to the actual bounds of the
+selected index.
 
 Each column supports an automatic X range or manually entered minimum and maximum values in the
 Track Inspector. Switching to manual mode starts from the actual data range for that column. The

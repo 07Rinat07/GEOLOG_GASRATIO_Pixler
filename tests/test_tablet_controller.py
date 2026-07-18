@@ -6,8 +6,11 @@ from geoworkbench.domain.models import (
     CurveMetadata,
     CuttingsSample,
     Dataset,
+    DatasetIndex,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
     LithologyInterval,
     Project,
     StratigraphyInterval,
@@ -454,3 +457,44 @@ def test_layout_groups_only_compatible_resistivity_curves() -> None:
     assert resistance.x_scale is XScale.LOGARITHMIC
     assert gamma.curve_mnemonics == ["GR"]
     assert gamma.x_scale is XScale.LINEAR
+
+
+def test_controller_switches_vertical_index_and_resets_visible_window() -> None:
+    session = make_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.add_index(
+        DatasetIndex(
+            "time-index",
+            "TIME",
+            IndexType.RELATIVE_TIME,
+            IndexRole.TIME,
+            "s",
+            np.array([0.0, 60.0]),
+        )
+    )
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    controller.set_visible_depth(1.0, 2.0)
+    controller.set_cursor_depth(1.5)
+    session.dirty = False
+
+    assert controller.set_vertical_index("time-index") is True
+    assert layout.vertical_index_id == "time-index"
+    assert layout.visible_depth_top is None
+    assert layout.visible_depth_bottom is None
+    assert layout.cursor_depth is None
+    assert session.dirty is True
+
+    with pytest.raises(ValueError, match="глубины или времени"):
+        dataset.add_index(
+            DatasetIndex(
+                "generic-index",
+                "ROW",
+                IndexType.GENERIC,
+                IndexRole.GENERIC,
+                None,
+                np.array([0.0, 1.0]),
+            )
+        )
+        controller.set_vertical_index("generic-index")

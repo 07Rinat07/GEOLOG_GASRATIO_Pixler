@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import numpy as np
 import pyqtgraph as pg
 import pytest
@@ -11,8 +13,11 @@ from geoworkbench.domain.models import (
     CuttingsComponent,
     CuttingsSample,
     Dataset,
+    DatasetIndex,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
     LithologyInterval,
     StratigraphyInterval,
 )
@@ -841,4 +846,133 @@ def test_tablet_interpretation_selection_updates_style_and_signal(qapp) -> None:
     assert view.clear_interval_selection(emit_signal=True) is True
     assert bar.opts["pen"].widthF() == 0.8
     assert cleared == [True]
+    view.close()
+
+
+def _dataset_with_depth_and_datetime() -> Dataset:
+    depth = np.array([1000.0, 1010.0, 1020.0, 1030.0, 1040.0])
+    dataset = Dataset(
+        "dataset-time",
+        "Time dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    time_values = np.array(
+        [
+            "2026-07-18T10:00:00",
+            "2026-07-18T10:10:00",
+            "2026-07-18T10:20:00",
+            "2026-07-18T10:30:00",
+            "2026-07-18T10:40:00",
+        ],
+        dtype="datetime64[ns]",
+    )
+    dataset.add_index(
+        DatasetIndex(
+            "time-index",
+            "DATETIME",
+            IndexType.DATETIME,
+            IndexRole.TIME,
+            None,
+            time_values,
+            datetime_format="ISO 8601",
+            timezone="UTC",
+        )
+    )
+    curve = CurveData(
+        CurveMetadata("curve-rop", "ROP", "ROP", "m/h", None, dataset.dataset_id),
+        np.array([10.0, 12.0, 15.0, 11.0, 9.0]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    return dataset
+
+
+def test_tablet_can_switch_vertical_axis_from_depth_to_datetime(qapp) -> None:
+    dataset = _dataset_with_depth_and_datetime()
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Depth", TrackKind.DEPTH),
+                TrackDefinition(
+                    "rop", "ROP", TrackKind.CURVE, curve_mnemonics=["ROP"]
+                ),
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert set(view.available_vertical_indexes()) == {
+        dataset.active_index.index_id,
+        "time-index",
+    }
+    assert view.set_vertical_index("time-index")
+    qapp.processEvents()
+
+    assert view.vertical_axis_is_time is True
+    assert view.vertical_index_id == "time-index"
+    top, bottom = view.visible_depth_range or (0.0, 0.0)
+    assert view.format_vertical_value(top).startswith("18.07.2026 10:00")
+    assert view.format_vertical_value(bottom).startswith("18.07.2026 10:40")
+    _, rendered_y = view._rendered["rop"].curve_items["ROP"].getData()
+    assert rendered_y is not None
+    assert np.diff(rendered_y).tolist() == pytest.approx([600.0, 600.0, 600.0, 600.0])
+    axis = view._rendered["depth"].plot.getAxis("left")
+    assert "10:00" in axis.tickStrings([float(rendered_y[0])], 1.0, 60.0)[0]
+    view.close()
+
+
+def test_vertical_scrollbar_moves_all_tracks_in_same_time_window(qapp) -> None:
+    dataset = _dataset_with_depth_and_datetime()
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Depth", TrackKind.DEPTH),
+                TrackDefinition("rop", "ROP", TrackKind.CURVE, curve_mnemonics=["ROP"]),
+            ],
+            vertical_index_id="time-index",
+        )
+    )
+    view.resize(700, 500)
+    view.show()
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.zoom_depth(0.5)
+    qapp.processEvents()
+    before = view.visible_depth_range
+    assert before is not None
+    assert view._vertical_scrollbar.maximum() == 1_000_000
+    view._vertical_scrollbar.setValue(view._vertical_scrollbar.maximum())
+    qapp.processEvents()
+
+    after = view.visible_depth_range
+    assert after is not None
+    assert after[0] > before[0]
+    assert view.track_depth_range("depth") == pytest.approx(after)
+    assert view.track_depth_range("rop") == pytest.approx(after)
+    assert view._range_label.text().startswith("Показано:")
+    view.close()
+
+
+def test_go_to_datetime_centers_visible_time_window(qapp) -> None:
+    dataset = _dataset_with_depth_and_datetime()
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [TrackDefinition("depth", "Depth", TrackKind.DEPTH)],
+            vertical_index_id="time-index",
+        )
+    )
+    view.set_dataset(dataset)
+    assert view.zoom_depth(0.5)
+
+    target = datetime(2026, 7, 18, 10, 30, tzinfo=timezone.utc).timestamp()
+    assert view.go_to_vertical_value(target)
+    visible = view.visible_depth_range
+    assert visible is not None
+    assert sum(visible) / 2.0 == pytest.approx(target)
     view.close()

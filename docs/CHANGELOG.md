@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased — Tablet depth/time navigation
+
+### Русский
+
+- добавлен выбор вертикального индекса MD/TVD/TVDSS/TIME/DATETIME;
+- добавлена явная вертикальная полоса прокрутки, кнопки масштаба, полный диапазон и переход к значению;
+- колесо прокручивает, `Ctrl+колесо` масштабирует, перетаскивание панорамирует все дорожки синхронно;
+- глубинные объекты отображаются во временной шкале через связь TIME↔DEPTH;
+- компоновка планшета v8 сохраняет выбранный индекс и мигрирует старые версии;
+- regression suite: 750 passed, 1 skipped; Ruff и MyPy без ошибок.
+
+### Қазақша
+
+- MD/TVD/TVDSS/TIME/DATETIME тік индексін таңдау қосылды;
+- тік айналдыру жолағы, масштаб батырмалары, толық ауқым және мәнге өту қосылды;
+- дөңгелек айналдырады, `Ctrl+дөңгелек` масштабтайды, сүйреу барлық жолақты синхронды жылжытады;
+- тереңдік объектілері TIME↔DEPTH байланысы арқылы уақыт шкаласында көрсетіледі;
+- планшет компоновкасының v8 нұсқасы таңдалған индексті сақтайды және ескі нұсқаларды көшіреді;
+- regression suite: 750 passed, 1 skipped; Ruff және MyPy қатесіз.
+
+### English
+
+- added MD/TVD/TVDSS/TIME/DATETIME vertical-index selection;
+- added an explicit vertical scrollbar, zoom buttons, full range, and go-to control;
+- the wheel scrolls, `Ctrl+wheel` zooms, and dragging pans every track synchronously;
+- depth-anchored objects are displayed on the time axis through TIME↔DEPTH row mapping;
+- tablet layout v8 persists the selected index and migrates older layouts;
+- regression suite: 750 passed, 1 skipped; Ruff and MyPy pass cleanly.
+
 ## Unreleased — Sensors catalog and direct interval editing
 
 ### Русский

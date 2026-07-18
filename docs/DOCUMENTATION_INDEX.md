@@ -11,6 +11,7 @@
 - [CHANGELOG.md](CHANGELOG.md) — concise history of completed increments.
 - [SENSOR_CATALOG.md](SENSOR_CATALOG.md) — normalized Sensors/mnemonic reference and external JSON schema.
 - [INTERVAL_MOUSE_EDITING.md](INTERVAL_MOUSE_EDITING.md) — direct interval drawing and boundary editing.
+- [TABLET_DEPTH_TIME_NAVIGATION.md](TABLET_DEPTH_TIME_NAVIGATION.md) — synchronized depth/time scrolling, zoom, index selection, and persistence.
 
 ## User guides
 

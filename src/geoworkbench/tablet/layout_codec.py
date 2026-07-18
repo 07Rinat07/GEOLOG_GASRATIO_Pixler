@@ -13,7 +13,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 7
+LAYOUT_FORMAT_VERSION = 8
 
 
 class TabletLayoutFormatError(ValueError):
@@ -26,6 +26,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
         "visible_depth_top": layout.visible_depth_top,
         "visible_depth_bottom": layout.visible_depth_bottom,
         "cursor_depth": layout.cursor_depth,
+        "vertical_index_id": layout.vertical_index_id,
         "tracks": [
             {
                 "track_id": track.track_id,
@@ -69,6 +70,11 @@ def layout_from_dict(data: object) -> TabletLayout:
     raw_depth_top = data.get("visible_depth_top")
     raw_depth_bottom = data.get("visible_depth_bottom")
     raw_cursor_depth = data.get("cursor_depth")
+    raw_vertical_index_id = data.get("vertical_index_id")
+    if raw_vertical_index_id is not None and (
+        not isinstance(raw_vertical_index_id, str) or not raw_vertical_index_id.strip()
+    ):
+        raise TabletLayoutFormatError("vertical_index_id должен быть строкой или null")
     for name, value in (
         ("visible_depth_top", raw_depth_top),
         ("visible_depth_bottom", raw_depth_bottom),
@@ -83,6 +89,7 @@ def layout_from_dict(data: object) -> TabletLayout:
                 float(raw_depth_bottom) if raw_depth_bottom is not None else None
             ),
             cursor_depth=float(raw_cursor_depth) if raw_cursor_depth is not None else None,
+            vertical_index_id=raw_vertical_index_id,
         )
     except ValueError as exc:
         raise TabletLayoutFormatError("Некорректный видимый интервал глубины") from exc
@@ -168,7 +175,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2, 3, 4, 5, 6):
+    if version not in (1, 2, 3, 4, 5, 6, 7):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -203,4 +210,6 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 track.setdefault("x_axis_label", "")
     migrated["version"] = 7
     migrated.setdefault("cursor_depth", None)
+    migrated["version"] = 8
+    migrated.setdefault("vertical_index_id", None)
     return migrated

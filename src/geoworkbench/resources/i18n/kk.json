@@ -768,5 +768,16 @@
   "interpretations.undo": "Интервал өзгерісін болдырмау",
   "interpretations.redo": "Интервал өзгерісін қайталау",
   "interpretations.undo_done": "Болдырылмады: {description}",
-  "interpretations.redo_done": "Қайталанды: {description}"
+  "interpretations.redo_done": "Қайталанды: {description}",
+  "tablet.vertical_axis": "Тік ось",
+  "tablet.depth_axis": "Тереңдік",
+  "tablet.time_axis": "Уақыт",
+  "tablet.datetime_axis": "Күні мен уақыты",
+  "tablet.goto": "Өту",
+  "tablet.zoom_in": "Тік масштабты үлкейту",
+  "tablet.zoom_out": "Тік масштабты кішірейту",
+  "tablet.full_range": "Толық ауқым",
+  "tablet.visible_range": "Көрсетілгені: {top} — {bottom}",
+  "tablet.goto_value_placeholder": "Тереңдік немесе уақыт",
+  "tablet.goto_time_placeholder": "2026-07-18 12:30:00"
 }
