@@ -76,6 +76,44 @@ def test_tablet_view_exposes_rendered_legend_labels(qapp) -> None:
     view.close()
 
 
+def test_tablet_cursor_line_is_synchronized_and_reports_all_curve_values(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 150.0, 200.0]),
+    )
+    c1 = CurveData(
+        CurveMetadata("c1", "C1", "C1", "%", "Methane", dataset.dataset_id),
+        np.array([1.0, 2.0, 3.0]),
+    )
+    rop = CurveData(
+        CurveMetadata("rop", "ROP", "ROP", "m/h", "ROP", dataset.dataset_id),
+        np.array([10.0, 20.0, 30.0]),
+    )
+    dataset.curves = {"c1": c1, "rop": rop}
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("gas", "Gas", TrackKind.GAS, curve_mnemonics=["C1"]),
+                TrackDefinition("rop", "ROP", TrackKind.CURVE, curve_mnemonics=["ROP"]),
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+
+    view.set_cursor_enabled(True)
+    view.set_cursor_depth(151.0)
+
+    assert view.cursor_depth == 151.0
+    assert all(item.cursor_line is not None for item in view._rendered.values())
+    assert all(item.cursor_line.value() == 151.0 for item in view._rendered.values())
+    assert view.cursor_summary(151.0) == "Глубина: 150 м | C1: 2 % | ROP: 20 m/h"
+    view.close()
+
+
 def test_tablet_view_applies_saved_curve_pen_style(qapp) -> None:
     dataset = Dataset(
         "dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 101.0])
@@ -91,9 +129,7 @@ def test_tablet_view_applies_saved_curve_pen_style(qapp) -> None:
                     "Gas",
                     TrackKind.GAS,
                     curve_mnemonics=["C1"],
-                    curve_styles={
-                        "C1": CurveStyle("#123456", 3.5, CurveLineStyle.DASH_DOT)
-                    },
+                    curve_styles={"C1": CurveStyle("#123456", 3.5, CurveLineStyle.DASH_DOT)},
                 )
             ]
         )
@@ -126,9 +162,7 @@ def test_track_widget_applies_saved_grid_settings(qapp) -> None:
 
 def test_track_widget_applies_saved_x_axis_label(qapp) -> None:
     widget = TabletTrackWidget(
-        TrackDefinition(
-            "curve", "Curve", TrackKind.CURVE, x_axis_label="ROP, m/h"
-        )
+        TrackDefinition("curve", "Curve", TrackKind.CURVE, x_axis_label="ROP, m/h")
     )
 
     assert widget.plot.getAxis("bottom").labelText == "ROP, m/h"
@@ -380,9 +414,7 @@ def test_tablet_view_renders_safe_lithology_descriptions(qapp) -> None:
     view.set_dataset(dataset)
     qapp.processEvents()
 
-    assert view.rendered_lithology_descriptions("description") == (
-        "Песчаник <b>средний</b>",
-    )
+    assert view.rendered_lithology_descriptions("description") == ("Песчаник <b>средний</b>",)
     view.close()
 
 

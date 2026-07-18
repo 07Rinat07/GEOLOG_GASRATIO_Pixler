@@ -43,6 +43,7 @@ class RenderedTrack:
     lithology_items: dict[str, pg.BarGraphItem] | None = None
     lithology_label_items: dict[str, pg.TextItem] | None = None
     lithology_description_items: dict[str, pg.TextItem] | None = None
+    cursor_line: pg.InfiniteLine | None = None
 
 
 def curve_legend_label(curve: CurveData) -> str:
@@ -162,6 +163,7 @@ class TabletView(QWidget):
     track_selected = Signal(str)
     track_width_change_requested = Signal(str, int)
     visible_depth_changed = Signal(float, float)
+    cursor_changed = Signal(float, str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -174,6 +176,10 @@ class TabletView(QWidget):
         self._rendered: dict[str, RenderedTrack] = {}
         self._sync_guard = False
         self._depth_range_guard = False
+        self._cursor_enabled = False
+        self._cursor_depth: float | None = None
+        self._cursor_guard = False
+        self._cursor_color = "#dc2626"
 
         self._container = QWidget()
         self._tracks_layout = QHBoxLayout(self._container)
@@ -235,8 +241,7 @@ class TabletView(QWidget):
         if rendered is None:
             raise KeyError(f"Трек не отрисован: {track_id}")
         return tuple(
-            item.toPlainText()
-            for item in (rendered.lithology_description_items or {}).values()
+            item.toPlainText() for item in (rendered.lithology_description_items or {}).values()
         )
 
     def visible_lithology_text_ids(self, track_id: str) -> tuple[str, ...]:
@@ -283,6 +288,64 @@ class TabletView(QWidget):
     def set_layout_model(self, layout_model: TabletLayout) -> None:
         self._layout_model = layout_model
         self.refresh_view()
+
+    @property
+    def cursor_depth(self) -> float | None:
+        return self._cursor_depth
+
+    def set_cursor_enabled(self, enabled: bool) -> None:
+        self._cursor_enabled = enabled
+        for rendered in self._rendered.values():
+            if rendered.cursor_line is not None:
+                rendered.cursor_line.setVisible(enabled)
+        if enabled and self._cursor_depth is None:
+            depth_range = self.visible_depth_range
+            if depth_range is not None:
+                self.set_cursor_depth(sum(depth_range) / 2.0)
+
+    def set_cursor_depth(self, depth: float) -> None:
+        if self._dataset is None or not np.isfinite(depth):
+            return
+        finite = self._dataset.depth[np.isfinite(self._dataset.depth)]
+        if not finite.size:
+            return
+        bounded = min(max(float(depth), float(np.min(finite))), float(np.max(finite)))
+        self._cursor_depth = bounded
+        self._cursor_guard = True
+        try:
+            for rendered in self._rendered.values():
+                if rendered.cursor_line is not None:
+                    rendered.cursor_line.setPos(bounded)
+                    rendered.cursor_line.setVisible(self._cursor_enabled)
+        finally:
+            self._cursor_guard = False
+        self.cursor_changed.emit(bounded, self.cursor_summary(bounded))
+
+    def cursor_summary(self, depth: float) -> str:
+        if self._dataset is None:
+            return ""
+        depths = np.asarray(self._dataset.depth, dtype=float)
+        valid_depth = np.flatnonzero(np.isfinite(depths))
+        if not valid_depth.size:
+            return ""
+        index = int(valid_depth[np.argmin(np.abs(depths[valid_depth] - depth))])
+        sample_depth = float(depths[index])
+        values = [f"Глубина: {sample_depth:g} м"]
+        seen: set[str] = set()
+        for definition in self._layout_model.visible_tracks():
+            for mnemonic in definition.curve_mnemonics:
+                if mnemonic in seen:
+                    continue
+                curve = self._dataset.curve_by_mnemonic(mnemonic)
+                if curve is None or index >= curve.values.size:
+                    continue
+                value = float(curve.values[index])
+                if not np.isfinite(value):
+                    continue
+                unit = (curve.metadata.unit or "").strip()
+                values.append(f"{mnemonic}: {value:g}{f' {unit}' if unit else ''}")
+                seen.add(mnemonic)
+        return " | ".join(values)
 
     def add_track(self, definition: TrackDefinition) -> None:
         self._layout_model.add_track(definition)
@@ -339,9 +402,7 @@ class TabletView(QWidget):
             annotation_items = self._populate_annotations(track)
             lithology_items = self._populate_lithology(track, definition)
             lithology_label_items = self._populate_lithology_labels(track, definition)
-            lithology_description_items = self._populate_lithology_descriptions(
-                track, definition
-            )
+            lithology_description_items = self._populate_lithology_descriptions(track, definition)
             if master_plot is None:
                 master_plot = track.plot
             track.plot.sigYRangeChanged.connect(self._on_depth_range_changed)
@@ -358,12 +419,45 @@ class TabletView(QWidget):
                 lithology_description_items,
             )
             self._rendered[definition.track_id] = rendered
+            self._install_cursor(rendered)
             self._tracks_layout.addWidget(track)
 
         self._tracks_layout.addStretch(1)
         if master_plot is not None and visible_top is not None and visible_bottom is not None:
             self._synchronize_depth_ranges(visible_top, visible_bottom)
             self._update_lithology_text_visibility(visible_top, visible_bottom)
+
+    def _install_cursor(self, rendered: RenderedTrack) -> None:
+        if rendered.plot is None:
+            return
+        line = pg.InfiniteLine(
+            pos=self._cursor_depth or 0.0,
+            angle=0,
+            movable=True,
+            pen=pg.mkPen(self._cursor_color, width=2),
+            hoverPen=pg.mkPen("#ef4444", width=3),
+        )
+        line.setVisible(self._cursor_enabled and self._cursor_depth is not None)
+        line.sigPositionChanged.connect(lambda source: self._cursor_line_moved(source))
+        rendered.plot.addItem(line)
+        rendered.cursor_line = line
+        rendered.plot.scene().sigMouseClicked.connect(
+            lambda event, entry=rendered: self._cursor_plot_clicked(entry, event)
+        )
+
+    def _cursor_plot_clicked(self, rendered: RenderedTrack, event: object) -> None:
+        if not self._cursor_enabled or rendered.plot is None:
+            return
+        scene_position = event.scenePos()  # type: ignore[attr-defined]
+        if not rendered.plot.sceneBoundingRect().contains(scene_position):
+            return
+        point = rendered.plot.getViewBox().mapSceneToView(scene_position)
+        self.set_cursor_depth(float(point.y()))
+
+    def _cursor_line_moved(self, line: pg.InfiniteLine) -> None:
+        if not self._cursor_enabled or self._cursor_guard:
+            return
+        self.set_cursor_depth(float(line.value()))
 
     def set_visible_depth(self, top: float, bottom: float) -> None:
         first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
@@ -432,11 +526,7 @@ class TabletView(QWidget):
                         }[style.line_style],
                     )
                     if style is not None
-                    else pg.mkPen(
-                        pg.intColor(
-                            index, hues=max(1, len(definition.curve_mnemonics))
-                        )
-                    )
+                    else pg.mkPen(pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))))
                 )
                 if visible_top is None or visible_bottom is None:
                     visible_values = np.array([], dtype=np.float64)
@@ -496,8 +586,7 @@ class TabletView(QWidget):
             description = (interval.description or "").strip() or fallback
             label = pg.TextItem(anchor=(0.0, 0.5))
             label.setHtml(
-                f'<div style="width:{text_width}px; color:#202020">'
-                f"{escape(description)}</div>"
+                f'<div style="width:{text_width}px; color:#202020">{escape(description)}</div>'
             )
             label.setPos(0.02, (interval.top_depth + interval.bottom_depth) / 2.0)
             track.plot.addItem(label)

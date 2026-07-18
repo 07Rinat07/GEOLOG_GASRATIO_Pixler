@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QActionGroup
+from PySide6.QtGui import QAction, QActionGroup, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtPrintSupport import QPrintPreviewDialog, QPrinter
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -167,6 +167,7 @@ class MainWindow(QMainWindow):
         self.tablet_view.track_selected.connect(self._show_track_in_inspector)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
+        self.tablet_view.cursor_changed.connect(self._show_cursor_values)
         self.las_table_editor = LasTableEditor(
             self.las_range_editing_controller,
             language=self.language,
@@ -214,13 +215,9 @@ class MainWindow(QMainWindow):
         dock = QDockWidget(self._t("dock.inspector"), self)
         self.inspector = TrackInspector(language=self.language)
         self.inspector.settings_requested.connect(self._apply_inspector_track_settings)
-        self.inspector.curve_style_requested.connect(
-            self._apply_inspector_curve_style
-        )
+        self.inspector.curve_style_requested.connect(self._apply_inspector_curve_style)
         self.inspector.grid_requested.connect(self._apply_inspector_grid)
-        self.inspector.x_axis_label_requested.connect(
-            self._apply_inspector_x_axis_label
-        )
+        self.inspector.x_axis_label_requested.connect(self._apply_inspector_x_axis_label)
         dock.setWidget(self.inspector)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
@@ -275,7 +272,9 @@ class MainWindow(QMainWindow):
             action = QAction(name, self)
             action.setCheckable(True)
             action.setChecked(language is self.language)
-            action.triggered.connect(lambda checked=False, value=language: self.change_language(value))
+            action.triggered.connect(
+                lambda checked=False, value=language: self.change_language(value)
+            )
             language_group.addAction(action)
             language_menu.addAction(action)
         language_menu.addSeparator()
@@ -343,6 +342,19 @@ class MainWindow(QMainWindow):
         self.pencil_action.toggled.connect(self.toggle_curve_edit_mode)
         edit_menu.addAction(self.pencil_action)
 
+        self.cursor_line_action = QAction("Визирная линия", self)
+        cursor_icon = QPixmap(24, 24)
+        cursor_icon.fill(Qt.GlobalColor.transparent)
+        icon_painter = QPainter(cursor_icon)
+        icon_painter.setPen(QPen(Qt.GlobalColor.red, 3))
+        icon_painter.drawLine(2, 12, 22, 12)
+        icon_painter.end()
+        self.cursor_line_action.setIcon(QIcon(cursor_icon))
+        self.cursor_line_action.setCheckable(True)
+        self.cursor_line_action.setShortcut("V")
+        self.cursor_line_action.toggled.connect(self.toggle_cursor_line)
+        edit_menu.addAction(self.cursor_line_action)
+
         self.undo_action = QAction("Отменить редактирование", self)
         self.undo_action.setShortcut("Ctrl+Z")
         self.undo_action.triggered.connect(self.undo_curve_edit)
@@ -371,9 +383,7 @@ class MainWindow(QMainWindow):
         self.description_templates_action.triggered.connect(self.show_description_templates)
         edit_menu.addAction(self.description_templates_action)
 
-        self.normalize_depth_action = QAction(
-            self._t("depth.create_copy_action"), self
-        )
+        self.normalize_depth_action = QAction(self._t("depth.create_copy_action"), self)
         self.normalize_depth_action.triggered.connect(self.create_ascending_depth_copy)
         edit_menu.addAction(self.normalize_depth_action)
         self.undo_normalize_depth_action = QAction(self._t("depth.undo"), self)
@@ -541,8 +551,21 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self.open_data_action)
         toolbar.addAction(self.default_tablet_action)
         toolbar.addAction(self.ratio_action)
+        toolbar.addAction(self.cursor_line_action)
         toolbar.addAction(self.save_action)
         self.addToolBar(toolbar)
+
+    def toggle_cursor_line(self, enabled: bool) -> None:
+        self.tablet_view.set_cursor_enabled(enabled)
+        if enabled:
+            self.tabs.setCurrentWidget(self.tablet_view)
+        else:
+            self.statusBar().clearMessage()
+
+    def _show_cursor_values(self, depth: float, summary: str) -> None:
+        del depth
+        if self.cursor_line_action.isChecked():
+            self.statusBar().showMessage(summary)
 
     def open_data(self) -> None:
         importers = {
@@ -581,8 +604,12 @@ class MainWindow(QMainWindow):
         create_label = self._t("profile.create")
         labels = [f"{item.display_name} — {item.organization}" for item in profiles]
         selected, accepted = QInputDialog.getItem(
-            self, self._t("profile.title"), self._t("profile.select"),
-            [*labels, create_label], 0, False,
+            self,
+            self._t("profile.title"),
+            self._t("profile.select"),
+            [*labels, create_label],
+            0,
+            False,
         )
         if not accepted:
             return
@@ -605,9 +632,7 @@ class MainWindow(QMainWindow):
         else:
             index = labels.index(selected)
             profile = self.user_profile_settings.select(profiles[index].profile_id)
-        self.statusBar().showMessage(
-            self._t("profile.active", name=profile.display_name)
-        )
+        self.statusBar().showMessage(self._t("profile.active", name=profile.display_name))
         self.print_page_settings = self.user_profile_settings.print_page_settings()
 
     def open_las(self) -> None:
@@ -642,13 +667,9 @@ class MainWindow(QMainWindow):
                 decision = evaluate_las_import(import_result.report, import_mode)
                 if not decision.accepted:
                     messages = "\n  ".join(issue.message for issue in decision.blocking_issues)
-                    raise LasImportError(
-                        f"режим {import_mode.value} отклонил файл:\n  {messages}"
-                    )
+                    raise LasImportError(f"режим {import_mode.value} отклонил файл:\n  {messages}")
                 if decision.requires_confirmation:
-                    messages = "\n".join(
-                        f"• {issue.message}" for issue in decision.review_issues
-                    )
+                    messages = "\n".join(f"• {issue.message}" for issue in decision.review_issues)
                     answer = QMessageBox.question(
                         self,
                         f"Ручная проверка: {Path(filename).name}",
@@ -895,9 +916,7 @@ class MainWindow(QMainWindow):
     def export_current_las(self) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
-            QMessageBox.information(
-                self, self._t("export.title"), self._t("export.select_dataset")
-            )
+            QMessageBox.information(self, self._t("export.title"), self._t("export.select_dataset"))
             return
         plan_dialog = LasExportPlanDialog(
             self,
@@ -1031,14 +1050,19 @@ class MainWindow(QMainWindow):
                     delimiter=",",
                     overwrite=overwrite,
                 )
-        except (FileExistsError, KeyError, OSError, RuntimeError, ValueError, SelectionExportError) as exc:
+        except (
+            FileExistsError,
+            KeyError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            SelectionExportError,
+        ) as exc:
             QMessageBox.critical(self, self._t("selection_export.title"), str(exc))
             self._log(self._t("selection_export.failed", error=str(exc)))
             return
         self._log(self._t("selection_export.success", name=exported.name))
-        self.statusBar().showMessage(
-            self._t("selection_export.success", name=exported.name)
-        )
+        self.statusBar().showMessage(self._t("selection_export.success", name=exported.name))
 
     def _confirm_export_overwrite(self, target: Path) -> bool | None:
         if not target.exists():
@@ -1096,9 +1120,7 @@ class MainWindow(QMainWindow):
                 )
             else:
                 exporters = {"png": export_widget_png, "svg": export_widget_svg}
-                exported = exporters[export_format](
-                    current, target, overwrite=overwrite
-                )
+                exported = exporters[export_format](current, target, overwrite=overwrite)
         except (FileExistsError, OSError, VisualizationExportError) as exc:
             QMessageBox.critical(self, self._t("visual_export.title"), str(exc))
             self._log(self._t("visual_export.failed", error=str(exc)))
@@ -1118,17 +1140,13 @@ class MainWindow(QMainWindow):
             return
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         printer.setPageSize(
-            self.print_page_settings.page_size_for_content(
-                current.width(), current.height()
-            )
+            self.print_page_settings.page_size_for_content(current.width(), current.height())
         )
         printer.setPageOrientation(self.print_page_settings.qt_orientation)
         dialog = QPrintPreviewDialog(printer, self)
         dialog.setWindowTitle(self._t("print.preview_title"))
         dialog.paintRequested.connect(
-            lambda requested_printer: render_widget_to_printer(
-                current, requested_printer
-            )
+            lambda requested_printer: render_widget_to_printer(current, requested_printer)
         )
         dialog.exec()
 
@@ -1146,9 +1164,7 @@ class MainWindow(QMainWindow):
             self._t(
                 "print.page_updated",
                 format=self.print_page_settings.page_format.value.upper(),
-                orientation=self._t(
-                    f"print.{self.print_page_settings.orientation.value}"
-                ),
+                orientation=self._t(f"print.{self.print_page_settings.orientation.value}"),
             )
         )
 
@@ -1243,9 +1259,7 @@ class MainWindow(QMainWindow):
         )
         if not accepted:
             return None
-        return next(
-            profile.profile_id for profile in profiles if profile.name == selected
-        )
+        return next(profile.profile_id for profile in profiles if profile.name == selected)
 
     def export_current_json(self) -> None:
         dataset = self.session.current_dataset
@@ -1315,9 +1329,7 @@ class MainWindow(QMainWindow):
 
     def show_data_inspector(self) -> None:
         if self.session.current_dataset is None:
-            QMessageBox.information(
-                self, self._t("data.title"), self._t("data.select_dataset")
-            )
+            QMessageBox.information(self, self._t("data.title"), self._t("data.select_dataset"))
             return
         DataInspectorDialog(
             self.data_inspector_controller,
@@ -1405,9 +1417,7 @@ class MainWindow(QMainWindow):
     def build_default_tablet(self) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
-            QMessageBox.information(
-                self, self._t("tablet.title"), self._t("tablet.open_first")
-            )
+            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.open_first"))
             return
 
         layout = self.tablet_controller.build_default_layout()
@@ -1419,9 +1429,7 @@ class MainWindow(QMainWindow):
 
     def save_tablet_preset(self) -> None:
         if self.session.current_tablet_layout is None:
-            QMessageBox.information(
-                self, self._t("tablet.title"), self._t("tablet.build_first")
-            )
+            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.build_first"))
             return
         name, accepted = QInputDialog.getText(
             self, self._t("tablet.preset_save"), self._t("tablet.preset_name")
@@ -1468,9 +1476,7 @@ class MainWindow(QMainWindow):
     def _select_tablet_preset(self, title: str) -> str | None:
         names = sorted(self.session.tablet_presets, key=str.casefold)
         if not names:
-            QMessageBox.information(
-                self, self._t("tablet.title"), self._t("tablet.preset_empty")
-            )
+            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.preset_empty"))
             return None
         name, accepted = QInputDialog.getItem(
             self, title, self._t("tablet.preset_name"), names, 0, False
@@ -1480,9 +1486,7 @@ class MainWindow(QMainWindow):
     def add_track(self, kind: TrackKind) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
-            QMessageBox.information(
-                self, self._t("tablet.title"), self._t("tablet.open_first")
-            )
+            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.open_first"))
             return
 
         mnemonics = self._select_curve_mnemonics() if kind is TrackKind.CURVE else []
@@ -1508,7 +1512,10 @@ class MainWindow(QMainWindow):
             self,
             self._t("tablet.width_title"),
             self._t("tablet.width_prompt"),
-            track.width, 80, 2000, 10,
+            track.width,
+            80,
+            2000,
+            10,
         )
         if accepted:
             self.tablet_controller.set_track_width(track.track_id, width)
@@ -1540,7 +1547,11 @@ class MainWindow(QMainWindow):
         except ValueError as exc:
             QMessageBox.warning(self, self._t("tablet.scale_title"), str(exc))
             return
-        scale_name = self._t("inspector.logarithmic") if scale is XScale.LOGARITHMIC else self._t("inspector.linear")
+        scale_name = (
+            self._t("inspector.logarithmic")
+            if scale is XScale.LOGARITHMIC
+            else self._t("inspector.linear")
+        )
         self._layout_changed(self._t("tablet.scale_changed", title=track.title, scale=scale_name))
 
     def change_selected_track_x_range(self) -> None:
@@ -1550,14 +1561,24 @@ class MainWindow(QMainWindow):
         default_minimum = track.x_min if track.x_min is not None else 0.1
         default_maximum = track.x_max if track.x_max is not None else 100.0
         minimum, accepted = QInputDialog.getDouble(
-            self, self._t("tablet.range_title"), self._t("tablet.minimum"),
-            default_minimum, -1e300, 1e300, 6,
+            self,
+            self._t("tablet.range_title"),
+            self._t("tablet.minimum"),
+            default_minimum,
+            -1e300,
+            1e300,
+            6,
         )
         if not accepted:
             return
         maximum, accepted = QInputDialog.getDouble(
-            self, self._t("tablet.range_title"), self._t("tablet.maximum"),
-            default_maximum, -1e300, 1e300, 6,
+            self,
+            self._t("tablet.range_title"),
+            self._t("tablet.maximum"),
+            default_maximum,
+            -1e300,
+            1e300,
+            6,
         )
         if not accepted:
             return
@@ -1566,7 +1587,14 @@ class MainWindow(QMainWindow):
         except ValueError as exc:
             QMessageBox.warning(self, self._t("tablet.range_error_title"), str(exc))
             return
-        self._layout_changed(self._t("tablet.range_changed", title=track.title, minimum=f"{minimum:g}", maximum=f"{maximum:g}"))
+        self._layout_changed(
+            self._t(
+                "tablet.range_changed",
+                title=track.title,
+                minimum=f"{minimum:g}",
+                maximum=f"{maximum:g}",
+            )
+        )
 
     def reset_selected_track_x_range(self) -> None:
         track = self._selected_track()
@@ -1578,9 +1606,7 @@ class MainWindow(QMainWindow):
     def change_visible_depth_range(self) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
-            QMessageBox.information(
-                self, self._t("tablet.title"), self._t("tablet.open_first")
-            )
+            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.open_first"))
             return
         finite_depth = dataset.depth[np.isfinite(dataset.depth)]
         if finite_depth.size < 2:
@@ -1590,14 +1616,24 @@ class MainWindow(QMainWindow):
         default_top = current[0] if current is not None else float(np.min(finite_depth))
         default_bottom = current[1] if current is not None else float(np.max(finite_depth))
         top, accepted = QInputDialog.getDouble(
-            self, self._t("tablet.depth_range_title"), self._t("tablet.depth_top"),
-            default_top, float(np.min(finite_depth)), float(np.max(finite_depth)), 3,
+            self,
+            self._t("tablet.depth_range_title"),
+            self._t("tablet.depth_top"),
+            default_top,
+            float(np.min(finite_depth)),
+            float(np.max(finite_depth)),
+            3,
         )
         if not accepted:
             return
         bottom, accepted = QInputDialog.getDouble(
-            self, self._t("tablet.depth_range_title"), self._t("tablet.depth_bottom"),
-            default_bottom, float(np.min(finite_depth)), float(np.max(finite_depth)), 3,
+            self,
+            self._t("tablet.depth_range_title"),
+            self._t("tablet.depth_bottom"),
+            default_bottom,
+            float(np.min(finite_depth)),
+            float(np.max(finite_depth)),
+            3,
         )
         if not accepted:
             return
@@ -1613,9 +1649,7 @@ class MainWindow(QMainWindow):
 
     def reset_visible_depth_range(self) -> None:
         if self.session.current_tablet_layout is None:
-            QMessageBox.information(
-                self, self._t("tablet.title"), self._t("tablet.build_first")
-            )
+            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.build_first"))
             return
         self.tablet_controller.reset_visible_depth()
         self.tablet_view.refresh_view()
@@ -1646,9 +1680,7 @@ class MainWindow(QMainWindow):
 
     def _selected_track(self) -> TrackDefinition | None:
         if self._selected_track_id is None:
-            QMessageBox.information(
-                self, self._t("tablet.title"), self._t("tablet.select_track")
-            )
+            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.select_track"))
             return None
         try:
             return self.tablet_view.layout_model.track_by_id(self._selected_track_id)
@@ -1739,7 +1771,9 @@ class MainWindow(QMainWindow):
     def show_time_depth_mapping(self) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
-            QMessageBox.information(self, self._t("time_depth.action"), self._t("formula.select_dataset"))
+            QMessageBox.information(
+                self, self._t("time_depth.action"), self._t("formula.select_dataset")
+            )
             return
         TimeDepthMappingDialog(
             dataset,
@@ -1750,9 +1784,7 @@ class MainWindow(QMainWindow):
         self._update_title()
 
     def show_custom_formulas(self) -> None:
-        dialog = CustomFormulaDialog(
-            self.custom_formula_controller, self, language=self.language
-        )
+        dialog = CustomFormulaDialog(self.custom_formula_controller, self, language=self.language)
         dialog.exec()
         if not dialog.dataset_changed or self.session.current_dataset is None:
             return
@@ -1810,9 +1842,7 @@ class MainWindow(QMainWindow):
     def calculate_nct(self) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
-            QMessageBox.information(
-                self, self._t("nct.title"), self._t("formula.select_dataset")
-            )
+            QMessageBox.information(self, self._t("nct.title"), self._t("formula.select_dataset"))
             return
         finite_depth = dataset.depth[np.isfinite(dataset.depth)]
         if finite_depth.size < 2:
@@ -1825,19 +1855,14 @@ class MainWindow(QMainWindow):
             self,
             language=self.language,
         )
-        if (
-            dialog.exec() != QDialog.DialogCode.Accepted
-            or dialog.calculation_result is None
-        ):
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.calculation_result is None:
             return
         self.curve_view.show_dataset(dataset, ["DEXPC", "NCT", "DEXPC_NCT"])
         self.tablet_view.set_dataset(dataset)
         self._refresh_tree()
         self._update_title()
         self.statusBar().showMessage(
-            self._t(
-                "nct.completed", points=dialog.calculation_result.calibration_points
-            )
+            self._t("nct.completed", points=dialog.calculation_result.calibration_points)
         )
 
     def show_depth_annotations(self) -> None:
@@ -1956,9 +1981,7 @@ class MainWindow(QMainWindow):
 
     def create_resampled_depth_copy(self) -> None:
         try:
-            dialog = DepthResampleDialog(
-                self.depth_axis_controller, self, language=self.language
-            )
+            dialog = DepthResampleDialog(self.depth_axis_controller, self, language=self.language)
         except (RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("resample.title"), str(exc))
             return
@@ -1977,13 +2000,9 @@ class MainWindow(QMainWindow):
 
     def show_curve_transfer(self) -> None:
         if self.session.current_dataset is None:
-            QMessageBox.information(
-                self, self._t("transfer.title"), self._t("data.select_dataset")
-            )
+            QMessageBox.information(self, self._t("transfer.title"), self._t("data.select_dataset"))
             return
-        dialog = CurveTransferDialog(
-            self.curve_transfer_controller, self, language=self.language
-        )
+        dialog = CurveTransferDialog(self.curve_transfer_controller, self, language=self.language)
         if (
             dialog.exec() != QDialog.DialogCode.Accepted
             or dialog.analysis is None
@@ -1999,19 +2018,13 @@ class MainWindow(QMainWindow):
         except (KeyError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("transfer.title"), str(exc))
             return
-        self._after_curve_transfer(
-            self._t("transfer.completed", count=len(curves))
-        )
+        self._after_curve_transfer(self._t("transfer.completed", count=len(curves)))
 
     def show_dataset_merge(self) -> None:
         if self.session.current_dataset is None:
-            QMessageBox.information(
-                self, self._t("merge.title"), self._t("data.select_dataset")
-            )
+            QMessageBox.information(self, self._t("merge.title"), self._t("data.select_dataset"))
             return
-        dialog = DatasetMergeDialog(
-            self.dataset_merge_controller, self, language=self.language
-        )
+        dialog = DatasetMergeDialog(self.dataset_merge_controller, self, language=self.language)
         if (
             dialog.exec() != QDialog.DialogCode.Accepted
             or dialog.analysis is None
@@ -2019,9 +2032,7 @@ class MainWindow(QMainWindow):
         ):
             return
         try:
-            result = self.dataset_merge_controller.create(
-                dialog.source_dataset_id, dialog.analysis
-            )
+            result = self.dataset_merge_controller.create(dialog.source_dataset_id, dialog.analysis)
         except (KeyError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("merge.title"), str(exc))
             return
@@ -2131,12 +2142,8 @@ class MainWindow(QMainWindow):
                 self.depth_axis_controller.can_redo_ascending_copy
             )
         if hasattr(self, "undo_resample_action"):
-            self.undo_resample_action.setEnabled(
-                self.depth_axis_controller.can_undo_resample
-            )
-            self.redo_resample_action.setEnabled(
-                self.depth_axis_controller.can_redo_resample
-            )
+            self.undo_resample_action.setEnabled(self.depth_axis_controller.can_undo_resample)
+            self.redo_resample_action.setEnabled(self.depth_axis_controller.can_redo_resample)
 
     def show_lithology_legend(self) -> None:
         well = self.session.current_well
@@ -2182,9 +2189,7 @@ class MainWindow(QMainWindow):
             )
             templates_item.setData(0, Qt.ItemDataRole.UserRole, ("description_templates",))
             root.addChild(templates_item)
-            for name in sorted(
-                self.session.project.description_templates, key=str.casefold
-            ):
+            for name in sorted(self.session.project.description_templates, key=str.casefold):
                 templates_item.addChild(QTreeWidgetItem([name]))
         for well in self.session.project.wells.values():
             well_item = QTreeWidgetItem([well.name])
@@ -2210,9 +2215,7 @@ class MainWindow(QMainWindow):
                     dataset_item.addChild(tracks_item)
                     for position, track in enumerate(layout.tracks, start=1):
                         state = "" if track.visible else " [скрыт]"
-                        track_item = QTreeWidgetItem(
-                            [f"{position}. {track.title}{state}"]
-                        )
+                        track_item = QTreeWidgetItem([f"{position}. {track.title}{state}"])
                         track_item.setData(
                             0,
                             Qt.ItemDataRole.UserRole,
@@ -2223,9 +2226,7 @@ class MainWindow(QMainWindow):
                 lithology_item = QTreeWidgetItem(
                     [self._t("lithology.tree", count=len(well.lithology))]
                 )
-                lithology_item.setData(
-                    0, Qt.ItemDataRole.UserRole, ("lithology", well.well_id)
-                )
+                lithology_item.setData(0, Qt.ItemDataRole.UserRole, ("lithology", well.well_id))
                 well_item.addChild(lithology_item)
                 for interval in well.lithology:
                     child = QTreeWidgetItem(
@@ -2247,15 +2248,13 @@ class MainWindow(QMainWindow):
                 annotations_item = QTreeWidgetItem(
                     [self._t("annotations.tree", count=len(annotations))]
                 )
-                annotations_item.setData(
-                    0, Qt.ItemDataRole.UserRole, ("annotations", well.well_id)
-                )
+                annotations_item.setData(0, Qt.ItemDataRole.UserRole, ("annotations", well.well_id))
                 well_item.addChild(annotations_item)
                 for annotation in annotations:
-                    text = str(
-                        annotation.properties.get("text", self._t("annotations.default"))
+                    text = str(annotation.properties.get("text", self._t("annotations.default")))
+                    depth = (
+                        annotation.top_depth if annotation.top_depth is not None else annotation.y
                     )
-                    depth = annotation.top_depth if annotation.top_depth is not None else annotation.y
                     child = QTreeWidgetItem([f"{depth:g} м: {text}"])
                     child.setData(
                         0,
@@ -2396,18 +2395,14 @@ class MainWindow(QMainWindow):
         except (KeyError, TypeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("inspector.title"), str(exc))
             return
-        self._layout_changed(
-            self._t("inspector.style_updated", mnemonic=mnemonic)
-        )
+        self._layout_changed(self._t("inspector.style_updated", mnemonic=mnemonic))
         self.inspector.show_track(track, suggested_range=self._track_data_range(track))
 
     def _apply_inspector_grid(
         self, track_id: str, show_x: bool, show_y: bool, alpha: float
     ) -> None:
         try:
-            self.tablet_controller.set_track_grid(
-                track_id, show_x, show_y, alpha
-            )
+            self.tablet_controller.set_track_grid(track_id, show_x, show_y, alpha)
             track = self.tablet_view.layout_model.track_by_id(track_id)
         except (KeyError, TypeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("inspector.title"), str(exc))
