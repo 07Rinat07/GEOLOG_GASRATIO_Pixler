@@ -16,6 +16,7 @@ class TrackKind(StrEnum):
     CALCIMETRY = "calcimetry"
     LBA = "lba"
     STRATIGRAPHY = "stratigraphy"
+    INTERPRETATION = "interpretation"
     TEXT = "text"
 
 

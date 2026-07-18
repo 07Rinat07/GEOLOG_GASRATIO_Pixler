@@ -252,7 +252,6 @@ normal plot navigation.
 The last cursor depth is stored in each dataset layout. Returning to a well restores that depth;
 if the data range changed, it is safely clamped to the new limits. The values dock also reports
 the current lithotype, interval top and bottom, and layer description.
-<<<<<<< HEAD
 
 ## Interpretation intervals
 
@@ -267,5 +266,11 @@ inside the project as `Project → Well → Interpretation → Intervals`; the s
 modified. The active interpretation can be exported to JSON, CSV, or Excel. JSON retains
 interpretation metadata and the well name, CSV contains a flat interval table, and Excel adds a
 separate Metadata sheet.
-=======
->>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
+
+The active interpretation is rendered as a dedicated tablet track. Each interval type receives its
+own lane, so overlapping intervals of different types remain distinguishable. Clicking a painted
+interval performs lane-and-depth hit testing, selects the same row in the manager, and opens the
+property panel. The panel edits top, bottom, type, label, color, and a multiline comment through the
+same validation and Undo/Redo history. Double-clicking an interval in the project tree opens the
+corresponding tablet selection. Active intervals are also included in the cursor summary. Switching
+wells automatically clears stale selection so properties cannot leak across wells.

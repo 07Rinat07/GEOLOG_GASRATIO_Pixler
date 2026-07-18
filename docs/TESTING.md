@@ -52,10 +52,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Interval Statistics UI | RU/KK/EN title, interval, count/min/max/mean headers and validation messages |
 | Depth Annotations UI | RU/KK/EN title, columns, actions, close button and project-tree label |
 | Lithology Intervals UI | RU/KK/EN labels/actions, EN catalog names and stable lithotype IDs |
-<<<<<<< HEAD
 | Interpretation Intervals | Domain validation, same-type overlap, CRUD, Undo/Redo, project v15, JSON/CSV/Excel and RU/KK/EN UI |
-=======
->>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
 | Description Templates UI | RU/KK/EN title, columns, actions, close button and project-tree label |
 | Lithology Legend UI | RU/KK/EN headers/empty state, localized name resolver and stable codes/IDs |
 | Lithotype Catalog UI | RU/KK/EN table/form/actions and language-independent system/project state |

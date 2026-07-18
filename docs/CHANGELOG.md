@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased — Interpretation tablet visualization
+
+### Русский
+
+- добавлена отдельная планшетная дорожка активной интерпретации с независимыми полосами типов;
+- добавлен hit-testing интервалов по полосе и глубине;
+- добавлено двустороннее выделение между планшетом, менеджером, деревом проекта и панелью свойств;
+- панель свойств позволяет изменять кровлю, подошву, тип, подпись, цвет и комментарий через валидируемый controller/Undo history;
+- активные интервалы включены в сводку визирной линии;
+- добавлена нормализация выбора при переключении скважин и RU/KK/EN локализация;
+- regression suite: 721 passed, 1 skipped; Ruff и MyPy без ошибок.
+
+### Қазақша
+
+- белсенді интерпретация үшін түрлер бойынша тәуелсіз жолақтары бар жеке планшет трегі қосылды;
+- жолақ пен тереңдік бойынша аралық hit-testing қосылды;
+- планшет, менеджер, жоба ағашы және қасиеттер панелі арасында екіжақты таңдау қосылды;
+- қасиеттер панелі төбе, табан, түр, белгі, түс және түсініктемені тексерілетін controller/Undo history арқылы өзгертеді;
+- белсенді аралықтар визир сызығының жиынтығына қосылды;
+- ұңғымаларды ауыстырғанда таңдауды қалыпқа келтіру және RU/KK/EN локализациясы қосылды;
+- regression suite: 721 passed, 1 skipped; Ruff және MyPy қатесіз.
+
+### English
+
+- added a dedicated tablet track for the active interpretation with independent type lanes;
+- added interval hit testing by lane and depth;
+- added bidirectional selection across the tablet, manager, project tree, and property panel;
+- the property panel edits top, bottom, type, label, color, and comment through the validated controller/Undo history;
+- active interpretation intervals are included in the cursor summary;
+- added selection normalization when switching wells and RU/KK/EN localization;
+- regression suite: 721 passed, 1 skipped; Ruff and MyPy pass cleanly.
+
 ## Unreleased — Interpretation interval manager
 
 ### Русский

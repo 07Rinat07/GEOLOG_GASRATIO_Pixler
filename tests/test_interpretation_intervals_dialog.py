@@ -44,3 +44,20 @@ def test_interpretation_dialog_adds_interval_in_english(qapp) -> None:
     add_button = dialog.findChild(QPushButton, "interpretation-interval-add-button")
     assert add_button is not None and add_button.text() == "Add"
     dialog.close()
+
+
+def test_interpretation_dialog_accepts_external_interval_selection(qapp) -> None:
+    controller = _controller()
+    interval = controller.add_interval(100.0, 150.0, "Reservoir", "Sand A")
+    controller.selected_interval_id = None
+    dialog = InterpretationIntervalsDialog(controller)
+    emitted: list[tuple[str, str]] = []
+    dialog.interval_selected.connect(lambda first, second: emitted.append((first, second)))
+    interpretation_id = controller.current_interpretation().interpretation_id
+
+    assert dialog.select_interval(interpretation_id, interval.interval_id) is True
+
+    assert controller.selected_interval_id == interval.interval_id
+    assert dialog.table.currentRow() == 0
+    assert emitted == []
+    dialog.close()

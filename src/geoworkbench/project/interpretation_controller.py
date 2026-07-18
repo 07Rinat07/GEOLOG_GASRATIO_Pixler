@@ -27,6 +27,7 @@ class InterpretationController:
     session: ProjectSession
     history: InterpretationHistory = field(default_factory=InterpretationHistory)
     selected_interpretation_id: str | None = None
+    selected_interval_id: str | None = None
 
     @property
     def can_undo(self) -> bool:
@@ -43,7 +44,39 @@ class InterpretationController:
     def select_interpretation(self, interpretation_id: str) -> WellInterpretation:
         interpretation = self._require_interpretation(interpretation_id)
         self.selected_interpretation_id = interpretation.interpretation_id
+        if not any(
+            item.interval_id == self.selected_interval_id for item in interpretation.intervals
+        ):
+            self.selected_interval_id = None
         return interpretation
+
+    def select_interval(
+        self, interpretation_id: str, interval_id: str
+    ) -> InterpretationInterval:
+        interpretation = self.select_interpretation(interpretation_id)
+        for interval in interpretation.intervals:
+            if interval.interval_id == interval_id:
+                self.selected_interval_id = interval_id
+                return interval
+        raise KeyError(f"Интервал интерпретации не найден: {interval_id}")
+
+    def selected_interval(self) -> InterpretationInterval | None:
+        try:
+            interpretation = self.current_interpretation()
+        except RuntimeError:
+            return None
+        for interval in interpretation.intervals:
+            if interval.interval_id == self.selected_interval_id:
+                return interval
+        return None
+
+    def normalize_selection(self) -> None:
+        """Normalize selected IDs after switching the current project well."""
+        if self.session.current_well is None:
+            self.selected_interpretation_id = None
+            self.selected_interval_id = None
+            return
+        self._normalize_selection()
 
     def current_interpretation(self) -> WellInterpretation:
         well = self._require_well()
@@ -78,6 +111,7 @@ class InterpretationController:
         )
         well.interpretations[interpretation.interpretation_id] = interpretation
         self.selected_interpretation_id = interpretation.interpretation_id
+        self.selected_interval_id = None
         self._record(well, before, "Добавление интерпретации")
         return interpretation
 
@@ -111,6 +145,7 @@ class InterpretationController:
         before = deepcopy(well.interpretations)
         removed = well.interpretations.pop(interpretation_id)
         self.selected_interpretation_id = next(iter(well.interpretations), None)
+        self.selected_interval_id = None
         self._record(well, before, "Удаление интерпретации")
         return removed
 
@@ -146,6 +181,7 @@ class InterpretationController:
         before = deepcopy(well.interpretations)
         interval = InterpretationInterval(new_id(), *values)
         interpretation.intervals.append(interval)
+        self.selected_interval_id = interval.interval_id
         self._record(well, before, "Добавление интервала интерпретации")
         return interval
 
@@ -182,6 +218,7 @@ class InterpretationController:
             interval.color,
             interval.comment,
         ) = values
+        self.selected_interval_id = interval.interval_id
         self._record(well, before, "Изменение интервала интерпретации")
         return interval
 
@@ -191,6 +228,8 @@ class InterpretationController:
         interval = self._require_interval(interval_id)
         before = deepcopy(well.interpretations)
         interpretation.intervals.remove(interval)
+        if self.selected_interval_id == interval_id:
+            self.selected_interval_id = None
         self._record(well, before, "Удаление интервала интерпретации")
         return interval
 
@@ -315,6 +354,11 @@ class InterpretationController:
         well = self._require_well()
         if self.selected_interpretation_id not in well.interpretations:
             self.selected_interpretation_id = next(iter(well.interpretations), None)
+        interpretation = well.interpretations.get(self.selected_interpretation_id or "")
+        if interpretation is None or not any(
+            item.interval_id == self.selected_interval_id for item in interpretation.intervals
+        ):
+            self.selected_interval_id = None
 
     def _require_well(self) -> Well:
         well = self.session.current_well

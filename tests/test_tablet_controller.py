@@ -397,3 +397,24 @@ def test_commands_require_selected_dataset() -> None:
 
     with pytest.raises(RuntimeError, match="набор данных"):
         controller.build_default_layout()
+
+
+def test_default_layout_and_manual_track_support_interpretations() -> None:
+    from geoworkbench.domain.models import WellInterpretation
+
+    session = make_session()
+    well = session.current_well
+    assert well is not None
+    well.interpretations["primary"] = WellInterpretation("primary", "Primary")
+    controller = TabletController(session)
+
+    layout = controller.build_default_layout()
+    default_track = next(
+        track for track in layout.tracks if track.kind is TrackKind.INTERPRETATION
+    )
+    manual_track = controller.add_track(TrackKind.INTERPRETATION)
+
+    assert default_track.title == "Интерпретация"
+    assert default_track.width == 280
+    assert manual_track.kind is TrackKind.INTERPRETATION
+    assert manual_track.curve_mnemonics == []

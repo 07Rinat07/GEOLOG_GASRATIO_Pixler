@@ -24,6 +24,7 @@ from geoworkbench.domain.models import (
     Dataset,
     LithologyInterval,
     StratigraphyInterval,
+    WellInterpretation,
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
@@ -55,6 +56,8 @@ class RenderedTrack:
     cuttings_items: dict[str, tuple[pg.BarGraphItem, ...]] | None = None
     analysis_items: dict[str, tuple[object, ...]] | None = None
     stratigraphy_items: dict[str, tuple[object, ...]] | None = None
+    interpretation_items: dict[str, tuple[object, ...]] | None = None
+    interpretation_lanes: dict[str, int] | None = None
     cursor_line: pg.InfiniteLine | None = None
 
 
@@ -179,6 +182,9 @@ class TabletView(QWidget):
     track_width_change_requested = Signal(str, int)
     visible_depth_changed = Signal(float, float)
     cursor_changed = Signal(float, str)
+    interpretation_selected = Signal(str)
+    interval_selected = Signal(str, str)
+    interval_selection_cleared = Signal()
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__()
@@ -191,6 +197,9 @@ class TabletView(QWidget):
         self._lithology: tuple[LithologyInterval, ...] = ()
         self._cuttings: tuple[CuttingsSample, ...] = ()
         self._stratigraphy: tuple[StratigraphyInterval, ...] = ()
+        self._interpretations: tuple[WellInterpretation, ...] = ()
+        self._selected_interpretation_id: str | None = None
+        self._selected_interval_id: str | None = None
         self._lithotype_catalog: dict[str, CatalogLithotype] = {}
         self._layout_model = TabletLayout()
         self._rendered: dict[str, RenderedTrack] = {}
@@ -272,6 +281,105 @@ class TabletView(QWidget):
             raise KeyError(f"Трек не отрисован: {track_id}")
         items = rendered.lithology_label_items or rendered.lithology_description_items or {}
         return tuple(interval_id for interval_id, item in items.items() if item.isVisible())
+
+
+    @property
+    def selected_interpretation_id(self) -> str | None:
+        return self._selected_interpretation_id
+
+    @property
+    def selected_interval_id(self) -> str | None:
+        return self._selected_interval_id
+
+    def rendered_interpretation_ids(self, track_id: str) -> tuple[str, ...]:
+        rendered = self._rendered.get(track_id)
+        if rendered is None:
+            raise KeyError(f"Трек не отрисован: {track_id}")
+        return tuple((rendered.interpretation_items or {}).keys())
+
+    def set_interpretations(
+        self,
+        interpretations: list[WellInterpretation],
+        selected_interpretation_id: str | None = None,
+    ) -> None:
+        self._interpretations = tuple(interpretations)
+        available_ids = {item.interpretation_id for item in self._interpretations}
+        requested = selected_interpretation_id or self._selected_interpretation_id
+        if requested not in available_ids:
+            requested = self._interpretations[0].interpretation_id if self._interpretations else None
+        self._selected_interpretation_id = requested
+        current = self._current_interpretation()
+        if current is None or not any(
+            item.interval_id == self._selected_interval_id for item in current.intervals
+        ):
+            self._selected_interval_id = None
+        self.refresh_view()
+
+    def set_selected_interpretation(
+        self, interpretation_id: str | None, *, emit_signal: bool = False
+    ) -> bool:
+        if interpretation_id is not None and not any(
+            item.interpretation_id == interpretation_id for item in self._interpretations
+        ):
+            return False
+        changed = self._selected_interpretation_id != interpretation_id
+        self._selected_interpretation_id = interpretation_id
+        current = self._current_interpretation()
+        if current is None or not any(
+            item.interval_id == self._selected_interval_id for item in current.intervals
+        ):
+            self._selected_interval_id = None
+        if changed:
+            self.refresh_view()
+            if emit_signal and interpretation_id is not None:
+                self.interpretation_selected.emit(interpretation_id)
+        return changed
+
+    def set_selected_interval(
+        self,
+        interpretation_id: str,
+        interval_id: str,
+        *,
+        emit_signal: bool = False,
+    ) -> bool:
+        interpretation = next(
+            (item for item in self._interpretations if item.interpretation_id == interpretation_id),
+            None,
+        )
+        if interpretation is None or not any(
+            item.interval_id == interval_id for item in interpretation.intervals
+        ):
+            return False
+        interpretation_changed = self._selected_interpretation_id != interpretation_id
+        interval_changed = self._selected_interval_id != interval_id
+        self._selected_interpretation_id = interpretation_id
+        self._selected_interval_id = interval_id
+        if interpretation_changed:
+            self.refresh_view()
+        else:
+            self._apply_interpretation_selection_style()
+        if emit_signal and (interpretation_changed or interval_changed):
+            self.interval_selected.emit(interpretation_id, interval_id)
+        return interpretation_changed or interval_changed
+
+    def clear_interval_selection(self, *, emit_signal: bool = False) -> bool:
+        if self._selected_interval_id is None:
+            return False
+        self._selected_interval_id = None
+        self._apply_interpretation_selection_style()
+        if emit_signal:
+            self.interval_selection_cleared.emit()
+        return True
+
+    def _current_interpretation(self) -> WellInterpretation | None:
+        return next(
+            (
+                item
+                for item in self._interpretations
+                if item.interpretation_id == self._selected_interpretation_id
+            ),
+            None,
+        )
 
     @property
     def visible_depth_range(self) -> tuple[float, float] | None:
@@ -411,6 +519,24 @@ class TabletView(QWidget):
                 f"({stratigraphy.top_depth:g}–{stratigraphy.bottom_depth:g} м)"
                 + (f" — {stratigraphy.description}" if stratigraphy.description else "")
             )
+        interpretation = self._current_interpretation()
+        if interpretation is not None:
+            for interpretation_interval in interpretation.intervals:
+                if (
+                    interpretation_interval.top_depth
+                    <= sample_depth
+                    <= interpretation_interval.bottom_depth
+                ):
+                    interval_text = (
+                        f"Интерпретация «{interpretation.name}»: "
+                        f"{interpretation_interval.interval_type} / "
+                        f"{interpretation_interval.label} "
+                        f"({interpretation_interval.top_depth:g}–"
+                        f"{interpretation_interval.bottom_depth:g} м)"
+                    )
+                    if interpretation_interval.comment:
+                        interval_text += f" — {interpretation_interval.comment}"
+                    values.append(interval_text)
         sample = next(
             (
                 item
@@ -537,6 +663,9 @@ class TabletView(QWidget):
             cuttings_items = self._populate_cuttings(track, definition)
             analysis_items = self._populate_sample_analysis(track, definition)
             stratigraphy_items = self._populate_stratigraphy(track, definition)
+            interpretation_items, interpretation_lanes = self._populate_interpretation(
+                track, definition
+            )
             if master_plot is None:
                 master_plot = track.plot
             view_box = track.plot.getViewBox()
@@ -556,9 +685,15 @@ class TabletView(QWidget):
                 cuttings_items,
                 analysis_items,
                 stratigraphy_items,
+                interpretation_items,
+                interpretation_lanes,
             )
             self._rendered[definition.track_id] = rendered
             self._install_cursor(rendered)
+            if definition.kind is TrackKind.INTERPRETATION:
+                track.plot.scene().sigMouseClicked.connect(
+                    lambda event, entry=rendered: self._interpretation_plot_clicked(entry, event)
+                )
             viewport = track.plot.viewport()
             viewport.installEventFilter(self)
             self._depth_viewports[viewport] = track.plot
@@ -569,6 +704,7 @@ class TabletView(QWidget):
             self._synchronize_depth_ranges(visible_top, visible_bottom)
             self._update_lithology_text_visibility(visible_top, visible_bottom)
             self._update_stratigraphy_text_visibility(visible_top, visible_bottom)
+            self._apply_interpretation_selection_style()
 
     def _install_cursor(self, rendered: RenderedTrack) -> None:
         if rendered.plot is None:
@@ -734,6 +870,7 @@ class TabletView(QWidget):
             TrackKind.CALCIMETRY,
             TrackKind.LBA,
             TrackKind.STRATIGRAPHY,
+            TrackKind.INTERPRETATION,
             TrackKind.TEXT,
         ):
             track.plot.hideAxis("bottom")
@@ -852,6 +989,118 @@ class TabletView(QWidget):
             track.plot.addItem(label)
             rendered[interval.interval_id] = (bar, label)
         return rendered
+
+    def _populate_interpretation(
+        self, track: TabletTrackWidget, definition: TrackDefinition
+    ) -> tuple[dict[str, tuple[object, ...]], dict[str, int]]:
+        if definition.kind is not TrackKind.INTERPRETATION:
+            return {}, {}
+        interpretation = self._current_interpretation()
+        track.plot.hideAxis("bottom")
+        track.plot.setMouseEnabled(x=False, y=True)
+        if interpretation is None:
+            track.title.setText(definition.title)
+            track.plot.setXRange(0.0, 1.0, padding=0)
+            return {}, {}
+        track.title.setText(f"{definition.title}: {interpretation.name}")
+        interval_types = sorted(
+            {item.interval_type for item in interpretation.intervals}, key=str.casefold
+        )
+        lane_by_type = {name: index for index, name in enumerate(interval_types)}
+        track.plot.setXRange(0.0, float(max(1, len(interval_types))), padding=0)
+        rendered: dict[str, tuple[object, ...]] = {}
+        lane_by_interval: dict[str, int] = {}
+        for interval in sorted(
+            interpretation.intervals,
+            key=lambda item: (item.top_depth, item.bottom_depth, item.interval_type.casefold()),
+        ):
+            lane = lane_by_type[interval.interval_type]
+            color = interval.color if pg.mkColor(interval.color).isValid() else "#fde68a"
+            bar = pg.BarGraphItem(
+                x=[lane + 0.5],
+                y=[(interval.top_depth + interval.bottom_depth) / 2.0],
+                width=0.94,
+                height=interval.bottom_depth - interval.top_depth,
+                brush=pg.mkBrush(color),
+                pen=pg.mkPen("#475569", width=0.8),
+            )
+            track.plot.addItem(bar)
+            label_text = f"{interval.interval_type}\n{interval.label}"
+            label = pg.TextItem(label_text, color="#0f172a", anchor=(0.5, 0.5))
+            label.setPos(lane + 0.5, (interval.top_depth + interval.bottom_depth) / 2.0)
+            label.setToolTip(
+                f"{interval.top_depth:g}–{interval.bottom_depth:g} m\n"
+                f"{interval.interval_type}: {interval.label}"
+                + (f"\n{interval.comment}" if interval.comment else "")
+            )
+            track.plot.addItem(label)
+            rendered[interval.interval_id] = (bar, label)
+            lane_by_interval[interval.interval_id] = lane
+        return rendered, lane_by_interval
+
+    def hit_test_interpretation(
+        self, track_id: str, x_value: float, depth: float
+    ) -> str | None:
+        rendered = self._rendered.get(track_id)
+        interpretation = self._current_interpretation()
+        if (
+            rendered is None
+            or rendered.definition.kind is not TrackKind.INTERPRETATION
+            or interpretation is None
+        ):
+            return None
+        lane = int(np.floor(float(x_value)))
+        candidates = [
+            item
+            for item in interpretation.intervals
+            if (rendered.interpretation_lanes or {}).get(item.interval_id) == lane
+            and item.top_depth <= depth <= item.bottom_depth
+        ]
+        if not candidates:
+            return None
+        return min(
+            candidates,
+            key=lambda item: (item.bottom_depth - item.top_depth, item.top_depth, item.interval_id),
+        ).interval_id
+
+    def _interpretation_plot_clicked(self, rendered: RenderedTrack, event: object) -> None:
+        if rendered.plot is None:
+            return
+        button = getattr(event, "button", lambda: Qt.MouseButton.LeftButton)()
+        if button != Qt.MouseButton.LeftButton:
+            return
+        scene_position = event.scenePos()  # type: ignore[attr-defined]
+        if not rendered.plot.sceneBoundingRect().contains(scene_position):
+            return
+        point = rendered.plot.getViewBox().mapSceneToView(scene_position)
+        interval_id = self.hit_test_interpretation(
+            rendered.definition.track_id, float(point.x()), float(point.y())
+        )
+        interpretation = self._current_interpretation()
+        if interval_id is None or interpretation is None:
+            self.clear_interval_selection(emit_signal=True)
+            return
+        self.set_selected_interval(
+            interpretation.interpretation_id, interval_id, emit_signal=True
+        )
+
+    def _apply_interpretation_selection_style(self) -> None:
+        for rendered in self._rendered.values():
+            for interval_id, items in (rendered.interpretation_items or {}).items():
+                if not items:
+                    continue
+                bar = items[0]
+                if not isinstance(bar, pg.BarGraphItem):
+                    continue
+                selected = interval_id == self._selected_interval_id
+                bar.setOpts(
+                    pen=pg.mkPen(
+                        "#111827" if selected else "#475569",
+                        width=3.0 if selected else 0.8,
+                    )
+                )
+                if len(items) > 1 and isinstance(items[1], pg.TextItem):
+                    items[1].setColor("#000000" if selected else "#0f172a")
 
     def _populate_cuttings(
         self, track: TabletTrackWidget, definition: TrackDefinition

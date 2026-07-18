@@ -66,10 +66,7 @@ from geoworkbench.project.curve_editing_controller import (
 )
 from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.lithology_controller import LithologyController
-<<<<<<< HEAD
 from geoworkbench.project.interpretation_controller import InterpretationController
-=======
->>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.stratigraphy_controller import StratigraphyController
 from geoworkbench.project.nct_controller import NctCalculationController
@@ -102,10 +99,8 @@ from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
 from geoworkbench.ui.dataset_merge_dialog import DatasetMergeDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.ui.interpretation_report_dialog import InterpretationReportDialog
-<<<<<<< HEAD
 from geoworkbench.ui.interpretation_intervals_dialog import InterpretationIntervalsDialog
-=======
->>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
+from geoworkbench.ui.interpretation_properties import InterpretationPropertiesPanel
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
@@ -158,10 +153,7 @@ class MainWindow(QMainWindow):
         self.time_depth_mapping_controller = TimeDepthMappingController(self.session)
         self.depth_annotation_controller = DepthAnnotationController(self.session)
         self.lithology_controller = LithologyController(self.session)
-<<<<<<< HEAD
         self.interpretation_controller = InterpretationController(self.session)
-=======
->>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
         self.stratigraphy_controller = StratigraphyController(self.session)
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
         self.description_template_controller = DescriptionTemplateController(self.session)
@@ -172,6 +164,7 @@ class MainWindow(QMainWindow):
         self.masterlog_template_controller = MasterlogTemplateController(self.session)
         self.dataset_selection = DatasetIntervalSelection()
         self._selected_track_id: str | None = None
+        self._interpretation_dialog: InterpretationIntervalsDialog | None = None
         self.print_page_settings = self.user_profile_settings.print_page_settings()
         self.cursor_line_settings = self.user_profile_settings.cursor_line_settings()
         self.setWindowIcon(application_icon())
@@ -189,6 +182,13 @@ class MainWindow(QMainWindow):
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
         self.tablet_view.cursor_changed.connect(self._show_cursor_values)
+        self.tablet_view.interpretation_selected.connect(
+            self._select_interpretation_from_tablet
+        )
+        self.tablet_view.interval_selected.connect(self._select_interpretation_interval)
+        self.tablet_view.interval_selection_cleared.connect(
+            self._clear_interpretation_interval_selection
+        )
         self.las_table_editor = LasTableEditor(
             self.las_range_editing_controller,
             language=self.language,
@@ -207,6 +207,7 @@ class MainWindow(QMainWindow):
 
         self._create_project_explorer()
         self._create_inspector()
+        self._create_interpretation_properties_panel()
         self._create_issues_panel()
         self._create_cursor_panel()
         self._create_actions()
@@ -250,6 +251,26 @@ class MainWindow(QMainWindow):
         self.inspector.x_axis_label_requested.connect(self._apply_inspector_x_axis_label)
         dock.setWidget(self.inspector)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+
+
+    def _create_interpretation_properties_panel(self) -> None:
+        self.interpretation_properties_dock = QDockWidget(
+            self._t("interpretations.properties_title"), self
+        )
+        self.interpretation_properties = InterpretationPropertiesPanel(
+            language=self.language
+        )
+        self.interpretation_properties.update_requested.connect(
+            self._update_interval_from_properties
+        )
+        self.interpretation_properties.manager_requested.connect(
+            self.show_interpretation_intervals
+        )
+        self.interpretation_properties_dock.setWidget(self.interpretation_properties)
+        self.addDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea, self.interpretation_properties_dock
+        )
+        self.interpretation_properties_dock.hide()
 
     def _create_issues_panel(self) -> None:
         dock = QDockWidget(self._t("dock.log"), self)
@@ -425,7 +446,6 @@ class MainWindow(QMainWindow):
         self.stratigraphy_action.triggered.connect(self.show_stratigraphy_editor)
         edit_menu.addAction(self.stratigraphy_action)
 
-<<<<<<< HEAD
         self.interpretation_intervals_action = QAction(
             self._t("interpretations.action"), self
         )
@@ -434,8 +454,6 @@ class MainWindow(QMainWindow):
         )
         edit_menu.addAction(self.interpretation_intervals_action)
 
-=======
->>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
         self.lithotype_catalog_action = QAction(self._t("catalog.action"), self)
         self.lithotype_catalog_action.triggered.connect(self.show_lithotype_catalog)
         edit_menu.addAction(self.lithotype_catalog_action)
@@ -542,6 +560,7 @@ class MainWindow(QMainWindow):
             ("DEXP / NCT", TrackKind.DEXP),
             (self._t("tablet.track.lithology"), TrackKind.LITHOLOGY),
             (self._t("tablet.track.stratigraphy"), TrackKind.STRATIGRAPHY),
+            (self._t("tablet.track.interpretation"), TrackKind.INTERPRETATION),
             (self._t("tablet.track.cuttings"), TrackKind.CUTTINGS),
             (self._t("tablet.track.calcimetry"), TrackKind.CALCIMETRY),
             (self._t("tablet.track.lba"), TrackKind.LBA),
@@ -931,6 +950,10 @@ class MainWindow(QMainWindow):
             return
 
         self.tablet_controller.session = self.session
+        self.interpretation_controller.session = self.session
+        self.interpretation_controller.history.clear()
+        self.interpretation_controller.selected_interpretation_id = None
+        self.interpretation_controller.selected_interval_id = None
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller.session = self.session
         self.dataset_merge_controller.session = self.session
@@ -982,6 +1005,9 @@ class MainWindow(QMainWindow):
             self.tablet_view.set_lithology([], self.lithotype_catalog_controller.available())
             self.tablet_view.set_cuttings([])
             self.tablet_view.set_stratigraphy([])
+            self.tablet_view.set_interpretations([])
+            self.interpretation_properties.clear()
+            self.interpretation_properties_dock.hide()
             return
         self.curve_view.show_dataset(dataset)
         self.las_table_editor.set_dataset(dataset)
@@ -994,6 +1020,19 @@ class MainWindow(QMainWindow):
         )
         self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
         self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
+        self.interpretation_controller.normalize_selection()
+        self.tablet_view.set_interpretations(
+            list(well.interpretations.values()) if well is not None else [],
+            self.interpretation_controller.selected_interpretation_id,
+        )
+        selected_interpretation_id = self.interpretation_controller.selected_interpretation_id
+        selected_interval_id = self.interpretation_controller.selected_interval_id
+        if selected_interpretation_id and selected_interval_id:
+            self._select_interpretation_interval(
+                selected_interpretation_id, selected_interval_id
+            )
+        else:
+            self._clear_interpretation_interval_selection()
         saved_layout = self.session.current_tablet_layout
         if saved_layout is None:
             self.build_default_tablet()
@@ -2050,7 +2089,6 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
 
-<<<<<<< HEAD
     def show_interpretation_intervals(self) -> None:
         if self.session.current_well is None:
             QMessageBox.information(
@@ -2059,16 +2097,117 @@ class MainWindow(QMainWindow):
                 self._t("interpretations.select_well"),
             )
             return
-        InterpretationIntervalsDialog(
+        dialog = InterpretationIntervalsDialog(
             self.interpretation_controller,
             self,
             language=self.language,
-        ).exec()
+        )
+        self._interpretation_dialog = dialog
+        dialog.interpretation_selected.connect(self._select_interpretation_from_manager)
+        dialog.interval_selected.connect(self._select_interpretation_interval)
+        dialog.intervals_changed.connect(self._after_interpretation_change)
+        selected_interpretation_id = self.interpretation_controller.selected_interpretation_id
+        selected_interval_id = self.interpretation_controller.selected_interval_id
+        if selected_interpretation_id and selected_interval_id:
+            dialog.select_interval(selected_interpretation_id, selected_interval_id)
+        elif selected_interpretation_id:
+            dialog.select_interpretation(selected_interpretation_id)
+        try:
+            dialog.exec()
+        finally:
+            self._interpretation_dialog = None
+        self._after_interpretation_change()
+
+    def _select_interpretation_from_manager(self, interpretation_id: str) -> None:
+        try:
+            self.interpretation_controller.select_interpretation(interpretation_id)
+        except (KeyError, RuntimeError):
+            return
+        self.tablet_view.set_selected_interpretation(interpretation_id)
+        self.interpretation_properties.clear()
+        self.interpretation_properties_dock.hide()
+
+    def _select_interpretation_from_tablet(self, interpretation_id: str) -> None:
+        self._select_interpretation_from_manager(interpretation_id)
+        if self._interpretation_dialog is not None:
+            self._interpretation_dialog.select_interpretation(interpretation_id)
+
+    def _select_interpretation_interval(
+        self, interpretation_id: str, interval_id: str
+    ) -> None:
+        try:
+            interval = self.interpretation_controller.select_interval(
+                interpretation_id, interval_id
+            )
+            interpretation = self.interpretation_controller.current_interpretation()
+        except (KeyError, RuntimeError):
+            self._clear_interpretation_interval_selection()
+            return
+        self.tablet_view.set_selected_interval(interpretation_id, interval_id)
+        self.interpretation_properties.show_interval(interpretation, interval)
+        self.interpretation_properties_dock.show()
+        self.interpretation_properties_dock.raise_()
+        if self._interpretation_dialog is not None:
+            self._interpretation_dialog.select_interval(interpretation_id, interval_id)
+
+    def _clear_interpretation_interval_selection(self) -> None:
+        self.interpretation_controller.selected_interval_id = None
+        self.tablet_view.clear_interval_selection()
+        self.interpretation_properties.clear()
+        self.interpretation_properties_dock.hide()
+
+    def _update_interval_from_properties(
+        self, interpretation_id: str, interval_id: str, values: object
+    ) -> None:
+        if not isinstance(values, dict):
+            return
+        try:
+            self.interpretation_controller.select_interpretation(interpretation_id)
+            interval = self.interpretation_controller.update_interval(
+                interval_id,
+                top_depth=float(values["top_depth"]),
+                bottom_depth=float(values["bottom_depth"]),
+                interval_type=str(values["interval_type"]),
+                label=str(values["label"]),
+                color=str(values["color"]),
+                comment=str(values["comment"]),
+            )
+        except (KeyError, RuntimeError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
+            return
+        self._after_interpretation_change()
+        self._select_interpretation_interval(interpretation_id, interval.interval_id)
+        self.statusBar().showMessage(self._t("interpretations.properties_updated"))
+
+    def _after_interpretation_change(self) -> None:
+        well = self.session.current_well
+        self.interpretation_controller.normalize_selection()
+        layout = self.session.current_tablet_layout
+        if (
+            well is not None
+            and well.interpretations
+            and layout is not None
+            and not any(track.kind is TrackKind.INTERPRETATION for track in layout.tracks)
+        ):
+            try:
+                self.tablet_controller.add_track(TrackKind.INTERPRETATION)
+            except (RuntimeError, ValueError):
+                pass
+        self.tablet_view.set_interpretations(
+            list(well.interpretations.values()) if well is not None else [],
+            self.interpretation_controller.selected_interpretation_id,
+        )
+        selected_interpretation_id = self.interpretation_controller.selected_interpretation_id
+        selected_interval_id = self.interpretation_controller.selected_interval_id
+        if selected_interpretation_id and selected_interval_id:
+            self._select_interpretation_interval(
+                selected_interpretation_id, selected_interval_id
+            )
+        else:
+            self._clear_interpretation_interval_selection()
         self._refresh_tree()
         self._update_title()
 
-=======
->>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
     def show_description_templates(self) -> None:
         DescriptionTemplatesDialog(
             self.description_template_controller, self, language=self.language
@@ -2399,7 +2538,6 @@ class MainWindow(QMainWindow):
                         ("lithology_interval", well.well_id, interval.interval_id),
                     )
                     lithology_item.addChild(child)
-<<<<<<< HEAD
             if well.interpretations:
                 interpretations_item = QTreeWidgetItem(
                     [self._t("interpretations.tree", count=len(well.interpretations))]
@@ -2430,8 +2568,36 @@ class MainWindow(QMainWindow):
                         ),
                     )
                     interpretations_item.addChild(child)
-=======
->>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
+                    for interpretation_interval in sorted(
+                        interpretation.intervals,
+                        key=lambda item: (
+                            item.top_depth,
+                            item.bottom_depth,
+                            item.label.casefold(),
+                        ),
+                    ):
+                        interval_child = QTreeWidgetItem(
+                            [
+                                self._t(
+                                    "interpretations.tree_interval",
+                                    top=f"{interpretation_interval.top_depth:g}",
+                                    bottom=f"{interpretation_interval.bottom_depth:g}",
+                                    type=interpretation_interval.interval_type,
+                                    label=interpretation_interval.label,
+                                )
+                            ]
+                        )
+                        interval_child.setData(
+                            0,
+                            Qt.ItemDataRole.UserRole,
+                            (
+                                "interpretation_interval",
+                                well.well_id,
+                                interpretation.interpretation_id,
+                                interpretation_interval.interval_id,
+                            ),
+                        )
+                        child.addChild(interval_child)
             if well.stratigraphy:
                 stratigraphy_item = QTreeWidgetItem(
                     [self._t("stratigraphy.tree", count=len(well.stratigraphy))]
@@ -2530,14 +2696,18 @@ class MainWindow(QMainWindow):
         elif data[0] in ("stratigraphy", "stratigraphy_interval"):
             self.session.current_well_id = data[1]
             self.show_stratigraphy_editor()
-<<<<<<< HEAD
         elif data[0] in ("interpretations", "interpretation"):
             self.session.current_well_id = data[1]
             if data[0] == "interpretation":
-                self.interpretation_controller.selected_interpretation_id = data[2]
+                self.interpretation_controller.select_interpretation(data[2])
+                self.tablet_view.set_selected_interpretation(data[2])
             self.show_interpretation_intervals()
-=======
->>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
+        elif data[0] == "interpretation_interval":
+            _, well_id, interpretation_id, interval_id = data
+            self.session.current_well_id = well_id
+            self._show_current_dataset()
+            self._select_interpretation_interval(interpretation_id, interval_id)
+            self.tabs.setCurrentWidget(self.tablet_view)
         elif data[0] in ("annotations", "annotation"):
             self.session.current_well_id = data[1]
             self.show_depth_annotations()

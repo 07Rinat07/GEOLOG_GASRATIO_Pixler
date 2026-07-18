@@ -734,3 +734,111 @@ def test_lithology_text_appears_when_thin_interval_is_zoomed(qapp) -> None:
 
     assert view.visible_lithology_text_ids("lithology") == ("thin",)
     view.close()
+
+
+def test_tablet_renders_interpretation_track_and_hit_tests_lanes(qapp) -> None:
+    from geoworkbench.domain.models import InterpretationInterval, WellInterpretation
+
+    dataset = Dataset(
+        "dataset-interpretation",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 150.0, 200.0]),
+    )
+    interpretation = WellInterpretation(
+        "primary",
+        "Primary",
+        intervals=[
+            InterpretationInterval(
+                "fluid",
+                120.0,
+                160.0,
+                "Fluid",
+                "Gas",
+                "#bfdbfe",
+                "Confirmed by gas response",
+            ),
+            InterpretationInterval(
+                "reservoir",
+                130.0,
+                180.0,
+                "Reservoir",
+                "Sand A",
+                "#fde68a",
+            ),
+        ],
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "interpretation-track",
+                    "Interpretation",
+                    TrackKind.INTERPRETATION,
+                    width=280,
+                )
+            ]
+        )
+    )
+    view.set_interpretations([interpretation], interpretation.interpretation_id)
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.rendered_interpretation_ids("interpretation-track") == (
+        "fluid",
+        "reservoir",
+    )
+    assert view.hit_test_interpretation("interpretation-track", 0.5, 140.0) == "fluid"
+    assert view.hit_test_interpretation("interpretation-track", 1.5, 140.0) == "reservoir"
+    assert view.hit_test_interpretation("interpretation-track", 1.5, 190.0) is None
+    assert "Интерпретация «Primary»: Fluid / Gas (120–160 м)" in view.cursor_summary(150.0)
+    track_widget = view._rendered["interpretation-track"].widget
+    assert isinstance(track_widget, TabletTrackWidget)
+    assert track_widget.title.text() == "Interpretation: Primary"
+    view.close()
+
+
+def test_tablet_interpretation_selection_updates_style_and_signal(qapp) -> None:
+    from geoworkbench.domain.models import InterpretationInterval, WellInterpretation
+
+    dataset = Dataset(
+        "dataset-selection",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 200.0]),
+    )
+    interval = InterpretationInterval(
+        "interval",
+        110.0,
+        150.0,
+        "Reservoir",
+        "Sand A",
+        "#fde68a",
+    )
+    interpretation = WellInterpretation("primary", "Primary", intervals=[interval])
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [TrackDefinition("interpretation", "Interpretation", TrackKind.INTERPRETATION)]
+        )
+    )
+    view.set_interpretations([interpretation], interpretation.interpretation_id)
+    view.set_dataset(dataset)
+    selected: list[tuple[str, str]] = []
+    cleared: list[bool] = []
+    view.interval_selected.connect(lambda first, second: selected.append((first, second)))
+    view.interval_selection_cleared.connect(lambda: cleared.append(True))
+
+    assert view.set_selected_interval("primary", "interval", emit_signal=True) is True
+    bar = view._rendered["interpretation"].interpretation_items["interval"][0]
+    assert isinstance(bar, pg.BarGraphItem)
+    assert bar.opts["pen"].widthF() == 3.0
+    assert selected == [("primary", "interval")]
+
+    assert view.clear_interval_selection(emit_signal=True) is True
+    assert bar.opts["pen"].widthF() == 0.8
+    assert cleared == [True]
+    view.close()

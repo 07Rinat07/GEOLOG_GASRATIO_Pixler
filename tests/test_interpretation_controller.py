@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from openpyxl import load_workbook
 
-from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Well
 from geoworkbench.project.interpretation_controller import InterpretationController
 from geoworkbench.project.session import ProjectSession
 
@@ -118,3 +118,39 @@ def test_interpretation_exports_json_csv_and_excel(tmp_path) -> None:
     workbook = load_workbook(xlsx_path, read_only=True)
     assert workbook["Intervals"]["D2"].value == "Fluid"
     assert workbook["Metadata"]["B3"].value == "Primary"
+
+
+def test_interpretation_controller_synchronizes_interval_selection() -> None:
+    controller = make_controller()
+    primary = controller.add_interpretation("Primary")
+    interval = controller.add_interval(100.0, 140.0, "Reservoir", "Sand A")
+    secondary = controller.add_interpretation("Secondary")
+
+    selected = controller.select_interval(primary.interpretation_id, interval.interval_id)
+
+    assert selected is interval
+    assert controller.selected_interpretation_id == primary.interpretation_id
+    assert controller.selected_interval() is interval
+
+    controller.select_interpretation(secondary.interpretation_id)
+
+    assert controller.selected_interval_id is None
+    assert controller.selected_interval() is None
+
+
+def test_interpretation_controller_normalizes_selection_after_well_switch() -> None:
+    controller = make_controller()
+    interpretation = controller.add_interpretation("Primary")
+    interval = controller.add_interval(100.0, 140.0, "Reservoir", "Sand A")
+    controller.select_interval(interpretation.interpretation_id, interval.interval_id)
+    session = controller.session
+    assert session.project is not None
+    second_well = Well("well-two", "Well B")
+    session.project.wells[second_well.well_id] = second_well
+    session.current_well_id = second_well.well_id
+    session.current_dataset_id = None
+
+    controller.normalize_selection()
+
+    assert controller.selected_interpretation_id is None
+    assert controller.selected_interval_id is None

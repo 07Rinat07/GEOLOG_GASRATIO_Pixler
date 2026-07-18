@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import TypedDict
 from pathlib import Path
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -37,6 +38,10 @@ class InterpretationIntervalValues(TypedDict):
 
 
 class InterpretationIntervalsDialog(QDialog):
+    interpretation_selected = Signal(str)
+    interval_selected = Signal(str, str)
+    intervals_changed = Signal()
+
     def __init__(
         self,
         controller: InterpretationController,
@@ -47,6 +52,7 @@ class InterpretationIntervalsDialog(QDialog):
         super().__init__(parent)
         self.controller = controller
         self.localizer = Localizer.create(language)
+        self._selection_guard = False
         self.setWindowTitle(self._t("interpretations.window_title"))
         self.resize(1120, 680)
 
@@ -209,28 +215,80 @@ class InterpretationIntervalsDialog(QDialog):
             return
         self.description_input.setText(interpretation.description or "")
         intervals = self.controller.available_intervals()
-        self.table.setRowCount(len(intervals))
-        for row, interval in enumerate(intervals):
-            values = (
-                f"{interval.top_depth:g}",
-                f"{interval.bottom_depth:g}",
-                interval.interval_type,
-                interval.label,
-                interval.color,
-                interval.comment or "",
-            )
-            for column, value in enumerate(values):
-                item = QTableWidgetItem(value)
-                if column == 0:
-                    item.setData(256, interval.interval_id)
-                self.table.setItem(row, column, item)
+        selected_interval_id = self.controller.selected_interval_id
+        selected_row = -1
+        previous_guard = self._selection_guard
+        self._selection_guard = True
+        self.table.blockSignals(True)
+        try:
+            self.table.setRowCount(len(intervals))
+            for row, interval in enumerate(intervals):
+                values = (
+                    f"{interval.top_depth:g}",
+                    f"{interval.bottom_depth:g}",
+                    interval.interval_type,
+                    interval.label,
+                    interval.color,
+                    interval.comment or "",
+                )
+                for column, value in enumerate(values):
+                    item = QTableWidgetItem(value)
+                    if column == 0:
+                        item.setData(256, interval.interval_id)
+                    self.table.setItem(row, column, item)
+                if interval.interval_id == selected_interval_id:
+                    selected_row = row
+            if selected_row >= 0:
+                self.table.selectRow(selected_row)
+            else:
+                self.table.clearSelection()
+                self.table.setCurrentCell(-1, -1)
+        finally:
+            self.table.blockSignals(False)
+            self._selection_guard = previous_guard
         self.table.resizeColumnsToContents()
+        if selected_row >= 0:
+            self._load_selected_interval()
 
     def _select_interpretation(self, index: int) -> None:
         interpretation_id = self.interpretation_combo.itemData(index)
         if isinstance(interpretation_id, str):
             self.controller.select_interpretation(interpretation_id)
+            if not self._selection_guard:
+                self.interpretation_selected.emit(interpretation_id)
         self._refresh_interpretation_details()
+
+    def select_interpretation(self, interpretation_id: str) -> bool:
+        try:
+            self.controller.select_interpretation(interpretation_id)
+        except (KeyError, RuntimeError):
+            return False
+        previous_guard = self._selection_guard
+        self._selection_guard = True
+        try:
+            index = self.interpretation_combo.findData(interpretation_id)
+            if index >= 0:
+                self.interpretation_combo.setCurrentIndex(index)
+            self._refresh_interpretation_details()
+        finally:
+            self._selection_guard = previous_guard
+        return self.controller.selected_interpretation_id == interpretation_id
+
+    def select_interval(self, interpretation_id: str, interval_id: str) -> bool:
+        try:
+            self.controller.select_interval(interpretation_id, interval_id)
+        except (KeyError, RuntimeError):
+            return False
+        previous_guard = self._selection_guard
+        self._selection_guard = True
+        try:
+            index = self.interpretation_combo.findData(interpretation_id)
+            if index >= 0:
+                self.interpretation_combo.setCurrentIndex(index)
+            self._refresh_interpretation_details()
+        finally:
+            self._selection_guard = previous_guard
+        return self._selected_interval_id() == interval_id
 
     def _add_interpretation(self) -> None:
         name, accepted = QInputDialog.getText(
@@ -240,6 +298,7 @@ class InterpretationIntervalsDialog(QDialog):
         )
         if accepted and self._run(lambda: self.controller.add_interpretation(name)):
             self._refresh_interpretations()
+            self.intervals_changed.emit()
 
     def _rename_interpretation(self) -> None:
         try:
@@ -261,6 +320,7 @@ class InterpretationIntervalsDialog(QDialog):
             )
         ):
             self._refresh_interpretations()
+            self.intervals_changed.emit()
 
     def _remove_interpretation(self) -> None:
         try:
@@ -279,6 +339,7 @@ class InterpretationIntervalsDialog(QDialog):
             lambda: self.controller.remove_interpretation(current.interpretation_id)
         ):
             self._refresh_interpretations()
+            self.intervals_changed.emit()
 
     def _save_description(self) -> None:
         try:
@@ -308,6 +369,7 @@ class InterpretationIntervalsDialog(QDialog):
             self.label_input.clear()
             self.comment_input.clear()
             self._refresh_interpretation_details()
+            self.intervals_changed.emit()
 
     def _update_interval(self) -> None:
         interval_id = self._selected_interval_id()
@@ -325,6 +387,7 @@ class InterpretationIntervalsDialog(QDialog):
             )
         ):
             self._refresh_interpretation_details()
+            self.intervals_changed.emit()
 
     def _remove_interval(self) -> None:
         interval_id = self._selected_interval_id()
@@ -337,6 +400,7 @@ class InterpretationIntervalsDialog(QDialog):
             return
         if self._run(lambda: self.controller.remove_interval(interval_id)):
             self._refresh_interpretation_details()
+            self.intervals_changed.emit()
 
     def _selected_interval_id(self) -> str | None:
         row = self.table.currentRow()
@@ -355,14 +419,22 @@ class InterpretationIntervalsDialog(QDialog):
         self.label_input.setText(values[3])
         self.color_input.setText(values[4])
         self.comment_input.setText(values[5])
+        interval_id = self._selected_interval_id()
+        interpretation_id = self.controller.selected_interpretation_id
+        if interval_id is not None and interpretation_id is not None:
+            self.controller.select_interval(interpretation_id, interval_id)
+            if not self._selection_guard:
+                self.interval_selected.emit(interpretation_id, interval_id)
 
     def _undo(self) -> None:
         if self._run(self.controller.undo):
             self._refresh_interpretations()
+            self.intervals_changed.emit()
 
     def _redo(self) -> None:
         if self._run(self.controller.redo):
             self._refresh_interpretations()
+            self.intervals_changed.emit()
 
     def _export(self, export_format: str) -> None:
         try:

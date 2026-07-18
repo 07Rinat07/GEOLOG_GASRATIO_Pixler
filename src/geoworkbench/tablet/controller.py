@@ -32,6 +32,10 @@ class TabletController:
         remaining = [name for name in curve_names if name not in gas_names]
 
         tracks = [TrackDefinition(new_id(), "Глубина", TrackKind.DEPTH, width=120)]
+        if self.session.current_well is not None and self.session.current_well.interpretations:
+            tracks.append(
+                TrackDefinition(new_id(), "Интерпретация", TrackKind.INTERPRETATION, width=280)
+            )
         if self.session.current_well is not None and self.session.current_well.stratigraphy:
             tracks.append(
                 TrackDefinition(new_id(), "Стратиграфия", TrackKind.STRATIGRAPHY, width=220)
@@ -155,6 +159,10 @@ class TabletController:
         elif kind is TrackKind.STRATIGRAPHY:
             title = "Стратиграфия"
             width = 220
+            mnemonics = []
+        elif kind is TrackKind.INTERPRETATION:
+            title = "Интерпретация"
+            width = 280
             mnemonics = []
         elif kind is TrackKind.TEXT:
             title = "Описание пород"
