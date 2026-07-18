@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QInputDialog,
     QVBoxLayout,
 )
 
@@ -34,6 +35,7 @@ from geoworkbench.printing.image_assets import (
     create_png_asset,
     create_svg_asset,
 )
+from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_HEADER_PRESETS
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
@@ -266,6 +268,15 @@ class MasterlogHeaderDialog(QDialog):
         self.preview.setObjectName("masterlog-header-preview")
         self.preview.setMinimumWidth(360)
         buttons = QHBoxLayout()
+        self.preset_button = QPushButton(
+            {
+                AppLanguage.RU: "Применить шаблон шапки...",
+                AppLanguage.KK: "Тақырып үлгісін қолдану...",
+                AppLanguage.EN: "Apply header preset...",
+            }[language]
+        )
+        self.preset_button.clicked.connect(self._apply_preset)
+        buttons.addWidget(self.preset_button)
         for text, callback in (
             ("+", self._add),
             ("Изменить", self._edit),
@@ -434,6 +445,35 @@ class MasterlogHeaderDialog(QDialog):
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._apply(dialog, None)
+
+    def _apply_preset(self) -> None:
+        presets = BUILTIN_MASTERLOG_HEADER_PRESETS
+        labels = [
+            f"{item.name(self.localizer.language)} — {item.description(self.localizer.language)}"
+            for item in presets
+        ]
+        selected, accepted = QInputDialog.getItem(
+            self,
+            self.preset_button.text().replace("...", ""),
+            self.preset_button.text(),
+            labels,
+            editable=False,
+        )
+        if not accepted:
+            return
+        question = {
+            AppLanguage.RU: "Заменить текущую шапку независимой копией выбранного шаблона?",
+            AppLanguage.KK: "Ағымдағы тақырыпты таңдалған үлгінің тәуелсіз көшірмесімен ауыстыру керек пе?",
+            AppLanguage.EN: "Replace the current header with an independent copy of this preset?",
+        }[self.localizer.language]
+        if (
+            QMessageBox.question(self, self.windowTitle(), question)
+            != QMessageBox.StandardButton.Yes
+        ):
+            return
+        preset = presets[labels.index(selected)]
+        self.controller.apply_header_preset(self.template_id, preset.preset_id)
+        self.refresh()
 
     def _edit(self) -> None:
         element = self._selected()

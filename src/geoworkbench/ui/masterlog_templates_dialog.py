@@ -42,6 +42,7 @@ from geoworkbench.printing.masterlog_package import (
     export_masterlog_package,
     load_masterlog_package,
 )
+from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_FORM_PRESETS
 from geoworkbench.ui.masterlog_output_dialog import MasterlogOutputDialog
 from geoworkbench.ui.masterlog_page_dialog import MasterlogPageDialog
 from geoworkbench.ui.masterlog_symbols_dialog import MasterlogSymbolsDialog
@@ -70,6 +71,13 @@ class MasterlogTemplatesDialog(QDialog):
         self.list = QListWidget()
         self.list.setObjectName("masterlog-template-list")
         self.create_button = QPushButton(self._t("common.create"))
+        self.preset_button = QPushButton(
+            {
+                AppLanguage.RU: "Из образца...",
+                AppLanguage.KK: "Үлгіден...",
+                AppLanguage.EN: "From preset...",
+            }[language]
+        )
         self.copy_button = QPushButton(self._t("common.copy"))
         self.rename_button = QPushButton(self._t("common.rename"))
         self.columns_button = QPushButton(self._t("masterlog_columns.action"))
@@ -86,6 +94,7 @@ class MasterlogTemplatesDialog(QDialog):
         self.delete_button = QPushButton(self._t("common.delete"))
         close_button = QPushButton(self._t("common.close"))
         self.create_button.clicked.connect(self._create)
+        self.preset_button.clicked.connect(self._create_from_preset)
         self.copy_button.clicked.connect(self._copy)
         self.rename_button.clicked.connect(self._rename)
         self.columns_button.clicked.connect(self._edit_columns)
@@ -104,6 +113,7 @@ class MasterlogTemplatesDialog(QDialog):
         buttons = QHBoxLayout()
         for button in (
             self.create_button,
+            self.preset_button,
             self.copy_button,
             self.rename_button,
             self.columns_button,
@@ -164,6 +174,30 @@ class MasterlogTemplatesDialog(QDialog):
         name = self._ask_name(self._t("masterlog_templates.create"))
         if name is not None:
             self._run(lambda: self.controller.create(name))
+
+    def _create_from_preset(self) -> None:
+        presets = BUILTIN_MASTERLOG_FORM_PRESETS
+        labels = [
+            f"{item.name(self.localizer.language)} — {item.description(self.localizer.language)}"
+            for item in presets
+        ]
+        selected, accepted = QInputDialog.getItem(
+            self,
+            self.preset_button.text().replace("...", ""),
+            {
+                AppLanguage.RU: "Образец формы",
+                AppLanguage.KK: "Пішін үлгісі",
+                AppLanguage.EN: "Form preset",
+            }[self.localizer.language],
+            labels,
+            editable=False,
+        )
+        if not accepted:
+            return
+        preset = presets[labels.index(selected)]
+        name = self._ask_name(self.preset_button.text(), preset.name(self.localizer.language))
+        if name is not None:
+            self._run(lambda: self.controller.create_from_preset(preset.preset_id, name))
 
     def _copy(self) -> None:
         template_id = self._selected_id()

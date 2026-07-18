@@ -14,6 +14,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.image_assets import ImageAsset, validate_image_asset
+from geoworkbench.printing.masterlog_presets import builtin_form_preset, builtin_header_preset
 
 
 class MasterlogTemplateController:
@@ -25,6 +26,25 @@ class MasterlogTemplateController:
         template = MasterlogTemplate(new_id(), normalized)
         self.session.project.masterlog_templates[template.template_id] = template
         self.session.dirty = True
+        return template
+
+    def create_from_preset(self, preset_id: str, name: str) -> MasterlogTemplate:
+        preset = builtin_form_preset(preset_id)
+        normalized = self._validate_unique_name(name)
+        template = replace(
+            deepcopy(preset.template), template_id=new_id(), name=normalized, version=1
+        )
+        self.session.project.masterlog_templates[template.template_id] = template
+        self.session.dirty = True
+        return template
+
+    def apply_header_preset(self, template_id: str, preset_id: str) -> MasterlogTemplate:
+        template = self._require(template_id)
+        preset = builtin_header_preset(preset_id)
+        template.header_height_mm = preset.height_mm
+        template.header_elements = list(deepcopy(preset.elements))
+        template.properties["header_preset_origin"] = preset.preset_id
+        self._touch(template)
         return template
 
     def copy(self, template_id: str, name: str) -> MasterlogTemplate:
