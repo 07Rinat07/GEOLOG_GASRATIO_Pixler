@@ -586,7 +586,8 @@ class MainWindow(QMainWindow):
             self.statusBar().clearMessage()
 
     def _show_cursor_values(self, depth: float, summary: str) -> None:
-        del depth
+        if self.session.current_tablet_layout is not None:
+            self.tablet_controller.set_cursor_depth(depth)
         if self.cursor_line_action.isChecked():
             self.statusBar().showMessage(summary)
             self.cursor_values.setPlainText(summary.replace(" | ", "\n"))

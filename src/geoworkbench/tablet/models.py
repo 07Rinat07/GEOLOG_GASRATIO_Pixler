@@ -161,9 +161,12 @@ class TabletLayout:
     tracks: list[TrackDefinition] = field(default_factory=list)
     visible_depth_top: float | None = None
     visible_depth_bottom: float | None = None
+    cursor_depth: float | None = None
 
     def __post_init__(self) -> None:
         self._validate_visible_depth(self.visible_depth_top, self.visible_depth_bottom)
+        if self.cursor_depth is not None and not isfinite(self.cursor_depth):
+            raise ValueError("Глубина визира должна быть конечным числом или null")
 
     def add_track(self, track: TrackDefinition, index: int | None = None) -> None:
         if any(existing.track_id == track.track_id for existing in self.tracks):
@@ -218,6 +221,14 @@ class TabletLayout:
             return False
         self.visible_depth_top = top
         self.visible_depth_bottom = bottom
+        return True
+
+    def set_cursor_depth(self, depth: float | None) -> bool:
+        if depth is not None and not isfinite(depth):
+            raise ValueError("Глубина визира должна быть конечным числом или null")
+        if self.cursor_depth == depth:
+            return False
+        self.cursor_depth = depth
         return True
 
     def update_track_view_settings(

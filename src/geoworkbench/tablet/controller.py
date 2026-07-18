@@ -47,12 +47,8 @@ class TabletController:
 
         tracks = [TrackDefinition(new_id(), "Глубина", TrackKind.DEPTH, width=120)]
         if self.session.current_well is not None and self.session.current_well.lithology:
-            tracks.append(
-                TrackDefinition(new_id(), "Литология", TrackKind.LITHOLOGY, width=180)
-            )
-            tracks.append(
-                TrackDefinition(new_id(), "Описание пород", TrackKind.TEXT, width=320)
-            )
+            tracks.append(TrackDefinition(new_id(), "Литология", TrackKind.LITHOLOGY, width=180))
+            tracks.append(TrackDefinition(new_id(), "Описание пород", TrackKind.TEXT, width=320))
         if gas_names:
             tracks.append(
                 TrackDefinition(
@@ -173,6 +169,12 @@ class TabletController:
             self.session.dirty = True
         return changed
 
+    def set_cursor_depth(self, depth: float) -> bool:
+        changed = self._require_layout().set_cursor_depth(depth)
+        if changed:
+            self.session.dirty = True
+        return changed
+
     def update_track_view_settings(
         self,
         track_id: str,
@@ -191,15 +193,11 @@ class TabletController:
         )
         self.session.dirty = True
 
-    def set_curve_style(
-        self, track_id: str, mnemonic: str, style: CurveStyle
-    ) -> None:
+    def set_curve_style(self, track_id: str, mnemonic: str, style: CurveStyle) -> None:
         self._require_layout().track_by_id(track_id).set_curve_style(mnemonic, style)
         self.session.dirty = True
 
-    def set_track_grid(
-        self, track_id: str, show_x: bool, show_y: bool, alpha: float
-    ) -> None:
+    def set_track_grid(self, track_id: str, show_x: bool, show_y: bool, alpha: float) -> None:
         self._require_layout().track_by_id(track_id).set_grid(show_x, show_y, alpha)
         self.session.dirty = True
 

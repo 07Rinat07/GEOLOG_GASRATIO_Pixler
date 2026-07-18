@@ -268,6 +268,20 @@ def test_controller_updates_visible_depth_only_when_changed() -> None:
     assert session.dirty is False
 
 
+def test_controller_persists_cursor_depth_in_current_layout() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    controller.session.dirty = False
+
+    assert controller.set_cursor_depth(150.0) is True
+    assert layout.cursor_depth == 150.0
+    assert controller.session.dirty is True
+    controller.session.dirty = False
+    assert controller.set_cursor_depth(150.0) is False
+    assert controller.session.dirty is False
+
+
 def test_update_track_view_settings_is_atomic_on_validation_error() -> None:
     session = make_session()
     controller = TabletController(session)

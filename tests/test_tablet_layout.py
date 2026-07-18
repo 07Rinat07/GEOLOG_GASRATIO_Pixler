@@ -55,9 +55,8 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     source.set_track_x_range("gas", 0.1, 1000.0)
     source.set_track_x_scale("gas", XScale.LOGARITHMIC)
     source.set_visible_depth(1200.0, 1300.0)
-    source.track_by_id("gas").set_curve_style(
-        "C1", CurveStyle("#ff0000", 2.5, CurveLineStyle.DASH)
-    )
+    source.set_cursor_depth(1250.0)
+    source.track_by_id("gas").set_curve_style("C1", CurveStyle("#ff0000", 2.5, CurveLineStyle.DASH))
     source.track_by_id("gas").set_grid(False, True, 0.45)
     source.track_by_id("gas").set_x_axis_label("Gas, %")
 
@@ -67,6 +66,7 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     assert restored.tracks[0].kind is TrackKind.DEPTH
     assert restored.visible_depth_top == 1200.0
     assert restored.visible_depth_bottom == 1300.0
+    assert restored.cursor_depth == 1250.0
     assert restored.track_by_id("gas").curve_style("C1") == CurveStyle(
         "#ff0000", 2.5, CurveLineStyle.DASH
     )
@@ -120,9 +120,7 @@ def test_layout_codec_migrates_v5_with_empty_axis_label() -> None:
     restored = layout_from_dict(
         {
             "version": 5,
-            "tracks": [
-                {"track_id": "curve", "title": "Curve", "kind": "curve"}
-            ],
+            "tracks": [{"track_id": "curve", "title": "Curve", "kind": "curve"}],
         }
     )
 

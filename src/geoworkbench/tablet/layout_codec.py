@@ -13,7 +13,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 6
+LAYOUT_FORMAT_VERSION = 7
 
 
 class TabletLayoutFormatError(ValueError):
@@ -25,6 +25,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
         "version": LAYOUT_FORMAT_VERSION,
         "visible_depth_top": layout.visible_depth_top,
         "visible_depth_bottom": layout.visible_depth_bottom,
+        "cursor_depth": layout.cursor_depth,
         "tracks": [
             {
                 "track_id": track.track_id,
@@ -67,9 +68,11 @@ def layout_from_dict(data: object) -> TabletLayout:
 
     raw_depth_top = data.get("visible_depth_top")
     raw_depth_bottom = data.get("visible_depth_bottom")
+    raw_cursor_depth = data.get("cursor_depth")
     for name, value in (
         ("visible_depth_top", raw_depth_top),
         ("visible_depth_bottom", raw_depth_bottom),
+        ("cursor_depth", raw_cursor_depth),
     ):
         if value is not None and (not isinstance(value, (int, float)) or isinstance(value, bool)):
             raise TabletLayoutFormatError(f"{name} должен быть числом или null")
@@ -79,6 +82,7 @@ def layout_from_dict(data: object) -> TabletLayout:
             visible_depth_bottom=(
                 float(raw_depth_bottom) if raw_depth_bottom is not None else None
             ),
+            cursor_depth=float(raw_cursor_depth) if raw_cursor_depth is not None else None,
         )
     except ValueError as exc:
         raise TabletLayoutFormatError("Некорректный видимый интервал глубины") from exc
@@ -132,9 +136,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         curve_styles[mnemonic] = CurveStyle(
             color=raw_style.get("color", "#2563eb"),
             width=raw_style.get("width", 1.5),
-            line_style=CurveLineStyle(
-                raw_style.get("line_style", CurveLineStyle.SOLID.value)
-            ),
+            line_style=CurveLineStyle(raw_style.get("line_style", CurveLineStyle.SOLID.value)),
         )
     if not isinstance(raw_grid_x, bool) or not isinstance(raw_grid_y, bool):
         raise TypeError("grid_x и grid_y должны быть логическими значениями")
@@ -166,7 +168,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2, 3, 4, 5):
+    if version not in (1, 2, 3, 4, 5, 6):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -199,4 +201,6 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
         for track in tracks:
             if isinstance(track, dict):
                 track.setdefault("x_axis_label", "")
+    migrated["version"] = 7
+    migrated.setdefault("cursor_depth", None)
     return migrated

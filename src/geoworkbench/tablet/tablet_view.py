@@ -288,7 +288,10 @@ class TabletView(QWidget):
 
     def set_layout_model(self, layout_model: TabletLayout) -> None:
         self._layout_model = layout_model
+        self._cursor_depth = layout_model.cursor_depth
         self.refresh_view()
+        if self._cursor_depth is not None and self._dataset is not None:
+            self.set_cursor_depth(self._cursor_depth)
 
     @property
     def cursor_depth(self) -> float | None:
@@ -343,6 +346,23 @@ class TabletView(QWidget):
         index = int(valid_depth[np.argmin(np.abs(depths[valid_depth] - depth))])
         sample_depth = float(depths[index])
         values = [f"Глубина: {sample_depth:g} м"]
+        interval = next(
+            (
+                item
+                for item in self._lithology
+                if item.top_depth <= sample_depth <= item.bottom_depth
+            ),
+            None,
+        )
+        if interval is not None:
+            lithotype = self._lithotype_catalog.get(interval.lithotype_id)
+            rock = lithotype.name_ru if lithotype is not None else interval.lithotype_id
+            interval_text = (
+                f"Литология: {rock} ({interval.top_depth:g}–{interval.bottom_depth:g} м)"
+            )
+            if interval.description:
+                interval_text += f" — {interval.description}"
+            values.append(interval_text)
         seen: set[str] = set()
         for definition in self._layout_model.visible_tracks():
             for mnemonic in definition.curve_mnemonics:

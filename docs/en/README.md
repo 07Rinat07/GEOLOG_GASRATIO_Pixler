@@ -162,3 +162,7 @@ nearest actual sample depth and every unique curve value from visible tracks.
 Use “Edit → Настроить визирную линию...” to select color and width. Color, width, and enabled state
 are stored separately for the active engineer profile. Press the action or `V` again to restore
 normal plot navigation.
+
+The last cursor depth is stored in each dataset layout. Returning to a well restores that depth;
+if the data range changed, it is safely clamped to the new limits. The values dock also reports
+the current lithotype, interval top and bottom, and layer description.
