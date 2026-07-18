@@ -309,6 +309,7 @@ def _choose_candidate(
     return min(
         values,
         key=lambda item: (
+            0 if item.source == "Пользовательский словарь" else 1,
             1 if item.legacy_table else 0,
             1 if item.canonical_mnemonic.startswith("SENSOR_") else 0,
             item.sensor_id,

@@ -125,6 +125,7 @@ from geoworkbench.services.localization import (
 )
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.user_profiles import CursorLineSettings, UserProfileSettings
+from geoworkbench.services.mnemonic_registry import UserMnemonicRegistry
 
 
 class MainWindow(QMainWindow):
@@ -140,6 +141,8 @@ class MainWindow(QMainWindow):
         self.localizer = Localizer.create(language)
         self.language_settings = language_settings or LanguageSettings.system()
         self.user_profile_settings = user_profile_settings or UserProfileSettings.system()
+        self.mnemonic_registry = UserMnemonicRegistry()
+        set_active_sensor_catalog(self.mnemonic_registry.catalog())
         self.project_controller = ProjectController()
         self.tablet_controller = TabletController(self.session)
         self.curve_editing_controller = CurveEditingController(self.session)
@@ -257,6 +260,7 @@ class MainWindow(QMainWindow):
     def _create_curve_browser(self) -> None:
         self.curve_browser_dock = QDockWidget(self._t("curve_browser.title"), self)
         self.curve_browser = LasCurveBrowser(language=self.language)
+        self.curve_browser.set_sensor_catalog(self.mnemonic_registry.catalog())
         self.curve_browser.setMinimumWidth(440)
         self.curve_browser.build_requested.connect(self._build_tablet_from_curve_selection)
         self.curve_browser.add_requested.connect(self._add_curves_from_browser)
@@ -2504,7 +2508,7 @@ class MainWindow(QMainWindow):
 
     def show_sensor_catalog(self) -> None:
         dialog = SensorCatalogDialog(
-            self.curve_browser.sensor_catalog, self, language=self.language
+            self.curve_browser.sensor_catalog, self, language=self.language, registry=self.mnemonic_registry
         )
         dialog.catalog_changed.connect(self._apply_sensor_catalog)
         dialog.exec()

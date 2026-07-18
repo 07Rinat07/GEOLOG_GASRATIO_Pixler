@@ -57,3 +57,7 @@ IDs, categories, families, colors, and ranges are validated before activation.
 
 The catalog recognizes and groups channels without renaming source LAS curves or replacing their
 actual units and values.
+
+## User mnemonic rules
+
+`UserMnemonicRegistry` stores user mappings in `QSettings` under schema `user_rules_v1`. A rule maps one foreign mnemonic and optional aliases to a canonical parameter definition. User definitions are merged before the built-in Sensors catalog and therefore win deterministic alias matching. The UI supports create, edit, delete, JSON import, and JSON export. These mappings affect curve classification and automatic tablet-track construction for every later import without modifying source LAS data.
