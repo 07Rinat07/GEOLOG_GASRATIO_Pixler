@@ -289,6 +289,24 @@ def test_masterlog_template_controller_manages_header_elements() -> None:
     assert template.version == 6
 
 
+def test_masterlog_header_accepts_dynamic_lithology_legend() -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+
+    element = controller.add_header_element(
+        template.template_id,
+        element_type="lithology_legend",
+        x_mm=5.0,
+        y_mm=35.0,
+        width_mm=200.0,
+        height_mm=22.0,
+        properties={"scope": "used", "columns": 5, "show_code": True},
+    )
+
+    assert element.element_type == "lithology_legend"
+    assert element.properties["scope"] == "used"
+
+
 def test_masterlog_template_controller_protects_referenced_image_asset() -> None:
     session = ProjectSession()
     controller = MasterlogTemplateController(session)

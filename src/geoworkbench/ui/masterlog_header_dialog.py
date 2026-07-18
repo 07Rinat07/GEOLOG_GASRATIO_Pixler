@@ -6,6 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPen
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QInputDialog,
+    QSpinBox,
     QVBoxLayout,
 )
 
@@ -54,7 +56,7 @@ class HeaderElementDialog(QDialog):
         self.imported_assets: dict[str, ImageAsset] = {}
         self.setWindowTitle(self.localizer.text("masterlog_header.properties"))
         self.type_input = QComboBox()
-        self.type_input.addItems(["text", "field", "image", "line"])
+        self.type_input.addItems(["text", "field", "image", "line", "lithology_legend"])
         if element:
             self.type_input.setCurrentText(element.element_type)
         self.inputs = [QDoubleSpinBox() for _ in range(4)]
@@ -87,7 +89,7 @@ class HeaderElementDialog(QDialog):
         self.font_size_input.setRange(1.0, 50.0)
         self.font_size_input.setDecimals(1)
         self.font_size_input.setValue(3.5)
-        if element and element.element_type in {"text", "field"}:
+        if element and element.element_type in {"text", "field", "lithology_legend"}:
             text_color = element.properties.get("color")
             font_size = element.properties.get("font_size_mm")
             if isinstance(text_color, str):
@@ -106,6 +108,29 @@ class HeaderElementDialog(QDialog):
                 self.line_color_input.setText(color)
             if isinstance(width, (int, float)) and not isinstance(width, bool):
                 self.line_width_input.setValue(float(width))
+        self.legend_scope_input = QComboBox()
+        self.legend_scope_input.addItem(
+            self.localizer.text("masterlog_header.legend_used"), "used"
+        )
+        self.legend_scope_input.addItem(
+            self.localizer.text("masterlog_header.legend_all"), "all"
+        )
+        scope = element.properties.get("scope") if element else "used"
+        scope_index = self.legend_scope_input.findData(scope)
+        self.legend_scope_input.setCurrentIndex(max(0, scope_index))
+        self.legend_columns_input = QSpinBox()
+        self.legend_columns_input.setRange(1, 12)
+        columns = element.properties.get("columns") if element else 4
+        self.legend_columns_input.setValue(
+            int(columns)
+            if isinstance(columns, int) and not isinstance(columns, bool) and 1 <= columns <= 12
+            else 4
+        )
+        self.legend_code_input = QCheckBox(
+            self.localizer.text("masterlog_header.legend_show_code")
+        )
+        show_code = element.properties.get("show_code") if element else True
+        self.legend_code_input.setChecked(show_code if isinstance(show_code, bool) else True)
         self.image_input = QComboBox()
         for asset in self.image_assets.values():
             self.image_input.addItem(asset.original_name, asset.asset_id)
@@ -142,6 +167,10 @@ class HeaderElementDialog(QDialog):
         self.text_color_label = QLabel(self.localizer.text("masterlog_header.text_color"))
         self.font_size_label = QLabel(self.localizer.text("masterlog_header.font_size"))
         self.image_label = QLabel(self.localizer.text("masterlog_header.image"))
+        self.legend_scope_label = QLabel(self.localizer.text("masterlog_header.legend_scope"))
+        self.legend_columns_label = QLabel(
+            self.localizer.text("masterlog_header.legend_columns")
+        )
         layout.addRow(self.text_label, self.text_input)
         layout.addRow(self.field_label, self.field_input)
         layout.addRow(self.text_color_label, self.text_color_input)
@@ -149,6 +178,9 @@ class HeaderElementDialog(QDialog):
         layout.addRow(self.image_label, image_row)
         layout.addRow(self.line_color_label, self.line_color_input)
         layout.addRow(self.line_width_label, self.line_width_input)
+        layout.addRow(self.legend_scope_label, self.legend_scope_input)
+        layout.addRow(self.legend_columns_label, self.legend_columns_input)
+        layout.addRow(self.legend_code_input)
         layout.addRow(self.properties_label, self.properties_input)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -164,8 +196,9 @@ class HeaderElementDialog(QDialog):
         self.field_input.setVisible(element_type == "field")
         self.line_color_input.setVisible(element_type == "line")
         self.line_width_input.setVisible(element_type == "line")
-        self.text_color_input.setVisible(element_type in {"text", "field"})
-        self.font_size_input.setVisible(element_type in {"text", "field"})
+        has_text_style = element_type in {"text", "field", "lithology_legend"}
+        self.text_color_input.setVisible(has_text_style)
+        self.font_size_input.setVisible(has_text_style)
         self.properties_input.setVisible(element_type == "image")
         self.image_input.setVisible(element_type == "image")
         self.image_import_button.setVisible(element_type == "image")
@@ -173,9 +206,14 @@ class HeaderElementDialog(QDialog):
         self.field_label.setVisible(element_type == "field")
         self.line_color_label.setVisible(element_type == "line")
         self.line_width_label.setVisible(element_type == "line")
-        self.text_color_label.setVisible(element_type in {"text", "field"})
-        self.font_size_label.setVisible(element_type in {"text", "field"})
+        self.text_color_label.setVisible(has_text_style)
+        self.font_size_label.setVisible(has_text_style)
         self.image_label.setVisible(element_type == "image")
+        self.legend_scope_input.setVisible(element_type == "lithology_legend")
+        self.legend_columns_input.setVisible(element_type == "lithology_legend")
+        self.legend_code_input.setVisible(element_type == "lithology_legend")
+        self.legend_scope_label.setVisible(element_type == "lithology_legend")
+        self.legend_columns_label.setVisible(element_type == "lithology_legend")
         self.properties_label.setVisible(False)
 
     def _import_image(self) -> None:
@@ -209,7 +247,7 @@ class HeaderElementDialog(QDialog):
     def values(self) -> tuple[str, float, float, float, float, dict[str, object]]:
         element_type = self.type_input.currentText()
         text_style: dict[str, object] = {}
-        if element_type in {"text", "field"}:
+        if element_type in {"text", "field", "lithology_legend"}:
             color = QColor(self.text_color_input.text().strip())
             if not color.isValid():
                 raise ValueError(self.localizer.text("masterlog_header.invalid_text_color"))
@@ -234,6 +272,13 @@ class HeaderElementDialog(QDialog):
             if not isinstance(asset_ref, str) or not asset_ref:
                 raise ValueError(self.localizer.text("masterlog_header.select_image"))
             properties = {"asset_ref": asset_ref}
+        elif element_type == "lithology_legend":
+            properties = {
+                "scope": self.legend_scope_input.currentData(),
+                "columns": self.legend_columns_input.value(),
+                "show_code": self.legend_code_input.isChecked(),
+                **text_style,
+            }
         else:
             properties = json.loads(self.properties_input.text())
             if not isinstance(properties, dict):
@@ -327,6 +372,7 @@ class MasterlogHeaderDialog(QDialog):
             "field": QColor("#dcfce7"),
             "image": QColor("#fef3c7"),
             "line": QColor("#e2e8f0"),
+            "lithology_legend": QColor("#f3e8ff"),
         }
         for element in self.template.header_elements:
             item = QListWidgetItem(
@@ -426,6 +472,8 @@ class MasterlogHeaderDialog(QDialog):
                 return "{field}"
             resolved = resolve_header_field(self.controller.session, field_name)
             return resolved if resolved is not None else "{" + field_name + "}"
+        if element.element_type == "lithology_legend":
+            return self.localizer.text("masterlog_header.lithology_legend")
         return element.element_type
 
     def _selected(self) -> MasterlogHeaderElement | None:

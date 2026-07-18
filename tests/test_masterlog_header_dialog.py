@@ -101,6 +101,26 @@ def test_header_element_dialog_builds_line_properties(qapp) -> None:
     dialog.close()
 
 
+def test_header_element_dialog_builds_lithology_legend_properties(qapp) -> None:
+    dialog = HeaderElementDialog(language=AppLanguage.EN)
+    dialog.type_input.setCurrentText("lithology_legend")
+    dialog.legend_scope_input.setCurrentIndex(dialog.legend_scope_input.findData("all"))
+    dialog.legend_columns_input.setValue(6)
+    dialog.legend_code_input.setChecked(False)
+    dialog.text_color_input.setText("#223344")
+    dialog.font_size_input.setValue(2.8)
+
+    assert dialog.values()[-1] == {
+        "scope": "all",
+        "columns": 6,
+        "show_code": False,
+        "color": "#223344",
+        "font_size_mm": 2.8,
+    }
+    assert dialog.legend_scope_input.currentText() == "Full catalog"
+    dialog.close()
+
+
 def test_header_element_dialog_selects_project_png_asset(qapp) -> None:
     asset = make_image_asset()
     dialog = HeaderElementDialog(image_assets={asset.asset_id: asset})

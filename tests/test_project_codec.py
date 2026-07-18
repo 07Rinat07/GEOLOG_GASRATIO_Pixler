@@ -264,7 +264,16 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
         header_elements=[
             MasterlogHeaderElement(
                 "logo", "image", 5.0, 5.0, 30.0, 20.0, {"asset_ref": "sha256:logo"}
-            )
+            ),
+            MasterlogHeaderElement(
+                "legend",
+                "lithology_legend",
+                40.0,
+                5.0,
+                120.0,
+                20.0,
+                {"scope": "all", "columns": 5, "show_code": True},
+            ),
         ],
         columns=[
             MasterlogColumnTemplate(
@@ -326,6 +335,8 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
     assert template.columns[0].grid_minor_divisions == 8
     assert template.columns[0].grid_alpha == 0.35
     assert template.header_elements[0].properties["asset_ref"] == "sha256:logo"
+    assert template.header_elements[1].element_type == "lithology_legend"
+    assert template.header_elements[1].properties["columns"] == 5
     assert template.version == 3
     canvas_object = restored.wells["well-1"].canvas_objects[0]
     assert canvas_object.parameter_mnemonic == "ROP"

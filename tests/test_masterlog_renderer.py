@@ -8,6 +8,7 @@ from geoworkbench.domain.models import (
     Dataset,
     DatasetKind,
     DepthDomain,
+    CuttingsComponent,
     CuttingsSample,
     MasterlogColumnTemplate,
     MasterlogCurveStyle,
@@ -26,6 +27,7 @@ from geoworkbench.printing.masterlog_renderer import (
     configure_masterlog_printer,
     export_masterlog_pdf,
     masterlog_depth_range,
+    masterlog_lithology_legend_entries,
     masterlog_column_groups,
     masterlog_page_ranges,
     masterlog_size_mm,
@@ -229,6 +231,60 @@ def test_masterlog_renders_lithology_and_description_columns(qapp) -> None:
     assert color.red() > 200 and color.green() > 150 and color.blue() < 80
     assert visible_lithology_intervals(session.current_well.lithology, (100.0, 150.0)) == (
         session.current_well.lithology[0],
+    )
+
+
+def test_masterlog_lithology_legend_uses_system_catalog_and_selected_interval() -> None:
+    session = make_session_with_curves()
+    assert session.current_well is not None
+    session.current_well.lithology = [
+        LithologyInterval("sandstone", 110.0, 120.0, "sandstone"),
+        LithologyInterval("outside", 170.0, 180.0, "limestone"),
+    ]
+    session.current_well.cuttings = [
+        CuttingsSample(
+            "sample",
+            125.0,
+            135.0,
+            [CuttingsComponent("clay", 100.0)],
+        )
+    ]
+
+    entries = masterlog_lithology_legend_entries(
+        session, (100.0, 150.0), AppLanguage.EN, "used"
+    )
+
+    assert [entry.lithotype_id for entry in entries] == ["sandstone", "clay"]
+    assert [entry.name for entry in entries] == ["Sandstone", "Clay"]
+    assert entries[0].color != "#b0b0b0"
+    assert entries[0].pattern_key != "solid"
+
+
+def test_masterlog_renders_dynamic_lithology_legend(qapp) -> None:
+    session = make_session_with_curves()
+    template = make_template()
+    template.header_elements.append(
+        MasterlogHeaderElement(
+            "legend",
+            "lithology_legend",
+            1.0,
+            22.0,
+            68.0,
+            16.0,
+            {"scope": "all", "columns": 4, "show_code": True},
+        )
+    )
+    image = QImage(700, 2520, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+
+    paint_masterlog(painter, QRectF(0.0, 0.0, 700.0, 2520.0), template, session)
+    painter.end()
+
+    assert any(
+        image.pixelColor(x, y).name() != "#ffffff"
+        for y in range(225, 375, 5)
+        for x in range(15, 685, 5)
     )
 
 

@@ -33,7 +33,16 @@ def make_template_and_session() -> tuple[MasterlogTemplate, ProjectSession]:
         header_elements=[
             MasterlogHeaderElement(
                 "logo", "image", 5.0, 5.0, 30.0, 20.0, {"asset_ref": asset.asset_id}
-            )
+            ),
+            MasterlogHeaderElement(
+                "legend",
+                "lithology_legend",
+                40.0,
+                5.0,
+                120.0,
+                20.0,
+                {"scope": "used", "columns": 4, "show_code": True},
+            ),
         ],
         columns=[
             MasterlogColumnTemplate("depth", "Depth", "depth", 25.0),
@@ -85,6 +94,8 @@ def test_masterlog_package_round_trip_and_independent_install(tmp_path) -> None:
     assert imported.columns[1].grid_major_divisions == 4
     assert imported.columns[1].grid_minor_divisions == 8
     assert imported.columns[1].grid_alpha == 0.35
+    assert imported.header_elements[1].element_type == "lithology_legend"
+    assert imported.header_elements[1].properties["scope"] == "used"
     assert destination.image_assets == package.image_assets
     with pytest.raises(ValueError):
         controller.import_template(package.template, package.image_assets, "Imported portable")

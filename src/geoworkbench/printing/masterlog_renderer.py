@@ -29,7 +29,10 @@ from geoworkbench.domain.models import (
     MasterlogCurveStyle,
     MasterlogHeaderElement,
     MasterlogTemplate,
-    ProjectLithotype,
+)
+from geoworkbench.project.lithotype_catalog_controller import (
+    CatalogLithotype,
+    LithotypeCatalogController,
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
@@ -37,6 +40,7 @@ from geoworkbench.printing.header_fields import resolve_header_field
 from geoworkbench.printing.image_asset_rendering import draw_image_asset
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.tablet.lithology_legend import LithologyLegendEntry
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 
 
@@ -187,8 +191,18 @@ def paint_masterlog(
     painter.drawLine(
         QLineF(0.0, template.header_height_mm, size.width(), template.header_height_mm)
     )
+    lithotype_catalog = {
+        item.lithotype_id: item for item in LithotypeCatalogController(session).available()
+    }
     for element in template.header_elements:
-        _paint_header_element(painter, element, session)
+        _paint_header_element(
+            painter,
+            element,
+            session,
+            effective_range,
+            language,
+            lithotype_catalog,
+        )
     _paint_columns(
         painter,
         template,
@@ -197,6 +211,7 @@ def paint_masterlog(
         effective_range,
         columns if columns is not None else template.columns,
         language,
+        lithotype_catalog,
     )
     if page_label:
         font = QFont()
@@ -396,7 +411,12 @@ def _depth_scale(template: MasterlogTemplate) -> int:
 
 
 def _paint_header_element(
-    painter: QPainter, element: MasterlogHeaderElement, session: ProjectSession
+    painter: QPainter,
+    element: MasterlogHeaderElement,
+    session: ProjectSession,
+    depth_range: tuple[float, float] | None,
+    language: AppLanguage,
+    lithotype_catalog: dict[str, CatalogLithotype],
 ) -> None:
     rect = QRectF(element.x_mm, element.y_mm, element.width_mm, element.height_mm)
     if element.element_type == "line":
@@ -408,6 +428,16 @@ def _paint_header_element(
         asset = session.image_assets.get(asset_ref) if isinstance(asset_ref, str) else None
         if asset is not None:
             draw_image_asset(painter, rect, asset)
+        return
+    if element.element_type == "lithology_legend":
+        entries = _masterlog_lithology_legend_entries(
+            session,
+            depth_range,
+            language,
+            element.properties.get("scope"),
+            lithotype_catalog,
+        )
+        _paint_lithology_legend(painter, rect, entries, element.properties, language)
         return
     text = _header_text(element, session)
     color = _color(element.properties.get("color"), "#0f172a")
@@ -422,6 +452,181 @@ def _paint_header_element(
     painter.drawText(rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, text)
 
 
+def masterlog_lithology_legend_entries(
+    session: ProjectSession,
+    depth_range: tuple[float, float] | None,
+    language: AppLanguage,
+    scope: str = "used",
+) -> tuple[LithologyLegendEntry, ...]:
+    catalog = {
+        item.lithotype_id: item for item in LithotypeCatalogController(session).available()
+    }
+    return _masterlog_lithology_legend_entries(
+        session,
+        depth_range,
+        language,
+        scope,
+        catalog,
+    )
+
+
+def _masterlog_lithology_legend_entries(
+    session: ProjectSession,
+    depth_range: tuple[float, float] | None,
+    language: AppLanguage,
+    scope: object,
+    catalog: dict[str, CatalogLithotype],
+) -> tuple[LithologyLegendEntry, ...]:
+    selected_scope = scope if isinstance(scope, str) and scope in {"used", "all"} else "used"
+    unknown_names = {
+        AppLanguage.RU: "Неизвестный литотип",
+        AppLanguage.KK: "Белгісіз литотип",
+        AppLanguage.EN: "Unknown lithotype",
+    }
+    unknown_descriptions: dict[str, str] = {}
+    if selected_scope == "all":
+        lithotype_ids = list(catalog)
+    else:
+        events: list[tuple[float, int, str]] = []
+        well = session.current_well
+        if well is not None:
+            top = depth_range[0] if depth_range is not None else float("-inf")
+            bottom = depth_range[1] if depth_range is not None else float("inf")
+            for interval in well.lithology:
+                if interval.bottom_depth < top or interval.top_depth > bottom:
+                    continue
+                events.append((interval.top_depth, 0, interval.lithotype_id))
+                if interval.description:
+                    unknown_descriptions.setdefault(
+                        interval.lithotype_id, interval.description.strip()
+                    )
+            for sample in well.cuttings:
+                if sample.bottom_depth < top or sample.top_depth > bottom:
+                    continue
+                for component_index, component in enumerate(sample.components, start=1):
+                    events.append(
+                        (sample.top_depth, component_index, component.lithotype_id)
+                    )
+        lithotype_ids = []
+        seen: set[str] = set()
+        for _, _, lithotype_id in sorted(events):
+            if lithotype_id not in seen:
+                seen.add(lithotype_id)
+                lithotype_ids.append(lithotype_id)
+
+    entries: list[LithologyLegendEntry] = []
+    for lithotype_id in lithotype_ids:
+        definition = catalog.get(lithotype_id)
+        if definition is None:
+            entries.append(
+                LithologyLegendEntry(
+                    lithotype_id,
+                    lithotype_id,
+                    unknown_descriptions.get(lithotype_id) or unknown_names[language],
+                    "#b0b0b0",
+                    "solid",
+                )
+            )
+            continue
+        entries.append(
+            LithologyLegendEntry(
+                definition.lithotype_id,
+                definition.code,
+                definition.localized_name(language.value),
+                definition.color,
+                definition.pattern_key,
+            )
+        )
+    return tuple(entries)
+
+
+def _paint_lithology_legend(
+    painter: QPainter,
+    rect: QRectF,
+    entries: tuple[LithologyLegendEntry, ...],
+    properties: dict[str, object],
+    language: AppLanguage,
+) -> None:
+    raw_columns = properties.get("columns", 4)
+    columns = (
+        raw_columns
+        if isinstance(raw_columns, int) and not isinstance(raw_columns, bool)
+        else 4
+    )
+    columns = max(1, min(columns, 12, max(1, len(entries))))
+    raw_size = properties.get("font_size_mm", 2.6)
+    font_size = (
+        float(raw_size)
+        if isinstance(raw_size, (int, float)) and not isinstance(raw_size, bool)
+        else 2.6
+    )
+    font_size = max(1.0, min(font_size, 8.0))
+    show_code = properties.get("show_code", True)
+    show_code = show_code if isinstance(show_code, bool) else True
+    color = _color(properties.get("color"), "#0f172a")
+    titles = {
+        AppLanguage.RU: "ЛИТОЛОГИЧЕСКАЯ ЛЕГЕНДА",
+        AppLanguage.KK: "ЛИТОЛОГИЯЛЫҚ ШАРТТЫ БЕЛГІЛЕР",
+        AppLanguage.EN: "LITHOLOGICAL LEGEND",
+    }
+    empty_texts = {
+        AppLanguage.RU: "В выбранном интервале нет литологии",
+        AppLanguage.KK: "Таңдалған аралықта литология жоқ",
+        AppLanguage.EN: "No lithology in the selected interval",
+    }
+    title_height = min(4.0, max(2.0, rect.height() * 0.18))
+    content = rect.adjusted(0.0, title_height, 0.0, 0.0)
+    painter.save()
+    painter.setClipRect(rect)
+    painter.setPen(QPen(QColor("#64748b"), 0.2))
+    painter.drawRect(rect)
+    title_font = QFont()
+    title_font.setBold(True)
+    title_font.setPointSizeF(min(3.2, font_size + 0.4) * 72.0 / 25.4)
+    painter.setFont(title_font)
+    painter.setPen(color)
+    painter.drawText(
+        QRectF(rect.left() + 0.8, rect.top(), rect.width() - 1.6, title_height),
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+        titles[language],
+    )
+    if not entries:
+        painter.drawText(
+            content.adjusted(0.8, 0.0, -0.8, 0.0),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            empty_texts[language],
+        )
+        painter.restore()
+        return
+    rows = (len(entries) + columns - 1) // columns
+    cell_width = content.width() / columns
+    cell_height = content.height() / rows
+    font = QFont()
+    font.setPointSizeF(font_size * 72.0 / 25.4)
+    painter.setFont(font)
+    for index, entry in enumerate(entries):
+        row, column = divmod(index, columns)
+        cell = QRectF(
+            content.left() + column * cell_width,
+            content.top() + row * cell_height,
+            cell_width,
+            cell_height,
+        )
+        swatch_width = min(8.0, max(3.0, cell_width * 0.2))
+        swatch = cell.adjusted(0.5, 0.5, -(cell.width() - swatch_width), -0.5)
+        painter.fillRect(swatch, lithology_brush(entry.color, entry.pattern_key))
+        painter.setPen(QPen(QColor("#475569"), 0.15))
+        painter.drawRect(swatch)
+        label = f"{entry.code} — {entry.name}" if show_code else entry.name
+        painter.setPen(color)
+        painter.drawText(
+            cell.adjusted(swatch_width + 1.2, 0.0, -0.5, 0.0),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            label,
+        )
+    painter.restore()
+
+
 def _paint_columns(
     painter: QPainter,
     template: MasterlogTemplate,
@@ -430,6 +635,7 @@ def _paint_columns(
     depth_range: tuple[float, float] | None,
     columns: Sequence[MasterlogColumnTemplate],
     language: AppLanguage,
+    lithotype_catalog: dict[str, CatalogLithotype],
 ) -> None:
     x = 0.0
     top = template.header_height_mm
@@ -461,9 +667,13 @@ def _paint_columns(
             elif column.column_type == "stratigraphy":
                 _paint_stratigraphy_column(painter, plot_rect, session, depth_range)
             elif column.column_type == "lithology":
-                _paint_lithology_column(painter, plot_rect, session, depth_range)
+                _paint_lithology_column(
+                    painter, plot_rect, session, depth_range, lithotype_catalog
+                )
             elif column.column_type == "cuttings":
-                _paint_cuttings_column(painter, plot_rect, session, depth_range)
+                _paint_cuttings_column(
+                    painter, plot_rect, session, depth_range, lithotype_catalog
+                )
             elif column.column_type == "cuttings_description":
                 _paint_cuttings_descriptions(painter, plot_rect, session, depth_range)
             elif column.column_type == "analysis_interpretation":
@@ -473,7 +683,14 @@ def _paint_columns(
             elif column.column_type == "lba":
                 _paint_lba_column(painter, plot_rect, session, depth_range)
             elif column.column_type in {"text", "description"}:
-                _paint_lithology_descriptions(painter, plot_rect, session, depth_range, language)
+                _paint_lithology_descriptions(
+                    painter,
+                    plot_rect,
+                    session,
+                    depth_range,
+                    language,
+                    lithotype_catalog,
+                )
             else:
                 _paint_curve_column(painter, plot_rect, column, dataset, depth_range, bindings)
             _paint_depth_symbols(painter, plot_rect, template, column, session, depth_range)
@@ -680,6 +897,7 @@ def _paint_lithology_column(
     rect: QRectF,
     session: ProjectSession,
     depth_range: tuple[float, float],
+    lithotype_catalog: dict[str, CatalogLithotype],
 ) -> None:
     well = session.current_well
     if well is None:
@@ -688,7 +906,7 @@ def _paint_lithology_column(
     painter.setClipRect(rect)
     for interval in visible_lithology_intervals(well.lithology, depth_range):
         interval_rect = _interval_rect(rect, interval, depth_range)
-        definition = session.project.lithotypes.get(interval.lithotype_id)
+        definition = lithotype_catalog.get(interval.lithotype_id)
         color = definition.color if definition is not None else "#b0b0b0"
         pattern = definition.pattern_key if definition is not None else "solid"
         painter.fillRect(interval_rect, lithology_brush(color, pattern))
@@ -764,6 +982,7 @@ def _paint_cuttings_column(
     rect: QRectF,
     session: ProjectSession,
     depth_range: tuple[float, float],
+    lithotype_catalog: dict[str, CatalogLithotype],
 ) -> None:
     well = session.current_well
     if well is None:
@@ -781,7 +1000,7 @@ def _paint_cuttings_column(
         x = rect.left()
         for component in sample.components:
             width = rect.width() * component.percentage / 100.0
-            definition = session.project.lithotypes.get(component.lithotype_id)
+            definition = lithotype_catalog.get(component.lithotype_id)
             color = definition.color if definition is not None else "#b0b0b0"
             pattern = definition.pattern_key if definition is not None else "solid"
             component_rect = QRectF(x, y_top, width, max(0.1, y_bottom - y_top))
@@ -911,6 +1130,7 @@ def _paint_lithology_descriptions(
     session: ProjectSession,
     depth_range: tuple[float, float],
     language: AppLanguage,
+    lithotype_catalog: dict[str, CatalogLithotype],
 ) -> None:
     well = session.current_well
     if well is None:
@@ -922,7 +1142,7 @@ def _paint_lithology_descriptions(
     painter.setFont(font)
     for interval in visible_lithology_intervals(well.lithology, depth_range):
         interval_rect = _interval_rect(rect, interval, depth_range)
-        definition = session.project.lithotypes.get(interval.lithotype_id)
+        definition = lithotype_catalog.get(interval.lithotype_id)
         name = (
             _lithotype_name(definition, language)
             if definition is not None
@@ -1013,7 +1233,7 @@ def _paint_sample_interpretations(
     painter.restore()
 
 
-def _lithotype_name(definition: ProjectLithotype, language: AppLanguage) -> str:
+def _lithotype_name(definition: CatalogLithotype, language: AppLanguage) -> str:
     if language is AppLanguage.EN:
         return definition.name_en
     if language is AppLanguage.KK:

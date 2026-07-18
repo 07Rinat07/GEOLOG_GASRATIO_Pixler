@@ -146,6 +146,36 @@ STANDARD_HEADER = MasterlogHeaderPreset(
     ),
 )
 
+LITHOLOGY_HEADER = MasterlogHeaderPreset(
+    "project_well_lithology",
+    _texts(
+        "Проект, скважина и литология",
+        "Жоба, ұңғыма және литология",
+        "Project, well and lithology",
+    ),
+    _texts(
+        "Расширенная шапка с автоматически формируемой литологической легендой.",
+        "Автоматты литологиялық шартты белгілері бар кеңейтілген тақырып.",
+        "Extended header with an automatically generated lithology legend.",
+    ),
+    60.0,
+    tuple(deepcopy(STANDARD_HEADER.elements))
+    + (
+        _element(
+            "lithology_legend",
+            "lithology_legend",
+            5,
+            35,
+            200,
+            22,
+            scope="all",
+            columns=5,
+            show_code=True,
+            font_size_mm=2.6,
+        ),
+    ),
+)
+
 COMPACT_HEADER = MasterlogHeaderPreset(
     "compact",
     _texts("Компактная", "Ықшам", "Compact"),
@@ -196,7 +226,7 @@ COMPACT_HEADER = MasterlogHeaderPreset(
     ),
 )
 
-BUILTIN_MASTERLOG_HEADER_PRESETS = (STANDARD_HEADER, COMPACT_HEADER)
+BUILTIN_MASTERLOG_HEADER_PRESETS = (STANDARD_HEADER, LITHOLOGY_HEADER, COMPACT_HEADER)
 
 
 def _columns(
@@ -248,7 +278,8 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
         MasterlogTemplate(
             "preset:international_mudlog",
             "Field Masterlog",
-            header_elements=list(deepcopy(STANDARD_HEADER.elements)),
+            header_height_mm=LITHOLOGY_HEADER.height_mm,
+            header_elements=list(deepcopy(LITHOLOGY_HEADER.elements)),
             columns=_columns(
                 (
                     "drilling",
@@ -399,7 +430,8 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
         MasterlogTemplate(
             "preset:geological_description",
             "Geological description",
-            header_elements=list(deepcopy(STANDARD_HEADER.elements)),
+            header_height_mm=LITHOLOGY_HEADER.height_mm,
+            header_elements=list(deepcopy(LITHOLOGY_HEADER.elements)),
             columns=_columns(
                 ("depth", "Depth", "depth", 14, [], "linear", None, None),
                 ("stratigraphy", "Stratigraphy", "stratigraphy", 35, [], "linear", None, None),

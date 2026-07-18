@@ -55,6 +55,18 @@ def test_builtin_masterlog_presets_are_unique_and_cover_core_tracks() -> None:
     depth = next(column for column in field.template.columns if column.column_id == "depth")
     assert depth.grid_x is False
     assert depth.grid_y is False
+    legend = next(
+        element
+        for element in field.template.header_elements
+        if element.element_type == "lithology_legend"
+    )
+    assert field.template.header_height_mm == 60.0
+    assert legend.properties == {
+        "scope": "all",
+        "columns": 5,
+        "show_code": True,
+        "font_size_mm": 2.6,
+    }
 
 
 def test_form_preset_creates_independent_project_copy() -> None:
@@ -77,7 +89,10 @@ def test_header_preset_is_copied_into_form_and_remains_editable() -> None:
     controller.apply_header_preset(template.template_id, "compact")
     template.header_elements[0].properties["text"] = "PROJECT TITLE"
 
-    assert len(BUILTIN_MASTERLOG_HEADER_PRESETS) >= 2
+    assert len(BUILTIN_MASTERLOG_HEADER_PRESETS) >= 3
     assert template.header_height_mm == 25.0
-    assert BUILTIN_MASTERLOG_HEADER_PRESETS[1].elements[0].properties["text"] == "MASTERLOG"
+    compact = next(
+        item for item in BUILTIN_MASTERLOG_HEADER_PRESETS if item.preset_id == "compact"
+    )
+    assert compact.elements[0].properties["text"] == "MASTERLOG"
     assert template.properties["header_preset_origin"] == "compact"

@@ -169,6 +169,11 @@ The same dialog independently enables vertical and horizontal engineering grids 
 major divisions, minor subdivisions within each major interval, and line opacity. Graphical columns
 in the built-in field presets include a grid by default. Existing forms keep it disabled until it is
 enabled in column properties; the settings are stored with the form and applied to PDF output.
+The Header editor also offers a dynamic `lithology_legend` element. It prints each rock's color,
+pattern, code, and localized name automatically. Select either the full catalog or only lithotypes
+used by lithology and cuttings within the printed interval, configure the column count, and optionally
+hide codes. New Field Masterlog and Geological Description presets include the expanded full-catalog
+header. System and project lithotypes use the same rendering without modifying the source catalog.
 
 ### Mouse interval filling
 
