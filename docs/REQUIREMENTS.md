@@ -17,7 +17,7 @@
 | DATA-004 | Импорт Excel с выбором листа, строки заголовка и колонки глубины | готово для XLS/XLSX/XLSM, включая DATE+TIME mapping, openpyxl и LibreOffice |
 | DATA-005 | Импорт табличных JSON и TXT | частично: числовой TXT с разделителями готов; JSON запланирован |
 | DATA-006 | DLIS/LIS через изолированный опциональный адаптер | запланировано; первый read-only профиль уточнён в DATA-021 |
-| DATA-007 | WITSML как отдельный сетевой источник с профилем подключения | позже |
+| DATA-007 | WITSML 2.1 / ETP 1.2 как growing well-data source | запланировано поэтапно: offline inventory/MudLogReport mapping → replay → secure network client; credentials не хранятся в проекте |
 | DATA-008 | Несколько файлов, скважин и наборов данных в одном проекте | готово |
 | DATA-009 | Безопасная диагностика NULL, дубликатов мнемоник, глубины и единиц | частично: NULL, мнемоники и индекс готовы; UOM запланирован |
 | DATA-010 | Плагины импорта и экспорта без зависимости Domain от формата | готов контракт Plugin API; загрузка внешних плагинов позже |
@@ -62,6 +62,20 @@ JSON-файл проекта не считается универсальным 
 | WELL-005 | Отчёт качества: монотонность глубины, пропуски, выбросы и дубликаты | частично: диагностика индексов и import issues сохраняются; выбросы кривых запланированы |
 | WELL-006 | Явное разделение MD, TVD, TVDSS и времени | готово в типизированной модели; mapping и renderer запланированы |
 | WELL-007 | Часовой пояс, UTC/локальное время, временной шаг и частота записи | частично: timezone provenance и безопасная UTC-нормализация готовы |
+
+## 2.1 Real-time Mud Logging и контроль операций
+
+| ID | Требование | Статус |
+|---|---|---|
+| OPS-001 | Semantic Channel Dictionary: canonical kind, dimension, UOM, aliases, sensor/source | запланировано; P0 до real-time adapters |
+| OPS-002 | Acquisition QC: measurement/arrival time, quality flags, gaps, duplicate/out-of-order/stale, calibration | запланировано; P0 |
+| OPS-003 | Versioned lag/depth correction для gas/cuttings с pump/volume/flow profiles | запланировано; P0, исходник append-only |
+| OPS-004 | Typed drilling/gas/show/sample/casing/top events с depth/time anchors и audit | запланировано; P0 |
+| OPS-005 | Growing dataset: append, replay, checkpoint, backpressure и controlled close | запланировано; P0 |
+| OPS-006 | QC/alarm rules: threshold, hysteresis, debounce, acknowledgement и audit | запланировано; не сертифицированная well-control system |
+| OPS-007 | Structured MudLogReport: cuttings/geology/show, chromatograph/gas peaks, drilling/Dxc/ECD/ROP stats | запланировано по WITSML domain |
+| OPS-008 | Pore-pressure/fracture-gradient workflow с predrill model, observations и uncertainty | позже; decision-support с паспортом методики |
+| OPS-009 | Flow/pit/connection trends, kick/loss и hole-cleaning indicators | позже; после OPS-001…006 |
 
 ## 3. Редактирование данных
 
@@ -177,8 +191,8 @@ JSON-файл проекта не считается универсальным 
 | PRINT-013 | Интервальные lithology/description колонки Masterlog | готово: project lithotypes, цвет/штриховка, код и безопасный word-wrap описания с clipping по depth/page range |
 | PRINT-014 | Автолегенда литотипов, symbols/shows и peak callouts | запланировано по референсам Masterlog |
 | CORR-001 | Многоскважинный correlation canvas с независимыми depth ranges, markers/horizons/ties и PDF | запланировано; референсная матрица в `docs/MASTERLOG_REFERENCE_REVIEW.md` |
-| PRINT-013 | Preflight формы перед preview/PDF/печатью: данные, кривые, assets, шкалы, геометрия и число страниц | готово с блокировкой ошибок и подтверждением предупреждений |
-| PRINT-014 | Импорт/экспорт переносимой формы с preview состава и независимой копией | готово для versioned JSON-пакета с SHA-256-проверенными PNG/SVG-assets |
+| PRINT-015 | Preflight формы перед preview/PDF/печатью: данные, кривые, assets, шкалы, геометрия и число страниц | готово с блокировкой ошибок и подтверждением предупреждений |
+| PRINT-016 | Импорт/экспорт переносимой формы с preview состава и независимой копией | готово для versioned JSON-пакета с SHA-256-проверенными PNG/SVG-assets |
 
 Печатный рендер должен работать в миллиметрах и не должен быть скриншотом экранного
 `TabletView`.

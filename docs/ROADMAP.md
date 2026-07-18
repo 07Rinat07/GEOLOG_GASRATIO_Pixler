@@ -168,7 +168,9 @@ Roadmap следует зависимостям продукта, а не ном
    - DLIS v1/LIS79 read-only через optional `dlisio`, frame/channel mapping и QC;
    - GIS foundation: CRS, GeoPackage, Shapefile compatibility и GeoTIFF через optional GDAL;
    - типизированная Report Model и DOCX из версионированного шаблона;
-   - WITSML после определения безопасного профиля подключения.
+   - до WITSML: Semantic Channel Dictionary/UOM, acquisition QC, typed events, lag correction и replayable growing dataset;
+   - WITSML 2.1: offline inventory/MudLogReport mapping, затем replay, и только потом secure ETP 1.2 client;
+   - отраслевой gap-analysis: `docs/MUDLOG_INDUSTRY_GAP_REVIEW.md`.
 10. **0.15 User Profiles & Personal Library**
    - готово: профиль инженера, имя, организация, стабильный ID и переключение;
    - личная межпроектная библиотека формул, Masterlog-форм, колонок и обозначений;
