@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from geoworkbench.domain.models import MasterlogColumnTemplate, MasterlogTemplate
+from geoworkbench.domain.models import Dataset, MasterlogColumnTemplate, MasterlogTemplate
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.services.localization import AppLanguage, Localizer
 
@@ -30,6 +30,7 @@ class ColumnPropertiesDialog(QDialog):
         parent=None,
         *,
         column: MasterlogColumnTemplate | None = None,
+        dataset: Dataset | None = None,
         language: AppLanguage = AppLanguage.RU,
     ) -> None:
         super().__init__(parent)
@@ -48,6 +49,8 @@ class ColumnPropertiesDialog(QDialog):
                 "calcimetry",
                 "lba",
                 "text",
+                "cuttings_description",
+                "analysis_interpretation",
             ]
         )
         if column:
@@ -57,6 +60,21 @@ class ColumnPropertiesDialog(QDialog):
         self.width_input.setSuffix(" mm")
         self.width_input.setValue(column.width_mm if column else 30.0)
         self.curves_input = QLineEdit(", ".join(column.curve_mnemonics) if column else "")
+        self.curves_input.setObjectName("masterlog-column-curves")
+        curves_row = QHBoxLayout()
+        curves_row.addWidget(self.curves_input)
+        self.choose_curves_button = QPushButton(
+            {
+                AppLanguage.RU: "Выбрать из LAS...",
+                AppLanguage.KK: "LAS-тан таңдау...",
+                AppLanguage.EN: "Choose from LAS...",
+            }[language]
+        )
+        self.choose_curves_button.setEnabled(dataset is not None and bool(dataset.curves))
+        self.choose_curves_button.clicked.connect(
+            lambda: self._choose_dataset_curves(dataset, language)
+        )
+        curves_row.addWidget(self.choose_curves_button)
         self.scale_input = QComboBox()
         self.scale_input.addItem(localizer.text("inspector.linear"), "linear")
         self.scale_input.addItem(localizer.text("inspector.logarithmic"), "logarithmic")
@@ -92,7 +110,7 @@ class ColumnPropertiesDialog(QDialog):
         layout.addRow(localizer.text("masterlog_columns.name"), self.title_input)
         layout.addRow(localizer.text("inspector.type"), self.type_input)
         layout.addRow(localizer.text("inspector.width"), self.width_input)
-        layout.addRow(localizer.text("inspector.curves"), self.curves_input)
+        layout.addRow(localizer.text("inspector.curves"), curves_row)
         layout.addRow(localizer.text("inspector.x_scale"), self.scale_input)
         layout.addRow(self.auto_range_input)
         layout.addRow(localizer.text("inspector.x_minimum"), self.minimum_input)
@@ -143,6 +161,66 @@ class ColumnPropertiesDialog(QDialog):
     def _update_range_enabled(self, automatic: bool) -> None:
         self.minimum_input.setEnabled(not automatic)
         self.maximum_input.setEnabled(not automatic)
+
+    def _choose_dataset_curves(self, dataset: Dataset | None, language: AppLanguage) -> None:
+        if dataset is None:
+            return
+        current = [value.strip() for value in self.curves_input.text().split(",") if value.strip()]
+        available = sorted(
+            (curve.metadata.original_mnemonic for curve in dataset.curves.values()),
+            key=str.casefold,
+        )
+        dialog = DatasetCurveSelectionDialog(current, available, self, language=language)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.curves_input.setText(", ".join(dialog.selected_mnemonics()))
+
+
+class DatasetCurveSelectionDialog(QDialog):
+    def __init__(
+        self,
+        selected: list[str],
+        available: list[str],
+        parent=None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(
+            {
+                AppLanguage.RU: "Параметры колонки",
+                AppLanguage.KK: "Баған параметрлері",
+                AppLanguage.EN: "Column parameters",
+            }[language]
+        )
+        self.list = QListWidget()
+        self.list.setObjectName("masterlog-dataset-curves")
+        ordered = list(dict.fromkeys([*selected, *available]))
+        selected_keys = {value.casefold() for value in selected}
+        for mnemonic in ordered:
+            item = QListWidgetItem(mnemonic)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(
+                Qt.CheckState.Checked
+                if mnemonic.casefold() in selected_keys
+                else Qt.CheckState.Unchecked
+            )
+            self.list.addItem(item)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.list)
+        layout.addWidget(buttons)
+        self.resize(360, 440)
+
+    def selected_mnemonics(self) -> list[str]:
+        return [
+            self.list.item(index).text()
+            for index in range(self.list.count())
+            if self.list.item(index).checkState() == Qt.CheckState.Checked
+        ]
 
 
 class MasterlogColumnsDialog(QDialog):
@@ -200,7 +278,11 @@ class MasterlogColumnsDialog(QDialog):
         return next(column for column in self.template.columns if column.column_id == column_id)
 
     def _add(self) -> None:
-        dialog = ColumnPropertiesDialog(self, language=self.localizer.language)
+        dialog = ColumnPropertiesDialog(
+            self,
+            dataset=self.controller.session.current_dataset,
+            language=self.localizer.language,
+        )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         (
@@ -237,39 +319,14 @@ class MasterlogColumnsDialog(QDialog):
         column = self._selected_column()
         if column is None:
             return
-        dialog = ColumnPropertiesDialog(self, column=column, language=self.localizer.language)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        (
-            title,
-            column_type,
-            width,
-            curves,
-            scale,
-            x_min,
-            x_max,
-            legend,
-            color,
-            line_width,
-            line_style,
-        ) = dialog.values()
-        self._run(
-            lambda: self.controller.update_column(
-                self.template_id,
-                column.column_id,
-                title=title,
-                column_type=column_type,
-                width_mm=width,
-                curve_mnemonics=curves,
-                x_scale=scale,
-                x_min=x_min,
-                x_max=x_max,
-                show_legend=legend,
-                line_color=color,
-                line_width=line_width,
-                line_style=line_style,
-            )
-        )
+        if edit_masterlog_column(
+            self,
+            self.controller,
+            self.template_id,
+            column.column_id,
+            language=self.localizer.language,
+        ):
+            self.refresh()
 
     def _remove(self) -> None:
         column = self._selected_column()
@@ -289,3 +346,52 @@ class MasterlogColumnsDialog(QDialog):
         except (KeyError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
         self.refresh()
+
+
+def edit_masterlog_column(
+    parent,
+    controller: MasterlogTemplateController,
+    template_id: str,
+    column_id: str,
+    *,
+    language: AppLanguage = AppLanguage.RU,
+) -> bool:
+    template = controller.session.project.masterlog_templates[template_id]
+    column = next(item for item in template.columns if item.column_id == column_id)
+    dialog = ColumnPropertiesDialog(
+        parent,
+        column=column,
+        dataset=controller.session.current_dataset,
+        language=language,
+    )
+    if dialog.exec() != QDialog.DialogCode.Accepted:
+        return False
+    (
+        title,
+        column_type,
+        width,
+        curves,
+        scale,
+        x_min,
+        x_max,
+        legend,
+        color,
+        line_width,
+        line_style,
+    ) = dialog.values()
+    controller.update_column(
+        template_id,
+        column_id,
+        title=title,
+        column_type=column_type,
+        width_mm=width,
+        curve_mnemonics=curves,
+        x_scale=scale,
+        x_min=x_min,
+        x_max=x_max,
+        show_legend=legend,
+        line_color=color,
+        line_width=line_width,
+        line_style=line_style,
+    )
+    return True

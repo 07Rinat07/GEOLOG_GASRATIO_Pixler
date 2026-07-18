@@ -87,11 +87,38 @@ def inspect_masterlog_point(
         return _inspect_stratigraphy(column, depth, session)
     if column.column_type == "cuttings":
         return _inspect_cuttings(column, depth, session, language)
+    if column.column_type == "cuttings_description":
+        return _inspect_cuttings_description(column, depth, session)
+    if column.column_type == "analysis_interpretation":
+        return _inspect_sample_interpretation(column, depth, session)
     if column.column_type in {"calcimetry", "lba"}:
         return _inspect_sample_analysis(column, depth, session, language)
     if column.column_type == "depth":
         return MasterlogInspection(column.column_id, column.title, depth)
     return _inspect_curves(column, x_mm, depth, template, session)
+
+
+def masterlog_column_header_at_point(
+    point: QPointF,
+    target: QRectF,
+    template: MasterlogTemplate,
+    session: ProjectSession,
+    *,
+    depth_range: tuple[float, float] | None = None,
+) -> MasterlogColumnTemplate | None:
+    """Return a template column when a screen point is inside its rendered header."""
+    effective_range = depth_range or masterlog_depth_range(session)
+    size = masterlog_size_mm(template, session, depth_range=effective_range)
+    scale = min(target.width() / size.width(), target.height() / size.height())
+    if scale <= 0:
+        return None
+    origin_x = target.x() + (target.width() - size.width() * scale) / 2.0
+    origin_y = target.y() + (target.height() - size.height() * scale) / 2.0
+    x_mm = (point.x() - origin_x) / scale
+    y_mm = (point.y() - origin_y) / scale
+    if not template.header_height_mm <= y_mm <= template.header_height_mm + 12.0:
+        return None
+    return _column_at(template, x_mm)
 
 
 def _column_at(template: MasterlogTemplate, x_mm: float) -> MasterlogColumnTemplate | None:
@@ -210,6 +237,56 @@ def _inspect_cuttings(
         column.title,
         depth,
         description="; ".join(parts),
+        interval=(sample.top_depth, sample.bottom_depth),
+    )
+
+
+def _inspect_cuttings_description(
+    column: MasterlogColumnTemplate,
+    depth: float,
+    session: ProjectSession,
+) -> MasterlogInspection:
+    well = session.current_well
+    sample = next(
+        (
+            item
+            for item in (well.cuttings if well is not None else ())
+            if item.top_depth <= depth <= item.bottom_depth
+        ),
+        None,
+    )
+    if sample is None:
+        return MasterlogInspection(column.column_id, column.title, depth)
+    return MasterlogInspection(
+        column.column_id,
+        column.title,
+        depth,
+        description=sample.description,
+        interval=(sample.top_depth, sample.bottom_depth),
+    )
+
+
+def _inspect_sample_interpretation(
+    column: MasterlogColumnTemplate,
+    depth: float,
+    session: ProjectSession,
+) -> MasterlogInspection:
+    well = session.current_well
+    sample = next(
+        (
+            item
+            for item in (well.cuttings if well is not None else ())
+            if item.top_depth <= depth <= item.bottom_depth
+        ),
+        None,
+    )
+    if sample is None:
+        return MasterlogInspection(column.column_id, column.title, depth)
+    return MasterlogInspection(
+        column.column_id,
+        column.title,
+        depth,
+        description=sample.analysis_interpretation,
         interval=(sample.top_depth, sample.bottom_depth),
     )
 

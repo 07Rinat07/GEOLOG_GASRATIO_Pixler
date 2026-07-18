@@ -3,8 +3,10 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.masterlog_columns_dialog import (
     ColumnPropertiesDialog,
+    DatasetCurveSelectionDialog,
     MasterlogColumnsDialog,
 )
+from PySide6.QtCore import Qt
 
 
 def test_masterlog_columns_dialog_lists_column_properties(qapp) -> None:
@@ -18,9 +20,7 @@ def test_masterlog_columns_dialog_lists_column_properties(qapp) -> None:
         curve_mnemonics=["C1", "C2"],
     )
 
-    dialog = MasterlogColumnsDialog(
-        controller, template.template_id, language=AppLanguage.EN
-    )
+    dialog = MasterlogColumnsDialog(controller, template.template_id, language=AppLanguage.EN)
 
     assert dialog.windowTitle() == "Masterlog columns"
     assert dialog.list.item(0).text() == "Gas | curves | 35 mm | C1, C2"
@@ -40,9 +40,7 @@ def test_column_properties_dialog_returns_normalized_curve_list(qapp) -> None:
     dialog.legend_input.setChecked(False)
     dialog.color_input.setText("#112233")
     dialog.line_width_input.setValue(2.5)
-    dialog.line_style_input.setCurrentIndex(
-        dialog.line_style_input.findData("dash")
-    )
+    dialog.line_style_input.setCurrentIndex(dialog.line_style_input.findData("dash"))
 
     assert dialog.windowTitle() == "Column properties"
     assert dialog.values() == (
@@ -65,4 +63,18 @@ def test_column_properties_dialog_offers_stratigraphy(qapp) -> None:
     dialog = ColumnPropertiesDialog(language=AppLanguage.EN)
 
     assert dialog.type_input.findText("stratigraphy") >= 0
+    assert dialog.type_input.findText("cuttings_description") >= 0
+    assert dialog.type_input.findText("analysis_interpretation") >= 0
+    dialog.close()
+
+
+def test_dataset_curve_selection_preserves_parameter_order(qapp) -> None:
+    dialog = DatasetCurveSelectionDialog(
+        ["TG", "C1"], ["C1", "C2", "ROP", "TG"], language=AppLanguage.EN
+    )
+
+    assert dialog.windowTitle() == "Column parameters"
+    assert dialog.selected_mnemonics() == ["TG", "C1"]
+    dialog.list.item(2).setCheckState(Qt.CheckState.Checked)
+    assert dialog.selected_mnemonics() == ["TG", "C1", "C2"]
     dialog.close()

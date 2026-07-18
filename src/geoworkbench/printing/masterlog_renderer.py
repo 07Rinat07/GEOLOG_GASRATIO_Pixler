@@ -467,6 +467,10 @@ def _paint_columns(
                 _paint_lithology_column(painter, plot_rect, session, depth_range)
             elif column.column_type == "cuttings":
                 _paint_cuttings_column(painter, plot_rect, session, depth_range)
+            elif column.column_type == "cuttings_description":
+                _paint_cuttings_descriptions(painter, plot_rect, session, depth_range)
+            elif column.column_type == "analysis_interpretation":
+                _paint_sample_interpretations(painter, plot_rect, session, depth_range)
             elif column.column_type == "calcimetry":
                 _paint_calcimetry_column(painter, plot_rect, session, depth_range)
             elif column.column_type == "lba":
@@ -822,6 +826,78 @@ def _paint_lithology_descriptions(
                 interval_rect.adjusted(1.0, 0.5, -1.0, -0.5),
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
                 description,
+            )
+    painter.restore()
+
+
+def _paint_cuttings_descriptions(
+    painter: QPainter,
+    rect: QRectF,
+    session: ProjectSession,
+    depth_range: tuple[float, float],
+) -> None:
+    well = session.current_well
+    if well is None:
+        return
+    top, bottom = depth_range
+    painter.save()
+    painter.setClipRect(rect)
+    font = QFont()
+    font.setPointSizeF(6.5)
+    painter.setFont(font)
+    for sample in well.cuttings:
+        if not sample.description or sample.bottom_depth < top or sample.top_depth > bottom:
+            continue
+        y_top = rect.top() + (max(top, sample.top_depth) - top) / (bottom - top) * rect.height()
+        y_bottom = (
+            rect.top() + (min(bottom, sample.bottom_depth) - top) / (bottom - top) * rect.height()
+        )
+        sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
+        painter.setPen(QPen(QColor("#94a3b8"), 0.15))
+        painter.drawRect(sample_rect)
+        if sample_rect.height() >= 3.0:
+            painter.setPen(QColor("#0f172a"))
+            painter.drawText(
+                sample_rect.adjusted(0.6, 0.3, -0.6, -0.3),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
+                sample.description,
+            )
+    painter.restore()
+
+
+def _paint_sample_interpretations(
+    painter: QPainter,
+    rect: QRectF,
+    session: ProjectSession,
+    depth_range: tuple[float, float],
+) -> None:
+    well = session.current_well
+    if well is None:
+        return
+    top, bottom = depth_range
+    painter.save()
+    painter.setClipRect(rect)
+    font = QFont()
+    font.setPointSizeF(6.0)
+    painter.setFont(font)
+    for sample in well.cuttings:
+        text = sample.analysis_interpretation
+        if not text or sample.bottom_depth < top or sample.top_depth > bottom:
+            continue
+        y_top = rect.top() + (max(top, sample.top_depth) - top) / (bottom - top) * rect.height()
+        y_bottom = (
+            rect.top() + (min(bottom, sample.bottom_depth) - top) / (bottom - top) * rect.height()
+        )
+        sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
+        painter.fillRect(sample_rect, QColor("#f8fafc"))
+        painter.setPen(QPen(QColor("#64748b"), 0.15))
+        painter.drawRect(sample_rect)
+        if sample_rect.height() >= 3.0:
+            painter.setPen(QColor("#0f172a"))
+            painter.drawText(
+                sample_rect.adjusted(0.5, 0.25, -0.5, -0.25),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
+                text,
             )
     painter.restore()
 

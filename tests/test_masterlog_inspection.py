@@ -14,7 +14,10 @@ from geoworkbench.domain.models import (
     ProjectLithotype,
     StratigraphyInterval,
 )
-from geoworkbench.printing.masterlog_inspection import inspect_masterlog_point
+from geoworkbench.printing.masterlog_inspection import (
+    inspect_masterlog_point,
+    masterlog_column_header_at_point,
+)
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 
@@ -127,6 +130,96 @@ def test_click_on_calcimetry_and_lba_returns_sample_interval() -> None:
     assert lba.description == (
         "Oil show; Intensity: 4; yellow; Streaming; "
         "Geologist interpretation: Manual show interpretation"
+    )
+
+
+def test_click_on_cuttings_description_returns_only_interval_text() -> None:
+    session = _session()
+    assert session.current_well is not None
+    session.current_well.cuttings.append(
+        CuttingsSample("sample", 400.0, 600.0, description="Fine sandstone, weak oil stain")
+    )
+    template = MasterlogTemplate(
+        "form",
+        "Form",
+        header_height_mm=45.0,
+        columns=[
+            MasterlogColumnTemplate(
+                "description", "Cuttings description", "cuttings_description", 100.0
+            )
+        ],
+    )
+
+    result = inspect_masterlog_point(
+        QPointF(50.0, 128.5), QRectF(0, 0, 100, 257), template, session
+    )
+
+    assert result is not None
+    assert result.interval == (400.0, 600.0)
+    assert result.description == "Fine sandstone, weak oil stain"
+
+
+def test_click_on_interpretation_returns_geologist_interval_text() -> None:
+    session = _session()
+    assert session.current_well is not None
+    session.current_well.cuttings.append(
+        CuttingsSample(
+            "sample",
+            400.0,
+            600.0,
+            analysis_interpretation="Reservoir sandstone with documented show",
+        )
+    )
+    template = MasterlogTemplate(
+        "form",
+        "Form",
+        header_height_mm=45.0,
+        columns=[
+            MasterlogColumnTemplate(
+                "interpretation", "Interpretation", "analysis_interpretation", 100.0
+            )
+        ],
+    )
+
+    result = inspect_masterlog_point(
+        QPointF(50.0, 128.5), QRectF(0, 0, 100, 257), template, session
+    )
+
+    assert result is not None
+    assert result.interval == (400.0, 600.0)
+    assert result.description == "Reservoir sandstone with documented show"
+
+
+def test_column_header_hit_test_returns_rendered_column() -> None:
+    session = _session()
+    template = MasterlogTemplate(
+        "form",
+        "Form",
+        header_height_mm=45.0,
+        columns=[
+            MasterlogColumnTemplate("depth", "Depth", "depth", 40.0),
+            MasterlogColumnTemplate("gas", "Gas", "curves", 60.0, ["TG"]),
+        ],
+    )
+
+    result = masterlog_column_header_at_point(
+        QPointF(70.0, 50.0),
+        QRectF(0, 0, 100, 257),
+        template,
+        session,
+        depth_range=(0.0, 100.0),
+    )
+
+    assert result is template.columns[1]
+    assert (
+        masterlog_column_header_at_point(
+            QPointF(70.0, 100.0),
+            QRectF(0, 0, 100, 257),
+            template,
+            session,
+            depth_range=(0.0, 100.0),
+        )
+        is None
     )
 
 

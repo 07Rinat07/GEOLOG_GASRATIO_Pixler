@@ -80,9 +80,7 @@ def test_sample_analysis_stores_calcimetry_and_lba_in_same_interval() -> None:
     assert sample.lba_odour == "Moderate"
     assert sample.lba_stain == "Spotty"
     assert sample.lba_description == "bright direct fluorescence"
-    assert sample.analysis_interpretation == (
-        "Carbonate interval with a documented oil show"
-    )
+    assert sample.analysis_interpretation == ("Carbonate interval with a documented oil show")
     assert controller.session.dirty is True
 
 
@@ -100,6 +98,37 @@ def test_cuttings_composition_can_be_added_after_interval_analysis() -> None:
     ]
     assert updated.calcite_percent == 60.0
     assert updated.insoluble_residue_percent is None
+
+
+def test_cuttings_description_can_be_entered_before_composition_and_is_preserved() -> None:
+    controller = _controller()
+
+    sample = controller.set_description(500, 510, "Fine sandstone with oil stain")
+    updated = controller.add(500, 510, {"sandstone": 100})
+
+    assert updated is sample
+    assert updated.description == "Fine sandstone with oil stain"
+    assert updated.components[0].percentage == 100.0
+
+
+def test_cuttings_description_can_be_edited_and_cleared() -> None:
+    controller = _controller()
+    sample = controller.add(500, 510, {"sandstone": 100}, description="Initial")
+
+    assert controller.set_description(500, 510, "  Updated  ") is sample
+    assert sample.description == "Updated"
+    controller.set_description(500, 510, "")
+    assert sample.description is None
+
+
+def test_empty_cuttings_description_does_not_create_an_interval() -> None:
+    controller = _controller()
+
+    with pytest.raises(ValueError, match="описание шлама"):
+        controller.set_description(500, 510, "  ")
+
+    with pytest.raises(ValueError, match="4000"):
+        controller.set_description(500, 510, "x" * 4001)
 
 
 def test_sample_analysis_validates_percentages_intensity_and_empty_input() -> None:

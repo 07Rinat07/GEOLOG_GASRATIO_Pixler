@@ -152,11 +152,25 @@ geological preset and save it under a project-specific name. The application cre
 copy, so column, scale, or LAS mapping changes do not modify the built-in preset or another form.
 Use “Header” and “Apply header preset...” to install an independently editable header copy.
 
+“Columns...” adds, edits, reorders, and removes form columns. In preview, double-click a column
+header to change that column's title, type, width, scale, range, and plotted curve set directly.
+“Choose from LAS...” lists parameters from the active file. When the form keeps standard parameter
+names but an external LAS uses vendor names, use “Map LAS curves...”; the mapping belongs to that
+form and dataset and does not alter the source LAS. Form edits are included in the next project save,
+and package export transfers an individual form.
+The built-in Field Masterlog follows the reference field order: drilling, depth, core/slide,
+cuttings, direct/cut fluorescence, ILM/ILD, C1–C5 gas, calcimetry, lithology, interpretation,
+and free-text description. Every column remains editable or removable for a project.
+
 ### Mouse interval filling
 
 In Masterlog preview, select “Fill lithology” or “Fill cuttings”. Hold the left mouse button and
 drag from interval top to bottom. Choose one rock for lithology, or enter multiple cuttings
 percentages whose total is exactly 100%. Overlapping intervals are rejected.
+
+“Cuttings description” selects an interval in the same way and opens a normal multiline text field.
+The text is stored with the cuttings sample and prints in a `cuttings_description` column. Composition
+and description may be entered in either order.
 
 The saved composition is also available on the interactive log display. Use “Log display → Add
 track → Cuttings” to add a 0–100% track. Component widths follow their percentages and use the

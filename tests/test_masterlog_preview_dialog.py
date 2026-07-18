@@ -19,6 +19,7 @@ def test_masterlog_preview_dialog_uses_selected_template(qapp) -> None:
     assert dialog.inspect_button.text() == "Inspect"
     assert dialog.lithology_button.text() == "Fill lithology"
     assert dialog.cuttings_button.text() == "Fill cuttings"
+    assert dialog.description_button.text() == "Cuttings description"
     assert dialog.analysis_button.text() == "Calcimetry / LBA"
     assert dialog.stratigraphy_button.text() == "Stratigraphy"
     assert dialog.pin_button.text() == "Pin for PDF"
@@ -30,6 +31,9 @@ def test_masterlog_preview_dialog_uses_selected_template(qapp) -> None:
     dialog._set_mode("analysis")
     assert dialog.preview.selection_mode == "analysis"
     assert dialog.analysis_button.isChecked()
+    dialog._set_mode("cuttings_description")
+    assert dialog.preview.selection_mode == "cuttings_description"
+    assert dialog.description_button.isChecked()
     dialog._set_mode("stratigraphy")
     assert dialog.preview.selection_mode == "stratigraphy"
     assert dialog.stratigraphy_button.isChecked()

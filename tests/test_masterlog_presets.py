@@ -16,7 +16,33 @@ def test_builtin_masterlog_presets_are_unique_and_cover_core_tracks() -> None:
         for preset in BUILTIN_MASTERLOG_FORM_PRESETS
         for column in preset.template.columns
     }
-    assert {"depth", "curves", "stratigraphy", "lithology", "text"} <= column_types
+    assert {
+        "depth",
+        "curves",
+        "stratigraphy",
+        "lithology",
+        "text",
+        "cuttings_description",
+        "analysis_interpretation",
+    } <= column_types
+
+    field = next(
+        item for item in BUILTIN_MASTERLOG_FORM_PRESETS if item.preset_id == "international_mudlog"
+    )
+    assert [column.column_id for column in field.template.columns] == [
+        "drilling",
+        "depth",
+        "core_slide",
+        "cuttings",
+        "direct_fluorescence",
+        "cut_fluorescence",
+        "resistivity",
+        "gas",
+        "calcimetry",
+        "lithology",
+        "interpretation",
+        "description",
+    ]
 
 
 def test_form_preset_creates_independent_project_copy() -> None:
@@ -27,7 +53,7 @@ def test_form_preset_creates_independent_project_copy() -> None:
     first.columns[0].title = "MD"
     first.header_elements[0].properties["text"] = "CUSTOM"
 
-    assert second.columns[0].title == "Depth"
+    assert second.columns[0].title == "Drilling parameters: ROP / WOB / TORQUE / GR"
     assert second.header_elements[0].properties["text"] == "MASTERLOG"
     assert first.template_id != second.template_id
 

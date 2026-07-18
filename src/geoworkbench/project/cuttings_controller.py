@@ -22,6 +22,7 @@ class CuttingsController:
     ) -> CuttingsSample:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
+        normalized_description = self._normalize_text(description, 4000, "Описание шлама")
         existing = self._find_exact_sample(top, bottom)
         if existing is not None:
             if existing.components:
@@ -29,9 +30,8 @@ class CuttingsController:
             existing.components = [
                 CuttingsComponent(name, percentage) for name, percentage in normalized.items()
             ]
-            existing.description = (
-                description.strip() if description and description.strip() else None
-            )
+            if description is not None:
+                existing.description = normalized_description
             self.session.dirty = True
             return existing
         self._ensure_no_overlap(top, bottom)
@@ -40,9 +40,30 @@ class CuttingsController:
             top,
             bottom,
             [CuttingsComponent(name, percentage) for name, percentage in normalized.items()],
-            description=description.strip() if description and description.strip() else None,
+            description=normalized_description,
         )
         self._require_well().cuttings.append(sample)
+        self.session.dirty = True
+        return sample
+
+    def set_description(
+        self,
+        top_depth: float,
+        bottom_depth: float,
+        description: str | None,
+    ) -> CuttingsSample:
+        """Create or update free-text cuttings description for an exact sample interval."""
+        top, bottom = self._validate_interval(top_depth, bottom_depth)
+        normalized = self._normalize_text(description, 4000, "Описание шлама")
+        sample = self._find_exact_sample(top, bottom)
+        if sample is None:
+            if normalized is None:
+                raise ValueError("Введите описание шлама")
+            self._ensure_no_overlap(top, bottom)
+            sample = CuttingsSample(new_id(), top, bottom, description=normalized)
+            self._require_well().cuttings.append(sample)
+        else:
+            sample.description = normalized
         self.session.dirty = True
         return sample
 
@@ -158,10 +179,8 @@ class CuttingsController:
         return value
 
     @staticmethod
-    def _normalize_text(
-        value: str | None, maximum: int, label: str = "Текст ЛБА"
-    ) -> str | None:
-        normalized = value.strip() if value else None
+    def _normalize_text(value: str | None, maximum: int, label: str = "Текст ЛБА") -> str | None:
+        normalized = (value.strip() if value else "") or None
         if normalized and len(normalized) > maximum:
             raise ValueError(f"{label} не должен превышать {maximum} символов")
         return normalized
