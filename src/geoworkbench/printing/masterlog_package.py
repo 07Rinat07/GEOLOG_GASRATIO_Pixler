@@ -10,6 +10,7 @@ from typing import Any
 
 from geoworkbench.domain.models import (
     MasterlogColumnTemplate,
+    MasterlogCurveStyle,
     MasterlogHeaderElement,
     MasterlogTemplate,
 )
@@ -139,7 +140,23 @@ def _template_from_dict(raw: object) -> MasterlogTemplate:
             raise TypeError
         data = dict(raw)
         data["header_elements"] = [MasterlogHeaderElement(**item) for item in elements_raw]
-        data["columns"] = [MasterlogColumnTemplate(**item) for item in columns_raw]
+        columns: list[MasterlogColumnTemplate] = []
+        for item in columns_raw:
+            if not isinstance(item, dict):
+                raise TypeError
+            column_data = dict(item)
+            raw_styles = column_data.get("curve_styles", {})
+            if not isinstance(raw_styles, dict):
+                raise TypeError
+            column_data["curve_styles"] = {
+                str(mnemonic): MasterlogCurveStyle(**style)
+                for mnemonic, style in raw_styles.items()
+                if isinstance(style, dict)
+            }
+            if len(column_data["curve_styles"]) != len(raw_styles):
+                raise TypeError
+            columns.append(MasterlogColumnTemplate(**column_data))
+        data["columns"] = columns
         return MasterlogTemplate(**data)
     except (TypeError, ValueError) as exc:
         raise MasterlogPackageError("Шаблон в пакете masterlog некорректен") from exc

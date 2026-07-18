@@ -25,6 +25,7 @@ from geoworkbench.domain.models import (
     TimeDepthMappingProfile,
     LithologyInterval,
     MasterlogColumnTemplate,
+    MasterlogCurveStyle,
     MasterlogHeaderElement,
     MasterlogTemplate,
     Project,
@@ -338,9 +339,20 @@ def project_from_dict(data: dict[str, Any]) -> Project:
                 MasterlogHeaderElement(**element)
                 for element in item.get("header_elements", [])
             ]
-            columns = [
-                MasterlogColumnTemplate(**column) for column in item.get("columns", [])
-            ]
+            columns = []
+            for column in item.get("columns", []):
+                column_data = dict(column)
+                raw_curve_styles = column_data.get("curve_styles", {})
+                if not isinstance(raw_curve_styles, dict):
+                    raise TypeError("Стили кривых Masterlog должны быть объектом")
+                column_data["curve_styles"] = {
+                    str(mnemonic): MasterlogCurveStyle(**style)
+                    for mnemonic, style in raw_curve_styles.items()
+                    if isinstance(style, dict)
+                }
+                if len(column_data["curve_styles"]) != len(raw_curve_styles):
+                    raise TypeError("Запись стиля кривой Masterlog имеет неверный формат")
+                columns.append(MasterlogColumnTemplate(**column_data))
             template = MasterlogTemplate(
                 template_id=str(_required(item, "template_id", str)),
                 name=str(_required(item, "name", str)),

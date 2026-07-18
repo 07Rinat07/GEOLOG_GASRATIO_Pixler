@@ -10,6 +10,7 @@ from geoworkbench.domain.models import (
     DatasetKind,
     DepthDomain,
     MasterlogColumnTemplate,
+    MasterlogCurveStyle,
     Well,
 )
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
@@ -90,6 +91,10 @@ def test_masterlog_template_controller_manages_column_lifecycle() -> None:
         line_color="#112233",
         line_width=2.5,
         line_style="dash",
+        curve_styles={
+            "C1": MasterlogCurveStyle("#abcdef", 3.0, "dot", 0.2, 200.0),
+            "STALE": MasterlogCurveStyle(),
+        },
     )
 
     assert second.curve_mnemonics == ["C1", "C2"]
@@ -99,6 +104,7 @@ def test_masterlog_template_controller_manages_column_lifecycle() -> None:
     assert second.line_color == "#112233"
     assert second.line_width == 2.5
     assert second.line_style == "dash"
+    assert second.curve_styles == {"C1": MasterlogCurveStyle("#abcdef", 3.0, "dot", 0.2, 200.0)}
     assert controller.move_column(template.template_id, second.column_id, -1) is True
     updated = controller.update_column(
         template.template_id,
@@ -109,6 +115,7 @@ def test_masterlog_template_controller_manages_column_lifecycle() -> None:
         curve_mnemonics=[],
     )
     assert updated.width_mm == 20.0
+    assert second.curve_styles["C1"].color == "#abcdef"
     assert [column.column_id for column in template.columns] == [
         second.column_id,
         first.column_id,
@@ -158,6 +165,22 @@ def test_masterlog_column_rejects_invalid_line_style() -> None:
             column_type="curves",
             width_mm=30.0,
             line_color="blue",
+        )
+
+
+def test_masterlog_column_rejects_non_positive_curve_range_for_log_scale() -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+
+    with pytest.raises(ValueError, match="положительным"):
+        controller.add_column(
+            template.template_id,
+            title="Gas",
+            column_type="curves",
+            width_mm=30.0,
+            curve_mnemonics=["TG"],
+            x_scale="logarithmic",
+            curve_styles={"TG": MasterlogCurveStyle(x_min=0.0, x_max=100.0)},
         )
 
 

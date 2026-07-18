@@ -10,6 +10,7 @@ from geoworkbench.domain.models import (
     DepthDomain,
     CuttingsSample,
     MasterlogColumnTemplate,
+    MasterlogCurveStyle,
     MasterlogHeaderElement,
     MasterlogTemplate,
     LithologyInterval,
@@ -21,6 +22,7 @@ from geoworkbench.printing.image_assets import create_svg_asset
 from geoworkbench.printing.masterlog_renderer import (
     MasterlogRenderError,
     curve_x_range,
+    curve_display_range,
     configure_masterlog_printer,
     export_masterlog_pdf,
     masterlog_depth_range,
@@ -32,6 +34,7 @@ from geoworkbench.printing.masterlog_renderer import (
     _parameter_symbol_x,
     visible_lithology_intervals,
     masterlog_curve_bindings,
+    masterlog_curve_style,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.services.localization import AppLanguage
@@ -122,6 +125,29 @@ def test_masterlog_curve_range_uses_saved_vendor_curve_mapping() -> None:
     bindings = masterlog_curve_bindings(template, dataset)
 
     assert curve_x_range(template.columns[0], dataset, bindings) == (20.0, 100.0)
+
+
+def test_masterlog_curve_uses_individual_style_and_range() -> None:
+    dataset = make_session_with_curves().current_dataset
+    assert dataset is not None
+    column = MasterlogColumnTemplate(
+        "gas",
+        "Gas",
+        "curves",
+        50.0,
+        ["TG", "C1"],
+        x_min=0.0,
+        x_max=1000.0,
+        curve_styles={"C1": MasterlogCurveStyle("#00aa00", 3.0, "dot", 1.0, 40.0)},
+    )
+
+    style = masterlog_curve_style(column, "C1", 1)
+
+    assert style.color == "#00aa00"
+    assert style.width == 3.0
+    assert style.line_style == "dot"
+    assert curve_display_range(column, dataset, "C1") == (1.0, 40.0)
+    assert curve_display_range(column, dataset, "TG") == (0.0, 1000.0)
 
 
 def test_parameter_symbol_x_follows_linear_and_log_column_scale() -> None:

@@ -161,6 +161,10 @@ and package export transfers an individual form.
 The built-in Field Masterlog follows the reference field order: drilling, depth, core/slide,
 cuttings, direct/cut fluorescence, ILM/ILD, C1–C5 gas, calcimetry, lithology, interpretation,
 and free-text description. Every column remains editable or removable for a project.
+Select “Curve styles...” in a graphical column to configure each mnemonic's `#RRGGBB` color,
+width, solid/dash/dot line, and optional individual X range. Without an individual range, the
+column range remains the fallback. The printed header shows each mnemonic and range in its curve
+color.
 
 ### Mouse interval filling
 

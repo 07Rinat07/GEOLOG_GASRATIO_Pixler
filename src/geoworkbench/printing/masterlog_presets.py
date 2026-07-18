@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from geoworkbench.domain.models import (
     MasterlogColumnTemplate,
+    MasterlogCurveStyle,
     MasterlogHeaderElement,
     MasterlogTemplate,
 )
@@ -201,19 +202,33 @@ BUILTIN_MASTERLOG_HEADER_PRESETS = (STANDARD_HEADER, COMPACT_HEADER)
 def _columns(
     *items: tuple[str, str, str, float, list[str], str, float | None, float | None],
 ) -> list[MasterlogColumnTemplate]:
-    return [
-        MasterlogColumnTemplate(
-            column_id,
-            title,
-            column_type,
-            width,
-            curves,
-            x_scale=scale,
-            x_min=x_min,
-            x_max=x_max,
+    palette = ("#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2")
+    columns: list[MasterlogColumnTemplate] = []
+    for column_id, title, column_type, width, curves, scale, x_min, x_max in items:
+        styles = {
+            mnemonic: MasterlogCurveStyle(
+                palette[index % len(palette)],
+                1.5,
+                "solid",
+                x_min,
+                x_max,
+            )
+            for index, mnemonic in enumerate(curves)
+        }
+        columns.append(
+            MasterlogColumnTemplate(
+                column_id,
+                title,
+                column_type,
+                width,
+                curves,
+                x_scale=scale,
+                x_min=x_min,
+                x_max=x_max,
+                curve_styles=styles,
+            )
         )
-        for column_id, title, column_type, width, curves, scale, x_min, x_max in items
-    ]
+    return columns
 
 
 BUILTIN_MASTERLOG_FORM_PRESETS = (

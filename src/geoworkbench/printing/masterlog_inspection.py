@@ -10,6 +10,7 @@ from geoworkbench.domain.models import MasterlogColumnTemplate, MasterlogTemplat
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.printing.masterlog_renderer import (
+    curve_display_range,
     curve_x_range,
     masterlog_curve_bindings,
     masterlog_depth_range,
@@ -375,8 +376,7 @@ def _inspect_curves(
     assert dataset is not None
     depths = np.asarray(dataset.active_index.values, dtype=np.float64)
     bindings = masterlog_curve_bindings(template, dataset)
-    x_range = curve_x_range(column, dataset, bindings)
-    if x_range is None or depths.size == 0:
+    if curve_x_range(column, dataset, bindings) is None or depths.size == 0:
         return MasterlogInspection(column.column_id, column.title, depth)
     column_index = next(index for index, item in enumerate(template.columns) if item is column)
     column_left = sum(item.width_mm for item in template.columns[:column_index])
@@ -385,6 +385,9 @@ def _inspect_curves(
     )
     candidates: list[tuple[float, str, float, str | None, str | None, float]] = []
     for mnemonic in column.curve_mnemonics:
+        x_range = curve_display_range(column, dataset, mnemonic, bindings)
+        if x_range is None:
+            continue
         curve_id = bindings.get(mnemonic)
         curve = dataset.curves.get(curve_id) if curve_id else dataset.curve_by_mnemonic(mnemonic)
         if curve is None:

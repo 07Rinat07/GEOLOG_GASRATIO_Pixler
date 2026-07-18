@@ -21,6 +21,7 @@ from geoworkbench.domain.models import (
     TimeDepthAggregationPolicy,
     TimeDepthMappingProfile,
     MasterlogColumnTemplate,
+    MasterlogCurveStyle,
     MasterlogHeaderElement,
     MasterlogTemplate,
     Project,
@@ -279,6 +280,10 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
                 line_color="#112233",
                 line_width=2.5,
                 line_style="dash",
+                curve_styles={
+                    "TG": MasterlogCurveStyle("#ff0000", 2.0, "solid", 0.1, 1000.0),
+                    "C1": MasterlogCurveStyle("#00aa00", 1.0, "dot", 1.0, 100.0),
+                },
             )
         ],
         version=3,
@@ -308,6 +313,8 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
     assert template.columns[0].show_legend is False
     assert template.columns[0].line_color == "#112233"
     assert template.columns[0].line_style == "dash"
+    assert template.columns[0].curve_styles["TG"].color == "#ff0000"
+    assert template.columns[0].curve_styles["C1"].x_min == 1.0
     assert template.header_elements[0].properties["asset_ref"] == "sha256:logo"
     assert template.version == 3
     canvas_object = restored.wells["well-1"].canvas_objects[0]

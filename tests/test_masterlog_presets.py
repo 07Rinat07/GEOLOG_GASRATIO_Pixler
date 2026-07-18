@@ -43,6 +43,10 @@ def test_builtin_masterlog_presets_are_unique_and_cover_core_tracks() -> None:
         "interpretation",
         "description",
     ]
+    gas = next(column for column in field.template.columns if column.column_id == "gas")
+    assert set(gas.curve_styles) == set(gas.curve_mnemonics)
+    assert len({style.color for style in gas.curve_styles.values()}) > 1
+    assert gas.curve_styles["TG"].x_min == 1.0
 
 
 def test_form_preset_creates_independent_project_copy() -> None:

@@ -8,6 +8,7 @@ from typing import Any
 from geoworkbench.domain.models import (
     Dataset,
     MasterlogColumnTemplate,
+    MasterlogCurveStyle,
     MasterlogHeaderElement,
     MasterlogTemplate,
     new_id,
@@ -232,6 +233,7 @@ class MasterlogTemplateController:
         line_color: str = "#2563eb",
         line_width: float = 1.5,
         line_style: str = "solid",
+        curve_styles: dict[str, MasterlogCurveStyle] | None = None,
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         column = self._validated_column(
@@ -247,6 +249,7 @@ class MasterlogTemplateController:
             line_color,
             line_width,
             line_style,
+            curve_styles or {},
         )
         template.columns.append(column)
         self._touch(template)
@@ -268,8 +271,10 @@ class MasterlogTemplateController:
         line_color: str = "#2563eb",
         line_width: float = 1.5,
         line_style: str = "solid",
+        curve_styles: dict[str, MasterlogCurveStyle] | None = None,
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
+        existing = template.columns[self._column_index(template, column_id)]
         column = self._validated_column(
             column_id,
             title,
@@ -283,7 +288,9 @@ class MasterlogTemplateController:
             line_color,
             line_width,
             line_style,
+            existing.curve_styles if curve_styles is None else curve_styles,
         )
+        column.properties = deepcopy(existing.properties)
         index = self._column_index(template, column_id)
         template.columns[index] = column
         self._touch(template)
@@ -494,6 +501,7 @@ class MasterlogTemplateController:
         line_color: str,
         line_width: float,
         line_style: str,
+        curve_styles: dict[str, MasterlogCurveStyle],
     ) -> MasterlogColumnTemplate:
         normalized_title = title.strip()
         normalized_type = column_type.strip()
@@ -506,6 +514,15 @@ class MasterlogTemplateController:
             raise ValueError("Ширина колонки должна быть от 5 до 200 мм")
         if any(not mnemonic for mnemonic in mnemonics):
             raise ValueError("Мнемоники кривых не могут быть пустыми")
+        normalized_styles = {
+            mnemonic: style for mnemonic, style in curve_styles.items() if mnemonic in mnemonics
+        }
+        if not all(isinstance(style, MasterlogCurveStyle) for style in normalized_styles.values()):
+            raise ValueError("Настройки кривых должны использовать MasterlogCurveStyle")
+        if x_scale == "logarithmic" and any(
+            style.x_min is not None and style.x_min <= 0 for style in normalized_styles.values()
+        ):
+            raise ValueError("Логарифмический диапазон кривой должен быть положительным")
         return MasterlogColumnTemplate(
             column_id,
             normalized_title,
@@ -519,6 +536,7 @@ class MasterlogTemplateController:
             line_color=line_color.strip(),
             line_width=line_width,
             line_style=line_style,
+            curve_styles=normalized_styles,
         )
 
     def _touch(self, template: MasterlogTemplate) -> None:

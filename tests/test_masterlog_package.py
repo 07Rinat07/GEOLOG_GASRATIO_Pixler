@@ -5,6 +5,7 @@ import pytest
 
 from geoworkbench.domain.models import (
     MasterlogColumnTemplate,
+    MasterlogCurveStyle,
     MasterlogHeaderElement,
     MasterlogTemplate,
 )
@@ -34,7 +35,17 @@ def make_template_and_session() -> tuple[MasterlogTemplate, ProjectSession]:
                 "logo", "image", 5.0, 5.0, 30.0, 20.0, {"asset_ref": asset.asset_id}
             )
         ],
-        columns=[MasterlogColumnTemplate("depth", "Depth", "depth", 25.0)],
+        columns=[
+            MasterlogColumnTemplate("depth", "Depth", "depth", 25.0),
+            MasterlogColumnTemplate(
+                "gas",
+                "Gas",
+                "curves",
+                40.0,
+                ["TG"],
+                curve_styles={"TG": MasterlogCurveStyle("#ff0000", 2.5, "dash", 1.0, 1000.0)},
+            ),
+        ],
         properties={"orientation": "landscape"},
         version=7,
     )
@@ -62,6 +73,8 @@ def test_masterlog_package_round_trip_and_independent_install(tmp_path) -> None:
     assert imported.template_id != template.template_id
     assert imported.name == "Imported portable"
     assert imported.version == 1
+    assert imported.columns[1].curve_styles["TG"].line_style == "dash"
+    assert imported.columns[1].curve_styles["TG"].x_max == 1000.0
     assert destination.image_assets == package.image_assets
     with pytest.raises(ValueError):
         controller.import_template(package.template, package.image_assets, "Imported portable")

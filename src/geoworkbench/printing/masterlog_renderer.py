@@ -26,6 +26,7 @@ from geoworkbench.domain.models import (
     Dataset,
     LithologyInterval,
     MasterlogColumnTemplate,
+    MasterlogCurveStyle,
     MasterlogHeaderElement,
     MasterlogTemplate,
     ProjectLithotype,
@@ -440,17 +441,12 @@ def _paint_columns(
         painter.setPen(QPen(QColor("#334155"), 0.25))
         painter.drawRect(rect)
         painter.drawLine(QLineF(x, top + header_height, x + column.width_mm, top + header_height))
-        font = QFont()
-        font.setPointSizeF(7.0)
-        painter.setFont(font)
-        painter.setPen(QColor("#0f172a"))
-        title = column.title
-        if column.show_legend and column.curve_mnemonics:
-            title += "\n" + ", ".join(column.curve_mnemonics)
-        painter.drawText(
-            QRectF(x + 1.0, top + 0.5, column.width_mm - 2.0, header_height - 1.0),
-            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
-            title,
+        _paint_column_heading(
+            painter,
+            QRectF(x + 0.5, top + 0.25, column.width_mm - 1.0, header_height - 0.5),
+            column,
+            dataset,
+            bindings,
         )
         plot_rect = QRectF(
             x + 0.5,
@@ -482,6 +478,65 @@ def _paint_columns(
             _paint_depth_symbols(painter, plot_rect, template, column, session, depth_range)
             _paint_inspection_callouts(painter, plot_rect, template, column, session, depth_range)
         x += column.width_mm
+
+
+def _paint_column_heading(
+    painter: QPainter,
+    rect: QRectF,
+    column: MasterlogColumnTemplate,
+    dataset: Dataset | None,
+    bindings: dict[str, str],
+) -> None:
+    title_font = QFont()
+    title_font.setPointSizeF(6.5)
+    painter.setFont(title_font)
+    painter.setPen(QColor("#0f172a"))
+    if not column.show_legend or not column.curve_mnemonics:
+        painter.drawText(
+            rect.adjusted(0.5, 0.2, -0.5, -0.2),
+            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+            column.title,
+        )
+        return
+    title_height = min(4.2, rect.height() * 0.38)
+    painter.drawText(
+        QRectF(rect.left() + 0.5, rect.top(), rect.width() - 1.0, title_height),
+        Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+        column.title,
+    )
+    legend_rect = QRectF(
+        rect.left() + 0.25,
+        rect.top() + title_height,
+        rect.width() - 0.5,
+        max(0.1, rect.height() - title_height),
+    )
+    count = len(column.curve_mnemonics)
+    rows = 2 if count > 4 else 1
+    columns = (count + rows - 1) // rows
+    cell_width = legend_rect.width() / max(1, columns)
+    cell_height = legend_rect.height() / rows
+    legend_font = QFont()
+    legend_font.setPointSizeF(4.6)
+    painter.setFont(legend_font)
+    for index, mnemonic in enumerate(column.curve_mnemonics):
+        row, column_index = divmod(index, columns)
+        cell = QRectF(
+            legend_rect.left() + column_index * cell_width,
+            legend_rect.top() + row * cell_height,
+            cell_width,
+            cell_height,
+        )
+        style = masterlog_curve_style(column, mnemonic, index)
+        painter.setPen(_color(style.color, column.line_color))
+        label = mnemonic
+        value_range = curve_display_range(column, dataset, mnemonic, bindings)
+        if value_range is not None:
+            label += f" {value_range[0]:g}–{value_range[1]:g}"
+        painter.drawText(
+            cell.adjusted(0.2, 0.0, -0.2, 0.0),
+            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+            label,
+        )
 
 
 def _paint_inspection_callouts(
@@ -1049,6 +1104,34 @@ def _mapped_curve(dataset: Dataset, mnemonic: str, bindings: dict[str, str]) -> 
     )
 
 
+_MASTERLOG_CURVE_PALETTE = (
+    "#2563eb",
+    "#dc2626",
+    "#16a34a",
+    "#9333ea",
+    "#ea580c",
+    "#0891b2",
+    "#be185d",
+    "#4f46e5",
+)
+
+
+def masterlog_curve_style(
+    column: MasterlogColumnTemplate,
+    mnemonic: str,
+    curve_index: int,
+) -> MasterlogCurveStyle:
+    saved = column.curve_styles.get(mnemonic)
+    if saved is not None:
+        return saved
+    color = (
+        column.line_color
+        if curve_index == 0
+        else _MASTERLOG_CURVE_PALETTE[curve_index % len(_MASTERLOG_CURVE_PALETTE)]
+    )
+    return MasterlogCurveStyle(color, column.line_width, column.line_style)
+
+
 def curve_x_range(
     column: MasterlogColumnTemplate,
     dataset: Dataset,
@@ -1079,6 +1162,22 @@ def curve_x_range(
     return minimum, maximum
 
 
+def curve_display_range(
+    column: MasterlogColumnTemplate,
+    dataset: Dataset | None,
+    mnemonic: str,
+    bindings: dict[str, str] | None = None,
+) -> tuple[float, float] | None:
+    style = column.curve_styles.get(mnemonic)
+    if style is not None and style.x_min is not None and style.x_max is not None:
+        return float(style.x_min), float(style.x_max)
+    if dataset is None:
+        if column.x_min is not None and column.x_max is not None:
+            return float(column.x_min), float(column.x_max)
+        return None
+    return curve_x_range(column, dataset, bindings)
+
+
 def _parameter_symbol_x(
     rect: QRectF,
     column: MasterlogColumnTemplate,
@@ -1089,7 +1188,7 @@ def _parameter_symbol_x(
     if dataset is None or not mnemonic or mnemonic not in column.curve_mnemonics:
         return None
     curve = dataset.curve_by_mnemonic(mnemonic)
-    x_range = curve_x_range(column, dataset)
+    x_range = curve_display_range(column, dataset, mnemonic)
     if curve is None or x_range is None:
         return None
     depths = np.asarray(dataset.active_index.values, dtype=np.float64)
@@ -1123,36 +1222,36 @@ def _paint_curve_column(
     depth_range: tuple[float, float],
     bindings: dict[str, str],
 ) -> None:
-    x_range = curve_x_range(column, dataset, bindings)
-    if x_range is None:
-        return
     depth = np.asarray(dataset.active_index.values, dtype=np.float64)
     top, bottom = depth_range
-    minimum, maximum = x_range
-    if column.x_scale == "logarithmic":
-        if minimum <= 0 or maximum <= 0:
-            return
-        minimum, maximum = float(np.log10(minimum)), float(np.log10(maximum))
     styles = {
         "solid": Qt.PenStyle.SolidLine,
         "dash": Qt.PenStyle.DashLine,
         "dot": Qt.PenStyle.DotLine,
         "dash_dot": Qt.PenStyle.DashDotLine,
     }
-    palette = (column.line_color, "#dc2626", "#16a34a", "#9333ea", "#ea580c")
     painter.save()
     painter.setClipRect(rect)
     for curve_index, mnemonic in enumerate(column.curve_mnemonics):
         curve = _mapped_curve(dataset, mnemonic, bindings)
         if curve is None:
             continue
+        x_range = curve_display_range(column, dataset, mnemonic, bindings)
+        if x_range is None:
+            continue
+        minimum, maximum = x_range
+        if column.x_scale == "logarithmic":
+            if minimum <= 0 or maximum <= 0:
+                continue
+            minimum, maximum = float(np.log10(minimum)), float(np.log10(maximum))
         values = np.asarray(curve.values, dtype=np.float64)
         if values.shape != depth.shape:
             continue
+        curve_style = masterlog_curve_style(column, mnemonic, curve_index)
         pen = QPen(
-            _color(palette[curve_index % len(palette)], "#2563eb"),
-            column.line_width,
-            styles[column.line_style],
+            _color(curve_style.color, column.line_color),
+            curve_style.width,
+            styles[curve_style.line_style],
         )
         painter.setPen(pen)
         path = QPainterPath()

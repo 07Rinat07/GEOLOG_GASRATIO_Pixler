@@ -371,6 +371,32 @@ class MasterlogHeaderElement:
     properties: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True, slots=True)
+class MasterlogCurveStyle:
+    color: str = "#2563eb"
+    width: float = 1.5
+    line_style: str = "solid"
+    x_min: float | None = None
+    x_max: float | None = None
+
+    def __post_init__(self) -> None:
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", self.color):
+            raise ValueError("Цвет кривой Masterlog должен быть в формате #RRGGBB")
+        if isinstance(self.width, bool) or not isinstance(self.width, (int, float)):
+            raise ValueError("Толщина кривой Masterlog должна быть числом")
+        if not isfinite(self.width) or not 0.5 <= self.width <= 10.0:
+            raise ValueError("Толщина кривой Masterlog должна быть от 0.5 до 10 px")
+        if self.line_style not in {"solid", "dash", "dot", "dash_dot"}:
+            raise ValueError("Стиль кривой Masterlog не поддерживается")
+        if (self.x_min is None) != (self.x_max is None):
+            raise ValueError("Границы кривой Masterlog должны задаваться вместе")
+        if self.x_min is not None and self.x_max is not None:
+            if not isfinite(self.x_min) or not isfinite(self.x_max):
+                raise ValueError("Границы кривой Masterlog должны быть конечными")
+            if self.x_min >= self.x_max:
+                raise ValueError("Минимум кривой Masterlog должен быть меньше максимума")
+
+
 @dataclass(slots=True)
 class MasterlogColumnTemplate:
     column_id: str
@@ -386,6 +412,7 @@ class MasterlogColumnTemplate:
     line_color: str = "#2563eb"
     line_width: float = 1.5
     line_style: str = "solid"
+    curve_styles: dict[str, MasterlogCurveStyle] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.x_scale not in {"linear", "logarithmic"}:
@@ -403,14 +430,23 @@ class MasterlogColumnTemplate:
             raise ValueError("Видимость легенды должна быть логическим значением")
         if not re.fullmatch(r"#[0-9A-Fa-f]{6}", self.line_color):
             raise ValueError("Цвет линии колонки должен быть в формате #RRGGBB")
-        if isinstance(self.line_width, bool) or not isinstance(
-            self.line_width, (int, float)
-        ):
+        if isinstance(self.line_width, bool) or not isinstance(self.line_width, (int, float)):
             raise ValueError("Толщина линии колонки должна быть числом")
         if not isfinite(self.line_width) or not 0.5 <= self.line_width <= 10.0:
             raise ValueError("Толщина линии колонки должна быть от 0.5 до 10 px")
         if self.line_style not in {"solid", "dash", "dot", "dash_dot"}:
             raise ValueError("Стиль линии колонки не поддерживается")
+        if not all(isinstance(key, str) and key.strip() for key in self.curve_styles):
+            raise ValueError("Мнемоники стилей Masterlog должны быть непустыми строками")
+        if not all(isinstance(style, MasterlogCurveStyle) for style in self.curve_styles.values()):
+            raise ValueError("Стили кривых Masterlog имеют неверный тип")
+        unknown_styles = set(self.curve_styles) - set(self.curve_mnemonics)
+        if unknown_styles:
+            raise ValueError("Стиль Masterlog ссылается на кривую, которой нет в колонке")
+        if self.x_scale == "logarithmic" and any(
+            style.x_min is not None and style.x_min <= 0 for style in self.curve_styles.values()
+        ):
+            raise ValueError("Логарифмический диапазон кривой Masterlog должен быть положительным")
 
 
 @dataclass(slots=True)

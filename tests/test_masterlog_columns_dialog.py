@@ -1,8 +1,10 @@
+from geoworkbench.domain.models import MasterlogCurveStyle
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.masterlog_columns_dialog import (
     ColumnPropertiesDialog,
+    CurveStylesDialog,
     DatasetCurveSelectionDialog,
     MasterlogColumnsDialog,
 )
@@ -77,4 +79,22 @@ def test_dataset_curve_selection_preserves_parameter_order(qapp) -> None:
     assert dialog.selected_mnemonics() == ["TG", "C1"]
     dialog.list.item(2).setCheckState(Qt.CheckState.Checked)
     assert dialog.selected_mnemonics() == ["TG", "C1", "C2"]
+    dialog.close()
+
+
+def test_curve_styles_dialog_preserves_individual_settings(qapp) -> None:
+    dialog = CurveStylesDialog(
+        ["C1", "C2"],
+        {"C2": MasterlogCurveStyle("#00ff00", 2.5, "dash", 1.0, 100.0)},
+        language=AppLanguage.EN,
+        default_color="#112233",
+        default_width=2.0,
+    )
+
+    styles = dialog.styles()
+
+    assert styles["C1"].color == "#112233"
+    assert styles["C1"].width == 2.0
+    assert styles["C2"] == MasterlogCurveStyle("#00ff00", 2.5, "dash", 1.0, 100.0)
+    assert "X 1–100" in dialog.list.item(1).text()
     dialog.close()
