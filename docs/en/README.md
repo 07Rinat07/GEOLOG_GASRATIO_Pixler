@@ -252,6 +252,7 @@ normal plot navigation.
 The last cursor depth is stored in each dataset layout. Returning to a well restores that depth;
 if the data range changed, it is safely clamped to the new limits. The values dock also reports
 the current lithotype, interval top and bottom, and layer description.
+<<<<<<< HEAD
 
 ## Interpretation intervals
 
@@ -266,3 +267,5 @@ inside the project as `Project → Well → Interpretation → Intervals`; the s
 modified. The active interpretation can be exported to JSON, CSV, or Excel. JSON retains
 interpretation metadata and the well name, CSV contains a flat interval table, and Excel adds a
 separate Metadata sheet.
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f

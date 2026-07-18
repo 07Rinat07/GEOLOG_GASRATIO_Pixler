@@ -66,7 +66,10 @@ from geoworkbench.project.curve_editing_controller import (
 )
 from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.lithology_controller import LithologyController
+<<<<<<< HEAD
 from geoworkbench.project.interpretation_controller import InterpretationController
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.stratigraphy_controller import StratigraphyController
 from geoworkbench.project.nct_controller import NctCalculationController
@@ -99,7 +102,10 @@ from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
 from geoworkbench.ui.dataset_merge_dialog import DatasetMergeDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.ui.interpretation_report_dialog import InterpretationReportDialog
+<<<<<<< HEAD
 from geoworkbench.ui.interpretation_intervals_dialog import InterpretationIntervalsDialog
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
@@ -152,7 +158,10 @@ class MainWindow(QMainWindow):
         self.time_depth_mapping_controller = TimeDepthMappingController(self.session)
         self.depth_annotation_controller = DepthAnnotationController(self.session)
         self.lithology_controller = LithologyController(self.session)
+<<<<<<< HEAD
         self.interpretation_controller = InterpretationController(self.session)
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
         self.stratigraphy_controller = StratigraphyController(self.session)
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
         self.description_template_controller = DescriptionTemplateController(self.session)
@@ -416,6 +425,7 @@ class MainWindow(QMainWindow):
         self.stratigraphy_action.triggered.connect(self.show_stratigraphy_editor)
         edit_menu.addAction(self.stratigraphy_action)
 
+<<<<<<< HEAD
         self.interpretation_intervals_action = QAction(
             self._t("interpretations.action"), self
         )
@@ -424,6 +434,8 @@ class MainWindow(QMainWindow):
         )
         edit_menu.addAction(self.interpretation_intervals_action)
 
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
         self.lithotype_catalog_action = QAction(self._t("catalog.action"), self)
         self.lithotype_catalog_action.triggered.connect(self.show_lithotype_catalog)
         edit_menu.addAction(self.lithotype_catalog_action)
@@ -2038,6 +2050,7 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
 
+<<<<<<< HEAD
     def show_interpretation_intervals(self) -> None:
         if self.session.current_well is None:
             QMessageBox.information(
@@ -2054,6 +2067,8 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
 
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
     def show_description_templates(self) -> None:
         DescriptionTemplatesDialog(
             self.description_template_controller, self, language=self.language
@@ -2384,6 +2399,7 @@ class MainWindow(QMainWindow):
                         ("lithology_interval", well.well_id, interval.interval_id),
                     )
                     lithology_item.addChild(child)
+<<<<<<< HEAD
             if well.interpretations:
                 interpretations_item = QTreeWidgetItem(
                     [self._t("interpretations.tree", count=len(well.interpretations))]
@@ -2414,6 +2430,8 @@ class MainWindow(QMainWindow):
                         ),
                     )
                     interpretations_item.addChild(child)
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
             if well.stratigraphy:
                 stratigraphy_item = QTreeWidgetItem(
                     [self._t("stratigraphy.tree", count=len(well.stratigraphy))]
@@ -2512,11 +2530,14 @@ class MainWindow(QMainWindow):
         elif data[0] in ("stratigraphy", "stratigraphy_interval"):
             self.session.current_well_id = data[1]
             self.show_stratigraphy_editor()
+<<<<<<< HEAD
         elif data[0] in ("interpretations", "interpretation"):
             self.session.current_well_id = data[1]
             if data[0] == "interpretation":
                 self.interpretation_controller.selected_interpretation_id = data[2]
             self.show_interpretation_intervals()
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
         elif data[0] in ("annotations", "annotation"):
             self.session.current_well_id = data[1]
             self.show_depth_annotations()

@@ -341,6 +341,7 @@ class StratigraphyInterval:
     rank: str | None = None
     color: str = "#dbeafe"
     description: str | None = None
+<<<<<<< HEAD
 
 
 @dataclass(slots=True)
@@ -360,6 +361,8 @@ class WellInterpretation:
     name: str
     description: str | None = None
     intervals: list[InterpretationInterval] = field(default_factory=list)
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
 
 
 @dataclass(slots=True)

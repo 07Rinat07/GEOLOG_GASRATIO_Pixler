@@ -131,6 +131,7 @@ def test_registry_rejects_duplicate_source_version() -> None:
 def test_registry_rejects_unsupported_or_invalid_version(version: object) -> None:
     with pytest.raises(ProjectMigrationError):
         migrate_project_payload({"format_version": version}, 4)  # type: ignore[dict-item]
+<<<<<<< HEAD
 
 
 def test_v14_project_adds_empty_interpretations_to_every_well() -> None:
@@ -148,3 +149,5 @@ def test_v14_project_adds_empty_interpretations_to_every_well() -> None:
     assert migrated["format_version"] == 15
     assert migrated["project"]["wells"]["well-1"]["interpretations"] == {}
     assert "interpretations" not in payload["project"]["wells"]["well-1"]
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f

@@ -24,8 +24,11 @@ from geoworkbench.domain.models import (
     TimeDepthAggregationPolicy,
     TimeDepthMappingProfile,
     LithologyInterval,
+<<<<<<< HEAD
     InterpretationInterval,
     WellInterpretation,
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
     MasterlogColumnTemplate,
     MasterlogCurveStyle,
     MasterlogHeaderElement,
@@ -59,7 +62,11 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
+<<<<<<< HEAD
 PROJECT_FORMAT_VERSION = 15
+=======
+PROJECT_FORMAT_VERSION = 14
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
 
 
 @dataclass(slots=True)

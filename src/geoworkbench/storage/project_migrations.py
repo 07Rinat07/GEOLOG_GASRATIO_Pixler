@@ -237,6 +237,7 @@ def _migrate_v13_to_v14(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+<<<<<<< HEAD
 def _migrate_v14_to_v15(payload: ProjectPayload) -> ProjectPayload:
     migrated = deepcopy(payload)
     project = migrated.get("project")
@@ -253,6 +254,8 @@ def _migrate_v14_to_v15(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -268,7 +271,10 @@ DEFAULT_PROJECT_MIGRATIONS.register(10, _migrate_v10_to_v11)
 DEFAULT_PROJECT_MIGRATIONS.register(11, _migrate_v11_to_v12)
 DEFAULT_PROJECT_MIGRATIONS.register(12, _migrate_v12_to_v13)
 DEFAULT_PROJECT_MIGRATIONS.register(13, _migrate_v13_to_v14)
+<<<<<<< HEAD
 DEFAULT_PROJECT_MIGRATIONS.register(14, _migrate_v14_to_v15)
+=======
+>>>>>>> d33c301ae5129f82e2c7a6ece8c2e1aa83459c9f
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:
