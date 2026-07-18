@@ -11,6 +11,8 @@ from geoworkbench.domain.models import (
     MasterlogColumnTemplate,
     MasterlogHeaderElement,
     MasterlogTemplate,
+    LithologyInterval,
+    ProjectLithotype,
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.image_assets import create_svg_asset
@@ -26,6 +28,7 @@ from geoworkbench.printing.masterlog_renderer import (
     paint_masterlog,
     render_masterlog_to_printer,
     _parameter_symbol_x,
+    visible_lithology_intervals,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.services.localization import AppLanguage
@@ -128,6 +131,45 @@ def test_masterlog_pdf_renders_active_dataset_curves(qapp, tmp_path) -> None:
 
     assert target.read_bytes().startswith(b"%PDF")
     assert target.stat().st_size > 1000
+
+
+def test_masterlog_renders_lithology_and_description_columns(qapp) -> None:
+    session = make_session_with_curves()
+    assert session.current_well is not None
+    session.project.lithotypes["sand"] = ProjectLithotype(
+        "sand", "SS", "Песчаник", "Sandstone", "sedimentary", "#facc15", "solid"
+    )
+    session.current_well.lithology = [
+        LithologyInterval("layer", 110.0, 160.0, "sand", "Песчаник мелкозернистый")
+    ]
+    template = MasterlogTemplate(
+        "geology", "Geology", depth_scale=500, header_height_mm=40.0,
+        columns=[
+            MasterlogColumnTemplate("lith", "Lithology", "lithology", 30.0),
+            MasterlogColumnTemplate("description", "Description", "text", 50.0),
+        ],
+    )
+    image = QImage(800, 2520, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+    paint_masterlog(painter, QRectF(0.0, 0.0, 800.0, 2520.0), template, session)
+    painter.end()
+
+    color = image.pixelColor(100, 1000)
+    assert color.red() > 200 and color.green() > 150 and color.blue() < 80
+    assert visible_lithology_intervals(session.current_well.lithology, (100.0, 150.0)) == (
+        session.current_well.lithology[0],
+    )
+
+
+def test_visible_lithology_intervals_excludes_non_intersecting_layers() -> None:
+    intervals = (
+        LithologyInterval("above", 0.0, 50.0, "sand"),
+        LithologyInterval("inside", 100.0, 120.0, "sand"),
+        LithologyInterval("below", 200.0, 250.0, "sand"),
+    )
+
+    assert visible_lithology_intervals(intervals, (90.0, 150.0)) == (intervals[1],)
 
 
 def test_masterlog_renders_depth_symbol_in_bound_column(qapp, tmp_path) -> None:

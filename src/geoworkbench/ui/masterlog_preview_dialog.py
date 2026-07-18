@@ -34,6 +34,9 @@ class MasterlogPreviewWidget(QWidget):
             self.template,
             self.session,
             depth_range=self.settings.depth_range if self.settings is not None else None,
+            language=(
+                self.settings.language if self.settings is not None else AppLanguage.RU
+            ),
         )
         painter.end()
 

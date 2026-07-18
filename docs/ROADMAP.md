@@ -130,6 +130,7 @@ Roadmap следует зависимостям продукта, а не ном
    - готово: переносимый versioned JSON-пакет формы с используемыми PNG/SVG и preview состава;
    - независимый миллиметровый рендер мастерлога;
    - готово: независимый миллиметровый renderer шапки и каркаса колонок с общими preview/PDF;
+   - готово: интервальные lithology/description колонки с project colors/patterns, кодами и clipping;
    - готово: высота рулона по active depth и масштабу, глубинная шкала и кривые linear/log;
    - PDF, A4/A3, пользовательский лист и рулон;
    - готово: PDF формы с глубинными кривыми для A4/A3 и непрерывного рулона;
@@ -162,7 +163,7 @@ Roadmap следует зависимостям продукта, а не ном
    - будущий Time View через `DateAxisItem` только поверх нормализованного времени;
    - подробности: `docs/PLOTTING_REFERENCE_REVIEW.md`.
 9. **0.14 Correlation & Interchange**
-   - корреляция скважин;
+   - корреляция скважин: independent well panels, depth ranges, markers, horizons/ties и PDF;
    - общий artifact inventory/report для внешних больших datasets;
    - DLIS v1/LIS79 read-only через optional `dlisio`, frame/channel mapping и QC;
    - GIS foundation: CRS, GeoPackage, Shapefile compatibility и GeoTIFF через optional GDAL;

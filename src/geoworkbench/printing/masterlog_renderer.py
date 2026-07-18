@@ -21,12 +21,20 @@ from PySide6.QtGui import (
 )
 from PySide6.QtPrintSupport import QPrinter
 
-from geoworkbench.domain.models import Dataset, MasterlogColumnTemplate, MasterlogHeaderElement, MasterlogTemplate
+from geoworkbench.domain.models import (
+    Dataset,
+    LithologyInterval,
+    MasterlogColumnTemplate,
+    MasterlogHeaderElement,
+    MasterlogTemplate,
+    ProjectLithotype,
+)
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.header_fields import resolve_header_field
 from geoworkbench.printing.image_asset_rendering import draw_image_asset
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.tablet.lithology_patterns import lithology_brush
 
 
 class MasterlogRenderError(RuntimeError):
@@ -166,6 +174,7 @@ def paint_masterlog(
     canvas_size_mm: QSizeF | None = None,
     page_label: str | None = None,
     columns: Sequence[MasterlogColumnTemplate] | None = None,
+    language: AppLanguage = AppLanguage.RU,
 ) -> None:
     effective_range = depth_range or masterlog_depth_range(session)
     size = canvas_size_mm or masterlog_size_mm(
@@ -193,6 +202,7 @@ def paint_masterlog(
         session,
         effective_range,
         columns if columns is not None else template.columns,
+        language,
     )
     if page_label:
         font = QFont()
@@ -314,6 +324,7 @@ def paint_masterlog_pages(
                 "masterlog_output.page", page=page_index + 1, pages=len(pages)
             ),
             columns=columns,
+            language=language,
         )
 
 
@@ -422,6 +433,7 @@ def _paint_columns(
     session: ProjectSession,
     depth_range: tuple[float, float] | None,
     columns: Sequence[MasterlogColumnTemplate],
+    language: AppLanguage,
 ) -> None:
     x = 0.0
     top = template.header_height_mm
@@ -455,10 +467,116 @@ def _paint_columns(
         if depth_range is not None and dataset is not None:
             if column.column_type == "depth":
                 _paint_depth_axis(painter, plot_rect, depth_range)
+            elif column.column_type == "lithology":
+                _paint_lithology_column(painter, plot_rect, session, depth_range)
+            elif column.column_type in {"text", "description"}:
+                _paint_lithology_descriptions(
+                    painter, plot_rect, session, depth_range, language
+                )
             else:
                 _paint_curve_column(painter, plot_rect, column, dataset, depth_range)
             _paint_depth_symbols(painter, plot_rect, template, column, session, depth_range)
         x += column.width_mm
+
+
+def visible_lithology_intervals(
+    intervals: Sequence[LithologyInterval], depth_range: tuple[float, float]
+) -> tuple[LithologyInterval, ...]:
+    top, bottom = depth_range
+    return tuple(
+        interval
+        for interval in intervals
+        if interval.bottom_depth >= top and interval.top_depth <= bottom
+    )
+
+
+def _interval_rect(
+    rect: QRectF,
+    interval: LithologyInterval,
+    depth_range: tuple[float, float],
+) -> QRectF:
+    top, bottom = depth_range
+    visible_top = max(top, interval.top_depth)
+    visible_bottom = min(bottom, interval.bottom_depth)
+    y_top = rect.top() + (visible_top - top) / (bottom - top) * rect.height()
+    y_bottom = rect.top() + (visible_bottom - top) / (bottom - top) * rect.height()
+    return QRectF(rect.left(), y_top, rect.width(), max(0.0, y_bottom - y_top))
+
+
+def _paint_lithology_column(
+    painter: QPainter,
+    rect: QRectF,
+    session: ProjectSession,
+    depth_range: tuple[float, float],
+) -> None:
+    well = session.current_well
+    if well is None:
+        return
+    painter.save()
+    painter.setClipRect(rect)
+    for interval in visible_lithology_intervals(well.lithology, depth_range):
+        interval_rect = _interval_rect(rect, interval, depth_range)
+        definition = session.project.lithotypes.get(interval.lithotype_id)
+        color = definition.color if definition is not None else "#b0b0b0"
+        pattern = definition.pattern_key if definition is not None else "solid"
+        painter.fillRect(interval_rect, lithology_brush(color, pattern))
+        painter.setPen(QPen(QColor("#334155"), 0.2))
+        painter.drawRect(interval_rect)
+        if interval_rect.height() >= 4.0:
+            label = definition.code if definition is not None else interval.lithotype_id
+            painter.setPen(QColor("#0f172a"))
+            painter.drawText(
+                interval_rect.adjusted(0.5, 0.25, -0.5, -0.25),
+                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+                label,
+            )
+    painter.restore()
+
+
+def _paint_lithology_descriptions(
+    painter: QPainter,
+    rect: QRectF,
+    session: ProjectSession,
+    depth_range: tuple[float, float],
+    language: AppLanguage,
+) -> None:
+    well = session.current_well
+    if well is None:
+        return
+    painter.save()
+    painter.setClipRect(rect)
+    font = QFont()
+    font.setPointSizeF(6.5)
+    painter.setFont(font)
+    for interval in visible_lithology_intervals(well.lithology, depth_range):
+        interval_rect = _interval_rect(rect, interval, depth_range)
+        definition = session.project.lithotypes.get(interval.lithotype_id)
+        name = (
+            _lithotype_name(definition, language)
+            if definition is not None
+            else interval.lithotype_id
+        )
+        description = interval.description.strip() if interval.description else name
+        painter.setPen(QPen(QColor("#94a3b8"), 0.15))
+        painter.drawRect(interval_rect)
+        if interval_rect.height() >= 3.0:
+            painter.setPen(QColor("#0f172a"))
+            painter.drawText(
+                interval_rect.adjusted(1.0, 0.5, -1.0, -0.5),
+                Qt.AlignmentFlag.AlignLeft
+                | Qt.AlignmentFlag.AlignTop
+                | Qt.TextFlag.TextWordWrap,
+                description,
+            )
+    painter.restore()
+
+
+def _lithotype_name(definition: ProjectLithotype, language: AppLanguage) -> str:
+    if language is AppLanguage.EN:
+        return definition.name_en
+    if language is AppLanguage.KK:
+        return definition.name_kk or definition.name_ru
+    return definition.name_ru
 
 
 def _paint_depth_symbols(
