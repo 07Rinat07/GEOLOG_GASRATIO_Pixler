@@ -28,7 +28,9 @@ git diff --check
 Qt-тесты запускаются с платформой `offscreen` и software-rendering. Скрипт
 `scripts/run_tests.py` до импорта pytest отключает посторонние глобальные плагины, которые не
 нужны проекту и могут вмешиваться в завершение native Qt runtime. Активная графическая сессия
-не требуется.
+не требуется. После получения кода pytest скрипт сбрасывает потоки вывода и завершает
+процесс напрямую, чтобы известный сбой native Qt при финальном уничтожении глобальных
+singletons не подменял уже рассчитанный результат тестов. Сами тесты выполняются полностью.
 
 ## Проверка пакета
 
@@ -62,6 +64,8 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Data Inspector UI | RU/KK/EN tabs/tables/messages, curve metadata, indexes and LAS header controls |
 | Tablet workflow UI | RU/KK/EN menus/dialogs/messages and stable TrackKind/XScale values |
 | LAS Curve Browser | Mnemonic/unit/description search, finite coverage, recommended selection, family separation and main-window integration |
+| Sensors catalog | Schema v1 validation, aliases, Cyrillic/Latin homoglyphs, units, external JSON, viewer search and reference ranges |
+| Mouse interval editing | Depth snapping, create/resize preview, edge choice, cancellation, controller validation and Undo/Redo integration |
 | Graph ranges | Per-track auto/manual X range, data-derived defaults and manual/full depth interval |
 | Depth normalization UI | RU/KK/EN directions/confirmation and non-destructive copy workflow |
 | Basic Gas Ratio UI | RU/KK/EN command/status/log with stable calculated curve mnemonics |

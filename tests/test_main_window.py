@@ -688,3 +688,43 @@ def test_window_builds_tablet_from_curve_browser_selection(qapp) -> None:
     assert curve_track.curve_mnemonics == ["ROP"]
     assert window.tabs.currentWidget() is window.tablet_view
     window.close()
+
+
+def test_tablet_interval_handlers_create_resize_and_undo(qapp) -> None:
+    from geoworkbench.tablet.interval_interaction import IntervalEditMode
+
+    window = MainWindow()
+    session, _layout = make_session()
+    bind_session(window, session)
+    window.interpretation_controller.session = session
+    window._show_current_dataset()
+
+    window.set_interval_interaction_mode(IntervalEditMode.CREATE)
+    interpretation_id = window.interpretation_controller.selected_interpretation_id
+    assert interpretation_id is not None
+    assert any(
+        track.kind is TrackKind.INTERPRETATION
+        for track in session.current_tablet_layout.tracks
+    )
+
+    window._create_interval_from_tablet(
+        interpretation_id, 100.0, 101.0, "Reservoir"
+    )
+    interval = window.interpretation_controller.selected_interval()
+    assert interval is not None
+    assert interval.top_depth == 100.0
+    assert interval.bottom_depth == 101.0
+    assert window.undo_interpretation_action.isEnabled()
+
+    window._resize_interval_from_tablet(
+        interpretation_id, interval.interval_id, 100.0, 100.5
+    )
+    assert window.interpretation_controller.selected_interval().bottom_depth == 100.5
+
+    window.undo_interpretation_edit()
+    assert window.interpretation_controller.selected_interval().bottom_depth == 101.0
+    window.set_interval_interaction_mode(IntervalEditMode.SELECT)
+    window.tablet_view.clear()
+    window.close()
+    window.deleteLater()
+    qapp.processEvents()

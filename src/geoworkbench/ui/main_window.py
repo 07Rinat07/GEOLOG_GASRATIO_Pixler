@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench import __version__
 from geoworkbench.calculations.controller import FormulaExecutionController
+from geoworkbench.catalogs.sensors import SensorCatalog, set_active_sensor_catalog
 from geoworkbench.calculations.custom_formula import formula_inputs
 from geoworkbench.calculations.interval_statistics import calculate_interval_statistics
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
@@ -82,6 +83,7 @@ from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.models import CurveLineStyle, CurveStyle
 from geoworkbench.tablet.controller import TabletController
+from geoworkbench.tablet.interval_interaction import IntervalEditMode
 from geoworkbench.tablet.lithology_legend import build_lithology_legend
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
@@ -104,6 +106,7 @@ from geoworkbench.ui.interpretation_properties import InterpretationPropertiesPa
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
+from geoworkbench.ui.sensor_catalog_dialog import SensorCatalogDialog
 from geoworkbench.ui.stratigraphy_dialog import StratigraphyDialog
 from geoworkbench.ui.nct_dialog import NctCalculationDialog
 from geoworkbench.ui.new_las_dialog import NewLasDialog
@@ -189,6 +192,12 @@ class MainWindow(QMainWindow):
         self.tablet_view.interval_selected.connect(self._select_interpretation_interval)
         self.tablet_view.interval_selection_cleared.connect(
             self._clear_interpretation_interval_selection
+        )
+        self.tablet_view.interval_create_requested.connect(
+            self._create_interval_from_tablet
+        )
+        self.tablet_view.interval_resize_requested.connect(
+            self._resize_interval_from_tablet
         )
         self.las_table_editor = LasTableEditor(
             self.las_range_editing_controller,
@@ -473,6 +482,10 @@ class MainWindow(QMainWindow):
         self.lithotype_catalog_action.triggered.connect(self.show_lithotype_catalog)
         edit_menu.addAction(self.lithotype_catalog_action)
 
+        self.sensor_catalog_action = QAction(self._t("sensors.action"), self)
+        self.sensor_catalog_action.triggered.connect(self.show_sensor_catalog)
+        edit_menu.addAction(self.sensor_catalog_action)
+
         self.description_templates_action = QAction(self._t("templates.action"), self)
         self.description_templates_action.triggered.connect(self.show_description_templates)
         edit_menu.addAction(self.description_templates_action)
@@ -556,6 +569,54 @@ class MainWindow(QMainWindow):
         self.curve_browser_action = self.curve_browser_dock.toggleViewAction()
         self.curve_browser_action.setText(self._t("curve_browser.title"))
         tablet_menu.addAction(self.curve_browser_action)
+
+        tablet_menu.addSeparator()
+        self.interval_mode_group = QActionGroup(self)
+        self.interval_mode_group.setExclusive(True)
+        self.interval_select_action = QAction(
+            self._t("interpretations.mode_select"), self, checkable=True
+        )
+        self.interval_select_action.setChecked(True)
+        self.interval_select_action.setShortcut("Alt+1")
+        self.interval_select_action.triggered.connect(
+            lambda: self.set_interval_interaction_mode(IntervalEditMode.SELECT)
+        )
+        self.interval_mode_group.addAction(self.interval_select_action)
+        tablet_menu.addAction(self.interval_select_action)
+
+        self.interval_create_action = QAction(
+            self._t("interpretations.mode_create"), self, checkable=True
+        )
+        self.interval_create_action.setShortcut("Alt+2")
+        self.interval_create_action.triggered.connect(
+            lambda: self.set_interval_interaction_mode(IntervalEditMode.CREATE)
+        )
+        self.interval_mode_group.addAction(self.interval_create_action)
+        tablet_menu.addAction(self.interval_create_action)
+
+        self.interval_resize_action = QAction(
+            self._t("interpretations.mode_resize"), self, checkable=True
+        )
+        self.interval_resize_action.setShortcut("Alt+3")
+        self.interval_resize_action.triggered.connect(
+            lambda: self.set_interval_interaction_mode(IntervalEditMode.RESIZE)
+        )
+        self.interval_mode_group.addAction(self.interval_resize_action)
+        tablet_menu.addAction(self.interval_resize_action)
+
+        self.undo_interpretation_action = QAction(
+            self._t("interpretations.undo"), self
+        )
+        self.undo_interpretation_action.setShortcut("Ctrl+Alt+Z")
+        self.undo_interpretation_action.triggered.connect(self.undo_interpretation_edit)
+        tablet_menu.addAction(self.undo_interpretation_action)
+        self.redo_interpretation_action = QAction(
+            self._t("interpretations.redo"), self
+        )
+        self.redo_interpretation_action.setShortcut("Ctrl+Alt+Shift+Z")
+        self.redo_interpretation_action.triggered.connect(self.redo_interpretation_edit)
+        tablet_menu.addAction(self.redo_interpretation_action)
+        self._update_interpretation_history_actions()
 
         save_preset_action = QAction(self._t("tablet.preset_save"), self)
         save_preset_action.triggered.connect(self.save_tablet_preset)
@@ -653,6 +714,11 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self.open_project_action)
         toolbar.addAction(self.open_data_action)
         toolbar.addAction(self.default_tablet_action)
+        toolbar.addSeparator()
+        toolbar.addAction(self.interval_select_action)
+        toolbar.addAction(self.interval_create_action)
+        toolbar.addAction(self.interval_resize_action)
+        toolbar.addSeparator()
         toolbar.addAction(self.ratio_action)
         toolbar.addAction(self.cursor_line_action)
         toolbar.addAction(self.save_action)
@@ -2168,6 +2234,153 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
 
+    def set_interval_interaction_mode(self, mode: IntervalEditMode) -> None:
+        if mode is not IntervalEditMode.SELECT and not self._ensure_interpretation_for_drawing():
+            self.interval_select_action.setChecked(True)
+            self.tablet_view.set_interval_edit_mode(IntervalEditMode.SELECT)
+            return
+        selected = self.interpretation_controller.selected_interval()
+        if selected is not None:
+            self.tablet_view.set_interval_creation_type(selected.interval_type)
+        self.tablet_view.set_interval_edit_mode(mode)
+        self.tabs.setCurrentWidget(self.tablet_view)
+        action_by_mode = {
+            IntervalEditMode.SELECT: self.interval_select_action,
+            IntervalEditMode.CREATE: self.interval_create_action,
+            IntervalEditMode.RESIZE: self.interval_resize_action,
+        }
+        action_by_mode[mode].setChecked(True)
+        self.statusBar().showMessage(
+            self._t(f"interpretations.mode_{mode.value}_hint")
+        )
+
+    def _ensure_interpretation_for_drawing(self) -> bool:
+        if self.session.current_well is None or self.session.current_dataset is None:
+            QMessageBox.information(
+                self,
+                self._t("interpretations.title"),
+                self._t("interpretations.drawing_requires_data"),
+            )
+            return False
+        well = self.session.current_well
+        if not well.interpretations:
+            try:
+                self.interpretation_controller.add_interpretation(
+                    self._t("interpretations.default_name")
+                )
+            except (RuntimeError, ValueError) as exc:
+                QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
+                return False
+            self._after_interpretation_change()
+        else:
+            self.interpretation_controller.normalize_selection()
+            self._after_interpretation_change()
+        return True
+
+    def _create_interval_from_tablet(
+        self, interpretation_id: str, top_depth: float, bottom_depth: float, interval_type: str
+    ) -> None:
+        try:
+            interpretation = self.interpretation_controller.select_interpretation(
+                interpretation_id
+            )
+            interval_number = len(interpretation.intervals) + 1
+            interval = self.interpretation_controller.add_interval(
+                top_depth,
+                bottom_depth,
+                interval_type or self._t("interpretations.default_type"),
+                self._t("interpretations.default_label", number=interval_number),
+                color=self._interval_default_color(interval_number),
+            )
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
+            self._after_interpretation_change()
+            return
+        self._after_interpretation_change()
+        self._select_interpretation_interval(interpretation_id, interval.interval_id)
+        self._update_interpretation_history_actions()
+        self.statusBar().showMessage(
+            self._t(
+                "interpretations.created_from_tablet",
+                top=f"{interval.top_depth:g}",
+                bottom=f"{interval.bottom_depth:g}",
+            )
+        )
+
+    def _resize_interval_from_tablet(
+        self,
+        interpretation_id: str,
+        interval_id: str,
+        top_depth: float,
+        bottom_depth: float,
+    ) -> None:
+        try:
+            interval = self.interpretation_controller.select_interval(
+                interpretation_id, interval_id
+            )
+            updated = self.interpretation_controller.update_interval(
+                interval_id,
+                top_depth=top_depth,
+                bottom_depth=bottom_depth,
+                interval_type=interval.interval_type,
+                label=interval.label,
+                color=interval.color,
+                comment=interval.comment,
+            )
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
+            self._after_interpretation_change()
+            return
+        self._after_interpretation_change()
+        self._select_interpretation_interval(interpretation_id, updated.interval_id)
+        self._update_interpretation_history_actions()
+        self.statusBar().showMessage(
+            self._t(
+                "interpretations.resized_from_tablet",
+                top=f"{updated.top_depth:g}",
+                bottom=f"{updated.bottom_depth:g}",
+            )
+        )
+
+    @staticmethod
+    def _interval_default_color(index: int) -> str:
+        palette = ("#fde68a", "#bfdbfe", "#bbf7d0", "#fecaca", "#ddd6fe", "#fed7aa")
+        return palette[(max(1, index) - 1) % len(palette)]
+
+    def undo_interpretation_edit(self) -> None:
+        if not self.interpretation_controller.can_undo:
+            return
+        try:
+            description = self.interpretation_controller.undo()
+        except (IndexError, RuntimeError) as exc:
+            QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
+            return
+        self._after_interpretation_change()
+        self._update_interpretation_history_actions()
+        self.statusBar().showMessage(
+            self._t("interpretations.undo_done", description=description)
+        )
+
+    def redo_interpretation_edit(self) -> None:
+        if not self.interpretation_controller.can_redo:
+            return
+        try:
+            description = self.interpretation_controller.redo()
+        except (IndexError, RuntimeError) as exc:
+            QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
+            return
+        self._after_interpretation_change()
+        self._update_interpretation_history_actions()
+        self.statusBar().showMessage(
+            self._t("interpretations.redo_done", description=description)
+        )
+
+    def _update_interpretation_history_actions(self) -> None:
+        if not hasattr(self, "undo_interpretation_action"):
+            return
+        self.undo_interpretation_action.setEnabled(self.interpretation_controller.can_undo)
+        self.redo_interpretation_action.setEnabled(self.interpretation_controller.can_redo)
+
     def show_interpretation_intervals(self) -> None:
         if self.session.current_well is None:
             QMessageBox.information(
@@ -2286,6 +2499,23 @@ class MainWindow(QMainWindow):
             self._clear_interpretation_interval_selection()
         self._refresh_tree()
         self._update_title()
+        self._update_interpretation_history_actions()
+
+    def show_sensor_catalog(self) -> None:
+        dialog = SensorCatalogDialog(
+            self.curve_browser.sensor_catalog, self, language=self.language
+        )
+        dialog.catalog_changed.connect(self._apply_sensor_catalog)
+        dialog.exec()
+
+    def _apply_sensor_catalog(self, catalog: object) -> None:
+        if not isinstance(catalog, SensorCatalog):
+            return
+        set_active_sensor_catalog(catalog)
+        self.curve_browser.set_sensor_catalog(catalog)
+        self.statusBar().showMessage(
+            self._t("sensors.applied", count=len(catalog.sensors))
+        )
 
     def show_description_templates(self) -> None:
         DescriptionTemplatesDialog(

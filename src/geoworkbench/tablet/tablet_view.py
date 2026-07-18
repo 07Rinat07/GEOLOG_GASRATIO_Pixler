@@ -5,8 +5,8 @@ from html import escape
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
-from PySide6.QtGui import QMouseEvent, QWheelEvent
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, Signal
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -29,6 +29,14 @@ from geoworkbench.domain.models import (
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.tablet.interval_interaction import (
+    IntervalDragResult,
+    IntervalEditMode,
+    choose_resize_edge,
+    normalize_drag_range,
+    resize_interval_range,
+    snap_depth_to_samples,
+)
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.tablet.lithology_labels import lithology_label_is_visible
 from geoworkbench.tablet.models import (
@@ -59,6 +67,22 @@ class RenderedTrack:
     interpretation_items: dict[str, tuple[object, ...]] | None = None
     interpretation_lanes: dict[str, int] | None = None
     cursor_line: pg.InfiniteLine | None = None
+    interpretation_preview: pg.BarGraphItem | None = None
+
+
+@dataclass(slots=True)
+class _IntervalGesture:
+    track_id: str
+    interpretation_id: str
+    mode: IntervalEditMode
+    lane: int
+    interval_type: str
+    start_depth: float
+    current_depth: float
+    interval_id: str | None = None
+    edge: str | None = None
+    original_top: float | None = None
+    original_bottom: float | None = None
 
 
 def curve_legend_label(curve: CurveData) -> str:
@@ -196,13 +220,15 @@ class TabletView(QWidget):
     interpretation_selected = Signal(str)
     interval_selected = Signal(str, str)
     interval_selection_cleared = Signal()
+    interval_create_requested = Signal(str, float, float, str)
+    interval_resize_requested = Signal(str, str, float, float)
+    interval_interaction_cancelled = Signal()
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__()
         pg.setConfigOptions(antialias=False)
-        self._navigation_hint = Localizer.create(language).text(
-            "tablet.depth_navigation_hint"
-        )
+        self._localizer = Localizer.create(language)
+        self._navigation_hint = self._localizer.text("tablet.depth_navigation_hint")
         self._dataset: Dataset | None = None
         self._canvas_objects: tuple[CanvasObject, ...] = ()
         self._lithology: tuple[LithologyInterval, ...] = ()
@@ -222,6 +248,10 @@ class TabletView(QWidget):
         self._cursor_color = "#dc2626"
         self._cursor_width = 2.0
         self._depth_viewports: dict[QObject, pg.PlotWidget] = {}
+        self._interpretation_viewports: dict[QObject, RenderedTrack] = {}
+        self._interval_edit_mode = IntervalEditMode.SELECT
+        self._interval_creation_type = self._localizer.text("interpretations.default_type")
+        self._interval_gesture: _IntervalGesture | None = None
 
         self._container = QWidget()
         self._tracks_layout = QHBoxLayout(self._container)
@@ -293,6 +323,39 @@ class TabletView(QWidget):
         items = rendered.lithology_label_items or rendered.lithology_description_items or {}
         return tuple(interval_id for interval_id, item in items.items() if item.isVisible())
 
+
+    @property
+    def interval_edit_mode(self) -> IntervalEditMode:
+        return self._interval_edit_mode
+
+    @property
+    def interval_preview_range(self) -> tuple[float, float] | None:
+        preview = self._gesture_result()
+        if preview is None:
+            return None
+        return preview.top_depth, preview.bottom_depth
+
+    def set_interval_edit_mode(self, mode: IntervalEditMode | str) -> None:
+        requested = IntervalEditMode(mode)
+        if requested is self._interval_edit_mode:
+            return
+        self.cancel_interval_interaction()
+        self._interval_edit_mode = requested
+        for rendered in self._rendered.values():
+            if rendered.definition.kind is TrackKind.INTERPRETATION and rendered.plot is not None:
+                cursor = (
+                    Qt.CursorShape.CrossCursor
+                    if requested is IntervalEditMode.CREATE
+                    else Qt.CursorShape.SizeVerCursor
+                    if requested is IntervalEditMode.RESIZE
+                    else Qt.CursorShape.ArrowCursor
+                )
+                rendered.plot.viewport().setCursor(cursor)
+
+    def set_interval_creation_type(self, interval_type: str) -> None:
+        normalized = interval_type.strip()
+        if normalized:
+            self._interval_creation_type = normalized
 
     @property
     def selected_interpretation_id(self) -> str | None:
@@ -618,7 +681,9 @@ class TabletView(QWidget):
         self.refresh_view()
 
     def clear(self) -> None:
+        self.cancel_interval_interaction(emit_signal=False)
         self._depth_viewports.clear()
+        self._interpretation_viewports.clear()
         while self._tracks_layout.count():
             item = self._tracks_layout.takeAt(0)
             if item is None:
@@ -708,6 +773,16 @@ class TabletView(QWidget):
             viewport = track.plot.viewport()
             viewport.installEventFilter(self)
             self._depth_viewports[viewport] = track.plot
+            if definition.kind is TrackKind.INTERPRETATION:
+                self._interpretation_viewports[viewport] = rendered
+                cursor = (
+                    Qt.CursorShape.CrossCursor
+                    if self._interval_edit_mode is IntervalEditMode.CREATE
+                    else Qt.CursorShape.SizeVerCursor
+                    if self._interval_edit_mode is IntervalEditMode.RESIZE
+                    else Qt.CursorShape.ArrowCursor
+                )
+                viewport.setCursor(cursor)
             self._tracks_layout.addWidget(track)
 
         self._tracks_layout.addStretch(1)
@@ -789,6 +864,16 @@ class TabletView(QWidget):
                     self.scroll_depth(-steps)
             event.accept()
             return True
+        rendered = self._interpretation_viewports.get(watched)
+        if rendered is not None and isinstance(event, QKeyEvent):
+            if event.key() == Qt.Key.Key_Escape and self._interval_gesture is not None:
+                self.cancel_interval_interaction()
+                event.accept()
+                return True
+        if rendered is not None and isinstance(event, QMouseEvent):
+            if self._handle_interpretation_mouse_event(rendered, event):
+                event.accept()
+                return True
         return super().eventFilter(watched, event)
 
     def _apply_visible_depth(self, top: float, bottom: float, *, emit_change: bool) -> bool:
@@ -1123,8 +1208,260 @@ class TabletView(QWidget):
             key=lambda item: (item.bottom_depth - item.top_depth, item.top_depth, item.interval_id),
         ).interval_id
 
-    def _interpretation_plot_clicked(self, rendered: RenderedTrack, event: object) -> None:
+    def begin_interval_drag(self, track_id: str, x_value: float, depth: float) -> bool:
+        rendered = self._rendered.get(track_id)
+        interpretation = self._current_interpretation()
+        if (
+            rendered is None
+            or rendered.definition.kind is not TrackKind.INTERPRETATION
+            or rendered.plot is None
+            or interpretation is None
+            or self._interval_edit_mode is IntervalEditMode.SELECT
+        ):
+            return False
+        snapped = self._snap_depth(depth)
+        lane_types = self._interpretation_lane_types(interpretation)
+        lane = max(0, int(np.floor(float(x_value))))
+        if lane_types:
+            lane = min(lane, len(lane_types) - 1)
+            interval_type = lane_types[lane]
+        else:
+            lane = 0
+            interval_type = self._interval_creation_type
+
+        if self._interval_edit_mode is IntervalEditMode.CREATE:
+            self._interval_gesture = _IntervalGesture(
+                track_id=track_id,
+                interpretation_id=interpretation.interpretation_id,
+                mode=IntervalEditMode.CREATE,
+                lane=lane,
+                interval_type=interval_type,
+                start_depth=snapped,
+                current_depth=snapped,
+            )
+            self._update_interval_preview()
+            return True
+
+        tolerance = self._resize_tolerance(rendered)
+        interval = self._interval_for_resize(rendered, lane, snapped, tolerance)
+        if interval is None:
+            interval_id = self.hit_test_interpretation(track_id, x_value, snapped)
+            if interval_id is not None:
+                self.set_selected_interval(
+                    interpretation.interpretation_id, interval_id, emit_signal=True
+                )
+            return False
+        edge = choose_resize_edge(interval, snapped, tolerance=tolerance)
+        if edge is None:
+            return False
+        self.set_selected_interval(
+            interpretation.interpretation_id, interval.interval_id, emit_signal=True
+        )
+        self._interval_gesture = _IntervalGesture(
+            track_id=track_id,
+            interpretation_id=interpretation.interpretation_id,
+            mode=IntervalEditMode.RESIZE,
+            lane=lane,
+            interval_type=interval.interval_type,
+            start_depth=snapped,
+            current_depth=snapped,
+            interval_id=interval.interval_id,
+            edge=edge,
+            original_top=interval.top_depth,
+            original_bottom=interval.bottom_depth,
+        )
+        self._update_interval_preview()
+        return True
+
+    def update_interval_drag(self, depth: float) -> bool:
+        if self._interval_gesture is None:
+            return False
+        self._interval_gesture.current_depth = self._snap_depth(depth)
+        self._update_interval_preview()
+        return True
+
+    def finish_interval_drag(self, depth: float) -> bool:
+        gesture = self._interval_gesture
+        if gesture is None:
+            return False
+        gesture.current_depth = self._snap_depth(depth)
+        result = self._gesture_result()
+        self.cancel_interval_interaction(emit_signal=False)
+        if result is None:
+            return False
+        if gesture.mode is IntervalEditMode.CREATE:
+            self.interval_create_requested.emit(
+                gesture.interpretation_id,
+                result.top_depth,
+                result.bottom_depth,
+                gesture.interval_type,
+            )
+            return True
+        if gesture.interval_id is None:
+            return False
+        self.interval_resize_requested.emit(
+            gesture.interpretation_id,
+            gesture.interval_id,
+            result.top_depth,
+            result.bottom_depth,
+        )
+        return True
+
+    def cancel_interval_interaction(self, *, emit_signal: bool = True) -> None:
+        gesture = self._interval_gesture
+        if gesture is not None:
+            rendered = self._rendered.get(gesture.track_id)
+            if rendered is not None and rendered.plot is not None:
+                preview = rendered.interpretation_preview
+                if preview is not None:
+                    rendered.plot.removeItem(preview)
+                rendered.interpretation_preview = None
+        self._interval_gesture = None
+        if gesture is not None and emit_signal:
+            self.interval_interaction_cancelled.emit()
+
+    def _handle_interpretation_mouse_event(
+        self, rendered: RenderedTrack, event: QMouseEvent
+    ) -> bool:
+        if rendered.plot is None or self._interval_edit_mode is IntervalEditMode.SELECT:
+            return False
+        event_type = event.type()
+        if event_type == QEvent.Type.MouseButtonPress:
+            if event.button() != Qt.MouseButton.LeftButton:
+                return False
+            point = self._mouse_event_view_point(rendered, event)
+            return self.begin_interval_drag(
+                rendered.definition.track_id, float(point.x()), float(point.y())
+            )
+        if event_type == QEvent.Type.MouseMove and self._interval_gesture is not None:
+            point = self._mouse_event_view_point(rendered, event)
+            return self.update_interval_drag(float(point.y()))
+        if event_type == QEvent.Type.MouseButtonRelease and self._interval_gesture is not None:
+            if event.button() != Qt.MouseButton.LeftButton:
+                return False
+            point = self._mouse_event_view_point(rendered, event)
+            return self.finish_interval_drag(float(point.y()))
+        return False
+
+    @staticmethod
+    def _mouse_event_view_point(
+        rendered: RenderedTrack, event: QMouseEvent
+    ) -> QPointF:
+        assert rendered.plot is not None
+        plot_position = rendered.plot.mapFromGlobal(event.globalPosition().toPoint())
+        scene_position = rendered.plot.mapToScene(plot_position)
+        return rendered.plot.getViewBox().mapSceneToView(scene_position)
+
+    def _snap_depth(self, depth: float) -> float:
+        if self._dataset is None:
+            return float(depth)
+        return snap_depth_to_samples(float(depth), self._dataset.depth)
+
+    def _minimum_depth_span(self) -> float:
+        if self._dataset is None:
+            return 0.0
+        values = np.asarray(self._dataset.depth, dtype=float)
+        values = np.unique(values[np.isfinite(values)])
+        if values.size < 2:
+            return 0.0
+        differences = np.diff(values)
+        positive = differences[differences > 0]
+        return float(np.min(positive)) * 0.25 if positive.size else 0.0
+
+    def _gesture_result(self) -> IntervalDragResult | None:
+        gesture = self._interval_gesture
+        if gesture is None:
+            return None
+        minimum_span = self._minimum_depth_span()
+        if gesture.mode is IntervalEditMode.CREATE:
+            return normalize_drag_range(
+                gesture.start_depth,
+                gesture.current_depth,
+                minimum_span=minimum_span,
+            )
+        interpretation = self._current_interpretation()
+        if interpretation is None or gesture.interval_id is None or gesture.edge is None:
+            return None
+        interval = next(
+            (item for item in interpretation.intervals if item.interval_id == gesture.interval_id),
+            None,
+        )
+        if interval is None:
+            return None
+        return resize_interval_range(
+            interval,
+            gesture.edge,  # type: ignore[arg-type]
+            gesture.current_depth,
+            minimum_span=minimum_span,
+        )
+
+    def _update_interval_preview(self) -> None:
+        gesture = self._interval_gesture
+        if gesture is None:
+            return
+        rendered = self._rendered.get(gesture.track_id)
+        result = self._gesture_result()
+        if rendered is None or rendered.plot is None:
+            return
+        if result is None:
+            top = bottom = gesture.current_depth
+        else:
+            top, bottom = result.top_depth, result.bottom_depth
+        height = max(bottom - top, self._minimum_depth_span(), 1e-9)
+        middle = (top + bottom) / 2.0
+        options = dict(
+            x=[gesture.lane + 0.5],
+            y=[middle],
+            width=0.94,
+            height=height,
+            brush=pg.mkBrush(37, 99, 235, 75),
+            pen=pg.mkPen("#2563eb", width=2.0, style=Qt.PenStyle.DashLine),
+        )
+        if rendered.interpretation_preview is None:
+            preview = pg.BarGraphItem(**options)
+            rendered.plot.addItem(preview)
+            rendered.interpretation_preview = preview
+        else:
+            rendered.interpretation_preview.setOpts(**options)
+
+    @staticmethod
+    def _interpretation_lane_types(
+        interpretation: WellInterpretation,
+    ) -> list[str]:
+        return sorted({item.interval_type for item in interpretation.intervals}, key=str.casefold)
+
+    def _resize_tolerance(self, rendered: RenderedTrack) -> float:
         if rendered.plot is None:
+            return 0.0
+        y_range = rendered.plot.getViewBox().viewRange()[1]
+        span = abs(float(y_range[1]) - float(y_range[0]))
+        height = max(1, rendered.plot.viewport().height())
+        return max(span * 8.0 / height, self._minimum_depth_span())
+
+    def _interval_for_resize(
+        self, rendered: RenderedTrack, lane: int, depth: float, tolerance: float
+    ):
+        interpretation = self._current_interpretation()
+        if interpretation is None:
+            return None
+        candidates = [
+            item
+            for item in interpretation.intervals
+            if (rendered.interpretation_lanes or {}).get(item.interval_id) == lane
+            and item.top_depth - tolerance <= depth <= item.bottom_depth + tolerance
+            and choose_resize_edge(item, depth, tolerance=tolerance) is not None
+        ]
+        if not candidates:
+            return None
+        return min(
+            candidates,
+            key=lambda item: min(
+                abs(depth - item.top_depth), abs(depth - item.bottom_depth)
+            ),
+        )
+
+    def _interpretation_plot_clicked(self, rendered: RenderedTrack, event: object) -> None:
+        if self._interval_edit_mode is not IntervalEditMode.SELECT or rendered.plot is None:
             return
         button = getattr(event, "button", lambda: Qt.MouseButton.LeftButton)()
         if button != Qt.MouseButton.LeftButton:

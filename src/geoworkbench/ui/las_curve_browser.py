@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.catalogs.sensors import SensorCatalog, active_sensor_catalog
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.curve_catalog import (
     CurveCatalogEntry,
@@ -36,6 +37,7 @@ class LasCurveBrowser(QWidget):
         self._dataset: Dataset | None = None
         self._entries: dict[str, CurveCatalogEntry] = {}
         self._can_replace = False
+        self._sensor_catalog: SensorCatalog = active_sensor_catalog()
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 6, 6, 6)
@@ -51,14 +53,16 @@ class LasCurveBrowser(QWidget):
         root.addWidget(self.search_input)
 
         self.tree = QTreeWidget()
-        self.tree.setColumnCount(6)
+        self.tree.setColumnCount(8)
         self.tree.setHeaderLabels(
             [
                 self._t("curve_browser.mnemonic"),
+                self._t("curve_browser.canonical"),
                 self._t("curve_browser.unit"),
                 self._t("curve_browser.category"),
                 self._t("curve_browser.coverage"),
                 self._t("curve_browser.range"),
+                self._t("curve_browser.reference_range"),
                 self._t("curve_browser.description"),
             ]
         )
@@ -68,12 +72,9 @@ class LasCurveBrowser(QWidget):
         self.tree.itemChanged.connect(self._selection_changed)
         self.tree.itemDoubleClicked.connect(self._item_double_clicked)
         header = self.tree.header()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        for column in range(7):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.Stretch)
         root.addWidget(self.tree, 1)
 
         self.summary = QLabel(self._t("curve_browser.empty"))
@@ -117,19 +118,33 @@ class LasCurveBrowser(QWidget):
         self.tree.blockSignals(True)
         self.tree.clear()
         if dataset is not None:
-            for entry in analyze_dataset_curves(dataset):
+            for entry in analyze_dataset_curves(dataset, self._sensor_catalog):
                 self._entries[entry.mnemonic] = entry
                 item = QTreeWidgetItem(
                     [
                         entry.mnemonic,
+                        entry.canonical_mnemonic or "—",
                         entry.unit or "—",
                         self._category_label(entry.category),
                         f"{entry.coverage_percent:.1f}%",
                         entry.range_text,
+                        entry.reference_range_text,
                         entry.description or "—",
                     ]
                 )
                 item.setData(0, Qt.ItemDataRole.UserRole, entry.mnemonic)
+                item.setData(0, Qt.ItemDataRole.UserRole + 1, entry.matched_catalog_id)
+                if entry.is_catalog_matched:
+                    tooltip = self._t(
+                        "curve_browser.catalog_tooltip",
+                        canonical=entry.canonical_mnemonic,
+                        name=entry.reference_name or entry.description,
+                        source=entry.reference_source or "Sensors",
+                    )
+                    for column in range(self.tree.columnCount()):
+                        item.setToolTip(column, tooltip)
+                else:
+                    item.setToolTip(1, self._t("curve_browser.catalog_unmatched"))
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                 item.setCheckState(0, Qt.CheckState.Unchecked)
                 if entry.valid_count == 0:
@@ -140,6 +155,15 @@ class LasCurveBrowser(QWidget):
         self.search_input.clear()
         self._update_enabled_state()
         self._selection_changed()
+
+
+    @property
+    def sensor_catalog(self) -> SensorCatalog:
+        return self._sensor_catalog
+
+    def set_sensor_catalog(self, catalog: SensorCatalog) -> None:
+        self._sensor_catalog = catalog
+        self.set_dataset(self._dataset)
 
     def selected_mnemonics(self) -> list[str]:
         result: list[str] = []
@@ -156,7 +180,9 @@ class LasCurveBrowser(QWidget):
     def select_recommended(self) -> None:
         if self._dataset is None:
             return
-        selected = set(recommended_curve_mnemonics(self._dataset))
+        selected = set(
+            recommended_curve_mnemonics(self._dataset, catalog=self._sensor_catalog)
+        )
         self.tree.blockSignals(True)
         for index in range(self.tree.topLevelItemCount()):
             item = self.tree.topLevelItem(index)

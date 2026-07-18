@@ -4,61 +4,64 @@
 
 **Пакет приложения:** 0.6.0  
 **Формат проекта:** v15  
-**Состояние:** активная разработка; исправлен основной пользовательский сценарий загрузки LAS и построения планшета.
+**Состояние:** активная разработка; подключён нормализованный справочник Sensors и завершено прямое редактирование интерпретационных интервалов на планшете.
 
 Готово в текущем инкременте:
 
-- отдельная панель «Кривые LAS» с поиском и полной сводкой каналов;
-- выбор рекомендуемого набора кривых;
-- построение планшета из выбранных каналов с отдельными шкалами для несовместимых физических параметров;
-- добавление новой дорожки и замена кривых выбранной дорожки;
-- светлый контрастный рендер, единицы в легенде и устойчивый автоматический диапазон X;
-- явное отображение каналов без числовых данных;
-- пустой журнал скрыт по умолчанию;
+- нормализованный справочник из `Editor/Sensors.DB`, `Geolog-055/Sensors.DB` и проверенных LAS-псевдонимов;
+- 421 запись параметров и legacy-полей со стабильными ID, каноническими мнемониками, единицами, категориями, семействами, диапазонами и происхождением;
+- устойчивое сопоставление мнемоник, включая смешанные кириллические/латинские обозначения;
+- просмотр, поиск и подключение внешнего JSON-справочника схемы v1;
+- исходная и каноническая мнемоники, фактический и рекомендуемый диапазоны в панели LAS-кривых;
+- режимы выбора, рисования и изменения границ интервалов непосредственно на планшете;
+- привязка кровли и подошвы к ближайшим отсчётам LAS, preview и отмена жеста через `Esc`;
+- валидация через существующий controller и Undo/Redo для мышиных операций;
 - синхронная локализация RU/KK/EN;
-- полный regression suite: 730 passed, 1 skipped;
-- Ruff и MyPy: без ошибок.
+- regression suite: 743 passed, 1 skipped;
+- Ruff и MyPy: без ошибок по 155 исходным файлам.
 
-Следующий срез: импорт внешнего справочника мнемоник/Sensors после получения полного референсного материала, затем прямое создание интервалов мышью на планшете.
+Следующий срез: единая selection-модель экспорта интервалов и подготовка рабочего места корреляции нескольких скважин.
 
 ## Қазақша
 
 **Қолданба пакеті:** 0.6.0  
 **Жоба форматы:** v15  
-**Күйі:** белсенді әзірлеу; LAS жүктеу және планшет құрудың негізгі пайдаланушы сценарийі түзетілді.
+**Күйі:** белсенді әзірлеу; қалыптандырылған Sensors анықтамалығы қосылып, планшеттегі интерпретациялық аралықтарды тікелей өңдеу аяқталды.
 
 Осы инкрементте орындалды:
 
-- іздеу және арналардың толық жиынтығы бар «LAS қисықтары» панелі;
-- ұсынылған қисықтар жиынын таңдау;
-- таңдалған арналардан үйлеспейтін физикалық параметрлерге жеке шкалалар беретін планшет құру;
-- жаңа жолақ қосу және таңдалған жолақ қисықтарын ауыстыру;
-- ашық контрастты рендер, легендадағы өлшем бірліктері және тұрақты автоматты X ауқымы;
-- сандық деректері жоқ арналарды анық көрсету;
-- бос журнал әдепкіде жасырылған;
-- RU/KK/EN локализациясы синхрондалған;
-- толық regression suite: 730 passed, 1 skipped;
-- Ruff және MyPy: қатесіз.
+- `Editor/Sensors.DB`, `Geolog-055/Sensors.DB` және тексерілген LAS бүркеншік аттары негізіндегі анықтамалық;
+- тұрақты ID, канондық мнемоника, өлшем бірлігі, санат, жолақ тобы, диапазон және дереккөзі бар 421 жазба;
+- кирилл/латын таңбалары аралас мнемоникаларды тұрақты сәйкестендіру;
+- v1 сыртқы JSON анықтамалығын қарау, іздеу және қосу;
+- LAS қисықтары панелінде бастапқы/канондық мнемоника және нақты/ұсынылатын диапазон;
+- планшетте аралықтарды таңдау, сызу және шекарасын өзгерту режимдері;
+- төбе мен табанды ең жақын LAS өлшеміне байлау, preview және `Esc` арқылы болдырмау;
+- қолданыстағы controller тексеруі және Undo/Redo;
+- RU/KK/EN локализациясы синхрондалды;
+- regression suite: 743 passed, 1 skipped;
+- Ruff және MyPy: 155 бастапқы файл бойынша қатесіз.
 
-Келесі срез: толық референс материалы алынғаннан кейін сыртқы мнемоника/Sensors анықтамалығын импорттау, содан соң планшетте аралықтарды тінтуірмен тікелей жасау.
+Келесі срез: аралықтарды экспорттаудың бірыңғай selection-моделі және бірнеше ұңғыманы корреляциялау жұмыс орнын дайындау.
 
 ## English
 
 **Application package:** 0.6.0  
 **Project format:** v15  
-**Status:** active development; the primary LAS-loading and tablet-building workflow has been corrected.
+**Status:** active development; the normalized Sensors reference is connected and direct tablet interval editing is complete.
 
 Completed in this increment:
 
-- a dedicated LAS curves panel with search and complete channel summaries;
-- recommended working-set selection;
-- tablet construction from selected channels with independent scales for incompatible physical parameters;
-- new-track creation and selected-track curve replacement;
-- light high-contrast rendering, units in legends, and robust automatic X ranges;
-- explicit display of channels without numeric data;
-- the empty log dock is hidden by default;
+- a normalized reference derived from `Editor/Sensors.DB`, `Geolog-055/Sensors.DB`, and validated LAS aliases;
+- 421 parameter and legacy-field entries with stable IDs, canonical mnemonics, units, categories, track families, ranges, and provenance;
+- robust mnemonic matching including mixed Cyrillic/Latin notation;
+- searchable catalog viewer and schema-v1 external JSON connection;
+- original/canonical mnemonics plus actual/reference ranges in the LAS curve panel;
+- select, draw, and boundary-edit modes directly on the tablet;
+- top/bottom snapping to nearest LAS samples, live preview, and `Esc` cancellation;
+- validation through the existing controller and Undo/Redo for mouse operations;
 - synchronized RU/KK/EN localization;
-- full regression suite: 730 passed, 1 skipped;
-- Ruff and MyPy: clean.
+- regression suite: 743 passed, 1 skipped;
+- Ruff and MyPy: clean across 155 source files.
 
-Next slice: external mnemonic/Sensors catalog import after the complete reference material is available, followed by direct mouse-driven interval creation on the tablet.
+Next slice: a shared interval-export selection model and groundwork for the multi-well correlation workspace.

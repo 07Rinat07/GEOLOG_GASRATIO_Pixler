@@ -5,6 +5,7 @@ from enum import StrEnum
 
 import numpy as np
 
+from geoworkbench.catalogs.sensors import SensorCatalog, SensorMatch
 from geoworkbench.domain.models import CurveData, Dataset
 
 
@@ -59,6 +60,12 @@ class CurveCatalogEntry:
     total_count: int
     minimum: float | None
     maximum: float | None
+    reference_name: str = ""
+    reference_source: str = ""
+    reference_default_min: float | None = None
+    reference_default_max: float | None = None
+    matched_catalog_id: str | None = None
+    match_method: str | None = None
 
     @property
     def coverage_percent(self) -> float:
@@ -71,6 +78,16 @@ class CurveCatalogEntry:
         if self.minimum is None or self.maximum is None:
             return "—"
         return f"{self.minimum:g} … {self.maximum:g}"
+
+    @property
+    def reference_range_text(self) -> str:
+        if self.reference_default_min is None or self.reference_default_max is None:
+            return "—"
+        return f"{self.reference_default_min:g} … {self.reference_default_max:g}"
+
+    @property
+    def is_catalog_matched(self) -> bool:
+        return self.matched_catalog_id is not None
 
 
 _GAS = {
@@ -202,7 +219,37 @@ _FAMILY_BY_MNEMONIC: dict[str, CurveFamily] = {
 _FAMILY_PRIORITY = {family: index for index, family in enumerate(CurveFamily)}
 
 
-def classify_curve(curve: CurveData) -> CurveCategory:
+def _catalog_match(
+    curve: CurveData, catalog: SensorCatalog | None = None
+) -> SensorMatch | None:
+    metadata = curve.metadata
+    if catalog is None:
+        return None
+    reference = catalog
+    requested = metadata.canonical_mnemonic or metadata.original_mnemonic
+    match = reference.match(
+        requested,
+        description=metadata.description or "",
+        unit=metadata.unit or "",
+    )
+    if match is None and requested != metadata.original_mnemonic:
+        match = reference.match(
+            metadata.original_mnemonic,
+            description=metadata.description or "",
+            unit=metadata.unit or "",
+        )
+    return match
+
+
+def classify_curve(
+    curve: CurveData, catalog: SensorCatalog | None = None
+) -> CurveCategory:
+    match = _catalog_match(curve, catalog)
+    if match is not None:
+        try:
+            return CurveCategory(match.definition.category)
+        except ValueError:
+            pass
     metadata = curve.metadata
     canonical = (metadata.canonical_mnemonic or metadata.original_mnemonic).strip().upper()
     if canonical in _GAS:
@@ -218,13 +265,24 @@ def classify_curve(curve: CurveData) -> CurveCategory:
     return CurveCategory.OTHER
 
 
-def classify_curve_family(curve: CurveData) -> CurveFamily:
+def classify_curve_family(
+    curve: CurveData, catalog: SensorCatalog | None = None
+) -> CurveFamily:
+    match = _catalog_match(curve, catalog)
+    if match is not None:
+        try:
+            return CurveFamily(match.definition.family)
+        except ValueError:
+            pass
     metadata = curve.metadata
     canonical = (metadata.canonical_mnemonic or metadata.original_mnemonic).strip().upper()
     return _FAMILY_BY_MNEMONIC.get(canonical, CurveFamily.OTHER)
 
 
-def analyze_dataset_curves(dataset: Dataset) -> tuple[CurveCatalogEntry, ...]:
+def analyze_dataset_curves(
+    dataset: Dataset, catalog: SensorCatalog | None = None
+) -> tuple[CurveCatalogEntry, ...]:
+    reference = catalog
     entries: list[CurveCatalogEntry] = []
     for curve in dataset.curves.values():
         values = np.asarray(curve.values, dtype=float)
@@ -232,19 +290,37 @@ def analyze_dataset_curves(dataset: Dataset) -> tuple[CurveCatalogEntry, ...]:
         minimum = float(np.min(finite)) if finite.size else None
         maximum = float(np.max(finite)) if finite.size else None
         metadata = curve.metadata
+        match = _catalog_match(curve, reference) if reference is not None else None
+        definition = match.definition if match is not None else None
+        description = (metadata.description or "").strip()
+        if definition is not None and (not description or description == metadata.original_mnemonic):
+            description = definition.name_ru
+        unit = (metadata.unit or "").strip()
+        if definition is not None and not unit:
+            unit = definition.unit
         entries.append(
             CurveCatalogEntry(
                 curve_id=metadata.curve_id,
                 mnemonic=metadata.original_mnemonic,
-                canonical_mnemonic=metadata.canonical_mnemonic or metadata.original_mnemonic,
-                unit=(metadata.unit or "").strip(),
-                description=(metadata.description or "").strip(),
-                category=classify_curve(curve),
-                family=classify_curve_family(curve),
+                canonical_mnemonic=(
+                    definition.canonical_mnemonic
+                    if definition is not None
+                    else metadata.canonical_mnemonic or metadata.original_mnemonic
+                ),
+                unit=unit,
+                description=description,
+                category=classify_curve(curve, reference),
+                family=classify_curve_family(curve, reference),
                 valid_count=int(finite.size),
                 total_count=int(values.size),
                 minimum=minimum,
                 maximum=maximum,
+                reference_name=definition.name_ru if definition is not None else "",
+                reference_source=definition.source if definition is not None else "",
+                reference_default_min=(definition.default_min if definition is not None else None),
+                reference_default_max=(definition.default_max if definition is not None else None),
+                matched_catalog_id=(definition.sensor_id if definition is not None else None),
+                match_method=(match.matched_by if match is not None else None),
             )
         )
     return tuple(
@@ -264,6 +340,7 @@ def recommended_curve_mnemonics(
     dataset: Dataset,
     *,
     maximum: int = 12,
+    catalog: SensorCatalog | None = None,
 ) -> list[str]:
     """Select a broad, finite-data working set instead of only the first category.
 
@@ -274,7 +351,9 @@ def recommended_curve_mnemonics(
 
     if maximum <= 0:
         return []
-    entries = [item for item in analyze_dataset_curves(dataset) if item.valid_count > 0]
+    entries = [
+        item for item in analyze_dataset_curves(dataset, catalog) if item.valid_count > 0
+    ]
     buckets: dict[CurveCategory, list[CurveCatalogEntry]] = {
         category: [item for item in entries if item.category is category]
         for category in CurveCategory

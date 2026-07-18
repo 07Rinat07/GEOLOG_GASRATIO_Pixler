@@ -7,6 +7,7 @@ from geoworkbench.domain.models import (
     DatasetKind,
     DepthDomain,
 )
+from geoworkbench.catalogs.sensors import default_sensor_catalog
 from geoworkbench.services.curve_catalog import (
     CurveCategory,
     CurveFamily,
@@ -80,3 +81,30 @@ def test_recommended_curves_cover_multiple_available_categories() -> None:
 
     assert {"C1", "MW", "GR", "DEXP"} <= set(selected)
     assert {"BIT_RPM", "ROP"} & set(selected)
+
+
+def test_curve_catalog_resolves_vendor_aliases_from_sensor_reference() -> None:
+    dataset = Dataset(
+        "aliases",
+        "Aliases",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([1.0, 2.0, 3.0]),
+    )
+    for mnemonic, unit in (("CH4", "%"), ("QOUT", "m3/h"), ("GAMMA_RAY", "API")):
+        curve_id = f"curve-{mnemonic}"
+        dataset.curves[curve_id] = CurveData(
+            CurveMetadata(curve_id, mnemonic, mnemonic, unit, "", dataset.dataset_id),
+            np.array([1.0, 2.0, 3.0]),
+        )
+
+    entries = {
+        item.mnemonic: item
+        for item in analyze_dataset_curves(dataset, default_sensor_catalog())
+    }
+
+    assert entries["CH4"].canonical_mnemonic == "C1"
+    assert entries["CH4"].category is CurveCategory.GAS
+    assert entries["QOUT"].family is CurveFamily.FLOW
+    assert entries["GAMMA_RAY"].family is CurveFamily.GAMMA_RAY
+    assert entries["CH4"].reference_source.endswith("Sensors.DB")

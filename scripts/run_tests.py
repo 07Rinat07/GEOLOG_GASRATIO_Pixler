@@ -26,4 +26,11 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    result = main()
+    # PySide/Qt may crash in the host container while the Python interpreter is
+    # tearing down native GUI singletons, after pytest has already completed.
+    # Exit directly after flushing the verified pytest result; this does not skip
+    # tests and prevents an unrelated native shutdown fault from replacing it.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(result)

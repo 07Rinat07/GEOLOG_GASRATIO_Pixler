@@ -9,6 +9,8 @@
 - [TESTING.md](TESTING.md) — quality gates and regression matrix.
 - [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md) — documentation maintenance rules.
 - [CHANGELOG.md](CHANGELOG.md) — concise history of completed increments.
+- [SENSOR_CATALOG.md](SENSOR_CATALOG.md) — normalized Sensors/mnemonic reference and external JSON schema.
+- [INTERVAL_MOUSE_EDITING.md](INTERVAL_MOUSE_EDITING.md) — direct interval drawing and boundary editing.
 
 ## User guides
 

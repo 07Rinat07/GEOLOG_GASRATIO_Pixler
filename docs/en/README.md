@@ -288,3 +288,25 @@ GR, resistivity, and other incompatible quantities receive independent scales. S
 also be added as a new track or assigned to the currently selected graph track. The tablet uses a
 light plotting surface, units in legends, and a robust automatic X range that is not stretched by a
 single outlier.
+
+## Sensors reference and direct interval editing
+
+After LAS import, the “LAS curves” panel shows the original and canonical mnemonic, unit,
+parameter group, finite-value coverage, actual range, catalog reference range, and description.
+The normalized Sensors reference recognizes common aliases such as `TGAS → TG`, `CH4 → C1`, and
+`BIT_RPM → RPM`. It does not rename the source LAS curve or alter its values.
+
+“Edit → Sensors and mnemonic reference...” opens the complete searchable catalog. “Connect
+external JSON...” activates another schema-v1 reference for the current run. Invalid schemas,
+categories, colors, or ranges are rejected before activation.
+
+Use the Tablet toolbar or menu to edit interpretation intervals directly:
+
+- `Alt+1` — select an existing interval;
+- `Alt+2` — draw by dragging from top to bottom;
+- `Alt+3` — drag the top or bottom boundary.
+
+Depths snap to the nearest sample in the active LAS dataset. A translucent dashed preview is shown
+while dragging, and `Esc` cancels an unfinished gesture. On release, dataset bounds and same-type
+overlap rules are validated. Use `Ctrl+Alt+Z` to undo and `Ctrl+Alt+Shift+Z` to redo a completed
+change. Edit the exact label, type, color, and comment in the property panel.

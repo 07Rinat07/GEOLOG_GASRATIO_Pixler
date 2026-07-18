@@ -69,3 +69,20 @@ def test_curve_browser_filters_by_description(qapp) -> None:
     ]
     assert visible == ["BIT_RPM"]
     browser.close()
+
+
+def test_curve_browser_shows_canonical_mnemonic_and_reference_range(qapp) -> None:
+    browser = LasCurveBrowser()
+    browser.set_dataset(make_dataset())
+
+    c1 = next(
+        browser.tree.topLevelItem(index)
+        for index in range(browser.tree.topLevelItemCount())
+        if browser.tree.topLevelItem(index).text(0) == "C1"
+    )
+
+    assert browser.tree.columnCount() == 8
+    assert c1.text(1) == "C1"
+    assert c1.text(6) != "—"
+    assert "Sensors.DB" in c1.toolTip(0)
+    browser.close()

@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased — Sensors catalog and direct interval editing
+
+### Русский
+
+- нормализованы справочники `Editor/Sensors.DB` и `Geolog-055/Sensors.DB`; добавлены проверенные LAS-псевдонимы;
+- добавлены канонические мнемоники, единицы, категории, совместимые семейства дорожек, рекомендуемые диапазоны и происхождение записей;
+- добавлен просмотрщик справочника, поиск и подключение внешнего JSON схемы v1;
+- панель LAS-кривых показывает каноническую мнемонику и справочный диапазон;
+- добавлены режимы выбора, рисования и изменения границ интервалов на планшете;
+- мышиные операции используют привязку к LAS, preview, `Esc`, валидацию и Undo/Redo;
+- regression suite: 743 passed, 1 skipped; Ruff и MyPy без ошибок.
+
+### Қазақша
+
+- `Editor/Sensors.DB` және `Geolog-055/Sensors.DB` қалыптандырылып, тексерілген LAS бүркеншік аттары қосылды;
+- канондық мнемоника, өлшем бірлігі, санат, жолақ тобы, ұсынылатын диапазон және дереккөз қосылды;
+- анықтамалықты қарау, іздеу және v1 сыртқы JSON қосу іске асырылды;
+- LAS қисықтары панелі канондық мнемоника мен анықтамалық диапазонды көрсетеді;
+- планшетте аралықтарды таңдау, сызу және шекарасын өзгерту режимдері қосылды;
+- әрекеттер LAS өлшеміне байлау, preview, `Esc`, тексеру және Undo/Redo қолданады;
+- regression suite: 743 passed, 1 skipped; Ruff және MyPy қатесіз.
+
+### English
+
+- normalized `Editor/Sensors.DB` and `Geolog-055/Sensors.DB` and added validated LAS aliases;
+- added canonical mnemonics, units, categories, compatible track families, reference ranges, and provenance;
+- added a searchable catalog viewer and schema-v1 external JSON connection;
+- the LAS curve panel now displays canonical mnemonics and reference ranges;
+- added select, draw, and boundary-edit modes for interpretation intervals on the tablet;
+- mouse operations use LAS snapping, live preview, `Esc`, validation, and Undo/Redo;
+- regression suite: 743 passed, 1 skipped; Ruff and MyPy pass cleanly.
+
 ## Unreleased — LAS curve browser and readable tablet UX
 
 ### Русский

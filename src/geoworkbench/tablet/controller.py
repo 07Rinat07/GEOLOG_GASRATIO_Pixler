@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 
+from geoworkbench.catalogs.sensors import active_sensor_catalog
 from geoworkbench.domain.models import Dataset, new_id
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.channel_groups import (
@@ -32,13 +33,18 @@ class TabletController:
 
     def build_default_layout(self) -> TabletLayout:
         dataset = self._require_dataset()
-        return self.build_layout_for_curves(recommended_curve_mnemonics(dataset))
+        return self.build_layout_for_curves(
+            recommended_curve_mnemonics(dataset, catalog=active_sensor_catalog())
+        )
 
     def build_layout_for_curves(self, curve_mnemonics: list[str]) -> TabletLayout:
         dataset = self._require_dataset()
         selected = list(dict.fromkeys(curve_mnemonics))
         self._validate_mnemonics(dataset, selected)
-        entries = {item.mnemonic: item for item in analyze_dataset_curves(dataset)}
+        entries = {
+            item.mnemonic: item
+            for item in analyze_dataset_curves(dataset, active_sensor_catalog())
+        }
         tracks = self._context_tracks()
 
         # A single X axis must only contain physically comparable parameters.
