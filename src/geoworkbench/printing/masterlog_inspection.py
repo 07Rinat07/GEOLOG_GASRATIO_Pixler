@@ -8,6 +8,7 @@ from PySide6.QtCore import QPointF, QRectF
 
 from geoworkbench.domain.models import MasterlogColumnTemplate, MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.printing.masterlog_renderer import (
     curve_x_range,
     masterlog_curve_bindings,
@@ -81,6 +82,8 @@ def inspect_masterlog_point(
     depth = top + (y_mm - plot_top) / (size.height() - plot_top) * (bottom - top)
     if column.column_type in {"lithology", "text", "description"}:
         return _inspect_lithology(column, depth, session, language)
+    if column.column_type == "cuttings":
+        return _inspect_cuttings(column, depth, session, language)
     if column.column_type == "depth":
         return MasterlogInspection(column.title, depth)
     return _inspect_curves(column, x_mm, depth, template, session)
@@ -127,6 +130,38 @@ def _inspect_lithology(
         depth,
         description=description,
         interval=(interval.top_depth, interval.bottom_depth),
+    )
+
+
+def _inspect_cuttings(
+    column: MasterlogColumnTemplate,
+    depth: float,
+    session: ProjectSession,
+    language: AppLanguage,
+) -> MasterlogInspection:
+    well = session.current_well
+    sample = next(
+        (
+            item
+            for item in (well.cuttings if well is not None else ())
+            if item.top_depth <= depth <= item.bottom_depth
+        ),
+        None,
+    )
+    if sample is None:
+        return MasterlogInspection(column.title, depth)
+    catalog = {item.lithotype_id: item for item in LithotypeCatalogController(session).available()}
+    parts = [
+        f"{catalog[item.lithotype_id].localized_name(language.value) if item.lithotype_id in catalog else item.lithotype_id}: {item.percentage:g}%"
+        for item in sample.components
+    ]
+    if sample.description:
+        parts.append(sample.description)
+    return MasterlogInspection(
+        column.title,
+        depth,
+        description="; ".join(parts),
+        interval=(sample.top_depth, sample.bottom_depth),
     )
 
 

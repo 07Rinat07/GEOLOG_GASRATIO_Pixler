@@ -38,21 +38,17 @@ class ColumnPropertiesDialog(QDialog):
         self.title_input = QLineEdit(column.title if column else "")
         self.type_input = QComboBox()
         self.type_input.setEditable(True)
-        self.type_input.addItems(["curves", "depth", "lithology", "text"])
+        self.type_input.addItems(["curves", "depth", "lithology", "cuttings", "text"])
         if column:
             self.type_input.setCurrentText(column.column_type)
         self.width_input = QDoubleSpinBox()
         self.width_input.setRange(5.0, 200.0)
         self.width_input.setSuffix(" mm")
         self.width_input.setValue(column.width_mm if column else 30.0)
-        self.curves_input = QLineEdit(
-            ", ".join(column.curve_mnemonics) if column else ""
-        )
+        self.curves_input = QLineEdit(", ".join(column.curve_mnemonics) if column else "")
         self.scale_input = QComboBox()
         self.scale_input.addItem(localizer.text("inspector.linear"), "linear")
-        self.scale_input.addItem(
-            localizer.text("inspector.logarithmic"), "logarithmic"
-        )
+        self.scale_input.addItem(localizer.text("inspector.logarithmic"), "logarithmic")
         self.scale_input.setCurrentIndex(
             self.scale_input.findData(column.x_scale if column else "linear")
         )
@@ -76,9 +72,7 @@ class ColumnPropertiesDialog(QDialog):
         self.line_width_input.setValue(column.line_width if column else 1.5)
         self.line_style_input = QComboBox()
         for value in ("solid", "dash", "dot", "dash_dot"):
-            self.line_style_input.addItem(
-                localizer.text(f"inspector.line_style.{value}"), value
-            )
+            self.line_style_input.addItem(localizer.text(f"inspector.line_style.{value}"), value)
         self.line_style_input.setCurrentIndex(
             self.line_style_input.findData(column.line_style if column else "solid")
         )
@@ -199,8 +193,17 @@ class MasterlogColumnsDialog(QDialog):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         (
-            title, column_type, width, curves, scale, x_min, x_max, legend,
-            color, line_width, line_style,
+            title,
+            column_type,
+            width,
+            curves,
+            scale,
+            x_min,
+            x_max,
+            legend,
+            color,
+            line_width,
+            line_style,
         ) = dialog.values()
         self._run(
             lambda: self.controller.add_column(
@@ -223,14 +226,21 @@ class MasterlogColumnsDialog(QDialog):
         column = self._selected_column()
         if column is None:
             return
-        dialog = ColumnPropertiesDialog(
-            self, column=column, language=self.localizer.language
-        )
+        dialog = ColumnPropertiesDialog(self, column=column, language=self.localizer.language)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         (
-            title, column_type, width, curves, scale, x_min, x_max, legend,
-            color, line_width, line_style,
+            title,
+            column_type,
+            width,
+            curves,
+            scale,
+            x_min,
+            x_max,
+            legend,
+            color,
+            line_width,
+            line_style,
         ) = dialog.values()
         self._run(
             lambda: self.controller.update_column(
@@ -253,19 +263,13 @@ class MasterlogColumnsDialog(QDialog):
     def _remove(self) -> None:
         column = self._selected_column()
         if column is not None:
-            self._run(
-                lambda: self.controller.remove_column(
-                    self.template_id, column.column_id
-                )
-            )
+            self._run(lambda: self.controller.remove_column(self.template_id, column.column_id))
 
     def _move(self, offset: int) -> None:
         column = self._selected_column()
         if column is not None:
             self._run(
-                lambda: self.controller.move_column(
-                    self.template_id, column.column_id, offset
-                )
+                lambda: self.controller.move_column(self.template_id, column.column_id, offset)
             )
 
     def _run(self, operation: Callable[[], object]) -> None:

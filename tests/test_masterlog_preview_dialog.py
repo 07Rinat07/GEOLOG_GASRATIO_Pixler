@@ -16,4 +16,10 @@ def test_masterlog_preview_dialog_uses_selected_template(qapp) -> None:
     assert dialog.windowTitle() == "Masterlog preview — Daily form"
     assert dialog.preview.template is template
     assert dialog.preview.settings is settings
+    assert dialog.inspect_button.text() == "Inspect"
+    assert dialog.lithology_button.text() == "Fill lithology"
+    assert dialog.cuttings_button.text() == "Fill cuttings"
+    dialog._set_mode("lithology")
+    assert dialog.preview.selection_mode == "lithology"
+    assert dialog.lithology_button.isChecked()
     dialog.close()

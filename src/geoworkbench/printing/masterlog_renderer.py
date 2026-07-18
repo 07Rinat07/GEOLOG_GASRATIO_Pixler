@@ -462,6 +462,8 @@ def _paint_columns(
                 _paint_depth_axis(painter, plot_rect, depth_range)
             elif column.column_type == "lithology":
                 _paint_lithology_column(painter, plot_rect, session, depth_range)
+            elif column.column_type == "cuttings":
+                _paint_cuttings_column(painter, plot_rect, session, depth_range)
             elif column.column_type in {"text", "description"}:
                 _paint_lithology_descriptions(painter, plot_rect, session, depth_range, language)
             else:
@@ -521,6 +523,47 @@ def _paint_lithology_column(
                 Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
                 label,
             )
+    painter.restore()
+
+
+def _paint_cuttings_column(
+    painter: QPainter,
+    rect: QRectF,
+    session: ProjectSession,
+    depth_range: tuple[float, float],
+) -> None:
+    well = session.current_well
+    if well is None:
+        return
+    top, bottom = depth_range
+    painter.save()
+    painter.setClipRect(rect)
+    for sample in well.cuttings:
+        if sample.bottom_depth < top or sample.top_depth > bottom:
+            continue
+        visible_top = max(top, sample.top_depth)
+        visible_bottom = min(bottom, sample.bottom_depth)
+        y_top = rect.top() + (visible_top - top) / (bottom - top) * rect.height()
+        y_bottom = rect.top() + (visible_bottom - top) / (bottom - top) * rect.height()
+        x = rect.left()
+        for component in sample.components:
+            width = rect.width() * component.percentage / 100.0
+            definition = session.project.lithotypes.get(component.lithotype_id)
+            color = definition.color if definition is not None else "#b0b0b0"
+            pattern = definition.pattern_key if definition is not None else "solid"
+            component_rect = QRectF(x, y_top, width, max(0.1, y_bottom - y_top))
+            painter.fillRect(component_rect, lithology_brush(color, pattern))
+            painter.setPen(QPen(QColor("#334155"), 0.2))
+            painter.drawRect(component_rect)
+            if component_rect.width() >= 8 and component_rect.height() >= 4:
+                code = definition.code if definition is not None else component.lithotype_id
+                painter.setPen(QColor("#0f172a"))
+                painter.drawText(
+                    component_rect,
+                    Qt.AlignmentFlag.AlignCenter,
+                    f"{code} {component.percentage:g}%",
+                )
+            x += width
     painter.restore()
 
 

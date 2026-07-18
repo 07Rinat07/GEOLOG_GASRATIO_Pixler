@@ -242,6 +242,7 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
                     200,
                 ),
                 ("lithology", "Lithology", "lithology", 25, [], "linear", None, None),
+                ("cuttings", "Cuttings %", "cuttings", 32, [], "linear", None, None),
                 (
                     "gas",
                     "TG / C1 / C2 / C3 / iC4 / nC4 / iC5 / nC5",
