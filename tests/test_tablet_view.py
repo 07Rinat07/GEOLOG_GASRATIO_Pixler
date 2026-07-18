@@ -1065,3 +1065,99 @@ def test_tablet_view_lod_budget_is_pixel_aware():
     assert TabletView._lod_point_budget(100) == 5000
     assert TabletView._lod_point_budget(1000) == 5000
     assert TabletView._lod_point_budget(100_000) == 20_000
+
+
+def test_partial_style_refresh_updates_only_target_track(qapp) -> None:
+    from geoworkbench.tablet.render_invalidation import DirtyReason
+
+    dataset = Dataset(
+        "dataset-dirty", "Dirty", DatasetKind.GTI, DepthDomain.MD,
+        np.linspace(0.0, 100.0, 101),
+    )
+    for mnemonic in ("ROP", "TG"):
+        dataset.curves[f"curve-{mnemonic}"] = CurveData(
+            CurveMetadata(
+                f"curve-{mnemonic}", mnemonic, mnemonic, "%", None, dataset.dataset_id
+            ),
+            np.linspace(1.0, 10.0, 101),
+        )
+    layout = TabletLayout(
+        [
+            TrackDefinition("rop", "ROP", TrackKind.CURVE, curve_mnemonics=["ROP"]),
+            TrackDefinition("tg", "TG", TrackKind.CURVE, curve_mnemonics=["TG"]),
+        ]
+    )
+    view = TabletView()
+    view.set_layout_model(layout)
+    view.set_dataset(dataset)
+    rop_widget = view._rendered["rop"].widget
+    tg_widget = view._rendered["tg"].widget
+    before = view.dirty_render_stats()
+
+    layout.track_by_id("rop").set_curve_style(
+        "ROP", CurveStyle("#ff0000", 3.0, CurveLineStyle.DASH)
+    )
+    assert view.refresh_track("rop", DirtyReason.STYLE | DirtyReason.DATA)
+
+    after = view.dirty_render_stats()
+    assert view._rendered["rop"].widget is rop_widget
+    assert view._rendered["tg"].widget is tg_widget
+    assert after.full_updates == before.full_updates
+    assert after.partial_updates == before.partial_updates + 1
+    assert view._rendered["rop"].curve_items["ROP"].opts["pen"].color().name() == "#ff0000"
+    view.close()
+
+
+def test_static_layer_cache_reuses_track_descriptor(qapp) -> None:
+    from geoworkbench.tablet.render_invalidation import DirtyReason
+
+    dataset = Dataset(
+        "dataset-static", "Static", DatasetKind.GTI, DepthDomain.MD,
+        np.linspace(0.0, 10.0, 11),
+    )
+    layout = TabletLayout([TrackDefinition("depth", "Глубина", TrackKind.DEPTH)])
+    view = TabletView()
+    view.set_layout_model(layout)
+    view.set_dataset(dataset)
+
+    assert view.refresh_track("depth", DirtyReason.STATIC)
+    first = view.static_layer_cache_stats()
+    assert first.misses == 1
+    assert view.refresh_track("depth", DirtyReason.STYLE)
+    second = view.static_layer_cache_stats()
+    assert second.hits == 1
+    assert second.entries == 1
+    view.close()
+
+
+def test_dirty_data_invalidation_clears_only_requested_curve_cache(qapp) -> None:
+    from geoworkbench.tablet.render_invalidation import DirtyReason
+
+    dataset = Dataset(
+        "dataset-cache-invalidation", "Cache invalidation", DatasetKind.GTI,
+        DepthDomain.MD, np.linspace(0.0, 100.0, 1001),
+    )
+    for mnemonic in ("ROP", "TG"):
+        dataset.curves[f"curve-{mnemonic}"] = CurveData(
+            CurveMetadata(
+                f"curve-{mnemonic}", mnemonic, mnemonic, "%", None, dataset.dataset_id
+            ),
+            np.linspace(1.0, 2.0, 1001),
+        )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("rop", "ROP", TrackKind.CURVE, curve_mnemonics=["ROP"]),
+                TrackDefinition("tg", "TG", TrackKind.CURVE, curve_mnemonics=["TG"]),
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+    assert view.geometry_cache_stats().entries == 2
+
+    view.invalidate_track("rop", DirtyReason.DATA)
+    assert view.geometry_cache_stats().entries == 1
+    assert view.refresh_dirty_tracks() == 1
+    assert view.geometry_cache_stats().entries == 2
+    view.close()

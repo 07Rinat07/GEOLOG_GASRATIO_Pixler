@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html import escape
+from typing import cast
 
 import numpy as np
 import pyqtgraph as pg
@@ -40,6 +41,8 @@ from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.camera import TabletCamera
 from geoworkbench.tablet.geometry_cache import CurveGeometryCache, CurveGeometryKey, GeometryCacheStats
+from geoworkbench.tablet.render_invalidation import DirtyReason, DirtyRenderStats, TrackDirtyRegistry
+from geoworkbench.tablet.static_layer_cache import StaticLayerCache, StaticLayerCacheStats, StaticLayerKey
 from geoworkbench.tablet.interval_interaction import (
     IntervalDragResult,
     IntervalEditMode,
@@ -433,6 +436,8 @@ class TabletView(QWidget):
         self._pan_last_position: QPointF | None = None
         self._space_pressed = False
         self._geometry_cache = CurveGeometryCache(max_entries=512)
+        self._static_layer_cache = StaticLayerCache(max_entries=512)
+        self._dirty_registry = TrackDirtyRegistry()
 
         self._pinned_container = QWidget()
         self._pinned_layout = QHBoxLayout(self._pinned_container)
@@ -519,6 +524,45 @@ class TabletView(QWidget):
 
     def geometry_cache_stats(self) -> GeometryCacheStats:
         return self._geometry_cache.stats()
+
+    def static_layer_cache_stats(self) -> StaticLayerCacheStats:
+        return self._static_layer_cache.stats()
+
+    def dirty_render_stats(self) -> DirtyRenderStats:
+        return self._dirty_registry.stats()
+
+    def invalidate_track(self, track_id: str, reason: DirtyReason) -> None:
+        if track_id not in self._rendered:
+            return
+        self._dirty_registry.mark(track_id, reason)
+        if reason & (DirtyReason.DATA | DirtyReason.LAYOUT):
+            rendered = self._rendered[track_id]
+            for mnemonic in (rendered.curve_items or {}):
+                self._geometry_cache.invalidate_curve(mnemonic)
+        if reason & (DirtyReason.STATIC | DirtyReason.LAYOUT):
+            self._static_layer_cache.invalidate_track(track_id)
+
+    def refresh_dirty_tracks(self) -> int:
+        dirty = self._dirty_registry.consume()
+        updated = 0
+        for track_id, reasons in dirty.items():
+            rendered = self._rendered.get(track_id)
+            if rendered is None:
+                continue
+            if reasons & DirtyReason.LAYOUT:
+                # Topology/order changes still require a complete rebuild.
+                self.refresh_view()
+                return len(self._rendered)
+            self._refresh_rendered_track(rendered, reasons)
+            updated += 1
+        self._dirty_registry.record_partial_update(updated)
+        return updated
+
+    def refresh_track(self, track_id: str, reason: DirtyReason) -> bool:
+        if track_id not in self._rendered:
+            return False
+        self.invalidate_track(track_id, reason)
+        return self.refresh_dirty_tracks() == 1
 
     def available_vertical_indexes(self) -> tuple[str, ...]:
         if self._dataset is None:
@@ -772,6 +816,7 @@ class TabletView(QWidget):
     def set_dataset(self, dataset: Dataset | None) -> None:
         self._dataset = dataset
         self._geometry_cache.clear()
+        self._static_layer_cache.clear()
         self.refresh_view()
 
     def set_canvas_objects(self, canvas_objects: list[CanvasObject]) -> None:
@@ -985,6 +1030,7 @@ class TabletView(QWidget):
 
     def clear(self) -> None:
         self.cancel_interval_interaction(emit_signal=False)
+        self._dirty_registry.clear()
         self._depth_viewports.clear()
         self._interpretation_viewports.clear()
         for layout in (self._pinned_layout, self._tracks_layout):
@@ -999,6 +1045,7 @@ class TabletView(QWidget):
 
     def refresh_view(self) -> None:
         self.clear()
+        self._dirty_registry.record_full_update()
         self._refresh_axis_selector()
         if self._dataset is None:
             label = QLabel("Откройте LAS-файл для построения планшета")
@@ -1630,6 +1677,137 @@ class TabletView(QWidget):
     def _lod_point_budget(viewport_height: int) -> int:
         """Return a pixel-aware point budget for peak-preserving curve LOD."""
         return max(5_000, min(20_000, max(int(viewport_height), 1) * 4))
+
+    def _track_static_descriptor(
+        self, definition: TrackDefinition
+    ) -> tuple[str, int, bool, bool, float, str]:
+        key = StaticLayerKey(
+            track_id=definition.track_id,
+            layer="frame-grid-axis",
+            signature=(
+                definition.title,
+                definition.width,
+                definition.grid_x,
+                definition.grid_y,
+                round(float(definition.grid_alpha), 6),
+                definition.x_axis_label,
+            ),
+        )
+        return cast(
+            tuple[str, int, bool, bool, float, str],
+            self._static_layer_cache.get_or_build(
+                key,
+                lambda: (
+                    definition.title,
+                    int(definition.width),
+                    bool(definition.grid_x),
+                    bool(definition.grid_y),
+                    float(definition.grid_alpha),
+                    definition.x_axis_label,
+                ),
+            ),
+        )
+
+    def _apply_static_track_configuration(
+        self, rendered: RenderedTrack, definition: TrackDefinition
+    ) -> None:
+        title, width, grid_x, grid_y, grid_alpha, x_axis_label = (
+            self._track_static_descriptor(definition)
+        )
+        if isinstance(rendered.widget, TabletTrackWidget):
+            rendered.widget.definition = definition
+            rendered.widget.title.setText(str(title))
+            rendered.widget.setFixedWidth(int(width))
+        if rendered.plot is not None:
+            rendered.plot.showGrid(
+                x=bool(grid_x), y=bool(grid_y), alpha=float(grid_alpha)
+            )
+            rendered.plot.setLabel("bottom", str(x_axis_label))
+
+    def _apply_curve_styles(
+        self, rendered: RenderedTrack, definition: TrackDefinition
+    ) -> None:
+        logarithmic = definition.x_scale is XScale.LOGARITHMIC
+        if rendered.plot is not None:
+            rendered.plot.setLogMode(x=logarithmic, y=False)
+        for index, (mnemonic, item) in enumerate((rendered.curve_items or {}).items()):
+            style = definition.curve_style(mnemonic)
+            pen = (
+                pg.mkPen(
+                    style.color,
+                    width=style.width,
+                    style={
+                        CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
+                        CurveLineStyle.DASH: Qt.PenStyle.DashLine,
+                        CurveLineStyle.DOT: Qt.PenStyle.DotLine,
+                        CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
+                    }[style.line_style],
+                )
+                if style is not None
+                else pg.mkPen(
+                    pg.intColor(index, hues=max(1, len(definition.curve_mnemonics)))
+                )
+            )
+            item.setPen(pen)
+        if rendered.plot is None:
+            return
+        if definition.x_min is not None and definition.x_max is not None:
+            minimum, maximum = definition.x_min, definition.x_max
+            if logarithmic:
+                minimum, maximum = float(np.log10(minimum)), float(np.log10(maximum))
+            rendered.plot.setXRange(minimum, maximum, padding=0)
+        elif rendered.curve_items:
+            automatic = self._automatic_track_x_range(definition, logarithmic)
+            if automatic is not None:
+                rendered.plot.setXRange(*automatic, padding=0)
+
+    def _refresh_rendered_track(
+        self, rendered: RenderedTrack, reasons: DirtyReason
+    ) -> None:
+        try:
+            definition = self._layout_model.track_by_id(rendered.definition.track_id)
+        except KeyError:
+            return
+        rendered.definition = definition
+        if reasons & (DirtyReason.STATIC | DirtyReason.STYLE):
+            self._apply_static_track_configuration(rendered, definition)
+        if reasons & DirtyReason.STYLE:
+            self._apply_curve_styles(rendered, definition)
+        if reasons & (DirtyReason.DATA | DirtyReason.VIEWPORT | DirtyReason.STYLE):
+            visible = self.visible_depth_range
+            if visible is not None:
+                self._update_rendered_track_curve_data(rendered, *visible)
+        if rendered.plot is not None:
+            rendered.plot.viewport().update()
+
+    def _update_rendered_track_curve_data(
+        self, rendered: RenderedTrack, top: float, bottom: float
+    ) -> None:
+        if self._dataset is None:
+            return
+        depth = self._axis_values()
+        logarithmic = rendered.definition.x_scale is XScale.LOGARITHMIC
+        for mnemonic, item in (rendered.curve_items or {}).items():
+            curve = self._dataset.curve_by_mnemonic(mnemonic)
+            if curve is None:
+                item.setData([], [])
+                continue
+            source_values = np.asarray(curve.values, dtype=float)
+            budget = self._lod_point_budget(
+                rendered.plot.viewport().height() if rendered.plot is not None else 1000
+            )
+            key = self._curve_geometry_key(
+                mnemonic, depth, source_values, top, bottom, budget, logarithmic
+            )
+            render_keys = rendered.curve_render_keys
+            if render_keys is not None and render_keys.get(mnemonic) == key:
+                continue
+            values, visible_depth = self._geometry_cache.get_or_build(
+                key, depth, source_values
+            )
+            item.setData(values, visible_depth)
+            if render_keys is not None:
+                render_keys[mnemonic] = key
 
     def _populate_track(
         self,
@@ -2397,32 +2575,8 @@ class TabletView(QWidget):
         )
 
     def _update_visible_curve_data(self, top: float, bottom: float) -> None:
-        if self._dataset is None:
-            return
-        depth = self._axis_values()
         for rendered in self._rendered.values():
-            logarithmic = rendered.definition.x_scale is XScale.LOGARITHMIC
-            for mnemonic, item in (rendered.curve_items or {}).items():
-                curve = self._dataset.curve_by_mnemonic(mnemonic)
-                if curve is None:
-                    item.setData([], [])
-                    continue
-                source_values = np.asarray(curve.values, dtype=float)
-                budget = self._lod_point_budget(
-                    rendered.plot.viewport().height() if rendered.plot is not None else 1000
-                )
-                key = self._curve_geometry_key(
-                    mnemonic, depth, source_values, top, bottom, budget, logarithmic
-                )
-                render_keys = rendered.curve_render_keys
-                if render_keys is not None and render_keys.get(mnemonic) == key:
-                    continue
-                values, visible_depth = self._geometry_cache.get_or_build(
-                    key, depth, source_values
-                )
-                item.setData(values, visible_depth)
-                if render_keys is not None:
-                    render_keys[mnemonic] = key
+            self._update_rendered_track_curve_data(rendered, top, bottom)
 
     def _update_lithology_text_visibility(self, top: float, bottom: float) -> None:
         intervals = {item.interval_id: item for item in self._lithology}

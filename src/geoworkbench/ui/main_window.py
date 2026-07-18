@@ -81,6 +81,7 @@ from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingC
 from geoworkbench.printing.widget_print import render_widget_to_printer
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.render_invalidation import DirtyReason
 from geoworkbench.tablet.models import CurveLineStyle, CurveStyle
 from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.interval_interaction import IntervalEditMode
@@ -1837,11 +1838,14 @@ class MainWindow(QMainWindow):
         try:
             track = self.tablet_view.layout_model.track_by_id(track_id)
             self.tablet_controller.set_track_width(track_id, width)
+            self.tablet_view.refresh_track(track_id, DirtyReason.STATIC)
         except (KeyError, ValueError) as exc:
             QMessageBox.warning(self, self._t("tablet.width_title"), str(exc))
             self.tablet_view.refresh_view()
             return
-        self._layout_changed(self._t("tablet.width_changed", title=track.title, width=width))
+        self._refresh_tree()
+        self._update_title()
+        self._log(self._t("tablet.width_changed", title=track.title, width=width))
 
     def move_selected_track(self, offset: int) -> None:
         track = self._selected_track()
@@ -3128,7 +3132,12 @@ class MainWindow(QMainWindow):
         except (KeyError, TypeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("inspector.title"), str(exc))
             return
-        self._layout_changed(self._t("inspector.style_updated", mnemonic=mnemonic))
+        self.tablet_view.refresh_track(
+            track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
+        )
+        self._refresh_tree()
+        self._update_title()
+        self._log(self._t("inspector.style_updated", mnemonic=mnemonic))
         self.inspector.show_track(track, suggested_range=self._track_data_range(track))
 
     def _apply_inspector_grid(
@@ -3140,7 +3149,10 @@ class MainWindow(QMainWindow):
         except (KeyError, TypeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("inspector.title"), str(exc))
             return
-        self._layout_changed(self._t("inspector.grid_updated"))
+        self.tablet_view.refresh_track(track_id, DirtyReason.STATIC)
+        self._refresh_tree()
+        self._update_title()
+        self._log(self._t("inspector.grid_updated"))
         self.inspector.show_track(track, suggested_range=self._track_data_range(track))
 
     def _apply_inspector_x_axis_label(self, track_id: str, label: str) -> None:
@@ -3150,7 +3162,10 @@ class MainWindow(QMainWindow):
         except (KeyError, TypeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("inspector.title"), str(exc))
             return
-        self._layout_changed(self._t("inspector.axis_label_updated"))
+        self.tablet_view.refresh_track(track_id, DirtyReason.STATIC)
+        self._refresh_tree()
+        self._update_title()
+        self._log(self._t("inspector.axis_label_updated"))
         self.inspector.show_track(track, suggested_range=self._track_data_range(track))
 
     def _update_title(self) -> None:

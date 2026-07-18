@@ -191,3 +191,11 @@
 - skipped redundant curve `setData()` calls for unchanged render keys;
 - added 100k, 1M and 5M rendering benchmark scenarios;
 - replaced the project plan with a factual GEOLOG-only roadmap.
+
+### Rendering Engine: static cache and dirty tracks
+
+- Added per-track static configuration cache for title, width, grid and axis labels.
+- Added explicit dirty reasons for data, style, static state, viewport and layout.
+- Added selective curve/static cache invalidation.
+- Added partial single-track updates for style, grid, axis label and drag-resize operations.
+- Added full/partial refresh metrics and regression tests.

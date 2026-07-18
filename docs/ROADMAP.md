@@ -12,14 +12,17 @@ Completed:
 - peak-preserving LOD;
 - LRU curve-geometry cache;
 - unchanged-curve redraw suppression;
-- cache metrics and 100k/1M/5M benchmark scenarios.
+- static title/grid/axis descriptor cache;
+- explicit dirty invalidation for data, style, viewport, static state and layout;
+- partial single-track refresh without rebuilding adjacent tracks;
+- cache and full/partial refresh metrics;
+- 100k/1M/5M benchmark scenarios.
 
 Remaining:
 
-- static-layer cache;
-- explicit invalidation by data/style/layout revision;
-- dirty-track and overlay repaint;
-- performance diagnostics and accepted budgets on real LAS files.
+- independent annotation/selection/cursor overlay layers;
+- overlay-only repaint paths;
+- performance diagnostics and accepted budgets on real Windows LAS files.
 
 ## Next
 
