@@ -204,6 +204,18 @@ def test_add_lithology_track_does_not_require_curves() -> None:
     assert track.title == "Литология"
 
 
+def test_add_cuttings_track_does_not_require_curves() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    controller.build_default_layout()
+
+    track = controller.add_track(TrackKind.CUTTINGS)
+
+    assert track.title == "Шламограмма"
+    assert track.width == 240
+    assert track.curve_mnemonics == []
+
+
 def test_default_layout_adds_lithology_and_description_tracks() -> None:
     session = make_session()
     assert session.current_well is not None

@@ -7,6 +7,8 @@ from geoworkbench.domain.models import (
     CanvasObject,
     CurveData,
     CurveMetadata,
+    CuttingsComponent,
+    CuttingsSample,
     Dataset,
     DatasetKind,
     DepthDomain,
@@ -117,6 +119,55 @@ def test_tablet_cursor_line_is_synchronized_and_reports_all_curve_values(qapp) -
         for item in view._rendered.values()
         if item.cursor_line is not None
     )
+    view.close()
+
+
+def test_tablet_renders_percentage_cuttings_track_and_cursor_summary(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 105.0, 110.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("cuttings", "Cuttings", TrackKind.CUTTINGS, width=240)])
+    )
+    view.set_lithology(
+        [],
+        (
+            CatalogLithotype(
+                "sand",
+                "S",
+                "Песчаник",
+                "Sandstone",
+                "sedimentary",
+                "#ffee00",
+                "solid",
+                True,
+                "Құмтас",
+            ),
+            CatalogLithotype(
+                "clay", "C", "Глина", "Clay", "sedimentary", "#00aa00", "solid", True, "Саз"
+            ),
+        ),
+    )
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "sample",
+                100.0,
+                110.0,
+                [CuttingsComponent("sand", 70.0), CuttingsComponent("clay", 30.0)],
+            )
+        ]
+    )
+    view.set_dataset(dataset)
+
+    items = view._rendered["cuttings"].cuttings_items
+    assert items is not None and len(items["sample"]) == 2
+    assert "Шлам 100–110 м: Песчаник: 70%; Глина: 30%" in view.cursor_summary(105.0)
     view.close()
 
 

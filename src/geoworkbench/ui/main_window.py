@@ -498,6 +498,7 @@ class MainWindow(QMainWindow):
             (self._t("tablet.track.gas"), TrackKind.GAS),
             ("DEXP / NCT", TrackKind.DEXP),
             (self._t("tablet.track.lithology"), TrackKind.LITHOLOGY),
+            (self._t("tablet.track.cuttings"), TrackKind.CUTTINGS),
             (self._t("tablet.track.description"), TrackKind.TEXT),
             (self._t("tablet.track.curve"), TrackKind.CURVE),
         ):
@@ -765,6 +766,7 @@ class MainWindow(QMainWindow):
             last_well.lithology,
             self.lithotype_catalog_controller.available(),
         )
+        self.tablet_view.set_cuttings(last_well.cuttings)
         self.build_default_tablet()
         self.inspector.setPlainText(
             f"{self._t('inspector.well')}: {last_well.name}\n"
@@ -927,6 +929,7 @@ class MainWindow(QMainWindow):
             self.tablet_view.set_dataset(None)
             self.tablet_view.set_canvas_objects([])
             self.tablet_view.set_lithology([], self.lithotype_catalog_controller.available())
+            self.tablet_view.set_cuttings([])
             return
         self.curve_view.show_dataset(dataset)
         self.las_table_editor.set_dataset(dataset)
@@ -937,6 +940,7 @@ class MainWindow(QMainWindow):
             well.lithology if well is not None else [],
             self.lithotype_catalog_controller.available(),
         )
+        self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
         saved_layout = self.session.current_tablet_layout
         if saved_layout is None:
             self.build_default_tablet()
@@ -1219,6 +1223,12 @@ class MainWindow(QMainWindow):
             self,
             language=self.language,
         ).exec()
+        well = self.session.current_well
+        self.tablet_view.set_lithology(
+            well.lithology if well is not None else [],
+            self.lithotype_catalog_controller.available(),
+        )
+        self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
         self._update_title()
 
     def save_export_profile(self) -> None:

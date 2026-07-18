@@ -17,7 +17,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.domain.models import CanvasObject, CurveData, Dataset, LithologyInterval
+from geoworkbench.domain.models import (
+    CanvasObject,
+    CurveData,
+    CuttingsSample,
+    Dataset,
+    LithologyInterval,
+)
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.tablet.lithology_labels import lithology_label_is_visible
@@ -43,6 +49,7 @@ class RenderedTrack:
     lithology_items: dict[str, pg.BarGraphItem] | None = None
     lithology_label_items: dict[str, pg.TextItem] | None = None
     lithology_description_items: dict[str, pg.TextItem] | None = None
+    cuttings_items: dict[str, tuple[pg.BarGraphItem, ...]] | None = None
     cursor_line: pg.InfiniteLine | None = None
 
 
@@ -171,6 +178,7 @@ class TabletView(QWidget):
         self._dataset: Dataset | None = None
         self._canvas_objects: tuple[CanvasObject, ...] = ()
         self._lithology: tuple[LithologyInterval, ...] = ()
+        self._cuttings: tuple[CuttingsSample, ...] = ()
         self._lithotype_catalog: dict[str, CatalogLithotype] = {}
         self._layout_model = TabletLayout()
         self._rendered: dict[str, RenderedTrack] = {}
@@ -286,6 +294,10 @@ class TabletView(QWidget):
         self._lithotype_catalog = {item.lithotype_id: item for item in catalog}
         self.refresh_view()
 
+    def set_cuttings(self, samples: list[CuttingsSample]) -> None:
+        self._cuttings = tuple(samples)
+        self.refresh_view()
+
     def set_layout_model(self, layout_model: TabletLayout) -> None:
         self._layout_model = layout_model
         self._cursor_depth = layout_model.cursor_depth
@@ -363,6 +375,23 @@ class TabletView(QWidget):
             if interval.description:
                 interval_text += f" — {interval.description}"
             values.append(interval_text)
+        sample = next(
+            (
+                item
+                for item in self._cuttings
+                if item.top_depth <= sample_depth <= item.bottom_depth
+            ),
+            None,
+        )
+        if sample is not None:
+            parts = []
+            for component in sample.components:
+                lithotype = self._lithotype_catalog.get(component.lithotype_id)
+                name = lithotype.name_ru if lithotype is not None else component.lithotype_id
+                parts.append(f"{name}: {component.percentage:g}%")
+            values.append(
+                f"Шлам {sample.top_depth:g}–{sample.bottom_depth:g} м: " + "; ".join(parts)
+            )
         seen: set[str] = set()
         for definition in self._layout_model.visible_tracks():
             for mnemonic in definition.curve_mnemonics:
@@ -435,6 +464,7 @@ class TabletView(QWidget):
             lithology_items = self._populate_lithology(track, definition)
             lithology_label_items = self._populate_lithology_labels(track, definition)
             lithology_description_items = self._populate_lithology_descriptions(track, definition)
+            cuttings_items = self._populate_cuttings(track, definition)
             if master_plot is None:
                 master_plot = track.plot
             track.plot.sigYRangeChanged.connect(self._on_depth_range_changed)
@@ -449,6 +479,7 @@ class TabletView(QWidget):
                 lithology_items,
                 lithology_label_items,
                 lithology_description_items,
+                cuttings_items,
             )
             self._rendered[definition.track_id] = rendered
             self._install_cursor(rendered)
@@ -603,6 +634,37 @@ class TabletView(QWidget):
             )
             track.plot.addItem(item)
             rendered[interval.interval_id] = item
+        return rendered
+
+    def _populate_cuttings(
+        self, track: TabletTrackWidget, definition: TrackDefinition
+    ) -> dict[str, tuple[pg.BarGraphItem, ...]]:
+        if definition.kind is not TrackKind.CUTTINGS:
+            return {}
+        track.plot.hideAxis("bottom")
+        track.plot.setXRange(0.0, 100.0, padding=0)
+        track.plot.setMouseEnabled(x=False, y=True)
+        rendered: dict[str, tuple[pg.BarGraphItem, ...]] = {}
+        for sample in self._cuttings:
+            left = 0.0
+            items: list[pg.BarGraphItem] = []
+            for component in sample.components:
+                lithotype = self._lithotype_catalog.get(component.lithotype_id)
+                color = lithotype.color if lithotype is not None else "#b0b0b0"
+                pattern = lithotype.pattern_key if lithotype is not None else "solid"
+                width = float(component.percentage)
+                item = pg.BarGraphItem(
+                    x=[left + width / 2.0],
+                    y=[(sample.top_depth + sample.bottom_depth) / 2.0],
+                    width=width,
+                    height=sample.bottom_depth - sample.top_depth,
+                    brush=lithology_brush(color, pattern),
+                    pen=pg.mkPen("#303030", width=0.7),
+                )
+                track.plot.addItem(item)
+                items.append(item)
+                left += width
+            rendered[sample.sample_id] = tuple(items)
         return rendered
 
     def _populate_lithology_descriptions(

@@ -49,6 +49,8 @@ class TabletController:
         if self.session.current_well is not None and self.session.current_well.lithology:
             tracks.append(TrackDefinition(new_id(), "Литология", TrackKind.LITHOLOGY, width=180))
             tracks.append(TrackDefinition(new_id(), "Описание пород", TrackKind.TEXT, width=320))
+        if self.session.current_well is not None and self.session.current_well.cuttings:
+            tracks.append(TrackDefinition(new_id(), "Шламограмма", TrackKind.CUTTINGS, width=240))
         if gas_names:
             tracks.append(
                 TrackDefinition(
@@ -118,6 +120,10 @@ class TabletController:
         elif kind is TrackKind.LITHOLOGY:
             title = "Литология"
             width = 180
+            mnemonics = []
+        elif kind is TrackKind.CUTTINGS:
+            title = "Шламограмма"
+            width = 240
             mnemonics = []
         elif kind is TrackKind.TEXT:
             title = "Описание пород"

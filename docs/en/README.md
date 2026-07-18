@@ -146,6 +146,11 @@ In Masterlog preview, select “Fill lithology” or “Fill cuttings”. Hold t
 drag from interval top to bottom. Choose one rock for lithology, or enter multiple cuttings
 percentages whose total is exactly 100%. Overlapping intervals are rejected.
 
+The saved composition is also available on the interactive log display. Use “Log display → Add
+track → Cuttings” to add a 0–100% track. Component widths follow their percentages and use the
+lithotype catalog color and pattern. The default layout adds this track automatically when samples
+exist, and the synchronized cursor reports the sample composition.
+
 ### Point inspection and PDF callouts
 
 In “Inspect” mode, click a curve to see its column, nearest real sample, depth, value, unit, and
