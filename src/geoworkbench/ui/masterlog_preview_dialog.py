@@ -19,6 +19,9 @@ from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
+from geoworkbench.project.masterlog_inspection_controller import (
+    MasterlogInspectionController,
+)
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.masterlog_renderer import paint_masterlog
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
@@ -32,6 +35,7 @@ from geoworkbench.ui.masterlog_interval_fill_dialog import CuttingsCompositionDi
 
 class MasterlogPreviewWidget(QWidget):
     interval_selected = Signal(float, float, str)
+    inspection_selected = Signal(object)
 
     def __init__(
         self,
@@ -85,6 +89,7 @@ class MasterlogPreviewWidget(QWidget):
                 self.last_inspection.display_text(language),
                 self,
             )
+            self.inspection_selected.emit(self.last_inspection)
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
@@ -156,6 +161,18 @@ class MasterlogPreviewDialog(QDialog):
                 AppLanguage.EN: "Fill cuttings",
             }[language]
         )
+        self.pin_button = QPushButton(
+            {
+                AppLanguage.RU: "Закрепить для PDF",
+                AppLanguage.KK: "PDF үшін бекіту",
+                AppLanguage.EN: "Pin for PDF",
+            }[language]
+        )
+        self.pin_button.setEnabled(False)
+        self.pin_button.clicked.connect(self._pin_inspection)
+        self.preview.inspection_selected.connect(
+            lambda inspection: self.pin_button.setEnabled(inspection is not None)
+        )
         for button, mode in (
             (self.inspect_button, None),
             (self.lithology_button, "lithology"),
@@ -164,6 +181,7 @@ class MasterlogPreviewDialog(QDialog):
             button.setCheckable(True)
             button.clicked.connect(lambda checked=False, value=mode: self._set_mode(value))
             tools.addWidget(button)
+        tools.addWidget(self.pin_button)
         self.inspect_button.setChecked(True)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
@@ -192,6 +210,29 @@ class MasterlogPreviewDialog(QDialog):
             QMessageBox.warning(self, self.windowTitle(), str(exc))
         else:
             self.preview.update()
+
+    def _pin_inspection(self) -> None:
+        inspection = self.preview.last_inspection
+        if inspection is None:
+            return
+        try:
+            MasterlogInspectionController(self.session).pin(
+                self.preview.template, inspection, self.language
+            )
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self.preview.update()
+        self.pin_button.setEnabled(False)
+        QMessageBox.information(
+            self,
+            self.windowTitle(),
+            {
+                AppLanguage.RU: "Выноска закреплена и будет включена в PDF.",
+                AppLanguage.KK: "Белгі бекітілді және PDF файлына қосылады.",
+                AppLanguage.EN: "The callout is pinned and will be included in the PDF.",
+            }[self.language],
+        )
 
     def _fill_lithology(self, top: float, bottom: float) -> None:
         catalog = LithotypeCatalogController(self.session).available()

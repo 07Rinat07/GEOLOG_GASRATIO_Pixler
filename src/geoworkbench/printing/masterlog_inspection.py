@@ -20,6 +20,7 @@ from geoworkbench.services.localization import AppLanguage
 
 @dataclass(frozen=True, slots=True)
 class MasterlogInspection:
+    column_id: str
     column_title: str
     depth: float
     mnemonic: str | None = None
@@ -85,7 +86,7 @@ def inspect_masterlog_point(
     if column.column_type == "cuttings":
         return _inspect_cuttings(column, depth, session, language)
     if column.column_type == "depth":
-        return MasterlogInspection(column.title, depth)
+        return MasterlogInspection(column.column_id, column.title, depth)
     return _inspect_curves(column, x_mm, depth, template, session)
 
 
@@ -114,18 +115,30 @@ def _inspect_lithology(
         None,
     )
     if interval is None:
-        return MasterlogInspection(column.title, depth)
-    definition = session.project.lithotypes.get(interval.lithotype_id)
+        return MasterlogInspection(column.column_id, column.title, depth)
+    project_definition = session.project.lithotypes.get(interval.lithotype_id)
+    definition = project_definition or next(
+        (
+            item
+            for item in LithotypeCatalogController(session).available()
+            if item.lithotype_id == interval.lithotype_id
+        ),
+        None,
+    )
     if definition is None:
         name = interval.lithotype_id
-    elif language is AppLanguage.EN:
-        name = definition.name_en
-    elif language is AppLanguage.KK:
-        name = definition.name_kk or definition.name_ru
     else:
-        name = definition.name_ru
+        if hasattr(definition, "localized_name"):
+            name = definition.localized_name(language.value)
+        elif language is AppLanguage.EN:
+            name = definition.name_en
+        elif language is AppLanguage.KK:
+            name = definition.name_kk or definition.name_ru
+        else:
+            name = definition.name_ru
     description = " — ".join(value for value in (name, interval.description or "") if value)
     return MasterlogInspection(
+        column.column_id,
         column.title,
         depth,
         description=description,
@@ -149,7 +162,7 @@ def _inspect_cuttings(
         None,
     )
     if sample is None:
-        return MasterlogInspection(column.title, depth)
+        return MasterlogInspection(column.column_id, column.title, depth)
     catalog = {item.lithotype_id: item for item in LithotypeCatalogController(session).available()}
     parts = [
         f"{catalog[item.lithotype_id].localized_name(language.value) if item.lithotype_id in catalog else item.lithotype_id}: {item.percentage:g}%"
@@ -158,6 +171,7 @@ def _inspect_cuttings(
     if sample.description:
         parts.append(sample.description)
     return MasterlogInspection(
+        column.column_id,
         column.title,
         depth,
         description="; ".join(parts),
@@ -178,7 +192,7 @@ def _inspect_curves(
     bindings = masterlog_curve_bindings(template, dataset)
     x_range = curve_x_range(column, dataset, bindings)
     if x_range is None or depths.size == 0:
-        return MasterlogInspection(column.title, depth)
+        return MasterlogInspection(column.column_id, column.title, depth)
     column_index = next(index for index, item in enumerate(template.columns) if item is column)
     column_left = sum(item.width_mm for item in template.columns[:column_index])
     click_fraction = min(
@@ -219,6 +233,14 @@ def _inspect_curves(
             )
         )
     if not candidates:
-        return MasterlogInspection(column.title, depth)
+        return MasterlogInspection(column.column_id, column.title, depth)
     _, mnemonic, value, unit, description, sample_depth = min(candidates)
-    return MasterlogInspection(column.title, sample_depth, mnemonic, value, unit, description)
+    return MasterlogInspection(
+        column.column_id,
+        column.title,
+        sample_depth,
+        mnemonic,
+        value,
+        unit,
+        description,
+    )

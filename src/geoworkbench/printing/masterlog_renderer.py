@@ -469,7 +469,64 @@ def _paint_columns(
             else:
                 _paint_curve_column(painter, plot_rect, column, dataset, depth_range, bindings)
             _paint_depth_symbols(painter, plot_rect, template, column, session, depth_range)
+            _paint_inspection_callouts(painter, plot_rect, template, column, session, depth_range)
         x += column.width_mm
+
+
+def _paint_inspection_callouts(
+    painter: QPainter,
+    rect: QRectF,
+    template: MasterlogTemplate,
+    column: MasterlogColumnTemplate,
+    session: ProjectSession,
+    depth_range: tuple[float, float],
+) -> None:
+    well = session.current_well
+    if well is None:
+        return
+    top, bottom = depth_range
+    painter.save()
+    painter.setClipRect(rect)
+    for item in well.canvas_objects:
+        if (
+            item.object_type != "masterlog_inspection"
+            or item.track_id != column.column_id
+            or item.properties.get("template_id") != template.template_id
+            or item.top_depth is None
+            or not top <= item.top_depth <= bottom
+        ):
+            continue
+        y = rect.top() + (item.top_depth - top) / (bottom - top) * rect.height()
+        painter.setPen(QPen(QColor("#dc2626"), 0.6))
+        painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
+        if item.bottom_depth is not None:
+            y_bottom = (
+                rect.top() + (min(item.bottom_depth, bottom) - top) / (bottom - top) * rect.height()
+            )
+            painter.drawRect(QRectF(rect.left(), y, rect.width(), max(0.2, y_bottom - y)))
+        text = item.properties.get("text")
+        if not isinstance(text, str) or not text:
+            continue
+        font = QFont()
+        font.setPointSizeF(5.5)
+        painter.setFont(font)
+        text_height = min(18.0, max(6.0, 3.5 * len(text.splitlines())))
+        text_rect = QRectF(
+            rect.left() + 1.0,
+            min(max(rect.top(), y + 0.5), rect.bottom() - text_height),
+            rect.width() - 2.0,
+            text_height,
+        )
+        painter.fillRect(text_rect, QColor(255, 255, 255, 225))
+        painter.setPen(QPen(QColor("#dc2626"), 0.3))
+        painter.drawRect(text_rect)
+        painter.setPen(QColor("#7f1d1d"))
+        painter.drawText(
+            text_rect.adjusted(0.6, 0.3, -0.6, -0.3),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
+            text,
+        )
+    painter.restore()
 
 
 def visible_lithology_intervals(
