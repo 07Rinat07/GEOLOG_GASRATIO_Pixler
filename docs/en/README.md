@@ -170,6 +170,17 @@ them automatically when data exists. The application records field/laboratory ob
 does not replace instrument calibration or infer hydrocarbon saturation from fluorescence alone.
 See [`docs/CALCIMETRY_LBA.md`](../CALCIMETRY_LBA.md) for method notes and sources.
 
+### Stratigraphic intervals
+
+Open “Edit → Stratigraphic intervals...”. For each interval, enter top, bottom, an editable rank,
+required code, name, `#RRGGBB` color, and description. Intervals of the same rank cannot overlap;
+different ranks may be nested, for example `System / Period → Series / Epoch → Stage / Age`.
+
+You can also create an interval with the mouse: enable “Stratigraphy” in Masterlog preview and
+drag from top to bottom. “Log display → Add track → Stratigraphy” adds one parallel lane per rank.
+Point inspection and the synchronized cursor report every unit at the selected depth, and the
+inspection can be pinned into PDF. See [`docs/STRATIGRAPHY.md`](../STRATIGRAPHY.md).
+
 ### Point inspection and PDF callouts
 
 In “Inspect” mode, click a curve to see its column, nearest real sample, depth, value, unit, and

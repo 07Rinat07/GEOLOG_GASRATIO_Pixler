@@ -10,6 +10,7 @@ from geoworkbench.domain.models import (
     DepthDomain,
     LithologyInterval,
     Project,
+    StratigraphyInterval,
     Well,
 )
 from geoworkbench.project.session import ProjectSession
@@ -278,6 +279,23 @@ def test_add_description_track_does_not_require_curves() -> None:
     assert track.title == "Описание пород"
     assert track.width == 320
     assert track.curve_mnemonics == []
+
+
+def test_stratigraphy_track_and_default_layout_do_not_require_curves() -> None:
+    session = make_session()
+    assert session.current_well is not None
+    session.current_well.stratigraphy.append(
+        StratigraphyInterval("stage", 1.0, 2.0, "K1a", "Albian", "Stage / Age")
+    )
+    controller = TabletController(session)
+
+    layout = controller.build_default_layout()
+    added = controller.add_track(TrackKind.STRATIGRAPHY)
+
+    assert TrackKind.STRATIGRAPHY in [track.kind for track in layout.tracks]
+    assert added.title == "Стратиграфия"
+    assert added.width == 220
+    assert added.curve_mnemonics == []
 
 
 def test_controller_updates_track_x_settings() -> None:

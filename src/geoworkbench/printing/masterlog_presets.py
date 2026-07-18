@@ -231,6 +231,7 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
             header_elements=list(deepcopy(STANDARD_HEADER.elements)),
             columns=_columns(
                 ("depth", "Depth", "depth", 14, [], "linear", None, None),
+                ("stratigraphy", "Stratigraphy", "stratigraphy", 30, [], "linear", None, None),
                 (
                     "drilling",
                     "ROP / WOB / RPM / TORQUE",
@@ -315,6 +316,7 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
             header_elements=list(deepcopy(STANDARD_HEADER.elements)),
             columns=_columns(
                 ("depth", "Depth", "depth", 14, [], "linear", None, None),
+                ("stratigraphy", "Stratigraphy", "stratigraphy", 35, [], "linear", None, None),
                 ("drilling", "ROP / GR", "curves", 38, ["ROP", "GR"], "linear", 0, 200),
                 ("lithology", "Lithology", "lithology", 38, [], "linear", None, None),
                 (

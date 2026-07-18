@@ -23,8 +23,10 @@ from geoworkbench.domain.models import (
     CuttingsSample,
     Dataset,
     LithologyInterval,
+    StratigraphyInterval,
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
+from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.tablet.lithology_labels import lithology_label_is_visible
 from geoworkbench.tablet.models import (
@@ -51,6 +53,7 @@ class RenderedTrack:
     lithology_description_items: dict[str, pg.TextItem] | None = None
     cuttings_items: dict[str, tuple[pg.BarGraphItem, ...]] | None = None
     analysis_items: dict[str, tuple[object, ...]] | None = None
+    stratigraphy_items: dict[str, tuple[object, ...]] | None = None
     cursor_line: pg.InfiniteLine | None = None
 
 
@@ -180,6 +183,7 @@ class TabletView(QWidget):
         self._canvas_objects: tuple[CanvasObject, ...] = ()
         self._lithology: tuple[LithologyInterval, ...] = ()
         self._cuttings: tuple[CuttingsSample, ...] = ()
+        self._stratigraphy: tuple[StratigraphyInterval, ...] = ()
         self._lithotype_catalog: dict[str, CatalogLithotype] = {}
         self._layout_model = TabletLayout()
         self._rendered: dict[str, RenderedTrack] = {}
@@ -299,6 +303,10 @@ class TabletView(QWidget):
         self._cuttings = tuple(samples)
         self.refresh_view()
 
+    def set_stratigraphy(self, intervals: list[StratigraphyInterval]) -> None:
+        self._stratigraphy = tuple(intervals)
+        self.refresh_view()
+
     def set_layout_model(self, layout_model: TabletLayout) -> None:
         self._layout_model = layout_model
         self._cursor_depth = layout_model.cursor_depth
@@ -376,6 +384,25 @@ class TabletView(QWidget):
             if interval.description:
                 interval_text += f" — {interval.description}"
             values.append(interval_text)
+        active_stratigraphy = sorted(
+            (
+                item
+                for item in self._stratigraphy
+                if item.top_depth <= sample_depth <= item.bottom_depth
+            ),
+            key=lambda item: (stratigraphy_rank_order(item.rank), item.top_depth),
+        )
+        for stratigraphy in active_stratigraphy:
+            label = " / ".join(
+                value
+                for value in (stratigraphy.rank, stratigraphy.code, stratigraphy.name)
+                if value
+            )
+            values.append(
+                f"Стратиграфия: {label} "
+                f"({stratigraphy.top_depth:g}–{stratigraphy.bottom_depth:g} м)"
+                + (f" — {stratigraphy.description}" if stratigraphy.description else "")
+            )
         sample = next(
             (
                 item
@@ -493,6 +520,7 @@ class TabletView(QWidget):
             lithology_description_items = self._populate_lithology_descriptions(track, definition)
             cuttings_items = self._populate_cuttings(track, definition)
             analysis_items = self._populate_sample_analysis(track, definition)
+            stratigraphy_items = self._populate_stratigraphy(track, definition)
             if master_plot is None:
                 master_plot = track.plot
             track.plot.sigYRangeChanged.connect(self._on_depth_range_changed)
@@ -509,6 +537,7 @@ class TabletView(QWidget):
                 lithology_description_items,
                 cuttings_items,
                 analysis_items,
+                stratigraphy_items,
             )
             self._rendered[definition.track_id] = rendered
             self._install_cursor(rendered)
@@ -518,6 +547,7 @@ class TabletView(QWidget):
         if master_plot is not None and visible_top is not None and visible_bottom is not None:
             self._synchronize_depth_ranges(visible_top, visible_bottom)
             self._update_lithology_text_visibility(visible_top, visible_bottom)
+            self._update_stratigraphy_text_visibility(visible_top, visible_bottom)
 
     def _install_cursor(self, rendered: RenderedTrack) -> None:
         if rendered.plot is None:
@@ -561,6 +591,7 @@ class TabletView(QWidget):
                         rendered.plot.setYRange(top, bottom, padding=0)
                 self._update_visible_curve_data(top, bottom)
                 self._update_lithology_text_visibility(top, bottom)
+                self._update_stratigraphy_text_visibility(top, bottom)
             finally:
                 self._depth_range_guard = False
 
@@ -585,6 +616,7 @@ class TabletView(QWidget):
             TrackKind.CUTTINGS,
             TrackKind.CALCIMETRY,
             TrackKind.LBA,
+            TrackKind.STRATIGRAPHY,
             TrackKind.TEXT,
         ):
             track.plot.hideAxis("bottom")
@@ -669,6 +701,38 @@ class TabletView(QWidget):
             )
             track.plot.addItem(item)
             rendered[interval.interval_id] = item
+        return rendered
+
+    def _populate_stratigraphy(
+        self, track: TabletTrackWidget, definition: TrackDefinition
+    ) -> dict[str, tuple[object, ...]]:
+        if definition.kind is not TrackKind.STRATIGRAPHY:
+            return {}
+        ranks = sorted(
+            {item.rank or "" for item in self._stratigraphy}, key=stratigraphy_rank_order
+        )
+        lane_by_rank = {rank: index for index, rank in enumerate(ranks)}
+        track.plot.hideAxis("bottom")
+        track.plot.setXRange(0.0, float(max(1, len(ranks))), padding=0)
+        track.plot.setMouseEnabled(x=False, y=True)
+        rendered: dict[str, tuple[object, ...]] = {}
+        for interval in self._stratigraphy:
+            lane = lane_by_rank[interval.rank or ""]
+            color = interval.color if pg.mkColor(interval.color).isValid() else "#dbeafe"
+            bar = pg.BarGraphItem(
+                x=[lane + 0.5],
+                y=[(interval.top_depth + interval.bottom_depth) / 2.0],
+                width=0.94,
+                height=interval.bottom_depth - interval.top_depth,
+                brush=pg.mkBrush(color),
+                pen=pg.mkPen("#334155", width=0.7),
+            )
+            track.plot.addItem(bar)
+            label_text = "\n".join(value for value in (interval.code, interval.name) if value)
+            label = pg.TextItem(label_text, color="#0f172a", anchor=(0.5, 0.5))
+            label.setPos(lane + 0.5, (interval.top_depth + interval.bottom_depth) / 2.0)
+            track.plot.addItem(label)
+            rendered[interval.interval_id] = (bar, label)
         return rendered
 
     def _populate_cuttings(
@@ -865,6 +929,27 @@ class TabletView(QWidget):
                     )
                     text_item.setVisible(visible)
 
+    def _update_stratigraphy_text_visibility(self, top: float, bottom: float) -> None:
+        intervals = {item.interval_id: item for item in self._stratigraphy}
+        for rendered in self._rendered.values():
+            if rendered.plot is None:
+                continue
+            viewport_height = rendered.plot.viewport().height()
+            for interval_id, items in (rendered.stratigraphy_items or {}).items():
+                interval = intervals.get(interval_id)
+                label = next((item for item in items if isinstance(item, pg.TextItem)), None)
+                if label is None:
+                    continue
+                visible = interval is not None and lithology_label_is_visible(
+                    interval.top_depth,
+                    interval.bottom_depth,
+                    top,
+                    bottom,
+                    viewport_height,
+                    minimum_pixels=22,
+                )
+                label.setVisible(visible)
+
     def _synchronize_depth_ranges(self, top: float, bottom: float) -> None:
         self._depth_range_guard = True
         try:
@@ -883,6 +968,7 @@ class TabletView(QWidget):
             self._update_visible_curve_data(top, bottom)
             self._synchronize_depth_ranges(top, bottom)
             self._update_lithology_text_visibility(top, bottom)
+            self._update_stratigraphy_text_visibility(top, bottom)
             self.visible_depth_changed.emit(top, bottom)
         finally:
             self._sync_guard = False

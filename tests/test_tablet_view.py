@@ -13,6 +13,7 @@ from geoworkbench.domain.models import (
     DatasetKind,
     DepthDomain,
     LithologyInterval,
+    StratigraphyInterval,
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.tablet.models import (
@@ -213,6 +214,48 @@ def test_tablet_renders_calcimetry_lba_and_cursor_summary(qapp) -> None:
     assert lba_items is not None and len(lba_items["sample"]) == 1
     assert ("Кальциметрия: CaCO₃ 65%; CaMg(CO₃)₂ 20%; нераств. остаток 15%") in summary
     assert "ЛБА: Oil show; I=3; yellow; Streaming" in summary
+    view.close()
+
+
+def test_tablet_renders_nested_stratigraphy_lanes_and_cursor_summary(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 150.0, 200.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("strat", "Stratigraphy", TrackKind.STRATIGRAPHY, width=220)])
+    )
+    view.set_stratigraphy(
+        [
+            StratigraphyInterval(
+                "period", 100.0, 200.0, "K", "Cretaceous", "System / Period", "#7fc64e"
+            ),
+            StratigraphyInterval(
+                "stage",
+                125.0,
+                175.0,
+                "K1a",
+                "Albian",
+                "Stage / Age",
+                "#a6d96a",
+                "Reservoir",
+            ),
+        ]
+    )
+    view.set_dataset(dataset)
+
+    items = view._rendered["strat"].stratigraphy_items
+    summary = view.cursor_summary(150.0)
+
+    assert items is not None and set(items) == {"period", "stage"}
+    assert all(len(value) == 2 for value in items.values())
+    assert "System / Period / K / Cretaceous" in summary
+    assert "Stage / Age / K1a / Albian" in summary
+    assert "Reservoir" in summary
     view.close()
 
 

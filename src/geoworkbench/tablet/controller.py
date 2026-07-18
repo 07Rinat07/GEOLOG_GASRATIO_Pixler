@@ -46,6 +46,10 @@ class TabletController:
         remaining = [name for name in curve_names if name not in gas_names]
 
         tracks = [TrackDefinition(new_id(), "Глубина", TrackKind.DEPTH, width=120)]
+        if self.session.current_well is not None and self.session.current_well.stratigraphy:
+            tracks.append(
+                TrackDefinition(new_id(), "Стратиграфия", TrackKind.STRATIGRAPHY, width=220)
+            )
         if self.session.current_well is not None and self.session.current_well.lithology:
             tracks.append(TrackDefinition(new_id(), "Литология", TrackKind.LITHOLOGY, width=180))
             tracks.append(TrackDefinition(new_id(), "Описание пород", TrackKind.TEXT, width=320))
@@ -164,6 +168,10 @@ class TabletController:
         elif kind is TrackKind.LBA:
             title = "ЛБА"
             width = 260
+            mnemonics = []
+        elif kind is TrackKind.STRATIGRAPHY:
+            title = "Стратиграфия"
+            width = 220
             mnemonics = []
         elif kind is TrackKind.TEXT:
             title = "Описание пород"

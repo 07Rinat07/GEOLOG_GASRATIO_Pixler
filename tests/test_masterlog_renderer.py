@@ -14,6 +14,7 @@ from geoworkbench.domain.models import (
     MasterlogTemplate,
     LithologyInterval,
     ProjectLithotype,
+    StratigraphyInterval,
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.image_assets import create_svg_asset
@@ -206,6 +207,34 @@ def test_masterlog_renders_calcimetry_and_lba_columns(qapp) -> None:
             MasterlogColumnTemplate("calc", "Calcimetry", "calcimetry", 50.0),
             MasterlogColumnTemplate("lba", "LBA", "lba", 50.0),
         ],
+    )
+    image = QImage(800, 2520, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+
+    paint_masterlog(painter, QRectF(0.0, 0.0, 800.0, 2520.0), template, session)
+    painter.end()
+
+    assert image.pixelColor(100, 1000) != image.pixelColor(700, 100)
+
+
+def test_masterlog_renders_nested_stratigraphy_lanes(qapp) -> None:
+    session = make_session_with_curves()
+    assert session.current_well is not None
+    session.current_well.stratigraphy.extend(
+        [
+            StratigraphyInterval(
+                "period", 100.0, 200.0, "K", "Cretaceous", "System / Period", "#7fc64e"
+            ),
+            StratigraphyInterval("stage", 120.0, 160.0, "K1a", "Albian", "Stage / Age", "#a6d96a"),
+        ]
+    )
+    template = MasterlogTemplate(
+        "stratigraphy",
+        "Stratigraphy",
+        depth_scale=500,
+        header_height_mm=40.0,
+        columns=[MasterlogColumnTemplate("strat", "Stratigraphy", "stratigraphy", 100.0)],
     )
     image = QImage(800, 2520, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(0xFFFFFFFF)

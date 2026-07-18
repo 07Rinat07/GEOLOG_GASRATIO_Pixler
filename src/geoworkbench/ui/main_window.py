@@ -67,6 +67,7 @@ from geoworkbench.project.curve_editing_controller import (
 from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
+from geoworkbench.project.stratigraphy_controller import StratigraphyController
 from geoworkbench.project.nct_controller import NctCalculationController
 from geoworkbench.project.new_las_controller import NewLasController
 from geoworkbench.project.las_range_editor import LasRangeEditingController
@@ -99,6 +100,7 @@ from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
+from geoworkbench.ui.stratigraphy_dialog import StratigraphyDialog
 from geoworkbench.ui.nct_dialog import NctCalculationDialog
 from geoworkbench.ui.new_las_dialog import NewLasDialog
 from geoworkbench.ui.las_table_editor import LasTableEditor
@@ -147,6 +149,7 @@ class MainWindow(QMainWindow):
         self.time_depth_mapping_controller = TimeDepthMappingController(self.session)
         self.depth_annotation_controller = DepthAnnotationController(self.session)
         self.lithology_controller = LithologyController(self.session)
+        self.stratigraphy_controller = StratigraphyController(self.session)
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
         self.description_template_controller = DescriptionTemplateController(self.session)
         self.depth_axis_controller = DepthAxisController(self.session)
@@ -393,6 +396,10 @@ class MainWindow(QMainWindow):
         self.lithology_action.triggered.connect(self.show_lithology_editor)
         edit_menu.addAction(self.lithology_action)
 
+        self.stratigraphy_action = QAction(self._t("stratigraphy.action"), self)
+        self.stratigraphy_action.triggered.connect(self.show_stratigraphy_editor)
+        edit_menu.addAction(self.stratigraphy_action)
+
         self.lithotype_catalog_action = QAction(self._t("catalog.action"), self)
         self.lithotype_catalog_action.triggered.connect(self.show_lithotype_catalog)
         edit_menu.addAction(self.lithotype_catalog_action)
@@ -498,6 +505,7 @@ class MainWindow(QMainWindow):
             (self._t("tablet.track.gas"), TrackKind.GAS),
             ("DEXP / NCT", TrackKind.DEXP),
             (self._t("tablet.track.lithology"), TrackKind.LITHOLOGY),
+            (self._t("tablet.track.stratigraphy"), TrackKind.STRATIGRAPHY),
             (self._t("tablet.track.cuttings"), TrackKind.CUTTINGS),
             (self._t("tablet.track.calcimetry"), TrackKind.CALCIMETRY),
             (self._t("tablet.track.lba"), TrackKind.LBA),
@@ -769,6 +777,7 @@ class MainWindow(QMainWindow):
             self.lithotype_catalog_controller.available(),
         )
         self.tablet_view.set_cuttings(last_well.cuttings)
+        self.tablet_view.set_stratigraphy(last_well.stratigraphy)
         self.build_default_tablet()
         self.inspector.setPlainText(
             f"{self._t('inspector.well')}: {last_well.name}\n"
@@ -902,6 +911,7 @@ class MainWindow(QMainWindow):
         self.depth_annotation_controller.session = self.session
         self.depth_annotation_controller.history.clear()
         self.lithology_controller.session = self.session
+        self.stratigraphy_controller.session = self.session
         self.lithotype_catalog_controller.session = self.session
         self.description_template_controller.session = self.session
         self.depth_axis_controller.session = self.session
@@ -932,6 +942,7 @@ class MainWindow(QMainWindow):
             self.tablet_view.set_canvas_objects([])
             self.tablet_view.set_lithology([], self.lithotype_catalog_controller.available())
             self.tablet_view.set_cuttings([])
+            self.tablet_view.set_stratigraphy([])
             return
         self.curve_view.show_dataset(dataset)
         self.las_table_editor.set_dataset(dataset)
@@ -943,6 +954,7 @@ class MainWindow(QMainWindow):
             self.lithotype_catalog_controller.available(),
         )
         self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
+        self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
         saved_layout = self.session.current_tablet_layout
         if saved_layout is None:
             self.build_default_tablet()
@@ -1231,6 +1243,7 @@ class MainWindow(QMainWindow):
             self.lithotype_catalog_controller.available(),
         )
         self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
+        self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
         self._update_title()
 
     def save_export_profile(self) -> None:
@@ -1968,6 +1981,22 @@ class MainWindow(QMainWindow):
         )
         self._update_title()
 
+    def show_stratigraphy_editor(self) -> None:
+        if self.session.current_well is None:
+            QMessageBox.information(
+                self, self._t("stratigraphy.title"), self._t("stratigraphy.select_well")
+            )
+            return
+        StratigraphyDialog(
+            self.stratigraphy_controller,
+            self,
+            language=self.language,
+        ).exec()
+        well = self.session.current_well
+        self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
+        self._refresh_tree()
+        self._update_title()
+
     def show_description_templates(self) -> None:
         DescriptionTemplatesDialog(
             self.description_template_controller, self, language=self.language
@@ -2298,6 +2327,35 @@ class MainWindow(QMainWindow):
                         ("lithology_interval", well.well_id, interval.interval_id),
                     )
                     lithology_item.addChild(child)
+            if well.stratigraphy:
+                stratigraphy_item = QTreeWidgetItem(
+                    [self._t("stratigraphy.tree", count=len(well.stratigraphy))]
+                )
+                stratigraphy_item.setData(
+                    0, Qt.ItemDataRole.UserRole, ("stratigraphy", well.well_id)
+                )
+                well_item.addChild(stratigraphy_item)
+                for stratigraphy_interval in sorted(
+                    well.stratigraphy,
+                    key=lambda item: ((item.rank or "").casefold(), item.top_depth),
+                ):
+                    child = QTreeWidgetItem(
+                        [
+                            f"{stratigraphy_interval.top_depth:g}–"
+                            f"{stratigraphy_interval.bottom_depth:g} м: "
+                            f"{stratigraphy_interval.code}"
+                        ]
+                    )
+                    child.setData(
+                        0,
+                        Qt.ItemDataRole.UserRole,
+                        (
+                            "stratigraphy_interval",
+                            well.well_id,
+                            stratigraphy_interval.interval_id,
+                        ),
+                    )
+                    stratigraphy_item.addChild(child)
             annotations = [
                 item for item in well.canvas_objects if item.object_type == "depth_annotation"
             ]
@@ -2364,6 +2422,9 @@ class MainWindow(QMainWindow):
         elif data[0] in ("lithology", "lithology_interval"):
             self.session.current_well_id = data[1]
             self.show_lithology_editor()
+        elif data[0] in ("stratigraphy", "stratigraphy_interval"):
+            self.session.current_well_id = data[1]
+            self.show_stratigraphy_editor()
         elif data[0] in ("annotations", "annotation"):
             self.session.current_well_id = data[1]
             self.show_depth_annotations()

@@ -23,6 +23,7 @@ from geoworkbench.project.masterlog_inspection_controller import (
     MasterlogInspectionController,
 )
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.stratigraphy_controller import StratigraphyController
 from geoworkbench.printing.masterlog_renderer import paint_masterlog
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.printing.masterlog_inspection import (
@@ -33,6 +34,7 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.masterlog_interval_fill_dialog import CuttingsCompositionDialog
 from geoworkbench.ui.masterlog_callouts_dialog import MasterlogCalloutsDialog
 from geoworkbench.ui.sample_analysis_dialog import SampleAnalysisDialog
+from geoworkbench.ui.stratigraphy_dialog import StratigraphyIntervalDialog
 
 
 class MasterlogPreviewWidget(QWidget):
@@ -170,6 +172,13 @@ class MasterlogPreviewDialog(QDialog):
                 AppLanguage.EN: "Calcimetry / LBA",
             }[language]
         )
+        self.stratigraphy_button = QPushButton(
+            {
+                AppLanguage.RU: "Стратиграфия",
+                AppLanguage.KK: "Стратиграфия",
+                AppLanguage.EN: "Stratigraphy",
+            }[language]
+        )
         self.pin_button = QPushButton(
             {
                 AppLanguage.RU: "Закрепить для PDF",
@@ -195,6 +204,7 @@ class MasterlogPreviewDialog(QDialog):
             (self.lithology_button, "lithology"),
             (self.cuttings_button, "cuttings"),
             (self.analysis_button, "analysis"),
+            (self.stratigraphy_button, "stratigraphy"),
         ):
             button.setCheckable(True)
             button.clicked.connect(lambda checked=False, value=mode: self._set_mode(value))
@@ -208,7 +218,7 @@ class MasterlogPreviewDialog(QDialog):
         layout.addLayout(tools)
         layout.addWidget(self.preview)
         layout.addWidget(buttons)
-        self.resize(760, 600)
+        self.resize(980, 650)
 
     def _set_mode(self, mode: str | None) -> None:
         self.preview.selection_mode = mode
@@ -219,6 +229,7 @@ class MasterlogPreviewDialog(QDialog):
         self.lithology_button.setChecked(mode == "lithology")
         self.cuttings_button.setChecked(mode == "cuttings")
         self.analysis_button.setChecked(mode == "analysis")
+        self.stratigraphy_button.setChecked(mode == "stratigraphy")
 
     def _fill_interval(self, top: float, bottom: float, mode: str) -> None:
         try:
@@ -226,6 +237,8 @@ class MasterlogPreviewDialog(QDialog):
                 self._fill_lithology(top, bottom)
             elif mode == "cuttings":
                 self._fill_cuttings(top, bottom)
+            elif mode == "stratigraphy":
+                self._fill_stratigraphy(top, bottom)
             else:
                 self._fill_analysis(top, bottom)
         except (RuntimeError, ValueError) as exc:
@@ -304,3 +317,13 @@ class MasterlogPreviewDialog(QDialog):
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             CuttingsController(self.session).set_analysis(top, bottom, **dialog.values())
+
+    def _fill_stratigraphy(self, top: float, bottom: float) -> None:
+        dialog = StratigraphyIntervalDialog(
+            top,
+            bottom,
+            self,
+            language=self.language,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            StratigraphyController(self.session).add(**dialog.values())

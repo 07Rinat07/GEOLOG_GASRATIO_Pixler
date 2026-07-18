@@ -31,6 +31,7 @@ from geoworkbench.domain.models import (
     ProjectLithotype,
 )
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
 from geoworkbench.printing.header_fields import resolve_header_field
 from geoworkbench.printing.image_asset_rendering import draw_image_asset
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
@@ -460,6 +461,8 @@ def _paint_columns(
         if depth_range is not None and dataset is not None:
             if column.column_type == "depth":
                 _paint_depth_axis(painter, plot_rect, depth_range)
+            elif column.column_type == "stratigraphy":
+                _paint_stratigraphy_column(painter, plot_rect, session, depth_range)
             elif column.column_type == "lithology":
                 _paint_lithology_column(painter, plot_rect, session, depth_range)
             elif column.column_type == "cuttings":
@@ -583,6 +586,60 @@ def _paint_lithology_column(
                 interval_rect.adjusted(0.5, 0.25, -0.5, -0.25),
                 Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
                 label,
+            )
+    painter.restore()
+
+
+def _paint_stratigraphy_column(
+    painter: QPainter,
+    rect: QRectF,
+    session: ProjectSession,
+    depth_range: tuple[float, float],
+) -> None:
+    well = session.current_well
+    if well is None:
+        return
+    visible = [
+        item
+        for item in well.stratigraphy
+        if item.bottom_depth >= depth_range[0] and item.top_depth <= depth_range[1]
+    ]
+    ranks = sorted({item.rank or "" for item in visible}, key=stratigraphy_rank_order)
+    if not ranks:
+        return
+    lane_width = rect.width() / len(ranks)
+    lanes = {rank: index for index, rank in enumerate(ranks)}
+    top, bottom = depth_range
+    painter.save()
+    painter.setClipRect(rect)
+    font = QFont()
+    font.setPointSizeF(5.5)
+    painter.setFont(font)
+    for interval in visible:
+        lane = lanes[interval.rank or ""]
+        y_top = rect.top() + (max(top, interval.top_depth) - top) / (bottom - top) * rect.height()
+        y_bottom = (
+            rect.top() + (min(bottom, interval.bottom_depth) - top) / (bottom - top) * rect.height()
+        )
+        interval_rect = QRectF(
+            rect.left() + lane * lane_width,
+            y_top,
+            lane_width,
+            max(0.2, y_bottom - y_top),
+        )
+        color = QColor(interval.color)
+        if not color.isValid():
+            color = QColor("#dbeafe")
+        painter.fillRect(interval_rect, color)
+        painter.setPen(QPen(QColor("#334155"), 0.2))
+        painter.drawRect(interval_rect)
+        if interval_rect.height() >= 3.0:
+            text = "\n".join(value for value in (interval.code, interval.name) if value)
+            painter.setPen(QColor("#0f172a"))
+            painter.drawText(
+                interval_rect.adjusted(0.4, 0.2, -0.4, -0.2),
+                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+                text,
             )
     painter.restore()
 

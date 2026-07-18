@@ -83,6 +83,8 @@ def inspect_masterlog_point(
     depth = top + (y_mm - plot_top) / (size.height() - plot_top) * (bottom - top)
     if column.column_type in {"lithology", "text", "description"}:
         return _inspect_lithology(column, depth, session, language)
+    if column.column_type == "stratigraphy":
+        return _inspect_stratigraphy(column, depth, session)
     if column.column_type == "cuttings":
         return _inspect_cuttings(column, depth, session, language)
     if column.column_type in {"calcimetry", "lba"}:
@@ -145,6 +147,37 @@ def _inspect_lithology(
         depth,
         description=description,
         interval=(interval.top_depth, interval.bottom_depth),
+    )
+
+
+def _inspect_stratigraphy(
+    column: MasterlogColumnTemplate,
+    depth: float,
+    session: ProjectSession,
+) -> MasterlogInspection:
+    well = session.current_well
+    intervals = sorted(
+        (
+            item
+            for item in (well.stratigraphy if well is not None else ())
+            if item.top_depth <= depth <= item.bottom_depth
+        ),
+        key=lambda item: (item.bottom_depth - item.top_depth, item.top_depth),
+    )
+    if not intervals:
+        return MasterlogInspection(column.column_id, column.title, depth)
+    parts = [
+        " / ".join(value for value in (item.rank, item.code, item.name) if value)
+        + (f" — {item.description}" if item.description else "")
+        for item in intervals
+    ]
+    narrowest = intervals[0]
+    return MasterlogInspection(
+        column.column_id,
+        column.title,
+        depth,
+        description="; ".join(parts),
+        interval=(narrowest.top_depth, narrowest.bottom_depth),
     )
 
 

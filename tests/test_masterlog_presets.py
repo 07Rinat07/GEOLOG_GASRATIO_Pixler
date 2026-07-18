@@ -16,7 +16,7 @@ def test_builtin_masterlog_presets_are_unique_and_cover_core_tracks() -> None:
         for preset in BUILTIN_MASTERLOG_FORM_PRESETS
         for column in preset.template.columns
     }
-    assert {"depth", "curves", "lithology", "text"} <= column_types
+    assert {"depth", "curves", "stratigraphy", "lithology", "text"} <= column_types
 
 
 def test_form_preset_creates_independent_project_copy() -> None:

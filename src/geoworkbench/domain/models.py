@@ -336,8 +336,10 @@ class StratigraphyInterval:
     top_depth: float
     bottom_depth: float
     code: str
-    name: str | None
-    rank: str | None
+    name: str | None = None
+    rank: str | None = None
+    color: str = "#dbeafe"
+    description: str | None = None
 
 
 @dataclass(slots=True)

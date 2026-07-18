@@ -59,3 +59,10 @@ def test_column_properties_dialog_returns_normalized_curve_list(qapp) -> None:
         "dash",
     )
     dialog.close()
+
+
+def test_column_properties_dialog_offers_stratigraphy(qapp) -> None:
+    dialog = ColumnPropertiesDialog(language=AppLanguage.EN)
+
+    assert dialog.type_input.findText("stratigraphy") >= 0
+    dialog.close()

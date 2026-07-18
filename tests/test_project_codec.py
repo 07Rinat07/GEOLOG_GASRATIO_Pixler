@@ -25,6 +25,7 @@ from geoworkbench.domain.models import (
     MasterlogTemplate,
     Project,
     ProjectLithotype,
+    StratigraphyInterval,
     Well,
 )
 from geoworkbench.data.lossless_las import parse_lossless_las
@@ -132,6 +133,18 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
             dolomite_percent=20.0,
         )
     )
+    project.wells["well-1"].stratigraphy.append(
+        StratigraphyInterval(
+            "stage-1",
+            100.0,
+            101.0,
+            "K1a",
+            "Albian",
+            "Stage / Age",
+            "#a6d96a",
+            "Reservoir interval",
+        )
+    )
     dataset = project.wells["well-1"].datasets["dataset-1"]
     dataset.add_index(
         DatasetIndex(
@@ -191,6 +204,12 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     assert sample.lba_odour == "Moderate"
     assert sample.lba_stain == "Spotty"
     assert sample.lba_description == "direct fluorescence"
+    stratigraphy = document.project.wells["well-1"].stratigraphy[0]
+    assert stratigraphy.code == "K1a"
+    assert stratigraphy.name == "Albian"
+    assert stratigraphy.rank == "Stage / Age"
+    assert stratigraphy.color == "#a6d96a"
+    assert stratigraphy.description == "Reservoir interval"
     assert (
         document.project.time_depth_mapping_profiles["time-depth"].aggregation_policy
         is TimeDepthAggregationPolicy.LAST

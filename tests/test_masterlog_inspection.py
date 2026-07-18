@@ -12,6 +12,7 @@ from geoworkbench.domain.models import (
     MasterlogColumnTemplate,
     MasterlogTemplate,
     ProjectLithotype,
+    StratigraphyInterval,
 )
 from geoworkbench.printing.masterlog_inspection import inspect_masterlog_point
 from geoworkbench.project.session import ProjectSession
@@ -122,3 +123,31 @@ def test_click_on_calcimetry_and_lba_returns_sample_interval() -> None:
     )
     assert lba is not None and lba.interval == (400.0, 600.0)
     assert lba.description == "Oil show; Intensity: 4; yellow; Streaming"
+
+
+def test_click_on_stratigraphy_reports_nested_units_and_narrowest_interval() -> None:
+    session = _session()
+    assert session.current_well is not None
+    session.current_well.stratigraphy.extend(
+        [
+            StratigraphyInterval("period", 0.0, 1000.0, "K", "Cretaceous", "System / Period"),
+            StratigraphyInterval(
+                "stage", 400.0, 600.0, "K1a", "Albian", "Stage / Age", description="Target"
+            ),
+        ]
+    )
+    template = MasterlogTemplate(
+        "form",
+        "Form",
+        header_height_mm=45.0,
+        columns=[MasterlogColumnTemplate("strat", "Stratigraphy", "stratigraphy", 100.0)],
+    )
+
+    result = inspect_masterlog_point(
+        QPointF(50.0, 128.5), QRectF(0, 0, 100, 257), template, session
+    )
+
+    assert result is not None
+    assert result.interval == (400.0, 600.0)
+    assert "Stage / Age / K1a / Albian — Target" in result.description
+    assert "System / Period / K / Cretaceous" in result.description

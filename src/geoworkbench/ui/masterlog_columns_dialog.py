@@ -39,7 +39,16 @@ class ColumnPropertiesDialog(QDialog):
         self.type_input = QComboBox()
         self.type_input.setEditable(True)
         self.type_input.addItems(
-            ["curves", "depth", "lithology", "cuttings", "calcimetry", "lba", "text"]
+            [
+                "curves",
+                "depth",
+                "stratigraphy",
+                "lithology",
+                "cuttings",
+                "calcimetry",
+                "lba",
+                "text",
+            ]
         )
         if column:
             self.type_input.setCurrentText(column.column_type)
