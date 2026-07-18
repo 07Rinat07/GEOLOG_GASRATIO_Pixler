@@ -89,3 +89,10 @@ Build a professional depth/time geological tablet where LAS import, canonical pa
 - LAS 1.2/2.0 and applicable LAS 3 sections; later WITSML 2.1 adapter;
 - multi-well correlation workspace;
 - acceptance/performance tests, recovery, backup, Windows installer, and 1.0 release.
+
+### Tablet Engine 2.0 — завершено во втором срезе
+
+- настоящий горизонтальный viewport;
+- закреплённая колонка глубины;
+- мини-карта полного диапазона;
+- peak-preserving LOD для больших LAS.

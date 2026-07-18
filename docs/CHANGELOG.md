@@ -175,3 +175,11 @@
 - правила сохраняются между запусками и имеют приоритет над Sensors;
 - добавлены создание, редактирование, удаление, импорт и экспорт JSON;
 - автоматическая классификация и построение дорожек используют сохранённые правила для следующих LAS-файлов.
+
+### Tablet Engine 2.0 — horizontal viewport, mini-map and LOD
+
+- Added a real horizontal viewport without track compression.
+- Pinned the depth track independently from horizontal scrolling.
+- Added a draggable full-domain mini-map.
+- Added viewport-aware peak-preserving LOD for large LAS curves.
+- Added regression tests for pinned tracks, horizontal overflow and LOD budgets.

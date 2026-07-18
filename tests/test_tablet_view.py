@@ -1027,3 +1027,41 @@ def test_tablet_keyboard_navigation_moves_camera(qapp) -> None:
     )
     assert view.visible_depth_range == pytest.approx((800.0, 1000.0))
     view.close()
+
+
+def test_tablet_view_pins_depth_track_and_scrolls_other_tracks(qapp):
+    dataset = Dataset(
+        "dataset-scroll", "Scroll", DatasetKind.GTI, DepthDomain.MD,
+        np.linspace(0.0, 100.0, 100),
+    )
+    curve = CurveData(
+        CurveMetadata("curve-1", "ROP", "ROP", "m/h", None, dataset.dataset_id),
+        np.linspace(1.0, 10.0, 100),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView()
+    view.resize(640, 480)
+    tracks = [TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120)]
+    tracks.extend(
+        TrackDefinition(
+            f"curve-{i}", f"Curve {i}", TrackKind.CURVE, width=220,
+            curve_mnemonics=["ROP"],
+        )
+        for i in range(8)
+    )
+    view.set_layout_model(TabletLayout(tracks=tracks))
+    view.set_dataset(dataset)
+    view.show()
+    qapp.processEvents()
+
+    assert view.pinned_track_ids == ("depth",)
+    assert view.horizontal_scroll_range()[1] > 0
+    view.close()
+
+
+def test_tablet_view_lod_budget_is_pixel_aware():
+    from geoworkbench.tablet.tablet_view import TabletView
+
+    assert TabletView._lod_point_budget(100) == 5000
+    assert TabletView._lod_point_budget(1000) == 5000
+    assert TabletView._lod_point_budget(100_000) == 20_000

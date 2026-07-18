@@ -7,7 +7,7 @@ from html import escape
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, Signal
-from PySide6.QtGui import QKeyEvent, QMouseEvent, QWheelEvent
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen, QBrush, QWheelEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -305,6 +305,83 @@ class TabletTrackWidget(QFrame):
         return self.width() - self.RESIZE_MARGIN <= local_x <= self.width() + self.RESIZE_MARGIN
 
 
+
+
+class TabletMiniMap(QWidget):
+    """Compact full-domain navigator with draggable visible-window indicator."""
+
+    range_requested = Signal(float, float)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setFixedWidth(34)
+        self.setMinimumHeight(120)
+        self._domain = (0.0, 1.0)
+        self._visible = (0.0, 1.0)
+        self._drag_offset = 0.0
+        self._dragging = False
+
+    def set_ranges(self, domain: tuple[float, float], visible: tuple[float, float]) -> None:
+        self._domain = domain
+        self._visible = visible
+        self.update()
+
+    def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        rect = self.rect().adjusted(8, 6, -8, -6)
+        painter.fillRect(rect, QBrush(Qt.GlobalColor.white))
+        painter.setPen(QPen(Qt.GlobalColor.darkGray, 1))
+        painter.drawRect(rect)
+        top, bottom = self._domain
+        vtop, vbottom = self._visible
+        span = max(bottom - top, 1e-12)
+        y1 = rect.top() + int((vtop - top) / span * rect.height())
+        y2 = rect.top() + int((vbottom - top) / span * rect.height())
+        y1, y2 = sorted((max(rect.top(), y1), min(rect.bottom(), y2)))
+        if y2 - y1 < 8:
+            y2 = min(rect.bottom(), y1 + 8)
+        window = rect.adjusted(2, 0, -2, 0)
+        window.setTop(y1)
+        window.setBottom(y2)
+        painter.fillRect(window, QBrush(Qt.GlobalColor.lightGray))
+        painter.setPen(QPen(Qt.GlobalColor.black, 1))
+        painter.drawRect(window)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+        value = self._value_at(event.position().y())
+        vtop, vbottom = self._visible
+        if vtop <= value <= vbottom:
+            self._drag_offset = value - vtop
+        else:
+            self._drag_offset = (vbottom - vtop) / 2.0
+            self._emit_centered(value)
+        self._dragging = True
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self._dragging:
+            value = self._value_at(event.position().y())
+            span = self._visible[1] - self._visible[0]
+            self.range_requested.emit(value - self._drag_offset, value - self._drag_offset + span)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = False
+
+    def _emit_centered(self, value: float) -> None:
+        span = self._visible[1] - self._visible[0]
+        self.range_requested.emit(value - span / 2.0, value + span / 2.0)
+
+    def _value_at(self, y: float) -> float:
+        rect = self.rect().adjusted(8, 6, -8, -6)
+        fraction = (float(y) - rect.top()) / max(rect.height(), 1)
+        fraction = max(0.0, min(1.0, fraction))
+        return self._domain[0] + fraction * (self._domain[1] - self._domain[0])
+
+
 class TabletView(QWidget):
     """Многотрековый планшет с общей синхронизированной шкалой глубины."""
 
@@ -355,16 +432,20 @@ class TabletView(QWidget):
         self._pan_last_position: QPointF | None = None
         self._space_pressed = False
 
+        self._pinned_container = QWidget()
+        self._pinned_layout = QHBoxLayout(self._pinned_container)
+        self._pinned_layout.setContentsMargins(0, 0, 0, 0)
+        self._pinned_layout.setSpacing(2)
+
         self._container = QWidget()
         self._tracks_layout = QHBoxLayout(self._container)
         self._tracks_layout.setContentsMargins(0, 0, 0, 0)
         self._tracks_layout.setSpacing(2)
-        self._tracks_layout.addStretch(1)
 
         self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(True)
+        self._scroll.setWidgetResizable(False)
         self._scroll.setWidget(self._container)
-        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self._axis_combo = QComboBox()
@@ -402,10 +483,16 @@ class TabletView(QWidget):
         self._vertical_scrollbar = QScrollBar(Qt.Orientation.Vertical)
         self._vertical_scrollbar.setRange(0, 0)
         self._vertical_scrollbar.valueChanged.connect(self._vertical_scrollbar_changed)
+        self._mini_map = TabletMiniMap()
+        self._mini_map.range_requested.connect(
+            lambda top, bottom: self._apply_visible_depth(top, bottom, emit_change=True)
+        )
         charts = QHBoxLayout()
         charts.setContentsMargins(0, 0, 0, 0)
         charts.setSpacing(0)
+        charts.addWidget(self._pinned_container, 0)
         charts.addWidget(self._scroll, 1)
+        charts.addWidget(self._mini_map, 0)
         charts.addWidget(self._vertical_scrollbar)
 
         root = QVBoxLayout(self)
@@ -894,13 +981,14 @@ class TabletView(QWidget):
         self.cancel_interval_interaction(emit_signal=False)
         self._depth_viewports.clear()
         self._interpretation_viewports.clear()
-        while self._tracks_layout.count():
-            item = self._tracks_layout.takeAt(0)
-            if item is None:
-                continue
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
+        for layout in (self._pinned_layout, self._tracks_layout):
+            while layout.count():
+                item = layout.takeAt(0)
+                if item is None:
+                    continue
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
         self._rendered.clear()
 
     def refresh_view(self) -> None:
@@ -995,9 +1083,14 @@ class TabletView(QWidget):
                     else Qt.CursorShape.ArrowCursor
                 )
                 viewport.setCursor(cursor)
-            self._tracks_layout.addWidget(track)
+            target_layout = self._pinned_layout if definition.kind is TrackKind.DEPTH else self._tracks_layout
+            target_layout.addWidget(track)
 
-        self._tracks_layout.addStretch(1)
+        total_width = sum(
+            track.width + 2 for track in visible if track.kind is not TrackKind.DEPTH
+        )
+        self._container.setFixedWidth(max(total_width, 1))
+        self._container.setMinimumHeight(max(self._scroll.viewport().height(), 120))
         if master_plot is not None and visible_top is not None and visible_bottom is not None:
             self._synchronize_depth_ranges(visible_top, visible_bottom)
             self._update_lithology_text_visibility(visible_top, visible_bottom)
@@ -1084,6 +1177,17 @@ class TabletView(QWidget):
             # local layout so the control remains functional.
             if self._layout_model.vertical_index_id != index_id:
                 self.set_vertical_index(index_id)
+
+    def horizontal_scroll_range(self) -> tuple[int, int]:
+        bar = self._scroll.horizontalScrollBar()
+        return bar.minimum(), bar.maximum()
+
+    @property
+    def pinned_track_ids(self) -> tuple[str, ...]:
+        return tuple(
+            track_id for track_id, rendered in self._rendered.items()
+            if rendered.definition.kind is TrackKind.DEPTH
+        )
 
     def _update_navigation_controls(self) -> None:
         current = self.visible_depth_range
@@ -1515,6 +1619,11 @@ class TabletView(QWidget):
             maxYRange=span,
         )
 
+    @staticmethod
+    def _lod_point_budget(viewport_height: int) -> int:
+        """Return a pixel-aware point budget for peak-preserving curve LOD."""
+        return max(5_000, min(20_000, max(int(viewport_height), 1) * 4))
+
     def _populate_track(
         self,
         track: TabletTrackWidget,
@@ -1594,6 +1703,7 @@ class TabletView(QWidget):
                         values,
                         visible_top,
                         visible_bottom,
+                        max_points=self._lod_point_budget(track.plot.viewport().height()),
                         positive_values_only=logarithmic,
                     )
                 item = track.plot.plot(visible_values, visible_depth, pen=pen, name=label)
@@ -2274,6 +2384,9 @@ class TabletView(QWidget):
                     np.asarray(curve.values, dtype=float),
                     top,
                     bottom,
+                    max_points=self._lod_point_budget(
+                        rendered.plot.viewport().height() if rendered.plot is not None else 1000
+                    ),
                     positive_values_only=logarithmic,
                 )
                 item.setData(values, visible_depth)

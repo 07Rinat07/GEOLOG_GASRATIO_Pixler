@@ -53,3 +53,7 @@ Completed slice:
 - layout v8 and project v15 compatibility retained.
 
 Next slice: horizontal track viewport, range minimap, peak-preserving LOD, and measurable performance budgets.
+
+## Tablet Engine 2.0: второй срез
+
+Завершены горизонтальный viewport, закреплённая дорожка глубины, мини-карта полного диапазона и peak-preserving LOD. Следующий срез: кэш геометрии, частичная перерисовка и performance-budget для файлов с миллионами отсчётов.
