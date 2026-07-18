@@ -766,6 +766,9 @@ def _paint_lba_column(
             f"Odour={sample.lba_odour}" if sample.lba_odour else None,
             f"Stain={sample.lba_stain}" if sample.lba_stain else None,
             sample.lba_description,
+            f"Interpretation={sample.analysis_interpretation}"
+            if sample.analysis_interpretation
+            else None,
         ]
         text = "; ".join(value for value in fields if value)
         if not text or sample.bottom_depth < top or sample.top_depth > bottom:

@@ -161,14 +161,19 @@ means not measured, while an entered zero is a measured result.
 
 On the LBA tab, record bitumoid group/type, intensity from 1 to 5, and fluorescence color/form.
 When available, add solvent-cut type, speed and color, residue type/color, odour, stain and a
-free-text description. Lists remain editable for project-specific classifications. Selecting
-exactly the same interval again loads the saved values for correction.
+free-text description. On the Interpretation tab, the geologist records an interval conclusion;
+it is stored separately from source observations. Lists remain editable for project-specific
+classifications. Selecting exactly the same interval again loads the saved values for correction.
 
 The sample results are stored in the project and included in Masterlog/PDF, point inspection and
 the depth cursor. Add Calcimetry and LBA from “Log display → Add track”; the default layout adds
 them automatically when data exists. The application records field/laboratory observations; it
 does not replace instrument calibration or infer hydrocarbon saturation from fluorescence alone.
 See [`docs/CALCIMETRY_LBA.md`](../CALCIMETRY_LBA.md) for method notes and sources.
+
+“Print → Calcimetry and LBA interpretation...” opens the active-well summary and exports a
+separate PDF report. It includes intervals, Ca/Dol/insoluble residue, every LBA field, and the
+manual geologist interpretation in the current interface language.
 
 ### Stratigraphic intervals
 

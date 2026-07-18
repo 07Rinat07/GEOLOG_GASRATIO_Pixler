@@ -447,5 +447,11 @@
   "nct.calibration_bottom": "Низ калибровки", "nct.minimum_points": "Минимум точек",
   "nct.calculate": "Построить NCT", "nct.warning": "Выберите нормально уплотнённый глинистый интервал без предполагаемого АВПД. Отрицательное DEXPC−NCT — только диагностический признак.",
   "nct.result": "NCT построен: точек {points}, наклон {slope}, RMSE {rmse}",
-  "nct.completed": "NCT и DEXPC−NCT построены по {points} точкам"
+  "nct.completed": "NCT и DEXPC−NCT построены по {points} точкам",
+  "interpretation_report.action": "Интерпретация кальциметрии и ЛБА...",
+  "interpretation_report.title": "Интерпретация кальциметрии и ЛБА",
+  "interpretation_report.export": "Экспортировать PDF...",
+  "interpretation_report.save_title": "Сохранить отчёт интерпретации",
+  "interpretation_report.exported": "Отчёт экспортирован: {name}",
+  "interpretation_report.select_well": "Сначала выберите скважину"
 }

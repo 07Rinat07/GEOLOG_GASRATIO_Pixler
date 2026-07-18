@@ -446,6 +446,8 @@ class TabletView(QWidget):
             ]
             if any(lba):
                 values.append("ЛБА: " + "; ".join(value for value in lba if value))
+            if sample.analysis_interpretation:
+                values.append("Интерпретация геолога: " + sample.analysis_interpretation)
         seen: set[str] = set()
         for definition in self._layout_model.visible_tracks():
             for mnemonic in definition.curve_mnemonics:

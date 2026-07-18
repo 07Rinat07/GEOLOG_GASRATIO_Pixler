@@ -36,6 +36,7 @@ def test_sample_analysis_dialog_loads_existing_interval(qapp) -> None:
         lba_odour="Moderate",
         lba_stain="Spotty",
         lba_description="bright fluorescence",
+        analysis_interpretation="Manual geologist conclusion",
     )
 
     dialog = SampleAnalysisDialog(
@@ -61,5 +62,6 @@ def test_sample_analysis_dialog_loads_existing_interval(qapp) -> None:
         "lba_odour": "Moderate",
         "lba_stain": "Spotty",
         "lba_description": "bright fluorescence",
+        "analysis_interpretation": "Manual geologist conclusion",
     }
     dialog.close()

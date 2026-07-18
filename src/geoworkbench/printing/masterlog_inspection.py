@@ -271,6 +271,13 @@ def _inspect_sample_analysis(
             )
             if value
         ]
+    if sample.analysis_interpretation:
+        interpretation_label = {
+            AppLanguage.RU: "Интерпретация геолога",
+            AppLanguage.KK: "Геолог интерпретациясы",
+            AppLanguage.EN: "Geologist interpretation",
+        }[language]
+        parts.append(f"{interpretation_label}: {sample.analysis_interpretation}")
     return MasterlogInspection(
         column.column_id,
         column.title,

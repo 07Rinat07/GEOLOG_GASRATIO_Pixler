@@ -59,6 +59,7 @@ def test_sample_analysis_stores_calcimetry_and_lba_in_same_interval() -> None:
         lba_odour="Moderate",
         lba_stain="Spotty",
         lba_description="bright direct fluorescence",
+        analysis_interpretation="Carbonate interval with a documented oil show",
     )
 
     assert sample is existing
@@ -79,6 +80,9 @@ def test_sample_analysis_stores_calcimetry_and_lba_in_same_interval() -> None:
     assert sample.lba_odour == "Moderate"
     assert sample.lba_stain == "Spotty"
     assert sample.lba_description == "bright direct fluorescence"
+    assert sample.analysis_interpretation == (
+        "Carbonate interval with a documented oil show"
+    )
     assert controller.session.dirty is True
 
 

@@ -97,6 +97,7 @@ from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDia
 from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
 from geoworkbench.ui.dataset_merge_dialog import DatasetMergeDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
+from geoworkbench.ui.interpretation_report_dialog import InterpretationReportDialog
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
@@ -333,6 +334,11 @@ class MainWindow(QMainWindow):
         templates_action = QAction(self._t("masterlog_templates.action"), self)
         templates_action.triggered.connect(self.show_masterlog_templates)
         print_menu.addAction(templates_action)
+        self.interpretation_report_action = QAction(
+            self._t("interpretation_report.action"), self
+        )
+        self.interpretation_report_action.triggered.connect(self.show_interpretation_report)
+        print_menu.addAction(self.interpretation_report_action)
         file_menu.addSeparator()
         save_export_profile_action = QAction(self._t("export_profile.save"), self)
         save_export_profile_action.triggered.connect(self.save_export_profile)
@@ -1396,6 +1402,20 @@ class MainWindow(QMainWindow):
         message = self._t("parquet_export.success", name=exported.name)
         self._log(message)
         self.statusBar().showMessage(message)
+
+    def show_interpretation_report(self) -> None:
+        if self.session.current_well is None:
+            QMessageBox.information(
+                self,
+                self._t("interpretation_report.title"),
+                self._t("interpretation_report.select_well"),
+            )
+            return
+        InterpretationReportDialog(
+            self.session,
+            self,
+            language=self.language,
+        ).exec()
 
     def show_data_inspector(self) -> None:
         if self.session.current_dataset is None:

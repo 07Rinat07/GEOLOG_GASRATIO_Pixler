@@ -289,6 +289,7 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
                 else None
             ),
             description=item.get("description"),
+            analysis_interpretation=item.get("analysis_interpretation"),
         )
         for item in data.get("cuttings", [])
     ]

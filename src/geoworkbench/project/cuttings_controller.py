@@ -77,6 +77,7 @@ class CuttingsController:
         lba_odour: str | None = None,
         lba_stain: str | None = None,
         lba_description: str | None = None,
+        analysis_interpretation: str | None = None,
     ) -> CuttingsSample:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         calcite, dolomite = self._validate_calcimetry(calcite_percent, dolomite_percent)
@@ -94,6 +95,9 @@ class CuttingsController:
             "odour": self._normalize_text(lba_odour, 100),
             "stain": self._normalize_text(lba_stain, 100),
             "description": self._normalize_text(lba_description, 2000),
+            "interpretation": self._normalize_text(
+                analysis_interpretation, 4000, "Текст интерпретации"
+            ),
         }
         if (
             calcite is None
@@ -123,6 +127,7 @@ class CuttingsController:
         sample.lba_odour = strings["odour"]
         sample.lba_stain = strings["stain"]
         sample.lba_description = strings["description"]
+        sample.analysis_interpretation = strings["interpretation"]
         self.session.dirty = True
         return sample
 
@@ -153,10 +158,12 @@ class CuttingsController:
         return value
 
     @staticmethod
-    def _normalize_text(value: str | None, maximum: int) -> str | None:
+    def _normalize_text(
+        value: str | None, maximum: int, label: str = "Текст ЛБА"
+    ) -> str | None:
         normalized = value.strip() if value else None
         if normalized and len(normalized) > maximum:
-            raise ValueError(f"Текст ЛБА не должен превышать {maximum} символов")
+            raise ValueError(f"{label} не должен превышать {maximum} символов")
         return normalized
 
     @staticmethod

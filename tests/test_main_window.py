@@ -130,6 +130,23 @@ def test_window_restores_saved_layout(qapp) -> None:
     window.close()
 
 
+def test_window_opens_localized_interpretation_report(qapp, monkeypatch) -> None:
+    window = MainWindow(language=AppLanguage.EN)
+    session, _ = make_session()
+    bind_session(window, session)
+    opened: list[str] = []
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.InterpretationReportDialog.exec",
+        lambda self: opened.append(self.report.well_name) or QDialog.DialogCode.Accepted,
+    )
+
+    window.show_interpretation_report()
+
+    assert window.interpretation_report_action.text() == "Calcimetry and LBA interpretation..."
+    assert opened == ["Well"]
+    window.close()
+
+
 def test_about_dialog_contains_logo(qapp, monkeypatch) -> None:
     window = MainWindow()
     captured: list[QMessageBox] = []

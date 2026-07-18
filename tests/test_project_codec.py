@@ -131,6 +131,7 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
             lba_description="direct fluorescence",
             calcite_percent=55.0,
             dolomite_percent=20.0,
+            analysis_interpretation="Manual carbonate and show interpretation",
         )
     )
     project.wells["well-1"].stratigraphy.append(
@@ -204,6 +205,7 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     assert sample.lba_odour == "Moderate"
     assert sample.lba_stain == "Spotty"
     assert sample.lba_description == "direct fluorescence"
+    assert sample.analysis_interpretation == "Manual carbonate and show interpretation"
     stratigraphy = document.project.wells["well-1"].stratigraphy[0]
     assert stratigraphy.code == "K1a"
     assert stratigraphy.name == "Albian"

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QLineEdit,
+    QPlainTextEdit,
     QScrollArea,
     QTabWidget,
     QVBoxLayout,
@@ -39,6 +40,8 @@ _TEXT = {
         "Запах",
         "Масляное окрашивание",
         "Описание",
+        "Интерпретация",
+        "Заключение геолога по результатам кальциметрии и ЛБА",
     ),
     AppLanguage.KK: (
         "Үлгіні талдау",
@@ -59,6 +62,8 @@ _TEXT = {
         "Иіс",
         "Майлы боялу",
         "Сипаттама",
+        "Интерпретация",
+        "Кальциметрия және ЛБА нәтижелері бойынша геолог қорытындысы",
     ),
     AppLanguage.EN: (
         "Sample analysis",
@@ -79,6 +84,8 @@ _TEXT = {
         "Odour",
         "Stain",
         "Description",
+        "Interpretation",
+        "Geologist conclusion based on calcimetry and LBA results",
     ),
 }
 
@@ -212,6 +219,12 @@ class SampleAnalysisDialog(QDialog):
         lba_scroll.setWidgetResizable(True)
         lba_scroll.setWidget(lba)
         tabs.addTab(lba_scroll, text[2])
+        interpretation = QWidget()
+        interpretation_layout = QVBoxLayout(interpretation)
+        self.interpretation_input = QPlainTextEdit()
+        self.interpretation_input.setPlaceholderText(text[19])
+        interpretation_layout.addWidget(self.interpretation_input)
+        tabs.addTab(interpretation, text[18])
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -246,6 +259,7 @@ class SampleAnalysisDialog(QDialog):
         self.lba_odour_input.setCurrentText(sample.lba_odour or "")
         self.lba_stain_input.setCurrentText(sample.lba_stain or "")
         self.lba_description_input.setText(sample.lba_description or "")
+        self.interpretation_input.setPlainText(sample.analysis_interpretation or "")
 
     def values(self) -> dict[str, Any]:
         return {
@@ -268,4 +282,5 @@ class SampleAnalysisDialog(QDialog):
             "lba_odour": self.lba_odour_input.currentText(),
             "lba_stain": self.lba_stain_input.currentText(),
             "lba_description": self.lba_description_input.text(),
+            "analysis_interpretation": self.interpretation_input.toPlainText(),
         }

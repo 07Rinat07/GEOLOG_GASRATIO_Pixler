@@ -96,6 +96,7 @@ def test_click_on_calcimetry_and_lba_returns_sample_interval() -> None:
             lba_intensity=4,
             lba_color="yellow",
             lba_cut="Streaming",
+            analysis_interpretation="Manual show interpretation",
         )
     )
     template = MasterlogTemplate(
@@ -119,10 +120,14 @@ def test_click_on_calcimetry_and_lba_returns_sample_interval() -> None:
 
     assert calc is not None and calc.interval == (400.0, 600.0)
     assert calc.description == (
-        "Кальцит CaCO₃: 60%; Доломит CaMg(CO₃)₂: 25%; Нерастворимый остаток: 15%"
+        "Кальцит CaCO₃: 60%; Доломит CaMg(CO₃)₂: 25%; Нерастворимый остаток: 15%; "
+        "Интерпретация геолога: Manual show interpretation"
     )
     assert lba is not None and lba.interval == (400.0, 600.0)
-    assert lba.description == "Oil show; Intensity: 4; yellow; Streaming"
+    assert lba.description == (
+        "Oil show; Intensity: 4; yellow; Streaming; "
+        "Geologist interpretation: Manual show interpretation"
+    )
 
 
 def test_click_on_stratigraphy_reports_nested_units_and_narrowest_interval() -> None:

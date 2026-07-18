@@ -443,5 +443,11 @@
   "nct.calibration_bottom": "Калибрлеу табаны", "nct.minimum_points": "Ең аз нүктелер",
   "nct.calculate": "NCT құру", "nct.warning": "Аса жоғары қабаттық қысым күдігі жоқ қалыпты тығыздалған сазды аралықты таңдаңыз. Теріс DEXPC−NCT тек диагностикалық белгі болып табылады.",
   "nct.result": "NCT құрылды: {points} нүкте, еңіс {slope}, RMSE {rmse}",
-  "nct.completed": "NCT және DEXPC−NCT {points} нүкте бойынша құрылды"
+  "nct.completed": "NCT және DEXPC−NCT {points} нүкте бойынша құрылды",
+  "interpretation_report.action": "Кальциметрия және ЛБА интерпретациясы...",
+  "interpretation_report.title": "Кальциметрия және ЛБА интерпретациясы",
+  "interpretation_report.export": "PDF экспорттау...",
+  "interpretation_report.save_title": "Интерпретация есебін сақтау",
+  "interpretation_report.exported": "Есеп экспортталды: {name}",
+  "interpretation_report.select_well": "Алдымен ұңғыманы таңдаңыз"
 }

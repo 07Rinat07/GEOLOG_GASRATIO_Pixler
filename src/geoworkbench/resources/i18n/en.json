@@ -442,5 +442,11 @@
   "nct.calibration_bottom": "Calibration bottom", "nct.minimum_points": "Minimum points",
   "nct.calculate": "Build NCT", "nct.warning": "Select a normally compacted shale interval without suspected overpressure. Negative DEXPC−NCT is a diagnostic indicator only.",
   "nct.result": "NCT built: {points} points, slope {slope}, RMSE {rmse}",
-  "nct.completed": "NCT and DEXPC−NCT built from {points} points"
+  "nct.completed": "NCT and DEXPC−NCT built from {points} points",
+  "interpretation_report.action": "Calcimetry and LBA interpretation...",
+  "interpretation_report.title": "Calcimetry and LBA interpretation",
+  "interpretation_report.export": "Export PDF...",
+  "interpretation_report.save_title": "Save interpretation report",
+  "interpretation_report.exported": "Report exported: {name}",
+  "interpretation_report.select_well": "Select a well first"
 }
