@@ -2,7 +2,16 @@ from hashlib import sha256
 
 import pytest
 
-from geoworkbench.domain.models import CanvasObject, MasterlogColumnTemplate, Well
+import numpy as np
+
+from geoworkbench.domain.models import (
+    CanvasObject,
+    Dataset,
+    DatasetKind,
+    DepthDomain,
+    MasterlogColumnTemplate,
+    Well,
+)
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.printing.image_assets import ImageAsset
 from geoworkbench.project.session import ProjectSession
@@ -12,9 +21,7 @@ def test_masterlog_template_lifecycle_uses_independent_copy_and_versions() -> No
     session = ProjectSession()
     controller = MasterlogTemplateController(session)
     source = controller.create("Standard")
-    source.columns.append(
-        MasterlogColumnTemplate("gas", "Gas", "curves", 35.0, ["C1"])
-    )
+    source.columns.append(MasterlogColumnTemplate("gas", "Gas", "curves", 35.0, ["C1"]))
 
     copied = controller.copy(source.template_id, "Customer")
     renamed = controller.rename(source.template_id, "Standard v2")
@@ -34,6 +41,31 @@ def test_masterlog_template_rejects_duplicate_name() -> None:
 
     with pytest.raises(ValueError, match="существует"):
         controller.create(" standard ")
+
+
+def test_masterlog_template_saves_dataset_specific_curve_bindings() -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Customer form")
+    template.columns.append(MasterlogColumnTemplate("gas", "Gas", "curves", 40.0, ["TG", "C1"]))
+    dataset = Dataset(
+        "foreign", "Vendor LAS", DatasetKind.GTI, DepthDomain.MD, np.array([1.0, 2.0])
+    )
+    total = dataset.upsert_curve("GAS_TOTAL_VENDOR", np.array([10.0, 20.0]))
+    methane = dataset.upsert_curve("METH_VENDOR", np.array([5.0, 8.0]))
+
+    saved = controller.save_curve_bindings(
+        template.template_id,
+        dataset,
+        {"TG": total.metadata.curve_id, "C1": methane.metadata.curve_id},
+    )
+
+    assert controller.required_curve_mnemonics(template.template_id) == ("TG", "C1")
+    assert controller.curve_bindings(template.template_id, dataset) == saved
+    assert template.version == 2
+    with pytest.raises(ValueError, match="Не сопоставлены"):
+        controller.save_curve_bindings(
+            template.template_id, dataset, {"TG": total.metadata.curve_id}
+        )
 
 
 def test_masterlog_template_controller_manages_column_lifecycle() -> None:
@@ -238,7 +270,13 @@ def test_masterlog_template_controller_protects_template_and_asset_used_by_depth
     well = Well("well", "Well")
     well.canvas_objects.append(
         CanvasObject(
-            "show", "masterlog_symbol", "depth", 0.0, 100.0, 8.0, 8.0,
+            "show",
+            "masterlog_symbol",
+            "depth",
+            0.0,
+            100.0,
+            8.0,
+            8.0,
             top_depth=100.0,
             track_id="gas",
             properties={"template_id": template.template_id, "asset_ref": asset.asset_id},

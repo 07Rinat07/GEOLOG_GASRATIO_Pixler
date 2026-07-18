@@ -6,6 +6,7 @@ from math import isfinite
 from typing import Any
 
 from geoworkbench.domain.models import (
+    Dataset,
     MasterlogColumnTemplate,
     MasterlogHeaderElement,
     MasterlogTemplate,
@@ -92,9 +93,7 @@ class MasterlogTemplateController:
             raise ValueError("Масштаб masterlog должен быть от 1:10 до 1:10000")
         dimensions = (header_height_mm, custom_width_mm, custom_height_mm)
         if any(
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not isfinite(value)
+            isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value)
             for value in dimensions
         ):
             raise ValueError("Размеры masterlog должны быть конечными числами")
@@ -139,6 +138,65 @@ class MasterlogTemplateController:
         self.session.dirty = True
         return template
 
+    def required_curve_mnemonics(self, template_id: str) -> tuple[str, ...]:
+        template = self._require(template_id)
+        return tuple(
+            dict.fromkeys(
+                mnemonic
+                for column in template.columns
+                if column.column_type == "curves"
+                for mnemonic in column.curve_mnemonics
+            )
+        )
+
+    def curve_bindings(self, template_id: str, dataset: Dataset) -> dict[str, str]:
+        template = self._require(template_id)
+        raw_profiles = template.properties.get("dataset_curve_bindings", {})
+        if not isinstance(raw_profiles, dict):
+            return {}
+        raw = raw_profiles.get(dataset.dataset_id, {})
+        if not isinstance(raw, dict):
+            return {}
+        return {
+            str(mnemonic): str(curve_id)
+            for mnemonic, curve_id in raw.items()
+            if isinstance(mnemonic, str)
+            and isinstance(curve_id, str)
+            and curve_id in dataset.curves
+        }
+
+    def save_curve_bindings(
+        self, template_id: str, dataset: Dataset, bindings: dict[str, str]
+    ) -> dict[str, str]:
+        template = self._require(template_id)
+        required = self.required_curve_mnemonics(template_id)
+        missing = [mnemonic for mnemonic in required if mnemonic not in bindings]
+        extra = sorted(set(bindings) - set(required))
+        unknown = sorted(
+            curve_id for curve_id in bindings.values() if curve_id not in dataset.curves
+        )
+        if missing:
+            raise ValueError("Не сопоставлены параметры формы: " + ", ".join(missing))
+        if extra:
+            raise ValueError("Лишние параметры сопоставления: " + ", ".join(extra))
+        if unknown:
+            raise ValueError("Кривые dataset не найдены: " + ", ".join(unknown))
+        normalized = {mnemonic: bindings[mnemonic] for mnemonic in required}
+        raw_profiles = template.properties.setdefault("dataset_curve_bindings", {})
+        if not isinstance(raw_profiles, dict):
+            raise ValueError("Сохранённые сопоставления формы повреждены")
+        raw_profiles[dataset.dataset_id] = normalized
+        self._touch(template)
+        return normalized
+
+    def delete_curve_bindings(self, template_id: str, dataset_id: str) -> None:
+        template = self._require(template_id)
+        raw_profiles = template.properties.get("dataset_curve_bindings")
+        if not isinstance(raw_profiles, dict) or dataset_id not in raw_profiles:
+            raise KeyError("Сопоставление параметров для dataset не найдено")
+        del raw_profiles[dataset_id]
+        self._touch(template)
+
     def add_column(
         self,
         template_id: str,
@@ -157,9 +215,18 @@ class MasterlogTemplateController:
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         column = self._validated_column(
-            new_id(), title, column_type, width_mm, curve_mnemonics or [],
-            x_scale, x_min, x_max, show_legend,
-            line_color, line_width, line_style,
+            new_id(),
+            title,
+            column_type,
+            width_mm,
+            curve_mnemonics or [],
+            x_scale,
+            x_min,
+            x_max,
+            show_legend,
+            line_color,
+            line_width,
+            line_style,
         )
         template.columns.append(column)
         self._touch(template)
@@ -184,18 +251,25 @@ class MasterlogTemplateController:
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         column = self._validated_column(
-            column_id, title, column_type, width_mm, curve_mnemonics,
-            x_scale, x_min, x_max, show_legend,
-            line_color, line_width, line_style,
+            column_id,
+            title,
+            column_type,
+            width_mm,
+            curve_mnemonics,
+            x_scale,
+            x_min,
+            x_max,
+            show_legend,
+            line_color,
+            line_width,
+            line_style,
         )
         index = self._column_index(template, column_id)
         template.columns[index] = column
         self._touch(template)
         return column
 
-    def remove_column(
-        self, template_id: str, column_id: str
-    ) -> MasterlogColumnTemplate:
+    def remove_column(self, template_id: str, column_id: str) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         index = self._column_index(template, column_id)
         column = template.columns.pop(index)
@@ -225,7 +299,12 @@ class MasterlogTemplateController:
     ) -> MasterlogHeaderElement:
         template = self._require(template_id)
         element = self._validated_header_element(
-            new_id(), element_type, x_mm, y_mm, width_mm, height_mm,
+            new_id(),
+            element_type,
+            x_mm,
+            y_mm,
+            width_mm,
+            height_mm,
             properties or {},
         )
         template.header_elements.append(element)
@@ -253,17 +332,13 @@ class MasterlogTemplateController:
         self._touch(template)
         return element
 
-    def remove_header_element(
-        self, template_id: str, element_id: str
-    ) -> MasterlogHeaderElement:
+    def remove_header_element(self, template_id: str, element_id: str) -> MasterlogHeaderElement:
         template = self._require(template_id)
         element = template.header_elements.pop(self._header_index(template, element_id))
         self._touch(template)
         return element
 
-    def move_header_element(
-        self, template_id: str, element_id: str, offset: int
-    ) -> bool:
+    def move_header_element(self, template_id: str, element_id: str, offset: int) -> bool:
         template = self._require(template_id)
         index = self._header_index(template, element_id)
         target = max(0, min(index + offset, len(template.header_elements) - 1))
@@ -278,8 +353,7 @@ class MasterlogTemplateController:
             template.name
             for template in self.session.project.masterlog_templates.values()
             if any(
-                element.element_type == "image"
-                and element.properties.get("asset_ref") == asset_id
+                element.element_type == "image" and element.properties.get("asset_ref") == asset_id
                 for element in template.header_elements
             )
         }
@@ -300,9 +374,7 @@ class MasterlogTemplateController:
     def remove_image_asset(self, asset_id: str) -> ImageAsset:
         references = self.image_asset_references(asset_id)
         if references:
-            raise ValueError(
-                "Image asset используется в шаблонах: " + ", ".join(references)
-            )
+            raise ValueError("Image asset используется в шаблонах: " + ", ".join(references))
         try:
             asset = self.session.image_assets.pop(asset_id)
         except KeyError as exc:
@@ -364,9 +436,7 @@ class MasterlogTemplateController:
             raise ValueError("Тип элемента шапки должен быть text, field, image или line")
         values = (x_mm, y_mm, width_mm, height_mm)
         if any(
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not isfinite(value)
+            isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value)
             for value in values
         ):
             raise ValueError("Геометрия элемента шапки должна состоять из конечных чисел")
@@ -375,8 +445,13 @@ class MasterlogTemplateController:
         if not isinstance(properties, dict):
             raise ValueError("Свойства элемента шапки должны быть объектом")
         return MasterlogHeaderElement(
-            element_id, normalized_type, float(x_mm), float(y_mm),
-            float(width_mm), float(height_mm), deepcopy(properties),
+            element_id,
+            normalized_type,
+            float(x_mm),
+            float(y_mm),
+            float(width_mm),
+            float(height_mm),
+            deepcopy(properties),
         )
 
     def _column_index(self, template: MasterlogTemplate, column_id: str) -> int:
@@ -443,8 +518,7 @@ class MasterlogTemplateController:
         if len(normalized) > 200:
             raise ValueError("Имя шаблона мастерлога не должно превышать 200 символов")
         duplicate = any(
-            template_id != exclude_id
-            and template.name.casefold() == normalized.casefold()
+            template_id != exclude_id and template.name.casefold() == normalized.casefold()
             for template_id, template in self.session.project.masterlog_templates.items()
         )
         if duplicate:

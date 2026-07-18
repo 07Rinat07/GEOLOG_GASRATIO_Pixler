@@ -12,6 +12,7 @@ from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.printing.masterlog_renderer import (
     MasterlogRenderError,
     masterlog_column_groups,
+    masterlog_curve_bindings,
     masterlog_page_ranges,
     masterlog_page_size_mm,
 )
@@ -44,9 +45,7 @@ class MasterlogPreflightReport:
 
     @property
     def warnings(self) -> tuple[MasterlogPreflightIssue, ...]:
-        return tuple(
-            issue for issue in self.issues if issue.severity is PreflightSeverity.WARNING
-        )
+        return tuple(issue for issue in self.issues if issue.severity is PreflightSeverity.WARNING)
 
 
 def analyze_masterlog_output(
@@ -161,12 +160,9 @@ def analyze_masterlog_output(
                         )
                     )
     if dataset is not None:
+        curve_bindings = masterlog_curve_bindings(template, dataset)
         for column in template.columns:
-            if (
-                column.x_scale == "logarithmic"
-                and column.x_min is not None
-                and column.x_min <= 0
-            ):
+            if column.x_scale == "logarithmic" and column.x_min is not None and column.x_min <= 0:
                 issues.append(
                     _issue(
                         "invalid_log_range",
@@ -175,7 +171,8 @@ def analyze_masterlog_output(
                     )
                 )
             for mnemonic in column.curve_mnemonics:
-                if dataset.curve_by_mnemonic(mnemonic) is None:
+                mapped_id = curve_bindings.get(mnemonic)
+                if mapped_id is None and dataset.curve_by_mnemonic(mnemonic) is None:
                     issues.append(
                         _issue(
                             "missing_curve",
@@ -190,13 +187,9 @@ def analyze_masterlog_output(
         column_pages = masterlog_column_groups(template, page_size.width())
         page_count = max(1, len(depth_pages)) * max(1, len(column_pages))
     except MasterlogRenderError as exc:
-        issues.append(
-            _issue("render_blocked", PreflightSeverity.ERROR, error=str(exc))
-        )
+        issues.append(_issue("render_blocked", PreflightSeverity.ERROR, error=str(exc)))
     return MasterlogPreflightReport(tuple(issues), page_count)
 
 
-def _issue(
-    code: str, severity: PreflightSeverity, **values: object
-) -> MasterlogPreflightIssue:
+def _issue(code: str, severity: PreflightSeverity, **values: object) -> MasterlogPreflightIssue:
     return MasterlogPreflightIssue(code, severity, tuple(values.items()))

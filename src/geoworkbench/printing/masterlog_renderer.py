@@ -22,6 +22,7 @@ from PySide6.QtGui import (
 from PySide6.QtPrintSupport import QPrinter
 
 from geoworkbench.domain.models import (
+    CurveData,
     Dataset,
     LithologyInterval,
     MasterlogColumnTemplate,
@@ -56,9 +57,7 @@ def masterlog_size_mm(
 ) -> QSizeF:
     columns_width = sum(column.width_mm for column in template.columns)
     minimum_width = (
-        _fixed_page_size_mm(template).width()
-        if template.page_format.casefold() != "roll"
-        else 0.0
+        _fixed_page_size_mm(template).width() if template.page_format.casefold() != "roll" else 0.0
     )
     width = max(25.0, columns_width, minimum_width)
     if depth_range is None and session is not None:
@@ -83,10 +82,7 @@ def masterlog_page_ranges(
     if settings is not None:
         if available_range is None:
             raise MasterlogRenderError("Dataset не содержит печатного глубинного интервала")
-        if (
-            settings.depth_top < available_range[0]
-            or settings.depth_bottom > available_range[1]
-        ):
+        if settings.depth_top < available_range[0] or settings.depth_bottom > available_range[1]:
             raise MasterlogRenderError("Интервал выпуска выходит за границы active dataset")
         depth_range = settings.depth_range
     else:
@@ -121,9 +117,7 @@ def masterlog_column_groups(
     current_width = 0.0
     for column in template.columns:
         if column.width_mm > page_width_mm:
-            raise MasterlogRenderError(
-                f"Колонка '{column.title}' шире печатной страницы"
-            )
+            raise MasterlogRenderError(f"Колонка '{column.title}' шире печатной страницы")
         if current and current_width + column.width_mm > page_width_mm:
             groups.append(tuple(current))
             current = []
@@ -177,9 +171,7 @@ def paint_masterlog(
     language: AppLanguage = AppLanguage.RU,
 ) -> None:
     effective_range = depth_range or masterlog_depth_range(session)
-    size = canvas_size_mm or masterlog_size_mm(
-        template, session, depth_range=effective_range
-    )
+    size = canvas_size_mm or masterlog_size_mm(template, session, depth_range=effective_range)
     scale = min(target.width() / size.width(), target.height() / size.height())
     painter.save()
     painter.translate(
@@ -258,7 +250,9 @@ def export_masterlog_pdf(
         temporary.unlink(missing_ok=True)
         if isinstance(exc, (FileExistsError, MasterlogRenderError)):
             raise
-        raise MasterlogRenderError(f"Не удалось экспортировать masterlog PDF: {destination}") from exc
+        raise MasterlogRenderError(
+            f"Не удалось экспортировать masterlog PDF: {destination}"
+        ) from exc
     finally:
         if painter is not None and painter.isActive():
             painter.end()
@@ -273,9 +267,7 @@ def configure_masterlog_printer(
 ) -> None:
     printer.setPageSize(_page_size(template, session, settings))
     printer.setPageOrientation(_page_orientation(template))
-    printer.setPageMargins(
-        QMarginsF(0.0, 0.0, 0.0, 0.0), QPageLayout.Unit.Millimeter
-    )
+    printer.setPageMargins(QMarginsF(0.0, 0.0, 0.0, 0.0), QPageLayout.Unit.Millimeter)
     printer.setFullPage(True)
 
 
@@ -418,7 +410,9 @@ def _paint_header_element(
     text = _header_text(element, session)
     color = _color(element.properties.get("color"), "#0f172a")
     size = element.properties.get("font_size_mm", 3.5)
-    font_size = float(size) if isinstance(size, (int, float)) and not isinstance(size, bool) else 3.5
+    font_size = (
+        float(size) if isinstance(size, (int, float)) and not isinstance(size, bool) else 3.5
+    )
     font = QFont()
     font.setPointSizeF(max(1.0, min(font_size, 50.0)) * 72.0 / 25.4)
     painter.setFont(font)
@@ -439,13 +433,12 @@ def _paint_columns(
     top = template.header_height_mm
     header_height = 12.0
     dataset = session.current_dataset
+    bindings = masterlog_curve_bindings(template, dataset) if dataset is not None else {}
     for column in columns:
         rect = QRectF(x, top, column.width_mm, size.height() - top)
         painter.setPen(QPen(QColor("#334155"), 0.25))
         painter.drawRect(rect)
-        painter.drawLine(
-            QLineF(x, top + header_height, x + column.width_mm, top + header_height)
-        )
+        painter.drawLine(QLineF(x, top + header_height, x + column.width_mm, top + header_height))
         font = QFont()
         font.setPointSizeF(7.0)
         painter.setFont(font)
@@ -470,11 +463,9 @@ def _paint_columns(
             elif column.column_type == "lithology":
                 _paint_lithology_column(painter, plot_rect, session, depth_range)
             elif column.column_type in {"text", "description"}:
-                _paint_lithology_descriptions(
-                    painter, plot_rect, session, depth_range, language
-                )
+                _paint_lithology_descriptions(painter, plot_rect, session, depth_range, language)
             else:
-                _paint_curve_column(painter, plot_rect, column, dataset, depth_range)
+                _paint_curve_column(painter, plot_rect, column, dataset, depth_range, bindings)
             _paint_depth_symbols(painter, plot_rect, template, column, session, depth_range)
         x += column.width_mm
 
@@ -563,9 +554,7 @@ def _paint_lithology_descriptions(
             painter.setPen(QColor("#0f172a"))
             painter.drawText(
                 interval_rect.adjusted(1.0, 0.5, -1.0, -0.5),
-                Qt.AlignmentFlag.AlignLeft
-                | Qt.AlignmentFlag.AlignTop
-                | Qt.TextFlag.TextWordWrap,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
                 description,
             )
     painter.restore()
@@ -675,9 +664,7 @@ def _paint_depth_symbols(
     painter.restore()
 
 
-def _paint_depth_axis(
-    painter: QPainter, rect: QRectF, depth_range: tuple[float, float]
-) -> None:
+def _paint_depth_axis(painter: QPainter, rect: QRectF, depth_range: tuple[float, float]) -> None:
     top, bottom = depth_range
     font = QFont()
     font.setPointSizeF(6.5)
@@ -697,14 +684,39 @@ def _paint_depth_axis(
         painter.setPen(QPen(QColor("#64748b"), 0.15))
 
 
+def masterlog_curve_bindings(template: MasterlogTemplate, dataset: Dataset) -> dict[str, str]:
+    profiles = template.properties.get("dataset_curve_bindings", {})
+    if not isinstance(profiles, dict):
+        return {}
+    raw = profiles.get(dataset.dataset_id, {})
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        str(mnemonic): str(curve_id)
+        for mnemonic, curve_id in raw.items()
+        if isinstance(mnemonic, str) and isinstance(curve_id, str) and curve_id in dataset.curves
+    }
+
+
+def _mapped_curve(dataset: Dataset, mnemonic: str, bindings: dict[str, str]) -> CurveData | None:
+    curve_id = bindings.get(mnemonic)
+    return (
+        dataset.curves.get(curve_id)
+        if curve_id is not None
+        else dataset.curve_by_mnemonic(mnemonic)
+    )
+
+
 def curve_x_range(
-    column: MasterlogColumnTemplate, dataset: Dataset
+    column: MasterlogColumnTemplate,
+    dataset: Dataset,
+    bindings: dict[str, str] | None = None,
 ) -> tuple[float, float] | None:
     if column.x_min is not None and column.x_max is not None:
         return float(column.x_min), float(column.x_max)
     chunks: list[np.ndarray] = []
     for mnemonic in column.curve_mnemonics:
-        curve = dataset.curve_by_mnemonic(mnemonic)
+        curve = _mapped_curve(dataset, mnemonic, bindings or {})
         if curve is None:
             continue
         values = np.asarray(curve.values, dtype=np.float64)
@@ -767,8 +779,9 @@ def _paint_curve_column(
     column: MasterlogColumnTemplate,
     dataset: Dataset,
     depth_range: tuple[float, float],
+    bindings: dict[str, str],
 ) -> None:
-    x_range = curve_x_range(column, dataset)
+    x_range = curve_x_range(column, dataset, bindings)
     if x_range is None:
         return
     depth = np.asarray(dataset.active_index.values, dtype=np.float64)
@@ -788,7 +801,7 @@ def _paint_curve_column(
     painter.save()
     painter.setClipRect(rect)
     for curve_index, mnemonic in enumerate(column.curve_mnemonics):
-        curve = dataset.curve_by_mnemonic(mnemonic)
+        curve = _mapped_curve(dataset, mnemonic, bindings)
         if curve is None:
             continue
         values = np.asarray(curve.values, dtype=np.float64)

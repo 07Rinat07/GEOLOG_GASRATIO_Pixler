@@ -29,6 +29,7 @@ from geoworkbench.printing.masterlog_renderer import (
     render_masterlog_to_printer,
     _parameter_symbol_x,
     visible_lithology_intervals,
+    masterlog_curve_bindings,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.services.localization import AppLanguage
@@ -44,15 +45,11 @@ def make_template() -> MasterlogTemplate:
             MasterlogHeaderElement(
                 "title", "field", 5.0, 5.0, 80.0, 10.0, {"field": "project.name"}
             ),
-            MasterlogHeaderElement(
-                "line", "line", 5.0, 20.0, 100.0, 0.5, {"color": "#000000"}
-            ),
+            MasterlogHeaderElement("line", "line", 5.0, 20.0, 100.0, 0.5, {"color": "#000000"}),
         ],
         columns=[
             MasterlogColumnTemplate("depth", "Depth", "depth", 25.0),
-            MasterlogColumnTemplate(
-                "gas", "Gas", "curves", 45.0, ["TG", "C1"], show_legend=True
-            ),
+            MasterlogColumnTemplate("gas", "Gas", "curves", 45.0, ["TG", "C1"], show_legend=True),
         ],
         properties={"body_height_mm": 300.0},
     )
@@ -107,6 +104,24 @@ def test_masterlog_curve_range_supports_auto_linear_and_logarithmic() -> None:
     assert curve_x_range(column, dataset) == (1.0, 1000.0)
 
 
+def test_masterlog_curve_range_uses_saved_vendor_curve_mapping() -> None:
+    session = make_session_with_curves()
+    dataset = session.current_dataset
+    assert dataset is not None
+    vendor = dataset.upsert_curve("VENDOR_TOTAL", np.array([20.0, 40.0, 60.0, 80.0, 100.0]))
+    template = MasterlogTemplate(
+        "mapped",
+        "Mapped",
+        columns=[MasterlogColumnTemplate("gas", "Gas", "curves", 40.0, ["CUSTOM_TG"])],
+        properties={
+            "dataset_curve_bindings": {dataset.dataset_id: {"CUSTOM_TG": vendor.metadata.curve_id}}
+        },
+    )
+    bindings = masterlog_curve_bindings(template, dataset)
+
+    assert curve_x_range(template.columns[0], dataset, bindings) == (20.0, 100.0)
+
+
 def test_parameter_symbol_x_follows_linear_and_log_column_scale() -> None:
     dataset = make_session_with_curves().current_dataset
     assert dataset is not None
@@ -143,7 +158,10 @@ def test_masterlog_renders_lithology_and_description_columns(qapp) -> None:
         LithologyInterval("layer", 110.0, 160.0, "sand", "Песчаник мелкозернистый")
     ]
     template = MasterlogTemplate(
-        "geology", "Geology", depth_scale=500, header_height_mm=40.0,
+        "geology",
+        "Geology",
+        depth_scale=500,
+        header_height_mm=40.0,
         columns=[
             MasterlogColumnTemplate("lith", "Lithology", "lithology", 30.0),
             MasterlogColumnTemplate("description", "Description", "text", 50.0),

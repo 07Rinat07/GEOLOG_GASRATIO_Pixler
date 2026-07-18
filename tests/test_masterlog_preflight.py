@@ -59,9 +59,7 @@ def test_masterlog_preflight_reports_warnings_errors_and_page_count() -> None:
         columns=[gas_column],
     )
 
-    report = analyze_masterlog_output(
-        template, session, MasterlogOutputSettings(100.0, 300.0)
-    )
+    report = analyze_masterlog_output(template, session, MasterlogOutputSettings(100.0, 300.0))
 
     assert report.page_count == 2
     assert {issue.code for issue in report.errors} == {"invalid_log_range"}
@@ -79,8 +77,26 @@ def test_masterlog_preflight_blocks_empty_template() -> None:
         make_session(),
         MasterlogOutputSettings(100.0, 200.0),
     )
-
     assert [issue.code for issue in report.errors] == ["no_columns"]
+
+
+def test_masterlog_preflight_accepts_saved_vendor_curve_mapping() -> None:
+    session = make_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    vendor = dataset.upsert_curve("VENDOR_METHANE", np.linspace(1.0, 2.0, 201))
+    template = MasterlogTemplate(
+        "mapped",
+        "Mapped",
+        columns=[MasterlogColumnTemplate("gas", "Gas", "curves", 40.0, ["C1"])],
+        properties={
+            "dataset_curve_bindings": {dataset.dataset_id: {"C1": vendor.metadata.curve_id}}
+        },
+    )
+
+    report = analyze_masterlog_output(template, session, MasterlogOutputSettings(100.0, 300.0))
+
+    assert not any(issue.code == "missing_curve" for issue in report.issues)
 
 
 def test_masterlog_preflight_reports_broken_depth_symbol_references() -> None:
@@ -93,16 +109,20 @@ def test_masterlog_preflight_reports_broken_depth_symbol_references() -> None:
     assert session.current_well is not None
     session.current_well.canvas_objects.append(
         CanvasObject(
-            "show", "masterlog_symbol", "depth", 0.0, 150.0, 8.0, 8.0,
+            "show",
+            "masterlog_symbol",
+            "depth",
+            0.0,
+            150.0,
+            8.0,
+            8.0,
             top_depth=150.0,
             track_id="removed-column",
             properties={"template_id": "standard", "asset_ref": "missing"},
         )
     )
 
-    report = analyze_masterlog_output(
-        template, session, MasterlogOutputSettings(100.0, 200.0)
-    )
+    report = analyze_masterlog_output(template, session, MasterlogOutputSettings(100.0, 200.0))
 
     assert {issue.code for issue in report.warnings} == {
         "missing_asset",
@@ -120,7 +140,13 @@ def test_masterlog_preflight_reports_invalid_symbol_interval() -> None:
     assert session.current_well is not None
     session.current_well.canvas_objects.append(
         CanvasObject(
-            "zone", "masterlog_symbol", "interval", 0.0, 180.0, 8.0, 8.0,
+            "zone",
+            "masterlog_symbol",
+            "interval",
+            0.0,
+            180.0,
+            8.0,
+            8.0,
             top_depth=180.0,
             bottom_depth=120.0,
             track_id="gas",
@@ -128,9 +154,7 @@ def test_masterlog_preflight_reports_invalid_symbol_interval() -> None:
         )
     )
 
-    report = analyze_masterlog_output(
-        template, session, MasterlogOutputSettings(100.0, 200.0)
-    )
+    report = analyze_masterlog_output(template, session, MasterlogOutputSettings(100.0, 200.0))
 
     assert {issue.code for issue in report.warnings} == {
         "missing_asset",
@@ -148,7 +172,13 @@ def test_masterlog_preflight_reports_invalid_symbol_parameter() -> None:
     assert session.current_well is not None
     session.current_well.canvas_objects.append(
         CanvasObject(
-            "parameter", "masterlog_symbol", "parameter", 0.0, 150.0, 8.0, 8.0,
+            "parameter",
+            "masterlog_symbol",
+            "parameter",
+            0.0,
+            150.0,
+            8.0,
+            8.0,
             top_depth=150.0,
             bottom_depth=150.0,
             parameter_mnemonic="ROP",
@@ -157,9 +187,7 @@ def test_masterlog_preflight_reports_invalid_symbol_parameter() -> None:
         )
     )
 
-    report = analyze_masterlog_output(
-        template, session, MasterlogOutputSettings(100.0, 200.0)
-    )
+    report = analyze_masterlog_output(template, session, MasterlogOutputSettings(100.0, 200.0))
 
     assert {issue.code for issue in report.warnings} == {
         "missing_asset",
@@ -172,7 +200,11 @@ def test_masterlog_preflight_reports_stale_time_depth_mapping() -> None:
     assert session.current_dataset is not None
     session.current_dataset.add_index(
         DatasetIndex(
-            "time", "TIME", IndexType.RELATIVE_TIME, IndexRole.TIME, "s",
+            "time",
+            "TIME",
+            IndexType.RELATIVE_TIME,
+            IndexRole.TIME,
+            "s",
             np.linspace(0.0, 200.0, 201),
         )
     )
@@ -184,7 +216,13 @@ def test_masterlog_preflight_reports_stale_time_depth_mapping() -> None:
     assert session.current_well is not None
     session.current_well.canvas_objects.append(
         CanvasObject(
-            "time", "masterlog_symbol", "time", 0.0, 999.0, 8.0, 8.0,
+            "time",
+            "masterlog_symbol",
+            "time",
+            0.0,
+            999.0,
+            8.0,
+            8.0,
             top_depth=999.0,
             bottom_depth=999.0,
             time_value="50",
@@ -193,9 +231,7 @@ def test_masterlog_preflight_reports_stale_time_depth_mapping() -> None:
         )
     )
 
-    report = analyze_masterlog_output(
-        template, session, MasterlogOutputSettings(100.0, 200.0)
-    )
+    report = analyze_masterlog_output(template, session, MasterlogOutputSettings(100.0, 200.0))
 
     assert {issue.code for issue in report.warnings} == {
         "missing_asset",

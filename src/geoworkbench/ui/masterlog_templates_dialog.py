@@ -21,6 +21,7 @@ from geoworkbench.project.masterlog_template_controller import MasterlogTemplate
 from geoworkbench.project.masterlog_symbol_controller import MasterlogSymbolController
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.masterlog_columns_dialog import MasterlogColumnsDialog
+from geoworkbench.ui.masterlog_curve_mapping_dialog import MasterlogCurveMappingDialog
 from geoworkbench.ui.masterlog_header_dialog import MasterlogHeaderDialog
 from geoworkbench.ui.masterlog_assets_dialog import MasterlogAssetsDialog
 from geoworkbench.ui.masterlog_preview_dialog import MasterlogPreviewDialog
@@ -46,6 +47,13 @@ from geoworkbench.ui.masterlog_page_dialog import MasterlogPageDialog
 from geoworkbench.ui.masterlog_symbols_dialog import MasterlogSymbolsDialog
 
 
+_MAPPING_ACTION = {
+    AppLanguage.RU: "Сопоставить кривые LAS...",
+    AppLanguage.EN: "Map LAS curves...",
+    AppLanguage.KK: "LAS қисықтарын сәйкестендіру...",
+}
+
+
 class MasterlogTemplatesDialog(QDialog):
     def __init__(
         self,
@@ -65,27 +73,23 @@ class MasterlogTemplatesDialog(QDialog):
         self.copy_button = QPushButton(self._t("common.copy"))
         self.rename_button = QPushButton(self._t("common.rename"))
         self.columns_button = QPushButton(self._t("masterlog_columns.action"))
+        self.mapping_button = QPushButton(_MAPPING_ACTION[language])
         self.header_button = QPushButton(self._t("masterlog_header.action"))
         self.assets_button = QPushButton(self._t("masterlog_assets.action"))
         self.symbols_button = QPushButton(self._t("masterlog_symbols.action"))
         self.page_button = QPushButton(self._t("masterlog_page.action"))
         self.preview_button = QPushButton(self._t("masterlog_preview.action"))
         self.export_button = QPushButton(self._t("masterlog_preview.export_pdf"))
-        self.print_preview_button = QPushButton(
-            self._t("masterlog_preview.system_action")
-        )
-        self.package_import_button = QPushButton(
-            self._t("masterlog_package.import_action")
-        )
-        self.package_export_button = QPushButton(
-            self._t("masterlog_package.export_action")
-        )
+        self.print_preview_button = QPushButton(self._t("masterlog_preview.system_action"))
+        self.package_import_button = QPushButton(self._t("masterlog_package.import_action"))
+        self.package_export_button = QPushButton(self._t("masterlog_package.export_action"))
         self.delete_button = QPushButton(self._t("common.delete"))
         close_button = QPushButton(self._t("common.close"))
         self.create_button.clicked.connect(self._create)
         self.copy_button.clicked.connect(self._copy)
         self.rename_button.clicked.connect(self._rename)
         self.columns_button.clicked.connect(self._edit_columns)
+        self.mapping_button.clicked.connect(self._edit_curve_mapping)
         self.header_button.clicked.connect(self._edit_header)
         self.assets_button.clicked.connect(self._edit_assets)
         self.symbols_button.clicked.connect(self._edit_symbols)
@@ -103,6 +107,7 @@ class MasterlogTemplatesDialog(QDialog):
             self.copy_button,
             self.rename_button,
             self.columns_button,
+            self.mapping_button,
             self.header_button,
             self.assets_button,
             self.symbols_button,
@@ -145,9 +150,7 @@ class MasterlogTemplatesDialog(QDialog):
     def _selected_id(self) -> str | None:
         item = self.list.currentItem()
         if item is None:
-            QMessageBox.information(
-                self, self.windowTitle(), self._t("masterlog_templates.select")
-            )
+            QMessageBox.information(self, self.windowTitle(), self._t("masterlog_templates.select"))
             return None
         return str(item.data(Qt.ItemDataRole.UserRole))
 
@@ -199,6 +202,22 @@ class MasterlogTemplatesDialog(QDialog):
             language=self.localizer.language,
         ).exec()
         self.refresh()
+
+    def _edit_curve_mapping(self) -> None:
+        template_id = self._selected_id()
+        dataset = self.controller.session.current_dataset
+        if template_id is None:
+            return
+        if dataset is None:
+            QMessageBox.information(self, self.windowTitle(), self._t("formula.select_dataset"))
+            return
+        MasterlogCurveMappingDialog(
+            self.controller,
+            template_id,
+            dataset,
+            self,
+            language=self.localizer.language,
+        ).exec()
 
     def _edit_header(self) -> None:
         template_id = self._selected_id()
@@ -330,13 +349,9 @@ class MasterlogTemplatesDialog(QDialog):
         if not self._confirm_preflight(template, settings):
             return
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        configure_masterlog_printer(
-            printer, template, self.controller.session, settings
-        )
+        configure_masterlog_printer(printer, template, self.controller.session, settings)
         dialog = QPrintPreviewDialog(printer, self)
-        dialog.setWindowTitle(
-            self._t("masterlog_preview.system_title", name=template.name)
-        )
+        dialog.setWindowTitle(self._t("masterlog_preview.system_title", name=template.name))
 
         def paint(requested_printer: QPrinter) -> None:
             try:
@@ -371,12 +386,8 @@ class MasterlogTemplatesDialog(QDialog):
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return None
 
-    def _confirm_preflight(
-        self, template, settings: MasterlogOutputSettings
-    ) -> bool:
-        report = analyze_masterlog_output(
-            template, self.controller.session, settings
-        )
+    def _confirm_preflight(self, template, settings: MasterlogOutputSettings) -> bool:
+        report = analyze_masterlog_output(template, self.controller.session, settings)
         summary = self._t("masterlog_preflight.pages", pages=report.page_count)
         if report.errors:
             QMessageBox.critical(
@@ -398,9 +409,7 @@ class MasterlogTemplatesDialog(QDialog):
             return answer == QMessageBox.StandardButton.Yes
         return True
 
-    def _format_preflight_issues(
-        self, issues: tuple[MasterlogPreflightIssue, ...]
-    ) -> str:
+    def _format_preflight_issues(self, issues: tuple[MasterlogPreflightIssue, ...]) -> str:
         return "\n".join(
             "• "
             + self._t(
@@ -435,9 +444,7 @@ class MasterlogTemplatesDialog(QDialog):
             if answer != QMessageBox.StandardButton.Yes:
                 return
         try:
-            export_masterlog_package(
-                template, self.controller.session, target, overwrite=True
-            )
+            export_masterlog_package(template, self.controller.session, target, overwrite=True)
         except (OSError, MasterlogPackageError) as exc:
             QMessageBox.critical(self, self.windowTitle(), str(exc))
             return
@@ -474,15 +481,11 @@ class MasterlogTemplatesDialog(QDialog):
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
-        name = self._ask_name(
-            self._t("masterlog_package.import_name"), package.template.name
-        )
+        name = self._ask_name(self._t("masterlog_package.import_name"), package.template.name)
         if name is None:
             return
         self._run(
-            lambda: self.controller.import_template(
-                package.template, package.image_assets, name
-            )
+            lambda: self.controller.import_template(package.template, package.image_assets, name)
         )
 
     def _run(self, operation: Callable[[], object]) -> None:

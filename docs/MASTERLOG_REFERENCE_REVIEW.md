@@ -61,6 +61,7 @@
 | Символы depth/time/interval/parameter/track | готово |
 | Каталог литотипов и штриховок | готово |
 | Литологическая и интервальная description колонки в независимом renderer | готово |
+| Binding параметров формы к мнемоникам/кривым LAS другой фирмы | готово для current dataset, renderer и preflight |
 | Автогенерируемая печатная легенда использованных литотипов/символов | следующий этап |
 | Специализированные drilling/core/cuttings/show/carbonate tracks | запланировано |
 | Peak labels и collision-free callouts | запланировано |
