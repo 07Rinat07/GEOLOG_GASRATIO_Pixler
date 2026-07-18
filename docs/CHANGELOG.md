@@ -183,3 +183,11 @@
 - Added a draggable full-domain mini-map.
 - Added viewport-aware peak-preserving LOD for large LAS curves.
 - Added regression tests for pinned tracks, horizontal overflow and LOD budgets.
+
+## Unreleased — Tablet Engine 2.0 Rendering Cache
+
+- added bounded LRU cache for sampled curve geometry;
+- added cache hit/miss/eviction metrics;
+- skipped redundant curve `setData()` calls for unchanged render keys;
+- added 100k, 1M and 5M rendering benchmark scenarios;
+- replaced the project plan with a factual GEOLOG-only roadmap.

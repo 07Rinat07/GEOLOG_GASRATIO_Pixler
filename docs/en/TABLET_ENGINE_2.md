@@ -28,3 +28,7 @@ A full-domain mini-map is shown on the right. Its grey window represents the cur
 ## Peak-preserving LOD
 
 Large LAS curves use a viewport-aware point budget. Each bucket preserves its minimum and maximum, so narrow peaks and valleys remain visible when zoomed out. Original samples return automatically when zooming in.
+
+## Curve geometry cache
+
+The current viewport, point budget, axis and data revision form a render key. Repeated requests reuse peak-preserving geometry from a bounded LRU cache. When a curve render key is unchanged, its graphics item is not updated again.

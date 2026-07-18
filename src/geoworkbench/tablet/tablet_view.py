@@ -39,6 +39,7 @@ from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.camera import TabletCamera
+from geoworkbench.tablet.geometry_cache import CurveGeometryCache, CurveGeometryKey, GeometryCacheStats
 from geoworkbench.tablet.interval_interaction import (
     IntervalDragResult,
     IntervalEditMode,
@@ -57,7 +58,6 @@ from geoworkbench.tablet.models import (
     XScale,
 )
 from geoworkbench.tablet.resize import TrackResizeGesture
-from geoworkbench.tablet.sampling import select_visible_samples
 
 
 @dataclass(slots=True)
@@ -78,6 +78,7 @@ class RenderedTrack:
     interpretation_lanes: dict[str, int] | None = None
     cursor_line: pg.InfiniteLine | None = None
     interpretation_preview: pg.BarGraphItem | None = None
+    curve_render_keys: dict[str, CurveGeometryKey] | None = None
 
 
 @dataclass(slots=True)
@@ -431,6 +432,7 @@ class TabletView(QWidget):
         self._pan_viewport: QObject | None = None
         self._pan_last_position: QPointF | None = None
         self._space_pressed = False
+        self._geometry_cache = CurveGeometryCache(max_entries=512)
 
         self._pinned_container = QWidget()
         self._pinned_layout = QHBoxLayout(self._pinned_container)
@@ -514,6 +516,9 @@ class TabletView(QWidget):
     def vertical_axis_is_time(self) -> bool:
         index = self._vertical_index()
         return index is not None and index.role is IndexRole.TIME
+
+    def geometry_cache_stats(self) -> GeometryCacheStats:
+        return self._geometry_cache.stats()
 
     def available_vertical_indexes(self) -> tuple[str, ...]:
         if self._dataset is None:
@@ -766,6 +771,7 @@ class TabletView(QWidget):
 
     def set_dataset(self, dataset: Dataset | None) -> None:
         self._dataset = dataset
+        self._geometry_cache.clear()
         self.refresh_view()
 
     def set_canvas_objects(self, canvas_objects: list[CanvasObject]) -> None:
@@ -1063,6 +1069,7 @@ class TabletView(QWidget):
                 stratigraphy_items,
                 interpretation_items,
                 interpretation_lanes,
+                curve_render_keys={},
             )
             self._rendered[definition.track_id] = rendered
             self._install_cursor(rendered)
@@ -1698,13 +1705,12 @@ class TabletView(QWidget):
                     visible_values = np.array([], dtype=np.float64)
                     visible_depth = np.array([], dtype=np.float64)
                 else:
-                    visible_values, visible_depth = select_visible_samples(
-                        depth,
-                        values,
-                        visible_top,
-                        visible_bottom,
-                        max_points=self._lod_point_budget(track.plot.viewport().height()),
-                        positive_values_only=logarithmic,
+                    budget = self._lod_point_budget(track.plot.viewport().height())
+                    key = self._curve_geometry_key(
+                        mnemonic, depth, values, visible_top, visible_bottom, budget, logarithmic
+                    )
+                    visible_values, visible_depth = self._geometry_cache.get_or_build(
+                        key, depth, values
                     )
                 item = track.plot.plot(visible_values, visible_depth, pen=pen, name=label)
                 curve_items[mnemonic] = item
@@ -2368,6 +2374,28 @@ class TabletView(QWidget):
             rendered[item.object_id] = line
         return rendered
 
+    def _curve_geometry_key(
+        self,
+        mnemonic: str,
+        axis: np.ndarray,
+        values: np.ndarray,
+        top: float,
+        bottom: float,
+        max_points: int,
+        positive_values_only: bool,
+    ) -> CurveGeometryKey:
+        axis_id = self.vertical_index_id or "vertical-axis"
+        return CurveGeometryKey(
+            curve_id=mnemonic,
+            axis_id=axis_id,
+            values_revision=(id(values), values.size),
+            axis_revision=(id(axis), axis.size),
+            top=float(top),
+            bottom=float(bottom),
+            max_points=int(max_points),
+            positive_values_only=positive_values_only,
+        )
+
     def _update_visible_curve_data(self, top: float, bottom: float) -> None:
         if self._dataset is None:
             return
@@ -2379,17 +2407,22 @@ class TabletView(QWidget):
                 if curve is None:
                     item.setData([], [])
                     continue
-                values, visible_depth = select_visible_samples(
-                    depth,
-                    np.asarray(curve.values, dtype=float),
-                    top,
-                    bottom,
-                    max_points=self._lod_point_budget(
-                        rendered.plot.viewport().height() if rendered.plot is not None else 1000
-                    ),
-                    positive_values_only=logarithmic,
+                source_values = np.asarray(curve.values, dtype=float)
+                budget = self._lod_point_budget(
+                    rendered.plot.viewport().height() if rendered.plot is not None else 1000
+                )
+                key = self._curve_geometry_key(
+                    mnemonic, depth, source_values, top, bottom, budget, logarithmic
+                )
+                render_keys = rendered.curve_render_keys
+                if render_keys is not None and render_keys.get(mnemonic) == key:
+                    continue
+                values, visible_depth = self._geometry_cache.get_or_build(
+                    key, depth, source_values
                 )
                 item.setData(values, visible_depth)
+                if render_keys is not None:
+                    render_keys[mnemonic] = key
 
     def _update_lithology_text_visibility(self, top: float, bottom: float) -> None:
         intervals = {item.interval_id: item for item in self._lithology}
