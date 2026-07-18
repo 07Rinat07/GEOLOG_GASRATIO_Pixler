@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 import numpy as np
 
@@ -12,13 +13,24 @@ class TimeDepthMappingError(ValueError):
     pass
 
 
+class TimeDepthAggregationPolicy(StrEnum):
+    ERROR = "error"
+    FIRST = "first"
+    LAST = "last"
+    MIN = "min"
+    MAX = "max"
+    MEAN = "mean"
+
+
 @dataclass(frozen=True, slots=True)
 class TimeDepthMatch:
     time_index_id: str
     depth_index_id: str
-    row: int
+    row: int | None
     depth: float
     distance: float
+    policy: TimeDepthAggregationPolicy
+    matched_rows: tuple[int, ...]
 
 
 def resolve_time_to_depth(
@@ -27,7 +39,10 @@ def resolve_time_to_depth(
     *,
     time_index_id: str | None = None,
     depth_index_id: str | None = None,
+    policy: TimeDepthAggregationPolicy = TimeDepthAggregationPolicy.ERROR,
 ) -> TimeDepthMatch:
+    if not isinstance(policy, TimeDepthAggregationPolicy):
+        raise TimeDepthMappingError("Неизвестная политика TIME↔DEPTH mapping")
     time_index = _select_index(dataset, IndexRole.TIME, time_index_id)
     depth_index = _select_index(dataset, IndexRole.DEPTH, depth_index_id)
     target, values = _comparable_time(time_index, time_value)
@@ -42,16 +57,40 @@ def resolve_time_to_depth(
     minimum = float(np.min(distances))
     nearest_rows = rows[distances == minimum]
     nearest_depths = np.unique(depths[nearest_rows])
-    if nearest_depths.size != 1:
+    if policy is TimeDepthAggregationPolicy.ERROR and nearest_depths.size != 1:
         raise TimeDepthMappingError("Временная отметка неоднозначно соответствует глубине")
-    row = int(nearest_rows[0])
+    row, depth = _aggregate_depth(nearest_rows, depths, policy)
     return TimeDepthMatch(
         time_index.index_id,
         depth_index.index_id,
         row,
-        float(nearest_depths[0]),
+        depth,
         minimum,
+        policy,
+        tuple(int(candidate) for candidate in nearest_rows),
     )
+
+
+def _aggregate_depth(
+    rows: np.ndarray,
+    depths: np.ndarray,
+    policy: TimeDepthAggregationPolicy,
+) -> tuple[int | None, float]:
+    if policy in {TimeDepthAggregationPolicy.ERROR, TimeDepthAggregationPolicy.FIRST}:
+        row = int(rows[0])
+        return row, float(depths[row])
+    if policy is TimeDepthAggregationPolicy.LAST:
+        row = int(rows[-1])
+        return row, float(depths[row])
+
+    candidate_depths = depths[rows]
+    if policy is TimeDepthAggregationPolicy.MEAN:
+        return None, float(np.mean(candidate_depths))
+    target = np.min(candidate_depths) if policy is TimeDepthAggregationPolicy.MIN else np.max(
+        candidate_depths
+    )
+    row = int(rows[np.flatnonzero(candidate_depths == target)[0]])
+    return row, float(target)
 
 
 def _select_index(

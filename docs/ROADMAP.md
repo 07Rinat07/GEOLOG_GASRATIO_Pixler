@@ -149,7 +149,8 @@ Roadmap следует зависимостям продукта, а не ном
    - готово: массовый пересчёт пользовательских формул по зависимостям с preview и Undo/Redo;
    - готово: паспорт пользовательской формулы с входами, состояниями и provenance результата;
    - готово: actual mapping/passport встроенных DEXP/Pixler/normalization профилей;
-   - TIME↔DEPTH mapping, повторные проходы и профили агрегации.
+   - готово: TIME↔DEPTH nearest mapping с явными error/first/last/min/max/mean политиками повторных проходов;
+   - далее: сохраняемые mapping-профили, интервалы агрегации и UI.
 8. **Graph performance follow-up**
    - готово: depth-aware peak sampling до 5000 экранных точек для Curve View и Tablet View;
    - готово: пересэмплирование Curve View при зуме с возвратом исходной детализации;

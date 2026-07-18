@@ -10,6 +10,7 @@ from geoworkbench.domain.models import (
     IndexType,
 )
 from geoworkbench.services.time_depth_mapping import (
+    TimeDepthAggregationPolicy,
     TimeDepthMappingError,
     resolve_time_to_depth,
 )
@@ -42,6 +43,8 @@ def test_time_depth_mapping_resolves_nearest_datetime_row() -> None:
     assert match.depth == 110.0
     assert match.row == 1
     assert match.distance == 1_000_000_000.0
+    assert match.policy is TimeDepthAggregationPolicy.ERROR
+    assert match.matched_rows == (1,)
 
 
 def test_time_depth_mapping_supports_relative_time() -> None:
@@ -82,3 +85,43 @@ def test_time_depth_mapping_rejects_timezone_awareness_mismatch() -> None:
 
     with pytest.raises(TimeDepthMappingError, match="Часовой пояс"):
         resolve_time_to_depth(dataset, "2026-07-15T05:00:10")
+
+
+@pytest.mark.parametrize(
+    ("policy", "expected_depth", "expected_row"),
+    [
+        (TimeDepthAggregationPolicy.FIRST, 110.0, 1),
+        (TimeDepthAggregationPolicy.LAST, 130.0, 2),
+        (TimeDepthAggregationPolicy.MIN, 110.0, 1),
+        (TimeDepthAggregationPolicy.MAX, 130.0, 2),
+        (TimeDepthAggregationPolicy.MEAN, 120.0, None),
+    ],
+)
+def test_time_depth_mapping_applies_explicit_repeated_pass_policy(
+    policy: TimeDepthAggregationPolicy,
+    expected_depth: float,
+    expected_row: int | None,
+) -> None:
+    dataset = make_dataset()
+    dataset.indexes["time"].values = np.array(
+        ["2026-07-15T05:00:00", "2026-07-15T05:00:10", "2026-07-15T05:00:10"],
+        dtype="datetime64[ns]",
+    )
+    dataset.depth[2] = 130.0
+    dataset.indexes[dataset.active_index_id].values[2] = 130.0
+
+    match = resolve_time_to_depth(
+        dataset,
+        "2026-07-15T05:00:10Z",
+        policy=policy,
+    )
+
+    assert match.depth == expected_depth
+    assert match.row == expected_row
+    assert match.policy is policy
+    assert match.matched_rows == (1, 2)
+
+
+def test_time_depth_mapping_rejects_untyped_policy() -> None:
+    with pytest.raises(TimeDepthMappingError, match="Неизвестная политика"):
+        resolve_time_to_depth(make_dataset(), "2026-07-15T05:00:10Z", policy="first")  # type: ignore[arg-type]
