@@ -10,6 +10,11 @@ from geoworkbench.services.channel_groups import (
     GAS_MNEMONIC_ORDER,
     available_mnemonics,
 )
+from geoworkbench.services.curve_catalog import (
+    CurveFamily,
+    analyze_dataset_curves,
+    recommended_curve_mnemonics,
+)
 from geoworkbench.tablet.models import (
     CurveStyle,
     TabletLayout,
@@ -27,30 +32,147 @@ class TabletController:
 
     def build_default_layout(self) -> TabletLayout:
         dataset = self._require_dataset()
-        curve_names = [curve.metadata.original_mnemonic for curve in dataset.curves.values()]
-        gas_names = available_mnemonics(dataset, GAS_MNEMONIC_ORDER)
-        remaining = [name for name in curve_names if name not in gas_names]
+        return self.build_layout_for_curves(recommended_curve_mnemonics(dataset))
 
+    def build_layout_for_curves(self, curve_mnemonics: list[str]) -> TabletLayout:
+        dataset = self._require_dataset()
+        selected = list(dict.fromkeys(curve_mnemonics))
+        self._validate_mnemonics(dataset, selected)
+        entries = {item.mnemonic: item for item in analyze_dataset_curves(dataset)}
+        tracks = self._context_tracks()
+
+        # A single X axis must only contain physically comparable parameters.
+        # Category-only grouping (for example all drilling curves together) is
+        # misleading because ROP, RPM, WOB and pressure use different units and
+        # scales. Family + unit therefore defines a display-compatible track.
+        grouped: dict[tuple[CurveFamily, str], list[str]] = {}
+        group_order: list[tuple[CurveFamily, str]] = []
+        for mnemonic in selected:
+            entry = entries.get(mnemonic)
+            family = entry.family if entry is not None else CurveFamily.OTHER
+            unit_key = (entry.unit if entry is not None else "").strip().casefold()
+            if family in {CurveFamily.GAS, CurveFamily.DEXP}:
+                # Gas components and DEXP/NCT are intentionally compared together;
+                # the logarithmic gas track handles their broad magnitude spread.
+                unit_key = ""
+            elif family is CurveFamily.OTHER:
+                unit_key = mnemonic.casefold()
+            key = (family, unit_key)
+            if key not in grouped:
+                grouped[key] = []
+                group_order.append(key)
+            grouped[key].append(mnemonic)
+
+        gas_order = available_mnemonics(dataset, GAS_MNEMONIC_ORDER)
+        dexp_order = available_mnemonics(dataset, DEXP_MNEMONIC_ORDER)
+        for family, unit_key in group_order:
+            mnemonics = grouped[(family, unit_key)]
+            if family is CurveFamily.GAS:
+                mnemonics = [name for name in gas_order if name in mnemonics] + [
+                    name for name in mnemonics if name not in gas_order
+                ]
+            elif family is CurveFamily.DEXP:
+                mnemonics = [name for name in dexp_order if name in mnemonics] + [
+                    name for name in mnemonics if name not in dexp_order
+                ]
+
+            title, kind, width, scale = self._family_track_spec(family, mnemonics)
+            tracks.append(
+                TrackDefinition(
+                    new_id(),
+                    title,
+                    kind,
+                    curve_mnemonics=mnemonics,
+                    width=width,
+                    x_scale=scale,
+                )
+            )
+
+        layout = TabletLayout(tracks)
+        self.session.set_current_tablet_layout(layout)
+        self.session.dirty = True
+        return layout
+
+    @staticmethod
+    def _family_track_spec(
+        family: CurveFamily,
+        mnemonics: list[str],
+    ) -> tuple[str, TrackKind, int, XScale]:
+        specs: dict[CurveFamily, tuple[str, TrackKind, int, XScale]] = {
+            CurveFamily.GAS: ("GAS", TrackKind.GAS, 380, XScale.LOGARITHMIC),
+            CurveFamily.ROP: ("ROP", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.ROTARY_SPEED: ("RPM", TrackKind.CURVE, 280, XScale.LINEAR),
+            CurveFamily.WOB: ("WOB", TrackKind.CURVE, 280, XScale.LINEAR),
+            CurveFamily.TORQUE: ("TQ", TrackKind.CURVE, 280, XScale.LINEAR),
+            CurveFamily.PRESSURE: ("SPP", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.HOOKLOAD: ("HKLD", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.FLOW: ("FLOW", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.DRILLING_DEPTH: ("DRILLING DEPTH", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.MUD_DENSITY: ("MW / ECD", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.TEMPERATURE: ("TEMP", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.PIT_VOLUME: ("PIT VOL", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.CONDUCTIVITY: ("CONDUCTIVITY", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.CHLORIDES: ("CHLORIDES", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.GAMMA_RAY: ("GR", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.SP: ("SP", TrackKind.CURVE, 280, XScale.LINEAR),
+            CurveFamily.CALIPER: ("CALI", TrackKind.CURVE, 280, XScale.LINEAR),
+            CurveFamily.BULK_DENSITY: ("RHOB", TrackKind.CURVE, 280, XScale.LINEAR),
+            CurveFamily.NEUTRON: ("NPHI", TrackKind.CURVE, 280, XScale.LINEAR),
+            CurveFamily.SONIC: ("DT", TrackKind.CURVE, 300, XScale.LINEAR),
+            CurveFamily.RESISTIVITY: ("RES", TrackKind.CURVE, 340, XScale.LOGARITHMIC),
+            CurveFamily.PEF: ("PEF", TrackKind.CURVE, 280, XScale.LINEAR),
+            CurveFamily.DEXP: ("DEXP / NCT", TrackKind.DEXP, 320, XScale.LINEAR),
+            CurveFamily.OTHER: (" / ".join(mnemonics), TrackKind.CURVE, 280, XScale.LINEAR),
+        }
+        return specs[family]
+
+    def replace_track_curves(
+        self,
+        track_id: str,
+        curve_mnemonics: list[str],
+    ) -> TrackDefinition:
+        dataset = self._require_dataset()
+        mnemonics = list(dict.fromkeys(curve_mnemonics))
+        if not mnemonics:
+            raise ValueError("Выберите хотя бы одну кривую")
+        self._validate_mnemonics(dataset, mnemonics)
+        track = self._require_layout().track_by_id(track_id)
+        if track.kind not in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}:
+            raise ValueError("Состав кривых можно менять только у графического трека")
+        track.curve_mnemonics = mnemonics
+        track.curve_styles = {
+            mnemonic: style
+            for mnemonic, style in track.curve_styles.items()
+            if mnemonic in mnemonics
+        }
+        track.title = " / ".join(mnemonics)
+        self.session.dirty = True
+        return track
+
+    def _context_tracks(self) -> list[TrackDefinition]:
         tracks = [TrackDefinition(new_id(), "Глубина", TrackKind.DEPTH, width=120)]
-        if self.session.current_well is not None and self.session.current_well.interpretations:
+        well = self.session.current_well
+        if well is None:
+            return tracks
+        if well.interpretations:
             tracks.append(
                 TrackDefinition(new_id(), "Интерпретация", TrackKind.INTERPRETATION, width=280)
             )
-        if self.session.current_well is not None and self.session.current_well.stratigraphy:
+        if well.stratigraphy:
             tracks.append(
                 TrackDefinition(new_id(), "Стратиграфия", TrackKind.STRATIGRAPHY, width=220)
             )
-        if self.session.current_well is not None and self.session.current_well.lithology:
+        if well.lithology:
             tracks.append(TrackDefinition(new_id(), "Литология", TrackKind.LITHOLOGY, width=180))
             tracks.append(TrackDefinition(new_id(), "Описание пород", TrackKind.TEXT, width=320))
-        if self.session.current_well is not None and self.session.current_well.cuttings:
-            if any(item.components for item in self.session.current_well.cuttings):
+        if well.cuttings:
+            if any(item.components for item in well.cuttings):
                 tracks.append(
                     TrackDefinition(new_id(), "Шламограмма", TrackKind.CUTTINGS, width=240)
                 )
             if any(
                 item.calcite_percent is not None or item.dolomite_percent is not None
-                for item in self.session.current_well.cuttings
+                for item in well.cuttings
             ):
                 tracks.append(
                     TrackDefinition(new_id(), "Кальциметрия", TrackKind.CALCIMETRY, width=220)
@@ -74,46 +196,10 @@ class TabletController:
                         item.lba_description,
                     )
                 )
-                for item in self.session.current_well.cuttings
+                for item in well.cuttings
             ):
                 tracks.append(TrackDefinition(new_id(), "ЛБА", TrackKind.LBA, width=260))
-        if gas_names:
-            tracks.append(
-                TrackDefinition(
-                    new_id(),
-                    "Газ",
-                    TrackKind.GAS,
-                    curve_mnemonics=gas_names[:8],
-                    width=360,
-                    x_scale=XScale.LOGARITHMIC,
-                )
-            )
-        dexp_names = available_mnemonics(dataset, DEXP_MNEMONIC_ORDER)
-        if dexp_names:
-            tracks.append(
-                TrackDefinition(
-                    new_id(),
-                    "DEXP / NCT",
-                    TrackKind.DEXP,
-                    curve_mnemonics=dexp_names,
-                    width=320,
-                )
-            )
-            remaining = [name for name in remaining if name not in dexp_names]
-        tracks.extend(
-            TrackDefinition(
-                new_id(),
-                mnemonic,
-                TrackKind.CURVE,
-                curve_mnemonics=[mnemonic],
-                width=250,
-            )
-            for mnemonic in remaining[:3]
-        )
-        layout = TabletLayout(tracks)
-        self.session.set_current_tablet_layout(layout)
-        self.session.dirty = True
-        return layout
+        return tracks
 
     def add_track(
         self,

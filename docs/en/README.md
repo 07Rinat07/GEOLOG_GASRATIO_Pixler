@@ -274,3 +274,17 @@ property panel. The panel edits top, bottom, type, label, color, and a multiline
 same validation and Undo/Redo history. Double-clicking an interval in the project tree opens the
 corresponding tablet selection. Active intervals are also included in the cursor summary. Switching
 wells automatically clears stale selection so properties cannot leak across wells.
+
+## LAS curve selection and tablet building
+
+After a LAS file is loaded, the dockable “LAS curves” panel opens. It lists each curve's mnemonic,
+unit, parameter group, finite-value coverage, actual range, and description. Search covers all of
+those fields. Channels without numeric data are disabled and clearly marked.
+
+“Select recommended” chooses a practical working set, while “Build tablet from selected” creates a
+readable layout based on physically compatible parameter families. Gas components and `DEXP/NCT`
+are compared together, while `ROP`, `RPM`, `WOB`, torque, pressure, flow, mud density, temperature,
+GR, resistivity, and other incompatible quantities receive independent scales. Selected curves can
+also be added as a new track or assigned to the currently selected graph track. The tablet uses a
+light plotting surface, units in legends, and a robust automatic X range that is not stretched by a
+single outlier.

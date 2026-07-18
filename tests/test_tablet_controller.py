@@ -409,12 +409,48 @@ def test_default_layout_and_manual_track_support_interpretations() -> None:
     controller = TabletController(session)
 
     layout = controller.build_default_layout()
-    default_track = next(
-        track for track in layout.tracks if track.kind is TrackKind.INTERPRETATION
-    )
+    default_track = next(track for track in layout.tracks if track.kind is TrackKind.INTERPRETATION)
     manual_track = controller.add_track(TrackKind.INTERPRETATION)
 
     assert default_track.title == "Интерпретация"
     assert default_track.width == 280
     assert manual_track.kind is TrackKind.INTERPRETATION
     assert manual_track.curve_mnemonics == []
+
+
+def test_layout_separates_incompatible_drilling_families() -> None:
+    session = make_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.upsert_curve("BIT_RPM", np.array([90.0, 100.0]), unit="rpm")
+    dataset.upsert_curve("WOB", np.array([8.0, 9.0]), unit="kN")
+    dataset.upsert_curve("SPP", np.array([1200.0, 1250.0]), unit="psi")
+
+    layout = TabletController(session).build_layout_for_curves(["ROP", "BIT_RPM", "WOB", "SPP"])
+
+    graph_tracks = [track for track in layout.tracks if track.kind is TrackKind.CURVE]
+    assert [track.title for track in graph_tracks] == ["ROP", "RPM", "WOB", "SPP"]
+    assert [track.curve_mnemonics for track in graph_tracks] == [
+        ["ROP"],
+        ["BIT_RPM"],
+        ["WOB"],
+        ["SPP"],
+    ]
+
+
+def test_layout_groups_only_compatible_resistivity_curves() -> None:
+    session = make_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.upsert_curve("ILD", np.array([2.0, 3.0]), unit="ohm.m")
+    dataset.upsert_curve("LLD", np.array([4.0, 5.0]), unit="ohm.m")
+    dataset.upsert_curve("GR", np.array([70.0, 80.0]), unit="API")
+
+    layout = TabletController(session).build_layout_for_curves(["ILD", "LLD", "GR"])
+
+    resistance = next(track for track in layout.tracks if track.title == "RES")
+    gamma = next(track for track in layout.tracks if track.title == "GR")
+    assert resistance.curve_mnemonics == ["ILD", "LLD"]
+    assert resistance.x_scale is XScale.LOGARITHMIC
+    assert gamma.curve_mnemonics == ["GR"]
+    assert gamma.x_scale is XScale.LINEAR

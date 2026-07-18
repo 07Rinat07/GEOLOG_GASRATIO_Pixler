@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased — LAS curve browser and readable tablet UX
+
+### Русский
+
+- добавлена закрепляемая панель выбора LAS-кривых с поиском, единицами, описанием, заполненностью и диапазоном;
+- добавлена классификация мнемоник по группам Газ/Бурение/Раствор/ГИС/DEXP-NCT/Другое;
+- добавлено построение планшета из выбранных кривых, добавление дорожки и замена состава выбранной дорожки;
+- базовая компоновка использует рекомендуемый рабочий набор и разделяет физически несовместимые семейства параметров по независимым шкалам;
+- планшет переведён на светлый контрастный фон, добавлен устойчивый автоматический X-диапазон и явное состояние «нет числовых данных»;
+- пустой журнал скрыт по умолчанию и открывается при ошибках;
+- regression suite: 730 passed, 1 skipped; Ruff и MyPy без ошибок.
+
+### Қазақша
+
+- іздеу, өлшем бірлігі, сипаттама, толу пайызы және ауқымы бар LAS қисықтарын таңдау панелі қосылды;
+- мнемоникаларды Газ/Бұрғылау/Ерітінді/ГИС/DEXP-NCT/Басқа топтарына жіктеу қосылды;
+- таңдалған қисықтардан планшет құру, жолақ қосу және таңдалған жолақ құрамын ауыстыру қосылды;
+- базалық компоновка ұсынылған жұмыс жиынын қолданып, физикалық тұрғыдан үйлеспейтін параметр отбасыларын жеке шкалаларға бөледі;
+- планшет ашық контрастты фонға ауыстырылды, тұрақты автоматты X ауқымы және «сандық деректер жоқ» күйі қосылды;
+- бос журнал әдепкіде жасырылып, қате кезінде ашылады;
+- regression suite: 730 passed, 1 skipped; Ruff және MyPy қатесіз.
+
+### English
+
+- added a dockable LAS curve browser with search, units, descriptions, coverage, and actual ranges;
+- added mnemonic classification into Gas/Drilling/Mud/Petrophysics/DEXP-NCT/Other groups;
+- added tablet creation from selected curves, new-track creation, and selected-track curve replacement;
+- the default layout uses a recommended working set and separates physically incompatible parameter families onto independent scales;
+- switched tablet plots to a light high-contrast surface, added robust automatic X ranges, and an explicit no-numeric-data state;
+- the empty log dock is hidden by default and opens for errors;
+- regression suite: 730 passed, 1 skipped; Ruff and MyPy pass cleanly.
+
 ## Unreleased — Interpretation tablet visualization
 
 ### Русский

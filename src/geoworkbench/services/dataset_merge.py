@@ -217,4 +217,6 @@ def _positions_on_union(
 
 
 def _tolerance(values: NDArray[np.float64]) -> float:
-    return np.finfo(np.float64).eps * max(1.0, float(np.max(np.abs(values)))) * 16
+    return float(
+        np.finfo(np.float64).eps * max(1.0, float(np.max(np.abs(values)))) * 16
+    )

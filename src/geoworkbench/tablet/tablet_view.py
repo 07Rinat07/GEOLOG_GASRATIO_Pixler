@@ -79,6 +79,10 @@ class TabletTrackWidget(QFrame):
         self._resize_gesture: TrackResizeGesture | None = None
         self.setObjectName(f"track-{definition.track_id}")
         self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setStyleSheet(
+            "QFrame { background: #ffffff; border: 1px solid #cbd5e1; } "
+            "QLabel { background: #f8fafc; color: #0f172a; }"
+        )
         self.setMinimumWidth(definition.width)
         self.setMaximumWidth(definition.width)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
@@ -86,10 +90,17 @@ class TabletTrackWidget(QFrame):
         self.title = QLabel(definition.title)
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title.setStyleSheet(
-            "font-weight: 600; padding: 5px; border-bottom: 1px solid palette(mid);"
+            "font-weight: 600; padding: 6px; "
+            "background: #f8fafc; color: #0f172a; "
+            "border-bottom: 1px solid #cbd5e1;"
         )
 
         self.plot = pg.PlotWidget()
+        self.plot.setBackground("#ffffff")
+        for axis_name in ("left", "bottom"):
+            axis = self.plot.getAxis(axis_name)
+            axis.setPen(pg.mkPen("#475569"))
+            axis.setTextPen(pg.mkPen("#334155"))
         self.plot.showGrid(
             x=definition.grid_x,
             y=definition.grid_y,
@@ -934,7 +945,56 @@ class TabletView(QWidget):
                 minimum = float(np.log10(minimum))
                 maximum = float(np.log10(maximum))
             track.plot.setXRange(minimum, maximum, padding=0)
+        elif curve_items:
+            automatic_range = self._automatic_track_x_range(definition, logarithmic)
+            if automatic_range is not None:
+                track.plot.setXRange(*automatic_range, padding=0)
+        else:
+            track.title.setText(f"{definition.title} — нет числовых данных")
+            message = pg.TextItem("Нет числовых данных", color="#64748b", anchor=(0.5, 0.5))
+            depth_bounds = self._depth_bounds()
+            center_depth = sum(depth_bounds) / 2.0 if depth_bounds is not None else 0.0
+            message.setPos(0.5, center_depth)
+            track.plot.addItem(message)
+            track.plot.setLogMode(x=False, y=False)
+            track.plot.setXRange(0.0, 1.0, padding=0)
         return tuple(legend_labels), curve_items
+
+    def _automatic_track_x_range(
+        self, definition: TrackDefinition, logarithmic: bool
+    ) -> tuple[float, float] | None:
+        if self._dataset is None:
+            return None
+        values: list[np.ndarray] = []
+        for mnemonic in definition.curve_mnemonics:
+            curve = self._dataset.curve_by_mnemonic(mnemonic)
+            if curve is None:
+                continue
+            finite = np.asarray(curve.values, dtype=float)
+            finite = finite[np.isfinite(finite)]
+            if logarithmic:
+                finite = finite[finite > 0]
+            if finite.size:
+                values.append(finite)
+        if not values:
+            return None
+        combined = np.concatenate(values)
+        if combined.size >= 10:
+            minimum, maximum = (
+                float(value) for value in np.nanpercentile(combined, [1.0, 99.0])
+            )
+        else:
+            minimum, maximum = float(np.min(combined)), float(np.max(combined))
+        if logarithmic:
+            minimum = float(np.log10(max(minimum, float(np.min(combined)))))
+            maximum = float(np.log10(maximum))
+        if not np.isfinite(minimum) or not np.isfinite(maximum):
+            return None
+        if minimum == maximum:
+            padding = max(abs(minimum) * 0.05, 0.1)
+        else:
+            padding = (maximum - minimum) * 0.04
+        return minimum - padding, maximum + padding
 
     def _populate_lithology(
         self, track: TabletTrackWidget, definition: TrackDefinition

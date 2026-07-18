@@ -173,7 +173,7 @@ def _depth_tolerance(source: Dataset, target: Dataset) -> float:
         float(np.max(np.abs(source.depth))),
         float(np.max(np.abs(target.depth))),
     )
-    return np.finfo(np.float64).eps * scale * 16
+    return float(np.finfo(np.float64).eps * scale * 16)
 
 
 def _interpolate_without_bridging(

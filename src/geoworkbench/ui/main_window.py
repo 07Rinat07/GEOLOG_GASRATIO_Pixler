@@ -109,6 +109,7 @@ from geoworkbench.ui.nct_dialog import NctCalculationDialog
 from geoworkbench.ui.new_las_dialog import NewLasDialog
 from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
+from geoworkbench.ui.las_curve_browser import LasCurveBrowser
 from geoworkbench.ui.print_page_dialog import PrintPageDialog
 from geoworkbench.ui.masterlog_templates_dialog import MasterlogTemplatesDialog
 from geoworkbench.visualization.curve_view import CurveView
@@ -206,6 +207,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.tabs)
 
         self._create_project_explorer()
+        self._create_curve_browser()
         self._create_inspector()
         self._create_interpretation_properties_panel()
         self._create_issues_panel()
@@ -234,13 +236,25 @@ class MainWindow(QMainWindow):
         return self.project_controller.project_path
 
     def _create_project_explorer(self) -> None:
-        dock = QDockWidget(self._t("dock.project"), self)
+        self.project_dock = QDockWidget(self._t("dock.project"), self)
         self.tree = QTreeWidget()
         self.tree.setHeaderLabel(self._t("explorer.title"))
         self.tree.itemDoubleClicked.connect(self._activate_tree_item)
-        dock.setWidget(self.tree)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
+        self.project_dock.setWidget(self.tree)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.project_dock)
         self._refresh_tree()
+
+    def _create_curve_browser(self) -> None:
+        self.curve_browser_dock = QDockWidget(self._t("curve_browser.title"), self)
+        self.curve_browser = LasCurveBrowser(language=self.language)
+        self.curve_browser.setMinimumWidth(440)
+        self.curve_browser.build_requested.connect(self._build_tablet_from_curve_selection)
+        self.curve_browser.add_requested.connect(self._add_curves_from_browser)
+        self.curve_browser.replace_requested.connect(self._replace_selected_track_curves)
+        self.curve_browser_dock.setWidget(self.curve_browser)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.curve_browser_dock)
+        self.tabifyDockWidget(self.project_dock, self.curve_browser_dock)
+        self.curve_browser_dock.hide()
 
     def _create_inspector(self) -> None:
         dock = QDockWidget(self._t("dock.inspector"), self)
@@ -273,11 +287,12 @@ class MainWindow(QMainWindow):
         self.interpretation_properties_dock.hide()
 
     def _create_issues_panel(self) -> None:
-        dock = QDockWidget(self._t("dock.log"), self)
+        self.issues_dock = QDockWidget(self._t("dock.log"), self)
         self.issues = QTextEdit()
         self.issues.setReadOnly(True)
-        dock.setWidget(self.issues)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+        self.issues_dock.setWidget(self.issues)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.issues_dock)
+        self.issues_dock.hide()
 
     def _create_cursor_panel(self) -> None:
         self.cursor_dock = QDockWidget("Параметры по визиру", self)
@@ -537,6 +552,10 @@ class MainWindow(QMainWindow):
         self.default_tablet_action = QAction(self._t("tablet.build_default"), self)
         self.default_tablet_action.triggered.connect(self.build_default_tablet)
         tablet_menu.addAction(self.default_tablet_action)
+
+        self.curve_browser_action = self.curve_browser_dock.toggleViewAction()
+        self.curve_browser_action.setText(self._t("curve_browser.title"))
+        tablet_menu.addAction(self.curve_browser_action)
 
         save_preset_action = QAction(self._t("tablet.preset_save"), self)
         save_preset_action.triggered.connect(self.save_tablet_preset)
@@ -836,6 +855,10 @@ class MainWindow(QMainWindow):
         )
         self.tablet_view.set_cuttings(last_well.cuttings)
         self.tablet_view.set_stratigraphy(last_well.stratigraphy)
+        self.curve_browser.set_dataset(last_dataset)
+        self.curve_browser.select_recommended()
+        self.curve_browser_dock.show()
+        self.curve_browser_dock.raise_()
         self.build_default_tablet()
         self.inspector.setPlainText(
             f"{self._t('inspector.well')}: {last_well.name}\n"
@@ -1006,12 +1029,17 @@ class MainWindow(QMainWindow):
             self.tablet_view.set_cuttings([])
             self.tablet_view.set_stratigraphy([])
             self.tablet_view.set_interpretations([])
+            self.curve_browser.set_dataset(None)
+            self.curve_browser_dock.hide()
             self.interpretation_properties.clear()
             self.interpretation_properties_dock.hide()
             return
         self.curve_view.show_dataset(dataset)
         self.las_table_editor.set_dataset(dataset)
         self.tablet_view.set_dataset(dataset)
+        self.curve_browser.set_dataset(dataset)
+        self.curve_browser.select_recommended()
+        self.curve_browser_dock.show()
         well = self.session.current_well
         self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
         self.tablet_view.set_lithology(
@@ -1575,6 +1603,57 @@ class MainWindow(QMainWindow):
     def _update_curve_edit_actions(self) -> None:
         self.undo_action.setEnabled(self.curve_editing_controller.history.can_undo)
         self.redo_action.setEnabled(self.curve_editing_controller.history.can_redo)
+
+    def _build_tablet_from_curve_selection(self, mnemonics: object) -> None:
+        selected = [str(item) for item in mnemonics] if isinstance(mnemonics, list) else []
+        if not selected:
+            return
+        try:
+            layout = self.tablet_controller.build_layout_for_curves(selected)
+        except (RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("curve_browser.title"), str(exc))
+            return
+        self._selected_track_id = None
+        self.curve_browser.set_replace_enabled(False)
+        self.tablet_view.set_layout_model(layout)
+        self.tablet_view.set_dataset(self.session.current_dataset)
+        self.tabs.setCurrentWidget(self.tablet_view)
+        self._refresh_tree()
+        self._update_title()
+        self.statusBar().showMessage(
+            self._t("curve_browser.built_status", count=len(selected))
+        )
+
+    def _add_curves_from_browser(self, mnemonics: object) -> None:
+        selected = [str(item) for item in mnemonics] if isinstance(mnemonics, list) else []
+        if not selected:
+            return
+        try:
+            track = self.tablet_controller.add_track(TrackKind.CURVE, selected)
+        except (RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("curve_browser.title"), str(exc))
+            return
+        self.tablet_view.refresh_view()
+        self._show_track_in_inspector(track.track_id)
+        self.tabs.setCurrentWidget(self.tablet_view)
+        self._refresh_tree()
+        self._update_title()
+
+    def _replace_selected_track_curves(self, mnemonics: object) -> None:
+        selected = [str(item) for item in mnemonics] if isinstance(mnemonics, list) else []
+        if not selected or self._selected_track_id is None:
+            return
+        try:
+            track = self.tablet_controller.replace_track_curves(
+                self._selected_track_id, selected
+            )
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("curve_browser.title"), str(exc))
+            return
+        self.tablet_view.refresh_view()
+        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
+        self._refresh_tree()
+        self._update_title()
 
     def build_default_tablet(self) -> None:
         dataset = self.session.current_dataset
@@ -2721,7 +2800,11 @@ class MainWindow(QMainWindow):
             None,
         )
         if track is None:
+            self.curve_browser.set_replace_enabled(False)
             return
+        self.curve_browser.set_replace_enabled(
+            track.kind in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
+        )
         self.inspector.show_track(track, suggested_range=self._track_data_range(track))
 
     def _track_data_range(self, track: TrackDefinition) -> tuple[float, float] | None:
@@ -2829,6 +2912,9 @@ class MainWindow(QMainWindow):
 
     def _log(self, text: str) -> None:
         self.issues.append(text)
+        normalized = text.casefold()
+        if "ошибка" in normalized or "error" in normalized or "failed" in normalized:
+            self.issues_dock.show()
 
     def show_about(self) -> None:
         dialog = QMessageBox(self)

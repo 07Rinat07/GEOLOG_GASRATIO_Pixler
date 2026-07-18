@@ -4,64 +4,61 @@
 
 **Пакет приложения:** 0.6.0  
 **Формат проекта:** v15  
-**Состояние:** активная разработка; завершён рабочий инкремент планшетной визуализации интерпретационных интервалов.
+**Состояние:** активная разработка; исправлен основной пользовательский сценарий загрузки LAS и построения планшета.
 
 Готово в текущем инкременте:
 
-- отдельная дорожка активной интерпретации на планшете;
-- независимые полосы для типов интервалов и корректное отображение наложений разных типов;
-- hit-testing по полосе и глубине;
-- синхронное выделение между планшетом, менеджером и деревом проекта;
-- редактируемая панель свойств: кровля, подошва, тип, подпись, цвет и многострочный комментарий;
-- обновление через существующую валидацию и Undo/Redo;
-- данные активных интервалов в сводке визирной линии;
-- безопасный сброс устаревшего выбора при переключении скважин и открытии проекта;
+- отдельная панель «Кривые LAS» с поиском и полной сводкой каналов;
+- выбор рекомендуемого набора кривых;
+- построение планшета из выбранных каналов с отдельными шкалами для несовместимых физических параметров;
+- добавление новой дорожки и замена кривых выбранной дорожки;
+- светлый контрастный рендер, единицы в легенде и устойчивый автоматический диапазон X;
+- явное отображение каналов без числовых данных;
+- пустой журнал скрыт по умолчанию;
 - синхронная локализация RU/KK/EN;
-- полный regression suite: 721 passed, 1 skipped;
+- полный regression suite: 730 passed, 1 skipped;
 - Ruff и MyPy: без ошибок.
 
-Следующий срез: прямое создание интервала и изменение его границ жестами на планшете с preview, привязкой к глубине и отменой операции.
+Следующий срез: импорт внешнего справочника мнемоник/Sensors после получения полного референсного материала, затем прямое создание интервалов мышью на планшете.
 
 ## Қазақша
 
 **Қолданба пакеті:** 0.6.0  
 **Жоба форматы:** v15  
-**Күйі:** белсенді әзірлеу; интерпретациялық аралықтарды планшетте көрсету инкременті аяқталды.
+**Күйі:** белсенді әзірлеу; LAS жүктеу және планшет құрудың негізгі пайдаланушы сценарийі түзетілді.
 
 Осы инкрементте орындалды:
 
-- планшетте белсенді интерпретацияға арналған жеке трек;
-- аралық түрлеріне арналған тәуелсіз жолақтар және әртүрлі түрлердің қабаттасуын дұрыс көрсету;
-- жолақ пен тереңдік бойынша hit-testing;
-- планшет, менеджер және жоба ағашы арасында синхронды таңдау;
-- өңделетін қасиеттер панелі: төбе, табан, түр, белгі, түс және көпжолды түсініктеме;
-- қолданыстағы тексеру мен Undo/Redo арқылы жаңарту;
-- белсенді аралық деректері визир сызығының жиынтығында;
-- ұңғыманы ауыстырғанда және жобаны ашқанда ескірген таңдауды қауіпсіз тазарту;
-- RU/KK/EN локализациясының синхрондалуы;
-- толық regression suite: 721 passed, 1 skipped;
+- іздеу және арналардың толық жиынтығы бар «LAS қисықтары» панелі;
+- ұсынылған қисықтар жиынын таңдау;
+- таңдалған арналардан үйлеспейтін физикалық параметрлерге жеке шкалалар беретін планшет құру;
+- жаңа жолақ қосу және таңдалған жолақ қисықтарын ауыстыру;
+- ашық контрастты рендер, легендадағы өлшем бірліктері және тұрақты автоматты X ауқымы;
+- сандық деректері жоқ арналарды анық көрсету;
+- бос журнал әдепкіде жасырылған;
+- RU/KK/EN локализациясы синхрондалған;
+- толық regression suite: 730 passed, 1 skipped;
 - Ruff және MyPy: қатесіз.
 
-Келесі срез: preview, тереңдікке байланыстыру және операцияны болдырмау арқылы планшетте аралықты тікелей жасау және шекараларын қимылмен өзгерту.
+Келесі срез: толық референс материалы алынғаннан кейін сыртқы мнемоника/Sensors анықтамалығын импорттау, содан соң планшетте аралықтарды тінтуірмен тікелей жасау.
 
 ## English
 
 **Application package:** 0.6.0  
 **Project format:** v15  
-**Status:** active development; the interpretation interval tablet-visualization increment is complete.
+**Status:** active development; the primary LAS-loading and tablet-building workflow has been corrected.
 
 Completed in this increment:
 
-- a dedicated tablet track for the active interpretation;
-- independent lanes for interval types and correct rendering of different-type overlays;
-- lane-and-depth hit testing;
-- synchronized selection across the tablet, manager, and project tree;
-- an editable property panel for top, bottom, type, label, color, and multiline comment;
-- updates routed through the existing validation and Undo/Redo history;
-- active interval data in the cursor summary;
-- safe stale-selection clearing when switching wells or opening a project;
+- a dedicated LAS curves panel with search and complete channel summaries;
+- recommended working-set selection;
+- tablet construction from selected channels with independent scales for incompatible physical parameters;
+- new-track creation and selected-track curve replacement;
+- light high-contrast rendering, units in legends, and robust automatic X ranges;
+- explicit display of channels without numeric data;
+- the empty log dock is hidden by default;
 - synchronized RU/KK/EN localization;
-- full regression suite: 721 passed, 1 skipped;
+- full regression suite: 730 passed, 1 skipped;
 - Ruff and MyPy: clean.
 
-Next slice: direct interval creation and boundary editing with tablet gestures, preview, depth snapping, and cancellable history commands.
+Next slice: external mnemonic/Sensors catalog import after the complete reference material is available, followed by direct mouse-driven interval creation on the tablet.

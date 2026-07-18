@@ -16,7 +16,7 @@
 ## Локальная проверка
 
 ```bash
-.venv/bin/pytest -q
+.venv/bin/python scripts/run_tests.py
 .venv/bin/ruff check src tests
 
 # Производительность экранного peak sampling на 2 млн отсчётов
@@ -25,8 +25,10 @@ PYTHONPATH=src .venv/bin/python benchmarks/benchmark_curve_sampling.py
 git diff --check
 ```
 
-Qt-тесты запускаются с платформой `offscreen`, настроенной в `tests/conftest.py`, и не
-требуют активной графической сессии.
+Qt-тесты запускаются с платформой `offscreen` и software-rendering. Скрипт
+`scripts/run_tests.py` до импорта pytest отключает посторонние глобальные плагины, которые не
+нужны проекту и могут вмешиваться в завершение native Qt runtime. Активная графическая сессия
+не требуется.
 
 ## Проверка пакета
 
@@ -59,6 +61,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Track Inspector UI | RU/KK/EN summary/settings and stable linear/logarithmic model values |
 | Data Inspector UI | RU/KK/EN tabs/tables/messages, curve metadata, indexes and LAS header controls |
 | Tablet workflow UI | RU/KK/EN menus/dialogs/messages and stable TrackKind/XScale values |
+| LAS Curve Browser | Mnemonic/unit/description search, finite coverage, recommended selection, family separation and main-window integration |
 | Graph ranges | Per-track auto/manual X range, data-derived defaults and manual/full depth interval |
 | Depth normalization UI | RU/KK/EN directions/confirmation and non-destructive copy workflow |
 | Basic Gas Ratio UI | RU/KK/EN command/status/log with stable calculated curve mnemonics |

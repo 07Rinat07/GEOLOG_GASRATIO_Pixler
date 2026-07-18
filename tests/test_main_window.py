@@ -297,9 +297,7 @@ def test_window_applies_x_axis_label_from_inspector(qapp) -> None:
 def test_window_applies_selected_tablet_preset(qapp, monkeypatch) -> None:
     window = MainWindow()
     session, layout = make_session()
-    preset = TabletLayout(
-        [TrackDefinition("preset-depth", "Depth", TrackKind.DEPTH, width=180)]
-    )
+    preset = TabletLayout([TrackDefinition("preset-depth", "Depth", TrackKind.DEPTH, width=180)])
     session.tablet_presets["Standard"] = preset
     bind_session(window, session)
     window._show_current_dataset()
@@ -520,9 +518,7 @@ def test_window_creates_new_las_dataset(qapp, monkeypatch) -> None:
         dialog.step_input.setValue(0.5)
         return QDialog.DialogCode.Accepted
 
-    monkeypatch.setattr(
-        "geoworkbench.ui.main_window.NewLasDialog.exec", accept_small_grid
-    )
+    monkeypatch.setattr("geoworkbench.ui.main_window.NewLasDialog.exec", accept_small_grid)
 
     window.create_new_las()
 
@@ -540,9 +536,7 @@ def test_window_inserts_curves_and_updates_transfer_history_actions(qapp, monkey
     target = session.current_dataset
     well = session.current_well
     assert target is not None and well is not None
-    source = Dataset(
-        "source", "Source GIS", DatasetKind.GIS, DepthDomain.MD, target.depth.copy()
-    )
+    source = Dataset("source", "Source GIS", DatasetKind.GIS, DepthDomain.MD, target.depth.copy())
     source.curves["gr"] = CurveData(
         CurveMetadata("gr", "GR", "GR", "API", None, source.dataset_id),
         np.array([10.0, 20.0]),
@@ -661,4 +655,36 @@ def test_project_tree_track_activation_selects_inspector_track(qapp) -> None:
 
     assert window._selected_track_id == "curve"
     assert "Curve" in window.inspector._summary.text()
+    window.close()
+
+
+def test_window_shows_las_curve_browser_for_current_dataset(qapp) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+
+    window._show_current_dataset()
+    qapp.processEvents()
+
+    assert window.curve_browser.tree.topLevelItemCount() == 1
+    assert window.curve_browser.selected_mnemonics() == ["ROP"]
+    assert not window.curve_browser_dock.isHidden()
+    window.close()
+
+
+def test_window_builds_tablet_from_curve_browser_selection(qapp) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    window._show_current_dataset()
+
+    window._build_tablet_from_curve_selection(["ROP"])
+    qapp.processEvents()
+
+    layout = session.current_tablet_layout
+    assert layout is not None
+    curve_track = next(track for track in layout.tracks if track.kind is TrackKind.CURVE)
+    assert curve_track.title == "ROP"
+    assert curve_track.curve_mnemonics == ["ROP"]
+    assert window.tabs.currentWidget() is window.tablet_view
     window.close()
