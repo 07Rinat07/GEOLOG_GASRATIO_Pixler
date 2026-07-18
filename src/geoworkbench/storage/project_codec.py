@@ -21,6 +21,8 @@ from geoworkbench.domain.models import (
     DepthDomain,
     IndexRole,
     IndexType,
+    TimeDepthAggregationPolicy,
+    TimeDepthMappingProfile,
     LithologyInterval,
     MasterlogColumnTemplate,
     MasterlogHeaderElement,
@@ -54,7 +56,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 13
+PROJECT_FORMAT_VERSION = 14
 
 
 @dataclass(slots=True)
@@ -378,6 +380,52 @@ def project_from_dict(data: dict[str, Any]) -> Project:
                 f"ID профиля экспорта '{profile_id}' не совпадает с содержимым"
             )
         project.export_profiles[profile_id] = profile
+    raw_mapping_profiles = data.get("time_depth_mapping_profiles", {})
+    if not isinstance(raw_mapping_profiles, dict):
+        raise ProjectFormatError("Поле 'time_depth_mapping_profiles' должно быть объектом")
+    for profile_id, item in raw_mapping_profiles.items():
+        if not isinstance(profile_id, str) or not isinstance(item, dict):
+            raise ProjectFormatError("Запись TIME↔DEPTH профиля имеет неверный формат")
+        try:
+            mapping_profile = TimeDepthMappingProfile(
+                profile_id=str(_required(item, "profile_id", str)),
+                name=str(_required(item, "name", str)),
+                dataset_id=str(_required(item, "dataset_id", str)),
+                time_index_id=str(_required(item, "time_index_id", str)),
+                depth_index_id=str(_required(item, "depth_index_id", str)),
+                aggregation_policy=TimeDepthAggregationPolicy(
+                    str(_required(item, "aggregation_policy", str))
+                ),
+                version=int(item.get("version", 1)),
+            )
+        except (TypeError, ValueError) as exc:
+            raise ProjectFormatError(f"Некорректный TIME↔DEPTH профиль '{profile_id}'") from exc
+        if mapping_profile.profile_id != profile_id:
+            raise ProjectFormatError(
+                f"ID TIME↔DEPTH профиля '{profile_id}' не совпадает с содержимым"
+            )
+        project.time_depth_mapping_profiles[profile_id] = mapping_profile
+    datasets = {
+        dataset.dataset_id: dataset
+        for well in project.wells.values()
+        for dataset in well.datasets.values()
+    }
+    for mapping_profile in project.time_depth_mapping_profiles.values():
+        dataset = datasets.get(mapping_profile.dataset_id)
+        if dataset is None:
+            raise ProjectFormatError(
+                f"TIME↔DEPTH профиль '{mapping_profile.profile_id}' ссылается на неизвестный набор"
+            )
+        for index_id, role in (
+            (mapping_profile.time_index_id, IndexRole.TIME),
+            (mapping_profile.depth_index_id, IndexRole.DEPTH),
+        ):
+            index = dataset.indexes.get(index_id)
+            if index is None or index.role is not role:
+                raise ProjectFormatError(
+                    f"TIME↔DEPTH профиль '{mapping_profile.profile_id}' "
+                    f"ссылается на индекс без роли {role.value}"
+                )
     return project
 
 

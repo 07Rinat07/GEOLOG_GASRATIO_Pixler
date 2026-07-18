@@ -38,6 +38,15 @@ class IndexRole(StrEnum):
     GENERIC = "generic"
 
 
+class TimeDepthAggregationPolicy(StrEnum):
+    ERROR = "error"
+    FIRST = "first"
+    LAST = "last"
+    MIN = "min"
+    MAX = "max"
+    MEAN = "mean"
+
+
 class DatasetKind(StrEnum):
     GTI = "gti"
     GIS = "gis"
@@ -436,6 +445,26 @@ class ExportProfile:
 
 
 @dataclass(frozen=True, slots=True)
+class TimeDepthMappingProfile:
+    profile_id: str
+    name: str
+    dataset_id: str
+    time_index_id: str
+    depth_index_id: str
+    aggregation_policy: TimeDepthAggregationPolicy
+    version: int = 1
+
+    def __post_init__(self) -> None:
+        identifiers = (self.profile_id, self.dataset_id, self.time_index_id, self.depth_index_id)
+        if any(not value.strip() for value in identifiers) or not self.name.strip():
+            raise ValueError("ID и имя TIME↔DEPTH профиля не могут быть пустыми")
+        if len(self.name) > 100:
+            raise ValueError("Имя TIME↔DEPTH профиля не должно превышать 100 символов")
+        if isinstance(self.version, bool) or not isinstance(self.version, int) or self.version < 1:
+            raise ValueError("Версия TIME↔DEPTH профиля должна быть положительным целым числом")
+
+
+@dataclass(frozen=True, slots=True)
 class ProjectLithotype:
     lithotype_id: str
     code: str
@@ -468,3 +497,4 @@ class Project:
     masterlog_templates: dict[str, MasterlogTemplate] = field(default_factory=dict)
     custom_formulas: dict[str, CustomFormulaDefinition] = field(default_factory=dict)
     export_profiles: dict[str, ExportProfile] = field(default_factory=dict)
+    time_depth_mapping_profiles: dict[str, TimeDepthMappingProfile] = field(default_factory=dict)

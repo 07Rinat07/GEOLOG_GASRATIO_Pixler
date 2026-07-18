@@ -16,6 +16,8 @@ from geoworkbench.domain.models import (
     DepthDomain,
     IndexRole,
     IndexType,
+    TimeDepthAggregationPolicy,
+    TimeDepthMappingProfile,
     MasterlogColumnTemplate,
     MasterlogHeaderElement,
     MasterlogTemplate,
@@ -105,6 +107,25 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     project.export_profiles["gas-profile"] = ExportProfile(
         "gas-profile", "Gas profile", ("C1", "C2")
     )
+    dataset = project.wells["well-1"].datasets["dataset-1"]
+    dataset.add_index(
+        DatasetIndex(
+            "time",
+            "TIME",
+            IndexType.RELATIVE_TIME,
+            IndexRole.TIME,
+            "s",
+            np.array([0.0, 1.0]),
+        )
+    )
+    project.time_depth_mapping_profiles["time-depth"] = TimeDepthMappingProfile(
+        "time-depth",
+        "Time to depth",
+        "dataset-1",
+        "time",
+        dataset.active_index_id,
+        TimeDepthAggregationPolicy.LAST,
+    )
 
     preset = TabletLayout(
         [TrackDefinition("preset-depth", "Depth", TrackKind.DEPTH, width=150)]
@@ -128,10 +149,39 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
         "C1",
         "C2",
     )
+    assert (
+        document.project.time_depth_mapping_profiles["time-depth"].aggregation_policy
+        is TimeDepthAggregationPolicy.LAST
+    )
     assert document.project.wells["well-1"].datasets["dataset-1"].version_headers["DLM"] == "SPACE"
     assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == (
         PROJECT_FORMAT_VERSION
     )
+
+
+def test_project_rejects_mapping_profile_with_unknown_dataset() -> None:
+    payload = {
+        "format_version": PROJECT_FORMAT_VERSION,
+        "project": {
+            "project_id": "p",
+            "name": "P",
+            "wells": {},
+            "time_depth_mapping_profiles": {
+                "mapping": {
+                    "profile_id": "mapping",
+                    "name": "Mapping",
+                    "dataset_id": "missing",
+                    "time_index_id": "time",
+                    "depth_index_id": "depth",
+                    "aggregation_policy": "first",
+                }
+            },
+        },
+        "tablet_layouts": {},
+    }
+
+    with pytest.raises(ProjectFormatError, match="неизвестный набор"):
+        project_document_from_dict(payload)
 
 
 def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -> None:

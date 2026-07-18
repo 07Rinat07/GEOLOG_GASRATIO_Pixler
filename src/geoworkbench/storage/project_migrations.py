@@ -227,6 +227,16 @@ def _migrate_v12_to_v13(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v13_to_v14(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 13 не содержит объекта 'project'")
+    project.setdefault("time_depth_mapping_profiles", {})
+    migrated["format_version"] = 14
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -241,6 +251,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(9, _migrate_v9_to_v10)
 DEFAULT_PROJECT_MIGRATIONS.register(10, _migrate_v10_to_v11)
 DEFAULT_PROJECT_MIGRATIONS.register(11, _migrate_v11_to_v12)
 DEFAULT_PROJECT_MIGRATIONS.register(12, _migrate_v12_to_v13)
+DEFAULT_PROJECT_MIGRATIONS.register(13, _migrate_v13_to_v14)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

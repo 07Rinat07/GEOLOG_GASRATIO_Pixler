@@ -1,25 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
-
 import numpy as np
 
-from geoworkbench.domain.models import Dataset, DatasetIndex, IndexRole, IndexType
+from geoworkbench.domain.models import (
+    Dataset,
+    DatasetIndex,
+    IndexRole,
+    IndexType,
+    TimeDepthAggregationPolicy,
+)
 from geoworkbench.services.time_normalization import normalize_iso8601_strings
 
 
 class TimeDepthMappingError(ValueError):
     pass
-
-
-class TimeDepthAggregationPolicy(StrEnum):
-    ERROR = "error"
-    FIRST = "first"
-    LAST = "last"
-    MIN = "min"
-    MAX = "max"
-    MEAN = "mean"
 
 
 @dataclass(frozen=True, slots=True)

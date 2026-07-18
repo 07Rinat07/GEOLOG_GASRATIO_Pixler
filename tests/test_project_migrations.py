@@ -94,6 +94,16 @@ def test_v12_project_adds_kazakh_lithotype_name_without_mutating_source() -> Non
     assert "name_kk" not in payload["project"]["lithotypes"]["custom"]
 
 
+def test_v13_project_migrates_with_empty_time_depth_mapping_profiles() -> None:
+    payload = {"format_version": 13, "project": {}}
+
+    migrated = migrate_project_payload(payload, 14)
+
+    assert migrated["format_version"] == 14
+    assert migrated["project"]["time_depth_mapping_profiles"] == {}
+    assert "time_depth_mapping_profiles" not in payload["project"]
+
+
 def test_registry_rejects_missing_migration_step() -> None:
     registry = ProjectMigrationRegistry()
 

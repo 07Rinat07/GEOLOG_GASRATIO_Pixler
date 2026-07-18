@@ -8,9 +8,9 @@ from geoworkbench.domain.models import (
     DepthDomain,
     IndexRole,
     IndexType,
+    TimeDepthAggregationPolicy,
 )
 from geoworkbench.services.time_depth_mapping import (
-    TimeDepthAggregationPolicy,
     TimeDepthMappingError,
     resolve_time_to_depth,
 )
