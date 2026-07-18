@@ -151,7 +151,8 @@ Roadmap следует зависимостям продукта, а не ном
    - готово: actual mapping/passport встроенных DEXP/Pixler/normalization профилей;
    - готово: TIME↔DEPTH nearest mapping с явными error/first/last/min/max/mean политиками повторных проходов;
    - готово: versioned project mapping-профили с привязкой к dataset/индексам и application controller;
-   - далее: интервалы агрегации и UI.
+   - готово: RU/KK/EN UI создания, удаления и пробного применения mapping-профиля;
+   - далее: интервалы агрегации.
 8. **Graph performance follow-up**
    - готово: depth-aware peak sampling до 5000 экранных точек для Curve View и Tablet View;
    - готово: пересэмплирование Curve View при зуме с возвратом исходной детализации;

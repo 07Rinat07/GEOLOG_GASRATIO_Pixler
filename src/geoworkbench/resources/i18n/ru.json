@@ -195,6 +195,7 @@
   "parquet_export.success": "Dataset экспортирован в Parquet: {name}",
   "parquet_export.failed": "Dataset не экспортирован в Parquet: {error}",
   "formula.action": "Профили формул и расчёт...",
+  "time_depth.action": "TIME↔DEPTH профили...",
   "formula.profiles_title": "Профили расчётных формул",
   "formula.calculate": "Рассчитать",
   "formula.no_profiles": "Нет зарегистрированных профилей",

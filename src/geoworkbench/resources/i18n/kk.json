@@ -195,6 +195,7 @@
   "parquet_export.success": "Dataset Parquet-ке экспортталды: {name}",
   "parquet_export.failed": "Dataset Parquet-ке экспортталмады: {error}",
   "formula.action": "Формула профильдері және есептеу...",
+  "time_depth.action": "TIME↔DEPTH профильдері...",
   "formula.profiles_title": "Есептеу формулаларының профильдері",
   "formula.calculate": "Есептеу",
   "formula.no_profiles": "Тіркелген профильдер жоқ",

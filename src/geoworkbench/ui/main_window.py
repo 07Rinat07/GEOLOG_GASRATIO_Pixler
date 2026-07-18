@@ -73,6 +73,7 @@ from geoworkbench.project.dataset_export_controller import DatasetExportControll
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
 from geoworkbench.printing.widget_print import render_widget_to_printer
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
@@ -81,6 +82,7 @@ from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.lithology_legend import build_lithology_legend
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
+from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
 from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
@@ -141,6 +143,7 @@ class MainWindow(QMainWindow):
             self.session, self.formula_registry
         )
         self.custom_formula_controller = CustomFormulaController(self.session)
+        self.time_depth_mapping_controller = TimeDepthMappingController(self.session)
         self.depth_annotation_controller = DepthAnnotationController(self.session)
         self.lithology_controller = LithologyController(self.session)
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
@@ -429,6 +432,10 @@ class MainWindow(QMainWindow):
         self.custom_formula_action = QAction("Пользовательские формулы...", self)
         self.custom_formula_action.triggered.connect(self.show_custom_formulas)
         calc_menu.addAction(self.custom_formula_action)
+
+        self.time_depth_mapping_action = QAction(self._t("time_depth.action"), self)
+        self.time_depth_mapping_action.triggered.connect(self.show_time_depth_mapping)
+        calc_menu.addAction(self.time_depth_mapping_action)
 
         self.nct_action = QAction(self._t("nct.action"), self)
         self.nct_action.triggered.connect(self.calculate_nct)
@@ -1728,6 +1735,19 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._log(f"Рассчитана кривая {result.output_mnemonic}: {result.profile_id}")
         self.statusBar().showMessage(f"Рассчитана кривая {result.output_mnemonic}")
+
+    def show_time_depth_mapping(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(self, self._t("time_depth.action"), self._t("formula.select_dataset"))
+            return
+        TimeDepthMappingDialog(
+            dataset,
+            self.time_depth_mapping_controller,
+            self,
+            language=self.language,
+        ).exec()
+        self._update_title()
 
     def show_custom_formulas(self) -> None:
         dialog = CustomFormulaDialog(
