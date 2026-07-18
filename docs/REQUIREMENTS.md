@@ -128,7 +128,7 @@ JSON-файл проекта не считается универсальным 
 | CALC-004 | Pixler, Wetness, Balance, Character и флюидные коэффициенты | только после подтверждения источника |
 | CALC-005 | Граф зависимостей и состояния current/stale/error | готова основа |
 | CALC-006 | «Показать расчёт» с входами, формулой и provenance | готово: typed passports пользовательских и встроенных профилей, actual mapping/parameters/result provenance и RU/KK/EN viewers |
-| CALC-007 | TIME↔DEPTH mapping с first/last/min/max/mean и повторными проходами | частично: nearest mapping, явные политики, versioned project profiles и RU/KK/EN UI с пробным разрешением готовы; интервалы запланированы |
+| CALC-007 | TIME↔DEPTH mapping с first/last/min/max/mean и повторными проходами | готово: nearest mapping, явные политики, versioned profiles, RU/KK/EN UI и ядро интервальной агрегации в derived dataset с preview/stale guard/Undo/Redo; UI интервалов может быть расширен позже |
 | CALC-008 | Временной ресэмплинг, агрегация и синхронизация рядов | запланировано |
 | CALC-009 | Раздельные reference-нормализованные C1–C5/изомеры и TG_NORM с явными эталонными условиями | готово |
 | CALC-010 | Сохраняемые пользовательские формулы для исходных и расчётных LAS-кривых | готово ядро и UI, включая транзитивное инвалидирование результатов |
