@@ -12,6 +12,7 @@ htmlcov/
 
 # Virtual environments and local Python selection
 .venv/
+.dev-tools/
 venv/
 env/
 ENV/

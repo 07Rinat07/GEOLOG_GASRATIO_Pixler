@@ -1,14 +1,42 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Callable
+import re
+from dataclasses import dataclass, field
+from enum import StrEnum
+from typing import Callable, Mapping
 
 import numpy as np
 from numpy.typing import NDArray
 
+from geoworkbench.calculations.gas_ratio import safe_ratio
+from geoworkbench.services.dependency_graph import DependencyGraph
+
 
 Array = NDArray[np.float64]
 Formula = Callable[[dict[str, Array], dict[str, float]], Array]
+_PROFILE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$")
+
+
+class FormulaCategory(StrEnum):
+    GAS_RATIO = "gas_ratio"
+    PIXLER = "pixler"
+    FLUID = "fluid"
+    DEXP = "dexp"
+    OTHER = "other"
+
+
+@dataclass(frozen=True, slots=True)
+class FormulaControlExample:
+    inputs: Mapping[str, tuple[float, ...]]
+    expected: tuple[float, ...]
+    parameters: Mapping[str, float] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class FormulaParameter:
+    unit: str
+    description: str
+    minimum: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,44 +44,555 @@ class FormulaProfile:
     profile_id: str
     display_name: str
     version: str
+    category: FormulaCategory
     source: str
+    expression: str
     required_inputs: tuple[str, ...]
+    input_units: Mapping[str, str]
+    output_mnemonic: str
+    output_unit: str
+    description: str
     formula: Formula
+    control_example: FormulaControlExample
+    parameters: Mapping[str, FormulaParameter] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class FormulaPassport:
+    profile_id: str
+    display_name: str
+    version: str
+    category: FormulaCategory
+    source: str
+    expression: str
+    required_inputs: tuple[str, ...]
+    input_units: Mapping[str, str]
+    output_mnemonic: str
+    output_unit: str
+    description: str
+    parameters: Mapping[str, FormulaParameter]
 
 
 class FormulaProfileRegistry:
-    """Реестр подтверждённых методик.
-
-    Реестр изначально пуст: формулы Pixler и коэффициентов флюидности должны
-    добавляться только вместе с рабочей методикой/источником и тестовым примером.
-    """
+    """Registry of sourced, versioned and numerically verified formula profiles."""
 
     def __init__(self) -> None:
         self._profiles: dict[str, FormulaProfile] = {}
 
     def register(self, profile: FormulaProfile) -> None:
-        if not profile.source.strip():
-            raise ValueError("Для формулы обязателен источник")
+        self._validate_profile(profile)
         if profile.profile_id in self._profiles:
             raise ValueError(f"Профиль уже зарегистрирован: {profile.profile_id}")
         self._profiles[profile.profile_id] = profile
+        try:
+            self.validate_control_example(profile.profile_id)
+        except Exception:
+            del self._profiles[profile.profile_id]
+            raise
 
     def available(self) -> tuple[FormulaProfile, ...]:
         return tuple(self._profiles.values())
 
+    def passport(self, profile_id: str) -> FormulaPassport:
+        profile = self._require_profile(profile_id)
+        return FormulaPassport(
+            profile_id=profile.profile_id,
+            display_name=profile.display_name,
+            version=profile.version,
+            category=profile.category,
+            source=profile.source,
+            expression=profile.expression,
+            required_inputs=profile.required_inputs,
+            input_units=dict(profile.input_units),
+            output_mnemonic=profile.output_mnemonic,
+            output_unit=profile.output_unit,
+            description=profile.description,
+            parameters=dict(profile.parameters),
+        )
+
     def calculate(
         self,
         profile_id: str,
-        inputs: dict[str, Array],
-        parameters: dict[str, float] | None = None,
+        inputs: Mapping[str, Array],
+        parameters: Mapping[str, float] | None = None,
     ) -> Array:
+        profile = self._require_profile(profile_id)
+        normalized = {
+            name.upper(): np.asarray(value, dtype=np.float64) for name, value in inputs.items()
+        }
+        required_names = tuple(name.upper() for name in profile.required_inputs)
+        missing = [name for name in required_names if name not in normalized]
+        if missing:
+            raise KeyError(f"Для профиля отсутствуют входы: {', '.join(missing)}")
+        shapes = {normalized[name].shape for name in required_names}
+        if len(shapes) != 1:
+            raise ValueError("Входы формулы должны иметь одинаковую форму")
+        result = np.asarray(
+            profile.formula(normalized, dict(parameters or {})),
+            dtype=np.float64,
+        )
+        expected_shape = normalized[required_names[0]].shape
+        if result.shape != expected_shape:
+            raise ValueError("Результат формулы должен совпадать по форме с входами")
+        return result
+
+    def validate_control_example(
+        self,
+        profile_id: str,
+        *,
+        rtol: float = 1e-9,
+        atol: float = 1e-12,
+    ) -> None:
+        profile = self._require_profile(profile_id)
+        example = profile.control_example
+        inputs = {
+            name: np.asarray(values, dtype=np.float64) for name, values in example.inputs.items()
+        }
+        actual = self.calculate(profile_id, inputs, example.parameters)
+        expected = np.asarray(example.expected, dtype=np.float64)
+        if actual.shape != expected.shape or not np.allclose(
+            actual,
+            expected,
+            rtol=rtol,
+            atol=atol,
+            equal_nan=True,
+        ):
+            raise ValueError(f"Контрольный пример профиля не пройден: {profile_id}")
+
+    def build_dependency_graph(self) -> DependencyGraph:
+        graph = DependencyGraph()
+        for profile in self._profiles.values():
+            for input_mnemonic in profile.required_inputs:
+                graph.add_dependency(input_mnemonic.upper(), profile.output_mnemonic.upper())
+        return graph
+
+    def _require_profile(self, profile_id: str) -> FormulaProfile:
         try:
-            profile = self._profiles[profile_id]
+            return self._profiles[profile_id]
         except KeyError as exc:
             raise KeyError(f"Неизвестный профиль формулы: {profile_id}") from exc
 
-        normalized = {name.upper(): np.asarray(value, dtype=np.float64) for name, value in inputs.items()}
-        missing = [name for name in profile.required_inputs if name.upper() not in normalized]
-        if missing:
-            raise KeyError(f"Для профиля отсутствуют входы: {', '.join(missing)}")
-        return np.asarray(profile.formula(normalized, parameters or {}), dtype=np.float64)
+    @staticmethod
+    def _validate_profile(profile: FormulaProfile) -> None:
+        if not _PROFILE_ID_PATTERN.fullmatch(profile.profile_id):
+            raise ValueError(f"Некорректный ID профиля: {profile.profile_id!r}")
+        required_text = {
+            "название": profile.display_name,
+            "версия": profile.version,
+            "источник": profile.source,
+            "выражение": profile.expression,
+            "выходная мнемоника": profile.output_mnemonic,
+            "единица результата": profile.output_unit,
+            "описание": profile.description,
+        }
+        for field_name, value in required_text.items():
+            if not value.strip():
+                raise ValueError(f"Поле '{field_name}' не может быть пустым")
+        normalized_inputs = tuple(name.upper() for name in profile.required_inputs)
+        if not normalized_inputs or len(set(normalized_inputs)) != len(normalized_inputs):
+            raise ValueError("Входы формулы должны быть непустыми и уникальными")
+        missing_units = [
+            name for name in normalized_inputs if not profile.input_units.get(name, "").strip()
+        ]
+        if missing_units:
+            raise ValueError(f"Не заданы единицы входов: {', '.join(missing_units)}")
+        example_inputs = {name.upper() for name in profile.control_example.inputs}
+        missing_example_inputs = set(normalized_inputs) - example_inputs
+        if missing_example_inputs:
+            missing = ", ".join(sorted(missing_example_inputs))
+            raise ValueError(f"В контрольном примере отсутствуют входы: {missing}")
+        example_parameters = profile.control_example.parameters or {}
+        missing_parameters = set(profile.parameters) - set(example_parameters)
+        if missing_parameters:
+            missing = ", ".join(sorted(missing_parameters))
+            raise ValueError(f"В контрольном примере отсутствуют параметры: {missing}")
+
+
+HAWORTH_SOURCE = (
+    "Haworth, J.H., Sellens, M., Whittaker, A. (1985). Interpretation of Hydrocarbon "
+    "Shows Using Light C1-C5 Hydrocarbon Gases from Mud-Log Data. AAPG Bulletin "
+    "69(8), 1305-1310."
+)
+PIXLER_SOURCE = (
+    "Pixler, B.O. (1969). Formation Evaluation by Analysis of Hydrocarbon Ratios. "
+    "Journal of Petroleum Technology 21(6), 665-670. DOI: 10.2118/2254-PA."
+)
+DEXP_SOURCE = (
+    "Jorden, J.R., Shirley, O.J. (1966). Application of Drilling Performance Data "
+    "to Overpressure Detection. Journal of Petroleum Technology 18(11), 1387-1394. "
+    "DOI: 10.2118/1407-PA."
+)
+CORRECTED_DEXP_SOURCE = (
+    "Rehm, W.A., McClendon, R. (1971). Measurement of Formation Pressure from "
+    "Drilling Data. SPE 3601-MS. DOI: 10.2118/3601-MS."
+)
+NORMALIZED_GAS_SOURCE = (
+    "US20140379265A1 / EP2772775A1. Real-time method for determining porosity "
+    "and water saturation using gas and mud logging data, Equation 2. "
+    "https://patents.google.com/patent/US20140379265A1/en"
+)
+REFERENCE_NORMALIZED_GAS_SOURCE = (
+    "US20150060054A1. Modeling and Production of Tight Hydrocarbon Reservoirs; "
+    "generic detected-gas normalization GN = G*(ROPN/ROP)*(DN/D)^2*(Q/QN)*(1/E). "
+    "https://patents.google.com/patent/US20150060054A1/en"
+)
+_GAS_UNITS = {
+    name: "same concentration unit" for name in ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5")
+}
+
+
+def _d_exponent(inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+    rop_term = safe_ratio(inputs["ROP_FPH"], 60.0 * inputs["RPM"])
+    weight_term = safe_ratio(12.0 * inputs["WOB_LBF"], 1_000_000.0 * inputs["BIT_IN"])
+    result = np.full(rop_term.shape, np.nan, dtype=np.float64)
+    valid = (
+        np.isfinite(rop_term)
+        & np.isfinite(weight_term)
+        & (rop_term > 0.0)
+        & (weight_term > 0.0)
+        & ~np.isclose(weight_term, 1.0)
+    )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        result[valid] = np.log10(rop_term[valid]) / np.log10(weight_term[valid])
+    return result
+
+
+def _corrected_d_exponent(inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+    return inputs["DEXP"] * safe_ratio(inputs["RHO_N_PPG"], inputs["RHO_A_PPG"])
+
+
+def _normalized_c1(inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+    numerator = 11.6 * inputs["C1"] * inputs["FLOW_GPM"]
+    denominator = inputs["ROP_FPH"] * np.square(inputs["BIT_IN"])
+    return safe_ratio(numerator, denominator)
+
+
+def _reference_normalized(values: Array, inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+    rop_ref = parameters["ROP_REF_FPH"]
+    bit_ref = parameters["BIT_REF_IN"]
+    flow_ref = parameters["FLOW_REF_GPM"]
+    efficiency = parameters["GAS_SYSTEM_EFFICIENCY"]
+    if min(rop_ref, bit_ref, flow_ref, efficiency) <= 0.0:
+        raise ValueError("Эталонные параметры и эффективность должны быть больше нуля")
+    factor = safe_ratio(np.full_like(values, rop_ref), inputs["ROP_FPH"])
+    factor *= np.square(safe_ratio(np.full_like(values, bit_ref), inputs["BIT_IN"]))
+    factor *= safe_ratio(inputs["FLOW_GPM"], np.full_like(values, flow_ref))
+    factor /= efficiency
+    return values * factor
+
+
+_REFERENCE_PARAMETERS = {
+    "ROP_REF_FPH": FormulaParameter("ft/h", "Эталонная скорость проходки"),
+    "BIT_REF_IN": FormulaParameter("in", "Эталонный диаметр долота"),
+    "FLOW_REF_GPM": FormulaParameter("gpm", "Эталонный расход раствора"),
+    "GAS_SYSTEM_EFFICIENCY": FormulaParameter("fraction", "Эффективность газовой системы"),
+}
+_REFERENCE_EXAMPLE_PARAMETERS = {
+    "ROP_REF_FPH": 50.0,
+    "BIT_REF_IN": 10.0,
+    "FLOW_REF_GPM": 500.0,
+    "GAS_SYSTEM_EFFICIENCY": 1.0,
+}
+
+
+def _component_reference_formula(component: str) -> Formula:
+    def calculate(inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+        return _reference_normalized(inputs[component], inputs, parameters)
+
+    return calculate
+
+
+def sourced_normalized_gas_profiles() -> tuple[FormulaProfile, ...]:
+    """Return drilling-parameter-normalized gas profiles with explicit field units."""
+
+    legacy = (
+        FormulaProfile(
+            profile_id="gas.normalized_c1_us20140379265",
+            display_name="Drilling-normalized methane C1",
+            version="1.0.0",
+            category=FormulaCategory.GAS_RATIO,
+            source=NORMALIZED_GAS_SOURCE,
+            expression="C1_NORM = 11.6 * C1 * FLOW_GPM / (ROP_FPH * BIT_IN^2)",
+            required_inputs=("C1", "FLOW_GPM", "ROP_FPH", "BIT_IN"),
+            input_units={
+                "C1": "same concentration unit",
+                "FLOW_GPM": "gpm",
+                "ROP_FPH": "ft/h",
+                "BIT_IN": "in",
+            },
+            output_mnemonic="C1_NORM",
+            output_unit="normalized gas units",
+            description=(
+                "Метан C1, нормализованный по расходу раствора, скорости проходки "
+                "и диаметру долота."
+            ),
+            formula=_normalized_c1,
+            control_example=FormulaControlExample(
+                inputs={
+                    "C1": (10.0,),
+                    "FLOW_GPM": (500.0,),
+                    "ROP_FPH": (50.0,),
+                    "BIT_IN": (10.0,),
+                },
+                expected=(11.6,),
+            ),
+        ),
+    )
+    component_profiles: list[FormulaProfile] = []
+    for component in ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5"):
+        output = f"{component}_NORM_REF" if component == "C1" else f"{component}_NORM"
+        component_profiles.append(
+            FormulaProfile(
+                profile_id=f"gas.normalized_{component.lower()}_reference_us20150060054",
+                display_name=f"Reference-normalized {component}",
+                version="1.0.0",
+                category=FormulaCategory.GAS_RATIO,
+                source=REFERENCE_NORMALIZED_GAS_SOURCE,
+                expression=(
+                    f"{output} = {component} * (ROP_REF/ROP) * (BIT_REF/BIT)^2 "
+                    "* (FLOW/FLOW_REF) / E"
+                ),
+                required_inputs=(component, "FLOW_GPM", "ROP_FPH", "BIT_IN"),
+                input_units={
+                    component: "same concentration unit",
+                    "FLOW_GPM": "gpm",
+                    "ROP_FPH": "ft/h",
+                    "BIT_IN": "in",
+                },
+                output_mnemonic=output,
+                output_unit="normalized gas units",
+                description=f"Компонент {component}, приведённый к явно заданным условиям.",
+                formula=_component_reference_formula(component),
+                control_example=FormulaControlExample(
+                    inputs={
+                        component: (10.0,), "FLOW_GPM": (500.0,),
+                        "ROP_FPH": (50.0,), "BIT_IN": (10.0,),
+                    },
+                    expected=(10.0,),
+                    parameters=_REFERENCE_EXAMPLE_PARAMETERS,
+                ),
+                parameters=_REFERENCE_PARAMETERS,
+            )
+        )
+
+    total_components = ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5")
+    total_profile = FormulaProfile(
+        profile_id="gas.normalized_total_reference_us20150060054",
+        display_name="Reference-normalized total gas",
+        version="1.0.0",
+        category=FormulaCategory.GAS_RATIO,
+        source=REFERENCE_NORMALIZED_GAS_SOURCE,
+        expression="TG_NORM = SUM(C1..NC5) * (ROP_REF/ROP) * (BIT_REF/BIT)^2 * (FLOW/FLOW_REF) / E",
+        required_inputs=(*total_components, "FLOW_GPM", "ROP_FPH", "BIT_IN"),
+        input_units={
+            **{name: "same concentration unit" for name in total_components},
+            "FLOW_GPM": "gpm", "ROP_FPH": "ft/h", "BIT_IN": "in",
+        },
+        output_mnemonic="TG_NORM",
+        output_unit="normalized gas units",
+        description="Сумма C1–C5, приведённая к явно заданным эталонным условиям.",
+        formula=lambda inputs, parameters: _reference_normalized(
+            sum((inputs[name] for name in total_components), np.zeros_like(inputs["C1"])),
+            inputs,
+            parameters,
+        ),
+        control_example=FormulaControlExample(
+            inputs={
+                **{name: (1.0,) for name in total_components},
+                "FLOW_GPM": (500.0,), "ROP_FPH": (50.0,), "BIT_IN": (10.0,),
+            },
+            expected=(7.0,),
+            parameters=_REFERENCE_EXAMPLE_PARAMETERS,
+        ),
+        parameters=_REFERENCE_PARAMETERS,
+    )
+    return (*legacy, *component_profiles, total_profile)
+
+
+def sourced_gas_ratio_profiles() -> tuple[FormulaProfile, ...]:
+    """Return public Haworth and Pixler profiles with registration-time examples."""
+
+    example_inputs = {
+        "C1": (80.0,),
+        "C2": (10.0,),
+        "C3": (5.0,),
+        "IC4": (1.0,),
+        "NC4": (2.0,),
+        "IC5": (1.0,),
+        "NC5": (1.0,),
+    }
+    all_inputs = tuple(example_inputs)
+
+    def heavy(inputs: dict[str, Array]) -> Array:
+        return inputs["C3"] + inputs["IC4"] + inputs["NC4"] + inputs["IC5"] + inputs["NC5"]
+
+    def profile(
+        profile_id: str,
+        display_name: str,
+        category: FormulaCategory,
+        source: str,
+        expression: str,
+        required_inputs: tuple[str, ...],
+        output_mnemonic: str,
+        description: str,
+        formula: Formula,
+        expected: float,
+    ) -> FormulaProfile:
+        return FormulaProfile(
+            profile_id=profile_id,
+            display_name=display_name,
+            version="1.0.0",
+            category=category,
+            source=source,
+            expression=expression,
+            required_inputs=required_inputs,
+            input_units={name: _GAS_UNITS[name] for name in required_inputs},
+            output_mnemonic=output_mnemonic,
+            output_unit="ratio" if output_mnemonic != "WH" else "%",
+            description=description,
+            formula=formula,
+            control_example=FormulaControlExample(
+                inputs={name: example_inputs[name] for name in required_inputs},
+                expected=(expected,),
+            ),
+        )
+
+    def pixler_ratio(denominator_names: tuple[str, ...]) -> Formula:
+        def calculate(inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+            denominator = sum(
+                (inputs[name] for name in denominator_names),
+                start=np.zeros_like(inputs["C1"]),
+            )
+            return safe_ratio(inputs["C1"], denominator)
+
+        return calculate
+
+    profiles = [
+        profile(
+            "haworth.wetness",
+            "Haworth Wetness",
+            FormulaCategory.FLUID,
+            HAWORTH_SOURCE,
+            "Wh = 100 * (C2 + C3 + iC4 + nC4 + iC5 + nC5) / (C1 + C2 + C3 + iC4 + nC4 + iC5 + nC5)",
+            all_inputs,
+            "WH",
+            "Доля компонентов C2-C5 в сумме C1-C5.",
+            lambda i, p: 100.0 * safe_ratio(i["C2"] + heavy(i), i["C1"] + i["C2"] + heavy(i)),
+            20.0,
+        ),
+        profile(
+            "haworth.balance",
+            "Haworth Balance",
+            FormulaCategory.FLUID,
+            HAWORTH_SOURCE,
+            "Bh = (C1 + C2) / (C3 + iC4 + nC4 + iC5 + nC5)",
+            all_inputs,
+            "BH",
+            "Баланс лёгких и тяжёлых компонентов.",
+            lambda i, p: safe_ratio(i["C1"] + i["C2"], heavy(i)),
+            9.0,
+        ),
+        profile(
+            "haworth.character",
+            "Haworth Character",
+            FormulaCategory.FLUID,
+            HAWORTH_SOURCE,
+            "Ch = (iC4 + nC4 + iC5 + nC5) / C3",
+            ("C3", "IC4", "NC4", "IC5", "NC5"),
+            "CH",
+            "Отношение суммы C4-C5 к пропану.",
+            lambda i, p: safe_ratio(i["IC4"] + i["NC4"] + i["IC5"] + i["NC5"], i["C3"]),
+            1.0,
+        ),
+    ]
+    for denominator, output, expected in (
+        (("C2",), "C1_C2", 8.0),
+        (("C3",), "C1_C3", 16.0),
+        (("IC4", "NC4"), "C1_C4", 80.0 / 3.0),
+        (("IC5", "NC5"), "C1_C5", 40.0),
+    ):
+        required = ("C1", *denominator)
+        denominator_text = " + ".join(denominator)
+        profiles.append(
+            profile(
+                f"pixler.{output.lower()}",
+                f"Pixler {output.replace('_', '/')}",
+                FormulaCategory.PIXLER,
+                PIXLER_SOURCE,
+                f"{output} = C1 / ({denominator_text})",
+                required,
+                output,
+                "Отношение метана к более тяжёлому компоненту Pixler.",
+                pixler_ratio(denominator),
+                expected,
+            )
+        )
+    return tuple(profiles)
+
+
+def build_sourced_formula_registry() -> FormulaProfileRegistry:
+    registry = FormulaProfileRegistry()
+    for profile in sourced_gas_ratio_profiles():
+        registry.register(profile)
+    return registry
+
+
+def sourced_d_exponent_profiles() -> tuple[FormulaProfile, FormulaProfile]:
+    """Return d-exponent profiles without assuming a default normal mud density."""
+
+    d_profile = FormulaProfile(
+        profile_id="dexp.jorden_shirley",
+        display_name="Jorden-Shirley d-exponent",
+        version="1.0.0",
+        category=FormulaCategory.DEXP,
+        source=DEXP_SOURCE,
+        expression="d = log10(ROP/(60*RPM)) / log10(12*WOB/(10^6*BIT))",
+        required_inputs=("ROP_FPH", "RPM", "WOB_LBF", "BIT_IN"),
+        input_units={
+            "ROP_FPH": "ft/h",
+            "RPM": "rev/min",
+            "WOB_LBF": "lbf",
+            "BIT_IN": "in",
+        },
+        output_mnemonic="DEXP",
+        output_unit="dimensionless",
+        description="Нормализованный показатель механической скорости проходки.",
+        formula=_d_exponent,
+        control_example=FormulaControlExample(
+            inputs={
+                "ROP_FPH": (60.0,),
+                "RPM": (100.0,),
+                "WOB_LBF": (50_000.0,),
+                "BIT_IN": (10.0,),
+            },
+            expected=(1.6368638103758524,),
+        ),
+    )
+    corrected_profile = FormulaProfile(
+        profile_id="dexp.rehm_mcclendon_corrected",
+        display_name="Rehm-McClendon corrected d-exponent",
+        version="1.0.0",
+        category=FormulaCategory.DEXP,
+        source=CORRECTED_DEXP_SOURCE,
+        expression="dc = d * (rho_n / rho_a)",
+        required_inputs=("DEXP", "RHO_N_PPG", "RHO_A_PPG"),
+        input_units={"DEXP": "dimensionless", "RHO_N_PPG": "ppg", "RHO_A_PPG": "ppg"},
+        output_mnemonic="DEXPC",
+        output_unit="dimensionless",
+        description="d-экспонента с поправкой на фактическую плотность раствора.",
+        formula=_corrected_d_exponent,
+        control_example=FormulaControlExample(
+            inputs={"DEXP": (1.5,), "RHO_N_PPG": (9.0,), "RHO_A_PPG": (12.0,)},
+            expected=(1.125,),
+        ),
+    )
+    return d_profile, corrected_profile
+
+
+def build_all_sourced_formula_registry() -> FormulaProfileRegistry:
+    registry = build_sourced_formula_registry()
+    for profile in sourced_normalized_gas_profiles():
+        registry.register(profile)
+    for profile in sourced_d_exponent_profiles():
+        registry.register(profile)
+    return registry

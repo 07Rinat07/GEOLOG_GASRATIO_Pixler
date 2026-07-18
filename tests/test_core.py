@@ -2,10 +2,17 @@ import numpy as np
 import pytest
 
 from geoworkbench.calculations.gas_ratio import calculate_basic_ratios, safe_ratio
-from geoworkbench.calculations.pixler import FormulaProfile, FormulaProfileRegistry
+from geoworkbench.calculations.pixler import (
+    FormulaCategory,
+    FormulaControlExample,
+    FormulaProfile,
+    FormulaProfileRegistry,
+)
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.cuttings import next_sample_interval
 from geoworkbench.services.dependency_graph import DependencyGraph
+from geoworkbench.tablet.depth_viewport import DepthViewport
+from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 
 
 def test_next_interval() -> None:
@@ -16,6 +23,19 @@ def test_draw_interpolation() -> None:
     depth = np.array([0.0, 1.0, 2.0])
     result = interpolate_drawn_curve(depth, [DrawPoint(0, 10), DrawPoint(2, 20)])
     np.testing.assert_allclose(result, [10, 15, 20])
+
+
+def test_draw_interpolation_rejects_invalid_points() -> None:
+    depth = np.array([0.0, 1.0, 2.0])
+    with pytest.raises(ValueError, match="минимум две"):
+        interpolate_drawn_curve(depth, [DrawPoint(0.0, 1.0)])
+    with pytest.raises(ValueError, match="уникальными"):
+        interpolate_drawn_curve(depth, [DrawPoint(1.0, 1.0), DrawPoint(1.0, 2.0)])
+    with pytest.raises(ValueError, match="конечные"):
+        interpolate_drawn_curve(
+            depth,
+            [DrawPoint(0.0, 1.0), DrawPoint(2.0, float("nan"))],
+        )
 
 
 def test_dependency_graph() -> None:
@@ -47,12 +67,22 @@ def test_formula_profile_requires_source() -> None:
     registry = FormulaProfileRegistry()
     with pytest.raises(ValueError):
         registry.register(
-            FormulaProfile("x", "X", "1", "", ("C1",), lambda inputs, params: inputs["C1"])
+            FormulaProfile(
+                profile_id="x",
+                display_name="X",
+                version="1",
+                category=FormulaCategory.OTHER,
+                source="",
+                expression="X = C1",
+                required_inputs=("C1",),
+                input_units={"C1": "%"},
+                output_mnemonic="X",
+                output_unit="%",
+                description="Test",
+                formula=lambda inputs, params: inputs["C1"],
+                control_example=FormulaControlExample({"C1": (1.0,)}, (1.0,)),
+            )
         )
-
-from geoworkbench.tablet.depth_viewport import DepthViewport
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
-
 
 def test_tablet_layout_can_move_tracks() -> None:
     layout = TabletLayout(

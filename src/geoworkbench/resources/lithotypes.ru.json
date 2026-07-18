@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "provenance": "Original project catalog informed by common masterlog lithology classes; no legacy bitmap assets included.",
+  "lithotypes": [
+    {"id": "clay", "name_ru": "Глина", "name_kk": "Саз", "name_en": "Clay", "category": "sedimentary", "color": "#62d86b", "pattern_key": "clay_dash"},
+    {"id": "claystone", "name_ru": "Аргиллит", "name_kk": "Аргиллит", "name_en": "Claystone", "category": "sedimentary", "color": "#32c94a", "pattern_key": "claystone_blocks"},
+    {"id": "silt", "name_ru": "Алеврит", "name_kk": "Алеврит", "name_en": "Silt", "category": "sedimentary", "color": "#d9d9d9", "pattern_key": "silt_dots"},
+    {"id": "siltstone", "name_ru": "Алевролит", "name_kk": "Алевролит", "name_en": "Siltstone", "category": "sedimentary", "color": "#c8c8c8", "pattern_key": "siltstone_lines"},
+    {"id": "sand", "name_ru": "Песок", "name_kk": "Құм", "name_en": "Sand", "category": "sedimentary", "color": "#fff200", "pattern_key": "sand_dots"},
+    {"id": "sandstone", "name_ru": "Песчаник", "name_kk": "Құмтас", "name_en": "Sandstone", "category": "sedimentary", "color": "#f4df38", "pattern_key": "sandstone_bricks"},
+    {"id": "gravelite", "name_ru": "Гравелит", "name_kk": "Гравелит", "name_en": "Gravelite", "category": "sedimentary", "color": "#f0df2f", "pattern_key": "gravel_circles"},
+    {"id": "conglomerate", "name_ru": "Конгломерат", "name_kk": "Конгломерат", "name_en": "Conglomerate", "category": "sedimentary", "color": "#e6d52d", "pattern_key": "conglomerate_pebbles"},
+    {"id": "limestone", "name_ru": "Известняк", "name_kk": "Әктас", "name_en": "Limestone", "category": "carbonate", "color": "#22d9d5", "pattern_key": "limestone_bricks"},
+    {"id": "marl", "name_ru": "Мергель", "name_kk": "Мергель", "name_en": "Marl", "category": "carbonate", "color": "#8de9e6", "pattern_key": "marl_ticks"},
+    {"id": "dolomite", "name_ru": "Доломит", "name_kk": "Доломит", "name_en": "Dolomite", "category": "carbonate", "color": "#7fd4cd", "pattern_key": "dolomite_rhombs"},
+    {"id": "anhydrite", "name_ru": "Ангидрит", "name_kk": "Ангидрит", "name_en": "Anhydrite", "category": "evaporite", "color": "#efd8ef", "pattern_key": "anhydrite_chevrons"},
+    {"id": "gypsum", "name_ru": "Гипс", "name_kk": "Гипс", "name_en": "Gypsum", "category": "evaporite", "color": "#e8d4ee", "pattern_key": "gypsum_arrows"},
+    {"id": "halite", "name_ru": "Каменная соль (галит)", "name_kk": "Тас тұзы (галит)", "name_en": "Halite", "category": "evaporite", "color": "#8ee5e5", "pattern_key": "halite_crosses"},
+    {"id": "coal", "name_ru": "Уголь", "name_kk": "Көмір", "name_en": "Coal", "category": "organic", "color": "#202020", "pattern_key": "coal_bands"},
+    {"id": "metamorphic", "name_ru": "Метаморфическая порода", "name_kk": "Метаморфтық тау жынысы", "name_en": "Metamorphic rock", "category": "basement", "color": "#d7a9a9", "pattern_key": "metamorphic_mesh"},
+    {"id": "volcanic", "name_ru": "Вулканогенная порода", "name_kk": "Вулканогендік тау жынысы", "name_en": "Volcanic rock", "category": "igneous", "color": "#d28b72", "pattern_key": "volcanic_angles"}
+  ]
+}

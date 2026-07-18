@@ -2,41 +2,372 @@ from __future__ import annotations
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import QEvent, QObject, Qt, Signal
+from PySide6.QtGui import QMouseEvent
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
-from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
+from geoworkbench.services.channel_groups import default_curve_mnemonics
+from geoworkbench.services.dataset_selection import DatasetIntervalSelection
+from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.tablet.sampling import MAX_RENDERED_POINTS, select_visible_samples
 
 
 class CurveView(QWidget):
-    def __init__(self) -> None:
+    edit_requested = Signal(str, object, object)
+
+    CURVE_COLORS = (
+        "#f8fafc",
+        "#22d3ee",
+        "#facc15",
+        "#4ade80",
+        "#fb7185",
+        "#c084fc",
+    )
+
+    def __init__(
+        self,
+        selection: DatasetIntervalSelection | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
         super().__init__()
+        self.localizer = Localizer.create(language)
+        self.selection = selection or DatasetIntervalSelection()
+        self.selection.changed.connect(self._apply_shared_selection)
+        self._dataset: Dataset | None = None
+        self._editable_curve: CurveData | None = None
+        self._edit_mode = False
+        self._draw_points: list[DrawPoint] = []
+        self._displayed_curve_ids: tuple[str, ...] = ()
+        self._curve_items: dict[str, pg.PlotDataItem] = {}
+        self._selection_region: pg.LinearRegionItem | None = None
+        self._cursor_horizontal: pg.InfiniteLine | None = None
+        self._cursor_vertical: pg.InfiniteLine | None = None
+        self._applying_shared_selection = False
+        self._depth_range_guard = False
         self._plot = pg.PlotWidget()
         self._plot.showGrid(x=True, y=True, alpha=0.25)
         self._plot.setLabel("left", "Глубина", units="м")
+        self._plot.getAxis("left").enableAutoSIPrefix(False)
         self._plot.setLabel("bottom", "Значение")
+        self._legend = self._plot.addLegend(offset=(8, 8))
+        self._plot.sigYRangeChanged.connect(self._on_depth_range_changed)
+        self._plot.viewport().installEventFilter(self)
+        self._plot.viewport().setMouseTracking(True)
         self._title = QLabel("Откройте LAS-файл")
         self._title.setStyleSheet("font-weight: 600; padding: 6px;")
+        self._cursor_label = QLabel(self._t("curve.cursor_empty"))
+        self._cursor_label.setObjectName("curve-cursor-values")
+        self._cursor_label.setStyleSheet("padding: 4px 6px;")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._title)
+        layout.addWidget(self._cursor_label)
         layout.addWidget(self._plot)
 
-    def show_dataset(self, dataset: Dataset, selected: list[str] | None = None) -> None:
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
+
+    @property
+    def title_text(self) -> str:
+        return self._title.text()
+
+    @property
+    def can_edit(self) -> bool:
+        return self._dataset is not None and self._editable_curve is not None
+
+    @property
+    def cursor_text(self) -> str:
+        return self._cursor_label.text()
+
+    @property
+    def displayed_mnemonics(self) -> tuple[str, ...]:
+        if self._dataset is None:
+            return ()
+        return tuple(
+            curve.metadata.original_mnemonic
+            for curve_id in self._displayed_curve_ids
+            if (curve := self._dataset.curves.get(curve_id)) is not None
+        )
+
+    def clear(self) -> None:
+        self._dataset = None
+        self._editable_curve = None
+        self._draw_points.clear()
+        self._displayed_curve_ids = ()
+        self._curve_items.clear()
         self._plot.clear()
-        selected_names = selected or [
-            curve.metadata.original_mnemonic for curve in list(dataset.curves.values())[:6]
-        ]
+        self._legend.clear()
+        self._selection_region = None
+        self._cursor_horizontal = None
+        self._cursor_vertical = None
+        self._cursor_label.setText(self._t("curve.cursor_empty"))
+        self._title.setText("Откройте LAS-файл")
+
+    def set_edit_mode(self, enabled: bool) -> bool:
+        self._edit_mode = enabled and self.can_edit
+        cursor = Qt.CursorShape.CrossCursor if self._edit_mode else Qt.CursorShape.ArrowCursor
+        self._plot.viewport().setCursor(cursor)
+        return self._edit_mode
+
+    def show_dataset(self, dataset: Dataset, selected: list[str] | None = None) -> None:
+        self._depth_range_guard = True
+        self._dataset = dataset
+        self._editable_curve = None
+        self._draw_points.clear()
+        self._displayed_curve_ids = ()
+        self._curve_items.clear()
+        self._plot.clear()
+        self._legend.clear()
+        self._plot.getViewBox().disableAutoRange(axis=pg.ViewBox.YAxis)
+        self._selection_region = None
+        self._cursor_horizontal = None
+        self._cursor_vertical = None
+        self._cursor_label.setText(self._t("curve.cursor_empty"))
+        selected_names = (
+            default_curve_mnemonics(dataset) if selected is None else selected
+        )
+        finite_depth = dataset.depth[np.isfinite(dataset.depth)]
+        if len(selected_names) == 1:
+            self._editable_curve = dataset.curve_by_mnemonic(selected_names[0])
         count = 0
-        for curve in dataset.curves.values():
+        displayed_curve_ids: list[str] = []
+        for selected_mnemonic in selected_names:
+            curve = dataset.curve_by_mnemonic(selected_mnemonic)
+            if curve is None or curve.metadata.curve_id in displayed_curve_ids:
+                continue
             mnemonic = curve.metadata.original_mnemonic
-            if mnemonic not in selected_names:
+            values = np.asarray(curve.values, dtype=np.float64)
+            if finite_depth.size == 0:
                 continue
-            values = np.asarray(curve.values, dtype=float)
-            valid = np.isfinite(values) & np.isfinite(dataset.depth)
-            if not np.any(valid):
+            visible_values, visible_depth = select_visible_samples(
+                np.asarray(dataset.depth, dtype=np.float64),
+                values,
+                float(np.min(finite_depth)),
+                float(np.max(finite_depth)),
+                max_points=MAX_RENDERED_POINTS,
+            )
+            if visible_depth.size == 0:
                 continue
-            self._plot.plot(values[valid], dataset.depth[valid], name=mnemonic)
+            unit = (curve.metadata.unit or "").strip()
+            legend = f"{mnemonic} [{unit}]" if unit else mnemonic
+            color = self.CURVE_COLORS[count % len(self.CURVE_COLORS)]
+            self._curve_items[curve.metadata.curve_id] = self._plot.plot(
+                visible_values,
+                visible_depth,
+                name=legend,
+                pen=pg.mkPen(color, width=1.2),
+            )
             count += 1
+            displayed_curve_ids.append(curve.metadata.curve_id)
+        self._displayed_curve_ids = tuple(displayed_curve_ids)
         self._plot.getViewBox().invertY(True)
-        self._title.setText(f"{dataset.name}: показано кривых — {count}, отсчётов — {len(dataset.depth)}")
+        if finite_depth.size:
+            self._plot.setYRange(
+                float(np.min(finite_depth)),
+                float(np.max(finite_depth)),
+                padding=0,
+            )
+        self._depth_range_guard = False
+        self._create_cursor_lines()
+        if finite_depth.size:
+            self._selection_region = pg.LinearRegionItem(
+                values=(float(np.min(finite_depth)), float(np.max(finite_depth))),
+                orientation=pg.LinearRegionItem.Horizontal,
+                movable=True,
+                brush=pg.mkBrush(70, 130, 180, 35),
+            )
+            self._selection_region.setZValue(20)
+            self._selection_region.sigRegionChangeFinished.connect(
+                self._publish_region_selection
+            )
+            self._plot.addItem(self._selection_region)
+            if self.selection.dataset_id != dataset.dataset_id:
+                self.selection.select(
+                    dataset,
+                    float(np.min(finite_depth)),
+                    float(np.max(finite_depth)),
+                    self._displayed_curve_ids,
+                )
+            self._apply_shared_selection()
+        self._title.setText(
+            f"{dataset.name}: показано кривых — {count}, отсчётов — {len(dataset.depth)}"
+        )
+        if self._edit_mode and not self.can_edit:
+            self.set_edit_mode(False)
+
+    def _update_visible_curve_data(self, top: float, bottom: float) -> None:
+        if self._dataset is None:
+            return
+        depth = np.asarray(self._dataset.depth, dtype=np.float64)
+        for curve_id, item in self._curve_items.items():
+            curve = self._dataset.curves.get(curve_id)
+            if curve is None:
+                item.setData([], [])
+                continue
+            values, visible_depth = select_visible_samples(
+                depth,
+                np.asarray(curve.values, dtype=np.float64),
+                top,
+                bottom,
+                max_points=MAX_RENDERED_POINTS,
+            )
+            item.setData(values, visible_depth)
+
+    def _on_depth_range_changed(self, _view_box, y_range) -> None:
+        if self._depth_range_guard:
+            return
+        top, bottom = sorted((float(y_range[0]), float(y_range[1])))
+        self._depth_range_guard = True
+        try:
+            self._update_visible_curve_data(top, bottom)
+        finally:
+            self._depth_range_guard = False
+
+    def show_cursor_at_depth(self, depth: float, value: float | None = None) -> bool:
+        dataset = self._dataset
+        if dataset is None or not np.isfinite(depth):
+            return False
+        finite = np.flatnonzero(np.isfinite(dataset.depth))
+        if finite.size == 0:
+            return False
+        nearest = int(finite[np.argmin(np.abs(dataset.depth[finite] - depth))])
+        snapped_depth = float(dataset.depth[nearest])
+        depth_unit = "ms" if dataset.depth_domain.value == "time" else "m"
+        parts = [
+            self._t(
+                "curve.cursor_depth",
+                depth=f"{snapped_depth:.8g}",
+                unit=depth_unit,
+            )
+        ]
+        for curve_id in self._displayed_curve_ids:
+            curve = dataset.curves.get(curve_id)
+            if curve is None:
+                continue
+            sample = float(curve.values[nearest])
+            rendered = f"{sample:.8g}" if np.isfinite(sample) else "—"
+            unit = f" {curve.metadata.unit}" if curve.metadata.unit else ""
+            parts.append(f"{curve.metadata.original_mnemonic}: {rendered}{unit}")
+        self._cursor_label.setText("  |  ".join(parts))
+        if self._cursor_horizontal is not None:
+            self._cursor_horizontal.setPos(snapped_depth)
+            self._cursor_horizontal.show()
+        if self._cursor_vertical is not None:
+            if value is not None and np.isfinite(value):
+                self._cursor_vertical.setPos(value)
+                self._cursor_vertical.show()
+            else:
+                self._cursor_vertical.hide()
+        return True
+
+    def _create_cursor_lines(self) -> None:
+        pen = pg.mkPen((90, 90, 90, 170), width=1, style=Qt.PenStyle.DashLine)
+        self._cursor_horizontal = pg.InfiniteLine(angle=0, movable=False, pen=pen)
+        self._cursor_vertical = pg.InfiniteLine(angle=90, movable=False, pen=pen)
+        self._cursor_horizontal.setZValue(30)
+        self._cursor_vertical.setZValue(30)
+        self._plot.addItem(self._cursor_horizontal)
+        self._plot.addItem(self._cursor_vertical)
+        self._cursor_horizontal.hide()
+        self._cursor_vertical.hide()
+
+    def _hide_cursor(self) -> None:
+        if self._cursor_horizontal is not None:
+            self._cursor_horizontal.hide()
+        if self._cursor_vertical is not None:
+            self._cursor_vertical.hide()
+        self._cursor_label.setText(self._t("curve.cursor_empty"))
+
+    def _publish_region_selection(self) -> None:
+        if (
+            self._applying_shared_selection
+            or self._dataset is None
+            or self._selection_region is None
+        ):
+            return
+        top, bottom = sorted(float(value) for value in self._selection_region.getRegion())
+        try:
+            self.selection.select(
+                self._dataset, top, bottom, self._displayed_curve_ids
+            )
+        except ValueError:
+            return
+
+    def _apply_shared_selection(self) -> None:
+        if self._dataset is None or self._selection_region is None:
+            return
+        interval = self.selection.interval
+        if interval is None or self.selection.dataset_id != self._dataset.dataset_id:
+            self._selection_region.hide()
+            return
+        self._applying_shared_selection = True
+        try:
+            self._selection_region.setRegion(interval)
+            self._selection_region.show()
+        finally:
+            self._applying_shared_selection = False
+
+    def commit_draw_points(self, points: list[DrawPoint]) -> bool:
+        if not self._edit_mode or self._dataset is None or self._editable_curve is None:
+            return False
+        unique_by_depth = {point.depth: point for point in points}
+        normalized_points = list(unique_by_depth.values())
+        if len(normalized_points) < 2:
+            return False
+        top = min(point.depth for point in normalized_points)
+        bottom = max(point.depth for point in normalized_points)
+        depth = np.asarray(self._dataset.depth, dtype=np.float64)
+        indices = np.flatnonzero(np.isfinite(depth) & (depth >= top) & (depth <= bottom))
+        if indices.size == 0:
+            return False
+        try:
+            new_values = interpolate_drawn_curve(depth[indices], normalized_points)
+        except ValueError:
+            return False
+        self.edit_requested.emit(self._editable_curve.metadata.curve_id, indices, new_values)
+        return True
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        if watched is not self._plot.viewport():
+            return super().eventFilter(watched, event)
+        if event.type() == QEvent.Type.Leave:
+            self._hide_cursor()
+            return super().eventFilter(watched, event)
+        if not isinstance(event, QMouseEvent):
+            return super().eventFilter(watched, event)
+        if not self._edit_mode:
+            if event.type() == QEvent.Type.MouseMove:
+                position = self._view_position(event)
+                self.show_cursor_at_depth(float(position.y()), float(position.x()))
+            return super().eventFilter(watched, event)
+        event_type = event.type()
+        if event_type == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+            self._draw_points = [self._draw_point(event)]
+            return True
+        if event_type == QEvent.Type.MouseMove and self._draw_points:
+            self._draw_points.append(self._draw_point(event))
+            return True
+        if (
+            event_type == QEvent.Type.MouseButtonRelease
+            and event.button() == Qt.MouseButton.LeftButton
+            and self._draw_points
+        ):
+            self._draw_points.append(self._draw_point(event))
+            points = self._draw_points
+            self._draw_points = []
+            self.commit_draw_points(points)
+            return True
+        return True
+
+    def _draw_point(self, event: QMouseEvent) -> DrawPoint:
+        view_position = self._view_position(event)
+        return DrawPoint(depth=float(view_position.y()), value=float(view_position.x()))
+
+    def _view_position(self, event: QMouseEvent):
+        local_position = self._plot.mapFromGlobal(event.globalPosition().toPoint())
+        scene_position = self._plot.mapToScene(local_position)
+        return self._plot.getViewBox().mapSceneToView(scene_position)
