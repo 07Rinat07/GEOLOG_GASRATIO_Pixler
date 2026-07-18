@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from PySide6.QtCore import QSettings
 
+from geoworkbench.data.number_format import NumberDisplayFormat, NumberFormatMode
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
     PrintPageFormat,
@@ -165,6 +166,50 @@ class UserProfileSettings:
         )
         self.settings.sync()
 
+    def table_number_formats(self) -> dict[str, NumberDisplayFormat]:
+        raw = self.settings.value(self._table_number_formats_key(), "")
+        try:
+            payload = json.loads(str(raw))
+        except json.JSONDecodeError:
+            return {}
+        if not isinstance(payload, dict):
+            return {}
+        result: dict[str, NumberDisplayFormat] = {}
+        for key, item in payload.items():
+            if not isinstance(key, str) or not key or not isinstance(item, dict):
+                continue
+            try:
+                mode = NumberFormatMode(str(item.get("mode", "")))
+                precision = item.get("precision")
+                if isinstance(precision, bool) or not isinstance(precision, int):
+                    continue
+                result[key] = NumberDisplayFormat(mode, precision)
+            except ValueError:
+                continue
+        return result
+
+    def save_table_number_formats(
+        self, formats: dict[str, NumberDisplayFormat]
+    ) -> None:
+        if not isinstance(formats, dict) or not all(
+            isinstance(key, str)
+            and bool(key)
+            and isinstance(value, NumberDisplayFormat)
+            for key, value in formats.items()
+        ):
+            raise TypeError("Настройки числовых колонок имеют неверный формат")
+        self.settings.setValue(
+            self._table_number_formats_key(),
+            json.dumps(
+                {
+                    key: {"mode": value.mode.value, "precision": value.precision}
+                    for key, value in formats.items()
+                },
+                ensure_ascii=False,
+            ),
+        )
+        self.settings.sync()
+
     def _print_settings_key(self) -> str:
         active = self.active()
         profile_id = active.profile_id if active is not None else "default"
@@ -174,6 +219,11 @@ class UserProfileSettings:
         active = self.active()
         profile_id = active.profile_id if active is not None else "default"
         return f"users/cursor_line/{profile_id}"
+
+    def _table_number_formats_key(self) -> str:
+        active = self.active()
+        profile_id = active.profile_id if active is not None else "default"
+        return f"users/table_number_formats/{profile_id}"
 
     def _store(self, profiles: tuple[EngineerProfile, ...], active_id: str | None) -> None:
         self.settings.setValue(

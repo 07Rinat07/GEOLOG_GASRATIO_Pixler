@@ -13,17 +13,27 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QMenu,
     QPushButton,
+    QSpinBox,
     QTableView,
     QVBoxLayout,
     QWidget,
 )
 
-from geoworkbench.data.number_format import format_decimal_number
+from geoworkbench.data.number_format import (
+    NumberDisplayFormat,
+    NumberFormatMode,
+    format_decimal_number,
+    format_display_number,
+)
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.las_range_editor import LasRangeEditingController, RangeClipboard
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -39,6 +49,7 @@ class LasTableModel(QAbstractTableModel):
         self.controller = controller
         self.localizer = localizer
         self.dataset: Dataset | None = None
+        self._number_formats: dict[str, NumberDisplayFormat] = {}
 
     def set_dataset(self, dataset: Dataset | None) -> None:
         self.beginResetModel()
@@ -70,8 +81,47 @@ class LasTableModel(QAbstractTableModel):
         return (
             "—"
             if not np.isfinite(value)
-            else format_decimal_number(value, precision=8)
+            else format_display_number(value, self.number_format_for_column(index.column()))
         )
+
+    def set_number_formats(self, formats: dict[str, NumberDisplayFormat]) -> None:
+        if not all(
+            isinstance(key, str)
+            and bool(key)
+            and isinstance(value, NumberDisplayFormat)
+            for key, value in formats.items()
+        ):
+            raise TypeError("Настройки числовых колонок имеют неверный формат")
+        self.beginResetModel()
+        self._number_formats = dict(formats)
+        self.endResetModel()
+
+    def number_formats(self) -> dict[str, NumberDisplayFormat]:
+        return dict(self._number_formats)
+
+    def number_format_for_column(self, column: int) -> NumberDisplayFormat:
+        return self._number_formats.get(self._number_format_key(column), NumberDisplayFormat())
+
+    def apply_number_format(
+        self, columns: list[int], settings: NumberDisplayFormat
+    ) -> None:
+        if self.dataset is None:
+            raise RuntimeError(self.localizer.text("table.select_dataset"))
+        if not columns or any(column < 0 or column >= self.columnCount() for column in columns):
+            raise ValueError(self.localizer.text("table.number_format.select_columns"))
+        self.beginResetModel()
+        for column in columns:
+            self._number_formats[self._number_format_key(column)] = settings
+        self.endResetModel()
+
+    def _number_format_key(self, column: int) -> str:
+        if self.dataset is None or column < 0 or column >= self.columnCount():
+            raise IndexError(column)
+        if column == 0:
+            return f"index:{self.dataset.active_index.mnemonic.casefold()}"
+        curve = list(self.dataset.curves.values())[column - 1]
+        mnemonic = curve.metadata.canonical_mnemonic or curve.metadata.original_mnemonic
+        return f"curve:{mnemonic.casefold()}"
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole):  # type: ignore[override]  # noqa: E501, N802
         if role != Qt.ItemDataRole.DisplayRole or self.dataset is None:
@@ -128,9 +178,64 @@ class LasTableModel(QAbstractTableModel):
         return float(curve.values[row])
 
 
+class NumberFormatDialog(QDialog):
+    def __init__(
+        self,
+        column_names: list[str],
+        settings: NumberDisplayFormat,
+        parent=None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
+        super().__init__(parent)
+        self.localizer = Localizer.create(language)
+        self.setWindowTitle(self.localizer.text("table.number_format.title"))
+        self.columns_label = QLabel(", ".join(column_names))
+        self.columns_label.setWordWrap(True)
+        self.mode_input = QComboBox()
+        for mode in NumberFormatMode:
+            self.mode_input.addItem(
+                self.localizer.text(f"table.number_format.mode.{mode.value}"), mode
+            )
+        self.mode_input.setCurrentIndex(self.mode_input.findData(settings.mode))
+        self.precision_input = QSpinBox()
+        self.precision_input.setRange(0, 15)
+        self.precision_input.setValue(settings.precision)
+        self.preview_label = QLabel()
+        layout = QFormLayout(self)
+        layout.addRow(self.localizer.text("table.number_format.columns"), self.columns_label)
+        layout.addRow(self.localizer.text("table.number_format.mode"), self.mode_input)
+        layout.addRow(
+            self.localizer.text("table.number_format.precision"), self.precision_input
+        )
+        layout.addRow(self.localizer.text("table.number_format.preview"), self.preview_label)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+        self.mode_input.currentIndexChanged.connect(self._update_preview)
+        self.precision_input.valueChanged.connect(self._update_preview)
+        self._update_preview()
+
+    def value(self) -> NumberDisplayFormat:
+        try:
+            mode = NumberFormatMode(str(self.mode_input.currentData()))
+        except ValueError:
+            mode = NumberFormatMode.ADAPTIVE
+        return NumberDisplayFormat(mode, self.precision_input.value())
+
+    def _update_preview(self) -> None:
+        adaptive = str(self.mode_input.currentData()) == NumberFormatMode.ADAPTIVE.value
+        self.precision_input.setMinimum(1 if adaptive else 0)
+        self.preview_label.setText(format_display_number(5.2e-5, self.value()))
+
+
 class LasTableEditor(QWidget):
     dataset_edited = Signal()
     edit_failed = Signal(str)
+    number_formats_changed = Signal(object)
 
     def __init__(
         self,
@@ -138,6 +243,7 @@ class LasTableEditor(QWidget):
         *,
         language: AppLanguage = AppLanguage.RU,
         selection: DatasetIntervalSelection | None = None,
+        number_formats: dict[str, NumberDisplayFormat] | None = None,
     ) -> None:
         super().__init__()
         self.localizer = Localizer.create(language)
@@ -146,6 +252,7 @@ class LasTableEditor(QWidget):
         self._applying_shared_selection = False
         self.clipboard: RangeClipboard | None = None
         self.model = LasTableModel(controller, self.localizer)
+        self.model.set_number_formats(number_formats or {})
         self.model.dataset_edited.connect(self.dataset_edited)
         self.model.edit_failed.connect(self.edit_failed)
         self.table = QTableView()
@@ -176,6 +283,9 @@ class LasTableEditor(QWidget):
             button = QPushButton(label)
             button.clicked.connect(handler)
             actions.addWidget(button)
+        self.number_format_button = QPushButton(self._t("table.number_format.action"))
+        self.number_format_button.clicked.connect(self.configure_number_format)
+        actions.addWidget(self.number_format_button)
         actions.addStretch()
         root.addLayout(actions)
         root.addWidget(self.table)
@@ -191,6 +301,32 @@ class LasTableEditor(QWidget):
             self.selection.clear()
         else:
             self._apply_shared_selection()
+
+    def set_number_formats(self, formats: dict[str, NumberDisplayFormat]) -> None:
+        self.model.set_number_formats(formats)
+
+    def configure_number_format(self) -> None:
+        columns = sorted({index.column() for index in self.table.selectedIndexes()})
+        current = self.table.currentIndex()
+        if not columns and current.isValid():
+            columns = [current.column()]
+        if self.model.dataset is None or not columns:
+            self.edit_failed.emit(self._t("table.number_format.select_columns"))
+            return
+        names = [
+            str(self.model.headerData(column, Qt.Orientation.Horizontal)).replace("\n", " ")
+            for column in columns
+        ]
+        dialog = NumberFormatDialog(
+            names,
+            self.model.number_format_for_column(columns[0]),
+            self,
+            language=self.localizer.language,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self.model.apply_number_format(columns, dialog.value())
+        self.number_formats_changed.emit(self.model.number_formats())
 
     def _publish_selection(self) -> None:
         if self._applying_shared_selection:

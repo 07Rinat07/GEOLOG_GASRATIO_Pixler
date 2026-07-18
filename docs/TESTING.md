@@ -81,7 +81,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Time normalization | ISO-8601, DATE+TIME, custom format, IANA/offset/naive, DST, NaT и Unix scale |
 | Data Inspector | Summary, indexes, missing curve values, import issues и ручной active index |
 | LAS Header Editor | VERSION/WELL/PARAMETER, защищённые поля, координаты, NULL, синхронизация и Undo/Redo |
-| LAS Table Editor | RU/KK/EN, ячейки, multi-cell selection, constant/noise, copy/paste и gas recalc |
+| LAS Table Editor | RU/KK/EN, ячейки, multi-cell selection, display formats, constant/noise, copy/paste и gas recalc |
 | Curve Metadata Editor | Мнемоники, UOM, описания, конфликты с индексами, Undo/Redo и canonical ID |
 | Project persistence | Project v8 round-trip, Masterlog templates/anchors, legacy migration, import provenance, schema validation и hash mismatch |
 | LAS source profile | Версия, WRAP, NULL, кодировка, fingerprint, artifact status и export defaults |
@@ -92,7 +92,7 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 | Plugin API | Контракт регистрации и несовместимые плагины |
 | Qt UI | Headless-интеграционные пользовательские сценарии |
 | Branding resources | Загрузка пакетного PNG, масштабирование и иконка приложения |
-| LAS Table Editor | Виртуальная модель, read-only индексы/расчёты, edit и пересчёт |
+| LAS Table Editor | Виртуальная модель, read-only индексы/расчёты, per-column display, full-precision edit и пересчёт |
 
 ## Принципы
 

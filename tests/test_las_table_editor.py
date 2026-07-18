@@ -1,14 +1,15 @@
 import numpy as np
 from PySide6.QtCore import QItemSelectionModel, Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QDialog, QPushButton
 
+from geoworkbench.data.number_format import NumberDisplayFormat, NumberFormatMode
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
-from geoworkbench.ui.las_table_editor import LasTableEditor
+from geoworkbench.ui.las_table_editor import LasTableEditor, NumberFormatDialog
 
 
 def make_editor() -> tuple[LasTableEditor, Dataset]:
@@ -70,6 +71,69 @@ def test_table_model_displays_and_edits_small_values_without_scientific_notation
     assert "e" not in model.data(index, Qt.ItemDataRole.EditRole).casefold()
     assert model.setData(index, "0,000053") is True
     assert dataset.curves["c2"].values[0] == 0.000053
+    editor.close()
+
+
+def test_table_model_applies_persistent_format_by_curve_mnemonic(qapp) -> None:
+    editor, dataset = make_editor()
+    dataset.curves["c2"].values[0] = 5.2e-5
+    editor.set_dataset(dataset)
+    model = editor.model
+    c2_column = next(
+        column
+        for column in range(model.columnCount())
+        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("C2")
+    )
+    settings = NumberDisplayFormat(NumberFormatMode.FIXED, 7)
+
+    model.apply_number_format([c2_column], settings)
+
+    index = model.index(0, c2_column)
+    assert model.data(index, Qt.ItemDataRole.DisplayRole) == "0.0000520"
+    assert model.data(index, Qt.ItemDataRole.EditRole) == "0.000052"
+    assert model.number_formats() == {"curve:c2": settings}
+    editor.close()
+
+
+def test_number_format_dialog_updates_preview(qapp) -> None:
+    dialog = NumberFormatDialog(
+        ["C2 [PCT]"], NumberDisplayFormat(), language=AppLanguage.EN
+    )
+    dialog.mode_input.setCurrentIndex(
+        dialog.mode_input.findData(NumberFormatMode.SCIENTIFIC)
+    )
+    dialog.precision_input.setValue(3)
+
+    assert dialog.value() == NumberDisplayFormat(NumberFormatMode.SCIENTIFIC, 3)
+    assert dialog.preview_label.text() == "5.200e-05"
+    assert dialog.windowTitle() == "Column number format"
+    dialog.close()
+
+
+def test_table_editor_configures_selected_columns_and_emits_settings(
+    qapp, monkeypatch
+) -> None:
+    editor, dataset = make_editor()
+    editor.set_dataset(dataset)
+    model = editor.model
+    c2_column = next(
+        column
+        for column in range(model.columnCount())
+        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("C2")
+    )
+    editor.table.selectionModel().select(
+        model.index(0, c2_column),
+        QItemSelectionModel.SelectionFlag.ClearAndSelect,
+    )
+    settings = NumberDisplayFormat(NumberFormatMode.FIXED, 6)
+    emitted: list[dict[str, NumberDisplayFormat]] = []
+    editor.number_formats_changed.connect(emitted.append)
+    monkeypatch.setattr(NumberFormatDialog, "exec", lambda _self: QDialog.DialogCode.Accepted)
+    monkeypatch.setattr(NumberFormatDialog, "value", lambda _self: settings)
+
+    editor.configure_number_format()
+
+    assert emitted == [{"curve:c2": settings}]
     editor.close()
 
 

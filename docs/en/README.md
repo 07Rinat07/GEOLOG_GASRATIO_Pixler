@@ -18,8 +18,11 @@ time-zone, preview, and validation controls.
 The LAS table supports direct values, constant or noise interval fills, copy/paste, and
 Undo/Redo. Every command and selection validation message uses the selected language.
 Small values are displayed and opened for editing in plain decimal notation, for example
-`0.000052` instead of `5.2e-05`. Selected-interval CSV export uses the same notation, while
-Excel keeps the value numeric and applies a decimal cell format.
+`0.000052` instead of `5.2e-05`. To format particular columns, select cells in them and click
+“Number format...”. Adaptive decimal, fixed decimal places, and scientific modes include a
+live preview. The mnemonic-based setting is stored separately for the active engineer profile.
+It changes display only: editing opens the full decimal value, CSV keeps full precision, and
+Excel keeps both the numeric type and its cell format.
 
 ## LAS export
 

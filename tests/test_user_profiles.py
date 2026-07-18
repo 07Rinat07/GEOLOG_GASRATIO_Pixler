@@ -2,15 +2,16 @@ import json
 
 import pytest
 
-from geoworkbench.services.user_profiles import (
-    CursorLineSettings,
-    EngineerProfile,
-    UserProfileSettings,
-)
+from geoworkbench.data.number_format import NumberDisplayFormat, NumberFormatMode
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
     PrintPageFormat,
     PrintPageSettings,
+)
+from geoworkbench.services.user_profiles import (
+    CursorLineSettings,
+    EngineerProfile,
+    UserProfileSettings,
 )
 
 
@@ -123,3 +124,36 @@ def test_corrupt_cursor_line_settings_fall_back_to_defaults() -> None:
     storage.values["users/cursor_line/default"] = '{"color":"red","width":99}'
 
     assert UserProfileSettings(storage).cursor_line_settings() == CursorLineSettings()
+
+
+def test_table_number_formats_persist_per_active_profile() -> None:
+    storage = MemorySettings()
+    settings = UserProfileSettings(storage)
+    default_format = NumberDisplayFormat(NumberFormatMode.FIXED, 7)
+    settings.save_table_number_formats({"curve:c2": default_format})
+
+    profile = settings.create("Engineer")
+
+    assert settings.table_number_formats() == {}
+    profile_format = NumberDisplayFormat(NumberFormatMode.SCIENTIFIC, 3)
+    settings.save_table_number_formats({"curve:ic4": profile_format})
+    assert UserProfileSettings(storage).table_number_formats() == {
+        "curve:ic4": profile_format
+    }
+    settings.delete(profile.profile_id)
+    assert settings.table_number_formats() == {"curve:c2": default_format}
+
+
+def test_corrupt_table_number_formats_are_ignored() -> None:
+    storage = MemorySettings()
+    storage.values["users/table_number_formats/default"] = json.dumps(
+        {
+            "curve:c1": {"mode": "fixed", "precision": 6},
+            "curve:c2": {"mode": "unknown", "precision": 6},
+            "curve:c3": {"mode": "adaptive", "precision": 0},
+        }
+    )
+
+    assert UserProfileSettings(storage).table_number_formats() == {
+        "curve:c1": NumberDisplayFormat(NumberFormatMode.FIXED, 6)
+    }

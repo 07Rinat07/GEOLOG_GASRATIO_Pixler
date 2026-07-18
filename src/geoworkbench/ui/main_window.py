@@ -181,8 +181,10 @@ class MainWindow(QMainWindow):
             self.las_range_editing_controller,
             language=self.language,
             selection=self.dataset_selection,
+            number_formats=self.user_profile_settings.table_number_formats(),
         )
         self.las_table_editor.dataset_edited.connect(self._after_table_edit)
+        self.las_table_editor.number_formats_changed.connect(self._save_table_number_formats)
         self.las_table_editor.edit_failed.connect(
             lambda message: QMessageBox.warning(self, "LAS Editor", message)
         )
@@ -204,6 +206,11 @@ class MainWindow(QMainWindow):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
+
+    def _save_table_number_formats(self, formats: object) -> None:
+        if not isinstance(formats, dict):
+            return
+        self.user_profile_settings.save_table_number_formats(formats)
 
     @property
     def session(self) -> ProjectSession:
@@ -696,6 +703,9 @@ class MainWindow(QMainWindow):
             profile = self.user_profile_settings.select(profiles[index].profile_id)
         self.statusBar().showMessage(self._t("profile.active", name=profile.display_name))
         self.print_page_settings = self.user_profile_settings.print_page_settings()
+        self.las_table_editor.set_number_formats(
+            self.user_profile_settings.table_number_formats()
+        )
 
     def open_las(self) -> None:
         mode_labels = {
