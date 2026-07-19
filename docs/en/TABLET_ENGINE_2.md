@@ -52,3 +52,7 @@ The first slice adds a unified selection manager for tracks and intervals, a sha
 - track reordering by dragging headers;
 - Undo/Redo for width and order changes;
 - curve selection does not rebuild the geometry cache.
+
+## Selection interaction update
+
+Track and curve selection now supports additive/toggle selection, selected curve details in the inspector, and track context operations with Undo/Redo.

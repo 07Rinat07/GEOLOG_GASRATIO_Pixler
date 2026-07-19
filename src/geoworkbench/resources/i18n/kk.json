@@ -541,8 +541,8 @@
   "tablet.log_scale": "Таңдалған тректің логарифмдік шкаласы",
   "tablet.set_range": "Таңдалған тректің X ауқымын орнату...",
   "tablet.auto_range": "Таңдалған тректің автоматты X ауқымы",
-  "tablet.move_left": "Таңдалған тректі солға жылжыту",
-  "tablet.move_right": "Таңдалған тректі оңға жылжыту",
+  "tablet.move_left": "Солға жылжыту",
+  "tablet.move_right": "Оңға жылжыту",
   "tablet.hide": "Таңдалған тректі жасыру",
   "tablet.show_all": "Барлық жасырын тректерді көрсету",
   "tablet.remove": "Таңдалған тректі жою",
@@ -779,5 +779,9 @@
   "tablet.full_range": "Толық ауқым",
   "tablet.visible_range": "Көрсетілгені: {top} — {bottom}",
   "tablet.goto_value_placeholder": "Тереңдік немесе уақыт",
-  "tablet.goto_time_placeholder": "2026-07-18 12:30:00"
+  "tablet.goto_time_placeholder": "2026-07-18 12:30:00",
+  "tablet.hide_track": "Жолақты жасыру",
+  "tablet.remove_track": "Жолақты жою",
+  "tablet.undo_interaction": "Әрекетті болдырмау",
+  "tablet.redo_interaction": "Әрекетті қайталау"
 }

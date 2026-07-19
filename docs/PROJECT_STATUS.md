@@ -16,3 +16,7 @@ Tablet Engine 2.0 — Rendering Engine.
 ## Selection & Interaction Engine — второй срез
 
 Реализована единая модель выделения объектов планшета: `SelectionRef`, `SelectionManager`, общий `HitResult`, выбор лучшего hit-кандидата и `CommandStack`. Дополнительно работают hit-testing заголовков и ближайшей кривой, интерактивные resize handles, перестановка дорожек drag-and-drop и Undo/Redo для изменения ширины и порядка.
+
+## Current implementation slice
+
+Selection & Interaction Engine now includes multi-selection, selected-curve properties in the inspector, and context operations for tracks. The next slice is the unified properties editor for editable track/curve fields and batch operations on a multi-selection.

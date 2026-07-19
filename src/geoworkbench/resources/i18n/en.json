@@ -541,8 +541,8 @@
   "tablet.log_scale": "Logarithmic scale for selected track",
   "tablet.set_range": "Set selected track X range...",
   "tablet.auto_range": "Automatic X range for selected track",
-  "tablet.move_left": "Move selected track left",
-  "tablet.move_right": "Move selected track right",
+  "tablet.move_left": "Move left",
+  "tablet.move_right": "Move right",
   "tablet.hide": "Hide selected track",
   "tablet.show_all": "Show all hidden tracks",
   "tablet.remove": "Remove selected track",
@@ -779,5 +779,9 @@
   "tablet.full_range": "Full range",
   "tablet.visible_range": "Visible: {top} — {bottom}",
   "tablet.goto_value_placeholder": "Depth or time",
-  "tablet.goto_time_placeholder": "2026-07-18 12:30:00"
+  "tablet.goto_time_placeholder": "2026-07-18 12:30:00",
+  "tablet.hide_track": "Hide track",
+  "tablet.remove_track": "Remove track",
+  "tablet.undo_interaction": "Undo action",
+  "tablet.redo_interaction": "Redo action"
 }

@@ -52,3 +52,7 @@
 - тақырып арқылы жолдарды қайта орналастыру;
 - ен мен реттілік үшін Undo/Redo;
 - қисықты таңдау geometry cache-ті қайта есептемейді.
+
+## Selection interaction update
+
+Track and curve selection now supports additive/toggle selection, selected curve details in the inspector, and track context operations with Undo/Redo.

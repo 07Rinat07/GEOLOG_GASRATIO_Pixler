@@ -55,3 +55,15 @@ Remaining:
 - [x] Selection & Interaction Engine: базовая модель `HitResult`, `SelectionManager`, интеграция дорожек и интервалов, инфраструктура Undo/Redo.
 - [x] Selection & Interaction Engine: hit-testing кривых и заголовков, resize handles, drag-and-drop порядка дорожек и Undo/Redo.
 - [ ] Selection & Interaction Engine: панель свойств, множественное выделение и контекстные операции.
+
+### Completed: Selection & Interaction — multiselect and context operations
+
+- Ctrl/Shift multi-selection for tracks and curves.
+- Curve properties shown in the inspector.
+- Track context menu: move, hide, remove, undo, redo.
+
+### Next
+
+- Editable unified properties panel for track and curve styles.
+- Batch operations for selected tracks/curves.
+- Keyboard shortcuts and clipboard operations.

@@ -10,6 +10,7 @@ import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen, QBrush, QWheelEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QFrame,
     QHBoxLayout,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
     QToolButton,
     QVBoxLayout,
     QWidget,
+    QMenu,
 )
 
 from geoworkbench.domain.models import (
@@ -198,6 +200,7 @@ class TabletTrackWidget(QFrame):
     header_drag_started = Signal(str, int)
     header_drag_moved = Signal(str, int)
     header_drag_finished = Signal(str, int)
+    context_requested = Signal(str, QPoint)
 
     RESIZE_MARGIN = 6
 
@@ -289,6 +292,9 @@ class TabletTrackWidget(QFrame):
         if isinstance(event, QMouseEvent) and self._handle_resize_event(event, watched):
             return True
         if watched is self.title and isinstance(event, QMouseEvent):
+            if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.RightButton:
+                self.context_requested.emit(self.definition.track_id, event.globalPosition().toPoint())
+                return True
             global_x = event.globalPosition().toPoint().x()
             if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
                 self._header_drag_origin_x = global_x
@@ -436,6 +442,8 @@ class TabletView(QWidget):
     track_width_change_requested = Signal(str, int)
     track_order_change_requested = Signal(str, int)
     curve_selected = Signal(str, str)
+    track_hide_requested = Signal(str)
+    track_remove_requested = Signal(str)
     visible_depth_changed = Signal(float, float)
     vertical_index_changed = Signal(str)
     cursor_changed = Signal(float, str)
@@ -912,7 +920,10 @@ class TabletView(QWidget):
         return changed or interval_changed
 
     def _track_selected_from_widget(self, track_id: str) -> None:
-        self.select_track(track_id, emit_signal=True)
+        modifiers = QApplication.keyboardModifiers()
+        additive = bool(modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier))
+        toggle = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
+        self.select_track(track_id, additive=additive, toggle=toggle, emit_signal=True)
 
     @property
     def can_undo_interaction(self) -> bool:
@@ -1089,12 +1100,19 @@ class TabletView(QWidget):
         return choose_best_hit(hits)
 
     def select_curve_at(
-        self, track_id: str, local_x: float, local_y: float, *, tolerance_px: float = 8.0
+        self,
+        track_id: str,
+        local_x: float,
+        local_y: float,
+        *,
+        tolerance_px: float = 8.0,
+        additive: bool = False,
+        toggle: bool = False,
     ) -> HitResult | None:
         hit = self.hit_test_curve(track_id, local_x, local_y, tolerance_px=tolerance_px)
         if hit is None:
             return None
-        if self._selection.select(hit.target):
+        if self._selection.select(hit.target, additive=additive, toggle=toggle):
             self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
             self.selection_changed.emit(self._selection.snapshot())
             self.curve_selected.emit(track_id, hit.target.object_id)
@@ -1118,6 +1136,40 @@ class TabletView(QWidget):
                     "QFrame { background: #ffffff; border: 1px solid #cbd5e1; } "
                     "QLabel { background: #f8fafc; color: #0f172a; }"
                 )
+
+    def show_track_context_menu(self, track_id: str, global_pos: QPoint) -> None:
+        try:
+            definition = self._layout_model.track_by_id(track_id)
+            index = self._layout_model.tracks.index(definition)
+        except (KeyError, ValueError):
+            return
+        self.select_track(track_id, emit_signal=True)
+        menu = QMenu(self)
+        move_left = menu.addAction(self._localizer.text("tablet.move_left"))
+        move_right = menu.addAction(self._localizer.text("tablet.move_right"))
+        menu.addSeparator()
+        hide_action = menu.addAction(self._localizer.text("tablet.hide_track"))
+        remove_action = menu.addAction(self._localizer.text("tablet.remove_track"))
+        menu.addSeparator()
+        undo_action = menu.addAction(self._localizer.text("tablet.undo_interaction"))
+        redo_action = menu.addAction(self._localizer.text("tablet.redo_interaction"))
+        move_left.setEnabled(index > 0)
+        move_right.setEnabled(index < len(self._layout_model.tracks) - 1)
+        undo_action.setEnabled(self.can_undo_interaction)
+        redo_action.setEnabled(self.can_redo_interaction)
+        chosen = menu.exec(global_pos)
+        if chosen is move_left:
+            self.move_track_with_history(track_id, index - 1)
+        elif chosen is move_right:
+            self.move_track_with_history(track_id, index + 1)
+        elif chosen is hide_action:
+            self.track_hide_requested.emit(track_id)
+        elif chosen is remove_action:
+            self.track_remove_requested.emit(track_id)
+        elif chosen is undo_action:
+            self.undo_interaction()
+        elif chosen is redo_action:
+            self.redo_interaction()
 
     @property
     def visible_depth_range(self) -> tuple[float, float] | None:
@@ -1410,6 +1462,7 @@ class TabletView(QWidget):
             track.header_drag_started.connect(self._start_track_header_drag)
             track.header_drag_moved.connect(self._move_track_header_drag)
             track.header_drag_finished.connect(self._finish_track_header_drag)
+            track.context_requested.connect(self.show_track_context_menu)
             legend_labels, curve_items = self._populate_track(
                 track,
                 definition,
@@ -1815,8 +1868,14 @@ class TabletView(QWidget):
                     None,
                 )
                 if track_id is not None:
+                    additive = bool(event.modifiers() & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier))
+                    toggle = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
                     hit = self.select_curve_at(
-                        track_id, event.position().x(), event.position().y()
+                        track_id,
+                        event.position().x(),
+                        event.position().y(),
+                        additive=additive,
+                        toggle=toggle,
                     )
                     if hit is not None:
                         event.accept()

@@ -52,3 +52,7 @@
 - перестановка дорожек за заголовок;
 - Undo/Redo для ширины и порядка;
 - выбор кривой не пересчитывает geometry cache.
+
+## Selection interaction update
+
+Track and curve selection now supports additive/toggle selection, selected curve details in the inspector, and track context operations with Undo/Redo.

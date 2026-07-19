@@ -541,8 +541,8 @@
   "tablet.log_scale": "Логарифмическая шкала выбранного трека",
   "tablet.set_range": "Задать диапазон X выбранного трека...",
   "tablet.auto_range": "Автоматический диапазон X выбранного трека",
-  "tablet.move_left": "Переместить выбранный трек влево",
-  "tablet.move_right": "Переместить выбранный трек вправо",
+  "tablet.move_left": "Переместить влево",
+  "tablet.move_right": "Переместить вправо",
   "tablet.hide": "Скрыть выбранный трек",
   "tablet.show_all": "Показать все скрытые треки",
   "tablet.remove": "Удалить выбранный трек",
@@ -779,5 +779,9 @@
   "tablet.full_range": "Весь диапазон",
   "tablet.visible_range": "Показано: {top} — {bottom}",
   "tablet.goto_value_placeholder": "Глубина или время",
-  "tablet.goto_time_placeholder": "2026-07-18 12:30:00"
+  "tablet.goto_time_placeholder": "2026-07-18 12:30:00",
+  "tablet.hide_track": "Скрыть дорожку",
+  "tablet.remove_track": "Удалить дорожку",
+  "tablet.undo_interaction": "Отменить действие",
+  "tablet.redo_interaction": "Повторить действие"
 }

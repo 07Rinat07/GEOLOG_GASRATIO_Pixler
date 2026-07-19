@@ -187,6 +187,9 @@ class MainWindow(QMainWindow):
             self.cursor_line_settings.color, self.cursor_line_settings.width
         )
         self.tablet_view.track_selected.connect(self._show_track_in_inspector)
+        self.tablet_view.curve_selected.connect(self._show_tablet_curve_in_inspector)
+        self.tablet_view.track_hide_requested.connect(self._hide_track_from_context)
+        self.tablet_view.track_remove_requested.connect(self._remove_track_from_context)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.track_order_change_requested.connect(self._track_order_changed_from_drag)
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
@@ -3042,6 +3045,37 @@ class MainWindow(QMainWindow):
             self.show_depth_annotations()
         elif data[0] == "description_templates":
             self.show_description_templates()
+
+    def _show_tablet_curve_in_inspector(self, track_id: str, mnemonic: str) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            return
+        curve = dataset.curves.get(mnemonic)
+        if curve is None:
+            curve = next(
+                (item for item in dataset.curves.values() if item.metadata.original_mnemonic == mnemonic),
+                None,
+            )
+        if curve is None:
+            self._show_track_in_inspector(track_id)
+            return
+        self._selected_track_id = track_id
+        self.inspector.setPlainText(
+            f"{self._t('inspector.curve')}: {curve.metadata.original_mnemonic}\n"
+            f"{self._t('inspector.unit')}: {curve.metadata.unit or self._t('common.unset')}\n"
+            f"{self._t('inspector.description')}: "
+            f"{curve.metadata.description or self._t('common.none')}\n"
+            f"{self._t('inspector.version')}: {curve.version}\n"
+            f"{self._t('inspector.provenance')}: {curve.metadata.provenance}"
+        )
+
+    def _hide_track_from_context(self, track_id: str) -> None:
+        self._selected_track_id = track_id
+        self.hide_selected_track()
+
+    def _remove_track_from_context(self, track_id: str) -> None:
+        self._selected_track_id = track_id
+        self.remove_selected_track()
 
     def _show_track_in_inspector(self, track_id: str) -> None:
         self._selected_track_id = track_id

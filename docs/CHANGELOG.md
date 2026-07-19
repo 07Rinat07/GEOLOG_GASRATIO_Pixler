@@ -221,3 +221,10 @@
 - Добавлен hit-testing заголовков дорожек и ближайших отображаемых кривых.
 - Изменение ширины дорожек и перестановка drag-and-drop записываются в общий Undo/Redo stack.
 - Выбор кривой синхронизирован с общей моделью Selection и не пересчитывает геометрию кривых.
+
+### Selection & Interaction Engine — properties, multiselect and context actions
+
+- Added Ctrl/Shift-assisted multi-selection for tracks and curves.
+- Added curve selection details in the existing inspector panel.
+- Added track header context menu with move, hide, remove, undo and redo actions.
+- Kept all context actions synchronized with the shared selection model and interaction command stack.
