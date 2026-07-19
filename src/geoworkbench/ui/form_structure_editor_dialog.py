@@ -23,7 +23,9 @@ from PySide6.QtWidgets import (
 from geoworkbench.forms.editor import FormStructureEditor
 from geoworkbench.forms.models import FormDocument
 from geoworkbench.forms.repository import FormRepository
+from geoworkbench.domain.models import Dataset
 from geoworkbench.tablet.models import TrackKind
+from geoworkbench.ui.track_content_editor_dialog import TrackContentEditorDialog
 
 _ITEM_KIND_ROLE = Qt.ItemDataRole.UserRole
 _ITEM_ID_ROLE = Qt.ItemDataRole.UserRole + 1
@@ -88,9 +90,11 @@ class FormStructureEditorDialog(QDialog):
         parent=None,
         *,
         language: str = "ru",
+        dataset: Dataset | None = None,
     ) -> None:
         super().__init__(parent)
         self.repository = repository
+        self.dataset = dataset
         self.language = language
         self.editor = FormStructureEditor(form)
         self.saved_form: FormDocument | None = None
@@ -123,6 +127,7 @@ class FormStructureEditorDialog(QDialog):
         track_buttons = QHBoxLayout()
         self._button(track_buttons, self._text("+ Дорожка", "+ Жол", "+ Track"), self._add_track)
         self._button(track_buttons, self._text("− Дорожка", "− Жол", "− Track"), self._remove_track)
+        self._button(track_buttons, self._text("Содержимое", "Мазмұны", "Content"), self._edit_track_content)
         left_layout.addLayout(track_buttons)
         splitter.addWidget(left)
 
@@ -320,6 +325,30 @@ class FormStructureEditorDialog(QDialog):
             self._reload_tree(track.track_id)
         except (KeyError, PermissionError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
+
+
+    def _edit_track_content(self) -> None:
+        ref = self._selected_ref()
+        if ref is None or ref[0] != "track":
+            QMessageBox.information(
+                self,
+                self.windowTitle(),
+                self._text(
+                    "Выберите дорожку.",
+                    "Жолды таңдаңыз.",
+                    "Select a track.",
+                ),
+            )
+            return
+        dialog = TrackContentEditorDialog(
+            self.editor,
+            ref[1],
+            self,
+            dataset=self.dataset,
+            language=self.language,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._reload_tree(ref[1])
 
     def _remove_track(self) -> None:
         ref = self._selected_ref()

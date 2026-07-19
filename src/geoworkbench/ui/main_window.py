@@ -1746,6 +1746,7 @@ class MainWindow(QMainWindow):
             self.form_repository,
             self,
             language=self.language.value,
+            dataset=self.session.current_dataset,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted or dialog.selected_form is None:
             return

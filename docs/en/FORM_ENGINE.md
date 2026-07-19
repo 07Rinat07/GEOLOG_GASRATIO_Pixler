@@ -24,3 +24,18 @@ The manager lists factory and user templates and supports create, copy, rename, 
 ## Visual form structure editor
 
 Users can add, remove, and reorder columns and tracks, edit column widths, titles, and track types, preview the structure, and save the result to a user JSON template. Factory templates remain protected and are edited through a user copy.
+
+## Track content editor
+
+A selected track can be opened in a dedicated parameter editor. It supports:
+
+- adding a canonical parameter from the Sensors catalog;
+- adding a concrete curve from the active LAS dataset;
+- removing and reordering `ParameterBinding` entries;
+- display name, canonical identifier, source mnemonic, and unit;
+- visibility, color, line width, and line style;
+- linear or logarithmic scale;
+- automatic or explicit range.
+
+Changes are stored in the user JSON template and consumed by the existing Form Apply Engine. Source LAS names and values are not modified.
+

@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.forms.codec import form_from_dict, form_to_dict
+from geoworkbench.domain.models import Dataset
 from geoworkbench.forms.models import FormAxisKind, FormDocument, FormTemplateOrigin
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.templates import factory_templates
@@ -26,9 +27,17 @@ from geoworkbench.ui.form_structure_editor_dialog import FormStructureEditorDial
 
 
 class FormManagerDialog(QDialog):
-    def __init__(self, repository: FormRepository, parent=None, *, language: str = "ru") -> None:
+    def __init__(
+        self,
+        repository: FormRepository,
+        parent=None,
+        *,
+        language: str = "ru",
+        dataset: Dataset | None = None,
+    ) -> None:
         super().__init__(parent)
         self.repository = repository
+        self.dataset = dataset
         self.language = language
         self.selected_form: FormDocument | None = None
         self.setWindowTitle(self._text("Менеджер форм", "Пішіндер менеджері", "Form manager"))
@@ -172,6 +181,7 @@ class FormManagerDialog(QDialog):
             self.repository,
             self,
             language=self.language,
+            dataset=self.dataset,
         )
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.saved_form is not None:
             self.reload(dialog.saved_form.form_id)

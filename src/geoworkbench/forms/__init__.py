@@ -1,3 +1,4 @@
+from geoworkbench.forms.binding_editor import TrackBindingEditor
 from geoworkbench.forms.editor import FormStructureEditor
 from geoworkbench.forms.codec import FORM_SCHEMA_VERSION, FormFormatError, form_from_dict, form_to_dict
 from geoworkbench.forms.models import (
@@ -13,6 +14,7 @@ from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.templates import factory_templates
 
 __all__ = [
+    "TrackBindingEditor",
     "FormStructureEditor",
     "BindingResolution",
     "FORM_SCHEMA_VERSION",
@@ -30,3 +32,4 @@ __all__ = [
     "form_from_dict",
     "form_to_dict",
 ]
+
