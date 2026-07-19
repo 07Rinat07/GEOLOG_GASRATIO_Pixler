@@ -66,6 +66,13 @@ from geoworkbench.tablet.models import (
     XScale,
 )
 from geoworkbench.tablet.resize import TrackResizeGesture
+from geoworkbench.tablet.selection_interaction import (
+    CommandStack,
+    SelectableKind,
+    SelectionManager,
+    SelectionRef,
+    SelectionSnapshot,
+)
 
 
 @dataclass(slots=True)
@@ -396,6 +403,7 @@ class TabletView(QWidget):
     """Многотрековый планшет с общей синхронизированной шкалой глубины."""
 
     track_selected = Signal(str)
+    selection_changed = Signal(object)
     track_width_change_requested = Signal(str, int)
     visible_depth_changed = Signal(float, float)
     vertical_index_changed = Signal(str)
@@ -445,6 +453,8 @@ class TabletView(QWidget):
         self._static_layer_cache = StaticLayerCache(max_entries=512)
         self._dirty_registry = TrackDirtyRegistry()
         self._overlay_layers = OverlayLayerManager()
+        self._selection = SelectionManager()
+        self._interaction_history = CommandStack()
         self._tooltip_items: dict[str, pg.TextItem] = {}
         self._rubber_band_items: dict[str, pg.BarGraphItem] = {}
 
@@ -793,6 +803,13 @@ class TabletView(QWidget):
         interval_changed = self._selected_interval_id != interval_id
         self._selected_interpretation_id = interpretation_id
         self._selected_interval_id = interval_id
+        generic_changed = self._selection.select(
+            SelectionRef(SelectableKind.INTERVAL, interval_id),
+            additive=False,
+        )
+        if generic_changed:
+            self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
+            self.selection_changed.emit(self._selection.snapshot())
         if interpretation_changed:
             self.refresh_view()
         else:
@@ -805,6 +822,9 @@ class TabletView(QWidget):
         if self._selected_interval_id is None:
             return False
         self._selected_interval_id = None
+        self._selection.clear(kind=SelectableKind.INTERVAL)
+        self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
+        self.selection_changed.emit(self._selection.snapshot())
         self._apply_interpretation_selection_style()
         if emit_signal:
             self.interval_selection_cleared.emit()
@@ -819,6 +839,67 @@ class TabletView(QWidget):
             ),
             None,
         )
+
+    @property
+    def selection_snapshot(self) -> SelectionSnapshot:
+        return self._selection.snapshot()
+
+    def select_track(
+        self,
+        track_id: str,
+        *,
+        additive: bool = False,
+        toggle: bool = False,
+        emit_signal: bool = True,
+    ) -> bool:
+        if track_id not in {track.track_id for track in self._layout_model.tracks}:
+            return False
+        changed = self._selection.select(
+            SelectionRef(SelectableKind.TRACK, track_id, track_id),
+            additive=additive,
+            toggle=toggle,
+        )
+        if changed:
+            self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
+            self._apply_track_selection_style()
+            if emit_signal:
+                self.selection_changed.emit(self._selection.snapshot())
+                self.track_selected.emit(track_id)
+        return changed
+
+    def clear_selection(self, *, emit_signal: bool = True) -> bool:
+        changed = self._selection.clear()
+        interval_changed = self._selected_interval_id is not None
+        self._selected_interval_id = None
+        if changed or interval_changed:
+            self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
+            self._apply_track_selection_style()
+            self._apply_interpretation_selection_style()
+            if emit_signal:
+                self.selection_changed.emit(self._selection.snapshot())
+        return changed or interval_changed
+
+    def _track_selected_from_widget(self, track_id: str) -> None:
+        self.select_track(track_id, emit_signal=True)
+
+    def _apply_track_selection_style(self) -> None:
+        selected = {
+            item.object_id
+            for item in self._selection.snapshot().items
+            if item.kind is SelectableKind.TRACK
+        }
+        for track_id, rendered in self._rendered.items():
+            frame = rendered.widget
+            if track_id in selected:
+                frame.setStyleSheet(
+                    "QFrame { background: #ffffff; border: 2px solid #2563eb; } "
+                    "QLabel { background: #eff6ff; color: #0f172a; }"
+                )
+            else:
+                frame.setStyleSheet(
+                    "QFrame { background: #ffffff; border: 1px solid #cbd5e1; } "
+                    "QLabel { background: #f8fafc; color: #0f172a; }"
+                )
 
     @property
     def visible_depth_range(self) -> tuple[float, float] | None:
@@ -1106,7 +1187,7 @@ class TabletView(QWidget):
         axis_descriptor = self._axis_descriptor()
         for definition in visible:
             track = TabletTrackWidget(definition, self._navigation_hint, axis_descriptor)
-            track.selected.connect(self.track_selected)
+            track.selected.connect(self._track_selected_from_widget)
             track.width_change_requested.connect(self.track_width_change_requested)
             legend_labels, curve_items = self._populate_track(
                 track,

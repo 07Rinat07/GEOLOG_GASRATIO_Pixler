@@ -40,3 +40,7 @@ Track title, width, grid and axis label use a dedicated static-configuration cac
 # Tablet Engine 2.0 — Overlay Engine
 
 Dynamic tablet elements are separated into independent cursor, selection, marker, annotation, interval-preview, tooltip and rubber-band layers. Every layer has its own visibility, Z-order and dirty state. Overlay changes do not rebuild curve geometry or static tracks.
+
+## Selection & Interaction Engine
+
+The first slice adds a unified selection manager for tracks and intervals, a shared hit-testing result, and Undo/Redo infrastructure. Selection is updated through the independent Selection overlay without rebuilding curve geometry.

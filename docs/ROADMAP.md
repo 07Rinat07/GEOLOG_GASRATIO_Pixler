@@ -50,3 +50,7 @@ Remaining:
 - Pixler;
 - hydrocarbon interpretation zones;
 - printable graphical and textual interpretation reports.
+
+
+- [x] Selection & Interaction Engine: базовая модель `HitResult`, `SelectionManager`, интеграция дорожек и интервалов, инфраструктура Undo/Redo.
+- [ ] Selection & Interaction Engine: hit-testing кривых/заголовков, resize handles, drag-and-drop и панель свойств.

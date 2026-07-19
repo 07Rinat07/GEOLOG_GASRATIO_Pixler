@@ -1215,3 +1215,36 @@ def test_tooltip_and_rubber_band_are_independent_overlay_layers(qapp) -> None:
     assert view.set_overlay_visible(OverlayLayerKind.ANNOTATION, False)
     assert not view.overlay_visible(OverlayLayerKind.ANNOTATION)
     view.close()
+
+
+def test_tablet_selection_manager_tracks_widget_selection(qapp) -> None:
+    dataset = Dataset(
+        "dataset-selection-manager",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Depth", TrackKind.DEPTH),
+                TrackDefinition("curve", "Curve", TrackKind.CURVE),
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+    selected: list[object] = []
+    view.selection_changed.connect(selected.append)
+
+    assert view.select_track("curve") is True
+    assert view.selection_snapshot.primary is not None
+    assert view.selection_snapshot.primary.object_id == "curve"
+    assert selected
+    assert "2px solid #2563eb" in view._rendered["curve"].widget.styleSheet()
+
+    assert view.clear_selection() is True
+    assert view.selection_snapshot.items == ()
+    assert "1px solid #cbd5e1" in view._rendered["curve"].widget.styleSheet()
+    view.close()

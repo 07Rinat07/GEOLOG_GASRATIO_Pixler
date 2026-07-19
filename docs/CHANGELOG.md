@@ -207,3 +207,11 @@
 - Added selective curve/static cache invalidation.
 - Added partial single-track updates for style, grid, axis label and drag-resize operations.
 - Added full/partial refresh metrics and regression tests.
+
+
+### Selection & Interaction Engine
+
+- Добавлены единые типы выбираемых объектов и результат hit-testing.
+- Добавлен менеджер одиночного, множественного и toggle-выделения.
+- Выделение дорожек и интервалов подключено к Selection overlay.
+- Добавлен общий ограниченный стек Undo/Redo для будущих интерактивных команд.

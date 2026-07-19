@@ -7,6 +7,15 @@ from geoworkbench.tablet.layout_codec import (
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.overlay_layers import OverlayLayerKind, OverlayLayerManager
 from geoworkbench.tablet.resize import TrackResizeGesture
+from geoworkbench.tablet.selection_interaction import (
+    CommandStack,
+    HitResult,
+    SelectableKind,
+    SelectionManager,
+    SelectionRef,
+    SelectionSnapshot,
+    choose_best_hit,
+)
 
 __all__ = [
     "DepthViewport",
@@ -17,6 +26,13 @@ __all__ = [
     "TrackDefinition",
     "TrackKind",
     "TrackResizeGesture",
+    "CommandStack",
+    "HitResult",
+    "SelectableKind",
+    "SelectionManager",
+    "SelectionRef",
+    "SelectionSnapshot",
+    "choose_best_hit",
     "XScale",
     "layout_from_dict",
     "layout_to_dict",
