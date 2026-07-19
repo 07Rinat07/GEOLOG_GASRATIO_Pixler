@@ -789,5 +789,20 @@
   "forms.title": "Forms",
   "forms.open_first": "Open a LAS or another dataset first.",
   "forms.applied_status": "Form “{name}” applied: resolved {resolved} of {total} parameters.",
-  "forms.missing_status": "Missing: {names}."
+  "forms.missing_status": "Missing: {names}.",
+  "menu.view": "View",
+  "panel.left_rail": "Left panels",
+  "panel.right_rail": "Right panels",
+  "panel.project": "Project",
+  "panel.project_tooltip": "Show or hide the project explorer (Ctrl+Alt+P)",
+  "panel.curves": "LAS curves",
+  "panel.curves_tooltip": "Show or hide the LAS curve browser (Ctrl+Alt+C)",
+  "panel.inspector": "Inspector",
+  "panel.inspector_tooltip": "Show or hide properties of the selected track and curve (Ctrl+Alt+I)",
+  "panel.interpretation": "Interval properties",
+  "panel.interpretation_tooltip": "Show or hide interpretation interval properties (Ctrl+Alt+N)",
+  "panel.cursor": "Cursor values",
+  "panel.cursor_tooltip": "Show or hide values at the cursor (Ctrl+Alt+V)",
+  "panel.hide_all": "Collapse side panels",
+  "panel.hide_all_tooltip": "Maximize space for the tablet (Ctrl+Alt+0)"
 }

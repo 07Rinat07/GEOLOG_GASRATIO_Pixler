@@ -789,5 +789,20 @@
   "forms.title": "Формы",
   "forms.open_first": "Сначала откройте LAS или другой набор данных.",
   "forms.applied_status": "Форма «{name}» применена: найдено {resolved} из {total} параметров.",
-  "forms.missing_status": "Не найдены: {names}."
+  "forms.missing_status": "Не найдены: {names}.",
+  "menu.view": "Вид",
+  "panel.left_rail": "Левые панели",
+  "panel.right_rail": "Правые панели",
+  "panel.project": "Проект",
+  "panel.project_tooltip": "Показать или скрыть обозреватель проекта (Ctrl+Alt+P)",
+  "panel.curves": "Кривые LAS",
+  "panel.curves_tooltip": "Показать или скрыть список кривых LAS (Ctrl+Alt+C)",
+  "panel.inspector": "Инспектор",
+  "panel.inspector_tooltip": "Показать или скрыть свойства выбранной дорожки и кривой (Ctrl+Alt+I)",
+  "panel.interpretation": "Свойства интервала",
+  "panel.interpretation_tooltip": "Показать или скрыть свойства интерпретационного интервала (Ctrl+Alt+N)",
+  "panel.cursor": "Данные визира",
+  "panel.cursor_tooltip": "Показать или скрыть значения параметров по визиру (Ctrl+Alt+V)",
+  "panel.hide_all": "Свернуть боковые панели",
+  "panel.hide_all_tooltip": "Освободить максимум места для планшета (Ctrl+Alt+0)"
 }

@@ -789,5 +789,20 @@
   "forms.title": "Пішіндер",
   "forms.open_first": "Алдымен LAS немесе басқа деректер жиынын ашыңыз.",
   "forms.applied_status": "«{name}» пішіні қолданылды: {total} параметрдің {resolved} табылды.",
-  "forms.missing_status": "Табылмады: {names}."
+  "forms.missing_status": "Табылмады: {names}.",
+  "menu.view": "Көрініс",
+  "panel.left_rail": "Сол жақ панельдер",
+  "panel.right_rail": "Оң жақ панельдер",
+  "panel.project": "Жоба",
+  "panel.project_tooltip": "Жоба шолғышын көрсету немесе жасыру (Ctrl+Alt+P)",
+  "panel.curves": "LAS қисықтары",
+  "panel.curves_tooltip": "LAS қисықтарының тізімін көрсету немесе жасыру (Ctrl+Alt+C)",
+  "panel.inspector": "Инспектор",
+  "panel.inspector_tooltip": "Таңдалған жолақ пен қисық қасиеттерін көрсету немесе жасыру (Ctrl+Alt+I)",
+  "panel.interpretation": "Аралық қасиеттері",
+  "panel.interpretation_tooltip": "Интерпретация аралығының қасиеттерін көрсету немесе жасыру (Ctrl+Alt+N)",
+  "panel.cursor": "Визир деректері",
+  "panel.cursor_tooltip": "Визир бойынша параметр мәндерін көрсету немесе жасыру (Ctrl+Alt+V)",
+  "panel.hide_all": "Бүйір панельдерді жию",
+  "panel.hide_all_tooltip": "Планшетке барынша көп орын босату (Ctrl+Alt+0)"
 }

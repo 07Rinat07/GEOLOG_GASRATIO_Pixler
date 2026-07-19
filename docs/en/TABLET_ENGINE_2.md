@@ -56,3 +56,13 @@ The first slice adds a unified selection manager for tracks and intervals, a sha
 ## Selection interaction update
 
 Track and curve selection now supports additive/toggle selection, selected curve details in the inspector, and track context operations with Undo/Redo.
+
+## Practical initial viewport and mouse wheel
+
+Long LAS files no longer open as one vertically compressed picture. Depth data starts in a readable window of up to 200 m (500 ft for feet), while short files remain fully visible. Long time datasets use an approximately 30-minute window. The wheel pans the shared vertical window across every track immediately; `Ctrl+wheel` zooms around the pointer.
+
+Repeated samples mapped to the same depth/time are averaged only for screen geometry. Raw LAS values remain unchanged and misleading horizontal strokes are removed.
+
+## Compact side panels
+
+The LAS curve browser and inspector start collapsed. Narrow icon rails on the left and right open tools on demand and expose shortcuts through tooltips. `Ctrl+Alt+0` collapses all side panels.

@@ -3,6 +3,63 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+def recommended_initial_span(
+    domain_span: float,
+    *,
+    is_time: bool = False,
+    is_datetime: bool = False,
+    unit: str = "",
+) -> float:
+    """Return a practical first viewport instead of compressing the whole well.
+
+    The value is expressed in the current vertical-axis units. Small datasets are
+    intentionally shown in full; long wells/time series open in a readable window
+    so that the mouse wheel can pan immediately.
+    """
+    span = float(domain_span)
+    if span <= 0:
+        raise ValueError("Camera domain must have a positive span")
+
+    normalized_unit = unit.strip().casefold()
+    if is_datetime:
+        target = 30.0 * 60.0
+    elif is_time:
+        if normalized_unit in {"ms", "msec", "millisecond", "milliseconds", "мс"}:
+            target = 30.0 * 60.0 * 1000.0
+        elif normalized_unit in {"min", "minute", "minutes", "мин"}:
+            target = 30.0
+        elif normalized_unit in {"h", "hr", "hour", "hours", "ч"}:
+            target = 0.5
+        else:
+            target = 30.0 * 60.0
+    elif normalized_unit in {"ft", "feet", "foot", "фут"}:
+        target = 500.0
+    elif normalized_unit in {"cm", "сm", "см"}:
+        target = 20_000.0
+    else:
+        target = 200.0
+
+    # Avoid a nearly-full viewport that leaves only a tiny scrollable remainder.
+    return span if span <= target * 1.25 else target
+
+
+def recommended_initial_range(
+    top: float,
+    bottom: float,
+    *,
+    is_time: bool = False,
+    is_datetime: bool = False,
+    unit: str = "",
+) -> tuple[float, float]:
+    domain_top, domain_bottom = sorted((float(top), float(bottom)))
+    span = domain_bottom - domain_top
+    initial_span = recommended_initial_span(
+        span, is_time=is_time, is_datetime=is_datetime, unit=unit
+    )
+    return domain_top, min(domain_bottom, domain_top + initial_span)
+
+
+
 @dataclass(slots=True)
 class TabletCamera:
     """Single source of truth for tablet vertical navigation.

@@ -41,7 +41,11 @@ from geoworkbench.domain.models import (
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
 from geoworkbench.services.localization import AppLanguage, Localizer
-from geoworkbench.tablet.camera import TabletCamera
+from geoworkbench.tablet.camera import (
+    TabletCamera,
+    recommended_initial_range,
+    recommended_initial_span,
+)
 from geoworkbench.tablet.geometry_cache import CurveGeometryCache, CurveGeometryKey, GeometryCacheStats
 from geoworkbench.tablet.render_invalidation import DirtyReason, DirtyRenderStats, TrackDirtyRegistry
 from geoworkbench.tablet.static_layer_cache import StaticLayerCache, StaticLayerCacheStats, StaticLayerKey
@@ -478,6 +482,7 @@ class TabletView(QWidget):
         self._cursor_color = "#dc2626"
         self._cursor_width = 2.0
         self._depth_viewports: dict[QObject, pg.PlotWidget] = {}
+        self._wheel_targets: dict[QObject, pg.PlotWidget] = {}
         self._interpretation_viewports: dict[QObject, RenderedTrack] = {}
         self._interval_edit_mode = IntervalEditMode.SELECT
         self._interval_creation_type = self._localizer.text("interpretations.default_type")
@@ -1412,6 +1417,7 @@ class TabletView(QWidget):
         self._tooltip_items.clear()
         self._rubber_band_items.clear()
         self._depth_viewports.clear()
+        self._wheel_targets.clear()
         self._interpretation_viewports.clear()
         for layout in (self._pinned_layout, self._tracks_layout):
             while layout.count():
@@ -1445,8 +1451,17 @@ class TabletView(QWidget):
         visible_top = self._layout_model.visible_depth_top
         visible_bottom = self._layout_model.visible_depth_bottom
         if finite_depth.size and (visible_top is None or visible_bottom is None):
-            visible_top = float(np.min(finite_depth))
-            visible_bottom = float(np.max(finite_depth))
+            data_top = float(np.min(finite_depth))
+            data_bottom = float(np.max(finite_depth))
+            descriptor = self._axis_descriptor()
+            visible_top, visible_bottom = recommended_initial_range(
+                data_top,
+                data_bottom,
+                is_time=descriptor.is_time if descriptor is not None else False,
+                is_datetime=descriptor.is_datetime if descriptor is not None else False,
+                unit=descriptor.unit if descriptor is not None else "",
+            )
+            self._layout_model.set_visible_depth(visible_top, visible_bottom)
         elif visible_top is not None and visible_bottom is not None:
             visible_top, visible_bottom = self._normalize_depth_window(
                 visible_top, visible_bottom
@@ -1512,6 +1527,9 @@ class TabletView(QWidget):
             viewport = track.plot.viewport()
             viewport.installEventFilter(self)
             self._depth_viewports[viewport] = track.plot
+            for wheel_target in (track, track.title, track.plot, viewport):
+                wheel_target.installEventFilter(self)
+                self._wheel_targets[wheel_target] = track.plot
             if definition.kind is TrackKind.INTERPRETATION:
                 self._interpretation_viewports[viewport] = rendered
                 cursor = (
@@ -1766,7 +1784,23 @@ class TabletView(QWidget):
         if current is None or bounds is None or not np.isfinite(steps) or steps == 0:
             return False
         self._sync_camera(bounds, current)
-        top, bottom = self._camera.pan_fraction(0.12 * float(steps))
+        domain_span = bounds[1] - bounds[0]
+        current_span = current[1] - current[0]
+        if np.isclose(current_span, domain_span, rtol=0.0, atol=max(domain_span, 1.0) * 1e-9):
+            descriptor = self._axis_descriptor()
+            initial_span = recommended_initial_span(
+                domain_span,
+                is_time=descriptor.is_time if descriptor is not None else False,
+                is_datetime=descriptor.is_datetime if descriptor is not None else False,
+                unit=descriptor.unit if descriptor is not None else "",
+            )
+            if initial_span < domain_span:
+                if steps > 0:
+                    current = (bounds[0], bounds[0] + initial_span)
+                else:
+                    current = (bounds[1] - initial_span, bounds[1])
+                self._sync_camera(bounds, current)
+        top, bottom = self._camera.pan_fraction(0.10 * float(steps))
         return self._apply_visible_depth(top, bottom, emit_change=True)
 
     def zoom_depth(self, factor: float, anchor: float | None = None) -> bool:
@@ -1824,20 +1858,21 @@ class TabletView(QWidget):
         return True
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
-        plot = self._depth_viewports.get(watched)
-        if plot is not None and isinstance(event, QWheelEvent):
+        wheel_plot = self._wheel_targets.get(watched)
+        if wheel_plot is not None and isinstance(event, QWheelEvent):
             delta = event.angleDelta().y()
             if delta == 0:
                 delta = event.pixelDelta().y()
             steps = float(delta) / 120.0
             if steps:
                 if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                    anchor = self._axis_value_at_event(plot, event)
+                    anchor = self._axis_value_at_event(wheel_plot, event)
                     self.zoom_depth(0.8**steps, anchor=anchor)
                 else:
                     self.scroll_depth(-steps)
             event.accept()
             return True
+        plot = self._depth_viewports.get(watched)
         if plot is not None and isinstance(event, QKeyEvent):
             if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Space:
                 self._space_pressed = True
@@ -2330,7 +2365,13 @@ class TabletView(QWidget):
                     visible_values, visible_depth = self._geometry_cache.get_or_build(
                         key, depth, values
                     )
-                item = track.plot.plot(visible_values, visible_depth, pen=pen, name=label)
+                item = track.plot.plot(
+                    visible_values,
+                    visible_depth,
+                    pen=pen,
+                    name=label,
+                    connect="finite",
+                )
                 curve_items[mnemonic] = item
                 legend_labels.append(label)
         if definition.x_min is not None and definition.x_max is not None:

@@ -1,3 +1,12 @@
+## Unreleased — depth navigation and compact side panels
+
+- Long depth/time datasets now open in a readable initial viewport instead of being compressed into the full screen height.
+- The mouse wheel pans the synchronized vertical window immediately; `Ctrl+wheel` keeps zooming around the pointer.
+- Wheel navigation is accepted over the curve area, depth track, track header and plot widget.
+- Repeated mapped depth/time samples are averaged for rendering to remove misleading horizontal strokes without changing source LAS data.
+- The LAS curve browser and right inspector are collapsed by default and are opened from narrow icon rails with tooltips and shortcuts.
+- Only one panel per side is kept open, preserving the maximum tablet workspace.
+
 - Добавлен редактор содержимого дорожки формы: CRUD и порядок `ParameterBinding`, выбор канонического параметра или кривой текущего LAS, цвет, толщина, стиль, шкала и диапазон.
 - Редактор формы теперь получает текущий dataset из главного окна; привязки сохраняются в JSON и повторно применяются к планшету.
 

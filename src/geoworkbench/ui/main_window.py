@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QStandardPaths, Qt
+from PySide6.QtCore import QSize, QStandardPaths, Qt
 from PySide6.QtGui import QAction, QActionGroup, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtPrintSupport import QPrintPreviewDialog, QPrinter
 from PySide6.QtWidgets import (
@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QStatusBar,
+    QStyle,
     QTabWidget,
     QTextEdit,
     QToolBar,
@@ -235,6 +236,7 @@ class MainWindow(QMainWindow):
         self._create_interpretation_properties_panel()
         self._create_issues_panel()
         self._create_cursor_panel()
+        self._create_panel_rails()
         self._create_actions()
         self._create_toolbar()
         self.setStatusBar(QStatusBar())
@@ -260,18 +262,21 @@ class MainWindow(QMainWindow):
 
     def _create_project_explorer(self) -> None:
         self.project_dock = QDockWidget(self._t("dock.project"), self)
+        self.project_dock.setObjectName("projectDock")
         self.tree = QTreeWidget()
         self.tree.setHeaderLabel(self._t("explorer.title"))
         self.tree.itemDoubleClicked.connect(self._activate_tree_item)
         self.project_dock.setWidget(self.tree)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.project_dock)
+        self.project_dock.hide()
         self._refresh_tree()
 
     def _create_curve_browser(self) -> None:
         self.curve_browser_dock = QDockWidget(self._t("curve_browser.title"), self)
+        self.curve_browser_dock.setObjectName("curveBrowserDock")
         self.curve_browser = LasCurveBrowser(language=self.language)
         self.curve_browser.set_sensor_catalog(self.mnemonic_registry.catalog())
-        self.curve_browser.setMinimumWidth(440)
+        self.curve_browser.setMinimumWidth(320)
         self.curve_browser.build_requested.connect(self._build_tablet_from_curve_selection)
         self.curve_browser.add_requested.connect(self._add_curves_from_browser)
         self.curve_browser.replace_requested.connect(self._replace_selected_track_curves)
@@ -281,20 +286,23 @@ class MainWindow(QMainWindow):
         self.curve_browser_dock.hide()
 
     def _create_inspector(self) -> None:
-        dock = QDockWidget(self._t("dock.inspector"), self)
+        self.inspector_dock = QDockWidget(self._t("dock.inspector"), self)
+        self.inspector_dock.setObjectName("inspectorDock")
         self.inspector = TrackInspector(language=self.language)
         self.inspector.settings_requested.connect(self._apply_inspector_track_settings)
         self.inspector.curve_style_requested.connect(self._apply_inspector_curve_style)
         self.inspector.grid_requested.connect(self._apply_inspector_grid)
         self.inspector.x_axis_label_requested.connect(self._apply_inspector_x_axis_label)
-        dock.setWidget(self.inspector)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+        self.inspector_dock.setWidget(self.inspector)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.inspector_dock)
+        self.inspector_dock.hide()
 
 
     def _create_interpretation_properties_panel(self) -> None:
         self.interpretation_properties_dock = QDockWidget(
             self._t("interpretations.properties_title"), self
         )
+        self.interpretation_properties_dock.setObjectName("interpretationPropertiesDock")
         self.interpretation_properties = InterpretationPropertiesPanel(
             language=self.language
         )
@@ -312,6 +320,7 @@ class MainWindow(QMainWindow):
 
     def _create_issues_panel(self) -> None:
         self.issues_dock = QDockWidget(self._t("dock.log"), self)
+        self.issues_dock.setObjectName("issuesDock")
         self.issues = QTextEdit()
         self.issues.setReadOnly(True)
         self.issues_dock.setWidget(self.issues)
@@ -320,17 +329,161 @@ class MainWindow(QMainWindow):
 
     def _create_cursor_panel(self) -> None:
         self.cursor_dock = QDockWidget("Параметры по визиру", self)
+        self.cursor_dock.setObjectName("cursorDock")
         self.cursor_values = QTextEdit()
         self.cursor_values.setReadOnly(True)
         self.cursor_dock.setWidget(self.cursor_values)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.cursor_dock)
         self.cursor_dock.hide()
 
+    def _create_panel_rails(self) -> None:
+        self.tabifyDockWidget(self.project_dock, self.curve_browser_dock)
+        self.tabifyDockWidget(self.inspector_dock, self.interpretation_properties_dock)
+        self.tabifyDockWidget(self.inspector_dock, self.cursor_dock)
+
+        self.left_panel_rail = QToolBar(self._t("panel.left_rail"), self)
+        self.left_panel_rail.setObjectName("leftPanelRail")
+        self.left_panel_rail.setMovable(False)
+        self.left_panel_rail.setFloatable(False)
+        self.left_panel_rail.setIconSize(QSize(20, 20))
+        self.left_panel_rail.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self.left_panel_rail.setMinimumWidth(34)
+        self.left_panel_rail.setMaximumWidth(38)
+        self.left_panel_rail.setStyleSheet(
+            "QToolBar { spacing: 3px; padding: 3px; border: 0; } "
+            "QToolButton { min-width: 28px; min-height: 28px; border-radius: 4px; } "
+            "QToolButton:hover { background: palette(midlight); } "
+            "QToolButton:checked { background: palette(highlight); color: palette(highlighted-text); }"
+        )
+        self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, self.left_panel_rail)
+
+        self.right_panel_rail = QToolBar(self._t("panel.right_rail"), self)
+        self.right_panel_rail.setObjectName("rightPanelRail")
+        self.right_panel_rail.setMovable(False)
+        self.right_panel_rail.setFloatable(False)
+        self.right_panel_rail.setIconSize(QSize(20, 20))
+        self.right_panel_rail.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self.right_panel_rail.setMinimumWidth(34)
+        self.right_panel_rail.setMaximumWidth(38)
+        self.right_panel_rail.setStyleSheet(self.left_panel_rail.styleSheet())
+        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.right_panel_rail)
+
+        self.project_panel_action = self._panel_toggle_action(
+            self.project_dock,
+            "panel.project",
+            "panel.project_tooltip",
+            QStyle.StandardPixmap.SP_DirHomeIcon,
+            "Ctrl+Alt+P",
+        )
+        self.curve_browser_action = self._panel_toggle_action(
+            self.curve_browser_dock,
+            "panel.curves",
+            "panel.curves_tooltip",
+            QStyle.StandardPixmap.SP_FileDialogListView,
+            "Ctrl+Alt+C",
+        )
+        self.inspector_panel_action = self._panel_toggle_action(
+            self.inspector_dock,
+            "panel.inspector",
+            "panel.inspector_tooltip",
+            QStyle.StandardPixmap.SP_FileDialogDetailedView,
+            "Ctrl+Alt+I",
+        )
+        self.interpretation_panel_action = self._panel_toggle_action(
+            self.interpretation_properties_dock,
+            "panel.interpretation",
+            "panel.interpretation_tooltip",
+            QStyle.StandardPixmap.SP_MessageBoxInformation,
+            "Ctrl+Alt+N",
+        )
+        self.cursor_panel_action = self._panel_toggle_action(
+            self.cursor_dock,
+            "panel.cursor",
+            "panel.cursor_tooltip",
+            QStyle.StandardPixmap.SP_ArrowRight,
+            "Ctrl+Alt+V",
+        )
+
+        self.left_panel_rail.addAction(self.project_panel_action)
+        self.left_panel_rail.addAction(self.curve_browser_action)
+        self.right_panel_rail.addAction(self.inspector_panel_action)
+        self.right_panel_rail.addAction(self.interpretation_panel_action)
+        self.right_panel_rail.addAction(self.cursor_panel_action)
+
+        self.project_dock.visibilityChanged.connect(
+            lambda visible: self._enforce_single_side_panel(
+                visible, self.project_dock, (self.curve_browser_dock,)
+            )
+        )
+        self.curve_browser_dock.visibilityChanged.connect(
+            lambda visible: self._enforce_single_side_panel(
+                visible, self.curve_browser_dock, (self.project_dock,)
+            )
+        )
+        self.inspector_dock.visibilityChanged.connect(
+            lambda visible: self._enforce_single_side_panel(
+                visible,
+                self.inspector_dock,
+                (self.interpretation_properties_dock, self.cursor_dock),
+            )
+        )
+        self.interpretation_properties_dock.visibilityChanged.connect(
+            lambda visible: self._enforce_single_side_panel(
+                visible,
+                self.interpretation_properties_dock,
+                (self.inspector_dock, self.cursor_dock),
+            )
+        )
+        self.cursor_dock.visibilityChanged.connect(
+            lambda visible: self._enforce_single_side_panel(
+                visible,
+                self.cursor_dock,
+                (self.inspector_dock, self.interpretation_properties_dock),
+            )
+        )
+
+    def _panel_toggle_action(
+        self,
+        dock: QDockWidget,
+        text_key: str,
+        tooltip_key: str,
+        icon: QStyle.StandardPixmap,
+        shortcut: str,
+    ) -> QAction:
+        action = dock.toggleViewAction()
+        action.setText(self._t(text_key))
+        action.setToolTip(self._t(tooltip_key))
+        action.setStatusTip(self._t(tooltip_key))
+        action.setIcon(self.style().standardIcon(icon))
+        action.setShortcut(shortcut)
+        return action
+
+    @staticmethod
+    def _enforce_single_side_panel(
+        visible: bool, active: QDockWidget, siblings: tuple[QDockWidget, ...]
+    ) -> None:
+        if not visible or active.isFloating():
+            return
+        for sibling in siblings:
+            if sibling.isVisible() and not sibling.isFloating():
+                sibling.hide()
+
+    def _hide_side_panels(self) -> None:
+        for dock in (
+            self.project_dock,
+            self.curve_browser_dock,
+            self.inspector_dock,
+            self.interpretation_properties_dock,
+            self.cursor_dock,
+        ):
+            dock.hide()
+
     def _create_actions(self) -> None:
         file_menu = self.menuBar().addMenu(self._t("menu.file"))
         edit_menu = self.menuBar().addMenu(self._t("menu.edit"))
         calc_menu = self.menuBar().addMenu(self._t("menu.calculations"))
         tablet_menu = self.menuBar().addMenu(self._t("menu.tablet"))
+        view_menu = self.menuBar().addMenu(self._t("menu.view"))
         forms_menu = self.menuBar().addMenu(self._t("forms.menu"))
         print_menu = self.menuBar().addMenu(self._t("menu.print"))
         language_menu = self.menuBar().addMenu(self._t("menu.language"))
@@ -578,12 +731,26 @@ class MainWindow(QMainWindow):
         self.interval_statistics_action.triggered.connect(self.show_interval_statistics)
         calc_menu.addAction(self.interval_statistics_action)
 
+        view_menu.addAction(self.project_panel_action)
+        view_menu.addAction(self.curve_browser_action)
+        view_menu.addAction(self.inspector_panel_action)
+        view_menu.addAction(self.interpretation_panel_action)
+        view_menu.addAction(self.cursor_panel_action)
+        view_menu.addSeparator()
+        self.hide_side_panels_action = QAction(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogCloseButton),
+            self._t("panel.hide_all"),
+            self,
+        )
+        self.hide_side_panels_action.setToolTip(self._t("panel.hide_all_tooltip"))
+        self.hide_side_panels_action.setShortcut("Ctrl+Alt+0")
+        self.hide_side_panels_action.triggered.connect(self._hide_side_panels)
+        view_menu.addAction(self.hide_side_panels_action)
+
         self.default_tablet_action = QAction(self._t("tablet.build_default"), self)
         self.default_tablet_action.triggered.connect(self.build_default_tablet)
         tablet_menu.addAction(self.default_tablet_action)
 
-        self.curve_browser_action = self.curve_browser_dock.toggleViewAction()
-        self.curve_browser_action.setText(self._t("curve_browser.title"))
         tablet_menu.addAction(self.curve_browser_action)
 
         tablet_menu.addSeparator()
@@ -943,8 +1110,7 @@ class MainWindow(QMainWindow):
         self.tablet_view.set_stratigraphy(last_well.stratigraphy)
         self.curve_browser.set_dataset(last_dataset)
         self.curve_browser.select_recommended()
-        self.curve_browser_dock.show()
-        self.curve_browser_dock.raise_()
+        self.curve_browser_dock.hide()
         self.build_default_tablet()
         self.inspector.setPlainText(
             f"{self._t('inspector.well')}: {last_well.name}\n"
@@ -1125,7 +1291,7 @@ class MainWindow(QMainWindow):
         self.tablet_view.set_dataset(dataset)
         self.curve_browser.set_dataset(dataset)
         self.curve_browser.select_recommended()
-        self.curve_browser_dock.show()
+        self.curve_browser_dock.hide()
         well = self.session.current_well
         self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
         self.tablet_view.set_lithology(
@@ -1704,6 +1870,7 @@ class MainWindow(QMainWindow):
         self.tablet_view.set_layout_model(layout)
         self.tablet_view.set_dataset(self.session.current_dataset)
         self.tabs.setCurrentWidget(self.tablet_view)
+        self.curve_browser_dock.hide()
         self._refresh_tree()
         self._update_title()
         self.statusBar().showMessage(

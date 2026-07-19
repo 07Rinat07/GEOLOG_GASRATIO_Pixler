@@ -71,3 +71,15 @@ def test_select_visible_samples_rejects_invalid_input() -> None:
         select_visible_samples(np.array([1.0]), np.array([1.0, 2.0]), 0.0, 2.0)
     with pytest.raises(ValueError, match="минимум две"):
         select_visible_samples(np.array([1.0]), np.array([1.0]), 0.0, 2.0, max_points=1)
+
+
+def test_select_visible_samples_sorts_depth_and_collapses_duplicates() -> None:
+    depth = np.array([102.0, 100.0, 101.0, 101.0, 103.0])
+    values = np.array([20.0, 10.0, 30.0, 50.0, 40.0])
+
+    selected_values, selected_depth = select_visible_samples(
+        depth, values, 100.0, 103.0
+    )
+
+    np.testing.assert_allclose(selected_depth, [100.0, 101.0, 102.0, 103.0])
+    np.testing.assert_allclose(selected_values, [10.0, 40.0, 20.0, 40.0])
