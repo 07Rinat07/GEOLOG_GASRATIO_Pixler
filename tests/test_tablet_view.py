@@ -1248,3 +1248,100 @@ def test_tablet_selection_manager_tracks_widget_selection(qapp) -> None:
     assert view.selection_snapshot.items == ()
     assert "1px solid #cbd5e1" in view._rendered["curve"].widget.styleSheet()
     view.close()
+
+
+def test_track_resize_is_undoable(qapp) -> None:
+    dataset = Dataset(
+        "dataset-resize-history", "Dataset", DatasetKind.GTI, DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("curve", "Curve", TrackKind.CURVE, width=220)])
+    )
+    view.set_dataset(dataset)
+
+    view._resize_track_from_widget("curve", 360)
+    assert view.layout_model.track_by_id("curve").width == 360
+    assert view.can_undo_interaction
+    assert view.undo_interaction()
+    assert view.layout_model.track_by_id("curve").width == 220
+    assert view.redo_interaction()
+    assert view.layout_model.track_by_id("curve").width == 360
+    view.close()
+
+
+def test_track_reorder_is_undoable(qapp) -> None:
+    dataset = Dataset(
+        "dataset-reorder-history", "Dataset", DatasetKind.GTI, DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("a", "A", TrackKind.CURVE),
+                TrackDefinition("b", "B", TrackKind.CURVE),
+                TrackDefinition("c", "C", TrackKind.CURVE),
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+
+    assert view.move_track_with_history("a", 2)
+    assert [track.track_id for track in view.layout_model.tracks] == ["b", "c", "a"]
+    assert view.undo_interaction()
+    assert [track.track_id for track in view.layout_model.tracks] == ["a", "b", "c"]
+    assert view.redo_interaction()
+    assert [track.track_id for track in view.layout_model.tracks] == ["b", "c", "a"]
+    view.close()
+
+
+def test_header_hit_testing_returns_track(qapp) -> None:
+    dataset = Dataset(
+        "dataset-header-hit", "Dataset", DatasetKind.GTI, DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("curve", "Curve", TrackKind.CURVE)])
+    )
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    hit = view.hit_test_header("curve", 10.0, 5.0)
+    assert hit is not None
+    assert hit.target.kind.value == "track"
+    assert hit.target.object_id == "curve"
+    assert view.hit_test_header("curve", 10.0, 10_000.0) is None
+    view.close()
+
+
+def test_curve_hit_testing_selects_nearest_curve(qapp) -> None:
+    dataset = Dataset(
+        "dataset-curve-hit", "Dataset", DatasetKind.GTI, DepthDomain.MD,
+        np.array([100.0, 150.0, 200.0]),
+    )
+    dataset.curves["curve-tg"] = CurveData(
+        CurveMetadata("curve-tg", "TG", "TG", "%", None, dataset.dataset_id),
+        np.array([1.0, 2.0, 3.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("gas", "Gas", TrackKind.GAS, curve_mnemonics=["TG"])])
+    )
+    view.resize(900, 600)
+    view.show()
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    rendered = view._rendered["gas"]
+    scene_point = rendered.plot.getViewBox().mapViewToScene(QPointF(2.0, 150.0))
+    viewport_point = rendered.plot.viewport().mapFromGlobal(
+        rendered.plot.mapToGlobal(rendered.plot.mapFromScene(scene_point))
+    )
+    hit = view.select_curve_at("gas", viewport_point.x(), viewport_point.y(), tolerance_px=12.0)
+    assert hit is not None
+    assert hit.target.object_id == "TG"
+    assert view.selection_snapshot.primary == hit.target
+    view.close()

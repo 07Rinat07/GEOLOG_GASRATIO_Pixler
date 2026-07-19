@@ -44,3 +44,11 @@ Dynamic tablet elements are separated into independent cursor, selection, marker
 ## Selection & Interaction Engine
 
 The first slice adds a unified selection manager for tracks and intervals, a shared hit-testing result, and Undo/Redo infrastructure. Selection is updated through the independent Selection overlay without rebuilding curve geometry.
+
+## Selection & Interaction Engine
+
+- hit-testing for track headers and nearest curves;
+- track resizing by dragging the boundary handle;
+- track reordering by dragging headers;
+- Undo/Redo for width and order changes;
+- curve selection does not rebuild the geometry cache.

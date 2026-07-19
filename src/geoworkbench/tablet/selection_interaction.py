@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Protocol
+from typing import Callable, Protocol
 
 
 class SelectableKind(StrEnum):
@@ -186,3 +186,39 @@ class CommandStack:
     def clear(self) -> None:
         self._undo.clear()
         self._redo.clear()
+
+
+@dataclass(slots=True)
+class CallbackCommand:
+    """Undoable command backed by two callbacks."""
+
+    description: str
+    _redo_callback: Callable[[], None]
+    _undo_callback: Callable[[], None]
+
+    def redo(self) -> None:
+        self._redo_callback()
+
+    def undo(self) -> None:
+        self._undo_callback()
+
+
+@dataclass(frozen=True, slots=True)
+class TrackHeaderDrag:
+    track_id: str
+    source_index: int
+    start_global_x: int
+
+    def target_index(self, global_x: int, centers: tuple[tuple[int, int], ...]) -> int:
+        """Return insertion index using visible track center points.
+
+        ``centers`` contains ``(layout_index, global_center_x)`` pairs.
+        """
+
+        if not centers:
+            return self.source_index
+        ordered = sorted(centers, key=lambda item: item[1])
+        for layout_index, center_x in ordered:
+            if global_x < center_x:
+                return layout_index
+        return ordered[-1][0]

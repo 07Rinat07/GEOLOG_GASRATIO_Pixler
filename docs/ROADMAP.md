@@ -53,4 +53,5 @@ Remaining:
 
 
 - [x] Selection & Interaction Engine: базовая модель `HitResult`, `SelectionManager`, интеграция дорожек и интервалов, инфраструктура Undo/Redo.
-- [ ] Selection & Interaction Engine: hit-testing кривых/заголовков, resize handles, drag-and-drop и панель свойств.
+- [x] Selection & Interaction Engine: hit-testing кривых и заголовков, resize handles, drag-and-drop порядка дорожек и Undo/Redo.
+- [ ] Selection & Interaction Engine: панель свойств, множественное выделение и контекстные операции.

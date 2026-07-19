@@ -67,18 +67,22 @@ from geoworkbench.tablet.models import (
 )
 from geoworkbench.tablet.resize import TrackResizeGesture
 from geoworkbench.tablet.selection_interaction import (
+    CallbackCommand,
     CommandStack,
+    HitResult,
     SelectableKind,
     SelectionManager,
     SelectionRef,
     SelectionSnapshot,
+    TrackHeaderDrag,
+    choose_best_hit,
 )
 
 
 @dataclass(slots=True)
 class RenderedTrack:
     definition: TrackDefinition
-    widget: QWidget
+    widget: TabletTrackWidget
     plot: pg.PlotWidget | None = None
     legend_labels: tuple[str, ...] = ()
     curve_items: dict[str, pg.PlotDataItem] | None = None
@@ -191,6 +195,9 @@ class TabletVerticalAxisItem(pg.AxisItem):
 class TabletTrackWidget(QFrame):
     selected = Signal(str)
     width_change_requested = Signal(str, int)
+    header_drag_started = Signal(str, int)
+    header_drag_moved = Signal(str, int)
+    header_drag_finished = Signal(str, int)
 
     RESIZE_MARGIN = 6
 
@@ -203,6 +210,8 @@ class TabletTrackWidget(QFrame):
         super().__init__()
         self.definition = definition
         self._resize_gesture: TrackResizeGesture | None = None
+        self._header_drag_origin_x: int | None = None
+        self._header_dragging = False
         self.setObjectName(f"track-{definition.track_id}")
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setStyleSheet(
@@ -279,6 +288,26 @@ class TabletTrackWidget(QFrame):
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
         if isinstance(event, QMouseEvent) and self._handle_resize_event(event, watched):
             return True
+        if watched is self.title and isinstance(event, QMouseEvent):
+            global_x = event.globalPosition().toPoint().x()
+            if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+                self._header_drag_origin_x = global_x
+                self._header_dragging = False
+                return False
+            if event.type() == QEvent.Type.MouseMove and self._header_drag_origin_x is not None:
+                if not self._header_dragging and abs(global_x - self._header_drag_origin_x) >= 8:
+                    self._header_dragging = True
+                    self.header_drag_started.emit(self.definition.track_id, self._header_drag_origin_x)
+                if self._header_dragging:
+                    self.header_drag_moved.emit(self.definition.track_id, global_x)
+                    return True
+            if event.type() == QEvent.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton:
+                was_dragging = self._header_dragging
+                self._header_drag_origin_x = None
+                self._header_dragging = False
+                if was_dragging:
+                    self.header_drag_finished.emit(self.definition.track_id, global_x)
+                    return True
         return super().eventFilter(watched, event)
 
     def _handle_resize_event(self, event: QMouseEvent, watched: QObject | None = None) -> bool:
@@ -405,6 +434,8 @@ class TabletView(QWidget):
     track_selected = Signal(str)
     selection_changed = Signal(object)
     track_width_change_requested = Signal(str, int)
+    track_order_change_requested = Signal(str, int)
+    curve_selected = Signal(str, str)
     visible_depth_changed = Signal(float, float)
     vertical_index_changed = Signal(str)
     cursor_changed = Signal(float, str)
@@ -455,6 +486,7 @@ class TabletView(QWidget):
         self._overlay_layers = OverlayLayerManager()
         self._selection = SelectionManager()
         self._interaction_history = CommandStack()
+        self._header_drag: TrackHeaderDrag | None = None
         self._tooltip_items: dict[str, pg.TextItem] = {}
         self._rubber_band_items: dict[str, pg.BarGraphItem] = {}
 
@@ -882,6 +914,192 @@ class TabletView(QWidget):
     def _track_selected_from_widget(self, track_id: str) -> None:
         self.select_track(track_id, emit_signal=True)
 
+    @property
+    def can_undo_interaction(self) -> bool:
+        return self._interaction_history.can_undo
+
+    @property
+    def can_redo_interaction(self) -> bool:
+        return self._interaction_history.can_redo
+
+    def undo_interaction(self) -> bool:
+        return self._interaction_history.undo()
+
+    def redo_interaction(self) -> bool:
+        return self._interaction_history.redo()
+
+    def _resize_track_from_widget(self, track_id: str, new_width: int) -> None:
+        try:
+            definition = self._layout_model.track_by_id(track_id)
+        except KeyError:
+            return
+        old_width = definition.width
+        if old_width == new_width:
+            return
+
+        def apply(width: int) -> None:
+            definition.width = width
+            rendered = self._rendered.get(track_id)
+            if rendered is not None:
+                rendered.widget.setFixedWidth(width)
+            self.invalidate_track(track_id, DirtyReason.STATIC)
+            self.refresh_dirty_tracks()
+            self.track_width_change_requested.emit(track_id, width)
+
+        self._interaction_history.execute(
+            CallbackCommand(
+                description=f"resize track {track_id}",
+                _redo_callback=lambda: apply(new_width),
+                _undo_callback=lambda: apply(old_width),
+            )
+        )
+
+    def _start_track_header_drag(self, track_id: str, global_x: int) -> None:
+        try:
+            source_index = self._layout_model.tracks.index(
+                self._layout_model.track_by_id(track_id)
+            )
+        except (KeyError, ValueError):
+            return
+        self._header_drag = TrackHeaderDrag(track_id, source_index, global_x)
+        self.select_track(track_id, emit_signal=True)
+
+    def _move_track_header_drag(self, track_id: str, global_x: int) -> None:
+        if self._header_drag is None or self._header_drag.track_id != track_id:
+            return
+        rendered = self._rendered.get(track_id)
+        if rendered is not None:
+            rendered.widget.title.setStyleSheet(
+                rendered.widget.title.styleSheet() + " background: #dbeafe;"
+            )
+
+    def _track_center_positions(self, *, exclude_track_id: str | None = None) -> tuple[tuple[int, int], ...]:
+        centers: list[tuple[int, int]] = []
+        for layout_index, definition in enumerate(self._layout_model.tracks):
+            if definition.track_id == exclude_track_id or definition.kind is TrackKind.DEPTH:
+                continue
+            rendered = self._rendered.get(definition.track_id)
+            if rendered is None:
+                continue
+            widget = rendered.widget
+            center_x = widget.mapToGlobal(QPoint(widget.width() // 2, 0)).x()
+            centers.append((layout_index, center_x))
+        return tuple(centers)
+
+    def _finish_track_header_drag(self, track_id: str, global_x: int) -> None:
+        gesture = self._header_drag
+        self._header_drag = None
+        if gesture is None or gesture.track_id != track_id:
+            return
+        target_index = gesture.target_index(
+            global_x, self._track_center_positions(exclude_track_id=track_id)
+        )
+        if target_index == gesture.source_index:
+            self._apply_track_selection_style()
+            return
+
+        self.move_track_with_history(
+            track_id, target_index, source_index=gesture.source_index
+        )
+
+    def move_track_with_history(
+        self, track_id: str, target_index: int, *, source_index: int | None = None
+    ) -> bool:
+        try:
+            definition = self._layout_model.track_by_id(track_id)
+            current_index = self._layout_model.tracks.index(definition)
+        except (KeyError, ValueError):
+            return False
+        original_index = current_index if source_index is None else source_index
+        bounded_target = max(0, min(int(target_index), len(self._layout_model.tracks) - 1))
+        if bounded_target == current_index:
+            return False
+
+        def move(index: int) -> None:
+            self._layout_model.move_track(track_id, index)
+            self.refresh_view()
+            self.select_track(track_id, emit_signal=False)
+            self.track_order_change_requested.emit(track_id, index)
+
+        self._interaction_history.execute(
+            CallbackCommand(
+                description=f"move track {track_id}",
+                _redo_callback=lambda: move(bounded_target),
+                _undo_callback=lambda: move(original_index),
+            )
+        )
+        return True
+
+    def hit_test_header(self, track_id: str, local_x: float, local_y: float) -> HitResult | None:
+        rendered = self._rendered.get(track_id)
+        if rendered is None:
+            return None
+        title = rendered.widget.title
+        if 0.0 <= local_x <= title.width() and 0.0 <= local_y <= title.height():
+            return HitResult(
+                target=SelectionRef(SelectableKind.TRACK, track_id, track_id),
+                priority=100,
+                distance_px=0.0,
+                local_x=float(local_x),
+                local_y=float(local_y),
+            )
+        return None
+
+    def hit_test_curve(
+        self, track_id: str, local_x: float, local_y: float, *, tolerance_px: float = 8.0
+    ) -> HitResult | None:
+        """Return the nearest rendered curve at widget-local coordinates."""
+
+        rendered = self._rendered.get(track_id)
+        if rendered is None or rendered.plot is None or not rendered.curve_items:
+            return None
+        viewport = rendered.plot.viewport()
+        scene_point = viewport.mapToGlobal(QPoint(int(local_x), int(local_y)))
+        local_to_plot = rendered.plot.mapFromGlobal(scene_point)
+        scene_pos = rendered.plot.mapToScene(local_to_plot)
+        view_pos = rendered.plot.getViewBox().mapSceneToView(scene_pos)
+        hits: list[HitResult] = []
+        for mnemonic, item in rendered.curve_items.items():
+            x_values, y_values = item.getData()
+            if x_values is None or y_values is None or len(y_values) == 0:
+                continue
+            finite = np.isfinite(x_values) & np.isfinite(y_values)
+            if not np.any(finite):
+                continue
+            xf = np.asarray(x_values)[finite]
+            yf = np.asarray(y_values)[finite]
+            candidate_index = int(np.argmin(np.abs(yf - float(view_pos.y()))))
+            candidate_scene = rendered.plot.getViewBox().mapViewToScene(
+                QPointF(float(xf[candidate_index]), float(yf[candidate_index]))
+            )
+            distance = float(
+                ((candidate_scene.x() - scene_pos.x()) ** 2 + (candidate_scene.y() - scene_pos.y()) ** 2)
+                ** 0.5
+            )
+            if distance <= tolerance_px:
+                hits.append(
+                    HitResult(
+                        target=SelectionRef(SelectableKind.CURVE, mnemonic, track_id),
+                        priority=50,
+                        distance_px=distance,
+                        local_x=float(view_pos.x()),
+                        local_y=float(view_pos.y()),
+                    )
+                )
+        return choose_best_hit(hits)
+
+    def select_curve_at(
+        self, track_id: str, local_x: float, local_y: float, *, tolerance_px: float = 8.0
+    ) -> HitResult | None:
+        hit = self.hit_test_curve(track_id, local_x, local_y, tolerance_px=tolerance_px)
+        if hit is None:
+            return None
+        if self._selection.select(hit.target):
+            self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
+            self.selection_changed.emit(self._selection.snapshot())
+            self.curve_selected.emit(track_id, hit.target.object_id)
+        return hit
+
     def _apply_track_selection_style(self) -> None:
         selected = {
             item.object_id
@@ -1188,7 +1406,10 @@ class TabletView(QWidget):
         for definition in visible:
             track = TabletTrackWidget(definition, self._navigation_hint, axis_descriptor)
             track.selected.connect(self._track_selected_from_widget)
-            track.width_change_requested.connect(self.track_width_change_requested)
+            track.width_change_requested.connect(self._resize_track_from_widget)
+            track.header_drag_started.connect(self._start_track_header_drag)
+            track.header_drag_moved.connect(self._move_track_header_drag)
+            track.header_drag_finished.connect(self._finish_track_header_drag)
             legend_labels, curve_items = self._populate_track(
                 track,
                 definition,
@@ -1579,6 +1800,27 @@ class TabletView(QWidget):
                 event.accept()
                 return True
         if plot is not None and isinstance(event, QMouseEvent):
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.LeftButton
+                and not self._space_pressed
+                and watched not in self._interpretation_viewports
+            ):
+                track_id = next(
+                    (
+                        current_id
+                        for current_id, rendered_track in self._rendered.items()
+                        if rendered_track.plot is plot
+                    ),
+                    None,
+                )
+                if track_id is not None:
+                    hit = self.select_curve_at(
+                        track_id, event.position().x(), event.position().y()
+                    )
+                    if hit is not None:
+                        event.accept()
+                        return True
             pan_button = event.button() == Qt.MouseButton.MiddleButton or (
                 event.button() == Qt.MouseButton.LeftButton and self._space_pressed
             )

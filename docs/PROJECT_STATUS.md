@@ -13,6 +13,6 @@ Tablet Engine 2.0 — Rendering Engine.
 Добавить панель диагностики производительности Overlay/Geometry/Static Cache и зафиксировать рабочие бюджеты на реальных LAS под Windows. После этого перейти к Selection & Interaction Engine.
 
 
-## Selection & Interaction Engine — первый срез
+## Selection & Interaction Engine — второй срез
 
-Реализована единая модель выделения объектов планшета: `SelectionRef`, `SelectionManager`, общий `HitResult`, выбор лучшего hit-кандидата и базовый `CommandStack` для Undo/Redo. Выделение дорожек и интервалов синхронизировано с TabletView и отдельным Selection overlay.
+Реализована единая модель выделения объектов планшета: `SelectionRef`, `SelectionManager`, общий `HitResult`, выбор лучшего hit-кандидата и `CommandStack`. Дополнительно работают hit-testing заголовков и ближайшей кривой, интерактивные resize handles, перестановка дорожек drag-and-drop и Undo/Redo для изменения ширины и порядка.

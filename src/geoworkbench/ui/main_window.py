@@ -188,6 +188,7 @@ class MainWindow(QMainWindow):
         )
         self.tablet_view.track_selected.connect(self._show_track_in_inspector)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
+        self.tablet_view.track_order_change_requested.connect(self._track_order_changed_from_drag)
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
         self.tablet_view.vertical_index_changed.connect(self._change_vertical_index_from_tablet)
         self.tablet_view.cursor_changed.connect(self._show_cursor_values)
@@ -1846,6 +1847,16 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
         self._log(self._t("tablet.width_changed", title=track.title, width=width))
+
+    def _track_order_changed_from_drag(self, track_id: str, target_index: int) -> None:
+        try:
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+        except KeyError:
+            return
+        self.session.dirty = True
+        self._refresh_tree()
+        self._update_title()
+        self._log(self._t("tablet.track_moved", title=track.title))
 
     def move_selected_track(self, offset: int) -> None:
         track = self._selected_track()
