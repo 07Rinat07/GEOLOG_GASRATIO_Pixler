@@ -26,3 +26,5 @@ All user-facing behavior changes must be reflected in all three guides and in th
 - `ROADMAP.md` — updated product sequence and priorities.
 - `PROJECT_PLAN.md` — researched plan through version 1.0.
 - `TABLET_ENGINE_2.md` in `docs/ru`, `docs/kk`, and `docs/en` — user navigation controls.
+
+- [Form Engine](FORM_ENGINE.md)

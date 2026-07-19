@@ -67,3 +67,10 @@ Remaining:
 - Editable unified properties panel for track and curve styles.
 - Batch operations for selected tracks/curves.
 - Keyboard shortcuts and clipboard operations.
+
+## Form Engine
+
+- ✅ Модель и схема форм v1.
+- ✅ Заводские шаблоны и пользовательское хранилище.
+- 🔄 Следующий срез: менеджер форм и применение формы к планшету.
+- ⏳ Визуальный конструктор колонок и параметров.

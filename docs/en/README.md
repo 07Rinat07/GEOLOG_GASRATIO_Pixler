@@ -325,3 +325,5 @@ Use “Edit → Sensors and mnemonic reference...” to create mapping rules for
 ## Tablet controls
 
 See `TABLET_ENGINE_2.md`.
+
+- [Form Engine](FORM_ENGINE.md)

@@ -228,3 +228,20 @@
 - Added curve selection details in the existing inspector panel.
 - Added track header context menu with move, hide, remove, undo and redo actions.
 - Kept all context actions synchronized with the shared selection model and interaction command stack.
+
+## Form Engine — data model slice
+
+### Русский
+- Добавлена схема форм v1: форма, колонки, дорожки и привязки канонических параметров.
+- Добавлены глубинные и временные формы, валидация, JSON-миграция и атомарное хранилище.
+- Добавлены неизменяемые заводские шаблоны и редактируемые пользовательские копии.
+
+### Қазақша
+- v1 пішін схемасы қосылды: пішін, бағандар, тректер және канондық параметр байланыстары.
+- Тереңдік және уақыт пішіндері, тексеру, JSON көшіру және атомдық сақтау қосылды.
+- Өзгермейтін зауыттық үлгілер және өңделетін пайдаланушы көшірмелері қосылды.
+
+### English
+- Added form schema v1 with forms, columns, tracks and canonical-parameter bindings.
+- Added depth/time forms, validation, JSON migration and atomic persistence.
+- Added read-only factory templates and editable user copies.

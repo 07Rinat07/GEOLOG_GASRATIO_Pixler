@@ -20,3 +20,9 @@ Tablet Engine 2.0 — Rendering Engine.
 ## Current implementation slice
 
 Selection & Interaction Engine now includes multi-selection, selected-curve properties in the inspector, and context operations for tracks. The next slice is the unified properties editor for editable track/curve fields and batch operations on a multi-selection.
+
+## Form Engine: первый срез выполнен
+
+Реализованы модель формы, колонки, дорожки и привязки параметров, схема JSON v1,
+валидация, миграция, пользовательское хранилище и заводские шаблоны. Следующий фактический
+срез — менеджер форм и применение выбранной формы к текущему планшету без визуального конструктора.
