@@ -245,3 +245,5 @@
 - Added form schema v1 with forms, columns, tracks and canonical-parameter bindings.
 - Added depth/time forms, validation, JSON migration and atomic persistence.
 - Added read-only factory templates and editable user copies.
+
+- Added the visual form structure editor with protected factory-template copies, column/track editing, preview and JSON persistence.

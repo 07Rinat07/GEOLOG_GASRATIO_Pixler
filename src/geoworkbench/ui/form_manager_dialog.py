@@ -22,6 +22,7 @@ from geoworkbench.forms.codec import form_from_dict, form_to_dict
 from geoworkbench.forms.models import FormAxisKind, FormDocument, FormTemplateOrigin
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.templates import factory_templates
+from geoworkbench.ui.form_structure_editor_dialog import FormStructureEditorDialog
 
 
 class FormManagerDialog(QDialog):
@@ -51,6 +52,7 @@ class FormManagerDialog(QDialog):
         for caption, callback in (
             (self._text("Создать", "Жасау", "Create"), self._create),
             (self._text("Копировать", "Көшіру", "Copy"), self._copy),
+            (self._text("Редактировать", "Өңдеу", "Edit"), self._edit),
             (self._text("Переименовать", "Атын өзгерту", "Rename"), self._rename),
             (self._text("Удалить", "Жою", "Delete"), self._delete),
         ):
@@ -144,6 +146,35 @@ class FormManagerDialog(QDialog):
         copy = source.editable_copy(name=name.strip())
         self.repository.save(copy)
         self.reload(copy.form_id)
+
+
+    def _edit(self) -> None:
+        form = self._current()
+        if form is None:
+            return
+        if form.read_only:
+            name, ok = QInputDialog.getText(
+                self,
+                self.windowTitle(),
+                self._text(
+                    "Название пользовательской копии",
+                    "Пайдаланушы көшірмесінің атауы",
+                    "User copy name",
+                ),
+                text=f"{form.name} — copy",
+            )
+            if not ok or not name.strip():
+                return
+            form = form.editable_copy(name=name.strip())
+            self.repository.save(form)
+        dialog = FormStructureEditorDialog(
+            form,
+            self.repository,
+            self,
+            language=self.language,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.saved_form is not None:
+            self.reload(dialog.saved_form.form_id)
 
     def _rename(self) -> None:
         form = self._current()

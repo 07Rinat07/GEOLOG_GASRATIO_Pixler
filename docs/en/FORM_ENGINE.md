@@ -20,3 +20,7 @@ The visual form editor is the next stage and will use these models as the single
 ## Form manager
 
 The manager lists factory and user templates and supports create, copy, rename, delete, JSON import/export, and applying a form to the open dataset. Missing parameters do not abort the build and are reported in diagnostics.
+
+## Visual form structure editor
+
+Users can add, remove, and reorder columns and tracks, edit column widths, titles, and track types, preview the structure, and save the result to a user JSON template. Factory templates remain protected and are edited through a user copy.

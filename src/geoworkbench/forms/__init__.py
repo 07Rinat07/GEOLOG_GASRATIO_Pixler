@@ -1,3 +1,4 @@
+from geoworkbench.forms.editor import FormStructureEditor
 from geoworkbench.forms.codec import FORM_SCHEMA_VERSION, FormFormatError, form_from_dict, form_to_dict
 from geoworkbench.forms.models import (
     FormAxisKind,
@@ -12,6 +13,7 @@ from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.templates import factory_templates
 
 __all__ = [
+    "FormStructureEditor",
     "BindingResolution",
     "FORM_SCHEMA_VERSION",
     "FormApplyEngine",

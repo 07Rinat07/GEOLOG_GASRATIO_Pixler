@@ -26,3 +26,5 @@ Selection & Interaction Engine now includes multi-selection, selected-curve prop
 Реализованы модель формы, колонки, дорожки и привязки параметров, схема JSON v1,
 валидация, миграция, пользовательское хранилище и заводские шаблоны. Следующий фактический
 срез — менеджер форм и применение выбранной формы к текущему планшету без визуального конструктора.
+
+- Completed: visual form structure editor for user templates (column/track CRUD, ordering, widths, titles, track types, preview and JSON save).
