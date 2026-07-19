@@ -1161,3 +1161,57 @@ def test_dirty_data_invalidation_clears_only_requested_curve_cache(qapp) -> None
     assert view.refresh_dirty_tracks() == 1
     assert view.geometry_cache_stats().entries == 2
     view.close()
+
+
+def test_cursor_overlay_update_does_not_rebuild_curve_geometry(qapp) -> None:
+    from geoworkbench.tablet.overlay_layers import OverlayLayerKind
+
+    dataset = Dataset(
+        "dataset-overlay-cursor", "Overlay cursor", DatasetKind.GTI, DepthDomain.MD,
+        np.linspace(0.0, 100.0, 1001),
+    )
+    dataset.curves["curve-tg"] = CurveData(
+        CurveMetadata("curve-tg", "TG", "TG", "%", None, dataset.dataset_id),
+        np.linspace(1.0, 2.0, 1001),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("gas", "Gas", TrackKind.GAS, curve_mnemonics=["TG"])])
+    )
+    view.set_dataset(dataset)
+    before_geometry = view.geometry_cache_stats()
+    before_dirty = view.dirty_render_stats()
+
+    view.set_cursor_enabled(True)
+    view.set_cursor_depth(42.0)
+
+    after_geometry = view.geometry_cache_stats()
+    after_dirty = view.dirty_render_stats()
+    assert after_geometry == before_geometry
+    assert after_dirty == before_dirty
+    assert view.overlay_visible(OverlayLayerKind.CURSOR)
+    assert view.overlay_layer_stats().items >= 1
+    view.close()
+
+
+def test_tooltip_and_rubber_band_are_independent_overlay_layers(qapp) -> None:
+    from geoworkbench.tablet.overlay_layers import OverlayLayerKind
+
+    dataset = Dataset(
+        "dataset-overlay-tools", "Overlay tools", DatasetKind.GTI, DepthDomain.MD,
+        np.linspace(0.0, 10.0, 11),
+    )
+    view = TabletView()
+    view.set_layout_model(TabletLayout([TrackDefinition("depth", "Depth", TrackKind.DEPTH)]))
+    view.set_dataset(dataset)
+    geometry_before = view.geometry_cache_stats()
+
+    assert view.show_overlay_tooltip("depth", 0.5, 4.0, "Depth: 4 m")
+    assert view.show_rubber_band("depth", 0.1, 0.9, 2.0, 5.0)
+    assert view.overlay_layer_stats().items >= 3  # cursor + tooltip + rubber band
+    assert view.geometry_cache_stats() == geometry_before
+    assert view.clear_overlay_tooltip("depth") == 1
+    assert view.clear_rubber_band("depth") == 1
+    assert view.set_overlay_visible(OverlayLayerKind.ANNOTATION, False)
+    assert not view.overlay_visible(OverlayLayerKind.ANNOTATION)
+    view.close()

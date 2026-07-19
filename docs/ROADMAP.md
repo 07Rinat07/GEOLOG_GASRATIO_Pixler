@@ -15,14 +15,16 @@ Completed:
 - static title/grid/axis descriptor cache;
 - explicit dirty invalidation for data, style, viewport, static state and layout;
 - partial single-track refresh without rebuilding adjacent tracks;
+- independent cursor, selection, marker, annotation, preview, tooltip and rubber-band layers;
+- per-layer visibility, Z-order and dirty revisions;
+- overlay-only updates without curve-geometry rebuilds;
 - cache and full/partial refresh metrics;
 - 100k/1M/5M benchmark scenarios.
 
 Remaining:
 
-- independent annotation/selection/cursor overlay layers;
-- overlay-only repaint paths;
-- performance diagnostics and accepted budgets on real Windows LAS files.
+- performance diagnostics panel;
+- accepted performance budgets on real Windows LAS files.
 
 ## Next
 

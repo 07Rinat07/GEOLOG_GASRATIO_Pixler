@@ -42,7 +42,8 @@
 ### Осталось в Rendering Engine
 
 - отдельные кэшируемые слои annotations/selection/cursor;
-- частичная перерисовка overlays без обновления кривых;
+- независимые overlay-слои: cursor, selection, marker, annotation, preview, tooltip и rubber-band;
+- изменение overlay без пересчёта геометрии кривых;
 - панель диагностики производительности;
 - утверждённые бюджеты времени и памяти на реальных LAS под Windows.
 

@@ -36,3 +36,7 @@ The current viewport, point budget, axis and data revision form a render key. Re
 ## Static layers and dirty repaint
 
 Track title, width, grid and axis label use a dedicated static-configuration cache. Every change carries an explicit invalidation reason: data, style, static state, viewport or layout. Changing one track's color, width, grid, label or line style updates only that track; neighbouring track widgets are not rebuilt. Geometry and static caches are invalidated selectively, and the engine records full-versus-partial refresh statistics.
+
+# Tablet Engine 2.0 — Overlay Engine
+
+Dynamic tablet elements are separated into independent cursor, selection, marker, annotation, interval-preview, tooltip and rubber-band layers. Every layer has its own visibility, Z-order and dirty state. Overlay changes do not rebuild curve geometry or static tracks.

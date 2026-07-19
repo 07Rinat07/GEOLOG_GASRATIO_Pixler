@@ -1,3 +1,11 @@
+
+## Tablet Engine 2.0 — Overlay Engine
+
+- Добавлен `OverlayLayerManager` с независимыми слоями cursor, selection, marker, annotation, preview, tooltip и rubber-band.
+- Добавлены управляемые Z-порядок, видимость, dirty-состояние и ревизии каждого слоя.
+- Визир, выделение и preview интервалов больше не требуют перестроения кривых.
+- Добавлены отдельные API для tooltip и rubber-band.
+- Добавлена статистика регистраций, удалений и обновлений overlay-элементов.
 # Changelog
 
 ## Unreleased — Tablet Engine 2.0 navigation foundation

@@ -43,6 +43,11 @@ from geoworkbench.tablet.camera import TabletCamera
 from geoworkbench.tablet.geometry_cache import CurveGeometryCache, CurveGeometryKey, GeometryCacheStats
 from geoworkbench.tablet.render_invalidation import DirtyReason, DirtyRenderStats, TrackDirtyRegistry
 from geoworkbench.tablet.static_layer_cache import StaticLayerCache, StaticLayerCacheStats, StaticLayerKey
+from geoworkbench.tablet.overlay_layers import (
+    OverlayLayerKind,
+    OverlayLayerManager,
+    OverlayLayerStats,
+)
 from geoworkbench.tablet.interval_interaction import (
     IntervalDragResult,
     IntervalEditMode,
@@ -81,6 +86,7 @@ class RenderedTrack:
     interpretation_lanes: dict[str, int] | None = None
     cursor_line: pg.InfiniteLine | None = None
     interpretation_preview: pg.BarGraphItem | None = None
+    selection_highlight: pg.BarGraphItem | None = None
     curve_render_keys: dict[str, CurveGeometryKey] | None = None
 
 
@@ -438,6 +444,9 @@ class TabletView(QWidget):
         self._geometry_cache = CurveGeometryCache(max_entries=512)
         self._static_layer_cache = StaticLayerCache(max_entries=512)
         self._dirty_registry = TrackDirtyRegistry()
+        self._overlay_layers = OverlayLayerManager()
+        self._tooltip_items: dict[str, pg.TextItem] = {}
+        self._rubber_band_items: dict[str, pg.BarGraphItem] = {}
 
         self._pinned_container = QWidget()
         self._pinned_layout = QHBoxLayout(self._pinned_container)
@@ -530,6 +539,21 @@ class TabletView(QWidget):
 
     def dirty_render_stats(self) -> DirtyRenderStats:
         return self._dirty_registry.stats()
+
+    def overlay_layer_stats(self) -> OverlayLayerStats:
+        return self._overlay_layers.stats()
+
+    def overlay_dirty_layers(self) -> tuple[OverlayLayerKind, ...]:
+        return self._overlay_layers.dirty_layers()
+
+    def set_overlay_visible(self, kind: OverlayLayerKind, visible: bool) -> bool:
+        return self._overlay_layers.set_visible(kind, visible)
+
+    def overlay_visible(self, kind: OverlayLayerKind) -> bool:
+        return self._overlay_layers.is_visible(kind)
+
+    def set_overlay_z_value(self, kind: OverlayLayerKind, z_value: float) -> bool:
+        return self._overlay_layers.set_z_value(kind, z_value)
 
     def invalidate_track(self, track_id: str, reason: DirtyReason) -> None:
         if track_id not in self._rendered:
@@ -853,6 +877,7 @@ class TabletView(QWidget):
 
     def set_cursor_enabled(self, enabled: bool) -> None:
         self._cursor_enabled = enabled
+        self._overlay_layers.set_visible(OverlayLayerKind.CURSOR, enabled)
         for rendered in self._rendered.values():
             if rendered.cursor_line is not None:
                 rendered.cursor_line.setVisible(enabled)
@@ -870,6 +895,7 @@ class TabletView(QWidget):
             return
         bounded = min(max(float(depth), float(np.min(finite))), float(np.max(finite)))
         self._cursor_depth = bounded
+        self._overlay_layers.mark_dirty(OverlayLayerKind.CURSOR)
         self._cursor_guard = True
         try:
             for rendered in self._rendered.values():
@@ -1031,6 +1057,9 @@ class TabletView(QWidget):
     def clear(self) -> None:
         self.cancel_interval_interaction(emit_signal=False)
         self._dirty_registry.clear()
+        self._overlay_layers.clear()
+        self._tooltip_items.clear()
+        self._rubber_band_items.clear()
         self._depth_viewports.clear()
         self._interpretation_viewports.clear()
         for layout in (self._pinned_layout, self._tracks_layout):
@@ -1119,6 +1148,7 @@ class TabletView(QWidget):
                 curve_render_keys={},
             )
             self._rendered[definition.track_id] = rendered
+            self._register_track_overlays(rendered)
             self._install_cursor(rendered)
             if definition.kind is TrackKind.INTERPRETATION:
                 track.plot.scene().sigMouseClicked.connect(
@@ -1152,6 +1182,33 @@ class TabletView(QWidget):
             self._apply_interpretation_selection_style()
         self._update_navigation_controls()
 
+    def _register_track_overlays(self, rendered: RenderedTrack) -> None:
+        track_id = rendered.definition.track_id
+        for item in (rendered.annotation_items or {}).values():
+            self._overlay_layers.register(OverlayLayerKind.MARKER, track_id, item)
+        for item in (rendered.lithology_label_items or {}).values():
+            self._overlay_layers.register(OverlayLayerKind.ANNOTATION, track_id, item)
+        for item in (rendered.lithology_description_items or {}).values():
+            self._overlay_layers.register(OverlayLayerKind.ANNOTATION, track_id, item)
+        for items in (rendered.stratigraphy_items or {}).values():
+            for item in items:
+                if hasattr(item, "setZValue") and hasattr(item, "setVisible"):
+                    kind = (
+                        OverlayLayerKind.ANNOTATION
+                        if isinstance(item, pg.TextItem)
+                        else OverlayLayerKind.MARKER
+                    )
+                    self._overlay_layers.register(kind, track_id, item)
+        for items in (rendered.interpretation_items or {}).values():
+            for item in items:
+                if hasattr(item, "setZValue") and hasattr(item, "setVisible"):
+                    kind = (
+                        OverlayLayerKind.ANNOTATION
+                        if isinstance(item, pg.TextItem)
+                        else OverlayLayerKind.MARKER
+                    )
+                    self._overlay_layers.register(kind, track_id, item)
+
     def _install_cursor(self, rendered: RenderedTrack) -> None:
         if rendered.plot is None:
             return
@@ -1166,6 +1223,7 @@ class TabletView(QWidget):
         line.sigPositionChanged.connect(lambda source: self._cursor_line_moved(source))
         rendered.plot.addItem(line)
         rendered.cursor_line = line
+        self._overlay_layers.register(OverlayLayerKind.CURSOR, rendered.definition.track_id, line)
         rendered.plot.scene().sigMouseClicked.connect(
             lambda event, entry=rendered: self._cursor_plot_clicked(entry, event)
         )
@@ -2196,6 +2254,9 @@ class TabletView(QWidget):
             if rendered is not None and rendered.plot is not None:
                 preview = rendered.interpretation_preview
                 if preview is not None:
+                    self._overlay_layers.unregister(
+                        OverlayLayerKind.PREVIEW, rendered.definition.track_id, preview
+                    )
                     rendered.plot.removeItem(preview)
                 rendered.interpretation_preview = None
         self._interval_gesture = None
@@ -2304,6 +2365,9 @@ class TabletView(QWidget):
             preview = pg.BarGraphItem(**options)
             rendered.plot.addItem(preview)
             rendered.interpretation_preview = preview
+            self._overlay_layers.register(
+                OverlayLayerKind.PREVIEW, rendered.definition.track_id, preview
+            )
         else:
             rendered.interpretation_preview.setOpts(**options)
 
@@ -2371,22 +2435,135 @@ class TabletView(QWidget):
         )
 
     def _apply_interpretation_selection_style(self) -> None:
+        self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
+        interpretation = self._current_interpretation()
+        selected = None
+        if interpretation is not None and self._selected_interval_id is not None:
+            selected = next(
+                (item for item in interpretation.intervals if item.interval_id == self._selected_interval_id),
+                None,
+            )
         for rendered in self._rendered.values():
             for interval_id, items in (rendered.interpretation_items or {}).items():
-                if not items:
+                if not items or not isinstance(items[0], pg.BarGraphItem):
                     continue
-                bar = items[0]
-                if not isinstance(bar, pg.BarGraphItem):
-                    continue
-                selected = interval_id == self._selected_interval_id
-                bar.setOpts(
+                is_selected = interval_id == self._selected_interval_id
+                items[0].setOpts(
                     pen=pg.mkPen(
-                        "#111827" if selected else "#475569",
-                        width=3.0 if selected else 0.8,
+                        "#111827" if is_selected else "#475569",
+                        width=3.0 if is_selected else 0.8,
                     )
                 )
                 if len(items) > 1 and isinstance(items[1], pg.TextItem):
-                    items[1].setColor("#000000" if selected else "#0f172a")
+                    items[1].setColor("#000000" if is_selected else "#0f172a")
+            if rendered.selection_highlight is not None and rendered.plot is not None:
+                self._overlay_layers.unregister(
+                    OverlayLayerKind.SELECTION,
+                    rendered.definition.track_id,
+                    rendered.selection_highlight,
+                )
+                rendered.plot.removeItem(rendered.selection_highlight)
+                rendered.selection_highlight = None
+            if (
+                selected is None
+                or rendered.plot is None
+                or rendered.definition.kind is not TrackKind.INTERPRETATION
+            ):
+                continue
+            lane = (rendered.interpretation_lanes or {}).get(selected.interval_id)
+            if lane is None:
+                continue
+            axis_top, axis_bottom = self._depth_interval_to_axis(
+                selected.top_depth, selected.bottom_depth
+            )
+            highlight = pg.BarGraphItem(
+                x=[lane + 0.5],
+                y=[(axis_top + axis_bottom) / 2.0],
+                width=0.94,
+                height=max(axis_bottom - axis_top, np.finfo(float).eps),
+                brush=pg.mkBrush(0, 0, 0, 0),
+                pen=pg.mkPen("#111827", width=3.0),
+            )
+            rendered.plot.addItem(highlight)
+            rendered.selection_highlight = highlight
+            self._overlay_layers.register(
+                OverlayLayerKind.SELECTION, rendered.definition.track_id, highlight
+            )
+        self._overlay_layers.consume_dirty(OverlayLayerKind.SELECTION)
+
+    def show_overlay_tooltip(
+        self, track_id: str, x_value: float, axis_value: float, text: str
+    ) -> bool:
+        rendered = self._rendered.get(track_id)
+        if rendered is None or rendered.plot is None:
+            return False
+        item = self._tooltip_items.get(track_id)
+        if item is None:
+            item = pg.TextItem("", color="#0f172a", fill=pg.mkBrush(255, 255, 255, 225))
+            rendered.plot.addItem(item)
+            self._tooltip_items[track_id] = item
+            self._overlay_layers.register(OverlayLayerKind.TOOLTIP, track_id, item)
+        item.setText(str(text))
+        item.setPos(float(x_value), float(axis_value))
+        item.setVisible(True)
+        self._overlay_layers.mark_dirty(OverlayLayerKind.TOOLTIP)
+        self._overlay_layers.consume_dirty(OverlayLayerKind.TOOLTIP)
+        return True
+
+    def clear_overlay_tooltip(self, track_id: str | None = None) -> int:
+        target_ids = tuple(self._tooltip_items) if track_id is None else (track_id,)
+        cleared = 0
+        for current_id in target_ids:
+            item = self._tooltip_items.get(current_id)
+            if item is not None and item.isVisible():
+                item.setVisible(False)
+                cleared += 1
+        if cleared:
+            self._overlay_layers.mark_dirty(OverlayLayerKind.TOOLTIP)
+            self._overlay_layers.consume_dirty(OverlayLayerKind.TOOLTIP)
+        return cleared
+
+    def show_rubber_band(
+        self, track_id: str, x_left: float, x_right: float, axis_top: float, axis_bottom: float
+    ) -> bool:
+        rendered = self._rendered.get(track_id)
+        if rendered is None or rendered.plot is None:
+            return False
+        left, right = sorted((float(x_left), float(x_right)))
+        top, bottom = sorted((float(axis_top), float(axis_bottom)))
+        options = dict(
+            x=[(left + right) / 2.0],
+            y=[(top + bottom) / 2.0],
+            width=max(right - left, np.finfo(float).eps),
+            height=max(bottom - top, np.finfo(float).eps),
+            brush=pg.mkBrush(59, 130, 246, 35),
+            pen=pg.mkPen("#3b82f6", width=1.5, style=Qt.PenStyle.DashLine),
+        )
+        item = self._rubber_band_items.get(track_id)
+        if item is None:
+            item = pg.BarGraphItem(**options)
+            rendered.plot.addItem(item)
+            self._rubber_band_items[track_id] = item
+            self._overlay_layers.register(OverlayLayerKind.RUBBER_BAND, track_id, item)
+        else:
+            item.setOpts(**options)
+            item.setVisible(True)
+        self._overlay_layers.mark_dirty(OverlayLayerKind.RUBBER_BAND)
+        self._overlay_layers.consume_dirty(OverlayLayerKind.RUBBER_BAND)
+        return True
+
+    def clear_rubber_band(self, track_id: str | None = None) -> int:
+        target_ids = tuple(self._rubber_band_items) if track_id is None else (track_id,)
+        cleared = 0
+        for current_id in target_ids:
+            item = self._rubber_band_items.get(current_id)
+            if item is not None and item.isVisible():
+                item.setVisible(False)
+                cleared += 1
+        if cleared:
+            self._overlay_layers.mark_dirty(OverlayLayerKind.RUBBER_BAND)
+            self._overlay_layers.consume_dirty(OverlayLayerKind.RUBBER_BAND)
+        return cleared
 
     def _populate_cuttings(
         self, track: TabletTrackWidget, definition: TrackDefinition
