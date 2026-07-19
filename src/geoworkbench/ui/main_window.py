@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -196,6 +197,15 @@ class MainWindow(QMainWindow):
         self.tablet_view.curve_selected.connect(self._show_tablet_curve_in_inspector)
         self.tablet_view.track_hide_requested.connect(self._hide_track_from_context)
         self.tablet_view.track_remove_requested.connect(self._remove_track_from_context)
+        self.tablet_view.track_add_curves_requested.connect(
+            self._add_curves_to_track_from_context
+        )
+        self.tablet_view.track_replace_curves_requested.connect(
+            self._replace_track_curves_from_context
+        )
+        self.tablet_view.track_properties_requested.connect(
+            self._show_track_properties_from_context
+        )
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.track_order_change_requested.connect(self._track_order_changed_from_drag)
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
@@ -2249,18 +2259,31 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._log(message)
 
-    def _select_curve_mnemonics(self) -> list[str]:
+    def _select_curve_mnemonics(
+        self, *, preselected: tuple[str, ...] = ()
+    ) -> list[str]:
         dataset = self.session.current_dataset
         if dataset is None:
             return []
         dialog = QDialog(self)
         dialog.setWindowTitle(self._t("tablet.select_curves_title"))
+        dialog.resize(560, 620)
         layout = QVBoxLayout(dialog)
         layout.addWidget(QLabel(self._t("tablet.select_curves_prompt")))
         curve_list = QListWidget()
         curve_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        selected_set = set(preselected)
         for curve in dataset.curves.values():
-            curve_list.addItem(curve.metadata.original_mnemonic)
+            mnemonic = curve.metadata.original_mnemonic
+            unit = (curve.metadata.unit or "").strip()
+            description = (curve.metadata.description or "").strip()
+            details = " — ".join(value for value in (unit, description) if value)
+            label = f"{mnemonic} — {details}" if details else mnemonic
+            item = QListWidgetItem(label)
+            item.setData(Qt.ItemDataRole.UserRole, mnemonic)
+            item.setToolTip(label)
+            item.setSelected(mnemonic in selected_set)
+            curve_list.addItem(item)
         layout.addWidget(curve_list)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -2272,7 +2295,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(buttons)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return []
-        return [item.text() for item in curve_list.selectedItems()]
+        return [
+            str(item.data(Qt.ItemDataRole.UserRole))
+            for item in curve_list.selectedItems()
+        ]
 
     def calculate_ratios(self) -> None:
         try:
@@ -3293,6 +3319,56 @@ class MainWindow(QMainWindow):
             f"{self._t('inspector.version')}: {curve.version}\n"
             f"{self._t('inspector.provenance')}: {curve.metadata.provenance}"
         )
+
+    def _graphical_track(self, track_id: str) -> TrackDefinition | None:
+        try:
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+        except KeyError:
+            return None
+        if track.kind not in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}:
+            return None
+        return track
+
+    def _apply_context_curve_selection(
+        self, track_id: str, mnemonics: list[str]
+    ) -> None:
+        if not mnemonics:
+            return
+        self._selected_track_id = track_id
+        try:
+            track = self.tablet_controller.replace_track_curves(track_id, mnemonics)
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("curve_browser.title"), str(exc))
+            return
+        self.tablet_view.refresh_view()
+        self.tablet_view.select_track(track_id, emit_signal=False)
+        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
+        self._refresh_tree()
+        self._update_title()
+
+    def _add_curves_to_track_from_context(self, track_id: str) -> None:
+        track = self._graphical_track(track_id)
+        if track is None:
+            return
+        selected = self._select_curve_mnemonics()
+        if not selected:
+            return
+        combined = list(dict.fromkeys([*track.curve_mnemonics, *selected]))
+        self._apply_context_curve_selection(track_id, combined)
+
+    def _replace_track_curves_from_context(self, track_id: str) -> None:
+        track = self._graphical_track(track_id)
+        if track is None:
+            return
+        selected = self._select_curve_mnemonics(
+            preselected=tuple(track.curve_mnemonics)
+        )
+        self._apply_context_curve_selection(track_id, selected)
+
+    def _show_track_properties_from_context(self, track_id: str) -> None:
+        self._show_track_in_inspector(track_id)
+        self.inspector_dock.show()
+        self.inspector_dock.raise_()
 
     def _hide_track_from_context(self, track_id: str) -> None:
         self._selected_track_id = track_id

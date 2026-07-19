@@ -804,5 +804,8 @@
   "panel.cursor": "Cursor values",
   "panel.cursor_tooltip": "Show or hide values at the cursor (Ctrl+Alt+V)",
   "panel.hide_all": "Collapse side panels",
-  "panel.hide_all_tooltip": "Maximize space for the tablet (Ctrl+Alt+0)"
+  "panel.hide_all_tooltip": "Maximize space for the tablet (Ctrl+Alt+0)",
+  "tablet.add_curves": "Add curves…",
+  "tablet.choose_track_curves": "Choose parameters and curves…",
+  "tablet.track_properties": "Track properties"
 }

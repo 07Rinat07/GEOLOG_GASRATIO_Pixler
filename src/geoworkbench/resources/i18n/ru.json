@@ -804,5 +804,8 @@
   "panel.cursor": "Данные визира",
   "panel.cursor_tooltip": "Показать или скрыть значения параметров по визиру (Ctrl+Alt+V)",
   "panel.hide_all": "Свернуть боковые панели",
-  "panel.hide_all_tooltip": "Освободить максимум места для планшета (Ctrl+Alt+0)"
+  "panel.hide_all_tooltip": "Освободить максимум места для планшета (Ctrl+Alt+0)",
+  "tablet.add_curves": "Добавить кривые…",
+  "tablet.choose_track_curves": "Выбрать параметры и кривые…",
+  "tablet.track_properties": "Свойства дорожки"
 }

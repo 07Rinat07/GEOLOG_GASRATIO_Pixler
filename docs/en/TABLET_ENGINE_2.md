@@ -66,3 +66,7 @@ Repeated samples mapped to the same depth/time are averaged only for screen geom
 ## Compact side panels
 
 The LAS curve browser and inspector start collapsed. Narrow icon rails on the left and right open tools on demand and expose shortcuts through tooltips. `Ctrl+Alt+0` collapses all side panels.
+
+## Full-height tracks and column context menu
+
+Tablet tracks now fill the complete available workspace height. The depth column uses a compact ruler without a duplicate rotated label and remains mouse-resizable. Right-click works anywhere inside a column; graphical tracks expose direct actions for adding curves, changing the parameter/curve set, and opening track properties.

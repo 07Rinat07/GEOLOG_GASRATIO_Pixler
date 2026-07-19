@@ -242,12 +242,17 @@ class TabletTrackWidget(QFrame):
             "background: #f8fafc; color: #0f172a; "
             "border-bottom: 1px solid #cbd5e1;"
         )
+        self.title.setFixedHeight(36)
 
         axis_items = (
             {"left": TabletVerticalAxisItem(vertical_axis)} if vertical_axis is not None else None
         )
         self.plot = pg.PlotWidget(axisItems=axis_items)
         self.plot.setBackground("#ffffff")
+        self.plot.setMinimumHeight(240)
+        self.plot.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         for axis_name in ("left", "bottom"):
             axis = self.plot.getAxis(axis_name)
             axis.setPen(pg.mkPen("#475569"))
@@ -265,6 +270,7 @@ class TabletTrackWidget(QFrame):
         self.plot.setMouseEnabled(x=True, y=True)
         self.plot.setToolTip(navigation_hint)
         self.plot.viewport().setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.set_track_width(display_width)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -275,6 +281,18 @@ class TabletTrackWidget(QFrame):
         for target in (self.title, self.plot, self.plot.viewport()):
             target.setMouseTracking(True)
             target.installEventFilter(self)
+
+    def set_track_width(self, width: int) -> None:
+        self.setFixedWidth(int(width))
+        if self.definition.kind is TrackKind.DEPTH:
+            axis = self.plot.getAxis("left")
+            axis_width = max(54, min(int(width) - 12, 92))
+            axis.setStyle(
+                autoExpandTextSpace=False,
+                tickTextWidth=max(48, min(int(width) - 16, 88)),
+                tickLength=-6,
+            )
+            axis.setWidth(axis_width)
 
     def mousePressEvent(self, event) -> None:  # type: ignore[override]
         if self._handle_resize_event(event):
@@ -293,12 +311,18 @@ class TabletTrackWidget(QFrame):
         super().mouseReleaseEvent(event)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
-        if isinstance(event, QMouseEvent) and self._handle_resize_event(event, watched):
-            return True
-        if watched is self.title and isinstance(event, QMouseEvent):
-            if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.RightButton:
-                self.context_requested.emit(self.definition.track_id, event.globalPosition().toPoint())
+        if isinstance(event, QMouseEvent):
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.RightButton
+            ):
+                self.context_requested.emit(
+                    self.definition.track_id, event.globalPosition().toPoint()
+                )
                 return True
+            if self._handle_resize_event(event, watched):
+                return True
+        if watched is self.title and isinstance(event, QMouseEvent):
             global_x = event.globalPosition().toPoint().x()
             if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
                 self._header_drag_origin_x = global_x
@@ -340,7 +364,7 @@ class TabletTrackWidget(QFrame):
             return True
         if event_type == QEvent.Type.MouseMove and self._resize_gesture is not None:
             width = self._resize_gesture.width_at(global_position.x())
-            self.setFixedWidth(width)
+            self.set_track_width(width)
             return True
         if (
             event_type == QEvent.Type.MouseButtonRelease
@@ -349,7 +373,7 @@ class TabletTrackWidget(QFrame):
         ):
             width = self._resize_gesture.width_at(global_position.x())
             self._resize_gesture = None
-            self.setFixedWidth(width)
+            self.set_track_width(width)
             self.unsetCursor()
             if width != self.definition.width:
                 self.width_change_requested.emit(self.definition.track_id, width)
@@ -448,6 +472,9 @@ class TabletView(QWidget):
     curve_selected = Signal(str, str)
     track_hide_requested = Signal(str)
     track_remove_requested = Signal(str)
+    track_add_curves_requested = Signal(str)
+    track_replace_curves_requested = Signal(str)
+    track_properties_requested = Signal(str)
     visible_depth_changed = Signal(float, float)
     vertical_index_changed = Signal(str)
     cursor_changed = Signal(float, str)
@@ -512,9 +539,18 @@ class TabletView(QWidget):
         self._tracks_layout = QHBoxLayout(self._container)
         self._tracks_layout.setContentsMargins(0, 0, 0, 0)
         self._tracks_layout.setSpacing(2)
+        self._pinned_container.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+        )
+        self._container.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Expanding
+        )
 
         self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(False)
+        # The tracks must always consume the full available vertical viewport.
+        # Horizontal overflow is still handled by the scroll bar because the
+        # container keeps a fixed content width.
+        self._scroll.setWidgetResizable(True)
         self._scroll.setWidget(self._container)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -957,7 +993,7 @@ class TabletView(QWidget):
             definition.width = width
             rendered = self._rendered.get(track_id)
             if rendered is not None:
-                rendered.widget.setFixedWidth(width)
+                rendered.widget.set_track_width(width)
             self.invalidate_track(track_id, DirtyReason.STATIC)
             self.refresh_dirty_tracks()
             self.track_width_change_requested.emit(track_id, width)
@@ -1150,6 +1186,19 @@ class TabletView(QWidget):
             return
         self.select_track(track_id, emit_signal=True)
         menu = QMenu(self)
+
+        graphical = definition.kind in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
+        add_curves = replace_curves = properties_action = None
+        if graphical:
+            add_curves = menu.addAction(self._localizer.text("tablet.add_curves"))
+            replace_curves = menu.addAction(
+                self._localizer.text("tablet.choose_track_curves")
+            )
+            menu.addSeparator()
+        properties_action = menu.addAction(
+            self._localizer.text("tablet.track_properties")
+        )
+        menu.addSeparator()
         move_left = menu.addAction(self._localizer.text("tablet.move_left"))
         move_right = menu.addAction(self._localizer.text("tablet.move_right"))
         menu.addSeparator()
@@ -1158,12 +1207,21 @@ class TabletView(QWidget):
         menu.addSeparator()
         undo_action = menu.addAction(self._localizer.text("tablet.undo_interaction"))
         redo_action = menu.addAction(self._localizer.text("tablet.redo_interaction"))
-        move_left.setEnabled(index > 0)
-        move_right.setEnabled(index < len(self._layout_model.tracks) - 1)
+        move_left.setEnabled(index > 0 and definition.kind is not TrackKind.DEPTH)
+        move_right.setEnabled(
+            index < len(self._layout_model.tracks) - 1
+            and definition.kind is not TrackKind.DEPTH
+        )
         undo_action.setEnabled(self.can_undo_interaction)
         redo_action.setEnabled(self.can_redo_interaction)
         chosen = menu.exec(global_pos)
-        if chosen is move_left:
+        if add_curves is not None and chosen is add_curves:
+            self.track_add_curves_requested.emit(track_id)
+        elif replace_curves is not None and chosen is replace_curves:
+            self.track_replace_curves_requested.emit(track_id)
+        elif chosen is properties_action:
+            self.track_properties_requested.emit(track_id)
+        elif chosen is move_left:
             self.move_track_with_history(track_id, index - 1)
         elif chosen is move_right:
             self.move_track_with_history(track_id, index + 1)
@@ -1547,13 +1605,25 @@ class TabletView(QWidget):
             track.width + 2 for track in visible if track.kind is not TrackKind.DEPTH
         )
         self._container.setFixedWidth(max(total_width, 1))
-        self._container.setMinimumHeight(max(self._scroll.viewport().height(), 120))
+        self._synchronize_track_heights()
         if master_plot is not None and visible_top is not None and visible_bottom is not None:
             self._synchronize_depth_ranges(visible_top, visible_bottom)
             self._update_lithology_text_visibility(visible_top, visible_bottom)
             self._update_stratigraphy_text_visibility(visible_top, visible_bottom)
             self._apply_interpretation_selection_style()
         self._update_navigation_controls()
+
+    def _synchronize_track_heights(self) -> None:
+        """Stretch pinned and scrollable tracks to the complete chart viewport."""
+        height = max(self._scroll.viewport().height(), 240)
+        self._container.setMinimumHeight(height)
+        self._pinned_container.setMinimumHeight(height)
+        for rendered in self._rendered.values():
+            rendered.widget.setMinimumHeight(height)
+
+    def resizeEvent(self, event) -> None:  # type: ignore[override]
+        super().resizeEvent(event)
+        self._synchronize_track_heights()
 
     def _register_track_overlays(self, rendered: RenderedTrack) -> None:
         track_id = rendered.definition.track_id
@@ -1857,6 +1927,16 @@ class TabletView(QWidget):
         self._apply_visible_depth(*target, emit_change=True)
         return True
 
+    def _track_id_for_plot(self, plot: pg.PlotWidget) -> str | None:
+        return next(
+            (
+                track_id
+                for track_id, rendered in self._rendered.items()
+                if rendered.plot is plot
+            ),
+            None,
+        )
+
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
         wheel_plot = self._wheel_targets.get(watched)
         if wheel_plot is not None and isinstance(event, QWheelEvent):
@@ -1890,18 +1970,22 @@ class TabletView(QWidget):
         if plot is not None and isinstance(event, QMouseEvent):
             if (
                 event.type() == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.RightButton
+            ):
+                track_id = self._track_id_for_plot(plot)
+                if track_id is not None:
+                    self.show_track_context_menu(
+                        track_id, event.globalPosition().toPoint()
+                    )
+                    event.accept()
+                    return True
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
                 and event.button() == Qt.MouseButton.LeftButton
                 and not self._space_pressed
                 and watched not in self._interpretation_viewports
             ):
-                track_id = next(
-                    (
-                        current_id
-                        for current_id, rendered_track in self._rendered.items()
-                        if rendered_track.plot is plot
-                    ),
-                    None,
-                )
+                track_id = self._track_id_for_plot(plot)
                 if track_id is not None:
                     additive = bool(event.modifiers() & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier))
                     toggle = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
@@ -2192,7 +2276,7 @@ class TabletView(QWidget):
         if isinstance(rendered.widget, TabletTrackWidget):
             rendered.widget.definition = definition
             rendered.widget.title.setText(str(title))
-            rendered.widget.setFixedWidth(int(width))
+            rendered.widget.set_track_width(int(width))
         if rendered.plot is not None:
             rendered.plot.showGrid(
                 x=bool(grid_x), y=bool(grid_y), alpha=float(grid_alpha)
@@ -2299,10 +2383,22 @@ class TabletView(QWidget):
             track.plot.showAxis("left")
             label = descriptor.label if descriptor is not None else "Глубина"
             unit = descriptor.unit if descriptor is not None else "м"
-            track.title.setText(label)
-            track.plot.setLabel("left", label, units=unit or None)
+            track.title.setText(f"{label}, {unit}" if unit else label)
+            # The title already explains the axis. A second rotated axis label
+            # consumed most of the narrow depth column and made it look broken.
+            axis = track.plot.getAxis("left")
+            axis.setLabel(text="")
+            axis.setStyle(
+                autoExpandTextSpace=False,
+                tickTextWidth=max(48, min(track.width() - 16, 88)),
+                tickLength=-6,
+            )
+            axis.setWidth(max(54, min(track.width() - 12, 92)))
             track.plot.hideAxis("bottom")
-            track.plot.setMouseEnabled(x=False, y=True)
+            track.plot.showGrid(x=False, y=True, alpha=0.25)
+            track.plot.setXRange(0.0, 1.0, padding=0)
+            track.plot.getViewBox().setDefaultPadding(0.0)
+            track.plot.setMouseEnabled(x=False, y=False)
             return (), {}
 
         if definition.kind in (

@@ -1,3 +1,11 @@
+## Unreleased — full-height tablet tracks and column context menu
+
+- The depth scale is now a compact dedicated ruler: the redundant rotated label was removed, tick labels use the available width, and resizing the depth column updates the ruler immediately.
+- Pinned and scrollable tracks stretch to the complete tablet viewport instead of ending above a blank lower area.
+- Right-click works over the header and the complete body of every column.
+- Graphical-column context menus now provide direct actions to add curves, choose/replace parameters and curves, and open track properties.
+- The curve selection dialog shows mnemonic, unit and description and restores the current track selection when replacing curves.
+
 ## Unreleased — depth navigation and compact side panels
 
 - Long depth/time datasets now open in a readable initial viewport instead of being compressed into the full screen height.

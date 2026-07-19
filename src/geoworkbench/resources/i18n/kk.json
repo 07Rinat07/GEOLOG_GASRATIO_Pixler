@@ -804,5 +804,8 @@
   "panel.cursor": "Визир деректері",
   "panel.cursor_tooltip": "Визир бойынша параметр мәндерін көрсету немесе жасыру (Ctrl+Alt+V)",
   "panel.hide_all": "Бүйір панельдерді жию",
-  "panel.hide_all_tooltip": "Планшетке барынша көп орын босату (Ctrl+Alt+0)"
+  "panel.hide_all_tooltip": "Планшетке барынша көп орын босату (Ctrl+Alt+0)",
+  "tablet.add_curves": "Қисықтарды қосу…",
+  "tablet.choose_track_curves": "Параметрлер мен қисықтарды таңдау…",
+  "tablet.track_properties": "Жолақ қасиеттері"
 }

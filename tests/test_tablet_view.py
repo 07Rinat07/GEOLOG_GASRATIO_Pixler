@@ -4,7 +4,7 @@ import numpy as np
 import pyqtgraph as pg
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-from PySide6.QtGui import QKeyEvent, QWheelEvent
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QWheelEvent
 
 from geoworkbench.domain.models import (
     CanvasObject,
@@ -1345,3 +1345,85 @@ def test_curve_hit_testing_selects_nearest_curve(qapp) -> None:
     assert hit.target.object_id == "TG"
     assert view.selection_snapshot.primary == hit.target
     view.close()
+
+def test_depth_track_uses_compact_resizable_ruler(qapp) -> None:
+    dataset = Dataset(
+        "dataset-depth-ruler",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(100.0, 500.0, 401),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("depth", "Глубина", TrackKind.DEPTH, width=120)])
+    )
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    widget = view._rendered["depth"].widget
+    axis = widget.plot.getAxis("left")
+    assert axis.labelText == ""
+    assert "Глубина" in widget.title.text()
+
+    widget.set_track_width(160)
+    assert widget.width() == 160
+    assert axis.width() <= 92
+    view.close()
+
+
+def test_tablet_tracks_fill_scroll_viewport_height(qapp) -> None:
+    dataset = Dataset(
+        "dataset-full-height",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(0.0, 1000.0, 1001),
+    )
+    curve = CurveData(
+        CurveMetadata("curve-rop", "ROP", "ROP", "m/h", None, dataset.dataset_id),
+        np.linspace(1.0, 20.0, 1001),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Глубина", TrackKind.DEPTH),
+                TrackDefinition(
+                    "rop", "ROP", TrackKind.CURVE, curve_mnemonics=["ROP"]
+                ),
+            ]
+        )
+    )
+    view.resize(900, 700)
+    view.show()
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    viewport_height = view._scroll.viewport().height()
+    assert view._rendered["rop"].widget.minimumHeight() >= viewport_height
+    assert view._rendered["depth"].widget.minimumHeight() >= viewport_height
+    view.close()
+
+
+def test_track_widget_requests_context_menu_from_plot_body(qapp) -> None:
+    widget = TabletTrackWidget(
+        TrackDefinition("curve", "Curve", TrackKind.CURVE)
+    )
+    requested: list[str] = []
+    widget.context_requested.connect(lambda track_id, _pos: requested.append(track_id))
+    event = QMouseEvent(
+        QEvent.Type.MouseButtonPress,
+        QPointF(10.0, 10.0),
+        QPointF(10.0, 10.0),
+        QPointF(10.0, 10.0),
+        Qt.MouseButton.RightButton,
+        Qt.MouseButton.RightButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+    assert widget.eventFilter(widget.plot.viewport(), event) is True
+    assert requested == ["curve"]
+    widget.close()
+
