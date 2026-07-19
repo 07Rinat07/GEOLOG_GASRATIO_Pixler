@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -20,7 +21,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.forms.draft import DraftFormController
 from geoworkbench.forms.editor import FormStructureEditor
+from geoworkbench.forms.preview import FormPreviewController, PreviewCallback
 from geoworkbench.forms.models import FormDocument
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.domain.models import Dataset
@@ -91,15 +94,19 @@ class FormStructureEditorDialog(QDialog):
         *,
         language: str = "ru",
         dataset: Dataset | None = None,
+        preview_callback: PreviewCallback | None = None,
     ) -> None:
         super().__init__(parent)
         self.repository = repository
         self.dataset = dataset
         self.language = language
-        self.editor = FormStructureEditor(form)
+        self.draft = DraftFormController.create(form)
+        self.editor = FormStructureEditor(self.draft.form)
+        self.preview_controller = FormPreviewController(preview_callback)
         self.saved_form: FormDocument | None = None
         self._updating_properties = False
-        self.setWindowTitle(self._text("Редактор структуры формы", "Пішін құрылымының редакторы", "Form structure editor"))
+        self._base_title = self._text("Редактор структуры формы", "Пішін құрылымының редакторы", "Form structure editor")
+        self.setWindowTitle(self._base_title)
         self.resize(1080, 680)
 
         root = QVBoxLayout(self)
@@ -159,15 +166,19 @@ class FormStructureEditorDialog(QDialog):
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.button(QDialogButtonBox.StandardButton.Save).setText(self._text("Сохранить", "Сақтау", "Save"))
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self._text("Отмена", "Бас тарту", "Cancel"))
-        buttons.accepted.connect(self._save)
-        buttons.rejected.connect(self.reject)
-        root.addWidget(buttons)
+        actions = QHBoxLayout()
+        self.live_preview_check = QCheckBox(self._text("Живой предпросмотр", "Тікелей алдын ала қарау", "Live preview"))
+        self.live_preview_check.setChecked(True)
+        self.live_preview_check.toggled.connect(self._toggle_live_preview)
+        actions.addWidget(self.live_preview_check)
+        actions.addStretch(1)
+        self.apply_button = self._button(actions, self._text("Применить", "Қолдану", "Apply"), self._apply_preview)
+        self.revert_button = self._button(actions, self._text("Отменить изменения", "Өзгерістерден бас тарту", "Revert"), self._revert)
+        self.save_button = self._button(actions, self._text("Сохранить", "Сақтау", "Save"), self._save)
+        self.close_button = self._button(actions, self._text("Закрыть", "Жабу", "Close"), self.accept)
+        root.addLayout(actions)
         self._reload_tree()
+        self._update_dirty_state()
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
@@ -177,6 +188,35 @@ class FormStructureEditorDialog(QDialog):
         button.clicked.connect(callback)
         layout.addWidget(button)
         return button
+
+    def _toggle_live_preview(self, enabled: bool) -> None:
+        self.preview_controller.auto_apply = enabled
+        if enabled and self.preview_controller.pending:
+            self._apply_preview()
+
+    def _form_changed(self) -> None:
+        self.draft.changed()
+        self.preview_controller.changed(self.editor.form)
+        self._update_dirty_state()
+
+    def _update_dirty_state(self) -> None:
+        suffix = " *" if self.draft.dirty else ""
+        self.setWindowTitle(f"{self._base_title} — {self.editor.form.name}{suffix}")
+        self.revert_button.setEnabled(self.draft.dirty)
+
+    def _apply_preview(self) -> None:
+        try:
+            self.editor.form.validate()
+            self.preview_controller.apply(self.editor.form)
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+
+    def _revert(self) -> None:
+        restored = self.draft.revert()
+        self.editor = FormStructureEditor(restored)
+        self.preview_controller.apply(restored)
+        self._reload_tree()
+        self._update_dirty_state()
 
     def _selected_ref(self) -> tuple[str, str] | None:
         item = self.tree.currentItem()
@@ -256,6 +296,7 @@ class FormStructureEditorDialog(QDialog):
             else:
                 self.editor.rename_track(ref[1], self.title_edit.text())
             self._reload_tree(ref[1])
+            self._form_changed()
         except (KeyError, PermissionError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             self._selection_changed(None, None)
@@ -272,6 +313,7 @@ class FormStructureEditorDialog(QDialog):
             if item is not None:
                 item.setText(2, f"{value} px")
             self.preview.set_form(self.editor.form, ref[1])
+            self._form_changed()
         except (KeyError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
 
@@ -287,12 +329,14 @@ class FormStructureEditorDialog(QDialog):
         try:
             self.editor.set_track_kind(ref[1], kind)
             self._reload_tree(ref[1])
+            self._form_changed()
         except (KeyError, PermissionError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
 
     def _add_column(self) -> None:
         column = self.editor.add_column(self._text("Новая колонка", "Жаңа баған", "New column"))
         self._reload_tree(column.column_id)
+        self._form_changed()
 
     def _remove_column(self) -> None:
         ref = self._selected_ref()
@@ -302,6 +346,7 @@ class FormStructureEditorDialog(QDialog):
         try:
             self.editor.remove_column(column_id)
             self._reload_tree()
+            self._form_changed()
         except (KeyError, PermissionError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
 
@@ -323,6 +368,7 @@ class FormStructureEditorDialog(QDialog):
                 title=self._text("Новая дорожка", "Жаңа жол", "New track"),
             )
             self._reload_tree(track.track_id)
+            self._form_changed()
         except (KeyError, PermissionError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
 
@@ -349,6 +395,7 @@ class FormStructureEditorDialog(QDialog):
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._reload_tree(ref[1])
+            self._form_changed()
 
     def _remove_track(self) -> None:
         ref = self._selected_ref()
@@ -357,6 +404,7 @@ class FormStructureEditorDialog(QDialog):
         try:
             self.editor.remove_track(ref[1])
             self._reload_tree()
+            self._form_changed()
         except (KeyError, PermissionError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
 
@@ -381,6 +429,7 @@ class FormStructureEditorDialog(QDialog):
                 index = ids.index(ref[1])
                 self.editor.move_track(ref[1], column.column_id, index + delta)
             self._reload_tree(ref[1])
+            self._form_changed()
         except (KeyError, PermissionError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
 
@@ -391,5 +440,7 @@ class FormStructureEditorDialog(QDialog):
         except (OSError, PermissionError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
-        self.saved_form = self.editor.form
-        self.accept()
+        self.draft.mark_saved()
+        self.saved_form = self.draft.saved_copy()
+        self.preview_controller.apply(self.editor.form)
+        self._update_dirty_state()

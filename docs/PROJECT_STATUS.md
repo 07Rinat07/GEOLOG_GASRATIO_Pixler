@@ -30,3 +30,5 @@ Selection & Interaction Engine now includes multi-selection, selected-curve prop
 ## Следующая задача
 
 Связать редактор формы с живым предпросмотром рабочего планшета и завершить сценарий «редактировать → сохранить → применить» без повторного открытия менеджера.
+
+- Form Engine: Live Form Preview workflow implemented (draft/apply/save/revert without reopening Form Manager).

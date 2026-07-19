@@ -1747,12 +1747,17 @@ class MainWindow(QMainWindow):
             self,
             language=self.language.value,
             dataset=self.session.current_dataset,
+            preview_callback=lambda form: self.apply_form_to_tablet(
+                form, mark_dirty=False, notify=False
+            ),
         )
         if dialog.exec() != QDialog.DialogCode.Accepted or dialog.selected_form is None:
             return
         self.apply_form_to_tablet(dialog.selected_form)
 
-    def apply_form_to_tablet(self, form) -> None:
+    def apply_form_to_tablet(
+        self, form, *, mark_dirty: bool = True, notify: bool = True
+    ) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
             QMessageBox.information(self, self._t("forms.title"), self._t("forms.open_first"))
@@ -1763,7 +1768,8 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, self._t("forms.title"), str(exc))
             return
         self.session.set_current_tablet_layout(result.layout)
-        self.session.dirty = True
+        if mark_dirty:
+            self.session.dirty = True
         self.tablet_view.set_layout_model(result.layout)
         self.tablet_view.set_dataset(dataset)
         self.tabs.setCurrentWidget(self.tablet_view)
@@ -1779,8 +1785,9 @@ class MainWindow(QMainWindow):
         )
         if missing_names:
             message += " " + self._t("forms.missing_status", names=missing_names)
-        self.statusBar().showMessage(message)
-        self._log(message)
+        if notify:
+            self.statusBar().showMessage(message)
+            self._log(message)
 
     def build_default_tablet(self) -> None:
         dataset = self.session.current_dataset

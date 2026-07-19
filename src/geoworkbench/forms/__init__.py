@@ -33,3 +33,6 @@ __all__ = [
     "form_to_dict",
 ]
 
+
+from geoworkbench.forms.draft import DraftFormController
+from geoworkbench.forms.preview import FormPreviewController

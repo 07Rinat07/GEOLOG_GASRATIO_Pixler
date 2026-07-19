@@ -23,6 +23,7 @@ from geoworkbench.domain.models import Dataset
 from geoworkbench.forms.models import FormAxisKind, FormDocument, FormTemplateOrigin
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.templates import factory_templates
+from geoworkbench.forms.preview import PreviewCallback
 from geoworkbench.ui.form_structure_editor_dialog import FormStructureEditorDialog
 
 
@@ -34,11 +35,13 @@ class FormManagerDialog(QDialog):
         *,
         language: str = "ru",
         dataset: Dataset | None = None,
+        preview_callback: PreviewCallback | None = None,
     ) -> None:
         super().__init__(parent)
         self.repository = repository
         self.dataset = dataset
         self.language = language
+        self.preview_callback = preview_callback
         self.selected_form: FormDocument | None = None
         self.setWindowTitle(self._text("Менеджер форм", "Пішіндер менеджері", "Form manager"))
         self.resize(840, 560)
@@ -182,6 +185,7 @@ class FormManagerDialog(QDialog):
             self,
             language=self.language,
             dataset=self.dataset,
+            preview_callback=self.preview_callback,
         )
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.saved_form is not None:
             self.reload(dialog.saved_form.form_id)

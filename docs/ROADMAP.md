@@ -76,3 +76,5 @@ Remaining:
 - ✅ Визуальный редактор структуры колонок и дорожек.
 - ✅ Редактор ParameterBinding и оформления кривых внутри дорожки.
 - 🔄 Следующий срез: живой предпросмотр на планшете и завершение рабочего сценария сохранения/применения.
+
+- [x] Live Form Preview: draft state, auto-apply, manual apply, save and revert in one editor session.

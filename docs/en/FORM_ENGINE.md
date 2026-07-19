@@ -39,3 +39,6 @@ A selected track can be opened in a dedicated parameter editor. It supports:
 
 Changes are stored in the user JSON template and consumed by the existing Form Apply Engine. Source LAS names and values are not modified.
 
+
+## Live preview
+The editor uses a safe draft copy, supports automatic preview, manual apply, saving without closing the editor, and reverting to the last saved version.

@@ -249,3 +249,7 @@
 - Added read-only factory templates and editable user copies.
 
 - Added the visual form structure editor with protected factory-template copies, column/track editing, preview and JSON persistence.
+
+### Live Form Preview
+- Добавлены draft-состояние формы, живой предпросмотр на рабочем планшете, ручное применение и откат.
+- Редактор формы больше не закрывается после сохранения; сценарий «редактировать → применить → сохранить» выполняется в одном окне.
