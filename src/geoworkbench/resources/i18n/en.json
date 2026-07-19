@@ -783,5 +783,11 @@
   "tablet.hide_track": "Hide track",
   "tablet.remove_track": "Remove track",
   "tablet.undo_interaction": "Undo action",
-  "tablet.redo_interaction": "Redo action"
+  "tablet.redo_interaction": "Redo action",
+  "forms.menu": "Forms",
+  "forms.manager_action": "Form manager...",
+  "forms.title": "Forms",
+  "forms.open_first": "Open a LAS or another dataset first.",
+  "forms.applied_status": "Form “{name}” applied: resolved {resolved} of {total} parameters.",
+  "forms.missing_status": "Missing: {names}."
 }

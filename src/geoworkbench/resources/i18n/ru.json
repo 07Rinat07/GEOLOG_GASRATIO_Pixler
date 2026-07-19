@@ -783,5 +783,11 @@
   "tablet.hide_track": "Скрыть дорожку",
   "tablet.remove_track": "Удалить дорожку",
   "tablet.undo_interaction": "Отменить действие",
-  "tablet.redo_interaction": "Повторить действие"
+  "tablet.redo_interaction": "Повторить действие",
+  "forms.menu": "Формы",
+  "forms.manager_action": "Менеджер форм...",
+  "forms.title": "Формы",
+  "forms.open_first": "Сначала откройте LAS или другой набор данных.",
+  "forms.applied_status": "Форма «{name}» применена: найдено {resolved} из {total} параметров.",
+  "forms.missing_status": "Не найдены: {names}."
 }

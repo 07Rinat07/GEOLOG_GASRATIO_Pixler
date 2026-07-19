@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QStandardPaths, Qt
 from PySide6.QtGui import QAction, QActionGroup, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtPrintSupport import QPrintPreviewDialog, QPrinter
 from PySide6.QtWidgets import (
@@ -53,6 +53,7 @@ from geoworkbench.data.visualization_export import (
 )
 from geoworkbench.data.dataset_json_export import DatasetJsonExportError
 from geoworkbench.data.dataset_parquet_export import DatasetParquetExportError
+from geoworkbench.forms import FormApplyEngine, FormRepository
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
 from geoworkbench.project.curve_metadata_controller import CurveMetadataController
@@ -93,6 +94,7 @@ from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
 from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
+from geoworkbench.ui.form_manager_dialog import FormManagerDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
@@ -143,6 +145,9 @@ class MainWindow(QMainWindow):
         self.language_settings = language_settings or LanguageSettings.system()
         self.user_profile_settings = user_profile_settings or UserProfileSettings.system()
         self.mnemonic_registry = UserMnemonicRegistry()
+        forms_root = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)) / "forms"
+        self.form_repository = FormRepository(forms_root)
+        self.form_apply_engine = FormApplyEngine()
         set_active_sensor_catalog(self.mnemonic_registry.catalog())
         self.project_controller = ProjectController()
         self.tablet_controller = TabletController(self.session)
@@ -326,6 +331,7 @@ class MainWindow(QMainWindow):
         edit_menu = self.menuBar().addMenu(self._t("menu.edit"))
         calc_menu = self.menuBar().addMenu(self._t("menu.calculations"))
         tablet_menu = self.menuBar().addMenu(self._t("menu.tablet"))
+        forms_menu = self.menuBar().addMenu(self._t("forms.menu"))
         print_menu = self.menuBar().addMenu(self._t("menu.print"))
         language_menu = self.menuBar().addMenu(self._t("menu.language"))
         help_menu = self.menuBar().addMenu(self._t("menu.help"))
@@ -637,6 +643,10 @@ class MainWindow(QMainWindow):
         delete_preset_action = QAction(self._t("tablet.preset_delete"), self)
         delete_preset_action.triggered.connect(self.delete_tablet_preset)
         tablet_menu.addAction(delete_preset_action)
+
+        self.form_manager_action = QAction(self._t("forms.manager_action"), self)
+        self.form_manager_action.triggered.connect(self.show_form_manager)
+        forms_menu.addAction(self.form_manager_action)
 
         self.lithology_legend_action = QAction(self._t("legend.action"), self)
         self.lithology_legend_action.triggered.connect(self.show_lithology_legend)
@@ -1730,6 +1740,46 @@ class MainWindow(QMainWindow):
         self.inspector.show_track(track, suggested_range=self._track_data_range(track))
         self._refresh_tree()
         self._update_title()
+
+    def show_form_manager(self) -> None:
+        dialog = FormManagerDialog(
+            self.form_repository,
+            self,
+            language=self.language.value,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.selected_form is None:
+            return
+        self.apply_form_to_tablet(dialog.selected_form)
+
+    def apply_form_to_tablet(self, form) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(self, self._t("forms.title"), self._t("forms.open_first"))
+            return
+        try:
+            result = self.form_apply_engine.build_layout(form, dataset)
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("forms.title"), str(exc))
+            return
+        self.session.set_current_tablet_layout(result.layout)
+        self.session.dirty = True
+        self.tablet_view.set_layout_model(result.layout)
+        self.tablet_view.set_dataset(dataset)
+        self.tabs.setCurrentWidget(self.tablet_view)
+        self._selected_track_id = None
+        self._refresh_tree()
+        self._update_title()
+        missing_names = ", ".join(item.canonical_parameter_id for item in result.missing)
+        message = self._t(
+            "forms.applied_status",
+            name=form.name,
+            resolved=result.resolved_count,
+            total=len(result.resolutions),
+        )
+        if missing_names:
+            message += " " + self._t("forms.missing_status", names=missing_names)
+        self.statusBar().showMessage(message)
+        self._log(message)
 
     def build_default_tablet(self) -> None:
         dataset = self.session.current_dataset

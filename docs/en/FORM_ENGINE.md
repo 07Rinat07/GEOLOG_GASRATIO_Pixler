@@ -16,3 +16,7 @@ the active dataset.
 - basic depth, basic time, gas components, Gas Ratio, Pixler and interpretation templates.
 
 The visual form editor is the next stage and will use these models as the single source of truth.
+
+## Form manager
+
+The manager lists factory and user templates and supports create, copy, rename, delete, JSON import/export, and applying a form to the open dataset. Missing parameters do not abort the build and are reported in diagnostics.

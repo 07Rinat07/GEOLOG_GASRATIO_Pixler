@@ -783,5 +783,11 @@
   "tablet.hide_track": "Жолақты жасыру",
   "tablet.remove_track": "Жолақты жою",
   "tablet.undo_interaction": "Әрекетті болдырмау",
-  "tablet.redo_interaction": "Әрекетті қайталау"
+  "tablet.redo_interaction": "Әрекетті қайталау",
+  "forms.menu": "Пішіндер",
+  "forms.manager_action": "Пішіндер менеджері...",
+  "forms.title": "Пішіндер",
+  "forms.open_first": "Алдымен LAS немесе басқа деректер жиынын ашыңыз.",
+  "forms.applied_status": "«{name}» пішіні қолданылды: {total} параметрдің {resolved} табылды.",
+  "forms.missing_status": "Табылмады: {names}."
 }
