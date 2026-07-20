@@ -110,3 +110,19 @@ def test_utf8_bom_is_preserved_as_preamble_when_section_is_replaced() -> None:
     assert document.preamble == b"\xef\xbb\xbf"
     assert changed.to_bytes().startswith(b"\xef\xbb\xbf~V")
     assert changed.to_bytes().count(b"\xef\xbb\xbf") == 1
+
+
+def test_lossless_document_detects_cp866_header_text() -> None:
+    raw = (
+        "~Version Information\r\n"
+        "VERS. 2.0 : Версия\r\n"
+        "~Curve Information\r\n"
+        "DEPT.M : Глубина\r\n"
+        "ROP.M/H : Скорость бурения\r\n"
+        "~Ascii\r\n100 1\r\n"
+    ).encode("cp866")
+
+    document = parse_lossless_las(raw)
+
+    assert document.encoding == "cp866"
+    assert document.to_bytes() == raw

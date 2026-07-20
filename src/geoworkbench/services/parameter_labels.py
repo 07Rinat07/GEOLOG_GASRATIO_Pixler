@@ -4,6 +4,7 @@ import re
 
 from geoworkbench.catalogs.sensors import active_sensor_catalog
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 
 _CYRILLIC_RE = re.compile(r"[А-Яа-яЁёӘәҒғҚқҢңӨөҰұҮүҺһІі]")
 
@@ -97,7 +98,10 @@ def localized_curve_name(
     active interface language; otherwise their mnemonic remains the safest label.
     """
 
-    explicit = configured.strip()
+    mnemonic = clean_mnemonic(mnemonic)
+    description = clean_display_text(description)
+    unit = clean_display_text(unit)
+    explicit = clean_display_text(configured)
     if explicit:
         return explicit
 

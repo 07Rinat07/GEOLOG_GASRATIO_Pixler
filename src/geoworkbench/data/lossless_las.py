@@ -6,6 +6,8 @@ from enum import StrEnum
 from hashlib import sha256
 from pathlib import Path
 
+from geoworkbench.services.text_normalization import display_text_score
+
 
 _SECTION_PATTERN = re.compile(
     rb"(?m)^(?:\xef\xbb\xbf)?(?P<section>[ \t]*~(?P<header>[^\r\n]*))"
@@ -173,15 +175,39 @@ def _normalize_section_name(header: str) -> str:
 def _detect_encoding(raw_bytes: bytes) -> str:
     if raw_bytes.startswith(b"\xef\xbb\xbf"):
         return "utf-8-sig"
-    try:
-        raw_bytes.decode("utf-8")
-    except UnicodeDecodeError:
+
+    # Numeric LAS data is almost entirely ASCII, so score only the header where
+    # mnemonics, units and descriptions carry the encoding signal.
+    sample = _encoding_sample(raw_bytes)
+    candidates: list[tuple[tuple[int, int, int, int, int], int, str]] = []
+    preference = {
+        "utf-8": 6,
+        "cp1251": 5,
+        "cp866": 4,
+        "koi8-r": 3,
+        "mac_cyrillic": 2,
+        "latin-1": 1,
+    }
+    for encoding in preference:
         try:
-            raw_bytes.decode("cp1251")
+            decoded = sample.decode(encoding, errors="strict")
         except UnicodeDecodeError:
-            return "latin-1"
-        return "cp1251"
-    return "utf-8"
+            continue
+        candidates.append((display_text_score(decoded), preference[encoding], encoding))
+    if not candidates:
+        return "latin-1"
+    return max(candidates)[2]
+
+
+def _encoding_sample(raw_bytes: bytes) -> bytes:
+    lowered = raw_bytes.lower()
+    ascii_positions = [
+        position
+        for marker in (b"~a", b"~ascii", b"~log_data")
+        if (position := lowered.find(marker)) >= 0
+    ]
+    end = min(ascii_positions) if ascii_positions else min(len(raw_bytes), 131_072)
+    return raw_bytes[:end]
 
 
 def _detect_newline_style(raw_bytes: bytes) -> NewlineStyle:

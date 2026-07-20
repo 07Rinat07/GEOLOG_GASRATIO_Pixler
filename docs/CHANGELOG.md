@@ -1,3 +1,29 @@
+## Unreleased — LAS text encoding and mojibake repair
+
+### Русский
+
+- добавлено распознавание UTF-8, Windows-1251, DOS CP866, KOI8-R, Mac Cyrillic и Latin-1 по читаемости заголовка LAS;
+- исправляется типичное искажение CP866→Windows-1251 вида `‘Є®а®бвм`;
+- `lasio` получает явно определённую кодировку вместо повторного независимого автоопределения;
+- названия, описания, единицы, мнемоники и метаданные старых проектов очищаются перед отображением;
+- добавлены регрессионные тесты для русского, казахского и английского текста.
+
+### Қазақша
+
+- LAS тақырыбының оқылымдылығы бойынша UTF-8, Windows-1251, DOS CP866, KOI8-R, Mac Cyrillic және Latin-1 кодтауларын анықтау қосылды;
+- `‘Є®а®бвм` түріндегі CP866→Windows-1251 бұрмалануы автоматты түзетіледі;
+- `lasio` қайтадан бөлек анықтамай, алдын ала табылған кодтауды пайдаланады;
+- ескі жобалардағы атаулар, сипаттамалар, өлшемдер және мнемоникалар көрсету алдында қалпына келтіріледі;
+- орыс, қазақ және ағылшын мәтініне регрессиялық тесттер қосылды.
+
+### English
+
+- added header-readability detection for UTF-8, Windows-1251, DOS CP866, KOI8-R, Mac Cyrillic, and Latin-1 LAS files;
+- repairs the common CP866→Windows-1251 mojibake pattern such as `‘Є®а®бвм`;
+- passes the detected encoding explicitly to `lasio` instead of running a second independent guess;
+- normalizes names, descriptions, units, mnemonics, and legacy project metadata before display;
+- added regression coverage for Russian, Kazakh, and English text.
+
 ## Unreleased — working LAS form rendering hotfix
 
 ### Русский

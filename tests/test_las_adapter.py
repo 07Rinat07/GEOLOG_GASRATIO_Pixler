@@ -360,3 +360,30 @@ def test_export_las_removes_temporary_file_after_write_failure(tmp_path, monkeyp
 
     assert not target.exists()
     assert list(tmp_path.iterdir()) == []
+
+
+def test_import_las_passes_detected_cp866_encoding_to_parser(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "cp866.las"
+    source.write_bytes(
+        (
+            "~Version Information\n"
+            "VERS. 2.0 : Версия\n"
+            "~Curve Information\n"
+            "DEPT.M : Глубина\n"
+            "~Ascii\n100\n"
+        ).encode("cp866")
+    )
+    captured: dict[str, object] = {}
+
+    def read(file_ref, **kwargs):
+        captured["file_ref"] = file_ref
+        captured.update(kwargs)
+        return FakeLas()
+
+    monkeypatch.setattr("geoworkbench.data.las_adapter.lasio.read", read)
+
+    import_las(source)
+
+    assert captured["encoding"] == "cp866"
+    assert captured["encoding_errors"] == "replace"
+    assert captured["autodetect_encoding"] is False

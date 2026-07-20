@@ -44,6 +44,7 @@ from geoworkbench.storage.project_codec import (
     load_project,
     load_project_document,
     project_document_from_dict,
+    _curve_from_dict,
 )
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 
@@ -582,3 +583,23 @@ def test_load_project_wraps_invalid_domain_data(tmp_path) -> None:
 
     with pytest.raises(ProjectFormatError, match="некорректные данные"):
         load_project_document(target)
+
+
+def test_legacy_project_curve_metadata_repairs_cp866_mojibake() -> None:
+    damaged = "Скорость бурения".encode("cp866").decode("cp1251")
+    curve = _curve_from_dict(
+        {
+            "metadata": {
+                "curve_id": "curve-1",
+                "original_mnemonic": "ROP",
+                "canonical_mnemonic": "ROP",
+                "unit": "м/ч".encode("cp866").decode("cp1251"),
+                "description": damaged,
+                "source_dataset_id": "dataset-1",
+            },
+            "values": [1.0, 2.0],
+        }
+    )
+
+    assert curve.metadata.description == "Скорость бурения"
+    assert curve.metadata.unit == "м/ч"

@@ -335,3 +335,9 @@ normalized-gas QC, and detailed C1–C5 review. Column and parameter captions ar
 English; a factory template is edited through an independent user copy.
 
 Basic LAS forms are populated automatically from the current file and can be saved as editable user templates.
+
+## LAS text recovery
+
+Import now detects UTF-8, Windows-1251, and DOS CP866 automatically. Mojibake such as
+`‘Є®а®бвм` is repaired before curve lists, tablet headers, and form editors are rendered. The
+original LAS bytes remain unchanged.

@@ -51,6 +51,7 @@ from geoworkbench.data.las_import_report import (
     validate_import_report,
 )
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
+from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 from geoworkbench.printing.image_assets import ImageAsset, ImageAssetError, load_image_assets
 from geoworkbench.storage.source_artifacts import (
     SourceArtifactError,
@@ -94,10 +95,14 @@ def _curve_from_dict(data: dict[str, Any]) -> CurveData:
     metadata_data = _required(data, "metadata", dict)
     metadata = CurveMetadata(
         curve_id=str(_required(metadata_data, "curve_id", str)),
-        original_mnemonic=str(_required(metadata_data, "original_mnemonic", str)),
-        canonical_mnemonic=metadata_data.get("canonical_mnemonic"),
-        unit=metadata_data.get("unit"),
-        description=metadata_data.get("description"),
+        original_mnemonic=clean_mnemonic(_required(metadata_data, "original_mnemonic", str)),
+        canonical_mnemonic=(
+            clean_mnemonic(metadata_data.get("canonical_mnemonic"))
+            if metadata_data.get("canonical_mnemonic")
+            else None
+        ),
+        unit=clean_display_text(metadata_data.get("unit")) or None,
+        description=clean_display_text(metadata_data.get("description")) or None,
         source_dataset_id=str(_required(metadata_data, "source_dataset_id", str)),
         provenance=str(metadata_data.get("provenance", "source")),
     )
@@ -132,10 +137,10 @@ def _index_from_dict(data: dict[str, Any]) -> DatasetIndex:
     try:
         return DatasetIndex(
             index_id=str(_required(data, "index_id", str)),
-            mnemonic=str(_required(data, "mnemonic", str)),
+            mnemonic=clean_mnemonic(_required(data, "mnemonic", str)),
             index_type=index_type,
             role=role,
-            unit=data.get("unit"),
+            unit=clean_display_text(data.get("unit")) or None,
             values=values,
             confidence=float(data.get("confidence", 1.0)),
             evidence=tuple(evidence),
@@ -226,16 +231,23 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
     try:
         dataset = Dataset(
             dataset_id=str(_required(data, "dataset_id", str)),
-            name=str(_required(data, "name", str)),
+            name=clean_display_text(_required(data, "name", str)),
             kind=kind,
             depth_domain=depth_domain,
             depth=np.asarray(_required(data, "depth", list), dtype=np.float64),
             source_path=Path(data["source_path"]) if data.get("source_path") else None,
             version_headers={
-                str(k): str(v) for k, v in dict(data.get("version_headers", {})).items()
+                clean_mnemonic(k): clean_display_text(v)
+                for k, v in dict(data.get("version_headers", {})).items()
             },
-            headers={str(k): str(v) for k, v in dict(data.get("headers", {})).items()},
-            parameters={str(k): str(v) for k, v in dict(data.get("parameters", {})).items()},
+            headers={
+                clean_mnemonic(k): clean_display_text(v)
+                for k, v in dict(data.get("headers", {})).items()
+            },
+            parameters={
+                clean_mnemonic(k): clean_display_text(v)
+                for k, v in dict(data.get("parameters", {})).items()
+            },
             indexes=indexes,
             active_index_id=data.get("active_index_id"),
         )

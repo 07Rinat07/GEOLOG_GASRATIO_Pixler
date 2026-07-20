@@ -74,7 +74,13 @@ def import_las_with_report(
 
     try:
         source_document = read_lossless_las(source)
-        las = lasio.read(source, ignore_header_errors=True)
+        las = lasio.read(
+            source,
+            ignore_header_errors=True,
+            encoding=source_document.encoding,
+            encoding_errors="replace",
+            autodetect_encoding=False,
+        )
         depth = np.asarray(las.index, dtype=np.float64).copy()
     except Exception as exc:
         raise LasImportError(f"Не удалось прочитать LAS-файл: {source}") from exc

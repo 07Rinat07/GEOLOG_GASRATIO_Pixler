@@ -30,6 +30,7 @@ from geoworkbench.domain.models import Dataset
 from geoworkbench.forms.binding_editor import TrackBindingEditor
 from geoworkbench.forms.editor import FormStructureEditor
 from geoworkbench.forms.models import ParameterBinding
+from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 from geoworkbench.tablet.models import CurveLineStyle, XScale
 
 
@@ -174,10 +175,12 @@ class TrackContentEditorDialog(QDialog):
         if dataset is not None:
             for curve in dataset.curves.values():
                 metadata = curve.metadata
-                label = metadata.original_mnemonic
-                if metadata.description:
-                    label += f" — {metadata.description}"
-                self.source_combo.addItem(label, metadata.original_mnemonic)
+                mnemonic = clean_mnemonic(metadata.original_mnemonic)
+                description = clean_display_text(metadata.description)
+                label = mnemonic
+                if description:
+                    label += f" — {description}"
+                self.source_combo.addItem(label, mnemonic)
         properties.addRow(self._text("Кривая LAS", "LAS қисығы", "LAS curve"), self.source_combo)
 
         self.unit_edit = QLineEdit()

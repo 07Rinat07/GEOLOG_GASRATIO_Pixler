@@ -133,6 +133,7 @@ from geoworkbench.services.localization import (
     Localizer,
 )
 from geoworkbench.services.parameter_labels import localized_curve_name
+from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.user_profiles import CursorLineSettings, UserProfileSettings
 from geoworkbench.services.mnemonic_registry import UserMnemonicRegistry
@@ -2288,9 +2289,9 @@ class MainWindow(QMainWindow):
         curve_list.setAlternatingRowColors(True)
         selected_set = set(preselected)
         for curve in dataset.curves.values():
-            mnemonic = curve.metadata.original_mnemonic
-            unit = (curve.metadata.unit or "").strip()
-            description = (curve.metadata.description or "").strip()
+            mnemonic = clean_mnemonic(curve.metadata.original_mnemonic)
+            unit = clean_display_text(curve.metadata.unit)
+            description = clean_display_text(curve.metadata.description)
             readable = localized_curve_name(
                 mnemonic,
                 description=description,
