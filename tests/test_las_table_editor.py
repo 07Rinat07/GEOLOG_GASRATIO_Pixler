@@ -9,7 +9,19 @@ from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
-from geoworkbench.ui.las_table_editor import LasTableEditor, NumberFormatDialog
+from geoworkbench.ui.las_table_editor import (
+    LasTableEditor,
+    NumberFormatDialog,
+    TableHeaderMode,
+)
+
+
+def column_for_mnemonic(model, mnemonic: str) -> int:
+    return next(
+        column
+        for column in range(model.columnCount())
+        if mnemonic in str(model.headerData(column, Qt.Orientation.Horizontal))
+    )
 
 
 def make_editor() -> tuple[LasTableEditor, Dataset]:
@@ -36,11 +48,7 @@ def test_table_model_edits_source_value_and_recalculates_outputs(qapp) -> None:
     editor, dataset = make_editor()
     editor.set_dataset(dataset)
     model = editor.model
-    c1_column = next(
-        column
-        for column in range(model.columnCount())
-        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("C1")
-    )
+    c1_column = column_for_mnemonic(model, "C1")
     edited: list[bool] = []
     model.dataset_edited.connect(lambda: edited.append(True))
 
@@ -59,11 +67,7 @@ def test_table_model_displays_and_edits_small_values_without_scientific_notation
     dataset.curves["c2"].values[0] = 5.2e-5
     editor.set_dataset(dataset)
     model = editor.model
-    c2_column = next(
-        column
-        for column in range(model.columnCount())
-        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("C2")
-    )
+    c2_column = column_for_mnemonic(model, "C2")
     index = model.index(0, c2_column)
 
     assert model.data(index, Qt.ItemDataRole.DisplayRole) == "0.000052"
@@ -79,11 +83,7 @@ def test_table_model_applies_persistent_format_by_curve_mnemonic(qapp) -> None:
     dataset.curves["c2"].values[0] = 5.2e-5
     editor.set_dataset(dataset)
     model = editor.model
-    c2_column = next(
-        column
-        for column in range(model.columnCount())
-        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("C2")
-    )
+    c2_column = column_for_mnemonic(model, "C2")
     settings = NumberDisplayFormat(NumberFormatMode.FIXED, 7)
 
     model.apply_number_format([c2_column], settings)
@@ -110,11 +110,7 @@ def test_table_editor_configures_selected_columns_and_emits_settings(qapp, monke
     editor, dataset = make_editor()
     editor.set_dataset(dataset)
     model = editor.model
-    c2_column = next(
-        column
-        for column in range(model.columnCount())
-        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("C2")
-    )
+    c2_column = column_for_mnemonic(model, "C2")
     editor.table.selectionModel().select(
         model.index(0, c2_column),
         QItemSelectionModel.SelectionFlag.ClearAndSelect,
@@ -135,14 +131,136 @@ def test_table_model_keeps_depth_and_calculated_curves_read_only(qapp) -> None:
     editor, dataset = make_editor()
     editor.set_dataset(dataset)
     model = editor.model
-    total_column = next(
-        column
-        for column in range(model.columnCount())
-        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("TG_CALC")
-    )
+    total_column = column_for_mnemonic(model, "TG_CALC")
 
     assert not (model.flags(model.index(0, 0)) & Qt.ItemFlag.ItemIsEditable)
     assert not (model.flags(model.index(0, total_column)) & Qt.ItemFlag.ItemIsEditable)
+    editor.close()
+
+
+def test_table_headers_are_human_readable_and_keep_las_mnemonics(qapp) -> None:
+    editor, dataset = make_editor()
+    editor.set_dataset(dataset)
+    model = editor.model
+    c1_column = column_for_mnemonic(model, "C1")
+
+    header = str(model.headerData(c1_column, Qt.Orientation.Horizontal))
+    tooltip = str(
+        model.headerData(
+            c1_column,
+            Qt.Orientation.Horizontal,
+            Qt.ItemDataRole.ToolTipRole,
+        )
+    )
+
+    assert "метан" in header.casefold()
+    assert "C1" in header
+    assert "[%]" in header
+    assert "Исходная мнемоника LAS: C1" in tooltip
+    assert "Канонический параметр: C1" in tooltip
+    assert "Уверенность распознавания:" in tooltip
+    assert editor.header_mode_input.currentData() == TableHeaderMode.FRIENDLY_TECHNICAL.value
+    editor.close()
+
+
+def test_table_header_mode_switches_between_friendly_and_technical(qapp) -> None:
+    editor, dataset = make_editor()
+    editor.set_dataset(dataset)
+    model = editor.model
+    c1_column = column_for_mnemonic(model, "C1")
+
+    editor.header_mode_input.setCurrentIndex(
+        editor.header_mode_input.findData(TableHeaderMode.FRIENDLY)
+    )
+    friendly = str(model.headerData(c1_column, Qt.Orientation.Horizontal))
+    assert "метан" in friendly.casefold()
+    assert "\nC1\n" not in friendly
+
+    editor.header_mode_input.setCurrentIndex(
+        editor.header_mode_input.findData(TableHeaderMode.TECHNICAL)
+    )
+    technical = str(model.headerData(c1_column, Qt.Orientation.Horizontal))
+    assert technical.startswith("C1")
+    assert "метан" not in technical.casefold()
+    editor.close()
+
+
+def test_table_header_explains_vendor_mnemonic_and_canonical_parameter(qapp) -> None:
+    dataset = Dataset(
+        "vendor-dataset",
+        "Vendor LAS",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    dataset.curves["s800"] = CurveData(
+        CurveMetadata(
+            "s800",
+            "S800",
+            "C1",
+            "%",
+            "Содержание метана",
+            dataset.dataset_id,
+        ),
+        np.asarray([1.0, 2.0]),
+    )
+    session = ProjectSession()
+    session.add_dataset(dataset)
+    editor = LasTableEditor(LasRangeEditingController(session))
+    editor.set_dataset(dataset)
+
+    header = str(editor.model.headerData(1, Qt.Orientation.Horizontal))
+    tooltip = str(
+        editor.model.headerData(
+            1,
+            Qt.Orientation.Horizontal,
+            Qt.ItemDataRole.ToolTipRole,
+        )
+    )
+
+    assert "метан" in header.casefold()
+    assert "S800 → C1" in header
+    assert "Описание LAS: Содержание метана" in tooltip
+    assert "Канонический параметр: C1" in tooltip
+    editor.close()
+
+
+def test_unknown_vendor_parameter_keeps_description_and_marks_mapping_required(qapp) -> None:
+    dataset = Dataset(
+        "unknown-dataset",
+        "Unknown LAS",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    dataset.curves["x999"] = CurveData(
+        CurveMetadata(
+            "x999",
+            "X999",
+            "X999",
+            "bar",
+            "Давление тестового канала",
+            dataset.dataset_id,
+        ),
+        np.asarray([1.0, 2.0]),
+    )
+    session = ProjectSession()
+    session.add_dataset(dataset)
+    editor = LasTableEditor(LasRangeEditingController(session))
+    editor.set_dataset(dataset)
+
+    header = str(editor.model.headerData(1, Qt.Orientation.Horizontal))
+    tooltip = str(
+        editor.model.headerData(
+            1,
+            Qt.Orientation.Horizontal,
+            Qt.ItemDataRole.ToolTipRole,
+        )
+    )
+
+    assert "Давление тестового канала" in header
+    assert "X999" in header
+    assert "требуется сопоставление" in tooltip.casefold()
     editor.close()
 
 
@@ -151,11 +269,7 @@ def test_table_range_fill_and_undo_use_selected_cells(qapp, monkeypatch) -> None
     editor.set_dataset(dataset)
     model = editor.model
     selection = editor.table.selectionModel()
-    c1_column = next(
-        column
-        for column in range(model.columnCount())
-        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("C1")
-    )
+    c1_column = column_for_mnemonic(model, "C1")
     for row in (1, 2):
         selection.select(
             model.index(row, c1_column),
@@ -182,11 +296,7 @@ def test_table_copy_and_paste_selected_interval(qapp) -> None:
     editor.set_dataset(dataset)
     model = editor.model
     selection = editor.table.selectionModel()
-    c1_column = next(
-        column
-        for column in range(model.columnCount())
-        if str(model.headerData(column, Qt.Orientation.Horizontal)).startswith("C1")
-    )
+    c1_column = column_for_mnemonic(model, "C1")
     dataset.curves["c1"].values[:] = [1, 2, 3]
     for row in (0, 1):
         selection.select(model.index(row, c1_column), QItemSelectionModel.SelectionFlag.Select)

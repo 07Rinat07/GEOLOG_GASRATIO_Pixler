@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from enum import StrEnum
+
 import numpy as np
 from PySide6.QtCore import (
     QAbstractTableModel,
@@ -18,6 +20,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QHBoxLayout,
+    QHeaderView,
     QInputDialog,
     QLabel,
     QMenu,
@@ -34,10 +37,18 @@ from geoworkbench.data.number_format import (
     format_decimal_number,
     format_display_number,
 )
-from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.project.las_range_editor import LasRangeEditingController, RangeClipboard
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
+from geoworkbench.services.las_parameter_resolver import LasParameterResolver, ParameterMatch
+from geoworkbench.services.parameter_labels import localized_curve_name
+
+
+class TableHeaderMode(StrEnum):
+    FRIENDLY_TECHNICAL = "friendly_technical"
+    FRIENDLY = "friendly"
+    TECHNICAL = "technical"
 
 
 class LasTableModel(QAbstractTableModel):
@@ -50,11 +61,40 @@ class LasTableModel(QAbstractTableModel):
         self.localizer = localizer
         self.dataset: Dataset | None = None
         self._number_formats: dict[str, NumberDisplayFormat] = {}
+        self._header_mode = TableHeaderMode.FRIENDLY_TECHNICAL
+        self._resolver = LasParameterResolver()
+        self._parameter_matches: dict[str, ParameterMatch] = {}
 
     def set_dataset(self, dataset: Dataset | None) -> None:
         self.beginResetModel()
         self.dataset = dataset
+        self._rebuild_parameter_matches()
         self.endResetModel()
+
+    @property
+    def header_mode(self) -> TableHeaderMode:
+        return self._header_mode
+
+    def set_header_mode(self, mode: TableHeaderMode | str) -> None:
+        resolved = TableHeaderMode(mode)
+        if resolved is self._header_mode:
+            return
+        self._header_mode = resolved
+        if self.columnCount() > 0:
+            self.headerDataChanged.emit(
+                Qt.Orientation.Horizontal,
+                0,
+                self.columnCount() - 1,
+            )
+
+    def refresh_parameter_labels(self) -> None:
+        self._rebuild_parameter_matches()
+        if self.columnCount() > 0:
+            self.headerDataChanged.emit(
+                Qt.Orientation.Horizontal,
+                0,
+                self.columnCount() - 1,
+            )
 
     def rowCount(  # noqa: N802
         self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()
@@ -122,16 +162,28 @@ class LasTableModel(QAbstractTableModel):
     def headerData(
         self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole
     ):  # type: ignore[override]  # noqa: E501, N802
-        if role != Qt.ItemDataRole.DisplayRole or self.dataset is None:
+        if self.dataset is None:
             return None
         if orientation == Qt.Orientation.Vertical:
-            return str(section + 1)
+            return str(section + 1) if role == Qt.ItemDataRole.DisplayRole else None
+        if role == Qt.ItemDataRole.TextAlignmentRole:
+            return int(Qt.AlignmentFlag.AlignCenter)
         if section == 0:
-            unit = "ms" if self.dataset.depth_domain.value == "time" else "m"
-            return f"DEPTH\n[{unit}]"
+            if role == Qt.ItemDataRole.DisplayRole:
+                return self._index_header_text()
+            if role == Qt.ItemDataRole.ToolTipRole:
+                return self._index_tooltip()
+            if role == Qt.ItemDataRole.AccessibleTextRole:
+                return self._index_friendly_name()
+            return None
         curve = list(self.dataset.curves.values())[section - 1]
-        unit = f"\n[{curve.metadata.unit}]" if curve.metadata.unit else ""
-        return curve.metadata.original_mnemonic + unit
+        if role == Qt.ItemDataRole.DisplayRole:
+            return self._curve_header_text(curve)
+        if role == Qt.ItemDataRole.ToolTipRole:
+            return self._curve_tooltip(curve)
+        if role == Qt.ItemDataRole.AccessibleTextRole:
+            return self._curve_friendly_name(curve)
+        return None
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:  # type: ignore[override]
         flags = super().flags(index)
@@ -172,6 +224,159 @@ class LasTableModel(QAbstractTableModel):
             return float(self.dataset.depth[row])
         curve = list(self.dataset.curves.values())[column - 1]
         return float(curve.values[row])
+
+    def _rebuild_parameter_matches(self) -> None:
+        self._parameter_matches = {}
+        if self.dataset is None:
+            return
+        for curve in self.dataset.curves.values():
+            matches = self._resolver.infer_curve(curve)
+            if matches:
+                self._parameter_matches[curve.metadata.curve_id] = matches[0]
+
+    def _match_for_curve(self, curve: CurveData) -> ParameterMatch | None:
+        return self._parameter_matches.get(curve.metadata.curve_id)
+
+    def _recognized_canonical_mnemonic(self, curve: CurveData) -> str:
+        match = self._match_for_curve(curve)
+        if match is not None:
+            return match.canonical_mnemonic
+        metadata = curve.metadata
+        canonical = (metadata.canonical_mnemonic or "").strip().upper()
+        original = metadata.original_mnemonic.strip().upper()
+        return canonical if canonical and canonical != original else ""
+
+    def _curve_canonical_mnemonic(self, curve: CurveData) -> str:
+        return (
+            self._recognized_canonical_mnemonic(curve)
+            or curve.metadata.original_mnemonic.strip().upper()
+        )
+
+    def _curve_friendly_name(self, curve: CurveData) -> str:
+        metadata = curve.metadata
+        canonical = self._curve_canonical_mnemonic(curve)
+        friendly = localized_curve_name(
+            canonical,
+            description=metadata.description or "",
+            unit=metadata.unit or "",
+            language=self.localizer.language,
+        ).strip()
+        if not friendly:
+            friendly = (metadata.description or metadata.original_mnemonic).strip()
+        if (
+            self._match_for_curve(curve) is None
+            and not (metadata.description or "").strip()
+            and friendly.casefold() == metadata.original_mnemonic.strip().casefold()
+        ):
+            friendly = self.localizer.text("table.header.unresolved_name")
+        return friendly
+
+    def _curve_technical_name(self, curve: CurveData) -> str:
+        original = curve.metadata.original_mnemonic.strip()
+        canonical = self._recognized_canonical_mnemonic(curve)
+        if not canonical or canonical.casefold() == original.casefold():
+            return original
+        return f"{original} → {canonical}"
+
+    def _curve_header_text(self, curve: CurveData) -> str:
+        unit = f"[{curve.metadata.unit}]" if curve.metadata.unit else "[—]"
+        if self._header_mode is TableHeaderMode.TECHNICAL:
+            return f"{self._curve_technical_name(curve)}\n{unit}"
+        friendly = self._curve_friendly_name(curve)
+        if self._header_mode is TableHeaderMode.FRIENDLY:
+            return f"{friendly}\n{unit}"
+        return f"{friendly}\n{self._curve_technical_name(curve)}\n{unit}"
+
+    def _curve_tooltip(self, curve: CurveData) -> str:
+        metadata = curve.metadata
+        match = self._match_for_curve(curve)
+        canonical = self._recognized_canonical_mnemonic(curve)
+        lines = [
+            self._curve_friendly_name(curve),
+            self.localizer.text(
+                "table.header.tooltip.original", value=metadata.original_mnemonic or "—"
+            ),
+            self.localizer.text("table.header.tooltip.canonical", value=canonical or "—"),
+            self.localizer.text(
+                "table.header.tooltip.description", value=metadata.description or "—"
+            ),
+            self.localizer.text("table.header.tooltip.unit", value=metadata.unit or "—"),
+        ]
+        if match is None:
+            lines.append(self.localizer.text("table.header.tooltip.unresolved"))
+        else:
+            lines.append(
+                self.localizer.text(
+                    "table.header.tooltip.confidence",
+                    value=f"{match.confidence:.0%}",
+                )
+            )
+            lines.append(
+                self.localizer.text(
+                    "table.header.tooltip.method",
+                    value=self._localized_match_method(match.matched_by),
+                )
+            )
+            if match.evidence:
+                lines.append(
+                    self.localizer.text(
+                        "table.header.tooltip.evidence",
+                        value="; ".join(match.evidence),
+                    )
+                )
+        if metadata.provenance:
+            lines.append(
+                self.localizer.text("table.header.tooltip.provenance", value=metadata.provenance)
+            )
+        return "\n".join(lines)
+
+    def _localized_match_method(self, matched_by: str) -> str:
+        key = f"table.header.match_method.{matched_by}"
+        translated = self.localizer.text(key)
+        return matched_by if translated == key else translated
+
+    def _index_friendly_name(self) -> str:
+        assert self.dataset is not None
+        return self.localizer.text(f"table.header.index.{self.dataset.depth_domain.value}")
+
+    def _index_technical_name(self) -> str:
+        assert self.dataset is not None
+        mnemonic = self.dataset.active_index.mnemonic.strip() or "DEPTH"
+        return mnemonic
+
+    def _index_unit(self) -> str:
+        assert self.dataset is not None
+        return (
+            self.dataset.active_index.unit
+            or ("ms" if self.dataset.depth_domain.value == "time" else "m")
+        ).strip()
+
+    def _index_header_text(self) -> str:
+        unit = f"[{self._index_unit()}]"
+        if self._header_mode is TableHeaderMode.TECHNICAL:
+            return f"{self._index_technical_name()}\n{unit}"
+        friendly = self._index_friendly_name()
+        if self._header_mode is TableHeaderMode.FRIENDLY:
+            return f"{friendly}\n{unit}"
+        return f"{friendly}\n{self._index_technical_name()}\n{unit}"
+
+    def _index_tooltip(self) -> str:
+        assert self.dataset is not None
+        evidence = "; ".join(self.dataset.active_index.evidence) or "—"
+        return "\n".join(
+            (
+                self._index_friendly_name(),
+                self.localizer.text(
+                    "table.header.tooltip.original", value=self._index_technical_name()
+                ),
+                self.localizer.text("table.header.tooltip.unit", value=self._index_unit() or "—"),
+                self.localizer.text(
+                    "table.header.tooltip.confidence",
+                    value=f"{self.dataset.active_index.confidence:.0%}",
+                ),
+                self.localizer.text("table.header.tooltip.evidence", value=evidence),
+            )
+        )
 
 
 class NumberFormatDialog(QDialog):
@@ -260,10 +465,24 @@ class LasTableEditor(QWidget):
         self.table.setSortingEnabled(False)
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._show_context_menu)
+        horizontal_header = self.table.horizontalHeader()
+        horizontal_header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        horizontal_header.setMinimumSectionSize(96)
+        horizontal_header.setDefaultSectionSize(150)
+        horizontal_header.setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
+        horizontal_header.setSectionsMovable(True)
+        horizontal_header.setToolTip(self._t("table.header.tooltip.hint"))
+        horizontal_header.setFixedHeight(78)
         self.hint = QLabel(self._t("table.hint"))
         root = QVBoxLayout(self)
         root.addWidget(self.hint)
         actions = QHBoxLayout()
+        self.header_mode_label = QLabel(self._t("table.header.mode.label"))
+        self.header_mode_input = QComboBox()
+        self._populate_header_modes()
+        self.header_mode_input.currentIndexChanged.connect(self._change_header_mode)
+        actions.addWidget(self.header_mode_label)
+        actions.addWidget(self.header_mode_input)
         self._command_buttons: list[tuple[QPushButton, str]] = []
         for key, handler in (
             ("table.fill_constant", self.fill_constant),
@@ -297,6 +516,11 @@ class LasTableEditor(QWidget):
         for button, key in self._command_buttons:
             button.setText(self._t(key))
         self.number_format_button.setText(self._t("table.number_format.action"))
+        self.header_mode_label.setText(self._t("table.header.mode.label"))
+        current_mode = self.model.header_mode
+        self._populate_header_modes()
+        self.header_mode_input.setCurrentIndex(self.header_mode_input.findData(current_mode))
+        self.table.horizontalHeader().setToolTip(self._t("table.header.tooltip.hint"))
         self.shift_action.setText(self._t("table.shift"))
         self.multiply_action.setText(self._t("table.multiply"))
         self.smooth_action.setText(self._t("table.smooth"))
@@ -309,6 +533,7 @@ class LasTableEditor(QWidget):
 
     def set_dataset(self, dataset: Dataset | None) -> None:
         self.model.set_dataset(dataset)
+        self._apply_header_geometry()
         self.clipboard = None
         if dataset is None or self.selection.dataset_id != dataset.dataset_id:
             self.selection.clear()
@@ -317,6 +542,51 @@ class LasTableEditor(QWidget):
 
     def set_number_formats(self, formats: dict[str, NumberDisplayFormat]) -> None:
         self.model.set_number_formats(formats)
+
+    def _populate_header_modes(self) -> None:
+        current = self.model.header_mode
+        self.header_mode_input.blockSignals(True)
+        try:
+            self.header_mode_input.clear()
+            for mode in TableHeaderMode:
+                self.header_mode_input.addItem(
+                    self._t(f"table.header.mode.{mode.value}"),
+                    mode,
+                )
+            self.header_mode_input.setCurrentIndex(self.header_mode_input.findData(current))
+        finally:
+            self.header_mode_input.blockSignals(False)
+
+    def _change_header_mode(self) -> None:
+        mode = self.header_mode_input.currentData()
+        if mode is None:
+            return
+        self.model.set_header_mode(TableHeaderMode(mode))
+        self._apply_header_geometry()
+
+    def _apply_header_geometry(self) -> None:
+        header = self.table.horizontalHeader()
+        if self.model.header_mode is TableHeaderMode.FRIENDLY_TECHNICAL:
+            header.setFixedHeight(78)
+            minimum_width = 150
+            maximum_width = 280
+        else:
+            header.setFixedHeight(58)
+            minimum_width = 130
+            maximum_width = 240
+        if self.model.columnCount() <= 0:
+            return
+        metrics = header.fontMetrics()
+        for column in range(self.model.columnCount()):
+            text = str(self.model.headerData(column, Qt.Orientation.Horizontal) or "")
+            content_width = max(
+                (metrics.horizontalAdvance(line) for line in text.splitlines()),
+                default=minimum_width,
+            )
+            preferred_width = max(minimum_width, min(maximum_width, content_width + 28))
+            if column == 0:
+                preferred_width = max(130, min(190, preferred_width))
+            self.table.setColumnWidth(column, preferred_width)
 
     def configure_number_format(self) -> None:
         columns = sorted({index.column() for index in self.table.selectedIndexes()})

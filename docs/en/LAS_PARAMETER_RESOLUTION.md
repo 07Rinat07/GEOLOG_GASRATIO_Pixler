@@ -51,3 +51,14 @@ backup gas channels, repeated passes, and multiple sensors of the same type.
 The original mnemonic is always preserved. `canonical_mnemonic` is populated only when confidence
 is sufficient. Lossless source handling and export therefore retain the vendor name, while
 calculations, forms, and the log display can use the canonical parameter meaning.
+
+## Human-readable LAS table headers
+
+The table editor uses the same resolver and defaults to a three-level header: a localized friendly
+name, the source-to-canonical mapping (`S800 → C1`), and the unit. Users can select Friendly + LAS,
+Friendly only, or LAS only.
+
+The header tooltip preserves the audit trail: original mnemonic, canonical parameter, LAS
+description, unit, recognition confidence, method, evidence, and provenance. An unresolved curve is
+never silently renamed. Its LAS description is used when available; otherwise the column is marked
+as unrecognized and requires an explicit mapping.

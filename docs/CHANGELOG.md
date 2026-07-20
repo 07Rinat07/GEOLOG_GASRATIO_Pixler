@@ -1,3 +1,47 @@
+## Unreleased — human-readable LAS table headers
+
+### Русский
+
+- табличный редактор по умолчанию показывает понятное локализованное название, исходную
+  мнемонику, каноническое соответствие и единицу, например `S800 → C1`;
+- добавлены режимы «Понятные + LAS», «Только понятные» и «Только LAS»;
+- ширина колонок автоматически подбирается по самой длинной строке заголовка с безопасными
+  пределами и остаётся доступной для ручного изменения;
+- tooltip заголовка показывает описание LAS, исходную/каноническую мнемонику, единицу,
+  уверенность, метод, evidence и provenance;
+- неопознанный канал не переименовывается молча: используется исходное описание или явная
+  отметка «Не распознано»;
+- исходные LAS-мнемоники и lossless-экспорт не изменяются;
+- полный регрессионный прогон: `888 passed, 1 skipped`; Ruff проходит без ошибок.
+
+### Қазақша
+
+- кестелік редактор әдепкіде түсінікті локализацияланған атауды, бастапқы мнемониканы,
+  канондық сәйкестікті және өлшем бірлігін көрсетеді, мысалы `S800 → C1`;
+- «Түсінікті + LAS», «Тек түсінікті» және «Тек LAS» режимдері қосылды;
+- баған ені тақырыптың ең ұзын жолына қарай қауіпсіз шектерде автоматты түрде есептеледі және
+  қолмен өзгертуге болады;
+- тақырып tooltip-і LAS сипаттамасын, бастапқы/канондық мнемониканы, өлшем бірлігін,
+  сенімділікті, әдісті, evidence және provenance мәндерін көрсетеді;
+- танылмаған арна жасырын қайта аталмайды: бастапқы сипаттамасы немесе «Танылмады» белгісі
+  көрсетіледі;
+- бастапқы LAS мнемоникалары мен lossless экспорт өзгермейді;
+- толық регрессиялық тексеру: `888 passed, 1 skipped`; Ruff қатесіз өтеді.
+
+### English
+
+- the table editor now defaults to a localized friendly name, original mnemonic, canonical
+  mapping, and unit, for example `S800 → C1`;
+- added Friendly + LAS, Friendly only, and LAS only modes;
+- column width is derived from the longest header line within safe limits and remains manually
+  resizable;
+- header tooltips show the LAS description, original/canonical mnemonic, unit, confidence,
+  method, evidence, and provenance;
+- unresolved channels are never silently renamed: their source description or an explicit
+  Unrecognized marker is shown;
+- original LAS mnemonics and lossless export remain unchanged;
+- full regression suite: `888 passed, 1 skipped`; Ruff passes without errors.
+
 ## Unreleased — semantic LAS parameter resolver
 
 ### Русский

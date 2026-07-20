@@ -362,3 +362,9 @@ Use “File → Print and export center...” (`Ctrl+P`) for the active chart or
 
 Choose A4, A3, custom or roll media, portrait/landscape orientation, four page margins, 72–600 DPI, and JPEG/WebP quality. Raster files are generated at the full paper pixel dimensions for the selected DPI. “Auto-fit columns” includes every visible column, including tracks outside the horizontal viewport, without clipping. Preview and final output share one renderer and do not alter working tablet widths.
 
+## Human-readable LAS table headers
+
+The LAS table now defaults to a friendly parameter name plus the original mnemonic and canonical
+mapping, for example `Methane content / S800 → C1 / [%]`. A header mode selector can show friendly
+names only or original LAS mnemonics only. Hovering over a header shows the complete recognition
+audit.
