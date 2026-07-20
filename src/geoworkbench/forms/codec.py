@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from math import isfinite
 from typing import Any
 
 from geoworkbench.forms.models import (
@@ -109,6 +110,12 @@ def _binding_from_dict(data: object) -> ParameterBinding:
     style = data.get("style", {})
     if not isinstance(style, dict):
         raise TypeError("style должен быть JSON-объектом")
+    x_scale = XScale(_string(data, "x_scale", default=XScale.LINEAR.value))
+    x_min, x_max = _normalized_range(
+        x_scale,
+        _optional_number(data, "x_min"),
+        _optional_number(data, "x_max"),
+    )
     return ParameterBinding(
         binding_id=_string(data, "binding_id"),
         canonical_parameter_id=_string(data, "canonical_parameter_id"),
@@ -121,10 +128,33 @@ def _binding_from_dict(data: object) -> ParameterBinding:
             width=float(style.get("width", 1.5)),
             line_style=CurveLineStyle(str(style.get("line_style", "solid"))),
         ),
-        x_scale=XScale(_string(data, "x_scale", default=XScale.LINEAR.value)),
-        x_min=_optional_number(data, "x_min"),
-        x_max=_optional_number(data, "x_max"),
+        x_scale=x_scale,
+        x_min=x_min,
+        x_max=x_max,
     )
+
+
+def _normalized_range(
+    scale: XScale, minimum: float | None, maximum: float | None
+) -> tuple[float | None, float | None]:
+    """Repair legacy/manual curve ranges without blocking the form manager.
+
+    Old user forms and sensor catalogs can contain one missing bound, equal
+    placeholders (``0 .. 0``), reversed limits, or non-finite values.  These
+    records are recoverable: reversed finite limits are ordered, while ranges
+    that cannot be plotted safely fall back to autoscale.
+    """
+
+    if minimum is None or maximum is None:
+        return None, None
+    if not isfinite(minimum) or not isfinite(maximum):
+        return None, None
+    low, high = sorted((float(minimum), float(maximum)))
+    if low == high:
+        return None, None
+    if scale is XScale.LOGARITHMIC and low <= 0:
+        return None, None
+    return low, high
 
 
 def _track_from_dict(data: object) -> FormTrack:

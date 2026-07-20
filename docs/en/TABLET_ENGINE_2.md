@@ -78,3 +78,10 @@ Each curve supports a readable display name, automatic or manual range, linear/l
 ## On-screen depth span
 
 The tablet toolbar can show 10, 20, 30, 40, 50, 60, 70, 80, 90, or 100 metres of the well at once. Any other value can be typed directly into the field. Changing the span keeps the current top depth and applies immediately to every track. Each curve header is shown on its own row with its name, range, unit, and scale style.
+
+## Reliable scrolling and retained scale
+
+Wheel navigation is handled across the entire column, including parameter rows in the header, so
+panning no longer depends on the exact cursor target. The selected depth span is stored directly in
+the tablet model, keeps the current top depth, and survives form changes. Smooth touchpad deltas are
+converted to real depth displacement, while a standard wheel notch pans by 10% of the current window.

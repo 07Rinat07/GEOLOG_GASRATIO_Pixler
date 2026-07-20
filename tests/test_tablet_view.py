@@ -1537,3 +1537,121 @@ def test_many_curve_headers_remain_named_and_generic_title_is_readable(qapp) -> 
     assert all(label.text().strip() for label in rendered.widget._curve_header_labels.values())
     assert rendered.widget.curve_header_scroll.maximumHeight() == 320
     view.close()
+
+
+def test_layout_switch_preserves_depth_scale_and_scroll_position(qapp) -> None:
+    depth = np.linspace(100.0, 300.0, 201)
+    dataset = Dataset(
+        "dataset-preserve-span",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    view = TabletView()
+    first_layout = TabletLayout(
+        [TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120)]
+    )
+    view.set_layout_model(first_layout)
+    view.set_dataset(dataset)
+    view.set_visible_depth(150.0, 160.0)
+    qapp.processEvents()
+
+    second_layout = TabletLayout(
+        [
+            TrackDefinition("depth-2", "Depth", TrackKind.DEPTH, width=120),
+            TrackDefinition("curve-2", "Curve", TrackKind.CURVE),
+        ]
+    )
+    view.set_layout_model(second_layout)
+    qapp.processEvents()
+
+    assert view.visible_depth_range == pytest.approx((150.0, 160.0))
+    assert second_layout.visible_depth_top == pytest.approx(150.0)
+    assert second_layout.visible_depth_bottom == pytest.approx(160.0)
+    view.close()
+
+
+def test_wheel_over_curve_header_scrolls_all_tracks(qapp) -> None:
+    depth = np.linspace(100.0, 300.0, 201)
+    dataset = Dataset(
+        "dataset-header-wheel",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-rop-header",
+            "ROP",
+            "ROP",
+            "m/h",
+            "Rate of penetration",
+            dataset.dataset_id,
+        ),
+        np.linspace(0.0, 100.0, depth.size),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120),
+                TrackDefinition(
+                    "rop",
+                    "ROP",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["ROP"],
+                ),
+            ]
+        )
+    )
+    view.resize(900, 700)
+    view.show()
+    view.set_dataset(dataset)
+    view.set_visible_depth(150.0, 170.0)
+    qapp.processEvents()
+    header = view._rendered["rop"].widget._curve_header_labels["ROP"]
+    wheel = QWheelEvent(
+        QPointF(10.0, 10.0),
+        QPointF(10.0, 10.0),
+        QPoint(),
+        QPoint(0, -120),
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+        Qt.ScrollPhase.ScrollUpdate,
+        False,
+    )
+
+    qapp.sendEvent(header, wheel)
+    qapp.processEvents()
+
+    assert view.visible_depth_range == pytest.approx((152.0, 172.0))
+    assert view.track_depth_range("depth") == pytest.approx((152.0, 172.0))
+    assert view.track_depth_range("rop") == pytest.approx((152.0, 172.0))
+    view.close()
+
+
+def test_depth_span_change_is_stored_in_layout_model(qapp) -> None:
+    depth = np.linspace(0.0, 500.0, 501)
+    dataset = Dataset(
+        "dataset-store-span",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    layout = TabletLayout(
+        [TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120)]
+    )
+    view = TabletView()
+    view.set_layout_model(layout)
+    view.set_dataset(dataset)
+
+    assert view.set_vertical_span(30.0, top=100.0)
+    qapp.processEvents()
+
+    assert layout.visible_depth_top == pytest.approx(100.0)
+    assert layout.visible_depth_bottom == pytest.approx(130.0)
+    view.close()

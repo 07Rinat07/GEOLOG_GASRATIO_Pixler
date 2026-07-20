@@ -275,8 +275,14 @@ def _definition_from_mapping(raw: dict[str, Any]) -> SensorDefinition:
         raise ValueError(f"Некорректный цвет Sensors: {color}")
     default_min = _optional_float(raw.get("default_min"))
     default_max = _optional_float(raw.get("default_max"))
-    if default_min is not None and default_max is not None and default_min > default_max:
-        default_min, default_max = default_max, default_min
+    if default_min is not None and default_max is not None:
+        if default_min > default_max:
+            default_min, default_max = default_max, default_min
+        if default_min == default_max:
+            # Equal limits are legacy placeholders (for example 0 .. 0), not
+            # a drawable range.  Keep the sensor definition but use autoscale.
+            default_min = None
+            default_max = None
     return SensorDefinition(
         sensor_id=sensor_id,
         canonical_mnemonic=canonical,

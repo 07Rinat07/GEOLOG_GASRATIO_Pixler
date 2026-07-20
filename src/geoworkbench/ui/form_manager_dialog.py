@@ -24,6 +24,7 @@ from geoworkbench.forms.models import FormAxisKind, FormDocument, FormTemplateOr
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.apply import FormApplyEngine
 from geoworkbench.forms.materialize import materialized_factory_templates
+from geoworkbench.forms.templates import factory_templates
 from geoworkbench.forms.preview import PreviewCallback
 from geoworkbench.ui.form_structure_editor_dialog import FormStructureEditorDialog
 
@@ -99,24 +100,47 @@ class FormManagerDialog(QDialog):
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
 
     def reload(self, selected_id: str | None = None) -> None:
+        self.list_widget.blockSignals(True)
         self.list_widget.clear()
-        forms = list(materialized_factory_templates(self.dataset, self.language).values()) + self.repository.list_forms()
-        forms.sort(key=lambda form: (form.origin is FormTemplateOrigin.USER, form.name.casefold()))
-        for form in forms:
-            prefix = "🔒 " if form.read_only else ""
-            binding_count = sum(
-                len(track.bindings)
-                for column in form.columns
-                for track in column.tracks
+        try:
+            try:
+                factory = list(
+                    materialized_factory_templates(self.dataset, self.language).values()
+                )
+            except (KeyError, RuntimeError, ValueError):
+                # Keep the manager available even when one legacy curve carries
+                # unusable metadata. The raw factory forms remain selectable;
+                # applying them will show a localized diagnostic instead of
+                # terminating the dialog.
+                factory = list(factory_templates(self.language).values())
+            forms = factory + self.repository.list_forms()
+            forms.sort(
+                key=lambda form: (
+                    form.origin is FormTemplateOrigin.USER,
+                    form.name.casefold(),
+                )
             )
-            count_suffix = f"  · {binding_count}" if binding_count else ""
-            item = QListWidgetItem(prefix + form.name + count_suffix)
-            item.setData(Qt.ItemDataRole.UserRole, form)
-            self.list_widget.addItem(item)
-            if selected_id and form.form_id == selected_id:
-                self.list_widget.setCurrentItem(item)
-        if self.list_widget.currentItem() is None and self.list_widget.count():
-            self.list_widget.setCurrentRow(0)
+            selected_item: QListWidgetItem | None = None
+            for form in forms:
+                prefix = "🔒 " if form.read_only else ""
+                binding_count = sum(
+                    len(track.bindings)
+                    for column in form.columns
+                    for track in column.tracks
+                )
+                count_suffix = f"  · {binding_count}" if binding_count else ""
+                item = QListWidgetItem(prefix + form.name + count_suffix)
+                item.setData(Qt.ItemDataRole.UserRole, form)
+                self.list_widget.addItem(item)
+                if selected_id and form.form_id == selected_id:
+                    selected_item = item
+            if selected_item is not None:
+                self.list_widget.setCurrentItem(selected_item)
+            elif self.list_widget.count():
+                self.list_widget.setCurrentRow(0)
+        finally:
+            self.list_widget.blockSignals(False)
+        self._show_selected(self.list_widget.currentItem(), None)
 
     def _current(self) -> FormDocument | None:
         item = self.list_widget.currentItem()

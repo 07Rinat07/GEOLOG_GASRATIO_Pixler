@@ -1,3 +1,29 @@
+## Unreleased — form range recovery and reliable depth navigation
+
+### Русский
+
+- менеджер форм больше не закрывается и не зависает из-за устаревших диапазонов `0 .. 0`, перепутанных границ или повреждённого пользовательского JSON;
+- неподходящие диапазоны автоматически переводятся в автомасштаб, а повреждённый файл формы пропускается без удаления;
+- выбранный глубинный масштаб и позиция прокрутки сохраняются при смене формы;
+- колесо прокручивает общий интервал над графиком, заголовком и любой вложенной строкой параметра;
+- ручной и предустановленный интервал сразу записывается в модель планшета и синхронно применяется ко всем колонкам.
+
+### Қазақша
+
+- ескі `0 .. 0` ауқымы, ауысқан шекаралар немесе зақымдалған пайдаланушы JSON файлы пішіндер менеджерін енді тоқтатпайды;
+- жарамсыз ауқым автоматты масштабқа ауысады, ал зақымдалған пішін файлы жойылмай өткізіледі;
+- пішінді ауыстырғанда таңдалған тереңдік масштабы мен айналдыру орны сақталады;
+- тінтуір дөңгелегі графикте, тақырыпта және параметрдің кез келген ішкі жолында ортақ аралықты жылжытады;
+- қолмен немесе тізімнен таңдалған аралық планшет моделіне бірден жазылып, барлық бағанға синхронды қолданылады.
+
+### English
+
+- the form manager no longer closes or stalls on legacy `0 .. 0` ranges, reversed bounds, or a damaged user-form JSON file;
+- unusable ranges fall back to autoscale and damaged form files are skipped without being deleted;
+- the selected depth span and scroll position are preserved when switching forms;
+- the mouse wheel pans the shared range over plots, headers, and nested parameter rows;
+- preset and manually entered spans are stored immediately in the tablet model and applied to every column.
+
 ## Unreleased — LAS text encoding and mojibake repair
 
 ### Русский

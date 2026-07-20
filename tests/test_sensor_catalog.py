@@ -89,3 +89,31 @@ def test_sensor_catalog_rejects_unknown_family() -> None:
 def test_sensor_key_normalization_handles_legacy_cyrillic_homoglyphs() -> None:
     assert normalize_sensor_key(" С1 ") == "C1"
     assert normalize_sensor_key("TG_CALC") == "TGCALC"
+
+
+def test_equal_legacy_default_range_is_loaded_as_autoscale() -> None:
+    catalog = SensorCatalog.from_json(
+        {
+            "schema_version": 1,
+            "catalog_name": "Legacy equal range",
+            "sensors": [
+                {
+                    "id": "legacy_zero_range",
+                    "canonical_mnemonic": "ZERO_RANGE",
+                    "aliases": ["ZR"],
+                    "name_ru": "Нулевой диапазон",
+                    "short_name_ru": "Нулевой",
+                    "unit": "",
+                    "family": "other",
+                    "category": "other",
+                    "default_min": 0,
+                    "default_max": 0,
+                    "color": "#123456",
+                }
+            ],
+        }
+    )
+
+    definition = catalog.match("ZR").definition
+    assert definition.default_min is None
+    assert definition.default_max is None

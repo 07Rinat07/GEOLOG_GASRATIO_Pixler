@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
+from math import isfinite
 import re
 
 from geoworkbench.catalogs.sensors import SensorCatalog, SensorMatch, active_sensor_catalog
@@ -204,6 +205,7 @@ def _binding_from_curve(
     color = match.definition.color if match is not None else _FALLBACK_COLORS[position % len(_FALLBACK_COLORS)]
     minimum = match.definition.default_min if match is not None else None
     maximum = match.definition.default_max if match is not None else None
+    minimum, maximum = _safe_default_range(minimum, maximum)
     scale = XScale.LINEAR
     if (
         match is not None
@@ -225,6 +227,26 @@ def _binding_from_curve(
         x_min=minimum,
         x_max=maximum,
     )
+
+
+def _safe_default_range(
+    minimum: float | None, maximum: float | None
+) -> tuple[float | None, float | None]:
+    """Return a valid manual X range or request autoscale.
+
+    Legacy sensor catalogs may contain placeholder ranges such as ``0 .. 0``.
+    Such values are metadata, not a usable plotting interval.  A single broken
+    catalog entry must never prevent the form manager from opening, therefore
+    invalid, incomplete and non-finite ranges are converted to autoscale.
+    """
+
+    if minimum is None or maximum is None:
+        return None, None
+    if not isfinite(minimum) or not isfinite(maximum):
+        return None, None
+    if minimum >= maximum:
+        return None, None
+    return float(minimum), float(maximum)
 
 
 def _curve_display_name(

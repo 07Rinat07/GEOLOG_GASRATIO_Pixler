@@ -168,3 +168,50 @@ def test_factory_templates_are_localized_without_changing_stable_ids() -> None:
     assert ru[form_id].columns[0].title == "Глубина"
     assert kk[form_id].columns[0].title == "Тереңдік"
     assert en[form_id].columns[0].title == "Depth"
+
+
+def test_legacy_form_invalid_ranges_are_repaired_to_autoscale() -> None:
+    form = FormDocument.create("Legacy", FormAxisKind.DEPTH)
+    binding = ParameterBinding.create("ROP", "ROP", source_mnemonic="ROP")
+    track = FormTrack.create("ROP", TrackKind.CURVE, bindings=[binding])
+    form.add_column(FormColumn.create("ROP", tracks=[track]))
+    payload = form_to_dict(form)
+    raw_binding = payload["columns"][0]["tracks"][0]["bindings"][0]
+    raw_binding["x_min"] = 0.0
+    raw_binding["x_max"] = 0.0
+
+    restored = form_from_dict(payload)
+    restored_binding = restored.columns[0].tracks[0].bindings[0]
+
+    assert restored_binding.x_min is None
+    assert restored_binding.x_max is None
+
+
+def test_legacy_form_reversed_range_is_ordered() -> None:
+    form = FormDocument.create("Legacy", FormAxisKind.DEPTH)
+    binding = ParameterBinding.create("ROP", "ROP", source_mnemonic="ROP")
+    track = FormTrack.create("ROP", TrackKind.CURVE, bindings=[binding])
+    form.add_column(FormColumn.create("ROP", tracks=[track]))
+    payload = form_to_dict(form)
+    raw_binding = payload["columns"][0]["tracks"][0]["bindings"][0]
+    raw_binding["x_min"] = 100.0
+    raw_binding["x_max"] = 0.0
+
+    restored = form_from_dict(payload)
+    restored_binding = restored.columns[0].tracks[0].bindings[0]
+
+    assert restored_binding.x_min == 0.0
+    assert restored_binding.x_max == 100.0
+
+
+def test_repository_skips_damaged_form_without_blocking_manager(tmp_path) -> None:
+    repository = FormRepository(tmp_path)
+    good = FormDocument.create("Good", FormAxisKind.DEPTH)
+    repository.save(good)
+    (tmp_path / "broken.json").write_text("{not-json", encoding="utf-8")
+
+    forms = repository.list_forms()
+
+    assert [item.name for item in forms] == ["Good"]
+    assert len(repository.load_errors) == 1
+    assert repository.load_errors[0][0].name == "broken.json"

@@ -610,6 +610,7 @@ class TabletView(QWidget):
         self._interval_creation_type = self._localizer.text("interpretations.default_type")
         self._interval_gesture: _IntervalGesture | None = None
         self._axis_combo_guard = False
+        self._span_combo_guard = False
         self._scrollbar_guard = False
         self._camera = TabletCamera()
         self._pan_viewport: QObject | None = None
@@ -683,6 +684,7 @@ class TabletView(QWidget):
         span_line_edit = self._span_combo.lineEdit()
         if span_line_edit is not None:
             span_line_edit.returnPressed.connect(self._depth_span_typed)
+            span_line_edit.editingFinished.connect(self._depth_span_typed)
         self._span_combo.setToolTip(self._localizer.text("tablet.depth_span_tooltip"))
 
         navigation = QHBoxLayout()
@@ -1449,6 +1451,23 @@ class TabletView(QWidget):
         self.refresh_view()
 
     def set_layout_model(self, layout_model: TabletLayout) -> None:
+        previous_range = self.visible_depth_range
+        previous_index = self.vertical_index_id
+        same_axis = (
+            previous_index is None
+            or layout_model.vertical_index_id is None
+            or layout_model.vertical_index_id == previous_index
+        )
+        if (
+            previous_range is not None
+            and same_axis
+            and layout_model.visible_depth_top is None
+            and layout_model.visible_depth_bottom is None
+        ):
+            # Changing a form/layout must not throw away the user's current
+            # depth scale and scroll position.  The range is normalized against
+            # the dataset during refresh, so it remains safe for the new tracks.
+            layout_model.set_visible_depth(*previous_range)
         self._layout_model = layout_model
         self._cursor_depth = layout_model.cursor_depth
         self.refresh_view()
@@ -1793,9 +1812,7 @@ class TabletView(QWidget):
             viewport = track.plot.viewport()
             viewport.installEventFilter(self)
             self._depth_viewports[viewport] = track.plot
-            for wheel_target in (track, track.title, track.plot, viewport):
-                wheel_target.installEventFilter(self)
-                self._wheel_targets[wheel_target] = track.plot
+            self._register_wheel_targets(track, track.plot)
             if definition.kind is TrackKind.INTERPRETATION:
                 self._interpretation_viewports[viewport] = rendered
                 cursor = (
@@ -1832,6 +1849,22 @@ class TabletView(QWidget):
         self._pinned_container.setMinimumHeight(height)
         for rendered in self._rendered.values():
             rendered.widget.setMinimumHeight(height)
+
+    def _register_wheel_targets(
+        self, root: QWidget, plot: pg.PlotWidget
+    ) -> None:
+        """Route wheel navigation from every visible part of a tablet column.
+
+        Qt sends wheel events to the deepest child under the cursor. Registering
+        only the plot viewport leaves curve-header labels and nested widgets
+        outside the depth navigation path, which feels like intermittent broken
+        scrolling.
+        """
+
+        targets: list[QWidget] = [root, *root.findChildren(QWidget)]
+        for target in targets:
+            target.installEventFilter(self)
+            self._wheel_targets[target] = plot
 
     def resizeEvent(self, event) -> None:  # type: ignore[override]
         super().resizeEvent(event)
@@ -2121,7 +2154,7 @@ class TabletView(QWidget):
             return None
 
     def _depth_span_selected(self, row: int) -> None:
-        if row < 0:
+        if self._span_combo_guard or row < 0:
             return
         raw = self._span_combo.itemData(row)
         if raw is None:
@@ -2146,6 +2179,8 @@ class TabletView(QWidget):
         self.set_vertical_span(span, top=top)
 
     def _depth_span_typed(self) -> None:
+        if self._span_combo_guard:
+            return
         line_edit = self._span_combo.lineEdit()
         if line_edit is None:
             return
@@ -2175,6 +2210,7 @@ class TabletView(QWidget):
             if raw is not None and np.isclose(float(raw), visible_span, rtol=0.0, atol=1e-6):
                 matching_row = row
                 break
+        self._span_combo_guard = True
         self._span_combo.blockSignals(True)
         try:
             if matching_row >= 0:
@@ -2183,6 +2219,7 @@ class TabletView(QWidget):
                 self._span_combo.setEditText(f"{visible_span:g} {unit}")
         finally:
             self._span_combo.blockSignals(False)
+            self._span_combo_guard = False
 
     def set_vertical_span(
         self,
@@ -2310,16 +2347,22 @@ class TabletView(QWidget):
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
         wheel_plot = self._wheel_targets.get(watched)
         if wheel_plot is not None and isinstance(event, QWheelEvent):
-            delta = event.angleDelta().y()
-            if delta == 0:
-                delta = event.pixelDelta().y()
-            steps = float(delta) / 120.0
-            if steps:
-                if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            angle_delta = event.angleDelta().y()
+            pixel_delta = event.pixelDelta().y()
+            if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                delta = angle_delta if angle_delta else pixel_delta
+                steps = float(delta) / (120.0 if angle_delta else 60.0)
+                if steps:
                     anchor = self._axis_value_at_event(wheel_plot, watched, event)
                     self.zoom_depth(0.8**steps, anchor=anchor)
-                else:
-                    self.scroll_depth(-steps)
+            elif angle_delta:
+                self.scroll_depth(-float(angle_delta) / 120.0)
+            elif pixel_delta:
+                current = self.visible_depth_range
+                if current is not None:
+                    viewport_height = max(1, wheel_plot.viewport().height())
+                    depth_per_pixel = (current[1] - current[0]) / viewport_height
+                    self._apply_pan_delta(-float(pixel_delta) * depth_per_pixel)
             event.accept()
             return True
         plot = self._depth_viewports.get(watched)
@@ -2431,6 +2474,7 @@ class TabletView(QWidget):
         changed = current is None or not np.allclose(
             current, (normalized_top, normalized_bottom), rtol=0.0, atol=1e-9
         )
+        self._layout_model.set_visible_depth(normalized_top, normalized_bottom)
         self._depth_range_guard = True
         try:
             for rendered in self._rendered.values():
@@ -3807,6 +3851,7 @@ class TabletView(QWidget):
             top, bottom = self._normalize_depth_window(
                 float(y_range[0]), float(y_range[1])
             )
+            self._layout_model.set_visible_depth(top, bottom)
             self._update_visible_curve_data(top, bottom)
             self._synchronize_depth_ranges(top, bottom)
             self._update_lithology_text_visibility(top, bottom)

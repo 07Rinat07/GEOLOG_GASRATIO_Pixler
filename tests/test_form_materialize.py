@@ -129,3 +129,41 @@ def test_time_form_requires_time_axis_and_materializes_when_available() -> None:
     result = FormApplyEngine().build_layout(form, time_dataset)
     assert result.resolved_count == 7
     assert result.layout.vertical_index_id == "data-time:primary-index"
+
+
+def test_materialization_uses_autoscale_for_equal_legacy_sensor_range() -> None:
+    dataset = Dataset(
+        "legacy-range",
+        "LAS",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 100.5, 101.0]),
+    )
+    metadata = CurveMetadata(
+        curve_id="curve-sensor-90",
+        original_mnemonic="SENSOR_90",
+        canonical_mnemonic="SENSOR_90",
+        unit="",
+        description="Кнопка",
+        source_dataset_id=dataset.dataset_id,
+    )
+    dataset.curves[metadata.curve_id] = CurveData(
+        metadata,
+        np.array([0.0, 0.0, 1.0]),
+    )
+
+    info = materialize_form_for_dataset(
+        factory_templates("ru")["factory-depth-basic"],
+        dataset,
+        "ru",
+    )
+
+    bindings = [
+        binding
+        for column in info.form.columns
+        for track in column.tracks
+        for binding in track.bindings
+    ]
+    assert len(bindings) == 1
+    assert bindings[0].x_min is None
+    assert bindings[0].x_max is None

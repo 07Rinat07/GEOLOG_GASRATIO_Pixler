@@ -77,3 +77,9 @@ style is now created correctly, and `PlotDataItem` construction is compatible wi
 `pyqtgraph 0.14` and `PySide6 6.11`. A GUI regression test now requires the factory depth
 form to materialize and actually render the curves of the open LAS dataset.
 
+## Range recovery and resilient form manager
+
+Legacy user forms and Sensors catalogs can contain `0 .. 0` ranges, reversed bounds, or only one
+bound. These records no longer block opening or switching forms: reversed finite bounds are ordered,
+while incomplete, equal, non-finite, and invalid logarithmic ranges fall back to autoscale. A damaged
+user-form JSON file is skipped without deletion and does not make the remaining forms unavailable.
