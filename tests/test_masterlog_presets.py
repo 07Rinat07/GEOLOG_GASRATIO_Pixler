@@ -94,3 +94,36 @@ def test_header_preset_is_copied_into_form_and_remains_editable() -> None:
     compact = next(item for item in BUILTIN_MASTERLOG_HEADER_PRESETS if item.preset_id == "compact")
     assert compact.elements[0].properties["text"] == "MASTERLOG"
     assert template.properties["header_preset_origin"] == "compact"
+
+
+def test_geological_geochemical_reference_preset_matches_working_masterlog_structure() -> None:
+    preset = next(
+        item
+        for item in BUILTIN_MASTERLOG_FORM_PRESETS
+        if item.preset_id == "geological_geochemical_reference"
+    )
+    assert [column.column_type for column in preset.template.columns] == [
+        "stratigraphy",
+        "curves",
+        "depth",
+        "cuttings",
+        "lba",
+        "calcimetry",
+        "lithology",
+        "curves",
+        "cuttings_description",
+    ]
+    assert preset.template.header_height_mm == 92.0
+    assert any(
+        element.element_type == "lithology_legend"
+        for element in preset.template.header_elements
+    )
+    assert any(element.element_type == "lba_legend" for element in preset.template.header_elements)
+    drilling = preset.template.columns[1]
+    assert drilling.curve_styles["WOB"].x_max == 20.0
+    assert drilling.curve_styles["ROP"].x_max == 100.0
+    assert drilling.curve_styles["DEXP"].x_max == 3.0
+    gas = preset.template.columns[7]
+    assert gas.x_scale == "logarithmic"
+    assert gas.x_min == 0.001
+    assert gas.x_max == 100.0

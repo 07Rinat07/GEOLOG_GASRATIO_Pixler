@@ -253,7 +253,7 @@ def test_tablet_renders_calcimetry_lba_and_cursor_summary(qapp) -> None:
     summary = view.cursor_summary(105.0)
 
     assert calc_items is not None and len(calc_items["sample"]) == 3
-    assert lba_items is not None and len(lba_items["sample"]) == 1
+    assert lba_items is not None and len(lba_items["sample"]) == 2
     assert ("Кальциметрия: CaCO₃ 65%; CaMg(CO₃)₂ 20%; нерастворимый остаток 15%") in summary
     assert "ЛБА: Oil show; I=3; yellow; Streaming" in summary
     assert "Интерпретация геолога: Manual show interpretation" in summary

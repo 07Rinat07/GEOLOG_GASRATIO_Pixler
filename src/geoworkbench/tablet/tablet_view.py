@@ -41,6 +41,10 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
+from geoworkbench.printing.lba_visuals import (
+    normalized_lba_intensity,
+    resolve_lba_type_style,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.tablet.curve_scaling import automatic_curve_range, normalize_curve_values
@@ -3796,10 +3800,45 @@ class TabletView(QWidget):
                     sample.lba_stain,
                     sample.lba_description,
                 ]
-                text = "; ".join(value for value in fields if value)
-                if text:
-                    label = pg.TextItem(text, color="#92400e", anchor=(0.0, 0.5))
-                    label.setPos(0.02, (axis_top + axis_bottom) / 2.0)
+                tooltip = "; ".join(str(value) for value in fields if value not in (None, ""))
+                if tooltip:
+                    style = resolve_lba_type_style(sample.lba_type_id)
+                    intensity = normalized_lba_intensity(sample.lba_intensity)
+                    line_width = 1.2
+                    line_style = Qt.PenStyle.SolidLine
+                    brush = pg.mkBrush(None)
+                    size = 10.0
+                    if intensity == 1:
+                        size = 7.0
+                        brush = pg.mkBrush(style.color)
+                        line_width = 0.8
+                    elif intensity == 2:
+                        size = 11.0
+                        line_style = Qt.PenStyle.DashLine
+                    elif intensity == 3:
+                        size = 12.0
+                    elif intensity == 4:
+                        size = 14.0
+                        line_width = 3.0
+                    elif intensity == 5:
+                        size = 15.0
+                        brush = pg.mkBrush(style.color)
+                        line_width = 1.0
+                    scatter = pg.ScatterPlotItem(
+                        x=[0.5],
+                        y=[(axis_top + axis_bottom) / 2.0],
+                        symbol="o",
+                        size=size,
+                        pen=pg.mkPen(style.color, width=line_width, style=line_style),
+                        brush=brush,
+                        pxMode=True,
+                    )
+                    scatter.setToolTip(tooltip)
+                    track.plot.addItem(scatter)
+                    items.append(scatter)
+                    label = pg.TextItem(style.code, color="#0f172a", anchor=(0.0, 0.5))
+                    label.setPos(0.58, (axis_top + axis_bottom) / 2.0)
+                    label.setToolTip(tooltip)
                     track.plot.addItem(label)
                     items.append(label)
             if items:

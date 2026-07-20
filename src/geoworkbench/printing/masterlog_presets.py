@@ -176,6 +176,51 @@ LITHOLOGY_HEADER = MasterlogHeaderPreset(
     ),
 )
 
+GEOLOGICAL_GEOCHEMICAL_HEADER = MasterlogHeaderPreset(
+    "geological_geochemical",
+    _texts(
+        "Геолого-геохимический Masterlog",
+        "Геологиялық-геохимиялық Masterlog",
+        "Geological-geochemical Masterlog",
+    ),
+    _texts(
+        "Шапка с реквизитами скважины, литологической легендой и обозначениями ЛБА.",
+        "Ұңғыма деректемелері, литологиялық шартты белгілер және ЛБА белгілері бар тақырып.",
+        "Header with well metadata, lithology legend and LBA notation.",
+    ),
+    92.0,
+    (
+        _element(
+            "geo_title", "text", 5, 2, 334, 8,
+            text="МАСТЕРЛОГ / GEOLOGICAL-GEOCHEMICAL RESEARCH",
+            font_size_mm=5.2, color="#0f172a",
+        ),
+        _element("geo_project_label", "text", 5, 12, 28, 5, text="Проект:", font_size_mm=2.8, color="#334155"),
+        _element("geo_project", "field", 33, 12, 75, 5, field="project.name", font_size_mm=3.0, color="#0f172a"),
+        _element("geo_well_label", "text", 112, 12, 24, 5, text="Скважина:", font_size_mm=2.8, color="#334155"),
+        _element("geo_well", "field", 136, 12, 55, 5, field="well.name", font_size_mm=3.0, color="#0f172a"),
+        _element("geo_dataset_label", "text", 195, 12, 24, 5, text="Набор:", font_size_mm=2.8, color="#334155"),
+        _element("geo_dataset", "field", 219, 12, 120, 5, field="dataset.name", font_size_mm=3.0, color="#0f172a"),
+        _element("geo_country", "text", 5, 19, 70, 5, text="Страна: Казахстан", font_size_mm=2.8, color="#334155"),
+        _element("geo_field", "text", 78, 19, 75, 5, text="Месторождение: [редактировать]", font_size_mm=2.8, color="#334155"),
+        _element("geo_customer", "text", 156, 19, 92, 5, text="Заказчик: [редактировать]", font_size_mm=2.8, color="#334155"),
+        _element("geo_contractor", "text", 251, 19, 88, 5, text="Исполнитель: [редактировать]", font_size_mm=2.8, color="#334155"),
+        _element("geo_interval", "text", 5, 26, 105, 5, text="Интервал исследований: [редактировать]", font_size_mm=2.8, color="#334155"),
+        _element("geo_scale", "text", 113, 26, 45, 5, text="Масштаб: 1:500", font_size_mm=2.8, color="#334155"),
+        _element("geo_engineers", "text", 161, 26, 178, 5, text="Инженеры / геологи: [редактировать]", font_size_mm=2.8, color="#334155"),
+        _element("geo_separator", "line", 5, 34, 334, 0.1, color="#334155", width=0.5),
+        _element(
+            "geo_lithology_legend", "lithology_legend", 5, 38, 205, 50,
+            scope="all", columns=4, show_code=True, font_size_mm=2.25, color="#0f172a",
+        ),
+        _element(
+            "geo_lba_legend", "lba_legend", 213, 38, 126, 50,
+            font_size_mm=2.05, color="#0f172a",
+        ),
+    ),
+)
+
+
 COMPACT_HEADER = MasterlogHeaderPreset(
     "compact",
     _texts("Компактная", "Ықшам", "Compact"),
@@ -226,7 +271,12 @@ COMPACT_HEADER = MasterlogHeaderPreset(
     ),
 )
 
-BUILTIN_MASTERLOG_HEADER_PRESETS = (STANDARD_HEADER, LITHOLOGY_HEADER, COMPACT_HEADER)
+BUILTIN_MASTERLOG_HEADER_PRESETS = (
+    STANDARD_HEADER,
+    LITHOLOGY_HEADER,
+    GEOLOGICAL_GEOCHEMICAL_HEADER,
+    COMPACT_HEADER,
+)
 
 
 def _columns(
@@ -266,7 +316,92 @@ def _columns(
     return columns
 
 
+def _reference_drilling_column() -> MasterlogColumnTemplate:
+    curves = ["WOB", "ROP", "ROP_FAST", "DEXP"]
+    return MasterlogColumnTemplate(
+        "drilling_geotech",
+        "Нагрузка / скорость проходки / D-экспонента",
+        "curves",
+        58.0,
+        curves,
+        x_scale="linear",
+        show_legend=True,
+        curve_styles={
+            "WOB": MasterlogCurveStyle("#2563eb", 1.4, "solid", 0.0, 20.0),
+            "ROP": MasterlogCurveStyle("#dc2626", 1.3, "solid", 0.0, 100.0),
+            "ROP_FAST": MasterlogCurveStyle("#ef4444", 1.0, "dash", 0.0, 50.0),
+            "DEXP": MasterlogCurveStyle("#7c3aed", 1.4, "solid", 0.0, 3.0),
+        },
+        grid_x=True,
+        grid_y=True,
+        grid_major_divisions=5,
+        grid_minor_divisions=5,
+        grid_alpha=0.24,
+    )
+
+
+def _reference_gas_column() -> MasterlogColumnTemplate:
+    curves = ["C1", "C2", "C3", "C4", "IC4", "C5", "IC5", "TOTAL_GAS"]
+    palette = ("#dc2626", "#84cc16", "#22d3ee", "#fb923c", "#65a30d", "#9333ea", "#d946ef", "#ef4444")
+    return MasterlogColumnTemplate(
+        "component_gas",
+        "Газовые компоненты C1-C5 и сумма газов",
+        "curves",
+        72.0,
+        curves,
+        x_scale="logarithmic",
+        x_min=0.001,
+        x_max=100.0,
+        show_legend=True,
+        curve_styles={
+            mnemonic: MasterlogCurveStyle(color, 1.25, "solid", 0.001, 100.0)
+            for mnemonic, color in zip(curves, palette, strict=True)
+        },
+        grid_x=True,
+        grid_y=True,
+        grid_major_divisions=5,
+        grid_minor_divisions=10,
+        grid_alpha=0.23,
+    )
+
+
 BUILTIN_MASTERLOG_FORM_PRESETS = (
+    MasterlogFormPreset(
+        "geological_geochemical_reference",
+        _texts(
+            "Геолого-геохимический Masterlog",
+            "Геологиялық-геохимиялық Masterlog",
+            "Geological-geochemical Masterlog",
+        ),
+        _texts(
+            "Рабочая форма по образцу: стратиграфия, бурение, глубина, шламограмма, ЛБА, кальциметрия, литология, газ и описание пород.",
+            "Үлгі бойынша жұмыс пішіні: стратиграфия, бұрғылау, тереңдік, шламограмма, ЛБА, кальциметрия, литология, газ және жыныс сипаттамасы.",
+            "Reference working layout with stratigraphy, drilling, depth, cuttings, LBA, calcimetry, lithology, gas and rock description.",
+        ),
+        MasterlogTemplate(
+            "preset:geological_geochemical_reference",
+            "Geological-geochemical Masterlog",
+            header_height_mm=GEOLOGICAL_GEOCHEMICAL_HEADER.height_mm,
+            header_elements=list(deepcopy(GEOLOGICAL_GEOCHEMICAL_HEADER.elements)),
+            columns=[
+                MasterlogColumnTemplate("stratigraphy", "Стратиграфия", "stratigraphy", 20.0),
+                _reference_drilling_column(),
+                MasterlogColumnTemplate("depth", "Глубина, м", "depth", 14.0),
+                MasterlogColumnTemplate("cuttings", "Шламограмма, %", "cuttings", 34.0),
+                MasterlogColumnTemplate("lba", "ЛБА", "lba", 24.0),
+                MasterlogColumnTemplate("calcimetry", "Карбонатность / кальциметрия, %", "calcimetry", 28.0),
+                MasterlogColumnTemplate("lithology", "Литология", "lithology", 34.0),
+                _reference_gas_column(),
+                MasterlogColumnTemplate("description", "Описание пород и шлама", "cuttings_description", 112.0),
+            ],
+            properties={
+                "preset_origin": "geological_geochemical_reference",
+                "orientation": "landscape",
+                "reference_document": "Masterlog Akshabulak well 494",
+                "editable_columns": True,
+            },
+        ),
+    ),
     MasterlogFormPreset(
         "international_mudlog",
         _texts("Полевой Masterlog", "Далалық Masterlog", "Field Masterlog"),

@@ -479,10 +479,10 @@ class MasterlogTemplateController:
         properties: dict[str, Any],
     ) -> MasterlogHeaderElement:
         normalized_type = element_type.strip()
-        supported_types = {"text", "field", "image", "line", "lithology_legend"}
+        supported_types = {"text", "field", "image", "line", "lithology_legend", "lba_legend"}
         if not element_id or normalized_type not in supported_types:
             raise ValueError(
-                "Тип элемента шапки должен быть text, field, image, line или lithology_legend"
+                "Тип элемента шапки должен быть text, field, image, line, lithology_legend или lba_legend"
             )
         values = (x_mm, y_mm, width_mm, height_mm)
         if any(

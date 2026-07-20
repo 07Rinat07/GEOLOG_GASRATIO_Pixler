@@ -56,7 +56,7 @@ class HeaderElementDialog(QDialog):
         self.imported_assets: dict[str, ImageAsset] = {}
         self.setWindowTitle(self.localizer.text("masterlog_header.properties"))
         self.type_input = QComboBox()
-        self.type_input.addItems(["text", "field", "image", "line", "lithology_legend"])
+        self.type_input.addItems(["text", "field", "image", "line", "lithology_legend", "lba_legend"])
         if element:
             self.type_input.setCurrentText(element.element_type)
         self.inputs = [QDoubleSpinBox() for _ in range(4)]
@@ -89,7 +89,7 @@ class HeaderElementDialog(QDialog):
         self.font_size_input.setRange(1.0, 50.0)
         self.font_size_input.setDecimals(1)
         self.font_size_input.setValue(3.5)
-        if element and element.element_type in {"text", "field", "lithology_legend"}:
+        if element and element.element_type in {"text", "field", "lithology_legend", "lba_legend"}:
             text_color = element.properties.get("color")
             font_size = element.properties.get("font_size_mm")
             if isinstance(text_color, str):
@@ -188,7 +188,7 @@ class HeaderElementDialog(QDialog):
         self.field_input.setVisible(element_type == "field")
         self.line_color_input.setVisible(element_type == "line")
         self.line_width_input.setVisible(element_type == "line")
-        has_text_style = element_type in {"text", "field", "lithology_legend"}
+        has_text_style = element_type in {"text", "field", "lithology_legend", "lba_legend"}
         self.text_color_input.setVisible(has_text_style)
         self.font_size_input.setVisible(has_text_style)
         self.properties_input.setVisible(element_type == "image")
@@ -239,7 +239,7 @@ class HeaderElementDialog(QDialog):
     def values(self) -> tuple[str, float, float, float, float, dict[str, object]]:
         element_type = self.type_input.currentText()
         text_style: dict[str, object] = {}
-        if element_type in {"text", "field", "lithology_legend"}:
+        if element_type in {"text", "field", "lithology_legend", "lba_legend"}:
             color = QColor(self.text_color_input.text().strip())
             if not color.isValid():
                 raise ValueError(self.localizer.text("masterlog_header.invalid_text_color"))
@@ -271,6 +271,8 @@ class HeaderElementDialog(QDialog):
                 "show_code": self.legend_code_input.isChecked(),
                 **text_style,
             }
+        elif element_type == "lba_legend":
+            properties = text_style
         else:
             properties = json.loads(self.properties_input.text())
             if not isinstance(properties, dict):
@@ -365,6 +367,7 @@ class MasterlogHeaderDialog(QDialog):
             "image": QColor("#fef3c7"),
             "line": QColor("#e2e8f0"),
             "lithology_legend": QColor("#f3e8ff"),
+            "lba_legend": QColor("#ffedd5"),
         }
         for element in self.template.header_elements:
             item = QListWidgetItem(
@@ -466,6 +469,8 @@ class MasterlogHeaderDialog(QDialog):
             return resolved if resolved is not None else "{" + field_name + "}"
         if element.element_type == "lithology_legend":
             return self.localizer.text("masterlog_header.lithology_legend")
+        if element.element_type == "lba_legend":
+            return self.localizer.text("masterlog_header.lba_legend")
         return element.element_type
 
     def _selected(self) -> MasterlogHeaderElement | None:

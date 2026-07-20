@@ -38,6 +38,12 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
 from geoworkbench.printing.header_fields import resolve_header_field
 from geoworkbench.printing.image_asset_rendering import draw_image_asset
+from geoworkbench.printing.lba_visuals import (
+    LBA_TYPE_STYLES,
+    lba_intensity_name,
+    normalized_lba_intensity,
+    resolve_lba_type_style,
+)
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.lithology_legend import LithologyLegendEntry
@@ -439,6 +445,9 @@ def _paint_header_element(
         )
         _paint_lithology_legend(painter, rect, entries, element.properties, language)
         return
+    if element.element_type == "lba_legend":
+        _paint_lba_legend(painter, rect, element.properties, language)
+        return
     text = _header_text(element, session)
     color = _color(element.properties.get("color"), "#0f172a")
     size = element.properties.get("font_size_mm", 3.5)
@@ -620,6 +629,168 @@ def _paint_lithology_legend(
         )
     painter.restore()
 
+
+
+def _paint_lba_intensity_symbol(
+    painter: QPainter,
+    center_x: float,
+    center_y: float,
+    diameter: float,
+    color: QColor,
+    intensity: int | None,
+) -> None:
+    """Paint the conventional LBA point/ring symbol used by masterlogs."""
+
+    resolved = normalized_lba_intensity(intensity)
+    diameter = max(1.2, float(diameter))
+    radius = diameter / 2.0
+    symbol_rect = QRectF(center_x - radius, center_y - radius, diameter, diameter)
+    painter.save()
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    if resolved == 1:
+        dot = max(0.8, diameter * 0.24)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(color)
+        painter.drawEllipse(QRectF(center_x - dot / 2.0, center_y - dot / 2.0, dot, dot))
+    elif resolved == 2:
+        painter.setPen(QPen(color, max(0.25, diameter * 0.07), Qt.PenStyle.DashLine))
+        painter.drawEllipse(symbol_rect)
+    elif resolved == 3:
+        painter.setPen(QPen(color, max(0.25, diameter * 0.07)))
+        painter.drawEllipse(symbol_rect)
+    elif resolved == 4:
+        painter.setPen(QPen(color, max(0.5, diameter * 0.16)))
+        painter.drawEllipse(symbol_rect.adjusted(0.2, 0.2, -0.2, -0.2))
+    elif resolved == 5:
+        painter.setPen(QPen(color.darker(130), max(0.2, diameter * 0.05)))
+        painter.setBrush(color)
+        painter.drawEllipse(symbol_rect)
+    else:
+        painter.setPen(QPen(color, max(0.25, diameter * 0.07)))
+        painter.drawEllipse(symbol_rect)
+        painter.drawLine(symbol_rect.topLeft(), symbol_rect.bottomRight())
+        painter.drawLine(symbol_rect.topRight(), symbol_rect.bottomLeft())
+    painter.restore()
+
+
+def _paint_lba_legend(
+    painter: QPainter,
+    rect: QRectF,
+    properties: dict[str, object],
+    language: AppLanguage,
+) -> None:
+    titles = {
+        AppLanguage.RU: "ЛЮМИНЕСЦЕНТНО-БИТУМИНОЛОГИЧЕСКИЙ АНАЛИЗ (ЛБА)",
+        AppLanguage.KK: "ЛЮМИНЕСЦЕНТТІ-БИТУМНОЛОГИЯЛЫҚ ТАЛДАУ (ЛБА)",
+        AppLanguage.EN: "LUMINESCENT-BITUMEN ANALYSIS (LBA)",
+    }
+    type_titles = {
+        AppLanguage.RU: "Тип битумоида",
+        AppLanguage.KK: "Битумоид түрі",
+        AppLanguage.EN: "Bitumen type",
+    }
+    intensity_titles = {
+        AppLanguage.RU: "Интенсивность",
+        AppLanguage.KK: "Қарқындылық",
+        AppLanguage.EN: "Intensity",
+    }
+    raw_size = properties.get("font_size_mm", 2.4)
+    font_size = (
+        float(raw_size)
+        if isinstance(raw_size, (int, float)) and not isinstance(raw_size, bool)
+        else 2.4
+    )
+    color = _color(properties.get("color"), "#0f172a")
+    title_height = min(5.0, max(2.5, rect.height() * 0.18))
+    body = rect.adjusted(0.8, title_height + 0.4, -0.8, -0.6)
+    left = QRectF(body.left(), body.top(), body.width() * 0.58, body.height())
+    right = QRectF(left.right() + 0.5, body.top(), body.right() - left.right() - 0.5, body.height())
+
+    painter.save()
+    painter.setClipRect(rect)
+    painter.setPen(QPen(QColor("#64748b"), 0.2))
+    painter.drawRect(rect)
+    title_font = QFont()
+    title_font.setBold(True)
+    title_font.setPointSizeF(min(3.2, font_size + 0.5) * 72.0 / 25.4)
+    painter.setFont(title_font)
+    painter.setPen(color)
+    painter.drawText(
+        QRectF(rect.left() + 0.8, rect.top(), rect.width() - 1.6, title_height),
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+        titles[language],
+    )
+
+    body_font = QFont()
+    body_font.setPointSizeF(max(1.0, min(font_size, 8.0)) * 72.0 / 25.4)
+    painter.setFont(body_font)
+    heading_height = min(3.5, body.height() * 0.16)
+    painter.drawText(
+        QRectF(left.left(), left.top(), left.width(), heading_height),
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+        type_titles[language],
+    )
+    painter.drawText(
+        QRectF(right.left(), right.top(), right.width(), heading_height),
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+        intensity_titles[language],
+    )
+
+    type_area = left.adjusted(0.0, heading_height, 0.0, 0.0)
+    type_row_height = type_area.height() / len(LBA_TYPE_STYLES)
+    for index, style in enumerate(LBA_TYPE_STYLES):
+        row = QRectF(
+            type_area.left(),
+            type_area.top() + index * type_row_height,
+            type_area.width(),
+            type_row_height,
+        )
+        swatch = QRectF(
+            row.left() + 0.4,
+            row.top() + max(0.2, row.height() * 0.15),
+            min(8.0, row.width() * 0.18),
+            max(0.8, row.height() * 0.7),
+        )
+        painter.fillRect(swatch, QColor(style.color))
+        painter.setPen(QPen(QColor("#475569"), 0.15))
+        painter.drawRect(swatch)
+        painter.setPen(color)
+        painter.drawText(
+            QRectF(swatch.right() + 1.0, row.top(), row.right() - swatch.right() - 1.0, row.height()),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            f"{style.code} - {style.localized_name(language)}",
+        )
+
+    intensity_area = right.adjusted(0.0, heading_height, 0.0, 0.0)
+    intensity_row_height = intensity_area.height() / 5.0
+    for intensity in range(1, 6):
+        row = QRectF(
+            intensity_area.left(),
+            intensity_area.top() + (intensity - 1) * intensity_row_height,
+            intensity_area.width(),
+            intensity_row_height,
+        )
+        symbol_diameter = min(row.height() * 0.72, 5.0)
+        _paint_lba_intensity_symbol(
+            painter,
+            row.left() + symbol_diameter / 2.0 + 0.4,
+            row.center().y(),
+            symbol_diameter,
+            QColor("#92400e"),
+            intensity,
+        )
+        painter.setPen(color)
+        painter.drawText(
+            QRectF(
+                row.left() + symbol_diameter + 1.2,
+                row.top(),
+                max(0.1, row.width() - symbol_diameter - 1.2),
+                row.height(),
+            ),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            f"{intensity} - {lba_intensity_name(intensity, language)}",
+        )
+    painter.restore()
 
 def _paint_columns(
     painter: QPainter,
@@ -1069,44 +1240,69 @@ def _paint_lba_column(
     painter.save()
     painter.setClipRect(rect)
     font = QFont()
-    font.setPointSizeF(5.5)
+    font.setPointSizeF(5.0)
     painter.setFont(font)
     for sample in well.cuttings:
-        fields = [
-            f"G={sample.lba_group}" if sample.lba_group is not None else None,
-            sample.lba_type_id,
-            f"I={sample.lba_intensity}" if sample.lba_intensity is not None else None,
-            sample.lba_color,
-            sample.lba_distribution,
-            f"Cut={sample.lba_cut}" if sample.lba_cut else None,
-            sample.lba_cut_speed,
-            sample.lba_cut_color,
-            f"Residue={sample.lba_residue_type}" if sample.lba_residue_type else None,
-            sample.lba_residue_color,
-            f"Odour={sample.lba_odour}" if sample.lba_odour else None,
-            f"Stain={sample.lba_stain}" if sample.lba_stain else None,
-            sample.lba_description,
-            f"Interpretation={sample.analysis_interpretation}"
-            if sample.analysis_interpretation
-            else None,
-        ]
-        text = "; ".join(value for value in fields if value)
-        if not text or sample.bottom_depth < top or sample.top_depth > bottom:
+        if sample.bottom_depth < top or sample.top_depth > bottom:
+            continue
+        intensity = normalized_lba_intensity(sample.lba_intensity)
+        style = resolve_lba_type_style(sample.lba_type_id)
+        has_lba = any(
+            value not in (None, "")
+            for value in (
+                sample.lba_type_id,
+                sample.lba_intensity,
+                sample.lba_color,
+                sample.lba_distribution,
+                sample.lba_cut,
+                sample.lba_description,
+            )
+        )
+        if not has_lba:
             continue
         y_top = rect.top() + (max(top, sample.top_depth) - top) / (bottom - top) * rect.height()
         y_bottom = (
             rect.top() + (min(bottom, sample.bottom_depth) - top) / (bottom - top) * rect.height()
         )
         sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
-        painter.fillRect(sample_rect, QColor("#fef3c7"))
-        painter.setPen(QPen(QColor("#92400e"), 0.2))
+        painter.setPen(QPen(QColor("#cbd5e1"), 0.15))
         painter.drawRect(sample_rect)
-        if sample_rect.height() >= 3.0:
+        symbol_diameter = min(max(2.0, sample_rect.height() * 0.72), max(2.0, rect.width() * 0.42), 6.5)
+        _paint_lba_intensity_symbol(
+            painter,
+            sample_rect.center().x(),
+            sample_rect.center().y(),
+            symbol_diameter,
+            QColor(style.color),
+            intensity,
+        )
+        if sample_rect.height() >= 4.0 and rect.width() >= 10.0:
+            painter.setPen(QColor("#0f172a"))
             painter.drawText(
-                sample_rect.adjusted(0.5, 0.25, -0.5, -0.25),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
-                text,
+                QRectF(sample_rect.left() + 0.4, sample_rect.top(), sample_rect.width() * 0.34, sample_rect.height()),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                style.code,
             )
+        if sample_rect.height() >= 5.5 and rect.width() >= 18.0:
+            details = []
+            if intensity is not None:
+                details.append(str(intensity))
+            if sample.lba_color:
+                details.append(sample.lba_color)
+            if sample.lba_description:
+                details.append(sample.lba_description)
+            if details:
+                painter.setPen(QColor("#475569"))
+                painter.drawText(
+                    QRectF(
+                        sample_rect.center().x() + symbol_diameter / 2.0 + 0.5,
+                        sample_rect.top(),
+                        max(0.2, sample_rect.right() - sample_rect.center().x() - symbol_diameter / 2.0 - 0.8),
+                        sample_rect.height(),
+                    ),
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
+                    " ".join(details),
+                )
     painter.restore()
 
 

@@ -48,7 +48,7 @@ def test_factory_templates_are_read_only_and_copy_is_editable() -> None:
 
 def test_factory_templates_have_unique_ids() -> None:
     templates = factory_templates()
-    assert len(templates) == 10
+    assert len(templates) == 17
     assert len({item.form_id for item in templates.values()}) == len(templates)
     for form in templates.values():
         form.validate()
@@ -215,3 +215,54 @@ def test_repository_skips_damaged_form_without_blocking_manager(tmp_path) -> Non
     assert [item.name for item in forms] == ["Good"]
     assert len(repository.load_errors) == 1
     assert repository.load_errors[0][0].name == "broken.json"
+
+
+def test_factory_templates_include_engineering_form_library() -> None:
+    templates = factory_templates("ru")
+    expected = {
+        "factory-d-exponent",
+        "factory-drilling-technology",
+        "factory-lithology-cuttings",
+        "factory-calcimetry",
+        "factory-lba",
+        "factory-geotech-integrated",
+        "factory-engineering-control-time",
+    }
+    assert expected.issubset(templates)
+    assert all(templates[item].read_only for item in expected)
+
+    lithology = templates["factory-lithology-cuttings"]
+    kinds = {track.kind for column in lithology.columns for track in column.tracks}
+    assert {TrackKind.LITHOLOGY, TrackKind.CUTTINGS, TrackKind.STRATIGRAPHY, TrackKind.TEXT}.issubset(kinds)
+
+    geotech = templates["factory-geotech-integrated"]
+    canonical = {
+        binding.canonical_parameter_id
+        for column in geotech.columns
+        for track in column.tracks
+        for binding in track.bindings
+    }
+    assert {"ROP", "TOTAL_GAS", "C1", "C2", "C3", "DEXP", "D_EXP_CORR"}.issubset(canonical)
+
+    engineering_time = templates["factory-engineering-control-time"]
+    assert engineering_time.axis_kind is FormAxisKind.TIME
+    engineering_canonical = {
+        binding.canonical_parameter_id
+        for column in engineering_time.columns
+        for track in column.tracks
+        for binding in track.bindings
+    }
+    assert {"WOB", "ROP", "SPP", "TOTAL_GAS", "PIT_VOL", "MW_IN", "MW_OUT"}.issubset(
+        engineering_canonical
+    )
+
+
+def test_engineering_form_library_is_localized_with_stable_ids() -> None:
+    ru = factory_templates("ru")
+    kk = factory_templates("kk")
+    en = factory_templates("en")
+    form_id = "factory-lithology-cuttings"
+    assert ru[form_id].form_id == kk[form_id].form_id == en[form_id].form_id
+    assert ru[form_id].name == "Литология и шламограмма"
+    assert kk[form_id].name == "Литология және шламограмма"
+    assert en[form_id].name == "Lithology and cuttings log"

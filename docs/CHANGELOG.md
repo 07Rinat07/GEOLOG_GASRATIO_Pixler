@@ -614,3 +614,63 @@
 - Добавлены интервалы глубины 10–100 м и произвольный ввод с синхронным применением ко всем колонкам.
 - Исправлена синхронизация поля масштаба с фактически видимым диапазоном.
 - Улучшены многострочные заголовки кривых и читаемое название многопараметрической колонки.
+
+## Unreleased — engineering form library, first slice
+
+### Русский
+
+- добавлены заводские формы d-экспоненты, технологии бурения, литологии и шламограммы, кальциметрии, ЛБА и комплексная геолого-технологическая форма;
+- новые формы используют существующие специальные дорожки и канонические ParameterBinding;
+- заводские формы защищены, а редактирование выполняется через сохраняемую пользовательскую копию;
+- названия и структура локализованы на RU/KK/EN без изменения стабильных идентификаторов;
+- обновлены план и статус следующего этапа Form Engine.
+
+### Қазақша
+
+- d-экспонента, бұрғылау технологиясы, литология және шламограмма, кальциметрия, ЛБА және кешенді геологиялық-технологиялық зауыттық пішіндер қосылды;
+- жаңа пішіндер бар арнайы жолдарды және канондық ParameterBinding байланыстарын пайдаланады;
+- зауыттық пішіндер қорғалған, өңдеу сақталатын пайдаланушы көшірмесі арқылы орындалады;
+- атаулар мен құрылым тұрақты идентификаторларды өзгертпей RU/KK/EN тілдерінде локализацияланды;
+- Form Engine келесі кезеңінің жоспары мен күйі жаңартылды.
+
+### English
+
+- added factory forms for D-exponent, drilling technology, lithology and cuttings, calcimetry, LBA, and an integrated geological-technological workflow;
+- the new forms reuse the existing special track kinds and canonical ParameterBinding model;
+- factory forms remain protected while editing is performed through a persistent user copy;
+- names and structure are localized for RU/KK/EN without changing stable identifiers;
+- updated the plan and status for the next Form Engine stage.
+
+## Unreleased - reference Masterlog and visual LBA
+
+### Русский
+
+- добавлен заводской геолого-геохимический Masterlog со стратиграфией, бурением, глубиной,
+  шламограммой, ЛБА, кальциметрией, литологией, компонентным газом и описанием пород;
+- добавлена редактируемая шапка с литологической и ЛБА-легендой;
+- ЛБА отображается цветными условными знаками: тип битумоида задаётся цветом, интенсивность 1-5 -
+  формой и толщиной точки/кольца;
+- поддерживаются коды ЛБ/МБ/МСБ/СБ/САБ и LB/LOB/MOB/HOB/VHO;
+- добавлена временная заводская форма инженерно-технологического контроля;
+- новые пресеты остаются защищёнными и используются как основа пользовательских копий.
+
+### Қазақша
+
+- стратиграфия, бұрғылау, тереңдік, шламограмма, ЛБА, кальциметрия, литология, компоненттік газ
+  және жыныс сипаттамасы бар зауыттық геологиялық-геохимиялық Masterlog қосылды;
+- литологиялық және ЛБА шартты белгілері бар өңделетін тақырып қосылды;
+- ЛБА битумоид түрін түспен, ал 1-5 қарқындылығын нүкте/сақина пішінімен көрсетеді;
+- ЛБ/МБ/МСБ/СБ/САБ және LB/LOB/MOB/HOB/VHO кодтары қолдау табады;
+- инженерлік-технологиялық бақылаудың уақыттық зауыттық пішіні қосылды;
+- жаңа үлгілер қорғалған және пайдаланушы көшірмелерінің негізі ретінде қолданылады.
+
+### English
+
+- added a factory geological-geochemical Masterlog with stratigraphy, drilling, depth, cuttings,
+  LBA, calcimetry, lithology, component gas and rock descriptions;
+- added an editable header with lithology and LBA legends;
+- LBA now uses visual symbols: bitumen type is color-coded and intensity 1-5 is represented by
+  point/ring geometry and weight;
+- supports both ЛБ/МБ/МСБ/СБ/САБ and LB/LOB/MOB/HOB/VHO codes;
+- added a factory time-based engineering-control form;
+- the new presets remain protected and serve as bases for editable user copies.

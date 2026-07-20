@@ -967,5 +967,6 @@
   "visual_export.select_view": "Откройте вкладку графика или планшета",
   "visual_export.success": "Визуализация экспортирована: {name}",
   "visual_export.svg_action": "Экспортировать текущий график/планшет в SVG...",
-  "visual_export.title": "Экспорт визуализации"
+  "visual_export.title": "Экспорт визуализации",
+  "masterlog_header.lba_legend": "Легенда ЛБА"
 }

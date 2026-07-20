@@ -273,3 +273,16 @@ def test_header_preview_resolves_whitelisted_field_and_marks_unknown(qapp) -> No
     assert dialog._preview_text(known) == "Новый проект"
     assert dialog._preview_text(unknown) == "{project.secret}"
     dialog.close()
+
+
+def test_header_element_dialog_builds_lba_legend_properties(qapp) -> None:
+    dialog = HeaderElementDialog(language=AppLanguage.EN)
+    dialog.type_input.setCurrentText("lba_legend")
+    dialog.text_color_input.setText("#553311")
+    dialog.font_size_input.setValue(2.2)
+
+    assert dialog.values()[-1] == {
+        "color": "#553311",
+        "font_size_mm": 2.2,
+    }
+    dialog.close()
