@@ -24,6 +24,16 @@ live preview. The mnemonic-based setting is stored separately for the active eng
 It changes display only: editing opens the full decimal value, CSV keeps full precision, and
 Excel keeps both the numeric type and its cell format.
 
+## Automatic LAS parameter mapping
+
+LAS column order does not carry semantic meaning. The application resolves base parameters from
+the original and canonical mnemonic, the Sensors catalog, description, chemical formula, and
+unit. Common variants such as `C1/С1/CH4/METHANE`, `C2/C2H6/ETHANE`, and
+`C3/C3H8/PROPANE`, C4–C5 components, Total Gas, drilling, mud, and basic petrophysical curves
+are supported. Equally confident duplicate channels are reported as ambiguous rather than chosen
+at random. Gas Ratio converts `%`, `ppm`, `ppb`, and fractions to a compatible scale. See
+[LAS parameter recognition](LAS_PARAMETER_RESOLUTION.md).
+
 ## LAS export
 
 The export dialog configures LAS 1.2/2.0, WRAP, NULL, precision, and custom-section

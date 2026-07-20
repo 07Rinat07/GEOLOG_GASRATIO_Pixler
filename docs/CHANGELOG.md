@@ -1,3 +1,38 @@
+## Unreleased — semantic LAS parameter resolver
+
+### Русский
+
+- добавлен единый resolver базовых LAS-параметров, независимый от порядка колонок;
+- используются исходная/каноническая мнемоника, Sensors-каталог, RU/KK/EN-описание, химическая формула и единица;
+- поддерживаются кириллические омоглифы (`С1` → `C1`), дефисы, пробелы, подчёркивания и служебные суффиксы;
+- Gas Ratio больше не зависит от локального списка точных имён `C1/C2/C3`;
+- `%`, `ppm`, `ppb` и доли приводятся к общей процентной шкале;
+- одинаково уверенные дублирующие каналы блокируются как неоднозначные;
+- при импорте сохраняется исходная мнемоника, а каноническая заполняется только при уверенном распознавании;
+- полный регрессионный прогон: `884 passed, 1 skipped`; Ruff проходит без ошибок.
+
+### Қазақша
+
+- баған ретіне тәуелсіз бірыңғай LAS параметр resolver қосылды;
+- бастапқы/канондық мнемоника, Sensors анықтамалығы, RU/KK/EN сипаттамасы, химиялық формула және өлшем бірлігі қолданылады;
+- кирилл омоглифтері (`С1` → `C1`), дефис, бос орын, астын сызу және қызметтік суффикстер қолдау табады;
+- Gas Ratio енді `C1/C2/C3` дәл атауларының жергілікті тізіміне тәуелді емес;
+- `%`, `ppm`, `ppb` және үлестер бірыңғай пайыздық шкалаға келтіріледі;
+- бірдей сенімді қайталанатын арналар екіұшты ретінде тоқтатылады;
+- импорт кезінде бастапқы мнемоника сақталып, канондық атау тек сенімді танылғанда жазылады;
+- толық регрессиялық тексеру: `884 passed, 1 skipped`; Ruff қатесіз өтеді.
+
+### English
+
+- added one semantic LAS parameter resolver independent of column order;
+- matching uses original/canonical mnemonics, the Sensors catalog, RU/KK/EN descriptions, chemical formulas, and units;
+- supports Cyrillic homoglyphs (`С1` → `C1`), hyphens, spaces, underscores, and acquisition suffixes;
+- Gas Ratio no longer depends on a local list of exact `C1/C2/C3` names;
+- `%`, `ppm`, `ppb`, and fractions are normalized to one percent scale;
+- equally confident duplicate channels are blocked as ambiguous;
+- import preserves the original mnemonic and assigns a canonical name only at sufficient confidence;
+- full regression suite: `884 passed, 1 skipped`; Ruff passes without errors.
+
 ## Unreleased — universal Print and Export Center
 
 ### Русский

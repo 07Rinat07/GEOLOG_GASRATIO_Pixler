@@ -386,3 +386,33 @@ def test_import_las_passes_detected_cp866_encoding_to_parser(tmp_path, monkeypat
     assert captured["encoding"] == "cp866"
     assert captured["encoding_errors"] == "replace"
     assert captured["autodetect_encoding"] is False
+
+
+def test_import_las_canonicalizes_vendor_gas_channels_from_description(
+    tmp_path, monkeypatch
+) -> None:
+    source = tmp_path / "vendor-gas.las"
+    source.write_text("fake", encoding="utf-8")
+
+    class VendorGasLas(FakeLas):
+        curves = [
+            FakeHeaderItem("DEPT", unit="m", descr="Depth"),
+            FakeHeaderItem("S800", unit="%", descr="Содержание метана"),
+            FakeHeaderItem("ETH", unit="ppm", descr="Ethane content"),
+            FakeHeaderItem("PROP_GAS", unit="%", descr="Propane content"),
+        ]
+        _values = {
+            "S800": np.array([1.0, 2.0]),
+            "ETH": np.array([1000.0, 2000.0]),
+            "PROP_GAS": np.array([0.1, 0.2]),
+        }
+
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.lasio.read", lambda *args, **kwargs: VendorGasLas()
+    )
+
+    dataset = import_las(source)
+
+    assert dataset.curve_by_mnemonic("S800").metadata.canonical_mnemonic == "C1"
+    assert dataset.curve_by_mnemonic("ETH").metadata.canonical_mnemonic == "C2"
+    assert dataset.curve_by_mnemonic("PROP_GAS").metadata.canonical_mnemonic == "C3"

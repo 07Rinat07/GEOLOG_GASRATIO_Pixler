@@ -8,19 +8,7 @@ from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_import_report import LasImportReport
 from geoworkbench.tablet.models import TabletLayout
 from geoworkbench.printing.image_assets import ImageAsset
-
-
-ALIASES: dict[str, tuple[str, ...]] = {
-    "C1": ("C1", "CH4", "METHANE"),
-    "C2": ("C2", "ETHANE"),
-    "C3": ("C3", "PROPANE"),
-    "IC4": ("IC4", "I-C4", "ISOBUTANE"),
-    "NC4": ("NC4", "N-C4", "BUTANE"),
-    "C4": ("C4",),
-    "IC5": ("IC5", "I-C5", "ISOPENTANE"),
-    "NC5": ("NC5", "N-C5", "PENTANE"),
-    "C5": ("C5",),
-}
+from geoworkbench.services.las_parameter_resolver import resolve_gas_ratio_inputs
 
 
 @dataclass(slots=True)
@@ -86,15 +74,11 @@ class ProjectSession:
         if dataset is None:
             raise RuntimeError("Сначала откройте LAS-файл")
 
-        inputs: dict[str, object] = {}
-        for canonical, aliases in ALIASES.items():
-            for alias in aliases:
-                curve = dataset.curve_by_mnemonic(alias)
-                if curve is not None:
-                    inputs[canonical] = curve.values
-                    break
-
-        results = calculate_basic_ratios(inputs)  # type: ignore[arg-type]
+        # Resolve by semantic meaning instead of relying on column order or a small
+        # hard-coded list of exact LAS mnemonics. The resolver uses the Sensors catalog,
+        # multilingual descriptions, chemical formulas, units and controlled aliases.
+        inputs = resolve_gas_ratio_inputs(dataset)
+        results = calculate_basic_ratios(inputs)
         created: list[str] = []
         for result in results.values():
             dataset.upsert_curve(

@@ -38,6 +38,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.tablet.layout_codec import TabletLayoutFormatError, layout_from_dict
 from geoworkbench.tablet.models import TabletLayout
+from geoworkbench.catalogs.sensors import normalize_sensor_key
 from geoworkbench.storage.project_migrations import (
     ProjectMigrationError,
     migrate_project_payload,
@@ -51,6 +52,7 @@ from geoworkbench.data.las_import_report import (
     validate_import_report,
 )
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
+from geoworkbench.services.las_parameter_resolver import infer_canonical_mnemonic
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 from geoworkbench.printing.image_assets import ImageAsset, ImageAssetError, load_image_assets
 from geoworkbench.storage.source_artifacts import (
@@ -93,16 +95,33 @@ def _required_int(data: dict[str, Any], key: str) -> int:
 
 def _curve_from_dict(data: dict[str, Any]) -> CurveData:
     metadata_data = _required(data, "metadata", dict)
+    original_mnemonic = clean_mnemonic(_required(metadata_data, "original_mnemonic", str))
+    stored_canonical = (
+        clean_mnemonic(metadata_data.get("canonical_mnemonic"))
+        if metadata_data.get("canonical_mnemonic")
+        else None
+    )
+    unit = clean_display_text(metadata_data.get("unit")) or None
+    description = clean_display_text(metadata_data.get("description")) or None
+    inferred_canonical = infer_canonical_mnemonic(
+        original_mnemonic,
+        description=description or "",
+        unit=unit or "",
+    )
+    # Old project versions often stored original.upper() as the canonical value. Upgrade
+    # only that placeholder. A canonical name explicitly different from the original is a
+    # user/catalog decision and must remain authoritative.
+    canonical_mnemonic = stored_canonical
+    if not stored_canonical or normalize_sensor_key(stored_canonical) == normalize_sensor_key(
+        original_mnemonic
+    ):
+        canonical_mnemonic = inferred_canonical or stored_canonical
     metadata = CurveMetadata(
         curve_id=str(_required(metadata_data, "curve_id", str)),
-        original_mnemonic=clean_mnemonic(_required(metadata_data, "original_mnemonic", str)),
-        canonical_mnemonic=(
-            clean_mnemonic(metadata_data.get("canonical_mnemonic"))
-            if metadata_data.get("canonical_mnemonic")
-            else None
-        ),
-        unit=clean_display_text(metadata_data.get("unit")) or None,
-        description=clean_display_text(metadata_data.get("description")) or None,
+        original_mnemonic=original_mnemonic,
+        canonical_mnemonic=canonical_mnemonic,
+        unit=unit,
+        description=description,
         source_dataset_id=str(_required(metadata_data, "source_dataset_id", str)),
         provenance=str(metadata_data.get("provenance", "source")),
     )

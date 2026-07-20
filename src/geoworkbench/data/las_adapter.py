@@ -38,6 +38,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection, analyze_depth_axis
 from geoworkbench.services.index_detection import IndexColumn, detect_index_candidates
+from geoworkbench.services.las_parameter_resolver import infer_canonical_mnemonic
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 
 
@@ -125,17 +126,24 @@ def import_las_with_report(
         for item in list(las.curves)[1:]:
             raw_mnemonic = str(item.mnemonic)
             mnemonic = clean_mnemonic(raw_mnemonic)
+            unit = clean_display_text(item.unit) if item.unit else ""
+            description = clean_display_text(item.descr) if item.descr else ""
             values = np.asarray(las[raw_mnemonic], dtype=np.float64).copy()
             if values.shape != depth.shape:
                 raise ValueError(f"Размер кривой {mnemonic} не совпадает со шкалой глубины")
             curve_id = new_id()
+            canonical = infer_canonical_mnemonic(
+                mnemonic,
+                description=description,
+                unit=unit,
+            )
             dataset.curves[curve_id] = CurveData(
                 metadata=CurveMetadata(
                     curve_id=curve_id,
                     original_mnemonic=mnemonic,
-                    canonical_mnemonic=mnemonic.upper(),
-                    unit=clean_display_text(item.unit) if item.unit else None,
-                    description=clean_display_text(item.descr) if item.descr else None,
+                    canonical_mnemonic=canonical or mnemonic.upper(),
+                    unit=unit or None,
+                    description=description or None,
                     source_dataset_id=dataset_id,
                 ),
                 values=values,

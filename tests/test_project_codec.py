@@ -614,3 +614,46 @@ def test_legacy_project_curve_metadata_repairs_cp866_mojibake() -> None:
 
     assert curve.metadata.description == "Скорость бурения"
     assert curve.metadata.unit == "м/ч"
+
+
+def test_curve_codec_upgrades_legacy_vendor_canonical_placeholder() -> None:
+    curve = _curve_from_dict(
+        {
+            "metadata": {
+                "curve_id": "curve-legacy-eth",
+                "original_mnemonic": "ETH",
+                "canonical_mnemonic": "ETH",
+                "unit": "ppm",
+                "description": "Ethane content",
+                "source_dataset_id": "dataset-1",
+                "provenance": "source",
+            },
+            "values": [100.0, 200.0],
+            "version": 1,
+            "state": "current",
+        }
+    )
+
+    assert curve.metadata.original_mnemonic == "ETH"
+    assert curve.metadata.canonical_mnemonic == "C2"
+
+
+def test_curve_codec_preserves_explicit_manual_canonical_mapping() -> None:
+    curve = _curve_from_dict(
+        {
+            "metadata": {
+                "curve_id": "curve-manual",
+                "original_mnemonic": "CHANNEL_17",
+                "canonical_mnemonic": "C3",
+                "unit": "%",
+                "description": "Vendor channel",
+                "source_dataset_id": "dataset-1",
+                "provenance": "source",
+            },
+            "values": [1.0, 2.0],
+            "version": 1,
+            "state": "current",
+        }
+    )
+
+    assert curve.metadata.canonical_mnemonic == "C3"

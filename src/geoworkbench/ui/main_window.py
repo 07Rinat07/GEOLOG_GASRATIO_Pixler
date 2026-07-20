@@ -133,6 +133,7 @@ from geoworkbench.ui.print_page_dialog import PrintPageDialog
 from geoworkbench.ui.masterlog_templates_dialog import MasterlogTemplatesDialog
 from geoworkbench.visualization.curve_view import CurveView
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
+from geoworkbench.services.las_parameter_resolver import ParameterResolutionError
 from geoworkbench.services.localization import (
     LANGUAGE_NAMES,
     AppLanguage,
@@ -2569,6 +2570,12 @@ class MainWindow(QMainWindow):
     def calculate_ratios(self) -> None:
         try:
             created = self.session.calculate_basic_gas_ratios()
+        except ParameterResolutionError as exc:
+            key = f"ratio.parameter_{exc.code}"
+            error = self._t(key, **exc.values) if key in self.localizer.catalog else str(exc)
+            QMessageBox.warning(self, self._t("ratio.title"), error)
+            self._log(self._t("ratio.failed", error=error))
+            return
         except (RuntimeError, KeyError, ValueError) as exc:
             QMessageBox.warning(self, self._t("ratio.title"), str(exc))
             self._log(self._t("ratio.failed", error=str(exc)))

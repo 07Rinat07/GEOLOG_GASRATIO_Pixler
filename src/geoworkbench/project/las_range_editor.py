@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.las_parameter_resolver import ParameterResolutionError
 from geoworkbench.services.edit_history import CurveEditCommand
 from geoworkbench.services.dataset_selection import depth_interval_indices
 
@@ -326,7 +327,7 @@ class LasRangeEditingController:
     def _after_change(self) -> None:
         try:
             self.session.calculate_basic_gas_ratios()
-        except KeyError:
+        except (KeyError, ParameterResolutionError):
             self.session.dirty = True
 
     def _selected_indices(self, depth_top: float, depth_bottom: float) -> NDArray[np.int64]:
