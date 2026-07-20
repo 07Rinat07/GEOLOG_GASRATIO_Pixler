@@ -52,6 +52,7 @@ def test_main_window_uses_selected_language_for_shell(qapp) -> None:
     assert window.default_tablet_action.text() == "Build default log display"
     assert window.normalize_depth_action.text() == "Create a copy with ascending depth..."
     assert window.ratio_action.text() == "Calculate basic Gas Ratios"
+    assert window.print_center_action.text() == "Print and export center..."
     tablet_menu_action = next(
         action for action in window.menuBar().actions() if action.text() == "Log layout"
     )
@@ -103,6 +104,7 @@ def test_language_switch_retranslates_open_interface_without_restart(qapp) -> No
     assert window.project_dock.windowTitle() == kk.text("dock.project")
     assert window.open_project_action.text() == kk.text("shell.open_project")
     assert window.open_data_action.text() == kk.text("import.universal")
+    assert window.print_center_action.text() == kk.text("print_center.action")
     assert window.default_tablet_action.text() == kk.text("tablet.build_default")
     assert window.curve_browser.search_input.placeholderText() == kk.text("curve_browser.search")
     assert window.las_table_editor.hint.text() == kk.text("table.hint")

@@ -157,3 +157,19 @@ def test_corrupt_table_number_formats_are_ignored() -> None:
     assert UserProfileSettings(storage).table_number_formats() == {
         "curve:c1": NumberDisplayFormat(NumberFormatMode.FIXED, 6)
     }
+
+
+def test_print_export_preferences_roundtrip() -> None:
+    from geoworkbench.printing.print_job import PrintExportPreferences, PrintOutputFormat
+
+    storage = MemorySettings()
+    settings = UserProfileSettings(storage)
+    expected = PrintExportPreferences(
+        output_format=PrintOutputFormat.JPEG,
+        dpi=600,
+        image_quality=84,
+    )
+
+    settings.save_print_export_preferences(expected)
+
+    assert settings.print_export_preferences() == expected

@@ -83,3 +83,17 @@ Legacy user forms and Sensors catalogs can contain `0 .. 0` ranges, reversed bou
 bound. These records no longer block opening or switching forms: reversed finite bounds are ordered,
 while incomplete, equal, non-finite, and invalid logarithmic ranges fall back to autoscale. A damaged
 user-form JSON file is skipped without deletion and does not make the remaining forms unavailable.
+
+## A4 form print layout
+
+All factory and user forms use one adaptive print renderer. The Form Manager selects
+**A4 — portrait** or **A4 — landscape**, while “Auto-fit columns” balances every visible track
+across the sheet width. The depth column keeps its own readable minimum, an excessively wide
+screen track cannot consume the full sheet, and horizontally scrolled off-screen columns are
+printed as well. Print preview and PDF export restore the original screen widths and do not alter
+the project layout. Disabling auto-fit preserves the form's original proportions.
+
+
+## Universal Print and Export Center
+
+All factory and user forms use one page renderer. Form Manager can send the selected compatible form directly to the Print and Export Center. The center supports the native physical printer, PDF, PNG, JPEG/JPG, TIFF, BMP, WebP, and SVG. It provides A4, A3, custom and roll media, portrait/landscape orientation, four independent margins, 72–600 DPI, and JPEG/WebP quality. Raster output is generated at the physical paper pixel dimensions for the selected DPI. Every visible track is printed, including tracks outside the horizontal viewport; temporary print widths are restored after rendering.

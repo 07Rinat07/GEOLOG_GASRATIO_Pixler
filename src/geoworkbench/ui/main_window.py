@@ -4,8 +4,8 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QSize, QStandardPaths, Qt
-from PySide6.QtGui import QAction, QActionGroup, QIcon, QPainter, QPen, QPixmap
-from PySide6.QtPrintSupport import QPrintPreviewDialog, QPrinter
+from PySide6.QtGui import QAction, QActionGroup, QIcon, QPageLayout, QPainter, QPen, QPixmap
+from PySide6.QtPrintSupport import QPrintDialog, QPrintPreviewDialog, QPrinter
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -49,6 +49,7 @@ from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.data.selection_export import SelectionExportError
 from geoworkbench.data.visualization_export import (
     VisualizationExportError,
+    export_widget_page_image,
     export_widget_pdf,
     export_widget_png,
     export_widget_svg,
@@ -81,6 +82,7 @@ from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
+from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.widget_print import render_widget_to_printer
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
@@ -122,6 +124,7 @@ from geoworkbench.ui.new_las_dialog import NewLasDialog
 from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
 from geoworkbench.ui.las_curve_browser import LasCurveBrowser
+from geoworkbench.ui.print_center_dialog import PrintCenterDialog
 from geoworkbench.ui.print_page_dialog import PrintPageDialog
 from geoworkbench.ui.masterlog_templates_dialog import MasterlogTemplatesDialog
 from geoworkbench.visualization.curve_view import CurveView
@@ -190,6 +193,7 @@ class MainWindow(QMainWindow):
         self._selected_track_id: str | None = None
         self._interpretation_dialog: InterpretationIntervalsDialog | None = None
         self.print_page_settings = self.user_profile_settings.print_page_settings()
+        self.print_export_preferences = self.user_profile_settings.print_export_preferences()
         self.cursor_line_settings = self.user_profile_settings.cursor_line_settings()
         self.setWindowIcon(application_icon())
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
@@ -590,6 +594,11 @@ class MainWindow(QMainWindow):
         export_excel_action = self._localized_action("selection_export.excel_action")
         export_excel_action.triggered.connect(self.export_selected_excel)
         file_menu.addAction(export_excel_action)
+        self.print_center_action = self._localized_action("print_center.action")
+        self.print_center_action.setShortcut("Ctrl+P")
+        self.print_center_action.triggered.connect(self.open_print_center)
+        file_menu.addAction(self.print_center_action)
+        print_menu.addAction(self.print_center_action)
         export_png_action = self._localized_action("visual_export.png_action")
         export_png_action.triggered.connect(lambda: self.export_active_visualization("png"))
         file_menu.addAction(export_png_action)
@@ -1103,6 +1112,7 @@ class MainWindow(QMainWindow):
             profile = self.user_profile_settings.select(profiles[index].profile_id)
         self.statusBar().showMessage(self._t("profile.active", name=profile.display_name))
         self.print_page_settings = self.user_profile_settings.print_page_settings()
+        self.print_export_preferences = self.user_profile_settings.print_export_preferences()
         self.las_table_editor.set_number_formats(self.user_profile_settings.table_number_formats())
 
     def open_las(self) -> None:
@@ -1579,6 +1589,138 @@ class MainWindow(QMainWindow):
         )
         return True if answer == QMessageBox.StandardButton.Yes else None
 
+    def open_print_center(
+        self,
+        _checked: bool = False,
+        *,
+        widget=None,
+        source_name: str | None = None,
+    ) -> None:
+        current = widget or self.tabs.currentWidget()
+        if current not in (self.curve_view, self.tablet_view):
+            QMessageBox.information(
+                self,
+                self._t("print_center.title"),
+                self._t("visual_export.select_view"),
+            )
+            return
+        resolved_name = source_name or (
+            self._t("print_center.tablet_source")
+            if current is self.tablet_view
+            else self._t("print_center.curves_source")
+        )
+        dialog = PrintCenterDialog(
+            self,
+            initial_page=self.print_page_settings,
+            initial_preferences=self.print_export_preferences,
+            language=self.language,
+            source_name=resolved_name,
+            preview_callback=lambda job: self._preview_print_job(current, job),
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        job = dialog.job_settings()
+        self.print_page_settings = job.page
+        self.print_export_preferences = dialog.preferences()
+        self.user_profile_settings.save_print_page_settings(job.page)
+        self.user_profile_settings.save_print_export_preferences(
+            self.print_export_preferences
+        )
+        self._execute_print_job(current, job)
+
+    def _configured_printer(self, widget, job: PrintJobSettings) -> QPrinter:
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer.setResolution(job.dpi)
+        printer.setPageSize(
+            job.page.page_size_for_content(widget.width(), widget.height())
+        )
+        printer.setPageOrientation(job.page.qt_orientation)
+        printer.setPageMargins(job.page.qt_margins, QPageLayout.Unit.Millimeter)
+        return printer
+
+    def _preview_print_job(self, widget, job: PrintJobSettings) -> None:
+        printer = self._configured_printer(widget, job)
+        preview = QPrintPreviewDialog(printer, self)
+        preview.setWindowTitle(self._t("print.preview_title"))
+        preview.paintRequested.connect(
+            lambda requested: render_widget_to_printer(
+                widget,
+                requested,
+                fit_form_columns=job.page.fit_form_columns,
+            )
+        )
+        preview.exec()
+
+    def _execute_print_job(self, widget, job: PrintJobSettings) -> None:
+        try:
+            if job.output_format is PrintOutputFormat.PRINTER:
+                printer = self._configured_printer(widget, job)
+                dialog = QPrintDialog(printer, self)
+                dialog.setWindowTitle(self._t("print_center.physical_printer"))
+                if dialog.exec() != QDialog.DialogCode.Accepted:
+                    return
+                render_widget_to_printer(
+                    widget,
+                    printer,
+                    fit_form_columns=job.page.fit_form_columns,
+                )
+                message = self._t("print_center.print_success")
+            else:
+                target = job.normalized_target()
+                if target is None:
+                    raise ValueError(self._t("print_center.choose_file_error"))
+                overwrite = self._confirm_print_overwrite(target)
+                if overwrite is None:
+                    return
+                if job.output_format is PrintOutputFormat.PDF:
+                    exported = export_widget_pdf(
+                        widget,
+                        target,
+                        overwrite=overwrite,
+                        page_settings=job.page,
+                        dpi=job.dpi,
+                    )
+                elif job.output_format is PrintOutputFormat.SVG:
+                    exported = export_widget_svg(
+                        widget,
+                        target,
+                        overwrite=overwrite,
+                        page_settings=job.page,
+                    )
+                else:
+                    exported = export_widget_page_image(
+                        widget,
+                        target,
+                        output_format=job.output_format,
+                        page_settings=job.page,
+                        dpi=job.dpi,
+                        quality=job.image_quality,
+                        overwrite=overwrite,
+                    )
+                message = self._t("print_center.export_success", name=exported.name)
+        except (FileExistsError, OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.critical(self, self._t("print_center.title"), str(exc))
+            self._log(self._t("print_center.failed", error=str(exc)))
+            return
+        self._log(message)
+        self.statusBar().showMessage(message)
+
+    def _confirm_print_overwrite(self, target: Path) -> bool | None:
+        if not target.exists():
+            return False
+        answer = QMessageBox.question(
+            self,
+            self._t("print_center.title"),
+            self._t("export.overwrite_question", name=target.name),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return True if answer == QMessageBox.StandardButton.Yes else None
+
+    def _print_form_from_manager(self, form) -> None:
+        self.apply_form_to_tablet(form, mark_dirty=False, notify=False)
+        self.open_print_center(widget=self.tablet_view, source_name=form.name)
+
     def export_active_visualization(self, export_format: str) -> None:
         current = self.tabs.currentWidget()
         if current not in (self.curve_view, self.tablet_view):
@@ -1641,17 +1783,15 @@ class MainWindow(QMainWindow):
                 self._t("visual_export.select_view"),
             )
             return
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        printer.setPageSize(
-            self.print_page_settings.page_size_for_content(current.width(), current.height())
+        self._preview_print_job(
+            current,
+            PrintJobSettings(
+                output_format=PrintOutputFormat.PRINTER,
+                page=self.print_page_settings,
+                dpi=self.print_export_preferences.dpi,
+                image_quality=self.print_export_preferences.image_quality,
+            ),
         )
-        printer.setPageOrientation(self.print_page_settings.qt_orientation)
-        dialog = QPrintPreviewDialog(printer, self)
-        dialog.setWindowTitle(self._t("print.preview_title"))
-        dialog.paintRequested.connect(
-            lambda requested_printer: render_widget_to_printer(current, requested_printer)
-        )
-        dialog.exec()
 
     def configure_print_page(self) -> None:
         dialog = PrintPageDialog(
@@ -1995,10 +2135,24 @@ class MainWindow(QMainWindow):
             preview_callback=lambda form: self.apply_form_to_tablet(
                 form, mark_dirty=False, notify=False
             ),
+            print_page_settings=self.print_page_settings,
+            print_page_settings_changed=self._set_form_print_page_settings,
+            print_form_callback=self._print_form_from_manager,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted or dialog.selected_form is None:
             return
         self.apply_form_to_tablet(dialog.selected_form)
+
+    def _set_form_print_page_settings(self, settings) -> None:
+        self.print_page_settings = settings
+        self.user_profile_settings.save_print_page_settings(settings)
+        self.statusBar().showMessage(
+            self._t(
+                "print.page_updated",
+                format=settings.page_format.value.upper(),
+                orientation=self._t(f"print.{settings.orientation.value}"),
+            )
+        )
 
     def apply_form_to_tablet(self, form, *, mark_dirty: bool = True, notify: bool = True) -> None:
         dataset = self.session.current_dataset

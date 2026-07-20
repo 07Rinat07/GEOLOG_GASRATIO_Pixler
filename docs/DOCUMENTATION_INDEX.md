@@ -28,3 +28,4 @@ All user-facing behavior changes must be reflected in all three guides and in th
 - `TABLET_ENGINE_2.md` in `docs/ru`, `docs/kk`, and `docs/en` — user navigation controls.
 
 - [Form Engine](FORM_ENGINE.md)
+- Universal Print Center: [Русский](ru/UNIVERSAL_PRINT_CENTER.md) · [Қазақша](kk/UNIVERSAL_PRINT_CENTER.md) · [English](en/UNIVERSAL_PRINT_CENTER.md)

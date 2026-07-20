@@ -688,9 +688,7 @@ class TabletView(QWidget):
         self._span_combo.setEditable(True)
         self._span_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         for span in DEPTH_VIEW_SPAN_PRESETS:
-            self._span_combo.addItem(
-                f"{span:g} {self._vertical_span_unit()}", span
-            )
+            self._span_combo.addItem(f"{span:g} {self._vertical_span_unit()}", span)
         self._span_combo.addItem(self._localizer.text("tablet.depth_span_custom"), None)
         # currentIndexChanged is intentional here.  The former ``activated``
         # connection only committed a preset after a very specific mouse/keyboard
@@ -798,6 +796,20 @@ class TabletView(QWidget):
     @property
     def layout_model(self) -> TabletLayout:
         return self._layout_model
+
+    def printable_tracks(self) -> tuple[RenderedTrack, ...]:
+        """Return every currently rendered visible track in form order.
+
+        Printing must not use the horizontal scroll viewport because it clips
+        columns located outside the screen.  This method exposes the complete
+        rendered form while keeping the internal mapping private.
+        """
+
+        return tuple(
+            rendered
+            for definition in self._layout_model.visible_tracks()
+            if (rendered := self._rendered.get(definition.track_id)) is not None
+        )
 
     @property
     def vertical_index_id(self) -> str | None:

@@ -4,23 +4,34 @@ import os
 import tempfile
 from pathlib import Path
 
-from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QPoint, QRect
-from PySide6.QtGui import QPainter, QPdfWriter
+from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QPoint, QRect, QRectF, Qt
+from PySide6.QtGui import (
+    QImage,
+    QImageWriter,
+    QPageLayout,
+    QPainter,
+    QPdfWriter,
+)
 from PySide6.QtSvg import QSvgGenerator
 from PySide6.QtWidgets import QWidget
 
+from geoworkbench.printing.page_renderer import PageRenderError, paint_widget_page
 from geoworkbench.printing.page_settings import PrintPageSettings
+from geoworkbench.printing.print_job import PrintOutputFormat
 
 
 class VisualizationExportError(RuntimeError):
     pass
 
 
-def export_widget_png(
-    widget: QWidget, target: str | Path, *, overwrite: bool = False
-) -> Path:
+_MAX_RASTER_PAGE_PIXELS = 80_000_000
+
+
+def export_widget_png(widget: QWidget, target: str | Path, *, overwrite: bool = False) -> Path:
+    """Backward-compatible screen-sized PNG export."""
+
     destination = Path(target)
-    _validate_destination(destination, ".png", overwrite)
+    _validate_destination(destination, (".png",), overwrite)
     pixmap = widget.grab()
     if pixmap.isNull():
         raise VisualizationExportError("Не удалось получить изображение визуализации")
@@ -28,30 +39,127 @@ def export_widget_png(
     buffer = QBuffer(payload)
     if not buffer.open(QIODevice.OpenModeFlag.WriteOnly) or not pixmap.save(buffer, "PNG"):
         raise VisualizationExportError("Не удалось сформировать PNG")
-    return _atomic_write(destination, payload.data())
+    return _atomic_write(destination, payload.data(), "PNG")
 
 
-def export_widget_svg(
-    widget: QWidget, target: str | Path, *, overwrite: bool = False
+def export_widget_page_image(
+    widget: QWidget,
+    target: str | Path,
+    *,
+    output_format: PrintOutputFormat,
+    page_settings: PrintPageSettings | None = None,
+    dpi: int = 300,
+    quality: int = 92,
+    overwrite: bool = False,
 ) -> Path:
+    if not output_format.is_raster:
+        raise VisualizationExportError("Выбранный формат не является растровым")
     destination = Path(target)
-    _validate_destination(destination, ".svg", overwrite)
+    _validate_destination(destination, output_format.accepted_suffixes, overwrite)
+    if isinstance(dpi, bool) or not isinstance(dpi, int) or not 72 <= dpi <= 600:
+        raise VisualizationExportError("Разрешение должно быть от 72 до 600 DPI")
+    if isinstance(quality, bool) or not isinstance(quality, int) or not 1 <= quality <= 100:
+        raise VisualizationExportError("Качество изображения должно быть от 1 до 100")
+
     width = widget.width()
     height = widget.height()
     if width <= 0 or height <= 0:
         raise VisualizationExportError("Визуализация не имеет допустимого размера")
+    settings = page_settings or PrintPageSettings()
+    pixel_size = settings.page_pixel_size(width, height, dpi)
+    if pixel_size.width() * pixel_size.height() > _MAX_RASTER_PAGE_PIXELS:
+        raise VisualizationExportError(
+            "Выбранное разрешение создаёт слишком большое изображение. "
+            "Уменьшите DPI или формат страницы."
+        )
+
+    image_format = (
+        QImage.Format.Format_RGB32
+        if output_format in {PrintOutputFormat.JPEG, PrintOutputFormat.BMP}
+        else QImage.Format.Format_ARGB32_Premultiplied
+    )
+    image = QImage(pixel_size, image_format)
+    image.fill(Qt.GlobalColor.white)
+    full = QRectF(0.0, 0.0, float(pixel_size.width()), float(pixel_size.height()))
+    content = _content_rect_pixels(full, settings, width, height)
+    painter = QPainter(image)
+    try:
+        paint_widget_page(
+            widget,
+            painter,
+            content,
+            fit_form_columns=settings.fit_form_columns,
+            high_quality=True,
+        )
+    except PageRenderError as exc:
+        raise VisualizationExportError(str(exc)) from exc
+    finally:
+        painter.end()
+
+    payload = QByteArray()
+    buffer = QBuffer(payload)
+    if not buffer.open(QIODevice.OpenModeFlag.WriteOnly):
+        raise VisualizationExportError("Не удалось открыть буфер изображения")
+    writer = QImageWriter(buffer, output_format.qt_image_format)
+    if output_format in {PrintOutputFormat.JPEG, PrintOutputFormat.WEBP}:
+        writer.setQuality(quality)
+    if output_format in {PrintOutputFormat.PNG, PrintOutputFormat.TIFF}:
+        # Lossless formats use balanced compression instead of pretending that
+        # the JPEG quality percentage changes image fidelity.
+        writer.setCompression(75)
+    if not writer.write(image):
+        raise VisualizationExportError(
+            f"Не удалось сформировать {output_format.value.upper()}: {writer.errorString()}"
+        )
+    return _atomic_write(destination, payload.data(), output_format.value.upper())
+
+
+def export_widget_svg(
+    widget: QWidget,
+    target: str | Path,
+    *,
+    overwrite: bool = False,
+    page_settings: PrintPageSettings | None = None,
+) -> Path:
+    destination = Path(target)
+    _validate_destination(destination, (".svg",), overwrite)
+    width = widget.width()
+    height = widget.height()
+    if width <= 0 or height <= 0:
+        raise VisualizationExportError("Визуализация не имеет допустимого размера")
+    settings = page_settings
     temporary = _temporary_path(destination)
     painter: QPainter | None = None
     try:
         generator = QSvgGenerator()
         generator.setFileName(str(temporary))
-        generator.setSize(widget.size())
-        generator.setViewBox(QRect(0, 0, width, height))
+        if settings is None:
+            size = widget.size()
+            content = QRectF(0.0, 0.0, float(width), float(height))
+        else:
+            size = settings.page_pixel_size(width, height, 96)
+            content = _content_rect_pixels(
+                QRectF(0.0, 0.0, float(size.width()), float(size.height())),
+                settings,
+                width,
+                height,
+            )
+        generator.setSize(size)
+        generator.setViewBox(QRect(0, 0, size.width(), size.height()))
         generator.setTitle("GEOLOG GASRATIO@Pixler visualization")
         painter = QPainter()
         if not painter.begin(generator):
             raise VisualizationExportError("Не удалось запустить SVG renderer")
-        widget.render(painter, QPoint())
+        if settings is None:
+            widget.render(painter, QPoint())
+        else:
+            paint_widget_page(
+                widget,
+                painter,
+                content,
+                fit_form_columns=settings.fit_form_columns,
+                high_quality=False,
+            )
         if not painter.end():
             raise VisualizationExportError("Не удалось завершить SVG renderer")
         if not temporary.exists() or temporary.stat().st_size == 0:
@@ -61,6 +169,8 @@ def export_widget_svg(
         temporary.unlink(missing_ok=True)
         if isinstance(exc, VisualizationExportError):
             raise
+        if isinstance(exc, PageRenderError):
+            raise VisualizationExportError(str(exc)) from exc
         raise VisualizationExportError(f"Не удалось экспортировать SVG: {destination}") from exc
     finally:
         if painter is not None and painter.isActive():
@@ -74,9 +184,10 @@ def export_widget_pdf(
     *,
     overwrite: bool = False,
     page_settings: PrintPageSettings | None = None,
+    dpi: int = 300,
 ) -> Path:
     destination = Path(target)
-    _validate_destination(destination, ".pdf", overwrite)
+    _validate_destination(destination, (".pdf",), overwrite)
     width = widget.width()
     height = widget.height()
     if width <= 0 or height <= 0:
@@ -88,21 +199,25 @@ def export_widget_pdf(
         settings = page_settings or PrintPageSettings()
         writer.setPageSize(settings.page_size_for_content(width, height))
         writer.setPageOrientation(settings.qt_orientation)
-        writer.setResolution(300)
+        writer.setPageMargins(settings.qt_margins, QPageLayout.Unit.Millimeter)
+        writer.setResolution(dpi)
         writer.setTitle("GEOLOG GASRATIO@Pixler visualization")
         writer.setCreator("GEOLOG GASRATIO@Pixler")
+        page_width = writer.width()
+        page_height = writer.height()
         painter = QPainter()
         if not painter.begin(writer):
             raise VisualizationExportError("Не удалось запустить PDF renderer")
-        page_width = writer.width()
-        page_height = writer.height()
-        scale = min(page_width / width, page_height / height)
-        painter.translate(
-            (page_width - width * scale) / 2.0,
-            (page_height - height * scale) / 2.0,
-        )
-        painter.scale(scale, scale)
-        widget.render(painter, QPoint())
+        try:
+            paint_widget_page(
+                widget,
+                painter,
+                QRectF(0.0, 0.0, float(page_width), float(page_height)),
+                fit_form_columns=settings.fit_form_columns,
+                high_quality=True,
+            )
+        except PageRenderError as exc:
+            raise VisualizationExportError(str(exc)) from exc
         if not painter.end():
             raise VisualizationExportError("Не удалось завершить PDF renderer")
         if not temporary.exists() or temporary.stat().st_size == 0:
@@ -119,8 +234,32 @@ def export_widget_pdf(
     return destination
 
 
-def _validate_destination(destination: Path, suffix: str, overwrite: bool) -> None:
-    if destination.suffix.casefold() != suffix:
+def _content_rect_pixels(
+    full_rect: QRectF,
+    settings: PrintPageSettings,
+    source_width: int,
+    source_height: int,
+) -> QRectF:
+    page_mm = settings.oriented_page_size_mm(source_width, source_height)
+    x_scale = full_rect.width() / page_mm.width()
+    y_scale = full_rect.height() / page_mm.height()
+    content = QRectF(
+        full_rect.left() + settings.margin_left_mm * x_scale,
+        full_rect.top() + settings.margin_top_mm * y_scale,
+        full_rect.width() - (settings.margin_left_mm + settings.margin_right_mm) * x_scale,
+        full_rect.height() - (settings.margin_top_mm + settings.margin_bottom_mm) * y_scale,
+    )
+    if content.width() <= 0 or content.height() <= 0:
+        raise VisualizationExportError("Поля полностью перекрывают полезную область страницы")
+    return content
+
+
+def _validate_destination(
+    destination: Path,
+    suffixes: tuple[str, ...],
+    overwrite: bool,
+) -> None:
+    if destination.suffix.casefold() not in suffixes:
         raise VisualizationExportError(
             "Неподдерживаемое расширение экспорта: " + destination.suffix
         )
@@ -130,7 +269,9 @@ def _validate_destination(destination: Path, suffix: str, overwrite: bool) -> No
 
 
 def _atomic_write(
-    destination: Path, payload: bytes | bytearray | memoryview[int]
+    destination: Path,
+    payload: bytes | bytearray | memoryview[int],
+    format_name: str,
 ) -> Path:
     temporary = _temporary_path(destination)
     try:
@@ -138,7 +279,9 @@ def _atomic_write(
         os.replace(temporary, destination)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
-        raise VisualizationExportError(f"Не удалось экспортировать PNG: {destination}") from exc
+        raise VisualizationExportError(
+            f"Не удалось экспортировать {format_name}: {destination}"
+        ) from exc
     return destination
 
 

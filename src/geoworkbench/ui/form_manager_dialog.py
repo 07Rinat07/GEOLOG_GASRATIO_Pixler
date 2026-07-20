@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Callable
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
     QDialog,
     QFileDialog,
     QHBoxLayout,
@@ -26,6 +29,11 @@ from geoworkbench.forms.apply import FormApplyEngine
 from geoworkbench.forms.materialize import materialized_factory_templates
 from geoworkbench.forms.templates import factory_templates
 from geoworkbench.forms.preview import PreviewCallback
+from geoworkbench.printing.page_settings import (
+    PrintOrientation,
+    PrintPageFormat,
+    PrintPageSettings,
+)
 from geoworkbench.ui.form_structure_editor_dialog import FormStructureEditorDialog
 
 
@@ -38,12 +46,18 @@ class FormManagerDialog(QDialog):
         language: str = "ru",
         dataset: Dataset | None = None,
         preview_callback: PreviewCallback | None = None,
+        print_page_settings: PrintPageSettings | None = None,
+        print_page_settings_changed: Callable[[PrintPageSettings], None] | None = None,
+        print_form_callback: Callable[[FormDocument], None] | None = None,
     ) -> None:
         super().__init__(parent)
         self.repository = repository
         self.dataset = dataset
         self.language = language
         self.preview_callback = preview_callback
+        self.print_page_settings = print_page_settings or PrintPageSettings()
+        self.print_page_settings_changed = print_page_settings_changed
+        self.print_form_callback = print_form_callback
         self.apply_engine = FormApplyEngine()
         self.selected_form: FormDocument | None = None
         self.setWindowTitle(self._text("Менеджер форм", "Пішіндер менеджері", "Form manager"))
@@ -63,6 +77,40 @@ class FormManagerDialog(QDialog):
         self.details = QTextEdit()
         self.details.setReadOnly(True)
         right.addWidget(self.details, 1)
+
+        print_row = QHBoxLayout()
+        print_row.addWidget(QLabel(self._text("Печатный макет", "Баспа макеті", "Print layout")))
+        self.print_orientation_combo = QComboBox()
+        self.print_orientation_combo.addItem(
+            self._text("A4 — книжная", "A4 — кітаптық", "A4 — portrait"),
+            PrintOrientation.PORTRAIT.value,
+        )
+        self.print_orientation_combo.addItem(
+            self._text("A4 — альбомная", "A4 — альбомдық", "A4 — landscape"),
+            PrintOrientation.LANDSCAPE.value,
+        )
+        orientation_index = self.print_orientation_combo.findData(
+            self.print_page_settings.orientation.value
+        )
+        self.print_orientation_combo.setCurrentIndex(max(0, orientation_index))
+        self.print_orientation_combo.currentIndexChanged.connect(self._print_layout_changed)
+        print_row.addWidget(self.print_orientation_combo, 1)
+        self.fit_columns_check = QCheckBox(
+            self._text("Автоподбор колонок", "Бағандарды автотаңдау", "Auto-fit columns")
+        )
+        self.fit_columns_check.setChecked(self.print_page_settings.fit_form_columns)
+        self.fit_columns_check.toggled.connect(self._print_layout_changed)
+        print_row.addWidget(self.fit_columns_check)
+        right.addLayout(print_row)
+        self.print_layout_hint = QLabel(
+            self._text(
+                "При печати все видимые колонки формы размещаются по ширине листа без горизонтального обрезания.",
+                "Басып шығару кезінде пішіннің барлық көрінетін бағандары көлденең қиылмай парақ еніне орналастырылады.",
+                "All visible form columns are placed across the sheet width without horizontal clipping.",
+            )
+        )
+        self.print_layout_hint.setWordWrap(True)
+        right.addWidget(self.print_layout_hint)
 
         row1 = QHBoxLayout()
         for caption, callback in (
@@ -87,9 +135,19 @@ class FormManagerDialog(QDialog):
             row2.addWidget(button)
         right.addLayout(row2)
 
-        self.apply_button = QPushButton(self._text("Открыть на планшете", "Планшетте ашу", "Open on tablet"))
+        open_row = QHBoxLayout()
+        self.apply_button = QPushButton(
+            self._text("Открыть на планшете", "Планшетте ашу", "Open on tablet")
+        )
         self.apply_button.clicked.connect(self._apply)
-        right.addWidget(self.apply_button)
+        open_row.addWidget(self.apply_button, 1)
+        self.print_button = QPushButton(
+            self._text("Печать / экспорт", "Басып шығару / экспорт", "Print / export")
+        )
+        self.print_button.clicked.connect(self._print_selected)
+        self.print_button.setEnabled(self.print_form_callback is not None)
+        open_row.addWidget(self.print_button, 1)
+        right.addLayout(open_row)
         close_button = QPushButton(self._text("Закрыть", "Жабу", "Close"))
         close_button.clicked.connect(self.reject)
         right.addWidget(close_button)
@@ -104,9 +162,7 @@ class FormManagerDialog(QDialog):
         self.list_widget.clear()
         try:
             try:
-                factory = list(
-                    materialized_factory_templates(self.dataset, self.language).values()
-                )
+                factory = list(materialized_factory_templates(self.dataset, self.language).values())
             except (KeyError, RuntimeError, ValueError):
                 # Keep the manager available even when one legacy curve carries
                 # unusable metadata. The raw factory forms remain selectable;
@@ -124,9 +180,7 @@ class FormManagerDialog(QDialog):
             for form in forms:
                 prefix = "🔒 " if form.read_only else ""
                 binding_count = sum(
-                    len(track.bindings)
-                    for column in form.columns
-                    for track in column.tracks
+                    len(track.bindings) for column in form.columns for track in column.tracks
                 )
                 count_suffix = f"  · {binding_count}" if binding_count else ""
                 item = QListWidgetItem(prefix + form.name + count_suffix)
@@ -150,9 +204,7 @@ class FormManagerDialog(QDialog):
     def _is_compatible(self, form: FormDocument) -> bool:
         if self.dataset is None:
             return False
-        wanted_role = (
-            IndexRole.DEPTH if form.axis_kind is FormAxisKind.DEPTH else IndexRole.TIME
-        )
+        wanted_role = IndexRole.DEPTH if form.axis_kind is FormAxisKind.DEPTH else IndexRole.TIME
         return any(index.role is wanted_role for index in self.dataset.indexes.values())
 
     def _show_selected(self, current, _previous) -> None:
@@ -160,6 +212,7 @@ class FormManagerDialog(QDialog):
         if form is None:
             self.details.clear()
             self.apply_button.setEnabled(False)
+            self.print_button.setEnabled(False)
             return
         tracks = sum(len(column.tracks) for column in form.columns)
         bindings = sum(len(track.bindings) for column in form.columns for track in column.tracks)
@@ -175,6 +228,7 @@ class FormManagerDialog(QDialog):
         )
         compatible = self._is_compatible(form)
         self.apply_button.setEnabled(bool(compatible))
+        self.print_button.setEnabled(bool(compatible and self.print_form_callback is not None))
 
         status_lines: list[str] = []
         if self.dataset is None:
@@ -226,11 +280,15 @@ class FormManagerDialog(QDialog):
                     unit = f" [{binding.unit}]" if binding.unit else ""
                     parameter_lines.append(f"  • {binding.display_name} — {source}{unit}")
 
-        edit_hint = self._text(
-            "Для изменения заводского шаблона нажмите «Редактировать»: программа создаст пользовательскую копию.",
-            "Зауыттық үлгіні өзгерту үшін «Өңдеу» батырмасын басыңыз: бағдарлама пайдаланушы көшірмесін жасайды.",
-            "To change a factory template, click Edit; the application will create a user copy.",
-        ) if form.read_only else ""
+        edit_hint = (
+            self._text(
+                "Для изменения заводского шаблона нажмите «Редактировать»: программа создаст пользовательскую копию.",
+                "Зауыттық үлгіні өзгерту үшін «Өңдеу» батырмасын басыңыз: бағдарлама пайдаланушы көшірмесін жасайды.",
+                "To change a factory template, click Edit; the application will create a user copy.",
+            )
+            if form.read_only
+            else ""
+        )
         details = (
             f"{form.name}\n\n{form.description}\n"
             + (f"\n{edit_hint}\n" if edit_hint else "")
@@ -239,14 +297,36 @@ class FormManagerDialog(QDialog):
             f"{self._text('Источник', 'Шығу тегі', 'Origin')}: {origin}\n"
             f"{self._text('Колонки', 'Бағандар', 'Columns')}: {len(form.columns)}\n"
             f"{self._text('Дорожки', 'Жолдар', 'Tracks')}: {tracks}\n"
-            f"{self._text('Параметры', 'Параметрлер', 'Parameters')}: {bindings}\n\n"
+            f"{self._text('Параметры', 'Параметрлер', 'Parameters')}: {bindings}\n"
+            f"{self._text('Печать', 'Басып шығару', 'Print')}: "
+            f"{self.print_orientation_combo.currentText()}, "
+            f"{self._text('автоподбор ширины', 'енін автотаңдау', 'automatic width fitting') if self.fit_columns_check.isChecked() else self._text('экранные пропорции', 'экран пропорциялары', 'screen proportions')}\n\n"
             + "\n".join(status_lines)
             + "\n".join(parameter_lines)
         )
         self.details.setPlainText(details)
 
+    def _print_layout_changed(self, _value=None) -> None:
+        orientation = PrintOrientation(str(self.print_orientation_combo.currentData()))
+        self.print_page_settings = PrintPageSettings(
+            page_format=PrintPageFormat.A4,
+            orientation=orientation,
+            custom_width_mm=self.print_page_settings.custom_width_mm,
+            custom_height_mm=self.print_page_settings.custom_height_mm,
+            fit_form_columns=self.fit_columns_check.isChecked(),
+            margin_left_mm=self.print_page_settings.margin_left_mm,
+            margin_top_mm=self.print_page_settings.margin_top_mm,
+            margin_right_mm=self.print_page_settings.margin_right_mm,
+            margin_bottom_mm=self.print_page_settings.margin_bottom_mm,
+        )
+        if self.print_page_settings_changed is not None:
+            self.print_page_settings_changed(self.print_page_settings)
+        self._show_selected(self.list_widget.currentItem(), None)
+
     def _create(self) -> None:
-        name, ok = QInputDialog.getText(self, self.windowTitle(), self._text("Название формы", "Пішін атауы", "Form name"))
+        name, ok = QInputDialog.getText(
+            self, self.windowTitle(), self._text("Название формы", "Пішін атауы", "Form name")
+        )
         if not ok or not name.strip():
             return
         depth_label = self._text("Глубина", "Тереңдік", "Depth")
@@ -269,13 +349,17 @@ class FormManagerDialog(QDialog):
         source = self._current()
         if source is None:
             return
-        name, ok = QInputDialog.getText(self, self.windowTitle(), self._text("Название копии", "Көшірме атауы", "Copy name"), text=f"{source.name} — {self._text('копия', 'көшірме', 'copy')}")
+        name, ok = QInputDialog.getText(
+            self,
+            self.windowTitle(),
+            self._text("Название копии", "Көшірме атауы", "Copy name"),
+            text=f"{source.name} — {self._text('копия', 'көшірме', 'copy')}",
+        )
         if not ok or not name.strip():
             return
         copy = source.editable_copy(name=name.strip())
         self.repository.save(copy)
         self.reload(copy.form_id)
-
 
     def _edit(self) -> None:
         form = self._current()
@@ -310,9 +394,22 @@ class FormManagerDialog(QDialog):
     def _rename(self) -> None:
         form = self._current()
         if form is None or form.read_only:
-            QMessageBox.information(self, self.windowTitle(), self._text("Сначала создайте пользовательскую копию.", "Алдымен пайдаланушы көшірмесін жасаңыз.", "Create a user copy first."))
+            QMessageBox.information(
+                self,
+                self.windowTitle(),
+                self._text(
+                    "Сначала создайте пользовательскую копию.",
+                    "Алдымен пайдаланушы көшірмесін жасаңыз.",
+                    "Create a user copy first.",
+                ),
+            )
             return
-        name, ok = QInputDialog.getText(self, self.windowTitle(), self._text("Новое название", "Жаңа атау", "New name"), text=form.name)
+        name, ok = QInputDialog.getText(
+            self,
+            self.windowTitle(),
+            self._text("Новое название", "Жаңа атау", "New name"),
+            text=form.name,
+        )
         if ok and name.strip():
             form.name = name.strip()
             form.validate()
@@ -323,7 +420,18 @@ class FormManagerDialog(QDialog):
         form = self._current()
         if form is None or form.read_only:
             return
-        if QMessageBox.question(self, self.windowTitle(), self._text("Удалить выбранную форму?", "Таңдалған пішінді жою керек пе?", "Delete selected form?")) != QMessageBox.StandardButton.Yes:
+        if (
+            QMessageBox.question(
+                self,
+                self.windowTitle(),
+                self._text(
+                    "Удалить выбранную форму?",
+                    "Таңдалған пішінді жою керек пе?",
+                    "Delete selected form?",
+                ),
+            )
+            != QMessageBox.StandardButton.Yes
+        ):
             return
         self.repository.delete(form.form_id)
         self.reload()
@@ -338,7 +446,9 @@ class FormManagerDialog(QDialog):
             if form.read_only:
                 form = form.editable_copy(name=form.name)
             if any(existing.form_id == form.form_id for existing in self.repository.list_forms()):
-                form = form.editable_copy(name=f"{form.name} — {self._text('импорт', 'импорт', 'import')}")
+                form = form.editable_copy(
+                    name=f"{form.name} — {self._text('импорт', 'импорт', 'import')}"
+                )
             self.repository.save(form)
             self.reload(form.form_id)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -348,9 +458,23 @@ class FormManagerDialog(QDialog):
         form = self._current()
         if form is None:
             return
-        filename, _ = QFileDialog.getSaveFileName(self, self.windowTitle(), f"{form.form_id}.json", "JSON (*.json)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, self.windowTitle(), f"{form.form_id}.json", "JSON (*.json)"
+        )
         if filename:
-            Path(filename).write_text(json.dumps(form_to_dict(form), ensure_ascii=False, indent=2), encoding="utf-8")
+            Path(filename).write_text(
+                json.dumps(form_to_dict(form), ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+
+    def _print_selected(self) -> None:
+        form = self._current()
+        if (
+            form is None
+            or not self._is_compatible(form)
+            or self.print_form_callback is None
+        ):
+            return
+        self.print_form_callback(form)
 
     def _apply(self) -> None:
         form = self._current()

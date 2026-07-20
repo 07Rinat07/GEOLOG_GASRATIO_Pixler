@@ -115,9 +115,13 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 
 The current source archive was validated with `QT_QPA_PLATFORM=offscreen PYTHONPATH=src pytest -q`:
 
-- `848 passed`;
+- `855 passed`;
 - `1 skipped`;
 - preset depth/time interval selection updates all tracks;
 - typed interval values apply without Enter;
 - the interval survives widget resize;
 - runtime `ru → kk → en` switching preserves project and tablet camera state.
+
+## Universal Print Center regression
+
+Проверяются доступность форматов, построение A4 portrait/landscape job, физический printer mode без файлового пути, реальные размеры PNG/JPEG по DPI, нормализация расширений, профильные настройки, callback печати из Form Manager, PDF printer renderer и восстановление экранных ширин планшета. Текущий сбор: `864 tests collected`; результат `863 passed, 1 skipped`. В headless Linux Qt после завершения всех тестов остаётся известный внешний segfault процесса при выгрузке Qt/OpenGL, присутствовавший и в исходной сборке; сами pytest-тесты завершаются успешно.

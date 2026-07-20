@@ -1,3 +1,70 @@
+## Unreleased — universal Print and Export Center
+
+### Русский
+
+- добавлен единый «Центр печати и экспорта» для текущего графика, планшета и выбранной формы из менеджера форм;
+- поддерживаются физический системный принтер, PDF, PNG, JPEG/JPG, TIFF, BMP, WebP и SVG;
+- доступны A4, A3, пользовательский размер и рулон, книжная/альбомная ориентация, отдельные поля страницы, 72–600 DPI и качество JPEG/WebP;
+- растровые файлы создаются в реальном размере бумаги при выбранном DPI, а не как скриншот окна;
+- предварительный просмотр, физическая печать, PDF, SVG и изображения используют общий page renderer;
+- для форм печатаются все видимые колонки, включая находящиеся вне горизонтального viewport, с восстановлением экранных ширин;
+- настройки страницы и качества сохраняются отдельно для активного инженерного профиля;
+- добавлена кнопка «Печать / экспорт» непосредственно в менеджер форм;
+- регрессионный набор: `863 passed, 1 skipped`; Ruff проходит без ошибок.
+
+### Қазақша
+
+- ағымдағы графикке, планшетке және пішіндер менеджерінде таңдалған пішінге арналған бірыңғай «Басып шығару және экспорт орталығы» қосылды;
+- физикалық жүйелік принтер, PDF, PNG, JPEG/JPG, TIFF, BMP, WebP және SVG қолдау табады;
+- A4, A3, пайдаланушы өлшемі және орам, кітаптық/альбомдық бағдар, жеке бет жиектері, 72–600 DPI және JPEG/WebP сапасы қолжетімді;
+- растрлық файлдар терезе скриншоты ретінде емес, таңдалған DPI бойынша қағаздың нақты өлшемінде жасалады;
+- алдын ала қарау, физикалық басып шығару, PDF, SVG және кескіндер ортақ page renderer пайдаланады;
+- пішіндер үшін көлденең viewport сыртындағы барлық көрінетін баған басылып, экран ендері қалпына келтіріледі;
+- бет пен сапа баптаулары белсенді инженер профиліне жеке сақталады;
+- пішіндер менеджеріне тікелей «Басып шығару / экспорт» батырмасы қосылды;
+- регрессиялық жинақ: `863 passed, 1 skipped`; Ruff қатесіз өтеді.
+
+### English
+
+- added one Print and Export Center for the active chart, tablet, and the form selected in Form Manager;
+- supports the native physical printer, PDF, PNG, JPEG/JPG, TIFF, BMP, WebP, and SVG;
+- provides A4, A3, custom and roll media, portrait/landscape orientation, independent margins, 72–600 DPI, and JPEG/WebP quality;
+- raster files are generated at the real paper dimensions for the selected DPI rather than as window screenshots;
+- preview, physical printing, PDF, SVG, and image export share one page renderer;
+- forms include every visible column, including tracks outside the horizontal viewport, and restore screen widths afterward;
+- page and quality settings persist per active engineer profile;
+- Form Manager now includes a direct Print / export button;
+- regression suite: `863 passed, 1 skipped`; Ruff passes without errors.
+
+## Unreleased — adaptive A4 printing for Form Manager forms
+
+### Русский
+
+- в менеджер форм добавлен выбор `A4 — книжная` / `A4 — альбомная`;
+- все видимые колонки, включая находящиеся за пределами горизонтальной прокрутки, попадают в печать;
+- автоподбор балансирует ширины по типу дорожки, ограничивает чрезмерно широкие колонки и не обрезает форму;
+- предварительный просмотр и PDF-экспорт используют один алгоритм и восстанавливают экранные ширины;
+- настройка сохраняется отдельно для активного инженерного профиля;
+- полный регрессионный прогон: `855 passed, 1 skipped`; Ruff проходит без ошибок.
+
+### Қазақша
+
+- пішіндер менеджеріне `A4 — кітаптық` / `A4 — альбомдық` таңдауы қосылды;
+- көлденең айналдырудан тыс тұрғандарын қоса барлық көрінетін баған баспаға кіреді;
+- автотаңдау жол түріне қарай ендерді теңестіреді, тым кең бағандарды шектейді және пішінді қимайды;
+- алдын ала қарау мен PDF экспорты бір алгоритмді пайдаланып, экран ендерін қалпына келтіреді;
+- баптау белсенді инженер профилі үшін бөлек сақталады;
+- толық регрессиялық тексеру: `855 passed, 1 skipped`; Ruff қатесіз өтеді.
+
+### English
+
+- Form Manager now selects `A4 — portrait` or `A4 — landscape`;
+- every visible column is printed, including columns outside the horizontal viewport;
+- auto-fit balances widths by track type, caps extreme screen widths, and avoids horizontal clipping;
+- print preview and PDF export share the same algorithm and restore screen widths afterward;
+- the setting is persisted per active engineer profile;
+- full regression suite: `855 passed, 1 skipped`; Ruff passes without errors.
+
 ## Unreleased — reliable visible depth/time interval control
 
 ### Русский

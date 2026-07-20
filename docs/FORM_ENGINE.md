@@ -61,3 +61,14 @@ style is now created correctly, and `PlotDataItem` construction is compatible wi
 `pyqtgraph 0.14` and `PySide6 6.11`. A GUI regression test now requires the factory depth
 form to materialize and actually render the curves of the open LAS dataset.
 
+## Adaptive A4 printing for all forms
+
+The Form Manager now exposes A4 portrait/landscape selection and an automatic column-fit option.
+The print renderer captures every visible track, including tracks outside the horizontal viewport,
+normalizes extreme screen widths, preserves readable minima by track type, and applies one common
+print scale. Preview and PDF export restore the original tablet widths after rendering.
+
+
+## Universal Print and Export Center
+
+All factory and user forms use one page renderer. Form Manager can send the selected compatible form directly to the Print and Export Center. The center supports native system printing, PDF, PNG, JPEG/JPG, TIFF, BMP, WebP, and SVG. Paper settings include A4, A3, custom and roll sizes, portrait/landscape orientation, four independent margins, 72–600 DPI, and JPEG/WebP quality. Raster outputs are created at the physical paper pixel size for the requested DPI. Every visible form track is included even when it is outside the horizontal screen viewport; temporary print widths are restored after rendering.

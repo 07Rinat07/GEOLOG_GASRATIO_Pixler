@@ -13,6 +13,10 @@ from geoworkbench.printing.page_settings import (
     PrintPageFormat,
     PrintPageSettings,
 )
+from geoworkbench.printing.print_job import (
+    PrintExportPreferences,
+    PrintOutputFormat,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,11 +116,19 @@ class UserProfileSettings:
             orientation = payload.get("orientation")
             if not isinstance(page_format, str) or not isinstance(orientation, str):
                 return PrintPageSettings()
+            fit_form_columns = payload.get("fit_form_columns", True)
+            if not isinstance(fit_form_columns, bool):
+                return PrintPageSettings()
             return PrintPageSettings(
-                PrintPageFormat(page_format),
-                PrintOrientation(orientation),
-                float(payload.get("custom_width_mm", 210.0)),
-                float(payload.get("custom_height_mm", 297.0)),
+                page_format=PrintPageFormat(page_format),
+                orientation=PrintOrientation(orientation),
+                custom_width_mm=float(payload.get("custom_width_mm", 210.0)),
+                custom_height_mm=float(payload.get("custom_height_mm", 297.0)),
+                fit_form_columns=fit_form_columns,
+                margin_left_mm=float(payload.get("margin_left_mm", 10.0)),
+                margin_top_mm=float(payload.get("margin_top_mm", 10.0)),
+                margin_right_mm=float(payload.get("margin_right_mm", 10.0)),
+                margin_bottom_mm=float(payload.get("margin_bottom_mm", 10.0)),
             )
         except (json.JSONDecodeError, TypeError, ValueError):
             return PrintPageSettings()
@@ -132,6 +144,40 @@ class UserProfileSettings:
                     "orientation": value.orientation.value,
                     "custom_width_mm": value.custom_width_mm,
                     "custom_height_mm": value.custom_height_mm,
+                    "fit_form_columns": value.fit_form_columns,
+                    "margin_left_mm": value.margin_left_mm,
+                    "margin_top_mm": value.margin_top_mm,
+                    "margin_right_mm": value.margin_right_mm,
+                    "margin_bottom_mm": value.margin_bottom_mm,
+                }
+            ),
+        )
+        self.settings.sync()
+
+    def print_export_preferences(self) -> PrintExportPreferences:
+        raw = self.settings.value(self._print_export_preferences_key(), "")
+        try:
+            payload = json.loads(str(raw))
+            if not isinstance(payload, dict):
+                return PrintExportPreferences()
+            return PrintExportPreferences(
+                output_format=PrintOutputFormat(str(payload.get("output_format", "pdf"))),
+                dpi=int(payload.get("dpi", 300)),
+                image_quality=int(payload.get("image_quality", 92)),
+            )
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return PrintExportPreferences()
+
+    def save_print_export_preferences(self, value: PrintExportPreferences) -> None:
+        if not isinstance(value, PrintExportPreferences):
+            raise TypeError("Настройки экспорта должны использовать PrintExportPreferences")
+        self.settings.setValue(
+            self._print_export_preferences_key(),
+            json.dumps(
+                {
+                    "output_format": value.output_format.value,
+                    "dpi": value.dpi,
+                    "image_quality": value.image_quality,
                 }
             ),
         )
@@ -188,13 +234,9 @@ class UserProfileSettings:
                 continue
         return result
 
-    def save_table_number_formats(
-        self, formats: dict[str, NumberDisplayFormat]
-    ) -> None:
+    def save_table_number_formats(self, formats: dict[str, NumberDisplayFormat]) -> None:
         if not isinstance(formats, dict) or not all(
-            isinstance(key, str)
-            and bool(key)
-            and isinstance(value, NumberDisplayFormat)
+            isinstance(key, str) and bool(key) and isinstance(value, NumberDisplayFormat)
             for key, value in formats.items()
         ):
             raise TypeError("Настройки числовых колонок имеют неверный формат")
@@ -214,6 +256,11 @@ class UserProfileSettings:
         active = self.active()
         profile_id = active.profile_id if active is not None else "default"
         return f"users/print_page/{profile_id}"
+
+    def _print_export_preferences_key(self) -> str:
+        active = self.active()
+        profile_id = active.profile_id if active is not None else "default"
+        return f"users/print_export/{profile_id}"
 
     def _cursor_settings_key(self) -> str:
         active = self.active()

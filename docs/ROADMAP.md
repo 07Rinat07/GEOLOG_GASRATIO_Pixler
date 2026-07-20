@@ -127,4 +127,8 @@ Remaining:
 - [x] layout-model camera state as the single source of truth;
 - [x] range preservation across resize, form rebuild, and runtime language changes;
 - [x] active time-axis units in time forms;
-- [x] full regression suite: 848 passed, 1 skipped.
+- [x] full regression suite: 855 passed, 1 skipped.
+
+## Завершено: универсальная печать и экспорт
+
+Реализованы нативная печать и единый экспорт в PDF/PNG/JPEG/TIFF/BMP/WebP/SVG для всех форм и рабочих визуализаций. Следующее развитие печати: многостраничная разбивка полного диапазона скважины, колонтитулы, шаблоны штампа и пакетная очередь заданий.
