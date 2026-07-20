@@ -2840,7 +2840,11 @@ class TabletView(QWidget):
     def _apply_curve_styles(self, rendered: RenderedTrack, definition: TrackDefinition) -> None:
         if rendered.plot is not None:
             rendered.plot.setLogMode(x=False, y=False)
-            rendered.plot.setXRange(0.0, 1.0, padding=0)
+            rendered.plot.setXRange(
+                0.0,
+                100.0 if definition.kind is TrackKind.CALCIMETRY else 1.0,
+                padding=0,
+            )
         header_rows: list[tuple[str, str, str]] = []
         for index, (mnemonic, item) in enumerate((rendered.curve_items or {}).items()):
             style = definition.curve_style(mnemonic)
@@ -2933,8 +2937,13 @@ class TabletView(QWidget):
             minimum, maximum = self._curve_display_range(
                 rendered.definition, mnemonic, source_values
             )
-            normalized = self._normalize_curve_values(values, settings.x_scale, minimum, maximum)
-            item.setData(normalized, visible_depth)
+            if rendered.definition.kind is TrackKind.CALCIMETRY:
+                normalized = np.where(np.isfinite(values), np.clip(values, 0.0, 100.0), np.nan)
+            else:
+                normalized = self._normalize_curve_values(
+                    values, settings.x_scale, minimum, maximum
+                )
+            item.setData(normalized, visible_depth, connect="finite")
             if render_keys is not None:
                 render_keys[mnemonic] = key
 
@@ -2978,10 +2987,72 @@ class TabletView(QWidget):
             track.plot.setMouseEnabled(x=False, y=False)
             return (), {}
 
+        if definition.kind is TrackKind.CALCIMETRY:
+            track.plot.hideAxis("bottom")
+            track.plot.setXRange(0.0, 100.0, padding=0)
+            track.plot.setMouseEnabled(x=False, y=True)
+            curve_items: dict[str, pg.PlotDataItem] = {}
+            header_rows: list[tuple[str, str, str]] = []
+            legend_labels: list[str] = []
+            for index, mnemonic in enumerate(definition.curve_mnemonics):
+                curve = self._dataset.curve_by_mnemonic(mnemonic)
+                if curve is None:
+                    continue
+                source_values = np.asarray(curve.values, dtype=np.float64)
+                if not np.any(np.isfinite(source_values) & np.isfinite(depth)):
+                    continue
+                style = definition.curve_style(mnemonic) or CurveStyle(
+                    color=("#06b6d4" if index == 0 else "#8b5cf6"),
+                    width=2.0,
+                )
+                if visible_top is None or visible_bottom is None:
+                    visible_values = np.array([], dtype=np.float64)
+                    visible_depth = np.array([], dtype=np.float64)
+                else:
+                    budget = self._lod_point_budget(track.plot.viewport().height())
+                    key = self._curve_geometry_key(
+                        mnemonic,
+                        depth,
+                        source_values,
+                        visible_top,
+                        visible_bottom,
+                        budget,
+                        False,
+                    )
+                    visible_values, visible_depth = self._geometry_cache.get_or_build(
+                        key, depth, source_values
+                    )
+                    visible_values = np.where(
+                        np.isfinite(visible_values),
+                        np.clip(visible_values, 0.0, 100.0),
+                        np.nan,
+                    )
+                item = track.plot.plot(
+                    visible_values,
+                    visible_depth,
+                    pen=pg.mkPen(
+                        style.color,
+                        width=style.width,
+                        style={
+                            CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
+                            CurveLineStyle.DASH: Qt.PenStyle.DashLine,
+                            CurveLineStyle.DOT: Qt.PenStyle.DotLine,
+                            CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
+                        }[style.line_style],
+                    ),
+                    connect="finite",
+                )
+                display_name = self._curve_display_name(definition, mnemonic, curve)
+                unit = (curve.metadata.unit or "%").strip() or "%"
+                header_rows.append((mnemonic, f"{display_name}\n0 … 100 {unit}", style.color))
+                legend_labels.append(display_name)
+                curve_items[mnemonic] = item
+            track.set_curve_headers(header_rows)
+            return tuple(legend_labels), curve_items
+
         if definition.kind in (
             TrackKind.LITHOLOGY,
             TrackKind.CUTTINGS,
-            TrackKind.CALCIMETRY,
             TrackKind.LBA,
             TrackKind.STRATIGRAPHY,
             TrackKind.INTERPRETATION,
@@ -3751,98 +3822,267 @@ class TabletView(QWidget):
     def _populate_sample_analysis(
         self, track: TabletTrackWidget, definition: TrackDefinition
     ) -> dict[str, tuple[object, ...]]:
+        """Render discrete calcimetry and LBA samples as interval observations.
+
+        These laboratory results are not continuous LAS curves.  They belong to
+        cuttings sample intervals, therefore they are drawn as bounded sample
+        blocks and symbols and are never interpolated between neighbouring
+        samples.
+        """
         if definition.kind not in {TrackKind.CALCIMETRY, TrackKind.LBA}:
             return {}
+
         track.plot.hideAxis("bottom")
-        track.plot.setXRange(
-            0.0, 100.0 if definition.kind is TrackKind.CALCIMETRY else 1.0, padding=0
-        )
+        if definition.kind is TrackKind.CALCIMETRY:
+            track.plot.setXRange(0.0, 100.0, padding=0)
+            if not definition.curve_mnemonics:
+                track.set_curve_headers(
+                    [
+                        (
+                            "__calcite__",
+                            self._localizer.text("tablet.calcimetry_header_calcite"),
+                            "#06b6d4",
+                        ),
+                        (
+                            "__dolomite__",
+                            self._localizer.text("tablet.calcimetry_header_dolomite"),
+                            "#8b5cf6",
+                        ),
+                        (
+                            "__residue__",
+                            self._localizer.text("tablet.calcimetry_header_residue"),
+                            "#94a3b8",
+                        ),
+                    ]
+                )
+        else:
+            track.plot.setXRange(0.0, 1.0, padding=0)
+            track.set_curve_headers(
+                [
+                    (
+                        "__lba_legend__",
+                        self._localizer.text("tablet.lba_header"),
+                        "#f97316",
+                    )
+                ]
+            )
         track.plot.setMouseEnabled(x=False, y=True)
+
         rendered: dict[str, tuple[object, ...]] = {}
         for sample in self._cuttings:
-            items: list[object] = []
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 sample.top_depth, sample.bottom_depth
             )
+            center = (axis_top + axis_bottom) / 2.0
+            height = max(axis_bottom - axis_top, np.finfo(float).eps)
+            items: list[object] = []
+
             if definition.kind is TrackKind.CALCIMETRY:
+                if sample.calcite_percent is None and sample.dolomite_percent is None:
+                    continue
+                calcite = sample.calcite_percent
+                dolomite = sample.dolomite_percent
+                residue = sample.insoluble_residue_percent
+                tooltip_parts = [
+                    self._localizer.text(
+                        "tablet.sample_interval",
+                        top=f"{sample.top_depth:g}",
+                        bottom=f"{sample.bottom_depth:g}",
+                    )
+                ]
+                if calcite is not None:
+                    tooltip_parts.append(
+                        f"{self._localizer.text('tablet.calcimetry_calcite')}: {calcite:g} %"
+                    )
+                if dolomite is not None:
+                    tooltip_parts.append(
+                        f"{self._localizer.text('tablet.calcimetry_dolomite')}: {dolomite:g} %"
+                    )
+                if residue is not None:
+                    tooltip_parts.append(
+                        f"{self._localizer.text('tablet.calcimetry_residue')}: {residue:g} %"
+                    )
+                tooltip = "\n".join(tooltip_parts)
+
+                frame = pg.BarGraphItem(
+                    x=[50.0],
+                    y=[center],
+                    width=100.0,
+                    height=height,
+                    brush=pg.mkBrush(255, 255, 255, 0),
+                    pen=pg.mkPen("#64748b", width=0.8),
+                )
+                frame.setToolTip(tooltip)
+                track.plot.addItem(frame)
+                items.append(frame)
+
                 left = 0.0
-                for value, color in (
-                    (sample.calcite_percent, "#22d3ee"),
-                    (sample.dolomite_percent, "#a78bfa"),
-                    (sample.insoluble_residue_percent, "#d1d5db"),
+                for label, value, color in (
+                    (self._localizer.text("tablet.calcimetry_calcite"), calcite, "#06b6d4"),
+                    (self._localizer.text("tablet.calcimetry_dolomite"), dolomite, "#8b5cf6"),
+                    (self._localizer.text("tablet.calcimetry_residue"), residue, "#cbd5e1"),
                 ):
                     if value is None:
                         continue
-                    bar = pg.BarGraphItem(
-                        x=[left + value / 2.0],
-                        y=[(axis_top + axis_bottom) / 2.0],
-                        width=value,
-                        height=max(axis_bottom - axis_top, np.finfo(float).eps),
-                        brush=pg.mkBrush(color),
-                        pen=pg.mkPen("#334155", width=0.7),
-                    )
-                    track.plot.addItem(bar)
-                    items.append(bar)
-                    left += value
+                    numeric = min(100.0, max(0.0, float(value)))
+                    if numeric > 0.0:
+                        bar = pg.BarGraphItem(
+                            x=[left + numeric / 2.0],
+                            y=[center],
+                            width=numeric,
+                            height=height,
+                            brush=pg.mkBrush(color),
+                            pen=pg.mkPen("#334155", width=0.55),
+                        )
+                        bar.setToolTip(f"{tooltip}\n{label}: {numeric:g} %")
+                        track.plot.addItem(bar)
+                        items.append(bar)
+                    else:
+                        zero = pg.PlotDataItem(
+                            [left, left],
+                            [axis_top, axis_bottom],
+                            pen=pg.mkPen(color, width=2.0),
+                            connect="finite",
+                        )
+                        zero.setToolTip(f"{tooltip}\n{label}: 0 %")
+                        track.plot.addItem(zero)
+                        items.append(zero)
+                    left += numeric
+
+                text_values = []
+                if calcite is not None:
+                    text_values.append(f"Ca {calcite:g}")
+                if dolomite is not None:
+                    text_values.append(f"Do {dolomite:g}")
+                label = pg.TextItem(
+                    " / ".join(text_values),
+                    color="#0f172a",
+                    anchor=(0.5, 0.5),
+                )
+                label.setPos(50.0, center)
+                label.setToolTip(tooltip)
+                track.plot.addItem(label)
+                items.append(label)
             else:
                 fields = [
-                    f"G={sample.lba_group}" if sample.lba_group is not None else None,
-                    sample.lba_type_id,
-                    f"I={sample.lba_intensity}" if sample.lba_intensity is not None else None,
-                    sample.lba_color,
-                    sample.lba_distribution,
-                    sample.lba_cut,
-                    sample.lba_cut_speed,
-                    sample.lba_cut_color,
-                    sample.lba_residue_type,
-                    sample.lba_residue_color,
-                    sample.lba_odour,
-                    sample.lba_stain,
+                    f"{self._localizer.text('tablet.lba_group')}: {sample.lba_group}"
+                    if sample.lba_group is not None
+                    else None,
+                    f"{self._localizer.text('tablet.lba_type')}: {sample.lba_type_id}"
+                    if sample.lba_type_id
+                    else None,
+                    f"{self._localizer.text('tablet.lba_intensity')}: {sample.lba_intensity}"
+                    if sample.lba_intensity is not None
+                    else None,
+                    f"{self._localizer.text('tablet.lba_color')}: {sample.lba_color}"
+                    if sample.lba_color
+                    else None,
+                    f"{self._localizer.text('tablet.lba_distribution')}: {sample.lba_distribution}"
+                    if sample.lba_distribution
+                    else None,
+                    f"{self._localizer.text('tablet.lba_cut')}: {sample.lba_cut}"
+                    if sample.lba_cut
+                    else None,
+                    f"{self._localizer.text('tablet.lba_cut_speed')}: {sample.lba_cut_speed}"
+                    if sample.lba_cut_speed
+                    else None,
+                    f"{self._localizer.text('tablet.lba_cut_color')}: {sample.lba_cut_color}"
+                    if sample.lba_cut_color
+                    else None,
+                    f"{self._localizer.text('tablet.lba_residue_type')}: {sample.lba_residue_type}"
+                    if sample.lba_residue_type
+                    else None,
+                    f"{self._localizer.text('tablet.lba_residue_color')}: {sample.lba_residue_color}"
+                    if sample.lba_residue_color
+                    else None,
+                    f"{self._localizer.text('tablet.lba_odour')}: {sample.lba_odour}"
+                    if sample.lba_odour
+                    else None,
+                    f"{self._localizer.text('tablet.lba_stain')}: {sample.lba_stain}"
+                    if sample.lba_stain
+                    else None,
                     sample.lba_description,
                 ]
-                tooltip = "; ".join(str(value) for value in fields if value not in (None, ""))
-                if tooltip:
-                    style = resolve_lba_type_style(sample.lba_type_id)
-                    intensity = normalized_lba_intensity(sample.lba_intensity)
-                    line_width = 1.2
-                    line_style = Qt.PenStyle.SolidLine
-                    brush = pg.mkBrush(None)
-                    size = 10.0
-                    if intensity == 1:
-                        size = 7.0
-                        brush = pg.mkBrush(style.color)
-                        line_width = 0.8
-                    elif intensity == 2:
-                        size = 11.0
-                        line_style = Qt.PenStyle.DashLine
-                    elif intensity == 3:
-                        size = 12.0
-                    elif intensity == 4:
-                        size = 14.0
-                        line_width = 3.0
-                    elif intensity == 5:
-                        size = 15.0
-                        brush = pg.mkBrush(style.color)
-                        line_width = 1.0
-                    scatter = pg.ScatterPlotItem(
-                        x=[0.5],
-                        y=[(axis_top + axis_bottom) / 2.0],
-                        symbol="o",
-                        size=size,
-                        pen=pg.mkPen(style.color, width=line_width, style=line_style),
-                        brush=brush,
-                        pxMode=True,
+                if not any(value not in (None, "") for value in fields):
+                    continue
+                tooltip = (
+                    self._localizer.text(
+                        "tablet.sample_interval",
+                        top=f"{sample.top_depth:g}",
+                        bottom=f"{sample.bottom_depth:g}",
                     )
-                    scatter.setToolTip(tooltip)
-                    track.plot.addItem(scatter)
-                    items.append(scatter)
-                    label = pg.TextItem(style.code, color="#0f172a", anchor=(0.0, 0.5))
-                    label.setPos(0.58, (axis_top + axis_bottom) / 2.0)
-                    label.setToolTip(tooltip)
-                    track.plot.addItem(label)
-                    items.append(label)
+                    + "\n"
+                    + "\n".join(str(value) for value in fields if value not in (None, ""))
+                )
+                style = resolve_lba_type_style(sample.lba_type_id)
+                intensity = normalized_lba_intensity(sample.lba_intensity)
+
+                band = pg.BarGraphItem(
+                    x=[0.5],
+                    y=[center],
+                    width=1.0,
+                    height=height,
+                    brush=pg.mkBrush(255, 255, 255, 0),
+                    pen=pg.mkPen("#94a3b8", width=0.7),
+                )
+                band.setToolTip(tooltip)
+                track.plot.addItem(band)
+                items.append(band)
+
+                size = {1: 8.0, 2: 12.0, 3: 14.0, 4: 17.0, 5: 19.0}.get(intensity, 12.0)
+                line_width = 3.0 if intensity == 4 else 1.4
+                line_style = Qt.PenStyle.DashLine if intensity == 2 else Qt.PenStyle.SolidLine
+                brush = pg.mkBrush(style.color) if intensity in {1, 5} else pg.mkBrush(None)
+                scatter = pg.ScatterPlotItem(
+                    x=[0.34],
+                    y=[center],
+                    symbol="o",
+                    size=size,
+                    pen=pg.mkPen(style.color, width=line_width, style=line_style),
+                    brush=brush,
+                    pxMode=True,
+                )
+                scatter.setToolTip(tooltip)
+                track.plot.addItem(scatter)
+                items.append(scatter)
+
+                code_text = style.code
+                if intensity is not None:
+                    code_text += f" · {intensity}"
+                label = pg.TextItem(code_text, color="#0f172a", anchor=(0.0, 0.5))
+                label.setPos(0.56, center)
+                label.setToolTip(tooltip)
+                track.plot.addItem(label)
+                items.append(label)
+
             if items:
                 rendered[sample.sample_id] = tuple(items)
+
+        if not rendered:
+            has_curve_data = False
+            if definition.kind is TrackKind.CALCIMETRY and self._dataset is not None:
+                for mnemonic in definition.curve_mnemonics:
+                    curve = self._dataset.curve_by_mnemonic(mnemonic)
+                    if curve is not None and np.any(np.isfinite(curve.values)):
+                        has_curve_data = True
+                        break
+            if not has_curve_data:
+                message = pg.TextItem(
+                    self._localizer.text(
+                        "tablet.calcimetry_empty"
+                        if definition.kind is TrackKind.CALCIMETRY
+                        else "tablet.lba_empty"
+                    ),
+                    color="#64748b",
+                    anchor=(0.5, 0.5),
+                )
+                bounds = self._depth_bounds()
+                center_depth = sum(bounds) / 2.0 if bounds is not None else 0.0
+                message.setPos(
+                    50.0 if definition.kind is TrackKind.CALCIMETRY else 0.5, center_depth
+                )
+                track.plot.addItem(message)
+                rendered["__empty__"] = (message,)
         return rendered
 
     def _populate_lithology_descriptions(

@@ -1,3 +1,38 @@
+## Unreleased — faithful Masterlog, calcimetry/LBA, and curve gaps
+
+### Русский
+
+- геолого-геохимический Masterlog пересобран одной формой по переданному эталону: стратиграфия, WOB/ROP/ДМК/DEXP, глубина, шламограмма, ЛБА, кальциметрия, литология, C1–C5/TG и описание пород;
+- экранная форма связана с печатной шапкой `geological_geochemical`;
+- исправлена семантика NULL/0: LAS NULL/NaN разрывает линию, настоящий ноль остаётся на нулевой линии;
+- pyqtgraph получает `connect="finite"`, а LOD/downsampling выполняется по отдельным непрерывным сегментам;
+- кальциметрия показывает CaCO₃, CaMg(CO₃)₂ и остаток по интервалу пробы, без интерполяции между пробами;
+- ЛБА отображает тип битумоида и интенсивность 1–5 условными интервальными знаками;
+- добавлено семантическое сопоставление vendor-каналов ДМК, DEXP, кальцита и доломита;
+- исправлено двойное масштабирование шрифтов печатного renderer-а.
+
+### Қазақша
+
+- геологиялық-геохимиялық Masterlog берілген эталон бойынша біртұтас пішінге қайта жиналды: стратиграфия, WOB/ROP/ДМК/DEXP, тереңдік, шламограмма, ЛБА, кальциметрия, литология, C1–C5/TG және жыныс сипаттамасы;
+- экран пішіні `geological_geochemical` баспа тақырыбымен байланыстырылды;
+- NULL/0 семантикасы түзетілді: LAS NULL/NaN сызықты үзеді, нақты нөл нөлдік сызықта қалады;
+- pyqtgraph `connect="finite"` алады, ал LOD/downsampling әр үздіксіз сегмент үшін бөлек орындалады;
+- кальциметрия CaCO₃, CaMg(CO₃)₂ және қалдықты сынама аралығы бойынша, сынамалар арасын интерполяцияламай көрсетеді;
+- ЛБА битумоид түрі мен 1–5 қарқындылықты аралық шартты белгілермен көрсетеді;
+- ДМК, DEXP, кальцит және доломит vendor-арналарын семантикалық сәйкестендіру қосылды;
+- баспа renderer қарпінің қосарланған масштабталуы түзетілді.
+
+### English
+
+- rebuilt the geological-geochemical Masterlog as one coherent form from the supplied reference: stratigraphy, WOB/ROP/DMC/DEXP, depth, cuttings, LBA, calcimetry, lithology, C1–C5/TG, and rock descriptions;
+- linked the screen form to the `geological_geochemical` print header;
+- fixed NULL/zero semantics: LAS NULL/NaN breaks the line, while a real zero remains on the zero baseline;
+- pyqtgraph receives `connect="finite"`, and LOD/downsampling runs independently per continuous segment;
+- calcimetry displays CaCO₃, CaMg(CO₃)₂, and residue per sample interval without interpolating between samples;
+- LBA displays bitumen type and intensity 1–5 as interval symbols;
+- added semantic vendor-channel matching for DMC, DEXP, calcite, and dolomite;
+- fixed double font scaling in the print renderer.
+
 ## Unreleased — human-readable LAS table headers
 
 ### Русский

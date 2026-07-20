@@ -48,7 +48,7 @@ def test_factory_templates_are_read_only_and_copy_is_editable() -> None:
 
 def test_factory_templates_have_unique_ids() -> None:
     templates = factory_templates()
-    assert len(templates) == 17
+    assert len(templates) == 18
     assert len({item.form_id for item in templates.values()}) == len(templates)
     for form in templates.values():
         form.validate()
@@ -233,7 +233,12 @@ def test_factory_templates_include_engineering_form_library() -> None:
 
     lithology = templates["factory-lithology-cuttings"]
     kinds = {track.kind for column in lithology.columns for track in column.tracks}
-    assert {TrackKind.LITHOLOGY, TrackKind.CUTTINGS, TrackKind.STRATIGRAPHY, TrackKind.TEXT}.issubset(kinds)
+    assert {
+        TrackKind.LITHOLOGY,
+        TrackKind.CUTTINGS,
+        TrackKind.STRATIGRAPHY,
+        TrackKind.TEXT,
+    }.issubset(kinds)
 
     geotech = templates["factory-geotech-integrated"]
     canonical = {
@@ -266,3 +271,46 @@ def test_engineering_form_library_is_localized_with_stable_ids() -> None:
     assert ru[form_id].name == "Литология и шламограмма"
     assert kk[form_id].name == "Литология және шламограмма"
     assert en[form_id].name == "Lithology and cuttings log"
+
+
+def test_masterlog_screen_form_matches_reference_column_order() -> None:
+    form = factory_templates()["factory-masterlog-geological-geochemical"]
+
+    assert form.axis_kind is FormAxisKind.DEPTH
+    assert form.print_header_template_id == "geological_geochemical"
+    assert [column.column_id for column in form.columns] == [
+        "column-masterlog-stratigraphy",
+        "column-masterlog-drilling",
+        "column-depth-axis",
+        "column-masterlog-cuttings",
+        "column-masterlog-lba",
+        "column-masterlog-calcimetry",
+        "column-masterlog-lithology",
+        "column-masterlog-gas",
+        "column-masterlog-description",
+    ]
+    drilling_bindings = form.columns[1].tracks[0].bindings
+    assert [item.canonical_parameter_id for item in drilling_bindings] == [
+        "WOB",
+        "ROP",
+        "DMC",
+        "DEXP",
+    ]
+    calc_track = form.columns[5].tracks[0]
+    assert calc_track.kind is TrackKind.CALCIMETRY
+    assert [item.canonical_parameter_id for item in calc_track.bindings] == [
+        "CACO3",
+        "CAMG_CO3_2",
+    ]
+    gas_bindings = form.columns[7].tracks[0].bindings
+    assert [item.canonical_parameter_id for item in gas_bindings] == [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "IC4",
+        "C5",
+        "IC5",
+        "TG",
+    ]
+    assert all(item.x_scale.value == "logarithmic" for item in gas_bindings)

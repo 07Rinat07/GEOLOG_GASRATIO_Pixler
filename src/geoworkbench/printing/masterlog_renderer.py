@@ -46,8 +46,32 @@ from geoworkbench.printing.lba_visuals import (
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.las_parameter_resolver import LasParameterResolver
 from geoworkbench.tablet.lithology_legend import LithologyLegendEntry
 from geoworkbench.tablet.lithology_patterns import lithology_brush
+from geoworkbench.tablet.sampling import select_visible_samples
+
+
+def _set_scaled_font_mm(painter: QPainter, font: QFont, size_mm: float) -> None:
+    """Set font size in the same millimetre coordinate system as the form.
+
+    ``paint_masterlog`` scales a millimetre canvas to the output device.  A normal
+    QFont point size would be scaled a second time by the painter transform and
+    produce oversized, clipped text.  Convert the requested local millimetres to
+    pre-transform points using the device DPI so text and column geometry scale
+    together in preview, PDF, images and physical printing.
+    """
+    device = painter.device()
+    dpi_y = float(device.logicalDpiY()) if device is not None else 96.0
+    if not np.isfinite(dpi_y) or dpi_y <= 0.0:
+        dpi_y = 96.0
+    safe_mm = max(0.25, min(float(size_mm), 50.0))
+    font.setPointSizeF(safe_mm * 72.0 / dpi_y)
+
+
+def _set_scaled_font_points(painter: QPainter, font: QFont, size_points: float) -> None:
+    """Set a conventional final point size on the scaled Masterlog canvas."""
+    _set_scaled_font_mm(painter, font, float(size_points) * 25.4 / 72.0)
 
 
 class MasterlogRenderError(RuntimeError):
@@ -221,7 +245,7 @@ def paint_masterlog(
     )
     if page_label:
         font = QFont()
-        font.setPointSizeF(6.5)
+        _set_scaled_font_points(painter, font, 6.5)
         painter.setFont(font)
         painter.setPen(QColor("#475569"))
         painter.drawText(
@@ -455,7 +479,7 @@ def _paint_header_element(
         float(size) if isinstance(size, (int, float)) and not isinstance(size, bool) else 3.5
     )
     font = QFont()
-    font.setPointSizeF(max(1.0, min(font_size, 50.0)) * 72.0 / 25.4)
+    _set_scaled_font_mm(painter, font, max(1.0, min(font_size, 50.0)))
     painter.setFont(font)
     painter.setPen(color)
     painter.drawText(rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, text)
@@ -585,7 +609,7 @@ def _paint_lithology_legend(
     painter.drawRect(rect)
     title_font = QFont()
     title_font.setBold(True)
-    title_font.setPointSizeF(min(3.2, font_size + 0.4) * 72.0 / 25.4)
+    _set_scaled_font_mm(painter, title_font, min(3.2, font_size + 0.4))
     painter.setFont(title_font)
     painter.setPen(color)
     painter.drawText(
@@ -605,7 +629,7 @@ def _paint_lithology_legend(
     cell_width = content.width() / columns
     cell_height = content.height() / rows
     font = QFont()
-    font.setPointSizeF(font_size * 72.0 / 25.4)
+    _set_scaled_font_mm(painter, font, font_size)
     painter.setFont(font)
     for index, entry in enumerate(entries):
         row, column = divmod(index, columns)
@@ -712,7 +736,7 @@ def _paint_lba_legend(
     painter.drawRect(rect)
     title_font = QFont()
     title_font.setBold(True)
-    title_font.setPointSizeF(min(3.2, font_size + 0.5) * 72.0 / 25.4)
+    _set_scaled_font_mm(painter, title_font, min(3.2, font_size + 0.5))
     painter.setFont(title_font)
     painter.setPen(color)
     painter.drawText(
@@ -722,7 +746,7 @@ def _paint_lba_legend(
     )
 
     body_font = QFont()
-    body_font.setPointSizeF(max(1.0, min(font_size, 8.0)) * 72.0 / 25.4)
+    _set_scaled_font_mm(painter, body_font, max(1.0, min(font_size, 8.0)))
     painter.setFont(body_font)
     heading_height = min(3.5, body.height() * 0.16)
     painter.drawText(
@@ -840,7 +864,9 @@ def _paint_columns(
             elif column.column_type == "analysis_interpretation":
                 _paint_sample_interpretations(painter, plot_rect, session, depth_range)
             elif column.column_type == "calcimetry":
-                _paint_calcimetry_column(painter, plot_rect, session, depth_range)
+                _paint_calcimetry_column(
+                    painter, plot_rect, column, dataset, session, depth_range, bindings
+                )
             elif column.column_type == "lba":
                 _paint_lba_column(painter, plot_rect, session, depth_range)
             elif column.column_type in {"text", "description"}:
@@ -918,7 +944,7 @@ def _paint_column_heading(
     bindings: dict[str, str],
 ) -> None:
     title_font = QFont()
-    title_font.setPointSizeF(6.5)
+    _set_scaled_font_points(painter, title_font, 6.5)
     painter.setFont(title_font)
     painter.setPen(QColor("#0f172a"))
     if not column.show_legend or not column.curve_mnemonics:
@@ -946,7 +972,7 @@ def _paint_column_heading(
     cell_width = legend_rect.width() / max(1, columns)
     cell_height = legend_rect.height() / rows
     legend_font = QFont()
-    legend_font.setPointSizeF(4.6)
+    _set_scaled_font_points(painter, legend_font, 4.6)
     painter.setFont(legend_font)
     for index, mnemonic in enumerate(column.curve_mnemonics):
         row, column_index = divmod(index, columns)
@@ -1004,7 +1030,7 @@ def _paint_inspection_callouts(
         if not isinstance(text, str) or not text:
             continue
         font = QFont()
-        font.setPointSizeF(5.5)
+        _set_scaled_font_points(painter, font, 5.5)
         painter.setFont(font)
         text_height = min(18.0, max(6.0, 3.5 * len(text.splitlines())))
         text_rect = QRectF(
@@ -1103,7 +1129,7 @@ def _paint_stratigraphy_column(
     painter.save()
     painter.setClipRect(rect)
     font = QFont()
-    font.setPointSizeF(5.5)
+    _set_scaled_font_points(painter, font, 5.5)
     painter.setFont(font)
     for interval in visible:
         lane = lanes[interval.rank or ""]
@@ -1179,9 +1205,16 @@ def _paint_cuttings_column(
 def _paint_calcimetry_column(
     painter: QPainter,
     rect: QRectF,
+    column: MasterlogColumnTemplate,
+    dataset: Dataset,
     session: ProjectSession,
     depth_range: tuple[float, float],
+    bindings: dict[str, str],
 ) -> None:
+    # Some providers store calcite/dolomite as LAS curves, while other jobs keep
+    # them as discrete cuttings-sample analyses.  The masterlog supports both.
+    if column.curve_mnemonics:
+        _paint_curve_column(painter, rect, column, dataset, depth_range, bindings)
     well = session.current_well
     if well is None:
         return
@@ -1198,8 +1231,8 @@ def _paint_calcimetry_column(
             rect.top() + (min(bottom, sample.bottom_depth) - top) / (bottom - top) * rect.height()
         )
         height = max(0.2, y_bottom - y_top)
-        calcite = sample.calcite_percent or 0.0
-        dolomite = sample.dolomite_percent or 0.0
+        calcite = sample.calcite_percent
+        dolomite = sample.dolomite_percent
         residue = sample.insoluble_residue_percent
         left = rect.left()
         for value, color in (
@@ -1207,16 +1240,27 @@ def _paint_calcimetry_column(
             (dolomite, "#a78bfa"),
             (residue, "#d1d5db"),
         ):
-            if value is None or value <= 0.0:
+            if value is None:
                 continue
-            width = rect.width() * value / 100.0
-            painter.fillRect(QRectF(left, y_top, width, height), QColor(color))
-            left += width
+            numeric = min(100.0, max(0.0, float(value)))
+            if numeric > 0.0:
+                width = rect.width() * numeric / 100.0
+                fill = QColor(color)
+                fill.setAlpha(150)
+                painter.fillRect(QRectF(left, y_top, width, height), fill)
+                left += width
+            else:
+                painter.setPen(QPen(QColor(color), 0.7))
+                painter.drawLine(QLineF(left, y_top, left, y_bottom))
         painter.setPen(QPen(QColor("#334155"), 0.2))
         painter.drawRect(QRectF(rect.left(), y_top, rect.width(), height))
         if height >= 5.0:
             painter.setPen(QColor("#0f172a"))
-            parts = [f"Ca {calcite:g}%", f"Dol {dolomite:g}%"]
+            parts: list[str] = []
+            if calcite is not None:
+                parts.append(f"Ca {calcite:g}%")
+            if dolomite is not None:
+                parts.append(f"Dol {dolomite:g}%")
             if residue is not None:
                 parts.append(f"IR {residue:g}%")
             painter.drawText(
@@ -1240,7 +1284,7 @@ def _paint_lba_column(
     painter.save()
     painter.setClipRect(rect)
     font = QFont()
-    font.setPointSizeF(5.0)
+    _set_scaled_font_points(painter, font, 5.0)
     painter.setFont(font)
     for sample in well.cuttings:
         if sample.bottom_depth < top or sample.top_depth > bottom:
@@ -1320,7 +1364,7 @@ def _paint_lithology_descriptions(
     painter.save()
     painter.setClipRect(rect)
     font = QFont()
-    font.setPointSizeF(6.5)
+    _set_scaled_font_points(painter, font, 6.5)
     painter.setFont(font)
     for interval in visible_lithology_intervals(well.lithology, depth_range):
         interval_rect = _interval_rect(rect, interval, depth_range)
@@ -1356,7 +1400,7 @@ def _paint_cuttings_descriptions(
     painter.save()
     painter.setClipRect(rect)
     font = QFont()
-    font.setPointSizeF(6.5)
+    _set_scaled_font_points(painter, font, 6.5)
     painter.setFont(font)
     for sample in well.cuttings:
         if not sample.description or sample.bottom_depth < top or sample.top_depth > bottom:
@@ -1391,7 +1435,7 @@ def _paint_sample_interpretations(
     painter.save()
     painter.setClipRect(rect)
     font = QFont()
-    font.setPointSizeF(6.0)
+    _set_scaled_font_points(painter, font, 6.0)
     painter.setFont(font)
     for sample in well.cuttings:
         text = sample.analysis_interpretation
@@ -1509,7 +1553,7 @@ def _paint_depth_symbols(
         if isinstance(label, str) and label:
             painter.setPen(QColor("#0f172a"))
             font = QFont()
-            font.setPointSizeF(6.0)
+            _set_scaled_font_points(painter, font, 6.0)
             painter.setFont(font)
             painter.drawText(
                 QRectF(symbol_rect.right() + 0.5, y - 2.5, rect.right() - symbol_rect.right(), 5.0),
@@ -1522,7 +1566,7 @@ def _paint_depth_symbols(
 def _paint_depth_axis(painter: QPainter, rect: QRectF, depth_range: tuple[float, float]) -> None:
     top, bottom = depth_range
     font = QFont()
-    font.setPointSizeF(6.5)
+    _set_scaled_font_points(painter, font, 6.5)
     painter.setFont(font)
     painter.setPen(QPen(QColor("#64748b"), 0.15))
     for index in range(6):
@@ -1540,17 +1584,42 @@ def _paint_depth_axis(painter: QPainter, rect: QRectF, depth_range: tuple[float,
 
 
 def masterlog_curve_bindings(template: MasterlogTemplate, dataset: Dataset) -> dict[str, str]:
+    """Return explicit and safe automatic curve mappings for one Masterlog.
+
+    A field LAS often uses vendor mnemonics such as ``S106`` or ``S202``.
+    Saved user mappings always win; missing mappings are filled by the common
+    semantic LAS resolver from mnemonic, description and unit evidence.
+    Ambiguous parameters are intentionally left unresolved instead of choosing
+    a random channel.
+    """
+    bindings: dict[str, str] = {}
     profiles = template.properties.get("dataset_curve_bindings", {})
-    if not isinstance(profiles, dict):
-        return {}
-    raw = profiles.get(dataset.dataset_id, {})
-    if not isinstance(raw, dict):
-        return {}
-    return {
-        str(mnemonic): str(curve_id)
-        for mnemonic, curve_id in raw.items()
-        if isinstance(mnemonic, str) and isinstance(curve_id, str) and curve_id in dataset.curves
+    if isinstance(profiles, dict):
+        raw = profiles.get(dataset.dataset_id, {})
+        if isinstance(raw, dict):
+            bindings.update(
+                {
+                    str(mnemonic): str(curve_id)
+                    for mnemonic, curve_id in raw.items()
+                    if isinstance(mnemonic, str)
+                    and isinstance(curve_id, str)
+                    and curve_id in dataset.curves
+                }
+            )
+
+    targets = {
+        mnemonic.strip().upper()
+        for column in template.columns
+        for mnemonic in column.curve_mnemonics
+        if mnemonic.strip()
     }
+    if targets:
+        resolution = LasParameterResolver().resolve_dataset(
+            dataset, targets=targets, minimum_confidence=0.65
+        )
+        for canonical, match in resolution.matches.items():
+            bindings.setdefault(canonical, match.curve_id)
+    return bindings
 
 
 def _mapped_curve(dataset: Dataset, mnemonic: str, bindings: dict[str, str]) -> CurveData | None:
@@ -1680,6 +1749,12 @@ def _paint_curve_column(
     depth_range: tuple[float, float],
     bindings: dict[str, str],
 ) -> None:
+    """Paint curves without bridging LAS NULL intervals.
+
+    Screen and printed output use the same gap-preserving sampler.  Numeric zero
+    remains a real point on a linear track; missing values stay NaN and terminate
+    the current QPainterPath segment.
+    """
     depth = np.asarray(dataset.active_index.values, dtype=np.float64)
     top, bottom = depth_range
     styles = {
@@ -1698,35 +1773,46 @@ def _paint_curve_column(
         if x_range is None:
             continue
         minimum, maximum = x_range
-        if column.x_scale == "logarithmic":
+        logarithmic = column.x_scale == "logarithmic"
+        if logarithmic:
             if minimum <= 0 or maximum <= 0:
                 continue
             minimum, maximum = float(np.log10(minimum)), float(np.log10(maximum))
-        values = np.asarray(curve.values, dtype=np.float64)
-        if values.shape != depth.shape:
+        source_values = np.asarray(curve.values, dtype=np.float64)
+        if source_values.shape != depth.shape:
             continue
-        curve_style = masterlog_curve_style(column, mnemonic, curve_index)
-        pen = QPen(
-            _color(curve_style.color, column.line_color),
-            curve_style.width,
-            styles[curve_style.line_style],
+        values, sampled_depth = select_visible_samples(
+            depth,
+            source_values,
+            top,
+            bottom,
+            max_points=5000,
+            positive_values_only=logarithmic,
         )
-        painter.setPen(pen)
+        if not values.size:
+            continue
+        if logarithmic:
+            transformed = np.full(values.shape, np.nan, dtype=np.float64)
+            valid = np.isfinite(values) & (values > 0.0)
+            transformed[valid] = np.log10(values[valid])
+            values = transformed
+
+        curve_style = masterlog_curve_style(column, mnemonic, curve_index)
+        painter.setPen(
+            QPen(
+                _color(curve_style.color, column.line_color),
+                curve_style.width,
+                styles[curve_style.line_style],
+            )
+        )
         path = QPainterPath()
         drawing = False
-        stride = max(1, values.size // 5000)
-        for index in range(0, values.size, stride):
-            value, depth_value = float(values[index]), float(depth[index])
-            valid = np.isfinite(value) and np.isfinite(depth_value)
-            if column.x_scale == "logarithmic":
-                valid = valid and value > 0
-                if valid:
-                    value = float(np.log10(value))
-            if not valid or not top <= depth_value <= bottom:
+        for value, depth_value in zip(values, sampled_depth, strict=True):
+            if not np.isfinite(value) or not np.isfinite(depth_value):
                 drawing = False
                 continue
-            x_fraction = (value - minimum) / (maximum - minimum)
-            y_fraction = (depth_value - top) / (bottom - top)
+            x_fraction = min(1.0, max(0.0, (float(value) - minimum) / (maximum - minimum)))
+            y_fraction = (float(depth_value) - top) / (bottom - top)
             point_x = rect.left() + rect.width() * x_fraction
             point_y = rect.top() + rect.height() * y_fraction
             if drawing:

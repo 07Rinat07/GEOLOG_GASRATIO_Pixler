@@ -122,8 +122,10 @@ def test_geological_geochemical_reference_preset_matches_working_masterlog_struc
     drilling = preset.template.columns[1]
     assert drilling.curve_styles["WOB"].x_max == 20.0
     assert drilling.curve_styles["ROP"].x_max == 100.0
+    assert drilling.curve_styles["DMC"].x_max == 50.0
     assert drilling.curve_styles["DEXP"].x_max == 3.0
     gas = preset.template.columns[7]
     assert gas.x_scale == "logarithmic"
     assert gas.x_min == 0.001
     assert gas.x_max == 100.0
+    assert gas.curve_mnemonics[-1] == "TG"

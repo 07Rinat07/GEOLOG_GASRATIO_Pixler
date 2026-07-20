@@ -317,7 +317,7 @@ def _columns(
 
 
 def _reference_drilling_column() -> MasterlogColumnTemplate:
-    curves = ["WOB", "ROP", "ROP_FAST", "DEXP"]
+    curves = ["WOB", "ROP", "DMC", "DEXP"]
     return MasterlogColumnTemplate(
         "drilling_geotech",
         "Нагрузка / скорость проходки / D-экспонента",
@@ -329,7 +329,7 @@ def _reference_drilling_column() -> MasterlogColumnTemplate:
         curve_styles={
             "WOB": MasterlogCurveStyle("#2563eb", 1.4, "solid", 0.0, 20.0),
             "ROP": MasterlogCurveStyle("#dc2626", 1.3, "solid", 0.0, 100.0),
-            "ROP_FAST": MasterlogCurveStyle("#ef4444", 1.0, "dash", 0.0, 50.0),
+            "DMC": MasterlogCurveStyle("#ef4444", 1.0, "dash", 0.0, 50.0),
             "DEXP": MasterlogCurveStyle("#7c3aed", 1.4, "solid", 0.0, 3.0),
         },
         grid_x=True,
@@ -341,7 +341,7 @@ def _reference_drilling_column() -> MasterlogColumnTemplate:
 
 
 def _reference_gas_column() -> MasterlogColumnTemplate:
-    curves = ["C1", "C2", "C3", "C4", "IC4", "C5", "IC5", "TOTAL_GAS"]
+    curves = ["C1", "C2", "C3", "C4", "IC4", "C5", "IC5", "TG"]
     palette = ("#dc2626", "#84cc16", "#22d3ee", "#fb923c", "#65a30d", "#9333ea", "#d946ef", "#ef4444")
     return MasterlogColumnTemplate(
         "component_gas",
@@ -389,7 +389,26 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
                 MasterlogColumnTemplate("depth", "Глубина, м", "depth", 14.0),
                 MasterlogColumnTemplate("cuttings", "Шламограмма, %", "cuttings", 34.0),
                 MasterlogColumnTemplate("lba", "ЛБА", "lba", 24.0),
-                MasterlogColumnTemplate("calcimetry", "Карбонатность / кальциметрия, %", "calcimetry", 28.0),
+                MasterlogColumnTemplate(
+                    "calcimetry",
+                    "Карбонатность / кальциметрия, %",
+                    "calcimetry",
+                    28.0,
+                    ["CACO3", "CAMG_CO3_2"],
+                    x_scale="linear",
+                    x_min=0.0,
+                    x_max=100.0,
+                    show_legend=True,
+                    curve_styles={
+                        "CACO3": MasterlogCurveStyle("#06b6d4", 1.4, "solid", 0.0, 100.0),
+                        "CAMG_CO3_2": MasterlogCurveStyle("#8b5cf6", 1.4, "solid", 0.0, 100.0),
+                    },
+                    grid_x=True,
+                    grid_y=True,
+                    grid_major_divisions=5,
+                    grid_minor_divisions=5,
+                    grid_alpha=0.2,
+                ),
                 MasterlogColumnTemplate("lithology", "Литология", "lithology", 34.0),
                 _reference_gas_column(),
                 MasterlogColumnTemplate("description", "Описание пород и шлама", "cuttings_description", 112.0),
@@ -483,7 +502,7 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
                     "Total CO₃ / CaCO₃ / MgCO₃",
                     "calcimetry",
                     30,
-                    [],
+                    ["CACO3", "CAMG_CO3_2"],
                     "linear",
                     0,
                     100,

@@ -34,6 +34,21 @@ are supported. Equally confident duplicate channels are reported as ambiguous ra
 at random. Gas Ratio converts `%`, `ppm`, `ppb`, and fractions to a compatible scale. See
 [LAS parameter recognition](LAS_PARAMETER_RESOLUTION.md).
 
+
+## Geological-geochemical Masterlog
+
+The factory “Geological-geochemical Masterlog” follows the supplied working reference: 
+stratigraphy, WOB/ROP/DMC/D-exponent, depth, cuttings diagram, LBA, calcimetry, lithology,
+C1–C5/Total Gas, and rock descriptions. The factory form is protected; an editable user copy
+preserves column order, widths, captions, bindings, scales, and styles. The screen form is linked
+to the `geological_geochemical` print header.
+
+Calcimetry displays calcite CaCO₃, dolomite CaMg(CO₃)₂, and the calculated insoluble residue for
+each sample interval. A measured `0` remains zero, while a missing value is not drawn. LBA uses
+interval symbols for bitumen type and intensity 1–5, while the complete observation remains in
+the tooltip and project data. For ordinary curves, LAS NULL/NaN breaks the line, so points on
+opposite sides of a missing interval are never connected.
+
 ## LAS export
 
 The export dialog configures LAS 1.2/2.0, WRAP, NULL, precision, and custom-section

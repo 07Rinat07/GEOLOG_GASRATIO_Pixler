@@ -165,3 +165,51 @@ def test_materialization_uses_autoscale_for_equal_legacy_sensor_range() -> None:
     assert len(bindings) == 1
     assert bindings[0].x_min is None
     assert bindings[0].x_max is None
+
+
+def test_reference_masterlog_resolves_vendor_mnemonics_by_description() -> None:
+    """The fixed Masterlog must bind real vendor channels, not only exact names."""
+    dataset = Dataset(
+        "vendor-masterlog",
+        "Vendor LAS",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0]),
+    )
+
+    def add_curve(curve_id: str, mnemonic: str, unit: str, description: str) -> None:
+        metadata = CurveMetadata(
+            curve_id=curve_id,
+            original_mnemonic=mnemonic,
+            canonical_mnemonic=mnemonic,
+            unit=unit,
+            description=description,
+            source_dataset_id=dataset.dataset_id,
+        )
+        dataset.curves[curve_id] = CurveData(metadata, np.array([0.0, 1.0, 2.0]))
+
+    add_curve("wob", "S202", "т", "Нагрузка на долото")
+    add_curve("rop", "S106", "м/ч", "Скорость бурения (по глубине)")
+    add_curve("dmc", "S107", "мин/м", "ДМК")
+    add_curve("calcite", "LAB_CA", "%", "Кальцит CaCO3")
+    add_curve("dolomite", "LAB_DO", "%", "Доломит CaMg(CO3)2")
+    add_curve("methane", "GAS_1", "%", "Содержание метана")
+    add_curve("total-gas", "GAS_SUM", "%", "Сумма газов")
+
+    result = FormApplyEngine().build_layout(
+        factory_templates("ru")["factory-masterlog-geological-geochemical"],
+        dataset,
+    )
+    resolved = {
+        item.canonical_parameter_id: item.mnemonic
+        for item in result.resolutions
+        if item.resolved
+    }
+
+    assert resolved["WOB"] == "S202"
+    assert resolved["ROP"] == "S106"
+    assert resolved["DMC"] == "S107"
+    assert resolved["CACO3"] == "LAB_CA"
+    assert resolved["CAMG_CO3_2"] == "LAB_DO"
+    assert resolved["C1"] == "GAS_1"
+    assert resolved["TG"] == "GAS_SUM"

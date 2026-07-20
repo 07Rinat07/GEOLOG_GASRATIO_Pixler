@@ -6,6 +6,10 @@ from geoworkbench.catalogs.sensors import SensorCatalog, active_sensor_catalog, 
 from geoworkbench.domain.models import Dataset, IndexRole, new_id
 from geoworkbench.forms.models import FormDocument, FormAxisKind, ParameterBinding
 from geoworkbench.forms.materialize import materialize_form_for_dataset
+from geoworkbench.services.las_parameter_resolver import (
+    DatasetParameterResolution,
+    LasParameterResolver,
+)
 from geoworkbench.tablet.models import (
     CurveDisplaySettings,
     TabletLayout,
@@ -50,8 +54,14 @@ class FormApplyEngine:
 
     def __init__(self, catalog: SensorCatalog | None = None) -> None:
         self.catalog = catalog or active_sensor_catalog()
+        self.parameter_resolver = LasParameterResolver(self.catalog)
 
-    def resolve_binding(self, dataset: Dataset, binding: ParameterBinding) -> BindingResolution:
+    def resolve_binding(
+        self,
+        dataset: Dataset,
+        binding: ParameterBinding,
+        semantic: DatasetParameterResolution | None = None,
+    ) -> BindingResolution:
         if binding.source_mnemonic:
             curve = dataset.curve_by_mnemonic(binding.source_mnemonic)
             if curve is not None:
@@ -69,6 +79,26 @@ class FormApplyEngine:
                 binding.canonical_parameter_id,
                 curve.metadata.original_mnemonic,
                 "canonical",
+            )
+
+        canonical = binding.canonical_parameter_id.strip().upper()
+        semantic = semantic or self.parameter_resolver.resolve_dataset(
+            dataset, targets=(canonical,), minimum_confidence=0.65
+        )
+        if canonical in semantic.ambiguities:
+            return BindingResolution(
+                binding.binding_id,
+                binding.canonical_parameter_id,
+                None,
+                "semantic_ambiguous",
+            )
+        semantic_match = semantic.get(canonical)
+        if semantic_match is not None:
+            return BindingResolution(
+                binding.binding_id,
+                binding.canonical_parameter_id,
+                semantic_match.source_mnemonic,
+                f"semantic_{semantic_match.matched_by}",
             )
 
         wanted = normalize_sensor_key(binding.canonical_parameter_id)
@@ -103,6 +133,16 @@ class FormApplyEngine:
         if not materialized.compatible_axis:
             raise ValueError("В наборе данных нет оси, совместимой с выбранной формой")
         form = materialized.form
+        semantic_targets = {
+            binding.canonical_parameter_id.strip().upper()
+            for column in form.columns
+            for form_track in column.tracks
+            for binding in form_track.bindings
+            if binding.canonical_parameter_id.strip()
+        }
+        semantic = self.parameter_resolver.resolve_dataset(
+            dataset, targets=semantic_targets, minimum_confidence=0.65
+        )
         tracks: list[TrackDefinition] = []
         resolutions: list[BindingResolution] = []
         for column in form.columns:
@@ -118,7 +158,7 @@ class FormApplyEngine:
                 x_min = None
                 x_max = None
                 for binding in form_track.bindings:
-                    resolution = self.resolve_binding(dataset, binding)
+                    resolution = self.resolve_binding(dataset, binding, semantic)
                     resolutions.append(resolution)
                     if not binding.visible or resolution.mnemonic is None:
                         continue

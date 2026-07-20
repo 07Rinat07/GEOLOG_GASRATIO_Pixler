@@ -177,7 +177,7 @@ class CurveView(QWidget):
                 float(np.max(finite_depth)),
                 max_points=MAX_RENDERED_POINTS,
             )
-            if visible_depth.size == 0:
+            if visible_depth.size == 0 or not np.any(np.isfinite(visible_values)):
                 continue
             unit = (curve.metadata.unit or "").strip()
             legend = f"{mnemonic} [{unit}]" if unit else mnemonic
@@ -187,6 +187,7 @@ class CurveView(QWidget):
                 visible_depth,
                 name=legend,
                 pen=pg.mkPen(color, width=1.2),
+                connect="finite",
             )
             count += 1
             displayed_curve_ids.append(curve.metadata.curve_id)
@@ -245,7 +246,7 @@ class CurveView(QWidget):
                 bottom,
                 max_points=MAX_RENDERED_POINTS,
             )
-            item.setData(values, visible_depth)
+            item.setData(values, visible_depth, connect="finite")
 
     def _on_depth_range_changed(self, _view_box, y_range) -> None:
         if self._depth_range_guard:

@@ -10,8 +10,8 @@ def test_select_visible_samples_filters_depth_and_invalid_values() -> None:
 
     selected_values, selected_depth = select_visible_samples(depth, values, 100.0, 102.0)
 
-    np.testing.assert_allclose(selected_depth, [100.0, 102.0])
-    np.testing.assert_allclose(selected_values, [2.0, 4.0])
+    np.testing.assert_allclose(selected_depth, [100.0, 101.0, 102.0])
+    np.testing.assert_allclose(selected_values, [2.0, np.nan, 4.0], equal_nan=True)
 
 
 def test_select_visible_samples_decimates_and_preserves_interval_edges() -> None:
@@ -45,8 +45,8 @@ def test_select_visible_samples_can_require_positive_values() -> None:
         positive_values_only=True,
     )
 
-    np.testing.assert_allclose(selected_values, [1.0])
-    np.testing.assert_allclose(selected_depth, [3.0])
+    np.testing.assert_allclose(selected_values, [np.nan, np.nan, 1.0], equal_nan=True)
+    np.testing.assert_allclose(selected_depth, [1.0, 2.0, 3.0])
 
 
 def test_select_visible_samples_preserves_narrow_peaks_and_valleys() -> None:
@@ -81,3 +81,26 @@ def test_select_visible_samples_sorts_depth_and_collapses_duplicates() -> None:
 
     np.testing.assert_allclose(selected_depth, [100.0, 101.0, 102.0, 103.0])
     np.testing.assert_allclose(selected_values, [10.0, 40.0, 20.0, 40.0])
+
+
+def test_select_visible_samples_keeps_real_zero_and_breaks_null_interval() -> None:
+    depth = np.array([100.0, 101.0, 102.0, 103.0])
+    values = np.array([4.0, 0.0, np.nan, 7.0])
+
+    selected_values, selected_depth = select_visible_samples(depth, values, 100.0, 103.0)
+
+    np.testing.assert_allclose(selected_depth, depth)
+    np.testing.assert_allclose(selected_values, values, equal_nan=True)
+    assert selected_values[1] == 0.0
+    assert np.isnan(selected_values[2])
+
+
+def test_select_visible_samples_inserts_break_for_large_axis_hole() -> None:
+    depth = np.array([100.0, 101.0, 102.0, 120.0, 121.0])
+    values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+
+    selected_values, selected_depth = select_visible_samples(depth, values, 100.0, 121.0)
+
+    gap_indexes = np.flatnonzero(np.isnan(selected_values))
+    assert gap_indexes.size == 1
+    assert 102.0 < selected_depth[gap_indexes[0]] < 120.0

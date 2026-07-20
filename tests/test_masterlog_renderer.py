@@ -5,6 +5,8 @@ from PySide6.QtGui import QImage, QPainter
 from PySide6.QtPrintSupport import QPrinter
 
 from geoworkbench.domain.models import (
+    CurveData,
+    CurveMetadata,
     Dataset,
     DatasetKind,
     DepthDomain,
@@ -40,6 +42,7 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_curve_style,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
+from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_FORM_PRESETS
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -588,3 +591,47 @@ def test_masterlog_pdf_combines_column_and_depth_pages(qapp, tmp_path) -> None:
     export_masterlog_pdf(template, session, target)
 
     assert b"/Count 4" in target.read_bytes()
+
+
+def test_masterlog_curve_bindings_resolve_vendor_descriptions_automatically() -> None:
+    dataset = Dataset(
+        "vendor-masterlog",
+        "Vendor LAS",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0]),
+    )
+
+    def add_curve(curve_id: str, mnemonic: str, unit: str, description: str) -> None:
+        metadata = CurveMetadata(
+            curve_id=curve_id,
+            original_mnemonic=mnemonic,
+            canonical_mnemonic=mnemonic,
+            unit=unit,
+            description=description,
+            source_dataset_id=dataset.dataset_id,
+        )
+        dataset.curves[curve_id] = CurveData(metadata, np.array([0.0, 1.0, 2.0]))
+
+    add_curve("wob", "S202", "т", "Нагрузка на долото")
+    add_curve("rop", "S106", "м/ч", "Скорость бурения (по глубине)")
+    add_curve("dmc", "S107", "мин/м", "ДМК")
+    add_curve("calcite", "LAB_CA", "%", "Кальцит CaCO3")
+    add_curve("dolomite", "LAB_DO", "%", "Доломит CaMg(CO3)2")
+    add_curve("methane", "GAS_1", "%", "Содержание метана")
+    add_curve("total-gas", "GAS_SUM", "%", "Сумма газов")
+
+    preset = next(
+        item
+        for item in BUILTIN_MASTERLOG_FORM_PRESETS
+        if item.preset_id == "geological_geochemical_reference"
+    )
+    bindings = masterlog_curve_bindings(preset.template, dataset)
+
+    assert bindings["WOB"] == "wob"
+    assert bindings["ROP"] == "rop"
+    assert bindings["DMC"] == "dmc"
+    assert bindings["CACO3"] == "calcite"
+    assert bindings["CAMG_CO3_2"] == "dolomite"
+    assert bindings["C1"] == "methane"
+    assert bindings["TG"] == "total-gas"

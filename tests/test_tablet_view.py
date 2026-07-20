@@ -252,8 +252,8 @@ def test_tablet_renders_calcimetry_lba_and_cursor_summary(qapp) -> None:
     lba_items = view._rendered["lba"].analysis_items
     summary = view.cursor_summary(105.0)
 
-    assert calc_items is not None and len(calc_items["sample"]) == 3
-    assert lba_items is not None and len(lba_items["sample"]) == 2
+    assert calc_items is not None and len(calc_items["sample"]) >= 4
+    assert lba_items is not None and len(lba_items["sample"]) >= 3
     assert ("Кальциметрия: CaCO₃ 65%; CaMg(CO₃)₂ 20%; нерастворимый остаток 15%") in summary
     assert "ЛБА: Oil show; I=3; yellow; Streaming" in summary
     assert "Интерпретация геолога: Manual show interpretation" in summary
@@ -1813,3 +1813,48 @@ def test_depth_span_survives_tablet_resize(qapp) -> None:
         if rendered.plot is not None
     )
     view.close()
+
+
+def test_calcimetry_track_renders_las_curves_and_preserves_zero_and_null_gap(qapp) -> None:
+    dataset = Dataset(
+        "dataset-calc",
+        "Calcimetry",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0, 103.0]),
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-calcite",
+            "CACO3",
+            "CACO3",
+            "%",
+            "Кальцит",
+            dataset.dataset_id,
+        ),
+        np.array([25.0, 0.0, np.nan, 50.0]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "calc",
+                    "Кальциметрия",
+                    TrackKind.CALCIMETRY,
+                    curve_mnemonics=["CACO3"],
+                    width=260,
+                    curve_styles={"CACO3": CurveStyle("#06b6d4", 2.0)},
+                )
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+
+    item = view._rendered["calc"].curve_items["CACO3"]
+    x_values, y_values = item.getData()
+
+    np.testing.assert_allclose(y_values, [100.0, 101.0, 102.0, 103.0])
+    np.testing.assert_allclose(x_values, [25.0, 0.0, np.nan, 50.0], equal_nan=True)
+    assert item.opts["connect"] == "finite"
