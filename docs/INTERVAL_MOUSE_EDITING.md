@@ -34,3 +34,11 @@ dataset. A translucent dashed preview is shown during the gesture, and `Esc` can
 release the existing `InterpretationController` validates dataset bounds, top/bottom ordering, and
 same-type overlap. Only a valid command is persisted and recorded in Undo/Redo history
 (`Ctrl+Alt+Z` / `Ctrl+Alt+Shift+Z`).
+## Литологические интервалы / Литологиялық аралықтар / Lithology intervals
+
+**RU.** На дорожке «Литология» удерживайте `Shift`, нажмите левую кнопку и протяните от кровли до подошвы. После отпускания откроется отдельное окно: можно уточнить обе глубины и выбрать ровно одну породу. Состав шламовой пробы, ЛБА, кальциметрия и текстовое описание редактируются в редакторе пробы и не смешиваются с литологическим интервалом.
+
+**KK.** «Литология» жолағында `Shift` ұстап, сол жақ батырмамен төбеден табанға дейін созыңыз. Батырманы жібергенде екі тереңдікті түзетуге және бір тау жынысын таңдауға арналған терезе ашылады. Шлам құрамы, ЛБА, кальциметрия және мәтіндік сипаттама үлгі редакторында бөлек өңделеді.
+
+**EN.** Hold `Shift` and left-drag from top to bottom in a Lithology track. On release, a dedicated dialog lets the user correct both depths and select exactly one rock type. Cuttings composition, LBA, calcimetry, and rich descriptions remain separate sample-editor responsibilities.
+

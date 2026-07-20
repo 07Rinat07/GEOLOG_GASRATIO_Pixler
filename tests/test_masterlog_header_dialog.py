@@ -36,10 +36,11 @@ def test_masterlog_header_dialog_lists_elements(qapp) -> None:
     dialog = MasterlogHeaderDialog(controller, template.template_id, language=AppLanguage.EN)
 
     assert dialog.windowTitle() == "Masterlog header elements"
-    assert dialog.list.item(0).text() == "text | 5,6 | 80×10 mm"
+    assert dialog.list.item(0).text() == "Title\ntext · 5,6 · 80×10 mm"
     assert dialog.preview.objectName() == "masterlog-header-preview"
     assert dialog.preset_button.text() == "Apply header preset..."
-    assert len(dialog.preview_scene.items()) == 3
+    assert len(dialog.preview_scene.items()) >= 3
+    assert any(getattr(item, "zValue", lambda: 0.0)() == -10 for item in dialog.preview_scene.items())
     assert dialog.preview_scene.sceneRect().width() == 214.0
     dialog.close()
 
@@ -54,14 +55,20 @@ def test_header_element_dialog_builds_typed_properties(qapp) -> None:
         "text": "Daily masterlog",
         "color": "#123456",
         "font_size_mm": 4.5,
+        "bold": False,
+        "alignment": "left",
+        "frame": False,
     }
 
     dialog.type_input.setCurrentText("field")
-    dialog.field_input.setCurrentText("well.name")
+    dialog.field_input.setCurrentIndex(dialog.field_input.findData("well.name"))
     assert dialog.values()[-1] == {
         "field": "well.name",
         "color": "#123456",
         "font_size_mm": 4.5,
+        "bold": False,
+        "alignment": "left",
+        "frame": False,
     }
     assert dialog.windowTitle() == "Header element properties"
     dialog.close()
@@ -87,6 +94,9 @@ def test_header_element_dialog_preserves_unknown_legacy_field(qapp) -> None:
         "field": "legacy.custom",
         "color": "#0f172a",
         "font_size_mm": 3.5,
+        "bold": False,
+        "alignment": "left",
+        "frame": False,
     }
     dialog.close()
 
@@ -116,6 +126,9 @@ def test_header_element_dialog_builds_lithology_legend_properties(qapp) -> None:
         "show_code": False,
         "color": "#223344",
         "font_size_mm": 2.8,
+        "bold": False,
+        "alignment": "left",
+        "frame": False,
     }
     assert dialog.legend_scope_input.currentText() == "Full catalog"
     dialog.close()
@@ -201,8 +214,9 @@ def test_header_preview_draws_line_with_safe_style_fallback(qapp) -> None:
 
     assert line.pen().color().name() == "#334155"
     assert line.pen().widthF() == 0.6
-    assert line.line().x2() == 85.0
-    assert line.line().y2() == 16.0
+    scene_end = line.mapToScene(line.line().p2())
+    assert scene_end.x() == 85.0
+    assert scene_end.y() == 16.0
     dialog.close()
 
 
@@ -284,5 +298,8 @@ def test_header_element_dialog_builds_lba_legend_properties(qapp) -> None:
     assert dialog.values()[-1] == {
         "color": "#553311",
         "font_size_mm": 2.2,
+        "bold": False,
+        "alignment": "left",
+        "frame": False,
     }
     dialog.close()

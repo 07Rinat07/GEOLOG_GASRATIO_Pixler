@@ -2,34 +2,47 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Callable
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QPen
+from PySide6.QtGui import QColor, QBrush, QPen, QWheelEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
-    QFormLayout,
     QFileDialog,
-    QHBoxLayout,
+    QFormLayout,
+    QGraphicsItem,
+    QGraphicsLineItem,
+    QGraphicsRectItem,
     QGraphicsScene,
+    QGraphicsTextItem,
     QGraphicsView,
+    QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
     QPushButton,
-    QInputDialog,
+    QScrollArea,
     QSpinBox,
+    QSplitter,
+    QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 from geoworkbench.domain.models import MasterlogHeaderElement
-from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
-from geoworkbench.printing.header_fields import SUPPORTED_HEADER_FIELDS, resolve_header_field
+from geoworkbench.printing.header_fields import (
+    SUPPORTED_HEADER_FIELDS,
+    editable_header_field_definitions,
+    header_field_label,
+    resolve_header_field,
+)
 from geoworkbench.printing.image_asset_rendering import image_asset_pixmap
 from geoworkbench.printing.image_assets import (
     ImageAsset,
@@ -38,7 +51,72 @@ from geoworkbench.printing.image_assets import (
     create_svg_asset,
 )
 from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_HEADER_PRESETS
+from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.services.localization import AppLanguage, Localizer
+
+
+_TEXT = {
+    AppLanguage.RU: {
+        "data": "Данные шапки...",
+        "height": "Высота шапки, мм",
+        "duplicate": "Дублировать",
+        "fit": "Показать целиком",
+        "snap": "Привязка к сетке",
+        "grid": "Шаг, мм",
+        "clear": "Очистить введённые значения",
+        "data_title": "Данные шапки формы",
+        "drag_hint": "Элементы можно перемещать мышью. Двойной щелчок открывает свойства.",
+        "delete_confirm": "Удалить выбранный элемент шапки?",
+        "bold": "Полужирный",
+        "alignment": "Выравнивание",
+        "left": "Слева",
+        "center": "По центру",
+        "right": "Справа",
+        "frame": "Рамка",
+        "background": "Фон (#RRGGBB или пусто)",
+        "unit_mm": "мм",
+    },
+    AppLanguage.KK: {
+        "data": "Тақырып деректері...",
+        "height": "Тақырып биіктігі, мм",
+        "duplicate": "Көшірмелеу",
+        "fit": "Толық көрсету",
+        "snap": "Торға байлау",
+        "grid": "Қадам, мм",
+        "clear": "Енгізілген мәндерді тазалау",
+        "data_title": "Пішін тақырыбының деректері",
+        "drag_hint": "Элементтерді тінтуірмен жылжытуға болады. Қос шерту қасиеттерді ашады.",
+        "delete_confirm": "Таңдалған тақырып элементін жою керек пе?",
+        "bold": "Қалың",
+        "alignment": "Туралау",
+        "left": "Сол жақ",
+        "center": "Ортада",
+        "right": "Оң жақ",
+        "frame": "Жақтау",
+        "background": "Фон (#RRGGBB немесе бос)",
+        "unit_mm": "мм",
+    },
+    AppLanguage.EN: {
+        "data": "Header data...",
+        "height": "Header height, mm",
+        "duplicate": "Duplicate",
+        "fit": "Fit all",
+        "snap": "Snap to grid",
+        "grid": "Step, mm",
+        "clear": "Clear entered values",
+        "data_title": "Form header data",
+        "drag_hint": "Drag elements with the mouse. Double-click opens properties.",
+        "delete_confirm": "Delete the selected header element?",
+        "bold": "Bold",
+        "alignment": "Alignment",
+        "left": "Left",
+        "center": "Center",
+        "right": "Right",
+        "frame": "Border",
+        "background": "Background (#RRGGBB or empty)",
+        "unit_mm": "mm",
+    },
+}
 
 
 class HeaderElementDialog(QDialog):
@@ -55,10 +133,13 @@ class HeaderElementDialog(QDialog):
         self.image_assets = image_assets or {}
         self.imported_assets: dict[str, ImageAsset] = {}
         self.setWindowTitle(self.localizer.text("masterlog_header.properties"))
+        self.setMinimumWidth(480)
+
         self.type_input = QComboBox()
         self.type_input.addItems(["text", "field", "image", "line", "lithology_legend", "lba_legend"])
         if element:
             self.type_input.setCurrentText(element.element_type)
+
         self.inputs = [QDoubleSpinBox() for _ in range(4)]
         for control in self.inputs:
             control.setRange(0.0, 5000.0)
@@ -70,6 +151,7 @@ class HeaderElementDialog(QDialog):
         )
         for control, value in zip(self.inputs, values, strict=True):
             control.setValue(value)
+
         self.properties_input = QLineEdit(
             json.dumps(element.properties, ensure_ascii=False) if element else "{}"
         )
@@ -77,18 +159,32 @@ class HeaderElementDialog(QDialog):
         text_value = element.properties.get("text") if element else None
         if isinstance(text_value, (str, int, float)):
             self.text_input.setText(str(text_value))
+
         self.field_input = QComboBox()
-        self.field_input.addItems(SUPPORTED_HEADER_FIELDS)
+        for field_name in SUPPORTED_HEADER_FIELDS:
+            label = header_field_label(field_name, language)
+            self.field_input.addItem(f"{label} — {field_name}", field_name)
         field_value = element.properties.get("field") if element else None
-        if isinstance(field_value, str) and field_value not in SUPPORTED_HEADER_FIELDS:
-            self.field_input.addItem(field_value)
         if isinstance(field_value, str):
-            self.field_input.setCurrentText(field_value)
+            index = self.field_input.findData(field_value)
+            if index < 0:
+                self.field_input.addItem(field_value, field_value)
+                index = self.field_input.count() - 1
+            self.field_input.setCurrentIndex(index)
+
         self.text_color_input = QLineEdit("#0f172a")
         self.font_size_input = QDoubleSpinBox()
         self.font_size_input.setRange(1.0, 50.0)
         self.font_size_input.setDecimals(1)
         self.font_size_input.setValue(3.5)
+        self.bold_input = QCheckBox(_TEXT[language]["bold"])
+        self.alignment_input = QComboBox()
+        self.alignment_input.addItem(_TEXT[language]["left"], "left")
+        self.alignment_input.addItem(_TEXT[language]["center"], "center")
+        self.alignment_input.addItem(_TEXT[language]["right"], "right")
+        self.frame_input = QCheckBox(_TEXT[language]["frame"])
+        self.background_input = QLineEdit()
+
         if element and element.element_type in {"text", "field", "lithology_legend", "lba_legend"}:
             text_color = element.properties.get("color")
             font_size = element.properties.get("font_size_mm")
@@ -96,6 +192,15 @@ class HeaderElementDialog(QDialog):
                 self.text_color_input.setText(text_color)
             if isinstance(font_size, (int, float)) and not isinstance(font_size, bool):
                 self.font_size_input.setValue(float(font_size))
+            self.bold_input.setChecked(bool(element.properties.get("bold", False)))
+            alignment = element.properties.get("alignment", "left")
+            alignment_index = self.alignment_input.findData(alignment)
+            self.alignment_input.setCurrentIndex(max(0, alignment_index))
+            self.frame_input.setChecked(bool(element.properties.get("frame", False)))
+            background = element.properties.get("background")
+            if isinstance(background, str):
+                self.background_input.setText(background)
+
         self.line_color_input = QLineEdit("#334155")
         self.line_width_input = QDoubleSpinBox()
         self.line_width_input.setRange(0.1, 20.0)
@@ -108,6 +213,7 @@ class HeaderElementDialog(QDialog):
                 self.line_color_input.setText(color)
             if isinstance(width, (int, float)) and not isinstance(width, bool):
                 self.line_width_input.setValue(float(width))
+
         self.legend_scope_input = QComboBox()
         self.legend_scope_input.addItem(self.localizer.text("masterlog_header.legend_used"), "used")
         self.legend_scope_input.addItem(self.localizer.text("masterlog_header.legend_all"), "all")
@@ -125,6 +231,7 @@ class HeaderElementDialog(QDialog):
         self.legend_code_input = QCheckBox(self.localizer.text("masterlog_header.legend_show_code"))
         show_code = element.properties.get("show_code") if element else True
         self.legend_code_input.setChecked(show_code if isinstance(show_code, bool) else True)
+
         self.image_input = QComboBox()
         for asset in self.image_assets.values():
             self.image_input.addItem(asset.original_name, asset.asset_id)
@@ -140,6 +247,7 @@ class HeaderElementDialog(QDialog):
         image_row = QHBoxLayout()
         image_row.addWidget(self.image_input, 1)
         image_row.addWidget(self.image_import_button)
+
         layout = QFormLayout(self)
         layout.addRow(self.localizer.text("masterlog_header.type"), self.type_input)
         for label, control in zip(
@@ -153,6 +261,7 @@ class HeaderElementDialog(QDialog):
             strict=True,
         ):
             layout.addRow(label, control)
+
         self.text_label = QLabel(self.localizer.text("masterlog_header.text"))
         self.field_label = QLabel(self.localizer.text("masterlog_header.field"))
         self.properties_label = QLabel(self.localizer.text("masterlog_header.json"))
@@ -163,10 +272,17 @@ class HeaderElementDialog(QDialog):
         self.image_label = QLabel(self.localizer.text("masterlog_header.image"))
         self.legend_scope_label = QLabel(self.localizer.text("masterlog_header.legend_scope"))
         self.legend_columns_label = QLabel(self.localizer.text("masterlog_header.legend_columns"))
+        self.alignment_label = QLabel(_TEXT[language]["alignment"])
+        self.background_label = QLabel(_TEXT[language]["background"])
+
         layout.addRow(self.text_label, self.text_input)
         layout.addRow(self.field_label, self.field_input)
         layout.addRow(self.text_color_label, self.text_color_input)
         layout.addRow(self.font_size_label, self.font_size_input)
+        layout.addRow(self.bold_input)
+        layout.addRow(self.alignment_label, self.alignment_input)
+        layout.addRow(self.frame_input)
+        layout.addRow(self.background_label, self.background_input)
         layout.addRow(self.image_label, image_row)
         layout.addRow(self.line_color_label, self.line_color_input)
         layout.addRow(self.line_width_label, self.line_width_input)
@@ -174,6 +290,7 @@ class HeaderElementDialog(QDialog):
         layout.addRow(self.legend_columns_label, self.legend_columns_input)
         layout.addRow(self.legend_code_input)
         layout.addRow(self.properties_label, self.properties_input)
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -189,9 +306,16 @@ class HeaderElementDialog(QDialog):
         self.line_color_input.setVisible(element_type == "line")
         self.line_width_input.setVisible(element_type == "line")
         has_text_style = element_type in {"text", "field", "lithology_legend", "lba_legend"}
-        self.text_color_input.setVisible(has_text_style)
-        self.font_size_input.setVisible(has_text_style)
-        self.properties_input.setVisible(element_type == "image")
+        for control in (
+            self.text_color_input,
+            self.font_size_input,
+            self.bold_input,
+            self.alignment_input,
+            self.frame_input,
+            self.background_input,
+        ):
+            control.setVisible(has_text_style)
+        self.properties_input.setVisible(False)
         self.image_input.setVisible(element_type == "image")
         self.image_import_button.setVisible(element_type == "image")
         self.text_label.setVisible(element_type == "text")
@@ -200,12 +324,15 @@ class HeaderElementDialog(QDialog):
         self.line_width_label.setVisible(element_type == "line")
         self.text_color_label.setVisible(has_text_style)
         self.font_size_label.setVisible(has_text_style)
+        self.alignment_label.setVisible(has_text_style)
+        self.background_label.setVisible(has_text_style)
         self.image_label.setVisible(element_type == "image")
-        self.legend_scope_input.setVisible(element_type == "lithology_legend")
-        self.legend_columns_input.setVisible(element_type == "lithology_legend")
-        self.legend_code_input.setVisible(element_type == "lithology_legend")
-        self.legend_scope_label.setVisible(element_type == "lithology_legend")
-        self.legend_columns_label.setVisible(element_type == "lithology_legend")
+        is_lithology = element_type == "lithology_legend"
+        self.legend_scope_input.setVisible(is_lithology)
+        self.legend_columns_input.setVisible(is_lithology)
+        self.legend_code_input.setVisible(is_lithology)
+        self.legend_scope_label.setVisible(is_lithology)
+        self.legend_columns_label.setVisible(is_lithology)
         self.properties_label.setVisible(False)
 
     def _import_image(self) -> None:
@@ -219,11 +346,7 @@ class HeaderElementDialog(QDialog):
             return
         try:
             source = Path(filename)
-            asset = (
-                create_svg_asset(source)
-                if source.suffix.casefold() == ".svg"
-                else create_png_asset(source)
-            )
+            asset = create_svg_asset(source) if source.suffix.casefold() == ".svg" else create_png_asset(source)
         except (OSError, ImageAssetError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
@@ -243,22 +366,28 @@ class HeaderElementDialog(QDialog):
             color = QColor(self.text_color_input.text().strip())
             if not color.isValid():
                 raise ValueError(self.localizer.text("masterlog_header.invalid_text_color"))
+            background_text = self.background_input.text().strip()
+            if background_text and not QColor(background_text).isValid():
+                raise ValueError(self.localizer.text("masterlog_header.invalid_color"))
             text_style = {
                 "color": color.name(),
                 "font_size_mm": self.font_size_input.value(),
+                "bold": self.bold_input.isChecked(),
+                "alignment": self.alignment_input.currentData(),
+                "frame": self.frame_input.isChecked(),
             }
+            if background_text:
+                text_style["background"] = QColor(background_text).name()
         if element_type == "text":
             properties: dict[str, object] = {"text": self.text_input.text(), **text_style}
         elif element_type == "field":
-            properties = {"field": self.field_input.currentText(), **text_style}
+            field_name = self.field_input.currentData()
+            properties = {"field": str(field_name), **text_style}
         elif element_type == "line":
             color = QColor(self.line_color_input.text().strip())
             if not color.isValid():
                 raise ValueError(self.localizer.text("masterlog_header.invalid_color"))
-            properties = {
-                "color": color.name(),
-                "width": self.line_width_input.value(),
-            }
+            properties = {"color": color.name(), "width": self.line_width_input.value()}
         elif element_type == "image":
             asset_ref = self.image_input.currentData()
             if not isinstance(asset_ref, str) or not asset_ref:
@@ -288,6 +417,148 @@ class HeaderElementDialog(QDialog):
         )
 
 
+class HeaderDataDialog(QDialog):
+    def __init__(
+        self,
+        controller: MasterlogTemplateController,
+        template_id: str,
+        parent=None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
+        super().__init__(parent)
+        self.controller = controller
+        self.template_id = template_id
+        self.language = language
+        self.setWindowTitle(_TEXT[language]["data_title"])
+        self.setMinimumSize(600, 480)
+        self.resize(760, 680)
+        self.inputs: dict[str, QLineEdit | QTextEdit] = {}
+        template = controller.session.project.masterlog_templates[template_id]
+        saved = controller.header_fields(template_id)
+
+        form_widget = QWidget()
+        form = QFormLayout(form_widget)
+        for definition in editable_header_field_definitions():
+            control: QLineEdit | QTextEdit
+            if definition.multiline:
+                control = QTextEdit()
+                control.setMinimumHeight(72)
+            else:
+                control = QLineEdit()
+            current = saved.get(definition.field_id, "")
+            fallback = resolve_header_field(controller.session, definition.field_id, template) or ""
+            if current:
+                control.setText(current) if isinstance(control, QLineEdit) else control.setPlainText(current)
+            elif fallback:
+                control.setPlaceholderText(fallback)
+            self.inputs[definition.field_id] = control
+            form.addRow(definition.label(language), control)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(form_widget)
+        clear_button = QPushButton(_TEXT[language]["clear"])
+        clear_button.clicked.connect(self._clear)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        footer = QHBoxLayout()
+        footer.addWidget(clear_button)
+        footer.addStretch(1)
+        footer.addWidget(buttons)
+        layout = QVBoxLayout(self)
+        layout.addWidget(scroll, 1)
+        layout.addLayout(footer)
+
+    def _clear(self) -> None:
+        for control in self.inputs.values():
+            control.clear()
+
+    def values(self) -> dict[str, str]:
+        result: dict[str, str] = {}
+        for field_name, control in self.inputs.items():
+            value = control.text() if isinstance(control, QLineEdit) else control.toPlainText()
+            value = value.strip()
+            if value:
+                result[field_name] = value
+        return result
+
+
+class HeaderGraphicsView(QGraphicsView):
+    def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802 - Qt API
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            factor = 1.15 if event.angleDelta().y() > 0 else 1.0 / 1.15
+            self.scale(factor, factor)
+            event.accept()
+            return
+        super().wheelEvent(event)
+
+
+class _MovableHeaderRect(QGraphicsRectItem):
+    def __init__(
+        self,
+        element: MasterlogHeaderElement,
+        moved: Callable[[str, float, float], None],
+        activated: Callable[[str], None],
+    ) -> None:
+        super().__init__(QRectF(0.0, 0.0, element.width_mm, element.height_mm))
+        self.element_id = element.element_id
+        self._moved = moved
+        self._activated = activated
+        self.setPos(element.x_mm, element.y_mm)
+        self.setFlags(
+            QGraphicsItem.GraphicsItemFlag.ItemIsMovable
+            | QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+            | QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
+        )
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802 - Qt API
+        self._activated(self.element_id)
+        super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt API
+        self._activated(self.element_id)
+        super().mouseDoubleClickEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt API
+        super().mouseReleaseEvent(event)
+        self._moved(self.element_id, self.pos().x(), self.pos().y())
+
+
+class _MovableHeaderLine(QGraphicsLineItem):
+    def __init__(
+        self,
+        element: MasterlogHeaderElement,
+        moved: Callable[[str, float, float], None],
+        activated: Callable[[str], None],
+    ) -> None:
+        super().__init__(0.0, 0.0, element.width_mm, element.height_mm)
+        self.element_id = element.element_id
+        self._moved = moved
+        self._activated = activated
+        self.setPos(element.x_mm, element.y_mm)
+        self.setFlags(
+            QGraphicsItem.GraphicsItemFlag.ItemIsMovable
+            | QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+            | QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
+        )
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802 - Qt API
+        self._activated(self.element_id)
+        super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt API
+        self._activated(self.element_id)
+        super().mouseDoubleClickEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt API
+        super().mouseReleaseEvent(event)
+        self._moved(self.element_id, self.pos().x(), self.pos().y())
+
+
 class MasterlogHeaderDialog(QDialog):
     def __init__(
         self,
@@ -300,13 +571,48 @@ class MasterlogHeaderDialog(QDialog):
         super().__init__(parent)
         self.controller, self.template_id = controller, template_id
         self.localizer = Localizer.create(language)
+        self._selected_element_id: str | None = None
+        self._fit_on_refresh = True
         self.setWindowTitle(self.localizer.text("masterlog_header.title"))
+        self.setMinimumSize(720, 480)
+        self.resize(1120, 700)
+
         self.list = QListWidget()
+        self.list.setMinimumWidth(260)
+        self.list.itemDoubleClicked.connect(lambda _item: self._edit())
+        self.list.currentItemChanged.connect(self._list_selection_changed)
+
         self.preview_scene = QGraphicsScene(self)
-        self.preview = QGraphicsView(self.preview_scene)
+        self.preview = HeaderGraphicsView(self.preview_scene)
         self.preview.setObjectName("masterlog-header-preview")
-        self.preview.setMinimumWidth(360)
-        buttons = QHBoxLayout()
+        self.preview.setMinimumWidth(420)
+        self.preview.setRenderHints(self.preview.renderHints())
+        self.preview.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        self.preview.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+
+        self.height_input = QDoubleSpinBox()
+        self.height_input.setRange(10.0, 500.0)
+        self.height_input.setDecimals(1)
+        self.height_input.setValue(self.template.header_height_mm)
+        self.height_input.editingFinished.connect(self._apply_height)
+        self.snap_checkbox = QCheckBox(_TEXT[language]["snap"])
+        self.snap_checkbox.setChecked(True)
+        self.snap_input = QDoubleSpinBox()
+        self.snap_input.setRange(0.1, 25.0)
+        self.snap_input.setDecimals(1)
+        self.snap_input.setValue(1.0)
+
+        settings = QHBoxLayout()
+        settings.addWidget(QLabel(_TEXT[language]["height"]))
+        settings.addWidget(self.height_input)
+        settings.addSpacing(16)
+        settings.addWidget(self.snap_checkbox)
+        settings.addWidget(QLabel(_TEXT[language]["grid"]))
+        settings.addWidget(self.snap_input)
+        settings.addStretch(1)
+        hint = QLabel(_TEXT[language]["drag_hint"])
+        hint.setWordWrap(True)
+
         self.preset_button = QPushButton(
             {
                 AppLanguage.RU: "Применить шаблон шапки...",
@@ -315,24 +621,57 @@ class MasterlogHeaderDialog(QDialog):
             }[language]
         )
         self.preset_button.clicked.connect(self._apply_preset)
-        buttons.addWidget(self.preset_button)
+        self.data_button = QPushButton(_TEXT[language]["data"])
+        self.data_button.clicked.connect(self._edit_header_data)
+        self.fit_button = QPushButton(_TEXT[language]["fit"])
+        self.fit_button.clicked.connect(self._fit_preview)
+
+        left_buttons = QHBoxLayout()
+        left_buttons.addWidget(self.data_button)
+        left_buttons.addWidget(self.preset_button)
+        left_buttons.addWidget(self.fit_button)
+
+        element_buttons = QHBoxLayout()
         for text, callback in (
             ("+", self._add),
-            ("Изменить", self._edit),
+            ({AppLanguage.RU: "Изменить", AppLanguage.KK: "Өзгерту", AppLanguage.EN: "Edit"}[language], self._edit),
+            (_TEXT[language]["duplicate"], self._duplicate),
             ("↑", lambda: self._move(-1)),
             ("↓", lambda: self._move(1)),
             ("−", self._remove),
         ):
             button = QPushButton(text)
             button.clicked.connect(callback)
-            buttons.addWidget(button)
-        content = QHBoxLayout()
-        content.addWidget(self.list, 1)
-        content.addWidget(self.preview, 2)
+            element_buttons.addWidget(button)
+
+        left = QWidget()
+        left_layout = QVBoxLayout(left)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.addLayout(left_buttons)
+        left_layout.addWidget(self.list, 1)
+        left_layout.addLayout(element_buttons)
+
+        right = QWidget()
+        right_layout = QVBoxLayout(right)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.addWidget(hint)
+        right_layout.addWidget(self.preview, 1)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(left)
+        splitter.addWidget(right)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([340, 760])
+
+        close_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close_buttons.rejected.connect(self.reject)
+        close_buttons.button(QDialogButtonBox.StandardButton.Close).clicked.connect(self.accept)
+
         layout = QVBoxLayout(self)
-        layout.addLayout(content)
-        layout.addLayout(buttons)
-        self.resize(700, 420)
+        layout.addLayout(settings)
+        layout.addWidget(splitter, 1)
+        layout.addWidget(close_buttons)
         self.refresh()
 
     @property
@@ -340,27 +679,29 @@ class MasterlogHeaderDialog(QDialog):
         return self.controller.session.project.masterlog_templates[self.template_id]
 
     def refresh(self) -> None:
+        selected = self._selected_element_id
+        self.list.blockSignals(True)
         self.list.clear()
         self.preview_scene.clear()
         header_width = max(
             210.0,
-            max(
-                (item.x_mm + item.width_mm for item in self.template.header_elements),
-                default=0.0,
-            ),
+            max((item.x_mm + item.width_mm for item in self.template.header_elements), default=0.0),
         )
         header_height = max(
             self.template.header_height_mm,
-            max(
-                (item.y_mm + item.height_mm for item in self.template.header_elements),
-                default=0.0,
-            ),
+            max((item.y_mm + item.height_mm for item in self.template.header_elements), default=0.0),
             1.0,
         )
+        self.height_input.blockSignals(True)
+        self.height_input.setValue(self.template.header_height_mm)
+        self.height_input.blockSignals(False)
+
         self.preview_scene.addRect(
             QRectF(0.0, 0.0, header_width, header_height),
             QPen(QColor("#334155"), 0.6),
+            QBrush(QColor("#ffffff")),
         )
+        self._draw_grid(header_width, header_height)
         colors = {
             "text": QColor("#dbeafe"),
             "field": QColor("#dcfce7"),
@@ -369,42 +710,99 @@ class MasterlogHeaderDialog(QDialog):
             "lithology_legend": QColor("#f3e8ff"),
             "lba_legend": QColor("#ffedd5"),
         }
-        for element in self.template.header_elements:
+        selected_row = -1
+        for row, element in enumerate(self.template.header_elements):
+            preview_name = self._preview_text(element).replace("\n", " ")
+            if len(preview_name) > 45:
+                preview_name = preview_name[:42] + "…"
+            unit_mm = _TEXT[self.localizer.language]["unit_mm"]
             item = QListWidgetItem(
-                f"{element.element_type} | {element.x_mm:g},{element.y_mm:g} | {element.width_mm:g}×{element.height_mm:g} mm"
+                f"{preview_name}\n{element.element_type} · {element.x_mm:g},{element.y_mm:g} · "
+                f"{element.width_mm:g}×{element.height_mm:g} {unit_mm}"
             )
             item.setData(Qt.ItemDataRole.UserRole, element.element_id)
             self.list.addItem(item)
+            if element.element_id == selected:
+                selected_row = row
+
             if element.element_type == "line":
-                line = self.preview_scene.addLine(
-                    element.x_mm,
-                    element.y_mm,
-                    element.x_mm + element.width_mm,
-                    element.y_mm + element.height_mm,
-                    self._line_pen(element),
-                )
-                line.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+                graphic = _MovableHeaderLine(element, self._move_preview_element, self._activate_preview_element)
+                graphic.setPen(self._line_pen(element))
+                graphic.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+                self.preview_scene.addItem(graphic)
                 continue
-            rectangle = self.preview_scene.addRect(
-                QRectF(
-                    element.x_mm,
-                    element.y_mm,
-                    element.width_mm,
-                    element.height_mm,
-                ),
-                QPen(QColor("#475569"), 0.4),
-                colors[element.element_type],
-            )
-            rectangle.setToolTip(json.dumps(element.properties, ensure_ascii=False))
-            if element.element_type == "image" and self._add_image_preview(element):
+
+            graphic = _MovableHeaderRect(element, self._move_preview_element, self._activate_preview_element)
+            graphic.setPen(QPen(QColor("#475569"), 0.35))
+            background = element.properties.get("background")
+            fill = QColor(background) if isinstance(background, str) else colors[element.element_type]
+            if not fill.isValid():
+                fill = colors[element.element_type]
+            graphic.setBrush(QBrush(fill))
+            graphic.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+            self.preview_scene.addItem(graphic)
+            if element.element_type == "image" and self._add_image_preview(element, graphic):
                 continue
-            label = self.preview_scene.addText(self._preview_text(element))
+            label = QGraphicsTextItem(self._preview_text(element), graphic)
             color, font_size = self._text_style(element)
             label.setDefaultTextColor(color)
+            font = label.font()
+            font.setBold(bool(element.properties.get("bold", False)))
+            label.setFont(font)
             label.setScale(font_size / 10.0)
-            label.setPos(element.x_mm + 1.0, element.y_mm + 0.5)
+            label.setTextWidth(max(1.0, element.width_mm - 2.0))
+            label.setPos(1.0, 0.3)
+
+        self.list.blockSignals(False)
+        if selected_row >= 0:
+            self.list.setCurrentRow(selected_row)
         self.preview_scene.setSceneRect(QRectF(-2.0, -2.0, header_width + 4.0, header_height + 4.0))
+        if self._fit_on_refresh:
+            self._fit_preview()
+            self._fit_on_refresh = False
+
+    def _draw_grid(self, width: float, height: float) -> None:
+        step = max(1.0, self.snap_input.value())
+        pen = QPen(QColor("#e2e8f0"), 0.12)
+        x = step
+        while x < width:
+            line = self.preview_scene.addLine(x, 0.0, x, height, pen)
+            line.setZValue(-10)
+            x += step
+        y = step
+        while y < height:
+            line = self.preview_scene.addLine(0.0, y, width, y, pen)
+            line.setZValue(-10)
+            y += step
+
+    def _fit_preview(self) -> None:
+        self.preview.resetTransform()
         self.preview.fitInView(self.preview_scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+
+    def _apply_height(self) -> None:
+        try:
+            self.controller.update_header_height(self.template_id, self.height_input.value())
+        except ValueError as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            self.height_input.setValue(self.template.header_height_mm)
+            return
+        self.refresh()
+
+    def _edit_header_data(self) -> None:
+        dialog = HeaderDataDialog(
+            self.controller,
+            self.template_id,
+            self,
+            language=self.localizer.language,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            self.controller.update_header_fields(self.template_id, dialog.values())
+        except ValueError as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self.refresh()
 
     @staticmethod
     def _line_pen(element: MasterlogHeaderElement) -> QPen:
@@ -438,13 +836,13 @@ class MasterlogHeaderDialog(QDialog):
         )
         return color, size
 
-    def _add_image_preview(self, element: MasterlogHeaderElement) -> bool:
+    def _add_image_preview(
+        self,
+        element: MasterlogHeaderElement,
+        parent: QGraphicsRectItem | None = None,
+    ) -> bool:
         asset_ref = element.properties.get("asset_ref")
-        asset = (
-            self.controller.session.image_assets.get(asset_ref)
-            if isinstance(asset_ref, str)
-            else None
-        )
+        asset = self.controller.session.image_assets.get(asset_ref) if isinstance(asset_ref, str) else None
         if asset is None:
             return False
         pixmap = image_asset_pixmap(asset)
@@ -453,7 +851,11 @@ class MasterlogHeaderDialog(QDialog):
         item = self.preview_scene.addPixmap(pixmap)
         scale = min(element.width_mm / pixmap.width(), element.height_mm / pixmap.height())
         item.setScale(scale)
-        item.setPos(element.x_mm, element.y_mm)
+        if parent is not None:
+            item.setParentItem(parent)
+            item.setPos(0.0, 0.0)
+        else:
+            item.setPos(element.x_mm, element.y_mm)
         item.setToolTip(asset.original_name)
         return True
 
@@ -465,7 +867,7 @@ class MasterlogHeaderDialog(QDialog):
             field_name = element.properties.get("field")
             if not isinstance(field_name, str):
                 return "{field}"
-            resolved = resolve_header_field(self.controller.session, field_name)
+            resolved = resolve_header_field(self.controller.session, field_name, self.template)
             return resolved if resolved is not None else "{" + field_name + "}"
         if element.element_type == "lithology_legend":
             return self.localizer.text("masterlog_header.lithology_legend")
@@ -478,9 +880,47 @@ class MasterlogHeaderDialog(QDialog):
         if item is None:
             return None
         element_id = str(item.data(Qt.ItemDataRole.UserRole))
-        return next(
-            value for value in self.template.header_elements if value.element_id == element_id
-        )
+        return next((value for value in self.template.header_elements if value.element_id == element_id), None)
+
+    def _activate_preview_element(self, element_id: str) -> None:
+        self._selected_element_id = element_id
+        for row in range(self.list.count()):
+            item = self.list.item(row)
+            if item is not None and item.data(Qt.ItemDataRole.UserRole) == element_id:
+                self.list.setCurrentRow(row)
+                break
+
+    def _list_selection_changed(self, current, _previous) -> None:
+        if current is not None:
+            self._selected_element_id = str(current.data(Qt.ItemDataRole.UserRole))
+
+    def _move_preview_element(self, element_id: str, x: float, y: float) -> None:
+        element = next((item for item in self.template.header_elements if item.element_id == element_id), None)
+        if element is None:
+            return
+        if self.snap_checkbox.isChecked():
+            step = self.snap_input.value()
+            x = round(x / step) * step
+            y = round(y / step) * step
+        x = max(0.0, x)
+        y = max(0.0, y)
+        try:
+            self.controller.update_header_element(
+                self.template_id,
+                element_id,
+                element_type=element.element_type,
+                x_mm=x,
+                y_mm=y,
+                width_mm=element.width_mm,
+                height_mm=element.height_mm,
+                properties=element.properties,
+            )
+        except ValueError as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            self.refresh()
+            return
+        self._selected_element_id = element_id
+        self.refresh()
 
     def _add(self) -> None:
         dialog = HeaderElementDialog(
@@ -511,13 +951,11 @@ class MasterlogHeaderDialog(QDialog):
             AppLanguage.KK: "Ағымдағы тақырыпты таңдалған үлгінің тәуелсіз көшірмесімен ауыстыру керек пе?",
             AppLanguage.EN: "Replace the current header with an independent copy of this preset?",
         }[self.localizer.language]
-        if (
-            QMessageBox.question(self, self.windowTitle(), question)
-            != QMessageBox.StandardButton.Yes
-        ):
+        if QMessageBox.question(self, self.windowTitle(), question) != QMessageBox.StandardButton.Yes:
             return
         preset = presets[labels.index(selected)]
         self.controller.apply_header_preset(self.template_id, preset.preset_id)
+        self._fit_on_refresh = True
         self.refresh()
 
     def _edit(self) -> None:
@@ -536,7 +974,7 @@ class MasterlogHeaderDialog(QDialog):
         try:
             kind, x, y, width, height, properties = dialog.values()
             if element_id is None:
-                self.controller.add_header_element(
+                created = self.controller.add_header_element(
                     self.template_id,
                     element_type=kind,
                     x_mm=x,
@@ -545,6 +983,7 @@ class MasterlogHeaderDialog(QDialog):
                     height_mm=height,
                     properties=properties,
                 )
+                self._selected_element_id = created.element_id
             else:
                 self.controller.update_header_element(
                     self.template_id,
@@ -556,6 +995,7 @@ class MasterlogHeaderDialog(QDialog):
                     height_mm=height,
                     properties=properties,
                 )
+                self._selected_element_id = element_id
         except (ValueError, json.JSONDecodeError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
         else:
@@ -564,14 +1004,27 @@ class MasterlogHeaderDialog(QDialog):
                 self.controller.session.dirty = True
         self.refresh()
 
+    def _duplicate(self) -> None:
+        element = self._selected()
+        if element is None:
+            return
+        duplicated = self.controller.duplicate_header_element(self.template_id, element.element_id)
+        self._selected_element_id = duplicated.element_id
+        self.refresh()
+
     def _remove(self) -> None:
         element = self._selected()
-        if element:
-            self.controller.remove_header_element(self.template_id, element.element_id)
-            self.refresh()
+        if element is None:
+            return
+        if QMessageBox.question(self, self.windowTitle(), _TEXT[self.localizer.language]["delete_confirm"]) != QMessageBox.StandardButton.Yes:
+            return
+        self.controller.remove_header_element(self.template_id, element.element_id)
+        self._selected_element_id = None
+        self.refresh()
 
     def _move(self, offset: int) -> None:
         element = self._selected()
         if element:
             self.controller.move_header_element(self.template_id, element.element_id, offset)
+            self._selected_element_id = element.element_id
             self.refresh()

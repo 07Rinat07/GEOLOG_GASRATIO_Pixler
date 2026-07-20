@@ -119,6 +119,7 @@ from geoworkbench.ui.interpretation_report_dialog import InterpretationReportDia
 from geoworkbench.ui.interpretation_intervals_dialog import InterpretationIntervalsDialog
 from geoworkbench.ui.interpretation_properties import InterpretationPropertiesPanel
 from geoworkbench.ui.lithology_dialog import LithologyDialog
+from geoworkbench.ui.lithology_interval_dialog import LithologyIntervalDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
 from geoworkbench.ui.sensor_catalog_dialog import SensorCatalogDialog
@@ -238,6 +239,9 @@ class MainWindow(QMainWindow):
         )
         self.tablet_view.interval_create_requested.connect(self._create_interval_from_tablet)
         self.tablet_view.interval_resize_requested.connect(self._resize_interval_from_tablet)
+        self.tablet_view.lithology_interval_requested.connect(
+            self._create_lithology_interval_from_tablet
+        )
         self.las_table_editor = LasTableEditor(
             self.las_range_editing_controller,
             language=self.language,
@@ -585,6 +589,9 @@ class MainWindow(QMainWindow):
         language_menu.addAction(self.user_profile_action)
 
         self.save_action = self._localized_action("shell.save_project_as")
+        self.save_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
+        )
         self.save_action.setShortcut("Ctrl+S")
         self.save_action.triggered.connect(self.save_project_as)
         file_menu.addAction(self.save_action)
@@ -2753,6 +2760,53 @@ class MainWindow(QMainWindow):
         )
         self._refresh_tree()
         self._update_title()
+
+    def _create_lithology_interval_from_tablet(
+        self, top_depth: float, bottom_depth: float
+    ) -> None:
+        if self.session.current_well is None or self.session.current_dataset is None:
+            QMessageBox.information(
+                self, self._t("lithology.title"), self._t("lithology.select_well")
+            )
+            return
+        catalog = self.lithotype_catalog_controller.available()
+        if not catalog:
+            QMessageBox.warning(
+                self, self._t("lithology.title"), self._t("lithology.quick_no_catalog")
+            )
+            return
+        dialog = LithologyIntervalDialog(
+            top_depth,
+            bottom_depth,
+            catalog,
+            language=self.language,
+            parent=self,
+        )
+        while dialog.exec() == QDialog.DialogCode.Accepted:
+            try:
+                interval = self.lithology_controller.add(
+                    dialog.top_depth,
+                    dialog.bottom_depth,
+                    dialog.lithotype_id,
+                )
+            except (RuntimeError, ValueError) as exc:
+                QMessageBox.warning(self, self._t("lithology.title"), str(exc))
+                continue
+            well = self.session.current_well
+            self.tablet_view.set_lithology(
+                well.lithology if well is not None else [],
+                catalog,
+            )
+            self._refresh_tree()
+            self._update_title()
+            self.statusBar().showMessage(
+                self._t(
+                    "lithology.quick_created",
+                    top=f"{interval.top_depth:g}",
+                    bottom=f"{interval.bottom_depth:g}",
+                )
+            )
+            break
 
     def show_lithotype_catalog(self) -> None:
         LithotypeCatalogDialog(

@@ -229,6 +229,7 @@ def paint_masterlog(
             painter,
             element,
             session,
+            template,
             effective_range,
             language,
             lithotype_catalog,
@@ -444,6 +445,7 @@ def _paint_header_element(
     painter: QPainter,
     element: MasterlogHeaderElement,
     session: ProjectSession,
+    template: MasterlogTemplate,
     depth_range: tuple[float, float] | None,
     language: AppLanguage,
     lithotype_catalog: dict[str, CatalogLithotype],
@@ -472,17 +474,33 @@ def _paint_header_element(
     if element.element_type == "lba_legend":
         _paint_lba_legend(painter, rect, element.properties, language)
         return
-    text = _header_text(element, session)
+    text = _header_text(element, session, template)
     color = _color(element.properties.get("color"), "#0f172a")
+    background = element.properties.get("background")
+    if isinstance(background, str) and QColor(background).isValid():
+        painter.fillRect(rect, QColor(background))
+    if element.properties.get("frame") is True:
+        painter.setPen(QPen(_color(element.properties.get("frame_color"), "#334155"), 0.35))
+        painter.drawRect(rect)
     size = element.properties.get("font_size_mm", 3.5)
     font_size = (
         float(size) if isinstance(size, (int, float)) and not isinstance(size, bool) else 3.5
     )
     font = QFont()
+    font.setBold(element.properties.get("bold") is True)
     _set_scaled_font_mm(painter, font, max(1.0, min(font_size, 50.0)))
     painter.setFont(font)
     painter.setPen(color)
-    painter.drawText(rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, text)
+    alignment_name = element.properties.get("alignment", "left")
+    horizontal = {
+        "center": Qt.AlignmentFlag.AlignHCenter,
+        "right": Qt.AlignmentFlag.AlignRight,
+    }.get(alignment_name, Qt.AlignmentFlag.AlignLeft)
+    painter.drawText(
+        rect.adjusted(0.8, 0.2, -0.8, -0.2),
+        horizontal | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
+        text,
+    )
 
 
 def masterlog_lithology_legend_entries(
@@ -1824,14 +1842,18 @@ def _paint_curve_column(
     painter.restore()
 
 
-def _header_text(element: MasterlogHeaderElement, session: ProjectSession) -> str:
+def _header_text(
+    element: MasterlogHeaderElement,
+    session: ProjectSession,
+    template: MasterlogTemplate,
+) -> str:
     if element.element_type == "text":
         value = element.properties.get("text")
         return str(value) if isinstance(value, (str, int, float)) else ""
     field = element.properties.get("field")
     if not isinstance(field, str):
         return "{field}"
-    return resolve_header_field(session, field) or "{" + field + "}"
+    return resolve_header_field(session, field, template) or "{" + field + "}"
 
 
 def _color(value: object, fallback: str) -> QColor:

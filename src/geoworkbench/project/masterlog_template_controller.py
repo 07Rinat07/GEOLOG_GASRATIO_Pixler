@@ -14,6 +14,7 @@ from geoworkbench.domain.models import (
     new_id,
 )
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.header_fields import header_field_defaults
 from geoworkbench.printing.image_assets import ImageAsset, validate_image_asset
 from geoworkbench.printing.masterlog_presets import builtin_form_preset, builtin_header_preset
 
@@ -45,8 +46,80 @@ class MasterlogTemplateController:
         template.header_height_mm = preset.height_mm
         template.header_elements = list(deepcopy(preset.elements))
         template.properties["header_preset_origin"] = preset.preset_id
+        current_fields = template.properties.get("header_fields")
+        if not isinstance(current_fields, dict):
+            current_fields = {}
+        template.properties["header_fields"] = {**header_field_defaults(), **current_fields}
         self._touch(template)
         return template
+
+    def header_fields(self, template_id: str) -> dict[str, str]:
+        template = self._require(template_id)
+        raw = template.properties.get("header_fields", {})
+        if not isinstance(raw, dict):
+            return {}
+        return {
+            str(key): str(value)
+            for key, value in raw.items()
+            if isinstance(key, str) and isinstance(value, (str, int, float))
+        }
+
+    def update_header_fields(
+        self,
+        template_id: str,
+        values: dict[str, str],
+    ) -> dict[str, str]:
+        template = self._require(template_id)
+        if not isinstance(values, dict):
+            raise ValueError("Данные шапки должны быть словарём")
+        normalized: dict[str, str] = {}
+        for key, value in values.items():
+            if not isinstance(key, str) or not key.startswith("header."):
+                raise ValueError(f"Некорректное поле шапки: {key!r}")
+            if not isinstance(value, str):
+                raise ValueError(f"Значение поля шапки {key} должно быть строкой")
+            clean = value.strip()
+            if len(clean) > 4000:
+                raise ValueError(f"Поле шапки {key} превышает 4000 символов")
+            if clean:
+                normalized[key] = clean
+        template.properties["header_fields"] = normalized
+        self._touch(template)
+        return dict(normalized)
+
+    def update_header_height(self, template_id: str, height_mm: float) -> float:
+        template = self._require(template_id)
+        if (
+            isinstance(height_mm, bool)
+            or not isinstance(height_mm, (int, float))
+            or not isfinite(height_mm)
+            or not 10.0 <= float(height_mm) <= 500.0
+        ):
+            raise ValueError("Высота шапки должна быть от 10 до 500 мм")
+        minimum = max(
+            (element.y_mm + element.height_mm for element in template.header_elements),
+            default=0.0,
+        )
+        if float(height_mm) + 1e-9 < minimum:
+            raise ValueError(
+                f"Высота шапки меньше нижней границы элементов ({minimum:g} мм)"
+            )
+        template.header_height_mm = float(height_mm)
+        self._touch(template)
+        return template.header_height_mm
+
+    def duplicate_header_element(
+        self, template_id: str, element_id: str
+    ) -> MasterlogHeaderElement:
+        template = self._require(template_id)
+        source = template.header_elements[self._header_index(template, element_id)]
+        clone = deepcopy(source)
+        clone.element_id = new_id()
+        clone.x_mm += 2.0
+        clone.y_mm += 2.0
+        template.header_elements.append(clone)
+        self._touch(template)
+        return clone
 
     def copy(self, template_id: str, name: str) -> MasterlogTemplate:
         source = self._require(template_id)

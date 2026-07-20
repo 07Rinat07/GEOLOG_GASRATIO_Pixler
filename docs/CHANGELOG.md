@@ -1,3 +1,32 @@
+## Unreleased — lithology Shift-drag interval editor
+
+### Русский
+
+- в дорожке «Литология» `Shift + левая кнопка мыши` создаёт новый интервал протягиванием от кровли до подошвы;
+- во время жеста отображается полупрозрачный пунктирный preview, `Esc` отменяет операцию;
+- после отпускания открывается компактное окно только с границами и выбором одной породы;
+- границы можно исправить вручную до подтверждения;
+- пересечения и выход за диапазон LAS проверяются существующим `LithologyController`;
+- после `ОК` интервал сразу отображается на планшете, проект помечается изменённым, а кнопка сохранения в панели получила стандартную иконку дискеты.
+
+### Қазақша
+
+- «Литология» жолағында `Shift + тінтуірдің сол жақ батырмасы` арқылы төбеден табанға дейін жаңа аралық созылады;
+- әрекет кезінде жартылай мөлдір пунктир preview көрсетіледі, `Esc` әрекетті тоқтатады;
+- батырма жіберілгенде тек шекаралар мен бір тау жынысын таңдауға арналған ықшам терезе ашылады;
+- растауға дейін шекараларды қолмен түзетуге болады;
+- қиылысу және LAS диапазонынан шығу `LithologyController` арқылы тексеріледі;
+- `ОК` басылғаннан кейін аралық планшетте бірден көрсетіліп, жоба өзгертілген деп белгіленеді, ал сақтау батырмасына дискета белгішесі қосылды.
+
+### English
+
+- `Shift + left mouse drag` in a Lithology track creates a new top-to-bottom interval;
+- a translucent dashed preview is shown during the gesture and `Esc` cancels it;
+- releasing the mouse opens a compact editor containing only the boundaries and one rock-type selector;
+- boundaries remain editable before confirmation;
+- overlap and LAS-range checks reuse the existing `LithologyController`;
+- after `OK` the interval is rendered immediately, the project becomes dirty, and the toolbar save action now has a standard diskette icon.
+
 ## Unreleased — faithful Masterlog, calcimetry/LBA, and curve gaps
 
 ### Русский

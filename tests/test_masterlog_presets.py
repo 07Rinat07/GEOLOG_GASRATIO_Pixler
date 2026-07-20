@@ -113,7 +113,7 @@ def test_geological_geochemical_reference_preset_matches_working_masterlog_struc
         "curves",
         "cuttings_description",
     ]
-    assert preset.template.header_height_mm == 92.0
+    assert preset.template.header_height_mm == 110.0
     assert any(
         element.element_type == "lithology_legend"
         for element in preset.template.header_elements

@@ -383,3 +383,11 @@ The LAS table now defaults to a friendly parameter name plus the original mnemon
 mapping, for example `Methane content / S800 → C1 / [%]`. A header mode selector can show friendly
 names only or original LAS mnemonics only. Hovering over a header shows the complete recognition
 audit.
+
+## Quick lithology interval creation
+
+In a Lithology column, hold `Shift` and left-drag from the interval top to its bottom. Releasing the
+mouse opens a compact dialog where both depths can be corrected and exactly one rock type is
+selected. `OK` renders the interval immediately. Cuttings composition, LBA, calcimetry, and rich
+text descriptions remain separate sample-editor fields. Save the project with the diskette toolbar
+action or `Ctrl+S`.

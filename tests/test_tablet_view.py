@@ -1555,6 +1555,79 @@ def test_many_curve_headers_remain_named_and_generic_title_is_readable(qapp) -> 
     view.close()
 
 
+def test_masterlog_tracks_reserve_one_header_band_and_align_plot_viewports(qapp) -> None:
+    depth = np.linspace(95.0, 150.0, 111)
+    dataset = Dataset(
+        "dataset-masterlog-header-alignment",
+        "Masterlog",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    curves: dict[str, CurveData] = {}
+    for index, mnemonic in enumerate(("WOB", "ROP", "DMC"), start=1):
+        curve = CurveData(
+            CurveMetadata(
+                f"curve-{mnemonic}",
+                mnemonic,
+                mnemonic,
+                "u",
+                mnemonic,
+                dataset.dataset_id,
+            ),
+            np.linspace(float(index), float(index + 1), depth.size),
+        )
+        curves[curve.metadata.curve_id] = curve
+    dataset.curves = curves
+
+    view = TabletView()
+    view.resize(1200, 820)
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120),
+                TrackDefinition("strat", "Stratigraphy", TrackKind.STRATIGRAPHY, width=150),
+                TrackDefinition(
+                    "drilling",
+                    "Drilling",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["WOB", "ROP", "DMC"],
+                    width=360,
+                ),
+                TrackDefinition("cuttings", "Cuttings", TrackKind.CUTTINGS, width=220),
+                TrackDefinition("lba", "LBA", TrackKind.LBA, width=180),
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+    view.show()
+    qapp.processEvents()
+
+    assert view._rendered["drilling"].widget.natural_curve_header_height == 144
+    assert {
+        rendered.widget.curve_header_scroll.height() for rendered in view._rendered.values()
+    } == {144}
+
+    viewport_tops = {
+        rendered.plot.viewport().mapToGlobal(QPoint(0, 0)).y()
+        for rendered in view._rendered.values()
+        if rendered.plot is not None
+    }
+    viewport_heights = {
+        rendered.plot.viewport().height()
+        for rendered in view._rendered.values()
+        if rendered.plot is not None
+    }
+    assert len(viewport_tops) == 1
+    assert len(viewport_heights) == 1
+    assert all(
+        rendered.plot.viewRange()[1] == pytest.approx([95.0, 145.0])
+        for rendered in view._rendered.values()
+        if rendered.plot is not None
+    )
+    view.close()
+
+
 def test_layout_switch_preserves_depth_scale_and_scroll_position(qapp) -> None:
     depth = np.linspace(100.0, 300.0, 201)
     dataset = Dataset(
