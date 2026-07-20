@@ -825,9 +825,9 @@
   "curve_settings.style.dash_dot": "Штрих-точка",
   "tablet.curve_settings": "Настроить кривые…",
   "tablet.save_layout_as_form": "Сохранить форму/настройку…",
-  "tablet.depth_span": "Интервал экрана",
+  "tablet.depth_span": "Глубина на экране",
   "tablet.depth_span_custom": "Другой…",
-  "tablet.depth_span_prompt": "Введите высоту видимого интервала",
+  "tablet.depth_span_prompt": "Введите количество метров, видимых на экране",
   "tablet.depth_span_unit": "м",
   "cursor.panel_title": "Параметры по визиру",
   "cursor.depth": "Глубина",
@@ -854,5 +854,7 @@
   "curve_settings.scale_short.logarithmic": "лог.",
   "tablet.empty_add_track": "Добавьте дорожку в планшет",
   "cursor.insoluble_residue": "нерастворимый остаток",
-  "tablet.track.dexp": "D-экспонента"
+  "tablet.track.dexp": "D-экспонента",
+  "tablet.depth_span_tooltip": "Сколько метров скважины показывать на экране. Выберите 10–100 м или введите своё значение.",
+  "tablet.track.parameters_count": "Параметры ({count})"
 }

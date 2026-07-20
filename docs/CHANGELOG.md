@@ -340,3 +340,9 @@
 - Localized RU/KK/EN factory forms for Gas Ratio & Pixler depth interpretation and time monitoring.
 - Factory forms for normalized-gas QC and detailed C1–C5 review.
 - Stable factory identifiers and canonical bindings across all three interface languages.
+
+## Unreleased
+
+- Добавлены интервалы глубины 10–100 м и произвольный ввод с синхронным применением ко всем колонкам.
+- Исправлена синхронизация поля масштаба с фактически видимым диапазоном.
+- Улучшены многострочные заголовки кривых и читаемое название многопараметрической колонки.

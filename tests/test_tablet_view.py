@@ -1436,3 +1436,104 @@ def test_track_widget_requests_context_menu_from_plot_body(qapp) -> None:
     assert requested == ["curve"]
     widget.close()
 
+
+
+def test_depth_span_presets_apply_to_all_tracks_and_keep_top_depth(qapp) -> None:
+    depth = np.linspace(100.0, 300.0, 201)
+    dataset = Dataset(
+        "dataset-depth-span",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-rop",
+            "ROP",
+            "ROP",
+            "m/h",
+            "Rate of penetration",
+            dataset.dataset_id,
+        ),
+        np.linspace(0.0, 100.0, depth.size),
+    )
+    dataset.curves = {curve.metadata.curve_id: curve}
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120),
+                TrackDefinition(
+                    "rop",
+                    "ROP",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["ROP"],
+                ),
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+    view.set_visible_depth(150.0, 250.0)
+    qapp.processEvents()
+
+    preset_row = next(
+        row
+        for row in range(view._span_combo.count())
+        if view._span_combo.itemData(row) == 20.0
+    )
+    view._depth_span_selected(preset_row)
+    qapp.processEvents()
+
+    assert view.visible_depth_range == pytest.approx((150.0, 170.0))
+    assert view._span_combo.currentText() == "20 м"
+    assert all(
+        rendered.plot.viewRange()[1] == pytest.approx([150.0, 170.0])
+        for rendered in view._rendered.values()
+        if rendered.plot is not None
+    )
+    view.close()
+
+
+def test_many_curve_headers_remain_named_and_generic_title_is_readable(qapp) -> None:
+    depth = np.linspace(0.0, 100.0, 101)
+    dataset = Dataset(
+        "dataset-many-curves",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    mnemonics = [f"S{index}" for index in range(1, 10)]
+    dataset.curves = {
+        f"curve-{mnemonic}": CurveData(
+            CurveMetadata(
+                f"curve-{mnemonic}",
+                mnemonic,
+                mnemonic,
+                "u",
+                f"Parameter {index}",
+                dataset.dataset_id,
+            ),
+            np.linspace(float(index), float(index + 1), depth.size),
+        )
+        for index, mnemonic in enumerate(mnemonics, start=1)
+    }
+    track = TrackDefinition(
+        "many",
+        " / ".join(mnemonics),
+        TrackKind.CURVE,
+        curve_mnemonics=mnemonics,
+        width=360,
+    )
+    view = TabletView()
+    view.set_layout_model(TabletLayout([track]))
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    rendered = view._rendered["many"]
+    assert rendered.widget.title.text() == "Параметры (9)"
+    assert len(rendered.widget._curve_header_labels) == 9
+    assert all(label.text().strip() for label in rendered.widget._curve_header_labels.values())
+    assert rendered.widget.curve_header_scroll.maximumHeight() == 320
+    view.close()

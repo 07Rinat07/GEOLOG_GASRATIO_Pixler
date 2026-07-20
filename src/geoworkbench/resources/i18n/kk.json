@@ -825,9 +825,9 @@
   "curve_settings.style.dash_dot": "Үзік-нүктелі",
   "tablet.curve_settings": "Қисықтарды баптау…",
   "tablet.save_layout_as_form": "Пішінді/баптауды сақтау…",
-  "tablet.depth_span": "Экран аралығы",
+  "tablet.depth_span": "Экрандағы тереңдік",
   "tablet.depth_span_custom": "Басқа…",
-  "tablet.depth_span_prompt": "Көрінетін аралық биіктігін енгізіңіз",
+  "tablet.depth_span_prompt": "Экранда көрінетін метр санын енгізіңіз",
   "tablet.depth_span_unit": "м",
   "cursor.panel_title": "Визир бойынша параметрлер",
   "cursor.depth": "Тереңдік",
@@ -854,5 +854,7 @@
   "curve_settings.scale_short.logarithmic": "лог.",
   "tablet.empty_add_track": "Планшетке жолақ қосыңыз",
   "cursor.insoluble_residue": "ерімейтін қалдық",
-  "tablet.track.dexp": "D-экспонента"
+  "tablet.track.dexp": "D-экспонента",
+  "tablet.depth_span_tooltip": "Экранда ұңғыманың қанша метрі көрсетілетінін таңдаңыз. 10–100 м немесе өз мәніңізді енгізіңіз.",
+  "tablet.track.parameters_count": "Параметрлер ({count})"
 }

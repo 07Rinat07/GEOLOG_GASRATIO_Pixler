@@ -45,6 +45,7 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.tablet.curve_scaling import automatic_curve_range, normalize_curve_values
 from geoworkbench.tablet.camera import (
+    DEPTH_VIEW_SPAN_PRESETS,
     TabletCamera,
     recommended_initial_range,
     recommended_initial_span,
@@ -212,8 +213,9 @@ class CurveHeaderLabel(QLabel):
         self.mnemonic = mnemonic
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         self.setToolTip(f"{text.replace(chr(10), ' · ')} [{mnemonic}]")
-        self.setMinimumHeight(38)
-        self.setWordWrap(False)
+        self.setMinimumHeight(46)
+        self.setWordWrap(True)
+        self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self._color = color
         self.set_selected(False)
 
@@ -365,7 +367,9 @@ class TabletTrackWidget(QFrame):
             self._curve_header_labels[mnemonic] = label
             self.curve_header_layout.addWidget(label)
         self.curve_header_scroll.setVisible(bool(rows))
-        self.curve_header_scroll.setMaximumHeight(min(156, max(0, len(rows) * 39)))
+        # Keep every selected parameter identifiable.  A taller, scrollable
+        # header is preferable to silently hiding names while curves overlap.
+        self.curve_header_scroll.setMaximumHeight(min(320, max(0, len(rows) * 48)))
 
     def set_selected_curve(self, mnemonic: str | None) -> None:
         for key, label in self._curve_header_labels.items():
@@ -667,11 +671,19 @@ class TabletView(QWidget):
         self._full_range_button = QPushButton(self._localizer.text("tablet.full_range"))
         self._full_range_button.clicked.connect(self.show_full_vertical_range)
         self._span_combo = QComboBox()
-        self._span_combo.setMinimumWidth(105)
-        for span in (1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0):
-            self._span_combo.addItem(f"{span:g} {self._localizer.text('tablet.depth_span_unit')}", span)
+        self._span_combo.setMinimumWidth(132)
+        self._span_combo.setEditable(True)
+        self._span_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        for span in DEPTH_VIEW_SPAN_PRESETS:
+            self._span_combo.addItem(
+                f"{span:g} {self._localizer.text('tablet.depth_span_unit')}", span
+            )
         self._span_combo.addItem(self._localizer.text("tablet.depth_span_custom"), None)
         self._span_combo.activated.connect(self._depth_span_selected)
+        span_line_edit = self._span_combo.lineEdit()
+        if span_line_edit is not None:
+            span_line_edit.returnPressed.connect(self._depth_span_typed)
+        self._span_combo.setToolTip(self._localizer.text("tablet.depth_span_tooltip"))
 
         navigation = QHBoxLayout()
         navigation.setContentsMargins(6, 4, 6, 4)
@@ -2042,6 +2054,7 @@ class TabletView(QWidget):
         )
         data_span = data_bottom - data_top
         visible_span = bottom - top
+        self._sync_depth_span_control(visible_span)
         self._scrollbar_guard = True
         try:
             if visible_span >= data_span * 0.999999:
@@ -2113,7 +2126,7 @@ class TabletView(QWidget):
         raw = self._span_combo.itemData(row)
         if raw is None:
             current = self.visible_depth_range
-            initial = (current[1] - current[0]) if current is not None else 10.0
+            initial = (current[1] - current[0]) if current is not None else 50.0
             span, accepted = QInputDialog.getDouble(
                 self,
                 self._localizer.text("tablet.depth_span"),
@@ -2124,22 +2137,74 @@ class TabletView(QWidget):
                 3,
             )
             if not accepted:
+                self._sync_depth_span_control(initial)
                 return
         else:
             span = float(raw)
-        self.set_vertical_span(span)
+        current = self.visible_depth_range
+        top = current[0] if current is not None else None
+        self.set_vertical_span(span, top=top)
 
-    def set_vertical_span(self, span: float, *, center: float | None = None) -> bool:
+    def _depth_span_typed(self) -> None:
+        line_edit = self._span_combo.lineEdit()
+        if line_edit is None:
+            return
+        text = line_edit.text().strip().casefold()
+        unit = self._localizer.text("tablet.depth_span_unit").casefold()
+        if unit and text.endswith(unit):
+            text = text[: -len(unit)].strip()
+        try:
+            span = float(text.replace(",", "."))
+        except ValueError:
+            current = self.visible_depth_range
+            if current is not None:
+                self._sync_depth_span_control(current[1] - current[0])
+            return
+        current = self.visible_depth_range
+        top = current[0] if current is not None else None
+        if not self.set_vertical_span(span, top=top) and current is not None:
+            self._sync_depth_span_control(current[1] - current[0])
+
+    def _sync_depth_span_control(self, visible_span: float) -> None:
+        if not np.isfinite(visible_span) or visible_span <= 0:
+            return
+        unit = self._localizer.text("tablet.depth_span_unit")
+        matching_row = -1
+        for row in range(self._span_combo.count()):
+            raw = self._span_combo.itemData(row)
+            if raw is not None and np.isclose(float(raw), visible_span, rtol=0.0, atol=1e-6):
+                matching_row = row
+                break
+        self._span_combo.blockSignals(True)
+        try:
+            if matching_row >= 0:
+                self._span_combo.setCurrentIndex(matching_row)
+            else:
+                self._span_combo.setEditText(f"{visible_span:g} {unit}")
+        finally:
+            self._span_combo.blockSignals(False)
+
+    def set_vertical_span(
+        self,
+        span: float,
+        *,
+        center: float | None = None,
+        top: float | None = None,
+    ) -> bool:
         current = self.visible_depth_range
         bounds = self._axis_bounds()
         if current is None or bounds is None or not np.isfinite(span) or span <= 0:
             return False
         data_span = bounds[1] - bounds[0]
         requested = min(float(span), data_span)
-        anchor = float(center) if center is not None else sum(current) / 2.0
-        top = anchor - requested / 2.0
-        bottom = anchor + requested / 2.0
-        return self._apply_visible_depth(top, bottom, emit_change=True)
+        if top is not None and np.isfinite(top):
+            window_top = float(top)
+            window_bottom = window_top + requested
+        else:
+            anchor = float(center) if center is not None else sum(current) / 2.0
+            window_top = anchor - requested / 2.0
+            window_bottom = anchor + requested / 2.0
+        return self._apply_visible_depth(window_top, window_bottom, emit_change=True)
 
     def set_visible_depth(self, top: float, bottom: float) -> None:
         self._apply_visible_depth(top, bottom, emit_change=False)
@@ -2868,6 +2933,12 @@ class TabletView(QWidget):
         key = standard.get(definition.kind)
         if key is not None:
             return self._localizer.text(key)
+        if definition.kind in {TrackKind.CURVE, TrackKind.DEXP} and definition.curve_mnemonics:
+            generated = " / ".join(definition.curve_mnemonics)
+            if definition.title.strip() == generated or len(definition.title.strip()) > 64:
+                return self._localizer.text(
+                    "tablet.track.parameters_count", count=len(definition.curve_mnemonics)
+                )
         return definition.title
 
     def _curve_display_range(

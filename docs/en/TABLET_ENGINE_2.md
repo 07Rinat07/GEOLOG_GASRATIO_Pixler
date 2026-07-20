@@ -74,3 +74,7 @@ Tablet tracks now fill the complete available workspace height. The depth column
 ## Per-curve scales and synchronized cursor
 
 Each curve supports a readable display name, automatic or manual range, linear/logarithmic scale, line color, width and style. Curves are listed as separate stacked rows in the track header. The cursor is synchronized across every column, snaps to a depth/time sample and displays values. The visible interval can be set to 1/5/10/20/30/40/50 m or a custom value.
+
+## On-screen depth span
+
+The tablet toolbar can show 10, 20, 30, 40, 50, 60, 70, 80, 90, or 100 metres of the well at once. Any other value can be typed directly into the field. Changing the span keeps the current top depth and applies immediately to every track. Each curve header is shown on its own row with its name, range, unit, and scale style.

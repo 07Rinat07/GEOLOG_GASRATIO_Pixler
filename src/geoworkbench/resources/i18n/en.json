@@ -825,9 +825,9 @@
   "curve_settings.style.dash_dot": "Dash-dot",
   "tablet.curve_settings": "Configure curves…",
   "tablet.save_layout_as_form": "Save form/layout…",
-  "tablet.depth_span": "Screen interval",
+  "tablet.depth_span": "Depth on screen",
   "tablet.depth_span_custom": "Custom…",
-  "tablet.depth_span_prompt": "Enter visible interval height",
+  "tablet.depth_span_prompt": "Enter the number of metres visible on screen",
   "tablet.depth_span_unit": "m",
   "cursor.panel_title": "Cursor values",
   "cursor.depth": "Depth",
@@ -854,5 +854,7 @@
   "curve_settings.scale_short.logarithmic": "log.",
   "tablet.empty_add_track": "Add a track to the tablet",
   "cursor.insoluble_residue": "insoluble residue",
-  "tablet.track.dexp": "D-exponent"
+  "tablet.track.dexp": "D-exponent",
+  "tablet.depth_span_tooltip": "Choose how many metres of the well are visible on screen: 10–100 m or a custom value.",
+  "tablet.track.parameters_count": "Parameters ({count})"
 }
