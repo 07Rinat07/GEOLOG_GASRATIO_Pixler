@@ -31,20 +31,28 @@ def test_camera_domain_change_can_reset_to_full_range() -> None:
     assert camera.range == pytest.approx((1000.0, 2000.0))
 
 
-def test_recommended_initial_depth_window_keeps_long_well_readable() -> None:
+def test_recommended_initial_depth_window_defaults_to_fifty_metres() -> None:
     from geoworkbench.tablet.camera import recommended_initial_range
 
-    assert recommended_initial_range(47.2, 1622.4, unit="m") == pytest.approx(
-        (47.2, 247.2)
-    )
-
-
-def test_recommended_initial_window_keeps_small_dataset_full() -> None:
-    from geoworkbench.tablet.camera import recommended_initial_range
-
+    assert recommended_initial_range(47.2, 1622.4, unit="m") == pytest.approx((47.2, 97.2))
     assert recommended_initial_range(1000.0, 1220.0, unit="m") == pytest.approx(
-        (1000.0, 1220.0)
+        (1000.0, 1050.0)
     )
+
+
+def test_recommended_initial_window_keeps_dataset_up_to_fifty_metres_full() -> None:
+    from geoworkbench.tablet.camera import recommended_initial_range
+
+    assert recommended_initial_range(1000.0, 1050.0, unit="m") == pytest.approx(
+        (1000.0, 1050.0)
+    )
+
+
+def test_recommended_depth_window_converts_fifty_metres_to_axis_units() -> None:
+    from geoworkbench.tablet.camera import recommended_initial_span
+
+    assert recommended_initial_span(1000.0, unit="ft") == pytest.approx(50.0 / 0.3048)
+    assert recommended_initial_span(10_000.0, unit="cm") == pytest.approx(5000.0)
 
 
 def test_recommended_time_window_respects_axis_units() -> None:

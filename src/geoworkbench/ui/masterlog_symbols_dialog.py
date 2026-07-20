@@ -116,7 +116,13 @@ class MasterlogSymbolsDialog(QDialog):
         remove_button.clicked.connect(self._remove)
         self.undo_button.clicked.connect(self._undo)
         self.redo_button.clicked.connect(self._redo)
-        for button in (add_button, update_button, remove_button, self.undo_button, self.redo_button):
+        for button in (
+            add_button,
+            update_button,
+            remove_button,
+            self.undo_button,
+            self.redo_button,
+        ):
             actions.addWidget(button)
         root.addLayout(actions)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
@@ -148,7 +154,9 @@ class MasterlogSymbolsDialog(QDialog):
                 1,
                 QTableWidgetItem(self._t(f"masterlog_symbols.{symbol.anchor_type}")),
             )
-            self.table.setItem(row, 2, QTableWidgetItem(columns.get(symbol.column_id, symbol.column_id)))
+            self.table.setItem(
+                row, 2, QTableWidgetItem(columns.get(symbol.column_id, symbol.column_id))
+            )
             asset = assets.get(symbol.asset_ref)
             self.table.setItem(
                 row,
@@ -169,7 +177,11 @@ class MasterlogSymbolsDialog(QDialog):
         selected = self._selected_id()
         if selected is None:
             return
-        symbol = next(item for item in self.controller.available(self.template_id) if item.object_id == selected)
+        symbol = next(
+            item
+            for item in self.controller.available(self.template_id)
+            if item.object_id == selected
+        )
         self.anchor_input.setCurrentIndex(self.anchor_input.findData(symbol.anchor_type))
         self.depth_input.setValue(symbol.top_depth)
         self.bottom_depth_input.setValue(symbol.bottom_depth)
@@ -185,9 +197,7 @@ class MasterlogSymbolsDialog(QDialog):
 
     def _values(
         self,
-    ) -> tuple[
-        str, float, float | None, str, str, float, float, str, str | None, str | None
-    ]:
+    ) -> tuple[str, float, float | None, str, str, float, float, str, str | None, str | None]:
         return (
             str(self.anchor_input.currentData() or "depth"),
             self.depth_input.value(),
@@ -207,7 +217,16 @@ class MasterlogSymbolsDialog(QDialog):
 
     def _add(self) -> None:
         (
-            anchor, depth, bottom, column_id, asset_ref, width, height, label, parameter, time_value
+            anchor,
+            depth,
+            bottom,
+            column_id,
+            asset_ref,
+            width,
+            height,
+            label,
+            parameter,
+            time_value,
         ) = self._values()
         self._run(
             lambda: self.controller.add(
@@ -231,7 +250,16 @@ class MasterlogSymbolsDialog(QDialog):
             self._select_first()
             return
         (
-            anchor, depth, bottom, column_id, asset_ref, width, height, label, parameter, time_value
+            anchor,
+            depth,
+            bottom,
+            column_id,
+            asset_ref,
+            width,
+            height,
+            label,
+            parameter,
+            time_value,
         ) = self._values()
         self._run(
             lambda: self.controller.update(
@@ -264,9 +292,7 @@ class MasterlogSymbolsDialog(QDialog):
         self._run(self.controller.redo)
 
     def _select_first(self) -> None:
-        QMessageBox.information(
-            self, self.windowTitle(), self._t("masterlog_symbols.select_first")
-        )
+        QMessageBox.information(self, self.windowTitle(), self._t("masterlog_symbols.select_first"))
 
     def _update_anchor_inputs(self) -> None:
         interval = self.anchor_input.currentData() == "interval"

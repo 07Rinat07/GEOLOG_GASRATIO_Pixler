@@ -103,7 +103,7 @@ as `2026-07-18 12:30:00` for DATETIME indexes. Navigation is clamped to the actu
 selected index.
 
 Each column supports an automatic X range or manually entered minimum and maximum values in the
-Track Inspector. Switching to manual mode starts from the actual data range for that column. The
+Track Inspector. Switching to manual mode starts from the actual data range for that column. A newly opened depth form starts with an exact **50 m** window; a range already saved in the project is restored without reset. The
 “Visible interval” control defines how many vertical-axis units are shown at once: `1`, `5`, `10`,
 `20`, `30`, `40`, `50`, `60`, `70`, `80`, `90`, `100`, or a custom value. A selection is applied
 immediately to every track. A manually typed number applies automatically without Enter. The label

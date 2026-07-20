@@ -10,7 +10,11 @@ class DescriptionTemplateController:
     session: ProjectSession
 
     def available(self) -> tuple[tuple[str, str], ...]:
-        return tuple(sorted(self.session.project.description_templates.items(), key=lambda x: x[0].casefold()))
+        return tuple(
+            sorted(
+                self.session.project.description_templates.items(), key=lambda x: x[0].casefold()
+            )
+        )
 
     def add(self, name: str, text: str) -> None:
         name, text = self._validate(name, text)

@@ -99,8 +99,7 @@ def test_curve_catalog_resolves_vendor_aliases_from_sensor_reference() -> None:
         )
 
     entries = {
-        item.mnemonic: item
-        for item in analyze_dataset_curves(dataset, default_sensor_catalog())
+        item.mnemonic: item for item in analyze_dataset_curves(dataset, default_sensor_catalog())
     }
 
     assert entries["CH4"].canonical_mnemonic == "C1"

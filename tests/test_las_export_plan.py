@@ -149,9 +149,7 @@ def test_export_analysis_reports_structured_multi_index_losses() -> None:
     assert [loss.field_id for loss in analysis.losses] == ["time-index", "tvd-index"]
     assert analysis.losses[0].index_type is IndexType.DATETIME
     assert analysis.losses[0].sample_count == 2
-    warning = next(
-        issue for issue in analysis.issues if issue.code == "additional-indexes-omitted"
-    )
+    warning = next(issue for issue in analysis.issues if issue.code == "additional-indexes-omitted")
     assert "time-index" in warning.message
     assert "type=datetime" in warning.message
     assert "JSON или Parquet" in warning.message

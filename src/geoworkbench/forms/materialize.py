@@ -114,8 +114,7 @@ def materialize_form_for_dataset(
         for binding in track.bindings
     ]
     if existing_bindings and all(
-        binding.source_mnemonic
-        and dataset.curve_by_mnemonic(binding.source_mnemonic) is not None
+        binding.source_mnemonic and dataset.curve_by_mnemonic(binding.source_mnemonic) is not None
         for binding in existing_bindings
     ):
         return MaterializedFormInfo(
@@ -140,9 +139,7 @@ def materialize_form_for_dataset(
         category = match.definition.category if match is not None else "other"
         if category not in _CATEGORY_TITLES:
             category = "other"
-        grouped[category].append(
-            _binding_from_curve(curve, position, language, match=match)
-        )
+        grouped[category].append(_binding_from_curve(curve, position, language, match=match))
 
     axis_columns = [
         column
@@ -202,7 +199,11 @@ def _binding_from_curve(
         else metadata.canonical_mnemonic or metadata.original_mnemonic
     )
     display_name = _curve_display_name(curve, language, match=match)
-    color = match.definition.color if match is not None else _FALLBACK_COLORS[position % len(_FALLBACK_COLORS)]
+    color = (
+        match.definition.color
+        if match is not None
+        else _FALLBACK_COLORS[position % len(_FALLBACK_COLORS)]
+    )
     minimum = match.definition.default_min if match is not None else None
     maximum = match.definition.default_max if match is not None else None
     minimum, maximum = _safe_default_range(minimum, maximum)

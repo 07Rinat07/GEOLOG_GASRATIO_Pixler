@@ -28,12 +28,8 @@ class LasImportDecision:
 def evaluate_las_import(report: LasImportReport, mode: LasImportMode) -> LasImportDecision:
     if not isinstance(mode, LasImportMode):
         raise ValueError("Неизвестный режим LAS-импорта")
-    errors = tuple(
-        issue for issue in report.issues if issue.severity is LasIssueSeverity.ERROR
-    )
-    warnings = tuple(
-        issue for issue in report.issues if issue.severity is LasIssueSeverity.WARNING
-    )
+    errors = tuple(issue for issue in report.issues if issue.severity is LasIssueSeverity.ERROR)
+    warnings = tuple(issue for issue in report.issues if issue.severity is LasIssueSeverity.WARNING)
     if mode is LasImportMode.STRICT:
         blocking = errors + warnings
         return LasImportDecision(mode, not blocking, False, blocking, ())

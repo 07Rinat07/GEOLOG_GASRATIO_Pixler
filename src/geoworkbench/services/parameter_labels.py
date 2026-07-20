@@ -80,7 +80,10 @@ def _canonical_title(canonical: str) -> str:
     if normalized in _ENGLISH_NAMES:
         return _ENGLISH_NAMES[normalized]
     tokens = normalized.replace("_", " ").split()
-    return " ".join(token if any(character.isdigit() for character in token) else token.title() for token in tokens)
+    return " ".join(
+        token if any(character.isdigit() for character in token) else token.title()
+        for token in tokens
+    )
 
 
 def localized_curve_name(

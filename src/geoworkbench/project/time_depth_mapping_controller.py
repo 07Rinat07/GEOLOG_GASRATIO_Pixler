@@ -79,9 +79,7 @@ class TimeDepthMappingController:
         return dataset
 
     @staticmethod
-    def _require_index(
-        indexes: dict[str, DatasetIndex], index_id: str, role: IndexRole
-    ) -> None:
+    def _require_index(indexes: dict[str, DatasetIndex], index_id: str, role: IndexRole) -> None:
         index = indexes.get(index_id)
         if index is None or index.role is not role:
             raise ValueError(f"Индекс {index_id} не имеет роль {role.value}")

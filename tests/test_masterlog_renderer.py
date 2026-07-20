@@ -250,9 +250,7 @@ def test_masterlog_lithology_legend_uses_system_catalog_and_selected_interval() 
         )
     ]
 
-    entries = masterlog_lithology_legend_entries(
-        session, (100.0, 150.0), AppLanguage.EN, "used"
-    )
+    entries = masterlog_lithology_legend_entries(session, (100.0, 150.0), AppLanguage.EN, "used")
 
     assert [entry.lithotype_id for entry in entries] == ["sandstone", "clay"]
     assert [entry.name for entry in entries] == ["Sandstone", "Clay"]

@@ -49,7 +49,6 @@ from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.data.selection_export import SelectionExportError
 from geoworkbench.data.visualization_export import (
     VisualizationExportError,
-    export_widget_page_image,
     export_widget_pdf,
     export_widget_png,
     export_widget_svg,
@@ -82,8 +81,13 @@ from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
+from geoworkbench.printing.document_export import (
+    export_document_pages,
+    export_document_pdf,
+    render_document_to_printer,
+)
+from geoworkbench.printing.document_renderer import PrintDocumentContext
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
-from geoworkbench.printing.widget_print import render_widget_to_printer
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.render_invalidation import DirtyReason
@@ -1609,13 +1613,24 @@ class MainWindow(QMainWindow):
             if current is self.tablet_view
             else self._t("print_center.curves_source")
         )
+        paged_tablet = current if isinstance(current, TabletView) else None
         dialog = PrintCenterDialog(
             self,
             initial_page=self.print_page_settings,
             initial_preferences=self.print_export_preferences,
             language=self.language,
             source_name=resolved_name,
-            preview_callback=lambda job: self._preview_print_job(current, job),
+            preview_callback=lambda job: self._preview_print_job(current, job, resolved_name),
+            supports_pagination=paged_tablet is not None,
+            current_vertical_range=(
+                paged_tablet.visible_depth_range if paged_tablet is not None else None
+            ),
+            full_vertical_range=(
+                paged_tablet.printable_vertical_range() if paged_tablet is not None else None
+            ),
+            vertical_unit=(
+                paged_tablet.printable_vertical_unit if paged_tablet is not None else ""
+            ),
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -1623,35 +1638,29 @@ class MainWindow(QMainWindow):
         self.print_page_settings = job.page
         self.print_export_preferences = dialog.preferences()
         self.user_profile_settings.save_print_page_settings(job.page)
-        self.user_profile_settings.save_print_export_preferences(
-            self.print_export_preferences
-        )
-        self._execute_print_job(current, job)
+        self.user_profile_settings.save_print_export_preferences(self.print_export_preferences)
+        self._execute_print_job(current, job, resolved_name)
 
     def _configured_printer(self, widget, job: PrintJobSettings) -> QPrinter:
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         printer.setResolution(job.dpi)
-        printer.setPageSize(
-            job.page.page_size_for_content(widget.width(), widget.height())
-        )
+        printer.setPageSize(job.page.page_size_for_content(widget.width(), widget.height()))
         printer.setPageOrientation(job.page.qt_orientation)
         printer.setPageMargins(job.page.qt_margins, QPageLayout.Unit.Millimeter)
         return printer
 
-    def _preview_print_job(self, widget, job: PrintJobSettings) -> None:
+    def _preview_print_job(self, widget, job: PrintJobSettings, source_name: str) -> None:
         printer = self._configured_printer(widget, job)
         preview = QPrintPreviewDialog(printer, self)
         preview.setWindowTitle(self._t("print.preview_title"))
+        context = PrintDocumentContext(source_name, self.language)
         preview.paintRequested.connect(
-            lambda requested: render_widget_to_printer(
-                widget,
-                requested,
-                fit_form_columns=job.page.fit_form_columns,
-            )
+            lambda requested: render_document_to_printer(widget, requested, job, context=context)
         )
         preview.exec()
 
-    def _execute_print_job(self, widget, job: PrintJobSettings) -> None:
+    def _execute_print_job(self, widget, job: PrintJobSettings, source_name: str) -> None:
+        context = PrintDocumentContext(source_name, self.language)
         try:
             if job.output_format is PrintOutputFormat.PRINTER:
                 printer = self._configured_printer(widget, job)
@@ -1659,12 +1668,8 @@ class MainWindow(QMainWindow):
                 dialog.setWindowTitle(self._t("print_center.physical_printer"))
                 if dialog.exec() != QDialog.DialogCode.Accepted:
                     return
-                render_widget_to_printer(
-                    widget,
-                    printer,
-                    fit_form_columns=job.page.fit_form_columns,
-                )
-                message = self._t("print_center.print_success")
+                page_count = render_document_to_printer(widget, printer, job, context=context)
+                message = self._t("print_center.print_success_pages", count=page_count)
             else:
                 target = job.normalized_target()
                 if target is None:
@@ -1673,31 +1678,28 @@ class MainWindow(QMainWindow):
                 if overwrite is None:
                     return
                 if job.output_format is PrintOutputFormat.PDF:
-                    exported = export_widget_pdf(
+                    result = export_document_pdf(
                         widget,
                         target,
+                        job,
+                        context=context,
                         overwrite=overwrite,
-                        page_settings=job.page,
-                        dpi=job.dpi,
-                    )
-                elif job.output_format is PrintOutputFormat.SVG:
-                    exported = export_widget_svg(
-                        widget,
-                        target,
-                        overwrite=overwrite,
-                        page_settings=job.page,
                     )
                 else:
-                    exported = export_widget_page_image(
+                    result = export_document_pages(
                         widget,
                         target,
-                        output_format=job.output_format,
-                        page_settings=job.page,
-                        dpi=job.dpi,
-                        quality=job.image_quality,
+                        job,
+                        context=context,
                         overwrite=overwrite,
                     )
-                message = self._t("print_center.export_success", name=exported.name)
+                primary = result.primary_path
+                name = primary.name if primary is not None else target.name
+                message = self._t(
+                    "print_center.export_success_pages",
+                    name=name,
+                    count=result.page_count,
+                )
         except (FileExistsError, OSError, RuntimeError, ValueError) as exc:
             QMessageBox.critical(self, self._t("print_center.title"), str(exc))
             self._log(self._t("print_center.failed", error=str(exc)))

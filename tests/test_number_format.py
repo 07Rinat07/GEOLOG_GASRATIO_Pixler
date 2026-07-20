@@ -17,9 +17,7 @@ from geoworkbench.data.number_format import (
         (-0.0, "0"),
     ],
 )
-def test_format_decimal_number_never_uses_scientific_notation(
-    value: float, expected: str
-) -> None:
+def test_format_decimal_number_never_uses_scientific_notation(value: float, expected: str) -> None:
     result = format_decimal_number(value)
 
     assert result == expected

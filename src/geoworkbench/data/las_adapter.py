@@ -140,9 +140,15 @@ def import_las_with_report(
                 ),
                 values=values,
             )
-        dataset.version_headers = {clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.version}
-        dataset.headers = {clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.well}
-        dataset.parameters = {clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.params}
+        dataset.version_headers = {
+            clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.version
+        }
+        dataset.headers = {
+            clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.well
+        }
+        dataset.parameters = {
+            clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.params
+        }
     except Exception as exc:
         raise LasImportError(f"Некорректные данные LAS-файла: {source}") from exc
     report = _build_import_report(source, source_document, las, depth)
@@ -226,7 +232,9 @@ def _build_import_report(
     if not depth_report.is_uniform and depth.size > 1:
         issues.append(_warning("non-uniform-step", "Шаг индекса не является равномерным"))
     if depth_report.gap_count:
-        issues.append(_warning("index-gaps", f"Обнаружено разрывов индекса: {depth_report.gap_count}"))
+        issues.append(
+            _warning("index-gaps", f"Обнаружено разрывов индекса: {depth_report.gap_count}")
+        )
 
     _append_header_mismatches(issues, las, depth_report)
     return LasImportReport(snapshot, depth_report, tuple(issues))
@@ -385,9 +393,7 @@ def _compose_lossless_export(
         if (role := section_role(section.name)) is not None
     }
     source_roles = {
-        role
-        for section in source.sections
-        if (role := section_role(section.name)) is not None
+        role for section in source.sections if (role := section_role(section.name)) is not None
     }
     required_roles = {"version", "well", "curve", "ascii"}
     missing = required_roles - source_roles
@@ -444,7 +450,11 @@ def _build_las_file(dataset: Dataset, *, null_value: float) -> lasio.LASFile:
         )
     _apply_header_values(
         las.version,
-        {key: value for key, value in dataset.version_headers.items() if key not in {"VERS", "WRAP"}},
+        {
+            key: value
+            for key, value in dataset.version_headers.items()
+            if key not in {"VERS", "WRAP"}
+        },
     )
     _apply_header_values(las.well, dataset.headers)
     _apply_header_values(las.params, dataset.parameters)

@@ -103,7 +103,14 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
         "DLM": "SPACE",
     }
     project.lithotypes["oil_sand"] = ProjectLithotype(
-        "oil_sand", "OS", "Нефтенасыщенный песок", "Oil sand", "sedimentary", "#a07840", "dots", "Мұнайлы құм"
+        "oil_sand",
+        "OS",
+        "Нефтенасыщенный песок",
+        "Oil sand",
+        "sedimentary",
+        "#a07840",
+        "dots",
+        "Мұнайлы құм",
     )
     project.description_templates["Песчаник"] = "Песчаник серый, мелкозернистый"
     project.custom_formulas["wetness"] = CustomFormulaDefinition(
@@ -168,9 +175,7 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
         TimeDepthAggregationPolicy.LAST,
     )
 
-    preset = TabletLayout(
-        [TrackDefinition("preset-depth", "Depth", TrackKind.DEPTH, width=150)]
-    )
+    preset = TabletLayout([TrackDefinition("preset-depth", "Depth", TrackKind.DEPTH, width=150)])
     save_project(
         project,
         target,
@@ -305,7 +310,13 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
     )
     project.wells["well-1"].canvas_objects.append(
         CanvasObject(
-            "show", "masterlog_symbol", "interval", 10.0, 20.0, 8.0, 8.0,
+            "show",
+            "masterlog_symbol",
+            "interval",
+            10.0,
+            20.0,
+            8.0,
+            8.0,
             top_depth=1250.0,
             bottom_depth=1260.0,
             time_value="2026-07-15T10:30:00+05:00",

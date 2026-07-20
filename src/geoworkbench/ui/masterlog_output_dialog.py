@@ -28,9 +28,7 @@ class MasterlogOutputDialog(QDialog):
         self.language_input = QComboBox()
         for value in AppLanguage:
             self.language_input.addItem(LANGUAGE_NAMES[value], value.value)
-        self.language_input.setCurrentIndex(
-            self.language_input.findData(language.value)
-        )
+        self.language_input.setCurrentIndex(self.language_input.findData(language.value))
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )

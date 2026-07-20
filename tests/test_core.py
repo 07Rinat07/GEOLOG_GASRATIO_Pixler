@@ -84,6 +84,7 @@ def test_formula_profile_requires_source() -> None:
             )
         )
 
+
 def test_tablet_layout_can_move_tracks() -> None:
     layout = TabletLayout(
         [

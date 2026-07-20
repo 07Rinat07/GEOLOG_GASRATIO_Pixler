@@ -57,9 +57,7 @@ class LithologyLegendDialog(QDialog):
             self.table.resizeColumnsToContents()
             root.addWidget(self.table)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
-            self._t("common.close")
-        )
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
 

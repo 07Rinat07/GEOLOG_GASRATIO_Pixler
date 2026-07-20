@@ -71,18 +71,14 @@ class LasRangeEditingController:
             raise ValueError("Значение должно быть конечным")
         indices = self._selected_indices(depth_top, depth_bottom)
         values = {
-            curve_id: np.full(indices.size, value, dtype=np.float64)
-            for curve_id in curve_ids
+            curve_id: np.full(indices.size, value, dtype=np.float64) for curve_id in curve_ids
         }
         self._execute(curve_ids, indices, values, "Заполнение постоянным значением")
 
-    def set_missing(
-        self, curve_ids: list[str], depth_top: float, depth_bottom: float
-    ) -> None:
+    def set_missing(self, curve_ids: list[str], depth_top: float, depth_bottom: float) -> None:
         indices = self._selected_indices(depth_top, depth_bottom)
         values = {
-            curve_id: np.full(indices.size, np.nan, dtype=np.float64)
-            for curve_id in curve_ids
+            curve_id: np.full(indices.size, np.nan, dtype=np.float64) for curve_id in curve_ids
         }
         self._execute(curve_ids, indices, values, "Замена значений пропусками")
 
@@ -99,14 +95,10 @@ class LasRangeEditingController:
         indices = self._selected_indices(depth_top, depth_bottom)
         curves = self._require_curves(dataset, curve_ids)
         values = {
-            curve.metadata.curve_id: np.asarray(
-                curve.values[indices] + offset, dtype=np.float64
-            )
+            curve.metadata.curve_id: np.asarray(curve.values[indices] + offset, dtype=np.float64)
             for curve in curves
         }
-        self._execute(
-            curve_ids, indices, values, f"Сдвиг значений на {offset:g}"
-        )
+        self._execute(curve_ids, indices, values, f"Сдвиг значений на {offset:g}")
 
     def multiply(
         self,
@@ -121,14 +113,10 @@ class LasRangeEditingController:
         indices = self._selected_indices(depth_top, depth_bottom)
         curves = self._require_curves(dataset, curve_ids)
         values = {
-            curve.metadata.curve_id: np.asarray(
-                curve.values[indices] * factor, dtype=np.float64
-            )
+            curve.metadata.curve_id: np.asarray(curve.values[indices] * factor, dtype=np.float64)
             for curve in curves
         }
-        self._execute(
-            curve_ids, indices, values, f"Умножение значений на {factor:g}"
-        )
+        self._execute(curve_ids, indices, values, f"Умножение значений на {factor:g}")
 
     def smooth_moving_average(
         self,
@@ -179,17 +167,15 @@ class LasRangeEditingController:
             ]
             if targets.size == 0:
                 continue
-            anchors = np.flatnonzero(
-                np.isfinite(dataset.depth) & np.isfinite(curve.values)
-            ).astype(np.int64)
+            anchors = np.flatnonzero(np.isfinite(dataset.depth) & np.isfinite(curve.values)).astype(
+                np.int64
+            )
             if anchors.size < 2:
                 continue
             order = np.argsort(dataset.depth[anchors], kind="stable")
             anchor_depth = dataset.depth[anchors[order]]
             if np.any(np.diff(anchor_depth) <= 0):
-                raise ValueError(
-                    "Линейная интерполяция требует уникального монотонного индекса"
-                )
+                raise ValueError("Линейная интерполяция требует уникального монотонного индекса")
             bounded = targets[
                 (dataset.depth[targets] >= anchor_depth[0])
                 & (dataset.depth[targets] <= anchor_depth[-1])
@@ -206,9 +192,7 @@ class LasRangeEditingController:
             )
 
         if not changes:
-            raise ValueError(
-                "В выбранном интервале нет ограниченных с двух сторон пропусков"
-            )
+            raise ValueError("В выбранном интервале нет ограниченных с двух сторон пропусков")
         self._execute_changes(changes, "Линейная интерполяция пропусков")
 
     def edit_cell(self, curve_id: str, row: int, value: float) -> None:
@@ -239,8 +223,7 @@ class LasRangeEditingController:
         indices = self._selected_indices(depth_top, depth_bottom)
         generator = np.random.default_rng(seed)
         values = {
-            curve_id: generator.uniform(minimum, maximum, indices.size)
-            for curve_id in curve_ids
+            curve_id: generator.uniform(minimum, maximum, indices.size) for curve_id in curve_ids
         }
         self._execute(
             curve_ids,
@@ -249,9 +232,7 @@ class LasRangeEditingController:
             f"Случайные значения {minimum:g}–{maximum:g}; seed={seed}",
         )
 
-    def copy(
-        self, curve_ids: list[str], depth_top: float, depth_bottom: float
-    ) -> RangeClipboard:
+    def copy(self, curve_ids: list[str], depth_top: float, depth_bottom: float) -> RangeClipboard:
         dataset = self._require_dataset()
         indices = self._selected_indices(depth_top, depth_bottom)
         curves = self._require_curves(dataset, curve_ids)
@@ -313,10 +294,7 @@ class LasRangeEditingController:
         description: str,
     ) -> None:
         self._execute_changes(
-            {
-                curve_id: (indices, values_by_curve_id[curve_id])
-                for curve_id in curve_ids
-            },
+            {curve_id: (indices, values_by_curve_id[curve_id]) for curve_id in curve_ids},
             description,
         )
 
@@ -369,8 +347,7 @@ class LasRangeEditingController:
         ]
         if calculated:
             raise ValueError(
-                "Расчётные кривые редактируются через исходные параметры: "
-                + ", ".join(calculated)
+                "Расчётные кривые редактируются через исходные параметры: " + ", ".join(calculated)
             )
         return curves
 

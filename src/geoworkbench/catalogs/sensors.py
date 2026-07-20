@@ -153,9 +153,7 @@ class SensorCatalog:
                 if key:
                     description_index.setdefault(key, []).append(item)
         self._alias_index = {key: tuple(value) for key, value in alias_index.items()}
-        self._description_index = {
-            key: tuple(value) for key, value in description_index.items()
-        }
+        self._description_index = {key: tuple(value) for key, value in description_index.items()}
 
     @classmethod
     def from_json(cls, source: str | Path | dict[str, Any]) -> SensorCatalog:
@@ -302,9 +300,7 @@ def _definition_from_mapping(raw: dict[str, Any]) -> SensorDefinition:
     )
 
 
-def _choose_candidate(
-    candidates: Iterable[SensorDefinition], *, unit: str
-) -> SensorDefinition:
+def _choose_candidate(candidates: Iterable[SensorDefinition], *, unit: str) -> SensorDefinition:
     values = tuple(candidates)
     requested_unit = normalize_unit(unit)
     if requested_unit:

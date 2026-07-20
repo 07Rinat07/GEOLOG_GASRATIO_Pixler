@@ -21,15 +21,17 @@ from geoworkbench.ui.masterlog_symbols_dialog import MasterlogSymbolsDialog
 
 
 def make_controller() -> MasterlogSymbolController:
-    dataset = Dataset(
-        "dataset", "Log", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 200.0])
-    )
+    dataset = Dataset("dataset", "Log", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 200.0]))
     session = ProjectSession()
     session.add_dataset(dataset, "Well")
     dataset.upsert_curve("TG", np.array([1.0, 100.0]))
     dataset.add_index(
         DatasetIndex(
-            "time", "TIME", IndexType.DATETIME, IndexRole.TIME, "UTC",
+            "time",
+            "TIME",
+            IndexType.DATETIME,
+            IndexRole.TIME,
+            "UTC",
             np.array(["2026-07-15T05:00:00", "2026-07-15T05:00:10"], dtype="datetime64[ns]"),
             timezone="UTC",
         )

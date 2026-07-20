@@ -19,14 +19,20 @@ from geoworkbench.services.time_depth_aggregation import (
 
 def make_dataset(*, datetime: bool = False) -> Dataset:
     dataset = Dataset(
-        "source", "Log", DatasetKind.GTI, DepthDomain.MD,
+        "source",
+        "Log",
+        DatasetKind.GTI,
+        DepthDomain.MD,
         np.array([100.0, 110.0, 120.0, 130.0, np.nan]),
     )
     time_values = (
         np.array(
             [
-                "2026-01-01T00:00:00", "2026-01-01T00:00:04",
-                "2026-01-01T00:00:10", "2026-01-01T00:00:14", "NaT",
+                "2026-01-01T00:00:00",
+                "2026-01-01T00:00:04",
+                "2026-01-01T00:00:10",
+                "2026-01-01T00:00:14",
+                "NaT",
             ],
             dtype="datetime64[ns]",
         )
@@ -35,9 +41,12 @@ def make_dataset(*, datetime: bool = False) -> Dataset:
     )
     dataset.add_index(
         DatasetIndex(
-            "time", "TIME",
+            "time",
+            "TIME",
             IndexType.DATETIME if datetime else IndexType.RELATIVE_TIME,
-            IndexRole.TIME, "s" if datetime else "ms", time_values,
+            IndexRole.TIME,
+            "s" if datetime else "ms",
+            time_values,
             timezone="UTC" if datetime else None,
         )
     )
@@ -72,9 +81,14 @@ def test_time_depth_aggregation_creates_derived_copy(
 
     assert result.dataset.kind is DatasetKind.DERIVED
     np.testing.assert_allclose(result.dataset.depth, depths)
-    np.testing.assert_allclose(result.dataset.indexes[next(
-        key for key, value in result.dataset.indexes.items() if value.role is IndexRole.TIME
-    )].values, [2000.0, 12000.0])
+    np.testing.assert_allclose(
+        result.dataset.indexes[
+            next(
+                key for key, value in result.dataset.indexes.items() if value.role is IndexRole.TIME
+            )
+        ].values,
+        [2000.0, 12000.0],
+    )
     np.testing.assert_allclose(result.dataset.curve_by_mnemonic("C1").values, [2.0, 5.0])
     assert result.rows_per_bin == (2, 2)
     assert plan.valid_row_count == 4

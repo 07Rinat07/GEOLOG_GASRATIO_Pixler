@@ -34,9 +34,7 @@ def make_dialog(
     session = ProjectSession()
     session.add_dataset(dataset)
     return (
-        TimeDepthMappingDialog(
-            dataset, TimeDepthMappingController(session), language=language
-        ),
+        TimeDepthMappingDialog(dataset, TimeDepthMappingController(session), language=language),
         session,
     )
 

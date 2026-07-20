@@ -24,7 +24,11 @@ def make_session() -> ProjectSession:
     )
     dataset.add_index(
         DatasetIndex(
-            "time", "TIME", IndexType.RELATIVE_TIME, IndexRole.TIME, "s",
+            "time",
+            "TIME",
+            IndexType.RELATIVE_TIME,
+            IndexRole.TIME,
+            "s",
             np.array([0.0, 5.0, 10.0]),
         )
     )
@@ -39,7 +43,9 @@ def make_session() -> ProjectSession:
 def test_time_depth_aggregation_controller_supports_undo_redo() -> None:
     session = make_session()
     mapping = TimeDepthMappingController(session).save_profile(
-        "Mapping", "time", session.current_dataset.active_index_id,  # type: ignore[union-attr]
+        "Mapping",
+        "time",
+        session.current_dataset.active_index_id,  # type: ignore[union-attr]
         TimeDepthAggregationPolicy.MEAN,
     )
     controller = TimeDepthAggregationController(session)

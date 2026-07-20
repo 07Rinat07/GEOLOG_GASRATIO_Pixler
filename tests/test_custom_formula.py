@@ -12,9 +12,16 @@ from geoworkbench.domain.models import CustomFormulaDefinition
 
 def test_evaluates_gas_formula_and_infers_inputs() -> None:
     expression = "100 * (C2 + C3 + IC4 + NC4) / (C1 + C2 + C3 + IC4 + NC4)"
-    inputs = {name: np.array([value]) for name, value in {
-        "C1": 80.0, "C2": 10.0, "C3": 5.0, "IC4": 2.0, "NC4": 3.0,
-    }.items()}
+    inputs = {
+        name: np.array([value])
+        for name, value in {
+            "C1": 80.0,
+            "C2": 10.0,
+            "C3": 5.0,
+            "IC4": 2.0,
+            "NC4": 3.0,
+        }.items()
+    }
 
     assert formula_inputs(expression) == ("C1", "C2", "C3", "IC4", "NC4")
     np.testing.assert_allclose(evaluate_formula(expression, inputs), [20.0])

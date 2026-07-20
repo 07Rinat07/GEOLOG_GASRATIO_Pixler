@@ -57,7 +57,9 @@ def load_source_documents(
             raise SourceArtifactError(f"Недопустимый путь source artifact: {relative_path}")
         artifact = (project_path.parent / relative_path).resolve(strict=False)
         if not artifact.is_relative_to(assets):
-            raise SourceArtifactError(f"Source artifact находится вне каталога проекта: {relative_path}")
+            raise SourceArtifactError(
+                f"Source artifact находится вне каталога проекта: {relative_path}"
+            )
         if not artifact.is_file():
             raise SourceArtifactError(f"Source artifact не найден: {relative_path}")
         raw_bytes = artifact.read_bytes()

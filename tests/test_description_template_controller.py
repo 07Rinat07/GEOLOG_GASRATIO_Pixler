@@ -11,9 +11,7 @@ def test_description_template_crud() -> None:
     controller.add("Песчаник", "Серый мелкозернистый песчаник")
     controller.update("Песчаник", "Песчаник продуктивный", "Песчаник с признаками нефти")
 
-    assert controller.available() == (
-        ("Песчаник продуктивный", "Песчаник с признаками нефти"),
-    )
+    assert controller.available() == (("Песчаник продуктивный", "Песчаник с признаками нефти"),)
     controller.remove("Песчаник продуктивный")
     assert controller.available() == ()
     assert session.dirty is True

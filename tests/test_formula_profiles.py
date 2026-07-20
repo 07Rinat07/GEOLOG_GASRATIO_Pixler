@@ -204,11 +204,17 @@ def test_reference_normalization_profiles(profile_id: str, component: str, outpu
     result = registry.calculate(
         profile_id,
         {
-            component: np.array([10.0]), "FLOW_GPM": np.array([600.0]),
-            "ROP_FPH": np.array([100.0]), "BIT_IN": np.array([5.0]),
+            component: np.array([10.0]),
+            "FLOW_GPM": np.array([600.0]),
+            "ROP_FPH": np.array([100.0]),
+            "BIT_IN": np.array([5.0]),
         },
-        {"ROP_REF_FPH": 50.0, "BIT_REF_IN": 10.0, "FLOW_REF_GPM": 500.0,
-         "GAS_SYSTEM_EFFICIENCY": 1.0},
+        {
+            "ROP_REF_FPH": 50.0,
+            "BIT_REF_IN": 10.0,
+            "FLOW_REF_GPM": 500.0,
+            "GAS_SYSTEM_EFFICIENCY": 1.0,
+        },
     )
     np.testing.assert_allclose(result, [24.0])
     passport = registry.passport(profile_id)
@@ -223,11 +229,16 @@ def test_reference_normalized_total_gas() -> None:
         "gas.normalized_total_reference_us20150060054",
         {
             **{name: np.array([1.0]) for name in components},
-            "FLOW_GPM": np.array([500.0]), "ROP_FPH": np.array([50.0]),
+            "FLOW_GPM": np.array([500.0]),
+            "ROP_FPH": np.array([50.0]),
             "BIT_IN": np.array([10.0]),
         },
-        {"ROP_REF_FPH": 50.0, "BIT_REF_IN": 10.0, "FLOW_REF_GPM": 500.0,
-         "GAS_SYSTEM_EFFICIENCY": 1.0},
+        {
+            "ROP_REF_FPH": 50.0,
+            "BIT_REF_IN": 10.0,
+            "FLOW_REF_GPM": 500.0,
+            "GAS_SYSTEM_EFFICIENCY": 1.0,
+        },
     )
     np.testing.assert_allclose(result, [7.0])
 

@@ -87,9 +87,7 @@ def test_controller_preserves_source_documents_across_open_and_save() -> None:
 def test_controller_preserves_import_reports_across_open_and_save() -> None:
     document = make_document()
     report = LasImportReport(
-        LasSourceSnapshot(
-            Path("source.las"), 0, "0" * 64, "utf-8", "none", (), None, None, None
-        ),
+        LasSourceSnapshot(Path("source.las"), 0, "0" * 64, "utf-8", "none", (), None, None, None),
         DepthAxisReport(DepthDirection.UNKNOWN, None, None, None, False, 0, 0, 0),
         (),
     )

@@ -10,7 +10,14 @@ def test_project_lithotype_lifecycle_marks_project_dirty() -> None:
     controller = LithotypeCatalogController(session)
 
     created = controller.add(
-        "oil_sand", "os", "Нефтенасыщенный песок", "Oil sand", "sedimentary", "#A07840", "dots", "Мұнайлы құм"
+        "oil_sand",
+        "os",
+        "Нефтенасыщенный песок",
+        "Oil sand",
+        "sedimentary",
+        "#A07840",
+        "dots",
+        "Мұнайлы құм",
     )
     updated = controller.update(
         "oil_sand",

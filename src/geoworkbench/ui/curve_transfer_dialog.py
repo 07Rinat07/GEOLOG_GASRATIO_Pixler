@@ -59,9 +59,7 @@ class CurveTransferDialog(QDialog):
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText(
-            self._t("transfer.apply")
-        )
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self._t("transfer.apply"))
         self.buttons.accepted.connect(self._accept_validated)
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)
@@ -120,13 +118,9 @@ class CurveTransferDialog(QDialog):
         for row, candidate in enumerate(analysis.candidates):
             use_item = QTableWidgetItem()
             use_item.setData(Qt.ItemDataRole.UserRole, candidate.curve_id)
-            use_item.setFlags(
-                Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable
-            )
+            use_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
             use_item.setCheckState(
-                Qt.CheckState.Checked
-                if candidate.conflict is None
-                else Qt.CheckState.Unchecked
+                Qt.CheckState.Checked if candidate.conflict is None else Qt.CheckState.Unchecked
             )
             if candidate.conflict is not None:
                 use_item.setFlags(Qt.ItemFlag.NoItemFlags)
@@ -150,9 +144,7 @@ class CurveTransferDialog(QDialog):
             return self._t("transfer.ready")
         return {
             "Мнемоника занята кривой приёмника": self._t("transfer.conflict.curve"),
-            "Мнемоника зарезервирована индексом приёмника": self._t(
-                "transfer.conflict.index"
-            ),
+            "Мнемоника зарезервирована индексом приёмника": self._t("transfer.conflict.index"),
         }.get(conflict, conflict)
 
     def _update_accept_state(self) -> None:

@@ -232,9 +232,7 @@ def interpretation_report_html(
         lba=report.lba_count,
         interpreted=report.interpreted_count,
     )
-    rows = "".join(
-        _entry_html(entry, labels, _LBA_LABELS[language]) for entry in report.entries
-    )
+    rows = "".join(_entry_html(entry, labels, _LBA_LABELS[language]) for entry in report.entries)
     if not rows:
         rows = f'<tr><td colspan="4">{escape(labels["empty"])}</td></tr>'
     dataset = report.dataset_name or "—"
@@ -275,11 +273,16 @@ def _entry_html(
             (labels["insoluble"], entry.insoluble_residue_percent),
         )
         calcimetry = "<br>".join(
-            f"{escape(name)}: {_format_percent(value)}" for name, value in values if value is not None
+            f"{escape(name)}: {_format_percent(value)}"
+            for name, value in values
+            if value is not None
         )
-    lba = "<br>".join(
-        f"{escape(lba_labels[key])}: {escape(value)}" for key, value in entry.lba_observations
-    ) or "—"
+    lba = (
+        "<br>".join(
+            f"{escape(lba_labels[key])}: {escape(value)}" for key, value in entry.lba_observations
+        )
+        or "—"
+    )
     interpretation = escape(entry.interpretation or "—").replace("\n", "<br>")
     return (
         f"<tr><td>{entry.top_depth:g}–{entry.bottom_depth:g}</td>"

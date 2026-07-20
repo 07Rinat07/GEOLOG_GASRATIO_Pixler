@@ -9,16 +9,12 @@ from geoworkbench.tablet.models import TabletLayout
 
 def make_controller() -> tuple[DatasetMergeController, Dataset, Dataset]:
     session = ProjectSession()
-    source = Dataset(
-        "source", "Source", DatasetKind.GIS, DepthDomain.MD, np.array([100.0, 101.0])
-    )
+    source = Dataset("source", "Source", DatasetKind.GIS, DepthDomain.MD, np.array([100.0, 101.0]))
     source.curves["gr"] = CurveData(
         CurveMetadata("gr", "GR", "GR", "API", None, source.dataset_id),
         np.array([10.0, 11.0]),
     )
-    target = Dataset(
-        "target", "Target", DatasetKind.GTI, DepthDomain.MD, np.array([101.0, 102.0])
-    )
+    target = Dataset("target", "Target", DatasetKind.GTI, DepthDomain.MD, np.array([101.0, 102.0]))
     target.curves["rop"] = CurveData(
         CurveMetadata("rop", "ROP", "ROP", "m/h", None, target.dataset_id),
         np.array([20.0, 21.0]),

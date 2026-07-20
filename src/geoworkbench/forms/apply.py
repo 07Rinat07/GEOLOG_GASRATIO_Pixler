@@ -79,7 +79,10 @@ class FormApplyEngine:
                 description=metadata.description or "",
                 unit=metadata.unit or "",
             )
-            if match is not None and normalize_sensor_key(match.definition.canonical_mnemonic) == wanted:
+            if (
+                match is not None
+                and normalize_sensor_key(match.definition.canonical_mnemonic) == wanted
+            ):
                 return BindingResolution(
                     binding.binding_id,
                     binding.canonical_parameter_id,

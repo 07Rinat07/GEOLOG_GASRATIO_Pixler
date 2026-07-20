@@ -56,11 +56,14 @@ def test_add_rename_and_remove_parameter_are_reversible() -> None:
     controller.update(HeaderSection.PARAMETER, "MUD_TYPE", "MUD", "OBM")
     controller.remove(HeaderSection.PARAMETER, "RUN")
 
-    assert [(entry.mnemonic, entry.value) for entry in controller.entries(HeaderSection.PARAMETER)] == [
-        ("MUD", "OBM")
-    ]
+    assert [
+        (entry.mnemonic, entry.value) for entry in controller.entries(HeaderSection.PARAMETER)
+    ] == [("MUD", "OBM")]
     controller.undo()
-    assert {entry.mnemonic for entry in controller.entries(HeaderSection.PARAMETER)} == {"MUD", "RUN"}
+    assert {entry.mnemonic for entry in controller.entries(HeaderSection.PARAMETER)} == {
+        "MUD",
+        "RUN",
+    }
 
 
 def test_edits_custom_version_header_and_protects_export_fields() -> None:
@@ -120,7 +123,9 @@ def test_depth_summary_detects_mismatch_and_synchronizes_fields() -> None:
     assert dataset.headers["STRT"] == "100"
     assert dataset.headers["STOP"] == "101"
     assert dataset.headers["STEP"] == "1"
-    assert not any("STRT=" in issue or "STOP=" in issue for issue in controller.depth_summary().issues)
+    assert not any(
+        "STRT=" in issue or "STOP=" in issue for issue in controller.depth_summary().issues
+    )
     controller.undo()
     assert "STOP" not in dataset.headers
 

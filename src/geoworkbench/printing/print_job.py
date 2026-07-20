@@ -7,6 +7,7 @@ from pathlib import Path
 from PySide6.QtGui import QImageWriter
 
 from geoworkbench.printing.page_settings import PrintPageSettings
+from geoworkbench.printing.pagination import PrintPaginationSettings, PrintRangeMode
 
 
 class PrintOutputFormat(StrEnum):
@@ -90,6 +91,8 @@ class PrintJobSettings:
     dpi: int = 300
     image_quality: int = 92
     target: Path | None = None
+    pagination: PrintPaginationSettings = field(default_factory=PrintPaginationSettings)
+    strict_unicode: bool = True
 
     def __post_init__(self) -> None:
         if isinstance(self.dpi, bool) or not isinstance(self.dpi, int) or not 72 <= self.dpi <= 600:
@@ -100,6 +103,8 @@ class PrintJobSettings:
             or not 1 <= self.image_quality <= 100
         ):
             raise ValueError("Качество изображения должно быть от 1 до 100")
+        if not isinstance(self.strict_unicode, bool):
+            raise ValueError("Unicode-проверка должна быть логическим значением")
         if self.output_format.is_file and self.target is None:
             raise ValueError("Для файлового экспорта необходимо выбрать путь")
         if not self.output_format.is_file and self.target is not None:
@@ -118,6 +123,13 @@ class PrintExportPreferences:
     output_format: PrintOutputFormat = PrintOutputFormat.PDF
     dpi: int = 300
     image_quality: int = 92
+    range_mode: PrintRangeMode = PrintRangeMode.CURRENT
+    units_per_page: float = 50.0
+    overlap: float = 0.0
+    custom_start: float | None = None
+    custom_end: float | None = None
+    show_page_numbers: bool = True
+    show_page_range: bool = True
 
     def __post_init__(self) -> None:
         if self.output_format is PrintOutputFormat.PRINTER:
@@ -132,10 +144,22 @@ class PrintExportPreferences:
             or not 1 <= self.image_quality <= 100
         ):
             raise ValueError("Качество изображения должно быть от 1 до 100")
+        PrintPaginationSettings(
+            range_mode=self.range_mode,
+            units_per_page=self.units_per_page,
+            overlap=self.overlap,
+            custom_start=self.custom_start,
+            custom_end=self.custom_end,
+            show_page_numbers=self.show_page_numbers,
+            show_page_range=self.show_page_range,
+        )
 
 
 def available_output_formats() -> tuple[PrintOutputFormat, ...]:
-    supported = {bytes(item).decode("ascii", errors="ignore").casefold() for item in QImageWriter.supportedImageFormats()}
+    supported = {
+        bytes(item).decode("ascii", errors="ignore").casefold()
+        for item in QImageWriter.supportedImageFormats()
+    }
     result = [PrintOutputFormat.PRINTER, PrintOutputFormat.PDF, PrintOutputFormat.PNG]
     for item, aliases in (
         (PrintOutputFormat.JPEG, {"jpeg", "jpg", "jfif"}),

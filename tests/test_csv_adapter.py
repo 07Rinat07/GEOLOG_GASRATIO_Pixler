@@ -84,9 +84,7 @@ def test_plan_validates_delimiter() -> None:
 def test_import_csv_accepts_iso8601_time_index_with_timezone(tmp_path) -> None:
     source = tmp_path / "time.csv"
     source.write_text(
-        "RECORD_TIME,C1 [%]\n"
-        "2026-07-15T10:00:00+05:00,1.2\n"
-        "2026-07-15T10:00:01+05:00,1.3\n",
+        "RECORD_TIME,C1 [%]\n2026-07-15T10:00:00+05:00,1.2\n2026-07-15T10:00:01+05:00,1.3\n",
         encoding="utf-8",
     )
 

@@ -33,7 +33,9 @@ class DatasetMergeController:
     def can_redo(self) -> bool:
         well = self.session.current_well
         merged = self._merged_dataset
-        return bool(well is not None and merged is not None and merged.dataset_id not in well.datasets)
+        return bool(
+            well is not None and merged is not None and merged.dataset_id not in well.datasets
+        )
 
     def available_sources(self) -> tuple[Dataset, ...]:
         target = self._target()
@@ -47,13 +49,9 @@ class DatasetMergeController:
     def analyze(self, source_dataset_id: str) -> DatasetMergeAnalysis:
         return analyze_dataset_merge(self._dataset(source_dataset_id), self._target())
 
-    def create(
-        self, source_dataset_id: str, analysis: DatasetMergeAnalysis
-    ) -> Dataset:
+    def create(self, source_dataset_id: str, analysis: DatasetMergeAnalysis) -> Dataset:
         target = self._target()
-        result = create_merged_dataset(
-            self._dataset(source_dataset_id), target, analysis
-        )
+        result = create_merged_dataset(self._dataset(source_dataset_id), target, analysis)
         well = self.session.current_well
         if well is None:
             raise RuntimeError("Сначала выберите скважину-приёмник")

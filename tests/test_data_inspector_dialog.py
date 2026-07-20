@@ -87,7 +87,12 @@ def test_data_inspector_dialog_uses_selected_language(qapp) -> None:
     assert buttons is not None
     assert dialog.windowTitle() == "Data and index information"
     assert [dialog.tabs.tabText(index) for index in range(dialog.tabs.count())] == [
-        "Summary", "Indexes", "Curves", "Import diagnostics", "LAS source", "LAS header"
+        "Summary",
+        "Indexes",
+        "Curves",
+        "Import diagnostics",
+        "LAS source",
+        "LAS header",
     ]
     assert dialog.index_table.horizontalHeaderItem(0).text() == "Active"
     assert dialog.curve_table.horizontalHeaderItem(2).text() == "Description"

@@ -56,9 +56,7 @@ def test_atomic_save_rejects_source_for_unknown_dataset(tmp_path) -> None:
 def test_atomic_save_rejects_report_for_unknown_dataset(tmp_path) -> None:
     target = tmp_path / "project.geolog.json"
     report = LasImportReport(
-        LasSourceSnapshot(
-            Path("source.las"), 0, "0" * 64, "utf-8", "none", (), None, None, None
-        ),
+        LasSourceSnapshot(Path("source.las"), 0, "0" * 64, "utf-8", "none", (), None, None, None),
         DepthAxisReport(DepthDirection.UNKNOWN, None, None, None, False, 0, 0, 0),
         (),
     )

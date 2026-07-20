@@ -77,9 +77,7 @@ def test_select_visible_samples_sorts_depth_and_collapses_duplicates() -> None:
     depth = np.array([102.0, 100.0, 101.0, 101.0, 103.0])
     values = np.array([20.0, 10.0, 30.0, 50.0, 40.0])
 
-    selected_values, selected_depth = select_visible_samples(
-        depth, values, 100.0, 103.0
-    )
+    selected_values, selected_depth = select_visible_samples(depth, values, 100.0, 103.0)
 
     np.testing.assert_allclose(selected_depth, [100.0, 101.0, 102.0, 103.0])
     np.testing.assert_allclose(selected_values, [10.0, 40.0, 20.0, 40.0])

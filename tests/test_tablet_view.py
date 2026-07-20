@@ -153,8 +153,7 @@ def test_tablet_cursor_line_is_synchronized_and_reports_all_curve_values(qapp) -
     assert all(item.cursor_line is not None for item in view._rendered.values())
     assert all(item.cursor_line.value() == 150.0 for item in view._rendered.values())
     assert view.cursor_summary(151.0) == (
-        "Глубина: 150 m | Содержание метана [C1]: 2 % | "
-        "Скорость бурения (по глубине) [ROP]: 20 m/h"
+        "Глубина: 150 m | Содержание метана [C1]: 2 % | Скорость бурения (по глубине) [ROP]: 20 m/h"
     )
     view.set_cursor_style("#123456", 3.5)
     assert all(
@@ -255,10 +254,7 @@ def test_tablet_renders_calcimetry_lba_and_cursor_summary(qapp) -> None:
 
     assert calc_items is not None and len(calc_items["sample"]) == 3
     assert lba_items is not None and len(lba_items["sample"]) == 1
-    assert (
-        "Кальциметрия: CaCO₃ 65%; CaMg(CO₃)₂ 20%; "
-        "нерастворимый остаток 15%"
-    ) in summary
+    assert ("Кальциметрия: CaCO₃ 65%; CaMg(CO₃)₂ 20%; нерастворимый остаток 15%") in summary
     assert "ЛБА: Oil show; I=3; yellow; Streaming" in summary
     assert "Интерпретация геолога: Manual show interpretation" in summary
     view.close()
@@ -469,14 +465,18 @@ def test_tablet_zoom_and_wheel_style_scroll_stay_inside_las_and_sync_tracks(qapp
     view.visible_depth_changed.connect(lambda top, bottom: emitted.append((top, bottom)))
     view.set_dataset(dataset)
 
+    # A new depth form opens at the application default of 50 m. Zooming by
+    # 0.5 therefore produces a 25 m window and scrolling by ten 10% steps moves
+    # it by exactly one visible window.
+    assert view.visible_depth_range == pytest.approx((1000.0, 1050.0))
     assert view.zoom_depth(0.5)
-    assert view.visible_depth_range == pytest.approx((1055.0, 1165.0))
+    assert view.visible_depth_range == pytest.approx((1012.5, 1037.5))
     assert view.scroll_depth(10.0)
 
-    assert view.visible_depth_range == pytest.approx((1110.0, 1220.0))
-    assert view.track_depth_range("depth") == pytest.approx((1110.0, 1220.0))
-    assert view.track_depth_range("curve") == pytest.approx((1110.0, 1220.0))
-    assert emitted == pytest.approx([(1055.0, 1165.0), (1110.0, 1220.0)])
+    assert view.visible_depth_range == pytest.approx((1037.5, 1062.5))
+    assert view.track_depth_range("depth") == pytest.approx((1037.5, 1062.5))
+    assert view.track_depth_range("curve") == pytest.approx((1037.5, 1062.5))
+    assert emitted == pytest.approx([(1012.5, 1037.5), (1037.5, 1062.5)])
     view.close()
 
 
@@ -508,17 +508,13 @@ def test_tablet_mouse_wheel_scrolls_and_control_wheel_zooms_depth(qapp) -> None:
         Qt.ScrollPhase.ScrollUpdate,
         False,
     )
-    anchor_before = float(
-        plot.getViewBox().mapSceneToView(plot.mapToScene(QPoint(10, 10))).y()
-    )
+    anchor_before = float(plot.getViewBox().mapSceneToView(plot.mapToScene(QPoint(10, 10))).y())
     qapp.sendEvent(viewport, zoom_event)
 
     zoomed = view.visible_depth_range
     assert zoomed is not None
-    assert zoomed[1] - zoomed[0] == pytest.approx(176.0)
-    anchor_after = float(
-        plot.getViewBox().mapSceneToView(plot.mapToScene(QPoint(10, 10))).y()
-    )
+    assert zoomed[1] - zoomed[0] == pytest.approx(40.0)
+    anchor_after = float(plot.getViewBox().mapSceneToView(plot.mapToScene(QPoint(10, 10))).y())
     assert anchor_after == pytest.approx(anchor_before)
 
     scroll_event = QWheelEvent(
@@ -535,8 +531,8 @@ def test_tablet_mouse_wheel_scrolls_and_control_wheel_zooms_depth(qapp) -> None:
 
     scrolled = view.visible_depth_range
     assert scrolled is not None
-    assert scrolled[1] - scrolled[0] == pytest.approx(176.0)
-    assert scrolled[0] == pytest.approx(zoomed[0] + 17.6)
+    assert scrolled[1] - scrolled[0] == pytest.approx(40.0)
+    assert scrolled[0] == pytest.approx(zoomed[0] + 4.0)
     view.close()
 
 
@@ -574,7 +570,7 @@ def test_tablet_view_limits_points_and_updates_them_for_visible_depth(qapp) -> N
     view.set_visible_depth(100.0, 200.0)
     qapp.processEvents()
 
-    assert full_count == 201
+    assert full_count == 51
     assert view.rendered_curve_point_count("curve", "ROP") == 101
     assert emitted == []
     view.close()
@@ -917,9 +913,7 @@ def test_tablet_can_switch_vertical_axis_from_depth_to_datetime(qapp) -> None:
         TabletLayout(
             [
                 TrackDefinition("depth", "Depth", TrackKind.DEPTH),
-                TrackDefinition(
-                    "rop", "ROP", TrackKind.CURVE, curve_mnemonics=["ROP"]
-                ),
+                TrackDefinition("rop", "ROP", TrackKind.CURVE, curve_mnemonics=["ROP"]),
             ]
         )
     )
@@ -1041,7 +1035,10 @@ def test_tablet_keyboard_navigation_moves_camera(qapp) -> None:
 
 def test_tablet_view_pins_depth_track_and_scrolls_other_tracks(qapp):
     dataset = Dataset(
-        "dataset-scroll", "Scroll", DatasetKind.GTI, DepthDomain.MD,
+        "dataset-scroll",
+        "Scroll",
+        DatasetKind.GTI,
+        DepthDomain.MD,
         np.linspace(0.0, 100.0, 100),
     )
     curve = CurveData(
@@ -1054,7 +1051,10 @@ def test_tablet_view_pins_depth_track_and_scrolls_other_tracks(qapp):
     tracks = [TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120)]
     tracks.extend(
         TrackDefinition(
-            f"curve-{i}", f"Curve {i}", TrackKind.CURVE, width=220,
+            f"curve-{i}",
+            f"Curve {i}",
+            TrackKind.CURVE,
+            width=220,
             curve_mnemonics=["ROP"],
         )
         for i in range(8)
@@ -1081,14 +1081,15 @@ def test_partial_style_refresh_updates_only_target_track(qapp) -> None:
     from geoworkbench.tablet.render_invalidation import DirtyReason
 
     dataset = Dataset(
-        "dataset-dirty", "Dirty", DatasetKind.GTI, DepthDomain.MD,
+        "dataset-dirty",
+        "Dirty",
+        DatasetKind.GTI,
+        DepthDomain.MD,
         np.linspace(0.0, 100.0, 101),
     )
     for mnemonic in ("ROP", "TG"):
         dataset.curves[f"curve-{mnemonic}"] = CurveData(
-            CurveMetadata(
-                f"curve-{mnemonic}", mnemonic, mnemonic, "%", None, dataset.dataset_id
-            ),
+            CurveMetadata(f"curve-{mnemonic}", mnemonic, mnemonic, "%", None, dataset.dataset_id),
             np.linspace(1.0, 10.0, 101),
         )
     layout = TabletLayout(
@@ -1122,7 +1123,10 @@ def test_static_layer_cache_reuses_track_descriptor(qapp) -> None:
     from geoworkbench.tablet.render_invalidation import DirtyReason
 
     dataset = Dataset(
-        "dataset-static", "Static", DatasetKind.GTI, DepthDomain.MD,
+        "dataset-static",
+        "Static",
+        DatasetKind.GTI,
+        DepthDomain.MD,
         np.linspace(0.0, 10.0, 11),
     )
     layout = TabletLayout([TrackDefinition("depth", "Глубина", TrackKind.DEPTH)])
@@ -1144,14 +1148,15 @@ def test_dirty_data_invalidation_clears_only_requested_curve_cache(qapp) -> None
     from geoworkbench.tablet.render_invalidation import DirtyReason
 
     dataset = Dataset(
-        "dataset-cache-invalidation", "Cache invalidation", DatasetKind.GTI,
-        DepthDomain.MD, np.linspace(0.0, 100.0, 1001),
+        "dataset-cache-invalidation",
+        "Cache invalidation",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(0.0, 100.0, 1001),
     )
     for mnemonic in ("ROP", "TG"):
         dataset.curves[f"curve-{mnemonic}"] = CurveData(
-            CurveMetadata(
-                f"curve-{mnemonic}", mnemonic, mnemonic, "%", None, dataset.dataset_id
-            ),
+            CurveMetadata(f"curve-{mnemonic}", mnemonic, mnemonic, "%", None, dataset.dataset_id),
             np.linspace(1.0, 2.0, 1001),
         )
     view = TabletView()
@@ -1177,7 +1182,10 @@ def test_cursor_overlay_update_does_not_rebuild_curve_geometry(qapp) -> None:
     from geoworkbench.tablet.overlay_layers import OverlayLayerKind
 
     dataset = Dataset(
-        "dataset-overlay-cursor", "Overlay cursor", DatasetKind.GTI, DepthDomain.MD,
+        "dataset-overlay-cursor",
+        "Overlay cursor",
+        DatasetKind.GTI,
+        DepthDomain.MD,
         np.linspace(0.0, 100.0, 1001),
     )
     dataset.curves["curve-tg"] = CurveData(
@@ -1208,7 +1216,10 @@ def test_tooltip_and_rubber_band_are_independent_overlay_layers(qapp) -> None:
     from geoworkbench.tablet.overlay_layers import OverlayLayerKind
 
     dataset = Dataset(
-        "dataset-overlay-tools", "Overlay tools", DatasetKind.GTI, DepthDomain.MD,
+        "dataset-overlay-tools",
+        "Overlay tools",
+        DatasetKind.GTI,
+        DepthDomain.MD,
         np.linspace(0.0, 10.0, 11),
     )
     view = TabletView()
@@ -1262,7 +1273,10 @@ def test_tablet_selection_manager_tracks_widget_selection(qapp) -> None:
 
 def test_track_resize_is_undoable(qapp) -> None:
     dataset = Dataset(
-        "dataset-resize-history", "Dataset", DatasetKind.GTI, DepthDomain.MD,
+        "dataset-resize-history",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
         np.array([100.0, 101.0]),
     )
     view = TabletView()
@@ -1283,7 +1297,10 @@ def test_track_resize_is_undoable(qapp) -> None:
 
 def test_track_reorder_is_undoable(qapp) -> None:
     dataset = Dataset(
-        "dataset-reorder-history", "Dataset", DatasetKind.GTI, DepthDomain.MD,
+        "dataset-reorder-history",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
         np.array([100.0, 101.0]),
     )
     view = TabletView()
@@ -1309,13 +1326,14 @@ def test_track_reorder_is_undoable(qapp) -> None:
 
 def test_header_hit_testing_returns_track(qapp) -> None:
     dataset = Dataset(
-        "dataset-header-hit", "Dataset", DatasetKind.GTI, DepthDomain.MD,
+        "dataset-header-hit",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
         np.array([100.0, 101.0]),
     )
     view = TabletView()
-    view.set_layout_model(
-        TabletLayout([TrackDefinition("curve", "Curve", TrackKind.CURVE)])
-    )
+    view.set_layout_model(TabletLayout([TrackDefinition("curve", "Curve", TrackKind.CURVE)]))
     view.set_dataset(dataset)
     qapp.processEvents()
 
@@ -1329,7 +1347,10 @@ def test_header_hit_testing_returns_track(qapp) -> None:
 
 def test_curve_hit_testing_selects_nearest_curve(qapp) -> None:
     dataset = Dataset(
-        "dataset-curve-hit", "Dataset", DatasetKind.GTI, DepthDomain.MD,
+        "dataset-curve-hit",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
         np.array([100.0, 150.0, 200.0]),
     )
     dataset.curves["curve-tg"] = CurveData(
@@ -1355,6 +1376,7 @@ def test_curve_hit_testing_selects_nearest_curve(qapp) -> None:
     assert hit.target.object_id == "TG"
     assert view.selection_snapshot.primary == hit.target
     view.close()
+
 
 def test_depth_track_uses_compact_resizable_ruler(qapp) -> None:
     dataset = Dataset(
@@ -1400,9 +1422,7 @@ def test_tablet_tracks_fill_scroll_viewport_height(qapp) -> None:
         TabletLayout(
             [
                 TrackDefinition("depth", "Глубина", TrackKind.DEPTH),
-                TrackDefinition(
-                    "rop", "ROP", TrackKind.CURVE, curve_mnemonics=["ROP"]
-                ),
+                TrackDefinition("rop", "ROP", TrackKind.CURVE, curve_mnemonics=["ROP"]),
             ]
         )
     )
@@ -1418,9 +1438,7 @@ def test_tablet_tracks_fill_scroll_viewport_height(qapp) -> None:
 
 
 def test_track_widget_requests_context_menu_from_plot_body(qapp) -> None:
-    widget = TabletTrackWidget(
-        TrackDefinition("curve", "Curve", TrackKind.CURVE)
-    )
+    widget = TabletTrackWidget(TrackDefinition("curve", "Curve", TrackKind.CURVE))
     requested: list[str] = []
     widget.context_requested.connect(lambda track_id, _pos: requested.append(track_id))
     event = QMouseEvent(
@@ -1436,7 +1454,6 @@ def test_track_widget_requests_context_menu_from_plot_body(qapp) -> None:
     assert widget.eventFilter(widget.plot.viewport(), event) is True
     assert requested == ["curve"]
     widget.close()
-
 
 
 def test_depth_span_presets_apply_to_all_tracks_and_keep_top_depth(qapp) -> None:
@@ -1479,9 +1496,7 @@ def test_depth_span_presets_apply_to_all_tracks_and_keep_top_depth(qapp) -> None
     qapp.processEvents()
 
     preset_row = next(
-        row
-        for row in range(view._span_combo.count())
-        if view._span_combo.itemData(row) == 20.0
+        row for row in range(view._span_combo.count()) if view._span_combo.itemData(row) == 20.0
     )
     view._depth_span_selected(preset_row)
     qapp.processEvents()
@@ -1550,9 +1565,7 @@ def test_layout_switch_preserves_depth_scale_and_scroll_position(qapp) -> None:
         depth,
     )
     view = TabletView()
-    first_layout = TabletLayout(
-        [TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120)]
-    )
+    first_layout = TabletLayout([TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120)])
     view.set_layout_model(first_layout)
     view.set_dataset(dataset)
     view.set_visible_depth(150.0, 160.0)
@@ -1643,9 +1656,7 @@ def test_depth_span_change_is_stored_in_layout_model(qapp) -> None:
         DepthDomain.MD,
         depth,
     )
-    layout = TabletLayout(
-        [TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120)]
-    )
+    layout = TabletLayout([TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120)])
     view = TabletView()
     view.set_layout_model(layout)
     view.set_dataset(dataset)
@@ -1656,7 +1667,6 @@ def test_depth_span_change_is_stored_in_layout_model(qapp) -> None:
     assert layout.visible_depth_top == pytest.approx(100.0)
     assert layout.visible_depth_bottom == pytest.approx(130.0)
     view.close()
-
 
 
 def _depth_span_test_view() -> TabletView:
@@ -1716,6 +1726,32 @@ def test_depth_span_presets_include_one_and_five_metres(qapp) -> None:
     assert 50.0 in values
     assert 100.0 in values
     view.close()
+
+
+def test_new_depth_form_opens_with_fifty_metre_default(qapp) -> None:
+    view = _depth_span_test_view()
+    # The helper explicitly changes the range to 100-200 for interaction tests,
+    # so create a fresh empty layout to verify the real first-open behaviour.
+    view.close()
+
+    depth = np.linspace(100.0, 300.0, 201)
+    dataset = Dataset(
+        "dataset-default-depth-span",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    fresh = TabletView()
+    fresh.set_layout_model(
+        TabletLayout([TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120)])
+    )
+    fresh.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert fresh.visible_depth_range == pytest.approx((100.0, 150.0))
+    assert fresh._span_combo.currentData() == pytest.approx(50.0)
+    fresh.close()
 
 
 def test_selecting_depth_span_changes_graph_without_activated_signal(qapp) -> None:

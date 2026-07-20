@@ -1,8 +1,19 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
-    QMessageBox, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
 from geoworkbench.calculations.custom_formula import CustomFormulaError, formula_inputs
@@ -16,27 +27,165 @@ from geoworkbench.services.localization import AppLanguage
 
 
 _TEXT = {
-    AppLanguage.RU: ("Пользовательские формулы", "Новая формула", "Название", "Выходная мнемоника", "Единица результата", "Формула", "Описание", "Найденные входы", "Новая", "Сохранить", "Удалить", "Рассчитать", "Закрыть", "Рассчитана кривая", "Показать расчёт..."),
-    AppLanguage.EN: ("Custom formulas", "New formula", "Name", "Output mnemonic", "Output unit", "Formula", "Description", "Detected inputs", "New", "Save", "Delete", "Calculate", "Close", "Calculated curve", "Show calculation..."),
-    AppLanguage.KK: ("Пайдаланушы формулалары", "Жаңа формула", "Атауы", "Шығыс мнемоникасы", "Нәтиже бірлігі", "Формула", "Сипаттама", "Табылған кірістер", "Жаңа", "Сақтау", "Жою", "Есептеу", "Жабу", "Есептелген қисық", "Есепті көрсету..."),
+    AppLanguage.RU: (
+        "Пользовательские формулы",
+        "Новая формула",
+        "Название",
+        "Выходная мнемоника",
+        "Единица результата",
+        "Формула",
+        "Описание",
+        "Найденные входы",
+        "Новая",
+        "Сохранить",
+        "Удалить",
+        "Рассчитать",
+        "Закрыть",
+        "Рассчитана кривая",
+        "Показать расчёт...",
+    ),
+    AppLanguage.EN: (
+        "Custom formulas",
+        "New formula",
+        "Name",
+        "Output mnemonic",
+        "Output unit",
+        "Formula",
+        "Description",
+        "Detected inputs",
+        "New",
+        "Save",
+        "Delete",
+        "Calculate",
+        "Close",
+        "Calculated curve",
+        "Show calculation...",
+    ),
+    AppLanguage.KK: (
+        "Пайдаланушы формулалары",
+        "Жаңа формула",
+        "Атауы",
+        "Шығыс мнемоникасы",
+        "Нәтиже бірлігі",
+        "Формула",
+        "Сипаттама",
+        "Табылған кірістер",
+        "Жаңа",
+        "Сақтау",
+        "Жою",
+        "Есептеу",
+        "Жабу",
+        "Есептелген қисық",
+        "Есепті көрсету...",
+    ),
 }
 
 _BATCH_TEXT = {
-    AppLanguage.RU: ("Пересчитать все...", "Предварительный анализ формул", "Формула", "Выход", "Конечных", "Минимум", "Максимум", "Изменится", "Применить", "Отменить массовый пересчёт", "Повторить массовый пересчёт"),
-    AppLanguage.EN: ("Recalculate all...", "Formula batch preview", "Formula", "Output", "Finite", "Minimum", "Maximum", "Changed", "Apply", "Undo batch recalculation", "Redo batch recalculation"),
-    AppLanguage.KK: ("Барлығын қайта есептеу...", "Формулаларды алдын ала талдау", "Формула", "Шығыс", "Соңғы", "Минимум", "Максимум", "Өзгереді", "Қолдану", "Жаппай қайта есептеуді болдырмау", "Жаппай қайта есептеуді қайталау"),
+    AppLanguage.RU: (
+        "Пересчитать все...",
+        "Предварительный анализ формул",
+        "Формула",
+        "Выход",
+        "Конечных",
+        "Минимум",
+        "Максимум",
+        "Изменится",
+        "Применить",
+        "Отменить массовый пересчёт",
+        "Повторить массовый пересчёт",
+    ),
+    AppLanguage.EN: (
+        "Recalculate all...",
+        "Formula batch preview",
+        "Formula",
+        "Output",
+        "Finite",
+        "Minimum",
+        "Maximum",
+        "Changed",
+        "Apply",
+        "Undo batch recalculation",
+        "Redo batch recalculation",
+    ),
+    AppLanguage.KK: (
+        "Барлығын қайта есептеу...",
+        "Формулаларды алдын ала талдау",
+        "Формула",
+        "Шығыс",
+        "Соңғы",
+        "Минимум",
+        "Максимум",
+        "Өзгереді",
+        "Қолдану",
+        "Жаппай қайта есептеуді болдырмау",
+        "Жаппай қайта есептеуді қайталау",
+    ),
 }
 
 _PASSPORT_TEXT = {
-    AppLanguage.RU: ("Паспорт расчёта", "Версия", "Выход", "Выходная кривая", "Запрошено", "Фактически", "Единица", "Происхождение", "Состояние", "отсутствует", "Закрыть"),
-    AppLanguage.EN: ("Calculation passport", "Version", "Output", "Output curve", "Requested", "Actual", "Unit", "Provenance", "State", "missing", "Close"),
-    AppLanguage.KK: ("Есеп паспорты", "Нұсқа", "Шығыс", "Шығыс қисығы", "Сұралған", "Нақты", "Бірлік", "Шығу тегі", "Күйі", "жоқ", "Жабу"),
+    AppLanguage.RU: (
+        "Паспорт расчёта",
+        "Версия",
+        "Выход",
+        "Выходная кривая",
+        "Запрошено",
+        "Фактически",
+        "Единица",
+        "Происхождение",
+        "Состояние",
+        "отсутствует",
+        "Закрыть",
+    ),
+    AppLanguage.EN: (
+        "Calculation passport",
+        "Version",
+        "Output",
+        "Output curve",
+        "Requested",
+        "Actual",
+        "Unit",
+        "Provenance",
+        "State",
+        "missing",
+        "Close",
+    ),
+    AppLanguage.KK: (
+        "Есеп паспорты",
+        "Нұсқа",
+        "Шығыс",
+        "Шығыс қисығы",
+        "Сұралған",
+        "Нақты",
+        "Бірлік",
+        "Шығу тегі",
+        "Күйі",
+        "жоқ",
+        "Жабу",
+    ),
 }
 
 _STATE_TEXT = {
-    AppLanguage.RU: {"current": "актуально", "stale": "устарело", "calculating": "рассчитывается", "error": "ошибка", "frozen": "зафиксировано"},
-    AppLanguage.EN: {"current": "current", "stale": "stale", "calculating": "calculating", "error": "error", "frozen": "frozen"},
-    AppLanguage.KK: {"current": "өзекті", "stale": "ескірген", "calculating": "есептелуде", "error": "қате", "frozen": "бекітілген"},
+    AppLanguage.RU: {
+        "current": "актуально",
+        "stale": "устарело",
+        "calculating": "рассчитывается",
+        "error": "ошибка",
+        "frozen": "зафиксировано",
+    },
+    AppLanguage.EN: {
+        "current": "current",
+        "stale": "stale",
+        "calculating": "calculating",
+        "error": "error",
+        "frozen": "frozen",
+    },
+    AppLanguage.KK: {
+        "current": "өзекті",
+        "stale": "ескірген",
+        "calculating": "есептелуде",
+        "error": "қате",
+        "frozen": "бекітілген",
+    },
 }
 
 
@@ -72,9 +221,7 @@ class CustomFormulaPassportDialog(QDialog):
                 actual,
                 entry.unit or "—",
                 entry.provenance or "—",
-                _STATE_TEXT[language][entry.state.value]
-                if entry.state is not None
-                else text[9],
+                _STATE_TEXT[language][entry.state.value] if entry.state is not None else text[9],
             )
             for column, value in enumerate(values):
                 table.setItem(row, column, QTableWidgetItem(value))
@@ -129,7 +276,13 @@ class FormulaBatchPreviewDialog(QDialog):
 
 
 class CustomFormulaDialog(QDialog):
-    def __init__(self, controller: CustomFormulaController, parent: QWidget | None = None, *, language: AppLanguage = AppLanguage.RU) -> None:
+    def __init__(
+        self,
+        controller: CustomFormulaController,
+        parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
         super().__init__(parent)
         self.controller = controller
         self.language = language
@@ -161,8 +314,10 @@ class CustomFormulaDialog(QDialog):
         root.addLayout(form)
         buttons = QHBoxLayout()
         for text, handler in (
-            (self.text[8], self._new), (self.text[9], self._save),
-            (self.text[10], self._delete), (self.text[11], self._calculate),
+            (self.text[8], self._new),
+            (self.text[9], self._save),
+            (self.text[10], self._delete),
+            (self.text[11], self._calculate),
             (self.text[14], self._show_calculation),
             (_BATCH_TEXT[language][0], self._calculate_all),
         ):
@@ -209,15 +364,25 @@ class CustomFormulaDialog(QDialog):
 
     def _new(self) -> None:
         self.formula_id.setReadOnly(False)
-        for editor in (self.formula_id, self.name, self.output, self.unit, self.expression, self.description):
+        for editor in (
+            self.formula_id,
+            self.name,
+            self.output,
+            self.unit,
+            self.expression,
+            self.description,
+        ):
             editor.clear()
         self.inputs.setText("—")
 
     def _definition(self) -> CustomFormulaDefinition:
         return CustomFormulaDefinition(
-            self.formula_id.text().strip(), self.name.text().strip(),
-            self.expression.text().strip(), self.output.text().strip().upper(),
-            self.unit.text().strip(), self.description.text().strip(),
+            self.formula_id.text().strip(),
+            self.name.text().strip(),
+            self.expression.text().strip(),
+            self.output.text().strip().upper(),
+            self.unit.text().strip(),
+            self.description.text().strip(),
         )
 
     def _save(self) -> None:
@@ -277,9 +442,7 @@ class CustomFormulaDialog(QDialog):
         except (CustomFormulaError, KeyError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self.text[0], str(exc))
             return
-        CustomFormulaPassportDialog(
-            passport, self, language=self.language
-        ).exec()
+        CustomFormulaPassportDialog(passport, self, language=self.language).exec()
 
     def _undo_batch(self) -> None:
         try:
@@ -297,9 +460,7 @@ class CustomFormulaDialog(QDialog):
         except RuntimeError as exc:
             QMessageBox.warning(self, self.text[0], str(exc))
             return
-        self.calculated_mnemonic = (
-            curves[-1].metadata.original_mnemonic if curves else None
-        )
+        self.calculated_mnemonic = curves[-1].metadata.original_mnemonic if curves else None
         self.dataset_changed = True
         self._update_batch_actions()
 

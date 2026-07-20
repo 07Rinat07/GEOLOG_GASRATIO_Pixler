@@ -57,9 +57,7 @@ class NewLasDialog(QDialog):
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText(
-            self._t("new_las.create")
-        )
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self._t("new_las.create"))
         self.buttons.accepted.connect(self._accept_validated)
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)

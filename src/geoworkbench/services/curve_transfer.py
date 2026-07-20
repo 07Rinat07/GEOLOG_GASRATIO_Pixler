@@ -54,16 +54,12 @@ def analyze_curve_transfer(source: Dataset, target: Dataset) -> CurveTransferAna
         mapping = CurveTransferMapping.EXACT
     else:
         if target.depth[0] < source.depth[0] or target.depth[-1] > source.depth[-1]:
-            raise ValueError(
-                "Диапазон приёмника должен находиться внутри диапазона источника"
-            )
+            raise ValueError("Диапазон приёмника должен находиться внутри диапазона источника")
         mapping = CurveTransferMapping.LINEAR
     target_mnemonics = {
         curve.metadata.original_mnemonic.casefold() for curve in target.curves.values()
     }
-    index_mnemonics = {"dept"} | {
-        index.mnemonic.casefold() for index in target.indexes.values()
-    }
+    index_mnemonics = {"dept"} | {index.mnemonic.casefold() for index in target.indexes.values()}
     invalid_shapes = [
         curve.metadata.original_mnemonic
         for curve in source.curves.values()
@@ -71,8 +67,7 @@ def analyze_curve_transfer(source: Dataset, target: Dataset) -> CurveTransferAna
     ]
     if invalid_shapes:
         raise ValueError(
-            "Размер кривых источника не совпадает с индексом: "
-            + ", ".join(invalid_shapes)
+            "Размер кривых источника не совпадает с индексом: " + ", ".join(invalid_shapes)
         )
     candidates = tuple(
         CurveTransferCandidate(
@@ -162,9 +157,7 @@ def _validate_depth_index(dataset: Dataset, label: str) -> None:
         or report.duplicate_count
         or report.missing_count
     ):
-        raise ValueError(
-            f"{label} должен иметь возрастающий индекс без пропусков и дубликатов"
-        )
+        raise ValueError(f"{label} должен иметь возрастающий индекс без пропусков и дубликатов")
 
 
 def _depth_tolerance(source: Dataset, target: Dataset) -> float:
@@ -183,9 +176,7 @@ def _interpolate_without_bridging(
 ) -> NDArray[np.float64]:
     result = np.full(target_depth.shape, np.nan, dtype=np.float64)
     right = np.searchsorted(source_depth, target_depth, side="left")
-    tolerance = np.finfo(np.float64).eps * max(
-        1.0, float(np.max(np.abs(source_depth)))
-    ) * 16
+    tolerance = np.finfo(np.float64).eps * max(1.0, float(np.max(np.abs(source_depth)))) * 16
     bounded_right = np.minimum(right, source_depth.size - 1)
     exact = (right < source_depth.size) & np.isclose(
         source_depth[bounded_right], target_depth, rtol=0.0, atol=tolerance
@@ -197,9 +188,7 @@ def _interpolate_without_bridging(
     between = np.flatnonzero(~exact & (right > 0) & (right < source_depth.size))
     left_source = right[between] - 1
     right_source = right[between]
-    valid = np.isfinite(source_values[left_source]) & np.isfinite(
-        source_values[right_source]
-    )
+    valid = np.isfinite(source_values[left_source]) & np.isfinite(source_values[right_source])
     positions = between[valid]
     left_source = left_source[valid]
     right_source = right_source[valid]

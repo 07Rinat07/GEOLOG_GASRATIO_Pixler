@@ -115,17 +115,13 @@ def test_shift_and_multiply_ranges_preserve_missing_values_and_support_undo() ->
     dataset.curves["c1"].values[:] = [1, np.nan, 3, 4, 5, 6]
 
     editor.add_constant(["c1"], 100.0, 102.0, 2.0)
-    np.testing.assert_allclose(
-        dataset.curves["c1"].values, [3, np.nan, 5, 4, 5, 6], equal_nan=True
-    )
+    np.testing.assert_allclose(dataset.curves["c1"].values, [3, np.nan, 5, 4, 5, 6], equal_nan=True)
     editor.multiply(["c1"], 101.0, 103.0, 10.0)
     np.testing.assert_allclose(
         dataset.curves["c1"].values, [3, np.nan, 50, 40, 5, 6], equal_nan=True
     )
     editor.undo()
-    np.testing.assert_allclose(
-        dataset.curves["c1"].values, [3, np.nan, 5, 4, 5, 6], equal_nan=True
-    )
+    np.testing.assert_allclose(dataset.curves["c1"].values, [3, np.nan, 5, 4, 5, 6], equal_nan=True)
 
 
 def test_moving_average_uses_selected_interval_and_keeps_gaps() -> None:

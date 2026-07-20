@@ -106,9 +106,7 @@ def analyze_las_export(
             )
         )
     additional_indexes = [
-        index
-        for index_id, index in dataset.indexes.items()
-        if index_id != dataset.active_index_id
+        index for index_id, index in dataset.indexes.items() if index_id != dataset.active_index_id
     ]
     if additional_indexes:
         losses.extend(
@@ -137,7 +135,9 @@ def analyze_las_export(
             )
         )
     if dataset.depth.ndim != 1 or dataset.depth.size == 0:
-        issues.append(_error("invalid-index", "Индекс LAS должен быть непустым одномерным массивом"))
+        issues.append(
+            _error("invalid-index", "Индекс LAS должен быть непустым одномерным массивом")
+        )
     elif not np.all(np.isfinite(dataset.depth)):
         issues.append(_error("non-finite-index", "Индекс LAS содержит NaN или бесконечность"))
 
@@ -173,8 +173,7 @@ def analyze_las_export(
         issues.append(
             _warning(
                 "missing-values-substituted",
-                f"NaN будут записаны как NULL ({plan.null_value:g}): "
-                + ", ".join(missing_curves),
+                f"NaN будут записаны как NULL ({plan.null_value:g}): " + ", ".join(missing_curves),
             )
         )
 

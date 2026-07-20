@@ -59,7 +59,7 @@ Track and curve selection now supports additive/toggle selection, selected curve
 
 ## Practical initial viewport and mouse wheel
 
-Long LAS files no longer open as one vertically compressed picture. Depth data starts in a readable window of up to 200 m (500 ft for feet), while short files remain fully visible. Long time datasets use an approximately 30-minute window. The wheel pans the shared vertical window across every track immediately; `Ctrl+wheel` zooms around the pointer.
+Long LAS files no longer open as one vertically compressed picture. Depth data starts in an exact 50 m window (about 164 ft for feet); datasets shorter than 50 m remain fully visible. A viewport already saved with the form takes precedence over the application default. Long time datasets use an approximately 30-minute window. The wheel pans the shared vertical window across every track immediately; `Ctrl+wheel` zooms around the pointer.
 
 Repeated samples mapped to the same depth/time are averaged only for screen geometry. Raw LAS values remain unchanged and misleading horizontal strokes are removed.
 

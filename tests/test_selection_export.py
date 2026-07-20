@@ -45,9 +45,7 @@ def make_dataset() -> Dataset:
 def test_text_export_contains_only_selected_interval_and_curves(tmp_path) -> None:
     target = tmp_path / "selection.txt"
 
-    export_selection_text(
-        make_dataset(), target, ["c1", "rop"], 101.0, 102.0, delimiter="\t"
-    )
+    export_selection_text(make_dataset(), target, ["c1", "rop"], 101.0, 102.0, delimiter="\t")
 
     with target.open(encoding="utf-8", newline="") as stream:
         rows = list(csv.reader(stream, delimiter="\t"))
@@ -140,10 +138,18 @@ def test_excel_depth_export_includes_formatted_secondary_datetime_index(tmp_path
     dataset = make_dataset()
     dataset.add_index(
         DatasetIndex(
-            "datetime", "DATETIME", IndexType.DATETIME, IndexRole.TIME, None,
+            "datetime",
+            "DATETIME",
+            IndexType.DATETIME,
+            IndexRole.TIME,
+            None,
             np.array(
-                ["2026-07-18T08:00:00", "2026-07-18T08:00:01",
-                 "2026-07-18T08:00:02", "2026-07-18T08:00:03"],
+                [
+                    "2026-07-18T08:00:00",
+                    "2026-07-18T08:00:01",
+                    "2026-07-18T08:00:02",
+                    "2026-07-18T08:00:03",
+                ],
                 dtype="datetime64[ns]",
             ),
             timezone="Asia/Oral",

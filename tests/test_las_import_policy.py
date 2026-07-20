@@ -14,9 +14,7 @@ from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
 
 def make_report(*issues: LasImportIssue) -> LasImportReport:
     return LasImportReport(
-        LasSourceSnapshot(
-            Path("source.las"), 1, "0" * 64, "utf-8", "lf", (), "2.0", "NO", -999.25
-        ),
+        LasSourceSnapshot(Path("source.las"), 1, "0" * 64, "utf-8", "lf", (), "2.0", "NO", -999.25),
         DepthAxisReport(DepthDirection.ASCENDING, 1.0, 2.0, 1.0, True, 0, 0, 0),
         issues,
     )

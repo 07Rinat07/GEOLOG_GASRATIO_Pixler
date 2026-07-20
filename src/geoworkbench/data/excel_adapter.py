@@ -176,8 +176,7 @@ def _readable_workbook(source: Path, *, recalculate: bool) -> Iterator[Path]:
     executable = _find_libreoffice()
     if executable is None:
         raise ExcelImportError(
-            "Для XLS и пересчёта формул нужен LibreOffice Calc: "
-            "sudo apt install libreoffice-calc"
+            "Для XLS и пересчёта формул нужен LibreOffice Calc: sudo apt install libreoffice-calc"
         )
     with tempfile.TemporaryDirectory(prefix="geolog-excel-") as directory:
         root = Path(directory)
@@ -217,11 +216,15 @@ def _readable_workbook(source: Path, *, recalculate: bool) -> Iterator[Path]:
                 env=environment,
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
-            raise ExcelImportError("LibreOffice не завершил подготовку книги за 120 секунд") from exc
+            raise ExcelImportError(
+                "LibreOffice не завершил подготовку книги за 120 секунд"
+            ) from exc
         converted = output / f"{source.stem}.xlsx"
         if completed.returncode != 0 or not converted.exists():
             detail = completed.stderr.strip() or completed.stdout.strip()
-            raise ExcelImportError(f"LibreOffice не смог подготовить книгу: {detail or source.name}")
+            raise ExcelImportError(
+                f"LibreOffice не смог подготовить книгу: {detail or source.name}"
+            )
         yield converted
 
 
@@ -235,7 +238,9 @@ def _find_libreoffice() -> str | None:
         "/usr/lib/libreoffice/program/soffice",
         "/snap/bin/libreoffice",
     )
-    return next((candidate for candidate in candidates if candidate and Path(candidate).is_file()), None)
+    return next(
+        (candidate for candidate in candidates if candidate and Path(candidate).is_file()), None
+    )
 
 
 def _validate_columns(columns: tuple[str, ...]) -> None:

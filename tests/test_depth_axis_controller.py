@@ -8,9 +8,7 @@ from geoworkbench.services.depth_axis import DepthDirection
 
 def test_controller_adds_ascending_copy_without_replacing_source() -> None:
     session = ProjectSession()
-    source = Dataset(
-        "source", "GIS", DatasetKind.GIS, DepthDomain.MD, np.array([2.0, 1.0, 0.0])
-    )
+    source = Dataset("source", "GIS", DatasetKind.GIS, DepthDomain.MD, np.array([2.0, 1.0, 0.0]))
     well = session.add_dataset(source)
     session.dirty = False
     controller = DepthAxisController(session)
@@ -36,9 +34,7 @@ def test_controller_adds_ascending_copy_without_replacing_source() -> None:
 
 def test_controller_resample_copy_supports_undo_and_redo() -> None:
     session = ProjectSession()
-    source = Dataset(
-        "source", "LAS", DatasetKind.GTI, DepthDomain.MD, np.array([0.0, 1.0, 2.0])
-    )
+    source = Dataset("source", "LAS", DatasetKind.GTI, DepthDomain.MD, np.array([0.0, 1.0, 2.0]))
     well = session.add_dataset(source)
     controller = DepthAxisController(session)
 

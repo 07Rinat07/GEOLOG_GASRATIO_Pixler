@@ -9,19 +9,14 @@ _WORD = re.compile(r"[A-Za-zА-Яа-яЁёӘәҒғҚқҢңӨөҰұҮүҺһІі]{
 
 # Normal Russian and Kazakh Cyrillic used by the application UI and LAS metadata.
 _ALLOWED_CYRILLIC = set(
-    "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
-    "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
-    "ӘәҒғҚқҢңӨөҰұҮүҺһІі"
+    "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюяӘәҒғҚқҢңӨөҰұҮүҺһІі"
 )
 
 # Characters that occur very frequently when DOS/Windows/UTF-8 text was decoded
 # with the wrong codec. They are legitimate Unicode, but are extremely uncommon in
 # Russian/Kazakh LAS descriptions and therefore useful as a repair signal.
 _SUSPICIOUS = set(
-    "ÃÂÐÑØÙÚÛÜÝÞß"
-    "‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ"
-    "ЄІЇЈЉЊЋЌЎЏђѓєѕіїјљњћќўџҐґ"
-    "«»®¬¦¤§¨©±µ¶·¸¹º¼½¾"
+    "ÃÂÐÑØÙÚÛÜÝÞß‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸЄІЇЈЉЊЋЌЎЏђѓєѕіїјљњћќўџҐґ«»®¬¦¤§¨©±µ¶·¸¹º¼½¾"
 )
 
 # (codec used by the broken string, codec of the original bytes).
@@ -124,9 +119,7 @@ def _looks_suspicious(text: str) -> bool:
         if "CYRILLIC" in name and character not in _ALLOWED_CYRILLIC:
             return True
         if character.isalpha() and not (
-            character in _ALLOWED_CYRILLIC
-            or "A" <= character <= "Z"
-            or "a" <= character <= "z"
+            character in _ALLOWED_CYRILLIC or "A" <= character <= "Z" or "a" <= character <= "z"
         ):
             return True
     return False

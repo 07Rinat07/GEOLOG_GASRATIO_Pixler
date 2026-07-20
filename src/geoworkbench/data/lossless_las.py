@@ -9,9 +9,7 @@ from pathlib import Path
 from geoworkbench.services.text_normalization import display_text_score
 
 
-_SECTION_PATTERN = re.compile(
-    rb"(?m)^(?:\xef\xbb\xbf)?(?P<section>[ \t]*~(?P<header>[^\r\n]*))"
-)
+_SECTION_PATTERN = re.compile(rb"(?m)^(?:\xef\xbb\xbf)?(?P<section>[ \t]*~(?P<header>[^\r\n]*))")
 
 _SECTION_ROLES = {
     "v": "version",
@@ -89,9 +87,7 @@ def parse_lossless_las(raw_bytes: bytes) -> LosslessLasDocument:
     sections: list[LasRawSection] = []
     for index, match in enumerate(matches):
         start = match.start("section")
-        end = (
-            matches[index + 1].start("section") if index + 1 < len(matches) else len(raw_bytes)
-        )
+        end = matches[index + 1].start("section") if index + 1 < len(matches) else len(raw_bytes)
         header_bytes = match.group("header").strip()
         header = header_bytes.decode(encoding, errors="replace")
         sections.append(

@@ -63,10 +63,17 @@ class DataInspectorDialog(QDialog):
         self.index_table.setObjectName("data-indexes")
         self.index_table.setHorizontalHeaderLabels(
             [
-                self._t("data.active"), self._t("data.mnemonic"), self._t("data.type"),
-                self._t("data.role"), self._t("data.unit"), self._t("data.points"),
-                self._t("data.start"), self._t("data.stop"), self._t("data.confidence"),
-                self._t("data.date_format"), self._t("data.timezone"),
+                self._t("data.active"),
+                self._t("data.mnemonic"),
+                self._t("data.type"),
+                self._t("data.role"),
+                self._t("data.unit"),
+                self._t("data.points"),
+                self._t("data.start"),
+                self._t("data.stop"),
+                self._t("data.confidence"),
+                self._t("data.date_format"),
+                self._t("data.timezone"),
             ]
         )
         self.index_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -92,8 +99,14 @@ class DataInspectorDialog(QDialog):
         self.curve_table = QTableWidget(0, 6)
         self.curve_table.setObjectName("data-curves")
         self.curve_table.setHorizontalHeaderLabels(
-            [self._t("data.mnemonic"), self._t("data.unit"), self._t("data.description"),
-             self._t("data.points"), self._t("data.missing"), "Curve ID"]
+            [
+                self._t("data.mnemonic"),
+                self._t("data.unit"),
+                self._t("data.description"),
+                self._t("data.points"),
+                self._t("data.missing"),
+                "Curve ID",
+            ]
         )
         self.curve_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.curve_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -207,11 +220,7 @@ class DataInspectorDialog(QDialog):
             header_actions.addWidget(button)
         header_actions.addStretch()
         header_layout.addLayout(header_actions)
-        header_layout.addWidget(
-            QLabel(
-                self._t("data.header_hint")
-            )
-        )
+        header_layout.addWidget(QLabel(self._t("data.header_hint")))
         self.tabs.addTab(header_page, self._t("data.las_header"))
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
@@ -329,9 +338,7 @@ class DataInspectorDialog(QDialog):
     def _update_curve_metadata(self) -> None:
         curve_id = self._selected_curve_id()
         if curve_id is None:
-            QMessageBox.information(
-                self, self._t("data.curves"), self._t("data.select_curve")
-            )
+            QMessageBox.information(self, self._t("data.curves"), self._t("data.select_curve"))
             return
         self._run_curve_metadata_action(
             lambda: self.curve_metadata_controller.update(
@@ -354,9 +361,7 @@ class DataInspectorDialog(QDialog):
     def _remove_curve(self) -> None:
         curve_id = self._selected_curve_id()
         if curve_id is None:
-            QMessageBox.information(
-                self, self._t("data.curves"), self._t("data.select_curve")
-            )
+            QMessageBox.information(self, self._t("data.curves"), self._t("data.select_curve"))
             return
         answer = QMessageBox.question(
             self,
@@ -367,9 +372,7 @@ class DataInspectorDialog(QDialog):
         )
         if answer is not QMessageBox.StandardButton.Yes:
             return
-        self._run_curve_metadata_action(
-            lambda: self.curve_metadata_controller.remove(curve_id)
-        )
+        self._run_curve_metadata_action(lambda: self.curve_metadata_controller.remove(curve_id))
 
     def _undo_curve_metadata(self) -> None:
         self._run_curve_metadata_action(self.curve_metadata_controller.undo)
@@ -436,9 +439,7 @@ class DataInspectorDialog(QDialog):
         row = self.header_table.currentRow()
         original = self.header_table.item(row, 0) if row >= 0 else None
         if original is None:
-            QMessageBox.information(
-                self, self._t("data.las_header"), self._t("data.select_entry")
-            )
+            QMessageBox.information(self, self._t("data.las_header"), self._t("data.select_entry"))
             return
         self._run_header_action(
             lambda: self.header_controller.update(
@@ -453,9 +454,7 @@ class DataInspectorDialog(QDialog):
         row = self.header_table.currentRow()
         item = self.header_table.item(row, 0) if row >= 0 else None
         if item is None:
-            QMessageBox.information(
-                self, self._t("data.las_header"), self._t("data.select_entry")
-            )
+            QMessageBox.information(self, self._t("data.las_header"), self._t("data.select_entry"))
             return
         self._run_header_action(
             lambda: self.header_controller.remove(self._current_header_section(), item.text())
@@ -502,19 +501,20 @@ class DataInspectorDialog(QDialog):
         if inspection is None:
             self.index_details.clear()
             return
-        evidence = "\n".join(f"• {item}" for item in inspection.evidence) or self._t("data.none_bullet")
-        warnings = "\n".join(f"• {item}" for item in inspection.warnings) or self._t("data.none_bullet")
+        evidence = "\n".join(f"• {item}" for item in inspection.evidence) or self._t(
+            "data.none_bullet"
+        )
+        warnings = "\n".join(f"• {item}" for item in inspection.warnings) or self._t(
+            "data.none_bullet"
+        )
         self.index_details.setPlainText(
-            f"{self._t('data.evidence')}:\n{evidence}\n\n"
-            f"{self._t('data.warnings')}:\n{warnings}"
+            f"{self._t('data.evidence')}:\n{evidence}\n\n{self._t('data.warnings')}:\n{warnings}"
         )
 
     def _activate_selected_index(self) -> None:
         index_id = self._selected_index_id()
         if index_id is None:
-            QMessageBox.information(
-                self, self._t("data.indexes"), self._t("data.select_index")
-            )
+            QMessageBox.information(self, self._t("data.indexes"), self._t("data.select_index"))
             return
         try:
             self.controller.set_active_index(index_id)

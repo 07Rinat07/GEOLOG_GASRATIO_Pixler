@@ -281,7 +281,10 @@ def _basic_depth(language: TemplateLanguage) -> FormDocument:
         "factory-depth-basic",
         _t("basic_depth", language),
         FormAxisKind.DEPTH,
-        [_axis_column(FormAxisKind.DEPTH, language), _curve_column("column-curves", _t("curves", language), [])],
+        [
+            _axis_column(FormAxisKind.DEPTH, language),
+            _curve_column("column-curves", _t("curves", language), []),
+        ],
         language,
     )
 
@@ -291,7 +294,10 @@ def _basic_time(language: TemplateLanguage) -> FormDocument:
         "factory-time-basic",
         _t("basic_time", language),
         FormAxisKind.TIME,
-        [_axis_column(FormAxisKind.TIME, language), _curve_column("column-time-curves", _t("curves", language), [])],
+        [
+            _axis_column(FormAxisKind.TIME, language),
+            _curve_column("column-time-curves", _t("curves", language), []),
+        ],
         language,
     )
 
@@ -305,7 +311,10 @@ def _gas_components(language: TemplateLanguage) -> FormDocument:
         "factory-gas-components",
         _t("gas_components", language),
         FormAxisKind.DEPTH,
-        [_axis_column(FormAxisKind.DEPTH, language), _curve_column("column-gases", _t("gas_c1_c5", language), gases, 420)],
+        [
+            _axis_column(FormAxisKind.DEPTH, language),
+            _curve_column("column-gases", _t("gas_c1_c5", language), gases, 420),
+        ],
         language,
     )
 
@@ -317,16 +326,24 @@ def _gas_ratio(language: TemplateLanguage) -> FormDocument:
         FormAxisKind.DEPTH,
         [
             _axis_column(FormAxisKind.DEPTH, language),
-            _curve_column("column-rop", _t("rop", language), [_binding("ROP", _t("rop", language), "m/h", "#111827")]),
+            _curve_column(
+                "column-rop",
+                _t("rop", language),
+                [_binding("ROP", _t("rop", language), "m/h", "#111827")],
+            ),
             _curve_column(
                 "column-total-gas",
                 _t("raw_norm_gas", language),
                 [
                     _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626"),
-                    _binding("NORMALIZED_TOTAL_GAS", _t("normalized_total_gas", language), "%", "#7c3aed"),
+                    _binding(
+                        "NORMALIZED_TOTAL_GAS", _t("normalized_total_gas", language), "%", "#7c3aed"
+                    ),
                 ],
             ),
-            _curve_column("column-gas-ratios", _t("gas_ratio", language), _ratio_bindings(language)[:3], 320),
+            _curve_column(
+                "column-gas-ratios", _t("gas_ratio", language), _ratio_bindings(language)[:3], 320
+            ),
         ],
         language,
     )
@@ -352,8 +369,17 @@ def _interpretation(language: TemplateLanguage) -> FormDocument:
         FormAxisKind.DEPTH,
         [
             _axis_column(FormAxisKind.DEPTH, language),
-            _curve_column("column-total-gas", _t("total_gas", language), [_binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626")]),
-            _special_column("column-interpretation", _t("intervals_comments", language), TrackKind.INTERPRETATION, 320),
+            _curve_column(
+                "column-total-gas",
+                _t("total_gas", language),
+                [_binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626")],
+            ),
+            _special_column(
+                "column-interpretation",
+                _t("intervals_comments", language),
+                TrackKind.INTERPRETATION,
+                320,
+            ),
         ],
         language,
     )
@@ -392,17 +418,37 @@ def _gas_ratio_pixler_depth(language: TemplateLanguage) -> FormDocument:
                 _t("raw_norm_gas", language),
                 [
                     _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626", width=2.0),
-                    _binding("NORMALIZED_TOTAL_GAS", _t("normalized_total_gas", language), "%", "#7c3aed", width=2.0),
+                    _binding(
+                        "NORMALIZED_TOTAL_GAS",
+                        _t("normalized_total_gas", language),
+                        "%",
+                        "#7c3aed",
+                        width=2.0,
+                    ),
                     _binding("HC_SUM_RAW", _t("hc_sum_raw", language), "%", "#ea580c"),
                     _binding("HC_SUM_NORM", _t("hc_sum_norm", language), "%", "#0369a1"),
                 ],
                 340,
             ),
-            _curve_column("column-components", _t("gas_c1_c5", language), _gas_component_bindings(language), 420),
-            _curve_column("column-ratios", _t("gas_ratio", language), _ratio_bindings(language), 360),
+            _curve_column(
+                "column-components",
+                _t("gas_c1_c5", language),
+                _gas_component_bindings(language),
+                420,
+            ),
+            _curve_column(
+                "column-ratios", _t("gas_ratio", language), _ratio_bindings(language), 360
+            ),
             _curve_column("column-pixler-ratios", _t("pixler", language), _pixler_bindings(), 360),
-            _special_column("column-lithology", _t("lithology", language), TrackKind.LITHOLOGY, 220),
-            _special_column("column-interpretation", _t("interpretation", language), TrackKind.INTERPRETATION, 320),
+            _special_column(
+                "column-lithology", _t("lithology", language), TrackKind.LITHOLOGY, 220
+            ),
+            _special_column(
+                "column-interpretation",
+                _t("interpretation", language),
+                TrackKind.INTERPRETATION,
+                320,
+            ),
         ],
         language,
     )
@@ -430,14 +476,32 @@ def _gas_ratio_pixler_time(language: TemplateLanguage) -> FormDocument:
                 _t("raw_norm_gas", language),
                 [
                     _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626", width=2.0),
-                    _binding("NORMALIZED_TOTAL_GAS", _t("normalized_total_gas", language), "%", "#7c3aed", width=2.0),
+                    _binding(
+                        "NORMALIZED_TOTAL_GAS",
+                        _t("normalized_total_gas", language),
+                        "%",
+                        "#7c3aed",
+                        width=2.0,
+                    ),
                 ],
                 320,
             ),
-            _curve_column("column-time-components", _t("gas_c1_c5", language), _gas_component_bindings(language), 420),
-            _curve_column("column-time-ratios", _t("gas_ratio", language), _ratio_bindings(language), 360),
+            _curve_column(
+                "column-time-components",
+                _t("gas_c1_c5", language),
+                _gas_component_bindings(language),
+                420,
+            ),
+            _curve_column(
+                "column-time-ratios", _t("gas_ratio", language), _ratio_bindings(language), 360
+            ),
             _curve_column("column-time-pixler", _t("pixler", language), _pixler_bindings(), 360),
-            _special_column("column-time-interpretation", _t("interpretation", language), TrackKind.INTERPRETATION, 320),
+            _special_column(
+                "column-time-interpretation",
+                _t("interpretation", language),
+                TrackKind.INTERPRETATION,
+                320,
+            ),
         ],
         language,
     )
@@ -465,7 +529,13 @@ def _normalized_gas_qc(language: TemplateLanguage) -> FormDocument:
                 _t("raw_norm_gas", language),
                 [
                     _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626", width=2.0),
-                    _binding("NORMALIZED_TOTAL_GAS", _t("normalized_total_gas", language), "%", "#7c3aed", width=2.0),
+                    _binding(
+                        "NORMALIZED_TOTAL_GAS",
+                        _t("normalized_total_gas", language),
+                        "%",
+                        "#7c3aed",
+                        width=2.0,
+                    ),
                     _binding("HC_SUM_RAW", _t("hc_sum_raw", language), "%", "#ea580c"),
                     _binding("HC_SUM_NORM", _t("hc_sum_norm", language), "%", "#0369a1"),
                 ],
@@ -476,7 +546,13 @@ def _normalized_gas_qc(language: TemplateLanguage) -> FormDocument:
                 _t("quality", language),
                 [
                     _binding("K_NORM", _t("normalization_factor", language), "", "#111827"),
-                    _binding("NORM_VALID", _t("normalization_valid", language), "", "#16a34a", line_style=CurveLineStyle.DASH),
+                    _binding(
+                        "NORM_VALID",
+                        _t("normalization_valid", language),
+                        "",
+                        "#16a34a",
+                        line_style=CurveLineStyle.DASH,
+                    ),
                 ],
                 280,
             ),
@@ -504,7 +580,9 @@ def _c1_c5_detailed(language: TemplateLanguage) -> FormDocument:
                 _gas_component_bindings(language)[3:],
                 340,
             ),
-            _curve_column("column-isomers", _t("gas_ratio", language), _ratio_bindings(language)[3:], 280),
+            _curve_column(
+                "column-isomers", _t("gas_ratio", language), _ratio_bindings(language)[3:], 280
+            ),
         ],
         language,
     )

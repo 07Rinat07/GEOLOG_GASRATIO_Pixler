@@ -6,9 +6,7 @@ from geoworkbench.project.session import ProjectSession
 
 
 def make_session() -> ProjectSession:
-    dataset = Dataset(
-        "dataset", "Logging", DatasetKind.GTI, DepthDomain.MD, np.array([1.0])
-    )
+    dataset = Dataset("dataset", "Logging", DatasetKind.GTI, DepthDomain.MD, np.array([1.0]))
     well = Well("well", "Well A", datasets={dataset.dataset_id: dataset})
     return ProjectSession(
         project=Project("project", "Project A", wells={well.well_id: well}),

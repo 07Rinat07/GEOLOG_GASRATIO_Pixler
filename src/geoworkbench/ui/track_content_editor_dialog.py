@@ -50,12 +50,20 @@ class _CurveSelectionDialog(QDialog):
         super().__init__(parent)
         self.options = options
         self.language = language
-        self.setWindowTitle(self._text("Выбор кривых LAS", "LAS қисықтарын таңдау", "Select LAS curves"))
+        self.setWindowTitle(
+            self._text("Выбор кривых LAS", "LAS қисықтарын таңдау", "Select LAS curves")
+        )
         self.resize(720, 520)
 
         root = QVBoxLayout(self)
         self.search = QLineEdit()
-        self.search.setPlaceholderText(self._text("Поиск по мнемонике или названию", "Мнемоника немесе атау бойынша іздеу", "Search by mnemonic or name"))
+        self.search.setPlaceholderText(
+            self._text(
+                "Поиск по мнемонике или названию",
+                "Мнемоника немесе атау бойынша іздеу",
+                "Search by mnemonic or name",
+            )
+        )
         self.search.textChanged.connect(self._filter)
         root.addWidget(self.search)
 
@@ -93,8 +101,7 @@ class _CurveSelectionDialog(QDialog):
 
     def selected_options(self) -> list[_CurveOption]:
         indexes = sorted(
-            int(item.data(Qt.ItemDataRole.UserRole))
-            for item in self.list_widget.selectedItems()
+            int(item.data(Qt.ItemDataRole.UserRole)) for item in self.list_widget.selectedItems()
         )
         return [self.options[index] for index in indexes]
 
@@ -147,7 +154,9 @@ class TrackContentEditorDialog(QDialog):
         root.addWidget(self.table, 1)
 
         toolbar = QHBoxLayout()
-        self._button(toolbar, self._text("+ Параметр", "+ Параметр", "+ Parameter"), self._add_parameter)
+        self._button(
+            toolbar, self._text("+ Параметр", "+ Параметр", "+ Parameter"), self._add_parameter
+        )
         self._button(
             toolbar,
             self._text("+ Кривые LAS", "+ LAS қисықтары", "+ LAS curves"),
@@ -160,14 +169,21 @@ class TrackContentEditorDialog(QDialog):
 
         properties = QFormLayout()
         self.name_edit = QLineEdit()
-        properties.addRow(self._text("Отображаемое имя", "Көрсетілетін атау", "Display name"), self.name_edit)
+        properties.addRow(
+            self._text("Отображаемое имя", "Көрсетілетін атау", "Display name"), self.name_edit
+        )
 
         self.canonical_combo = QComboBox()
         self.canonical_combo.setEditable(True)
-        for sensor in sorted(self.catalog.sensors, key=lambda item: item.canonical_mnemonic.casefold()):
+        for sensor in sorted(
+            self.catalog.sensors, key=lambda item: item.canonical_mnemonic.casefold()
+        ):
             label = f"{sensor.canonical_mnemonic} — {self._sensor_name(sensor)}"
             self.canonical_combo.addItem(label, sensor.canonical_mnemonic)
-        properties.addRow(self._text("Канонический параметр", "Канондық параметр", "Canonical parameter"), self.canonical_combo)
+        properties.addRow(
+            self._text("Канонический параметр", "Канондық параметр", "Canonical parameter"),
+            self.canonical_combo,
+        )
 
         self.source_combo = QComboBox()
         self.source_combo.setEditable(True)
@@ -186,7 +202,9 @@ class TrackContentEditorDialog(QDialog):
         self.unit_edit = QLineEdit()
         properties.addRow(self._text("Единица", "Өлшем", "Unit"), self.unit_edit)
 
-        self.visible_check = QCheckBox(self._text("Показывать кривую", "Қисықты көрсету", "Show curve"))
+        self.visible_check = QCheckBox(
+            self._text("Показывать кривую", "Қисықты көрсету", "Show curve")
+        )
         properties.addRow("", self.visible_check)
 
         color_row = QHBoxLayout()
@@ -206,7 +224,9 @@ class TrackContentEditorDialog(QDialog):
         self.line_style_combo = QComboBox()
         for style in CurveLineStyle:
             self.line_style_combo.addItem(self._line_style_name(style), style)
-        properties.addRow(self._text("Стиль линии", "Сызық стилі", "Line style"), self.line_style_combo)
+        properties.addRow(
+            self._text("Стиль линии", "Сызық стилі", "Line style"), self.line_style_combo
+        )
 
         self.scale_combo = QComboBox()
         for scale in XScale:
@@ -214,7 +234,9 @@ class TrackContentEditorDialog(QDialog):
         self.scale_combo.currentIndexChanged.connect(self._range_state)
         properties.addRow(self._text("Шкала", "Шкала", "Scale"), self.scale_combo)
 
-        self.auto_range_check = QCheckBox(self._text("Автоматический диапазон", "Автоматты диапазон", "Automatic range"))
+        self.auto_range_check = QCheckBox(
+            self._text("Автоматический диапазон", "Автоматты диапазон", "Automatic range")
+        )
         self.auto_range_check.toggled.connect(self._range_state)
         properties.addRow("", self.auto_range_check)
 
@@ -231,15 +253,23 @@ class TrackContentEditorDialog(QDialog):
         root.addLayout(properties)
 
         apply_row = QHBoxLayout()
-        apply_button = QPushButton(self._text("Применить свойства", "Қасиеттерді қолдану", "Apply properties"))
+        apply_button = QPushButton(
+            self._text("Применить свойства", "Қасиеттерді қолдану", "Apply properties")
+        )
         apply_button.clicked.connect(self._apply_properties)
         apply_row.addStretch(1)
         apply_row.addWidget(apply_button)
         root.addLayout(apply_row)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self._text("Готово", "Дайын", "Done"))
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self._text("Отмена", "Бас тарту", "Cancel"))
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(
+            self._text("Готово", "Дайын", "Done")
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(
+            self._text("Отмена", "Бас тарту", "Cancel")
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
@@ -475,9 +505,7 @@ class TrackContentEditorDialog(QDialog):
         if not selected:
             return
         existing_sources = {
-            binding.source_mnemonic
-            for binding in self.editor.bindings
-            if binding.source_mnemonic
+            binding.source_mnemonic for binding in self.editor.bindings if binding.source_mnemonic
         }
         last_binding_id: str | None = None
         skipped = 0

@@ -20,9 +20,7 @@ from geoworkbench.ui.custom_formula_dialog import (
 
 
 def make_controller() -> CustomFormulaController:
-    dataset = Dataset(
-        "dataset", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([0.0, 1.0])
-    )
+    dataset = Dataset("dataset", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([0.0, 1.0]))
     dataset.curves["c1"] = CurveData(
         CurveMetadata("c1", "C1", "C1", "%", None, dataset.dataset_id),
         np.array([1.0, 2.0]),

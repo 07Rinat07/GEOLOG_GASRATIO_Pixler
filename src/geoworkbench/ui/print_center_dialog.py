@@ -28,6 +28,7 @@ from geoworkbench.printing.page_settings import (
     PrintPageFormat,
     PrintPageSettings,
 )
+from geoworkbench.printing.pagination import PrintPaginationSettings, PrintRangeMode
 from geoworkbench.printing.print_job import (
     PrintExportPreferences,
     PrintJobSettings,
@@ -50,15 +51,23 @@ class PrintCenterDialog(QDialog):
         language: AppLanguage = AppLanguage.RU,
         source_name: str = "visualization",
         preview_callback: PreviewCallback | None = None,
+        supports_pagination: bool = False,
+        current_vertical_range: tuple[float, float] | None = None,
+        full_vertical_range: tuple[float, float] | None = None,
+        vertical_unit: str = "",
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
         self.preview_callback = preview_callback
+        self.supports_pagination = supports_pagination
+        self.current_vertical_range = current_vertical_range
+        self.full_vertical_range = full_vertical_range
+        self.vertical_unit = vertical_unit.strip()
         page = initial_page or PrintPageSettings()
         preferences = initial_preferences or PrintExportPreferences()
         self.source_name = _safe_file_stem(source_name)
         self.setWindowTitle(self._t("print_center.title"))
-        self.resize(610, 590)
+        self.resize(690, 820)
 
         root = QVBoxLayout(self)
         source_label = QLabel(self._t("print_center.source", name=source_name))
@@ -113,9 +122,7 @@ class PrintCenterDialog(QDialog):
 
         self.orientation_combo = QComboBox()
         self.orientation_combo.addItem(self._t("print.portrait"), PrintOrientation.PORTRAIT.value)
-        self.orientation_combo.addItem(
-            self._t("print.landscape"), PrintOrientation.LANDSCAPE.value
-        )
+        self.orientation_combo.addItem(self._t("print.landscape"), PrintOrientation.LANDSCAPE.value)
         self.orientation_combo.setCurrentIndex(
             self.orientation_combo.findData(page.orientation.value)
         )
@@ -136,6 +143,54 @@ class PrintCenterDialog(QDialog):
         paper_layout.addRow(self.fit_columns_check)
         root.addWidget(paper_group)
 
+        pagination_group = QGroupBox(self._t("print_center.pagination_group"))
+        pagination_layout = QFormLayout(pagination_group)
+        self.range_combo = QComboBox()
+        self.range_combo.addItem(
+            self._t("print_center.range_current"), PrintRangeMode.CURRENT.value
+        )
+        self.range_combo.addItem(self._t("print_center.range_full"), PrintRangeMode.FULL.value)
+        self.range_combo.addItem(self._t("print_center.range_custom"), PrintRangeMode.CUSTOM.value)
+        requested_range = preferences.range_mode if supports_pagination else PrintRangeMode.CURRENT
+        range_index = self.range_combo.findData(requested_range.value)
+        self.range_combo.setCurrentIndex(max(0, range_index))
+        self.range_combo.setEnabled(supports_pagination)
+        self.range_combo.currentIndexChanged.connect(self._update_pagination_enabled)
+        pagination_layout.addRow(self._t("print_center.range_mode"), self.range_combo)
+
+        default_span = preferences.units_per_page
+        if default_span <= 0 and current_vertical_range is not None:
+            default_span = abs(current_vertical_range[1] - current_vertical_range[0])
+        self.units_per_page_input = self._axis_value_input(max(default_span, 1e-6))
+        self.units_per_page_input.setSuffix(f" {self.vertical_unit}" if self.vertical_unit else "")
+        pagination_layout.addRow(self._t("print_center.units_per_page"), self.units_per_page_input)
+
+        self.overlap_input = self._axis_value_input(preferences.overlap, allow_zero=True)
+        self.overlap_input.setSuffix(f" {self.vertical_unit}" if self.vertical_unit else "")
+        pagination_layout.addRow(self._t("print_center.page_overlap"), self.overlap_input)
+
+        custom_row = QHBoxLayout()
+        custom_start_default = preferences.custom_start
+        custom_end_default = preferences.custom_end
+        if custom_start_default is None or custom_end_default is None:
+            fallback = current_vertical_range or full_vertical_range or (0.0, 1.0)
+            custom_start_default, custom_end_default = fallback
+        self.custom_start_input = self._axis_value_input(custom_start_default, signed=True)
+        self.custom_end_input = self._axis_value_input(custom_end_default, signed=True)
+        custom_row.addWidget(QLabel(self._t("print_center.range_start")))
+        custom_row.addWidget(self.custom_start_input)
+        custom_row.addWidget(QLabel(self._t("print_center.range_end")))
+        custom_row.addWidget(self.custom_end_input)
+        pagination_layout.addRow(self._t("print_center.custom_range"), custom_row)
+
+        self.page_numbers_check = QCheckBox(self._t("print_center.show_page_numbers"))
+        self.page_numbers_check.setChecked(preferences.show_page_numbers)
+        pagination_layout.addRow(self.page_numbers_check)
+        self.page_range_check = QCheckBox(self._t("print_center.show_page_range"))
+        self.page_range_check.setChecked(preferences.show_page_range)
+        pagination_layout.addRow(self.page_range_check)
+        root.addWidget(pagination_group)
+
         margins_group = QGroupBox(self._t("print_center.margins_group"))
         margins_layout = QGridLayout(margins_group)
         self.margin_left_input = self._margin_input(page.margin_left_mm)
@@ -152,6 +207,10 @@ class PrintCenterDialog(QDialog):
             margins_layout.addWidget(QLabel(label), row, column)
             margins_layout.addWidget(control, row, column + 1)
         root.addWidget(margins_group)
+
+        self.unicode_status = QLabel(self._t("print_center.unicode_preflight_hint"))
+        self.unicode_status.setWordWrap(True)
+        root.addWidget(self.unicode_status)
 
         hint = QLabel(self._t("print_center.hint"))
         hint.setWordWrap(True)
@@ -173,6 +232,7 @@ class PrintCenterDialog(QDialog):
 
         self._output_changed()
         self._update_enabled()
+        self._update_pagination_enabled()
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
@@ -196,13 +256,35 @@ class PrintCenterDialog(QDialog):
             margin_bottom_mm=self.margin_bottom_input.value(),
         )
 
+    def pagination_settings(self) -> PrintPaginationSettings:
+        mode = PrintRangeMode(str(self.range_combo.currentData()))
+        if not self.supports_pagination:
+            mode = PrintRangeMode.CURRENT
+        return PrintPaginationSettings(
+            range_mode=mode,
+            units_per_page=self.units_per_page_input.value(),
+            overlap=self.overlap_input.value(),
+            custom_start=self.custom_start_input.value() if mode is PrintRangeMode.CUSTOM else None,
+            custom_end=self.custom_end_input.value() if mode is PrintRangeMode.CUSTOM else None,
+            show_page_numbers=self.page_numbers_check.isChecked(),
+            show_page_range=self.page_range_check.isChecked(),
+        )
+
     def preferences(self) -> PrintExportPreferences:
         output = self.selected_output()
         persistent_output = PrintOutputFormat.PDF if output is PrintOutputFormat.PRINTER else output
+        pagination = self.pagination_settings()
         return PrintExportPreferences(
             output_format=persistent_output,
             dpi=self._dpi(),
             image_quality=self.quality_input.value(),
+            range_mode=pagination.range_mode,
+            units_per_page=pagination.units_per_page,
+            overlap=pagination.overlap,
+            custom_start=pagination.custom_start,
+            custom_end=pagination.custom_end,
+            show_page_numbers=pagination.show_page_numbers,
+            show_page_range=pagination.show_page_range,
         )
 
     def job_settings(self, *, allow_missing_target: bool = False) -> PrintJobSettings:
@@ -224,6 +306,8 @@ class PrintCenterDialog(QDialog):
             dpi=self._dpi(),
             image_quality=self.quality_input.value(),
             target=target,
+            pagination=self.pagination_settings(),
+            strict_unicode=True,
         )
 
     def _dpi(self) -> int:
@@ -242,9 +326,7 @@ class PrintCenterDialog(QDialog):
         self.path_input.setEnabled(file_enabled)
         self.browse_button.setEnabled(file_enabled)
         self.dpi_combo.setEnabled(output is not PrintOutputFormat.SVG)
-        self.quality_input.setEnabled(
-            output in {PrintOutputFormat.JPEG, PrintOutputFormat.WEBP}
-        )
+        self.quality_input.setEnabled(output in {PrintOutputFormat.JPEG, PrintOutputFormat.WEBP})
         self.ok_button.setText(
             self._t("print_center.print")
             if output is PrintOutputFormat.PRINTER
@@ -263,6 +345,16 @@ class PrintCenterDialog(QDialog):
         self.width_input.setEnabled(selected in {PrintPageFormat.CUSTOM, PrintPageFormat.ROLL})
         self.height_input.setEnabled(selected is PrintPageFormat.CUSTOM)
         self.orientation_combo.setEnabled(selected is not PrintPageFormat.ROLL)
+
+    def _update_pagination_enabled(self, _index: int | None = None) -> None:
+        mode = PrintRangeMode(str(self.range_combo.currentData()))
+        multipage = self.supports_pagination and mode is not PrintRangeMode.CURRENT
+        custom = self.supports_pagination and mode is PrintRangeMode.CUSTOM
+        self.units_per_page_input.setEnabled(multipage)
+        self.overlap_input.setEnabled(multipage)
+        self.custom_start_input.setEnabled(custom)
+        self.custom_end_input.setEnabled(custom)
+        self.page_range_check.setEnabled(self.supports_pagination)
 
     def _browse(self) -> None:
         output = self.selected_output()
@@ -314,7 +406,23 @@ class PrintCenterDialog(QDialog):
         control.setValue(value)
         return control
 
+    @staticmethod
+    def _axis_value_input(
+        value: float,
+        *,
+        allow_zero: bool = False,
+        signed: bool = False,
+    ) -> QDoubleSpinBox:
+        control = QDoubleSpinBox()
+        minimum = -1e12 if signed else (0.0 if allow_zero else 1e-6)
+        control.setRange(minimum, 1e12)
+        control.setDecimals(6)
+        control.setValue(float(value))
+        return control
+
 
 def _safe_file_stem(value: str) -> str:
-    cleaned = "".join(character if character.isalnum() or character in "-_" else "_" for character in value)
+    cleaned = "".join(
+        character if character.isalnum() or character in "-_" else "_" for character in value
+    )
     return cleaned.strip("_-")[:120] or "visualization"

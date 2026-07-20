@@ -10,16 +10,12 @@ from geoworkbench.ui.dataset_merge_dialog import DatasetMergeDialog
 
 def make_controller(*, conflict: bool = False) -> DatasetMergeController:
     session = ProjectSession()
-    source = Dataset(
-        "source", "Source", DatasetKind.GIS, DepthDomain.MD, np.array([100.0, 101.0])
-    )
+    source = Dataset("source", "Source", DatasetKind.GIS, DepthDomain.MD, np.array([100.0, 101.0]))
     source.curves["gr-source"] = CurveData(
         CurveMetadata("gr-source", "GR", "GR", "API", None, source.dataset_id),
         np.array([10.0, 11.0]),
     )
-    target = Dataset(
-        "target", "Target", DatasetKind.GTI, DepthDomain.MD, np.array([101.0, 102.0])
-    )
+    target = Dataset("target", "Target", DatasetKind.GTI, DepthDomain.MD, np.array([101.0, 102.0]))
     target_mnemonic = "GR" if conflict else "ROP"
     target.curves["target-curve"] = CurveData(
         CurveMetadata(

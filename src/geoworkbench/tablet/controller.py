@@ -43,8 +43,7 @@ class TabletController:
         selected = list(dict.fromkeys(curve_mnemonics))
         self._validate_mnemonics(dataset, selected)
         entries = {
-            item.mnemonic: item
-            for item in analyze_dataset_curves(dataset, active_sensor_catalog())
+            item.mnemonic: item for item in analyze_dataset_curves(dataset, active_sensor_catalog())
         }
         tracks = self._context_tracks()
 

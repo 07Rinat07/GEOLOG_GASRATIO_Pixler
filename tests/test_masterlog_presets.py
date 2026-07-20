@@ -91,8 +91,6 @@ def test_header_preset_is_copied_into_form_and_remains_editable() -> None:
 
     assert len(BUILTIN_MASTERLOG_HEADER_PRESETS) >= 3
     assert template.header_height_mm == 25.0
-    compact = next(
-        item for item in BUILTIN_MASTERLOG_HEADER_PRESETS if item.preset_id == "compact"
-    )
+    compact = next(item for item in BUILTIN_MASTERLOG_HEADER_PRESETS if item.preset_id == "compact")
     assert compact.elements[0].properties["text"] == "MASTERLOG"
     assert template.properties["header_preset_origin"] == "compact"

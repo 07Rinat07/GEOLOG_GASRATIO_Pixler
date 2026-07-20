@@ -22,8 +22,15 @@ from geoworkbench.domain.models import (
 
 MAX_TIME_DEPTH_BINS = 5_000_000
 _TIME_UNIT_SECONDS = {
-    "s": 1.0, "sec": 1.0, "second": 1.0, "ms": 1e-3,
-    "us": 1e-6, "ns": 1e-9, "min": 60.0, "h": 3600.0, "hr": 3600.0,
+    "s": 1.0,
+    "sec": 1.0,
+    "second": 1.0,
+    "ms": 1e-3,
+    "us": 1e-6,
+    "ns": 1e-9,
+    "min": 60.0,
+    "h": 3600.0,
+    "hr": 3600.0,
 }
 
 
@@ -130,13 +137,22 @@ def create_time_depth_aggregated_copy(
         },
         indexes={
             depth_id: DatasetIndex(
-                depth_id, depth_index.mnemonic, depth_index.index_type, IndexRole.DEPTH,
-                depth_index.unit, result_depth,
+                depth_id,
+                depth_index.mnemonic,
+                depth_index.index_type,
+                IndexRole.DEPTH,
+                depth_index.unit,
+                result_depth,
                 evidence=depth_index.evidence + (f"time-depth:{profile.profile_id}",),
             ),
             time_id: DatasetIndex(
-                time_id, time_index.mnemonic, time_index.index_type, IndexRole.TIME,
-                time_index.unit, result_time, timezone=time_index.timezone,
+                time_id,
+                time_index.mnemonic,
+                time_index.index_type,
+                IndexRole.TIME,
+                time_index.unit,
+                result_time,
+                timezone=time_index.timezone,
                 datetime_format=time_index.datetime_format,
                 evidence=time_index.evidence + (f"time-depth:{profile.profile_id}",),
             ),
@@ -210,8 +226,7 @@ def _aggregate_times(index: DatasetIndex, groups: tuple[np.ndarray, ...]) -> np.
         nanos = raw.astype("datetime64[ns]").astype(np.int64)
         means = np.asarray(
             [
-                int(nanos[rows][0])
-                + int(np.mean(nanos[rows] - int(nanos[rows][0])))
+                int(nanos[rows][0]) + int(np.mean(nanos[rows] - int(nanos[rows][0])))
                 for rows in groups
             ],
             dtype=np.int64,
@@ -226,9 +241,7 @@ def _finite_mean(values: np.ndarray) -> float:
     return float(np.mean(finite)) if finite.size else np.nan
 
 
-def _fingerprint(
-    dataset: Dataset, time_index: DatasetIndex, depth_index: DatasetIndex
-) -> str:
+def _fingerprint(dataset: Dataset, time_index: DatasetIndex, depth_index: DatasetIndex) -> str:
     digest = sha256()
     digest.update(np.asarray(time_index.values).tobytes())
     digest.update(np.asarray(depth_index.values, dtype=np.float64).tobytes())

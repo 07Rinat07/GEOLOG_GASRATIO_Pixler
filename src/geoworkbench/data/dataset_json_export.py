@@ -65,14 +65,10 @@ def dataset_to_json_dict(dataset: Dataset) -> dict[str, Any]:
     }
 
 
-def export_dataset_json(
-    dataset: Dataset, target: str | Path, *, overwrite: bool = False
-) -> Path:
+def export_dataset_json(dataset: Dataset, target: str | Path, *, overwrite: bool = False) -> Path:
     destination = Path(target)
     if destination.suffix.casefold() != ".json":
-        raise DatasetJsonExportError(
-            "Неподдерживаемое расширение экспорта: " + destination.suffix
-        )
+        raise DatasetJsonExportError("Неподдерживаемое расширение экспорта: " + destination.suffix)
     if destination.exists() and not overwrite:
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -94,9 +90,7 @@ def export_dataset_json(
         os.replace(temporary, destination)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
-        raise DatasetJsonExportError(
-            f"Не удалось экспортировать JSON: {destination}"
-        ) from exc
+        raise DatasetJsonExportError(f"Не удалось экспортировать JSON: {destination}") from exc
     return destination
 
 

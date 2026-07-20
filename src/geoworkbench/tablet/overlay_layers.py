@@ -61,8 +61,7 @@ class OverlayLayerManager:
 
     def __init__(self) -> None:
         self._layers = {
-            kind: OverlayLayerState(kind=kind, z_value=z)
-            for kind, z in DEFAULT_Z_ORDER.items()
+            kind: OverlayLayerState(kind=kind, z_value=z) for kind, z in DEFAULT_Z_ORDER.items()
         }
         self._dirty_marks = 0
         self._updates = 0

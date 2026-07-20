@@ -147,9 +147,9 @@ class CustomFormulaController:
             provenance=f"custom-formula:{definition.formula_id}:{definition.version}",
         )
         _update_curve_passport(curve, definition)
-        downstream = _dependent_outputs(
-            self.session.project.custom_formulas, {destination}
-        ) - {destination}
+        downstream = _dependent_outputs(self.session.project.custom_formulas, {destination}) - {
+            destination
+        }
         self._mark_stale(downstream, datasets=(dataset,))
         self.session.dirty = True
         return curve
@@ -163,8 +163,7 @@ class CustomFormulaController:
         except KeyError as exc:
             raise KeyError(f"Неизвестная формула: {formula_id}") from exc
         inputs = tuple(
-            _curve_passport(dataset, mnemonic)
-            for mnemonic in validate_definition(definition)
+            _curve_passport(dataset, mnemonic) for mnemonic in validate_definition(definition)
         )
         output_mnemonic = definition.output_mnemonic.strip().upper()
         return CustomFormulaCalculationPassport(
@@ -215,8 +214,7 @@ class CustomFormulaController:
             missing = [mnemonic for mnemonic in inputs if mnemonic not in available]
             if missing:
                 raise CustomFormulaError(
-                    f"Формула {definition.name}: отсутствуют входные кривые "
-                    f"{', '.join(missing)}"
+                    f"Формула {definition.name}: отсутствуют входные кривые {', '.join(missing)}"
                 )
             values = evaluate_formula(
                 definition.expression, {name: available[name] for name in inputs}
@@ -273,21 +271,19 @@ class CustomFormulaController:
         if curve_versions != plan.curve_versions or formula_versions != plan.formula_versions:
             raise RuntimeError("Данные или формулы изменились после предварительного анализа")
         before = {
-            preview.output_mnemonic: deepcopy(
-                dataset.curve_by_mnemonic(preview.output_mnemonic)
-            )
+            preview.output_mnemonic: deepcopy(dataset.curve_by_mnemonic(preview.output_mnemonic))
             for preview in plan.previews
         }
         results: list[CurveData] = []
         for formula_id, values in zip(plan.ordered_formula_ids, plan.values, strict=True):
             definition = self.session.project.custom_formulas[formula_id]
             curve = dataset.upsert_curve(
-                    definition.output_mnemonic.strip().upper(),
-                    np.asarray(values, dtype=np.float64).copy(),
-                    unit=definition.output_unit,
-                    description=definition.name,
-                    provenance=f"custom-formula:{definition.formula_id}:{definition.version}",
-                )
+                definition.output_mnemonic.strip().upper(),
+                np.asarray(values, dtype=np.float64).copy(),
+                unit=definition.output_unit,
+                description=definition.name,
+                provenance=f"custom-formula:{definition.formula_id}:{definition.version}",
+            )
             _update_curve_passport(curve, definition)
             results.append(curve)
         self._batch_command = _FormulaBatchCommand(
@@ -356,9 +352,7 @@ class CustomFormulaController:
         for dataset in targets:
             for mnemonic in mnemonics:
                 curve = dataset.curve_by_mnemonic(mnemonic)
-                if curve is not None and curve.metadata.provenance.startswith(
-                    "custom-formula:"
-                ):
+                if curve is not None and curve.metadata.provenance.startswith("custom-formula:"):
                     curve.state = CalculationState.STALE
 
     def _batch_history(self, *, applied: bool) -> tuple[_FormulaBatchCommand, Dataset]:
@@ -409,10 +403,7 @@ def _curve_versions(dataset: Dataset) -> tuple[tuple[str, int], ...]:
 
 def _formula_versions(session: ProjectSession) -> tuple[tuple[str, int], ...]:
     return tuple(
-        sorted(
-            (item.formula_id, item.version)
-            for item in session.project.custom_formulas.values()
-        )
+        sorted((item.formula_id, item.version) for item in session.project.custom_formulas.values())
     )
 
 
@@ -425,9 +416,7 @@ def _same_curve(current: CurveData, expected: CurveData) -> bool:
     )
 
 
-def _dependent_outputs(
-    formulas: dict[str, CustomFormulaDefinition], changed: set[str]
-) -> set[str]:
+def _dependent_outputs(formulas: dict[str, CustomFormulaDefinition], changed: set[str]) -> set[str]:
     affected = set(changed)
     while True:
         discovered = {
@@ -441,9 +430,7 @@ def _dependent_outputs(
         affected = expanded
 
 
-def _update_curve_passport(
-    curve: CurveData, definition: CustomFormulaDefinition
-) -> None:
+def _update_curve_passport(curve: CurveData, definition: CustomFormulaDefinition) -> None:
     curve.metadata = replace(
         curve.metadata,
         canonical_mnemonic=definition.output_mnemonic.strip().upper(),

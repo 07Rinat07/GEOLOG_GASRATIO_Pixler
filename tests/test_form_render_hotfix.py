@@ -40,9 +40,7 @@ def _dataset() -> Dataset:
         )
         dataset.curves[metadata.curve_id] = CurveData(
             metadata,
-            np.array(
-                [float(position + 1), float(position + 2), float(position + 3)]
-            ),
+            np.array([float(position + 1), float(position + 2), float(position + 3)]),
         )
     return dataset
 

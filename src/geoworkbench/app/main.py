@@ -10,6 +10,7 @@ from geoworkbench.services.localization import (
     LanguageSettings,
     Localizer,
 )
+from geoworkbench.printing.unicode_support import configure_application_unicode_fonts
 from geoworkbench.ui.main_window import MainWindow
 from geoworkbench.ui.branding import application_icon
 
@@ -19,6 +20,7 @@ def main() -> int:
     app.setApplicationName("GEOLOG GASRATIO@Pixler")
     app.setOrganizationName("GeoLog")
     app.setWindowIcon(application_icon())
+    configure_application_unicode_fonts(app)
     settings = LanguageSettings.system()
     language = settings.current()
     if language is None:

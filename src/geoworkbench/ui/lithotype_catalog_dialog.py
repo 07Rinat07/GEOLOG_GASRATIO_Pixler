@@ -131,9 +131,7 @@ class LithotypeCatalogDialog(QDialog):
         root.addLayout(actions)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
-            self._t("common.close")
-        )
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
@@ -219,9 +217,7 @@ class LithotypeCatalogDialog(QDialog):
             self.color_input.setText(selected.name())
 
     def _update_preview(self) -> None:
-        self.pattern_preview.set_pattern(
-            self.color_input.text(), self.pattern_input.currentText()
-        )
+        self.pattern_preview.set_pattern(self.color_input.text(), self.pattern_input.currentText())
 
     def _add(self) -> None:
         self._run(lambda: self.controller.add(*self._values()))

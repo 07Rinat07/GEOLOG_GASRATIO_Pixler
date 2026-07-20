@@ -73,9 +73,7 @@ class DepthAnnotationsDialog(QDialog):
         actions.addWidget(self.redo_button)
         root.addLayout(actions)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
-            self._t("common.close")
-        )
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()

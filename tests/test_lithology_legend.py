@@ -8,9 +8,7 @@ def test_legend_contains_used_lithotypes_once_in_depth_order() -> None:
         CatalogLithotype(
             "sandstone", "SS", "Песчаник", "Sandstone", "rock", "#e7cf8b", "dots", True
         ),
-        CatalogLithotype(
-            "clay", "CL", "Глина", "Clay", "rock", "#888888", "clay_dash", True
-        ),
+        CatalogLithotype("clay", "CL", "Глина", "Clay", "rock", "#888888", "clay_dash", True),
     )
     intervals = [
         LithologyInterval("1", 10.0, 20.0, "sandstone", None),

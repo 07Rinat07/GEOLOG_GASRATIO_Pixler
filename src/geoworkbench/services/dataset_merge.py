@@ -71,8 +71,7 @@ def create_merged_dataset(
         raise ValueError("Dataset изменился после анализа сращивания")
     if not current.can_merge:
         raise ValueError(
-            "Конфликт мнемоник при сращивании: "
-            + ", ".join(current.mnemonic_conflicts)
+            "Конфликт мнемоник при сращивании: " + ", ".join(current.mnemonic_conflicts)
         )
     merged_depth = _union_depth(source.depth, target.depth)
     dataset_id = new_id()
@@ -154,9 +153,7 @@ def _validate_pair(source: Dataset, target: Dataset) -> None:
             or report.duplicate_count
             or report.missing_count
         ):
-            raise ValueError(
-                f"{label} должен иметь возрастающий индекс без пропусков и дубликатов"
-            )
+            raise ValueError(f"{label} должен иметь возрастающий индекс без пропусков и дубликатов")
         if len(dataset.indexes) != 1:
             raise ValueError(
                 f"{label} содержит дополнительные индексы; безопасная стратегия не выбрана"
@@ -188,8 +185,7 @@ def _union_depth(
     while start < sorted_values.size:
         stop = start + 1
         while (
-            stop < sorted_values.size
-            and sorted_values[stop] - sorted_values[stop - 1] <= tolerance
+            stop < sorted_values.size and sorted_values[stop] - sorted_values[stop - 1] <= tolerance
         ):
             stop += 1
         group_values = sorted_values[start:stop]
@@ -207,9 +203,7 @@ def _positions_on_union(
     right = np.searchsorted(merged_depth, depth)
     right = np.minimum(right, merged_depth.size - 1)
     left = np.maximum(right - 1, 0)
-    choose_left = np.abs(merged_depth[left] - depth) <= np.abs(
-        merged_depth[right] - depth
-    )
+    choose_left = np.abs(merged_depth[left] - depth) <= np.abs(merged_depth[right] - depth)
     positions = np.where(choose_left, left, right).astype(np.int64)
     if np.any(np.abs(merged_depth[positions] - depth) > _tolerance(merged_depth)):
         raise RuntimeError("Не удалось сопоставить глубину с объединённой сеткой")
@@ -217,6 +211,4 @@ def _positions_on_union(
 
 
 def _tolerance(values: NDArray[np.float64]) -> float:
-    return float(
-        np.finfo(np.float64).eps * max(1.0, float(np.max(np.abs(values)))) * 16
-    )
+    return float(np.finfo(np.float64).eps * max(1.0, float(np.max(np.abs(values)))) * 16)

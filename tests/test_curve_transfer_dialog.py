@@ -11,17 +11,13 @@ from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
 
 def make_controller() -> CurveTransferController:
     session = ProjectSession()
-    source = Dataset(
-        "source", "GIS", DatasetKind.GIS, DepthDomain.MD, np.array([100.0, 101.0])
-    )
+    source = Dataset("source", "GIS", DatasetKind.GIS, DepthDomain.MD, np.array([100.0, 101.0]))
     for curve_id, mnemonic in (("gr-source", "GR"), ("rop-source", "ROP")):
         source.curves[curve_id] = CurveData(
             CurveMetadata(curve_id, mnemonic, mnemonic, "API", None, source.dataset_id),
             np.array([10.0, 20.0]),
         )
-    target = Dataset(
-        "target", "GTI", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 101.0])
-    )
+    target = Dataset("target", "GTI", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 101.0]))
     target.curves["gr-target"] = CurveData(
         CurveMetadata("gr-target", "GR", "GR", "API", None, target.dataset_id),
         np.array([11.0, 21.0]),
@@ -49,9 +45,7 @@ def test_dialog_previews_conflicts_and_selects_only_transferable_curves(qapp) ->
 def test_dialog_disables_apply_without_other_dataset(qapp) -> None:
     session = ProjectSession()
     session.add_dataset(
-        Dataset(
-            "only", "Only", DatasetKind.GTI, DepthDomain.MD, np.array([0.0, 1.0])
-        )
+        Dataset("only", "Only", DatasetKind.GTI, DepthDomain.MD, np.array([0.0, 1.0]))
     )
     dialog = CurveTransferDialog(CurveTransferController(session))
 

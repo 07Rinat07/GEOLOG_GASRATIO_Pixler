@@ -267,7 +267,9 @@ def _normalized_c1(inputs: dict[str, Array], parameters: dict[str, float]) -> Ar
     return safe_ratio(numerator, denominator)
 
 
-def _reference_normalized(values: Array, inputs: dict[str, Array], parameters: dict[str, float]) -> Array:
+def _reference_normalized(
+    values: Array, inputs: dict[str, Array], parameters: dict[str, float]
+) -> Array:
     rop_ref = parameters["ROP_REF_FPH"]
     bit_ref = parameters["BIT_REF_IN"]
     flow_ref = parameters["FLOW_REF_GPM"]
@@ -365,8 +367,10 @@ def sourced_normalized_gas_profiles() -> tuple[FormulaProfile, ...]:
                 formula=_component_reference_formula(component),
                 control_example=FormulaControlExample(
                     inputs={
-                        component: (10.0,), "FLOW_GPM": (500.0,),
-                        "ROP_FPH": (50.0,), "BIT_IN": (10.0,),
+                        component: (10.0,),
+                        "FLOW_GPM": (500.0,),
+                        "ROP_FPH": (50.0,),
+                        "BIT_IN": (10.0,),
                     },
                     expected=(10.0,),
                     parameters=_REFERENCE_EXAMPLE_PARAMETERS,
@@ -386,7 +390,9 @@ def sourced_normalized_gas_profiles() -> tuple[FormulaProfile, ...]:
         required_inputs=(*total_components, "FLOW_GPM", "ROP_FPH", "BIT_IN"),
         input_units={
             **{name: "same concentration unit" for name in total_components},
-            "FLOW_GPM": "gpm", "ROP_FPH": "ft/h", "BIT_IN": "in",
+            "FLOW_GPM": "gpm",
+            "ROP_FPH": "ft/h",
+            "BIT_IN": "in",
         },
         output_mnemonic="TG_NORM",
         output_unit="normalized gas units",
@@ -399,7 +405,9 @@ def sourced_normalized_gas_profiles() -> tuple[FormulaProfile, ...]:
         control_example=FormulaControlExample(
             inputs={
                 **{name: (1.0,) for name in total_components},
-                "FLOW_GPM": (500.0,), "ROP_FPH": (50.0,), "BIT_IN": (10.0,),
+                "FLOW_GPM": (500.0,),
+                "ROP_FPH": (50.0,),
+                "BIT_IN": (10.0,),
             },
             expected=(7.0,),
             parameters=_REFERENCE_EXAMPLE_PARAMETERS,

@@ -45,7 +45,9 @@ def calculate_basic_ratios(curves: dict[str, Array]) -> dict[str, GasRatioResult
     Методики Wetness/Balance/Character/Pixler намеренно не зашиты здесь без
     подтверждённого профиля формул и источника.
     """
-    normalized = {name.upper(): np.asarray(values, dtype=np.float64) for name, values in curves.items()}
+    normalized = {
+        name.upper(): np.asarray(values, dtype=np.float64) for name, values in curves.items()
+    }
     required = ("C1", "C2", "C3")
     missing = [name for name in required if name not in normalized]
     if missing:

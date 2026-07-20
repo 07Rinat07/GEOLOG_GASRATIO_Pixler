@@ -49,8 +49,6 @@ class CurveStyle:
             raise ValueError("Стиль линии не поддерживается")
 
 
-
-
 @dataclass(frozen=True, slots=True)
 class CurveDisplaySettings:
     """Per-curve caption and horizontal scale inside one tablet track."""
@@ -101,7 +99,9 @@ class TrackDefinition:
             raise ValueError("Настройки кривых должны использовать CurveStyle")
         if not all(isinstance(key, str) and key.strip() for key in self.curve_display):
             raise ValueError("Ключи отображения кривых должны быть непустыми строками")
-        if not all(isinstance(value, CurveDisplaySettings) for value in self.curve_display.values()):
+        if not all(
+            isinstance(value, CurveDisplaySettings) for value in self.curve_display.values()
+        ):
             raise ValueError("Настройки отображения должны использовать CurveDisplaySettings")
         self._validate_grid(self.grid_x, self.grid_y, self.grid_alpha)
         self._validate_x_axis_label(self.x_axis_label)

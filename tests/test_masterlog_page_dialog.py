@@ -7,9 +7,7 @@ def test_masterlog_page_dialog_edits_custom_geometry(qapp) -> None:
     template = MasterlogTemplate("standard", "Standard", page_format="A4")
     dialog = MasterlogPageDialog(template, language=AppLanguage.EN)
     dialog.format_input.setCurrentIndex(dialog.format_input.findData("custom"))
-    dialog.orientation_input.setCurrentIndex(
-        dialog.orientation_input.findData("landscape")
-    )
+    dialog.orientation_input.setCurrentIndex(dialog.orientation_input.findData("landscape"))
     dialog.scale_input.setValue(250)
     dialog.header_input.setValue(30.0)
     dialog.width_input.setValue(250.0)

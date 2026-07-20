@@ -59,9 +59,7 @@ def analyze_depth_axis(values: NDArray[np.float64]) -> DepthAxisReport:
     finite = depth[finite_mask]
     missing_count = int(depth.size - finite.size)
     if finite.size == 0:
-        return DepthAxisReport(
-            DepthDirection.UNKNOWN, None, None, None, False, 0, missing_count, 0
-        )
+        return DepthAxisReport(DepthDirection.UNKNOWN, None, None, None, False, 0, missing_count, 0)
     if finite.size == 1:
         value = float(finite[0])
         return DepthAxisReport(
@@ -92,9 +90,7 @@ def analyze_depth_axis(values: NDArray[np.float64]) -> DepthAxisReport:
         and np.allclose(nonzero_steps, nominal_step, rtol=1e-6, atol=absolute_tolerance)
     )
     gap_count = (
-        int(np.count_nonzero(nonzero_steps > nominal_step * 1.5))
-        if nominal_step is not None
-        else 0
+        int(np.count_nonzero(nonzero_steps > nominal_step * 1.5)) if nominal_step is not None else 0
     )
     return DepthAxisReport(
         direction=direction,
@@ -128,25 +124,18 @@ def analyze_depth_resample(
 ) -> DepthResamplePlan:
     report = analyze_depth_axis(dataset.depth)
     if report.direction is not DepthDirection.ASCENDING or report.duplicate_count:
-        raise ValueError(
-            "Ресэмплинг требует возрастающего индекса без пропусков и дубликатов"
-        )
+        raise ValueError("Ресэмплинг требует возрастающего индекса без пропусков и дубликатов")
     if report.missing_count:
-        raise ValueError(
-            "Ресэмплинг требует возрастающего индекса без пропусков и дубликатов"
-        )
+        raise ValueError("Ресэмплинг требует возрастающего индекса без пропусков и дубликатов")
     grid = build_depth_grid(start, stop, step)
     if start < dataset.depth[0] or stop > dataset.depth[-1]:
         raise ValueError("Новая сетка должна находиться внутри исходного диапазона")
     for index in dataset.indexes.values():
         values = np.asarray(index.values)
         if index.index_id != dataset.active_index_id and not (
-            np.issubdtype(values.dtype, np.number)
-            or np.issubdtype(values.dtype, np.datetime64)
+            np.issubdtype(values.dtype, np.number) or np.issubdtype(values.dtype, np.datetime64)
         ):
-            raise ValueError(
-                f"Индекс {index.mnemonic} нельзя безопасно интерполировать"
-            )
+            raise ValueError(f"Индекс {index.mnemonic} нельзя безопасно интерполировать")
     return DepthResamplePlan(
         start=start,
         stop=stop,
@@ -187,8 +176,8 @@ def create_resampled_depth_copy(
                 )
                 finite = np.isfinite(interpolated)
                 values = np.full(interpolated.shape, np.datetime64("NaT"), dtype="datetime64[ns]")
-                values[finite] = np.rint(interpolated[finite]).astype(np.int64).astype(
-                    "datetime64[ns]"
+                values[finite] = (
+                    np.rint(interpolated[finite]).astype(np.int64).astype("datetime64[ns]")
                 )
             else:
                 numeric = np.asarray(raw, dtype=np.float64)

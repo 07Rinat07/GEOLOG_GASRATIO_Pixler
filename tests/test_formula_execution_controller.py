@@ -46,9 +46,7 @@ def test_controller_executes_profile_with_explicit_mapping() -> None:
     assert result.passport.inputs[0].mapped_mnemonic == "ROP"
     assert result.passport.inputs[0].provenance == "source"
     assert result.passport.output_curve_id == result.curve.metadata.curve_id
-    assert result.passport.output_provenance == (
-        "calculation:dexp.jorden_shirley:1.0.0"
-    )
+    assert result.passport.output_provenance == ("calculation:dexp.jorden_shirley:1.0.0")
     assert session.current_dataset is not None
     assert session.current_dataset.curve_by_mnemonic("DEXP") is result.curve
     assert session.dirty is True

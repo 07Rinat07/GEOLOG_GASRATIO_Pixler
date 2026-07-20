@@ -821,6 +821,21 @@ class TabletView(QWidget):
         index = self._vertical_index()
         return index is not None and index.role is IndexRole.TIME
 
+    def printable_vertical_range(self) -> tuple[float, float] | None:
+        """Return the complete active depth/time domain for paged printing."""
+
+        return self._axis_bounds()
+
+    @property
+    def printable_vertical_unit(self) -> str:
+        descriptor = self._axis_descriptor()
+        return descriptor.unit if descriptor is not None else ""
+
+    @property
+    def printable_vertical_label(self) -> str:
+        descriptor = self._axis_descriptor()
+        return descriptor.label if descriptor is not None else self._localizer.text("print.depth")
+
     def geometry_cache_stats(self) -> GeometryCacheStats:
         return self._geometry_cache.stats()
 

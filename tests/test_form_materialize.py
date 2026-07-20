@@ -76,11 +76,15 @@ def test_basic_depth_template_is_materialized_with_all_las_curves() -> None:
     ]
     assert curve_tracks
     assert all(1 <= len(track.bindings) <= 2 for track in curve_tracks)
-    assert {
-        binding.source_mnemonic
-        for track in curve_tracks
-        for binding in track.bindings
-    } == {"ROP_AVG", "TGAS", "C1", "GR", "CUSTOM_A", "CUSTOM_B", "CUSTOM_C"}
+    assert {binding.source_mnemonic for track in curve_tracks for binding in track.bindings} == {
+        "ROP_AVG",
+        "TGAS",
+        "C1",
+        "GR",
+        "CUSTOM_A",
+        "CUSTOM_B",
+        "CUSTOM_C",
+    }
     assert any(
         binding.display_name == "Пользовательская кривая A"
         for track in curve_tracks
@@ -95,9 +99,7 @@ def test_materialized_factory_templates_preserve_language_and_stable_id() -> Non
     assert form.form_id == "factory-depth-basic"
     assert form.name == "LAS — working depth form"
     assert form.columns[0].title == "Depth"
-    assert sum(
-        len(track.bindings) for column in form.columns for track in column.tracks
-    ) == 7
+    assert sum(len(track.bindings) for column in form.columns for track in column.tracks) == 7
 
 
 def test_basic_form_applies_directly_without_manual_curve_setup() -> None:
@@ -108,11 +110,7 @@ def test_basic_form_applies_directly_without_manual_curve_setup() -> None:
         dataset,
     )
 
-    resolved = {
-        mnemonic
-        for track in result.layout.tracks
-        for mnemonic in track.curve_mnemonics
-    }
+    resolved = {mnemonic for track in result.layout.tracks for mnemonic in track.curve_mnemonics}
     assert resolved == {"ROP_AVG", "TGAS", "C1", "GR", "CUSTOM_A", "CUSTOM_B", "CUSTOM_C"}
     assert result.resolved_count == 7
     assert not result.missing

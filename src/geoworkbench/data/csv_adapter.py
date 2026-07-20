@@ -18,7 +18,11 @@ from geoworkbench.domain.models import (
     IndexType,
     new_id,
 )
-from geoworkbench.services.index_detection import IndexCandidate, IndexColumn, detect_index_candidates
+from geoworkbench.services.index_detection import (
+    IndexCandidate,
+    IndexColumn,
+    detect_index_candidates,
+)
 from geoworkbench.services.time_normalization import normalize_iso8601_strings
 from geoworkbench.services.time_normalization import normalize_date_time_columns
 
@@ -118,9 +122,7 @@ def import_csv(
     width = len(probe.columns)
     for number, row in enumerate(data_rows, start=2):
         if len(row) != width:
-            raise CsvImportError(
-                f"Строка {number}: ожидалось колонок {width}, получено {len(row)}"
-            )
+            raise CsvImportError(f"Строка {number}: ожидалось колонок {width}, получено {len(row)}")
     null_tokens = {token.strip().casefold() for token in plan.null_tokens}
     if time_position is None:
         index_values, candidate, index_mnemonic, index_unit = _parse_index_column(
@@ -245,13 +247,13 @@ def _parse_index_column(
             "смешаны значения" in warning for warning in normalized.warnings
         ):
             raise numeric_error
-        candidate = detect_index_candidates(
-            [IndexColumn("csv-index", mnemonic, unit, None, raw)]
-        )[0]
+        candidate = detect_index_candidates([IndexColumn("csv-index", mnemonic, unit, None, raw)])[
+            0
+        ]
         return normalized.values, candidate, mnemonic, unit
-    candidate = detect_index_candidates(
-        [IndexColumn("csv-index", mnemonic, unit, None, numeric)]
-    )[0]
+    candidate = detect_index_candidates([IndexColumn("csv-index", mnemonic, unit, None, numeric)])[
+        0
+    ]
     return numeric, candidate, mnemonic, unit
 
 
@@ -263,10 +265,20 @@ def _parse_composite_index(
     null_tokens: set[str],
 ) -> tuple[np.ndarray, IndexCandidate, str, None]:
     dates = np.asarray(
-        ["" if row[date_position].strip().casefold() in null_tokens else row[date_position].strip() for row in rows]
+        [
+            ""
+            if row[date_position].strip().casefold() in null_tokens
+            else row[date_position].strip()
+            for row in rows
+        ]
     )
     times = np.asarray(
-        ["" if row[time_position].strip().casefold() in null_tokens else row[time_position].strip() for row in rows]
+        [
+            ""
+            if row[time_position].strip().casefold() in null_tokens
+            else row[time_position].strip()
+            for row in rows
+        ]
     )
     try:
         normalized = normalize_date_time_columns(

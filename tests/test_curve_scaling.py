@@ -15,7 +15,9 @@ def test_values_outside_manual_range_are_clipped() -> None:
 
 
 def test_logarithmic_values_are_normalized_by_decades() -> None:
-    result = normalize_curve_values(np.array([0.1, 1.0, 10.0, 100.0]), XScale.LOGARITHMIC, 0.1, 100.0)
+    result = normalize_curve_values(
+        np.array([0.1, 1.0, 10.0, 100.0]), XScale.LOGARITHMIC, 0.1, 100.0
+    )
     assert np.allclose(result, [0.0, 1 / 3, 2 / 3, 1.0])
 
 

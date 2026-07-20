@@ -129,8 +129,6 @@ def test_resample_rejects_descending_or_extrapolated_grid() -> None:
     with pytest.raises(ValueError, match="возрастающего индекса"):
         analyze_depth_resample(descending, 0.0, 2.0, 0.5)
 
-    ascending = Dataset(
-        "source", "LAS", DatasetKind.GTI, DepthDomain.MD, np.array([0.0, 1.0, 2.0])
-    )
+    ascending = Dataset("source", "LAS", DatasetKind.GTI, DepthDomain.MD, np.array([0.0, 1.0, 2.0]))
     with pytest.raises(ValueError, match="внутри исходного диапазона"):
         analyze_depth_resample(ascending, 0.0, 3.0, 0.5)

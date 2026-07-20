@@ -109,12 +109,8 @@ class HeaderElementDialog(QDialog):
             if isinstance(width, (int, float)) and not isinstance(width, bool):
                 self.line_width_input.setValue(float(width))
         self.legend_scope_input = QComboBox()
-        self.legend_scope_input.addItem(
-            self.localizer.text("masterlog_header.legend_used"), "used"
-        )
-        self.legend_scope_input.addItem(
-            self.localizer.text("masterlog_header.legend_all"), "all"
-        )
+        self.legend_scope_input.addItem(self.localizer.text("masterlog_header.legend_used"), "used")
+        self.legend_scope_input.addItem(self.localizer.text("masterlog_header.legend_all"), "all")
         scope = element.properties.get("scope") if element else "used"
         scope_index = self.legend_scope_input.findData(scope)
         self.legend_scope_input.setCurrentIndex(max(0, scope_index))
@@ -126,9 +122,7 @@ class HeaderElementDialog(QDialog):
             if isinstance(columns, int) and not isinstance(columns, bool) and 1 <= columns <= 12
             else 4
         )
-        self.legend_code_input = QCheckBox(
-            self.localizer.text("masterlog_header.legend_show_code")
-        )
+        self.legend_code_input = QCheckBox(self.localizer.text("masterlog_header.legend_show_code"))
         show_code = element.properties.get("show_code") if element else True
         self.legend_code_input.setChecked(show_code if isinstance(show_code, bool) else True)
         self.image_input = QComboBox()
@@ -168,9 +162,7 @@ class HeaderElementDialog(QDialog):
         self.font_size_label = QLabel(self.localizer.text("masterlog_header.font_size"))
         self.image_label = QLabel(self.localizer.text("masterlog_header.image"))
         self.legend_scope_label = QLabel(self.localizer.text("masterlog_header.legend_scope"))
-        self.legend_columns_label = QLabel(
-            self.localizer.text("masterlog_header.legend_columns")
-        )
+        self.legend_columns_label = QLabel(self.localizer.text("masterlog_header.legend_columns"))
         layout.addRow(self.text_label, self.text_input)
         layout.addRow(self.field_label, self.field_input)
         layout.addRow(self.text_color_label, self.text_color_input)

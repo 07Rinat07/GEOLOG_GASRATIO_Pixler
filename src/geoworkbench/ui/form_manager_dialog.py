@@ -468,11 +468,7 @@ class FormManagerDialog(QDialog):
 
     def _print_selected(self) -> None:
         form = self._current()
-        if (
-            form is None
-            or not self._is_compatible(form)
-            or self.print_form_callback is None
-        ):
+        if form is None or not self._is_compatible(form) or self.print_form_callback is None:
             return
         self.print_form_callback(form)
 

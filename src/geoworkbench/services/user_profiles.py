@@ -13,6 +13,7 @@ from geoworkbench.printing.page_settings import (
     PrintPageFormat,
     PrintPageSettings,
 )
+from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.printing.print_job import (
     PrintExportPreferences,
     PrintOutputFormat,
@@ -160,10 +161,19 @@ class UserProfileSettings:
             payload = json.loads(str(raw))
             if not isinstance(payload, dict):
                 return PrintExportPreferences()
+            custom_start = payload.get("custom_start")
+            custom_end = payload.get("custom_end")
             return PrintExportPreferences(
                 output_format=PrintOutputFormat(str(payload.get("output_format", "pdf"))),
                 dpi=int(payload.get("dpi", 300)),
                 image_quality=int(payload.get("image_quality", 92)),
+                range_mode=PrintRangeMode(str(payload.get("range_mode", "current"))),
+                units_per_page=float(payload.get("units_per_page", 50.0)),
+                overlap=float(payload.get("overlap", 0.0)),
+                custom_start=float(custom_start) if custom_start is not None else None,
+                custom_end=float(custom_end) if custom_end is not None else None,
+                show_page_numbers=bool(payload.get("show_page_numbers", True)),
+                show_page_range=bool(payload.get("show_page_range", True)),
             )
         except (json.JSONDecodeError, TypeError, ValueError):
             return PrintExportPreferences()
@@ -178,7 +188,15 @@ class UserProfileSettings:
                     "output_format": value.output_format.value,
                     "dpi": value.dpi,
                     "image_quality": value.image_quality,
-                }
+                    "range_mode": value.range_mode.value,
+                    "units_per_page": value.units_per_page,
+                    "overlap": value.overlap,
+                    "custom_start": value.custom_start,
+                    "custom_end": value.custom_end,
+                    "show_page_numbers": value.show_page_numbers,
+                    "show_page_range": value.show_page_range,
+                },
+                ensure_ascii=False,
             ),
         )
         self.settings.sync()

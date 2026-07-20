@@ -8,9 +8,13 @@
 - растровые файлы создаются в реальном размере бумаги при выбранном DPI, а не как скриншот окна;
 - предварительный просмотр, физическая печать, PDF, SVG и изображения используют общий page renderer;
 - для форм печатаются все видимые колонки, включая находящиеся вне горизонтального viewport, с восстановлением экранных ширин;
-- настройки страницы и качества сохраняются отдельно для активного инженерного профиля;
+- настройки страницы, многостраничного диапазона и качества сохраняются отдельно для активного инженерного профиля;
+- добавлены режимы текущего, полного и пользовательского диапазона, интервал на страницу, перекрытие, повтор заголовков, диапазон и нумерация страниц;
+- PDF и физический принтер создают один многостраничный документ, растровые/SVG-форматы — нумерованные файлы страниц;
+- строгий Unicode preflight проверяет RU/KK/EN, инженерные символы, отсутствующие глифы и повреждённую перекодировку; для `QPrinter` включено внедрение шрифтов;
+- начальный глубинный viewport новой формы установлен в `50 м`, сохранённый диапазон имеет приоритет;
 - добавлена кнопка «Печать / экспорт» непосредственно в менеджер форм;
-- регрессионный набор: `863 passed, 1 skipped`; Ruff проходит без ошибок.
+- регрессионные проверки изменений: `93 passed`; полный набор assertions: `872 passed, 1 skipped`; Ruff проходит без ошибок.
 
 ### Қазақша
 
@@ -20,9 +24,13 @@
 - растрлық файлдар терезе скриншоты ретінде емес, таңдалған DPI бойынша қағаздың нақты өлшемінде жасалады;
 - алдын ала қарау, физикалық басып шығару, PDF, SVG және кескіндер ортақ page renderer пайдаланады;
 - пішіндер үшін көлденең viewport сыртындағы барлық көрінетін баған басылып, экран ендері қалпына келтіріледі;
-- бет пен сапа баптаулары белсенді инженер профиліне жеке сақталады;
+- бет, көпбетті ауқым және сапа баптаулары белсенді инженер профиліне жеке сақталады;
+- ағымдағы, толық және пайдаланушы ауқымы, бір беттегі аралық, беттердің қабаттасуы, тақырыптарды қайталау, ауқым және бет нөмірлері қосылды;
+- PDF пен физикалық принтер бір көпбетті құжат, ал растр/SVG форматтары нөмірленген бет файлдарын жасайды;
+- қатаң Unicode preflight RU/KK/EN, инженерлік таңбалар, жоқ глифтер және қате қайта кодтауды тексереді; `QPrinter` үшін қаріп енгізу қосылған;
+- жаңа тереңдік пішінінің бастапқы viewport мәні `50 м`, сақталған ауқым басым;
 - пішіндер менеджеріне тікелей «Басып шығару / экспорт» батырмасы қосылды;
-- регрессиялық жинақ: `863 passed, 1 skipped`; Ruff қатесіз өтеді.
+- өзгерістердің регрессиялық тексерулері: `93 passed`; толық assertions жинағы: `872 passed, 1 skipped`; Ruff қатесіз өтеді.
 
 ### English
 
@@ -32,9 +40,13 @@
 - raster files are generated at the real paper dimensions for the selected DPI rather than as window screenshots;
 - preview, physical printing, PDF, SVG, and image export share one page renderer;
 - forms include every visible column, including tracks outside the horizontal viewport, and restore screen widths afterward;
-- page and quality settings persist per active engineer profile;
+- page, pagination, and quality settings persist per active engineer profile;
+- added current/full/custom range modes, units per page, overlap, repeated headers, page ranges, and page numbering;
+- PDF and physical printing create one multi-page document, while raster/SVG outputs create numbered page files;
+- strict Unicode preflight checks RU/KK/EN, engineering symbols, missing glyphs, and mojibake; font embedding is enabled for `QPrinter`;
+- a new depth form starts with a `50 m` viewport while a saved range takes precedence;
 - Form Manager now includes a direct Print / export button;
-- regression suite: `863 passed, 1 skipped`; Ruff passes without errors.
+- changed-area regression checks: `93 passed`; full assertion set: `872 passed, 1 skipped`; Ruff passes without errors.
 
 ## Unreleased — adaptive A4 printing for Form Manager forms
 

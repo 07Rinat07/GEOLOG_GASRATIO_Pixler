@@ -40,9 +40,7 @@ class MasterlogAssetsDialog(QDialog):
         self.symbol_input = QComboBox()
         for symbol in BUILTIN_MASTERLOG_SYMBOLS:
             self.symbol_input.addItem(self.localizer.text(symbol.name_key), symbol.symbol_id)
-        self.add_symbol_button = QPushButton(
-            self.localizer.text("masterlog_assets.add_symbol")
-        )
+        self.add_symbol_button = QPushButton(self.localizer.text("masterlog_assets.add_symbol"))
         close_button = QPushButton(self.localizer.text("common.close"))
         self.delete_button.clicked.connect(self._delete)
         self.rename_button.clicked.connect(self._rename)
@@ -71,9 +69,7 @@ class MasterlogAssetsDialog(QDialog):
         ):
             references = self.controller.image_asset_references(asset.asset_id)
             usage = (
-                self.localizer.text(
-                    "masterlog_assets.used", templates=", ".join(references)
-                )
+                self.localizer.text("masterlog_assets.used", templates=", ".join(references))
                 if references
                 else self.localizer.text("masterlog_assets.unused")
             )
@@ -110,9 +106,7 @@ class MasterlogAssetsDialog(QDialog):
         if item is None:
             return
         try:
-            self.controller.remove_image_asset(
-                str(item.data(Qt.ItemDataRole.UserRole))
-            )
+            self.controller.remove_image_asset(str(item.data(Qt.ItemDataRole.UserRole)))
         except (KeyError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return

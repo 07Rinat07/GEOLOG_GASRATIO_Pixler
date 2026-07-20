@@ -7,9 +7,7 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.masterlog_assets_dialog import MasterlogAssetsDialog
 
 
-def test_masterlog_assets_dialog_lists_renames_and_removes_unused(
-    qapp, monkeypatch
-) -> None:
+def test_masterlog_assets_dialog_lists_renames_and_removes_unused(qapp, monkeypatch) -> None:
     payload = b"\x89PNG\r\n\x1a\nasset"
     digest = sha256(payload).hexdigest()
     asset = ImageAsset(f"sha256:{digest}", "logo.png", "image/png", payload)

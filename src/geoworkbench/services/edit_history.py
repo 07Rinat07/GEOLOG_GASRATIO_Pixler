@@ -29,7 +29,10 @@ class CurveEditCommand:
             raise ValueError("Индексы редактирования должны быть одномерными")
         if self.indices.size == 0:
             raise ValueError("Команда редактирования не может быть пустой")
-        if self.before_values.shape != self.indices.shape or self.after_values.shape != self.indices.shape:
+        if (
+            self.before_values.shape != self.indices.shape
+            or self.after_values.shape != self.indices.shape
+        ):
             raise ValueError("Количество индексов и значений должно совпадать")
         if np.unique(self.indices).size != self.indices.size:
             raise ValueError("Индексы редактирования не должны повторяться")

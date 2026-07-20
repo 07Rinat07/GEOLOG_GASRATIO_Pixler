@@ -76,9 +76,7 @@ def test_formula_dialog_executes_selected_profile(qapp) -> None:
 def test_formula_dialog_uses_english_catalog(qapp) -> None:
     dialog, _ = make_dialog(AppLanguage.EN)
     buttons = dialog.findChild(QDialogButtonBox)
-    dialog.profile_selector.setCurrentIndex(
-        dialog.profile_selector.findData("dexp.jorden_shirley")
-    )
+    dialog.profile_selector.setCurrentIndex(dialog.profile_selector.findData("dexp.jorden_shirley"))
 
     assert dialog.windowTitle() == "Calculation formula profiles"
     assert "Output:" in dialog.passport_label.text()
@@ -86,9 +84,7 @@ def test_formula_dialog_uses_english_catalog(qapp) -> None:
     assert "Normalized indicator of the rate of penetration" in dialog.passport_label.text()
     assert buttons.button(QDialogButtonBox.StandardButton.Ok).text() == "Calculate"
     assert buttons.button(QDialogButtonBox.StandardButton.Cancel).text() == "Cancel"
-    normalized_index = dialog.profile_selector.findData(
-        "gas.normalized_c1_us20140379265"
-    )
+    normalized_index = dialog.profile_selector.findData("gas.normalized_c1_us20140379265")
     assert dialog.profile_selector.itemText(normalized_index) == "Drilling-normalized methane C1"
     reference_index = dialog.profile_selector.findData(
         "gas.normalized_total_reference_us20150060054"
@@ -96,6 +92,9 @@ def test_formula_dialog_uses_english_catalog(qapp) -> None:
     assert dialog.profile_selector.itemText(reference_index) == "Reference-normalized total gas"
     dialog.profile_selector.setCurrentIndex(reference_index)
     assert set(dialog.parameter_editors) == {
-        "ROP_REF_FPH", "BIT_REF_IN", "FLOW_REF_GPM", "GAS_SYSTEM_EFFICIENCY"
+        "ROP_REF_FPH",
+        "BIT_REF_IN",
+        "FLOW_REF_GPM",
+        "GAS_SYSTEM_EFFICIENCY",
     }
     dialog.close()

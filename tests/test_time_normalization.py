@@ -24,9 +24,7 @@ def test_normalizes_utc_and_explicit_offset_to_utc() -> None:
 
 
 def test_naive_time_is_not_silently_treated_as_utc() -> None:
-    result = normalize_iso8601_strings(
-        np.array(["2026-01-01 00:00:00", "2026-01-01 00:00:01"])
-    )
+    result = normalize_iso8601_strings(np.array(["2026-01-01 00:00:00", "2026-01-01 00:00:01"]))
 
     assert result is not None
     assert result.timezone is None
@@ -46,9 +44,7 @@ def test_preserves_empty_values_as_nat() -> None:
 def test_rejects_non_iso_and_mixed_timezone_awareness() -> None:
     assert normalize_iso8601_strings(np.array(["01/02/2026", "not-a-date"])) is None
 
-    mixed = normalize_iso8601_strings(
-        np.array(["2026-01-01T00:00:00Z", "2026-01-01T00:00:01"])
-    )
+    mixed = normalize_iso8601_strings(np.array(["2026-01-01T00:00:00Z", "2026-01-01T00:00:01"]))
     assert mixed is not None
     assert np.all(np.isnat(mixed.values))
     assert "смешаны значения с часовым поясом и без него" in mixed.warnings

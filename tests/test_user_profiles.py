@@ -137,9 +137,7 @@ def test_table_number_formats_persist_per_active_profile() -> None:
     assert settings.table_number_formats() == {}
     profile_format = NumberDisplayFormat(NumberFormatMode.SCIENTIFIC, 3)
     settings.save_table_number_formats({"curve:ic4": profile_format})
-    assert UserProfileSettings(storage).table_number_formats() == {
-        "curve:ic4": profile_format
-    }
+    assert UserProfileSettings(storage).table_number_formats() == {"curve:ic4": profile_format}
     settings.delete(profile.profile_id)
     assert settings.table_number_formats() == {"curve:c2": default_format}
 

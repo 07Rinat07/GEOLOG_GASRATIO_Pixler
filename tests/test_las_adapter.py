@@ -60,7 +60,9 @@ class FakeLas:
 def test_import_las_builds_dataset_with_metadata(tmp_path, monkeypatch) -> None:
     source = tmp_path / "sample.LAS"
     source.write_text("fake", encoding="utf-8")
-    monkeypatch.setattr("geoworkbench.data.las_adapter.lasio.read", lambda *args, **kwargs: FakeLas())
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.lasio.read", lambda *args, **kwargs: FakeLas()
+    )
 
     dataset = import_las(source)
 
@@ -169,10 +171,7 @@ def test_import_report_detects_header_mismatch_and_duplicate_mnemonics(
 def test_import_report_detects_source_section_structure(tmp_path, monkeypatch) -> None:
     source = tmp_path / "sections.las"
     source.write_bytes(
-        b"~V\r\nVERS. 2.0\r\n"
-        b"~W\r\nNULL. -999.25\n"
-        b"~W\nWELL. TEST\n"
-        b"~C\nDEPT.M\nC1.%\n"
+        b"~V\r\nVERS. 2.0\r\n~W\r\nNULL. -999.25\n~W\nWELL. TEST\n~C\nDEPT.M\nC1.%\n"
     )
     monkeypatch.setattr("geoworkbench.data.las_adapter.lasio.read", lambda *a, **k: FakeLas())
 

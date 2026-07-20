@@ -39,7 +39,13 @@ class CsvImportDialog(QDialog):
         self.encoding = QComboBox()
         self.encoding.addItems(["utf-8-sig", "utf-8", "cp1251", "latin-1"])
         self.delimiter = QComboBox()
-        for label, value in ((self._t("common.auto"), None), (";", ";"), (",", ","), ("TAB", "\t"), ("|", "|")):
+        for label, value in (
+            (self._t("common.auto"), None),
+            (";", ";"),
+            (",", ","),
+            ("TAB", "\t"),
+            ("|", "|"),
+        ):
             self.delimiter.addItem(label, value)
         self.index_column = QComboBox()
         self.composite_time = QCheckBox(self._t("import.combine_datetime"))

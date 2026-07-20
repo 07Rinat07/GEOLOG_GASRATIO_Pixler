@@ -211,9 +211,7 @@ class MasterlogSymbolController:
             raise ValueError("Графический ресурс обозначения отсутствует в проекте")
         normalized_anchor = anchor_type.strip().casefold()
         if normalized_anchor not in {"depth", "interval", "parameter", "time"}:
-            raise ValueError(
-                "Привязка обозначения должна быть depth, interval, parameter или time"
-            )
+            raise ValueError("Привязка обозначения должна быть depth, interval, parameter или time")
         normalized_time: str | None = None
         dataset = self.session.current_dataset
         if normalized_anchor == "time":
@@ -301,7 +299,9 @@ class MasterlogSymbolController:
             float(
                 item.bottom_depth
                 if item.bottom_depth is not None
-                else item.top_depth if item.top_depth is not None else item.y
+                else item.top_depth
+                if item.top_depth is not None
+                else item.y
             ),
             str(item.track_id or ""),
             str(item.properties.get("asset_ref", "")),

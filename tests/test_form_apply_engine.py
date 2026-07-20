@@ -27,7 +27,9 @@ def test_form_apply_builds_layout_and_reports_missing_bindings() -> None:
     assert result.layout.tracks[0].kind.value == "depth"
     assert any("TGAS" in track.curve_mnemonics for track in result.layout.tracks)
     assert any("ROP_AVG" in track.curve_mnemonics for track in result.layout.tracks)
-    total_gas_track = next(track for track in result.layout.tracks if "TGAS" in track.curve_mnemonics)
+    total_gas_track = next(
+        track for track in result.layout.tracks if "TGAS" in track.curve_mnemonics
+    )
     assert total_gas_track.curve_display_settings("TGAS").display_name == "Суммарный газ"
     assert result.resolved_count == 3
     assert {item.canonical_parameter_id for item in result.missing} == {

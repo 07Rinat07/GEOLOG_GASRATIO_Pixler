@@ -38,13 +38,17 @@ class DepthAxisController:
     def can_redo_ascending_copy(self) -> bool:
         well = self.session.current_well
         result = self._ascending_dataset
-        return bool(well is not None and result is not None and result.dataset_id not in well.datasets)
+        return bool(
+            well is not None and result is not None and result.dataset_id not in well.datasets
+        )
 
     @property
     def can_redo_resample(self) -> bool:
         well = self.session.current_well
         result = self._resampled_dataset
-        return bool(well is not None and result is not None and result.dataset_id not in well.datasets)
+        return bool(
+            well is not None and result is not None and result.dataset_id not in well.datasets
+        )
 
     def analyze_current(self) -> DepthAxisReport:
         return analyze_depth_axis(self._require_dataset().depth)

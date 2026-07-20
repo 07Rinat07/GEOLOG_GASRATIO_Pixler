@@ -37,9 +37,7 @@ class DescriptionTemplatesDialog(QDialog):
         root = QVBoxLayout(self)
         self.table = QTableWidget(0, 2)
         self.table.setObjectName("description-templates-table")
-        self.table.setHorizontalHeaderLabels(
-            [self._t("templates.name"), self._t("templates.text")]
-        )
+        self.table.setHorizontalHeaderLabels([self._t("templates.name"), self._t("templates.text")])
         self.table.itemSelectionChanged.connect(self._load_selected)
         root.addWidget(self.table)
         form = QFormLayout()
@@ -60,9 +58,7 @@ class DescriptionTemplatesDialog(QDialog):
             actions.addWidget(button)
         root.addLayout(actions)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
-            self._t("common.close")
-        )
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
@@ -93,9 +89,7 @@ class DescriptionTemplatesDialog(QDialog):
 
     def _add(self) -> None:
         self._run(
-            lambda: self.controller.add(
-                self.name_input.text(), self.text_input.toPlainText()
-            )
+            lambda: self.controller.add(self.name_input.text(), self.text_input.toPlainText())
         )
 
     def _update(self) -> None:

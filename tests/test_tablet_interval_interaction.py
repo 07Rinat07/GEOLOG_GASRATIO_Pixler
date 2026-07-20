@@ -55,9 +55,7 @@ def make_view(qapp) -> TabletView:
 
 
 def test_interval_interaction_helpers_snap_normalize_and_choose_edge() -> None:
-    interval = InterpretationInterval(
-        "interval", 100.0, 140.0, "Reservoir", "A", "#fde68a"
-    )
+    interval = InterpretationInterval("interval", 100.0, 140.0, "Reservoir", "A", "#fde68a")
 
     assert snap_depth_to_samples(107.0, [100.0, 110.0, 120.0]) == 110.0
     assert normalize_drag_range(140.0, 100.0).top_depth == 100.0

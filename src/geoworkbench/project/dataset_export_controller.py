@@ -40,8 +40,7 @@ class DatasetExportController:
             raise KeyError(f"Кривые не найдены: {', '.join(missing)}")
         mnemonics = tuple(
             dict.fromkeys(
-                dataset.curves[curve_id].metadata.original_mnemonic
-                for curve_id in curve_ids
+                dataset.curves[curve_id].metadata.original_mnemonic for curve_id in curve_ids
             )
         )
         profile = ExportProfile(new_id(), normalized_name, mnemonics)
@@ -187,16 +186,10 @@ class DatasetExportController:
         )
 
     def export_current_json(self, target: Path, *, overwrite: bool = False) -> Path:
-        return export_dataset_json(
-            self._require_current_dataset(), target, overwrite=overwrite
-        )
+        return export_dataset_json(self._require_current_dataset(), target, overwrite=overwrite)
 
-    def export_current_parquet(
-        self, target: Path, *, overwrite: bool = False
-    ) -> Path:
-        return export_dataset_parquet(
-            self._require_current_dataset(), target, overwrite=overwrite
-        )
+    def export_current_parquet(self, target: Path, *, overwrite: bool = False) -> Path:
+        return export_dataset_parquet(self._require_current_dataset(), target, overwrite=overwrite)
 
     def _require_current_dataset(self) -> Dataset:
         dataset = self.session.current_dataset

@@ -219,9 +219,7 @@ _FAMILY_BY_MNEMONIC: dict[str, CurveFamily] = {
 _FAMILY_PRIORITY = {family: index for index, family in enumerate(CurveFamily)}
 
 
-def _catalog_match(
-    curve: CurveData, catalog: SensorCatalog | None = None
-) -> SensorMatch | None:
+def _catalog_match(curve: CurveData, catalog: SensorCatalog | None = None) -> SensorMatch | None:
     metadata = curve.metadata
     if catalog is None:
         return None
@@ -241,9 +239,7 @@ def _catalog_match(
     return match
 
 
-def classify_curve(
-    curve: CurveData, catalog: SensorCatalog | None = None
-) -> CurveCategory:
+def classify_curve(curve: CurveData, catalog: SensorCatalog | None = None) -> CurveCategory:
     match = _catalog_match(curve, catalog)
     if match is not None:
         try:
@@ -265,9 +261,7 @@ def classify_curve(
     return CurveCategory.OTHER
 
 
-def classify_curve_family(
-    curve: CurveData, catalog: SensorCatalog | None = None
-) -> CurveFamily:
+def classify_curve_family(curve: CurveData, catalog: SensorCatalog | None = None) -> CurveFamily:
     match = _catalog_match(curve, catalog)
     if match is not None:
         try:
@@ -293,7 +287,9 @@ def analyze_dataset_curves(
         match = _catalog_match(curve, reference) if reference is not None else None
         definition = match.definition if match is not None else None
         description = (metadata.description or "").strip()
-        if definition is not None and (not description or description == metadata.original_mnemonic):
+        if definition is not None and (
+            not description or description == metadata.original_mnemonic
+        ):
             description = definition.name_ru
         unit = (metadata.unit or "").strip()
         if definition is not None and not unit:
@@ -351,9 +347,7 @@ def recommended_curve_mnemonics(
 
     if maximum <= 0:
         return []
-    entries = [
-        item for item in analyze_dataset_curves(dataset, catalog) if item.valid_count > 0
-    ]
+    entries = [item for item in analyze_dataset_curves(dataset, catalog) if item.valid_count > 0]
     buckets: dict[CurveCategory, list[CurveCatalogEntry]] = {
         category: [item for item in entries if item.category is category]
         for category in CurveCategory

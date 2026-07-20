@@ -19,9 +19,7 @@ def test_inspector_emits_edited_track_settings(qapp) -> None:
     inspector.settings_requested.connect(lambda *args: emitted.append(args))
     inspector.show_track(track)
     inspector.width_input.setValue(360)
-    inspector.scale_input.setCurrentIndex(
-        inspector.scale_input.findData(XScale.LOGARITHMIC.value)
-    )
+    inspector.scale_input.setCurrentIndex(inspector.scale_input.findData(XScale.LOGARITHMIC.value))
     inspector.auto_range_input.setChecked(False)
     inspector.minimum_input.setValue(0.1)
     inspector.maximum_input.setValue(1000.0)
@@ -143,9 +141,7 @@ def test_inspector_edits_track_grid(qapp) -> None:
 
 def test_inspector_edits_x_axis_label(qapp) -> None:
     inspector = TrackInspector(language=AppLanguage.EN)
-    track = TrackDefinition(
-        "curve", "Curve", TrackKind.CURVE, x_axis_label="ROP, m/h"
-    )
+    track = TrackDefinition("curve", "Curve", TrackKind.CURVE, x_axis_label="ROP, m/h")
     emitted: list[tuple[object, ...]] = []
     inspector.x_axis_label_requested.connect(lambda *args: emitted.append(args))
 

@@ -36,9 +36,7 @@ class CurveTransferController:
         return bool(self._redo_stack)
 
     def analyze(self, source_dataset_id: str) -> CurveTransferAnalysis:
-        return analyze_curve_transfer(
-            self._dataset(source_dataset_id), self._target_dataset()
-        )
+        return analyze_curve_transfer(self._dataset(source_dataset_id), self._target_dataset())
 
     def available_sources(self) -> tuple[Dataset, ...]:
         target = self._target_dataset()
@@ -80,9 +78,7 @@ class CurveTransferController:
             raise RuntimeError("Нет вставки кривых для отмены")
         command = self._undo_stack[-1]
         target = self._require_command_target(command)
-        for curve, initial_values in zip(
-            command.curves, command.initial_values, strict=True
-        ):
+        for curve, initial_values in zip(command.curves, command.initial_values, strict=True):
             if target.curves.get(curve.metadata.curve_id) is not curve:
                 raise RuntimeError("Вставленная кривая была изменена вне истории команд")
             if curve.version != 1 or not np.array_equal(

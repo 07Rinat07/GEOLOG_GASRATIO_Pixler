@@ -1,6 +1,11 @@
 from geoworkbench.forms.binding_editor import TrackBindingEditor
 from geoworkbench.forms.editor import FormStructureEditor
-from geoworkbench.forms.codec import FORM_SCHEMA_VERSION, FormFormatError, form_from_dict, form_to_dict
+from geoworkbench.forms.codec import (
+    FORM_SCHEMA_VERSION,
+    FormFormatError,
+    form_from_dict,
+    form_to_dict,
+)
 from geoworkbench.forms.models import (
     FormAxisKind,
     FormColumn,
@@ -44,4 +49,3 @@ __all__ = [
     "form_from_dict",
     "form_to_dict",
 ]
-

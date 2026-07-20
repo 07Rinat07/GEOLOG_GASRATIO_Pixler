@@ -8,16 +8,12 @@ from geoworkbench.project.session import ProjectSession
 
 def make_controller() -> tuple[CurveTransferController, Dataset, Dataset]:
     session = ProjectSession()
-    source = Dataset(
-        "source", "GIS", DatasetKind.GIS, DepthDomain.MD, np.array([100.0, 101.0])
-    )
+    source = Dataset("source", "GIS", DatasetKind.GIS, DepthDomain.MD, np.array([100.0, 101.0]))
     source.curves["gr"] = CurveData(
         CurveMetadata("gr", "GR", "GR", "API", None, source.dataset_id),
         np.array([10.0, 20.0]),
     )
-    target = Dataset(
-        "target", "GTI", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 101.0])
-    )
+    target = Dataset("target", "GTI", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 101.0]))
     session.add_dataset(source)
     session.add_dataset(target)
     session.dirty = False
@@ -42,9 +38,7 @@ def test_controller_applies_transfer_atomically_and_supports_history() -> None:
 
 def test_controller_blocks_undo_after_transferred_values_are_edited() -> None:
     controller, source, _ = make_controller()
-    curve = controller.apply(
-        source.dataset_id, ("gr",), controller.analyze(source.dataset_id)
-    )[0]
+    curve = controller.apply(source.dataset_id, ("gr",), controller.analyze(source.dataset_id))[0]
     curve.values[0] = 99.0
     curve.version += 1
 

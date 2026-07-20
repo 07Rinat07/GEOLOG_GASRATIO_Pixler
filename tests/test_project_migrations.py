@@ -53,7 +53,9 @@ def test_v8_project_migrates_with_empty_custom_formulas() -> None:
     payload = {
         "format_version": 8,
         "project": {"project_id": "p", "name": "Project", "wells": {}},
-        "tablet_layouts": {}, "source_artifacts": {}, "import_reports": {},
+        "tablet_layouts": {},
+        "source_artifacts": {},
+        "import_reports": {},
     }
 
     migrated = migrate_project_payload(payload, 9)
@@ -136,11 +138,7 @@ def test_registry_rejects_unsupported_or_invalid_version(version: object) -> Non
 def test_v14_project_adds_empty_interpretations_to_every_well() -> None:
     payload = {
         "format_version": 14,
-        "project": {
-            "wells": {
-                "well-1": {"well_id": "well-1", "name": "Well 1", "datasets": {}}
-            }
-        },
+        "project": {"wells": {"well-1": {"well_id": "well-1", "name": "Well 1", "datasets": {}}}},
     }
 
     migrated = migrate_project_payload(payload, 15)

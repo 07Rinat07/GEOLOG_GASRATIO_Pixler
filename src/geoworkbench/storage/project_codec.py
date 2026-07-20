@@ -328,9 +328,7 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
                 intervals=[InterpretationInterval(**interval) for interval in raw_intervals],
             )
         except (TypeError, ValueError) as exc:
-            raise ProjectFormatError(
-                f"Некорректная интерпретация '{interpretation_id}'"
-            ) from exc
+            raise ProjectFormatError(f"Некорректная интерпретация '{interpretation_id}'") from exc
         if interpretation.interpretation_id != interpretation_id:
             raise ProjectFormatError(
                 f"ID интерпретации '{interpretation_id}' не совпадает с содержимым"
@@ -364,8 +362,7 @@ def project_from_dict(data: dict[str, Any]) -> Project:
         project.lithotypes[lithotype_id] = record
     raw_templates = data.get("description_templates", {})
     if not isinstance(raw_templates, dict) or not all(
-        isinstance(name, str) and isinstance(text, str)
-        for name, text in raw_templates.items()
+        isinstance(name, str) and isinstance(text, str) for name, text in raw_templates.items()
     ):
         raise ProjectFormatError("Поле 'description_templates' должно быть строковым объектом")
     project.description_templates = dict(raw_templates)
@@ -377,8 +374,7 @@ def project_from_dict(data: dict[str, Any]) -> Project:
             raise ProjectFormatError("Запись шаблона мастерлога имеет неверный формат")
         try:
             header_elements = [
-                MasterlogHeaderElement(**element)
-                for element in item.get("header_elements", [])
+                MasterlogHeaderElement(**element) for element in item.get("header_elements", [])
             ]
             columns = []
             for column in item.get("columns", []):
@@ -406,9 +402,7 @@ def project_from_dict(data: dict[str, Any]) -> Project:
                 version=int(item.get("version", 1)),
             )
         except (TypeError, ValueError) as exc:
-            raise ProjectFormatError(
-                f"Некорректный шаблон мастерлога '{template_id}'"
-            ) from exc
+            raise ProjectFormatError(f"Некорректный шаблон мастерлога '{template_id}'") from exc
         if template.template_id != template_id:
             raise ProjectFormatError(
                 f"ID шаблона мастерлога '{template_id}' не совпадает с содержимым"
@@ -445,9 +439,7 @@ def project_from_dict(data: dict[str, Any]) -> Project:
                 curve_mnemonics=tuple(raw_mnemonics),
             )
         except ValueError as exc:
-            raise ProjectFormatError(
-                f"Некорректный профиль экспорта '{profile_id}'"
-            ) from exc
+            raise ProjectFormatError(f"Некорректный профиль экспорта '{profile_id}'") from exc
         if profile.profile_id != profile_id:
             raise ProjectFormatError(
                 f"ID профиля экспорта '{profile_id}' не совпадает с содержимым"
@@ -537,9 +529,7 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
         try:
             presets[name] = layout_from_dict(raw_layout)
         except TabletLayoutFormatError as exc:
-            raise ProjectFormatError(
-                f"Некорректный шаблон планшета '{name}'"
-            ) from exc
+            raise ProjectFormatError(f"Некорректный шаблон планшета '{name}'") from exc
     try:
         artifact_manifest = validate_artifact_manifest(data.get("source_artifacts", {}))
     except SourceArtifactError as exc:
@@ -562,9 +552,7 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
     if unknown_report_ids:
         unknown = ", ".join(sorted(unknown_report_ids))
         raise ProjectFormatError(f"Import report ссылается на неизвестный набор: {unknown}")
-    return ProjectDocument(
-        project, layouts, presets, import_reports=reports
-    )
+    return ProjectDocument(project, layouts, presets, import_reports=reports)
 
 
 def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> ProjectDocument:

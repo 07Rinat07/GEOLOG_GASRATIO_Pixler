@@ -50,9 +50,7 @@ class InterpretationController:
             self.selected_interval_id = None
         return interpretation
 
-    def select_interval(
-        self, interpretation_id: str, interval_id: str
-    ) -> InterpretationInterval:
+    def select_interval(self, interpretation_id: str, interval_id: str) -> InterpretationInterval:
         interpretation = self.select_interpretation(interpretation_id)
         for interval in interpretation.intervals:
             if interval.interval_id == interval_id:
@@ -94,9 +92,7 @@ class InterpretationController:
         *,
         description: str | None = None,
     ) -> WellInterpretation:
-        normalized_name, normalized_description = self._validate_interpretation(
-            name, description
-        )
+        normalized_name, normalized_description = self._validate_interpretation(name, description)
         well = self._require_well()
         if any(
             item.name.casefold() == normalized_name.casefold()
@@ -122,9 +118,7 @@ class InterpretationController:
         name: str,
         description: str | None = None,
     ) -> WellInterpretation:
-        normalized_name, normalized_description = self._validate_interpretation(
-            name, description
-        )
+        normalized_name, normalized_description = self._validate_interpretation(name, description)
         well = self._require_well()
         interpretation = self._require_interpretation(interpretation_id)
         if any(

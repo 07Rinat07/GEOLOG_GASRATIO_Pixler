@@ -22,9 +22,7 @@ from geoworkbench.domain.models import (
 
 
 def make_dataset() -> Dataset:
-    dataset = Dataset(
-        "dataset", "Logging", DatasetKind.GTI, DepthDomain.MD, np.array([1.0, 2.0])
-    )
+    dataset = Dataset("dataset", "Logging", DatasetKind.GTI, DepthDomain.MD, np.array([1.0, 2.0]))
     dataset.add_index(
         DatasetIndex(
             "time",

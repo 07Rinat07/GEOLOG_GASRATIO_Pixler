@@ -150,7 +150,9 @@ class HeaderEditingController:
             or report.duplicate_count
             or report.direction not in {DepthDirection.ASCENDING, DepthDirection.DESCENDING}
         ):
-            raise ValueError("Синхронизация доступна только для конечной равномерной монотонной глубины")
+            raise ValueError(
+                "Синхронизация доступна только для конечной равномерной монотонной глубины"
+            )
         signed_step = (
             -report.nominal_step
             if report.direction is DepthDirection.DESCENDING
@@ -186,6 +188,7 @@ class HeaderEditingController:
         values = self._values(section)
         if key in values:
             raise ValueError(f"Мнемоника уже существует: {key}")
+
         def apply() -> None:
             values[key] = normalized_value
             if section is HeaderSection.WELL and key == "WELL":

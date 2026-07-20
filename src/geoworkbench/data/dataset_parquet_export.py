@@ -40,7 +40,11 @@ def export_dataset_parquet(
     for index_id, index in dataset.indexes.items():
         name = _unique_column_name(index.mnemonic, index_id, names)
         names.append(name)
-        values = index.values.astype("datetime64[ns]") if index.index_type is IndexType.DATETIME else _nullable_numbers(index.values)
+        values = (
+            index.values.astype("datetime64[ns]")
+            if index.index_type is IndexType.DATETIME
+            else _nullable_numbers(index.values)
+        )
         arrays.append(pa.array(values, from_pandas=True))
         column_metadata[name] = {
             "kind": "index",

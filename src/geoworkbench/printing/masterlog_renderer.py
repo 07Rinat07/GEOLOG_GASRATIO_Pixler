@@ -458,9 +458,7 @@ def masterlog_lithology_legend_entries(
     language: AppLanguage,
     scope: str = "used",
 ) -> tuple[LithologyLegendEntry, ...]:
-    catalog = {
-        item.lithotype_id: item for item in LithotypeCatalogController(session).available()
-    }
+    catalog = {item.lithotype_id: item for item in LithotypeCatalogController(session).available()}
     return _masterlog_lithology_legend_entries(
         session,
         depth_range,
@@ -504,9 +502,7 @@ def _masterlog_lithology_legend_entries(
                 if sample.bottom_depth < top or sample.top_depth > bottom:
                     continue
                 for component_index, component in enumerate(sample.components, start=1):
-                    events.append(
-                        (sample.top_depth, component_index, component.lithotype_id)
-                    )
+                    events.append((sample.top_depth, component_index, component.lithotype_id))
         lithotype_ids = []
         seen: set[str] = set()
         for _, _, lithotype_id in sorted(events):
@@ -549,9 +545,7 @@ def _paint_lithology_legend(
 ) -> None:
     raw_columns = properties.get("columns", 4)
     columns = (
-        raw_columns
-        if isinstance(raw_columns, int) and not isinstance(raw_columns, bool)
-        else 4
+        raw_columns if isinstance(raw_columns, int) and not isinstance(raw_columns, bool) else 4
     )
     columns = max(1, min(columns, 12, max(1, len(entries))))
     raw_size = properties.get("font_size_mm", 2.6)
@@ -667,13 +661,9 @@ def _paint_columns(
             elif column.column_type == "stratigraphy":
                 _paint_stratigraphy_column(painter, plot_rect, session, depth_range)
             elif column.column_type == "lithology":
-                _paint_lithology_column(
-                    painter, plot_rect, session, depth_range, lithotype_catalog
-                )
+                _paint_lithology_column(painter, plot_rect, session, depth_range, lithotype_catalog)
             elif column.column_type == "cuttings":
-                _paint_cuttings_column(
-                    painter, plot_rect, session, depth_range, lithotype_catalog
-                )
+                _paint_cuttings_column(painter, plot_rect, session, depth_range, lithotype_catalog)
             elif column.column_type == "cuttings_description":
                 _paint_cuttings_descriptions(painter, plot_rect, session, depth_range)
             elif column.column_type == "analysis_interpretation":
@@ -738,13 +728,9 @@ def _paint_column_grid(
                     else rect.top() + rect.height() * sub_fraction
                 )
                 if vertical:
-                    painter.drawLine(
-                        QLineF(sub_position, rect.top(), sub_position, rect.bottom())
-                    )
+                    painter.drawLine(QLineF(sub_position, rect.top(), sub_position, rect.bottom()))
                 else:
-                    painter.drawLine(
-                        QLineF(rect.left(), sub_position, rect.right(), sub_position)
-                    )
+                    painter.drawLine(QLineF(rect.left(), sub_position, rect.right(), sub_position))
 
     if column.grid_x:
         draw_axis(True)

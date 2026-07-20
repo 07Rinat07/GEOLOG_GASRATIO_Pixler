@@ -3,8 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-# Standard depth windows shown in the tablet toolbar.  They describe how
-# many metres of the well are visible at once, not the sampling step.
+# Default visible depth window for a newly opened form. The value is expressed
+# in metres and converted to the active depth-axis unit below. A saved form
+# viewport always has priority over this application default.
+DEFAULT_DEPTH_VIEW_SPAN_METRES = 50.0
+
+# Standard depth windows shown in the tablet toolbar. They describe how many
+# metres of the well are visible at once, not the sampling step.
 DEPTH_VIEW_SPAN_PRESETS: tuple[float, ...] = (
     1.0,
     5.0,
@@ -19,7 +24,6 @@ DEPTH_VIEW_SPAN_PRESETS: tuple[float, ...] = (
     90.0,
     100.0,
 )
-
 
 
 def recommended_initial_span(
@@ -51,15 +55,26 @@ def recommended_initial_span(
             target = 0.5
         else:
             target = 30.0 * 60.0
-    elif normalized_unit in {"ft", "feet", "foot", "фут"}:
-        target = 500.0
-    elif normalized_unit in {"cm", "сm", "см"}:
-        target = 20_000.0
+    elif normalized_unit in {"ft", "feet", "foot", "фут", "футы"}:
+        # Keep the same physical 50 m window for LAS files whose depth is in feet.
+        target = DEFAULT_DEPTH_VIEW_SPAN_METRES / 0.3048
+    elif normalized_unit in {"cm", "сm", "см", "centimetre", "centimeter"}:
+        target = DEFAULT_DEPTH_VIEW_SPAN_METRES * 100.0
+    elif normalized_unit in {"mm", "мм", "millimetre", "millimeter"}:
+        target = DEFAULT_DEPTH_VIEW_SPAN_METRES * 1000.0
     else:
-        target = 200.0
+        # Metres are the application default for depth axes, including LAS files
+        # with an empty or localized unit label.
+        target = DEFAULT_DEPTH_VIEW_SPAN_METRES
 
-    # Avoid a nearly-full viewport that leaves only a tiny scrollable remainder.
-    return span if span <= target * 1.25 else target
+    if is_time or is_datetime:
+        # For time axes retain the earlier tolerance so a nearly complete short
+        # recording is not needlessly clipped by a tiny remainder.
+        return span if span <= target * 1.25 else target
+
+    # A depth dataset longer than 50 m must open in an actual 50 m window. Using
+    # a 1.25 tolerance here made 51-62.5 m datasets silently ignore the default.
+    return span if span <= target else target
 
 
 def recommended_initial_range(
@@ -76,7 +91,6 @@ def recommended_initial_range(
         span, is_time=is_time, is_datetime=is_datetime, unit=unit
     )
     return domain_top, min(domain_bottom, domain_top + initial_span)
-
 
 
 @dataclass(slots=True)

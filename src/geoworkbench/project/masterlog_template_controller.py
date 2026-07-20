@@ -306,12 +306,8 @@ class MasterlogTemplateController:
             existing.curve_styles if curve_styles is None else curve_styles,
             existing.grid_x if grid_x is None else grid_x,
             existing.grid_y if grid_y is None else grid_y,
-            existing.grid_major_divisions
-            if grid_major_divisions is None
-            else grid_major_divisions,
-            existing.grid_minor_divisions
-            if grid_minor_divisions is None
-            else grid_minor_divisions,
+            existing.grid_major_divisions if grid_major_divisions is None else grid_major_divisions,
+            existing.grid_minor_divisions if grid_minor_divisions is None else grid_minor_divisions,
             existing.grid_alpha if grid_alpha is None else grid_alpha,
         )
         column.properties = deepcopy(existing.properties)
@@ -486,8 +482,7 @@ class MasterlogTemplateController:
         supported_types = {"text", "field", "image", "line", "lithology_legend"}
         if not element_id or normalized_type not in supported_types:
             raise ValueError(
-                "Тип элемента шапки должен быть text, field, image, line "
-                "или lithology_legend"
+                "Тип элемента шапки должен быть text, field, image, line или lithology_legend"
             )
         values = (x_mm, y_mm, width_mm, height_mm)
         if any(

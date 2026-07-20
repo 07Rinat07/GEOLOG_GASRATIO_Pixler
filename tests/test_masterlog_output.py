@@ -14,14 +14,10 @@ def test_masterlog_output_settings_validate_interval_and_language() -> None:
 
 
 def test_masterlog_output_dialog_returns_selected_interval_and_language(qapp) -> None:
-    dialog = MasterlogOutputDialog(
-        (100.0, 300.0), language=AppLanguage.EN
-    )
+    dialog = MasterlogOutputDialog((100.0, 300.0), language=AppLanguage.EN)
     dialog.top_input.setValue(125.0)
     dialog.bottom_input.setValue(250.0)
-    dialog.language_input.setCurrentIndex(
-        dialog.language_input.findData(AppLanguage.KK.value)
-    )
+    dialog.language_input.setCurrentIndex(dialog.language_input.findData(AppLanguage.KK.value))
 
     assert dialog.windowTitle() == "Masterlog output settings"
     assert dialog.settings() == MasterlogOutputSettings(125.0, 250.0, AppLanguage.KK)

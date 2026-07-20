@@ -105,7 +105,12 @@ class SelectionManager:
             self._revision += 1
         return changed
 
-    def replace(self, items: list[SelectionRef] | tuple[SelectionRef, ...], *, primary: SelectionRef | None = None) -> bool:
+    def replace(
+        self,
+        items: list[SelectionRef] | tuple[SelectionRef, ...],
+        *,
+        primary: SelectionRef | None = None,
+    ) -> bool:
         unique: list[SelectionRef] = []
         for item in items:
             if item not in unique:

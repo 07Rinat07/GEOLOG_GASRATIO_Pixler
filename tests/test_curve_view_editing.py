@@ -42,9 +42,7 @@ def test_curve_view_converts_draw_points_to_edit_request(qapp) -> None:
     view.show_dataset(dataset, ["ROP"])
     assert view.set_edit_mode(True) is True
 
-    committed = view.commit_draw_points(
-        [DrawPoint(100.0, 10.0), DrawPoint(102.0, 30.0)]
-    )
+    committed = view.commit_draw_points([DrawPoint(100.0, 10.0), DrawPoint(102.0, 30.0)])
     qapp.processEvents()
 
     assert committed is True
@@ -96,9 +94,7 @@ def test_curve_view_prefers_compatible_gas_curves_and_distinct_colors(qapp) -> N
 
     assert view.displayed_mnemonics == ("TGAS", "C1", "C2")
     assert "LITH_CODE" not in view.displayed_mnemonics
-    colors = {
-        item.opts["pen"].color().name() for item in view._curve_items.values()
-    }
+    colors = {item.opts["pen"].color().name() for item in view._curve_items.values()}
     assert len(colors) == 3
     assert view._plot.getAxis("left").autoSIPrefix is False
     view.close()
@@ -193,9 +189,7 @@ def test_curve_view_accepts_dataset_without_curves(qapp) -> None:
 
 def test_curve_view_limits_screen_points_but_preserves_peak(qapp) -> None:
     depth = np.arange(100_000, dtype=np.float64)
-    dataset = Dataset(
-        "large", "Large", DatasetKind.GTI, DepthDomain.MD, depth
-    )
+    dataset = Dataset("large", "Large", DatasetKind.GTI, DepthDomain.MD, depth)
     values = np.zeros_like(depth)
     values[54_321] = 1234.0
     curve = CurveData(

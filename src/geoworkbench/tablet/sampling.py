@@ -62,9 +62,7 @@ def _collapse_duplicate_axis_samples(
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     if axis.size < 2 or not np.any(axis[1:] == axis[:-1]):
         return axis, values
-    unique_axis, starts, counts = np.unique(
-        axis, return_index=True, return_counts=True
-    )
+    unique_axis, starts, counts = np.unique(axis, return_index=True, return_counts=True)
     sums = np.add.reduceat(values, starts)
     averaged_values = sums / counts
     return unique_axis.astype(np.float64, copy=False), averaged_values.astype(
@@ -72,9 +70,7 @@ def _collapse_duplicate_axis_samples(
     )
 
 
-def _peak_preserving_positions(
-    values: NDArray[np.float64], max_points: int
-) -> NDArray[np.int64]:
+def _peak_preserving_positions(values: NDArray[np.float64], max_points: int) -> NDArray[np.int64]:
     count = values.size
     if count <= max_points:
         return np.arange(count, dtype=np.int64)

@@ -24,15 +24,41 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 _MAPPING_HEADERS = {
-    AppLanguage.RU: ("Роль", "Кривая", "Curve ID", "Единица", "Происхождение", "Состояние", "отсутствует"),
+    AppLanguage.RU: (
+        "Роль",
+        "Кривая",
+        "Curve ID",
+        "Единица",
+        "Происхождение",
+        "Состояние",
+        "отсутствует",
+    ),
     AppLanguage.EN: ("Role", "Curve", "Curve ID", "Unit", "Provenance", "State", "missing"),
     AppLanguage.KK: ("Рөлі", "Қисық", "Curve ID", "Бірлік", "Шығу тегі", "Күйі", "жоқ"),
 }
 
 _STATE_TEXT = {
-    AppLanguage.RU: {"current": "актуально", "stale": "устарело", "calculating": "рассчитывается", "error": "ошибка", "frozen": "зафиксировано"},
-    AppLanguage.EN: {"current": "current", "stale": "stale", "calculating": "calculating", "error": "error", "frozen": "frozen"},
-    AppLanguage.KK: {"current": "өзекті", "stale": "ескірген", "calculating": "есептелуде", "error": "қате", "frozen": "бекітілген"},
+    AppLanguage.RU: {
+        "current": "актуально",
+        "stale": "устарело",
+        "calculating": "рассчитывается",
+        "error": "ошибка",
+        "frozen": "зафиксировано",
+    },
+    AppLanguage.EN: {
+        "current": "current",
+        "stale": "stale",
+        "calculating": "calculating",
+        "error": "error",
+        "frozen": "frozen",
+    },
+    AppLanguage.KK: {
+        "current": "өзекті",
+        "stale": "ескірген",
+        "calculating": "есептелуде",
+        "error": "қате",
+        "frozen": "бекітілген",
+    },
 }
 
 
@@ -174,9 +200,7 @@ class FormulaExecutionDialog(QDialog):
                     curve.metadata.curve_id if curve is not None else missing,
                     (curve.metadata.unit or "—") if curve is not None else "—",
                     curve.metadata.provenance if curve is not None else "—",
-                    _STATE_TEXT[self.language][curve.state.value]
-                    if curve is not None
-                    else missing,
+                    _STATE_TEXT[self.language][curve.state.value] if curve is not None else missing,
                 )
             )
         output = self.dataset.curve_by_mnemonic(passport.output_mnemonic)
@@ -185,11 +209,11 @@ class FormulaExecutionDialog(QDialog):
                 self._t("formula.output"),
                 passport.output_mnemonic,
                 output.metadata.curve_id if output is not None else missing,
-                (output.metadata.unit or passport.output_unit) if output is not None else passport.output_unit,
-                output.metadata.provenance if output is not None else "—",
-                _STATE_TEXT[self.language][output.state.value]
+                (output.metadata.unit or passport.output_unit)
                 if output is not None
-                else missing,
+                else passport.output_unit,
+                output.metadata.provenance if output is not None else "—",
+                _STATE_TEXT[self.language][output.state.value] if output is not None else missing,
             )
         )
         self.mapping_details.setRowCount(len(rows))

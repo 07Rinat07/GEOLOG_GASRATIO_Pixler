@@ -39,9 +39,7 @@ def test_visualization_export_writes_valid_pdf(qapp, tmp_path) -> None:
     target = export_widget_pdf(
         widget,
         tmp_path / "plot.pdf",
-        page_settings=PrintPageSettings(
-            PrintPageFormat.A3, PrintOrientation.LANDSCAPE
-        ),
+        page_settings=PrintPageSettings(PrintPageFormat.A3, PrintOrientation.LANDSCAPE),
     )
 
     payload = target.read_bytes()

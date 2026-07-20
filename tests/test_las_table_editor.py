@@ -96,12 +96,8 @@ def test_table_model_applies_persistent_format_by_curve_mnemonic(qapp) -> None:
 
 
 def test_number_format_dialog_updates_preview(qapp) -> None:
-    dialog = NumberFormatDialog(
-        ["C2 [PCT]"], NumberDisplayFormat(), language=AppLanguage.EN
-    )
-    dialog.mode_input.setCurrentIndex(
-        dialog.mode_input.findData(NumberFormatMode.SCIENTIFIC)
-    )
+    dialog = NumberFormatDialog(["C2 [PCT]"], NumberDisplayFormat(), language=AppLanguage.EN)
+    dialog.mode_input.setCurrentIndex(dialog.mode_input.findData(NumberFormatMode.SCIENTIFIC))
     dialog.precision_input.setValue(3)
 
     assert dialog.value() == NumberDisplayFormat(NumberFormatMode.SCIENTIFIC, 3)
@@ -110,9 +106,7 @@ def test_number_format_dialog_updates_preview(qapp) -> None:
     dialog.close()
 
 
-def test_table_editor_configures_selected_columns_and_emits_settings(
-    qapp, monkeypatch
-) -> None:
+def test_table_editor_configures_selected_columns_and_emits_settings(qapp, monkeypatch) -> None:
     editor, dataset = make_editor()
     editor.set_dataset(dataset)
     model = editor.model

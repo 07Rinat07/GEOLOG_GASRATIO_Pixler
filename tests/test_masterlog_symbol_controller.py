@@ -22,15 +22,17 @@ SVG = b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect wid
 
 
 def make_controller() -> MasterlogSymbolController:
-    dataset = Dataset(
-        "dataset", "Log", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 200.0])
-    )
+    dataset = Dataset("dataset", "Log", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 200.0]))
     session = ProjectSession()
     session.add_dataset(dataset, "Well")
     dataset.upsert_curve("TG", np.array([1.0, 100.0]))
     dataset.add_index(
         DatasetIndex(
-            "time", "TIME", IndexType.DATETIME, IndexRole.TIME, "UTC",
+            "time",
+            "TIME",
+            IndexType.DATETIME,
+            IndexRole.TIME,
+            "UTC",
             np.array(["2026-07-15T05:00:00", "2026-07-15T05:00:10"], dtype="datetime64[ns]"),
             timezone="UTC",
         )
@@ -90,18 +92,30 @@ def test_masterlog_symbol_validates_references_range_and_history() -> None:
     asset_ref = next(iter(controller.session.image_assets))
     with pytest.raises(ValueError, match="Колонка"):
         controller.add(
-            "standard", depth=150.0, column_id="missing", asset_ref=asset_ref,
-            width_mm=8.0, height_mm=8.0,
+            "standard",
+            depth=150.0,
+            column_id="missing",
+            asset_ref=asset_ref,
+            width_mm=8.0,
+            height_mm=8.0,
         )
     with pytest.raises(ValueError, match="вне"):
         controller.add(
-            "standard", depth=250.0, column_id="gas", asset_ref=asset_ref,
-            width_mm=8.0, height_mm=8.0,
+            "standard",
+            depth=250.0,
+            column_id="gas",
+            asset_ref=asset_ref,
+            width_mm=8.0,
+            height_mm=8.0,
         )
 
     created = controller.add(
-        "standard", depth=150.0, column_id="gas", asset_ref=asset_ref,
-        width_mm=8.0, height_mm=8.0,
+        "standard",
+        depth=150.0,
+        column_id="gas",
+        asset_ref=asset_ref,
+        width_mm=8.0,
+        height_mm=8.0,
     )
     controller.remove(created.object_id, "standard")
     assert controller.undo() == "Удаление обозначения masterlog"

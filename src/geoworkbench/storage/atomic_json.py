@@ -41,9 +41,7 @@ def save_project(
 ) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     documents = source_documents or {}
-    dataset_ids = {
-        dataset_id for well in project.wells.values() for dataset_id in well.datasets
-    }
+    dataset_ids = {dataset_id for well in project.wells.values() for dataset_id in well.datasets}
     unknown_document_ids = set(documents) - dataset_ids
     if unknown_document_ids:
         unknown = ", ".join(sorted(unknown_document_ids))
@@ -73,14 +71,11 @@ def save_project(
             for dataset_id, layout in (tablet_layouts or {}).items()
         },
         "tablet_presets": {
-            name: layout_to_dict(layout)
-            for name, layout in (tablet_presets or {}).items()
+            name: layout_to_dict(layout) for name, layout in (tablet_presets or {}).items()
         },
         "source_artifacts": source_artifacts,
         "image_assets": image_asset_manifest,
-        "import_reports": {
-            dataset_id: asdict(report) for dataset_id, report in reports.items()
-        },
+        "import_reports": {dataset_id: asdict(report) for dataset_id, report in reports.items()},
     }
     payload = json.dumps(document, ensure_ascii=False, indent=2, default=_default)
     fd, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)

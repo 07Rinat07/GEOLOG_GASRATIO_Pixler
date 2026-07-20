@@ -81,16 +81,16 @@ def _aggregate_depth(
     candidate_depths = depths[rows]
     if policy is TimeDepthAggregationPolicy.MEAN:
         return None, float(np.mean(candidate_depths))
-    target = np.min(candidate_depths) if policy is TimeDepthAggregationPolicy.MIN else np.max(
-        candidate_depths
+    target = (
+        np.min(candidate_depths)
+        if policy is TimeDepthAggregationPolicy.MIN
+        else np.max(candidate_depths)
     )
     row = int(rows[np.flatnonzero(candidate_depths == target)[0]])
     return row, float(target)
 
 
-def _select_index(
-    dataset: Dataset, role: IndexRole, requested_id: str | None
-) -> DatasetIndex:
+def _select_index(dataset: Dataset, role: IndexRole, requested_id: str | None) -> DatasetIndex:
     if requested_id is not None:
         index = dataset.indexes.get(requested_id)
         if index is None or index.role is not role:

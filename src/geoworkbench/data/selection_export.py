@@ -75,7 +75,10 @@ def export_selection_excel(
     rows: list[list[object]] = [header]
     rows.extend(
         [_excel_index_value(index_value, int(index)) for index_value in export_indexes]
-        + [None if not np.isfinite(curve.values[index]) else float(curve.values[index]) for curve in curves]
+        + [
+            None if not np.isfinite(curve.values[index]) else float(curve.values[index])
+            for curve in curves
+        ]
         for index in indices
     )
     metadata: list[list[object]] = [
@@ -161,16 +164,12 @@ def _excel_index_value(index: DatasetIndex, row: int) -> object:
         return None
     nanoseconds = int(value.astype(np.int64))
     seconds, remainder = divmod(nanoseconds, 1_000_000_000)
-    return datetime(1970, 1, 1) + timedelta(
-        seconds=seconds, microseconds=remainder // 1_000
-    )
+    return datetime(1970, 1, 1) + timedelta(seconds=seconds, microseconds=remainder // 1_000)
 
 
 def _validate_destination(destination: Path, suffixes: set[str], overwrite: bool) -> None:
     if destination.suffix.casefold() not in suffixes:
-        raise SelectionExportError(
-            "Неподдерживаемое расширение экспорта: " + destination.suffix
-        )
+        raise SelectionExportError("Неподдерживаемое расширение экспорта: " + destination.suffix)
     if destination.exists() and not overwrite:
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -184,7 +183,9 @@ def _temporary_path(destination: Path) -> Path:
     return Path(name)
 
 
-def _write_xlsx(path: Path, data_rows: list[list[object]], metadata_rows: list[list[object]]) -> None:
+def _write_xlsx(
+    path: Path, data_rows: list[list[object]], metadata_rows: list[list[object]]
+) -> None:
     workbook = Workbook()
     data_sheet = workbook.active
     data_sheet.title = "Data"

@@ -41,7 +41,4 @@ def default_curve_mnemonics(dataset: Dataset, maximum: int = 6) -> list[str]:
     gas = available_mnemonics(dataset, GAS_MNEMONIC_ORDER)
     if gas:
         return gas[:maximum]
-    return [
-        curve.metadata.original_mnemonic
-        for curve in list(dataset.curves.values())[:maximum]
-    ]
+    return [curve.metadata.original_mnemonic for curve in list(dataset.curves.values())[:maximum]]

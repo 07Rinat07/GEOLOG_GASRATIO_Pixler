@@ -203,19 +203,22 @@ class CurveMetadataController:
     ) -> None:
         if not self._MNEMONIC.fullmatch(mnemonic):
             raise ValueError("Мнемоника: A–Z, затем A–Z, 0–9, '_' или '-', максимум 32 символа")
-        reserved = {"dept"} | {
-            index.mnemonic.casefold() for index in dataset.indexes.values()
-        }
+        reserved = {"dept"} | {index.mnemonic.casefold() for index in dataset.indexes.values()}
         if mnemonic.casefold() in reserved:
             raise ValueError(f"Мнемоника зарезервирована индексом dataset: {mnemonic}")
         for existing in dataset.curves.values():
-            if existing is not curve and existing.metadata.original_mnemonic.casefold() == mnemonic.casefold():
+            if (
+                existing is not curve
+                and existing.metadata.original_mnemonic.casefold() == mnemonic.casefold()
+            ):
                 raise ValueError(f"Кривая с мнемоникой {mnemonic} уже существует")
         if unit is not None:
             if len(unit) > 32:
                 raise ValueError("Единица измерения не должна превышать 32 символа")
             if any(character.isspace() or ord(character) < 32 for character in unit):
-                raise ValueError("Единица измерения не должна содержать пробелы или управляющие символы")
+                raise ValueError(
+                    "Единица измерения не должна содержать пробелы или управляющие символы"
+                )
         if description is not None and len(description) > 500:
             raise ValueError("Описание не должно превышать 500 символов")
 

@@ -96,9 +96,7 @@ def test_export_controller_exports_current_selection_to_csv_and_excel(tmp_path) 
 
 
 def test_export_controller_saves_resolves_and_deletes_curve_profile() -> None:
-    dataset = Dataset(
-        "dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([1.0])
-    )
+    dataset = Dataset("dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([1.0]))
     dataset.curves["curve-c1"] = CurveData(
         CurveMetadata("curve-c1", "C1", "C1", "%", None, dataset.dataset_id),
         np.array([10.0]),
@@ -122,9 +120,7 @@ def test_export_controller_saves_resolves_and_deletes_curve_profile() -> None:
 
 
 def test_export_controller_exports_current_dataset_to_json(tmp_path) -> None:
-    dataset = Dataset(
-        "dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([1.0])
-    )
+    dataset = Dataset("dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([1.0]))
     well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
     session = ProjectSession(
         project=Project("project-1", "Project", wells={well.well_id: well}),
@@ -132,17 +128,13 @@ def test_export_controller_exports_current_dataset_to_json(tmp_path) -> None:
         current_dataset_id=dataset.dataset_id,
     )
 
-    target = DatasetExportController(session).export_current_json(
-        tmp_path / "dataset.json"
-    )
+    target = DatasetExportController(session).export_current_json(tmp_path / "dataset.json")
 
     assert '"dataset_id": "dataset-1"' in target.read_text(encoding="utf-8")
 
 
 def test_export_profile_reports_missing_mnemonics() -> None:
-    dataset = Dataset(
-        "dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([1.0])
-    )
+    dataset = Dataset("dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([1.0]))
     well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
     session = ProjectSession(
         project=Project("project-1", "Project", wells={well.well_id: well}),
@@ -177,9 +169,7 @@ def test_default_export_plan_uses_typed_header_null() -> None:
 
 
 def test_default_export_plan_preserves_source_version_wrap_and_null() -> None:
-    dataset = Dataset(
-        "dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([1.0])
-    )
+    dataset = Dataset("dataset-1", "Dataset", DatasetKind.GTI, DepthDomain.MD, np.array([1.0]))
     well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
     report = LasImportReport(
         LasSourceSnapshot(

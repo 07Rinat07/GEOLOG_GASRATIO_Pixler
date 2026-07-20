@@ -158,7 +158,9 @@ class CurveSettingsDialog(QDialog):
     def curve_display(self) -> dict[str, CurveDisplaySettings]:
         return deepcopy(self._display)
 
-    def _curve_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
+    def _curve_changed(
+        self, current: QListWidgetItem | None, _previous: QListWidgetItem | None
+    ) -> None:
         self._store_current()
         if current is None:
             self._current_mnemonic = None
@@ -197,7 +199,9 @@ class CurveSettingsDialog(QDialog):
             self.maximum.setValue(maximum)
             self._set_color(style.color)
             self.line_width_input.setValue(style.width)
-            self.line_style.setCurrentIndex(max(0, self.line_style.findData(style.line_style.value)))
+            self.line_style.setCurrentIndex(
+                max(0, self.line_style.findData(style.line_style.value))
+            )
             self._range_mode_changed(self.auto_range.isChecked())
         finally:
             self._loading = False

@@ -159,9 +159,7 @@ class InterpretationIntervalsDialog(QDialog):
             ("xlsx", "interpretations.export_excel"),
         ):
             button = QPushButton(self._t(key))
-            button.clicked.connect(
-                lambda checked=False, value=export_format: self._export(value)
-            )
+            button.clicked.connect(lambda checked=False, value=export_format: self._export(value))
             export_actions.addWidget(button)
         root.addLayout(export_actions)
 
@@ -200,9 +198,7 @@ class InterpretationIntervalsDialog(QDialog):
             index = 0
         if index >= 0:
             self.interpretation_combo.setCurrentIndex(index)
-            self.controller.select_interpretation(
-                str(self.interpretation_combo.itemData(index))
-            )
+            self.controller.select_interpretation(str(self.interpretation_combo.itemData(index)))
         self.interpretation_combo.blockSignals(False)
         self._refresh_interpretation_details()
 

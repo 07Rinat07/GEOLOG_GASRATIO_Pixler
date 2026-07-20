@@ -64,9 +64,7 @@ class IntervalStatisticsDialog(QDialog):
         self.table.resizeColumnsToContents()
         layout.addWidget(self.table)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
-            self._t("common.close")
-        )
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 

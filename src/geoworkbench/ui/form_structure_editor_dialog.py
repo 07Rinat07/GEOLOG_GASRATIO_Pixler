@@ -64,7 +64,9 @@ class _FormPreview(QWidget):
             rect = self.rect().adjusted(x, margin, x + width - self.width(), -margin)
             selected = self._selected_id == column.column_id
             painter.fillRect(rect, QColor("#dbeafe") if selected else QColor("#ffffff"))
-            painter.setPen(QPen(QColor("#2563eb") if selected else QColor("#9aa4b2"), 2 if selected else 1))
+            painter.setPen(
+                QPen(QColor("#2563eb") if selected else QColor("#9aa4b2"), 2 if selected else 1)
+            )
             painter.drawRect(rect)
             header = rect.adjusted(4, 3, -4, -rect.height() + 25)
             painter.setPen(QColor("#111827"))
@@ -73,13 +75,24 @@ class _FormPreview(QWidget):
                 track_height = max(18, (rect.height() - 32) // len(column.tracks))
                 top = rect.top() + 28
                 for track in column.tracks:
-                    track_rect = rect.adjusted(4, top - rect.top(), -4, top + track_height - rect.bottom())
+                    track_rect = rect.adjusted(
+                        4, top - rect.top(), -4, top + track_height - rect.bottom()
+                    )
                     track_selected = self._selected_id == track.track_id
-                    painter.fillRect(track_rect, QColor("#fef3c7") if track_selected else QColor("#f3f4f6"))
-                    painter.setPen(QPen(QColor("#d97706") if track_selected else QColor("#c4cad3"), 2 if track_selected else 1))
+                    painter.fillRect(
+                        track_rect, QColor("#fef3c7") if track_selected else QColor("#f3f4f6")
+                    )
+                    painter.setPen(
+                        QPen(
+                            QColor("#d97706") if track_selected else QColor("#c4cad3"),
+                            2 if track_selected else 1,
+                        )
+                    )
                     painter.drawRect(track_rect)
                     painter.setPen(QColor("#374151"))
-                    painter.drawText(track_rect.adjusted(3, 0, -3, 0), Qt.AlignmentFlag.AlignCenter, track.title)
+                    painter.drawText(
+                        track_rect.adjusted(3, 0, -3, 0), Qt.AlignmentFlag.AlignCenter, track.title
+                    )
                     top += track_height
             x += width
 
@@ -104,7 +117,9 @@ class FormStructureEditorDialog(QDialog):
         self.preview_controller = FormPreviewController(preview_callback)
         self.saved_form: FormDocument | None = None
         self._updating_properties = False
-        self._base_title = self._text("Редактор структуры формы", "Пішін құрылымының редакторы", "Form structure editor")
+        self._base_title = self._text(
+            "Редактор структуры формы", "Пішін құрылымының редакторы", "Form structure editor"
+        )
         self.setWindowTitle(self._base_title)
         self.resize(1080, 680)
 
@@ -115,17 +130,23 @@ class FormStructureEditorDialog(QDialog):
         left = QWidget()
         left_layout = QVBoxLayout(left)
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels([
-            self._text("Структура", "Құрылым", "Structure"),
-            self._text("Тип", "Түрі", "Type"),
-            self._text("Ширина", "Ені", "Width"),
-        ])
+        self.tree.setHeaderLabels(
+            [
+                self._text("Структура", "Құрылым", "Structure"),
+                self._text("Тип", "Түрі", "Type"),
+                self._text("Ширина", "Ені", "Width"),
+            ]
+        )
         self.tree.currentItemChanged.connect(self._selection_changed)
         left_layout.addWidget(self.tree, 1)
 
         column_buttons = QHBoxLayout()
-        self._button(column_buttons, self._text("+ Колонка", "+ Баған", "+ Column"), self._add_column)
-        self._button(column_buttons, self._text("− Колонка", "− Баған", "− Column"), self._remove_column)
+        self._button(
+            column_buttons, self._text("+ Колонка", "+ Баған", "+ Column"), self._add_column
+        )
+        self._button(
+            column_buttons, self._text("− Колонка", "− Баған", "− Column"), self._remove_column
+        )
         self._button(column_buttons, "↑", self._move_up)
         self._button(column_buttons, "↓", self._move_down)
         left_layout.addLayout(column_buttons)
@@ -133,13 +154,21 @@ class FormStructureEditorDialog(QDialog):
         track_buttons = QHBoxLayout()
         self._button(track_buttons, self._text("+ Дорожка", "+ Жол", "+ Track"), self._add_track)
         self._button(track_buttons, self._text("− Дорожка", "− Жол", "− Track"), self._remove_track)
-        self._button(track_buttons, self._text("Содержимое", "Мазмұны", "Content"), self._edit_track_content)
+        self._button(
+            track_buttons, self._text("Содержимое", "Мазмұны", "Content"), self._edit_track_content
+        )
         left_layout.addLayout(track_buttons)
         splitter.addWidget(left)
 
         right = QWidget()
         right_layout = QVBoxLayout(right)
-        right_layout.addWidget(QLabel(self._text("Предпросмотр структуры", "Құрылымды алдын ала қарау", "Structure preview")))
+        right_layout.addWidget(
+            QLabel(
+                self._text(
+                    "Предпросмотр структуры", "Құрылымды алдын ала қарау", "Structure preview"
+                )
+            )
+        )
         self.preview = _FormPreview()
         right_layout.addWidget(self.preview)
 
@@ -152,7 +181,9 @@ class FormStructureEditorDialog(QDialog):
         self.width_spin.setRange(80, 2000)
         self.width_spin.setSuffix(" px")
         self.width_spin.valueChanged.connect(self._apply_width)
-        properties.addRow(self._text("Ширина колонки", "Баған ені", "Column width"), self.width_spin)
+        properties.addRow(
+            self._text("Ширина колонки", "Баған ені", "Column width"), self.width_spin
+        )
 
         self.kind_combo = QComboBox()
         for kind in TrackKind:
@@ -166,15 +197,27 @@ class FormStructureEditorDialog(QDialog):
         splitter.setStretchFactor(1, 2)
 
         actions = QHBoxLayout()
-        self.live_preview_check = QCheckBox(self._text("Живой предпросмотр", "Тікелей алдын ала қарау", "Live preview"))
+        self.live_preview_check = QCheckBox(
+            self._text("Живой предпросмотр", "Тікелей алдын ала қарау", "Live preview")
+        )
         self.live_preview_check.setChecked(True)
         self.live_preview_check.toggled.connect(self._toggle_live_preview)
         actions.addWidget(self.live_preview_check)
         actions.addStretch(1)
-        self.apply_button = self._button(actions, self._text("Применить", "Қолдану", "Apply"), self._apply_preview)
-        self.revert_button = self._button(actions, self._text("Отменить изменения", "Өзгерістерден бас тарту", "Revert"), self._revert)
-        self.save_button = self._button(actions, self._text("Сохранить", "Сақтау", "Save"), self._save)
-        self.close_button = self._button(actions, self._text("Закрыть", "Жабу", "Close"), self.accept)
+        self.apply_button = self._button(
+            actions, self._text("Применить", "Қолдану", "Apply"), self._apply_preview
+        )
+        self.revert_button = self._button(
+            actions,
+            self._text("Отменить изменения", "Өзгерістерден бас тарту", "Revert"),
+            self._revert,
+        )
+        self.save_button = self._button(
+            actions, self._text("Сохранить", "Сақтау", "Save"), self._save
+        )
+        self.close_button = self._button(
+            actions, self._text("Закрыть", "Жабу", "Close"), self.accept
+        )
         root.addLayout(actions)
         self._reload_tree()
         self._update_dirty_state()
@@ -193,7 +236,9 @@ class FormStructureEditorDialog(QDialog):
             TrackKind.CALCIMETRY: self._text("Кальциметрия", "Кальциметрия", "Calcimetry"),
             TrackKind.LBA: self._text("ЛБА", "ЛБА", "LBA"),
             TrackKind.STRATIGRAPHY: self._text("Стратиграфия", "Стратиграфия", "Stratigraphy"),
-            TrackKind.INTERPRETATION: self._text("Интерпретация", "Интерпретация", "Interpretation"),
+            TrackKind.INTERPRETATION: self._text(
+                "Интерпретация", "Интерпретация", "Interpretation"
+            ),
             TrackKind.TEXT: self._text("Текст", "Мәтін", "Text"),
         }
         return names[kind]
@@ -247,16 +292,16 @@ class FormStructureEditorDialog(QDialog):
         self.tree.clear()
         selected_item: QTreeWidgetItem | None = None
         for column in self.editor.form.columns:
-            column_item = QTreeWidgetItem([column.title, self._text("Колонка", "Баған", "Column"), f"{column.width} px"])
+            column_item = QTreeWidgetItem(
+                [column.title, self._text("Колонка", "Баған", "Column"), f"{column.width} px"]
+            )
             column_item.setData(0, _ITEM_KIND_ROLE, "column")
             column_item.setData(0, _ITEM_ID_ROLE, column.column_id)
             self.tree.addTopLevelItem(column_item)
             if selected_id == column.column_id:
                 selected_item = column_item
             for track in column.tracks:
-                track_item = QTreeWidgetItem(
-                    [track.title, self._track_kind_name(track.kind), ""]
-                )
+                track_item = QTreeWidgetItem([track.title, self._track_kind_name(track.kind), ""])
                 track_item.setData(0, _ITEM_KIND_ROLE, "track")
                 track_item.setData(0, _ITEM_ID_ROLE, track.track_id)
                 column_item.addChild(track_item)
@@ -371,7 +416,9 @@ class FormStructureEditorDialog(QDialog):
         ref = self._selected_ref()
         if ref is None:
             if not self.editor.form.columns:
-                column = self.editor.add_column(self._text("Новая колонка", "Жаңа баған", "New column"))
+                column = self.editor.add_column(
+                    self._text("Новая колонка", "Жаңа баған", "New column")
+                )
                 column_id = column.column_id
             else:
                 column_id = self.editor.form.columns[0].column_id
@@ -388,7 +435,6 @@ class FormStructureEditorDialog(QDialog):
             self._form_changed()
         except (KeyError, PermissionError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
-
 
     def _edit_track_content(self) -> None:
         ref = self._selected_ref()

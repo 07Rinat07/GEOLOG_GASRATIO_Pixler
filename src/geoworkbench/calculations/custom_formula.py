@@ -18,13 +18,19 @@ class CustomFormulaError(ValueError):
 
 _MNEMONIC = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
 _BINARY = {
-    ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
-    ast.Div: operator.truediv, ast.Pow: operator.pow,
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Pow: operator.pow,
 }
 _UNARY = {ast.UAdd: operator.pos, ast.USub: operator.neg}
 _FUNCTIONS = {
-    "abs": np.abs, "sqrt": np.sqrt, "log10": np.log10,
-    "minimum": np.minimum, "maximum": np.maximum,
+    "abs": np.abs,
+    "sqrt": np.sqrt,
+    "log10": np.log10,
+    "minimum": np.minimum,
+    "maximum": np.maximum,
 }
 
 
@@ -42,7 +48,9 @@ def formula_inputs(expression: str) -> tuple[str, ...]:
 def evaluate_formula(expression: str, inputs: Mapping[str, Array]) -> Array:
     tree = _parse(expression)
     _validate(tree)
-    normalized = {name.upper(): np.asarray(values, dtype=np.float64) for name, values in inputs.items()}
+    normalized = {
+        name.upper(): np.asarray(values, dtype=np.float64) for name, values in inputs.items()
+    }
     required = formula_inputs(expression)
     missing = set(required) - set(normalized)
     if missing:
