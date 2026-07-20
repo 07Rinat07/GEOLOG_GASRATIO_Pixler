@@ -85,7 +85,10 @@ from geoworkbench.printing.widget_print import render_widget_to_printer
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.render_invalidation import DirtyReason
-from geoworkbench.tablet.models import CurveLineStyle, CurveStyle
+from geoworkbench.tablet.models import (
+    CurveLineStyle,
+    CurveStyle,
+)
 from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.interval_interaction import IntervalEditMode
 from geoworkbench.tablet.lithology_legend import build_lithology_legend
@@ -95,6 +98,7 @@ from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
 from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
+from geoworkbench.ui.curve_settings_dialog import CurveSettingsDialog
 from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
@@ -128,6 +132,7 @@ from geoworkbench.services.localization import (
     LanguageSettings,
     Localizer,
 )
+from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.user_profiles import CursorLineSettings, UserProfileSettings
 from geoworkbench.services.mnemonic_registry import UserMnemonicRegistry
@@ -206,6 +211,10 @@ class MainWindow(QMainWindow):
         self.tablet_view.track_properties_requested.connect(
             self._show_track_properties_from_context
         )
+        self.tablet_view.track_curve_settings_requested.connect(
+            self._show_curve_settings_from_context
+        )
+        self.tablet_view.save_layout_requested.connect(self.save_tablet_preset)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.track_order_change_requested.connect(self._track_order_changed_from_drag)
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
@@ -338,7 +347,7 @@ class MainWindow(QMainWindow):
         self.issues_dock.hide()
 
     def _create_cursor_panel(self) -> None:
-        self.cursor_dock = QDockWidget("Параметры по визиру", self)
+        self.cursor_dock = QDockWidget(self._t("cursor.panel_title"), self)
         self.cursor_dock.setObjectName("cursorDock")
         self.cursor_values = QTextEdit()
         self.cursor_values.setReadOnly(True)
@@ -609,7 +618,7 @@ class MainWindow(QMainWindow):
         self.pencil_action.toggled.connect(self.toggle_curve_edit_mode)
         edit_menu.addAction(self.pencil_action)
 
-        self.cursor_line_action = QAction("Визирная линия", self)
+        self.cursor_line_action = QAction(self._t("cursor.line_action"), self)
         cursor_icon = QPixmap(24, 24)
         cursor_icon.fill(Qt.GlobalColor.transparent)
         icon_painter = QPainter(cursor_icon)
@@ -621,7 +630,7 @@ class MainWindow(QMainWindow):
         self.cursor_line_action.setShortcut("V")
         self.cursor_line_action.toggled.connect(self.toggle_cursor_line)
         edit_menu.addAction(self.cursor_line_action)
-        self.cursor_style_action = QAction("Настроить визирную линию...", self)
+        self.cursor_style_action = QAction(self._t("cursor.configure_action"), self)
         self.cursor_style_action.triggered.connect(self.configure_cursor_line)
         edit_menu.addAction(self.cursor_style_action)
 
@@ -941,13 +950,15 @@ class MainWindow(QMainWindow):
             self.cursor_values.setPlainText(summary.replace(" | ", "\n"))
 
     def configure_cursor_line(self) -> None:
-        color = QColorDialog.getColor(parent=self, title="Цвет визирной линии")
+        color = QColorDialog.getColor(
+            parent=self, title=self._t("cursor.color_title")
+        )
         if not color.isValid():
             return
         width, accepted = QInputDialog.getDouble(
             self,
-            "Визирная линия",
-            "Толщина, px",
+            self._t("cursor.width_title"),
+            self._t("cursor.width_prompt"),
             2.0,
             0.5,
             10.0,
@@ -2267,23 +2278,67 @@ class MainWindow(QMainWindow):
             return []
         dialog = QDialog(self)
         dialog.setWindowTitle(self._t("tablet.select_curves_title"))
-        dialog.resize(560, 620)
+        dialog.resize(720, 640)
         layout = QVBoxLayout(dialog)
         layout.addWidget(QLabel(self._t("tablet.select_curves_prompt")))
         curve_list = QListWidget()
-        curve_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        # Check boxes are the source of truth. A normal click anywhere on a row
+        # toggles it, so users do not need Ctrl and do not have to hit the tiny box.
+        curve_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        curve_list.setAlternatingRowColors(True)
         selected_set = set(preselected)
         for curve in dataset.curves.values():
             mnemonic = curve.metadata.original_mnemonic
             unit = (curve.metadata.unit or "").strip()
             description = (curve.metadata.description or "").strip()
-            details = " — ".join(value for value in (unit, description) if value)
-            label = f"{mnemonic} — {details}" if details else mnemonic
-            item = QListWidgetItem(label)
+            readable = localized_curve_name(
+                mnemonic,
+                description=description,
+                unit=unit,
+                language=self.language,
+            )
+            details = f"{readable}  [{mnemonic}]"
+            if unit:
+                details += f"  ·  {unit}"
+            item = QListWidgetItem(details)
             item.setData(Qt.ItemDataRole.UserRole, mnemonic)
-            item.setToolTip(label)
-            item.setSelected(mnemonic in selected_set)
+            item.setToolTip(
+                "\n".join(
+                    value
+                    for value in (readable, f"{mnemonic}{f' [{unit}]' if unit else ''}", description)
+                    if value
+                )
+            )
+            item.setFlags(
+                item.flags()
+                | Qt.ItemFlag.ItemIsUserCheckable
+                | Qt.ItemFlag.ItemIsEnabled
+            )
+            item.setCheckState(
+                Qt.CheckState.Checked
+                if mnemonic in selected_set
+                else Qt.CheckState.Unchecked
+            )
             curve_list.addItem(item)
+
+        pressed_state: dict[int, Qt.CheckState] = {}
+
+        def remember_state(item: QListWidgetItem) -> None:
+            pressed_state[id(item)] = item.checkState()
+
+        def toggle_full_row(item: QListWidgetItem) -> None:
+            before = pressed_state.pop(id(item), item.checkState())
+            # Qt already toggles the checkbox when its indicator was clicked.
+            # When the text area was clicked, toggle it here as well.
+            if item.checkState() == before:
+                item.setCheckState(
+                    Qt.CheckState.Unchecked
+                    if before is Qt.CheckState.Checked
+                    else Qt.CheckState.Checked
+                )
+
+        curve_list.itemPressed.connect(remember_state)
+        curve_list.itemClicked.connect(toggle_full_row)
         layout.addWidget(curve_list)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -2295,10 +2350,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(buttons)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return []
-        return [
-            str(item.data(Qt.ItemDataRole.UserRole))
-            for item in curve_list.selectedItems()
-        ]
+        result: list[str] = []
+        for index in range(curve_list.count()):
+            item = curve_list.item(index)
+            if item is not None and item.checkState() is Qt.CheckState.Checked:
+                result.append(str(item.data(Qt.ItemDataRole.UserRole)))
+        return result
 
     def calculate_ratios(self) -> None:
         try:
@@ -3311,8 +3368,20 @@ class MainWindow(QMainWindow):
             self._show_track_in_inspector(track_id)
             return
         self._selected_track_id = track_id
+        try:
+            definition = self.tablet_view.layout_model.track_by_id(track_id)
+            configured = definition.curve_display_settings(mnemonic).display_name
+        except KeyError:
+            configured = ""
+        readable_name = localized_curve_name(
+            curve.metadata.original_mnemonic,
+            description=curve.metadata.description or "",
+            unit=curve.metadata.unit or "",
+            language=self.language,
+            configured=configured,
+        )
         self.inspector.setPlainText(
-            f"{self._t('inspector.curve')}: {curve.metadata.original_mnemonic}\n"
+            f"{self._t('inspector.curve')}: {readable_name} [{curve.metadata.original_mnemonic}]\n"
             f"{self._t('inspector.unit')}: {curve.metadata.unit or self._t('common.unset')}\n"
             f"{self._t('inspector.description')}: "
             f"{curve.metadata.description or self._t('common.none')}\n"
@@ -3364,6 +3433,41 @@ class MainWindow(QMainWindow):
             preselected=tuple(track.curve_mnemonics)
         )
         self._apply_context_curve_selection(track_id, selected)
+
+    def _show_curve_settings_from_context(self, track_id: str, mnemonic: str) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            return
+        try:
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+        except KeyError:
+            return
+        dialog = CurveSettingsDialog(
+            track, dataset, self, language=self.language
+        )
+        if mnemonic:
+            for row in range(dialog.curves.count()):
+                item = dialog.curves.item(row)
+                if item is not None and item.data(Qt.ItemDataRole.UserRole) == mnemonic:
+                    dialog.curves.setCurrentRow(row)
+                    break
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            for curve_mnemonic, style in dialog.curve_styles.items():
+                self.tablet_controller.set_curve_style(track_id, curve_mnemonic, style)
+            for curve_mnemonic, settings in dialog.curve_display.items():
+                self.tablet_controller.set_curve_display_settings(
+                    track_id, curve_mnemonic, settings
+                )
+        except (KeyError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("curve_settings.title"), str(exc))
+            return
+        self.tablet_view.refresh_track(
+            track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
+        )
+        self._refresh_tree()
+        self._update_title()
 
     def _show_track_properties_from_context(self, track_id: str) -> None:
         self._show_track_in_inspector(track_id)
@@ -3457,7 +3561,9 @@ class MainWindow(QMainWindow):
             self._update_title()
         top_text = self.tablet_view.format_vertical_value(top)
         bottom_text = self.tablet_view.format_vertical_value(bottom)
-        self.statusBar().showMessage(f"Видимый интервал: {top_text}–{bottom_text}")
+        self.statusBar().showMessage(
+            self._t("tablet.visible_interval_status", top=top_text, bottom=bottom_text)
+        )
 
     def _apply_inspector_curve_style(
         self,

@@ -334,6 +334,12 @@ def test_controller_updates_track_x_settings() -> None:
     assert track.x_scale is XScale.LOGARITHMIC
     assert track.x_min == 0.1
     assert track.x_max == 100.0
+    assert all(
+        track.curve_display_settings(mnemonic).x_min == 0.1
+        and track.curve_display_settings(mnemonic).x_max == 100.0
+        and track.curve_display_settings(mnemonic).x_scale is XScale.LOGARITHMIC
+        for mnemonic in track.curve_mnemonics
+    )
     assert session.dirty is True
 
 

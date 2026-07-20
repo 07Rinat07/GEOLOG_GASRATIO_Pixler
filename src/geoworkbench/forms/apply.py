@@ -5,7 +5,12 @@ from dataclasses import dataclass, field
 from geoworkbench.catalogs.sensors import SensorCatalog, active_sensor_catalog, normalize_sensor_key
 from geoworkbench.domain.models import Dataset, IndexRole, new_id
 from geoworkbench.forms.models import FormDocument, FormAxisKind, ParameterBinding
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, XScale
+from geoworkbench.tablet.models import (
+    CurveDisplaySettings,
+    TabletLayout,
+    TrackDefinition,
+    XScale,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +103,7 @@ class FormApplyEngine:
                     continue
                 resolved_mnemonics: list[str] = []
                 styles = {}
+                display_settings = {}
                 x_scale = None
                 x_min = None
                 x_max = None
@@ -108,6 +114,12 @@ class FormApplyEngine:
                         continue
                     resolved_mnemonics.append(resolution.mnemonic)
                     styles[resolution.mnemonic] = binding.style
+                    display_settings[resolution.mnemonic] = CurveDisplaySettings(
+                        display_name=binding.display_name,
+                        x_scale=binding.x_scale,
+                        x_min=binding.x_min,
+                        x_max=binding.x_max,
+                    )
                     if x_scale is None:
                         x_scale = binding.x_scale
                         x_min = binding.x_min
@@ -126,6 +138,7 @@ class FormApplyEngine:
                         x_min=x_min,
                         x_max=x_max,
                         curve_styles=styles,
+                        curve_display=display_settings,
                         grid_x=form_track.grid_x,
                         grid_y=form_track.grid_y,
                         grid_alpha=form_track.grid_alpha,

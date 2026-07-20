@@ -4,7 +4,13 @@ from geoworkbench.tablet.layout_codec import (
     layout_from_dict,
     layout_to_dict,
 )
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    CurveDisplaySettings,
+    TabletLayout,
+    TrackDefinition,
+    TrackKind,
+    XScale,
+)
 from geoworkbench.tablet.overlay_layers import OverlayLayerKind, OverlayLayerManager
 from geoworkbench.tablet.resize import TrackResizeGesture
 from geoworkbench.tablet.selection_interaction import (
@@ -18,6 +24,7 @@ from geoworkbench.tablet.selection_interaction import (
 )
 
 __all__ = [
+    "CurveDisplaySettings",
     "DepthViewport",
     "TabletLayout",
     "TabletLayoutFormatError",

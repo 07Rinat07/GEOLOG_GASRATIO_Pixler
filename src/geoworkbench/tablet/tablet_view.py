@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QInputDialog,
     QLineEdit,
     QPushButton,
     QScrollArea,
@@ -41,6 +42,8 @@ from geoworkbench.domain.models import (
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.parameter_labels import localized_curve_name
+from geoworkbench.tablet.curve_scaling import automatic_curve_range, normalize_curve_values
 from geoworkbench.tablet.camera import (
     TabletCamera,
     recommended_initial_range,
@@ -65,6 +68,7 @@ from geoworkbench.tablet.interval_interaction import (
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.tablet.lithology_labels import lithology_label_is_visible
 from geoworkbench.tablet.models import (
+    CurveDisplaySettings,
     CurveLineStyle,
     TabletLayout,
     TrackDefinition,
@@ -102,6 +106,7 @@ class RenderedTrack:
     interpretation_items: dict[str, tuple[object, ...]] | None = None
     interpretation_lanes: dict[str, int] | None = None
     cursor_line: pg.InfiniteLine | None = None
+    cursor_label: pg.TextItem | None = None
     interpretation_preview: pg.BarGraphItem | None = None
     selection_highlight: pg.BarGraphItem | None = None
     curve_render_keys: dict[str, CurveGeometryKey] | None = None
@@ -198,6 +203,42 @@ class TabletVerticalAxisItem(pg.AxisItem):
         return f"{value:g}"
 
 
+class CurveHeaderLabel(QLabel):
+    clicked = Signal(str)
+    context_requested = Signal(str, QPoint)
+
+    def __init__(self, mnemonic: str, text: str, color: str) -> None:
+        super().__init__(text)
+        self.mnemonic = mnemonic
+        self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        self.setToolTip(f"{text.replace(chr(10), ' · ')} [{mnemonic}]")
+        self.setMinimumHeight(38)
+        self.setWordWrap(False)
+        self._color = color
+        self.set_selected(False)
+
+    def set_selected(self, selected: bool) -> None:
+        background = "#dbeafe" if selected else "#ffffff"
+        border = "#2563eb" if selected else "#e2e8f0"
+        self.setStyleSheet(
+            f"QLabel {{ background: {background}; color: #0f172a; "
+            f"border-left: 5px solid {self._color}; border-bottom: 1px solid {border}; "
+            "padding: 2px 4px; font-size: 11px; font-weight: 600; }} "
+            "QLabel:hover { background: #eff6ff; }"
+        )
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit(self.mnemonic)
+            event.accept()
+            return
+        if event.button() == Qt.MouseButton.RightButton:
+            self.context_requested.emit(self.mnemonic, event.globalPosition().toPoint())
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+
 class TabletTrackWidget(QFrame):
     selected = Signal(str)
     width_change_requested = Signal(str, int)
@@ -205,6 +246,8 @@ class TabletTrackWidget(QFrame):
     header_drag_moved = Signal(str, int)
     header_drag_finished = Signal(str, int)
     context_requested = Signal(str, QPoint)
+    curve_selected = Signal(str, str)
+    curve_context_requested = Signal(str, str, QPoint)
 
     RESIZE_MARGIN = 6
 
@@ -219,6 +262,7 @@ class TabletTrackWidget(QFrame):
         self._resize_gesture: TrackResizeGesture | None = None
         self._header_drag_origin_x: int | None = None
         self._header_dragging = False
+        self._curve_header_labels: dict[str, CurveHeaderLabel] = {}
         self.setObjectName(f"track-{definition.track_id}")
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setStyleSheet(
@@ -243,6 +287,22 @@ class TabletTrackWidget(QFrame):
             "border-bottom: 1px solid #cbd5e1;"
         )
         self.title.setFixedHeight(36)
+
+        self.curve_header = QWidget()
+        self.curve_header_layout = QVBoxLayout(self.curve_header)
+        self.curve_header_layout.setContentsMargins(0, 0, 0, 0)
+        self.curve_header_layout.setSpacing(0)
+        self.curve_header_scroll = QScrollArea()
+        self.curve_header_scroll.setWidgetResizable(True)
+        self.curve_header_scroll.setWidget(self.curve_header)
+        self.curve_header_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.curve_header_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.curve_header_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.curve_header_scroll.hide()
 
         axis_items = (
             {"left": TabletVerticalAxisItem(vertical_axis)} if vertical_axis is not None else None
@@ -276,11 +336,40 @@ class TabletTrackWidget(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(self.title)
-        layout.addWidget(self.plot)
+        layout.addWidget(self.curve_header_scroll)
+        layout.addWidget(self.plot, 1)
 
         for target in (self.title, self.plot, self.plot.viewport()):
             target.setMouseTracking(True)
             target.installEventFilter(self)
+
+    def set_curve_headers(self, rows: list[tuple[str, str, str]]) -> None:
+        self._curve_header_labels.clear()
+        while self.curve_header_layout.count():
+            item = self.curve_header_layout.takeAt(0)
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.deleteLater()
+        for mnemonic, text, color in rows:
+            label = CurveHeaderLabel(mnemonic, text, color)
+            label.clicked.connect(
+                lambda selected, track_id=self.definition.track_id: self.curve_selected.emit(
+                    track_id, selected
+                )
+            )
+            label.context_requested.connect(
+                lambda selected, pos, track_id=self.definition.track_id: self.curve_context_requested.emit(
+                    track_id, selected, pos
+                )
+            )
+            self._curve_header_labels[mnemonic] = label
+            self.curve_header_layout.addWidget(label)
+        self.curve_header_scroll.setVisible(bool(rows))
+        self.curve_header_scroll.setMaximumHeight(min(156, max(0, len(rows) * 39)))
+
+    def set_selected_curve(self, mnemonic: str | None) -> None:
+        for key, label in self._curve_header_labels.items():
+            label.set_selected(key == mnemonic)
 
     def set_track_width(self, width: int) -> None:
         self.setFixedWidth(int(width))
@@ -475,6 +564,8 @@ class TabletView(QWidget):
     track_add_curves_requested = Signal(str)
     track_replace_curves_requested = Signal(str)
     track_properties_requested = Signal(str)
+    track_curve_settings_requested = Signal(str, str)
+    save_layout_requested = Signal()
     visible_depth_changed = Signal(float, float)
     vertical_index_changed = Signal(str)
     cursor_changed = Signal(float, str)
@@ -575,6 +666,12 @@ class TabletView(QWidget):
         self._zoom_out_button.clicked.connect(lambda: self.zoom_depth(1.25))
         self._full_range_button = QPushButton(self._localizer.text("tablet.full_range"))
         self._full_range_button.clicked.connect(self.show_full_vertical_range)
+        self._span_combo = QComboBox()
+        self._span_combo.setMinimumWidth(105)
+        for span in (1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0):
+            self._span_combo.addItem(f"{span:g} {self._localizer.text('tablet.depth_span_unit')}", span)
+        self._span_combo.addItem(self._localizer.text("tablet.depth_span_custom"), None)
+        self._span_combo.activated.connect(self._depth_span_selected)
 
         navigation = QHBoxLayout()
         navigation.setContentsMargins(6, 4, 6, 4)
@@ -585,6 +682,8 @@ class TabletView(QWidget):
         navigation.addWidget(self._goto_button)
         navigation.addWidget(self._zoom_in_button)
         navigation.addWidget(self._zoom_out_button)
+        navigation.addWidget(QLabel(self._localizer.text("tablet.depth_span")))
+        navigation.addWidget(self._span_combo)
         navigation.addWidget(self._full_range_button)
 
         self._vertical_scrollbar = QScrollBar(Qt.Orientation.Vertical)
@@ -943,9 +1042,38 @@ class TabletView(QWidget):
         if changed:
             self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
             self._apply_track_selection_style()
+            self._apply_curve_selection_style()
             if emit_signal:
                 self.selection_changed.emit(self._selection.snapshot())
                 self.track_selected.emit(track_id)
+        return changed
+
+    def select_curve(
+        self,
+        track_id: str,
+        mnemonic: str,
+        *,
+        additive: bool = False,
+        toggle: bool = False,
+        emit_signal: bool = True,
+    ) -> bool:
+        try:
+            definition = self._layout_model.track_by_id(track_id)
+        except KeyError:
+            return False
+        if mnemonic not in definition.curve_mnemonics:
+            return False
+        changed = self._selection.select(
+            SelectionRef(SelectableKind.CURVE, mnemonic, track_id),
+            additive=additive,
+            toggle=toggle,
+        )
+        if changed:
+            self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
+            self._apply_curve_selection_style()
+            if emit_signal:
+                self.selection_changed.emit(self._selection.snapshot())
+                self.curve_selected.emit(track_id, mnemonic)
         return changed
 
     def clear_selection(self, *, emit_signal: bool = True) -> bool:
@@ -955,6 +1083,7 @@ class TabletView(QWidget):
         if changed or interval_changed:
             self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
             self._apply_track_selection_style()
+            self._apply_curve_selection_style()
             self._apply_interpretation_selection_style()
             if emit_signal:
                 self.selection_changed.emit(self._selection.snapshot())
@@ -1155,6 +1284,7 @@ class TabletView(QWidget):
             return None
         if self._selection.select(hit.target, additive=additive, toggle=toggle):
             self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
+            self._apply_curve_selection_style()
             self.selection_changed.emit(self._selection.snapshot())
             self.curve_selected.emit(track_id, hit.target.object_id)
         return hit
@@ -1178,6 +1308,14 @@ class TabletView(QWidget):
                     "QLabel { background: #f8fafc; color: #0f172a; }"
                 )
 
+    def _apply_curve_selection_style(self) -> None:
+        selected_by_track: dict[str, str] = {}
+        for item in self._selection.snapshot().items:
+            if item.kind is SelectableKind.CURVE and item.track_id is not None:
+                selected_by_track[item.track_id] = item.object_id
+        for track_id, rendered in self._rendered.items():
+            rendered.widget.set_selected_curve(selected_by_track.get(track_id))
+
     def show_track_context_menu(self, track_id: str, global_pos: QPoint) -> None:
         try:
             definition = self._layout_model.track_by_id(track_id)
@@ -1189,10 +1327,14 @@ class TabletView(QWidget):
 
         graphical = definition.kind in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
         add_curves = replace_curves = properties_action = None
+        curve_settings_action = save_layout_action = None
         if graphical:
             add_curves = menu.addAction(self._localizer.text("tablet.add_curves"))
             replace_curves = menu.addAction(
                 self._localizer.text("tablet.choose_track_curves")
+            )
+            curve_settings_action = menu.addAction(
+                self._localizer.text("tablet.curve_settings")
             )
             menu.addSeparator()
         properties_action = menu.addAction(
@@ -1204,6 +1346,10 @@ class TabletView(QWidget):
         menu.addSeparator()
         hide_action = menu.addAction(self._localizer.text("tablet.hide_track"))
         remove_action = menu.addAction(self._localizer.text("tablet.remove_track"))
+        menu.addSeparator()
+        save_layout_action = menu.addAction(
+            self._localizer.text("tablet.save_layout_as_form")
+        )
         menu.addSeparator()
         undo_action = menu.addAction(self._localizer.text("tablet.undo_interaction"))
         redo_action = menu.addAction(self._localizer.text("tablet.redo_interaction"))
@@ -1219,6 +1365,9 @@ class TabletView(QWidget):
             self.track_add_curves_requested.emit(track_id)
         elif replace_curves is not None and chosen is replace_curves:
             self.track_replace_curves_requested.emit(track_id)
+        elif curve_settings_action is not None and chosen is curve_settings_action:
+            first_curve = definition.curve_mnemonics[0] if definition.curve_mnemonics else ""
+            self.track_curve_settings_requested.emit(track_id, first_curve)
         elif chosen is properties_action:
             self.track_properties_requested.emit(track_id)
         elif chosen is move_left:
@@ -1229,10 +1378,19 @@ class TabletView(QWidget):
             self.track_hide_requested.emit(track_id)
         elif chosen is remove_action:
             self.track_remove_requested.emit(track_id)
+        elif save_layout_action is not None and chosen is save_layout_action:
+            self.save_layout_requested.emit()
         elif chosen is undo_action:
             self.undo_interaction()
         elif chosen is redo_action:
             self.redo_interaction()
+
+    def _curve_header_selected(self, track_id: str, mnemonic: str) -> None:
+        self.select_curve(track_id, mnemonic, emit_signal=True)
+
+    def _curve_header_context(self, track_id: str, mnemonic: str, _pos: QPoint) -> None:
+        self.select_curve(track_id, mnemonic, emit_signal=True)
+        self.track_curve_settings_requested.emit(track_id, mnemonic)
 
     @property
     def visible_depth_range(self) -> tuple[float, float] | None:
@@ -1295,10 +1453,14 @@ class TabletView(QWidget):
         for rendered in self._rendered.values():
             if rendered.cursor_line is not None:
                 rendered.cursor_line.setVisible(enabled)
+            if rendered.cursor_label is not None:
+                rendered.cursor_label.setVisible(enabled and self._cursor_depth is not None)
         if enabled and self._cursor_depth is None:
             depth_range = self.visible_depth_range
             if depth_range is not None:
                 self.set_cursor_depth(sum(depth_range) / 2.0)
+        elif enabled and self._cursor_depth is not None:
+            self._update_cursor_labels(self._cursor_depth)
 
     def set_cursor_depth(self, depth: float) -> None:
         if self._dataset is None or not np.isfinite(depth):
@@ -1308,6 +1470,7 @@ class TabletView(QWidget):
         if not finite.size:
             return
         bounded = min(max(float(depth), float(np.min(finite))), float(np.max(finite)))
+        bounded = float(finite[int(np.argmin(np.abs(finite - bounded)))])
         self._cursor_depth = bounded
         self._overlay_layers.mark_dirty(OverlayLayerKind.CURSOR)
         self._cursor_guard = True
@@ -1318,6 +1481,7 @@ class TabletView(QWidget):
                     rendered.cursor_line.setVisible(self._cursor_enabled)
         finally:
             self._cursor_guard = False
+        self._update_cursor_labels(bounded)
         self.cursor_changed.emit(bounded, self.cursor_summary(bounded))
 
     def set_cursor_style(self, color: str, width: float) -> None:
@@ -1341,10 +1505,23 @@ class TabletView(QWidget):
         index = int(valid_axis[np.argmin(np.abs(axis_values[valid_axis] - depth))])
         depths = np.asarray(self._dataset.depth, dtype=float)
         sample_depth = float(depths[index])
-        values = [f"Глубина: {sample_depth:g} м"]
+        depth_unit = self._localizer.text("tablet.depth_span_unit")
+        depth_index = next(
+            (item for item in self._dataset.indexes.values() if item.role is IndexRole.DEPTH),
+            None,
+        )
+        if depth_index is not None and depth_index.unit:
+            depth_unit = depth_index.unit
+        values = [
+            f"{self._localizer.text('cursor.depth')}: {sample_depth:g} {depth_unit}"
+        ]
         descriptor = self._axis_descriptor()
         if descriptor is not None and descriptor.is_time:
-            values.insert(0, f"Время: {self._format_axis_value(float(axis_values[index]))}")
+            values.insert(
+                0,
+                f"{self._localizer.text('cursor.time')}: "
+                f"{self._format_axis_value(float(axis_values[index]))}",
+            )
         interval = next(
             (
                 item
@@ -1357,7 +1534,8 @@ class TabletView(QWidget):
             lithotype = self._lithotype_catalog.get(interval.lithotype_id)
             rock = lithotype.name_ru if lithotype is not None else interval.lithotype_id
             interval_text = (
-                f"Литология: {rock} ({interval.top_depth:g}–{interval.bottom_depth:g} м)"
+                f"{self._localizer.text('cursor.lithology')}: {rock} "
+                f"({interval.top_depth:g}–{interval.bottom_depth:g} {depth_unit})"
             )
             if interval.description:
                 interval_text += f" — {interval.description}"
@@ -1377,8 +1555,8 @@ class TabletView(QWidget):
                 if value
             )
             values.append(
-                f"Стратиграфия: {label} "
-                f"({stratigraphy.top_depth:g}–{stratigraphy.bottom_depth:g} м)"
+                f"{self._localizer.text('cursor.stratigraphy')}: {label} "
+                f"({stratigraphy.top_depth:g}–{stratigraphy.bottom_depth:g} {depth_unit})"
                 + (f" — {stratigraphy.description}" if stratigraphy.description else "")
             )
         interpretation = self._current_interpretation()
@@ -1390,11 +1568,11 @@ class TabletView(QWidget):
                     <= interpretation_interval.bottom_depth
                 ):
                     interval_text = (
-                        f"Интерпретация «{interpretation.name}»: "
+                        f"{self._localizer.text('cursor.interpretation')} «{interpretation.name}»: "
                         f"{interpretation_interval.interval_type} / "
                         f"{interpretation_interval.label} "
                         f"({interpretation_interval.top_depth:g}–"
-                        f"{interpretation_interval.bottom_depth:g} м)"
+                        f"{interpretation_interval.bottom_depth:g} {depth_unit})"
                     )
                     if interpretation_interval.comment:
                         interval_text += f" — {interpretation_interval.comment}"
@@ -1415,15 +1593,20 @@ class TabletView(QWidget):
                 parts.append(f"{name}: {component.percentage:g}%")
             if parts:
                 values.append(
-                    f"Шлам {sample.top_depth:g}–{sample.bottom_depth:g} м: " + "; ".join(parts)
+                    f"{self._localizer.text('cursor.cuttings')} "
+                    f"{sample.top_depth:g}–{sample.bottom_depth:g} {depth_unit}: " + "; ".join(parts)
                 )
             if sample.calcite_percent is not None or sample.dolomite_percent is not None:
                 residue = sample.insoluble_residue_percent
                 values.append(
-                    "Кальциметрия: "
+                    f"{self._localizer.text('cursor.calcimetry')}: "
                     f"CaCO₃ {sample.calcite_percent or 0.0:g}%; "
                     f"CaMg(CO₃)₂ {sample.dolomite_percent or 0.0:g}%"
-                    + (f"; нераств. остаток {residue:g}%" if residue is not None else "")
+                    + (
+                        f"; {self._localizer.text('cursor.insoluble_residue')} {residue:g}%"
+                        if residue is not None
+                        else ""
+                    )
                 )
             lba = [
                 f"G={sample.lba_group}" if sample.lba_group is not None else None,
@@ -1441,9 +1624,15 @@ class TabletView(QWidget):
                 sample.lba_description,
             ]
             if any(lba):
-                values.append("ЛБА: " + "; ".join(value for value in lba if value))
+                values.append(
+                    f"{self._localizer.text('cursor.lba')}: "
+                    + "; ".join(value for value in lba if value)
+                )
             if sample.analysis_interpretation:
-                values.append("Интерпретация геолога: " + sample.analysis_interpretation)
+                values.append(
+                    f"{self._localizer.text('cursor.geologist_interpretation')}: "
+                    + sample.analysis_interpretation
+                )
         seen: set[str] = set()
         for definition in self._layout_model.visible_tracks():
             for mnemonic in definition.curve_mnemonics:
@@ -1456,7 +1645,11 @@ class TabletView(QWidget):
                 if not np.isfinite(value):
                     continue
                 unit = (curve.metadata.unit or "").strip()
-                values.append(f"{mnemonic}: {value:g}{f' {unit}' if unit else ''}")
+                display_name = self._curve_display_name(definition, mnemonic, curve)
+                values.append(
+                    f"{display_name} [{mnemonic}]: {value:g}"
+                    f"{f' {unit}' if unit else ''}"
+                )
                 seen.add(mnemonic)
         return " | ".join(values)
 
@@ -1492,14 +1685,14 @@ class TabletView(QWidget):
         self._dirty_registry.record_full_update()
         self._refresh_axis_selector()
         if self._dataset is None:
-            label = QLabel("Откройте LAS-файл для построения планшета")
+            label = QLabel(self._localizer.text("tablet.empty"))
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._tracks_layout.addWidget(label)
             return
 
         visible = self._layout_model.visible_tracks()
         if not visible:
-            label = QLabel("Добавьте трек в планшет")
+            label = QLabel(self._localizer.text("tablet.empty_add_track"))
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._tracks_layout.addWidget(label)
             return
@@ -1530,12 +1723,15 @@ class TabletView(QWidget):
         axis_descriptor = self._axis_descriptor()
         for definition in visible:
             track = TabletTrackWidget(definition, self._navigation_hint, axis_descriptor)
+            track.title.setText(self._localized_track_title(definition))
             track.selected.connect(self._track_selected_from_widget)
             track.width_change_requested.connect(self._resize_track_from_widget)
             track.header_drag_started.connect(self._start_track_header_drag)
             track.header_drag_moved.connect(self._move_track_header_drag)
             track.header_drag_finished.connect(self._finish_track_header_drag)
             track.context_requested.connect(self.show_track_context_menu)
+            track.curve_selected.connect(self._curve_header_selected)
+            track.curve_context_requested.connect(self._curve_header_context)
             legend_labels, curve_items = self._populate_track(
                 track,
                 definition,
@@ -1611,6 +1807,10 @@ class TabletView(QWidget):
             self._update_lithology_text_visibility(visible_top, visible_bottom)
             self._update_stratigraphy_text_visibility(visible_top, visible_bottom)
             self._apply_interpretation_selection_style()
+        self._apply_track_selection_style()
+        self._apply_curve_selection_style()
+        if self._cursor_depth is not None:
+            self._update_cursor_labels(self._cursor_depth)
         self._update_navigation_controls()
 
     def _synchronize_track_heights(self) -> None:
@@ -1666,10 +1866,71 @@ class TabletView(QWidget):
         line.sigPositionChanged.connect(lambda source: self._cursor_line_moved(source))
         rendered.plot.addItem(line)
         rendered.cursor_line = line
+        label = pg.TextItem(
+            "",
+            color="#0f172a",
+            fill=pg.mkBrush(255, 255, 255, 225),
+            border=pg.mkPen("#dc2626", width=1),
+            anchor=(0.0, 1.0),
+        )
+        label.setZValue(10_001)
+        label.setVisible(self._cursor_enabled and self._cursor_depth is not None)
+        rendered.plot.addItem(label)
+        rendered.cursor_label = label
         self._overlay_layers.register(OverlayLayerKind.CURSOR, rendered.definition.track_id, line)
+        self._overlay_layers.register(OverlayLayerKind.CURSOR, rendered.definition.track_id, label)
         rendered.plot.scene().sigMouseClicked.connect(
             lambda event, entry=rendered: self._cursor_plot_clicked(entry, event)
         )
+
+    def _cursor_sample_index(self, axis_value: float) -> int | None:
+        if self._dataset is None:
+            return None
+        axis_values = self._axis_values()
+        valid = np.flatnonzero(np.isfinite(axis_values))
+        if not valid.size:
+            return None
+        return int(valid[np.argmin(np.abs(axis_values[valid] - float(axis_value)))])
+
+    def _cursor_track_text(self, rendered: RenderedTrack, sample_index: int) -> str:
+        if self._dataset is None:
+            return ""
+        definition = rendered.definition
+        if definition.kind is TrackKind.DEPTH:
+            axis_values = self._axis_values()
+            if sample_index >= axis_values.size:
+                return ""
+            descriptor = self._axis_descriptor()
+            unit = descriptor.unit if descriptor is not None else ""
+            value = self._format_axis_value(float(axis_values[sample_index]))
+            key = "cursor.time" if descriptor is not None and descriptor.is_time else "cursor.depth"
+            return f"{self._localizer.text(key)}: {value}{f' {unit}' if unit else ''}"
+
+        lines: list[str] = []
+        for mnemonic in definition.curve_mnemonics:
+            curve = self._dataset.curve_by_mnemonic(mnemonic)
+            if curve is None or sample_index >= curve.values.size:
+                continue
+            value = float(curve.values[sample_index])
+            if not np.isfinite(value):
+                continue
+            name = self._curve_display_name(definition, mnemonic, curve)
+            unit = (curve.metadata.unit or "").strip()
+            lines.append(f"{name}: {value:g}{f' {unit}' if unit else ''}")
+        return "\n".join(lines)
+
+    def _update_cursor_labels(self, axis_value: float) -> None:
+        sample_index = self._cursor_sample_index(axis_value)
+        if sample_index is None:
+            return
+        for rendered in self._rendered.values():
+            label = rendered.cursor_label
+            if label is None:
+                continue
+            text = self._cursor_track_text(rendered, sample_index)
+            label.setText(text)
+            label.setPos(0.015, float(axis_value))
+            label.setVisible(self._cursor_enabled and bool(text))
 
     def _cursor_plot_clicked(self, rendered: RenderedTrack, event: object) -> None:
         if not self._cursor_enabled or rendered.plot is None:
@@ -1754,6 +2015,7 @@ class TabletView(QWidget):
             self._zoom_in_button,
             self._zoom_out_button,
             self._full_range_button,
+            self._span_combo,
             self._vertical_scrollbar,
         ):
             widget.setEnabled(enabled)
@@ -1844,6 +2106,40 @@ class TabletView(QWidget):
             return float(text.replace(",", "."))
         except ValueError:
             return None
+
+    def _depth_span_selected(self, row: int) -> None:
+        if row < 0:
+            return
+        raw = self._span_combo.itemData(row)
+        if raw is None:
+            current = self.visible_depth_range
+            initial = (current[1] - current[0]) if current is not None else 10.0
+            span, accepted = QInputDialog.getDouble(
+                self,
+                self._localizer.text("tablet.depth_span"),
+                self._localizer.text("tablet.depth_span_prompt"),
+                float(initial),
+                0.001,
+                1_000_000.0,
+                3,
+            )
+            if not accepted:
+                return
+        else:
+            span = float(raw)
+        self.set_vertical_span(span)
+
+    def set_vertical_span(self, span: float, *, center: float | None = None) -> bool:
+        current = self.visible_depth_range
+        bounds = self._axis_bounds()
+        if current is None or bounds is None or not np.isfinite(span) or span <= 0:
+            return False
+        data_span = bounds[1] - bounds[0]
+        requested = min(float(span), data_span)
+        anchor = float(center) if center is not None else sum(current) / 2.0
+        top = anchor - requested / 2.0
+        bottom = anchor + requested / 2.0
+        return self._apply_visible_depth(top, bottom, emit_change=True)
 
     def set_visible_depth(self, top: float, bottom: float) -> None:
         self._apply_visible_depth(top, bottom, emit_change=False)
@@ -2275,7 +2571,7 @@ class TabletView(QWidget):
         )
         if isinstance(rendered.widget, TabletTrackWidget):
             rendered.widget.definition = definition
-            rendered.widget.title.setText(str(title))
+            rendered.widget.title.setText(self._localized_track_title(definition))
             rendered.widget.set_track_width(int(width))
         if rendered.plot is not None:
             rendered.plot.showGrid(
@@ -2286,12 +2582,20 @@ class TabletView(QWidget):
     def _apply_curve_styles(
         self, rendered: RenderedTrack, definition: TrackDefinition
     ) -> None:
-        logarithmic = definition.x_scale is XScale.LOGARITHMIC
         if rendered.plot is not None:
-            rendered.plot.setLogMode(x=logarithmic, y=False)
+            rendered.plot.setLogMode(x=False, y=False)
+            rendered.plot.setXRange(0.0, 1.0, padding=0)
+        header_rows: list[tuple[str, str, str]] = []
         for index, (mnemonic, item) in enumerate((rendered.curve_items or {}).items()):
             style = definition.curve_style(mnemonic)
-            pen = (
+            if style is None:
+                style = CurveStyle(
+                    color=pg.intColor(
+                        index, hues=max(1, len(definition.curve_mnemonics))
+                    ).name(),
+                    width=1.5,
+                )
+            item.setPen(
                 pg.mkPen(
                     style.color,
                     width=style.width,
@@ -2302,23 +2606,31 @@ class TabletView(QWidget):
                         CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
                     }[style.line_style],
                 )
-                if style is not None
-                else pg.mkPen(
-                    pg.intColor(index, hues=max(1, len(definition.curve_mnemonics)))
-                )
             )
-            item.setPen(pen)
-        if rendered.plot is None:
-            return
-        if definition.x_min is not None and definition.x_max is not None:
-            minimum, maximum = definition.x_min, definition.x_max
-            if logarithmic:
-                minimum, maximum = float(np.log10(minimum)), float(np.log10(maximum))
-            rendered.plot.setXRange(minimum, maximum, padding=0)
-        elif rendered.curve_items:
-            automatic = self._automatic_track_x_range(definition, logarithmic)
-            if automatic is not None:
-                rendered.plot.setXRange(*automatic, padding=0)
+            if self._dataset is None:
+                continue
+            curve = self._dataset.curve_by_mnemonic(mnemonic)
+            if curve is None:
+                continue
+            settings = definition.curve_display_settings(mnemonic)
+            minimum, maximum = self._curve_display_range(
+                definition, mnemonic, np.asarray(curve.values, dtype=float)
+            )
+            display_name = self._curve_display_name(definition, mnemonic, curve)
+            unit = (curve.metadata.unit or "").strip()
+            scale_marker = self._localizer.text(
+                "curve_settings.scale_short.logarithmic"
+                if settings.x_scale is XScale.LOGARITHMIC
+                else "curve_settings.scale_short.linear"
+            )
+            text = f"{display_name}\n{minimum:g} … {maximum:g}"
+            if unit:
+                text += f" {unit}"
+            text += f" · {scale_marker}"
+            header_rows.append((mnemonic, text, style.color))
+        rendered.widget.set_curve_headers(header_rows)
+        if rendered.curve_render_keys is not None:
+            rendered.curve_render_keys.clear()
 
     def _refresh_rendered_track(
         self, rendered: RenderedTrack, reasons: DirtyReason
@@ -2336,6 +2648,9 @@ class TabletView(QWidget):
             visible = self.visible_depth_range
             if visible is not None:
                 self._update_rendered_track_curve_data(rendered, *visible)
+        self._apply_curve_selection_style()
+        if self._cursor_depth is not None:
+            self._update_cursor_labels(self._cursor_depth)
         if rendered.plot is not None:
             rendered.plot.viewport().update()
 
@@ -2345,13 +2660,14 @@ class TabletView(QWidget):
         if self._dataset is None:
             return
         depth = self._axis_values()
-        logarithmic = rendered.definition.x_scale is XScale.LOGARITHMIC
         for mnemonic, item in (rendered.curve_items or {}).items():
             curve = self._dataset.curve_by_mnemonic(mnemonic)
             if curve is None:
                 item.setData([], [])
                 continue
             source_values = np.asarray(curve.values, dtype=float)
+            settings = rendered.definition.curve_display_settings(mnemonic)
+            logarithmic = settings.x_scale is XScale.LOGARITHMIC
             budget = self._lod_point_budget(
                 rendered.plot.viewport().height() if rendered.plot is not None else 1000
             )
@@ -2364,7 +2680,13 @@ class TabletView(QWidget):
             values, visible_depth = self._geometry_cache.get_or_build(
                 key, depth, source_values
             )
-            item.setData(values, visible_depth)
+            minimum, maximum = self._curve_display_range(
+                rendered.definition, mnemonic, source_values
+            )
+            normalized = self._normalize_curve_values(
+                values, settings.x_scale, minimum, maximum
+            )
+            item.setData(normalized, visible_depth)
             if render_keys is not None:
                 render_keys[mnemonic] = key
 
@@ -2381,8 +2703,11 @@ class TabletView(QWidget):
         if definition.kind == TrackKind.DEPTH:
             descriptor = self._axis_descriptor()
             track.plot.showAxis("left")
-            label = descriptor.label if descriptor is not None else "Глубина"
-            unit = descriptor.unit if descriptor is not None else "м"
+            if descriptor is not None and descriptor.is_time:
+                label = self._localizer.text("tablet.track.time")
+            else:
+                label = self._localizer.text("tablet.track.depth")
+            unit = descriptor.unit if descriptor is not None else self._localizer.text("tablet.depth_span_unit")
             track.title.setText(f"{label}, {unit}" if unit else label)
             # The title already explains the axis. A second rotated axis label
             # consumed most of the narrow depth column and made it look broken.
@@ -2415,82 +2740,137 @@ class TabletView(QWidget):
             track.plot.setMouseEnabled(x=False, y=True)
             return (), {}
 
-        track.plot.setLabel("bottom", definition.title)
+        track.plot.hideAxis("bottom")
         track.plot.setMouseEnabled(x=False, y=True)
-        logarithmic = definition.x_scale is XScale.LOGARITHMIC
-        track.plot.setLogMode(x=logarithmic, y=False)
+        track.plot.setLogMode(x=False, y=False)
+        track.plot.setXRange(0.0, 1.0, padding=0)
+        track.plot.getViewBox().setDefaultPadding(0.0)
         legend_labels: list[str] = []
         curve_items: dict[str, pg.PlotDataItem] = {}
-        legend_created = False
+        header_rows: list[tuple[str, str, str]] = []
         for index, mnemonic in enumerate(definition.curve_mnemonics):
             curve = self._dataset.curve_by_mnemonic(mnemonic)
             if curve is None:
                 continue
             values = np.asarray(curve.values, dtype=float)
+            settings = definition.curve_display_settings(mnemonic)
+            logarithmic = settings.x_scale is XScale.LOGARITHMIC
             valid = np.isfinite(values) & np.isfinite(depth)
             if logarithmic:
                 valid &= values > 0
-            if np.any(valid):
-                if not legend_created:
-                    track.plot.addLegend(offset=(5, 5))
-                    legend_created = True
-                label = curve_legend_label(curve)
-                style = definition.curve_style(mnemonic)
-                pen = (
-                    pg.mkPen(
-                        style.color,
-                        width=style.width,
-                        style={
-                            CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
-                            CurveLineStyle.DASH: Qt.PenStyle.DashLine,
-                            CurveLineStyle.DOT: Qt.PenStyle.DotLine,
-                            CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
-                        }[style.line_style],
-                    )
-                    if style is not None
-                    else pg.mkPen(pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))))
+            if not np.any(valid):
+                continue
+            style = definition.curve_style(mnemonic)
+            if style is None:
+                style = CurveStyle(
+                    color=pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))).name(),
+                    width=1.5,
                 )
-                if visible_top is None or visible_bottom is None:
-                    visible_values = np.array([], dtype=np.float64)
-                    visible_depth = np.array([], dtype=np.float64)
-                else:
-                    budget = self._lod_point_budget(track.plot.viewport().height())
-                    key = self._curve_geometry_key(
-                        mnemonic, depth, values, visible_top, visible_bottom, budget, logarithmic
-                    )
-                    visible_values, visible_depth = self._geometry_cache.get_or_build(
-                        key, depth, values
-                    )
-                item = track.plot.plot(
-                    visible_values,
-                    visible_depth,
-                    pen=pen,
-                    name=label,
-                    connect="finite",
+            pen = pg.mkPen(
+                style.color,
+                width=style.width,
+                style={
+                    CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
+                    CurveLineStyle.DASH: Qt.PenStyle.DashLine,
+                    CurveLineStyle.DOT: Qt.PenStyle.DotLine,
+                    CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
+                }[style.line_style],
+            )
+            minimum, maximum = self._curve_display_range(definition, mnemonic, values)
+            if visible_top is None or visible_bottom is None:
+                visible_values = np.array([], dtype=np.float64)
+                visible_depth = np.array([], dtype=np.float64)
+            else:
+                budget = self._lod_point_budget(track.plot.viewport().height())
+                key = self._curve_geometry_key(
+                    mnemonic, depth, values, visible_top, visible_bottom, budget, logarithmic
                 )
-                curve_items[mnemonic] = item
-                legend_labels.append(label)
-        if definition.x_min is not None and definition.x_max is not None:
-            minimum = definition.x_min
-            maximum = definition.x_max
-            if logarithmic:
-                minimum = float(np.log10(minimum))
-                maximum = float(np.log10(maximum))
-            track.plot.setXRange(minimum, maximum, padding=0)
-        elif curve_items:
-            automatic_range = self._automatic_track_x_range(definition, logarithmic)
-            if automatic_range is not None:
-                track.plot.setXRange(*automatic_range, padding=0)
-        else:
-            track.title.setText(f"{definition.title} — нет числовых данных")
-            message = pg.TextItem("Нет числовых данных", color="#64748b", anchor=(0.5, 0.5))
+                raw_visible, visible_depth = self._geometry_cache.get_or_build(
+                    key, depth, values
+                )
+                visible_values = self._normalize_curve_values(
+                    raw_visible, settings.x_scale, minimum, maximum
+                )
+            display_name = self._curve_display_name(definition, mnemonic, curve)
+            unit = (curve.metadata.unit or "").strip()
+            scale_marker = self._localizer.text(
+                "curve_settings.scale_short.logarithmic"
+                if logarithmic
+                else "curve_settings.scale_short.linear"
+            )
+            range_text = f"{minimum:g} … {maximum:g}"
+            header_text = f"{display_name}\n{range_text}"
+            if unit:
+                header_text += f" {unit}"
+            header_text += f" · {scale_marker}"
+            item = track.plot.plot(
+                visible_values,
+                visible_depth,
+                pen=pen,
+                connect="finite",
+                clipToView=True,
+            )
+            curve_items[mnemonic] = item
+            legend_labels.append(display_name)
+            header_rows.append((mnemonic, header_text, style.color))
+        track.set_curve_headers(header_rows)
+        if not curve_items:
+            track.title.setText(
+                self._localizer.text("tablet.no_numeric_data", title=definition.title)
+            )
+            message = pg.TextItem(
+                self._localizer.text("tablet.no_numeric_data_short"),
+                color="#64748b",
+                anchor=(0.5, 0.5),
+            )
             depth_bounds = self._depth_bounds()
             center_depth = sum(depth_bounds) / 2.0 if depth_bounds is not None else 0.0
             message.setPos(0.5, center_depth)
             track.plot.addItem(message)
-            track.plot.setLogMode(x=False, y=False)
-            track.plot.setXRange(0.0, 1.0, padding=0)
         return tuple(legend_labels), curve_items
+
+    def _curve_display_name(
+        self, definition: TrackDefinition, mnemonic: str, curve: CurveData
+    ) -> str:
+        metadata = curve.metadata
+        return localized_curve_name(
+            metadata.original_mnemonic or mnemonic,
+            description=metadata.description or "",
+            unit=metadata.unit or "",
+            language=self._localizer.language,
+            configured=definition.curve_display_settings(mnemonic).display_name,
+        )
+
+    def _localized_track_title(self, definition: TrackDefinition) -> str:
+        standard = {
+            TrackKind.DEPTH: "tablet.track.depth",
+            TrackKind.GAS: "tablet.track.gas",
+            TrackKind.LITHOLOGY: "tablet.track.lithology",
+            TrackKind.CUTTINGS: "tablet.track.cuttings",
+            TrackKind.CALCIMETRY: "tablet.track.calcimetry",
+            TrackKind.LBA: "tablet.track.lba",
+            TrackKind.STRATIGRAPHY: "tablet.track.stratigraphy",
+            TrackKind.INTERPRETATION: "tablet.track.interpretation",
+            TrackKind.TEXT: "tablet.track.description",
+        }
+        key = standard.get(definition.kind)
+        if key is not None:
+            return self._localizer.text(key)
+        return definition.title
+
+    def _curve_display_range(
+        self, definition: TrackDefinition, mnemonic: str, values: np.ndarray
+    ) -> tuple[float, float]:
+        settings = definition.curve_display_settings(mnemonic)
+        if settings.x_min is not None and settings.x_max is not None:
+            return float(settings.x_min), float(settings.x_max)
+        return automatic_curve_range(values, settings.x_scale)
+
+    @staticmethod
+    def _normalize_curve_values(
+        values: np.ndarray, scale: XScale, minimum: float, maximum: float
+    ) -> np.ndarray:
+        return normalize_curve_values(values, scale, minimum, maximum)
 
     def _automatic_track_x_range(
         self, definition: TrackDefinition, logarithmic: bool

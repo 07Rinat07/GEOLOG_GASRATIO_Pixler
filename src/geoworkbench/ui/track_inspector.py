@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackDefinition, XScale
+from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackDefinition, TrackKind, XScale
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
@@ -67,7 +67,7 @@ class TrackInspector(QWidget):
 
         style_form = QFormLayout()
         self.curve_input = QComboBox()
-        self.curve_input.currentTextChanged.connect(self._load_curve_style)
+        self.curve_input.currentIndexChanged.connect(self._load_curve_style)
         style_form.addRow(self._t("inspector.style_curve"), self.curve_input)
         self.color_input = QLineEdit()
         self.color_input.setPlaceholderText("#2563eb")
@@ -139,11 +139,28 @@ class TrackInspector(QWidget):
     ) -> None:
         self._track_id = track.track_id
         self._current_track = track
+        kind_keys = {
+            TrackKind.DEPTH: "tablet.track.depth",
+            TrackKind.CURVE: "tablet.track.curve",
+            TrackKind.GAS: "tablet.track.gas",
+            TrackKind.DEXP: "tablet.track.dexp",
+            TrackKind.LITHOLOGY: "tablet.track.lithology",
+            TrackKind.CUTTINGS: "tablet.track.cuttings",
+            TrackKind.CALCIMETRY: "tablet.track.calcimetry",
+            TrackKind.LBA: "tablet.track.lba",
+            TrackKind.STRATIGRAPHY: "tablet.track.stratigraphy",
+            TrackKind.INTERPRETATION: "tablet.track.interpretation",
+            TrackKind.TEXT: "tablet.track.description",
+        }
+        curve_names = [
+            track.curve_display_settings(mnemonic).display_name or mnemonic
+            for mnemonic in track.curve_mnemonics
+        ]
         self._summary.setText(
             f"{track.title}\n"
-            f"{self._t('inspector.type')}: {track.kind.value}\n"
+            f"{self._t('inspector.type')}: {self._t(kind_keys[track.kind])}\n"
             f"{self._t('inspector.curves')}: "
-            f"{', '.join(track.curve_mnemonics) or self._t('common.none')}"
+            f"{', '.join(curve_names) or self._t('common.none')}"
         )
         self.width_input.setValue(track.width)
         self.scale_input.setCurrentIndex(
@@ -157,9 +174,11 @@ class TrackInspector(QWidget):
         self._update_range_enabled(automatic)
         self.curve_input.blockSignals(True)
         self.curve_input.clear()
-        self.curve_input.addItems(track.curve_mnemonics)
+        for mnemonic in track.curve_mnemonics:
+            display_name = track.curve_display_settings(mnemonic).display_name or mnemonic
+            self.curve_input.addItem(display_name, mnemonic)
         self.curve_input.blockSignals(False)
-        self._load_curve_style(self.curve_input.currentText())
+        self._load_curve_style(self.curve_input.currentIndex())
         self.style_button.setEnabled(bool(track.curve_mnemonics))
         self.grid_x_input.setChecked(track.grid_x)
         self.grid_y_input.setChecked(track.grid_y)
@@ -194,8 +213,9 @@ class TrackInspector(QWidget):
             maximum,
         )
 
-    def _load_curve_style(self, mnemonic: str) -> None:
+    def _load_curve_style(self, _index: int) -> None:
         track = self._current_track
+        mnemonic = str(self.curve_input.currentData() or "")
         if track is None or not mnemonic:
             self.color_input.setText("")
             return
@@ -207,7 +227,7 @@ class TrackInspector(QWidget):
         )
 
     def _emit_curve_style(self) -> None:
-        mnemonic = self.curve_input.currentText()
+        mnemonic = str(self.curve_input.currentData() or "")
         if self._track_id is None or not mnemonic:
             return
         self.curve_style_requested.emit(

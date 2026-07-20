@@ -17,6 +17,7 @@ from geoworkbench.services.curve_catalog import (
     recommended_curve_mnemonics,
 )
 from geoworkbench.tablet.models import (
+    CurveDisplaySettings,
     CurveStyle,
     TabletLayout,
     TrackDefinition,
@@ -157,7 +158,23 @@ class TabletController:
             for mnemonic, style in track.curve_styles.items()
             if mnemonic in mnemonics
         }
+        track.curve_display = {
+            mnemonic: settings
+            for mnemonic, settings in track.curve_display.items()
+            if mnemonic in mnemonics
+        }
         track.title = " / ".join(mnemonics)
+        self.session.dirty = True
+        return track
+
+    def set_curve_display_settings(
+        self,
+        track_id: str,
+        mnemonic: str,
+        settings: CurveDisplaySettings,
+    ) -> TrackDefinition:
+        track = self._require_layout().track_by_id(track_id)
+        track.set_curve_display(mnemonic, settings)
         self.session.dirty = True
         return track
 
@@ -289,7 +306,23 @@ class TabletController:
         self.session.dirty = True
 
     def set_track_x_scale(self, track_id: str, scale: XScale) -> None:
-        self._require_layout().set_track_x_scale(track_id, scale)
+        layout = self._require_layout()
+        layout.set_track_x_scale(track_id, scale)
+        track = layout.track_by_id(track_id)
+        for mnemonic in track.curve_mnemonics:
+            current = track.curve_display_settings(mnemonic)
+            minimum, maximum = current.x_min, current.x_max
+            if scale is XScale.LOGARITHMIC and minimum is not None and minimum <= 0:
+                minimum = maximum = None
+            track.set_curve_display(
+                mnemonic,
+                CurveDisplaySettings(
+                    display_name=current.display_name,
+                    x_scale=scale,
+                    x_min=minimum,
+                    x_max=maximum,
+                ),
+            )
         self.session.dirty = True
 
     def set_track_x_range(
@@ -298,7 +331,20 @@ class TabletController:
         minimum: float | None,
         maximum: float | None,
     ) -> None:
-        self._require_layout().set_track_x_range(track_id, minimum, maximum)
+        layout = self._require_layout()
+        layout.set_track_x_range(track_id, minimum, maximum)
+        track = layout.track_by_id(track_id)
+        for mnemonic in track.curve_mnemonics:
+            current = track.curve_display_settings(mnemonic)
+            track.set_curve_display(
+                mnemonic,
+                CurveDisplaySettings(
+                    display_name=current.display_name,
+                    x_scale=current.x_scale,
+                    x_min=minimum,
+                    x_max=maximum,
+                ),
+            )
         self.session.dirty = True
 
     def set_visible_depth(self, top: float, bottom: float) -> bool:
@@ -341,13 +387,29 @@ class TabletController:
         x_min: float | None,
         x_max: float | None,
     ) -> None:
-        self._require_layout().update_track_view_settings(
+        layout = self._require_layout()
+        layout.update_track_view_settings(
             track_id,
             width=width,
             x_scale=x_scale,
             x_min=x_min,
             x_max=x_max,
         )
+        track = layout.track_by_id(track_id)
+        for mnemonic in track.curve_mnemonics:
+            current = track.curve_display_settings(mnemonic)
+            minimum, maximum = x_min, x_max
+            if x_scale is XScale.LOGARITHMIC and minimum is not None and minimum <= 0:
+                minimum = maximum = None
+            track.set_curve_display(
+                mnemonic,
+                CurveDisplaySettings(
+                    display_name=current.display_name,
+                    x_scale=x_scale,
+                    x_min=minimum,
+                    x_max=maximum,
+                ),
+            )
         self.session.dirty = True
 
     def set_curve_style(self, track_id: str, mnemonic: str, style: CurveStyle) -> None:

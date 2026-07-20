@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 from geoworkbench.tablet.models import (
+    CurveDisplaySettings,
     CurveLineStyle,
     CurveStyle,
     TabletLayout,
@@ -13,7 +14,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 8
+LAYOUT_FORMAT_VERSION = 9
 
 
 class TabletLayoutFormatError(ValueError):
@@ -46,6 +47,15 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                         "line_style": style.line_style.value,
                     }
                     for mnemonic, style in track.curve_styles.items()
+                },
+                "curve_display": {
+                    mnemonic: {
+                        "display_name": settings.display_name,
+                        "x_scale": settings.x_scale.value,
+                        "x_min": settings.x_min,
+                        "x_max": settings.x_max,
+                    }
+                    for mnemonic, settings in track.curve_display.items()
                 },
                 "grid_x": track.grid_x,
                 "grid_y": track.grid_y,
@@ -115,6 +125,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
     raw_x_min = data.get("x_min")
     raw_x_max = data.get("x_max")
     raw_curve_styles = data.get("curve_styles", {})
+    raw_curve_display = data.get("curve_display", {})
     raw_grid_x = data.get("grid_x", True)
     raw_grid_y = data.get("grid_y", True)
     raw_grid_alpha = data.get("grid_alpha", 0.2)
@@ -136,6 +147,8 @@ def _track_from_dict(data: object) -> TrackDefinition:
             raise TypeError(f"{name} должен быть числом или null")
     if not isinstance(raw_curve_styles, dict):
         raise TypeError("curve_styles должен быть JSON-объектом")
+    if not isinstance(raw_curve_display, dict):
+        raise TypeError("curve_display должен быть JSON-объектом")
     curve_styles: dict[str, CurveStyle] = {}
     for mnemonic, raw_style in raw_curve_styles.items():
         if not isinstance(mnemonic, str) or not isinstance(raw_style, dict):
@@ -144,6 +157,18 @@ def _track_from_dict(data: object) -> TrackDefinition:
             color=raw_style.get("color", "#2563eb"),
             width=raw_style.get("width", 1.5),
             line_style=CurveLineStyle(raw_style.get("line_style", CurveLineStyle.SOLID.value)),
+        )
+    curve_display: dict[str, CurveDisplaySettings] = {}
+    for mnemonic, raw_settings in raw_curve_display.items():
+        if not isinstance(mnemonic, str) or not isinstance(raw_settings, dict):
+            raise TypeError("Некорректная настройка отображения кривой")
+        raw_min = raw_settings.get("x_min")
+        raw_max = raw_settings.get("x_max")
+        curve_display[mnemonic] = CurveDisplaySettings(
+            display_name=str(raw_settings.get("display_name") or ""),
+            x_scale=XScale(raw_settings.get("x_scale", XScale.LINEAR.value)),
+            x_min=float(raw_min) if raw_min is not None else None,
+            x_max=float(raw_max) if raw_max is not None else None,
         )
     if not isinstance(raw_grid_x, bool) or not isinstance(raw_grid_y, bool):
         raise TypeError("grid_x и grid_y должны быть логическими значениями")
@@ -164,6 +189,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         x_min=float(raw_x_min) if raw_x_min is not None else None,
         x_max=float(raw_x_max) if raw_x_max is not None else None,
         curve_styles=curve_styles,
+        curve_display=curve_display,
         grid_x=raw_grid_x,
         grid_y=raw_grid_y,
         grid_alpha=float(raw_grid_alpha),
@@ -175,7 +201,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2, 3, 4, 5, 6, 7):
+    if version not in (1, 2, 3, 4, 5, 6, 7, 8):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -212,4 +238,10 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     migrated.setdefault("cursor_depth", None)
     migrated["version"] = 8
     migrated.setdefault("vertical_index_id", None)
+    migrated["version"] = 9
+    tracks = migrated.get("tracks")
+    if isinstance(tracks, list):
+        for track in tracks:
+            if isinstance(track, dict):
+                track.setdefault("curve_display", {})
     return migrated

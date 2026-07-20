@@ -78,3 +78,12 @@ Remaining:
 - 🔄 Следующий срез: живой предпросмотр на планшете и завершение рабочего сценария сохранения/применения.
 
 - [x] Live Form Preview: draft state, auto-apply, manual apply, save and revert in one editor session.
+
+### Tablet usability correction — completed
+
+- per-curve auto/manual scales and styles;
+- stacked readable curve headers;
+- mouse-first curve selection;
+- synchronized depth cursor values;
+- 1/5/10/20/30/40/50 m and custom visible interval;
+- RU/KK/EN strings for the affected workflow.

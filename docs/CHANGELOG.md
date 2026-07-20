@@ -270,3 +270,13 @@
 ### Live Form Preview
 - Добавлены draft-состояние формы, живой предпросмотр на рабочем планшете, ручное применение и откат.
 - Редактор формы больше не закрывается после сохранения; сценарий «редактировать → применить → сохранить» выполняется в одном окне.
+
+### Tablet curves, scales, localization and cursor
+
+- Added per-curve readable display names, linear/logarithmic scale and automatic/manual range.
+- Added per-curve line color, width and style editing with persistence in tablet presets/forms.
+- Multiple curves in one track now use stacked readable headers and independent normalized scales.
+- Curve rows can be selected with a normal mouse click; curve headers support selection and context editing.
+- Added synchronized cursor labels with depth/time and values in every visible curve track.
+- Added fixed visible-depth presets (1, 5, 10, 20, 30, 40, 50 m) and custom span input.
+- Completed RU/KK/EN strings for the new tablet and curve-settings controls.

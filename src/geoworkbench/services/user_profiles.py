@@ -26,7 +26,7 @@ class EngineerProfile:
 class CursorLineSettings:
     color: str = "#dc2626"
     width: float = 2.0
-    enabled: bool = False
+    enabled: bool = True
 
 
 @dataclass(slots=True)
@@ -145,7 +145,7 @@ class UserProfileSettings:
                 return CursorLineSettings()
             color = str(payload.get("color", "#dc2626"))
             width = float(payload.get("width", 2.0))
-            enabled = payload.get("enabled", False)
+            enabled = payload.get("enabled", True)
             if (
                 len(color) != 7
                 or not color.startswith("#")

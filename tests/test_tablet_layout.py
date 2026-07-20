@@ -6,6 +6,7 @@ from geoworkbench.tablet.layout_codec import (
     layout_to_dict,
 )
 from geoworkbench.tablet.models import (
+    CurveDisplaySettings,
     CurveLineStyle,
     CurveStyle,
     TabletLayout,
@@ -57,6 +58,10 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     source.set_visible_depth(1200.0, 1300.0)
     source.set_cursor_depth(1250.0)
     source.track_by_id("gas").set_curve_style("C1", CurveStyle("#ff0000", 2.5, CurveLineStyle.DASH))
+    source.track_by_id("gas").set_curve_display(
+        "C1",
+        CurveDisplaySettings("Метан", XScale.LOGARITHMIC, 0.1, 100.0),
+    )
     source.track_by_id("gas").set_grid(False, True, 0.45)
     source.track_by_id("gas").set_x_axis_label("Gas, %")
 
@@ -69,6 +74,9 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     assert restored.cursor_depth == 1250.0
     assert restored.track_by_id("gas").curve_style("C1") == CurveStyle(
         "#ff0000", 2.5, CurveLineStyle.DASH
+    )
+    assert restored.track_by_id("gas").curve_display_settings("C1") == CurveDisplaySettings(
+        "Метан", XScale.LOGARITHMIC, 0.1, 100.0
     )
     assert restored.track_by_id("gas").grid_x is False
     assert restored.track_by_id("gas").grid_y is True
@@ -299,3 +307,26 @@ def test_switching_vertical_index_resets_incompatible_window_and_cursor() -> Non
     assert layout.visible_depth_top is None
     assert layout.visible_depth_bottom is None
     assert layout.cursor_depth is None
+
+
+def test_curve_display_settings_validate_manual_range() -> None:
+    with pytest.raises(ValueError):
+        CurveDisplaySettings("Bad", XScale.LOGARITHMIC, 0.0, 10.0)
+
+
+def test_layout_codec_migrates_v8_with_empty_curve_display() -> None:
+    restored = layout_from_dict(
+        {
+            "version": 8,
+            "vertical_index_id": None,
+            "tracks": [
+                {
+                    "track_id": "curve",
+                    "title": "Curve",
+                    "kind": "curve",
+                    "curve_mnemonics": ["GR"],
+                }
+            ],
+        }
+    )
+    assert restored.track_by_id("curve").curve_display == {}

@@ -70,3 +70,7 @@ The LAS curve browser and inspector start collapsed. Narrow icon rails on the le
 ## Full-height tracks and column context menu
 
 Tablet tracks now fill the complete available workspace height. The depth column uses a compact ruler without a duplicate rotated label and remains mouse-resizable. Right-click works anywhere inside a column; graphical tracks expose direct actions for adding curves, changing the parameter/curve set, and opening track properties.
+
+## Per-curve scales and synchronized cursor
+
+Each curve supports a readable display name, automatic or manual range, linear/logarithmic scale, line color, width and style. Curves are listed as separate stacked rows in the track header. The cursor is synchronized across every column, snaps to a depth/time sample and displays values. The visible interval can be set to 1/5/10/20/30/40/50 m or a custom value.

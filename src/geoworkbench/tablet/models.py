@@ -49,6 +49,29 @@ class CurveStyle:
             raise ValueError("Стиль линии не поддерживается")
 
 
+
+
+@dataclass(frozen=True, slots=True)
+class CurveDisplaySettings:
+    """Per-curve caption and horizontal scale inside one tablet track."""
+
+    display_name: str = ""
+    x_scale: XScale = XScale.LINEAR
+    x_min: float | None = None
+    x_max: float | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.display_name, str):
+            raise ValueError("Отображаемое имя кривой должно быть строкой")
+        if len(self.display_name.strip()) > 120:
+            raise ValueError("Отображаемое имя кривой не должно превышать 120 символов")
+        TrackDefinition._validate_x_settings(self.x_scale, self.x_min, self.x_max)
+
+    @property
+    def automatic_range(self) -> bool:
+        return self.x_min is None or self.x_max is None
+
+
 @dataclass(slots=True)
 class TrackDefinition:
     track_id: str
@@ -62,6 +85,7 @@ class TrackDefinition:
     x_min: float | None = None
     x_max: float | None = None
     curve_styles: dict[str, CurveStyle] = field(default_factory=dict)
+    curve_display: dict[str, CurveDisplaySettings] = field(default_factory=dict)
     grid_x: bool = True
     grid_y: bool = True
     grid_alpha: float = 0.2
@@ -75,6 +99,10 @@ class TrackDefinition:
             raise ValueError("Ключи стилей кривых должны быть непустыми строками")
         if not all(isinstance(style, CurveStyle) for style in self.curve_styles.values()):
             raise ValueError("Настройки кривых должны использовать CurveStyle")
+        if not all(isinstance(key, str) and key.strip() for key in self.curve_display):
+            raise ValueError("Ключи отображения кривых должны быть непустыми строками")
+        if not all(isinstance(value, CurveDisplaySettings) for value in self.curve_display.values()):
+            raise ValueError("Настройки отображения должны использовать CurveDisplaySettings")
         self._validate_grid(self.grid_x, self.grid_y, self.grid_alpha)
         self._validate_x_axis_label(self.x_axis_label)
 
@@ -113,6 +141,25 @@ class TrackDefinition:
 
     def curve_style(self, mnemonic: str) -> CurveStyle | None:
         return self.curve_styles.get(mnemonic)
+
+    def set_curve_display(self, mnemonic: str, settings: CurveDisplaySettings) -> None:
+        normalized = mnemonic.strip()
+        if normalized not in self.curve_mnemonics:
+            raise KeyError(f"Кривая отсутствует в треке: {mnemonic}")
+        if not isinstance(settings, CurveDisplaySettings):
+            raise ValueError("Некорректные настройки отображения кривой")
+        self.curve_display[normalized] = settings
+
+    def curve_display_settings(self, mnemonic: str) -> CurveDisplaySettings:
+        return self.curve_display.get(
+            mnemonic,
+            CurveDisplaySettings(
+                display_name="",
+                x_scale=self.x_scale,
+                x_min=self.x_min,
+                x_max=self.x_max,
+            ),
+        )
 
     def set_grid(self, show_x: bool, show_y: bool, alpha: float) -> None:
         self._validate_grid(show_x, show_y, alpha)
