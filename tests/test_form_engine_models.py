@@ -48,7 +48,7 @@ def test_factory_templates_are_read_only_and_copy_is_editable() -> None:
 
 def test_factory_templates_have_unique_ids() -> None:
     templates = factory_templates()
-    assert len(templates) == 6
+    assert len(templates) == 10
     assert len({item.form_id for item in templates.values()}) == len(templates)
     for form in templates.values():
         form.validate()
@@ -101,3 +101,70 @@ def test_schema_zero_is_migrated() -> None:
 def test_unknown_schema_is_rejected() -> None:
     with pytest.raises(FormFormatError, match="Неподдерживаемая"):
         form_from_dict({"schema_version": 99})
+
+
+def test_factory_templates_include_specialized_gas_ratio_pixler_workflows() -> None:
+    templates = factory_templates()
+
+    assert {
+        "factory-gas-ratio-pixler-depth",
+        "factory-gas-ratio-pixler-time",
+        "factory-normalized-gas-qc",
+        "factory-c1-c5-detailed",
+    }.issubset(templates)
+
+    depth_form = templates["factory-gas-ratio-pixler-depth"]
+    assert depth_form.axis_kind is FormAxisKind.DEPTH
+    assert [column.column_id for column in depth_form.columns] == [
+        "column-depth-axis",
+        "column-drilling",
+        "column-mud",
+        "column-raw-normalized-gas",
+        "column-components",
+        "column-ratios",
+        "column-pixler-ratios",
+        "column-lithology",
+        "column-interpretation",
+    ]
+    canonical = {
+        binding.canonical_parameter_id
+        for column in depth_form.columns
+        for track in column.tracks
+        for binding in track.bindings
+    }
+    assert {
+        "ROP",
+        "TOTAL_GAS",
+        "NORMALIZED_TOTAL_GAS",
+        "C1",
+        "C2",
+        "C3",
+        "IC4",
+        "NC4",
+        "IC5",
+        "NC5",
+        "WETNESS",
+        "BALANCE",
+        "CHARACTER",
+        "IC4_NC4",
+        "IC5_NC5",
+        "PIXLER_C1_C2",
+        "PIXLER_C1_C3",
+        "PIXLER_C1_C4",
+        "PIXLER_C1_C5",
+    }.issubset(canonical)
+
+
+def test_factory_templates_are_localized_without_changing_stable_ids() -> None:
+    ru = factory_templates("ru")
+    kk = factory_templates("kk")
+    en = factory_templates("en")
+
+    form_id = "factory-gas-ratio-pixler-depth"
+    assert ru[form_id].form_id == kk[form_id].form_id == en[form_id].form_id
+    assert ru[form_id].name == "Gas Ratio & Pixler — глубинная интерпретация"
+    assert kk[form_id].name == "Gas Ratio & Pixler — тереңдік интерпретациясы"
+    assert en[form_id].name == "Gas Ratio & Pixler — depth interpretation"
+    assert ru[form_id].columns[0].title == "Глубина"
+    assert kk[form_id].columns[0].title == "Тереңдік"
+    assert en[form_id].columns[0].title == "Depth"

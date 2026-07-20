@@ -28,7 +28,7 @@ def test_form_apply_builds_layout_and_reports_missing_bindings() -> None:
     assert any("TGAS" in track.curve_mnemonics for track in result.layout.tracks)
     assert any("ROP_AVG" in track.curve_mnemonics for track in result.layout.tracks)
     total_gas_track = next(track for track in result.layout.tracks if "TGAS" in track.curve_mnemonics)
-    assert total_gas_track.curve_display_settings("TGAS").display_name == "Total Gas"
+    assert total_gas_track.curve_display_settings("TGAS").display_name == "Суммарный газ"
     assert result.resolved_count == 3
     assert {item.canonical_parameter_id for item in result.missing} == {
         "NORMALIZED_TOTAL_GAS",
@@ -46,3 +46,18 @@ def test_explicit_binding_has_priority() -> None:
 
     assert resolution.mnemonic == "TGAS"
     assert resolution.matched_by == "explicit"
+
+
+def test_specialized_depth_form_keeps_non_curve_tracks_and_resolves_available_data() -> None:
+    result = FormApplyEngine().build_layout(
+        factory_templates("en")["factory-gas-ratio-pixler-depth"],
+        _dataset(),
+    )
+
+    kinds = [track.kind.value for track in result.layout.tracks]
+    assert kinds[0] == "depth"
+    assert "lithology" in kinds
+    assert "interpretation" in kinds
+    assert any("TGAS" in track.curve_mnemonics for track in result.layout.tracks)
+    assert any("ROP_AVG" in track.curve_mnemonics for track in result.layout.tracks)
+    assert result.layout.vertical_index_id == "data:primary-index"

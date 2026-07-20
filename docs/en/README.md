@@ -327,3 +327,11 @@ Use “Edit → Sensors and mnemonic reference...” to create mapping rules for
 See `TABLET_ENGINE_2.md`.
 
 - [Form Engine](FORM_ENGINE.md)
+
+## Specialized Gas Ratio & Pixler forms
+
+The form manager includes factory templates for depth interpretation, time monitoring,
+normalized-gas QC, and detailed C1–C5 review. Column and parameter captions are created in
+English; a factory template is edited through an independent user copy.
+
+Basic LAS forms are populated automatically from the current file and can be saved as editable user templates.

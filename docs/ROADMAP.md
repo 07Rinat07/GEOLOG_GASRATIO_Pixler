@@ -87,3 +87,25 @@ Remaining:
 - synchronized depth cursor values;
 - 1/5/10/20/30/40/50 m and custom visible interval;
 - RU/KK/EN strings for the affected workflow.
+
+### Completed: specialized Gas Ratio & Pixler forms
+
+- localized RU/KK/EN depth interpretation form;
+- localized time monitoring form;
+- normalized-gas QC form;
+- detailed C1–C5 form;
+- stable IDs and canonical bindings across languages.
+
+### Next
+
+- Normalized Gas Engine profiles, quality mask, derived curves, and provenance.
+
+## Completed correction — working factory LAS forms
+
+- [x] materialize the basic depth/time forms from the active LAS dataset;
+- [x] group actual curves into readable category columns;
+- [x] preserve source mnemonic, display name, unit, style, and reference range;
+- [x] expose available/missing bindings in the form manager;
+- [x] create an editable saved copy from a materialized factory form;
+- [x] validate depth/time axis compatibility;
+- [x] support mouse row selection and multi-select LAS-curve insertion in the track editor.

@@ -1,3 +1,32 @@
+## Unreleased — working LAS base forms
+
+### Русский
+
+- базовая глубинная и временная формы автоматически заполняются реальными кривыми открытого LAS;
+- кривые группируются по назначению и распределяются максимум по четыре на колонку;
+- сохраняются исходные мнемоники, описания, единицы, цвета и рекомендуемые диапазоны;
+- менеджер форм показывает доступные/отсутствующие параметры и совместимость оси;
+- заводской рабочий шаблон открывается напрямую или сохраняется как редактируемая копия;
+- редактор дорожки поддерживает надёжный выбор строки мышью и множественное добавление LAS-кривых.
+
+### Қазақша
+
+- негізгі тереңдік және уақыт пішіндері ашық LAS файлының нақты қисықтарымен автоматты толтырылады;
+- қисықтар мақсаты бойынша топтастырылып, бір бағанға ең көбі төрттен орналастырылады;
+- бастапқы мнемоника, сипаттама, өлшем бірлігі, түс және ұсынылған ауқым сақталады;
+- пішіндер менеджері қолжетімді/табылмаған параметрлер мен ось сәйкестігін көрсетеді;
+- зауыттық жұмыс үлгісі тікелей ашылады немесе өңделетін көшірме ретінде сақталады;
+- жол редакторы тінтуірмен сенімді таңдауды және бірнеше LAS қисығын қосуды қолдайды.
+
+### English
+
+- basic depth and time forms are populated automatically from the open LAS dataset;
+- curves are grouped by purpose and split into columns of at most four curves;
+- exact source mnemonics, descriptions, units, colors, and recommended ranges are preserved;
+- the form manager reports available/missing parameters and axis compatibility;
+- a working factory template opens directly or can be saved as an editable copy;
+- the track editor supports reliable mouse row selection and multi-select LAS-curve insertion.
+
 ## Unreleased — full-height tablet tracks and column context menu
 
 - The depth scale is now a compact dedicated ruler: the redundant rotated label was removed, tick labels use the available width, and resizing the depth column updates the ruler immediately.
@@ -280,3 +309,11 @@
 - Added synchronized cursor labels with depth/time and values in every visible curve track.
 - Added fixed visible-depth presets (1, 5, 10, 20, 30, 40, 50 m) and custom span input.
 - Completed RU/KK/EN strings for the new tablet and curve-settings controls.
+
+## Unreleased
+
+### Added
+
+- Localized RU/KK/EN factory forms for Gas Ratio & Pixler depth interpretation and time monitoring.
+- Factory forms for normalized-gas QC and detailed C1–C5 review.
+- Stable factory identifiers and canonical bindings across all three interface languages.

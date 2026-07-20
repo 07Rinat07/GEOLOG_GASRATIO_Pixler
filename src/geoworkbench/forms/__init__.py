@@ -12,6 +12,11 @@ from geoworkbench.forms.models import (
 from geoworkbench.forms.apply import BindingResolution, FormApplyEngine, FormApplyResult
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.templates import factory_templates
+from geoworkbench.forms.materialize import (
+    MaterializedFormInfo,
+    materialize_form_for_dataset,
+    materialized_factory_templates,
+)
 
 __all__ = [
     "TrackBindingEditor",
@@ -29,6 +34,9 @@ __all__ = [
     "FormTrack",
     "ParameterBinding",
     "factory_templates",
+    "materialized_factory_templates",
+    "materialize_form_for_dataset",
+    "MaterializedFormInfo",
     "form_from_dict",
     "form_to_dict",
 ]

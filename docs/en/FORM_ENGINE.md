@@ -42,3 +42,31 @@ Changes are stored in the user JSON template and consumed by the existing Form A
 
 ## Live preview
 The editor uses a safe draft copy, supports automatic preview, manual apply, saving without closing the editor, and reverting to the last saved version.
+
+## Specialized Gas Ratio & Pixler forms
+
+The following read-only factory forms can be opened directly or saved as editable user copies:
+
+- **Gas Ratio & Pixler — depth interpretation**: depth, drilling, mud, raw and normalized gas,
+  C1–C5, Gas Ratio, Pixler, lithology, and interpretation intervals;
+- **Gas Ratio & Pixler — time monitoring**: time axis, drilling parameters, gas components,
+  ratios, and intervals;
+- **Normalized gas QC**: raw and normalized curves, normalization factor, and validity flag;
+- **Detailed C1–C5**: separate C1–C3, C4–C5, and isomer-ratio tracks.
+
+Form, column, track, and parameter captions are created in the selected interface language:
+Russian, Kazakh, or English. Stable identifiers and canonical parameter links do not change when
+the language changes.
+
+## Working LAS base forms
+
+The basic depth and time forms are no longer empty placeholders. Once a dataset is open, they are
+populated automatically from the actual curves in the current LAS file. Curves are grouped into
+Drilling, Drilling fluid, Gas data, Petrophysics, D-exponent, and Other LAS curves columns, with no
+more than four curves in one column so labels remain readable.
+
+Each binding preserves the exact source mnemonic, readable description, unit, Sensors-catalog
+color, and recommended range. A form can be opened on the tablet immediately. Edit creates a user
+copy where names, contents, order, scales, and styling can be changed and saved for reuse. The form
+manager reports available and missing parameters and prevents applying a depth/time form when the
+corresponding dataset axis is absent.

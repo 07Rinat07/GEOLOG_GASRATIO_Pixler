@@ -157,7 +157,7 @@ class FormStructureEditorDialog(QDialog):
 
         self.kind_combo = QComboBox()
         for kind in TrackKind:
-            self.kind_combo.addItem(kind.value, kind)
+            self.kind_combo.addItem(self._track_kind_name(kind), kind)
         self.kind_combo.currentIndexChanged.connect(self._apply_track_kind)
         properties.addRow(self._text("Тип дорожки", "Жол түрі", "Track type"), self.kind_combo)
         right_layout.addLayout(properties)
@@ -182,6 +182,22 @@ class FormStructureEditorDialog(QDialog):
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
+
+    def _track_kind_name(self, kind: TrackKind) -> str:
+        names = {
+            TrackKind.DEPTH: self._text("Глубина/время", "Тереңдік/уақыт", "Depth/time"),
+            TrackKind.CURVE: self._text("График", "График", "Curve"),
+            TrackKind.GAS: self._text("Газ", "Газ", "Gas"),
+            TrackKind.DEXP: self._text("D-exponent", "D-exponent", "D-exponent"),
+            TrackKind.LITHOLOGY: self._text("Литология", "Литология", "Lithology"),
+            TrackKind.CUTTINGS: self._text("Шлам", "Шлам", "Cuttings"),
+            TrackKind.CALCIMETRY: self._text("Кальциметрия", "Кальциметрия", "Calcimetry"),
+            TrackKind.LBA: self._text("ЛБА", "ЛБА", "LBA"),
+            TrackKind.STRATIGRAPHY: self._text("Стратиграфия", "Стратиграфия", "Stratigraphy"),
+            TrackKind.INTERPRETATION: self._text("Интерпретация", "Интерпретация", "Interpretation"),
+            TrackKind.TEXT: self._text("Текст", "Мәтін", "Text"),
+        }
+        return names[kind]
 
     def _button(self, layout: QHBoxLayout, caption: str, callback) -> QPushButton:
         button = QPushButton(caption)
@@ -239,7 +255,9 @@ class FormStructureEditorDialog(QDialog):
             if selected_id == column.column_id:
                 selected_item = column_item
             for track in column.tracks:
-                track_item = QTreeWidgetItem([track.title, track.kind.value, ""])
+                track_item = QTreeWidgetItem(
+                    [track.title, self._track_kind_name(track.kind), ""]
+                )
                 track_item.setData(0, _ITEM_KIND_ROLE, "track")
                 track_item.setData(0, _ITEM_ID_ROLE, track.track_id)
                 column_item.addChild(track_item)

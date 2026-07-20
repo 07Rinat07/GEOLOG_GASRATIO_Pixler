@@ -39,3 +39,18 @@ of truth.
 
 ## Live Form Preview
 Редактор работает с безопасной draft-копией формы. Изменения могут автоматически применяться к рабочему планшету или оставаться в памяти до команды «Применить». Команды «Сохранить» и «Отменить изменения» не требуют повторного открытия менеджера форм.
+
+## Specialized Gas Ratio & Pixler factory forms
+
+The factory library now includes localized depth interpretation, time monitoring, normalized-gas
+QC, and detailed C1–C5 forms. Captions are generated in RU/KK/EN while stable form, column,
+track, binding, and canonical-parameter identifiers remain unchanged.
+
+## Dataset-aware working LAS forms
+
+The generic depth and time factory forms are no longer empty placeholders. When a dataset is open,
+they are materialized from its real LAS curves, grouped into readable drilling, mud, gas,
+petrophysics, D-exponent, and other columns with no more than four curves per column. Every
+binding keeps the exact source mnemonic, description, unit, catalog color, and recommended range.
+The factory form can be opened directly or converted into an editable user copy. The manager shows
+available/missing curves and blocks forms whose depth/time axis is incompatible with the dataset.

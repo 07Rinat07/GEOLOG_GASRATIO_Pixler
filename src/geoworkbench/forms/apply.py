@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from geoworkbench.catalogs.sensors import SensorCatalog, active_sensor_catalog, normalize_sensor_key
 from geoworkbench.domain.models import Dataset, IndexRole, new_id
 from geoworkbench.forms.models import FormDocument, FormAxisKind, ParameterBinding
+from geoworkbench.forms.materialize import materialize_form_for_dataset
 from geoworkbench.tablet.models import (
     CurveDisplaySettings,
     TabletLayout,
@@ -93,6 +94,12 @@ class FormApplyEngine:
         )
 
     def build_layout(self, form: FormDocument, dataset: Dataset) -> FormApplyResult:
+        # Generic factory forms are dataset-driven: they must show the opened LAS
+        # immediately instead of producing an empty tablet.
+        materialized = materialize_form_for_dataset(form, dataset)
+        if not materialized.compatible_axis:
+            raise ValueError("В наборе данных нет оси, совместимой с выбранной формой")
+        form = materialized.form
         tracks: list[TrackDefinition] = []
         resolutions: list[BindingResolution] = []
         for column in form.columns:

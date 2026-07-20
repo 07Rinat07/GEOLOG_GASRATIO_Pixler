@@ -16,6 +16,8 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPushButton,
     QTableWidget,
@@ -37,6 +39,63 @@ class _CurveOption:
     canonical: str
     display_name: str
     unit: str
+    color: str = "#2563eb"
+    x_min: float | None = None
+    x_max: float | None = None
+
+
+class _CurveSelectionDialog(QDialog):
+    def __init__(self, options: list[_CurveOption], parent=None, *, language: str = "ru") -> None:
+        super().__init__(parent)
+        self.options = options
+        self.language = language
+        self.setWindowTitle(self._text("Выбор кривых LAS", "LAS қисықтарын таңдау", "Select LAS curves"))
+        self.resize(720, 520)
+
+        root = QVBoxLayout(self)
+        self.search = QLineEdit()
+        self.search.setPlaceholderText(self._text("Поиск по мнемонике или названию", "Мнемоника немесе атау бойынша іздеу", "Search by mnemonic or name"))
+        self.search.textChanged.connect(self._filter)
+        root.addWidget(self.search)
+
+        self.list_widget = QListWidget()
+        self.list_widget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        self.list_widget.itemDoubleClicked.connect(lambda _item: self.accept())
+        root.addWidget(self.list_widget, 1)
+        for index, option in enumerate(options):
+            unit = f" [{option.unit}]" if option.unit else ""
+            item = QListWidgetItem(f"{option.mnemonic} — {option.display_name}{unit}")
+            item.setData(Qt.ItemDataRole.UserRole, index)
+            self.list_widget.addItem(item)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(
+            self._text("Добавить выбранные", "Таңдалғандарды қосу", "Add selected")
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(
+            self._text("Отмена", "Бас тарту", "Cancel")
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+
+    def _text(self, ru: str, kk: str, en: str) -> str:
+        return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
+
+    def _filter(self, text: str) -> None:
+        needle = text.strip().casefold()
+        for row in range(self.list_widget.count()):
+            item = self.list_widget.item(row)
+            item.setHidden(bool(needle) and needle not in item.text().casefold())
+
+    def selected_options(self) -> list[_CurveOption]:
+        indexes = sorted(
+            int(item.data(Qt.ItemDataRole.UserRole))
+            for item in self.list_widget.selectedItems()
+        )
+        return [self.options[index] for index in indexes]
 
 
 class TrackContentEditorDialog(QDialog):
@@ -80,12 +139,19 @@ class TrackContentEditorDialog(QDialog):
         )
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setAlternatingRowColors(True)
         self.table.itemSelectionChanged.connect(self._load_selection)
+        self.table.cellClicked.connect(lambda row, _column: self.table.selectRow(row))
         root.addWidget(self.table, 1)
 
         toolbar = QHBoxLayout()
         self._button(toolbar, self._text("+ Параметр", "+ Параметр", "+ Parameter"), self._add_parameter)
-        self._button(toolbar, self._text("+ Кривая LAS", "+ LAS қисығы", "+ LAS curve"), self._add_las_curve)
+        self._button(
+            toolbar,
+            self._text("+ Кривые LAS", "+ LAS қисықтары", "+ LAS curves"),
+            self._add_las_curve,
+        )
         self._button(toolbar, self._text("Удалить", "Жою", "Remove"), self._remove)
         self._button(toolbar, "↑", lambda: self._move(-1))
         self._button(toolbar, "↓", lambda: self._move(1))
@@ -98,7 +164,7 @@ class TrackContentEditorDialog(QDialog):
         self.canonical_combo = QComboBox()
         self.canonical_combo.setEditable(True)
         for sensor in sorted(self.catalog.sensors, key=lambda item: item.canonical_mnemonic.casefold()):
-            label = f"{sensor.canonical_mnemonic} — {sensor.name_ru}"
+            label = f"{sensor.canonical_mnemonic} — {self._sensor_name(sensor)}"
             self.canonical_combo.addItem(label, sensor.canonical_mnemonic)
         properties.addRow(self._text("Канонический параметр", "Канондық параметр", "Canonical parameter"), self.canonical_combo)
 
@@ -136,12 +202,12 @@ class TrackContentEditorDialog(QDialog):
 
         self.line_style_combo = QComboBox()
         for style in CurveLineStyle:
-            self.line_style_combo.addItem(style.value, style)
+            self.line_style_combo.addItem(self._line_style_name(style), style)
         properties.addRow(self._text("Стиль линии", "Сызық стилі", "Line style"), self.line_style_combo)
 
         self.scale_combo = QComboBox()
         for scale in XScale:
-            self.scale_combo.addItem(scale.value, scale)
+            self.scale_combo.addItem(self._scale_name(scale), scale)
         self.scale_combo.currentIndexChanged.connect(self._range_state)
         properties.addRow(self._text("Шкала", "Шкала", "Scale"), self.scale_combo)
 
@@ -179,6 +245,25 @@ class TrackContentEditorDialog(QDialog):
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
 
+    def _sensor_name(self, sensor) -> str:
+        if self.language == "ru":
+            return sensor.name_ru or sensor.canonical_mnemonic
+        return sensor.canonical_mnemonic
+
+    def _line_style_name(self, style: CurveLineStyle) -> str:
+        labels = {
+            CurveLineStyle.SOLID: self._text("Сплошная", "Тұтас", "Solid"),
+            CurveLineStyle.DASH: self._text("Штриховая", "Үзік", "Dashed"),
+            CurveLineStyle.DOT: self._text("Точечная", "Нүктелі", "Dotted"),
+            CurveLineStyle.DASH_DOT: self._text("Штрих-точка", "Үзік-нүкте", "Dash-dot"),
+        }
+        return labels[style]
+
+    def _scale_name(self, scale: XScale) -> str:
+        if scale is XScale.LOGARITHMIC:
+            return self._text("Логарифмическая", "Логарифмдік", "Logarithmic")
+        return self._text("Линейная", "Сызықтық", "Linear")
+
     def _button(self, layout: QHBoxLayout, caption: str, callback) -> QPushButton:
         button = QPushButton(caption)
         button.clicked.connect(callback)
@@ -204,8 +289,8 @@ class TrackContentEditorDialog(QDialog):
                     binding.unit or "—",
                     binding.style.color,
                     f"{binding.style.width:g}",
-                    binding.style.line_style.value,
-                    binding.x_scale.value,
+                    self._line_style_name(binding.style.line_style),
+                    self._scale_name(binding.x_scale),
                 )
                 for column, value in enumerate(values):
                     item = QTableWidgetItem(value)
@@ -308,7 +393,7 @@ class TrackContentEditorDialog(QDialog):
             self.catalog.sensors,
             key=lambda item: (item.category, item.canonical_mnemonic.casefold()),
         )
-        labels = [f"{item.canonical_mnemonic} — {item.name_ru}" for item in choices]
+        labels = [f"{item.canonical_mnemonic} — {self._sensor_name(item)}" for item in choices]
         selected, ok = QInputDialog.getItem(
             self,
             self.windowTitle(),
@@ -322,7 +407,7 @@ class TrackContentEditorDialog(QDialog):
         try:
             binding = self.editor.add(
                 definition.canonical_mnemonic,
-                definition.name_ru or definition.canonical_mnemonic,
+                self._sensor_name(definition),
                 unit=definition.unit,
                 color=definition.color,
                 x_min=definition.default_min,
@@ -349,17 +434,20 @@ class TrackContentEditorDialog(QDialog):
                 if match is not None
                 else metadata.canonical_mnemonic or metadata.original_mnemonic
             )
-            display = (
-                match.definition.name_ru
+            display = metadata.description or (
+                self._sensor_name(match.definition)
                 if match is not None
-                else metadata.description or metadata.original_mnemonic
+                else metadata.original_mnemonic
             )
             result.append(
                 _CurveOption(
                     metadata.original_mnemonic,
                     canonical,
                     display,
-                    metadata.unit or "",
+                    metadata.unit or (match.definition.unit if match is not None else ""),
+                    match.definition.color if match is not None else "#2563eb",
+                    match.definition.default_min if match is not None else None,
+                    match.definition.default_max if match is not None else None,
                 )
             )
         return sorted(result, key=lambda item: item.mnemonic.casefold())
@@ -370,31 +458,56 @@ class TrackContentEditorDialog(QDialog):
             QMessageBox.information(
                 self,
                 self.windowTitle(),
-                self._text("Сначала откройте LAS-файл.", "Алдымен LAS файлын ашыңыз.", "Open a LAS file first."),
+                self._text(
+                    "Сначала откройте LAS-файл.",
+                    "Алдымен LAS файлын ашыңыз.",
+                    "Open a LAS file first.",
+                ),
             )
             return
-        labels = [f"{item.mnemonic} — {item.display_name}" for item in options]
-        selected, ok = QInputDialog.getItem(
-            self,
-            self.windowTitle(),
-            self._text("Кривая LAS", "LAS қисығы", "LAS curve"),
-            labels,
-            editable=False,
-        )
-        if not ok or not selected:
+        dialog = _CurveSelectionDialog(options, self, language=self.language)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        option = options[labels.index(selected)]
-        try:
-            binding = self.editor.add(
-                option.canonical,
-                option.display_name,
-                source_mnemonic=option.mnemonic,
-                unit=option.unit,
+        selected = dialog.selected_options()
+        if not selected:
+            return
+        existing_sources = {
+            binding.source_mnemonic
+            for binding in self.editor.bindings
+            if binding.source_mnemonic
+        }
+        last_binding_id: str | None = None
+        skipped = 0
+        for option in selected:
+            if option.mnemonic in existing_sources:
+                skipped += 1
+                continue
+            try:
+                binding = self.editor.add(
+                    option.canonical,
+                    option.display_name,
+                    source_mnemonic=option.mnemonic,
+                    unit=option.unit,
+                    color=option.color,
+                    x_min=option.x_min,
+                    x_max=option.x_max,
+                )
+            except (PermissionError, ValueError) as exc:
+                QMessageBox.warning(self, self.windowTitle(), str(exc))
+                return
+            existing_sources.add(option.mnemonic)
+            last_binding_id = binding.binding_id
+        self._reload(last_binding_id)
+        if skipped:
+            QMessageBox.information(
+                self,
+                self.windowTitle(),
+                self._text(
+                    f"Уже добавленные кривые пропущены: {skipped}.",
+                    f"Бұрын қосылған қисықтар өткізілді: {skipped}.",
+                    f"Already-added curves skipped: {skipped}.",
+                ),
             )
-        except (PermissionError, ValueError) as exc:
-            QMessageBox.warning(self, self.windowTitle(), str(exc))
-            return
-        self._reload(binding.binding_id)
 
     def _remove(self) -> None:
         binding = self._selected_binding()
