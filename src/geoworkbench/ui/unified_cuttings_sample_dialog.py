@@ -18,8 +18,10 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPlainTextEdit,
+    QPushButton,
     QRadioButton,
     QScrollArea,
+    QSizePolicy,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -40,9 +42,14 @@ _TEXT = {
         "bottom": "До, м",
         "composition": "Шламограмма",
         "composition_hint": "Укажите до четырёх пород. Суммарное содержание пробы должно быть ровно 100%.",
+        "composition_steps": "1. Выберите породу. 2. Укажите её содержание. 3. Добейтесь итога 100%. 4. Нажмите ОК — проба появится одновременно в шламограмме, ЛБА, кальциметрии и описании.",
         "rock": "Порода",
         "percent": "Содержание",
+        "remainder": "Остаток",
         "total": "Итого",
+        "total_ready": "готово к сохранению",
+        "total_missing": "осталось {value:g}%",
+        "total_excess": "превышение {value:g}%",
         "composition_error": "Укажите до четырёх разных пород; сумма должна быть ровно 100%.",
         "duplicate_error": "Одна порода не должна повторяться в нескольких строках.",
         "analysis": "ЛБА и кальциметрия",
@@ -82,9 +89,14 @@ _TEXT = {
         "bottom": "Аяқталуы, м",
         "composition": "Шламограмма",
         "composition_hint": "Төрт жынысқа дейін көрсетіңіз. Үлгінің жалпы құрамы дәл 100% болуы керек.",
+        "composition_steps": "1. Жынысты таңдаңыз. 2. Мөлшерін енгізіңіз. 3. Қорытындыны 100%-ға жеткізіңіз. 4. ОК басыңыз — үлгі шламограмма, ЛБА, кальциметрия және сипаттама бағандарында бірден көрінеді.",
         "rock": "Тау жынысы",
         "percent": "Мөлшері",
+        "remainder": "Қалдық",
         "total": "Барлығы",
+        "total_ready": "сақтауға дайын",
+        "total_missing": "{value:g}% қалды",
+        "total_excess": "{value:g}% артық",
         "composition_error": "Төрт түрлі жынысқа дейін көрсетіңіз; қосындысы дәл 100% болуы керек.",
         "duplicate_error": "Бір жынысты бірнеше жолда қайталауға болмайды.",
         "analysis": "ЛБА және кальциметрия",
@@ -124,9 +136,14 @@ _TEXT = {
         "bottom": "To, m",
         "composition": "Cuttings log",
         "composition_hint": "Select up to four rocks. The total sample composition must equal exactly 100%.",
+        "composition_steps": "1. Select a rock. 2. Enter its content. 3. Make the total exactly 100%. 4. Press OK — the same sample appears in the cuttings, LBA, calcimetry and description tracks.",
         "rock": "Rock",
         "percent": "Content",
+        "remainder": "Remainder",
         "total": "Total",
+        "total_ready": "ready to save",
+        "total_missing": "{value:g}% remaining",
+        "total_excess": "{value:g}% over",
         "composition_error": "Select up to four different rocks; the total must be exactly 100%.",
         "duplicate_error": "The same rock cannot be repeated in multiple rows.",
         "analysis": "LBA and calcimetry",
@@ -195,15 +212,19 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self._catalog = tuple(catalog)
         self.delete_requested = False
         self.setWindowTitle(self._text["edit"] if sample is not None else self._text["create"])
-        self.setMinimumSize(640, 520)
+        self.setMinimumSize(560, 460)
 
         content = QWidget()
+        content.setMinimumWidth(0)
+        content.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(8, 8, 8, 8)
         content_layout.addWidget(self._interval_group(top_depth, bottom_depth))
 
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
+        self.tabs.setMinimumWidth(0)
+        self.tabs.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self.tabs.addTab(self._composition_widget(sample), self._text["composition"])
         self.tabs.addTab(self._analysis_widget(sample), self._text["analysis"])
         self.rich_description = RichIntervalTextEditor(language=language)
@@ -225,6 +246,10 @@ class UnifiedCuttingsSampleDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # The rich-text toolbar can be wider than a notebook display.  It must
+        # not force the whole dialog into a horizontally scrolling canvas where
+        # the percentage controls disappear off-screen.
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setWidget(content)
 
         buttons = QDialogButtonBox(
@@ -263,8 +288,8 @@ class UnifiedCuttingsSampleDialog(QDialog):
             self.resize(860, 720)
             return
         available = screen.availableGeometry()
-        width = min(900, max(640, int(available.width() * 0.78)))
-        height = min(780, max(520, int(available.height() * 0.86)))
+        width = min(920, max(560, int(available.width() * 0.76)))
+        height = min(800, max(460, int(available.height() * 0.84)))
         self.resize(width, height)
 
     @staticmethod
@@ -284,16 +309,34 @@ class UnifiedCuttingsSampleDialog(QDialog):
         hint.setObjectName("cuttings-composition-hint")
         root.addWidget(hint)
 
+        steps = QLabel(self._text["composition_steps"])
+        steps.setWordWrap(True)
+        steps.setObjectName("cuttings-composition-steps")
+        steps.setStyleSheet(
+            "QLabel {background:#e0f2fe; color:#0c4a6e; border:1px solid #7dd3fc; "
+            "border-radius:4px; padding:7px;}"
+        )
+        root.addWidget(steps)
+
         grid = QGridLayout()
         grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 0)
+        grid.setColumnStretch(2, 0)
+        grid.setHorizontalSpacing(8)
         grid.addWidget(QLabel(self._text["rock"]), 0, 0)
         grid.addWidget(QLabel(self._text["percent"]), 0, 1)
+        grid.addWidget(QLabel(""), 0, 2)
         existing = list(sample.components if sample is not None else ())
         self.rock_inputs: list[QComboBox] = []
         self.percent_inputs: list[QDoubleSpinBox] = []
+        self.remainder_buttons: list[QPushButton] = []
         for row in range(4):
             rock = QComboBox()
             rock.setObjectName(f"cuttings-rock-{row + 1}")
+            rock.setMinimumWidth(0)
+            rock.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            rock.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+            rock.setMinimumContentsLength(18)
             rock.addItem("—", "")
             for item in self._catalog:
                 rock.addItem(
@@ -306,23 +349,40 @@ class UnifiedCuttingsSampleDialog(QDialog):
             percent.setRange(0.0, 100.0)
             percent.setDecimals(1)
             percent.setSuffix(" %")
+            percent.setFixedWidth(112)
             percent.valueChanged.connect(self._update_total)
-            rock.currentIndexChanged.connect(self._update_total)
+            rock.currentIndexChanged.connect(
+                lambda _index, selected_row=row: self._rock_changed(selected_row)
+            )
+            remainder = QPushButton(self._text["remainder"])
+            remainder.setObjectName(f"cuttings-remainder-{row + 1}")
+            remainder.setToolTip(self._text["composition_hint"])
+            remainder.setFixedWidth(92)
+            remainder.clicked.connect(
+                lambda _checked=False, selected_row=row: self._fill_remainder(selected_row)
+            )
             if row < len(existing):
                 found = rock.findData(existing[row].lithotype_id)
                 rock.setCurrentIndex(max(0, found))
                 percent.setValue(existing[row].percentage)
             self.rock_inputs.append(rock)
             self.percent_inputs.append(percent)
+            self.remainder_buttons.append(remainder)
             grid.addWidget(rock, row + 1, 0)
             grid.addWidget(percent, row + 1, 1)
+            grid.addWidget(remainder, row + 1, 2)
 
         self.total_label = QLabel()
         self.total_label.setObjectName("cuttings-total")
-        self.total_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.total_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         grid.addWidget(QLabel(self._text["total"]), 5, 0)
-        grid.addWidget(self.total_label, 5, 1)
+        grid.addWidget(self.total_label, 5, 1, 1, 2)
         root.addLayout(grid)
+
+        self.composition_status_label = QLabel()
+        self.composition_status_label.setObjectName("cuttings-composition-status")
+        self.composition_status_label.setWordWrap(True)
+        root.addWidget(self.composition_status_label)
         root.addStretch(1)
         self._update_total()
         return widget
@@ -500,13 +560,80 @@ class UnifiedCuttingsSampleDialog(QDialog):
             "analysis_interpretation": self.interpretation_input.toPlainText().strip() or None,
         }
 
+    def _rock_changed(self, row: int) -> None:
+        """Keep an empty row empty and make the first selected rock immediately usable."""
+
+        rock = self.rock_inputs[row]
+        percent = self.percent_inputs[row]
+        if not rock.currentData():
+            if percent.value() != 0.0:
+                percent.setValue(0.0)
+            self._update_total()
+            return
+        if percent.value() <= 0.0:
+            remaining = max(
+                0.0,
+                100.0
+                - sum(
+                    float(control.value())
+                    for index, control in enumerate(self.percent_inputs)
+                    if index != row
+                ),
+            )
+            # Selecting the first rock should produce a valid 100% sample, as
+            # in the GeoData reference editor. Additional rocks receive the
+            # currently unallocated remainder and can then be adjusted.
+            if remaining > 0.0:
+                percent.setValue(remaining)
+        self._update_total()
+
+    def _fill_remainder(self, row: int) -> None:
+        if not self.rock_inputs[row].currentData():
+            self.rock_inputs[row].setFocus()
+            return
+        remainder = max(
+            0.0,
+            100.0
+            - sum(
+                float(control.value())
+                for index, control in enumerate(self.percent_inputs)
+                if index != row
+            ),
+        )
+        self.percent_inputs[row].setValue(remainder)
+        self._update_total()
+
     def _update_total(self) -> None:
         if not hasattr(self, "percent_inputs") or not hasattr(self, "total_label"):
             return
         total = sum(float(control.value()) for control in self.percent_inputs)
-        self.total_label.setText(f"{total:g} %")
-        color = "#15803d" if abs(total - 100.0) <= 0.01 else "#dc2626"
+        if abs(total - 100.0) <= 0.01:
+            suffix = self._text["total_ready"]
+            color = "#15803d"
+        elif total < 100.0:
+            suffix = self._text["total_missing"].format(value=100.0 - total)
+            color = "#b45309"
+        else:
+            suffix = self._text["total_excess"].format(value=total - 100.0)
+            color = "#dc2626"
+        self.total_label.setText(f"{total:g} % — {suffix}")
         self.total_label.setStyleSheet(f"font-weight:700; color:{color};")
+        if hasattr(self, "composition_status_label"):
+            selected = [
+                str(rock.currentData())
+                for rock in self.rock_inputs
+                if rock.currentData()
+            ]
+            duplicates = len(selected) != len(set(selected))
+            if duplicates:
+                self.composition_status_label.setText(self._text["duplicate_error"])
+                self.composition_status_label.setStyleSheet("color:#dc2626; font-weight:700;")
+            elif abs(total - 100.0) <= 0.01 and selected:
+                self.composition_status_label.setText(self._text["total_ready"])
+                self.composition_status_label.setStyleSheet("color:#15803d; font-weight:700;")
+            else:
+                self.composition_status_label.setText(self._text["composition_error"])
+                self.composition_status_label.setStyleSheet("color:#b45309; font-weight:600;")
 
     def _update_residue(self) -> None:
         if not hasattr(self, "residue_label"):
@@ -527,18 +654,34 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self.validation_label.clear()
         if self.top_depth >= self.bottom_depth:
             self.validation_label.setText(self._text["interval_error"])
+            self.top_input.setFocus()
             return
         components = self.components()
         if "__duplicate__" in components:
             self.validation_label.setText(self._text["duplicate_error"])
+            self.tabs.setCurrentIndex(0)
             return
         if not components or len(components) > 4 or abs(sum(components.values()) - 100.0) > 0.01:
             self.validation_label.setText(self._text["composition_error"])
+            self.tabs.setCurrentIndex(0)
+            first = next(
+                (
+                    control
+                    for rock, control in zip(
+                        self.rock_inputs, self.percent_inputs, strict=True
+                    )
+                    if rock.currentData()
+                ),
+                self.rock_inputs[0],
+            )
+            first.setFocus()
             return
         calcite = self.calcite_input.value() if self.calcite_input.value() >= 0 else 0.0
         dolomite = self.dolomite_input.value() if self.dolomite_input.value() >= 0 else 0.0
         if calcite + dolomite > 100.01:
             self.validation_label.setText(self._text["calc_error"])
+            self.tabs.setCurrentIndex(1)
+            self.calcite_input.setFocus()
             return
         self.accept()
 

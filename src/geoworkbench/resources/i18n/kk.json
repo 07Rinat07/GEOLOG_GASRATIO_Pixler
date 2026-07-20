@@ -1006,5 +1006,8 @@
   "shell.save_project": "Жобаны сақтау",
   "lithology.quick_edit_title": "Литологиялық аралықты өңдеу",
   "lithology.quick_deleted": "{top}–{bottom} м литологиялық аралығы жойылды",
-  "tablet.lba_columns": "Балл   |   Түс   |   Битум"
+  "tablet.lba_columns": "Балл   |   Түс   |   Битум",
+  "cuttings.drag_hint": "Shift + сол жақ батырма: шламограмма, ЛБА, кальциметрия немесе сипаттама бағанында сынама аралығын созыңыз; жібергеннен кейін жыныстарды толтырып, ОК басыңыз.",
+  "cuttings.context_new": "Жаңа шлам үлгісі…",
+  "cuttings.context_edit": "Ағымдағы тереңдіктегі үлгіні өңдеу…"
 }

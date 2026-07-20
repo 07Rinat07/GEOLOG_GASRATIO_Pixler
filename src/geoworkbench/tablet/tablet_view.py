@@ -131,6 +131,7 @@ class RenderedTrack:
     sample_preview: pg.BarGraphItem | None = None
     selection_highlight: pg.BarGraphItem | None = None
     curve_render_keys: dict[str, CurveGeometryKey] | None = None
+    relative_gas_layers: dict[str, tuple[pg.PlotDataItem, pg.FillBetweenItem]] | None = None
 
 
 @dataclass(slots=True)
@@ -326,6 +327,8 @@ class TabletTrackWidget(QFrame):
         self.title.setFixedHeight(36)
 
         self.curve_header = QWidget()
+        self.curve_header.setObjectName("tablet-curve-header-content")
+        self.curve_header.setStyleSheet("background:#ffffff;")
         self.curve_header_layout = QVBoxLayout(self.curve_header)
         self.curve_header_layout.setContentsMargins(0, 0, 0, 0)
         self.curve_header_layout.setSpacing(0)
@@ -338,6 +341,17 @@ class TabletTrackWidget(QFrame):
         self.curve_header_scroll.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
+        # The application uses a dark global palette.  QScrollArea viewports do
+        # not inherit the white TabletTrackWidget background reliably, so empty
+        # synchronized header bands appeared as large black rectangles in
+        # lithology, cuttings, text and gas columns.  Keep the common header
+        # geometry, but paint every part of the band explicitly as paper-white.
+        self.curve_header_scroll.setStyleSheet(
+            "QScrollArea {background:#ffffff; border:0;} "
+            "QScrollArea QWidget#qt_scrollarea_viewport {background:#ffffff;} "
+            "QScrollBar:vertical {width:8px;}"
+        )
+        self.curve_header_scroll.viewport().setStyleSheet("background:#ffffff;")
         self.curve_header_scroll.hide()
 
         axis_items = (
@@ -1980,6 +1994,15 @@ class TabletView(QWidget):
             if definition.kind is TrackKind.LITHOLOGY:
                 track.plot.setToolTip(self._localizer.text("lithology.drag_hint"))
                 track.title.setToolTip(self._localizer.text("lithology.drag_hint"))
+            elif definition.kind in {
+                TrackKind.CUTTINGS,
+                TrackKind.CALCIMETRY,
+                TrackKind.LBA,
+                TrackKind.TEXT,
+            }:
+                hint = self._localizer.text("cuttings.drag_hint")
+                track.plot.setToolTip(hint)
+                track.title.setToolTip(hint)
             track.selected.connect(self._track_selected_from_widget)
             track.width_change_requested.connect(self._resize_track_from_widget)
             track.header_drag_started.connect(self._start_track_header_drag)
@@ -2026,6 +2049,7 @@ class TabletView(QWidget):
                 interpretation_items,
                 interpretation_lanes,
                 curve_render_keys={},
+                relative_gas_layers=track.property("relative_gas_layers") or None,
             )
             self._rendered[definition.track_id] = rendered
             self._register_track_overlays(rendered)
@@ -3396,6 +3420,27 @@ class TabletView(QWidget):
         if self._dataset is None:
             return
         depth = self._axis_values()
+        if self._is_relative_gas_track(rendered.definition):
+            complete = np.isfinite(depth)
+            source: dict[str, np.ndarray] = {}
+            for mnemonic in rendered.definition.curve_mnemonics:
+                curve = self._dataset.curve_by_mnemonic(mnemonic)
+                values = np.asarray(curve.values, dtype=float) if curve is not None else np.full_like(depth, np.nan, dtype=float)
+                source[mnemonic] = values
+                complete &= np.isfinite(values)
+            lower = np.where(complete, 0.0, np.nan)
+            for mnemonic in rendered.definition.curve_mnemonics:
+                upper = lower + np.where(complete, np.clip(source[mnemonic], 0.0, 100.0), np.nan)
+                upper_item = (rendered.curve_items or {}).get(mnemonic)
+                layer = (rendered.relative_gas_layers or {}).get(mnemonic)
+                if upper_item is not None and layer is not None:
+                    visible_lower, visible_upper, visible_depth = self._relative_visible_arrays(
+                        depth, lower, upper, top, bottom, rendered.plot.viewport().height() if rendered.plot else 1000
+                    )
+                    layer[0].setData(visible_lower, visible_depth, connect="finite")
+                    upper_item.setData(visible_upper, visible_depth, connect="finite")
+                lower = upper
+            return
         for mnemonic, item in (rendered.curve_items or {}).items():
             curve = self._dataset.curve_by_mnemonic(mnemonic)
             if curve is None:
@@ -3466,6 +3511,57 @@ class TabletView(QWidget):
             track.plot.getViewBox().setDefaultPadding(0.0)
             track.plot.setMouseEnabled(x=False, y=False)
             return (), {}
+
+        if self._is_relative_gas_track(definition):
+            track.plot.hideAxis("bottom")
+            track.plot.setXRange(0.0, 100.0, padding=0)
+            track.plot.setMouseEnabled(x=False, y=True)
+            track.plot.showGrid(x=True, y=True, alpha=0.18)
+            curve_items: dict[str, pg.PlotDataItem] = {}
+            layers: dict[str, tuple[pg.PlotDataItem, pg.FillBetweenItem]] = {}
+            header_rows: list[tuple[str, str, str]] = []
+            legend_labels: list[str] = []
+            lower = np.zeros_like(depth, dtype=float)
+            complete = np.ones_like(depth, dtype=bool) & np.isfinite(depth)
+            for index, mnemonic in enumerate(definition.curve_mnemonics):
+                curve = self._dataset.curve_by_mnemonic(mnemonic)
+                if curve is None:
+                    complete[:] = False
+                    continue
+                values = np.asarray(curve.values, dtype=float)
+                complete &= np.isfinite(values)
+            lower = np.where(complete, 0.0, np.nan)
+            for index, mnemonic in enumerate(definition.curve_mnemonics):
+                curve = self._dataset.curve_by_mnemonic(mnemonic)
+                if curve is None:
+                    continue
+                values = np.asarray(curve.values, dtype=float)
+                component = np.where(complete, np.clip(values, 0.0, 100.0), np.nan)
+                upper = lower + component
+                style = definition.curve_style(mnemonic) or CurveStyle(
+                    color=pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))).name(),
+                    width=1.0,
+                )
+                visible_lower, visible_upper, visible_depth = self._relative_visible_arrays(
+                    depth, lower, upper, visible_top, visible_bottom, track.plot.viewport().height()
+                )
+                lower_item = pg.PlotDataItem(visible_lower, visible_depth, pen=pg.mkPen(None), connect="finite")
+                upper_item = pg.PlotDataItem(
+                    visible_upper, visible_depth, pen=pg.mkPen(style.color, width=max(0.8, style.width)), connect="finite"
+                )
+                track.plot.addItem(lower_item)
+                track.plot.addItem(upper_item)
+                fill = pg.FillBetweenItem(lower_item, upper_item, brush=pg.mkBrush(style.color + "99"))
+                track.plot.addItem(fill)
+                curve_items[mnemonic] = upper_item
+                layers[mnemonic] = (lower_item, fill)
+                display_name = self._curve_display_name(definition, mnemonic, curve)
+                header_rows.append((mnemonic, f"{display_name}\n0 … 100 %", style.color))
+                legend_labels.append(display_name)
+                lower = upper
+            track.set_curve_headers(header_rows)
+            track.setProperty("relative_gas_layers", layers)
+            return tuple(legend_labels), curve_items
 
         if definition.kind is TrackKind.CALCIMETRY:
             track.plot.hideAxis("bottom")
@@ -3632,6 +3728,29 @@ class TabletView(QWidget):
             message.setPos(0.5, center_depth)
             track.plot.addItem(message)
         return tuple(legend_labels), curve_items
+
+    @staticmethod
+    def _is_relative_gas_track(definition: TrackDefinition) -> bool:
+        mnemonics = [item.upper() for item in definition.curve_mnemonics]
+        return bool(mnemonics) and all(item.endswith("_REL") for item in mnemonics)
+
+    @staticmethod
+    def _relative_visible_arrays(
+        depth: np.ndarray, lower: np.ndarray, upper: np.ndarray,
+        top: float | None, bottom: float | None, viewport_height: int,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if top is None or bottom is None:
+            return np.array([]), np.array([]), np.array([])
+        lo, hi = sorted((float(top), float(bottom)))
+        mask = np.isfinite(depth) & (depth >= lo) & (depth <= hi)
+        indices = np.flatnonzero(mask)
+        if indices.size == 0:
+            return np.array([]), np.array([]), np.array([])
+        budget = max(400, int(viewport_height) * 4)
+        if indices.size > budget:
+            step = max(1, indices.size // budget)
+            indices = indices[::step]
+        return lower[indices], upper[indices], depth[indices]
 
     def _curve_display_name(
         self, definition: TrackDefinition, mnemonic: str, curve: CurveData

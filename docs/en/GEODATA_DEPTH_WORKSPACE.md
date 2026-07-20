@@ -133,3 +133,12 @@ factory template is not modified.
 - The LBA track now follows the three-subcolumn GeoData working layout: score, fluorescence color and bitumoid type. Ring/spot size reflects intensity 1–5, while the colored interval cell shows LB/MB/MSB/SB/SAB class.
 - Technology parameter names are fully localized per language, including torque, hook load and inlet mud density.
 
+
+## Empty-track, cuttings and relative-gas fixes
+
+- an empty service or geological track now uses a white background and a readable status instead of a black rectangle;
+- `Shift + left mouse drag` in cuttings, LBA and calcimetry tracks creates one shared sample interval;
+- the sample is persisted as one object and reappears in every linked track after form rebuild and project reopen;
+- double-clicking an existing sample reopens it for editing;
+- relative gases `C1_REL`–`C5_REL` are rendered as cumulative coloured fills up to 100% instead of hard-to-read independent lines;
+- missing source data breaks the fill and is never replaced with a false zero.

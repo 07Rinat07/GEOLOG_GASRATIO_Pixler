@@ -1933,3 +1933,77 @@ def test_calcimetry_track_renders_las_curves_and_preserves_zero_and_null_gap(qap
     np.testing.assert_allclose(y_values, [100.0, 101.0, 102.0, 103.0])
     np.testing.assert_allclose(x_values, [25.0, 0.0, np.nan, 50.0], equal_nan=True)
     assert item.opts["connect"] == "finite"
+
+
+def test_relative_gas_track_uses_stacked_fill_layers_and_preserves_gaps(qapp) -> None:
+    depth = np.array([100.0, 101.0, 102.0, 103.0])
+    dataset = Dataset(
+        "dataset-relative-fill",
+        "Relative gas",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    values = {
+        "C1_REL": np.array([50.0, np.nan, 25.0, 20.0]),
+        "C2_REL": np.array([30.0, np.nan, 25.0, 30.0]),
+        "C3_REL": np.array([20.0, np.nan, 50.0, 50.0]),
+    }
+    dataset.curves = {
+        f"curve-{mnemonic}": CurveData(
+            CurveMetadata(
+                f"curve-{mnemonic}", mnemonic, mnemonic, "%rel", mnemonic, dataset.dataset_id
+            ),
+            curve_values,
+        )
+        for mnemonic, curve_values in values.items()
+    }
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "relative",
+                    "Relative gas",
+                    TrackKind.GAS,
+                    curve_mnemonics=list(values),
+                    width=320,
+                )
+            ],
+            visible_depth_top=100.0,
+            visible_depth_bottom=103.0,
+        )
+    )
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    rendered = view._rendered["relative"]
+    assert rendered.relative_gas_layers is not None
+    assert set(rendered.relative_gas_layers) == set(values)
+    assert all(isinstance(layer[1], pg.FillBetweenItem) for layer in rendered.relative_gas_layers.values())
+    c3_x, _ = rendered.curve_items["C3_REL"].getData()
+    assert c3_x[0] == pytest.approx(100.0)
+    assert np.isnan(c3_x[1])
+    assert c3_x[2] == pytest.approx(100.0)
+    view.close()
+
+
+def test_empty_special_track_header_band_is_explicitly_white(qapp) -> None:
+    dataset = Dataset(
+        "dataset-white-header",
+        "White header",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("cuttings", "Cuttings", TrackKind.CUTTINGS)])
+    )
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    widget = view._rendered["cuttings"].widget
+    assert "background:#ffffff" in widget.curve_header.styleSheet().replace(" ", "")
+    assert "background:#ffffff" in widget.curve_header_scroll.styleSheet().replace(" ", "")
+    view.close()

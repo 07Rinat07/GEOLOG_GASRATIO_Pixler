@@ -1,3 +1,23 @@
+## Unreleased — cuttings workflow, empty-track background and relative-gas fills
+
+### Русский
+- устранены чёрные прямоугольники в пустых служебных, геологических и газовых дорожках;
+- восстановлен рабочий сценарий `Shift + ЛКМ` для создания общей пробы шлама, ЛБА и кальциметрии;
+- сохранение пробы выполняется в модели проекта без потери после перестроения формы;
+- относительные газы отображаются накопительными цветными заливками с разрывами на `NULL/NaN`.
+
+### Қазақша
+- бос қызметтік, геологиялық және газ жолдарындағы қара төртбұрыштар жойылды;
+- шлам, ЛБА және кальциметрия үшін ортақ сынаманы жасауға арналған `Shift + сол жақ батырма` жұмыс ағыны қалпына келтірілді;
+- сынама пішін қайта құрылғаннан кейін жоғалмай, жоба моделінде сақталады;
+- салыстырмалы газдар `NULL/NaN` кезінде үзілісі бар жинақталған түсті толтырулармен көрсетіледі.
+
+### English
+- removed black rectangles from empty service, geological and gas tracks;
+- restored the `Shift + left-drag` workflow for one shared cuttings/LBA/calcimetry sample;
+- samples persist in the project model and survive form rebuilds;
+- relative gases render as cumulative coloured fills with breaks at `NULL/NaN`.
+
 ## Unreleased — GeoData reference editors and relative gas composition
 
 ### Русский

@@ -1006,5 +1006,8 @@
   "shell.save_project": "Save project",
   "lithology.quick_edit_title": "Edit lithology interval",
   "lithology.quick_deleted": "Lithology interval {top}–{bottom} m deleted",
-  "tablet.lba_columns": "Score   |   Color   |   Bitumen"
+  "tablet.lba_columns": "Score   |   Color   |   Bitumen",
+  "cuttings.drag_hint": "Shift + left mouse: drag a sample interval in the cuttings, LBA, calcimetry or description track; on release fill the rocks and press OK.",
+  "cuttings.context_new": "New cuttings sample…",
+  "cuttings.context_edit": "Edit sample at current depth…"
 }

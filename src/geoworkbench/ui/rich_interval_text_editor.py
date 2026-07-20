@@ -11,8 +11,11 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFontComboBox,
+    QFrame,
     QHBoxLayout,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QTextEdit,
     QToolButton,
@@ -111,7 +114,10 @@ class RichIntervalTextEditor(QWidget):
         self.editor.setPlaceholderText(self._text["placeholder"])
         self.editor.setObjectName("interval-rich-text-editor")
 
-        toolbar = QHBoxLayout()
+        toolbar_widget = QWidget()
+        toolbar_widget.setObjectName("rich-text-toolbar")
+        toolbar_widget.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        toolbar = QHBoxLayout(toolbar_widget)
         toolbar.setContentsMargins(0, 0, 0, 0)
         self.font_input = QFontComboBox()
         self.font_input.currentFontChanged.connect(self._set_font_family)
@@ -177,9 +183,19 @@ class RichIntervalTextEditor(QWidget):
         toolbar.addWidget(image_button)
         toolbar.addStretch(1)
 
+        toolbar_scroll = QScrollArea()
+        toolbar_scroll.setObjectName("rich-text-toolbar-scroll")
+        toolbar_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        toolbar_scroll.setWidgetResizable(False)
+        toolbar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        toolbar_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        toolbar_scroll.setFixedHeight(toolbar_widget.sizeHint().height() + 18)
+        toolbar_scroll.setWidget(toolbar_widget)
+        toolbar_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addLayout(toolbar)
+        layout.addWidget(toolbar_scroll)
         layout.addWidget(self.editor, 1)
 
     def _format_button(self, text: str, mode: str) -> QToolButton:
