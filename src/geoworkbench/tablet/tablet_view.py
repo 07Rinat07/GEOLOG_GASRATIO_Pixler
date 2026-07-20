@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html import escape
+import re
+import textwrap
 from typing import cast
 
 import numpy as np
@@ -126,12 +128,20 @@ class RenderedTrack:
     cursor_label: pg.TextItem | None = None
     interpretation_preview: pg.BarGraphItem | None = None
     lithology_preview: pg.BarGraphItem | None = None
+    sample_preview: pg.BarGraphItem | None = None
     selection_highlight: pg.BarGraphItem | None = None
     curve_render_keys: dict[str, CurveGeometryKey] | None = None
 
 
 @dataclass(slots=True)
 class _LithologyGesture:
+    track_id: str
+    start_depth: float
+    current_depth: float
+
+
+@dataclass(slots=True)
+class _SampleGesture:
     track_id: str
     start_depth: float
     current_depth: float
@@ -627,6 +637,9 @@ class TabletView(QWidget):
     interval_resize_requested = Signal(str, str, float, float)
     interval_interaction_cancelled = Signal()
     lithology_interval_requested = Signal(float, float)
+    lithology_interval_edit_requested = Signal(str)
+    cuttings_interval_requested = Signal(float, float)
+    cuttings_sample_edit_requested = Signal(str)
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__()
@@ -658,6 +671,7 @@ class TabletView(QWidget):
         self._interval_creation_type = self._localizer.text("interpretations.default_type")
         self._interval_gesture: _IntervalGesture | None = None
         self._lithology_gesture: _LithologyGesture | None = None
+        self._sample_gesture: _SampleGesture | None = None
         self._axis_combo_guard = False
         self._span_combo_guard = False
         self._scrollbar_guard = False
@@ -675,25 +689,39 @@ class TabletView(QWidget):
         self._tooltip_items: dict[str, pg.TextItem] = {}
         self._rubber_band_items: dict[str, pg.BarGraphItem] = {}
 
-        self._pinned_container = QWidget()
-        self._pinned_layout = QHBoxLayout(self._pinned_container)
-        self._pinned_layout.setContentsMargins(0, 0, 0, 0)
-        self._pinned_layout.setSpacing(2)
-
+        # One scrollable canvas keeps the depth column in the exact template
+        # order.  The previous implementation forcibly detached every depth
+        # track and pinned it on the far left, which broke Masterlog layouts
+        # where depth belongs in the middle and made group headers impossible.
         self._container = QWidget()
-        self._tracks_layout = QHBoxLayout(self._container)
+        self._container_layout = QVBoxLayout(self._container)
+        self._container_layout.setContentsMargins(0, 0, 0, 0)
+        self._container_layout.setSpacing(0)
+
+        self._group_header_container = QWidget()
+        self._group_header_layout = QHBoxLayout(self._group_header_container)
+        self._group_header_layout.setContentsMargins(0, 0, 0, 0)
+        self._group_header_layout.setSpacing(2)
+        self._group_header_container.setFixedHeight(30)
+        self._group_header_container.hide()
+
+        self._tracks_container = QWidget()
+        self._tracks_layout = QHBoxLayout(self._tracks_container)
         self._tracks_layout.setContentsMargins(0, 0, 0, 0)
         self._tracks_layout.setSpacing(2)
-        self._pinned_container.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        self._tracks_container.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Expanding
+        )
+        self._container_layout.addWidget(self._group_header_container)
+        self._container_layout.addWidget(self._tracks_container, 1)
         self._container.setSizePolicy(
             QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Expanding
         )
 
         self._scroll = QScrollArea()
-        # A visible QScrollArea frame shifts scrollable tracks by one pixel
-        # relative to the separately pinned depth column.  Masterlog columns
-        # must share one pixel-exact vertical origin, so the scroll frame is
-        # intentionally disabled.
+        # A visible QScrollArea frame consumes pixels around the common canvas.
+        # Masterlog columns must share one pixel-exact vertical origin, so the
+        # scroll frame is intentionally disabled.
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         # The tracks must always consume the full available vertical viewport.
         # Horizontal overflow is still handled by the scroll bar because the
@@ -777,7 +805,6 @@ class TabletView(QWidget):
         charts = QHBoxLayout()
         charts.setContentsMargins(0, 0, 0, 0)
         charts.setSpacing(0)
-        charts.addWidget(self._pinned_container, 0, Qt.AlignmentFlag.AlignTop)
         charts.addWidget(self._scroll, 1)
         charts.addWidget(self._mini_map, 0)
         charts.addWidget(self._vertical_scrollbar)
@@ -987,6 +1014,17 @@ class TabletView(QWidget):
     def rendered_track_ids(self) -> tuple[str, ...]:
         return tuple(self._rendered)
 
+    @property
+    def group_header_titles(self) -> tuple[str, ...]:
+        """Return merged visible form-section captions in screen order."""
+        titles: list[str] = []
+        for index in range(self._group_header_layout.count()):
+            item = self._group_header_layout.itemAt(index)
+            label = item.widget() if item is not None else None
+            if isinstance(label, QLabel):
+                titles.append(label.text().strip())
+        return tuple(titles)
+
     def legend_labels(self, track_id: str) -> tuple[str, ...]:
         try:
             return self._rendered[track_id].legend_labels
@@ -1047,6 +1085,20 @@ class TabletView(QWidget):
     @property
     def lithology_preview_range(self) -> tuple[float, float] | None:
         preview = self._lithology_gesture_result()
+        if preview is None:
+            return None
+        return preview.top_depth, preview.bottom_depth
+
+    @property
+    def sample_preview_range(self) -> tuple[float, float] | None:
+        gesture = self._sample_gesture
+        if gesture is None:
+            return None
+        preview = normalize_drag_range(
+            gesture.start_depth,
+            gesture.current_depth,
+            minimum_span=self._minimum_depth_span(),
+        )
         if preview is None:
             return None
         return preview.top_depth, preview.bottom_depth
@@ -1288,6 +1340,10 @@ class TabletView(QWidget):
             rendered = self._rendered.get(track_id)
             if rendered is not None:
                 rendered.widget.set_track_width(width)
+            total_width = sum(track.width + 2 for track in self._layout_model.visible_tracks())
+            self._container.setFixedWidth(max(total_width, 1))
+            self._tracks_container.setFixedWidth(max(total_width, 1))
+            self._rebuild_group_headers()
             self.invalidate_track(track_id, DirtyReason.STATIC)
             self.refresh_dirty_tracks()
             self.track_width_change_requested.emit(track_id, width)
@@ -1596,6 +1652,26 @@ class TabletView(QWidget):
         self._cuttings = tuple(samples)
         self.refresh_view()
 
+    def lithology_interval_at_depth(self, depth: float) -> LithologyInterval | None:
+        value = float(depth)
+        # Use half-open intervals so a shared boundary belongs to the deeper
+        # interval.  The final bottom is accepted as a fallback for usability.
+        matches = [
+            item for item in self._lithology if item.top_depth <= value < item.bottom_depth
+        ]
+        if not matches:
+            matches = [item for item in self._lithology if np.isclose(item.bottom_depth, value)]
+        return max(matches, key=lambda item: item.top_depth) if matches else None
+
+    def cuttings_sample_at_depth(self, depth: float) -> CuttingsSample | None:
+        value = float(depth)
+        matches = [
+            item for item in self._cuttings if item.top_depth <= value < item.bottom_depth
+        ]
+        if not matches:
+            matches = [item for item in self._cuttings if np.isclose(item.bottom_depth, value)]
+        return max(matches, key=lambda item: item.top_depth) if matches else None
+
     def set_stratigraphy(self, intervals: list[StratigraphyInterval]) -> None:
         self._stratigraphy = tuple(intervals)
         self.refresh_view()
@@ -1841,6 +1917,7 @@ class TabletView(QWidget):
     def clear(self) -> None:
         self.cancel_interval_interaction(emit_signal=False)
         self.cancel_lithology_interaction()
+        self.cancel_sample_interaction()
         self._dirty_registry.clear()
         self._overlay_layers.clear()
         self._tooltip_items.clear()
@@ -1848,7 +1925,7 @@ class TabletView(QWidget):
         self._depth_viewports.clear()
         self._wheel_targets.clear()
         self._interpretation_viewports.clear()
-        for layout in (self._pinned_layout, self._tracks_layout):
+        for layout in (self._group_header_layout, self._tracks_layout):
             while layout.count():
                 item = layout.takeAt(0)
                 if item is None:
@@ -1971,13 +2048,12 @@ class TabletView(QWidget):
                     else Qt.CursorShape.ArrowCursor
                 )
                 viewport.setCursor(cursor)
-            target_layout = (
-                self._pinned_layout if definition.kind is TrackKind.DEPTH else self._tracks_layout
-            )
-            target_layout.addWidget(track)
+            self._tracks_layout.addWidget(track)
 
-        total_width = sum(track.width + 2 for track in visible if track.kind is not TrackKind.DEPTH)
+        total_width = sum(track.width + 2 for track in visible)
         self._container.setFixedWidth(max(total_width, 1))
+        self._tracks_container.setFixedWidth(max(total_width, 1))
+        self._rebuild_group_headers()
         self._synchronize_track_header_bands()
         self._synchronize_track_heights()
         if master_plot is not None and visible_top is not None and visible_bottom is not None:
@@ -1991,10 +2067,48 @@ class TabletView(QWidget):
             self._update_cursor_labels(self._cursor_depth)
         self._update_navigation_controls()
         # refresh_view is commonly executed before the widget receives its final
-        # on-screen geometry.  Reuse the instance timer so the pinned depth
-        # column and scrollable tracks are resized after Qt has laid out the
+        # on-screen geometry. Reuse the instance timer after Qt has laid out the
         # horizontal scrollbar and the final chart viewport.
         self._resize_restore_timer.start(0)
+
+    def _rebuild_group_headers(self) -> None:
+        """Build merged section captions aligned with contiguous form columns."""
+
+        while self._group_header_layout.count():
+            item = self._group_header_layout.takeAt(0)
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.deleteLater()
+
+        visible = self._layout_model.visible_tracks()
+        if not visible or not any(track.group_title.strip() for track in visible):
+            self._group_header_container.hide()
+            self._group_header_container.setFixedHeight(0)
+            return
+
+        groups: list[tuple[str, int]] = []
+        for track in visible:
+            title = track.group_title.strip()
+            width = int(track.width) + 2
+            if groups and groups[-1][0] == title:
+                previous_title, previous_width = groups[-1]
+                groups[-1] = (previous_title, previous_width + width)
+            else:
+                groups.append((title, width))
+
+        for title, width in groups:
+            label = QLabel(title or " ")
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setFixedWidth(max(1, width - 2))
+            label.setFixedHeight(30)
+            label.setStyleSheet(
+                "font-weight: 700; padding: 4px; "
+                "background: #eef2f7; color: #0f172a; "
+                "border: 1px solid #94a3b8;"
+            )
+            self._group_header_layout.addWidget(label)
+        self._group_header_container.setFixedHeight(30)
+        self._group_header_container.show()
 
     def _synchronize_track_header_bands(self) -> None:
         """Align the plot viewport origin for every visible Masterlog column.
@@ -2014,18 +2128,19 @@ class TabletView(QWidget):
             rendered.widget.set_synchronized_header_height(height)
 
     def _synchronize_track_heights(self) -> None:
-        """Give pinned and scrollable tracks one identical chart-body height.
+        """Give every track one identical chart-body height.
 
-        The horizontal scrollbar belongs only to the scroll area.  Using merely
-        a minimum height allowed the pinned depth track to expand into the
+        The horizontal scrollbar belongs to the common scroll area. Using merely
+        a minimum height allowed some tracks to expand into the
         scrollbar's row, so the same 50 m range occupied a different number of
         pixels.  Fixing every track to the scroll viewport height keeps the top
         and bottom depth coordinates pixel-aligned.
         """
 
-        height = max(self._scroll.viewport().height(), 240)
-        self._container.setFixedHeight(height)
-        self._pinned_container.setFixedHeight(height)
+        group_height = 30 if self._group_header_container.isVisible() else 0
+        height = max(self._scroll.viewport().height() - group_height, 240)
+        self._tracks_container.setFixedHeight(height)
+        self._container.setFixedHeight(height + group_height)
         for rendered in self._rendered.values():
             rendered.widget.setFixedHeight(height)
 
@@ -2237,11 +2352,9 @@ class TabletView(QWidget):
 
     @property
     def pinned_track_ids(self) -> tuple[str, ...]:
-        return tuple(
-            track_id
-            for track_id, rendered in self._rendered.items()
-            if rendered.definition.kind is TrackKind.DEPTH
-        )
+        """Depth columns now follow the form order instead of being detached."""
+
+        return ()
 
     def _update_navigation_controls(self) -> None:
         current = self.visible_depth_range
@@ -2614,6 +2727,56 @@ class TabletView(QWidget):
                     definition = self._layout_model.track_by_id(track_id)
                 except KeyError:
                     definition = None
+            if (
+                definition is not None
+                and event.type() == QEvent.Type.MouseButtonDblClick
+                and event.button() == Qt.MouseButton.LeftButton
+            ):
+                point = self._mouse_event_plot_point(plot, event)
+                depth = self._axis_to_depth_value(float(point.y()))
+                if definition.kind is TrackKind.LITHOLOGY:
+                    interval = self.lithology_interval_at_depth(depth)
+                    if interval is not None:
+                        self.lithology_interval_edit_requested.emit(interval.interval_id)
+                        event.accept()
+                        return True
+                elif definition.kind in {
+                    TrackKind.CUTTINGS,
+                    TrackKind.CALCIMETRY,
+                    TrackKind.LBA,
+                    TrackKind.TEXT,
+                }:
+                    sample = self.cuttings_sample_at_depth(depth)
+                    if sample is not None:
+                        self.cuttings_sample_edit_requested.emit(sample.sample_id)
+                        event.accept()
+                        return True
+            if definition is not None and definition.kind in {
+                TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA
+            }:
+                if (
+                    event.type() == QEvent.Type.MouseButtonPress
+                    and event.button() == Qt.MouseButton.LeftButton
+                    and bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                ):
+                    point = self._mouse_event_plot_point(plot, event)
+                    if self.begin_sample_drag(track_id, float(point.y())):
+                        event.accept()
+                        return True
+                if event.type() == QEvent.Type.MouseMove and self._sample_gesture is not None:
+                    point = self._mouse_event_plot_point(plot, event)
+                    if self.update_sample_drag(float(point.y())):
+                        event.accept()
+                        return True
+                if (
+                    event.type() == QEvent.Type.MouseButtonRelease
+                    and event.button() == Qt.MouseButton.LeftButton
+                    and self._sample_gesture is not None
+                ):
+                    point = self._mouse_event_plot_point(plot, event)
+                    if self.finish_sample_drag(float(point.y())):
+                        event.accept()
+                        return True
             if definition is not None and definition.kind is TrackKind.LITHOLOGY:
                 if (
                     event.type() == QEvent.Type.MouseButtonPress
@@ -2704,6 +2867,10 @@ class TabletView(QWidget):
                 self.cancel_lithology_interaction()
                 event.accept()
                 return True
+            if event.key() == Qt.Key.Key_Escape and self._sample_gesture is not None:
+                self.cancel_sample_interaction()
+                event.accept()
+                return True
         rendered = self._interpretation_viewports.get(watched)
         if rendered is not None and isinstance(event, QKeyEvent):
             if event.key() == Qt.Key.Key_Escape and self._interval_gesture is not None:
@@ -2723,6 +2890,99 @@ class TabletView(QWidget):
         # expects viewport coordinates, so no global/widget remapping is needed.
         scene_position = plot.mapToScene(event.position().toPoint())
         return plot.getViewBox().mapSceneToView(scene_position)
+
+    def begin_sample_drag(self, track_id: str, axis_depth: float) -> bool:
+        rendered = self._rendered.get(track_id)
+        descriptor = self._axis_descriptor()
+        if (
+            rendered is None
+            or rendered.definition.kind not in {
+                TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA
+            }
+            or rendered.plot is None
+            or (descriptor is not None and descriptor.role is not IndexRole.DEPTH)
+        ):
+            return False
+        depth = self._snap_depth(self._axis_to_depth_value(float(axis_depth)))
+        self.cancel_sample_interaction()
+        self._sample_gesture = _SampleGesture(track_id, depth, depth)
+        rendered.plot.viewport().setCursor(Qt.CursorShape.CrossCursor)
+        self._update_sample_preview()
+        return True
+
+    def update_sample_drag(self, axis_depth: float) -> bool:
+        if self._sample_gesture is None:
+            return False
+        self._sample_gesture.current_depth = self._snap_depth(
+            self._axis_to_depth_value(float(axis_depth))
+        )
+        self._update_sample_preview()
+        return True
+
+    def finish_sample_drag(self, axis_depth: float) -> bool:
+        gesture = self._sample_gesture
+        if gesture is None:
+            return False
+        gesture.current_depth = self._snap_depth(self._axis_to_depth_value(float(axis_depth)))
+        result = normalize_drag_range(
+            gesture.start_depth,
+            gesture.current_depth,
+            minimum_span=self._minimum_depth_span(),
+        )
+        self.cancel_sample_interaction()
+        if result is None:
+            return False
+        self.cuttings_interval_requested.emit(result.top_depth, result.bottom_depth)
+        return True
+
+    def cancel_sample_interaction(self) -> None:
+        gesture = self._sample_gesture
+        if gesture is not None:
+            rendered = self._rendered.get(gesture.track_id)
+            if rendered is not None and rendered.plot is not None:
+                preview = rendered.sample_preview
+                if preview is not None:
+                    self._overlay_layers.unregister(
+                        OverlayLayerKind.PREVIEW, rendered.definition.track_id, preview
+                    )
+                    rendered.plot.removeItem(preview)
+                rendered.sample_preview = None
+                rendered.plot.viewport().setCursor(Qt.CursorShape.ArrowCursor)
+        self._sample_gesture = None
+
+    def _update_sample_preview(self) -> None:
+        gesture = self._sample_gesture
+        if gesture is None:
+            return
+        rendered = self._rendered.get(gesture.track_id)
+        if rendered is None or rendered.plot is None:
+            return
+        result = normalize_drag_range(
+            gesture.start_depth,
+            gesture.current_depth,
+            minimum_span=self._minimum_depth_span(),
+        )
+        top = gesture.current_depth if result is None else result.top_depth
+        bottom = gesture.current_depth if result is None else result.bottom_depth
+        axis_top, axis_bottom = self._depth_interval_to_axis(top, bottom)
+        x_width = 100.0 if rendered.definition.kind in {TrackKind.CUTTINGS, TrackKind.CALCIMETRY} else 1.0
+        options = dict(
+            x=[x_width / 2.0],
+            y=[(axis_top + axis_bottom) / 2.0],
+            width=x_width,
+            height=max(axis_bottom - axis_top, np.finfo(float).eps),
+            brush=pg.mkBrush(14, 165, 233, 55),
+            pen=pg.mkPen("#0284c7", width=2.0, style=Qt.PenStyle.DashLine),
+        )
+        if rendered.sample_preview is None:
+            preview = pg.BarGraphItem(**options)
+            rendered.plot.addItem(preview)
+            rendered.sample_preview = preview
+            self._overlay_layers.register(
+                OverlayLayerKind.PREVIEW, rendered.definition.track_id, preview
+            )
+        else:
+            rendered.sample_preview.setOpts(**options)
 
     def begin_lithology_drag(self, track_id: str, axis_depth: float) -> bool:
         rendered = self._rendered.get(track_id)
@@ -4076,16 +4336,28 @@ class TabletView(QWidget):
                     ]
                 )
         else:
-            track.plot.setXRange(0.0, 1.0, padding=0)
+            # GeoData-style LBA track: three synchronized subcolumns for
+            # score, fluorescence color and bitumoid type.  This is a
+            # discrete laboratory observation, not a continuous curve.
+            track.plot.setXRange(0.0, 3.0, padding=0)
             track.set_curve_headers(
                 [
                     (
                         "__lba_legend__",
-                        self._localizer.text("tablet.lba_header"),
+                        self._localizer.text("tablet.lba_columns"),
                         "#f97316",
                     )
                 ]
             )
+            for divider in (1.0, 2.0):
+                track.plot.addItem(
+                    pg.InfiniteLine(
+                        pos=divider,
+                        angle=90,
+                        movable=False,
+                        pen=pg.mkPen("#94a3b8", width=0.8),
+                    )
+                )
         track.plot.setMouseEnabled(x=False, y=True)
 
         rendered: dict[str, tuple[object, ...]] = {}
@@ -4238,9 +4510,9 @@ class TabletView(QWidget):
                 intensity = normalized_lba_intensity(sample.lba_intensity)
 
                 band = pg.BarGraphItem(
-                    x=[0.5],
+                    x=[1.5],
                     y=[center],
-                    width=1.0,
+                    width=3.0,
                     height=height,
                     brush=pg.mkBrush(255, 255, 255, 0),
                     pen=pg.mkPen("#94a3b8", width=0.7),
@@ -4249,12 +4521,13 @@ class TabletView(QWidget):
                 track.plot.addItem(band)
                 items.append(band)
 
-                size = {1: 8.0, 2: 12.0, 3: 14.0, 4: 17.0, 5: 19.0}.get(intensity, 12.0)
+                # 1. BALЛЫ: larger ring/spot for a stronger 1–5 result.
+                size = {1: 8.0, 2: 12.0, 3: 14.0, 4: 17.0, 5: 20.0}.get(intensity, 10.0)
                 line_width = 3.0 if intensity == 4 else 1.4
                 line_style = Qt.PenStyle.DashLine if intensity == 2 else Qt.PenStyle.SolidLine
                 brush = pg.mkBrush(style.color) if intensity in {1, 5} else pg.mkBrush(None)
                 scatter = pg.ScatterPlotItem(
-                    x=[0.34],
+                    x=[0.5],
                     y=[center],
                     symbol="o",
                     size=size,
@@ -4265,12 +4538,57 @@ class TabletView(QWidget):
                 scatter.setToolTip(tooltip)
                 track.plot.addItem(scatter)
                 items.append(scatter)
-
-                code_text = style.code
                 if intensity is not None:
-                    code_text += f" · {intensity}"
-                label = pg.TextItem(code_text, color="#0f172a", anchor=(0.0, 0.5))
-                label.setPos(0.56, center)
+                    score = pg.TextItem(str(intensity), color="#0f172a", anchor=(0.5, 0.5))
+                    score.setPos(0.5, center)
+                    score.setToolTip(tooltip)
+                    track.plot.addItem(score)
+                    items.append(score)
+
+                # 2. ЦВЕТ: fluorescence code entered by the geologist.
+                fluorescence_colors = {
+                    "БГ": "#e0f2fe", "БЖ": "#fef9c3", "СЖ": "#fde68a",
+                    "ГЖ": "#bef264", "Ж": "#facc15", "ОЖ": "#fb923c",
+                    "О": "#f97316", "К": "#ef4444", "ТК": "#991b1b", "Ч": "#111827",
+                }
+                fluorescence_code = (sample.lba_color or "").strip().upper()
+                fluorescence_color = fluorescence_colors.get(fluorescence_code, "#ffffff")
+                color_cell = pg.BarGraphItem(
+                    x=[1.5],
+                    y=[center],
+                    width=0.88,
+                    height=height,
+                    brush=pg.mkBrush(fluorescence_color),
+                    pen=pg.mkPen("#64748b", width=0.6),
+                )
+                color_cell.setToolTip(tooltip)
+                track.plot.addItem(color_cell)
+                items.append(color_cell)
+                if fluorescence_code:
+                    foreground = "#ffffff" if fluorescence_code in {"ТК", "Ч"} else "#0f172a"
+                    color_label = pg.TextItem(
+                        fluorescence_code, color=foreground, anchor=(0.5, 0.5)
+                    )
+                    color_label.setPos(1.5, center)
+                    color_label.setToolTip(tooltip)
+                    track.plot.addItem(color_label)
+                    items.append(color_label)
+
+                # 3. БИТУМ: interval block colored by LB/MB/MSB/SB/SAB class.
+                bitumen_cell = pg.BarGraphItem(
+                    x=[2.5],
+                    y=[center],
+                    width=0.88,
+                    height=height,
+                    brush=pg.mkBrush(style.color),
+                    pen=pg.mkPen("#475569", width=0.65),
+                )
+                bitumen_cell.setToolTip(tooltip)
+                track.plot.addItem(bitumen_cell)
+                items.append(bitumen_cell)
+                label_color = "#0f172a" if style.code in {"ЛБ", "МБ", "МСБ"} else "#ffffff"
+                label = pg.TextItem(style.code, color=label_color, anchor=(0.5, 0.5))
+                label.setPos(2.5, center)
                 label.setToolTip(tooltip)
                 track.plot.addItem(label)
                 items.append(label)
@@ -4299,7 +4617,7 @@ class TabletView(QWidget):
                 bounds = self._depth_bounds()
                 center_depth = sum(bounds) / 2.0 if bounds is not None else 0.0
                 message.setPos(
-                    50.0 if definition.kind is TrackKind.CALCIMETRY else 0.5, center_depth
+                    50.0 if definition.kind is TrackKind.CALCIMETRY else 1.5, center_depth
                 )
                 track.plot.addItem(message)
                 rendered["__empty__"] = (message,)
@@ -4308,18 +4626,94 @@ class TabletView(QWidget):
     def _populate_lithology_descriptions(
         self, track: TabletTrackWidget, definition: TrackDefinition
     ) -> dict[str, pg.TextItem]:
+        """Render rich cuttings text and lithology fallback in one text track.
+
+        Cuttings descriptions have priority because they are entered for an
+        exact sample interval and may contain rich HTML or embedded images.
+        Lithology text is used only when no cuttings description overlaps the
+        interval, which keeps old projects readable without duplicating text.
+        """
         if definition.kind is not TrackKind.TEXT:
             return {}
         rendered: dict[str, pg.TextItem] = {}
+        # ``QGraphicsTextItem.setTextWidth`` looks attractive for wrapping, but
+        # inside the vertically transformed pyqtgraph ViewBox it can collapse a
+        # rich-text item to an invisible geometry.  Wrap plain text explicitly
+        # and let rich HTML retain the formatting produced by QTextEdit.
         text_width = max(80, definition.width - 30)
+        wrap_columns = max(18, int(text_width / 7.0))
+        described_ranges: list[tuple[float, float]] = []
+
+        def plain_html(value: str) -> str:
+            paragraphs = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+            lines: list[str] = []
+            for paragraph in paragraphs:
+                if not paragraph:
+                    lines.append("")
+                    continue
+                wrapped = textwrap.wrap(
+                    paragraph,
+                    width=wrap_columns,
+                    replace_whitespace=False,
+                    drop_whitespace=True,
+                    break_long_words=True,
+                    break_on_hyphens=False,
+                )
+                lines.extend(wrapped or [paragraph])
+            return "<br/>".join(escape(line) for line in lines)
+
+        def rich_body(value: str) -> str:
+            body_match = re.search(
+                r"<body[^>]*>(?P<body>.*)</body>",
+                value,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+            return body_match.group("body") if body_match is not None else value
+
+        for sample in self._cuttings:
+            description = (sample.description or "").strip()
+            if not description:
+                continue
+            label = pg.TextItem(anchor=(0.0, 0.5))
+            body = rich_body(description) if "<" in description and ">" in description else plain_html(description)
+            label.setHtml(
+                '<div style="color:#202020; margin:0; padding:0;">'
+                f"{body}</div>"
+            )
+            label.textItem.setTextWidth(float(text_width))
+            label.updateTextPos()
+            axis_top, axis_bottom = self._depth_interval_to_axis(
+                sample.top_depth, sample.bottom_depth
+            )
+            label.setPos(0.02, (axis_top + axis_bottom) / 2.0)
+            label.setToolTip(
+                self._localizer.text(
+                    "tablet.sample_interval",
+                    top=f"{sample.top_depth:g}",
+                    bottom=f"{sample.bottom_depth:g}",
+                )
+            )
+            track.plot.addItem(label)
+            rendered[sample.sample_id] = label
+            described_ranges.append((sample.top_depth, sample.bottom_depth))
+
         for interval in self._lithology:
+            overlaps_sample_text = any(
+                interval.top_depth < bottom and interval.bottom_depth > top
+                for top, bottom in described_ranges
+            )
+            if overlaps_sample_text:
+                continue
             lithotype = self._lithotype_catalog.get(interval.lithotype_id)
             fallback = lithotype.name_ru if lithotype is not None else interval.lithotype_id
             description = (interval.description or "").strip() or fallback
             label = pg.TextItem(anchor=(0.0, 0.5))
             label.setHtml(
-                f'<div style="width:{text_width}px; color:#202020">{escape(description)}</div>'
+                '<div style="color:#202020; margin:0; padding:0;">'
+                f"{plain_html(description)}</div>"
             )
+            label.textItem.setTextWidth(float(text_width))
+            label.updateTextPos()
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 interval.top_depth, interval.bottom_depth
             )
@@ -4400,7 +4794,8 @@ class TabletView(QWidget):
             self._update_rendered_track_curve_data(rendered, top, bottom)
 
     def _update_lithology_text_visibility(self, top: float, bottom: float) -> None:
-        intervals = {item.interval_id: item for item in self._lithology}
+        lithology_intervals = {item.interval_id: item for item in self._lithology}
+        cuttings_intervals = {item.sample_id: item for item in self._cuttings}
         for rendered in self._rendered.values():
             if rendered.plot is None:
                 continue
@@ -4410,7 +4805,9 @@ class TabletView(QWidget):
                 (rendered.lithology_description_items or {}, 34),
             ):
                 for interval_id, text_item in items.items():
-                    interval = intervals.get(interval_id)
+                    interval = lithology_intervals.get(interval_id)
+                    if interval is None:
+                        interval = cuttings_intervals.get(interval_id)
                     axis_interval = (
                         self._depth_interval_to_axis(interval.top_depth, interval.bottom_depth)
                         if interval is not None

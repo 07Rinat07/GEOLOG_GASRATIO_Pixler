@@ -16,6 +16,7 @@
 
 ## User guides
 
+- GeoData depth workspace: [Русский](ru/GEODATA_DEPTH_WORKSPACE.md) · [Қазақша](kk/GEODATA_DEPTH_WORKSPACE.md) · [English](en/GEODATA_DEPTH_WORKSPACE.md)
 - [Русский](ru/README.md)
 - [Қазақша](kk/README.md)
 - [English](en/README.md)

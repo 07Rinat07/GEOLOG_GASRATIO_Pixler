@@ -142,3 +142,56 @@ def test_sample_analysis_validates_percentages_intensity_and_empty_input() -> No
         controller.set_analysis(500, 510, lba_group=0)
     with pytest.raises(ValueError, match="хотя бы один"):
         controller.set_analysis(500, 510)
+
+
+def test_existing_cuttings_sample_can_change_interval_and_rocks_without_losing_analysis() -> None:
+    controller = _controller()
+    sample = controller.add(500, 510, {"sandstone": 70, "clay": 30}, description="Saved text")
+    controller.set_analysis(
+        500,
+        510,
+        calcite_percent=55.0,
+        dolomite_percent=20.0,
+        lba_type_id="ЛБ",
+        lba_intensity=3,
+    )
+
+    updated = controller.update_composition(
+        sample.sample_id,
+        top_depth=502,
+        bottom_depth=512,
+        components={"clay": 100},
+    )
+
+    assert updated is sample
+    assert (sample.top_depth, sample.bottom_depth) == (502.0, 512.0)
+    assert [(item.lithotype_id, item.percentage) for item in sample.components] == [
+        ("clay", 100.0)
+    ]
+    assert sample.description == "Saved text"
+    assert sample.calcite_percent == 55.0
+    assert sample.dolomite_percent == 20.0
+    assert sample.lba_type_id == "ЛБ"
+    assert sample.lba_intensity == 3
+    assert controller.get(sample.sample_id) is sample
+
+
+def test_cuttings_update_ignores_own_interval_but_rejects_other_sample_overlap() -> None:
+    controller = _controller()
+    first = controller.add(100, 110, {"sandstone": 100})
+    controller.add(120, 130, {"clay": 100})
+
+    controller.update_composition(
+        first.sample_id,
+        top_depth=101,
+        bottom_depth=111,
+        components={"clay": 100},
+    )
+
+    with pytest.raises(ValueError, match="пересекается"):
+        controller.update_composition(
+            first.sample_id,
+            top_depth=115,
+            bottom_depth=125,
+            components={"clay": 100},
+        )

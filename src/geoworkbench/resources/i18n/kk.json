@@ -417,6 +417,9 @@
   "lithology.tree": "Литология ({count})",
   "lithology.window_title": "Литологиялық аралықтар",
   "lithology.quick_created": "{top}–{bottom} м литологиялық аралығы қосылды",
+  "lithology.quick_updated": "{top}–{bottom} м литологиялық аралығы жаңартылды",
+  "cuttings.edit_title": "Шлам үлгісін өңдеу",
+  "cuttings.edit_updated": "{top}–{bottom} м шлам үлгісі жаңартылды",
   "lithology.drag_hint": "Shift + сол жақ батырма: литологиялық аралықты созыңыз; жібергеннен кейін бір тау жынысын таңдаңыз.",
   "lithology.quick_hint": "Бір литологиялық аралық таңдалды. Шекараларды тексеріп, бір тау жынысын таңдаңыз.",
   "lithology.quick_no_catalog": "Тау жыныстарының анықтамалығы бос",
@@ -996,5 +999,12 @@
   "tablet.lba_residue_type": "Қалдық",
   "tablet.lba_residue_color": "Қалдық түсі",
   "tablet.lba_odour": "Иісі",
-  "tablet.lba_stain": "Дақ"
+  "tablet.lba_stain": "Дақ",
+  "cuttings.create_title": "Жаңа шлам үлгісі",
+  "cuttings.created": "{top}–{bottom} м шлам үлгісі құрылды",
+  "cuttings.deleted": "{top}–{bottom} м шлам үлгісі жойылды",
+  "shell.save_project": "Жобаны сақтау",
+  "lithology.quick_edit_title": "Литологиялық аралықты өңдеу",
+  "lithology.quick_deleted": "{top}–{bottom} м литологиялық аралығы жойылды",
+  "tablet.lba_columns": "Балл   |   Түс   |   Битум"
 }

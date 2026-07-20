@@ -38,6 +38,7 @@ def form_to_dict(form: FormDocument) -> dict[str, Any]:
             {
                 "column_id": column.column_id,
                 "title": column.title,
+                "group_title": column.group_title,
                 "width": column.width,
                 "visible": column.visible,
                 "locked": column.locked,
@@ -180,6 +181,7 @@ def _column_from_dict(data: object) -> FormColumn:
     return FormColumn(
         column_id=_string(data, "column_id"),
         title=_string(data, "title"),
+        group_title=_string(data, "group_title", allow_empty=True, default=""),
         width=int(_number(data, "width", default=260)),
         visible=_boolean(data, "visible", default=True),
         locked=_boolean(data, "locked", default=False),

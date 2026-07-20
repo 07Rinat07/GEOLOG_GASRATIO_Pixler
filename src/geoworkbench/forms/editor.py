@@ -66,6 +66,16 @@ class FormStructureEditor:
         self.form.validate()
         self.dirty = True
 
+    def set_column_group(self, column_id: str, group_title: str) -> None:
+        column = self.column(column_id)
+        normalized = group_title.strip()
+        if len(normalized) > 120:
+            raise ValueError("Название раздела не должно превышать 120 символов")
+        column.group_title = normalized
+        column.__post_init__()
+        self.form.validate()
+        self.dirty = True
+
     def set_column_width(self, column_id: str, width: int) -> None:
         column = self.column(column_id)
         if not 80 <= width <= 2000:

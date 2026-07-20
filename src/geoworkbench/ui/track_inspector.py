@@ -27,6 +27,7 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class TrackInspector(QWidget):
+    collapse_requested = Signal()
     settings_requested = Signal(str, int, str, object, object)
     curve_style_requested = Signal(str, str, str, float, str)
     grid_requested = Signal(str, bool, bool, float)
@@ -38,6 +39,9 @@ class TrackInspector(QWidget):
         self._track_id: str | None = None
         self._current_track: TrackDefinition | None = None
         self._stack = QStackedWidget()
+        self.collapse_button = QPushButton(self._t("panel.hide_all"))
+        self.collapse_button.setObjectName("inspector-collapse-button")
+        self.collapse_button.clicked.connect(self.collapse_requested.emit)
 
         self._text = QTextEdit()
         self._text.setReadOnly(True)
@@ -126,7 +130,8 @@ class TrackInspector(QWidget):
         self._stack.addWidget(editor)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
+        root.setContentsMargins(4, 4, 4, 4)
+        root.addWidget(self.collapse_button)
         root.addWidget(self._stack)
         self.setPlainText(self._t("inspector.default"))
 
@@ -136,6 +141,7 @@ class TrackInspector(QWidget):
     def set_language(self, language: AppLanguage) -> None:
         previous_localizer = self.localizer
         self.localizer = Localizer.create(language)
+        self.collapse_button.setText(self._t("panel.hide_all"))
 
         for field, key in (
             (self.width_input, "inspector.width"),

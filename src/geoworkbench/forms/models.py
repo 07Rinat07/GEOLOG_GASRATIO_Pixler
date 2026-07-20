@@ -146,10 +146,12 @@ class FormColumn:
     visible: bool = True
     locked: bool = False
     tracks: list[FormTrack] = field(default_factory=list)
+    group_title: str = ""
 
     def __post_init__(self) -> None:
         _require_id(self.column_id, "column_id")
         _require_text(self.title, "title", max_length=120)
+        _require_text(self.group_title, "group_title", max_length=120, allow_empty=True)
         if isinstance(self.width, bool) or not isinstance(self.width, int):
             raise ValueError("width должен быть целым числом")
         if not 80 <= self.width <= 2000:
@@ -163,6 +165,7 @@ class FormColumn:
         cls,
         title: str,
         *,
+        group_title: str = "",
         width: int = 260,
         visible: bool = True,
         locked: bool = False,
@@ -171,6 +174,7 @@ class FormColumn:
         return cls(
             column_id=str(uuid4()),
             title=title,
+            group_title=group_title,
             width=width,
             visible=visible,
             locked=locked,

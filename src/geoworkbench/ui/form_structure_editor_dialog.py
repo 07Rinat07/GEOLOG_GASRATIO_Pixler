@@ -177,6 +177,15 @@ class FormStructureEditorDialog(QDialog):
         self.title_edit.editingFinished.connect(self._apply_title)
         properties.addRow(self._text("Заголовок", "Тақырып", "Title"), self.title_edit)
 
+        self.group_edit = QLineEdit()
+        self.group_edit.setPlaceholderText(
+            self._text("Например: Геология", "Мысалы: Геология", "For example: Geology")
+        )
+        self.group_edit.editingFinished.connect(self._apply_group_title)
+        properties.addRow(
+            self._text("Раздел формы", "Пішін бөлімі", "Form section"), self.group_edit
+        )
+
         self.width_spin = QSpinBox()
         self.width_spin.setRange(80, 2000)
         self.width_spin.setSuffix(" px")
@@ -323,6 +332,8 @@ class FormStructureEditorDialog(QDialog):
             if ref is None:
                 self.title_edit.clear()
                 self.title_edit.setEnabled(False)
+                self.group_edit.clear()
+                self.group_edit.setEnabled(False)
                 self.width_spin.setEnabled(False)
                 self.kind_combo.setEnabled(False)
                 return
@@ -331,12 +342,16 @@ class FormStructureEditorDialog(QDialog):
             if kind == "column":
                 column = self.editor.column(object_id)
                 self.title_edit.setText(column.title)
+                self.group_edit.setEnabled(True)
+                self.group_edit.setText(column.group_title)
                 self.width_spin.setEnabled(True)
                 self.width_spin.setValue(column.width)
                 self.kind_combo.setEnabled(False)
             else:
                 _column, track = self.editor.track(object_id)
                 self.title_edit.setText(track.title)
+                self.group_edit.clear()
+                self.group_edit.setEnabled(False)
                 self.width_spin.setEnabled(False)
                 self.kind_combo.setEnabled(True)
                 index = self.kind_combo.findData(track.kind)
@@ -360,6 +375,20 @@ class FormStructureEditorDialog(QDialog):
             self._reload_tree(ref[1])
             self._form_changed()
         except (KeyError, PermissionError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            self._selection_changed(None, None)
+
+    def _apply_group_title(self) -> None:
+        if self._updating_properties:
+            return
+        ref = self._selected_ref()
+        if ref is None or ref[0] != "column":
+            return
+        try:
+            self.editor.set_column_group(ref[1], self.group_edit.text())
+            self.preview.set_form(self.editor.form, ref[1])
+            self._form_changed()
+        except (KeyError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             self._selection_changed(None, None)
 

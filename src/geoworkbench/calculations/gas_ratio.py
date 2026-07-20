@@ -30,21 +30,39 @@ def safe_ratio(numerator: Array, denominator: Array) -> Array:
 
 
 def sum_components(components: dict[str, Array]) -> Array:
+    """Sum available components without turning an all-NULL row into a real zero.
+
+    LAS NULL values are represented as NaN. ``numpy.nansum`` alone returns ``0``
+    when every component is NaN, which falsely looks like a measured zero gas
+    reading.  A row is therefore valid only when at least one component contains
+    a finite measurement.
+    """
+
     if not components:
         raise ValueError("Не переданы газовые компоненты")
     arrays = [np.asarray(values, dtype=np.float64) for values in components.values()]
     shape = arrays[0].shape
     if any(array.shape != shape for array in arrays):
         raise ValueError("Газовые компоненты имеют разную длину")
-    return np.nansum(np.vstack(arrays), axis=0)
+    matrix = np.vstack(arrays)
+    result = np.nansum(matrix, axis=0)
+    result[~np.any(np.isfinite(matrix), axis=0)] = np.nan
+    return result
+
+
+def relative_component_percent(component: Array, total: Array) -> Array:
+    """Return a component share in percent of the available hydrocarbon sum."""
+
+    return safe_ratio(component, total) * 100.0
 
 
 def calculate_basic_ratios(curves: dict[str, Array]) -> dict[str, GasRatioResult]:
-    """Расчёт только однозначных арифметических отношений.
+    """Calculate deterministic base ratios and GeoData-style relative composition.
 
-    Методики Wetness/Balance/Character/Pixler намеренно не зашиты здесь без
-    подтверждённого профиля формул и источника.
+    Wetness/Balance/Character/Pixler remain profile-driven calculations.  This
+    function contains only unambiguous arithmetic that can be audited directly.
     """
+
     normalized = {
         name.upper(): np.asarray(values, dtype=np.float64) for name, values in curves.items()
     }
@@ -64,15 +82,28 @@ def calculate_basic_ratios(curves: dict[str, Array]) -> dict[str, GasRatioResult
         ),
     }
 
-    available_components: dict[str, NDArray[np.float64]] = {
+    available_components: dict[str, Array] = {
         name: normalized[name]
         for name in ("C1", "C2", "C3", "IC4", "NC4", "C4", "IC5", "NC5", "C5")
         if name in normalized
     }
+    total = sum_components(available_components)
     results["TG_CALC"] = GasRatioResult(
         "TG_CALC",
-        sum_components(available_components),
+        total,
         "%abs",
         "Расчётная сумма доступных углеводородных компонентов",
     )
+
+    # GeoData depth screens commonly display a separate relative-composition
+    # column.  These curves are percentages of the same auditable component sum,
+    # not Gas Ratio/Pixler ratios.
+    for mnemonic, values in available_components.items():
+        relative_mnemonic = f"{mnemonic}_REL"
+        results[relative_mnemonic] = GasRatioResult(
+            relative_mnemonic,
+            relative_component_percent(values, total),
+            "%rel",
+            f"Относительное содержание {mnemonic} в сумме углеводородных компонентов",
+        )
     return results

@@ -20,6 +20,9 @@ class LithologyController:
             )
         )
 
+    def get(self, interval_id: str) -> LithologyInterval:
+        return self._require_interval(interval_id)
+
     def add(
         self,
         top_depth: float,

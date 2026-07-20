@@ -58,6 +58,13 @@ _TEXT: dict[str, dict[str, str]] = {
     "flow_out": {"ru": "Расход на выходе", "kk": "Шығыстағы шығын", "en": "Flow out"},
     "spp": {"ru": "Давление на манифольде", "kk": "Манифольд қысымы", "en": "Standpipe pressure"},
     "mud_density": {"ru": "Плотность раствора", "kk": "Ерітінді тығыздығы", "en": "Mud density"},
+    "mud_density_in": {
+        "ru": "Плотность раствора на входе",
+        "kk": "Кірістегі ерітінді тығыздығы",
+        "en": "Mud density in",
+    },
+    "hook_load": {"ru": "Вес на крюке", "kk": "Ілмектегі салмақ", "en": "Hook load"},
+    "torque": {"ru": "Крутящий момент", "kk": "Айналу моменті", "en": "Torque"},
     "raw_norm_gas": {
         "ru": "Сырой и нормализованный газ",
         "kk": "Бастапқы және нормаланған газ",
@@ -164,6 +171,11 @@ _TEXT: dict[str, dict[str, str]] = {
         "kk": "Тау жыныстарының сипаттамасы",
         "en": "Rock description",
     },
+    "cuttings_description": {
+        "ru": "Описание пород и шлама",
+        "kk": "Тау жыныстары мен шлам сипаттамасы",
+        "en": "Rock and cuttings description",
+    },
     "calcimetry": {"ru": "Кальциметрия", "kk": "Кальциметрия", "en": "Calcimetry"},
     "lba": {"ru": "ЛБА", "kk": "ЛБА", "en": "LBA"},
     "stratigraphy": {"ru": "Стратиграфия", "kk": "Стратиграфия", "en": "Stratigraphy"},
@@ -172,6 +184,17 @@ _TEXT: dict[str, dict[str, str]] = {
         "kk": "МАСТЕРЛОГ — геологиялық-геохимиялық жұмыс пішіні",
         "en": "MASTERLOG — geological-geochemical working form",
     },
+    "geodata_depth_form": {
+        "ru": "Глубинка — геология, технология и газ",
+        "kk": "Тереңдік пішіні — геология, технология және газ",
+        "en": "Depth workspace — geology, drilling and gas",
+    },
+    "geology_section": {"ru": "Геология", "kk": "Геология", "en": "Geology"},
+    "technology_section": {"ru": "Технология", "kk": "Технология", "en": "Technology"},
+    "gas_section": {"ru": "Газовые данные", "kk": "Газ деректері", "en": "Gas data"},
+    "age": {"ru": "Возраст", "kk": "Жасы", "en": "Age"},
+    "absolute_gas": {"ru": "Абсолютный газ", "kk": "Абсолюттік газ", "en": "Absolute gas"},
+    "relative_gas": {"ru": "Относительный газ", "kk": "Салыстырмалы газ", "en": "Relative gas"},
     "calcite": {"ru": "Кальцит CaCO₃", "kk": "Кальцит CaCO₃", "en": "Calcite CaCO₃"},
     "dolomite": {
         "ru": "Доломит CaMg(CO₃)₂",
@@ -226,10 +249,29 @@ def factory_templates(language: str = "ru") -> dict[str, FormDocument]:
         "factory-calcimetry": _calcimetry(lang),
         "factory-lba": _lba(lang),
         "factory-geotech-integrated": _geotech_integrated(lang),
+        "factory-geodata-depth-workspace": _geodata_depth_workspace(lang),
         "factory-engineering-control-time": _engineering_control_time(lang),
         "factory-masterlog-geological-geochemical": _masterlog_geological_geochemical(lang),
     }
     return {key: deepcopy(value) for key, value in templates.items()}
+
+
+CURATED_FACTORY_TEMPLATE_IDS: tuple[str, ...] = (
+    "factory-geodata-depth-workspace",
+    "factory-masterlog-geological-geochemical",
+    "factory-engineering-control-time",
+)
+
+
+def curated_factory_templates(language: str = "ru") -> dict[str, FormDocument]:
+    """Return the small production-ready form library shown in the manager.
+
+    Legacy factory IDs stay available for old projects and tests, but the user
+    no longer has to choose among experimental and overlapping presets.
+    """
+
+    available = factory_templates(language)
+    return {form_id: available[form_id] for form_id in CURATED_FACTORY_TEMPLATE_IDS}
 
 
 def _factory(
@@ -250,12 +292,19 @@ def _factory(
     )
 
 
-def _axis_column(axis: FormAxisKind, language: TemplateLanguage) -> FormColumn:
+def _axis_column(
+    axis: FormAxisKind,
+    language: TemplateLanguage,
+    *,
+    group_title: str = "",
+    width: int = 120,
+) -> FormColumn:
     title = _t("depth", language) if axis is FormAxisKind.DEPTH else _t("time", language)
     return FormColumn(
         column_id=f"column-{axis.value}-axis",
         title=title,
-        width=120,
+        group_title=group_title,
+        width=width,
         locked=True,
         tracks=[
             FormTrack(
@@ -276,10 +325,12 @@ def _curve_column(
     width: int = 260,
     *,
     x_axis_label: str = "",
+    group_title: str = "",
 ) -> FormColumn:
     return FormColumn(
         column_id=column_id,
         title=title,
+        group_title=group_title,
         width=width,
         tracks=[
             FormTrack(
@@ -299,10 +350,13 @@ def _special_column(
     kind: TrackKind,
     width: int,
     bindings: list[ParameterBinding] | None = None,
+    *,
+    group_title: str = "",
 ) -> FormColumn:
     return FormColumn(
         column_id=column_id,
         title=title,
+        group_title=group_title,
         width=width,
         tracks=[
             FormTrack(
@@ -896,6 +950,139 @@ def _geotech_integrated(language: TemplateLanguage) -> FormDocument:
         ],
         language,
     )
+
+
+def _geodata_depth_workspace(language: TemplateLanguage) -> FormDocument:
+    """Compact editable depth workspace based on the supplied GeoData example.
+
+    It intentionally differs from the long printable Masterlog: this form is
+    optimized for day-to-day screen editing and groups columns into Geology,
+    Technology and Gas data while preserving one common depth coordinate.
+    """
+
+    geology = _t("geology_section", language)
+    technology = _t("technology_section", language)
+    gas = _t("gas_section", language)
+    absolute_bindings = [
+        _binding(
+            "TG_CALC",
+            _t("total_gas", language),
+            "%",
+            "#dc2626",
+            log=True,
+            x_min=0.001,
+            x_max=100,
+            width=2.0,
+        ),
+        _binding("C1", _t("methane", language), "%", "#111827", log=True, x_min=0.001, x_max=100),
+        _binding("C2", _t("ethane", language), "%", "#84cc16", log=True, x_min=0.001, x_max=100),
+    ]
+    relative_bindings = [
+        _binding("C1_REL", _t("methane", language), "%", "#111827", x_min=0, x_max=100, width=2.0),
+        _binding("C2_REL", _t("ethane", language), "%", "#84cc16", x_min=0, x_max=100),
+        _binding("C3_REL", _t("propane", language), "%", "#22d3ee", x_min=0, x_max=100),
+        _binding("C4_REL", _t("butane", language), "%", "#fb923c", x_min=0, x_max=100),
+        _binding("C5_REL", _t("pentane", language), "%", "#9333ea", x_min=0, x_max=100),
+    ]
+    form = _factory(
+        "factory-geodata-depth-workspace",
+        _t("geodata_depth_form", language),
+        FormAxisKind.DEPTH,
+        [
+            _axis_column(FormAxisKind.DEPTH, language, group_title=geology, width=105),
+            _special_column(
+                "column-geodata-age",
+                _t("age", language),
+                TrackKind.STRATIGRAPHY,
+                105,
+                group_title=geology,
+            ),
+            _special_column(
+                "column-geodata-lithology",
+                _t("lithology", language),
+                TrackKind.LITHOLOGY,
+                150,
+                group_title=geology,
+            ),
+            _special_column(
+                "column-geodata-cuttings",
+                _t("cuttings", language),
+                TrackKind.CUTTINGS,
+                145,
+                group_title=geology,
+            ),
+            _special_column(
+                "column-geodata-description",
+                _t("cuttings_description", language),
+                TrackKind.TEXT,
+                230,
+                group_title=geology,
+            ),
+            _special_column(
+                "column-geodata-calcimetry",
+                _t("calcimetry", language),
+                TrackKind.CALCIMETRY,
+                145,
+                [
+                    _binding("CACO3", _t("calcite", language), "%", "#f472b6", x_min=0, x_max=100),
+                    _binding(
+                        "CAMG_CO3_2", _t("dolomite", language), "%", "#86efac", x_min=0, x_max=100
+                    ),
+                ],
+                group_title=geology,
+            ),
+            _special_column(
+                "column-geodata-lba",
+                _t("lba", language),
+                TrackKind.LBA,
+                165,
+                group_title=geology,
+            ),
+            _curve_column(
+                "column-geodata-technology-primary",
+                _t("technology", language),
+                [
+                    _binding("WOB", _t("wob", language), "t", "#2563eb", x_min=0, x_max=20),
+                    _binding("SPP", _t("spp", language), "atm", "#ef4444", x_min=0, x_max=250),
+                    _binding("TQ", _t("torque", language), "kN·m", "#16a34a", x_min=0, x_max=100),
+                    _binding("ROP", _t("rop", language), "m/h", "#ca8a04", x_min=0, x_max=150),
+                ],
+                255,
+                group_title=technology,
+            ),
+            _curve_column(
+                "column-geodata-technology-secondary",
+                _t("mud", language),
+                [
+                    _binding("MW_IN", _t("mud_density_in", language), "g/cm³", "#2563eb", x_min=0.8, x_max=2.5),
+                    _binding("HKLD", _t("hook_load", language), "t", "#d946ef", x_min=0, x_max=250),
+                    _binding("RPM", _t("rpm", language), "min-1", "#ef4444", x_min=0, x_max=250),
+                    _binding(
+                        "FLOW_IN", _t("flow_in", language), "l/s", "#16a34a", x_min=0, x_max=100
+                    ),
+                ],
+                235,
+                group_title=technology,
+            ),
+            _curve_column(
+                "column-geodata-absolute-gas",
+                _t("absolute_gas", language),
+                absolute_bindings,
+                230,
+                group_title=gas,
+            ),
+            _curve_column(
+                "column-geodata-relative-gas",
+                _t("relative_gas", language),
+                relative_bindings,
+                260,
+                group_title=gas,
+            ),
+        ],
+        language,
+    )
+    form.print_header_template_id = "geological_geochemical"
+    return form
 
 
 def _masterlog_geological_geochemical(language: TemplateLanguage) -> FormDocument:

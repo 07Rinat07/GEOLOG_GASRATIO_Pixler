@@ -180,6 +180,7 @@ class FormApplyEngine:
                         track_id=form_track.track_id or new_id(),
                         title=form_track.title or column.title,
                         kind=form_track.kind,
+                        group_title=column.group_title,
                         curve_mnemonics=resolved_mnemonics,
                         width=column.width,
                         visible=True,

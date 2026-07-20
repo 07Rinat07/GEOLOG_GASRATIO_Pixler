@@ -48,7 +48,7 @@ def test_factory_templates_are_read_only_and_copy_is_editable() -> None:
 
 def test_factory_templates_have_unique_ids() -> None:
     templates = factory_templates()
-    assert len(templates) == 18
+    assert len(templates) == 19
     assert len({item.form_id for item in templates.values()}) == len(templates)
     for form in templates.values():
         form.validate()

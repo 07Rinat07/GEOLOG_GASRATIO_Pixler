@@ -14,7 +14,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 9
+LAYOUT_FORMAT_VERSION = 10
 
 
 class TabletLayoutFormatError(ValueError):
@@ -32,6 +32,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
             {
                 "track_id": track.track_id,
                 "title": track.title,
+                "group_title": track.group_title,
                 "kind": track.kind.value,
                 "curve_mnemonics": list(track.curve_mnemonics),
                 "width": track.width,
@@ -118,6 +119,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
 
     track_id = data["track_id"]
     title = data["title"]
+    group_title = data.get("group_title", "")
     raw_mnemonics = data.get("curve_mnemonics", [])
     width = data.get("width", 260)
     visible = data.get("visible", True)
@@ -134,6 +136,8 @@ def _track_from_dict(data: object) -> TrackDefinition:
         raise TypeError("track_id должен быть непустой строкой")
     if not isinstance(title, str) or not title.strip():
         raise TypeError("title должен быть непустой строкой")
+    if not isinstance(group_title, str):
+        raise TypeError("group_title должен быть строкой")
     if not isinstance(raw_mnemonics, list) or not all(
         isinstance(item, str) for item in raw_mnemonics
     ):
@@ -181,6 +185,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         track_id=track_id,
         title=title,
         kind=TrackKind(data["kind"]),
+        group_title=group_title,
         curve_mnemonics=list(raw_mnemonics),
         width=width,
         visible=visible,
@@ -201,7 +206,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2, 3, 4, 5, 6, 7, 8):
+    if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -244,4 +249,9 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
         for track in tracks:
             if isinstance(track, dict):
                 track.setdefault("curve_display", {})
+    migrated["version"] = 10
+    if isinstance(tracks, list):
+        for track in tracks:
+            if isinstance(track, dict):
+                track.setdefault("group_title", "")
     return migrated

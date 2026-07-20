@@ -417,6 +417,9 @@
   "lithology.tree": "Lithology ({count})",
   "lithology.window_title": "Lithology intervals",
   "lithology.quick_created": "Lithology interval {top}–{bottom} m added",
+  "lithology.quick_updated": "Lithology interval {top}–{bottom} m updated",
+  "cuttings.edit_title": "Edit cuttings sample",
+  "cuttings.edit_updated": "Cuttings sample {top}–{bottom} m updated",
   "lithology.drag_hint": "Shift + left mouse: drag a lithology interval; on release choose one rock type.",
   "lithology.quick_hint": "One lithology interval is selected. Check the boundaries and choose one rock type.",
   "lithology.quick_no_catalog": "The lithotype catalog is empty",
@@ -996,5 +999,12 @@
   "tablet.lba_residue_type": "Residue",
   "tablet.lba_residue_color": "Residue color",
   "tablet.lba_odour": "Odour",
-  "tablet.lba_stain": "Stain"
+  "tablet.lba_stain": "Stain",
+  "cuttings.create_title": "New cuttings sample",
+  "cuttings.created": "Cuttings sample {top}–{bottom} m created",
+  "cuttings.deleted": "Cuttings sample {top}–{bottom} m deleted",
+  "shell.save_project": "Save project",
+  "lithology.quick_edit_title": "Edit lithology interval",
+  "lithology.quick_deleted": "Lithology interval {top}–{bottom} m deleted",
+  "tablet.lba_columns": "Score   |   Color   |   Bitumen"
 }

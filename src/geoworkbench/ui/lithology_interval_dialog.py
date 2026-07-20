@@ -31,13 +31,19 @@ class LithologyIntervalDialog(QDialog):
         catalog: tuple[CatalogLithotype, ...],
         *,
         language: AppLanguage = AppLanguage.RU,
+        lithotype_id: str | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.language = language
         self.localizer = Localizer.create(language)
         self.catalog = tuple(catalog)
-        self.setWindowTitle(self._t("lithology.quick_title"))
+        self.delete_requested = False
+        self.setWindowTitle(
+            self._t("lithology.quick_edit_title")
+            if lithotype_id is not None
+            else self._t("lithology.quick_title")
+        )
         self.setModal(True)
         self.resize(460, 210)
 
@@ -61,6 +67,10 @@ class LithologyIntervalDialog(QDialog):
                 f"{item.localized_name(language.value)} ({item.code})",
                 item.lithotype_id,
             )
+        if lithotype_id is not None:
+            index = self.lithotype_input.findData(lithotype_id)
+            if index >= 0:
+                self.lithotype_input.setCurrentIndex(index)
 
         form.addRow(self._t("lithology.top"), self.top_input)
         form.addRow(self._t("lithology.bottom"), self.bottom_input)
@@ -77,6 +87,12 @@ class LithologyIntervalDialog(QDialog):
         )
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
+        if lithotype_id is not None:
+            delete_button = self.buttons.addButton(
+                self._t("common.delete"), QDialogButtonBox.ButtonRole.DestructiveRole
+            )
+            delete_button.setObjectName("lithology-delete-button")
+            delete_button.clicked.connect(self._delete)
         root.addWidget(self.buttons)
 
     def _t(self, key: str, **values: object) -> str:
@@ -101,6 +117,10 @@ class LithologyIntervalDialog(QDialog):
         painter.drawRect(1, 1, 22, 14)
         painter.end()
         return QIcon(pixmap)
+
+    def _delete(self) -> None:
+        self.delete_requested = True
+        self.accept()
 
     @property
     def top_depth(self) -> float:

@@ -253,7 +253,8 @@ def test_tablet_renders_calcimetry_lba_and_cursor_summary(qapp) -> None:
     summary = view.cursor_summary(105.0)
 
     assert calc_items is not None and len(calc_items["sample"]) >= 4
-    assert lba_items is not None and len(lba_items["sample"]) >= 3
+    assert lba_items is not None and len(lba_items["sample"]) >= 6
+    assert view._rendered["lba"].plot.viewRange()[0][1] >= 2.9
     assert ("Кальциметрия: CaCO₃ 65%; CaMg(CO₃)₂ 20%; нерастворимый остаток 15%") in summary
     assert "ЛБА: Oil show; I=3; yellow; Streaming" in summary
     assert "Интерпретация геолога: Manual show interpretation" in summary
@@ -1033,7 +1034,7 @@ def test_tablet_keyboard_navigation_moves_camera(qapp) -> None:
     view.close()
 
 
-def test_tablet_view_pins_depth_track_and_scrolls_other_tracks(qapp):
+def test_tablet_view_keeps_depth_in_form_order_and_scrolls_wide_canvas(qapp):
     dataset = Dataset(
         "dataset-scroll",
         "Scroll",
@@ -1064,7 +1065,8 @@ def test_tablet_view_pins_depth_track_and_scrolls_other_tracks(qapp):
     view.show()
     qapp.processEvents()
 
-    assert view.pinned_track_ids == ("depth",)
+    assert view.pinned_track_ids == ()
+    assert view.rendered_track_ids[0] == "depth"
     assert view.horizontal_scroll_range()[1] > 0
     view.close()
 

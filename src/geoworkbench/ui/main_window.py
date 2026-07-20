@@ -8,6 +8,7 @@ from PySide6.QtGui import QAction, QActionGroup, QIcon, QPageLayout, QPainter, Q
 from PySide6.QtPrintSupport import QPrintDialog, QPrintPreviewDialog, QPrinter
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QDialog,
     QDialogButtonBox,
     QColorDialog,
@@ -70,6 +71,7 @@ from geoworkbench.project.curve_editing_controller import (
 )
 from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.lithology_controller import LithologyController
+from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.interpretation_controller import InterpretationController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.stratigraphy_controller import StratigraphyController
@@ -120,6 +122,7 @@ from geoworkbench.ui.interpretation_intervals_dialog import InterpretationInterv
 from geoworkbench.ui.interpretation_properties import InterpretationPropertiesPanel
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_interval_dialog import LithologyIntervalDialog
+from geoworkbench.ui.unified_cuttings_sample_dialog import UnifiedCuttingsSampleDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
 from geoworkbench.ui.sensor_catalog_dialog import SensorCatalogDialog
@@ -186,6 +189,7 @@ class MainWindow(QMainWindow):
         self.time_depth_mapping_controller = TimeDepthMappingController(self.session)
         self.depth_annotation_controller = DepthAnnotationController(self.session)
         self.lithology_controller = LithologyController(self.session)
+        self.cuttings_controller = CuttingsController(self.session)
         self.interpretation_controller = InterpretationController(self.session)
         self.stratigraphy_controller = StratigraphyController(self.session)
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
@@ -203,7 +207,7 @@ class MainWindow(QMainWindow):
         self.cursor_line_settings = self.user_profile_settings.cursor_line_settings()
         self.setWindowIcon(application_icon())
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
-        self.resize(1580, 960)
+        self._apply_adaptive_initial_geometry()
 
         self.tabs = QTabWidget()
         self.curve_view = CurveView(self.dataset_selection, language=self.language)
@@ -242,6 +246,15 @@ class MainWindow(QMainWindow):
         self.tablet_view.lithology_interval_requested.connect(
             self._create_lithology_interval_from_tablet
         )
+        self.tablet_view.lithology_interval_edit_requested.connect(
+            self._edit_lithology_interval_from_tablet
+        )
+        self.tablet_view.cuttings_interval_requested.connect(
+            self._create_cuttings_sample_from_tablet
+        )
+        self.tablet_view.cuttings_sample_edit_requested.connect(
+            self._edit_cuttings_sample_from_tablet
+        )
         self.las_table_editor = LasTableEditor(
             self.las_range_editing_controller,
             language=self.language,
@@ -271,6 +284,22 @@ class MainWindow(QMainWindow):
         self.cursor_line_action.setChecked(self.cursor_line_settings.enabled)
         self.statusBar().showMessage(self._t("app.ready"))
         self._update_title()
+
+    def _apply_adaptive_initial_geometry(self) -> None:
+        """Fit the first window inside the active laptop/desktop work area."""
+
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            self.resize(1280, 800)
+            return
+        available = screen.availableGeometry()
+        width = max(720, min(1580, int(available.width() * 0.96)))
+        height = max(540, min(960, int(available.height() * 0.92)))
+        self.resize(width, height)
+        self.move(
+            available.x() + max(0, (available.width() - width) // 2),
+            available.y() + max(0, (available.height() - height) // 2),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
@@ -344,11 +373,19 @@ class MainWindow(QMainWindow):
         self.inspector_dock = QDockWidget(self._t("dock.inspector"), self)
         self.inspector_dock.setObjectName("inspectorDock")
         self.inspector = TrackInspector(language=self.language)
+        self.inspector.collapse_requested.connect(self.inspector_dock.hide)
         self.inspector.settings_requested.connect(self._apply_inspector_track_settings)
         self.inspector.curve_style_requested.connect(self._apply_inspector_curve_style)
         self.inspector.grid_requested.connect(self._apply_inspector_grid)
         self.inspector.x_axis_label_requested.connect(self._apply_inspector_x_axis_label)
         self.inspector_dock.setWidget(self.inspector)
+        self.inspector_dock.setMinimumWidth(260)
+        self.inspector_dock.setMaximumWidth(420)
+        self.inspector_dock.setFeatures(
+            QDockWidget.DockWidgetFeature.DockWidgetClosable
+            | QDockWidget.DockWidgetFeature.DockWidgetMovable
+            | QDockWidget.DockWidgetFeature.DockWidgetFloatable
+        )
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.inspector_dock)
         self.inspector_dock.hide()
 
@@ -588,13 +625,18 @@ class MainWindow(QMainWindow):
         self.user_profile_action.triggered.connect(self.select_user_profile)
         language_menu.addAction(self.user_profile_action)
 
-        self.save_action = self._localized_action("shell.save_project_as")
+        self.save_action = self._localized_action("shell.save_project")
         self.save_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
         )
         self.save_action.setShortcut("Ctrl+S")
-        self.save_action.triggered.connect(self.save_project_as)
+        self.save_action.triggered.connect(self.save_project)
         file_menu.addAction(self.save_action)
+
+        self.save_as_action = self._localized_action("shell.save_project_as")
+        self.save_as_action.setShortcut("Ctrl+Shift+S")
+        self.save_as_action.triggered.connect(self.save_project_as)
+        file_menu.addAction(self.save_as_action)
 
         self.export_las_action = self._localized_action("shell.export_las")
         self.export_las_action.triggered.connect(self.export_current_las)
@@ -1354,6 +1396,7 @@ class MainWindow(QMainWindow):
         self.depth_annotation_controller.session = self.session
         self.depth_annotation_controller.history.clear()
         self.lithology_controller.session = self.session
+        self.cuttings_controller.session = self.session
         self.stratigraphy_controller.session = self.session
         self.lithotype_catalog_controller.session = self.session
         self.description_template_controller.session = self.session
@@ -2761,9 +2804,7 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
 
-    def _create_lithology_interval_from_tablet(
-        self, top_depth: float, bottom_depth: float
-    ) -> None:
+    def _create_lithology_interval_from_tablet(self, top_depth: float, bottom_depth: float) -> None:
         if self.session.current_well is None or self.session.current_dataset is None:
             QMessageBox.information(
                 self, self._t("lithology.title"), self._t("lithology.select_well")
@@ -2807,6 +2848,182 @@ class MainWindow(QMainWindow):
                 )
             )
             break
+
+    def _edit_lithology_interval_from_tablet(self, interval_id: str) -> None:
+        if self.session.current_well is None:
+            return
+        try:
+            interval = self.lithology_controller.get(interval_id)
+        except (KeyError, RuntimeError) as exc:
+            QMessageBox.warning(self, self._t("lithology.title"), str(exc))
+            return
+        catalog = self.lithotype_catalog_controller.available()
+        if not catalog:
+            QMessageBox.warning(
+                self, self._t("lithology.title"), self._t("lithology.quick_no_catalog")
+            )
+            return
+        dialog = LithologyIntervalDialog(
+            interval.top_depth,
+            interval.bottom_depth,
+            catalog,
+            language=self.language,
+            lithotype_id=interval.lithotype_id,
+            parent=self,
+        )
+        while dialog.exec() == QDialog.DialogCode.Accepted:
+            if dialog.delete_requested:
+                try:
+                    deleted = self.lithology_controller.remove(interval_id)
+                except (KeyError, RuntimeError, ValueError) as exc:
+                    QMessageBox.warning(self, self._t("lithology.title"), str(exc))
+                    continue
+                well = self.session.current_well
+                self.tablet_view.set_lithology(
+                    well.lithology if well is not None else [],
+                    catalog,
+                )
+                self._refresh_tree()
+                self._update_title()
+                self.statusBar().showMessage(
+                    self._t(
+                        "lithology.quick_deleted",
+                        top=f"{deleted.top_depth:g}",
+                        bottom=f"{deleted.bottom_depth:g}",
+                    )
+                )
+                break
+            try:
+                updated = self.lithology_controller.update(
+                    interval_id,
+                    top_depth=dialog.top_depth,
+                    bottom_depth=dialog.bottom_depth,
+                    lithotype_id=dialog.lithotype_id,
+                    description=interval.description,
+                )
+            except (KeyError, RuntimeError, ValueError) as exc:
+                QMessageBox.warning(self, self._t("lithology.title"), str(exc))
+                continue
+            well = self.session.current_well
+            self.tablet_view.set_lithology(
+                well.lithology if well is not None else [],
+                catalog,
+            )
+            self._refresh_tree()
+            self._update_title()
+            self.statusBar().showMessage(
+                self._t(
+                    "lithology.quick_updated",
+                    top=f"{updated.top_depth:g}",
+                    bottom=f"{updated.bottom_depth:g}",
+                )
+            )
+            break
+
+    def _create_cuttings_sample_from_tablet(self, top_depth: float, bottom_depth: float) -> None:
+        """Create one shared sample from a Shift+drag interval.
+
+        The same object feeds cuttings, LBA, calcimetry and rich description
+        tracks.  This prevents the four columns from drifting into unrelated
+        intervals.
+        """
+        if self.session.current_well is None:
+            return
+        catalog = self.lithotype_catalog_controller.available()
+        if not catalog:
+            QMessageBox.warning(
+                self, self._t("cuttings.create_title"), self._t("lithology.quick_no_catalog")
+            )
+            return
+        dialog = UnifiedCuttingsSampleDialog(
+            top_depth,
+            bottom_depth,
+            catalog,
+            language=self.language,
+            parent=self,
+        )
+        while dialog.exec() == QDialog.DialogCode.Accepted:
+            try:
+                created = self.cuttings_controller.create_full_sample(
+                    dialog.top_depth,
+                    dialog.bottom_depth,
+                    dialog.components(),
+                    **dialog.values(),
+                )
+            except (RuntimeError, ValueError) as exc:
+                QMessageBox.warning(self, self._t("cuttings.create_title"), str(exc))
+                continue
+            self._refresh_cuttings_after_edit()
+            self.statusBar().showMessage(
+                self._t(
+                    "cuttings.created",
+                    top=f"{created.top_depth:g}",
+                    bottom=f"{created.bottom_depth:g}",
+                )
+            )
+            break
+
+    def _edit_cuttings_sample_from_tablet(self, sample_id: str) -> None:
+        """Reopen and atomically edit one existing geological sample."""
+        if self.session.current_well is None:
+            return
+        try:
+            sample = self.cuttings_controller.get(sample_id)
+        except (KeyError, RuntimeError) as exc:
+            QMessageBox.warning(self, self._t("cuttings.edit_title"), str(exc))
+            return
+        catalog = self.lithotype_catalog_controller.available()
+        if not catalog:
+            QMessageBox.warning(
+                self, self._t("cuttings.edit_title"), self._t("lithology.quick_no_catalog")
+            )
+            return
+        dialog = UnifiedCuttingsSampleDialog(
+            sample.top_depth,
+            sample.bottom_depth,
+            catalog,
+            language=self.language,
+            sample=sample,
+            parent=self,
+        )
+        while dialog.exec() == QDialog.DialogCode.Accepted:
+            try:
+                if dialog.delete_requested:
+                    deleted = self.cuttings_controller.remove(sample_id)
+                    self._refresh_cuttings_after_edit()
+                    self.statusBar().showMessage(
+                        self._t(
+                            "cuttings.deleted",
+                            top=f"{deleted.top_depth:g}",
+                            bottom=f"{deleted.bottom_depth:g}",
+                        )
+                    )
+                    break
+                updated = self.cuttings_controller.update_full_sample(
+                    sample_id,
+                    top_depth=dialog.top_depth,
+                    bottom_depth=dialog.bottom_depth,
+                    components=dialog.components(),
+                    **dialog.values(),
+                )
+            except (KeyError, RuntimeError, ValueError) as exc:
+                QMessageBox.warning(self, self._t("cuttings.edit_title"), str(exc))
+                continue
+            self._refresh_cuttings_after_edit()
+            self.statusBar().showMessage(
+                self._t(
+                    "cuttings.edit_updated",
+                    top=f"{updated.top_depth:g}",
+                    bottom=f"{updated.bottom_depth:g}",
+                )
+            )
+            break
+
+    def _refresh_cuttings_after_edit(self) -> None:
+        well = self.session.current_well
+        self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
+        self._refresh_tree()
+        self._update_title()
 
     def show_lithotype_catalog(self) -> None:
         LithotypeCatalogDialog(
@@ -3351,6 +3568,18 @@ class MainWindow(QMainWindow):
             unknown_name=self._t("legend.unknown"),
         )
         LithologyLegendDialog(entries, self, language=self.language).exec()
+
+    def save_project(self) -> None:
+        if self.project_path is None:
+            self.save_project_as()
+            return
+        try:
+            saved_path = self.project_controller.save_project()
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.critical(self, self._t("shell.save_project"), str(exc))
+            return
+        self._update_title()
+        self._log(f"Проект сохранён: {saved_path}")
 
     def save_project_as(self) -> None:
         filename, _ = QFileDialog.getSaveFileName(

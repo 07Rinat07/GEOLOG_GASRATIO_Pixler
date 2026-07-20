@@ -85,3 +85,16 @@ Wheel navigation is handled across the entire column, including parameter rows i
 panning no longer depends on the exact cursor target. The selected depth span is stored directly in
 the tablet model, keeps the current top depth, and survives form changes. Smooth touchpad deltas are
 converted to real depth displacement, while a standard wheel notch pans by 10% of the current window.
+
+## GeoData depth form and interval re-editing
+
+The tablet supports merged Geology, Technology, and Gas Data sections. Parameter-row height is
+synchronized to the tallest form header, so every track body begins at the same pixel and uses the
+same depth range. The depth track remains in template order and scrolls with the form.
+
+`Shift + left drag` creates a one-rock interval in Lithology. The same gesture creates a shared
+sample in Cuttings, LBA, and Calcimetry tracks. Double-clicking an existing interval or sample
+opens re-editing. `Esc` cancels an unfinished gesture.
+
+The text track renders the sample rich-text description, wraps it to the column width, and hides the
+screen label when the interval is too short. The complete stored content is not discarded.

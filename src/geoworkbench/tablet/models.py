@@ -88,8 +88,11 @@ class TrackDefinition:
     grid_y: bool = True
     grid_alpha: float = 0.2
     x_axis_label: str = ""
+    group_title: str = ""
 
     def __post_init__(self) -> None:
+        if not isinstance(self.group_title, str) or len(self.group_title.strip()) > 120:
+            raise ValueError("Название раздела должно быть строкой не длиннее 120 символов")
         if self.width < 80:
             raise ValueError("Ширина трека должна быть не меньше 80 px")
         self._validate_x_settings(self.x_scale, self.x_min, self.x_max)

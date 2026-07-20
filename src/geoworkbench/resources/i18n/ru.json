@@ -417,6 +417,9 @@
   "lithology.tree": "Литология ({count})",
   "lithology.window_title": "Литологические интервалы",
   "lithology.quick_created": "Литологический интервал {top}–{bottom} м добавлен",
+  "lithology.quick_updated": "Литологический интервал {top}–{bottom} м обновлён",
+  "cuttings.edit_title": "Редактирование шламовой пробы",
+  "cuttings.edit_updated": "Шламовая проба {top}–{bottom} м обновлена",
   "lithology.drag_hint": "Shift + левая кнопка: протяните литологический интервал; после отпускания выберите одну породу.",
   "lithology.quick_hint": "Выбран один литологический интервал. Проверьте границы и укажите одну породу.",
   "lithology.quick_no_catalog": "Справочник пород пуст",
@@ -996,5 +999,12 @@
   "tablet.lba_residue_type": "Остаток",
   "tablet.lba_residue_color": "Цвет остатка",
   "tablet.lba_odour": "Запах",
-  "tablet.lba_stain": "Пятно"
+  "tablet.lba_stain": "Пятно",
+  "cuttings.create_title": "Новая проба шлама",
+  "cuttings.created": "Проба шлама {top}–{bottom} м создана",
+  "cuttings.deleted": "Проба шлама {top}–{bottom} м удалена",
+  "shell.save_project": "Сохранить проект",
+  "lithology.quick_edit_title": "Редактирование литологического интервала",
+  "lithology.quick_deleted": "Литологический интервал {top}–{bottom} м удалён",
+  "tablet.lba_columns": "Баллы   |   Цвет   |   Битум"
 }

@@ -97,3 +97,24 @@ the project layout. Disabling auto-fit preserves the form's original proportions
 ## Universal Print and Export Center
 
 All factory and user forms use one page renderer. Form Manager can send the selected compatible form directly to the Print and Export Center. The center supports the native physical printer, PDF, PNG, JPEG/JPG, TIFF, BMP, WebP, and SVG. It provides A4, A3, custom and roll media, portrait/landscape orientation, four independent margins, 72–600 DPI, and JPEG/WebP quality. Raster output is generated at the physical paper pixel dimensions for the selected DPI. Every visible track is printed, including tracks outside the horizontal viewport; temporary print widths are restored after rendering.
+
+## Curated working-form library
+
+The form manager exposes three verified factory templates: GeoData Depth Workspace,
+Geological-Geochemical Masterlog, and Engineering Control — Time. Legacy IDs remain loadable
+for existing projects, but experimental duplicate factory forms are hidden from the user list.
+
+`FormColumn.group_title` stores a form-section caption. Form application propagates it to
+`TrackDefinition.group_title`, layout codec v10 persists it, and the tablet renders one merged
+caption above adjacent columns. Column order comes entirely from the template; the depth track is
+not moved into a separately pinned area.
+
+Factory templates are immutable. Creating a copy produces an independent user form that retains
+section captions, column order, widths, parameter bindings, scales, and styles.
+
+## Shared cuttings sample
+
+Cuttings, LBA, Calcimetry, and Description belong to one `CuttingsSample`. Re-editing updates the
+same object atomically by `sample_id`, so linked tracks cannot drift apart or create duplicates.
+Validation allows up to four rock components with an exact `100%` total; calcite plus dolomite may
+not exceed `100%`.

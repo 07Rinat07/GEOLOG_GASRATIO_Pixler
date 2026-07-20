@@ -35,6 +35,16 @@ at random. Gas Ratio converts `%`, `ppm`, `ppb`, and fractions to a compatible s
 [LAS parameter recognition](LAS_PARAMETER_RESOLUTION.md).
 
 
+## GeoData depth workspace
+
+The form manager includes one coherent depth workspace grouped into Geology, Technology, and Gas
+data. Every track uses one depth coordinate and one parameter-header height. Lithology is created
+with `Shift + left drag` and reopened by double-clicking. Cuttings, LBA, Calcimetry, and rich
+description are stored as one shared sample and refresh together. The gas section separates
+absolute composition `TG_CALC`, `C1`, `C2` from relative component composition
+`C1_REL`–`C5_REL`; a fully missing sample remains `NULL/NaN`. See
+[GeoData depth workspace](GEODATA_DEPTH_WORKSPACE.md).
+
 ## Geological-geochemical Masterlog
 
 The factory “Geological-geochemical Masterlog” follows the supplied working reference: 

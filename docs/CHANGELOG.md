@@ -1,3 +1,53 @@
+## Unreleased — GeoData reference editors and relative gas composition
+
+### Русский
+
+- глубинная форма приведена к структуре предоставленного рабочего экрана GeoData: «Геология», «Технология» и «Газовые данные» на одной глубинной координате;
+- абсолютная газовая колонка содержит `TG_CALC`, `C1`, `C2`;
+- добавлены кривые относительного состава `C1_REL`…`C5_REL` в процентах от суммы доступных компонентов;
+- строка, где все газовые компоненты являются `NULL/NaN`, больше не превращается в ложный `TG_CALC = 0`;
+- единый редактор шламовой пробы переработан по предоставленным окнам GeoData: интервал, четыре породы с суммой 100%, цветовые варианты ЛБА, интенсивность 1–5, кальцит, доломит и автоматически рассчитанный остаток;
+- существующая проба повторно открывается из шламограммы, ЛБА, кальциметрии или описания и обновляется по прежнему `sample_id`;
+- в окне редактирования литологии добавлено удаление существующего интервала;
+- текстовый редактор поддерживает шрифт, размер, цвет, фон/выделение, верхний/нижний индекс, выравнивание, символы и изображения;
+- интерфейс редакторов адаптируется к доступной области экрана;
+- дорожка ЛБА приведена к трёхчастной структуре GeoData «Баллы / Цвет / Битум»: размер условного кольца соответствует интенсивности 1–5, цвет свечения и класс ЛБ/МБ/МСБ/СБ/САБ отображаются раздельно;
+- названия технологических параметров локализованы во всех трёх языковых шаблонах;
+- полный регрессионный запуск: `925 passed, 1 skipped`; Ruff и compileall проходят без ошибок;
+- документация синхронизирована на русском, казахском и английском языках.
+
+### Қазақша
+
+- тереңдік пішіні берілген GeoData жұмыс экранының құрылымына келтірілді: «Геология», «Технология» және «Газ деректері» бір тереңдік координатасында;
+- абсолюттік газ бағанында `TG_CALC`, `C1`, `C2` бар;
+- қолжетімді компоненттер қосындысының пайызы ретінде `C1_REL`…`C5_REL` салыстырмалы құрам қисықтары қосылды;
+- барлық газ компоненттері `NULL/NaN` болған жол енді жалған `TG_CALC = 0` мәніне айналмайды;
+- шлам үлгісінің бірыңғай редакторы GeoData терезелерінің үлгісі бойынша қайта жасалды: аралық, қосындысы 100% болатын төрт жыныс, ЛБА түсті түрлері, 1–5 қарқындылық, кальцит, доломит және автоматты қалдық;
+- бар үлгі шламограмма, ЛБА, кальциметрия немесе сипаттама бағанынан қайта ашылып, сол `sample_id` бойынша жаңартылады;
+- литологияны өңдеу терезесіне аралықты жою қосылды;
+- мәтін редакторы қаріп, өлшем, түс, фон/белгілеу, жоғарғы/төменгі индекс, туралау, таңбалар мен суреттерді қолдайды;
+- редакторлар экранның қолжетімді аймағына бейімделеді;
+- ЛБА жолағы GeoData-дағы «Балл / Түс / Битум» үш бөлімді құрылымына келтірілді: шартты сақина өлшемі 1–5 қарқындылығына сәйкес, жарқырау түсі мен ЛБ/МБ/МСБ/СБ/САБ класы бөлек көрсетіледі;
+- технологиялық параметр атаулары үш тілдік үлгіде де локализацияланды;
+- толық регрессиялық іске қосу: `925 passed, 1 skipped`; Ruff және compileall қатесіз өтті;
+- құжаттама орыс, қазақ және ағылшын тілдерінде синхрондалды.
+
+### English
+
+- aligned the depth workspace with the supplied GeoData working-screen structure: Geology, Technology, and Gas Data on one depth coordinate;
+- the absolute-gas column now contains `TG_CALC`, `C1`, and `C2`;
+- added relative-composition curves `C1_REL`…`C5_REL` as percentages of the available component sum;
+- a row where every gas component is `NULL/NaN` no longer becomes a false `TG_CALC = 0`;
+- redesigned the unified cuttings-sample editor from the supplied GeoData dialogs: interval, four rocks totaling 100%, colour-coded LBA types, intensity 1–5, calcite, dolomite, and automatic residue;
+- an existing sample can be reopened from Cuttings, LBA, Calcimetry, or Description and is updated under the same `sample_id`;
+- added deletion of an existing lithology interval from its edit dialog;
+- the text editor supports font, size, colour, highlight/background, superscript/subscript, alignment, symbols, and images;
+- editor dialogs adapt to the available screen area;
+- changed the LBA track to the three-part GeoData layout “Score / Color / Bitumen”; symbol size follows intensity 1–5, while fluorescence color and LB/MB/MSB/SB/SAB class are shown separately;
+- localized technology parameter names in all three language templates;
+- full regression run: `925 passed, 1 skipped`; Ruff and compileall pass without errors;
+- synchronized Russian, Kazakh, and English documentation.
+
 ## Unreleased — lithology Shift-drag interval editor
 
 ### Русский

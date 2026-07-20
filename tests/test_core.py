@@ -104,3 +104,22 @@ def test_depth_viewport_zoom_and_pan_are_clamped() -> None:
     viewport.pan(-500.0)
     assert viewport.visible_top == pytest.approx(0.0)
     assert viewport.visible_bottom == pytest.approx(50.0)
+
+
+def test_gas_sum_preserves_all_null_rows_and_builds_relative_composition() -> None:
+    results = calculate_basic_ratios(
+        {
+            "C1": np.array([10.0, np.nan, 0.0]),
+            "C2": np.array([2.0, np.nan, 0.0]),
+            "C3": np.array([1.0, np.nan, 0.0]),
+        }
+    )
+
+    total = results["TG_CALC"].values
+    assert total[0] == pytest.approx(13.0)
+    assert np.isnan(total[1])
+    assert total[2] == pytest.approx(0.0)
+    assert results["C1_REL"].values[0] == pytest.approx(10.0 / 13.0 * 100.0)
+    assert np.isnan(results["C1_REL"].values[1])
+    assert np.isnan(results["C1_REL"].values[2])
+    assert results["C1_REL"].unit == "%rel"

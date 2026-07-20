@@ -72,3 +72,15 @@ print scale. Preview and PDF export restore the original tablet widths after ren
 ## Universal Print and Export Center
 
 All factory and user forms use one page renderer. Form Manager can send the selected compatible form directly to the Print and Export Center. The center supports native system printing, PDF, PNG, JPEG/JPG, TIFF, BMP, WebP, and SVG. Paper settings include A4, A3, custom and roll sizes, portrait/landscape orientation, four independent margins, 72–600 DPI, and JPEG/WebP quality. Raster outputs are created at the physical paper pixel size for the requested DPI. Every visible form track is included even when it is outside the horizontal screen viewport; temporary print widths are restored after rendering.
+
+## GeoData depth workspace — current form slice
+
+The user-visible factory library is curated to three working forms: GeoData Depth Workspace,
+Geological-Geochemical Masterlog, and Engineering Control — Time. Legacy factory IDs remain
+decodable for old projects but are not listed as duplicate templates. `FormColumn.group_title` is
+persisted and propagated to layout v10 so adjacent columns render under merged Geology,
+Technology, and Gas Data section captions.
+
+Lithology intervals and shared cuttings samples are editable after creation. A shared sample owns
+its cuttings composition, LBA, calcimetry, rich description, and interpretation; an atomic update by
+`sample_id` refreshes every linked track without creating duplicates.

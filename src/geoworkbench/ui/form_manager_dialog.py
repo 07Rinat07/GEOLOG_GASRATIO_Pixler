@@ -27,7 +27,10 @@ from geoworkbench.forms.models import FormAxisKind, FormDocument, FormTemplateOr
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.apply import FormApplyEngine
 from geoworkbench.forms.materialize import materialized_factory_templates
-from geoworkbench.forms.templates import factory_templates
+from geoworkbench.forms.templates import (
+    CURATED_FACTORY_TEMPLATE_IDS,
+    curated_factory_templates,
+)
 from geoworkbench.forms.preview import PreviewCallback
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
@@ -162,13 +165,18 @@ class FormManagerDialog(QDialog):
         self.list_widget.clear()
         try:
             try:
-                factory = list(materialized_factory_templates(self.dataset, self.language).values())
+                materialized = materialized_factory_templates(self.dataset, self.language)
+                factory = [
+                    materialized[form_id]
+                    for form_id in CURATED_FACTORY_TEMPLATE_IDS
+                    if form_id in materialized
+                ]
             except (KeyError, RuntimeError, ValueError):
                 # Keep the manager available even when one legacy curve carries
                 # unusable metadata. The raw factory forms remain selectable;
                 # applying them will show a localized diagnostic instead of
                 # terminating the dialog.
-                factory = list(factory_templates(self.language).values())
+                factory = list(curated_factory_templates(self.language).values())
             forms = factory + self.repository.list_forms()
             forms.sort(
                 key=lambda form: (
