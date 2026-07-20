@@ -127,6 +127,31 @@ class CuttingsController:
             values.get("description"), 2_000_000, "Описание шлама"
         )
 
+    def update_description(
+        self,
+        sample_id: str,
+        *,
+        top_depth: float,
+        bottom_depth: float,
+        description: str | None,
+    ) -> CuttingsSample:
+        """Edit one rich-text description without losing sample analysis.
+
+        The interval may be corrected in the same dialog.  Composition, LBA and
+        calcimetry remain attached to the same sample ID.  Clearing text is
+        allowed for an existing laboratory/sample record.
+        """
+
+        sample = self._require_sample(sample_id)
+        top, bottom = self._validate_interval(top_depth, bottom_depth)
+        normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
+        self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
+        sample.top_depth = top
+        sample.bottom_depth = bottom
+        sample.description = normalized
+        self.session.dirty = True
+        return sample
+
     def remove(self, sample_id: str) -> CuttingsSample:
         well = self._require_well()
         sample = self._require_sample(sample_id)

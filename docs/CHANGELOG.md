@@ -1,22 +1,46 @@
-## Unreleased — cuttings workflow, empty-track background and relative-gas fills
+## Unreleased — editable form captions and working stratigraphy
 
 ### Русский
-- устранены чёрные прямоугольники в пустых служебных, геологических и газовых дорожках;
-- восстановлен рабочий сценарий `Shift + ЛКМ` для создания общей пробы шлама, ЛБА и кальциметрии;
-- сохранение пробы выполняется в модели проекта без потери после перестроения формы;
-- относительные газы отображаются накопительными цветными заливками с разрывами на `NULL/NaN`.
+
+- на любой дорожке планшета добавлено контекстное действие «Редактировать всё в дорожке…»;
+- редактируются название дорожки, объединённый заголовок раздела, ширина, подпись оси X, порядок параметров, подписи, цвета, стили, шкалы и диапазоны;
+- быстрые команды переименования дорожки и раздела доступны по правой кнопке;
+- замена LAS-кривых больше не сбрасывает пользовательское название дорожки;
+- в основную панель добавлены кнопки редактора выбранной дорожки, режима стратиграфии и менеджера стратиграфических интервалов;
+- добавлен проектно-расширяемый справочник основных стратиграфических единиц с RU/KK/EN, кодами и цветами;
+- заводские записи можно переопределять и сбрасывать, местные свиты/пачки/горизонты добавляются в проект;
+- дорожка «Стратиграфия» поддерживает `Shift + ЛКМ`, отдельный режим, preview, `Esc`, двойной щелчок и контекстное редактирование;
+- интервалы и проектный справочник сохраняются вместе с проектом;
+- полный регрессионный запуск: `932 passed, 1 skipped`; Ruff и compileall проходят без ошибок;
+- документация обновлена синхронно на RU/KK/EN.
 
 ### Қазақша
-- бос қызметтік, геологиялық және газ жолдарындағы қара төртбұрыштар жойылды;
-- шлам, ЛБА және кальциметрия үшін ортақ сынаманы жасауға арналған `Shift + сол жақ батырма` жұмыс ағыны қалпына келтірілді;
-- сынама пішін қайта құрылғаннан кейін жоғалмай, жоба моделінде сақталады;
-- салыстырмалы газдар `NULL/NaN` кезінде үзілісі бар жинақталған түсті толтырулармен көрсетіледі.
+
+- планшеттегі кез келген жолға «Жол ішін толық өңдеу…» контекстік әрекеті қосылды;
+- жол атауы, біріктірілген бөлім атауы, ені, X осі, параметр тәртібі, жазулар, түс, стиль, шкала және диапазон өңделеді;
+- жол мен бөлімді жылдам қайта атау оң жақ батырмада қолжетімді;
+- LAS қисықтарын ауыстыру пайдаланушы жол атауын енді жоймайды;
+- негізгі панельге таңдалған жол редакторы, стратиграфия режимі және интервал менеджері қосылды;
+- RU/KK/EN атаулары, кодтары және түстері бар жобалық стратиграфиялық анықтамалық енгізілді;
+- зауыттық жазбаларды өзгерту/қалпына келтіру және жергілікті бірліктерді қосу мүмкін;
+- «Стратиграфия» жолағы `Shift + ЛКМ`, жеке режим, preview, `Esc`, екі рет шерту және контекстік өңдеуді қолдайды;
+- аралықтар мен анықтамалық жоба ішінде сақталады;
+- толық регрессиялық іске қосу: `932 passed, 1 skipped`; Ruff және compileall қатесіз өтті;
+- құжаттама RU/KK/EN тілдерінде синхрондалды.
 
 ### English
-- removed black rectangles from empty service, geological and gas tracks;
-- restored the `Shift + left-drag` workflow for one shared cuttings/LBA/calcimetry sample;
-- samples persist in the project model and survive form rebuilds;
-- relative gases render as cumulative coloured fills with breaks at `NULL/NaN`.
+
+- added an “Edit everything in track…” context action to every tablet track;
+- track title, merged section title, width, X-axis caption, parameter order, captions, colours, styles, scales, and ranges are editable;
+- quick track and section renaming is available from the right-click menu;
+- replacing LAS curves no longer overwrites a user-defined track title;
+- added toolbar buttons for editing the selected track, stratigraphy drawing mode, and interval management;
+- added a project-extensible reference catalog with RU/KK/EN names, codes, and colours;
+- factory entries can be overridden/reset and local formations/members/horizons can be added;
+- the Stratigraphy track supports `Shift + left drag`, a dedicated mode, preview, `Esc`, double-click, and context editing;
+- well intervals and project catalog overrides are saved with the project;
+- full regression run: `932 passed, 1 skipped`; Ruff and compileall pass without errors;
+- synchronized RU/KK/EN documentation.
 
 ## Unreleased — GeoData reference editors and relative gas composition
 

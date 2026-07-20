@@ -567,6 +567,19 @@ class ProjectLithotype:
     name_kk: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class ProjectStratigraphyUnit:
+    unit_id: str
+    rank: str
+    code: str
+    name_ru: str
+    name_kk: str
+    name_en: str
+    color: str
+    parent_code: str = ""
+    description: str = ""
+
+
 @dataclass(slots=True)
 class Well:
     well_id: str
@@ -585,6 +598,7 @@ class Project:
     name: str
     wells: dict[str, Well] = field(default_factory=dict)
     lithotypes: dict[str, ProjectLithotype] = field(default_factory=dict)
+    stratigraphy_units: dict[str, ProjectStratigraphyUnit] = field(default_factory=dict)
     description_templates: dict[str, str] = field(default_factory=dict)
     masterlog_templates: dict[str, MasterlogTemplate] = field(default_factory=dict)
     custom_formulas: dict[str, CustomFormulaDefinition] = field(default_factory=dict)

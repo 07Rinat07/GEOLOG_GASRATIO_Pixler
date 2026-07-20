@@ -1009,5 +1009,17 @@
   "tablet.lba_columns": "Score   |   Color   |   Bitumen",
   "cuttings.drag_hint": "Shift + left mouse: drag a sample interval in the cuttings, LBA, calcimetry or description track; on release fill the rocks and press OK.",
   "cuttings.context_new": "New cuttings sample…",
-  "cuttings.context_edit": "Edit sample at current depth…"
+  "cuttings.context_edit": "Edit sample at current depth…",
+  "tablet.edit_track_full": "Edit everything in track…",
+  "tablet.rename_track": "Rename track…",
+  "tablet.rename_group": "Rename section…",
+  "tablet.edit_current_track": "Edit selected track",
+  "stratigraphy.catalog_action": "Stratigraphy catalog",
+  "stratigraphy.new_interval": "New stratigraphic interval",
+  "stratigraphy.edit_interval": "Edit stratigraphic interval",
+  "stratigraphy.mode": "Stratigraphy selection",
+  "stratigraphy.mode_hint": "Drag an interval in the stratigraphy column or use Shift + left mouse button.",
+  "tablet.select_track_first": "Select a column or track on the tablet first.",
+  "tablet.track_title_prompt": "New track title:",
+  "tablet.group_title_prompt": "New merged section title:"
 }

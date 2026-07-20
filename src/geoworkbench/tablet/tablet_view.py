@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html import escape
+from enum import StrEnum
 import re
 import textwrap
 from typing import cast
@@ -94,6 +95,10 @@ from geoworkbench.tablet.models import (
     TrackKind,
     XScale,
 )
+from geoworkbench.tablet.relative_gas import (
+    build_relative_gas_stack,
+    is_relative_gas_track,
+)
 from geoworkbench.tablet.resize import TrackResizeGesture
 from geoworkbench.tablet.selection_interaction import (
     CallbackCommand,
@@ -106,6 +111,17 @@ from geoworkbench.tablet.selection_interaction import (
     TrackHeaderDrag,
     choose_best_hit,
 )
+
+
+class GeologicalInputMode(StrEnum):
+    """Explicit geological editing tool selected from the main toolbar."""
+
+    SELECT = "select"
+    LITHOLOGY = "lithology"
+    SAMPLE = "sample"
+    STRATIGRAPHY = "stratigraphy"
+    DESCRIPTION = "description"
+    EDIT = "edit"
 
 
 @dataclass(slots=True)
@@ -129,9 +145,11 @@ class RenderedTrack:
     interpretation_preview: pg.BarGraphItem | None = None
     lithology_preview: pg.BarGraphItem | None = None
     sample_preview: pg.BarGraphItem | None = None
+    stratigraphy_preview: pg.BarGraphItem | None = None
     selection_highlight: pg.BarGraphItem | None = None
     curve_render_keys: dict[str, CurveGeometryKey] | None = None
-    relative_gas_layers: dict[str, tuple[pg.PlotDataItem, pg.FillBetweenItem]] | None = None
+    relative_fill_items: dict[str, pg.FillBetweenItem] | None = None
+    relative_baseline_item: pg.PlotDataItem | None = None
 
 
 @dataclass(slots=True)
@@ -143,6 +161,13 @@ class _LithologyGesture:
 
 @dataclass(slots=True)
 class _SampleGesture:
+    track_id: str
+    start_depth: float
+    current_depth: float
+
+
+@dataclass(slots=True)
+class _StratigraphyGesture:
     track_id: str
     start_depth: float
     current_depth: float
@@ -639,6 +664,9 @@ class TabletView(QWidget):
     track_add_curves_requested = Signal(str)
     track_replace_curves_requested = Signal(str)
     track_properties_requested = Signal(str)
+    track_full_edit_requested = Signal(str)
+    track_rename_requested = Signal(str)
+    track_group_rename_requested = Signal(str)
     track_curve_settings_requested = Signal(str, str)
     save_layout_requested = Signal()
     visible_depth_changed = Signal(float, float)
@@ -654,6 +682,10 @@ class TabletView(QWidget):
     lithology_interval_edit_requested = Signal(str)
     cuttings_interval_requested = Signal(float, float)
     cuttings_sample_edit_requested = Signal(str)
+    description_interval_requested = Signal(float, float)
+    description_edit_requested = Signal(str)
+    stratigraphy_interval_requested = Signal(float, float)
+    stratigraphy_interval_edit_requested = Signal(str)
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__()
@@ -686,6 +718,8 @@ class TabletView(QWidget):
         self._interval_gesture: _IntervalGesture | None = None
         self._lithology_gesture: _LithologyGesture | None = None
         self._sample_gesture: _SampleGesture | None = None
+        self._stratigraphy_gesture: _StratigraphyGesture | None = None
+        self._geological_input_mode = GeologicalInputMode.SELECT
         self._axis_combo_guard = False
         self._span_combo_guard = False
         self._scrollbar_guard = False
@@ -1552,6 +1586,120 @@ class TabletView(QWidget):
         for track_id, rendered in self._rendered.items():
             rendered.widget.set_selected_curve(selected_by_track.get(track_id))
 
+    def show_geological_context_menu(
+        self, track_id: str, depth: float, global_pos: QPoint
+    ) -> None:
+        """Show data-entry actions at the clicked geological interval."""
+
+        try:
+            definition = self._layout_model.track_by_id(track_id)
+        except KeyError:
+            return
+        self.select_track(track_id, emit_signal=True)
+        menu = QMenu(self)
+        sample = self.cuttings_sample_at_depth(depth)
+        lithology = self.lithology_interval_at_depth(depth)
+        stratigraphy = self.stratigraphy_interval_at_depth(depth)
+
+        create_action = edit_action = full_edit_action = None
+        if definition.kind is TrackKind.STRATIGRAPHY:
+            if stratigraphy is None:
+                create_action = menu.addAction(self._localizer.text("stratigraphy.new_interval"))
+            else:
+                edit_action = menu.addAction(self._localizer.text("stratigraphy.edit_interval"))
+        elif definition.kind is TrackKind.LITHOLOGY:
+            if lithology is None:
+                create_action = menu.addAction(
+                    self._localizer.text("geology.context.new_lithology")
+                )
+            else:
+                edit_action = menu.addAction(
+                    self._localizer.text("geology.context.edit_lithology")
+                )
+        elif definition.kind is TrackKind.TEXT:
+            if sample is None:
+                create_action = menu.addAction(
+                    self._localizer.text("geology.context.new_description")
+                )
+            else:
+                edit_action = menu.addAction(
+                    self._localizer.text("geology.context.edit_description")
+                )
+                full_edit_action = menu.addAction(
+                    self._localizer.text("geology.context.edit_full_sample")
+                )
+        else:
+            if sample is None:
+                create_action = menu.addAction(
+                    self._localizer.text("geology.context.new_sample")
+                )
+            else:
+                edit_action = menu.addAction(
+                    self._localizer.text("geology.context.edit_full_sample")
+                )
+
+        menu.addSeparator()
+        edit_track_action = menu.addAction(self._localizer.text("tablet.edit_track_full"))
+        rename_track_action = menu.addAction(self._localizer.text("tablet.rename_track"))
+        rename_group_action = menu.addAction(self._localizer.text("tablet.rename_group"))
+        properties_action = menu.addAction(self._localizer.text("tablet.track_properties"))
+        save_action = menu.addAction(self._localizer.text("tablet.save_layout_as_form"))
+        chosen = menu.exec(global_pos)
+        if chosen is edit_track_action:
+            self.track_full_edit_requested.emit(track_id)
+            return
+        if chosen is rename_track_action:
+            self.track_rename_requested.emit(track_id)
+            return
+        if chosen is rename_group_action:
+            self.track_group_rename_requested.emit(track_id)
+            return
+        if chosen is properties_action:
+            self.track_properties_requested.emit(track_id)
+            return
+        if chosen is save_action:
+            self.save_layout_requested.emit()
+            return
+        if chosen is full_edit_action and sample is not None:
+            self.cuttings_sample_edit_requested.emit(sample.sample_id)
+            return
+        if chosen is edit_action:
+            if definition.kind is TrackKind.STRATIGRAPHY and stratigraphy is not None:
+                self.stratigraphy_interval_edit_requested.emit(stratigraphy.interval_id)
+            elif definition.kind is TrackKind.LITHOLOGY and lithology is not None:
+                self.lithology_interval_edit_requested.emit(lithology.interval_id)
+            elif definition.kind is TrackKind.TEXT and sample is not None:
+                self.description_edit_requested.emit(sample.sample_id)
+            elif sample is not None:
+                self.cuttings_sample_edit_requested.emit(sample.sample_id)
+            return
+        if chosen is create_action:
+            top, bottom = self._default_geological_interval(depth)
+            if definition.kind is TrackKind.STRATIGRAPHY:
+                self.stratigraphy_interval_requested.emit(top, bottom)
+            elif definition.kind is TrackKind.LITHOLOGY:
+                self.lithology_interval_requested.emit(top, bottom)
+            elif definition.kind is TrackKind.TEXT:
+                self.description_interval_requested.emit(top, bottom)
+            else:
+                self.cuttings_interval_requested.emit(top, bottom)
+
+    def _default_geological_interval(self, depth: float) -> tuple[float, float]:
+        """Return an editable one-sample interval for right-click creation."""
+
+        bounds = self._depth_bounds()
+        snapped = self._snap_depth(float(depth))
+        step = max(self._minimum_depth_span(), 1.0)
+        if bounds is None:
+            return snapped, snapped + step
+        domain_top, domain_bottom = sorted(bounds)
+        top = max(domain_top, min(snapped, domain_bottom))
+        bottom = min(domain_bottom, top + step)
+        if bottom <= top:
+            top = max(domain_top, domain_bottom - step)
+            bottom = domain_bottom
+        return float(top), float(bottom)
+
     def show_track_context_menu(self, track_id: str, global_pos: QPoint) -> None:
         try:
             definition = self._layout_model.track_by_id(track_id)
@@ -1569,6 +1717,9 @@ class TabletView(QWidget):
             replace_curves = menu.addAction(self._localizer.text("tablet.choose_track_curves"))
             curve_settings_action = menu.addAction(self._localizer.text("tablet.curve_settings"))
             menu.addSeparator()
+        edit_track_action = menu.addAction(self._localizer.text("tablet.edit_track_full"))
+        rename_track_action = menu.addAction(self._localizer.text("tablet.rename_track"))
+        rename_group_action = menu.addAction(self._localizer.text("tablet.rename_group"))
         properties_action = menu.addAction(self._localizer.text("tablet.track_properties"))
         menu.addSeparator()
         move_left = menu.addAction(self._localizer.text("tablet.move_left"))
@@ -1595,6 +1746,12 @@ class TabletView(QWidget):
         elif curve_settings_action is not None and chosen is curve_settings_action:
             first_curve = definition.curve_mnemonics[0] if definition.curve_mnemonics else ""
             self.track_curve_settings_requested.emit(track_id, first_curve)
+        elif chosen is edit_track_action:
+            self.track_full_edit_requested.emit(track_id)
+        elif chosen is rename_track_action:
+            self.track_rename_requested.emit(track_id)
+        elif chosen is rename_group_action:
+            self.track_group_rename_requested.emit(track_id)
         elif chosen is properties_action:
             self.track_properties_requested.emit(track_id)
         elif chosen is move_left:
@@ -1662,9 +1819,74 @@ class TabletView(QWidget):
         self._lithotype_catalog = {item.lithotype_id: item for item in catalog}
         self.refresh_view()
 
+    @property
+    def geological_input_mode(self) -> GeologicalInputMode:
+        return self._geological_input_mode
+
+    def set_geological_input_mode(self, mode: GeologicalInputMode | str) -> None:
+        """Select a creation/edit tool while retaining Shift+drag shortcuts."""
+
+        self.cancel_lithology_interaction()
+        self.cancel_sample_interaction()
+        self.cancel_stratigraphy_interaction()
+        self._geological_input_mode = GeologicalInputMode(mode)
+        self._apply_geological_mode_cursors()
+
+    def _apply_geological_mode_cursors(self) -> None:
+        for rendered in self._rendered.values():
+            if rendered.plot is None:
+                continue
+            kind = rendered.definition.kind
+            active = (
+                self._geological_input_mode is GeologicalInputMode.LITHOLOGY
+                and kind is TrackKind.LITHOLOGY
+            ) or (
+                self._geological_input_mode is GeologicalInputMode.SAMPLE
+                and kind in {TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA}
+            ) or (
+                self._geological_input_mode is GeologicalInputMode.STRATIGRAPHY
+                and kind is TrackKind.STRATIGRAPHY
+            ) or (
+                self._geological_input_mode is GeologicalInputMode.DESCRIPTION
+                and kind is TrackKind.TEXT
+            ) or (
+                self._geological_input_mode is GeologicalInputMode.EDIT
+                and kind in {
+                    TrackKind.LITHOLOGY,
+                    TrackKind.CUTTINGS,
+                    TrackKind.CALCIMETRY,
+                    TrackKind.LBA,
+                    TrackKind.STRATIGRAPHY,
+                    TrackKind.TEXT,
+                }
+            )
+            rendered.plot.viewport().setCursor(
+                Qt.CursorShape.CrossCursor if active else Qt.CursorShape.ArrowCursor
+            )
+
     def set_cuttings(self, samples: list[CuttingsSample]) -> None:
         self._cuttings = tuple(samples)
         self.refresh_view()
+
+    def stratigraphy_interval_at_depth(self, depth: float) -> StratigraphyInterval | None:
+        value = float(depth)
+        matches = [
+            item
+            for item in self._stratigraphy
+            if item.top_depth <= value < item.bottom_depth
+        ]
+        if not matches:
+            matches = [item for item in self._stratigraphy if value == item.bottom_depth]
+        if not matches:
+            return None
+        return min(
+            matches,
+            key=lambda item: (
+                item.bottom_depth - item.top_depth,
+                -stratigraphy_rank_order(item.rank)[0],
+                item.interval_id,
+            ),
+        )
 
     def lithology_interval_at_depth(self, depth: float) -> LithologyInterval | None:
         value = float(depth)
@@ -2011,7 +2233,12 @@ class TabletView(QWidget):
             track.context_requested.connect(self.show_track_context_menu)
             track.curve_selected.connect(self._curve_header_selected)
             track.curve_context_requested.connect(self._curve_header_context)
-            legend_labels, curve_items = self._populate_track(
+            (
+                legend_labels,
+                curve_items,
+                relative_fill_items,
+                relative_baseline_item,
+            ) = self._populate_track(
                 track,
                 definition,
                 visible_top,
@@ -2049,7 +2276,8 @@ class TabletView(QWidget):
                 interpretation_items,
                 interpretation_lanes,
                 curve_render_keys={},
-                relative_gas_layers=track.property("relative_gas_layers") or None,
+                relative_fill_items=relative_fill_items,
+                relative_baseline_item=relative_baseline_item,
             )
             self._rendered[definition.track_id] = rendered
             self._register_track_overlays(rendered)
@@ -2079,6 +2307,7 @@ class TabletView(QWidget):
         self._tracks_container.setFixedWidth(max(total_width, 1))
         self._rebuild_group_headers()
         self._synchronize_track_header_bands()
+        self._apply_geological_mode_cursors()
         self._synchronize_track_heights()
         if master_plot is not None and visible_top is not None and visible_bottom is not None:
             self._synchronize_depth_ranges(visible_top, visible_bottom)
@@ -2758,30 +2987,88 @@ class TabletView(QWidget):
             ):
                 point = self._mouse_event_plot_point(plot, event)
                 depth = self._axis_to_depth_value(float(point.y()))
-                if definition.kind is TrackKind.LITHOLOGY:
+                if definition.kind is TrackKind.STRATIGRAPHY:
+                    interval = self.stratigraphy_interval_at_depth(depth)
+                    if interval is not None:
+                        self.stratigraphy_interval_edit_requested.emit(interval.interval_id)
+                        event.accept()
+                        return True
+                elif definition.kind is TrackKind.LITHOLOGY:
                     interval = self.lithology_interval_at_depth(depth)
                     if interval is not None:
                         self.lithology_interval_edit_requested.emit(interval.interval_id)
+                        event.accept()
+                        return True
+                elif definition.kind is TrackKind.TEXT:
+                    sample = self.cuttings_sample_at_depth(depth)
+                    if sample is not None:
+                        self.description_edit_requested.emit(sample.sample_id)
                         event.accept()
                         return True
                 elif definition.kind in {
                     TrackKind.CUTTINGS,
                     TrackKind.CALCIMETRY,
                     TrackKind.LBA,
-                    TrackKind.TEXT,
                 }:
                     sample = self.cuttings_sample_at_depth(depth)
                     if sample is not None:
                         self.cuttings_sample_edit_requested.emit(sample.sample_id)
                         event.accept()
                         return True
+            if (
+                definition is not None
+                and self._geological_input_mode is GeologicalInputMode.EDIT
+                and event.type() == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.LeftButton
+            ):
+                point = self._mouse_event_plot_point(plot, event)
+                depth = self._axis_to_depth_value(float(point.y()))
+                if definition.kind is TrackKind.STRATIGRAPHY:
+                    interval = self.stratigraphy_interval_at_depth(depth)
+                    if interval is not None:
+                        self.stratigraphy_interval_edit_requested.emit(interval.interval_id)
+                        event.accept()
+                        return True
+                elif definition.kind is TrackKind.LITHOLOGY:
+                    interval = self.lithology_interval_at_depth(depth)
+                    if interval is not None:
+                        self.lithology_interval_edit_requested.emit(interval.interval_id)
+                        event.accept()
+                        return True
+                elif definition.kind is TrackKind.TEXT:
+                    sample = self.cuttings_sample_at_depth(depth)
+                    if sample is not None:
+                        self.description_edit_requested.emit(sample.sample_id)
+                        event.accept()
+                        return True
+                elif definition.kind in {
+                    TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA
+                }:
+                    sample = self.cuttings_sample_at_depth(depth)
+                    if sample is not None:
+                        self.cuttings_sample_edit_requested.emit(sample.sample_id)
+                        event.accept()
+                        return True
+
             if definition is not None and definition.kind in {
-                TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA
+                TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA, TrackKind.TEXT
             }:
                 if (
                     event.type() == QEvent.Type.MouseButtonPress
                     and event.button() == Qt.MouseButton.LeftButton
-                    and bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                    and (
+                        bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                        or (
+                            self._geological_input_mode is GeologicalInputMode.SAMPLE
+                            and definition.kind in {
+                                TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA
+                            }
+                        )
+                        or (
+                            self._geological_input_mode is GeologicalInputMode.DESCRIPTION
+                            and definition.kind is TrackKind.TEXT
+                        )
+                    )
                 ):
                     point = self._mouse_event_plot_point(plot, event)
                     if self.begin_sample_drag(track_id, float(point.y())):
@@ -2801,11 +3088,41 @@ class TabletView(QWidget):
                     if self.finish_sample_drag(float(point.y())):
                         event.accept()
                         return True
+            if definition is not None and definition.kind is TrackKind.STRATIGRAPHY:
+                if (
+                    event.type() == QEvent.Type.MouseButtonPress
+                    and event.button() == Qt.MouseButton.LeftButton
+                    and (
+                        bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                        or self._geological_input_mode is GeologicalInputMode.STRATIGRAPHY
+                    )
+                ):
+                    point = self._mouse_event_plot_point(plot, event)
+                    if self.begin_stratigraphy_drag(track_id, float(point.y())):
+                        event.accept()
+                        return True
+                if event.type() == QEvent.Type.MouseMove and self._stratigraphy_gesture is not None:
+                    point = self._mouse_event_plot_point(plot, event)
+                    if self.update_stratigraphy_drag(float(point.y())):
+                        event.accept()
+                        return True
+                if (
+                    event.type() == QEvent.Type.MouseButtonRelease
+                    and event.button() == Qt.MouseButton.LeftButton
+                    and self._stratigraphy_gesture is not None
+                ):
+                    point = self._mouse_event_plot_point(plot, event)
+                    if self.finish_stratigraphy_drag(float(point.y())):
+                        event.accept()
+                        return True
             if definition is not None and definition.kind is TrackKind.LITHOLOGY:
                 if (
                     event.type() == QEvent.Type.MouseButtonPress
                     and event.button() == Qt.MouseButton.LeftButton
-                    and bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                    and (
+                        bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                        or self._geological_input_mode is GeologicalInputMode.LITHOLOGY
+                    )
                 ):
                     point = self._mouse_event_plot_point(plot, event)
                     if self.begin_lithology_drag(track_id, float(point.y())):
@@ -2831,7 +3148,21 @@ class TabletView(QWidget):
             ):
                 track_id = self._track_id_for_plot(plot)
                 if track_id is not None:
-                    self.show_track_context_menu(track_id, event.globalPosition().toPoint())
+                    point = self._mouse_event_plot_point(plot, event)
+                    depth = self._axis_to_depth_value(float(point.y()))
+                    if definition is not None and definition.kind in {
+                        TrackKind.STRATIGRAPHY,
+                        TrackKind.LITHOLOGY,
+                        TrackKind.CUTTINGS,
+                        TrackKind.CALCIMETRY,
+                        TrackKind.LBA,
+                        TrackKind.TEXT,
+                    }:
+                        self.show_geological_context_menu(
+                            track_id, depth, event.globalPosition().toPoint()
+                        )
+                    else:
+                        self.show_track_context_menu(track_id, event.globalPosition().toPoint())
                     event.accept()
                     return True
             if (
@@ -2895,6 +3226,10 @@ class TabletView(QWidget):
                 self.cancel_sample_interaction()
                 event.accept()
                 return True
+            if event.key() == Qt.Key.Key_Escape and self._stratigraphy_gesture is not None:
+                self.cancel_stratigraphy_interaction()
+                event.accept()
+                return True
         rendered = self._interpretation_viewports.get(watched)
         if rendered is not None and isinstance(event, QKeyEvent):
             if event.key() == Qt.Key.Key_Escape and self._interval_gesture is not None:
@@ -2921,7 +3256,7 @@ class TabletView(QWidget):
         if (
             rendered is None
             or rendered.definition.kind not in {
-                TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA
+                TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA, TrackKind.TEXT
             }
             or rendered.plot is None
             or (descriptor is not None and descriptor.role is not IndexRole.DEPTH)
@@ -2956,7 +3291,11 @@ class TabletView(QWidget):
         self.cancel_sample_interaction()
         if result is None:
             return False
-        self.cuttings_interval_requested.emit(result.top_depth, result.bottom_depth)
+        rendered = self._rendered.get(gesture.track_id)
+        if rendered is not None and rendered.definition.kind is TrackKind.TEXT:
+            self.description_interval_requested.emit(result.top_depth, result.bottom_depth)
+        else:
+            self.cuttings_interval_requested.emit(result.top_depth, result.bottom_depth)
         return True
 
     def cancel_sample_interaction(self) -> None:
@@ -3007,6 +3346,96 @@ class TabletView(QWidget):
             )
         else:
             rendered.sample_preview.setOpts(**options)
+
+    def begin_stratigraphy_drag(self, track_id: str, axis_depth: float) -> bool:
+        rendered = self._rendered.get(track_id)
+        descriptor = self._axis_descriptor()
+        if (
+            rendered is None
+            or rendered.definition.kind is not TrackKind.STRATIGRAPHY
+            or rendered.plot is None
+            or (descriptor is not None and descriptor.role is not IndexRole.DEPTH)
+        ):
+            return False
+        depth = self._snap_depth(self._axis_to_depth_value(float(axis_depth)))
+        self.cancel_stratigraphy_interaction()
+        self._stratigraphy_gesture = _StratigraphyGesture(track_id, depth, depth)
+        rendered.plot.viewport().setCursor(Qt.CursorShape.CrossCursor)
+        self._update_stratigraphy_preview()
+        return True
+
+    def update_stratigraphy_drag(self, axis_depth: float) -> bool:
+        if self._stratigraphy_gesture is None:
+            return False
+        self._stratigraphy_gesture.current_depth = self._snap_depth(
+            self._axis_to_depth_value(float(axis_depth))
+        )
+        self._update_stratigraphy_preview()
+        return True
+
+    def finish_stratigraphy_drag(self, axis_depth: float) -> bool:
+        gesture = self._stratigraphy_gesture
+        if gesture is None:
+            return False
+        gesture.current_depth = self._snap_depth(self._axis_to_depth_value(float(axis_depth)))
+        result = normalize_drag_range(
+            gesture.start_depth,
+            gesture.current_depth,
+            minimum_span=self._minimum_depth_span(),
+        )
+        self.cancel_stratigraphy_interaction()
+        if result is None:
+            return False
+        self.stratigraphy_interval_requested.emit(result.top_depth, result.bottom_depth)
+        return True
+
+    def cancel_stratigraphy_interaction(self) -> None:
+        gesture = self._stratigraphy_gesture
+        if gesture is not None:
+            rendered = self._rendered.get(gesture.track_id)
+            if rendered is not None and rendered.plot is not None:
+                preview = rendered.stratigraphy_preview
+                if preview is not None:
+                    self._overlay_layers.unregister(
+                        OverlayLayerKind.PREVIEW, rendered.definition.track_id, preview
+                    )
+                    rendered.plot.removeItem(preview)
+                rendered.stratigraphy_preview = None
+                rendered.plot.viewport().setCursor(Qt.CursorShape.ArrowCursor)
+        self._stratigraphy_gesture = None
+
+    def _update_stratigraphy_preview(self) -> None:
+        gesture = self._stratigraphy_gesture
+        if gesture is None:
+            return
+        rendered = self._rendered.get(gesture.track_id)
+        if rendered is None or rendered.plot is None:
+            return
+        result = normalize_drag_range(
+            gesture.start_depth,
+            gesture.current_depth,
+            minimum_span=self._minimum_depth_span(),
+        )
+        top = gesture.current_depth if result is None else result.top_depth
+        bottom = gesture.current_depth if result is None else result.bottom_depth
+        axis_top, axis_bottom = self._depth_interval_to_axis(top, bottom)
+        options = dict(
+            x=[0.5],
+            y=[(axis_top + axis_bottom) / 2.0],
+            width=0.94,
+            height=max(axis_bottom - axis_top, np.finfo(float).eps),
+            brush=pg.mkBrush(99, 102, 241, 55),
+            pen=pg.mkPen("#4f46e5", width=2.0, style=Qt.PenStyle.DashLine),
+        )
+        if rendered.stratigraphy_preview is None:
+            preview = pg.BarGraphItem(**options)
+            rendered.plot.addItem(preview)
+            rendered.stratigraphy_preview = preview
+            self._overlay_layers.register(
+                OverlayLayerKind.PREVIEW, rendered.definition.track_id, preview
+            )
+        else:
+            rendered.stratigraphy_preview.setOpts(**options)
 
     def begin_lithology_drag(self, track_id: str, axis_depth: float) -> bool:
         rendered = self._rendered.get(track_id)
@@ -3342,11 +3771,12 @@ class TabletView(QWidget):
             rendered.plot.setLabel("bottom", str(x_axis_label))
 
     def _apply_curve_styles(self, rendered: RenderedTrack, definition: TrackDefinition) -> None:
+        relative_gas = is_relative_gas_track(definition.curve_mnemonics)
         if rendered.plot is not None:
             rendered.plot.setLogMode(x=False, y=False)
             rendered.plot.setXRange(
                 0.0,
-                100.0 if definition.kind is TrackKind.CALCIMETRY else 1.0,
+                100.0 if definition.kind is TrackKind.CALCIMETRY or relative_gas else 1.0,
                 padding=0,
             )
         header_rows: list[tuple[str, str, str]] = []
@@ -3369,26 +3799,34 @@ class TabletView(QWidget):
                     }[style.line_style],
                 )
             )
+            fill = (rendered.relative_fill_items or {}).get(mnemonic)
+            if fill is not None:
+                color = pg.mkColor(style.color)
+                color.setAlpha(135)
+                fill.setBrush(pg.mkBrush(color))
             if self._dataset is None:
                 continue
             curve = self._dataset.curve_by_mnemonic(mnemonic)
             if curve is None:
                 continue
             settings = definition.curve_display_settings(mnemonic)
-            minimum, maximum = self._curve_display_range(
-                definition, mnemonic, np.asarray(curve.values, dtype=float)
-            )
             display_name = self._curve_display_name(definition, mnemonic, curve)
             unit = (curve.metadata.unit or "").strip()
-            scale_marker = self._localizer.text(
-                "curve_settings.scale_short.logarithmic"
-                if settings.x_scale is XScale.LOGARITHMIC
-                else "curve_settings.scale_short.linear"
-            )
-            text = f"{display_name}\n{minimum:g} … {maximum:g}"
-            if unit:
-                text += f" {unit}"
-            text += f" · {scale_marker}"
+            if relative_gas:
+                text = f"{display_name}\n0 … 100 % · Σ=100%"
+            else:
+                minimum, maximum = self._curve_display_range(
+                    definition, mnemonic, np.asarray(curve.values, dtype=float)
+                )
+                scale_marker = self._localizer.text(
+                    "curve_settings.scale_short.logarithmic"
+                    if settings.x_scale is XScale.LOGARITHMIC
+                    else "curve_settings.scale_short.linear"
+                )
+                text = f"{display_name}\n{minimum:g} … {maximum:g}"
+                if unit:
+                    text += f" {unit}"
+                text += f" · {scale_marker}"
             header_rows.append((mnemonic, text, style.color))
         rendered.widget.set_curve_headers(header_rows)
         if rendered.curve_render_keys is not None:
@@ -3419,28 +3857,10 @@ class TabletView(QWidget):
     ) -> None:
         if self._dataset is None:
             return
-        depth = self._axis_values()
-        if self._is_relative_gas_track(rendered.definition):
-            complete = np.isfinite(depth)
-            source: dict[str, np.ndarray] = {}
-            for mnemonic in rendered.definition.curve_mnemonics:
-                curve = self._dataset.curve_by_mnemonic(mnemonic)
-                values = np.asarray(curve.values, dtype=float) if curve is not None else np.full_like(depth, np.nan, dtype=float)
-                source[mnemonic] = values
-                complete &= np.isfinite(values)
-            lower = np.where(complete, 0.0, np.nan)
-            for mnemonic in rendered.definition.curve_mnemonics:
-                upper = lower + np.where(complete, np.clip(source[mnemonic], 0.0, 100.0), np.nan)
-                upper_item = (rendered.curve_items or {}).get(mnemonic)
-                layer = (rendered.relative_gas_layers or {}).get(mnemonic)
-                if upper_item is not None and layer is not None:
-                    visible_lower, visible_upper, visible_depth = self._relative_visible_arrays(
-                        depth, lower, upper, top, bottom, rendered.plot.viewport().height() if rendered.plot else 1000
-                    )
-                    layer[0].setData(visible_lower, visible_depth, connect="finite")
-                    upper_item.setData(visible_upper, visible_depth, connect="finite")
-                lower = upper
+        if is_relative_gas_track(rendered.definition.curve_mnemonics):
+            self._update_relative_gas_track_data(rendered, top, bottom)
             return
+        depth = self._axis_values()
         for mnemonic, item in (rendered.curve_items or {}).items():
             curve = self._dataset.curve_by_mnemonic(mnemonic)
             if curve is None:
@@ -3472,13 +3892,61 @@ class TabletView(QWidget):
             if render_keys is not None:
                 render_keys[mnemonic] = key
 
+
+    def _update_relative_gas_track_data(
+        self, rendered: RenderedTrack, top: float, bottom: float
+    ) -> None:
+        """Refresh all cumulative boundaries from one shared viewport geometry."""
+
+        if self._dataset is None:
+            return
+        available: dict[str, np.ndarray] = {}
+        for mnemonic in rendered.definition.curve_mnemonics:
+            curve = self._dataset.curve_by_mnemonic(mnemonic)
+            if curve is not None and mnemonic in (rendered.curve_items or {}):
+                available[mnemonic] = np.asarray(curve.values, dtype=np.float64)
+        if not available:
+            if rendered.relative_baseline_item is not None:
+                rendered.relative_baseline_item.setData([], [])
+            for item in (rendered.curve_items or {}).values():
+                item.setData([], [])
+            return
+
+        stack = build_relative_gas_stack(
+            self._axis_values(),
+            available,
+            top,
+            bottom,
+            max_points=self._lod_point_budget(
+                rendered.plot.viewport().height() if rendered.plot is not None else 1000
+            ),
+        )
+        if rendered.relative_baseline_item is not None:
+            rendered.relative_baseline_item.setData(
+                stack.baseline, stack.depth, connect="finite"
+            )
+        bands = {band.mnemonic: band for band in stack.bands}
+        for mnemonic, item in (rendered.curve_items or {}).items():
+            band = bands.get(mnemonic)
+            if band is None:
+                item.setData([], [])
+            else:
+                item.setData(band.upper, stack.depth, connect="finite")
+        if rendered.curve_render_keys is not None:
+            rendered.curve_render_keys.clear()
+
     def _populate_track(
         self,
         track: TabletTrackWidget,
         definition: TrackDefinition,
         visible_top: float | None,
         visible_bottom: float | None,
-    ) -> tuple[tuple[str, ...], dict[str, pg.PlotDataItem]]:
+    ) -> tuple[
+        tuple[str, ...],
+        dict[str, pg.PlotDataItem],
+        dict[str, pg.FillBetweenItem],
+        pg.PlotDataItem | None,
+    ]:
         assert self._dataset is not None
         depth = self._axis_values()
 
@@ -3510,58 +3978,7 @@ class TabletView(QWidget):
             track.plot.setXRange(0.0, 1.0, padding=0)
             track.plot.getViewBox().setDefaultPadding(0.0)
             track.plot.setMouseEnabled(x=False, y=False)
-            return (), {}
-
-        if self._is_relative_gas_track(definition):
-            track.plot.hideAxis("bottom")
-            track.plot.setXRange(0.0, 100.0, padding=0)
-            track.plot.setMouseEnabled(x=False, y=True)
-            track.plot.showGrid(x=True, y=True, alpha=0.18)
-            curve_items: dict[str, pg.PlotDataItem] = {}
-            layers: dict[str, tuple[pg.PlotDataItem, pg.FillBetweenItem]] = {}
-            header_rows: list[tuple[str, str, str]] = []
-            legend_labels: list[str] = []
-            lower = np.zeros_like(depth, dtype=float)
-            complete = np.ones_like(depth, dtype=bool) & np.isfinite(depth)
-            for index, mnemonic in enumerate(definition.curve_mnemonics):
-                curve = self._dataset.curve_by_mnemonic(mnemonic)
-                if curve is None:
-                    complete[:] = False
-                    continue
-                values = np.asarray(curve.values, dtype=float)
-                complete &= np.isfinite(values)
-            lower = np.where(complete, 0.0, np.nan)
-            for index, mnemonic in enumerate(definition.curve_mnemonics):
-                curve = self._dataset.curve_by_mnemonic(mnemonic)
-                if curve is None:
-                    continue
-                values = np.asarray(curve.values, dtype=float)
-                component = np.where(complete, np.clip(values, 0.0, 100.0), np.nan)
-                upper = lower + component
-                style = definition.curve_style(mnemonic) or CurveStyle(
-                    color=pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))).name(),
-                    width=1.0,
-                )
-                visible_lower, visible_upper, visible_depth = self._relative_visible_arrays(
-                    depth, lower, upper, visible_top, visible_bottom, track.plot.viewport().height()
-                )
-                lower_item = pg.PlotDataItem(visible_lower, visible_depth, pen=pg.mkPen(None), connect="finite")
-                upper_item = pg.PlotDataItem(
-                    visible_upper, visible_depth, pen=pg.mkPen(style.color, width=max(0.8, style.width)), connect="finite"
-                )
-                track.plot.addItem(lower_item)
-                track.plot.addItem(upper_item)
-                fill = pg.FillBetweenItem(lower_item, upper_item, brush=pg.mkBrush(style.color + "99"))
-                track.plot.addItem(fill)
-                curve_items[mnemonic] = upper_item
-                layers[mnemonic] = (lower_item, fill)
-                display_name = self._curve_display_name(definition, mnemonic, curve)
-                header_rows.append((mnemonic, f"{display_name}\n0 … 100 %", style.color))
-                legend_labels.append(display_name)
-                lower = upper
-            track.set_curve_headers(header_rows)
-            track.setProperty("relative_gas_layers", layers)
-            return tuple(legend_labels), curve_items
+            return (), {}, {}, None
 
         if definition.kind is TrackKind.CALCIMETRY:
             track.plot.hideAxis("bottom")
@@ -3624,7 +4041,7 @@ class TabletView(QWidget):
                 legend_labels.append(display_name)
                 curve_items[mnemonic] = item
             track.set_curve_headers(header_rows)
-            return tuple(legend_labels), curve_items
+            return tuple(legend_labels), curve_items, {}, None
 
         if definition.kind in (
             TrackKind.LITHOLOGY,
@@ -3637,7 +4054,12 @@ class TabletView(QWidget):
             track.plot.hideAxis("bottom")
             track.plot.setXRange(0.0, 1.0, padding=0)
             track.plot.setMouseEnabled(x=False, y=True)
-            return (), {}
+            return (), {}, {}, None
+
+        if is_relative_gas_track(definition.curve_mnemonics):
+            return self._populate_relative_gas_track(
+                track, definition, visible_top, visible_bottom
+            )
 
         track.plot.hideAxis("bottom")
         track.plot.setMouseEnabled(x=False, y=True)
@@ -3727,30 +4149,122 @@ class TabletView(QWidget):
             center_depth = sum(depth_bounds) / 2.0 if depth_bounds is not None else 0.0
             message.setPos(0.5, center_depth)
             track.plot.addItem(message)
-        return tuple(legend_labels), curve_items
+        return tuple(legend_labels), curve_items, {}, None
 
-    @staticmethod
-    def _is_relative_gas_track(definition: TrackDefinition) -> bool:
-        mnemonics = [item.upper() for item in definition.curve_mnemonics]
-        return bool(mnemonics) and all(item.endswith("_REL") for item in mnemonics)
+    def _populate_relative_gas_track(
+        self,
+        track: TabletTrackWidget,
+        definition: TrackDefinition,
+        visible_top: float | None,
+        visible_bottom: float | None,
+    ) -> tuple[
+        tuple[str, ...],
+        dict[str, pg.PlotDataItem],
+        dict[str, pg.FillBetweenItem],
+        pg.PlotDataItem | None,
+    ]:
+        """Render C1_REL…C5_REL as a cumulative 0–100% composition fill.
 
-    @staticmethod
-    def _relative_visible_arrays(
-        depth: np.ndarray, lower: np.ndarray, upper: np.ndarray,
-        top: float | None, bottom: float | None, viewport_height: int,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        if top is None or bottom is None:
-            return np.array([]), np.array([]), np.array([])
-        lo, hi = sorted((float(top), float(bottom)))
-        mask = np.isfinite(depth) & (depth >= lo) & (depth <= hi)
-        indices = np.flatnonzero(mask)
-        if indices.size == 0:
-            return np.array([]), np.array([]), np.array([])
-        budget = max(400, int(viewport_height) * 4)
-        if indices.size > budget:
-            step = max(1, indices.size // budget)
-            indices = indices[::step]
-        return lower[indices], upper[indices], depth[indices]
+        Each component occupies the horizontal band between two cumulative
+        boundaries. Missing rows remain gaps; measured values are normalized to
+        100% defensively so vendor relative curves can be displayed consistently.
+        """
+
+        assert self._dataset is not None
+        track.plot.hideAxis("bottom")
+        track.plot.setMouseEnabled(x=False, y=True)
+        track.plot.setLogMode(x=False, y=False)
+        track.plot.setXRange(0.0, 100.0, padding=0)
+        track.plot.getViewBox().setDefaultPadding(0.0)
+
+        available: dict[str, np.ndarray] = {}
+        styles: dict[str, CurveStyle] = {}
+        header_rows: list[tuple[str, str, str]] = []
+        legend_labels: list[str] = []
+        for index, mnemonic in enumerate(definition.curve_mnemonics):
+            curve = self._dataset.curve_by_mnemonic(mnemonic)
+            if curve is None:
+                continue
+            values = np.asarray(curve.values, dtype=np.float64)
+            if not np.any(np.isfinite(values)):
+                continue
+            style = definition.curve_style(mnemonic) or CurveStyle(
+                color=pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))).name(),
+                width=1.25,
+            )
+            available[mnemonic] = values
+            styles[mnemonic] = style
+            display_name = self._curve_display_name(definition, mnemonic, curve)
+            header_rows.append((mnemonic, f"{display_name}\n0 … 100 % · Σ=100%", style.color))
+            legend_labels.append(display_name)
+
+        if not available:
+            track.set_curve_headers([])
+            track.title.setText(
+                self._localizer.text("tablet.no_numeric_data", title=definition.title)
+            )
+            message = pg.TextItem(
+                self._localizer.text("tablet.no_numeric_data_short"),
+                color="#64748b",
+                anchor=(0.5, 0.5),
+            )
+            bounds = self._depth_bounds()
+            message.setPos(50.0, sum(bounds) / 2.0 if bounds is not None else 0.0)
+            track.plot.addItem(message)
+            return (), {}, {}, None
+
+        depth = self._axis_values()
+        if visible_top is None or visible_bottom is None:
+            stack = build_relative_gas_stack(
+                depth, available, 0.0, -1.0, max_points=2
+            )
+        else:
+            stack = build_relative_gas_stack(
+                depth,
+                available,
+                visible_top,
+                visible_bottom,
+                max_points=self._lod_point_budget(track.plot.viewport().height()),
+            )
+
+        baseline = pg.PlotDataItem(
+            stack.baseline,
+            stack.depth,
+            pen=None,
+            connect="finite",
+        )
+        baseline.setZValue(-20)
+        track.plot.addItem(baseline)
+
+        curve_items: dict[str, pg.PlotDataItem] = {}
+        fill_items: dict[str, pg.FillBetweenItem] = {}
+        lower_curve: pg.PlotDataItem = baseline
+        band_by_name = {band.mnemonic: band for band in stack.bands}
+        for mnemonic in available:
+            band = band_by_name[mnemonic]
+            style = styles[mnemonic]
+            upper_curve = pg.PlotDataItem(
+                band.upper,
+                stack.depth,
+                pen=pg.mkPen(style.color, width=style.width),
+                connect="finite",
+            )
+            upper_curve.setZValue(2)
+            track.plot.addItem(upper_curve)
+            color = pg.mkColor(style.color)
+            color.setAlpha(135)
+            fill = pg.FillBetweenItem(lower_curve, upper_curve, brush=pg.mkBrush(color), pen=None)
+            fill.setZValue(-10)
+            fill.setToolTip(
+                self._localizer.text("tablet.relative_gas_fill_tooltip", component=mnemonic)
+            )
+            track.plot.addItem(fill)
+            curve_items[mnemonic] = upper_curve
+            fill_items[mnemonic] = fill
+            lower_curve = upper_curve
+
+        track.set_curve_headers(header_rows)
+        return tuple(legend_labels), curve_items, fill_items, baseline
 
     def _curve_display_name(
         self, definition: TrackDefinition, mnemonic: str, curve: CurveData

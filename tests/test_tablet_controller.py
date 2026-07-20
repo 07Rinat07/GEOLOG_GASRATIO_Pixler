@@ -504,3 +504,40 @@ def test_controller_switches_vertical_index_and_resets_visible_window() -> None:
             )
         )
         controller.set_vertical_index("generic-index")
+
+
+def test_controller_updates_all_editable_track_captions_and_preserves_title_on_rebind() -> None:
+    from copy import deepcopy
+
+    session = make_session()
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    track = next(item for item in layout.tracks if item.kind is TrackKind.GAS)
+    edited = deepcopy(track)
+    edited.title = "Газовый анализ"
+    edited.group_title = "Геохимия"
+    edited.x_axis_label = "Концентрация"
+    edited.width = 510
+
+    updated = controller.update_track_definition(track.track_id, edited)
+    controller.replace_track_curves(track.track_id, ["C2", "C1"])
+
+    assert updated.title == "Газовый анализ"
+    assert updated.group_title == "Геохимия"
+    assert updated.x_axis_label == "Концентрация"
+    assert updated.width == 510
+    assert updated.curve_mnemonics == ["C2", "C1"]
+    assert updated.title == "Газовый анализ"
+
+
+def test_controller_renames_contiguous_merged_section() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    for track in layout.tracks:
+        track.group_title = "Old"
+
+    middle = layout.tracks[1]
+    controller.rename_track_group(middle.track_id, "Геология")
+
+    assert {track.group_title for track in layout.tracks} == {"Геология"}

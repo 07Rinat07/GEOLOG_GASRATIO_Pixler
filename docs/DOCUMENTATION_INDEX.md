@@ -31,3 +31,5 @@ All user-facing behavior changes must be reflected in all three guides and in th
 
 - [Form Engine](FORM_ENGINE.md)
 - Universal Print Center: [Русский](ru/UNIVERSAL_PRINT_CENTER.md) · [Қазақша](kk/UNIVERSAL_PRINT_CENTER.md) · [English](en/UNIVERSAL_PRINT_CENTER.md)
+
+- Редактируемые подписи формы и стратиграфия: [RU](ru/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [KK](kk/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [EN](en/FORM_CAPTIONS_AND_STRATIGRAPHY.md)

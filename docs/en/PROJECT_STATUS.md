@@ -22,3 +22,12 @@ Completed:
 
 Remaining work: unify screen and print form designers, complete the report-header editor, and finish
 automatic Gas Ratio/Pixler interpretation.
+
+## Editable captions and stratigraphy
+
+Every track is fully editable from its right-click menu: title, section, width, X axis, parameters,
+captions, styles, scales, and ranges. Stratigraphy now has a project catalog, `Shift + left drag`,
+a dedicated toolbar mode, double-click editing, and project persistence. See [Editable form captions
+and stratigraphy](FORM_CAPTIONS_AND_STRATIGRAPHY.md).
+
+Current slice verification: `932 passed, 1 skipped`; Ruff and compileall pass.

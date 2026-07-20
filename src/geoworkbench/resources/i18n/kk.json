@@ -1009,5 +1009,17 @@
   "tablet.lba_columns": "Балл   |   Түс   |   Битум",
   "cuttings.drag_hint": "Shift + сол жақ батырма: шламограмма, ЛБА, кальциметрия немесе сипаттама бағанында сынама аралығын созыңыз; жібергеннен кейін жыныстарды толтырып, ОК басыңыз.",
   "cuttings.context_new": "Жаңа шлам үлгісі…",
-  "cuttings.context_edit": "Ағымдағы тереңдіктегі үлгіні өңдеу…"
+  "cuttings.context_edit": "Ағымдағы тереңдіктегі үлгіні өңдеу…",
+  "tablet.edit_track_full": "Жол ішін толық өңдеу…",
+  "tablet.rename_track": "Жол атауын өзгерту…",
+  "tablet.rename_group": "Бөлім атауын өзгерту…",
+  "tablet.edit_current_track": "Таңдалған жол редакторы",
+  "stratigraphy.catalog_action": "Стратиграфиялық анықтамалық",
+  "stratigraphy.new_interval": "Жаңа стратиграфиялық аралық",
+  "stratigraphy.edit_interval": "Стратиграфиялық аралықты өңдеу",
+  "stratigraphy.mode": "Стратиграфия: таңдау",
+  "stratigraphy.mode_hint": "Стратиграфия бағанында аралықты созыңыз немесе Shift + тінтуірдің сол батырмасын пайдаланыңыз.",
+  "tablet.select_track_first": "Алдымен планшеттен бағанды немесе жолды таңдаңыз.",
+  "tablet.track_title_prompt": "Жолдың жаңа атауы:",
+  "tablet.group_title_prompt": "Біріктірілген бөлімнің жаңа атауы:"
 }

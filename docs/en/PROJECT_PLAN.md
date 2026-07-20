@@ -14,3 +14,6 @@ Date: 20 July 2026
 
 Completed items are listed in [Project status](PROJECT_STATUS.md) and the
 [Depth workspace guide](GEODATA_DEPTH_WORKSPACE.md).
+
+5. **Captions and stratigraphy** — keep the full track editor, project catalog, interval input, and
+   persistence as a mandatory part of every production form.

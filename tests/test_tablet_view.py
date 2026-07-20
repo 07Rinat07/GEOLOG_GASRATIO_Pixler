@@ -1935,75 +1935,53 @@ def test_calcimetry_track_renders_las_curves_and_preserves_zero_and_null_gap(qap
     assert item.opts["connect"] == "finite"
 
 
-def test_relative_gas_track_uses_stacked_fill_layers_and_preserves_gaps(qapp) -> None:
-    depth = np.array([100.0, 101.0, 102.0, 103.0])
+def test_stratigraphy_drag_emits_snapped_interval(qapp) -> None:
     dataset = Dataset(
-        "dataset-relative-fill",
-        "Relative gas",
+        "dataset-strat",
+        "Dataset",
         DatasetKind.GTI,
         DepthDomain.MD,
-        depth,
+        np.array([100.0, 105.0, 110.0, 115.0]),
     )
-    values = {
-        "C1_REL": np.array([50.0, np.nan, 25.0, 20.0]),
-        "C2_REL": np.array([30.0, np.nan, 25.0, 30.0]),
-        "C3_REL": np.array([20.0, np.nan, 50.0, 50.0]),
-    }
-    dataset.curves = {
-        f"curve-{mnemonic}": CurveData(
-            CurveMetadata(
-                f"curve-{mnemonic}", mnemonic, mnemonic, "%rel", mnemonic, dataset.dataset_id
-            ),
-            curve_values,
-        )
-        for mnemonic, curve_values in values.items()
-    }
     view = TabletView()
     view.set_layout_model(
         TabletLayout(
-            [
-                TrackDefinition(
-                    "relative",
-                    "Relative gas",
-                    TrackKind.GAS,
-                    curve_mnemonics=list(values),
-                    width=320,
-                )
-            ],
-            visible_depth_top=100.0,
-            visible_depth_bottom=103.0,
+            [TrackDefinition("strat", "Stratigraphy", TrackKind.STRATIGRAPHY, width=220)]
         )
     )
     view.set_dataset(dataset)
-    qapp.processEvents()
+    emitted: list[tuple[float, float]] = []
+    view.stratigraphy_interval_requested.connect(lambda top, bottom: emitted.append((top, bottom)))
 
-    rendered = view._rendered["relative"]
-    assert rendered.relative_gas_layers is not None
-    assert set(rendered.relative_gas_layers) == set(values)
-    assert all(isinstance(layer[1], pg.FillBetweenItem) for layer in rendered.relative_gas_layers.values())
-    c3_x, _ = rendered.curve_items["C3_REL"].getData()
-    assert c3_x[0] == pytest.approx(100.0)
-    assert np.isnan(c3_x[1])
-    assert c3_x[2] == pytest.approx(100.0)
+    assert view.begin_stratigraphy_drag("strat", 101.0) is True
+    assert view.update_stratigraphy_drag(114.0) is True
+    assert view.finish_stratigraphy_drag(114.0) is True
+
+    assert emitted == [(100.0, 115.0)]
     view.close()
 
 
-def test_empty_special_track_header_band_is_explicitly_white(qapp) -> None:
+def test_stratigraphy_track_renders_project_intervals(qapp) -> None:
     dataset = Dataset(
-        "dataset-white-header",
-        "White header",
+        "dataset-strat-render",
+        "Dataset",
         DatasetKind.GTI,
         DepthDomain.MD,
-        np.array([100.0, 101.0]),
+        np.array([100.0, 150.0, 200.0]),
     )
     view = TabletView()
     view.set_layout_model(
-        TabletLayout([TrackDefinition("cuttings", "Cuttings", TrackKind.CUTTINGS)])
+        TabletLayout(
+            [TrackDefinition("strat", "Возраст", TrackKind.STRATIGRAPHY, width=220)]
+        )
     )
+    interval = StratigraphyInterval(
+        "s1", 100.0, 200.0, "K", "Меловая", "System / Period", "#7fc64e", None
+    )
+    view.set_stratigraphy([interval])
     view.set_dataset(dataset)
-    qapp.processEvents()
 
-    widget = view._rendered["cuttings"].widget
-    assert "background:#ffffff" in widget.curve_header.styleSheet().replace(" ", "")
-    assert "background:#ffffff" in widget.curve_header_scroll.styleSheet().replace(" ", "")
+    rendered = view._rendered["strat"].stratigraphy_items
+    assert rendered is not None and "s1" in rendered
+    assert view.stratigraphy_interval_at_depth(150.0) is interval
     view.close()

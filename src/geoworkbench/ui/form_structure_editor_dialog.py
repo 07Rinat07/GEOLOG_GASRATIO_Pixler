@@ -124,6 +124,14 @@ class FormStructureEditorDialog(QDialog):
         self.resize(1080, 680)
 
         root = QVBoxLayout(self)
+        form_properties = QFormLayout()
+        self.form_name_edit = QLineEdit(self.editor.form.name)
+        self.form_name_edit.editingFinished.connect(self._apply_form_name)
+        form_properties.addRow(
+            self._text("Название формы", "Пішін атауы", "Form name"), self.form_name_edit
+        )
+        root.addLayout(form_properties)
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
         root.addWidget(splitter, 1)
 
@@ -199,6 +207,13 @@ class FormStructureEditorDialog(QDialog):
             self.kind_combo.addItem(self._track_kind_name(kind), kind)
         self.kind_combo.currentIndexChanged.connect(self._apply_track_kind)
         properties.addRow(self._text("Тип дорожки", "Жол түрі", "Track type"), self.kind_combo)
+
+        self.axis_label_edit = QLineEdit()
+        self.axis_label_edit.editingFinished.connect(self._apply_axis_label)
+        properties.addRow(
+            self._text("Подпись оси X", "X осінің жазуы", "X-axis label"),
+            self.axis_label_edit,
+        )
         right_layout.addLayout(properties)
         right_layout.addStretch(1)
         splitter.addWidget(right)
@@ -258,6 +273,16 @@ class FormStructureEditorDialog(QDialog):
         layout.addWidget(button)
         return button
 
+    def _apply_form_name(self) -> None:
+        if self._updating_properties:
+            return
+        try:
+            self.editor.rename_form(self.form_name_edit.text())
+            self._form_changed()
+        except ValueError as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            self.form_name_edit.setText(self.editor.form.name)
+
     def _toggle_live_preview(self, enabled: bool) -> None:
         self.preview_controller.auto_apply = enabled
         if enabled and self.preview_controller.pending:
@@ -283,6 +308,7 @@ class FormStructureEditorDialog(QDialog):
     def _revert(self) -> None:
         restored = self.draft.revert()
         self.editor = FormStructureEditor(restored)
+        self.form_name_edit.setText(restored.name)
         self.preview_controller.apply(restored)
         self._reload_tree()
         self._update_dirty_state()
@@ -316,6 +342,20 @@ class FormStructureEditorDialog(QDialog):
                 column_item.addChild(track_item)
                 if selected_id == track.track_id:
                     selected_item = track_item
+                for binding in track.bindings:
+                    binding_item = QTreeWidgetItem(
+                        [
+                            binding.display_name,
+                            self._text("Параметр", "Параметр", "Parameter"),
+                            "",
+                        ]
+                    )
+                    binding_item.setData(0, _ITEM_KIND_ROLE, "binding")
+                    binding_item.setData(0, _ITEM_ID_ROLE, f"{track.track_id}::{binding.binding_id}")
+                    track_item.addChild(binding_item)
+                    if selected_id == binding.binding_id:
+                        selected_item = binding_item
+                track_item.setExpanded(True)
             column_item.setExpanded(True)
         if selected_item is not None:
             self.tree.setCurrentItem(selected_item)
@@ -336,9 +376,13 @@ class FormStructureEditorDialog(QDialog):
                 self.group_edit.setEnabled(False)
                 self.width_spin.setEnabled(False)
                 self.kind_combo.setEnabled(False)
+                self.axis_label_edit.clear()
+                self.axis_label_edit.setEnabled(False)
                 return
             kind, object_id = ref
             self.title_edit.setEnabled(True)
+            self.axis_label_edit.setEnabled(False)
+            self.axis_label_edit.clear()
             if kind == "column":
                 column = self.editor.column(object_id)
                 self.title_edit.setText(column.title)
@@ -347,17 +391,27 @@ class FormStructureEditorDialog(QDialog):
                 self.width_spin.setEnabled(True)
                 self.width_spin.setValue(column.width)
                 self.kind_combo.setEnabled(False)
-            else:
+            elif kind == "track":
                 _column, track = self.editor.track(object_id)
                 self.title_edit.setText(track.title)
                 self.group_edit.clear()
                 self.group_edit.setEnabled(False)
                 self.width_spin.setEnabled(False)
                 self.kind_combo.setEnabled(True)
+                self.axis_label_edit.setEnabled(True)
+                self.axis_label_edit.setText(track.x_axis_label)
                 index = self.kind_combo.findData(track.kind)
                 if index >= 0:
                     self.kind_combo.setCurrentIndex(index)
-            self.preview.set_form(self.editor.form, object_id)
+            else:
+                track_id, binding_id = object_id.split("::", 1)
+                binding = self.editor.binding(track_id, binding_id)
+                self.title_edit.setText(binding.display_name)
+                self.group_edit.clear()
+                self.group_edit.setEnabled(False)
+                self.width_spin.setEnabled(False)
+                self.kind_combo.setEnabled(False)
+            self.preview.set_form(self.editor.form, object_id.split("::", 1)[0])
         finally:
             self._updating_properties = False
 
@@ -370,9 +424,15 @@ class FormStructureEditorDialog(QDialog):
         try:
             if ref[0] == "column":
                 self.editor.rename_column(ref[1], self.title_edit.text())
-            else:
+                selected_id = ref[1]
+            elif ref[0] == "track":
                 self.editor.rename_track(ref[1], self.title_edit.text())
-            self._reload_tree(ref[1])
+                selected_id = ref[1]
+            else:
+                track_id, binding_id = ref[1].split("::", 1)
+                self.editor.rename_binding(track_id, binding_id, self.title_edit.text())
+                selected_id = binding_id
+            self._reload_tree(selected_id)
             self._form_changed()
         except (KeyError, PermissionError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
@@ -408,6 +468,20 @@ class FormStructureEditorDialog(QDialog):
         except (KeyError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
 
+    def _apply_axis_label(self) -> None:
+        if self._updating_properties:
+            return
+        ref = self._selected_ref()
+        if ref is None or ref[0] != "track":
+            return
+        try:
+            self.editor.set_track_axis_label(ref[1], self.axis_label_edit.text())
+            self.preview.set_form(self.editor.form, ref[1])
+            self._form_changed()
+        except (KeyError, PermissionError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            self._selection_changed(None, None)
+
     def _apply_track_kind(self, _index: int) -> None:
         if self._updating_properties:
             return
@@ -433,7 +507,12 @@ class FormStructureEditorDialog(QDialog):
         ref = self._selected_ref()
         if ref is None:
             return
-        column_id = ref[1] if ref[0] == "column" else self.editor.track(ref[1])[0].column_id
+        if ref[0] == "column":
+            column_id = ref[1]
+        elif ref[0] == "binding":
+            column_id = self.editor.track(ref[1].split("::", 1)[0])[0].column_id
+        else:
+            column_id = self.editor.track(ref[1])[0].column_id
         try:
             self.editor.remove_column(column_id)
             self._reload_tree()
@@ -453,6 +532,8 @@ class FormStructureEditorDialog(QDialog):
                 column_id = self.editor.form.columns[0].column_id
         elif ref[0] == "column":
             column_id = ref[1]
+        elif ref[0] == "binding":
+            column_id = self.editor.track(ref[1].split("::", 1)[0])[0].column_id
         else:
             column_id = self.editor.track(ref[1])[0].column_id
         try:
@@ -467,6 +548,8 @@ class FormStructureEditorDialog(QDialog):
 
     def _edit_track_content(self) -> None:
         ref = self._selected_ref()
+        if ref is not None and ref[0] == "binding":
+            ref = ("track", ref[1].split("::", 1)[0])
         if ref is None or ref[0] != "track":
             QMessageBox.information(
                 self,
@@ -491,6 +574,8 @@ class FormStructureEditorDialog(QDialog):
 
     def _remove_track(self) -> None:
         ref = self._selected_ref()
+        if ref is not None and ref[0] == "binding":
+            ref = ("track", ref[1].split("::", 1)[0])
         if ref is None or ref[0] != "track":
             return
         try:
@@ -508,7 +593,7 @@ class FormStructureEditorDialog(QDialog):
 
     def _move(self, delta: int) -> None:
         ref = self._selected_ref()
-        if ref is None:
+        if ref is None or ref[0] == "binding":
             return
         try:
             if ref[0] == "column":

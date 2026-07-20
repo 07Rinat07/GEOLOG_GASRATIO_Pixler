@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "catalog_id": "ics-2026-06",
+  "source": "International Commission on Stratigraphy, International Chronostratigraphic Chart 2026/06",
+  "license": "CC BY 4.0",
+  "units": [
+    {"id":"era_cenozoic","rank":"Erathem / Era","code":"KZ","name_ru":"Кайнозой","name_kk":"Кайнозой","name_en":"Cenozoic","color":"#F2F91D","parent_code":"PH"},
+    {"id":"period_quaternary","rank":"System / Period","code":"Q","name_ru":"Четвертичная","name_kk":"Төрттік","name_en":"Quaternary","color":"#FFF2AE","parent_code":"KZ"},
+    {"id":"period_neogene","rank":"System / Period","code":"N","name_ru":"Неоген","name_kk":"Неоген","name_en":"Neogene","color":"#FFE619","parent_code":"KZ"},
+    {"id":"period_paleogene","rank":"System / Period","code":"Pg","name_ru":"Палеоген","name_kk":"Палеоген","name_en":"Paleogene","color":"#FD9A52","parent_code":"KZ"},
+
+    {"id":"era_mesozoic","rank":"Erathem / Era","code":"MZ","name_ru":"Мезозой","name_kk":"Мезозой","name_en":"Mesozoic","color":"#67C5CA","parent_code":"PH"},
+    {"id":"period_cretaceous","rank":"System / Period","code":"K","name_ru":"Меловая","name_kk":"Бор","name_en":"Cretaceous","color":"#7FC64E","parent_code":"MZ"},
+    {"id":"period_jurassic","rank":"System / Period","code":"J","name_ru":"Юрская","name_kk":"Юра","name_en":"Jurassic","color":"#34B2C9","parent_code":"MZ"},
+    {"id":"period_triassic","rank":"System / Period","code":"T","name_ru":"Триасовая","name_kk":"Триас","name_en":"Triassic","color":"#812B92","parent_code":"MZ"},
+
+    {"id":"era_paleozoic","rank":"Erathem / Era","code":"PZ","name_ru":"Палеозой","name_kk":"Палеозой","name_en":"Paleozoic","color":"#99C08D","parent_code":"PH"},
+    {"id":"period_permian","rank":"System / Period","code":"P","name_ru":"Пермская","name_kk":"Пермь","name_en":"Permian","color":"#F04028","parent_code":"PZ"},
+    {"id":"period_carboniferous","rank":"System / Period","code":"C","name_ru":"Каменноугольная","name_kk":"Карбон","name_en":"Carboniferous","color":"#67A599","parent_code":"PZ"},
+    {"id":"period_devonian","rank":"System / Period","code":"D","name_ru":"Девонская","name_kk":"Девон","name_en":"Devonian","color":"#CB8C37","parent_code":"PZ"},
+    {"id":"period_silurian","rank":"System / Period","code":"S","name_ru":"Силурийская","name_kk":"Силур","name_en":"Silurian","color":"#B3E1B6","parent_code":"PZ"},
+    {"id":"period_ordovician","rank":"System / Period","code":"O","name_ru":"Ордовикская","name_kk":"Ордовик","name_en":"Ordovician","color":"#009270","parent_code":"PZ"},
+    {"id":"period_cambrian","rank":"System / Period","code":"Є","name_ru":"Кембрийская","name_kk":"Кембрий","name_en":"Cambrian","color":"#7FA056","parent_code":"PZ"},
+
+    {"id":"eon_proterozoic","rank":"Eonothem / Eon","code":"PR","name_ru":"Протерозой","name_kk":"Протерозой","name_en":"Proterozoic","color":"#F73563","parent_code":"PC"},
+    {"id":"eon_archean","rank":"Eonothem / Eon","code":"AR","name_ru":"Архей","name_kk":"Архей","name_en":"Archean","color":"#F0047F","parent_code":"PC"}
+  ]
+}

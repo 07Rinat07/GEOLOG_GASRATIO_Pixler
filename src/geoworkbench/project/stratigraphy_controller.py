@@ -46,6 +46,11 @@ class StratigraphyController:
             )
         )
 
+    def get(self, interval_id: str) -> StratigraphyInterval:
+        """Return one editable stratigraphic interval by stable project ID."""
+
+        return self._require_interval(interval_id)
+
     def add(
         self,
         top_depth: float,

@@ -75,6 +75,7 @@ from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.interpretation_controller import InterpretationController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.stratigraphy_controller import StratigraphyController
+from geoworkbench.project.stratigraphy_catalog_controller import StratigraphyCatalogController
 from geoworkbench.project.nct_controller import NctCalculationController
 from geoworkbench.project.new_las_controller import NewLasController
 from geoworkbench.project.las_range_editor import LasRangeEditingController
@@ -100,7 +101,7 @@ from geoworkbench.tablet.models import (
 from geoworkbench.tablet.controller import TabletController
 from geoworkbench.tablet.interval_interaction import IntervalEditMode
 from geoworkbench.tablet.lithology_legend import build_lithology_legend
-from geoworkbench.tablet.tablet_view import TabletView
+from geoworkbench.tablet.tablet_view import GeologicalInputMode, TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
 from geoworkbench.ui.branding import application_icon, logo_pixmap
@@ -126,7 +127,12 @@ from geoworkbench.ui.unified_cuttings_sample_dialog import UnifiedCuttingsSample
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
 from geoworkbench.ui.sensor_catalog_dialog import SensorCatalogDialog
-from geoworkbench.ui.stratigraphy_dialog import StratigraphyDialog
+from geoworkbench.ui.stratigraphy_dialog import (
+    StratigraphyCatalogDialog,
+    StratigraphyDialog,
+    StratigraphyIntervalDialog,
+)
+from geoworkbench.ui.tablet_track_editor_dialog import TabletTrackEditorDialog
 from geoworkbench.ui.nct_dialog import NctCalculationDialog
 from geoworkbench.ui.new_las_dialog import NewLasDialog
 from geoworkbench.ui.las_table_editor import LasTableEditor
@@ -192,6 +198,7 @@ class MainWindow(QMainWindow):
         self.cuttings_controller = CuttingsController(self.session)
         self.interpretation_controller = InterpretationController(self.session)
         self.stratigraphy_controller = StratigraphyController(self.session)
+        self.stratigraphy_catalog_controller = StratigraphyCatalogController(self.session)
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
         self.description_template_controller = DescriptionTemplateController(self.session)
         self.depth_axis_controller = DepthAxisController(self.session)
@@ -227,6 +234,9 @@ class MainWindow(QMainWindow):
         self.tablet_view.track_properties_requested.connect(
             self._show_track_properties_from_context
         )
+        self.tablet_view.track_full_edit_requested.connect(self._edit_live_track)
+        self.tablet_view.track_rename_requested.connect(self._rename_live_track)
+        self.tablet_view.track_group_rename_requested.connect(self._rename_live_track_group)
         self.tablet_view.track_curve_settings_requested.connect(
             self._show_curve_settings_from_context
         )
@@ -254,6 +264,12 @@ class MainWindow(QMainWindow):
         )
         self.tablet_view.cuttings_sample_edit_requested.connect(
             self._edit_cuttings_sample_from_tablet
+        )
+        self.tablet_view.stratigraphy_interval_requested.connect(
+            self._create_stratigraphy_interval_from_tablet
+        )
+        self.tablet_view.stratigraphy_interval_edit_requested.connect(
+            self._edit_stratigraphy_interval_from_tablet
         )
         self.las_table_editor = LasTableEditor(
             self.las_range_editing_controller,
@@ -738,8 +754,27 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(self.lithology_action)
 
         self.stratigraphy_action = self._localized_action("stratigraphy.action")
+        self.stratigraphy_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView)
+        )
         self.stratigraphy_action.triggered.connect(self.show_stratigraphy_editor)
         edit_menu.addAction(self.stratigraphy_action)
+        self.stratigraphy_catalog_action = self._localized_action("stratigraphy.catalog_action")
+        self.stratigraphy_catalog_action.triggered.connect(self.show_stratigraphy_catalog)
+        edit_menu.addAction(self.stratigraphy_catalog_action)
+        self.stratigraphy_mode_action = self._localized_action("stratigraphy.mode")
+        self.stratigraphy_mode_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown)
+        )
+        self.stratigraphy_mode_action.setCheckable(True)
+        self.stratigraphy_mode_action.toggled.connect(self.toggle_stratigraphy_input_mode)
+        edit_menu.addAction(self.stratigraphy_mode_action)
+        self.edit_selected_track_action = self._localized_action("tablet.edit_current_track")
+        self.edit_selected_track_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
+        )
+        self.edit_selected_track_action.triggered.connect(self.edit_selected_track)
+        edit_menu.addAction(self.edit_selected_track_action)
 
         self.interpretation_intervals_action = self._localized_action("interpretations.action")
         self.interpretation_intervals_action.triggered.connect(self.show_interpretation_intervals)
@@ -999,6 +1034,9 @@ class MainWindow(QMainWindow):
         self.main_toolbar.addAction(self.open_project_action)
         self.main_toolbar.addAction(self.open_data_action)
         self.main_toolbar.addAction(self.default_tablet_action)
+        self.main_toolbar.addAction(self.edit_selected_track_action)
+        self.main_toolbar.addAction(self.stratigraphy_mode_action)
+        self.main_toolbar.addAction(self.stratigraphy_action)
         self.main_toolbar.addSeparator()
         self.main_toolbar.addAction(self.interval_select_action)
         self.main_toolbar.addAction(self.interval_create_action)
@@ -1398,6 +1436,7 @@ class MainWindow(QMainWindow):
         self.lithology_controller.session = self.session
         self.cuttings_controller.session = self.session
         self.stratigraphy_controller.session = self.session
+        self.stratigraphy_catalog_controller.session = self.session
         self.lithotype_catalog_controller.session = self.session
         self.description_template_controller.session = self.session
         self.depth_axis_controller.session = self.session
@@ -3046,7 +3085,82 @@ class MainWindow(QMainWindow):
             self.stratigraphy_controller,
             self,
             language=self.language,
+            catalog_controller=self.stratigraphy_catalog_controller,
         ).exec()
+        well = self.session.current_well
+        self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
+        self._refresh_tree()
+        self._update_title()
+
+    def show_stratigraphy_catalog(self) -> None:
+        StratigraphyCatalogDialog(
+            self.stratigraphy_catalog_controller, self, language=self.language
+        ).exec()
+        self._update_title()
+
+    def toggle_stratigraphy_input_mode(self, enabled: bool) -> None:
+        mode = GeologicalInputMode.STRATIGRAPHY if enabled else GeologicalInputMode.SELECT
+        self.tablet_view.set_geological_input_mode(mode)
+        if enabled:
+            self.tabs.setCurrentWidget(self.tablet_view)
+            self.statusBar().showMessage(self._t("stratigraphy.mode_hint"))
+
+    def _create_stratigraphy_interval_from_tablet(self, top: float, bottom: float) -> None:
+        if self.session.current_well is None:
+            return
+        while True:
+            dialog = StratigraphyIntervalDialog(
+                top,
+                bottom,
+                self,
+                language=self.language,
+                catalog_controller=self.stratigraphy_catalog_controller,
+            )
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            try:
+                self.stratigraphy_controller.add(**dialog.values())
+            except (RuntimeError, ValueError) as exc:
+                QMessageBox.warning(self, self._t("stratigraphy.title"), str(exc))
+                top, bottom = dialog.top_depth, dialog.bottom_depth
+                continue
+            self._refresh_stratigraphy_after_edit()
+            return
+
+    def _edit_stratigraphy_interval_from_tablet(self, interval_id: str) -> None:
+        try:
+            interval = self.stratigraphy_controller.get(interval_id)
+        except (KeyError, RuntimeError) as exc:
+            QMessageBox.warning(self, self._t("stratigraphy.title"), str(exc))
+            return
+        edit_top = interval.top_depth
+        edit_bottom = interval.bottom_depth
+        while True:
+            dialog = StratigraphyIntervalDialog(
+                edit_top,
+                edit_bottom,
+                self,
+                language=self.language,
+                catalog_controller=self.stratigraphy_catalog_controller,
+            )
+            dialog.rank_input.setCurrentText(interval.rank or "")
+            dialog.code_input.setText(interval.code)
+            dialog.name_input.setText(interval.name or "")
+            dialog.color_input.setText(interval.color)
+            dialog.description_input.setText(interval.description or "")
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            try:
+                self.stratigraphy_controller.update(interval_id, **dialog.values())
+            except (KeyError, RuntimeError, ValueError) as exc:
+                QMessageBox.warning(self, self._t("stratigraphy.title"), str(exc))
+                edit_top = dialog.top_depth
+                edit_bottom = dialog.bottom_depth
+                continue
+            self._refresh_stratigraphy_after_edit()
+            return
+
+    def _refresh_stratigraphy_after_edit(self) -> None:
         well = self.session.current_well
         self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
         self._refresh_tree()
@@ -3952,6 +4066,73 @@ class MainWindow(QMainWindow):
         self.tablet_view.refresh_track(
             track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
         )
+        self._refresh_tree()
+        self._update_title()
+
+    def edit_selected_track(self) -> None:
+        if not self._selected_track_id:
+            QMessageBox.information(
+                self, self._t("tablet.edit_current_track"), self._t("tablet.select_track_first")
+            )
+            return
+        self._edit_live_track(self._selected_track_id)
+
+    def _edit_live_track(self, track_id: str) -> None:
+        try:
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+        except KeyError:
+            return
+        dialog = TabletTrackEditorDialog(
+            track, self, language=self.language.value
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            updated = self.tablet_controller.update_track_definition(track_id, dialog.track)
+        except (KeyError, PermissionError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("tablet.edit_current_track"), str(exc))
+            return
+        self.tablet_view.refresh_view()
+        self.tablet_view.select_track(track_id, emit_signal=False)
+        self.inspector.show_track(updated, suggested_range=self._track_data_range(updated))
+        self._refresh_tree()
+        self._update_title()
+
+    def _rename_live_track(self, track_id: str) -> None:
+        try:
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+        except KeyError:
+            return
+        title, accepted = QInputDialog.getText(
+            self, self._t("tablet.rename_track"), self._t("tablet.track_title_prompt"), text=track.title
+        )
+        if not accepted:
+            return
+        try:
+            self.tablet_controller.rename_track(track_id, title)
+        except (KeyError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("tablet.rename_track"), str(exc))
+            return
+        self.tablet_view.refresh_view()
+        self._refresh_tree()
+        self._update_title()
+
+    def _rename_live_track_group(self, track_id: str) -> None:
+        try:
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+        except KeyError:
+            return
+        title, accepted = QInputDialog.getText(
+            self, self._t("tablet.rename_group"), self._t("tablet.group_title_prompt"), text=track.group_title
+        )
+        if not accepted:
+            return
+        try:
+            self.tablet_controller.rename_track_group(track_id, title)
+        except (KeyError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("tablet.rename_group"), str(exc))
+            return
+        self.tablet_view.refresh_view()
         self._refresh_tree()
         self._update_title()
 

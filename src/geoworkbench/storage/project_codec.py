@@ -32,6 +32,7 @@ from geoworkbench.domain.models import (
     MasterlogTemplate,
     Project,
     ProjectLithotype,
+    ProjectStratigraphyUnit,
     StratigraphyInterval,
     Well,
     ExportProfile,
@@ -379,6 +380,23 @@ def project_from_dict(data: dict[str, Any]) -> Project:
                 f"ID записи литотипа '{lithotype_id}' не совпадает с содержимым"
             )
         project.lithotypes[lithotype_id] = record
+    raw_stratigraphy_units = data.get("stratigraphy_units", {})
+    if not isinstance(raw_stratigraphy_units, dict):
+        raise ProjectFormatError("Поле 'stratigraphy_units' должно быть объектом")
+    for unit_id, item in raw_stratigraphy_units.items():
+        if not isinstance(unit_id, str) or not isinstance(item, dict):
+            raise ProjectFormatError("Запись стратиграфического справочника имеет неверный формат")
+        try:
+            record = ProjectStratigraphyUnit(**item)
+        except TypeError as exc:
+            raise ProjectFormatError(
+                f"Некорректная стратиграфическая запись '{unit_id}'"
+            ) from exc
+        if record.unit_id != unit_id:
+            raise ProjectFormatError(
+                f"ID стратиграфической записи '{unit_id}' не совпадает с содержимым"
+            )
+        project.stratigraphy_units[unit_id] = record
     raw_templates = data.get("description_templates", {})
     if not isinstance(raw_templates, dict) or not all(
         isinstance(name, str) and isinstance(text, str) for name, text in raw_templates.items()

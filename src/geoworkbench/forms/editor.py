@@ -21,6 +21,16 @@ class FormStructureEditor:
         if self.form.read_only:
             raise PermissionError("Заводскую форму нужно сначала скопировать")
 
+    def rename_form(self, name: str) -> None:
+        normalized = name.strip()
+        if not normalized:
+            raise ValueError("Название формы не должно быть пустым")
+        if len(normalized) > 160:
+            raise ValueError("Название формы не должно превышать 160 символов")
+        self.form.name = normalized
+        self.form.__post_init__()
+        self.dirty = True
+
     def column(self, column_id: str) -> FormColumn:
         for column in self.form.columns:
             if column.column_id == column_id:
@@ -67,12 +77,32 @@ class FormStructureEditor:
         self.dirty = True
 
     def set_column_group(self, column_id: str, group_title: str) -> None:
-        column = self.column(column_id)
+        """Rename the complete contiguous merged section containing ``column_id``.
+
+        The top row is rendered as one merged caption for adjacent columns with the
+        same ``group_title``. Updating only one column would split that visual group,
+        therefore the whole contiguous run is renamed atomically.
+        """
+
+        selected_index = next(
+            (index for index, item in enumerate(self.form.columns) if item.column_id == column_id),
+            None,
+        )
+        if selected_index is None:
+            raise KeyError(column_id)
         normalized = group_title.strip()
         if len(normalized) > 120:
             raise ValueError("Название раздела не должно превышать 120 символов")
-        column.group_title = normalized
-        column.__post_init__()
+        original = self.form.columns[selected_index].group_title
+        left = selected_index
+        while left > 0 and self.form.columns[left - 1].group_title == original:
+            left -= 1
+        right = selected_index
+        while right + 1 < len(self.form.columns) and self.form.columns[right + 1].group_title == original:
+            right += 1
+        for column in self.form.columns[left : right + 1]:
+            column.group_title = normalized
+            column.__post_init__()
         self.form.validate()
         self.dirty = True
 
@@ -129,6 +159,45 @@ class FormStructureEditor:
         if not title:
             raise ValueError("Название дорожки не должно быть пустым")
         track.title = title
+        track.__post_init__()
+        self.form.validate()
+        self.dirty = True
+
+    def binding(self, track_id: str, binding_id: str):
+        _column, track = self.track(track_id)
+        for binding in track.bindings:
+            if binding.binding_id == binding_id:
+                return binding
+        raise KeyError(binding_id)
+
+    def rename_binding(self, track_id: str, binding_id: str, display_name: str) -> None:
+        from dataclasses import replace
+
+        column, track = self.track(track_id)
+        if column.locked or track.locked:
+            raise PermissionError("Дорожка заблокирована")
+        normalized = display_name.strip()
+        if not normalized:
+            raise ValueError("Название параметра не должно быть пустым")
+        if len(normalized) > 120:
+            raise ValueError("Название параметра не должно превышать 120 символов")
+        for index, binding in enumerate(track.bindings):
+            if binding.binding_id == binding_id:
+                track.bindings[index] = replace(binding, display_name=normalized)
+                track.__post_init__()
+                self.form.validate()
+                self.dirty = True
+                return
+        raise KeyError(binding_id)
+
+    def set_track_axis_label(self, track_id: str, label: str) -> None:
+        _column, track = self.track(track_id)
+        if track.locked:
+            raise PermissionError("Дорожка заблокирована")
+        normalized = label.strip()
+        if len(normalized) > 100:
+            raise ValueError("Подпись оси не должна превышать 100 символов")
+        track.x_axis_label = normalized
         track.__post_init__()
         self.form.validate()
         self.dirty = True

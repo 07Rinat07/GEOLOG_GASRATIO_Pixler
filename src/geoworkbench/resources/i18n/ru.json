@@ -1009,5 +1009,17 @@
   "tablet.lba_columns": "Баллы   |   Цвет   |   Битум",
   "cuttings.drag_hint": "Shift + левая кнопка: протяните интервал пробы в колонке шламограммы, ЛБА, кальциметрии или описания; после отпускания заполните породы и нажмите ОК.",
   "cuttings.context_new": "Новая проба шлама…",
-  "cuttings.context_edit": "Редактировать пробу на текущей глубине…"
+  "cuttings.context_edit": "Редактировать пробу на текущей глубине…",
+  "tablet.edit_track_full": "Редактировать всё в дорожке…",
+  "tablet.rename_track": "Переименовать дорожку…",
+  "tablet.rename_group": "Переименовать раздел…",
+  "tablet.edit_current_track": "Редактор выбранной дорожки",
+  "stratigraphy.catalog_action": "Стратиграфический справочник",
+  "stratigraphy.new_interval": "Новый стратиграфический интервал",
+  "stratigraphy.edit_interval": "Редактировать стратиграфический интервал",
+  "stratigraphy.mode": "Стратиграфия: выделение",
+  "stratigraphy.mode_hint": "Протяните интервал в колонке стратиграфии или используйте Shift + левую кнопку мыши.",
+  "tablet.select_track_first": "Сначала выберите колонку или дорожку на планшете.",
+  "tablet.track_title_prompt": "Новое название дорожки:",
+  "tablet.group_title_prompt": "Новое название объединённого раздела:"
 }

@@ -401,3 +401,10 @@ mouse opens a compact dialog where both depths can be corrected and exactly one 
 selected. `OK` renders the interval immediately. Cuttings composition, LBA, calcimetry, and rich
 text descriptions remain separate sample-editor fields. Save the project with the diskette toolbar
 action or `Ctrl+S`.
+
+## Editable captions and stratigraphy
+
+Every track is fully editable from its right-click menu: title, section, width, X axis, parameters,
+captions, styles, scales, and ranges. Stratigraphy now has a project catalog, `Shift + left drag`,
+a dedicated toolbar mode, double-click editing, and project persistence. See [Editable form captions
+and stratigraphy](FORM_CAPTIONS_AND_STRATIGRAPHY.md).

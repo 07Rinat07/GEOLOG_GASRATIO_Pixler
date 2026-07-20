@@ -162,7 +162,8 @@ class TabletController:
             for mnemonic, settings in track.curve_display.items()
             if mnemonic in mnemonics
         }
-        track.title = " / ".join(mnemonics)
+        # Preserve the user-facing track title. Replacing LAS bindings must not
+        # silently undo a caption edited for a field-specific form.
         self.session.dirty = True
         return track
 
@@ -297,6 +298,51 @@ class TabletController:
             x_scale=x_scale,
         )
         self._require_layout().add_track(track)
+        self.session.dirty = True
+        return track
+
+    def update_track_definition(self, track_id: str, updated: TrackDefinition) -> TrackDefinition:
+        """Apply all editable captions and presentation settings to a live track."""
+
+        layout = self._require_layout()
+        current = layout.track_by_id(track_id)
+        if current.locked:
+            raise PermissionError("Заблокированную дорожку нельзя изменять")
+        if updated.track_id != track_id or updated.kind is not current.kind:
+            raise ValueError("Редактор не может менять ID или тип дорожки")
+        updated.__post_init__()
+        index = layout.tracks.index(current)
+        layout.tracks[index] = deepcopy(updated)
+        self.session.dirty = True
+        return layout.tracks[index]
+
+    def rename_track(self, track_id: str, title: str) -> TrackDefinition:
+        track = self._require_layout().track_by_id(track_id)
+        normalized = title.strip()
+        if not normalized or len(normalized) > 120:
+            raise ValueError("Название дорожки обязательно и не длиннее 120 символов")
+        track.title = normalized
+        track.__post_init__()
+        self.session.dirty = True
+        return track
+
+    def rename_track_group(self, track_id: str, group_title: str) -> TrackDefinition:
+        layout = self._require_layout()
+        track = layout.track_by_id(track_id)
+        normalized = group_title.strip()
+        if len(normalized) > 120:
+            raise ValueError("Название раздела не должно превышать 120 символов")
+        original = track.group_title
+        index = layout.tracks.index(track)
+        left = index
+        while left > 0 and layout.tracks[left - 1].group_title == original:
+            left -= 1
+        right = index
+        while right + 1 < len(layout.tracks) and layout.tracks[right + 1].group_title == original:
+            right += 1
+        for item in layout.tracks[left : right + 1]:
+            item.group_title = normalized
+            item.__post_init__()
         self.session.dirty = True
         return track
 
