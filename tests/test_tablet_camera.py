@@ -55,7 +55,11 @@ def test_recommended_time_window_respects_axis_units() -> None:
     assert recommended_initial_span(5.0, is_time=True, unit="h") == 0.5
 
 
-def test_depth_view_span_presets_cover_10_to_100_metres() -> None:
+def test_depth_view_span_presets_cover_small_and_standard_metres() -> None:
     from geoworkbench.tablet.camera import DEPTH_VIEW_SPAN_PRESETS
 
-    assert DEPTH_VIEW_SPAN_PRESETS == tuple(float(value) for value in range(10, 101, 10))
+    assert DEPTH_VIEW_SPAN_PRESETS == (
+        1.0,
+        5.0,
+        *(float(value) for value in range(10, 101, 10)),
+    )

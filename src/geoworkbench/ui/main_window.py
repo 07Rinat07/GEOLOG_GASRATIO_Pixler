@@ -153,7 +153,10 @@ class MainWindow(QMainWindow):
         self.language_settings = language_settings or LanguageSettings.system()
         self.user_profile_settings = user_profile_settings or UserProfileSettings.system()
         self.mnemonic_registry = UserMnemonicRegistry()
-        forms_root = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)) / "forms"
+        forms_root = (
+            Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation))
+            / "forms"
+        )
         self.form_repository = FormRepository(forms_root)
         self.form_apply_engine = FormApplyEngine()
         set_active_sensor_catalog(self.mnemonic_registry.catalog())
@@ -203,9 +206,7 @@ class MainWindow(QMainWindow):
         self.tablet_view.curve_selected.connect(self._show_tablet_curve_in_inspector)
         self.tablet_view.track_hide_requested.connect(self._hide_track_from_context)
         self.tablet_view.track_remove_requested.connect(self._remove_track_from_context)
-        self.tablet_view.track_add_curves_requested.connect(
-            self._add_curves_to_track_from_context
-        )
+        self.tablet_view.track_add_curves_requested.connect(self._add_curves_to_track_from_context)
         self.tablet_view.track_replace_curves_requested.connect(
             self._replace_track_curves_from_context
         )
@@ -221,19 +222,13 @@ class MainWindow(QMainWindow):
         self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
         self.tablet_view.vertical_index_changed.connect(self._change_vertical_index_from_tablet)
         self.tablet_view.cursor_changed.connect(self._show_cursor_values)
-        self.tablet_view.interpretation_selected.connect(
-            self._select_interpretation_from_tablet
-        )
+        self.tablet_view.interpretation_selected.connect(self._select_interpretation_from_tablet)
         self.tablet_view.interval_selected.connect(self._select_interpretation_interval)
         self.tablet_view.interval_selection_cleared.connect(
             self._clear_interpretation_interval_selection
         )
-        self.tablet_view.interval_create_requested.connect(
-            self._create_interval_from_tablet
-        )
-        self.tablet_view.interval_resize_requested.connect(
-            self._resize_interval_from_tablet
-        )
+        self.tablet_view.interval_create_requested.connect(self._create_interval_from_tablet)
+        self.tablet_view.interval_resize_requested.connect(self._resize_interval_from_tablet)
         self.las_table_editor = LasTableEditor(
             self.las_range_editing_controller,
             language=self.language,
@@ -266,6 +261,33 @@ class MainWindow(QMainWindow):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
+
+    def _localized_action(self, key: str, *, checkable: bool = False) -> QAction:
+        action = QAction(self._t(key), self)
+        action.setCheckable(checkable)
+        action.setProperty("i18n_key", key)
+        return action
+
+    def _localized_menu(self, key: str) -> QMenu:
+        menu = QMenu(self._t(key), self)
+        menu.menuAction().setProperty("i18n_key", key)
+        return menu
+
+    def _add_localized_menu(self, key: str) -> QMenu:
+        menu = self._localized_menu(key)
+        self.menuBar().addMenu(menu)
+        return menu
+
+    def _retranslate_registered_actions(self) -> None:
+        for action in self.findChildren(QAction):
+            text_key = action.property("i18n_key")
+            if isinstance(text_key, str) and text_key:
+                action.setText(self._t(text_key))
+            tooltip_key = action.property("i18n_tooltip_key")
+            if isinstance(tooltip_key, str) and tooltip_key:
+                translated = self._t(tooltip_key)
+                action.setToolTip(translated)
+                action.setStatusTip(translated)
 
     def _save_table_number_formats(self, formats: object) -> None:
         if not isinstance(formats, dict):
@@ -317,21 +339,16 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.inspector_dock)
         self.inspector_dock.hide()
 
-
     def _create_interpretation_properties_panel(self) -> None:
         self.interpretation_properties_dock = QDockWidget(
             self._t("interpretations.properties_title"), self
         )
         self.interpretation_properties_dock.setObjectName("interpretationPropertiesDock")
-        self.interpretation_properties = InterpretationPropertiesPanel(
-            language=self.language
-        )
+        self.interpretation_properties = InterpretationPropertiesPanel(language=self.language)
         self.interpretation_properties.update_requested.connect(
             self._update_interval_from_properties
         )
-        self.interpretation_properties.manager_requested.connect(
-            self.show_interpretation_intervals
-        )
+        self.interpretation_properties.manager_requested.connect(self.show_interpretation_intervals)
         self.interpretation_properties_dock.setWidget(self.interpretation_properties)
         self.addDockWidget(
             Qt.DockWidgetArea.RightDockWidgetArea, self.interpretation_properties_dock
@@ -471,6 +488,8 @@ class MainWindow(QMainWindow):
         shortcut: str,
     ) -> QAction:
         action = dock.toggleViewAction()
+        action.setProperty("i18n_key", text_key)
+        action.setProperty("i18n_tooltip_key", tooltip_key)
         action.setText(self._t(text_key))
         action.setToolTip(self._t(tooltip_key))
         action.setStatusTip(self._t(tooltip_key))
@@ -499,47 +518,48 @@ class MainWindow(QMainWindow):
             dock.hide()
 
     def _create_actions(self) -> None:
-        file_menu = self.menuBar().addMenu(self._t("menu.file"))
-        edit_menu = self.menuBar().addMenu(self._t("menu.edit"))
-        calc_menu = self.menuBar().addMenu(self._t("menu.calculations"))
-        tablet_menu = self.menuBar().addMenu(self._t("menu.tablet"))
-        view_menu = self.menuBar().addMenu(self._t("menu.view"))
-        forms_menu = self.menuBar().addMenu(self._t("forms.menu"))
-        print_menu = self.menuBar().addMenu(self._t("menu.print"))
-        language_menu = self.menuBar().addMenu(self._t("menu.language"))
-        help_menu = self.menuBar().addMenu(self._t("menu.help"))
+        file_menu = self._add_localized_menu("menu.file")
+        edit_menu = self._add_localized_menu("menu.edit")
+        calc_menu = self._add_localized_menu("menu.calculations")
+        tablet_menu = self._add_localized_menu("menu.tablet")
+        view_menu = self._add_localized_menu("menu.view")
+        forms_menu = self._add_localized_menu("forms.menu")
+        print_menu = self._add_localized_menu("menu.print")
+        language_menu = self._add_localized_menu("menu.language")
+        help_menu = self._add_localized_menu("menu.help")
 
-        self.open_project_action = QAction("Открыть проект...", self)
+        self.open_project_action = self._localized_action("shell.open_project")
         self.open_project_action.setShortcut("Ctrl+O")
         self.open_project_action.triggered.connect(self.open_project)
         file_menu.addAction(self.open_project_action)
 
-        self.new_las_action = QAction(self._t("new_las.action"), self)
+        self.new_las_action = self._localized_action("new_las.action")
         self.new_las_action.setShortcut("Ctrl+N")
         self.new_las_action.triggered.connect(self.create_new_las)
         file_menu.addAction(self.new_las_action)
 
-        self.open_data_action = QAction(self._t("import.universal"), self)
+        self.open_data_action = self._localized_action("import.universal")
         self.open_data_action.setShortcut("Ctrl+I")
         self.open_data_action.triggered.connect(self.open_data)
         file_menu.addAction(self.open_data_action)
         file_menu.addSeparator()
 
-        self.open_action = QAction("Импортировать LAS...", self)
+        self.open_action = self._localized_action("shell.import_las")
         self.open_action.setShortcut("Ctrl+L")
         self.open_action.triggered.connect(self.open_las)
         file_menu.addAction(self.open_action)
 
-        self.open_csv_action = QAction("Импортировать CSV/TXT...", self)
+        self.open_csv_action = self._localized_action("shell.import_csv")
         self.open_csv_action.triggered.connect(self.open_csv)
         file_menu.addAction(self.open_csv_action)
 
-        self.open_excel_action = QAction("Импортировать Excel...", self)
+        self.open_excel_action = self._localized_action("shell.import_excel")
         self.open_excel_action.triggered.connect(self.open_excel)
         file_menu.addAction(self.open_excel_action)
 
-        language_group = QActionGroup(self)
-        language_group.setExclusive(True)
+        self.language_group = QActionGroup(self)
+        self.language_group.setExclusive(True)
+        self.language_actions: dict[AppLanguage, QAction] = {}
         for language, name in LANGUAGE_NAMES.items():
             action = QAction(name, self)
             action.setCheckable(True)
@@ -547,79 +567,78 @@ class MainWindow(QMainWindow):
             action.triggered.connect(
                 lambda checked=False, value=language: self.change_language(value)
             )
-            language_group.addAction(action)
+            self.language_group.addAction(action)
+            self.language_actions[language] = action
             language_menu.addAction(action)
         language_menu.addSeparator()
-        self.user_profile_action = QAction(self._t("profile.action"), self)
+        self.user_profile_action = self._localized_action("profile.action")
         self.user_profile_action.triggered.connect(self.select_user_profile)
         language_menu.addAction(self.user_profile_action)
 
-        self.save_action = QAction("Сохранить проект как...", self)
+        self.save_action = self._localized_action("shell.save_project_as")
         self.save_action.setShortcut("Ctrl+S")
         self.save_action.triggered.connect(self.save_project_as)
         file_menu.addAction(self.save_action)
 
-        self.export_las_action = QAction("Экспортировать текущий dataset в LAS...", self)
+        self.export_las_action = self._localized_action("shell.export_las")
         self.export_las_action.triggered.connect(self.export_current_las)
         file_menu.addAction(self.export_las_action)
 
-        export_csv_action = QAction(self._t("selection_export.csv_action"), self)
+        export_csv_action = self._localized_action("selection_export.csv_action")
         export_csv_action.triggered.connect(self.export_selected_csv)
         file_menu.addAction(export_csv_action)
-        export_excel_action = QAction(self._t("selection_export.excel_action"), self)
+        export_excel_action = self._localized_action("selection_export.excel_action")
         export_excel_action.triggered.connect(self.export_selected_excel)
         file_menu.addAction(export_excel_action)
-        export_png_action = QAction(self._t("visual_export.png_action"), self)
+        export_png_action = self._localized_action("visual_export.png_action")
         export_png_action.triggered.connect(lambda: self.export_active_visualization("png"))
         file_menu.addAction(export_png_action)
-        export_svg_action = QAction(self._t("visual_export.svg_action"), self)
+        export_svg_action = self._localized_action("visual_export.svg_action")
         export_svg_action.triggered.connect(lambda: self.export_active_visualization("svg"))
         file_menu.addAction(export_svg_action)
-        export_pdf_action = QAction(self._t("visual_export.pdf_action"), self)
+        export_pdf_action = self._localized_action("visual_export.pdf_action")
         export_pdf_action.triggered.connect(lambda: self.export_active_visualization("pdf"))
         file_menu.addAction(export_pdf_action)
-        print_preview_action = QAction(self._t("print.preview_action"), self)
+        print_preview_action = self._localized_action("print.preview_action")
         print_preview_action.triggered.connect(self.preview_active_visualization)
         file_menu.addAction(print_preview_action)
-        page_setup_action = QAction(self._t("print.page_setup_action"), self)
+        page_setup_action = self._localized_action("print.page_setup_action")
         page_setup_action.triggered.connect(self.configure_print_page)
         file_menu.addAction(page_setup_action)
-        templates_action = QAction(self._t("masterlog_templates.action"), self)
+        templates_action = self._localized_action("masterlog_templates.action")
         templates_action.triggered.connect(self.show_masterlog_templates)
         print_menu.addAction(templates_action)
-        self.interpretation_report_action = QAction(
-            self._t("interpretation_report.action"), self
-        )
+        self.interpretation_report_action = self._localized_action("interpretation_report.action")
         self.interpretation_report_action.triggered.connect(self.show_interpretation_report)
         print_menu.addAction(self.interpretation_report_action)
         file_menu.addSeparator()
-        save_export_profile_action = QAction(self._t("export_profile.save"), self)
+        save_export_profile_action = self._localized_action("export_profile.save")
         save_export_profile_action.triggered.connect(self.save_export_profile)
         file_menu.addAction(save_export_profile_action)
-        apply_export_profile_action = QAction(self._t("export_profile.apply"), self)
+        apply_export_profile_action = self._localized_action("export_profile.apply")
         apply_export_profile_action.triggered.connect(self.apply_export_profile)
         file_menu.addAction(apply_export_profile_action)
-        delete_export_profile_action = QAction(self._t("export_profile.delete"), self)
+        delete_export_profile_action = self._localized_action("export_profile.delete")
         delete_export_profile_action.triggered.connect(self.delete_export_profile)
         file_menu.addAction(delete_export_profile_action)
-        export_json_action = QAction(self._t("json_export.action"), self)
+        export_json_action = self._localized_action("json_export.action")
         export_json_action.triggered.connect(self.export_current_json)
         file_menu.addAction(export_json_action)
-        export_parquet_action = QAction(self._t("parquet_export.action"), self)
+        export_parquet_action = self._localized_action("parquet_export.action")
         export_parquet_action.triggered.connect(self.export_current_parquet)
         file_menu.addAction(export_parquet_action)
 
-        self.data_inspector_action = QAction(self._t("data.action"), self)
+        self.data_inspector_action = self._localized_action("data.action")
         self.data_inspector_action.triggered.connect(self.show_data_inspector)
         file_menu.addAction(self.data_inspector_action)
 
-        self.pencil_action = QAction("Карандаш кривой", self)
+        self.pencil_action = self._localized_action("shell.curve_pencil")
         self.pencil_action.setCheckable(True)
         self.pencil_action.setShortcut("E")
         self.pencil_action.toggled.connect(self.toggle_curve_edit_mode)
         edit_menu.addAction(self.pencil_action)
 
-        self.cursor_line_action = QAction(self._t("cursor.line_action"), self)
+        self.cursor_line_action = self._localized_action("cursor.line_action")
         cursor_icon = QPixmap(24, 24)
         cursor_icon.fill(Qt.GlobalColor.transparent)
         icon_painter = QPainter(cursor_icon)
@@ -631,123 +650,119 @@ class MainWindow(QMainWindow):
         self.cursor_line_action.setShortcut("V")
         self.cursor_line_action.toggled.connect(self.toggle_cursor_line)
         edit_menu.addAction(self.cursor_line_action)
-        self.cursor_style_action = QAction(self._t("cursor.configure_action"), self)
+        self.cursor_style_action = self._localized_action("cursor.configure_action")
         self.cursor_style_action.triggered.connect(self.configure_cursor_line)
         edit_menu.addAction(self.cursor_style_action)
 
-        self.undo_action = QAction("Отменить редактирование", self)
+        self.undo_action = self._localized_action("shell.undo_curve_edit")
         self.undo_action.setShortcut("Ctrl+Z")
         self.undo_action.triggered.connect(self.undo_curve_edit)
         self.undo_action.setEnabled(False)
         edit_menu.addAction(self.undo_action)
 
-        self.redo_action = QAction("Повторить редактирование", self)
+        self.redo_action = self._localized_action("shell.redo_curve_edit")
         self.redo_action.setShortcut("Ctrl+Shift+Z")
         self.redo_action.triggered.connect(self.redo_curve_edit)
         self.redo_action.setEnabled(False)
         edit_menu.addAction(self.redo_action)
 
-        self.annotations_action = QAction(self._t("annotations.action"), self)
+        self.annotations_action = self._localized_action("annotations.action")
         self.annotations_action.triggered.connect(self.show_depth_annotations)
         edit_menu.addAction(self.annotations_action)
 
-        self.lithology_action = QAction(self._t("lithology.action"), self)
+        self.lithology_action = self._localized_action("lithology.action")
         self.lithology_action.triggered.connect(self.show_lithology_editor)
         edit_menu.addAction(self.lithology_action)
 
-        self.stratigraphy_action = QAction(self._t("stratigraphy.action"), self)
+        self.stratigraphy_action = self._localized_action("stratigraphy.action")
         self.stratigraphy_action.triggered.connect(self.show_stratigraphy_editor)
         edit_menu.addAction(self.stratigraphy_action)
 
-        self.interpretation_intervals_action = QAction(
-            self._t("interpretations.action"), self
-        )
-        self.interpretation_intervals_action.triggered.connect(
-            self.show_interpretation_intervals
-        )
+        self.interpretation_intervals_action = self._localized_action("interpretations.action")
+        self.interpretation_intervals_action.triggered.connect(self.show_interpretation_intervals)
         edit_menu.addAction(self.interpretation_intervals_action)
 
-        self.lithotype_catalog_action = QAction(self._t("catalog.action"), self)
+        self.lithotype_catalog_action = self._localized_action("catalog.action")
         self.lithotype_catalog_action.triggered.connect(self.show_lithotype_catalog)
         edit_menu.addAction(self.lithotype_catalog_action)
 
-        self.sensor_catalog_action = QAction(self._t("sensors.action"), self)
+        self.sensor_catalog_action = self._localized_action("sensors.action")
         self.sensor_catalog_action.triggered.connect(self.show_sensor_catalog)
         edit_menu.addAction(self.sensor_catalog_action)
 
-        self.description_templates_action = QAction(self._t("templates.action"), self)
+        self.description_templates_action = self._localized_action("templates.action")
         self.description_templates_action.triggered.connect(self.show_description_templates)
         edit_menu.addAction(self.description_templates_action)
 
-        self.normalize_depth_action = QAction(self._t("depth.create_copy_action"), self)
+        self.normalize_depth_action = self._localized_action("depth.create_copy_action")
         self.normalize_depth_action.triggered.connect(self.create_ascending_depth_copy)
         edit_menu.addAction(self.normalize_depth_action)
-        self.undo_normalize_depth_action = QAction(self._t("depth.undo"), self)
+        self.undo_normalize_depth_action = self._localized_action("depth.undo")
         self.undo_normalize_depth_action.triggered.connect(self.undo_ascending_depth_copy)
         self.undo_normalize_depth_action.setEnabled(False)
         edit_menu.addAction(self.undo_normalize_depth_action)
-        self.redo_normalize_depth_action = QAction(self._t("depth.redo"), self)
+        self.redo_normalize_depth_action = self._localized_action("depth.redo")
         self.redo_normalize_depth_action.triggered.connect(self.redo_ascending_depth_copy)
         self.redo_normalize_depth_action.setEnabled(False)
         edit_menu.addAction(self.redo_normalize_depth_action)
 
-        self.resample_depth_action = QAction(self._t("resample.action"), self)
+        self.resample_depth_action = self._localized_action("resample.action")
         self.resample_depth_action.triggered.connect(self.create_resampled_depth_copy)
         edit_menu.addAction(self.resample_depth_action)
-        self.undo_resample_action = QAction(self._t("resample.undo"), self)
+        self.undo_resample_action = self._localized_action("resample.undo")
         self.undo_resample_action.triggered.connect(self.undo_depth_resample)
         self.undo_resample_action.setEnabled(False)
         edit_menu.addAction(self.undo_resample_action)
-        self.redo_resample_action = QAction(self._t("resample.redo"), self)
+        self.redo_resample_action = self._localized_action("resample.redo")
         self.redo_resample_action.triggered.connect(self.redo_depth_resample)
         self.redo_resample_action.setEnabled(False)
         edit_menu.addAction(self.redo_resample_action)
 
-        self.transfer_curves_action = QAction(self._t("transfer.action"), self)
+        self.transfer_curves_action = self._localized_action("transfer.action")
         self.transfer_curves_action.triggered.connect(self.show_curve_transfer)
         edit_menu.addAction(self.transfer_curves_action)
-        self.undo_transfer_action = QAction(self._t("transfer.undo"), self)
+        self.undo_transfer_action = self._localized_action("transfer.undo")
         self.undo_transfer_action.triggered.connect(self.undo_curve_transfer)
         self.undo_transfer_action.setEnabled(False)
         edit_menu.addAction(self.undo_transfer_action)
-        self.redo_transfer_action = QAction(self._t("transfer.redo"), self)
+        self.redo_transfer_action = self._localized_action("transfer.redo")
         self.redo_transfer_action.triggered.connect(self.redo_curve_transfer)
         self.redo_transfer_action.setEnabled(False)
         edit_menu.addAction(self.redo_transfer_action)
 
-        self.merge_datasets_action = QAction(self._t("merge.action"), self)
+        self.merge_datasets_action = self._localized_action("merge.action")
         self.merge_datasets_action.triggered.connect(self.show_dataset_merge)
         edit_menu.addAction(self.merge_datasets_action)
-        self.undo_merge_action = QAction(self._t("merge.undo"), self)
+        self.undo_merge_action = self._localized_action("merge.undo")
         self.undo_merge_action.triggered.connect(self.undo_dataset_merge)
         self.undo_merge_action.setEnabled(False)
         edit_menu.addAction(self.undo_merge_action)
-        self.redo_merge_action = QAction(self._t("merge.redo"), self)
+        self.redo_merge_action = self._localized_action("merge.redo")
         self.redo_merge_action.triggered.connect(self.redo_dataset_merge)
         self.redo_merge_action.setEnabled(False)
         edit_menu.addAction(self.redo_merge_action)
 
-        self.ratio_action = QAction(self._t("ratio.action"), self)
+        self.ratio_action = self._localized_action("ratio.action")
         self.ratio_action.triggered.connect(self.calculate_ratios)
         calc_menu.addAction(self.ratio_action)
 
-        self.formula_action = QAction(self._t("formula.action"), self)
+        self.formula_action = self._localized_action("formula.action")
         self.formula_action.triggered.connect(self.show_formula_profiles)
         calc_menu.addAction(self.formula_action)
 
-        self.custom_formula_action = QAction("Пользовательские формулы...", self)
+        self.custom_formula_action = self._localized_action("shell.custom_formulas")
         self.custom_formula_action.triggered.connect(self.show_custom_formulas)
         calc_menu.addAction(self.custom_formula_action)
 
-        self.time_depth_mapping_action = QAction(self._t("time_depth.action"), self)
+        self.time_depth_mapping_action = self._localized_action("time_depth.action")
         self.time_depth_mapping_action.triggered.connect(self.show_time_depth_mapping)
         calc_menu.addAction(self.time_depth_mapping_action)
 
-        self.nct_action = QAction(self._t("nct.action"), self)
+        self.nct_action = self._localized_action("nct.action")
         self.nct_action.triggered.connect(self.calculate_nct)
         calc_menu.addAction(self.nct_action)
 
-        self.interval_statistics_action = QAction(self._t("statistics.action"), self)
+        self.interval_statistics_action = self._localized_action("statistics.action")
         self.interval_statistics_action.triggered.connect(self.show_interval_statistics)
         calc_menu.addAction(self.interval_statistics_action)
 
@@ -762,12 +777,15 @@ class MainWindow(QMainWindow):
             self._t("panel.hide_all"),
             self,
         )
+        self.hide_side_panels_action.setProperty("i18n_key", "panel.hide_all")
+        self.hide_side_panels_action.setProperty("i18n_tooltip_key", "panel.hide_all_tooltip")
         self.hide_side_panels_action.setToolTip(self._t("panel.hide_all_tooltip"))
+        self.hide_side_panels_action.setStatusTip(self._t("panel.hide_all_tooltip"))
         self.hide_side_panels_action.setShortcut("Ctrl+Alt+0")
         self.hide_side_panels_action.triggered.connect(self._hide_side_panels)
         view_menu.addAction(self.hide_side_panels_action)
 
-        self.default_tablet_action = QAction(self._t("tablet.build_default"), self)
+        self.default_tablet_action = self._localized_action("tablet.build_default")
         self.default_tablet_action.triggered.connect(self.build_default_tablet)
         tablet_menu.addAction(self.default_tablet_action)
 
@@ -776,8 +794,8 @@ class MainWindow(QMainWindow):
         tablet_menu.addSeparator()
         self.interval_mode_group = QActionGroup(self)
         self.interval_mode_group.setExclusive(True)
-        self.interval_select_action = QAction(
-            self._t("interpretations.mode_select"), self, checkable=True
+        self.interval_select_action = self._localized_action(
+            "interpretations.mode_select", checkable=True
         )
         self.interval_select_action.setChecked(True)
         self.interval_select_action.setShortcut("Alt+1")
@@ -787,8 +805,8 @@ class MainWindow(QMainWindow):
         self.interval_mode_group.addAction(self.interval_select_action)
         tablet_menu.addAction(self.interval_select_action)
 
-        self.interval_create_action = QAction(
-            self._t("interpretations.mode_create"), self, checkable=True
+        self.interval_create_action = self._localized_action(
+            "interpretations.mode_create", checkable=True
         )
         self.interval_create_action.setShortcut("Alt+2")
         self.interval_create_action.triggered.connect(
@@ -797,8 +815,8 @@ class MainWindow(QMainWindow):
         self.interval_mode_group.addAction(self.interval_create_action)
         tablet_menu.addAction(self.interval_create_action)
 
-        self.interval_resize_action = QAction(
-            self._t("interpretations.mode_resize"), self, checkable=True
+        self.interval_resize_action = self._localized_action(
+            "interpretations.mode_resize", checkable=True
         )
         self.interval_resize_action.setShortcut("Alt+3")
         self.interval_resize_action.triggered.connect(
@@ -807,129 +825,126 @@ class MainWindow(QMainWindow):
         self.interval_mode_group.addAction(self.interval_resize_action)
         tablet_menu.addAction(self.interval_resize_action)
 
-        self.undo_interpretation_action = QAction(
-            self._t("interpretations.undo"), self
-        )
+        self.undo_interpretation_action = self._localized_action("interpretations.undo")
         self.undo_interpretation_action.setShortcut("Ctrl+Alt+Z")
         self.undo_interpretation_action.triggered.connect(self.undo_interpretation_edit)
         tablet_menu.addAction(self.undo_interpretation_action)
-        self.redo_interpretation_action = QAction(
-            self._t("interpretations.redo"), self
-        )
+        self.redo_interpretation_action = self._localized_action("interpretations.redo")
         self.redo_interpretation_action.setShortcut("Ctrl+Alt+Shift+Z")
         self.redo_interpretation_action.triggered.connect(self.redo_interpretation_edit)
         tablet_menu.addAction(self.redo_interpretation_action)
         self._update_interpretation_history_actions()
 
-        save_preset_action = QAction(self._t("tablet.preset_save"), self)
+        save_preset_action = self._localized_action("tablet.preset_save")
         save_preset_action.triggered.connect(self.save_tablet_preset)
         tablet_menu.addAction(save_preset_action)
-        apply_preset_action = QAction(self._t("tablet.preset_apply"), self)
+        apply_preset_action = self._localized_action("tablet.preset_apply")
         apply_preset_action.triggered.connect(self.apply_tablet_preset)
         tablet_menu.addAction(apply_preset_action)
-        delete_preset_action = QAction(self._t("tablet.preset_delete"), self)
+        delete_preset_action = self._localized_action("tablet.preset_delete")
         delete_preset_action.triggered.connect(self.delete_tablet_preset)
         tablet_menu.addAction(delete_preset_action)
 
-        self.form_manager_action = QAction(self._t("forms.manager_action"), self)
+        self.form_manager_action = self._localized_action("forms.manager_action")
         self.form_manager_action.triggered.connect(self.show_form_manager)
         forms_menu.addAction(self.form_manager_action)
 
-        self.lithology_legend_action = QAction(self._t("legend.action"), self)
+        self.lithology_legend_action = self._localized_action("legend.action")
         self.lithology_legend_action.triggered.connect(self.show_lithology_legend)
         tablet_menu.addAction(self.lithology_legend_action)
 
-        add_track_menu = QMenu(self._t("tablet.add_track"), self)
+        add_track_menu = self._localized_menu("tablet.add_track")
         tablet_menu.addMenu(add_track_menu)
-        for title, kind in (
-            (self._t("tablet.track.depth"), TrackKind.DEPTH),
-            (self._t("tablet.track.gas"), TrackKind.GAS),
-            ("DEXP / NCT", TrackKind.DEXP),
-            (self._t("tablet.track.lithology"), TrackKind.LITHOLOGY),
-            (self._t("tablet.track.stratigraphy"), TrackKind.STRATIGRAPHY),
-            (self._t("tablet.track.interpretation"), TrackKind.INTERPRETATION),
-            (self._t("tablet.track.cuttings"), TrackKind.CUTTINGS),
-            (self._t("tablet.track.calcimetry"), TrackKind.CALCIMETRY),
-            (self._t("tablet.track.lba"), TrackKind.LBA),
-            (self._t("tablet.track.description"), TrackKind.TEXT),
-            (self._t("tablet.track.curve"), TrackKind.CURVE),
+        for title_key, kind in (
+            ("tablet.track.depth", TrackKind.DEPTH),
+            ("tablet.track.gas", TrackKind.GAS),
+            ("tablet.track.dexp_nct", TrackKind.DEXP),
+            ("tablet.track.lithology", TrackKind.LITHOLOGY),
+            ("tablet.track.stratigraphy", TrackKind.STRATIGRAPHY),
+            ("tablet.track.interpretation", TrackKind.INTERPRETATION),
+            ("tablet.track.cuttings", TrackKind.CUTTINGS),
+            ("tablet.track.calcimetry", TrackKind.CALCIMETRY),
+            ("tablet.track.lba", TrackKind.LBA),
+            ("tablet.track.description", TrackKind.TEXT),
+            ("tablet.track.curve", TrackKind.CURVE),
         ):
-            action = QAction(title, self)
+            action = self._localized_action(title_key)
             action.triggered.connect(lambda _checked=False, value=kind: self.add_track(value))
             add_track_menu.addAction(action)
 
         tablet_menu.addSeparator()
-        width_action = QAction(self._t("tablet.change_width"), self)
+        width_action = self._localized_action("tablet.change_width")
         width_action.triggered.connect(self.change_selected_track_width)
         tablet_menu.addAction(width_action)
 
-        linear_scale_action = QAction(self._t("tablet.linear_scale"), self)
+        linear_scale_action = self._localized_action("tablet.linear_scale")
         linear_scale_action.triggered.connect(
             lambda: self.set_selected_track_x_scale(XScale.LINEAR)
         )
         tablet_menu.addAction(linear_scale_action)
 
-        log_scale_action = QAction(self._t("tablet.log_scale"), self)
+        log_scale_action = self._localized_action("tablet.log_scale")
         log_scale_action.triggered.connect(
             lambda: self.set_selected_track_x_scale(XScale.LOGARITHMIC)
         )
         tablet_menu.addAction(log_scale_action)
 
-        range_action = QAction(self._t("tablet.set_range"), self)
+        range_action = self._localized_action("tablet.set_range")
         range_action.triggered.connect(self.change_selected_track_x_range)
         tablet_menu.addAction(range_action)
 
-        auto_range_action = QAction(self._t("tablet.auto_range"), self)
+        auto_range_action = self._localized_action("tablet.auto_range")
         auto_range_action.triggered.connect(self.reset_selected_track_x_range)
         tablet_menu.addAction(auto_range_action)
 
-        depth_range_action = QAction(self._t("tablet.set_depth_range"), self)
+        depth_range_action = self._localized_action("tablet.set_depth_range")
         depth_range_action.triggered.connect(self.change_visible_depth_range)
         tablet_menu.addAction(depth_range_action)
 
-        full_depth_action = QAction(self._t("tablet.full_depth_range"), self)
+        full_depth_action = self._localized_action("tablet.full_depth_range")
         full_depth_action.triggered.connect(self.reset_visible_depth_range)
         tablet_menu.addAction(full_depth_action)
 
-        move_left_action = QAction(self._t("tablet.move_left"), self)
+        move_left_action = self._localized_action("tablet.move_left")
         move_left_action.triggered.connect(lambda: self.move_selected_track(-1))
         tablet_menu.addAction(move_left_action)
 
-        move_right_action = QAction(self._t("tablet.move_right"), self)
+        move_right_action = self._localized_action("tablet.move_right")
         move_right_action.triggered.connect(lambda: self.move_selected_track(1))
         tablet_menu.addAction(move_right_action)
 
-        hide_action = QAction(self._t("tablet.hide"), self)
+        hide_action = self._localized_action("tablet.hide")
         hide_action.triggered.connect(self.hide_selected_track)
         tablet_menu.addAction(hide_action)
 
-        show_all_action = QAction(self._t("tablet.show_all"), self)
+        show_all_action = self._localized_action("tablet.show_all")
         show_all_action.triggered.connect(self.show_all_tracks)
         tablet_menu.addAction(show_all_action)
 
-        remove_action = QAction(self._t("tablet.remove"), self)
+        remove_action = self._localized_action("tablet.remove")
         remove_action.triggered.connect(self.remove_selected_track)
         tablet_menu.addAction(remove_action)
 
-        about_action = QAction("О программе", self)
+        about_action = self._localized_action("shell.about")
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
     def _create_toolbar(self) -> None:
-        toolbar = QToolBar("Основная")
-        toolbar.setMovable(False)
-        toolbar.addAction(self.open_project_action)
-        toolbar.addAction(self.open_data_action)
-        toolbar.addAction(self.default_tablet_action)
-        toolbar.addSeparator()
-        toolbar.addAction(self.interval_select_action)
-        toolbar.addAction(self.interval_create_action)
-        toolbar.addAction(self.interval_resize_action)
-        toolbar.addSeparator()
-        toolbar.addAction(self.ratio_action)
-        toolbar.addAction(self.cursor_line_action)
-        toolbar.addAction(self.save_action)
-        self.addToolBar(toolbar)
+        self.main_toolbar = QToolBar(self._t("toolbar.main"), self)
+        self.main_toolbar.setObjectName("mainToolbar")
+        self.main_toolbar.setMovable(False)
+        self.main_toolbar.addAction(self.open_project_action)
+        self.main_toolbar.addAction(self.open_data_action)
+        self.main_toolbar.addAction(self.default_tablet_action)
+        self.main_toolbar.addSeparator()
+        self.main_toolbar.addAction(self.interval_select_action)
+        self.main_toolbar.addAction(self.interval_create_action)
+        self.main_toolbar.addAction(self.interval_resize_action)
+        self.main_toolbar.addSeparator()
+        self.main_toolbar.addAction(self.ratio_action)
+        self.main_toolbar.addAction(self.cursor_line_action)
+        self.main_toolbar.addAction(self.save_action)
+        self.addToolBar(self.main_toolbar)
 
     def toggle_cursor_line(self, enabled: bool) -> None:
         self.tablet_view.set_cursor_enabled(enabled)
@@ -951,9 +966,7 @@ class MainWindow(QMainWindow):
             self.cursor_values.setPlainText(summary.replace(" | ", "\n"))
 
     def configure_cursor_line(self) -> None:
-        color = QColorDialog.getColor(
-            parent=self, title=self._t("cursor.color_title")
-        )
+        color = QColorDialog.getColor(parent=self, title=self._t("cursor.color_title"))
         if not color.isValid():
             return
         width, accepted = QInputDialog.getDouble(
@@ -996,13 +1009,64 @@ class MainWindow(QMainWindow):
 
     def change_language(self, language: AppLanguage) -> None:
         if language is self.language:
+            action = self.language_actions.get(language)
+            if action is not None:
+                action.setChecked(True)
             return
+
+        self.language = language
+        self.localizer = Localizer.create(language)
         self.language_settings.save(language)
-        QMessageBox.information(
-            self,
-            self._t("language.changed.title"),
-            self._t("language.changed.message", language=LANGUAGE_NAMES[language]),
+        self._retranslate_ui()
+        self.statusBar().showMessage(
+            self._t(
+                "language.changed.message",
+                language=LANGUAGE_NAMES[language],
+            ),
+            5000,
         )
+
+    def _retranslate_ui(self) -> None:
+        self.tabs.setTabText(0, self._t("tab.curves"))
+        self.tabs.setTabText(1, self._t("tab.table"))
+        self.tabs.setTabText(2, self._t("tab.tablet"))
+
+        self.project_dock.setWindowTitle(self._t("dock.project"))
+        self.curve_browser_dock.setWindowTitle(self._t("curve_browser.title"))
+        self.inspector_dock.setWindowTitle(self._t("dock.inspector"))
+        self.interpretation_properties_dock.setWindowTitle(
+            self._t("interpretations.properties_title")
+        )
+        self.issues_dock.setWindowTitle(self._t("dock.log"))
+        self.cursor_dock.setWindowTitle(self._t("cursor.panel_title"))
+        self.tree.setHeaderLabel(self._t("explorer.title"))
+        self.left_panel_rail.setWindowTitle(self._t("panel.left_rail"))
+        self.right_panel_rail.setWindowTitle(self._t("panel.right_rail"))
+        self.main_toolbar.setWindowTitle(self._t("toolbar.main"))
+
+        self._retranslate_registered_actions()
+        for current_language, action in self.language_actions.items():
+            action.setChecked(current_language is self.language)
+
+        for widget in (
+            self.curve_view,
+            self.las_table_editor,
+            self.tablet_view,
+            self.curve_browser,
+            self.inspector,
+            self.interpretation_properties,
+        ):
+            setter = getattr(widget, "set_language", None)
+            if callable(setter):
+                setter(self.language)
+
+        if self._interpretation_dialog is not None:
+            setter = getattr(self._interpretation_dialog, "set_language", None)
+            if callable(setter):
+                setter(self.language)
+
+        self._refresh_tree()
+        self._update_title()
 
     def select_user_profile(self) -> None:
         profiles = self.user_profile_settings.profiles()
@@ -1039,9 +1103,7 @@ class MainWindow(QMainWindow):
             profile = self.user_profile_settings.select(profiles[index].profile_id)
         self.statusBar().showMessage(self._t("profile.active", name=profile.display_name))
         self.print_page_settings = self.user_profile_settings.print_page_settings()
-        self.las_table_editor.set_number_formats(
-            self.user_profile_settings.table_number_formats()
-        )
+        self.las_table_editor.set_number_formats(self.user_profile_settings.table_number_formats())
 
     def open_las(self) -> None:
         mode_labels = {
@@ -1330,9 +1392,7 @@ class MainWindow(QMainWindow):
         selected_interpretation_id = self.interpretation_controller.selected_interpretation_id
         selected_interval_id = self.interpretation_controller.selected_interval_id
         if selected_interpretation_id and selected_interval_id:
-            self._select_interpretation_interval(
-                selected_interpretation_id, selected_interval_id
-            )
+            self._select_interpretation_interval(selected_interpretation_id, selected_interval_id)
         else:
             self._clear_interpretation_interval_selection()
         saved_layout = self.session.current_tablet_layout
@@ -1895,9 +1955,7 @@ class MainWindow(QMainWindow):
         self.curve_browser_dock.hide()
         self._refresh_tree()
         self._update_title()
-        self.statusBar().showMessage(
-            self._t("curve_browser.built_status", count=len(selected))
-        )
+        self.statusBar().showMessage(self._t("curve_browser.built_status", count=len(selected)))
 
     def _add_curves_from_browser(self, mnemonics: object) -> None:
         selected = [str(item) for item in mnemonics] if isinstance(mnemonics, list) else []
@@ -1919,9 +1977,7 @@ class MainWindow(QMainWindow):
         if not selected or self._selected_track_id is None:
             return
         try:
-            track = self.tablet_controller.replace_track_curves(
-                self._selected_track_id, selected
-            )
+            track = self.tablet_controller.replace_track_curves(self._selected_track_id, selected)
         except (KeyError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("curve_browser.title"), str(exc))
             return
@@ -1944,9 +2000,7 @@ class MainWindow(QMainWindow):
             return
         self.apply_form_to_tablet(dialog.selected_form)
 
-    def apply_form_to_tablet(
-        self, form, *, mark_dirty: bool = True, notify: bool = True
-    ) -> None:
+    def apply_form_to_tablet(self, form, *, mark_dirty: bool = True, notify: bool = True) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
             QMessageBox.information(self, self._t("forms.title"), self._t("forms.open_first"))
@@ -2271,9 +2325,7 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._log(message)
 
-    def _select_curve_mnemonics(
-        self, *, preselected: tuple[str, ...] = ()
-    ) -> list[str]:
+    def _select_curve_mnemonics(self, *, preselected: tuple[str, ...] = ()) -> list[str]:
         dataset = self.session.current_dataset
         if dataset is None:
             return []
@@ -2306,19 +2358,19 @@ class MainWindow(QMainWindow):
             item.setToolTip(
                 "\n".join(
                     value
-                    for value in (readable, f"{mnemonic}{f' [{unit}]' if unit else ''}", description)
+                    for value in (
+                        readable,
+                        f"{mnemonic}{f' [{unit}]' if unit else ''}",
+                        description,
+                    )
                     if value
                 )
             )
             item.setFlags(
-                item.flags()
-                | Qt.ItemFlag.ItemIsUserCheckable
-                | Qt.ItemFlag.ItemIsEnabled
+                item.flags() | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
             )
             item.setCheckState(
-                Qt.CheckState.Checked
-                if mnemonic in selected_set
-                else Qt.CheckState.Unchecked
+                Qt.CheckState.Checked if mnemonic in selected_set else Qt.CheckState.Unchecked
             )
             curve_list.addItem(item)
 
@@ -2582,9 +2634,7 @@ class MainWindow(QMainWindow):
             IntervalEditMode.RESIZE: self.interval_resize_action,
         }
         action_by_mode[mode].setChecked(True)
-        self.statusBar().showMessage(
-            self._t(f"interpretations.mode_{mode.value}_hint")
-        )
+        self.statusBar().showMessage(self._t(f"interpretations.mode_{mode.value}_hint"))
 
     def _ensure_interpretation_for_drawing(self) -> bool:
         if self.session.current_well is None or self.session.current_dataset is None:
@@ -2613,9 +2663,7 @@ class MainWindow(QMainWindow):
         self, interpretation_id: str, top_depth: float, bottom_depth: float, interval_type: str
     ) -> None:
         try:
-            interpretation = self.interpretation_controller.select_interpretation(
-                interpretation_id
-            )
+            interpretation = self.interpretation_controller.select_interpretation(interpretation_id)
             interval_number = len(interpretation.intervals) + 1
             interval = self.interpretation_controller.add_interval(
                 top_depth,
@@ -2689,9 +2737,7 @@ class MainWindow(QMainWindow):
             return
         self._after_interpretation_change()
         self._update_interpretation_history_actions()
-        self.statusBar().showMessage(
-            self._t("interpretations.undo_done", description=description)
-        )
+        self.statusBar().showMessage(self._t("interpretations.undo_done", description=description))
 
     def redo_interpretation_edit(self) -> None:
         if not self.interpretation_controller.can_redo:
@@ -2703,9 +2749,7 @@ class MainWindow(QMainWindow):
             return
         self._after_interpretation_change()
         self._update_interpretation_history_actions()
-        self.statusBar().showMessage(
-            self._t("interpretations.redo_done", description=description)
-        )
+        self.statusBar().showMessage(self._t("interpretations.redo_done", description=description))
 
     def _update_interpretation_history_actions(self) -> None:
         if not hasattr(self, "undo_interpretation_action"):
@@ -2756,9 +2800,7 @@ class MainWindow(QMainWindow):
         if self._interpretation_dialog is not None:
             self._interpretation_dialog.select_interpretation(interpretation_id)
 
-    def _select_interpretation_interval(
-        self, interpretation_id: str, interval_id: str
-    ) -> None:
+    def _select_interpretation_interval(self, interpretation_id: str, interval_id: str) -> None:
         try:
             interval = self.interpretation_controller.select_interval(
                 interpretation_id, interval_id
@@ -2824,9 +2866,7 @@ class MainWindow(QMainWindow):
         selected_interpretation_id = self.interpretation_controller.selected_interpretation_id
         selected_interval_id = self.interpretation_controller.selected_interval_id
         if selected_interpretation_id and selected_interval_id:
-            self._select_interpretation_interval(
-                selected_interpretation_id, selected_interval_id
-            )
+            self._select_interpretation_interval(selected_interpretation_id, selected_interval_id)
         else:
             self._clear_interpretation_interval_selection()
         self._refresh_tree()
@@ -2835,7 +2875,10 @@ class MainWindow(QMainWindow):
 
     def show_sensor_catalog(self) -> None:
         dialog = SensorCatalogDialog(
-            self.curve_browser.sensor_catalog, self, language=self.language, registry=self.mnemonic_registry
+            self.curve_browser.sensor_catalog,
+            self,
+            language=self.language,
+            registry=self.mnemonic_registry,
         )
         dialog.catalog_changed.connect(self._apply_sensor_catalog)
         dialog.exec()
@@ -2845,9 +2888,7 @@ class MainWindow(QMainWindow):
             return
         set_active_sensor_catalog(catalog)
         self.curve_browser.set_sensor_catalog(catalog)
-        self.statusBar().showMessage(
-            self._t("sensors.applied", count=len(catalog.sensors))
-        )
+        self.statusBar().showMessage(self._t("sensors.applied", count=len(catalog.sensors)))
 
     def show_description_templates(self) -> None:
         DescriptionTemplatesDialog(
@@ -3362,7 +3403,11 @@ class MainWindow(QMainWindow):
         curve = dataset.curves.get(mnemonic)
         if curve is None:
             curve = next(
-                (item for item in dataset.curves.values() if item.metadata.original_mnemonic == mnemonic),
+                (
+                    item
+                    for item in dataset.curves.values()
+                    if item.metadata.original_mnemonic == mnemonic
+                ),
                 None,
             )
         if curve is None:
@@ -3399,9 +3444,7 @@ class MainWindow(QMainWindow):
             return None
         return track
 
-    def _apply_context_curve_selection(
-        self, track_id: str, mnemonics: list[str]
-    ) -> None:
+    def _apply_context_curve_selection(self, track_id: str, mnemonics: list[str]) -> None:
         if not mnemonics:
             return
         self._selected_track_id = track_id
@@ -3430,9 +3473,7 @@ class MainWindow(QMainWindow):
         track = self._graphical_track(track_id)
         if track is None:
             return
-        selected = self._select_curve_mnemonics(
-            preselected=tuple(track.curve_mnemonics)
-        )
+        selected = self._select_curve_mnemonics(preselected=tuple(track.curve_mnemonics))
         self._apply_context_curve_selection(track_id, selected)
 
     def _show_curve_settings_from_context(self, track_id: str, mnemonic: str) -> None:
@@ -3443,9 +3484,7 @@ class MainWindow(QMainWindow):
             track = self.tablet_view.layout_model.track_by_id(track_id)
         except KeyError:
             return
-        dialog = CurveSettingsDialog(
-            track, dataset, self, language=self.language
-        )
+        dialog = CurveSettingsDialog(track, dataset, self, language=self.language)
         if mnemonic:
             for row in range(dialog.curves.count()):
                 item = dialog.curves.item(row)

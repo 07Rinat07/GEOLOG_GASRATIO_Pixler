@@ -5,7 +5,7 @@ GEOLOG GASRATIO@Pixler is an editor for drilling, mud-logging, and LAS data.
 ## Language
 
 Choose Русский, Қазақша, or English on first launch. You can later change the language from
-“Language / Язык / Тіл”. Restart the application to update every open window consistently.
+“Language / Язык / Тіл”. The selected language is applied immediately to the entire open interface; no application restart is required.
 
 ## Import
 
@@ -104,8 +104,11 @@ selected index.
 
 Each column supports an automatic X range or manually entered minimum and maximum values in the
 Track Inspector. Switching to manual mode starts from the actual data range for that column. The
-visible depth interval can also be entered numerically from the log-layout menu; “Show full depth
-range” restores automatic full-depth display.
+“Visible interval” control defines how many vertical-axis units are shown at once: `1`, `5`, `10`,
+`20`, `30`, `40`, `50`, `60`, `70`, `80`, `90`, `100`, or a custom value. A selection is applied
+immediately to every track. A manually typed number applies automatically without Enter. The label
+shows the current boundaries and actual span, for example `100–150 · span 50 m`. Time forms use the
+unit of the selected TIME index. “Full range” restores the complete interval.
 
 ## Correcting depth order
 

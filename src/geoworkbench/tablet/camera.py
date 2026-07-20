@@ -6,6 +6,8 @@ from dataclasses import dataclass
 # Standard depth windows shown in the tablet toolbar.  They describe how
 # many metres of the well are visible at once, not the sampling step.
 DEPTH_VIEW_SPAN_PRESETS: tuple[float, ...] = (
+    1.0,
+    5.0,
     10.0,
     20.0,
     30.0,

@@ -110,3 +110,14 @@ unzip -l dist/*.whl | grep -E 'LICENSE|geologist-logo.png|lithotypes.ru.json'
 - Для внешних библиотек тестируется наш адаптер, а не внутреннее устройство библиотеки.
 - Приватные детали реализации не проверяются, если доступно стабильное наблюдаемое состояние.
 - Количество тестов не заменяет проверку рисковых ветвей и бизнес-инвариантов.
+
+## Runtime language and vertical interval regression
+
+The current source archive was validated with `QT_QPA_PLATFORM=offscreen PYTHONPATH=src pytest -q`:
+
+- `848 passed`;
+- `1 skipped`;
+- preset depth/time interval selection updates all tracks;
+- typed interval values apply without Enter;
+- the interval survives widget resize;
+- runtime `ru → kk → en` switching preserves project and tablet camera state.

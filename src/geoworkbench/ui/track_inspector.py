@@ -16,7 +16,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackDefinition, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    CurveLineStyle,
+    CurveStyle,
+    TrackDefinition,
+    TrackKind,
+    XScale,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
@@ -44,15 +50,14 @@ class TrackInspector(QWidget):
         editor_layout.addWidget(self._summary)
 
         form = QFormLayout()
+        self._main_form = form
         self.width_input = QSpinBox()
         self.width_input.setRange(80, 2000)
         form.addRow(self._t("inspector.width"), self.width_input)
 
         self.scale_input = QComboBox()
         self.scale_input.addItem(self._t("inspector.linear"), XScale.LINEAR.value)
-        self.scale_input.addItem(
-            self._t("inspector.logarithmic"), XScale.LOGARITHMIC.value
-        )
+        self.scale_input.addItem(self._t("inspector.logarithmic"), XScale.LOGARITHMIC.value)
         form.addRow(self._t("inspector.x_scale"), self.scale_input)
 
         self.auto_range_input = QCheckBox(self._t("common.auto"))
@@ -66,6 +71,7 @@ class TrackInspector(QWidget):
         editor_layout.addLayout(form)
 
         style_form = QFormLayout()
+        self._style_form = style_form
         self.curve_input = QComboBox()
         self.curve_input.currentIndexChanged.connect(self._load_curve_style)
         style_form.addRow(self._t("inspector.style_curve"), self.curve_input)
@@ -88,6 +94,7 @@ class TrackInspector(QWidget):
         editor_layout.addWidget(self.style_button)
 
         grid_form = QFormLayout()
+        self._grid_form = grid_form
         self.grid_x_input = QCheckBox(self._t("inspector.grid_x"))
         self.grid_y_input = QCheckBox(self._t("inspector.grid_y"))
         self.grid_alpha_input = QDoubleSpinBox()
@@ -103,6 +110,7 @@ class TrackInspector(QWidget):
         editor_layout.addWidget(self.grid_button)
 
         axis_form = QFormLayout()
+        self._axis_form = axis_form
         self.x_axis_label_input = QLineEdit()
         self.x_axis_label_input.setMaxLength(100)
         axis_form.addRow(self._t("inspector.x_axis_label"), self.x_axis_label_input)
@@ -124,6 +132,67 @@ class TrackInspector(QWidget):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
+
+    def set_language(self, language: AppLanguage) -> None:
+        previous_localizer = self.localizer
+        self.localizer = Localizer.create(language)
+
+        for field, key in (
+            (self.width_input, "inspector.width"),
+            (self.scale_input, "inspector.x_scale"),
+            (self.auto_range_input, "inspector.x_range"),
+            (self.minimum_input, "inspector.x_minimum"),
+            (self.maximum_input, "inspector.x_maximum"),
+        ):
+            label = self._main_form.labelForField(field)
+            if label is not None:
+                label.setText(self._t(key))
+
+        self.scale_input.setItemText(
+            self.scale_input.findData(XScale.LINEAR.value),
+            self._t("inspector.linear"),
+        )
+        self.scale_input.setItemText(
+            self.scale_input.findData(XScale.LOGARITHMIC.value),
+            self._t("inspector.logarithmic"),
+        )
+        self.auto_range_input.setText(self._t("common.auto"))
+
+        for field, key in (
+            (self.curve_input, "inspector.style_curve"),
+            (self.color_input, "inspector.color"),
+            (self.line_width_input, "inspector.line_width"),
+            (self.line_style_input, "inspector.line_style"),
+        ):
+            label = self._style_form.labelForField(field)
+            if label is not None:
+                label.setText(self._t(key))
+        for style in CurveLineStyle:
+            row = self.line_style_input.findData(style.value)
+            if row >= 0:
+                self.line_style_input.setItemText(
+                    row,
+                    self._t(f"inspector.line_style.{style.value}"),
+                )
+
+        self.grid_x_input.setText(self._t("inspector.grid_x"))
+        self.grid_y_input.setText(self._t("inspector.grid_y"))
+        grid_alpha_label = self._grid_form.labelForField(self.grid_alpha_input)
+        if grid_alpha_label is not None:
+            grid_alpha_label.setText(self._t("inspector.grid_alpha"))
+        axis_label = self._axis_form.labelForField(self.x_axis_label_input)
+        if axis_label is not None:
+            axis_label.setText(self._t("inspector.x_axis_label"))
+
+        self.style_button.setText(self._t("inspector.apply_style"))
+        self.grid_button.setText(self._t("inspector.apply_grid"))
+        self.axis_label_button.setText(self._t("inspector.apply_axis_label"))
+        self.apply_button.setText(self._t("common.apply"))
+
+        if self._current_track is not None:
+            self.show_track(self._current_track)
+        elif self._text.toPlainText() == previous_localizer.text("inspector.default"):
+            self._text.setPlainText(self._t("inspector.default"))
 
     def setPlainText(self, text: str) -> None:  # noqa: N802
         self._track_id = None
@@ -163,9 +232,7 @@ class TrackInspector(QWidget):
             f"{', '.join(curve_names) or self._t('common.none')}"
         )
         self.width_input.setValue(track.width)
-        self.scale_input.setCurrentIndex(
-            self.scale_input.findData(track.x_scale.value)
-        )
+        self.scale_input.setCurrentIndex(self.scale_input.findData(track.x_scale.value))
         automatic = track.x_min is None or track.x_max is None
         self.auto_range_input.setChecked(automatic)
         fallback = suggested_range or (0.1, 100.0)
@@ -251,6 +318,4 @@ class TrackInspector(QWidget):
     def _emit_x_axis_label(self) -> None:
         if self._track_id is None:
             return
-        self.x_axis_label_requested.emit(
-            self._track_id, self.x_axis_label_input.text().strip()
-        )
+        self.x_axis_label_requested.emit(self._track_id, self.x_axis_label_input.text().strip())

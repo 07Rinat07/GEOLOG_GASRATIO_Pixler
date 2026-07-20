@@ -1,3 +1,61 @@
+## Unreleased — reliable visible depth/time interval control
+
+### Русский
+
+- поле «Интервал на экране» немедленно изменяет фактический вертикальный диапазон всех треков;
+- добавлены готовые интервалы `1`, `5`, `10`, `20`, `30`, `40`, `50`, `60`, `70`, `80`, `90`, `100` и произвольное значение;
+- ручной ввод применяется автоматически без Enter после завершения набора числа;
+- модель планшета стала единственным источником состояния камеры, поэтому отображаемое значение больше не расходится с графиком;
+- выбранный диапазон повторно фиксируется после изменения размера окна или перестроения формы;
+- подпись показывает границы и фактический размер интервала; для временной оси используется её единица измерения;
+- добавлены регрессионные тесты выбора, ручного ввода, синхронизации треков и resize.
+
+### Қазақша
+
+- «Экрандағы аралық» өрісі барлық тректің нақты тік ауқымын бірден өзгертеді;
+- `1`, `5`, `10`, `20`, `30`, `40`, `50`, `60`, `70`, `80`, `90`, `100` дайын аралықтары және еркін мән қосылды;
+- қолмен енгізілген сан Enter баспай-ақ теру аяқталғаннан кейін автоматты қолданылады;
+- планшет моделі камера күйінің жалғыз көзі болды, сондықтан өрістегі мән мен график енді ажырамайды;
+- терезе өлшемі немесе пішін өзгергеннен кейін таңдалған ауқым қайта бекітіледі;
+- жазу шекаралар мен нақты аралық өлшемін көрсетеді, уақыт осі үшін оның өлшем бірлігі пайдаланылады;
+- таңдау, қолмен енгізу, тректерді синхрондау және resize үшін регрессиялық тесттер қосылды.
+
+### English
+
+- the “Visible interval” control now changes the real vertical range of every track immediately;
+- added presets `1`, `5`, `10`, `20`, `30`, `40`, `50`, `60`, `70`, `80`, `90`, `100`, plus custom values;
+- manually typed values apply automatically without Enter after typing pauses;
+- the tablet layout model is now the single source of camera state, preventing the control from diverging from the plots;
+- the selected range is reasserted after window resize or form rebuild;
+- the label shows both boundaries and the actual span, using the active time-axis unit when applicable;
+- added regression tests for preset selection, typing, all-track synchronization, and resize.
+
+## Unreleased — immediate RU / KK / EN interface switching
+
+### Русский
+
+- выбор языка применяется сразу, без перезапуска приложения;
+- повторно переводятся меню, действия, вкладки, панели, LAS-таблица, браузер кривых, инспектор и навигация планшета;
+- текущий проект, загруженные данные, форма планшета, масштаб и позиция прокрутки сохраняются;
+- выбранный язык сохраняется в `QSettings` для следующего запуска;
+- добавлен GUI-регрессионный тест последовательности `ru → kk → en`.
+
+### Қазақша
+
+- таңдалған тіл қолданбаны қайта іске қоспай бірден қолданылады;
+- мәзірлер, әрекеттер, қойындылар, панельдер, LAS кестесі, қисықтар браузері, инспектор және планшет навигациясы қайта аударылады;
+- ағымдағы жоба, жүктелген деректер, планшет пішіні, масштаб және айналдыру орны сақталады;
+- таңдалған тіл келесі іске қосу үшін `QSettings` ішінде сақталады;
+- `ru → kk → en` тізбегіне GUI-регрессиялық тест қосылды.
+
+### English
+
+- language selection now applies immediately without restarting the application;
+- menus, actions, tabs, panels, the LAS table, curve browser, inspector, and tablet navigation are retranslated in place;
+- the current project, loaded data, tablet form, zoom, and scroll position are preserved;
+- the selected language remains stored in `QSettings` for the next launch;
+- added GUI regression coverage for the `ru → kk → en` sequence.
+
 ## Unreleased — form range recovery and reliable depth navigation
 
 ### Русский

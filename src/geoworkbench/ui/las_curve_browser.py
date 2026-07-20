@@ -44,9 +44,9 @@ class LasCurveBrowser(QWidget):
         root.setContentsMargins(6, 6, 6, 6)
         root.setSpacing(6)
 
-        intro = QLabel(self._t("curve_browser.help"))
-        intro.setWordWrap(True)
-        root.addWidget(intro)
+        self.intro = QLabel(self._t("curve_browser.help"))
+        self.intro.setWordWrap(True)
+        root.addWidget(self.intro)
 
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText(self._t("curve_browser.search"))
@@ -113,6 +113,43 @@ class LasCurveBrowser(QWidget):
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
 
+    def set_language(self, language: AppLanguage) -> None:
+        selected = set(self.selected_mnemonics())
+        filter_text = self.search_input.text()
+        self.localizer = Localizer.create(language)
+        self.intro.setText(self._t("curve_browser.help"))
+        self.search_input.setPlaceholderText(self._t("curve_browser.search"))
+        self.tree.setHeaderLabels(
+            [
+                self._t("curve_browser.mnemonic"),
+                self._t("curve_browser.canonical"),
+                self._t("curve_browser.unit"),
+                self._t("curve_browser.category"),
+                self._t("curve_browser.coverage"),
+                self._t("curve_browser.range"),
+                self._t("curve_browser.reference_range"),
+                self._t("curve_browser.description"),
+            ]
+        )
+        self.recommended_button.setText(self._t("curve_browser.recommended"))
+        self.clear_button.setText(self._t("curve_browser.clear"))
+        self.build_button.setText(self._t("curve_browser.build"))
+        self.add_button.setText(self._t("curve_browser.add"))
+        self.replace_button.setText(self._t("curve_browser.replace"))
+
+        self.set_dataset(self._dataset)
+        self.tree.blockSignals(True)
+        for index in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(index)
+            if item is None:
+                continue
+            mnemonic = item.data(0, Qt.ItemDataRole.UserRole)
+            if mnemonic in selected and not item.isDisabled():
+                item.setCheckState(0, Qt.CheckState.Checked)
+        self.tree.blockSignals(False)
+        self.search_input.setText(filter_text)
+        self._selection_changed()
+
     def set_dataset(self, dataset: Dataset | None) -> None:
         self._dataset = dataset
         self._entries = {}
@@ -124,7 +161,9 @@ class LasCurveBrowser(QWidget):
                 item = QTreeWidgetItem(
                     [
                         clean_mnemonic(entry.mnemonic),
-                        clean_mnemonic(entry.canonical_mnemonic) if entry.canonical_mnemonic else "—",
+                        clean_mnemonic(entry.canonical_mnemonic)
+                        if entry.canonical_mnemonic
+                        else "—",
                         clean_display_text(entry.unit) if entry.unit else "—",
                         self._category_label(entry.category),
                         f"{entry.coverage_percent:.1f}%",
@@ -157,7 +196,6 @@ class LasCurveBrowser(QWidget):
         self._update_enabled_state()
         self._selection_changed()
 
-
     @property
     def sensor_catalog(self) -> SensorCatalog:
         return self._sensor_catalog
@@ -181,9 +219,7 @@ class LasCurveBrowser(QWidget):
     def select_recommended(self) -> None:
         if self._dataset is None:
             return
-        selected = set(
-            recommended_curve_mnemonics(self._dataset, catalog=self._sensor_catalog)
-        )
+        selected = set(recommended_curve_mnemonics(self._dataset, catalog=self._sensor_catalog))
         self.tree.blockSignals(True)
         for index in range(self.tree.topLevelItemCount()):
             item = self.tree.topLevelItem(index)

@@ -47,16 +47,18 @@ class CurveView(QWidget):
         self._cursor_vertical: pg.InfiniteLine | None = None
         self._applying_shared_selection = False
         self._depth_range_guard = False
+        self._last_cursor_depth: float | None = None
+        self._last_cursor_value: float | None = None
         self._plot = pg.PlotWidget()
         self._plot.showGrid(x=True, y=True, alpha=0.25)
-        self._plot.setLabel("left", "Глубина", units="м")
+        self._plot.setLabel("left", self._t("curve.axis.depth"), units="m")
         self._plot.getAxis("left").enableAutoSIPrefix(False)
-        self._plot.setLabel("bottom", "Значение")
+        self._plot.setLabel("bottom", self._t("curve.axis.value"))
         self._legend = self._plot.addLegend(offset=(8, 8))
         self._plot.sigYRangeChanged.connect(self._on_depth_range_changed)
         self._plot.viewport().installEventFilter(self)
         self._plot.viewport().setMouseTracking(True)
-        self._title = QLabel("Откройте LAS-файл")
+        self._title = QLabel(self._t("curve.empty"))
         self._title.setStyleSheet("font-weight: 600; padding: 6px;")
         self._cursor_label = QLabel(self._t("curve.cursor_empty"))
         self._cursor_label.setObjectName("curve-cursor-values")
@@ -70,6 +72,29 @@ class CurveView(QWidget):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
+
+    def set_language(self, language: AppLanguage) -> None:
+        self.localizer = Localizer.create(language)
+        self._plot.setLabel("left", self._t("curve.axis.depth"), units="m")
+        self._plot.setLabel("bottom", self._t("curve.axis.value"))
+        if self._dataset is None:
+            self._title.setText(self._t("curve.empty"))
+        else:
+            self._title.setText(
+                self._t(
+                    "curve.title_summary",
+                    dataset=self._dataset.name,
+                    count=len(self._displayed_curve_ids),
+                    samples=len(self._dataset.depth),
+                )
+            )
+        if self._last_cursor_depth is None:
+            self._cursor_label.setText(self._t("curve.cursor_empty"))
+        else:
+            self.show_cursor_at_depth(
+                self._last_cursor_depth,
+                self._last_cursor_value,
+            )
 
     @property
     def title_text(self) -> str:
@@ -104,8 +129,10 @@ class CurveView(QWidget):
         self._selection_region = None
         self._cursor_horizontal = None
         self._cursor_vertical = None
+        self._last_cursor_depth = None
+        self._last_cursor_value = None
         self._cursor_label.setText(self._t("curve.cursor_empty"))
-        self._title.setText("Откройте LAS-файл")
+        self._title.setText(self._t("curve.empty"))
 
     def set_edit_mode(self, enabled: bool) -> bool:
         self._edit_mode = enabled and self.can_edit
@@ -126,10 +153,10 @@ class CurveView(QWidget):
         self._selection_region = None
         self._cursor_horizontal = None
         self._cursor_vertical = None
+        self._last_cursor_depth = None
+        self._last_cursor_value = None
         self._cursor_label.setText(self._t("curve.cursor_empty"))
-        selected_names = (
-            default_curve_mnemonics(dataset) if selected is None else selected
-        )
+        selected_names = default_curve_mnemonics(dataset) if selected is None else selected
         finite_depth = dataset.depth[np.isfinite(dataset.depth)]
         if len(selected_names) == 1:
             self._editable_curve = dataset.curve_by_mnemonic(selected_names[0])
@@ -181,9 +208,7 @@ class CurveView(QWidget):
                 brush=pg.mkBrush(70, 130, 180, 35),
             )
             self._selection_region.setZValue(20)
-            self._selection_region.sigRegionChangeFinished.connect(
-                self._publish_region_selection
-            )
+            self._selection_region.sigRegionChangeFinished.connect(self._publish_region_selection)
             self._plot.addItem(self._selection_region)
             if self.selection.dataset_id != dataset.dataset_id:
                 self.selection.select(
@@ -194,7 +219,12 @@ class CurveView(QWidget):
                 )
             self._apply_shared_selection()
         self._title.setText(
-            f"{dataset.name}: показано кривых — {count}, отсчётов — {len(dataset.depth)}"
+            self._t(
+                "curve.title_summary",
+                dataset=dataset.name,
+                count=count,
+                samples=len(dataset.depth),
+            )
         )
         if self._edit_mode and not self.can_edit:
             self.set_edit_mode(False)
@@ -236,6 +266,8 @@ class CurveView(QWidget):
             return False
         nearest = int(finite[np.argmin(np.abs(dataset.depth[finite] - depth))])
         snapped_depth = float(dataset.depth[nearest])
+        self._last_cursor_depth = snapped_depth
+        self._last_cursor_value = value
         depth_unit = "ms" if dataset.depth_domain.value == "time" else "m"
         parts = [
             self._t(
@@ -276,6 +308,8 @@ class CurveView(QWidget):
         self._cursor_vertical.hide()
 
     def _hide_cursor(self) -> None:
+        self._last_cursor_depth = None
+        self._last_cursor_value = None
         if self._cursor_horizontal is not None:
             self._cursor_horizontal.hide()
         if self._cursor_vertical is not None:
@@ -291,9 +325,7 @@ class CurveView(QWidget):
             return
         top, bottom = sorted(float(value) for value in self._selection_region.getRegion())
         try:
-            self.selection.select(
-                self._dataset, top, bottom, self._displayed_curve_ids
-            )
+            self.selection.select(self._dataset, top, bottom, self._displayed_curve_ids)
         except ValueError:
             return
 
@@ -345,7 +377,10 @@ class CurveView(QWidget):
                 self.show_cursor_at_depth(float(position.y()), float(position.x()))
             return super().eventFilter(watched, event)
         event_type = event.type()
-        if event_type == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+        if (
+            event_type == QEvent.Type.MouseButtonPress
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
             self._draw_points = [self._draw_point(event)]
             return True
         if event_type == QEvent.Type.MouseMove and self._draw_points:

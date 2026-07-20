@@ -40,6 +40,7 @@ class InterpretationPropertiesPanel(QWidget):
 
         self.form_widget = QWidget()
         form = QFormLayout(self.form_widget)
+        self._form = form
         self.interpretation_label = QLabel()
         self.interpretation_label.setObjectName("interpretation-properties-name")
         self.top_input = self._depth_input("interpretation-properties-top")
@@ -79,6 +80,24 @@ class InterpretationPropertiesPanel(QWidget):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
+
+    def set_language(self, language: AppLanguage) -> None:
+        self.localizer = Localizer.create(language)
+        self.empty_label.setText(self._t("interpretations.properties_empty"))
+        for control, key in (
+            (self.interpretation_label, "interpretations.name"),
+            (self.top_input, "interpretations.top"),
+            (self.bottom_input, "interpretations.bottom"),
+            (self.type_input, "interpretations.type"),
+            (self.label_input, "interpretations.label"),
+            (self.color_input, "interpretations.color"),
+            (self.comment_input, "interpretations.comment"),
+        ):
+            label = self._form.labelForField(control)
+            if label is not None:
+                label.setText(self._t(key))
+        self.apply_button.setText(self._t("common.apply"))
+        self.manager_button.setText(self._t("interpretations.open_manager"))
 
     @staticmethod
     def _depth_input(object_name: str) -> QDoubleSpinBox:

@@ -109,3 +109,22 @@ Remaining:
 - [x] create an editable saved copy from a materialized factory form;
 - [x] validate depth/time axis compatibility;
 - [x] support mouse row selection and multi-select LAS-curve insertion in the track editor.
+
+
+## Completed correction — runtime localization
+
+- [x] apply Russian, Kazakh, and English immediately without restart;
+- [x] retranslate the open shell and primary workbench widgets in place;
+- [x] preserve project, dataset, tablet layout, zoom, and scroll state;
+- [x] retain the selected language in `QSettings`;
+- [x] cover the `ru → kk → en` workflow with a GUI regression test.
+
+## Completed correction — exact vertical viewport
+
+- [x] 1/5/10–100 presets and custom positive values;
+- [x] immediate synchronized application to every tablet track;
+- [x] automatic commit of typed values without Enter;
+- [x] layout-model camera state as the single source of truth;
+- [x] range preservation across resize, form rebuild, and runtime language changes;
+- [x] active time-axis units in time forms;
+- [x] full regression suite: 848 passed, 1 skipped.

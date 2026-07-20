@@ -1,4 +1,9 @@
-from geoworkbench.services.localization import AppLanguage, LanguageSettings, Localizer, load_catalog
+from geoworkbench.services.localization import (
+    AppLanguage,
+    LanguageSettings,
+    Localizer,
+    load_catalog,
+)
 from geoworkbench.ui.main_window import MainWindow
 
 
@@ -48,9 +53,7 @@ def test_main_window_uses_selected_language_for_shell(qapp) -> None:
     assert window.normalize_depth_action.text() == "Create a copy with ascending depth..."
     assert window.ratio_action.text() == "Calculate basic Gas Ratios"
     tablet_menu_action = next(
-        action
-        for action in window.menuBar().actions()
-        if action.text() == "Log layout"
+        action for action in window.menuBar().actions() if action.text() == "Log layout"
     )
     tablet_menu = tablet_menu_action.menu()
     assert tablet_menu is not None
@@ -73,3 +76,51 @@ def test_depth_directions_are_available_in_three_languages() -> None:
     assert Localizer.create(AppLanguage.RU).text("depth.direction.descending") == "по убыванию"
     assert Localizer.create(AppLanguage.KK).text("depth.direction.descending") == "кему ретімен"
     assert Localizer.create(AppLanguage.EN).text("depth.direction.descending") == "descending"
+
+
+def test_language_switch_retranslates_open_interface_without_restart(qapp) -> None:
+    storage = MemorySettings()
+    window = MainWindow(
+        language=AppLanguage.RU,
+        language_settings=LanguageSettings(storage),
+    )
+    session = window.session
+    project_controller = window.project_controller
+    tablet_layout = window.tablet_view.layout_model
+
+    window.change_language(AppLanguage.KK)
+
+    kk = Localizer.create(AppLanguage.KK)
+    assert window.language is AppLanguage.KK
+    assert window.localizer.language is AppLanguage.KK
+    assert window.session is session
+    assert window.project_controller is project_controller
+    assert window.tablet_view.layout_model is tablet_layout
+    assert storage.values["ui/language"] == "kk"
+    assert window.tabs.tabText(0) == kk.text("tab.curves")
+    assert window.tabs.tabText(1) == kk.text("tab.table")
+    assert window.tabs.tabText(2) == kk.text("tab.tablet")
+    assert window.project_dock.windowTitle() == kk.text("dock.project")
+    assert window.open_project_action.text() == kk.text("shell.open_project")
+    assert window.open_data_action.text() == kk.text("import.universal")
+    assert window.default_tablet_action.text() == kk.text("tablet.build_default")
+    assert window.curve_browser.search_input.placeholderText() == kk.text("curve_browser.search")
+    assert window.las_table_editor.hint.text() == kk.text("table.hint")
+    assert window.inspector.apply_button.text() == kk.text("common.apply")
+    assert window.interpretation_properties.manager_button.text() == kk.text(
+        "interpretations.open_manager"
+    )
+    assert window.tablet_view._goto_button.text() == kk.text("tablet.goto")
+    assert window.language_actions[AppLanguage.KK].isChecked()
+
+    window.change_language(AppLanguage.EN)
+
+    en = Localizer.create(AppLanguage.EN)
+    assert window.language is AppLanguage.EN
+    assert storage.values["ui/language"] == "en"
+    assert window.open_project_action.text() == en.text("shell.open_project")
+    assert window.tabs.tabText(2) == en.text("tab.tablet")
+    assert window.curve_view.title_text == en.text("curve.empty")
+    assert window.tablet_view._full_range_button.text() == en.text("tablet.full_range")
+    assert window.language_actions[AppLanguage.EN].isChecked()
+    window.close()

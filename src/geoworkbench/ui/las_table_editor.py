@@ -86,9 +86,7 @@ class LasTableModel(QAbstractTableModel):
 
     def set_number_formats(self, formats: dict[str, NumberDisplayFormat]) -> None:
         if not all(
-            isinstance(key, str)
-            and bool(key)
-            and isinstance(value, NumberDisplayFormat)
+            isinstance(key, str) and bool(key) and isinstance(value, NumberDisplayFormat)
             for key, value in formats.items()
         ):
             raise TypeError("Настройки числовых колонок имеют неверный формат")
@@ -102,9 +100,7 @@ class LasTableModel(QAbstractTableModel):
     def number_format_for_column(self, column: int) -> NumberDisplayFormat:
         return self._number_formats.get(self._number_format_key(column), NumberDisplayFormat())
 
-    def apply_number_format(
-        self, columns: list[int], settings: NumberDisplayFormat
-    ) -> None:
+    def apply_number_format(self, columns: list[int], settings: NumberDisplayFormat) -> None:
         if self.dataset is None:
             raise RuntimeError(self.localizer.text("table.select_dataset"))
         if not columns or any(column < 0 or column >= self.columnCount() for column in columns):
@@ -123,7 +119,9 @@ class LasTableModel(QAbstractTableModel):
         mnemonic = curve.metadata.canonical_mnemonic or curve.metadata.original_mnemonic
         return f"curve:{mnemonic.casefold()}"
 
-    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole):  # type: ignore[override]  # noqa: E501, N802
+    def headerData(
+        self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole
+    ):  # type: ignore[override]  # noqa: E501, N802
         if role != Qt.ItemDataRole.DisplayRole or self.dataset is None:
             return None
         if orientation == Qt.Orientation.Vertical:
@@ -148,9 +146,7 @@ class LasTableModel(QAbstractTableModel):
         if role != Qt.ItemDataRole.EditRole or not index.isValid() or self.dataset is None:
             return False
         if index.column() == 0:
-            self.edit_failed.emit(
-                self.localizer.text("table.depth_readonly")
-            )
+            self.edit_failed.emit(self.localizer.text("table.depth_readonly"))
             return False
         curves_before = len(self.dataset.curves)
         curve = list(self.dataset.curves.values())[index.column() - 1]
@@ -205,9 +201,7 @@ class NumberFormatDialog(QDialog):
         layout = QFormLayout(self)
         layout.addRow(self.localizer.text("table.number_format.columns"), self.columns_label)
         layout.addRow(self.localizer.text("table.number_format.mode"), self.mode_input)
-        layout.addRow(
-            self.localizer.text("table.number_format.precision"), self.precision_input
-        )
+        layout.addRow(self.localizer.text("table.number_format.precision"), self.precision_input)
         layout.addRow(self.localizer.text("table.number_format.preview"), self.preview_label)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -270,19 +264,21 @@ class LasTableEditor(QWidget):
         root = QVBoxLayout(self)
         root.addWidget(self.hint)
         actions = QHBoxLayout()
-        for label, handler in (
-            (self._t("table.fill_constant"), self.fill_constant),
-            (self._t("table.set_missing"), self.set_missing),
-            (self._t("table.interpolate"), self.interpolate_missing),
-            (self._t("table.fill_noise"), self.fill_noise),
-            (self._t("table.copy_interval"), self.copy_selection),
-            (self._t("table.paste"), self.paste_selection),
-            (self._t("common.undo"), self.undo),
-            (self._t("common.redo"), self.redo),
+        self._command_buttons: list[tuple[QPushButton, str]] = []
+        for key, handler in (
+            ("table.fill_constant", self.fill_constant),
+            ("table.set_missing", self.set_missing),
+            ("table.interpolate", self.interpolate_missing),
+            ("table.fill_noise", self.fill_noise),
+            ("table.copy_interval", self.copy_selection),
+            ("table.paste", self.paste_selection),
+            ("common.undo", self.undo),
+            ("common.redo", self.redo),
         ):
-            button = QPushButton(label)
+            button = QPushButton(self._t(key))
             button.clicked.connect(handler)
             actions.addWidget(button)
+            self._command_buttons.append((button, key))
         self.number_format_button = QPushButton(self._t("table.number_format.action"))
         self.number_format_button.clicked.connect(self.configure_number_format)
         actions.addWidget(self.number_format_button)
@@ -293,6 +289,23 @@ class LasTableEditor(QWidget):
 
     def _t(self, key: str) -> str:
         return self.localizer.text(key)
+
+    def set_language(self, language: AppLanguage) -> None:
+        self.localizer = Localizer.create(language)
+        self.model.localizer = self.localizer
+        self.hint.setText(self._t("table.hint"))
+        for button, key in self._command_buttons:
+            button.setText(self._t(key))
+        self.number_format_button.setText(self._t("table.number_format.action"))
+        self.shift_action.setText(self._t("table.shift"))
+        self.multiply_action.setText(self._t("table.multiply"))
+        self.smooth_action.setText(self._t("table.smooth"))
+        if self.model.columnCount() > 0:
+            self.model.headerDataChanged.emit(
+                Qt.Orientation.Horizontal,
+                0,
+                self.model.columnCount() - 1,
+            )
 
     def set_dataset(self, dataset: Dataset | None) -> None:
         self.model.set_dataset(dataset)
@@ -341,20 +354,14 @@ class LasTableEditor(QWidget):
         curve_ids = tuple(curves[column - 1].metadata.curve_id for column in columns)
         depths = dataset.depth[np.asarray(sorted(rows), dtype=np.int64)]
         try:
-            self.selection.select(
-                dataset, float(np.min(depths)), float(np.max(depths)), curve_ids
-            )
+            self.selection.select(dataset, float(np.min(depths)), float(np.max(depths)), curve_ids)
         except (KeyError, ValueError):
             return
 
     def _apply_shared_selection(self) -> None:
         dataset = self.model.dataset
         interval = self.selection.interval
-        if (
-            dataset is None
-            or interval is None
-            or self.selection.dataset_id != dataset.dataset_id
-        ):
+        if dataset is None or interval is None or self.selection.dataset_id != dataset.dataset_id:
             return
         indices = np.flatnonzero(
             np.isfinite(dataset.depth)

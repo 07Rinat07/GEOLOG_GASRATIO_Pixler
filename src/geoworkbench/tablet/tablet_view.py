@@ -7,7 +7,7 @@ from typing import cast
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, Signal
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, Signal, QTimer
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen, QBrush, QWheelEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -50,9 +50,21 @@ from geoworkbench.tablet.camera import (
     recommended_initial_range,
     recommended_initial_span,
 )
-from geoworkbench.tablet.geometry_cache import CurveGeometryCache, CurveGeometryKey, GeometryCacheStats
-from geoworkbench.tablet.render_invalidation import DirtyReason, DirtyRenderStats, TrackDirtyRegistry
-from geoworkbench.tablet.static_layer_cache import StaticLayerCache, StaticLayerCacheStats, StaticLayerKey
+from geoworkbench.tablet.geometry_cache import (
+    CurveGeometryCache,
+    CurveGeometryKey,
+    GeometryCacheStats,
+)
+from geoworkbench.tablet.render_invalidation import (
+    DirtyReason,
+    DirtyRenderStats,
+    TrackDirtyRegistry,
+)
+from geoworkbench.tablet.static_layer_cache import (
+    StaticLayerCache,
+    StaticLayerCacheStats,
+    StaticLayerKey,
+)
 from geoworkbench.tablet.overlay_layers import (
     OverlayLayerKind,
     OverlayLayerManager,
@@ -298,12 +310,8 @@ class TabletTrackWidget(QFrame):
         self.curve_header_scroll.setWidgetResizable(True)
         self.curve_header_scroll.setWidget(self.curve_header)
         self.curve_header_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.curve_header_scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self.curve_header_scroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
-        )
+        self.curve_header_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.curve_header_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.curve_header_scroll.hide()
 
         axis_items = (
@@ -312,9 +320,7 @@ class TabletTrackWidget(QFrame):
         self.plot = pg.PlotWidget(axisItems=axis_items)
         self.plot.setBackground("#ffffff")
         self.plot.setMinimumHeight(240)
-        self.plot.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-        )
+        self.plot.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         for axis_name in ("left", "bottom"):
             axis = self.plot.getAxis(axis_name)
             axis.setPen(pg.mkPen("#475569"))
@@ -360,7 +366,9 @@ class TabletTrackWidget(QFrame):
                 )
             )
             label.context_requested.connect(
-                lambda selected, pos, track_id=self.definition.track_id: self.curve_context_requested.emit(
+                lambda selected,
+                pos,
+                track_id=self.definition.track_id: self.curve_context_requested.emit(
                     track_id, selected, pos
                 )
             )
@@ -417,18 +425,26 @@ class TabletTrackWidget(QFrame):
                 return True
         if watched is self.title and isinstance(event, QMouseEvent):
             global_x = event.globalPosition().toPoint().x()
-            if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.LeftButton
+            ):
                 self._header_drag_origin_x = global_x
                 self._header_dragging = False
                 return False
             if event.type() == QEvent.Type.MouseMove and self._header_drag_origin_x is not None:
                 if not self._header_dragging and abs(global_x - self._header_drag_origin_x) >= 8:
                     self._header_dragging = True
-                    self.header_drag_started.emit(self.definition.track_id, self._header_drag_origin_x)
+                    self.header_drag_started.emit(
+                        self.definition.track_id, self._header_drag_origin_x
+                    )
                 if self._header_dragging:
                     self.header_drag_moved.emit(self.definition.track_id, global_x)
                     return True
-            if event.type() == QEvent.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton:
+            if (
+                event.type() == QEvent.Type.MouseButtonRelease
+                and event.button() == Qt.MouseButton.LeftButton
+            ):
                 was_dragging = self._header_dragging
                 self._header_drag_origin_x = None
                 self._header_dragging = False
@@ -476,8 +492,6 @@ class TabletTrackWidget(QFrame):
     def _in_resize_zone(self, global_position: QPoint) -> bool:
         local_x = self.mapFromGlobal(global_position).x()
         return self.width() - self.RESIZE_MARGIN <= local_x <= self.width() + self.RESIZE_MARGIN
-
-
 
 
 class TabletMiniMap(QWidget):
@@ -635,9 +649,7 @@ class TabletView(QWidget):
         self._tracks_layout = QHBoxLayout(self._container)
         self._tracks_layout.setContentsMargins(0, 0, 0, 0)
         self._tracks_layout.setSpacing(2)
-        self._pinned_container.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
-        )
+        self._pinned_container.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         self._container.setSizePolicy(
             QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Expanding
         )
@@ -677,26 +689,43 @@ class TabletView(QWidget):
         self._span_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         for span in DEPTH_VIEW_SPAN_PRESETS:
             self._span_combo.addItem(
-                f"{span:g} {self._localizer.text('tablet.depth_span_unit')}", span
+                f"{span:g} {self._vertical_span_unit()}", span
             )
         self._span_combo.addItem(self._localizer.text("tablet.depth_span_custom"), None)
-        self._span_combo.activated.connect(self._depth_span_selected)
+        # currentIndexChanged is intentional here.  The former ``activated``
+        # connection only committed a preset after a very specific mouse/keyboard
+        # activation path.  On an editable combo box the displayed value could
+        # therefore change while the graph kept the old vertical interval.
+        self._span_combo.currentIndexChanged.connect(self._depth_span_selected)
+        self._span_edit_timer = QTimer(self)
+        self._span_edit_timer.setSingleShot(True)
+        self._span_edit_timer.setInterval(180)
+        self._span_edit_timer.timeout.connect(self._depth_span_typed)
+        self._resize_restore_timer = QTimer(self)
+        self._resize_restore_timer.setSingleShot(True)
+        self._resize_restore_timer.timeout.connect(self._restore_visible_depth_after_resize)
         span_line_edit = self._span_combo.lineEdit()
         if span_line_edit is not None:
             span_line_edit.returnPressed.connect(self._depth_span_typed)
             span_line_edit.editingFinished.connect(self._depth_span_typed)
+            # Apply a valid manually typed value automatically after a very short
+            # editing pause.  Applying on every keystroke made ``30`` become ``3``
+            # because the control synchronized itself after the first character.
+            span_line_edit.textEdited.connect(self._depth_span_text_edited)
         self._span_combo.setToolTip(self._localizer.text("tablet.depth_span_tooltip"))
 
         navigation = QHBoxLayout()
         navigation.setContentsMargins(6, 4, 6, 4)
-        navigation.addWidget(QLabel(self._localizer.text("tablet.vertical_axis")))
+        self._vertical_axis_label = QLabel(self._localizer.text("tablet.vertical_axis"))
+        navigation.addWidget(self._vertical_axis_label)
         navigation.addWidget(self._axis_combo)
         navigation.addWidget(self._range_label, 1)
         navigation.addWidget(self._goto_value)
         navigation.addWidget(self._goto_button)
         navigation.addWidget(self._zoom_in_button)
         navigation.addWidget(self._zoom_out_button)
-        navigation.addWidget(QLabel(self._localizer.text("tablet.depth_span")))
+        self._depth_span_label = QLabel(self._localizer.text("tablet.depth_span"))
+        navigation.addWidget(self._depth_span_label)
         navigation.addWidget(self._span_combo)
         navigation.addWidget(self._full_range_button)
 
@@ -720,6 +749,51 @@ class TabletView(QWidget):
         root.setSpacing(0)
         root.addLayout(navigation)
         root.addLayout(charts, 1)
+
+    def set_language(self, language: AppLanguage) -> None:
+        previous_localizer = self._localizer
+        previous_default_type = previous_localizer.text("interpretations.default_type")
+        current_span_data = self._span_combo.currentData()
+        current_span_text = self._span_combo.currentText()
+
+        self._localizer = Localizer.create(language)
+        self._navigation_hint = self._localizer.text("tablet.depth_navigation_hint")
+        if self._interval_creation_type == previous_default_type:
+            self._interval_creation_type = self._localizer.text("interpretations.default_type")
+
+        self._vertical_axis_label.setText(self._localizer.text("tablet.vertical_axis"))
+        self._goto_button.setText(self._localizer.text("tablet.goto"))
+        self._zoom_in_button.setToolTip(self._localizer.text("tablet.zoom_in"))
+        self._zoom_out_button.setToolTip(self._localizer.text("tablet.zoom_out"))
+        self._full_range_button.setText(self._localizer.text("tablet.full_range"))
+        self._depth_span_label.setText(self._localizer.text("tablet.depth_span"))
+
+        self._span_combo.blockSignals(True)
+        try:
+            self._span_combo.clear()
+            for span in DEPTH_VIEW_SPAN_PRESETS:
+                self._span_combo.addItem(
+                    f"{span:g} {self._vertical_span_unit()}",
+                    span,
+                )
+            self._span_combo.addItem(
+                self._localizer.text("tablet.depth_span_custom"),
+                None,
+            )
+            selected_row = self._span_combo.findData(current_span_data)
+            if selected_row >= 0:
+                self._span_combo.setCurrentIndex(selected_row)
+            elif current_span_text:
+                self._span_combo.setEditText(current_span_text)
+        finally:
+            self._span_combo.blockSignals(False)
+        self._span_combo.setToolTip(self._localizer.text("tablet.depth_span_tooltip"))
+
+        cursor_depth = self._cursor_depth
+        self.refresh_view()
+        if cursor_depth is not None and self._dataset is not None:
+            self.set_cursor_depth(cursor_depth)
+        self._update_navigation_controls()
 
     @property
     def layout_model(self) -> TabletLayout:
@@ -765,7 +839,7 @@ class TabletView(QWidget):
         self._dirty_registry.mark(track_id, reason)
         if reason & (DirtyReason.DATA | DirtyReason.LAYOUT):
             rendered = self._rendered[track_id]
-            for mnemonic in (rendered.curve_items or {}):
+            for mnemonic in rendered.curve_items or {}:
                 self._geometry_cache.invalidate_curve(mnemonic)
         if reason & (DirtyReason.STATIC | DirtyReason.LAYOUT):
             self._static_layer_cache.invalidate_track(track_id)
@@ -892,7 +966,6 @@ class TabletView(QWidget):
         items = rendered.lithology_label_items or rendered.lithology_description_items or {}
         return tuple(interval_id for interval_id, item in items.items() if item.isVisible())
 
-
     @property
     def interval_edit_mode(self) -> IntervalEditMode:
         return self._interval_edit_mode
@@ -949,7 +1022,9 @@ class TabletView(QWidget):
         available_ids = {item.interpretation_id for item in self._interpretations}
         requested = selected_interpretation_id or self._selected_interpretation_id
         if requested not in available_ids:
-            requested = self._interpretations[0].interpretation_id if self._interpretations else None
+            requested = (
+                self._interpretations[0].interpretation_id if self._interpretations else None
+            )
         self._selected_interpretation_id = requested
         current = self._current_interpretation()
         if current is None or not any(
@@ -1105,7 +1180,9 @@ class TabletView(QWidget):
 
     def _track_selected_from_widget(self, track_id: str) -> None:
         modifiers = QApplication.keyboardModifiers()
-        additive = bool(modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier))
+        additive = bool(
+            modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
+        )
         toggle = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
         self.select_track(track_id, additive=additive, toggle=toggle, emit_signal=True)
 
@@ -1151,9 +1228,7 @@ class TabletView(QWidget):
 
     def _start_track_header_drag(self, track_id: str, global_x: int) -> None:
         try:
-            source_index = self._layout_model.tracks.index(
-                self._layout_model.track_by_id(track_id)
-            )
+            source_index = self._layout_model.tracks.index(self._layout_model.track_by_id(track_id))
         except (KeyError, ValueError):
             return
         self._header_drag = TrackHeaderDrag(track_id, source_index, global_x)
@@ -1168,7 +1243,9 @@ class TabletView(QWidget):
                 rendered.widget.title.styleSheet() + " background: #dbeafe;"
             )
 
-    def _track_center_positions(self, *, exclude_track_id: str | None = None) -> tuple[tuple[int, int], ...]:
+    def _track_center_positions(
+        self, *, exclude_track_id: str | None = None
+    ) -> tuple[tuple[int, int], ...]:
         centers: list[tuple[int, int]] = []
         for layout_index, definition in enumerate(self._layout_model.tracks):
             if definition.track_id == exclude_track_id or definition.kind is TrackKind.DEPTH:
@@ -1193,9 +1270,7 @@ class TabletView(QWidget):
             self._apply_track_selection_style()
             return
 
-        self.move_track_with_history(
-            track_id, target_index, source_index=gesture.source_index
-        )
+        self.move_track_with_history(track_id, target_index, source_index=gesture.source_index)
 
     def move_track_with_history(
         self, track_id: str, target_index: int, *, source_index: int | None = None
@@ -1268,7 +1343,10 @@ class TabletView(QWidget):
                 QPointF(float(xf[candidate_index]), float(yf[candidate_index]))
             )
             distance = float(
-                ((candidate_scene.x() - scene_pos.x()) ** 2 + (candidate_scene.y() - scene_pos.y()) ** 2)
+                (
+                    (candidate_scene.x() - scene_pos.x()) ** 2
+                    + (candidate_scene.y() - scene_pos.y()) ** 2
+                )
                 ** 0.5
             )
             if distance <= tolerance_px:
@@ -1344,16 +1422,10 @@ class TabletView(QWidget):
         curve_settings_action = save_layout_action = None
         if graphical:
             add_curves = menu.addAction(self._localizer.text("tablet.add_curves"))
-            replace_curves = menu.addAction(
-                self._localizer.text("tablet.choose_track_curves")
-            )
-            curve_settings_action = menu.addAction(
-                self._localizer.text("tablet.curve_settings")
-            )
+            replace_curves = menu.addAction(self._localizer.text("tablet.choose_track_curves"))
+            curve_settings_action = menu.addAction(self._localizer.text("tablet.curve_settings"))
             menu.addSeparator()
-        properties_action = menu.addAction(
-            self._localizer.text("tablet.track_properties")
-        )
+        properties_action = menu.addAction(self._localizer.text("tablet.track_properties"))
         menu.addSeparator()
         move_left = menu.addAction(self._localizer.text("tablet.move_left"))
         move_right = menu.addAction(self._localizer.text("tablet.move_right"))
@@ -1361,16 +1433,13 @@ class TabletView(QWidget):
         hide_action = menu.addAction(self._localizer.text("tablet.hide_track"))
         remove_action = menu.addAction(self._localizer.text("tablet.remove_track"))
         menu.addSeparator()
-        save_layout_action = menu.addAction(
-            self._localizer.text("tablet.save_layout_as_form")
-        )
+        save_layout_action = menu.addAction(self._localizer.text("tablet.save_layout_as_form"))
         menu.addSeparator()
         undo_action = menu.addAction(self._localizer.text("tablet.undo_interaction"))
         redo_action = menu.addAction(self._localizer.text("tablet.redo_interaction"))
         move_left.setEnabled(index > 0 and definition.kind is not TrackKind.DEPTH)
         move_right.setEnabled(
-            index < len(self._layout_model.tracks) - 1
-            and definition.kind is not TrackKind.DEPTH
+            index < len(self._layout_model.tracks) - 1 and definition.kind is not TrackKind.DEPTH
         )
         undo_action.setEnabled(self.can_undo_interaction)
         redo_action.setEnabled(self.can_redo_interaction)
@@ -1408,12 +1477,19 @@ class TabletView(QWidget):
 
     @property
     def visible_depth_range(self) -> tuple[float, float] | None:
+        # The layout model is the authoritative camera state.  Reading the first
+        # pyqtgraph ViewBox here caused the toolbar to observe transient ranges
+        # during widget resize/rebuild and then silently restore an older span.
+        top = self._layout_model.visible_depth_top
+        bottom = self._layout_model.visible_depth_bottom
+        if top is not None and bottom is not None:
+            return tuple(sorted((float(top), float(bottom))))
         first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
         if first is None:
             return None
         y_range = first.getViewBox().viewRange()[1]
-        top, bottom = sorted((float(y_range[0]), float(y_range[1])))
-        return top, bottom
+        plot_top, plot_bottom = sorted((float(y_range[0]), float(y_range[1])))
+        return plot_top, plot_bottom
 
     def track_depth_range(self, track_id: str) -> tuple[float, float]:
         rendered = self._rendered.get(track_id)
@@ -1543,9 +1619,7 @@ class TabletView(QWidget):
         )
         if depth_index is not None and depth_index.unit:
             depth_unit = depth_index.unit
-        values = [
-            f"{self._localizer.text('cursor.depth')}: {sample_depth:g} {depth_unit}"
-        ]
+        values = [f"{self._localizer.text('cursor.depth')}: {sample_depth:g} {depth_unit}"]
         descriptor = self._axis_descriptor()
         if descriptor is not None and descriptor.is_time:
             values.insert(
@@ -1625,7 +1699,8 @@ class TabletView(QWidget):
             if parts:
                 values.append(
                     f"{self._localizer.text('cursor.cuttings')} "
-                    f"{sample.top_depth:g}–{sample.bottom_depth:g} {depth_unit}: " + "; ".join(parts)
+                    f"{sample.top_depth:g}–{sample.bottom_depth:g} {depth_unit}: "
+                    + "; ".join(parts)
                 )
             if sample.calcite_percent is not None or sample.dolomite_percent is not None:
                 residue = sample.insoluble_residue_percent
@@ -1677,10 +1752,7 @@ class TabletView(QWidget):
                     continue
                 unit = (curve.metadata.unit or "").strip()
                 display_name = self._curve_display_name(definition, mnemonic, curve)
-                values.append(
-                    f"{display_name} [{mnemonic}]: {value:g}"
-                    f"{f' {unit}' if unit else ''}"
-                )
+                values.append(f"{display_name} [{mnemonic}]: {value:g}{f' {unit}' if unit else ''}")
                 seen.add(mnemonic)
         return " | ".join(values)
 
@@ -1745,9 +1817,7 @@ class TabletView(QWidget):
             )
             self._layout_model.set_visible_depth(visible_top, visible_bottom)
         elif visible_top is not None and visible_bottom is not None:
-            visible_top, visible_bottom = self._normalize_depth_window(
-                visible_top, visible_bottom
-            )
+            visible_top, visible_bottom = self._normalize_depth_window(visible_top, visible_bottom)
             self._layout_model.set_visible_depth(visible_top, visible_bottom)
 
         master_plot: pg.PlotWidget | None = None
@@ -1823,12 +1893,12 @@ class TabletView(QWidget):
                     else Qt.CursorShape.ArrowCursor
                 )
                 viewport.setCursor(cursor)
-            target_layout = self._pinned_layout if definition.kind is TrackKind.DEPTH else self._tracks_layout
+            target_layout = (
+                self._pinned_layout if definition.kind is TrackKind.DEPTH else self._tracks_layout
+            )
             target_layout.addWidget(track)
 
-        total_width = sum(
-            track.width + 2 for track in visible if track.kind is not TrackKind.DEPTH
-        )
+        total_width = sum(track.width + 2 for track in visible if track.kind is not TrackKind.DEPTH)
         self._container.setFixedWidth(max(total_width, 1))
         self._synchronize_track_heights()
         if master_plot is not None and visible_top is not None and visible_bottom is not None:
@@ -1850,9 +1920,7 @@ class TabletView(QWidget):
         for rendered in self._rendered.values():
             rendered.widget.setMinimumHeight(height)
 
-    def _register_wheel_targets(
-        self, root: QWidget, plot: pg.PlotWidget
-    ) -> None:
+    def _register_wheel_targets(self, root: QWidget, plot: pg.PlotWidget) -> None:
         """Route wheel navigation from every visible part of a tablet column.
 
         Qt sends wheel events to the deepest child under the cursor. Registering
@@ -1869,6 +1937,17 @@ class TabletView(QWidget):
     def resizeEvent(self, event) -> None:  # type: ignore[override]
         super().resizeEvent(event)
         self._synchronize_track_heights()
+        # pyqtgraph may briefly recalculate a ViewBox while the form/tablet is
+        # being resized. Re-assert the camera range after Qt finishes geometry
+        # processing so the selected metres-on-screen value cannot be lost.
+        self._resize_restore_timer.start(0)
+
+    def _restore_visible_depth_after_resize(self) -> None:
+        current = self.visible_depth_range
+        if current is None or not self._rendered:
+            return
+        self._synchronize_depth_ranges(*current)
+        self._update_navigation_controls()
 
     def _register_track_overlays(self, rendered: RenderedTrack) -> None:
         track_id = rendered.definition.track_id
@@ -2046,7 +2125,8 @@ class TabletView(QWidget):
     @property
     def pinned_track_ids(self) -> tuple[str, ...]:
         return tuple(
-            track_id for track_id, rendered in self._rendered.items()
+            track_id
+            for track_id, rendered in self._rendered.items()
             if rendered.definition.kind is TrackKind.DEPTH
         )
 
@@ -2070,11 +2150,13 @@ class TabletView(QWidget):
             return
         top, bottom = current
         data_top, data_bottom = bounds
+        visible_span = bottom - top
         self._range_label.setText(
             self._localizer.text(
                 "tablet.visible_range",
                 top=self._format_axis_value(top),
                 bottom=self._format_axis_value(bottom),
+                span=self._format_vertical_span(visible_span),
             )
         )
         descriptor = self._axis_descriptor()
@@ -2086,7 +2168,6 @@ class TabletView(QWidget):
             )
         )
         data_span = data_bottom - data_top
-        visible_span = bottom - top
         self._sync_depth_span_control(visible_span)
         self._scrollbar_guard = True
         try:
@@ -2179,40 +2260,83 @@ class TabletView(QWidget):
         self.set_vertical_span(span, top=top)
 
     def _depth_span_typed(self) -> None:
+        self._span_edit_timer.stop()
         if self._span_combo_guard:
             return
         line_edit = self._span_combo.lineEdit()
         if line_edit is None:
             return
-        text = line_edit.text().strip().casefold()
-        unit = self._localizer.text("tablet.depth_span_unit").casefold()
-        if unit and text.endswith(unit):
-            text = text[: -len(unit)].strip()
-        try:
-            span = float(text.replace(",", "."))
-        except ValueError:
+        if not self._apply_depth_span_text(line_edit.text()):
             current = self.visible_depth_range
             if current is not None:
                 self._sync_depth_span_control(current[1] - current[0])
+
+    def _depth_span_text_edited(self, text: str) -> None:
+        if self._span_combo_guard:
             return
+        # Do not mutate the combo contents while the user is still typing a
+        # multi-digit value. The timer commits the complete number automatically.
+        normalized = text.strip().casefold()
+        unit = self._vertical_span_unit().casefold()
+        if unit and normalized.endswith(unit):
+            normalized = normalized[: -len(unit)].strip()
+        try:
+            span = float(normalized.replace(",", "."))
+        except ValueError:
+            self._span_edit_timer.stop()
+            return
+        if np.isfinite(span) and span > 0:
+            self._span_edit_timer.start()
+        else:
+            self._span_edit_timer.stop()
+
+    def _apply_depth_span_text(self, text: str) -> bool:
+        normalized = text.strip().casefold()
+        unit = self._vertical_span_unit().casefold()
+        if unit and normalized.endswith(unit):
+            normalized = normalized[: -len(unit)].strip()
+        try:
+            span = float(normalized.replace(",", "."))
+        except ValueError:
+            return False
+        if not np.isfinite(span) or span <= 0:
+            return False
         current = self.visible_depth_range
         top = current[0] if current is not None else None
-        if not self.set_vertical_span(span, top=top) and current is not None:
-            self._sync_depth_span_control(current[1] - current[0])
+        return self.set_vertical_span(span, top=top)
+
+    def _vertical_span_unit(self) -> str:
+        descriptor = self._axis_descriptor()
+        # Depth windows are presented in the localized metre label even when the
+        # LAS header stores the ASCII unit ``m``.  Mixing ``м`` in the editor with
+        # ``m`` in the parser made a valid value such as ``30 м`` fail silently.
+        if descriptor is None or descriptor.role is IndexRole.DEPTH:
+            return self._localizer.text("tablet.depth_span_unit")
+        if descriptor.unit:
+            return descriptor.unit
+        return self._localizer.text("tablet.depth_span_unit")
+
+    def _format_vertical_span(self, span: float) -> str:
+        return f"{float(span):g} {self._vertical_span_unit()}".strip()
 
     def _sync_depth_span_control(self, visible_span: float) -> None:
         if not np.isfinite(visible_span) or visible_span <= 0:
             return
-        unit = self._localizer.text("tablet.depth_span_unit")
+        unit = self._vertical_span_unit()
         matching_row = -1
-        for row in range(self._span_combo.count()):
-            raw = self._span_combo.itemData(row)
-            if raw is not None and np.isclose(float(raw), visible_span, rtol=0.0, atol=1e-6):
-                matching_row = row
-                break
         self._span_combo_guard = True
         self._span_combo.blockSignals(True)
         try:
+            for row in range(self._span_combo.count()):
+                raw = self._span_combo.itemData(row)
+                if raw is None:
+                    self._span_combo.setItemText(
+                        row, self._localizer.text("tablet.depth_span_custom")
+                    )
+                    continue
+                self._span_combo.setItemText(row, f"{float(raw):g} {unit}")
+                if np.isclose(float(raw), visible_span, rtol=0.0, atol=1e-6):
+                    matching_row = row
             if matching_row >= 0:
                 self._span_combo.setCurrentIndex(matching_row)
             else:
@@ -2274,20 +2398,13 @@ class TabletView(QWidget):
     def zoom_depth(self, factor: float, anchor: float | None = None) -> bool:
         current = self.visible_depth_range
         bounds = self._axis_bounds()
-        if (
-            current is None
-            or bounds is None
-            or not np.isfinite(factor)
-            or factor <= 0
-        ):
+        if current is None or bounds is None or not np.isfinite(factor) or factor <= 0:
             return False
         self._sync_camera(bounds, current)
         top, bottom = self._camera.zoom(float(factor), anchor=anchor)
         return self._apply_visible_depth(top, bottom, emit_change=True)
 
-    def _sync_camera(
-        self, bounds: tuple[float, float], current: tuple[float, float]
-    ) -> None:
+    def _sync_camera(self, bounds: tuple[float, float], current: tuple[float, float]) -> None:
         self._camera.set_domain(*bounds, preserve_window=False)
         self._camera.set_visible_range(*current)
 
@@ -2336,11 +2453,7 @@ class TabletView(QWidget):
 
     def _track_id_for_plot(self, plot: pg.PlotWidget) -> str | None:
         return next(
-            (
-                track_id
-                for track_id, rendered in self._rendered.items()
-                if rendered.plot is plot
-            ),
+            (track_id for track_id, rendered in self._rendered.items() if rendered.plot is plot),
             None,
         )
 
@@ -2387,9 +2500,7 @@ class TabletView(QWidget):
             ):
                 track_id = self._track_id_for_plot(plot)
                 if track_id is not None:
-                    self.show_track_context_menu(
-                        track_id, event.globalPosition().toPoint()
-                    )
+                    self.show_track_context_menu(track_id, event.globalPosition().toPoint())
                     event.accept()
                     return True
             if (
@@ -2400,7 +2511,10 @@ class TabletView(QWidget):
             ):
                 track_id = self._track_id_for_plot(plot)
                 if track_id is not None:
-                    additive = bool(event.modifiers() & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier))
+                    additive = bool(
+                        event.modifiers()
+                        & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
+                    )
                     toggle = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
                     hit = self.select_curve_at(
                         track_id,
@@ -2435,10 +2549,7 @@ class TabletView(QWidget):
                 self._apply_pan_delta(float(previous_axis - current_axis))
                 event.accept()
                 return True
-            if (
-                event.type() == QEvent.Type.MouseButtonRelease
-                and self._pan_viewport is watched
-            ):
+            if event.type() == QEvent.Type.MouseButtonRelease and self._pan_viewport is watched:
                 self._pan_viewport = None
                 self._pan_last_position = None
                 watched.setProperty("tablet_pan_active", False)
@@ -2684,22 +2795,18 @@ class TabletView(QWidget):
     def _apply_static_track_configuration(
         self, rendered: RenderedTrack, definition: TrackDefinition
     ) -> None:
-        title, width, grid_x, grid_y, grid_alpha, x_axis_label = (
-            self._track_static_descriptor(definition)
+        title, width, grid_x, grid_y, grid_alpha, x_axis_label = self._track_static_descriptor(
+            definition
         )
         if isinstance(rendered.widget, TabletTrackWidget):
             rendered.widget.definition = definition
             rendered.widget.title.setText(self._localized_track_title(definition))
             rendered.widget.set_track_width(int(width))
         if rendered.plot is not None:
-            rendered.plot.showGrid(
-                x=bool(grid_x), y=bool(grid_y), alpha=float(grid_alpha)
-            )
+            rendered.plot.showGrid(x=bool(grid_x), y=bool(grid_y), alpha=float(grid_alpha))
             rendered.plot.setLabel("bottom", str(x_axis_label))
 
-    def _apply_curve_styles(
-        self, rendered: RenderedTrack, definition: TrackDefinition
-    ) -> None:
+    def _apply_curve_styles(self, rendered: RenderedTrack, definition: TrackDefinition) -> None:
         if rendered.plot is not None:
             rendered.plot.setLogMode(x=False, y=False)
             rendered.plot.setXRange(0.0, 1.0, padding=0)
@@ -2708,9 +2815,7 @@ class TabletView(QWidget):
             style = definition.curve_style(mnemonic)
             if style is None:
                 style = CurveStyle(
-                    color=pg.intColor(
-                        index, hues=max(1, len(definition.curve_mnemonics))
-                    ).name(),
+                    color=pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))).name(),
                     width=1.5,
                 )
             item.setPen(
@@ -2750,9 +2855,7 @@ class TabletView(QWidget):
         if rendered.curve_render_keys is not None:
             rendered.curve_render_keys.clear()
 
-    def _refresh_rendered_track(
-        self, rendered: RenderedTrack, reasons: DirtyReason
-    ) -> None:
+    def _refresh_rendered_track(self, rendered: RenderedTrack, reasons: DirtyReason) -> None:
         try:
             definition = self._layout_model.track_by_id(rendered.definition.track_id)
         except KeyError:
@@ -2795,15 +2898,11 @@ class TabletView(QWidget):
             render_keys = rendered.curve_render_keys
             if render_keys is not None and render_keys.get(mnemonic) == key:
                 continue
-            values, visible_depth = self._geometry_cache.get_or_build(
-                key, depth, source_values
-            )
+            values, visible_depth = self._geometry_cache.get_or_build(key, depth, source_values)
             minimum, maximum = self._curve_display_range(
                 rendered.definition, mnemonic, source_values
             )
-            normalized = self._normalize_curve_values(
-                values, settings.x_scale, minimum, maximum
-            )
+            normalized = self._normalize_curve_values(values, settings.x_scale, minimum, maximum)
             item.setData(normalized, visible_depth)
             if render_keys is not None:
                 render_keys[mnemonic] = key
@@ -2825,7 +2924,11 @@ class TabletView(QWidget):
                 label = self._localizer.text("tablet.track.time")
             else:
                 label = self._localizer.text("tablet.track.depth")
-            unit = descriptor.unit if descriptor is not None else self._localizer.text("tablet.depth_span_unit")
+            unit = (
+                descriptor.unit
+                if descriptor is not None
+                else self._localizer.text("tablet.depth_span_unit")
+            )
             track.title.setText(f"{label}, {unit}" if unit else label)
             # The title already explains the axis. A second rotated axis label
             # consumed most of the narrow depth column and made it look broken.
@@ -2903,9 +3006,7 @@ class TabletView(QWidget):
                 key = self._curve_geometry_key(
                     mnemonic, depth, values, visible_top, visible_bottom, budget, logarithmic
                 )
-                raw_visible, visible_depth = self._geometry_cache.get_or_build(
-                    key, depth, values
-                )
+                raw_visible, visible_depth = self._geometry_cache.get_or_build(key, depth, values)
                 visible_values = self._normalize_curve_values(
                     raw_visible, settings.x_scale, minimum, maximum
                 )
@@ -3019,9 +3120,7 @@ class TabletView(QWidget):
             return None
         combined = np.concatenate(values)
         if combined.size >= 10:
-            minimum, maximum = (
-                float(value) for value in np.nanpercentile(combined, [1.0, 99.0])
-            )
+            minimum, maximum = (float(value) for value in np.nanpercentile(combined, [1.0, 99.0]))
         else:
             minimum, maximum = float(np.min(combined)), float(np.max(combined))
         if logarithmic:
@@ -3146,9 +3245,7 @@ class TabletView(QWidget):
             lane_by_interval[interval.interval_id] = lane
         return rendered, lane_by_interval
 
-    def hit_test_interpretation(
-        self, track_id: str, x_value: float, depth: float
-    ) -> str | None:
+    def hit_test_interpretation(self, track_id: str, x_value: float, depth: float) -> str | None:
         rendered = self._rendered.get(track_id)
         interpretation = self._current_interpretation()
         if (
@@ -3240,9 +3337,7 @@ class TabletView(QWidget):
     def update_interval_drag(self, depth: float) -> bool:
         if self._interval_gesture is None:
             return False
-        self._interval_gesture.current_depth = self._snap_depth(
-            self._axis_to_depth_value(depth)
-        )
+        self._interval_gesture.current_depth = self._snap_depth(self._axis_to_depth_value(depth))
         self._update_interval_preview()
         return True
 
@@ -3313,9 +3408,7 @@ class TabletView(QWidget):
         return False
 
     @staticmethod
-    def _mouse_event_view_point(
-        rendered: RenderedTrack, event: QMouseEvent
-    ) -> QPointF:
+    def _mouse_event_view_point(rendered: RenderedTrack, event: QMouseEvent) -> QPointF:
         assert rendered.plot is not None
         plot_position = rendered.plot.mapFromGlobal(event.globalPosition().toPoint())
         scene_position = rendered.plot.mapToScene(plot_position)
@@ -3412,8 +3505,7 @@ class TabletView(QWidget):
         axis_tolerance = axis_span * 8.0 / height
         center = sum(map(float, y_range)) / 2.0
         depth_tolerance = abs(
-            self._axis_to_depth_value(center + axis_tolerance)
-            - self._axis_to_depth_value(center)
+            self._axis_to_depth_value(center + axis_tolerance) - self._axis_to_depth_value(center)
         )
         return max(depth_tolerance, self._minimum_depth_span())
 
@@ -3434,9 +3526,7 @@ class TabletView(QWidget):
             return None
         return min(
             candidates,
-            key=lambda item: min(
-                abs(depth - item.top_depth), abs(depth - item.bottom_depth)
-            ),
+            key=lambda item: min(abs(depth - item.top_depth), abs(depth - item.bottom_depth)),
         )
 
     def _interpretation_plot_clicked(self, rendered: RenderedTrack, event: object) -> None:
@@ -3456,9 +3546,7 @@ class TabletView(QWidget):
         if interval_id is None or interpretation is None:
             self.clear_interval_selection(emit_signal=True)
             return
-        self.set_selected_interval(
-            interpretation.interpretation_id, interval_id, emit_signal=True
-        )
+        self.set_selected_interval(interpretation.interpretation_id, interval_id, emit_signal=True)
 
     def _apply_interpretation_selection_style(self) -> None:
         self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
@@ -3466,7 +3554,11 @@ class TabletView(QWidget):
         selected = None
         if interpretation is not None and self._selected_interval_id is not None:
             selected = next(
-                (item for item in interpretation.intervals if item.interval_id == self._selected_interval_id),
+                (
+                    item
+                    for item in interpretation.intervals
+                    if item.interval_id == self._selected_interval_id
+                ),
                 None,
             )
         for rendered in self._rendered.values():
@@ -3848,9 +3940,7 @@ class TabletView(QWidget):
             return
         self._sync_guard = True
         try:
-            top, bottom = self._normalize_depth_window(
-                float(y_range[0]), float(y_range[1])
-            )
+            top, bottom = self._normalize_depth_window(float(y_range[0]), float(y_range[1]))
             self._layout_model.set_visible_depth(top, bottom)
             self._update_visible_curve_data(top, bottom)
             self._synchronize_depth_ranges(top, bottom)

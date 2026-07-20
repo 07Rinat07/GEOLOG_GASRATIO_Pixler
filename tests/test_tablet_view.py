@@ -5,6 +5,7 @@ import pyqtgraph as pg
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QWheelEvent
+from PySide6.QtTest import QTest
 
 from geoworkbench.domain.models import (
     CanvasObject,
@@ -1654,4 +1655,125 @@ def test_depth_span_change_is_stored_in_layout_model(qapp) -> None:
 
     assert layout.visible_depth_top == pytest.approx(100.0)
     assert layout.visible_depth_bottom == pytest.approx(130.0)
+    view.close()
+
+
+
+def _depth_span_test_view() -> TabletView:
+    depth = np.linspace(100.0, 300.0, 201)
+    dataset = Dataset(
+        "dataset-depth-span-live",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-depth-span-live",
+            "ROP",
+            "ROP",
+            "m/h",
+            "Rate of penetration",
+            dataset.dataset_id,
+        ),
+        np.linspace(0.0, 100.0, depth.size),
+    )
+    dataset.curves = {curve.metadata.curve_id: curve}
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120),
+                TrackDefinition(
+                    "rop",
+                    "ROP",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["ROP"],
+                ),
+            ]
+        )
+    )
+    view.resize(1000, 700)
+    view.show()
+    view.set_dataset(dataset)
+    view.set_visible_depth(100.0, 200.0)
+    return view
+
+
+def test_depth_span_presets_include_one_and_five_metres(qapp) -> None:
+    view = TabletView()
+
+    values = tuple(
+        float(view._span_combo.itemData(row))
+        for row in range(view._span_combo.count())
+        if view._span_combo.itemData(row) is not None
+    )
+
+    assert 1.0 in values
+    assert 5.0 in values
+    assert 10.0 in values
+    assert 50.0 in values
+    assert 100.0 in values
+    view.close()
+
+
+def test_selecting_depth_span_changes_graph_without_activated_signal(qapp) -> None:
+    view = _depth_span_test_view()
+    qapp.processEvents()
+    row = view._span_combo.findData(50.0)
+
+    # setCurrentIndex emits currentIndexChanged but not the user-only activated
+    # signal. This reproduces the editable-combo path that previously left the
+    # graph at 100-200 while the field displayed 50.
+    view._span_combo.setCurrentIndex(row)
+    qapp.processEvents()
+
+    assert view.visible_depth_range == pytest.approx((100.0, 150.0))
+    assert view.layout_model.visible_depth_top == pytest.approx(100.0)
+    assert view.layout_model.visible_depth_bottom == pytest.approx(150.0)
+    assert all(
+        rendered.plot.viewRange()[1] == pytest.approx([100.0, 150.0])
+        for rendered in view._rendered.values()
+        if rendered.plot is not None
+    )
+    view.close()
+
+
+def test_typed_depth_span_applies_immediately_without_enter(qapp) -> None:
+    view = _depth_span_test_view()
+    qapp.processEvents()
+    editor = view._span_combo.lineEdit()
+    assert editor is not None
+    editor.setFocus()
+    editor.selectAll()
+
+    QTest.keyClicks(editor, "30")
+    QTest.qWait(220)
+    qapp.processEvents()
+
+    assert view.visible_depth_range == pytest.approx((100.0, 130.0))
+    assert all(
+        rendered.plot.viewRange()[1] == pytest.approx([100.0, 130.0])
+        for rendered in view._rendered.values()
+        if rendered.plot is not None
+    )
+    view.close()
+
+
+def test_depth_span_survives_tablet_resize(qapp) -> None:
+    view = _depth_span_test_view()
+    qapp.processEvents()
+    assert view.set_vertical_span(5.0, top=120.0)
+    qapp.processEvents()
+
+    view.resize(1350, 900)
+    qapp.processEvents()
+
+    assert view.visible_depth_range == pytest.approx((120.0, 125.0))
+    assert all(
+        rendered.plot.viewRange()[1] == pytest.approx([120.0, 125.0])
+        for rendered in view._rendered.values()
+        if rendered.plot is not None
+    )
     view.close()
