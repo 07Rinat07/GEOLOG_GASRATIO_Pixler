@@ -70,3 +70,10 @@ color, and recommended range. A form can be opened on the tablet immediately. Ed
 copy where names, contents, order, scales, and styling can be changed and saved for reuse. The form
 manager reports available and missing parameters and prevents applying a depth/time form when the
 corresponding dataset axis is absent.
+## Working LAS form rendering hotfix
+
+Fixed the failure that left the tablet empty after a form was selected. A safe default curve
+style is now created correctly, and `PlotDataItem` construction is compatible with
+`pyqtgraph 0.14` and `PySide6 6.11`. A GUI regression test now requires the factory depth
+form to materialize and actually render the curves of the open LAS dataset.
+

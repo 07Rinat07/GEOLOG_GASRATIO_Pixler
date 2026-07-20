@@ -68,8 +68,8 @@ from geoworkbench.tablet.interval_interaction import (
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.tablet.lithology_labels import lithology_label_is_visible
 from geoworkbench.tablet.models import (
-    CurveDisplaySettings,
     CurveLineStyle,
+    CurveStyle,
     TabletLayout,
     TrackDefinition,
     TrackKind,
@@ -223,7 +223,7 @@ class CurveHeaderLabel(QLabel):
         self.setStyleSheet(
             f"QLabel {{ background: {background}; color: #0f172a; "
             f"border-left: 5px solid {self._color}; border-bottom: 1px solid {border}; "
-            "padding: 2px 4px; font-size: 11px; font-weight: 600; }} "
+            "padding: 2px 4px; font-size: 11px; font-weight: 600; } "
             "QLabel:hover { background: #eff6ff; }"
         )
 
@@ -1902,21 +1902,21 @@ class TabletView(QWidget):
                 return ""
             descriptor = self._axis_descriptor()
             unit = descriptor.unit if descriptor is not None else ""
-            value = self._format_axis_value(float(axis_values[sample_index]))
+            axis_text = self._format_axis_value(float(axis_values[sample_index]))
             key = "cursor.time" if descriptor is not None and descriptor.is_time else "cursor.depth"
-            return f"{self._localizer.text(key)}: {value}{f' {unit}' if unit else ''}"
+            return f"{self._localizer.text(key)}: {axis_text}{f' {unit}' if unit else ''}"
 
         lines: list[str] = []
         for mnemonic in definition.curve_mnemonics:
             curve = self._dataset.curve_by_mnemonic(mnemonic)
             if curve is None or sample_index >= curve.values.size:
                 continue
-            value = float(curve.values[sample_index])
-            if not np.isfinite(value):
+            curve_value = float(curve.values[sample_index])
+            if not np.isfinite(curve_value):
                 continue
             name = self._curve_display_name(definition, mnemonic, curve)
             unit = (curve.metadata.unit or "").strip()
-            lines.append(f"{name}: {value:g}{f' {unit}' if unit else ''}")
+            lines.append(f"{name}: {curve_value:g}{f' {unit}' if unit else ''}")
         return "\n".join(lines)
 
     def _update_cursor_labels(self, axis_value: float) -> None:
@@ -2190,10 +2190,19 @@ class TabletView(QWidget):
         self._camera.set_visible_range(*current)
 
     def _axis_value_at_event(
-        self, plot: pg.PlotWidget, event: QMouseEvent | QWheelEvent
+        self,
+        plot: pg.PlotWidget,
+        watched: QObject,
+        event: QMouseEvent | QWheelEvent,
     ) -> float | None:
         try:
-            scene_position = plot.mapToScene(event.position().toPoint())
+            local_position = event.position().toPoint()
+            if isinstance(watched, QWidget):
+                global_position = watched.mapToGlobal(local_position)
+                viewport_position = plot.viewport().mapFromGlobal(global_position)
+            else:
+                viewport_position = local_position
+            scene_position = plot.mapToScene(viewport_position)
             value = float(plot.getViewBox().mapSceneToView(scene_position).y())
         except (AttributeError, TypeError, ValueError):
             return None
@@ -2242,7 +2251,7 @@ class TabletView(QWidget):
             steps = float(delta) / 120.0
             if steps:
                 if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                    anchor = self._axis_value_at_event(wheel_plot, event)
+                    anchor = self._axis_value_at_event(wheel_plot, watched, event)
                     self.zoom_depth(0.8**steps, anchor=anchor)
                 else:
                     self.scroll_depth(-steps)
@@ -2803,12 +2812,15 @@ class TabletView(QWidget):
             if unit:
                 header_text += f" {unit}"
             header_text += f" · {scale_marker}"
+            # The geometry cache already supplies only the visible depth window.
+            # Do not pass clipToView at construction time: pyqtgraph 0.14 with
+            # PySide6 6.11 may query the temporary PlotWidget before the item is
+            # parented to its ViewBox and raise AttributeError(autoRangeEnabled).
             item = track.plot.plot(
                 visible_values,
                 visible_depth,
                 pen=pen,
                 connect="finite",
-                clipToView=True,
             )
             curve_items[mnemonic] = item
             legend_labels.append(display_name)

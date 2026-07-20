@@ -12,6 +12,8 @@ from geoworkbench.forms.models import (
 from geoworkbench.forms.apply import BindingResolution, FormApplyEngine, FormApplyResult
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.templates import factory_templates
+from geoworkbench.forms.draft import DraftFormController
+from geoworkbench.forms.preview import FormPreviewController
 from geoworkbench.forms.materialize import (
     MaterializedFormInfo,
     materialize_form_for_dataset,
@@ -19,6 +21,8 @@ from geoworkbench.forms.materialize import (
 )
 
 __all__ = [
+    "DraftFormController",
+    "FormPreviewController",
     "TrackBindingEditor",
     "FormStructureEditor",
     "BindingResolution",
@@ -41,6 +45,3 @@ __all__ = [
     "form_to_dict",
 ]
 
-
-from geoworkbench.forms.draft import DraftFormController
-from geoworkbench.forms.preview import FormPreviewController

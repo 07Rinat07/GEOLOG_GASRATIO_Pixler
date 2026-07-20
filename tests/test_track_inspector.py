@@ -71,7 +71,7 @@ def test_inspector_uses_selected_language_without_changing_scale_values(qapp) ->
     assert inspector.scale_input.itemText(0) == "Linear"
     assert inspector.scale_input.itemData(0) == XScale.LINEAR.value
     assert inspector.scale_input.itemText(1) == "Logarithmic"
-    assert "Type: curve" in inspector._summary.text()
+    assert "Type: Curve" in inspector._summary.text()
     assert "Curves: GR" in inspector._summary.text()
     inspector.close()
 

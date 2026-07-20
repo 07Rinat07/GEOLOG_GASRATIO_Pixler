@@ -116,11 +116,11 @@ class CurveSettingsDialog(QDialog):
         self.color_button.clicked.connect(self._choose_color)
         form.addRow(self._t("curve_settings.color"), self.color_button)
 
-        self.width = QDoubleSpinBox()
-        self.width.setDecimals(1)
-        self.width.setSingleStep(0.5)
-        self.width.setRange(0.5, 10.0)
-        form.addRow(self._t("curve_settings.width"), self.width)
+        self.line_width_input = QDoubleSpinBox()
+        self.line_width_input.setDecimals(1)
+        self.line_width_input.setSingleStep(0.5)
+        self.line_width_input.setRange(0.5, 10.0)
+        form.addRow(self._t("curve_settings.width"), self.line_width_input)
 
         self.line_style = QComboBox()
         self.line_style.addItem(self._t("curve_settings.style.solid"), CurveLineStyle.SOLID.value)
@@ -196,7 +196,7 @@ class CurveSettingsDialog(QDialog):
             self.minimum.setValue(minimum)
             self.maximum.setValue(maximum)
             self._set_color(style.color)
-            self.width.setValue(style.width)
+            self.line_width_input.setValue(style.width)
             self.line_style.setCurrentIndex(max(0, self.line_style.findData(style.line_style.value)))
             self._range_mode_changed(self.auto_range.isChecked())
         finally:
@@ -223,7 +223,7 @@ class CurveSettingsDialog(QDialog):
         )
         self._styles[mnemonic] = CurveStyle(
             color=str(self.color_button.property("curveColor") or "#2563eb"),
-            width=float(self.width.value()),
+            width=float(self.line_width_input.value()),
             line_style=CurveLineStyle(str(self.line_style.currentData())),
         )
         self._update_item_label(mnemonic)

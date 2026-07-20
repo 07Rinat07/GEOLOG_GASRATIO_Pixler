@@ -54,3 +54,10 @@ petrophysics, D-exponent, and other columns with no more than four curves per co
 binding keeps the exact source mnemonic, description, unit, catalog color, and recommended range.
 The factory form can be opened directly or converted into an editable user copy. The manager shows
 available/missing curves and blocks forms whose depth/time axis is incompatible with the dataset.
+## Working LAS form rendering hotfix
+
+Fixed the failure that left the tablet empty after a form was selected. A safe default curve
+style is now created correctly, and `PlotDataItem` construction is compatible with
+`pyqtgraph 0.14` and `PySide6 6.11`. A GUI regression test now requires the factory depth
+form to materialize and actually render the curves of the open LAS dataset.
+

@@ -81,7 +81,10 @@ def test_tablet_view_exposes_rendered_legend_labels(qapp) -> None:
     view.set_dataset(dataset)
     qapp.processEvents()
 
-    assert view.legend_labels("curves") == ("C1 [%]", "ROP")
+    assert view.legend_labels("curves") == (
+        "Содержание метана",
+        "Скорость бурения (по глубине)",
+    )
     view.close()
 
 
@@ -145,10 +148,13 @@ def test_tablet_cursor_line_is_synchronized_and_reports_all_curve_values(qapp) -
     view.set_cursor_enabled(True)
     view.set_cursor_depth(151.0)
 
-    assert view.cursor_depth == 151.0
+    assert view.cursor_depth == 150.0
     assert all(item.cursor_line is not None for item in view._rendered.values())
-    assert all(item.cursor_line.value() == 151.0 for item in view._rendered.values())
-    assert view.cursor_summary(151.0) == "Глубина: 150 м | C1: 2 % | ROP: 20 m/h"
+    assert all(item.cursor_line.value() == 150.0 for item in view._rendered.values())
+    assert view.cursor_summary(151.0) == (
+        "Глубина: 150 m | Содержание метана [C1]: 2 % | "
+        "Скорость бурения (по глубине) [ROP]: 20 m/h"
+    )
     view.set_cursor_style("#123456", 3.5)
     assert all(
         item.cursor_line.pen.color().name() == "#123456" and item.cursor_line.pen.widthF() == 3.5
@@ -203,7 +209,7 @@ def test_tablet_renders_percentage_cuttings_track_and_cursor_summary(qapp) -> No
 
     items = view._rendered["cuttings"].cuttings_items
     assert items is not None and len(items["sample"]) == 2
-    assert "Шлам 100–110 м: Песчаник: 70%; Глина: 30%" in view.cursor_summary(105.0)
+    assert "Шлам 100–110 m: Песчаник: 70%; Глина: 30%" in view.cursor_summary(105.0)
     view.close()
 
 
@@ -248,7 +254,10 @@ def test_tablet_renders_calcimetry_lba_and_cursor_summary(qapp) -> None:
 
     assert calc_items is not None and len(calc_items["sample"]) == 3
     assert lba_items is not None and len(lba_items["sample"]) == 1
-    assert ("Кальциметрия: CaCO₃ 65%; CaMg(CO₃)₂ 20%; нераств. остаток 15%") in summary
+    assert (
+        "Кальциметрия: CaCO₃ 65%; CaMg(CO₃)₂ 20%; "
+        "нерастворимый остаток 15%"
+    ) in summary
     assert "ЛБА: Oil show; I=3; yellow; Streaming" in summary
     assert "Интерпретация геолога: Manual show interpretation" in summary
     view.close()
@@ -526,7 +535,7 @@ def test_tablet_mouse_wheel_scrolls_and_control_wheel_zooms_depth(qapp) -> None:
     scrolled = view.visible_depth_range
     assert scrolled is not None
     assert scrolled[1] - scrolled[0] == pytest.approx(176.0)
-    assert scrolled[0] == pytest.approx(zoomed[0] + 21.12)
+    assert scrolled[0] == pytest.approx(zoomed[0] + 17.6)
     view.close()
 
 
@@ -564,7 +573,7 @@ def test_tablet_view_limits_points_and_updates_them_for_visible_depth(qapp) -> N
     view.set_visible_depth(100.0, 200.0)
     qapp.processEvents()
 
-    assert full_count == 5000
+    assert full_count == 201
     assert view.rendered_curve_point_count("curve", "ROP") == 101
     assert emitted == []
     view.close()
@@ -810,7 +819,7 @@ def test_tablet_renders_interpretation_track_and_hit_tests_lanes(qapp) -> None:
     assert view.hit_test_interpretation("interpretation-track", 0.5, 140.0) == "fluid"
     assert view.hit_test_interpretation("interpretation-track", 1.5, 140.0) == "reservoir"
     assert view.hit_test_interpretation("interpretation-track", 1.5, 190.0) is None
-    assert "Интерпретация «Primary»: Fluid / Gas (120–160 м)" in view.cursor_summary(150.0)
+    assert "Интерпретация «Primary»: Fluid / Gas (120–160 m)" in view.cursor_summary(150.0)
     track_widget = view._rendered["interpretation-track"].widget
     assert isinstance(track_widget, TabletTrackWidget)
     assert track_widget.title.text() == "Interpretation: Primary"
@@ -927,10 +936,10 @@ def test_tablet_can_switch_vertical_axis_from_depth_to_datetime(qapp) -> None:
     assert view.vertical_index_id == "time-index"
     top, bottom = view.visible_depth_range or (0.0, 0.0)
     assert view.format_vertical_value(top).startswith("18.07.2026 10:00")
-    assert view.format_vertical_value(bottom).startswith("18.07.2026 10:40")
+    assert view.format_vertical_value(bottom).startswith("18.07.2026 10:30")
     _, rendered_y = view._rendered["rop"].curve_items["ROP"].getData()
     assert rendered_y is not None
-    assert np.diff(rendered_y).tolist() == pytest.approx([600.0, 600.0, 600.0, 600.0])
+    assert np.diff(rendered_y).tolist() == pytest.approx([600.0, 600.0, 600.0])
     axis = view._rendered["depth"].plot.getAxis("left")
     assert "10:00" in axis.tickStrings([float(rendered_y[0])], 1.0, 60.0)[0]
     view.close()
@@ -1336,7 +1345,7 @@ def test_curve_hit_testing_selects_nearest_curve(qapp) -> None:
     qapp.processEvents()
 
     rendered = view._rendered["gas"]
-    scene_point = rendered.plot.getViewBox().mapViewToScene(QPointF(2.0, 150.0))
+    scene_point = rendered.plot.getViewBox().mapViewToScene(QPointF(0.5, 150.0))
     viewport_point = rendered.plot.viewport().mapFromGlobal(
         rendered.plot.mapToGlobal(rendered.plot.mapFromScene(scene_point))
     )

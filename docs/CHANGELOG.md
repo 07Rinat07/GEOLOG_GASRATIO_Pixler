@@ -1,3 +1,26 @@
+## Unreleased — working LAS form rendering hotfix
+
+### Русский
+
+- исправлен `NameError: CurveStyle`, блокировавший построение базовой формы и кривых LAS;
+- убран несовместимый ранний `clipToView` при создании `PlotDataItem` в pyqtgraph 0.14;
+- добавлены GUI-регрессионные тесты реального построения заводской формы;
+- исправлены типы редактора толщины линии и текста визира, Ruff/MyPy проходят без ошибок.
+
+### Қазақша
+
+- негізгі пішін мен LAS қисықтарын құруды тоқтатқан `NameError: CurveStyle` қатесі түзетілді;
+- pyqtgraph 0.14 үшін `PlotDataItem` жасалған сәттегі үйлесімсіз `clipToView` алынды;
+- зауыттық пішінді нақты көрсетуге арналған GUI-регрессиялық тесттер қосылды;
+- сызық қалыңдығы редакторы мен визир мәтінінің типтері түзетілді, Ruff/MyPy қатесіз өтеді.
+
+### English
+
+- fixed the `NameError: CurveStyle` that prevented base forms and LAS curves from rendering;
+- removed incompatible early `clipToView` construction under pyqtgraph 0.14;
+- added GUI regression coverage for actual factory-form rendering;
+- fixed line-width editor and cursor-text typing; Ruff and MyPy pass cleanly.
+
 ## Unreleased — working LAS base forms
 
 ### Русский

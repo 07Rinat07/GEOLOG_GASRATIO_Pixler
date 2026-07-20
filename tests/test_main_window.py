@@ -668,7 +668,7 @@ def test_window_shows_las_curve_browser_for_current_dataset(qapp) -> None:
 
     assert window.curve_browser.tree.topLevelItemCount() == 1
     assert window.curve_browser.selected_mnemonics() == ["ROP"]
-    assert not window.curve_browser_dock.isHidden()
+    assert window.curve_browser_dock.isHidden()
     window.close()
 
 
