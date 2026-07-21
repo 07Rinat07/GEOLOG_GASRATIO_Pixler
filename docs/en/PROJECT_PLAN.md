@@ -2,21 +2,19 @@
 
 Date: 21 July 2026
 
-1. **GeoData Depth Workspace** — complete the reference-aligned daily screen, unified creation and
-   re-editing of lithology, cuttings, LBA, calcimetry, and text, adaptive layout, and persistence.
-   Absolute and relative gas-component composition is implemented.
-2. **Masterlog** — unify header and body designers and use one template for preview, PDF, and the
-   physical printer.
-3. **Gas Ratio & Pixler** — separate scales, controlled interpretation rules, markers, and an
-   explanation of each result.
-4. **Release verification** — real LAS files, Windows screen matrix, physical printing, migrations,
-   and synchronized RU/KK/EN documentation.
-
-Completed items are listed in [Project status](PROJECT_STATUS.md) and the
-[Depth workspace guide](GEODATA_DEPTH_WORKSPACE.md).
-
-5. **Captions and stratigraphy** — keep the full track editor, project catalog, interval input, and
-   persistence as a mandatory part of every production form.
+1. **GeoData Depth Workspace** — production screen with unified lithology, cuttings, LBA,
+   calcimetry and manual-description editing.
+2. **Masterlog and Constructor** — one controlled workflow for form, header, preview, PDF and
+   physical printing.
+3. **Reports and interval export** — exact lithology, cuttings, LBA, calcimetry, stratigraphy,
+   manual descriptions, gas and drilling intervals in PDF/DOCX/XLSX/CSV/TSV/HTML.
+   See the [detailed plan](REPORT_EXPORT.md).
+4. **Gas Ratio & Pixler** — dedicated scales, controlled interpretation, markers and explanation;
+   raw and calculated gas channels are included in reporting.
+5. **Captions, stratigraphy and catalogs** — shared editable presentation, intervals, lithotypes,
+   symbols and manual rock-description templates.
+6. **Release verification** — real LAS, Windows screen matrix, physical printing, migrations and
+   synchronized RU/KK/EN documentation.
 
 ## LAS Editor 2
 
@@ -26,40 +24,19 @@ Completed items are listed in [Project status](PROJECT_STATUS.md) and the
 - [x] pencil editing and synchronous recalculation;
 - [x] batch table operations and exports.
 
-### Next pencil verification
+## Universal Constructor 0.7.0–0.7.2
 
-Run a Windows smoke test on a real LAS file: parameter selection, drawing in both directions, Undo/Redo, dependent-curve recalculation, project saving and updated LAS export. After stabilization, add direct drawing inside the multi-track tablet.
+- [x] `Ctrl+Shift+K`, Form Manager, WYSIWYG header, preview and preflight;
+- [x] A0–A4/Letter/Legal/custom/roll, portrait and landscape;
+- [x] 117 exact BMP lithotypes and 19 symbols;
+- [x] 0°/±90° and top/centre/bottom for stratigraphy, forms and headers;
+- [x] one renderer for lithology, cuttings, legends, preview, PDF and printing;
+- [ ] Windows smoke test, rulers/guides/Undo and explicit screen-print profile ID.
 
-## Universal Constructor 0.7.0
+## Planned slice 0.7.3
 
-The application now includes the `Ctrl+Shift+K` Constructor, 117 lithotypes, 19 symbols, a
-physical-page-aware WYSIWYG header canvas, A0–A4/Letter/Legal/custom/roll profiles, broad
-image import, semantic depth symbols with X/Y offsets, automatic/manual legends, preview and
-preflight. Next: Windows smoke testing, rulers/guides/Undo and an explicit screen-to-print
-profile link. See [Constructor plan](FORM_CONSTRUCTOR_PLAN.md).
-
-## Stratigraphy text 0.7.1
-
-- [x] 0°, 90° bottom-to-top, and 90° top-to-bottom directions;
-- [x] near-top, centre (default), or near-bottom placement;
-- [x] project persistence and restoration during re-editing;
-- [x] consistent tablet, preview, PDF, and print rendering;
-- [ ] visual Windows verification for narrow columns and short intervals.
-
-## Slice 0.7.1 — text and lithotypes
-
-- [x] 0°/±90° and top/centre/bottom for stratigraphy, forms, and headers;
-- [x] one factory layer containing all 117 lithotypes;
-- [x] thumbnail selection in lithology and cuttings;
-- [x] individual swatch and dynamic legend in headers;
-- [x] project add, override, and reset workflows;
-- [ ] Windows smoke-test and physical printing.
-
-## Slice 0.7.2 — exact legacy lithotype rendering
-
-- [x] map the stable base-rock IDs to the original BMP files from both supplied catalogs;
-- [x] keep old hatch keys readable without manual project migration;
-- [x] tile each bitmap in device pixels so depth zoom never stretches the pattern;
-- [x] use one renderer in lithology, cuttings, header legends, preview, PDF and print;
-- [x] keep text over the pattern disabled by default with an explicit form-editor switch;
-- [x] full regression run: `988 passed, 1 skipped`; Ruff and compileall pass.
+- [ ] remove automatic lithology text from the Rock Description column;
+- [ ] process the supplied field XLS/XLSX files into a reviewed template catalog;
+- [ ] insert a template only after an explicit user action;
+- [ ] allow project templates to be added and edited;
+- [ ] start the unified interval-report model for geology, LBA, calcimetry, gases and drilling.

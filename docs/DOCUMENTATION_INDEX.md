@@ -13,6 +13,7 @@
 - LAS parameter resolver: [Русский](ru/LAS_PARAMETER_RESOLUTION.md) · [Қазақша](kk/LAS_PARAMETER_RESOLUTION.md) · [English](en/LAS_PARAMETER_RESOLUTION.md)
 - [INTERVAL_MOUSE_EDITING.md](INTERVAL_MOUSE_EDITING.md) — direct interval drawing and boundary editing.
 - [TABLET_DEPTH_TIME_NAVIGATION.md](TABLET_DEPTH_TIME_NAVIGATION.md) — synchronized depth/time scrolling, zoom, index selection, and persistence.
+- Report export plan: [Русский](ru/REPORT_EXPORT.md) · [Қазақша](kk/REPORT_EXPORT.md) · [English](en/REPORT_EXPORT.md) · [Engineering model](REPORT_EXPORT_PLAN.md)
 
 ## User guides
 

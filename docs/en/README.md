@@ -437,3 +437,11 @@ The standard rocks use the original BMP files from both supplied catalogs. Patte
 without smoothing and do not stretch while depth is zoomed. Labels over lithology and cuttings
 are hidden by default and can be enabled in the track or form-structure editor. The same images
 are used by header legends, preview, PDF and print.
+
+## Planned unified interval report
+
+After the print Constructor is stabilized, the current calcimetry/LBA PDF will be extended into a
+combined report containing top/bottom/thickness, stratigraphy, lithology, cuttings composition,
+only manually entered rock descriptions, LBA, calcimetry, C1–C5, total gas, Gas Ratio/Pixler,
+H₂S/CO₂, drilling channels and depth events. Planned formats are PDF, DOCX, XLSX, CSV/TSV and
+HTML. See the [report export plan](REPORT_EXPORT.md).

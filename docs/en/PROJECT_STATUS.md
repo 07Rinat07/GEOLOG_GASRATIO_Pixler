@@ -62,3 +62,10 @@ flat colour. On the tablet the pattern is tiled in native device pixels and ther
 sharp under depth zoom. Text over the pattern is off by default and can be enabled explicitly in
 the form editor. The same assets are used by cuttings, header legends, preview, PDF and print.
 Full run: `988 passed, 1 skipped`.
+
+## Planned unified reporting
+
+The existing calcimetry/LBA PDF will be expanded into one interval report covering lithology,
+cuttings, manual descriptions, LBA, calcimetry, stratigraphy, C1–C5, total gas, Gas Ratio/Pixler,
+H₂S/CO₂, drilling channels and events. Planned outputs are PDF/DOCX/XLSX/CSV/TSV/HTML with
+preview and preflight. Automatic rock-description fallback is not allowed.

@@ -1,3 +1,26 @@
+# Unreleased — unified reports and manual description templates
+
+### Русский
+
+- в план добавлен обязательный единый интервальный отчёт по литологии, шламу, ручным описаниям, ЛБА, кальциметрии, стратиграфии, газам и технологии;
+- запланированы PDF, DOCX, XLSX, CSV/TSV и HTML, вкладка «Отчёты» в Конструкторе, preview и preflight;
+- зафиксировано различие реального нуля и отсутствующего измерения, хранение единиц, формул, версий и покрытия;
+- автоматическое описание пород запрещено: только ручной ввод или явная вставка шаблона.
+
+### Қазақша
+
+- жоспарға литология, шлам, қол сипаттамасы, ЛБА, кальциметрия, стратиграфия, газ және технология бойынша бірыңғай аралық есеп қосылды;
+- PDF, DOCX, XLSX, CSV/TSV және HTML, Конструктордағы «Есептер» қойындысы, preview және preflight жоспарланды;
+- нақты нөл мен жоқ өлшем ажыратылып, бірлік, формула, нұсқа және қамту сақталады;
+- жыныс сипаттамасы тек қолмен не нақты шаблон енгізу арқылы толтырылады.
+
+### English
+
+- added a mandatory unified interval-report stage for lithology, cuttings, manual descriptions, LBA, calcimetry, stratigraphy, gas and drilling data;
+- planned PDF, DOCX, XLSX, CSV/TSV and HTML, a Reports tab in the Constructor, preview and preflight;
+- specified zero-vs-missing semantics plus units, formula versions, provenance and coverage;
+- automatic rock-description fallback is forbidden; text is manual or explicitly inserted from a template.
+
 # 0.7.2 — 2026-07-21
 
 ## Точное применение переданных литотипов

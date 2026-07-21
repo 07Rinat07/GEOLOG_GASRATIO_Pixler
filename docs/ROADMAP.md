@@ -1,6 +1,6 @@
 # Roadmap — GEOLOG Gas Ratio & Pixler
 
-Updated: 20 July 2026
+Updated: 21 July 2026
 
 ## Current: GeoData depth workspace
 
@@ -23,6 +23,15 @@ Completed:
 - editable report header with dynamic well fields, logos, legends, lines, and images;
 - unified symbol catalog for lithology, LBA, oil/gas shows, core, mud losses/gains, casing, and markers;
 - exact page/roll layout tests and Windows print-engine verification.
+
+## Then: report export and interval summaries
+
+- one `ReportDefinition` for geology, gas, drilling and combined reports;
+- exact top/bottom/thickness rows for lithology, cuttings, LBA, calcimetry, stratigraphy and manual descriptions;
+- C1–C5, total gas, absolute/relative Gas Ratio and Pixler outputs, H₂S/CO₂, drilling and mud channels;
+- configurable aggregation with coverage and strict zero-vs-missing handling;
+- Reports tab in the Constructor with preview, preflight and PDF/DOCX/XLSX/CSV/TSV/HTML export;
+- tablet parity, provenance, calculation-version metadata and Windows print verification.
 
 ## Then: Gas Ratio & Pixler interpretation
 

@@ -41,3 +41,22 @@ Visual checks:
 
 Release limitation:
 - A final physical-printer smoke check on Windows remains required before stable promotion.
+
+Documentation update — unified report export plan
+Date: 2026-07-21
+
+Added and synchronized:
+- mandatory interval-report stage in root and RU/KK/EN project plans;
+- exact interval fields for lithology, cuttings, manual descriptions, LBA, calcimetry and stratigraphy;
+- C1–C5, total gas, absolute/relative Gas Ratio and Pixler, H2S/CO2 and available gas channels;
+- drilling, mud and depth-event sections;
+- Report Constructor tab, preview, preflight and PDF/DOCX/XLSX/CSV/TSV/HTML targets;
+- strict measured-zero versus missing-value rules and calculation provenance;
+- explicit ban on automatic rock-description fallback;
+- dedicated RU/KK/EN report export specifications and engineering model.
+
+Checks:
+- touched documentation files and local links: OK
+- required RU/KK/EN report terms: OK
+- python compileall: OK
+- application code/version unchanged; this package is a plan/documentation update for 0.7.2.
