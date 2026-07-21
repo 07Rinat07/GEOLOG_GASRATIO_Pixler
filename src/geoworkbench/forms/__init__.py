@@ -1,3 +1,8 @@
+from geoworkbench.forms.masterlog_bridge import (
+    FormMasterlogBridgeError,
+    FormMasterlogBridgeReport,
+    build_masterlog_from_form,
+)
 from geoworkbench.forms.binding_editor import TrackBindingEditor
 from geoworkbench.forms.editor import FormStructureEditor
 from geoworkbench.forms.codec import (
@@ -26,6 +31,9 @@ from geoworkbench.forms.materialize import (
 )
 
 __all__ = [
+    "FormMasterlogBridgeError",
+    "FormMasterlogBridgeReport",
+    "build_masterlog_from_form",
     "DraftFormController",
     "FormPreviewController",
     "TrackBindingEditor",

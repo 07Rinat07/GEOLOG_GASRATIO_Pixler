@@ -52,6 +52,7 @@ class FormManagerDialog(QDialog):
         print_page_settings: PrintPageSettings | None = None,
         print_page_settings_changed: Callable[[PrintPageSettings], None] | None = None,
         print_form_callback: Callable[[FormDocument], None] | None = None,
+        masterlog_sync_callback: Callable[[FormDocument], FormDocument | None] | None = None,
     ) -> None:
         super().__init__(parent)
         self.repository = repository
@@ -61,6 +62,7 @@ class FormManagerDialog(QDialog):
         self.print_page_settings = print_page_settings or PrintPageSettings()
         self.print_page_settings_changed = print_page_settings_changed
         self.print_form_callback = print_form_callback
+        self.masterlog_sync_callback = masterlog_sync_callback
         self.apply_engine = FormApplyEngine()
         self.selected_form: FormDocument | None = None
         self.setWindowTitle(self._text("Менеджер форм", "Пішіндер менеджері", "Form manager"))
@@ -151,6 +153,17 @@ class FormManagerDialog(QDialog):
         self.print_button.setEnabled(self.print_form_callback is not None)
         open_row.addWidget(self.print_button, 1)
         right.addLayout(open_row)
+
+        self.masterlog_sync_button = QPushButton(
+            self._text(
+                "Связать экран и Masterlog",
+                "Экран мен Masterlog байланыстыру",
+                "Link screen and Masterlog",
+            )
+        )
+        self.masterlog_sync_button.clicked.connect(self._sync_masterlog)
+        self.masterlog_sync_button.setEnabled(self.masterlog_sync_callback is not None)
+        right.addWidget(self.masterlog_sync_button)
         close_button = QPushButton(self._text("Закрыть", "Жабу", "Close"))
         close_button.clicked.connect(self.reject)
         right.addWidget(close_button)
@@ -221,6 +234,7 @@ class FormManagerDialog(QDialog):
             self.details.clear()
             self.apply_button.setEnabled(False)
             self.print_button.setEnabled(False)
+            self.masterlog_sync_button.setEnabled(False)
             return
         tracks = sum(len(column.tracks) for column in form.columns)
         bindings = sum(len(track.bindings) for column in form.columns for track in column.tracks)
@@ -237,6 +251,13 @@ class FormManagerDialog(QDialog):
         compatible = self._is_compatible(form)
         self.apply_button.setEnabled(bool(compatible))
         self.print_button.setEnabled(bool(compatible and self.print_form_callback is not None))
+        self.masterlog_sync_button.setEnabled(
+            bool(
+                compatible
+                and form.axis_kind is FormAxisKind.DEPTH
+                and self.masterlog_sync_callback is not None
+            )
+        )
 
         status_lines: list[str] = []
         if self.dataset is None:
@@ -479,6 +500,32 @@ class FormManagerDialog(QDialog):
         if form is None or not self._is_compatible(form) or self.print_form_callback is None:
             return
         self.print_form_callback(form)
+
+    def _sync_masterlog(self) -> None:
+        form = self._current()
+        if (
+            form is None
+            or form.axis_kind is not FormAxisKind.DEPTH
+            or self.masterlog_sync_callback is None
+        ):
+            return
+        try:
+            linked_form = self.masterlog_sync_callback(form)
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        if linked_form is None:
+            return
+        self.reload(linked_form.form_id)
+        QMessageBox.information(
+            self,
+            self.windowTitle(),
+            self._text(
+                "Печатный Masterlog синхронизирован с формой. Заголовки, порядок, ширины, шкалы и стили дорожек перенесены в печатный шаблон.",
+                "Баспа Masterlog пішінмен синхрондалды. Жол атаулары, реті, ені, шкалалары және стильдері баспа үлгісіне көшірілді.",
+                "The printable Masterlog was synchronized with the form. Track captions, order, widths, scales, and styles were transferred to the print template.",
+            ),
+        )
 
     def _apply(self) -> None:
         form = self._current()

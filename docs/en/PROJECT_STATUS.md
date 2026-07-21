@@ -36,3 +36,7 @@ Current slice verification: `932 passed, 1 skipped`; Ruff and compileall pass.
 
 Implemented safe ascending copies, progressive merging, direct external-curve insertion, source
 manifests, guarded Undo/Redo, pencil editing, synchronous recalculation, and table exports.
+
+### Graphical pencil fix (slice22)
+
+The editor now provides explicit source LAS-curve selection, a toolbar button, tablet context-menu entry, a dedicated pencil cursor and an orange preview stroke. Calculated curves are excluded from direct editing; dependent parameters are recalculated after source-data changes.

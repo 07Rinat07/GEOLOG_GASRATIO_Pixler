@@ -233,3 +233,45 @@ def test_curve_view_restores_full_detail_for_visible_depth_range(qapp) -> None:
     np.testing.assert_allclose(plotted_values, values[50_000:50_251])
     assert dataset.curves["curve"].values.size == 100_000
     view.close()
+
+
+def test_curve_view_selector_chooses_editable_curve(qapp) -> None:
+    dataset, _ = make_dataset()
+    dataset.curves["curve-2"] = CurveData(
+        CurveMetadata("curve-2", "C1", "C1", "%", None, dataset.dataset_id),
+        np.array([0.1, 0.2, 0.3, 0.4]),
+    )
+    view = CurveView()
+    view.show_dataset(dataset)
+
+    index = view._curve_selector.findData("ROP")
+    assert index > 0
+    view._curve_selector.setCurrentIndex(index)
+    qapp.processEvents()
+
+    assert view.displayed_mnemonics == ("ROP",)
+    assert view.can_edit is True
+    assert view.set_edit_mode(True) is True
+    assert view._edit_status.text() == "Карандаш включён"
+    view.close()
+
+
+def test_curve_view_excludes_calculated_curve_from_pencil_selector(qapp) -> None:
+    dataset, _ = make_dataset()
+    dataset.curves["calc"] = CurveData(
+        CurveMetadata(
+            "calc",
+            "TG_CALC",
+            "TG_CALC",
+            "%",
+            "calculation:basic-gas",
+            dataset.dataset_id,
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    view = CurveView()
+    view.show_dataset(dataset)
+
+    assert view._curve_selector.findData("ROP") > 0
+    assert view._curve_selector.findData("TG_CALC") == -1
+    view.close()

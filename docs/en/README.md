@@ -414,3 +414,5 @@ and stratigraphy](FORM_CAPTIONS_AND_STRATIGRAPHY.md).
 Added an ascending copy for descending LAS, progressive merging, external-curve insertion,
 pencil edits with synchronous recalculation, an Excel-like table, and XLSX/TSV/CSV exports.
 See [LAS Editor 2](LAS_EDITOR_2.md).
+
+- The graphical pencil can now be started from the toolbar or track context menu, explicitly selects a source curve and shows a preview stroke.

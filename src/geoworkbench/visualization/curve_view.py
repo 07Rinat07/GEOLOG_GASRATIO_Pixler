@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, Qt, Signal
-from PySide6.QtGui import QMouseEvent
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtGui import QColor, QCursor, QMouseEvent, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
@@ -16,6 +16,7 @@ from geoworkbench.tablet.sampling import MAX_RENDERED_POINTS, select_visible_sam
 
 class CurveView(QWidget):
     edit_requested = Signal(str, object, object)
+    edit_target_changed = Signal(str)
 
     CURVE_COLORS = (
         "#f8fafc",
@@ -42,6 +43,8 @@ class CurveView(QWidget):
         self._draw_points: list[DrawPoint] = []
         self._displayed_curve_ids: tuple[str, ...] = ()
         self._curve_items: dict[str, pg.PlotDataItem] = {}
+        self._edit_preview_item: pg.PlotDataItem | None = None
+        self._pencil_cursor = self._build_pencil_cursor()
         self._selection_region: pg.LinearRegionItem | None = None
         self._cursor_horizontal: pg.InfiniteLine | None = None
         self._cursor_vertical: pg.InfiniteLine | None = None
@@ -60,6 +63,18 @@ class CurveView(QWidget):
         self._plot.viewport().setMouseTracking(True)
         self._title = QLabel(self._t("curve.empty"))
         self._title.setStyleSheet("font-weight: 600; padding: 6px;")
+        self._edit_target_label = QLabel(self._t("curve.edit_target"))
+        self._curve_selector = QComboBox()
+        self._curve_selector.setMinimumWidth(220)
+        self._curve_selector.setToolTip(self._t("curve.edit_target_tooltip"))
+        self._curve_selector.currentIndexChanged.connect(self._on_curve_selector_changed)
+        self._edit_status = QLabel(self._t("curve.edit_inactive"))
+        self._edit_status.setStyleSheet("padding: 3px 8px; color:#475569;")
+        edit_row = QHBoxLayout()
+        edit_row.setContentsMargins(6, 0, 6, 0)
+        edit_row.addWidget(self._edit_target_label)
+        edit_row.addWidget(self._curve_selector, 1)
+        edit_row.addWidget(self._edit_status)
         self._cursor_label = QLabel(self._t("curve.cursor_empty"))
         self._cursor_label.setObjectName("curve-cursor-values")
         self._cursor_label.setStyleSheet("padding: 4px 6px;")
@@ -67,16 +82,82 @@ class CurveView(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._title)
+        layout.addLayout(edit_row)
         layout.addWidget(self._cursor_label)
         layout.addWidget(self._plot)
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
 
+    @staticmethod
+    def _build_pencil_cursor() -> QCursor:
+        pixmap = QPixmap(28, 28)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(QPen(QColor("#0f172a"), 3.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.drawLine(6, 22, 21, 7)
+        painter.setPen(QPen(QColor("#f59e0b"), 5.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.drawLine(9, 20, 20, 9)
+        painter.setPen(QPen(QColor("#0f172a"), 1.5))
+        painter.drawLine(5, 23, 10, 21)
+        painter.end()
+        return QCursor(pixmap, 5, 23)
+
+    @staticmethod
+    def _curve_is_directly_editable(curve: CurveData) -> bool:
+        provenance = (curve.metadata.provenance or "").strip().casefold()
+        return (
+            not provenance.startswith(("calculation:", "custom-formula:"))
+            and provenance != "derived"
+        )
+
+    def _populate_curve_selector(self) -> None:
+        current_id = self._editable_curve.metadata.curve_id if self._editable_curve else None
+        self._curve_selector.blockSignals(True)
+        self._curve_selector.clear()
+        self._curve_selector.addItem(self._t("curve.edit_choose"), None)
+        if self._dataset is not None:
+            curves = sorted(
+                (
+                    curve
+                    for curve in self._dataset.curves.values()
+                    if self._curve_is_directly_editable(curve)
+                ),
+                key=lambda item: item.metadata.original_mnemonic.casefold(),
+            )
+            for curve in curves:
+                mnemonic = curve.metadata.original_mnemonic
+                unit = (curve.metadata.unit or "").strip()
+                label = f"{mnemonic} [{unit}]" if unit else mnemonic
+                self._curve_selector.addItem(label, mnemonic)
+                if curve.metadata.curve_id == current_id:
+                    self._curve_selector.setCurrentIndex(self._curve_selector.count() - 1)
+        self._curve_selector.blockSignals(False)
+
+    def _on_curve_selector_changed(self, index: int) -> None:
+        if self._dataset is None or index <= 0:
+            return
+        mnemonic = self._curve_selector.itemData(index)
+        if not isinstance(mnemonic, str) or not mnemonic:
+            return
+        was_editing = self._edit_mode
+        dataset = self._dataset
+        self.show_dataset(dataset, [mnemonic])
+        self.edit_target_changed.emit(mnemonic)
+        if was_editing:
+            self.set_edit_mode(True)
+
     def set_language(self, language: AppLanguage) -> None:
         self.localizer = Localizer.create(language)
         self._plot.setLabel("left", self._t("curve.axis.depth"), units="m")
         self._plot.setLabel("bottom", self._t("curve.axis.value"))
+        self._edit_target_label.setText(self._t("curve.edit_target"))
+        self._curve_selector.setToolTip(self._t("curve.edit_target_tooltip"))
+        self._edit_status.setText(
+            self._t("curve.edit_active") if self._edit_mode else self._t("curve.edit_inactive")
+        )
+        self._populate_curve_selector()
         if self._dataset is None:
             self._title.setText(self._t("curve.empty"))
         else:
@@ -105,6 +186,12 @@ class CurveView(QWidget):
         return self._dataset is not None and self._editable_curve is not None
 
     @property
+    def editable_mnemonic(self) -> str | None:
+        if self._editable_curve is None:
+            return None
+        return self._editable_curve.metadata.original_mnemonic
+
+    @property
     def cursor_text(self) -> str:
         return self._cursor_label.text()
 
@@ -121,9 +208,11 @@ class CurveView(QWidget):
     def clear(self) -> None:
         self._dataset = None
         self._editable_curve = None
+        self._edit_mode = False
         self._draw_points.clear()
         self._displayed_curve_ids = ()
         self._curve_items.clear()
+        self._edit_preview_item = None
         self._plot.clear()
         self._legend.clear()
         self._selection_region = None
@@ -133,12 +222,64 @@ class CurveView(QWidget):
         self._last_cursor_value = None
         self._cursor_label.setText(self._t("curve.cursor_empty"))
         self._title.setText(self._t("curve.empty"))
+        self._plot.viewport().setCursor(Qt.CursorShape.ArrowCursor)
+        self._edit_status.setText(self._t("curve.edit_inactive"))
+        self._populate_curve_selector()
 
     def set_edit_mode(self, enabled: bool) -> bool:
         self._edit_mode = enabled and self.can_edit
-        cursor = Qt.CursorShape.CrossCursor if self._edit_mode else Qt.CursorShape.ArrowCursor
-        self._plot.viewport().setCursor(cursor)
+        self._draw_points.clear()
+        self._clear_edit_preview()
+        self._plot.viewport().setCursor(
+            self._pencil_cursor if self._edit_mode else Qt.CursorShape.ArrowCursor
+        )
+        self._edit_status.setText(
+            self._t("curve.edit_active") if self._edit_mode else self._t("curve.edit_inactive")
+        )
+        self._edit_status.setStyleSheet(
+            "padding: 3px 8px; font-weight:600; color:#166534;"
+            if self._edit_mode
+            else "padding: 3px 8px; color:#475569;"
+        )
         return self._edit_mode
+
+    def select_editable_curve(self, mnemonic: str, *, enable_edit: bool = False) -> bool:
+        if self._dataset is None:
+            return False
+        curve = self._dataset.curve_by_mnemonic(mnemonic)
+        if curve is None or not self._curve_is_directly_editable(curve):
+            return False
+        dataset = self._dataset
+        self.show_dataset(dataset, [mnemonic])
+        return self.set_edit_mode(True) if enable_edit else True
+
+    def _update_edit_preview(self) -> None:
+        if not self._draw_points:
+            self._clear_edit_preview()
+            return
+        if self._edit_preview_item is None:
+            self._edit_preview_item = pg.PlotDataItem(
+                pen=pg.mkPen("#f97316", width=2.5),
+                symbol="o",
+                symbolSize=4,
+                symbolBrush=pg.mkBrush("#f97316"),
+                connect="finite",
+            )
+            self._edit_preview_item.setZValue(100)
+            self._plot.addItem(self._edit_preview_item)
+        self._edit_preview_item.setData(
+            [point.value for point in self._draw_points],
+            [point.depth for point in self._draw_points],
+            connect="finite",
+        )
+
+    def _clear_edit_preview(self) -> None:
+        if self._edit_preview_item is not None:
+            try:
+                self._plot.removeItem(self._edit_preview_item)
+            except RuntimeError:
+                pass
+            self._edit_preview_item = None
 
     def show_dataset(self, dataset: Dataset, selected: list[str] | None = None) -> None:
         self._depth_range_guard = True
@@ -147,6 +288,7 @@ class CurveView(QWidget):
         self._draw_points.clear()
         self._displayed_curve_ids = ()
         self._curve_items.clear()
+        self._edit_preview_item = None
         self._plot.clear()
         self._legend.clear()
         self._plot.getViewBox().disableAutoRange(axis=pg.ViewBox.YAxis)
@@ -159,7 +301,10 @@ class CurveView(QWidget):
         selected_names = default_curve_mnemonics(dataset) if selected is None else selected
         finite_depth = dataset.depth[np.isfinite(dataset.depth)]
         if len(selected_names) == 1:
-            self._editable_curve = dataset.curve_by_mnemonic(selected_names[0])
+            candidate = dataset.curve_by_mnemonic(selected_names[0])
+            if candidate is not None and self._curve_is_directly_editable(candidate):
+                self._editable_curve = candidate
+        self._populate_curve_selector()
         count = 0
         displayed_curve_ids: list[str] = []
         for selected_mnemonic in selected_names:
@@ -383,9 +528,11 @@ class CurveView(QWidget):
             and event.button() == Qt.MouseButton.LeftButton
         ):
             self._draw_points = [self._draw_point(event)]
+            self._update_edit_preview()
             return True
         if event_type == QEvent.Type.MouseMove and self._draw_points:
             self._draw_points.append(self._draw_point(event))
+            self._update_edit_preview()
             return True
         if (
             event_type == QEvent.Type.MouseButtonRelease
@@ -395,6 +542,7 @@ class CurveView(QWidget):
             self._draw_points.append(self._draw_point(event))
             points = self._draw_points
             self._draw_points = []
+            self._clear_edit_preview()
             self.commit_draw_points(points)
             return True
         return True

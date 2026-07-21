@@ -240,6 +240,7 @@ class MainWindow(QMainWindow):
             self._show_track_properties_from_context
         )
         self.tablet_view.track_full_edit_requested.connect(self._edit_live_track)
+        self.tablet_view.curve_pencil_requested.connect(self._start_curve_pencil_from_tablet)
         self.tablet_view.track_rename_requested.connect(self._rename_live_track)
         self.tablet_view.track_group_rename_requested.connect(self._rename_live_track_group)
         self.tablet_view.track_curve_settings_requested.connect(
@@ -717,8 +718,34 @@ class MainWindow(QMainWindow):
         file_menu.addAction(self.data_inspector_action)
 
         self.pencil_action = self._localized_action("shell.curve_pencil")
+        pencil_pixmap = QPixmap(24, 24)
+        pencil_pixmap.fill(Qt.GlobalColor.transparent)
+        pencil_painter = QPainter(pencil_pixmap)
+        pencil_painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        pencil_painter.setPen(
+            QPen(
+                Qt.GlobalColor.darkGray,
+                3,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+            )
+        )
+        pencil_painter.drawLine(4, 20, 19, 5)
+        pencil_painter.setPen(
+            QPen(
+                Qt.GlobalColor.darkYellow,
+                5,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+            )
+        )
+        pencil_painter.drawLine(7, 18, 18, 7)
+        pencil_painter.end()
+        self.pencil_action.setIcon(QIcon(pencil_pixmap))
         self.pencil_action.setCheckable(True)
         self.pencil_action.setShortcut("E")
+        self.pencil_action.setToolTip(self._t("shell.curve_pencil_tooltip"))
+        self.pencil_action.setStatusTip(self._t("shell.curve_pencil_tooltip"))
         self.pencil_action.toggled.connect(self.toggle_curve_edit_mode)
         edit_menu.addAction(self.pencil_action)
 
@@ -1061,6 +1088,7 @@ class MainWindow(QMainWindow):
         self.main_toolbar.addAction(self.interval_resize_action)
         self.main_toolbar.addSeparator()
         self.main_toolbar.addAction(self.ratio_action)
+        self.main_toolbar.addAction(self.pencil_action)
         self.main_toolbar.addAction(self.cursor_line_action)
         self.main_toolbar.addAction(self.save_action)
         self.addToolBar(self.main_toolbar)
@@ -2152,17 +2180,107 @@ class MainWindow(QMainWindow):
         self.curve_editing_controller.formula_registry = self.formula_registry
         self.las_range_editing_controller.formula_registry = self.formula_registry
 
-    def toggle_curve_edit_mode(self, enabled: bool) -> None:
-        if enabled and not self.curve_view.set_edit_mode(True):
-            self.pencil_action.setChecked(False)
+    def _editable_curve_choices(self) -> list[tuple[str, str]]:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            return []
+        choices: list[tuple[str, str]] = []
+        for curve in sorted(
+            dataset.curves.values(),
+            key=lambda item: item.metadata.original_mnemonic.casefold(),
+        ):
+            provenance = (curve.metadata.provenance or "").strip().casefold()
+            if (
+                provenance.startswith(("calculation:", "custom-formula:"))
+                or provenance == "derived"
+            ):
+                continue
+            mnemonic = curve.metadata.original_mnemonic
+            unit = (curve.metadata.unit or "").strip()
+            description = (curve.metadata.description or "").strip()
+            label = mnemonic
+            if unit:
+                label += f" [{unit}]"
+            if description and description.casefold() != mnemonic.casefold():
+                label += f" — {description}"
+            choices.append((label, mnemonic))
+        return choices
+
+    def _choose_curve_for_pencil(self, preferred: str = "") -> str | None:
+        choices = self._editable_curve_choices()
+        if not choices:
             QMessageBox.information(
                 self,
-                "Редактор кривой",
-                "Выберите одну кривую двойным щелчком в дереве проекта",
+                self._t("shell.curve_pencil"),
+                self._t("shell.curve_pencil_no_curves"),
             )
+            return None
+        labels = [label for label, _ in choices]
+        initial = 0
+        for index, (_, mnemonic) in enumerate(choices):
+            if mnemonic.casefold() == preferred.casefold():
+                initial = index
+                break
+        selected, accepted = QInputDialog.getItem(
+            self,
+            self._t("shell.curve_pencil_choose_title"),
+            self._t("shell.curve_pencil_choose_prompt"),
+            labels,
+            initial,
+            False,
+        )
+        if not accepted:
+            return None
+        for label, mnemonic in choices:
+            if label == selected:
+                return mnemonic
+        return None
+
+    def _activate_curve_pencil(self, mnemonic: str) -> bool:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            return False
+        self.curve_view.show_dataset(dataset, [mnemonic])
+        self.tabs.setCurrentWidget(self.curve_view)
+        if not self.curve_view.set_edit_mode(True):
+            return False
+        self.statusBar().showMessage(
+            self._t("shell.curve_pencil_active_status", mnemonic=mnemonic)
+        )
+        return True
+
+    def _start_curve_pencil_from_tablet(self, _track_id: str, mnemonic: str) -> None:
+        editable = {item_mnemonic for _, item_mnemonic in self._editable_curve_choices()}
+        target = mnemonic if mnemonic in editable else self._choose_curve_for_pencil(mnemonic)
+        if not target:
             return
-        if not enabled:
+        if self._activate_curve_pencil(target):
+            self.pencil_action.blockSignals(True)
+            self.pencil_action.setChecked(True)
+            self.pencil_action.blockSignals(False)
+
+    def toggle_curve_edit_mode(self, enabled: bool) -> None:
+        if enabled:
+            if self.session.current_dataset is None:
+                self.pencil_action.setChecked(False)
+                QMessageBox.information(
+                    self,
+                    self._t("shell.curve_pencil"),
+                    self._t("shell.curve_pencil_no_dataset"),
+                )
+                return
+            if self.curve_view.can_edit:
+                mnemonic = self.curve_view.editable_mnemonic
+            else:
+                mnemonic = self._choose_curve_for_pencil()
+            if not mnemonic or not self._activate_curve_pencil(mnemonic):
+                self.pencil_action.blockSignals(True)
+                self.pencil_action.setChecked(False)
+                self.pencil_action.blockSignals(False)
+                return
+        else:
             self.curve_view.set_edit_mode(False)
+            self.statusBar().showMessage(self._t("shell.curve_pencil_inactive_status"), 3000)
 
     def _apply_curve_draw_edit(
         self,
@@ -4052,6 +4170,11 @@ class MainWindow(QMainWindow):
                 mnemonic = curve.metadata.original_mnemonic
                 self.curve_view.show_dataset(dataset, [mnemonic])
                 self.tabs.setCurrentWidget(self.curve_view)
+                if self.pencil_action.isChecked():
+                    self.curve_view.set_edit_mode(True)
+                    self.statusBar().showMessage(
+                        self._t("shell.curve_pencil_active_status", mnemonic=mnemonic)
+                    )
                 self.inspector.setPlainText(
                     f"{self._t('inspector.curve')}: {mnemonic}\n"
                     f"{self._t('inspector.unit')}: "

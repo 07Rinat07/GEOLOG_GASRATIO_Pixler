@@ -668,6 +668,7 @@ class TabletView(QWidget):
     track_rename_requested = Signal(str)
     track_group_rename_requested = Signal(str)
     track_curve_settings_requested = Signal(str, str)
+    curve_pencil_requested = Signal(str, str)
     save_layout_requested = Signal()
     visible_depth_changed = Signal(float, float)
     vertical_index_changed = Signal(str)
@@ -1711,8 +1712,20 @@ class TabletView(QWidget):
 
         graphical = definition.kind in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
         add_curves = replace_curves = properties_action = None
-        curve_settings_action = save_layout_action = None
+        curve_settings_action = save_layout_action = pencil_action = None
+        selected_curve = ""
         if graphical:
+            for selected in self._selection.snapshot().items:
+                if (
+                    selected.kind is SelectableKind.CURVE
+                    and selected.track_id == track_id
+                ):
+                    selected_curve = selected.object_id
+                    break
+            if not selected_curve and definition.curve_mnemonics:
+                selected_curve = definition.curve_mnemonics[0]
+            pencil_action = menu.addAction(self._localizer.text("tablet.curve_pencil_action"))
+            pencil_action.setEnabled(bool(selected_curve))
             add_curves = menu.addAction(self._localizer.text("tablet.add_curves"))
             replace_curves = menu.addAction(self._localizer.text("tablet.choose_track_curves"))
             curve_settings_action = menu.addAction(self._localizer.text("tablet.curve_settings"))
@@ -1739,7 +1752,9 @@ class TabletView(QWidget):
         undo_action.setEnabled(self.can_undo_interaction)
         redo_action.setEnabled(self.can_redo_interaction)
         chosen = menu.exec(global_pos)
-        if add_curves is not None and chosen is add_curves:
+        if pencil_action is not None and chosen is pencil_action:
+            self.curve_pencil_requested.emit(track_id, selected_curve)
+        elif add_curves is not None and chosen is add_curves:
             self.track_add_curves_requested.emit(track_id)
         elif replace_curves is not None and chosen is replace_curves:
             self.track_replace_curves_requested.emit(track_id)
@@ -1772,9 +1787,16 @@ class TabletView(QWidget):
     def _curve_header_selected(self, track_id: str, mnemonic: str) -> None:
         self.select_curve(track_id, mnemonic, emit_signal=True)
 
-    def _curve_header_context(self, track_id: str, mnemonic: str, _pos: QPoint) -> None:
+    def _curve_header_context(self, track_id: str, mnemonic: str, pos: QPoint) -> None:
         self.select_curve(track_id, mnemonic, emit_signal=True)
-        self.track_curve_settings_requested.emit(track_id, mnemonic)
+        menu = QMenu(self)
+        pencil_action = menu.addAction(self._localizer.text("tablet.curve_pencil_action"))
+        settings_action = menu.addAction(self._localizer.text("tablet.curve_settings"))
+        chosen = menu.exec(pos)
+        if chosen is pencil_action:
+            self.curve_pencil_requested.emit(track_id, mnemonic)
+        elif chosen is settings_action:
+            self.track_curve_settings_requested.emit(track_id, mnemonic)
 
     @property
     def visible_depth_range(self) -> tuple[float, float] | None:
