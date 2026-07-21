@@ -252,6 +252,8 @@ class MainWindow(QMainWindow):
         )
         self.tablet_view.track_full_edit_requested.connect(self._edit_live_track)
         self.tablet_view.curve_pencil_requested.connect(self._start_curve_pencil_from_tablet)
+        self.tablet_view.curve_edit_requested.connect(self._apply_curve_draw_edit)
+        self.tablet_view.curve_pencil_mode_changed.connect(self._sync_pencil_action_from_tablet)
         self.tablet_view.track_rename_requested.connect(self._rename_live_track)
         self.tablet_view.track_group_rename_requested.connect(self._rename_live_track_group)
         self.tablet_view.track_curve_settings_requested.connect(
@@ -642,7 +644,9 @@ class MainWindow(QMainWindow):
 
         self.open_project_action = self._localized_action("shell.open_project")
         self.open_project_action.setShortcut("Ctrl+O")
-        self.open_project_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon))
+        self.open_project_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
+        )
         self._set_action_help(self.open_project_action, "ui.help.open_project")
         self.open_project_action.triggered.connect(self.open_project)
         file_menu.addAction(self.open_project_action)
@@ -655,7 +659,9 @@ class MainWindow(QMainWindow):
 
         self.open_data_action = self._localized_action("import.universal")
         self.open_data_action.setShortcut("Ctrl+I")
-        self.open_data_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton))
+        self.open_data_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)
+        )
         self._set_action_help(self.open_data_action, "ui.help.import_data")
         self.open_data_action.triggered.connect(self.open_data)
         file_menu.addAction(self.open_data_action)
@@ -1030,9 +1036,7 @@ class MainWindow(QMainWindow):
         tablet_menu.addAction(self.redo_interpretation_action)
         self._update_interpretation_history_actions()
 
-        self.tablet_edit_mode_action = self._localized_action(
-            "ui.tablet_edit_mode", checkable=True
-        )
+        self.tablet_edit_mode_action = self._localized_action("ui.tablet_edit_mode", checkable=True)
         self.tablet_edit_mode_action.setShortcut("F4")
         self.tablet_edit_mode_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
@@ -1207,15 +1211,9 @@ class MainWindow(QMainWindow):
             "border-color: #60a5fa; color: #1e3a8a; }"
         )
 
-        self.las_editor_button = self._toolbar_button(
-            self.main_toolbar, self.las_editor_action
-        )
-        self.form_manager_button = self._toolbar_button(
-            self.main_toolbar, self.form_manager_action
-        )
-        self.constructor_button = self._toolbar_button(
-            self.main_toolbar, self.constructor_action
-        )
+        self.las_editor_button = self._toolbar_button(self.main_toolbar, self.las_editor_action)
+        self.form_manager_button = self._toolbar_button(self.main_toolbar, self.form_manager_action)
+        self.constructor_button = self._toolbar_button(self.main_toolbar, self.constructor_action)
         # These are ordinary direct buttons. No menu is attached to Form Manager.
         self.main_toolbar.addWidget(self.las_editor_button)
         self.main_toolbar.addWidget(self.form_manager_button)
@@ -1253,7 +1251,9 @@ class MainWindow(QMainWindow):
             "QToolBar#formEditToolbar QToolButton:hover { background: #dbeafe; }"
         )
         self.form_edit_caption = QLabel(self._t("ui.form_edit_toolbar"))
-        self.form_edit_caption.setStyleSheet("font-weight: 700; color: #1e3a8a; padding-right: 8px;")
+        self.form_edit_caption.setStyleSheet(
+            "font-weight: 700; color: #1e3a8a; padding-right: 8px;"
+        )
         self.form_edit_caption.setToolTip(self._t("ui.help.tablet_edit_mode"))
         self.form_edit_toolbar.addWidget(self.form_edit_caption)
         self.form_edit_toolbar.addAction(self.add_curve_track_action)
@@ -2471,21 +2471,52 @@ class MainWindow(QMainWindow):
         dataset = self.session.current_dataset
         if dataset is None:
             return False
+        self.tablet_view.set_curve_pencil_mode(False)
         self.curve_view.show_dataset(dataset, [mnemonic])
         self.tabs.setCurrentWidget(self.curve_view)
         if not self.curve_view.set_edit_mode(True):
             return False
+        self.statusBar().showMessage(self._t("shell.curve_pencil_active_status", mnemonic=mnemonic))
+        return True
+
+    def _activate_tablet_curve_pencil(
+        self, mnemonic: str = "", *, track_id: str | None = None
+    ) -> bool:
+        self.curve_view.set_edit_mode(False)
+        activated = (
+            self.tablet_view.set_curve_pencil_mode(True, track_id=track_id, mnemonic=mnemonic)
+            if track_id and mnemonic
+            else self.tablet_view.activate_curve_pencil_for_mnemonic(mnemonic)
+            if mnemonic
+            else self.tablet_view.set_curve_pencil_mode(True)
+        )
+        if not activated:
+            return False
+        target = self.tablet_view.curve_pencil_target
+        active_mnemonic = target[1] if target is not None else mnemonic
+        self.tabs.setCurrentWidget(self.tablet_view)
         self.statusBar().showMessage(
-            self._t("shell.curve_pencil_active_status", mnemonic=mnemonic)
+            self._t("shell.curve_pencil_active_status", mnemonic=active_mnemonic)
         )
         return True
 
-    def _start_curve_pencil_from_tablet(self, _track_id: str, mnemonic: str) -> None:
+    def _sync_pencil_action_from_tablet(self, enabled: bool, mnemonic: str) -> None:
+        self.pencil_action.blockSignals(True)
+        self.pencil_action.setChecked(enabled)
+        self.pencil_action.blockSignals(False)
+        if enabled:
+            self.statusBar().showMessage(
+                self._t("shell.curve_pencil_active_status", mnemonic=mnemonic)
+            )
+        else:
+            self.statusBar().showMessage(self._t("shell.curve_pencil_inactive_status"), 3000)
+
+    def _start_curve_pencil_from_tablet(self, track_id: str, mnemonic: str) -> None:
         editable = {item_mnemonic for _, item_mnemonic in self._editable_curve_choices()}
         target = mnemonic if mnemonic in editable else self._choose_curve_for_pencil(mnemonic)
         if not target:
             return
-        if self._activate_curve_pencil(target):
+        if self._activate_tablet_curve_pencil(target, track_id=track_id):
             self.pencil_action.blockSignals(True)
             self.pencil_action.setChecked(True)
             self.pencil_action.blockSignals(False)
@@ -2500,6 +2531,17 @@ class MainWindow(QMainWindow):
                     self._t("shell.curve_pencil_no_dataset"),
                 )
                 return
+            if self.tabs.currentWidget() is self.tablet_view:
+                if not self._activate_tablet_curve_pencil():
+                    self.pencil_action.blockSignals(True)
+                    self.pencil_action.setChecked(False)
+                    self.pencil_action.blockSignals(False)
+                    QMessageBox.information(
+                        self,
+                        self._t("shell.curve_pencil"),
+                        self._t("tablet.curve_pencil_no_curves"),
+                    )
+                return
             if self.curve_view.can_edit:
                 mnemonic = self.curve_view.editable_mnemonic
             else:
@@ -2511,6 +2553,7 @@ class MainWindow(QMainWindow):
                 return
         else:
             self.curve_view.set_edit_mode(False)
+            self.tablet_view.set_curve_pencil_mode(False)
             self.statusBar().showMessage(self._t("shell.curve_pencil_inactive_status"), 3000)
 
     def _apply_curve_draw_edit(
@@ -2550,8 +2593,11 @@ class MainWindow(QMainWindow):
     def _after_curve_edit(self, outcome: CurveEditOutcome) -> None:
         dataset = self.session.current_dataset
         if dataset is not None and dataset.dataset_id == outcome.dataset_id:
+            tablet_pencil_active = self.tablet_view.curve_pencil_enabled
             self.curve_view.show_dataset(dataset, [outcome.mnemonic])
-            self.curve_view.set_edit_mode(self.pencil_action.isChecked())
+            self.curve_view.set_edit_mode(
+                self.pencil_action.isChecked() and not tablet_pencil_active
+            )
             self.tablet_view.set_dataset(dataset)
             self.las_table_editor.set_dataset(dataset)
         self._update_curve_edit_actions()
@@ -2724,18 +2770,14 @@ class MainWindow(QMainWindow):
         self.move_right_action.setEnabled(enabled)
         self.remove_track_action.setEnabled(enabled)
         self.statusBar().showMessage(
-            self._t("ui.form_edit_enabled")
-            if enabled
-            else self._t("ui.form_edit_disabled")
+            self._t("ui.form_edit_enabled") if enabled else self._t("ui.form_edit_disabled")
         )
 
     def save_current_tablet_as_user_form(self) -> None:
         layout = self.session.current_tablet_layout
         dataset = self.session.current_dataset
         if layout is None or dataset is None:
-            QMessageBox.information(
-                self, self._t("forms.title"), self._t("tablet.build_first")
-            )
+            QMessageBox.information(self, self._t("forms.title"), self._t("tablet.build_first"))
             return
         index = (
             dataset.indexes.get(layout.vertical_index_id)
@@ -2743,7 +2785,9 @@ class MainWindow(QMainWindow):
             else dataset.active_index
         )
         axis_word = self._t(
-            "ui.axis_time" if index is not None and index.role is IndexRole.TIME else "ui.axis_depth"
+            "ui.axis_time"
+            if index is not None and index.role is IndexRole.TIME
+            else "ui.axis_depth"
         )
         suggested = f"{dataset.name} — {axis_word}"
         name, accepted = QInputDialog.getText(
@@ -2789,9 +2833,7 @@ class MainWindow(QMainWindow):
             return
         self.session.dirty = True
         folder_name = self._t(
-            "ui.user_time_forms"
-            if form.axis_kind is FormAxisKind.TIME
-            else "ui.user_depth_forms"
+            "ui.user_time_forms" if form.axis_kind is FormAxisKind.TIME else "ui.user_depth_forms"
         )
         message = self._t(
             "ui.user_form_saved",
@@ -4059,9 +4101,7 @@ class MainWindow(QMainWindow):
         except (OSError, RuntimeError, LasExportError) as exc:
             QMessageBox.warning(self, self._t("las_editor.title"), str(exc))
             return
-        self.statusBar().showMessage(
-            self._t("las_editor.saved_copy", name=exported.name)
-        )
+        self.statusBar().showMessage(self._t("las_editor.saved_copy", name=exported.name))
 
     def show_curve_transfer(self) -> None:
         if self.session.current_dataset is None:
@@ -4130,9 +4170,7 @@ class MainWindow(QMainWindow):
         except RuntimeError as exc:
             QMessageBox.warning(self, self._t("external_las.title"), str(exc))
             return
-        self._after_external_las_insert(
-            self._t("external_las.undone"), outcome.inserted_mnemonics
-        )
+        self._after_external_las_insert(self._t("external_las.undone"), outcome.inserted_mnemonics)
 
     def redo_external_las_insert(self) -> None:
         try:
@@ -4140,13 +4178,9 @@ class MainWindow(QMainWindow):
         except RuntimeError as exc:
             QMessageBox.warning(self, self._t("external_las.title"), str(exc))
             return
-        self._after_external_las_insert(
-            self._t("external_las.redone"), outcome.inserted_mnemonics
-        )
+        self._after_external_las_insert(self._t("external_las.redone"), outcome.inserted_mnemonics)
 
-    def _after_external_las_insert(
-        self, message: str, mnemonics: tuple[str, ...]
-    ) -> None:
+    def _after_external_las_insert(self, message: str, mnemonics: tuple[str, ...]) -> None:
         dataset = self.session.current_dataset
         if dataset is not None:
             existing = [
@@ -4198,9 +4232,7 @@ class MainWindow(QMainWindow):
             self._discard_current_derived_dataset(previous_dataset_id)
             QMessageBox.warning(self, self._t("merge.title"), str(exc))
             return
-        self._after_dataset_merge(
-            self._t("merge.copy_completed", name=exported.name)
-        )
+        self._after_dataset_merge(self._t("merge.copy_completed", name=exported.name))
 
     def undo_dataset_merge(self) -> None:
         try:
@@ -4724,9 +4756,7 @@ class MainWindow(QMainWindow):
             track = self.tablet_view.layout_model.track_by_id(track_id)
         except KeyError:
             return
-        dialog = TabletTrackEditorDialog(
-            track, self, language=self.language.value
-        )
+        dialog = TabletTrackEditorDialog(track, self, language=self.language.value)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         try:
@@ -4746,7 +4776,10 @@ class MainWindow(QMainWindow):
         except KeyError:
             return
         title, accepted = QInputDialog.getText(
-            self, self._t("tablet.rename_track"), self._t("tablet.track_title_prompt"), text=track.title
+            self,
+            self._t("tablet.rename_track"),
+            self._t("tablet.track_title_prompt"),
+            text=track.title,
         )
         if not accepted:
             return
@@ -4765,7 +4798,10 @@ class MainWindow(QMainWindow):
         except KeyError:
             return
         title, accepted = QInputDialog.getText(
-            self, self._t("tablet.rename_group"), self._t("tablet.group_title_prompt"), text=track.group_title
+            self,
+            self._t("tablet.rename_group"),
+            self._t("tablet.group_title_prompt"),
+            text=track.group_title,
         )
         if not accepted:
             return

@@ -725,21 +725,19 @@ def test_tablet_interval_handlers_create_resize_and_undo(qapp) -> None:
     qapp.processEvents()
 
 
-def test_pencil_action_selects_curve_and_switches_to_curve_view(qapp, monkeypatch) -> None:
+def test_pencil_action_edits_visible_curve_directly_in_tablet(qapp) -> None:
     window = MainWindow()
-    session, _ = make_session()
+    session, layout = make_session()
+    layout.track_by_id("curve").curve_mnemonics = ["ROP"]
     bind_session(window, session)
     window._show_current_dataset()
-    monkeypatch.setattr(
-        "geoworkbench.ui.main_window.QInputDialog.getItem",
-        lambda *args, **kwargs: ("ROP [m/h]", True),
-    )
+    window.tabs.setCurrentWidget(window.tablet_view)
 
     window.pencil_action.setChecked(True)
     qapp.processEvents()
 
-    assert window.tabs.currentWidget() is window.curve_view
-    assert window.curve_view.displayed_mnemonics == ("ROP",)
-    assert window.curve_view.can_edit is True
+    assert window.tabs.currentWidget() is window.tablet_view
+    assert window.tablet_view.curve_pencil_enabled is True
+    assert window.tablet_view.curve_pencil_target == ("curve", "ROP")
     assert window.pencil_action in window.main_toolbar.actions()
     window.close()

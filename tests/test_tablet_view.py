@@ -24,6 +24,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.tablet.models import (
+    CurveDisplaySettings,
     CurveLineStyle,
     CurveStyle,
     TabletLayout,
@@ -1963,9 +1964,7 @@ def test_stratigraphy_drag_emits_snapped_interval(qapp) -> None:
     )
     view = TabletView()
     view.set_layout_model(
-        TabletLayout(
-            [TrackDefinition("strat", "Stratigraphy", TrackKind.STRATIGRAPHY, width=220)]
-        )
+        TabletLayout([TrackDefinition("strat", "Stratigraphy", TrackKind.STRATIGRAPHY, width=220)])
     )
     view.set_dataset(dataset)
     emitted: list[tuple[float, float]] = []
@@ -1989,9 +1988,7 @@ def test_stratigraphy_track_renders_project_intervals(qapp) -> None:
     )
     view = TabletView()
     view.set_layout_model(
-        TabletLayout(
-            [TrackDefinition("strat", "Возраст", TrackKind.STRATIGRAPHY, width=220)]
-        )
+        TabletLayout([TrackDefinition("strat", "Возраст", TrackKind.STRATIGRAPHY, width=220)])
     )
     interval = StratigraphyInterval(
         "s1", 100.0, 200.0, "K", "Меловая", "System / Period", "#7fc64e", None
@@ -2002,4 +1999,167 @@ def test_stratigraphy_track_renders_project_intervals(qapp) -> None:
     rendered = view._rendered["strat"].stratigraphy_items
     assert rendered is not None and "s1" in rendered
     assert view.stratigraphy_interval_at_depth(150.0) is interval
+    view.close()
+
+
+def test_tablet_curve_pencil_is_visible_and_emits_edit_request(qapp) -> None:
+    dataset = Dataset(
+        "dataset-pencil",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0, 103.0]),
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-pencil",
+            "ROP",
+            "ROP",
+            "m/h",
+            None,
+            dataset.dataset_id,
+            provenance="las:source",
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView()
+    view.resize(900, 650)
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "drilling",
+                    "Бурение",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["ROP"],
+                    curve_display={
+                        "ROP": CurveDisplaySettings("Скорость бурения", XScale.LINEAR, 0.0, 10.0)
+                    },
+                )
+            ]
+        )
+    )
+    emitted: list[tuple[object, ...]] = []
+    view.curve_edit_requested.connect(lambda *args: emitted.append(args))
+    view.set_dataset(dataset)
+    view.show()
+    qapp.processEvents()
+
+    assert view.curve_pencil_controls_visible is True
+    assert view._curve_pencil_selector.count() == 1
+    assert view.set_curve_pencil_mode(True) is True
+    assert view.curve_pencil_target == ("drilling", "ROP")
+
+    plot = view._rendered["drilling"].plot
+    assert plot is not None
+    viewport = plot.viewport()
+    first = plot.mapFromScene(plot.getViewBox().mapViewToScene(QPointF(0.2, 100.2)))
+    second = plot.mapFromScene(plot.getViewBox().mapViewToScene(QPointF(0.8, 102.8)))
+    QTest.mousePress(viewport, Qt.MouseButton.LeftButton, pos=first)
+    QTest.mouseMove(viewport, second)
+    QTest.mouseRelease(viewport, Qt.MouseButton.LeftButton, pos=second)
+    qapp.processEvents()
+
+    assert len(emitted) == 1
+    assert emitted[0][0] == curve.metadata.curve_id
+    assert len(emitted[0][1]) >= 2
+    assert len(emitted[0][1]) == len(emitted[0][2])
+    view.close()
+
+
+def test_tablet_curve_pencil_excludes_derived_curves(qapp) -> None:
+    dataset = Dataset(
+        "dataset-derived-pencil",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0]),
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-derived",
+            "D_EXP",
+            "D_EXP",
+            None,
+            None,
+            dataset.dataset_id,
+            provenance="calculation:dexp",
+        ),
+        np.array([1.0, 1.1, 1.2]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "dexp",
+                    "D-экспонента",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["D_EXP"],
+                )
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view._curve_pencil_selector.count() == 0
+    assert view.set_curve_pencil_mode(True) is False
+    view.close()
+
+
+def test_tablet_curve_pencil_handles_descending_axis_and_log_scale(qapp) -> None:
+    dataset = Dataset(
+        "dataset-pencil-desc",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([103.0, 102.0, 101.0, 100.0]),
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-pencil-desc",
+            "GR",
+            "GR",
+            "API",
+            None,
+            dataset.dataset_id,
+            provenance="las:source",
+        ),
+        np.array([10.0, 10.0, 10.0, 10.0]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    definition = TrackDefinition(
+        "gamma",
+        "ГК",
+        TrackKind.CURVE,
+        curve_mnemonics=["GR"],
+        curve_display={"GR": CurveDisplaySettings("ГК", XScale.LOGARITHMIC, 1.0, 100.0)},
+    )
+    view = TabletView()
+    view.set_layout_model(TabletLayout([definition]))
+    emitted: list[tuple[object, ...]] = []
+    view.curve_edit_requested.connect(lambda *args: emitted.append(args))
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.set_curve_pencil_mode(True) is True
+    assert view._curve_pencil_source_value(definition, "GR", 0.5) == pytest.approx(10.0)
+    calcimetry = TrackDefinition(
+        "calc-pencil",
+        "Кальциметрия",
+        TrackKind.CALCIMETRY,
+        curve_mnemonics=["GR"],
+    )
+    assert view._curve_pencil_source_value(calcimetry, "GR", 125.0) == 100.0
+    view._curve_pencil_points = [
+        view._curve_pencil_point_from_values(102.8, 2.0),
+        view._curve_pencil_point_from_values(100.2, 50.0),
+    ]
+    assert view._commit_curve_pencil_gesture() is True
+    assert len(emitted) == 1
+    assert list(emitted[0][1]) == [1, 2]
+    assert np.all(np.isfinite(emitted[0][2]))
     view.close()

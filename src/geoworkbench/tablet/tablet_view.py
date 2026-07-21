@@ -11,7 +11,18 @@ from typing import cast
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRectF, Qt, Signal, QTimer
-from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen, QBrush, QWheelEvent
+from PySide6.QtGui import (
+    QColor,
+    QCursor,
+    QKeyEvent,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QBrush,
+    QPixmap,
+    QWheelEvent,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -53,6 +64,7 @@ from geoworkbench.printing.lba_visuals import (
     normalized_lba_intensity,
     resolve_lba_type_style,
 )
+from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.ui.oriented_text_label import OrientedTextLabel
@@ -157,6 +169,14 @@ class RenderedTrack:
     curve_render_keys: dict[str, CurveGeometryKey] | None = None
     relative_fill_items: dict[str, pg.FillBetweenItem] | None = None
     relative_baseline_item: pg.PlotDataItem | None = None
+    curve_pencil_preview: pg.PlotDataItem | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _CurvePencilPoint:
+    axis_value: float
+    source_value: float
+    display_x: float
 
 
 @dataclass(slots=True)
@@ -359,9 +379,7 @@ class TabletTrackWidget(QFrame):
             "background: #f8fafc; color: #0f172a; "
             "border-bottom: 1px solid #cbd5e1;"
         )
-        self.title.setFixedHeight(
-            88 if definition.title_orientation != "horizontal" else 36
-        )
+        self.title.setFixedHeight(88 if definition.title_orientation != "horizontal" else 36)
 
         self.curve_header = QWidget()
         self.curve_header.setObjectName("tablet-curve-header-content")
@@ -443,10 +461,8 @@ class TabletTrackWidget(QFrame):
                 )
             )
             label.context_requested.connect(
-                lambda selected,
-                pos,
-                track_id=self.definition.track_id: self.curve_context_requested.emit(
-                    track_id, selected, pos
+                lambda selected, pos, track_id=self.definition.track_id: (
+                    self.curve_context_requested.emit(track_id, selected, pos)
                 )
             )
             self._curve_header_labels[mnemonic] = label
@@ -688,6 +704,8 @@ class TabletView(QWidget):
     track_group_rename_requested = Signal(str)
     track_curve_settings_requested = Signal(str, str)
     curve_pencil_requested = Signal(str, str)
+    curve_edit_requested = Signal(str, object, object)
+    curve_pencil_mode_changed = Signal(bool, str)
     save_layout_requested = Signal()
     visible_depth_changed = Signal(float, float)
     vertical_index_changed = Signal(str)
@@ -727,6 +745,12 @@ class TabletView(QWidget):
         self._depth_range_guard = False
         self._cursor_enabled = False
         self._form_edit_mode = False
+        self._curve_pencil_enabled = False
+        self._curve_pencil_track_id: str | None = None
+        self._curve_pencil_mnemonic: str | None = None
+        self._curve_pencil_curve_id: str | None = None
+        self._curve_pencil_points: list[_CurvePencilPoint] = []
+        self._pencil_cursor = self._build_pencil_cursor()
         self._cursor_depth: float | None = None
         self._cursor_guard = False
         self._cursor_color = "#dc2626"
@@ -873,6 +897,35 @@ class TabletView(QWidget):
         self._navigation_help_label.setToolTip(self._navigation_hint)
         navigation.addWidget(self._navigation_help_label)
 
+        self._curve_pencil_bar = QFrame()
+        self._curve_pencil_bar.setObjectName("tabletCurvePencilBar")
+        pencil_layout = QHBoxLayout(self._curve_pencil_bar)
+        pencil_layout.setContentsMargins(6, 4, 6, 4)
+        pencil_layout.setSpacing(6)
+        self._curve_pencil_button = QPushButton(self._localizer.text("tablet.curve_pencil_button"))
+        self._curve_pencil_button.setCheckable(True)
+        self._curve_pencil_button.setToolTip(self._localizer.text("tablet.curve_pencil_tooltip"))
+        self._curve_pencil_button.toggled.connect(self._tablet_pencil_button_toggled)
+        pencil_layout.addWidget(self._curve_pencil_button)
+        self._curve_pencil_target_label = QLabel(self._localizer.text("tablet.curve_pencil_target"))
+        pencil_layout.addWidget(self._curve_pencil_target_label)
+        self._curve_pencil_selector = QComboBox()
+        self._curve_pencil_selector.setMinimumWidth(280)
+        self._curve_pencil_selector.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self._curve_pencil_selector.setMinimumContentsLength(28)
+        self._curve_pencil_selector.setToolTip(
+            self._localizer.text("tablet.curve_pencil_selector_tooltip")
+        )
+        self._curve_pencil_selector.currentIndexChanged.connect(self._curve_pencil_target_changed)
+        pencil_layout.addWidget(self._curve_pencil_selector, 1)
+        self._curve_pencil_status = QLabel(self._localizer.text("tablet.curve_pencil_inactive"))
+        self._curve_pencil_status.setMinimumWidth(260)
+        self._curve_pencil_status.setToolTip(self._localizer.text("tablet.curve_pencil_tooltip"))
+        pencil_layout.addWidget(self._curve_pencil_status)
+        self._update_curve_pencil_bar_style()
+
         self._vertical_scrollbar = QScrollBar(Qt.Orientation.Vertical)
         self._vertical_scrollbar.setRange(0, 0)
         self._vertical_scrollbar.valueChanged.connect(self._vertical_scrollbar_changed)
@@ -891,6 +944,7 @@ class TabletView(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         root.addLayout(navigation)
+        root.addWidget(self._curve_pencil_bar)
         root.addLayout(charts, 1)
 
     def set_language(self, language: AppLanguage) -> None:
@@ -912,6 +966,14 @@ class TabletView(QWidget):
         self._zoom_out_button.setToolTip(self._localizer.text("tablet.zoom_out"))
         self._full_range_button.setText(self._localizer.text("tablet.full_range"))
         self._depth_span_label.setText(self._localizer.text("tablet.depth_span"))
+        self._curve_pencil_button.setText(self._localizer.text("tablet.curve_pencil_button"))
+        self._curve_pencil_button.setToolTip(self._localizer.text("tablet.curve_pencil_tooltip"))
+        self._curve_pencil_target_label.setText(self._localizer.text("tablet.curve_pencil_target"))
+        self._curve_pencil_selector.setToolTip(
+            self._localizer.text("tablet.curve_pencil_selector_tooltip")
+        )
+        self._curve_pencil_status.setToolTip(self._localizer.text("tablet.curve_pencil_tooltip"))
+        self._update_curve_pencil_status()
 
         self._span_combo.blockSignals(True)
         try:
@@ -1618,6 +1680,484 @@ class TabletView(QWidget):
         for track_id, rendered in self._rendered.items():
             rendered.widget.set_selected_curve(selected_by_track.get(track_id))
 
+    @staticmethod
+    def _build_pencil_cursor() -> QCursor:
+        pixmap = QPixmap(28, 28)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(
+            QPen(
+                QColor("#0f172a"),
+                3.0,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+            )
+        )
+        painter.drawLine(6, 22, 21, 7)
+        painter.setPen(
+            QPen(
+                QColor("#f59e0b"),
+                5.0,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+            )
+        )
+        painter.drawLine(9, 20, 20, 9)
+        painter.setPen(QPen(QColor("#0f172a"), 1.5))
+        painter.drawLine(5, 23, 10, 21)
+        painter.end()
+        return QCursor(pixmap, 5, 23)
+
+    @staticmethod
+    def _curve_is_directly_editable(curve: CurveData) -> bool:
+        provenance = (curve.metadata.provenance or "").strip().casefold()
+        description = (curve.metadata.description or "").strip().casefold()
+        calculated_prefixes = ("calculation:", "custom-formula:")
+        return (
+            not provenance.startswith(calculated_prefixes)
+            and not description.startswith(calculated_prefixes)
+            and provenance != "derived"
+        )
+
+    @property
+    def curve_pencil_enabled(self) -> bool:
+        return self._curve_pencil_enabled
+
+    @property
+    def curve_pencil_target(self) -> tuple[str, str] | None:
+        if self._curve_pencil_track_id is None or self._curve_pencil_mnemonic is None:
+            return None
+        return self._curve_pencil_track_id, self._curve_pencil_mnemonic
+
+    @property
+    def curve_pencil_controls_visible(self) -> bool:
+        return self._curve_pencil_bar.isVisible()
+
+    def _tablet_pencil_button_toggled(self, enabled: bool) -> None:
+        if enabled == self._curve_pencil_enabled:
+            return
+        if not self.set_curve_pencil_mode(enabled):
+            self._curve_pencil_button.blockSignals(True)
+            self._curve_pencil_button.setChecked(False)
+            self._curve_pencil_button.blockSignals(False)
+
+    def _curve_pencil_target_changed(self, _row: int) -> None:
+        data = self._curve_pencil_selector.currentData()
+        if not (
+            isinstance(data, tuple)
+            and len(data) == 2
+            and all(isinstance(value, str) for value in data)
+        ):
+            self._curve_pencil_track_id = None
+            self._curve_pencil_mnemonic = None
+            self._curve_pencil_curve_id = None
+            if self._curve_pencil_enabled:
+                self.set_curve_pencil_mode(False)
+            self._update_curve_pencil_status()
+            return
+        track_id, mnemonic = data
+        if not self._set_curve_pencil_target(track_id, mnemonic):
+            return
+        if self._curve_pencil_enabled:
+            self._clear_curve_pencil_preview()
+            self._curve_pencil_points.clear()
+            self._apply_curve_pencil_cursors()
+            self._scroll_to_curve_pencil_target()
+            self.curve_pencil_mode_changed.emit(True, mnemonic)
+        self._update_curve_pencil_status()
+
+    def _available_curve_pencil_targets(self) -> list[tuple[str, str, str]]:
+        if self._dataset is None:
+            return []
+        targets: list[tuple[str, str, str]] = []
+        for definition in self._layout_model.visible_tracks():
+            rendered = self._rendered.get(definition.track_id)
+            if (
+                rendered is None
+                or not rendered.curve_items
+                or is_relative_gas_track(definition.curve_mnemonics)
+            ):
+                continue
+            for mnemonic in definition.curve_mnemonics:
+                if mnemonic not in rendered.curve_items:
+                    continue
+                curve = self._dataset.curve_by_mnemonic(mnemonic)
+                if curve is None or not self._curve_is_directly_editable(curve):
+                    continue
+                display = self._curve_display_name(definition, mnemonic, curve)
+                unit = (curve.metadata.unit or "").strip()
+                suffix = f" [{mnemonic}]"
+                if unit:
+                    suffix += f" · {unit}"
+                targets.append(
+                    (definition.track_id, mnemonic, f"{definition.title} — {display}{suffix}")
+                )
+        return targets
+
+    def _refresh_curve_pencil_targets(self) -> None:
+        preferred = self.curve_pencil_target
+        targets = self._available_curve_pencil_targets()
+        self._curve_pencil_selector.blockSignals(True)
+        try:
+            self._curve_pencil_selector.clear()
+            for track_id, mnemonic, label in targets:
+                self._curve_pencil_selector.addItem(label, (track_id, mnemonic))
+            selected = -1
+            if preferred is not None:
+                for row in range(self._curve_pencil_selector.count()):
+                    if self._curve_pencil_selector.itemData(row) == preferred:
+                        selected = row
+                        break
+            if selected < 0 and targets:
+                selected = 0
+            self._curve_pencil_selector.setCurrentIndex(selected)
+        finally:
+            self._curve_pencil_selector.blockSignals(False)
+        enabled = bool(targets)
+        self._curve_pencil_selector.setEnabled(enabled)
+        self._curve_pencil_button.setEnabled(enabled)
+        if not enabled:
+            self._curve_pencil_track_id = None
+            self._curve_pencil_mnemonic = None
+            self._curve_pencil_curve_id = None
+            if self._curve_pencil_enabled:
+                self.set_curve_pencil_mode(False)
+            self._update_curve_pencil_status()
+            return
+        data = self._curve_pencil_selector.currentData()
+        if isinstance(data, tuple) and len(data) == 2:
+            self._set_curve_pencil_target(str(data[0]), str(data[1]))
+        if self._curve_pencil_enabled:
+            self._apply_curve_pencil_cursors()
+            self._scroll_to_curve_pencil_target()
+        self._update_curve_pencil_status()
+
+    def _set_curve_pencil_target(self, track_id: str, mnemonic: str) -> bool:
+        if self._dataset is None:
+            return False
+        rendered = self._rendered.get(track_id)
+        curve = self._dataset.curve_by_mnemonic(mnemonic)
+        if (
+            rendered is None
+            or not rendered.curve_items
+            or mnemonic not in rendered.curve_items
+            or curve is None
+            or not self._curve_is_directly_editable(curve)
+            or is_relative_gas_track(rendered.definition.curve_mnemonics)
+        ):
+            return False
+        self._curve_pencil_track_id = track_id
+        self._curve_pencil_mnemonic = mnemonic
+        self._curve_pencil_curve_id = curve.metadata.curve_id
+        rendered.widget.set_selected_curve(mnemonic)
+        return True
+
+    def set_curve_pencil_mode(
+        self,
+        enabled: bool,
+        *,
+        track_id: str | None = None,
+        mnemonic: str | None = None,
+    ) -> bool:
+        if not enabled:
+            was_enabled = self._curve_pencil_enabled
+            active_mnemonic = self._curve_pencil_mnemonic or ""
+            self._curve_pencil_enabled = False
+            self._curve_pencil_points.clear()
+            self._clear_curve_pencil_preview()
+            self._curve_pencil_button.blockSignals(True)
+            self._curve_pencil_button.setChecked(False)
+            self._curve_pencil_button.blockSignals(False)
+            self._apply_geological_mode_cursors()
+            self._update_curve_pencil_status()
+            if was_enabled:
+                self.curve_pencil_mode_changed.emit(False, active_mnemonic)
+            return True
+
+        if self._dataset is None:
+            return False
+        if track_id is not None and mnemonic is not None:
+            requested = (track_id, mnemonic)
+            for row in range(self._curve_pencil_selector.count()):
+                if self._curve_pencil_selector.itemData(row) == requested:
+                    self._curve_pencil_selector.setCurrentIndex(row)
+                    break
+        data = self._curve_pencil_selector.currentData()
+        if not (
+            isinstance(data, tuple)
+            and len(data) == 2
+            and self._set_curve_pencil_target(str(data[0]), str(data[1]))
+        ):
+            self._refresh_curve_pencil_targets()
+            data = self._curve_pencil_selector.currentData()
+            if not (
+                isinstance(data, tuple)
+                and len(data) == 2
+                and self._set_curve_pencil_target(str(data[0]), str(data[1]))
+            ):
+                return False
+        self._curve_pencil_enabled = True
+        self._curve_pencil_points.clear()
+        self._clear_curve_pencil_preview()
+        self._curve_pencil_button.blockSignals(True)
+        self._curve_pencil_button.setChecked(True)
+        self._curve_pencil_button.blockSignals(False)
+        self._apply_curve_pencil_cursors()
+        self._scroll_to_curve_pencil_target()
+        self._update_curve_pencil_status()
+        self.curve_pencil_mode_changed.emit(True, self._curve_pencil_mnemonic or "")
+        return True
+
+    def activate_curve_pencil_for_mnemonic(self, mnemonic: str) -> bool:
+        for row in range(self._curve_pencil_selector.count()):
+            data = self._curve_pencil_selector.itemData(row)
+            if isinstance(data, tuple) and len(data) == 2 and data[1] == mnemonic:
+                self._curve_pencil_selector.setCurrentIndex(row)
+                return self.set_curve_pencil_mode(
+                    True, track_id=str(data[0]), mnemonic=str(data[1])
+                )
+        return False
+
+    def _scroll_to_curve_pencil_target(self) -> None:
+        if self._curve_pencil_track_id is None:
+            return
+        rendered = self._rendered.get(self._curve_pencil_track_id)
+        if rendered is not None:
+            self._scroll.ensureWidgetVisible(rendered.widget, 20, 0)
+
+    def _update_curve_pencil_bar_style(self) -> None:
+        if self._curve_pencil_enabled:
+            self._curve_pencil_bar.setStyleSheet(
+                "QFrame#tabletCurvePencilBar { background:#fff7ed; "
+                "border-top:1px solid #fdba74; border-bottom:1px solid #fdba74; } "
+                "QPushButton:checked { background:#f97316; color:white; "
+                "border:1px solid #c2410c; font-weight:700; padding:4px 10px; }"
+            )
+        else:
+            self._curve_pencil_bar.setStyleSheet(
+                "QFrame#tabletCurvePencilBar { background:#f8fafc; "
+                "border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; }"
+            )
+
+    def _update_curve_pencil_status(self) -> None:
+        if self._curve_pencil_enabled and self._curve_pencil_mnemonic:
+            self._curve_pencil_status.setText(
+                self._localizer.text(
+                    "tablet.curve_pencil_active", mnemonic=self._curve_pencil_mnemonic
+                )
+            )
+            self._curve_pencil_status.setStyleSheet(
+                "color:#9a3412; font-weight:700; padding:2px 6px;"
+            )
+        elif self._curve_pencil_selector.count() == 0:
+            self._curve_pencil_status.setText(self._localizer.text("tablet.curve_pencil_no_curves"))
+            self._curve_pencil_status.setStyleSheet("color:#64748b; padding:2px 6px;")
+        else:
+            self._curve_pencil_status.setText(self._localizer.text("tablet.curve_pencil_inactive"))
+            self._curve_pencil_status.setStyleSheet("color:#475569; padding:2px 6px;")
+        self._update_curve_pencil_bar_style()
+
+    def _apply_curve_pencil_cursors(self) -> None:
+        self._apply_geological_mode_cursors_base()
+        if not self._curve_pencil_enabled or self._curve_pencil_track_id is None:
+            return
+        rendered = self._rendered.get(self._curve_pencil_track_id)
+        if rendered is not None and rendered.plot is not None:
+            rendered.plot.viewport().setCursor(self._pencil_cursor)
+            rendered.plot.setToolTip(
+                self._localizer.text(
+                    "tablet.curve_pencil_active", mnemonic=self._curve_pencil_mnemonic or ""
+                )
+            )
+
+    def _curve_pencil_point_from_values(
+        self, axis_value: float, source_value: float
+    ) -> _CurvePencilPoint:
+        if self._curve_pencil_track_id is None or self._curve_pencil_mnemonic is None:
+            raise RuntimeError("Кривая карандаша не выбрана")
+        rendered = self._rendered.get(self._curve_pencil_track_id)
+        if rendered is None:
+            raise RuntimeError("Дорожка карандаша не отрисована")
+        display_x = self._curve_pencil_display_x(
+            rendered.definition, self._curve_pencil_mnemonic, source_value
+        )
+        return _CurvePencilPoint(float(axis_value), float(source_value), display_x)
+
+    def _curve_pencil_point(
+        self, plot: pg.PlotWidget, event: QMouseEvent
+    ) -> _CurvePencilPoint | None:
+        if self._curve_pencil_track_id is None or self._curve_pencil_mnemonic is None:
+            return None
+        rendered = self._rendered.get(self._curve_pencil_track_id)
+        if rendered is None:
+            return None
+        point = self._mouse_event_plot_point(plot, event)
+        display_x = float(point.x())
+        axis_value = float(point.y())
+        if not np.isfinite(display_x) or not np.isfinite(axis_value):
+            return None
+        source_value = self._curve_pencil_source_value(
+            rendered.definition, self._curve_pencil_mnemonic, display_x
+        )
+        if source_value is None or not np.isfinite(source_value):
+            return None
+        return _CurvePencilPoint(axis_value, float(source_value), display_x)
+
+    def _curve_pencil_source_value(
+        self, definition: TrackDefinition, mnemonic: str, display_x: float
+    ) -> float | None:
+        if self._dataset is None:
+            return None
+        curve = self._dataset.curve_by_mnemonic(mnemonic)
+        if curve is None:
+            return None
+        if definition.kind is TrackKind.CALCIMETRY:
+            return float(np.clip(display_x, 0.0, 100.0))
+        fraction = float(np.clip(display_x, 0.0, 1.0))
+        settings = definition.curve_display_settings(mnemonic)
+        minimum, maximum = self._curve_display_range(
+            definition, mnemonic, np.asarray(curve.values, dtype=float)
+        )
+        if settings.x_scale is XScale.LOGARITHMIC:
+            if minimum <= 0 or maximum <= minimum:
+                return None
+            lower = np.log10(minimum)
+            upper = np.log10(maximum)
+            return float(10.0 ** (lower + fraction * (upper - lower)))
+        return float(minimum + fraction * (maximum - minimum))
+
+    def _curve_pencil_display_x(
+        self, definition: TrackDefinition, mnemonic: str, source_value: float
+    ) -> float:
+        if self._dataset is None:
+            return 0.0
+        if definition.kind is TrackKind.CALCIMETRY:
+            return float(np.clip(source_value, 0.0, 100.0))
+        curve = self._dataset.curve_by_mnemonic(mnemonic)
+        if curve is None:
+            return 0.0
+        settings = definition.curve_display_settings(mnemonic)
+        minimum, maximum = self._curve_display_range(
+            definition, mnemonic, np.asarray(curve.values, dtype=float)
+        )
+        normalized = self._normalize_curve_values(
+            np.asarray([source_value], dtype=float), settings.x_scale, minimum, maximum
+        )
+        return float(normalized[0]) if normalized.size and np.isfinite(normalized[0]) else 0.0
+
+    def _update_curve_pencil_preview(self) -> None:
+        if self._curve_pencil_track_id is None or not self._curve_pencil_points:
+            self._clear_curve_pencil_preview()
+            return
+        rendered = self._rendered.get(self._curve_pencil_track_id)
+        if rendered is None or rendered.plot is None:
+            return
+        if rendered.curve_pencil_preview is None:
+            preview = pg.PlotDataItem(
+                pen=pg.mkPen("#f97316", width=3.0),
+                symbol="o",
+                symbolSize=4,
+                symbolBrush=pg.mkBrush("#f97316"),
+                connect="finite",
+            )
+            preview.setZValue(200)
+            rendered.plot.addItem(preview)
+            rendered.curve_pencil_preview = preview
+        rendered.curve_pencil_preview.setData(
+            [point.display_x for point in self._curve_pencil_points],
+            [point.axis_value for point in self._curve_pencil_points],
+            connect="finite",
+        )
+
+    def _clear_curve_pencil_preview(self) -> None:
+        for rendered in self._rendered.values():
+            preview = rendered.curve_pencil_preview
+            if preview is None or rendered.plot is None:
+                continue
+            try:
+                rendered.plot.removeItem(preview)
+            except RuntimeError:
+                pass
+            rendered.curve_pencil_preview = None
+
+    def cancel_curve_pencil_gesture(self) -> None:
+        self._curve_pencil_points.clear()
+        self._clear_curve_pencil_preview()
+
+    def _commit_curve_pencil_gesture(self) -> bool:
+        if (
+            not self._curve_pencil_enabled
+            or self._dataset is None
+            or self._curve_pencil_curve_id is None
+            or len(self._curve_pencil_points) < 2
+        ):
+            return False
+        unique: dict[float, _CurvePencilPoint] = {}
+        for point in self._curve_pencil_points:
+            unique[point.axis_value] = point
+        points = list(unique.values())
+        if len(points) < 2:
+            return False
+        top = min(point.axis_value for point in points)
+        bottom = max(point.axis_value for point in points)
+        axis = np.asarray(self._axis_values(), dtype=np.float64)
+        indices = np.flatnonzero(np.isfinite(axis) & (axis >= top) & (axis <= bottom))
+        if indices.size == 0:
+            return False
+        order = np.argsort(axis[indices], kind="stable")
+        sorted_indices = indices[order]
+        draw_points = [DrawPoint(point.axis_value, point.source_value) for point in points]
+        try:
+            sorted_values = interpolate_drawn_curve(axis[sorted_indices], draw_points)
+        except ValueError:
+            return False
+        new_values = np.empty(sorted_values.shape, dtype=np.float64)
+        new_values[order] = sorted_values
+        self.curve_edit_requested.emit(self._curve_pencil_curve_id, indices, new_values)
+        return True
+
+    def _handle_curve_pencil_event(
+        self,
+        plot: pg.PlotWidget,
+        event: QMouseEvent,
+        track_id: str | None,
+    ) -> bool:
+        if not self._curve_pencil_enabled or track_id != self._curve_pencil_track_id:
+            return False
+        event_type = event.type()
+        if (
+            event_type == QEvent.Type.MouseButtonPress
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            point = self._curve_pencil_point(plot, event)
+            if point is None:
+                return False
+            self._curve_pencil_points = [point]
+            self._update_curve_pencil_preview()
+            event.accept()
+            return True
+        if event_type == QEvent.Type.MouseMove and self._curve_pencil_points:
+            point = self._curve_pencil_point(plot, event)
+            if point is not None:
+                self._curve_pencil_points.append(point)
+                self._update_curve_pencil_preview()
+            event.accept()
+            return True
+        if (
+            event_type == QEvent.Type.MouseButtonRelease
+            and event.button() == Qt.MouseButton.LeftButton
+            and self._curve_pencil_points
+        ):
+            point = self._curve_pencil_point(plot, event)
+            if point is not None:
+                self._curve_pencil_points.append(point)
+            self._commit_curve_pencil_gesture()
+            self.cancel_curve_pencil_gesture()
+            event.accept()
+            return True
+        return False
+
     @property
     def form_edit_mode(self) -> bool:
         return self._form_edit_mode
@@ -1632,9 +2172,7 @@ class TabletView(QWidget):
         for rendered in self._rendered.values():
             rendered.widget.title.setToolTip(hint)
 
-    def show_geological_context_menu(
-        self, track_id: str, depth: float, global_pos: QPoint
-    ) -> None:
+    def show_geological_context_menu(self, track_id: str, depth: float, global_pos: QPoint) -> None:
         """Show data-entry actions at the clicked geological interval."""
 
         try:
@@ -1659,9 +2197,7 @@ class TabletView(QWidget):
                     self._localizer.text("geology.context.new_lithology")
                 )
             else:
-                edit_action = menu.addAction(
-                    self._localizer.text("geology.context.edit_lithology")
-                )
+                edit_action = menu.addAction(self._localizer.text("geology.context.edit_lithology"))
         elif definition.kind is TrackKind.TEXT:
             if sample is None:
                 create_action = menu.addAction(
@@ -1676,9 +2212,7 @@ class TabletView(QWidget):
                 )
         else:
             if sample is None:
-                create_action = menu.addAction(
-                    self._localizer.text("geology.context.new_sample")
-                )
+                create_action = menu.addAction(self._localizer.text("geology.context.new_sample"))
             else:
                 edit_action = menu.addAction(
                     self._localizer.text("geology.context.edit_full_sample")
@@ -1774,7 +2308,9 @@ class TabletView(QWidget):
             if self._form_edit_mode:
                 add_curves = menu.addAction(self._localizer.text("tablet.add_curves"))
                 replace_curves = menu.addAction(self._localizer.text("tablet.choose_track_curves"))
-                curve_settings_action = menu.addAction(self._localizer.text("tablet.curve_settings"))
+                curve_settings_action = menu.addAction(
+                    self._localizer.text("tablet.curve_settings")
+                )
                 menu.addSeparator()
 
         edit_track_action = rename_track_action = rename_group_action = None
@@ -1913,32 +2449,42 @@ class TabletView(QWidget):
         self._apply_geological_mode_cursors()
 
     def _apply_geological_mode_cursors(self) -> None:
+        self._apply_curve_pencil_cursors()
+
+    def _apply_geological_mode_cursors_base(self) -> None:
         for rendered in self._rendered.values():
             if rendered.plot is None:
                 continue
             kind = rendered.definition.kind
             active = (
-                self._geological_input_mode is GeologicalInputMode.LITHOLOGY
-                and kind is TrackKind.LITHOLOGY
-            ) or (
-                self._geological_input_mode is GeologicalInputMode.SAMPLE
-                and kind in {TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA}
-            ) or (
-                self._geological_input_mode is GeologicalInputMode.STRATIGRAPHY
-                and kind is TrackKind.STRATIGRAPHY
-            ) or (
-                self._geological_input_mode is GeologicalInputMode.DESCRIPTION
-                and kind is TrackKind.TEXT
-            ) or (
-                self._geological_input_mode is GeologicalInputMode.EDIT
-                and kind in {
-                    TrackKind.LITHOLOGY,
-                    TrackKind.CUTTINGS,
-                    TrackKind.CALCIMETRY,
-                    TrackKind.LBA,
-                    TrackKind.STRATIGRAPHY,
-                    TrackKind.TEXT,
-                }
+                (
+                    self._geological_input_mode is GeologicalInputMode.LITHOLOGY
+                    and kind is TrackKind.LITHOLOGY
+                )
+                or (
+                    self._geological_input_mode is GeologicalInputMode.SAMPLE
+                    and kind in {TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA}
+                )
+                or (
+                    self._geological_input_mode is GeologicalInputMode.STRATIGRAPHY
+                    and kind is TrackKind.STRATIGRAPHY
+                )
+                or (
+                    self._geological_input_mode is GeologicalInputMode.DESCRIPTION
+                    and kind is TrackKind.TEXT
+                )
+                or (
+                    self._geological_input_mode is GeologicalInputMode.EDIT
+                    and kind
+                    in {
+                        TrackKind.LITHOLOGY,
+                        TrackKind.CUTTINGS,
+                        TrackKind.CALCIMETRY,
+                        TrackKind.LBA,
+                        TrackKind.STRATIGRAPHY,
+                        TrackKind.TEXT,
+                    }
+                )
             )
             rendered.plot.viewport().setCursor(
                 Qt.CursorShape.CrossCursor if active else Qt.CursorShape.ArrowCursor
@@ -1951,9 +2497,7 @@ class TabletView(QWidget):
     def stratigraphy_interval_at_depth(self, depth: float) -> StratigraphyInterval | None:
         value = float(depth)
         matches = [
-            item
-            for item in self._stratigraphy
-            if item.top_depth <= value < item.bottom_depth
+            item for item in self._stratigraphy if item.top_depth <= value < item.bottom_depth
         ]
         if not matches:
             matches = [item for item in self._stratigraphy if value == item.bottom_depth]
@@ -1972,18 +2516,14 @@ class TabletView(QWidget):
         value = float(depth)
         # Use half-open intervals so a shared boundary belongs to the deeper
         # interval.  The final bottom is accepted as a fallback for usability.
-        matches = [
-            item for item in self._lithology if item.top_depth <= value < item.bottom_depth
-        ]
+        matches = [item for item in self._lithology if item.top_depth <= value < item.bottom_depth]
         if not matches:
             matches = [item for item in self._lithology if np.isclose(item.bottom_depth, value)]
         return max(matches, key=lambda item: item.top_depth) if matches else None
 
     def cuttings_sample_at_depth(self, depth: float) -> CuttingsSample | None:
         value = float(depth)
-        matches = [
-            item for item in self._cuttings if item.top_depth <= value < item.bottom_depth
-        ]
+        matches = [item for item in self._cuttings if item.top_depth <= value < item.bottom_depth]
         if not matches:
             matches = [item for item in self._cuttings if np.isclose(item.bottom_depth, value)]
         return max(matches, key=lambda item: item.top_depth) if matches else None
@@ -2231,6 +2771,7 @@ class TabletView(QWidget):
         self.refresh_view()
 
     def clear(self) -> None:
+        self.cancel_curve_pencil_gesture()
         self.cancel_interval_interaction(emit_signal=False)
         self.cancel_lithology_interaction()
         self.cancel_sample_interaction()
@@ -2259,6 +2800,7 @@ class TabletView(QWidget):
             label = QLabel(self._localizer.text("tablet.empty"))
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._tracks_layout.addWidget(label)
+            self._refresh_curve_pencil_targets()
             return
 
         visible = self._layout_model.visible_tracks()
@@ -2266,6 +2808,7 @@ class TabletView(QWidget):
             label = QLabel(self._localizer.text("tablet.empty_add_track"))
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._tracks_layout.addWidget(label)
+            self._refresh_curve_pencil_targets()
             return
 
         depth = self._axis_values()
@@ -2399,6 +2942,7 @@ class TabletView(QWidget):
         if self._cursor_depth is not None:
             self._update_cursor_labels(self._cursor_depth)
         self._update_navigation_controls()
+        self._refresh_curve_pencil_targets()
         # refresh_view is commonly executed before the widget receives its final
         # on-screen geometry. Reuse the instance timer after Qt has laid out the
         # horizontal scrollbar and the final chart viewport.
@@ -3047,7 +3591,9 @@ class TabletView(QWidget):
             current = self.visible_depth_range
             if current is None:
                 return False
-            viewport_height = max(1, plot.viewport().height() if plot is not None else self.height())
+            viewport_height = max(
+                1, plot.viewport().height() if plot is not None else self.height()
+            )
             depth_per_pixel = (current[1] - current[0]) / viewport_height
             changed = self._apply_pan_delta(-float(pixel_delta) * depth_per_pixel)
         event.accept()
@@ -3058,14 +3604,11 @@ class TabletView(QWidget):
         if wheel_plot is not None and isinstance(event, QWheelEvent):
             self._handle_depth_wheel(event, plot=wheel_plot, watched=watched)
             return True
-        if (
-            isinstance(event, QWheelEvent)
-            and watched in {
-                self._scroll.viewport(),
-                self._tracks_container,
-                self._group_header_container,
-            }
-        ):
+        if isinstance(event, QWheelEvent) and watched in {
+            self._scroll.viewport(),
+            self._tracks_container,
+            self._group_header_container,
+        }:
             self._handle_depth_wheel(event)
             return True
         plot = self._depth_viewports.get(watched)
@@ -3091,6 +3634,8 @@ class TabletView(QWidget):
                     definition = self._layout_model.track_by_id(track_id)
                 except KeyError:
                     definition = None
+            if self._handle_curve_pencil_event(plot, event, track_id):
+                return True
             if (
                 definition is not None
                 and event.type() == QEvent.Type.MouseButtonDblClick
@@ -3152,9 +3697,7 @@ class TabletView(QWidget):
                         self.description_edit_requested.emit(sample.sample_id)
                         event.accept()
                         return True
-                elif definition.kind in {
-                    TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA
-                }:
+                elif definition.kind in {TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA}:
                     sample = self.cuttings_sample_at_depth(depth)
                     if sample is not None:
                         self.cuttings_sample_edit_requested.emit(sample.sample_id)
@@ -3162,7 +3705,10 @@ class TabletView(QWidget):
                         return True
 
             if definition is not None and definition.kind in {
-                TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA, TrackKind.TEXT
+                TrackKind.CUTTINGS,
+                TrackKind.CALCIMETRY,
+                TrackKind.LBA,
+                TrackKind.TEXT,
             }:
                 if (
                     event.type() == QEvent.Type.MouseButtonPress
@@ -3171,9 +3717,8 @@ class TabletView(QWidget):
                         bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
                         or (
                             self._geological_input_mode is GeologicalInputMode.SAMPLE
-                            and definition.kind in {
-                                TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA
-                            }
+                            and definition.kind
+                            in {TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA}
                         )
                         or (
                             self._geological_input_mode is GeologicalInputMode.DESCRIPTION
@@ -3329,6 +3874,10 @@ class TabletView(QWidget):
                 event.accept()
                 return True
         if plot is not None and isinstance(event, QKeyEvent):
+            if event.key() == Qt.Key.Key_Escape and self._curve_pencil_points:
+                self.cancel_curve_pencil_gesture()
+                event.accept()
+                return True
             if event.key() == Qt.Key.Key_Escape and self._lithology_gesture is not None:
                 self.cancel_lithology_interaction()
                 event.accept()
@@ -3366,9 +3915,8 @@ class TabletView(QWidget):
         descriptor = self._axis_descriptor()
         if (
             rendered is None
-            or rendered.definition.kind not in {
-                TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA, TrackKind.TEXT
-            }
+            or rendered.definition.kind
+            not in {TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA, TrackKind.TEXT}
             or rendered.plot is None
             or (descriptor is not None and descriptor.role is not IndexRole.DEPTH)
         ):
@@ -3439,7 +3987,9 @@ class TabletView(QWidget):
         top = gesture.current_depth if result is None else result.top_depth
         bottom = gesture.current_depth if result is None else result.bottom_depth
         axis_top, axis_bottom = self._depth_interval_to_axis(top, bottom)
-        x_width = 100.0 if rendered.definition.kind in {TrackKind.CUTTINGS, TrackKind.CALCIMETRY} else 1.0
+        x_width = (
+            100.0 if rendered.definition.kind in {TrackKind.CUTTINGS, TrackKind.CALCIMETRY} else 1.0
+        )
         options = dict(
             x=[x_width / 2.0],
             y=[(axis_top + axis_bottom) / 2.0],
@@ -4003,7 +4553,6 @@ class TabletView(QWidget):
             if render_keys is not None:
                 render_keys[mnemonic] = key
 
-
     def _update_relative_gas_track_data(
         self, rendered: RenderedTrack, top: float, bottom: float
     ) -> None:
@@ -4033,9 +4582,7 @@ class TabletView(QWidget):
             ),
         )
         if rendered.relative_baseline_item is not None:
-            rendered.relative_baseline_item.setData(
-                stack.baseline, stack.depth, connect="finite"
-            )
+            rendered.relative_baseline_item.setData(stack.baseline, stack.depth, connect="finite")
         bands = {band.mnemonic: band for band in stack.bands}
         for mnemonic, item in (rendered.curve_items or {}).items():
             band = bands.get(mnemonic)
@@ -4168,9 +4715,7 @@ class TabletView(QWidget):
             return (), {}, {}, None
 
         if is_relative_gas_track(definition.curve_mnemonics):
-            return self._populate_relative_gas_track(
-                track, definition, visible_top, visible_bottom
-            )
+            return self._populate_relative_gas_track(track, definition, visible_top, visible_bottom)
 
         track.plot.hideAxis("bottom")
         track.plot.setMouseEnabled(x=False, y=True)
@@ -4326,9 +4871,7 @@ class TabletView(QWidget):
 
         depth = self._axis_values()
         if visible_top is None or visible_bottom is None:
-            stack = build_relative_gas_stack(
-                depth, available, 0.0, -1.0, max_points=2
-            )
+            stack = build_relative_gas_stack(depth, available, 0.0, -1.0, max_points=2)
         else:
             stack = build_relative_gas_stack(
                 depth,
@@ -4519,9 +5062,7 @@ class TabletView(QWidget):
             label = pg.TextItem(
                 label_text,
                 color="#0f172a",
-                anchor=stratigraphy_text_anchor(
-                    interval.text_orientation, interval.text_position
-                ),
+                anchor=stratigraphy_text_anchor(interval.text_orientation, interval.text_position),
                 angle=stratigraphy_text_angle(interval.text_orientation),
             )
             label_position = stratigraphy_text_position_fraction(interval.text_position)
@@ -4529,10 +5070,7 @@ class TabletView(QWidget):
                 lane + 0.5,
                 axis_top + (axis_bottom - axis_top) * label_position,
             )
-            label.setToolTip(
-                f"{interval.top_depth:g}–{interval.bottom_depth:g} m\n"
-                f"{label_text}"
-            )
+            label.setToolTip(f"{interval.top_depth:g}–{interval.bottom_depth:g} m\n{label_text}")
             track.plot.addItem(label)
             rendered[interval.interval_id] = (bar, label)
         return rendered
@@ -5310,9 +5848,16 @@ class TabletView(QWidget):
 
                 # 2. ЦВЕТ: fluorescence code entered by the geologist.
                 fluorescence_colors = {
-                    "БГ": "#e0f2fe", "БЖ": "#fef9c3", "СЖ": "#fde68a",
-                    "ГЖ": "#bef264", "Ж": "#facc15", "ОЖ": "#fb923c",
-                    "О": "#f97316", "К": "#ef4444", "ТК": "#991b1b", "Ч": "#111827",
+                    "БГ": "#e0f2fe",
+                    "БЖ": "#fef9c3",
+                    "СЖ": "#fde68a",
+                    "ГЖ": "#bef264",
+                    "Ж": "#facc15",
+                    "ОЖ": "#fb923c",
+                    "О": "#f97316",
+                    "К": "#ef4444",
+                    "ТК": "#991b1b",
+                    "Ч": "#111827",
                 }
                 fluorescence_code = (sample.lba_color or "").strip().upper()
                 fluorescence_color = fluorescence_colors.get(fluorescence_code, "#ffffff")
@@ -5438,11 +5983,12 @@ class TabletView(QWidget):
             if not description:
                 continue
             label = pg.TextItem(anchor=(0.0, 0.5))
-            body = rich_body(description) if "<" in description and ">" in description else plain_html(description)
-            label.setHtml(
-                '<div style="color:#202020; margin:0; padding:0;">'
-                f"{body}</div>"
+            body = (
+                rich_body(description)
+                if "<" in description and ">" in description
+                else plain_html(description)
             )
+            label.setHtml(f'<div style="color:#202020; margin:0; padding:0;">{body}</div>')
             label.textItem.setTextWidth(float(text_width))
             label.updateTextPos()
             axis_top, axis_bottom = self._depth_interval_to_axis(
@@ -5472,8 +6018,7 @@ class TabletView(QWidget):
             description = (interval.description or "").strip() or fallback
             label = pg.TextItem(anchor=(0.0, 0.5))
             label.setHtml(
-                '<div style="color:#202020; margin:0; padding:0;">'
-                f"{plain_html(description)}</div>"
+                f'<div style="color:#202020; margin:0; padding:0;">{plain_html(description)}</div>'
             )
             label.textItem.setTextWidth(float(text_width))
             label.updateTextPos()
@@ -5488,10 +6033,7 @@ class TabletView(QWidget):
     def _populate_lithology_labels(
         self, track: TabletTrackWidget, definition: TrackDefinition
     ) -> dict[str, pg.TextItem]:
-        if (
-            definition.kind is not TrackKind.LITHOLOGY
-            or not definition.show_interval_labels
-        ):
+        if definition.kind is not TrackKind.LITHOLOGY or not definition.show_interval_labels:
             return {}
         rendered: dict[str, pg.TextItem] = {}
         for interval in self._lithology:

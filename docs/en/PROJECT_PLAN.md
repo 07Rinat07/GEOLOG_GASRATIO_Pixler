@@ -1,5 +1,16 @@
 # Project plan
 
+## Slice 0.7.9 — curve pencil directly in the tablet
+
+- [x] persistent track/source-curve selector above every form;
+- [x] left-button drawing without switching to a separate tab;
+- [x] automatic scrolling to the target track, pencil cursor and orange preview;
+- [x] linear, logarithmic and calcimetry scales;
+- [x] ascending and descending vertical indexes;
+- [x] Undo/Redo and dependent-curve recalculation;
+- [x] calculated curves remain protected from direct editing.
+
+
 ## Slice 0.7.8 — visible Form Library
 
 - [x] explicit contrasting text for the tree, search, details and buttons under a dark app theme;

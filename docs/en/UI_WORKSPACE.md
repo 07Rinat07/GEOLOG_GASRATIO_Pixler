@@ -66,3 +66,7 @@ the temporary file as UTF-8. The final document is converted back to the source 
 ## 0.7.8 visibility fix
 
 Under the Windows dark theme, the Form Library explicitly uses contrasting dark text on its light panels. Factory depth and time presets remain visible even when no user forms have been saved yet.
+
+## Curve pencil in the tablet — 0.7.9
+
+A persistent **Curve pencil** row is shown above the tablet. Choose a track and source curve, enable the tool, and draw directly in the plot with the left mouse button. The target track scrolls into view automatically. The orange stroke is a preview; releasing the button commits the edit, while `Esc` cancels only the current stroke. Calculated curves are excluded.

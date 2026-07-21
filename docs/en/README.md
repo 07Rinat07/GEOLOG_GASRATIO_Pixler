@@ -1,6 +1,7 @@
 # User guide
 
-> **0.7.8:** fixed Form Library visibility under the Windows dark theme: section names, factory presets, user forms and button captions remain readable on light surfaces. **F4** still enables live tablet-form editing. See the [workspace guide](UI_WORKSPACE.md) and [LAS Editor guide](LAS_EDITOR.md).
+> **0.7.9:** the curve pencil now works directly inside the tablet with a persistent track/curve selector, left-button drawing, orange preview, automatic target scrolling and Undo/Redo.
+
 
 
 GEOLOG GASRATIO@Pixler is an editor for drilling, mud-logging, and LAS data.

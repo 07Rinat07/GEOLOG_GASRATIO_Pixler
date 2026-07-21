@@ -1161,5 +1161,12 @@
   "ui.saved_from_tablet_description": "Form saved directly from the current tablet layout.",
   "ui.user_form_saved": "Form “{name}” was saved under “{folder}”. File: {path}",
   "tablet.form_edit_on": "Form editing is enabled (F4). Right-click to configure a column.",
-  "tablet.form_edit_off": "Form view mode. Press F4 to change a column or parameters."
+  "tablet.form_edit_off": "Form view mode. Press F4 to change a column or parameters.",
+  "tablet.curve_pencil_button": "✎ Curve pencil",
+  "tablet.curve_pencil_target": "Editable curve",
+  "tablet.curve_pencil_tooltip": "Edit the selected source curve directly in the tablet. Hold the left mouse button and draw the replacement line.",
+  "tablet.curve_pencil_selector_tooltip": "Choose a visible source curve and track to edit",
+  "tablet.curve_pencil_active": "Pencil active: {mnemonic}. Draw with the left mouse button; Esc cancels the current stroke.",
+  "tablet.curve_pencil_inactive": "Pencil is off. Choose a curve and enable the tool.",
+  "tablet.curve_pencil_no_curves": "The current form has no visible source numeric curves available for pencil editing."
 }

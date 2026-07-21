@@ -1,26 +1,31 @@
-GEOLOG GASRATIO@Pixler 0.7.8 — Form Library visibility fix
-Validation date: 2026-07-21
+GEOLOG GASRATIO@Pixler 0.7.9 — Tablet curve pencil
+Date: 2026-07-21
 
-FIXED SCOPE
-- Fixed invisible Form Library text under the application's dark global palette.
-- Factory depth/time section names and form names now use explicit contrasting text.
-- User depth/time section names remain visible even when the folders contain zero forms.
-- Search, form details, normal buttons and disabled buttons remain readable on light surfaces.
-- Existing user form JSON files and the depth/time repository structure are unchanged.
+Implemented and verified
+- A persistent curve-pencil row is rendered inside TabletView on every form.
+- The row remains visible independently of main-toolbar overflow.
+- The user selects an exact visible source curve and its track.
+- Activating the pencil while the Tablet tab is open no longer switches to CurveView.
+- The target track is scrolled into view automatically.
+- The target viewport uses a pencil cursor and an orange live preview stroke.
+- Left-button release emits one atomic curve edit through CurveEditingController.
+- Escape cancels the current uncommitted stroke.
+- Linear, logarithmic and calcimetry coordinate conversion is covered.
+- Ascending and descending vertical indexes are covered.
+- Calculated/custom-formula/derived curves remain read-only.
+- Existing Undo/Redo and dependent-curve recalculation are reused.
 
-AUTOMATED VALIDATION
+Automated validation
+- ruff check .: PASS
 - python -m compileall -q src: PASS
-- ruff check src tests: PASS
-- python scripts/run_tests.py: 1009 passed, 1 skipped in 17.59s
-- Dark-palette Form Library regression: PASS
-- Factory forms visible with an empty user repository: 3
-  - depth: 2
-  - time: 1
+- PYTHONPATH=src python scripts/run_tests.py: 1012 passed, 1 skipped in 18.60s
+- RU/KK/EN localization key sets: synchronized, 1170 keys each
+- Tablet mouse-drag integration test: PASS
+- Main-window toolbar-to-tablet integration test: PASS
+- Descending-axis/logarithmic-scale test: PASS
 
-VISUAL OFFSCREEN CHECK
-- Form Library under a dark application palette:
-  docs/validation/GEOLOG_0.7.8_form_library_fixed.png
+Visual artifact
+- docs/validation/tablet_curve_pencil_0.7.9.png
 
-NOT COMPLETED IN THIS ENVIRONMENT
-- Final on-screen smoke test on the user's Windows DPI/theme configuration.
-- Physical printer test and driver-specific non-printable margin verification.
+Remaining manual release gate
+- Windows smoke-test with a real wide factory/user form, actual display scaling and mouse input.

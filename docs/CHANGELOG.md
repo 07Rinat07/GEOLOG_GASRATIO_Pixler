@@ -1,3 +1,14 @@
+# 0.7.9 — Tablet curve pencil
+
+- added a persistent curve-pencil bar directly inside every tablet form;
+- added visible track/curve selection independent of main-toolbar overflow;
+- pencil activation in the Tablet tab no longer switches to the separate Curve View;
+- added left-button drawing, orange preview, Escape cancellation and automatic horizontal scrolling to the target track;
+- converted mouse coordinates back through linear, logarithmic and calcimetry scales;
+- supported ascending and descending vertical indexes;
+- kept derived/calculated curves read-only and reused the existing undo/redo and dependent-recalculation workflow;
+- validated with `1012 passed, 1 skipped`, Ruff and compileall.
+
 # 0.7.8 — Form Library visibility fix
 
 - fixed invisible Form Library text when the application uses a dark global palette;

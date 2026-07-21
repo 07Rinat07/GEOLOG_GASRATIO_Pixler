@@ -1,5 +1,10 @@
 # Current project status
 
+## 0.7.9 fix — curve pencil
+
+The pencil is now a native tablet tool. Its target selector is always visible, the selected track scrolls into view, the left button draws an orange preview, and releasing the mouse commits through the shared command history. Validation: `1012 passed, 1 skipped`.
+
+
 ## 0.7.8 fix — Form Library
 
 Section and form names no longer disappear on white surfaces when the application uses a dark palette. Factory presets, user folders, details and button captions remain readable. The JSON repository format is unchanged. Full validation: `1009 passed, 1 skipped`; Ruff and `compileall` pass.
