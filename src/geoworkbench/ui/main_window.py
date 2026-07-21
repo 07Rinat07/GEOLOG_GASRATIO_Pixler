@@ -1704,6 +1704,7 @@ class MainWindow(QMainWindow):
                     depth_top,
                     depth_bottom,
                     overwrite=overwrite,
+                    language=self.language,
                 )
             else:
                 exported = self.dataset_export_controller.export_current_selection_text(

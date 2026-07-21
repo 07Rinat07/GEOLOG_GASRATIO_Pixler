@@ -1,5 +1,8 @@
 # User guide
 
+> **0.7.4:** LAS-table Excel export now includes readable names, mnemonics, units and a dedicated `Parameters` mapping sheet.
+
+
 GEOLOG GASRATIO@Pixler is an editor for drilling, mud-logging, and LAS data.
 
 ## Language

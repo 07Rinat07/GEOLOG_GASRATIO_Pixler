@@ -2,6 +2,13 @@
 
 ## 0.7.3 fix — LAS isolation
 
+## Slice 0.7.4 — readable Excel export
+
+- [x] readable names plus technical mnemonics;
+- [x] `Parameters` sheet;
+- [x] RU/KK/EN, Unicode and numeric cell types.
+
+
 - A newly opened LAS gets a clean separate well.
 - Geological intervals from the previous well do not carry over.
 - Rotated text remains wholly inside its interval.

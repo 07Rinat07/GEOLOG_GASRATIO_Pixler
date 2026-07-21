@@ -1,3 +1,31 @@
+# 0.7.4 — 2026-07-21
+
+## Читаемый Excel-экспорт LAS-таблицы
+
+### Русский
+
+- верхняя строка листа `Data` теперь показывает понятное название параметра, исходную/каноническую мнемонику и единицу измерения в одном многострочном заголовке;
+- добавлен лист `Parameters` с расшифровкой всех экспортированных колонок, описанием из LAS, признаком распознавания, уверенностью и методом сопоставления;
+- неизвестная мнемоника больше не маскируется под понятное название и явно помечается как «Не распознано»;
+- распространённые газовые компоненты C1–C5, iC4/nC4, iC5/nC5, TG, H2S и CO2 получают человекочитаемые названия;
+- текст LAS очищается от типичных ошибок кодировки перед записью в XLSX;
+- язык заголовков соответствует текущему языку интерфейса RU/KK/EN; числовые значения остаются числами Excel.
+
+### Қазақша
+
+- `Data` парағының тақырыбы түсінікті атауды, бастапқы/канондық мнемониканы және өлшем бірлігін көрсетеді;
+- `Parameters` парағында барлық бағандардың түсіндірмесі, LAS сипаттамасы, анықтау сенімділігі мен әдісі беріледі;
+- белгісіз параметр «Анықталмаған параметр» деп нақты белгіленеді;
+- тақырыптар интерфейс тілімен RU/KK/EN экспортталады, сандық мәндер Excel саны болып қалады.
+
+### English
+
+- the `Data` header now combines a readable name, original/canonical mnemonic and unit;
+- a `Parameters` sheet explains every exported column, LAS description, resolution state, confidence and match method;
+- unresolved mnemonics are explicitly marked instead of being presented as readable names;
+- common gas components receive readable chemical names;
+- typical LAS mojibake is cleaned before writing XLSX; headers follow the active RU/KK/EN UI language while numeric cells remain numeric.
+
 # 0.7.3 — 2026-07-21
 
 ## Изоляция LAS-скважин и правильный якорь повёрнутого текста

@@ -1,24 +1,24 @@
-GEOLOG GASRATIO@Pixler 0.7.3 validation
-Date: 2026-07-21
+GEOLOG GASRATIO@Pixler 0.7.4 — Readable LAS Excel Export
+Validation date: 2026-07-21
 
 Implemented:
-- Open LAS creates a separate clean Well workspace.
-- Previous well lithology, cuttings, LBA/calcimetry, stratigraphy, descriptions,
-  interpretations and depth annotations are not attached to the new LAS.
-- Common dataset activation path clears every well-scoped tablet layer.
-- Rotated 0/+90/-90 text uses orientation-aware anchors and remains inside the
-  selected interval for top/center/bottom placement.
+- Data-sheet headers contain readable name, LAS/canonical mnemonic, and unit.
+- Parameters sheet contains readable name, original and canonical mnemonic, unit,
+  LAS description, recognition status, confidence, match method, and provenance.
+- Common gases C1-C5, iC4/nC4, iC5/nC5, TG, H2S and CO2 receive readable names.
+- Unknown mnemonics are explicitly marked as unresolved.
+- RU/KK/EN export language follows the active UI language.
+- LAS text is normalized and common mojibake is repaired before XLSX writing.
+- Numeric values remain numeric Excel cells; datetime and decimal formats are preserved.
 
-Checks executed in this container:
-- python -m compileall -q src: PASS
-- tests/test_text_presentation.py: 3 passed
-- tests/test_project_session_well_isolation.py: 2 passed
-  (run with minimal PySide import stubs because PySide6 is not installed here)
-- Python AST parsing for changed files: PASS
+Checks completed:
+- python compileall: PASS
+- targeted synthetic XLSX export: PASS
+- Data / Parameters / Metadata workbook structure: PASS
+- RU header values: PASS
+- unknown mnemonic marking: PASS
+- ZIP integrity: performed after packaging
 
-Limitations:
-- Full GUI regression suite was not executed in this container because PySide6
-  and the Qt runtime are unavailable.
-- Windows smoke test should verify opening LAS A, entering test intervals, then
-  opening LAS B: LAS B must be empty while LAS A remains available only under
-  its own well node in the project tree.
+Environment limitation:
+- Full GUI pytest suite was not run in this container because PySide6 and lasio are
+  not installed. A Windows smoke test is required before stable promotion.

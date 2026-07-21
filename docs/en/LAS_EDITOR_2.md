@@ -78,3 +78,7 @@ Exports include depth, selected curves, units, and values and do not modify the 
 6. Dependent calculated parameters are recalculated synchronously. Save the project with the diskette button or `Ctrl+S`; export an updated LAS separately when required.
 
 The pencil can also be started from the tablet: right-click a graphical track or a specific curve caption and choose **Edit curve with pencil…**.
+
+## Excel export 0.7.4
+
+The `Data` header shows a readable name, mnemonic and unit. The `Parameters` sheet records the full mapping, LAS description, confidence and match method. Unresolved fields are explicitly marked.

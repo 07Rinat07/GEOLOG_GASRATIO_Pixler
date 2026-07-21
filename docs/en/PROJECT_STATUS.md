@@ -2,6 +2,13 @@
 
 ## 0.7.3 fix — LAS isolation
 
+### 0.7.4 fixes
+
+- Excel headers now show readable names, mnemonics and units;
+- the `Parameters` sheet provides a complete mapping and resolution status;
+- RU/KK/EN output and LAS mojibake cleanup are applied.
+
+
 - A newly opened LAS gets a clean separate well.
 - Geological intervals from the previous well do not carry over.
 - Rotated text remains wholly inside its interval.

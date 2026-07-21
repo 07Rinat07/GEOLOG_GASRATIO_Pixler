@@ -1019,7 +1019,13 @@ class LasTableEditor(QWidget):
         try:
             if target.casefold().endswith(".xlsx"):
                 exported = export_selection_excel(
-                    dataset, target, curve_ids, top, bottom, overwrite=True
+                    dataset,
+                    target,
+                    curve_ids,
+                    top,
+                    bottom,
+                    overwrite=True,
+                    language=self.localizer.language,
                 )
             else:
                 delimiter = ";" if target.casefold().endswith(".csv") else "\t"

@@ -75,14 +75,16 @@ def test_excel_export_is_valid_openxml_with_data_and_metadata_sheets(tmp_path) -
 
     with zipfile.ZipFile(target) as archive:
         assert archive.testzip() is None
-        workbook = archive.read("xl/workbook.xml").decode("utf-8")
-        data_sheet = archive.read("xl/worksheets/sheet1.xml").decode("utf-8")
-        metadata_sheet = archive.read("xl/worksheets/sheet2.xml").decode("utf-8")
-    assert 'name="Data"' in workbook
-    assert 'name="Metadata"' in workbook
-    assert "DEPTH [m]" in data_sheet
-    assert "C1 [%]" in data_sheet
-    assert "Well data" in metadata_sheet
+        workbook_xml = archive.read("xl/workbook.xml").decode("utf-8")
+    assert 'name="Data"' in workbook_xml
+    assert 'name="Parameters"' in workbook_xml
+    assert 'name="Metadata"' in workbook_xml
+
+    workbook = load_workbook(target, data_only=True)
+    assert workbook["Data"]["A1"].value == "Глубина по стволу\nDEPTH\n[m]"
+    assert workbook["Data"]["B1"].value == "Метан\nC1\n[%]"
+    assert workbook["Parameters"]["B1"].value == "Понятное название"
+    assert dict(workbook["Metadata"].values)["Набор данных"] == "Well data"
 
 
 def test_excel_export_keeps_small_values_numeric_with_decimal_format(tmp_path) -> None:
@@ -127,11 +129,11 @@ def test_excel_export_formats_datetime_index_as_excel_date_and_time(tmp_path) ->
     workbook = load_workbook(target, data_only=True)
     data_sheet = workbook["Data"]
     metadata_sheet = workbook["Metadata"]
-    assert data_sheet["A1"].value == "DATETIME [UTC]"
+    assert data_sheet["A1"].value == "Дата и время\nDATETIME\n[UTC]"
     assert data_sheet["A2"].value == datetime(2026, 7, 18, 8, 15, 31, 250000)
     assert data_sheet["A3"].value == datetime(2026, 7, 18, 8, 15, 32, 375000)
     assert data_sheet["A2"].number_format == "yyyy-mm-dd hh:mm:ss.000"
-    assert dict(metadata_sheet.values)["Source timezone DATETIME"] == "UTC"
+    assert dict(metadata_sheet.values)["Часовой пояс источника DATETIME"] == "UTC"
 
 
 def test_excel_depth_export_includes_formatted_secondary_datetime_index(tmp_path) -> None:
@@ -160,7 +162,11 @@ def test_excel_depth_export_includes_formatted_secondary_datetime_index(tmp_path
     export_selection_excel(dataset, target, ["c1"], 101.0, 102.0)
 
     sheet = load_workbook(target, data_only=True)["Data"]
-    assert [cell.value for cell in sheet[1]] == ["DEPTH [m]", "DATETIME [UTC]", "C1 [%]"]
+    assert [cell.value for cell in sheet[1]] == [
+        "Глубина по стволу\nDEPTH\n[m]",
+        "Дата и время\nDATETIME\n[UTC]",
+        "Метан\nC1\n[%]",
+    ]
     assert sheet["A2"].value == 101.0
     assert sheet["B2"].value == datetime(2026, 7, 18, 8, 0, 1)
     assert sheet["B2"].number_format == "yyyy-mm-dd hh:mm:ss.000"

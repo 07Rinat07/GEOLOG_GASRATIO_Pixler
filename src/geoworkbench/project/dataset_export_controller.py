@@ -19,6 +19,7 @@ from geoworkbench.data.selection_export import (
 )
 from geoworkbench.domain.models import Dataset, ExportProfile, new_id
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.localization import AppLanguage
 
 
 @dataclass(slots=True)
@@ -174,6 +175,7 @@ class DatasetExportController:
         depth_bottom: float,
         *,
         overwrite: bool = False,
+        language: AppLanguage | str = AppLanguage.RU,
     ) -> Path:
         dataset = self._require_current_dataset()
         return export_selection_excel(
@@ -183,6 +185,7 @@ class DatasetExportController:
             depth_top,
             depth_bottom,
             overwrite=overwrite,
+            language=language,
         )
 
     def export_current_json(self, target: Path, *, overwrite: bool = False) -> Path:
