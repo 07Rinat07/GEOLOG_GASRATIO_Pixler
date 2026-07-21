@@ -1,5 +1,17 @@
 # Project plan
 
+## Slice 0.7.7 — unified workspace
+
+- [x] direct LAS Editor, Form library and Constructor buttons without incorrect drop-down menus;
+- [x] F4 toggles a dedicated column, track and parameter editing toolbar;
+- [x] save the live tablet as a user form with ranges, colours, scales and grids;
+- [x] user forms are separated into `depth` and `time` in both UI and storage;
+- [x] factory forms open as editable working copies while source presets remain protected;
+- [x] the Constructor now has side navigation, a visible ready-Masterlog gallery and collapsible advanced settings;
+- [x] Windows lossless LAS export with Cyrillic descriptions is fixed;
+- [ ] final visual smoke test on the working Windows monitor and printer.
+
+
 ## Slice 0.7.6 — safe LAS Editor
 
 - [x] separate Editor section and visible LAS Editor button (`Ctrl+Alt+E`);

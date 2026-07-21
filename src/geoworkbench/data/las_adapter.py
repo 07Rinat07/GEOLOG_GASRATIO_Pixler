@@ -371,12 +371,21 @@ def export_las(
     )
     os.close(fd)
     try:
-        las.write(
-            temporary_name,
-            version=export_plan.version.writer_value,
-            wrap=export_plan.wrap,
-            fmt=export_plan.number_format,
-        )
+        # lasio opens a path with the operating-system default encoding. On
+        # Windows this is commonly CP1251, while the lossless composer parses
+        # the generated temporary file independently. Russian descriptions then
+        # caused a hidden UnicodeDecodeError during external-LAS insertion.
+        # Write the intermediate document explicitly as UTF-8 and let the
+        # lossless layer convert sections back to the original source encoding.
+        with Path(temporary_name).open("w", encoding="utf-8", newline="") as stream:
+            las.write(
+                stream,
+                version=export_plan.version.writer_value,
+                wrap=export_plan.wrap,
+                fmt=export_plan.number_format,
+            )
+            stream.flush()
+            os.fsync(stream.fileno())
         if source_document is not None and export_plan.preserve_custom_sections:
             generated = parse_lossless_las(Path(temporary_name).read_bytes())
             composed = _compose_lossless_export(source_document, generated)

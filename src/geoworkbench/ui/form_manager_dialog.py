@@ -13,8 +13,11 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QInputDialog,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
+    QLineEdit,
+    QSplitter,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QWidget,
     QMessageBox,
     QPushButton,
     QTextEdit,
@@ -23,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.forms.codec import form_from_dict, form_to_dict
 from geoworkbench.domain.models import Dataset, IndexRole
-from geoworkbench.forms.models import FormAxisKind, FormDocument, FormTemplateOrigin
+from geoworkbench.forms.models import FormAxisKind, FormDocument
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.apply import FormApplyEngine
 from geoworkbench.forms.materialize import materialized_factory_templates
@@ -39,6 +42,7 @@ from geoworkbench.printing.page_settings import (
     PrintPageSettings,
 )
 from geoworkbench.ui.form_structure_editor_dialog import FormStructureEditorDialog
+from geoworkbench.ui.collapsible_section import CollapsibleSection
 
 
 class FormManagerDialog(QDialog):
@@ -66,30 +70,167 @@ class FormManagerDialog(QDialog):
         self.masterlog_sync_callback = masterlog_sync_callback
         self.apply_engine = FormApplyEngine()
         self.selected_form: FormDocument | None = None
-        self.setWindowTitle(self._text("Менеджер форм", "Пішіндер менеджері", "Form manager"))
-        self.resize(840, 560)
+        self.setWindowTitle(self._text("Библиотека форм", "Пішіндер кітапханасы", "Form library"))
+        self.setMinimumSize(980, 620)
+        self.resize(1180, 720)
+        self.setStyleSheet(
+            "QDialog { background: #f1f5f9; }"
+            "QTreeWidget, QTextEdit { background: white; border: 1px solid #cbd5e1; "
+            "border-radius: 7px; }"
+            "QPushButton { min-height: 30px; padding: 4px 10px; }"
+            "QPushButton#primary-action { background: #2563eb; color: white; "
+            "font-weight: 600; border: 0; border-radius: 6px; }"
+            "QPushButton#primary-action:hover { background: #1d4ed8; }"
+        )
 
-        root = QHBoxLayout(self)
-        left = QVBoxLayout()
-        self.search = QInputDialog  # keep static type checkers from confusing Qt overloads
-        self.list_widget = QListWidget()
+        root_layout = QVBoxLayout(self)
+        heading = QLabel(
+            self._text(
+                "Формы разделены по типу вертикальной оси. Заводские образцы защищены, "
+                "а пользовательские формы можно свободно изменять.",
+                "Пішіндер тік ось түрі бойынша бөлінген. Зауыттық үлгілер қорғалған, "
+                "пайдаланушы пішіндерін еркін өзгертуге болады.",
+                "Forms are grouped by vertical-axis type. Factory presets are protected; "
+                "user forms remain fully editable.",
+            )
+        )
+        heading.setWordWrap(True)
+        heading.setStyleSheet("font-size: 13px; color: #334155; padding: 2px 4px;")
+        root_layout.addWidget(heading)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        splitter.setChildrenCollapsible(False)
+        root_layout.addWidget(splitter, 1)
+
+        left_panel = QWidget()
+        left = QVBoxLayout(left_panel)
+        left.setContentsMargins(0, 0, 0, 0)
+        self.search_input = QLineEdit()
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.setPlaceholderText(
+            self._text("Поиск формы…", "Пішінді іздеу…", "Search forms…")
+        )
+        self.search_input.setToolTip(
+            self._text(
+                "Фильтр по названию, описанию и параметрам формы.",
+                "Пішін атауы, сипаттамасы және параметрлері бойынша сүзгі.",
+                "Filter by form name, description and parameters.",
+            )
+        )
+        self.search_input.textChanged.connect(self._filter_tree)
+        left.addWidget(self.search_input)
+
         self._selection_gate = PreviewRevisionGate()
         self._selection_timer = QTimer(self)
         self._selection_timer.setSingleShot(True)
         self._selection_timer.setInterval(90)
         self._selection_timer.timeout.connect(self._render_pending_selection)
         self._pending_selection_revision = 0
-        self.list_widget.currentItemChanged.connect(self._show_selected)
-        self.list_widget.itemDoubleClicked.connect(lambda _item: self._apply())
-        left.addWidget(QLabel(self._text("Формы", "Пішіндер", "Forms")))
-        left.addWidget(self.list_widget, 1)
-        root.addLayout(left, 2)
 
-        right = QVBoxLayout()
+        self.tree_widget = QTreeWidget()
+        self.tree_widget.setHeaderHidden(True)
+        self.tree_widget.setUniformRowHeights(True)
+        self.tree_widget.setIndentation(18)
+        self.tree_widget.setAlternatingRowColors(False)
+        self.tree_widget.currentItemChanged.connect(self._show_selected)
+        self.tree_widget.itemDoubleClicked.connect(lambda _item, _column: self._apply())
+        self.tree_widget.setToolTip(
+            self._text(
+                "Дважды нажмите пользовательскую форму, чтобы открыть её на планшете.",
+                "Пайдаланушы пішінін планшетте ашу үшін екі рет басыңыз.",
+                "Double-click a form to open it on the tablet.",
+            )
+        )
+        # Compatibility alias for older UI tests and plugins.
+        self.list_widget = self.tree_widget
+        left.addWidget(self.tree_widget, 1)
+        splitter.addWidget(left_panel)
+
+        right_panel = QWidget()
+        right = QVBoxLayout(right_panel)
+        right.setContentsMargins(0, 0, 0, 0)
         self.details = QTextEdit()
         self.details.setReadOnly(True)
+        self.details.setToolTip(
+            self._text(
+                "Состав выбранной формы, совместимость с текущим LAS и настройки печати.",
+                "Таңдалған пішін құрамы, ағымдағы LAS-пен үйлесімділігі және баспа баптаулары.",
+                "Selected form contents, LAS compatibility and print settings.",
+            )
+        )
         right.addWidget(self.details, 1)
 
+        primary_row = QHBoxLayout()
+        for caption, callback, tooltip in (
+            (
+                self._text("Создать форму", "Пішін жасау", "Create form"),
+                self._create,
+                self._text("Создать пустую глубинную или временную форму.", "Бос тереңдік немесе уақыт пішінін жасау.", "Create an empty depth or time form."),
+            ),
+            (
+                self._text("Копировать", "Көшіру", "Copy"),
+                self._copy,
+                self._text("Создать независимую пользовательскую копию.", "Тәуелсіз пайдаланушы көшірмесін жасау.", "Create an independent user copy."),
+            ),
+            (
+                self._text("Редактировать", "Өңдеу", "Edit"),
+                self._edit,
+                self._text("Открыть редактор колонок, дорожек и параметров.", "Бағандар, жолдар және параметрлер редакторын ашу.", "Edit columns, tracks and parameters."),
+            ),
+        ):
+            button = QPushButton(caption)
+            button.setObjectName("primary-action")
+            button.setToolTip(tooltip)
+            button.setStatusTip(tooltip)
+            button.clicked.connect(callback)
+            primary_row.addWidget(button)
+        right.addLayout(primary_row)
+
+        manage_widget = QWidget()
+        manage_row = QHBoxLayout(manage_widget)
+        manage_row.setContentsMargins(6, 4, 6, 4)
+        for caption, callback, tooltip in (
+            (self._text("Переименовать", "Атын өзгерту", "Rename"), self._rename, self._text("Изменить название пользовательской формы.", "Пайдаланушы пішінінің атауын өзгерту.", "Rename a user form.")),
+            (self._text("Удалить", "Жою", "Delete"), self._delete, self._text("Удалить выбранную пользовательскую форму.", "Таңдалған пайдаланушы пішінін жою.", "Delete the selected user form.")),
+        ):
+            button = QPushButton(caption)
+            button.setToolTip(tooltip)
+            button.clicked.connect(callback)
+            manage_row.addWidget(button)
+        manage_row.addStretch(1)
+        right.addWidget(
+            CollapsibleSection(
+                self._text("Управление выбранной формой", "Таңдалған пішінді басқару", "Manage selected form"),
+                manage_widget,
+                expanded=False,
+                tooltip=self._text("Редко используемые операции переименования и удаления.", "Сирек қолданылатын атауын өзгерту және жою әрекеттері.", "Less frequently used rename and delete actions."),
+            )
+        )
+
+        exchange_widget = QWidget()
+        exchange_row = QHBoxLayout(exchange_widget)
+        exchange_row.setContentsMargins(6, 4, 6, 4)
+        for caption, callback, tooltip in (
+            (self._text("Импорт JSON", "JSON импорттау", "Import JSON"), self._import_json, self._text("Добавить форму из внешнего JSON-файла.", "Сыртқы JSON файлынан пішін қосу.", "Import a form from JSON.")),
+            (self._text("Экспорт JSON", "JSON экспорттау", "Export JSON"), self._export_json, self._text("Сохранить выбранную форму отдельным JSON-файлом.", "Таңдалған пішінді жеке JSON файлына сақтау.", "Export the selected form to JSON.")),
+        ):
+            button = QPushButton(caption)
+            button.setToolTip(tooltip)
+            button.clicked.connect(callback)
+            exchange_row.addWidget(button)
+        exchange_row.addStretch(1)
+        right.addWidget(
+            CollapsibleSection(
+                self._text("Импорт и экспорт", "Импорт және экспорт", "Import and export"),
+                exchange_widget,
+                expanded=False,
+                tooltip=self._text("Обмен пользовательскими формами между компьютерами.", "Пайдаланушы пішіндерін компьютерлер арасында алмасу.", "Exchange user forms between computers."),
+            )
+        )
+
+        print_widget = QWidget()
+        print_box = QVBoxLayout(print_widget)
+        print_box.setContentsMargins(6, 4, 6, 4)
         print_row = QHBoxLayout()
         print_row.addWidget(QLabel(self._text("Печатный макет", "Баспа макеті", "Print layout")))
         self.print_orientation_combo = QComboBox()
@@ -106,83 +247,77 @@ class FormManagerDialog(QDialog):
         )
         self.print_orientation_combo.setCurrentIndex(max(0, orientation_index))
         self.print_orientation_combo.currentIndexChanged.connect(self._print_layout_changed)
+        self.print_orientation_combo.setToolTip(self._text("Ориентация листа для быстрой печати формы.", "Пішінді жылдам басып шығару парағының бағыты.", "Page orientation for quick form printing."))
         print_row.addWidget(self.print_orientation_combo, 1)
         self.fit_columns_check = QCheckBox(
             self._text("Автоподбор колонок", "Бағандарды автотаңдау", "Auto-fit columns")
         )
         self.fit_columns_check.setChecked(self.print_page_settings.fit_form_columns)
         self.fit_columns_check.toggled.connect(self._print_layout_changed)
+        self.fit_columns_check.setToolTip(self._text("Уместить все видимые колонки по ширине листа.", "Барлық көрінетін бағандарды парақ еніне сыйғызу.", "Fit all visible columns to the page width."))
         print_row.addWidget(self.fit_columns_check)
-        right.addLayout(print_row)
+        print_box.addLayout(print_row)
         self.print_layout_hint = QLabel(
             self._text(
-                "При печати все видимые колонки формы размещаются по ширине листа без горизонтального обрезания.",
-                "Басып шығару кезінде пішіннің барлық көрінетін бағандары көлденең қиылмай парақ еніне орналастырылады.",
-                "All visible form columns are placed across the sheet width without horizontal clipping.",
+                "Все видимые колонки размещаются по ширине листа без горизонтального обрезания.",
+                "Барлық көрінетін бағандар көлденең қиылмай парақ еніне орналастырылады.",
+                "All visible columns are placed across the page without horizontal clipping.",
             )
         )
         self.print_layout_hint.setWordWrap(True)
-        right.addWidget(self.print_layout_hint)
-
-        row1 = QHBoxLayout()
-        for caption, callback in (
-            (self._text("Создать", "Жасау", "Create"), self._create),
-            (self._text("Копировать", "Көшіру", "Copy"), self._copy),
-            (self._text("Редактировать", "Өңдеу", "Edit"), self._edit),
-            (self._text("Переименовать", "Атын өзгерту", "Rename"), self._rename),
-            (self._text("Удалить", "Жою", "Delete"), self._delete),
-        ):
-            button = QPushButton(caption)
-            button.clicked.connect(callback)
-            row1.addWidget(button)
-        right.addLayout(row1)
-
-        row2 = QHBoxLayout()
-        for caption, callback in (
-            (self._text("Импорт JSON", "JSON импорттау", "Import JSON"), self._import_json),
-            (self._text("Экспорт JSON", "JSON экспорттау", "Export JSON"), self._export_json),
-        ):
-            button = QPushButton(caption)
-            button.clicked.connect(callback)
-            row2.addWidget(button)
-        right.addLayout(row2)
+        print_box.addWidget(self.print_layout_hint)
+        right.addWidget(
+            CollapsibleSection(
+                self._text("Быстрые настройки печати", "Жылдам баспа баптаулары", "Quick print settings"),
+                print_widget,
+                expanded=False,
+                tooltip=self._text("Разверните только перед печатью или экспортом формы.", "Пішінді басып шығару немесе экспорттау алдында ғана ашыңыз.", "Expand only when printing or exporting the form."),
+            )
+        )
 
         open_row = QHBoxLayout()
         self.apply_button = QPushButton(
             self._text("Открыть на планшете", "Планшетте ашу", "Open on tablet")
         )
+        self.apply_button.setObjectName("primary-action")
+        self.apply_button.setToolTip(self._text("Применить форму к текущему LAS и открыть планшет.", "Пішінді ағымдағы LAS-қа қолданып, планшетті ашу.", "Apply the form to the current LAS and open the tablet."))
         self.apply_button.clicked.connect(self._apply)
         open_row.addWidget(self.apply_button, 1)
         self.print_button = QPushButton(
             self._text("Печать / экспорт", "Басып шығару / экспорт", "Print / export")
         )
+        self.print_button.setToolTip(self._text("Открыть центр печати для выбранной формы.", "Таңдалған пішін үшін баспа орталығын ашу.", "Open the print center for the selected form."))
         self.print_button.clicked.connect(self._print_selected)
         self.print_button.setEnabled(self.print_form_callback is not None)
         open_row.addWidget(self.print_button, 1)
         right.addLayout(open_row)
 
         self.masterlog_sync_button = QPushButton(
-            self._text(
-                "Связать экран и Masterlog",
-                "Экран мен Masterlog байланыстыру",
-                "Link screen and Masterlog",
-            )
+            self._text("Создать / обновить Masterlog", "Masterlog жасау / жаңарту", "Create / update Masterlog")
         )
+        self.masterlog_sync_button.setToolTip(self._text("Перенести колонки, подписи, шкалы и стили глубинной формы в печатный Masterlog.", "Тереңдік пішінінің бағандарын, жазуларын, шкалаларын және стильдерін баспа Masterlog-қа көшіру.", "Transfer depth-form columns, captions, scales and styles into a printable Masterlog."))
         self.masterlog_sync_button.clicked.connect(self._sync_masterlog)
         self.masterlog_sync_button.setEnabled(self.masterlog_sync_callback is not None)
         right.addWidget(self.masterlog_sync_button)
         close_button = QPushButton(self._text("Закрыть", "Жабу", "Close"))
+        close_button.setToolTip(self._text("Закрыть библиотеку без применения другой формы.", "Басқа пішінді қолданбай кітапхананы жабу.", "Close the library without applying another form."))
         close_button.clicked.connect(self.reject)
         right.addWidget(close_button)
-        root.addLayout(right, 3)
+        splitter.addWidget(right_panel)
+        splitter.setSizes([390, 760])
         self.reload()
+        for button in self.findChildren(QPushButton):
+            if not button.toolTip().strip():
+                button.setToolTip(button.text().replace("&", ""))
+            if not button.statusTip().strip():
+                button.setStatusTip(button.toolTip())
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
 
     def reload(self, selected_id: str | None = None) -> None:
-        self.list_widget.blockSignals(True)
-        self.list_widget.clear()
+        self.tree_widget.blockSignals(True)
+        self.tree_widget.clear()
         try:
             try:
                 materialized = materialized_factory_templates(self.dataset, self.language)
@@ -192,41 +327,129 @@ class FormManagerDialog(QDialog):
                     if form_id in materialized
                 ]
             except (KeyError, RuntimeError, ValueError):
-                # Keep the manager available even when one legacy curve carries
-                # unusable metadata. The raw factory forms remain selectable;
-                # applying them will show a localized diagnostic instead of
-                # terminating the dialog.
                 factory = list(curated_factory_templates(self.language).values())
-            forms = factory + self.repository.list_forms()
-            forms.sort(
-                key=lambda form: (
-                    form.origin is FormTemplateOrigin.USER,
-                    form.name.casefold(),
+            user_forms = self.repository.list_forms()
+            categories = (
+                (
+                    "factory-depth",
+                    self._text("Заводские формы — глубина", "Зауыттық пішіндер — тереңдік", "Factory forms — depth"),
+                    [item for item in factory if item.axis_kind is FormAxisKind.DEPTH],
+                    False,
+                ),
+                (
+                    "factory-time",
+                    self._text("Заводские формы — время", "Зауыттық пішіндер — уақыт", "Factory forms — time"),
+                    [item for item in factory if item.axis_kind is FormAxisKind.TIME],
+                    False,
+                ),
+                (
+                    "user-depth",
+                    self._text("Пользовательские формы — глубина", "Пайдаланушы пішіндері — тереңдік", "User forms — depth"),
+                    [item for item in user_forms if item.axis_kind is FormAxisKind.DEPTH],
+                    True,
+                ),
+                (
+                    "user-time",
+                    self._text("Пользовательские формы — время", "Пайдаланушы пішіндері — уақыт", "User forms — time"),
+                    [item for item in user_forms if item.axis_kind is FormAxisKind.TIME],
+                    True,
+                ),
+            )
+            selected_item: QTreeWidgetItem | None = None
+            first_form_item: QTreeWidgetItem | None = None
+            for category_id, title, forms, expanded in categories:
+                group = QTreeWidgetItem([f"{title}  ({len(forms)})"])
+                group.setData(0, Qt.ItemDataRole.UserRole, None)
+                group.setData(0, Qt.ItemDataRole.UserRole + 1, category_id)
+                group.setFlags(group.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+                group.setExpanded(expanded)
+                font = group.font(0)
+                font.setBold(True)
+                group.setFont(0, font)
+                group.setToolTip(
+                    0,
+                    self._text(
+                        "Нажмите стрелку, чтобы свернуть или развернуть раздел.",
+                        "Бөлімді жинау немесе ашу үшін көрсеткіні басыңыз.",
+                        "Use the arrow to collapse or expand this section.",
+                    ),
+                )
+                self.tree_widget.addTopLevelItem(group)
+                for form in sorted(forms, key=lambda item: item.name.casefold()):
+                    binding_count = sum(
+                        len(track.bindings)
+                        for column in form.columns
+                        for track in column.tracks
+                    )
+                    count_suffix = f"  · {binding_count}" if binding_count else ""
+                    prefix = "🔒 " if form.read_only else ""
+                    item = QTreeWidgetItem([prefix + form.name + count_suffix])
+                    item.setData(0, Qt.ItemDataRole.UserRole, form)
+                    item.setToolTip(
+                        0,
+                        self._text(
+                            "Двойной щелчок — открыть на планшете.",
+                            "Екі рет басу — планшетте ашу.",
+                            "Double-click to open on the tablet.",
+                        ),
+                    )
+                    group.addChild(item)
+                    if first_form_item is None:
+                        first_form_item = item
+                    if selected_id and form.form_id == selected_id:
+                        selected_item = item
+                        group.setExpanded(True)
+            self.tree_widget.expandItem(
+                next(
+                    (
+                        self.tree_widget.topLevelItem(index)
+                        for index in range(self.tree_widget.topLevelItemCount())
+                        if self.tree_widget.topLevelItem(index).data(
+                            0, Qt.ItemDataRole.UserRole + 1
+                        )
+                        == "user-depth"
+                    ),
+                    self.tree_widget.topLevelItem(0),
                 )
             )
-            selected_item: QListWidgetItem | None = None
-            for form in forms:
-                prefix = "🔒 " if form.read_only else ""
-                binding_count = sum(
-                    len(track.bindings) for column in form.columns for track in column.tracks
-                )
-                count_suffix = f"  · {binding_count}" if binding_count else ""
-                item = QListWidgetItem(prefix + form.name + count_suffix)
-                item.setData(Qt.ItemDataRole.UserRole, form)
-                self.list_widget.addItem(item)
-                if selected_id and form.form_id == selected_id:
-                    selected_item = item
             if selected_item is not None:
-                self.list_widget.setCurrentItem(selected_item)
-            elif self.list_widget.count():
-                self.list_widget.setCurrentRow(0)
+                self.tree_widget.setCurrentItem(selected_item)
+            elif first_form_item is not None:
+                self.tree_widget.setCurrentItem(first_form_item)
         finally:
-            self.list_widget.blockSignals(False)
-        self._show_selected(self.list_widget.currentItem(), None)
+            self.tree_widget.blockSignals(False)
+        self._filter_tree(self.search_input.text())
+        self._show_selected(self.tree_widget.currentItem(), None)
+
+    def _filter_tree(self, text: str) -> None:
+        query = text.strip().casefold()
+        for group_index in range(self.tree_widget.topLevelItemCount()):
+            group = self.tree_widget.topLevelItem(group_index)
+            visible_children = 0
+            for child_index in range(group.childCount()):
+                child = group.child(child_index)
+                form = child.data(0, Qt.ItemDataRole.UserRole)
+                haystack = ""
+                if isinstance(form, FormDocument):
+                    parameter_names = [
+                        binding.display_name
+                        for column in form.columns
+                        for track in column.tracks
+                        for binding in track.bindings
+                    ]
+                    haystack = " ".join(
+                        [form.name, form.description, *parameter_names]
+                    ).casefold()
+                match = not query or query in haystack
+                child.setHidden(not match)
+                visible_children += int(match)
+            group.setHidden(bool(query) and visible_children == 0)
+            if query and visible_children:
+                group.setExpanded(True)
 
     def _current(self) -> FormDocument | None:
-        item = self.list_widget.currentItem()
-        value = item.data(Qt.ItemDataRole.UserRole) if item else None
+        item = self.tree_widget.currentItem()
+        value = item.data(0, Qt.ItemDataRole.UserRole) if item else None
         return value if isinstance(value, FormDocument) else None
 
     def _is_compatible(self, form: FormDocument) -> bool:
@@ -374,7 +597,7 @@ class FormManagerDialog(QDialog):
         )
         if self.print_page_settings_changed is not None:
             self.print_page_settings_changed(self.print_page_settings)
-        self._show_selected(self.list_widget.currentItem(), None)
+        self._show_selected(self.tree_widget.currentItem(), None)
 
     def _create(self) -> None:
         name, ok = QInputDialog.getText(

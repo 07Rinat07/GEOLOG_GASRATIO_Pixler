@@ -1,13 +1,17 @@
 # Current project status
 
-## Version 0.7.6 — Safe LAS Editor
+## Version 0.7.7 — Unified Workspace
 
-- a separate Editor section and visible LAS Editor button were added to the main interface;
-- depth repair, resampling, insertion and splicing create a new dataset and a new `.las`;
-- descending GIS LAS depth is reversed only in memory;
-- duplicate `GK:1/GK:2` names become `GK_1/GK_2` while source names are retained;
-- validated with a real CP866 file using `STEP=-0.2` and 6629 samples.
+- primary workflows use direct buttons instead of inconvenient drop-down menus;
+- `F4` toggles the form add/edit/move/remove/save toolbar;
+- the Form Library separates factory and user depth/time forms;
+- user forms are stored physically in `depth` and `time` directories;
+- factory presets open as editable working copies;
+- the Constructor exposes ready Masterlog headers in a visible gallery;
+- advanced settings are collapsible and actions include tooltips;
+- Windows lossless LAS export with Cyrillic descriptions is fixed.
 
+Validation: `1008 passed, 1 skipped`; Ruff and `compileall` pass. A final visual Windows and physical-printer smoke test remains.
 
 ## 0.7.5 template — ready geological-technological survey blank
 

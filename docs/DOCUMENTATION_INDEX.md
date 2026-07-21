@@ -14,6 +14,7 @@
 - [INTERVAL_MOUSE_EDITING.md](INTERVAL_MOUSE_EDITING.md) — direct interval drawing and boundary editing.
 - [TABLET_DEPTH_TIME_NAVIGATION.md](TABLET_DEPTH_TIME_NAVIGATION.md) — synchronized depth/time scrolling, zoom, index selection, and persistence.
 - Report export plan: [Русский](ru/REPORT_EXPORT.md) · [Қазақша](kk/REPORT_EXPORT.md) · [English](en/REPORT_EXPORT.md) · [Engineering model](REPORT_EXPORT_PLAN.md)
+- Unified workspace 0.7.7: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 - LAS Editor 0.7.6: [Русский](ru/LAS_EDITOR.md) · [Қазақша](kk/LAS_EDITOR.md) · [English](en/LAS_EDITOR.md)
 - [LAS_EDITOR_ARCHITECTURE.md](LAS_EDITOR_ARCHITECTURE.md) — copy-on-transform boundaries, mnemonic normalization and failure rollback.
 

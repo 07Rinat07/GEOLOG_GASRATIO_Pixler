@@ -1,43 +1,42 @@
-GEOLOG GASRATIO@Pixler 0.7.6 — Safe LAS Editor
+GEOLOG GASRATIO@Pixler 0.7.7 — Unified Workspace
 Validation date: 2026-07-21
 
-IMPLEMENTED
-- separate top-level Editor menu;
-- visible LAS Editor toolbar button, shortcut Ctrl+Alt+E;
-- create/open/table-edit/repair/resample/insert/splice/export entry point;
-- external curve insertion creates a new dataset and a new LAS;
-- dataset splicing creates and exports a new LAS;
-- original source files are not overwritten;
-- descending external depth is reversed only in memory;
-- descending datasets are accepted by splicing through an in-memory ascending view;
-- vendor duplicate mnemonics GK:1/GK:2 become GK_1/GK_2;
-- Cyrillic/separator-heavy mnemonics receive deterministic ASCII names;
-- output path is mandatory for insertion and splicing.
+IMPLEMENTED SCOPE
+- Direct main-toolbar actions: LAS Editor, Form Library, Constructor.
+- F4 toggles a dedicated tablet form-editing toolbar.
+- Add/edit/move/remove/save form actions are separated from normal viewing.
+- Form Library groups factory/user and depth/time forms.
+- User forms are stored in depth/ and time/ subdirectories with legacy compatibility.
+- Factory forms open as editable live copies; source presets remain protected.
+- Constructor uses side navigation and visibly lists ready Masterlog presets.
+- KazGeology reference blank is visible in the Constructor preset gallery.
+- Secondary controls use collapsible sections and actions have tooltips/status tips.
+- Windows lossless LAS export writes its temporary file explicitly as UTF-8.
+
+AUTOMATED VALIDATION
+- python -m compileall -q src tests: PASS
+- python -m ruff check src tests: PASS
+- PYTHONPATH=src QT_QPA_PLATFORM=offscreen python scripts/run_tests.py:
+  1008 passed, 1 skipped in 18.07s
 
 REAL GIS LAS VALIDATION
-Source: ГК,ННК,Дср(1).LAS
-Encoding: CP866
-Original depth: 2025.6 -> 700.0 m
-Original nominal step: -0.2 m
-Samples: 6629
-Duplicate vendor mnemonics: GK:1, GK:2
-Source SHA-256 before/after:
-42efd174eb67a9393f41fe099e538f890aa73f179cd60fb69b4b5802dda14304
-Result: source unchanged.
+Successfully imported:
+- ГК,ННК,Дср(1).LAS — CP866, 2025.6 -> 700.0 m, descending, 11 curves
+- А4.0М0.5N, БКс,БКм(1).LAS — CP866, 2013.6 -> 698.0 m, descending, 10 curves
+- МБК(1).LAS — CP866, 2015.6 -> 1494.6 m, descending, 12 curves
+- Плотность,БЗ(1).LAS — CP866, 2014.0 -> 1495.6 m, descending, 9 curves
 
-Generated and re-imported successfully:
-- GIS_ascending_0.7.6.las: 700.0 -> 2025.6 m, 6629 samples;
-- GIS_step_0_5_0.7.6.las: 700.0 -> 2025.5 m, 2652 samples, 0.5 m step;
-- GIS_insert_validation_0.7.6.las: 12 curves, including GK_1/GK_2;
-- GIS_spliced_0.7.6.las: 699.0 -> 2025.6 m, 6631 samples.
+External insertion analysis:
+- descending source reversed only in memory: PASS
+- overlap: 700.0 .. 2013.6 m
+- mapping: linear_overlap
+- duplicate mnemonic normalization: GK:1 -> GK_1; GK:2 -> GK_2
 
-AUTOMATED CHECKS
-- pytest: 1002 passed, 1 skipped;
-- Ruff: all checks passed;
-- compileall: passed;
-- RU/KK/EN localization catalogs: synchronized by tests;
-- ZIP integrity: passed (no errors detected).
+VISUAL OFFSCREEN CHECKS
+- Main workspace with F4 toolbar: docs/validation/GEOLOG_0.7.7_main_workspace.png
+- Form Library categories: docs/validation/GEOLOG_0.7.7_form_library.png
+- Constructor ready-preset gallery: docs/validation/GEOLOG_0.7.7_constructor_gallery.png
 
-The skipped test is the project's pre-existing intentional skip. Physical Windows UI and
-printer-driver checks remain a release smoke-test; file transformation and re-import were
-validated in the current environment with PySide6 6.11.1 and lasio 0.32.
+NOT COMPLETED IN THIS ENVIRONMENT
+- Final on-screen smoke test on the user's Windows DPI/theme configuration.
+- Physical printer test and driver-specific non-printable margin verification.

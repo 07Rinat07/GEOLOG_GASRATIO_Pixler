@@ -1,4 +1,5 @@
 from hashlib import sha256
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -416,3 +417,29 @@ def test_import_las_canonicalizes_vendor_gas_channels_from_description(
     assert dataset.curve_by_mnemonic("S800").metadata.canonical_mnemonic == "C1"
     assert dataset.curve_by_mnemonic("ETH").metadata.canonical_mnemonic == "C2"
     assert dataset.curve_by_mnemonic("PROP_GAS").metadata.canonical_mnemonic == "C3"
+
+
+def test_lossless_export_handles_cyrillic_descriptions_on_windows_codepages(tmp_path) -> None:
+    dataset = make_export_dataset()
+    rop = dataset.curve_by_mnemonic("ROP")
+    assert rop is not None
+    rop.metadata = replace(rop.metadata, description="Скорость проходки")
+    source_text = (
+        "~Version Information\r\n"
+        "VERS. 2.0 : Версия LAS\r\n"
+        "WRAP. NO : Без переноса\r\n"
+        "~Well Information\r\n"
+        "STRT.M 100\r\nSTOP.M 102\r\nSTEP.M 1\r\nNULL. -999.25\r\nWELL. Тест\r\n"
+        "~Curve Information\r\n"
+        "DEPT.M : Глубина\r\nROP.M/H : Скорость проходки\r\n"
+        "~ASCII Log Data\r\n100 10\r\n101 20\r\n102 30\r\n"
+    )
+    source_document = parse_lossless_las(source_text.encode("cp1251"))
+    target = tmp_path / "cyrillic-copy.las"
+
+    export_las(dataset, target, source_document=source_document)
+
+    restored = import_las(target)
+    restored_rop = restored.curve_by_mnemonic("ROP")
+    assert restored_rop is not None
+    assert "Скорость" in (restored_rop.metadata.description or "")

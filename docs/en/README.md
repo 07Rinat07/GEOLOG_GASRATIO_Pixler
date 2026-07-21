@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.6:** a separate **Editor** section and **LAS Editor** button (`Ctrl+Alt+E`) combine creation, table editing, descending-depth repair, resampling, curve insertion and splicing. Results are saved as new LAS files without overwriting sources. See the [LAS Editor guide](LAS_EDITOR.md).
+> **0.7.7:** primary workflows use direct buttons, **F4** toggles the form-editing toolbar, and the Form Library separates factory and user depth/time forms. The Constructor exposes ready Masterlog headers in a visible gallery. See the [workspace guide](UI_WORKSPACE.md) and [LAS Editor guide](LAS_EDITOR.md).
 
 
 GEOLOG GASRATIO@Pixler is an editor for drilling, mud-logging, and LAS data.

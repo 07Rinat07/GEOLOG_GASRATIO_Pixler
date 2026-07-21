@@ -726,6 +726,7 @@ class TabletView(QWidget):
         self._sync_guard = False
         self._depth_range_guard = False
         self._cursor_enabled = False
+        self._form_edit_mode = False
         self._cursor_depth: float | None = None
         self._cursor_guard = False
         self._cursor_color = "#dc2626"
@@ -1617,6 +1618,20 @@ class TabletView(QWidget):
         for track_id, rendered in self._rendered.items():
             rendered.widget.set_selected_curve(selected_by_track.get(track_id))
 
+    @property
+    def form_edit_mode(self) -> bool:
+        return self._form_edit_mode
+
+    def set_form_edit_mode(self, enabled: bool) -> None:
+        """Enable structural form editing while leaving geological data entry intact."""
+
+        self._form_edit_mode = bool(enabled)
+        hint = self._localizer.text(
+            "tablet.form_edit_on" if self._form_edit_mode else "tablet.form_edit_off"
+        )
+        for rendered in self._rendered.values():
+            rendered.widget.title.setToolTip(hint)
+
     def show_geological_context_menu(
         self, track_id: str, depth: float, global_pos: QPoint
     ) -> None:
@@ -1669,12 +1684,15 @@ class TabletView(QWidget):
                     self._localizer.text("geology.context.edit_full_sample")
                 )
 
-        menu.addSeparator()
-        edit_track_action = menu.addAction(self._localizer.text("tablet.edit_track_full"))
-        rename_track_action = menu.addAction(self._localizer.text("tablet.rename_track"))
-        rename_group_action = menu.addAction(self._localizer.text("tablet.rename_group"))
-        properties_action = menu.addAction(self._localizer.text("tablet.track_properties"))
-        save_action = menu.addAction(self._localizer.text("tablet.save_layout_as_form"))
+        edit_track_action = rename_track_action = rename_group_action = None
+        properties_action = save_action = None
+        if self._form_edit_mode:
+            menu.addSeparator()
+            edit_track_action = menu.addAction(self._localizer.text("tablet.edit_track_full"))
+            rename_track_action = menu.addAction(self._localizer.text("tablet.rename_track"))
+            rename_group_action = menu.addAction(self._localizer.text("tablet.rename_group"))
+            properties_action = menu.addAction(self._localizer.text("tablet.track_properties"))
+            save_action = menu.addAction(self._localizer.text("tablet.save_layout_as_form"))
         chosen = menu.exec(global_pos)
         if chosen is edit_track_action:
             self.track_full_edit_requested.emit(track_id)
@@ -1746,39 +1764,45 @@ class TabletView(QWidget):
         selected_curve = ""
         if graphical:
             for selected in self._selection.snapshot().items:
-                if (
-                    selected.kind is SelectableKind.CURVE
-                    and selected.track_id == track_id
-                ):
+                if selected.kind is SelectableKind.CURVE and selected.track_id == track_id:
                     selected_curve = selected.object_id
                     break
             if not selected_curve and definition.curve_mnemonics:
                 selected_curve = definition.curve_mnemonics[0]
             pencil_action = menu.addAction(self._localizer.text("tablet.curve_pencil_action"))
             pencil_action.setEnabled(bool(selected_curve))
-            add_curves = menu.addAction(self._localizer.text("tablet.add_curves"))
-            replace_curves = menu.addAction(self._localizer.text("tablet.choose_track_curves"))
-            curve_settings_action = menu.addAction(self._localizer.text("tablet.curve_settings"))
+            if self._form_edit_mode:
+                add_curves = menu.addAction(self._localizer.text("tablet.add_curves"))
+                replace_curves = menu.addAction(self._localizer.text("tablet.choose_track_curves"))
+                curve_settings_action = menu.addAction(self._localizer.text("tablet.curve_settings"))
+                menu.addSeparator()
+
+        edit_track_action = rename_track_action = rename_group_action = None
+        move_left = move_right = hide_action = remove_action = None
+        save_layout_action = None
+        if self._form_edit_mode:
+            edit_track_action = menu.addAction(self._localizer.text("tablet.edit_track_full"))
+            rename_track_action = menu.addAction(self._localizer.text("tablet.rename_track"))
+            rename_group_action = menu.addAction(self._localizer.text("tablet.rename_group"))
+            properties_action = menu.addAction(self._localizer.text("tablet.track_properties"))
             menu.addSeparator()
-        edit_track_action = menu.addAction(self._localizer.text("tablet.edit_track_full"))
-        rename_track_action = menu.addAction(self._localizer.text("tablet.rename_track"))
-        rename_group_action = menu.addAction(self._localizer.text("tablet.rename_group"))
-        properties_action = menu.addAction(self._localizer.text("tablet.track_properties"))
-        menu.addSeparator()
-        move_left = menu.addAction(self._localizer.text("tablet.move_left"))
-        move_right = menu.addAction(self._localizer.text("tablet.move_right"))
-        menu.addSeparator()
-        hide_action = menu.addAction(self._localizer.text("tablet.hide_track"))
-        remove_action = menu.addAction(self._localizer.text("tablet.remove_track"))
-        menu.addSeparator()
-        save_layout_action = menu.addAction(self._localizer.text("tablet.save_layout_as_form"))
-        menu.addSeparator()
+            move_left = menu.addAction(self._localizer.text("tablet.move_left"))
+            move_right = menu.addAction(self._localizer.text("tablet.move_right"))
+            menu.addSeparator()
+            hide_action = menu.addAction(self._localizer.text("tablet.hide_track"))
+            remove_action = menu.addAction(self._localizer.text("tablet.remove_track"))
+            menu.addSeparator()
+            save_layout_action = menu.addAction(self._localizer.text("tablet.save_layout_as_form"))
+            menu.addSeparator()
         undo_action = menu.addAction(self._localizer.text("tablet.undo_interaction"))
         redo_action = menu.addAction(self._localizer.text("tablet.redo_interaction"))
-        move_left.setEnabled(index > 0 and definition.kind is not TrackKind.DEPTH)
-        move_right.setEnabled(
-            index < len(self._layout_model.tracks) - 1 and definition.kind is not TrackKind.DEPTH
-        )
+        if move_left is not None:
+            move_left.setEnabled(index > 0 and definition.kind is not TrackKind.DEPTH)
+        if move_right is not None:
+            move_right.setEnabled(
+                index < len(self._layout_model.tracks) - 1
+                and definition.kind is not TrackKind.DEPTH
+            )
         undo_action.setEnabled(self.can_undo_interaction)
         redo_action.setEnabled(self.can_redo_interaction)
         chosen = menu.exec(global_pos)
@@ -1821,7 +1845,11 @@ class TabletView(QWidget):
         self.select_curve(track_id, mnemonic, emit_signal=True)
         menu = QMenu(self)
         pencil_action = menu.addAction(self._localizer.text("tablet.curve_pencil_action"))
-        settings_action = menu.addAction(self._localizer.text("tablet.curve_settings"))
+        settings_action = (
+            menu.addAction(self._localizer.text("tablet.curve_settings"))
+            if self._form_edit_mode
+            else None
+        )
         chosen = menu.exec(pos)
         if chosen is pencil_action:
             self.curve_pencil_requested.emit(track_id, mnemonic)

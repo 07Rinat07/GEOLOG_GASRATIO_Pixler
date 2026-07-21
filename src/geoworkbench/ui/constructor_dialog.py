@@ -9,13 +9,15 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
     QPushButton,
-    QTabWidget,
+    QSplitter,
+    QStackedWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -39,6 +41,8 @@ from geoworkbench.ui.masterlog_page_dialog import MasterlogPageDialog
 from geoworkbench.ui.masterlog_preview_dialog import MasterlogPreviewDialog
 from geoworkbench.ui.masterlog_symbols_dialog import MasterlogSymbolsDialog
 from geoworkbench.project.masterlog_symbol_controller import MasterlogSymbolController
+from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_FORM_PRESETS
+from geoworkbench.ui.collapsible_section import CollapsibleSection
 
 
 _TEXT = {
@@ -74,6 +78,13 @@ _TEXT = {
         "preflight_run": "Проверить выбранную форму",
         "preflight_no_data": "Для проверки откройте LAS и выберите скважину.",
         "preflight_ok": "Критических проблем не найдено.",
+        "workflow_hint": "Выберите раздел слева. Основные действия показаны сразу, дополнительные настройки свёрнуты.",
+        "ready_presets": "Готовые образцы",
+        "project_templates": "Пользовательские печатные формы",
+        "create_from_preset": "Создать пользовательскую копию",
+        "preset_hint": "Готовые шапки и формы. Выберите образец и создайте редактируемую копию в проекте.",
+        "primary_actions": "Основные действия",
+        "advanced_actions": "Дополнительные настройки",
     },
     AppLanguage.KK: {
         "title": "Пішіндер, тақырыптар және баспа конструкторы",
@@ -107,6 +118,13 @@ _TEXT = {
         "preflight_run": "Таңдалған пішінді тексеру",
         "preflight_no_data": "Тексеру үшін LAS ашып, ұңғыманы таңдаңыз.",
         "preflight_ok": "Маңызды ақаулар табылған жоқ.",
+        "workflow_hint": "Сол жақтан бөлімді таңдаңыз. Негізгі әрекеттер бірден көрсетіледі, қосымша баптаулар жиналған.",
+        "ready_presets": "Дайын үлгілер",
+        "project_templates": "Пайдаланушы баспа пішіндері",
+        "create_from_preset": "Пайдаланушы көшірмесін жасау",
+        "preset_hint": "Дайын тақырыптар мен пішіндер. Үлгіні таңдап, жобада өңделетін көшірме жасаңыз.",
+        "primary_actions": "Негізгі әрекеттер",
+        "advanced_actions": "Қосымша баптаулар",
     },
     AppLanguage.EN: {
         "title": "Form, header and print constructor",
@@ -140,6 +158,13 @@ _TEXT = {
         "preflight_run": "Check selected form",
         "preflight_no_data": "Open a LAS file and select a well before checking.",
         "preflight_ok": "No critical issues found.",
+        "workflow_hint": "Choose a section on the left. Primary actions stay visible; advanced settings are collapsed.",
+        "ready_presets": "Ready presets",
+        "project_templates": "User print forms",
+        "create_from_preset": "Create editable copy",
+        "preset_hint": "Ready headers and forms. Select a preset and create an editable project copy.",
+        "primary_actions": "Primary actions",
+        "advanced_actions": "Advanced settings",
     },
 }
 
@@ -173,23 +198,71 @@ class UniversalConstructorDialog(QDialog):
         )
         self._visible_assets: tuple[AssetDefinition, ...] = ()
         self.setWindowTitle(_TEXT[language]["title"])
-        self.setMinimumSize(900, 620)
-        self.resize(1280, 800)
+        self.setMinimumSize(1020, 680)
+        self.resize(1320, 840)
+        self.setStyleSheet(
+            "QDialog { background: #f1f5f9; }"
+            "QListWidget, QTextEdit { background: white; border: 1px solid #cbd5e1; "
+            "border-radius: 7px; }"
+            "QPushButton { min-height: 31px; padding: 4px 10px; }"
+            "QPushButton#constructor-primary { background: #2563eb; color: white; "
+            "font-weight: 600; border: 0; border-radius: 6px; }"
+            "QPushButton#constructor-primary:hover { background: #1d4ed8; }"
+        )
 
-        self.tabs = QTabWidget()
-        self.tabs.addTab(self._build_tablet_forms_tab(), _TEXT[language]["tablet_forms"])
-        self.tabs.addTab(self._build_print_forms_tab(), _TEXT[language]["print_forms"])
-        self.tabs.addTab(self._build_assets_tab(), _TEXT[language]["assets"])
-        self.tabs.addTab(self._build_preflight_tab(), _TEXT[language]["check"])
+        title = QLabel(_TEXT[language]["title"])
+        title.setStyleSheet("font-size: 20px; font-weight: 700; color: #0f172a;")
+        workflow = QLabel(_TEXT[language]["workflow_hint"])
+        workflow.setWordWrap(True)
+        workflow.setStyleSheet("color: #475569; padding-bottom: 4px;")
+
+        self.navigation = QListWidget()
+        self.navigation.setObjectName("constructor-navigation")
+        self.navigation.setFixedWidth(245)
+        self.navigation.setSpacing(3)
+        for caption in (
+            _TEXT[language]["tablet_forms"],
+            _TEXT[language]["print_forms"],
+            _TEXT[language]["assets"],
+            _TEXT[language]["check"],
+        ):
+            item = QListWidgetItem(caption)
+            item.setSizeHint(QSize(220, 44))
+            self.navigation.addItem(item)
+        self.navigation.setToolTip(_TEXT[language]["workflow_hint"])
+
+        self.pages = QStackedWidget()
+        self.pages.addWidget(self._build_tablet_forms_tab())
+        self.pages.addWidget(self._build_print_forms_tab())
+        self.pages.addWidget(self._build_assets_tab())
+        self.pages.addWidget(self._build_preflight_tab())
+        # Compatibility alias for extensions that used the former tab object.
+        self.tabs = self.pages
+        self.navigation.currentRowChanged.connect(self.pages.setCurrentIndex)
+        self.navigation.setCurrentRow(0)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(self.navigation)
+        splitter.addWidget(self.pages)
+        splitter.setSizes([245, 1000])
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
         buttons.button(QDialogButtonBox.StandardButton.Close).clicked.connect(self.accept)
         layout = QVBoxLayout(self)
-        layout.addWidget(self.tabs, 1)
+        layout.addWidget(title)
+        layout.addWidget(workflow)
+        layout.addWidget(splitter, 1)
         layout.addWidget(buttons)
+        self._populate_preset_gallery()
         self.refresh_templates()
         self._filter_assets()
+        for button in self.findChildren(QPushButton):
+            if not button.toolTip().strip():
+                button.setToolTip(button.text().replace("&", ""))
+            if not button.statusTip().strip():
+                button.setStatusTip(button.toolTip())
 
     def _build_tablet_forms_tab(self) -> QWidget:
         page = QWidget()
@@ -207,34 +280,102 @@ class UniversalConstructorDialog(QDialog):
     def _build_print_forms_tab(self) -> QWidget:
         page = QWidget()
         root = QHBoxLayout(page)
+        root.setContentsMargins(0, 0, 0, 0)
+
+        left_widget = QWidget()
+        left = QVBoxLayout(left_widget)
+        preset_title = QLabel(_TEXT[self.language]["ready_presets"])
+        preset_title.setStyleSheet("font-weight: 700; color: #0f172a;")
+        left.addWidget(preset_title)
+        preset_hint = QLabel(_TEXT[self.language]["preset_hint"])
+        preset_hint.setWordWrap(True)
+        preset_hint.setStyleSheet("color: #64748b;")
+        left.addWidget(preset_hint)
+        self.preset_list = QListWidget()
+        self.preset_list.setToolTip(_TEXT[self.language]["preset_hint"])
+        self.preset_list.currentItemChanged.connect(lambda *_: self._update_preset_summary())
+        self.preset_list.itemDoubleClicked.connect(lambda *_: self._create_from_selected_preset())
+        left.addWidget(self.preset_list, 1)
+        create_preset = QPushButton(_TEXT[self.language]["create_from_preset"])
+        create_preset.setObjectName("constructor-primary")
+        create_preset.setToolTip(_TEXT[self.language]["preset_hint"])
+        create_preset.clicked.connect(self._create_from_selected_preset)
+        left.addWidget(create_preset)
+
+        project_title = QLabel(_TEXT[self.language]["project_templates"])
+        project_title.setStyleSheet("font-weight: 700; color: #0f172a; margin-top: 8px;")
+        left.addWidget(project_title)
         self.template_list = QListWidget()
+        self.template_list.setToolTip(
+            self.localizer.text("masterlog_templates.select")
+        )
         self.template_list.currentItemChanged.connect(lambda *_: self._update_template_summary())
         self.template_list.itemDoubleClicked.connect(lambda *_: self._edit_header())
-        root.addWidget(self.template_list, 1)
+        left.addWidget(self.template_list, 1)
+        root.addWidget(left_widget, 5)
 
-        right = QVBoxLayout()
+        right_widget = QWidget()
+        right = QVBoxLayout(right_widget)
         self.template_summary = QTextEdit()
         self.template_summary.setReadOnly(True)
+        self.template_summary.setToolTip(
+            _TEXT[self.language]["select_template"]
+        )
         right.addWidget(self.template_summary, 1)
+
+        primary_widget = QWidget()
+        primary = QHBoxLayout(primary_widget)
+        primary.setContentsMargins(6, 4, 6, 4)
+        for caption, callback, tooltip in (
+            (_TEXT[self.language]["header"], self._edit_header, _TEXT[self.language]["header"]),
+            (_TEXT[self.language]["preview"], self._preview, _TEXT[self.language]["preview"]),
+        ):
+            button = QPushButton(caption)
+            button.setObjectName("constructor-primary")
+            button.setToolTip(tooltip)
+            button.clicked.connect(callback)
+            primary.addWidget(button)
+        right.addWidget(
+            CollapsibleSection(
+                _TEXT[self.language]["primary_actions"],
+                primary_widget,
+                expanded=True,
+                tooltip=_TEXT[self.language]["primary_actions"],
+            )
+        )
+
+        advanced_widget = QWidget()
+        advanced = QVBoxLayout(advanced_widget)
+        advanced.setContentsMargins(6, 4, 6, 4)
         for caption, callback in (
-            (_TEXT[self.language]["header"], self._edit_header),
             (_TEXT[self.language]["columns"], self._edit_columns),
             (_TEXT[self.language]["mapping"], self._edit_mapping),
             (_TEXT[self.language]["page"], self._edit_page),
             (_TEXT[self.language]["symbols"], self._edit_symbols),
             (_TEXT[self.language]["project_images"], self._edit_project_assets),
-            (_TEXT[self.language]["preview"], self._preview),
         ):
             button = QPushButton(caption)
+            button.setToolTip(caption)
             button.clicked.connect(callback)
-            right.addWidget(button)
+            advanced.addWidget(button)
+        right.addWidget(
+            CollapsibleSection(
+                _TEXT[self.language]["advanced_actions"],
+                advanced_widget,
+                expanded=False,
+                tooltip=_TEXT[self.language]["advanced_actions"],
+            )
+        )
+
         manager_button = QPushButton(self.localizer.text("masterlog_templates.action"))
+        manager_button.setToolTip(self.localizer.text("masterlog_templates.action"))
         manager_button.clicked.connect(self._open_template_manager)
         right.addWidget(manager_button)
         refresh_button = QPushButton(_TEXT[self.language]["refresh"])
+        refresh_button.setToolTip(_TEXT[self.language]["refresh"])
         refresh_button.clicked.connect(self.refresh_templates)
         right.addWidget(refresh_button)
-        root.addLayout(right, 1)
+        root.addWidget(right_widget, 4)
         return page
 
     def _build_assets_tab(self) -> QWidget:
@@ -285,8 +426,90 @@ class UniversalConstructorDialog(QDialog):
         layout.addWidget(self.preflight_output, 1)
         return page
 
-    def refresh_templates(self) -> None:
-        selected = self._selected_template_id()
+    def _populate_preset_gallery(self) -> None:
+        if not hasattr(self, "preset_list"):
+            return
+        self.preset_list.clear()
+        for preset in BUILTIN_MASTERLOG_FORM_PRESETS:
+            item = QListWidgetItem(preset.name(self.language))
+            item.setData(Qt.ItemDataRole.UserRole, preset.preset_id)
+            item.setToolTip(preset.description(self.language))
+            self.preset_list.addItem(item)
+        preferred = self.preset_list.findItems(
+            "Геолого-технологические исследования — готовый бланк",
+            Qt.MatchFlag.MatchContains,
+        )
+        if preferred:
+            self.preset_list.setCurrentItem(preferred[0])
+        elif self.preset_list.count():
+            self.preset_list.setCurrentRow(0)
+
+    def _selected_preset(self):
+        item = self.preset_list.currentItem() if hasattr(self, "preset_list") else None
+        preset_id = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+        return next(
+            (
+                preset
+                for preset in BUILTIN_MASTERLOG_FORM_PRESETS
+                if preset.preset_id == preset_id
+            ),
+            None,
+        )
+
+    def _update_preset_summary(self) -> None:
+        preset = self._selected_preset()
+        if preset is None or not hasattr(self, "template_summary"):
+            return
+        if self.template_list.currentItem() is not None:
+            self.template_list.blockSignals(True)
+            self.template_list.clearSelection()
+            self.template_list.setCurrentItem(None)
+            self.template_list.blockSignals(False)
+        template = preset.template
+        width = sum(column.width_mm for column in template.columns)
+        self.template_summary.setPlainText(
+            f"{preset.name(self.language)}\n\n"
+            f"{preset.description(self.language)}\n\n"
+            f"{template.page_format} / {template.properties.get('orientation', 'portrait')}\n"
+            f"1:{template.depth_scale}\n"
+            f"{len(template.header_elements)} header elements\n"
+            f"{len(template.columns)} columns / {width:g} mm"
+        )
+
+    def _create_from_selected_preset(self) -> None:
+        preset = self._selected_preset()
+        if preset is None:
+            QMessageBox.information(
+                self, self.windowTitle(), _TEXT[self.language]["select_template"]
+            )
+            return
+        suggested = preset.name(self.language)
+        name, accepted = QInputDialog.getText(
+            self,
+            _TEXT[self.language]["create_from_preset"],
+            self.localizer.text("masterlog_templates.name"),
+            text=suggested,
+        )
+        if not accepted or not name.strip():
+            return
+        try:
+            template = self.controller.create_from_preset(preset.preset_id, name.strip())
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self.refresh_templates(template.template_id)
+        QMessageBox.information(
+            self,
+            self.windowTitle(),
+            {
+                AppLanguage.RU: "Создана редактируемая пользовательская копия. Теперь можно открыть редактор шапки.",
+                AppLanguage.KK: "Өңделетін пайдаланушы көшірмесі жасалды. Енді тақырып редакторын ашуға болады.",
+                AppLanguage.EN: "An editable user copy was created. You can now open the header editor.",
+            }[self.language],
+        )
+
+    def refresh_templates(self, selected_id: str | None = None) -> None:
+        selected = selected_id or self._selected_template_id()
         self.template_list.clear()
         templates = sorted(
             self.controller.session.project.masterlog_templates.values(),
@@ -327,6 +550,11 @@ class UniversalConstructorDialog(QDialog):
 
     def _update_template_summary(self) -> None:
         template = self._selected_template()
+        if template is not None and hasattr(self, "preset_list"):
+            self.preset_list.blockSignals(True)
+            self.preset_list.clearSelection()
+            self.preset_list.setCurrentItem(None)
+            self.preset_list.blockSignals(False)
         if template is None:
             self.template_summary.setPlainText(_TEXT[self.language]["no_template"])
             return

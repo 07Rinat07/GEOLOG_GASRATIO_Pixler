@@ -184,7 +184,10 @@ class FormApplyEngine:
                         curve_mnemonics=resolved_mnemonics,
                         width=column.width,
                         visible=True,
-                        locked=form_track.locked or column.locked,
+                        # Factory/read-only protection belongs to the library document.
+                        # Once applied, the tablet receives an editable working copy that
+                        # can be customized and saved as a new user form.
+                        locked=False,
                         x_scale=x_scale or XScale.LINEAR,
                         x_min=x_min,
                         x_max=x_max,

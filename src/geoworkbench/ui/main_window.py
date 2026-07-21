@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QStatusBar,
     QStyle,
+    QSizePolicy,
     QTabWidget,
     QTextEdit,
     QToolBar,
@@ -30,6 +31,7 @@ from PySide6.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from geoworkbench import __version__
@@ -38,6 +40,7 @@ from geoworkbench.catalogs.sensors import SensorCatalog, set_active_sensor_catal
 from geoworkbench.calculations.custom_formula import formula_inputs
 from geoworkbench.calculations.interval_statistics import calculate_interval_statistics
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
+from geoworkbench.domain.models import IndexRole
 from geoworkbench.data.las_adapter import (
     LasExportError,
     LasImportError,
@@ -57,7 +60,12 @@ from geoworkbench.data.visualization_export import (
 )
 from geoworkbench.data.dataset_json_export import DatasetJsonExportError
 from geoworkbench.data.dataset_parquet_export import DatasetParquetExportError
-from geoworkbench.forms import FormApplyEngine, FormRepository
+from geoworkbench.forms import (
+    FormApplyEngine,
+    FormAxisKind,
+    FormRepository,
+    form_from_tablet_layout,
+)
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
 from geoworkbench.project.curve_metadata_controller import CurveMetadataController
@@ -306,6 +314,7 @@ class MainWindow(QMainWindow):
         self._create_actions()
         self._create_toolbar()
         self.setStatusBar(QStatusBar())
+        self._set_tablet_edit_mode(False)
         self.cursor_line_action.setChecked(self.cursor_line_settings.enabled)
         self.statusBar().showMessage(self._t("app.ready"))
         self._update_title()
@@ -335,6 +344,15 @@ class MainWindow(QMainWindow):
         action.setProperty("i18n_key", key)
         return action
 
+    def _set_action_help(self, action: QAction, tooltip_key: str) -> QAction:
+        """Attach one localized tooltip/status message to an action."""
+
+        action.setProperty("i18n_tooltip_key", tooltip_key)
+        text = self._t(tooltip_key)
+        action.setToolTip(text)
+        action.setStatusTip(text)
+        return action
+
     def _localized_menu(self, key: str) -> QMenu:
         menu = QMenu(self._t(key), self)
         menu.menuAction().setProperty("i18n_key", key)
@@ -353,6 +371,13 @@ class MainWindow(QMainWindow):
             tooltip_key = action.property("i18n_tooltip_key")
             if isinstance(tooltip_key, str) and tooltip_key:
                 translated = self._t(tooltip_key)
+                action.setToolTip(translated)
+                action.setStatusTip(translated)
+            elif not action.isSeparator() and action.text().strip():
+                shortcut = action.shortcut().toString()
+                translated = action.text().replace("&", "")
+                if shortcut:
+                    translated = f"{translated} ({shortcut})"
                 action.setToolTip(translated)
                 action.setStatusTip(translated)
 
@@ -610,12 +635,15 @@ class MainWindow(QMainWindow):
             self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
         )
         self.las_editor_action.setShortcut("Ctrl+Alt+E")
+        self._set_action_help(self.las_editor_action, "ui.help.las_editor")
         self.las_editor_action.triggered.connect(self.show_las_editor)
         las_editor_menu.addAction(self.las_editor_action)
         las_editor_menu.addSeparator()
 
         self.open_project_action = self._localized_action("shell.open_project")
         self.open_project_action.setShortcut("Ctrl+O")
+        self.open_project_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon))
+        self._set_action_help(self.open_project_action, "ui.help.open_project")
         self.open_project_action.triggered.connect(self.open_project)
         file_menu.addAction(self.open_project_action)
 
@@ -627,6 +655,8 @@ class MainWindow(QMainWindow):
 
         self.open_data_action = self._localized_action("import.universal")
         self.open_data_action.setShortcut("Ctrl+I")
+        self.open_data_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton))
+        self._set_action_help(self.open_data_action, "ui.help.import_data")
         self.open_data_action.triggered.connect(self.open_data)
         file_menu.addAction(self.open_data_action)
         file_menu.addSeparator()
@@ -668,6 +698,7 @@ class MainWindow(QMainWindow):
             self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
         )
         self.save_action.setShortcut("Ctrl+S")
+        self._set_action_help(self.save_action, "ui.help.save_project")
         self.save_action.triggered.connect(self.save_project)
         file_menu.addAction(self.save_action)
 
@@ -822,6 +853,7 @@ class MainWindow(QMainWindow):
         self.edit_selected_track_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
         )
+        self._set_action_help(self.edit_selected_track_action, "ui.help.edit_track")
         self.edit_selected_track_action.triggered.connect(self.edit_selected_track)
         edit_menu.addAction(self.edit_selected_track_action)
 
@@ -998,22 +1030,50 @@ class MainWindow(QMainWindow):
         tablet_menu.addAction(self.redo_interpretation_action)
         self._update_interpretation_history_actions()
 
-        save_preset_action = self._localized_action("tablet.preset_save")
-        save_preset_action.triggered.connect(self.save_tablet_preset)
-        tablet_menu.addAction(save_preset_action)
-        apply_preset_action = self._localized_action("tablet.preset_apply")
-        apply_preset_action.triggered.connect(self.apply_tablet_preset)
-        tablet_menu.addAction(apply_preset_action)
-        delete_preset_action = self._localized_action("tablet.preset_delete")
-        delete_preset_action.triggered.connect(self.delete_tablet_preset)
-        tablet_menu.addAction(delete_preset_action)
+        self.tablet_edit_mode_action = self._localized_action(
+            "ui.tablet_edit_mode", checkable=True
+        )
+        self.tablet_edit_mode_action.setShortcut("F4")
+        self.tablet_edit_mode_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
+        )
+        self._set_action_help(self.tablet_edit_mode_action, "ui.help.tablet_edit_mode")
+        self.tablet_edit_mode_action.toggled.connect(self._set_tablet_edit_mode)
+        tablet_menu.addAction(self.tablet_edit_mode_action)
+        tablet_menu.addSeparator()
+
+        self.save_user_form_action = self._localized_action("ui.save_user_form")
+        self.save_user_form_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
+        )
+        self._set_action_help(self.save_user_form_action, "ui.help.save_user_form")
+        self.save_user_form_action.triggered.connect(self.save_current_tablet_as_user_form)
+        tablet_menu.addAction(self.save_user_form_action)
+
+        self.save_preset_action = self._localized_action("tablet.preset_save")
+        self.save_preset_action.triggered.connect(self.save_tablet_preset)
+        tablet_menu.addAction(self.save_preset_action)
+        self.apply_preset_action = self._localized_action("tablet.preset_apply")
+        self.apply_preset_action.triggered.connect(self.apply_tablet_preset)
+        tablet_menu.addAction(self.apply_preset_action)
+        self.delete_preset_action = self._localized_action("tablet.preset_delete")
+        self.delete_preset_action.triggered.connect(self.delete_tablet_preset)
+        tablet_menu.addAction(self.delete_preset_action)
 
         self.form_manager_action = self._localized_action("forms.manager_action")
+        self.form_manager_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView)
+        )
+        self._set_action_help(self.form_manager_action, "ui.help.form_manager")
         self.form_manager_action.triggered.connect(self.show_form_manager)
         forms_menu.addAction(self.form_manager_action)
 
         self.constructor_action = self._localized_action("constructor.open")
         self.constructor_action.setShortcut("Ctrl+Shift+K")
+        self.constructor_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+        )
+        self._set_action_help(self.constructor_action, "ui.help.constructor")
         self.constructor_action.triggered.connect(self.show_constructor)
         constructor_menu.addAction(self.constructor_action)
         constructor_menu.addAction(self.form_manager_action)
@@ -1043,6 +1103,10 @@ class MainWindow(QMainWindow):
             action = self._localized_action(title_key)
             action.triggered.connect(lambda _checked=False, value=kind: self.add_track(value))
             add_track_menu.addAction(action)
+            if kind is TrackKind.CURVE:
+                self.add_curve_track_action = action
+                action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon))
+                self._set_action_help(action, "ui.help.add_curve_track")
 
         tablet_menu.addSeparator()
         width_action = self._localized_action("tablet.change_width")
@@ -1077,13 +1141,15 @@ class MainWindow(QMainWindow):
         full_depth_action.triggered.connect(self.reset_visible_depth_range)
         tablet_menu.addAction(full_depth_action)
 
-        move_left_action = self._localized_action("tablet.move_left")
-        move_left_action.triggered.connect(lambda: self.move_selected_track(-1))
-        tablet_menu.addAction(move_left_action)
+        self.move_left_action = self._localized_action("tablet.move_left")
+        self.move_left_action.triggered.connect(lambda: self.move_selected_track(-1))
+        self._set_action_help(self.move_left_action, "ui.help.move_left")
+        tablet_menu.addAction(self.move_left_action)
 
-        move_right_action = self._localized_action("tablet.move_right")
-        move_right_action.triggered.connect(lambda: self.move_selected_track(1))
-        tablet_menu.addAction(move_right_action)
+        self.move_right_action = self._localized_action("tablet.move_right")
+        self.move_right_action.triggered.connect(lambda: self.move_selected_track(1))
+        self._set_action_help(self.move_right_action, "ui.help.move_right")
+        tablet_menu.addAction(self.move_right_action)
 
         hide_action = self._localized_action("tablet.hide")
         hide_action.triggered.connect(self.hide_selected_track)
@@ -1093,40 +1159,116 @@ class MainWindow(QMainWindow):
         show_all_action.triggered.connect(self.show_all_tracks)
         tablet_menu.addAction(show_all_action)
 
-        remove_action = self._localized_action("tablet.remove")
-        remove_action.triggered.connect(self.remove_selected_track)
-        tablet_menu.addAction(remove_action)
+        self.remove_track_action = self._localized_action("tablet.remove")
+        self.remove_track_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
+        )
+        self._set_action_help(self.remove_track_action, "ui.help.remove_track")
+        self.remove_track_action.triggered.connect(self.remove_selected_track)
+        tablet_menu.addAction(self.remove_track_action)
 
         about_action = self._localized_action("shell.about")
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
+    def _toolbar_button(
+        self,
+        toolbar: QToolBar,
+        action: QAction,
+        *,
+        text_beside_icon: bool = True,
+    ) -> QToolButton:
+        button = QToolButton(toolbar)
+        button.setDefaultAction(action)
+        button.setPopupMode(QToolButton.ToolButtonPopupMode.DelayedPopup)
+        button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+            if text_beside_icon
+            else Qt.ToolButtonStyle.ToolButtonIconOnly
+        )
+        button.setAutoRaise(False)
+        return button
+
     def _create_toolbar(self) -> None:
         self.main_toolbar = QToolBar(self._t("toolbar.main"), self)
         self.main_toolbar.setObjectName("mainToolbar")
         self.main_toolbar.setMovable(False)
-        self.las_editor_button = QToolButton(self.main_toolbar)
-        self.las_editor_button.setDefaultAction(self.las_editor_action)
-        self.las_editor_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.main_toolbar.setFloatable(False)
+        self.main_toolbar.setIconSize(QSize(20, 20))
+        self.main_toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.main_toolbar.setStyleSheet(
+            "QToolBar#mainToolbar { spacing: 5px; padding: 5px; "
+            "border-bottom: 1px solid #cbd5e1; background: #f8fafc; }"
+            "QToolBar#mainToolbar QToolButton { min-height: 30px; padding: 3px 8px; "
+            "border: 1px solid transparent; border-radius: 6px; }"
+            "QToolBar#mainToolbar QToolButton:hover { background: #e2e8f0; "
+            "border-color: #cbd5e1; }"
+            "QToolBar#mainToolbar QToolButton:checked { background: #dbeafe; "
+            "border-color: #60a5fa; color: #1e3a8a; }"
+        )
+
+        self.las_editor_button = self._toolbar_button(
+            self.main_toolbar, self.las_editor_action
+        )
+        self.form_manager_button = self._toolbar_button(
+            self.main_toolbar, self.form_manager_action
+        )
+        self.constructor_button = self._toolbar_button(
+            self.main_toolbar, self.constructor_action
+        )
+        # These are ordinary direct buttons. No menu is attached to Form Manager.
         self.main_toolbar.addWidget(self.las_editor_button)
+        self.main_toolbar.addWidget(self.form_manager_button)
+        self.main_toolbar.addWidget(self.constructor_button)
         self.main_toolbar.addSeparator()
         self.main_toolbar.addAction(self.open_project_action)
         self.main_toolbar.addAction(self.open_data_action)
-        self.main_toolbar.addAction(self.external_las_insert_action)
-        self.main_toolbar.addAction(self.default_tablet_action)
-        self.main_toolbar.addAction(self.edit_selected_track_action)
-        self.main_toolbar.addAction(self.stratigraphy_mode_action)
-        self.main_toolbar.addAction(self.stratigraphy_action)
+        self.main_toolbar.addAction(self.save_action)
         self.main_toolbar.addSeparator()
-        self.main_toolbar.addAction(self.interval_select_action)
-        self.main_toolbar.addAction(self.interval_create_action)
-        self.main_toolbar.addAction(self.interval_resize_action)
-        self.main_toolbar.addSeparator()
-        self.main_toolbar.addAction(self.ratio_action)
+        # Keep the two high-frequency visual tools visible; the remaining
+        # specialist actions stay in their menus and do not overload the bar.
         self.main_toolbar.addAction(self.pencil_action)
         self.main_toolbar.addAction(self.cursor_line_action)
-        self.main_toolbar.addAction(self.save_action)
-        self.addToolBar(self.main_toolbar)
+
+        spacer = QWidget(self.main_toolbar)
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.main_toolbar.addWidget(spacer)
+        self.edit_mode_button = self._toolbar_button(
+            self.main_toolbar, self.tablet_edit_mode_action
+        )
+        self.main_toolbar.addWidget(self.edit_mode_button)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.main_toolbar)
+
+        self.form_edit_toolbar = QToolBar(self._t("ui.form_edit_toolbar"), self)
+        self.form_edit_toolbar.setObjectName("formEditToolbar")
+        self.form_edit_toolbar.setMovable(False)
+        self.form_edit_toolbar.setFloatable(False)
+        self.form_edit_toolbar.setIconSize(QSize(18, 18))
+        self.form_edit_toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.form_edit_toolbar.setStyleSheet(
+            "QToolBar#formEditToolbar { spacing: 4px; padding: 4px 7px; "
+            "background: #eff6ff; border-bottom: 1px solid #93c5fd; }"
+            "QToolBar#formEditToolbar QToolButton { min-height: 28px; padding: 3px 7px; "
+            "border-radius: 5px; }"
+            "QToolBar#formEditToolbar QToolButton:hover { background: #dbeafe; }"
+        )
+        self.form_edit_caption = QLabel(self._t("ui.form_edit_toolbar"))
+        self.form_edit_caption.setStyleSheet("font-weight: 700; color: #1e3a8a; padding-right: 8px;")
+        self.form_edit_caption.setToolTip(self._t("ui.help.tablet_edit_mode"))
+        self.form_edit_toolbar.addWidget(self.form_edit_caption)
+        self.form_edit_toolbar.addAction(self.add_curve_track_action)
+        self.form_edit_toolbar.addAction(self.edit_selected_track_action)
+        self.form_edit_toolbar.addAction(self.move_left_action)
+        self.form_edit_toolbar.addAction(self.move_right_action)
+        self.form_edit_toolbar.addAction(self.remove_track_action)
+        self.form_edit_toolbar.addSeparator()
+        self.form_edit_toolbar.addAction(self.save_user_form_action)
+        self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.form_edit_toolbar)
+        self.form_edit_toolbar.hide()
+        # Every action receives at least a localized caption/shortcut tooltip;
+        # high-value actions keep their more detailed help text above.
+        self._retranslate_registered_actions()
 
     def toggle_cursor_line(self, enabled: bool) -> None:
         self.tablet_view.set_cursor_enabled(enabled)
@@ -1225,6 +1367,9 @@ class MainWindow(QMainWindow):
         self.left_panel_rail.setWindowTitle(self._t("panel.left_rail"))
         self.right_panel_rail.setWindowTitle(self._t("panel.right_rail"))
         self.main_toolbar.setWindowTitle(self._t("toolbar.main"))
+        self.form_edit_toolbar.setWindowTitle(self._t("ui.form_edit_toolbar"))
+        self.form_edit_caption.setText(self._t("ui.form_edit_toolbar"))
+        self.form_edit_caption.setToolTip(self._t("ui.help.tablet_edit_mode"))
 
         self._retranslate_registered_actions()
         for current_language, action in self.language_actions.items():
@@ -2565,6 +2710,97 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
         self._log(self._t("tablet.default_built", count=len(layout.tracks)))
+
+    def _set_tablet_edit_mode(self, enabled: bool) -> None:
+        """Show or hide form-structure tools without affecting data navigation."""
+
+        enabled = bool(enabled)
+        self.form_edit_toolbar.setVisible(enabled)
+        self.tablet_view.set_form_edit_mode(enabled)
+        self.save_user_form_action.setEnabled(enabled)
+        self.add_curve_track_action.setEnabled(enabled)
+        self.edit_selected_track_action.setEnabled(enabled)
+        self.move_left_action.setEnabled(enabled)
+        self.move_right_action.setEnabled(enabled)
+        self.remove_track_action.setEnabled(enabled)
+        self.statusBar().showMessage(
+            self._t("ui.form_edit_enabled")
+            if enabled
+            else self._t("ui.form_edit_disabled")
+        )
+
+    def save_current_tablet_as_user_form(self) -> None:
+        layout = self.session.current_tablet_layout
+        dataset = self.session.current_dataset
+        if layout is None or dataset is None:
+            QMessageBox.information(
+                self, self._t("forms.title"), self._t("tablet.build_first")
+            )
+            return
+        index = (
+            dataset.indexes.get(layout.vertical_index_id)
+            if layout.vertical_index_id is not None
+            else dataset.active_index
+        )
+        axis_word = self._t(
+            "ui.axis_time" if index is not None and index.role is IndexRole.TIME else "ui.axis_depth"
+        )
+        suggested = f"{dataset.name} — {axis_word}"
+        name, accepted = QInputDialog.getText(
+            self,
+            self._t("ui.save_user_form"),
+            self._t("tablet.preset_name"),
+            text=suggested,
+        )
+        if not accepted or not name.strip():
+            return
+        normalized = name.strip()
+        existing = next(
+            (
+                form
+                for form in self.form_repository.list_forms()
+                if form.name.casefold() == normalized.casefold()
+            ),
+            None,
+        )
+        if existing is not None:
+            answer = QMessageBox.question(
+                self,
+                self._t("ui.save_user_form"),
+                self._t("ui.replace_user_form", name=existing.name),
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        try:
+            form = form_from_tablet_layout(
+                layout,
+                dataset,
+                normalized,
+                description=self._t("ui.saved_from_tablet_description"),
+            )
+            if existing is not None:
+                form.form_id = existing.form_id
+                form.style_id = existing.style_id
+                form.print_header_template_id = existing.print_header_template_id
+                form.validate()
+            target = self.form_repository.save(form)
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("ui.save_user_form"), str(exc))
+            return
+        self.session.dirty = True
+        folder_name = self._t(
+            "ui.user_time_forms"
+            if form.axis_kind is FormAxisKind.TIME
+            else "ui.user_depth_forms"
+        )
+        message = self._t(
+            "ui.user_form_saved",
+            name=form.name,
+            folder=folder_name,
+            path=str(target),
+        )
+        self.statusBar().showMessage(message)
+        self._log(message)
 
     def save_tablet_preset(self) -> None:
         if self.session.current_tablet_layout is None:

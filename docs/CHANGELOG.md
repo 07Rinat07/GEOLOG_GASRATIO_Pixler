@@ -1,3 +1,16 @@
+# 0.7.7 — Unified Workspace
+
+- redesigned the main toolbar around direct LAS Editor, Form Library and Constructor actions;
+- added contextual tooltips/status tips and collapsible advanced sections;
+- added an `F4` tablet form-editing toolbar for adding, editing, moving, removing and saving columns/tracks;
+- added conversion of the live tablet layout into an editable user `FormDocument`;
+- separated factory/user and depth/time forms in the Form Library;
+- stored user forms in `depth` and `time` subdirectories while preserving legacy root-form compatibility;
+- factory forms now produce editable live working copies without unlocking the source presets;
+- redesigned the Constructor with side navigation and a visible ready-Masterlog gallery, including the supplied KazGeology reference blank;
+- fixed Windows lossless LAS export by writing the temporary LAS explicitly as UTF-8 before composing the final source-compatible file;
+- validated the release with `1008 passed, 1 skipped`, Ruff and compileall.
+
 # 0.7.6 — Safe LAS Editor
 
 - added a separate Editor menu and visible LAS Editor toolbar button (`Ctrl+Alt+E`);
