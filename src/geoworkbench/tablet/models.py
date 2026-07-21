@@ -5,6 +5,11 @@ from enum import StrEnum
 from math import isfinite
 import re
 
+from geoworkbench.domain.text_presentation import (
+    normalize_text_orientation,
+    normalize_text_vertical_position,
+)
+
 
 class TrackKind(StrEnum):
     DEPTH = "depth"
@@ -89,10 +94,14 @@ class TrackDefinition:
     grid_alpha: float = 0.2
     x_axis_label: str = ""
     group_title: str = ""
+    title_orientation: str = "horizontal"
+    title_position: str = "center"
 
     def __post_init__(self) -> None:
         if not isinstance(self.group_title, str) or len(self.group_title.strip()) > 120:
             raise ValueError("Название раздела должно быть строкой не длиннее 120 символов")
+        self.title_orientation = normalize_text_orientation(self.title_orientation)
+        self.title_position = normalize_text_vertical_position(self.title_position)
         if self.width < 80:
             raise ValueError("Ширина трека должна быть не меньше 80 px")
         self._validate_x_settings(self.x_scale, self.x_min, self.x_max)

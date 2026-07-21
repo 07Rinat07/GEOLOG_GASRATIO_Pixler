@@ -24,6 +24,12 @@ def test_structure_editor_column_and_track_crud() -> None:
     editor.rename_column(first.column_id, "Gas curves")
     editor.set_column_width(first.column_id, 420)
     editor.rename_track(track.track_id, "TG")
+    editor.set_column_title_presentation(
+        first.column_id, orientation="vertical_top_to_bottom", position="top"
+    )
+    editor.set_track_title_presentation(
+        track.track_id, orientation="vertical_bottom_to_top", position="bottom"
+    )
     editor.move_track(track.track_id, second.column_id, 0)
     editor.move_column(second.column_id, 0)
 
@@ -31,6 +37,10 @@ def test_structure_editor_column_and_track_crud() -> None:
     assert form.columns[1].title == "Gas curves"
     assert form.columns[1].width == 420
     assert form.columns[0].tracks[0].title == "TG"
+    assert form.columns[1].title_orientation == "vertical_top_to_bottom"
+    assert form.columns[1].title_position == "top"
+    assert form.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
+    assert form.columns[0].tracks[0].title_position == "bottom"
     assert editor.dirty is True
 
 
@@ -62,11 +72,19 @@ def test_structure_editor_dialog_saves_user_form(
     dialog._apply_title()
     dialog.width_spin.setValue(360)
     dialog._apply_width(360)
+    dialog.title_orientation_combo.setCurrentIndex(
+        dialog.title_orientation_combo.findData("vertical_bottom_to_top")
+    )
+    dialog.title_position_combo.setCurrentIndex(
+        dialog.title_position_combo.findData("bottom")
+    )
     dialog._add_track()
     dialog._save()
 
     loaded = repository.load(form.form_id)
     assert loaded.columns[0].title == "Gas"
     assert loaded.columns[0].width == 360
+    assert loaded.columns[0].title_orientation == "vertical_bottom_to_top"
+    assert loaded.columns[0].title_position == "bottom"
     assert len(loaded.columns[0].tracks) == 1
     assert dialog.saved_form is not None

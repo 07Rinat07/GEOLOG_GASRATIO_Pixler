@@ -39,6 +39,21 @@ def test_form_apply_builds_layout_and_reports_missing_bindings() -> None:
     }
 
 
+def test_form_apply_propagates_track_title_presentation() -> None:
+    form = factory_templates()["factory-gas-ratio"].editable_copy()
+    source_track = next(
+        track for column in form.columns for track in column.tracks if track.bindings
+    )
+    source_track.title_orientation = "vertical_top_to_bottom"
+    source_track.title_position = "top"
+
+    result = FormApplyEngine().build_layout(form, _dataset())
+    applied = next(track for track in result.layout.tracks if track.title == source_track.title)
+
+    assert applied.title_orientation == "vertical_top_to_bottom"
+    assert applied.title_position == "top"
+
+
 def test_explicit_binding_has_priority() -> None:
     form = factory_templates()["factory-gas-ratio"].editable_copy()
     binding = form.columns[2].tracks[0].bindings[0]

@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -30,6 +29,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 from geoworkbench.ui.rich_interval_text_editor import RichIntervalTextEditor
 
 
@@ -335,12 +335,11 @@ class UnifiedCuttingsSampleDialog(QDialog):
             rock.setObjectName(f"cuttings-rock-{row + 1}")
             rock.setMinimumWidth(0)
             rock.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            rock.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-            rock.setMinimumContentsLength(18)
+            configure_lithotype_combo(rock)
             rock.addItem("—", "")
             for item in self._catalog:
                 rock.addItem(
-                    self._lithotype_icon(item.color),
+                    lithotype_icon(item),
                     f"{item.code} — {item.localized_name(self._language.value)}",
                     item.lithotype_id,
                 )
@@ -500,17 +499,6 @@ class UnifiedCuttingsSampleDialog(QDialog):
         control.setSuffix(" %")
         control.setValue(-1.0)
         return control
-
-    @staticmethod
-    def _lithotype_icon(color: str) -> QIcon:
-        pixmap = QPixmap(28, 18)
-        pixmap.fill(QColor("transparent"))
-        painter = QPainter(pixmap)
-        painter.fillRect(1, 1, 26, 16, QColor(color))
-        painter.setPen(QColor("#334155"))
-        painter.drawRect(1, 1, 26, 16)
-        painter.end()
-        return QIcon(pixmap)
 
     @property
     def top_depth(self) -> float:

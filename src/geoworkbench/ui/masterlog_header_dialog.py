@@ -36,7 +36,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.domain.models import MasterlogHeaderElement, ProjectLithotype
+from geoworkbench.domain.models import MasterlogHeaderElement
+from geoworkbench.domain.text_presentation import (
+    TEXT_ORIENTATIONS,
+    TEXT_VERTICAL_POSITIONS,
+    text_angle,
+    text_position_fraction,
+)
 from geoworkbench.printing.header_fields import (
     SUPPORTED_HEADER_FIELDS,
     editable_header_field_definitions,
@@ -52,8 +58,13 @@ from geoworkbench.printing.image_assets import (
 )
 from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_HEADER_PRESETS
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
+from geoworkbench.project.lithotype_catalog_controller import (
+    CatalogLithotype,
+    LithotypeCatalogController,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.lithology_patterns import lithology_brush
+from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 
 
 _TEXT = {
@@ -70,12 +81,27 @@ _TEXT = {
         "delete_confirm": "Удалить выбранный элемент шапки?",
         "bold": "Полужирный",
         "alignment": "Выравнивание",
+        "text_orientation": "Направление текста",
+        "text_position": "Положение текста",
+        "horizontal": "Горизонтально (0°)",
+        "bottom_to_top": "Вертикально снизу вверх (90°)",
+        "top_to_bottom": "Вертикально сверху вниз (90°)",
+        "near_top": "Ближе к верху",
+        "middle": "По центру",
+        "near_bottom": "Ближе к низу",
         "left": "Слева",
         "center": "По центру",
         "right": "Справа",
         "frame": "Рамка",
         "background": "Фон (#RRGGBB или пусто)",
         "unit_mm": "мм",
+        "type_text": "Текст",
+        "type_field": "Динамическое поле",
+        "type_image": "Изображение",
+        "type_line": "Линия",
+        "type_lithotype_swatch": "Образец литотипа / рисунок породы",
+        "type_lithology_legend": "Литологическая легенда",
+        "type_lba_legend": "Легенда ЛБА",
     },
     AppLanguage.KK: {
         "data": "Тақырып деректері...",
@@ -90,12 +116,27 @@ _TEXT = {
         "delete_confirm": "Таңдалған тақырып элементін жою керек пе?",
         "bold": "Қалың",
         "alignment": "Туралау",
+        "text_orientation": "Мәтін бағыты",
+        "text_position": "Мәтін орны",
+        "horizontal": "Көлденең (0°)",
+        "bottom_to_top": "Төменнен жоғары тік (90°)",
+        "top_to_bottom": "Жоғарыдан төмен тік (90°)",
+        "near_top": "Жоғарыға жақын",
+        "middle": "Ортада",
+        "near_bottom": "Төменге жақын",
         "left": "Сол жақ",
         "center": "Ортада",
         "right": "Оң жақ",
         "frame": "Жақтау",
         "background": "Фон (#RRGGBB немесе бос)",
         "unit_mm": "мм",
+        "type_text": "Мәтін",
+        "type_field": "Динамикалық өріс",
+        "type_image": "Сурет",
+        "type_line": "Сызық",
+        "type_lithotype_swatch": "Литотип үлгісі / жыныс суреті",
+        "type_lithology_legend": "Литология аңызы",
+        "type_lba_legend": "ЛБА аңызы",
     },
     AppLanguage.EN: {
         "data": "Header data...",
@@ -110,14 +151,40 @@ _TEXT = {
         "delete_confirm": "Delete the selected header element?",
         "bold": "Bold",
         "alignment": "Alignment",
+        "text_orientation": "Text direction",
+        "text_position": "Text position",
+        "horizontal": "Horizontal (0°)",
+        "bottom_to_top": "Vertical bottom to top (90°)",
+        "top_to_bottom": "Vertical top to bottom (90°)",
+        "near_top": "Near top",
+        "middle": "Centred",
+        "near_bottom": "Near bottom",
         "left": "Left",
         "center": "Center",
         "right": "Right",
         "frame": "Border",
         "background": "Background (#RRGGBB or empty)",
         "unit_mm": "mm",
+        "type_text": "Text",
+        "type_field": "Dynamic field",
+        "type_image": "Image",
+        "type_line": "Line",
+        "type_lithotype_swatch": "Lithotype swatch / rock pattern",
+        "type_lithology_legend": "Lithology legend",
+        "type_lba_legend": "LBA legend",
     },
 }
+
+
+class _DataComboBox(QComboBox):
+    """QComboBox whose compatibility ``setCurrentText`` also resolves item data."""
+
+    def setCurrentText(self, text: str) -> None:  # noqa: N802 - Qt compatibility API
+        index = self.findData(text)
+        if index >= 0:
+            self.setCurrentIndex(index)
+            return
+        super().setCurrentText(text)
 
 
 class HeaderElementDialog(QDialog):
@@ -128,7 +195,7 @@ class HeaderElementDialog(QDialog):
         element: MasterlogHeaderElement | None = None,
         language: AppLanguage = AppLanguage.RU,
         image_assets: dict[str, ImageAsset] | None = None,
-        lithotypes: dict[str, ProjectLithotype] | None = None,
+        lithotypes: dict[str, CatalogLithotype] | None = None,
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
@@ -138,8 +205,20 @@ class HeaderElementDialog(QDialog):
         self.setWindowTitle(self.localizer.text("masterlog_header.properties"))
         self.setMinimumWidth(480)
 
-        self.type_input = QComboBox()
-        self.type_input.addItems(["text", "field", "image", "line", "lithology_legend", "lba_legend"])
+        self.type_input = _DataComboBox()
+        for element_type in (
+            "text",
+            "field",
+            "image",
+            "line",
+            "lithotype_swatch",
+            "lithology_legend",
+            "lba_legend",
+        ):
+            self.type_input.addItem(
+                _TEXT[language][f"type_{element_type}"],
+                element_type,
+            )
         if element:
             self.type_input.setCurrentText(element.element_type)
 
@@ -185,10 +264,37 @@ class HeaderElementDialog(QDialog):
         self.alignment_input.addItem(_TEXT[language]["left"], "left")
         self.alignment_input.addItem(_TEXT[language]["center"], "center")
         self.alignment_input.addItem(_TEXT[language]["right"], "right")
+        self.text_orientation_input = QComboBox()
+        orientation_labels = {
+            "horizontal": _TEXT[language]["horizontal"],
+            "vertical_bottom_to_top": _TEXT[language]["bottom_to_top"],
+            "vertical_top_to_bottom": _TEXT[language]["top_to_bottom"],
+        }
+        for value in TEXT_ORIENTATIONS:
+            self.text_orientation_input.addItem(orientation_labels[value], value)
+        self.text_position_input = QComboBox()
+        position_labels = {
+            "top": _TEXT[language]["near_top"],
+            "center": _TEXT[language]["middle"],
+            "bottom": _TEXT[language]["near_bottom"],
+        }
+        for value in TEXT_VERTICAL_POSITIONS:
+            self.text_position_input.addItem(position_labels[value], value)
+        # The centre is the neutral/default placement for newly created text.
+        # TEXT_VERTICAL_POSITIONS is ordered for presentation, so select the
+        # model default explicitly instead of relying on the first item.
+        default_position_index = self.text_position_input.findData("center")
+        self.text_position_input.setCurrentIndex(max(0, default_position_index))
         self.frame_input = QCheckBox(_TEXT[language]["frame"])
         self.background_input = QLineEdit()
 
-        if element and element.element_type in {"text", "field", "lithology_legend", "lba_legend"}:
+        if element and element.element_type in {
+            "text",
+            "field",
+            "lithotype_swatch",
+            "lithology_legend",
+            "lba_legend",
+        }:
             text_color = element.properties.get("color")
             font_size = element.properties.get("font_size_mm")
             if isinstance(text_color, str):
@@ -199,6 +305,14 @@ class HeaderElementDialog(QDialog):
             alignment = element.properties.get("alignment", "left")
             alignment_index = self.alignment_input.findData(alignment)
             self.alignment_input.setCurrentIndex(max(0, alignment_index))
+            orientation_index = self.text_orientation_input.findData(
+                element.properties.get("text_orientation", "horizontal")
+            )
+            self.text_orientation_input.setCurrentIndex(max(0, orientation_index))
+            position_index = self.text_position_input.findData(
+                element.properties.get("text_position", "center")
+            )
+            self.text_position_input.setCurrentIndex(max(0, position_index))
             self.frame_input.setChecked(bool(element.properties.get("frame", False)))
             background = element.properties.get("background")
             if isinstance(background, str):
@@ -261,6 +375,59 @@ class HeaderElementDialog(QDialog):
             item.setSelected(definition.lithotype_id in selected_lithotypes)
             self.legend_manual_input.addItem(item)
 
+        self.lithotype_input = QComboBox()
+        configure_lithotype_combo(self.lithotype_input)
+        self.lithotype_input.setMinimumContentsLength(24)
+        for definition in sorted(
+            self.lithotypes.values(), key=lambda item: item.name_ru.casefold()
+        ):
+            names = {
+                AppLanguage.RU: definition.name_ru,
+                AppLanguage.KK: definition.name_kk or definition.name_ru,
+                AppLanguage.EN: definition.name_en or definition.name_ru,
+            }
+            self.lithotype_input.addItem(
+                lithotype_icon(definition),
+                f"{definition.code} — {names[language]}",
+                definition.lithotype_id,
+            )
+        selected_lithotype_id = element.properties.get("lithotype_id") if element else None
+        if isinstance(selected_lithotype_id, str):
+            lithotype_index = self.lithotype_input.findData(selected_lithotype_id)
+            if lithotype_index >= 0:
+                self.lithotype_input.setCurrentIndex(lithotype_index)
+        self.lithotype_label_mode_input = QComboBox()
+        for caption, value in (
+            (
+                {
+                    AppLanguage.RU: "Только рисунок",
+                    AppLanguage.KK: "Тек сурет",
+                    AppLanguage.EN: "Pattern only",
+                }[language],
+                "pattern_only",
+            ),
+            (
+                {
+                    AppLanguage.RU: "Рисунок и название",
+                    AppLanguage.KK: "Сурет және атау",
+                    AppLanguage.EN: "Pattern and name",
+                }[language],
+                "pattern_name",
+            ),
+            (
+                {
+                    AppLanguage.RU: "Рисунок, код и название",
+                    AppLanguage.KK: "Сурет, код және атау",
+                    AppLanguage.EN: "Pattern, code and name",
+                }[language],
+                "pattern_code_name",
+            ),
+        ):
+            self.lithotype_label_mode_input.addItem(caption, value)
+        swatch_mode = element.properties.get("display_mode") if element else "pattern_code_name"
+        swatch_mode_index = self.lithotype_label_mode_input.findData(swatch_mode)
+        self.lithotype_label_mode_input.setCurrentIndex(max(0, swatch_mode_index))
+
         self.image_input = QComboBox()
         for asset in self.image_assets.values():
             self.image_input.addItem(asset.original_name, asset.asset_id)
@@ -322,7 +489,23 @@ class HeaderElementDialog(QDialog):
         self.legend_scope_label = QLabel(self.localizer.text("masterlog_header.legend_scope"))
         self.legend_columns_label = QLabel(self.localizer.text("masterlog_header.legend_columns"))
         self.legend_manual_label = QLabel(self.localizer.text("masterlog_header.legend_manual_items"))
+        self.lithotype_label = QLabel(
+            {
+                AppLanguage.RU: "Литотип",
+                AppLanguage.KK: "Литотип",
+                AppLanguage.EN: "Lithotype",
+            }[language]
+        )
+        self.lithotype_mode_label = QLabel(
+            {
+                AppLanguage.RU: "Вид вставки",
+                AppLanguage.KK: "Кірістіру түрі",
+                AppLanguage.EN: "Insert mode",
+            }[language]
+        )
         self.alignment_label = QLabel(_TEXT[language]["alignment"])
+        self.text_orientation_label = QLabel(_TEXT[language]["text_orientation"])
+        self.text_position_label = QLabel(_TEXT[language]["text_position"])
         self.background_label = QLabel(_TEXT[language]["background"])
 
         layout.addRow(self.text_label, self.text_input)
@@ -331,6 +514,8 @@ class HeaderElementDialog(QDialog):
         layout.addRow(self.font_size_label, self.font_size_input)
         layout.addRow(self.bold_input)
         layout.addRow(self.alignment_label, self.alignment_input)
+        layout.addRow(self.text_orientation_label, self.text_orientation_input)
+        layout.addRow(self.text_position_label, self.text_position_input)
         layout.addRow(self.frame_input)
         layout.addRow(self.background_label, self.background_input)
         layout.addRow(self.image_label, image_row)
@@ -346,6 +531,8 @@ class HeaderElementDialog(QDialog):
         layout.addRow(self.legend_columns_label, self.legend_columns_input)
         layout.addRow(self.legend_code_input)
         layout.addRow(self.legend_manual_label, self.legend_manual_input)
+        layout.addRow(self.lithotype_label, self.lithotype_input)
+        layout.addRow(self.lithotype_mode_label, self.lithotype_label_mode_input)
         layout.addRow(self.properties_label, self.properties_input)
 
         buttons = QDialogButtonBox(
@@ -354,16 +541,26 @@ class HeaderElementDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
-        self.type_input.currentTextChanged.connect(self._update_property_inputs)
+        self.type_input.currentIndexChanged.connect(
+            lambda _index: self._update_property_inputs(
+                str(self.type_input.currentData() or "text")
+            )
+        )
         self.legend_scope_input.currentIndexChanged.connect(self._update_legend_manual_visibility)
-        self._update_property_inputs(self.type_input.currentText())
+        self._update_property_inputs(str(self.type_input.currentData() or "text"))
 
     def _update_property_inputs(self, element_type: str) -> None:
         self.text_input.setVisible(element_type == "text")
         self.field_input.setVisible(element_type == "field")
         self.line_color_input.setVisible(element_type == "line")
         self.line_width_input.setVisible(element_type == "line")
-        has_text_style = element_type in {"text", "field", "lithology_legend", "lba_legend"}
+        has_text_style = element_type in {
+            "text",
+            "field",
+            "lithotype_swatch",
+            "lithology_legend",
+            "lba_legend",
+        }
         for control in (
             self.text_color_input,
             self.font_size_input,
@@ -373,6 +570,9 @@ class HeaderElementDialog(QDialog):
             self.background_input,
         ):
             control.setVisible(has_text_style)
+        has_text_direction = element_type in {"text", "field", "lithotype_swatch"}
+        self.text_orientation_input.setVisible(has_text_direction)
+        self.text_position_input.setVisible(has_text_direction)
         self.properties_input.setVisible(False)
         self.image_input.setVisible(element_type == "image")
         self.image_import_button.setVisible(element_type == "image")
@@ -385,6 +585,8 @@ class HeaderElementDialog(QDialog):
         self.text_color_label.setVisible(has_text_style)
         self.font_size_label.setVisible(has_text_style)
         self.alignment_label.setVisible(has_text_style)
+        self.text_orientation_label.setVisible(has_text_direction)
+        self.text_position_label.setVisible(has_text_direction)
         self.background_label.setVisible(has_text_style)
         self.image_label.setVisible(element_type == "image")
         for label in (self.image_mode_label, self.image_rotation_label, self.image_opacity_label):
@@ -395,12 +597,17 @@ class HeaderElementDialog(QDialog):
         self.legend_code_input.setVisible(is_lithology)
         self.legend_scope_label.setVisible(is_lithology)
         self.legend_columns_label.setVisible(is_lithology)
+        is_lithotype_swatch = element_type == "lithotype_swatch"
+        self.lithotype_input.setVisible(is_lithotype_swatch)
+        self.lithotype_label_mode_input.setVisible(is_lithotype_swatch)
+        self.lithotype_label.setVisible(is_lithotype_swatch)
+        self.lithotype_mode_label.setVisible(is_lithotype_swatch)
         self._update_legend_manual_visibility()
         self.properties_label.setVisible(False)
 
     def _update_legend_manual_visibility(self) -> None:
         visible = (
-            self.type_input.currentText() == "lithology_legend"
+            self.type_input.currentData() == "lithology_legend"
             and self.legend_scope_input.currentData() in {"manual", "used_manual"}
         )
         self.legend_manual_label.setVisible(visible)
@@ -435,9 +642,15 @@ class HeaderElementDialog(QDialog):
         self.image_input.setCurrentIndex(index)
 
     def values(self) -> tuple[str, float, float, float, float, dict[str, object]]:
-        element_type = self.type_input.currentText()
+        element_type = str(self.type_input.currentData() or "text")
         text_style: dict[str, object] = {}
-        if element_type in {"text", "field", "lithology_legend", "lba_legend"}:
+        if element_type in {
+            "text",
+            "field",
+            "lithotype_swatch",
+            "lithology_legend",
+            "lba_legend",
+        }:
             color = QColor(self.text_color_input.text().strip())
             if not color.isValid():
                 raise ValueError(self.localizer.text("masterlog_header.invalid_text_color"))
@@ -451,6 +664,13 @@ class HeaderElementDialog(QDialog):
                 "alignment": self.alignment_input.currentData(),
                 "frame": self.frame_input.isChecked(),
             }
+            if element_type in {"text", "field", "lithotype_swatch"}:
+                text_style["text_orientation"] = str(
+                    self.text_orientation_input.currentData() or "horizontal"
+                )
+                text_style["text_position"] = str(
+                    self.text_position_input.currentData() or "center"
+                )
             if background_text:
                 text_style["background"] = QColor(background_text).name()
         if element_type == "text":
@@ -472,6 +692,23 @@ class HeaderElementDialog(QDialog):
                 "mode": str(self.image_mode_input.currentData() or "fit"),
                 "rotation": self.image_rotation_input.value(),
                 "opacity": self.image_opacity_input.value() / 100.0,
+            }
+        elif element_type == "lithotype_swatch":
+            lithotype_id = self.lithotype_input.currentData()
+            if not isinstance(lithotype_id, str) or lithotype_id not in self.lithotypes:
+                raise ValueError(
+                    {
+                        AppLanguage.RU: "Выберите литотип для вставки.",
+                        AppLanguage.KK: "Кірістіру үшін литотипті таңдаңыз.",
+                        AppLanguage.EN: "Select a lithotype to insert.",
+                    }[self.localizer.language]
+                )
+            properties = {
+                "lithotype_id": lithotype_id,
+                "display_mode": str(
+                    self.lithotype_label_mode_input.currentData() or "pattern_code_name"
+                ),
+                **text_style,
             }
         elif element_type == "lithology_legend":
             properties = {
@@ -825,6 +1062,7 @@ class MasterlogHeaderDialog(QDialog):
             "field": QColor("#dcfce7"),
             "image": QColor("#fef3c7"),
             "line": QColor("#e2e8f0"),
+            "lithotype_swatch": QColor("#f8fafc"),
             "lithology_legend": QColor("#f3e8ff"),
             "lba_legend": QColor("#ffedd5"),
         }
@@ -862,6 +1100,11 @@ class MasterlogHeaderDialog(QDialog):
             if element.element_type == "image" and self._add_image_preview(element, graphic):
                 continue
             if (
+                element.element_type == "lithotype_swatch"
+                and self._add_lithotype_swatch_preview(element, graphic)
+            ):
+                continue
+            if (
                 element.element_type == "lithology_legend"
                 and self._add_lithology_legend_preview(element, graphic)
             ):
@@ -872,9 +1115,31 @@ class MasterlogHeaderDialog(QDialog):
             font = label.font()
             font.setBold(bool(element.properties.get("bold", False)))
             label.setFont(font)
-            label.setScale(font_size / 10.0)
-            label.setTextWidth(max(1.0, element.width_mm - 2.0))
-            label.setPos(1.0, 0.3)
+            scale = font_size / 10.0
+            label.setScale(scale)
+            orientation = str(element.properties.get("text_orientation", "horizontal"))
+            position = str(element.properties.get("text_position", "center"))
+            vertical = orientation != "horizontal"
+            label.setTextWidth(
+                max(1.0, (element.height_mm if vertical else element.width_mm) - 2.0)
+            )
+            bounds = label.boundingRect()
+            if vertical:
+                label.setTransformOriginPoint(bounds.center())
+                label.setRotation(text_angle(orientation))
+                anchor_y = element.height_mm * text_position_fraction(position)
+                label.setPos(
+                    element.width_mm / 2.0 - bounds.center().x() * scale,
+                    anchor_y - bounds.center().y() * scale,
+                )
+            else:
+                scaled_height = bounds.height() * scale
+                y = {
+                    "top": 0.3,
+                    "center": max(0.3, (element.height_mm - scaled_height) / 2.0),
+                    "bottom": max(0.3, element.height_mm - scaled_height - 0.3),
+                }.get(position, 0.3)
+                label.setPos(1.0, y)
 
         self.list.blockSignals(False)
         if selected_row >= 0:
@@ -1030,7 +1295,7 @@ class MasterlogHeaderDialog(QDialog):
         element: MasterlogHeaderElement,
         parent: QGraphicsRectItem,
     ) -> bool:
-        catalog = self.controller.session.project.lithotypes
+        catalog = self._available_lithotypes()
         if not catalog:
             return False
         scope = element.properties.get("scope", "used")
@@ -1100,6 +1365,74 @@ class MasterlogHeaderDialog(QDialog):
             )
         return True
 
+    def _add_lithotype_swatch_preview(
+        self,
+        element: MasterlogHeaderElement,
+        parent: QGraphicsRectItem,
+    ) -> bool:
+        lithotype_id = element.properties.get("lithotype_id")
+        if not isinstance(lithotype_id, str):
+            return False
+        lithotype = self._available_lithotypes().get(lithotype_id)
+        if lithotype is None:
+            return False
+        mode = str(element.properties.get("display_mode", "pattern_code_name"))
+        if mode == "pattern_only":
+            pattern_width = element.width_mm
+        else:
+            pattern_width = min(element.width_mm * 0.38, max(5.0, element.height_mm * 1.4))
+        swatch = QGraphicsRectItem(0.0, 0.0, pattern_width, element.height_mm, parent)
+        swatch.setPen(QPen(QColor("#64748b"), 0.15))
+        swatch.setBrush(lithology_brush(lithotype.color, lithotype.pattern_key))
+        if mode == "pattern_only":
+            return True
+        names = {
+            AppLanguage.RU: lithotype.name_ru,
+            AppLanguage.KK: lithotype.name_kk or lithotype.name_ru,
+            AppLanguage.EN: lithotype.name_en or lithotype.name_ru,
+        }
+        text = names[self.localizer.language]
+        if mode == "pattern_code_name":
+            text = f"{lithotype.code} — {text}"
+        label = QGraphicsTextItem(text, parent)
+        color, font_size = self._text_style(element)
+        label.setDefaultTextColor(color)
+        font = label.font()
+        font.setBold(bool(element.properties.get("bold", False)))
+        label.setFont(font)
+        scale = font_size / 10.0
+        label.setScale(scale)
+        orientation = str(element.properties.get("text_orientation", "horizontal"))
+        position = str(element.properties.get("text_position", "center"))
+        text_width = max(1.0, element.width_mm - pattern_width - 1.0)
+        label.setTextWidth(
+            max(1.0, (element.height_mm if orientation != "horizontal" else text_width) - 1.0)
+        )
+        bounds = label.boundingRect()
+        if orientation != "horizontal":
+            label.setTransformOriginPoint(bounds.center())
+            label.setRotation(text_angle(orientation))
+            anchor_y = element.height_mm * text_position_fraction(position)
+            label.setPos(
+                pattern_width + text_width / 2.0 - bounds.center().x() * scale,
+                anchor_y - bounds.center().y() * scale,
+            )
+        else:
+            scaled_height = bounds.height() * scale
+            y = {
+                "top": 0.3,
+                "center": max(0.3, (element.height_mm - scaled_height) / 2.0),
+                "bottom": max(0.3, element.height_mm - scaled_height - 0.3),
+            }.get(position, 0.3)
+            label.setPos(pattern_width + 0.6, y)
+        return True
+
+    def _available_lithotypes(self) -> dict[str, CatalogLithotype]:
+        return {
+            item.lithotype_id: item
+            for item in LithotypeCatalogController(self.controller.session).available()
+        }
+
     def _preview_text(self, element: MasterlogHeaderElement) -> str:
         if element.element_type == "text":
             value = element.properties.get("text")
@@ -1112,6 +1445,17 @@ class MasterlogHeaderDialog(QDialog):
             return resolved if resolved is not None else "{" + field_name + "}"
         if element.element_type == "lithology_legend":
             return self.localizer.text("masterlog_header.lithology_legend")
+        if element.element_type == "lithotype_swatch":
+            lithotype_id = element.properties.get("lithotype_id")
+            if isinstance(lithotype_id, str):
+                lithotype = self._available_lithotypes().get(lithotype_id)
+                if lithotype is not None:
+                    return f"{lithotype.code} — {lithotype.localized_name(self.localizer.language.value)}"
+            return {
+                AppLanguage.RU: "Литотип",
+                AppLanguage.KK: "Литотип",
+                AppLanguage.EN: "Lithotype",
+            }[self.localizer.language]
         if element.element_type == "lba_legend":
             return self.localizer.text("masterlog_header.lba_legend")
         return element.element_type
@@ -1168,7 +1512,7 @@ class MasterlogHeaderDialog(QDialog):
             self,
             language=self.localizer.language,
             image_assets=self.controller.session.image_assets,
-            lithotypes=self.controller.session.project.lithotypes,
+            lithotypes=self._available_lithotypes(),
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._apply(dialog, None)
@@ -1208,7 +1552,7 @@ class MasterlogHeaderDialog(QDialog):
                 element=element,
                 language=self.localizer.language,
                 image_assets=self.controller.session.image_assets,
-                lithotypes=self.controller.session.project.lithotypes,
+                lithotypes=self._available_lithotypes(),
             )
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self._apply(dialog, element.element_id)

@@ -8,6 +8,7 @@ import numpy as np
 from PySide6.QtGui import QImage
 
 from geoworkbench.domain.models import MasterlogTemplate
+from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.printing.masterlog_renderer import (
@@ -60,6 +61,9 @@ def analyze_masterlog_output(
         issues.append(_issue("no_dataset", PreflightSeverity.ERROR))
     if not template.columns:
         issues.append(_issue("no_columns", PreflightSeverity.ERROR))
+    lithotype_ids = {
+        item.lithotype_id for item in LithotypeCatalogController(session).available()
+    }
     page_size = masterlog_page_size_mm(template, session, settings)
     for element in template.header_elements:
         if (
@@ -75,7 +79,8 @@ def analyze_masterlog_output(
             )
         raw_font_size = element.properties.get("font_size_mm")
         if (
-            element.element_type in {"text", "field", "lithology_legend", "lba_legend"}
+            element.element_type
+            in {"text", "field", "lithotype_swatch", "lithology_legend", "lba_legend"}
             and isinstance(raw_font_size, (int, float))
             and not isinstance(raw_font_size, bool)
             and float(raw_font_size) < 1.8
@@ -92,7 +97,7 @@ def analyze_masterlog_output(
             selected_ids = element.properties.get("selected_lithotype_ids", [])
             if isinstance(selected_ids, list):
                 for lithotype_id in selected_ids:
-                    if isinstance(lithotype_id, str) and lithotype_id not in session.project.lithotypes:
+                    if isinstance(lithotype_id, str) and lithotype_id not in lithotype_ids:
                         issues.append(
                             _issue(
                                 "missing_lithotype",
@@ -101,6 +106,17 @@ def analyze_masterlog_output(
                                 lithotype=lithotype_id,
                             )
                         )
+        if element.element_type == "lithotype_swatch":
+            lithotype_id = element.properties.get("lithotype_id")
+            if not isinstance(lithotype_id, str) or lithotype_id not in lithotype_ids:
+                issues.append(
+                    _issue(
+                        "missing_lithotype",
+                        PreflightSeverity.WARNING,
+                        element=element.element_id,
+                        lithotype=lithotype_id or "",
+                    )
+                )
         if element.element_type == "image":
             asset_ref = element.properties.get("asset_ref")
             if not isinstance(asset_ref, str) or asset_ref not in session.image_assets:

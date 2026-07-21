@@ -341,6 +341,8 @@ class StratigraphyInterval:
     rank: str | None = None
     color: str = "#dbeafe"
     description: str | None = None
+    text_orientation: str = "horizontal"
+    text_position: str = "center"
 
 
 @dataclass(slots=True)

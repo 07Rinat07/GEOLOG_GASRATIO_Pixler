@@ -15,7 +15,7 @@ from geoworkbench.forms.models import (
 from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackKind, XScale
 
 
-FORM_SCHEMA_VERSION = 1
+FORM_SCHEMA_VERSION = 2
 
 
 class FormFormatError(ValueError):
@@ -39,6 +39,8 @@ def form_to_dict(form: FormDocument) -> dict[str, Any]:
                 "column_id": column.column_id,
                 "title": column.title,
                 "group_title": column.group_title,
+                "title_orientation": column.title_orientation,
+                "title_position": column.title_position,
                 "width": column.width,
                 "visible": column.visible,
                 "locked": column.locked,
@@ -53,6 +55,8 @@ def form_to_dict(form: FormDocument) -> dict[str, Any]:
                         "grid_y": track.grid_y,
                         "grid_alpha": track.grid_alpha,
                         "x_axis_label": track.x_axis_label,
+                        "title_orientation": track.title_orientation,
+                        "title_position": track.title_position,
                         "bindings": [_binding_to_dict(binding) for binding in track.bindings],
                     }
                     for track in column.tracks
@@ -171,6 +175,8 @@ def _track_from_dict(data: object) -> FormTrack:
         grid_y=_boolean(data, "grid_y", default=True),
         grid_alpha=float(_number(data, "grid_alpha", default=0.2)),
         x_axis_label=_string(data, "x_axis_label", allow_empty=True, default=""),
+        title_orientation=_string(data, "title_orientation", default="horizontal"),
+        title_position=_string(data, "title_position", default="center"),
         bindings=[_binding_from_dict(item) for item in _list(data, "bindings", default=[])],
     )
 
@@ -182,6 +188,8 @@ def _column_from_dict(data: object) -> FormColumn:
         column_id=_string(data, "column_id"),
         title=_string(data, "title"),
         group_title=_string(data, "group_title", allow_empty=True, default=""),
+        title_orientation=_string(data, "title_orientation", default="horizontal"),
+        title_position=_string(data, "title_position", default="center"),
         width=int(_number(data, "width", default=260)),
         visible=_boolean(data, "visible", default=True),
         locked=_boolean(data, "locked", default=False),
@@ -193,16 +201,30 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version != 0:
+    if version not in (0, 1):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
-    migrated["schema_version"] = 1
-    migrated.setdefault("description", "")
-    migrated.setdefault("origin", FormTemplateOrigin.USER.value)
-    migrated.setdefault("read_only", False)
-    migrated.setdefault("style_id", "default-screen")
-    migrated.setdefault("print_header_template_id", None)
-    migrated.setdefault("columns", [])
+    if version == 0:
+        migrated.setdefault("description", "")
+        migrated.setdefault("origin", FormTemplateOrigin.USER.value)
+        migrated.setdefault("read_only", False)
+        migrated.setdefault("style_id", "default-screen")
+        migrated.setdefault("print_header_template_id", None)
+        migrated.setdefault("columns", [])
+    columns = migrated.get("columns")
+    if isinstance(columns, list):
+        for column in columns:
+            if not isinstance(column, dict):
+                continue
+            column.setdefault("title_orientation", "horizontal")
+            column.setdefault("title_position", "center")
+            tracks = column.get("tracks")
+            if isinstance(tracks, list):
+                for track in tracks:
+                    if isinstance(track, dict):
+                        track.setdefault("title_orientation", "horizontal")
+                        track.setdefault("title_position", "center")
+    migrated["schema_version"] = FORM_SCHEMA_VERSION
     return migrated
 
 

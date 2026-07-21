@@ -1100,5 +1100,7 @@
   "visual_export.select_view": "График немесе планшет қойындысын ашыңыз",
   "visual_export.success": "Визуализация экспортталды: {name}",
   "visual_export.svg_action": "Ағымдағы графикті/планшетті SVG-ге экспорттау...",
-  "visual_export.title": "Визуализацияны экспорттау"
+  "visual_export.title": "Визуализацияны экспорттау",
+  "stratigraphy.text_orientation": "Мәтін бағыты",
+  "stratigraphy.text_position": "Мәтін орны"
 }

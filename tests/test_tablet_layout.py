@@ -64,6 +64,8 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     )
     source.track_by_id("gas").set_grid(False, True, 0.45)
     source.track_by_id("gas").set_x_axis_label("Gas, %")
+    source.track_by_id("gas").title_orientation = "vertical_bottom_to_top"
+    source.track_by_id("gas").title_position = "bottom"
 
     restored = layout_from_dict(layout_to_dict(source))
 
@@ -82,6 +84,8 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     assert restored.track_by_id("gas").grid_y is True
     assert restored.track_by_id("gas").grid_alpha == 0.45
     assert restored.track_by_id("gas").x_axis_label == "Gas, %"
+    assert restored.track_by_id("gas").title_orientation == "vertical_bottom_to_top"
+    assert restored.track_by_id("gas").title_position == "bottom"
 
 
 def test_layout_codec_migrates_v3_without_curve_styles() -> None:
@@ -122,6 +126,19 @@ def test_layout_codec_migrates_v4_with_default_grid() -> None:
     assert track.grid_x is True
     assert track.grid_y is True
     assert track.grid_alpha == 0.2
+
+
+def test_layout_codec_migrates_v10_with_default_title_presentation() -> None:
+    restored = layout_from_dict(
+        {
+            "version": 10,
+            "tracks": [{"track_id": "curve", "title": "Curve", "kind": "curve"}],
+        }
+    )
+
+    track = restored.track_by_id("curve")
+    assert track.title_orientation == "horizontal"
+    assert track.title_position == "center"
 
 
 def test_layout_codec_migrates_v5_with_empty_axis_label() -> None:

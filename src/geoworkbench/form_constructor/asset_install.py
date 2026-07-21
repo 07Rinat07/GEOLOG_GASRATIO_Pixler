@@ -28,6 +28,7 @@ def default_constructor_asset_root() -> Path:
     return Path(str(files("geoworkbench").joinpath("resources/constructor_assets")))
 
 
+@lru_cache(maxsize=1)
 def load_factory_constructor_registry() -> ConstructorAssetRegistry:
     root = default_constructor_asset_root()
     registry = ConstructorAssetRegistry.from_root(root)
@@ -91,17 +92,7 @@ def install_asset_into_project(
     if asset.kind == "lithology_pattern":
         current = session.project.lithotypes.get(asset.asset_id)
         if current is None:
-            code = _lithotype_code(asset)
-            lithotype = ProjectLithotype(
-                lithotype_id=asset.asset_id,
-                code=code,
-                name_ru=asset.name.ru or asset.asset_id,
-                name_kk=asset.name.kk or asset.name.ru or asset.asset_id,
-                name_en=asset.name.en or asset.name.ru or asset.asset_id,
-                category=asset.category or "constructor",
-                color="#f8fafc",
-                pattern_key=f"{CONSTRUCTOR_PATTERN_PREFIX}{asset.asset_id}",
-            )
+            lithotype = factory_asset_to_project_lithotype(asset)
             session.project.lithotypes[asset.asset_id] = lithotype
             changed = True
         else:
@@ -135,15 +126,52 @@ def resolve_constructor_pattern_asset(pattern_key: str) -> AssetDefinition | Non
         return None
 
 
+def factory_asset_to_project_lithotype(asset: AssetDefinition) -> ProjectLithotype:
+    """Convert one packaged lithology bitmap into a project-compatible definition.
+
+    This helper is intentionally side-effect free.  The lithotype catalog uses it
+    to expose all packaged legacy patterns as a factory layer without copying 117
+    records into every project.  ``install_asset_into_project`` uses the same
+    conversion when the user explicitly creates a project override.
+    """
+
+    if asset.kind != "lithology_pattern":
+        raise ValueError(f"Ресурс не является литотипом: {asset.asset_id}")
+    return ProjectLithotype(
+        lithotype_id=asset.asset_id,
+        code=_lithotype_code(asset),
+        name_ru=asset.name.ru or asset.asset_id,
+        name_kk=asset.name.kk or asset.name.ru or asset.asset_id,
+        name_en=asset.name.en or asset.name.ru or asset.asset_id,
+        category=asset.category or "constructor",
+        color="#f8fafc",
+        pattern_key=f"{CONSTRUCTOR_PATTERN_PREFIX}{asset.asset_id}",
+    )
+
+
 def _lithotype_code(asset: AssetDefinition) -> str:
     for alias in asset.aliases:
-        value = alias.strip()
-        if value and len(value) <= 12 and any(char.isalpha() for char in value):
-            return value.upper()
+        value = _normalise_lithotype_code(alias)
+        if value and any(char.isalpha() for char in value):
+            return value
     base = asset.asset_id.removeprefix("lithology-").replace("-", " ")
     words = [word for word in base.split() if word]
     if not words:
         return "LITH"
     if len(words) == 1:
-        return words[0][:12].upper()
-    return "".join(word[0] for word in words)[:12].upper()
+        return _normalise_lithotype_code(words[0]) or "LITH"
+    abbreviation = "".join(word[0] for word in words)
+    return _normalise_lithotype_code(abbreviation) or "LITH"
+
+
+def _normalise_lithotype_code(value: str) -> str:
+    """Return a catalog-editable code accepted by the project validator."""
+
+    candidate = value.strip().upper().replace(" ", "_")
+    candidate = "".join(
+        char
+        for char in candidate
+        if char == "_" or char == "-" or char.isdigit() or (char.isalpha() and char.upper() == char)
+    )
+    candidate = candidate.strip("_-")[:20]
+    return candidate

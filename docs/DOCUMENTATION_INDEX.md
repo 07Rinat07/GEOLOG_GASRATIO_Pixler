@@ -44,18 +44,11 @@ All user-facing behavior changes must be reflected in all three guides and in th
 Excel-подобная таблица и экспорт.
 
 <!-- BEGIN FORM_CONSTRUCTOR_SLICE23 -->
-## Универсальный конструктор
-
-- [Русский](ru/FORM_CONSTRUCTOR_PLAN.md)
-- [Қазақша](kk/FORM_CONSTRUCTOR_PLAN.md)
-- [English](en/FORM_CONSTRUCTOR_PLAN.md)
-<!-- END FORM_CONSTRUCTOR_SLICE23 -->
-
-<!-- BEGIN FORM_CONSTRUCTOR_SLICE23 -->
-## Universal Form Constructor
+## Universal Form Constructor 0.7.1
 
 Plan: [Русский](ru/FORM_CONSTRUCTOR_PLAN.md) · [Қазақша](kk/FORM_CONSTRUCTOR_PLAN.md) · [English](en/FORM_CONSTRUCTOR_PLAN.md)  
 User guide: [Русский](ru/CONSTRUCTOR.md) · [Қазақша](kk/CONSTRUCTOR.md) · [English](en/CONSTRUCTOR.md)  
 Asset import report: [CONSTRUCTOR_ASSET_IMPORT_REPORT.md](CONSTRUCTOR_ASSET_IMPORT_REPORT.md)
 Technical architecture: [CONSTRUCTOR_ARCHITECTURE.md](CONSTRUCTOR_ARCHITECTURE.md)  
+Text/form/stratigraphy guide: [Русский](ru/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [Қазақша](kk/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [English](en/FORM_CAPTIONS_AND_STRATIGRAPHY.md)  
 <!-- END FORM_CONSTRUCTOR_SLICE23 -->

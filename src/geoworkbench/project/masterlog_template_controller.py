@@ -5,6 +5,10 @@ from dataclasses import replace
 from math import isfinite
 from typing import Any
 
+from geoworkbench.domain.text_presentation import (
+    normalize_text_orientation,
+    normalize_text_vertical_position,
+)
 from geoworkbench.domain.models import (
     Dataset,
     MasterlogColumnTemplate,
@@ -317,6 +321,8 @@ class MasterlogTemplateController:
         grid_major_divisions: int = 5,
         grid_minor_divisions: int = 5,
         grid_alpha: float = 0.25,
+        title_orientation: str = "horizontal",
+        title_position: str = "center",
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         column = self._validated_column(
@@ -338,6 +344,8 @@ class MasterlogTemplateController:
             grid_major_divisions,
             grid_minor_divisions,
             grid_alpha,
+            title_orientation,
+            title_position,
         )
         template.columns.append(column)
         self._touch(template)
@@ -365,6 +373,8 @@ class MasterlogTemplateController:
         grid_major_divisions: int | None = None,
         grid_minor_divisions: int | None = None,
         grid_alpha: float | None = None,
+        title_orientation: str | None = None,
+        title_position: str | None = None,
     ) -> MasterlogColumnTemplate:
         template = self._require(template_id)
         existing = template.columns[self._column_index(template, column_id)]
@@ -387,8 +397,24 @@ class MasterlogTemplateController:
             existing.grid_major_divisions if grid_major_divisions is None else grid_major_divisions,
             existing.grid_minor_divisions if grid_minor_divisions is None else grid_minor_divisions,
             existing.grid_alpha if grid_alpha is None else grid_alpha,
+            str(existing.properties.get("title_orientation", "horizontal"))
+            if title_orientation is None
+            else title_orientation,
+            str(existing.properties.get("title_position", "center"))
+            if title_position is None
+            else title_position,
         )
-        column.properties = deepcopy(existing.properties)
+        column.properties.update(deepcopy(existing.properties))
+        column.properties["title_orientation"] = normalize_text_orientation(
+            title_orientation
+            if title_orientation is not None
+            else str(existing.properties.get("title_orientation", "horizontal"))
+        )
+        column.properties["title_position"] = normalize_text_vertical_position(
+            title_position
+            if title_position is not None
+            else str(existing.properties.get("title_position", "center"))
+        )
         index = self._column_index(template, column_id)
         template.columns[index] = column
         self._touch(template)
@@ -557,10 +583,19 @@ class MasterlogTemplateController:
         properties: dict[str, Any],
     ) -> MasterlogHeaderElement:
         normalized_type = element_type.strip()
-        supported_types = {"text", "field", "image", "line", "lithology_legend", "lba_legend"}
+        supported_types = {
+            "text",
+            "field",
+            "image",
+            "line",
+            "lithotype_swatch",
+            "lithology_legend",
+            "lba_legend",
+        }
         if not element_id or normalized_type not in supported_types:
             raise ValueError(
-                "Тип элемента шапки должен быть text, field, image, line, lithology_legend или lba_legend"
+                "Тип элемента шапки должен быть text, field, image, line, "
+                "lithotype_swatch, lithology_legend или lba_legend"
             )
         values = (x_mm, y_mm, width_mm, height_mm)
         if any(
@@ -608,6 +643,8 @@ class MasterlogTemplateController:
         grid_major_divisions: int,
         grid_minor_divisions: int,
         grid_alpha: float,
+        title_orientation: str,
+        title_position: str,
     ) -> MasterlogColumnTemplate:
         normalized_title = title.strip()
         normalized_type = column_type.strip()
@@ -629,7 +666,7 @@ class MasterlogTemplateController:
             style.x_min is not None and style.x_min <= 0 for style in normalized_styles.values()
         ):
             raise ValueError("Логарифмический диапазон кривой должен быть положительным")
-        return MasterlogColumnTemplate(
+        column = MasterlogColumnTemplate(
             column_id,
             normalized_title,
             normalized_type,
@@ -649,6 +686,13 @@ class MasterlogTemplateController:
             grid_minor_divisions=grid_minor_divisions,
             grid_alpha=grid_alpha,
         )
+        column.properties["title_orientation"] = normalize_text_orientation(
+            title_orientation
+        )
+        column.properties["title_position"] = normalize_text_vertical_position(
+            title_position
+        )
+        return column
 
     def _touch(self, template: MasterlogTemplate) -> None:
         template.version += 1

@@ -16,6 +16,7 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_depth_range,
     masterlog_size_mm,
 )
+from geoworkbench.printing.text_rendering import column_heading_height
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -74,7 +75,7 @@ def inspect_masterlog_point(
     origin_y = target.y() + (target.height() - size.height() * scale) / 2.0
     x_mm = (point.x() - origin_x) / scale
     y_mm = (point.y() - origin_y) / scale
-    plot_top = template.header_height_mm + 12.0
+    plot_top = template.header_height_mm + column_heading_height(template.columns)
     if y_mm < plot_top or y_mm > size.height():
         return None
     column = _column_at(template, x_mm)
@@ -117,7 +118,8 @@ def masterlog_column_header_at_point(
     origin_y = target.y() + (target.height() - size.height() * scale) / 2.0
     x_mm = (point.x() - origin_x) / scale
     y_mm = (point.y() - origin_y) / scale
-    if not template.header_height_mm <= y_mm <= template.header_height_mm + 12.0:
+    heading_height = column_heading_height(template.columns)
+    if not template.header_height_mm <= y_mm <= template.header_height_mm + heading_height:
         return None
     return _column_at(template, x_mm)
 

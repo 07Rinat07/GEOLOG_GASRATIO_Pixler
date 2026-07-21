@@ -47,6 +47,7 @@ def test_interval_dialog_returns_mouse_selected_depths(qapp) -> None:
     dialog.rank_input.setCurrentText("Stage / Age")
     dialog.code_input.setText("K1a")
     dialog.name_input.setText("Альб")
+    dialog.set_text_presentation("vertical_bottom_to_top", "bottom")
 
     values = dialog.values()
 
@@ -54,4 +55,6 @@ def test_interval_dialog_returns_mouse_selected_depths(qapp) -> None:
     assert values["bottom_depth"] == 175.0
     assert values["rank"] == "Stage / Age"
     assert values["code"] == "K1a"
+    assert values["text_orientation"] == "vertical_bottom_to_top"
+    assert values["text_position"] == "bottom"
     dialog.close()

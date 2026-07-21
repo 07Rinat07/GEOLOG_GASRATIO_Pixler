@@ -107,8 +107,15 @@ class CurveView(QWidget):
     @staticmethod
     def _curve_is_directly_editable(curve: CurveData) -> bool:
         provenance = (curve.metadata.provenance or "").strip().casefold()
+        description = (curve.metadata.description or "").strip().casefold()
+        calculated_prefixes = ("calculation:", "custom-formula:")
+        # Older project snapshots sometimes stored the calculation marker in
+        # description before the dedicated provenance field was introduced.
+        # Treat both representations as derived data: pencil editing must only
+        # target source curves, otherwise recalculation contracts are bypassed.
         return (
-            not provenance.startswith(("calculation:", "custom-formula:"))
+            not provenance.startswith(calculated_prefixes)
+            and not description.startswith(calculated_prefixes)
             and provenance != "derived"
         )
 

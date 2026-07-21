@@ -21,8 +21,19 @@ from geoworkbench.tablet.models import TrackKind
 
 def test_form_round_trip_preserves_binding() -> None:
     binding = ParameterBinding.create("TOTAL_GAS", "Total Gas", source_mnemonic="TGAS", unit="%")
-    track = FormTrack.create("Газ", TrackKind.CURVE, bindings=[binding])
-    column = FormColumn.create("Газ", tracks=[track])
+    track = FormTrack.create(
+        "Газ",
+        TrackKind.CURVE,
+        bindings=[binding],
+        title_orientation="vertical_bottom_to_top",
+        title_position="bottom",
+    )
+    column = FormColumn.create(
+        "Газ",
+        tracks=[track],
+        title_orientation="vertical_top_to_bottom",
+        title_position="top",
+    )
     form = FormDocument.create("Моя форма", FormAxisKind.DEPTH)
     form.add_column(column)
 
@@ -31,6 +42,10 @@ def test_form_round_trip_preserves_binding() -> None:
     assert restored.name == "Моя форма"
     assert restored.columns[0].tracks[0].bindings[0].canonical_parameter_id == "TOTAL_GAS"
     assert restored.columns[0].tracks[0].bindings[0].source_mnemonic == "TGAS"
+    assert restored.columns[0].title_orientation == "vertical_top_to_bottom"
+    assert restored.columns[0].title_position == "top"
+    assert restored.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
+    assert restored.columns[0].tracks[0].title_position == "bottom"
 
 
 def test_factory_templates_are_read_only_and_copy_is_editable() -> None:
@@ -71,7 +86,7 @@ def test_repository_saves_utf8_atomically(tmp_path) -> None:
     assert target.exists()
     assert restored.name == "Глубинная форма"
     raw = json.loads(target.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 1
+    assert raw["schema_version"] == 2
 
 
 def test_repository_lists_and_deletes(tmp_path) -> None:
@@ -96,6 +111,39 @@ def test_schema_zero_is_migrated() -> None:
         }
     )
     assert restored.style_id == "default-screen"
+
+
+def test_schema_one_adds_default_title_presentation() -> None:
+    restored = form_from_dict(
+        {
+            "schema_version": 1,
+            "form_id": "legacy-form-v1",
+            "name": "Legacy v1",
+            "axis_kind": "depth",
+            "style_id": "default-screen",
+            "columns": [
+                {
+                    "column_id": "column-1",
+                    "title": "Колонка",
+                    "width": 320,
+                    "tracks": [
+                        {
+                            "track_id": "track-1",
+                            "title": "Дорожка",
+                            "kind": "curve",
+                            "width": 280,
+                            "bindings": [],
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert restored.columns[0].title_orientation == "horizontal"
+    assert restored.columns[0].title_position == "center"
+    assert restored.columns[0].tracks[0].title_orientation == "horizontal"
+    assert restored.columns[0].tracks[0].title_position == "center"
 
 
 def test_unknown_schema_is_rejected() -> None:

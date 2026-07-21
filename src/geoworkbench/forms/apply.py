@@ -194,6 +194,8 @@ class FormApplyEngine:
                         grid_y=form_track.grid_y,
                         grid_alpha=form_track.grid_alpha,
                         x_axis_label=form_track.x_axis_label,
+                        title_orientation=form_track.title_orientation,
+                        title_position=form_track.title_position,
                     )
                 )
 

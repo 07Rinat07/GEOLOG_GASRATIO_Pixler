@@ -163,10 +163,14 @@ class UniversalConstructorDialog(QDialog):
         self.open_form_manager_callback = open_form_manager
         self.open_template_manager_callback = open_template_manager
         self.registry = load_factory_constructor_registry()
-        # Factory resources are part of the constructor, not an optional external
-        # package. Install them idempotently so symbol and lithology selectors work
-        # immediately in every project opened by the user.
-        install_assets_into_project(self.controller.session, self.registry.all())
+        # Factory lithotypes are exposed by LithotypeCatalogController as a
+        # read-only standard layer and therefore are not copied into every
+        # project.  Depth symbols are small project image assets and are installed
+        # idempotently so the symbol editor can use them immediately.
+        install_assets_into_project(
+            self.controller.session,
+            self.registry.all(kind="depth_symbol"),
+        )
         self._visible_assets: tuple[AssetDefinition, ...] = ()
         self.setWindowTitle(_TEXT[language]["title"])
         self.setMinimumSize(900, 620)

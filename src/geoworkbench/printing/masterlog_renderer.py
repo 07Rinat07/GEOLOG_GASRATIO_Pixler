@@ -35,7 +35,11 @@ from geoworkbench.project.lithotype_catalog_controller import (
     LithotypeCatalogController,
 )
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
+from geoworkbench.project.stratigraphy_controller import (
+    stratigraphy_rank_order,
+    stratigraphy_text_angle,
+    stratigraphy_text_position_fraction,
+)
 from geoworkbench.printing.header_fields import resolve_header_field
 from geoworkbench.printing.image_asset_rendering import draw_image_asset
 from geoworkbench.printing.lba_visuals import (
@@ -45,6 +49,10 @@ from geoworkbench.printing.lba_visuals import (
     resolve_lba_type_style,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
+from geoworkbench.printing.text_rendering import (
+    column_heading_height,
+    draw_oriented_text,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.las_parameter_resolver import LasParameterResolver
 from geoworkbench.tablet.lithology_legend import LithologyLegendEntry
@@ -477,6 +485,15 @@ def _paint_header_element(
                 opacity=float(element.properties.get("opacity", 1.0)),
             )
         return
+    if element.element_type == "lithotype_swatch":
+        _paint_lithotype_swatch(
+            painter,
+            rect,
+            element.properties,
+            language,
+            lithotype_catalog,
+        )
+        return
     if element.element_type == "lithology_legend":
         entries = _masterlog_lithology_legend_entries(
             session,
@@ -513,11 +530,90 @@ def _paint_header_element(
         "center": Qt.AlignmentFlag.AlignHCenter,
         "right": Qt.AlignmentFlag.AlignRight,
     }.get(alignment_name, Qt.AlignmentFlag.AlignLeft)
-    painter.drawText(
-        rect.adjusted(0.8, 0.2, -0.8, -0.2),
-        horizontal | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
+    draw_oriented_text(
+        painter,
+        rect.adjusted(0.3, 0.1, -0.3, -0.1),
         text,
+        orientation=str(element.properties.get("text_orientation", "horizontal")),
+        position=str(element.properties.get("text_position", "center")),
+        horizontal_alignment=horizontal,
+        padding_x=0.5,
+        padding_y=0.1,
     )
+
+
+def _paint_lithotype_swatch(
+    painter: QPainter,
+    rect: QRectF,
+    properties: dict[str, object],
+    language: AppLanguage,
+    catalog: dict[str, CatalogLithotype],
+) -> None:
+    lithotype_id = properties.get("lithotype_id")
+    lithotype = catalog.get(lithotype_id) if isinstance(lithotype_id, str) else None
+    if lithotype is None:
+        painter.save()
+        try:
+            painter.setPen(QPen(QColor("#dc2626"), 0.3, Qt.PenStyle.DashLine))
+            painter.drawRect(rect)
+            painter.drawLine(rect.topLeft(), rect.bottomRight())
+            painter.drawLine(rect.topRight(), rect.bottomLeft())
+        finally:
+            painter.restore()
+        return
+    background = properties.get("background")
+    if isinstance(background, str) and QColor(background).isValid():
+        painter.fillRect(rect, QColor(background))
+    mode = str(properties.get("display_mode", "pattern_code_name"))
+    pattern_width = (
+        rect.width()
+        if mode == "pattern_only"
+        else min(rect.width() * 0.38, max(5.0, rect.height() * 1.4))
+    )
+    pattern_rect = QRectF(rect.left(), rect.top(), pattern_width, rect.height()).adjusted(
+        0.25, 0.25, -0.25, -0.25
+    )
+    painter.fillRect(pattern_rect, lithology_brush(lithotype.color, lithotype.pattern_key))
+    painter.setPen(QPen(QColor("#64748b"), 0.25))
+    painter.drawRect(pattern_rect)
+    if mode != "pattern_only":
+        name = lithotype.localized_name(language.value)
+        text = f"{lithotype.code} — {name}" if mode == "pattern_code_name" else name
+        size = properties.get("font_size_mm", 3.5)
+        font_size = (
+            float(size)
+            if isinstance(size, (int, float)) and not isinstance(size, bool)
+            else 3.5
+        )
+        font = QFont()
+        font.setBold(properties.get("bold") is True)
+        _set_scaled_font_mm(painter, font, max(1.0, min(font_size, 50.0)))
+        painter.setFont(font)
+        painter.setPen(_color(properties.get("color"), "#0f172a"))
+        alignment_name = properties.get("alignment", "left")
+        horizontal = {
+            "center": Qt.AlignmentFlag.AlignHCenter,
+            "right": Qt.AlignmentFlag.AlignRight,
+        }.get(alignment_name, Qt.AlignmentFlag.AlignLeft)
+        text_rect = QRectF(
+            rect.left() + pattern_width + 0.4,
+            rect.top(),
+            max(0.0, rect.width() - pattern_width - 0.4),
+            rect.height(),
+        )
+        draw_oriented_text(
+            painter,
+            text_rect,
+            text,
+            orientation=str(properties.get("text_orientation", "horizontal")),
+            position=str(properties.get("text_position", "center")),
+            horizontal_alignment=horizontal,
+            padding_x=0.35,
+            padding_y=0.15,
+        )
+    if properties.get("frame") is True:
+        painter.setPen(QPen(_color(properties.get("frame_color"), "#334155"), 0.35))
+        painter.drawRect(rect)
 
 
 def masterlog_lithology_legend_entries(
@@ -882,7 +978,7 @@ def _paint_columns(
 ) -> None:
     x = 0.0
     top = template.header_height_mm
-    header_height = 12.0
+    header_height = column_heading_height(columns)
     dataset = session.current_dataset
     bindings = masterlog_curve_bindings(template, dataset) if dataset is not None else {}
     for column in columns:
@@ -1001,18 +1097,35 @@ def _paint_column_heading(
     _set_scaled_font_points(painter, title_font, 6.5)
     painter.setFont(title_font)
     painter.setPen(QColor("#0f172a"))
+    orientation = str(column.properties.get("title_orientation", "horizontal"))
+    position = str(column.properties.get("title_position", "center"))
     if not column.show_legend or not column.curve_mnemonics:
-        painter.drawText(
-            rect.adjusted(0.5, 0.2, -0.5, -0.2),
-            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+        draw_oriented_text(
+            painter,
+            rect,
             column.title,
+            orientation=orientation,
+            position=position,
+            padding_x=0.5,
+            padding_y=0.2,
         )
         return
-    title_height = min(4.2, rect.height() * 0.38)
-    painter.drawText(
+    # A vertical title needs a taller title lane than a horizontal caption.
+    # Keep the legend available, but reserve enough height for a readable
+    # bottom-to-top/top-to-bottom heading in A4/A3 print layouts.
+    title_height = (
+        rect.height() * 0.62
+        if orientation != "horizontal"
+        else min(4.2, rect.height() * 0.38)
+    )
+    draw_oriented_text(
+        painter,
         QRectF(rect.left() + 0.5, rect.top(), rect.width() - 1.0, title_height),
-        Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
         column.title,
+        orientation=orientation,
+        position=position,
+        padding_x=0.2,
+        padding_y=0.1,
     )
     legend_rect = QRectF(
         rect.left() + 0.25,
@@ -1160,6 +1273,55 @@ def _paint_lithology_column(
     painter.restore()
 
 
+def _paint_stratigraphy_label(
+    painter: QPainter,
+    interval_rect: QRectF,
+    text: str,
+    *,
+    orientation: str,
+    position: str,
+) -> None:
+    if not text or interval_rect.width() <= 0.0 or interval_rect.height() <= 0.0:
+        return
+    target = interval_rect.adjusted(0.4, 0.2, -0.4, -0.2)
+    if target.width() <= 0.0 or target.height() <= 0.0:
+        return
+    angle = stratigraphy_text_angle(orientation)
+    fraction = stratigraphy_text_position_fraction(position)
+    painter.save()
+    painter.setClipRect(interval_rect)
+    if angle == 0.0:
+        vertical_alignment = {
+            "top": Qt.AlignmentFlag.AlignTop,
+            "center": Qt.AlignmentFlag.AlignVCenter,
+            "bottom": Qt.AlignmentFlag.AlignBottom,
+        }.get(position, Qt.AlignmentFlag.AlignVCenter)
+        painter.drawText(
+            target,
+            Qt.AlignmentFlag.AlignHCenter
+            | vertical_alignment
+            | Qt.TextFlag.TextWordWrap,
+            text,
+        )
+    else:
+        anchor_y = target.top() + target.height() * fraction
+        painter.translate(target.center().x(), anchor_y)
+        painter.rotate(angle)
+        rotated_width = target.height()
+        rotated_height = target.width()
+        painter.drawText(
+            QRectF(
+                -rotated_width / 2.0,
+                -rotated_height / 2.0,
+                rotated_width,
+                rotated_height,
+            ),
+            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+            text,
+        )
+    painter.restore()
+
+
 def _paint_stratigraphy_column(
     painter: QPainter,
     rect: QRectF,
@@ -1206,10 +1368,12 @@ def _paint_stratigraphy_column(
         if interval_rect.height() >= 3.0:
             text = "\n".join(value for value in (interval.code, interval.name) if value)
             painter.setPen(QColor("#0f172a"))
-            painter.drawText(
-                interval_rect.adjusted(0.4, 0.2, -0.4, -0.2),
-                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+            _paint_stratigraphy_label(
+                painter,
+                interval_rect,
                 text,
+                orientation=interval.text_orientation,
+                position=interval.text_position,
             )
     painter.restore()
 

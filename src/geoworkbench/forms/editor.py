@@ -76,6 +76,17 @@ class FormStructureEditor:
         self.form.validate()
         self.dirty = True
 
+
+    def set_column_title_presentation(
+        self, column_id: str, *, orientation: str, position: str
+    ) -> None:
+        column = self.column(column_id)
+        column.title_orientation = orientation
+        column.title_position = position
+        column.__post_init__()
+        self.form.validate()
+        self.dirty = True
+
     def set_column_group(self, column_id: str, group_title: str) -> None:
         """Rename the complete contiguous merged section containing ``column_id``.
 
@@ -159,6 +170,19 @@ class FormStructureEditor:
         if not title:
             raise ValueError("Название дорожки не должно быть пустым")
         track.title = title
+        track.__post_init__()
+        self.form.validate()
+        self.dirty = True
+
+
+    def set_track_title_presentation(
+        self, track_id: str, *, orientation: str, position: str
+    ) -> None:
+        _column, track = self.track(track_id)
+        if track.locked:
+            raise PermissionError("Дорожка заблокирована")
+        track.title_orientation = orientation
+        track.title_position = position
         track.__post_init__()
         self.form.validate()
         self.dirty = True

@@ -37,3 +37,20 @@ physical-page-aware WYSIWYG header canvas, A0–A4/Letter/Legal/custom/roll prof
 image import, semantic depth symbols with X/Y offsets, automatic/manual legends, preview and
 preflight. Next: Windows smoke testing, rulers/guides/Undo and an explicit screen-to-print
 profile link. See [Constructor plan](FORM_CONSTRUCTOR_PLAN.md).
+
+## Stratigraphy text 0.7.1
+
+- [x] 0°, 90° bottom-to-top, and 90° top-to-bottom directions;
+- [x] near-top, centre (default), or near-bottom placement;
+- [x] project persistence and restoration during re-editing;
+- [x] consistent tablet, preview, PDF, and print rendering;
+- [ ] visual Windows verification for narrow columns and short intervals.
+
+## Slice 0.7.1 — text and lithotypes
+
+- [x] 0°/±90° and top/centre/bottom for stratigraphy, forms, and headers;
+- [x] one factory layer containing all 117 lithotypes;
+- [x] thumbnail selection in lithology and cuttings;
+- [x] individual swatch and dynamic legend in headers;
+- [x] project add, override, and reset workflows;
+- [ ] Windows smoke-test and physical printing.

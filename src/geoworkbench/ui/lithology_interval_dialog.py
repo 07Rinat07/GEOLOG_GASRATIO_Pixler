@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -14,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 
 
 class LithologyIntervalDialog(QDialog):
@@ -60,10 +60,10 @@ class LithologyIntervalDialog(QDialog):
         self.bottom_input.setObjectName("lithology-quick-bottom")
         self.lithotype_input = QComboBox()
         self.lithotype_input.setObjectName("lithology-quick-rock")
-        self.lithotype_input.setEditable(False)
+        configure_lithotype_combo(self.lithotype_input, searchable=False)
         for item in self.catalog:
             self.lithotype_input.addItem(
-                self._icon(item.color),
+                lithotype_icon(item),
                 f"{item.localized_name(language.value)} ({item.code})",
                 item.lithotype_id,
             )
@@ -106,17 +106,6 @@ class LithologyIntervalDialog(QDialog):
         field.setSuffix(" m")
         field.setValue(float(value))
         return field
-
-    @staticmethod
-    def _icon(color: str) -> QIcon:
-        pixmap = QPixmap(24, 16)
-        pixmap.fill(QColor("transparent"))
-        painter = QPainter(pixmap)
-        painter.fillRect(1, 1, 22, 14, QColor(color))
-        painter.setPen(QColor("#334155"))
-        painter.drawRect(1, 1, 22, 14)
-        painter.end()
-        return QIcon(pixmap)
 
     def _delete(self) -> None:
         self.delete_requested = True

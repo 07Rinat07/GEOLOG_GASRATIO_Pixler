@@ -29,6 +29,8 @@ from geoworkbench.project.stratigraphy_catalog_controller import (
 )
 from geoworkbench.project.stratigraphy_controller import (
     STRATIGRAPHY_RANKS,
+    STRATIGRAPHY_TEXT_ORIENTATIONS,
+    STRATIGRAPHY_TEXT_POSITIONS,
     StratigraphyController,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -42,6 +44,64 @@ class StratigraphyValues(TypedDict):
     name: str
     color: str
     description: str
+    text_orientation: str
+    text_position: str
+
+
+_TEXT_ORIENTATION_LABELS = {
+    "horizontal": {
+        AppLanguage.RU: "Горизонтально (0°)",
+        AppLanguage.KK: "Көлденең (0°)",
+        AppLanguage.EN: "Horizontal (0°)",
+    },
+    "vertical_bottom_to_top": {
+        AppLanguage.RU: "Вертикально снизу вверх (90°)",
+        AppLanguage.KK: "Төменнен жоғары тік (90°)",
+        AppLanguage.EN: "Vertical bottom to top (90°)",
+    },
+    "vertical_top_to_bottom": {
+        AppLanguage.RU: "Вертикально сверху вниз (90°)",
+        AppLanguage.KK: "Жоғарыдан төмен тік (90°)",
+        AppLanguage.EN: "Vertical top to bottom (90°)",
+    },
+}
+
+_TEXT_POSITION_LABELS = {
+    "top": {
+        AppLanguage.RU: "Ближе к кровле",
+        AppLanguage.KK: "Қабат төбесіне жақын",
+        AppLanguage.EN: "Near interval top",
+    },
+    "center": {
+        AppLanguage.RU: "По центру интервала",
+        AppLanguage.KK: "Аралық ортасында",
+        AppLanguage.EN: "Interval centre",
+    },
+    "bottom": {
+        AppLanguage.RU: "Ближе к подошве",
+        AppLanguage.KK: "Қабат табанына жақын",
+        AppLanguage.EN: "Near interval bottom",
+    },
+}
+
+
+def _populate_presentation_combo(
+    combo: QComboBox,
+    values: tuple[str, ...],
+    labels: dict[str, dict[AppLanguage, str]],
+    language: AppLanguage,
+    selected: str,
+) -> None:
+    combo.clear()
+    for value in values:
+        combo.addItem(labels[value].get(language, labels[value][AppLanguage.RU]), value)
+    index = combo.findData(selected)
+    combo.setCurrentIndex(index if index >= 0 else 0)
+
+
+def _combo_value(combo: QComboBox, fallback: str) -> str:
+    value = combo.currentData()
+    return value if isinstance(value, str) and value else fallback
 
 
 class _CatalogMixin:
@@ -375,6 +435,22 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
         color_button.clicked.connect(self._choose_color)
         color_row.addWidget(color_button)
         self.description_input = QLineEdit()
+        self.text_orientation_input = QComboBox()
+        _populate_presentation_combo(
+            self.text_orientation_input,
+            STRATIGRAPHY_TEXT_ORIENTATIONS,
+            _TEXT_ORIENTATION_LABELS,
+            language,
+            "horizontal",
+        )
+        self.text_position_input = QComboBox()
+        _populate_presentation_combo(
+            self.text_position_input,
+            STRATIGRAPHY_TEXT_POSITIONS,
+            _TEXT_POSITION_LABELS,
+            language,
+            "center",
+        )
         layout = QFormLayout(self)
         layout.addRow(self.localizer.text("stratigraphy.top"), self.top_input)
         layout.addRow(self.localizer.text("stratigraphy.bottom"), self.bottom_input)
@@ -390,6 +466,14 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
             layout.addRow(self.localizer.text(key), control)
         layout.addRow(self.localizer.text("stratigraphy.color"), color_row)
         layout.addRow(self.localizer.text("stratigraphy.description"), self.description_input)
+        layout.addRow(
+            self.localizer.text("stratigraphy.text_orientation"),
+            self.text_orientation_input,
+        )
+        layout.addRow(
+            self.localizer.text("stratigraphy.text_position"),
+            self.text_position_input,
+        )
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -414,6 +498,14 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
     def bottom_depth(self) -> float:
         return self.bottom_input.value()
 
+    def set_text_presentation(self, orientation: str, position: str) -> None:
+        orientation_index = self.text_orientation_input.findData(orientation)
+        if orientation_index >= 0:
+            self.text_orientation_input.setCurrentIndex(orientation_index)
+        position_index = self.text_position_input.findData(position)
+        if position_index >= 0:
+            self.text_position_input.setCurrentIndex(position_index)
+
     def values(self) -> StratigraphyValues:
         return {
             "top_depth": self.top_input.value(),
@@ -423,6 +515,10 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
             "name": self.name_input.text(),
             "color": self.color_input.text(),
             "description": self.description_input.text(),
+            "text_orientation": _combo_value(
+                self.text_orientation_input, "horizontal"
+            ),
+            "text_position": _combo_value(self.text_position_input, "center"),
         }
 
 
@@ -454,7 +550,7 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
         )
         info.setWordWrap(True)
         root.addWidget(info)
-        self.table = QTableWidget(0, 7)
+        self.table = QTableWidget(0, 9)
         self.table.setObjectName("stratigraphy-intervals-table")
         self.table.setHorizontalHeaderLabels(
             [
@@ -465,6 +561,8 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
                 self._t("stratigraphy.name"),
                 self._t("stratigraphy.color"),
                 self._t("stratigraphy.description"),
+                self._t("stratigraphy.text_orientation"),
+                self._t("stratigraphy.text_position"),
             ]
         )
         self.table.itemSelectionChanged.connect(self._load_selected)
@@ -495,6 +593,22 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
         color_button.clicked.connect(self._choose_color)
         color_row.addWidget(color_button)
         self.description_input = QLineEdit()
+        self.text_orientation_input = QComboBox()
+        _populate_presentation_combo(
+            self.text_orientation_input,
+            STRATIGRAPHY_TEXT_ORIENTATIONS,
+            _TEXT_ORIENTATION_LABELS,
+            language,
+            "horizontal",
+        )
+        self.text_position_input = QComboBox()
+        _populate_presentation_combo(
+            self.text_position_input,
+            STRATIGRAPHY_TEXT_POSITIONS,
+            _TEXT_POSITION_LABELS,
+            language,
+            "center",
+        )
         form.addRow(
             {AppLanguage.RU: "Справочник", AppLanguage.KK: "Анықтамалық", AppLanguage.EN: "Catalog"}.get(language, "Справочник"),
             catalog_row,
@@ -509,6 +623,10 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             form.addRow(label, control)
         form.addRow(self._t("stratigraphy.color"), color_row)
         form.addRow(self._t("stratigraphy.description"), self.description_input)
+        form.addRow(
+            self._t("stratigraphy.text_orientation"), self.text_orientation_input
+        )
+        form.addRow(self._t("stratigraphy.text_position"), self.text_position_input)
         root.addLayout(form)
 
         actions = QHBoxLayout()
@@ -552,6 +670,12 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
                 interval.name or "",
                 interval.color,
                 interval.description or "",
+                _TEXT_ORIENTATION_LABELS[interval.text_orientation].get(
+                    self.language, interval.text_orientation
+                ),
+                _TEXT_POSITION_LABELS[interval.text_position].get(
+                    self.language, interval.text_position
+                ),
             )
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
@@ -567,20 +691,26 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
         return str(item.data(Qt.ItemDataRole.UserRole)) if item is not None else None
 
     def _load_selected(self) -> None:
-        row = self.table.currentRow()
-        if row < 0:
+        interval_id = self._selected_id()
+        if interval_id is None:
             return
-        values = [self.table.item(row, column) for column in range(7)]
-        if any(item is None for item in values):
+        try:
+            interval = self.controller.get(interval_id)
+        except (KeyError, RuntimeError):
             return
-        text = [item.text() for item in values if item is not None]
-        self.top_input.setValue(float(text[0]))
-        self.bottom_input.setValue(float(text[1]))
-        self.rank_input.setCurrentText(text[2])
-        self.code_input.setText(text[3])
-        self.name_input.setText(text[4])
-        self.color_input.setText(text[5])
-        self.description_input.setText(text[6])
+        self.top_input.setValue(interval.top_depth)
+        self.bottom_input.setValue(interval.bottom_depth)
+        self.rank_input.setCurrentText(interval.rank or "")
+        self.code_input.setText(interval.code)
+        self.name_input.setText(interval.name or "")
+        self.color_input.setText(interval.color)
+        self.description_input.setText(interval.description or "")
+        orientation_index = self.text_orientation_input.findData(interval.text_orientation)
+        if orientation_index >= 0:
+            self.text_orientation_input.setCurrentIndex(orientation_index)
+        position_index = self.text_position_input.findData(interval.text_position)
+        if position_index >= 0:
+            self.text_position_input.setCurrentIndex(position_index)
 
     def _values(self) -> StratigraphyValues:
         return {
@@ -591,6 +721,10 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             "name": self.name_input.text(),
             "color": self.color_input.text(),
             "description": self.description_input.text(),
+            "text_orientation": _combo_value(
+                self.text_orientation_input, "horizontal"
+            ),
+            "text_position": _combo_value(self.text_position_input, "center"),
         }
 
     def _add(self) -> None:

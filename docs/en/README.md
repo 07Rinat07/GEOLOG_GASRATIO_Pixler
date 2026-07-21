@@ -421,3 +421,12 @@ See [LAS Editor 2](LAS_EDITOR_2.md).
 
 Open **Constructor** or press `Ctrl+Shift+K`. Guide: [CONSTRUCTOR.md](CONSTRUCTOR.md).
 
+## Constructor 0.7.1: text and lithotypes
+
+Stratigraphy, form structure, and WYSIWYG header editors can use horizontal text, 90°
+bottom-to-top, or 90° top-to-bottom, positioned near the upper edge, centred, or near the lower
+edge. For stratigraphy these positions correspond to top, interval centre, and base.
+
+All 117 standard rock patterns are immediately available in lithology and cuttings with real
+thumbnails. Headers can contain a dynamic legend or an individual lithotype swatch. The catalog
+supports project rocks, factory overrides, and reset. See the [Constructor guide](CONSTRUCTOR.md).

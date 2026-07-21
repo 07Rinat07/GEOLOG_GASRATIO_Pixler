@@ -6,6 +6,10 @@ from math import isfinite
 import re
 from uuid import uuid4
 
+from geoworkbench.domain.text_presentation import (
+    normalize_text_orientation,
+    normalize_text_vertical_position,
+)
 from geoworkbench.tablet.models import CurveStyle, TrackKind, XScale
 
 
@@ -79,6 +83,8 @@ class FormTrack:
     grid_y: bool = True
     grid_alpha: float = 0.2
     x_axis_label: str = ""
+    title_orientation: str = "horizontal"
+    title_position: str = "center"
 
     def __post_init__(self) -> None:
         _require_id(self.track_id, "track_id")
@@ -94,6 +100,8 @@ class FormTrack:
         if not isfinite(self.grid_alpha) or not 0.0 <= self.grid_alpha <= 1.0:
             raise ValueError("grid_alpha должен быть от 0 до 1")
         _require_text(self.x_axis_label, "x_axis_label", max_length=100, allow_empty=True)
+        self.title_orientation = normalize_text_orientation(self.title_orientation)
+        self.title_position = normalize_text_vertical_position(self.title_position)
         _ensure_unique([item.binding_id for item in self.bindings], "binding_id")
 
     @classmethod
@@ -109,6 +117,8 @@ class FormTrack:
         grid_y: bool = True,
         grid_alpha: float = 0.2,
         x_axis_label: str = "",
+        title_orientation: str = "horizontal",
+        title_position: str = "center",
     ) -> FormTrack:
         return cls(
             track_id=str(uuid4()),
@@ -121,6 +131,8 @@ class FormTrack:
             grid_y=grid_y,
             grid_alpha=grid_alpha,
             x_axis_label=x_axis_label,
+            title_orientation=title_orientation,
+            title_position=title_position,
         )
 
     def add_binding(self, binding: ParameterBinding, index: int | None = None) -> None:
@@ -147,11 +159,15 @@ class FormColumn:
     locked: bool = False
     tracks: list[FormTrack] = field(default_factory=list)
     group_title: str = ""
+    title_orientation: str = "horizontal"
+    title_position: str = "center"
 
     def __post_init__(self) -> None:
         _require_id(self.column_id, "column_id")
         _require_text(self.title, "title", max_length=120)
         _require_text(self.group_title, "group_title", max_length=120, allow_empty=True)
+        self.title_orientation = normalize_text_orientation(self.title_orientation)
+        self.title_position = normalize_text_vertical_position(self.title_position)
         if isinstance(self.width, bool) or not isinstance(self.width, int):
             raise ValueError("width должен быть целым числом")
         if not 80 <= self.width <= 2000:
@@ -170,6 +186,8 @@ class FormColumn:
         visible: bool = True,
         locked: bool = False,
         tracks: list[FormTrack] | None = None,
+        title_orientation: str = "horizontal",
+        title_position: str = "center",
     ) -> FormColumn:
         return cls(
             column_id=str(uuid4()),
@@ -179,6 +197,8 @@ class FormColumn:
             visible=visible,
             locked=locked,
             tracks=list(tracks or []),
+            title_orientation=title_orientation,
+            title_position=title_position,
         )
 
     def add_track(self, track: FormTrack, index: int | None = None) -> None:

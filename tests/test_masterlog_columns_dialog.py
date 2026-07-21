@@ -62,6 +62,49 @@ def test_column_properties_dialog_returns_normalized_curve_list(qapp) -> None:
     dialog.close()
 
 
+def test_column_properties_dialog_returns_title_orientation_and_position(qapp) -> None:
+    dialog = ColumnPropertiesDialog(language=AppLanguage.RU)
+    dialog.title_orientation_input.setCurrentIndex(
+        dialog.title_orientation_input.findData("vertical_top_to_bottom")
+    )
+    dialog.title_position_input.setCurrentIndex(
+        dialog.title_position_input.findData("bottom")
+    )
+
+    assert dialog.title_presentation() == ("vertical_top_to_bottom", "bottom")
+    dialog.close()
+
+
+def test_masterlog_controller_persists_column_title_presentation() -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Rotated")
+    column = controller.add_column(
+        template.template_id,
+        title="Стратиграфия",
+        column_type="stratigraphy",
+        width_mm=30.0,
+        title_orientation="vertical_bottom_to_top",
+        title_position="top",
+    )
+
+    assert column.properties["title_orientation"] == "vertical_bottom_to_top"
+    assert column.properties["title_position"] == "top"
+
+    updated = controller.update_column(
+        template.template_id,
+        column.column_id,
+        title=column.title,
+        column_type=column.column_type,
+        width_mm=column.width_mm,
+        curve_mnemonics=[],
+        title_orientation="horizontal",
+        title_position="bottom",
+    )
+
+    assert updated.properties["title_orientation"] == "horizontal"
+    assert updated.properties["title_position"] == "bottom"
+
+
 def test_column_properties_dialog_offers_stratigraphy(qapp) -> None:
     dialog = ColumnPropertiesDialog(language=AppLanguage.EN)
 

@@ -1,3 +1,40 @@
+# 0.7.1 — 2026-07-21
+
+### Русский
+
+- направление и положение текста добавлены в стратиграфические интервалы, заголовки колонок/дорожек формы, текст и динамические поля шапки;
+- доступны горизонтальный режим, 90° снизу вверх, 90° сверху вниз и размещение у верха, по центру или у низа;
+- один механизм отрисовки применяется в планшете, WYSIWYG-preview, PDF и физической печати;
+- 117 переданных BMP-литотипов подключены как заводской слой общего справочника без копирования в каждый проект;
+- реальные миниатюры и полный стандартный набор доступны в редакторах литологии и шламограммы;
+- добавлен элемент шапки `lithotype_swatch` с выбором рисунка, подписи, поворота и положения;
+- заводской литотип можно переопределить в проекте и затем сбросить, пользовательский — добавить, изменить или удалить;
+- preflight проверяет отсутствующие литотипы в отдельных образцах и ручных легендах;
+- старые проекты и формы используют безопасные значения `horizontal` и `center`.
+
+### Қазақша
+
+- мәтін бағыты мен орны стратиграфиялық аралықтарға, пішін бағандары/жолдарының тақырыптарына және тақырып мәтіндері мен динамикалық өрістеріне қосылды;
+- көлденең, төменнен жоғары 90°, жоғарыдан төмен 90° және жоғары/орта/төмен орналастыру режимдері бар;
+- бір көрсету механизмі планшетте, WYSIWYG preview-де, PDF пен физикалық баспада қолданылады;
+- берілген 117 BMP литотип әр жобаға көшірілмей, жалпы анықтамалықтың зауыттық қабаты ретінде қосылды;
+- литология мен шламограмма редакторларында нақты миниатюралар және толық стандартты жинақ бар;
+- тақырыпқа сурет, жазу, бұру және орнын таңдауға болатын `lithotype_swatch` элементі қосылды;
+- зауыттық литотипті жобада қайта анықтап, кейін қалпына келтіруге, ал пайдаланушы литотипін қосуға және өзгертуге болады;
+- preflight жеке үлгілер мен қолмен жасалған аңыздардағы жоқ литотиптерді тексереді;
+- ескі жобалар мен пішіндер `horizontal` және `center` қауіпсіз мәндерін қолданады.
+
+### English
+
+- text direction and position now apply to stratigraphy intervals, form column/track captions, header text, and dynamic fields;
+- supported modes are horizontal, 90° bottom-to-top, 90° top-to-bottom, with near-top, centre, or near-bottom placement;
+- tablet, WYSIWYG preview, PDF, and physical printing share one presentation implementation;
+- all 117 supplied BMP lithotypes are exposed as a factory catalog layer without copying them into each project;
+- lithology and cuttings editors show the full standard set with real pattern thumbnails;
+- added the `lithotype_swatch` header element with pattern, label, rotation, and placement controls;
+- factory lithotypes may be overridden and reset, while project lithotypes may be added and edited;
+- preflight validates missing lithotypes in swatches and manual legends;
+- legacy projects and forms use safe `horizontal` and `center` defaults.
 # Unreleased — LAS Editor 2: merge, external insertion, pencil, and spreadsheet
 
 ### Русский

@@ -1,6 +1,6 @@
 # Editable form captions and stratigraphy
 
-Updated: 20 July 2026
+Updated: 21 July 2026
 
 ## Editable captions
 
@@ -54,7 +54,30 @@ Intervals of the same rank cannot overlap. Different ranks may nest: a period ca
 epoch, stage, and local formation. Code and name are rendered inside a coloured block on the shared
 depth scale.
 
+
+## Interval text direction and position
+
+The create/edit dialog provides two independent presentation settings:
+
+- **Text direction**: horizontal (0°), vertical bottom to top (90°), or vertical top to bottom
+  (90°);
+- **Text position**: near the interval top, at the interval centre, or near the interval bottom.
+
+The default position for a new interval is **the interval centre**. Horizontal remains the default
+direction for compatibility with existing projects. The selected settings are stored with the
+interval and applied consistently in the tablet, Masterlog preview, PDF, and physical print.
+Previously saved values are restored when the interval is edited again.
+
 ## Saving
 
 The diskette button and `Ctrl+S` save well intervals, project catalog overrides, section and track
 titles, parameter captions, widths, order, scales, ranges, and styles.
+
+## Form and header text direction
+
+The form structure editor stores direction and top/centre/bottom placement independently for every
+column and track. The same values drive the form preview, live tablet, and Masterlog print bridge.
+
+The header editor exposes rotation and placement for Text, Dynamic field, and Lithotype swatch
+elements. A narrow column can therefore use a bottom-to-top caption centred in the available area
+or anchored closer to its upper or lower boundary.

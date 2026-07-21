@@ -1,7 +1,7 @@
 # Universal form, header and print constructor
 
 Updated: 21 July 2026  
-Implementation version: 0.7.0
+Implementation version: 0.7.1
 
 ## Purpose
 
@@ -79,3 +79,13 @@ incompatible print system.
 3. Add direct preview dragging for symbols.
 4. Add symbol legends and expanded preflight.
 5. Link screen and print templates through an explicit profile ID.
+
+## Constructor-related 0.7.1 slice
+
+- [x] 0°/±90° and top/centre/bottom for stratigraphy intervals;
+- [x] the same properties for screen-form column and track captions;
+- [x] the same properties for WYSIWYG text, fields, and lithotype swatches;
+- [x] all 117 standard BMP lithotypes are immediately available in lithology and cuttings;
+- [x] real thumbnails, project overrides, and factory reset;
+- [x] one catalog drives `lithotype_swatch`, dynamic legends, preflight, and printing;
+- [ ] Windows smoke-test for rotated labels and physical BMP-pattern printing.

@@ -26,6 +26,11 @@ from geoworkbench.forms.preview import FormPreviewController, PreviewCallback
 from geoworkbench.forms.models import FormDocument
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.text_presentation import (
+    TEXT_ORIENTATIONS,
+    TEXT_VERTICAL_POSITIONS,
+)
+from geoworkbench.printing.text_rendering import draw_oriented_text
 from geoworkbench.tablet.models import TrackKind
 from geoworkbench.ui.track_content_editor_dialog import TrackContentEditorDialog
 
@@ -68,12 +73,21 @@ class _FormPreview(QWidget):
                 QPen(QColor("#2563eb") if selected else QColor("#9aa4b2"), 2 if selected else 1)
             )
             painter.drawRect(rect)
-            header = rect.adjusted(4, 3, -4, -rect.height() + 25)
+            column_header_height = 48 if column.title_orientation != "horizontal" else 25
+            header = rect.adjusted(4, 3, -4, -rect.height() + column_header_height)
             painter.setPen(QColor("#111827"))
-            painter.drawText(header, Qt.AlignmentFlag.AlignCenter, column.title)
+            draw_oriented_text(
+                painter,
+                header,
+                column.title,
+                orientation=column.title_orientation,
+                position=column.title_position,
+                padding_x=1.0,
+                padding_y=1.0,
+            )
             if column.tracks:
-                track_height = max(18, (rect.height() - 32) // len(column.tracks))
-                top = rect.top() + 28
+                track_height = max(24, (rect.height() - column_header_height - 7) // len(column.tracks))
+                top = rect.top() + column_header_height + 3
                 for track in column.tracks:
                     track_rect = rect.adjusted(
                         4, top - rect.top(), -4, top + track_height - rect.bottom()
@@ -90,8 +104,12 @@ class _FormPreview(QWidget):
                     )
                     painter.drawRect(track_rect)
                     painter.setPen(QColor("#374151"))
-                    painter.drawText(
-                        track_rect.adjusted(3, 0, -3, 0), Qt.AlignmentFlag.AlignCenter, track.title
+                    draw_oriented_text(
+                        painter,
+                        track_rect.adjusted(3, 0, -3, 0),
+                        track.title,
+                        orientation=track.title_orientation,
+                        position=track.title_position,
                     )
                     top += track_height
             x += width
@@ -184,6 +202,46 @@ class FormStructureEditorDialog(QDialog):
         self.title_edit = QLineEdit()
         self.title_edit.editingFinished.connect(self._apply_title)
         properties.addRow(self._text("Заголовок", "Тақырып", "Title"), self.title_edit)
+
+        self.title_orientation_combo = QComboBox()
+        orientation_labels = {
+            "horizontal": self._text("Горизонтально (0°)", "Көлденең (0°)", "Horizontal (0°)"),
+            "vertical_bottom_to_top": self._text(
+                "Вертикально снизу вверх (90°)",
+                "Төменнен жоғары тік (90°)",
+                "Vertical bottom to top (90°)",
+            ),
+            "vertical_top_to_bottom": self._text(
+                "Вертикально сверху вниз (90°)",
+                "Жоғарыдан төмен тік (90°)",
+                "Vertical top to bottom (90°)",
+            ),
+        }
+        for value in TEXT_ORIENTATIONS:
+            self.title_orientation_combo.addItem(orientation_labels[value], value)
+        self.title_orientation_combo.currentIndexChanged.connect(
+            self._apply_title_presentation
+        )
+        properties.addRow(
+            self._text("Направление текста", "Мәтін бағыты", "Text direction"),
+            self.title_orientation_combo,
+        )
+
+        self.title_position_combo = QComboBox()
+        position_labels = {
+            "top": self._text("Ближе к верху", "Жоғарыға жақын", "Near top"),
+            "center": self._text("По центру", "Ортада", "Centred"),
+            "bottom": self._text("Ближе к низу", "Төменге жақын", "Near bottom"),
+        }
+        for value in TEXT_VERTICAL_POSITIONS:
+            self.title_position_combo.addItem(position_labels[value], value)
+        self.title_position_combo.currentIndexChanged.connect(
+            self._apply_title_presentation
+        )
+        properties.addRow(
+            self._text("Положение текста", "Мәтін орны", "Text position"),
+            self.title_position_combo,
+        )
 
         self.group_edit = QLineEdit()
         self.group_edit.setPlaceholderText(
@@ -372,6 +430,8 @@ class FormStructureEditorDialog(QDialog):
             if ref is None:
                 self.title_edit.clear()
                 self.title_edit.setEnabled(False)
+                self.title_orientation_combo.setEnabled(False)
+                self.title_position_combo.setEnabled(False)
                 self.group_edit.clear()
                 self.group_edit.setEnabled(False)
                 self.width_spin.setEnabled(False)
@@ -381,6 +441,8 @@ class FormStructureEditorDialog(QDialog):
                 return
             kind, object_id = ref
             self.title_edit.setEnabled(True)
+            self.title_orientation_combo.setEnabled(kind in {"column", "track"})
+            self.title_position_combo.setEnabled(kind in {"column", "track"})
             self.axis_label_edit.setEnabled(False)
             self.axis_label_edit.clear()
             if kind == "column":
@@ -391,6 +453,10 @@ class FormStructureEditorDialog(QDialog):
                 self.width_spin.setEnabled(True)
                 self.width_spin.setValue(column.width)
                 self.kind_combo.setEnabled(False)
+                self._select_combo_data(
+                    self.title_orientation_combo, column.title_orientation
+                )
+                self._select_combo_data(self.title_position_combo, column.title_position)
             elif kind == "track":
                 _column, track = self.editor.track(object_id)
                 self.title_edit.setText(track.title)
@@ -400,6 +466,10 @@ class FormStructureEditorDialog(QDialog):
                 self.kind_combo.setEnabled(True)
                 self.axis_label_edit.setEnabled(True)
                 self.axis_label_edit.setText(track.x_axis_label)
+                self._select_combo_data(
+                    self.title_orientation_combo, track.title_orientation
+                )
+                self._select_combo_data(self.title_position_combo, track.title_position)
                 index = self.kind_combo.findData(track.kind)
                 if index >= 0:
                     self.kind_combo.setCurrentIndex(index)
@@ -411,9 +481,41 @@ class FormStructureEditorDialog(QDialog):
                 self.group_edit.setEnabled(False)
                 self.width_spin.setEnabled(False)
                 self.kind_combo.setEnabled(False)
+                self._select_combo_data(self.title_orientation_combo, "horizontal")
+                self._select_combo_data(self.title_position_combo, "center")
             self.preview.set_form(self.editor.form, object_id.split("::", 1)[0])
         finally:
             self._updating_properties = False
+
+    @staticmethod
+    def _select_combo_data(combo: QComboBox, value: str) -> None:
+        index = combo.findData(value)
+        combo.setCurrentIndex(index if index >= 0 else 0)
+
+    def _apply_title_presentation(self, _index: int = -1) -> None:
+        if self._updating_properties:
+            return
+        ref = self._selected_ref()
+        if ref is None:
+            return
+        kind, object_id = ref
+        orientation = str(self.title_orientation_combo.currentData() or "horizontal")
+        position = str(self.title_position_combo.currentData() or "center")
+        try:
+            if kind == "column":
+                self.editor.set_column_title_presentation(
+                    object_id, orientation=orientation, position=position
+                )
+            elif kind == "track":
+                self.editor.set_track_title_presentation(
+                    object_id, orientation=orientation, position=position
+                )
+            else:
+                return
+            self._form_changed()
+            self.preview.set_form(self.editor.form, object_id)
+        except (KeyError, PermissionError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
 
     def _apply_title(self) -> None:
         if self._updating_properties:

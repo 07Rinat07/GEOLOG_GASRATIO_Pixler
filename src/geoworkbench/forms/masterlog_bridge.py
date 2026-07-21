@@ -8,7 +8,6 @@ from typing import Iterable
 from geoworkbench.domain.models import (
     MasterlogColumnTemplate,
     MasterlogCurveStyle,
-    MasterlogHeaderElement,
     MasterlogTemplate,
 )
 from geoworkbench.forms.models import FormAxisKind, FormDocument, FormTrack, ParameterBinding
@@ -194,6 +193,8 @@ def _column_from_track(
             for binding, mnemonic in zip(visible_bindings, mnemonics, strict=True)
         },
         "x_axis_label": track.x_axis_label,
+        "title_orientation": track.title_orientation,
+        "title_position": track.title_position,
     }
     if track.kind is TrackKind.TEXT:
         properties["text_source"] = "cuttings_description"

@@ -3348,6 +3348,7 @@ class MainWindow(QMainWindow):
             dialog.name_input.setText(interval.name or "")
             dialog.color_input.setText(interval.color)
             dialog.description_input.setText(interval.description or "")
+            dialog.set_text_presentation(interval.text_orientation, interval.text_position)
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 return
             try:

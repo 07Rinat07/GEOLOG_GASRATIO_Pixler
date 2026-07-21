@@ -32,6 +32,8 @@ def test_stratigraphy_crud_allows_nested_different_ranks() -> None:
         rank="Stage / Age",
         name="Albian",
         description="Reservoir interval",
+        text_orientation="vertical_bottom_to_top",
+        text_position="top",
     )
 
     assert controller.available() == (period, stage)
@@ -44,9 +46,13 @@ def test_stratigraphy_crud_allows_nested_different_ranks() -> None:
         name="Albian",
         color="#abcdef",
         description="Updated",
+        text_orientation="vertical_top_to_bottom",
+        text_position="bottom",
     )
     assert stage.top_depth == 155.0
     assert stage.color == "#abcdef"
+    assert stage.text_orientation == "vertical_top_to_bottom"
+    assert stage.text_position == "bottom"
     assert controller.remove(period.interval_id) is period
     assert controller.session.dirty is True
 
@@ -63,3 +69,11 @@ def test_stratigraphy_rejects_overlap_within_same_rank_and_invalid_values() -> N
         controller.add(200.0, 250.0, "K3", color="green")
     with pytest.raises(ValueError, match="меньше"):
         controller.add(250.0, 250.0, "K4")
+
+
+def test_stratigraphy_rejects_unknown_text_presentation() -> None:
+    controller = _controller()
+    with pytest.raises(ValueError, match="направление текста"):
+        controller.add(100.0, 120.0, "K1", text_orientation="diagonal")
+    with pytest.raises(ValueError, match="положение текста"):
+        controller.add(120.0, 140.0, "K2", text_position="outside")

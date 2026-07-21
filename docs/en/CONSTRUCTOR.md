@@ -25,3 +25,20 @@ source of truth while offsets provide precise visual adjustment.
 
 Run preflight before output. It checks datasets, columns, header overflow, missing resources,
 curve bindings and depth-symbol validity.
+
+## Text direction and placement
+
+Select a column or track in the form structure editor and choose horizontal 0°, vertical
+bottom-to-top 90°, or vertical top-to-bottom 90°, together with near-top, centred, or near-bottom
+placement. Header text, dynamic fields, and individual lithotype labels expose the same settings.
+Centre is the default, and preview/printing consume the persisted values directly.
+
+## Standard lithotypes in working editors
+
+All 117 supplied patterns are immediately available in the lithology interval selector and in all
+four cuttings-composition rows, with a real tiled thumbnail. The catalog can add project rocks,
+override a factory entry, or reset that override.
+
+A header may contain either a dynamic lithology legend or one **`lithotype_swatch`** element.
+The swatch supports pattern-only, pattern-and-name, or pattern-code-name modes, plus label
+rotation and vertical placement.

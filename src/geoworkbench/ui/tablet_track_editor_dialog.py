@@ -22,6 +22,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from geoworkbench.domain.text_presentation import (
+    TEXT_ORIENTATIONS,
+    TEXT_VERTICAL_POSITIONS,
+)
 from geoworkbench.tablet.models import (
     CurveDisplaySettings,
     CurveLineStyle,
@@ -44,6 +48,36 @@ class TabletTrackEditorDialog(QDialog):
         root = QVBoxLayout(self)
         form = QFormLayout()
         self.title_input = QLineEdit(self.track.title)
+        self.title_orientation_input = QComboBox()
+        orientation_labels = {
+            "horizontal": self._text("Горизонтально (0°)", "Көлденең (0°)", "Horizontal (0°)"),
+            "vertical_bottom_to_top": self._text(
+                "Вертикально снизу вверх (90°)",
+                "Төменнен жоғары тік (90°)",
+                "Vertical bottom to top (90°)",
+            ),
+            "vertical_top_to_bottom": self._text(
+                "Вертикально сверху вниз (90°)",
+                "Жоғарыдан төмен тік (90°)",
+                "Vertical top to bottom (90°)",
+            ),
+        }
+        for value in TEXT_ORIENTATIONS:
+            self.title_orientation_input.addItem(orientation_labels[value], value)
+        self.title_orientation_input.setCurrentIndex(
+            max(0, self.title_orientation_input.findData(self.track.title_orientation))
+        )
+        self.title_position_input = QComboBox()
+        position_labels = {
+            "top": self._text("Ближе к верху", "Жоғарыға жақын", "Near top"),
+            "center": self._text("По центру", "Ортада", "Centred"),
+            "bottom": self._text("Ближе к низу", "Төменге жақын", "Near bottom"),
+        }
+        for value in TEXT_VERTICAL_POSITIONS:
+            self.title_position_input.addItem(position_labels[value], value)
+        self.title_position_input.setCurrentIndex(
+            max(0, self.title_position_input.findData(self.track.title_position))
+        )
         self.group_input = QLineEdit(self.track.group_title)
         self.group_input.setPlaceholderText(
             self._text("Например: Геология", "Мысалы: Геология", "For example: Geology")
@@ -54,6 +88,14 @@ class TabletTrackEditorDialog(QDialog):
         self.width_input.setValue(self.track.width)
         self.axis_input = QLineEdit(self.track.x_axis_label)
         form.addRow(self._text("Название дорожки", "Жол атауы", "Track title"), self.title_input)
+        form.addRow(
+            self._text("Направление текста", "Мәтін бағыты", "Text direction"),
+            self.title_orientation_input,
+        )
+        form.addRow(
+            self._text("Положение текста", "Мәтін орны", "Text position"),
+            self.title_position_input,
+        )
         form.addRow(self._text("Название раздела", "Бөлім атауы", "Section title"), self.group_input)
         form.addRow(self._text("Ширина", "Ені", "Width"), self.width_input)
         form.addRow(self._text("Подпись оси X", "X осінің жазуы", "X-axis label"), self.axis_input)
@@ -288,6 +330,12 @@ class TabletTrackEditorDialog(QDialog):
             QMessageBox.warning(self, self.windowTitle(), self._text("Одна из подписей слишком длинная", "Жазулардың бірі тым ұзын", "One of the captions is too long"))
             return
         self.track.title = title
+        self.track.title_orientation = str(
+            self.title_orientation_input.currentData() or "horizontal"
+        )
+        self.track.title_position = str(
+            self.title_position_input.currentData() or "center"
+        )
         self.track.group_title = group
         self.track.width = self.width_input.value()
         self.track.x_axis_label = axis

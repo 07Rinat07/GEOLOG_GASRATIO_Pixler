@@ -153,6 +153,8 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
             "Stage / Age",
             "#a6d96a",
             "Reservoir interval",
+            "vertical_bottom_to_top",
+            "bottom",
         )
     )
     dataset = project.wells["well-1"].datasets["dataset-1"]
@@ -219,6 +221,8 @@ def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     assert stratigraphy.rank == "Stage / Age"
     assert stratigraphy.color == "#a6d96a"
     assert stratigraphy.description == "Reservoir interval"
+    assert stratigraphy.text_orientation == "vertical_bottom_to_top"
+    assert stratigraphy.text_position == "bottom"
     assert (
         document.project.time_depth_mapping_profiles["time-depth"].aggregation_policy
         is TimeDepthAggregationPolicy.LAST

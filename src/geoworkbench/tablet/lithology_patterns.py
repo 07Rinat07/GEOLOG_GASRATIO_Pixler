@@ -25,7 +25,22 @@ _PATTERN_STYLES = {
 
 
 def supported_pattern_keys() -> tuple[str, ...]:
-    return tuple(_PATTERN_STYLES)
+    keys = list(_PATTERN_STYLES)
+    try:
+        from geoworkbench.form_constructor.asset_install import (
+            CONSTRUCTOR_PATTERN_PREFIX,
+            load_factory_constructor_registry,
+        )
+
+        keys.extend(
+            f"{CONSTRUCTOR_PATTERN_PREFIX}{asset.asset_id}"
+            for asset in load_factory_constructor_registry().all(kind="lithology_pattern")
+        )
+    except (OSError, RuntimeError, ValueError):
+        # The compact hatch catalog remains usable even when an installation is
+        # missing the optional bitmap resource directory.
+        pass
+    return tuple(dict.fromkeys(keys))
 
 
 @lru_cache(maxsize=256)

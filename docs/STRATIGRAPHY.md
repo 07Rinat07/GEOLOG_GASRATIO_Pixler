@@ -1,6 +1,6 @@
 # Стратиграфия: справочник, интервалы и дорожка планшета
 
-Дата актуализации: 20 июля 2026
+Дата актуализации: 21 июля 2026
 
 Пользовательские инструкции: [RU](ru/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [KK](kk/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [EN](en/FORM_CAPTIONS_AND_STRATIGRAPHY.md)
 
@@ -49,3 +49,13 @@
 
 Название дорожки, объединённого раздела, оси X и параметров редактируются без изменения
 исходных LAS-мнемоник. Полный редактор вызывается правой кнопкой на любой дорожке.
+
+## Оформление текста интервала
+
+`StratigraphyInterval` хранит `text_orientation` и `text_position`. Поддерживаются
+`horizontal`, `vertical_bottom_to_top`, `vertical_top_to_bottom` и положения `top`, `center`,
+`bottom`. Для старых проектов применяются `horizontal` и `center`.
+
+Экранный `TabletView` и печатный `masterlog_renderer.py` используют общие функции из
+`domain/stratigraphy_presentation.py`, поэтому положение у кровли, в центре или у подошвы и
+направление 0°/±90° совпадают в планшете, preview, PDF и печати.

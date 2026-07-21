@@ -20,6 +20,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from geoworkbench.domain.text_presentation import (
+    TEXT_ORIENTATIONS,
+    TEXT_VERTICAL_POSITIONS,
+)
 from geoworkbench.domain.models import (
     Dataset,
     MasterlogColumnTemplate,
@@ -65,6 +69,50 @@ class ColumnPropertiesDialog(QDialog):
         self.width_input.setRange(5.0, 200.0)
         self.width_input.setSuffix(" mm")
         self.width_input.setValue(column.width_mm if column else 30.0)
+        self.title_orientation_input = QComboBox()
+        orientation_labels = {
+            AppLanguage.RU: {
+                "horizontal": "Горизонтально (0°)",
+                "vertical_bottom_to_top": "Вертикально снизу вверх (90°)",
+                "vertical_top_to_bottom": "Вертикально сверху вниз (90°)",
+            },
+            AppLanguage.KK: {
+                "horizontal": "Көлденең (0°)",
+                "vertical_bottom_to_top": "Төменнен жоғары тік (90°)",
+                "vertical_top_to_bottom": "Жоғарыдан төмен тік (90°)",
+            },
+            AppLanguage.EN: {
+                "horizontal": "Horizontal (0°)",
+                "vertical_bottom_to_top": "Vertical bottom to top (90°)",
+                "vertical_top_to_bottom": "Vertical top to bottom (90°)",
+            },
+        }[language]
+        for value in TEXT_ORIENTATIONS:
+            self.title_orientation_input.addItem(orientation_labels[value], value)
+        selected_orientation = (
+            str(column.properties.get("title_orientation", "horizontal"))
+            if column is not None
+            else "horizontal"
+        )
+        self.title_orientation_input.setCurrentIndex(
+            max(0, self.title_orientation_input.findData(selected_orientation))
+        )
+        self.title_position_input = QComboBox()
+        position_labels = {
+            AppLanguage.RU: {"top": "Ближе к верху", "center": "По центру", "bottom": "Ближе к низу"},
+            AppLanguage.KK: {"top": "Жоғарыға жақын", "center": "Ортада", "bottom": "Төменге жақын"},
+            AppLanguage.EN: {"top": "Near top", "center": "Centred", "bottom": "Near bottom"},
+        }[language]
+        for value in TEXT_VERTICAL_POSITIONS:
+            self.title_position_input.addItem(position_labels[value], value)
+        selected_position = (
+            str(column.properties.get("title_position", "center"))
+            if column is not None
+            else "center"
+        )
+        self.title_position_input.setCurrentIndex(
+            max(0, self.title_position_input.findData(selected_position))
+        )
         self.curves_input = QLineEdit(", ".join(column.curve_mnemonics) if column else "")
         self._curve_styles = dict(column.curve_styles) if column else {}
         self.curves_input.setObjectName("masterlog-column-curves")
@@ -154,6 +202,13 @@ class ColumnPropertiesDialog(QDialog):
         layout.addRow(localizer.text("masterlog_columns.name"), self.title_input)
         layout.addRow(localizer.text("inspector.type"), self.type_input)
         layout.addRow(localizer.text("inspector.width"), self.width_input)
+        presentation_labels = {
+            AppLanguage.RU: ("Направление заголовка", "Положение заголовка"),
+            AppLanguage.KK: ("Тақырып бағыты", "Тақырып орны"),
+            AppLanguage.EN: ("Title direction", "Title position"),
+        }[language]
+        layout.addRow(presentation_labels[0], self.title_orientation_input)
+        layout.addRow(presentation_labels[1], self.title_position_input)
         layout.addRow(localizer.text("inspector.curves"), curves_row)
         layout.addRow(localizer.text("inspector.x_scale"), self.scale_input)
         layout.addRow(self.auto_range_input)
@@ -211,6 +266,12 @@ class ColumnPropertiesDialog(QDialog):
             self.color_input.text().strip(),
             self.line_width_input.value(),
             str(self.line_style_input.currentData()),
+        )
+
+    def title_presentation(self) -> tuple[str, str]:
+        return (
+            str(self.title_orientation_input.currentData() or "horizontal"),
+            str(self.title_position_input.currentData() or "center"),
         )
 
     def _update_range_enabled(self, automatic: bool) -> None:
@@ -578,6 +639,7 @@ class MasterlogColumnsDialog(QDialog):
             line_style,
         ) = dialog.values()
         grid_x, grid_y, grid_major, grid_minor, grid_alpha = dialog.grid_settings()
+        title_orientation, title_position = dialog.title_presentation()
         self._run(
             lambda: self.controller.add_column(
                 self.template_id,
@@ -598,6 +660,8 @@ class MasterlogColumnsDialog(QDialog):
                 grid_major_divisions=grid_major,
                 grid_minor_divisions=grid_minor,
                 grid_alpha=grid_alpha,
+                title_orientation=title_orientation,
+                title_position=title_position,
             )
         )
 
@@ -666,6 +730,7 @@ def edit_masterlog_column(
         line_style,
     ) = dialog.values()
     grid_x, grid_y, grid_major, grid_minor, grid_alpha = dialog.grid_settings()
+    title_orientation, title_position = dialog.title_presentation()
     controller.update_column(
         template_id,
         column_id,
@@ -686,5 +751,7 @@ def edit_masterlog_column(
         grid_major_divisions=grid_major,
         grid_minor_divisions=grid_minor,
         grid_alpha=grid_alpha,
+        title_orientation=title_orientation,
+        title_position=title_position,
     )
     return True

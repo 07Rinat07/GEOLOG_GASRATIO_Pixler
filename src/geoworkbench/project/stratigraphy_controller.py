@@ -6,8 +6,30 @@ import re
 import numpy as np
 
 from geoworkbench.domain.models import StratigraphyInterval, Well, new_id
+from geoworkbench.domain.stratigraphy_presentation import (
+    STRATIGRAPHY_TEXT_ORIENTATIONS,
+    STRATIGRAPHY_TEXT_POSITIONS,
+    normalize_stratigraphy_text_orientation,
+    normalize_stratigraphy_text_position,
+    stratigraphy_text_angle,
+    stratigraphy_text_position_fraction,
+)
 from geoworkbench.project.session import ProjectSession
 
+
+
+
+__all__ = [
+    "STRATIGRAPHY_RANKS",
+    "STRATIGRAPHY_TEXT_ORIENTATIONS",
+    "STRATIGRAPHY_TEXT_POSITIONS",
+    "StratigraphyController",
+    "normalize_stratigraphy_text_orientation",
+    "normalize_stratigraphy_text_position",
+    "stratigraphy_rank_order",
+    "stratigraphy_text_angle",
+    "stratigraphy_text_position_fraction",
+]
 
 STRATIGRAPHY_RANKS = (
     "Eonothem / Eon",
@@ -19,7 +41,6 @@ STRATIGRAPHY_RANKS = (
     "Member",
     "Bed",
 )
-
 
 def stratigraphy_rank_order(rank: str | None) -> tuple[int, str]:
     normalized = (rank or "").strip()
@@ -61,8 +82,20 @@ class StratigraphyController:
         rank: str | None = None,
         color: str = "#dbeafe",
         description: str | None = None,
+        text_orientation: str = "horizontal",
+        text_position: str = "center",
     ) -> StratigraphyInterval:
-        values = self._validate(top_depth, bottom_depth, code, name, rank, color, description)
+        values = self._validate(
+            top_depth,
+            bottom_depth,
+            code,
+            name,
+            rank,
+            color,
+            description,
+            text_orientation,
+            text_position,
+        )
         self._ensure_no_overlap(values[0], values[1], values[4])
         interval = StratigraphyInterval(new_id(), *values)
         self._require_well().stratigraphy.append(interval)
@@ -80,9 +113,21 @@ class StratigraphyController:
         rank: str | None = None,
         color: str = "#dbeafe",
         description: str | None = None,
+        text_orientation: str = "horizontal",
+        text_position: str = "center",
     ) -> StratigraphyInterval:
         interval = self._require_interval(interval_id)
-        values = self._validate(top_depth, bottom_depth, code, name, rank, color, description)
+        values = self._validate(
+            top_depth,
+            bottom_depth,
+            code,
+            name,
+            rank,
+            color,
+            description,
+            text_orientation,
+            text_position,
+        )
         self._ensure_no_overlap(values[0], values[1], values[4], excluded_id=interval_id)
         (
             interval.top_depth,
@@ -92,6 +137,8 @@ class StratigraphyController:
             interval.rank,
             interval.color,
             interval.description,
+            interval.text_orientation,
+            interval.text_position,
         ) = values
         self.session.dirty = True
         return interval
@@ -111,7 +158,19 @@ class StratigraphyController:
         rank: str | None,
         color: str,
         description: str | None,
-    ) -> tuple[float, float, str, str | None, str | None, str, str | None]:
+        text_orientation: str,
+        text_position: str,
+    ) -> tuple[
+        float,
+        float,
+        str,
+        str | None,
+        str | None,
+        str,
+        str | None,
+        str,
+        str,
+    ]:
         top, bottom = float(top_depth), float(bottom_depth)
         if not np.isfinite(top) or not np.isfinite(bottom) or top >= bottom:
             raise ValueError("Кровля стратиграфического интервала должна быть меньше подошвы")
@@ -126,6 +185,8 @@ class StratigraphyController:
         if not re.fullmatch(r"#[0-9a-fA-F]{6}", normalized_color):
             raise ValueError("Цвет стратиграфии должен быть в формате #RRGGBB")
         normalized_description = self._optional_text(description, 4000, "Описание")
+        normalized_orientation = normalize_stratigraphy_text_orientation(text_orientation)
+        normalized_position = normalize_stratigraphy_text_position(text_position)
         dataset = self.session.current_dataset
         if dataset is not None:
             finite = dataset.depth[np.isfinite(dataset.depth)]
@@ -139,6 +200,8 @@ class StratigraphyController:
             normalized_rank,
             normalized_color,
             normalized_description,
+            normalized_orientation,
+            normalized_position,
         )
 
     @staticmethod

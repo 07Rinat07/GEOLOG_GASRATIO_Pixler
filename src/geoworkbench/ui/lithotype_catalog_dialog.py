@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.lithology_patterns import lithology_brush, supported_pattern_keys
+from geoworkbench.ui.lithotype_visuals import lithotype_icon, pattern_icon
 
 
 class LithologyPatternPreview(QWidget):
@@ -58,11 +60,42 @@ class LithotypeCatalogDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
+        self.language = language
         self.controller = controller
         self.setWindowTitle(self._t("catalog.window_title"))
         self.resize(1100, 620)
 
         root = QVBoxLayout(self)
+        info = QLabel(
+            {
+                AppLanguage.RU: (
+                    "Стандартный набор включает встроенные обозначения и 117 переданных "
+                    "литологических рисунков. Заводскую запись можно изменить: программа "
+                    "создаст проектное переопределение, которое затем можно сбросить."
+                ),
+                AppLanguage.KK: (
+                    "Стандартты жинақта кірістірілген белгілер және берілген 117 литологиялық "
+                    "сурет бар. Зауыттық жазбаны өзгерткенде жобалық қайта анықтау жасалады."
+                ),
+                AppLanguage.EN: (
+                    "The standard set contains the built-in symbols and all 117 supplied "
+                    "lithology bitmaps. Editing a factory row creates a project override that "
+                    "can later be reset."
+                ),
+            }[language]
+        )
+        info.setWordWrap(True)
+        root.addWidget(info)
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText(
+            {
+                AppLanguage.RU: "Поиск по коду, названию, ID, псевдониму или рисунку...",
+                AppLanguage.KK: "Код, атау, ID, бүркеншік ат немесе сурет бойынша іздеу...",
+                AppLanguage.EN: "Search by code, name, ID, alias or pattern...",
+            }[language]
+        )
+        self.search_input.textChanged.connect(self._apply_filter)
+        root.addWidget(self.search_input)
         self.table = QTableWidget(0, 9)
         self.table.setObjectName("lithotype-catalog-table")
         self.table.setHorizontalHeaderLabels(
@@ -92,7 +125,12 @@ class LithotypeCatalogDialog(QDialog):
         self.color_input = QLineEdit("#c9a66b")
         self.pattern_input = QComboBox()
         self.pattern_input.setEditable(True)
-        self.pattern_input.addItems(supported_pattern_keys())
+        for pattern_key in supported_pattern_keys():
+            self.pattern_input.addItem(
+                pattern_icon("#f8fafc", pattern_key),
+                pattern_key,
+                pattern_key,
+            )
         for label, field in (
             (self._t("catalog.id"), self.id_input),
             (self._t("catalog.code"), self.code_input),
@@ -122,7 +160,15 @@ class LithotypeCatalogDialog(QDialog):
             ("catalog-new-button", self._t("catalog.new"), self._clear_form),
             ("catalog-add-button", self._t("common.add"), self._add),
             ("catalog-update-button", self._t("common.update"), self._update),
-            ("catalog-remove-button", self._t("common.remove"), self._remove),
+            (
+                "catalog-remove-button",
+                {
+                    AppLanguage.RU: "Сбросить / удалить",
+                    AppLanguage.KK: "Қалпына келтіру / жою",
+                    AppLanguage.EN: "Reset / delete",
+                }[language],
+                self._remove,
+            ),
         ):
             button = QPushButton(title)
             button.setObjectName(object_name)
@@ -142,10 +188,28 @@ class LithotypeCatalogDialog(QDialog):
 
     def _refresh(self) -> None:
         records = self.controller.available()
+        self._records = records
+        self._record_by_id = {record.lithotype_id: record for record in records}
         self.table.setRowCount(len(records))
         for row, record in enumerate(records):
+            if record.overridden:
+                source = {
+                    AppLanguage.RU: "Переопределён в проекте",
+                    AppLanguage.KK: "Жобада қайта анықталған",
+                    AppLanguage.EN: "Project override",
+                }[self.language]
+            elif record.source == "factory":
+                source = {
+                    AppLanguage.RU: "Стандартный рисунок",
+                    AppLanguage.KK: "Стандартты сурет",
+                    AppLanguage.EN: "Standard bitmap",
+                }[self.language]
+            elif record.system:
+                source = self._t("catalog.system")
+            else:
+                source = self._t("catalog.project")
             values = (
-                self._t("catalog.system") if record.system else self._t("catalog.project"),
+                source,
                 record.code,
                 record.lithotype_id,
                 record.name_ru,
@@ -159,8 +223,13 @@ class LithotypeCatalogDialog(QDialog):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, record.lithotype_id)
                 item.setData(Qt.ItemDataRole.UserRole + 1, record.system)
+                item.setData(Qt.ItemDataRole.UserRole + 2, record.overridden)
+                if column == 0:
+                    item.setIcon(lithotype_icon(record))
                 self.table.setItem(row, column, item)
+            self.table.setRowHeight(row, 30)
         self.table.resizeColumnsToContents()
+        self._apply_filter(self.search_input.text())
 
     def _load_selected(self) -> None:
         row = self.table.currentRow()
@@ -173,7 +242,7 @@ class LithotypeCatalogDialog(QDialog):
             cast(QTableWidgetItem, item) for item in values
         )
         self.id_input.setText(lithotype_id.text())
-        self.id_input.setReadOnly(bool(source.data(Qt.ItemDataRole.UserRole + 1)))
+        self.id_input.setReadOnly(True)
         self.code_input.setText(code.text())
         self.name_ru_input.setText(name_ru.text())
         self.name_kk_input.setText(name_kk.text())
@@ -256,6 +325,30 @@ class LithotypeCatalogDialog(QDialog):
         row = self.table.currentRow()
         item = self.table.item(row, 0) if row >= 0 else None
         return str(item.data(Qt.ItemDataRole.UserRole)) if item is not None else None
+
+    def _apply_filter(self, query: str) -> None:
+        needle = query.strip().casefold()
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            lithotype_id = str(item.data(Qt.ItemDataRole.UserRole)) if item is not None else ""
+            record = getattr(self, "_record_by_id", {}).get(lithotype_id)
+            if record is None or not needle:
+                self.table.setRowHidden(row, False)
+                continue
+            values = (
+                record.lithotype_id,
+                record.code,
+                record.name_ru,
+                record.name_kk,
+                record.name_en,
+                record.category,
+                record.pattern_key,
+                *record.aliases,
+            )
+            self.table.setRowHidden(
+                row,
+                not any(needle in str(value).casefold() for value in values),
+            )
 
     def _run(self, operation: Callable[[], object]) -> bool:
         try:

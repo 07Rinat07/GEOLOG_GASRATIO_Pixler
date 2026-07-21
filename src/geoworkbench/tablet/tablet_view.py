@@ -43,13 +43,18 @@ from geoworkbench.domain.models import (
     WellInterpretation,
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
-from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
+from geoworkbench.project.stratigraphy_controller import (
+    stratigraphy_rank_order,
+    stratigraphy_text_angle,
+    stratigraphy_text_position_fraction,
+)
 from geoworkbench.printing.lba_visuals import (
     normalized_lba_intensity,
     resolve_lba_type_style,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.parameter_labels import localized_curve_name
+from geoworkbench.ui.oriented_text_label import OrientedTextLabel
 from geoworkbench.tablet.curve_scaling import automatic_curve_range, normalize_curve_values
 from geoworkbench.tablet.camera import (
     DEPTH_VIEW_SPAN_PRESETS,
@@ -342,14 +347,19 @@ class TabletTrackWidget(QFrame):
         self.setMaximumWidth(display_width)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
 
-        self.title = QLabel(definition.title)
-        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title = OrientedTextLabel(
+            definition.title,
+            orientation=definition.title_orientation,
+            position=definition.title_position,
+        )
         self.title.setStyleSheet(
             "font-weight: 600; padding: 6px; "
             "background: #f8fafc; color: #0f172a; "
             "border-bottom: 1px solid #cbd5e1;"
         )
-        self.title.setFixedHeight(36)
+        self.title.setFixedHeight(
+            88 if definition.title_orientation != "horizontal" else 36
+        )
 
         self.curve_header = QWidget()
         self.curve_header.setObjectName("tablet-curve-header-content")
@@ -447,6 +457,13 @@ class TabletTrackWidget(QFrame):
         self._natural_curve_header_height = min(320, max(0, len(rows) * 48))
         self.curve_header_scroll.setMaximumHeight(self._natural_curve_header_height)
         self.curve_header_scroll.setVisible(bool(rows))
+
+    @property
+    def natural_title_header_height(self) -> int:
+        return 88 if self.definition.title_orientation != "horizontal" else 36
+
+    def set_synchronized_title_header_height(self, height: int) -> None:
+        self.title.setFixedHeight(max(36, int(height)))
 
     @property
     def natural_curve_header_height(self) -> int:
@@ -2406,12 +2423,17 @@ class TabletView(QWidget):
         the current form, including depth and special interval tracks.
         """
 
-        height = max(
+        title_height = max(
+            (entry.widget.natural_title_header_height for entry in self._rendered.values()),
+            default=36,
+        )
+        curve_height = max(
             (entry.widget.natural_curve_header_height for entry in self._rendered.values()),
             default=0,
         )
         for rendered in self._rendered.values():
-            rendered.widget.set_synchronized_header_height(height)
+            rendered.widget.set_synchronized_title_header_height(title_height)
+            rendered.widget.set_synchronized_header_height(curve_height)
 
     def _synchronize_track_heights(self) -> None:
         """Give every track one identical chart-body height.
@@ -4462,8 +4484,21 @@ class TabletView(QWidget):
             )
             track.plot.addItem(bar)
             label_text = "\n".join(value for value in (interval.code, interval.name) if value)
-            label = pg.TextItem(label_text, color="#0f172a", anchor=(0.5, 0.5))
-            label.setPos(lane + 0.5, (axis_top + axis_bottom) / 2.0)
+            label = pg.TextItem(
+                label_text,
+                color="#0f172a",
+                anchor=(0.5, 0.5),
+                angle=stratigraphy_text_angle(interval.text_orientation),
+            )
+            label_position = stratigraphy_text_position_fraction(interval.text_position)
+            label.setPos(
+                lane + 0.5,
+                axis_top + (axis_bottom - axis_top) * label_position,
+            )
+            label.setToolTip(
+                f"{interval.top_depth:g}–{interval.bottom_depth:g} m\n"
+                f"{label_text}"
+            )
             track.plot.addItem(label)
             rendered[interval.interval_id] = (bar, label)
         return rendered

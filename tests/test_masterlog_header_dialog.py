@@ -58,6 +58,8 @@ def test_header_element_dialog_builds_typed_properties(qapp) -> None:
         "bold": False,
         "alignment": "left",
         "frame": False,
+        "text_orientation": "horizontal",
+        "text_position": "center",
     }
 
     dialog.type_input.setCurrentText("field")
@@ -69,8 +71,26 @@ def test_header_element_dialog_builds_typed_properties(qapp) -> None:
         "bold": False,
         "alignment": "left",
         "frame": False,
+        "text_orientation": "horizontal",
+        "text_position": "center",
     }
     assert dialog.windowTitle() == "Header element properties"
+    dialog.close()
+
+
+def test_header_element_dialog_builds_rotated_and_anchored_text_properties(qapp) -> None:
+    dialog = HeaderElementDialog(language=AppLanguage.RU)
+    dialog.type_input.setCurrentText("text")
+    dialog.text_input.setText("Стратиграфия")
+    dialog.text_orientation_input.setCurrentIndex(
+        dialog.text_orientation_input.findData("vertical_bottom_to_top")
+    )
+    dialog.text_position_input.setCurrentIndex(dialog.text_position_input.findData("bottom"))
+
+    properties = dialog.values()[-1]
+
+    assert properties["text_orientation"] == "vertical_bottom_to_top"
+    assert properties["text_position"] == "bottom"
     dialog.close()
 
 
@@ -97,6 +117,8 @@ def test_header_element_dialog_preserves_unknown_legacy_field(qapp) -> None:
         "bold": False,
         "alignment": "left",
         "frame": False,
+        "text_orientation": "horizontal",
+        "text_position": "center",
     }
     dialog.close()
 
@@ -124,6 +146,7 @@ def test_header_element_dialog_builds_lithology_legend_properties(qapp) -> None:
         "scope": "all",
         "columns": 6,
         "show_code": False,
+        "selected_lithotype_ids": [],
         "color": "#223344",
         "font_size_mm": 2.8,
         "bold": False,
@@ -140,7 +163,12 @@ def test_header_element_dialog_selects_project_png_asset(qapp) -> None:
     dialog.type_input.setCurrentText("image")
 
     assert dialog.image_input.currentText() == "logo.png"
-    assert dialog.values()[-1] == {"asset_ref": asset.asset_id}
+    assert dialog.values()[-1] == {
+        "asset_ref": asset.asset_id,
+        "mode": "fit",
+        "rotation": 0.0,
+        "opacity": 1.0,
+    }
     dialog.close()
 
 
@@ -210,7 +238,11 @@ def test_header_preview_draws_line_with_safe_style_fallback(qapp) -> None:
     )
 
     dialog = MasterlogHeaderDialog(controller, template.template_id)
-    line = next(item for item in dialog.preview_scene.items() if hasattr(item, "line"))
+    line = next(
+        item
+        for item in dialog.preview_scene.items()
+        if item.__class__.__name__ == "_MovableHeaderLine"
+    )
 
     assert line.pen().color().name() == "#334155"
     assert line.pen().widthF() == 0.6
