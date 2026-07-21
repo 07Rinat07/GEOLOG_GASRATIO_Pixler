@@ -15,7 +15,7 @@ from geoworkbench.forms.models import (
 from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackKind, XScale
 
 
-FORM_SCHEMA_VERSION = 2
+FORM_SCHEMA_VERSION = 3
 
 
 class FormFormatError(ValueError):
@@ -57,6 +57,7 @@ def form_to_dict(form: FormDocument) -> dict[str, Any]:
                         "x_axis_label": track.x_axis_label,
                         "title_orientation": track.title_orientation,
                         "title_position": track.title_position,
+                        "show_interval_labels": track.show_interval_labels,
                         "bindings": [_binding_to_dict(binding) for binding in track.bindings],
                     }
                     for track in column.tracks
@@ -177,6 +178,7 @@ def _track_from_dict(data: object) -> FormTrack:
         x_axis_label=_string(data, "x_axis_label", allow_empty=True, default=""),
         title_orientation=_string(data, "title_orientation", default="horizontal"),
         title_position=_string(data, "title_position", default="center"),
+        show_interval_labels=_boolean(data, "show_interval_labels", default=False),
         bindings=[_binding_from_dict(item) for item in _list(data, "bindings", default=[])],
     )
 
@@ -201,7 +203,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1):
+    if version not in (0, 1, 2):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -224,6 +226,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                     if isinstance(track, dict):
                         track.setdefault("title_orientation", "horizontal")
                         track.setdefault("title_position", "center")
+                        track.setdefault("show_interval_labels", False)
     migrated["schema_version"] = FORM_SCHEMA_VERSION
     return migrated
 

@@ -195,6 +195,7 @@ def _column_from_track(
         "x_axis_label": track.x_axis_label,
         "title_orientation": track.title_orientation,
         "title_position": track.title_position,
+        "show_interval_labels": track.show_interval_labels,
     }
     if track.kind is TrackKind.TEXT:
         properties["text_source"] = "cuttings_description"

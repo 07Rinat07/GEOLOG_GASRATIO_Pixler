@@ -52,3 +52,10 @@ Asset import report: [CONSTRUCTOR_ASSET_IMPORT_REPORT.md](CONSTRUCTOR_ASSET_IMPO
 Technical architecture: [CONSTRUCTOR_ARCHITECTURE.md](CONSTRUCTOR_ARCHITECTURE.md)  
 Text/form/stratigraphy guide: [Русский](ru/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [Қазақша](kk/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [English](en/FORM_CAPTIONS_AND_STRATIGRAPHY.md)  
 <!-- END FORM_CONSTRUCTOR_SLICE23 -->
+
+## Lithotype rendering 0.7.2
+
+- exact legacy BMP mapping: `src/geoworkbench/resources/lithotypes.ru.json`;
+- compatibility and brush resolver: `src/geoworkbench/tablet/lithology_patterns.py`;
+- native device-pixel tablet tiling: `src/geoworkbench/tablet/lithology_graphics.py`;
+- user behaviour: `ru/CONSTRUCTOR.md`, `kk/CONSTRUCTOR.md`, `en/CONSTRUCTOR.md`.

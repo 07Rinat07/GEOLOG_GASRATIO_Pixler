@@ -187,6 +187,17 @@ class FormStructureEditor:
         self.form.validate()
         self.dirty = True
 
+    def set_track_interval_labels(self, track_id: str, enabled: bool) -> None:
+        column, track = self.track(track_id)
+        if track.locked or column.locked:
+            raise PermissionError("Дорожка заблокирована")
+        if track.kind not in {TrackKind.LITHOLOGY, TrackKind.CUTTINGS}:
+            enabled = False
+        track.show_interval_labels = bool(enabled)
+        track.__post_init__()
+        self.form.validate()
+        self.dirty = True
+
     def binding(self, track_id: str, binding_id: str):
         _column, track = self.track(track_id)
         for binding in track.bindings:

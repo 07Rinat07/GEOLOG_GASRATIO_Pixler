@@ -134,3 +134,16 @@ Renderer сначала вычисляет позицию из глубины/п
 - drag глубинного обозначения непосредственно на preview;
 - переход из preflight issue к объекту редактора;
 - Windows E2E smoke-test и физическая печать.
+
+## Device-space lithotype tiling (0.7.2)
+
+`DeviceTiledRectItem` separates interval geometry from brush coordinates. The rectangle remains
+in the pyqtgraph depth coordinate system, while the inverse painter world transform is applied to
+the texture brush. This prevents the 10–42 px legacy BMP tiles from being stretched by the
+non-uniform track/depth transform.
+
+`masterlog_lithology_brush()` applies the same separation to WYSIWYG preview, image rendering,
+PDF, and physical printing. It cancels the active millimetre-to-device world transform for the
+bitmap and reapplies a 96-DPI reference scale. Consequently, a 14 px source tile remains about
+3.7 mm wide instead of becoming a 14 mm block, and its physical density is stable across preview,
+300-DPI PDF, and printer devices. Interval geometry, clipping, and borders remain millimetre-based.

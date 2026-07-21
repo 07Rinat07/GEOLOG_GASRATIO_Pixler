@@ -1,27 +1,43 @@
-GEOLOG GASRATIO@Pixler 0.7.0 — Universal Constructor validation
+GEOLOG GASRATIO@Pixler 0.7.2 — Exact Legacy Lithotype Rendering validation
 Date: 2026-07-21
 
 Base source:
 - GEOLOG_GASRATIO_Pixler-v0.6.0-curve-pencil-fix-slice22(1).zip
 
-Completed checks:
-- Python compileall for src: OK
-- Development constructor asset catalog: OK (117 lithotypes, 19 depth symbols)
-- Packaged constructor asset catalog: OK (117 lithotypes, 19 depth symbols)
-- Source/package manifest parity: OK
-- RU/KK/EN constructor localization key parity: OK
-- Main-menu Constructor wiring: OK
-- Constructor documentation RU/KK/EN: OK
-- Focused pure/static tests: 12 passed
+Source lithotype catalogs:
+- Litol_Bmp(2).zip
+- Litol2_Bmp(2).zip
 
-Commands:
-  python -m compileall -q src
-  python tools/import_constructor_assets.py
-  python tools/import_constructor_assets.py --root src/geoworkbench/resources/constructor_assets
-  python tools/validate_constructor_integration.py
-  pytest -q tests/test_constructor_asset_registry.py tests/test_constructor_integration_static.py tests/test_version.py
+Implemented and verified:
+- 117 canonical factory BMP lithotypes are packaged in the project.
+- All 17 compact built-in rock IDs resolve to exact BMPs from the supplied catalogs.
+- Historical pattern keys resolve to exact BMP aliases without project migration.
+- Lithology and cuttings use native repeated bitmap tiles, not flat fallback colours.
+- Tablet rendering cancels the non-uniform pyqtgraph depth transform for texture coordinates.
+- WYSIWYG preview, image rendering, PDF, and physical printing use a stable 96-DPI physical tile scale.
+- Rock codes/names and cuttings percentages are hidden over the pattern by default.
+- Optional interval labels can be enabled per screen form or print form.
+- Header lithotype swatches and lithology legends use the same canonical bitmap resolver.
+- Layout schema migration: tablet layout v12; form schema v3.
 
-Environment limitation:
-- PySide6 and pyqtgraph are not installed in the build container.
-- Full GUI/unit/E2E tests could not be collected here.
-- Run the Windows smoke checklist in docs/ru/FORM_CONSTRUCTOR_PLAN.md before release promotion.
+Automated checks:
+- python -m compileall -q src: OK
+- ruff check src tests: OK
+- full isolated headless test suite: 988 passed, 1 skipped
+- constructor asset registry validation: OK (117 lithotypes, 19 depth symbols)
+- RU/KK/EN constructor documentation: synchronized
+- release-directory full test run: 988 passed, 1 skipped
+- final ZIP integrity test (`unzip -t`): OK
+
+Visual checks:
+- Offscreen tablet rendering: exact repeated BMP tiles, no stretching, no default overlaid labels.
+- Masterlog image rendering: exact repeated BMP tiles in lithology and cuttings.
+- Masterlog 300-DPI PDF export: exact repeated BMP tiles and stable physical density.
+- Generated proof artifacts:
+  docs/validation/tablet_exact_lithotypes.png
+  docs/validation/masterlog_image_exact_lithotypes.png
+  docs/validation/masterlog_pdf_exact_lithotypes.pdf
+  docs/validation/masterlog_pdf_exact_lithotypes.png
+
+Release limitation:
+- A final physical-printer smoke check on Windows remains required before stable promotion.

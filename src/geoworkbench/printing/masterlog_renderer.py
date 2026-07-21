@@ -56,7 +56,7 @@ from geoworkbench.printing.text_rendering import (
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.las_parameter_resolver import LasParameterResolver
 from geoworkbench.tablet.lithology_legend import LithologyLegendEntry
-from geoworkbench.tablet.lithology_patterns import lithology_brush
+from geoworkbench.tablet.lithology_patterns import masterlog_lithology_brush
 from geoworkbench.tablet.sampling import select_visible_samples
 
 
@@ -573,7 +573,7 @@ def _paint_lithotype_swatch(
     pattern_rect = QRectF(rect.left(), rect.top(), pattern_width, rect.height()).adjusted(
         0.25, 0.25, -0.25, -0.25
     )
-    painter.fillRect(pattern_rect, lithology_brush(lithotype.color, lithotype.pattern_key))
+    painter.fillRect(pattern_rect, masterlog_lithology_brush(painter, lithotype.color, lithotype.pattern_key))
     painter.setPen(QPen(QColor("#64748b"), 0.25))
     painter.drawRect(pattern_rect)
     if mode != "pattern_only":
@@ -791,7 +791,7 @@ def _paint_lithology_legend(
         )
         swatch_width = min(8.0, max(3.0, cell_width * 0.2))
         swatch = cell.adjusted(0.5, 0.5, -(cell.width() - swatch_width), -0.5)
-        painter.fillRect(swatch, lithology_brush(entry.color, entry.pattern_key))
+        painter.fillRect(swatch, masterlog_lithology_brush(painter, entry.color, entry.pattern_key))
         painter.setPen(QPen(QColor("#475569"), 0.15))
         painter.drawRect(swatch)
         label = f"{entry.code} — {entry.name}" if show_code else entry.name
@@ -1006,9 +1006,13 @@ def _paint_columns(
             elif column.column_type == "stratigraphy":
                 _paint_stratigraphy_column(painter, plot_rect, session, depth_range)
             elif column.column_type == "lithology":
-                _paint_lithology_column(painter, plot_rect, session, depth_range, lithotype_catalog)
+                _paint_lithology_column(
+                    painter, plot_rect, column, session, depth_range, lithotype_catalog
+                )
             elif column.column_type == "cuttings":
-                _paint_cuttings_column(painter, plot_rect, session, depth_range, lithotype_catalog)
+                _paint_cuttings_column(
+                    painter, plot_rect, column, session, depth_range, lithotype_catalog
+                )
             elif column.column_type == "cuttings_description":
                 _paint_cuttings_descriptions(painter, plot_rect, session, depth_range)
             elif column.column_type == "analysis_interpretation":
@@ -1245,6 +1249,7 @@ def _interval_rect(
 def _paint_lithology_column(
     painter: QPainter,
     rect: QRectF,
+    column: MasterlogColumnTemplate,
     session: ProjectSession,
     depth_range: tuple[float, float],
     lithotype_catalog: dict[str, CatalogLithotype],
@@ -1259,10 +1264,13 @@ def _paint_lithology_column(
         definition = lithotype_catalog.get(interval.lithotype_id)
         color = definition.color if definition is not None else "#b0b0b0"
         pattern = definition.pattern_key if definition is not None else "solid"
-        painter.fillRect(interval_rect, lithology_brush(color, pattern))
+        painter.fillRect(interval_rect, masterlog_lithology_brush(painter, color, pattern))
         painter.setPen(QPen(QColor("#334155"), 0.2))
         painter.drawRect(interval_rect)
-        if interval_rect.height() >= 4.0:
+        if (
+            interval_rect.height() >= 4.0
+            and bool(column.properties.get("show_interval_labels", False))
+        ):
             label = definition.code if definition is not None else interval.lithotype_id
             painter.setPen(QColor("#0f172a"))
             painter.drawText(
@@ -1381,6 +1389,7 @@ def _paint_stratigraphy_column(
 def _paint_cuttings_column(
     painter: QPainter,
     rect: QRectF,
+    column: MasterlogColumnTemplate,
     session: ProjectSession,
     depth_range: tuple[float, float],
     lithotype_catalog: dict[str, CatalogLithotype],
@@ -1405,10 +1414,14 @@ def _paint_cuttings_column(
             color = definition.color if definition is not None else "#b0b0b0"
             pattern = definition.pattern_key if definition is not None else "solid"
             component_rect = QRectF(x, y_top, width, max(0.1, y_bottom - y_top))
-            painter.fillRect(component_rect, lithology_brush(color, pattern))
+            painter.fillRect(component_rect, masterlog_lithology_brush(painter, color, pattern))
             painter.setPen(QPen(QColor("#334155"), 0.2))
             painter.drawRect(component_rect)
-            if component_rect.width() >= 8 and component_rect.height() >= 4:
+            if (
+                component_rect.width() >= 8
+                and component_rect.height() >= 4
+                and bool(column.properties.get("show_interval_labels", False))
+            ):
                 code = definition.code if definition is not None else component.lithotype_id
                 painter.setPen(QColor("#0f172a"))
                 painter.drawText(

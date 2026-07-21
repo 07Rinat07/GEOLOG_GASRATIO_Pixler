@@ -42,3 +42,12 @@ override a factory entry, or reset that override.
 A header may contain either a dynamic lithology legend or one **`lithotype_swatch`** element.
 The swatch supports pattern-only, pattern-and-name, or pattern-code-name modes, plus label
 rotation and vertical placement.
+
+## Exact rock patterns and labels
+
+The standard rocks use the original BMP patterns from both supplied catalogs. Each bitmap is
+tiled without smoothing and remains at its native pixel scale while the depth view is zoomed.
+
+Text over the **Lithology** and **Cuttings** patterns is disabled by default. Names, codes and
+percentages remain available in the editor and tooltip. A specialised form can enable **Show
+code/percentage over pattern** in the track editor or form-structure editor.

@@ -430,3 +430,10 @@ edge. For stratigraphy these positions correspond to top, interval centre, and b
 All 117 standard rock patterns are immediately available in lithology and cuttings with real
 thumbnails. Headers can contain a dynamic legend or an individual lithotype swatch. The catalog
 supports project rocks, factory overrides, and reset. See the [Constructor guide](CONSTRUCTOR.md).
+
+## Exact lithotype patterns 0.7.2
+
+The standard rocks use the original BMP files from both supplied catalogs. Patterns are tiled
+without smoothing and do not stretch while depth is zoomed. Labels over lithology and cuttings
+are hidden by default and can be enabled in the track or form-structure editor. The same images
+are used by header legends, preview, PDF and print.

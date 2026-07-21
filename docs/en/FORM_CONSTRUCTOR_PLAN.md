@@ -89,3 +89,10 @@ incompatible print system.
 - [x] real thumbnails, project overrides, and factory reset;
 - [x] one catalog drives `lithotype_swatch`, dynamic legends, preflight, and printing;
 - [ ] Windows smoke-test for rotated labels and physical BMP-pattern printing.
+
+## Implemented in 0.7.2
+
+- stable base-rock IDs are mapped to the exact BMP patterns from both legacy catalogs;
+- old pattern keys remain compatible;
+- the screen renderer preserves native texture size at every zoom level;
+- lithology/cuttings labels are off by default and controlled by the form.

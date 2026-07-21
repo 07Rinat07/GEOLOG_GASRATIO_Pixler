@@ -14,7 +14,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 11
+LAYOUT_FORMAT_VERSION = 12
 
 
 class TabletLayoutFormatError(ValueError):
@@ -35,6 +35,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                 "group_title": track.group_title,
                 "title_orientation": track.title_orientation,
                 "title_position": track.title_position,
+                "show_interval_labels": track.show_interval_labels,
                 "kind": track.kind.value,
                 "curve_mnemonics": list(track.curve_mnemonics),
                 "width": track.width,
@@ -124,6 +125,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
     group_title = data.get("group_title", "")
     title_orientation = data.get("title_orientation", "horizontal")
     title_position = data.get("title_position", "center")
+    show_interval_labels = data.get("show_interval_labels", False)
     raw_mnemonics = data.get("curve_mnemonics", [])
     width = data.get("width", 260)
     visible = data.get("visible", True)
@@ -144,6 +146,8 @@ def _track_from_dict(data: object) -> TrackDefinition:
         raise TypeError("group_title должен быть строкой")
     if not isinstance(title_orientation, str) or not isinstance(title_position, str):
         raise TypeError("Настройки заголовка трека должны быть строками")
+    if not isinstance(show_interval_labels, bool):
+        raise TypeError("show_interval_labels должен быть логическим")
     if not isinstance(raw_mnemonics, list) or not all(
         isinstance(item, str) for item in raw_mnemonics
     ):
@@ -194,6 +198,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         group_title=group_title,
         title_orientation=title_orientation,
         title_position=title_position,
+        show_interval_labels=show_interval_labels,
         curve_mnemonics=list(raw_mnemonics),
         width=width,
         visible=visible,
@@ -214,7 +219,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
+    if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -268,4 +273,9 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
             if isinstance(track, dict):
                 track.setdefault("title_orientation", "horizontal")
                 track.setdefault("title_position", "center")
+    migrated["version"] = 12
+    if isinstance(tracks, list):
+        for track in tracks:
+            if isinstance(track, dict):
+                track.setdefault("show_interval_labels", False)
     return migrated

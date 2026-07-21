@@ -85,6 +85,7 @@ class FormTrack:
     x_axis_label: str = ""
     title_orientation: str = "horizontal"
     title_position: str = "center"
+    show_interval_labels: bool = False
 
     def __post_init__(self) -> None:
         _require_id(self.track_id, "track_id")
@@ -102,6 +103,8 @@ class FormTrack:
         _require_text(self.x_axis_label, "x_axis_label", max_length=100, allow_empty=True)
         self.title_orientation = normalize_text_orientation(self.title_orientation)
         self.title_position = normalize_text_vertical_position(self.title_position)
+        if not isinstance(self.show_interval_labels, bool):
+            raise ValueError("show_interval_labels должен быть логическим")
         _ensure_unique([item.binding_id for item in self.bindings], "binding_id")
 
     @classmethod
@@ -119,6 +122,7 @@ class FormTrack:
         x_axis_label: str = "",
         title_orientation: str = "horizontal",
         title_position: str = "center",
+        show_interval_labels: bool = False,
     ) -> FormTrack:
         return cls(
             track_id=str(uuid4()),
@@ -133,6 +137,7 @@ class FormTrack:
             x_axis_label=x_axis_label,
             title_orientation=title_orientation,
             title_position=title_position,
+            show_interval_labels=show_interval_labels,
         )
 
     def add_binding(self, binding: ParameterBinding, index: int | None = None) -> None:

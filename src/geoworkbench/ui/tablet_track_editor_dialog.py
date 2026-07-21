@@ -5,6 +5,7 @@ from copy import deepcopy
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QColorDialog,
     QDialog,
@@ -31,6 +32,7 @@ from geoworkbench.tablet.models import (
     CurveLineStyle,
     CurveStyle,
     TrackDefinition,
+    TrackKind,
     XScale,
 )
 
@@ -87,6 +89,17 @@ class TabletTrackEditorDialog(QDialog):
         self.width_input.setSuffix(" px")
         self.width_input.setValue(self.track.width)
         self.axis_input = QLineEdit(self.track.x_axis_label)
+        self.show_interval_labels_input = QCheckBox(
+            self._text(
+                "Показывать код/процент поверх рисунка",
+                "Сурет үстінде кодты/пайызды көрсету",
+                "Show code/percentage over pattern",
+            )
+        )
+        self.show_interval_labels_input.setChecked(self.track.show_interval_labels)
+        self.show_interval_labels_input.setEnabled(
+            self.track.kind in {TrackKind.LITHOLOGY, TrackKind.CUTTINGS}
+        )
         form.addRow(self._text("Название дорожки", "Жол атауы", "Track title"), self.title_input)
         form.addRow(
             self._text("Направление текста", "Мәтін бағыты", "Text direction"),
@@ -99,6 +112,10 @@ class TabletTrackEditorDialog(QDialog):
         form.addRow(self._text("Название раздела", "Бөлім атауы", "Section title"), self.group_input)
         form.addRow(self._text("Ширина", "Ені", "Width"), self.width_input)
         form.addRow(self._text("Подпись оси X", "X осінің жазуы", "X-axis label"), self.axis_input)
+        form.addRow(
+            self._text("Подписи внутри интервалов", "Интервал ішіндегі жазулар", "Interval labels"),
+            self.show_interval_labels_input,
+        )
         form.addRow(self._text("Тип", "Түрі", "Type"), QLabel(self.track.kind.value))
         root.addLayout(form)
 
@@ -337,6 +354,7 @@ class TabletTrackEditorDialog(QDialog):
             self.title_position_input.currentData() or "center"
         )
         self.track.group_title = group
+        self.track.show_interval_labels = self.show_interval_labels_input.isChecked()
         self.track.width = self.width_input.value()
         self.track.x_axis_label = axis
         try:

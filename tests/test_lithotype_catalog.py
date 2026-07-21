@@ -13,7 +13,7 @@ def test_builtin_lithotype_catalog_is_valid_and_unique() -> None:
     sandstone = next(item for item in catalog if item.lithotype_id == "sandstone")
     assert sandstone.name_ru == "Песчаник"
     assert sandstone.name_kk == "Құмтас"
-    assert sandstone.pattern_key == "sandstone_bricks"
+    assert sandstone.pattern_key == "constructor:lithology-sandstone"
 
 
 def test_lithotype_catalog_rejects_duplicate_ids(tmp_path) -> None:

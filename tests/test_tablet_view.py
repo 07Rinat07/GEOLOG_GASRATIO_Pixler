@@ -676,7 +676,16 @@ def test_tablet_view_renders_lithology_intervals(qapp) -> None:
     )
     view = TabletView()
     view.set_layout_model(
-        TabletLayout([TrackDefinition("lithology", "Литология", TrackKind.LITHOLOGY)])
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "lithology",
+                    "Литология",
+                    TrackKind.LITHOLOGY,
+                    show_interval_labels=True,
+                )
+            ]
+        )
     )
     view.set_lithology(
         [LithologyInterval("layer-1", 110.0, 160.0, "sandstone", "Песчаник")],
@@ -737,7 +746,16 @@ def test_lithology_text_appears_when_thin_interval_is_zoomed(qapp) -> None:
     view = TabletView()
     view.resize(800, 600)
     view.set_layout_model(
-        TabletLayout([TrackDefinition("lithology", "Литология", TrackKind.LITHOLOGY)])
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "lithology",
+                    "Литология",
+                    TrackKind.LITHOLOGY,
+                    show_interval_labels=True,
+                )
+            ]
+        )
     )
     view.set_lithology(
         [LithologyInterval("thin", 100.0, 101.0, "sandstone", None)],

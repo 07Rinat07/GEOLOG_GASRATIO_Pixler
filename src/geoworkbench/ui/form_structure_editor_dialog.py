@@ -268,9 +268,21 @@ class FormStructureEditorDialog(QDialog):
 
         self.axis_label_edit = QLineEdit()
         self.axis_label_edit.editingFinished.connect(self._apply_axis_label)
+        self.show_interval_labels_check = QCheckBox(
+            self._text(
+                "Показывать подписи поверх литотипа",
+                "Литотип үстіндегі жазуларды көрсету",
+                "Show labels over lithotype",
+            )
+        )
+        self.show_interval_labels_check.toggled.connect(self._apply_interval_labels)
         properties.addRow(
             self._text("Подпись оси X", "X осінің жазуы", "X-axis label"),
             self.axis_label_edit,
+        )
+        properties.addRow(
+            self._text("Подписи интервалов", "Интервал жазулары", "Interval labels"),
+            self.show_interval_labels_check,
         )
         right_layout.addLayout(properties)
         right_layout.addStretch(1)
@@ -438,6 +450,8 @@ class FormStructureEditorDialog(QDialog):
                 self.kind_combo.setEnabled(False)
                 self.axis_label_edit.clear()
                 self.axis_label_edit.setEnabled(False)
+                self.show_interval_labels_check.setChecked(False)
+                self.show_interval_labels_check.setEnabled(False)
                 return
             kind, object_id = ref
             self.title_edit.setEnabled(True)
@@ -445,6 +459,8 @@ class FormStructureEditorDialog(QDialog):
             self.title_position_combo.setEnabled(kind in {"column", "track"})
             self.axis_label_edit.setEnabled(False)
             self.axis_label_edit.clear()
+            self.show_interval_labels_check.setEnabled(False)
+            self.show_interval_labels_check.setChecked(False)
             if kind == "column":
                 column = self.editor.column(object_id)
                 self.title_edit.setText(column.title)
@@ -466,6 +482,10 @@ class FormStructureEditorDialog(QDialog):
                 self.kind_combo.setEnabled(True)
                 self.axis_label_edit.setEnabled(True)
                 self.axis_label_edit.setText(track.x_axis_label)
+                self.show_interval_labels_check.setEnabled(
+                    track.kind in {TrackKind.LITHOLOGY, TrackKind.CUTTINGS}
+                )
+                self.show_interval_labels_check.setChecked(track.show_interval_labels)
                 self._select_combo_data(
                     self.title_orientation_combo, track.title_orientation
                 )
@@ -514,6 +534,19 @@ class FormStructureEditorDialog(QDialog):
                 return
             self._form_changed()
             self.preview.set_form(self.editor.form, object_id)
+        except (KeyError, PermissionError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+
+    def _apply_interval_labels(self, enabled: bool) -> None:
+        if self._updating_properties:
+            return
+        ref = self._selected_ref()
+        if ref is None or ref[0] != "track":
+            return
+        try:
+            self.editor.set_track_interval_labels(ref[1], enabled)
+            self._form_changed()
+            self.preview.set_form(self.editor.form, ref[1])
         except (KeyError, PermissionError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
 

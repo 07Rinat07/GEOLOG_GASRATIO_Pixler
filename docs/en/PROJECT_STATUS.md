@@ -54,3 +54,11 @@ symbols with X/Y offsets and preflight are implemented. See [Constructor guide](
 captions, header text/fields, and lithotype labels. All 117 supplied BMP patterns are available in
 lithology, cuttings, and headers through one catalog. Factory rows can be overridden and reset;
 project rows can be added and edited. Screen, preview, PDF, and print use the same model.
+
+## Version 0.7.2: exact BMP lithotypes
+
+The standard rocks now use the actual BMP patterns from the two supplied archives instead of a
+flat colour. On the tablet the pattern is tiled in native device pixels and therefore remains
+sharp under depth zoom. Text over the pattern is off by default and can be enabled explicitly in
+the form editor. The same assets are used by cuttings, header legends, preview, PDF and print.
+Full run: `988 passed, 1 skipped`.

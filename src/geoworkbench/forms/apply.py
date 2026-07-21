@@ -196,6 +196,7 @@ class FormApplyEngine:
                         x_axis_label=form_track.x_axis_label,
                         title_orientation=form_track.title_orientation,
                         title_position=form_track.title_position,
+                        show_interval_labels=form_track.show_interval_labels,
                     )
                 )
 

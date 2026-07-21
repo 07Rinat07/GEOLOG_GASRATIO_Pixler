@@ -10,7 +10,7 @@ from typing import cast
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, Signal, QTimer
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRectF, Qt, Signal, QTimer
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen, QBrush, QWheelEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -90,6 +90,7 @@ from geoworkbench.tablet.interval_interaction import (
     resize_interval_range,
     snap_depth_to_samples,
 )
+from geoworkbench.tablet.lithology_graphics import DeviceTiledRectItem
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.tablet.lithology_labels import lithology_label_is_visible
 from geoworkbench.tablet.models import (
@@ -4443,13 +4444,15 @@ class TabletView(QWidget):
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 interval.top_depth, interval.bottom_depth
             )
-            item = pg.BarGraphItem(
-                x=[0.5],
-                y=[(axis_top + axis_bottom) / 2.0],
-                width=1.0,
-                height=max(axis_bottom - axis_top, np.finfo(float).eps),
-                brush=lithology_brush(color, pattern),
-                pen=pg.mkPen("#303030", width=0.7),
+            item = DeviceTiledRectItem(
+                QRectF(
+                    0.0,
+                    axis_top,
+                    1.0,
+                    max(axis_bottom - axis_top, np.finfo(float).eps),
+                ),
+                lithology_brush(color, pattern),
+                pg.mkPen("#303030", width=0.7),
             )
             track.plot.addItem(item)
             rendered[interval.interval_id] = item
@@ -5012,13 +5015,15 @@ class TabletView(QWidget):
                 color = lithotype.color if lithotype is not None else "#b0b0b0"
                 pattern = lithotype.pattern_key if lithotype is not None else "solid"
                 width = float(component.percentage)
-                item = pg.BarGraphItem(
-                    x=[left + width / 2.0],
-                    y=[(axis_top + axis_bottom) / 2.0],
-                    width=width,
-                    height=max(axis_bottom - axis_top, np.finfo(float).eps),
-                    brush=lithology_brush(color, pattern),
-                    pen=pg.mkPen("#303030", width=0.7),
+                item = DeviceTiledRectItem(
+                    QRectF(
+                        left,
+                        axis_top,
+                        width,
+                        max(axis_bottom - axis_top, np.finfo(float).eps),
+                    ),
+                    lithology_brush(color, pattern),
+                    pg.mkPen("#303030", width=0.7),
                 )
                 track.plot.addItem(item)
                 items.append(item)
@@ -5452,7 +5457,10 @@ class TabletView(QWidget):
     def _populate_lithology_labels(
         self, track: TabletTrackWidget, definition: TrackDefinition
     ) -> dict[str, pg.TextItem]:
-        if definition.kind is not TrackKind.LITHOLOGY:
+        if (
+            definition.kind is not TrackKind.LITHOLOGY
+            or not definition.show_interval_labels
+        ):
             return {}
         rendered: dict[str, pg.TextItem] = {}
         for interval in self._lithology:

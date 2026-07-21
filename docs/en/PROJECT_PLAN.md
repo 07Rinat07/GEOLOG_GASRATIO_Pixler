@@ -54,3 +54,12 @@ profile link. See [Constructor plan](FORM_CONSTRUCTOR_PLAN.md).
 - [x] individual swatch and dynamic legend in headers;
 - [x] project add, override, and reset workflows;
 - [ ] Windows smoke-test and physical printing.
+
+## Slice 0.7.2 — exact legacy lithotype rendering
+
+- [x] map the stable base-rock IDs to the original BMP files from both supplied catalogs;
+- [x] keep old hatch keys readable without manual project migration;
+- [x] tile each bitmap in device pixels so depth zoom never stretches the pattern;
+- [x] use one renderer in lithology, cuttings, header legends, preview, PDF and print;
+- [x] keep text over the pattern disabled by default with an explicit form-editor switch;
+- [x] full regression run: `988 passed, 1 skipped`; Ruff and compileall pass.
