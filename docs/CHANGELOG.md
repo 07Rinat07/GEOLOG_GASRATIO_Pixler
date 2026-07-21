@@ -1,3 +1,12 @@
+# 0.7.11 — Pencil points, reference Masterlog and constructor contrast
+
+- Added two tablet pencil modes: freehand stroke and selected points connected by interpolation.
+- Curve edits are acknowledged by the controller; a failed edit keeps its orange preview and error message instead of disappearing silently.
+- Dependent Gas Ratio, Pixler and custom-formula curves recalculate immediately in memory; project files are written only on explicit Save.
+- Added a large high-contrast pencil cursor and an in-plot active-curve badge.
+- Fixed white-on-white text across Constructor navigation, lists, tables, tabs, collapsible sections and child dialogs under dark Windows palettes.
+- Promoted the supplied reference layout as «МАСТЕРЛОГ — эталонная шапка и глубинная форма» and linked the curated depth form to the exact header preset.
+
 # 0.7.10 — Readable parameter labels and explicit pencil save
 
 - resolved legacy vendor mnemonics `S<number>` through Sensors.DB `legacy_gid` values;

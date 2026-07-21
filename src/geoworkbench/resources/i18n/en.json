@@ -1164,11 +1164,20 @@
   "tablet.form_edit_off": "Form view mode. Press F4 to change a column or parameters.",
   "tablet.curve_pencil_button": "✎ Curve pencil",
   "tablet.curve_pencil_target": "Editable curve",
-  "tablet.curve_pencil_tooltip": "Edit the selected source curve directly in the tablet. Hold the left mouse button and draw the replacement line.",
+  "tablet.curve_pencil_tooltip": "Edit the selected source curve directly in the tablet using a freehand stroke or connected anchor points.",
   "tablet.curve_pencil_selector_tooltip": "Choose a visible source curve and track to edit",
   "tablet.curve_pencil_active": "Pencil active: {mnemonic}. Draw with the left mouse button; Esc cancels the current stroke.",
   "tablet.curve_pencil_inactive": "Pencil is off. Choose a curve and enable the tool.",
   "tablet.curve_pencil_no_curves": "The current form has no visible source numeric curves available for pencil editing.",
   "tablet.curve_pencil_unsaved": "✎ {mnemonic}: changes applied and dependent curves recalculated. Not saved — press the diskette button.",
-  "curve_edit.unsaved_status": "Curve {mnemonic} changed; recalculated: {recalculated}. Not saved — press the diskette button."
+  "curve_edit.unsaved_status": "Curve {mnemonic} changed; recalculated: {recalculated}. Not saved — press the diskette button.",
+  "tablet.curve_pencil_mode": "Mode",
+  "tablet.curve_pencil_mode_freehand": "Freehand stroke",
+  "tablet.curve_pencil_mode_points": "Connect points",
+  "tablet.curve_pencil_mode_tooltip": "Choose freehand drawing or place anchor points and connect them afterwards.",
+  "tablet.curve_pencil_apply_points": "Connect",
+  "tablet.curve_pencil_apply_points_tooltip": "Connect the selected points along the vertical axis, apply the edit and recalculate dependent curves immediately.",
+  "tablet.curve_pencil_clear_points": "Clear points",
+  "tablet.curve_pencil_points_selected": "✎ {mnemonic}: {count} points selected. Press Connect, Enter, or double-click the last point.",
+  "tablet.curve_pencil_commit_failed": "Edit was not applied: {error}. The orange line remains visible for correction and retry."
 }

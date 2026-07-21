@@ -1,5 +1,9 @@
 # Project plan
 
+## Slice 0.7.11 — connected points, reference Masterlog and Constructor contrast
+
+Add freehand and connected-point pencil modes, acknowledged edits, immediate in-memory dependent recalculation without automatic disk writes, an explicit high-contrast Constructor theme and a visible reference Masterlog with two replaceable logos.
+
 ## Slice 0.7.10 — readable parameter captions and explicit pencil saving
 
 - [x] resolve vendor `S<number>` codes through the Sensors.DB `legacy_gid` reference;

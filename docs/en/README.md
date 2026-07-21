@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.10:** legacy mnemonics such as `S300`, `S720`, `S800`, `S900` and `S50` are translated into readable graph captions; pencil edits recalculate dependants immediately but are written only when Save is pressed.
+> **0.7.11:** the pencil supports freehand strokes and connecting selected points; dependants recalculate immediately while saving still requires the diskette button. Constructor contrast is fixed for dark themes and the reference Masterlog preset is shown first.
 
 
 

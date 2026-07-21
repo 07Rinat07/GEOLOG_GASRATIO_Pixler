@@ -180,9 +180,9 @@ _TEXT: dict[str, dict[str, str]] = {
     "lba": {"ru": "ЛБА", "kk": "ЛБА", "en": "LBA"},
     "stratigraphy": {"ru": "Стратиграфия", "kk": "Стратиграфия", "en": "Stratigraphy"},
     "masterlog_reference_form": {
-        "ru": "МАСТЕРЛОГ — геолого-геохимическая рабочая форма",
-        "kk": "МАСТЕРЛОГ — геологиялық-геохимиялық жұмыс пішіні",
-        "en": "MASTERLOG — geological-geochemical working form",
+        "ru": "МАСТЕРЛОГ — эталонная глубинная форма по образцу",
+        "kk": "МАСТЕРЛОГ — үлгі бойынша эталондық тереңдік пішіні",
+        "en": "MASTERLOG — reference depth form from the supplied example",
     },
     "geodata_depth_form": {
         "ru": "Глубинка — геология, технология и газ",
@@ -1183,7 +1183,7 @@ def _masterlog_geological_geochemical(language: TemplateLanguage) -> FormDocumen
         ],
         language,
     )
-    form.print_header_template_id = "geological_geochemical"
+    form.print_header_template_id = "kazgeology_blank"
     return form
 
 

@@ -1,0 +1,483 @@
+{
+  "schema_version": 3,
+  "form_id": "factory-masterlog-geological-geochemical",
+  "name": "МАСТЕРЛОГ — эталонная глубинная форма по образцу",
+  "description": "Заводской шаблон GEOLOG Gas Ratio & Pixler",
+  "axis_kind": "depth",
+  "origin": "factory",
+  "read_only": true,
+  "style_id": "default-screen",
+  "print_header_template_id": "kazgeology_blank",
+  "columns": [
+    {
+      "column_id": "column-masterlog-stratigraphy",
+      "title": "Стратиграфия",
+      "group_title": "",
+      "title_orientation": "horizontal",
+      "title_position": "center",
+      "width": 150,
+      "visible": true,
+      "locked": false,
+      "tracks": [
+        {
+          "track_id": "track-column-masterlog-stratigraphy",
+          "title": "Стратиграфия",
+          "kind": "stratigraphy",
+          "visible": true,
+          "locked": false,
+          "grid_x": true,
+          "grid_y": true,
+          "grid_alpha": 0.2,
+          "x_axis_label": "",
+          "title_orientation": "horizontal",
+          "title_position": "center",
+          "show_interval_labels": false,
+          "bindings": []
+        }
+      ]
+    },
+    {
+      "column_id": "column-masterlog-drilling",
+      "title": "Бурение",
+      "group_title": "",
+      "title_orientation": "horizontal",
+      "title_position": "center",
+      "width": 390,
+      "visible": true,
+      "locked": false,
+      "tracks": [
+        {
+          "track_id": "track-column-masterlog-drilling",
+          "title": "Бурение",
+          "kind": "curve",
+          "visible": true,
+          "locked": false,
+          "grid_x": true,
+          "grid_y": true,
+          "grid_alpha": 0.2,
+          "x_axis_label": "",
+          "title_orientation": "horizontal",
+          "title_position": "center",
+          "show_interval_labels": false,
+          "bindings": [
+            {
+              "binding_id": "binding-wob",
+              "canonical_parameter_id": "WOB",
+              "display_name": "Нагрузка на долото",
+              "source_mnemonic": null,
+              "unit": "t",
+              "visible": true,
+              "style": {
+                "color": "#2563eb",
+                "width": 1.5,
+                "line_style": "solid"
+              },
+              "x_scale": "linear",
+              "x_min": 0,
+              "x_max": 20
+            },
+            {
+              "binding_id": "binding-rop",
+              "canonical_parameter_id": "ROP",
+              "display_name": "Скорость проходки",
+              "source_mnemonic": null,
+              "unit": "m/h",
+              "visible": true,
+              "style": {
+                "color": "#dc2626",
+                "width": 1.5,
+                "line_style": "solid"
+              },
+              "x_scale": "linear",
+              "x_min": 0,
+              "x_max": 100
+            },
+            {
+              "binding_id": "binding-dmc",
+              "canonical_parameter_id": "DMC",
+              "display_name": "Время бурения на метр",
+              "source_mnemonic": null,
+              "unit": "min/m",
+              "visible": true,
+              "style": {
+                "color": "#ef4444",
+                "width": 1.5,
+                "line_style": "solid"
+              },
+              "x_scale": "linear",
+              "x_min": 0,
+              "x_max": 50
+            },
+            {
+              "binding_id": "binding-dexp",
+              "canonical_parameter_id": "DEXP",
+              "display_name": "D-экспонента",
+              "source_mnemonic": null,
+              "unit": "",
+              "visible": true,
+              "style": {
+                "color": "#7c3aed",
+                "width": 1.5,
+                "line_style": "solid"
+              },
+              "x_scale": "linear",
+              "x_min": 0,
+              "x_max": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "column_id": "column-depth-axis",
+      "title": "Глубина",
+      "group_title": "",
+      "title_orientation": "horizontal",
+      "title_position": "center",
+      "width": 120,
+      "visible": true,
+      "locked": true,
+      "tracks": [
+        {
+          "track_id": "track-depth-axis",
+          "title": "Глубина",
+          "kind": "depth",
+          "visible": true,
+          "locked": true,
+          "grid_x": true,
+          "grid_y": true,
+          "grid_alpha": 0.2,
+          "x_axis_label": "MD",
+          "title_orientation": "horizontal",
+          "title_position": "center",
+          "show_interval_labels": false,
+          "bindings": []
+        }
+      ]
+    },
+    {
+      "column_id": "column-masterlog-cuttings",
+      "title": "Шламограмма",
+      "group_title": "",
+      "title_orientation": "horizontal",
+      "title_position": "center",
+      "width": 230,
+      "visible": true,
+      "locked": false,
+      "tracks": [
+        {
+          "track_id": "track-column-masterlog-cuttings",
+          "title": "Шламограмма",
+          "kind": "cuttings",
+          "visible": true,
+          "locked": false,
+          "grid_x": true,
+          "grid_y": true,
+          "grid_alpha": 0.2,
+          "x_axis_label": "",
+          "title_orientation": "horizontal",
+          "title_position": "center",
+          "show_interval_labels": false,
+          "bindings": []
+        }
+      ]
+    },
+    {
+      "column_id": "column-masterlog-lba",
+      "title": "ЛБА",
+      "group_title": "",
+      "title_orientation": "horizontal",
+      "title_position": "center",
+      "width": 190,
+      "visible": true,
+      "locked": false,
+      "tracks": [
+        {
+          "track_id": "track-column-masterlog-lba",
+          "title": "ЛБА",
+          "kind": "lba",
+          "visible": true,
+          "locked": false,
+          "grid_x": true,
+          "grid_y": true,
+          "grid_alpha": 0.2,
+          "x_axis_label": "",
+          "title_orientation": "horizontal",
+          "title_position": "center",
+          "show_interval_labels": false,
+          "bindings": []
+        }
+      ]
+    },
+    {
+      "column_id": "column-masterlog-calcimetry",
+      "title": "Кальциметрия",
+      "group_title": "",
+      "title_orientation": "horizontal",
+      "title_position": "center",
+      "width": 250,
+      "visible": true,
+      "locked": false,
+      "tracks": [
+        {
+          "track_id": "track-column-masterlog-calcimetry",
+          "title": "Кальциметрия",
+          "kind": "calcimetry",
+          "visible": true,
+          "locked": false,
+          "grid_x": true,
+          "grid_y": true,
+          "grid_alpha": 0.2,
+          "x_axis_label": "",
+          "title_orientation": "horizontal",
+          "title_position": "center",
+          "show_interval_labels": false,
+          "bindings": [
+            {
+              "binding_id": "binding-caco3",
+              "canonical_parameter_id": "CACO3",
+              "display_name": "Кальцит CaCO₃",
+              "source_mnemonic": null,
+              "unit": "%",
+              "visible": true,
+              "style": {
+                "color": "#06b6d4",
+                "width": 2.0,
+                "line_style": "solid"
+              },
+              "x_scale": "linear",
+              "x_min": 0,
+              "x_max": 100
+            },
+            {
+              "binding_id": "binding-camg-co3-2",
+              "canonical_parameter_id": "CAMG_CO3_2",
+              "display_name": "Доломит CaMg(CO₃)₂",
+              "source_mnemonic": null,
+              "unit": "%",
+              "visible": true,
+              "style": {
+                "color": "#8b5cf6",
+                "width": 2.0,
+                "line_style": "solid"
+              },
+              "x_scale": "linear",
+              "x_min": 0,
+              "x_max": 100
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "column_id": "column-masterlog-lithology",
+      "title": "Литология",
+      "group_title": "",
+      "title_orientation": "horizontal",
+      "title_position": "center",
+      "width": 230,
+      "visible": true,
+      "locked": false,
+      "tracks": [
+        {
+          "track_id": "track-column-masterlog-lithology",
+          "title": "Литология",
+          "kind": "lithology",
+          "visible": true,
+          "locked": false,
+          "grid_x": true,
+          "grid_y": true,
+          "grid_alpha": 0.2,
+          "x_axis_label": "",
+          "title_orientation": "horizontal",
+          "title_position": "center",
+          "show_interval_labels": false,
+          "bindings": []
+        }
+      ]
+    },
+    {
+      "column_id": "column-masterlog-gas",
+      "title": "Газ C1–C5",
+      "group_title": "",
+      "title_orientation": "horizontal",
+      "title_position": "center",
+      "width": 470,
+      "visible": true,
+      "locked": false,
+      "tracks": [
+        {
+          "track_id": "track-column-masterlog-gas",
+          "title": "Газ C1–C5",
+          "kind": "curve",
+          "visible": true,
+          "locked": false,
+          "grid_x": true,
+          "grid_y": true,
+          "grid_alpha": 0.2,
+          "x_axis_label": "",
+          "title_orientation": "horizontal",
+          "title_position": "center",
+          "show_interval_labels": false,
+          "bindings": [
+            {
+              "binding_id": "binding-c1",
+              "canonical_parameter_id": "C1",
+              "display_name": "Метан C1",
+              "source_mnemonic": null,
+              "unit": "%",
+              "visible": true,
+              "style": {
+                "color": "#2563eb",
+                "width": 1.5,
+                "line_style": "solid"
+              },
+              "x_scale": "logarithmic",
+              "x_min": 0.001,
+              "x_max": 100
+            },
+            {
+              "binding_id": "binding-c2",
+              "canonical_parameter_id": "C2",
+              "display_name": "Этан C2",
+              "source_mnemonic": null,
+              "unit": "%",
+              "visible": true,
+              "style": {
+                "color": "#84cc16",
+                "width": 1.5,
+                "line_style": "solid"
+              },
+              "x_scale": "logarithmic",
+              "x_min": 0.001,
+              "x_max": 100
+            },
+            {
+              "binding_id": "binding-c3",
+              "canonical_parameter_id": "C3",
+              "display_name": "Пропан C3",
+              "source_mnemonic": null,
+              "unit": "%",
+              "visible": true,
+              "style": {
+                "color": "#22d3ee",
+                "width": 1.5,
+                "line_style": "solid"
+              },
+              "x_scale": "logarithmic",
+              "x_min": 0.001,
+              "x_max": 100
+            },
+            {
+              "binding_id": "binding-c4",
+              "canonical_parameter_id": "C4",
+              "display_name": "Бутан C4",
+              "source_mnemonic": null,
+              "unit": "%",
+              "visible": true,
+              "style": {
+                "color": "#fb923c",
+                "width": 1.5,
+                "line_style": "solid"
+              },
+              "x_scale": "logarithmic",
+              "x_min": 0.001,
+              "x_max": 100
+            },
+            {
+              "binding_id": "binding-ic4",
+              "canonical_parameter_id": "IC4",
+              "display_name": "Изобутан iC4",
+              "source_mnemonic": null,
+              "unit": "%",
+              "visible": true,
+              "style": {
+                "color": "#a16207",
+                "width": 1.5,
+                "line_style": "solid"
+              },
+              "x_scale": "logarithmic",
+              "x_min": 0.001,
+              "x_max": 100
+            },
+            {
+              "binding_id": "binding-c5",
+              "canonical_parameter_id": "C5",
+              "display_name": "Пентан C5",
+              "source_mnemonic": null,
+              "unit": "%",
+              "visible": true,
+              "style": {
+                "color": "#9333ea",
+                "width": 1.5,
+                "line_style": "solid"
+              },
+              "x_scale": "logarithmic",
+              "x_min": 0.001,
+              "x_max": 100
+            },
+            {
+              "binding_id": "binding-ic5",
+              "canonical_parameter_id": "IC5",
+              "display_name": "Изопентан iC5",
+              "source_mnemonic": null,
+              "unit": "%",
+              "visible": true,
+              "style": {
+                "color": "#d946ef",
+                "width": 1.5,
+                "line_style": "solid"
+              },
+              "x_scale": "logarithmic",
+              "x_min": 0.001,
+              "x_max": 100
+            },
+            {
+              "binding_id": "binding-tg",
+              "canonical_parameter_id": "TG",
+              "display_name": "Суммарный газ",
+              "source_mnemonic": null,
+              "unit": "%",
+              "visible": true,
+              "style": {
+                "color": "#dc2626",
+                "width": 2.0,
+                "line_style": "solid"
+              },
+              "x_scale": "logarithmic",
+              "x_min": 0.001,
+              "x_max": 100
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "column_id": "column-masterlog-description",
+      "title": "Описание пород",
+      "group_title": "",
+      "title_orientation": "horizontal",
+      "title_position": "center",
+      "width": 480,
+      "visible": true,
+      "locked": false,
+      "tracks": [
+        {
+          "track_id": "track-column-masterlog-description",
+          "title": "Описание пород",
+          "kind": "text",
+          "visible": true,
+          "locked": false,
+          "grid_x": true,
+          "grid_y": true,
+          "grid_alpha": 0.2,
+          "x_axis_label": "",
+          "title_orientation": "horizontal",
+          "title_position": "center",
+          "show_interval_labels": false,
+          "bindings": []
+        }
+      ]
+    }
+  ]
+}

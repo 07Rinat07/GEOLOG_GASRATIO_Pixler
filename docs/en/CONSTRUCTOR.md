@@ -1,3 +1,7 @@
+## Contrast and reference Masterlog — 0.7.11
+
+Constructor navigation, lists, tables, tabs and collapsible sections now use explicit colours and remain readable under dark Windows themes. The recommended reference Masterlog with editable fields and two replaceable logo slots is shown first.
+
 # Constructor guide
 
 Open **Constructor → Open constructor** or press `Ctrl+Shift+K`.

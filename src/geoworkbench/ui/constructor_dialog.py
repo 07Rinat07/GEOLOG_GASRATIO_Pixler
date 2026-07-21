@@ -198,16 +198,76 @@ class UniversalConstructorDialog(QDialog):
         )
         self._visible_assets: tuple[AssetDefinition, ...] = ()
         self.setWindowTitle(_TEXT[language]["title"])
+        self.setObjectName("universal-constructor")
         self.setMinimumSize(1020, 680)
         self.resize(1320, 840)
+        # The application normally uses a dark palette.  This dialog deliberately
+        # uses a paper-light workspace, therefore every foreground and interaction
+        # state is specified explicitly.  Relying on inherited palette colours made
+        # navigation items, collapsed section titles and disabled buttons disappear
+        # as white text on a white background on Windows.
         self.setStyleSheet(
-            "QDialog { background: #f1f5f9; }"
-            "QListWidget, QTextEdit { background: white; border: 1px solid #cbd5e1; "
-            "border-radius: 7px; }"
-            "QPushButton { min-height: 31px; padding: 4px 10px; }"
-            "QPushButton#constructor-primary { background: #2563eb; color: white; "
-            "font-weight: 600; border: 0; border-radius: 6px; }"
-            "QPushButton#constructor-primary:hover { background: #1d4ed8; }"
+            "QDialog#universal-constructor { background:#f1f5f9; color:#0f172a; }"
+            "QDialog#universal-constructor QDialog { background:#f1f5f9; color:#0f172a; }"
+            "QDialog#universal-constructor QWidget { color:#0f172a; }"
+            "QDialog#universal-constructor QLabel { color:#334155; background:transparent; }"
+            "QDialog#universal-constructor QGroupBox { color:#0f172a; "
+            "border:1px solid #cbd5e1; border-radius:6px; margin-top:8px; padding-top:6px; }"
+            "QDialog#universal-constructor QGroupBox::title { color:#0f172a; "
+            "subcontrol-origin:margin; left:8px; padding:0 4px; }"
+            "QDialog#universal-constructor QStackedWidget, "
+            "QDialog#universal-constructor QTabWidget::pane { "
+            "background:#f1f5f9; border:0; }"
+            "QDialog#universal-constructor QTabBar::tab { "
+            "background:#e2e8f0; color:#0f172a; padding:7px 12px; "
+            "border:1px solid #cbd5e1; }"
+            "QDialog#universal-constructor QTabBar::tab:selected { "
+            "background:#ffffff; color:#0f172a; }"
+            "QDialog#universal-constructor QListWidget, "
+            "QDialog#universal-constructor QTreeWidget, "
+            "QDialog#universal-constructor QTableWidget, "
+            "QDialog#universal-constructor QTextEdit, "
+            "QDialog#universal-constructor QPlainTextEdit, "
+            "QDialog#universal-constructor QLineEdit, "
+            "QDialog#universal-constructor QComboBox, "
+            "QDialog#universal-constructor QSpinBox, "
+            "QDialog#universal-constructor QDoubleSpinBox { "
+            "background:#ffffff; color:#0f172a; border:1px solid #cbd5e1; "
+            "border-radius:7px; selection-background-color:#dbeafe; "
+            "selection-color:#0f172a; padding:4px; }"
+            "QDialog#universal-constructor QListWidget::item, "
+            "QDialog#universal-constructor QTreeWidget::item, "
+            "QDialog#universal-constructor QTableWidget::item { "
+            "color:#0f172a; min-height:28px; padding:4px 6px; border-radius:5px; }"
+            "QDialog#universal-constructor QListWidget::item:hover, "
+            "QDialog#universal-constructor QTreeWidget::item:hover { "
+            "background:#eff6ff; color:#0f172a; }"
+            "QDialog#universal-constructor QListWidget::item:selected, "
+            "QDialog#universal-constructor QTreeWidget::item:selected, "
+            "QDialog#universal-constructor QTableWidget::item:selected { "
+            "background:#dbeafe; color:#0f172a; }"
+            "QDialog#universal-constructor QHeaderView::section { "
+            "background:#e2e8f0; color:#0f172a; border:1px solid #cbd5e1; "
+            "padding:5px; font-weight:600; }"
+            "QDialog#universal-constructor QCheckBox, "
+            "QDialog#universal-constructor QRadioButton { color:#0f172a; }"
+            "QDialog#universal-constructor QPushButton { "
+            "min-height:31px; padding:4px 10px; background:#e2e8f0; color:#0f172a; "
+            "border:1px solid #cbd5e1; border-radius:6px; }"
+            "QDialog#universal-constructor QPushButton:hover { "
+            "background:#dbeafe; border-color:#93c5fd; color:#0f172a; }"
+            "QDialog#universal-constructor QPushButton:disabled { "
+            "background:#e5e7eb; color:#64748b; border-color:#cbd5e1; }"
+            "QDialog#universal-constructor QPushButton#constructor-primary { "
+            "background:#2563eb; color:#ffffff; font-weight:600; border:0; }"
+            "QDialog#universal-constructor QPushButton#constructor-primary:hover { "
+            "background:#1d4ed8; color:#ffffff; }"
+            "QDialog#universal-constructor QPushButton#constructor-primary:disabled { "
+            "background:#93c5fd; color:#e2e8f0; }"
+            "QDialog#universal-constructor QDialogButtonBox QPushButton { "
+            "background:#e2e8f0; color:#0f172a; }"
+            "QDialog#universal-constructor QSplitter::handle { background:#cbd5e1; }"
+            "QDialog#universal-constructor QToolButton { color:#0f172a; }"
         )
 
         title = QLabel(_TEXT[language]["title"])
@@ -430,17 +490,19 @@ class UniversalConstructorDialog(QDialog):
         if not hasattr(self, "preset_list"):
             return
         self.preset_list.clear()
+        preferred_item: QListWidgetItem | None = None
         for preset in BUILTIN_MASTERLOG_FORM_PRESETS:
-            item = QListWidgetItem(preset.name(self.language))
+            caption = preset.name(self.language)
+            if preset.preset_id == "kazgeology_reference_blank":
+                caption = f"★ {caption}"
+            item = QListWidgetItem(caption)
             item.setData(Qt.ItemDataRole.UserRole, preset.preset_id)
             item.setToolTip(preset.description(self.language))
             self.preset_list.addItem(item)
-        preferred = self.preset_list.findItems(
-            "Геолого-технологические исследования — готовый бланк",
-            Qt.MatchFlag.MatchContains,
-        )
-        if preferred:
-            self.preset_list.setCurrentItem(preferred[0])
+            if preset.preset_id == "kazgeology_reference_blank":
+                preferred_item = item
+        if preferred_item is not None:
+            self.preset_list.setCurrentItem(preferred_item)
         elif self.preset_list.count():
             self.preset_list.setCurrentRow(0)
 

@@ -2578,8 +2578,10 @@ class MainWindow(QMainWindow):
                 description="Карандаш",
             )
         except (IndexError, KeyError, RuntimeError, ValueError) as exc:
+            self.tablet_view.acknowledge_curve_pencil_commit(False, str(exc))
             QMessageBox.warning(self, "Редактор кривой", str(exc))
             return
+        self.tablet_view.acknowledge_curve_pencil_commit(True)
         self._after_curve_edit(outcome)
 
     def undo_curve_edit(self) -> None:

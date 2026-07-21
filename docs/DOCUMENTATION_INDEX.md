@@ -1,3 +1,4 @@
+- Pencil points, reference Masterlog and Constructor contrast 0.7.11: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 # Documentation Index
 - Readable parameter captions and explicit pencil saving 0.7.10: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 

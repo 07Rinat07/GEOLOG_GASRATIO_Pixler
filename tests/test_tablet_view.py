@@ -2217,3 +2217,132 @@ def test_tablet_headers_translate_legacy_vendor_s_codes(qapp) -> None:
         "Число ходов 1 насоса",
     )
     view.close()
+
+
+def test_tablet_curve_pencil_connect_points_mode_commits_selected_points(qapp) -> None:
+    dataset = Dataset(
+        "dataset-pencil-points",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0, 103.0]),
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-pencil-points",
+            "ROP",
+            "ROP",
+            "m/h",
+            None,
+            dataset.dataset_id,
+            provenance="las:source",
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView()
+    view.resize(900, 650)
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "drilling-points",
+                    "Бурение",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["ROP"],
+                    curve_display={
+                        "ROP": CurveDisplaySettings(
+                            "Скорость бурения", XScale.LINEAR, 0.0, 10.0
+                        )
+                    },
+                )
+            ]
+        )
+    )
+    emitted: list[tuple[object, ...]] = []
+
+    def apply_edit(*args: object) -> None:
+        emitted.append(args)
+        view.acknowledge_curve_pencil_commit(True)
+
+    view.curve_edit_requested.connect(apply_edit)
+    view.set_dataset(dataset)
+    view.show()
+    qapp.processEvents()
+    mode_row = view._curve_pencil_mode_selector.findData("connect_points")
+    view._curve_pencil_mode_selector.setCurrentIndex(mode_row)
+    assert view.set_curve_pencil_mode(True) is True
+
+    plot = view._rendered["drilling-points"].plot
+    assert plot is not None
+    viewport = plot.viewport()
+    first = plot.mapFromScene(plot.getViewBox().mapViewToScene(QPointF(0.2, 100.2)))
+    second = plot.mapFromScene(plot.getViewBox().mapViewToScene(QPointF(0.8, 102.8)))
+    QTest.mouseClick(viewport, Qt.MouseButton.LeftButton, pos=first)
+    QTest.mouseClick(viewport, Qt.MouseButton.LeftButton, pos=second)
+    qapp.processEvents()
+
+    assert len(view._curve_pencil_points) == 2
+    assert view._curve_pencil_apply_button.isEnabled() is True
+    view._curve_pencil_apply_button.click()
+    qapp.processEvents()
+
+    assert len(emitted) == 1
+    assert emitted[0][0] == curve.metadata.curve_id
+    assert view._curve_pencil_points == []
+    view.close()
+
+
+def test_tablet_curve_pencil_failed_commit_keeps_preview(qapp) -> None:
+    dataset = Dataset(
+        "dataset-pencil-failed",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0]),
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-pencil-failed",
+            "ROP",
+            "ROP",
+            "m/h",
+            None,
+            dataset.dataset_id,
+            provenance="las:source",
+        ),
+        np.array([1.0, 2.0, 3.0]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "failed-track",
+                    "Бурение",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["ROP"],
+                    curve_display={
+                        "ROP": CurveDisplaySettings("ROP", XScale.LINEAR, 0.0, 10.0)
+                    },
+                )
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+    view.set_curve_pencil_mode(True)
+    view.curve_edit_requested.connect(
+        lambda *_: view.acknowledge_curve_pencil_commit(False, "test failure")
+    )
+    view._curve_pencil_points = [
+        view._curve_pencil_point_from_values(100.0, 2.0),
+        view._curve_pencil_point_from_values(102.0, 8.0),
+    ]
+    view._update_curve_pencil_preview()
+
+    assert view._commit_curve_pencil_gesture() is False
+    assert len(view._curve_pencil_points) == 2
+    assert view._rendered["failed-track"].curve_pencil_preview is not None
+    assert "test failure" in view._curve_pencil_status.text()
+    view.close()

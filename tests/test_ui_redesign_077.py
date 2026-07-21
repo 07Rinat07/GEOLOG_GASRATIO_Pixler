@@ -118,3 +118,43 @@ def test_constructor_shows_ready_kazgeology_preset(qapp, tmp_path, monkeypatch) 
     }
     assert "kazgeology_reference_blank" in preset_ids
     assert dialog.navigation.count() == 4
+
+
+def test_constructor_remains_readable_with_dark_application_palette(qapp, tmp_path, monkeypatch) -> None:
+    from PySide6.QtGui import QColor, QPalette
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data-dark"))
+    original = qapp.palette()
+    dark = QPalette(original)
+    for role in (
+        QPalette.ColorRole.Text,
+        QPalette.ColorRole.WindowText,
+        QPalette.ColorRole.ButtonText,
+    ):
+        dark.setColor(role, QColor("#ffffff"))
+    qapp.setPalette(dark)
+    try:
+        window = MainWindow()
+        dialog = UniversalConstructorDialog(
+            window.masterlog_template_controller,
+            language=window.language,
+        )
+        dialog.show()
+        qapp.processEvents()
+
+        assert dialog.navigation.palette().color(QPalette.ColorRole.Text).name() == "#0f172a"
+        assert dialog.preset_list.palette().color(QPalette.ColorRole.Text).name() == "#0f172a"
+        assert dialog.navigation.item(0).text()
+        assert dialog.preset_list.item(0).text().startswith("★ МАСТЕРЛОГ")
+        dialog.close()
+        window.close()
+    finally:
+        qapp.setPalette(original)
+
+
+def test_reference_masterlog_screen_form_links_exact_header() -> None:
+    from geoworkbench.forms.templates import curated_factory_templates
+
+    form = curated_factory_templates("ru")["factory-masterlog-geological-geochemical"]
+    assert "эталонная глубинная форма" in form.name.casefold()
+    assert form.print_header_template_id == "kazgeology_blank"

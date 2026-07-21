@@ -1164,11 +1164,20 @@
   "tablet.form_edit_off": "Пішінді қарау режимі. Бағанды немесе параметрлерді өзгерту үшін F4 басыңыз.",
   "tablet.curve_pencil_button": "✎ Қисық қарындашы",
   "tablet.curve_pencil_target": "Өңделетін қисық",
-  "tablet.curve_pencil_tooltip": "Таңдалған бастапқы қисықты планшет ішінде тікелей өңдеуді қосу. Тінтуірдің сол жақ батырмасын ұстап, жаңа сызық жүргізіңіз.",
+  "tablet.curve_pencil_tooltip": "Таңдалған бастапқы қисықты планшетте еркін штрихпен немесе таңдалған нүктелерді қосу арқылы өңдеу.",
   "tablet.curve_pencil_selector_tooltip": "Өңдеу үшін көрінетін бастапқы қисық пен жолды таңдаңыз",
   "tablet.curve_pencil_active": "Қарындаш белсенді: {mnemonic}. Сол жақ батырмамен сызыңыз; Esc ағымдағы штрихты болдырмайды.",
   "tablet.curve_pencil_inactive": "Қарындаш өшірулі. Қисықты таңдап, құралды қосыңыз.",
   "tablet.curve_pencil_no_curves": "Ағымдағы пішінде қарындашпен өңдеуге болатын көрінетін бастапқы сандық қисықтар жоқ.",
   "tablet.curve_pencil_unsaved": "✎ {mnemonic}: өзгерістер қолданылды және тәуелді қисықтар қайта есептелді. Сақталмады — дискета батырмасын басыңыз.",
-  "curve_edit.unsaved_status": "{mnemonic} қисығы өзгертілді; қайта есептелді: {recalculated}. Сақталмады — дискета батырмасын басыңыз."
+  "curve_edit.unsaved_status": "{mnemonic} қисығы өзгертілді; қайта есептелді: {recalculated}. Сақталмады — дискета батырмасын басыңыз.",
+  "tablet.curve_pencil_mode": "Режим",
+  "tablet.curve_pencil_mode_freehand": "Еркін штрих",
+  "tablet.curve_pencil_mode_points": "Нүктелерді қосу",
+  "tablet.curve_pencil_mode_tooltip": "Еркін сызуды немесе тірек нүктелерін қойып, кейін оларды қосуды таңдаңыз.",
+  "tablet.curve_pencil_apply_points": "Қосу",
+  "tablet.curve_pencil_apply_points_tooltip": "Таңдалған нүктелерді тереңдік бойынша қосып, өзгерісті қолдану және тәуелді қисықтарды бірден қайта есептеу.",
+  "tablet.curve_pencil_clear_points": "Нүктелерді тазарту",
+  "tablet.curve_pencil_points_selected": "✎ {mnemonic}: {count} нүкте таңдалды. «Қосу» батырмасын, Enter пернесін басыңыз немесе соңғы нүктені екі рет шертіңіз.",
+  "tablet.curve_pencil_commit_failed": "Өзгеріс қолданылмады: {error}. Қызғылт сары сызық түзету және қайта әрекет ету үшін сақталды."
 }

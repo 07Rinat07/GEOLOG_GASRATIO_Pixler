@@ -325,7 +325,7 @@ def test_masterlog_screen_form_matches_reference_column_order() -> None:
     form = factory_templates()["factory-masterlog-geological-geochemical"]
 
     assert form.axis_kind is FormAxisKind.DEPTH
-    assert form.print_header_template_id == "geological_geochemical"
+    assert form.print_header_template_id == "kazgeology_blank"
     assert [column.column_id for column in form.columns] == [
         "column-masterlog-stratigraphy",
         "column-masterlog-drilling",

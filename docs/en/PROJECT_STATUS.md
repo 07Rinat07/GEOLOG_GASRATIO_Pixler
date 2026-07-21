@@ -1,5 +1,9 @@
 # Current project status
 
+## 0.7.11 fix — pencil, Constructor and reference Masterlog
+
+Freehand and point modes work in the tablet; failed edits keep their preview, dependants recalculate immediately and saving remains explicit. Every Constructor section is readable under a dark application palette.
+
 ## 0.7.10 fix — readable captions and safe saving
 
 Legacy codes such as `S300`, `S720`, `S800`, `S900` and `S50` are resolved through Sensors.DB and displayed as readable names. The source mnemonic remains available in tooltips/editors. Pencil edits apply and recalculate dependants immediately in memory, mark the project with `*`, and are written only by the Save action. Validation: `1017 passed, 1 skipped`; Ruff and `compileall` pass.

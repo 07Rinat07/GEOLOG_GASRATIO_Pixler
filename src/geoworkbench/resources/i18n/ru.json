@@ -1164,11 +1164,20 @@
   "tablet.form_edit_off": "Режим просмотра формы. Нажмите F4, чтобы изменить колонку или параметры.",
   "tablet.curve_pencil_button": "✎ Карандаш кривой",
   "tablet.curve_pencil_target": "Редактируемая кривая",
-  "tablet.curve_pencil_tooltip": "Включить редактирование выбранной исходной кривой непосредственно в планшете. Зажмите левую кнопку мыши и проведите новую линию.",
+  "tablet.curve_pencil_tooltip": "Редактировать выбранную исходную кривую прямо в планшете: свободным штрихом или соединением выбранных точек.",
   "tablet.curve_pencil_selector_tooltip": "Выберите видимую исходную кривую и дорожку для редактирования",
   "tablet.curve_pencil_active": "Карандаш активен: {mnemonic}. Рисуйте левой кнопкой мыши; Esc отменяет текущий штрих.",
   "tablet.curve_pencil_inactive": "Карандаш выключен. Выберите кривую и включите инструмент.",
   "tablet.curve_pencil_no_curves": "В текущей форме нет видимых исходных числовых кривых, доступных для редактирования карандашом.",
   "tablet.curve_pencil_unsaved": "✎ {mnemonic}: изменения применены и зависимые кривые пересчитаны. Не сохранено — нажмите дискету.",
-  "curve_edit.unsaved_status": "Кривая {mnemonic} изменена; пересчитано: {recalculated}. Не сохранено — нажмите дискету."
+  "curve_edit.unsaved_status": "Кривая {mnemonic} изменена; пересчитано: {recalculated}. Не сохранено — нажмите дискету.",
+  "tablet.curve_pencil_mode": "Режим",
+  "tablet.curve_pencil_mode_freehand": "Свободный штрих",
+  "tablet.curve_pencil_mode_points": "Соединить точки",
+  "tablet.curve_pencil_mode_tooltip": "Выберите свободное рисование или постановку опорных точек с последующим соединением.",
+  "tablet.curve_pencil_apply_points": "Соединить",
+  "tablet.curve_pencil_apply_points_tooltip": "Соединить выбранные точки по глубине, применить изменение и сразу пересчитать зависимые кривые.",
+  "tablet.curve_pencil_clear_points": "Очистить точки",
+  "tablet.curve_pencil_points_selected": "✎ {mnemonic}: выбрано точек — {count}. Нажмите «Соединить», Enter или дважды щёлкните последнюю точку.",
+  "tablet.curve_pencil_commit_failed": "Правка не применена: {error}. Оранжевая линия сохранена для исправления и повторной попытки."
 }

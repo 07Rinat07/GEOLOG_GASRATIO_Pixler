@@ -1,4 +1,4 @@
-# “Geological-technological survey — ready blank” template
+# “MASTERLOG — reference header and depth form” template
 
 The template follows the supplied Masterlog reference and is configured for A3 landscape output.
 
@@ -17,7 +17,7 @@ The template follows the supplied Masterlog reference and is configured for A3 l
 
 1. Open **Constructor → Masterlog templates**.
 2. Select **Create from preset**.
-3. Choose **“Geological-technological survey — ready blank”**.
+3. Choose **“MASTERLOG — reference header and depth form”**.
 4. Enter a name for the user copy.
 
 The built-in preset remains unchanged. All edits are stored in the created user copy.

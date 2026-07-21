@@ -1,3 +1,7 @@
+## Connected-point pencil and acknowledged edits — 0.7.11
+
+Choose Freehand stroke or Connect points. In point mode, click anchors and press Connect, Enter, or double-click the final point. Dependants recalculate immediately in memory; the project is written only after Save. Failed edits keep the orange preview.
+
 # Interface workspace 0.7.7
 
 ## Main toolbar

@@ -1,32 +1,36 @@
-GEOLOG GASRATIO@Pixler 0.7.10 — Readable parameter labels and explicit pencil save
-Date: 2026-07-21
+GEOLOG GASRATIO@Pixler 0.7.11 — Pencil points, reference Masterlog and Constructor contrast
 
-Implemented and verified
-- Legacy vendor mnemonics S<number> resolve through Sensors.DB legacy_gid records.
-- Verified examples: S300 -> Давление на манифольде; S720 -> Суммарный объем в емкостях; S800 -> Температура на входе; S900 -> Температура раствора на выходе; S50 -> Число ходов 1 насоса.
-- Exact LAS descriptions take priority when a vendor reuses an S-code for another channel (for example S800 described as methane remains C1).
-- Old layouts/forms where display_name equals the raw mnemonic no longer suppress the readable catalog label.
-- Readable names are used in tablet graph headers, curve settings, saved user forms and data exports; original mnemonics remain available in selectors, tooltips and metadata.
-- Main-toolbar pencil activation prefers the currently selected editable curve.
-- The active pencil track is marked with an orange header and a visible pencil symbol.
-- A pencil stroke modifies the in-memory working copy and immediately recalculates existing dependent Gas Ratio/Pixler/custom-formula curves.
-- Pencil edit, undo and redo mark the project dirty; disk writing occurs only through explicit Save/Save As.
-- The tablet reports “Not saved — press the diskette button” until project save succeeds.
+Implemented
+- Freehand curve-pencil mode.
+- Connect-points mode with button, Enter and double-click commit paths.
+- Synchronous edit acknowledgement: failed commits keep the orange preview and error text.
+- Immediate in-memory recalculation of dependent Gas Ratio, Pixler and custom-formula curves.
+- Explicit disk saving only through Save; session remains dirty after a pencil edit.
+- Large high-contrast pencil cursor, orange target header and in-plot pencil badge.
+- Explicit light/contrast stylesheet for Constructor navigation, lists, tables, tabs, collapsible sections and child dialogs under a dark application palette.
+- Recommended preset renamed and promoted as «МАСТЕРЛОГ — эталонная шапка и глубинная форма».
+- Curated depth screen form linked to header preset `kazgeology_blank`.
+- Two replaceable optional logo slots remain part of the reference header.
 
 Automated validation
-- python scripts/run_tests.py: 1017 passed, 1 skipped
-- ruff check src tests: PASS
-- python -m compileall -q src tests: PASS
-- Legacy S-code matching tests: PASS
-- Existing S800 methane-description conflict regression: PASS
-- Tablet readable-header regression with persisted raw display names: PASS
-- Pencil dependent recalculation and dirty-session tests: PASS
-- RU/KK/EN localization keys added for the unsaved-pencil state.
+- pytest: 1022 passed, 1 skipped
+- Ruff: PASS
+- compileall: PASS
+- RU/KK/EN translation synchronization: PASS (covered by test suite)
+- Dark application palette Constructor test: PASS
+- Connected-point pencil commit test: PASS
+- Failed pencil commit preserves preview test: PASS
+- In-memory curve mutation and dirty-session test: PASS
+- Reference Masterlog screen-form/header linkage test: PASS
 
-Visual artifact
-- docs/validation/readable_parameter_headers_0.7.10.png
+Generated review artifacts
+- GEOLOG_0.7.11_constructor_dark_fixed.png
+- GEOLOG_0.7.11_pencil_connect_points.png
+- MASTERLOG_reference_v0.7.11_preview.png
+- MASTERLOG_reference_header_depth_form_v0.7.11.masterlog.json
+- MASTERLOG_reference_depth_form_v0.7.11.form.json
 
-Remaining manual release gates
-- Windows smoke-test on production LAS files containing the complete vendor S-code set.
-- Mouse/DPI check on a wide Masterlog form.
-- Confirm physical project save and reopen on the user's workstation.
+Manual Windows checks still required
+- Mouse cursor visibility at the user's actual DPI scaling.
+- Physical printer margins and driver-specific non-printable areas.
+- Save / Don't save / Cancel prompt against a real project file.

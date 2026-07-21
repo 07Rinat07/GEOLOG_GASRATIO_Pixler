@@ -59,9 +59,10 @@ class CollapsibleSection(QFrame):
             "QFrame#collapsible-section { border: 0; }"
             "QToolButton#collapsible-section-header {"
             "  text-align: left; padding: 7px 9px; border: 1px solid #cbd5e1;"
-            "  border-radius: 6px; background: #f8fafc; font-weight: 600;"
+            "  border-radius: 6px; background: #f8fafc; color:#0f172a; font-weight: 600;"
             "}"
-            "QToolButton#collapsible-section-header:hover { background: #eef2ff; }"
+            "QToolButton#collapsible-section-header:hover { background: #eef2ff; color:#0f172a; }"
+            "QToolButton#collapsible-section-header:disabled { background:#e5e7eb; color:#64748b; }"
         )
 
     def is_expanded(self) -> bool:

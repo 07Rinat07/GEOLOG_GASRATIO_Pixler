@@ -741,3 +741,26 @@ def test_pencil_action_edits_visible_curve_directly_in_tablet(qapp) -> None:
     assert window.tablet_view.curve_pencil_target == ("curve", "ROP")
     assert window.pencil_action in window.main_toolbar.actions()
     window.close()
+
+
+def test_curve_pencil_applies_in_memory_and_marks_project_dirty(qapp) -> None:
+    window = MainWindow()
+    session, layout = make_session()
+    layout.track_by_id("curve").curve_mnemonics = ["ROP"]
+    bind_session(window, session)
+    window._show_current_dataset()
+    window.tabs.setCurrentWidget(window.tablet_view)
+    assert window._activate_tablet_curve_pencil("ROP", track_id="curve") is True
+
+    window.tablet_view._curve_pencil_points = [
+        window.tablet_view._curve_pencil_point_from_values(100.0, 5.0),
+        window.tablet_view._curve_pencil_point_from_values(101.0, 7.0),
+    ]
+    assert window.tablet_view._commit_curve_pencil_gesture() is True
+
+    curve = session.current_dataset.curve_by_mnemonic("ROP")
+    assert curve is not None
+    assert np.allclose(curve.values, [5.0, 7.0])
+    assert session.dirty is True
+    assert "Не сохранено" in window.tablet_view._curve_pencil_status.text()
+    window.close()

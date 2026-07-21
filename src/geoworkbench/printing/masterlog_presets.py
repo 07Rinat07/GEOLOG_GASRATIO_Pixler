@@ -268,9 +268,9 @@ GEOLOGICAL_GEOCHEMICAL_HEADER = MasterlogHeaderPreset(
 KAZGEOLOGY_REFERENCE_HEADER = MasterlogHeaderPreset(
     "kazgeology_blank",
     _texts(
-        "Геолого-технологические исследования — бланк",
-        "Геологиялық-технологиялық зерттеулер — бланк",
-        "Geological-technological survey — blank",
+        "МАСТЕРЛОГ — эталонная шапка по образцу",
+        "МАСТЕРЛОГ — үлгі бойынша эталондық тақырып",
+        "MASTERLOG — reference header from the supplied example",
     ),
     _texts(
         "Готовая шапка по переданному образцу с двумя загружаемыми логотипами, реквизитами скважины, легендами и конструкцией.",
@@ -579,12 +579,12 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
     MasterlogFormPreset(
         "kazgeology_reference_blank",
         _texts(
-            "Геолого-технологические исследования — готовый бланк",
-            "Геологиялық-технологиялық зерттеулер — дайын бланк",
-            "Geological-technological survey — ready blank",
+            "МАСТЕРЛОГ — эталонная шапка и глубинная форма",
+            "МАСТЕРЛОГ — эталондық тақырып және тереңдік пішіні",
+            "MASTERLOG — reference header and depth form",
         ),
         _texts(
-            "Форма по переданному образцу: две загружаемые зоны логотипов, готовая шапка, цветные шкалы кривых, геология, газ и ручное описание пород.",
+            "Рекомендуемый заводской шаблон по переданному образцу: редактируемые реквизиты, две заменяемые зоны логотипов, литологическая легенда, ЛБА, условные обозначения, цветные шкалы и глубинная форма.",
             "Берілген үлгі бойынша пішін: екі жүктелетін логотип аймағы, дайын тақырып, түрлі түсті қисық шкалалары, геология, газ және жыныстардың қолмен сипаттамасы.",
             "Reference-based form with two uploadable logo areas, complete header, coloured curve scales, geology, gas and manual rock descriptions.",
         ),
