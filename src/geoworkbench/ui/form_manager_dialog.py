@@ -73,14 +73,29 @@ class FormManagerDialog(QDialog):
         self.setWindowTitle(self._text("Библиотека форм", "Пішіндер кітапханасы", "Form library"))
         self.setMinimumSize(980, 620)
         self.resize(1180, 720)
+        # The application uses a dark global palette. Every light surface in this
+        # dialog must therefore set its foreground explicitly; otherwise Qt keeps
+        # the global white text and the form names become invisible on white.
         self.setStyleSheet(
-            "QDialog { background: #f1f5f9; }"
-            "QTreeWidget, QTextEdit { background: white; border: 1px solid #cbd5e1; "
-            "border-radius: 7px; }"
-            "QPushButton { min-height: 30px; padding: 4px 10px; }"
-            "QPushButton#primary-action { background: #2563eb; color: white; "
+            "QDialog { background: #f1f5f9; color: #0f172a; }"
+            "QLabel { color: #334155; }"
+            "QTreeWidget, QTextEdit, QLineEdit, QComboBox { "
+            "background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; "
+            "border-radius: 7px; selection-background-color: #dbeafe; "
+            "selection-color: #0f172a; }"
+            "QTreeWidget::item { color: #0f172a; min-height: 26px; padding: 2px 4px; }"
+            "QTreeWidget::item:selected { background: #dbeafe; color: #0f172a; }"
+            "QTreeWidget::item:hover { background: #eff6ff; color: #0f172a; }"
+            "QPushButton { min-height: 30px; padding: 4px 10px; "
+            "background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; "
+            "border-radius: 6px; }"
+            "QPushButton:hover { background: #dbeafe; border-color: #93c5fd; }"
+            "QPushButton:disabled { background: #e5e7eb; color: #94a3b8; "
+            "border-color: #cbd5e1; }"
+            "QPushButton#primary-action { background: #2563eb; color: #ffffff; "
             "font-weight: 600; border: 0; border-radius: 6px; }"
             "QPushButton#primary-action:hover { background: #1d4ed8; }"
+            "QPushButton#primary-action:disabled { background: #93c5fd; color: #e2e8f0; }"
         )
 
         root_layout = QVBoxLayout(self)
@@ -366,6 +381,7 @@ class FormManagerDialog(QDialog):
                 font = group.font(0)
                 font.setBold(True)
                 group.setFont(0, font)
+                group.setForeground(0, Qt.GlobalColor.black)
                 group.setToolTip(
                     0,
                     self._text(
@@ -384,6 +400,7 @@ class FormManagerDialog(QDialog):
                     count_suffix = f"  · {binding_count}" if binding_count else ""
                     prefix = "🔒 " if form.read_only else ""
                     item = QTreeWidgetItem([prefix + form.name + count_suffix])
+                    item.setForeground(0, Qt.GlobalColor.black)
                     item.setData(0, Qt.ItemDataRole.UserRole, form)
                     item.setToolTip(
                         0,

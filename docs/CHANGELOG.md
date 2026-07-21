@@ -1,3 +1,11 @@
+# 0.7.8 — Form Library visibility fix
+
+- fixed invisible Form Library text when the application uses a dark global palette;
+- explicitly styled tree items, details, search controls and secondary buttons for readable light surfaces;
+- factory depth/time forms and user depth/time folders are now visibly named and counted;
+- added a regression test that runs the dialog with a dark application palette;
+- kept the existing form repository and user JSON files unchanged.
+
 # 0.7.7 — Unified Workspace
 
 - redesigned the main toolbar around direct LAS Editor, Form Library and Constructor actions;

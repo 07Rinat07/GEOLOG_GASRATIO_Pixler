@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.7:** primary workflows use direct buttons, **F4** toggles the form-editing toolbar, and the Form Library separates factory and user depth/time forms. The Constructor exposes ready Masterlog headers in a visible gallery. See the [workspace guide](UI_WORKSPACE.md) and [LAS Editor guide](LAS_EDITOR.md).
+> **0.7.8:** fixed Form Library visibility under the Windows dark theme: section names, factory presets, user forms and button captions remain readable on light surfaces. **F4** still enables live tablet-form editing. See the [workspace guide](UI_WORKSPACE.md) and [LAS Editor guide](LAS_EDITOR.md).
 
 
 GEOLOG GASRATIO@Pixler is an editor for drilling, mud-logging, and LAS data.

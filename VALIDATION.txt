@@ -1,41 +1,25 @@
-GEOLOG GASRATIO@Pixler 0.7.7 — Unified Workspace
+GEOLOG GASRATIO@Pixler 0.7.8 — Form Library visibility fix
 Validation date: 2026-07-21
 
-IMPLEMENTED SCOPE
-- Direct main-toolbar actions: LAS Editor, Form Library, Constructor.
-- F4 toggles a dedicated tablet form-editing toolbar.
-- Add/edit/move/remove/save form actions are separated from normal viewing.
-- Form Library groups factory/user and depth/time forms.
-- User forms are stored in depth/ and time/ subdirectories with legacy compatibility.
-- Factory forms open as editable live copies; source presets remain protected.
-- Constructor uses side navigation and visibly lists ready Masterlog presets.
-- KazGeology reference blank is visible in the Constructor preset gallery.
-- Secondary controls use collapsible sections and actions have tooltips/status tips.
-- Windows lossless LAS export writes its temporary file explicitly as UTF-8.
+FIXED SCOPE
+- Fixed invisible Form Library text under the application's dark global palette.
+- Factory depth/time section names and form names now use explicit contrasting text.
+- User depth/time section names remain visible even when the folders contain zero forms.
+- Search, form details, normal buttons and disabled buttons remain readable on light surfaces.
+- Existing user form JSON files and the depth/time repository structure are unchanged.
 
 AUTOMATED VALIDATION
-- python -m compileall -q src tests: PASS
-- python -m ruff check src tests: PASS
-- PYTHONPATH=src QT_QPA_PLATFORM=offscreen python scripts/run_tests.py:
-  1008 passed, 1 skipped in 18.07s
+- python -m compileall -q src: PASS
+- ruff check src tests: PASS
+- python scripts/run_tests.py: 1009 passed, 1 skipped in 17.59s
+- Dark-palette Form Library regression: PASS
+- Factory forms visible with an empty user repository: 3
+  - depth: 2
+  - time: 1
 
-REAL GIS LAS VALIDATION
-Successfully imported:
-- ГК,ННК,Дср(1).LAS — CP866, 2025.6 -> 700.0 m, descending, 11 curves
-- А4.0М0.5N, БКс,БКм(1).LAS — CP866, 2013.6 -> 698.0 m, descending, 10 curves
-- МБК(1).LAS — CP866, 2015.6 -> 1494.6 m, descending, 12 curves
-- Плотность,БЗ(1).LAS — CP866, 2014.0 -> 1495.6 m, descending, 9 curves
-
-External insertion analysis:
-- descending source reversed only in memory: PASS
-- overlap: 700.0 .. 2013.6 m
-- mapping: linear_overlap
-- duplicate mnemonic normalization: GK:1 -> GK_1; GK:2 -> GK_2
-
-VISUAL OFFSCREEN CHECKS
-- Main workspace with F4 toolbar: docs/validation/GEOLOG_0.7.7_main_workspace.png
-- Form Library categories: docs/validation/GEOLOG_0.7.7_form_library.png
-- Constructor ready-preset gallery: docs/validation/GEOLOG_0.7.7_constructor_gallery.png
+VISUAL OFFSCREEN CHECK
+- Form Library under a dark application palette:
+  docs/validation/GEOLOG_0.7.8_form_library_fixed.png
 
 NOT COMPLETED IN THIS ENVIRONMENT
 - Final on-screen smoke test on the user's Windows DPI/theme configuration.

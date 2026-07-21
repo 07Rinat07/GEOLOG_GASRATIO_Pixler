@@ -62,3 +62,7 @@ collapsible advanced section.
 The temporary LAS is now written explicitly as UTF-8. This fixes the Windows failure where
 Russian descriptions were written through CP1251 and the lossless composer subsequently read
 the temporary file as UTF-8. The final document is converted back to the source encoding.
+
+## 0.7.8 visibility fix
+
+Under the Windows dark theme, the Form Library explicitly uses contrasting dark text on its light panels. Factory depth and time presets remain visible even when no user forms have been saved yet.

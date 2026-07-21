@@ -1,5 +1,9 @@
 # Current project status
 
+## 0.7.8 fix — Form Library
+
+Section and form names no longer disappear on white surfaces when the application uses a dark palette. Factory presets, user folders, details and button captions remain readable. The JSON repository format is unchanged. Full validation: `1009 passed, 1 skipped`; Ruff and `compileall` pass.
+
 ## Version 0.7.7 — Unified Workspace
 
 - primary workflows use direct buttons instead of inconvenient drop-down menus;

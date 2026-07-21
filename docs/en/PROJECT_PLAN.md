@@ -1,5 +1,12 @@
 # Project plan
 
+## Slice 0.7.8 — visible Form Library
+
+- [x] explicit contrasting text for the tree, search, details and buttons under a dark app theme;
+- [x] visible factory/user depth and time form names;
+- [x] no change to the user JSON format;
+- [x] GUI regression coverage with a dark palette.
+
 ## Slice 0.7.7 — unified workspace
 
 - [x] direct LAS Editor, Form library and Constructor buttons without incorrect drop-down menus;
