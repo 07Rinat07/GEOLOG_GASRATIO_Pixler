@@ -41,6 +41,9 @@ _SYSTEM_FIELDS: tuple[HeaderFieldDefinition, ...] = (
 _EDITABLE_FIELDS: tuple[HeaderFieldDefinition, ...] = (
     HeaderFieldDefinition("header.country", "Страна", "Ел", "Country", "Казахстан"),
     HeaderFieldDefinition("header.field", "Месторождение", "Кен орны", "Field"),
+    HeaderFieldDefinition("header.region", "Область / регион", "Облыс / өңір", "Region"),
+    HeaderFieldDefinition("header.district", "Район / участок", "Аудан / учаске", "District / block"),
+    HeaderFieldDefinition("header.target", "Целевой горизонт", "Мақсатты горизонт", "Target formation"),
     HeaderFieldDefinition("header.well_number", "Номер скважины", "Ұңғыма нөмірі", "Well number"),
     HeaderFieldDefinition("header.customer", "Заказчик", "Тапсырыс беруші", "Customer"),
     HeaderFieldDefinition("header.contractor", "Исполнитель", "Орындаушы", "Contractor"),
@@ -62,6 +65,19 @@ _EDITABLE_FIELDS: tuple[HeaderFieldDefinition, ...] = (
     HeaderFieldDefinition("header.well_type", "Вид скважины", "Ұңғыма түрі", "Well type"),
     HeaderFieldDefinition("header.rig", "Буровая установка", "Бұрғылау қондырғысы", "Drilling rig"),
     HeaderFieldDefinition("header.engineers", "Инженеры / геологи", "Инженерлер / геологтар", "Engineers / geologists"),
+    HeaderFieldDefinition(
+        "header.customer_representative",
+        "Представитель заказчика",
+        "Тапсырыс беруші өкілі",
+        "Customer representative",
+    ),
+    HeaderFieldDefinition(
+        "header.shift_personnel",
+        "Сменный персонал",
+        "Ауысым персоналы",
+        "Shift personnel",
+        multiline=True,
+    ),
     HeaderFieldDefinition(
         "header.well_construction",
         "Конструкция скважины",

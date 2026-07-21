@@ -5,6 +5,8 @@
 
 GEOLOG GASRATIO@Pixler is an editor for drilling, mud-logging, and LAS data.
 
+- a ready A3 KazGeology Masterlog template with two uploadable logos and coloured scales;
+
 ## Language
 
 Choose Русский, Қазақша, or English on first launch. You can later change the language from

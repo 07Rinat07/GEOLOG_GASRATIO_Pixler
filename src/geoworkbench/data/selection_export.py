@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import os
 import tempfile
-from copy import copy
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path

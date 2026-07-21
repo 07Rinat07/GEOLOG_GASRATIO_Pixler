@@ -335,3 +335,33 @@ def test_header_element_dialog_builds_lba_legend_properties(qapp) -> None:
         "frame": False,
     }
     dialog.close()
+
+
+def test_optional_logo_placeholder_can_remain_empty_and_preserves_metadata(qapp) -> None:
+    from geoworkbench.domain.models import MasterlogHeaderElement
+
+    element = MasterlogHeaderElement(
+        "logo",
+        "image",
+        5.0,
+        5.0,
+        40.0,
+        15.0,
+        {
+            "optional": True,
+            "logo_role": "customer",
+            "placeholder_text_ru": "Загрузить логотип заказчика",
+            "frame": True,
+            "background": "#f8fafc",
+            "mode": "fit",
+        },
+    )
+    dialog = HeaderElementDialog(element=element, language=AppLanguage.RU)
+
+    properties = dialog.values()[-1]
+
+    assert properties["optional"] is True
+    assert properties["logo_role"] == "customer"
+    assert properties["placeholder_text_ru"] == "Загрузить логотип заказчика"
+    assert "asset_ref" not in properties
+    dialog.close()

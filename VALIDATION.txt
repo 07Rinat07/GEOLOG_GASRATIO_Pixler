@@ -1,24 +1,26 @@
-GEOLOG GASRATIO@Pixler 0.7.4 — Readable LAS Excel Export
+GEOLOG GASRATIO@Pixler 0.7.5 — KazGeology Reference Template
 Validation date: 2026-07-21
 
-Implemented:
-- Data-sheet headers contain readable name, LAS/canonical mnemonic, and unit.
-- Parameters sheet contains readable name, original and canonical mnemonic, unit,
-  LAS description, recognition status, confidence, match method, and provenance.
-- Common gases C1-C5, iC4/nC4, iC5/nC5, TG, H2S and CO2 receive readable names.
-- Unknown mnemonics are explicitly marked as unresolved.
-- RU/KK/EN export language follows the active UI language.
-- LAS text is normalized and common mojibake is repaired before XLSX writing.
-- Numeric values remain numeric Excel cells; datetime and decimal formats are preserved.
+Implemented
+- Built-in A3 landscape preset: kazgeology_reference_blank
+- Two optional logo image placeholders: contractor and customer
+- Localized placeholder rendering RU/KK/EN
+- Empty optional logo slots do not raise missing_asset preflight warnings
+- Header metadata fields: region, district/block, target formation, customer representative, shift personnel
+- Lithology legend, LBA legend, symbols and well-construction areas
+- Standard stratigraphy, drilling, depth, cuttings, LBA, calcimetry, lithology, gas and manual-description columns
+- Standalone importable Masterlog package included in resources/templates/masterlog
+- RU/KK/EN documentation synchronized
 
-Checks completed:
-- python compileall: PASS
-- targeted synthetic XLSX export: PASS
-- Data / Parameters / Metadata workbook structure: PASS
-- RU header values: PASS
-- unknown mnemonic marking: PASS
-- ZIP integrity: performed after packaging
+Checks
+- python -m compileall -q src tests: PASS
+- uvx ruff check src tests: PASS
+- full headless test suite: 996 passed, 1 skipped
+- standalone Masterlog package load: PASS
+- optional-logo preflight: PASS (0 missing_asset warnings)
+- template header width within A3 landscape: PASS
+- PNG preview render: PASS
+- PDF preview render: PASS
 
-Environment limitation:
-- Full GUI pytest suite was not run in this container because PySide6 and lasio are
-  not installed. A Windows smoke test is required before stable promotion.
+Manual check still required
+- Physical printing through a Windows printer driver and verification of printer-specific margins.

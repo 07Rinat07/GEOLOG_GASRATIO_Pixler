@@ -119,14 +119,16 @@ def analyze_masterlog_output(
                 )
         if element.element_type == "image":
             asset_ref = element.properties.get("asset_ref")
+            optional_placeholder = element.properties.get("optional") is True
             if not isinstance(asset_ref, str) or asset_ref not in session.image_assets:
-                issues.append(
-                    _issue(
-                        "missing_asset",
-                        PreflightSeverity.WARNING,
-                        element=element.element_id,
+                if not optional_placeholder:
+                    issues.append(
+                        _issue(
+                            "missing_asset",
+                            PreflightSeverity.WARNING,
+                            element=element.element_id,
+                        )
                     )
-                )
             else:
                 asset = session.image_assets[asset_ref]
                 image = QImage.fromData(asset.payload)

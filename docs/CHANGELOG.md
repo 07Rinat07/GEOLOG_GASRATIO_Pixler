@@ -1,3 +1,11 @@
+# 0.7.5 — KazGeology reference blank
+
+- Added an A3 landscape Masterlog preset based on the supplied geological-technological survey reference.
+- Added two optional image placeholders for contractor and customer logos.
+- Empty optional image slots render a localized upload prompt and no longer raise a missing-asset preflight warning.
+- Added editable region, district/block, target formation, customer representative and shift-personnel header fields.
+- Added a standalone importable `.masterlog.json` package and synchronized RU/KK/EN documentation.
+
 # 0.7.4 — 2026-07-21
 
 ## Читаемый Excel-экспорт LAS-таблицы

@@ -237,3 +237,29 @@ def test_masterlog_preflight_reports_stale_time_depth_mapping() -> None:
         "missing_asset",
         "invalid_symbol_time",
     }
+
+
+def test_masterlog_preflight_accepts_optional_blank_logo_placeholder() -> None:
+    session = make_session()
+    template = MasterlogTemplate(
+        "optional-logo",
+        "Optional logo",
+        header_elements=[
+            MasterlogHeaderElement(
+                "logo",
+                "image",
+                5.0,
+                5.0,
+                30.0,
+                15.0,
+                {"optional": True, "placeholder_text_ru": "Загрузить логотип"},
+            )
+        ],
+        columns=[MasterlogColumnTemplate("depth", "Depth", "depth", 20.0)],
+    )
+
+    report = analyze_masterlog_output(
+        template, session, MasterlogOutputSettings(100.0, 200.0)
+    )
+
+    assert not any(issue.code == "missing_asset" for issue in report.issues)

@@ -1,5 +1,13 @@
 # Current project status
 
+## 0.7.5 template — ready geological-technological survey blank
+
+- an A3 landscape preset based on the supplied reference was added;
+- two optional logo slots are loaded from the header editor;
+- empty logo slots do not block preflight or printing;
+- coloured scales, minima/maxima and grid divisions are stored in the template;
+- rock descriptions remain manual-only.
+
 ## 0.7.3 fix — LAS isolation
 
 ### 0.7.4 fixes
@@ -15,7 +23,7 @@
 
 Date: 21 July 2026
 
-The current slice is the **GeoData Depth Workspace**, manual-entry editors based on the supplied
+The current slice is **Universal Constructor 0.7.5: KazGeology ready blank**, manual-entry editors based on the supplied
 GeoData guide, and unified re-editing of geological intervals.
 
 Completed:

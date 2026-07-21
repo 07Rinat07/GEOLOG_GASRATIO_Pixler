@@ -199,6 +199,7 @@ class HeaderElementDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
+        self._original_properties = dict(element.properties) if element is not None else {}
         self.image_assets = image_assets or {}
         self.lithotypes = lithotypes or {}
         self.imported_assets: dict[str, ImageAsset] = {}
@@ -429,15 +430,26 @@ class HeaderElementDialog(QDialog):
         self.lithotype_label_mode_input.setCurrentIndex(max(0, swatch_mode_index))
 
         self.image_input = QComboBox()
+        self.image_input.addItem(
+            {
+                AppLanguage.RU: "— Загрузить изображение —",
+                AppLanguage.KK: "— Суретті жүктеу —",
+                AppLanguage.EN: "— Load image —",
+            }[language],
+            "",
+        )
         for asset in self.image_assets.values():
             self.image_input.addItem(asset.original_name, asset.asset_id)
         asset_ref = element.properties.get("asset_ref") if element else None
-        if isinstance(asset_ref, str):
+        if isinstance(asset_ref, str) and asset_ref:
             index = self.image_input.findData(asset_ref)
             if index < 0:
                 self.image_input.addItem(asset_ref, asset_ref)
                 index = self.image_input.count() - 1
             self.image_input.setCurrentIndex(index)
+        elif not (element is not None and element.properties.get("optional") is True):
+            if self.image_input.count() > 1:
+                self.image_input.setCurrentIndex(1)
         self.image_mode_input = QComboBox()
         self.image_mode_input.addItem("Fit / вписать", "fit")
         self.image_mode_input.addItem("Fill / заполнить", "fill")
@@ -685,14 +697,35 @@ class HeaderElementDialog(QDialog):
             properties = {"color": color.name(), "width": self.line_width_input.value()}
         elif element_type == "image":
             asset_ref = self.image_input.currentData()
-            if not isinstance(asset_ref, str) or not asset_ref:
+            optional_placeholder = self._original_properties.get("optional") is True
+            if (not isinstance(asset_ref, str) or not asset_ref) and not optional_placeholder:
                 raise ValueError(self.localizer.text("masterlog_header.select_image"))
             properties = {
-                "asset_ref": asset_ref,
-                "mode": str(self.image_mode_input.currentData() or "fit"),
-                "rotation": self.image_rotation_input.value(),
-                "opacity": self.image_opacity_input.value() / 100.0,
+                key: value
+                for key, value in self._original_properties.items()
+                if key
+                in {
+                    "optional",
+                    "placeholder_text",
+                    "placeholder_text_ru",
+                    "placeholder_text_kk",
+                    "placeholder_text_en",
+                    "placeholder_font_size_mm",
+                    "frame",
+                    "frame_color",
+                    "background",
+                    "logo_role",
+                }
             }
+            if isinstance(asset_ref, str) and asset_ref:
+                properties["asset_ref"] = asset_ref
+            properties.update(
+                {
+                    "mode": str(self.image_mode_input.currentData() or "fit"),
+                    "rotation": self.image_rotation_input.value(),
+                    "opacity": self.image_opacity_input.value() / 100.0,
+                }
+            )
         elif element_type == "lithotype_swatch":
             lithotype_id = self.lithotype_input.currentData()
             if not isinstance(lithotype_id, str) or lithotype_id not in self.lithotypes:
@@ -1443,6 +1476,23 @@ class MasterlogHeaderDialog(QDialog):
                 return "{field}"
             resolved = resolve_header_field(self.controller.session, field_name, self.template)
             return resolved if resolved is not None else "{" + field_name + "}"
+        if element.element_type == "image":
+            asset_ref = element.properties.get("asset_ref")
+            if isinstance(asset_ref, str) and asset_ref:
+                asset = self.controller.session.image_assets.get(asset_ref)
+                if asset is not None:
+                    return asset.original_name
+            key = {
+                AppLanguage.RU: "placeholder_text_ru",
+                AppLanguage.KK: "placeholder_text_kk",
+                AppLanguage.EN: "placeholder_text_en",
+            }[self.localizer.language]
+            raw = element.properties.get(key) or element.properties.get("placeholder_text")
+            return str(raw) if raw else {
+                AppLanguage.RU: "Загрузить логотип",
+                AppLanguage.KK: "Логотипті жүктеу",
+                AppLanguage.EN: "Load logo",
+            }[self.localizer.language]
         if element.element_type == "lithology_legend":
             return self.localizer.text("masterlog_header.lithology_legend")
         if element.element_type == "lithotype_swatch":

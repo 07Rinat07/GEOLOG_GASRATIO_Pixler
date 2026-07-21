@@ -265,6 +265,131 @@ GEOLOGICAL_GEOCHEMICAL_HEADER = MasterlogHeaderPreset(
 )
 
 
+KAZGEOLOGY_REFERENCE_HEADER = MasterlogHeaderPreset(
+    "kazgeology_blank",
+    _texts(
+        "Геолого-технологические исследования — бланк",
+        "Геологиялық-технологиялық зерттеулер — бланк",
+        "Geological-technological survey — blank",
+    ),
+    _texts(
+        "Готовая шапка по переданному образцу с двумя загружаемыми логотипами, реквизитами скважины, легендами и конструкцией.",
+        "Берілген үлгі бойынша екі жүктелетін логотипі, ұңғыма деректері, шартты белгілері және конструкциясы бар дайын тақырып.",
+        "Reference-ready header with two uploadable logo slots, well metadata, legends and construction.",
+    ),
+    104.0,
+    (
+        _element(
+            "kz_logo_left", "image", 5, 3, 45, 18,
+            optional=True, logo_role="contractor", mode="fit", opacity=1.0,
+            frame=True, frame_color="#64748b", background="#f8fafc",
+            placeholder_text_ru="Загрузить логотип исполнителя",
+            placeholder_text_kk="Орындаушы логотипін жүктеу",
+            placeholder_text_en="Load contractor logo",
+            placeholder_font_size_mm=2.2,
+        ),
+        _element(
+            "kz_main_title", "text", 53, 3, 278, 9,
+            text="ГЕОЛОГО-ТЕХНОЛОГИЧЕСКИЕ ИССЛЕДОВАНИЯ",
+            font_size_mm=5.0, color="#0f172a", bold=True,
+            alignment="center", frame=True, background="#ffffff",
+        ),
+        _element(
+            "kz_subtitle", "text", 53, 13, 278, 8,
+            text="МАСТЕРЛОГ",
+            font_size_mm=4.0, color="#0f172a", bold=True,
+            alignment="center", frame=True, background="#ffffff",
+        ),
+        _element(
+            "kz_logo_right", "image", 334, 3, 81, 18,
+            optional=True, logo_role="customer", mode="fit", opacity=1.0,
+            frame=True, frame_color="#64748b", background="#f8fafc",
+            placeholder_text_ru="Загрузить логотип заказчика",
+            placeholder_text_kk="Тапсырыс беруші логотипін жүктеу",
+            placeholder_text_en="Load customer logo",
+            placeholder_font_size_mm=2.2,
+        ),
+
+        _element("kz_country_label", "text", 5, 23, 25, 5, text="СТРАНА", font_size_mm=2.2, bold=True, frame=True, alignment="center"),
+        _element("kz_country", "field", 30, 23, 48, 5, field="header.country", font_size_mm=2.5, frame=True),
+        _element("kz_region_label", "text", 5, 29, 25, 5, text="ОБЛАСТЬ", font_size_mm=2.2, bold=True, frame=True, alignment="center"),
+        _element("kz_region", "field", 30, 29, 48, 5, field="header.region", font_size_mm=2.5, frame=True),
+        _element("kz_district_label", "text", 5, 35, 25, 5, text="РАЙОН / УЧАСТОК", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_district", "field", 30, 35, 48, 5, field="header.district", font_size_mm=2.4, frame=True),
+        _element("kz_field_label", "text", 5, 41, 25, 5, text="МЕСТОРОЖДЕНИЕ", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_field", "field", 30, 41, 48, 5, field="header.field", font_size_mm=2.5, frame=True),
+        _element("kz_well_label", "text", 5, 47, 25, 6, text="СКВАЖИНА", font_size_mm=2.1, bold=True, frame=True, alignment="center"),
+        _element("kz_well", "field", 30, 47, 48, 6, field="header.well_number", font_size_mm=3.0, bold=True, frame=True, alignment="center"),
+
+        _element("kz_project_label", "text", 81, 23, 28, 5, text="ПРОЕКТ", font_size_mm=2.1, bold=True, frame=True, alignment="center"),
+        _element("kz_project", "field", 109, 23, 76, 5, field="project.name", font_size_mm=2.5, frame=True),
+        _element("kz_customer_label", "text", 81, 29, 28, 5, text="ЗАКАЗЧИК", font_size_mm=2.0, bold=True, frame=True, alignment="center"),
+        _element("kz_customer", "field", 109, 29, 76, 5, field="header.customer", font_size_mm=2.5, frame=True),
+        _element("kz_contractor_label", "text", 81, 35, 28, 5, text="ИСПОЛНИТЕЛЬ", font_size_mm=1.9, bold=True, frame=True, alignment="center"),
+        _element("kz_contractor", "field", 109, 35, 76, 5, field="header.contractor", font_size_mm=2.5, frame=True),
+        _element("kz_driller_label", "text", 81, 41, 28, 5, text="БУРОВАЯ КОМПАНИЯ", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_driller", "field", 109, 41, 76, 5, field="header.drilling_company", font_size_mm=2.4, frame=True),
+        _element("kz_target_label", "text", 81, 47, 28, 6, text="ЦЕЛЕВОЙ ГОРИЗОНТ", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_target", "field", 109, 47, 76, 6, field="header.target", font_size_mm=2.5, frame=True),
+
+        _element("kz_interval_label", "text", 188, 23, 27, 5, text="ИНТЕРВАЛ", font_size_mm=2.0, bold=True, frame=True, alignment="center"),
+        _element("kz_interval", "field", 215, 23, 54, 5, field="header.interval", font_size_mm=2.5, frame=True, alignment="center"),
+        _element("kz_scale_label", "text", 188, 29, 27, 5, text="МАСШТАБ", font_size_mm=2.0, bold=True, frame=True, alignment="center"),
+        _element("kz_scale", "field", 215, 29, 54, 5, field="header.scale", font_size_mm=2.5, frame=True, alignment="center"),
+        _element("kz_rig_label", "text", 188, 35, 27, 5, text="БУРОВАЯ", font_size_mm=2.0, bold=True, frame=True, alignment="center"),
+        _element("kz_rig", "field", 215, 35, 54, 5, field="header.rig", font_size_mm=2.4, frame=True),
+        _element("kz_well_type_label", "text", 188, 41, 27, 5, text="ВИД СКВАЖИНЫ", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_well_type", "field", 215, 41, 54, 5, field="header.well_type", font_size_mm=2.4, frame=True),
+        _element("kz_engineers_label", "text", 188, 47, 27, 6, text="ИНЖЕНЕРЫ / ГЕОЛОГИ", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_engineers", "field", 215, 47, 54, 6, field="header.engineers", font_size_mm=2.2, frame=True),
+
+        _element("kz_actual_label", "text", 272, 23, 37, 5, text="ФАКТИЧЕСКАЯ ГЛУБИНА", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_actual", "field", 309, 23, 40, 5, field="header.actual_depth", font_size_mm=2.4, frame=True, alignment="center"),
+        _element("kz_project_depth_label", "text", 272, 29, 37, 5, text="ПРОЕКТНАЯ ГЛУБИНА", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_project_depth", "field", 309, 29, 40, 5, field="header.project_depth", font_size_mm=2.4, frame=True, alignment="center"),
+        _element("kz_start_label", "text", 272, 35, 37, 5, text="НАЧАЛО БУРЕНИЯ", font_size_mm=1.85, bold=True, frame=True, alignment="center"),
+        _element("kz_start", "field", 309, 35, 40, 5, field="header.start_date", font_size_mm=2.3, frame=True, alignment="center"),
+        _element("kz_end_label", "text", 272, 41, 37, 5, text="КОНЕЦ БУРЕНИЯ", font_size_mm=1.85, bold=True, frame=True, alignment="center"),
+        _element("kz_end", "field", 309, 41, 40, 5, field="header.end_date", font_size_mm=2.3, frame=True, alignment="center"),
+        _element("kz_rig_floor_label", "text", 272, 47, 37, 6, text="ВЫСОТА РОТОРА / АЛЬТИТУДА", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_rig_floor", "field", 309, 47, 40, 6, field="header.rig_floor", font_size_mm=2.2, frame=True, alignment="center"),
+
+        _element("kz_lat_label", "text", 352, 23, 22, 5, text="ШИРОТА", font_size_mm=1.9, bold=True, frame=True, alignment="center"),
+        _element("kz_lat", "field", 374, 23, 41, 5, field="header.latitude", font_size_mm=2.2, frame=True),
+        _element("kz_lon_label", "text", 352, 29, 22, 5, text="ДОЛГОТА", font_size_mm=1.9, bold=True, frame=True, alignment="center"),
+        _element("kz_lon", "field", 374, 29, 41, 5, field="header.longitude", font_size_mm=2.2, frame=True),
+        _element("kz_rep_label", "text", 352, 35, 22, 5, text="ПРЕДСТАВИТЕЛЬ", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_rep", "field", 374, 35, 41, 5, field="header.customer_representative", font_size_mm=2.0, frame=True),
+        _element("kz_dataset_label", "text", 352, 41, 22, 5, text="ФАЙЛ LAS", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_dataset", "field", 374, 41, 41, 5, field="dataset.source_name", font_size_mm=1.9, frame=True),
+        _element("kz_samples_label", "text", 352, 47, 22, 6, text="ОТСЧЁТЫ", font_size_mm=1.8, bold=True, frame=True, alignment="center"),
+        _element("kz_samples", "field", 374, 47, 41, 6, field="dataset.sample_count", font_size_mm=2.2, frame=True, alignment="center"),
+
+        _element("kz_separator", "line", 5, 55, 410, 0.1, color="#334155", width=0.6),
+        _element(
+            "kz_lithology_legend", "lithology_legend", 5, 58, 157, 42,
+            scope="used_manual", columns=4, show_code=True,
+            font_size_mm=1.85, color="#0f172a", frame=True,
+        ),
+        _element(
+            "kz_lba_legend", "lba_legend", 165, 58, 77, 42,
+            font_size_mm=1.8, color="#0f172a", frame=True,
+        ),
+        _element(
+            "kz_symbols", "text", 245, 58, 74, 42,
+            text="УСЛОВНЫЕ ОБОЗНАЧЕНИЯ\n● Фоновый газ\n◆ Газ пластовый\n▲ Газ СПО\n■ Газ-тест\n○ Нефтепроявление\n◉ Нефтенасыщенность\n✦ Керн с признаками УВ",
+            font_size_mm=1.85, color="#0f172a", bold=True,
+            frame=True, alignment="left", text_position="top",
+        ),
+        _element(
+            "kz_construction", "field", 322, 58, 93, 42,
+            field="header.well_construction", font_size_mm=1.8,
+            color="#0f172a", frame=True, alignment="left", text_position="top",
+        ),
+    ),
+)
+
+
 COMPACT_HEADER = MasterlogHeaderPreset(
     "compact",
     _texts("Компактная", "Ықшам", "Compact"),
@@ -319,6 +444,7 @@ BUILTIN_MASTERLOG_HEADER_PRESETS = (
     STANDARD_HEADER,
     LITHOLOGY_HEADER,
     GEOLOGICAL_GEOCHEMICAL_HEADER,
+    KAZGEOLOGY_REFERENCE_HEADER,
     COMPACT_HEADER,
 )
 
@@ -409,7 +535,77 @@ def _reference_gas_column() -> MasterlogColumnTemplate:
     )
 
 
+def _kazgeology_reference_columns() -> list[MasterlogColumnTemplate]:
+    return [
+        MasterlogColumnTemplate(
+            "stratigraphy", "Стратиграфия", "stratigraphy", 18.0,
+            properties={"title_orientation": "vertical_bottom_to_top", "title_position": "center"},
+        ),
+        _reference_drilling_column(),
+        MasterlogColumnTemplate("depth", "Глубина, м", "depth", 15.0),
+        MasterlogColumnTemplate("cuttings", "Шламограмма, %", "cuttings", 31.0),
+        MasterlogColumnTemplate("lba", "ЛБА", "lba", 22.0),
+        MasterlogColumnTemplate(
+            "calcimetry",
+            "Карбонатность / кальциметрия, %",
+            "calcimetry",
+            27.0,
+            ["CACO3", "CAMG_CO3_2", "INSOLUBLE"],
+            x_scale="linear",
+            x_min=0.0,
+            x_max=100.0,
+            show_legend=True,
+            curve_styles={
+                "CACO3": MasterlogCurveStyle("#06b6d4", 1.4, "solid", 0.0, 100.0),
+                "CAMG_CO3_2": MasterlogCurveStyle("#8b5cf6", 1.4, "solid", 0.0, 100.0),
+                "INSOLUBLE": MasterlogCurveStyle("#94a3b8", 1.2, "solid", 0.0, 100.0),
+            },
+            grid_x=True,
+            grid_y=True,
+            grid_major_divisions=5,
+            grid_minor_divisions=5,
+            grid_alpha=0.22,
+        ),
+        MasterlogColumnTemplate("lithology", "Литология", "lithology", 28.0),
+        _reference_gas_column(),
+        MasterlogColumnTemplate(
+            "description", "Описание пород и шлама", "cuttings_description", 125.0,
+            properties={"automatic_lithology_fallback": False},
+        ),
+    ]
+
+
 BUILTIN_MASTERLOG_FORM_PRESETS = (
+    MasterlogFormPreset(
+        "kazgeology_reference_blank",
+        _texts(
+            "Геолого-технологические исследования — готовый бланк",
+            "Геологиялық-технологиялық зерттеулер — дайын бланк",
+            "Geological-technological survey — ready blank",
+        ),
+        _texts(
+            "Форма по переданному образцу: две загружаемые зоны логотипов, готовая шапка, цветные шкалы кривых, геология, газ и ручное описание пород.",
+            "Берілген үлгі бойынша пішін: екі жүктелетін логотип аймағы, дайын тақырып, түрлі түсті қисық шкалалары, геология, газ және жыныстардың қолмен сипаттамасы.",
+            "Reference-based form with two uploadable logo areas, complete header, coloured curve scales, geology, gas and manual rock descriptions.",
+        ),
+        MasterlogTemplate(
+            "preset:kazgeology_reference_blank",
+            "Геолого-технологические исследования — бланк",
+            page_format="A3",
+            depth_scale=500,
+            header_height_mm=KAZGEOLOGY_REFERENCE_HEADER.height_mm,
+            header_elements=list(deepcopy(KAZGEOLOGY_REFERENCE_HEADER.elements)),
+            columns=_kazgeology_reference_columns(),
+            properties={
+                "preset_origin": "kazgeology_reference_blank",
+                "orientation": "landscape",
+                "editable_columns": True,
+                "reference_document": "User-provided geological-technological Masterlog example",
+                "logo_placeholders": ["kz_logo_left", "kz_logo_right"],
+                "description_mode": "manual_only",
+            },
+        ),
+    ),
     MasterlogFormPreset(
         "geological_geochemical_reference",
         _texts(

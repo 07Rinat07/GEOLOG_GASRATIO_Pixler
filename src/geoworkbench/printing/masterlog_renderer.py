@@ -21,6 +21,10 @@ from PySide6.QtGui import (
 )
 from PySide6.QtPrintSupport import QPrinter
 
+from geoworkbench.domain.stratigraphy_presentation import (
+    stratigraphy_text_angle,
+    stratigraphy_text_position_fraction,
+)
 from geoworkbench.domain.models import (
     CurveData,
     Dataset,
@@ -472,6 +476,12 @@ def _paint_header_element(
         asset_ref = element.properties.get("asset_ref")
         asset = session.image_assets.get(asset_ref) if isinstance(asset_ref, str) else None
         if asset is not None:
+            if element.properties.get("background") and isinstance(
+                element.properties.get("background"), str
+            ):
+                background = QColor(str(element.properties["background"]))
+                if background.isValid():
+                    painter.fillRect(rect, background)
             draw_image_asset(
                 painter,
                 rect,
@@ -480,6 +490,13 @@ def _paint_header_element(
                 rotation=float(element.properties.get("rotation", 0.0)),
                 opacity=float(element.properties.get("opacity", 1.0)),
             )
+            if element.properties.get("frame") is True:
+                painter.setPen(
+                    QPen(_color(element.properties.get("frame_color"), "#64748b"), 0.35)
+                )
+                painter.drawRect(rect)
+        else:
+            _paint_image_placeholder(painter, rect, element.properties, language)
         return
     if element.element_type == "lithotype_swatch":
         _paint_lithotype_swatch(
@@ -536,6 +553,57 @@ def _paint_header_element(
         padding_x=0.5,
         padding_y=0.1,
     )
+
+
+def _paint_image_placeholder(
+    painter: QPainter,
+    rect: QRectF,
+    properties: dict[str, object],
+    language: AppLanguage,
+) -> None:
+    """Paint an editable empty image slot instead of silently leaving a hole."""
+
+    painter.save()
+    try:
+        background_value = properties.get("background", "#f8fafc")
+        background = QColor(str(background_value))
+        painter.fillRect(rect, background if background.isValid() else QColor("#f8fafc"))
+        frame_color = _color(properties.get("frame_color"), "#64748b")
+        painter.setPen(QPen(frame_color, 0.35, Qt.PenStyle.DashLine))
+        painter.drawRect(rect)
+        painter.drawLine(rect.topLeft(), rect.bottomRight())
+        painter.drawLine(rect.topRight(), rect.bottomLeft())
+        localized_key = {
+            AppLanguage.RU: "placeholder_text_ru",
+            AppLanguage.KK: "placeholder_text_kk",
+            AppLanguage.EN: "placeholder_text_en",
+        }[language]
+        raw_text = properties.get(localized_key) or properties.get("placeholder_text")
+        placeholder = str(raw_text).strip() if raw_text is not None else ""
+        if not placeholder:
+            placeholder = {
+                AppLanguage.RU: "Загрузить логотип",
+                AppLanguage.KK: "Логотипті жүктеу",
+                AppLanguage.EN: "Load logo",
+            }[language]
+        font = QFont()
+        font.setBold(True)
+        size = properties.get("placeholder_font_size_mm", 2.6)
+        font_size = (
+            float(size)
+            if isinstance(size, (int, float)) and not isinstance(size, bool)
+            else 2.6
+        )
+        _set_scaled_font_mm(painter, font, max(1.0, min(font_size, 12.0)))
+        painter.setFont(font)
+        painter.setPen(frame_color)
+        painter.drawText(
+            rect.adjusted(1.0, 1.0, -1.0, -1.0),
+            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+            placeholder,
+        )
+    finally:
+        painter.restore()
 
 
 def _paint_lithotype_swatch(
@@ -1285,6 +1353,11 @@ def _paint_stratigraphy_label(
     orientation: str,
     position: str,
 ) -> None:
+    # Validate through the same presentation helpers used by the screen renderer.
+    if not isfinite(stratigraphy_text_angle(orientation)):
+        return
+    if not 0.0 <= stratigraphy_text_position_fraction(position) <= 1.0:
+        return
     draw_oriented_text(
         painter,
         interval_rect,

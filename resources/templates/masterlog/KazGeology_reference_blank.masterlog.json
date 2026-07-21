@@ -1,0 +1,1207 @@
+{
+  "package_version": 2,
+  "template": {
+    "template_id": "template:kazgeology-reference-blank",
+    "name": "Геолого-технологические исследования — готовый бланк",
+    "page_format": "A3",
+    "depth_scale": 500,
+    "header_height_mm": 104.0,
+    "header_elements": [
+      {
+        "element_id": "kz_logo_left",
+        "element_type": "image",
+        "x_mm": 5,
+        "y_mm": 3,
+        "width_mm": 45,
+        "height_mm": 18,
+        "properties": {
+          "optional": true,
+          "logo_role": "contractor",
+          "mode": "fit",
+          "opacity": 1.0,
+          "frame": true,
+          "frame_color": "#64748b",
+          "background": "#f8fafc",
+          "placeholder_text_ru": "Загрузить логотип исполнителя",
+          "placeholder_text_kk": "Орындаушы логотипін жүктеу",
+          "placeholder_text_en": "Load contractor logo",
+          "placeholder_font_size_mm": 2.2
+        }
+      },
+      {
+        "element_id": "kz_main_title",
+        "element_type": "text",
+        "x_mm": 53,
+        "y_mm": 3,
+        "width_mm": 278,
+        "height_mm": 9,
+        "properties": {
+          "text": "ГЕОЛОГО-ТЕХНОЛОГИЧЕСКИЕ ИССЛЕДОВАНИЯ",
+          "font_size_mm": 5.0,
+          "color": "#0f172a",
+          "bold": true,
+          "alignment": "center",
+          "frame": true,
+          "background": "#ffffff"
+        }
+      },
+      {
+        "element_id": "kz_subtitle",
+        "element_type": "text",
+        "x_mm": 53,
+        "y_mm": 13,
+        "width_mm": 278,
+        "height_mm": 8,
+        "properties": {
+          "text": "МАСТЕРЛОГ",
+          "font_size_mm": 4.0,
+          "color": "#0f172a",
+          "bold": true,
+          "alignment": "center",
+          "frame": true,
+          "background": "#ffffff"
+        }
+      },
+      {
+        "element_id": "kz_logo_right",
+        "element_type": "image",
+        "x_mm": 334,
+        "y_mm": 3,
+        "width_mm": 81,
+        "height_mm": 18,
+        "properties": {
+          "optional": true,
+          "logo_role": "customer",
+          "mode": "fit",
+          "opacity": 1.0,
+          "frame": true,
+          "frame_color": "#64748b",
+          "background": "#f8fafc",
+          "placeholder_text_ru": "Загрузить логотип заказчика",
+          "placeholder_text_kk": "Тапсырыс беруші логотипін жүктеу",
+          "placeholder_text_en": "Load customer logo",
+          "placeholder_font_size_mm": 2.2
+        }
+      },
+      {
+        "element_id": "kz_country_label",
+        "element_type": "text",
+        "x_mm": 5,
+        "y_mm": 23,
+        "width_mm": 25,
+        "height_mm": 5,
+        "properties": {
+          "text": "СТРАНА",
+          "font_size_mm": 2.2,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_country",
+        "element_type": "field",
+        "x_mm": 30,
+        "y_mm": 23,
+        "width_mm": 48,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.country",
+          "font_size_mm": 2.5,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_region_label",
+        "element_type": "text",
+        "x_mm": 5,
+        "y_mm": 29,
+        "width_mm": 25,
+        "height_mm": 5,
+        "properties": {
+          "text": "ОБЛАСТЬ",
+          "font_size_mm": 2.2,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_region",
+        "element_type": "field",
+        "x_mm": 30,
+        "y_mm": 29,
+        "width_mm": 48,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.region",
+          "font_size_mm": 2.5,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_district_label",
+        "element_type": "text",
+        "x_mm": 5,
+        "y_mm": 35,
+        "width_mm": 25,
+        "height_mm": 5,
+        "properties": {
+          "text": "РАЙОН / УЧАСТОК",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_district",
+        "element_type": "field",
+        "x_mm": 30,
+        "y_mm": 35,
+        "width_mm": 48,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.district",
+          "font_size_mm": 2.4,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_field_label",
+        "element_type": "text",
+        "x_mm": 5,
+        "y_mm": 41,
+        "width_mm": 25,
+        "height_mm": 5,
+        "properties": {
+          "text": "МЕСТОРОЖДЕНИЕ",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_field",
+        "element_type": "field",
+        "x_mm": 30,
+        "y_mm": 41,
+        "width_mm": 48,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.field",
+          "font_size_mm": 2.5,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_well_label",
+        "element_type": "text",
+        "x_mm": 5,
+        "y_mm": 47,
+        "width_mm": 25,
+        "height_mm": 6,
+        "properties": {
+          "text": "СКВАЖИНА",
+          "font_size_mm": 2.1,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_well",
+        "element_type": "field",
+        "x_mm": 30,
+        "y_mm": 47,
+        "width_mm": 48,
+        "height_mm": 6,
+        "properties": {
+          "field": "header.well_number",
+          "font_size_mm": 3.0,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_project_label",
+        "element_type": "text",
+        "x_mm": 81,
+        "y_mm": 23,
+        "width_mm": 28,
+        "height_mm": 5,
+        "properties": {
+          "text": "ПРОЕКТ",
+          "font_size_mm": 2.1,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_project",
+        "element_type": "field",
+        "x_mm": 109,
+        "y_mm": 23,
+        "width_mm": 76,
+        "height_mm": 5,
+        "properties": {
+          "field": "project.name",
+          "font_size_mm": 2.5,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_customer_label",
+        "element_type": "text",
+        "x_mm": 81,
+        "y_mm": 29,
+        "width_mm": 28,
+        "height_mm": 5,
+        "properties": {
+          "text": "ЗАКАЗЧИК",
+          "font_size_mm": 2.0,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_customer",
+        "element_type": "field",
+        "x_mm": 109,
+        "y_mm": 29,
+        "width_mm": 76,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.customer",
+          "font_size_mm": 2.5,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_contractor_label",
+        "element_type": "text",
+        "x_mm": 81,
+        "y_mm": 35,
+        "width_mm": 28,
+        "height_mm": 5,
+        "properties": {
+          "text": "ИСПОЛНИТЕЛЬ",
+          "font_size_mm": 1.9,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_contractor",
+        "element_type": "field",
+        "x_mm": 109,
+        "y_mm": 35,
+        "width_mm": 76,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.contractor",
+          "font_size_mm": 2.5,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_driller_label",
+        "element_type": "text",
+        "x_mm": 81,
+        "y_mm": 41,
+        "width_mm": 28,
+        "height_mm": 5,
+        "properties": {
+          "text": "БУРОВАЯ КОМПАНИЯ",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_driller",
+        "element_type": "field",
+        "x_mm": 109,
+        "y_mm": 41,
+        "width_mm": 76,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.drilling_company",
+          "font_size_mm": 2.4,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_target_label",
+        "element_type": "text",
+        "x_mm": 81,
+        "y_mm": 47,
+        "width_mm": 28,
+        "height_mm": 6,
+        "properties": {
+          "text": "ЦЕЛЕВОЙ ГОРИЗОНТ",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_target",
+        "element_type": "field",
+        "x_mm": 109,
+        "y_mm": 47,
+        "width_mm": 76,
+        "height_mm": 6,
+        "properties": {
+          "field": "header.target",
+          "font_size_mm": 2.5,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_interval_label",
+        "element_type": "text",
+        "x_mm": 188,
+        "y_mm": 23,
+        "width_mm": 27,
+        "height_mm": 5,
+        "properties": {
+          "text": "ИНТЕРВАЛ",
+          "font_size_mm": 2.0,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_interval",
+        "element_type": "field",
+        "x_mm": 215,
+        "y_mm": 23,
+        "width_mm": 54,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.interval",
+          "font_size_mm": 2.5,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_scale_label",
+        "element_type": "text",
+        "x_mm": 188,
+        "y_mm": 29,
+        "width_mm": 27,
+        "height_mm": 5,
+        "properties": {
+          "text": "МАСШТАБ",
+          "font_size_mm": 2.0,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_scale",
+        "element_type": "field",
+        "x_mm": 215,
+        "y_mm": 29,
+        "width_mm": 54,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.scale",
+          "font_size_mm": 2.5,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_rig_label",
+        "element_type": "text",
+        "x_mm": 188,
+        "y_mm": 35,
+        "width_mm": 27,
+        "height_mm": 5,
+        "properties": {
+          "text": "БУРОВАЯ",
+          "font_size_mm": 2.0,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_rig",
+        "element_type": "field",
+        "x_mm": 215,
+        "y_mm": 35,
+        "width_mm": 54,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.rig",
+          "font_size_mm": 2.4,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_well_type_label",
+        "element_type": "text",
+        "x_mm": 188,
+        "y_mm": 41,
+        "width_mm": 27,
+        "height_mm": 5,
+        "properties": {
+          "text": "ВИД СКВАЖИНЫ",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_well_type",
+        "element_type": "field",
+        "x_mm": 215,
+        "y_mm": 41,
+        "width_mm": 54,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.well_type",
+          "font_size_mm": 2.4,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_engineers_label",
+        "element_type": "text",
+        "x_mm": 188,
+        "y_mm": 47,
+        "width_mm": 27,
+        "height_mm": 6,
+        "properties": {
+          "text": "ИНЖЕНЕРЫ / ГЕОЛОГИ",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_engineers",
+        "element_type": "field",
+        "x_mm": 215,
+        "y_mm": 47,
+        "width_mm": 54,
+        "height_mm": 6,
+        "properties": {
+          "field": "header.engineers",
+          "font_size_mm": 2.2,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_actual_label",
+        "element_type": "text",
+        "x_mm": 272,
+        "y_mm": 23,
+        "width_mm": 37,
+        "height_mm": 5,
+        "properties": {
+          "text": "ФАКТИЧЕСКАЯ ГЛУБИНА",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_actual",
+        "element_type": "field",
+        "x_mm": 309,
+        "y_mm": 23,
+        "width_mm": 40,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.actual_depth",
+          "font_size_mm": 2.4,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_project_depth_label",
+        "element_type": "text",
+        "x_mm": 272,
+        "y_mm": 29,
+        "width_mm": 37,
+        "height_mm": 5,
+        "properties": {
+          "text": "ПРОЕКТНАЯ ГЛУБИНА",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_project_depth",
+        "element_type": "field",
+        "x_mm": 309,
+        "y_mm": 29,
+        "width_mm": 40,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.project_depth",
+          "font_size_mm": 2.4,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_start_label",
+        "element_type": "text",
+        "x_mm": 272,
+        "y_mm": 35,
+        "width_mm": 37,
+        "height_mm": 5,
+        "properties": {
+          "text": "НАЧАЛО БУРЕНИЯ",
+          "font_size_mm": 1.85,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_start",
+        "element_type": "field",
+        "x_mm": 309,
+        "y_mm": 35,
+        "width_mm": 40,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.start_date",
+          "font_size_mm": 2.3,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_end_label",
+        "element_type": "text",
+        "x_mm": 272,
+        "y_mm": 41,
+        "width_mm": 37,
+        "height_mm": 5,
+        "properties": {
+          "text": "КОНЕЦ БУРЕНИЯ",
+          "font_size_mm": 1.85,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_end",
+        "element_type": "field",
+        "x_mm": 309,
+        "y_mm": 41,
+        "width_mm": 40,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.end_date",
+          "font_size_mm": 2.3,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_rig_floor_label",
+        "element_type": "text",
+        "x_mm": 272,
+        "y_mm": 47,
+        "width_mm": 37,
+        "height_mm": 6,
+        "properties": {
+          "text": "ВЫСОТА РОТОРА / АЛЬТИТУДА",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_rig_floor",
+        "element_type": "field",
+        "x_mm": 309,
+        "y_mm": 47,
+        "width_mm": 40,
+        "height_mm": 6,
+        "properties": {
+          "field": "header.rig_floor",
+          "font_size_mm": 2.2,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_lat_label",
+        "element_type": "text",
+        "x_mm": 352,
+        "y_mm": 23,
+        "width_mm": 22,
+        "height_mm": 5,
+        "properties": {
+          "text": "ШИРОТА",
+          "font_size_mm": 1.9,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_lat",
+        "element_type": "field",
+        "x_mm": 374,
+        "y_mm": 23,
+        "width_mm": 41,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.latitude",
+          "font_size_mm": 2.2,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_lon_label",
+        "element_type": "text",
+        "x_mm": 352,
+        "y_mm": 29,
+        "width_mm": 22,
+        "height_mm": 5,
+        "properties": {
+          "text": "ДОЛГОТА",
+          "font_size_mm": 1.9,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_lon",
+        "element_type": "field",
+        "x_mm": 374,
+        "y_mm": 29,
+        "width_mm": 41,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.longitude",
+          "font_size_mm": 2.2,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_rep_label",
+        "element_type": "text",
+        "x_mm": 352,
+        "y_mm": 35,
+        "width_mm": 22,
+        "height_mm": 5,
+        "properties": {
+          "text": "ПРЕДСТАВИТЕЛЬ",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_rep",
+        "element_type": "field",
+        "x_mm": 374,
+        "y_mm": 35,
+        "width_mm": 41,
+        "height_mm": 5,
+        "properties": {
+          "field": "header.customer_representative",
+          "font_size_mm": 2.0,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_dataset_label",
+        "element_type": "text",
+        "x_mm": 352,
+        "y_mm": 41,
+        "width_mm": 22,
+        "height_mm": 5,
+        "properties": {
+          "text": "ФАЙЛ LAS",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_dataset",
+        "element_type": "field",
+        "x_mm": 374,
+        "y_mm": 41,
+        "width_mm": 41,
+        "height_mm": 5,
+        "properties": {
+          "field": "dataset.source_name",
+          "font_size_mm": 1.9,
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_samples_label",
+        "element_type": "text",
+        "x_mm": 352,
+        "y_mm": 47,
+        "width_mm": 22,
+        "height_mm": 6,
+        "properties": {
+          "text": "ОТСЧЁТЫ",
+          "font_size_mm": 1.8,
+          "bold": true,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_samples",
+        "element_type": "field",
+        "x_mm": 374,
+        "y_mm": 47,
+        "width_mm": 41,
+        "height_mm": 6,
+        "properties": {
+          "field": "dataset.sample_count",
+          "font_size_mm": 2.2,
+          "frame": true,
+          "alignment": "center"
+        }
+      },
+      {
+        "element_id": "kz_separator",
+        "element_type": "line",
+        "x_mm": 5,
+        "y_mm": 55,
+        "width_mm": 410,
+        "height_mm": 0.1,
+        "properties": {
+          "color": "#334155",
+          "width": 0.6
+        }
+      },
+      {
+        "element_id": "kz_lithology_legend",
+        "element_type": "lithology_legend",
+        "x_mm": 5,
+        "y_mm": 58,
+        "width_mm": 157,
+        "height_mm": 42,
+        "properties": {
+          "scope": "used_manual",
+          "columns": 4,
+          "show_code": true,
+          "font_size_mm": 1.85,
+          "color": "#0f172a",
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_lba_legend",
+        "element_type": "lba_legend",
+        "x_mm": 165,
+        "y_mm": 58,
+        "width_mm": 77,
+        "height_mm": 42,
+        "properties": {
+          "font_size_mm": 1.8,
+          "color": "#0f172a",
+          "frame": true
+        }
+      },
+      {
+        "element_id": "kz_symbols",
+        "element_type": "text",
+        "x_mm": 245,
+        "y_mm": 58,
+        "width_mm": 74,
+        "height_mm": 42,
+        "properties": {
+          "text": "УСЛОВНЫЕ ОБОЗНАЧЕНИЯ\n● Фоновый газ\n◆ Газ пластовый\n▲ Газ СПО\n■ Газ-тест\n○ Нефтепроявление\n◉ Нефтенасыщенность\n✦ Керн с признаками УВ",
+          "font_size_mm": 1.85,
+          "color": "#0f172a",
+          "bold": true,
+          "frame": true,
+          "alignment": "left",
+          "text_position": "top"
+        }
+      },
+      {
+        "element_id": "kz_construction",
+        "element_type": "field",
+        "x_mm": 322,
+        "y_mm": 58,
+        "width_mm": 93,
+        "height_mm": 42,
+        "properties": {
+          "field": "header.well_construction",
+          "font_size_mm": 1.8,
+          "color": "#0f172a",
+          "frame": true,
+          "alignment": "left",
+          "text_position": "top"
+        }
+      }
+    ],
+    "columns": [
+      {
+        "column_id": "stratigraphy",
+        "title": "Стратиграфия",
+        "column_type": "stratigraphy",
+        "width_mm": 18.0,
+        "curve_mnemonics": [],
+        "properties": {
+          "title_orientation": "vertical_bottom_to_top",
+          "title_position": "center"
+        },
+        "x_scale": "linear",
+        "x_min": null,
+        "x_max": null,
+        "show_legend": true,
+        "line_color": "#2563eb",
+        "line_width": 1.5,
+        "line_style": "solid",
+        "curve_styles": {},
+        "grid_x": false,
+        "grid_y": false,
+        "grid_major_divisions": 5,
+        "grid_minor_divisions": 5,
+        "grid_alpha": 0.25
+      },
+      {
+        "column_id": "drilling_geotech",
+        "title": "Нагрузка / скорость проходки / D-экспонента",
+        "column_type": "curves",
+        "width_mm": 58.0,
+        "curve_mnemonics": [
+          "WOB",
+          "ROP",
+          "DMC",
+          "DEXP"
+        ],
+        "properties": {},
+        "x_scale": "linear",
+        "x_min": null,
+        "x_max": null,
+        "show_legend": true,
+        "line_color": "#2563eb",
+        "line_width": 1.5,
+        "line_style": "solid",
+        "curve_styles": {
+          "WOB": {
+            "color": "#2563eb",
+            "width": 1.4,
+            "line_style": "solid",
+            "x_min": 0.0,
+            "x_max": 20.0
+          },
+          "ROP": {
+            "color": "#dc2626",
+            "width": 1.3,
+            "line_style": "solid",
+            "x_min": 0.0,
+            "x_max": 100.0
+          },
+          "DMC": {
+            "color": "#ef4444",
+            "width": 1.0,
+            "line_style": "dash",
+            "x_min": 0.0,
+            "x_max": 50.0
+          },
+          "DEXP": {
+            "color": "#7c3aed",
+            "width": 1.4,
+            "line_style": "solid",
+            "x_min": 0.0,
+            "x_max": 3.0
+          }
+        },
+        "grid_x": true,
+        "grid_y": true,
+        "grid_major_divisions": 5,
+        "grid_minor_divisions": 5,
+        "grid_alpha": 0.24
+      },
+      {
+        "column_id": "depth",
+        "title": "Глубина, м",
+        "column_type": "depth",
+        "width_mm": 15.0,
+        "curve_mnemonics": [],
+        "properties": {},
+        "x_scale": "linear",
+        "x_min": null,
+        "x_max": null,
+        "show_legend": true,
+        "line_color": "#2563eb",
+        "line_width": 1.5,
+        "line_style": "solid",
+        "curve_styles": {},
+        "grid_x": false,
+        "grid_y": false,
+        "grid_major_divisions": 5,
+        "grid_minor_divisions": 5,
+        "grid_alpha": 0.25
+      },
+      {
+        "column_id": "cuttings",
+        "title": "Шламограмма, %",
+        "column_type": "cuttings",
+        "width_mm": 31.0,
+        "curve_mnemonics": [],
+        "properties": {},
+        "x_scale": "linear",
+        "x_min": null,
+        "x_max": null,
+        "show_legend": true,
+        "line_color": "#2563eb",
+        "line_width": 1.5,
+        "line_style": "solid",
+        "curve_styles": {},
+        "grid_x": false,
+        "grid_y": false,
+        "grid_major_divisions": 5,
+        "grid_minor_divisions": 5,
+        "grid_alpha": 0.25
+      },
+      {
+        "column_id": "lba",
+        "title": "ЛБА",
+        "column_type": "lba",
+        "width_mm": 22.0,
+        "curve_mnemonics": [],
+        "properties": {},
+        "x_scale": "linear",
+        "x_min": null,
+        "x_max": null,
+        "show_legend": true,
+        "line_color": "#2563eb",
+        "line_width": 1.5,
+        "line_style": "solid",
+        "curve_styles": {},
+        "grid_x": false,
+        "grid_y": false,
+        "grid_major_divisions": 5,
+        "grid_minor_divisions": 5,
+        "grid_alpha": 0.25
+      },
+      {
+        "column_id": "calcimetry",
+        "title": "Карбонатность / кальциметрия, %",
+        "column_type": "calcimetry",
+        "width_mm": 27.0,
+        "curve_mnemonics": [
+          "CACO3",
+          "CAMG_CO3_2",
+          "INSOLUBLE"
+        ],
+        "properties": {},
+        "x_scale": "linear",
+        "x_min": 0.0,
+        "x_max": 100.0,
+        "show_legend": true,
+        "line_color": "#2563eb",
+        "line_width": 1.5,
+        "line_style": "solid",
+        "curve_styles": {
+          "CACO3": {
+            "color": "#06b6d4",
+            "width": 1.4,
+            "line_style": "solid",
+            "x_min": 0.0,
+            "x_max": 100.0
+          },
+          "CAMG_CO3_2": {
+            "color": "#8b5cf6",
+            "width": 1.4,
+            "line_style": "solid",
+            "x_min": 0.0,
+            "x_max": 100.0
+          },
+          "INSOLUBLE": {
+            "color": "#94a3b8",
+            "width": 1.2,
+            "line_style": "solid",
+            "x_min": 0.0,
+            "x_max": 100.0
+          }
+        },
+        "grid_x": true,
+        "grid_y": true,
+        "grid_major_divisions": 5,
+        "grid_minor_divisions": 5,
+        "grid_alpha": 0.22
+      },
+      {
+        "column_id": "lithology",
+        "title": "Литология",
+        "column_type": "lithology",
+        "width_mm": 28.0,
+        "curve_mnemonics": [],
+        "properties": {},
+        "x_scale": "linear",
+        "x_min": null,
+        "x_max": null,
+        "show_legend": true,
+        "line_color": "#2563eb",
+        "line_width": 1.5,
+        "line_style": "solid",
+        "curve_styles": {},
+        "grid_x": false,
+        "grid_y": false,
+        "grid_major_divisions": 5,
+        "grid_minor_divisions": 5,
+        "grid_alpha": 0.25
+      },
+      {
+        "column_id": "component_gas",
+        "title": "Газовые компоненты C1-C5 и сумма газов",
+        "column_type": "curves",
+        "width_mm": 72.0,
+        "curve_mnemonics": [
+          "C1",
+          "C2",
+          "C3",
+          "C4",
+          "IC4",
+          "C5",
+          "IC5",
+          "TG"
+        ],
+        "properties": {},
+        "x_scale": "logarithmic",
+        "x_min": 0.001,
+        "x_max": 100.0,
+        "show_legend": true,
+        "line_color": "#2563eb",
+        "line_width": 1.5,
+        "line_style": "solid",
+        "curve_styles": {
+          "C1": {
+            "color": "#dc2626",
+            "width": 1.25,
+            "line_style": "solid",
+            "x_min": 0.001,
+            "x_max": 100.0
+          },
+          "C2": {
+            "color": "#84cc16",
+            "width": 1.25,
+            "line_style": "solid",
+            "x_min": 0.001,
+            "x_max": 100.0
+          },
+          "C3": {
+            "color": "#22d3ee",
+            "width": 1.25,
+            "line_style": "solid",
+            "x_min": 0.001,
+            "x_max": 100.0
+          },
+          "C4": {
+            "color": "#fb923c",
+            "width": 1.25,
+            "line_style": "solid",
+            "x_min": 0.001,
+            "x_max": 100.0
+          },
+          "IC4": {
+            "color": "#65a30d",
+            "width": 1.25,
+            "line_style": "solid",
+            "x_min": 0.001,
+            "x_max": 100.0
+          },
+          "C5": {
+            "color": "#9333ea",
+            "width": 1.25,
+            "line_style": "solid",
+            "x_min": 0.001,
+            "x_max": 100.0
+          },
+          "IC5": {
+            "color": "#d946ef",
+            "width": 1.25,
+            "line_style": "solid",
+            "x_min": 0.001,
+            "x_max": 100.0
+          },
+          "TG": {
+            "color": "#ef4444",
+            "width": 1.25,
+            "line_style": "solid",
+            "x_min": 0.001,
+            "x_max": 100.0
+          }
+        },
+        "grid_x": true,
+        "grid_y": true,
+        "grid_major_divisions": 5,
+        "grid_minor_divisions": 10,
+        "grid_alpha": 0.23
+      },
+      {
+        "column_id": "description",
+        "title": "Описание пород и шлама",
+        "column_type": "cuttings_description",
+        "width_mm": 125.0,
+        "curve_mnemonics": [],
+        "properties": {
+          "automatic_lithology_fallback": false
+        },
+        "x_scale": "linear",
+        "x_min": null,
+        "x_max": null,
+        "show_legend": true,
+        "line_color": "#2563eb",
+        "line_width": 1.5,
+        "line_style": "solid",
+        "curve_styles": {},
+        "grid_x": false,
+        "grid_y": false,
+        "grid_major_divisions": 5,
+        "grid_minor_divisions": 5,
+        "grid_alpha": 0.25
+      }
+    ],
+    "properties": {
+      "preset_origin": "kazgeology_reference_blank",
+      "orientation": "landscape",
+      "editable_columns": true,
+      "reference_document": "User-provided geological-technological Masterlog example",
+      "logo_placeholders": [
+        "kz_logo_left",
+        "kz_logo_right"
+      ],
+      "description_mode": "manual_only"
+    },
+    "version": 1
+  },
+  "image_assets": {}
+}

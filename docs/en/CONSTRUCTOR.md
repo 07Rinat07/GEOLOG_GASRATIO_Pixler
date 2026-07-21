@@ -51,3 +51,7 @@ tiled without smoothing and remains at its native pixel scale while the depth vi
 Text over the **Lithology** and **Cuttings** patterns is disabled by default. Names, codes and
 percentages remain available in the editor and tooltip. A specialised form can enable **Show
 code/percentage over pattern** in the track editor or form-structure editor.
+
+## KazGeology ready blank 0.7.5
+
+Masterlog presets now include **“Geological-technological survey — ready blank”**. It targets A3 landscape and includes two logo upload slots, well metadata, legends, construction, coloured scales and manual rock descriptions. Guide: [KAZGEOLOGY_TEMPLATE.md](KAZGEOLOGY_TEMPLATE.md).

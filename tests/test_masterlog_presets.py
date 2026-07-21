@@ -129,3 +129,40 @@ def test_geological_geochemical_reference_preset_matches_working_masterlog_struc
     assert gas.x_min == 0.001
     assert gas.x_max == 100.0
     assert gas.curve_mnemonics[-1] == "TG"
+
+
+def test_kazgeology_reference_blank_has_uploadable_logo_slots_and_expected_columns() -> None:
+    preset = next(
+        item
+        for item in BUILTIN_MASTERLOG_FORM_PRESETS
+        if item.preset_id == "kazgeology_reference_blank"
+    )
+    assert preset.template.page_format == "A3"
+    assert preset.template.properties["orientation"] == "landscape"
+    assert preset.template.header_height_mm == 104.0
+    logo_slots = [
+        element
+        for element in preset.template.header_elements
+        if element.element_type == "image"
+    ]
+    assert [element.element_id for element in logo_slots] == ["kz_logo_left", "kz_logo_right"]
+    assert all(element.properties["optional"] is True for element in logo_slots)
+    assert all("asset_ref" not in element.properties for element in logo_slots)
+    assert [column.column_type for column in preset.template.columns] == [
+        "stratigraphy",
+        "curves",
+        "depth",
+        "cuttings",
+        "lba",
+        "calcimetry",
+        "lithology",
+        "curves",
+        "cuttings_description",
+    ]
+    assert preset.template.columns[-1].properties["automatic_lithology_fallback"] is False
+    gas = preset.template.columns[7]
+    assert gas.x_scale == "logarithmic"
+    assert gas.x_min == 0.001
+    assert gas.x_max == 100.0
+    assert gas.grid_major_divisions == 5
+    assert gas.grid_minor_divisions == 10
