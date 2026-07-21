@@ -500,6 +500,22 @@ class TabletTrackWidget(QFrame):
         for key, label in self._curve_header_labels.items():
             label.set_selected(key == mnemonic)
 
+    def set_pencil_active(self, active: bool) -> None:
+        """Make the active pencil target unmistakable in wide Masterlog forms."""
+
+        text = self.title.text().removeprefix("✎ ")
+        self.title.setText(f"✎ {text}" if active else text)
+        if active:
+            self.title.setStyleSheet(
+                "font-weight:700; padding:6px; background:#ffedd5; color:#9a3412; "
+                "border:2px solid #f97316;"
+            )
+        else:
+            self.title.setStyleSheet(
+                "font-weight:600; padding:6px; background:#f8fafc; color:#0f172a; "
+                "border-bottom:1px solid #cbd5e1;"
+            )
+
     def set_track_width(self, width: int) -> None:
         self.setFixedWidth(int(width))
         if self.definition.kind is TrackKind.DEPTH:
@@ -750,6 +766,7 @@ class TabletView(QWidget):
         self._curve_pencil_mnemonic: str | None = None
         self._curve_pencil_curve_id: str | None = None
         self._curve_pencil_points: list[_CurvePencilPoint] = []
+        self._curve_pencil_unsaved = False
         self._pencil_cursor = self._build_pencil_cursor()
         self._cursor_depth: float | None = None
         self._cursor_guard = False
@@ -1734,6 +1751,27 @@ class TabletView(QWidget):
     def curve_pencil_controls_visible(self) -> bool:
         return self._curve_pencil_bar.isVisible()
 
+    def selected_curve_pencil_target(self) -> tuple[str, str] | None:
+        """Return the user's selected editable curve before choosing a fallback."""
+
+        if self._dataset is None:
+            return None
+        selected = self._selection.snapshot().items
+        for item in reversed(selected):
+            if item.kind is not SelectableKind.CURVE or item.track_id is None:
+                continue
+            curve = self._dataset.curve_by_mnemonic(item.object_id)
+            rendered = self._rendered.get(item.track_id)
+            if (
+                curve is not None
+                and rendered is not None
+                and rendered.curve_items
+                and item.object_id in rendered.curve_items
+                and self._curve_is_directly_editable(curve)
+            ):
+                return item.track_id, item.object_id
+        return None
+
     def _tablet_pencil_button_toggled(self, enabled: bool) -> None:
         if enabled == self._curve_pencil_enabled:
             return
@@ -1942,10 +1980,13 @@ class TabletView(QWidget):
 
     def _update_curve_pencil_status(self) -> None:
         if self._curve_pencil_enabled and self._curve_pencil_mnemonic:
+            key = (
+                "tablet.curve_pencil_unsaved"
+                if self._curve_pencil_unsaved
+                else "tablet.curve_pencil_active"
+            )
             self._curve_pencil_status.setText(
-                self._localizer.text(
-                    "tablet.curve_pencil_active", mnemonic=self._curve_pencil_mnemonic
-                )
+                self._localizer.text(key, mnemonic=self._curve_pencil_mnemonic)
             )
             self._curve_pencil_status.setStyleSheet(
                 "color:#9a3412; font-weight:700; padding:2px 6px;"
@@ -1958,12 +1999,23 @@ class TabletView(QWidget):
             self._curve_pencil_status.setStyleSheet("color:#475569; padding:2px 6px;")
         self._update_curve_pencil_bar_style()
 
+    def mark_curve_pencil_unsaved(self) -> None:
+        self._curve_pencil_unsaved = True
+        self._update_curve_pencil_status()
+
+    def clear_curve_pencil_unsaved(self) -> None:
+        self._curve_pencil_unsaved = False
+        self._update_curve_pencil_status()
+
     def _apply_curve_pencil_cursors(self) -> None:
         self._apply_geological_mode_cursors_base()
+        for item in self._rendered.values():
+            item.widget.set_pencil_active(False)
         if not self._curve_pencil_enabled or self._curve_pencil_track_id is None:
             return
         rendered = self._rendered.get(self._curve_pencil_track_id)
         if rendered is not None and rendered.plot is not None:
+            rendered.widget.set_pencil_active(True)
             rendered.plot.viewport().setCursor(self._pencil_cursor)
             rendered.plot.setToolTip(
                 self._localizer.text(

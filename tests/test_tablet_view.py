@@ -2163,3 +2163,57 @@ def test_tablet_curve_pencil_handles_descending_axis_and_log_scale(qapp) -> None
     assert list(emitted[0][1]) == [1, 2]
     assert np.all(np.isfinite(emitted[0][2]))
     view.close()
+
+
+def test_tablet_headers_translate_legacy_vendor_s_codes(qapp) -> None:
+    dataset = Dataset(
+        "legacy-vendor",
+        "Legacy vendor",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    curves = []
+    for mnemonic, unit in (
+        ("S300", "атм"),
+        ("S720", "м3"),
+        ("S800", "°C"),
+        ("S900", "°C"),
+        ("S50", "мин-1"),
+    ):
+        curve = CurveData(
+            CurveMetadata(
+                f"curve-{mnemonic}",
+                mnemonic,
+                mnemonic,
+                unit,
+                None,
+                dataset.dataset_id,
+            ),
+            np.array([1.0, 2.0]),
+        )
+        dataset.curves[curve.metadata.curve_id] = curve
+        curves.append(mnemonic)
+    track = TrackDefinition(
+        "technology",
+        "Параметры бурения",
+        TrackKind.CURVE,
+        curve_mnemonics=curves,
+        curve_display={
+            mnemonic: CurveDisplaySettings(display_name=mnemonic)
+            for mnemonic in curves
+        },
+    )
+    view = TabletView()
+    view.set_layout_model(TabletLayout([track]))
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.legend_labels("technology") == (
+        "Давление на манифольде",
+        "Суммарный объем в емкостях",
+        "Температура на входе",
+        "Температура раствора на выходе",
+        "Число ходов 1 насоса",
+    )
+    view.close()

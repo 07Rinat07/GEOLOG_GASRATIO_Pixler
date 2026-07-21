@@ -2532,7 +2532,15 @@ class MainWindow(QMainWindow):
                 )
                 return
             if self.tabs.currentWidget() is self.tablet_view:
-                if not self._activate_tablet_curve_pencil():
+                selected_target = self.tablet_view.selected_curve_pencil_target()
+                activated = (
+                    self._activate_tablet_curve_pencil(
+                        selected_target[1], track_id=selected_target[0]
+                    )
+                    if selected_target is not None
+                    else self._activate_tablet_curve_pencil()
+                )
+                if not activated:
                     self.pencil_action.blockSignals(True)
                     self.pencil_action.setChecked(False)
                     self.pencil_action.blockSignals(False)
@@ -2602,6 +2610,15 @@ class MainWindow(QMainWindow):
             self.las_table_editor.set_dataset(dataset)
         self._update_curve_edit_actions()
         self._update_title()
+        self.tablet_view.mark_curve_pencil_unsaved()
+        recalculated_status = ", ".join(outcome.recalculated_mnemonics) or "—"
+        self.statusBar().showMessage(
+            self._t(
+                "curve_edit.unsaved_status",
+                mnemonic=outcome.mnemonic,
+                recalculated=recalculated_status,
+            )
+        )
         affected = ", ".join(outcome.affected_mnemonics) or "нет"
         recalculated = ", ".join(outcome.recalculated_mnemonics) or "нет"
         failed = ", ".join(outcome.failed_mnemonics) or "нет"
@@ -2821,6 +2838,7 @@ class MainWindow(QMainWindow):
                 dataset,
                 normalized,
                 description=self._t("ui.saved_from_tablet_description"),
+                language=self.language,
             )
             if existing is not None:
                 form.form_id = existing.form_id
@@ -4361,6 +4379,7 @@ class MainWindow(QMainWindow):
         except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.critical(self, self._t("shell.save_project"), str(exc))
             return
+        self.tablet_view.clear_curve_pencil_unsaved()
         self._update_title()
         self._log(f"Проект сохранён: {saved_path}")
 
@@ -4378,6 +4397,7 @@ class MainWindow(QMainWindow):
         except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.critical(self, "Сохранение", str(exc))
             return
+        self.tablet_view.clear_curve_pencil_unsaved()
         self._update_title()
         self._log(f"Проект сохранён: {saved_path}")
 

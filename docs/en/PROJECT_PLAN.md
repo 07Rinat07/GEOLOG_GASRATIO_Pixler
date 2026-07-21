@@ -1,5 +1,16 @@
 # Project plan
 
+## Slice 0.7.10 — readable parameter captions and explicit pencil saving
+
+- [x] resolve vendor `S<number>` codes through the Sensors.DB `legacy_gid` reference;
+- [x] show a readable graph caption while retaining the original mnemonic in tooltips and editors;
+- [x] prevent old `display_name=S300` values from suppressing a new catalog translation;
+- [x] prefer an explicit LAS description when a vendor reuses an S-code for another channel;
+- [x] activate the pencil for the selected curve and mark the target track with `✎`;
+- [x] recalculate dependent curves immediately in memory;
+- [x] mark the project unsaved and write changes only when the diskette/Save action is pressed;
+- [ ] validate the complete vendor-code set on production LAS files.
+
 ## Slice 0.7.9 — curve pencil directly in the tablet
 
 - [x] persistent track/source-curve selector above every form;

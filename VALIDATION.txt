@@ -1,31 +1,32 @@
-GEOLOG GASRATIO@Pixler 0.7.9 — Tablet curve pencil
+GEOLOG GASRATIO@Pixler 0.7.10 — Readable parameter labels and explicit pencil save
 Date: 2026-07-21
 
 Implemented and verified
-- A persistent curve-pencil row is rendered inside TabletView on every form.
-- The row remains visible independently of main-toolbar overflow.
-- The user selects an exact visible source curve and its track.
-- Activating the pencil while the Tablet tab is open no longer switches to CurveView.
-- The target track is scrolled into view automatically.
-- The target viewport uses a pencil cursor and an orange live preview stroke.
-- Left-button release emits one atomic curve edit through CurveEditingController.
-- Escape cancels the current uncommitted stroke.
-- Linear, logarithmic and calcimetry coordinate conversion is covered.
-- Ascending and descending vertical indexes are covered.
-- Calculated/custom-formula/derived curves remain read-only.
-- Existing Undo/Redo and dependent-curve recalculation are reused.
+- Legacy vendor mnemonics S<number> resolve through Sensors.DB legacy_gid records.
+- Verified examples: S300 -> Давление на манифольде; S720 -> Суммарный объем в емкостях; S800 -> Температура на входе; S900 -> Температура раствора на выходе; S50 -> Число ходов 1 насоса.
+- Exact LAS descriptions take priority when a vendor reuses an S-code for another channel (for example S800 described as methane remains C1).
+- Old layouts/forms where display_name equals the raw mnemonic no longer suppress the readable catalog label.
+- Readable names are used in tablet graph headers, curve settings, saved user forms and data exports; original mnemonics remain available in selectors, tooltips and metadata.
+- Main-toolbar pencil activation prefers the currently selected editable curve.
+- The active pencil track is marked with an orange header and a visible pencil symbol.
+- A pencil stroke modifies the in-memory working copy and immediately recalculates existing dependent Gas Ratio/Pixler/custom-formula curves.
+- Pencil edit, undo and redo mark the project dirty; disk writing occurs only through explicit Save/Save As.
+- The tablet reports “Not saved — press the diskette button” until project save succeeds.
 
 Automated validation
-- ruff check .: PASS
-- python -m compileall -q src: PASS
-- PYTHONPATH=src python scripts/run_tests.py: 1012 passed, 1 skipped in 18.60s
-- RU/KK/EN localization key sets: synchronized, 1170 keys each
-- Tablet mouse-drag integration test: PASS
-- Main-window toolbar-to-tablet integration test: PASS
-- Descending-axis/logarithmic-scale test: PASS
+- python scripts/run_tests.py: 1017 passed, 1 skipped
+- ruff check src tests: PASS
+- python -m compileall -q src tests: PASS
+- Legacy S-code matching tests: PASS
+- Existing S800 methane-description conflict regression: PASS
+- Tablet readable-header regression with persisted raw display names: PASS
+- Pencil dependent recalculation and dirty-session tests: PASS
+- RU/KK/EN localization keys added for the unsaved-pencil state.
 
 Visual artifact
-- docs/validation/tablet_curve_pencil_0.7.9.png
+- docs/validation/readable_parameter_headers_0.7.10.png
 
-Remaining manual release gate
-- Windows smoke-test with a real wide factory/user form, actual display scaling and mouse input.
+Remaining manual release gates
+- Windows smoke-test on production LAS files containing the complete vendor S-code set.
+- Mouse/DPI check on a wide Masterlog form.
+- Confirm physical project save and reopen on the user's workstation.

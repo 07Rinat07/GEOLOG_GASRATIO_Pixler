@@ -8,6 +8,8 @@ from geoworkbench.forms.models import (
     FormTrack,
     ParameterBinding,
 )
+from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.tablet.models import CurveStyle, TabletLayout
 
 
@@ -17,6 +19,7 @@ def form_from_tablet_layout(
     name: str,
     *,
     description: str = "",
+    language: AppLanguage = AppLanguage.RU,
 ) -> FormDocument:
     """Create an editable user form from the current live tablet layout.
 
@@ -50,10 +53,17 @@ def form_from_tablet_layout(
                     or curve.metadata.original_mnemonic
                     or mnemonic
                 )
+            friendly_name = localized_curve_name(
+                canonical,
+                description=(curve.metadata.description or "") if curve is not None else "",
+                unit=unit,
+                language=language,
+                configured=display.display_name,
+            )
             bindings.append(
                 ParameterBinding.create(
                     canonical_parameter_id=canonical,
-                    display_name=display.display_name or mnemonic,
+                    display_name=friendly_name or mnemonic,
                     source_mnemonic=mnemonic,
                     unit=unit,
                     style=style,

@@ -1,5 +1,9 @@
 # Current project status
 
+## 0.7.10 fix — readable captions and safe saving
+
+Legacy codes such as `S300`, `S720`, `S800`, `S900` and `S50` are resolved through Sensors.DB and displayed as readable names. The source mnemonic remains available in tooltips/editors. Pencil edits apply and recalculate dependants immediately in memory, mark the project with `*`, and are written only by the Save action. Validation: `1017 passed, 1 skipped`; Ruff and `compileall` pass.
+
 ## 0.7.9 fix — curve pencil
 
 The pencil is now a native tablet tool. Its target selector is always visible, the selected track scrolls into view, the left button draws an orange preview, and releasing the mouse commits through the shared command history. Validation: `1012 passed, 1 skipped`.

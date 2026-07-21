@@ -70,3 +70,7 @@ Under the Windows dark theme, the Form Library explicitly uses contrasting dark 
 ## Curve pencil in the tablet — 0.7.9
 
 A persistent **Curve pencil** row is shown above the tablet. Choose a track and source curve, enable the tool, and draw directly in the plot with the left mouse button. The target track scrolls into view automatically. The orange stroke is a preview; releasing the button commits the edit, while `Esc` cancels only the current stroke. Calculated curves are excluded.
+
+## Parameter captions and pencil saving — 0.7.10
+
+Graph headers use a readable name from the LAS description or Sensors.DB. Technical codes such as `S300`, `S720`, `S800`, `S900` and `S50` remain in tooltips/editors instead of replacing the caption. Pencil activation prefers the selected curve and marks the target track with an orange header and `✎`. Dependants recalculate immediately after a stroke, the UI reports “Not saved”, and disk writing occurs only through Save.

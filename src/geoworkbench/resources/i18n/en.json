@@ -1168,5 +1168,7 @@
   "tablet.curve_pencil_selector_tooltip": "Choose a visible source curve and track to edit",
   "tablet.curve_pencil_active": "Pencil active: {mnemonic}. Draw with the left mouse button; Esc cancels the current stroke.",
   "tablet.curve_pencil_inactive": "Pencil is off. Choose a curve and enable the tool.",
-  "tablet.curve_pencil_no_curves": "The current form has no visible source numeric curves available for pencil editing."
+  "tablet.curve_pencil_no_curves": "The current form has no visible source numeric curves available for pencil editing.",
+  "tablet.curve_pencil_unsaved": "✎ {mnemonic}: changes applied and dependent curves recalculated. Not saved — press the diskette button.",
+  "curve_edit.unsaved_status": "Curve {mnemonic} changed; recalculated: {recalculated}. Not saved — press the diskette button."
 }

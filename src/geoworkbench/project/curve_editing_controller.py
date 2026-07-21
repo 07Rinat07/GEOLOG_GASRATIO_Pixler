@@ -86,6 +86,10 @@ class CurveEditingController:
             dataset,
             formula_registry=self.formula_registry,
         )
+        # Pencil/table edits modify only the in-memory project model.  Mark the
+        # session dirty so the title shows ``*`` and the data are written only
+        # after the user explicitly presses Save.
+        self.session.dirty = True
         return CurveEditOutcome(
             operation=operation,
             dataset_id=dataset.dataset_id,

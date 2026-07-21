@@ -1,3 +1,13 @@
+# 0.7.10 — Readable parameter labels and explicit pencil save
+
+- resolved legacy vendor mnemonics `S<number>` through Sensors.DB `legacy_gid` values;
+- preferred an explicit LAS description when an S-code is reused for another channel;
+- stopped raw mnemonic values stored as old display names from hiding readable catalog labels;
+- propagated readable captions to tablet headers, saved user forms, curve settings and exports;
+- activated the tablet pencil for the currently selected curve and added a visible `✎` target highlight;
+- recalculated dependants immediately in memory, marked the session dirty and wrote changes only on explicit Save;
+- validated with `1017 passed, 1 skipped`, Ruff and compileall.
+
 # 0.7.9 — Tablet curve pencil
 
 - added a persistent curve-pencil bar directly inside every tablet form;

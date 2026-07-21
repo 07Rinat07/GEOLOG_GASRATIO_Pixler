@@ -105,14 +105,21 @@ def localized_curve_name(
     description = clean_display_text(description)
     unit = clean_display_text(unit)
     explicit = clean_display_text(configured)
-    if explicit:
-        return explicit
 
     match = active_sensor_catalog().match(
         mnemonic,
         description=description,
         unit=unit,
     )
+    # Old layouts often persisted the raw LAS mnemonic as ``display_name``.
+    # That is not a deliberate user caption and must not suppress a newly
+    # available catalog translation such as S300 -> Давление на манифольде.
+    technical_names = {mnemonic.casefold()}
+    if match is not None:
+        technical_names.add(match.definition.canonical_mnemonic.casefold())
+    if explicit and explicit.casefold() not in technical_names:
+        return explicit
+
     if match is not None:
         definition = match.definition
         canonical = definition.canonical_mnemonic.strip().upper()

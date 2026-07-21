@@ -23,6 +23,23 @@ def test_default_sensor_catalog_contains_reference_and_legacy_fields() -> None:
     assert catalog.match("", description="Содержание метана").definition.canonical_mnemonic == "C1"
 
 
+
+def test_sensor_catalog_resolves_legacy_vendor_s_codes_by_gid() -> None:
+    catalog = default_sensor_catalog()
+
+    expected = {
+        "S300": "SPP",
+        "S720": "PIT_VOL",
+        "S800": "TEMP_IN",
+        "S900": "TEMP_OUT",
+        "S50": "SENSOR_50",
+    }
+    for mnemonic, canonical in expected.items():
+        match = catalog.match(mnemonic)
+        assert match is not None
+        assert match.definition.canonical_mnemonic == canonical
+        assert match.matched_by == "legacy_gid"
+
 def test_sensor_catalog_uses_units_to_choose_ambiguous_alias() -> None:
     catalog = default_sensor_catalog()
     match = catalog.match("Глубина забоя", unit="м")

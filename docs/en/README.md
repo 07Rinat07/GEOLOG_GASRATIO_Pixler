@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.9:** the curve pencil now works directly inside the tablet with a persistent track/curve selector, left-button drawing, orange preview, automatic target scrolling and Undo/Redo.
+> **0.7.10:** legacy mnemonics such as `S300`, `S720`, `S800`, `S900` and `S50` are translated into readable graph captions; pencil edits recalculate dependants immediately but are written only when Save is pressed.
 
 
 

@@ -2,4 +2,4 @@ import geoworkbench
 
 
 def test_package_version() -> None:
-    assert geoworkbench.__version__ == "0.7.9"
+    assert geoworkbench.__version__ == "0.7.10"

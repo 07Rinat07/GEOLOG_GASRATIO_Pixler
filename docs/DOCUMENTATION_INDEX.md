@@ -1,4 +1,5 @@
 # Documentation Index
+- Readable parameter captions and explicit pencil saving 0.7.10: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 
 ## Active engineering documents
 

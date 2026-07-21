@@ -38,6 +38,7 @@ _VALID_FAMILIES = {
 }
 _HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
 _NON_ALNUM = re.compile(r"[^0-9A-ZА-ЯЁ]+")
+_LEGACY_VENDOR_CODE = re.compile(r"^(?:S|GID)0*(\d+)$")
 _CONFUSABLES = str.maketrans(
     {
         "А": "A",
@@ -154,6 +155,11 @@ class SensorCatalog:
                     description_index.setdefault(key, []).append(item)
         self._alias_index = {key: tuple(value) for key, value in alias_index.items()}
         self._description_index = {key: tuple(value) for key, value in description_index.items()}
+        legacy_gid_index: dict[int, list[SensorDefinition]] = {}
+        for item in definitions:
+            if item.legacy_gid is not None:
+                legacy_gid_index.setdefault(item.legacy_gid, []).append(item)
+        self._legacy_gid_index = {key: tuple(value) for key, value in legacy_gid_index.items()}
 
     @classmethod
     def from_json(cls, source: str | Path | dict[str, Any]) -> SensorCatalog:
@@ -215,6 +221,19 @@ class SensorCatalog:
         if description_matches:
             selected = _choose_candidate(description_matches, unit=unit)
             return SensorMatch(selected, "description", 0.9)
+
+        # Several legacy GeoTotal/GeoScape exports encode the Sensors.DB GID as
+        # ``S300``, ``S720`` and similar vendor mnemonics.  An explicit LAS
+        # description is checked first because some vendors reuse the same S-code
+        # for another channel (for example S800 with description "Содержание
+        # метана").  Without a meaningful description the numeric GID mapping is
+        # deterministic and gives a readable header.
+        legacy_code = _LEGACY_VENDOR_CODE.fullmatch(mnemonic_key) if mnemonic_key else None
+        if legacy_code is not None:
+            legacy_matches = self._legacy_gid_index.get(int(legacy_code.group(1)), ())
+            if legacy_matches:
+                selected = _choose_candidate(legacy_matches, unit=unit)
+                return SensorMatch(selected, "legacy_gid", 0.98)
 
         # A controlled fuzzy fallback is useful for LAS descriptions that add a prefix,
         # suffix or vendor note. Require a long token to avoid accidental matches such as
