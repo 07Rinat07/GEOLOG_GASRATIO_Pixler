@@ -7,8 +7,8 @@ from PySide6.QtWidgets import QLabel, QStyle, QStyleOption
 from geoworkbench.domain.text_presentation import (
     normalize_text_orientation,
     normalize_text_vertical_position,
+    rotated_text_alignment,
     text_angle,
-    text_position_fraction,
 )
 
 
@@ -81,10 +81,9 @@ class OrientedTextLabel(QLabel):
         content = QRectF(self.contentsRect()).adjusted(5.0, 3.0, -5.0, -3.0)
         if content.width() <= 0.0 or content.height() <= 0.0:
             return
-        anchor_y = content.top() + content.height() * text_position_fraction(self._position)
         painter.setPen(self.palette().color(self.foregroundRole()))
         painter.setFont(self.font())
-        painter.translate(content.center().x(), anchor_y)
+        painter.translate(content.center())
         painter.rotate(text_angle(self._orientation))
         rotated = QRectF(
             -content.height() / 2.0,
@@ -92,9 +91,14 @@ class OrientedTextLabel(QLabel):
             content.height(),
             content.width(),
         )
+        horizontal = {
+            "left": Qt.AlignmentFlag.AlignLeft,
+            "center": Qt.AlignmentFlag.AlignHCenter,
+            "right": Qt.AlignmentFlag.AlignRight,
+        }[rotated_text_alignment(self._orientation, self._position)]
         painter.drawText(
             rotated,
-            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+            horizontal | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
             self.text(),
         )
 

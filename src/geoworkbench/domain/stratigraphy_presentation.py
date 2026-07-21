@@ -6,6 +6,7 @@ from geoworkbench.domain.text_presentation import (
     normalize_text_orientation,
     normalize_text_vertical_position,
     text_angle,
+    text_graphics_anchor,
     text_position_fraction,
 )
 
@@ -34,3 +35,9 @@ def stratigraphy_text_angle(value: str | None) -> float:
 
 def stratigraphy_text_position_fraction(value: str | None) -> float:
     return text_position_fraction(value)
+
+
+def stratigraphy_text_anchor(
+    orientation: str | None, position: str | None
+) -> tuple[float, float]:
+    return text_graphics_anchor(orientation, position)

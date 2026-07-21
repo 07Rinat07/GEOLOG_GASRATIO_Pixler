@@ -1314,6 +1314,7 @@ class MainWindow(QMainWindow):
                     dataset,
                     source_document=import_result.source_document,
                     import_report=import_result.report,
+                    create_new_well=True,
                 )
                 last_dataset = dataset
                 last_well = well
@@ -1341,20 +1342,12 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Ошибка LAS", "\n".join(errors) or "Файлы не загружены")
             return
 
-        self.curve_view.show_dataset(last_dataset)
-        self.las_table_editor.set_dataset(last_dataset)
-        self.tablet_view.set_dataset(last_dataset)
-        self.tablet_view.set_canvas_objects(last_well.canvas_objects)
-        self.tablet_view.set_lithology(
-            last_well.lithology,
-            self.lithotype_catalog_controller.available(),
-        )
-        self.tablet_view.set_cuttings(last_well.cuttings)
-        self.tablet_view.set_stratigraphy(last_well.stratigraphy)
-        self.curve_browser.set_dataset(last_dataset)
-        self.curve_browser.select_recommended()
-        self.curve_browser_dock.hide()
-        self.build_default_tablet()
+        # Activate through the common dataset-switch path.  Besides curves and
+        # layout it resets every well-scoped overlay (lithology, cuttings,
+        # stratigraphy, interpretations and depth annotations).  The previous
+        # implementation updated only part of the tablet and could leave visual
+        # objects from the previously opened LAS on screen.
+        self._show_current_dataset()
         self.inspector.setPlainText(
             f"{self._t('inspector.well')}: {last_well.name}\n"
             f"{self._t('inspector.dataset')}: {last_dataset.name}\n"

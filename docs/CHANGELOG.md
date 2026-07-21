@@ -1,3 +1,32 @@
+# 0.7.3 — 2026-07-21
+
+## Изоляция LAS-скважин и правильный якорь повёрнутого текста
+
+### Русский
+
+- обычная команда «Открыть LAS» больше не присоединяет файл к ранее активной скважине; каждый открытый LAS получает отдельную чистую рабочую скважину;
+- литология, шламограмма, ЛБА, кальциметрия, стратиграфия, описания, интерпретации и глубинные обозначения предыдущей скважины не переносятся в новый LAS;
+- старые несохранённые данные остаются только в своей скважине текущего проекта и могут быть выбраны в дереве до закрытия проекта;
+- намеренное объединение данных выполняется отдельными командами вставки внешнего LAS или сращивания dataset;
+- переключение после импорта проходит через общий путь `_show_current_dataset`, который очищает все well-scoped слои экрана;
+- исправлен якорь текста 0°/±90°: положение у кровли, по центру и у подошвы относится ко всей подписи, поэтому вертикальный текст больше не выходит за прямоугольник интервала;
+- одинаковая логика применена к планшету, заголовкам формы, WYSIWYG-шапке, preview, PDF и физической печати.
+
+### Қазақша
+
+- «LAS ашу» енді файлды бұрынғы белсенді ұңғымаға қоспайды; әр LAS үшін таза жеке ұңғыма жұмыс кеңістігі жасалады;
+- алдыңғы ұңғыманың литологиясы, шламограммасы, ЛБА, кальциметриясы, стратиграфиясы, сипаттамалары және белгілері жаңа LAS-қа көшпейді;
+- біріктіру тек сыртқы LAS енгізу немесе dataset біріктіру командалары арқылы орындалады;
+- 0°/±90° мәтін якорі түзетілді: жазу төбе/орта/табан режимінде толықтай аралық ішінде қалады.
+
+### English
+
+- normal Open LAS no longer attaches a file to the previously active well; every opened LAS receives a clean, separate well workspace;
+- lithology, cuttings, LBA, calcimetry, stratigraphy, descriptions, interpretations and depth symbols cannot leak from the previous well;
+- intentional combination remains available through the external-LAS insertion and dataset-merge workflows;
+- post-import activation now uses the common dataset switch path, clearing every well-scoped visual layer;
+- corrected 0°/±90° text anchoring so top, centre and bottom placement keeps the entire label inside its interval across tablet, constructor, preview, PDF and print.
+
 # Unreleased — unified reports and manual description templates
 
 ### Русский

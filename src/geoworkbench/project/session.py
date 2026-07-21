@@ -30,10 +30,23 @@ class ProjectSession:
         *,
         source_document: LosslessLasDocument | None = None,
         import_report: LasImportReport | None = None,
+        create_new_well: bool = False,
     ) -> Well:
-        well = self.current_well
+        """Attach a dataset to the session and make it current.
+
+        ``create_new_well`` is deliberately explicit.  Geological intervals,
+        cuttings, stratigraphy, interpretations and canvas annotations belong to
+        a :class:`Well`, not to an individual LAS dataset.  Reusing the current
+        well while opening an unrelated LAS therefore makes the previous well's
+        manual interpretation appear on the new file.  Normal *Open LAS* uses a
+        fresh well workspace; specialised merge/insert workflows may continue to
+        attach datasets to the current well.
+        """
+
+        well = None if create_new_well else self.current_well
         if well is None:
-            well = Well(new_id(), well_name or dataset.headers.get("WELL") or dataset.name)
+            requested_name = (well_name or dataset.headers.get("WELL") or dataset.name).strip()
+            well = Well(new_id(), self._unique_well_name(requested_name or "Well"))
             self.project.wells[well.well_id] = well
             self.current_well_id = well.well_id
         well.datasets[dataset.dataset_id] = dataset
@@ -44,6 +57,18 @@ class ProjectSession:
         self.current_dataset_id = dataset.dataset_id
         self.dirty = True
         return well
+
+    def _unique_well_name(self, requested: str) -> str:
+        """Return a readable name that does not collide in the project tree."""
+
+        base = requested.strip() or "Well"
+        existing = {well.name.casefold() for well in self.project.wells.values()}
+        if base.casefold() not in existing:
+            return base
+        suffix = 2
+        while f"{base} ({suffix})".casefold() in existing:
+            suffix += 1
+        return f"{base} ({suffix})"
 
     @property
     def current_well(self) -> Well | None:

@@ -1,5 +1,11 @@
 # Current project status
 
+## 0.7.3 fix — LAS isolation
+
+- A newly opened LAS gets a clean separate well.
+- Geological intervals from the previous well do not carry over.
+- Rotated text remains wholly inside its interval.
+
 Date: 21 July 2026
 
 The current slice is the **GeoData Depth Workspace**, manual-entry editors based on the supplied

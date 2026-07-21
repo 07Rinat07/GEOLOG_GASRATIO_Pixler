@@ -35,11 +35,7 @@ from geoworkbench.project.lithotype_catalog_controller import (
     LithotypeCatalogController,
 )
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.project.stratigraphy_controller import (
-    stratigraphy_rank_order,
-    stratigraphy_text_angle,
-    stratigraphy_text_position_fraction,
-)
+from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
 from geoworkbench.printing.header_fields import resolve_header_field
 from geoworkbench.printing.image_asset_rendering import draw_image_asset
 from geoworkbench.printing.lba_visuals import (
@@ -1289,45 +1285,17 @@ def _paint_stratigraphy_label(
     orientation: str,
     position: str,
 ) -> None:
-    if not text or interval_rect.width() <= 0.0 or interval_rect.height() <= 0.0:
-        return
-    target = interval_rect.adjusted(0.4, 0.2, -0.4, -0.2)
-    if target.width() <= 0.0 or target.height() <= 0.0:
-        return
-    angle = stratigraphy_text_angle(orientation)
-    fraction = stratigraphy_text_position_fraction(position)
-    painter.save()
-    painter.setClipRect(interval_rect)
-    if angle == 0.0:
-        vertical_alignment = {
-            "top": Qt.AlignmentFlag.AlignTop,
-            "center": Qt.AlignmentFlag.AlignVCenter,
-            "bottom": Qt.AlignmentFlag.AlignBottom,
-        }.get(position, Qt.AlignmentFlag.AlignVCenter)
-        painter.drawText(
-            target,
-            Qt.AlignmentFlag.AlignHCenter
-            | vertical_alignment
-            | Qt.TextFlag.TextWordWrap,
-            text,
-        )
-    else:
-        anchor_y = target.top() + target.height() * fraction
-        painter.translate(target.center().x(), anchor_y)
-        painter.rotate(angle)
-        rotated_width = target.height()
-        rotated_height = target.width()
-        painter.drawText(
-            QRectF(
-                -rotated_width / 2.0,
-                -rotated_height / 2.0,
-                rotated_width,
-                rotated_height,
-            ),
-            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
-            text,
-        )
-    painter.restore()
+    draw_oriented_text(
+        painter,
+        interval_rect,
+        text,
+        orientation=orientation,
+        position=position,
+        horizontal_alignment=Qt.AlignmentFlag.AlignHCenter,
+        word_wrap=True,
+        padding_x=0.4,
+        padding_y=0.2,
+    )
 
 
 def _paint_stratigraphy_column(

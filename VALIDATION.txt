@@ -1,62 +1,24 @@
-GEOLOG GASRATIO@Pixler 0.7.2 — Exact Legacy Lithotype Rendering validation
+GEOLOG GASRATIO@Pixler 0.7.3 validation
 Date: 2026-07-21
 
-Base source:
-- GEOLOG_GASRATIO_Pixler-v0.6.0-curve-pencil-fix-slice22(1).zip
+Implemented:
+- Open LAS creates a separate clean Well workspace.
+- Previous well lithology, cuttings, LBA/calcimetry, stratigraphy, descriptions,
+  interpretations and depth annotations are not attached to the new LAS.
+- Common dataset activation path clears every well-scoped tablet layer.
+- Rotated 0/+90/-90 text uses orientation-aware anchors and remains inside the
+  selected interval for top/center/bottom placement.
 
-Source lithotype catalogs:
-- Litol_Bmp(2).zip
-- Litol2_Bmp(2).zip
+Checks executed in this container:
+- python -m compileall -q src: PASS
+- tests/test_text_presentation.py: 3 passed
+- tests/test_project_session_well_isolation.py: 2 passed
+  (run with minimal PySide import stubs because PySide6 is not installed here)
+- Python AST parsing for changed files: PASS
 
-Implemented and verified:
-- 117 canonical factory BMP lithotypes are packaged in the project.
-- All 17 compact built-in rock IDs resolve to exact BMPs from the supplied catalogs.
-- Historical pattern keys resolve to exact BMP aliases without project migration.
-- Lithology and cuttings use native repeated bitmap tiles, not flat fallback colours.
-- Tablet rendering cancels the non-uniform pyqtgraph depth transform for texture coordinates.
-- WYSIWYG preview, image rendering, PDF, and physical printing use a stable 96-DPI physical tile scale.
-- Rock codes/names and cuttings percentages are hidden over the pattern by default.
-- Optional interval labels can be enabled per screen form or print form.
-- Header lithotype swatches and lithology legends use the same canonical bitmap resolver.
-- Layout schema migration: tablet layout v12; form schema v3.
-
-Automated checks:
-- python -m compileall -q src: OK
-- ruff check src tests: OK
-- full isolated headless test suite: 988 passed, 1 skipped
-- constructor asset registry validation: OK (117 lithotypes, 19 depth symbols)
-- RU/KK/EN constructor documentation: synchronized
-- release-directory full test run: 988 passed, 1 skipped
-- final ZIP integrity test (`unzip -t`): OK
-
-Visual checks:
-- Offscreen tablet rendering: exact repeated BMP tiles, no stretching, no default overlaid labels.
-- Masterlog image rendering: exact repeated BMP tiles in lithology and cuttings.
-- Masterlog 300-DPI PDF export: exact repeated BMP tiles and stable physical density.
-- Generated proof artifacts:
-  docs/validation/tablet_exact_lithotypes.png
-  docs/validation/masterlog_image_exact_lithotypes.png
-  docs/validation/masterlog_pdf_exact_lithotypes.pdf
-  docs/validation/masterlog_pdf_exact_lithotypes.png
-
-Release limitation:
-- A final physical-printer smoke check on Windows remains required before stable promotion.
-
-Documentation update — unified report export plan
-Date: 2026-07-21
-
-Added and synchronized:
-- mandatory interval-report stage in root and RU/KK/EN project plans;
-- exact interval fields for lithology, cuttings, manual descriptions, LBA, calcimetry and stratigraphy;
-- C1–C5, total gas, absolute/relative Gas Ratio and Pixler, H2S/CO2 and available gas channels;
-- drilling, mud and depth-event sections;
-- Report Constructor tab, preview, preflight and PDF/DOCX/XLSX/CSV/TSV/HTML targets;
-- strict measured-zero versus missing-value rules and calculation provenance;
-- explicit ban on automatic rock-description fallback;
-- dedicated RU/KK/EN report export specifications and engineering model.
-
-Checks:
-- touched documentation files and local links: OK
-- required RU/KK/EN report terms: OK
-- python compileall: OK
-- application code/version unchanged; this package is a plan/documentation update for 0.7.2.
+Limitations:
+- Full GUI regression suite was not executed in this container because PySide6
+  and the Qt runtime are unavailable.
+- Windows smoke test should verify opening LAS A, entering test intervals, then
+  opening LAS B: LAS B must be empty while LAS A remains available only under
+  its own well node in the project tree.

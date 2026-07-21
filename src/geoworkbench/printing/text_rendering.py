@@ -6,8 +6,8 @@ from PySide6.QtGui import QPainter
 from geoworkbench.domain.text_presentation import (
     normalize_text_orientation,
     normalize_text_vertical_position,
+    rotated_text_alignment,
     text_angle,
-    text_position_fraction,
 )
 
 
@@ -50,8 +50,7 @@ def draw_oriented_text(
     if normalized_orientation == "horizontal":
         painter.drawText(target, flags, text)
     else:
-        anchor_y = target.top() + target.height() * text_position_fraction(normalized_position)
-        painter.translate(target.center().x(), anchor_y)
+        painter.translate(target.center())
         painter.rotate(text_angle(normalized_orientation))
         rotated_rect = QRectF(
             -target.height() / 2.0,
@@ -59,7 +58,12 @@ def draw_oriented_text(
             target.height(),
             target.width(),
         )
-        rotated_flags = Qt.AlignmentFlag.AlignCenter
+        horizontal = {
+            "left": Qt.AlignmentFlag.AlignLeft,
+            "center": Qt.AlignmentFlag.AlignHCenter,
+            "right": Qt.AlignmentFlag.AlignRight,
+        }[rotated_text_alignment(normalized_orientation, normalized_position)]
+        rotated_flags = horizontal | Qt.AlignmentFlag.AlignVCenter
         if word_wrap:
             rotated_flags |= Qt.TextFlag.TextWordWrap
         painter.drawText(rotated_rect, rotated_flags, text)

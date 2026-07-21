@@ -11,6 +11,7 @@ from geoworkbench.domain.stratigraphy_presentation import (
     STRATIGRAPHY_TEXT_POSITIONS,
     normalize_stratigraphy_text_orientation,
     normalize_stratigraphy_text_position,
+    stratigraphy_text_anchor,
     stratigraphy_text_angle,
     stratigraphy_text_position_fraction,
 )
@@ -27,6 +28,7 @@ __all__ = [
     "normalize_stratigraphy_text_orientation",
     "normalize_stratigraphy_text_position",
     "stratigraphy_rank_order",
+    "stratigraphy_text_anchor",
     "stratigraphy_text_angle",
     "stratigraphy_text_position_fraction",
 ]

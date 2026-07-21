@@ -45,6 +45,7 @@ from geoworkbench.domain.models import (
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import (
     stratigraphy_rank_order,
+    stratigraphy_text_anchor,
     stratigraphy_text_angle,
     stratigraphy_text_position_fraction,
 )
@@ -4490,7 +4491,9 @@ class TabletView(QWidget):
             label = pg.TextItem(
                 label_text,
                 color="#0f172a",
-                anchor=(0.5, 0.5),
+                anchor=stratigraphy_text_anchor(
+                    interval.text_orientation, interval.text_position
+                ),
                 angle=stratigraphy_text_angle(interval.text_orientation),
             )
             label_position = stratigraphy_text_position_fraction(interval.text_position)
