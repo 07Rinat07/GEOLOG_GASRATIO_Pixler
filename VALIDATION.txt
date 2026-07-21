@@ -1,0 +1,27 @@
+GEOLOG GASRATIO@Pixler 0.7.0 — Universal Constructor validation
+Date: 2026-07-21
+
+Base source:
+- GEOLOG_GASRATIO_Pixler-v0.6.0-curve-pencil-fix-slice22(1).zip
+
+Completed checks:
+- Python compileall for src: OK
+- Development constructor asset catalog: OK (117 lithotypes, 19 depth symbols)
+- Packaged constructor asset catalog: OK (117 lithotypes, 19 depth symbols)
+- Source/package manifest parity: OK
+- RU/KK/EN constructor localization key parity: OK
+- Main-menu Constructor wiring: OK
+- Constructor documentation RU/KK/EN: OK
+- Focused pure/static tests: 12 passed
+
+Commands:
+  python -m compileall -q src
+  python tools/import_constructor_assets.py
+  python tools/import_constructor_assets.py --root src/geoworkbench/resources/constructor_assets
+  python tools/validate_constructor_integration.py
+  pytest -q tests/test_constructor_asset_registry.py tests/test_constructor_integration_static.py tests/test_version.py
+
+Environment limitation:
+- PySide6 and pyqtgraph are not installed in the build container.
+- Full GUI/unit/E2E tests could not be collected here.
+- Run the Windows smoke checklist in docs/ru/FORM_CONSTRUCTOR_PLAN.md before release promotion.

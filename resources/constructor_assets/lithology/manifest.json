@@ -1,0 +1,4031 @@
+{
+  "schema": "geoworkbench.constructor-assets/v1",
+  "kind": "lithology",
+  "generated_at": "2026-07-21",
+  "source_archives": [
+    "Litol_Bmp(2).zip",
+    "Litol2_Bmp(2).zip"
+  ],
+  "source_image_count": 297,
+  "unique_asset_count": 117,
+  "unique_pixel_pattern_count": 115,
+  "visually_equivalent_group_count": 2,
+  "deduplication_policy": "exact-file-sha256; visually identical legacy records remain separate",
+  "assets": [
+    {
+      "id": "lithology-dolomite",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Доломит",
+        "kk": "Доломит",
+        "en": "Dolomite"
+      },
+      "aliases": [
+        "14",
+        "Dolomite",
+        "Dolomites",
+        "Доломит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "14.bmp",
+        "Dolomite.bmp",
+        "Dolomites.bmp",
+        "Доломит.bmp"
+      ],
+      "content_sha256": "596d779d6a6c3e161768c61bb873c7d24b80eaf0efbaaeb96e452df5251b8130",
+      "pixel_sha256": "8745d155341092e9fdbb5fb73e1f360568d2054c98c86f3e35f78fe5c2da7e4c",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-dolomite.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-dolomite.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-newporoda",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "NewPoroda",
+        "kk": "NewPoroda",
+        "en": "NewPoroda"
+      },
+      "aliases": [
+        "15",
+        "NewPoroda"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "15.bmp",
+        "NewPoroda.bmp"
+      ],
+      "content_sha256": "2be180c91d7f5c71159d2888e5b4711d5f012bc548a41d705196a42356502666",
+      "pixel_sha256": "7c135e40076ce329325fb49082db95aae9d6eaa649c21a503c26615a7c558bb0",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-newporoda.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-newporoda.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-limestone-dolomitic",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Известняк доломитистый",
+        "kk": "Известняк доломитистый",
+        "en": "Limestone dolomitic"
+      },
+      "aliases": [
+        "24",
+        "Dolomitic limestones",
+        "Limestone dolomitic",
+        "Limestones dolomitic",
+        "Известняк доломитистый"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "24.bmp",
+        "Dolomitic limestones.bmp",
+        "Limestone dolomitic.bmp",
+        "Limestones dolomitic.bmp",
+        "Известняк доломитистый.bmp"
+      ],
+      "content_sha256": "9c1a0cc58e7d5415655d2fddc1040fbcd9a6d5da97dcbb79ab1386fd35323393",
+      "pixel_sha256": "b07d50b514208e19196451d5f0513c50751f58e012bf15d98f073e20745ddec9",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-limestone-dolomitic.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-limestone-dolomitic.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-gravel",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Гравелит",
+        "kk": "Гравелит",
+        "en": "Gravel"
+      },
+      "aliases": [
+        "25",
+        "Gravel",
+        "Gravelite",
+        "Gravelites",
+        "Гравелит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "25.bmp",
+        "Gravel.bmp",
+        "Gravelite.bmp",
+        "Gravelites.bmp",
+        "Гравелит.bmp"
+      ],
+      "content_sha256": "02fc627c00c573756002ff2551b3dfdee7ce36664867f631a38ba1ac0f02e701",
+      "pixel_sha256": "d197c82dc894be0732fd85ae184ad7f6e42512295589895b3bc03844bdd4e1b9",
+      "width_px": 42,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-gravel.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-gravel.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-kremen",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Кремень",
+        "kk": "Кремень",
+        "en": "Kremen"
+      },
+      "aliases": [
+        "41",
+        "Кремень"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "41.bmp",
+        "Кремень.bmp"
+      ],
+      "content_sha256": "9ec40e4652becaa93dff3c295c225838a74548150035ab39f1a0b5a963991ef6",
+      "pixel_sha256": "f685a4ac7b4934831a5fcffe3c9b10e274d36368512411b605bd2db7865f2fec",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-kremen.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-kremen.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-slanec-glinisty",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "сланец глинисты",
+        "kk": "сланец глинисты",
+        "en": "Slanec Glinisty"
+      },
+      "aliases": [
+        "52",
+        "сланец глинисты"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "52.bmp",
+        "сланец глинисты.bmp"
+      ],
+      "content_sha256": "eeb6cded288506dfa17a348d4416d089d0fe21e5766c97f64c39cf051821c092",
+      "pixel_sha256": "66f259067cc639cfc1a557890d0c2d048dd14771ccc8220c35096ad27e2ad037",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-slanec-glinisty.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-slanec-glinisty.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-55",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "55",
+        "kk": "55",
+        "en": "55"
+      },
+      "aliases": [
+        "55"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "55.bmp"
+      ],
+      "content_sha256": "6b4de6e08b9b3182db093466829c0c3db364a83404f14b74031718c7f20b1ce9",
+      "pixel_sha256": "d845631bde97a29208ae12b77ceca8945c8fb0afa757f5944ab6cd79b60fd3a6",
+      "width_px": 20,
+      "height_px": 20,
+      "asset_path": "lithology/originals/lithology-55.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-55.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-uzen-peschaniki",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "узен Песчаники",
+        "kk": "узен Песчаники",
+        "en": "Uzen Peschaniki"
+      },
+      "aliases": [
+        "59",
+        "узен Песчаники"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "59.bmp",
+        "узен Песчаники.bmp"
+      ],
+      "content_sha256": "311f17dba71f4f752a830047ddf12039522213e5cc0589ec47711f6259d5a3ce",
+      "pixel_sha256": "980ea373b317cbbaaed7236268dc842cc86c5c583189707dd7137bf6c39afa15",
+      "width_px": 16,
+      "height_px": 16,
+      "asset_path": "lithology/originals/lithology-uzen-peschaniki.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-uzen-peschaniki.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-gravelit",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "гравелит",
+        "kk": "гравелит",
+        "en": "Gravelit"
+      },
+      "aliases": [
+        "60",
+        "гравелит",
+        "Узен гравелиты"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "013 гравелит.bmp",
+        "60.bmp",
+        "Узен гравелиты.bmp"
+      ],
+      "content_sha256": "51c9ef8c030d60bf78bbc783dafed841d3201c90b58347fcf22c6166d6fe14b1",
+      "pixel_sha256": "a93cf4fd36c92080df6aa0bc9367b792aa56980096d2ffaebe574234092c3ce0",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-gravelit.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-gravelit.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-izvestnyaki",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Известняки",
+        "kk": "Известняки",
+        "en": "Izvestnyaki"
+      },
+      "aliases": [
+        "61",
+        "Известняки",
+        "Узен извястники"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "032 Известняки..bmp",
+        "61.bmp",
+        "Узен извястники.bmp"
+      ],
+      "content_sha256": "a7934358e8d98c5c148588474acae15e5e0cbe3b87731bc4152f9c995e869e6d",
+      "pixel_sha256": "464268c2a598927ce9bf1a6b79920e45a8900fb907cb683fb4d6ee08c4c14d0d",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-izvestnyaki.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-izvestnyaki.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-metamorf-k",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Метаморф К",
+        "kk": "Метаморф К",
+        "en": "Metamorf K"
+      },
+      "aliases": [
+        "62",
+        "Метаморф К",
+        "Узен метоморфический породы"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "036 Метаморф К.bmp",
+        "62.bmp",
+        "Узен метоморфический породы.bmp"
+      ],
+      "content_sha256": "a0d21088709889ad35dc52c0c33dd69a54099a680a5f9bacaf067e51fe7a220a",
+      "pixel_sha256": "f293e267ba20e4b70c451127a1cadae8bacf2432592db25536314b9afd489ba1",
+      "width_px": 32,
+      "height_px": 17,
+      "asset_path": "lithology/originals/lithology-metamorf-k.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-metamorf-k.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-anatexite",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Anatexite",
+        "kk": "Anatexite",
+        "en": "Anatexite"
+      },
+      "aliases": [
+        "Anatexite"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Anatexite.bmp"
+      ],
+      "content_sha256": "96962d3014715a8fffec6ef3a53c4cfa4d28e2b14371a87975e17696c3c7d9a1",
+      "pixel_sha256": "33a239e8a1a198ae8d55452f39f630f1b3b9e2ac628008fd84e185800729e04b",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-anatexite.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-anatexite.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-anhydrite",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Ангидрит",
+        "kk": "Ангидрит",
+        "en": "Anhydrite"
+      },
+      "aliases": [
+        "Anhydrite",
+        "Anhydrites",
+        "Ангидрит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Anhydrite.bmp",
+        "Anhydrites.bmp",
+        "Ангидрит.bmp"
+      ],
+      "content_sha256": "bb3ec92a4f0dd5a1f34bcb26da9ea586a2f6888a37a654a1df8dd09aeb2dda02",
+      "pixel_sha256": "92394783c699d78da6400f3b25bdf2a6539ded376e1e473c9af9665bbfc799ed",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-anhydrite.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-anhydrite.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-anhydrites",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Ангидрит",
+        "kk": "Ангидрит",
+        "en": "Anhydrites"
+      },
+      "aliases": [
+        "Anhydrites",
+        "Ангидрит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Anhydrites.bmp",
+        "Ангидрит.bmp"
+      ],
+      "content_sha256": "dd8854f42f2de9d19d4c95908ac2807749cd00e591280bbf27b2ff9b223b06a4",
+      "pixel_sha256": "f6c645ebb80ac1a5d8065cdbaf71d4dd10554d57da852427408eca6c9829c47b",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-anhydrites.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-anhydrites.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-aplite",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Aplite",
+        "kk": "Aplite",
+        "en": "Aplite"
+      },
+      "aliases": [
+        "Aplite"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Aplite.bmp"
+      ],
+      "content_sha256": "9ff971cb736a87bb3cb593d3e69e7221003ec9bb3b4b4790ca45a86b7f8478df",
+      "pixel_sha256": "f1f6d4ed5d9b2f68993e0c0b8d2ca15bf062f6669966a5a4131d88a5ba447625",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-aplite.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-aplite.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-clayey-limestones",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Известняк глинистый",
+        "kk": "Известняк глинистый",
+        "en": "Clayey limestones"
+      },
+      "aliases": [
+        "Argiliaceous limestone",
+        "Argiliaceous limestones",
+        "Clayey limestones",
+        "Известняк глинистый"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Argiliaceous limestone.bmp",
+        "Argiliaceous limestones.bmp",
+        "Clayey limestones.bmp",
+        "Известняк глинистый.bmp"
+      ],
+      "content_sha256": "38b1df2a1dd3ea1363f37818ac0dbbbab59a55b8a27b13f9bb50ad2c15a9e43a",
+      "pixel_sha256": "d2313f88cc4942e57a5d1e2d18aab61b596990158e85079449a313631f07258e",
+      "width_px": 24,
+      "height_px": 24,
+      "asset_path": "lithology/originals/lithology-clayey-limestones.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-clayey-limestones.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-basalt",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Basalt",
+        "kk": "Basalt",
+        "en": "Basalt"
+      },
+      "aliases": [
+        "Basalt"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Basalt.bmp"
+      ],
+      "content_sha256": "ba9b952e628f869349ba6860816868e0b744de36797285d833dd6a20e1494b12",
+      "pixel_sha256": "60fdebda25dceac505687bec25dfebcf56ce24ef72c827ca1ce0179b57105ad4",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-basalt.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-basalt.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-basement",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Basement",
+        "kk": "Basement",
+        "en": "Basement"
+      },
+      "aliases": [
+        "Basement"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Basement.bmp"
+      ],
+      "content_sha256": "b68db2be44f9874d2b1bae4f5957bc523da1bd52980bb0c3e8669796b7bb7ed2",
+      "pixel_sha256": "bca257062d920389174cb3d5ffb1bd9fb3242c0b30ce944fe34802fd10679404",
+      "width_px": 31,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-basement.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-basement.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-bituminous-limestone",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Известняк с признаками УВ",
+        "kk": "Известняк с признаками УВ",
+        "en": "Bituminous limestone"
+      },
+      "aliases": [
+        "Bituminous limestone",
+        "Bituminous limestones",
+        "Известняк с признаками УВ"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Bituminous limestone.bmp",
+        "Bituminous limestones.bmp",
+        "Известняк с признаками УВ..bmp"
+      ],
+      "content_sha256": "a2e441efbe72a14dba5b95df3a91477f1ed5caea688e7b2b0ed767d9358f3e1d",
+      "pixel_sha256": "37ef205996d9131bb4a7b2a71ca453bab8874d0e508372644d3902d05451e712",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-bituminous-limestone.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-bituminous-limestone.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-bituminous-limestones",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Известняк с признаками УВ",
+        "kk": "Известняк с признаками УВ",
+        "en": "Bituminous limestones"
+      },
+      "aliases": [
+        "Bituminous limestones",
+        "Известняк с признаками УВ"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Bituminous limestones.bmp",
+        "Известняк с признаками УВ..bmp"
+      ],
+      "content_sha256": "3689c97b8a7a08f0cbd96c5553eb3e606460c7572a8bdf87493a5944086a1092",
+      "pixel_sha256": "5ce4d87b53fd6c471a12a00275605fd3c4644fc94e882c8352b3209fbd55350b",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-bituminous-limestones.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-bituminous-limestones.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-bituminous-sand",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Песок с признаками УВ",
+        "kk": "Песок с признаками УВ",
+        "en": "Bituminous sand"
+      },
+      "aliases": [
+        "Bituminous sand",
+        "Bituminous sands",
+        "Песок с признаками УВ"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Bituminous sand.bmp",
+        "Bituminous sands.bmp",
+        "Песок с признаками УВ.bmp"
+      ],
+      "content_sha256": "7e189a56846cf2cab1bbbbbc934e04bd51ad94583af73b4325db0c641e80c7f7",
+      "pixel_sha256": "100c36813285529c349bcbc4fa5c20f3bad61d47977124bcd757b6a8f5fbec92",
+      "width_px": 14,
+      "height_px": 15,
+      "asset_path": "lithology/originals/lithology-bituminous-sand.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-bituminous-sand.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-bituminous-sandstone",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Песчаник с признаками УВ",
+        "kk": "Песчаник с признаками УВ",
+        "en": "Bituminous sandstone"
+      },
+      "aliases": [
+        "Bituminous sandstone",
+        "Bituminous sandstones",
+        "Песчаник с признаками УВ"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Bituminous sandstone.bmp",
+        "Bituminous sandstones.bmp",
+        "Песчаник с признаками УВ.bmp"
+      ],
+      "content_sha256": "3cf9e995aa4e441c2459095af0399b8301955f0625b3923845fb4c1ac847eb8b",
+      "pixel_sha256": "35be36bec1e3cb9deb18a3913a8385808ba79fd3e10fe0d35d5173e65a1ec27a",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-bituminous-sandstone.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-bituminous-sandstone.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-breccia",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Брекчия",
+        "kk": "Брекчия",
+        "en": "Breccia"
+      },
+      "aliases": [
+        "Breccia",
+        "Breccias",
+        "Брекчия"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Breccia.bmp",
+        "Breccias.bmp",
+        "Брекчия.bmp"
+      ],
+      "content_sha256": "d209a4c3971e28d62c80e85cc8619a8b99f5d2a1dfa1afb3d8abe9501105e0a1",
+      "pixel_sha256": "0945c7dbb6e4aa411dbb84d252f08660c3bc0eba072da6f039f343f8848f259b",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-breccia.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-breccia.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-calcite",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Кальцит",
+        "kk": "Кальцит",
+        "en": "Calcite"
+      },
+      "aliases": [
+        "Calcite",
+        "Calcites",
+        "Кальцит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Calcite.bmp",
+        "Calcites.bmp",
+        "Кальцит.bmp"
+      ],
+      "content_sha256": "9488ddb0f37b7b685b497e16d13b1c3dbcd735bd1df7e8ab3201ef711558aa3d",
+      "pixel_sha256": "3755f65d95bf2b50871f21d28d7e6891d3fe1882bb14733fbc1531487a37b878",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-calcite.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-calcite.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-cement",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Цемент",
+        "kk": "Цемент",
+        "en": "Cement"
+      },
+      "aliases": [
+        "Cement",
+        "Цемент"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Cement.bmp",
+        "Цемент.bmp"
+      ],
+      "content_sha256": "c324cdd456bac501199a7001c9b65ea0b4e60854a22ff9f92609f8be9745468a",
+      "pixel_sha256": "66151dcc26dad1f85fd1c79e0c03c1d931a916b51259339d66ae770be2796a21",
+      "width_px": 18,
+      "height_px": 27,
+      "asset_path": "lithology/originals/lithology-cement.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-cement.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-cement-28744e5b",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Цемент",
+        "kk": "Цемент",
+        "en": "Cement"
+      },
+      "aliases": [
+        "Cement",
+        "Цемент"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Cement.bmp",
+        "Цемент.bmp"
+      ],
+      "content_sha256": "28744e5b9ab2c0db293993c3972ef2290205db0c8d4617ca54d09689e68c37b3",
+      "pixel_sha256": "9f1553c3af110e2503ac8e128ed98698e13ed3026979e942ea1d52b0ef151bd9",
+      "width_px": 10,
+      "height_px": 10,
+      "asset_path": "lithology/originals/lithology-cement-28744e5b.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-cement-28744e5b.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-chalk",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Мел",
+        "kk": "Мел",
+        "en": "Chalk"
+      },
+      "aliases": [
+        "Chalk",
+        "Chalks",
+        "Мел"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Chalk.bmp",
+        "Chalks.bmp",
+        "Мел.bmp"
+      ],
+      "content_sha256": "f71f0c4f791f8dc20780e9f5bb8e035d741567e3113dfb2a7bb89c1be4eab143",
+      "pixel_sha256": "63747831e26b1d0e5fdf944d9ad2fa08a87c8f3f6d65e40ffcf447e73ff875ab",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-chalk.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-chalk.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-chalks",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Мел",
+        "kk": "Мел",
+        "en": "Chalks"
+      },
+      "aliases": [
+        "Chalks",
+        "Мел"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Chalks.bmp",
+        "Мел.bmp"
+      ],
+      "content_sha256": "ba8af2d8cf3ed709d14ddb0436d2ddcc455f3e53388ea53901a5cdebd9a2df9a",
+      "pixel_sha256": "7807d7b1b94382707d2eba1cc0a630b3093e66cc2e5a5292e9820bdf48e774dc",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-chalks.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-chalks.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-clay",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Глина",
+        "kk": "Глина",
+        "en": "Clay"
+      },
+      "aliases": [
+        "Clay",
+        "Clays",
+        "Глина"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Clay.bmp",
+        "Clays.bmp",
+        "Глина.bmp"
+      ],
+      "content_sha256": "eb8ded3955ce430fddc17e533b046d789510deb73876eeddadebc61205667c73",
+      "pixel_sha256": "1a45a604abfe51dd5ee5fc7e84c350e471c7f87fff4f27442ec4c192cebf9cd1",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-clay.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-clay.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-clay-with-ovd",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Глина с ОРД",
+        "kk": "Глина с ОРД",
+        "en": "Clay with OVD"
+      },
+      "aliases": [
+        "Clay with OVD",
+        "Clays with Organic Materials",
+        "Глина с ОРД"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Clay with OVD.bmp",
+        "Clays with Organic Materials.bmp",
+        "Глина с ОРД.bmp"
+      ],
+      "content_sha256": "749027d9f81b3dbc2702e8f421e71afa785b8a4f3a88705f7a7d300859a3b0e1",
+      "pixel_sha256": "ac0d784b06754c868aa6374cdcc3b470dff39e15e7a06f39679214d3e06ca80b",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-clay-with-ovd.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-clay-with-ovd.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-clay-with-pyrite",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Глина с пиритом",
+        "kk": "Глина с пиритом",
+        "en": "Clay with pyrite"
+      },
+      "aliases": [
+        "Clay with pyrite",
+        "Clays with pyrite",
+        "Глина с пиритом"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Clay with pyrite.bmp",
+        "Clays with pyrite.bmp",
+        "Глина с пиритом.bmp"
+      ],
+      "content_sha256": "fd58937357c592cffffbbbe8590f64bc56a3ea9d02904cc7aa4f35dc33a993d1",
+      "pixel_sha256": "7fe33047367ba683f5d207de84a48966d150bda5dd46a24e5b062abc285f68f0",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-clay-with-pyrite.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-clay-with-pyrite.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-clayey-limestones-35340377",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Известняк глинистый",
+        "kk": "Известняк глинистый",
+        "en": "Clayey limestones"
+      },
+      "aliases": [
+        "Clayey limestones",
+        "Известняк глинистый"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Clayey limestones.bmp",
+        "Известняк глинистый.bmp"
+      ],
+      "content_sha256": "35340377797f334424983a9be11458a07f3c69b97a8e4a8e07e9f439ad7339cb",
+      "pixel_sha256": "4ee9976d470562bb01c4b3a22d51e33bccbb3d07df440f2cbc78118834f7ac62",
+      "width_px": 24,
+      "height_px": 24,
+      "asset_path": "lithology/originals/lithology-clayey-limestones-35340377.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-clayey-limestones-35340377.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-clays",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Глина",
+        "kk": "Глина",
+        "en": "Clays"
+      },
+      "aliases": [
+        "Clays",
+        "Глина"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Clays.bmp",
+        "Глина.bmp"
+      ],
+      "content_sha256": "efbebfed047e285613592e73e2d63547a0281c6510b793752eba2879737081a0",
+      "pixel_sha256": "36cd2398e780304e5d55287661ebf27c7bc52db536e67701ebd4f7d751edda40",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-clays.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-clays.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-clays-with-organic-materials",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Глина с ОРД",
+        "kk": "Глина с ОРД",
+        "en": "Clays with Organic Materials"
+      },
+      "aliases": [
+        "Clays with Organic Materials",
+        "Глина с ОРД"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Clays with Organic Materials.bmp",
+        "Глина с ОРД.bmp"
+      ],
+      "content_sha256": "4b02444ca040690f94522dc367025b38fb506eea98ffc4436cd3b3544510e3ea",
+      "pixel_sha256": "6f74cc15c29a1219b7c89c84a5e53e3c33564f0f5240428957524aae91bd94c6",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-clays-with-organic-materials.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-clays-with-organic-materials.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-clays-with-pyrite",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Глина с пиритом",
+        "kk": "Глина с пиритом",
+        "en": "Clays with pyrite"
+      },
+      "aliases": [
+        "Clays with pyrite",
+        "Глина с пиритом"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Clays with pyrite.bmp",
+        "Глина с пиритом.bmp"
+      ],
+      "content_sha256": "76c5d075b2f21bec057732d96b7a9e78c5f802d1b0e359cc2f949bab2cd76257",
+      "pixel_sha256": "0785706172183615ed241796b079701bd8940557b5133b3895672c5ecf074f6e",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-clays-with-pyrite.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-clays-with-pyrite.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-claystone",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Аргиллит",
+        "kk": "Аргиллит",
+        "en": "Claystone"
+      },
+      "aliases": [
+        "Claystone",
+        "Claystones",
+        "Аргиллит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Claystone.bmp",
+        "Claystones.bmp",
+        "Аргиллит.bmp"
+      ],
+      "content_sha256": "39b7a765ae0abc804e90f377b9012d3f7f3bb91d190680a5bbb5ebfaa6b33c4b",
+      "pixel_sha256": "de8695a5455d826f85022c3fdd78e6db4a7a052d2bfa3597a3fc927a8760a674",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-claystone.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-claystone.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-claystones",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Аргиллит",
+        "kk": "Аргиллит",
+        "en": "Claystones"
+      },
+      "aliases": [
+        "Claystones",
+        "Аргиллит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Claystones.bmp",
+        "Аргиллит.bmp"
+      ],
+      "content_sha256": "69afc64eefd8c47d9e20bef5ba9156d71432316cbe12fc7e51d0a41c825d6a82",
+      "pixel_sha256": "e935deeeea5d048754e82a67e46dd554531158dcaf13999858e1de4de42862a9",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-claystones.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-claystones.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-coal",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Уголь",
+        "kk": "Уголь",
+        "en": "Coal"
+      },
+      "aliases": [
+        "Coal",
+        "Coals",
+        "Уголь"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Coal.bmp",
+        "Coals.bmp",
+        "Уголь.bmp"
+      ],
+      "content_sha256": "6ce72f26ce8d985fb422441b4409e0e26cc39e1cef1a9eb7aada6e5062a977e8",
+      "pixel_sha256": "43c9ecb43a35fa841c52176fb8b4f67db20cfba282ad1bae8630f3657622edb0",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-coal.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-coal.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-coals",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Уголь",
+        "kk": "Уголь",
+        "en": "Coals"
+      },
+      "aliases": [
+        "Coals",
+        "Уголь"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Coals.bmp",
+        "Уголь.bmp"
+      ],
+      "content_sha256": "4f41b9551abd7b511e9450a734e899734f45e6787208fbde330669fe675e7b1f",
+      "pixel_sha256": "e9d0f006d044056fbd7272de9ddb1b478df043238f847d0e86b98411cec739b9",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-coals.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-coals.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-conglomerate",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Конгломерат",
+        "kk": "Конгломерат",
+        "en": "Conglomerate"
+      },
+      "aliases": [
+        "Conglomerate",
+        "Conglomerates",
+        "Конгломерат"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Conglomerate..bmp",
+        "Conglomerate.bmp",
+        "Conglomerates.bmp",
+        "Конгломерат.bmp"
+      ],
+      "content_sha256": "8283e99d8d9f28c98765e1d52aa1d89dd86daa79173dcb99dbbf4d6a78b3f37e",
+      "pixel_sha256": "10a426a8d54dcf7d93a854339b2811e8b32553e3acf9419bd254e2877e377e61",
+      "width_px": 42,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-conglomerate.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-conglomerate.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-core",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Керн",
+        "kk": "Керн",
+        "en": "Core"
+      },
+      "aliases": [
+        "Core",
+        "Керн"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Core.bmp",
+        "Керн.bmp"
+      ],
+      "content_sha256": "cdeacaefd48bb895caf02d064b016ed7b82d0b15e00175bc25df032e358fd988",
+      "pixel_sha256": "76c2de273f4d6a26f64353a93905c64158c4ac608f7ebf6bb8f3abb6e3228395",
+      "width_px": 61,
+      "height_px": 54,
+      "asset_path": "lithology/originals/lithology-core.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-core.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-diatexite",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Diatexite",
+        "kk": "Diatexite",
+        "en": "Diatexite"
+      },
+      "aliases": [
+        "Diatexite"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Diatexite.bmp"
+      ],
+      "content_sha256": "6c053c4ca0cc6a6561e16519383f17c1e68ec4fc174926e03f1f522bec930b7b",
+      "pixel_sha256": "7b1669b853f3582b59d4c70c0e4ec6a17138232629f48616f3ba9ba5cf623009",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-diatexite.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-diatexite.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-limy-dolomites",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Доломит известковистый",
+        "kk": "Доломит известковистый",
+        "en": "Limy dolomites"
+      },
+      "aliases": [
+        "Dolomitic limestone",
+        "Dolomitics limestone",
+        "Limy dolomites",
+        "Доломит известковистый"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Dolomitic limestone.bmp",
+        "Dolomitics limestone.bmp",
+        "Limy dolomites.bmp",
+        "Доломит известковистый.bmp"
+      ],
+      "content_sha256": "c33dd8d424b6f4d03f59a2fa612aa54558ac7b1d8d92ed244da5eeb9eadc5d1c",
+      "pixel_sha256": "09cd946045c741ac5e46a6c8a50d7476a2a06767e4c36f9e54dff261e122a2f2",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-limy-dolomites.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-limy-dolomites.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-limestone-dolomitic-4927f61a",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Известняк доломитистый",
+        "kk": "Известняк доломитистый",
+        "en": "Limestone dolomitic"
+      },
+      "aliases": [
+        "Dolomitic limestones",
+        "Limestone dolomitic",
+        "Известняк доломитистый"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Dolomitic limestones.bmp",
+        "Limestone dolomitic.bmp",
+        "Известняк доломитистый.bmp"
+      ],
+      "content_sha256": "4927f61ab97b9316d89d621949dcd9b434762c535af75deeecfc97fa471f1fc4",
+      "pixel_sha256": "8d0e33d1aeb5701e006d0f2d73ef5542f03618966e0cceb0ce0229b78e8992f8",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-limestone-dolomitic-4927f61a.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-limestone-dolomitic-4927f61a.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-galit",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Каменная соль",
+        "kk": "Каменная соль",
+        "en": "Galit"
+      },
+      "aliases": [
+        "Galit",
+        "Rock salt",
+        "Каменная соль"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Galit.bmp",
+        "Rock salt.bmp",
+        "Каменная соль.bmp"
+      ],
+      "content_sha256": "a93a55ad3b3f3a53d0dde09379a847b872f60675eeedea768a812543279b582e",
+      "pixel_sha256": "42bf1591c63a4172fb21f22b068c728d465ac5aeba32fd59eb52dab70e9499a2",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-galit.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-galit.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-gas",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Газ",
+        "kk": "Газ",
+        "en": "Gas"
+      },
+      "aliases": [
+        "Gas",
+        "Газ",
+        "Кварцитовидный песчаник"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Gas.bmp",
+        "Газ.bmp",
+        "Кварцитовидный песчаник.bmp"
+      ],
+      "content_sha256": "4d552962aaa5026cfdb3f13890c256c4a006b599570e996679a55582223fe6ad",
+      "pixel_sha256": "018f5e4749238150250e82d66eb5ea0ae1fc7dfa854a884acbbf59af96d2e98b",
+      "width_px": 10,
+      "height_px": 10,
+      "asset_path": "lithology/originals/lithology-gas.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-gas.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-gneiss",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Gneiss",
+        "kk": "Gneiss",
+        "en": "Gneiss"
+      },
+      "aliases": [
+        "Gneiss"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Gneiss.bmp"
+      ],
+      "content_sha256": "070b73f3d4b1d020f734f0510273af2ff9a3eb3434ed2913b8301ef92bf22aa8",
+      "pixel_sha256": "de97a5cec5faa67596d2743583ae53f109e22abf510464d45929abc5a1a2c567",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-gneiss.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-gneiss.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-granite",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Granite",
+        "kk": "Granite",
+        "en": "Granite"
+      },
+      "aliases": [
+        "Granite"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Granite.bmp"
+      ],
+      "content_sha256": "f651334dc246aa858a119448bc558e5055fe92163786ba6c29cfbabf3919014f",
+      "pixel_sha256": "cbdc3bb377328904935c3a20967ccae7f98aa0aa7e63bdfb85910aa80771ca0d",
+      "width_px": 31,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-granite.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-granite.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-gravel-18c4c0e0",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Гравий",
+        "kk": "Гравий",
+        "en": "Gravel"
+      },
+      "aliases": [
+        "Gravel",
+        "Гравий"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Gravel.bmp",
+        "Гравий.bmp"
+      ],
+      "content_sha256": "18c4c0e044a34a0a67cd0a359fd4155fed72965a4c312a84dd5b4c7ef467c244",
+      "pixel_sha256": "d5f37e7d64ca290e7ba90a1335537940ed74a30ba783be3109c31f0ab8bacc89",
+      "width_px": 38,
+      "height_px": 20,
+      "asset_path": "lithology/originals/lithology-gravel-18c4c0e0.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-gravel-18c4c0e0.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-gypsum",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Гипс",
+        "kk": "Гипс",
+        "en": "Gypsum"
+      },
+      "aliases": [
+        "Gypsum",
+        "Гипс"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Gypsum.bmp",
+        "Гипс.bmp"
+      ],
+      "content_sha256": "41df122a4211cbdb607a8d5abe9b8f793c85456f68c64928c6f1a3d1380944a9",
+      "pixel_sha256": "4fb73faa12e01e5d07b3a05989a9abaa71d309ea825c3c5cdd4437c59d929380",
+      "width_px": 13,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-gypsum.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-gypsum.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-gypsum-0e965d9a",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Гипс",
+        "kk": "Гипс",
+        "en": "Gypsum"
+      },
+      "aliases": [
+        "Gypsum",
+        "Гипс"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Gypsum.bmp",
+        "Гипс.bmp"
+      ],
+      "content_sha256": "0e965d9a7147b7e9ef6bff699e14105c296c12cd3bd970b117e9e14d83110ecd",
+      "pixel_sha256": "76d8108bae80a3f05db7aaf03e34defb8deb361ddd58361f08933e64db1f866c",
+      "width_px": 13,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-gypsum-0e965d9a.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-gypsum-0e965d9a.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-gypsum-anhydrite",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Гипс-ангидрит",
+        "kk": "Гипс-ангидрит",
+        "en": "Gypsum-anhydrite"
+      },
+      "aliases": [
+        "Gypsum-anhydrite",
+        "Gypsum-anhydrites",
+        "Гипс-ангидрит",
+        "Гипсо-ангидрит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Gypsum-anhydrite.bmp",
+        "Gypsum-anhydrites.bmp",
+        "Гипс-ангидрит.bmp",
+        "Гипсо-ангидрит.bmp"
+      ],
+      "content_sha256": "ee1dd9d43fb8412289ff193da14c0762ac1d2b36a4f15e08a91ced03f561c1d2",
+      "pixel_sha256": "2180d9f32ed2f599ab7da32f18127901081ed05a6cbffa3f83bb11469d886f29",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-gypsum-anhydrite.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-gypsum-anhydrite.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-gypsum-anhydrites",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Гипс-ангидрит",
+        "kk": "Гипс-ангидрит",
+        "en": "Gypsum-anhydrites"
+      },
+      "aliases": [
+        "Gypsum-anhydrites",
+        "Гипс-ангидрит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Gypsum-anhydrites.bmp",
+        "Гипс-ангидрит.bmp"
+      ],
+      "content_sha256": "23017f0184dc04625130c0141900846b17d24f8294cc01423c610ca63f7e1268",
+      "pixel_sha256": "7c2e238e656d174e086a16f5830f693c616931d059f2e763b5af5bc5cfb24766",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-gypsum-anhydrites.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-gypsum-anhydrites.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-hornfels",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Hornfels",
+        "kk": "Hornfels",
+        "en": "Hornfels"
+      },
+      "aliases": [
+        "Hornfels"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Hornfels.bmp"
+      ],
+      "content_sha256": "5383f7149a438abf54371b17fe411464b8ccec73f131af8f24bdac6fa2801f78",
+      "pixel_sha256": "6ed278364d49ba22b4157adea8adf763d0862945a979a7dade201e30c7ec8701",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-hornfels.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-hornfels.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-intrusive-rock",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Intrusive rock",
+        "kk": "Intrusive rock",
+        "en": "Intrusive rock"
+      },
+      "aliases": [
+        "Intrusive rock"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Intrusive rock.bmp"
+      ],
+      "content_sha256": "443ce8e4faf7708773f4744213a4131f09f02934561fe7b4407a784641846fbe",
+      "pixel_sha256": "4910bffef34e6cb7cbd3e8bdc03550ed8b1808f348f303f7f0aeac70d492cde8",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-intrusive-rock.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-intrusive-rock.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-limestone",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Известняк",
+        "kk": "Известняк",
+        "en": "Limestone"
+      },
+      "aliases": [
+        "Limestone",
+        "Limestones",
+        "Известняк"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Limestone.bmp",
+        "Limestones.bmp",
+        "Известняк.bmp"
+      ],
+      "content_sha256": "9487408642e6af1f08a43f4394f604ff5f9d4507fa6e4a422d5892b8bebbeb19",
+      "pixel_sha256": "85aab8068fc08008a98a0e7f041e48af786bd1554a74bad3800aa99ce92b5869",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-limestone.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-limestone.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-limestone-efbeb36e",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Известняк",
+        "kk": "Известняк",
+        "en": "Limestone"
+      },
+      "aliases": [
+        "Limestone",
+        "Известняк"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Limestone.bmp",
+        "Известняк.bmp"
+      ],
+      "content_sha256": "efbeb36e167b94003335debfd0d0ee5a427f144d132e6ba7b2934581bb8b8777",
+      "pixel_sha256": "513c512c00dd699c9d0c1785c3e34e466d77ab42acff2f8d004cffc730a67f0b",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-limestone-efbeb36e.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-limestone-efbeb36e.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-limestones",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Limestones",
+        "kk": "Limestones",
+        "en": "Limestones"
+      },
+      "aliases": [
+        "Limestones"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Limestones.bmp"
+      ],
+      "content_sha256": "d0dbb6495bbb7029d2f59a4cc51ef95c0392381d5aabe674dc0f814502b3e6aa",
+      "pixel_sha256": "a8b8497edc86d5565dd451c88526df2efc6b29ce3ed0dd6604eb767345557770",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-limestones.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-limestones.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-limy-dolomites-48b0e105",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Доломит известковистый",
+        "kk": "Доломит известковистый",
+        "en": "Limy dolomites"
+      },
+      "aliases": [
+        "Limy dolomites",
+        "Доломит известковистый"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Limy dolomites.bmp",
+        "Доломит известковистый.bmp"
+      ],
+      "content_sha256": "48b0e1051d1de2c6427b8e4ff5b7ab83cb20d6c31652dc323a94b33ca49b4abe",
+      "pixel_sha256": "87cb1ee86fe19b2404c7f05bbca202995c0b9702019ceefb9cd918363fac9691",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-limy-dolomites-48b0e105.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-limy-dolomites-48b0e105.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-marl",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Мергель",
+        "kk": "Мергель",
+        "en": "Marl"
+      },
+      "aliases": [
+        "Marl",
+        "Marls",
+        "Мергель"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Marl.bmp",
+        "Marls.bmp",
+        "Мергель.bmp"
+      ],
+      "content_sha256": "3dcaafce5c583bf3d44136cd77cf2997ee621be83010d9ba9fee5bec1d69e0f3",
+      "pixel_sha256": "c830a5eb089661606c7763fbc8c4122286d0562643afabef1a1842b3bd37c1c0",
+      "width_px": 38,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-marl.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-marl.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-marls",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Мергель",
+        "kk": "Мергель",
+        "en": "Marls"
+      },
+      "aliases": [
+        "Marls",
+        "Мергель"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Marls.bmp",
+        "Мергель.bmp"
+      ],
+      "content_sha256": "d460a8a48556957b514c8e22be946364b5827b9f053e0c10f4f0293034843b1f",
+      "pixel_sha256": "934adba8b634d3455d3f43076af6e5c7e042a18f7149713cdafdcdff2921adfd",
+      "width_px": 38,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-marls.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-marls.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-marly-limestones",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Marly limestones",
+        "kk": "Marly limestones",
+        "en": "Marly limestones"
+      },
+      "aliases": [
+        "Marly limestones"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Marly limestones.bmp"
+      ],
+      "content_sha256": "9475894ecfb7be967a4302127ed48b8c48eec8bfbb06581fd09202e7eb21dcf6",
+      "pixel_sha256": "f53856665eecc9fda60c12b60edd36e4e95d59e8d93a23a40815bf7c23d1fd87",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-marly-limestones.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-marly-limestones.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-metamorphic-rock",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Metamorphic Rock",
+        "kk": "Metamorphic Rock",
+        "en": "Metamorphic Rock"
+      },
+      "aliases": [
+        "Metamorphic Rock"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Metamorphic Rock.bmp"
+      ],
+      "content_sha256": "b139f2dc26b6775cce07d32aa01825195dc337f7c55254a164687bf4b9dbfc66",
+      "pixel_sha256": "7bd072e9484b14e6181bd1b6dae7d59a80aea78cc2b7828afcc30f2326cff55f",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-metamorphic-rock.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-metamorphic-rock.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-oil",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Нефть",
+        "kk": "Нефть",
+        "en": "Oil"
+      },
+      "aliases": [
+        "Oil",
+        "Нефть"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Oil.bmp",
+        "Нефть.bmp"
+      ],
+      "content_sha256": "e61f4eca71ac7ca9e794c79e3025c84b679c2df2d90e88e32bebd386c39fdd85",
+      "pixel_sha256": "71321e68440fdf6fd33f96d6a7747326472edf137d9db4b9b368f904d5ca40a5",
+      "width_px": 10,
+      "height_px": 10,
+      "asset_path": "lithology/originals/lithology-oil.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-oil.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-pebble",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Галька",
+        "kk": "Галька",
+        "en": "Pebble"
+      },
+      "aliases": [
+        "Pebble",
+        "Pebbles",
+        "Галька"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Pebble.bmp",
+        "Pebbles.bmp",
+        "Галька.bmp"
+      ],
+      "content_sha256": "fef238a1455070cfc24f66f228853969b9d6f030076a19a52b269fb4e4032b40",
+      "pixel_sha256": "d25635a21267b76cadd26f12089ded3b0706d74d299885524d5088ae1e3a4bdc",
+      "width_px": 40,
+      "height_px": 16,
+      "asset_path": "lithology/originals/lithology-pebble.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-pebble.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-phyllite",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Phyllite",
+        "kk": "Phyllite",
+        "en": "Phyllite"
+      },
+      "aliases": [
+        "Phyllite"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Phyllite.bmp"
+      ],
+      "content_sha256": "f5f1625f7ee1ab848b2619d89070ad13f64f320cc66794c30c7c2f2a07d51c3f",
+      "pixel_sha256": "68590fc71717bb06f636daebb3e1d22490adf79418e8fe0409d2688cdc93a86a",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-phyllite.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-phyllite.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-potassium-salts",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Potassium Salts",
+        "kk": "Potassium Salts",
+        "en": "Potassium Salts"
+      },
+      "aliases": [
+        "Potassium Salts"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Potassium Salts.bmp"
+      ],
+      "content_sha256": "1cb7702a2803809d37180c87b7164e2419183aa63bed170aca047b52b0332a89",
+      "pixel_sha256": "4c8ad49a34faa0a1dfdb56fbc606f3a8060b610e3cad1c741b2e57ef11bd48e8",
+      "width_px": 68,
+      "height_px": 30,
+      "asset_path": "lithology/originals/lithology-potassium-salts.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-potassium-salts.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-quartzes",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Кварцит",
+        "kk": "Кварцит",
+        "en": "Quartzes"
+      },
+      "aliases": [
+        "Quartzes",
+        "Кварцит",
+        "Кварциты"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Quartzes.bmp",
+        "Кварцит.bmp",
+        "Кварциты.bmp"
+      ],
+      "content_sha256": "b2e2f4738fa46aae1b6109ec32c69c963a2052860cb468d464260bed3ae9be20",
+      "pixel_sha256": "41a029d9085592a0a059502409bc099c50b427fe480ef109d72014fa2dfe3330",
+      "width_px": 10,
+      "height_px": 10,
+      "asset_path": "lithology/originals/lithology-quartzes.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-quartzes.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-rock-salt",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Rock salt",
+        "kk": "Rock salt",
+        "en": "Rock salt"
+      },
+      "aliases": [
+        "Rock salt"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Rock salt.bmp"
+      ],
+      "content_sha256": "34070f87119f960777169cd50dedf5b2a17e74112d9cc3fb07281a4dcb0c69ab",
+      "pixel_sha256": "eba7cb1696fe143d15e1e8d25cf3c2371acb4e43a112a1bd69f67491539414b2",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-rock-salt.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-rock-salt.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-salts",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Каменная соль",
+        "kk": "Каменная соль",
+        "en": "Salts"
+      },
+      "aliases": [
+        "Salts",
+        "Каменная соль"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Salts.bmp",
+        "Каменная соль.bmp"
+      ],
+      "content_sha256": "8521a66418c038294d78b54a92cb746e65c20dd0edfc6feb2f3ce30a801972b3",
+      "pixel_sha256": "125d010c2140b2192b81fa0c9810484155e128e51c7ed72e944ff6ab17c459ff",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-salts.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-salts.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-sand",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Песок",
+        "kk": "Песок",
+        "en": "Sand"
+      },
+      "aliases": [
+        "Sand",
+        "Sands",
+        "Песок"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Sand.bmp",
+        "Sands.bmp",
+        "Песок.bmp"
+      ],
+      "content_sha256": "99e444491a1f525ffb84c44359e39a2bc3415b2d87f124577da9a277fad17c61",
+      "pixel_sha256": "9d3dd977f70eb4322823893cd8db7a23a745d4840c2fa9af5404778a04315cbe",
+      "width_px": 14,
+      "height_px": 15,
+      "asset_path": "lithology/originals/lithology-sand.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-sand.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-sand-with-gravel",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Песок с гравием",
+        "kk": "Песок с гравием",
+        "en": "Sand with gravel"
+      },
+      "aliases": [
+        "Sand with gravel",
+        "Sands with gravel",
+        "Песок с гравием"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Sand with gravel.bmp",
+        "Sands with gravel.bmp",
+        "Песок с гравием.bmp"
+      ],
+      "content_sha256": "07dfe85440fdf5ba49d1567487e0500b5bb252e7729779a8400077edae177d16",
+      "pixel_sha256": "5b2b314a4f8bf20246a78efc3a0833710c27d077422d3a0b3f1a43305995bcca",
+      "width_px": 14,
+      "height_px": 15,
+      "asset_path": "lithology/originals/lithology-sand-with-gravel.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-sand-with-gravel.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-sandstone",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Песчаник",
+        "kk": "Песчаник",
+        "en": "Sandstone"
+      },
+      "aliases": [
+        "Sandstone",
+        "Sandstones",
+        "Песчаник"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Sandstone.bmp",
+        "Sandstones.bmp",
+        "Песчаник.bmp"
+      ],
+      "content_sha256": "84baf976c04c9ab9666930663e7d35f2639ea1e0a273e09121cac45dfff2ed0d",
+      "pixel_sha256": "9978027d8414781e6a5ed8f2bb5d7aa71a5fed7b1c0aff15dd5cde1cfbe8fd4d",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-sandstone.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-sandstone.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-schist",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Schist",
+        "kk": "Schist",
+        "en": "Schist"
+      },
+      "aliases": [
+        "Schist"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Schist.bmp"
+      ],
+      "content_sha256": "20bbba8f34189f0ab6685faece2f27812a577011e0576e87db74181da364e229",
+      "pixel_sha256": "f9609d4ca31568583b600465188bccb08d453e4d750dd7bced84e015d00f1644",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-schist.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-schist.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-shoe",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Башмак",
+        "kk": "Башмак",
+        "en": "Shoe"
+      },
+      "aliases": [
+        "Shoe",
+        "Башмак",
+        "Башмак колонны",
+        "Сasing shoe"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Shoe.bmp",
+        "Башмак колонны.bmp",
+        "Башмак.bmp",
+        "Сasing shoe.bmp"
+      ],
+      "content_sha256": "709706700c641afa45c6c686570d290640fc51ac13de43a90196788a9d9d4605",
+      "pixel_sha256": "8df766a57408fadc9186937a504cb1029cad11f111cc1dbaf846b0ba4f10bacb",
+      "width_px": 36,
+      "height_px": 20,
+      "asset_path": "lithology/originals/lithology-shoe.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-shoe.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-silicified-limestone",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Известняк окремнелый",
+        "kk": "Известняк окремнелый",
+        "en": "Silicified limestone"
+      },
+      "aliases": [
+        "Silicified limestone",
+        "Silicified limestones",
+        "Известняк окремнелый",
+        "Окремнелый известняк"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Silicified limestone.bmp",
+        "Silicified limestones.bmp",
+        "Известняк окремнелый.bmp",
+        "Окремнелый известняк.bmp"
+      ],
+      "content_sha256": "e63673d778d2da6bb696d33b624ec4ee56ac59c6bc11abb07ec1d4786b5ad1a4",
+      "pixel_sha256": "8252d6d226c1fe01599f1bb1ae6bcf7cb7f3e56960b6bd1b945bf68e1b656afb",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-silicified-limestone.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-silicified-limestone.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-silicified-limestones",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Известняк окремнелый",
+        "kk": "Известняк окремнелый",
+        "en": "Silicified limestones"
+      },
+      "aliases": [
+        "Silicified limestones",
+        "Известняк окремнелый"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Silicified limestones.bmp",
+        "Известняк окремнелый.bmp"
+      ],
+      "content_sha256": "3164006c01b36aca0f1351c68e87d1c58a7c1b9e703a1b963ad8a6e64d3d9631",
+      "pixel_sha256": "9fdda3f0434f85cbb6a50813b89ffab3d9b212cfaf6b33c4027be22c0d8915e8",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-silicified-limestones.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-silicified-limestones.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-silt",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Алеврит",
+        "kk": "Алеврит",
+        "en": "Silt"
+      },
+      "aliases": [
+        "Silt",
+        "Silts",
+        "Алеврит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Silt.bmp",
+        "Silts.bmp",
+        "Алеврит.bmp"
+      ],
+      "content_sha256": "a85eff6705d99d6c7d64b2c7d22672a204ef76bfbae2f0bd08fd3d7df1a2a268",
+      "pixel_sha256": "8b6b043c4621560c1c9f385ca181e58615a0717026933e5d4832e08cb0f4b4b4",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-silt.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-silt.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-silts",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Алеврит",
+        "kk": "Алеврит",
+        "en": "Silts"
+      },
+      "aliases": [
+        "Silts",
+        "Алеврит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Silts.bmp",
+        "Алеврит.bmp"
+      ],
+      "content_sha256": "a1f90ff1623e72e54a499963fb51747c87d8001f50dfdb39cd3f266c6d4c3fcd",
+      "pixel_sha256": "54abd578dbaf0c25a889ceff14bd9e9c008c28cd76caba30c544644a28fa8613",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-silts.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-silts.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-siltstone",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Алевролит",
+        "kk": "Алевролит",
+        "en": "Siltstone"
+      },
+      "aliases": [
+        "Siltstone",
+        "Siltstones",
+        "Алевролит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Siltstone.bmp",
+        "Siltstones.bmp",
+        "Алевролит.bmp"
+      ],
+      "content_sha256": "e0433db8712ba64a8735e9598af419d970f90c0463910259933f5a57d5ca2a7d",
+      "pixel_sha256": "db8d52f9304eded138c8956db65037fb658b05d8a8ca84a3eb777d3c9367e658",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-siltstone.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-siltstone.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-siltstones",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Алевролит",
+        "kk": "Алевролит",
+        "en": "Siltstones"
+      },
+      "aliases": [
+        "Siltstones",
+        "Алевролит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Siltstones.bmp",
+        "Алевролит.bmp"
+      ],
+      "content_sha256": "a88f2a884a20251471f3659ffb01c8e1337d7915b5fd476d144b7b76dcb63253",
+      "pixel_sha256": "a486136e797193fb0873c84de030ede4b9a0b00b97386ac2706b6aae5fba1036",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-siltstones.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-siltstones.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-silty-clay",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Глина алевритовая",
+        "kk": "Глина алевритовая",
+        "en": "Silty clay"
+      },
+      "aliases": [
+        "Silty clay",
+        "Silty clays",
+        "Глина алевритистая",
+        "Глина алевритовая"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Silty clay.bmp",
+        "Silty clays.bmp",
+        "Глина алевритистая.bmp",
+        "Глина алевритовая.bmp"
+      ],
+      "content_sha256": "9f29daf8375aab961e19c87cb8186146f50b34bc53d58498bada2516433320b6",
+      "pixel_sha256": "4378750c53bc3926584b8eb059b080383e7212f2d6566d3242900d0a018fdc73",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-silty-clay.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-silty-clay.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-silty-clays",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Глина алевритистая",
+        "kk": "Глина алевритистая",
+        "en": "Silty clays"
+      },
+      "aliases": [
+        "Silty clays",
+        "Глина алевритистая"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Silty clays.bmp",
+        "Глина алевритистая.bmp"
+      ],
+      "content_sha256": "985333a3622757764c22eded18d146a7533bbcd4ef0a72181d3b11e8e70e4643",
+      "pixel_sha256": "3d8857aa19e368ce7027a4e2bd977fb25c61d0943d3cfc8be173429da7af2ae8",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-silty-clays.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-silty-clays.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-slate",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Slate",
+        "kk": "Slate",
+        "en": "Slate"
+      },
+      "aliases": [
+        "Slate"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Slate.bmp"
+      ],
+      "content_sha256": "90fae01c6f68fdf36b94c2b3de6aeef3525e4bce9e017f9a4eb0d31987e503e0",
+      "pixel_sha256": "5b3fcf40ed06a67f21e813c7568a02f2a0ac3cdffd345d117ac7b145e0ac55a8",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-slate.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-slate.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-tufogene-formations",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Туфогенная порода",
+        "kk": "Туфогенная порода",
+        "en": "Tufogene formations"
+      },
+      "aliases": [
+        "Tufogene formations",
+        "Туфогенная порода"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Tufogene formations.bmp",
+        "Туфогенная порода.bmp"
+      ],
+      "content_sha256": "3a2dd7f0700a3f9bae07857ec9db41ba29fd3bd6a839b43ca229ca3a1299f4b0",
+      "pixel_sha256": "348943c1cf26b6a47dd603ba167d1ea004ed21c3def1aff15d99d3ae12252017",
+      "width_px": 31,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-tufogene-formations.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-tufogene-formations.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-tufogene-formations-1963a66f",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Туфогенная порода",
+        "kk": "Туфогенная порода",
+        "en": "Tufogene formations"
+      },
+      "aliases": [
+        "Tufogene formations",
+        "Туфогенная порода"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Tufogene formations.bmp",
+        "Туфогенная порода.bmp"
+      ],
+      "content_sha256": "1963a66f4624f01f4654bb46f8ca17628a7dfd1280e31a1afffe56210ec4e61f",
+      "pixel_sha256": "dc1e6458e94cd798be1d07f161f20dc6ba7d2ddd372ed2154e99f15eb77f350d",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-tufogene-formations-1963a66f.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-tufogene-formations-1963a66f.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-tufogene-rock",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Tufogene rock",
+        "kk": "Tufogene rock",
+        "en": "Tufogene rock"
+      },
+      "aliases": [
+        "Tufogene rock"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Tufogene rock.bmp"
+      ],
+      "content_sha256": "928aadd8c1e3a1f07f574aa4178d266f97c73701e6002e7a761fd0b6523b9529",
+      "pixel_sha256": "dfa3a33efcc252ba7b0b37a36057bb4ec1d541e56936833326d76a5f3a83067a",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-tufogene-rock.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-tufogene-rock.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-volcanic-rock",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Volcanic rock",
+        "kk": "Volcanic rock",
+        "en": "Volcanic rock"
+      },
+      "aliases": [
+        "Volcanic rock"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Volcanic rock.bmp"
+      ],
+      "content_sha256": "333c9a661d5db6f58b03325222692080e4995ab83ab07961d9040210297afd2d",
+      "pixel_sha256": "0293dce92d6923cb3fd2c543e2419dd52d9bf3a9972307cb2d164bf19580417d",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-volcanic-rock.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-volcanic-rock.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-water",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Вода",
+        "kk": "Вода",
+        "en": "Water"
+      },
+      "aliases": [
+        "Water",
+        "Вода"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Water.bmp",
+        "Вода.bmp"
+      ],
+      "content_sha256": "68841a8b31c9ea76ab79a2eeae06ee1c846b456e5ed6035a243ee70042d26142",
+      "pixel_sha256": "7a72b5df7ef0831dc57d7ba15b0d2ee1dada9599968829cf04c902e79e82476b",
+      "width_px": 112,
+      "height_px": 73,
+      "asset_path": "lithology/originals/lithology-water.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-water.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-water-73d842a2",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Вода",
+        "kk": "Вода",
+        "en": "Water"
+      },
+      "aliases": [
+        "Water",
+        "Вода"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Water.bmp",
+        "Вода.bmp"
+      ],
+      "content_sha256": "73d842a28a36c2812ab8520a77c36c2016523b71564014fecef970da2f89890c",
+      "pixel_sha256": "fb97aa6673fa5fbaf1789aeb847b20f65ebe1161ceb504dd8c7fb44b6625151a",
+      "width_px": 10,
+      "height_px": 10,
+      "asset_path": "lithology/originals/lithology-water-73d842a2.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-water-73d842a2.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-vulkanogennaya-poroda",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Вулканогенная порода",
+        "kk": "Вулканогенная порода",
+        "en": "Vulkanogennaya Poroda"
+      },
+      "aliases": [
+        "Вулканогенная порода"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Вулканогенная порода.bmp"
+      ],
+      "content_sha256": "e4c6c9ecf3d05122d66b43335b2e49466750e5f2940c29145db287da84e94c94",
+      "pixel_sha256": "7f145585b3476f4b8c21a321701f8099758c0176dfe2e18c6ecb65a27273faff",
+      "width_px": 62,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-vulkanogennaya-poroda.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-vulkanogennaya-poroda.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-galechnik",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Галечник",
+        "kk": "Галечник",
+        "en": "Galechnik"
+      },
+      "aliases": [
+        "Галечник"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Галечник.bmp"
+      ],
+      "content_sha256": "29c2208e3aecd710a67b7244ea98874423810dd1de564d5dbb5b3b7288f59076",
+      "pixel_sha256": "65bff6e717f2e450af067348ddb0aedef2553cf783309ec83663aea790661a4d",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-galechnik.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-galechnik.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-galit-4d394f12",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Галит",
+        "kk": "Галит",
+        "en": "Galit"
+      },
+      "aliases": [
+        "Галит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip",
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Галит.bmp"
+      ],
+      "content_sha256": "4d394f129f6bd4802eb50286a5cd761279b11ad2eeef5f16d29e502672e81822",
+      "pixel_sha256": "5de426679961b70313bec3f7e7d5e7a1d0bff8103916088fd88a114691641cf3",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-galit-4d394f12.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-galit-4d394f12.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-dolomit",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Доломит",
+        "kk": "Доломит",
+        "en": "Dolomit"
+      },
+      "aliases": [
+        "Доломит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Доломит.bmp"
+      ],
+      "content_sha256": "b5a035f06e8afc849df88d78903a7e90a8744915bdf14fce81040880105f3cc4",
+      "pixel_sha256": "8476f82ad4a65ba4789ec1afafd4aac21fbe963848d25fff3244008e9520858f",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-dolomit.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-dolomit.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-dolomitovyi-izvestnyak",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Доломитовый известняк",
+        "kk": "Доломитовый известняк",
+        "en": "Dolomitovyi Izvestnyak"
+      },
+      "aliases": [
+        "Доломитовый известняк"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Доломитовый известняк.bmp"
+      ],
+      "content_sha256": "98408a420a0a90e09a6b57eb3febf3957f454e859ead1ef967aa0922a16a4bb6",
+      "pixel_sha256": "bd7be62936db49d936f256b97bc17878cd4c91b088b8f66500fc77d5b0034cc7",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-dolomitovyi-izvestnyak.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-dolomitovyi-izvestnyak.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-interval-otbora-kerna",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Интервал отбора керна",
+        "kk": "Интервал отбора керна",
+        "en": "Interval Otbora Kerna"
+      },
+      "aliases": [
+        "Интервал отбора керна"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Интервал отбора керна.bmp"
+      ],
+      "content_sha256": "21607457b79a1ee18821e58bf7c8deb35f3239b90f8cbd43ce0a849660348389",
+      "pixel_sha256": "95d9660dce97f1c66440b73e0f453d568034ea6c8b3c5c777fad8cb7ea53f245",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-interval-otbora-kerna.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-interval-otbora-kerna.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-kvarcit",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Кварцит",
+        "kk": "Кварцит",
+        "en": "Kvarcit"
+      },
+      "aliases": [
+        "Кварцит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Кварцит.bmp"
+      ],
+      "content_sha256": "9ed36b7fb066b99176b203e4cdac43676b73c7f3f1fea919163e922528104de2",
+      "pixel_sha256": "0eaff2cb39d5093f78a8e997d74beab9c453cad661fb772e750602e54a66c82c",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-kvarcit.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-kvarcit.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-kvarcitt",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Кварцитт",
+        "kk": "Кварцитт",
+        "en": "Kvarcitt"
+      },
+      "aliases": [
+        "Кварцитт"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Кварцитт.bmp"
+      ],
+      "content_sha256": "d59a63f4b3db0b51340ad8f37fe5ac5cf249f52f8d29efc196b192ea63285dc5",
+      "pixel_sha256": "b505ac782bf8f2cc9f4262cef5765286faf7231142204b4d2838eb1f07fdaaba",
+      "width_px": 10,
+      "height_px": 10,
+      "asset_path": "lithology/originals/lithology-kvarcitt.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-kvarcitt.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-kristallicheskii-slanec",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Кристаллический Сланец",
+        "kk": "Кристаллический Сланец",
+        "en": "Kristallicheskii Slanec"
+      },
+      "aliases": [
+        "Кристаллический Сланец"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Кристаллический Сланец.bmp"
+      ],
+      "content_sha256": "28659f29d061cc549d25b763ee4362790d65b5fd74075b36c1a6f7a2b90db3a3",
+      "pixel_sha256": "c9662921999001352b9f70b5d9c5593c1faa8c976f7fe68a1e62c79e626fa3fa",
+      "width_px": 39,
+      "height_px": 23,
+      "asset_path": "lithology/originals/lithology-kristallicheskii-slanec.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-kristallicheskii-slanec.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-lba-1",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "ЛБА-1",
+        "kk": "ЛБА-1",
+        "en": "Lba 1"
+      },
+      "aliases": [
+        "ЛБА-1"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "ЛБА-1.bmp"
+      ],
+      "content_sha256": "3a8475e127e9c06be88f2498b7e5fb181ac6d6ea8917aa42072347bfb3da2c5a",
+      "pixel_sha256": "170fa9ffefce1ac25f8c8eba460564b7cbb7b801df4dda9f442a47f84bc7706b",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-lba-1.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-lba-1.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-lba-2",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "ЛБА-2",
+        "kk": "ЛБА-2",
+        "en": "Lba 2"
+      },
+      "aliases": [
+        "ЛБА-2"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "ЛБА-2.bmp"
+      ],
+      "content_sha256": "3c4bef3aff60ccd6661356d36d2d1c5b47553f87b43c7c3df77c4543a214c56a",
+      "pixel_sha256": "4bfece6651769ba44a3f3edb2b99fb02155c556caab674d4d2287141cf3ed702",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-lba-2.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-lba-2.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-lba-3",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "ЛБА-3",
+        "kk": "ЛБА-3",
+        "en": "Lba 3"
+      },
+      "aliases": [
+        "ЛБА-3"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "ЛБА-3.bmp"
+      ],
+      "content_sha256": "16e58009403fd25ed87c63b9ef97ca01bb984f79c59c491d77effd6fea48b6e2",
+      "pixel_sha256": "802d67d78f96bc2aa4014723715977c6afadc803f20572ef06832983cc663d7a",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-lba-3.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-lba-3.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-lba-4",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "ЛБА-4",
+        "kk": "ЛБА-4",
+        "en": "Lba 4"
+      },
+      "aliases": [
+        "ЛБА-4"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "ЛБА-4.bmp"
+      ],
+      "content_sha256": "2f95e3fb96134d39ec41786e42290a065063e5079e6d3df05c35bcbd32c82878",
+      "pixel_sha256": "45e6e899d7348a3d504d3383613c1581a8d3ad418831814f921a1eed90b28563",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-lba-4.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-lba-4.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-lba-5",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "ЛБА-5",
+        "kk": "ЛБА-5",
+        "en": "Lba 5"
+      },
+      "aliases": [
+        "ЛБА-5"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "ЛБА-5.bmp"
+      ],
+      "content_sha256": "009f721db81a437eb7672133d66a0388e276879432e538d6d41b8fed503517be",
+      "pixel_sha256": "71823f49de8c4f774204d26194ba048f663fdef11ee2812c19fa3b2835f99cb9",
+      "width_px": 32,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-lba-5.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-lba-5.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-neyasnoe-nasyschenie",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Неясное насыщение",
+        "kk": "Неясное насыщение",
+        "en": "Neyasnoe Nasyschenie"
+      },
+      "aliases": [
+        "Неясное насыщение"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Неясное насыщение.bmp"
+      ],
+      "content_sha256": "f70a012abad2dd1a6abaa281408969fb3b390dddf700546af059548ecab8126d",
+      "pixel_sha256": "1ef731674153507db70796e52d0779507dcdece1ec1d3eaf6040ec70c9f4f178",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-neyasnoe-nasyschenie.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-neyasnoe-nasyschenie.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-peschaniki",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "песчаники",
+        "kk": "песчаники",
+        "en": "Peschaniki"
+      },
+      "aliases": [
+        "песчаники"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "011 песчаники.bmp"
+      ],
+      "content_sha256": "838f7599de8f4bfb1419ff4a9b1d26b80aaff3509994e231e679d560204dbf43",
+      "pixel_sha256": "980ea373b317cbbaaed7236268dc842cc86c5c583189707dd7137bf6c39afa15",
+      "width_px": 16,
+      "height_px": 16,
+      "asset_path": "lithology/originals/lithology-peschaniki.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-peschaniki.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-plast-nasyschennyi-po-korrelyacii-s-sosednimi-skvazhinami",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Пласт насыщенный по корреляции с соседними скважинами",
+        "kk": "Пласт насыщенный по корреляции с соседними скважинами",
+        "en": "Plast Nasyschennyi Po Korrelyacii S Sosednimi Skvazhinami"
+      },
+      "aliases": [
+        "Пласт насыщенный по корреляции с соседними скважинами"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Пласт насыщенный по корреляции с соседними скважинами.bmp"
+      ],
+      "content_sha256": "93c9a5f901f7a96359f2e7f50fdc3f2dc9e269bffb2c483afeaa6748e9312e41",
+      "pixel_sha256": "625911b36e820d7f04676ff5f3a0fd8f78e5fdb42d2a1005d0fc252a9c42238c",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-plast-nasyschennyi-po-korrelyacii-s-sosednimi-skvazhinami.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-plast-nasyschennyi-po-korrelyacii-s-sosednimi-skvazhinami.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-plast-nasyschennyi-po-lba",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Пласт насыщенный по ЛБА",
+        "kk": "Пласт насыщенный по ЛБА",
+        "en": "Plast Nasyschennyi Po Lba"
+      },
+      "aliases": [
+        "Пласт насыщенный по ЛБА"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Пласт насыщенный по ЛБА.bmp"
+      ],
+      "content_sha256": "f13379217667ea15383da8f5d1da9e88110e5abc33c5805f856fa26633f984ae",
+      "pixel_sha256": "a9841d53c3adb6ded6a5d97079bf572e34ee6a86e5f0b531021bf93df255854d",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-plast-nasyschennyi-po-lba.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-plast-nasyschennyi-po-lba.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-plast-slabo-uv-nasyschennyi",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Пласт слабо УВ-насыщенный",
+        "kk": "Пласт слабо УВ-насыщенный",
+        "en": "Plast Slabo Uv Nasyschennyi"
+      },
+      "aliases": [
+        "Пласт слабо УВ-насыщенный"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Пласт слабо УВ-насыщенный.bmp"
+      ],
+      "content_sha256": "5dc5e6ab343f6f8c8083f746d1f7538e4646459cbb46f864e4c21ff3faadd90c",
+      "pixel_sha256": "dae09f56a86286714bd314360ee31b4b0308c745d9edd320cea2be42063806f0",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-plast-slabo-uv-nasyschennyi.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-plast-slabo-uv-nasyschennyi.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-slanec",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Сланец",
+        "kk": "Сланец",
+        "en": "Slanec"
+      },
+      "aliases": [
+        "Сланец"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Сланец.bmp"
+      ],
+      "content_sha256": "2a87810f1c171c5ee0c0d84164f3e82ff8398de996ca48c7aecd0e78aa076dd9",
+      "pixel_sha256": "82b4aee9e20ba512b0224946f33e5ce715c902e67251a4b005b49851a0d4d53b",
+      "width_px": 16,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-slanec.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-slanec.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-suglinok",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Суглинок",
+        "kk": "Суглинок",
+        "en": "Suglinok"
+      },
+      "aliases": [
+        "Суглинок"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Суглинок.bmp"
+      ],
+      "content_sha256": "cc468eccb4b2666a5b01ee2eecfc1e609401d9d5ad45b3503b32b8a4ca83b7ce",
+      "pixel_sha256": "1077118e1cf0d173000f44ba9d6651d6cf519e534397c3d8ba448756e124bc95",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-suglinok.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-suglinok.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-supes",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Супесь",
+        "kk": "Супесь",
+        "en": "Supes"
+      },
+      "aliases": [
+        "Супесь"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Супесь.bmp"
+      ],
+      "content_sha256": "2eba351f3068e8c18bcef5c8df13932249e6b94d431f56fa44564c93f833c476",
+      "pixel_sha256": "df424724153e62cd875a2a6e66071b18dd5c1603d0be336248af66a21feeaecd",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-supes.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-supes.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-trahiandezitovyi-tuf",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Трахиандезитовый туф",
+        "kk": "Трахиандезитовый туф",
+        "en": "Trahiandezitovyi Tuf"
+      },
+      "aliases": [
+        "Трахиандезитовый туф"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Трахиандезитовый туф.bmp"
+      ],
+      "content_sha256": "0d4df2a7d6b6559c9d2fe204e132aa2dcf6f6725897763f81f1529fa63be69d4",
+      "pixel_sha256": "0744f489cac577d24bd297e32c4331d406a2879c8eff69439ea56aa926264101",
+      "width_px": 13,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-trahiandezitovyi-tuf.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-trahiandezitovyi-tuf.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-trahit",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Трахит",
+        "kk": "Трахит",
+        "en": "Trahit"
+      },
+      "aliases": [
+        "Трахит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Трахит.bmp"
+      ],
+      "content_sha256": "46392d411a0b8ea0d4c2c04c4747a8466c607ec3157cc70b7a0a0ba1d8c13767",
+      "pixel_sha256": "657e46806131526696e4a5ae7ee10634ffe40b0f04afa1904d7add6184d80fc1",
+      "width_px": 14,
+      "height_px": 14,
+      "asset_path": "lithology/originals/lithology-trahit.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-trahit.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-treschinovataya-vulkanicheskaya-poroda",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Трещиноватая вулканическая порода",
+        "kk": "Трещиноватая вулканическая порода",
+        "en": "Treschinovataya Vulkanicheskaya Poroda"
+      },
+      "aliases": [
+        "Трещиноватая вулканическая порода"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Трещиноватая вулканическая порода.bmp"
+      ],
+      "content_sha256": "6a09a279166bd07170290404d1174ce5ffd63d87d911cdd09f6cf57a9bbf2304",
+      "pixel_sha256": "16ad5ec689bab21ce7a7914c853f5f18ddb9afdf35ac9a4efcce3004c2a8c7d4",
+      "width_px": 60,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-treschinovataya-vulkanicheskaya-poroda.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-treschinovataya-vulkanicheskaya-poroda.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-uzen-geo-kontrol",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "УЗЕН ГЕО КОНТРОЛ",
+        "kk": "УЗЕН ГЕО КОНТРОЛ",
+        "en": "Uzen Geo Kontrol"
+      },
+      "aliases": [
+        "УЗЕН ГЕО КОНТРОЛ"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol_Bmp(2).zip"
+      ],
+      "source_files": [
+        "УЗЕН ГЕО КОНТРОЛ.bmp"
+      ],
+      "content_sha256": "f6bd28b8335ef2d24c600444e4a98d8594188f6e1d632215215f817518b0e727",
+      "pixel_sha256": "d845631bde97a29208ae12b77ceca8945c8fb0afa757f5944ab6cd79b60fd3a6",
+      "width_px": 20,
+      "height_px": 20,
+      "asset_path": "lithology/originals/lithology-uzen-geo-kontrol.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-uzen-geo-kontrol.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    },
+    {
+      "id": "lithology-evaporit",
+      "kind": "lithology_pattern",
+      "name": {
+        "ru": "Эвапорит",
+        "kk": "Эвапорит",
+        "en": "Evaporit"
+      },
+      "aliases": [
+        "Эвапорит"
+      ],
+      "category": "unclassified",
+      "source_archives": [
+        "Litol2_Bmp(2).zip"
+      ],
+      "source_files": [
+        "Эвапорит.bmp"
+      ],
+      "content_sha256": "7e01abd7715cd982d69fd04ef38ae5892a51f94ca01c0e86cade06a0249eae29",
+      "pixel_sha256": "4288e11e18da8b9c5c838b8bd500087080179b3ad0c921a8b1efa8a153567245",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "lithology/originals/lithology-evaporit.bmp",
+      "thumbnail_path": "lithology/thumbnails/lithology-evaporit.png",
+      "render": {
+        "default_mode": "tile",
+        "interpolation": "nearest",
+        "scale_percent": 100,
+        "preserve_aspect_ratio": true
+      },
+      "active": true
+    }
+  ]
+}

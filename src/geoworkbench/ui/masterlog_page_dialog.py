@@ -26,7 +26,7 @@ class MasterlogPageDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.setWindowTitle(self.localizer.text("masterlog_page.title"))
         self.format_input = QComboBox()
-        for value in ("A4", "A3", "custom", "roll"):
+        for value in ("A4", "A3", "A2", "A1", "A0", "letter", "legal", "custom", "roll"):
             self.format_input.addItem(
                 self.localizer.text(f"masterlog_page.{value.casefold()}"), value
             )
@@ -78,14 +78,12 @@ class MasterlogPageDialog(QDialog):
         self._update_custom_visibility()
 
     def _update_custom_visibility(self) -> None:
-        visible = self.format_input.currentData() == "custom"
-        for widget in (
-            self.width_label,
-            self.width_input,
-            self.height_label,
-            self.height_input,
-        ):
-            widget.setVisible(visible)
+        selected = self.format_input.currentData()
+        self.width_label.setVisible(selected in {"custom", "roll"})
+        self.width_input.setVisible(selected in {"custom", "roll"})
+        self.height_label.setVisible(selected == "custom")
+        self.height_input.setVisible(selected == "custom")
+        self.orientation_input.setEnabled(selected != "roll")
 
     def values(self) -> tuple[str, str, int, float, float, float]:
         return (

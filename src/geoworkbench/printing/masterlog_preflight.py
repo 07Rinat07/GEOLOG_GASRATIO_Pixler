@@ -5,6 +5,7 @@ from enum import StrEnum
 from math import isfinite
 
 import numpy as np
+from PySide6.QtGui import QImage
 
 from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
@@ -72,6 +73,34 @@ def analyze_masterlog_output(
                     element=element.element_id,
                 )
             )
+        raw_font_size = element.properties.get("font_size_mm")
+        if (
+            element.element_type in {"text", "field", "lithology_legend", "lba_legend"}
+            and isinstance(raw_font_size, (int, float))
+            and not isinstance(raw_font_size, bool)
+            and float(raw_font_size) < 1.8
+        ):
+            issues.append(
+                _issue(
+                    "small_font",
+                    PreflightSeverity.WARNING,
+                    element=element.element_id,
+                    font_size_mm=float(raw_font_size),
+                )
+            )
+        if element.element_type == "lithology_legend":
+            selected_ids = element.properties.get("selected_lithotype_ids", [])
+            if isinstance(selected_ids, list):
+                for lithotype_id in selected_ids:
+                    if isinstance(lithotype_id, str) and lithotype_id not in session.project.lithotypes:
+                        issues.append(
+                            _issue(
+                                "missing_lithotype",
+                                PreflightSeverity.WARNING,
+                                element=element.element_id,
+                                lithotype=lithotype_id,
+                            )
+                        )
         if element.element_type == "image":
             asset_ref = element.properties.get("asset_ref")
             if not isinstance(asset_ref, str) or asset_ref not in session.image_assets:
@@ -82,6 +111,23 @@ def analyze_masterlog_output(
                         element=element.element_id,
                     )
                 )
+            else:
+                asset = session.image_assets[asset_ref]
+                image = QImage.fromData(asset.payload)
+                required_width = element.width_mm / 25.4 * 300.0
+                required_height = element.height_mm / 25.4 * 300.0
+                if (
+                    not image.isNull()
+                    and (image.width() < required_width * 0.5 or image.height() < required_height * 0.5)
+                ):
+                    issues.append(
+                        _issue(
+                            "low_resolution_asset",
+                            PreflightSeverity.WARNING,
+                            element=element.element_id,
+                            pixels=f"{image.width()}x{image.height()}",
+                        )
+                    )
     well = session.current_well
     if well is not None:
         columns_by_id = {column.column_id: column for column in template.columns}
@@ -100,6 +146,24 @@ def analyze_masterlog_output(
                 issues.append(
                     _issue(
                         "missing_symbol_column",
+                        PreflightSeverity.WARNING,
+                        element=item.object_id,
+                    )
+                )
+            raw_offset_y = item.properties.get("offset_y_mm", 0.0)
+            if (
+                not isinstance(item.x, (int, float))
+                or isinstance(item.x, bool)
+                or not isfinite(float(item.x))
+                or abs(float(item.x)) > 100.0
+                or not isinstance(raw_offset_y, (int, float))
+                or isinstance(raw_offset_y, bool)
+                or not isfinite(float(raw_offset_y))
+                or abs(float(raw_offset_y)) > 100.0
+            ):
+                issues.append(
+                    _issue(
+                        "invalid_symbol_offset",
                         PreflightSeverity.WARNING,
                         element=item.object_id,
                     )

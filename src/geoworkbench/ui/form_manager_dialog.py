@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -32,6 +32,7 @@ from geoworkbench.forms.templates import (
     curated_factory_templates,
 )
 from geoworkbench.forms.preview import PreviewCallback
+from geoworkbench.form_constructor.preview_revision import PreviewRevisionGate
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
     PrintPageFormat,
@@ -72,6 +73,12 @@ class FormManagerDialog(QDialog):
         left = QVBoxLayout()
         self.search = QInputDialog  # keep static type checkers from confusing Qt overloads
         self.list_widget = QListWidget()
+        self._selection_gate = PreviewRevisionGate()
+        self._selection_timer = QTimer(self)
+        self._selection_timer.setSingleShot(True)
+        self._selection_timer.setInterval(90)
+        self._selection_timer.timeout.connect(self._render_pending_selection)
+        self._pending_selection_revision = 0
         self.list_widget.currentItemChanged.connect(self._show_selected)
         self.list_widget.itemDoubleClicked.connect(lambda _item: self._apply())
         left.addWidget(QLabel(self._text("Формы", "Пішіндер", "Forms")))
@@ -229,6 +236,23 @@ class FormManagerDialog(QDialog):
         return any(index.role is wanted_role for index in self.dataset.indexes.values())
 
     def _show_selected(self, current, _previous) -> None:
+        """Debounce expensive compatibility resolution during rapid switching.
+
+        Qt emits currentItemChanged synchronously. Building a full applied layout in
+        that handler made the dialog appear frozen when the user moved through
+        several large forms. Only the latest settled selection is rendered.
+        """
+
+        self._pending_selection_revision = self._selection_gate.request()
+        self._selection_timer.start()
+
+    def _render_pending_selection(self) -> None:
+        revision = self._pending_selection_revision
+        if not self._selection_gate.accepts(revision):
+            return
+        self._render_selected_details()
+
+    def _render_selected_details(self) -> None:
         form = self._current()
         if form is None:
             self.details.clear()

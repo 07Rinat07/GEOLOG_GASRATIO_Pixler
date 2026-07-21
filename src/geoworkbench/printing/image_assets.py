@@ -9,6 +9,9 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QBuffer, QIODevice
+from PySide6.QtGui import QImage
+
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 PNG_MEDIA_TYPE = "image/png"
@@ -63,6 +66,36 @@ def create_png_asset(source: Path) -> ImageAsset:
     digest = sha256(payload).hexdigest()
     return ImageAsset(f"sha256:{digest}", source.name, PNG_MEDIA_TYPE, payload)
 
+
+
+def create_raster_asset(source: Path) -> ImageAsset:
+    """Create a normalized PNG asset from any raster format supported by Qt.
+
+    This covers PNG, JPEG, BMP, TIFF and WebP when the corresponding Qt image
+    plugin is available. Normalization keeps project serialization and print
+    rendering deterministic.
+    """
+
+    if not source.is_file() or source.is_symlink():
+        raise ImageAssetError("Raster asset должен быть обычным файлом")
+    if source.stat().st_size > MAX_IMAGE_ASSET_BYTES:
+        raise ImageAssetError("Raster asset превышает лимит 10 МБ")
+    if source.suffix.casefold() == ".png":
+        return create_png_asset(source)
+    image = QImage(str(source))
+    if image.isNull():
+        raise ImageAssetError("Формат изображения не поддерживается или файл повреждён")
+    buffer = QBuffer()
+    if not buffer.open(QIODevice.OpenModeFlag.WriteOnly):
+        raise ImageAssetError("Не удалось открыть буфер преобразования изображения")
+    try:
+        if not image.save(buffer, "PNG"):
+            raise ImageAssetError("Не удалось преобразовать изображение в PNG")
+        payload = bytes(buffer.data())
+    finally:
+        buffer.close()
+    digest = sha256(payload).hexdigest()
+    return ImageAsset(f"sha256:{digest}", source.name, PNG_MEDIA_TYPE, payload)
 
 def create_svg_asset(source: Path) -> ImageAsset:
     if not source.is_file() or source.is_symlink():

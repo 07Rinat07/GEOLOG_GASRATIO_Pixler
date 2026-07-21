@@ -34,10 +34,18 @@ class PrintPageDialog(QDialog):
         self.setWindowTitle(self._t("print.page_setup"))
 
         self.format_combo = QComboBox()
-        self.format_combo.addItem("A4", PrintPageFormat.A4.value)
-        self.format_combo.addItem("A3", PrintPageFormat.A3.value)
-        self.format_combo.addItem(self._t("print.custom"), PrintPageFormat.CUSTOM.value)
-        self.format_combo.addItem(self._t("print.roll"), PrintPageFormat.ROLL.value)
+        for label, value in (
+            ("A4", PrintPageFormat.A4.value),
+            ("A3", PrintPageFormat.A3.value),
+            ("A2", PrintPageFormat.A2.value),
+            ("A1", PrintPageFormat.A1.value),
+            ("A0", PrintPageFormat.A0.value),
+            (self._t("print.letter"), PrintPageFormat.LETTER.value),
+            (self._t("print.legal"), PrintPageFormat.LEGAL.value),
+            (self._t("print.custom"), PrintPageFormat.CUSTOM.value),
+            (self._t("print.roll"), PrintPageFormat.ROLL.value),
+        ):
+            self.format_combo.addItem(label, value)
         self.format_combo.setCurrentIndex(self.format_combo.findData(settings.page_format.value))
         self.orientation_combo = QComboBox()
         self.orientation_combo.addItem(self._t("print.portrait"), PrintOrientation.PORTRAIT.value)

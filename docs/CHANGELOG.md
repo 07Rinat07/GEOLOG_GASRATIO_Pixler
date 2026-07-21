@@ -880,3 +880,30 @@
 - Добавлены видимый курсор-карандаш, статус активного параметра и оранжевый предварительный штрих.
 - Прямое редактирование расчётных кривых запрещено; после изменения исходной кривой зависимые параметры пересчитываются существующим контроллером зависимостей.
 - Обновлены инструкции LAS Editor 2 на русском, казахском и английском языках.
+
+<!-- BEGIN FORM_CONSTRUCTOR_SLICE23 -->
+## Unreleased — constructor asset foundation (slice23)
+
+- imported factory lithotype patterns with exact-file deduplication and preserved legacy semantic variants;
+- imported normalized depth symbols with corrected display names and retained aliases;
+- added constructor asset registry, depth-anchored placement model, previews and tests;
+- added synchronized RU/KK/EN constructor plans.
+<!-- END FORM_CONSTRUCTOR_SLICE23 -->
+
+## 0.7.0 — 2026-07-21
+
+### Universal Constructor
+
+- Added the top-level **Constructor** menu and `Ctrl+Shift+K` shortcut.
+- Integrated tablet Form Manager, Masterlog templates, WYSIWYG headers, columns, mapping,
+  page profiles, preview and preflight in one workflow.
+- Packaged 117 canonical lithotypes and 19 depth symbols with RU/KK/EN metadata,
+  thumbnails, aliases and checksums.
+- Added A0–A4, Letter, Legal, custom and roll profiles to page setup.
+- Added physical page-boundary and overflow visualization to the header editor.
+- Added BMP/JPEG/TIFF/WebP raster normalization in addition to PNG and SVG.
+- Added image fit/fill/stretch, rotation and opacity.
+- Added manual and used-plus-manual lithology legend scopes.
+- Added semantic symbol X/Y offsets while preserving depth/interval/parameter/time anchors.
+- Debounced Form Manager selection preview and rejected stale render revisions.
+- Extended tablet wheel/touchpad depth navigation across plots, headers and empty areas.

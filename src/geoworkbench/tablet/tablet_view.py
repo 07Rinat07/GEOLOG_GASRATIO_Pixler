@@ -779,6 +779,11 @@ class TabletView(QWidget):
         self._scroll.setWidget(self._container)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # Wheel events can land on the empty gaps between columns or on the common
+        # viewport itself. Route those areas through the same depth camera too.
+        self._scroll.viewport().installEventFilter(self)
+        self._tracks_container.installEventFilter(self)
+        self._group_header_container.installEventFilter(self)
 
         self._axis_combo = QComboBox()
         self._axis_combo.setMinimumWidth(220)
@@ -843,6 +848,10 @@ class TabletView(QWidget):
         navigation.addWidget(self._depth_span_label)
         navigation.addWidget(self._span_combo)
         navigation.addWidget(self._full_range_button)
+        self._navigation_help_label = QLabel(self._navigation_hint)
+        self._navigation_help_label.setStyleSheet("color: #64748b; font-size: 10px;")
+        self._navigation_help_label.setToolTip(self._navigation_hint)
+        navigation.addWidget(self._navigation_help_label)
 
         self._vertical_scrollbar = QScrollBar(Qt.Orientation.Vertical)
         self._vertical_scrollbar.setRange(0, 0)
@@ -872,6 +881,8 @@ class TabletView(QWidget):
 
         self._localizer = Localizer.create(language)
         self._navigation_hint = self._localizer.text("tablet.depth_navigation_hint")
+        self._navigation_help_label.setText(self._navigation_hint)
+        self._navigation_help_label.setToolTip(self._navigation_hint)
         if self._interval_creation_type == previous_default_type:
             self._interval_creation_type = self._localizer.text("interpretations.default_type")
 
@@ -2958,26 +2969,52 @@ class TabletView(QWidget):
             None,
         )
 
+    def _handle_depth_wheel(
+        self,
+        event: QWheelEvent,
+        *,
+        plot: pg.PlotWidget | None = None,
+        watched: QObject | None = None,
+    ) -> bool:
+        angle_delta = event.angleDelta().y()
+        pixel_delta = event.pixelDelta().y()
+        delta = angle_delta if angle_delta else pixel_delta
+        if not delta:
+            return False
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            steps = float(delta) / (120.0 if angle_delta else 60.0)
+            anchor = (
+                self._axis_value_at_event(plot, watched, event)
+                if plot is not None and watched is not None
+                else None
+            )
+            changed = self.zoom_depth(0.8**steps, anchor=anchor)
+        elif angle_delta:
+            changed = self.scroll_depth(-float(angle_delta) / 120.0)
+        else:
+            current = self.visible_depth_range
+            if current is None:
+                return False
+            viewport_height = max(1, plot.viewport().height() if plot is not None else self.height())
+            depth_per_pixel = (current[1] - current[0]) / viewport_height
+            changed = self._apply_pan_delta(-float(pixel_delta) * depth_per_pixel)
+        event.accept()
+        return bool(changed)
+
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
         wheel_plot = self._wheel_targets.get(watched)
         if wheel_plot is not None and isinstance(event, QWheelEvent):
-            angle_delta = event.angleDelta().y()
-            pixel_delta = event.pixelDelta().y()
-            if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                delta = angle_delta if angle_delta else pixel_delta
-                steps = float(delta) / (120.0 if angle_delta else 60.0)
-                if steps:
-                    anchor = self._axis_value_at_event(wheel_plot, watched, event)
-                    self.zoom_depth(0.8**steps, anchor=anchor)
-            elif angle_delta:
-                self.scroll_depth(-float(angle_delta) / 120.0)
-            elif pixel_delta:
-                current = self.visible_depth_range
-                if current is not None:
-                    viewport_height = max(1, wheel_plot.viewport().height())
-                    depth_per_pixel = (current[1] - current[0]) / viewport_height
-                    self._apply_pan_delta(-float(pixel_delta) * depth_per_pixel)
-            event.accept()
+            self._handle_depth_wheel(event, plot=wheel_plot, watched=watched)
+            return True
+        if (
+            isinstance(event, QWheelEvent)
+            and watched in {
+                self._scroll.viewport(),
+                self._tracks_container,
+                self._group_header_container,
+            }
+        ):
+            self._handle_depth_wheel(event)
             return True
         plot = self._depth_viewports.get(watched)
         if plot is not None and isinstance(event, QKeyEvent):

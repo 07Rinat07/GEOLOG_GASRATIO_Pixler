@@ -9,8 +9,13 @@ from PySide6.QtGui import QPageLayout, QPageSize
 
 
 class PrintPageFormat(StrEnum):
-    A4 = "a4"
+    A0 = "a0"
+    A1 = "a1"
+    A2 = "a2"
     A3 = "a3"
+    A4 = "a4"
+    LETTER = "letter"
+    LEGAL = "legal"
     CUSTOM = "custom"
     ROLL = "roll"
 
@@ -62,12 +67,16 @@ class PrintPageSettings:
                 QPageSize.Unit.Millimeter,
                 "Custom",
             )
-        page_id = (
-            QPageSize.PageSizeId.A3
-            if self.page_format is PrintPageFormat.A3
-            else QPageSize.PageSizeId.A4
-        )
-        return QPageSize(page_id)
+        page_ids = {
+            PrintPageFormat.A0: QPageSize.PageSizeId.A0,
+            PrintPageFormat.A1: QPageSize.PageSizeId.A1,
+            PrintPageFormat.A2: QPageSize.PageSizeId.A2,
+            PrintPageFormat.A3: QPageSize.PageSizeId.A3,
+            PrintPageFormat.A4: QPageSize.PageSizeId.A4,
+            PrintPageFormat.LETTER: QPageSize.PageSizeId.Letter,
+            PrintPageFormat.LEGAL: QPageSize.PageSizeId.Legal,
+        }
+        return QPageSize(page_ids.get(self.page_format, QPageSize.PageSizeId.A4))
 
     def page_size_for_content(self, width: int, height: int) -> QPageSize:
         if width <= 0 or height <= 0:

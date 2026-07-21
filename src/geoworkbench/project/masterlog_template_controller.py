@@ -176,11 +176,14 @@ class MasterlogTemplateController:
         orientation: str = "portrait",
     ) -> MasterlogTemplate:
         template = self._require(template_id)
-        formats = {"a4": "A4", "a3": "A3", "custom": "custom", "roll": "roll"}
+        formats = {
+            "a0": "A0", "a1": "A1", "a2": "A2", "a3": "A3", "a4": "A4",
+            "letter": "letter", "legal": "legal", "custom": "custom", "roll": "roll",
+        }
         try:
             normalized_format = formats[page_format.strip().casefold()]
         except KeyError as exc:
-            raise ValueError("Формат masterlog должен быть A4, A3, custom или roll") from exc
+            raise ValueError("Формат masterlog должен быть A0–A4, Letter, Legal, custom или roll") from exc
         if isinstance(depth_scale, bool) or not isinstance(depth_scale, int):
             raise ValueError("Масштаб masterlog должен быть целым числом")
         if not 10 <= depth_scale <= 10000:
@@ -198,14 +201,16 @@ class MasterlogTemplateController:
         normalized_orientation = orientation.strip().casefold()
         if normalized_orientation not in {"portrait", "landscape"}:
             raise ValueError("Ориентация masterlog должна быть portrait или landscape")
-        page_height = {
-            ("A4", "portrait"): 297.0,
-            ("A4", "landscape"): 210.0,
-            ("A3", "portrait"): 420.0,
-            ("A3", "landscape"): 297.0,
-            ("custom", "portrait"): custom_height_mm,
-            ("custom", "landscape"): custom_width_mm,
-        }.get((normalized_format, normalized_orientation))
+        dimensions_mm = {
+            "A0": (841.0, 1189.0), "A1": (594.0, 841.0),
+            "A2": (420.0, 594.0), "A3": (297.0, 420.0),
+            "A4": (210.0, 297.0), "letter": (215.9, 279.4),
+            "legal": (215.9, 355.6), "custom": (custom_width_mm, custom_height_mm),
+        }
+        dimensions = dimensions_mm.get(normalized_format)
+        page_height = None if dimensions is None else (
+            dimensions[1] if normalized_orientation == "portrait" else dimensions[0]
+        )
         if page_height is not None and header_height_mm + 12.0 >= page_height:
             raise ValueError("Высота шапки не оставляет места для глубинных колонок")
         template.page_format = normalized_format

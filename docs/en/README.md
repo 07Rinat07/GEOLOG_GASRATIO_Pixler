@@ -416,3 +416,8 @@ pencil edits with synchronous recalculation, an Excel-like table, and XLSX/TSV/C
 See [LAS Editor 2](LAS_EDITOR_2.md).
 
 - The graphical pencil can now be started from the toolbar or track context menu, explicitly selects a source curve and shows a preview stroke.
+
+## Form and print Constructor
+
+Open **Constructor** or press `Ctrl+Shift+K`. Guide: [CONSTRUCTOR.md](CONSTRUCTOR.md).
+

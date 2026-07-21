@@ -39,7 +39,7 @@ class MasterlogSymbolsDialog(QDialog):
         self.setWindowTitle(self._t("masterlog_symbols.title"))
         self.resize(760, 480)
         root = QVBoxLayout(self)
-        self.table = QTableWidget(0, 5)
+        self.table = QTableWidget(0, 6)
         self.table.setObjectName("masterlog-symbols-table")
         self.table.setHorizontalHeaderLabels(
             [
@@ -48,6 +48,7 @@ class MasterlogSymbolsDialog(QDialog):
                 self._t("masterlog_symbols.column"),
                 self._t("masterlog_symbols.image"),
                 self._t("masterlog_symbols.label"),
+                self._t("masterlog_symbols.offset"),
             ]
         )
         self.table.itemSelectionChanged.connect(self._load_selected)
@@ -83,6 +84,13 @@ class MasterlogSymbolsDialog(QDialog):
             control.setRange(1.0, 50.0)
             control.setValue(8.0)
             control.setSuffix(" mm")
+        self.offset_x_input = QDoubleSpinBox()
+        self.offset_y_input = QDoubleSpinBox()
+        for control in (self.offset_x_input, self.offset_y_input):
+            control.setRange(-100.0, 100.0)
+            control.setDecimals(2)
+            control.setSingleStep(0.5)
+            control.setSuffix(" mm")
         self.label_input = QLineEdit()
         self.label_input.setMaxLength(200)
         form.addRow(self._t("masterlog_symbols.anchor"), self.anchor_input)
@@ -98,6 +106,8 @@ class MasterlogSymbolsDialog(QDialog):
         form.addRow(self._t("masterlog_symbols.image"), self.asset_input)
         form.addRow(self._t("masterlog_symbols.width"), self.width_input)
         form.addRow(self._t("masterlog_symbols.height"), self.height_input)
+        form.addRow(self._t("masterlog_symbols.offset_x"), self.offset_x_input)
+        form.addRow(self._t("masterlog_symbols.offset_y"), self.offset_y_input)
         form.addRow(self._t("masterlog_symbols.label"), self.label_input)
         root.addLayout(form)
         self.anchor_input.currentIndexChanged.connect(self._update_anchor_inputs)
@@ -164,6 +174,11 @@ class MasterlogSymbolsDialog(QDialog):
                 QTableWidgetItem(asset.original_name if asset is not None else symbol.asset_ref),
             )
             self.table.setItem(row, 4, QTableWidgetItem(symbol.label))
+            self.table.setItem(
+                row,
+                5,
+                QTableWidgetItem(f"{symbol.offset_x_mm:+g}; {symbol.offset_y_mm:+g} mm"),
+            )
         self.table.resizeColumnsToContents()
         self.undo_button.setEnabled(self.controller.history.can_undo)
         self.redo_button.setEnabled(self.controller.history.can_redo)
@@ -193,11 +208,15 @@ class MasterlogSymbolsDialog(QDialog):
         self.asset_input.setCurrentIndex(self.asset_input.findData(symbol.asset_ref))
         self.width_input.setValue(symbol.width_mm)
         self.height_input.setValue(symbol.height_mm)
+        self.offset_x_input.setValue(symbol.offset_x_mm)
+        self.offset_y_input.setValue(symbol.offset_y_mm)
         self.label_input.setText(symbol.label)
 
     def _values(
         self,
-    ) -> tuple[str, float, float | None, str, str, float, float, str, str | None, str | None]:
+    ) -> tuple[
+        str, float, float | None, str, str, float, float, str, str | None, str | None, float, float
+    ]:
         return (
             str(self.anchor_input.currentData() or "depth"),
             self.depth_input.value(),
@@ -213,6 +232,8 @@ class MasterlogSymbolsDialog(QDialog):
             if self.anchor_input.currentData() == "parameter"
             else None,
             self.time_input.text() if self.anchor_input.currentData() == "time" else None,
+            self.offset_x_input.value(),
+            self.offset_y_input.value(),
         )
 
     def _add(self) -> None:
@@ -227,6 +248,8 @@ class MasterlogSymbolsDialog(QDialog):
             label,
             parameter,
             time_value,
+            offset_x,
+            offset_y,
         ) = self._values()
         self._run(
             lambda: self.controller.add(
@@ -241,6 +264,8 @@ class MasterlogSymbolsDialog(QDialog):
                 bottom_depth=bottom,
                 parameter_mnemonic=parameter,
                 time_value=time_value,
+                offset_x_mm=offset_x,
+                offset_y_mm=offset_y,
             )
         )
 
@@ -260,6 +285,8 @@ class MasterlogSymbolsDialog(QDialog):
             label,
             parameter,
             time_value,
+            offset_x,
+            offset_y,
         ) = self._values()
         self._run(
             lambda: self.controller.update(
@@ -275,6 +302,8 @@ class MasterlogSymbolsDialog(QDialog):
                 bottom_depth=bottom,
                 parameter_mnemonic=parameter,
                 time_value=time_value,
+                offset_x_mm=offset_x,
+                offset_y_mm=offset_y,
             )
         )
 

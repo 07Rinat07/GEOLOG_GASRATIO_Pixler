@@ -42,3 +42,20 @@ All user-facing behavior changes must be reflected in all three guides and in th
 
 Безопасное сращивание LAS, возрастающая копия, вставка внешних кривых, карандаш,
 Excel-подобная таблица и экспорт.
+
+<!-- BEGIN FORM_CONSTRUCTOR_SLICE23 -->
+## Универсальный конструктор
+
+- [Русский](ru/FORM_CONSTRUCTOR_PLAN.md)
+- [Қазақша](kk/FORM_CONSTRUCTOR_PLAN.md)
+- [English](en/FORM_CONSTRUCTOR_PLAN.md)
+<!-- END FORM_CONSTRUCTOR_SLICE23 -->
+
+<!-- BEGIN FORM_CONSTRUCTOR_SLICE23 -->
+## Universal Form Constructor
+
+Plan: [Русский](ru/FORM_CONSTRUCTOR_PLAN.md) · [Қазақша](kk/FORM_CONSTRUCTOR_PLAN.md) · [English](en/FORM_CONSTRUCTOR_PLAN.md)  
+User guide: [Русский](ru/CONSTRUCTOR.md) · [Қазақша](kk/CONSTRUCTOR.md) · [English](en/CONSTRUCTOR.md)  
+Asset import report: [CONSTRUCTOR_ASSET_IMPORT_REPORT.md](CONSTRUCTOR_ASSET_IMPORT_REPORT.md)
+Technical architecture: [CONSTRUCTOR_ARCHITECTURE.md](CONSTRUCTOR_ARCHITECTURE.md)  
+<!-- END FORM_CONSTRUCTOR_SLICE23 -->

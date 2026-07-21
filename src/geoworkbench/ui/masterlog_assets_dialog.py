@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QFileDialog,
     QHBoxLayout,
     QInputDialog,
     QListWidget,
@@ -16,7 +19,11 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.printing.image_asset_rendering import image_asset_pixmap
-from geoworkbench.printing.image_assets import ImageAssetError
+from geoworkbench.printing.image_assets import (
+    ImageAssetError,
+    create_raster_asset,
+    create_svg_asset,
+)
 from geoworkbench.printing.masterlog_symbols import BUILTIN_MASTERLOG_SYMBOLS
 from geoworkbench.services.localization import AppLanguage, Localizer
 
@@ -41,12 +48,21 @@ class MasterlogAssetsDialog(QDialog):
         for symbol in BUILTIN_MASTERLOG_SYMBOLS:
             self.symbol_input.addItem(self.localizer.text(symbol.name_key), symbol.symbol_id)
         self.add_symbol_button = QPushButton(self.localizer.text("masterlog_assets.add_symbol"))
+        self.import_button = QPushButton(
+            {
+                AppLanguage.RU: "Импорт изображения...",
+                AppLanguage.KK: "Суретті импорттау...",
+                AppLanguage.EN: "Import image...",
+            }[language]
+        )
         close_button = QPushButton(self.localizer.text("common.close"))
         self.delete_button.clicked.connect(self._delete)
         self.rename_button.clicked.connect(self._rename)
         self.add_symbol_button.clicked.connect(self._add_symbol)
+        self.import_button.clicked.connect(self._import_image)
         close_button.clicked.connect(self.accept)
         buttons = QHBoxLayout()
+        buttons.addWidget(self.import_button)
         buttons.addWidget(self.rename_button)
         buttons.addWidget(self.delete_button)
         buttons.addStretch(1)
@@ -84,6 +100,34 @@ class MasterlogAssetsDialog(QDialog):
             item.setData(Qt.ItemDataRole.UserRole, asset.asset_id)
             item.setIcon(QIcon(image_asset_pixmap(asset)))
             self.list.addItem(item)
+
+
+    def _import_image(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            self.import_button.text().replace("...", ""),
+            "",
+            "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.webp *.svg)",
+        )
+        if not filename:
+            return
+        source = Path(filename)
+        try:
+            asset = (
+                create_svg_asset(source)
+                if source.suffix.casefold() == ".svg"
+                else create_raster_asset(source)
+            )
+            installed = self.controller.install_image_asset(asset)
+        except (OSError, ImageAssetError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self.refresh()
+        for row in range(self.list.count()):
+            item = self.list.item(row)
+            if item is not None and item.data(Qt.ItemDataRole.UserRole) == installed.asset_id:
+                self.list.setCurrentItem(item)
+                break
 
     def _add_symbol(self) -> None:
         index = self.symbol_input.currentIndex()

@@ -40,3 +40,10 @@ manifests, guarded Undo/Redo, pencil editing, synchronous recalculation, and tab
 ### Graphical pencil fix (slice22)
 
 The editor now provides explicit source LAS-curve selection, a toolbar button, tablet context-menu entry, a dedicated pencil cursor and an orange preview stroke. Calculated curves are excluded from direct editing; dependent parameters are recalculated after source-data changes.
+
+## Constructor 0.7.0
+
+The Constructor is embedded in the application and reuses Form Manager and the Masterlog
+renderer. Assets are packaged inside the project rather than shipped as an external overlay.
+Searchable resources, WYSIWYG headers, page profiles, images, dynamic legends, semantic depth
+symbols with X/Y offsets and preflight are implemented. See [Constructor guide](CONSTRUCTOR.md).

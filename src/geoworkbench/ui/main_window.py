@@ -112,6 +112,7 @@ from geoworkbench.ui.external_las_insert_dialog import ExternalLasInsertDialog
 from geoworkbench.ui.curve_settings_dialog import CurveSettingsDialog
 from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
+from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
@@ -596,6 +597,7 @@ class MainWindow(QMainWindow):
         tablet_menu = self._add_localized_menu("menu.tablet")
         view_menu = self._add_localized_menu("menu.view")
         forms_menu = self._add_localized_menu("forms.menu")
+        constructor_menu = self._add_localized_menu("menu.constructor")
         print_menu = self._add_localized_menu("menu.print")
         language_menu = self._add_localized_menu("menu.language")
         help_menu = self._add_localized_menu("menu.help")
@@ -990,6 +992,15 @@ class MainWindow(QMainWindow):
         self.form_manager_action = self._localized_action("forms.manager_action")
         self.form_manager_action.triggered.connect(self.show_form_manager)
         forms_menu.addAction(self.form_manager_action)
+
+        self.constructor_action = self._localized_action("constructor.open")
+        self.constructor_action.setShortcut("Ctrl+Shift+K")
+        self.constructor_action.triggered.connect(self.show_constructor)
+        constructor_menu.addAction(self.constructor_action)
+        constructor_menu.addAction(self.form_manager_action)
+        constructor_templates_action = self._localized_action("masterlog_templates.action")
+        constructor_templates_action.triggered.connect(self.show_masterlog_templates)
+        constructor_menu.addAction(constructor_templates_action)
 
         self.lithology_legend_action = self._localized_action("legend.action")
         self.lithology_legend_action.triggered.connect(self.show_lithology_legend)
@@ -2392,6 +2403,18 @@ class MainWindow(QMainWindow):
             return
         self.tablet_view.refresh_view()
         self.inspector.show_track(track, suggested_range=self._track_data_range(track))
+        self._refresh_tree()
+        self._update_title()
+
+    def show_constructor(self) -> None:
+        dialog = UniversalConstructorDialog(
+            self.masterlog_template_controller,
+            self,
+            language=self.language,
+            open_form_manager=self.show_form_manager,
+            open_template_manager=self.show_masterlog_templates,
+        )
+        dialog.exec()
         self._refresh_tree()
         self._update_title()
 

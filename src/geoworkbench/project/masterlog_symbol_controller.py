@@ -28,6 +28,8 @@ class PlacedMasterlogSymbol:
     label: str
     parameter_mnemonic: str | None
     time_value: str | None
+    offset_x_mm: float
+    offset_y_mm: float
 
     @property
     def depth(self) -> float:
@@ -63,6 +65,8 @@ class MasterlogSymbolController:
         bottom_depth: float | None = None,
         parameter_mnemonic: str | None = None,
         time_value: str | None = None,
+        offset_x_mm: float = 0.0,
+        offset_y_mm: float = 0.0,
     ) -> PlacedMasterlogSymbol:
         values = self._validate(
             template_id,
@@ -76,6 +80,8 @@ class MasterlogSymbolController:
             label,
             parameter_mnemonic,
             time_value,
+            offset_x_mm,
+            offset_y_mm,
         )
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
@@ -88,12 +94,14 @@ class MasterlogSymbolController:
             normalized_label,
             normalized_parameter,
             normalized_time,
+            normalized_offset_x,
+            normalized_offset_y,
         ) = values
         item = CanvasObject(
             new_id(),
             MASTERLOG_SYMBOL_TYPE,
             normalized_anchor,
-            0.0,
+            normalized_offset_x,
             normalized_top,
             normalized_width,
             normalized_height,
@@ -106,6 +114,7 @@ class MasterlogSymbolController:
                 "template_id": template_id,
                 "asset_ref": asset_ref,
                 "label": normalized_label,
+                "offset_y_mm": normalized_offset_y,
             },
         )
         well.canvas_objects.append(item)
@@ -128,6 +137,8 @@ class MasterlogSymbolController:
         bottom_depth: float | None = None,
         parameter_mnemonic: str | None = None,
         time_value: str | None = None,
+        offset_x_mm: float = 0.0,
+        offset_y_mm: float = 0.0,
     ) -> PlacedMasterlogSymbol:
         values = self._validate(
             template_id,
@@ -141,6 +152,8 @@ class MasterlogSymbolController:
             label,
             parameter_mnemonic,
             time_value,
+            offset_x_mm,
+            offset_y_mm,
         )
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
@@ -154,8 +167,11 @@ class MasterlogSymbolController:
             normalized_label,
             normalized_parameter,
             normalized_time,
+            normalized_offset_x,
+            normalized_offset_y,
         ) = values
         item.anchor_type = normalized_anchor
+        item.x = normalized_offset_x
         item.y = normalized_top
         item.top_depth = normalized_top
         item.bottom_depth = normalized_bottom
@@ -164,7 +180,11 @@ class MasterlogSymbolController:
         item.time_value = normalized_time
         item.width = normalized_width
         item.height = normalized_height
-        item.properties.update(asset_ref=asset_ref, label=normalized_label)
+        item.properties.update(
+            asset_ref=asset_ref,
+            label=normalized_label,
+            offset_y_mm=normalized_offset_y,
+        )
         self.history.record(well, before, description="Изменение обозначения masterlog")
         self.session.dirty = True
         return self._to_symbol(item)
@@ -202,7 +222,9 @@ class MasterlogSymbolController:
         label: str,
         parameter_mnemonic: str | None,
         time_value: str | None,
-    ) -> tuple[str, float, float, float, float, str, str | None, str | None]:
+        offset_x_mm: float,
+        offset_y_mm: float,
+    ) -> tuple[str, float, float, float, float, str, str | None, str | None, float, float]:
         template = self._require_template(template_id)
         column = next((item for item in template.columns if item.column_id == column_id), None)
         if column is None:
@@ -220,7 +242,14 @@ class MasterlogSymbolController:
             normalized_time = (time_value or "").strip()
             top_depth = resolve_time_to_depth(dataset, normalized_time).depth
         effective_bottom = top_depth if normalized_anchor != "interval" else bottom_depth
-        numbers = (top_depth, effective_bottom, width_mm, height_mm)
+        numbers = (
+            top_depth,
+            effective_bottom,
+            width_mm,
+            height_mm,
+            offset_x_mm,
+            offset_y_mm,
+        )
         if any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in numbers):
             raise ValueError("Глубина и размеры обозначения должны быть числами")
         if effective_bottom is None:
@@ -229,15 +258,26 @@ class MasterlogSymbolController:
         normalized_bottom = float(effective_bottom)
         normalized_width = float(width_mm)
         normalized_height = float(height_mm)
+        normalized_offset_x = float(offset_x_mm)
+        normalized_offset_y = float(offset_y_mm)
         if not all(
             isfinite(value)
-            for value in (normalized_top, normalized_bottom, normalized_width, normalized_height)
+            for value in (
+                normalized_top,
+                normalized_bottom,
+                normalized_width,
+                normalized_height,
+                normalized_offset_x,
+                normalized_offset_y,
+            )
         ):
             raise ValueError("Глубина и размеры обозначения должны быть конечными")
         if normalized_anchor == "interval" and normalized_bottom <= normalized_top:
             raise ValueError("Низ интервала должен быть больше верха")
         if not 1.0 <= normalized_width <= 50.0 or not 1.0 <= normalized_height <= 50.0:
             raise ValueError("Размер обозначения должен быть от 1 до 50 мм")
+        if not -100.0 <= normalized_offset_x <= 100.0 or not -100.0 <= normalized_offset_y <= 100.0:
+            raise ValueError("Смещение обозначения должно быть от -100 до 100 мм")
         if dataset is not None:
             finite_depth = dataset.depth[np.isfinite(dataset.depth)]
             if finite_depth.size and not (
@@ -264,6 +304,8 @@ class MasterlogSymbolController:
             normalized_label,
             normalized_parameter,
             normalized_time,
+            normalized_offset_x,
+            normalized_offset_y,
         )
 
     def _require_template(self, template_id: str) -> MasterlogTemplate:
@@ -310,4 +352,6 @@ class MasterlogSymbolController:
             str(item.properties.get("label", "")),
             item.parameter_mnemonic,
             item.time_value,
+            float(item.x),
+            float(item.properties.get("offset_y_mm", 0.0)),
         )

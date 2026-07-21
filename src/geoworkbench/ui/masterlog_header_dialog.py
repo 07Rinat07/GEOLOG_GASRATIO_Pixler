@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QBrush, QPen, QWheelEvent
+from PySide6.QtGui import QColor, QBrush, QPen, QTransform, QWheelEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.domain.models import MasterlogHeaderElement
+from geoworkbench.domain.models import MasterlogHeaderElement, ProjectLithotype
 from geoworkbench.printing.header_fields import (
     SUPPORTED_HEADER_FIELDS,
     editable_header_field_definitions,
@@ -47,12 +47,13 @@ from geoworkbench.printing.image_asset_rendering import image_asset_pixmap
 from geoworkbench.printing.image_assets import (
     ImageAsset,
     ImageAssetError,
-    create_png_asset,
+    create_raster_asset,
     create_svg_asset,
 )
 from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_HEADER_PRESETS
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.tablet.lithology_patterns import lithology_brush
 
 
 _TEXT = {
@@ -127,10 +128,12 @@ class HeaderElementDialog(QDialog):
         element: MasterlogHeaderElement | None = None,
         language: AppLanguage = AppLanguage.RU,
         image_assets: dict[str, ImageAsset] | None = None,
+        lithotypes: dict[str, ProjectLithotype] | None = None,
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
         self.image_assets = image_assets or {}
+        self.lithotypes = lithotypes or {}
         self.imported_assets: dict[str, ImageAsset] = {}
         self.setWindowTitle(self.localizer.text("masterlog_header.properties"))
         self.setMinimumWidth(480)
@@ -217,6 +220,12 @@ class HeaderElementDialog(QDialog):
         self.legend_scope_input = QComboBox()
         self.legend_scope_input.addItem(self.localizer.text("masterlog_header.legend_used"), "used")
         self.legend_scope_input.addItem(self.localizer.text("masterlog_header.legend_all"), "all")
+        self.legend_scope_input.addItem(
+            self.localizer.text("masterlog_header.legend_manual"), "manual"
+        )
+        self.legend_scope_input.addItem(
+            self.localizer.text("masterlog_header.legend_used_manual"), "used_manual"
+        )
         scope = element.properties.get("scope") if element else "used"
         scope_index = self.legend_scope_input.findData(scope)
         self.legend_scope_input.setCurrentIndex(max(0, scope_index))
@@ -231,6 +240,26 @@ class HeaderElementDialog(QDialog):
         self.legend_code_input = QCheckBox(self.localizer.text("masterlog_header.legend_show_code"))
         show_code = element.properties.get("show_code") if element else True
         self.legend_code_input.setChecked(show_code if isinstance(show_code, bool) else True)
+        self.legend_manual_input = QListWidget()
+        self.legend_manual_input.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
+        self.legend_manual_input.setMinimumHeight(120)
+        selected_lithotypes = {
+            str(value)
+            for value in (element.properties.get("selected_lithotype_ids", []) if element else [])
+            if isinstance(value, str)
+        }
+        for definition in sorted(
+            self.lithotypes.values(), key=lambda item: item.name_ru.casefold()
+        ):
+            names = {
+                AppLanguage.RU: definition.name_ru,
+                AppLanguage.KK: definition.name_kk or definition.name_ru,
+                AppLanguage.EN: definition.name_en or definition.name_ru,
+            }
+            item = QListWidgetItem(f"{definition.code} — {names[language]}")
+            item.setData(Qt.ItemDataRole.UserRole, definition.lithotype_id)
+            item.setSelected(definition.lithotype_id in selected_lithotypes)
+            self.legend_manual_input.addItem(item)
 
         self.image_input = QComboBox()
         for asset in self.image_assets.values():
@@ -242,6 +271,26 @@ class HeaderElementDialog(QDialog):
                 self.image_input.addItem(asset_ref, asset_ref)
                 index = self.image_input.count() - 1
             self.image_input.setCurrentIndex(index)
+        self.image_mode_input = QComboBox()
+        self.image_mode_input.addItem("Fit / вписать", "fit")
+        self.image_mode_input.addItem("Fill / заполнить", "fill")
+        self.image_mode_input.addItem("Stretch / растянуть", "stretch")
+        image_mode = element.properties.get("mode", "fit") if element else "fit"
+        self.image_mode_input.setCurrentIndex(max(0, self.image_mode_input.findData(image_mode)))
+        self.image_rotation_input = QDoubleSpinBox()
+        self.image_rotation_input.setRange(-360.0, 360.0)
+        self.image_rotation_input.setDecimals(1)
+        rotation = element.properties.get("rotation", 0.0) if element else 0.0
+        if isinstance(rotation, (int, float)) and not isinstance(rotation, bool):
+            self.image_rotation_input.setValue(float(rotation))
+        self.image_opacity_input = QDoubleSpinBox()
+        self.image_opacity_input.setRange(0.0, 100.0)
+        self.image_opacity_input.setSuffix(" %")
+        opacity = element.properties.get("opacity", 1.0) if element else 1.0
+        if isinstance(opacity, (int, float)) and not isinstance(opacity, bool):
+            self.image_opacity_input.setValue(max(0.0, min(100.0, float(opacity) * 100.0)))
+        else:
+            self.image_opacity_input.setValue(100.0)
         self.image_import_button = QPushButton(self.localizer.text("masterlog_header.import_image"))
         self.image_import_button.clicked.connect(self._import_image)
         image_row = QHBoxLayout()
@@ -272,6 +321,7 @@ class HeaderElementDialog(QDialog):
         self.image_label = QLabel(self.localizer.text("masterlog_header.image"))
         self.legend_scope_label = QLabel(self.localizer.text("masterlog_header.legend_scope"))
         self.legend_columns_label = QLabel(self.localizer.text("masterlog_header.legend_columns"))
+        self.legend_manual_label = QLabel(self.localizer.text("masterlog_header.legend_manual_items"))
         self.alignment_label = QLabel(_TEXT[language]["alignment"])
         self.background_label = QLabel(_TEXT[language]["background"])
 
@@ -284,11 +334,18 @@ class HeaderElementDialog(QDialog):
         layout.addRow(self.frame_input)
         layout.addRow(self.background_label, self.background_input)
         layout.addRow(self.image_label, image_row)
+        self.image_mode_label = QLabel("Image mode")
+        self.image_rotation_label = QLabel("Rotation, °")
+        self.image_opacity_label = QLabel("Opacity")
+        layout.addRow(self.image_mode_label, self.image_mode_input)
+        layout.addRow(self.image_rotation_label, self.image_rotation_input)
+        layout.addRow(self.image_opacity_label, self.image_opacity_input)
         layout.addRow(self.line_color_label, self.line_color_input)
         layout.addRow(self.line_width_label, self.line_width_input)
         layout.addRow(self.legend_scope_label, self.legend_scope_input)
         layout.addRow(self.legend_columns_label, self.legend_columns_input)
         layout.addRow(self.legend_code_input)
+        layout.addRow(self.legend_manual_label, self.legend_manual_input)
         layout.addRow(self.properties_label, self.properties_input)
 
         buttons = QDialogButtonBox(
@@ -298,6 +355,7 @@ class HeaderElementDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
         self.type_input.currentTextChanged.connect(self._update_property_inputs)
+        self.legend_scope_input.currentIndexChanged.connect(self._update_legend_manual_visibility)
         self._update_property_inputs(self.type_input.currentText())
 
     def _update_property_inputs(self, element_type: str) -> None:
@@ -318,6 +376,8 @@ class HeaderElementDialog(QDialog):
         self.properties_input.setVisible(False)
         self.image_input.setVisible(element_type == "image")
         self.image_import_button.setVisible(element_type == "image")
+        for control in (self.image_mode_input, self.image_rotation_input, self.image_opacity_input):
+            control.setVisible(element_type == "image")
         self.text_label.setVisible(element_type == "text")
         self.field_label.setVisible(element_type == "field")
         self.line_color_label.setVisible(element_type == "line")
@@ -327,26 +387,41 @@ class HeaderElementDialog(QDialog):
         self.alignment_label.setVisible(has_text_style)
         self.background_label.setVisible(has_text_style)
         self.image_label.setVisible(element_type == "image")
+        for label in (self.image_mode_label, self.image_rotation_label, self.image_opacity_label):
+            label.setVisible(element_type == "image")
         is_lithology = element_type == "lithology_legend"
         self.legend_scope_input.setVisible(is_lithology)
         self.legend_columns_input.setVisible(is_lithology)
         self.legend_code_input.setVisible(is_lithology)
         self.legend_scope_label.setVisible(is_lithology)
         self.legend_columns_label.setVisible(is_lithology)
+        self._update_legend_manual_visibility()
         self.properties_label.setVisible(False)
+
+    def _update_legend_manual_visibility(self) -> None:
+        visible = (
+            self.type_input.currentText() == "lithology_legend"
+            and self.legend_scope_input.currentData() in {"manual", "used_manual"}
+        )
+        self.legend_manual_label.setVisible(visible)
+        self.legend_manual_input.setVisible(visible)
 
     def _import_image(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
             self,
             self.localizer.text("masterlog_header.import_image"),
             "",
-            "Images (*.png *.svg)",
+            "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.webp *.svg)",
         )
         if not filename:
             return
         try:
             source = Path(filename)
-            asset = create_svg_asset(source) if source.suffix.casefold() == ".svg" else create_png_asset(source)
+            asset = (
+                create_svg_asset(source)
+                if source.suffix.casefold() == ".svg"
+                else create_raster_asset(source)
+            )
         except (OSError, ImageAssetError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
@@ -392,12 +467,21 @@ class HeaderElementDialog(QDialog):
             asset_ref = self.image_input.currentData()
             if not isinstance(asset_ref, str) or not asset_ref:
                 raise ValueError(self.localizer.text("masterlog_header.select_image"))
-            properties = {"asset_ref": asset_ref}
+            properties = {
+                "asset_ref": asset_ref,
+                "mode": str(self.image_mode_input.currentData() or "fit"),
+                "rotation": self.image_rotation_input.value(),
+                "opacity": self.image_opacity_input.value() / 100.0,
+            }
         elif element_type == "lithology_legend":
             properties = {
                 "scope": self.legend_scope_input.currentData(),
                 "columns": self.legend_columns_input.value(),
                 "show_code": self.legend_code_input.isChecked(),
+                "selected_lithotype_ids": [
+                    str(item.data(Qt.ItemDataRole.UserRole))
+                    for item in self.legend_manual_input.selectedItems()
+                ],
                 **text_style,
             }
         elif element_type == "lba_legend":
@@ -612,6 +696,9 @@ class MasterlogHeaderDialog(QDialog):
         settings.addStretch(1)
         hint = QLabel(_TEXT[language]["drag_hint"])
         hint.setWordWrap(True)
+        self.page_info_label = QLabel()
+        self.page_info_label.setObjectName("masterlog-header-page-info")
+        self.page_info_label.setWordWrap(True)
 
         self.preset_button = QPushButton(
             {
@@ -655,6 +742,7 @@ class MasterlogHeaderDialog(QDialog):
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.addWidget(hint)
+        right_layout.addWidget(self.page_info_label)
         right_layout.addWidget(self.preview, 1)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -683,25 +771,55 @@ class MasterlogHeaderDialog(QDialog):
         self.list.blockSignals(True)
         self.list.clear()
         self.preview_scene.clear()
-        header_width = max(
-            210.0,
-            max((item.x_mm + item.width_mm for item in self.template.header_elements), default=0.0),
+        page_width, page_height = self._page_size_mm()
+        element_right = max(
+            (item.x_mm + item.width_mm for item in self.template.header_elements),
+            default=0.0,
         )
-        header_height = max(
-            self.template.header_height_mm,
-            max((item.y_mm + item.height_mm for item in self.template.header_elements), default=0.0),
-            1.0,
+        element_bottom = max(
+            (item.y_mm + item.height_mm for item in self.template.header_elements),
+            default=0.0,
+        )
+        header_width = max(page_width, element_right, 1.0)
+        header_height = max(self.template.header_height_mm, element_bottom, 1.0)
+        orientation = str(self.template.properties.get("orientation", "portrait"))
+        orientation_text = {
+            AppLanguage.RU: {"portrait": "книжная", "landscape": "альбомная"},
+            AppLanguage.KK: {"portrait": "кітаптық", "landscape": "альбомдық"},
+            AppLanguage.EN: {"portrait": "portrait", "landscape": "landscape"},
+        }[self.localizer.language].get(orientation, orientation)
+        overflow = element_right > page_width + 1e-6
+        overflow_text = {
+            AppLanguage.RU: " · ВНИМАНИЕ: элементы выходят за ширину страницы",
+            AppLanguage.KK: " · НАЗАР: элементтер бет енінен шығып тұр",
+            AppLanguage.EN: " · WARNING: elements exceed page width",
+        }[self.localizer.language] if overflow else ""
+        self.page_info_label.setText(
+            f"{self.template.page_format} · {orientation_text} · "
+            f"{page_width:g}×{page_height:g} mm{overflow_text}"
         )
         self.height_input.blockSignals(True)
         self.height_input.setValue(self.template.header_height_mm)
         self.height_input.blockSignals(False)
 
         self.preview_scene.addRect(
-            QRectF(0.0, 0.0, header_width, header_height),
+            QRectF(0.0, 0.0, page_width, header_height),
             QPen(QColor("#334155"), 0.6),
             QBrush(QColor("#ffffff")),
         )
-        self._draw_grid(header_width, header_height)
+        if header_width > page_width:
+            overflow_rect = self.preview_scene.addRect(
+                QRectF(page_width, 0.0, header_width - page_width, header_height),
+                QPen(QColor("#dc2626"), 0.45, Qt.PenStyle.DashLine),
+                QBrush(QColor(254, 226, 226, 120)),
+            )
+            overflow_rect.setZValue(-20)
+        boundary = self.preview_scene.addLine(
+            page_width, 0.0, page_width, header_height,
+            QPen(QColor("#dc2626"), 0.45, Qt.PenStyle.DashLine),
+        )
+        boundary.setZValue(50)
+        self._draw_grid(page_width, header_height)
         colors = {
             "text": QColor("#dbeafe"),
             "field": QColor("#dcfce7"),
@@ -743,6 +861,11 @@ class MasterlogHeaderDialog(QDialog):
             self.preview_scene.addItem(graphic)
             if element.element_type == "image" and self._add_image_preview(element, graphic):
                 continue
+            if (
+                element.element_type == "lithology_legend"
+                and self._add_lithology_legend_preview(element, graphic)
+            ):
+                continue
             label = QGraphicsTextItem(self._preview_text(element), graphic)
             color, font_size = self._text_style(element)
             label.setDefaultTextColor(color)
@@ -760,6 +883,35 @@ class MasterlogHeaderDialog(QDialog):
         if self._fit_on_refresh:
             self._fit_preview()
             self._fit_on_refresh = False
+
+
+    def _page_size_mm(self) -> tuple[float, float]:
+        dimensions = {
+            "A0": (841.0, 1189.0),
+            "A1": (594.0, 841.0),
+            "A2": (420.0, 594.0),
+            "A3": (297.0, 420.0),
+            "A4": (210.0, 297.0),
+            "letter": (215.9, 279.4),
+            "legal": (215.9, 355.6),
+        }
+        if self.template.page_format == "custom":
+            raw_width = self.template.properties.get("custom_width_mm", 210.0)
+            raw_height = self.template.properties.get("custom_height_mm", 297.0)
+            width = float(raw_width) if isinstance(raw_width, (int, float)) else 210.0
+            height = float(raw_height) if isinstance(raw_height, (int, float)) else 297.0
+        elif self.template.page_format == "roll":
+            raw_width = self.template.properties.get("custom_width_mm", 210.0)
+            width = float(raw_width) if isinstance(raw_width, (int, float)) else 210.0
+            height = max(self.template.header_height_mm, 297.0)
+        else:
+            width, height = dimensions.get(self.template.page_format, (210.0, 297.0))
+        if (
+            self.template.page_format != "roll"
+            and self.template.properties.get("orientation", "portrait") == "landscape"
+        ):
+            width, height = height, width
+        return max(25.0, width), max(25.0, height)
 
     def _draw_grid(self, width: float, height: float) -> None:
         step = max(1.0, self.snap_input.value())
@@ -849,14 +1001,103 @@ class MasterlogHeaderDialog(QDialog):
         if pixmap.isNull():
             return False
         item = self.preview_scene.addPixmap(pixmap)
-        scale = min(element.width_mm / pixmap.width(), element.height_mm / pixmap.height())
-        item.setScale(scale)
+        mode = str(element.properties.get("mode", "fit"))
+        sx = element.width_mm / max(1, pixmap.width())
+        sy = element.height_mm / max(1, pixmap.height())
+        if mode == "stretch":
+            item.setTransform(QTransform.fromScale(sx, sy))
+        else:
+            scale = max(sx, sy) if mode == "fill" else min(sx, sy)
+            item.setScale(scale)
+        opacity = element.properties.get("opacity", 1.0)
+        if isinstance(opacity, (int, float)) and not isinstance(opacity, bool):
+            item.setOpacity(max(0.0, min(1.0, float(opacity))))
+        rotation = element.properties.get("rotation", 0.0)
+        if isinstance(rotation, (int, float)) and not isinstance(rotation, bool):
+            item.setTransformOriginPoint(pixmap.width() / 2.0, pixmap.height() / 2.0)
+            item.setRotation(float(rotation))
         if parent is not None:
+            parent.setFlag(QGraphicsItem.GraphicsItemFlag.ItemClipsChildrenToShape, True)
             item.setParentItem(parent)
             item.setPos(0.0, 0.0)
         else:
             item.setPos(element.x_mm, element.y_mm)
         item.setToolTip(asset.original_name)
+        return True
+
+    def _add_lithology_legend_preview(
+        self,
+        element: MasterlogHeaderElement,
+        parent: QGraphicsRectItem,
+    ) -> bool:
+        catalog = self.controller.session.project.lithotypes
+        if not catalog:
+            return False
+        scope = element.properties.get("scope", "used")
+        lithotype_ids: list[str]
+        selected_ids = [
+            str(value)
+            for value in element.properties.get("selected_lithotype_ids", [])
+            if isinstance(value, str)
+        ]
+        if scope == "all" or self.controller.session.current_well is None:
+            lithotype_ids = sorted(catalog, key=lambda key: catalog[key].name_ru.casefold())
+        elif scope == "manual":
+            lithotype_ids = selected_ids
+        else:
+            seen: set[str] = set()
+            lithotype_ids = []
+            well = self.controller.session.current_well
+            for interval in well.lithology:
+                if interval.lithotype_id not in seen:
+                    seen.add(interval.lithotype_id)
+                    lithotype_ids.append(interval.lithotype_id)
+            for sample in well.cuttings:
+                for component in sample.components:
+                    if component.lithotype_id not in seen:
+                        seen.add(component.lithotype_id)
+                        lithotype_ids.append(component.lithotype_id)
+            if scope == "used_manual":
+                for lithotype_id in selected_ids:
+                    if lithotype_id not in seen:
+                        seen.add(lithotype_id)
+                        lithotype_ids.append(lithotype_id)
+        lithotypes = [catalog[key] for key in lithotype_ids if key in catalog]
+        if not lithotypes:
+            return False
+        raw_columns = element.properties.get("columns", 4)
+        columns = raw_columns if isinstance(raw_columns, int) and raw_columns > 0 else 4
+        columns = min(columns, max(1, len(lithotypes)))
+        row_height = max(4.5, min(8.0, element.height_mm / max(1, (len(lithotypes) + columns - 1) // columns)))
+        max_rows = max(1, int(element.height_mm / row_height))
+        visible = lithotypes[: columns * max_rows]
+        rows = max(1, (len(visible) + columns - 1) // columns)
+        cell_width = element.width_mm / columns
+        cell_height = element.height_mm / rows
+        for index, lithotype in enumerate(visible):
+            row, column = divmod(index, columns)
+            x = column * cell_width
+            y = row * cell_height
+            swatch_width = min(6.0, max(2.5, cell_width * 0.22))
+            swatch = QGraphicsRectItem(0.0, 0.0, swatch_width, max(2.0, cell_height - 0.6), parent)
+            swatch.setPos(x + 0.3, y + 0.3)
+            swatch.setPen(QPen(QColor("#64748b"), 0.12))
+            swatch.setBrush(lithology_brush(lithotype.color, lithotype.pattern_key))
+            names = {
+                AppLanguage.RU: lithotype.name_ru,
+                AppLanguage.KK: lithotype.name_kk or lithotype.name_ru,
+                AppLanguage.EN: lithotype.name_en or lithotype.name_ru,
+            }
+            text = f"{lithotype.code} — {names[self.localizer.language]}"
+            label = QGraphicsTextItem(text, parent)
+            label.setDefaultTextColor(QColor("#0f172a"))
+            label.setTextWidth(max(1.0, cell_width - swatch_width - 1.2))
+            label.setScale(max(0.16, min(0.28, cell_height / 24.0)))
+            label.setPos(x + swatch_width + 0.8, y)
+        if len(visible) < len(lithotypes):
+            parent.setToolTip(
+                f"{len(visible)} / {len(lithotypes)}; увеличить область легенды для полного списка"
+            )
         return True
 
     def _preview_text(self, element: MasterlogHeaderElement) -> str:
@@ -927,6 +1168,7 @@ class MasterlogHeaderDialog(QDialog):
             self,
             language=self.localizer.language,
             image_assets=self.controller.session.image_assets,
+            lithotypes=self.controller.session.project.lithotypes,
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._apply(dialog, None)
@@ -966,6 +1208,7 @@ class MasterlogHeaderDialog(QDialog):
                 element=element,
                 language=self.localizer.language,
                 image_assets=self.controller.session.image_assets,
+                lithotypes=self.controller.session.project.lithotypes,
             )
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self._apply(dialog, element.element_id)

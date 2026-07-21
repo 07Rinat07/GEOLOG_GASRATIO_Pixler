@@ -1,0 +1,775 @@
+{
+  "schema": "geoworkbench.constructor-assets/v1",
+  "kind": "symbols",
+  "generated_at": "2026-07-21",
+  "source_archives": [
+    "Значки(2).zip"
+  ],
+  "source_image_count": 19,
+  "unique_asset_count": 19,
+  "assets": [
+    {
+      "id": "symbol-casing-shoe",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Башмак",
+        "kk": "Башмак",
+        "en": "Casing shoe"
+      },
+      "aliases": [
+        "Casing shoe",
+        "Башмак"
+      ],
+      "category": "well-construction",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Башмак.bmp"
+      ],
+      "content_sha256": "573a8a0faa4fb1205e551d1447c632d130a58ad55a4f8dce527f29d4d595113f",
+      "pixel_sha256": "17a3a47eb026c9cca579fb12a1fb65d0e63ecc8c7b846e93f4d748e0ad89bac3",
+      "width_px": 25,
+      "height_px": 35,
+      "asset_path": "symbols/originals/symbol-casing-shoe.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-casing-shoe.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-formation-gas",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Газ пластовый",
+        "kk": "Қабаттық газ",
+        "en": "Formation gas"
+      },
+      "aliases": [
+        "Formation gas",
+        "Газ Пласт",
+        "Газ пластовый",
+        "Қабаттық газ"
+      ],
+      "category": "gas",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Газ Пласт.bmp"
+      ],
+      "content_sha256": "97ca5015fdfebfb60a07db22b1f068a0e4eb82f4f80f802728ec86a46a4ba3dc",
+      "pixel_sha256": "219f0bf50c83911048aa5b37853e868b689298008d543e7c74dfd69953c82961",
+      "width_px": 36,
+      "height_px": 36,
+      "asset_path": "symbols/originals/symbol-formation-gas.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-formation-gas.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-tripping-gas",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Газ СПО",
+        "kk": "СПО газы",
+        "en": "Tripping gas"
+      },
+      "aliases": [
+        "Tripping gas",
+        "Газ СПО",
+        "СПО газы"
+      ],
+      "category": "gas",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Газ СПО.bmp"
+      ],
+      "content_sha256": "882913e3d0a2e355a09d14d3239c8005acc5498d0648a375681600660cdd612b",
+      "pixel_sha256": "757b03dfc791917e9850a801f7668904b33cc01634d80ebd771b957a1cc37bc0",
+      "width_px": 36,
+      "height_px": 36,
+      "asset_path": "symbols/originals/symbol-tripping-gas.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-tripping-gas.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-test-gas",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Газ тестовый",
+        "kk": "Сынақ газы",
+        "en": "Test gas"
+      },
+      "aliases": [
+        "Test gas",
+        "Газ Тест",
+        "Газ тестовый",
+        "Сынақ газы"
+      ],
+      "category": "gas",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Газ Тест.bmp"
+      ],
+      "content_sha256": "6a165a003e4548d579218fa3e686084a5def4e79c4bd6ddb11d69fe02d7a008c",
+      "pixel_sha256": "b452d813a1d0fc5839daf8c527b01ca23e93591aac4e5e4b1e1bf3d20bc5ecab",
+      "width_px": 36,
+      "height_px": 36,
+      "asset_path": "symbols/originals/symbol-test-gas.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-test-gas.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-background-gas",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Газ фоновый",
+        "kk": "Фондық газ",
+        "en": "Background gas"
+      },
+      "aliases": [
+        "Background gas",
+        "Газ Фоновый",
+        "Газ фоновый",
+        "Фондық газ"
+      ],
+      "category": "gas",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Газ Фоновый.bmp"
+      ],
+      "content_sha256": "a2d5f23072ab0ac14b7e1343eebe1c4c8ed53b9ee5c25cdd9008035316422461",
+      "pixel_sha256": "12702810d343c2d1755995204b3e0b85baf49d38096922dca5087f6b6a98a9a8",
+      "width_px": 36,
+      "height_px": 36,
+      "asset_path": "symbols/originals/symbol-background-gas.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-background-gas.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-mud-fill",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Долив",
+        "kk": "Толықтыру",
+        "en": "Mud fill"
+      },
+      "aliases": [
+        "Mud fill",
+        "Долив",
+        "Толықтыру"
+      ],
+      "category": "drilling-fluid",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Долив.bmp"
+      ],
+      "content_sha256": "5343e037e287d816f7af252c831b92447e0ab9d5025782f30f08b47269e9aedd",
+      "pixel_sha256": "eed7bde75a38855d397ecafe7aed64c94c9b5beed52a3cf2fc0c0a43eca37284",
+      "width_px": 23,
+      "height_px": 23,
+      "asset_path": "symbols/originals/symbol-mud-fill.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-mud-fill.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-bit",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Долото",
+        "kk": "Қашау",
+        "en": "Drill bit"
+      },
+      "aliases": [
+        "Drill bit",
+        "Долото",
+        "Қашау"
+      ],
+      "category": "well-construction",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Долото.bmp"
+      ],
+      "content_sha256": "f78019777d3136f1f792c52097d41fc2f07722d189a062f66e07dd7f4effb131",
+      "pixel_sha256": "92a2e9048156e93b5b415770859ba32a7ad8742397decda3d293eceb0000f4a8",
+      "width_px": 23,
+      "height_px": 37,
+      "asset_path": "symbols/originals/symbol-bit.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-bit.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-core-hydrocarbon-shows",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Керн с признаками УВ",
+        "kk": "Көмірсутек белгілері бар керн",
+        "en": "Core with hydrocarbon shows"
+      },
+      "aliases": [
+        "Core with hydrocarbon shows",
+        "Кери с признаками УВ",
+        "Керн с признаками УВ",
+        "Көмірсутек белгілері бар керн"
+      ],
+      "category": "core",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Кери с признаками УВ.bmp"
+      ],
+      "content_sha256": "5cc496fe56dee6a72138acaa6de349558cbc17ac07a4b7f7cbd879885e6ed0f8",
+      "pixel_sha256": "10b869bf59ef8661df1b930ea4a387570be65e13c9fd18ea7fcd6c0f5bffa264",
+      "width_px": 21,
+      "height_px": 34,
+      "asset_path": "symbols/originals/symbol-core-hydrocarbon-shows.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-core-hydrocarbon-shows.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-core",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Керн",
+        "kk": "Керн",
+        "en": "Core"
+      },
+      "aliases": [
+        "Core",
+        "КЕРН",
+        "Керн"
+      ],
+      "category": "core",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "КЕРН.bmp"
+      ],
+      "content_sha256": "b35dfed49238ba2d0e346e6601d2d7801b2701b11d5799cf415ad50cbad01377",
+      "pixel_sha256": "4d66688750ee011a399412ba3df80e18242d19297242ef32f0a815dc8f04557f",
+      "width_px": 21,
+      "height_px": 37,
+      "asset_path": "symbols/originals/symbol-core.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-core.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-column-marker",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Кол",
+        "kk": "Кол",
+        "en": "Column marker"
+      },
+      "aliases": [
+        "Column marker",
+        "Кол"
+      ],
+      "category": "other",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Кол.bmp"
+      ],
+      "content_sha256": "0838f9038ef685c165670f103e1965127dfe7f8dfc86ec93ff46ceaa46b84b34",
+      "pixel_sha256": "188a2135a8b13674ca40ff7122c1cb14a597c308631696534c36767078cf96e2",
+      "width_px": 22,
+      "height_px": 37,
+      "asset_path": "symbols/originals/symbol-column-marker.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-column-marker.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-h2s",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "H₂S",
+        "kk": "H₂S",
+        "en": "H₂S"
+      },
+      "aliases": [
+        "H₂S",
+        "Н2S"
+      ],
+      "category": "gas",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Н2S.bmp"
+      ],
+      "content_sha256": "cf942f44a7f0bbc16f1577284c7bf6e3f21b417adc4361379e33d140ef9b9f1c",
+      "pixel_sha256": "e79a48898ba6f5cf400ee11cb7454f5abcfe239cc59a57f64f47712de6d2307e",
+      "width_px": 36,
+      "height_px": 36,
+      "asset_path": "symbols/originals/symbol-h2s.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-h2s.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-oil-saturation",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Нефтенасыщенность",
+        "kk": "Мұнайға қанығу",
+        "en": "Oil saturation"
+      },
+      "aliases": [
+        "Oil saturation",
+        "Мұнайға қанығу",
+        "нефтенасыщенность",
+        "Нефтенасыщенность"
+      ],
+      "category": "hydrocarbon-show",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "нефтенасыщенность.bmp"
+      ],
+      "content_sha256": "29a6aa14fc49e0fc131643ba005bd090f8521953d3487950b1c420c0aa04a682",
+      "pixel_sha256": "f8c9d0f290f9eda6c87638d9e07696035e4f05b80524bc0fae1d00465c83f1e5",
+      "width_px": 25,
+      "height_px": 25,
+      "asset_path": "symbols/originals/symbol-oil-saturation.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-oil-saturation.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-residual-oil-saturation",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Остаточная нефтенасыщенность",
+        "kk": "Қалдық мұнайға қанығу",
+        "en": "Residual oil saturation"
+      },
+      "aliases": [
+        "Residual oil saturation",
+        "Остаточная нефтенасыщенность",
+        "Остаточноя нефтенасыщенность",
+        "Қалдық мұнайға қанығу"
+      ],
+      "category": "hydrocarbon-show",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Остаточноя нефтенасыщенность.bmp"
+      ],
+      "content_sha256": "9749bb8bcf58498019c9cf414a781ee6a4eebbbe57a81b5a1dea0a31c93b0909",
+      "pixel_sha256": "f75edc14c083febedcf10148cb01c675dc4eeec15babb04a017b267a944ec00c",
+      "width_px": 25,
+      "height_px": 25,
+      "asset_path": "symbols/originals/symbol-residual-oil-saturation.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-residual-oil-saturation.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-transfer",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Перекачка",
+        "kk": "Айдау",
+        "en": "Transfer"
+      },
+      "aliases": [
+        "Transfer",
+        "Айдау",
+        "Перекачка"
+      ],
+      "category": "drilling-fluid",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Перекачка.bmp"
+      ],
+      "content_sha256": "df0f64ec844d1b78ea21f64fac93d523e4c7e0a61dbab35f2ffb73fcb6f95f53",
+      "pixel_sha256": "8dfdc76f6bee43a69509969c25b827b6b8530470f74cfa04243e169ea96aff34",
+      "width_px": 23,
+      "height_px": 23,
+      "asset_path": "symbols/originals/symbol-transfer.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-transfer.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-loss",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Поглощение",
+        "kk": "Жұтылу",
+        "en": "Loss"
+      },
+      "aliases": [
+        "Loss",
+        "Жұтылу",
+        "Поглощение"
+      ],
+      "category": "drilling-fluid",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Поглощение.bmp"
+      ],
+      "content_sha256": "bc08b8f897ce7cfe4bd0b2a01fa953b5dcc771f64f464e863e1a4767f87daf16",
+      "pixel_sha256": "6ecccb870f94f1aa7d4b322f6ad3118b811246b6abeed1d2918422fdfb31cefe",
+      "width_px": 25,
+      "height_px": 35,
+      "asset_path": "symbols/originals/symbol-loss.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-loss.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-influx",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Приток",
+        "kk": "Ағын",
+        "en": "Influx"
+      },
+      "aliases": [
+        "Influx",
+        "Ағын",
+        "Приток"
+      ],
+      "category": "drilling-fluid",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Приток.bmp"
+      ],
+      "content_sha256": "8c4e1e8736bdbe2dbf2f242d40022beca6d84b5a9e887bc4533409cda4df2f73",
+      "pixel_sha256": "1ff8fd6fb827ffa0fde716de2a3741ad9bd4dc374e6ddc4f26bed6715a1e3fa9",
+      "width_px": 25,
+      "height_px": 35,
+      "asset_path": "symbols/originals/symbol-influx.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-influx.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-weak-oil-show",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Слабые нефтепроявления",
+        "kk": "Әлсіз мұнай белгілері",
+        "en": "Weak oil shows"
+      },
+      "aliases": [
+        "Weak oil shows",
+        "Слабые нефтепроявления",
+        "Әлсіз мұнай белгілері"
+      ],
+      "category": "hydrocarbon-show",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Слабые нефтепроявления.bmp"
+      ],
+      "content_sha256": "37efb441891e962015d94971a0afd6a5bd00977a987346362c995f33c2469e87",
+      "pixel_sha256": "7906edbbe72c086771fea361a38c2cf0871f07e735d4167b9d134a74b34dea04",
+      "width_px": 25,
+      "height_px": 25,
+      "asset_path": "symbols/originals/symbol-weak-oil-show.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-weak-oil-show.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-co2",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "CO₂",
+        "kk": "CO₂",
+        "en": "CO₂"
+      },
+      "aliases": [
+        "CO₂",
+        "СО2"
+      ],
+      "category": "gas",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "СО2.bmp"
+      ],
+      "content_sha256": "384b9ba98d49bd02247a3b61362beafe3dfa5e57682d487d355b08e9464f8ab2",
+      "pixel_sha256": "ef91439f0d92774563a47f46aaeeb3e07d9d612be777a41ac38dc9c3f098de91",
+      "width_px": 36,
+      "height_px": 36,
+      "asset_path": "symbols/originals/symbol-co2.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-co2.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    },
+    {
+      "id": "symbol-cementing",
+      "kind": "depth_symbol",
+      "name": {
+        "ru": "Цементирование",
+        "kk": "Цементтеу",
+        "en": "Cementing"
+      },
+      "aliases": [
+        "Cementing",
+        "Цем",
+        "Цементирование",
+        "Цементтеу"
+      ],
+      "category": "well-construction",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "source_files": [
+        "Цем.bmp"
+      ],
+      "content_sha256": "3a588f5b10c415e081cb964882b751c93ca27085807a7cae35963c7081ae65c5",
+      "pixel_sha256": "9d4381745a06a71eb239539303f02c3aaf3039fe47b0c2fd3f34eb7b9d96e7dd",
+      "width_px": 25,
+      "height_px": 35,
+      "asset_path": "symbols/originals/symbol-cementing.bmp",
+      "thumbnail_path": "symbols/thumbnails/symbol-cementing.png",
+      "placement": {
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "preserve_aspect_ratio": true,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      },
+      "active": true
+    }
+  ]
+}

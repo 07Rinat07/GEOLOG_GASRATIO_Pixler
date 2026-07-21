@@ -373,10 +373,15 @@ def _page_size(
     session: ProjectSession,
     settings: MasterlogOutputSettings | None = None,
 ) -> QPageSize:
-    if template.page_format.upper() == "A3":
-        return QPageSize(QPageSize.PageSizeId.A3)
-    if template.page_format.upper() == "A4":
-        return QPageSize(QPageSize.PageSizeId.A4)
+    fixed_ids = {
+        "A0": QPageSize.PageSizeId.A0, "A1": QPageSize.PageSizeId.A1,
+        "A2": QPageSize.PageSizeId.A2, "A3": QPageSize.PageSizeId.A3,
+        "A4": QPageSize.PageSizeId.A4, "LETTER": QPageSize.PageSizeId.Letter,
+        "LEGAL": QPageSize.PageSizeId.Legal,
+    }
+    page_id = fixed_ids.get(template.page_format.upper())
+    if page_id is not None:
+        return QPageSize(page_id)
     if template.page_format.casefold() == "custom":
         return QPageSize(
             _custom_page_size_mm(template),
@@ -392,12 +397,16 @@ def _page_size(
 
 
 def _fixed_page_size_mm(template: MasterlogTemplate) -> QSizeF:
-    if template.page_format.upper() == "A3":
-        size = QSizeF(297.0, 420.0)
-    elif template.page_format.casefold() == "custom":
+    fixed = {
+        "A0": QSizeF(841.0, 1189.0), "A1": QSizeF(594.0, 841.0),
+        "A2": QSizeF(420.0, 594.0), "A3": QSizeF(297.0, 420.0),
+        "A4": QSizeF(210.0, 297.0), "LETTER": QSizeF(215.9, 279.4),
+        "LEGAL": QSizeF(215.9, 355.6),
+    }
+    if template.page_format.casefold() == "custom":
         size = _custom_page_size_mm(template)
     else:
-        size = QSizeF(210.0, 297.0)
+        size = fixed.get(template.page_format.upper(), QSizeF(210.0, 297.0))
     if _page_orientation(template) is QPageLayout.Orientation.Landscape:
         return QSizeF(size.height(), size.width())
     return size
@@ -459,7 +468,14 @@ def _paint_header_element(
         asset_ref = element.properties.get("asset_ref")
         asset = session.image_assets.get(asset_ref) if isinstance(asset_ref, str) else None
         if asset is not None:
-            draw_image_asset(painter, rect, asset)
+            draw_image_asset(
+                painter,
+                rect,
+                asset,
+                mode=str(element.properties.get("mode", "fit")),
+                rotation=float(element.properties.get("rotation", 0.0)),
+                opacity=float(element.properties.get("opacity", 1.0)),
+            )
         return
     if element.element_type == "lithology_legend":
         entries = _masterlog_lithology_legend_entries(
@@ -468,6 +484,7 @@ def _paint_header_element(
             language,
             element.properties.get("scope"),
             lithotype_catalog,
+            element.properties.get("selected_lithotype_ids"),
         )
         _paint_lithology_legend(painter, rect, entries, element.properties, language)
         return
@@ -516,6 +533,7 @@ def masterlog_lithology_legend_entries(
         language,
         scope,
         catalog,
+        None,
     )
 
 
@@ -525,8 +543,19 @@ def _masterlog_lithology_legend_entries(
     language: AppLanguage,
     scope: object,
     catalog: dict[str, CatalogLithotype],
+    selected_lithotype_ids: object = None,
 ) -> tuple[LithologyLegendEntry, ...]:
-    selected_scope = scope if isinstance(scope, str) and scope in {"used", "all"} else "used"
+    selected_scope = (
+        scope
+        if isinstance(scope, str) and scope in {"used", "all", "manual", "used_manual"}
+        else "used"
+    )
+    raw_manual_ids = (
+        selected_lithotype_ids
+        if isinstance(selected_lithotype_ids, (list, tuple))
+        else ()
+    )
+    manual_ids = [str(value) for value in raw_manual_ids if isinstance(value, str)]
     unknown_names = {
         AppLanguage.RU: "Неизвестный литотип",
         AppLanguage.KK: "Белгісіз литотип",
@@ -535,6 +564,8 @@ def _masterlog_lithology_legend_entries(
     unknown_descriptions: dict[str, str] = {}
     if selected_scope == "all":
         lithotype_ids = list(catalog)
+    elif selected_scope == "manual":
+        lithotype_ids = manual_ids
     else:
         events: list[tuple[float, int, str]] = []
         well = session.current_well
@@ -560,6 +591,11 @@ def _masterlog_lithology_legend_entries(
             if lithotype_id not in seen:
                 seen.add(lithotype_id)
                 lithotype_ids.append(lithotype_id)
+        if selected_scope == "used_manual":
+            for lithotype_id in manual_ids:
+                if lithotype_id not in seen:
+                    seen.add(lithotype_id)
+                    lithotype_ids.append(lithotype_id)
 
     entries: list[LithologyLegendEntry] = []
     for lithotype_id in lithotype_ids:
@@ -1564,6 +1600,21 @@ def _paint_depth_symbols(
             if parameter_x is None:
                 continue
             center_x = parameter_x
+        offset_x = (
+            float(item.x)
+            if isinstance(item.x, (int, float)) and not isinstance(item.x, bool) and isfinite(float(item.x))
+            else 0.0
+        )
+        raw_offset_y = item.properties.get("offset_y_mm", 0.0)
+        offset_y = (
+            float(raw_offset_y)
+            if isinstance(raw_offset_y, (int, float))
+            and not isinstance(raw_offset_y, bool)
+            and isfinite(float(raw_offset_y))
+            else 0.0
+        )
+        center_x += offset_x
+        y += offset_y
         symbol_rect = QRectF(center_x - width / 2.0, y - height / 2.0, width, height)
         if not draw_image_asset(painter, symbol_rect, asset):
             continue

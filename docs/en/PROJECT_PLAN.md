@@ -29,3 +29,11 @@ Completed items are listed in [Project status](PROJECT_STATUS.md) and the
 ### Next pencil verification
 
 Run a Windows smoke test on a real LAS file: parameter selection, drawing in both directions, Undo/Redo, dependent-curve recalculation, project saving and updated LAS export. After stabilization, add direct drawing inside the multi-track tablet.
+
+## Universal Constructor 0.7.0
+
+The application now includes the `Ctrl+Shift+K` Constructor, 117 lithotypes, 19 symbols, a
+physical-page-aware WYSIWYG header canvas, A0–A4/Letter/Legal/custom/roll profiles, broad
+image import, semantic depth symbols with X/Y offsets, automatic/manual legends, preview and
+preflight. Next: Windows smoke testing, rulers/guides/Undo and an explicit screen-to-print
+profile link. See [Constructor plan](FORM_CONSTRUCTOR_PLAN.md).
