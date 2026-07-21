@@ -52,3 +52,42 @@ def test_merge_controller_blocks_undo_after_result_edit() -> None:
 
     with pytest.raises(RuntimeError, match="последующие правки"):
         controller.undo()
+
+
+def test_merge_copy_preserves_target_lossless_artifact_for_export() -> None:
+    from geoworkbench.data.las_import_report import LasImportReport, LasSourceSnapshot
+    from geoworkbench.data.lossless_las import parse_lossless_las
+    from geoworkbench.services.depth_axis import analyze_depth_axis
+    from pathlib import Path
+
+    controller, source, target = make_controller()
+    raw = b"~V\nVERS.2.0\n~Other\nCUSTOM CONTENT\n~A\n"
+    document = parse_lossless_las(raw)
+    report = LasImportReport(
+        LasSourceSnapshot(
+            Path("target.las"),
+            len(raw),
+            document.sha256,
+            document.encoding,
+            document.newline_style.value,
+            tuple(section.name for section in document.sections),
+            "2.0",
+            "NO",
+            -999.25,
+        ),
+        analyze_depth_axis(target.depth),
+        (),
+    )
+    controller.session.source_documents[target.dataset_id] = document
+    controller.session.import_reports[target.dataset_id] = report
+
+    result = controller.create(source.dataset_id, controller.analyze(source.dataset_id))
+
+    assert controller.session.source_documents[result.dataset_id] is document
+    assert controller.session.import_reports[result.dataset_id] is report
+    controller.undo()
+    assert result.dataset_id not in controller.session.source_documents
+    assert result.dataset_id not in controller.session.import_reports
+    controller.redo()
+    assert controller.session.source_documents[result.dataset_id] is document
+    assert controller.session.import_reports[result.dataset_id] is report

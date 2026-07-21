@@ -136,3 +136,18 @@ The current source archive was validated with `QT_QPA_PLATFORM=offscreen PYTHONP
 ## Universal Print Center regression
 
 Проверяются доступность форматов, построение A4 portrait/landscape job, физический printer mode без файлового пути, реальные размеры PNG/JPEG по DPI, нормализация расширений, профильные настройки, callback печати из Form Manager, PDF printer renderer и восстановление экранных ширин планшета. Текущий регрессионный набор: `926 tests collected`; результат последнего полного запуска — `925 passed, 1 skipped` с нормальным кодом завершения. Дополнительно выполняются `python -m ruff check src tests` и `python -m compileall -q src`.
+
+## LAS Editor 2 regression — 21 July 2026
+
+```text
+python scripts/run_tests.py
+952 passed, 1 skipped in 24.61s
+python -m ruff check src tests
+All checks passed!
+python -m compileall -q src
+completed without errors
+```
+
+The run covers depth normalization, progressive merge, external LAS insertion, pencil edits,
+dependent recalculation, spreadsheet clipboard operations, exports, project persistence, forms,
+printing, and RU/KK/EN resources.

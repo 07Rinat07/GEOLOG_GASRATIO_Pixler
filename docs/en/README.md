@@ -408,3 +408,9 @@ Every track is fully editable from its right-click menu: title, section, width, 
 captions, styles, scales, and ranges. Stratigraphy now has a project catalog, `Shift + left drag`,
 a dedicated toolbar mode, double-click editing, and project persistence. See [Editable form captions
 and stratigraphy](FORM_CAPTIONS_AND_STRATIGRAPHY.md).
+
+## LAS Editor 2
+
+Added an ascending copy for descending LAS, progressive merging, external-curve insertion,
+pencil edits with synchronous recalculation, an Excel-like table, and XLSX/TSV/CSV exports.
+See [LAS Editor 2](LAS_EDITOR_2.md).

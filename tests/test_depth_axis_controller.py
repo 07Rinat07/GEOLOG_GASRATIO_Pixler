@@ -50,3 +50,45 @@ def test_controller_resample_copy_supports_undo_and_redo() -> None:
     assert controller.redo_resample() is result
     assert session.current_dataset is result
     assert set(well.datasets) == {"source", result.dataset_id}
+
+
+def test_ascending_copy_preserves_lossless_source_artifact_across_undo_redo() -> None:
+    from pathlib import Path
+
+    from geoworkbench.data.las_import_report import LasImportReport, LasSourceSnapshot
+    from geoworkbench.data.lossless_las import parse_lossless_las
+    from geoworkbench.services.depth_axis import analyze_depth_axis
+
+    session = ProjectSession()
+    source = Dataset("source", "LAS", DatasetKind.GTI, DepthDomain.MD, np.array([2.0, 1.0]))
+    session.add_dataset(source)
+    raw = b"~V\nVERS.2.0\n~Other\nPRESERVE ME\n~A\n"
+    document = parse_lossless_las(raw)
+    report = LasImportReport(
+        LasSourceSnapshot(
+            Path("descending.las"),
+            len(raw),
+            document.sha256,
+            document.encoding,
+            document.newline_style.value,
+            tuple(section.name for section in document.sections),
+            "2.0",
+            "NO",
+            -999.25,
+        ),
+        analyze_depth_axis(source.depth),
+        (),
+    )
+    session.source_documents[source.dataset_id] = document
+    session.import_reports[source.dataset_id] = report
+    controller = DepthAxisController(session)
+
+    result = controller.create_ascending_copy()
+    assert session.source_documents[result.dataset_id] is document
+    assert session.import_reports[result.dataset_id] is report
+    controller.undo_ascending_copy()
+    assert result.dataset_id not in session.source_documents
+    assert result.dataset_id not in session.import_reports
+    controller.redo_ascending_copy()
+    assert session.source_documents[result.dataset_id] is document
+    assert session.import_reports[result.dataset_id] is report

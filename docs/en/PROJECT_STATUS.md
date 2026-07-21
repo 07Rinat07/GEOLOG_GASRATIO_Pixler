@@ -1,6 +1,6 @@
 # Current project status
 
-Date: 20 July 2026
+Date: 21 July 2026
 
 The current slice is the **GeoData Depth Workspace**, manual-entry editors based on the supplied
 GeoData guide, and unified re-editing of geological intervals.
@@ -31,3 +31,8 @@ a dedicated toolbar mode, double-click editing, and project persistence. See [Ed
 and stratigraphy](FORM_CAPTIONS_AND_STRATIGRAPHY.md).
 
 Current slice verification: `932 passed, 1 skipped`; Ruff and compileall pass.
+
+## LAS Editor 2 — current status
+
+Implemented safe ascending copies, progressive merging, direct external-curve insertion, source
+manifests, guarded Undo/Redo, pencil editing, synchronous recalculation, and table exports.

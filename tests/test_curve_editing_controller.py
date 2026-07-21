@@ -94,3 +94,36 @@ def test_controller_rejects_missing_dataset_or_curve() -> None:
     controller, _ = make_controller()
     with pytest.raises(KeyError, match="missing"):
         controller.edit_curve("missing", np.array([0]), np.array([1.0]))
+
+
+def test_graphical_edit_recalculates_existing_basic_gas_outputs() -> None:
+    dataset = Dataset(
+        "gas",
+        "Gas",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0]),
+    )
+    for curve_id, mnemonic, values in (
+        ("c1", "C1", [10.0, 10.0, 10.0]),
+        ("c2", "C2", [2.0, 2.0, 2.0]),
+        ("c3", "C3", [1.0, 1.0, 1.0]),
+    ):
+        dataset.curves[curve_id] = CurveData(
+            CurveMetadata(curve_id, mnemonic, mnemonic, "%", None, dataset.dataset_id),
+            np.asarray(values, dtype=np.float64),
+        )
+    session = ProjectSession()
+    session.add_dataset(dataset)
+    session.calculate_basic_gas_ratios()
+    controller = CurveEditingController(session)
+
+    outcome = controller.edit_curve("c1", np.array([1]), np.array([20.0]))
+
+    total = dataset.curve_by_mnemonic("TG_CALC")
+    ratio = dataset.curve_by_mnemonic("C1_C2")
+    assert total is not None and ratio is not None
+    assert total.values[1] == 23.0
+    assert ratio.values[1] == 10.0
+    assert "TG_CALC" in outcome.recalculated_mnemonics
+    assert not outcome.failed_mnemonics

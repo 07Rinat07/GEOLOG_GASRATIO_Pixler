@@ -1,3 +1,44 @@
+# Unreleased — LAS Editor 2: merge, external insertion, pencil, and spreadsheet
+
+### Русский
+
+- добавлена отдельная возрастающая копия убывающего LAS с сохранением оригинала;
+- прогрессивное сращивание сохраняет старые значения по умолчанию, заполняет пропуски новым LAS и поддерживает альтернативные политики перекрытия;
+- заголовки, параметры, дополнительные индексы и несовместимые одноимённые кривые сохраняются, результат получает `MERGE_MANIFEST`;
+- добавлена команда вставки выбранных данных непосредственно из внешнего LAS-файла;
+- поддержаны частичное перекрытие, глубины `m/ft/cm/mm`, убывающий внешний индекс, разрывы и `NULL/NaN`;
+- вставка сохраняет `EXTERNAL_LAS_IMPORT_*` manifest и поддерживает защищённые Undo/Redo;
+- графический карандаш и пакетные табличные изменения синхронно пересчитывают существующие зависимые расчёты;
+- LAS-таблица поддерживает системный `Ctrl+C/Ctrl+V`, многоячеечные блоки, очистку и экспорт XLSX/TSV/CSV;
+- добавлены целевые регрессионные тесты внешней вставки; полный прогон: `952 passed, 1 skipped`; Ruff и compileall без ошибок;
+- документация синхронизирована на RU/KK/EN.
+
+### Қазақша
+
+- кемитін тереңдігі бар LAS үшін бастапқы файлды өзгертпейтін өсу реті көшірмесі қосылды;
+- прогрессивті біріктіру ескі мәндерді сақтайды, бос орындарды жаңа LAS-пен толтырады және балама қабаттасу саясаттарын қолдайды;
+- тақырыптар, параметрлер, қосымша индекстер және сәйкес келмейтін аттас қисықтар сақталып, `MERGE_MANIFEST` жазылады;
+- сыртқы LAS файлынан таңдалған қисықтарды ағымдағы dataset-ке тікелей енгізу қосылды;
+- ішінара қабаттасу, `m/ft/cm/mm`, кемитін индекс, үзілістер және `NULL/NaN` қолдауы енгізілді;
+- енгізу `EXTERNAL_LAS_IMPORT_*` manifest-ін сақтайды және қорғалған Undo/Redo береді;
+- графикалық қарындаш пен кестелік топтық өзгерістер тәуелді есептерді синхронды қайта есептейді;
+- LAS кестесі жүйелік `Ctrl+C/Ctrl+V`, көп ұяшықты блоктар, тазалау және XLSX/TSV/CSV экспортын қолдайды;
+- сыртқы енгізу тесттері қосылды; толық іске қосу: `952 passed, 1 skipped`; Ruff және compileall қатесіз өтті;
+- RU/KK/EN құжаттамасы жаңартылды.
+
+### English
+
+- added an ascending-depth copy for descending LAS files while preserving the original;
+- progressive merge preserves old values by default, fills gaps from the new LAS, and supports alternate overlap policies;
+- headers, parameters, additional indexes, and incompatible duplicate curves are retained with a `MERGE_MANIFEST`;
+- added direct insertion of selected curves from an external LAS file into the current dataset;
+- supported partial overlap, `m/ft/cm/mm`, descending external indexes, gaps, and `NULL/NaN`;
+- insertion stores an `EXTERNAL_LAS_IMPORT_*` manifest and provides guarded Undo/Redo;
+- pencil and spreadsheet edits synchronously recalculate existing dependent outputs;
+- the LAS table supports system `Ctrl+C/Ctrl+V`, multi-cell blocks, clearing, and XLSX/TSV/CSV exports;
+- added focused external-insertion regression tests; full run: `952 passed, 1 skipped`; Ruff and compileall pass;
+- synchronized RU/KK/EN documentation.
+
 ## Unreleased — editable form captions and working stratigraphy
 
 ### Русский

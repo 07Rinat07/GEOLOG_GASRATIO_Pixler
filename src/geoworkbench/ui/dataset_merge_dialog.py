@@ -12,7 +12,10 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
-from geoworkbench.services.dataset_merge import DatasetMergeAnalysis
+from geoworkbench.services.dataset_merge import (
+    DatasetMergeAnalysis,
+    MergeOverlapPolicy,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
@@ -29,13 +32,20 @@ class DatasetMergeDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.analysis: DatasetMergeAnalysis | None = None
         self.setWindowTitle(self._t("merge.title"))
-        self.resize(620, 360)
+        self.resize(680, 430)
         root = QVBoxLayout(self)
         form = QFormLayout()
         self.source_combo = QComboBox()
         for dataset in controller.available_sources():
             self.source_combo.addItem(dataset.name, dataset.dataset_id)
         form.addRow(self._t("merge.source"), self.source_combo)
+        self.policy_combo = QComboBox()
+        for policy in MergeOverlapPolicy:
+            self.policy_combo.addItem(self._t(f"merge.policy.{policy.value}"), policy)
+        self.policy_combo.setCurrentIndex(
+            self.policy_combo.findData(MergeOverlapPolicy.PRESERVE_EXISTING)
+        )
+        form.addRow(self._t("merge.policy"), self.policy_combo)
         root.addLayout(form)
         self.preview = QLabel()
         self.preview.setWordWrap(True)
@@ -56,12 +66,18 @@ class DatasetMergeDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)
         self.source_combo.currentIndexChanged.connect(self._refresh_analysis)
+        self.policy_combo.currentIndexChanged.connect(self._refresh_analysis)
         self._refresh_analysis()
 
     @property
     def source_dataset_id(self) -> str | None:
         value = self.source_combo.currentData()
         return value if isinstance(value, str) else None
+
+    @property
+    def overlap_policy(self) -> MergeOverlapPolicy:
+        value = self.policy_combo.currentData()
+        return value if isinstance(value, MergeOverlapPolicy) else MergeOverlapPolicy(value)
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
@@ -84,16 +100,24 @@ class DatasetMergeDialog(QDialog):
         self.analysis = analysis
         self.preview.setText(
             self._t(
-                "merge.preview",
+                "merge.preview_extended",
                 source=analysis.source_sample_count,
                 target=analysis.target_sample_count,
                 merged=analysis.merged_sample_count,
                 overlap=analysis.overlap_sample_count,
+                merged_curves=analysis.merged_curve_count,
+                source_only=analysis.source_only_curve_count,
+                target_only=analysis.target_only_curve_count,
+                value_conflicts=analysis.overlap_value_conflict_count,
             )
         )
         if analysis.mnemonic_conflicts:
-            self.conflicts.addItems(analysis.mnemonic_conflicts)
-        else:
+            for mnemonic in analysis.mnemonic_conflicts:
+                self.conflicts.addItem(self._t("merge.shared_curve", mnemonic=mnemonic))
+        if analysis.metadata_conflicts:
+            for conflict in analysis.metadata_conflicts:
+                self.conflicts.addItem(self._t("merge.metadata_conflict", conflict=conflict))
+        if not analysis.mnemonic_conflicts and not analysis.metadata_conflicts:
             self.conflicts.addItem(self._t("merge.no_conflicts"))
         self._update_accept_state()
 

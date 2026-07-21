@@ -375,3 +375,80 @@ def test_table_context_shift_operates_on_selected_curve(qapp, monkeypatch) -> No
     action_labels = {action.text() for action in editor.findChildren(QAction)}
     assert {"Сдвинуть значения...", "Умножить значения...", "Сгладить значения..."} <= action_labels
     editor.close()
+
+
+def test_table_system_clipboard_pastes_excel_rectangle_and_recalculates(qapp) -> None:
+    editor, dataset = make_editor()
+    editor.set_dataset(dataset)
+    model = editor.model
+    c1_column = column_for_mnemonic(model, "C1")
+    c2_column = column_for_mnemonic(model, "C2")
+    editor.table.setCurrentIndex(model.index(0, c1_column))
+    qapp.clipboard().setText("20\t4\n30\t5")
+
+    editor.paste_cells_from_clipboard()
+
+    np.testing.assert_allclose(dataset.curves["c1"].values, [20.0, 30.0, 10.0])
+    np.testing.assert_allclose(dataset.curves["c2"].values, [4.0, 5.0, 2.0])
+    total = dataset.curve_by_mnemonic("TG_CALC")
+    assert total is not None
+    np.testing.assert_allclose(total.values, [25.0, 36.0, 13.0])
+    # Ensure the pasted columns were adjacent source columns, not the calculated outputs.
+    assert c2_column == c1_column + 1
+    editor.close()
+
+
+def test_table_system_clipboard_blank_cell_creates_real_missing_value(qapp) -> None:
+    editor, dataset = make_editor()
+    editor.set_dataset(dataset)
+    model = editor.model
+    c1_column = column_for_mnemonic(model, "C1")
+    editor.table.setCurrentIndex(model.index(1, c1_column))
+    qapp.clipboard().setText("")
+
+    # An entirely empty clipboard is rejected; a tab-separated blank field is a
+    # real spreadsheet cell and is interpreted as LAS NULL/NaN.
+    qapp.clipboard().setText("\t")
+    editor.paste_cells_from_clipboard()
+
+    assert np.isnan(dataset.curves["c1"].values[1])
+    editor.close()
+
+
+def test_table_copy_cells_uses_tsv_for_excel(qapp) -> None:
+    editor, dataset = make_editor()
+    editor.set_dataset(dataset)
+    model = editor.model
+    selection = editor.table.selectionModel()
+    c1_column = column_for_mnemonic(model, "C1")
+    c2_column = column_for_mnemonic(model, "C2")
+    for row in (0, 1):
+        for column in (c1_column, c2_column):
+            selection.select(
+                model.index(row, column),
+                QItemSelectionModel.SelectionFlag.Select,
+            )
+
+    editor.copy_cells_to_clipboard()
+
+    assert qapp.clipboard().text() == "10\t2\n10\t2"
+    editor.close()
+
+
+def test_table_export_all_supports_excel_and_text(qapp, tmp_path, monkeypatch) -> None:
+    editor, dataset = make_editor()
+    editor.set_dataset(dataset)
+    excel = tmp_path / "all.xlsx"
+    monkeypatch.setattr(
+        "geoworkbench.ui.las_table_editor.QFileDialog.getSaveFileName",
+        lambda *args, **kwargs: (str(excel), "Excel (*.xlsx)"),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.ui.las_table_editor.QMessageBox.information",
+        lambda *args, **kwargs: None,
+    )
+
+    editor.export_all_cells()
+
+    assert excel.is_file()
+    editor.close()

@@ -40,18 +40,18 @@ def test_merge_dialog_previews_safe_union(qapp) -> None:
     assert dialog.analysis is not None
     assert dialog.analysis.merged_sample_count == 3
     assert dialog.analysis.overlap_sample_count == 1
-    assert "result samples: 3" in dialog.preview.text()
+    assert "result: 3" in dialog.preview.text()
     assert dialog.conflicts.item(0).text() == "No conflicts"
     assert ok_button.isEnabled()
     dialog.close()
 
 
-def test_merge_dialog_blocks_mnemonic_conflicts(qapp) -> None:
+def test_merge_dialog_allows_shared_mnemonics_with_policy(qapp) -> None:
     dialog = DatasetMergeDialog(make_controller(conflict=True), language=AppLanguage.EN)
 
     assert dialog.analysis is not None
-    assert dialog.conflicts.item(0).text() == "GR"
-    assert not dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+    assert "Shared curve: GR" in dialog.conflicts.item(0).text()
+    assert dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
     dialog.close()
 
 

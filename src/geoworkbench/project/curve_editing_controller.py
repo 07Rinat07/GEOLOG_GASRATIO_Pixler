@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 from numpy.typing import NDArray
@@ -10,6 +10,10 @@ from geoworkbench.domain.models import CalculationState, CurveData, Dataset
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.dependency_graph import DependencyGraph
 from geoworkbench.services.edit_history import CurveEditCommand, CurveEditHistory
+from geoworkbench.services.dependent_recalculation import recalculate_existing_dependents
+
+if TYPE_CHECKING:
+    from geoworkbench.calculations.pixler import FormulaProfileRegistry
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +23,8 @@ class CurveEditOutcome:
     curve_id: str
     mnemonic: str
     affected_mnemonics: tuple[str, ...]
+    recalculated_mnemonics: tuple[str, ...] = ()
+    failed_mnemonics: tuple[str, ...] = ()
 
 
 @dataclass(slots=True)
@@ -28,6 +34,7 @@ class CurveEditingController:
     session: ProjectSession
     dependency_graph: DependencyGraph = field(default_factory=DependencyGraph)
     history: CurveEditHistory = field(default_factory=CurveEditHistory)
+    formula_registry: "FormulaProfileRegistry | None" = None
 
     def edit_curve(
         self,
@@ -74,13 +81,19 @@ class CurveEditingController:
             dependent = dataset.curve_by_mnemonic(mnemonic)
             if dependent is not None and dependent is not curve:
                 dependent.state = CalculationState.STALE
-        self.session.dirty = True
+        report = recalculate_existing_dependents(
+            self.session,
+            dataset,
+            formula_registry=self.formula_registry,
+        )
         return CurveEditOutcome(
             operation=operation,
             dataset_id=dataset.dataset_id,
             curve_id=curve.metadata.curve_id,
             mnemonic=curve.metadata.original_mnemonic,
             affected_mnemonics=affected,
+            recalculated_mnemonics=report.recalculated_mnemonics,
+            failed_mnemonics=report.failed_mnemonics,
         )
 
     def _require_current_dataset(self) -> Dataset:

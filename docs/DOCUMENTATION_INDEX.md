@@ -33,3 +33,12 @@ All user-facing behavior changes must be reflected in all three guides and in th
 - Universal Print Center: [Русский](ru/UNIVERSAL_PRINT_CENTER.md) · [Қазақша](kk/UNIVERSAL_PRINT_CENTER.md) · [English](en/UNIVERSAL_PRINT_CENTER.md)
 
 - Редактируемые подписи формы и стратиграфия: [RU](ru/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [KK](kk/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [EN](en/FORM_CAPTIONS_AND_STRATIGRAPHY.md)
+
+## LAS Editor 2
+
+- [Русский](ru/LAS_EDITOR_2.md)
+- [Қазақша](kk/LAS_EDITOR_2.md)
+- [English](en/LAS_EDITOR_2.md)
+
+Безопасное сращивание LAS, возрастающая копия, вставка внешних кривых, карандаш,
+Excel-подобная таблица и экспорт.

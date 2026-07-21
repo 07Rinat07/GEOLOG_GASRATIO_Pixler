@@ -1,6 +1,6 @@
 # Project plan
 
-Date: 20 July 2026
+Date: 21 July 2026
 
 1. **GeoData Depth Workspace** — complete the reference-aligned daily screen, unified creation and
    re-editing of lithology, cuttings, LBA, calcimetry, and text, adaptive layout, and persistence.
@@ -17,3 +17,11 @@ Completed items are listed in [Project status](PROJECT_STATUS.md) and the
 
 5. **Captions and stratigraphy** — keep the full track editor, project catalog, interval input, and
    persistence as a mandatory part of every production form.
+
+## LAS Editor 2
+
+- [x] ascending copy without modifying the original;
+- [x] progressive merge with metadata preservation;
+- [x] external LAS curve insertion with depth mapping;
+- [x] pencil editing and synchronous recalculation;
+- [x] batch table operations and exports.

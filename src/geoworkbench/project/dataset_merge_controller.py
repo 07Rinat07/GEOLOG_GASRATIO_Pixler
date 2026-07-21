@@ -5,11 +5,14 @@ from hashlib import sha256
 
 import numpy as np
 
+from geoworkbench.data.las_import_report import LasImportReport
+from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.tablet.models import TabletLayout
 from geoworkbench.services.dataset_merge import (
     DatasetMergeAnalysis,
+    MergeOverlapPolicy,
     analyze_dataset_merge,
     create_merged_dataset,
 )
@@ -22,6 +25,8 @@ class DatasetMergeController:
     _merged_dataset: Dataset | None = None
     _merged_signature: str | None = None
     _merged_layout: TabletLayout | None = None
+    _merged_source_document: LosslessLasDocument | None = None
+    _merged_import_report: LasImportReport | None = None
 
     @property
     def can_undo(self) -> bool:
@@ -49,13 +54,30 @@ class DatasetMergeController:
     def analyze(self, source_dataset_id: str) -> DatasetMergeAnalysis:
         return analyze_dataset_merge(self._dataset(source_dataset_id), self._target())
 
-    def create(self, source_dataset_id: str, analysis: DatasetMergeAnalysis) -> Dataset:
+    def create(
+        self,
+        source_dataset_id: str,
+        analysis: DatasetMergeAnalysis,
+        *,
+        overlap_policy: MergeOverlapPolicy = MergeOverlapPolicy.PRESERVE_EXISTING,
+    ) -> Dataset:
         target = self._target()
-        result = create_merged_dataset(self._dataset(source_dataset_id), target, analysis)
+        result = create_merged_dataset(
+            self._dataset(source_dataset_id),
+            target,
+            analysis,
+            overlap_policy=overlap_policy,
+        )
         well = self.session.current_well
         if well is None:
             raise RuntimeError("Сначала выберите скважину-приёмник")
         well.datasets[result.dataset_id] = result
+        self._merged_source_document = self.session.source_documents.get(target.dataset_id)
+        self._merged_import_report = self.session.import_reports.get(target.dataset_id)
+        if self._merged_source_document is not None:
+            self.session.source_documents[result.dataset_id] = self._merged_source_document
+        if self._merged_import_report is not None:
+            self.session.import_reports[result.dataset_id] = self._merged_import_report
         self._target_dataset_id = target.dataset_id
         self._merged_dataset = result
         self._merged_signature = _dataset_signature(result)
@@ -73,6 +95,8 @@ class DatasetMergeController:
                 "Результат сращивания содержит последующие правки; Undo заблокирован"
             )
         self._merged_layout = self.session.tablet_layouts.pop(merged.dataset_id, None)
+        self.session.source_documents.pop(merged.dataset_id, None)
+        self.session.import_reports.pop(merged.dataset_id, None)
         del well.datasets[merged.dataset_id]
         self.session.current_dataset_id = self._target_dataset_id
         self.session.dirty = True
@@ -85,6 +109,10 @@ class DatasetMergeController:
         well.datasets[merged.dataset_id] = merged
         if self._merged_layout is not None:
             self.session.tablet_layouts[merged.dataset_id] = self._merged_layout
+        if self._merged_source_document is not None:
+            self.session.source_documents[merged.dataset_id] = self._merged_source_document
+        if self._merged_import_report is not None:
+            self.session.import_reports[merged.dataset_id] = self._merged_import_report
         self.session.current_dataset_id = merged.dataset_id
         self.session.dirty = True
         return merged
@@ -94,6 +122,8 @@ class DatasetMergeController:
         self._merged_dataset = None
         self._merged_signature = None
         self._merged_layout = None
+        self._merged_source_document = None
+        self._merged_import_report = None
 
     def _target(self) -> Dataset:
         dataset = self.session.current_dataset

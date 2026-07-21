@@ -61,6 +61,7 @@ from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
 from geoworkbench.project.curve_metadata_controller import CurveMetadataController
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
+from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
 from geoworkbench.project.custom_formula_controller import CustomFormulaController
 from geoworkbench.project.header_editing_controller import HeaderEditingController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
@@ -107,6 +108,7 @@ from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
 from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
+from geoworkbench.ui.external_las_insert_dialog import ExternalLasInsertDialog
 from geoworkbench.ui.curve_settings_dialog import CurveSettingsDialog
 from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
@@ -187,7 +189,9 @@ class MainWindow(QMainWindow):
         self.header_editing_controller = HeaderEditingController(self.session)
         self.curve_metadata_controller = CurveMetadataController(self.session)
         self.curve_transfer_controller = CurveTransferController(self.session)
+        self.external_las_insert_controller = ExternalLasInsertController(self.session)
         self.formula_registry = build_all_sourced_formula_registry()
+        self.external_las_insert_controller.formula_registry = self.formula_registry
         self.formula_execution_controller = FormulaExecutionController(
             self.session, self.formula_registry
         )
@@ -205,6 +209,7 @@ class MainWindow(QMainWindow):
         self.nct_calculation_controller = NctCalculationController(self.session)
         self.new_las_controller = NewLasController(self.session)
         self.las_range_editing_controller = LasRangeEditingController(self.session)
+        self._configure_edit_dependencies()
         self.masterlog_template_controller = MasterlogTemplateController(self.session)
         self.dataset_selection = DatasetIntervalSelection()
         self._selected_track_id: str | None = None
@@ -828,6 +833,18 @@ class MainWindow(QMainWindow):
         self.redo_transfer_action.setEnabled(False)
         edit_menu.addAction(self.redo_transfer_action)
 
+        self.external_las_insert_action = self._localized_action("external_las.action")
+        self.external_las_insert_action.triggered.connect(self.show_external_las_insert)
+        edit_menu.addAction(self.external_las_insert_action)
+        self.undo_external_las_insert_action = self._localized_action("external_las.undo")
+        self.undo_external_las_insert_action.triggered.connect(self.undo_external_las_insert)
+        self.undo_external_las_insert_action.setEnabled(False)
+        edit_menu.addAction(self.undo_external_las_insert_action)
+        self.redo_external_las_insert_action = self._localized_action("external_las.redo")
+        self.redo_external_las_insert_action.triggered.connect(self.redo_external_las_insert)
+        self.redo_external_las_insert_action.setEnabled(False)
+        edit_menu.addAction(self.redo_external_las_insert_action)
+
         self.merge_datasets_action = self._localized_action("merge.action")
         self.merge_datasets_action.triggered.connect(self.show_dataset_merge)
         edit_menu.addAction(self.merge_datasets_action)
@@ -1033,6 +1050,7 @@ class MainWindow(QMainWindow):
         self.main_toolbar.setMovable(False)
         self.main_toolbar.addAction(self.open_project_action)
         self.main_toolbar.addAction(self.open_data_action)
+        self.main_toolbar.addAction(self.external_las_insert_action)
         self.main_toolbar.addAction(self.default_tablet_action)
         self.main_toolbar.addAction(self.edit_selected_track_action)
         self.main_toolbar.addAction(self.stratigraphy_mode_action)
@@ -1416,6 +1434,8 @@ class MainWindow(QMainWindow):
         self.interpretation_controller.selected_interpretation_id = None
         self.interpretation_controller.selected_interval_id = None
         self.curve_editing_controller = CurveEditingController(self.session)
+        self.las_range_editing_controller.session = self.session
+        self._configure_edit_dependencies()
         self.dataset_export_controller.session = self.session
         self.dataset_merge_controller.session = self.session
         self.dataset_merge_controller.clear_history()
@@ -1428,6 +1448,10 @@ class MainWindow(QMainWindow):
         self.curve_transfer_controller.session = self.session
         self.curve_transfer_controller.clear_history()
         self._update_transfer_actions()
+        self.external_las_insert_controller.session = self.session
+        self.external_las_insert_controller.formula_registry = self.formula_registry
+        self.external_las_insert_controller.clear_history()
+        self._update_external_las_insert_actions()
         self.formula_execution_controller.session = self.session
         self.custom_formula_controller.session = self.session
         self.custom_formula_controller.clear_history()
@@ -1459,6 +1483,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, "pencil_action"):
             self.pencil_action.setChecked(False)
         dataset = self.session.current_dataset
+        self._update_external_las_insert_actions()
         if dataset is None:
             self.curve_view.clear()
             self.las_table_editor.set_dataset(None)
@@ -2098,6 +2123,35 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
 
+    def _configure_edit_dependencies(self) -> None:
+        graph = self.formula_registry.build_dependency_graph()
+        basic_inputs = ("C1", "C2", "C3", "IC4", "NC4", "C4", "IC5", "NC5", "C5")
+        basic_outputs = (
+            "C1_C2",
+            "C1_C3",
+            "C2_C3",
+            "C1_C2C3",
+            "TG_CALC",
+            "C1_REL",
+            "C2_REL",
+            "C3_REL",
+            "IC4_REL",
+            "NC4_REL",
+            "C4_REL",
+            "IC5_REL",
+            "NC5_REL",
+            "C5_REL",
+        )
+        for source in basic_inputs:
+            for target in basic_outputs:
+                try:
+                    graph.add_dependency(source, target)
+                except ValueError:
+                    pass
+        self.curve_editing_controller.dependency_graph = graph
+        self.curve_editing_controller.formula_registry = self.formula_registry
+        self.las_range_editing_controller.formula_registry = self.formula_registry
+
     def toggle_curve_edit_mode(self, enabled: bool) -> None:
         if enabled and not self.curve_view.set_edit_mode(True):
             self.pencil_action.setChecked(False)
@@ -2154,7 +2208,12 @@ class MainWindow(QMainWindow):
         self._update_curve_edit_actions()
         self._update_title()
         affected = ", ".join(outcome.affected_mnemonics) or "нет"
-        self._log(f"{outcome.operation}: {outcome.mnemonic}; зависимые STALE: {affected}")
+        recalculated = ", ".join(outcome.recalculated_mnemonics) or "нет"
+        failed = ", ".join(outcome.failed_mnemonics) or "нет"
+        self._log(
+            f"{outcome.operation}: {outcome.mnemonic}; зависимые: {affected}; "
+            f"пересчитано: {recalculated}; ошибки: {failed}"
+        )
 
     def _after_table_edit(self) -> None:
         dataset = self.session.current_dataset
@@ -3547,6 +3606,79 @@ class MainWindow(QMainWindow):
             return
         self._after_curve_transfer(self._t("transfer.completed", count=len(curves)))
 
+    def show_external_las_insert(self) -> None:
+        if self.session.current_dataset is None:
+            QMessageBox.information(
+                self, self._t("external_las.title"), self._t("data.select_dataset")
+            )
+            return
+        dialog = ExternalLasInsertDialog(
+            self.external_las_insert_controller,
+            self,
+            language=self.language,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.analysis is None:
+            return
+        try:
+            outcome = self.external_las_insert_controller.apply(
+                dialog.analysis, dialog.selections
+            )
+        except (KeyError, OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("external_las.title"), str(exc))
+            return
+        self._after_external_las_insert(
+            self._t("external_las.completed", count=len(outcome.inserted_mnemonics)),
+            outcome.inserted_mnemonics,
+        )
+
+    def undo_external_las_insert(self) -> None:
+        try:
+            outcome = self.external_las_insert_controller.undo()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("external_las.title"), str(exc))
+            return
+        self._after_external_las_insert(
+            self._t("external_las.undone"), outcome.inserted_mnemonics
+        )
+
+    def redo_external_las_insert(self) -> None:
+        try:
+            outcome = self.external_las_insert_controller.redo()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("external_las.title"), str(exc))
+            return
+        self._after_external_las_insert(
+            self._t("external_las.redone"), outcome.inserted_mnemonics
+        )
+
+    def _after_external_las_insert(
+        self, message: str, mnemonics: tuple[str, ...]
+    ) -> None:
+        dataset = self.session.current_dataset
+        if dataset is not None:
+            existing = [
+                mnemonic
+                for mnemonic in mnemonics
+                if dataset.curve_by_mnemonic(mnemonic) is not None
+            ]
+            self.curve_view.show_dataset(dataset, existing or None)
+            self.tablet_view.set_dataset(dataset)
+            self.las_table_editor.set_dataset(dataset)
+        self._refresh_tree()
+        self._update_title()
+        self._update_external_las_insert_actions()
+        self._log(message)
+        self.statusBar().showMessage(message)
+
+    def _update_external_las_insert_actions(self) -> None:
+        if hasattr(self, "undo_external_las_insert_action"):
+            self.undo_external_las_insert_action.setEnabled(
+                self.external_las_insert_controller.can_undo
+            )
+            self.redo_external_las_insert_action.setEnabled(
+                self.external_las_insert_controller.can_redo
+            )
+
     def show_dataset_merge(self) -> None:
         if self.session.current_dataset is None:
             QMessageBox.information(self, self._t("merge.title"), self._t("data.select_dataset"))
@@ -3559,7 +3691,11 @@ class MainWindow(QMainWindow):
         ):
             return
         try:
-            result = self.dataset_merge_controller.create(dialog.source_dataset_id, dialog.analysis)
+            result = self.dataset_merge_controller.create(
+                dialog.source_dataset_id,
+                dialog.analysis,
+                overlap_policy=dialog.overlap_policy,
+            )
         except (KeyError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("merge.title"), str(exc))
             return

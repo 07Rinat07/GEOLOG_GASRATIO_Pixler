@@ -203,11 +203,16 @@ def create_resampled_depth_copy(
         kind=DatasetKind.DERIVED,
         depth_domain=dataset.depth_domain,
         depth=target_depth,
-        source_path=dataset.source_path,
+        source_path=None,
         headers=dict(dataset.headers),
-        parameters=dict(dataset.parameters),
+        parameters={
+            **dataset.parameters,
+            "DEPTH_RESAMPLE_SOURCE_DATASET": dataset.dataset_id,
+            "DEPTH_RESAMPLE_SOURCE_PATH": str(dataset.source_path or ""),
+        },
         indexes=indexes,
         active_index_id=index_ids[dataset.active_index_id],  # type: ignore[index]
+        version_headers=dict(dataset.version_headers),
     )
     for curve in dataset.curves.values():
         metadata = curve.metadata
@@ -301,11 +306,16 @@ def create_ascending_depth_copy(dataset: Dataset, *, name: str | None = None) ->
         kind=DatasetKind.DERIVED,
         depth_domain=dataset.depth_domain,
         depth=np.asarray(dataset.depth[::-1], dtype=np.float64).copy(),
-        source_path=dataset.source_path,
+        source_path=None,
         headers=dict(dataset.headers),
-        parameters=dict(dataset.parameters),
+        parameters={
+            **dataset.parameters,
+            "DEPTH_REVERSAL_SOURCE_DATASET": dataset.dataset_id,
+            "DEPTH_REVERSAL_SOURCE_PATH": str(dataset.source_path or ""),
+        },
         indexes=indexes,
         active_index_id=index_ids[dataset.active_index_id],  # type: ignore[index]
+        version_headers=dict(dataset.version_headers),
     )
     for curve in dataset.curves.values():
         metadata = curve.metadata
@@ -321,6 +331,8 @@ def create_ascending_depth_copy(dataset: Dataset, *, name: str | None = None) ->
                 provenance=f"transform:reverse-depth:{dataset.dataset_id}",
             ),
             np.asarray(curve.values[::-1], dtype=np.float64).copy(),
+            version=curve.version,
+            state=curve.state,
         )
     result.headers.update(
         {

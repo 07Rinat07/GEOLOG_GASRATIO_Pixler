@@ -12,17 +12,20 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
     QLabel,
+    QMessageBox,
     QMenu,
     QPushButton,
     QSpinBox,
@@ -31,6 +34,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.data.selection_export import (
+    SelectionExportError,
+    export_selection_excel,
+    export_selection_text,
+)
 from geoworkbench.data.number_format import (
     NumberDisplayFormat,
     NumberFormatMode,
@@ -203,7 +211,8 @@ class LasTableModel(QAbstractTableModel):
         curves_before = len(self.dataset.curves)
         curve = list(self.dataset.curves.values())[index.column() - 1]
         try:
-            numeric = float(str(value).strip().replace(",", "."))
+            rendered = str(value).strip()
+            numeric = np.nan if rendered == "" else float(rendered.replace(",", "."))
             self.controller.edit_cell(curve.metadata.curve_id, index.row(), numeric)
         except (IndexError, KeyError, RuntimeError, ValueError) as exc:
             self.edit_failed.emit(str(exc))
@@ -501,13 +510,19 @@ class LasTableEditor(QWidget):
         self.number_format_button = QPushButton(self._t("table.number_format.action"))
         self.number_format_button.clicked.connect(self.configure_number_format)
         actions.addWidget(self.number_format_button)
+        self.export_selection_button = QPushButton(self._t("table.export.selection"))
+        self.export_selection_button.clicked.connect(self.export_selected_cells)
+        actions.addWidget(self.export_selection_button)
+        self.export_all_button = QPushButton(self._t("table.export.all"))
+        self.export_all_button.clicked.connect(self.export_all_cells)
+        actions.addWidget(self.export_all_button)
         actions.addStretch()
         root.addLayout(actions)
         root.addWidget(self.table)
         self._create_context_actions()
 
-    def _t(self, key: str) -> str:
-        return self.localizer.text(key)
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(key, **values)
 
     def set_language(self, language: AppLanguage) -> None:
         self.localizer = Localizer.create(language)
@@ -516,11 +531,16 @@ class LasTableEditor(QWidget):
         for button, key in self._command_buttons:
             button.setText(self._t(key))
         self.number_format_button.setText(self._t("table.number_format.action"))
+        self.export_selection_button.setText(self._t("table.export.selection"))
+        self.export_all_button.setText(self._t("table.export.all"))
         self.header_mode_label.setText(self._t("table.header.mode.label"))
         current_mode = self.model.header_mode
         self._populate_header_modes()
         self.header_mode_input.setCurrentIndex(self.header_mode_input.findData(current_mode))
         self.table.horizontalHeader().setToolTip(self._t("table.header.tooltip.hint"))
+        self.copy_cells_action.setText(self._t("table.copy_cells"))
+        self.paste_cells_action.setText(self._t("table.paste_cells"))
+        self.clear_cells_action.setText(self._t("table.clear_cells"))
         self.shift_action.setText(self._t("table.shift"))
         self.multiply_action.setText(self._t("table.multiply"))
         self.smooth_action.setText(self._t("table.smooth"))
@@ -815,7 +835,228 @@ class LasTableEditor(QWidget):
         self.model.endResetModel()
         self.dataset_edited.emit()
 
+    def copy_cells_to_clipboard(self) -> None:
+        selected = self.table.selectedIndexes()
+        if not selected:
+            self.edit_failed.emit(self._t("table.select_cells"))
+            return
+        rows = range(min(index.row() for index in selected), max(index.row() for index in selected) + 1)
+        columns = range(
+            min(index.column() for index in selected),
+            max(index.column() for index in selected) + 1,
+        )
+        selected_coordinates = {(index.row(), index.column()) for index in selected}
+        lines: list[str] = []
+        for row in rows:
+            cells: list[str] = []
+            for column in columns:
+                if (row, column) not in selected_coordinates:
+                    cells.append("")
+                    continue
+                value = self.model.data(
+                    self.model.index(row, column),
+                    Qt.ItemDataRole.EditRole,
+                )
+                cells.append(str(value or ""))
+            lines.append("\t".join(cells))
+        QApplication.clipboard().setText("\n".join(lines))
+
+    def paste_cells_from_clipboard(self) -> None:
+        dataset = self.model.dataset
+        current = self.table.currentIndex()
+        if dataset is None:
+            self.edit_failed.emit(self._t("table.select_dataset"))
+            return
+        if not current.isValid():
+            self.edit_failed.emit(self._t("table.select_paste_cell"))
+            return
+        raw = QApplication.clipboard().text()
+        if raw == "":
+            self.edit_failed.emit(self._t("table.clipboard_empty"))
+            return
+        rows = [line.split("\t") for line in raw.replace("\r\n", "\n").split("\n")]
+        while rows and len(rows[-1]) == 1 and rows[-1][0] == "":
+            rows.pop()
+        if not rows:
+            self.edit_failed.emit(self._t("table.clipboard_empty"))
+            return
+        width = max(len(row) for row in rows)
+        selected = self.table.selectedIndexes()
+        if len(rows) == 1 and width == 1 and len(selected) > 1:
+            targets = sorted(selected, key=lambda index: (index.column(), index.row()))
+            text_values = [rows[0][0]] * len(targets)
+        else:
+            targets = []
+            text_values = []
+            for row_offset, values in enumerate(rows):
+                for column_offset in range(width):
+                    target_row = current.row() + row_offset
+                    target_column = current.column() + column_offset
+                    if target_row >= self.model.rowCount() or target_column >= self.model.columnCount():
+                        self.edit_failed.emit(self._t("table.paste_outside"))
+                        return
+                    targets.append(self.model.index(target_row, target_column))
+                    text_values.append(values[column_offset] if column_offset < len(values) else "")
+        if any(index.column() == 0 for index in targets):
+            self.edit_failed.emit(self._t("table.depth_readonly"))
+            return
+        curves = list(dataset.curves.values())
+        changes_by_curve: dict[str, list[tuple[int, float]]] = {}
+        try:
+            for index, text in zip(targets, text_values, strict=True):
+                curve = curves[index.column() - 1]
+                if curve.metadata.provenance.startswith("calculation:"):
+                    raise ValueError(
+                        self._t("table.calculated_readonly").format(
+                            mnemonic=curve.metadata.original_mnemonic
+                        )
+                    )
+                cleaned = text.strip()
+                value = (
+                    np.nan
+                    if cleaned == ""
+                    else float(cleaned.replace(" ", "").replace(",", "."))
+                )
+                changes_by_curve.setdefault(curve.metadata.curve_id, []).append(
+                    (index.row(), value)
+                )
+            changes = {
+                curve_id: (
+                    np.asarray([row for row, _ in items], dtype=np.int64),
+                    np.asarray([value for _, value in items], dtype=np.float64),
+                )
+                for curve_id, items in changes_by_curve.items()
+            }
+            self.controller.edit_matrix(changes)
+        except (IndexError, KeyError, RuntimeError, ValueError) as exc:
+            self.edit_failed.emit(str(exc))
+            return
+        self._refresh_after_operation()
+
+    def clear_selected_cells(self) -> None:
+        dataset = self.model.dataset
+        selected = self.table.selectedIndexes()
+        if dataset is None or not selected:
+            self.edit_failed.emit(self._t("table.select_cells"))
+            return
+        curves = list(dataset.curves.values())
+        grouped: dict[str, list[int]] = {}
+        try:
+            for index in selected:
+                if index.column() == 0:
+                    continue
+                curve = curves[index.column() - 1]
+                if curve.metadata.provenance.startswith("calculation:"):
+                    raise ValueError(
+                        self._t("table.calculated_readonly").format(
+                            mnemonic=curve.metadata.original_mnemonic
+                        )
+                    )
+                grouped.setdefault(curve.metadata.curve_id, []).append(index.row())
+            changes = {
+                curve_id: (
+                    np.asarray(sorted(set(rows)), dtype=np.int64),
+                    np.full(len(set(rows)), np.nan, dtype=np.float64),
+                )
+                for curve_id, rows in grouped.items()
+            }
+            self.controller.edit_matrix(changes, description="Очистка выбранных ячеек")
+        except (IndexError, KeyError, RuntimeError, ValueError) as exc:
+            self.edit_failed.emit(str(exc))
+            return
+        self._refresh_after_operation()
+
+    def export_selected_cells(self) -> None:
+        try:
+            curve_ids, top, bottom = self._selected_range()
+        except (KeyError, RuntimeError, ValueError) as exc:
+            self.edit_failed.emit(str(exc))
+            return
+        self._export_range(curve_ids, top, bottom, default_stem="las-selection")
+
+    def export_all_cells(self) -> None:
+        dataset = self.model.dataset
+        if dataset is None:
+            self.edit_failed.emit(self._t("table.select_dataset"))
+            return
+        finite_depth = dataset.depth[np.isfinite(dataset.depth)]
+        if finite_depth.size == 0:
+            self.edit_failed.emit(self._t("table.no_depth"))
+            return
+        self._export_range(
+            list(dataset.curves),
+            float(np.min(finite_depth)),
+            float(np.max(finite_depth)),
+            default_stem=dataset.name,
+        )
+
+    def _export_range(
+        self,
+        curve_ids: list[str],
+        top: float,
+        bottom: float,
+        *,
+        default_stem: str,
+    ) -> None:
+        dataset = self.model.dataset
+        if dataset is None:
+            return
+        filename, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            self._t("table.export.title"),
+            default_stem,
+            "Excel (*.xlsx);;Text TSV (*.txt);;CSV (*.csv)",
+        )
+        if not filename:
+            return
+        target = filename
+        if selected_filter.startswith("Excel") and not target.casefold().endswith(".xlsx"):
+            target += ".xlsx"
+        elif selected_filter.startswith("Text") and not target.casefold().endswith(".txt"):
+            target += ".txt"
+        elif selected_filter.startswith("CSV") and not target.casefold().endswith(".csv"):
+            target += ".csv"
+        try:
+            if target.casefold().endswith(".xlsx"):
+                exported = export_selection_excel(
+                    dataset, target, curve_ids, top, bottom, overwrite=True
+                )
+            else:
+                delimiter = ";" if target.casefold().endswith(".csv") else "\t"
+                exported = export_selection_text(
+                    dataset,
+                    target,
+                    curve_ids,
+                    top,
+                    bottom,
+                    delimiter=delimiter,
+                    overwrite=True,
+                )
+        except (FileExistsError, OSError, SelectionExportError, ValueError) as exc:
+            QMessageBox.critical(self, self._t("table.export.title"), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self._t("table.export.title"),
+            self._t("table.export.success", name=exported.name),
+        )
+
     def _create_context_actions(self) -> None:
+        self.copy_cells_action = QAction(self._t("table.copy_cells"), self)
+        self.copy_cells_action.setShortcut(QKeySequence.StandardKey.Copy)
+        self.copy_cells_action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.copy_cells_action.triggered.connect(self.copy_cells_to_clipboard)
+        self.addAction(self.copy_cells_action)
+        self.paste_cells_action = QAction(self._t("table.paste_cells"), self)
+        self.paste_cells_action.setShortcut(QKeySequence.StandardKey.Paste)
+        self.paste_cells_action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.paste_cells_action.triggered.connect(self.paste_cells_from_clipboard)
+        self.addAction(self.paste_cells_action)
+        self.clear_cells_action = QAction(self._t("table.clear_cells"), self)
+        self.clear_cells_action.setShortcut(QKeySequence.StandardKey.Delete)
+        self.clear_cells_action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.clear_cells_action.triggered.connect(self.clear_selected_cells)
+        self.addAction(self.clear_cells_action)
         self.shift_action = QAction(self._t("table.shift"), self)
         self.shift_action.triggered.connect(self.shift_values)
         self.multiply_action = QAction(self._t("table.multiply"), self)
@@ -825,7 +1066,14 @@ class LasTableEditor(QWidget):
 
     def _show_context_menu(self, position) -> None:
         menu = QMenu(self)
+        menu.addAction(self.copy_cells_action)
+        menu.addAction(self.paste_cells_action)
+        menu.addAction(self.clear_cells_action)
+        menu.addSeparator()
         menu.addAction(self.shift_action)
         menu.addAction(self.multiply_action)
         menu.addAction(self.smooth_action)
+        menu.addSeparator()
+        menu.addAction(self._t("table.export.selection"), self.export_selected_cells)
+        menu.addAction(self._t("table.export.all"), self.export_all_cells)
         menu.exec(self.table.viewport().mapToGlobal(position))

@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.services.las_parameter_resolver import ParameterResolutionError
 from geoworkbench.services.edit_history import CurveEditCommand
 from geoworkbench.services.dataset_selection import depth_interval_indices
+from geoworkbench.services.dependent_recalculation import (
+    DependentRecalculationReport,
+    recalculate_existing_dependents,
+)
+
+if TYPE_CHECKING:
+    from geoworkbench.calculations.pixler import FormulaProfileRegistry
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +57,8 @@ class _RangeCommand:
 class LasRangeEditingController:
     session: ProjectSession
     max_commands: int = 100
+    formula_registry: "FormulaProfileRegistry | None" = None
+    last_recalculation: DependentRecalculationReport | None = field(default=None, init=False)
     _undo_stack: list[_RangeCommand] = field(default_factory=list, init=False)
     _redo_stack: list[_RangeCommand] = field(default_factory=list, init=False)
 
@@ -200,14 +209,43 @@ class LasRangeEditingController:
         dataset = self._require_dataset()
         if row < 0 or row >= dataset.depth.size:
             raise IndexError("Строка выходит за границы dataset")
-        if not np.isfinite(value):
-            raise ValueError("Значение должно быть конечным")
+        if np.isinf(value):
+            raise ValueError("Значение не может быть бесконечным")
         self._execute(
             [curve_id],
             np.array([row], dtype=np.int64),
             {curve_id: np.array([value], dtype=np.float64)},
             f"Табличное редактирование строки {row + 1}",
         )
+
+
+    def edit_matrix(
+        self,
+        changes: dict[str, tuple[NDArray[np.int64], NDArray[np.float64]]],
+        *,
+        description: str = "Пакетная вставка из таблицы",
+    ) -> None:
+        """Apply a rectangular or sparse spreadsheet edit as one atomic command."""
+
+        normalized: dict[str, tuple[NDArray[np.int64], NDArray[np.float64]]] = {}
+        dataset = self._require_dataset()
+        for curve_id, (rows, values) in changes.items():
+            row_array = np.asarray(rows, dtype=np.int64)
+            value_array = np.asarray(values, dtype=np.float64)
+            if row_array.ndim != 1 or value_array.ndim != 1:
+                raise ValueError("Строки и значения пакетной правки должны быть одномерными")
+            if row_array.size != value_array.size:
+                raise ValueError("Количество строк и значений пакетной правки не совпадает")
+            if row_array.size == 0:
+                continue
+            if np.any(row_array < 0) or np.any(row_array >= dataset.depth.size):
+                raise IndexError("Пакетная вставка выходит за границы dataset")
+            if np.unique(row_array).size != row_array.size:
+                raise ValueError("Пакетная правка содержит повторяющиеся строки")
+            normalized[curve_id] = (row_array, value_array)
+        if not normalized:
+            raise ValueError("Нет значений для пакетной вставки")
+        self._execute_changes(normalized, description)
 
     def fill_uniform_noise(
         self,
@@ -325,10 +363,12 @@ class LasRangeEditingController:
         self._after_change()
 
     def _after_change(self) -> None:
-        try:
-            self.session.calculate_basic_gas_ratios()
-        except (KeyError, ParameterResolutionError):
-            self.session.dirty = True
+        dataset = self._require_dataset()
+        self.last_recalculation = recalculate_existing_dependents(
+            self.session,
+            dataset,
+            formula_registry=self.formula_registry,
+        )
 
     def _selected_indices(self, depth_top: float, depth_bottom: float) -> NDArray[np.int64]:
         return depth_interval_indices(self._require_dataset(), depth_top, depth_bottom)
