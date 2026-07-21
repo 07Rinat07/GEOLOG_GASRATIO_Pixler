@@ -1,5 +1,14 @@
 # Current project status
 
+## Version 0.7.6 — Safe LAS Editor
+
+- a separate Editor section and visible LAS Editor button were added to the main interface;
+- depth repair, resampling, insertion and splicing create a new dataset and a new `.las`;
+- descending GIS LAS depth is reversed only in memory;
+- duplicate `GK:1/GK:2` names become `GK_1/GK_2` while source names are retained;
+- validated with a real CP866 file using `STEP=-0.2` and 6629 samples.
+
+
 ## 0.7.5 template — ready geological-technological survey blank
 
 - an A3 landscape preset based on the supplied reference was added;
@@ -82,7 +91,7 @@ The standard rocks now use the actual BMP patterns from the two supplied archive
 flat colour. On the tablet the pattern is tiled in native device pixels and therefore remains
 sharp under depth zoom. Text over the pattern is off by default and can be enabled explicitly in
 the form editor. The same assets are used by cuttings, header legends, preview, PDF and print.
-Full run: `988 passed, 1 skipped`.
+Full run: `1002 passed, 1 skipped`.
 
 ## Planned unified reporting
 

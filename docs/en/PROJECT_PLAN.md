@@ -1,5 +1,15 @@
 # Project plan
 
+## Slice 0.7.6 — safe LAS Editor
+
+- [x] separate Editor section and visible LAS Editor button (`Ctrl+Alt+E`);
+- [x] creation, opening, table editing, descending-depth repair and resampling;
+- [x] insert selected external LAS curves into a new copy;
+- [x] splice loaded LAS datasets and save a separate file;
+- [x] source files are never overwritten;
+- [x] `GK:1/GK:2`, Cyrillic labels, CP866 and negative `STEP` are normalized safely.
+
+
 ## 0.7.3 fix — LAS isolation
 
 ## Slice 0.7.4 — readable Excel export

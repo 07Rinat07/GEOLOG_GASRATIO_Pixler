@@ -24,6 +24,7 @@ from geoworkbench.services.external_las_insert import (
     ExternalLasInsertAnalysis,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.las_output_paths import available_las_output_path
 
 
 class ExternalLasInsertDialog(QDialog):
@@ -52,6 +53,17 @@ class ExternalLasInsertDialog(QDialog):
         self.browse_button.clicked.connect(self._browse)
         file_row.addWidget(self.browse_button)
         root.addLayout(file_row)
+
+        output_row = QHBoxLayout()
+        output_row.addWidget(QLabel(self._t("las_editor.output_file")))
+        self.output_input = QLineEdit()
+        self.output_input.setPlaceholderText(self._t("las_editor.output_required"))
+        self.output_input.textChanged.connect(self._update_accept_state)
+        output_row.addWidget(self.output_input, 1)
+        self.output_button = QPushButton(self._t("las_editor.choose_output"))
+        self.output_button.clicked.connect(self._browse_output)
+        output_row.addWidget(self.output_button)
+        root.addLayout(output_row)
 
         self.summary = QLabel(self._t("external_las.no_source"))
         self.summary.setWordWrap(True)
@@ -102,6 +114,14 @@ class ExternalLasInsertDialog(QDialog):
         return self.localizer.text(key, **values)
 
     @property
+    def output_path(self) -> Path | None:
+        value = self.output_input.text().strip()
+        if not value:
+            return None
+        path = Path(value)
+        return path if path.suffix.casefold() == ".las" else path.with_suffix(".las")
+
+    @property
     def selections(self) -> tuple[ExternalLasCurveSelection, ...]:
         result: list[ExternalLasCurveSelection] = []
         for row in range(self.table.rowCount()):
@@ -136,6 +156,12 @@ class ExternalLasInsertDialog(QDialog):
             self._update_accept_state()
             return
         self.analysis = analysis
+        if not self.output_input.text().strip():
+            session = getattr(self.controller, "session", None)
+            target = getattr(session, "current_dataset", None)
+            target_name = target.name if target is not None else "working"
+            suggested = available_las_output_path(source.with_name(f"{target_name}_plus_{source.stem}.las"))
+            self.output_input.setText(str(suggested))
         self.summary.setText(
             self._t(
                 "external_las.summary",
@@ -208,9 +234,20 @@ class ExternalLasInsertDialog(QDialog):
         if filename:
             self.load_path(filename)
 
+    def _browse_output(self) -> None:
+        initial = self.output_path or (Path.cwd() / "combined.las")
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("las_editor.choose_output_title"),
+            str(initial),
+            "LAS (*.las)",
+        )
+        if filename:
+            self.output_input.setText(str(Path(filename).with_suffix(".las")))
+
     def _update_accept_state(self) -> None:
         selected = self.selections
-        valid = self.analysis is not None and bool(selected)
+        valid = self.analysis is not None and bool(selected) and self.output_path is not None
         names = [item.target_mnemonic.strip().casefold() for item in selected]
         valid = valid and all(names) and len(set(names)) == len(names)
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(valid)

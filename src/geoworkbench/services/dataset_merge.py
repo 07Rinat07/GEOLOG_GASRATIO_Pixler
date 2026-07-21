@@ -52,6 +52,8 @@ class DatasetMergeAnalysis:
 
 
 def analyze_dataset_merge(source: Dataset, target: Dataset) -> DatasetMergeAnalysis:
+    source = _ascending_merge_view(source, "Источник")
+    target = _ascending_merge_view(target, "Приёмник")
     _validate_pair(source, target)
     merged_depth = _union_depth(source.depth, target.depth)
     overlap = source.depth.size + target.depth.size - merged_depth.size
@@ -107,6 +109,8 @@ def create_merged_dataset(
     current = analyze_dataset_merge(source, target)
     if current != analysis:
         raise ValueError("Dataset изменился после анализа сращивания")
+    source = _ascending_merge_view(source, "Источник")
+    target = _ascending_merge_view(target, "Приёмник")
     policy = MergeOverlapPolicy(overlap_policy)
     merged_depth = _union_depth(source.depth, target.depth)
     dataset_id = new_id()
@@ -402,6 +406,62 @@ def _add_curve(
         version=max(1, template.version),
         state=template.state,
     )
+
+
+def _ascending_merge_view(dataset: Dataset, label: str) -> Dataset:
+    """Return an in-memory ascending view without changing the loaded dataset."""
+
+    report = analyze_depth_axis(dataset.depth)
+    if report.direction is DepthDirection.ASCENDING:
+        if report.duplicate_count or report.missing_count:
+            raise ValueError(
+                f"{label} должен иметь индекс без пропусков и дубликатов"
+            )
+        return dataset
+    if report.direction is not DepthDirection.DESCENDING:
+        raise ValueError(
+            f"{label} должен иметь монотонный глубинный индекс; "
+            f"получено направление {report.direction.value}"
+        )
+    if report.duplicate_count or report.missing_count:
+        raise ValueError(f"{label} должен иметь индекс без пропусков и дубликатов")
+
+    indexes = {
+        index_id: DatasetIndex(
+            index_id=index.index_id,
+            mnemonic=index.mnemonic,
+            index_type=index.index_type,
+            role=index.role,
+            unit=index.unit,
+            values=np.asarray(index.values[::-1]).copy(),
+            confidence=index.confidence,
+            evidence=index.evidence + (f"merge-reversed-in-memory:{dataset.dataset_id}",),
+            datetime_format=index.datetime_format,
+            timezone=index.timezone,
+        )
+        for index_id, index in dataset.indexes.items()
+    }
+    view = Dataset(
+        dataset_id=dataset.dataset_id,
+        name=dataset.name,
+        kind=dataset.kind,
+        depth_domain=dataset.depth_domain,
+        depth=np.asarray(dataset.depth[::-1], dtype=np.float64).copy(),
+        source_path=dataset.source_path,
+        headers=dict(dataset.headers),
+        parameters=dict(dataset.parameters),
+        indexes=indexes,
+        active_index_id=dataset.active_index_id,
+        version_headers=dict(dataset.version_headers),
+    )
+    for curve_id, curve in dataset.curves.items():
+        view.curves[curve_id] = CurveData(
+            metadata=curve.metadata,
+            values=np.asarray(curve.values[::-1], dtype=np.float64).copy(),
+            version=curve.version,
+            state=curve.state,
+        )
+    return view
 
 
 def _validate_pair(source: Dataset, target: Dataset) -> None:

@@ -363,6 +363,37 @@ def _interpolate_without_bridging(
     return result
 
 
+_CYRILLIC_TRANSLITERATION = str.maketrans(
+    {
+        "А": "A", "Б": "B", "В": "V", "Г": "G", "Д": "D", "Е": "E",
+        "Ё": "E", "Ж": "ZH", "З": "Z", "И": "I", "Й": "I", "К": "K",
+        "Л": "L", "М": "M", "Н": "N", "О": "O", "П": "P", "Р": "R",
+        "С": "S", "Т": "T", "У": "U", "Ф": "F", "Х": "H", "Ц": "TS",
+        "Ч": "CH", "Ш": "SH", "Щ": "SCH", "Ъ": "", "Ы": "Y", "Ь": "",
+        "Э": "E", "Ю": "YU", "Я": "YA",
+        "Ә": "A", "Ғ": "G", "Қ": "K", "Ң": "N", "Ө": "O", "Ұ": "U",
+        "Ү": "U", "Һ": "H", "І": "I",
+    }
+)
+
+
+def sanitize_las_mnemonic(value: str, *, fallback: str = "CURVE") -> str:
+    """Return a deterministic LAS-safe mnemonic without changing source metadata.
+
+    Vendor LAS files often contain duplicate names exposed by ``lasio`` as
+    ``GK:1``/``GK:2`` or Cyrillic labels such as ``КС, ННК/ДСР``.  Those names
+    remain visible as the source mnemonic, while the output copy receives a
+    portable ASCII mnemonic such as ``GK_1`` or ``KS_NNK_DSR``.
+    """
+
+    text = value.strip().upper().translate(_CYRILLIC_TRANSLITERATION)
+    text = re.sub(r"[^A-Z0-9_.$-]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_.-$")
+    if not text:
+        text = fallback.strip().upper() or "CURVE"
+    return text[:64]
+
+
 def _validate_output_mnemonic(value: str) -> str:
     mnemonic = value.strip().upper().replace(" ", "_")
     if not mnemonic:
@@ -377,12 +408,11 @@ def _validate_output_mnemonic(value: str) -> str:
 
 
 def _mnemonic_tag(value: str) -> str:
-    normalized = re.sub(r"[^A-Za-z0-9]+", "_", value.upper()).strip("_")
-    return (normalized or "EXT")[:12]
+    return sanitize_las_mnemonic(value, fallback="EXT")[:12]
 
 
 def _unique_mnemonic(base: str, occupied: set[str], source_tag: str) -> str:
-    normalized = _validate_output_mnemonic(base)
+    normalized = sanitize_las_mnemonic(base)
     if normalized.casefold() not in occupied:
         return normalized
     tagged = f"{normalized}_{source_tag}"

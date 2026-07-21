@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -17,6 +23,7 @@ from geoworkbench.services.dataset_merge import (
     MergeOverlapPolicy,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.las_output_paths import available_las_output_path
 
 
 class DatasetMergeDialog(QDialog):
@@ -47,6 +54,19 @@ class DatasetMergeDialog(QDialog):
         )
         form.addRow(self._t("merge.policy"), self.policy_combo)
         root.addLayout(form)
+
+        output_row = QHBoxLayout()
+        output_row.addWidget(QLabel(self._t("las_editor.output_file")))
+        self.output_input = QLineEdit()
+        target = controller.session.current_dataset
+        target_name = target.name if target is not None else "merged"
+        self.output_input.setText(str(available_las_output_path(Path.cwd() / f"{target_name}_merged.las")))
+        self.output_input.textChanged.connect(self._update_accept_state)
+        output_row.addWidget(self.output_input, 1)
+        output_button = QPushButton(self._t("las_editor.choose_output"))
+        output_button.clicked.connect(self._browse_output)
+        output_row.addWidget(output_button)
+        root.addLayout(output_row)
         self.preview = QLabel()
         self.preview.setWordWrap(True)
         self.preview.setObjectName("dataset-merge-preview")
@@ -73,6 +93,14 @@ class DatasetMergeDialog(QDialog):
     def source_dataset_id(self) -> str | None:
         value = self.source_combo.currentData()
         return value if isinstance(value, str) else None
+
+    @property
+    def output_path(self) -> Path | None:
+        value = self.output_input.text().strip()
+        if not value:
+            return None
+        path = Path(value)
+        return path if path.suffix.casefold() == ".las" else path.with_suffix(".las")
 
     @property
     def overlap_policy(self) -> MergeOverlapPolicy:
@@ -121,9 +149,22 @@ class DatasetMergeDialog(QDialog):
             self.conflicts.addItem(self._t("merge.no_conflicts"))
         self._update_accept_state()
 
+    def _browse_output(self) -> None:
+        initial = self.output_path or (Path.cwd() / "merged.las")
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("las_editor.choose_output_title"),
+            str(initial),
+            "LAS (*.las)",
+        )
+        if filename:
+            self.output_input.setText(str(Path(filename).with_suffix(".las")))
+
     def _update_accept_state(self) -> None:
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(
-            self.analysis is not None and self.analysis.can_merge
+            self.analysis is not None
+            and self.analysis.can_merge
+            and self.output_path is not None
         )
 
     def _accept_validated(self) -> None:

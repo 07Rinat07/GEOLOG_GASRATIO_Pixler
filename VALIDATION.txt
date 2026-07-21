@@ -1,26 +1,43 @@
-GEOLOG GASRATIO@Pixler 0.7.5 — KazGeology Reference Template
+GEOLOG GASRATIO@Pixler 0.7.6 — Safe LAS Editor
 Validation date: 2026-07-21
 
-Implemented
-- Built-in A3 landscape preset: kazgeology_reference_blank
-- Two optional logo image placeholders: contractor and customer
-- Localized placeholder rendering RU/KK/EN
-- Empty optional logo slots do not raise missing_asset preflight warnings
-- Header metadata fields: region, district/block, target formation, customer representative, shift personnel
-- Lithology legend, LBA legend, symbols and well-construction areas
-- Standard stratigraphy, drilling, depth, cuttings, LBA, calcimetry, lithology, gas and manual-description columns
-- Standalone importable Masterlog package included in resources/templates/masterlog
-- RU/KK/EN documentation synchronized
+IMPLEMENTED
+- separate top-level Editor menu;
+- visible LAS Editor toolbar button, shortcut Ctrl+Alt+E;
+- create/open/table-edit/repair/resample/insert/splice/export entry point;
+- external curve insertion creates a new dataset and a new LAS;
+- dataset splicing creates and exports a new LAS;
+- original source files are not overwritten;
+- descending external depth is reversed only in memory;
+- descending datasets are accepted by splicing through an in-memory ascending view;
+- vendor duplicate mnemonics GK:1/GK:2 become GK_1/GK_2;
+- Cyrillic/separator-heavy mnemonics receive deterministic ASCII names;
+- output path is mandatory for insertion and splicing.
 
-Checks
-- python -m compileall -q src tests: PASS
-- uvx ruff check src tests: PASS
-- full headless test suite: 996 passed, 1 skipped
-- standalone Masterlog package load: PASS
-- optional-logo preflight: PASS (0 missing_asset warnings)
-- template header width within A3 landscape: PASS
-- PNG preview render: PASS
-- PDF preview render: PASS
+REAL GIS LAS VALIDATION
+Source: ГК,ННК,Дср(1).LAS
+Encoding: CP866
+Original depth: 2025.6 -> 700.0 m
+Original nominal step: -0.2 m
+Samples: 6629
+Duplicate vendor mnemonics: GK:1, GK:2
+Source SHA-256 before/after:
+42efd174eb67a9393f41fe099e538f890aa73f179cd60fb69b4b5802dda14304
+Result: source unchanged.
 
-Manual check still required
-- Physical printing through a Windows printer driver and verification of printer-specific margins.
+Generated and re-imported successfully:
+- GIS_ascending_0.7.6.las: 700.0 -> 2025.6 m, 6629 samples;
+- GIS_step_0_5_0.7.6.las: 700.0 -> 2025.5 m, 2652 samples, 0.5 m step;
+- GIS_insert_validation_0.7.6.las: 12 curves, including GK_1/GK_2;
+- GIS_spliced_0.7.6.las: 699.0 -> 2025.6 m, 6631 samples.
+
+AUTOMATED CHECKS
+- pytest: 1002 passed, 1 skipped;
+- Ruff: all checks passed;
+- compileall: passed;
+- RU/KK/EN localization catalogs: synchronized by tests;
+- ZIP integrity: passed (no errors detected).
+
+The skipped test is the project's pre-existing intentional skip. Physical Windows UI and
+printer-driver checks remain a release smoke-test; file transformation and re-import were
+validated in the current environment with PySide6 6.11.1 and lasio 0.32.

@@ -212,3 +212,23 @@ def test_conflicting_mnemonic_gets_safe_suggestion_and_duplicate_output_is_rejec
             analysis,
             (ExternalLasCurveSelection("gr", "GR"),),
         )
+
+
+def test_vendor_duplicate_and_cyrillic_mnemonics_get_safe_suggestions(tmp_path: Path) -> None:
+    from geoworkbench.services.external_las_insert import sanitize_las_mnemonic
+
+    assert sanitize_las_mnemonic("GK:1") == "GK_1"
+    assert sanitize_las_mnemonic("GK:2") == "GK_2"
+    assert sanitize_las_mnemonic("КС, ННК/ДСР") == "KS_NNK_DSR"
+
+    source = make_dataset("GIS source", [103.0, 102.0, 101.0])
+    add_curve(source, "gk1", "GK:1", [30.0, 20.0, 10.0])
+    add_curve(source, "gk2", "GK:2", [300.0, 200.0, 100.0])
+    target = make_dataset("target", [101.0, 102.0, 103.0])
+
+    analysis, _normalized = analyze_external_las_insert(
+        imported_result(source, tmp_path / "vendor.las"), target
+    )
+
+    assert analysis.source_reversed_in_memory is True
+    assert [item.suggested_mnemonic for item in analysis.candidates] == ["GK_1", "GK_2"]

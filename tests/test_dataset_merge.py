@@ -182,3 +182,24 @@ def test_merge_rejects_different_index_types() -> None:
     )
     with pytest.raises(ValueError, match="Типы глубинных индексов"):
         analyze_dataset_merge(source, target)
+
+
+def test_descending_source_is_reversed_only_in_memory_for_merge() -> None:
+    source = make_dataset("source", [103.0, 102.0, 101.0])
+    target = make_dataset("target", [100.0, 101.0, 102.0])
+    add_curve(source, "src-gr", "GR", [30.0, 20.0, 10.0], unit="API")
+    add_curve(target, "dst-gr", "GR", [1.0, 2.0, 3.0], unit="API")
+
+    analysis = analyze_dataset_merge(source, target)
+    result = create_merged_dataset(
+        source,
+        target,
+        analysis,
+        overlap_policy=MergeOverlapPolicy.PREFER_SOURCE,
+    )
+
+    np.testing.assert_allclose(source.depth, [103.0, 102.0, 101.0])
+    np.testing.assert_allclose(result.depth, [100.0, 101.0, 102.0, 103.0])
+    curve = result.curve_by_mnemonic("GR")
+    assert curve is not None
+    np.testing.assert_allclose(curve.values, [1.0, 10.0, 20.0, 30.0])

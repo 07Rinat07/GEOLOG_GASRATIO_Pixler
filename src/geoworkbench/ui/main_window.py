@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QTextEdit,
     QToolBar,
+    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -140,6 +141,7 @@ from geoworkbench.ui.nct_dialog import NctCalculationDialog
 from geoworkbench.ui.new_las_dialog import NewLasDialog
 from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
+from geoworkbench.ui.las_editor_dialog import LasEditorDialog, LasEditorOperation
 from geoworkbench.ui.las_curve_browser import LasCurveBrowser
 from geoworkbench.ui.print_center_dialog import PrintCenterDialog
 from geoworkbench.ui.print_page_dialog import PrintPageDialog
@@ -593,6 +595,7 @@ class MainWindow(QMainWindow):
     def _create_actions(self) -> None:
         file_menu = self._add_localized_menu("menu.file")
         edit_menu = self._add_localized_menu("menu.edit")
+        las_editor_menu = self._add_localized_menu("menu.las_editor")
         calc_menu = self._add_localized_menu("menu.calculations")
         tablet_menu = self._add_localized_menu("menu.tablet")
         view_menu = self._add_localized_menu("menu.view")
@@ -601,6 +604,15 @@ class MainWindow(QMainWindow):
         print_menu = self._add_localized_menu("menu.print")
         language_menu = self._add_localized_menu("menu.language")
         help_menu = self._add_localized_menu("menu.help")
+
+        self.las_editor_action = self._localized_action("las_editor.action")
+        self.las_editor_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
+        )
+        self.las_editor_action.setShortcut("Ctrl+Alt+E")
+        self.las_editor_action.triggered.connect(self.show_las_editor)
+        las_editor_menu.addAction(self.las_editor_action)
+        las_editor_menu.addSeparator()
 
         self.open_project_action = self._localized_action("shell.open_project")
         self.open_project_action.setShortcut("Ctrl+O")
@@ -611,6 +623,7 @@ class MainWindow(QMainWindow):
         self.new_las_action.setShortcut("Ctrl+N")
         self.new_las_action.triggered.connect(self.create_new_las)
         file_menu.addAction(self.new_las_action)
+        las_editor_menu.addAction(self.new_las_action)
 
         self.open_data_action = self._localized_action("import.universal")
         self.open_data_action.setShortcut("Ctrl+I")
@@ -622,6 +635,7 @@ class MainWindow(QMainWindow):
         self.open_action.setShortcut("Ctrl+L")
         self.open_action.triggered.connect(self.open_las)
         file_menu.addAction(self.open_action)
+        las_editor_menu.addAction(self.open_action)
 
         self.open_csv_action = self._localized_action("shell.import_csv")
         self.open_csv_action.triggered.connect(self.open_csv)
@@ -665,6 +679,7 @@ class MainWindow(QMainWindow):
         self.export_las_action = self._localized_action("shell.export_las")
         self.export_las_action.triggered.connect(self.export_current_las)
         file_menu.addAction(self.export_las_action)
+        las_editor_menu.addAction(self.export_las_action)
 
         export_csv_action = self._localized_action("selection_export.csv_action")
         export_csv_action.triggered.connect(self.export_selected_csv)
@@ -829,6 +844,7 @@ class MainWindow(QMainWindow):
         self.normalize_depth_action = self._localized_action("depth.create_copy_action")
         self.normalize_depth_action.triggered.connect(self.create_ascending_depth_copy)
         edit_menu.addAction(self.normalize_depth_action)
+        las_editor_menu.addAction(self.normalize_depth_action)
         self.undo_normalize_depth_action = self._localized_action("depth.undo")
         self.undo_normalize_depth_action.triggered.connect(self.undo_ascending_depth_copy)
         self.undo_normalize_depth_action.setEnabled(False)
@@ -841,6 +857,7 @@ class MainWindow(QMainWindow):
         self.resample_depth_action = self._localized_action("resample.action")
         self.resample_depth_action.triggered.connect(self.create_resampled_depth_copy)
         edit_menu.addAction(self.resample_depth_action)
+        las_editor_menu.addAction(self.resample_depth_action)
         self.undo_resample_action = self._localized_action("resample.undo")
         self.undo_resample_action.triggered.connect(self.undo_depth_resample)
         self.undo_resample_action.setEnabled(False)
@@ -865,6 +882,7 @@ class MainWindow(QMainWindow):
         self.external_las_insert_action = self._localized_action("external_las.action")
         self.external_las_insert_action.triggered.connect(self.show_external_las_insert)
         edit_menu.addAction(self.external_las_insert_action)
+        las_editor_menu.addAction(self.external_las_insert_action)
         self.undo_external_las_insert_action = self._localized_action("external_las.undo")
         self.undo_external_las_insert_action.triggered.connect(self.undo_external_las_insert)
         self.undo_external_las_insert_action.setEnabled(False)
@@ -877,6 +895,7 @@ class MainWindow(QMainWindow):
         self.merge_datasets_action = self._localized_action("merge.action")
         self.merge_datasets_action.triggered.connect(self.show_dataset_merge)
         edit_menu.addAction(self.merge_datasets_action)
+        las_editor_menu.addAction(self.merge_datasets_action)
         self.undo_merge_action = self._localized_action("merge.undo")
         self.undo_merge_action.triggered.connect(self.undo_dataset_merge)
         self.undo_merge_action.setEnabled(False)
@@ -1086,6 +1105,11 @@ class MainWindow(QMainWindow):
         self.main_toolbar = QToolBar(self._t("toolbar.main"), self)
         self.main_toolbar.setObjectName("mainToolbar")
         self.main_toolbar.setMovable(False)
+        self.las_editor_button = QToolButton(self.main_toolbar)
+        self.las_editor_button.setDefaultAction(self.las_editor_action)
+        self.las_editor_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.main_toolbar.addWidget(self.las_editor_button)
+        self.main_toolbar.addSeparator()
         self.main_toolbar.addAction(self.open_project_action)
         self.main_toolbar.addAction(self.open_data_action)
         self.main_toolbar.addAction(self.external_las_insert_action)
@@ -1563,6 +1587,32 @@ class MainWindow(QMainWindow):
             self.tablet_view.set_layout_model(saved_layout)
         self.tabs.setCurrentWidget(self.tablet_view)
 
+    def show_las_editor(self) -> None:
+        dialog = LasEditorDialog(
+            self.session.current_dataset,
+            self,
+            language=self.language,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.operation is None:
+            return
+        operation = dialog.operation
+        if operation is LasEditorOperation.CREATE:
+            self.create_new_las()
+        elif operation is LasEditorOperation.OPEN:
+            self.open_las()
+        elif operation is LasEditorOperation.TABLE:
+            self.tabs.setCurrentWidget(self.las_table_editor)
+        elif operation is LasEditorOperation.REVERSE_DEPTH:
+            self.create_ascending_depth_copy(save_as_las=True)
+        elif operation is LasEditorOperation.RESAMPLE:
+            self.create_resampled_depth_copy(save_as_las=True)
+        elif operation is LasEditorOperation.INSERT_CURVES:
+            self.show_external_las_insert()
+        elif operation is LasEditorOperation.MERGE:
+            self.show_dataset_merge()
+        elif operation is LasEditorOperation.EXPORT_COPY:
+            self.export_current_las()
+
     def create_new_las(self) -> None:
         dialog = NewLasDialog(self, language=self.language)
         if dialog.exec() != QDialog.DialogCode.Accepted or dialog.plan is None:
@@ -1648,6 +1698,37 @@ class MainWindow(QMainWindow):
             return
         self._log(f"LAS экспортирован: {exported}")
         self.statusBar().showMessage(self._t("export.success", name=exported.name))
+
+    def _export_current_dataset_to_path(self, target: Path) -> Path:
+        destination = target if target.suffix.casefold() == ".las" else target.with_suffix(".las")
+        overwrite = False
+        if destination.exists():
+            answer = QMessageBox.question(
+                self,
+                self._t("export.title"),
+                self._t("export.overwrite_question", name=destination.name),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer is not QMessageBox.StandardButton.Yes:
+                raise RuntimeError(self._t("las_editor.save_cancelled"))
+            overwrite = True
+        plan = self.dataset_export_controller.default_las_plan()
+        return self.dataset_export_controller.export_current_las(
+            destination,
+            overwrite=overwrite,
+            plan=plan,
+        )
+
+    def _discard_current_derived_dataset(self, restore_dataset_id: str) -> None:
+        current = self.session.current_dataset
+        well = self.session.current_well
+        if current is not None and well is not None and current.dataset_id != restore_dataset_id:
+            well.datasets.pop(current.dataset_id, None)
+            self.session.tablet_layouts.pop(current.dataset_id, None)
+            self.session.source_documents.pop(current.dataset_id, None)
+            self.session.import_reports.pop(current.dataset_id, None)
+        self.session.current_dataset_id = restore_dataset_id
 
     def export_selected_csv(self) -> None:
         self._export_selected_table("csv")
@@ -3640,7 +3721,7 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
 
-    def create_ascending_depth_copy(self) -> None:
+    def create_ascending_depth_copy(self, *, save_as_las: bool = False) -> None:
         try:
             report = self.depth_axis_controller.analyze_current()
         except RuntimeError as exc:
@@ -3675,6 +3756,8 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._update_depth_axis_actions()
         self._log(self._t("depth.copy_created", name=result.name))
+        if save_as_las:
+            self._save_derived_dataset_copy(result, suffix="_ascending")
 
     def undo_ascending_depth_copy(self) -> None:
         answer = QMessageBox.question(
@@ -3701,7 +3784,7 @@ class MainWindow(QMainWindow):
             return
         self._after_depth_axis_history(self._t("depth.redone", name=result.name))
 
-    def create_resampled_depth_copy(self) -> None:
+    def create_resampled_depth_copy(self, *, save_as_las: bool = False) -> None:
         try:
             dialog = DepthResampleDialog(self.depth_axis_controller, self, language=self.language)
         except (RuntimeError, ValueError) as exc:
@@ -3719,6 +3802,30 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._update_depth_axis_actions()
         self._log(self._t("resample.created", name=result.name))
+        if save_as_las:
+            self._save_derived_dataset_copy(result, suffix=f"_step_{dialog.plan.step:g}")
+
+    def _save_derived_dataset_copy(self, dataset: object, *, suffix: str) -> None:
+        current = self.session.current_dataset
+        if current is None or current is not dataset:
+            return
+        initial = Path.cwd() / f"{current.name}{suffix}.las"
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("las_editor.choose_output_title"),
+            str(initial),
+            "LAS (*.las)",
+        )
+        if not filename:
+            return
+        try:
+            exported = self._export_current_dataset_to_path(Path(filename))
+        except (OSError, RuntimeError, LasExportError) as exc:
+            QMessageBox.warning(self, self._t("las_editor.title"), str(exc))
+            return
+        self.statusBar().showMessage(
+            self._t("las_editor.saved_copy", name=exported.name)
+        )
 
     def show_curve_transfer(self) -> None:
         if self.session.current_dataset is None:
@@ -3743,7 +3850,8 @@ class MainWindow(QMainWindow):
         self._after_curve_transfer(self._t("transfer.completed", count=len(curves)))
 
     def show_external_las_insert(self) -> None:
-        if self.session.current_dataset is None:
+        target = self.session.current_dataset
+        if target is None:
             QMessageBox.information(
                 self, self._t("external_las.title"), self._t("data.select_dataset")
             )
@@ -3753,17 +3861,30 @@ class MainWindow(QMainWindow):
             self,
             language=self.language,
         )
-        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.analysis is None:
+        if (
+            dialog.exec() != QDialog.DialogCode.Accepted
+            or dialog.analysis is None
+            or dialog.output_path is None
+        ):
             return
+        previous_dataset_id = target.dataset_id
         try:
-            outcome = self.external_las_insert_controller.apply(
-                dialog.analysis, dialog.selections
+            outcome = self.external_las_insert_controller.create_copy(
+                dialog.analysis,
+                dialog.selections,
+                name=dialog.output_path.stem,
             )
-        except (KeyError, OSError, RuntimeError, ValueError) as exc:
+            exported = self._export_current_dataset_to_path(dialog.output_path)
+        except (KeyError, OSError, RuntimeError, ValueError, LasExportError) as exc:
+            self._discard_current_derived_dataset(previous_dataset_id)
             QMessageBox.warning(self, self._t("external_las.title"), str(exc))
             return
         self._after_external_las_insert(
-            self._t("external_las.completed", count=len(outcome.inserted_mnemonics)),
+            self._t(
+                "external_las.copy_completed",
+                count=len(outcome.inserted_mnemonics),
+                name=exported.name,
+            ),
             outcome.inserted_mnemonics,
         )
 
@@ -3816,7 +3937,8 @@ class MainWindow(QMainWindow):
             )
 
     def show_dataset_merge(self) -> None:
-        if self.session.current_dataset is None:
+        target = self.session.current_dataset
+        if target is None:
             QMessageBox.information(self, self._t("merge.title"), self._t("data.select_dataset"))
             return
         dialog = DatasetMergeDialog(self.dataset_merge_controller, self, language=self.language)
@@ -3824,18 +3946,25 @@ class MainWindow(QMainWindow):
             dialog.exec() != QDialog.DialogCode.Accepted
             or dialog.analysis is None
             or dialog.source_dataset_id is None
+            or dialog.output_path is None
         ):
             return
+        previous_dataset_id = target.dataset_id
         try:
             result = self.dataset_merge_controller.create(
                 dialog.source_dataset_id,
                 dialog.analysis,
                 overlap_policy=dialog.overlap_policy,
             )
-        except (KeyError, RuntimeError, ValueError) as exc:
+            result.name = dialog.output_path.stem
+            exported = self._export_current_dataset_to_path(dialog.output_path)
+        except (KeyError, RuntimeError, ValueError, OSError, LasExportError) as exc:
+            self._discard_current_derived_dataset(previous_dataset_id)
             QMessageBox.warning(self, self._t("merge.title"), str(exc))
             return
-        self._after_dataset_merge(self._t("merge.completed", name=result.name))
+        self._after_dataset_merge(
+            self._t("merge.copy_completed", name=exported.name)
+        )
 
     def undo_dataset_merge(self) -> None:
         try:

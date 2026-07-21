@@ -10,6 +10,7 @@ import numpy as np
 from geoworkbench.data.las_adapter import import_las_with_report
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.dataset_copy import create_dataset_copy
 from geoworkbench.services.dependent_recalculation import (
     DependentRecalculationReport,
     recalculate_existing_dependents,
@@ -38,6 +39,13 @@ class _ExternalLasInsertCommand:
 
 @dataclass(frozen=True, slots=True)
 class ExternalLasInsertOutcome:
+    inserted_mnemonics: tuple[str, ...]
+    recalculation: DependentRecalculationReport
+
+
+@dataclass(frozen=True, slots=True)
+class ExternalLasInsertCopyOutcome:
+    dataset: Dataset
     inserted_mnemonics: tuple[str, ...]
     recalculation: DependentRecalculationReport
 
@@ -79,6 +87,63 @@ class ExternalLasInsertController:
         self._analysis = analysis
         self._source_dataset = source
         return analysis
+
+    def create_copy(
+        self,
+        analysis: ExternalLasInsertAnalysis,
+        selections: tuple[ExternalLasCurveSelection, ...],
+        *,
+        name: str | None = None,
+    ) -> ExternalLasInsertCopyOutcome:
+        """Insert curves into a new dataset, leaving both source LAS files untouched."""
+
+        target = self._target()
+        if self._analysis != analysis or self._source_dataset is None:
+            raise ValueError("Сначала повторно проанализируйте внешний LAS")
+        build = build_external_las_curves(self._source_dataset, target, analysis, selections)
+        result = create_dataset_copy(
+            target,
+            name=name or f"{target.name} + {analysis.source_path.stem}",
+            provenance="external-las-copy",
+        )
+        manifest_key = _next_manifest_key(result)
+        result.parameters[manifest_key] = build.manifest_json
+        inserted: list[str] = []
+        for built_curve in build.curves:
+            metadata = built_curve.metadata
+            curve_id = metadata.curve_id
+            result.curves[curve_id] = CurveData(
+                metadata=type(metadata)(
+                    curve_id=curve_id,
+                    original_mnemonic=metadata.original_mnemonic,
+                    canonical_mnemonic=metadata.canonical_mnemonic,
+                    unit=metadata.unit,
+                    description=metadata.description,
+                    source_dataset_id=result.dataset_id,
+                    provenance=metadata.provenance,
+                ),
+                values=built_curve.values.copy(),
+            )
+            inserted.append(metadata.original_mnemonic)
+
+        well = self.session.current_well
+        if well is None:
+            raise RuntimeError("Сначала выберите скважину-приёмник")
+        well.datasets[result.dataset_id] = result
+        source_document = self.session.source_documents.get(target.dataset_id)
+        import_report = self.session.import_reports.get(target.dataset_id)
+        if source_document is not None:
+            self.session.source_documents[result.dataset_id] = source_document
+        if import_report is not None:
+            self.session.import_reports[result.dataset_id] = import_report
+        self.session.current_dataset_id = result.dataset_id
+        recalculation = recalculate_existing_dependents(
+            self.session,
+            result,
+            formula_registry=self.formula_registry,
+        )
+        self.session.dirty = True
+        return ExternalLasInsertCopyOutcome(result, tuple(inserted), recalculation)
 
     def apply(
         self,

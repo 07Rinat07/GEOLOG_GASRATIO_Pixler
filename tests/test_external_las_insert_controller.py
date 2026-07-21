@@ -135,3 +135,41 @@ def test_manifest_sequence_increments_for_multiple_imports(monkeypatch, tmp_path
     keys = sorted(key for key in target.parameters if key.startswith("EXTERNAL_LAS_IMPORT_"))
     assert keys[0].startswith("EXTERNAL_LAS_IMPORT_001_")
     assert keys[1].startswith("EXTERNAL_LAS_IMPORT_002_")
+
+
+def test_create_copy_keeps_target_unchanged_and_selects_new_dataset(
+    monkeypatch, tmp_path: Path
+) -> None:
+    target = dataset("target", [100.0, 101.0])
+    add_curve(target, "rop", "ROP", [10.0, 11.0])
+    source = dataset("source", [101.0, 100.0])
+    add_curve(source, "gk", "GK:1", [2.0, 1.0])
+    session = ProjectSession()
+    session.add_dataset(target)
+    controller = ExternalLasInsertController(session)
+    result = imported(source, tmp_path / "gis.las")
+    monkeypatch.setattr(
+        "geoworkbench.project.external_las_insert_controller.import_las_with_report",
+        lambda _path: result,
+    )
+
+    analysis = controller.analyze_file(tmp_path / "gis.las")
+    candidate = analysis.candidates[0]
+    outcome = controller.create_copy(
+        analysis,
+        (ExternalLasCurveSelection(candidate.source_curve_id, candidate.suggested_mnemonic),),
+        name="combined",
+    )
+
+    assert target.curve_by_mnemonic("GK_1") is None
+    assert target.curve_by_mnemonic("ROP") is not None
+    assert outcome.dataset is session.current_dataset
+    assert outcome.dataset.dataset_id != target.dataset_id
+    assert outcome.dataset.source_path is None
+    assert outcome.dataset.curve_by_mnemonic("ROP") is not None
+    inserted = outcome.dataset.curve_by_mnemonic("GK_1")
+    assert inserted is not None
+    np.testing.assert_allclose(inserted.values, [1.0, 2.0])
+    assert any(
+        key.startswith("EXTERNAL_LAS_IMPORT_") for key in outcome.dataset.parameters
+    )

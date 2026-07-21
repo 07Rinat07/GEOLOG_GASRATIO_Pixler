@@ -1,3 +1,14 @@
+# 0.7.6 — Safe LAS Editor
+
+- added a separate Editor menu and visible LAS Editor toolbar button (`Ctrl+Alt+E`);
+- grouped LAS creation, table editing, depth repair, resampling, external-curve insertion, splicing and export;
+- external insertion now creates and exports a new dataset instead of modifying the receiver;
+- merge results are saved as a new LAS and both inputs remain unchanged;
+- descending depth is normalized in memory for insertion and splicing;
+- duplicate/vendor mnemonics such as `GK:1` and `GK:2` are converted to `GK_1` and `GK_2`;
+- Cyrillic and separator-heavy mnemonics receive deterministic ASCII output names;
+- validated against a real CP866 GIS LAS with negative STEP and duplicate GK curves.
+
 # 0.7.5 — KazGeology reference blank
 
 - Added an A3 landscape Masterlog preset based on the supplied geological-technological survey reference.
