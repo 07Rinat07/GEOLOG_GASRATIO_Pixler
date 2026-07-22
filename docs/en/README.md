@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.23:** tablet interaction is now routed through one OOP dispatcher. Annotation creation/editing and full track editing are restored, and the paint overlay can no longer block pointer input. The DB → LAS batch workflow previews full paths and provides explicit Open LAS/Open folder actions.
+> **0.7.24 (test hotfix):** fixes the Windows black-tablet regression. The transparent annotation overlay no longer exposes a full-size native region over PyQtGraph; its region is restricted to visible annotation bounds. The OOP pointer router and track editor remain intact. Visual Windows verification is mandatory.
 
 
 

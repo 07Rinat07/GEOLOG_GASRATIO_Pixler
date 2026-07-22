@@ -1,3 +1,7 @@
+## 0.7.24 snapshot
+
+A stable release is blocked until the Windows GUI smoke test and visual non-empty tablet-render checks pass before and after F4 activation.
+
 # Project plan
 
 ## 0.7.23 snapshot

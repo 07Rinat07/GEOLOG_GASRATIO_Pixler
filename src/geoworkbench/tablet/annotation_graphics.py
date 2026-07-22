@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from math import atan2, cos, pi, sin
 
-from PySide6.QtCore import QLineF, QPoint, QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QLineF, QPoint, QPointF, QRectF, QTimer, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -13,6 +13,7 @@ from PySide6.QtGui import (
     QPen,
     QPolygonF,
     QPixmap,
+    QRegion,
     QTransform,
 )
 from PySide6.QtWidgets import (
@@ -399,6 +400,18 @@ class TabletAnnotationOverlay(QWidget):
         self._gesture: _AnnotationGesture | None = None
         self._content_rect = QRectF()
 
+        # A full-size translucent child over PyQtGraph native viewports is not
+        # reliably composited by Windows: uncovered pixels may become black.
+        # Keep the widget's native window region sparse and limited to actual
+        # annotation paint bounds.  Mouse input is still routed exclusively by
+        # TabletInteractionRouter; this mask never participates in hit testing.
+        self._applied_paint_mask = QRegion()
+        self._mask_refresh_timer = QTimer(self)
+        self._mask_refresh_timer.setSingleShot(True)
+        self._mask_refresh_timer.setInterval(16)
+        self._mask_refresh_timer.timeout.connect(self._flush_paint_mask)
+        self.setMask(QRegion())
+
     @property
     def interaction_active(self) -> bool:
         return self._gesture is not None
@@ -416,6 +429,7 @@ class TabletAnnotationOverlay(QWidget):
         if normalized == self._content_rect:
             return
         self._content_rect = normalized
+        self._schedule_paint_mask(immediate=True)
         self.update()
 
     def set_entries(
@@ -455,6 +469,7 @@ class TabletAnnotationOverlay(QWidget):
             self._selected_id = None
             if previous is not None:
                 self.selection_changed.emit(None)
+        self._schedule_paint_mask(immediate=True)
         self.update()
         self.raise_()
 
@@ -470,6 +485,7 @@ class TabletAnnotationOverlay(QWidget):
             self._entries[annotation_id] = (helper, normalized)
             changed = True
         if changed:
+            self._schedule_paint_mask()
             self.update()
             self.raise_()
 
@@ -480,6 +496,7 @@ class TabletAnnotationOverlay(QWidget):
         if not self._edit_mode:
             self.cancel_interaction()
             self.select_annotation(None)
+        self._schedule_paint_mask(immediate=True)
         self.update()
 
     def set_print_mode(self, enabled: bool) -> None:
@@ -488,6 +505,7 @@ class TabletAnnotationOverlay(QWidget):
             helper.set_print_mode(self._print_mode)
         if self._print_mode:
             self.cancel_interaction()
+        self._schedule_paint_mask(immediate=True)
         self.update()
 
     def select_annotation(self, annotation_id: str | None) -> None:
@@ -497,6 +515,7 @@ class TabletAnnotationOverlay(QWidget):
         self._selected_id = normalized
         for current_id, (helper, _anchor) in self._entries.items():
             helper._selected = current_id == normalized
+        self._schedule_paint_mask(immediate=True)
         self.update()
         self.selection_changed.emit(normalized)
 
@@ -565,6 +584,7 @@ class TabletAnnotationOverlay(QWidget):
                 helper.record.height,
             ),
         )
+        self._schedule_paint_mask(immediate=True)
         return True
 
     def update_interaction(self, x: float, y: float) -> None:
@@ -609,6 +629,10 @@ class TabletAnnotationOverlay(QWidget):
         self._entries[gesture.annotation_id] = (helper, anchor)
         new_dirty = helper.boundingRect().translated(anchor)
         dirty = old_dirty.united(new_dirty).adjusted(-4.0, -4.0, 4.0, 4.0)
+        # Coalesce native region changes to at most one per frame.  This keeps
+        # the background visible without reintroducing the old per-pixel mask
+        # flicker during drag/resize.
+        self._schedule_paint_mask()
         self.update(dirty.toAlignedRect())
 
     def finish_interaction(
@@ -622,6 +646,7 @@ class TabletAnnotationOverlay(QWidget):
         self._gesture = None
         entry = self._entries.get(gesture.annotation_id)
         if entry is None:
+            self._schedule_paint_mask(immediate=True)
             return None
         helper, anchor = entry
         current = (
@@ -642,8 +667,10 @@ class TabletAnnotationOverlay(QWidget):
                 )
             )
             new_dirty = helper.boundingRect().translated(anchor)
+            self._schedule_paint_mask(immediate=True)
             self.update(old_dirty.united(new_dirty).adjusted(-4, -4, 4, 4).toAlignedRect())
             return None
+        self._schedule_paint_mask(immediate=True)
         if not _geometry_differs(gesture.start_geometry, current):
             return None
         change = AnnotationGeometryChange(gesture.annotation_id, *current)
@@ -658,6 +685,44 @@ class TabletAnnotationOverlay(QWidget):
 
     def cancel_interaction(self) -> None:
         self.finish_interaction(commit=False)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        # Until TabletView supplies the new graph-body rectangle, an empty
+        # sparse mask is safer than exposing the full child widget.
+        self._content_rect = self._content_rect.intersected(QRectF(self.rect()))
+        self._schedule_paint_mask(immediate=True)
+
+    def _schedule_paint_mask(self, *, immediate: bool = False) -> None:
+        if immediate:
+            self._mask_refresh_timer.stop()
+            self._flush_paint_mask()
+            return
+        if not self._mask_refresh_timer.isActive():
+            self._mask_refresh_timer.start()
+
+    def _flush_paint_mask(self) -> None:
+        region = self._build_sparse_paint_mask()
+        if region == self._applied_paint_mask:
+            return
+        self._applied_paint_mask = QRegion(region)
+        self.setMask(region)
+
+    def _build_sparse_paint_mask(self) -> QRegion:
+        if self._content_rect.isEmpty():
+            return QRegion()
+        content = QRegion(self._content_rect.toAlignedRect())
+        region = QRegion()
+        for annotation_id in self._order:
+            helper, anchor = self._entries[annotation_id]
+            record = helper.record
+            if not record.visible or not self._anchor_is_visible(anchor):
+                continue
+            if self._print_mode and not record.print_enabled:
+                continue
+            bounds = helper.boundingRect().translated(anchor).adjusted(-2.0, -2.0, 2.0, 2.0)
+            region = region.united(QRegion(bounds.toAlignedRect()))
+        return region.intersected(content)
 
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self)

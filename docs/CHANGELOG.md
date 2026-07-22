@@ -1,3 +1,13 @@
+# 0.7.24 — Windows tablet render-mask hotfix (test build)
+
+- fixed the Windows regression where a full-size translucent annotation child could cover PyQtGraph viewports with a black rectangle;
+- initialized the native overlay region as empty and restricted it to actual visible annotation paint bounds;
+- intersected the sparse annotation region with the graph-body rectangle, keeping headers and uncovered plots outside the overlay native region;
+- coalesced region changes to at most once per frame during drag/resize to avoid restoring per-pixel flicker;
+- preserved permanent mouse transparency and the OOP `TabletInteractionRouter`;
+- added source-level regression guards for sparse Windows paint regions and mouse-ownership separation;
+- marked this package as a test hotfix because PySide6/pyqtgraph Windows rendering cannot be executed in the current container.
+
 # 0.7.23 — OOP tablet interaction router and restored editing
 
 - replaced competing annotation/track mouse paths with one priority-based `TabletInteractionRouter`;

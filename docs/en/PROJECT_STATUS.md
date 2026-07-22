@@ -1,3 +1,7 @@
+## Version 0.7.24 — Windows render test hotfix
+
+Fixes the black-tablet regression by restricting the annotation overlay native region to visible annotation bounds. The package remains a test build until it passes the Windows GUI smoke test.
+
 # Project status
 
 ## Version 0.7.23 — OOP tablet routing and restored editing

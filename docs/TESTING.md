@@ -1,3 +1,13 @@
+# Windows release gate 0.7.24 — black-tablet regression
+
+1. Open a project with populated PyQtGraph tracks; the graph body must contain curves and must not be a solid black rectangle.
+2. Toggle F4 off/on five times; the graph body must remain visible.
+3. Create a comment and a callout, move and resize them; only annotation regions may overlay the graphs.
+4. Scroll and zoom depth/time; uncovered plot regions must remain visible.
+5. Delete all annotations; the overlay native region must become empty and the plots must remain visible.
+6. Repeat on Windows 10/11, light/dark theme, 100%, 125%, and 150% scaling.
+7. Capture screenshots before F4, after F4, and with an annotation; reject the release if the plot body is predominantly black or empty.
+
 # Проверка релиза 0.7.23
 
 ## Windows/HiDPI smoke-test ООП-маршрутизации
