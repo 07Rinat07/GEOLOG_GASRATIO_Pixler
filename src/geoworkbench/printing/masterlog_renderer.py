@@ -1052,6 +1052,7 @@ def _paint_columns(
     header_height = column_heading_height(columns)
     dataset = session.current_dataset
     bindings = masterlog_curve_bindings(template, dataset) if dataset is not None else {}
+    annotation_columns: list[tuple[MasterlogColumnTemplate, QRectF]] = []
     for column in columns:
         rect = QRectF(x, top, column.width_mm, size.height() - top)
         painter.setPen(QPen(QColor("#334155"), 0.25))
@@ -1107,11 +1108,15 @@ def _paint_columns(
                 _paint_curve_column(painter, plot_rect, column, dataset, depth_range, bindings)
             _paint_depth_symbols(painter, plot_rect, template, column, session, depth_range)
             _paint_inspection_callouts(painter, plot_rect, template, column, session, depth_range)
-            # User-authored annotations form the topmost professional overlay.
-            # Keeping them last matches the interactive tablet and prevents
-            # generated inspection labels from covering comments or leaders.
-            _paint_annotations(painter, plot_rect, column, session, depth_range, bindings)
+            annotation_columns.append((column, plot_rect))
         x += column.width_mm
+    if depth_range is not None and dataset is not None and annotation_columns:
+        # User-authored annotations are one page-wide top layer. Drawing them
+        # after all columns allows the same free cross-column placement seen on
+        # the F4 canvas and prevents per-column duplication/clipping.
+        _paint_annotations(
+            painter, annotation_columns, session, depth_range, bindings
+        )
 
 
 def _paint_column_grid(
@@ -1753,27 +1758,32 @@ def _lithotype_name(definition: CatalogLithotype, language: AppLanguage) -> str:
 
 def _paint_annotations(
     painter: QPainter,
-    rect: QRectF,
-    column: MasterlogColumnTemplate,
+    column_rects: Sequence[tuple[MasterlogColumnTemplate, QRectF]],
     session: ProjectSession,
     depth_range: tuple[float, float],
     bindings: dict[str, str],
 ) -> None:
-    """Paint the well annotation layer on direct Masterlog PDF/print output.
+    """Paint one page-wide annotation layer after every Masterlog column."""
 
-    Tablet preview/printing captures :class:`TabletAnnotationItem` directly.  The
-    Masterlog renderer uses a millimetre canvas, therefore the same persisted
-    annotation model is converted from screen pixels to physical millimetres at
-    the conventional 96-DPI CSS ratio.  This keeps box proportions, typography,
-    anchors and print visibility consistent without storing renderer-specific
-    copies of annotations.
-    """
     well = session.current_well
-    if well is None:
+    if well is None or not column_rects:
         return
-    top, bottom = depth_range
-    if bottom <= top:
+    depth_top, depth_bottom = depth_range
+    if depth_bottom <= depth_top:
         return
+
+    owner_by_id = {column.column_id: (column, rect) for column, rect in column_rects}
+    default_owner = next(
+        (
+            item
+            for item in column_rects
+            if item[0].column_type != "depth"
+        ),
+        column_rects[0],
+    )
+    full_rect = QRectF(column_rects[0][1])
+    for _column, rect in column_rects[1:]:
+        full_rect = full_rect.united(rect)
 
     px_to_mm = 25.4 / 96.0
     pen_styles = {
@@ -1782,7 +1792,7 @@ def _paint_annotations(
         "dot": Qt.PenStyle.DotLine,
     }
     painter.save()
-    painter.setClipRect(rect)
+    painter.setClipRect(full_rect)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
     for item in well.canvas_objects:
@@ -1791,17 +1801,15 @@ def _paint_annotations(
         record = annotation_from_canvas(item)
         if not record.visible or not record.print_enabled:
             continue
-        if record.track_id and record.track_id != column.column_id:
-            continue
-        # Masterlog pages are depth-oriented.  A time annotation can still be
-        # printed when it also carries the corresponding depth reference.
+        owner = owner_by_id.get(record.track_id or "", default_owner)
+        column, rect = owner
         if record.depth is None or not isfinite(record.depth):
             continue
         depth = float(record.depth)
-        if depth < top or depth > bottom:
+        if depth < depth_top or depth > depth_bottom:
             continue
 
-        anchor_y = rect.top() + (depth - top) / (bottom - top) * rect.height()
+        anchor_y = rect.top() + (depth - depth_top) / (depth_bottom - depth_top) * rect.height()
         anchor_x = rect.left() + rect.width() * min(1.0, max(0.0, record.x_fraction))
         if record.anchor is AnnotationAnchor.CURVE and record.parameter_mnemonic:
             curve_x = _parameter_symbol_x(
@@ -1815,14 +1823,21 @@ def _paint_annotations(
             if curve_x is not None:
                 anchor_x = curve_x
 
-        width = min(rect.width(), max(10.0, record.width * px_to_mm))
-        height = min(rect.height(), max(6.0, record.height * px_to_mm))
+        width = min(full_rect.width(), max(10.0, record.width * px_to_mm))
+        height = min(full_rect.height(), max(6.0, record.height * px_to_mm))
         left = anchor_x + record.offset_x * px_to_mm
         top_y = anchor_y + record.offset_y * px_to_mm
-        # Keep the body usable inside the target column.  The leader continues
-        # to point to the exact anchor even when the box is clamped for print.
-        left = min(max(left, rect.left()), max(rect.left(), rect.right() - width))
-        top_y = min(max(top_y, rect.top()), max(rect.top(), rect.bottom() - height))
+        # Keep a small part reachable/printable, while still permitting a box
+        # to span several adjacent tracks.
+        visible_margin = min(4.0, width, height)
+        left = min(
+            max(left, full_rect.left() - width + visible_margin),
+            full_rect.right() - visible_margin,
+        )
+        top_y = min(
+            max(top_y, full_rect.top() - height + visible_margin),
+            full_rect.bottom() - visible_margin,
+        )
         box = QRectF(left, top_y, width, height)
         style = record.style
 

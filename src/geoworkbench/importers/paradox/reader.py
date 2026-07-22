@@ -234,6 +234,8 @@ def _read_records(
             block_offset + _DATA_BLOCK_HEADER_SIZE,
         )
         for local_row in range(record_count):
+            if local_row % 64 == 0 and cancelled is not None and cancelled():
+                raise ParadoxReadError("Импорт Paradox отменён пользователем")
             if row_number >= header.record_count:
                 issues.append(
                     ParadoxIssue(

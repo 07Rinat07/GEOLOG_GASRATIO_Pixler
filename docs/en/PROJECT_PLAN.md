@@ -1,5 +1,8 @@
 # Project plan
 
+## Slice 0.7.18 — stabilize interaction and import
+
+Run the Windows smoke test for annotations, PDF/print and safe Paradox cancellation on large tables.
 
 ## Slice 0.7.17 — annotation interaction hotfix
 

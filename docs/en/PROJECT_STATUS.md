@@ -1,5 +1,8 @@
 # Current project status
 
+## Version 0.7.18 — free annotations and responsive DB → LAS
+
+Annotations now use one tablet-wide overlay; Paradox import populates UI tables in slices and exposes a visible footer, six-stage progress and safe cancellation.
 
 ## Version 0.7.17 — annotation interaction hotfix
 

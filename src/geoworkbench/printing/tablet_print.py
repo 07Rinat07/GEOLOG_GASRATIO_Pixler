@@ -93,6 +93,11 @@ def capture_tablet_print_snapshot(
             try:
                 painter.scale(raster_scale, raster_scale)
                 item.widget.render(painter, QPoint())
+                # The professional annotation layer is a tablet-wide overlay,
+                # not a child of an individual PyQtGraph column. Paint the
+                # corresponding clipped portion into every column snapshot so
+                # screen, PDF and physical print keep the same geometry.
+                tablet.paint_annotations_for_track(item.definition.track_id, painter)
             finally:
                 painter.end()
             if pixmap.isNull():

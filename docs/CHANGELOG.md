@@ -1,3 +1,13 @@
+# 0.7.18 — tablet-wide annotation overlay and responsive Paradox import
+
+- moved annotations to one tablet-wide top overlay so boxes can cross track boundaries without losing their data anchor;
+- added eight corner/side resize handles, mouse capture during drag, keyboard edit/delete shortcuts and selected-object F4 actions;
+- removed annotations from the project/settings tree while retaining the dedicated manager;
+- included the common overlay in tablet capture, PDF and print rendering;
+- made Paradox preview population incremental with a Qt timer and removed expensive resize-to-contents work from the hot path;
+- added adaptive dialog sizing, an always-visible close/cancel footer, safe cancellation, elapsed time and a stable six-stage progress scale;
+- validated 128 focused non-GUI tests and preserved all source DB/PX/TV/FAM hashes.
+
 # 0.7.17 — annotation interaction hotfix and GeoScape step clarification
 
 - fixed the misplaced annotation-axis methods that made compact F4 toolbar actions fail while constructing the editor;

@@ -127,7 +127,10 @@ from geoworkbench.tablet.relative_gas import (
     is_relative_gas_track,
 )
 from geoworkbench.tablet.resize import TrackResizeGesture
-from geoworkbench.tablet.annotation_graphics import TabletAnnotationItem
+from geoworkbench.tablet.annotation_graphics import (
+    TabletAnnotationItem,
+    TabletAnnotationOverlay,
+)
 from geoworkbench.tablet.selection_interaction import (
     CallbackCommand,
     CommandStack,
@@ -787,6 +790,7 @@ class TabletView(QWidget):
     annotation_delete_requested = Signal(str)
     annotation_duplicate_requested = Signal(str)
     annotation_geometry_changed = Signal(str, float, float, float, float)
+    annotation_selection_changed = Signal(object)
     curve_value_save_requested = Signal(object)
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
@@ -811,6 +815,7 @@ class TabletView(QWidget):
         self._depth_range_guard = False
         self._cursor_enabled = False
         self._form_edit_mode = False
+        self._selected_track_id: str | None = None
         self._curve_pencil_enabled = False
         self._curve_pencil_track_id: str | None = None
         self._curve_pencil_mnemonic: str | None = None
@@ -877,6 +882,22 @@ class TabletView(QWidget):
         self._tracks_layout.setSpacing(2)
         self._tracks_container.setSizePolicy(
             QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Expanding
+        )
+        self._annotation_overlay = TabletAnnotationOverlay(self._tracks_container)
+        self._annotation_overlay.setGeometry(self._tracks_container.rect())
+        self._annotation_overlay.edit_requested.connect(self.annotation_edit_requested.emit)
+        self._annotation_overlay.delete_requested.connect(self.annotation_delete_requested.emit)
+        self._annotation_overlay.duplicate_requested.connect(
+            self.annotation_duplicate_requested.emit
+        )
+        self._annotation_overlay.geometry_changed.connect(
+            self.annotation_geometry_changed.emit
+        )
+        self._annotation_overlay.selection_changed.connect(
+            self.annotation_selection_changed.emit
+        )
+        self._annotation_overlay.context_requested.connect(
+            self._show_annotation_context_menu
         )
         self._container_layout.addWidget(self._group_header_container)
         self._container_layout.addWidget(self._tracks_container, 1)
@@ -1641,6 +1662,7 @@ class TabletView(QWidget):
         return changed or interval_changed
 
     def _track_selected_from_widget(self, track_id: str) -> None:
+        self._selected_track_id = track_id
         modifiers = QApplication.keyboardModifiers()
         additive = bool(
             modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
@@ -2696,6 +2718,8 @@ class TabletView(QWidget):
             rendered.widget.title.setToolTip(hint)
             for item in (rendered.annotation_items or {}).values():
                 item.set_edit_mode(self._form_edit_mode)
+        self._annotation_overlay.set_edit_mode(self._form_edit_mode)
+        self._annotation_overlay.raise_()
 
     def show_geological_context_menu(
         self,
@@ -3204,6 +3228,7 @@ class TabletView(QWidget):
         for rendered in self._rendered.values():
             for item in (rendered.annotation_items or {}).values():
                 item.set_print_mode(self._annotation_print_mode)
+        self._annotation_overlay.set_print_mode(self._annotation_print_mode)
 
     def annotation_request_at_view_center(
         self,
@@ -3602,6 +3627,7 @@ class TabletView(QWidget):
         self._depth_viewports.clear()
         self._wheel_targets.clear()
         self._interpretation_viewports.clear()
+        self._annotation_overlay.set_entries([])
         for layout in (self._group_header_layout, self._tracks_layout):
             while layout.count():
                 item = layout.takeAt(0)
@@ -3687,7 +3713,10 @@ class TabletView(QWidget):
                 visible_top,
                 visible_bottom,
             )
-            annotation_items = self._populate_annotations(track)
+            # Professional annotations are rendered once by the tablet-wide
+            # overlay.  Keeping them in a ViewBox clipped movement at column
+            # borders and duplicated track-less comments.
+            annotation_items: dict[str, TabletAnnotationItem] = {}
             lithology_items = self._populate_lithology(track, definition)
             lithology_label_items = self._populate_lithology_labels(track, definition)
             lithology_description_items = self._populate_lithology_descriptions(track, definition)
@@ -3763,6 +3792,7 @@ class TabletView(QWidget):
             self._update_cursor_labels(self._cursor_depth)
         self._update_navigation_controls()
         self._refresh_curve_pencil_targets()
+        self._refresh_annotation_overlay()
         # refresh_view is commonly executed before the widget receives its final
         # on-screen geometry. Reuse the instance timer after Qt has laid out the
         # horizontal scrollbar and the final chart viewport.
@@ -3863,6 +3893,7 @@ class TabletView(QWidget):
     def resizeEvent(self, event) -> None:  # type: ignore[override]
         super().resizeEvent(event)
         self._synchronize_track_heights()
+        self._sync_annotation_overlay_geometry()
         # pyqtgraph may briefly recalculate a ViewBox while the form/tablet is
         # being resized. Re-assert the camera range after Qt finishes geometry
         # processing so the selected metres-on-screen value cannot be lost.
@@ -3878,6 +3909,7 @@ class TabletView(QWidget):
             return
         self._synchronize_depth_ranges(*current)
         self._update_navigation_controls()
+        self._refresh_annotation_overlay()
 
     def _register_track_overlays(self, rendered: RenderedTrack) -> None:
         track_id = rendered.definition.track_id
@@ -6975,41 +7007,94 @@ class TabletView(QWidget):
             rendered[interval.interval_id] = label
         return rendered
 
-    def _populate_annotations(
-        self, track: TabletTrackWidget
-    ) -> dict[str, TabletAnnotationItem]:
-        rendered: dict[str, TabletAnnotationItem] = {}
-        definition = track.definition
+    def _sync_annotation_overlay_geometry(self) -> None:
+        self._annotation_overlay.setGeometry(self._tracks_container.rect())
+        self._annotation_overlay.raise_()
+
+    def _annotation_target_track(self, record) -> RenderedTrack | None:
+        if record.track_id and record.track_id in self._rendered:
+            return self._rendered[record.track_id]
+        # A legacy/all-tracks annotation is a single object, not one duplicate
+        # per column. Prefer the currently selected track, then the first
+        # visible non-depth track.
+        selected = getattr(self, "_selected_track_id", None)
+        if selected and selected in self._rendered:
+            return self._rendered[selected]
+        return next(
+            (
+                item
+                for item in self._rendered.values()
+                if item.definition.kind is not TrackKind.DEPTH
+            ),
+            next(iter(self._rendered.values()), None),
+        )
+
+    def _annotation_anchor_in_canvas(self, record) -> QPointF | None:
+        rendered = self._annotation_target_track(record)
+        if rendered is None or rendered.plot is None:
+            return None
+        axis_value = self._annotation_axis_value(record)
+        if axis_value is None or not np.isfinite(axis_value):
+            return None
+        anchor_x = self._annotation_anchor_x(rendered.widget, record)
+        try:
+            scene_point = rendered.plot.getViewBox().mapViewToScene(
+                QPointF(float(anchor_x), float(axis_value))
+            )
+            viewport_point = rendered.plot.mapFromScene(scene_point)
+            return QPointF(
+                rendered.plot.mapTo(self._tracks_container, viewport_point)
+            )
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return None
+
+    def _refresh_annotation_overlay(self) -> None:
+        self._sync_annotation_overlay_geometry()
+        entries: list[tuple[object, QPointF, QPixmap | None]] = []
         for canvas_item in self._canvas_objects:
             if not is_annotation_object(canvas_item):
                 continue
             record = annotation_from_canvas(canvas_item)
-            if record.track_id is not None and record.track_id != definition.track_id:
+            anchor = self._annotation_anchor_in_canvas(record)
+            if anchor is None:
                 continue
-            axis_value = self._annotation_axis_value(record)
-            if axis_value is None or not np.isfinite(axis_value):
-                continue
-            anchor_x = self._annotation_anchor_x(track, record)
             pixmap = None
             if record.asset_ref:
                 asset = self._image_assets.get(record.asset_ref)
                 if asset is not None:
                     pixmap = image_asset_pixmap(asset)
-            graphics = TabletAnnotationItem(
-                record,
-                pixmap=pixmap,
-                edit_mode=self._form_edit_mode,
-                print_mode=self._annotation_print_mode,
-            )
-            graphics.setPos(float(anchor_x), float(axis_value))
-            graphics.edit_requested.connect(self.annotation_edit_requested.emit)
-            graphics.delete_requested.connect(self.annotation_delete_requested.emit)
-            graphics.duplicate_requested.connect(self.annotation_duplicate_requested.emit)
-            graphics.geometry_changed.connect(self.annotation_geometry_changed.emit)
-            graphics.context_requested.connect(self._show_annotation_context_menu)
-            track.plot.addItem(graphics, ignoreBounds=True)
-            rendered[record.annotation_id] = graphics
-        return rendered
+            entries.append((record, anchor, pixmap))
+        self._annotation_overlay.set_entries(entries)
+        self._annotation_overlay.set_edit_mode(self._form_edit_mode)
+        self._annotation_overlay.set_print_mode(self._annotation_print_mode)
+        self._annotation_overlay.raise_()
+
+    @property
+    def selected_annotation_id(self) -> str | None:
+        return self._annotation_overlay.selected_annotation_id
+
+    def select_annotation(self, annotation_id: str | None) -> None:
+        self._annotation_overlay.select_annotation(annotation_id)
+
+    def edit_selected_annotation(self) -> bool:
+        return self._annotation_overlay.edit_selected()
+
+    def delete_selected_annotation(self) -> bool:
+        return self._annotation_overlay.delete_selected()
+
+    def duplicate_selected_annotation(self) -> bool:
+        return self._annotation_overlay.duplicate_selected()
+
+    def paint_annotations_for_track(
+        self,
+        track_id: str,
+        painter: QPainter,
+    ) -> None:
+        rendered = self._rendered.get(track_id)
+        if rendered is None:
+            return
+        origin = QPointF(rendered.widget.mapTo(self._tracks_container, QPoint(0, 0)))
+        self._annotation_overlay.paint_translated(painter, origin, print_mode=True)
 
     def _annotation_axis_value(self, record) -> float | None:
         if record.anchor is AnnotationAnchor.TIME:

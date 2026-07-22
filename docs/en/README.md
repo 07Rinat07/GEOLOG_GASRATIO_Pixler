@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.17:** fixed F4 annotation buttons, the focused editor, drag, resize, double-click editing and context menus for existing callouts/comments. GeoScape import now shows the 0.2 m server standard separately from the DB file’s actual row step.
+> **0.7.18:** callouts and comments use a tablet-wide overlay, move across columns, expose eight resize handles and support click/button editing. GeoScape/Paradox import reports six stages, populates previews without blocking the event loop and supports safe close/cancel.
 
 
 

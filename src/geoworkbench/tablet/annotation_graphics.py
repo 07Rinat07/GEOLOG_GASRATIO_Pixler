@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from math import atan2, cos, pi, sin
 
 from PySide6.QtCore import QLineF, QPoint, QPointF, QRectF, Qt, Signal
@@ -8,6 +9,7 @@ from PySide6.QtGui import (
     QFont,
     QPainter,
     QPainterPath,
+    QPainterPathStroker,
     QPen,
     QPolygonF,
     QPixmap,
@@ -24,6 +26,10 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.annotation_schema import AnnotationKind, AnnotationRecord
+from geoworkbench.tablet.annotation_interaction import (
+    keep_annotation_reachable,
+    resize_annotation_geometry,
+)
 
 
 class TabletAnnotationItem(QGraphicsObject):
@@ -110,13 +116,33 @@ class TabletAnnotationItem(QGraphicsObject):
         )
 
     def resize_handle_rect(self) -> QRectF:
+        """Backward-compatible alias for the south-east resize handle."""
+
+        return self.resize_handle_rects()["se"]
+
+    def resize_handle_rects(self) -> dict[str, QRectF]:
+        """Return eight analogue-style resize handles around the text box."""
+
         rect = self.box_rect()
-        return QRectF(
-            rect.right() - self.HANDLE_SIZE,
-            rect.bottom() - self.HANDLE_SIZE,
-            self.HANDLE_SIZE,
-            self.HANDLE_SIZE,
-        )
+        size = self.HANDLE_SIZE
+        half = size / 2.0
+        return {
+            "nw": QRectF(rect.left() - half, rect.top() - half, size, size),
+            "n": QRectF(rect.center().x() - half, rect.top() - half, size, size),
+            "ne": QRectF(rect.right() - half, rect.top() - half, size, size),
+            "e": QRectF(rect.right() - half, rect.center().y() - half, size, size),
+            "se": QRectF(rect.right() - half, rect.bottom() - half, size, size),
+            "s": QRectF(rect.center().x() - half, rect.bottom() - half, size, size),
+            "sw": QRectF(rect.left() - half, rect.bottom() - half, size, size),
+            "w": QRectF(rect.left() - half, rect.center().y() - half, size, size),
+        }
+
+    def resize_handle_at(self, point: QPointF) -> str | None:
+        local = self._point_in_box_coordinates(point)
+        for handle, rect in self.resize_handle_rects().items():
+            if rect.contains(local):
+                return handle
+        return None
 
     def _box_transform(self) -> QTransform:
         transform = QTransform()
@@ -155,14 +181,12 @@ class TabletAnnotationItem(QGraphicsObject):
     def shape(self) -> QPainterPath:
         path = self._box_shape()
         if self._has_leader():
-            pen_width = max(8.0, self.record.style.leader_width + 6.0)
-            corridor = QPainterPath()
-            # A broad rectangular corridor is sufficient for intuitive hit testing.
-            line_rect = QRectF(QPointF(0.0, 0.0), self._leader_end()).normalized()
-            corridor.addRect(
-                line_rect.adjusted(-pen_width, -pen_width, pen_width, pen_width)
-            )
-            path = path.united(corridor)
+            leader = QPainterPath(QPointF(0.0, 0.0))
+            leader.lineTo(self._leader_end())
+            stroker = QPainterPathStroker()
+            stroker.setWidth(max(10.0, self.record.style.leader_width + 8.0))
+            stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+            path = path.united(stroker.createStroke(leader))
         return path
 
     def paint(
@@ -177,7 +201,12 @@ class TabletAnnotationItem(QGraphicsObject):
         if self._has_leader():
             self._paint_leader(painter)
         self._paint_box(painter)
-        if self._edit_mode and not self.record.locked and not self._print_mode:
+        if (
+            self._edit_mode
+            and self._selected
+            and not self.record.locked
+            and not self._print_mode
+        ):
             self._paint_edit_handles(painter)
         painter.restore()
 
@@ -307,7 +336,8 @@ class TabletAnnotationItem(QGraphicsObject):
         painter.drawRect(rect.adjusted(-3.0, -3.0, 3.0, 3.0))
         painter.setBrush(QColor("#ffffff"))
         painter.setPen(QPen(selection_color, 1.5))
-        painter.drawRect(self.resize_handle_rect())
+        for handle in self.resize_handle_rects().values():
+            painter.drawRect(handle)
         painter.restore()
 
     def _has_leader(self) -> bool:
@@ -358,15 +388,9 @@ class TabletAnnotationItem(QGraphicsObject):
                 self.record.width,
                 self.record.height,
             )
-            box_point = self._point_in_box_coordinates(event.pos())
-            self._drag_mode = (
-                "resize" if self.resize_handle_rect().contains(box_point) else "move"
-            )
-            self.setCursor(
-                Qt.CursorShape.SizeFDiagCursor
-                if self._drag_mode == "resize"
-                else Qt.CursorShape.SizeAllCursor
-            )
+            handle = self.resize_handle_at(event.pos())
+            self._drag_mode = handle or "move"
+            self.setCursor(_cursor_for_handle(handle) if handle else Qt.CursorShape.SizeAllCursor)
             event.accept()
             self.update()
             return
@@ -383,37 +407,22 @@ class TabletAnnotationItem(QGraphicsObject):
             offset_x += delta.x()
             offset_y += delta.y()
         else:
-            resize_delta = delta
-            if self.record.style.rotation:
-                angle = -float(self.record.style.rotation) * pi / 180.0
-                resize_delta = QPointF(
-                    delta.x() * cos(angle) - delta.y() * sin(angle),
-                    delta.x() * sin(angle) + delta.y() * cos(angle),
-                )
-            width = max(40.0, width + resize_delta.x())
-            height = max(24.0, height + resize_delta.y())
-        self.record = AnnotationRecord(
-            annotation_id=self.record.annotation_id,
-            kind=self.record.kind,
-            anchor=self.record.anchor,
-            text=self.record.text,
-            track_id=self.record.track_id,
-            depth=self.record.depth,
-            axis_value=self.record.axis_value,
-            axis_id=self.record.axis_id,
-            parameter_mnemonic=self.record.parameter_mnemonic,
-            parameter_value=self.record.parameter_value,
-            unit=self.record.unit,
-            x_fraction=self.record.x_fraction,
+            resize_delta = _unrotate_delta(delta, self.record.style.rotation)
+            offset_x, offset_y, width, height = resize_annotation_geometry(
+                offset_x,
+                offset_y,
+                width,
+                height,
+                self._drag_mode,
+                resize_delta.x(),
+                resize_delta.y(),
+            )
+        self.record = replace(
+            self.record,
             offset_x=offset_x,
             offset_y=offset_y,
             width=width,
             height=height,
-            style=self.record.style,
-            asset_ref=self.record.asset_ref,
-            visible=self.record.visible,
-            locked=self.record.locked,
-            print_enabled=self.record.print_enabled,
         )
         self.update()
         event.accept()
@@ -459,12 +468,9 @@ class TabletAnnotationItem(QGraphicsObject):
 
     def hoverMoveEvent(self, event: QGraphicsSceneHoverEvent) -> None:  # noqa: N802
         box_point = self._point_in_box_coordinates(event.pos())
-        if (
-            self._edit_mode
-            and not self.record.locked
-            and self.resize_handle_rect().contains(box_point)
-        ):
-            self.setCursor(Qt.CursorShape.SizeFDiagCursor)
+        handle = self.resize_handle_at(event.pos())
+        if self._edit_mode and not self.record.locked and handle is not None:
+            self.setCursor(_cursor_for_handle(handle))
         elif (
             self._edit_mode
             and not self.record.locked
@@ -480,6 +486,412 @@ class TabletAnnotationItem(QGraphicsObject):
             self.unsetCursor()
         super().hoverLeaveEvent(event)
 
+
+
+class TabletAnnotationOverlay(QWidget):
+    """One professional annotation layer above the complete tablet canvas.
+
+    The former implementation inserted every annotation into a track ViewBox.
+    PyQtGraph then clipped the callout at the track edge and duplicated
+    track-less annotations.  This transparent child spans the entire track
+    canvas, so comments can move across columns while their depth/time/curve
+    anchor remains stable.
+    """
+
+    edit_requested = Signal(str)
+    delete_requested = Signal(str)
+    duplicate_requested = Signal(str)
+    context_requested = Signal(str, QPoint)
+    geometry_changed = Signal(str, float, float, float, float)
+    selection_changed = Signal(object)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAutoFillBackground(False)
+        self.setMouseTracking(True)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._entries: dict[str, tuple[TabletAnnotationItem, QPointF]] = {}
+        self._order: list[str] = []
+        self._edit_mode = False
+        self._print_mode = False
+        self._selected_id: str | None = None
+        self._drag_mode: str | None = None
+        self._drag_id: str | None = None
+        self._press_position = QPointF()
+        self._start_geometry = (0.0, 0.0, 40.0, 24.0)
+        self._refresh_mouse_policy()
+
+    @property
+    def selected_annotation_id(self) -> str | None:
+        return self._selected_id
+
+    def set_entries(
+        self,
+        entries: list[tuple[AnnotationRecord, QPointF, QPixmap | None]],
+    ) -> None:
+        previous = self._selected_id
+        self._entries.clear()
+        self._order.clear()
+        for record, anchor, pixmap in entries:
+            helper = TabletAnnotationItem(
+                record,
+                pixmap=pixmap,
+                edit_mode=self._edit_mode,
+                print_mode=self._print_mode,
+            )
+            helper._selected = record.annotation_id == previous
+            self._entries[record.annotation_id] = (helper, QPointF(anchor))
+            self._order.append(record.annotation_id)
+        if previous not in self._entries:
+            self._selected_id = None
+            if previous is not None:
+                self.selection_changed.emit(None)
+        self._update_mask()
+        self.update()
+        self.raise_()
+
+    def set_edit_mode(self, enabled: bool) -> None:
+        self._edit_mode = bool(enabled)
+        for helper, _anchor in self._entries.values():
+            helper.set_edit_mode(self._edit_mode)
+        if not self._edit_mode:
+            self._drag_mode = None
+            self._drag_id = None
+            self.select_annotation(None)
+        self._refresh_mouse_policy()
+        self._update_mask()
+        self.update()
+
+    def set_print_mode(self, enabled: bool) -> None:
+        self._print_mode = bool(enabled)
+        for helper, _anchor in self._entries.values():
+            helper.set_print_mode(self._print_mode)
+        self._refresh_mouse_policy()
+        self._update_mask()
+        self.update()
+
+    def select_annotation(self, annotation_id: str | None) -> None:
+        normalized = annotation_id if annotation_id in self._entries else None
+        if normalized == self._selected_id:
+            return
+        self._selected_id = normalized
+        for current_id, (helper, _anchor) in self._entries.items():
+            helper._selected = current_id == normalized
+        self._update_mask()
+        self.update()
+        if normalized is not None:
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
+        self.selection_changed.emit(normalized)
+
+    def edit_selected(self) -> bool:
+        if self._selected_id is None:
+            return False
+        self.edit_requested.emit(self._selected_id)
+        return True
+
+    def delete_selected(self) -> bool:
+        if self._selected_id is None:
+            return False
+        self.delete_requested.emit(self._selected_id)
+        return True
+
+    def duplicate_selected(self) -> bool:
+        if self._selected_id is None:
+            return False
+        self.duplicate_requested.emit(self._selected_id)
+        return True
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        del event
+        painter = QPainter(self)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            for annotation_id in self._order:
+                helper, anchor = self._entries[annotation_id]
+                if not helper.record.visible:
+                    continue
+                if self._print_mode and not helper.record.print_enabled:
+                    continue
+                painter.save()
+                painter.translate(anchor)
+                helper.paint(painter, QStyleOptionGraphicsItem(), self)
+                painter.restore()
+        finally:
+            painter.end()
+
+    def paint_translated(
+        self,
+        painter: QPainter,
+        origin: QPointF,
+        *,
+        print_mode: bool = True,
+    ) -> None:
+        """Paint the global overlay into one track-local print surface."""
+
+        painter.save()
+        try:
+            painter.translate(-origin.x(), -origin.y())
+            for annotation_id in self._order:
+                helper, anchor = self._entries[annotation_id]
+                record = helper.record
+                if not record.visible or (print_mode and not record.print_enabled):
+                    continue
+                was_selected = helper._selected
+                helper._selected = False
+                painter.save()
+                painter.translate(anchor)
+                helper.paint(painter, QStyleOptionGraphicsItem(), None)
+                painter.restore()
+                helper._selected = was_selected
+        finally:
+            painter.restore()
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if not self._edit_mode or self._print_mode:
+            event.ignore()
+            return
+        hit = self._hit(event.position())
+        if event.button() == Qt.MouseButton.RightButton:
+            if hit is not None:
+                annotation_id, _helper, _local = hit
+                self.select_annotation(annotation_id)
+                self.context_requested.emit(annotation_id, event.globalPosition().toPoint())
+                event.accept()
+                return
+            event.ignore()
+            return
+        if event.button() != Qt.MouseButton.LeftButton:
+            event.ignore()
+            return
+        if hit is None:
+            self.select_annotation(None)
+            event.ignore()
+            return
+        annotation_id, helper, local = hit
+        self.select_annotation(annotation_id)
+        if helper.record.locked:
+            event.accept()
+            return
+        handle = helper.resize_handle_at(local)
+        box_local = helper._point_in_box_coordinates(local)
+        if handle is None and not helper.box_rect().contains(box_local):
+            event.accept()
+            return
+        self._drag_id = annotation_id
+        self._drag_mode = handle or "move"
+        self._press_position = QPointF(event.position())
+        self._start_geometry = (
+            helper.record.offset_x,
+            helper.record.offset_y,
+            helper.record.width,
+            helper.record.height,
+        )
+        self.setCursor(_cursor_for_handle(handle) if handle else Qt.CursorShape.SizeAllCursor)
+        self.setFocus(Qt.FocusReason.MouseFocusReason)
+        self.grabMouse()
+        self._update_mask()
+        event.accept()
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if self._drag_id is None or self._drag_mode is None:
+            self._update_hover_cursor(event.position())
+            event.ignore()
+            return
+        helper, anchor = self._entries[self._drag_id]
+        delta = QPointF(event.position()) - self._press_position
+        offset_x, offset_y, width, height = self._start_geometry
+        if self._drag_mode == "move":
+            offset_x += delta.x()
+            offset_y += delta.y()
+        else:
+            local_delta = _unrotate_delta(delta, helper.record.style.rotation)
+            offset_x, offset_y, width, height = resize_annotation_geometry(
+                offset_x,
+                offset_y,
+                width,
+                height,
+                self._drag_mode,
+                local_delta.x(),
+                local_delta.y(),
+            )
+        offset_x, offset_y = self._keep_reachable(
+            anchor, offset_x, offset_y, width, height
+        )
+        helper.set_record(
+            replace(
+                helper.record,
+                offset_x=offset_x,
+                offset_y=offset_y,
+                width=width,
+                height=height,
+            )
+        )
+        helper._selected = True
+        self._entries[self._drag_id] = (helper, anchor)
+        self._update_mask()
+        self.update()
+        event.accept()
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if self._drag_id is None or self._drag_mode is None:
+            event.ignore()
+            return
+        annotation_id = self._drag_id
+        helper, _anchor = self._entries[annotation_id]
+        self._drag_id = None
+        self._drag_mode = None
+        self.releaseMouse()
+        self.unsetCursor()
+        self._update_mask()
+        self.geometry_changed.emit(
+            annotation_id,
+            helper.record.offset_x,
+            helper.record.offset_y,
+            helper.record.width,
+            helper.record.height,
+        )
+        event.accept()
+
+    def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802
+        if not self._edit_mode or event.button() != Qt.MouseButton.LeftButton:
+            event.ignore()
+            return
+        hit = self._hit(event.position())
+        if hit is None:
+            event.ignore()
+            return
+        annotation_id, _helper, _local = hit
+        self.select_annotation(annotation_id)
+        self.edit_requested.emit(annotation_id)
+        event.accept()
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        if not self._edit_mode or self._print_mode or self._selected_id is None:
+            super().keyPressEvent(event)
+            return
+        if event.key() in {Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_F2}:
+            self.edit_requested.emit(self._selected_id)
+            event.accept()
+            return
+        if event.key() in {Qt.Key.Key_Delete, Qt.Key.Key_Backspace}:
+            self.delete_requested.emit(self._selected_id)
+            event.accept()
+            return
+        if event.key() == Qt.Key.Key_Escape:
+            self.select_annotation(None)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        if self._drag_id is None:
+            self.unsetCursor()
+        super().leaveEvent(event)
+
+    def _hit(
+        self, point: QPointF
+    ) -> tuple[str, TabletAnnotationItem, QPointF] | None:
+        for annotation_id in reversed(self._order):
+            helper, anchor = self._entries[annotation_id]
+            if not helper.record.visible:
+                continue
+            local = QPointF(point) - anchor
+            if helper.shape().contains(local):
+                return annotation_id, helper, local
+            if annotation_id == self._selected_id and helper.resize_handle_at(local) is not None:
+                return annotation_id, helper, local
+        return None
+
+    def _update_hover_cursor(self, point: QPointF) -> None:
+        if not self._edit_mode or self._print_mode:
+            self.unsetCursor()
+            return
+        hit = self._hit(point)
+        if hit is None:
+            self.unsetCursor()
+            return
+        _annotation_id, helper, local = hit
+        if helper.record.locked:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            return
+        handle = helper.resize_handle_at(local)
+        self.setCursor(_cursor_for_handle(handle) if handle else Qt.CursorShape.SizeAllCursor)
+
+    def _keep_reachable(
+        self,
+        anchor: QPointF,
+        offset_x: float,
+        offset_y: float,
+        width: float,
+        height: float,
+    ) -> tuple[float, float]:
+        return keep_annotation_reachable(
+            anchor.x(),
+            anchor.y(),
+            offset_x,
+            offset_y,
+            width,
+            height,
+            self.width(),
+            self.height(),
+        )
+
+    def _refresh_mouse_policy(self) -> None:
+        self.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents,
+            not self._edit_mode or self._print_mode,
+        )
+
+    def _update_mask(self) -> None:
+        from PySide6.QtGui import QRegion
+
+        # While dragging, keep the complete overlay active and explicitly grab
+        # the mouse. This preserves movement even when the box crosses a track
+        # boundary or the pointer temporarily leaves the old masked region.
+        if self._drag_id is not None:
+            self.setMask(QRegion(self.rect()))
+            return
+
+        region = QRegion()
+        for annotation_id in self._order:
+            helper, anchor = self._entries[annotation_id]
+            if not helper.record.visible:
+                continue
+            transform = QTransform()
+            transform.translate(anchor.x(), anchor.y())
+            hit_path = transform.map(helper.shape())
+            for polygon_f in hit_path.toSubpathPolygons():
+                polygon = polygon_f.toPolygon()
+                if not polygon.isEmpty():
+                    region = region.united(QRegion(polygon))
+            if annotation_id == self._selected_id:
+                for handle_rect in helper.resize_handle_rects().values():
+                    mapped = transform.mapRect(handle_rect).adjusted(-3.0, -3.0, 3.0, 3.0)
+                    region = region.united(QRegion(mapped.toAlignedRect()))
+        self.setMask(region)
+
+
+def _unrotate_delta(delta: QPointF, rotation: float) -> QPointF:
+    if not rotation:
+        return QPointF(delta)
+    angle = -float(rotation) * pi / 180.0
+    return QPointF(
+        delta.x() * cos(angle) - delta.y() * sin(angle),
+        delta.x() * sin(angle) + delta.y() * cos(angle),
+    )
+
+
+def _cursor_for_handle(handle: str | None) -> Qt.CursorShape:
+    if handle in {"nw", "se"}:
+        return Qt.CursorShape.SizeFDiagCursor
+    if handle in {"ne", "sw"}:
+        return Qt.CursorShape.SizeBDiagCursor
+    if handle in {"n", "s"}:
+        return Qt.CursorShape.SizeVerCursor
+    if handle in {"e", "w"}:
+        return Qt.CursorShape.SizeHorCursor
+    return Qt.CursorShape.SizeAllCursor
 
 def _pen_style(value: str) -> Qt.PenStyle:
     return {

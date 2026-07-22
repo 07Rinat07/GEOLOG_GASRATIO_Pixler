@@ -1,4 +1,10 @@
-# GeoScape / Borland Paradox DB import — 0.7.17
+# GeoScape / Borland Paradox DB import — 0.7.18
+
+## Responsive dialog and safe close
+
+Binary block reading, analysis and Dataset creation run in worker threads. Channel, preview and diagnostics tables are populated in short Qt timer slices, allowing repaint, close and cancellation events to continue. Expensive `ResizeToContents` work is disabled during population.
+
+The header shows the current file, one of six stages, overall percentage, processed count and elapsed time. The footer always keeps Cancel/Close, Save LAS and Open in editor visible. Closing during an operation requests cancellation and waits for a safe read boundary; the source DB is never modified.
 
 ## Purpose
 

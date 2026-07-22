@@ -230,6 +230,7 @@ class MainWindow(QMainWindow):
         self.time_depth_mapping_controller = TimeDepthMappingController(self.session)
         self.time_to_depth_controller = TimeToDepthController(self.session)
         self.depth_annotation_controller = DepthAnnotationController(self.session)
+        self._selected_annotation_id: str | None = None
         self.lithology_controller = LithologyController(self.session)
         self.cuttings_controller = CuttingsController(self.session)
         self.interpretation_controller = InterpretationController(self.session)
@@ -328,6 +329,9 @@ class MainWindow(QMainWindow):
         )
         self.tablet_view.annotation_geometry_changed.connect(
             self._update_annotation_geometry_from_tablet
+        )
+        self.tablet_view.annotation_selection_changed.connect(
+            self._annotation_selection_changed
         )
         self.tablet_view.curve_value_save_requested.connect(
             self._save_curve_value_annotation
@@ -899,6 +903,32 @@ class MainWindow(QMainWindow):
         self.annotation_manager_toolbar_action.triggered.connect(
             self.show_depth_annotations
         )
+        self.annotation_edit_selected_action = self._localized_action(
+            "annotations.toolbar_edit_selected"
+        )
+        self._set_action_help(
+            self.annotation_edit_selected_action, "annotations.edit_selected_hint"
+        )
+        self.annotation_edit_selected_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView)
+        )
+        self.annotation_edit_selected_action.setEnabled(False)
+        self.annotation_edit_selected_action.triggered.connect(
+            self._edit_selected_annotation
+        )
+        self.annotation_delete_selected_action = self._localized_action(
+            "annotations.toolbar_delete_selected"
+        )
+        self._set_action_help(
+            self.annotation_delete_selected_action, "annotations.delete_selected_hint"
+        )
+        self.annotation_delete_selected_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
+        )
+        self.annotation_delete_selected_action.setEnabled(False)
+        self.annotation_delete_selected_action.triggered.connect(
+            self._delete_selected_annotation
+        )
         self.annotation_callout_action = self._localized_action(
             "annotations.toolbar_callout"
         )
@@ -1379,6 +1409,8 @@ class MainWindow(QMainWindow):
         self.form_edit_toolbar.addAction(self.annotation_comment_action)
         self.form_edit_toolbar.addAction(self.annotation_image_action)
         self.form_edit_toolbar.addAction(self.annotation_manager_toolbar_action)
+        self.form_edit_toolbar.addAction(self.annotation_edit_selected_action)
+        self.form_edit_toolbar.addAction(self.annotation_delete_selected_action)
         self.form_edit_toolbar.addSeparator()
         self.form_edit_toolbar.addAction(self.add_curve_track_action)
         self.form_edit_toolbar.addAction(self.edit_selected_track_action)
@@ -3059,6 +3091,11 @@ class MainWindow(QMainWindow):
         self.annotation_callout_action.setEnabled(enabled)
         self.annotation_comment_action.setEnabled(enabled)
         self.annotation_image_action.setEnabled(enabled)
+        selected_enabled = enabled and self._selected_annotation_id is not None
+        self.annotation_edit_selected_action.setEnabled(selected_enabled)
+        self.annotation_delete_selected_action.setEnabled(selected_enabled)
+        if not enabled:
+            self._selected_annotation_id = None
         self.statusBar().showMessage(
             self._t("ui.form_edit_enabled") if enabled else self._t("ui.form_edit_disabled")
         )
@@ -3832,6 +3869,37 @@ class MainWindow(QMainWindow):
             self._refresh_annotation_layer()
             return
         self._refresh_annotation_layer()
+
+    def _annotation_selection_changed(self, annotation_id: object) -> None:
+        selected = annotation_id if isinstance(annotation_id, str) else None
+        self._selected_annotation_id = selected
+        enabled = selected is not None and self.tablet_view.form_edit_mode
+        self.annotation_edit_selected_action.setEnabled(enabled)
+        self.annotation_delete_selected_action.setEnabled(enabled)
+        if selected is not None:
+            self.statusBar().showMessage(self._t("annotations.selected_status"))
+
+    def _edit_selected_annotation(self) -> None:
+        annotation_id = self._selected_annotation_id
+        if annotation_id is None:
+            QMessageBox.information(
+                self,
+                self._t("annotations.title"),
+                self._t("annotations.select_existing"),
+            )
+            return
+        self._edit_annotation_from_tablet(annotation_id)
+
+    def _delete_selected_annotation(self) -> None:
+        annotation_id = self._selected_annotation_id
+        if annotation_id is None:
+            QMessageBox.information(
+                self,
+                self._t("annotations.title"),
+                self._t("annotations.select_existing"),
+            )
+            return
+        self._delete_annotation_from_tablet(annotation_id)
 
     def _save_curve_value_annotation(self, payload: object) -> None:
         if not isinstance(payload, dict):
@@ -5018,28 +5086,10 @@ class MainWindow(QMainWindow):
                         ),
                     )
                     stratigraphy_item.addChild(child)
-            annotations = [item for item in well.canvas_objects if is_annotation_object(item)]
-            if annotations:
-                annotations_item = QTreeWidgetItem(
-                    [self._t("annotations.tree", count=len(annotations))]
-                )
-                annotations_item.setData(0, Qt.ItemDataRole.UserRole, ("annotations", well.well_id))
-                well_item.addChild(annotations_item)
-                for annotation in annotations:
-                    record = annotation_from_canvas(annotation)
-                    text = record.text or self._t("annotations.default")
-                    anchor = (
-                        f"{record.depth:g} м"
-                        if record.depth is not None
-                        else self._t("annotations.anchor_track")
-                    )
-                    child = QTreeWidgetItem([f"{anchor}: {text}"])
-                    child.setData(
-                        0,
-                        Qt.ItemDataRole.UserRole,
-                        ("annotation", well.well_id, annotation.object_id),
-                    )
-                    annotations_item.addChild(child)
+            # Annotations are managed by the dedicated F4 layer and the
+            # “All…” manager. They are deliberately omitted from the project
+            # navigation tree so dozens of comments do not clutter the settings
+            # column.
         root.setExpanded(True)
 
     def _activate_tree_item(self, item: QTreeWidgetItem) -> None:

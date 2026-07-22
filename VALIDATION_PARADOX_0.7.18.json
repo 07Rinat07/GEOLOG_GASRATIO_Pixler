@@ -1,0 +1,27 @@
+{
+  "version": "0.7.18",
+  "date": "2026-07-22",
+  "samples": {
+    "BLData(1).db": {
+      "records": 3488,
+      "fields": 70,
+      "classification": "time_with_depth",
+      "depth_candidate": "S113",
+      "time_candidate": "S0",
+      "actual_depth_step_m": 0.4,
+      "geoscape_standard_step_m": 0.2,
+      "sha256": "190ce570f1c920f85837e3722f591fd1aa1c288a3fd9ffffccd29438981ec737"
+    },
+    "D250(1).db": {
+      "records": 1739,
+      "fields": 101,
+      "classification": "mixed",
+      "depth_candidates": ["S101", "S115", "S108"],
+      "time_candidate": "S0",
+      "sha256": "428fccab46230952be7040aeb0ea455aad084b85d57b856c2cb1ec102db933b1"
+    }
+  },
+  "source_files_unchanged": true,
+  "focused_tests_passed": 128,
+  "qt_gui_tested": false
+}
