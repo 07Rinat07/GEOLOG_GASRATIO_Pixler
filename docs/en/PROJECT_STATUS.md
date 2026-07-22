@@ -1,4 +1,12 @@
-# Current project status
+# Project status
+
+## Version 0.7.23 — OOP tablet routing and restored editing
+
+Pointer/keyboard handling is split between `TabletInteractionRouter`, the annotation tool, track editor, F4 mode coordinator and lost-release watchdog. The paint overlay is permanently mouse-transparent and can no longer cover the plots. Direct annotation creation, selection, drag/resize and editing are restored together with track selection, right-click menus and the full curve/parameter column editor. The DB → LAS batch workflow now exposes full output paths and explicit open/retry/close actions.
+
+## Version 0.7.21 — smooth callout/comment editing
+
+The annotation layer no longer rebuilds the tablet after every drag. During a gesture only the object footprint is repainted, the native mask is not reapplied per pixel, and geometry/Undo is committed once on release. Selecting an object without movement creates no project change.
 
 ## Version 0.7.20 — unified time and direct F4 annotations
 

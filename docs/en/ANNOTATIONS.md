@@ -1,4 +1,10 @@
-# Professional annotation layer — 0.7.20
+# Professional annotation layer — 0.7.23
+
+## OOP interaction routing 0.7.23
+
+One `TabletInteractionRouter` dispatches input to an existing annotation, an armed creation tool, track editing and then normal curve logic. `TabletAnnotationOverlay` is paint-only: it is permanently mouse-transparent and never installs a widget mask or native pointer grab. `TabletEditModeCoordinator` owns F4 state, so cancelling a creation tool always restores column selection and full track editing.
+
+Dragging and resizing repaint only the union of the old and new object footprints. Tracks, curves, headers and the project tree are not rebuilt. One gesture creates one Undo command; a click without movement does not modify the project.
 
 ## Graph-body clipping
 
@@ -30,7 +36,7 @@ The annotation layer adds persistent explanations to depth/time tablets, graphs 
 
 1. Open a tablet and press **F4**.
 2. Use the compact **Callout**, **Comment**, **Image** buttons or open **Annotations and callouts…**.
-3. Right-click the exact graph location to create an object at that coordinate.
+3. Select a tool and left-click the exact track and depth/time position; right-click remains an alternative context workflow.
 4. Double-click an existing annotation to open the unified appearance editor.
 5. In F4 mode, drag the body to move it and use the eight corner and side handles to resize it.
 

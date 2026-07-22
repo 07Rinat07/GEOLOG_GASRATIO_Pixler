@@ -52,6 +52,26 @@ def convert_batch(
             return translate(key, **values)
         return _DEFAULT_MESSAGES.get(key, key).format(**values)
 
+    # Validate target uniqueness before any file is written. A constant name
+    # mask such as ``result.las`` is safe only for one source and one mode; for
+    # several sources it would otherwise create one file and silently skip the
+    # remaining operations as "already exists".
+    planned_targets: dict[Path, Path] = {}
+    for item in source_items:
+        source = Path(item).expanduser().resolve()
+        target = (output / _target_name(name_mask, source, mode)).resolve()
+        previous = planned_targets.get(target)
+        if previous is not None:
+            raise ValueError(
+                message(
+                    "paradox.batch_duplicate_targets",
+                    target=target.name,
+                    first=previous.name,
+                    second=source.name,
+                )
+            )
+        planned_targets[target] = source
+
     results: list[BatchItemResult] = []
     total = len(source_items)
     for position, item in enumerate(source_items, start=1):
@@ -166,6 +186,10 @@ _DEFAULT_MESSAGES = {
     "paradox.batch_profile_no_depth": "Профиль не содержит канал глубины",
     "paradox.batch_profile_no_time": "Профиль не содержит канал времени",
     "paradox.batch_roundtrip_success": "LAS создан и повторно открыт текущим LAS-reader",
+    "paradox.batch_duplicate_targets": (
+        "Несколько операций используют один файл {target} ({first} и {second}). "
+        "Используйте уникальную маску имени."
+    ),
 }
 
 

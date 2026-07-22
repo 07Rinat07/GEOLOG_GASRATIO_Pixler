@@ -1,4 +1,4 @@
-GEOLOG GASRATIO@Pixler 0.7.20 validation
+GEOLOG GASRATIO@Pixler 0.7.23 validation
 ========================================
 
 Date: 22 July 2026
@@ -6,45 +6,40 @@ Date: 22 July 2026
 [1] Python compilation
 PASS: python -m compileall -q src tests
 
-[2] Focused dependency-free regression suite
-PASS: 147 tests
+[2] Dependency-free regression suite
+PASS: 603 passed, 1 skipped
 
 Covered areas:
-- platform-independent datetime/Unix/Delphi-OLE/elapsed formatting;
-- time display source paths and version synchronization;
-- tablet-wide annotation source integration and eight-handle geometry;
-- graph-body clipping below track/parameter headers;
-- direct F4 click-to-create workflow and safe initial placement;
-- annotation CRUD/history, project persistence and LAS-merge survival;
-- Paradox detector/import/batch/progress regression;
-- depth/time indexes, aggregation, sampling and export planning;
-- project codecs and migrations.
+- OOP tablet interaction router and capture cleanup;
+- F4 mode coordinator invariants;
+- annotation selection, creation, drag/resize and editing dispatch;
+- track selection, pass-through and full editor dispatch;
+- paint-only annotation overlay and dirty-region updates;
+- Paradox import, batch planning/UX, depth/time models and LAS export plans;
+- project codecs, merge persistence, histories and version synchronization.
 
-[3] Date/time presentation
-PASS: user-facing formatter uses explicit epochs and timedelta
-PASS: no datetime.fromtimestamp/utcfromtimestamp calls in application source
-PASS: NumPy datetime64, Unix, Delphi/OLE and elapsed values covered
-PASS: companion DATETIME index or registration origin is preferred
+[3] Architecture invariants
+PASS: one TabletInteractionRouter owns logical capture
+PASS: paint overlay is permanently mouse-transparent
+PASS: no native grabMouse/releaseMouse/setMask call in tablet interaction code
+PASS: existing annotation has priority over creation tool
+PASS: empty F4 click remains available to track/curve selection
+PASS: disarming an annotation tool restores track editing
+PASS: lost release/window deactivation clears active interaction state
 
-[4] Annotation interaction
-PASS: overlay paint/hit/mask/print paths are clipped to graph body
-PASS: headers and parameter captions are outside annotation canvas
-PASS: F4 actions arm a tool and left-click creates at exact track/depth/time
-PASS: direct object is selected for immediate drag/resize
-PASS: double-click/F2/Enter/toolbar/context editor paths remain available
+[4] Localization and JSON
+PASS: RU/KK/EN catalogs contain 1549 identical keys
+PASS: localized formatting placeholders match
+PASS: 20 JSON resources are valid
 
-[5] Localization and JSON
-PASS: RU/KK/EN contain 1500 identical keys
-PASS: named placeholders are synchronized
-PASS: 20 JSON files are valid
+[5] Documentation and version
+PASS: code, pyproject, version test, README and release notes use 0.7.23
+PASS: RU/KK/EN README, annotations, project status and plan updated
+PASS: local Markdown links resolve
 
-[6] Source immutability
-PASS: supplied DB/PX/TV/FAM SHA-256 hashes unchanged
-
-[7] GUI boundary
+[6] GUI boundary
 NOT RUN in this container: PySide6, pyqtgraph and lasio are unavailable.
-Required on Windows: direct click/create, drag/resize over several tracks,
-header clipping, depth/time scrolling, project reopen, PDF/print comparison,
-physical printing and DB -> LAS round-trip.
+Required on Windows/HiDPI: physical mouse drag/resize, double-click/context menus,
+lost-release recovery, PDF/print comparison and full DB -> LAS -> reopen round-trip.
 
-Detailed report: docs/HOTFIX_REPORT_0.7.20.md
+Detailed report: docs/HOTFIX_REPORT_0.7.23.md

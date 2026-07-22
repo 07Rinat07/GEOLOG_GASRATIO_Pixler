@@ -1,3 +1,30 @@
+# 0.7.23 — OOP tablet interaction router and restored editing
+
+- replaced competing annotation/track mouse paths with one priority-based `TabletInteractionRouter`;
+- introduced `AnnotationInteractionHandler`, `TrackEditInteractionHandler`, `TabletEditModeCoordinator` and `TabletInteractionWatchdog`;
+- converted `TabletAnnotationOverlay` into a paint/hit-test-only widget with permanent mouse transparency and no native mouse grab/mask;
+- restored direct F4 annotation creation, selection, drag/resize, keyboard editing and context actions;
+- restored track selection, right-click menus and full curve/gas column editing without conflicts with the annotation layer;
+- centralized F4 invariants so disarming a creation tool always restores track editing;
+- included the completed DB → LAS batch user workflow with full target paths, explicit post-run actions, retry and safe close/cancel;
+- added pure unit and source-contract coverage for router priority, capture cleanup, mode transitions and combined annotation/track dispatch.
+
+# 0.7.22 — DB → LAS batch converter user workflow
+
+- added a complete target-path preview and a safe `{source_name}_{mode}.las` default mask;
+- prevented multiple source/mode operations from resolving to the same LAS path;
+- added explicit Open LAS, Open result folder, Retry failed and Close actions;
+- clarified that conversion saves directly into the selected folder and does not require a second Save command;
+- added localized status explanations, selection details and safe stop/cancel behavior.
+
+# 0.7.21 — annotation flicker and refresh hotfix
+
+- repaint only the changed annotation footprint during drag/resize;
+- cache native overlay masks and keep the mask stable during a mouse gesture;
+- avoid complete tablet, curve, header and project-tree refreshes for annotation-only changes;
+- commit one geometry history command on release; ignore selection clicks with no geometry change;
+- preserve project format, saved annotations, print/PDF paths and depth/time anchoring.
+
 # 0.7.20 — cross-platform datetime and direct annotation workflow hotfix
 
 - added one platform-independent date/time formatter for NumPy datetime, Unix seconds, Delphi/OLE serial dates and elapsed-time values;

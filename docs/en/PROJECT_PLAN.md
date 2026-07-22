@@ -1,5 +1,24 @@
 # Project plan
 
+## 0.7.23 snapshot
+
+- [x] one OOP pointer/keyboard interaction router;
+- [x] separate annotation, track, F4 mode and watchdog classes;
+- [x] paint-only overlay without native pointer grab or widget mask;
+- [x] restore annotation creation, selection, drag/resize and editing;
+- [x] restore track selection, menus and full column editing;
+- [x] complete the user-facing DB → LAS batch workflow;
+- [x] add unit/source-contract tests for architecture invariants;
+- [ ] run Windows/HiDPI smoke tests and the full LAS round-trip.
+
+## 0.7.21 snapshot
+
+- [x] remove full tablet refreshes from annotation editing;
+- [x] repaint only the annotation dirty region;
+- [x] cache the native mask and commit geometry once;
+- [x] create no history/dirty state for a click without movement;
+- [ ] verify smooth interaction on Windows and HiDPI.
+
 ## 0.7.20 snapshot
 
 - [x] one cross-platform date/time format;

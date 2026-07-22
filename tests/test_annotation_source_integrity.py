@@ -38,15 +38,18 @@ def test_axis_handler_belongs_to_annotation_dialog() -> None:
     assert "_axis_selection_changed" not in _methods(classes["_ColorButton"])
 
 
-def test_both_tablet_event_filters_protect_annotation_events() -> None:
+def test_tablet_uses_oop_router_instead_of_competing_event_filters() -> None:
     classes = _classes("src/geoworkbench/tablet/tablet_view.py")
 
-    assert "_annotation_for_event" in _methods(classes["TabletTrackWidget"])
-    assert "_annotation_item_for_mouse_event" in _methods(classes["TabletView"])
+    assert "_tablet_input_from_mouse" in _methods(classes["TabletView"])
+    assert "_create_annotation_from_input" in _methods(classes["TabletView"])
+    assert "_annotation_item_for_mouse_event" not in _methods(classes["TabletView"])
 
     source = (ROOT / "src/geoworkbench/tablet/tablet_view.py").read_text(encoding="utf-8")
-    assert "Let QGraphicsView deliver the complete gesture/context" in source
-    assert "deliver the event to TabletAnnotationItem" in source
+    assert "TabletInteractionRouter()" in source
+    assert "AnnotationInteractionHandler(" in source
+    assert "TrackEditInteractionHandler(" in source
+    assert "paint overlay is" in source and "mouse-transparent" in source
 
 
 def test_direct_creation_payload_contains_editable_geometry() -> None:

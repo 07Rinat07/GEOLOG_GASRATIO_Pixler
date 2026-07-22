@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.20:** date/time is displayed identically on Windows and Linux as `DD.MM.YYYY HH:MM:SS`. In F4, callouts/comments are created by clicking the exact track and depth/time, then moved/resized with the mouse, and never paint over graph headers.
+> **0.7.23:** tablet interaction is now routed through one OOP dispatcher. Annotation creation/editing and full track editing are restored, and the paint overlay can no longer block pointer input. The DB → LAS batch workflow previews full paths and provides explicit Open LAS/Open folder actions.
 
 
 

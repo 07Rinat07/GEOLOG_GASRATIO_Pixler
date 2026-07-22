@@ -228,3 +228,23 @@ def test_time_annotation_preserves_axis_and_canonical_depth() -> None:
     assert created.depth == 150.0
     assert created.axis_value == 5.0
     assert created.axis_id == "time"
+
+
+def test_identical_geometry_does_not_create_history_or_dirty_project() -> None:
+    controller = make_controller()
+    created = controller.add_annotation(text="Без движения", depth=150.0)
+    controller.history.clear()
+    controller.session.dirty = False
+
+    same = controller.set_geometry(
+        created.annotation_id,
+        offset_x=created.offset_x,
+        offset_y=created.offset_y,
+        width=created.width,
+        height=created.height,
+    )
+
+    assert same == created
+    assert controller.session.dirty is False
+    with pytest.raises(RuntimeError, match="Нет операций"):
+        controller.undo()

@@ -1616,13 +1616,29 @@ class MainWindow(QMainWindow):
         filenames, _ = QFileDialog.getOpenFileNames(self, "Открыть LAS", "", "LAS (*.las)")
         if not filenames:
             return
+        self._open_las_files(tuple(Path(filename) for filename in filenames), import_mode)
 
+    def _open_generated_las(self, payload: object) -> None:
+        paths = tuple(
+            Path(item).expanduser().resolve()
+            for item in (payload if isinstance(payload, (tuple, list)) else (payload,))
+            if item
+        )
+        if paths:
+            self._open_las_files(paths, LasImportMode.COMPATIBLE)
+
+    def _open_las_files(
+        self,
+        filenames: tuple[Path, ...],
+        import_mode: LasImportMode,
+    ) -> None:
         last_dataset = None
         last_well = None
         errors: list[str] = []
         descending_files: list[str] = []
         import_warnings: list[str] = []
-        for filename in filenames:
+        for source in filenames:
+            filename = str(source)
             try:
                 import_result = import_las_with_report(filename)
                 decision = evaluate_las_import(import_result.report, import_mode)
@@ -1633,7 +1649,7 @@ class MainWindow(QMainWindow):
                     messages = "\n".join(f"• {issue.message}" for issue in decision.review_issues)
                     answer = QMessageBox.question(
                         self,
-                        f"Ручная проверка: {Path(filename).name}",
+                        f"Ручная проверка: {source.name}",
                         messages + "\n\nОткрыть файл без автоматического исправления?",
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                         QMessageBox.StandardButton.No,
@@ -1654,7 +1670,7 @@ class MainWindow(QMainWindow):
                     import_mode is LasImportMode.COMPATIBLE
                     and analyze_depth_axis(dataset.depth).direction is DepthDirection.DESCENDING
                 ):
-                    descending_files.append(Path(filename).name)
+                    descending_files.append(source.name)
                 report_messages = tuple(
                     issue.message
                     for issue in import_result.report.issues
@@ -1663,11 +1679,11 @@ class MainWindow(QMainWindow):
                 )
                 if report_messages and import_mode is LasImportMode.COMPATIBLE:
                     import_warnings.append(
-                        f"{Path(filename).name}:\n  " + "\n  ".join(report_messages)
+                        f"{source.name}:\n  " + "\n  ".join(report_messages)
                     )
                 self._log(f"Загружен LAS: {filename}")
             except (OSError, LasImportError) as exc:
-                errors.append(f"{Path(filename).name}: {exc}")
+                errors.append(f"{source.name}: {exc}")
                 self._log(f"ОШИБКА: {filename}: {exc}")
 
         if last_dataset is None or last_well is None:
@@ -1676,9 +1692,7 @@ class MainWindow(QMainWindow):
 
         # Activate through the common dataset-switch path.  Besides curves and
         # layout it resets every well-scoped overlay (lithology, cuttings,
-        # stratigraphy, interpretations and depth annotations).  The previous
-        # implementation updated only part of the tablet and could leave visual
-        # objects from the previously opened LAS on screen.
+        # stratigraphy, interpretations and depth annotations).
         self._show_current_dataset()
         self.inspector.setPlainText(
             f"{self._t('inspector.well')}: {last_well.name}\n"
@@ -1813,6 +1827,7 @@ class MainWindow(QMainWindow):
             self,
             language=self.language,
         )
+        dialog.open_las_requested.connect(self._open_generated_las)
         dialog.exec()
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
@@ -1835,7 +1850,9 @@ class MainWindow(QMainWindow):
         if len(paths) == 1:
             self.open_paradox(paths[0])
         else:
-            ParadoxBatchDialog(tuple(paths), self, language=self.language).exec()
+            dialog = ParadoxBatchDialog(tuple(paths), self, language=self.language)
+            dialog.open_las_requested.connect(self._open_generated_las)
+            dialog.exec()
 
     def open_project(self) -> None:
         if self.session.dirty:
@@ -3803,10 +3820,17 @@ class MainWindow(QMainWindow):
         return True
 
     def _refresh_annotation_layer(self) -> None:
+        """Refresh annotations only, preserving the rendered tablet.
+
+        Annotations intentionally do not live in the project/tree column. There
+        is therefore no reason to rebuild the tree or every graph track after an
+        annotation CRUD operation. The lightweight TabletView setters reuse the
+        existing overlay helpers and selection.
+        """
+
         well = self.session.current_well
         self.tablet_view.set_image_assets(self.session.image_assets)
         self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
-        self._refresh_tree()
         self._update_title()
 
     def _toggle_annotation_tool(self, kind: AnnotationKind, checked: bool) -> None:
@@ -3920,7 +3944,11 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, self._t("annotations.title"), str(exc))
             self._refresh_annotation_layer()
             return
-        self._refresh_annotation_layer()
+        # The overlay already contains the final drag/resize geometry. Commit
+        # one history entry and dirty marker on release, but do not rebuild the
+        # tablet or replace the overlay item. This removes the release flash and
+        # keeps selection/focus stable.
+        self._update_title()
 
     def _annotation_selection_changed(self, annotation_id: object) -> None:
         selected = annotation_id if isinstance(annotation_id, str) else None

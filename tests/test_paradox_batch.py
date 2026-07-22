@@ -48,3 +48,19 @@ def test_batch_ambiguous_table_requires_manual_configuration(tmp_path: Path, mon
     assert result.warnings == 1
     assert "требуется профиль" in result.message
     assert "material_issues" not in result.message
+
+
+def test_batch_rejects_duplicate_target_names_before_reading(tmp_path: Path) -> None:
+    from geoworkbench.importers.paradox import batch
+
+    first = tmp_path / "first.db"
+    second = tmp_path / "second.db"
+    first.write_bytes(b"one")
+    second.write_bytes(b"two")
+
+    with pytest.raises(ValueError, match="один файл|Несколько операций"):
+        batch.convert_batch(
+            [first, second],
+            tmp_path / "out",
+            name_mask="result.las",
+        )

@@ -137,6 +137,20 @@ from geoworkbench.tablet.annotation_graphics import (
     TabletAnnotationItem,
     TabletAnnotationOverlay,
 )
+from geoworkbench.tablet.annotation_tool import (
+    AnnotationGeometryChange,
+    AnnotationInteractionHandler,
+)
+from geoworkbench.tablet.interaction_router import (
+    InputEventKind,
+    InteractionResponse,
+    PointerButton,
+    TabletInputEvent,
+    TabletInteractionRouter,
+)
+from geoworkbench.tablet.track_edit_tool import TrackEditInteractionHandler
+from geoworkbench.tablet.edit_mode_coordinator import TabletEditModeCoordinator
+from geoworkbench.tablet.interaction_watchdog import TabletInteractionWatchdog
 from geoworkbench.tablet.selection_interaction import (
     CallbackCommand,
     CommandStack,
@@ -197,6 +211,12 @@ class RenderedTrack:
     curve_pencil_preview: pg.PlotDataItem | None = None
     curve_pencil_badge: QLabel | None = None
     curve_pencil_readout: QLabel | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _QtPointerPayload:
+    plot: pg.PlotWidget | None
+    event: QMouseEvent | QKeyEvent
 
 
 @dataclass(frozen=True, slots=True)
@@ -340,6 +360,7 @@ class TabletTrackWidget(QFrame):
     header_drag_moved = Signal(str, int)
     header_drag_finished = Signal(str, int)
     context_requested = Signal(str, QPoint)
+    edit_requested = Signal(str)
     curve_selected = Signal(str, str)
     curve_context_requested = Signal(str, str, QPoint)
 
@@ -551,15 +572,9 @@ class TabletTrackWidget(QFrame):
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
         if isinstance(event, QMouseEvent):
-            if watched in {self.plot, self.plot.viewport()}:
-                annotation = self._annotation_for_event(event)
-                if annotation is not None and annotation.edit_mode:
-                    # Let QGraphicsView deliver the complete gesture/context
-                    # event to the annotation.  Consuming the viewport event
-                    # here previously made existing callouts impossible to edit.
-                    return False
             if (
-                event.type() == QEvent.Type.MouseButtonPress
+                watched is self.title
+                and event.type() == QEvent.Type.MouseButtonPress
                 and event.button() == Qt.MouseButton.RightButton
             ):
                 self.context_requested.emit(
@@ -570,6 +585,16 @@ class TabletTrackWidget(QFrame):
                 return True
         if watched is self.title and isinstance(event, QMouseEvent):
             global_x = event.globalPosition().toPoint().x()
+            if (
+                event.type() == QEvent.Type.MouseButtonDblClick
+                and event.button() == Qt.MouseButton.LeftButton
+            ):
+                self._header_drag_origin_x = None
+                self._header_dragging = False
+                self.selected.emit(self.definition.track_id)
+                self.edit_requested.emit(self.definition.track_id)
+                event.accept()
+                return True
             if (
                 event.type() == QEvent.Type.MouseButtonPress
                 and event.button() == Qt.MouseButton.LeftButton
@@ -597,21 +622,6 @@ class TabletTrackWidget(QFrame):
                     self.header_drag_finished.emit(self.definition.track_id, global_x)
                     return True
         return super().eventFilter(watched, event)
-
-    def _annotation_for_event(self, event: QMouseEvent) -> TabletAnnotationItem | None:
-        scene = self.plot.scene()
-        current = scene.mouseGrabberItem() if scene is not None else None
-        if current is None:
-            try:
-                current = self.plot.itemAt(event.position().toPoint())
-            except (AttributeError, RuntimeError, TypeError):
-                return None
-        while current is not None:
-            if isinstance(current, TabletAnnotationItem):
-                return current
-            parent_item = getattr(current, "parentItem", None)
-            current = parent_item() if callable(parent_item) else None
-        return None
 
     def _handle_resize_event(self, event: QMouseEvent, watched: QObject | None = None) -> bool:
         event_type = event.type()
@@ -876,14 +886,38 @@ class TabletView(QWidget):
         self._annotation_overlay.duplicate_requested.connect(
             self.annotation_duplicate_requested.emit
         )
-        self._annotation_overlay.geometry_changed.connect(
-            self.annotation_geometry_changed.emit
-        )
         self._annotation_overlay.selection_changed.connect(
             self.annotation_selection_changed.emit
         )
-        self._annotation_overlay.context_requested.connect(
-            self._show_annotation_context_menu
+
+        # All edit gestures pass through one OOP router.  The paint overlay is
+        # permanently mouse-transparent and can no longer block track menus or
+        # remain in a stale native mouse-grab state.
+        self._interaction_router = TabletInteractionRouter()
+        self._annotation_interaction = AnnotationInteractionHandler(
+            self._annotation_overlay,
+            create_requested=self._create_annotation_from_input,
+            edit_requested=self.annotation_edit_requested.emit,
+            delete_requested=self.annotation_delete_requested.emit,
+            context_requested=self._show_annotation_context_from_input,
+            geometry_changed=self._commit_annotation_geometry,
+            creation_tool_cancelled=lambda: self.set_annotation_tool(None),
+        )
+        self._track_edit_interaction = TrackEditInteractionHandler(
+            select_track=lambda track_id: self.select_track(track_id, emit_signal=True),
+            edit_track=self.track_full_edit_requested.emit,
+            can_edit_track=self._track_is_directly_editable,
+        )
+        self._interaction_router.register(self._annotation_interaction)
+        self._interaction_router.register(self._track_edit_interaction)
+        self._edit_mode_coordinator = TabletEditModeCoordinator(
+            self._annotation_interaction,
+            self._track_edit_interaction,
+        )
+        self._interaction_watchdog = TabletInteractionWatchdog(
+            self._interaction_router,
+            self._recover_lost_pointer_release,
+            self,
         )
         self._container_layout.addWidget(self._group_header_container)
         self._container_layout.addWidget(self._tracks_container, 1)
@@ -2714,10 +2748,17 @@ class TabletView(QWidget):
                 normalized = kind if isinstance(kind, AnnotationKind) else AnnotationKind(str(kind))
             except ValueError:
                 normalized = None
+        state = self._edit_mode_coordinator.set_annotation_tool(normalized)
+        effective = state.annotation_tool
+        normalized = effective if isinstance(effective, AnnotationKind) else None
         if normalized == self._annotation_tool:
             return
         self._annotation_tool = normalized
-        cursor = Qt.CursorShape.CrossCursor if normalized is not None else Qt.CursorShape.ArrowCursor
+        cursor = (
+            Qt.CursorShape.CrossCursor
+            if normalized is not None
+            else Qt.CursorShape.ArrowCursor
+        )
         for rendered in self._rendered.values():
             if rendered.plot is not None:
                 rendered.plot.viewport().setCursor(cursor)
@@ -2728,9 +2769,16 @@ class TabletView(QWidget):
     def set_form_edit_mode(self, enabled: bool) -> None:
         """Enable structural form editing while leaving geological data entry intact."""
 
-        self._form_edit_mode = bool(enabled)
-        if not self._form_edit_mode:
+        requested = bool(enabled)
+        if not requested and self._annotation_tool is not None:
+            # Disarm through the same public path so every viewport cursor and
+            # toolbar action is restored before the handlers are disabled.
             self.set_annotation_tool(None)
+        state = self._edit_mode_coordinator.set_form_edit_enabled(requested)
+        self._form_edit_mode = state.form_edit_enabled
+        if not self._form_edit_mode:
+            self._interaction_router.reset("form_edit_disabled")
+            self._interaction_watchdog.sync()
         hint = self._localizer.text(
             "tablet.form_edit_on" if self._form_edit_mode else "tablet.form_edit_off"
         )
@@ -3111,8 +3159,10 @@ class TabletView(QWidget):
         event: QMouseEvent,
         track_id: str,
         definition: TrackDefinition | None,
+        *,
+        kind: AnnotationKind | None = None,
     ) -> dict[str, object] | None:
-        kind = self._annotation_tool
+        kind = kind or self._annotation_tool
         if kind is None:
             return None
         point = self._mouse_event_plot_point(plot, event)
@@ -3283,14 +3333,31 @@ class TabletView(QWidget):
         self.refresh_view()
 
     def set_canvas_objects(self, canvas_objects: list[CanvasObject]) -> None:
+        """Synchronize project canvas objects without rebuilding curves.
+
+        An annotation edit changes only the transparent overlay. The former
+        implementation called ``refresh_view()`` here, rebuilding every track,
+        curve and header after each drag release and causing a full-tablet flash.
+        Existing rendered tracks are now preserved and only the annotation layer
+        is synchronized. Initial dataset/layout construction still owns the full
+        render path.
+        """
+
         self._canvas_objects = tuple(canvas_objects)
-        self.refresh_view()
+        if self._rendered:
+            self._refresh_annotation_overlay()
+        else:
+            self._annotation_overlay.set_entries([])
 
     def set_image_assets(self, image_assets: dict[str, ImageAsset]) -> None:
-        """Provide project-owned images used by image/symbol annotations."""
+        """Provide project-owned images without rebuilding tablet tracks."""
 
-        self._image_assets = dict(image_assets)
-        self.refresh_view()
+        next_assets = dict(image_assets)
+        if next_assets == self._image_assets:
+            return
+        self._image_assets = next_assets
+        if self._rendered:
+            self._refresh_annotation_overlay()
 
     def set_annotation_print_mode(self, enabled: bool) -> None:
         """Hide screen-only annotations while a PDF/print snapshot is captured."""
@@ -3784,6 +3851,7 @@ class TabletView(QWidget):
             track.header_drag_moved.connect(self._move_track_header_drag)
             track.header_drag_finished.connect(self._finish_track_header_drag)
             track.context_requested.connect(self.show_track_context_menu)
+            track.edit_requested.connect(self.track_full_edit_requested.emit)
             track.curve_selected.connect(self._curve_header_selected)
             track.curve_context_requested.connect(self._curve_header_context)
             (
@@ -4499,47 +4567,183 @@ class TabletView(QWidget):
         self._apply_visible_depth(*target, emit_change=True)
         return True
 
+    @staticmethod
+    def _pointer_button(button: Qt.MouseButton) -> PointerButton:
+        if button == Qt.MouseButton.LeftButton:
+            return PointerButton.LEFT
+        if button == Qt.MouseButton.RightButton:
+            return PointerButton.RIGHT
+        if button == Qt.MouseButton.MiddleButton:
+            return PointerButton.MIDDLE
+        return PointerButton.NONE
+
+    @classmethod
+    def _pressed_pointer_buttons(cls, buttons: Qt.MouseButton) -> frozenset[PointerButton]:
+        pressed: set[PointerButton] = set()
+        for qt_button in (
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.RightButton,
+            Qt.MouseButton.MiddleButton,
+        ):
+            if buttons & qt_button:
+                pressed.add(cls._pointer_button(qt_button))
+        return frozenset(pressed)
+
+    @staticmethod
+    def _key_name(event: QKeyEvent) -> str | None:
+        return {
+            Qt.Key.Key_Escape: "escape",
+            Qt.Key.Key_Return: "return",
+            Qt.Key.Key_Enter: "enter",
+            Qt.Key.Key_F2: "f2",
+            Qt.Key.Key_Delete: "delete",
+            Qt.Key.Key_Backspace: "backspace",
+        }.get(event.key())
+
+    def _tablet_input_from_mouse(
+        self,
+        plot: pg.PlotWidget | None,
+        event: QMouseEvent,
+    ) -> TabletInputEvent:
+        kind = {
+            QEvent.Type.MouseButtonPress: InputEventKind.POINTER_PRESS,
+            QEvent.Type.MouseMove: InputEventKind.POINTER_MOVE,
+            QEvent.Type.MouseButtonRelease: InputEventKind.POINTER_RELEASE,
+            QEvent.Type.MouseButtonDblClick: InputEventKind.POINTER_DOUBLE_CLICK,
+        }.get(event.type(), InputEventKind.POINTER_MOVE)
+        global_point = event.globalPosition().toPoint()
+        canvas_point = self._tracks_container.mapFromGlobal(global_point)
+        return TabletInputEvent(
+            kind=kind,
+            x=float(canvas_point.x()),
+            y=float(canvas_point.y()),
+            track_id=self._track_id_for_plot(plot) if plot is not None else None,
+            button=self._pointer_button(event.button()),
+            pressed_buttons=self._pressed_pointer_buttons(event.buttons()),
+            global_x=global_point.x(),
+            global_y=global_point.y(),
+            payload=_QtPointerPayload(plot, event),
+        )
+
+    def _tablet_input_from_key(
+        self,
+        plot: pg.PlotWidget | None,
+        event: QKeyEvent,
+    ) -> TabletInputEvent:
+        return TabletInputEvent(
+            kind=InputEventKind.KEY_PRESS,
+            track_id=self._track_id_for_plot(plot) if plot is not None else None,
+            key=self._key_name(event),
+            payload=_QtPointerPayload(plot, event),
+        )
+
+    @staticmethod
+    def _cursor_shape(name: str | None) -> Qt.CursorShape | None:
+        return {
+            "arrow": Qt.CursorShape.ArrowCursor,
+            "cross": Qt.CursorShape.CrossCursor,
+            "size_all": Qt.CursorShape.SizeAllCursor,
+            "size_fdiag": Qt.CursorShape.SizeFDiagCursor,
+            "size_bdiag": Qt.CursorShape.SizeBDiagCursor,
+            "size_ver": Qt.CursorShape.SizeVerCursor,
+            "size_hor": Qt.CursorShape.SizeHorCursor,
+        }.get(name)
+
+    def _apply_interaction_cursor(
+        self, watched: QObject, response: InteractionResponse
+    ) -> None:
+        setter = getattr(watched, "setCursor", None)
+        if not callable(setter):
+            return
+        shape = self._cursor_shape(response.cursor)
+        if shape is not None:
+            setter(shape)
+            return
+        if self._annotation_tool is not None:
+            setter(Qt.CursorShape.CrossCursor)
+        elif not self._curve_pencil_enabled:
+            setter(Qt.CursorShape.ArrowCursor)
+
+    def _route_interaction_event(
+        self, event: TabletInputEvent
+    ) -> InteractionResponse:
+        response = self._interaction_router.route(event)
+        self._interaction_watchdog.sync()
+        return response
+
+    def _recover_lost_pointer_release(self) -> None:
+        if not self._interaction_router.has_active_capture:
+            return
+        global_point = QCursor.pos()
+        canvas_point = self._tracks_container.mapFromGlobal(global_point)
+        self._route_interaction_event(
+            TabletInputEvent(
+                kind=InputEventKind.POINTER_RELEASE,
+                x=float(canvas_point.x()),
+                y=float(canvas_point.y()),
+                button=PointerButton.LEFT,
+                global_x=global_point.x(),
+                global_y=global_point.y(),
+            )
+        )
+
+    def _create_annotation_from_input(
+        self, event: TabletInputEvent, tool: object
+    ) -> bool:
+        native = event.payload
+        if not isinstance(native, _QtPointerPayload):
+            return False
+        if not isinstance(native.event, QMouseEvent) or native.plot is None:
+            return False
+        if event.track_id is None:
+            return False
+        try:
+            kind = tool if isinstance(tool, AnnotationKind) else AnnotationKind(str(tool))
+        except ValueError:
+            return False
+        try:
+            definition = self._layout_model.track_by_id(event.track_id)
+        except KeyError:
+            definition = None
+        payload = self._direct_annotation_payload(
+            native.plot,
+            native.event,
+            event.track_id,
+            definition,
+            kind=kind,
+        )
+        if payload is None:
+            return False
+        self.select_track(event.track_id, emit_signal=True)
+        self.annotation_add_requested.emit(payload)
+        return True
+
+    def _show_annotation_context_from_input(
+        self, annotation_id: str, global_x: int, global_y: int
+    ) -> None:
+        self._show_annotation_context_menu(annotation_id, QPoint(global_x, global_y))
+
+    def _commit_annotation_geometry(self, change: AnnotationGeometryChange) -> None:
+        self.annotation_geometry_changed.emit(
+            change.annotation_id,
+            change.offset_x,
+            change.offset_y,
+            change.width,
+            change.height,
+        )
+
+    def _track_is_directly_editable(self, track_id: str) -> bool:
+        try:
+            definition = self._layout_model.track_by_id(track_id)
+        except KeyError:
+            return False
+        return definition.kind in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
+
     def _track_id_for_plot(self, plot: pg.PlotWidget) -> str | None:
         return next(
             (track_id for track_id, rendered in self._rendered.items() if rendered.plot is plot),
             None,
         )
-
-    @staticmethod
-    def _annotation_ancestor(item: object | None) -> TabletAnnotationItem | None:
-        """Resolve a scene hit or mouse grabber to its annotation object."""
-
-        current = item
-        while current is not None:
-            if isinstance(current, TabletAnnotationItem):
-                return current
-            parent_item = getattr(current, "parentItem", None)
-            current = parent_item() if callable(parent_item) else None
-        return None
-
-    def _annotation_item_for_mouse_event(
-        self, plot: pg.PlotWidget, event: QMouseEvent
-    ) -> TabletAnnotationItem | None:
-        """Return the annotation that must receive this viewport mouse event.
-
-        PlotWidget mouse events are observed by this class before QGraphicsScene
-        dispatches them.  Prior to 0.7.17 the curve-selection/context-menu code
-        consumed those events first, so annotation items never received press,
-        move, release, double-click or right-click events.  Checking both the
-        current scene mouse grabber and the item below the cursor lets an active
-        drag continue even when the pointer leaves the box.
-        """
-
-        scene = plot.scene()
-        if scene is not None:
-            grabbed = self._annotation_ancestor(scene.mouseGrabberItem())
-            if grabbed is not None:
-                return grabbed
-        try:
-            hit = plot.itemAt(event.position().toPoint())
-        except (AttributeError, RuntimeError, TypeError):
-            return None
-        return self._annotation_ancestor(hit)
 
     def _handle_depth_wheel(
         self,
@@ -4575,7 +4779,24 @@ class TabletView(QWidget):
         event.accept()
         return bool(changed)
 
+    def event(self, event: QEvent) -> bool:  # noqa: A003
+        if event.type() in {
+            QEvent.Type.WindowDeactivate,
+            QEvent.Type.Hide,
+        }:
+            self._interaction_router.cancel_active(event.type().name)
+            self._interaction_watchdog.sync()
+        return super().event(event)
+
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        if event.type() in {
+            QEvent.Type.UngrabMouse,
+            QEvent.Type.WindowDeactivate,
+            QEvent.Type.Hide,
+        }:
+            self._interaction_router.cancel_active(event.type().name)
+            self._interaction_watchdog.sync()
+
         wheel_plot = self._wheel_targets.get(watched)
         if wheel_plot is not None and isinstance(event, QWheelEvent):
             self._handle_depth_wheel(event, plot=wheel_plot, watched=watched)
@@ -4589,14 +4810,13 @@ class TabletView(QWidget):
             return True
         plot = self._depth_viewports.get(watched)
         if plot is not None and isinstance(event, QKeyEvent):
-            if (
-                event.type() == QEvent.Type.KeyPress
-                and event.key() == Qt.Key.Key_Escape
-                and self._annotation_tool is not None
-            ):
-                self.set_annotation_tool(None)
-                event.accept()
-                return True
+            if event.type() == QEvent.Type.KeyPress:
+                response = self._route_interaction_event(
+                    self._tablet_input_from_key(plot, event)
+                )
+                if response.consume:
+                    event.accept()
+                    return True
             if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Space:
                 self._space_pressed = True
                 event.accept()
@@ -4612,22 +4832,36 @@ class TabletView(QWidget):
                 return True
         if plot is not None and event.type() == QEvent.Type.Leave:
             self._hide_curve_pencil_hover(self._track_id_for_plot(plot))
+
+        pan_pointer = isinstance(event, QMouseEvent) and (
+            event.button() == Qt.MouseButton.MiddleButton
+            or bool(event.buttons() & Qt.MouseButton.MiddleButton)
+            or (
+                self._space_pressed
+                and (
+                    event.button() == Qt.MouseButton.LeftButton
+                    or bool(event.buttons() & Qt.MouseButton.LeftButton)
+                )
+            )
+        )
+        if isinstance(event, QMouseEvent) and (
+            plot is not None or self._interaction_router.has_active_capture
+        ) and (self._interaction_router.has_active_capture or not pan_pointer):
+            response = self._route_interaction_event(
+                self._tablet_input_from_mouse(plot, event)
+            )
+            self._apply_interaction_cursor(watched, response)
+            if response.consume:
+                if (
+                    event.type()
+                    in {QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick}
+                    and isinstance(watched, QWidget)
+                ):
+                    watched.setFocus(Qt.FocusReason.MouseFocusReason)
+                event.accept()
+                return True
+
         if plot is not None and isinstance(event, QMouseEvent):
-            if (
-                self._form_edit_mode
-                and event.type()
-                in {
-                    QEvent.Type.MouseMove,
-                    QEvent.Type.MouseButtonPress,
-                    QEvent.Type.MouseButtonRelease,
-                    QEvent.Type.MouseButtonDblClick,
-                }
-                and self._annotation_item_for_mouse_event(plot, event) is not None
-            ):
-                # Do not select a curve, pan a track or open the track context
-                # menu.  Returning False allows QGraphicsView/QGraphicsScene to
-                # deliver the event to TabletAnnotationItem.
-                return False
             track_id = self._track_id_for_plot(plot)
             if event.type() in {
                 QEvent.Type.MouseMove,
@@ -4642,22 +4876,6 @@ class TabletView(QWidget):
                     definition = self._layout_model.track_by_id(track_id)
                 except KeyError:
                     definition = None
-            if (
-                self._form_edit_mode
-                and self._annotation_tool is not None
-                and track_id is not None
-                and event.type() == QEvent.Type.MouseButtonPress
-                and event.button() == Qt.MouseButton.LeftButton
-                and not self._space_pressed
-            ):
-                payload = self._direct_annotation_payload(
-                    plot, event, track_id, definition
-                )
-                if payload is not None:
-                    self.select_track(track_id, emit_signal=True)
-                    self.annotation_add_requested.emit(payload)
-                    event.accept()
-                    return True
             if self._handle_curve_pencil_event(plot, event, track_id):
                 return True
             if (
@@ -4879,7 +5097,7 @@ class TabletView(QWidget):
                         toggle=toggle,
                     )
                     if hit is not None:
-                        if not additive and not toggle:
+                        if not additive and not toggle and not self._form_edit_mode:
                             popup_args = (
                                 track_id,
                                 float(event.position().x()),

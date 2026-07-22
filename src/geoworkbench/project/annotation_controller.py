@@ -252,12 +252,17 @@ class DepthAnnotationController:
         width: float,
         height: float,
     ) -> AnnotationRecord:
+        current = self.get(annotation_id)
+        requested = (float(offset_x), float(offset_y), float(width), float(height))
+        existing = (current.offset_x, current.offset_y, current.width, current.height)
+        if all(abs(before - after) <= 0.01 for before, after in zip(existing, requested)):
+            return current
         return self.update_annotation(
             annotation_id,
-            offset_x=offset_x,
-            offset_y=offset_y,
-            width=width,
-            height=height,
+            offset_x=requested[0],
+            offset_y=requested[1],
+            width=requested[2],
+            height=requested[3],
         )
 
     def duplicate(self, annotation_id: str) -> AnnotationRecord:

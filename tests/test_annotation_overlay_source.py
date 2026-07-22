@@ -20,11 +20,23 @@ def test_annotation_overlay_supports_selection_and_eight_resize_handles() -> Non
     assert '"nw"' in source and '"se"' in source
     assert '"n"' in source and '"s"' in source
     assert '"e"' in source and '"w"' in source
-    assert "mouseDoubleClickEvent" in source
+    item_source = source[source.index("class TabletAnnotationItem"):source.index("class TabletAnnotationOverlay")]
+    for handler in (
+        "mousePressEvent",
+        "mouseMoveEvent",
+        "mouseReleaseEvent",
+        "mouseDoubleClickEvent",
+        "contextMenuEvent",
+        "hoverMoveEvent",
+    ):
+        assert handler not in item_source
     assert "selection_changed = Signal(object)" in source
-    assert "self.grabMouse()" in source
-    assert "self.releaseMouse()" in source
-    assert "def keyPressEvent" in source
+    assert "WA_TransparentForMouseEvents" in source
+    assert "def hit_test" in source
+    assert "def begin_interaction" in source
+    assert "def finish_interaction" in source
+    assert "grabMouse()" not in source[source.index("class TabletAnnotationOverlay"):]
+    assert "setMask(" not in source[source.index("class TabletAnnotationOverlay"):]
     assert "QPainterPathStroker" in source
 
 
@@ -49,7 +61,8 @@ def test_depth_navigation_remaps_annotation_anchors() -> None:
     assert "self._annotation_overlay.set_anchor_positions(anchors)" in tablet_source
     assert tablet_source.count("self._refresh_annotation_overlay_anchors()") >= 2
     assert "def set_anchor_positions" in overlay_source
-    assert "positions only; it never changes text, style, size or saved offsets" in overlay_source
+    assert "def set_anchor_positions" in overlay_source
+    assert "helper, current_anchor" in overlay_source
 
 
 def test_anchor_refresh_reuses_existing_annotation_helpers() -> None:
@@ -59,4 +72,5 @@ def test_anchor_refresh_reuses_existing_annotation_helpers() -> None:
 
     assert "old_entries = self._entries" in source
     assert "existing = old_entries.get(annotation_id)" in source
-    assert "if annotation_id != self._drag_id" in source
+    assert "active_id = self._gesture.annotation_id" in source
+    assert "if annotation_id != active_id" in source
