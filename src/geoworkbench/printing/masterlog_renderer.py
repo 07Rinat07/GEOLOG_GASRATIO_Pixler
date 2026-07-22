@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 import numpy as np
-from PySide6.QtCore import QLineF, QMarginsF, QRectF, QSizeF, Qt
+from PySide6.QtCore import QLineF, QMarginsF, QPointF, QRectF, QSizeF, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -39,6 +39,13 @@ from geoworkbench.project.lithotype_catalog_controller import (
     LithotypeCatalogController,
 )
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.annotation_schema import (
+    AnnotationAnchor,
+    AnnotationKind,
+    AnnotationStyle,
+    annotation_from_canvas,
+    is_annotation_object,
+)
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
 from geoworkbench.printing.header_fields import resolve_header_field
 from geoworkbench.printing.image_asset_rendering import draw_image_asset
@@ -1100,6 +1107,10 @@ def _paint_columns(
                 _paint_curve_column(painter, plot_rect, column, dataset, depth_range, bindings)
             _paint_depth_symbols(painter, plot_rect, template, column, session, depth_range)
             _paint_inspection_callouts(painter, plot_rect, template, column, session, depth_range)
+            # User-authored annotations form the topmost professional overlay.
+            # Keeping them last matches the interactive tablet and prevents
+            # generated inspection labels from covering comments or leaders.
+            _paint_annotations(painter, plot_rect, column, session, depth_range, bindings)
         x += column.width_mm
 
 
@@ -1739,6 +1750,237 @@ def _lithotype_name(definition: CatalogLithotype, language: AppLanguage) -> str:
     return definition.name_ru
 
 
+
+def _paint_annotations(
+    painter: QPainter,
+    rect: QRectF,
+    column: MasterlogColumnTemplate,
+    session: ProjectSession,
+    depth_range: tuple[float, float],
+    bindings: dict[str, str],
+) -> None:
+    """Paint the well annotation layer on direct Masterlog PDF/print output.
+
+    Tablet preview/printing captures :class:`TabletAnnotationItem` directly.  The
+    Masterlog renderer uses a millimetre canvas, therefore the same persisted
+    annotation model is converted from screen pixels to physical millimetres at
+    the conventional 96-DPI CSS ratio.  This keeps box proportions, typography,
+    anchors and print visibility consistent without storing renderer-specific
+    copies of annotations.
+    """
+    well = session.current_well
+    if well is None:
+        return
+    top, bottom = depth_range
+    if bottom <= top:
+        return
+
+    px_to_mm = 25.4 / 96.0
+    pen_styles = {
+        "solid": Qt.PenStyle.SolidLine,
+        "dash": Qt.PenStyle.DashLine,
+        "dot": Qt.PenStyle.DotLine,
+    }
+    painter.save()
+    painter.setClipRect(rect)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+    for item in well.canvas_objects:
+        if not is_annotation_object(item):
+            continue
+        record = annotation_from_canvas(item)
+        if not record.visible or not record.print_enabled:
+            continue
+        if record.track_id and record.track_id != column.column_id:
+            continue
+        # Masterlog pages are depth-oriented.  A time annotation can still be
+        # printed when it also carries the corresponding depth reference.
+        if record.depth is None or not isfinite(record.depth):
+            continue
+        depth = float(record.depth)
+        if depth < top or depth > bottom:
+            continue
+
+        anchor_y = rect.top() + (depth - top) / (bottom - top) * rect.height()
+        anchor_x = rect.left() + rect.width() * min(1.0, max(0.0, record.x_fraction))
+        if record.anchor is AnnotationAnchor.CURVE and record.parameter_mnemonic:
+            curve_x = _parameter_symbol_x(
+                rect,
+                column,
+                session.current_dataset,
+                record.parameter_mnemonic,
+                depth,
+                bindings,
+            )
+            if curve_x is not None:
+                anchor_x = curve_x
+
+        width = min(rect.width(), max(10.0, record.width * px_to_mm))
+        height = min(rect.height(), max(6.0, record.height * px_to_mm))
+        left = anchor_x + record.offset_x * px_to_mm
+        top_y = anchor_y + record.offset_y * px_to_mm
+        # Keep the body usable inside the target column.  The leader continues
+        # to point to the exact anchor even when the box is clamped for print.
+        left = min(max(left, rect.left()), max(rect.left(), rect.right() - width))
+        top_y = min(max(top_y, rect.top()), max(rect.top(), rect.bottom() - height))
+        box = QRectF(left, top_y, width, height)
+        style = record.style
+
+        painter.save()
+        if record.kind in {AnnotationKind.CALLOUT, AnnotationKind.VALUE}:
+            endpoint = _closest_point_on_rect(box, QPointF(anchor_x, anchor_y))
+            leader = QPen(
+                _color(style.leader_color, "#2563eb"),
+                max(0.1, style.leader_width * px_to_mm),
+                pen_styles.get(style.leader_style, Qt.PenStyle.SolidLine),
+            )
+            leader.setCapStyle(Qt.PenCapStyle.RoundCap)
+            painter.setPen(leader)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawLine(QLineF(QPointF(anchor_x, anchor_y), endpoint))
+            _paint_annotation_arrow(
+                painter,
+                QPointF(anchor_x, anchor_y),
+                endpoint,
+                style.arrow_style,
+                _color(style.leader_color, "#2563eb"),
+                max(1.4, 2.2 + style.leader_width * 0.55),
+            )
+
+        if style.rotation:
+            painter.translate(box.center())
+            painter.rotate(style.rotation)
+            painter.translate(-box.center())
+        radius = max(0.0, style.corner_radius * px_to_mm)
+        if style.shadow:
+            shadow = QColor("#0f172a")
+            shadow.setAlpha(min(110, int(30 + style.shadow_blur * 5)))
+            shadow_box = box.translated(
+                style.shadow_offset_x * px_to_mm,
+                style.shadow_offset_y * px_to_mm,
+            )
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(shadow)
+            painter.drawRoundedRect(shadow_box, radius, radius)
+
+        fill = _color(style.fill_color, "#ffffff")
+        fill.setAlphaF(min(1.0, max(0.0, style.fill_opacity)))
+        border = QPen(
+            _color(style.border_color, "#2563eb"),
+            max(0.0, style.border_width * px_to_mm),
+            pen_styles.get(style.border_style, Qt.PenStyle.SolidLine),
+        )
+        painter.setPen(border if style.border_width > 0 else Qt.PenStyle.NoPen)
+        painter.setBrush(fill)
+        painter.drawRoundedRect(box, radius, radius)
+
+        padding = max(0.0, style.padding * px_to_mm)
+        content = box.adjusted(padding, padding, -padding, -padding)
+        asset = session.image_assets.get(record.asset_ref) if record.asset_ref else None
+        if record.kind in {AnnotationKind.IMAGE, AnnotationKind.SYMBOL} and asset is not None:
+            caption_height = 0.0
+            if record.text:
+                caption_height = min(content.height() * 0.35, max(4.0, style.font_size * 0.45))
+            image_rect = content.adjusted(0.0, 0.0, 0.0, -caption_height)
+            draw_image_asset(painter, image_rect, asset)
+            if caption_height > 0:
+                caption = QRectF(
+                    content.left(),
+                    content.bottom() - caption_height,
+                    content.width(),
+                    caption_height,
+                )
+                _paint_annotation_text(painter, caption, record.text, style)
+        else:
+            _paint_annotation_text(painter, content, record.text, style)
+        painter.restore()
+
+    painter.restore()
+
+
+def _paint_annotation_text(
+    painter: QPainter,
+    rect: QRectF,
+    text: str,
+    style: AnnotationStyle,
+) -> None:
+    font = QFont(style.font_family)
+    _set_scaled_font_points(painter, font, style.font_size)
+    font.setBold(style.bold)
+    font.setItalic(style.italic)
+    font.setUnderline(style.underline)
+    painter.setFont(font)
+    painter.setPen(_color(style.text_color, "#0f172a"))
+    flags = Qt.TextFlag.TextWordWrap
+    flags |= {
+        "left": Qt.AlignmentFlag.AlignLeft,
+        "center": Qt.AlignmentFlag.AlignHCenter,
+        "right": Qt.AlignmentFlag.AlignRight,
+    }.get(style.alignment, Qt.AlignmentFlag.AlignLeft)
+    flags |= {
+        "top": Qt.AlignmentFlag.AlignTop,
+        "center": Qt.AlignmentFlag.AlignVCenter,
+        "bottom": Qt.AlignmentFlag.AlignBottom,
+    }.get(style.vertical_alignment, Qt.AlignmentFlag.AlignTop)
+    painter.drawText(rect, int(flags), text)
+
+
+def _closest_point_on_rect(rect: QRectF, point: QPointF) -> QPointF:
+    x = min(max(point.x(), rect.left()), rect.right())
+    y = min(max(point.y(), rect.top()), rect.bottom())
+    if rect.contains(point):
+        edges = (
+            (abs(point.x() - rect.left()), QPointF(rect.left(), point.y())),
+            (abs(point.x() - rect.right()), QPointF(rect.right(), point.y())),
+            (abs(point.y() - rect.top()), QPointF(point.x(), rect.top())),
+            (abs(point.y() - rect.bottom()), QPointF(point.x(), rect.bottom())),
+        )
+        return min(edges, key=lambda entry: entry[0])[1]
+    return QPointF(x, y)
+
+
+def _paint_annotation_arrow(
+    painter: QPainter,
+    anchor: QPointF,
+    endpoint: QPointF,
+    arrow_style: str,
+    color: QColor,
+    size: float,
+) -> None:
+    if arrow_style == "none":
+        return
+    vector = endpoint - anchor
+    length = (vector.x() ** 2 + vector.y() ** 2) ** 0.5
+    if length <= 1e-9:
+        return
+    ux, uy = vector.x() / length, vector.y() / length
+    px, py = -uy, ux
+    first = QPointF(
+        anchor.x() + ux * size + px * size * 0.55,
+        anchor.y() + uy * size + py * size * 0.55,
+    )
+    second = QPointF(
+        anchor.x() + ux * size - px * size * 0.55,
+        anchor.y() + uy * size - py * size * 0.55,
+    )
+    painter.save()
+    painter.setPen(QPen(color, max(0.1, size * 0.12)))
+    if arrow_style == "circle":
+        painter.setBrush(color)
+        painter.drawEllipse(anchor, size * 0.35, size * 0.35)
+    elif arrow_style == "open":
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawLine(QLineF(anchor, first))
+        painter.drawLine(QLineF(anchor, second))
+    else:
+        painter.setBrush(color)
+        path = QPainterPath(anchor)
+        path.lineTo(first)
+        path.lineTo(second)
+        path.closeSubpath()
+        painter.drawPath(path)
+    painter.restore()
+
 def _paint_depth_symbols(
     painter: QPainter,
     rect: QRectF,
@@ -1998,11 +2240,12 @@ def _parameter_symbol_x(
     dataset: Dataset | None,
     mnemonic: str | None,
     depth: float,
+    bindings: dict[str, str] | None = None,
 ) -> float | None:
     if dataset is None or not mnemonic or mnemonic not in column.curve_mnemonics:
         return None
-    curve = dataset.curve_by_mnemonic(mnemonic)
-    x_range = curve_display_range(column, dataset, mnemonic)
+    curve = _mapped_curve(dataset, mnemonic, bindings or {})
+    x_range = curve_display_range(column, dataset, mnemonic, bindings)
     if curve is None or x_range is None:
         return None
     depths = np.asarray(dataset.active_index.values, dtype=np.float64)

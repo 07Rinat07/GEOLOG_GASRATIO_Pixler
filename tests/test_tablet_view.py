@@ -2410,3 +2410,75 @@ def test_tablet_curve_pencil_keeps_visible_live_readout(qapp) -> None:
     assert "Новое" in rendered.curve_pencil_readout.text()
     assert "Было" in rendered.curve_pencil_readout.text()
     view.close()
+
+
+def test_tablet_view_renders_rich_annotation_only_on_bound_track(qapp) -> None:
+    from geoworkbench.project.annotation_schema import (
+        AnnotationAnchor,
+        AnnotationKind,
+        AnnotationStyle,
+        annotation_properties,
+    )
+
+    dataset = Dataset(
+        "dataset-rich-annotation",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 150.0, 200.0]),
+    )
+    dataset.upsert_curve("ROP", np.array([10.0, 20.0, 30.0]))
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Глубина", TrackKind.DEPTH),
+                TrackDefinition(
+                    "drilling", "Бурение", TrackKind.CURVE, curve_mnemonics=["ROP"]
+                ),
+            ]
+        )
+    )
+    style = AnnotationStyle(fill_color="#fff7ed", border_color="#ea580c")
+    view.set_canvas_objects(
+        [
+            CanvasObject(
+                "annotation-1",
+                "annotation",
+                "curve",
+                0.5,
+                150.0,
+                220.0,
+                76.0,
+                top_depth=150.0,
+                bottom_depth=150.0,
+                parameter_mnemonic="ROP",
+                track_id="drilling",
+                properties=annotation_properties(
+                    kind=AnnotationKind.CALLOUT,
+                    text="Рейс №7",
+                    axis_value=None,
+                    axis_id=None,
+                    parameter_value=20.0,
+                    unit="m/h",
+                    offset_x=18.0,
+                    offset_y=-36.0,
+                    style=style,
+                    asset_ref=None,
+                    visible=True,
+                    locked=False,
+                    print_enabled=True,
+                ),
+            )
+        ]
+    )
+
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.rendered_annotation_ids("depth") == ()
+    assert view.rendered_annotation_ids("drilling") == ("annotation-1",)
+    view.set_annotation_print_mode(True)
+    item = view._rendered["drilling"].annotation_items["annotation-1"]
+    assert item.isVisible() is True
+    view.close()

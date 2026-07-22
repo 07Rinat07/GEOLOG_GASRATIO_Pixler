@@ -76,6 +76,7 @@ def capture_tablet_print_snapshot(
     )
     original_widths = [item.widget.width() for item in rendered]
     pixmaps: list[QPixmap] = []
+    tablet.set_annotation_print_mode(True)
     try:
         for item, width in zip(rendered, layout.widths, strict=True):
             item.widget.set_track_width(width)
@@ -100,6 +101,7 @@ def capture_tablet_print_snapshot(
                 )
             pixmaps.append(pixmap)
     finally:
+        tablet.set_annotation_print_mode(False)
         for item, width in zip(rendered, original_widths, strict=True):
             item.widget.set_track_width(width)
         QApplication.processEvents()

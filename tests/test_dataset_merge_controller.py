@@ -91,3 +91,30 @@ def test_merge_copy_preserves_target_lossless_artifact_for_export() -> None:
     controller.redo()
     assert controller.session.source_documents[result.dataset_id] is document
     assert controller.session.import_reports[result.dataset_id] is report
+
+
+def test_merge_keeps_well_annotations_across_create_undo_and_redo() -> None:
+    from geoworkbench.project.annotation_controller import AnnotationController
+    from geoworkbench.project.annotation_schema import AnnotationAnchor, AnnotationKind
+
+    controller, source, _ = make_controller()
+    annotation_controller = AnnotationController(controller.session)
+    annotation = annotation_controller.add_annotation(
+        kind=AnnotationKind.COMMENT,
+        anchor=AnnotationAnchor.DEPTH,
+        text="Рейс долота №12",
+        depth=101.5,
+        track_id="drilling",
+        print_enabled=True,
+    )
+    well = controller.session.current_well
+    assert well is not None
+
+    result = controller.create(source.dataset_id, controller.analyze(source.dataset_id))
+    assert any(item.object_id == annotation.annotation_id for item in well.canvas_objects)
+
+    controller.undo()
+    assert any(item.object_id == annotation.annotation_id for item in well.canvas_objects)
+
+    assert controller.redo() is result
+    assert any(item.object_id == annotation.annotation_id for item in well.canvas_objects)

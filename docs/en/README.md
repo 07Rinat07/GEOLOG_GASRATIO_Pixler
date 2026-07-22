@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.14:** added Delphi SKF import: a legacy form stream is converted into an editable FormDocument and linked Masterlog header. Import is available from Form Library and Constructor.
+> **0.7.15:** added a professional annotation layer with a compact F4 toolbar, graph context creation, unified appearance editor, depth/time/curve anchors, images and consistent screen/PDF/print rendering.
 
 
 
@@ -83,11 +83,9 @@ Visible interval statistics reports the point count, minimum, maximum, and mean 
 curves. Labels and messages are available in RU/KK/EN; source curve mnemonics and units remain
 unchanged.
 
-## Depth annotations
+## Annotation layer
 
-The editor adds, updates, and removes comments at a specified depth with Undo/Redo support.
-The interface and project-tree node are available in RU/KK/EN; user-entered text is not
-translated.
+**F4** exposes callouts, comments, images, symbols and saved curve values. Objects can be anchored to depth, time, a track or a parameter, then moved and resized directly on the graph. The unified editor controls fonts, colors, background, border, leader, arrow, shadow, alignment and print permission. Annotations are stored with the well, survive LAS merging and render consistently on screen, in PDF and on a printer. See [ANNOTATIONS.md](ANNOTATIONS.md).
 
 ## Lithology intervals
 

@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 from geoworkbench.calculations.gas_ratio import calculate_basic_ratios
 from geoworkbench.domain.models import Dataset, Project, Well, new_id
 from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_import_report import LasImportReport
 from geoworkbench.tablet.models import TabletLayout
-from geoworkbench.printing.image_assets import ImageAsset
 from geoworkbench.services.las_parameter_resolver import resolve_gas_ratio_inputs
+
+
+if TYPE_CHECKING:
+    from geoworkbench.printing.image_assets import ImageAsset
+else:
+    ImageAsset = Any
 
 
 @dataclass(slots=True)

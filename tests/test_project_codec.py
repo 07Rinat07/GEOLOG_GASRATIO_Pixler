@@ -661,3 +661,72 @@ def test_curve_codec_preserves_explicit_manual_canonical_mapping() -> None:
     )
 
     assert curve.metadata.canonical_mnemonic == "C3"
+
+
+def test_project_round_trip_preserves_professional_annotation_schema(tmp_path) -> None:
+    from geoworkbench.project.annotation_schema import (
+        AnnotationKind,
+        AnnotationStyle,
+        annotation_from_canvas,
+        annotation_properties,
+    )
+
+    project = make_project()
+    project.wells["well-1"].canvas_objects.append(
+        CanvasObject(
+            "annotation-rich",
+            "annotation",
+            "curve",
+            0.42,
+            1250.0,
+            260.0,
+            90.0,
+            top_depth=1250.0,
+            bottom_depth=1250.0,
+            parameter_mnemonic="ROP",
+            track_id="drilling",
+            properties=annotation_properties(
+                kind=AnnotationKind.CALLOUT,
+                text="Рейс долота №12",
+                axis_value=1250.0,
+                axis_id="depth-index",
+                parameter_value=42.5,
+                unit="m/h",
+                offset_x=24.0,
+                offset_y=-48.0,
+                style=AnnotationStyle(
+                    font_family="DejaVu Sans",
+                    font_size=12.0,
+                    bold=True,
+                    fill_color="#fff7ed",
+                    border_color="#ea580c",
+                    arrow_style="open",
+                    shadow_blur=8.0,
+                ),
+                asset_ref=None,
+                visible=True,
+                locked=True,
+                print_enabled=True,
+            ),
+        )
+    )
+    target = tmp_path / "annotation.geolog.json"
+
+    save_project(project, target)
+    restored = load_project(target)
+    item = next(
+        entry
+        for entry in restored.wells["well-1"].canvas_objects
+        if entry.object_id == "annotation-rich"
+    )
+    annotation = annotation_from_canvas(item)
+
+    assert annotation.text == "Рейс долота №12"
+    assert annotation.track_id == "drilling"
+    assert annotation.parameter_mnemonic == "ROP"
+    assert annotation.parameter_value == 42.5
+    assert annotation.style.font_family == "DejaVu Sans"
+    assert annotation.style.arrow_style == "open"
+    assert annotation.style.shadow_blur == 8.0
+    assert annotation.locked is True
+    assert annotation.print_enabled is True

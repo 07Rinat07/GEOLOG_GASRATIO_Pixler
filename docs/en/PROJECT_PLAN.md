@@ -1,3 +1,17 @@
+# Project plan
+
+## Slice 0.7.15 — professional annotation layer
+
+- [x] one backward-compatible versioned model instead of simple depth notes;
+- [x] callout, comment, curve value, image and symbol objects;
+- [x] depth, time, track and curve anchors;
+- [x] compact F4 toolbar, graph context creation, double-click edit, drag and resize;
+- [x] complete appearance editor and independent print flag;
+- [x] one model for screen, PDF, printer and direct Masterlog rendering;
+- [x] persistence through LAS merge and merge Undo/Redo;
+- [x] RU/KK/EN documentation and tests;
+- [ ] Windows HiDPI/PDF/physical-print smoke test.
+
 ## Slice 0.7.13 — compact pencil, visible points and Undo/Redo
 
 - [x] replace the long cursor with a compact 26×26 pencil using the graphite tip as its hotspot;
@@ -7,7 +21,6 @@
 - [x] make Ctrl+Z and Ctrl+Shift+Z application-wide;
 - [x] recalculate dependent curves in memory and persist only on explicit Save.
 
-# Project plan
 
 ## Slice 0.7.12 — persistent pencil and live values
 

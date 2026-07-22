@@ -81,6 +81,11 @@ from geoworkbench.project.curve_editing_controller import (
     CurveEditOutcome,
 )
 from geoworkbench.project.annotation_controller import DepthAnnotationController
+from geoworkbench.project.annotation_schema import (
+    AnnotationKind,
+    annotation_from_canvas,
+    is_annotation_object,
+)
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.interpretation_controller import InterpretationController
@@ -292,6 +297,24 @@ class MainWindow(QMainWindow):
         )
         self.tablet_view.stratigraphy_interval_edit_requested.connect(
             self._edit_stratigraphy_interval_from_tablet
+        )
+        self.tablet_view.annotation_add_requested.connect(
+            self._create_annotation_from_tablet
+        )
+        self.tablet_view.annotation_edit_requested.connect(
+            self._edit_annotation_from_tablet
+        )
+        self.tablet_view.annotation_delete_requested.connect(
+            self._delete_annotation_from_tablet
+        )
+        self.tablet_view.annotation_duplicate_requested.connect(
+            self._duplicate_annotation_from_tablet
+        )
+        self.tablet_view.annotation_geometry_changed.connect(
+            self._update_annotation_geometry_from_tablet
+        )
+        self.tablet_view.curve_value_save_requested.connect(
+            self._save_curve_value_annotation
         )
         self.las_table_editor = LasTableEditor(
             self.las_range_editing_controller,
@@ -839,6 +862,60 @@ class MainWindow(QMainWindow):
         self.annotations_action = self._localized_action("annotations.action")
         self.annotations_action.triggered.connect(self.show_depth_annotations)
         edit_menu.addAction(self.annotations_action)
+        self.annotation_manager_toolbar_action = self._localized_action(
+            "annotations.toolbar_manage"
+        )
+        self._set_action_help(
+            self.annotation_manager_toolbar_action, "annotations.action"
+        )
+        self.annotation_manager_toolbar_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
+        )
+        self.annotation_manager_toolbar_action.triggered.connect(
+            self.show_depth_annotations
+        )
+        self.annotation_callout_action = self._localized_action(
+            "annotations.toolbar_callout"
+        )
+        self._set_action_help(
+            self.annotation_callout_action, "annotations.add_callout_action"
+        )
+        self.annotation_callout_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation)
+        )
+        self.annotation_callout_action.setEnabled(False)
+        self.annotation_callout_action.triggered.connect(
+            lambda: self._create_annotation_at_view_center(AnnotationKind.CALLOUT)
+        )
+        edit_menu.addAction(self.annotation_callout_action)
+        self.annotation_comment_action = self._localized_action(
+            "annotations.toolbar_comment"
+        )
+        self._set_action_help(
+            self.annotation_comment_action, "annotations.add_comment_action"
+        )
+        self.annotation_comment_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView)
+        )
+        self.annotation_comment_action.setEnabled(False)
+        self.annotation_comment_action.triggered.connect(
+            lambda: self._create_annotation_at_view_center(AnnotationKind.COMMENT)
+        )
+        edit_menu.addAction(self.annotation_comment_action)
+        self.annotation_image_action = self._localized_action(
+            "annotations.toolbar_image"
+        )
+        self._set_action_help(
+            self.annotation_image_action, "annotations.add_image_action"
+        )
+        self.annotation_image_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+        )
+        self.annotation_image_action.setEnabled(False)
+        self.annotation_image_action.triggered.connect(
+            lambda: self._create_annotation_at_view_center(AnnotationKind.IMAGE)
+        )
+        edit_menu.addAction(self.annotation_image_action)
 
         self.lithology_action = self._localized_action("lithology.action")
         self.lithology_action.triggered.connect(self.show_lithology_editor)
@@ -1261,6 +1338,11 @@ class MainWindow(QMainWindow):
         )
         self.form_edit_caption.setToolTip(self._t("ui.help.tablet_edit_mode"))
         self.form_edit_toolbar.addWidget(self.form_edit_caption)
+        self.form_edit_toolbar.addAction(self.annotation_callout_action)
+        self.form_edit_toolbar.addAction(self.annotation_comment_action)
+        self.form_edit_toolbar.addAction(self.annotation_image_action)
+        self.form_edit_toolbar.addAction(self.annotation_manager_toolbar_action)
+        self.form_edit_toolbar.addSeparator()
         self.form_edit_toolbar.addAction(self.add_curve_track_action)
         self.form_edit_toolbar.addAction(self.edit_selected_track_action)
         self.form_edit_toolbar.addAction(self.move_left_action)
@@ -1695,6 +1777,7 @@ class MainWindow(QMainWindow):
             self.las_table_editor.set_dataset(None)
             self.tablet_view.set_layout_model(TabletLayout())
             self.tablet_view.set_dataset(None)
+            self.tablet_view.set_image_assets(self.session.image_assets)
             self.tablet_view.set_canvas_objects([])
             self.tablet_view.set_lithology([], self.lithotype_catalog_controller.available())
             self.tablet_view.set_cuttings([])
@@ -1708,6 +1791,7 @@ class MainWindow(QMainWindow):
         self.curve_view.show_dataset(dataset)
         self.las_table_editor.set_dataset(dataset)
         self.tablet_view.set_dataset(dataset)
+        self.tablet_view.set_image_assets(self.session.image_assets)
         self.curve_browser.set_dataset(dataset)
         self.curve_browser.select_recommended()
         self.curve_browser_dock.hide()
@@ -2860,6 +2944,9 @@ class MainWindow(QMainWindow):
         self.move_left_action.setEnabled(enabled)
         self.move_right_action.setEnabled(enabled)
         self.remove_track_action.setEnabled(enabled)
+        self.annotation_callout_action.setEnabled(enabled)
+        self.annotation_comment_action.setEnabled(enabled)
+        self.annotation_image_action.setEnabled(enabled)
         self.statusBar().showMessage(
             self._t("ui.form_edit_enabled") if enabled else self._t("ui.form_edit_disabled")
         )
@@ -3462,10 +3549,115 @@ class MainWindow(QMainWindow):
         DepthAnnotationsDialog(
             self.depth_annotation_controller, self, language=self.language
         ).exec()
+        self._refresh_annotation_layer()
+
+    def _refresh_annotation_layer(self) -> None:
         well = self.session.current_well
+        self.tablet_view.set_image_assets(self.session.image_assets)
         self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
         self._refresh_tree()
         self._update_title()
+
+    def _create_annotation_at_view_center(self, kind: AnnotationKind) -> None:
+        payload = self.tablet_view.annotation_request_at_view_center(
+            kind,
+            track_id=self._selected_track_id,
+        )
+        if payload is None:
+            QMessageBox.information(
+                self, self._t("annotations.title"), self._t("tablet.build_first")
+            )
+            return
+        self._create_annotation_from_tablet(payload)
+
+    def _create_annotation_from_tablet(self, payload: object) -> None:
+        if self.session.current_well is None or not isinstance(payload, dict):
+            return
+        DepthAnnotationsDialog(
+            self.depth_annotation_controller,
+            self,
+            language=self.language,
+            initial_values=dict(payload),
+        ).exec()
+        self._refresh_annotation_layer()
+
+    def _edit_annotation_from_tablet(self, annotation_id: str) -> None:
+        if self.session.current_well is None:
+            return
+        DepthAnnotationsDialog(
+            self.depth_annotation_controller,
+            self,
+            language=self.language,
+            annotation_id=annotation_id,
+        ).exec()
+        self._refresh_annotation_layer()
+
+    def _delete_annotation_from_tablet(self, annotation_id: str) -> None:
+        answer = QMessageBox.question(
+            self,
+            self._t("annotations.title"),
+            self._t("annotations.delete_confirm"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer is not QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.depth_annotation_controller.remove(annotation_id)
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("annotations.title"), str(exc))
+            return
+        self._refresh_annotation_layer()
+
+    def _duplicate_annotation_from_tablet(self, annotation_id: str) -> None:
+        try:
+            self.depth_annotation_controller.duplicate(annotation_id)
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("annotations.title"), str(exc))
+            return
+        self._refresh_annotation_layer()
+
+    def _update_annotation_geometry_from_tablet(
+        self,
+        annotation_id: str,
+        offset_x: float,
+        offset_y: float,
+        width: float,
+        height: float,
+    ) -> None:
+        try:
+            self.depth_annotation_controller.set_geometry(
+                annotation_id,
+                offset_x=offset_x,
+                offset_y=offset_y,
+                width=width,
+                height=height,
+            )
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("annotations.title"), str(exc))
+            self._refresh_annotation_layer()
+            return
+        self._refresh_annotation_layer()
+
+    def _save_curve_value_annotation(self, payload: object) -> None:
+        if not isinstance(payload, dict):
+            return
+        try:
+            self.depth_annotation_controller.add_curve_value(
+                track_id=str(payload["track_id"]),
+                depth=float(payload["depth"]),
+                axis_value=float(payload["axis_value"]),
+                axis_id=str(payload["axis_id"]) if payload.get("axis_id") else None,
+                mnemonic=str(payload["mnemonic"]),
+                value=float(payload["value"]),
+                unit=str(payload.get("unit", "")),
+                x_fraction=float(payload.get("x_fraction", 0.5)),
+            )
+        except (KeyError, RuntimeError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("annotations.title"), str(exc))
+            return
+        self._refresh_annotation_layer()
+        self.statusBar().showMessage(self._t("annotations.value_saved"))
 
     def show_lithology_editor(self) -> None:
         if self.session.current_well is None:
@@ -4632,9 +4824,7 @@ class MainWindow(QMainWindow):
                         ),
                     )
                     stratigraphy_item.addChild(child)
-            annotations = [
-                item for item in well.canvas_objects if item.object_type == "depth_annotation"
-            ]
+            annotations = [item for item in well.canvas_objects if is_annotation_object(item)]
             if annotations:
                 annotations_item = QTreeWidgetItem(
                     [self._t("annotations.tree", count=len(annotations))]
@@ -4642,11 +4832,14 @@ class MainWindow(QMainWindow):
                 annotations_item.setData(0, Qt.ItemDataRole.UserRole, ("annotations", well.well_id))
                 well_item.addChild(annotations_item)
                 for annotation in annotations:
-                    text = str(annotation.properties.get("text", self._t("annotations.default")))
-                    depth = (
-                        annotation.top_depth if annotation.top_depth is not None else annotation.y
+                    record = annotation_from_canvas(annotation)
+                    text = record.text or self._t("annotations.default")
+                    anchor = (
+                        f"{record.depth:g} м"
+                        if record.depth is not None
+                        else self._t("annotations.anchor_track")
                     )
-                    child = QTreeWidgetItem([f"{depth:g} м: {text}"])
+                    child = QTreeWidgetItem([f"{anchor}: {text}"])
                     child.setData(
                         0,
                         Qt.ItemDataRole.UserRole,

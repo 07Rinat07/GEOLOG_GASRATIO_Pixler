@@ -1,8 +1,15 @@
+# Current project status
+
+## Version 0.7.15 — professional annotation layer
+
+F4 now exposes compact Callout, Comment and Image commands, while the graph context menu creates an object at the exact selected coordinate. One well-scoped model supports depth, time, track and curve anchors. The unified editor controls typography, colors, fill, border, leader, arrow, shadow, geometry, locking and print permission. A curve value can be inspected and persisted as an editable print label.
+
+Screen, preview, PDF and printing consume the same model. Annotations remain with the well through LAS merge creation and merge Undo/Redo. Legacy depth notes remain compatible. `compileall` passes; Qt GUI, HiDPI and physical-print smoke tests still require Windows with PySide6.
+
 ## Fix 0.7.13 — compact cursor and reliable edit history
 
 The pencil cursor is now a compact 26×26 image whose hotspot matches the graphite tip. Connect points is a permanent visible mode rather than a compressed combo-box entry. Undo/Redo are available on the pencil bar and track context menu, while Ctrl+Z/Ctrl+Shift+Z work regardless of widget focus. Dependent curves recalculate immediately in memory; disk persistence still requires explicit Save.
 
-# Current project status
 
 ## Fix 0.7.12 — persistent pencil cursor and live values
 

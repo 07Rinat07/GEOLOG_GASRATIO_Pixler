@@ -1,7 +1,15 @@
 import numpy as np
+import pytest
 from PySide6.QtWidgets import QDialogButtonBox, QPushButton, QTableWidget
 
-from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.models import (
+    Dataset,
+    DatasetIndex,
+    DatasetKind,
+    DepthDomain,
+    IndexRole,
+    IndexType,
+)
 from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
@@ -52,4 +60,30 @@ def test_depth_annotations_dialog_uses_selected_language(qapp) -> None:
     assert dialog.findChild(QPushButton, "annotation-update-button").text() == "Update"
     assert dialog.findChild(QPushButton, "annotation-remove-button").text() == "Remove"
     assert buttons.button(QDialogButtonBox.StandardButton.Close).text() == "Close"
+    dialog.close()
+
+
+def test_time_annotation_axis_uses_seconds_for_datetime_index(qapp) -> None:
+    controller = make_controller()
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    values = np.array(["2026-07-22T00:00:00", "2026-07-22T00:00:10"], dtype="datetime64[ns]")
+    dataset.add_index(
+        DatasetIndex(
+            "clock",
+            "DATE_TIME",
+            IndexType.DATETIME,
+            IndexRole.TIME,
+            "UTC",
+            values,
+        ),
+        make_active=True,
+    )
+
+    dialog = DepthAnnotationsDialog(controller)
+
+    assert dialog.axis_id_input.currentData() == "clock"
+    expected = values.astype(np.int64).astype(np.float64) / 1_000_000_000.0
+    assert dialog.axis_input.minimum() == pytest.approx(float(expected[0]))
+    assert dialog.axis_input.maximum() == pytest.approx(float(expected[1]))
     dialog.close()

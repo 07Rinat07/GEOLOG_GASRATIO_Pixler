@@ -64,6 +64,14 @@ from geoworkbench.printing.lba_visuals import (
     normalized_lba_intensity,
     resolve_lba_type_style,
 )
+from geoworkbench.printing.image_asset_rendering import image_asset_pixmap
+from geoworkbench.printing.image_assets import ImageAsset
+from geoworkbench.project.annotation_schema import (
+    AnnotationAnchor,
+    AnnotationKind,
+    annotation_from_canvas,
+    is_annotation_object,
+)
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.parameter_labels import localized_curve_name
@@ -119,6 +127,7 @@ from geoworkbench.tablet.relative_gas import (
     is_relative_gas_track,
 )
 from geoworkbench.tablet.resize import TrackResizeGesture
+from geoworkbench.tablet.annotation_graphics import TabletAnnotationItem
 from geoworkbench.tablet.selection_interaction import (
     CallbackCommand,
     CommandStack,
@@ -157,7 +166,7 @@ class RenderedTrack:
     plot: pg.PlotWidget | None = None
     legend_labels: tuple[str, ...] = ()
     curve_items: dict[str, pg.PlotDataItem] | None = None
-    annotation_items: dict[str, pg.InfiniteLine] | None = None
+    annotation_items: dict[str, TabletAnnotationItem] | None = None
     lithology_items: dict[str, pg.BarGraphItem] | None = None
     lithology_label_items: dict[str, pg.TextItem] | None = None
     lithology_description_items: dict[str, pg.TextItem] | None = None
@@ -751,6 +760,12 @@ class TabletView(QWidget):
     description_edit_requested = Signal(str)
     stratigraphy_interval_requested = Signal(float, float)
     stratigraphy_interval_edit_requested = Signal(str)
+    annotation_add_requested = Signal(object)
+    annotation_edit_requested = Signal(str)
+    annotation_delete_requested = Signal(str)
+    annotation_duplicate_requested = Signal(str)
+    annotation_geometry_changed = Signal(str, float, float, float, float)
+    curve_value_save_requested = Signal(object)
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__()
@@ -759,6 +774,8 @@ class TabletView(QWidget):
         self._navigation_hint = self._localizer.text("tablet.depth_navigation_hint")
         self._dataset: Dataset | None = None
         self._canvas_objects: tuple[CanvasObject, ...] = ()
+        self._image_assets: dict[str, ImageAsset] = {}
+        self._annotation_print_mode = False
         self._lithology: tuple[LithologyInterval, ...] = ()
         self._cuttings: tuple[CuttingsSample, ...] = ()
         self._stratigraphy: tuple[StratigraphyInterval, ...] = ()
@@ -2655,8 +2672,18 @@ class TabletView(QWidget):
         )
         for rendered in self._rendered.values():
             rendered.widget.title.setToolTip(hint)
+            for item in (rendered.annotation_items or {}).values():
+                item.set_edit_mode(self._form_edit_mode)
 
-    def show_geological_context_menu(self, track_id: str, depth: float, global_pos: QPoint) -> None:
+    def show_geological_context_menu(
+        self,
+        track_id: str,
+        depth: float,
+        global_pos: QPoint,
+        *,
+        axis_value: float | None = None,
+        x_fraction: float = 0.5,
+    ) -> None:
         """Show data-entry actions at the clicked geological interval."""
 
         try:
@@ -2702,6 +2729,19 @@ class TabletView(QWidget):
                     self._localizer.text("geology.context.edit_full_sample")
                 )
 
+        annotation_callout_action = annotation_comment_action = annotation_image_action = None
+        if self._form_edit_mode:
+            menu.addSeparator()
+            annotation_callout_action = menu.addAction(
+                self._localizer.text("annotations.add_callout_action")
+            )
+            annotation_comment_action = menu.addAction(
+                self._localizer.text("annotations.add_comment_action")
+            )
+            annotation_image_action = menu.addAction(
+                self._localizer.text("annotations.add_image_action")
+            )
+
         edit_track_action = rename_track_action = rename_group_action = None
         properties_action = save_action = None
         if self._form_edit_mode:
@@ -2712,6 +2752,24 @@ class TabletView(QWidget):
             properties_action = menu.addAction(self._localizer.text("tablet.track_properties"))
             save_action = menu.addAction(self._localizer.text("tablet.save_layout_as_form"))
         chosen = menu.exec(global_pos)
+        annotation_kind = None
+        if chosen is annotation_callout_action:
+            annotation_kind = AnnotationKind.CALLOUT
+        elif chosen is annotation_comment_action:
+            annotation_kind = AnnotationKind.COMMENT
+        elif chosen is annotation_image_action:
+            annotation_kind = AnnotationKind.IMAGE
+        if annotation_kind is not None:
+            self.annotation_add_requested.emit(
+                self._annotation_request_payload(
+                    track_id=track_id,
+                    depth=depth,
+                    axis_value=axis_value,
+                    x_fraction=x_fraction,
+                    kind=annotation_kind,
+                )
+            )
+            return
         if chosen is edit_track_action:
             self.track_full_edit_requested.emit(track_id)
             return
@@ -2767,7 +2825,17 @@ class TabletView(QWidget):
             bottom = domain_bottom
         return float(top), float(bottom)
 
-    def show_track_context_menu(self, track_id: str, global_pos: QPoint) -> None:
+    def show_track_context_menu(
+        self,
+        track_id: str,
+        global_pos: QPoint,
+        *,
+        depth: float | None = None,
+        axis_value: float | None = None,
+        x_fraction: float = 0.5,
+        local_x: float | None = None,
+        local_y: float | None = None,
+    ) -> None:
         try:
             definition = self._layout_model.track_by_id(track_id)
             index = self._layout_model.tracks.index(definition)
@@ -2796,6 +2864,31 @@ class TabletView(QWidget):
                     self._localizer.text("tablet.curve_settings")
                 )
                 menu.addSeparator()
+
+        annotation_callout_action = annotation_comment_action = annotation_image_action = None
+        save_value_action = None
+        curve_value = None
+        if local_x is not None and local_y is not None:
+            curve_value = self._curve_value_payload(track_id, local_x, local_y)
+        if curve_value is not None:
+            value_text = self._curve_value_caption(curve_value)
+            value_label_action = menu.addAction(value_text)
+            value_label_action.setEnabled(False)
+            save_value_action = menu.addAction(
+                self._localizer.text("annotations.save_curve_value_action")
+            )
+            menu.addSeparator()
+        if self._form_edit_mode and depth is not None:
+            annotation_callout_action = menu.addAction(
+                self._localizer.text("annotations.add_callout_action")
+            )
+            annotation_comment_action = menu.addAction(
+                self._localizer.text("annotations.add_comment_action")
+            )
+            annotation_image_action = menu.addAction(
+                self._localizer.text("annotations.add_image_action")
+            )
+            menu.addSeparator()
 
         edit_track_action = rename_track_action = rename_group_action = None
         move_left = move_right = hide_action = remove_action = None
@@ -2837,7 +2930,38 @@ class TabletView(QWidget):
         undo_action.setEnabled(self.can_undo_interaction)
         redo_action.setEnabled(self.can_redo_interaction)
         chosen = menu.exec(global_pos)
-        if pencil_action is not None and chosen is pencil_action:
+        if (
+            save_value_action is not None
+            and chosen is save_value_action
+            and curve_value is not None
+        ):
+            self.curve_value_save_requested.emit(curve_value)
+        elif (
+            chosen is not None
+            and depth is not None
+            and (
+                chosen is annotation_callout_action
+                or chosen is annotation_comment_action
+                or chosen is annotation_image_action
+            )
+        ):
+            kind = (
+                AnnotationKind.CALLOUT
+                if chosen is annotation_callout_action
+                else AnnotationKind.COMMENT
+                if chosen is annotation_comment_action
+                else AnnotationKind.IMAGE
+            )
+            self.annotation_add_requested.emit(
+                self._annotation_request_payload(
+                    track_id=track_id,
+                    depth=depth,
+                    axis_value=axis_value,
+                    x_fraction=x_fraction,
+                    kind=kind,
+                )
+            )
+        elif pencil_action is not None and chosen is pencil_action:
             self.curve_pencil_requested.emit(track_id, selected_curve)
         elif add_curves is not None and chosen is add_curves:
             self.track_add_curves_requested.emit(track_id)
@@ -2872,6 +2996,109 @@ class TabletView(QWidget):
             self.undo_interaction()
         elif chosen is redo_action:
             self.redo_interaction()
+
+    def _annotation_request_payload(
+        self,
+        *,
+        track_id: str,
+        depth: float,
+        axis_value: float | None,
+        x_fraction: float,
+        kind: AnnotationKind,
+    ) -> dict[str, object]:
+        descriptor = self._axis_descriptor()
+        anchor = (
+            AnnotationAnchor.TIME
+            if descriptor is not None and descriptor.role is not IndexRole.DEPTH
+            else AnnotationAnchor.DEPTH
+        )
+        return {
+            "kind": kind.value,
+            "anchor": anchor.value,
+            "track_id": track_id,
+            "depth": float(depth),
+            "axis_value": float(axis_value) if axis_value is not None else None,
+            "axis_id": self.vertical_index_id,
+            "x_fraction": max(0.0, min(1.0, float(x_fraction))),
+        }
+
+    @staticmethod
+    def _plot_x_fraction(definition: TrackDefinition | None, x_value: float) -> float:
+        if definition is not None and definition.kind is TrackKind.CALCIMETRY:
+            return max(0.0, min(1.0, float(x_value) / 100.0))
+        return max(0.0, min(1.0, float(x_value)))
+
+    def _curve_value_payload(
+        self, track_id: str, local_x: float, local_y: float
+    ) -> dict[str, object] | None:
+        if self._dataset is None:
+            return None
+        hit = self.hit_test_curve(track_id, local_x, local_y, tolerance_px=10.0)
+        if hit is None or hit.local_y is None:
+            return None
+        sample_index = self._cursor_sample_index(float(hit.local_y))
+        curve = self._dataset.curve_by_mnemonic(hit.target.object_id)
+        if (
+            sample_index is None
+            or curve is None
+            or sample_index >= curve.values.size
+            or sample_index >= self._dataset.depth.size
+        ):
+            return None
+        value = float(curve.values[sample_index])
+        depth = float(self._dataset.depth[sample_index])
+        if not np.isfinite(value) or not np.isfinite(depth):
+            return None
+        try:
+            definition = self._layout_model.track_by_id(track_id)
+        except KeyError:
+            return None
+        display_x = float(hit.local_x) if hit.local_x is not None else 0.5
+        return {
+            "track_id": track_id,
+            "depth": depth,
+            "axis_value": float(hit.local_y),
+            "axis_id": self.vertical_index_id,
+            "mnemonic": hit.target.object_id,
+            "value": value,
+            "unit": (curve.metadata.unit or "").strip(),
+            "depth_unit": (self._dataset.active_index.unit or "м").strip(),
+            "x_fraction": self._plot_x_fraction(definition, display_x),
+        }
+
+    @staticmethod
+    def _curve_value_caption(payload: dict[str, object]) -> str:
+        unit = str(payload.get("unit", "")).strip()
+        suffix = f" {unit}" if unit else ""
+        depth_unit = str(payload.get("depth_unit", "м")).strip() or "м"
+        return (
+            f"{payload.get('mnemonic', '')}: {float(payload.get('value', 0.0)):g}{suffix} · "
+            f"{float(payload.get('depth', 0.0)):g} {depth_unit}"
+        )
+
+    def _show_curve_value_popup(
+        self,
+        track_id: str,
+        local_x: float,
+        local_y: float,
+        global_pos: QPoint,
+    ) -> None:
+        payload = self._curve_value_payload(track_id, local_x, local_y)
+        if payload is None:
+            return
+        menu = QMenu(self)
+        value_action = menu.addAction(self._curve_value_caption(payload))
+        value_action.setEnabled(False)
+        menu.addSeparator()
+        save_action = menu.addAction(
+            self._localizer.text("annotations.save_curve_value_action")
+        )
+        cancel_action = menu.addAction(self._localizer.text("common.cancel"))
+        chosen = menu.exec(global_pos)
+        if chosen is save_action:
+            self.curve_value_save_requested.emit(payload)
+        elif chosen is cancel_action:
+            return
 
     def _curve_header_selected(self, track_id: str, mnemonic: str) -> None:
         self.select_curve(track_id, mnemonic, emit_signal=True)
@@ -2924,6 +3151,61 @@ class TabletView(QWidget):
     def set_canvas_objects(self, canvas_objects: list[CanvasObject]) -> None:
         self._canvas_objects = tuple(canvas_objects)
         self.refresh_view()
+
+    def set_image_assets(self, image_assets: dict[str, ImageAsset]) -> None:
+        """Provide project-owned images used by image/symbol annotations."""
+
+        self._image_assets = dict(image_assets)
+        self.refresh_view()
+
+    def set_annotation_print_mode(self, enabled: bool) -> None:
+        """Hide screen-only annotations while a PDF/print snapshot is captured."""
+
+        self._annotation_print_mode = bool(enabled)
+        for rendered in self._rendered.values():
+            for item in (rendered.annotation_items or {}).values():
+                item.set_print_mode(self._annotation_print_mode)
+
+    def annotation_request_at_view_center(
+        self,
+        kind: AnnotationKind | str,
+        *,
+        track_id: str | None = None,
+    ) -> dict[str, object] | None:
+        if self._dataset is None or not self._layout_model.tracks:
+            return None
+        try:
+            normalized_kind = (
+                kind
+                if isinstance(kind, AnnotationKind)
+                else AnnotationKind(str(kind))
+            )
+        except ValueError:
+            return None
+        selected_track = track_id
+        if selected_track is None or not any(
+            track.track_id == selected_track for track in self._layout_model.tracks
+        ):
+            selected_track = next(
+                (
+                    track.track_id
+                    for track in self._layout_model.tracks
+                    if track.kind is not TrackKind.DEPTH
+                ),
+                self._layout_model.tracks[0].track_id,
+            )
+        visible = self.visible_depth_range or self._axis_bounds()
+        if visible is None:
+            return None
+        axis_value = (visible[0] + visible[1]) / 2.0
+        depth = self._axis_to_depth_value(axis_value)
+        return self._annotation_request_payload(
+            track_id=selected_track,
+            depth=depth,
+            axis_value=axis_value,
+            x_fraction=0.5,
+            kind=normalized_kind,
+        )
 
     def set_lithology(
         self,
@@ -4314,6 +4596,7 @@ class TabletView(QWidget):
                 if track_id is not None:
                     point = self._mouse_event_plot_point(plot, event)
                     depth = self._axis_to_depth_value(float(point.y()))
+                    x_fraction = self._plot_x_fraction(definition, float(point.x()))
                     if definition is not None and definition.kind in {
                         TrackKind.STRATIGRAPHY,
                         TrackKind.LITHOLOGY,
@@ -4323,10 +4606,22 @@ class TabletView(QWidget):
                         TrackKind.TEXT,
                     }:
                         self.show_geological_context_menu(
-                            track_id, depth, event.globalPosition().toPoint()
+                            track_id,
+                            depth,
+                            event.globalPosition().toPoint(),
+                            axis_value=float(point.y()),
+                            x_fraction=x_fraction,
                         )
                     else:
-                        self.show_track_context_menu(track_id, event.globalPosition().toPoint())
+                        self.show_track_context_menu(
+                            track_id,
+                            event.globalPosition().toPoint(),
+                            depth=depth,
+                            axis_value=float(point.y()),
+                            x_fraction=x_fraction,
+                            local_x=event.position().x(),
+                            local_y=event.position().y(),
+                        )
                     event.accept()
                     return True
             if (
@@ -4350,6 +4645,20 @@ class TabletView(QWidget):
                         toggle=toggle,
                     )
                     if hit is not None:
+                        if not additive and not toggle:
+                            popup_args = (
+                                track_id,
+                                float(event.position().x()),
+                                float(event.position().y()),
+                                QPoint(event.globalPosition().toPoint()),
+                            )
+                            # Opening a modal menu directly from MouseButtonPress can
+                            # leave the viewport in a pressed state on some platforms.
+                            # Defer it until Qt has completed dispatching this event.
+                            QTimer.singleShot(
+                                0,
+                                lambda args=popup_args: self._show_curve_value_popup(*args),
+                            )
                         event.accept()
                         return True
             pan_button = event.button() == Qt.MouseButton.MiddleButton or (
@@ -6576,32 +6885,124 @@ class TabletView(QWidget):
             rendered[interval.interval_id] = label
         return rendered
 
-    def _populate_annotations(self, track: TabletTrackWidget) -> dict[str, pg.InfiniteLine]:
-        rendered: dict[str, pg.InfiniteLine] = {}
-        for item in self._canvas_objects:
-            if item.object_type != "depth_annotation" or item.anchor_type != "depth":
+    def _populate_annotations(
+        self, track: TabletTrackWidget
+    ) -> dict[str, TabletAnnotationItem]:
+        rendered: dict[str, TabletAnnotationItem] = {}
+        definition = track.definition
+        for canvas_item in self._canvas_objects:
+            if not is_annotation_object(canvas_item):
                 continue
-            depth = item.top_depth if item.top_depth is not None else item.y
-            if not np.isfinite(depth):
+            record = annotation_from_canvas(canvas_item)
+            if record.track_id is not None and record.track_id != definition.track_id:
                 continue
-            line = pg.InfiniteLine(
-                pos=self._depth_to_axis_value(float(depth)),
-                angle=0,
-                movable=False,
-                pen=pg.mkPen("#d97706", width=1, style=Qt.PenStyle.DashLine),
+            axis_value = self._annotation_axis_value(record)
+            if axis_value is None or not np.isfinite(axis_value):
+                continue
+            anchor_x = self._annotation_anchor_x(track, record)
+            pixmap = None
+            if record.asset_ref:
+                asset = self._image_assets.get(record.asset_ref)
+                if asset is not None:
+                    pixmap = image_asset_pixmap(asset)
+            graphics = TabletAnnotationItem(
+                record,
+                pixmap=pixmap,
+                edit_mode=self._form_edit_mode,
+                print_mode=self._annotation_print_mode,
             )
-            text = str(item.properties.get("text", "")).strip()
-            if text:
-                pg.InfLineLabel(
-                    line,
-                    text=text,
-                    position=0.02,
-                    rotateAxis=(1, 0),
-                    anchor=(0, 1),
-                )
-            track.plot.addItem(line)
-            rendered[item.object_id] = line
+            graphics.setPos(float(anchor_x), float(axis_value))
+            graphics.edit_requested.connect(self.annotation_edit_requested.emit)
+            graphics.delete_requested.connect(self.annotation_delete_requested.emit)
+            graphics.duplicate_requested.connect(self.annotation_duplicate_requested.emit)
+            graphics.geometry_changed.connect(self.annotation_geometry_changed.emit)
+            graphics.context_requested.connect(self._show_annotation_context_menu)
+            track.plot.addItem(graphics, ignoreBounds=True)
+            rendered[record.annotation_id] = graphics
         return rendered
+
+    def _annotation_axis_value(self, record) -> float | None:
+        if record.anchor is AnnotationAnchor.TIME:
+            if (
+                record.axis_value is not None
+                and (record.axis_id is None or record.axis_id == self.vertical_index_id)
+            ):
+                return float(record.axis_value)
+            if record.depth is not None:
+                return self._depth_to_axis_value(float(record.depth))
+            return None
+        if record.depth is not None:
+            return self._depth_to_axis_value(float(record.depth))
+        if record.axis_value is not None:
+            return float(record.axis_value)
+        return None
+
+    def _annotation_anchor_x(self, track: TabletTrackWidget, record) -> float:
+        definition = track.definition
+        if (
+            record.anchor is AnnotationAnchor.CURVE
+            and record.parameter_mnemonic
+            and record.depth is not None
+            and self._dataset is not None
+        ):
+            curve = self._dataset.curve_by_mnemonic(record.parameter_mnemonic)
+            if curve is not None and curve.values.size == self._dataset.depth.size:
+                finite = np.flatnonzero(
+                    np.isfinite(self._dataset.depth) & np.isfinite(curve.values)
+                )
+                if finite.size:
+                    index = int(
+                        finite[
+                            np.argmin(
+                                np.abs(
+                                    self._dataset.depth[finite] - float(record.depth)
+                                )
+                            )
+                        ]
+                    )
+                    value = float(curve.values[index])
+                    if np.isfinite(value):
+                        return self._curve_pencil_display_x(
+                            definition, record.parameter_mnemonic, value
+                        )
+        if definition.kind is TrackKind.CALCIMETRY:
+            return float(record.x_fraction) * 100.0
+        view_range = None
+        track_range = track.plot.getViewBox().viewRange()[0]
+        if track_range is not None:
+            view_range = tuple(float(value) for value in track_range)
+        if view_range is None:
+            if definition.kind is TrackKind.STRATIGRAPHY:
+                rank_count = len({item.rank or "" for item in self._stratigraphy})
+                view_range = (0.0, float(max(1, rank_count)))
+            elif definition.kind is TrackKind.INTERPRETATION:
+                type_count = len(
+                    {
+                        interval.interval_type
+                        for interpretation in self._interpretations
+                        for interval in interpretation.intervals
+                    }
+                )
+                view_range = (0.0, float(max(1, type_count)))
+            else:
+                view_range = (0.0, 1.0)
+        return view_range[0] + float(record.x_fraction) * (view_range[1] - view_range[0])
+
+    def _show_annotation_context_menu(self, annotation_id: str, global_pos: QPoint) -> None:
+        menu = QMenu(self)
+        edit_action = menu.addAction(self._localizer.text("annotations.edit_action"))
+        duplicate_action = menu.addAction(
+            self._localizer.text("annotations.duplicate_action")
+        )
+        menu.addSeparator()
+        delete_action = menu.addAction(self._localizer.text("annotations.delete_action"))
+        chosen = menu.exec(global_pos)
+        if chosen is edit_action:
+            self.annotation_edit_requested.emit(annotation_id)
+        elif chosen is duplicate_action:
+            self.annotation_duplicate_requested.emit(annotation_id)
+        elif chosen is delete_action:
+            self.annotation_delete_requested.emit(annotation_id)
 
     def _curve_geometry_key(
         self,

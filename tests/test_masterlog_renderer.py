@@ -35,6 +35,7 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_size_mm,
     paint_masterlog,
     render_masterlog_to_printer,
+    _paint_annotations,
     _paint_column_grid,
     _parameter_symbol_x,
     visible_lithology_intervals,
@@ -635,3 +636,93 @@ def test_masterlog_curve_bindings_resolve_vendor_descriptions_automatically() ->
     assert bindings["CAMG_CO3_2"] == "dolomite"
     assert bindings["C1"] == "methane"
     assert bindings["TG"] == "total-gas"
+
+
+def test_masterlog_direct_renderer_paints_professional_annotation(qapp) -> None:
+    from geoworkbench.project.annotation_controller import AnnotationController
+    from geoworkbench.project.annotation_schema import (
+        AnnotationAnchor,
+        AnnotationKind,
+        AnnotationStyle,
+    )
+
+    session = make_session_with_curves()
+    AnnotationController(session).add_annotation(
+        kind=AnnotationKind.COMMENT,
+        anchor=AnnotationAnchor.DEPTH,
+        text="Параметры раствора",
+        track_id="gas",
+        depth=150.0,
+        x_fraction=0.1,
+        offset_x=0.0,
+        offset_y=0.0,
+        width=100.0,
+        height=50.0,
+        style=AnnotationStyle(
+            text_color="#ffffff",
+            fill_color="#ff0000",
+            fill_opacity=1.0,
+            border_color="#ff0000",
+            border_width=0.0,
+            shadow=False,
+            padding=2.0,
+        ),
+    )
+    column = MasterlogColumnTemplate("gas", "Gas", "curves", 100.0, ["TG"])
+    image = QImage(100, 100, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+    _paint_annotations(
+        painter,
+        QRectF(0.0, 0.0, 100.0, 100.0),
+        column,
+        session,
+        (100.0, 200.0),
+        {},
+    )
+    painter.end()
+
+    color = image.pixelColor(15, 55)
+    assert color.red() > 220
+    assert color.green() < 60
+    assert color.blue() < 60
+
+
+def test_masterlog_direct_renderer_skips_screen_only_annotation(qapp) -> None:
+    from geoworkbench.project.annotation_controller import AnnotationController
+    from geoworkbench.project.annotation_schema import (
+        AnnotationAnchor,
+        AnnotationKind,
+        AnnotationStyle,
+    )
+
+    session = make_session_with_curves()
+    AnnotationController(session).add_annotation(
+        kind=AnnotationKind.COMMENT,
+        anchor=AnnotationAnchor.DEPTH,
+        text="Только экран",
+        track_id="gas",
+        depth=150.0,
+        x_fraction=0.1,
+        offset_x=0.0,
+        offset_y=0.0,
+        width=100.0,
+        height=50.0,
+        style=AnnotationStyle(fill_color="#ff0000", fill_opacity=1.0, shadow=False),
+        print_enabled=False,
+    )
+    column = MasterlogColumnTemplate("gas", "Gas", "curves", 100.0, ["TG"])
+    image = QImage(100, 100, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+    _paint_annotations(
+        painter,
+        QRectF(0.0, 0.0, 100.0, 100.0),
+        column,
+        session,
+        (100.0, 200.0),
+        {},
+    )
+    painter.end()
+
+    assert image.pixelColor(15, 55).name() == "#ffffff"

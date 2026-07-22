@@ -100,8 +100,21 @@ def test_f4_edit_mode_toggles_secondary_toolbar(qapp, tmp_path, monkeypatch) -> 
 
     assert window.form_edit_toolbar.isVisible() is True
     assert window.tablet_view.form_edit_mode is True
+    assert window.annotation_callout_action.isEnabled() is True
+    assert window.annotation_comment_action.isEnabled() is True
+    assert window.annotation_image_action.isEnabled() is True
+    assert window.annotation_callout_action.text() == "Выноска"
+    assert window.annotation_comment_action.text() == "Комментарий"
+    assert window.annotation_image_action.text() == "Изображение"
+    assert window.annotation_manager_toolbar_action.text() == "Все…"
+    assert window.annotation_manager_toolbar_action in window.form_edit_toolbar.actions()
     assert window.form_manager_button.defaultAction() is window.form_manager_action
     assert window.form_manager_button.menu() is None
+
+    window.tablet_edit_mode_action.setChecked(False)
+    qapp.processEvents()
+    assert window.form_edit_toolbar.isVisible() is False
+    assert window.annotation_callout_action.isEnabled() is False
 
 
 def test_constructor_shows_ready_kazgeology_preset(qapp, tmp_path, monkeypatch) -> None:

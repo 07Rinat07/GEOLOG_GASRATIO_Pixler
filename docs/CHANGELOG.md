@@ -1,3 +1,15 @@
+# 0.7.15 — Professional tablet annotation layer
+
+- replaced the simple depth-note rendering with a versioned well-scoped annotation model while retaining legacy `depth_annotation` compatibility;
+- added callout, comment, curve-value, image and symbol objects with depth, time, track and curve anchors;
+- added a compact F4 toolbar, exact graph context actions, double-click editing, drag movement and resize handles;
+- added one unified editor for fonts, typography, colors, opacity, borders, leaders, arrowheads, alignment, shadow, rotation, geometry, locking, visibility and print permission;
+- clicking a curve now shows its exact value and can persist it as an editable print annotation or cancel without changing the project;
+- project-owned image assets prevent broken external file paths;
+- tablet preview/PDF/physical printing use the same graphics item; direct Masterlog output paints the same persisted annotation model;
+- annotations remain attached to the well through LAS merge creation and merge Undo/Redo;
+- added RU/KK/EN documentation and regression coverage for schema persistence, merge survival, curve values, track binding and direct print rendering.
+
 # 0.7.14 — Delphi SKF form and header importer
 
 - added a bounded binary Delphi component-stream reader with embedded `TPF0` signature detection;

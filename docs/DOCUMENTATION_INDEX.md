@@ -1,3 +1,4 @@
+- Professional annotation layer 0.7.15: [Русский](ru/ANNOTATIONS.md) · [Қазақша](kk/ANNOTATIONS.md) · [English](en/ANNOTATIONS.md)
 - Delphi SKF import 0.7.14: [Русский](ru/SKF_IMPORT.md) · [Қазақша](kk/SKF_IMPORT.md) · [English](en/SKF_IMPORT.md)
 - Pencil history and point connection 0.7.13: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 # Documentation Index

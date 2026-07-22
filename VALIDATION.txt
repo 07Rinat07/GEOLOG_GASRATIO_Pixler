@@ -1,34 +1,45 @@
-GEOLOG GASRATIO@Pixler 0.7.14 SKF importer validation
-=====================================================
+GEOLOG GASRATIO@Pixler 0.7.15 professional annotation layer validation
+=====================================================================
 
-[1] compileall
-PASS
+Date: 22 July 2026
 
-[2] pure Delphi stream pytest
-..                                                                       [100%]
-2 passed in 0.04s
+[1] Python bytecode compilation
+PASS: python -m compileall -q src tests
+
+[2] Focused non-GUI regression suite
+PASS: 79 tests
+
+Covered areas:
+- annotation schema, rich style and geometry round-trip;
+- legacy depth_annotation compatibility;
+- curve-value labels and depth/time/curve anchors;
+- CanvasObject Undo/Redo history;
+- LAS merge create/undo/redo preservation;
+- project format persistence and migrations;
+- image asset validation/storage;
+- static constructor contracts and text normalization.
 
 [3] i18n key synchronization
-PASS: RU/KK/EN contain 1190 identical keys
+PASS: RU/KK/EN contain 1287 identical keys
 
-[4] synthetic SKF model conversion and JSON round-trip
-PASS: 7 Delphi components -> 3 form columns + linked Masterlog header
+[4] Annotation schema smoke test
+PASS: rich annotation JSON round-trip and legacy conversion
 
-[5] neutral SKF CLI inspection
-PASS
+[5] Qt/pyqtgraph GUI, PDF and physical printing regression
+NOT RUN in this Linux container: PySide6 and pyqtgraph are unavailable.
+Required before release publication in the standard Windows environment:
+- offscreen/full pytest;
+- F4 toolbar and graph context-menu smoke test;
+- HiDPI, PDF preview/export and physical printer comparison;
+- Ruff/mypy checks if the project development toolchain is installed.
 
-[6] Qt integration availability
-NOT RUN: PySide6 is not installed in this container; Windows GUI smoke test required
-
-[7] real vendor SKF samples
-NOT RUN: Глубинка.skf and Мастерлог Каражар...skf are not present in /mnt/data or File Library results
+[6] Existing SKF importer scope
+RETAINED from 0.7.14. The annotation-layer changes do not replace the SKF importer.
+Real vendor SKF samples still require validation in the normal project environment.
 
 Additional notes
 ----------------
-- tests/test_skf_importer.py is included for the normal project environment. Collection in this
-  container is blocked before the test body because PySide6 is unavailable through existing
-  package initialisation.
-- Ruff is not installed in the container and could not be installed from the offline package
-  cache. Syntax/bytecode compilation and focused functional checks passed.
-- The importer currently targets binary Delphi TReader/TWriter streams containing TPF0. Unknown
-  vendor classes are mapped heuristically or reported; no Delphi code is executed.
+- Project/image persistence no longer imports Qt merely to load validated PNG/SVG assets;
+  Qt is imported lazily only when converting JPEG/BMP/TIFF/WebP to normalized PNG.
+- User annotations are well-scoped CanvasObjects and therefore survive LAS dataset merge
+  operations; direct Masterlog rendering and tablet capture consume the same annotation model.

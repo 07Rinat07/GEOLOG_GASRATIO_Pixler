@@ -9,10 +9,6 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QBuffer, QIODevice
-from PySide6.QtGui import QImage
-
-
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 PNG_MEDIA_TYPE = "image/png"
 SVG_MEDIA_TYPE = "image/svg+xml"
@@ -82,6 +78,16 @@ def create_raster_asset(source: Path) -> ImageAsset:
         raise ImageAssetError("Raster asset превышает лимит 10 МБ")
     if source.suffix.casefold() == ".png":
         return create_png_asset(source)
+    # Project loading, persistence and SVG/PNG validation are deliberately
+    # independent of Qt.  Import Qt only for the operation that actually needs
+    # its raster codecs so headless/domain tests remain usable.
+    try:
+        from PySide6.QtCore import QBuffer, QIODevice
+        from PySide6.QtGui import QImage
+    except ModuleNotFoundError as exc:  # pragma: no cover - deployment guard
+        raise ImageAssetError(
+            "Для преобразования JPEG/BMP/TIFF/WebP требуется установленный PySide6"
+        ) from exc
     image = QImage(str(source))
     if image.isNull():
         raise ImageAssetError("Формат изображения не поддерживается или файл повреждён")
