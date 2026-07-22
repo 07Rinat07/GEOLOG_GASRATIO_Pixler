@@ -7,6 +7,7 @@ from PySide6.QtCore import QSize, QStandardPaths, Qt
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
+    QCursor,
     QDragEnterEvent,
     QDropEvent,
     QIcon,
@@ -14,6 +15,7 @@ from PySide6.QtGui import (
     QPainter,
     QPen,
     QPixmap,
+    QShowEvent,
 )
 from PySide6.QtPrintSupport import QPrintDialog, QPrintPreviewDialog, QPrinter
 from PySide6.QtWidgets import (
@@ -34,6 +36,7 @@ from PySide6.QtWidgets import (
     QStatusBar,
     QStyle,
     QSizePolicy,
+    QStackedWidget,
     QTabWidget,
     QTextEdit,
     QToolBar,
@@ -137,6 +140,8 @@ from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
 from geoworkbench.ui.time_to_depth_dialog import TimeToDepthDialog
 from geoworkbench.ui.branding import application_icon, logo_pixmap
+from geoworkbench.ui.home_page import HomeAction, HomePage
+from geoworkbench.ui.window_geometry import adaptive_window_geometry, constrain_window_geometry
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
 from geoworkbench.ui.external_las_insert_dialog import ExternalLasInsertDialog
@@ -259,6 +264,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(application_icon())
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
         self.setAcceptDrops(True)
+        self._initial_geometry_checked = False
         self._apply_adaptive_initial_geometry()
 
         self.tabs = QTabWidget()
@@ -368,7 +374,6 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.curve_view, self._t("tab.curves"))
         self.tabs.addTab(self.las_table_editor, self._t("tab.table"))
         self.tabs.addTab(self.tablet_view, self._t("tab.tablet"))
-        self.setCentralWidget(self.tabs)
 
         self._create_project_explorer()
         self._create_curve_browser()
@@ -379,6 +384,7 @@ class MainWindow(QMainWindow):
         self._create_cursor_panel()
         self._create_panel_rails()
         self._create_actions()
+        self._create_home_page()
         self._create_toolbar()
         self.setStatusBar(QStatusBar())
         self._set_tablet_edit_mode(False)
@@ -389,18 +395,22 @@ class MainWindow(QMainWindow):
     def _apply_adaptive_initial_geometry(self) -> None:
         """Fit the first window inside the active laptop/desktop work area."""
 
-        screen = QApplication.primaryScreen()
+        screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
         if screen is None:
             self.resize(1280, 800)
             return
-        available = screen.availableGeometry()
-        width = max(720, min(1580, int(available.width() * 0.96)))
-        height = max(540, min(960, int(available.height() * 0.92)))
-        self.resize(width, height)
-        self.move(
-            available.x() + max(0, (available.width() - width) // 2),
-            available.y() + max(0, (available.height() - height) // 2),
-        )
+        self.setGeometry(adaptive_window_geometry(screen.availableGeometry()))
+
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802
+        super().showEvent(event)
+        if self._initial_geometry_checked or self.isMaximized() or self.isFullScreen():
+            return
+        self._initial_geometry_checked = True
+        screen = self.screen() or QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
+        if screen is not None:
+            self.setGeometry(
+                constrain_window_geometry(self.geometry(), screen.availableGeometry(), margin=12)
+            )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
@@ -748,6 +758,26 @@ class MainWindow(QMainWindow):
         language_menu = self._add_localized_menu("menu.language")
         help_menu = self._add_localized_menu("menu.help")
 
+        self.home_action = self._localized_action("home.action")
+        self.home_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon)
+        )
+        self.home_action.setShortcut("Ctrl+Home")
+        self._set_action_help(self.home_action, "home.action_tooltip")
+        self.home_action.triggered.connect(self._show_home)
+        view_menu.addAction(self.home_action)
+
+        self.workspace_action = self._localized_action("home.workspace_action")
+        self.workspace_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
+        )
+        self.workspace_action.setShortcut("Ctrl+Shift+Home")
+        self._set_action_help(self.workspace_action, "home.workspace_action_tooltip")
+        self.workspace_action.triggered.connect(lambda: self._show_workspace())
+        self.workspace_action.setEnabled(False)
+        view_menu.addAction(self.workspace_action)
+        view_menu.addSeparator()
+
         self.las_editor_action = self._localized_action("las_editor.action")
         self.las_editor_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
@@ -769,6 +799,10 @@ class MainWindow(QMainWindow):
 
         self.new_las_action = self._localized_action("new_las.action")
         self.new_las_action.setShortcut("Ctrl+N")
+        self.new_las_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+        )
+        self._set_action_help(self.new_las_action, "home.new_las_description")
         self.new_las_action.triggered.connect(self.create_new_las)
         file_menu.addAction(self.new_las_action)
         las_editor_menu.addAction(self.new_las_action)
@@ -802,6 +836,10 @@ class MainWindow(QMainWindow):
         file_menu.addAction(self.open_paradox_action)
 
         self.paradox_batch_action = self._localized_action("paradox.batch_action")
+        self.paradox_batch_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView)
+        )
+        self._set_action_help(self.paradox_batch_action, "home.batch_description")
         self.paradox_batch_action.triggered.connect(self.open_paradox_batch)
         tools_menu.addAction(self.paradox_batch_action)
 
@@ -1415,24 +1453,86 @@ class MainWindow(QMainWindow):
         button.setAutoRaise(False)
         return button
 
+    def _create_home_page(self) -> None:
+        self.home_page = HomePage(
+            (
+                HomeAction(
+                    self.open_data_action,
+                    "home.import_description",
+                    "homeImportButton",
+                    primary=True,
+                ),
+                HomeAction(
+                    self.open_project_action,
+                    "home.open_project_description",
+                    "homeOpenProjectButton",
+                    primary=True,
+                ),
+                HomeAction(
+                    self.new_las_action,
+                    "home.new_las_description",
+                    "homeNewLasButton",
+                ),
+                HomeAction(
+                    self.paradox_batch_action,
+                    "home.batch_description",
+                    "homeBatchButton",
+                ),
+                HomeAction(
+                    self.form_manager_action,
+                    "home.forms_description",
+                    "homeFormsButton",
+                ),
+                HomeAction(
+                    self.constructor_action,
+                    "home.constructor_description",
+                    "homeConstructorButton",
+                ),
+            ),
+            self.workspace_action,
+            language=self.language,
+        )
+        self.central_stack = QStackedWidget(self)
+        self.central_stack.setObjectName("centralWorkspaceStack")
+        self.central_stack.addWidget(self.home_page)
+        self.central_stack.addWidget(self.tabs)
+        self.central_stack.setCurrentWidget(self.home_page)
+        self.setCentralWidget(self.central_stack)
+
+    def _show_home(self) -> None:
+        self.central_stack.setCurrentWidget(self.home_page)
+        self.statusBar().showMessage(self._t("home.status"))
+
+    def _show_workspace(self, widget: QWidget | None = None) -> None:
+        if self.session.current_dataset is None:
+            return
+        if widget is not None:
+            self.tabs.setCurrentWidget(widget)
+        self.central_stack.setCurrentWidget(self.tabs)
+        self.statusBar().showMessage(self._t("home.workspace_status"))
+
     def _create_toolbar(self) -> None:
         self.main_toolbar = QToolBar(self._t("toolbar.main"), self)
         self.main_toolbar.setObjectName("mainToolbar")
         self.main_toolbar.setMovable(False)
         self.main_toolbar.setFloatable(False)
-        self.main_toolbar.setIconSize(QSize(20, 20))
+        self.main_toolbar.setIconSize(QSize(22, 22))
         self.main_toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.main_toolbar.setStyleSheet(
-            "QToolBar#mainToolbar { spacing: 5px; padding: 5px; "
-            "border-bottom: 1px solid #cbd5e1; background: #f8fafc; }"
-            "QToolBar#mainToolbar QToolButton { min-height: 30px; padding: 3px 8px; "
-            "border: 1px solid transparent; border-radius: 6px; }"
-            "QToolBar#mainToolbar QToolButton:hover { background: #e2e8f0; "
-            "border-color: #cbd5e1; }"
+            "QToolBar#mainToolbar { spacing: 6px; padding: 6px 8px; "
+            "border-bottom: 1px solid #cbd5e1; background: #ffffff; }"
+            "QToolBar#mainToolbar QToolButton { min-height: 32px; padding: 4px 9px; "
+            "border: 1px solid #d8e0ea; border-radius: 7px; color: #1e293b; "
+            "font-weight: 600; background: #f8fafc; }"
+            "QToolBar#mainToolbar QToolButton:hover { background: #eff6ff; "
+            "border-color: #60a5fa; color: #1d4ed8; }"
+            "QToolBar#mainToolbar QToolButton:pressed { background: #dbeafe; }"
             "QToolBar#mainToolbar QToolButton:checked { background: #dbeafe; "
-            "border-color: #60a5fa; color: #1e3a8a; }"
+            "border-color: #3b82f6; color: #1e3a8a; }"
         )
 
+        self.main_toolbar.addAction(self.home_action)
+        self.main_toolbar.addSeparator()
         self.las_editor_button = self._toolbar_button(self.main_toolbar, self.las_editor_action)
         self.form_manager_button = self._toolbar_button(self.main_toolbar, self.form_manager_action)
         self.constructor_button = self._toolbar_button(self.main_toolbar, self.constructor_action)
@@ -1507,7 +1607,7 @@ class MainWindow(QMainWindow):
         )
         self.user_profile_settings.save_cursor_line_settings(self.cursor_line_settings)
         if enabled:
-            self.tabs.setCurrentWidget(self.tablet_view)
+            self._show_workspace(self.tablet_view)
         else:
             self.statusBar().clearMessage()
 
@@ -1601,6 +1701,7 @@ class MainWindow(QMainWindow):
         self.form_edit_toolbar.setWindowTitle(self._t("ui.form_edit_toolbar"))
         self.form_edit_caption.setText(self._t("ui.form_edit_toolbar"))
         self.form_edit_caption.setToolTip(self._t("ui.help.tablet_edit_mode"))
+        self.home_page.retranslate(self.language)
 
         self._retranslate_registered_actions()
         for current_language, action in self.language_actions.items():
@@ -1790,7 +1891,7 @@ class MainWindow(QMainWindow):
             )
         self._refresh_tree()
         self._update_title()
-        self.tabs.setCurrentWidget(self.tablet_view)
+        self._show_workspace(self.tablet_view)
         self.statusBar().showMessage(f"Загружено LAS-файлов: {len(filenames) - len(errors)}")
 
     def open_csv(self) -> None:
@@ -2040,7 +2141,12 @@ class MainWindow(QMainWindow):
             self.curve_browser_dock.hide()
             self.interpretation_properties.clear()
             self.interpretation_properties_dock.hide()
+            self.workspace_action.setEnabled(False)
+            self.home_page.set_workspace_dataset(None)
+            self._show_home()
             return
+        self.workspace_action.setEnabled(True)
+        self.home_page.set_workspace_dataset(dataset.name)
         self.curve_view.show_dataset(dataset)
         self.las_table_editor.set_dataset(dataset)
         self.tablet_view.set_dataset(dataset)
@@ -2075,7 +2181,7 @@ class MainWindow(QMainWindow):
         else:
             self.tablet_view.set_layout_model(saved_layout)
             self._refresh_annotation_layer()
-        self.tabs.setCurrentWidget(self.tablet_view)
+        self._show_workspace(self.tablet_view)
 
     def show_las_editor(self) -> None:
         dialog = LasEditorDialog(
@@ -2091,7 +2197,7 @@ class MainWindow(QMainWindow):
         elif operation is LasEditorOperation.OPEN:
             self.open_las()
         elif operation is LasEditorOperation.TABLE:
-            self.tabs.setCurrentWidget(self.las_table_editor)
+            self._show_workspace(self.las_table_editor)
         elif operation is LasEditorOperation.REVERSE_DEPTH:
             self.create_ascending_depth_copy(save_as_las=True)
         elif operation is LasEditorOperation.RESAMPLE:
@@ -2818,7 +2924,7 @@ class MainWindow(QMainWindow):
             return False
         self.tablet_view.set_curve_pencil_mode(False)
         self.curve_view.show_dataset(dataset, [mnemonic])
-        self.tabs.setCurrentWidget(self.curve_view)
+        self._show_workspace(self.curve_view)
         if not self.curve_view.set_edit_mode(True):
             return False
         self.statusBar().showMessage(self._t("shell.curve_pencil_active_status", mnemonic=mnemonic))
@@ -2839,7 +2945,7 @@ class MainWindow(QMainWindow):
             return False
         target = self.tablet_view.curve_pencil_target
         active_mnemonic = target[1] if target is not None else mnemonic
-        self.tabs.setCurrentWidget(self.tablet_view)
+        self._show_workspace(self.tablet_view)
         self.statusBar().showMessage(
             self._t("shell.curve_pencil_active_status", mnemonic=active_mnemonic)
         )
@@ -3004,7 +3110,7 @@ class MainWindow(QMainWindow):
         self.curve_browser.set_replace_enabled(False)
         self.tablet_view.set_layout_model(layout)
         self.tablet_view.set_dataset(self.session.current_dataset)
-        self.tabs.setCurrentWidget(self.tablet_view)
+        self._show_workspace(self.tablet_view)
         self.curve_browser_dock.hide()
         self._refresh_tree()
         self._update_title()
@@ -3021,7 +3127,7 @@ class MainWindow(QMainWindow):
             return
         self.tablet_view.refresh_view()
         self._show_track_in_inspector(track.track_id)
-        self.tabs.setCurrentWidget(self.tablet_view)
+        self._show_workspace(self.tablet_view)
         self._refresh_tree()
         self._update_title()
 
@@ -3159,7 +3265,7 @@ class MainWindow(QMainWindow):
         self.tablet_view.set_layout_model(result.layout)
         self.tablet_view.set_dataset(dataset)
         self._refresh_annotation_layer()
-        self.tabs.setCurrentWidget(self.tablet_view)
+        self._show_workspace(self.tablet_view)
         self._selected_track_id = None
         self._refresh_tree()
         self._update_title()
@@ -3365,7 +3471,7 @@ class MainWindow(QMainWindow):
             return
         self.tablet_view.refresh_view()
         self._refresh_tree()
-        self.tabs.setCurrentWidget(self.tablet_view)
+        self._show_workspace(self.tablet_view)
         self._log(self._t("tablet.track_added", title=track.title))
         self._update_title()
 
@@ -4544,7 +4650,7 @@ class MainWindow(QMainWindow):
         mode = GeologicalInputMode.STRATIGRAPHY if enabled else GeologicalInputMode.SELECT
         self.tablet_view.set_geological_input_mode(mode)
         if enabled:
-            self.tabs.setCurrentWidget(self.tablet_view)
+            self._show_workspace(self.tablet_view)
             self.statusBar().showMessage(self._t("stratigraphy.mode_hint"))
 
     def _create_stratigraphy_interval_from_tablet(self, top: float, bottom: float) -> None:
@@ -4618,7 +4724,7 @@ class MainWindow(QMainWindow):
         if selected is not None:
             self.tablet_view.set_interval_creation_type(selected.interval_type)
         self.tablet_view.set_interval_edit_mode(mode)
-        self.tabs.setCurrentWidget(self.tablet_view)
+        self._show_workspace(self.tablet_view)
         action_by_mode = {
             IntervalEditMode.SELECT: self.interval_select_action,
             IntervalEditMode.CREATE: self.interval_create_action,
@@ -5458,7 +5564,7 @@ class MainWindow(QMainWindow):
             if curve is not None:
                 mnemonic = curve.metadata.original_mnemonic
                 self.curve_view.show_dataset(dataset, [mnemonic])
-                self.tabs.setCurrentWidget(self.curve_view)
+                self._show_workspace(self.curve_view)
                 if self.pencil_action.isChecked():
                     self.curve_view.set_edit_mode(True)
                     self.statusBar().showMessage(
@@ -5479,7 +5585,7 @@ class MainWindow(QMainWindow):
             self.session.current_dataset_id = dataset_id
             self._show_current_dataset()
             self._show_track_in_inspector(track_id)
-            self.tabs.setCurrentWidget(self.tablet_view)
+            self._show_workspace(self.tablet_view)
         elif data[0] in ("lithology", "lithology_interval"):
             self.session.current_well_id = data[1]
             self.show_lithology_editor()
@@ -5497,7 +5603,7 @@ class MainWindow(QMainWindow):
             self.session.current_well_id = well_id
             self._show_current_dataset()
             self._select_interpretation_interval(interpretation_id, interval_id)
-            self.tabs.setCurrentWidget(self.tablet_view)
+            self._show_workspace(self.tablet_view)
         elif data[0] in ("annotations", "annotation"):
             self.session.current_well_id = data[1]
             self.show_depth_annotations()

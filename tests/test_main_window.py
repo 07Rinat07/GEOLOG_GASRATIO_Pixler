@@ -55,8 +55,42 @@ def bind_session(window: MainWindow, session: ProjectSession) -> None:
     window.project_controller.session = session
     window.tablet_controller.session = session
     window.dataset_export_controller.session = session
+    window.depth_annotation_controller.session = session
     window.curve_editing_controller = CurveEditingController(session)
     window._update_curve_edit_actions()
+
+
+def test_window_starts_on_clear_home_page(qapp) -> None:
+    window = MainWindow(language=AppLanguage.EN)
+    window.show()
+    qapp.processEvents()
+
+    assert window.central_stack.currentWidget() is window.home_page
+    assert window.home_action.text() == "Home"
+    assert not window.workspace_action.isEnabled()
+    assert window.home_page.findChild(type(window.home_page.workspace_button), "homeImportButton")
+    assert "No data" in window.home_page.workspace_value.text()
+    assert window.home_page.content.width() == min(
+        1120, window.home_page.scroll.viewport().width()
+    )
+    window.close()
+
+
+def test_home_and_workspace_navigation_is_explicit(qapp) -> None:
+    window = MainWindow(language=AppLanguage.EN)
+    session, _ = make_session()
+    bind_session(window, session)
+
+    window._show_current_dataset()
+    assert window.central_stack.currentWidget() is window.tabs
+    assert window.workspace_action.isEnabled()
+    assert "Dataset" in window.home_page.workspace_value.text()
+
+    window.home_action.trigger()
+    assert window.central_stack.currentWidget() is window.home_page
+    window.workspace_action.trigger()
+    assert window.central_stack.currentWidget() is window.tabs
+    window.close()
 
 
 def test_open_las_stops_when_import_mode_is_cancelled(qapp, monkeypatch) -> None:
@@ -625,7 +659,7 @@ def test_window_merges_datasets_and_updates_history_actions(qapp, monkeypatch) -
     window.close()
 
 
-def test_project_tree_contains_geology_annotations_templates_and_tracks(qapp) -> None:
+def test_project_tree_contains_geology_templates_and_tracks_without_annotations(qapp) -> None:
     window = MainWindow()
     session, _ = make_session()
     well = session.current_well
@@ -659,7 +693,7 @@ def test_project_tree_contains_geology_annotations_templates_and_tracks(qapp) ->
 
     collect(iterator)
     assert any(label.startswith("Литология (1)") for label in labels)
-    assert any(label.startswith("Глубинные заметки (1)") for label in labels)
+    assert not any(label.startswith("Глубинные заметки") for label in labels)
     assert any(label.startswith("Шаблоны описаний (1)") for label in labels)
     assert any(label.startswith("Слои планшета (2)") for label in labels)
     window.close()

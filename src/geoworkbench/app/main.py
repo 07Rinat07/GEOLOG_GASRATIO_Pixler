@@ -13,6 +13,7 @@ from geoworkbench.services.localization import (
 from geoworkbench.printing.unicode_support import configure_application_unicode_fonts
 from geoworkbench.ui.main_window import MainWindow
 from geoworkbench.ui.branding import application_icon
+from geoworkbench.ui.startup_splash import StartupSplash
 
 
 def main() -> int:
@@ -40,8 +41,16 @@ def main() -> int:
         )
         if accepted:
             settings.save(language)
+    startup_localizer = Localizer.create(language)
+    splash = StartupSplash(language)
+    splash.show()
+    app.processEvents()
+    splash.set_stage(startup_localizer.text("startup.stage.catalogs"), 38)
+    app.processEvents()
     window = MainWindow(language=language, language_settings=settings)
     window.show()
+    app.processEvents()
+    splash.finish()
     return app.exec()
 
 
