@@ -42,6 +42,8 @@ The confirmed nominal GeoScape server grid is **0.2 m**. The importer displays i
 
 The LAS `STEP` header always describes the data grid that actually exists. The importer therefore never writes a false `STEP=0.2` for 0.4 m rows. To create a derived 0.2 m grid, open the document and explicitly run **LAS Editor → Resample depth…**, then choose the interpolation method. The source DB and the original imported dataset remain unchanged.
 
+The batch converter follows the same contract: a 0.2 m source step produces `STEP=0.2`, while a 0.4 m source step produces `STEP=0.4`. No intermediate rows are added silently. **Depth LAS grid** offers an explicit derived **GeoScape 0.2 m** option: depth is sorted, the last row at each duplicate depth is kept, and numeric channels are linearly interpolated without bridging NULL gaps. **As source** remains the safe default. A temporary LAS is created first; the built-in reader then compares the complete index, `STRT/STOP/STEP`, channel set, and channel values. The final file is installed only after successful validation; on failure the temporary file is removed and any previous LAS remains intact.
+
 ## LAS and TIME → DEPTH
 
 Depth export writes the active index first as `DEPT.M`; `STRT`, `STOP`, and a median positive `STEP` are derived from data. Time export writes `TIME.SEC`, stores the initial date/time in the header, and retains depth as `DEPTH.M`.

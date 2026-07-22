@@ -37,6 +37,7 @@
 | DATA-024 | Многомерные NetCDF/HDF5 datasets | позже: typed xarray mapping, chunking и lazy access; произвольный HDF5 без схемы не принимается |
 | DATA-025 | GRDECL/EGRID corner-point grids и properties | позже: read-first adapter на XTGeo; экспорт после geometry/unit/ACTNUM preflight |
 | DATA-026 | RESCUE и закрытые Petrel-форматы | исследование: не обещать поддержку без доступной спецификации, fixtures и loss matrix |
+| DATA-027 | Пакетный Paradox DB → LAS без подмены фактического шага глубины | готово: 0,2/0,4 м сохраняются как есть по умолчанию; доступна явная производная сетка GeoScape 0,2 м; временный LAS проходит полную проверку индекса, `STRT/STOP/STEP`, каналов и значений до атомарной замены результата |
 
 JSON-файл проекта не считается универсальным форматом импорта данных: это внутренний
 версионированный контейнер приложения.

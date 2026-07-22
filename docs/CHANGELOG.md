@@ -1,3 +1,26 @@
+# Unreleased — factual DB depth step and transactional batch validation
+
+## Русский
+
+- пакетный DB → LAS сохраняет фактический шаг выбранного канала: 0,2 м остаётся `STEP=0.2`, 0,4 м — `STEP=0.4`, без скрытого ресэмплинга;
+- добавлен явный режим производной сетки GeoScape 0,2 м с сортировкой глубины, правилом последнего повтора и линейной интерполяцией числовых каналов;
+- временный LAS полностью проверяется по индексу, `STRT/STOP/STEP`, каналам и значениям до замены итогового файла;
+- ошибка проверки удаляет только временный файл и не повреждает предыдущий LAS, поэтому повторный запуск больше не пропускается из-за незавершённого результата.
+
+## Қазақша
+
+- пакеттік DB → LAS таңдалған арнаның нақты қадамын сақтайды: 0,2 м үшін `STEP=0.2`, 0,4 м үшін `STEP=0.4`, жасырын ресэмплингсіз;
+- тереңдікті сұрыптау, соңғы қайталауды сақтау және сандық арналарды сызықтық интерполяциялау арқылы GeoScape 0,2 м туынды торының анық режимі қосылды;
+- уақытша LAS соңғы файлды ауыстырмас бұрын индекс, `STRT/STOP/STEP`, арналар және мәндер бойынша толық тексеріледі;
+- тексеру қатесі тек уақытша файлды жояды және бұрынғы LAS-ты өзгертпейді, сондықтан қайталау аяқталмаған нәтижеге байланысты өткізілмейді.
+
+## English
+
+- batch DB → LAS conversion preserves the selected channel's actual step: 0.2 m stays `STEP=0.2` and 0.4 m stays `STEP=0.4`, without hidden resampling;
+- added an explicit derived GeoScape 0.2 m grid with depth sorting, last-duplicate selection, and linear interpolation of numeric channels;
+- the temporary LAS is fully verified against the index, `STRT/STOP/STEP`, channels, and values before replacing the final file;
+- validation failure removes only the temporary file and preserves any previous LAS, so retry is no longer skipped because of an incomplete result.
+
 # Unreleased — selected interval statistics
 
 ## Русский

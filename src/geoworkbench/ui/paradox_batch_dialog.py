@@ -7,6 +7,7 @@ from PySide6.QtGui import QCloseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
+    QComboBox,
     QDialog,
     QFileDialog,
     QFormLayout,
@@ -50,6 +51,7 @@ class _BatchWorker(QObject):
         modes: tuple[str, ...],
         name_mask: str,
         overwrite: bool,
+        target_depth_step: float | None,
         language: AppLanguage,
         manual_plans: dict[Path, ParadoxImportPlan] | None = None,
     ) -> None:
@@ -60,6 +62,7 @@ class _BatchWorker(QObject):
         self.modes = modes
         self.name_mask = name_mask
         self.overwrite = overwrite
+        self.target_depth_step = target_depth_step
         self.localizer = Localizer.create(language)
         self.manual_plans = {
             path.expanduser().resolve(): plan
@@ -111,6 +114,14 @@ class _BatchWorker(QObject):
             results: list[BatchItemResult] = []
             offset = 0
             for mode in self.modes:
+                def report_progress(
+                    name: str,
+                    current: int,
+                    _count: int,
+                    base: int = offset,
+                ) -> None:
+                    self.progress.emit(name, base + current, total)
+
                 converted = convert_batch(
                     self.sources,
                     self.output,
@@ -118,12 +129,11 @@ class _BatchWorker(QObject):
                     overwrite=self.overwrite,
                     plan_factory=factory,
                     name_mask=self.name_mask,
-                    progress=lambda name, current, count, base=offset: self.progress.emit(
-                        name, base + current, total
-                    ),
+                    progress=report_progress,
                     cancelled=lambda: self.cancel_requested,
                     language=self.localizer.language.value,
                     translate=self.localizer.text,
+                    target_depth_step=self.target_depth_step,
                 )
                 results.extend(converted)
                 offset += len(self.sources)
@@ -224,6 +234,12 @@ class ParadoxBatchDialog(QDialog):
         mode_row.addWidget(self.time_mode)
         mode_row.addStretch(1)
         form.addRow(self._t("paradox.export_modes"), mode_row)
+
+        self.depth_grid = QComboBox()
+        self.depth_grid.addItem(self._t("paradox.depth_grid_source"), None)
+        self.depth_grid.addItem(self._t("paradox.depth_grid_standard_02"), 0.2)
+        self.depth_grid.setToolTip(self._t("paradox.depth_grid_help"))
+        form.addRow(self._t("paradox.depth_grid"), self.depth_grid)
 
         self.overwrite = QCheckBox(self._t("paradox.overwrite"))
         self.overwrite.setToolTip(self._t("paradox.overwrite_help"))
@@ -357,6 +373,7 @@ class ParadoxBatchDialog(QDialog):
             self.reset_mask_button,
             self.depth_mode,
             self.time_mode,
+            self.depth_grid,
             self.overwrite,
             self.add_files_button,
             self.add_folder_button,
@@ -368,7 +385,9 @@ class ParadoxBatchDialog(QDialog):
         self.output.textChanged.connect(self._configuration_changed)
         self.name_mask.textChanged.connect(self._configuration_changed)
         self.depth_mode.toggled.connect(self._configuration_changed)
+        self.depth_mode.toggled.connect(self.depth_grid.setEnabled)
         self.time_mode.toggled.connect(self._configuration_changed)
+        self.depth_grid.currentIndexChanged.connect(self._configuration_changed)
         self.overwrite.toggled.connect(self._configuration_changed)
         self.profile.textChanged.connect(self._configuration_changed)
 
@@ -645,6 +664,11 @@ class ParadoxBatchDialog(QDialog):
             modes,
             self.name_mask.text().strip() or "{source_name}_{mode}.las",
             self.overwrite.isChecked(),
+            (
+                float(self.depth_grid.currentData())
+                if self.depth_grid.currentData() is not None
+                else None
+            ),
             self.localizer.language,
             dict(self._manual_plans),
         )
@@ -830,10 +854,14 @@ class ParadoxBatchDialog(QDialog):
             self.details.setText(self._t("paradox.select_row_for_details"))
             return
         row = rows[0]
-        source = self.table.item(row, 0).toolTip() if self.table.item(row, 0) else ""
-        mode = self.table.item(row, 1).text() if self.table.item(row, 1) else ""
-        target = self.table.item(row, 2).toolTip() if self.table.item(row, 2) else ""
-        message = self.table.item(row, 6).toolTip() if self.table.item(row, 6) else ""
+        source_item = self.table.item(row, 0)
+        mode_item = self.table.item(row, 1)
+        target_item = self.table.item(row, 2)
+        message_item = self.table.item(row, 6)
+        source = source_item.toolTip() if source_item is not None else ""
+        mode = mode_item.text() if mode_item is not None else ""
+        target = target_item.toolTip() if target_item is not None else ""
+        message = message_item.toolTip() if message_item is not None else ""
         self.details.setText(
             self._t(
                 "paradox.row_details",

@@ -48,3 +48,23 @@ def test_batch_dialog_has_in_place_manual_configuration_workflow() -> None:
     assert "paradox.retry_after_configuration" in source
     assert "self.selected_plan: ParadoxImportPlan | None" in import_dialog
     assert "paradox.apply_batch_settings" in import_dialog
+
+
+def test_batch_dialog_offers_explicit_source_or_geoscape_depth_grid(
+    qapp,
+    tmp_path: Path,
+) -> None:
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.paradox_batch_dialog import ParadoxBatchDialog
+
+    dialog = ParadoxBatchDialog(
+        (tmp_path / "source.db",),
+        language=AppLanguage.EN,
+    )
+
+    assert dialog.depth_grid.count() == 2
+    assert dialog.depth_grid.itemData(0) is None
+    assert dialog.depth_grid.itemData(1) == 0.2
+    assert "no resampling" in dialog.depth_grid.itemText(0)
+    assert "0.2 m" in dialog.depth_grid.itemText(1)
+    dialog.close()
