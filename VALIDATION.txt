@@ -1,34 +1,34 @@
-GEOLOG GASRATIO@Pixler 0.7.13 — Compact pencil, visible point connection and reliable Undo/Redo
+GEOLOG GASRATIO@Pixler 0.7.14 SKF importer validation
+=====================================================
 
-Implemented
-- Replaced the oversized diagonal cursor with a compact 26×26 pencil.
-- The cursor hotspot is the graphite tip, so the edited value matches the visible contact point.
-- Added permanent high-contrast mode buttons:
-  - ✎ Freehand / Свободно / Еркін
-  - ●—● Connect points / Соединить точки / Нүктелерді қосу
-- Kept the existing point workflow: select at least two points, then apply with Connect, Enter or a double-click on the last point.
-- Added visible Undo and Redo buttons to the tablet pencil bar.
-- Added curve-specific Undo/Redo actions to the track context menu.
-- Changed Ctrl+Z and Ctrl+Shift+Z to application-wide shortcuts so plot/combo/table focus cannot swallow them.
-- Synchronized pencil history button enabled states with CurveEditHistory.
-- Saving clears the dirty marker but intentionally keeps Undo/Redo history; an undo after Save marks the project dirty again.
-- Undo and redo continue to recalculate dependent Gas Ratio, Pixler and custom-formula curves in memory.
-- Disk persistence still requires explicit Save / diskette action.
-- Russian, Kazakh and English resources contain the same 1190 keys.
+[1] compileall
+PASS
 
-Automated validation available in this container
-- compileall: PASS
-- Source-contract and edit-history tests: 14 passed
-- RU/KK/EN key-set parity: PASS (1190 keys per language)
-- JSON parsing for all three localization catalogs: PASS
+[2] pure Delphi stream pytest
+..                                                                       [100%]
+2 passed in 0.04s
 
-Not executed in this container
-- Full Qt/pyqtgraph GUI test suite: NOT RUN because PySide6 and pyqtgraph are not installed and no package source is available in this environment.
-- Ruff: NOT RUN because Ruff is not installed in this environment.
+[3] i18n key synchronization
+PASS: RU/KK/EN contain 1190 identical keys
 
-Required Windows smoke test
-1. Open a wide Masterlog tablet and enable the pencil.
-2. Confirm the cursor is compact and its tip matches the edited value.
-3. Select “Соединить точки”, place two or more points and apply with the button, Enter and double-click.
-4. Confirm Undo/Redo buttons and Ctrl+Z/Ctrl+Shift+Z restore both the source curve and recalculated dependants.
-5. Save, then undo once: the project must become unsaved again and retain redo availability.
+[4] synthetic SKF model conversion and JSON round-trip
+PASS: 7 Delphi components -> 3 form columns + linked Masterlog header
+
+[5] neutral SKF CLI inspection
+PASS
+
+[6] Qt integration availability
+NOT RUN: PySide6 is not installed in this container; Windows GUI smoke test required
+
+[7] real vendor SKF samples
+NOT RUN: Глубинка.skf and Мастерлог Каражар...skf are not present in /mnt/data or File Library results
+
+Additional notes
+----------------
+- tests/test_skf_importer.py is included for the normal project environment. Collection in this
+  container is blocked before the test body because PySide6 is unavailable through existing
+  package initialisation.
+- Ruff is not installed in the container and could not be installed from the offline package
+  cache. Syntax/bytecode compilation and focused functional checks passed.
+- The importer currently targets binary Delphi TReader/TWriter streams containing TPF0. Unknown
+  vendor classes are mapped heuristically or reported; no Delphi code is executed.

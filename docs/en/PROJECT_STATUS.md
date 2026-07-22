@@ -128,3 +128,7 @@ The existing calcimetry/LBA PDF will be expanded into one interval report coveri
 cuttings, manual descriptions, LBA, calcimetry, stratigraphy, C1–C5, total gas, Gas Ratio/Pixler,
 H₂S/CO₂, drilling channels and events. Planned outputs are PDF/DOCX/XLSX/CSV/TSV/HTML with
 preview and preflight. Automatic rock-description fallback is not allowed.
+
+## 0.7.14
+
+Added safe import of legacy Delphi SKF forms into an editable tablet form and linked Masterlog header. The original vendor samples are not present in the current environment, so custom classes still require field validation.

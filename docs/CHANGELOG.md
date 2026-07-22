@@ -1,3 +1,13 @@
+# 0.7.14 — Delphi SKF form and header importer
+
+- added a bounded binary Delphi component-stream reader with embedded `TPF0` signature detection;
+- converts recognized legacy controls into editable `FormDocument` columns, tracks and curve bindings;
+- creates a linked `MasterlogTemplate` header with text, fields, lines, geometry and embedded raster assets;
+- imports the form into the depth/time user library and the linked header into the current project;
+- exposed SKF import in Form Library and Constructor;
+- added source size/SHA-256 traceability, warnings and a command-line inspection/conversion tool;
+- added RU/KK/EN user documentation and synthetic parser/conversion tests.
+
 # 0.7.13 — Compact pencil, visible point connection and reliable Undo/Redo
 
 - replaced the oversized diagonal cursor with a compact 26×26 pencil whose hotspot is the graphite tip;

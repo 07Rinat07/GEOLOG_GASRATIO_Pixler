@@ -53,6 +53,8 @@ _TEXT = {
         "assets": "Литотипы и обозначения",
         "check": "Проверка перед печатью",
         "open_forms": "Открыть менеджер форм",
+        "import_skf": "Импортировать форму SKF",
+        "import_skf_hint": "Преобразовать Delphi SKF в пользовательскую форму планшета и связанную шапку Masterlog.",
         "forms_hint": (
             "Структура экранных форм редактируется существующим редактором дорожек. "
             "Конструктор объединяет его с шапками, печатью, ресурсами и предварительным просмотром."
@@ -93,6 +95,8 @@ _TEXT = {
         "assets": "Литотиптер мен белгілер",
         "check": "Баспа алдындағы тексеру",
         "open_forms": "Пішіндер менеджерін ашу",
+        "import_skf": "SKF пішінін импорттау",
+        "import_skf_hint": "Delphi SKF файлын пайдаланушы планшет пішініне және байланыстырылған Masterlog тақырыбына түрлендіру.",
         "forms_hint": (
             "Экран пішіндерінің құрылымы қолданыстағы жол редакторында өңделеді. "
             "Конструктор оны тақырыптармен, баспамен, ресурстармен және алдын ала қараумен біріктіреді."
@@ -133,6 +137,8 @@ _TEXT = {
         "assets": "Lithotypes and symbols",
         "check": "Preflight",
         "open_forms": "Open form manager",
+        "import_skf": "Import SKF form",
+        "import_skf_hint": "Convert a Delphi SKF file into an editable tablet form and linked Masterlog header.",
         "forms_hint": (
             "Screen-form structure is edited by the existing track editor. The constructor unifies it "
             "with headers, print output, resources and preview."
@@ -180,6 +186,7 @@ class UniversalConstructorDialog(QDialog):
         language: AppLanguage = AppLanguage.RU,
         open_form_manager: Callable[[], None] | None = None,
         open_template_manager: Callable[[], None] | None = None,
+        import_skf: Callable[[], bool] | None = None,
     ) -> None:
         super().__init__(parent)
         self.controller = controller
@@ -187,6 +194,7 @@ class UniversalConstructorDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.open_form_manager_callback = open_form_manager
         self.open_template_manager_callback = open_template_manager
+        self.import_skf_callback = import_skf
         self.registry = load_factory_constructor_registry()
         # Factory lithotypes are exposed by LithotypeCatalogController as a
         # read-only standard layer and therefore are not copied into every
@@ -334,8 +342,20 @@ class UniversalConstructorDialog(QDialog):
         open_button.setMinimumHeight(42)
         open_button.clicked.connect(self._open_form_manager)
         layout.addWidget(open_button)
+        import_button = QPushButton(_TEXT[self.language]["import_skf"])
+        import_button.setObjectName("constructor-primary")
+        import_button.setToolTip(_TEXT[self.language]["import_skf_hint"])
+        import_button.setEnabled(self.import_skf_callback is not None)
+        import_button.clicked.connect(self._import_skf)
+        layout.addWidget(import_button)
         layout.addStretch(1)
         return page
+
+    def _import_skf(self) -> None:
+        if self.import_skf_callback is None:
+            return
+        if self.import_skf_callback():
+            self.refresh_templates()
 
     def _build_print_forms_tab(self) -> QWidget:
         page = QWidget()

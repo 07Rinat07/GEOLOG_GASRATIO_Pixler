@@ -124,3 +124,11 @@ Date: 21 July 2026
 - [ ] insert a template only after an explicit user action;
 - [ ] allow project templates to be added and edited;
 - [ ] start the unified interval-report model for geology, LBA, calcimetry, gases and drilling.
+
+## Delphi SKF import — 0.7.14
+
+- [x] bounded binary `TPF0` stream parsing;
+- [x] conversion into `FormDocument` and linked `MasterlogTemplate`;
+- [x] import from Form Library and Constructor;
+- [x] recognised columns, curves, scales, text, lines and images;
+- [ ] validate vendor-specific controls against the user’s real SKF samples.

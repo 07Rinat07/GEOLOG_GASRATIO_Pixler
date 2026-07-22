@@ -40,6 +40,7 @@ from geoworkbench.catalogs.sensors import SensorCatalog, set_active_sensor_catal
 from geoworkbench.calculations.custom_formula import formula_inputs
 from geoworkbench.calculations.interval_statistics import calculate_interval_statistics
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
+from geoworkbench.importers.skf_importer import import_skf_file
 from geoworkbench.domain.models import IndexRole
 from geoworkbench.data.las_adapter import (
     LasExportError,
@@ -2705,6 +2706,7 @@ class MainWindow(QMainWindow):
             language=self.language,
             open_form_manager=self.show_form_manager,
             open_template_manager=self.show_masterlog_templates,
+            import_skf=self._choose_and_import_skf,
         )
         dialog.exec()
         self._refresh_tree()
@@ -2722,10 +2724,73 @@ class MainWindow(QMainWindow):
             print_page_settings=self.print_page_settings,
             print_page_settings_changed=self._set_form_print_page_settings,
             print_form_callback=self._print_form_from_manager,
+            skf_import_callback=self._import_skf_form_and_header,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted or dialog.selected_form is None:
             return
         self.apply_form_to_tablet(dialog.selected_form)
+
+    def _choose_and_import_skf(self) -> bool:
+        title = {
+            AppLanguage.RU: "Импорт формы SKF",
+            AppLanguage.KK: "SKF пішінін импорттау",
+            AppLanguage.EN: "Import SKF form",
+        }.get(self.language, "Импорт формы SKF")
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            title,
+            "",
+            "Delphi SKF (*.skf);;All files (*)",
+        )
+        if not filename:
+            return False
+        try:
+            _form, summary = self._import_skf_form_and_header(Path(filename))
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, title, str(exc))
+            return False
+        QMessageBox.information(self, title, summary)
+        self._refresh_tree()
+        self._update_title()
+        return True
+
+    def _import_skf_form_and_header(self, source: Path):
+        result = import_skf_file(source)
+        existing_template_names = {
+            item.name.casefold() for item in self.session.project.masterlog_templates.values()
+        }
+        template_name = result.header_template.name
+        suffix = 2
+        while template_name.casefold() in existing_template_names:
+            template_name = f"{result.header_template.name} ({suffix})"
+            suffix += 1
+        template = self.masterlog_template_controller.import_template(
+            result.header_template, result.image_assets, template_name
+        )
+        form = result.form
+        form.print_header_template_id = template.template_id
+        existing_form_names = {item.name.casefold() for item in self.form_repository.list_forms()}
+        original_name = form.name
+        suffix = 2
+        while form.name.casefold() in existing_form_names:
+            form.name = f"{original_name} ({suffix})"
+            suffix += 1
+        self.form_repository.save(form)
+        warning_text = ""
+        if result.report.warnings:
+            warning_text = "\n\nПредупреждения:\n- " + "\n- ".join(result.report.warnings)
+        summary = (
+            f"SKF импортирован: {result.report.source_name}\n"
+            f"Компонентов Delphi: {result.report.component_count}\n"
+            f"Колонок формы: {result.report.column_count}\n"
+            f"Элементов шапки: {result.report.header_element_count}\n"
+            f"Изображений: {result.report.image_asset_count}\n"
+            f"Форма сохранена: {form.name}\n"
+            f"Шапка Masterlog сохранена: {template.name}"
+            f"{warning_text}"
+        )
+        self.session.dirty = True
+        return form, summary
 
     def _set_form_print_page_settings(self, settings) -> None:
         self.print_page_settings = settings

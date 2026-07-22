@@ -58,6 +58,7 @@ class FormManagerDialog(QDialog):
         print_page_settings_changed: Callable[[PrintPageSettings], None] | None = None,
         print_form_callback: Callable[[FormDocument], None] | None = None,
         masterlog_sync_callback: Callable[[FormDocument], FormDocument | None] | None = None,
+        skf_import_callback: Callable[[Path], tuple[FormDocument, str]] | None = None,
     ) -> None:
         super().__init__(parent)
         self.repository = repository
@@ -68,6 +69,7 @@ class FormManagerDialog(QDialog):
         self.print_page_settings_changed = print_page_settings_changed
         self.print_form_callback = print_form_callback
         self.masterlog_sync_callback = masterlog_sync_callback
+        self.skf_import_callback = skf_import_callback
         self.apply_engine = FormApplyEngine()
         self.selected_form: FormDocument | None = None
         self.setWindowTitle(self._text("Библиотека форм", "Пішіндер кітапханасы", "Form library"))
@@ -226,6 +228,7 @@ class FormManagerDialog(QDialog):
         exchange_row = QHBoxLayout(exchange_widget)
         exchange_row.setContentsMargins(6, 4, 6, 4)
         for caption, callback, tooltip in (
+            (self._text("Импорт SKF", "SKF импорттау", "Import SKF"), self._import_skf, self._text("Преобразовать Delphi SKF-поток в редактируемую форму и шапку Masterlog.", "Delphi SKF ағынын өңделетін пішінге және Masterlog тақырыбына түрлендіру.", "Convert a Delphi SKF stream into an editable form and Masterlog header.")),
             (self._text("Импорт JSON", "JSON импорттау", "Import JSON"), self._import_json, self._text("Добавить форму из внешнего JSON-файла.", "Сыртқы JSON файлынан пішін қосу.", "Import a form from JSON.")),
             (self._text("Экспорт JSON", "JSON экспорттау", "Export JSON"), self._export_json, self._text("Сохранить выбранную форму отдельным JSON-файлом.", "Таңдалған пішінді жеке JSON файлына сақтау.", "Export the selected form to JSON.")),
         ):
@@ -728,6 +731,34 @@ class FormManagerDialog(QDialog):
             return
         self.repository.delete(form.form_id)
         self.reload()
+
+    def _import_skf(self) -> None:
+        if self.skf_import_callback is None:
+            QMessageBox.information(
+                self,
+                self.windowTitle(),
+                self._text(
+                    "Импорт SKF недоступен в этом режиме.",
+                    "Бұл режимде SKF импорты қолжетімсіз.",
+                    "SKF import is unavailable in this mode.",
+                ),
+            )
+            return
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            self._text("Импорт формы SKF", "SKF пішінін импорттау", "Import SKF form"),
+            "",
+            "Delphi SKF (*.skf);;Все файлы (*)",
+        )
+        if not filename:
+            return
+        try:
+            form, summary = self.skf_import_callback(Path(filename))
+            self.reload(form.form_id)
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        QMessageBox.information(self, self.windowTitle(), summary)
 
     def _import_json(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(self, self.windowTitle(), "", "JSON (*.json)")

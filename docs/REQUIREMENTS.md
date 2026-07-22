@@ -238,3 +238,12 @@ JSON-файл проекта не считается универсальным 
 редактора метаданных и таблицы данных; многотрекового планшета со стилями и курсором;
 безопасного LAS/CSV/Excel-экспорта; PDF/Print Preview; восстановления после ошибок;
 установщика и полного набора регрессионных тестов.
+
+## SKF interoperability
+
+- The application shall import a binary Delphi component stream embedded in `.skf` without
+  instantiating Delphi classes or executing event handlers.
+- Import shall create an editable user form and linked print header, record source SHA-256 and
+  warnings, and leave the source file unchanged.
+- Unknown vendor controls shall be skipped or mapped heuristically without aborting recognised
+  content, except when the stream itself is malformed or violates safety limits.

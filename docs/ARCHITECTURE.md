@@ -246,3 +246,12 @@ wheel / keyboard / scrollbar / drag
 
 Zoom is anchored to the axis value below the cursor. Panning and keyboard navigation preserve the current span and clamp to the dataset domain. Future LOD and render caches must key their entries by dataset revision, vertical index, visible range, pixel height, and track style revision.
 
+
+## Legacy SKF import boundary (0.7.14)
+
+`geoworkbench.importers.delphi_stream` is a bounded, non-executing decoder for Delphi binary
+component streams. It produces a neutral `DelphiComponent` tree and never imports vendor Delphi
+classes or event handlers. `geoworkbench.importers.skf_importer` is the adapter layer that maps
+that neutral tree to the domain models `FormDocument` and `MasterlogTemplate` and normalises
+embedded raster assets. UI integration saves the form through `FormRepository` and the header
+through `MasterlogTemplateController`; no SKF-specific object enters the renderer or project model.

@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.13:** the tablet uses a compact pencil cursor, separate Freehand and Connect points buttons, and visible Undo/Redo controls. Dependent parameters recalculate immediately in memory, while disk persistence still requires the Save button.
+> **0.7.14:** added Delphi SKF import: a legacy form stream is converted into an editable FormDocument and linked Masterlog header. Import is available from Form Library and Constructor.
 
 
 
@@ -18,6 +18,8 @@ Choose Русский, Қазақша, or English on first launch. You can later
 Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, or Excel. Source files are
 never modified. The CSV/TXT and Excel wizards use the selected language for index, DATE/TIME,
 time-zone, preview, and validation controls.
+
+Legacy Delphi SKF forms can be imported from “Forms → Form Library → Import and export → Import SKF” or “Constructor → Tablet forms”. See [SKF_IMPORT.md](SKF_IMPORT.md).
 
 ## Table editing
 

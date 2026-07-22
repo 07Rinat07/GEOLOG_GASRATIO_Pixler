@@ -1,0 +1,15 @@
+SKF importer synthetic validation
+=================================
+
+Input wrapper: arbitrary 4-byte SKF prefix + embedded TPF0 stream
+Root Delphi class: TForm
+Recognised columns: Depth + drilling curve track
+Recognised curve: ROP, unit m/h, linear range 0..100
+Output models: editable FormDocument + linked MasterlogTemplate
+Persistence: FormDocument JSON round-trip PASS
+Source trace: size + SHA-256 PASS
+Neutral inspection CLI: PASS
+
+This fixture validates the generic Delphi component-stream path only. Vendor-specific SKF
+classes from the user's old program require the original SKF samples for exact mapping and
+visual comparison.

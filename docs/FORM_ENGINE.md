@@ -84,3 +84,10 @@ Technology, and Gas Data section captions.
 Lithology intervals and shared cuttings samples are editable after creation. A shared sample owns
 its cuttings composition, LBA, calcimetry, rich description, and interpretation; an atomic update by
 `sample_id` refreshes every linked track without creating duplicates.
+
+## SKF adapter
+
+Legacy `.skf` forms are converted at the repository boundary. Recognised Delphi controls become
+columns, tracks, parameter bindings and header elements. The result is an ordinary editable user
+`FormDocument` linked to an ordinary `MasterlogTemplate`; all later editing, preview and printing
+uses the existing Form Engine and Masterlog renderer.
