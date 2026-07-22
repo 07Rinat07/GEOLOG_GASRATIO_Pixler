@@ -16,7 +16,7 @@
 создания многотрековых планшетов, расчёта производных кривых, описания литологии,
 выделения интервалов и подготовки мастерлогов.
 
-> **Текущая версия 0.7.25 (тестовая сборка):** пакетный DB → LAS-конвертер получил встроенную ручную настройку неоднозначного индекса, а полноразмерный прозрачный QWidget аннотаций полностью удалён из рендера. Аннотации рисуются отдельными небольшими спрайтами только в своих границах, поэтому пустая область планшета больше не перекрывается. Обязательна проверка на Windows с PySide6/pyqtgraph.
+> **Текущая версия 0.7.26 (тестовая сборка):** исправлена Windows-регрессия пакетного DB → LAS, при которой Qt возвращал значения `StrEnum` как обычные строки и конвертация завершалась сообщением `'str' object has no attribute 'value'`. План импорта теперь нормализуется и проверяется на границе модели. Фактический шаг исходного DB (например, 0,4 м) экспортируется без подмены; стандарт GeoScape 0,2 м применяется только после явного ресэмплинга.
 
 ## Основные возможности
 
@@ -93,9 +93,9 @@ geolog-gasratio-pixler
 - Редактор LAS: [Русский](docs/ru/LAS_EDITOR.md) · [Қазақша](docs/kk/LAS_EDITOR.md) · [English](docs/en/LAS_EDITOR.md)
 - Импорт SKF: [Русский](docs/ru/SKF_IMPORT.md) · [Қазақша](docs/kk/SKF_IMPORT.md) · [English](docs/en/SKF_IMPORT.md)
 - Импорт GeoScape/Paradox DB: [Русский](docs/ru/PARADOX_IMPORT.md) · [Қазақша](docs/kk/PARADOX_IMPORT.md) · [English](docs/en/PARADOX_IMPORT.md)
-- Release notes 0.7.25: [Русский](docs/ru/RELEASE_NOTES_0.7.25.md) · [Қазақша](docs/kk/RELEASE_NOTES_0.7.25.md) · [English](docs/en/RELEASE_NOTES_0.7.25.md)
+- Release notes 0.7.26: [Русский](docs/ru/RELEASE_NOTES_0.7.26.md) · [Қазақша](docs/kk/RELEASE_NOTES_0.7.26.md) · [English](docs/en/RELEASE_NOTES_0.7.26.md)
 - ООП-архитектура планшета: [Русский](docs/ru/TABLET_INTERACTION_ARCHITECTURE.md) · [Қазақша](docs/kk/TABLET_INTERACTION_ARCHITECTURE.md) · [English](docs/en/TABLET_INTERACTION_ARCHITECTURE.md)
-- Отчёт hotfix 0.7.25: [docs/HOTFIX_REPORT_0.7.25.md](docs/HOTFIX_REPORT_0.7.25.md)
+- Отчёт hotfix 0.7.26: [docs/HOTFIX_REPORT_0.7.26.md](docs/HOTFIX_REPORT_0.7.26.md)
 - Итоговый отчёт импорта 0.7.16: [docs/IMPLEMENTATION_REPORT_0.7.16.md](docs/IMPLEMENTATION_REPORT_0.7.16.md)
 - Слой аннотаций: [Русский](docs/ru/ANNOTATIONS.md) · [Қазақша](docs/kk/ANNOTATIONS.md) · [English](docs/en/ANNOTATIONS.md)
 

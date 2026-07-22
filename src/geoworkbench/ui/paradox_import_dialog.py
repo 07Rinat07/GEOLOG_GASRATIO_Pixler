@@ -950,7 +950,7 @@ class ParadoxImportDialog(QDialog):
                 )
             )
         return ParadoxImportPlan(
-            classification=self.classification.currentData(),
+            classification=DatasetClassification(str(self.classification.currentData())),
             depth_field=self.depth_field.currentData(),
             time_field=self.time_field.currentData(),
             active_role=self.active_role.currentData(),
@@ -958,7 +958,9 @@ class ParadoxImportDialog(QDialog):
             sort_by_index=self.sort_index.isChecked(),
             mappings=tuple(mappings),
             profile_name=self._profile_name,
-            duplicate_depth_policy=self.duplicate_policy.currentData(),
+            duplicate_depth_policy=DuplicateDepthPolicy(
+                str(self.duplicate_policy.currentData())
+            ),
             drop_empty_channels=self.drop_empty_channels.isChecked(),
             language=self.localizer.language.value,
         )

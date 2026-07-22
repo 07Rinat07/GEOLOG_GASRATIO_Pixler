@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.25 (test build):** ambiguous DB indexes can now be configured inside the batch converter, and the full-size translucent annotation widget has been removed. Each annotation is painted as a small independent sprite, so empty tablet space is never covered. Visual Windows verification is mandatory.
+> **0.7.26 (test build):** fixes the Windows batch DB → LAS crash reported as `'str' object has no attribute 'value'`. Qt/JSON values are now normalized into a typed import plan before reading and export. A 0.4 m source step is valid LAS data and does not conflict with the GeoScape 0.2 m standard; a 0.2 m grid is created only by explicit resampling.
 
 
 

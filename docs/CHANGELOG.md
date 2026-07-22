@@ -1,3 +1,14 @@
+# 0.7.26 — typed Paradox batch-plan hotfix (test build)
+
+- fixed the Windows batch DB → LAS crash `'str' object has no attribute 'value'`;
+- normalized Qt/JSON string values into `DatasetClassification` and `DuplicateDepthPolicy` at the `ParadoxImportPlan` boundary;
+- added validation for active role, NULL, language, field names and channel mappings;
+- added explicit Qt conversion in the manual Paradox configuration dialog;
+- added stage-aware batch errors for read, analysis, plan, import, LAS write and reopen validation;
+- added regression tests for direct import and batch conversion with plain Qt-style string enum values;
+- documented that actual 0.4 m source spacing is a valid LAS step and is unrelated to the enum failure;
+- synchronized release notes, user instructions, status and plan in RU/KK/EN.
+
 # 0.7.25 — batch index configuration and annotation sprite renderer (test build)
 
 - added a dedicated configuration-required batch status instead of reporting ambiguous indexes as generic errors;

@@ -495,3 +495,35 @@ def test_external_samples_keep_column_alignment_and_index_candidates() -> None:
         "S108",
     }
     assert d250_quality.classification is DatasetClassification.MIXED
+
+
+def test_import_plan_normalizes_qt_string_enum_values(tmp_path: Path) -> None:
+    """PySide may return StrEnum user data as plain str on Windows."""
+    from geoworkbench.importers.paradox.models import DuplicateDepthPolicy
+
+    source = tmp_path / "qt-plan.db"
+    write_synthetic_paradox(source)
+    table = read_paradox(source)
+    plan = ParadoxImportPlan(
+        classification="depth",
+        depth_field="DEPT",
+        active_role="depth",
+        duplicate_depth_policy="keep_all",
+        mappings=default_mappings(table),
+    )
+
+    assert plan.classification is DatasetClassification.DEPTH
+    assert plan.duplicate_depth_policy is DuplicateDepthPolicy.KEEP_ALL
+
+    result = import_paradox(source, plan, table=table)
+
+    assert result.dataset.parameters["PARADOX_CLASSIFICATION"] == "depth"
+    assert result.dataset.parameters["PARADOX_DUPLICATE_DEPTH_POLICY"] == "keep_all"
+
+
+def test_import_plan_rejects_unknown_qt_string_enum_values() -> None:
+    with pytest.raises(ValueError, match="классификация"):
+        ParadoxImportPlan(classification="not-a-classification")
+
+    with pytest.raises(ValueError, match="повторяющейся глубины"):
+        ParadoxImportPlan(duplicate_depth_policy="not-a-policy")

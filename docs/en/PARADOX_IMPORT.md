@@ -1,4 +1,8 @@
-# GeoScape / Borland Paradox DB import — 0.7.18
+# GeoScape / Borland Paradox DB import — 0.7.26
+
+## Batch-conversion correction in 0.7.26
+
+On Windows, Qt enum user data may be returned as plain strings. After manual batch configuration this previously caused `'str' object has no attribute 'value'`. The import plan now normalizes classification, duplicate-depth policy, active index, NULL, and language immediately. This is unrelated to a 0.4/0.2 m step: LAS accepts the actual `STEP=0.4`; a 0.2 m grid is created only by explicit resampling. Batch errors now also identify the failing stage: reading, analysis, planning, import, writing, or LAS reopen validation.
 
 ## Responsive dialog and safe close
 

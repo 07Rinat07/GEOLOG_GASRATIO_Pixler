@@ -212,7 +212,7 @@ class ChannelMapping:
 
 @dataclass(frozen=True, slots=True)
 class ParadoxImportPlan:
-    classification: DatasetClassification = DatasetClassification.UNDEFINED
+    classification: DatasetClassification | str = DatasetClassification.UNDEFINED
     depth_field: str | None = None
     time_field: str | None = None
     active_role: str = "auto"
@@ -220,9 +220,71 @@ class ParadoxImportPlan:
     sort_by_index: bool = False
     mappings: tuple[ChannelMapping, ...] = ()
     profile_name: str | None = None
-    duplicate_depth_policy: DuplicateDepthPolicy = DuplicateDepthPolicy.KEEP_ALL
+    duplicate_depth_policy: DuplicateDepthPolicy | str = DuplicateDepthPolicy.KEEP_ALL
     drop_empty_channels: bool = False
     language: str = "ru"
+
+    def __post_init__(self) -> None:
+        """Normalize values received from Qt/JSON at the model boundary.
+
+        ``StrEnum`` values stored in ``QComboBox`` user data can be returned by
+        PySide as plain strings on some Windows builds.  Keeping that
+        platform-dependent representation inside the import pipeline caused
+        crashes such as ``'str' object has no attribute 'value'``.  The plan is
+        the single typed boundary: after construction all enum-backed fields
+        are guaranteed to be real enum instances.
+        """
+        try:
+            classification = (
+                self.classification
+                if isinstance(self.classification, DatasetClassification)
+                else DatasetClassification(str(self.classification))
+            )
+        except ValueError as exc:
+            raise ValueError(
+                f"Неподдерживаемая классификация набора: {self.classification!r}"
+            ) from exc
+        try:
+            duplicate_policy = (
+                self.duplicate_depth_policy
+                if isinstance(self.duplicate_depth_policy, DuplicateDepthPolicy)
+                else DuplicateDepthPolicy(str(self.duplicate_depth_policy))
+            )
+        except ValueError as exc:
+            raise ValueError(
+                "Неподдерживаемое правило повторяющейся глубины: "
+                f"{self.duplicate_depth_policy!r}"
+            ) from exc
+
+        role = str(self.active_role).strip().casefold()
+        if role not in {"auto", "depth", "time"}:
+            raise ValueError(f"Неподдерживаемая роль активного индекса: {self.active_role!r}")
+        if isinstance(self.null_value, bool):
+            raise ValueError("Значение NULL должно быть числом")
+        try:
+            null_value = float(self.null_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Значение NULL должно быть числом") from exc
+        if not np.isfinite(null_value):
+            raise ValueError("Значение NULL должно быть конечным числом")
+
+        mappings = tuple(self.mappings)
+        if not all(isinstance(item, ChannelMapping) for item in mappings):
+            raise ValueError("Сопоставления каналов должны содержать ChannelMapping")
+        for name, value in (("depth_field", self.depth_field), ("time_field", self.time_field)):
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise ValueError(f"{name} должен быть непустой строкой или None")
+
+        language = str(self.language).strip().casefold() or "ru"
+        if language not in {"ru", "kk", "en"}:
+            raise ValueError(f"Неподдерживаемый язык импорта: {self.language!r}")
+
+        object.__setattr__(self, "classification", classification)
+        object.__setattr__(self, "duplicate_depth_policy", duplicate_policy)
+        object.__setattr__(self, "active_role", role)
+        object.__setattr__(self, "null_value", null_value)
+        object.__setattr__(self, "mappings", mappings)
+        object.__setattr__(self, "language", language)
 
 
 @dataclass(frozen=True, slots=True)

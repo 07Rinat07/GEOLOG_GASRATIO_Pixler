@@ -1,3 +1,14 @@
+# Windows release gate 0.7.26 — typed Paradox batch plan
+
+## Regression: `str` instead of `StrEnum`
+
+1. Add D1174/D250 to the batch converter.
+2. Select the configuration-required row and open manual DB configuration.
+3. Choose depth and/or time, apply the plan to the batch operation, and retry.
+4. The operation must not show `'str' object has no attribute 'value'`.
+5. A successful row must provide a real LAS path and the generated file must reopen in the current LAS reader.
+6. When the DB rows are spaced at 0.4 m, the LAS header must contain the actual 0.4 m step. A 0.2 m result is valid only after an explicit resampling command.
+
 # Windows release gate 0.7.25 — batch configuration and black-tablet regression
 
 ## Batch DB → LAS

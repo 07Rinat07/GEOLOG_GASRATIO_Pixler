@@ -1,3 +1,7 @@
+## Version 0.7.26 — typed batch DB → LAS plan
+
+Fixes the Windows `'str' object has no attribute 'value'` failure after manual index configuration. `ParadoxImportPlan` now normalizes Qt/JSON values and prevents string pseudo-enums from entering the importer. Diagnostics include the operation stage. A 0.4 m source step is valid and does not conflict with the 0.2 m nominal standard.
+
 ## Version 0.7.25 — in-batch index configuration and safe annotation rendering
 
 The batch converter no longer reports an ambiguous index as a generic failure. The row becomes “Configuration required”; the user selects depth/time in the normal import dialog and retries only that file. The full-size translucent annotation QWidget has been removed. Visible objects are rendered as small independent sprites, while the hidden manager paints nothing over PyQtGraph. This remains a test build until Windows verification.

@@ -89,8 +89,10 @@ def convert_batch(
                 )
             )
             continue
+        stage_key = "paradox.batch_stage_read"
         try:
             table = read_paradox(source, cancelled=cancelled)
+            stage_key = "paradox.batch_stage_analysis"
             quality = analyze_table(table)
             material_issues = [
                 issue
@@ -98,6 +100,7 @@ def convert_batch(
                 if issue.severity
                 in {IssueSeverity.WARNING, IssueSeverity.ERROR, IssueSeverity.CRITICAL}
             ]
+            stage_key = "paradox.batch_stage_plan"
             plan = plan_factory(source, table) if plan_factory is not None else None
             if plan is None:
                 if quality.classification in {
@@ -135,6 +138,7 @@ def convert_batch(
                 raise ValueError(message("paradox.batch_profile_no_depth"))
             if mode == "time" and plan.time_field is None:
                 raise ValueError(message("paradox.batch_profile_no_time"))
+            stage_key = "paradox.batch_stage_import"
             imported = import_paradox(
                 source,
                 plan,
@@ -145,6 +149,7 @@ def convert_batch(
             from geoworkbench.data.las_adapter import export_las, import_las
             from geoworkbench.data.las_export_plan import LasExportPlan
 
+            stage_key = "paradox.batch_stage_export"
             export_las(
                 imported.dataset,
                 target,
@@ -152,6 +157,7 @@ def convert_batch(
                 plan=LasExportPlan(null_value=plan.null_value),
             )
             # Mandatory round-trip validation through the application's own reader.
+            stage_key = "paradox.batch_stage_roundtrip"
             reopened = import_las(target)
             expected_rows = len(imported.dataset.active_index.values)
             if len(reopened.depth) != expected_rows:
@@ -171,7 +177,18 @@ def convert_batch(
             _write_log(result, imported.dataset.parameters, target.with_suffix(".import.json"))
             results.append(result)
         except Exception as exc:
-            results.append(BatchItemResult(source, target, BatchStatus.ERROR, str(exc)))
+            results.append(
+                BatchItemResult(
+                    source,
+                    target,
+                    BatchStatus.ERROR,
+                    message(
+                        "paradox.batch_stage_failed",
+                        stage=message(stage_key),
+                        error=str(exc),
+                    ),
+                )
+            )
         finally:
             if progress is not None:
                 progress(source.name, position, total)
@@ -187,6 +204,13 @@ _DEFAULT_MESSAGES = {
     "paradox.batch_profile_no_depth": "Профиль не содержит канал глубины",
     "paradox.batch_profile_no_time": "Профиль не содержит канал времени",
     "paradox.batch_roundtrip_success": "LAS создан и повторно открыт текущим LAS-reader",
+    "paradox.batch_stage_read": "чтение DB",
+    "paradox.batch_stage_analysis": "анализ каналов",
+    "paradox.batch_stage_plan": "подготовка плана импорта",
+    "paradox.batch_stage_import": "создание набора данных",
+    "paradox.batch_stage_export": "запись LAS",
+    "paradox.batch_stage_roundtrip": "повторное открытие LAS",
+    "paradox.batch_stage_failed": "Этап «{stage}»: {error}",
     "paradox.batch_duplicate_targets": (
         "Несколько операций используют один файл {target} ({first} и {second}). "
         "Используйте уникальную маску имени."

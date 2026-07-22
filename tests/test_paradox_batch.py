@@ -119,3 +119,83 @@ def test_batch_manual_plan_converts_ambiguous_table(tmp_path: Path, monkeypatch)
     assert result.target is not None and result.target.is_file()
     assert result.records == 3
     assert result.channels == 2
+
+
+def test_batch_manual_plan_accepts_qt_string_enums(tmp_path: Path, monkeypatch) -> None:
+    import sys
+    from types import ModuleType, SimpleNamespace
+
+    from geoworkbench.importers.paradox import batch
+    from geoworkbench.importers.paradox.models import (
+        DatasetClassification,
+        ParadoxImportPlan,
+        QualitySummary,
+    )
+
+    source = tmp_path / "qt-plan.db"
+    source.write_bytes(b"placeholder")
+    table = SimpleNamespace(rows_read=2)
+    quality = QualitySummary(DatasetClassification.MIXED, (), (), ())
+    dataset = SimpleNamespace(
+        active_index=SimpleNamespace(values=[1.0, 2.0]),
+        parameters={},
+    )
+    imported = SimpleNamespace(dataset=dataset, imported_channels=1)
+    plan = ParadoxImportPlan(
+        classification="mixed",
+        depth_field="DEPTH",
+        time_field="TIME",
+        active_role="time",
+        duplicate_depth_policy="keep_all",
+    )
+
+    monkeypatch.setattr(batch, "read_paradox", lambda *args, **kwargs: table)
+    monkeypatch.setattr(batch, "analyze_table", lambda value: quality)
+    monkeypatch.setattr(batch, "import_paradox", lambda *args, **kwargs: imported)
+
+    adapter = ModuleType("geoworkbench.data.las_adapter")
+    adapter.export_las = lambda _dataset, target, **_kwargs: Path(target).write_text(
+        "LAS", encoding="utf-8"
+    )
+    adapter.import_las = lambda _target: SimpleNamespace(depth=[1.0, 2.0])
+    export_plan = ModuleType("geoworkbench.data.las_export_plan")
+    export_plan.LasExportPlan = lambda **kwargs: kwargs
+    monkeypatch.setitem(sys.modules, "geoworkbench.data.las_adapter", adapter)
+    monkeypatch.setitem(sys.modules, "geoworkbench.data.las_export_plan", export_plan)
+
+    (result,) = batch.convert_batch(
+        [source],
+        tmp_path / "out",
+        mode="time",
+        plan_factory=lambda _source, _table: plan,
+    )
+
+    assert result.status is batch.BatchStatus.SUCCESS
+    assert "object has no attribute" not in result.message
+
+
+def test_batch_error_identifies_conversion_stage(tmp_path: Path, monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from geoworkbench.importers.paradox import batch
+    from geoworkbench.importers.paradox.models import (
+        DatasetClassification,
+        QualitySummary,
+    )
+
+    source = tmp_path / "stage.db"
+    source.write_bytes(b"placeholder")
+    table = SimpleNamespace(rows_read=1)
+    quality = QualitySummary(DatasetClassification.DEPTH, (), (), ())
+    monkeypatch.setattr(batch, "read_paradox", lambda *args, **kwargs: table)
+    monkeypatch.setattr(batch, "analyze_table", lambda value: quality)
+
+    (result,) = batch.convert_batch(
+        [source],
+        tmp_path / "out",
+        plan_factory=lambda _source, _table: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    assert result.status is batch.BatchStatus.ERROR
+    assert "подготовка плана импорта" in result.message
+    assert "boom" in result.message

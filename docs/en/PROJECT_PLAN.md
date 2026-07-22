@@ -1,3 +1,10 @@
+## 0.7.26 snapshot
+
+1. Windows: D1174/D250 → manual depth/time configuration → retry the batch operation.
+2. Verify no `.value` failure and complete `DB → LAS → reopen`.
+3. Verify actual `STEP=0.4` is preserved.
+4. Verify explicit 0.2 m resampling separately without modifying the source DB.
+
 ## 0.7.25 snapshot
 
 1. Verify the batch flow: ambiguous DB → Configure selected DB → select depth/time → retry → open LAS.
