@@ -11,6 +11,7 @@ from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_cur
 from geoworkbench.services.channel_groups import default_curve_mnemonics
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.time_display import format_index_at_row, format_time_curve_at_row
 from geoworkbench.tablet.sampling import MAX_RENDERED_POINTS, select_visible_samples
 
 
@@ -421,21 +422,34 @@ class CurveView(QWidget):
         snapped_depth = float(dataset.depth[nearest])
         self._last_cursor_depth = snapped_depth
         self._last_cursor_value = value
-        depth_unit = "ms" if dataset.depth_domain.value == "time" else "m"
-        parts = [
-            self._t(
-                "curve.cursor_depth",
-                depth=f"{snapped_depth:.8g}",
-                unit=depth_unit,
-            )
-        ]
+        if dataset.depth_domain.value == "time":
+            parts = [
+                self._t(
+                    "curve.cursor_time",
+                    value=format_index_at_row(dataset, dataset.active_index, nearest),
+                )
+            ]
+        else:
+            depth_unit = dataset.active_index.unit or "m"
+            parts = [
+                self._t(
+                    "curve.cursor_depth",
+                    depth=f"{snapped_depth:.8g}",
+                    unit=depth_unit,
+                )
+            ]
         for curve_id in self._displayed_curve_ids:
             curve = dataset.curves.get(curve_id)
             if curve is None:
                 continue
             sample = float(curve.values[nearest])
-            rendered = f"{sample:.8g}" if np.isfinite(sample) else "—"
-            unit = f" {curve.metadata.unit}" if curve.metadata.unit else ""
+            time_text = format_time_curve_at_row(dataset, curve, nearest)
+            if time_text is not None:
+                rendered = time_text
+                unit = ""
+            else:
+                rendered = f"{sample:.8g}" if np.isfinite(sample) else "—"
+                unit = f" {curve.metadata.unit}" if curve.metadata.unit else ""
             parts.append(f"{curve.metadata.original_mnemonic}: {rendered}{unit}")
         self._cursor_label.setText("  |  ".join(parts))
         if self._cursor_horizontal is not None:

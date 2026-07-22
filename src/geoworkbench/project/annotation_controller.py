@@ -296,12 +296,16 @@ class DepthAnnotationController:
         value: float,
         unit: str = "",
         x_fraction: float = 0.5,
+        display_text: str | None = None,
     ) -> AnnotationRecord:
         suffix = f" {unit.strip()}" if unit.strip() else ""
+        annotation_text = (display_text or "").strip() or f"{mnemonic}: {value:g}{suffix}"
+        if display_text and not annotation_text.startswith(f"{mnemonic}:"):
+            annotation_text = f"{mnemonic}: {annotation_text}"
         return self.add_annotation(
             kind=AnnotationKind.VALUE,
             anchor=AnnotationAnchor.CURVE,
-            text=f"{mnemonic}: {value:g}{suffix}",
+            text=annotation_text,
             track_id=track_id,
             depth=depth,
             axis_value=axis_value,

@@ -46,6 +46,7 @@ from geoworkbench.project.annotation_schema import (
     STYLE_PRESETS,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.time_display import format_elapsed_time, format_unix_seconds
 
 
 class _ColorButton(QPushButton):
@@ -212,6 +213,23 @@ class DepthAnnotationsDialog(QDialog):
         self.axis_input.setRange(minimum, maximum)
         if not self._initial_values:
             self.axis_input.setValue((minimum + maximum) / 2.0)
+        self._refresh_axis_display()
+
+    def _refresh_axis_display(self, _value: float | None = None) -> None:
+        dataset = self.controller.session.current_dataset
+        axis_id = self.axis_id_input.currentData()
+        if dataset is None or not axis_id or str(axis_id) not in dataset.indexes:
+            self.axis_display.setText("—")
+            return
+        index = dataset.indexes[str(axis_id)]
+        value = float(self.axis_input.value())
+        if index.index_type is IndexType.DATETIME:
+            self.axis_display.setText(format_unix_seconds(value, timezone_name=index.timezone))
+        elif index.role is IndexRole.TIME:
+            self.axis_display.setText(format_elapsed_time(value, index.unit))
+        else:
+            suffix = f" {index.unit}" if index.unit else ""
+            self.axis_display.setText(f"{value:g}{suffix}")
 
     def _build_table_panel(self) -> QWidget:
         panel = QWidget()
@@ -296,7 +314,12 @@ class DepthAnnotationsDialog(QDialog):
         self.axis_input = QDoubleSpinBox()
         self.axis_input.setRange(-1.0e15, 1.0e15)
         self.axis_input.setDecimals(6)
+        self.axis_input.valueChanged.connect(self._refresh_axis_display)
         form.addRow(self._t("annotations.axis_value"), self.axis_input)
+        self.axis_display = QLabel("—")
+        self.axis_display.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.axis_display.setStyleSheet("font-weight:600; color:#0f766e;")
+        form.addRow(self._t("annotations.axis_display"), self.axis_display)
 
         self.text_input = QTextEdit()
         self.text_input.setAcceptRichText(False)
@@ -860,7 +883,9 @@ class DepthAnnotationsDialog(QDialog):
         self.parameter_input.setEnabled(anchor is AnnotationAnchor.CURVE)
         self.axis_id_input.setEnabled(anchor is AnnotationAnchor.TIME)
         self.axis_input.setEnabled(anchor is AnnotationAnchor.TIME)
+        self.axis_display.setEnabled(anchor is AnnotationAnchor.TIME)
         self.asset_name.setEnabled(kind in {AnnotationKind.IMAGE, AnnotationKind.SYMBOL})
+        self._refresh_axis_display()
 
     def _apply_initial_values(self) -> None:
         values = self._initial_values

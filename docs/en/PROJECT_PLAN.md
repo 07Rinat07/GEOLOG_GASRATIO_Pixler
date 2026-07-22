@@ -1,5 +1,13 @@
 # Project plan
 
+## 0.7.20 snapshot
+
+- [x] one cross-platform date/time format;
+- [x] NumPy datetime, Unix, Delphi/OLE and elapsed time;
+- [x] direct click-to-create F4 annotations;
+- [x] clipping below headers and eight resize handles;
+- [ ] Windows smoke test, PDF and physical printing.
+
 ## Slice 0.7.19 — synchronize annotations with the axis
 
 - [x] remap screen anchors after scrolling and zooming;

@@ -1,3 +1,13 @@
+# 0.7.20 — cross-platform datetime and direct annotation workflow hotfix
+
+- added one platform-independent date/time formatter for NumPy datetime, Unix seconds, Delphi/OLE serial dates and elapsed-time values;
+- replaced raw time numbers in tablet cursor panels, LAS tables, curve cursor cards, Paradox preview, annotation editor/value labels and Masterlog inspection output;
+- removed host-dependent `datetime.fromtimestamp`/`utcfromtimestamp` conversions from application source;
+- clipped the tablet-wide annotation overlay to the shared graph body so boxes, leaders and resize handles never paint over track/curve headers;
+- added direct F4 tools: arm Callout/Comment/Image, click the exact track and depth/time, create at that position, then move and resize by mouse;
+- kept fresh boxes inside the visible plot near upper/lower edges and preserved double-click/F2/Enter/context-menu editing;
+- synchronized RU/KK/EN text and added focused regression coverage.
+
 # 0.7.19 — annotation depth/time synchronization hotfix
 
 - remap tablet-wide annotation anchors after every depth/time range change;

@@ -333,6 +333,9 @@ class MainWindow(QMainWindow):
         self.tablet_view.annotation_selection_changed.connect(
             self._annotation_selection_changed
         )
+        self.tablet_view.annotation_tool_changed.connect(
+            self._sync_annotation_tool_actions
+        )
         self.tablet_view.curve_value_save_requested.connect(
             self._save_curve_value_annotation
         )
@@ -933,42 +936,45 @@ class MainWindow(QMainWindow):
             "annotations.toolbar_callout"
         )
         self._set_action_help(
-            self.annotation_callout_action, "annotations.add_callout_action"
+            self.annotation_callout_action, "annotations.tool_callout_hint"
         )
         self.annotation_callout_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation)
         )
         self.annotation_callout_action.setEnabled(False)
-        self.annotation_callout_action.triggered.connect(
-            lambda: self._create_annotation_at_view_center(AnnotationKind.CALLOUT)
+        self.annotation_callout_action.setCheckable(True)
+        self.annotation_callout_action.toggled.connect(
+            lambda checked: self._toggle_annotation_tool(AnnotationKind.CALLOUT, checked)
         )
         edit_menu.addAction(self.annotation_callout_action)
         self.annotation_comment_action = self._localized_action(
             "annotations.toolbar_comment"
         )
         self._set_action_help(
-            self.annotation_comment_action, "annotations.add_comment_action"
+            self.annotation_comment_action, "annotations.tool_comment_hint"
         )
         self.annotation_comment_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView)
         )
         self.annotation_comment_action.setEnabled(False)
-        self.annotation_comment_action.triggered.connect(
-            lambda: self._create_annotation_at_view_center(AnnotationKind.COMMENT)
+        self.annotation_comment_action.setCheckable(True)
+        self.annotation_comment_action.toggled.connect(
+            lambda checked: self._toggle_annotation_tool(AnnotationKind.COMMENT, checked)
         )
         edit_menu.addAction(self.annotation_comment_action)
         self.annotation_image_action = self._localized_action(
             "annotations.toolbar_image"
         )
         self._set_action_help(
-            self.annotation_image_action, "annotations.add_image_action"
+            self.annotation_image_action, "annotations.tool_image_hint"
         )
         self.annotation_image_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
         )
         self.annotation_image_action.setEnabled(False)
-        self.annotation_image_action.triggered.connect(
-            lambda: self._create_annotation_at_view_center(AnnotationKind.IMAGE)
+        self.annotation_image_action.setCheckable(True)
+        self.annotation_image_action.toggled.connect(
+            lambda checked: self._toggle_annotation_tool(AnnotationKind.IMAGE, checked)
         )
         edit_menu.addAction(self.annotation_image_action)
 
@@ -3091,6 +3097,8 @@ class MainWindow(QMainWindow):
         self.annotation_callout_action.setEnabled(enabled)
         self.annotation_comment_action.setEnabled(enabled)
         self.annotation_image_action.setEnabled(enabled)
+        if not enabled:
+            self.tablet_view.set_annotation_tool(None)
         selected_enabled = enabled and self._selected_annotation_id is not None
         self.annotation_edit_selected_action.setEnabled(selected_enabled)
         self.annotation_delete_selected_action.setEnabled(selected_enabled)
@@ -3801,6 +3809,37 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
 
+    def _toggle_annotation_tool(self, kind: AnnotationKind, checked: bool) -> None:
+        if checked:
+            actions = {
+                AnnotationKind.CALLOUT: self.annotation_callout_action,
+                AnnotationKind.COMMENT: self.annotation_comment_action,
+                AnnotationKind.IMAGE: self.annotation_image_action,
+            }
+            for other_kind, action in actions.items():
+                if other_kind is not kind and action.isChecked():
+                    action.blockSignals(True)
+                    action.setChecked(False)
+                    action.blockSignals(False)
+            self.tablet_view.set_annotation_tool(kind)
+            self.statusBar().showMessage(self._t("annotations.tool_click_hint"))
+        elif self.tablet_view.annotation_tool is kind:
+            self.tablet_view.set_annotation_tool(None)
+
+    def _sync_annotation_tool_actions(self, value: object) -> None:
+        active = str(value) if value is not None else ""
+        mapping = {
+            AnnotationKind.CALLOUT.value: self.annotation_callout_action,
+            AnnotationKind.COMMENT.value: self.annotation_comment_action,
+            AnnotationKind.IMAGE.value: self.annotation_image_action,
+        }
+        for kind_value, action in mapping.items():
+            should_check = kind_value == active
+            if action.isChecked() != should_check:
+                action.blockSignals(True)
+                action.setChecked(should_check)
+                action.blockSignals(False)
+
     def _create_annotation_at_view_center(self, kind: AnnotationKind) -> None:
         payload = self.tablet_view.annotation_request_at_view_center(
             kind,
@@ -3816,7 +3855,20 @@ class MainWindow(QMainWindow):
     def _create_annotation_from_tablet(self, payload: object) -> None:
         if self.session.current_well is None or not isinstance(payload, dict):
             return
-        self._open_annotation_dialog(initial_values=dict(payload))
+        values = dict(payload)
+        direct_create = bool(values.pop("direct_create", False))
+        if not direct_create:
+            self._open_annotation_dialog(initial_values=values)
+            return
+        try:
+            record = self.depth_annotation_controller.add_annotation(**values)
+        except (KeyError, RuntimeError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("annotations.title"), str(exc))
+            return
+        self._refresh_annotation_layer()
+        self.tablet_view.select_annotation(record.annotation_id)
+        self._annotation_selection_changed(record.annotation_id)
+        self.statusBar().showMessage(self._t("annotations.direct_created_status"))
 
     def _edit_annotation_from_tablet(self, annotation_id: str) -> None:
         if self.session.current_well is None:
@@ -3914,6 +3966,11 @@ class MainWindow(QMainWindow):
                 value=float(payload["value"]),
                 unit=str(payload.get("unit", "")),
                 x_fraction=float(payload.get("x_fraction", 0.5)),
+                display_text=(
+                    str(payload.get("display_value"))
+                    if payload.get("display_value")
+                    else None
+                ),
             )
         except (KeyError, RuntimeError, TypeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("annotations.title"), str(exc))

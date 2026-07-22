@@ -520,11 +520,35 @@ class TabletAnnotationOverlay(QWidget):
         self._drag_id: str | None = None
         self._press_position = QPointF()
         self._start_geometry = (0.0, 0.0, 40.0, 24.0)
+        # Only the data plotting body is an annotation canvas.  The overlay is
+        # still parented to the complete track container so objects can cross
+        # column boundaries, but painting and hit-testing are clipped below the
+        # synchronized title/parameter headers.
+        self._content_rect = QRectF()
         self._refresh_mouse_policy()
 
     @property
     def selected_annotation_id(self) -> str | None:
         return self._selected_id
+
+    @property
+    def content_rect(self) -> QRectF:
+        return QRectF(self._content_rect)
+
+    def set_content_rect(self, rect: QRectF) -> None:
+        """Limit annotations to the shared graph body below all headers.
+
+        The overlay spans the full tablet width to allow free cross-track
+        movement.  A separate content rectangle prevents boxes, leaders and
+        edit handles from appearing over column titles or parameter captions.
+        """
+
+        normalized = QRectF(rect).normalized().intersected(QRectF(self.rect()))
+        if normalized == self._content_rect:
+            return
+        self._content_rect = normalized
+        self._update_mask()
+        self.update()
 
     def set_entries(
         self,
@@ -654,9 +678,12 @@ class TabletAnnotationOverlay(QWidget):
         painter = QPainter(self)
         try:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            if self._content_rect.isEmpty():
+                return
+            painter.setClipRect(self._content_rect, Qt.ClipOperation.IntersectClip)
             for annotation_id in self._order:
                 helper, anchor = self._entries[annotation_id]
-                if not helper.record.visible:
+                if not helper.record.visible or not self._anchor_is_visible(anchor):
                     continue
                 if self._print_mode and not helper.record.print_enabled:
                     continue
@@ -679,10 +706,17 @@ class TabletAnnotationOverlay(QWidget):
         painter.save()
         try:
             painter.translate(-origin.x(), -origin.y())
+            if self._content_rect.isEmpty():
+                return
+            painter.setClipRect(self._content_rect, Qt.ClipOperation.IntersectClip)
             for annotation_id in self._order:
                 helper, anchor = self._entries[annotation_id]
                 record = helper.record
-                if not record.visible or (print_mode and not record.print_enabled):
+                if (
+                    not record.visible
+                    or not self._anchor_is_visible(anchor)
+                    or (print_mode and not record.print_enabled)
+                ):
                     continue
                 was_selected = helper._selected
                 helper._selected = False
@@ -839,9 +873,11 @@ class TabletAnnotationOverlay(QWidget):
     def _hit(
         self, point: QPointF
     ) -> tuple[str, TabletAnnotationItem, QPointF] | None:
+        if self._content_rect.isEmpty() or not self._content_rect.contains(point):
+            return None
         for annotation_id in reversed(self._order):
             helper, anchor = self._entries[annotation_id]
-            if not helper.record.visible:
+            if not helper.record.visible or not self._anchor_is_visible(anchor):
                 continue
             local = QPointF(point) - anchor
             if helper.shape().contains(local):
@@ -873,15 +909,34 @@ class TabletAnnotationOverlay(QWidget):
         width: float,
         height: float,
     ) -> tuple[float, float]:
+        rect = self._content_rect
+        if rect.isEmpty():
+            return offset_x, offset_y
+        # Translate into a content-local coordinate system before applying the
+        # existing reachability helper.  This keeps resize handles reachable in
+        # the graph body without allowing a block into the header band.
+        local_anchor = anchor - rect.topLeft()
         return keep_annotation_reachable(
-            anchor.x(),
-            anchor.y(),
+            local_anchor.x(),
+            local_anchor.y(),
             offset_x,
             offset_y,
             width,
             height,
-            self.width(),
-            self.height(),
+            rect.width(),
+            rect.height(),
+        )
+
+    def _anchor_is_visible(self, anchor: QPointF) -> bool:
+        """Hide the complete object when its depth/time anchor leaves view."""
+
+        if self._content_rect.isEmpty():
+            return False
+        tolerance = 1.0
+        return (
+            self._content_rect.top() - tolerance
+            <= anchor.y()
+            <= self._content_rect.bottom() + tolerance
         )
 
     def _refresh_mouse_policy(self) -> None:
@@ -897,13 +952,20 @@ class TabletAnnotationOverlay(QWidget):
         # the mouse. This preserves movement even when the box crosses a track
         # boundary or the pointer temporarily leaves the old masked region.
         if self._drag_id is not None:
-            self.setMask(QRegion(self.rect()))
+            if self._content_rect.isEmpty():
+                self.clearMask()
+            else:
+                self.setMask(QRegion(self._content_rect.toAlignedRect()))
             return
 
+        if self._content_rect.isEmpty():
+            self.clearMask()
+            return
+        content_region = QRegion(self._content_rect.toAlignedRect())
         region = QRegion()
         for annotation_id in self._order:
             helper, anchor = self._entries[annotation_id]
-            if not helper.record.visible:
+            if not helper.record.visible or not self._anchor_is_visible(anchor):
                 continue
             transform = QTransform()
             transform.translate(anchor.x(), anchor.y())
@@ -916,7 +978,7 @@ class TabletAnnotationOverlay(QWidget):
                 for handle_rect in helper.resize_handle_rects().values():
                     mapped = transform.mapRect(handle_rect).adjusted(-3.0, -3.0, 3.0, 3.0)
                     region = region.united(QRegion(mapped.toAlignedRect()))
-        self.setMask(region)
+        self.setMask(region.intersected(content_region))
 
 
 def _unrotate_delta(delta: QPointF, rotation: float) -> QPointF:

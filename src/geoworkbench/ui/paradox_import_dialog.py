@@ -58,6 +58,7 @@ from geoworkbench.importers.paradox.profiles import (
 from geoworkbench.importers.paradox.reader import read_paradox
 from geoworkbench.importers.paradox.progress import paradox_progress_state
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.time_display import format_datetime_value, format_elapsed_time
 
 
 class _ReaderWorker(QObject):
@@ -744,9 +745,9 @@ class ParadoxImportDialog(QDialog):
             converted_text = []
             for position, elapsed_value in enumerate(elapsed):
                 if datetimes is not None and not np.isnat(datetimes[position]):
-                    converted_text.append(np.datetime_as_string(datetimes[position], unit="s"))
+                    converted_text.append(format_datetime_value(datetimes[position]))
                 else:
-                    converted_text.append(_display(float(elapsed_value)))
+                    converted_text.append(format_elapsed_time(float(elapsed_value), "s"))
         return row_indexes, field_names, converted_text
 
     def _populate_preview_row(self, preview_row: int) -> None:

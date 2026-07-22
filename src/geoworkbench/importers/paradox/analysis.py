@@ -6,6 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
+from geoworkbench.services.time_display import unix_seconds_to_datetime
+
 from .models import (
     DatasetClassification,
     IndexCandidate,
@@ -277,12 +279,9 @@ def _time_candidate(name: str, values: np.ndarray) -> IndexCandidate:
         score += 0.42
         factor, unit = _unix_scale(median)  # type: ignore[misc]
         evidence.append(f"диапазон соответствует Unix timestamp ({unit})")
-        try:
-            preview = datetime.utcfromtimestamp(float(finite[0]) / factor).strftime(
-                "%d.%m.%Y %H:%M:%S"
-            )
-        except (OverflowError, OSError, ValueError):
-            pass
+        moment = unix_seconds_to_datetime(float(finite[0]) / factor)
+        if moment is not None:
+            preview = moment.strftime("%d.%m.%Y %H:%M:%S")
     else:
         positive = differences[differences > 0]
         if positive.size and np.median(positive) > 0:

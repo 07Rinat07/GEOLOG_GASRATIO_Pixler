@@ -1,4 +1,8 @@
-# Professional annotation layer — 0.7.19
+# Professional annotation layer — 0.7.20
+
+## Graph-body clipping
+
+Frames, text, leaders and resize handles are painted only inside the graph body. A curve-bound object cannot cross over track headers or parameter captions. Near a top/bottom edge the initial offset is automatically placed inside the visible plot.
 
 ## Free editing across the complete tablet
 

@@ -18,6 +18,7 @@ from geoworkbench.printing.masterlog_renderer import (
 )
 from geoworkbench.printing.text_rendering import column_heading_height
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.time_display import format_time_curve_at_row
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +31,7 @@ class MasterlogInspection:
     unit: str | None = None
     description: str | None = None
     interval: tuple[float, float] | None = None
+    formatted_value: str | None = None
 
     def display_text(self, language: AppLanguage) -> str:
         depth_label = {
@@ -44,8 +46,11 @@ class MasterlogInspection:
         }[language]
         lines = [self.column_title]
         if self.mnemonic is not None and self.value is not None:
-            suffix = f" {self.unit}" if self.unit else ""
-            lines.append(f"{self.mnemonic}: {self.value:g}{suffix}")
+            if self.formatted_value:
+                lines.append(f"{self.mnemonic}: {self.formatted_value}")
+            else:
+                suffix = f" {self.unit}" if self.unit else ""
+                lines.append(f"{self.mnemonic}: {self.value:g}{suffix}")
         lines.append(f"{depth_label}: {self.depth:g} м")
         if self.interval is not None:
             lines.append(f"{interval_label}: {self.interval[0]:g}–{self.interval[1]:g} м")
@@ -385,7 +390,9 @@ def _inspect_curves(
     click_fraction = min(
         1.0, max(0.0, (x_mm - column_left - 0.5) / max(0.1, column.width_mm - 1.0))
     )
-    candidates: list[tuple[float, str, float, str | None, str | None, float]] = []
+    candidates: list[
+        tuple[float, str, float, str | None, str | None, float, str | None]
+    ] = []
     for mnemonic in column.curve_mnemonics:
         x_range = curve_display_range(column, dataset, mnemonic, bindings)
         if x_range is None:
@@ -420,11 +427,12 @@ def _inspect_curves(
                 curve.metadata.unit,
                 curve.metadata.description,
                 float(depths[index]),
+                format_time_curve_at_row(dataset, curve, index),
             )
         )
     if not candidates:
         return MasterlogInspection(column.column_id, column.title, depth)
-    _, mnemonic, value, unit, description, sample_depth = min(candidates)
+    _, mnemonic, value, unit, description, sample_depth, formatted_value = min(candidates)
     return MasterlogInspection(
         column.column_id,
         column.title,
@@ -433,4 +441,6 @@ def _inspect_curves(
         value,
         unit,
         description,
+        None,
+        formatted_value,
     )

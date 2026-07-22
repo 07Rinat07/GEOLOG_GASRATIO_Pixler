@@ -7,6 +7,7 @@ import numpy as np
 from geoworkbench.data.las_import_report import LasImportIssue, LasIssueSeverity
 from geoworkbench.domain.models import Dataset, DatasetIndex, IndexRole, IndexType
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.time_display import format_index_at_row
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,7 +90,7 @@ class DataInspectorController:
     def indexes(self) -> tuple[IndexInspection, ...]:
         dataset = self._dataset()
         return tuple(
-            self._inspect_index(index, index.index_id == dataset.active_index_id)
+            self._inspect_index(dataset, index, index.index_id == dataset.active_index_id)
             for index in dataset.indexes.values()
         )
 
@@ -157,14 +158,15 @@ class DataInspectorController:
         return dataset
 
     @staticmethod
-    def _inspect_index(index: DatasetIndex, active: bool) -> IndexInspection:
+    def _inspect_index(dataset: Dataset, index: DatasetIndex, active: bool) -> IndexInspection:
         values = np.asarray(index.values)
         warnings: list[str] = []
         if values.size == 0:
             start = stop = None
             warnings.append("индекс пуст")
         else:
-            start, stop = _format_index_value(values[0]), _format_index_value(values[-1])
+            start = format_index_at_row(dataset, index, 0)
+            stop = format_index_at_row(dataset, index, len(values) - 1)
             if np.issubdtype(values.dtype, np.datetime64):
                 missing_mask = np.isnat(values)
                 comparable = values.astype("datetime64[ns]").astype(np.int64)
@@ -197,11 +199,3 @@ class DataInspectorController:
             timezone=index.timezone,
         )
 
-
-def _format_index_value(value) -> str:
-    if np.issubdtype(np.asarray(value).dtype, np.datetime64):
-        return str(np.datetime64(value, "ns"))
-    try:
-        return f"{float(value):.10g}"
-    except (TypeError, ValueError):
-        return str(value)

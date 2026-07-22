@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.19:** callouts and comments are synchronized with depth and time. Scrolling and zooming move them together with their data anchor while preserving the box offset and size.
+> **0.7.20:** date/time is displayed identically on Windows and Linux as `DD.MM.YYYY HH:MM:SS`. In F4, callouts/comments are created by clicking the exact track and depth/time, then moved/resized with the mouse, and never paint over graph headers.
 
 
 

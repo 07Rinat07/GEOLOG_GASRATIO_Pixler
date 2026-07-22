@@ -1,4 +1,4 @@
-GEOLOG GASRATIO@Pixler 0.7.19 validation
+GEOLOG GASRATIO@Pixler 0.7.20 validation
 ========================================
 
 Date: 22 July 2026
@@ -6,38 +6,45 @@ Date: 22 July 2026
 [1] Python compilation
 PASS: python -m compileall -q src tests
 
-[2] Focused non-GUI regression suite
-PASS: 188 tests
+[2] Focused dependency-free regression suite
+PASS: 147 tests
 
 Covered areas:
+- platform-independent datetime/Unix/Delphi-OLE/elapsed formatting;
+- time display source paths and version synchronization;
 - tablet-wide annotation source integration and eight-handle geometry;
-- depth/time anchor remapping during shared-camera navigation;
-- direct pyqtgraph ViewBox range-change synchronization;
+- graph-body clipping below track/parameter headers;
+- direct F4 click-to-create workflow and safe initial placement;
 - annotation CRUD/history, project persistence and LAS-merge survival;
-- project codecs, migrations and image assets;
-- Paradox detector, reader, import, batch and progress regression;
-- depth/time indexes, aggregation, sampling, camera and LAS export planning;
-- package version 0.7.19.
+- Paradox detector/import/batch/progress regression;
+- depth/time indexes, aggregation, sampling and export planning;
+- project codecs and migrations.
 
-[3] Annotation depth/time synchronization
-PASS: _apply_visible_depth remaps all annotation anchors after setYRange
-PASS: _on_depth_range_changed remaps anchors for direct ViewBox gestures
-PASS: only screen anchors change; saved offsets, dimensions and styles remain intact
-PASS: existing TabletAnnotationItem helpers are reused
-PASS: selection and transient drag geometry are preserved during layer refresh
-PASS: annotation/project schema remains backward compatible
+[3] Date/time presentation
+PASS: user-facing formatter uses explicit epochs and timedelta
+PASS: no datetime.fromtimestamp/utcfromtimestamp calls in application source
+PASS: NumPy datetime64, Unix, Delphi/OLE and elapsed values covered
+PASS: companion DATETIME index or registration origin is preferred
 
-[4] Localization and JSON
-PASS: RU/KK/EN contain 1490 identical keys
+[4] Annotation interaction
+PASS: overlay paint/hit/mask/print paths are clipped to graph body
+PASS: headers and parameter captions are outside annotation canvas
+PASS: F4 actions arm a tool and left-click creates at exact track/depth/time
+PASS: direct object is selected for immediate drag/resize
+PASS: double-click/F2/Enter/toolbar/context editor paths remain available
+
+[5] Localization and JSON
+PASS: RU/KK/EN contain 1500 identical keys
 PASS: named placeholders are synchronized
 PASS: 20 JSON files are valid
 
-[5] Source immutability
+[6] Source immutability
 PASS: supplied DB/PX/TV/FAM SHA-256 hashes unchanged
 
-[6] GUI boundary
+[7] GUI boundary
 NOT RUN in this container: PySide6, pyqtgraph and lasio are unavailable.
-Required on Windows: scroll/zoom/pan with depth and time annotations, project
-reopen, PDF/print comparison, physical printing and DB -> LAS round-trip.
+Required on Windows: direct click/create, drag/resize over several tracks,
+header clipping, depth/time scrolling, project reopen, PDF/print comparison,
+physical printing and DB -> LAS round-trip.
 
-Detailed report: docs/HOTFIX_REPORT_0.7.19.md
+Detailed report: docs/HOTFIX_REPORT_0.7.20.md

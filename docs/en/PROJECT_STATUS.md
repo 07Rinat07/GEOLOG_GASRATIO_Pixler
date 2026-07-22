@@ -1,5 +1,9 @@
 # Current project status
 
+## Version 0.7.20 — unified time and direct F4 annotations
+
+All user-facing time values pass through one `DD.MM.YYYY HH:MM:SS` formatter. Tablet views, the LAS table, time curves, Paradox import, annotations and printable inspections no longer depend on Windows/Linux timestamp behavior. Annotations are created by direct graph click, freely moved/resized by mouse and clipped below track headers.
+
 ## Version 0.7.19 — annotations follow depth and time
 
 Fixed the tablet-wide annotation layer becoming detached from the vertical axis. Scrolling, panning, go-to and zoom remap the data anchor into current screen coordinates while preserving the box offset and size. The project format is unchanged.

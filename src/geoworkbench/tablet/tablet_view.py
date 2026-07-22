@@ -75,6 +75,12 @@ from geoworkbench.project.annotation_schema import (
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.parameter_labels import localized_curve_name
+from geoworkbench.services.time_display import (
+    format_datetime_at_row,
+    format_elapsed_time,
+    format_time_curve_at_row,
+    format_unix_seconds,
+)
 from geoworkbench.ui.oriented_text_label import OrientedTextLabel
 from geoworkbench.tablet.curve_scaling import automatic_curve_range, normalize_curve_values
 from geoworkbench.tablet.camera import (
@@ -275,41 +281,19 @@ class TabletVerticalAxisItem(pg.AxisItem):
 
     @staticmethod
     def _format_datetime(value: float, spacing: float) -> str:
-        if not np.isfinite(value):
-            return ""
-        try:
-            moment = datetime.fromtimestamp(value, tz=timezone.utc)
-        except (OverflowError, OSError, ValueError):
+        rendered = format_unix_seconds(value)
+        if rendered == "—":
             return ""
         absolute_spacing = abs(spacing)
         if absolute_spacing >= 86_400:
-            return moment.strftime("%d.%m.%Y")
+            return rendered[:10]
         if absolute_spacing >= 60:
-            return moment.strftime("%d.%m %H:%M")
-        return moment.strftime("%H:%M:%S")
+            return rendered[:16]
+        return rendered[11:19]
 
     def _format_relative_time(self, value: float) -> str:
-        if not np.isfinite(value):
-            return ""
-        unit = self.descriptor.unit.casefold()
-        seconds = value
-        if unit in {"ms", "msec", "millisecond", "milliseconds"}:
-            seconds = value / 1_000.0
-        elif unit in {"min", "minute", "minutes", "мин"}:
-            seconds = value * 60.0
-        elif unit in {"h", "hr", "hour", "hours", "ч"}:
-            seconds = value * 3_600.0
-        sign = "-" if seconds < 0 else ""
-        seconds = abs(seconds)
-        if seconds >= 3_600:
-            hours = int(seconds // 3_600)
-            minutes = int((seconds % 3_600) // 60)
-            return f"{sign}{hours:d}:{minutes:02d}"
-        if seconds >= 60:
-            minutes = int(seconds // 60)
-            remain = int(seconds % 60)
-            return f"{sign}{minutes:d}:{remain:02d}"
-        return f"{value:g}"
+        rendered = format_elapsed_time(value, self.descriptor.unit)
+        return "" if rendered == "—" else rendered
 
 
 class CurveHeaderLabel(QLabel):
@@ -791,6 +775,7 @@ class TabletView(QWidget):
     annotation_duplicate_requested = Signal(str)
     annotation_geometry_changed = Signal(str, float, float, float, float)
     annotation_selection_changed = Signal(object)
+    annotation_tool_changed = Signal(object)
     curve_value_save_requested = Signal(object)
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
@@ -802,6 +787,7 @@ class TabletView(QWidget):
         self._canvas_objects: tuple[CanvasObject, ...] = ()
         self._image_assets: dict[str, ImageAsset] = {}
         self._annotation_print_mode = False
+        self._annotation_tool: AnnotationKind | None = None
         self._lithology: tuple[LithologyInterval, ...] = ()
         self._cuttings: tuple[CuttingsSample, ...] = ()
         self._stratigraphy: tuple[StratigraphyInterval, ...] = ()
@@ -2707,10 +2693,44 @@ class TabletView(QWidget):
     def form_edit_mode(self) -> bool:
         return self._form_edit_mode
 
+    @property
+    def annotation_tool(self) -> AnnotationKind | None:
+        return self._annotation_tool
+
+    def set_annotation_tool(self, kind: AnnotationKind | str | None) -> None:
+        """Arm a direct annotation tool for the next click in any plot body.
+
+        Unlike the old toolbar behavior, selecting a tool does not create an
+        object at the viewport center and does not open a modal dialog first.
+        The user chooses the exact track and depth/time position with the mouse;
+        the new box then appears selected for immediate move/resize editing.
+        """
+
+        normalized: AnnotationKind | None
+        if kind is None or not self._form_edit_mode:
+            normalized = None
+        else:
+            try:
+                normalized = kind if isinstance(kind, AnnotationKind) else AnnotationKind(str(kind))
+            except ValueError:
+                normalized = None
+        if normalized == self._annotation_tool:
+            return
+        self._annotation_tool = normalized
+        cursor = Qt.CursorShape.CrossCursor if normalized is not None else Qt.CursorShape.ArrowCursor
+        for rendered in self._rendered.values():
+            if rendered.plot is not None:
+                rendered.plot.viewport().setCursor(cursor)
+        self.annotation_tool_changed.emit(
+            normalized.value if normalized is not None else None
+        )
+
     def set_form_edit_mode(self, enabled: bool) -> None:
         """Enable structural form editing while leaving geological data entry intact."""
 
         self._form_edit_mode = bool(enabled)
+        if not self._form_edit_mode:
+            self.set_annotation_tool(None)
         hint = self._localizer.text(
             "tablet.form_edit_on" if self._form_edit_mode else "tablet.form_edit_off"
         )
@@ -3085,6 +3105,48 @@ class TabletView(QWidget):
             "height": height,
         }
 
+    def _direct_annotation_payload(
+        self,
+        plot: pg.PlotWidget,
+        event: QMouseEvent,
+        track_id: str,
+        definition: TrackDefinition | None,
+    ) -> dict[str, object] | None:
+        kind = self._annotation_tool
+        if kind is None:
+            return None
+        point = self._mouse_event_plot_point(plot, event)
+        axis_value = float(point.y())
+        depth = self._axis_to_depth_value(axis_value)
+        viewport_width = max(1.0, float(plot.viewport().width()))
+        x_fraction = max(0.0, min(1.0, float(event.position().x()) / viewport_width))
+        payload = self._annotation_request_payload(
+            track_id=track_id,
+            depth=depth,
+            axis_value=axis_value,
+            x_fraction=x_fraction,
+            kind=kind,
+        )
+        payload["direct_create"] = kind in {AnnotationKind.CALLOUT, AnnotationKind.COMMENT}
+        payload["text"] = self._localizer.text(
+            "annotations.default_callout_text"
+            if kind is AnnotationKind.CALLOUT
+            else "annotations.default_comment_text"
+        )
+        # Keep a freshly created box completely inside the graph body.  Near
+        # the upper/lower edge the default negative offset would otherwise put
+        # part of the object under the track header or outside the viewport.
+        viewport_height = max(1.0, float(plot.viewport().height()))
+        box_height = float(payload.get("height", 76.0))
+        offset_y = float(payload.get("offset_y", -42.0))
+        local_y = float(event.position().y())
+        margin = 12.0
+        if local_y + offset_y < margin:
+            payload["offset_y"] = margin
+        elif local_y + offset_y + box_height > viewport_height - margin:
+            payload["offset_y"] = -(box_height + margin)
+        return payload
+
     @staticmethod
     def _plot_x_fraction(definition: TrackDefinition | None, x_value: float) -> float:
         if definition is not None and definition.kind is TrackKind.CALCIMETRY:
@@ -3117,7 +3179,7 @@ class TabletView(QWidget):
         except KeyError:
             return None
         display_x = float(hit.local_x) if hit.local_x is not None else 0.5
-        return {
+        payload: dict[str, object] = {
             "track_id": track_id,
             "depth": depth,
             "axis_value": float(hit.local_y),
@@ -3128,14 +3190,23 @@ class TabletView(QWidget):
             "depth_unit": (self._dataset.active_index.unit or "м").strip(),
             "x_fraction": self._plot_x_fraction(definition, display_x),
         }
+        time_text = format_time_curve_at_row(self._dataset, curve, sample_index)
+        if time_text is not None:
+            payload["display_value"] = time_text
+        return payload
 
     @staticmethod
     def _curve_value_caption(payload: dict[str, object]) -> str:
-        unit = str(payload.get("unit", "")).strip()
-        suffix = f" {unit}" if unit else ""
+        display_value = str(payload.get("display_value", "")).strip()
+        if display_value:
+            rendered_value = display_value
+        else:
+            unit = str(payload.get("unit", "")).strip()
+            suffix = f" {unit}" if unit else ""
+            rendered_value = f"{float(payload.get('value', 0.0)):g}{suffix}"
         depth_unit = str(payload.get("depth_unit", "м")).strip() or "м"
         return (
-            f"{payload.get('mnemonic', '')}: {float(payload.get('value', 0.0)):g}{suffix} · "
+            f"{payload.get('mnemonic', '')}: {rendered_value} · "
             f"{float(payload.get('depth', 0.0)):g} {depth_unit}"
         )
 
@@ -3472,7 +3543,13 @@ class TabletView(QWidget):
             depth_unit = depth_index.unit
         values = [f"{self._localizer.text('cursor.depth')}: {sample_depth:g} {depth_unit}"]
         descriptor = self._axis_descriptor()
-        if descriptor is not None and descriptor.is_time:
+        absolute_datetime = format_datetime_at_row(self._dataset, index)
+        if absolute_datetime is not None:
+            values.insert(
+                0,
+                f"{self._localizer.text('cursor.datetime')}: {absolute_datetime}",
+            )
+        elif descriptor is not None and descriptor.is_time:
             values.insert(
                 0,
                 f"{self._localizer.text('cursor.time')}: "
@@ -3603,7 +3680,14 @@ class TabletView(QWidget):
                     continue
                 unit = (curve.metadata.unit or "").strip()
                 display_name = self._curve_display_name(definition, mnemonic, curve)
-                values.append(f"{display_name} [{mnemonic}]: {value:g}{f' {unit}' if unit else ''}")
+                time_text = format_time_curve_at_row(self._dataset, curve, index)
+                if time_text is not None:
+                    values.append(f"{display_name} [{mnemonic}]: {time_text}")
+                else:
+                    values.append(
+                        f"{display_name} [{mnemonic}]: {value:g}"
+                        f"{f' {unit}' if unit else ''}"
+                    )
                 seen.add(mnemonic)
         return " | ".join(values)
 
@@ -4002,7 +4086,11 @@ class TabletView(QWidget):
                 continue
             name = self._curve_display_name(definition, mnemonic, curve)
             unit = (curve.metadata.unit or "").strip()
-            lines.append(f"{name}: {curve_value:g}{f' {unit}' if unit else ''}")
+            time_text = format_time_curve_at_row(self._dataset, curve, sample_index)
+            if time_text is not None:
+                lines.append(f"{name}: {time_text}")
+            else:
+                lines.append(f"{name}: {curve_value:g}{f' {unit}' if unit else ''}")
         return "\n".join(lines)
 
     def _update_cursor_labels(self, axis_value: float) -> None:
@@ -4501,6 +4589,14 @@ class TabletView(QWidget):
             return True
         plot = self._depth_viewports.get(watched)
         if plot is not None and isinstance(event, QKeyEvent):
+            if (
+                event.type() == QEvent.Type.KeyPress
+                and event.key() == Qt.Key.Key_Escape
+                and self._annotation_tool is not None
+            ):
+                self.set_annotation_tool(None)
+                event.accept()
+                return True
             if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Space:
                 self._space_pressed = True
                 event.accept()
@@ -4546,6 +4642,22 @@ class TabletView(QWidget):
                     definition = self._layout_model.track_by_id(track_id)
                 except KeyError:
                     definition = None
+            if (
+                self._form_edit_mode
+                and self._annotation_tool is not None
+                and track_id is not None
+                and event.type() == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.LeftButton
+                and not self._space_pressed
+            ):
+                payload = self._direct_annotation_payload(
+                    plot, event, track_id, definition
+                )
+                if payload is not None:
+                    self.select_track(track_id, emit_signal=True)
+                    self.annotation_add_requested.emit(payload)
+                    event.accept()
+                    return True
             if self._handle_curve_pencil_event(plot, event, track_id):
                 return True
             if (
@@ -5303,10 +5415,9 @@ class TabletView(QWidget):
         if descriptor is None or not np.isfinite(value):
             return "—"
         if descriptor.is_datetime:
-            try:
-                return datetime.fromtimestamp(value, tz=timezone.utc).strftime("%d.%m.%Y %H:%M:%S")
-            except (OverflowError, OSError, ValueError):
-                return "—"
+            return format_unix_seconds(value)
+        if descriptor.is_time:
+            return format_elapsed_time(value, descriptor.unit)
         suffix = f" {descriptor.unit}" if descriptor.unit else ""
         return f"{value:g}{suffix}"
 
@@ -7013,6 +7124,33 @@ class TabletView(QWidget):
 
     def _sync_annotation_overlay_geometry(self) -> None:
         self._annotation_overlay.setGeometry(self._tracks_container.rect())
+        content_rect = QRectF()
+        for rendered in self._rendered.values():
+            plot = rendered.plot
+            if plot is None:
+                continue
+            try:
+                scene_rect = plot.getViewBox().sceneBoundingRect()
+                top_left = plot.mapFromScene(scene_rect.topLeft())
+                bottom_right = plot.mapFromScene(scene_rect.bottomRight())
+                mapped_top_left = plot.mapTo(self._tracks_container, top_left)
+                mapped_bottom_right = plot.mapTo(self._tracks_container, bottom_right)
+                plot_rect = QRectF(
+                    QPointF(mapped_top_left), QPointF(mapped_bottom_right)
+                ).normalized()
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                origin = plot.mapTo(self._tracks_container, QPoint(0, 0))
+                plot_rect = QRectF(
+                    QPointF(origin),
+                    QPointF(origin.x() + plot.width(), origin.y() + plot.height()),
+                )
+            content_rect = plot_rect if content_rect.isEmpty() else content_rect.united(plot_rect)
+            plot.viewport().setCursor(
+                Qt.CursorShape.CrossCursor
+                if self._annotation_tool is not None
+                else Qt.CursorShape.ArrowCursor
+            )
+        self._annotation_overlay.set_content_rect(content_rect)
         self._annotation_overlay.raise_()
 
     def _annotation_target_track(self, record) -> RenderedTrack | None:

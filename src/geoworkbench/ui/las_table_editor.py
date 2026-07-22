@@ -45,12 +45,16 @@ from geoworkbench.data.number_format import (
     format_decimal_number,
     format_display_number,
 )
-from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
 from geoworkbench.project.las_range_editor import LasRangeEditingController, RangeClipboard
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.las_parameter_resolver import LasParameterResolver, ParameterMatch
 from geoworkbench.services.parameter_labels import localized_curve_name
+from geoworkbench.services.time_display import (
+    format_index_at_row,
+    format_time_curve_at_row,
+)
 
 
 class TableHeaderMode(StrEnum):
@@ -123,13 +127,28 @@ class LasTableModel(QAbstractTableModel):
             return None
         if role not in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
             return None
-        value = self._value(index.row(), index.column())
+        row = index.row()
+        column = index.column()
+        if column == 0:
+            active_index = self.dataset.active_index
+            if role == Qt.ItemDataRole.EditRole:
+                return format_index_at_row(self.dataset, active_index, row)
+            if active_index.index_type is IndexType.DATETIME or active_index.role is IndexRole.TIME:
+                return format_index_at_row(self.dataset, active_index, row)
+            value = float(active_index.values[row])
+        else:
+            curve = list(self.dataset.curves.values())[column - 1]
+            value = float(curve.values[row])
+            if role == Qt.ItemDataRole.DisplayRole:
+                time_text = format_time_curve_at_row(self.dataset, curve, row)
+                if time_text is not None:
+                    return time_text
         if role == Qt.ItemDataRole.EditRole:
             return "" if not np.isfinite(value) else format_decimal_number(value)
         return (
             "—"
             if not np.isfinite(value)
-            else format_display_number(value, self.number_format_for_column(index.column()))
+            else format_display_number(value, self.number_format_for_column(column))
         )
 
     def set_number_formats(self, formats: dict[str, NumberDisplayFormat]) -> None:
@@ -230,7 +249,16 @@ class LasTableModel(QAbstractTableModel):
     def _value(self, row: int, column: int) -> float:
         assert self.dataset is not None
         if column == 0:
-            return float(self.dataset.depth[row])
+            active = self.dataset.active_index
+            if active.index_type is IndexType.DATETIME:
+                raw = np.asarray(active.values).astype("datetime64[ns]")
+                value = raw[row]
+                return (
+                    np.nan
+                    if np.isnat(value)
+                    else float(value.astype(np.int64)) / 1_000_000_000.0
+                )
+            return float(active.values[row])
         curve = list(self.dataset.curves.values())[column - 1]
         return float(curve.values[row])
 
