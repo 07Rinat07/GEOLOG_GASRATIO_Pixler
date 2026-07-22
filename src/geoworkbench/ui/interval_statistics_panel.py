@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QHeaderView,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -33,6 +34,7 @@ class IntervalStatisticsPanel(QWidget):
         self._language = language
         self._localizer = Localizer.create(language)
         self._statistics: tuple[CurveIntervalStatistics, ...] = ()
+        self._display_names: dict[str, str] = {}
         self._dataset_name = ""
         self._interval_label = "—"
 
@@ -42,12 +44,18 @@ class IntervalStatisticsPanel(QWidget):
             "font-weight: 600; padding: 7px; background: #eef2ff; "
             "color: #1e293b; border: 1px solid #c7d2fe; border-radius: 4px;"
         )
-        self.table = QTableWidget(0, 7)
+        self.table = QTableWidget(0, 4)
         self.table.setObjectName("interval-statistics-panel-table")
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().hide()
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for column in range(1, 4):
+            self.table.horizontalHeader().setSectionResizeMode(
+                column, QHeaderView.ResizeMode.ResizeToContents
+            )
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self.copy_button = QPushButton()
         self.copy_button.clicked.connect(self.copy_to_clipboard)
@@ -78,6 +86,10 @@ class IntervalStatisticsPanel(QWidget):
         return self._statistics
 
     @property
+    def display_names(self) -> dict[str, str]:
+        return dict(self._display_names)
+
+    @property
     def interval_label(self) -> str:
         return self._interval_label
 
@@ -96,6 +108,7 @@ class IntervalStatisticsPanel(QWidget):
         self._dataset_name = dataset_name
         self._interval_label = interval_label
         self._statistics = statistics
+        self._display_names = dict(display_names or {})
         self.summary.setText(
             self._t(
                 "statistics.panel_summary",
@@ -105,32 +118,40 @@ class IntervalStatisticsPanel(QWidget):
             )
         )
         self.table.setRowCount(len(statistics))
-        labels = display_names or {}
+        labels = self._display_names
         for row, item in enumerate(statistics):
             readable = labels.get(item.mnemonic, item.mnemonic)
             parameter = readable if readable == item.mnemonic else f"{readable}\n{item.mnemonic}"
             values = (
                 parameter,
-                item.unit or "—",
-                str(item.valid_count),
-                f"{item.coverage_percent:.1f}",
                 self._format_number(item.minimum),
-                self._format_number(item.maximum),
                 self._format_number(item.mean),
+                self._format_number(item.maximum),
             )
             for column, value in enumerate(values):
                 cell = QTableWidgetItem(value)
-                if column >= 2:
+                if column >= 1:
                     cell.setTextAlignment(
                         Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
                     )
+                if column == 0:
+                    cell.setToolTip(
+                        self._t(
+                            "statistics.parameter_tooltip",
+                            name=readable,
+                            mnemonic=item.mnemonic,
+                            unit=item.unit or "—",
+                            points=item.valid_count,
+                            coverage=f"{item.coverage_percent:.1f}",
+                        )
+                    )
                 self.table.setItem(row, column, cell)
-        self.table.resizeColumnsToContents()
         self.table.resizeRowsToContents()
         self._set_actions_enabled(bool(statistics))
 
     def clear_report(self) -> None:
         self._statistics = ()
+        self._display_names = {}
         self._dataset_name = ""
         self._interval_label = "—"
         self.table.setRowCount(0)
@@ -145,6 +166,8 @@ class IntervalStatisticsPanel(QWidget):
                 self._statistics,
                 interval_label=self._interval_label,
                 dataset_name=self._dataset_name,
+                display_names=self._display_names,
+                language=self._language,
             )
         )
 
@@ -154,12 +177,9 @@ class IntervalStatisticsPanel(QWidget):
         self.table.setHorizontalHeaderLabels(
             [
                 self._t("statistics.parameter"),
-                self._t("statistics.unit"),
-                self._t("statistics.points"),
-                self._t("statistics.coverage"),
-                self._t("statistics.minimum"),
-                self._t("statistics.maximum"),
-                self._t("statistics.mean"),
+                self._t("statistics.minimum_short"),
+                self._t("statistics.mean_short"),
+                self._t("statistics.maximum_short"),
             ]
         )
         self.copy_button.setText(self._t("statistics.copy"))

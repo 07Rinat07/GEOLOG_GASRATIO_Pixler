@@ -6,6 +6,7 @@ from geoworkbench.data.interval_statistics_export import (
     export_interval_statistics_xlsx,
     statistics_tsv,
 )
+from geoworkbench.services.localization import AppLanguage
 
 
 def _statistics() -> tuple[CurveIntervalStatistics, ...]:
@@ -18,8 +19,8 @@ def test_interval_statistics_tsv_is_excel_pasteable() -> None:
     )
 
     assert "Dataset\tWell A" in text
-    assert "Parameter\tUnit\tValid points\tCoverage, %" in text
-    assert "ROP\tm/h\t3\t75" in text
+    assert "Parameter\tMnemonic\tUnit\tPoints\tCoverage, %" in text
+    assert "ROP\tROP\tm/h\t3\t75" in text
 
 
 def test_interval_statistics_exports_csv_and_xlsx(tmp_path) -> None:
@@ -36,12 +37,15 @@ def test_interval_statistics_exports_csv_and_xlsx(tmp_path) -> None:
         dataset_name="Well A",
     )
 
-    assert "ROP,m/h,3,75.0,1.0,5.0,3.0" in csv_path.read_text(encoding="utf-8-sig")
+    assert "ROP,ROP,m/h,3,75.0,1.0,5.0,3.0" in csv_path.read_text(
+        encoding="utf-8-sig"
+    )
     sheet = load_workbook(xlsx_path, data_only=True).active
     assert sheet["A1"].value == "Dataset"
     assert sheet["B1"].value == "Well A"
     assert sheet["A5"].value == "ROP"
-    assert sheet["D5"].value == 75.0
+    assert sheet["B5"].value == "ROP"
+    assert sheet["E5"].value == 75.0
 
 
 def test_interval_statistics_exports_missing_values_as_empty_cells(tmp_path) -> None:
@@ -57,8 +61,26 @@ def test_interval_statistics_exports_missing_values_as_empty_cells(tmp_path) -> 
         dataset_name="Well A",
     )
 
-    assert "EMPTY\tppm\t0\t0\t\t\t" in text
+    assert "EMPTY\tEMPTY\tppm\t0\t0\t\t\t" in text
     sheet = load_workbook(xlsx_path, data_only=True).active
-    assert sheet["E5"].value is None
     assert sheet["F5"].value is None
     assert sheet["G5"].value is None
+    assert sheet["H5"].value is None
+
+
+def test_interval_statistics_xlsx_contains_localized_name_and_mnemonic(tmp_path) -> None:
+    xlsx_path = export_interval_statistics_xlsx(
+        tmp_path / "localized.xlsx",
+        _statistics(),
+        interval_label="Глубина: 100–103 м",
+        dataset_name="Скважина A",
+        display_names={"ROP": "Скорость бурения"},
+        language=AppLanguage.RU,
+    )
+
+    sheet = load_workbook(xlsx_path, data_only=True).active
+    assert sheet["A1"].value == "Набор данных"
+    assert sheet["A4"].value == "Параметр"
+    assert sheet["B4"].value == "Мнемоника"
+    assert sheet["A5"].value == "Скорость бурения"
+    assert sheet["B5"].value == "ROP"

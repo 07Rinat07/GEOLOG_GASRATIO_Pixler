@@ -545,8 +545,8 @@ class MainWindow(QMainWindow):
             self._clear_interval_analysis
         )
         self.interval_statistics_dock.setWidget(self.interval_statistics_panel)
-        self.interval_statistics_dock.setMinimumWidth(470)
-        self.interval_statistics_dock.setMaximumWidth(760)
+        self.interval_statistics_dock.setMinimumWidth(320)
+        self.interval_statistics_dock.setMaximumWidth(680)
         self.interval_statistics_dock.setFeatures(
             QDockWidget.DockWidgetFeature.DockWidgetClosable
             | QDockWidget.DockWidgetFeature.DockWidgetMovable
@@ -3976,11 +3976,27 @@ class MainWindow(QMainWindow):
             if curve is None:
                 continue
             curve_ids.append(curve.metadata.curve_id)
+            configured = ""
+            for definition in self.tablet_view.layout_model.tracks:
+                matching_mnemonic = next(
+                    (
+                        mnemonic
+                        for mnemonic in definition.curve_mnemonics
+                        if mnemonic.casefold() == item.mnemonic.casefold()
+                    ),
+                    None,
+                )
+                if matching_mnemonic is not None:
+                    configured = definition.curve_display_settings(
+                        matching_mnemonic
+                    ).display_name
+                    break
             display_names[item.mnemonic] = localized_curve_name(
                 curve.metadata.original_mnemonic,
                 description=curve.metadata.description or "",
                 unit=curve.metadata.unit or "",
                 language=self.language,
+                configured=configured,
             )
         if index.role is IndexRole.DEPTH and curve_ids:
             try:
@@ -4009,6 +4025,11 @@ class MainWindow(QMainWindow):
         )
         self.interval_statistics_dock.show()
         self.interval_statistics_dock.raise_()
+        self.resizeDocks(
+            [self.interval_statistics_dock],
+            [430],
+            Qt.Orientation.Horizontal,
+        )
 
     def _export_interval_statistics(self, export_format: str) -> None:
         statistics = self.interval_statistics_panel.statistics
@@ -4039,6 +4060,8 @@ class MainWindow(QMainWindow):
                     statistics,
                     interval_label=self.interval_statistics_panel.interval_label,
                     dataset_name=self.interval_statistics_panel.dataset_name,
+                    display_names=self.interval_statistics_panel.display_names,
+                    language=self.language,
                 )
             else:
                 exported = export_interval_statistics_csv(
@@ -4046,6 +4069,8 @@ class MainWindow(QMainWindow):
                     statistics,
                     interval_label=self.interval_statistics_panel.interval_label,
                     dataset_name=self.interval_statistics_panel.dataset_name,
+                    display_names=self.interval_statistics_panel.display_names,
+                    language=self.language,
                 )
         except OSError as exc:
             QMessageBox.critical(self, self._t("statistics.title"), str(exc))

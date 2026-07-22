@@ -18,12 +18,15 @@ def test_interval_statistics_panel_renders_and_copies(qapp) -> None:
     assert table is not None
     assert table.rowCount() == 1
     assert table.item(0, 0).text() == "Rate of Penetration\nROP"
-    assert table.item(0, 3).text() == "75.0"
+    assert table.item(0, 1).text() == "1"
+    assert table.item(0, 2).text() == "3"
+    assert table.item(0, 3).text() == "5"
+    assert "Points: 3" in table.item(0, 0).toolTip()
 
     panel.copy_to_clipboard()
 
     assert "Dataset\tDataset A" in qapp.clipboard().text()
-    assert "ROP\tm/h\t3\t75" in qapp.clipboard().text()
+    assert "Rate of Penetration\tROP\tm/h\t3\t75" in qapp.clipboard().text()
     panel.close()
 
 
@@ -39,8 +42,7 @@ def test_interval_statistics_panel_marks_missing_values(qapp) -> None:
         ),
     )
 
-    assert panel.table.item(0, 3).text() == "0.0"
-    assert panel.table.item(0, 4).text() == "—"
-    assert panel.table.item(0, 5).text() == "—"
-    assert panel.table.item(0, 6).text() == "—"
+    assert panel.table.item(0, 1).text() == "—"
+    assert panel.table.item(0, 2).text() == "—"
+    assert panel.table.item(0, 3).text() == "—"
     panel.close()

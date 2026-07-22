@@ -191,6 +191,10 @@ def test_window_builds_interval_statistics_panel_from_tablet_gesture(qapp) -> No
     assert statistics[0].minimum == 1.0
     assert statistics[0].maximum == 2.0
     assert statistics[0].mean == 1.5
+    assert window.interval_statistics_panel.table.item(0, 0).text() == "Rate of Penetration\nROP"
+    assert window.interval_statistics_panel.table.item(0, 1).text() == "1"
+    assert window.interval_statistics_panel.table.item(0, 2).text() == "1.5"
+    assert window.interval_statistics_panel.table.item(0, 3).text() == "2"
     assert window.dataset_selection.interval == (100.0, 101.0)
     assert not window.interval_statistics_dock.isHidden()
     window.close()
