@@ -72,11 +72,17 @@ def test_source_artifact_manifest_is_json_serializable(tmp_path) -> None:
     assert json.loads(json.dumps(manifest)) == manifest
 
 
-def test_source_artifact_store_rejects_symlinked_assets_directory(tmp_path) -> None:
+def test_source_artifact_store_rejects_symlinked_assets_directory(
+    tmp_path, symlink_or_skip
+) -> None:
     project_path = tmp_path / "well.geolog.json"
     outside = tmp_path / "outside"
     outside.mkdir()
-    (tmp_path / "well.geolog.json.assets").symlink_to(outside, target_is_directory=True)
+    symlink_or_skip(
+        tmp_path / "well.geolog.json.assets",
+        outside,
+        target_is_directory=True,
+    )
 
     with pytest.raises(SourceArtifactError, match="символической ссылкой"):
         save_source_documents(

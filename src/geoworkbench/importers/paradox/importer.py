@@ -91,6 +91,8 @@ def import_paradox(
         quality = analyze_table(parsed)
         _notify(progress, "analysis", 1, 1)
     selected = plan or _automatic_plan(parsed, quality)
+    classification = DatasetClassification(selected.classification)
+    duplicate_policy = DuplicateDepthPolicy(selected.duplicate_depth_policy)
     mappings = selected.mappings or default_mappings(parsed, language=selected.language)
     by_source = {mapping.source_name: mapping for mapping in mappings}
 
@@ -227,7 +229,7 @@ def import_paradox(
             "PARADOX_VERSION": parsed.header.version_label,
             "PARADOX_RECORDS": str(parsed.rows_read),
             "PARADOX_FIELDS": str(len(parsed.fields)),
-            "PARADOX_CLASSIFICATION": selected.classification.value,
+            "PARADOX_CLASSIFICATION": classification.value,
             "PARADOX_DEPTH_FIELD": depth_field or "",
             "PARADOX_TIME_FIELD": time_field or "",
             "PARADOX_TIME_REPRESENTATION": time_representation,
@@ -353,8 +355,8 @@ def import_paradox(
     dataset.curves = curves
     if raw_time_curve_mnemonic:
         dataset.parameters["PARADOX_TIME_RAW_CURVE"] = raw_time_curve_mnemonic
-    skipped_records = _apply_duplicate_depth_policy(dataset, selected.duplicate_depth_policy)
-    dataset.parameters["PARADOX_DUPLICATE_DEPTH_POLICY"] = selected.duplicate_depth_policy.value
+    skipped_records = _apply_duplicate_depth_policy(dataset, duplicate_policy)
+    dataset.parameters["PARADOX_DUPLICATE_DEPTH_POLICY"] = duplicate_policy.value
     dataset.parameters["PARADOX_DUPLICATE_ROWS_REMOVED"] = str(skipped_records)
     dataset.parameters["PARADOX_DROP_EMPTY_CHANNELS"] = str(selected.drop_empty_channels).lower()
     represented_sources = {
@@ -386,7 +388,7 @@ def import_paradox(
             "PARADOX_SCHEMA_SIGNATURE": schema_signature(parsed),
             "PARADOX_APPLIED_CORRECTIONS": json.dumps(
                 {
-                    "duplicate_depth_policy": selected.duplicate_depth_policy.value,
+                    "duplicate_depth_policy": duplicate_policy.value,
                     "duplicate_rows_removed": skipped_records,
                     "sorted_by_index": selected.sort_by_index,
                     "dropped_empty_channels": selected.drop_empty_channels,

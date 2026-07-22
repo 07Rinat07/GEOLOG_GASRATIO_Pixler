@@ -71,7 +71,7 @@ def test_window_starts_on_clear_home_page(qapp) -> None:
     assert window.home_page.findChild(type(window.home_page.workspace_button), "homeImportButton")
     assert "No data" in window.home_page.workspace_value.text()
     assert window.home_page.content.width() == min(
-        1120, window.home_page.scroll.viewport().width()
+        1120, window.home_page.scroll_area.viewport().width()
     )
     window.close()
 

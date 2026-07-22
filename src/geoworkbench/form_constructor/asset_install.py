@@ -4,6 +4,7 @@ from hashlib import sha256
 from importlib.resources import files
 from functools import lru_cache
 from pathlib import Path
+from typing import Any, cast
 
 from PySide6.QtCore import QBuffer, QIODevice
 from PySide6.QtGui import QImage
@@ -62,9 +63,9 @@ def _png_payload(asset_path: str) -> bytes:
     if not buffer.open(QIODevice.OpenModeFlag.WriteOnly):
         raise RuntimeError("Не удалось открыть буфер PNG")
     try:
-        if not image.save(buffer, "PNG"):
+        if not image.save(buffer, cast(Any, "PNG")):
             raise RuntimeError(f"Не удалось преобразовать ресурс в PNG: {asset_path}")
-        return bytes(buffer.data())
+        return bytes(buffer.data().data())
     finally:
         buffer.close()
 

@@ -119,7 +119,6 @@ def configure_application_unicode_fonts(app: QApplication) -> UnicodeFontProfile
     return profile
 
 
-@lru_cache(maxsize=64)
 def resolve_unicode_font_profile(text: str = _REQUIRED_PRINT_SAMPLE) -> UnicodeFontProfile:
     installed = _installed_font_families()
     if not installed:
@@ -312,8 +311,10 @@ def _supports_all(family: str, characters: tuple[str, ...]) -> bool:
     return all(_family_supports(family, ord(character)) for character in characters)
 
 
-@lru_cache(maxsize=1)
 def _installed_font_families() -> tuple[str, ...]:
+    # QFontDatabase can legitimately be empty before QApplication has finished
+    # initialising.  Never cache that transient result: doing so makes every
+    # later print preflight fail for the lifetime of the process.
     return tuple(QFontDatabase.families())
 
 

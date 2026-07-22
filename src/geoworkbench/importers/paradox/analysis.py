@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import math
-from pathlib import Path
 
 import numpy as np
 
@@ -279,9 +278,9 @@ def _time_candidate(name: str, values: np.ndarray) -> IndexCandidate:
         score += 0.42
         factor, unit = _unix_scale(median)  # type: ignore[misc]
         evidence.append(f"диапазон соответствует Unix timestamp ({unit})")
-        moment = unix_seconds_to_datetime(float(finite[0]) / factor)
-        if moment is not None:
-            preview = moment.strftime("%d.%m.%Y %H:%M:%S")
+        unix_moment = unix_seconds_to_datetime(float(finite[0]) / factor)
+        if unix_moment is not None:
+            preview = unix_moment.strftime("%d.%m.%Y %H:%M:%S")
     else:
         positive = differences[differences > 0]
         if positive.size and np.median(positive) > 0:

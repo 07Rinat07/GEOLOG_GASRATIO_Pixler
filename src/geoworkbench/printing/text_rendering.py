@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QPainter
 
@@ -73,10 +74,9 @@ def draw_oriented_text(
 def column_heading_height(columns: object) -> float:
     """Return the common print heading band required by column title rotation."""
 
-    try:
-        values = list(columns)  # type: ignore[arg-type]
-    except TypeError:
+    if not isinstance(columns, Iterable):
         return 12.0
+    values = list(columns)
     for column in values:
         properties = getattr(column, "properties", {})
         if isinstance(properties, dict) and properties.get("title_orientation") in {

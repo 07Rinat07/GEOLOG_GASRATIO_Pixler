@@ -130,6 +130,7 @@ def export_widget_svg(
     settings = page_settings
     temporary = _temporary_path(destination)
     painter: QPainter | None = None
+    generator: QSvgGenerator | None = None
     try:
         generator = QSvgGenerator()
         generator.setFileName(str(temporary))
@@ -162,11 +163,23 @@ def export_widget_svg(
             )
         if not painter.end():
             raise VisualizationExportError("Не удалось завершить SVG renderer")
+        # On Windows QSvgGenerator keeps its output handle open until both the
+        # painter wrapper and generator are destroyed. Release them before the
+        # atomic replace, otherwise os.replace fails with WinError 32.
+        painter = None
+        generator = None
         if not temporary.exists() or temporary.stat().st_size == 0:
             raise VisualizationExportError("Не удалось сформировать SVG")
         os.replace(temporary, destination)
     except Exception as exc:
-        temporary.unlink(missing_ok=True)
+        if painter is not None and painter.isActive():
+            painter.end()
+        painter = None
+        generator = None
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
         if isinstance(exc, VisualizationExportError):
             raise
         if isinstance(exc, PageRenderError):

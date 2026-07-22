@@ -382,7 +382,7 @@ def _parameter_rows(
         AppLanguage.KK: ("Иә", "Жоқ"),
         AppLanguage.EN: ("Yes", "No"),
     }[language]
-    rows: list[list[object]] = [_parameter_sheet_headers(language)]
+    rows: list[list[object]] = [list(_parameter_sheet_headers(language))]
     for number, column in enumerate(columns, start=1):
         original = column.technical_name.split(" → ", 1)[0]
         rows.append(
@@ -543,4 +543,3 @@ def _write_xlsx(
     metadata_sheet.column_dimensions["B"].width = 48
     metadata_sheet.freeze_panes = "A2"
     workbook.save(path)
-

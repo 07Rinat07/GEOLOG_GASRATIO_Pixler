@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any, TypedDict, cast
 
 import numpy as np
 
@@ -18,14 +19,11 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFontComboBox,
     QFormLayout,
-    QGridLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
-    QScrollArea,
     QSplitter,
     QTabWidget,
     QTableWidget,
@@ -47,6 +45,29 @@ from geoworkbench.project.annotation_schema import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.time_display import format_elapsed_time, format_unix_seconds
+
+
+class _AnnotationValues(TypedDict):
+    kind: AnnotationKind
+    anchor: AnnotationAnchor
+    text: str
+    track_id: str | None
+    depth: float
+    axis_value: float | None
+    axis_id: str | None
+    parameter_mnemonic: str | None
+    parameter_value: float | None
+    unit: str
+    x_fraction: float
+    offset_x: float
+    offset_y: float
+    width: float
+    height: float
+    style: AnnotationStyle
+    asset_ref: str | None
+    visible: bool
+    locked: bool
+    print_enabled: bool
 
 
 class _ColorButton(QPushButton):
@@ -110,7 +131,7 @@ class DepthAnnotationsDialog(QDialog):
             else None
         )
         self._parameter_value: float | None = (
-            float(self._initial_values["parameter_value"])
+            self._initial_float(self._initial_values["parameter_value"])
             if self._initial_values.get("parameter_value") is not None
             else None
         )
@@ -732,7 +753,13 @@ class DepthAnnotationsDialog(QDialog):
             rotation=self.rotation_input.value(),
         )
 
-    def _values(self) -> dict[str, object]:
+    @staticmethod
+    def _initial_float(value: object) -> float:
+        """Preserve Qt-friendly numeric coercion while keeping the boundary typed."""
+
+        return float(cast(Any, value))
+
+    def _values(self) -> _AnnotationValues:
         kind = AnnotationKind(str(self.kind_input.currentData()))
         anchor = AnnotationAnchor(str(self.anchor_input.currentData()))
         parameter = self.parameter_input.currentData()
@@ -941,19 +968,21 @@ class DepthAnnotationsDialog(QDialog):
         if values.get("axis_id") is not None:
             self._set_combo_data(self.axis_id_input, values["axis_id"])
         if values.get("depth") is not None:
-            self.depth_input.setValue(float(values["depth"]))
+            self.depth_input.setValue(self._initial_float(values["depth"]))
         if values.get("axis_value") is not None:
-            self.axis_input.setValue(float(values["axis_value"]))
+            self.axis_input.setValue(self._initial_float(values["axis_value"]))
         if values.get("x_fraction") is not None:
-            self.x_fraction_input.setValue(float(values["x_fraction"]) * 100.0)
+            self.x_fraction_input.setValue(
+                self._initial_float(values["x_fraction"]) * 100.0
+            )
         if values.get("offset_x") is not None:
-            self.offset_x_input.setValue(float(values["offset_x"]))
+            self.offset_x_input.setValue(self._initial_float(values["offset_x"]))
         if values.get("offset_y") is not None:
-            self.offset_y_input.setValue(float(values["offset_y"]))
+            self.offset_y_input.setValue(self._initial_float(values["offset_y"]))
         if values.get("width") is not None:
-            self.width_input.setValue(float(values["width"]))
+            self.width_input.setValue(self._initial_float(values["width"]))
         if values.get("height") is not None:
-            self.height_input.setValue(float(values["height"]))
+            self.height_input.setValue(self._initial_float(values["height"]))
         if values.get("text") is not None:
             self.text_input.setText(str(values["text"]))
         self._update_field_visibility()

@@ -662,7 +662,7 @@ def test_user_depth_change_updates_samples_and_linked_tracks(qapp) -> None:
     view.close()
 
 
-def test_tablet_view_renders_depth_annotations_on_every_track(qapp) -> None:
+def test_tablet_view_renders_legacy_annotation_once_on_preferred_track(qapp) -> None:
     dataset = Dataset(
         "dataset-1",
         "Dataset",
@@ -699,7 +699,7 @@ def test_tablet_view_renders_depth_annotations_on_every_track(qapp) -> None:
     view.set_dataset(dataset)
     qapp.processEvents()
 
-    assert view.rendered_annotation_ids("depth") == ("note-1",)
+    assert view.rendered_annotation_ids("depth") == ()
     assert view.rendered_annotation_ids("curve") == ("note-1",)
     view.close()
 
@@ -1495,7 +1495,7 @@ def test_tablet_tracks_fill_scroll_viewport_height(qapp) -> None:
     view.close()
 
 
-def test_track_widget_requests_context_menu_from_plot_body(qapp) -> None:
+def test_track_widget_leaves_plot_body_context_menu_to_tablet_router(qapp) -> None:
     widget = TabletTrackWidget(TrackDefinition("curve", "Curve", TrackKind.CURVE))
     requested: list[str] = []
     widget.context_requested.connect(lambda track_id, _pos: requested.append(track_id))
@@ -1509,8 +1509,8 @@ def test_track_widget_requests_context_menu_from_plot_body(qapp) -> None:
         Qt.KeyboardModifier.NoModifier,
     )
 
-    assert widget.eventFilter(widget.plot.viewport(), event) is True
-    assert requested == ["curve"]
+    assert widget.eventFilter(widget.plot.viewport(), event) is False
+    assert requested == []
     widget.close()
 
 
@@ -2451,7 +2451,6 @@ def test_tablet_curve_pencil_keeps_visible_live_readout(qapp) -> None:
 
 def test_tablet_view_renders_rich_annotation_only_on_bound_track(qapp) -> None:
     from geoworkbench.project.annotation_schema import (
-        AnnotationAnchor,
         AnnotationKind,
         AnnotationStyle,
         annotation_properties,
@@ -2516,6 +2515,7 @@ def test_tablet_view_renders_rich_annotation_only_on_bound_track(qapp) -> None:
     assert view.rendered_annotation_ids("depth") == ()
     assert view.rendered_annotation_ids("drilling") == ("annotation-1",)
     view.set_annotation_print_mode(True)
-    item = view._rendered["drilling"].annotation_items["annotation-1"]
+    item = view.rendered_annotation_item("annotation-1")
+    assert item is not None
     assert item.isVisible() is True
     view.close()

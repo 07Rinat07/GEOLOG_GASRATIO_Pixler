@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Mapping
 
 
 SUPPORTED_SCHEMA = "geoworkbench.constructor-assets/v1"
@@ -90,7 +91,7 @@ class ConstructorAssetRegistry:
             raise KeyError(f"unknown constructor asset: {asset_id}") from exc
 
     def all(self, *, kind: str | None = None, active_only: bool = True) -> tuple[AssetDefinition, ...]:
-        values = self._assets.values()
+        values: Iterable[AssetDefinition] = self._assets.values()
         if kind is not None:
             values = (asset for asset in values if asset.kind == kind)
         if active_only:

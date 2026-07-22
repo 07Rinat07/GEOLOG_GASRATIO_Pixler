@@ -614,6 +614,8 @@ class DepthAnnotationController:
         )
 
     def _validate_depth(self, depth: object) -> float:
+        if not isinstance(depth, (str, int, float)) or isinstance(depth, bool):
+            raise ValueError("Глубина аннотации должна быть числом")
         try:
             normalized_depth = float(depth)
         except (TypeError, ValueError) as exc:
@@ -669,6 +671,8 @@ class DepthAnnotationController:
     def _optional_finite(value: object, label: str) -> float | None:
         if value is None or value == "":
             return None
+        if not isinstance(value, (str, int, float)) or isinstance(value, bool):
+            raise ValueError(f"{label} должно быть числом")
         try:
             result = float(value)
         except (TypeError, ValueError) as exc:
@@ -687,6 +691,8 @@ class DepthAnnotationController:
     ) -> float:
         if value is None:
             return default
+        if not isinstance(value, (str, int, float)) or isinstance(value, bool):
+            raise ValueError(f"{label} должно быть числом")
         try:
             result = float(value)
         except (TypeError, ValueError) as exc:

@@ -157,7 +157,7 @@ class PrintExportPreferences:
 
 def available_output_formats() -> tuple[PrintOutputFormat, ...]:
     supported = {
-        bytes(item).decode("ascii", errors="ignore").casefold()
+        bytes(item.data()).decode("ascii", errors="ignore").casefold()
         for item in QImageWriter.supportedImageFormats()
     }
     result = [PrintOutputFormat.PRINTER, PrintOutputFormat.PDF, PrintOutputFormat.PNG]

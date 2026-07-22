@@ -174,9 +174,11 @@ def _resolve_editable_header_field(
 
     dataset = session.current_dataset
     if dataset is not None:
-        value = _first_dataset_header(dataset.headers, _HEADER_ALIASES.get(field_name, ()))
-        if value:
-            return value
+        dataset_value = _first_dataset_header(
+            dataset.headers, _HEADER_ALIASES.get(field_name, ())
+        )
+        if dataset_value:
+            return dataset_value
 
     if field_name == "header.well_number" and session.current_well is not None:
         return session.current_well.name

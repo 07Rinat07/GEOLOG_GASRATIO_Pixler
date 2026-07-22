@@ -532,9 +532,9 @@ def _paint_header_element(
         return
     text = _header_text(element, session, template)
     color = _color(element.properties.get("color"), "#0f172a")
-    background = element.properties.get("background")
-    if isinstance(background, str) and QColor(background).isValid():
-        painter.fillRect(rect, QColor(background))
+    raw_background = element.properties.get("background")
+    if isinstance(raw_background, str) and QColor(raw_background).isValid():
+        painter.fillRect(rect, QColor(raw_background))
     if element.properties.get("frame") is True:
         painter.setPen(QPen(_color(element.properties.get("frame_color"), "#334155"), 0.35))
         painter.drawRect(rect)
@@ -663,7 +663,8 @@ def _paint_lithotype_swatch(
         _set_scaled_font_mm(painter, font, max(1.0, min(font_size, 50.0)))
         painter.setFont(font)
         painter.setPen(_color(properties.get("color"), "#0f172a"))
-        alignment_name = properties.get("alignment", "left")
+        raw_alignment = properties.get("alignment", "left")
+        alignment_name = raw_alignment if isinstance(raw_alignment, str) else "left"
         horizontal = {
             "center": Qt.AlignmentFlag.AlignHCenter,
             "right": Qt.AlignmentFlag.AlignRight,

@@ -2618,6 +2618,7 @@ class MainWindow(QMainWindow):
                 dpi=self.print_export_preferences.dpi,
                 image_quality=self.print_export_preferences.image_quality,
             ),
+            self.tabs.tabText(self.tabs.currentIndex()),
         )
 
     def configure_print_page(self) -> None:
@@ -3925,9 +3926,13 @@ class MainWindow(QMainWindow):
         dataset = self.session.current_dataset
         if dataset is None or not isinstance(payload, dict):
             return
+        raw_top = payload.get("top")
+        raw_bottom = payload.get("bottom")
+        if raw_top is None or raw_bottom is None:
+            return
         try:
-            top = float(payload.get("top"))
-            bottom = float(payload.get("bottom"))
+            top = float(raw_top)
+            bottom = float(raw_bottom)
         except (TypeError, ValueError):
             return
         if not np.isfinite(top) or not np.isfinite(bottom) or top >= bottom:

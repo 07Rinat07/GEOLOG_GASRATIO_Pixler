@@ -177,7 +177,7 @@ class RockDescriptionDialog(QDialog):
 
     @property
     def description_html(self) -> str | None:
-        value = self.editor.to_html()
+        value = self.editor.html()
         return value if value and self.editor.editor.toPlainText().strip() else None
 
     def _accept_if_valid(self) -> None:

@@ -82,20 +82,20 @@ class HomePage(QWidget):
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
-        self.scroll = QScrollArea(self)
-        self.scroll.setObjectName("homeScrollArea")
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll.viewport().installEventFilter(self)
-        outer.addWidget(self.scroll)
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setObjectName("homeScrollArea")
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.viewport().installEventFilter(self)
+        outer.addWidget(self.scroll_area)
 
-        self.content = QWidget(self.scroll)
+        self.content = QWidget(self.scroll_area)
         self.content.setObjectName("homeContent")
         content_layout = QVBoxLayout(self.content)
         content_layout.setContentsMargins(34, 28, 34, 34)
         content_layout.setSpacing(22)
-        self.scroll.setWidget(self.content)
-        self.scroll.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        self.scroll_area.setWidget(self.content)
+        self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         content = self.content
 
         header = QHBoxLayout()
@@ -224,8 +224,8 @@ class HomePage(QWidget):
         self.retranslate(language)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
-        if watched is self.scroll.viewport() and event.type() is QEvent.Type.Resize:
-            viewport_width = self.scroll.viewport().width()
+        if watched is self.scroll_area.viewport() and event.type() is QEvent.Type.Resize:
+            viewport_width = self.scroll_area.viewport().width()
             if viewport_width > 0:
                 self.content.setFixedWidth(min(1120, viewport_width))
                 self.drilling_animation.setVisible(viewport_width >= 820)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -78,7 +78,7 @@ class _FormPreview(QWidget):
             painter.setPen(QColor("#111827"))
             draw_oriented_text(
                 painter,
-                header,
+                QRectF(header),
                 column.title,
                 orientation=column.title_orientation,
                 position=column.title_position,
@@ -106,7 +106,7 @@ class _FormPreview(QWidget):
                     painter.setPen(QColor("#374151"))
                     draw_oriented_text(
                         painter,
-                        track_rect.adjusted(3, 0, -3, 0),
+                        QRectF(track_rect.adjusted(3, 0, -3, 0)),
                         track.title,
                         orientation=track.title_orientation,
                         position=track.title_position,

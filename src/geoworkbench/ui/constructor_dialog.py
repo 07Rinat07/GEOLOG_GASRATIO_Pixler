@@ -545,7 +545,7 @@ class UniversalConstructorDialog(QDialog):
         if self.template_list.currentItem() is not None:
             self.template_list.blockSignals(True)
             self.template_list.clearSelection()
-            self.template_list.setCurrentItem(None)
+            self.template_list.setCurrentRow(-1)
             self.template_list.blockSignals(False)
         template = preset.template
         width = sum(column.width_mm for column in template.columns)
@@ -635,7 +635,7 @@ class UniversalConstructorDialog(QDialog):
         if template is not None and hasattr(self, "preset_list"):
             self.preset_list.blockSignals(True)
             self.preset_list.clearSelection()
-            self.preset_list.setCurrentItem(None)
+            self.preset_list.setCurrentRow(-1)
             self.preset_list.blockSignals(False)
         if template is None:
             self.template_summary.setPlainText(_TEXT[self.language]["no_template"])

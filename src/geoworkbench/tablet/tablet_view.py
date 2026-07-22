@@ -69,6 +69,7 @@ from geoworkbench.printing.image_assets import ImageAsset
 from geoworkbench.project.annotation_schema import (
     AnnotationAnchor,
     AnnotationKind,
+    AnnotationRecord,
     annotation_from_canvas,
     is_annotation_object,
 )
@@ -959,7 +960,7 @@ class TabletView(QWidget):
             creation_tool_cancelled=lambda: self.set_annotation_tool(None),
         )
         self._track_edit_interaction = TrackEditInteractionHandler(
-            select_track=lambda track_id: self.select_track(track_id, emit_signal=True),
+            select_track=self._select_track_from_interaction,
             edit_track=self.track_full_edit_requested.emit,
             can_edit_track=self._track_is_directly_editable,
         )
@@ -1065,6 +1066,26 @@ class TabletView(QWidget):
         self._navigation_help_label.setStyleSheet("color: #64748b; font-size: 10px;")
         self._navigation_help_label.setToolTip(self._navigation_hint)
         navigation.addWidget(self._navigation_help_label)
+
+        self._navigation_bar = QFrame()
+        self._navigation_bar.setLayout(navigation)
+        self._navigation_scroll = QScrollArea()
+        self._navigation_scroll.setObjectName("tabletNavigationScroll")
+        self._navigation_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._navigation_scroll.setWidgetResizable(True)
+        self._navigation_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self._navigation_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self._navigation_scroll.setWidget(self._navigation_bar)
+        self._navigation_scroll.setMinimumWidth(0)
+        navigation_height = (
+            self._navigation_bar.sizeHint().height()
+            + self._navigation_scroll.horizontalScrollBar().sizeHint().height()
+        )
+        self._navigation_scroll.setFixedHeight(navigation_height)
 
         self._curve_pencil_bar = QFrame()
         self._curve_pencil_bar.setObjectName("tabletCurvePencilBar")
@@ -1173,6 +1194,24 @@ class TabletView(QWidget):
         self._update_curve_pencil_mode_controls()
         self.set_curve_pencil_history_state(False, False)
 
+        self._curve_pencil_scroll = QScrollArea()
+        self._curve_pencil_scroll.setObjectName("tabletCurvePencilScroll")
+        self._curve_pencil_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._curve_pencil_scroll.setWidgetResizable(True)
+        self._curve_pencil_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self._curve_pencil_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self._curve_pencil_scroll.setWidget(self._curve_pencil_bar)
+        self._curve_pencil_scroll.setMinimumWidth(0)
+        pencil_height = (
+            self._curve_pencil_bar.sizeHint().height()
+            + self._curve_pencil_scroll.horizontalScrollBar().sizeHint().height()
+        )
+        self._curve_pencil_scroll.setFixedHeight(pencil_height)
+
         self._vertical_scrollbar = QScrollBar(Qt.Orientation.Vertical)
         self._vertical_scrollbar.setRange(0, 0)
         self._vertical_scrollbar.valueChanged.connect(self._vertical_scrollbar_changed)
@@ -1190,8 +1229,8 @@ class TabletView(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-        root.addLayout(navigation)
-        root.addWidget(self._curve_pencil_bar)
+        root.addWidget(self._navigation_scroll)
+        root.addWidget(self._curve_pencil_scroll)
         root.addLayout(charts, 1)
 
     def set_language(self, language: AppLanguage) -> None:
@@ -1474,7 +1513,23 @@ class TabletView(QWidget):
         rendered = self._rendered.get(track_id)
         if rendered is None:
             raise KeyError(f"Трек не отрисован: {track_id}")
-        return tuple((rendered.annotation_items or {}).keys())
+        annotation_ids: list[str] = []
+        visible_ids = set(self._annotation_overlay.annotation_ids)
+        for canvas_item in self._canvas_objects:
+            if not is_annotation_object(canvas_item):
+                continue
+            record = annotation_from_canvas(canvas_item)
+            if record.annotation_id not in visible_ids:
+                continue
+            target = self._annotation_target_track(record)
+            if target is rendered:
+                annotation_ids.append(record.annotation_id)
+        return tuple(annotation_ids)
+
+    def rendered_annotation_item(
+        self, annotation_id: str
+    ) -> TabletAnnotationItem | None:
+        return self._annotation_overlay.annotation_item(annotation_id)
 
     def rendered_lithology_ids(self, track_id: str) -> tuple[str, ...]:
         rendered = self._rendered.get(track_id)
@@ -2517,6 +2572,8 @@ class TabletView(QWidget):
             if rendered.curve_pencil_readout is not None:
                 rendered.curve_pencil_readout.hide()
             return
+        if track_id is None:
+            return
         position = event.position().toPoint()
         self._curve_pencil_last_hover = (track_id, point, position)
         self._show_curve_pencil_readout(rendered, point, position)
@@ -3242,8 +3299,10 @@ class TabletView(QWidget):
         # the upper/lower edge the default negative offset would otherwise put
         # part of the object under the track header or outside the viewport.
         viewport_height = max(1.0, float(plot.viewport().height()))
-        box_height = float(payload.get("height", 76.0))
-        offset_y = float(payload.get("offset_y", -42.0))
+        raw_height = payload.get("height", 76.0)
+        raw_offset_y = payload.get("offset_y", -42.0)
+        box_height = float(raw_height) if isinstance(raw_height, (int, float)) else 76.0
+        offset_y = float(raw_offset_y) if isinstance(raw_offset_y, (int, float)) else -42.0
         local_y = float(event.position().y())
         margin = 12.0
         if local_y + offset_y < margin:
@@ -3308,11 +3367,15 @@ class TabletView(QWidget):
         else:
             unit = str(payload.get("unit", "")).strip()
             suffix = f" {unit}" if unit else ""
-            rendered_value = f"{float(payload.get('value', 0.0)):g}{suffix}"
+            raw_value = payload.get("value", 0.0)
+            value = float(raw_value) if isinstance(raw_value, (int, float)) else 0.0
+            rendered_value = f"{value:g}{suffix}"
         depth_unit = str(payload.get("depth_unit", "м")).strip() or "м"
+        raw_depth = payload.get("depth", 0.0)
+        depth = float(raw_depth) if isinstance(raw_depth, (int, float)) else 0.0
         return (
             f"{payload.get('mnemonic', '')}: {rendered_value} · "
-            f"{float(payload.get('depth', 0.0)):g} {depth_unit}"
+            f"{depth:g} {depth_unit}"
         )
 
     def _show_curve_value_popup(
@@ -3365,7 +3428,8 @@ class TabletView(QWidget):
         top = self._layout_model.visible_depth_top
         bottom = self._layout_model.visible_depth_bottom
         if top is not None and bottom is not None:
-            return tuple(sorted((float(top), float(bottom))))
+            ordered = sorted((float(top), float(bottom)))
+            return ordered[0], ordered[1]
         first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
         if first is None:
             return None
@@ -3913,7 +3977,10 @@ class TabletView(QWidget):
                 TrackKind.GAS,
                 TrackKind.DEXP,
             }:
-                hint = self._localizer.text("statistics.drag_hint")
+                hint = (
+                    f"{self._navigation_hint}\n"
+                    f"{self._localizer.text('statistics.drag_hint')}"
+                )
                 track.plot.setToolTip(hint)
                 track.title.setToolTip(hint)
             track.selected.connect(self._track_selected_from_widget)
@@ -4074,7 +4141,8 @@ class TabletView(QWidget):
         if snapped is None:
             return False
         gesture.current_value = snapped
-        self._analysis_interval = tuple(sorted((gesture.start_value, snapped)))
+        ordered = sorted((gesture.start_value, snapped))
+        self._analysis_interval = (ordered[0], ordered[1])
         self._update_analysis_regions()
         return True
 
@@ -4276,30 +4344,40 @@ class TabletView(QWidget):
 
     def _register_track_overlays(self, rendered: RenderedTrack) -> None:
         track_id = rendered.definition.track_id
-        for item in (rendered.annotation_items or {}).values():
-            self._overlay_layers.register(OverlayLayerKind.MARKER, track_id, item)
-        for item in (rendered.lithology_label_items or {}).values():
-            self._overlay_layers.register(OverlayLayerKind.ANNOTATION, track_id, item)
-        for item in (rendered.lithology_description_items or {}).values():
-            self._overlay_layers.register(OverlayLayerKind.ANNOTATION, track_id, item)
+        for annotation_item in (rendered.annotation_items or {}).values():
+            self._overlay_layers.register(
+                OverlayLayerKind.MARKER, track_id, annotation_item
+            )
+        for label_item in (rendered.lithology_label_items or {}).values():
+            self._overlay_layers.register(
+                OverlayLayerKind.ANNOTATION, track_id, label_item
+            )
+        for description_item in (rendered.lithology_description_items or {}).values():
+            self._overlay_layers.register(
+                OverlayLayerKind.ANNOTATION, track_id, description_item
+            )
         for items in (rendered.stratigraphy_items or {}).values():
-            for item in items:
-                if hasattr(item, "setZValue") and hasattr(item, "setVisible"):
+            for graphics_item in items:
+                if hasattr(graphics_item, "setZValue") and hasattr(
+                    graphics_item, "setVisible"
+                ):
                     kind = (
                         OverlayLayerKind.ANNOTATION
-                        if isinstance(item, pg.TextItem)
+                        if isinstance(graphics_item, pg.TextItem)
                         else OverlayLayerKind.MARKER
                     )
-                    self._overlay_layers.register(kind, track_id, item)
+                    self._overlay_layers.register(kind, track_id, graphics_item)
         for items in (rendered.interpretation_items or {}).values():
-            for item in items:
-                if hasattr(item, "setZValue") and hasattr(item, "setVisible"):
+            for graphics_item in items:
+                if hasattr(graphics_item, "setZValue") and hasattr(
+                    graphics_item, "setVisible"
+                ):
                     kind = (
                         OverlayLayerKind.ANNOTATION
-                        if isinstance(item, pg.TextItem)
+                        if isinstance(graphics_item, pg.TextItem)
                         else OverlayLayerKind.MARKER
                     )
-                    self._overlay_layers.register(kind, track_id, item)
+                    self._overlay_layers.register(kind, track_id, graphics_item)
 
     def _install_cursor(self, rendered: RenderedTrack) -> None:
         if rendered.plot is None:
@@ -4779,6 +4857,20 @@ class TabletView(QWidget):
         return True
 
     @staticmethod
+    def _annotation_ancestor(item: object | None) -> TabletAnnotationItem | None:
+        """Resolve a graphics-scene hit or child to its annotation item."""
+
+        current = item
+        visited: set[int] = set()
+        while current is not None and id(current) not in visited:
+            visited.add(id(current))
+            if isinstance(current, TabletAnnotationItem):
+                return current
+            parent_item = getattr(current, "parentItem", None)
+            current = parent_item() if callable(parent_item) else None
+        return None
+
+    @staticmethod
     def _pointer_button(button: Qt.MouseButton) -> PointerButton:
         if button == Qt.MouseButton.LeftButton:
             return PointerButton.LEFT
@@ -4802,14 +4894,15 @@ class TabletView(QWidget):
 
     @staticmethod
     def _key_name(event: QKeyEvent) -> str | None:
-        return {
-            Qt.Key.Key_Escape: "escape",
-            Qt.Key.Key_Return: "return",
-            Qt.Key.Key_Enter: "enter",
-            Qt.Key.Key_F2: "f2",
-            Qt.Key.Key_Delete: "delete",
-            Qt.Key.Key_Backspace: "backspace",
-        }.get(event.key())
+        keys: dict[int, str] = {
+            int(Qt.Key.Key_Escape): "escape",
+            int(Qt.Key.Key_Return): "return",
+            int(Qt.Key.Key_Enter): "enter",
+            int(Qt.Key.Key_F2): "f2",
+            int(Qt.Key.Key_Delete): "delete",
+            int(Qt.Key.Key_Backspace): "backspace",
+        }
+        return keys.get(event.key())
 
     def _tablet_input_from_mouse(
         self,
@@ -4850,6 +4943,8 @@ class TabletView(QWidget):
 
     @staticmethod
     def _cursor_shape(name: str | None) -> Qt.CursorShape | None:
+        if name is None:
+            return None
         return {
             "arrow": Qt.CursorShape.ArrowCursor,
             "cross": Qt.CursorShape.CrossCursor,
@@ -4955,6 +5050,9 @@ class TabletView(QWidget):
             (track_id for track_id, rendered in self._rendered.items() if rendered.plot is plot),
             None,
         )
+
+    def _select_track_from_interaction(self, track_id: str) -> None:
+        self.select_track(track_id, emit_signal=True)
 
     def _handle_depth_wheel(
         self,
@@ -5131,15 +5229,19 @@ class TabletView(QWidget):
                 point = self._mouse_event_plot_point(plot, event)
                 depth = self._axis_to_depth_value(float(point.y()))
                 if definition.kind is TrackKind.STRATIGRAPHY:
-                    interval = self.stratigraphy_interval_at_depth(depth)
-                    if interval is not None:
-                        self.stratigraphy_interval_edit_requested.emit(interval.interval_id)
+                    stratigraphy_interval = self.stratigraphy_interval_at_depth(depth)
+                    if stratigraphy_interval is not None:
+                        self.stratigraphy_interval_edit_requested.emit(
+                            stratigraphy_interval.interval_id
+                        )
                         event.accept()
                         return True
                 elif definition.kind is TrackKind.LITHOLOGY:
-                    interval = self.lithology_interval_at_depth(depth)
-                    if interval is not None:
-                        self.lithology_interval_edit_requested.emit(interval.interval_id)
+                    lithology_interval = self.lithology_interval_at_depth(depth)
+                    if lithology_interval is not None:
+                        self.lithology_interval_edit_requested.emit(
+                            lithology_interval.interval_id
+                        )
                         event.accept()
                         return True
                 elif definition.kind is TrackKind.TEXT:
@@ -5167,15 +5269,19 @@ class TabletView(QWidget):
                 point = self._mouse_event_plot_point(plot, event)
                 depth = self._axis_to_depth_value(float(point.y()))
                 if definition.kind is TrackKind.STRATIGRAPHY:
-                    interval = self.stratigraphy_interval_at_depth(depth)
-                    if interval is not None:
-                        self.stratigraphy_interval_edit_requested.emit(interval.interval_id)
+                    stratigraphy_interval = self.stratigraphy_interval_at_depth(depth)
+                    if stratigraphy_interval is not None:
+                        self.stratigraphy_interval_edit_requested.emit(
+                            stratigraphy_interval.interval_id
+                        )
                         event.accept()
                         return True
                 elif definition.kind is TrackKind.LITHOLOGY:
-                    interval = self.lithology_interval_at_depth(depth)
-                    if interval is not None:
-                        self.lithology_interval_edit_requested.emit(interval.interval_id)
+                    lithology_interval = self.lithology_interval_at_depth(depth)
+                    if lithology_interval is not None:
+                        self.lithology_interval_edit_requested.emit(
+                            lithology_interval.interval_id
+                        )
                         event.accept()
                         return True
                 elif definition.kind is TrackKind.TEXT:
@@ -5214,7 +5320,9 @@ class TabletView(QWidget):
                     )
                 ):
                     point = self._mouse_event_plot_point(plot, event)
-                    if self.begin_sample_drag(track_id, float(point.y())):
+                    if track_id is not None and self.begin_sample_drag(
+                        track_id, float(point.y())
+                    ):
                         event.accept()
                         return True
                 if event.type() == QEvent.Type.MouseMove and self._sample_gesture is not None:
@@ -5241,7 +5349,9 @@ class TabletView(QWidget):
                     )
                 ):
                     point = self._mouse_event_plot_point(plot, event)
-                    if self.begin_stratigraphy_drag(track_id, float(point.y())):
+                    if track_id is not None and self.begin_stratigraphy_drag(
+                        track_id, float(point.y())
+                    ):
                         event.accept()
                         return True
                 if event.type() == QEvent.Type.MouseMove and self._stratigraphy_gesture is not None:
@@ -5268,7 +5378,9 @@ class TabletView(QWidget):
                     )
                 ):
                     point = self._mouse_event_plot_point(plot, event)
-                    if self.begin_lithology_drag(track_id, float(point.y())):
+                    if track_id is not None and self.begin_lithology_drag(
+                        track_id, float(point.y())
+                    ):
                         event.accept()
                         return True
                 if event.type() == QEvent.Type.MouseMove and self._lithology_gesture is not None:
@@ -6179,9 +6291,9 @@ class TabletView(QWidget):
             track.plot.hideAxis("bottom")
             track.plot.setXRange(0.0, 100.0, padding=0)
             track.plot.setMouseEnabled(x=False, y=True)
-            curve_items: dict[str, pg.PlotDataItem] = {}
-            header_rows: list[tuple[str, str, str]] = []
-            legend_labels: list[str] = []
+            calc_curve_items: dict[str, pg.PlotDataItem] = {}
+            calc_header_rows: list[tuple[str, str, str]] = []
+            calc_legend_labels: list[str] = []
             for index, mnemonic in enumerate(definition.curve_mnemonics):
                 curve = self._dataset.curve_by_mnemonic(mnemonic)
                 if curve is None:
@@ -6232,11 +6344,13 @@ class TabletView(QWidget):
                 )
                 display_name = self._curve_display_name(definition, mnemonic, curve)
                 unit = (curve.metadata.unit or "%").strip() or "%"
-                header_rows.append((mnemonic, f"{display_name}\n0 … 100 {unit}", style.color))
-                legend_labels.append(display_name)
-                curve_items[mnemonic] = item
-            track.set_curve_headers(header_rows)
-            return tuple(legend_labels), curve_items, {}, None
+                calc_header_rows.append(
+                    (mnemonic, f"{display_name}\n0 … 100 {unit}", style.color)
+                )
+                calc_legend_labels.append(display_name)
+                calc_curve_items[mnemonic] = item
+            track.set_curve_headers(calc_header_rows)
+            return tuple(calc_legend_labels), calc_curve_items, {}, None
 
         if definition.kind in (
             TrackKind.LITHOLOGY,
@@ -6274,21 +6388,21 @@ class TabletView(QWidget):
                 valid &= values > 0
             if not np.any(valid):
                 continue
-            style = definition.curve_style(mnemonic)
-            if style is None:
-                style = CurveStyle(
+            resolved_style = definition.curve_style(mnemonic)
+            if resolved_style is None:
+                resolved_style = CurveStyle(
                     color=pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))).name(),
                     width=1.5,
                 )
             pen = pg.mkPen(
-                style.color,
-                width=style.width,
+                resolved_style.color,
+                width=resolved_style.width,
                 style={
                     CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
                     CurveLineStyle.DASH: Qt.PenStyle.DashLine,
                     CurveLineStyle.DOT: Qt.PenStyle.DotLine,
                     CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
-                }[style.line_style],
+                }[resolved_style.line_style],
             )
             minimum, maximum = self._curve_display_range(definition, mnemonic, values)
             if visible_top is None or visible_bottom is None:
@@ -6327,7 +6441,7 @@ class TabletView(QWidget):
             )
             curve_items[mnemonic] = item
             legend_labels.append(display_name)
-            header_rows.append((mnemonic, header_text, style.color))
+            header_rows.append((mnemonic, header_text, resolved_style.color))
         track.set_curve_headers(header_rows)
         if not curve_items:
             track.title.setText(
@@ -7360,7 +7474,13 @@ class TabletView(QWidget):
                 items.append(band)
 
                 # 1. BALЛЫ: larger ring/spot for a stronger 1–5 result.
-                size = {1: 8.0, 2: 12.0, 3: 14.0, 4: 17.0, 5: 20.0}.get(intensity, 10.0)
+                size = (
+                    {1: 8.0, 2: 12.0, 3: 14.0, 4: 17.0, 5: 20.0}.get(
+                        intensity, 10.0
+                    )
+                    if intensity is not None
+                    else 10.0
+                )
                 line_width = 3.0 if intensity == 4 else 1.4
                 line_style = Qt.PenStyle.DashLine if intensity == 2 else Qt.PenStyle.SolidLine
                 brush = pg.mkBrush(style.color) if intensity in {1, 5} else pg.mkBrush(None)
@@ -7655,7 +7775,7 @@ class TabletView(QWidget):
 
     def _refresh_annotation_overlay(self) -> None:
         self._sync_annotation_overlay_geometry()
-        entries: list[tuple[object, QPointF, QPixmap | None]] = []
+        entries: list[tuple[AnnotationRecord, QPointF, QPixmap | None]] = []
         for canvas_item in self._canvas_objects:
             if not is_annotation_object(canvas_item):
                 continue
@@ -7843,12 +7963,25 @@ class TabletView(QWidget):
                 (rendered.lithology_description_items or {}, 34),
             ):
                 for interval_id, text_item in items.items():
-                    interval = lithology_intervals.get(interval_id)
-                    if interval is None:
-                        interval = cuttings_intervals.get(interval_id)
+                    lithology_interval = lithology_intervals.get(interval_id)
+                    cuttings_interval = cuttings_intervals.get(interval_id)
+                    interval_top = (
+                        lithology_interval.top_depth
+                        if lithology_interval is not None
+                        else cuttings_interval.top_depth
+                        if cuttings_interval is not None
+                        else None
+                    )
+                    interval_bottom = (
+                        lithology_interval.bottom_depth
+                        if lithology_interval is not None
+                        else cuttings_interval.bottom_depth
+                        if cuttings_interval is not None
+                        else None
+                    )
                     axis_interval = (
-                        self._depth_interval_to_axis(interval.top_depth, interval.bottom_depth)
-                        if interval is not None
+                        self._depth_interval_to_axis(interval_top, interval_bottom)
+                        if interval_top is not None and interval_bottom is not None
                         else None
                     )
                     visible = axis_interval is not None and lithology_label_is_visible(

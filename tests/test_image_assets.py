@@ -80,19 +80,21 @@ def test_svg_asset_rejects_active_or_external_content(tmp_path, payload) -> None
         create_svg_asset(source)
 
 
-def test_image_asset_rejects_symlinked_storage_directory(tmp_path) -> None:
+def test_image_asset_rejects_symlinked_storage_directory(tmp_path, symlink_or_skip) -> None:
     project = tmp_path / "well.geolog.json"
     outside = tmp_path / "outside"
     outside.mkdir()
     assets = tmp_path / "well.geolog.json.assets"
     assets.mkdir()
-    (assets / "images").symlink_to(outside, target_is_directory=True)
+    symlink_or_skip(assets / "images", outside, target_is_directory=True)
 
     with pytest.raises(ImageAssetError):
         load_image_assets(project, {})
 
 
-def test_image_asset_save_removes_only_orphaned_managed_png_files(tmp_path) -> None:
+def test_image_asset_save_removes_only_orphaned_managed_png_files(
+    tmp_path, symlink_or_skip
+) -> None:
     source = tmp_path / "logo.png"
     source.write_bytes(PNG)
     project = tmp_path / "well.geolog.json"
@@ -103,7 +105,7 @@ def test_image_asset_save_removes_only_orphaned_managed_png_files(tmp_path) -> N
     unrelated = directory / "notes.txt"
     unrelated.write_text("keep", encoding="utf-8")
     symlink = directory / ("f" * 64 + ".png")
-    symlink.symlink_to(unrelated)
+    symlink_or_skip(symlink, unrelated)
 
     assert save_image_assets(project, {}) == {}
 

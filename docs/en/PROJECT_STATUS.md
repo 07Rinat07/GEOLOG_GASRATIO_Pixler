@@ -4,10 +4,10 @@ Snapshot: 23 July 2026. Version 0.7.28, test build.
 
 ## Release decision
 
-The release gate is red. The complete pytest run fails and eventually aborts in the Qt path;
-the first isolated failure is the missing `TabletView._annotation_ancestor`. Ruff reports
-6 errors and mypy reports 142 errors across 33 files. Stable status is blocked until these
-are fixed and the Windows, HiDPI, PDF, and printer smoke matrix is signed off.
+The automated release gate is green: Ruff passes, mypy reports zero errors across 256 source
+files, and the complete pytest run reports 1,182 passed and 10 skipped without a Qt/Python
+process abort. The build remains a test build until the Windows, HiDPI, PDF, and physical
+printer smoke matrix is signed off.
 
 ## Working foundation
 
@@ -19,8 +19,9 @@ are fixed and the Windows, HiDPI, PDF, and printer smoke matrix is signed off.
 - annotations, project assets, and legacy project migrations;
 - synchronized RU/KK/EN user documentation.
 
-The targeted 116 grid tests and 38 interval-statistics tests pass, but they do not replace
-the complete gate.
+Annotation hit routing has been restored, Windows SVG locking and PySide6 PNG-buffer
+compatibility have been fixed, and the tablet toolbars now adapt to narrow screens.
 
-Next checkpoint: zero Ruff/mypy/pytest errors, no Qt crash, and a signed Windows smoke test.
-See the [audit](PRODUCT_AUDIT_2026.md) and [plan](PROJECT_PLAN.md).
+Next checkpoint: sign off the Windows smoke matrix, then extract the annotation event router
+from `TabletView` behind headless tests. See the [audit](PRODUCT_AUDIT_2026.md) and
+[plan](PROJECT_PLAN.md).

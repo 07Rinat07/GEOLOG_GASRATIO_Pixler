@@ -181,12 +181,12 @@ class DelphiBinaryReader:
             size = self._read_i32_size(self.MAX_BINARY_BYTES, "binary property")
             return DelphiBinary(self._read_exact(size))
         if value_type is DelphiValueType.SET:
-            values: list[str] = []
+            set_values: list[str] = []
             while True:
                 value = self._read_short_string()
                 if not value:
-                    return DelphiSet(tuple(values))
-                values.append(value)
+                    return DelphiSet(tuple(set_values))
+                set_values.append(value)
         if value_type is DelphiValueType.LSTRING:
             size = self._read_i32_size(self.MAX_STRING_BYTES, "long string")
             return self._decode(self._read_exact(size))

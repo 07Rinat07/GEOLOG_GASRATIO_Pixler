@@ -217,20 +217,22 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
         anchor = AnnotationAnchor(str(raw_anchor))
     except ValueError:
         anchor = AnnotationAnchor.TRACK
-    depth = item.top_depth if item.top_depth is not None else item.properties.get("depth")
-    axis_value = item.properties.get("axis_value")
-    parameter_value = item.properties.get("parameter_value")
+    record_depth = _finite_number(
+        item.top_depth if item.top_depth is not None else item.properties.get("depth")
+    )
+    axis_value = _finite_number(item.properties.get("axis_value"))
+    parameter_value = _finite_number(item.properties.get("parameter_value"))
     return AnnotationRecord(
         annotation_id=item.object_id,
         kind=kind,
         anchor=anchor,
         text=str(item.properties.get("text", "")),
         track_id=item.track_id,
-        depth=float(depth) if _finite(depth) else None,
-        axis_value=float(axis_value) if _finite(axis_value) else None,
+        depth=record_depth,
+        axis_value=axis_value,
         axis_id=_optional_string(item.properties.get("axis_id"), maximum=200),
         parameter_mnemonic=item.parameter_mnemonic,
-        parameter_value=float(parameter_value) if _finite(parameter_value) else None,
+        parameter_value=parameter_value,
         unit=_string(item.properties.get("unit"), "", maximum=80),
         x_fraction=_number(item.x, 0.5, 0.0, 1.0),
         offset_x=_number(item.properties.get("offset_x_px"), 18.0, -10000.0, 10000.0),
@@ -333,10 +335,18 @@ def _finite(value: object) -> bool:
     )
 
 
+def _finite_number(value: object) -> float | None:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    normalized = float(value)
+    return normalized if isfinite(normalized) else None
+
+
 def _number(value: object, default: float, minimum: float, maximum: float) -> float:
-    if not _finite(value):
+    normalized = _finite_number(value)
+    if normalized is None:
         return default
-    return max(minimum, min(maximum, float(value)))
+    return max(minimum, min(maximum, normalized))
 
 
 def _string(value: object, default: str, *, maximum: int) -> str:

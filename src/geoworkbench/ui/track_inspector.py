@@ -151,15 +151,16 @@ class TrackInspector(QWidget):
         self.localizer = Localizer.create(language)
         self.collapse_button.setText(self._t("panel.hide_all"))
 
-        for field, key in (
+        main_fields: tuple[tuple[QWidget, str], ...] = (
             (self.width_input, "inspector.width"),
             (self.scale_input, "inspector.x_scale"),
             (self.auto_range_input, "inspector.x_range"),
             (self.minimum_input, "inspector.x_minimum"),
             (self.maximum_input, "inspector.x_maximum"),
-        ):
+        )
+        for field, key in main_fields:
             label = self._main_form.labelForField(field)
-            if label is not None:
+            if isinstance(label, QLabel):
                 label.setText(self._t(key))
 
         self.scale_input.setItemText(
@@ -172,14 +173,15 @@ class TrackInspector(QWidget):
         )
         self.auto_range_input.setText(self._t("common.auto"))
 
-        for field, key in (
+        style_fields: tuple[tuple[QWidget, str], ...] = (
             (self.curve_input, "inspector.style_curve"),
             (self.color_input, "inspector.color"),
             (self.line_width_input, "inspector.line_width"),
             (self.line_style_input, "inspector.line_style"),
-        ):
+        )
+        for field, key in style_fields:
             label = self._style_form.labelForField(field)
-            if label is not None:
+            if isinstance(label, QLabel):
                 label.setText(self._t(key))
         for style in CurveLineStyle:
             row = self.line_style_input.findData(style.value)
@@ -192,18 +194,19 @@ class TrackInspector(QWidget):
         self.grid_x_input.setText(self._t("inspector.grid_x"))
         self.grid_y_input.setText(self._t("inspector.grid_y"))
         self.grid_print_input.setText(self._t("inspector.grid_print"))
-        for field, key in (
+        grid_fields: tuple[tuple[QWidget, str], ...] = (
             (self.grid_major_input, "inspector.grid_major_divisions"),
             (self.grid_minor_input, "inspector.grid_minor_divisions"),
-        ):
+        )
+        for field, key in grid_fields:
             label = self._grid_form.labelForField(field)
-            if label is not None:
+            if isinstance(label, QLabel):
                 label.setText(self._t(key))
         grid_alpha_label = self._grid_form.labelForField(self.grid_alpha_input)
-        if grid_alpha_label is not None:
+        if isinstance(grid_alpha_label, QLabel):
             grid_alpha_label.setText(self._t("inspector.grid_alpha"))
         axis_label = self._axis_form.labelForField(self.x_axis_label_input)
-        if axis_label is not None:
+        if isinstance(axis_label, QLabel):
             axis_label.setText(self._t("inspector.x_axis_label"))
 
         self.style_button.setText(self._t("inspector.apply_style"))

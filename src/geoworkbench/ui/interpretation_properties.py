@@ -94,7 +94,7 @@ class InterpretationPropertiesPanel(QWidget):
             (self.comment_input, "interpretations.comment"),
         ):
             label = self._form.labelForField(control)
-            if label is not None:
+            if isinstance(label, QLabel):
                 label.setText(self._t(key))
         self.apply_button.setText(self._t("common.apply"))
         self.manager_button.setText(self._t("interpretations.open_manager"))

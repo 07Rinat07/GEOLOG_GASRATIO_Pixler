@@ -674,8 +674,7 @@ def test_masterlog_direct_renderer_paints_professional_annotation(qapp) -> None:
     painter = QPainter(image)
     _paint_annotations(
         painter,
-        QRectF(0.0, 0.0, 100.0, 100.0),
-        column,
+        [(column, QRectF(0.0, 0.0, 100.0, 100.0))],
         session,
         (100.0, 200.0),
         {},
@@ -717,8 +716,7 @@ def test_masterlog_direct_renderer_skips_screen_only_annotation(qapp) -> None:
     painter = QPainter(image)
     _paint_annotations(
         painter,
-        QRectF(0.0, 0.0, 100.0, 100.0),
-        column,
+        [(column, QRectF(0.0, 0.0, 100.0, 100.0))],
         session,
         (100.0, 200.0),
         {},

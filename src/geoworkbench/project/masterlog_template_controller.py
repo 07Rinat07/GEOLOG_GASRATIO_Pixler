@@ -205,15 +205,17 @@ class MasterlogTemplateController:
         normalized_orientation = orientation.strip().casefold()
         if normalized_orientation not in {"portrait", "landscape"}:
             raise ValueError("Ориентация masterlog должна быть portrait или landscape")
-        dimensions_mm = {
+        dimensions_mm: dict[str, tuple[float, float]] = {
             "A0": (841.0, 1189.0), "A1": (594.0, 841.0),
             "A2": (420.0, 594.0), "A3": (297.0, 420.0),
             "A4": (210.0, 297.0), "letter": (215.9, 279.4),
             "legal": (215.9, 355.6), "custom": (custom_width_mm, custom_height_mm),
         }
-        dimensions = dimensions_mm.get(normalized_format)
-        page_height = None if dimensions is None else (
-            dimensions[1] if normalized_orientation == "portrait" else dimensions[0]
+        page_dimensions = dimensions_mm.get(normalized_format)
+        page_height = None if page_dimensions is None else (
+            page_dimensions[1]
+            if normalized_orientation == "portrait"
+            else page_dimensions[0]
         )
         if page_height is not None and header_height_mm + 12.0 >= page_height:
             raise ValueError("Высота шапки не оставляет места для глубинных колонок")

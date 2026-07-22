@@ -156,7 +156,7 @@ class ParadoxImportDialog(QDialog):
         self.configuration_only = bool(configuration_only)
         self.selected_plan: ParadoxImportPlan | None = None
         self.table: ParadoxTable | None = None
-        self.quality = None
+        self.quality: QualitySummary | None = None
         self.import_result: ParadoxImportResult | None = None
         self.requested_action = "open"
         self._profile_name: str | None = None
@@ -174,7 +174,7 @@ class ParadoxImportDialog(QDialog):
         self._population_row = 0
         self._population_completed = 0
         self._population_total = 1
-        self._population_mappings = ()
+        self._population_mappings: tuple[ChannelMapping, ...] = ()
         self._population_warning_fields: set[str] = set()
         self._preview_row_indexes: list[int] = []
         self._preview_field_names: list[str] = []
@@ -939,13 +939,13 @@ class ParadoxImportDialog(QDialog):
         assert self.table is not None
         mappings: list[ChannelMapping] = []
         for row in range(self.channels.rowCount()):
-            checked = self.channels.item(row, 0).checkState() == Qt.CheckState.Checked
+            checked = self._channel_item(row, 0).checkState() == Qt.CheckState.Checked
             mappings.append(
                 ChannelMapping(
-                    source_name=self.channels.item(row, 1).text(),
-                    mnemonic=self.channels.item(row, 2).text().strip(),
-                    description=self.channels.item(row, 3).text().strip(),
-                    unit=self.channels.item(row, 4).text().strip(),
+                    source_name=self._channel_item(row, 1).text(),
+                    mnemonic=self._channel_item(row, 2).text().strip(),
+                    description=self._channel_item(row, 3).text().strip(),
+                    unit=self._channel_item(row, 4).text().strip(),
                     import_enabled=checked,
                 )
             )
@@ -964,6 +964,14 @@ class ParadoxImportDialog(QDialog):
             drop_empty_channels=self.drop_empty_channels.isChecked(),
             language=self.localizer.language.value,
         )
+
+    def _channel_item(self, row: int, column: int) -> QTableWidgetItem:
+        item = self.channels.item(row, column)
+        if item is None:
+            raise RuntimeError(
+                f"Paradox channel table is incomplete at row {row}, column {column}"
+            )
+        return item
 
     def _finish(self, action: str) -> None:
         if self.table is None:
@@ -987,6 +995,7 @@ class ParadoxImportDialog(QDialog):
 
     def _start_import(self, plan: ParadoxImportPlan, action: str) -> None:
         assert self.table is not None
+        assert self.quality is not None
         self._pending_action = action
         self._cancel_pending = False
         self._started_at = monotonic()
@@ -1100,12 +1109,12 @@ class ParadoxImportDialog(QDialog):
             mapping = mappings.get(source_item.text())
             if mapping is None:
                 continue
-            self.channels.item(row, 0).setCheckState(
+            self._channel_item(row, 0).setCheckState(
                 Qt.CheckState.Checked if mapping.import_enabled else Qt.CheckState.Unchecked
             )
-            self.channels.item(row, 2).setText(mapping.mnemonic)
-            self.channels.item(row, 3).setText(mapping.description)
-            self.channels.item(row, 4).setText(mapping.unit)
+            self._channel_item(row, 2).setText(mapping.mnemonic)
+            self._channel_item(row, 3).setText(mapping.description)
+            self._channel_item(row, 4).setText(mapping.unit)
 
     def _load_dictionary(self) -> None:
         if self.table is None:
@@ -1132,9 +1141,9 @@ class ParadoxImportDialog(QDialog):
             definition = dictionary.resolve(source_item.text())
             if definition is None:
                 continue
-            self.channels.item(row, 2).setText(definition.mnemonic)
-            self.channels.item(row, 3).setText(definition.localized_name(language_code))
-            self.channels.item(row, 4).setText(definition.unit)
+            self._channel_item(row, 2).setText(definition.mnemonic)
+            self._channel_item(row, 3).setText(definition.localized_name(language_code))
+            self._channel_item(row, 4).setText(definition.unit)
             applied += 1
         self.status.setText(self._t("paradox.dictionary_loaded", count=applied))
 
@@ -1151,10 +1160,13 @@ class ParadoxImportDialog(QDialog):
             return
         dictionary = GeoScapeChannelDictionary({})
         for row in range(self.channels.rowCount()):
-            source = self.channels.item(row, 1).text().strip()
-            mnemonic = self.channels.item(row, 2).text().strip() or source
-            description = self.channels.item(row, 3).text().strip() or f"Source channel {source}"
-            unit = self.channels.item(row, 4).text().strip()
+            source = self._channel_item(row, 1).text().strip()
+            mnemonic = self._channel_item(row, 2).text().strip() or source
+            description = (
+                self._channel_item(row, 3).text().strip()
+                or f"Source channel {source}"
+            )
+            unit = self._channel_item(row, 4).text().strip()
             dictionary.set_user(
                 ChannelDefinition(
                     source=source,
@@ -1209,14 +1221,15 @@ class ParadoxImportDialog(QDialog):
         self.progress_hint.setText(self._t("paradox.cancel_safe_hint"))
         self.cancel_button.setText(self._t("paradox.stopping"))
         self.cancel_button.setEnabled(False)
-        if self._thread is not None:
+        thread = self._thread
+        if thread is not None:
             try:
-                running = self._thread.isRunning()
+                running = thread.isRunning()
             except RuntimeError:
                 self._thread = None
                 running = False
             if running:
-                self._thread.finished.connect(self._reject_after_worker)
+                thread.finished.connect(self._reject_after_worker)
                 return
         self._reject_after_worker()
 

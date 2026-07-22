@@ -271,16 +271,20 @@ class HeaderElementDialog(QDialog):
             "vertical_bottom_to_top": _TEXT[language]["bottom_to_top"],
             "vertical_top_to_bottom": _TEXT[language]["top_to_bottom"],
         }
-        for value in TEXT_ORIENTATIONS:
-            self.text_orientation_input.addItem(orientation_labels[value], value)
+        for orientation_value in TEXT_ORIENTATIONS:
+            self.text_orientation_input.addItem(
+                orientation_labels[orientation_value], orientation_value
+            )
         self.text_position_input = QComboBox()
         position_labels = {
             "top": _TEXT[language]["near_top"],
             "center": _TEXT[language]["middle"],
             "bottom": _TEXT[language]["near_bottom"],
         }
-        for value in TEXT_VERTICAL_POSITIONS:
-            self.text_position_input.addItem(position_labels[value], value)
+        for position_value in TEXT_VERTICAL_POSITIONS:
+            self.text_position_input.addItem(
+                position_labels[position_value], position_value
+            )
         # The centre is the neutral/default placement for newly created text.
         # TEXT_VERTICAL_POSITIONS is ordered for presentation, so select the
         # model default explicitly instead of relying on the first item.
@@ -398,7 +402,7 @@ class HeaderElementDialog(QDialog):
             if lithotype_index >= 0:
                 self.lithotype_input.setCurrentIndex(lithotype_index)
         self.lithotype_label_mode_input = QComboBox()
-        for caption, value in (
+        for caption, label_mode_value in (
             (
                 {
                     AppLanguage.RU: "Только рисунок",
@@ -424,7 +428,7 @@ class HeaderElementDialog(QDialog):
                 "pattern_code_name",
             ),
         ):
-            self.lithotype_label_mode_input.addItem(caption, value)
+            self.lithotype_label_mode_input.addItem(caption, label_mode_value)
         swatch_mode = element.properties.get("display_mode") if element else "pattern_code_name"
         swatch_mode_index = self.lithotype_label_mode_input.findData(swatch_mode)
         self.lithotype_label_mode_input.setCurrentIndex(max(0, swatch_mode_index))
@@ -1115,34 +1119,44 @@ class MasterlogHeaderDialog(QDialog):
                 selected_row = row
 
             if element.element_type == "line":
-                graphic = _MovableHeaderLine(element, self._move_preview_element, self._activate_preview_element)
-                graphic.setPen(self._line_pen(element))
-                graphic.setToolTip(json.dumps(element.properties, ensure_ascii=False))
-                self.preview_scene.addItem(graphic)
+                line_graphic = _MovableHeaderLine(
+                    element,
+                    self._move_preview_element,
+                    self._activate_preview_element,
+                )
+                line_graphic.setPen(self._line_pen(element))
+                line_graphic.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+                self.preview_scene.addItem(line_graphic)
                 continue
 
-            graphic = _MovableHeaderRect(element, self._move_preview_element, self._activate_preview_element)
-            graphic.setPen(QPen(QColor("#475569"), 0.35))
+            rect_graphic = _MovableHeaderRect(
+                element,
+                self._move_preview_element,
+                self._activate_preview_element,
+            )
+            rect_graphic.setPen(QPen(QColor("#475569"), 0.35))
             background = element.properties.get("background")
             fill = QColor(background) if isinstance(background, str) else colors[element.element_type]
             if not fill.isValid():
                 fill = colors[element.element_type]
-            graphic.setBrush(QBrush(fill))
-            graphic.setToolTip(json.dumps(element.properties, ensure_ascii=False))
-            self.preview_scene.addItem(graphic)
-            if element.element_type == "image" and self._add_image_preview(element, graphic):
+            rect_graphic.setBrush(QBrush(fill))
+            rect_graphic.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+            self.preview_scene.addItem(rect_graphic)
+            if element.element_type == "image" and self._add_image_preview(
+                element, rect_graphic
+            ):
                 continue
             if (
                 element.element_type == "lithotype_swatch"
-                and self._add_lithotype_swatch_preview(element, graphic)
+                and self._add_lithotype_swatch_preview(element, rect_graphic)
             ):
                 continue
             if (
                 element.element_type == "lithology_legend"
-                and self._add_lithology_legend_preview(element, graphic)
+                and self._add_lithology_legend_preview(element, rect_graphic)
             ):
                 continue
-            label = QGraphicsTextItem(self._preview_text(element), graphic)
+            label = QGraphicsTextItem(self._preview_text(element), rect_graphic)
             color, font_size = self._text_style(element)
             label.setDefaultTextColor(color)
             font = label.font()

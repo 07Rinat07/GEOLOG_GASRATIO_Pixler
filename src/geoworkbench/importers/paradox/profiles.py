@@ -32,19 +32,21 @@ def save_profile(profile: ImportProfile, target: str | Path) -> Path:
     destination = Path(target)
     destination.parent.mkdir(parents=True, exist_ok=True)
     plan = profile.plan
+    classification = DatasetClassification(plan.classification)
+    duplicate_policy = DuplicateDepthPolicy(plan.duplicate_depth_policy)
     payload = {
         "version": 1,
         "name": profile.name,
         "schema_signature": profile.schema_signature,
         "plan": {
-            "classification": plan.classification.value,
+            "classification": classification.value,
             "depth_field": plan.depth_field,
             "time_field": plan.time_field,
             "active_role": plan.active_role,
             "null_value": plan.null_value,
             "sort_by_index": plan.sort_by_index,
             "profile_name": plan.profile_name,
-            "duplicate_depth_policy": plan.duplicate_depth_policy.value,
+            "duplicate_depth_policy": duplicate_policy.value,
             "drop_empty_channels": plan.drop_empty_channels,
             "language": plan.language,
             "mappings": [asdict(mapping) for mapping in plan.mappings],

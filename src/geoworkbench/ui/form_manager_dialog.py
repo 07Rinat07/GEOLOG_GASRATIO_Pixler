@@ -419,19 +419,22 @@ class FormManagerDialog(QDialog):
                     if selected_id and form.form_id == selected_id:
                         selected_item = item
                         group.setExpanded(True)
-            self.tree_widget.expandItem(
-                next(
+            group_to_expand = next(
                     (
-                        self.tree_widget.topLevelItem(index)
+                        group_item
                         for index in range(self.tree_widget.topLevelItemCount())
-                        if self.tree_widget.topLevelItem(index).data(
-                            0, Qt.ItemDataRole.UserRole + 1
+                        if (
+                            (group_item := self.tree_widget.topLevelItem(index)) is not None
+                            and group_item.data(
+                                0, Qt.ItemDataRole.UserRole + 1
+                            )
+                            == "user-depth"
                         )
-                        == "user-depth"
                     ),
                     self.tree_widget.topLevelItem(0),
                 )
-            )
+            if group_to_expand is not None:
+                self.tree_widget.expandItem(group_to_expand)
             if selected_item is not None:
                 self.tree_widget.setCurrentItem(selected_item)
             elif first_form_item is not None:
@@ -445,9 +448,13 @@ class FormManagerDialog(QDialog):
         query = text.strip().casefold()
         for group_index in range(self.tree_widget.topLevelItemCount()):
             group = self.tree_widget.topLevelItem(group_index)
+            if group is None:
+                continue
             visible_children = 0
             for child_index in range(group.childCount()):
                 child = group.child(child_index)
+                if child is None:
+                    continue
                 form = child.data(0, Qt.ItemDataRole.UserRole)
                 haystack = ""
                 if isinstance(form, FormDocument):

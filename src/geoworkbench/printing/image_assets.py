@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 PNG_MEDIA_TYPE = "image/png"
@@ -95,9 +95,9 @@ def create_raster_asset(source: Path) -> ImageAsset:
     if not buffer.open(QIODevice.OpenModeFlag.WriteOnly):
         raise ImageAssetError("Не удалось открыть буфер преобразования изображения")
     try:
-        if not image.save(buffer, "PNG"):
+        if not image.save(buffer, cast(Any, "PNG")):
             raise ImageAssetError("Не удалось преобразовать изображение в PNG")
-        payload = bytes(buffer.data())
+        payload = bytes(buffer.data().data())
     finally:
         buffer.close()
     digest = sha256(payload).hexdigest()

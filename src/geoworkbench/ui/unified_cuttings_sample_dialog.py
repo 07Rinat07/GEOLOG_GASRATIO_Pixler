@@ -480,7 +480,12 @@ class UnifiedCuttingsSampleDialog(QDialog):
             type_button = self.type_group.button(type_codes.get(sample.lba_type_id or "", -1))
             if type_button is not None:
                 type_button.setChecked(True)
-            intensity = sample.lba_intensity if sample.lba_intensity in range(1, 6) else -1
+            intensity = (
+                sample.lba_intensity
+                if isinstance(sample.lba_intensity, int)
+                and sample.lba_intensity in range(1, 6)
+                else -1
+            )
             intensity_button = self.intensity_group.button(intensity)
             if intensity_button is not None:
                 intensity_button.setChecked(True)

@@ -59,7 +59,14 @@ class TabletAnnotationItem(QGraphicsObject):
         self._print_mode = bool(print_mode)
         self._selected = False
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
-        self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        # The current overlay paints this helper into mouse-transparent sprites,
+        # while print/export and compatibility integrations may still put it in
+        # a QGraphicsScene and route events through the item itself.
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsFocusable, True)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+        self.setAcceptedMouseButtons(
+            Qt.MouseButton.LeftButton | Qt.MouseButton.RightButton
+        )
         self.setAcceptHoverEvents(False)
         self.setZValue(9_500.0)
         self._apply_visibility()
@@ -344,7 +351,7 @@ class TabletAnnotationItem(QGraphicsObject):
                 "top": abs(anchor.y() - rect.top()),
                 "bottom": abs(anchor.y() - rect.bottom()),
             }
-            edge = min(distances, key=distances.get)
+            edge = min(distances, key=lambda name: distances[name])
             if edge == "left":
                 endpoint = QPointF(rect.left(), anchor.y())
             elif edge == "right":
@@ -415,6 +422,14 @@ class TabletAnnotationOverlay(QWidget):
     @property
     def selected_annotation_id(self) -> str | None:
         return self._selected_id
+
+    @property
+    def annotation_ids(self) -> tuple[str, ...]:
+        return tuple(self._order)
+
+    def annotation_item(self, annotation_id: str) -> TabletAnnotationItem | None:
+        entry = self._entries.get(annotation_id)
+        return entry[0] if entry is not None else None
 
     @property
     def content_rect(self) -> QRectF:
@@ -774,7 +789,10 @@ class TabletAnnotationOverlay(QWidget):
             sprite.clear()
             return
 
-        dpr = max(1.0, float(self._canvas.devicePixelRatioF()))
+        dpr = max(
+            1.0,
+            float(self._canvas.devicePixelRatioF()) if self._canvas is not None else 1.0,
+        )
         pixel_width = max(1, int(round(target.width() * dpr)))
         pixel_height = max(1, int(round(target.height() * dpr)))
         pixmap = QPixmap(pixel_width, pixel_height)

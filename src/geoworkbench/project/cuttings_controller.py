@@ -308,6 +308,8 @@ class CuttingsController:
             if value is None:
                 values.append(None)
                 continue
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise ValueError("Кальцит и доломит должны быть числами")
             normalized = float(value)
             if not np.isfinite(normalized) or not 0.0 <= normalized <= 100.0:
                 raise ValueError("Кальцит и доломит должны быть в диапазоне 0–100%")

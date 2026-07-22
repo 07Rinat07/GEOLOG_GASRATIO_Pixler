@@ -394,8 +394,8 @@ class LasParameterResolver:
 
         matches: dict[str, ParameterMatch] = {}
         ambiguities: dict[str, tuple[ParameterMatch, ...]] = {}
-        for canonical, candidates in grouped.items():
-            ordered = sorted(candidates, key=_dataset_candidate_key)
+        for canonical, grouped_candidates in grouped.items():
+            ordered = sorted(grouped_candidates, key=_dataset_candidate_key)
             best = ordered[0]
             tied = tuple(
                 item

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from geoworkbench.domain.models import (
@@ -305,7 +305,11 @@ def _candidate_column_groups(root: DelphiComponent) -> list[list[DelphiComponent
         candidates = [child for child in parent.children if _is_column_candidate(child)]
         if len(candidates) < 2:
             continue
-        candidates.sort(key=lambda item: (_geometry(item).left if _geometry(item) else 0.0))
+        candidates.sort(
+            key=lambda item: (
+                geometry.left if (geometry := _geometry(item)) is not None else 0.0
+            )
+        )
         geometries = [_geometry(item) for item in candidates]
         valid = [item for item in geometries if item is not None]
         if len(valid) < 2:
@@ -319,7 +323,11 @@ def _candidate_column_groups(root: DelphiComponent) -> list[list[DelphiComponent
 
 def _fallback_columns(root: DelphiComponent) -> list[DelphiComponent]:
     candidates = [component for component in root.walk() if _is_column_candidate(component)]
-    candidates.sort(key=lambda item: (_geometry(item).left if _geometry(item) else 0.0))
+    candidates.sort(
+        key=lambda item: (
+            geometry.left if (geometry := _geometry(item)) is not None else 0.0
+        )
+    )
     return candidates[:64]
 
 
@@ -756,9 +764,9 @@ def _extract_image(component: DelphiComponent, context: _ImportContext) -> Image
         if not buffer.open(QIODevice.OpenModeFlag.WriteOnly):
             continue
         try:
-            if not image.save(buffer, "PNG"):
+            if not image.save(buffer, cast(Any, "PNG")):
                 continue
-            png = bytes(buffer.data())
+            png = bytes(buffer.data().data())
         finally:
             buffer.close()
         digest = sha256(png).hexdigest()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from PySide6.QtGui import QFontDatabase
 from PySide6.QtPdf import QPdfDocument
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
@@ -39,6 +40,7 @@ def test_full_range_is_split_into_stable_depth_pages() -> None:
 
 
 def test_unicode_preflight_accepts_three_languages_and_engineering_symbols(qapp) -> None:
+    _require_system_fonts()
     report = preflight_texts(
         [
             "Глубина, скважина, газовый каротаж",
@@ -66,6 +68,7 @@ def test_unicode_preflight_rejects_typical_cyrillic_mojibake(qapp) -> None:
 
 
 def test_full_depth_pdf_contains_multiple_pages_and_restores_view(qapp, tmp_path) -> None:
+    _require_system_fonts()
     view = _paged_tablet(qapp)
     original = view.visible_depth_range
     target = tmp_path / "толық_ұңғыма.pdf"
@@ -95,6 +98,7 @@ def test_full_depth_pdf_contains_multiple_pages_and_restores_view(qapp, tmp_path
 
 
 def test_full_depth_png_export_creates_numbered_pages(qapp, tmp_path) -> None:
+    _require_system_fonts()
     view = _paged_tablet(qapp)
     target = tmp_path / "well.png"
     job = PrintJobSettings(
@@ -171,3 +175,8 @@ def _paged_tablet(qapp) -> TabletView:
     view.set_visible_depth(100.0, 150.0)
     qapp.processEvents()
     return view
+
+
+def _require_system_fonts() -> None:
+    if not QFontDatabase.families():
+        pytest.skip("Qt offscreen backend does not expose the system font database")
