@@ -100,7 +100,11 @@ class TabletController:
                 (index for index in dataset.indexes.values() if index.role is IndexRole.DEPTH),
                 preferred_index,
             )
-        layout = TabletLayout(tracks, vertical_index_id=preferred_index.index_id)
+        layout = TabletLayout(
+            tracks,
+            vertical_index_id=preferred_index.index_id,
+            annotation_scope_id=f"dataset:{dataset.dataset_id}:default",
+        )
         self.session.set_current_tablet_layout(layout)
         self.session.dirty = True
         return layout

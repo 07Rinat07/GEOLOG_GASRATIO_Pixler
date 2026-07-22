@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.26 (test build):** fixes the Windows batch DB → LAS crash reported as `'str' object has no attribute 'value'`. Qt/JSON values are now normalized into a typed import plan before reading and export. A 0.4 m source step is valid LAS data and does not conflict with the GeoScape 0.2 m standard; a 0.2 m grid is created only by explicit resampling.
+> **0.7.27 (test build):** comments and callouts can be deleted from the context menu, Delete key, full manager and focused editor. Annotations belong to the current tablet form and are not displayed in other forms. Legacy annotations are bound automatically to the saved form on first open.
 
 
 

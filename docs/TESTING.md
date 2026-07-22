@@ -1,3 +1,26 @@
+# Windows release gate 0.7.27 — annotation deletion and form scope
+
+## Mandatory annotation scenario
+
+1. Open a project with a populated tablet and press F4.
+2. Create one comment and one callout in form A.
+3. Delete the comment from its right-click menu and confirm that it disappears immediately.
+4. Undo, open the focused editor by double-clicking, use **Delete annotation**, then Undo again.
+5. Delete through the full manager and through the Delete key.
+6. Switch to form B for the same dataset: form-A objects must not be visible.
+7. Return to form A: remaining objects must restore with the same text, position, size and style.
+8. Add/remove/reorder a track inside form A: its annotations must remain visible.
+9. Save the current tablet as a user form, reapply it and verify the same objects.
+10. Compare screen, PDF and direct Masterlog output.
+
+## Legacy migration
+
+Open a project created before 0.7.27. Unscoped annotations must bind to the saved/current form once, remain editable and survive project save/reopen without appearing in another form.
+
+## Release rule
+
+Do not publish a stable package unless the scenario above passes on Windows 10/11 with PySide6 and pyqtgraph at 100%, 125% and 150% display scaling.
+
 # Windows release gate 0.7.26 — typed Paradox batch plan
 
 ## Regression: `str` instead of `StrEnum`

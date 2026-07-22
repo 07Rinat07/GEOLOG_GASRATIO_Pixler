@@ -2902,7 +2902,7 @@ class TabletView(QWidget):
         if chosen is full_edit_action and sample is not None:
             self.cuttings_sample_edit_requested.emit(sample.sample_id)
             return
-        if chosen is edit_action:
+        if chosen == edit_action:
             if definition.kind is TrackKind.STRATIGRAPHY and stratigraphy is not None:
                 self.stratigraphy_interval_edit_requested.emit(stratigraphy.interval_id)
             elif definition.kind is TrackKind.LITHOLOGY and lithology is not None:
@@ -7553,11 +7553,11 @@ class TabletView(QWidget):
         menu.addSeparator()
         delete_action = menu.addAction(self._localizer.text("annotations.delete_action"))
         chosen = menu.exec(global_pos)
-        if chosen is edit_action:
+        if chosen == edit_action:
             self.annotation_edit_requested.emit(annotation_id)
-        elif chosen is duplicate_action:
+        elif chosen == duplicate_action:
             self.annotation_duplicate_requested.emit(annotation_id)
-        elif chosen is delete_action:
+        elif chosen == delete_action:
             self.annotation_delete_requested.emit(annotation_id)
 
     def _curve_geometry_key(

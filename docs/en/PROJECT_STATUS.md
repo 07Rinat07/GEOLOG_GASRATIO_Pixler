@@ -1,3 +1,7 @@
+## Version 0.7.27 — deletion and current-form annotation scope
+
+Fixes annotation deletion from the context menu and focused editor. Comments, callouts, curve values and images now have a stable scope for the current dataset and tablet form, so they do not appear in other forms. Legacy objects without a scope are bound automatically to the saved form. Screen, PDF and Masterlog use the same filtering.
+
 ## Version 0.7.26 — typed batch DB → LAS plan
 
 Fixes the Windows `'str' object has no attribute 'value'` failure after manual index configuration. `ParadoxImportPlan` now normalizes Qt/JSON values and prevents string pseudo-enums from entering the importer. Diagnostics include the operation stage. A 0.4 m source step is valid and does not conflict with the 0.2 m nominal standard.

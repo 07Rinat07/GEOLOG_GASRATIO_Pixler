@@ -211,6 +211,10 @@ class FormApplyEngine:
                 preferred,
             )
         return FormApplyResult(
-            TabletLayout(tracks=tracks, vertical_index_id=preferred.index_id),
+            TabletLayout(
+                tracks=tracks,
+                vertical_index_id=preferred.index_id,
+                annotation_scope_id=f"dataset:{dataset.dataset_id}:form:{form.form_id}",
+            ),
             resolutions,
         )

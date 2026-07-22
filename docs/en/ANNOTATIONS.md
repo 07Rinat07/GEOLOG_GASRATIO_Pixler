@@ -1,4 +1,10 @@
-# Professional annotation layer — 0.7.25
+# Professional annotation layer — 0.7.27
+
+## Deletion and current-form scope — 0.7.27
+
+An annotation can be removed through four equivalent paths: the object context menu, the **Delete** key, the full manager button, and the **Delete annotation** button in the focused editor. After confirmation the object is removed from the model, disappears immediately and remains recoverable through Undo.
+
+Every object has a stable scope for the current dataset and tablet form. Switching forms hides comments and callouts from the original form; returning restores them. Editing tracks inside the form does not change the scope. Saving the tablet as a user form rebinds linked objects to the new form. Legacy projects without a scope migrate automatically on first open.
 
 ## OOP interaction routing 0.7.23
 

@@ -1,3 +1,11 @@
+## 0.7.27 snapshot
+
+1. Windows: create a comment and callout, then delete through the context menu, Delete key, full manager and focused editor.
+2. Open another form for the same dataset and verify that unrelated annotations are absent.
+3. Return to the original form and verify object, geometry and style restoration.
+4. Save the current tablet as a user form and verify annotation-scope rebinding.
+5. Compare screen, PDF and Masterlog output; do not promote TEST to stable without a real GUI smoke-test.
+
 ## 0.7.26 snapshot
 
 1. Windows: D1174/D250 → manual depth/time configuration → retry the batch operation.

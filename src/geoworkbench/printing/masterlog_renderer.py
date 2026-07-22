@@ -44,6 +44,8 @@ from geoworkbench.project.annotation_schema import (
     AnnotationKind,
     AnnotationStyle,
     annotation_from_canvas,
+    annotation_matches_scope,
+    annotation_scope_id_for_session,
     is_annotation_object,
 )
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
@@ -1795,10 +1797,13 @@ def _paint_annotations(
     painter.setClipRect(full_rect)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
+    active_scope_id = annotation_scope_id_for_session(session)
     for item in well.canvas_objects:
         if not is_annotation_object(item):
             continue
         record = annotation_from_canvas(item)
+        if not annotation_matches_scope(record, active_scope_id):
+            continue
         if not record.visible or not record.print_enabled:
             continue
         owner = owner_by_id.get(record.track_id or "", default_owner)

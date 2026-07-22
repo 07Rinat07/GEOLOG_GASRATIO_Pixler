@@ -49,7 +49,7 @@
   "annotations.edit_action": "Edit annotation…",
   "annotations.edit_selected_hint": "Select an existing callout or comment first, then open the unified style editor.",
   "annotations.edit_window_title": "Edit annotation",
-  "annotations.editor_hint": "F4 enables shared form and annotation editing. Choose a tool and click the required graph position; click an existing object to select it, drag its background to move, drag a corner or side to resize, and double-click to open the editor.",
+  "annotations.editor_hint": "F4 enables shared form and annotation editing. Annotations belong only to the current form. Choose a tool and click the required graph position; move or resize an existing object, open it by double-clicking, or delete it from the context menu, Delete key, or editor button.",
   "annotations.fill_color": "Background color",
   "annotations.font": "Font",
   "annotations.font_size": "Font size",
@@ -1564,5 +1564,6 @@
   "visual_export.select_view": "Open the chart or tablet tab",
   "visual_export.success": "Visualization exported: {name}",
   "visual_export.svg_action": "Export current chart/tablet to SVG...",
-  "visual_export.title": "Visualization export"
+  "visual_export.title": "Visualization export",
+  "annotations.deleted_status": "Annotation removed from the current form."
 }

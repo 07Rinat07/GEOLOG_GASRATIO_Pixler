@@ -94,7 +94,8 @@ def make_import_report(raw: bytes) -> LasImportReport:
 def test_project_document_round_trip_preserves_layout(tmp_path) -> None:
     target = tmp_path / "test.geolog.json"
     layout = TabletLayout(
-        [TrackDefinition("gas", "Газ", TrackKind.GAS, ["C1"], width=420, visible=False)]
+        [TrackDefinition("gas", "Газ", TrackKind.GAS, ["C1"], width=420, visible=False)],
+        annotation_scope_id="dataset:dataset-1:form:test-form",
     )
     project = make_project()
     project.wells["well-1"].datasets["dataset-1"].version_headers = {

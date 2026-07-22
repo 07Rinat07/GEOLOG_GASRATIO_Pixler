@@ -1927,9 +1927,26 @@ class MainWindow(QMainWindow):
         self.masterlog_template_controller.session = self.session
         self._update_curve_edit_actions()
         self._selected_track_id = None
+        well = self.session.current_well
+        saved_layout = self.session.current_tablet_layout
+        annotation_scope_migration_required = bool(
+            well is not None
+            and any(
+                is_annotation_object(item)
+                and annotation_from_canvas(item).scope_id is None
+                for item in well.canvas_objects
+            )
+        ) or bool(
+            saved_layout is not None
+            and saved_layout.annotation_scope_id is None
+            and well is not None
+            and any(is_annotation_object(item) for item in well.canvas_objects)
+        )
         self._refresh_tree()
         self._show_current_dataset()
-        self.session.dirty = False
+        # A legacy annotation-scope migration must be saved. Normal project
+        # opening remains clean when no migration was necessary.
+        self.session.dirty = annotation_scope_migration_required
         self._update_title()
         self._log(f"Проект открыт: {source}")
         self.statusBar().showMessage(f"Проект открыт: {source.name}")
@@ -1963,7 +1980,9 @@ class MainWindow(QMainWindow):
         self.curve_browser.select_recommended()
         self.curve_browser_dock.hide()
         well = self.session.current_well
-        self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
+        # Do not expose well-global annotation objects before the saved form is
+        # restored. The scoped layer is populated after the layout is known.
+        self.tablet_view.set_canvas_objects([])
         self.tablet_view.set_lithology(
             well.lithology if well is not None else [],
             self.lithotype_catalog_controller.available(),
@@ -1986,6 +2005,7 @@ class MainWindow(QMainWindow):
             self.build_default_tablet()
         else:
             self.tablet_view.set_layout_model(saved_layout)
+            self._refresh_annotation_layer()
         self.tabs.setCurrentWidget(self.tablet_view)
 
     def show_las_editor(self) -> None:
@@ -3069,6 +3089,7 @@ class MainWindow(QMainWindow):
             self.session.dirty = True
         self.tablet_view.set_layout_model(result.layout)
         self.tablet_view.set_dataset(dataset)
+        self._refresh_annotation_layer()
         self.tabs.setCurrentWidget(self.tablet_view)
         self._selected_track_id = None
         self._refresh_tree()
@@ -3095,6 +3116,7 @@ class MainWindow(QMainWindow):
         layout = self.tablet_controller.build_default_layout()
         self.tablet_view.set_layout_model(layout)
         self.tablet_view.set_dataset(dataset)
+        self._refresh_annotation_layer()
         self._refresh_tree()
         self._update_title()
         self._log(self._t("tablet.default_built", count=len(layout.tracks)))
@@ -3181,10 +3203,14 @@ class MainWindow(QMainWindow):
                 form.print_header_template_id = existing.print_header_template_id
                 form.validate()
             target = self.form_repository.save(form)
+            self.depth_annotation_controller.rebind_current_scope(
+                f"dataset:{dataset.dataset_id}:form:{form.form_id}"
+            )
         except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("ui.save_user_form"), str(exc))
             return
         self.session.dirty = True
+        self._refresh_annotation_layer()
         folder_name = self._t(
             "ui.user_time_forms" if form.axis_kind is FormAxisKind.TIME else "ui.user_depth_forms"
         )
@@ -3808,6 +3834,7 @@ class MainWindow(QMainWindow):
                 initial_values=initial_values,
                 annotation_id=annotation_id,
             )
+            dialog.annotations_changed.connect(self._refresh_annotation_layer)
             dialog.exec()
         except Exception as exc:  # UI boundary: show unexpected plugin/Qt failures.
             QMessageBox.critical(
@@ -3830,7 +3857,22 @@ class MainWindow(QMainWindow):
 
         well = self.session.current_well
         self.tablet_view.set_image_assets(self.session.image_assets)
-        self.tablet_view.set_canvas_objects(well.canvas_objects if well is not None else [])
+        if well is None:
+            visible_objects = []
+        else:
+            self.depth_annotation_controller.adopt_unscoped_annotations()
+            visible_objects = self.depth_annotation_controller.canvas_objects_for_current_scope()
+        self.tablet_view.set_canvas_objects(visible_objects)
+        if (
+            self._selected_annotation_id is not None
+            and all(
+                item.object_id != self._selected_annotation_id
+                for item in visible_objects
+            )
+        ):
+            self._selected_annotation_id = None
+            self.tablet_view.select_annotation(None)
+            self._annotation_selection_changed(None)
         self._update_title()
 
     def _toggle_annotation_tool(self, kind: AnnotationKind, checked: bool) -> None:
@@ -3907,14 +3949,19 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
-        if answer is not QMessageBox.StandardButton.Yes:
+        if answer != QMessageBox.StandardButton.Yes:
             return
         try:
             self.depth_annotation_controller.remove(annotation_id)
         except (KeyError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("annotations.title"), str(exc))
             return
+        if self._selected_annotation_id == annotation_id:
+            self._selected_annotation_id = None
+            self.tablet_view.select_annotation(None)
+            self._annotation_selection_changed(None)
         self._refresh_annotation_layer()
+        self.statusBar().showMessage(self._t("annotations.deleted_status"))
 
     def _duplicate_annotation_from_tablet(self, annotation_id: str) -> None:
         try:

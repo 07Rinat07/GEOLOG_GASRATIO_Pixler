@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -84,6 +84,8 @@ class _ColorButton(QPushButton):
 class DepthAnnotationsDialog(QDialog):
     """Unified manager and style editor for tablet annotations."""
 
+    annotations_changed = Signal()
+
     def __init__(
         self,
         controller: DepthAnnotationController,
@@ -96,6 +98,7 @@ class DepthAnnotationsDialog(QDialog):
         super().__init__(parent)
         self.localizer = Localizer.create(language)
         self.controller = controller
+        self.controller.adopt_unscoped_annotations()
         self._single_item_mode = initial_values is not None or annotation_id is not None
         self._editing_annotation_id = annotation_id
         self.result_annotation_id: str | None = None
@@ -164,6 +167,13 @@ class DepthAnnotationsDialog(QDialog):
             )
             buttons.accepted.connect(self._save_single_item)
             buttons.rejected.connect(self.reject)
+            if annotation_id is not None:
+                delete_button = buttons.addButton(
+                    self._t("annotations.delete_action"),
+                    QDialogButtonBox.ButtonRole.DestructiveRole,
+                )
+                delete_button.setObjectName("annotation-delete-single-button")
+                delete_button.clicked.connect(self._delete_single_item)
         root.addWidget(buttons)
 
         self._refresh_tracks_and_curves()
@@ -779,6 +789,24 @@ class DepthAnnotationsDialog(QDialog):
             self.result_annotation_id = saved.annotation_id
         self.accept()
 
+    def _delete_single_item(self) -> None:
+        annotation_id = self._editing_annotation_id
+        if annotation_id is None:
+            return
+        answer = QMessageBox.question(
+            self,
+            self._t("annotations.title"),
+            self._t("annotations.delete_confirm"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        if not self._run(lambda: self.controller.remove(annotation_id)):
+            return
+        self.result_annotation_id = None
+        self.accept()
+
     def _add(self) -> None:
         created: AnnotationRecord | None = None
 
@@ -822,7 +850,17 @@ class DepthAnnotationsDialog(QDialog):
         if annotation_id is None:
             self._select_first_message()
             return
-        self._run(lambda: self.controller.remove(annotation_id))
+        answer = QMessageBox.question(
+            self,
+            self._t("annotations.title"),
+            self._t("annotations.delete_confirm"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        if self._run(lambda: self.controller.remove(annotation_id)):
+            self.table.clearSelection()
 
     def _undo(self) -> None:
         self._run(self.controller.undo)
@@ -837,6 +875,7 @@ class DepthAnnotationsDialog(QDialog):
             QMessageBox.warning(self, self._t("annotations.title"), str(exc))
             return False
         self._refresh()
+        self.annotations_changed.emit()
         return True
 
     def _choose_image(self) -> None:

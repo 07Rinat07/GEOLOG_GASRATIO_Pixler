@@ -228,6 +228,7 @@ class TabletLayout:
     visible_depth_bottom: float | None = None
     cursor_depth: float | None = None
     vertical_index_id: str | None = None
+    annotation_scope_id: str | None = None
 
     def __post_init__(self) -> None:
         self._validate_visible_depth(self.visible_depth_top, self.visible_depth_bottom)
@@ -237,6 +238,12 @@ class TabletLayout:
             not isinstance(self.vertical_index_id, str) or not self.vertical_index_id.strip()
         ):
             raise ValueError("vertical_index_id должен быть непустой строкой или null")
+        if self.annotation_scope_id is not None and (
+            not isinstance(self.annotation_scope_id, str)
+            or not self.annotation_scope_id.strip()
+            or len(self.annotation_scope_id) > 300
+        ):
+            raise ValueError("annotation_scope_id должен быть непустой строкой до 300 символов или null")
 
     def add_track(self, track: TrackDefinition, index: int | None = None) -> None:
         if any(existing.track_id == track.track_id for existing in self.tracks):

@@ -1,4 +1,6 @@
-# GeoScape / Borland Paradox DB import — 0.7.26
+# GeoScape / Borland Paradox DB import — 0.7.27
+
+> 0.7.27 does not change Paradox logic; this release fixes tablet annotation deletion and view scoping.
 
 ## Batch-conversion correction in 0.7.26
 

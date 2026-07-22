@@ -248,3 +248,227 @@ def test_identical_geometry_does_not_create_history_or_dirty_project() -> None:
     assert controller.session.dirty is False
     with pytest.raises(RuntimeError, match="Нет операций"):
         controller.undo()
+
+
+def test_annotations_are_scoped_to_current_tablet_form() -> None:
+    from geoworkbench.project.annotation_schema import annotation_scope_id_for_session
+    from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+
+    controller = make_controller()
+    first_layout = TabletLayout(
+        tracks=[TrackDefinition("form-a-track", "A", TrackKind.CURVE)],
+        vertical_index_id=controller.session.current_dataset.active_index.index_id,
+    )
+    controller.session.set_current_tablet_layout(first_layout)
+    created = controller.add_annotation(text="Только форма A", depth=150.0)
+    first_scope = annotation_scope_id_for_session(controller.session)
+
+    assert created.scope_id == first_scope
+    assert [item.annotation_id for item in controller.available_annotations()] == [
+        created.annotation_id
+    ]
+    assert [item.object_id for item in controller.canvas_objects_for_current_scope()] == [
+        created.annotation_id
+    ]
+
+    second_layout = TabletLayout(
+        tracks=[TrackDefinition("form-b-track", "B", TrackKind.CURVE)],
+        vertical_index_id=controller.session.current_dataset.active_index.index_id,
+    )
+    controller.session.set_current_tablet_layout(second_layout)
+
+    assert controller.available_annotations() == ()
+    assert controller.canvas_objects_for_current_scope() == []
+    assert controller.available_annotations(include_all_scopes=True)[0].annotation_id == created.annotation_id
+
+    controller.session.set_current_tablet_layout(first_layout)
+    assert controller.available_annotations()[0].annotation_id == created.annotation_id
+
+
+def test_legacy_unscoped_annotations_are_adopted_by_current_form_once() -> None:
+    from geoworkbench.domain.models import CanvasObject
+    from geoworkbench.project.annotation_schema import annotation_scope_id_for_session
+    from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+
+    controller = make_controller()
+    controller.session.set_current_tablet_layout(
+        TabletLayout(
+            tracks=[TrackDefinition("legacy-form-track", "Legacy", TrackKind.CURVE)],
+            vertical_index_id=controller.session.current_dataset.active_index.index_id,
+        )
+    )
+    well = controller.session.current_well
+    assert well is not None
+    legacy = CanvasObject(
+        object_id="legacy-note",
+        object_type="annotation",
+        anchor_type="depth",
+        x=0.5,
+        y=150.0,
+        width=200.0,
+        height=70.0,
+        top_depth=150.0,
+        bottom_depth=150.0,
+        properties={"kind": "comment", "text": "Старая заметка"},
+    )
+    well.canvas_objects.append(legacy)
+
+    assert controller.adopt_unscoped_annotations() == 1
+    assert controller.adopt_unscoped_annotations() == 0
+    assert legacy.properties["scope_id"] == annotation_scope_id_for_session(controller.session)
+    assert controller.available_annotations()[0].annotation_id == "legacy-note"
+
+
+def test_rebinding_current_scope_moves_annotations_to_saved_form_scope() -> None:
+    from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+
+    controller = make_controller()
+    layout = TabletLayout(
+        tracks=[TrackDefinition("working-track", "Working", TrackKind.CURVE)],
+        vertical_index_id=controller.session.current_dataset.active_index.index_id,
+        annotation_scope_id="dataset:dataset:default",
+    )
+    controller.session.set_current_tablet_layout(layout)
+    created = controller.add_annotation(text="Сохранить с формой", depth=150.0)
+
+    changed = controller.rebind_current_scope("dataset:dataset:form:user-form")
+
+    assert changed == 1
+    assert layout.annotation_scope_id == "dataset:dataset:form:user-form"
+    assert controller.get(created.annotation_id).scope_id == "dataset:dataset:form:user-form"
+
+
+def test_annotation_scope_stays_stable_when_tracks_are_edited() -> None:
+    from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+
+    controller = make_controller()
+    layout = TabletLayout(
+        tracks=[TrackDefinition("track-one", "One", TrackKind.CURVE)],
+        vertical_index_id=controller.session.current_dataset.active_index.index_id,
+        annotation_scope_id="dataset:dataset:form:stable",
+    )
+    controller.session.set_current_tablet_layout(layout)
+    created = controller.add_annotation(text="Не исчезать", depth=150.0)
+
+    layout.add_track(TrackDefinition("track-two", "Two", TrackKind.CURVE))
+    layout.remove_track("track-one")
+
+    assert controller.current_scope_id() == "dataset:dataset:form:stable"
+    assert controller.available_annotations()[0].annotation_id == created.annotation_id
+
+
+def test_forms_with_identical_tracks_keep_annotations_isolated_by_form_id() -> None:
+    """Form identity, not visual similarity, owns annotation visibility."""
+
+    from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+
+    controller = make_controller()
+    axis_id = controller.session.current_dataset.active_index.index_id
+    shared_tracks_a = [TrackDefinition("shared-track", "Shared", TrackKind.CURVE)]
+    form_a = TabletLayout(
+        tracks=shared_tracks_a,
+        vertical_index_id=axis_id,
+        annotation_scope_id="dataset:dataset:form:form-a",
+    )
+    controller.session.set_current_tablet_layout(form_a)
+    created = controller.add_annotation(text="Только A", depth=150.0)
+
+    form_b = TabletLayout(
+        tracks=[TrackDefinition("shared-track", "Shared", TrackKind.CURVE)],
+        vertical_index_id=axis_id,
+        annotation_scope_id="dataset:dataset:form:form-b",
+    )
+    controller.session.set_current_tablet_layout(form_b)
+
+    assert controller.available_annotations() == ()
+    assert controller.canvas_objects_for_current_scope() == []
+
+    controller.session.set_current_tablet_layout(form_a)
+    assert [record.annotation_id for record in controller.available_annotations()] == [
+        created.annotation_id
+    ]
+
+
+def test_delete_removes_model_object_and_undo_restores_same_form_scope() -> None:
+    from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+
+    controller = make_controller()
+    controller.session.set_current_tablet_layout(
+        TabletLayout(
+            tracks=[TrackDefinition("delete-track", "Delete", TrackKind.CURVE)],
+            vertical_index_id=controller.session.current_dataset.active_index.index_id,
+            annotation_scope_id="dataset:dataset:form:delete-form",
+        )
+    )
+    created = controller.add_annotation(text="Удалить", depth=150.0)
+    controller.history.clear()
+
+    removed = controller.remove(created.annotation_id)
+
+    assert removed.annotation_id == created.annotation_id
+    assert controller.available_annotations() == ()
+    assert controller.canvas_objects_for_current_scope() == []
+    well = controller.session.current_well
+    assert well is not None
+    assert all(item.object_id != created.annotation_id for item in well.canvas_objects)
+
+    controller.undo()
+    restored = controller.get(created.annotation_id)
+    assert restored.scope_id == "dataset:dataset:form:delete-form"
+    assert controller.available_annotations()[0].annotation_id == created.annotation_id
+
+
+def test_duplicate_never_leaks_into_another_form_scope() -> None:
+    from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+
+    controller = make_controller()
+    axis_id = controller.session.current_dataset.active_index.index_id
+    form_a = TabletLayout(
+        tracks=[TrackDefinition("track-a", "A", TrackKind.CURVE)],
+        vertical_index_id=axis_id,
+        annotation_scope_id="dataset:dataset:form:a",
+    )
+    controller.session.set_current_tablet_layout(form_a)
+    created = controller.add_annotation(text="A", depth=150.0)
+    duplicate = controller.duplicate(created.annotation_id)
+
+    assert duplicate.scope_id == created.scope_id == "dataset:dataset:form:a"
+
+    controller.session.set_current_tablet_layout(
+        TabletLayout(
+            tracks=[TrackDefinition("track-b", "B", TrackKind.CURVE)],
+            vertical_index_id=axis_id,
+            annotation_scope_id="dataset:dataset:form:b",
+        )
+    )
+    assert controller.available_annotations() == ()
+
+
+def test_stale_annotation_id_cannot_delete_object_from_previous_form() -> None:
+    from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+
+    controller = make_controller()
+    axis_id = controller.session.current_dataset.active_index.index_id
+    controller.session.set_current_tablet_layout(
+        TabletLayout(
+            tracks=[TrackDefinition("scope-a", "A", TrackKind.CURVE)],
+            vertical_index_id=axis_id,
+            annotation_scope_id="dataset:dataset:form:a",
+        )
+    )
+    created = controller.add_annotation(text="A", depth=150.0)
+
+    controller.session.set_current_tablet_layout(
+        TabletLayout(
+            tracks=[TrackDefinition("scope-b", "B", TrackKind.CURVE)],
+            vertical_index_id=axis_id,
+            annotation_scope_id="dataset:dataset:form:b",
+        )
+    )
+
+    with pytest.raises(KeyError, match="текущей форме"):
+        controller.remove(created.annotation_id)
+
+    well = controller.session.current_well
+    assert well is not None
+    assert any(item.object_id == created.annotation_id for item in well.canvas_objects)

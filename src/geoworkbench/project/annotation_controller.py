@@ -16,7 +16,9 @@ from geoworkbench.project.annotation_schema import (
     AnnotationRecord,
     AnnotationStyle,
     annotation_from_canvas,
+    annotation_matches_scope,
     annotation_properties,
+    annotation_scope_id_for_session,
     is_annotation_object,
 )
 from geoworkbench.project.session import ProjectSession
@@ -55,10 +57,12 @@ class DepthAnnotationController:
     # Backward-compatible depth-note API
     # ------------------------------------------------------------------
     def available(self) -> tuple[DepthAnnotation, ...]:
+        scope_id = self.current_scope_id()
         annotations = [
             self._to_depth_annotation(item)
             for item in self._require_well().canvas_objects
             if is_annotation_object(item)
+            and annotation_matches_scope(annotation_from_canvas(item), scope_id)
             and annotation_from_canvas(item).depth is not None
         ]
         return tuple(sorted(annotations, key=lambda item: (item.depth, item.annotation_id)))
@@ -87,6 +91,7 @@ class DepthAnnotationController:
                 "visible": True,
                 "locked": False,
                 "print_enabled": True,
+                "scope_id": self.current_scope_id(),
             },
         )
         well.canvas_objects.append(item)
@@ -98,7 +103,7 @@ class DepthAnnotationController:
         normalized_depth, normalized_text = self._validate_depth_text(depth, text)
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
-        item = self._require_item(annotation_id)
+        item = self._require_current_item(annotation_id)
         item.y = normalized_depth
         item.top_depth = normalized_depth
         item.bottom_depth = normalized_depth
@@ -110,12 +115,77 @@ class DepthAnnotationController:
     # ------------------------------------------------------------------
     # Rich annotation API
     # ------------------------------------------------------------------
-    def available_annotations(self) -> tuple[AnnotationRecord, ...]:
-        records = [
-            annotation_from_canvas(item)
-            for item in self._require_well().canvas_objects
-            if is_annotation_object(item)
-        ]
+    def current_scope_id(self) -> str | None:
+        scope_id = annotation_scope_id_for_session(self.session)
+        layout = self.session.current_tablet_layout
+        if (
+            scope_id
+            and layout is not None
+            and getattr(layout, "annotation_scope_id", None) is None
+        ):
+            layout.annotation_scope_id = scope_id
+            self.session.dirty = True
+        return scope_id
+
+    def adopt_unscoped_annotations(self) -> int:
+        """Bind legacy well-global annotations to the currently open form once.
+
+        Older projects had no form scope, which made one comment appear in every
+        tablet form. The first 0.7.27 load associates those objects with the
+        saved/current layout. This is a schema migration, not a user edit, so it
+        does not create an Undo command.
+        """
+
+        scope_id = self.current_scope_id()
+        if not scope_id:
+            return 0
+        changed = 0
+        for item in self._require_well().canvas_objects:
+            if not is_annotation_object(item):
+                continue
+            if annotation_from_canvas(item).scope_id is not None:
+                continue
+            item.properties["scope_id"] = scope_id
+            item.properties["schema_version"] = 2
+            changed += 1
+        if changed:
+            self.session.dirty = True
+        return changed
+
+    def rebind_current_scope(self, new_scope_id: str) -> int:
+        normalized = self._optional_text(new_scope_id, 300)
+        if normalized is None:
+            raise ValueError("Область аннотаций не может быть пустой")
+        old_scope_id = self.current_scope_id()
+        layout = self.session.current_tablet_layout
+        changed = 0
+        for item in self._require_well().canvas_objects:
+            if not is_annotation_object(item):
+                continue
+            record = annotation_from_canvas(item)
+            if record.scope_id != old_scope_id:
+                continue
+            item.properties["scope_id"] = normalized
+            item.properties["schema_version"] = 2
+            changed += 1
+        if layout is not None:
+            layout.annotation_scope_id = normalized
+        if changed or old_scope_id != normalized:
+            self.session.dirty = True
+        return changed
+
+    def available_annotations(
+        self, *, include_all_scopes: bool = False
+    ) -> tuple[AnnotationRecord, ...]:
+        scope_id = self.current_scope_id()
+        records = []
+        for item in self._require_well().canvas_objects:
+            if not is_annotation_object(item):
+                continue
+            record = annotation_from_canvas(item)
+            if not include_all_scopes and not annotation_matches_scope(record, scope_id):
+                continue
+            records.append(record)
         return tuple(
             sorted(
                 records,
@@ -128,8 +198,17 @@ class DepthAnnotationController:
             )
         )
 
+    def canvas_objects_for_current_scope(self) -> list[CanvasObject]:
+        scope_id = self.current_scope_id()
+        return [
+            item
+            for item in self._require_well().canvas_objects
+            if is_annotation_object(item)
+            and annotation_matches_scope(annotation_from_canvas(item), scope_id)
+        ]
+
     def get(self, annotation_id: str) -> AnnotationRecord:
-        return annotation_from_canvas(self._require_item(annotation_id))
+        return annotation_from_canvas(self._require_current_item(annotation_id))
 
     def add_annotation(
         self,
@@ -154,6 +233,7 @@ class DepthAnnotationController:
         visible: bool = True,
         locked: bool = False,
         print_enabled: bool = True,
+        scope_id: str | None = None,
     ) -> AnnotationRecord:
         normalized = self._normalize_annotation(
             kind=kind,
@@ -176,6 +256,7 @@ class DepthAnnotationController:
             visible=visible,
             locked=locked,
             print_enabled=print_enabled,
+            scope_id=scope_id or self.current_scope_id(),
         )
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
@@ -212,6 +293,7 @@ class DepthAnnotationController:
             "visible": current.visible,
             "locked": current.locked,
             "print_enabled": current.print_enabled,
+            "scope_id": current.scope_id,
         }
         values.update(changes)
         if (
@@ -224,7 +306,7 @@ class DepthAnnotationController:
         normalized = self._normalize_annotation(**values)
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
-        item = self._require_item(annotation_id)
+        item = self._require_current_item(annotation_id)
         replacement = self._canvas_from_record(annotation_id, normalized)
         # Keep object identity stable for scene and tree references.
         item.object_type = replacement.object_type
@@ -288,6 +370,7 @@ class DepthAnnotationController:
             visible=current.visible,
             locked=False,
             print_enabled=current.print_enabled,
+            scope_id=current.scope_id,
         )
 
     def add_curve_value(
@@ -340,7 +423,7 @@ class DepthAnnotationController:
     def remove(self, annotation_id: str) -> DepthAnnotation | AnnotationRecord:
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
-        item = self._require_item(annotation_id)
+        item = self._require_current_item(annotation_id)
         legacy = item.object_type == DEPTH_ANNOTATION_TYPE
         removed: DepthAnnotation | AnnotationRecord = (
             self._to_depth_annotation(item) if legacy else annotation_from_canvas(item)
@@ -481,6 +564,10 @@ class DepthAnnotationController:
             visible=bool(values.get("visible", True)),
             locked=bool(values.get("locked", False)),
             print_enabled=bool(values.get("print_enabled", True)),
+            scope_id=(
+                self._optional_text(values.get("scope_id"), 300)
+                or self.current_scope_id()
+            ),
         )
 
     @staticmethod
@@ -522,6 +609,7 @@ class DepthAnnotationController:
                 visible=record.visible,
                 locked=record.locked,
                 print_enabled=record.print_enabled,
+                scope_id=record.scope_id,
             ),
         )
 
@@ -625,6 +713,20 @@ class DepthAnnotationController:
             if item.object_id == annotation_id and is_annotation_object(item):
                 return item
         raise KeyError(f"Аннотация не найдена: {annotation_id}")
+
+    def _require_current_item(self, annotation_id: str) -> CanvasObject:
+        """Return an annotation only when it belongs to the active form.
+
+        UI commands can be delivered after a form switch by a queued Qt signal.
+        A stale identifier must never edit or delete an annotation owned by the
+        previously active form, even though the object still exists at well level.
+        """
+
+        item = self._require_item(annotation_id)
+        record = annotation_from_canvas(item)
+        if not annotation_matches_scope(record, self.current_scope_id()):
+            raise KeyError(f"Аннотация не принадлежит текущей форме: {annotation_id}")
+        return item
 
     @staticmethod
     def _to_depth_annotation(item: CanvasObject) -> DepthAnnotation:

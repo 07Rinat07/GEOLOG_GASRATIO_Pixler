@@ -1,3 +1,18 @@
+# 0.7.27 — annotation deletion and form-scoped persistence (test build)
+
+- fixed Windows annotation deletion by comparing `QMessageBox.StandardButton` values instead of Python object identity;
+- added a destructive Delete annotation action to the focused editor;
+- refresh the tablet immediately after manager CRUD, Undo and Redo operations;
+- added annotation schema v2 with persistent `scope_id`;
+- added tablet-layout format v13 with stable `annotation_scope_id`;
+- isolate comments, callouts, values and images to the dataset/form where they were created;
+- reject stale edit/delete identifiers after switching forms, preventing cross-form mutation;
+- migrate legacy unscoped annotations to the saved/current form;
+- filter direct Masterlog printing with the same active annotation scope;
+- rebind annotations when saving the current tablet as a user form;
+- added regression tests for deletion, form isolation, migration and scope serialization;
+- synchronized documentation and user instructions in RU/KK/EN.
+
 # 0.7.26 — typed Paradox batch-plan hotfix (test build)
 
 - fixed the Windows batch DB → LAS crash `'str' object has no attribute 'value'`;

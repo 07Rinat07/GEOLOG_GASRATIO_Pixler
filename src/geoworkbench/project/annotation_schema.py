@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from hashlib import sha256
 from enum import StrEnum
 from math import isfinite
 from typing import Any, Mapping
@@ -10,7 +11,7 @@ from geoworkbench.domain.models import CanvasObject
 
 ANNOTATION_OBJECT_TYPE = "annotation"
 LEGACY_DEPTH_ANNOTATION_TYPE = "depth_annotation"
-ANNOTATION_SCHEMA_VERSION = 1
+ANNOTATION_SCHEMA_VERSION = 2
 
 
 class AnnotationKind(StrEnum):
@@ -141,6 +142,7 @@ class AnnotationRecord:
     visible: bool = True
     locked: bool = False
     print_enabled: bool = True
+    scope_id: str | None = None
 
 
 STYLE_PRESETS: dict[str, AnnotationStyle] = {
@@ -203,6 +205,7 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
             visible=bool(item.properties.get("visible", True)),
             locked=bool(item.properties.get("locked", False)),
             print_enabled=bool(item.properties.get("print_enabled", True)),
+            scope_id=_optional_string(item.properties.get("scope_id"), maximum=300),
         )
     raw_kind = item.properties.get("kind", AnnotationKind.CALLOUT.value)
     raw_anchor = item.anchor_type or AnnotationAnchor.TRACK.value
@@ -239,6 +242,7 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
         visible=bool(item.properties.get("visible", True)),
         locked=bool(item.properties.get("locked", False)),
         print_enabled=bool(item.properties.get("print_enabled", True)),
+        scope_id=_optional_string(item.properties.get("scope_id"), maximum=300),
     )
 
 
@@ -257,6 +261,7 @@ def annotation_properties(
     visible: bool,
     locked: bool,
     print_enabled: bool,
+    scope_id: str | None = None,
 ) -> dict[str, Any]:
     properties: dict[str, Any] = {
         "schema_version": ANNOTATION_SCHEMA_VERSION,
@@ -270,6 +275,8 @@ def annotation_properties(
         "print_enabled": bool(print_enabled),
         "unit": unit,
     }
+    if scope_id:
+        properties["scope_id"] = scope_id
     if axis_value is not None:
         properties["axis_value"] = float(axis_value)
     if axis_id:
@@ -279,6 +286,43 @@ def annotation_properties(
     if asset_ref:
         properties["asset_ref"] = asset_ref
     return properties
+
+
+def annotation_scope_id(dataset_id: str | None, layout: object | None) -> str | None:
+    """Return a stable view scope for annotations in one dataset/tablet form.
+
+    The scope uses the current dataset plus the ordered track identifiers and
+    vertical index. Applying another form therefore does not leak comments into
+    that form, while reopening the same saved form/layout restores them.
+    """
+
+    if not dataset_id:
+        return None
+    explicit = getattr(layout, "annotation_scope_id", None) if layout is not None else None
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip()[:300]
+    raw_tracks = getattr(layout, "tracks", ()) if layout is not None else ()
+    track_ids = [
+        str(getattr(track, "track_id", "")).strip()
+        for track in raw_tracks
+        if str(getattr(track, "track_id", "")).strip()
+    ]
+    payload = "\x1f".join(track_ids or ["empty-layout"])
+    digest = sha256(payload.encode("utf-8")).hexdigest()[:20]
+    return f"dataset:{dataset_id}:tablet:{digest}"
+
+
+def annotation_scope_id_for_session(session: object) -> str | None:
+    return annotation_scope_id(
+        getattr(session, "current_dataset_id", None),
+        getattr(session, "current_tablet_layout", None),
+    )
+
+
+def annotation_matches_scope(record: AnnotationRecord, scope_id: str | None) -> bool:
+    if record.scope_id is None:
+        return scope_id is None
+    return record.scope_id == scope_id
 
 
 def _finite(value: object) -> bool:

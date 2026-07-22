@@ -347,3 +347,27 @@ def test_layout_codec_migrates_v8_with_empty_curve_display() -> None:
         }
     )
     assert restored.track_by_id("curve").curve_display == {}
+
+
+def test_layout_codec_round_trip_preserves_annotation_scope() -> None:
+    source = make_layout()
+    source.annotation_scope_id = "dataset:one:form:alpha"
+
+    restored = layout_from_dict(layout_to_dict(source))
+
+    assert restored.annotation_scope_id == "dataset:one:form:alpha"
+
+
+def test_layout_codec_migrates_v12_without_annotation_scope() -> None:
+    restored = layout_from_dict(
+        {
+            "version": 12,
+            "visible_depth_top": None,
+            "visible_depth_bottom": None,
+            "cursor_depth": None,
+            "vertical_index_id": None,
+            "tracks": [],
+        }
+    )
+
+    assert restored.annotation_scope_id is None
