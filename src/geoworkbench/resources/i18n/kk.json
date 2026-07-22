@@ -1547,5 +1547,15 @@
   "visual_export.select_view": "График немесе планшет қойындысын ашыңыз",
   "visual_export.success": "Визуализация экспортталды: {name}",
   "visual_export.svg_action": "Ағымдағы графикті/планшетті SVG-ге экспорттау...",
-  "visual_export.title": "Визуализацияны экспорттау"
+  "visual_export.title": "Визуализацияны экспорттау",
+  "paradox.status_configuration_required": "Баптау қажет",
+  "paradox.apply_batch_settings": "Пакеттік түрлендіруге қолдану",
+  "paradox.apply_batch_settings_hint": "Тереңдік пен уақыт арналарын растау және құжатты ашпай пакеттік түрлендіргішке оралу.",
+  "paradox.configure_selected_source": "Таңдалған DB-ны баптау…",
+  "paradox.configure_selected_source_hint": "Анық емес кесте үшін тереңдік, уақыт және арналарды таңдау терезесін ашу.",
+  "paradox.select_source_to_configure": "«Баптау қажет» күйіндегі жолды таңдаңыз.",
+  "paradox.configuration_not_applied": "Индекс баптаулары қолданылмады.",
+  "paradox.configuration_applied": "«{file}» баптаулары ағымдағы пакеттік түрлендіру сеансында сақталды.",
+  "paradox.retry_after_configuration": "«{file}» баптауы аяқталды. Осы файлды қазір қайта түрлендіру керек пе?",
+  "paradox.batch_configuration_summary": "Қолмен баптауды қажет ететін операциялар: {count}. Жолды таңдап, «Таңдалған DB-ны баптау…» түймесін басыңыз."
 }

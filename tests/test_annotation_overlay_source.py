@@ -36,8 +36,9 @@ def test_annotation_overlay_supports_selection_and_eight_resize_handles() -> Non
     assert "def begin_interaction" in source
     assert "def finish_interaction" in source
     assert "grabMouse()" not in source[source.index("class TabletAnnotationOverlay"):]
-    assert "def _build_sparse_paint_mask" in source
-    assert "self.setMask(QRegion())" in source
+    assert "self._sprites: dict[str, QLabel]" in source
+    assert "sprite = QLabel(self._canvas)" in source
+    assert "setMask(" not in source[source.index("class TabletAnnotationOverlay"):]
     assert "QPainterPathStroker" in source
 
 

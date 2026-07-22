@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.24 (test hotfix):** fixes the Windows black-tablet regression. The transparent annotation overlay no longer exposes a full-size native region over PyQtGraph; its region is restricted to visible annotation bounds. The OOP pointer router and track editor remain intact. Visual Windows verification is mandatory.
+> **0.7.25 (test build):** ambiguous DB indexes can now be configured inside the batch converter, and the full-size translucent annotation widget has been removed. Each annotation is painted as a small independent sprite, so empty tablet space is never covered. Visual Windows verification is mandatory.
 
 
 

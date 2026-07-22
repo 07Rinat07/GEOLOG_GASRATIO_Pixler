@@ -63,22 +63,22 @@ def test_pointer_move_repaints_only_annotation_dirty_rectangle() -> None:
     calls = _called_names(method)
     assert "set_entries" not in calls
     assert "setMask" not in calls
-    assert "_schedule_paint_mask" in calls
-    assert "united" in calls
-    assert "toAlignedRect" in calls
+    assert "_refresh_sprite" in calls
+    assert "_raise_sprites" in calls
 
 
-def test_overlay_is_mouse_transparent_with_sparse_paint_only_mask() -> None:
+def test_overlay_is_mouse_transparent_and_uses_small_sprites() -> None:
     source = (
         ROOT / "src/geoworkbench/tablet/annotation_graphics.py"
     ).read_text(encoding="utf-8")
     overlay_source = source[source.index("class TabletAnnotationOverlay"):]
 
     assert "WA_TransparentForMouseEvents" in overlay_source
-    assert "WA_NoSystemBackground" in overlay_source
-    assert "def _build_sparse_paint_mask" in overlay_source
-    assert "return region.intersected(content)" in overlay_source
-    assert "self.setMask(QRegion())" in overlay_source
+    assert "self.hide()" in overlay_source
+    assert "sprite = QLabel(self._canvas)" in overlay_source
+    assert "sprite.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)" in overlay_source
+    assert "setMask(" not in overlay_source
+    assert "WA_TranslucentBackground" not in overlay_source
     assert "grabMouse(" not in overlay_source
 
 
@@ -96,9 +96,10 @@ def test_release_commits_only_meaningful_geometry_changes() -> None:
     assert "InputEventKind.POINTER_RELEASE" in handler
 
 
-def test_dirty_repaint_explicitly_clears_transparent_pixels() -> None:
+def test_sprite_pixmap_is_explicitly_cleared_to_transparent() -> None:
     source = (
         ROOT / "src/geoworkbench/tablet/annotation_graphics.py"
     ).read_text(encoding="utf-8")
-    assert "CompositionMode_Source" in source
-    assert "painter.fillRect(event.rect(), Qt.GlobalColor.transparent)" in source
+    assert "pixmap.fill(Qt.GlobalColor.transparent)" in source
+    assert "sprite.setPixmap(pixmap)" in source
+

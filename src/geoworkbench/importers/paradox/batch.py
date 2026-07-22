@@ -17,6 +17,7 @@ class BatchStatus(StrEnum):
     WARNING = "warning"
     ERROR = "error"
     SKIPPED = "skipped"
+    CONFIGURATION_REQUIRED = "configuration_required"
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,8 +107,8 @@ def convert_batch(
                     results.append(
                         BatchItemResult(
                             source,
-                            None,
-                            BatchStatus.ERROR,
+                            target,
+                            BatchStatus.CONFIGURATION_REQUIRED,
                             message("paradox.batch_ambiguous"),
                             records=table.rows_read,
                             warnings=len(material_issues),

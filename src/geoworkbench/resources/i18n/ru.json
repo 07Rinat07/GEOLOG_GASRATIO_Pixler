@@ -1547,5 +1547,15 @@
   "visual_export.select_view": "Откройте вкладку графика или планшета",
   "visual_export.success": "Визуализация экспортирована: {name}",
   "visual_export.svg_action": "Экспортировать текущий график/планшет в SVG...",
-  "visual_export.title": "Экспорт визуализации"
+  "visual_export.title": "Экспорт визуализации",
+  "paradox.status_configuration_required": "Требуется настройка",
+  "paradox.apply_batch_settings": "Применить для пакетной конвертации",
+  "paradox.apply_batch_settings_hint": "Подтвердить выбранные каналы глубины и времени и вернуться в пакетный конвертер без открытия документа.",
+  "paradox.configure_selected_source": "Настроить выбранный DB…",
+  "paradox.configure_selected_source_hint": "Открыть выбор глубины, времени и каналов для неоднозначной таблицы.",
+  "paradox.select_source_to_configure": "Выберите строку со статусом «Требуется настройка».",
+  "paradox.configuration_not_applied": "Настройки индекса не были применены.",
+  "paradox.configuration_applied": "Настройки для «{file}» сохранены в текущем сеансе пакетной конвертации.",
+  "paradox.retry_after_configuration": "Настройка «{file}» завершена. Повторить конвертацию этого файла сейчас?",
+  "paradox.batch_configuration_summary": "Для операций требуется ручная настройка: {count}. Выберите строку и нажмите «Настроить выбранный DB…»."
 }

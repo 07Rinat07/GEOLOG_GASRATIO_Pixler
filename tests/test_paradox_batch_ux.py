@@ -35,3 +35,16 @@ def test_main_window_can_open_generated_las_from_batch_dialog() -> None:
     assert "dialog.open_las_requested.connect(self._open_generated_las)" in source
     assert "def _open_generated_las" in source
     assert "def _open_las_files" in source
+
+
+def test_batch_dialog_has_in_place_manual_configuration_workflow() -> None:
+    source = (ROOT / "src/geoworkbench/ui/paradox_batch_dialog.py").read_text(encoding="utf-8")
+    import_dialog = (ROOT / "src/geoworkbench/ui/paradox_import_dialog.py").read_text(encoding="utf-8")
+
+    assert "paradox.configure_selected_source" in source
+    assert "def _configure_selected_source" in source
+    assert "configuration_only=True" in source
+    assert "self._manual_plans[source] = plan" in source
+    assert "paradox.retry_after_configuration" in source
+    assert "self.selected_plan: ParadoxImportPlan | None" in import_dialog
+    assert "paradox.apply_batch_settings" in import_dialog

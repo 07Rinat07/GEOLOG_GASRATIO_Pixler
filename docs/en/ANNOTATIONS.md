@@ -1,4 +1,4 @@
-# Professional annotation layer — 0.7.23
+# Professional annotation layer — 0.7.25
 
 ## OOP interaction routing 0.7.23
 
@@ -12,7 +12,7 @@ Frames, text, leaders and resize handles are painted only inside the graph body.
 
 ## Free editing across the complete tablet
 
-An annotation is no longer hosted by one graph track. A single transparent overlay spans the common tablet canvas, so the text box can be dragged across column boundaries. Its depth/time/curve anchor remains attached to data while box position and size are persisted in the project.
+An annotation is no longer hosted by one graph track. Coordinates are shared across the tablet, so the box can be dragged across column boundaries. There is no full-size translucent QWidget above the plots: a hidden manager stores geometry and each visible object is painted as a small independent sprite limited to its own bounds. Its depth/time/curve anchor remains attached to data while box position and size are persisted in the project.
 
 A single click exposes eight handles at the corners and side midpoints. Drag the fill to move; drag any handle to resize. Double-click, F2, Enter or the Edit selected toolbar button opens the editor. Delete or the Delete selected button removes the object after confirmation. Right-click opens its context menu.
 

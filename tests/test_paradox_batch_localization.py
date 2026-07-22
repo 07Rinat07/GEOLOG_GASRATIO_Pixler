@@ -16,6 +16,11 @@ REQUIRED_KEYS = {
     "paradox.batch_done_summary",
     "paradox.batch_where_results",
     "paradox.confirm_cancel_close",
+    "paradox.status_configuration_required",
+    "paradox.apply_batch_settings",
+    "paradox.configure_selected_source",
+    "paradox.retry_after_configuration",
+    "paradox.batch_configuration_summary",
 }
 
 

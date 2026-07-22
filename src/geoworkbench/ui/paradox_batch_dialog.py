@@ -31,7 +31,9 @@ from geoworkbench.importers.paradox.batch import (
     _target_name,
     convert_batch,
 )
+from geoworkbench.importers.paradox.models import ParadoxImportPlan
 from geoworkbench.importers.paradox.profiles import load_profile, schema_signature
+from geoworkbench.ui.paradox_import_dialog import ParadoxImportDialog
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
@@ -49,6 +51,7 @@ class _BatchWorker(QObject):
         name_mask: str,
         overwrite: bool,
         language: AppLanguage,
+        manual_plans: dict[Path, ParadoxImportPlan] | None = None,
     ) -> None:
         super().__init__()
         self.sources = sources
@@ -58,6 +61,10 @@ class _BatchWorker(QObject):
         self.name_mask = name_mask
         self.overwrite = overwrite
         self.localizer = Localizer.create(language)
+        self.manual_plans = {
+            path.expanduser().resolve(): plan
+            for path, plan in (manual_plans or {}).items()
+        }
         self.cancel_requested = False
 
     @Slot()
@@ -85,6 +92,10 @@ class _BatchWorker(QObject):
             profile = load_profile(self.profile_path) if self.profile_path is not None else None
 
             def plan_factory(source: Path, table):
+                resolved = source.expanduser().resolve()
+                manual = self.manual_plans.get(resolved)
+                if manual is not None:
+                    return manual
                 if profile is None:
                     return None
                 if schema_signature(table) != profile.schema_signature:
@@ -95,7 +106,7 @@ class _BatchWorker(QObject):
                     )
                 return profile.plan
 
-            factory = plan_factory if profile is not None else None
+            factory = plan_factory if profile is not None or self.manual_plans else None
             total = max(1, len(self.sources) * len(self.modes))
             results: list[BatchItemResult] = []
             offset = 0
@@ -152,6 +163,7 @@ class ParadoxBatchDialog(QDialog):
         self._result_by_row: dict[int, BatchItemResult] = {}
         self._result_mode_by_row: dict[int, str] = {}
         self._active_modes: tuple[str, ...] = ()
+        self._manual_plans: dict[Path, ParadoxImportPlan] = {}
 
         self.setWindowTitle(self._t("paradox.batch_title"))
         self.resize(1100, 720)
@@ -304,11 +316,20 @@ class ParadoxBatchDialog(QDialog):
         self.open_las_button = QPushButton(self._t("paradox.open_selected_las"))
         self.open_las_button.clicked.connect(self._open_selected_las)
         self.open_las_button.setEnabled(False)
+        self.configure_source_button = QPushButton(
+            self._t("paradox.configure_selected_source")
+        )
+        self.configure_source_button.clicked.connect(self._configure_selected_source)
+        self.configure_source_button.setEnabled(False)
+        self.configure_source_button.setToolTip(
+            self._t("paradox.configure_selected_source_hint")
+        )
         self.retry_failed_button = QPushButton(self._t("paradox.retry_failed"))
         self.retry_failed_button.clicked.connect(self._retry_failed)
         self.retry_failed_button.hide()
         actions.addWidget(self.open_folder_button)
         actions.addWidget(self.open_las_button)
+        actions.addWidget(self.configure_source_button)
         actions.addWidget(self.retry_failed_button)
         actions.addStretch(1)
 
@@ -377,6 +398,7 @@ class ParadoxBatchDialog(QDialog):
         self._result_mode_by_row.clear()
         self.finish_hint.hide()
         self.retry_failed_button.hide()
+        self.configure_source_button.setEnabled(False)
         self.start.setText(self._t("paradox.convert_and_save"))
         self._refresh_plan_preview()
 
@@ -561,6 +583,7 @@ class ParadoxBatchDialog(QDialog):
         self.cancel_operation_button.setEnabled(running)
         if running:
             self.open_las_button.setEnabled(False)
+            self.configure_source_button.setEnabled(False)
         self.retry_failed_button.setEnabled(not running)
         self.close_button.setEnabled(True)
         self.close_button.setText(
@@ -623,6 +646,7 @@ class ParadoxBatchDialog(QDialog):
             self.name_mask.text().strip() or "{source_name}_{mode}.las",
             self.overwrite.isChecked(),
             self.localizer.language,
+            dict(self._manual_plans),
         )
         thread = QThread(self)
         worker.moveToThread(thread)
@@ -659,6 +683,7 @@ class ParadoxBatchDialog(QDialog):
             BatchStatus.WARNING: QStyle.StandardPixmap.SP_MessageBoxWarning,
             BatchStatus.ERROR: QStyle.StandardPixmap.SP_MessageBoxCritical,
             BatchStatus.SKIPPED: QStyle.StandardPixmap.SP_MessageBoxInformation,
+            BatchStatus.CONFIGURATION_REQUIRED: QStyle.StandardPixmap.SP_MessageBoxWarning,
         }
         return self.style().standardIcon(icon_map[status])
 
@@ -711,6 +736,9 @@ class ParadoxBatchDialog(QDialog):
         warnings = sum(item.status is BatchStatus.WARNING for item in self._results)
         errors = sum(item.status is BatchStatus.ERROR for item in self._results)
         skipped = sum(item.status is BatchStatus.SKIPPED for item in self._results)
+        configuration_required = sum(
+            item.status is BatchStatus.CONFIGURATION_REQUIRED for item in self._results
+        )
         created = success + warnings
         output = str(Path(self.output.text()).expanduser().resolve())
         self.summary.setText(
@@ -727,7 +755,8 @@ class ParadoxBatchDialog(QDialog):
         )
         self.finish_hint.show()
         self.start.setText(self._t("paradox.convert_again"))
-        self.retry_failed_button.setVisible(errors > 0)
+        self.retry_failed_button.setVisible(errors > 0 or configuration_required > 0)
+        self.configure_source_button.setVisible(configuration_required > 0)
         self.open_folder_button.setEnabled(Path(output).is_dir())
 
         created_rows = [
@@ -737,8 +766,21 @@ class ParadoxBatchDialog(QDialog):
             and item.target is not None
             and item.target.is_file()
         ]
+        configuration_rows = [
+            row
+            for row, item in self._result_by_row.items()
+            if item.status is BatchStatus.CONFIGURATION_REQUIRED
+        ]
         if created_rows:
             self.table.selectRow(created_rows[0])
+        elif configuration_rows:
+            self.table.selectRow(configuration_rows[0])
+            self.summary.setText(
+                self._t(
+                    "paradox.batch_configuration_summary",
+                    count=len(configuration_rows),
+                )
+            )
         else:
             self._selection_changed()
 
@@ -777,6 +819,12 @@ class ParadoxBatchDialog(QDialog):
             ):
                 valid_targets.append(result.target)
         self.open_las_button.setEnabled(bool(valid_targets) and not self._running)
+        needs_configuration = any(
+            self._result_by_row.get(row) is not None
+            and self._result_by_row[row].status is BatchStatus.CONFIGURATION_REQUIRED
+            for row in rows
+        )
+        self.configure_source_button.setEnabled(needs_configuration and not self._running)
 
         if not rows:
             self.details.setText(self._t("paradox.select_row_for_details"))
@@ -795,6 +843,63 @@ class ParadoxBatchDialog(QDialog):
                 message=message or "—",
             )
         )
+
+    def _configure_selected_source(self) -> None:
+        rows = sorted({index.row() for index in self.table.selectionModel().selectedRows()})
+        source: Path | None = None
+        for row in rows:
+            result = self._result_by_row.get(row)
+            if (
+                result is not None
+                and result.status is BatchStatus.CONFIGURATION_REQUIRED
+            ):
+                source = result.source.expanduser().resolve()
+                break
+        if source is None:
+            QMessageBox.information(
+                self,
+                self._t("paradox.batch_title"),
+                self._t("paradox.select_source_to_configure"),
+            )
+            return
+
+        dialog = ParadoxImportDialog(
+            source,
+            self,
+            language=self.localizer.language,
+            configuration_only=True,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        plan = dialog.selected_plan
+        if plan is None:
+            QMessageBox.warning(
+                self,
+                self._t("paradox.batch_title"),
+                self._t("paradox.configuration_not_applied"),
+            )
+            return
+        self._manual_plans[source] = plan
+        self.summary.setText(
+            self._t("paradox.configuration_applied", file=source.name)
+        )
+        answer = QMessageBox.question(
+            self,
+            self._t("paradox.batch_title"),
+            self._t("paradox.retry_after_configuration", file=source.name),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if answer is QMessageBox.StandardButton.Yes:
+            self.sources = [source]
+            self._results = ()
+            self._result_by_row.clear()
+            self._result_mode_by_row.clear()
+            self.finish_hint.hide()
+            self.retry_failed_button.hide()
+            self.configure_source_button.setEnabled(False)
+            self._refresh_plan_preview()
+            self._start()
 
     def _selected_created_targets(self) -> tuple[Path, ...]:
         rows = sorted({index.row() for index in self.table.selectionModel().selectedRows()})
@@ -843,7 +948,12 @@ class ParadoxBatchDialog(QDialog):
     def _retry_failed(self) -> None:
         failed_sources = list(
             dict.fromkeys(
-                item.source for item in self._results if item.status is BatchStatus.ERROR
+                item.source
+                for item in self._results
+                if item.status in {
+                    BatchStatus.ERROR,
+                    BatchStatus.CONFIGURATION_REQUIRED,
+                }
             )
         )
         if not failed_sources:

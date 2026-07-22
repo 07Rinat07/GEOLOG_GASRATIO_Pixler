@@ -15,9 +15,9 @@ def test_annotations_are_clipped_to_graph_body_below_headers() -> None:
     assert "def set_content_rect" in source
     assert "painter.setClipRect(self._content_rect" in source
     assert "WA_TransparentForMouseEvents" in source
-    assert "def _build_sparse_paint_mask" in source
-    assert "self.setMask(QRegion())" in source
-    assert "return region.intersected(content)" in source
+    assert "visible_bounds = full_bounds.intersected(self._content_rect)" in source
+    assert "target = visible_bounds.toAlignedRect()" in source
+    assert "setMask(" not in source[source.index("class TabletAnnotationOverlay"):]
     assert "def _anchor_is_visible" in source
     assert "plot.getViewBox().sceneBoundingRect()" in tablet
     assert "self._annotation_overlay.set_content_rect(content_rect)" in tablet

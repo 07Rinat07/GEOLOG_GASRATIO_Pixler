@@ -66,7 +66,8 @@ def test_paint_overlay_has_no_native_mouse_capture_or_event_handlers() -> None:
     assert "WA_TransparentForMouseEvents" in overlay_source
     assert "grabMouse(" not in overlay_source
     assert "releaseMouse(" not in overlay_source
-    assert "def _build_sparse_paint_mask" in overlay_source
+    assert "self.hide()" in overlay_source
+    assert "sprite = QLabel(self._canvas)" in overlay_source
     assert "WA_TransparentForMouseEvents" in overlay_source
     assert "mousePressEvent" not in methods
     assert "mouseMoveEvent" not in methods

@@ -1547,5 +1547,15 @@
   "visual_export.select_view": "Open the chart or tablet tab",
   "visual_export.success": "Visualization exported: {name}",
   "visual_export.svg_action": "Export current chart/tablet to SVG...",
-  "visual_export.title": "Visualization export"
+  "visual_export.title": "Visualization export",
+  "paradox.status_configuration_required": "Configuration required",
+  "paradox.apply_batch_settings": "Apply to batch conversion",
+  "paradox.apply_batch_settings_hint": "Confirm the depth, time and channel selections and return to the batch converter without opening a document.",
+  "paradox.configure_selected_source": "Configure selected DB…",
+  "paradox.configure_selected_source_hint": "Open depth, time and channel selection for an ambiguous table.",
+  "paradox.select_source_to_configure": "Select a row with the “Configuration required” status.",
+  "paradox.configuration_not_applied": "The index configuration was not applied.",
+  "paradox.configuration_applied": "Settings for “{file}” were stored for the current batch conversion session.",
+  "paradox.retry_after_configuration": "Configuration of “{file}” is complete. Retry conversion of this file now?",
+  "paradox.batch_configuration_summary": "Operations requiring manual configuration: {count}. Select a row and click “Configure selected DB…”."
 }

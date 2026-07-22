@@ -1,3 +1,10 @@
+## 0.7.25 snapshot
+
+1. Verify the batch flow: ambiguous DB → Configure selected DB → select depth/time → retry → open LAS.
+2. Verify a populated tablet on Windows before and after F4; the graph body must never become black.
+3. Verify comments/callouts across tracks, scrolling, resizing, PDF and printing.
+4. Do not promote the TEST build to stable without a real Windows GUI smoke-test.
+
 ## 0.7.24 snapshot
 
 A stable release is blocked until the Windows GUI smoke test and visual non-empty tablet-render checks pass before and after F4 activation.

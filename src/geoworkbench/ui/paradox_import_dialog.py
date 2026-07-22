@@ -147,11 +147,14 @@ class ParadoxImportDialog(QDialog):
         parent: QWidget | None = None,
         *,
         language: AppLanguage = AppLanguage.RU,
+        configuration_only: bool = False,
     ) -> None:
         super().__init__(parent)
         self.source = source
         self.language = language
         self.localizer = Localizer.create(language)
+        self.configuration_only = bool(configuration_only)
+        self.selected_plan: ParadoxImportPlan | None = None
         self.table: ParadoxTable | None = None
         self.quality = None
         self.import_result: ParadoxImportResult | None = None
@@ -279,6 +282,10 @@ class ParadoxImportDialog(QDialog):
         self.open_button.setEnabled(False)
         self.open_button.setDefault(True)
         self.open_button.setToolTip(self._t("paradox.open_editor_hint"))
+        if self.configuration_only:
+            self.save_las_button.hide()
+            self.open_button.setText(self._t("paradox.apply_batch_settings"))
+            self.open_button.setToolTip(self._t("paradox.apply_batch_settings_hint"))
         primary_actions.addWidget(self.open_button)
         root.addLayout(primary_actions)
 
@@ -968,6 +975,11 @@ class ParadoxImportDialog(QDialog):
             return
         if plan.active_role == "time" and plan.time_field is None:
             QMessageBox.warning(self, self._t("paradox.title"), self._t("paradox.select_time"))
+            return
+        if action == "configure" or self.configuration_only:
+            self.selected_plan = plan
+            self.requested_action = "configure"
+            self.accept()
             return
         self._start_import(plan, action)
 

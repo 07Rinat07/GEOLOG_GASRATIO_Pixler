@@ -1,3 +1,7 @@
+## Version 0.7.25 — in-batch index configuration and safe annotation rendering
+
+The batch converter no longer reports an ambiguous index as a generic failure. The row becomes “Configuration required”; the user selects depth/time in the normal import dialog and retries only that file. The full-size translucent annotation QWidget has been removed. Visible objects are rendered as small independent sprites, while the hidden manager paints nothing over PyQtGraph. This remains a test build until Windows verification.
+
 ## Version 0.7.24 — Windows render test hotfix
 
 Fixes the black-tablet regression by restricting the annotation overlay native region to visible annotation bounds. The package remains a test build until it passes the Windows GUI smoke test.

@@ -1,3 +1,14 @@
+# 0.7.25 — batch index configuration and annotation sprite renderer (test build)
+
+- added a dedicated configuration-required batch status instead of reporting ambiguous indexes as generic errors;
+- added in-place manual depth/time/channel configuration through the standard Paradox import dialog;
+- retained per-source import plans for the current batch session and added immediate retry;
+- removed the full-size translucent annotation QWidget, native masks and sparse-region workaround;
+- render each visible annotation as a small mouse-transparent alpha-pixmap sprite clipped to the graph body;
+- keep the overlay manager hidden and paint-free, so empty PyQtGraph space has no covering child widget;
+- added regression tests for manual-plan batch conversion and the absence of a full-canvas annotation renderer;
+- kept the package in TEST status until real Windows PySide6/pyqtgraph verification.
+
 # 0.7.24 — Windows tablet render-mask hotfix (test build)
 
 - fixed the Windows regression where a full-size translucent annotation child could cover PyQtGraph viewports with a black rectangle;

@@ -44,7 +44,7 @@ Depth export writes the active index first as `DEPT.M`; `STRT`, `STOP`, and a me
 
 ## Batch conversion
 
-**Tools → Batch DB → LAS conversion** accepts files or directories, recursive search, a profile, depth/time output, `{source_name}_{mode}.las` naming, skip/overwrite protection, progress, cancellation, and a JSON log next to the result. An ambiguous file without a matching profile is reported for manual configuration rather than guessed.
+**Tools → Batch DB → LAS conversion** accepts files or directories, recursive search, a profile, depth/time output, `{source_name}_{mode}.las` naming, skip/overwrite protection, progress, cancellation, and a JSON log next to the result. An ambiguous file without a matching profile receives a **Configuration required** status. Select the row, click **Configure selected DB…**, assign depth/time in the standard import dialog, and apply the plan to the batch operation. The plan is retained for the current session and only that file can be retried.
 
 ## Verified samples and limitations
 

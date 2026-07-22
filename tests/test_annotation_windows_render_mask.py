@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -18,31 +17,39 @@ def _method(name: str) -> ast.FunctionDef:
     raise AssertionError(name)
 
 
-def test_full_canvas_overlay_is_never_exposed_as_native_window_region() -> None:
+def test_full_canvas_overlay_is_hidden_and_never_paints() -> None:
     source = (ROOT / "src/geoworkbench/tablet/annotation_graphics.py").read_text(encoding="utf-8")
     overlay = source[source.index("class TabletAnnotationOverlay"):]
 
-    assert "self.setMask(QRegion())" in overlay
-    assert "def _build_sparse_paint_mask" in overlay
-    assert "QRegion(self._content_rect.toAlignedRect())" in overlay
-    assert "helper.boundingRect().translated(anchor)" in overlay
-    assert "region.intersected(content)" in overlay
-    assert "clearMask(" not in overlay
+    assert "self.hide()" in overlay
+    assert "def paintEvent" in overlay
+    assert "Deliberately empty" in overlay
+    assert "WA_TranslucentBackground" not in overlay
+    assert "setMask(" not in overlay
+    assert "QRegion" not in overlay
 
 
-def test_mask_changes_are_coalesced_and_not_applied_in_pointer_move() -> None:
+def test_annotations_are_rendered_as_small_per_object_sprites() -> None:
+    source = (ROOT / "src/geoworkbench/tablet/annotation_graphics.py").read_text(encoding="utf-8")
+    overlay = source[source.index("class TabletAnnotationOverlay"):]
+
+    assert "self._sprites: dict[str, QLabel]" in overlay
+    assert "sprite = QLabel(self._canvas)" in overlay
+    assert "full_bounds = helper.boundingRect().translated(anchor)" in overlay
+    assert "visible_bounds = full_bounds.intersected(self._content_rect)" in overlay
+    assert "pixmap.fill(Qt.GlobalColor.transparent)" in overlay
+
+
+def test_pointer_move_updates_only_active_sprite() -> None:
     update = ast.unparse(_method("update_interaction"))
-    schedule = ast.unparse(_method("_schedule_paint_mask"))
-
-    assert "self._schedule_paint_mask()" in update
+    assert "self._refresh_sprite(gesture.annotation_id)" in update
     assert "setMask" not in update
-    assert "self._mask_refresh_timer.start()" in schedule
+    assert "set_entries" not in update
 
 
-def test_mask_does_not_restore_mouse_ownership_to_overlay() -> None:
+def test_sprite_widgets_never_own_mouse_input() -> None:
     source = (ROOT / "src/geoworkbench/tablet/annotation_graphics.py").read_text(encoding="utf-8")
     overlay = source[source.index("class TabletAnnotationOverlay"):]
-
     assert "WA_TransparentForMouseEvents" in overlay
     assert "grabMouse(" not in overlay
     assert "releaseMouse(" not in overlay

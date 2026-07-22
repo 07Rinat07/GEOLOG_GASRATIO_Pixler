@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from math import atan2, cos, pi, sin
 
-from PySide6.QtCore import QLineF, QPoint, QPointF, QRectF, QTimer, Qt, Signal
+from PySide6.QtCore import QLineF, QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -13,12 +13,12 @@ from PySide6.QtGui import (
     QPen,
     QPolygonF,
     QPixmap,
-    QRegion,
     QTransform,
 )
 from PySide6.QtWidgets import (
     QGraphicsItem,
     QGraphicsObject,
+    QLabel,
     QStyleOptionGraphicsItem,
     QWidget,
 )
@@ -369,13 +369,18 @@ class _AnnotationGesture:
 
 
 class TabletAnnotationOverlay(QWidget):
-    """Paint-only annotation surface spanning the complete tablet canvas.
+    """Annotation interaction model with per-object paint sprites.
 
-    Mouse routing intentionally lives outside this widget.  The overlay is
-    permanently transparent for mouse events and exposes a small interaction
-    surface API used by :class:`AnnotationInteractionHandler`.  Consequently a
-    stale mask or native mouse grab can never block track editing, curve menus or
-    creation of another annotation.
+    A single translucent widget covering PyQtGraph viewports is not safe on
+    Windows: depending on the graphics backend it can be composed as an opaque
+    black rectangle.  This class therefore never paints a full-canvas surface.
+    It remains a hidden QObject/QWidget manager for signals and geometry, while
+    every visible annotation is rendered into its own small alpha QPixmap shown
+    by a mouse-transparent QLabel parented directly to the tablet canvas.
+
+    The sprite rectangles are clipped to the graph body.  Consequently no
+    native child window exists over empty graph space, track headers remain
+    unobscured, and annotations still share one global coordinate system.
     """
 
     edit_requested = Signal(str)
@@ -387,30 +392,21 @@ class TabletAnnotationOverlay(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+        self._canvas = parent
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        self.setAutoFillBackground(False)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # The manager itself must never become a visible full-size child.  Only
+        # the small QLabel sprites created below are shown.
+        self.hide()
+
         self._entries: dict[str, tuple[TabletAnnotationItem, QPointF]] = {}
         self._order: list[str] = []
+        self._sprites: dict[str, QLabel] = {}
         self._edit_mode = False
         self._print_mode = False
         self._selected_id: str | None = None
         self._gesture: _AnnotationGesture | None = None
         self._content_rect = QRectF()
-
-        # A full-size translucent child over PyQtGraph native viewports is not
-        # reliably composited by Windows: uncovered pixels may become black.
-        # Keep the widget's native window region sparse and limited to actual
-        # annotation paint bounds.  Mouse input is still routed exclusively by
-        # TabletInteractionRouter; this mask never participates in hit testing.
-        self._applied_paint_mask = QRegion()
-        self._mask_refresh_timer = QTimer(self)
-        self._mask_refresh_timer.setSingleShot(True)
-        self._mask_refresh_timer.setInterval(16)
-        self._mask_refresh_timer.timeout.connect(self._flush_paint_mask)
-        self.setMask(QRegion())
 
     @property
     def interaction_active(self) -> bool:
@@ -425,12 +421,12 @@ class TabletAnnotationOverlay(QWidget):
         return QRectF(self._content_rect)
 
     def set_content_rect(self, rect: QRectF) -> None:
-        normalized = QRectF(rect).normalized().intersected(QRectF(self.rect()))
+        canvas_rect = QRectF(self._canvas.rect()) if self._canvas is not None else QRectF(rect)
+        normalized = QRectF(rect).normalized().intersected(canvas_rect)
         if normalized == self._content_rect:
             return
         self._content_rect = normalized
-        self._schedule_paint_mask(immediate=True)
-        self.update()
+        self._refresh_sprites()
 
     def set_entries(
         self,
@@ -463,18 +459,21 @@ class TabletAnnotationOverlay(QWidget):
 
         if active_id is not None and active_id not in next_entries:
             self.cancel_interaction()
+
+        removed = set(self._entries) - set(next_entries)
         self._entries = next_entries
         self._order = next_order
+        for annotation_id in removed:
+            self._delete_sprite(annotation_id)
+
         if previous not in self._entries:
             self._selected_id = None
             if previous is not None:
                 self.selection_changed.emit(None)
-        self._schedule_paint_mask(immediate=True)
-        self.update()
-        self.raise_()
+        self._refresh_sprites()
 
     def set_anchor_positions(self, anchors: dict[str, QPointF]) -> None:
-        changed = False
+        changed_ids: list[str] = []
         for annotation_id, (helper, current_anchor) in tuple(self._entries.items()):
             next_anchor = anchors.get(annotation_id)
             if next_anchor is None:
@@ -483,11 +482,10 @@ class TabletAnnotationOverlay(QWidget):
             if current_anchor == normalized:
                 continue
             self._entries[annotation_id] = (helper, normalized)
-            changed = True
-        if changed:
-            self._schedule_paint_mask()
-            self.update()
-            self.raise_()
+            changed_ids.append(annotation_id)
+        for annotation_id in changed_ids:
+            self._refresh_sprite(annotation_id)
+        self._raise_sprites()
 
     def set_edit_mode(self, enabled: bool) -> None:
         self._edit_mode = bool(enabled)
@@ -496,8 +494,7 @@ class TabletAnnotationOverlay(QWidget):
         if not self._edit_mode:
             self.cancel_interaction()
             self.select_annotation(None)
-        self._schedule_paint_mask(immediate=True)
-        self.update()
+        self._refresh_sprites()
 
     def set_print_mode(self, enabled: bool) -> None:
         self._print_mode = bool(enabled)
@@ -505,18 +502,21 @@ class TabletAnnotationOverlay(QWidget):
             helper.set_print_mode(self._print_mode)
         if self._print_mode:
             self.cancel_interaction()
-        self._schedule_paint_mask(immediate=True)
-        self.update()
+        self._refresh_sprites()
 
     def select_annotation(self, annotation_id: str | None) -> None:
         normalized = annotation_id if annotation_id in self._entries else None
         if normalized == self._selected_id:
             return
+        previous = self._selected_id
         self._selected_id = normalized
         for current_id, (helper, _anchor) in self._entries.items():
             helper._selected = current_id == normalized
-        self._schedule_paint_mask(immediate=True)
-        self.update()
+        if previous is not None:
+            self._refresh_sprite(previous)
+        if normalized is not None:
+            self._refresh_sprite(normalized)
+        self._raise_sprites()
         self.selection_changed.emit(normalized)
 
     def edit_selected(self) -> bool:
@@ -584,7 +584,6 @@ class TabletAnnotationOverlay(QWidget):
                 helper.record.height,
             ),
         )
-        self._schedule_paint_mask(immediate=True)
         return True
 
     def update_interaction(self, x: float, y: float) -> None:
@@ -615,7 +614,6 @@ class TabletAnnotationOverlay(QWidget):
         offset_x, offset_y = self._keep_reachable(
             anchor, offset_x, offset_y, width, height
         )
-        old_dirty = helper.boundingRect().translated(anchor)
         helper.set_record(
             replace(
                 helper.record,
@@ -627,13 +625,8 @@ class TabletAnnotationOverlay(QWidget):
         )
         helper._selected = True
         self._entries[gesture.annotation_id] = (helper, anchor)
-        new_dirty = helper.boundingRect().translated(anchor)
-        dirty = old_dirty.united(new_dirty).adjusted(-4.0, -4.0, 4.0, 4.0)
-        # Coalesce native region changes to at most one per frame.  This keeps
-        # the background visible without reintroducing the old per-pixel mask
-        # flicker during drag/resize.
-        self._schedule_paint_mask()
-        self.update(dirty.toAlignedRect())
+        self._refresh_sprite(gesture.annotation_id)
+        self._raise_sprites()
 
     def finish_interaction(
         self,
@@ -646,7 +639,6 @@ class TabletAnnotationOverlay(QWidget):
         self._gesture = None
         entry = self._entries.get(gesture.annotation_id)
         if entry is None:
-            self._schedule_paint_mask(immediate=True)
             return None
         helper, anchor = entry
         current = (
@@ -656,7 +648,6 @@ class TabletAnnotationOverlay(QWidget):
             helper.record.height,
         )
         if not commit:
-            old_dirty = helper.boundingRect().translated(anchor)
             helper.set_record(
                 replace(
                     helper.record,
@@ -666,11 +657,10 @@ class TabletAnnotationOverlay(QWidget):
                     height=gesture.start_geometry[3],
                 )
             )
-            new_dirty = helper.boundingRect().translated(anchor)
-            self._schedule_paint_mask(immediate=True)
-            self.update(old_dirty.united(new_dirty).adjusted(-4, -4, 4, 4).toAlignedRect())
+            self._entries[gesture.annotation_id] = (helper, anchor)
+            self._refresh_sprite(gesture.annotation_id)
             return None
-        self._schedule_paint_mask(immediate=True)
+        self._refresh_sprite(gesture.annotation_id)
         if not _geometry_differs(gesture.start_geometry, current):
             return None
         change = AnnotationGeometryChange(gesture.annotation_id, *current)
@@ -688,64 +678,14 @@ class TabletAnnotationOverlay(QWidget):
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
-        # Until TabletView supplies the new graph-body rectangle, an empty
-        # sparse mask is safer than exposing the full child widget.
-        self._content_rect = self._content_rect.intersected(QRectF(self.rect()))
-        self._schedule_paint_mask(immediate=True)
-
-    def _schedule_paint_mask(self, *, immediate: bool = False) -> None:
-        if immediate:
-            self._mask_refresh_timer.stop()
-            self._flush_paint_mask()
-            return
-        if not self._mask_refresh_timer.isActive():
-            self._mask_refresh_timer.start()
-
-    def _flush_paint_mask(self) -> None:
-        region = self._build_sparse_paint_mask()
-        if region == self._applied_paint_mask:
-            return
-        self._applied_paint_mask = QRegion(region)
-        self.setMask(region)
-
-    def _build_sparse_paint_mask(self) -> QRegion:
-        if self._content_rect.isEmpty():
-            return QRegion()
-        content = QRegion(self._content_rect.toAlignedRect())
-        region = QRegion()
-        for annotation_id in self._order:
-            helper, anchor = self._entries[annotation_id]
-            record = helper.record
-            if not record.visible or not self._anchor_is_visible(anchor):
-                continue
-            if self._print_mode and not record.print_enabled:
-                continue
-            bounds = helper.boundingRect().translated(anchor).adjusted(-2.0, -2.0, 2.0, 2.0)
-            region = region.united(QRegion(bounds.toAlignedRect()))
-        return region.intersected(content)
+        if self._canvas is not None:
+            self._content_rect = self._content_rect.intersected(QRectF(self._canvas.rect()))
+        self._refresh_sprites()
 
     def paintEvent(self, event) -> None:  # noqa: N802
-        painter = QPainter(self)
-        try:
-            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
-            painter.fillRect(event.rect(), Qt.GlobalColor.transparent)
-            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-            if self._content_rect.isEmpty():
-                return
-            painter.setClipRect(self._content_rect, Qt.ClipOperation.IntersectClip)
-            for annotation_id in self._order:
-                helper, anchor = self._entries[annotation_id]
-                if not helper.record.visible or not self._anchor_is_visible(anchor):
-                    continue
-                if self._print_mode and not helper.record.print_enabled:
-                    continue
-                painter.save()
-                painter.translate(anchor)
-                helper.paint(painter, QStyleOptionGraphicsItem(), self)
-                painter.restore()
-        finally:
-            painter.end()
+        # Deliberately empty: a full-size overlay is the source of the Windows
+        # black-canvas regression.  Annotation sprites paint independently.
+        del event
 
     def paint_translated(
         self,
@@ -778,6 +718,87 @@ class TabletAnnotationOverlay(QWidget):
                 helper._selected = was_selected
         finally:
             painter.restore()
+
+    def _ensure_sprite(self, annotation_id: str) -> QLabel | None:
+        if self._canvas is None:
+            return None
+        sprite = self._sprites.get(annotation_id)
+        if sprite is not None:
+            return sprite
+        sprite = QLabel(self._canvas)
+        sprite.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        sprite.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        sprite.setAutoFillBackground(False)
+        sprite.setScaledContents(False)
+        sprite.setStyleSheet("background: transparent; border: none; padding: 0px;")
+        sprite.hide()
+        self._sprites[annotation_id] = sprite
+        return sprite
+
+    def _delete_sprite(self, annotation_id: str) -> None:
+        sprite = self._sprites.pop(annotation_id, None)
+        if sprite is not None:
+            sprite.hide()
+            sprite.deleteLater()
+
+    def _refresh_sprites(self) -> None:
+        for annotation_id in tuple(self._sprites):
+            if annotation_id not in self._entries:
+                self._delete_sprite(annotation_id)
+        for annotation_id in self._order:
+            self._refresh_sprite(annotation_id)
+        self._raise_sprites()
+
+    def _refresh_sprite(self, annotation_id: str) -> None:
+        entry = self._entries.get(annotation_id)
+        sprite = self._ensure_sprite(annotation_id)
+        if entry is None or sprite is None:
+            return
+        helper, anchor = entry
+        record = helper.record
+        if (
+            self._content_rect.isEmpty()
+            or not record.visible
+            or not self._anchor_is_visible(anchor)
+            or (self._print_mode and not record.print_enabled)
+        ):
+            sprite.hide()
+            sprite.clear()
+            return
+
+        full_bounds = helper.boundingRect().translated(anchor).adjusted(-2.0, -2.0, 2.0, 2.0)
+        visible_bounds = full_bounds.intersected(self._content_rect)
+        target = visible_bounds.toAlignedRect()
+        if target.isEmpty():
+            sprite.hide()
+            sprite.clear()
+            return
+
+        dpr = max(1.0, float(self._canvas.devicePixelRatioF()))
+        pixel_width = max(1, int(round(target.width() * dpr)))
+        pixel_height = max(1, int(round(target.height() * dpr)))
+        pixmap = QPixmap(pixel_width, pixel_height)
+        pixmap.setDevicePixelRatio(dpr)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.translate(anchor.x() - target.left(), anchor.y() - target.top())
+            helper.paint(painter, QStyleOptionGraphicsItem(), None)
+        finally:
+            painter.end()
+
+        sprite.setGeometry(target)
+        sprite.setPixmap(pixmap)
+        sprite.show()
+
+    def _raise_sprites(self) -> None:
+        # Preserve document z-order.  Later records are painted above earlier
+        # ones, while all sprites remain below unrelated top-level UI windows.
+        for annotation_id in self._order:
+            sprite = self._sprites.get(annotation_id)
+            if sprite is not None and sprite.isVisible():
+                sprite.raise_()
 
     def _hit(
         self, point: QPointF
@@ -827,7 +848,6 @@ class TabletAnnotationOverlay(QWidget):
             <= anchor.y()
             <= self._content_rect.bottom() + tolerance
         )
-
 
 
 def _geometry_differs(

@@ -1,3 +1,25 @@
+# Windows release gate 0.7.25 — batch configuration and black-tablet regression
+
+## Batch DB → LAS
+
+1. Add an ambiguous DB such as D250/D1174 and select depth and/or time export.
+2. Start conversion. The result must be **Configuration required**, not a generic error.
+3. Select the row and click **Configure selected DB…**.
+4. Select the correct depth and time channels, then click **Apply to batch conversion**.
+5. Accept the retry prompt. The LAS must be created in the shown output folder.
+6. Open the generated LAS in the editor and verify row/column alignment.
+
+## Tablet renderer
+
+1. Open a populated tablet with no annotations. The graph body must remain visible and must not become black.
+2. Toggle F4 several times. Curves and track backgrounds must remain visible.
+3. Create a comment and a callout, drag them across tracks and resize them. Only the object areas may update.
+4. Scroll and zoom depth/time; annotations must follow their anchors and remain below headers.
+5. Delete all annotations. No invisible full-screen overlay may remain.
+6. Compare screen, PDF preview and physical print.
+
+This gate is mandatory on Windows 10/11 at 100%, 125% and 150% scaling.
+
 # Windows release gate 0.7.24 — black-tablet regression
 
 1. Open a project with populated PyQtGraph tracks; the graph body must contain curves and must not be a solid black rectangle.
