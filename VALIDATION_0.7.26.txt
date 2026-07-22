@@ -1,0 +1,44 @@
+GEOLOG GASRATIO@Pixler 0.7.26 TEST BUILD VALIDATION
+==================================================
+
+Date: 22 July 2026
+
+[1] Fixed regression
+PASS: ParadoxImportPlan normalizes Qt/JSON plain strings into DatasetClassification and DuplicateDepthPolicy.
+PASS: direct Paradox import accepts Qt-style string values without `.value` failure.
+PASS: batch conversion accepts a manually configured plan with Qt-style strings.
+PASS: unsupported classification/policy values are rejected at the model boundary.
+PASS: batch errors identify the failing stage.
+
+[2] Python validation
+PASS: python -m compileall -q src tests
+PASS: 83 focused dependency-free tests
+
+Covered areas:
+- Paradox reader, analysis, import, profiles and real sample alignment;
+- batch ambiguity, manual plans, target naming, localization and stage diagnostics;
+- depth/time normalization and TIME -> DEPTH;
+- LAS export-plan analysis and depth-axis calculations;
+- annotation renderer source contracts and version consistency.
+
+[3] Real Paradox samples
+PASS: BLData(1).db — 3488 rows, 70 imported source channels.
+PASS: Qt-style string plan imports BLData without `.value` failure.
+PASS: actual depth STEP = 0.4 m.
+PASS: GeoScape nominal standard metadata = 0.2 m.
+PASS: D250(1).db reader and candidate regression tests.
+PASS: source files remain unchanged.
+
+[4] Localization and documentation
+PASS: RU/KK/EN catalogs contain 1566 identical keys.
+PASS: localized formatting placeholders match.
+PASS: 22 JSON files parse successfully.
+PASS: local Markdown links resolve.
+PASS: README, Paradox guide, status, plan, changelog and release notes updated in RU/KK/EN.
+
+[5] Environment boundary
+NOT RUN: real PySide6/Qt batch dialog on Windows.
+NOT RUN: real lasio DB -> LAS -> current reader round-trip (lasio unavailable).
+NOT RUN: Windows tablet/annotation GUI rendering (PySide6 and pyqtgraph unavailable).
+
+Release status: TEST. Promote only after the Windows release gate in docs/TESTING.md passes.
