@@ -1179,5 +1179,6 @@
   "tablet.curve_pencil_apply_points_tooltip": "Таңдалған нүктелерді тереңдік бойынша қосып, өзгерісті қолдану және тәуелді қисықтарды бірден қайта есептеу.",
   "tablet.curve_pencil_clear_points": "Нүктелерді тазарту",
   "tablet.curve_pencil_points_selected": "✎ {mnemonic}: {count} нүкте таңдалды. «Қосу» батырмасын, Enter пернесін басыңыз немесе соңғы нүктені екі рет шертіңіз.",
-  "tablet.curve_pencil_commit_failed": "Өзгеріс қолданылмады: {error}. Қызғылт сары сызық түзету және қайта әрекет ету үшін сақталды."
+  "tablet.curve_pencil_commit_failed": "Өзгеріс қолданылмады: {error}. Қызғылт сары сызық түзету және қайта әрекет ету үшін сақталды.",
+  "tablet.curve_pencil_live_readout": "✎ {mnemonic}\n{axis_name}: {axis}\nЖаңа: {value}\nБұрын: {old}"
 }

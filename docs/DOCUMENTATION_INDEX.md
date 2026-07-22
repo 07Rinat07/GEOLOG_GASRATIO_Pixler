@@ -1,5 +1,6 @@
-- Pencil points, reference Masterlog and Constructor contrast 0.7.11: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 # Documentation Index
+- Persistent pencil cursor and live values 0.7.12: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
+- Pencil points, reference Masterlog and Constructor contrast 0.7.11: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 - Readable parameter captions and explicit pencil saving 0.7.10: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 
 ## Active engineering documents

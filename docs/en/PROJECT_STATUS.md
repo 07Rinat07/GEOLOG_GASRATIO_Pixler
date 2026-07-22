@@ -1,5 +1,9 @@
 # Current project status
 
+## Fix 0.7.12 — persistent pencil cursor and live values
+
+The pencil cursor now remains visible in the selected track. A floating card shows the mnemonic, depth/time, proposed value and previous value and stays visible while the pointer remains inside the plot. Dependent curves recalculate immediately in memory, while disk persistence still requires explicit Save.
+
 ## 0.7.11 fix — pencil, Constructor and reference Masterlog
 
 Freehand and point modes work in the tablet; failed edits keep their preview, dependants recalculate immediately and saving remains explicit. Every Constructor section is readable under a dark application palette.

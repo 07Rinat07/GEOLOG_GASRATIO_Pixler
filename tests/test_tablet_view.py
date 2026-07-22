@@ -2346,3 +2346,67 @@ def test_tablet_curve_pencil_failed_commit_keeps_preview(qapp) -> None:
     assert view._rendered["failed-track"].curve_pencil_preview is not None
     assert "test failure" in view._curve_pencil_status.text()
     view.close()
+
+
+def test_tablet_curve_pencil_keeps_visible_live_readout(qapp) -> None:
+    dataset = Dataset(
+        "dataset-pencil-readout",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0]),
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-pencil-readout",
+            "ROP",
+            "ROP",
+            "m/h",
+            None,
+            dataset.dataset_id,
+            provenance="las:source",
+        ),
+        np.array([1.0, 2.0, 3.0]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView()
+    view.resize(600, 600)
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "readout-track",
+                    "Бурение",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["ROP"],
+                    curve_display={
+                        "ROP": CurveDisplaySettings("ROP", XScale.LINEAR, 0.0, 10.0)
+                    },
+                )
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+    view.show()
+    qapp.processEvents()
+    assert view.set_curve_pencil_mode(True) is True
+    rendered = view._rendered["readout-track"]
+    viewport = rendered.plot.viewport()
+    position = QPointF(viewport.width() * 0.5, viewport.height() * 0.5)
+    event = QMouseEvent(
+        QEvent.Type.MouseMove,
+        position,
+        position,
+        Qt.MouseButton.NoButton,
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+    view._update_curve_pencil_hover(rendered.plot, event, "readout-track")
+
+    assert rendered.curve_pencil_readout is not None
+    assert rendered.curve_pencil_readout.isVisible()
+    assert "ROP" in rendered.curve_pencil_readout.text()
+    assert "Новое" in rendered.curve_pencil_readout.text()
+    assert "Было" in rendered.curve_pencil_readout.text()
+    view.close()

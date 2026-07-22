@@ -1,5 +1,12 @@
 # Project plan
 
+## Slice 0.7.12 — persistent pencil and live values
+
+- [x] prevent Qt/pyqtgraph from replacing the pencil cursor with the default arrow;
+- [x] show depth/time, proposed value and previous sampled value beside the pointer;
+- [x] keep the card visible while stationary and restore it after a plot refresh;
+- [x] recalculate dependants immediately in memory and persist only on explicit Save.
+
 ## Slice 0.7.11 — connected points, reference Masterlog and Constructor contrast
 
 Add freehand and connected-point pencil modes, acknowledged edits, immediate in-memory dependent recalculation without automatic disk writes, an explicit high-contrast Constructor theme and a visible reference Masterlog with two replaceable logos.

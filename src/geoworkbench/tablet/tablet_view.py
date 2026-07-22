@@ -178,6 +178,7 @@ class RenderedTrack:
     relative_baseline_item: pg.PlotDataItem | None = None
     curve_pencil_preview: pg.PlotDataItem | None = None
     curve_pencil_badge: QLabel | None = None
+    curve_pencil_readout: QLabel | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -778,6 +779,7 @@ class TabletView(QWidget):
         self._curve_pencil_commit_ack: bool | None = None
         self._curve_pencil_commit_error = ""
         self._curve_pencil_unsaved = False
+        self._curve_pencil_last_hover: tuple[str, _CurvePencilPoint, QPoint] | None = None
         self._pencil_cursor = self._build_pencil_cursor()
         self._cursor_depth: float | None = None
         self._cursor_guard = False
@@ -1921,6 +1923,7 @@ class TabletView(QWidget):
         if self._curve_pencil_enabled:
             self._clear_curve_pencil_preview()
             self._curve_pencil_points.clear()
+            self._curve_pencil_last_hover = None
             self._apply_curve_pencil_cursors()
             self._scroll_to_curve_pencil_target()
             self.curve_pencil_mode_changed.emit(True, mnemonic)
@@ -2024,6 +2027,7 @@ class TabletView(QWidget):
             active_mnemonic = self._curve_pencil_mnemonic or ""
             self._curve_pencil_enabled = False
             self._curve_pencil_points.clear()
+            self._curve_pencil_last_hover = None
             self._clear_curve_pencil_preview()
             self._curve_pencil_button.blockSignals(True)
             self._curve_pencil_button.setChecked(False)
@@ -2157,6 +2161,8 @@ class TabletView(QWidget):
             item.widget.set_pencil_active(False)
             if item.curve_pencil_badge is not None:
                 item.curve_pencil_badge.hide()
+            if item.curve_pencil_readout is not None:
+                item.curve_pencil_readout.hide()
         if not self._curve_pencil_enabled or self._curve_pencil_track_id is None:
             return
         rendered = self._rendered.get(self._curve_pencil_track_id)
@@ -2165,6 +2171,7 @@ class TabletView(QWidget):
             viewport = rendered.plot.viewport()
             viewport.setMouseTracking(True)
             viewport.setCursor(self._pencil_cursor)
+            rendered.plot.setCursor(self._pencil_cursor)
             rendered.plot.setToolTip(
                 self._localizer.text(
                     "tablet.curve_pencil_active", mnemonic=self._curve_pencil_mnemonic or ""
@@ -2186,6 +2193,22 @@ class TabletView(QWidget):
             rendered.curve_pencil_badge.move(8, 8)
             rendered.curve_pencil_badge.show()
             rendered.curve_pencil_badge.raise_()
+            if rendered.curve_pencil_readout is None:
+                readout = QLabel(viewport)
+                readout.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+                readout.setWordWrap(False)
+                readout.setStyleSheet(
+                    "background:rgba(15,23,42,238); color:#ffffff; "
+                    "border:2px solid #f97316; border-radius:6px; "
+                    "padding:5px 8px; font-weight:700;"
+                )
+                rendered.curve_pencil_readout = readout
+            if (
+                self._curve_pencil_last_hover is not None
+                and self._curve_pencil_last_hover[0] == self._curve_pencil_track_id
+            ):
+                _, last_point, last_position = self._curve_pencil_last_hover
+                self._show_curve_pencil_readout(rendered, last_point, last_position)
 
     def _curve_pencil_point_from_values(
         self, axis_value: float, source_value: float
@@ -2219,6 +2242,94 @@ class TabletView(QWidget):
         if source_value is None or not np.isfinite(source_value):
             return None
         return _CurvePencilPoint(axis_value, float(source_value), display_x)
+
+    def _update_curve_pencil_hover(
+        self, plot: pg.PlotWidget, event: QMouseEvent, track_id: str | None
+    ) -> None:
+        """Keep a visible pencil and live depth/value readout under the mouse."""
+
+        if (
+            not self._curve_pencil_enabled
+            or track_id != self._curve_pencil_track_id
+            or self._curve_pencil_mnemonic is None
+            or self._dataset is None
+        ):
+            return
+        rendered = self._rendered.get(track_id) if track_id is not None else None
+        if rendered is None or rendered.plot is None:
+            return
+        viewport = rendered.plot.viewport()
+        # Some pyqtgraph/Qt interactions restore ArrowCursor after a scene event.
+        # Reassert the pencil cursor on every movement so it cannot disappear.
+        viewport.setCursor(self._pencil_cursor)
+        plot.setCursor(self._pencil_cursor)
+        point = self._curve_pencil_point(plot, event)
+        if point is None:
+            if rendered.curve_pencil_readout is not None:
+                rendered.curve_pencil_readout.hide()
+            return
+        position = event.position().toPoint()
+        self._curve_pencil_last_hover = (track_id, point, position)
+        self._show_curve_pencil_readout(rendered, point, position)
+
+    def _show_curve_pencil_readout(
+        self, rendered: RenderedTrack, point: _CurvePencilPoint, cursor_position: QPoint
+    ) -> None:
+        if self._dataset is None or self._curve_pencil_mnemonic is None or rendered.plot is None:
+            return
+        curve = self._dataset.curve_by_mnemonic(self._curve_pencil_mnemonic)
+        unit = (curve.metadata.unit or "").strip() if curve is not None else ""
+        old_value: float | None = None
+        axis = np.asarray(self._axis_values(), dtype=float)
+        if curve is not None and axis.size and curve.values.size == axis.size:
+            finite = np.flatnonzero(np.isfinite(axis))
+            if finite.size:
+                sample_index = int(finite[np.argmin(np.abs(axis[finite] - point.axis_value))])
+                candidate = float(curve.values[sample_index])
+                if np.isfinite(candidate):
+                    old_value = candidate
+        axis_text = self._format_axis_value(point.axis_value)
+        axis_descriptor = self._axis_descriptor()
+        axis_name = axis_descriptor.label if axis_descriptor is not None else "Axis"
+        value_text = f"{point.source_value:.6g}{(' ' + unit) if unit else ''}"
+        old_text = (
+            f"{old_value:.6g}{(' ' + unit) if unit else ''}"
+            if old_value is not None
+            else "—"
+        )
+        label = rendered.curve_pencil_readout
+        if label is None:
+            return
+        label.setText(
+            self._localizer.text(
+                "tablet.curve_pencil_live_readout",
+                mnemonic=self._curve_pencil_mnemonic,
+                axis_name=axis_name,
+                axis=axis_text,
+                value=value_text,
+                old=old_text,
+            )
+        )
+        label.adjustSize()
+        viewport = rendered.plot.viewport()
+        margin = 10
+        position = QPoint(cursor_position) + QPoint(20, 20)
+        maximum_x = max(margin, viewport.width() - label.width() - margin)
+        maximum_y = max(margin, viewport.height() - label.height() - margin)
+        position.setX(max(margin, min(position.x(), maximum_x)))
+        position.setY(max(margin, min(position.y(), maximum_y)))
+        label.move(position)
+        label.show()
+        label.raise_()
+
+    def _hide_curve_pencil_hover(self, track_id: str | None) -> None:
+        if track_id is None:
+            return
+        if self._curve_pencil_last_hover is not None and self._curve_pencil_last_hover[0] == track_id:
+            self._curve_pencil_last_hover = None
+        rendered = self._rendered.get(track_id)
+        if rendered is not None and rendered.curve_pencil_readout is not None:
+            rendered.curve_pencil_readout.hide()
 
     def _curve_pencil_source_value(
         self, definition: TrackDefinition, mnemonic: str, display_x: float
@@ -2746,9 +2857,9 @@ class TabletView(QWidget):
                     }
                 )
             )
-            rendered.plot.viewport().setCursor(
-                Qt.CursorShape.CrossCursor if active else Qt.CursorShape.ArrowCursor
-            )
+            cursor = Qt.CursorShape.CrossCursor if active else Qt.CursorShape.ArrowCursor
+            rendered.plot.viewport().setCursor(cursor)
+            rendered.plot.setCursor(cursor)
 
     def set_cuttings(self, samples: list[CuttingsSample]) -> None:
         self._cuttings = tuple(samples)
@@ -3886,8 +3997,17 @@ class TabletView(QWidget):
             if event.type() == QEvent.Type.KeyPress and self._keyboard_navigation(event):
                 event.accept()
                 return True
+        if plot is not None and event.type() == QEvent.Type.Leave:
+            self._hide_curve_pencil_hover(self._track_id_for_plot(plot))
         if plot is not None and isinstance(event, QMouseEvent):
             track_id = self._track_id_for_plot(plot)
+            if event.type() in {
+                QEvent.Type.MouseMove,
+                QEvent.Type.MouseButtonPress,
+                QEvent.Type.MouseButtonRelease,
+                QEvent.Type.MouseButtonDblClick,
+            }:
+                self._update_curve_pencil_hover(plot, event, track_id)
             definition = None
             if track_id is not None:
                 try:

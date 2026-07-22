@@ -1,3 +1,11 @@
+# 0.7.12 — Persistent pencil cursor and live value readout
+
+- kept the custom pencil cursor active on every target-plot mouse event, even when Qt/pyqtgraph restores the default arrow;
+- added a floating in-plot readout with the active mnemonic, vertical coordinate, proposed value and previous sampled value;
+- kept the readout visible while the pointer is stationary and restored it after the in-memory curve update/recalculation refresh;
+- hid the readout only when the pointer leaves the target plot or pencil mode is disabled;
+- synchronized the new text key across Russian, Kazakh and English resources.
+
 # 0.7.11 — Pencil points, reference Masterlog and constructor contrast
 
 - Added two tablet pencil modes: freehand stroke and selected points connected by interpolation.

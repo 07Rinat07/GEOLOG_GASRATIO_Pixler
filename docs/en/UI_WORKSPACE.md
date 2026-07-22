@@ -1,3 +1,7 @@
+## Persistent pencil and live values — 0.7.12
+
+The target plot reasserts the custom pencil cursor on every mouse event. A floating card shows the mnemonic, depth/time, proposed value and previous sampled value and remains visible while stationary and after data refresh.
+
 ## Connected-point pencil and acknowledged edits — 0.7.11
 
 Choose Freehand stroke or Connect points. In point mode, click anchors and press Connect, Enter, or double-click the final point. Dependants recalculate immediately in memory; the project is written only after Save. Failed edits keep the orange preview.

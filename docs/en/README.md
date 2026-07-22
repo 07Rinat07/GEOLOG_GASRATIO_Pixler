@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.11:** the pencil supports freehand strokes and connecting selected points; dependants recalculate immediately while saving still requires the diskette button. Constructor contrast is fixed for dark themes and the reference Masterlog preset is shown first.
+> **0.7.12:** the tablet keeps the pencil cursor visible and shows a floating card with depth/time, proposed value and previous value. Dependent parameters recalculate immediately in memory, while disk persistence still requires the Save button.
 
 
 
