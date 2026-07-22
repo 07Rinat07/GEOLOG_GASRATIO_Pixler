@@ -1,56 +1,70 @@
 # Roadmap — GEOLOG Gas Ratio & Pixler
 
-Updated: 21 July 2026
+Updated: 23 July 2026. The roadmap is ordered by risk and dependency. A phase is complete
+only when its automated and manual acceptance criteria pass.
 
-## Current: GeoData depth workspace
+## Phase 0 — release recovery
 
-Completed:
+- restore annotation event routing and eliminate the Qt test-process crash;
+- resolve all Ruff findings and establish a decreasing, then zero, mypy baseline;
+- make the complete pytest suite deterministic on the supported Windows environment;
+- run the tablet, annotation, PDF, HiDPI, and physical-printer smoke matrix;
+- publish a stable build only after every mandatory gate is green.
 
-- curated factory-form library;
-- merged Geology, Technology, and Gas Data headers;
-- one synchronized depth coordinate and parameter-header band;
-- exact template column order without a forced pinned depth track;
-- Shift-drag creation and double-click re-editing of lithology;
-- shared cuttings/LBA/calcimetry/description sample editor;
-- rich text, symbols, images, deletion, and atomic update by `sample_id`;
-- laptop-safe main-window geometry, horizontal form scrolling, and collapsible inspector;
-- correct distinction between real zero and missing curve data;
-- layout codec v10 and RU/KK/EN documentation.
+Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke checklist.
 
-## Next: unified Masterlog designer
+## Phase 1 — maintainable tablet and reporting core
 
-- one model for screen form, print preview, PDF, raster/SVG export, and physical printing;
-- editable report header with dynamic well fields, logos, legends, lines, and images;
-- unified symbol catalog for lithology, LBA, oil/gas shows, core, mud losses/gains, casing, and markers;
-- exact page/roll layout tests and Windows print-engine verification.
+- split annotation routing, navigation, track lifecycle, grid rendering, and editing out of
+  `TabletView`;
+- split workspace commands and long-running job coordination out of `MainWindow`;
+- define one screen/print grid contract and golden-render fixtures;
+- add report provenance: source fingerprints, channel bindings, UOM, formula versions,
+  locale, template revision, and render settings;
+- test project format v15 and layout format v14 migrations with representative legacy files.
 
-## Then: report export and interval summaries
+Exit: bounded controllers with headless tests, stable visual fixtures, reproducible report passport.
 
-- one `ReportDefinition` for geology, gas, drilling and combined reports;
-- exact top/bottom/thickness rows for lithology, cuttings, LBA, calcimetry, stratigraphy and manual descriptions;
-- C1–C5, total gas, absolute/relative Gas Ratio and Pixler outputs, H₂S/CO₂, drilling and mud channels;
-- configurable aggregation with coverage and strict zero-vs-missing handling;
-- Reports tab in the Constructor with preview, preflight and PDF/DOCX/XLSX/CSV/TSV/HTML export;
-- tablet parity, provenance, calculation-version metadata and Windows print verification.
+## Phase 2 — semantic data and operational QC
 
-## Then: Gas Ratio & Pixler interpretation
+- introduce canonical channel kinds based on quantity classes and an Energistics-compatible
+  UOM dictionary while preserving original mnemonics;
+- add an Import Review screen for mapping, units, index, NULL, gaps, duplicates, and warnings;
+- store measurement time, arrival time, source, calibration, and QC flags;
+- define typed drilling, gas, show, sample, casing, and formation-top events;
+- add versioned lag/depth correction without rewriting the acquired source.
 
-- dedicated multi-track Gas Ratio/Pixler workspace;
-- input-quality diagnostics and required-curve preparation;
-- controlled, explainable fluid classification;
-- oil/gas/condensate/uncertain markers with manual confirmation;
-- interval table, legend, provenance, and printable report.
+Exit: the same channel is found consistently across vendors; every correction is reversible and audited.
 
-## Release hardening
+## Phase 3 — WITSML real-time path
 
-- real LAS files from multiple vendors;
-- 1366×768, 1920×1080, 2560×1440, and HiDPI screen matrix;
-- 100k/1M/5M performance budgets;
-- migration tests for old projects and hidden legacy forms;
-- Windows installer and physical-printer regression;
-- final RU/KK/EN documentation audit.
+1. Read-only WITSML 2.1 object inventory and mapping fixtures.
+2. Recorded replay into an append-only growing dataset.
+3. Checkpoints, reconnect, backpressure, gaps, duplicates, out-of-order and stale-data QC.
+4. Secured ETP 1.2 client with credentials outside project files.
+5. Structured MudLogReport views and acknowledged rules/alarms.
 
-## Deferred
+Exit: a recorded session can be replayed deterministically and produces the same audited result.
 
-WITSML, DLIS, 3D, cloud synchronization, and multi-well correlation remain outside the current
-release path unless separately prioritized.
+## Phase 4 — unified reports and multiwell work
+
+- one interval report model for geology, cuttings, calcimetry, LBA, gas, drilling, and events;
+- PDF plus tabular exports driven from the same selected interval and bindings;
+- multiwell correlation canvas with tops, ties, independent depth ranges, and paginated PDF;
+- template validation, versioning, import/export, and backward-compatible migrations.
+
+Exit: screen, PDF, and exported tables agree for the same report definition.
+
+## Phase 5 — controlled extensibility
+
+- versioned read-only API first, then explicit transaction-based edit commands;
+- Python execution console with permissions, timeout, log, and no automatic execution from a project;
+- crossplots and statistical plots as independent reusable view components;
+- domain modules such as geomechanics, 3D, or AI import only after separate validation plans.
+
+## Not on the immediate release path
+
+Cloud collaboration, arbitrary proprietary formats, 3D reservoir modelling, autonomous AI
+interpretation, and safety-critical well-control decisions are not commitments for version 1.0.
+
+See [PRODUCT_AUDIT_2026.md](PRODUCT_AUDIT_2026.md) for evidence and competitor comparison.

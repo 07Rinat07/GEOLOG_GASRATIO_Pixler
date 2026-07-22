@@ -211,6 +211,7 @@ class RenderedTrack:
     curve_pencil_preview: pg.PlotDataItem | None = None
     curve_pencil_badge: QLabel | None = None
     curve_pencil_readout: QLabel | None = None
+    analysis_region: pg.LinearRegionItem | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,6 +246,13 @@ class _StratigraphyGesture:
     track_id: str
     start_depth: float
     current_depth: float
+
+
+@dataclass(slots=True)
+class _AnalysisIntervalGesture:
+    track_id: str
+    start_value: float
+    current_value: float
 
 
 @dataclass(slots=True)
@@ -285,11 +293,44 @@ class VerticalAxisDescriptor:
         return self.role is IndexRole.TIME
 
 
-class TabletVerticalAxisItem(pg.AxisItem):
+class EngineeringGridAxisItem(pg.AxisItem):
+    """Axis with stable major/minor engineering divisions for screen and export.
+
+    PyQtGraph's automatic density changes with widget size.  That is useful for
+    exploratory charts, but neighbouring well-log tracks must keep coincident
+    grid lines.  The configured divisions are therefore calculated from the
+    current visible range, which also keeps all tracks aligned while zooming.
+    """
+
+    def __init__(self, orientation: str) -> None:
+        super().__init__(orientation=orientation)
+        self._major_divisions = 5
+        self._minor_divisions = 5
+
+    def set_engineering_divisions(self, major: int, minor: int) -> None:
+        self._major_divisions = max(1, int(major))
+        self._minor_divisions = max(1, int(minor))
+        self.setStyle(maxTickLevel=1 if self._minor_divisions > 1 else 0)
+        self.picture = None
+        self.update()
+
+    def tickSpacing(self, minVal, maxVal, size):  # type: ignore[override]
+        span = abs(float(maxVal) - float(minVal))
+        if not np.isfinite(span) or span <= 0.0:
+            return super().tickSpacing(minVal, maxVal, size)
+        origin = min(float(minVal), float(maxVal))
+        major_spacing = span / self._major_divisions
+        levels = [(major_spacing, origin)]
+        if self._minor_divisions > 1:
+            levels.append((major_spacing / self._minor_divisions, origin))
+        return levels
+
+
+class TabletVerticalAxisItem(EngineeringGridAxisItem):
     """Readable vertical labels for depth, relative time and absolute timestamps."""
 
     def __init__(self, descriptor: VerticalAxisDescriptor) -> None:
-        super().__init__(orientation="left")
+        super().__init__("left")
         self.descriptor = descriptor
 
     def tickStrings(self, values, scale, spacing):  # type: ignore[override]
@@ -435,9 +476,14 @@ class TabletTrackWidget(QFrame):
         self.curve_header_scroll.viewport().setStyleSheet("background:#ffffff;")
         self.curve_header_scroll.hide()
 
-        axis_items = (
-            {"left": TabletVerticalAxisItem(vertical_axis)} if vertical_axis is not None else None
-        )
+        axis_items: dict[str, pg.AxisItem] = {
+            "bottom": EngineeringGridAxisItem("bottom"),
+            "left": (
+                TabletVerticalAxisItem(vertical_axis)
+                if vertical_axis is not None
+                else EngineeringGridAxisItem("left")
+            ),
+        }
         self.plot = pg.PlotWidget(axisItems=axis_items)
         self.plot.setBackground("#ffffff")
         self.plot.setMinimumHeight(240)
@@ -446,6 +492,11 @@ class TabletTrackWidget(QFrame):
             axis = self.plot.getAxis(axis_name)
             axis.setPen(pg.mkPen("#475569"))
             axis.setTextPen(pg.mkPen("#334155"))
+            if isinstance(axis, EngineeringGridAxisItem):
+                axis.set_engineering_divisions(
+                    definition.grid_major_divisions,
+                    definition.grid_minor_divisions,
+                )
         self.plot.showGrid(
             x=definition.grid_x,
             y=definition.grid_y,
@@ -787,6 +838,8 @@ class TabletView(QWidget):
     annotation_selection_changed = Signal(object)
     annotation_tool_changed = Signal(object)
     curve_value_save_requested = Signal(object)
+    interval_analysis_requested = Signal(object)
+    interval_analysis_cleared = Signal()
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
         super().__init__()
@@ -838,6 +891,8 @@ class TabletView(QWidget):
         self._lithology_gesture: _LithologyGesture | None = None
         self._sample_gesture: _SampleGesture | None = None
         self._stratigraphy_gesture: _StratigraphyGesture | None = None
+        self._analysis_interval_gesture: _AnalysisIntervalGesture | None = None
+        self._analysis_interval: tuple[float, float] | None = None
         self._geological_input_mode = GeologicalInputMode.SELECT
         self._axis_combo_guard = False
         self._span_combo_guard = False
@@ -3327,6 +3382,12 @@ class TabletView(QWidget):
         return top, bottom
 
     def set_dataset(self, dataset: Dataset | None) -> None:
+        previous_id = self._dataset.dataset_id if self._dataset is not None else None
+        next_id = dataset.dataset_id if dataset is not None else None
+        if previous_id != next_id:
+            self._analysis_interval = None
+            self._analysis_interval_gesture = None
+            self.interval_analysis_cleared.emit()
         self._dataset = dataset
         self._geometry_cache.clear()
         self._static_layer_cache.clear()
@@ -3771,6 +3832,7 @@ class TabletView(QWidget):
         self.cancel_interval_interaction(emit_signal=False)
         self.cancel_lithology_interaction()
         self.cancel_sample_interaction()
+        self.cancel_interval_analysis(clear_interval=False)
         self._dirty_registry.clear()
         self._overlay_layers.clear()
         self._tooltip_items.clear()
@@ -3845,6 +3907,15 @@ class TabletView(QWidget):
                 hint = self._localizer.text("cuttings.drag_hint")
                 track.plot.setToolTip(hint)
                 track.title.setToolTip(hint)
+            elif definition.kind in {
+                TrackKind.DEPTH,
+                TrackKind.CURVE,
+                TrackKind.GAS,
+                TrackKind.DEXP,
+            }:
+                hint = self._localizer.text("statistics.drag_hint")
+                track.plot.setToolTip(hint)
+                track.title.setToolTip(hint)
             track.selected.connect(self._track_selected_from_widget)
             track.width_change_requested.connect(self._resize_track_from_widget)
             track.header_drag_started.connect(self._start_track_header_drag)
@@ -3904,6 +3975,7 @@ class TabletView(QWidget):
                 relative_baseline_item=relative_baseline_item,
             )
             self._rendered[definition.track_id] = rendered
+            self._install_analysis_region(rendered)
             self._register_track_overlays(rendered)
             self._install_cursor(rendered)
             if definition.kind is TrackKind.INTERPRETATION:
@@ -3949,6 +4021,145 @@ class TabletView(QWidget):
         # on-screen geometry. Reuse the instance timer after Qt has laid out the
         # horizontal scrollbar and the final chart viewport.
         self._resize_restore_timer.start(0)
+
+    @property
+    def interval_analysis_range(self) -> tuple[float, float] | None:
+        return self._analysis_interval
+
+    def visible_curve_mnemonics(self) -> tuple[str, ...]:
+        if self._dataset is None:
+            return ()
+        result: list[str] = []
+        seen: set[str] = set()
+        for definition in self._layout_model.visible_tracks():
+            for mnemonic in definition.curve_mnemonics:
+                curve = self._dataset.curve_by_mnemonic(mnemonic)
+                if curve is None:
+                    continue
+                original = curve.metadata.original_mnemonic
+                key = original.casefold()
+                if key in seen:
+                    continue
+                seen.add(key)
+                result.append(original)
+        return tuple(result)
+
+    def begin_interval_analysis(self, track_id: str, axis_value: float) -> bool:
+        rendered = self._rendered.get(track_id)
+        if (
+            self._dataset is None
+            or rendered is None
+            or rendered.plot is None
+            or rendered.definition.kind
+            not in {TrackKind.DEPTH, TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
+            or self._form_edit_mode
+            or self._curve_pencil_enabled
+            or self._annotation_tool is not None
+        ):
+            return False
+        snapped = self._snap_analysis_axis_value(axis_value)
+        if snapped is None:
+            return False
+        self._analysis_interval_gesture = _AnalysisIntervalGesture(track_id, snapped, snapped)
+        self._analysis_interval = (snapped, snapped)
+        self._update_analysis_regions()
+        rendered.plot.viewport().setCursor(Qt.CursorShape.CrossCursor)
+        return True
+
+    def update_interval_analysis(self, axis_value: float) -> bool:
+        gesture = self._analysis_interval_gesture
+        if gesture is None:
+            return False
+        snapped = self._snap_analysis_axis_value(axis_value)
+        if snapped is None:
+            return False
+        gesture.current_value = snapped
+        self._analysis_interval = tuple(sorted((gesture.start_value, snapped)))
+        self._update_analysis_regions()
+        return True
+
+    def finish_interval_analysis(self, axis_value: float) -> bool:
+        gesture = self._analysis_interval_gesture
+        if gesture is None:
+            return False
+        self.update_interval_analysis(axis_value)
+        interval = self._analysis_interval
+        self._analysis_interval_gesture = None
+        rendered = self._rendered.get(gesture.track_id)
+        if rendered is not None and rendered.plot is not None:
+            rendered.plot.viewport().setCursor(Qt.CursorShape.ArrowCursor)
+        if interval is None or interval[0] >= interval[1]:
+            self.clear_interval_analysis(emit_signal=False)
+            return True
+        descriptor = self._axis_descriptor()
+        self.interval_analysis_requested.emit(
+            {
+                "top": interval[0],
+                "bottom": interval[1],
+                "axis_id": descriptor.index_id if descriptor is not None else "",
+                "axis_label": descriptor.label if descriptor is not None else "",
+                "axis_unit": descriptor.unit if descriptor is not None else "",
+                "axis_is_datetime": descriptor.is_datetime if descriptor is not None else False,
+                "mnemonics": self.visible_curve_mnemonics(),
+            }
+        )
+        return True
+
+    def cancel_interval_analysis(self, *, clear_interval: bool = False) -> bool:
+        gesture = self._analysis_interval_gesture
+        changed = gesture is not None
+        self._analysis_interval_gesture = None
+        if gesture is not None:
+            rendered = self._rendered.get(gesture.track_id)
+            if rendered is not None and rendered.plot is not None:
+                rendered.plot.viewport().setCursor(Qt.CursorShape.ArrowCursor)
+        if clear_interval:
+            changed = self.clear_interval_analysis(emit_signal=False) or changed
+        return changed
+
+    def clear_interval_analysis(self, *, emit_signal: bool = True) -> bool:
+        if self._analysis_interval is None and self._analysis_interval_gesture is None:
+            return False
+        self._analysis_interval = None
+        self._analysis_interval_gesture = None
+        self._update_analysis_regions()
+        if emit_signal:
+            self.interval_analysis_cleared.emit()
+        return True
+
+    def _snap_analysis_axis_value(self, value: float) -> float | None:
+        axis = self._axis_values()
+        finite = np.flatnonzero(np.isfinite(axis))
+        if finite.size == 0 or not np.isfinite(value):
+            return None
+        nearest = int(finite[np.argmin(np.abs(axis[finite] - float(value)))])
+        return float(axis[nearest])
+
+    def _install_analysis_region(self, rendered: RenderedTrack) -> None:
+        if rendered.plot is None:
+            return
+        region = pg.LinearRegionItem(
+            values=self._analysis_interval or (0.0, 0.0),
+            orientation=pg.LinearRegionItem.Horizontal,
+            movable=False,
+            brush=pg.mkBrush(37, 99, 235, 42),
+            pen=pg.mkPen("#2563eb", width=1.3, style=Qt.PenStyle.DashLine),
+        )
+        region.setZValue(72)
+        rendered.plot.addItem(region, ignoreBounds=True)
+        rendered.analysis_region = region
+        region.setVisible(self._analysis_interval is not None)
+
+    def _update_analysis_regions(self) -> None:
+        for rendered in self._rendered.values():
+            region = rendered.analysis_region
+            if region is None:
+                continue
+            if self._analysis_interval is None:
+                region.hide()
+            else:
+                region.setRegion(self._analysis_interval)
+                region.show()
 
     def _rebuild_group_headers(self) -> None:
         """Build merged section captions aligned with contiguous form columns."""
@@ -4811,6 +5022,13 @@ class TabletView(QWidget):
         plot = self._depth_viewports.get(watched)
         if plot is not None and isinstance(event, QKeyEvent):
             if event.type() == QEvent.Type.KeyPress:
+                if (
+                    event.key() == Qt.Key.Key_Escape
+                    and self._analysis_interval_gesture is not None
+                ):
+                    self.cancel_interval_analysis(clear_interval=True)
+                    event.accept()
+                    return True
                 response = self._route_interaction_event(
                     self._tablet_input_from_key(plot, event)
                 )
@@ -4878,6 +5096,33 @@ class TabletView(QWidget):
                     definition = None
             if self._handle_curve_pencil_event(plot, event, track_id):
                 return True
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.LeftButton
+                and bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                and track_id is not None
+            ):
+                point = self._mouse_event_plot_point(plot, event)
+                if self.begin_interval_analysis(track_id, float(point.y())):
+                    event.accept()
+                    return True
+            if (
+                event.type() == QEvent.Type.MouseMove
+                and self._analysis_interval_gesture is not None
+            ):
+                point = self._mouse_event_plot_point(plot, event)
+                if self.update_interval_analysis(float(point.y())):
+                    event.accept()
+                    return True
+            if (
+                event.type() == QEvent.Type.MouseButtonRelease
+                and event.button() == Qt.MouseButton.LeftButton
+                and self._analysis_interval_gesture is not None
+            ):
+                point = self._mouse_event_plot_point(plot, event)
+                if self.finish_interval_analysis(float(point.y())):
+                    event.accept()
+                    return True
             if (
                 definition is not None
                 and event.type() == QEvent.Type.MouseButtonDblClick

@@ -71,6 +71,10 @@ from geoworkbench.data.visualization_export import (
 )
 from geoworkbench.data.dataset_json_export import DatasetJsonExportError
 from geoworkbench.data.dataset_parquet_export import DatasetParquetExportError
+from geoworkbench.data.interval_statistics_export import (
+    export_interval_statistics_csv,
+    export_interval_statistics_xlsx,
+)
 from geoworkbench.forms import (
     FormApplyEngine,
     FormAxisKind,
@@ -150,6 +154,7 @@ from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDia
 from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
 from geoworkbench.ui.dataset_merge_dialog import DatasetMergeDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
+from geoworkbench.ui.interval_statistics_panel import IntervalStatisticsPanel
 from geoworkbench.ui.interpretation_report_dialog import InterpretationReportDialog
 from geoworkbench.ui.interpretation_intervals_dialog import InterpretationIntervalsDialog
 from geoworkbench.ui.interpretation_properties import InterpretationPropertiesPanel
@@ -188,6 +193,7 @@ from geoworkbench.services.text_normalization import clean_display_text, clean_m
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.user_profiles import CursorLineSettings, UserProfileSettings
 from geoworkbench.services.mnemonic_registry import UserMnemonicRegistry
+from geoworkbench.services.time_display import format_elapsed_time, format_unix_seconds
 
 
 class MainWindow(QMainWindow):
@@ -258,6 +264,9 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.curve_view = CurveView(self.dataset_selection, language=self.language)
         self.curve_view.edit_requested.connect(self._apply_curve_draw_edit)
+        self.curve_view.interval_analysis_requested.connect(
+            self._show_interval_analysis_from_gesture
+        )
         self.tablet_view = TabletView(language=self.language)
         self.tablet_view.set_cursor_style(
             self.cursor_line_settings.color, self.cursor_line_settings.width
@@ -339,6 +348,12 @@ class MainWindow(QMainWindow):
         self.tablet_view.curve_value_save_requested.connect(
             self._save_curve_value_annotation
         )
+        self.tablet_view.interval_analysis_requested.connect(
+            self._show_interval_analysis_from_gesture
+        )
+        self.tablet_view.interval_analysis_cleared.connect(
+            self._clear_interval_statistics_panel
+        )
         self.las_table_editor = LasTableEditor(
             self.las_range_editing_controller,
             language=self.language,
@@ -359,6 +374,7 @@ class MainWindow(QMainWindow):
         self._create_curve_browser()
         self._create_inspector()
         self._create_interpretation_properties_panel()
+        self._create_interval_statistics_panel()
         self._create_issues_panel()
         self._create_cursor_panel()
         self._create_panel_rails()
@@ -506,6 +522,31 @@ class MainWindow(QMainWindow):
         )
         self.interpretation_properties_dock.hide()
 
+    def _create_interval_statistics_panel(self) -> None:
+        self.interval_statistics_dock = QDockWidget(
+            self._t("statistics.panel_title"), self
+        )
+        self.interval_statistics_dock.setObjectName("intervalStatisticsDock")
+        self.interval_statistics_panel = IntervalStatisticsPanel(language=self.language)
+        self.interval_statistics_panel.export_requested.connect(
+            self._export_interval_statistics
+        )
+        self.interval_statistics_panel.clear_requested.connect(
+            self._clear_interval_analysis
+        )
+        self.interval_statistics_dock.setWidget(self.interval_statistics_panel)
+        self.interval_statistics_dock.setMinimumWidth(470)
+        self.interval_statistics_dock.setMaximumWidth(760)
+        self.interval_statistics_dock.setFeatures(
+            QDockWidget.DockWidgetFeature.DockWidgetClosable
+            | QDockWidget.DockWidgetFeature.DockWidgetMovable
+            | QDockWidget.DockWidgetFeature.DockWidgetFloatable
+        )
+        self.addDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea, self.interval_statistics_dock
+        )
+        self.interval_statistics_dock.hide()
+
     def _create_issues_panel(self) -> None:
         self.issues_dock = QDockWidget(self._t("dock.log"), self)
         self.issues_dock.setObjectName("issuesDock")
@@ -528,6 +569,7 @@ class MainWindow(QMainWindow):
         self.tabifyDockWidget(self.project_dock, self.curve_browser_dock)
         self.tabifyDockWidget(self.inspector_dock, self.interpretation_properties_dock)
         self.tabifyDockWidget(self.inspector_dock, self.cursor_dock)
+        self.tabifyDockWidget(self.inspector_dock, self.interval_statistics_dock)
 
         self.left_panel_rail = QToolBar(self._t("panel.left_rail"), self)
         self.left_panel_rail.setObjectName("leftPanelRail")
@@ -591,12 +633,20 @@ class MainWindow(QMainWindow):
             QStyle.StandardPixmap.SP_ArrowRight,
             "Ctrl+Alt+V",
         )
+        self.interval_statistics_panel_action = self._panel_toggle_action(
+            self.interval_statistics_dock,
+            "panel.interval_statistics",
+            "panel.interval_statistics_tooltip",
+            QStyle.StandardPixmap.SP_FileDialogContentsView,
+            "Ctrl+Alt+M",
+        )
 
         self.left_panel_rail.addAction(self.project_panel_action)
         self.left_panel_rail.addAction(self.curve_browser_action)
         self.right_panel_rail.addAction(self.inspector_panel_action)
         self.right_panel_rail.addAction(self.interpretation_panel_action)
         self.right_panel_rail.addAction(self.cursor_panel_action)
+        self.right_panel_rail.addAction(self.interval_statistics_panel_action)
 
         self.project_dock.visibilityChanged.connect(
             lambda visible: self._enforce_single_side_panel(
@@ -612,21 +662,36 @@ class MainWindow(QMainWindow):
             lambda visible: self._enforce_single_side_panel(
                 visible,
                 self.inspector_dock,
-                (self.interpretation_properties_dock, self.cursor_dock),
+                (
+                    self.interpretation_properties_dock,
+                    self.cursor_dock,
+                    self.interval_statistics_dock,
+                ),
             )
         )
         self.interpretation_properties_dock.visibilityChanged.connect(
             lambda visible: self._enforce_single_side_panel(
                 visible,
                 self.interpretation_properties_dock,
-                (self.inspector_dock, self.cursor_dock),
+                (self.inspector_dock, self.cursor_dock, self.interval_statistics_dock),
             )
         )
         self.cursor_dock.visibilityChanged.connect(
             lambda visible: self._enforce_single_side_panel(
                 visible,
                 self.cursor_dock,
-                (self.inspector_dock, self.interpretation_properties_dock),
+                (
+                    self.inspector_dock,
+                    self.interpretation_properties_dock,
+                    self.interval_statistics_dock,
+                ),
+            )
+        )
+        self.interval_statistics_dock.visibilityChanged.connect(
+            lambda visible: self._enforce_single_side_panel(
+                visible,
+                self.interval_statistics_dock,
+                (self.inspector_dock, self.interpretation_properties_dock, self.cursor_dock),
             )
         )
 
@@ -665,6 +730,7 @@ class MainWindow(QMainWindow):
             self.inspector_dock,
             self.interpretation_properties_dock,
             self.cursor_dock,
+            self.interval_statistics_dock,
         ):
             dock.hide()
 
@@ -1127,6 +1193,7 @@ class MainWindow(QMainWindow):
         view_menu.addAction(self.inspector_panel_action)
         view_menu.addAction(self.interpretation_panel_action)
         view_menu.addAction(self.cursor_panel_action)
+        view_menu.addAction(self.interval_statistics_panel_action)
         view_menu.addSeparator()
         self.hide_side_panels_action = QAction(
             self.style().standardIcon(QStyle.StandardPixmap.SP_DialogCloseButton),
@@ -1526,6 +1593,7 @@ class MainWindow(QMainWindow):
         )
         self.issues_dock.setWindowTitle(self._t("dock.log"))
         self.cursor_dock.setWindowTitle(self._t("cursor.panel_title"))
+        self.interval_statistics_dock.setWindowTitle(self._t("statistics.panel_title"))
         self.tree.setHeaderLabel(self._t("explorer.title"))
         self.left_panel_rail.setWindowTitle(self._t("panel.left_rail"))
         self.right_panel_rail.setWindowTitle(self._t("panel.right_rail"))
@@ -1545,6 +1613,7 @@ class MainWindow(QMainWindow):
             self.curve_browser,
             self.inspector,
             self.interpretation_properties,
+            self.interval_statistics_panel,
         ):
             setter = getattr(widget, "set_language", None)
             if callable(setter):
@@ -3746,6 +3815,148 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
 
+    def _show_interval_analysis_from_gesture(self, payload: object) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None or not isinstance(payload, dict):
+            return
+        try:
+            top = float(payload.get("top"))
+            bottom = float(payload.get("bottom"))
+        except (TypeError, ValueError):
+            return
+        if not np.isfinite(top) or not np.isfinite(bottom) or top >= bottom:
+            return
+        axis_id = str(payload.get("axis_id") or dataset.active_index_id or "")
+        index = dataset.indexes.get(axis_id)
+        if index is None:
+            return
+        raw_axis = np.asarray(index.values)
+        if np.issubdtype(raw_axis.dtype, np.datetime64):
+            dates = raw_axis.astype("datetime64[ns]")
+            axis_values = dates.astype(np.int64).astype(np.float64) / 1_000_000_000.0
+            axis_values[np.isnat(dates)] = np.nan
+        else:
+            try:
+                axis_values = raw_axis.astype(np.float64)
+            except (TypeError, ValueError):
+                return
+        raw_mnemonics = payload.get("mnemonics", ())
+        mnemonics = tuple(
+            str(value)
+            for value in raw_mnemonics
+            if isinstance(value, str) and value.strip()
+        ) if isinstance(raw_mnemonics, (tuple, list)) else ()
+        try:
+            statistics = calculate_interval_statistics(
+                dataset,
+                top,
+                bottom,
+                mnemonics,
+                axis_values=axis_values,
+            )
+        except ValueError as exc:
+            QMessageBox.warning(self, self._t("statistics.title"), str(exc))
+            return
+        if not statistics:
+            QMessageBox.information(
+                self, self._t("statistics.title"), self._t("statistics.no_curves")
+            )
+            return
+
+        display_names: dict[str, str] = {}
+        curve_ids: list[str] = []
+        for item in statistics:
+            curve = dataset.curve_by_mnemonic(item.mnemonic)
+            if curve is None:
+                continue
+            curve_ids.append(curve.metadata.curve_id)
+            display_names[item.mnemonic] = localized_curve_name(
+                curve.metadata.original_mnemonic,
+                description=curve.metadata.description or "",
+                unit=curve.metadata.unit or "",
+                language=self.language,
+            )
+        if index.role is IndexRole.DEPTH and curve_ids:
+            try:
+                self.dataset_selection.select(dataset, top, bottom, tuple(curve_ids))
+            except (KeyError, ValueError):
+                pass
+        axis_label = str(payload.get("axis_label") or index.mnemonic)
+        unit = str(payload.get("axis_unit") or index.unit or "")
+        is_datetime = bool(payload.get("axis_is_datetime"))
+        if is_datetime:
+            rendered_top = format_unix_seconds(top)
+            rendered_bottom = format_unix_seconds(bottom)
+        elif index.role is IndexRole.TIME:
+            rendered_top = format_elapsed_time(top, unit)
+            rendered_bottom = format_elapsed_time(bottom, unit)
+        else:
+            suffix = f" {unit}" if unit else ""
+            rendered_top = f"{top:g}{suffix}"
+            rendered_bottom = f"{bottom:g}{suffix}"
+        interval_label = f"{axis_label}: {rendered_top} – {rendered_bottom}"
+        self.interval_statistics_panel.set_report(
+            dataset_name=dataset.name,
+            interval_label=interval_label,
+            statistics=statistics,
+            display_names=display_names,
+        )
+        self.interval_statistics_dock.show()
+        self.interval_statistics_dock.raise_()
+
+    def _export_interval_statistics(self, export_format: str) -> None:
+        statistics = self.interval_statistics_panel.statistics
+        if not statistics:
+            return
+        is_excel = export_format == "xlsx"
+        suffix = ".xlsx" if is_excel else ".csv"
+        file_filter = "Excel (*.xlsx)" if is_excel else "CSV (*.csv)"
+        safe_name = self.interval_statistics_panel.dataset_name or "dataset"
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("statistics.export_title"),
+            str(Path.cwd() / f"{safe_name}_interval_statistics{suffix}"),
+            file_filter,
+        )
+        if not filename:
+            return
+        target = Path(filename)
+        if target.suffix.casefold() != suffix:
+            target = target.with_suffix(suffix)
+        overwrite = self._confirm_export_overwrite(target)
+        if overwrite is None:
+            return
+        try:
+            if is_excel:
+                exported = export_interval_statistics_xlsx(
+                    target,
+                    statistics,
+                    interval_label=self.interval_statistics_panel.interval_label,
+                    dataset_name=self.interval_statistics_panel.dataset_name,
+                )
+            else:
+                exported = export_interval_statistics_csv(
+                    target,
+                    statistics,
+                    interval_label=self.interval_statistics_panel.interval_label,
+                    dataset_name=self.interval_statistics_panel.dataset_name,
+                )
+        except OSError as exc:
+            QMessageBox.critical(self, self._t("statistics.title"), str(exc))
+            return
+        self.statusBar().showMessage(
+            self._t("statistics.export_success", name=exported.name), 5000
+        )
+
+    def _clear_interval_statistics_panel(self) -> None:
+        self.interval_statistics_panel.clear_report()
+        self.interval_statistics_dock.hide()
+
+    def _clear_interval_analysis(self) -> None:
+        self.tablet_view.clear_interval_analysis(emit_signal=False)
+        self.dataset_selection.clear()
+        self._clear_interval_statistics_panel()
+
     def show_interval_statistics(self) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
@@ -5601,10 +5812,25 @@ class MainWindow(QMainWindow):
         self.inspector.show_track(track, suggested_range=self._track_data_range(track))
 
     def _apply_inspector_grid(
-        self, track_id: str, show_x: bool, show_y: bool, alpha: float
+        self,
+        track_id: str,
+        show_x: bool,
+        show_y: bool,
+        alpha: float,
+        major_divisions: int = 5,
+        minor_divisions: int = 5,
+        print_grid: bool = True,
     ) -> None:
         try:
-            self.tablet_controller.set_track_grid(track_id, show_x, show_y, alpha)
+            self.tablet_controller.set_track_grid(
+                track_id,
+                show_x,
+                show_y,
+                alpha,
+                major_divisions,
+                minor_divisions,
+                print_grid,
+            )
             track = self.tablet_view.layout_model.track_by_id(track_id)
         except (KeyError, TypeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("inspector.title"), str(exc))

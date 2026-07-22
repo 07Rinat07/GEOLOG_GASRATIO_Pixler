@@ -13,6 +13,7 @@ from geoworkbench.forms import (
     FormTrack,
     ParameterBinding,
     factory_templates,
+    build_masterlog_from_form,
     form_from_dict,
     form_to_dict,
 )
@@ -25,6 +26,9 @@ def test_form_round_trip_preserves_binding() -> None:
         "Газ",
         TrackKind.CURVE,
         bindings=[binding],
+        grid_major_divisions=4,
+        grid_minor_divisions=10,
+        grid_print=False,
         title_orientation="vertical_bottom_to_top",
         title_position="bottom",
     )
@@ -46,6 +50,35 @@ def test_form_round_trip_preserves_binding() -> None:
     assert restored.columns[0].title_position == "top"
     assert restored.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
     assert restored.columns[0].tracks[0].title_position == "bottom"
+    assert restored.columns[0].tracks[0].grid_major_divisions == 4
+    assert restored.columns[0].tracks[0].grid_minor_divisions == 10
+    assert restored.columns[0].tracks[0].grid_print is False
+
+
+def test_form_grid_settings_control_linked_masterlog_print_grid() -> None:
+    binding = ParameterBinding.create("ROP", "ROP", source_mnemonic="ROP", unit="m/h")
+    track = FormTrack.create(
+        "ROP",
+        TrackKind.CURVE,
+        bindings=[binding],
+        grid_x=True,
+        grid_y=True,
+        grid_major_divisions=4,
+        grid_minor_divisions=10,
+        grid_alpha=0.35,
+        grid_print=False,
+    )
+    form = FormDocument.create("Print grid", FormAxisKind.DEPTH)
+    form.add_column(FormColumn.create("ROP", tracks=[track]))
+
+    report = build_masterlog_from_form(form, template_id="print-grid")
+    column = report.template.columns[0]
+
+    assert column.grid_x is False
+    assert column.grid_y is False
+    assert column.grid_major_divisions == 4
+    assert column.grid_minor_divisions == 10
+    assert column.grid_alpha == 0.35
 
 
 def test_factory_templates_are_read_only_and_copy_is_editable() -> None:
@@ -86,7 +119,7 @@ def test_repository_saves_utf8_atomically(tmp_path) -> None:
     assert target.exists()
     assert restored.name == "Глубинная форма"
     raw = json.loads(target.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 3
+    assert raw["schema_version"] == 4
 
 
 def test_repository_lists_and_deletes(tmp_path) -> None:
@@ -149,6 +182,19 @@ def test_schema_one_adds_default_title_presentation() -> None:
 def test_unknown_schema_is_rejected() -> None:
     with pytest.raises(FormFormatError, match="Неподдерживаемая"):
         form_from_dict({"schema_version": 99})
+
+
+@pytest.mark.parametrize("field", ["grid_major_divisions", "grid_minor_divisions"])
+def test_form_grid_divisions_reject_fractional_values(field: str) -> None:
+    form = FormDocument.create("Grid", FormAxisKind.DEPTH)
+    form.add_column(
+        FormColumn.create("Curve", tracks=[FormTrack.create("Curve", TrackKind.CURVE)])
+    )
+    payload = form_to_dict(form)
+    payload["columns"][0]["tracks"][0][field] = 2.5
+
+    with pytest.raises(FormFormatError, match="Некорректная структура"):
+        form_from_dict(payload)
 
 
 def test_factory_templates_include_specialized_gas_ratio_pixler_workflows() -> None:

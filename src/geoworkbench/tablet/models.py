@@ -91,7 +91,10 @@ class TrackDefinition:
     curve_display: dict[str, CurveDisplaySettings] = field(default_factory=dict)
     grid_x: bool = True
     grid_y: bool = True
+    grid_major_divisions: int = 5
+    grid_minor_divisions: int = 5
     grid_alpha: float = 0.2
+    grid_print: bool = True
     x_axis_label: str = ""
     group_title: str = ""
     title_orientation: str = "horizontal"
@@ -118,7 +121,14 @@ class TrackDefinition:
             isinstance(value, CurveDisplaySettings) for value in self.curve_display.values()
         ):
             raise ValueError("Настройки отображения должны использовать CurveDisplaySettings")
-        self._validate_grid(self.grid_x, self.grid_y, self.grid_alpha)
+        self._validate_grid(
+            self.grid_x,
+            self.grid_y,
+            self.grid_major_divisions,
+            self.grid_minor_divisions,
+            self.grid_alpha,
+            self.grid_print,
+        )
         self._validate_x_axis_label(self.x_axis_label)
 
     def set_x_scale(self, scale: XScale) -> None:
@@ -176,11 +186,29 @@ class TrackDefinition:
             ),
         )
 
-    def set_grid(self, show_x: bool, show_y: bool, alpha: float) -> None:
-        self._validate_grid(show_x, show_y, alpha)
+    def set_grid(
+        self,
+        show_x: bool,
+        show_y: bool,
+        alpha: float,
+        major_divisions: int = 5,
+        minor_divisions: int = 5,
+        print_grid: bool = True,
+    ) -> None:
+        self._validate_grid(
+            show_x,
+            show_y,
+            major_divisions,
+            minor_divisions,
+            alpha,
+            print_grid,
+        )
         self.grid_x = show_x
         self.grid_y = show_y
+        self.grid_major_divisions = major_divisions
+        self.grid_minor_divisions = minor_divisions
         self.grid_alpha = alpha
+        self.grid_print = print_grid
 
     def set_x_axis_label(self, label: str) -> None:
         normalized = label.strip()
@@ -195,9 +223,21 @@ class TrackDefinition:
             raise ValueError("Подпись оси X не должна превышать 100 символов")
 
     @staticmethod
-    def _validate_grid(show_x: bool, show_y: bool, alpha: float) -> None:
+    def _validate_grid(
+        show_x: bool,
+        show_y: bool,
+        major_divisions: int,
+        minor_divisions: int,
+        alpha: float,
+        print_grid: bool,
+    ) -> None:
         if not isinstance(show_x, bool) or not isinstance(show_y, bool):
             raise ValueError("Параметры видимости сетки должны быть логическими")
+        if not isinstance(print_grid, bool):
+            raise ValueError("Параметр печати сетки должен быть логическим")
+        for value in (major_divisions, minor_divisions):
+            if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 20:
+                raise ValueError("Деления сетки должны быть от 1 до 20")
         if isinstance(alpha, bool) or not isinstance(alpha, (int, float)):
             raise ValueError("Прозрачность сетки должна быть числом")
         if not isfinite(alpha) or not 0.0 <= alpha <= 1.0:

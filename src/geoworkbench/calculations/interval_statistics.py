@@ -16,6 +16,14 @@ class CurveIntervalStatistics:
     minimum: float
     maximum: float
     mean: float
+    total_count: int | None = None
+
+    @property
+    def coverage_percent(self) -> float:
+        total = self.total_count if self.total_count is not None else self.valid_count
+        if total <= 0:
+            return 0.0
+        return 100.0 * float(self.valid_count) / float(total)
 
 
 def calculate_interval_statistics(
@@ -23,13 +31,17 @@ def calculate_interval_statistics(
     depth_top: float,
     depth_bottom: float,
     mnemonics: Iterable[str] | None = None,
+    *,
+    axis_values: np.ndarray | None = None,
 ) -> tuple[CurveIntervalStatistics, ...]:
     if not np.isfinite(depth_top) or not np.isfinite(depth_bottom):
         raise ValueError("Границы интервала должны быть конечными")
     if depth_top >= depth_bottom:
         raise ValueError("Верхняя граница интервала должна быть меньше нижней")
 
-    depth = np.asarray(dataset.depth, dtype=np.float64)
+    depth = np.asarray(dataset.depth if axis_values is None else axis_values, dtype=np.float64)
+    if depth.shape != np.asarray(dataset.depth).shape:
+        raise ValueError("Размер оси интервала не совпадает с dataset")
     interval_mask = np.isfinite(depth) & (depth >= depth_top) & (depth <= depth_bottom)
     if not np.any(interval_mask):
         raise ValueError("В выбранном глубинном интервале нет отсчётов")
@@ -46,16 +58,18 @@ def calculate_interval_statistics(
             continue
         selected = values[interval_mask]
         finite = selected[np.isfinite(selected)]
-        if finite.size == 0:
-            continue
+        minimum = float(np.min(finite)) if finite.size else float("nan")
+        maximum = float(np.max(finite)) if finite.size else float("nan")
+        mean = float(np.mean(finite)) if finite.size else float("nan")
         statistics.append(
             CurveIntervalStatistics(
                 mnemonic=mnemonic,
                 unit=curve.metadata.unit,
                 valid_count=int(finite.size),
-                minimum=float(np.min(finite)),
-                maximum=float(np.max(finite)),
-                mean=float(np.mean(finite)),
+                minimum=minimum,
+                maximum=maximum,
+                mean=mean,
+                total_count=int(np.count_nonzero(interval_mask)),
             )
         )
     return tuple(statistics)

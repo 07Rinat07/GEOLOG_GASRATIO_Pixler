@@ -129,13 +129,18 @@ def test_inspector_edits_track_grid(qapp) -> None:
 
     assert inspector.grid_x_input.isChecked() is False
     assert inspector.grid_y_input.isChecked() is True
+    assert inspector.grid_major_input.value() == 5
+    assert inspector.grid_minor_input.value() == 5
     assert inspector.grid_alpha_input.value() == 0.4
     inspector.grid_x_input.setChecked(True)
     inspector.grid_y_input.setChecked(False)
     inspector.grid_alpha_input.setValue(0.65)
+    inspector.grid_major_input.setValue(4)
+    inspector.grid_minor_input.setValue(10)
+    inspector.grid_print_input.setChecked(False)
     QTest.mouseClick(inspector.grid_button, Qt.MouseButton.LeftButton)
 
-    assert emitted == [("curve", True, False, 0.65)]
+    assert emitted == [("curve", True, False, 0.65, 4, 10, False)]
     inspector.close()
 
 

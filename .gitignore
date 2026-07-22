@@ -6,6 +6,9 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .pyright/
+.hypothesis/
+.tox/
+.nox/
 .coverage
 .coverage.*
 htmlcov/
@@ -45,6 +48,12 @@ temp/
 .cache/
 *.tmp
 *.bak
+*.orig
+*.rej
+*.swp
+*.swo
+/VALIDATION*.txt
+/VALIDATION*.json
 
 # Runtime user data and generated output
 projects/*

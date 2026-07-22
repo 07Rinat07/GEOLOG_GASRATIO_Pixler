@@ -465,8 +465,24 @@ class TabletController:
         self._require_layout().track_by_id(track_id).set_curve_style(mnemonic, style)
         self.session.dirty = True
 
-    def set_track_grid(self, track_id: str, show_x: bool, show_y: bool, alpha: float) -> None:
-        self._require_layout().track_by_id(track_id).set_grid(show_x, show_y, alpha)
+    def set_track_grid(
+        self,
+        track_id: str,
+        show_x: bool,
+        show_y: bool,
+        alpha: float,
+        major_divisions: int = 5,
+        minor_divisions: int = 5,
+        print_grid: bool = True,
+    ) -> None:
+        self._require_layout().track_by_id(track_id).set_grid(
+            show_x,
+            show_y,
+            alpha,
+            major_divisions,
+            minor_divisions,
+            print_grid,
+        )
         self.session.dirty = True
 
     def set_track_x_axis_label(self, track_id: str, label: str) -> None:

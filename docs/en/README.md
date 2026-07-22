@@ -1,9 +1,5 @@
 # User guide
 
-> **0.7.27 (test build):** comments and callouts can be deleted from the context menu, Delete key, full manager and focused editor. Annotations belong to the current tablet form and are not displayed in other forms. Legacy annotations are bound automatically to the saved form on first open.
-
-
-
 GEOLOG GASRATIO@Pixler is an editor for drilling, mud-logging, and LAS data.
 
 - a ready A3 KazGeology Masterlog template with two uploadable logos and coloured scales;
@@ -77,9 +73,17 @@ DEXP names and descriptions are available in RU/KK/EN; formulas and units are no
 
 ## Interval statistics
 
-Visible interval statistics reports the point count, minimum, maximum, and mean for numeric
-curves. Labels and messages are available in RU/KK/EN; source curve mnemonics and units remain
-unchanged.
+On any numeric tablet track, hold `Shift`, press the left mouse button, and drag from the start
+to the end of the required interval. Releasing the button highlights the band across every plot
+in the form and opens a right-side panel containing all visible parameters. Each row reports the
+valid point count, interval coverage, minimum, maximum, and mean; missing values are never
+replaced with zero.
+
+**Copy** places an Excel-compatible table on the clipboard. **Excel** and **CSV** save a separate
+report with the dataset name and the selected depth or time-axis boundaries. **Clear** removes
+the highlight and closes the result. In lithology, stratigraphy, and sample-entry columns,
+`Shift + left drag` retains its geological interval-entry role; select statistics on an adjacent
+numeric track.
 
 ## Annotation layer
 
@@ -406,14 +410,12 @@ selected. `OK` renders the interval immediately. Cuttings composition, LBA, calc
 text descriptions remain separate sample-editor fields. Save the project with the diskette toolbar
 action or `Ctrl+S`.
 
-## Editable captions and stratigraphy
+## Forms, stratigraphy, and LAS editing
 
 Every track is fully editable from its right-click menu: title, section, width, X axis, parameters,
 captions, styles, scales, and ranges. Stratigraphy now has a project catalog, `Shift + left drag`,
 a dedicated toolbar mode, double-click editing, and project persistence. See [Editable form captions
 and stratigraphy](FORM_CAPTIONS_AND_STRATIGRAPHY.md).
-
-## LAS Editor 2
 
 Added an ascending copy for descending LAS, progressive merging, external-curve insertion,
 pencil edits with synchronous recalculation, an Excel-like table, and XLSX/TSV/CSV exports.
@@ -425,7 +427,7 @@ See [LAS Editor 2](LAS_EDITOR_2.md).
 
 Open **Constructor** or press `Ctrl+Shift+K`. Guide: [CONSTRUCTOR.md](CONSTRUCTOR.md).
 
-## Constructor 0.7.1: text and lithotypes
+### Text and lithotypes
 
 Stratigraphy, form structure, and WYSIWYG header editors can use horizontal text, 90°
 bottom-to-top, or 90° top-to-bottom, positioned near the upper edge, centred, or near the lower
@@ -435,17 +437,21 @@ All 117 standard rock patterns are immediately available in lithology and cuttin
 thumbnails. Headers can contain a dynamic legend or an individual lithotype swatch. The catalog
 supports project rocks, factory overrides, and reset. See the [Constructor guide](CONSTRUCTOR.md).
 
-## Exact lithotype patterns 0.7.2
+### Lithotype patterns
 
 The standard rocks use the original BMP files from both supplied catalogs. Patterns are tiled
 without smoothing and do not stretch while depth is zoomed. Labels over lithology and cuttings
 are hidden by default and can be enabled in the track or form-structure editor. The same images
 are used by header legends, preview, PDF and print.
 
-## Planned unified interval report
+## Plot grids and printing
 
-After the print Constructor is stabilized, the current calcimetry/LBA PDF will be extended into a
-combined report containing top/bottom/thickness, stratigraphy, lithology, cuttings composition,
-only manually entered rock descriptions, LBA, calcimetry, C1–C5, total gas, Gas Ratio/Pixler,
-H₂S/CO₂, drilling channels and depth events. Planned formats are PDF, DOCX, XLSX, CSV/TSV and
-HTML. See the [report export plan](REPORT_EXPORT.md).
+The track editor can independently enable major and minor X/Y lines and set the subdivision
+count, colour, and opacity. These settings are stored in the form. Review them in Print Center:
+the grid can be retained, softened, or disabled without changing data. Preview, PDF, and the
+printer use the same form model.
+
+## Status and future work
+
+Verified limitations are listed in [project status](PROJECT_STATUS.md); priorities are in the
+[project plan](PROJECT_PLAN.md) and [audit](PRODUCT_AUDIT_2026.md).

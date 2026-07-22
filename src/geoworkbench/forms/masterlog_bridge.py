@@ -215,10 +215,10 @@ def _column_from_track(
         line_width=first.style.width if first is not None else 1.5,
         line_style=first.style.line_style.value if first is not None else "solid",
         curve_styles=styles if column_type == "curves" else {},
-        grid_x=track.grid_x,
-        grid_y=track.grid_y,
-        grid_major_divisions=5,
-        grid_minor_divisions=5,
+        grid_x=track.grid_print and track.grid_x,
+        grid_y=track.grid_print and track.grid_y,
+        grid_major_divisions=track.grid_major_divisions,
+        grid_minor_divisions=track.grid_minor_divisions,
         grid_alpha=track.grid_alpha,
     )
 

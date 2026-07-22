@@ -130,6 +130,38 @@ def test_window_restores_saved_layout(qapp) -> None:
     window.close()
 
 
+def test_window_builds_interval_statistics_panel_from_tablet_gesture(qapp) -> None:
+    window = MainWindow(language=AppLanguage.EN)
+    session, _ = make_session()
+    bind_session(window, session)
+    dataset = session.current_dataset
+    assert dataset is not None
+    axis_id = dataset.active_index_id
+    assert axis_id is not None
+
+    window._show_interval_analysis_from_gesture(
+        {
+            "top": 100.0,
+            "bottom": 101.0,
+            "axis_id": axis_id,
+            "axis_label": "Depth",
+            "axis_unit": "m",
+            "axis_is_datetime": False,
+            "mnemonics": ("ROP",),
+        }
+    )
+
+    statistics = window.interval_statistics_panel.statistics
+    assert len(statistics) == 1
+    assert statistics[0].mnemonic == "ROP"
+    assert statistics[0].minimum == 1.0
+    assert statistics[0].maximum == 2.0
+    assert statistics[0].mean == 1.5
+    assert window.dataset_selection.interval == (100.0, 101.0)
+    assert not window.interval_statistics_dock.isHidden()
+    window.close()
+
+
 def test_window_opens_localized_interpretation_report(qapp, monkeypatch) -> None:
     window = MainWindow(language=AppLanguage.EN)
     session, _ = make_session()

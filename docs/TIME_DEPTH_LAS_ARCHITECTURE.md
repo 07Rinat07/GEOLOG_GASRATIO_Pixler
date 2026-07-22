@@ -252,7 +252,7 @@ project/import_controller.py
 project/export_controller.py
 visualization/depth_renderer.py
 visualization/time_renderer.py
-print_engine/
+printing/
 ```
 
 Парсеры зависят от формата, но не от Qt, графиков и печати. Сервисы работают с доменными
@@ -265,7 +265,7 @@ print_engine/
 2. [готово] `IndexDetectionService` для числовых DEPTH/TIME, datetime64 и Unix timestamp.
 3. [готово для сохранённых индексов] Data Inspector с confidence, evidence и ручным выбором;
    review всех сырых колонок будет расширен в Universal Import.
-4. [готово] Формат проекта v6 с несколькими индексами и миграцией текущего `depth`.
+4. [готово] Несколько индексов появились в v6 и сохраняются текущим форматом проекта v15.
 5. Временной normalization/QC и строковые даты.
 6. Strict/compatible/manual import pipeline.
 7. Time renderer и выбор active index.

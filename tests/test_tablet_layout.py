@@ -62,7 +62,7 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
         "C1",
         CurveDisplaySettings("Метан", XScale.LOGARITHMIC, 0.1, 100.0),
     )
-    source.track_by_id("gas").set_grid(False, True, 0.45)
+    source.track_by_id("gas").set_grid(False, True, 0.45, 4, 10, False)
     source.track_by_id("gas").set_x_axis_label("Gas, %")
     source.track_by_id("gas").title_orientation = "vertical_bottom_to_top"
     source.track_by_id("gas").title_position = "bottom"
@@ -83,6 +83,9 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     assert restored.track_by_id("gas").grid_x is False
     assert restored.track_by_id("gas").grid_y is True
     assert restored.track_by_id("gas").grid_alpha == 0.45
+    assert restored.track_by_id("gas").grid_major_divisions == 4
+    assert restored.track_by_id("gas").grid_minor_divisions == 10
+    assert restored.track_by_id("gas").grid_print is False
     assert restored.track_by_id("gas").x_axis_label == "Gas, %"
     assert restored.track_by_id("gas").title_orientation == "vertical_bottom_to_top"
     assert restored.track_by_id("gas").title_position == "bottom"
@@ -126,6 +129,9 @@ def test_layout_codec_migrates_v4_with_default_grid() -> None:
     assert track.grid_x is True
     assert track.grid_y is True
     assert track.grid_alpha == 0.2
+    assert track.grid_major_divisions == 5
+    assert track.grid_minor_divisions == 5
+    assert track.grid_print is True
 
 
 def test_layout_codec_migrates_v10_with_default_title_presentation() -> None:
@@ -156,6 +162,17 @@ def test_layout_codec_migrates_v5_with_empty_axis_label() -> None:
 def test_track_rejects_invalid_grid_alpha(alpha: object) -> None:
     with pytest.raises(ValueError, match="Прозрачность сетки"):
         TrackDefinition("curve", "Curve", TrackKind.CURVE, grid_alpha=alpha)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("divisions", [0, 21, 2.5, True])
+def test_track_rejects_invalid_grid_divisions(divisions: object) -> None:
+    with pytest.raises(ValueError, match="Деления сетки"):
+        TrackDefinition(
+            "curve",
+            "Curve",
+            TrackKind.CURVE,
+            grid_major_divisions=divisions,  # type: ignore[arg-type]
+        )
 
 
 @pytest.mark.parametrize(

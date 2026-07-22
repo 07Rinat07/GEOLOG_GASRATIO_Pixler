@@ -86,3 +86,10 @@ A persistent **Curve pencil** row is shown above the tablet. Choose a track and 
 ## Parameter captions and pencil saving — 0.7.10
 
 Graph headers use a readable name from the LAS description or Sensors.DB. Technical codes such as `S300`, `S720`, `S800`, `S900` and `S50` remain in tooltips/editors instead of replacing the caption. Pencil activation prefers the selected curve and marks the target track with an orange header and `✎`. Dependants recalculate immediately after a stroke, the UI reports “Not saved”, and disk writing occurs only through Save.
+
+## Selected interval analysis
+
+On a numeric track, hold `Shift` and left-drag an interval. A blue band appears across every
+plot in the form and the right panel reports point count, coverage, minimum, maximum, and mean
+for every visible curve. The table can be copied, saved as XLSX or CSV, and cleared without
+changing the LAS file or project.

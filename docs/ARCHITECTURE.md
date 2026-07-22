@@ -1,291 +1,107 @@
 # Архитектура
 
-Используется модульный монолит:
+Актуально на 23 июля 2026 года.
+
+## Модель
+
+Проект — desktop-модульный монолит на Python 3.11, PySide6, PyQtGraph и NumPy.
 
 ```text
-UI -> Application -> Domain
-Infrastructure -> Domain
+UI / tablet / printing
+          ↓
+application controllers and services
+          ↓
+domain models and contracts
+          ↑
+storage / importers / plugins
 ```
+
+`domain` не должен зависеть от Qt, файлового диалога или конкретного формата. UI собирает
+ввод и отображает read models; изменяющая операция проходит через controller/service и
+помечает session dirty. Импортёр преобразует внешний формат в доменную модель и не меняет
+источник.
+
+## Пакеты
 
 ```text
 src/geoworkbench/
-├── app/            запуск и команды
-├── project/        application-сценарии, сессия и границы репозиториев
-├── domain/         чистые модели
-├── services/       расчёты, зависимости, редактирование
-├── data/           LAS и legacy-адаптеры
-├── storage/        безопасное хранение
-├── visualization/  модель планшета
-├── print_engine/   формы, PDF и принтер
-├── plugins/        публичные контракты
-└── ui/             PySide6
+├── app/               запуск приложения
+├── calculations/      формулы и расчётные профили
+├── catalogs/          справочники и семантика параметров
+├── data/              dataset и LAS-ориентированные структуры
+├── domain/            модели без UI
+├── form_constructor/  ресурсы и модель конструктора
+├── forms/             формы и шаблоны
+├── importers/         внешние форматы
+├── plugins/           версионированные контракты расширения
+├── printing/          print jobs, PDF и Masterlog renderer
+├── project/           controllers и project session
+├── services/          прикладные операции
+├── storage/           codec, migrations и atomic JSON
+├── tablet/            layout, interaction и графическое представление
+├── ui/                окна и диалоги PySide6
+└── visualization/     независимые модели визуализации
 ```
 
-`ProjectController` координирует открытие и сохранение, но не зависит от Qt.
-`ProjectRepository` задаёт контракт хранения, а `JsonProjectRepository` реализует его
-через текущий версионированный JSON. UI отвечает только за диалоги, отображение ошибок и
-обновление представлений после выполнения application-сценария.
+## Хранение и совместимость
 
-Последовательные преобразования формата зарегистрированы в `ProjectMigrationRegistry`.
-Каждая миграция обязана переводить документ ровно на одну версию вперёд. Legacy-файлы без
-версии считаются версией 0 и проходят ту же проверяемую цепочку, что и будущие миграции.
+- текущий JSON-формат проекта — 15;
+- текущий формат layout планшета — 14;
+- миграции выполняются последовательно и не должны удалять неизвестные данные молча;
+- исходные LAS и импортированные assets идентифицируются fingerprint/SHA-256;
+- сохранение JSON атомарное; внешние абсолютные пути не являются переносимой частью проекта;
+- credentials, tokens и исполняемый пользовательский код в проекте не хранятся.
 
-Формат проекта версии 5 хранит только манифест исходных LAS. Точные lossless-байты находятся
-в соседнем каталоге `<project>.assets` под именами SHA-256. `ProjectSession` связывает документ
-с `dataset_id`, а repository атомарно записывает новый artifact до замены JSON. При загрузке
-проверяются относительный путь, принадлежность каталогу проекта, размер и SHA-256. Старые
-проекты мигрируют с пустым манифестом. Повреждённый или отсутствующий artifact не принимается
-молча.
+## Планшет
 
-Lossless-aware LAS-экспорт сначала генерирует стандартные секции из текущего `Dataset`, затем
-строго заменяет соответствующие семантические роли в исходном документе. Замена допускается
-только для единственной секции требуемой роли. Остальные диапазоны байтов переносятся без
-декодирования и повторной сериализации. Ошибка структуры или кодировки останавливает экспорт.
+Layout является декларативной моделью треков, кривых, шкал, сеток и видимости. Общая ось
+Y синхронизирует треки; X остаётся независимой. Экран виртуализирует видимый диапазон.
+Аннотации и интервалы хранят каноническую привязку к dataset/form scope, а экранная
+геометрия вычисляется из неё.
 
-`LasExportPlan` является Qt-независимой моделью версии, WRAP, NULL, точности и политики
-custom sections. `analyze_las_export()` выполняется до выбора целевого файла и возвращает
-типизированные warning/error. Адаптер повторно применяет анализ перед записью, поэтому правила
-безопасности нельзя обойти прямым вызовом application-контроллера.
+Текущий риск: `tablet_view.py` объединяет lifecycle треков, event routing, навигацию,
+редактирование, аннотации и часть orchestration. Целевая граница разделяет их на отдельные
+контроллеры с Qt-независимыми state transitions.
 
-## Professional Annotation Layer
+## Печать
 
-Аннотация является well-scoped `CanvasObject`, а не отдельным UI-виджетом или частью LAS.
-`annotation_schema.py` преобразует сериализуемый объект в типизированный `AnnotationRecord`
-с видом, привязкой, геометрией, стилем, ссылкой на проектный ресурс и флагами
-видимости/блокировки/печати. Старый тип `depth_annotation` читается тем же адаптером и не
-требует ручной миграции.
+Печатный renderer работает в миллиметрах и не является снимком экрана. Одна модель формы
+должна питать preview, PDF и системный принтер. Grid settings, axis divisions, header,
+legends, lithotypes и annotations обязаны использовать те же сериализуемые настройки.
 
-```text
-CanvasObject / project JSON
-          ↓
-annotation_schema.py
-          ↓
-AnnotationController + CanvasObjectHistory
-          ↓
-TabletAnnotationItem ── QWidget/PDF/physical print capture
-          └──────────── Masterlog direct painter
-```
+Целевая `ReportPassport` фиксирует source fingerprints, dataset/form IDs, bindings, UOM,
+формулы, интервал, locale, template revision и render options. Это делает отчёт повторяемым
+и объяснимым.
 
-`AnnotationController` — единственная точка CRUD, валидации, Undo/Redo и установки
-изображений. Графический слой не меняет проект напрямую: после завершения drag/resize он
-передаёт итоговую геометрию контроллеру. Изображения и обозначения копируются в
-`ProjectSession.image_assets`, поэтому проект не зависит от внешнего абсолютного пути.
+## Данные и индексы
 
-Привязка хранит каноническую глубину, а при необходимости — значение/идентификатор временной
-оси, дорожку, мнемонику и значение параметра. Это позволяет переводить объект между
-глубинным и временным представлением, размещать маркер на фактической кривой и сохранять его
-при сращивании LAS: операция merge меняет datasets, но не well-scoped `canvas_objects`.
+Dataset может иметь MD, TVD, TVDSS, относительное или абсолютное время; active index не
+удаляет остальные колонки. TIME→DEPTH не считается однозначным без явной политики.
+Неизвестная единица не конвертируется молча. Целевой Semantic Channel Dictionary хранит
+canonical kind, quantity class, UOM, aliases, sensor/source и исходную мнемонику.
 
-Экранный планшет, его PDF и физическая печать используют один `TabletAnnotationItem`.
-Прямой Masterlog renderer читает тот же `AnnotationRecord` и воспроизводит типографику,
-рамку, фон, выноску, стрелку, тень, поворот, изображения и флаг печати на миллиметровом
-холсте. Отдельная копия аннотации для печати не создаётся.
+## Real-time boundary
 
-## Plugin API
+Real-time развивается отдельным адаптером: WITSML 2.1 inventory → recorded replay →
+append-only growing dataset → secured ETP 1.2. Measurement time и arrival time хранятся
+раздельно. Gap, duplicate, out-of-order, stale и calibration являются данными QC, а не
+только строками журнала. Lag/depth correction создаёт версионированное преобразование и
+не переписывает acquisition source.
 
-Публичный Plugin API версии `1.0` содержит отдельные контракты импортёров, расчётов,
-генераторов треков и экспортёров. Каждый плагин предоставляет неизменяемые метаданные с
-идентификатором и версиями реализации/API. `PluginRegistry` проверяет совместимость,
-обязательные методы и уникальность регистрации до использования плагина.
+## Plugin and automation boundary
 
-Автоматическое обнаружение и загрузка внешнего Python-кода пока не выполняются. Это будет
-отдельный контролируемый инфраструктурный слой поверх стабильного реестра.
+Внутренний registry и контракты не означают автоматическую загрузку произвольного кода.
+Будущий API сначала read-only; изменяющие команды работают транзакционно, журналируются и
+требуют явного запуска. Проект никогда не выполняет вложенный скрипт при открытии.
 
-## Curve Editing
+## Обязательные инварианты
 
-`CurveEditingController` связывает текущую проектную сессию, `CurveEditHistory` и
-`DependencyGraph`. UI передаёт только индексы и новые значения. После edit, undo или redo
-контроллер отмечает сессию изменённой, а зависимые расчётные кривые переводит в `STALE`.
+- исходный файл не перезаписывается скрытно;
+- `eval`, `pickle` и неограниченное исполнение шаблонов запрещены;
+- UI не обходит controller при изменении project state;
+- экран, PDF и printer используют одну семантику формы;
+- ноль, пропуск и отсутствующий канал различаются;
+- любой расчёт сохраняет входы, единицы, версию и provenance;
+- safety-critical выводы не заявляются: приложение является decision-support tool.
 
-`CustomFormulaController` строит зависимости по устойчивым выходным мнемоникам. Изменение или
-удаление определения транзитивно переводит существующие пользовательские выходы во всех
-datasets проекта в `STALE`. Одиночный пересчёт обновляет values и паспорт
-`custom-formula:<formula_id>:<version>`, возвращает свой выход в `CURRENT` и оставляет downstream
-выходы устаревшими. Batch-plan рассчитывает весь граф до применения и возвращает все его выходы
-в `CURRENT`; conflict-safe Undo/Redo хранит snapshots только этих выходных кривых.
-`CustomFormulaCalculationPassport` является языконезависимой read model определения, входных
-curve ID/unit/provenance/state и текущего выхода. Отсутствующие кривые представлены явными
-пустыми ссылками, поэтому паспорт доступен и для формулы, которую пока невозможно вычислить.
-Встроенные профили используют `FormulaExecutionPassport`: published source/expression/version
-дополняются фактическими input bindings, curve ID/unit/provenance/state, явными параметрами и
-паспортом созданного результата. `FormulaExecutionDialog` показывает actual mapping до запуска,
-а controller формирует неизменяемый итоговый паспорт из тех же проверенных объектов кривых.
-
-Данные кривых хранятся в NumPy/колоночном хранилище. SQLite предназначен для метаданных, интервалов, каталогов и истории, а не для отдельной строки на каждый отсчёт.
-
-Отраслевые многомерные данные используют отдельную storage boundary: SEG-Y, GRDECL/EGRID,
-GeoTIFF, NetCDF и HDF5 остаются внешними content-addressed artifacts либо chunked datasets.
-Проект хранит fingerprint, inventory, mapping, CRS/units, provenance и производные previews.
-SQLite является первым локальным metadata repository; SQLAlchemy/PostgreSQL добавляется только
-для совместного серверного режима. NoSQL и хранение отдельной SQL-строки на каждый seismic/grid
-sample не входят в архитектуру. Матрица адаптеров и этапы описаны в
-`docs/INDUSTRY_FORMATS_PLAN.md`.
-
-Экранный рендер виртуализирован и рисует видимый диапазон. Печатный рендер работает в миллиметрах и формирует PDF постранично.
-
-## Tablet Engine
-
-Модуль `geoworkbench.tablet` разделён на:
-
-- `models.py` — декларативная модель треков и компоновки;
-- `depth_viewport.py` — независимая модель видимого интервала глубины;
-- `tablet_view.py` — Qt/PyQtGraph-представление;
-- `controller.py` — application-команды создания и изменения layout без зависимости от Qt.
-
-`TabletController` проверяет наличие dataset и кривых, изменяет layout и централизованно
-отмечает проектную сессию как изменённую. Qt-слой выбирает пользовательские параметры,
-передаёт команду контроллеру и перерисовывает представление.
-
-Все графические треки связываются по оси Y с первым master-треком. Ось X остаётся
-независимой для каждого параметра. Такое разделение позволяет одновременно показывать
-газы, GR, ROP и другие параметры на общей глубине без смешивания диапазонов значений.
-
-## Multi-index Data Core
-
-Dataset развивается от единственного массива `depth` к набору типизированных индексов.
-Глубина, относительное время, абсолютное время, MD, TVD и TVDSS являются отдельными
-колонками; выбор active index не удаляет остальные данные. Текущее `Dataset.depth`
-сохраняется как compatibility view активного глубинного индекса. Временной индекс может быть
-активным, но не подменяет `depth`, пока планшет использует depth renderer.
-
-Формат проекта версии 6 хранит `Dataset.indexes` и `active_index_id`. Миграция версии 5
-создаёт первичный MD/TVD/TVDSS либо relative-time индекс из старых `depth/depth_domain`.
-Datetime нормализуется в `datetime64[ns]` и сериализуется как Unix ns. Все индексы обязаны
-иметь ту же длину, что и строки dataset.
-
-`IndexDetectionService` не зависит от LAS и Qt. Он ранжирует колонки и возвращает
-`IndexCandidate` с типом, ролью, confidence, evidence и warnings. Сейчас поддерживаются
-числовые глубины, относительное время, `datetime64`, Unix s/ms/us/ns и строки ISO-8601.
-`TimeNormalizationService` преобразует только aware-время в UTC, сохраняет исходный
-offset как provenance и предупреждает для naive/mixed timezone. Составные DATE+TIME доступны
-через тот же сервис с явными `strptime`-форматами и IANA timezone либо фиксированным UTC
-offset. Неоднозначные DST wall-clock значения блокируются до выбора явного offset. CSV/TXT
-диалог предоставляет этот mapping; общий мастер импорта переиспользует тот же план.
-
-`DataInspectorController` предоставляет Qt-независимые read models сводки, индексов, кривых
-и import issues. Назначение active index является application-командой и отмечает сессию
-изменённой. `DataInspectorDialog` только отображает эти модели и инициирует команду.
-
-`HeaderEditingController` является отдельной application-границей для секций WELL и
-PARAMETER, а также пользовательских полей VERSION. Он нормализует мнемоники, проверяет
-десятичные координаты, синхронизирует WELL с
-именем доменной скважины и хранит собственную snapshot-историю Undo/Redo. STRT, STOP, STEP и
-NULL защищены от текстовой правки: их значения должны вычисляться из индекса и `ExportPlan`,
-чтобы метаданные не расходились с массивами данных.
-
-`Dataset.version_headers` сохраняет импортированную секцию VERSION в проекте. VERS и WRAP
-защищены от свободной правки и определяются целевым `ExportPlan`; остальные записи секции
-переносятся в создаваемую LAS-копию.
-
-Типизированная глубинная команда сравнивает объявленные STRT/STOP/STEP с текущей глубинной
-шкалой и синхронизирует их только для конечного, монотонного и равномерного индекса. При
-активном временном индексе операция блокируется. NULL проверяется на конечность и коллизии с
-данными; сохранённое значение становится исходным значением диалога `ExportPlan`.
-
-`CurveMetadataController` изменяет только неизменяемый `CurveMetadata`, не копируя массив
-значений. Пользовательская мнемоника может меняться, а `canonical_mnemonic` сохраняется как
-семантическая идентичность для формул и aliases. Контроллер проверяет конфликты без учёта
-регистра, резервирует мнемоники всех индексов и ведёт отдельную conflict-aware историю.
-
-`LasTableEditor` является виртуальным Qt-представлением и передаёт одиночные и диапазонные
-изменения в `LasRangeEditingController`. Выбранные строки преобразуются в глубинный интервал,
-а выбранные колонки — в устойчивые curve ID. Многоканальная команда применяется атомарно,
-пересчитывает газовые производные и сохраняется как одна операция Undo/Redo.
-
-Числовой display хранится вне domain dataset в `UserProfileSettings` по профилю инженера и
-канонической мнемонике. `LasTableModel` применяет adaptive/fixed/scientific формат только для
-`DisplayRole`; `EditRole` всегда возвращает полную позиционную десятичную запись. CSV и Excel
-получают исходные `float64`, поэтому округление экрана не меняет данные и экспорт.
-
-Формат проекта версии 7 сохраняет `import_reports` отдельно от domain dataset: fingerprint,
-source metadata, depth diagnostics и issues связаны по `dataset_id`. На обеих границах
-repository выполняется строгая проверка типов, конечности чисел, счётчиков и SHA-256. Если
-одновременно существует lossless artifact, его размер и хэш обязаны совпасть с provenance.
-Версия 6 мигрирует с пустым словарём отчётов.
-
-Data Inspector строит `LasSourceInspection` из персистентного import report и lossless
-document: профиль содержит версию, WRAP, NULL, кодировку, newline, секции, размер, SHA-256 и
-счётчики issues. Статус артефакта вычисляется сравнением размера и fingerprint. Исходные
-LAS 1.2/2.0, WRAP и NULL используются только как defaults `ExportPlan`, поэтому пользователь
-видит и может изменить итоговую политику до создания новой копии.
-
-Импорт разделён на probe/parser, распознавание индексов, нормализацию, контроль качества и
-application review. Ни `lasio`, ни будущие DLIS/WITSML-библиотеки не попадают в Domain.
-Строгий, совместимый и ручной режимы формируют одинаковый доменный результат и различаются
-только политикой ошибок/исправлений. Подробная схема и этапы миграции описаны в
-`docs/TIME_DEPTH_LAS_ARCHITECTURE.md`.
-
-`evaluate_las_import()` является чистой report-driven политикой поверх единственного
-результата parser/normalization/QC. `strict` блокирует warnings и errors, `compatible`
-блокирует errors и показывает warnings после импорта, `manual` блокирует errors и требует
-явного подтверждения warnings до добавления dataset в сессию. Отказ при review не изменяет
-проект и исходный файл. Parser-level варианты чтения остаются отдельным расширением адаптера.
-
-`csv_adapter` использует стандартный `csv`, не зависит от pandas и создаёт тот же `Dataset`,
-что LAS-адаптер. `CsvImportPlan` явно хранит кодировку, разделитель, индексную колонку и
-NULL-маркеры. Probe ограничивает sniff известными разделителями и отдаёт только preview;
-полный parser проверяет ширину каждой строки и преобразует все выбранные каналы в float64.
-Явно выбранный ISO-8601 индекс передаётся `TimeNormalizationService` и хранится как
-`DatasetIndex(datetime64[ns])` с format/timezone provenance; остальные каналы остаются
-float64. Qt-диалог собирает план, включая отдельные DATE/TIME колонки, форматы и timezone,
-но не содержит правил разбора. Адаптер объединяет исходные колонки в один DATETIME-индекс и
-исключает их из кривых.
-
-TIME→DEPTH всегда является явным derived-преобразованием с правилом обработки повторных
-глубин. Сортировка, ресэмплинг и агрегация не изменяют исходные записи скрытно.
-
-`excel_adapter` лениво подключает `openpyxl`, читает XLSX/XLSM в read-only/data-only режимах
-и преобразует выбранный лист в тот же проверяемый табличный pipeline, что CSV/TXT. Старый
-XLS и книги с формулами предварительно обрабатываются LibreOffice Calc в headless-режиме с
-одноразовым профилем и временным XLSX. Qt-диалог отвечает за лист, строку заголовка,
-индексную колонку и составной DATE+TIME mapping с форматами/timezone. VBA не запускается,
-оригинальная книга не изменяется, временные данные
-удаляются, а отсутствие системного движка даёт управляемую ошибку с командой установки.
-
-`MainWindow.open_data()` является UI-маршрутизатором, а не новым parser-слоем. Он выбирает
-тип источника и передаёт управление существующему специализированному workflow. Благодаря
-этому добавление будущего адаптера требует новой ветви маршрута, но не связывает планы и
-правила разбора разных форматов.
-
-`Localizer` загружает пакетные JSON-каталоги RU/KK/EN по стабильным смысловым ключам, а
-`LanguageSettings` изолирует хранение выбора в `QSettings`. Domain и адаптеры не зависят от
-языка; локализуются UI, пользовательские ошибки, отчёты и Print Studio. Каталоги обязаны
-иметь одинаковые ключи, а мнемоники LAS, единицы и исходные данные не переводятся.
-
-## Интерпретационные интервалы
-
-`Well.interpretations` хранит словарь `WellInterpretation`, каждый объект содержит независимый
-список `InterpretationInterval`. Domain-модель не зависит от Qt и не изменяет исходные datasets.
-`InterpretationController` выполняет валидацию глубин, строк, цветов и пересечений одного типа.
-`InterpretationHistory` записывает полные снимки словаря интерпретаций конкретной скважины и
-проверяет конфликт перед Undo/Redo. Экспорт JSON/CSV/Excel находится в Data Layer.
-
-Формат проекта v15 добавляет `interpretations` каждой скважине. Миграция v14 → v15 создаёт
-пустой словарь без изменения остальных данных. UI-диалог отвечает только за ввод, выбор файла
-и отображение ошибок; сериализация, история и экспорт остаются вне UI.
-
-## Tablet Engine 2.0 navigation boundary
-
-`TabletCamera` owns the vertical domain and visible range. UI input is translated into camera operations; renderers consume the resulting range and never maintain independent vertical navigation state. The camera uses generic axis values and therefore supports MD/TVD/TVDSS, relative time, and timestamps.
-
-Input flow:
-
-```text
-wheel / keyboard / scrollbar / drag
-        -> TabletCamera
-        -> normalized visible range
-        -> synchronized track ViewBoxes
-        -> visible-sample selection and overlays
-```
-
-Zoom is anchored to the axis value below the cursor. Panning and keyboard navigation preserve the current span and clamp to the dataset domain. Future LOD and render caches must key their entries by dataset revision, vertical index, visible range, pixel height, and track style revision.
-
-
-## Legacy SKF import boundary (0.7.14)
-
-`geoworkbench.importers.delphi_stream` is a bounded, non-executing decoder for Delphi binary
-component streams. It produces a neutral `DelphiComponent` tree and never imports vendor Delphi
-classes or event handlers. `geoworkbench.importers.skf_importer` is the adapter layer that maps
-that neutral tree to the domain models `FormDocument` and `MasterlogTemplate` and normalises
-embedded raster assets. UI integration saves the form through `FormRepository` and the header
-through `MasterlogTemplateController`; no SKF-specific object enters the renderer or project model.
+Текущие нарушения и план декомпозиции: [PRODUCT_AUDIT_2026.md](PRODUCT_AUDIT_2026.md).

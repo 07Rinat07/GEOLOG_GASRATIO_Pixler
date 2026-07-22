@@ -1,3 +1,35 @@
+# Unreleased — selected interval statistics
+
+## Русский
+
+- `Shift + левая кнопка мыши` на числовом графике выделяет произвольный интервал по текущей оси глубины или времени;
+- выделение синхронно показывается на всех графиках активной формы, а правая панель выводит минимум, максимум, среднее, число корректных точек и покрытие для всех видимых параметров;
+- результат можно скопировать как Excel-совместимую таблицу или экспортировать в XLSX/CSV; специализированные жесты литологии, проб и стратиграфии сохранены.
+
+## Қазақша
+
+- сандық графиктегі `Shift + тінтуірдің сол жақ батырмасы` ағымдағы тереңдік немесе уақыт осі бойынша еркін аралықты таңдайды;
+- таңдау белсенді пішіннің барлық графигінде синхронды көрсетіледі, ал оң жақ панель барлық көрінетін параметр үшін минимум, максимум, орташа мән, дұрыс нүктелер саны және қамтуды береді;
+- нәтижені Excel-үйлесімді кесте ретінде көшіруге немесе XLSX/CSV форматына шығаруға болады; литология, сынама және стратиграфияның арнайы қимылдары сақталды.
+
+## English
+
+- `Shift + left mouse drag` on a numeric plot selects any interval on the current depth or time axis;
+- the selection is synchronized across every plot in the active form, while the right panel reports minimum, maximum, mean, valid-point count, and coverage for every visible parameter;
+- results can be copied as an Excel-compatible table or exported to XLSX/CSV; specialized lithology, sample, and stratigraphy gestures remain unchanged.
+
+# 0.7.28 — unified engineering grid (test build)
+
+- standardized major/minor grid levels for every graphical tablet track;
+- added editable major divisions, minor subdivisions, opacity and print-grid controls;
+- aligned horizontal grid lines across the shared visible depth/time range;
+- preserved independent X-grid spacing for each track range;
+- propagated grid settings through forms, live layouts and linked Masterlog templates;
+- added a screen-only grid option by allowing the print grid to be disabled independently;
+- migrated form schema to v4 and tablet layout to v14 with safe 5 × 5 defaults;
+- added screen, codec, UI and print-bridge regression coverage;
+- documented comparisons with PyQtGraph, Altair POSTFEKO and WellCAD.
+
 # 0.7.27 — annotation deletion and form-scoped persistence (test build)
 
 - fixed Windows annotation deletion by comparing `QMessageBox.StandardButton` values instead of Python object identity;

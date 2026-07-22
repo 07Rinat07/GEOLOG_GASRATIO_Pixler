@@ -30,7 +30,7 @@ class TrackInspector(QWidget):
     collapse_requested = Signal()
     settings_requested = Signal(str, int, str, object, object)
     curve_style_requested = Signal(str, str, str, float, str)
-    grid_requested = Signal(str, bool, bool, float)
+    grid_requested = Signal(str, bool, bool, float, int, int, bool)
     x_axis_label_requested = Signal(str, str)
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
@@ -101,13 +101,21 @@ class TrackInspector(QWidget):
         self._grid_form = grid_form
         self.grid_x_input = QCheckBox(self._t("inspector.grid_x"))
         self.grid_y_input = QCheckBox(self._t("inspector.grid_y"))
+        self.grid_major_input = QSpinBox()
+        self.grid_major_input.setRange(1, 20)
+        self.grid_minor_input = QSpinBox()
+        self.grid_minor_input.setRange(1, 20)
         self.grid_alpha_input = QDoubleSpinBox()
         self.grid_alpha_input.setRange(0.0, 1.0)
         self.grid_alpha_input.setSingleStep(0.05)
         self.grid_alpha_input.setDecimals(2)
         grid_form.addRow(self.grid_x_input)
         grid_form.addRow(self.grid_y_input)
+        grid_form.addRow(self._t("inspector.grid_major_divisions"), self.grid_major_input)
+        grid_form.addRow(self._t("inspector.grid_minor_divisions"), self.grid_minor_input)
         grid_form.addRow(self._t("inspector.grid_alpha"), self.grid_alpha_input)
+        self.grid_print_input = QCheckBox(self._t("inspector.grid_print"))
+        grid_form.addRow(self.grid_print_input)
         editor_layout.addLayout(grid_form)
         self.grid_button = QPushButton(self._t("inspector.apply_grid"))
         self.grid_button.clicked.connect(self._emit_grid)
@@ -183,6 +191,14 @@ class TrackInspector(QWidget):
 
         self.grid_x_input.setText(self._t("inspector.grid_x"))
         self.grid_y_input.setText(self._t("inspector.grid_y"))
+        self.grid_print_input.setText(self._t("inspector.grid_print"))
+        for field, key in (
+            (self.grid_major_input, "inspector.grid_major_divisions"),
+            (self.grid_minor_input, "inspector.grid_minor_divisions"),
+        ):
+            label = self._grid_form.labelForField(field)
+            if label is not None:
+                label.setText(self._t(key))
         grid_alpha_label = self._grid_form.labelForField(self.grid_alpha_input)
         if grid_alpha_label is not None:
             grid_alpha_label.setText(self._t("inspector.grid_alpha"))
@@ -255,7 +271,10 @@ class TrackInspector(QWidget):
         self.style_button.setEnabled(bool(track.curve_mnemonics))
         self.grid_x_input.setChecked(track.grid_x)
         self.grid_y_input.setChecked(track.grid_y)
+        self.grid_major_input.setValue(track.grid_major_divisions)
+        self.grid_minor_input.setValue(track.grid_minor_divisions)
         self.grid_alpha_input.setValue(track.grid_alpha)
+        self.grid_print_input.setChecked(track.grid_print)
         self.x_axis_label_input.setText(track.x_axis_label)
         self._stack.setCurrentIndex(1)
 
@@ -319,6 +338,9 @@ class TrackInspector(QWidget):
             self.grid_x_input.isChecked(),
             self.grid_y_input.isChecked(),
             self.grid_alpha_input.value(),
+            self.grid_major_input.value(),
+            self.grid_minor_input.value(),
+            self.grid_print_input.isChecked(),
         )
 
     def _emit_x_axis_label(self) -> None:

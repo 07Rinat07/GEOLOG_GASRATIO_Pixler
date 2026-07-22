@@ -367,12 +367,23 @@ def test_track_widget_applies_saved_grid_settings(qapp) -> None:
             TrackKind.CURVE,
             grid_x=True,
             grid_y=False,
+            grid_major_divisions=4,
+            grid_minor_divisions=10,
             grid_alpha=0.4,
+            grid_print=False,
         )
     )
 
     assert widget.plot.getAxis("bottom").grid == pytest.approx(102.0)
     assert widget.plot.getAxis("left").grid is False
+    assert widget.plot.getAxis("bottom").tickSpacing(0.0, 100.0, 400.0) == [
+        (25.0, 0.0),
+        (2.5, 0.0),
+    ]
+    assert widget.plot.getAxis("left").tickSpacing(1000.0, 1100.0, 400.0) == [
+        (25.0, 1000.0),
+        (2.5, 1000.0),
+    ]
     widget.close()
 
 

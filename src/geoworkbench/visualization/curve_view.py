@@ -18,6 +18,7 @@ from geoworkbench.tablet.sampling import MAX_RENDERED_POINTS, select_visible_sam
 class CurveView(QWidget):
     edit_requested = Signal(str, object, object)
     edit_target_changed = Signal(str)
+    interval_analysis_requested = Signal(object)
 
     CURVE_COLORS = (
         "#f8fafc",
@@ -53,6 +54,7 @@ class CurveView(QWidget):
         self._depth_range_guard = False
         self._last_cursor_depth: float | None = None
         self._last_cursor_value: float | None = None
+        self._analysis_drag_start: float | None = None
         self._plot = pg.PlotWidget()
         self._plot.showGrid(x=True, y=True, alpha=0.25)
         self._plot.setLabel("left", self._t("curve.axis.depth"), units="m")
@@ -539,6 +541,54 @@ class CurveView(QWidget):
         if not isinstance(event, QMouseEvent):
             return super().eventFilter(watched, event)
         if not self._edit_mode:
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.LeftButton
+                and bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+            ):
+                depth = self._snap_depth(float(self._view_position(event).y()))
+                if depth is not None:
+                    self._analysis_drag_start = depth
+                    if self._selection_region is not None:
+                        self._selection_region.setRegion((depth, depth))
+                        self._selection_region.show()
+                    return True
+            if event.type() == QEvent.Type.MouseMove and self._analysis_drag_start is not None:
+                depth = self._snap_depth(float(self._view_position(event).y()))
+                if depth is not None and self._selection_region is not None:
+                    self._selection_region.setRegion(
+                        tuple(sorted((self._analysis_drag_start, depth)))
+                    )
+                return True
+            if (
+                event.type() == QEvent.Type.MouseButtonRelease
+                and event.button() == Qt.MouseButton.LeftButton
+                and self._analysis_drag_start is not None
+            ):
+                start = self._analysis_drag_start
+                self._analysis_drag_start = None
+                depth = self._snap_depth(float(self._view_position(event).y()))
+                if depth is None or self._dataset is None or start == depth:
+                    return True
+                top, bottom = sorted((start, depth))
+                self.selection.select(self._dataset, top, bottom, self._displayed_curve_ids)
+                mnemonics = tuple(
+                    curve.metadata.original_mnemonic
+                    for curve_id in self._displayed_curve_ids
+                    if (curve := self._dataset.curves.get(curve_id)) is not None
+                )
+                self.interval_analysis_requested.emit(
+                    {
+                        "top": top,
+                        "bottom": bottom,
+                        "axis_id": self._dataset.active_index_id or "",
+                        "axis_label": self._t("curve.axis.depth"),
+                        "axis_unit": self._dataset.active_index.unit or "",
+                        "axis_is_datetime": False,
+                        "mnemonics": mnemonics,
+                    }
+                )
+                return True
             if event.type() == QEvent.Type.MouseMove:
                 position = self._view_position(event)
                 self.show_cursor_at_depth(float(position.y()), float(position.x()))
@@ -571,6 +621,16 @@ class CurveView(QWidget):
     def _draw_point(self, event: QMouseEvent) -> DrawPoint:
         view_position = self._view_position(event)
         return DrawPoint(depth=float(view_position.y()), value=float(view_position.x()))
+
+    def _snap_depth(self, value: float) -> float | None:
+        if self._dataset is None or not np.isfinite(value):
+            return None
+        depth = np.asarray(self._dataset.depth, dtype=float)
+        finite = np.flatnonzero(np.isfinite(depth))
+        if finite.size == 0:
+            return None
+        nearest = int(finite[np.argmin(np.abs(depth[finite] - value))])
+        return float(depth[nearest])
 
     def _view_position(self, event: QMouseEvent):
         local_position = self._plot.mapFromGlobal(event.globalPosition().toPoint())

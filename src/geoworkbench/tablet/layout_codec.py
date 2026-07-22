@@ -14,7 +14,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 13
+LAYOUT_FORMAT_VERSION = 14
 
 
 class TabletLayoutFormatError(ValueError):
@@ -64,7 +64,10 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                 },
                 "grid_x": track.grid_x,
                 "grid_y": track.grid_y,
+                "grid_major_divisions": track.grid_major_divisions,
+                "grid_minor_divisions": track.grid_minor_divisions,
                 "grid_alpha": track.grid_alpha,
+                "grid_print": track.grid_print,
                 "x_axis_label": track.x_axis_label,
             }
             for track in layout.tracks
@@ -145,7 +148,10 @@ def _track_from_dict(data: object) -> TrackDefinition:
     raw_curve_display = data.get("curve_display", {})
     raw_grid_x = data.get("grid_x", True)
     raw_grid_y = data.get("grid_y", True)
+    raw_grid_major = data.get("grid_major_divisions", 5)
+    raw_grid_minor = data.get("grid_minor_divisions", 5)
     raw_grid_alpha = data.get("grid_alpha", 0.2)
+    raw_grid_print = data.get("grid_print", True)
     raw_x_axis_label = data.get("x_axis_label", "")
     if not isinstance(track_id, str) or not track_id.strip():
         raise TypeError("track_id должен быть непустой строкой")
@@ -195,8 +201,16 @@ def _track_from_dict(data: object) -> TrackDefinition:
         )
     if not isinstance(raw_grid_x, bool) or not isinstance(raw_grid_y, bool):
         raise TypeError("grid_x и grid_y должны быть логическими значениями")
+    for name, value in (
+        ("grid_major_divisions", raw_grid_major),
+        ("grid_minor_divisions", raw_grid_minor),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise TypeError(f"{name} должен быть целым числом")
     if not isinstance(raw_grid_alpha, (int, float)) or isinstance(raw_grid_alpha, bool):
         raise TypeError("grid_alpha должен быть числом")
+    if not isinstance(raw_grid_print, bool):
+        raise TypeError("grid_print должен быть логическим значением")
     if not isinstance(raw_x_axis_label, str):
         raise TypeError("x_axis_label должен быть строкой")
 
@@ -219,7 +233,10 @@ def _track_from_dict(data: object) -> TrackDefinition:
         curve_display=curve_display,
         grid_x=raw_grid_x,
         grid_y=raw_grid_y,
+        grid_major_divisions=raw_grid_major,
+        grid_minor_divisions=raw_grid_minor,
         grid_alpha=float(raw_grid_alpha),
+        grid_print=raw_grid_print,
         x_axis_label=raw_x_axis_label,
     )
 
@@ -228,7 +245,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
+    if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -289,4 +306,11 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 track.setdefault("show_interval_labels", False)
     migrated["version"] = 13
     migrated.setdefault("annotation_scope_id", None)
+    migrated["version"] = 14
+    if isinstance(tracks, list):
+        for track in tracks:
+            if isinstance(track, dict):
+                track.setdefault("grid_major_divisions", 5)
+                track.setdefault("grid_minor_divisions", 5)
+                track.setdefault("grid_print", True)
     return migrated
