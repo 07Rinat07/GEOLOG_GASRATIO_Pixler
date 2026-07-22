@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.15:** added a professional annotation layer with a compact F4 toolbar, graph context creation, unified appearance editor, depth/time/curve anchors, images and consistent screen/PDF/print rendering.
+> **0.7.16:** added GeoScape/Borland Paradox DB import with DB/PX/TV/FAM bundle discovery, preview analysis, depth/time selection, profiles, quality control, opening in the existing editor, depth/time LAS 2.0 and batch conversion.
 
 
 
@@ -15,9 +15,7 @@ Choose Русский, Қазақша, or English on first launch. You can later
 
 ## Import
 
-Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, or Excel. Source files are
-never modified. The CSV/TXT and Excel wizards use the selected language for index, DATE/TIME,
-time-zone, preview, and validation controls.
+Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, Excel, or GeoScape/Paradox DB. Paradox also has “File → Import → GeoScape / Paradox DB” and `.db` drag-and-drop. The application validates the binary format, discovers same-name `.PX/.TV/.FAM` files, presents channels and depth/time candidates, and never applies an ambiguous index without confirmation. Source files are opened read-only. See [PARADOX_IMPORT.md](PARADOX_IMPORT.md).
 
 Legacy Delphi SKF forms can be imported from “Forms → Form Library → Import and export → Import SKF” or “Constructor → Tablet forms”. See [SKF_IMPORT.md](SKF_IMPORT.md).
 

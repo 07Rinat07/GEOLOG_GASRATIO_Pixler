@@ -1,7 +1,10 @@
+# Documentation Index
+
+- Implementation report 0.7.16: [Русский](IMPLEMENTATION_REPORT_0.7.16.md)
+- GeoScape/Paradox DB import 0.7.16: [Русский](ru/PARADOX_IMPORT.md) · [Қазақша](kk/PARADOX_IMPORT.md) · [English](en/PARADOX_IMPORT.md)
 - Professional annotation layer 0.7.15: [Русский](ru/ANNOTATIONS.md) · [Қазақша](kk/ANNOTATIONS.md) · [English](en/ANNOTATIONS.md)
 - Delphi SKF import 0.7.14: [Русский](ru/SKF_IMPORT.md) · [Қазақша](kk/SKF_IMPORT.md) · [English](en/SKF_IMPORT.md)
 - Pencil history and point connection 0.7.13: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
-# Documentation Index
 - Persistent pencil cursor and live values 0.7.12: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 - Pencil points, reference Masterlog and Constructor contrast 0.7.11: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 - Readable parameter captions and explicit pencil saving 0.7.10: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)

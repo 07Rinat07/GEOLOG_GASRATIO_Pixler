@@ -1,3 +1,15 @@
+# 0.7.16 — GeoScape/Paradox DB importer and LAS conversion
+
+- added bounded binary detection and read-only parsing for Borland Paradox DB instead of relying on the `.db` extension;
+- added case-insensitive discovery of same-name `.PX`, `.TV` and `.FAM` companion files without requiring them for DB-only import;
+- mapped Paradox fields into the existing multi-index `Dataset` model used by the LAS editor, tablets, project storage and exports;
+- added depth/time candidate scoring, OLE/Delphi and Unix/relative time conversion, data classification and explicit user confirmation for ambiguous indexes;
+- preserved unknown numeric channels, empty values and the original numeric time source while exposing elapsed `TIME.SEC` and depth indexes;
+- added an asynchronous import dialog with channel mapping, first/last-row preview, quality diagnostics, duplicate-depth policy, import profiles and an external GeoScape channel dictionary;
+- added depth LAS, time LAS, explicit TIME → DEPTH aggregation, batch DB → LAS conversion, progress, cancellation, overwrite protection and JSON logs;
+- added RU/KK/EN interface text, user guides, release notes and focused parser/import/conversion tests;
+- verified the supplied `BLData.db` bundle (3488 rows, 70 fields) and `D250.db` (1739 rows, 101 fields) without changing their SHA-256 hashes.
+
 # 0.7.15 — Professional tablet annotation layer
 
 - replaced the simple depth-note rendering with a versioned well-scoped annotation model while retaining legacy `depth_annotation` compatibility;

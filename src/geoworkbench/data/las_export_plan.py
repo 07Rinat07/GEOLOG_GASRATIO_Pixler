@@ -99,12 +99,20 @@ def analyze_las_export(
     issues: list[LasExportIssue] = []
     losses: list[LasExportLoss] = []
     if dataset.depth_domain is DepthDomain.TIME or dataset.active_index.role is IndexRole.TIME:
-        issues.append(
-            _error(
-                "time-index-not-supported",
-                "Временной индекс нельзя экспортировать как глубинный LAS без явного mapping",
+        if dataset.active_index.index_type is IndexType.DATETIME:
+            issues.append(
+                _error(
+                    "datetime-index-not-numeric",
+                    "DATETIME нельзя напрямую записать в ~A LAS 2.0; выберите числовой TIME/ETIME индекс",
+                )
             )
-        )
+        else:
+            issues.append(
+                _warning(
+                    "temporal-las-index",
+                    "Будет создан временной LAS 2.0 с числовым индексом TIME; дата начала сохраняется в заголовке",
+                )
+            )
     additional_indexes = [
         index for index_id, index in dataset.indexes.items() if index_id != dataset.active_index_id
     ]
@@ -134,14 +142,22 @@ def analyze_las_export(
                 + ". Для сохранения всех индексов используйте JSON или Parquet.",
             )
         )
-    if dataset.depth.ndim != 1 or dataset.depth.size == 0:
+    active_values = np.asarray(dataset.active_index.values)
+    if active_values.ndim != 1 or active_values.size == 0:
         issues.append(
             _error("invalid-index", "Индекс LAS должен быть непустым одномерным массивом")
         )
-    elif not np.all(np.isfinite(dataset.depth)):
+    elif dataset.active_index.index_type is not IndexType.DATETIME and not np.all(
+        np.isfinite(active_values.astype(np.float64))
+    ):
         issues.append(_error("non-finite-index", "Индекс LAS содержит NaN или бесконечность"))
 
-    arrays = [("индексе", dataset.depth)] + [
+    numeric_active = (
+        active_values.astype(np.float64)
+        if dataset.active_index.index_type is not IndexType.DATETIME
+        else np.asarray([], dtype=np.float64)
+    )
+    arrays = [("индексе", numeric_active)] + [
         (curve.metadata.original_mnemonic, curve.values) for curve in dataset.curves.values()
     ]
     collisions = [name for name, values in arrays if np.any(values == plan.null_value)]

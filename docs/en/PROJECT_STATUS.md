@@ -1,5 +1,12 @@
 # Current project status
 
+
+## Version 0.7.16 — GeoScape/Paradox DB import
+
+A bounded binary Paradox reader now validates `.db`, discovers same-name `.PX/.TV/.FAM` files case-insensitively, and opens sources read-only. Imported data enters the existing multi-index `Dataset` model rather than a second editor, so the standard table, graphs, project storage, and LAS export remain in use. The release adds asynchronous preview, depth/time selection, exact-schema profiles, a user channel dictionary, quality control, depth/time LAS, TIME → DEPTH, and batch conversion.
+
+Validation read `BLData.db` as 3488 rows/70 fields and `D250.db` as 1739 rows/101 fields with no critical errors and unchanged source SHA-256 hashes. Full GUI and actual LAS round-trip validation remains required in the Windows environment with project dependencies installed.
+
 ## Version 0.7.15 — professional annotation layer
 
 F4 now exposes compact Callout, Comment and Image commands, while the graph context menu creates an object at the exact selected coordinate. One well-scoped model supports depth, time, track and curve anchors. The unified editor controls typography, colors, fill, border, leader, arrow, shadow, geometry, locking and print permission. A curve value can be inspected and persisted as an editable print label.

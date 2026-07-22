@@ -4,7 +4,17 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QSize, QStandardPaths, Qt
-from PySide6.QtGui import QAction, QActionGroup, QIcon, QPageLayout, QPainter, QPen, QPixmap
+from PySide6.QtGui import (
+    QAction,
+    QActionGroup,
+    QDragEnterEvent,
+    QDropEvent,
+    QIcon,
+    QPageLayout,
+    QPainter,
+    QPen,
+    QPixmap,
+)
 from PySide6.QtPrintSupport import QPrintDialog, QPrintPreviewDialog, QPrinter
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -100,6 +110,7 @@ from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
+from geoworkbench.project.time_to_depth_controller import TimeToDepthController
 from geoworkbench.printing.document_export import (
     export_document_pages,
     export_document_pdf,
@@ -120,12 +131,15 @@ from geoworkbench.tablet.lithology_legend import build_lithology_legend
 from geoworkbench.tablet.tablet_view import GeologicalInputMode, TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
+from geoworkbench.ui.time_to_depth_dialog import TimeToDepthDialog
 from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
 from geoworkbench.ui.external_las_insert_dialog import ExternalLasInsertDialog
 from geoworkbench.ui.curve_settings_dialog import CurveSettingsDialog
 from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
+from geoworkbench.ui.paradox_import_dialog import ParadoxImportDialog
+from geoworkbench.ui.paradox_batch_dialog import ParadoxBatchDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
 from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
@@ -214,6 +228,7 @@ class MainWindow(QMainWindow):
         )
         self.custom_formula_controller = CustomFormulaController(self.session)
         self.time_depth_mapping_controller = TimeDepthMappingController(self.session)
+        self.time_to_depth_controller = TimeToDepthController(self.session)
         self.depth_annotation_controller = DepthAnnotationController(self.session)
         self.lithology_controller = LithologyController(self.session)
         self.cuttings_controller = CuttingsController(self.session)
@@ -236,6 +251,7 @@ class MainWindow(QMainWindow):
         self.cursor_line_settings = self.user_profile_settings.cursor_line_settings()
         self.setWindowIcon(application_icon())
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
+        self.setAcceptDrops(True)
         self._apply_adaptive_initial_geometry()
 
         self.tabs = QTabWidget()
@@ -648,6 +664,7 @@ class MainWindow(QMainWindow):
     def _create_actions(self) -> None:
         file_menu = self._add_localized_menu("menu.file")
         edit_menu = self._add_localized_menu("menu.edit")
+        tools_menu = self._add_localized_menu("menu.tools")
         las_editor_menu = self._add_localized_menu("menu.las_editor")
         calc_menu = self._add_localized_menu("menu.calculations")
         tablet_menu = self._add_localized_menu("menu.tablet")
@@ -706,6 +723,14 @@ class MainWindow(QMainWindow):
         self.open_excel_action = self._localized_action("shell.import_excel")
         self.open_excel_action.triggered.connect(self.open_excel)
         file_menu.addAction(self.open_excel_action)
+
+        self.open_paradox_action = self._localized_action("shell.import_paradox")
+        self.open_paradox_action.triggered.connect(lambda: self.open_paradox())
+        file_menu.addAction(self.open_paradox_action)
+
+        self.paradox_batch_action = self._localized_action("paradox.batch_action")
+        self.paradox_batch_action.triggered.connect(self.open_paradox_batch)
+        tools_menu.addAction(self.paradox_batch_action)
 
         self.language_group = QActionGroup(self)
         self.language_group.setExclusive(True)
@@ -1040,6 +1065,18 @@ class MainWindow(QMainWindow):
         self.time_depth_mapping_action = self._localized_action("time_depth.action")
         self.time_depth_mapping_action.triggered.connect(self.show_time_depth_mapping)
         calc_menu.addAction(self.time_depth_mapping_action)
+
+        self.time_to_depth_action = self._localized_action("time_to_depth.action")
+        self.time_to_depth_action.triggered.connect(self.show_time_to_depth_conversion)
+        calc_menu.addAction(self.time_to_depth_action)
+        self.undo_time_to_depth_action = self._localized_action("time_to_depth.undo")
+        self.undo_time_to_depth_action.triggered.connect(self.undo_time_to_depth_conversion)
+        self.undo_time_to_depth_action.setEnabled(False)
+        edit_menu.addAction(self.undo_time_to_depth_action)
+        self.redo_time_to_depth_action = self._localized_action("time_to_depth.redo")
+        self.redo_time_to_depth_action.triggered.connect(self.redo_time_to_depth_conversion)
+        self.redo_time_to_depth_action.setEnabled(False)
+        edit_menu.addAction(self.redo_time_to_depth_action)
 
         self.nct_action = self._localized_action("nct.action")
         self.nct_action.triggered.connect(self.calculate_nct)
@@ -1401,6 +1438,7 @@ class MainWindow(QMainWindow):
             "LAS 1.2/2.0": self.open_las,
             "CSV/TXT": self.open_csv,
             "Excel XLS/XLSX/XLSM": self.open_excel,
+            "GeoScape / Paradox DB": self.open_paradox,
         }
         selected, accepted = QInputDialog.getItem(
             self,
@@ -1686,6 +1724,80 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._log(f"Импортирован Excel: {filename}; строк: {result.row_count}")
         self.statusBar().showMessage(f"Excel импортирован: {Path(filename).name}")
+
+    def open_paradox(self, source: str | Path | None = None) -> None:
+        if source is None:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                self._t("paradox.title"),
+                "",
+                "Paradox DB (*.db *.DB);;All files (*)",
+            )
+            if not filename:
+                return
+            selected = Path(filename)
+        else:
+            selected = Path(source)
+        dialog = ParadoxImportDialog(selected, self, language=self.language)
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.import_result is None:
+            return
+        result = dialog.import_result
+        self.session.add_dataset(result.dataset, create_new_well=True)
+        self._refresh_tree()
+        self._show_current_dataset()
+        self._update_title()
+        self._log(
+            self._t(
+                "paradox.import_log",
+                file=selected.name,
+                rows=result.table.rows_read,
+                channels=result.imported_channels,
+                warnings=len(result.quality.issues),
+            )
+        )
+        self.statusBar().showMessage(
+            self._t("paradox.imported", file=selected.name, rows=result.table.rows_read)
+        )
+        if dialog.requested_action == "save_las":
+            self.export_current_las()
+
+    def open_paradox_batch(self) -> None:
+        filenames, _ = QFileDialog.getOpenFileNames(
+            self,
+            self._t("paradox.batch_title"),
+            "",
+            "Paradox DB (*.db *.DB)",
+        )
+        if not filenames:
+            return
+        dialog = ParadoxBatchDialog(
+            tuple(Path(filename) for filename in filenames),
+            self,
+            language=self.language,
+        )
+        dialog.exec()
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
+        if any(Path(url.toLocalFile()).suffix.casefold() == ".db" for url in urls):
+            event.acceptProposedAction()
+            return
+        super().dragEnterEvent(event)
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        paths = [
+            Path(url.toLocalFile())
+            for url in event.mimeData().urls()
+            if Path(url.toLocalFile()).suffix.casefold() == ".db"
+        ]
+        if not paths:
+            super().dropEvent(event)
+            return
+        event.acceptProposedAction()
+        if len(paths) == 1:
+            self.open_paradox(paths[0])
+        else:
+            ParadoxBatchDialog(tuple(paths), self, language=self.language).exec()
 
     def open_project(self) -> None:
         if self.session.dirty:
@@ -3456,6 +3568,70 @@ class MainWindow(QMainWindow):
             self,
             language=self.language,
         ).exec()
+        self._update_title()
+
+    def show_time_to_depth_conversion(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            QMessageBox.information(
+                self, self._t("time_to_depth.action"), self._t("formula.select_dataset")
+            )
+            return
+        has_depth = any(index.role is IndexRole.DEPTH for index in dataset.indexes.values())
+        has_time = any(index.role is IndexRole.TIME for index in dataset.indexes.values())
+        if not has_depth or not has_time:
+            QMessageBox.warning(
+                self,
+                self._t("time_to_depth.action"),
+                self._t("time_to_depth.requires_indexes"),
+            )
+            return
+        dialog = TimeToDepthDialog(dataset, self, language=self.language)
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.plan is None:
+            return
+        try:
+            result = self.time_to_depth_controller.create_copy(dialog.plan)
+        except (RuntimeError, ValueError) as exc:
+            QMessageBox.critical(self, self._t("time_to_depth.action"), str(exc))
+            return
+        self.undo_time_to_depth_action.setEnabled(True)
+        self.redo_time_to_depth_action.setEnabled(False)
+        self._refresh_tree()
+        self._show_current_dataset()
+        self._update_title()
+        self._log(
+            self._t(
+                "time_to_depth.created_log",
+                rows=len(result.dataset.depth),
+                empty=result.empty_bin_count,
+            )
+        )
+        self.statusBar().showMessage(
+            self._t("time_to_depth.created", rows=len(result.dataset.depth))
+        )
+
+    def undo_time_to_depth_conversion(self) -> None:
+        try:
+            self.time_to_depth_controller.undo()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("time_to_depth.action"), str(exc))
+            return
+        self.undo_time_to_depth_action.setEnabled(False)
+        self.redo_time_to_depth_action.setEnabled(True)
+        self._refresh_tree()
+        self._show_current_dataset()
+        self._update_title()
+
+    def redo_time_to_depth_conversion(self) -> None:
+        try:
+            self.time_to_depth_controller.redo()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("time_to_depth.action"), str(exc))
+            return
+        self.undo_time_to_depth_action.setEnabled(True)
+        self.redo_time_to_depth_action.setEnabled(False)
+        self._refresh_tree()
+        self._show_current_dataset()
         self._update_title()
 
     def show_custom_formulas(self) -> None:

@@ -55,7 +55,7 @@ def test_export_analysis_reports_nan_substitution_as_warning() -> None:
     assert any(issue.code == "missing-values-substituted" for issue in analysis.issues)
 
 
-def test_export_analysis_blocks_time_index_and_null_collision() -> None:
+def test_export_analysis_allows_numeric_time_index_but_blocks_null_collision() -> None:
     dataset = make_dataset(domain=DepthDomain.TIME)
     dataset.curves["curve-1"].values[0] = -999.25
 
@@ -63,7 +63,8 @@ def test_export_analysis_blocks_time_index_and_null_collision() -> None:
     codes = {issue.code for issue in analysis.errors}
 
     assert not analysis.can_export
-    assert {"time-index-not-supported", "null-collision"} <= codes
+    assert "null-collision" in codes
+    assert any(issue.code == "temporal-las-index" for issue in analysis.issues)
 
 
 def test_export_analysis_blocks_infinite_curve_values() -> None:
@@ -96,7 +97,7 @@ def test_las_1_2_plan_is_explicit_compatibility_warning() -> None:
     assert any(issue.code == "legacy-version" for issue in analysis.issues)
 
 
-def test_export_analysis_warns_about_secondary_index_and_blocks_active_time() -> None:
+def test_export_analysis_warns_about_secondary_index_and_allows_active_numeric_time() -> None:
     dataset = make_dataset()
     dataset.add_index(
         DatasetIndex(
@@ -113,8 +114,8 @@ def test_export_analysis_warns_about_secondary_index_and_blocks_active_time() ->
     analysis = analyze_las_export(dataset, LasExportPlan())
     codes = {issue.code for issue in analysis.issues}
 
-    assert not analysis.can_export
-    assert "time-index-not-supported" in codes
+    assert analysis.can_export
+    assert "temporal-las-index" in codes
     assert "additional-indexes-omitted" in codes
 
 
@@ -153,3 +154,23 @@ def test_export_analysis_reports_structured_multi_index_losses() -> None:
     assert "time-index" in warning.message
     assert "type=datetime" in warning.message
     assert "JSON или Parquet" in warning.message
+
+
+def test_export_analysis_validates_active_time_values_not_legacy_depth_view() -> None:
+    dataset = make_dataset()
+    dataset.add_index(
+        DatasetIndex(
+            "time-with-gap",
+            "TIME",
+            IndexType.RELATIVE_TIME,
+            IndexRole.TIME,
+            "s",
+            np.array([0.0, np.nan]),
+        ),
+        make_active=True,
+    )
+    assert np.all(np.isfinite(dataset.depth))
+
+    analysis = analyze_las_export(dataset, LasExportPlan())
+
+    assert any(issue.code == "non-finite-index" for issue in analysis.errors)

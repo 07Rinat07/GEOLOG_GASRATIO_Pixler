@@ -1,5 +1,19 @@
 # Project plan
 
+
+## Slice 0.7.16 — GeoScape/Paradox DB import
+
+- [x] detect Paradox from binary structure and reject SQLite/random DB files;
+- [x] read schema, blocks, and records with bounds checks, cancellation, and field diagnostics;
+- [x] discover DB/PX/TV/FAM bundles without requiring companions;
+- [x] map data into the existing `Dataset` model and retain unknown channels;
+- [x] score depth/time candidates and support OLE/Delphi, Unix, and relative time;
+- [x] add preview analysis, profiles, dictionary, quality control, and explicit duplicate rules;
+- [x] add depth/time LAS, TIME → DEPTH, and batch conversion;
+- [x] test `BLData.db`, `D250.db`, synthetic, SQLite, and invalid files;
+- [x] synchronize RU/KK/EN UI and documentation;
+- [ ] run the full Qt smoke test and actual LAS round-trip on Windows with `lasio`.
+
 ## Slice 0.7.15 — professional annotation layer
 
 - [x] one backward-compatible versioned model instead of simple depth notes;

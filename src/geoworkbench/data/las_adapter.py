@@ -30,6 +30,7 @@ from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
     Dataset,
+    DatasetIndex,
     DatasetKind,
     DepthDomain,
     IndexRole,
@@ -344,13 +345,15 @@ def export_las(
         raise LasExportError("Исходный LAS нельзя перезаписывать")
     if destination.exists() and not overwrite:
         raise FileExistsError(destination)
-    if dataset.depth.ndim != 1:
-        raise LasExportError("Шкала глубины должна быть одномерной")
+    active_values = np.asarray(dataset.active_index.values)
+    if active_values.ndim != 1:
+        raise LasExportError("Индекс LAS должен быть одномерным")
     analysis = analyze_las_export(dataset, export_plan, source_document)
     if not analysis.can_export:
         raise LasExportError("; ".join(issue.message for issue in analysis.errors))
 
-    mnemonics: set[str] = {"dept"}
+    index_mnemonic = _las_index_mnemonic(dataset)
+    mnemonics: set[str] = {index_mnemonic.casefold()}
     for curve in dataset.curves.values():
         mnemonic = curve.metadata.original_mnemonic.strip()
         normalized = mnemonic.casefold()
@@ -358,8 +361,8 @@ def export_las(
             raise LasExportError("Мнемоника кривой не может быть пустой")
         if normalized in mnemonics:
             raise LasExportError(f"Повторяющаяся или зарезервированная мнемоника: {mnemonic}")
-        if curve.values.shape != dataset.depth.shape:
-            raise LasExportError(f"Размер кривой {mnemonic} не совпадает со шкалой глубины")
+        if curve.values.shape != active_values.shape:
+            raise LasExportError(f"Размер кривой {mnemonic} не совпадает с активным индексом")
         mnemonics.add(normalized)
 
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -456,8 +459,16 @@ def _adapt_generated_section(payload: bytes, source: LosslessLasDocument) -> byt
 
 def _build_las_file(dataset: Dataset, *, null_value: float) -> lasio.LASFile:
     las = lasio.LASFile()
-    depth_unit = "ms" if dataset.depth_domain is DepthDomain.TIME else "m"
-    las.append_curve("DEPT", np.asarray(dataset.depth, dtype=np.float64), unit=depth_unit)
+    active = dataset.active_index
+    index_mnemonic = _las_index_mnemonic(dataset)
+    index_unit = active.unit or ("s" if active.role is IndexRole.TIME else "m")
+    index_description = "ELAPSED TIME" if active.role is IndexRole.TIME else "MEASURED DEPTH"
+    las.append_curve(
+        index_mnemonic,
+        np.asarray(active.values, dtype=np.float64),
+        unit=index_unit,
+        descr=index_description,
+    )
     for curve in dataset.curves.values():
         las.append_curve(
             curve.metadata.original_mnemonic.strip(),
@@ -475,9 +486,40 @@ def _build_las_file(dataset: Dataset, *, null_value: float) -> lasio.LASFile:
     )
     _apply_header_values(las.well, dataset.headers)
     _apply_header_values(las.params, dataset.parameters)
+    _apply_active_index_headers(las, active)
     las.well["NULL"].value = null_value
     return las
 
+
+
+def _apply_active_index_headers(las: lasio.LASFile, index: DatasetIndex) -> None:
+    values = np.asarray(index.values, dtype=np.float64)
+    finite = values[np.isfinite(values)]
+    if not finite.size:
+        return
+    las.well["STRT"].value = float(finite[0])
+    las.well["STOP"].value = float(finite[-1])
+    differences = np.diff(finite)
+    positive = differences[differences > 0]
+    if positive.size:
+        nominal_step = float(np.median(positive))
+    else:
+        negative = differences[differences < 0]
+        nominal_step = float(np.median(negative)) if negative.size else 0.0
+    las.well["STEP"].value = nominal_step
+    unit = index.unit or ("s" if index.role is IndexRole.TIME else "m")
+    las.well["STRT"].unit = unit
+    las.well["STOP"].unit = unit
+    las.well["STEP"].unit = unit
+
+
+def _las_index_mnemonic(dataset: Dataset) -> str:
+    active = dataset.active_index
+    if active.role is IndexRole.TIME:
+        mnemonic = active.mnemonic.strip().upper()
+        return mnemonic if mnemonic in {"TIME", "ETIME"} else "TIME"
+    mnemonic = active.mnemonic.strip().upper()
+    return mnemonic if mnemonic in {"DEPT", "DEPTH", "MD", "TVD", "TVDSS"} else "DEPT"
 
 def _apply_header_values(section, values: dict[str, str]) -> None:
     for mnemonic, value in values.items():
