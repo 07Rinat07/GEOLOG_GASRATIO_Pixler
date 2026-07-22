@@ -1,54 +1,39 @@
-GEOLOG GASRATIO@Pixler 0.7.16 GeoScape/Paradox importer validation
-====================================================================
+GEOLOG GASRATIO@Pixler 0.7.17 annotation interaction hotfix validation
+============================================================================
 
 Date: 22 July 2026
 
-[1] Python bytecode compilation
+[1] Python compilation
 PASS: python -m compileall -q src tests
 
 [2] Focused non-GUI regression suite
-PASS: 119 tests
+PASS: 123 tests
 
 Covered areas:
-- Paradox/SQLite/invalid format detection;
-- bounded header, schema, block and record reading;
-- numeric decoding, NULL values and source immutability;
-- DB/PX/TV/FAM bundle discovery;
-- depth/time candidate analysis and OLE/Delphi time conversion;
-- existing Dataset integration, raw numeric time preservation and unknown channels;
-- exact-schema import profiles, user channel dictionary and duplicate-depth policies;
-- TIME -> DEPTH conversion and batch output safety;
-- LAS export planning for depth and numeric time indexes;
-- project/index serialization and legacy annotation/merge regression coverage.
+- Paradox reader/import/batch and TIME -> DEPTH;
+- LAS depth/time export planning;
+- project codec and migrations;
+- dataset indexes, time mapping and aggregation;
+- annotation schema, CRUD, history, LAS-merge survival and image assets;
+- hotfix AST guards for dialog method ownership and both tablet event filters;
+- package version 0.7.17.
 
-[3] Supplied sample validation
-PASS: BLData(1).db — 3488 records, 70 fields (69 NUMBER, 1 LONG)
-PASS: D250(1).db — 1739 records, 101 fields (101 NUMBER)
-PASS: no critical reader/analyzer diagnostics
-PASS: all selected source fields represented in the existing Dataset model
-PASS: unknown numeric channels retained
-PASS: original numeric time retained as S0_RAW
-PASS: source DB/PX/TV/FAM SHA-256 hashes unchanged
+[3] GeoScape depth step
+PASS: standard metadata = 0.2 m
+PASS: supplied BLData actual source step = 0.4 m
+PASS: LAS header STEP remains 0.4 until an explicit resample creates a 0.2 m grid
 
-Detailed machine-readable report: VALIDATION_PARADOX_0.7.16.json
+[4] Localization and JSON
+PASS: RU/KK/EN contain 1455 identical keys
+PASS: named placeholders are synchronized
+PASS: all JSON resources are valid
 
-[4] i18n synchronization
-PASS: RU/KK/EN contain 1445 identical keys
-PASS: named format placeholders are synchronized
+[5] Source immutability
+PASS: supplied DB/PX/TV/FAM SHA-256 hashes unchanged
 
-[5] Full GUI and actual LAS round-trip
-NOT RUN in this Linux container: PySide6, pyqtgraph and lasio are unavailable.
-Required before publishing a Windows binary:
-- full pytest/offscreen GUI suite;
-- import-dialog and drag-and-drop smoke test;
-- progress/cancellation and batch-converter smoke test;
-- DB -> LAS 2.0 -> current LAS reader round-trip for depth and time modes;
-- PDF/printing regression for imported datasets;
-- Ruff/mypy/build checks with the normal development toolchain.
+[6] GUI boundary
+NOT RUN in this container: PySide6, pyqtgraph and lasio are unavailable.
+Required on Windows: F4 toolbar, create/save, drag, resize, double-click,
+annotation context menu, time tablet, project reopen, PDF and physical print.
 
-Known validation boundary
--------------------------
-The supplied samples contain Paradox 7.x NUMBER and LONG fields. Additional field decoders
-(Alpha, Date, Short, Logical, Time, Timestamp, AutoIncrement, BCD and Bytes/Blob) are bounded
-best-effort implementations but were not represented by the supplied samples and therefore
-require additional real-world validation.
+Detailed report: docs/HOTFIX_REPORT_0.7.17.md

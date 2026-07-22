@@ -71,8 +71,118 @@ class _ColorButton(QPushButton):
             self._color = selected.name()
             self._refresh()
 
+    def _refresh(self) -> None:
+        foreground = "#ffffff" if QColor(self._color).lightness() < 128 else "#111827"
+        self.setText(self._color.upper())
+        self.setStyleSheet(
+            f"QPushButton {{ background:{self._color}; color:{foreground}; "
+            "border:1px solid #64748b; border-radius:4px; padding:4px 8px; }}"
+        )
+
+
+class DepthAnnotationsDialog(QDialog):
+    """Unified manager and style editor for tablet annotations."""
+
+    def __init__(
+        self,
+        controller: DepthAnnotationController,
+        parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+        initial_values: dict[str, object] | None = None,
+        annotation_id: str | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.localizer = Localizer.create(language)
+        self.controller = controller
+        self._single_item_mode = initial_values is not None or annotation_id is not None
+        self._editing_annotation_id = annotation_id
+        self.result_annotation_id: str | None = None
+        self._asset_ref: str | None = None
+        self._initial_values = dict(initial_values or {})
+        self._axis_id: str | None = (
+            str(self._initial_values["axis_id"])
+            if self._initial_values.get("axis_id")
+            else None
+        )
+        self._parameter_value: float | None = (
+            float(self._initial_values["parameter_value"])
+            if self._initial_values.get("parameter_value") is not None
+            else None
+        )
+        self._unit = str(self._initial_values.get("unit", ""))
+        window_key = (
+            "annotations.edit_window_title"
+            if annotation_id is not None
+            else "annotations.create_window_title"
+            if initial_values is not None
+            else "annotations.window_title"
+        )
+        self.setWindowTitle(self._t(window_key))
+        self.resize(760 if self._single_item_mode else 1180, 720)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(10, 10, 10, 10)
+        root.setSpacing(8)
+        hint = QLabel(self._t("annotations.editor_hint"))
+        hint.setWordWrap(True)
+        hint.setStyleSheet(
+            "background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; "
+            "padding:7px 10px; color:#1e3a8a;"
+        )
+        root.addWidget(hint)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        table_panel = self._build_table_panel()
+        splitter.addWidget(table_panel)
+        splitter.addWidget(self._build_editor_panel())
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 5)
+        if self._single_item_mode:
+            table_panel.hide()
+            splitter.setSizes([0, 760])
+        root.addWidget(splitter, 1)
+
+        if not self._single_item_mode:
+            root.addLayout(self._build_actions())
+            buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+            buttons.button(QDialogButtonBox.StandardButton.Close).setText(
+                self._t("common.close")
+            )
+            buttons.rejected.connect(self.reject)
+        else:
+            buttons = QDialogButtonBox(
+                QDialogButtonBox.StandardButton.Save
+                | QDialogButtonBox.StandardButton.Cancel
+            )
+            buttons.button(QDialogButtonBox.StandardButton.Save).setText(
+                self._t("annotations.save_action")
+            )
+            buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(
+                self._t("common.cancel")
+            )
+            buttons.accepted.connect(self._save_single_item)
+            buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+
+        self._refresh_tracks_and_curves()
+        self._refresh()
+        self._apply_initial_values()
+        if annotation_id is not None:
+            self._select_annotation(annotation_id)
+        elif self._single_item_mode:
+            self.text_input.setFocus(Qt.FocusReason.OtherFocusReason)
+
     @staticmethod
     def _numeric_index_values(index) -> np.ndarray:
+        """Return a stable numeric representation for depth/time spin boxes.
+
+        This method belongs to the dialog.  In 0.7.15/0.7.16 it was
+        accidentally nested in ``_ColorButton``; creating the dialog therefore
+        raised ``AttributeError`` from toolbar actions and looked like an
+        unresponsive F4 button to the user.
+        """
+
         raw = np.asarray(index.values)
         if index.index_type is IndexType.DATETIME:
             dates = raw.astype("datetime64[ns]")
@@ -102,76 +212,6 @@ class _ColorButton(QPushButton):
         self.axis_input.setRange(minimum, maximum)
         if not self._initial_values:
             self.axis_input.setValue((minimum + maximum) / 2.0)
-
-    def _refresh(self) -> None:
-        foreground = "#ffffff" if QColor(self._color).lightness() < 128 else "#111827"
-        self.setText(self._color.upper())
-        self.setStyleSheet(
-            f"QPushButton {{ background:{self._color}; color:{foreground}; "
-            "border:1px solid #64748b; border-radius:4px; padding:4px 8px; }}"
-        )
-
-
-class DepthAnnotationsDialog(QDialog):
-    """Unified manager and style editor for tablet annotations."""
-
-    def __init__(
-        self,
-        controller: DepthAnnotationController,
-        parent: QWidget | None = None,
-        *,
-        language: AppLanguage = AppLanguage.RU,
-        initial_values: dict[str, object] | None = None,
-        annotation_id: str | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self.localizer = Localizer.create(language)
-        self.controller = controller
-        self._asset_ref: str | None = None
-        self._initial_values = dict(initial_values or {})
-        self._axis_id: str | None = (
-            str(self._initial_values["axis_id"])
-            if self._initial_values.get("axis_id")
-            else None
-        )
-        self._parameter_value: float | None = (
-            float(self._initial_values["parameter_value"])
-            if self._initial_values.get("parameter_value") is not None
-            else None
-        )
-        self._unit = str(self._initial_values.get("unit", ""))
-        self.setWindowTitle(self._t("annotations.window_title"))
-        self.resize(1180, 720)
-
-        root = QVBoxLayout(self)
-        root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(8)
-        hint = QLabel(self._t("annotations.editor_hint"))
-        hint.setWordWrap(True)
-        hint.setStyleSheet(
-            "background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; "
-            "padding:7px 10px; color:#1e3a8a;"
-        )
-        root.addWidget(hint)
-
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self._build_table_panel())
-        splitter.addWidget(self._build_editor_panel())
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 5)
-        root.addWidget(splitter, 1)
-
-        root.addLayout(self._build_actions())
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
-        buttons.rejected.connect(self.reject)
-        root.addWidget(buttons)
-
-        self._refresh_tracks_and_curves()
-        self._refresh()
-        self._apply_initial_values()
-        if annotation_id is not None:
-            self._select_annotation(annotation_id)
 
     def _build_table_panel(self) -> QWidget:
         panel = QWidget()
@@ -547,8 +587,10 @@ class DepthAnnotationsDialog(QDialog):
             )
         self.table.resizeColumnsToContents()
         self.table.horizontalHeader().setStretchLastSection(True)
-        self.undo_button.setEnabled(self.controller.history.can_undo)
-        self.redo_button.setEnabled(self.controller.history.can_redo)
+        if hasattr(self, "undo_button"):
+            self.undo_button.setEnabled(self.controller.history.can_undo)
+        if hasattr(self, "redo_button"):
+            self.redo_button.setEnabled(self.controller.history.can_redo)
 
     def _selected_id(self) -> str | None:
         row = self.table.currentRow()
@@ -688,6 +730,32 @@ class DepthAnnotationsDialog(QDialog):
             "print_enabled": self.print_input.isChecked(),
         }
 
+    def _save_single_item(self) -> None:
+        """Create/update one annotation and close the focused editor.
+
+        Toolbar/context-menu creation must behave like a normal editor dialog:
+        enter text, adjust style/geometry, press Save.  The full manager keeps
+        its Add/Update/Duplicate workflow, while direct editing no longer asks
+        the user to discover a separate Add button at the bottom of a list.
+        """
+
+        saved: AnnotationRecord | None = None
+
+        def operation() -> None:
+            nonlocal saved
+            if self._editing_annotation_id is None:
+                saved = self.controller.add_annotation(**self._values())
+            else:
+                saved = self.controller.update_annotation(
+                    self._editing_annotation_id, **self._values()
+                )
+
+        if not self._run(operation):
+            return
+        if saved is not None:
+            self.result_annotation_id = saved.annotation_id
+        self.accept()
+
     def _add(self) -> None:
         created: AnnotationRecord | None = None
 
@@ -814,6 +882,14 @@ class DepthAnnotationsDialog(QDialog):
             self.axis_input.setValue(float(values["axis_value"]))
         if values.get("x_fraction") is not None:
             self.x_fraction_input.setValue(float(values["x_fraction"]) * 100.0)
+        if values.get("offset_x") is not None:
+            self.offset_x_input.setValue(float(values["offset_x"]))
+        if values.get("offset_y") is not None:
+            self.offset_y_input.setValue(float(values["offset_y"]))
+        if values.get("width") is not None:
+            self.width_input.setValue(float(values["width"]))
+        if values.get("height") is not None:
+            self.height_input.setValue(float(values["height"]))
         if values.get("text") is not None:
             self.text_input.setText(str(values["text"]))
         self._update_field_visibility()

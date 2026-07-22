@@ -134,6 +134,10 @@ def test_analysis_and_import_use_existing_dataset_model(tmp_path: Path) -> None:
     assert result.dataset.parameters["PARADOX_IMPORTED_CHANNELS"] == "2"
     assert result.dataset.parameters["PARADOX_SKIPPED_CHANNELS"] == "0"
     assert result.dataset.parameters["PARADOX_EMPTY_CHANNELS"] == "0"
+    assert result.dataset.headers["STEP"] == "1"
+    assert result.dataset.parameters["GEOSCAPE_STANDARD_DEPTH_STEP_M"] == "0.2"
+    assert result.dataset.parameters["PARADOX_ACTUAL_DEPTH_STEP_M"] == "1"
+    assert result.dataset.parameters["PARADOX_DEPTH_STEP_MATCHES_STANDARD"] == "false"
     assert len(result.dataset.parameters["PARADOX_SCHEMA_SIGNATURE"]) == 64
 
 
@@ -461,6 +465,25 @@ def test_external_samples_keep_column_alignment_and_index_candidates() -> None:
     assert bl_quality.depth_candidates[0].field_name == "S113"
     assert bl_quality.time_candidates[0].field_name == "S0"
     assert bl_quality.classification is DatasetClassification.TIME_WITH_DEPTH
+    bl_result = import_paradox(
+        bl_source,
+        ParadoxImportPlan(
+            classification=DatasetClassification.TIME_WITH_DEPTH,
+            depth_field="S113",
+            time_field="S0",
+            active_role="depth",
+            mappings=default_mappings(bl),
+        ),
+        table=bl,
+        quality=bl_quality,
+    )
+    # The source file really stores rows at about 0.4 m, while the confirmed
+    # GeoScape server standard is 0.2 m.  Never write a false LAS STEP=0.2
+    # unless a separate, explicit resampling operation has created that grid.
+    assert bl_result.dataset.headers["STEP"] == "0.4"
+    assert bl_result.dataset.parameters["GEOSCAPE_STANDARD_DEPTH_STEP_M"] == "0.2"
+    assert bl_result.dataset.parameters["PARADOX_ACTUAL_DEPTH_STEP_M"] == "0.4"
+    assert bl_result.dataset.parameters["PARADOX_DEPTH_STEP_MATCHES_STANDARD"] == "false"
 
     d250 = read_paradox(d250_source)
     d250_quality = analyze_table(d250)

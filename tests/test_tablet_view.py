@@ -33,6 +33,7 @@ from geoworkbench.tablet.models import (
     XScale,
 )
 from geoworkbench.tablet.tablet_view import TabletTrackWidget, TabletView, curve_legend_label
+from geoworkbench.project.annotation_schema import AnnotationKind
 
 
 def make_curve(dataset_id: str, mnemonic: str, unit: str | None) -> CurveData:
@@ -53,6 +54,31 @@ def test_curve_legend_label_includes_unit_only_when_present() -> None:
     assert curve_legend_label(make_curve("dataset", "C1", "%")) == "C1 [%]"
     assert curve_legend_label(make_curve("dataset", "ROP", None)) == "ROP"
     assert curve_legend_label(make_curve("dataset", "GR", "  API  ")) == "GR [API]"
+
+
+def test_callout_request_has_visible_leader_and_editable_box(qapp) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("curve", "Curve", TrackKind.CURVE, width=220)])
+    )
+    view.set_dataset(dataset)
+
+    payload = view.annotation_request_at_view_center(AnnotationKind.CALLOUT)
+
+    assert payload is not None
+    assert payload["track_id"] == "curve"
+    assert payload["offset_x"] == pytest.approx(54.0)
+    assert payload["offset_y"] == pytest.approx(-68.0)
+    assert payload["width"] == pytest.approx(240.0)
+    assert payload["height"] == pytest.approx(86.0)
+    view.close()
 
 
 def test_tablet_view_exposes_rendered_legend_labels(qapp) -> None:

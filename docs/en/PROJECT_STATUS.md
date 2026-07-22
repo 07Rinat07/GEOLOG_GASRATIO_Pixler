@@ -1,6 +1,10 @@
 # Current project status
 
 
+## Version 0.7.17 — annotation interaction hotfix
+
+Fixed F4 actions, the focused editor, pointer-event routing, drag, resize, double-click editing and context menus for callouts/comments. The GeoScape 0.2 m standard is now shown separately from a file’s actual row step; `BLData.db` retains its real LAS `STEP=0.4` until an explicit resampling operation is requested.
+
 ## Version 0.7.16 — GeoScape/Paradox DB import
 
 A bounded binary Paradox reader now validates `.db`, discovers same-name `.PX/.TV/.FAM` files case-insensitively, and opens sources read-only. Imported data enters the existing multi-index `Dataset` model rather than a second editor, so the standard table, graphs, project storage, and LAS export remain in use. The release adds asynchronous preview, depth/time selection, exact-schema profiles, a user channel dictionary, quality control, depth/time LAS, TIME → DEPTH, and batch conversion.

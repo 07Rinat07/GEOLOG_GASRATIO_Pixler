@@ -40,6 +40,14 @@ class ParadoxImportError(RuntimeError):
     pass
 
 
+# GeoScape server installations normally register depth on a 0.2 m grid.
+# A particular source table can still contain a different actual interval
+# (the supplied BLData sample is effectively 0.4 m).  Keep both facts separate:
+# LAS STEP describes rows that really exist, while this constant is stored as
+# source-system metadata and shown by the import dialog.
+GEOSCAPE_STANDARD_DEPTH_STEP_M = 0.2
+
+
 def default_mappings(
     table: ParadoxTable,
     *,
@@ -198,6 +206,9 @@ def import_paradox(
             headers["DATE"] = date_text
             headers["TIME"] = time_text
 
+    actual_depth_step = (
+        _nominal_step_value(depth_values) if depth_values is not None else 0.0
+    )
     dataset = Dataset(
         dataset_id=dataset_id,
         name=parsed.source.stem,
@@ -220,6 +231,22 @@ def import_paradox(
             "PARADOX_DEPTH_FIELD": depth_field or "",
             "PARADOX_TIME_FIELD": time_field or "",
             "PARADOX_TIME_REPRESENTATION": time_representation,
+            "GEOSCAPE_STANDARD_DEPTH_STEP_M": f"{GEOSCAPE_STANDARD_DEPTH_STEP_M:g}",
+            "PARADOX_ACTUAL_DEPTH_STEP_M": (
+                f"{actual_depth_step:g}" if actual_depth_step > 0 else ""
+            ),
+            "PARADOX_DEPTH_STEP_MATCHES_STANDARD": (
+                ""
+                if actual_depth_step <= 0
+                else "true"
+                if np.isclose(
+                    actual_depth_step,
+                    GEOSCAPE_STANDARD_DEPTH_STEP_M,
+                    rtol=0.0,
+                    atol=1e-6,
+                )
+                else "false"
+            ),
             "PARADOX_WARNINGS": json.dumps(
                 [issue.message for issue in quality.issues], ensure_ascii=False
             ),
@@ -554,13 +581,18 @@ def _finite_text(values: np.ndarray, *, first: bool) -> str:
 
 
 def _nominal_step_text(values: np.ndarray) -> str:
+    value = _nominal_step_value(values)
+    return f"{value:g}" if value > 0 else "0"
+
+
+def _nominal_step_value(values: np.ndarray) -> float:
     finite = np.asarray(values, dtype=np.float64)
     finite = finite[np.isfinite(finite)]
     positive = np.diff(finite)
     positive = positive[positive > 0]
     if not positive.size:
-        return "0"
-    return f"{float(np.median(positive)):g}"
+        return 0.0
+    return float(np.median(positive))
 
 
 class ParadoxImportPlugin:

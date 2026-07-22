@@ -40,7 +40,7 @@ class TabletAnnotationItem(QGraphicsObject):
     context_requested = Signal(str, QPoint)
     geometry_changed = Signal(str, float, float, float, float)
 
-    HANDLE_SIZE = 10.0
+    HANDLE_SIZE = 14.0
 
     def __init__(
         self,
@@ -65,6 +65,8 @@ class TabletAnnotationItem(QGraphicsObject):
             record.height,
         )
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsFocusable, True)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setAcceptedMouseButtons(Qt.MouseButton.LeftButton | Qt.MouseButton.RightButton)
         self.setAcceptHoverEvents(True)
         self.setZValue(9_500.0)
@@ -73,6 +75,10 @@ class TabletAnnotationItem(QGraphicsObject):
     @property
     def annotation_id(self) -> str:
         return self.record.annotation_id
+
+    @property
+    def edit_mode(self) -> bool:
+        return self._edit_mode and not self._print_mode
 
     def set_record(self, record: AnnotationRecord, pixmap: QPixmap | None = None) -> None:
         self.prepareGeometryChange()
@@ -343,6 +349,8 @@ class TabletAnnotationItem(QGraphicsObject):
             and not self._print_mode
         ):
             self._selected = True
+            self.setSelected(True)
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
             self._press_screen = QPointF(event.screenPos())
             self._start_geometry = (
                 self.record.offset_x,
@@ -435,6 +443,12 @@ class TabletAnnotationItem(QGraphicsObject):
             event.accept()
             return
         super().mouseDoubleClickEvent(event)
+
+    def focusOutEvent(self, event) -> None:  # noqa: N802
+        self._selected = False
+        self.setSelected(False)
+        self.update()
+        super().focusOutEvent(event)
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:  # noqa: N802
         if self._edit_mode and not self._print_mode:

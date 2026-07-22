@@ -1,5 +1,7 @@
 # Documentation Index
 
+- Hotfix report 0.7.17: [Русский](HOTFIX_REPORT_0.7.17.md)
+- Release notes 0.7.17: [Русский](ru/RELEASE_NOTES_0.7.17.md) · [Қазақша](kk/RELEASE_NOTES_0.7.17.md) · [English](en/RELEASE_NOTES_0.7.17.md)
 - Implementation report 0.7.16: [Русский](IMPLEMENTATION_REPORT_0.7.16.md)
 - GeoScape/Paradox DB import 0.7.16: [Русский](ru/PARADOX_IMPORT.md) · [Қазақша](kk/PARADOX_IMPORT.md) · [English](en/PARADOX_IMPORT.md)
 - Professional annotation layer 0.7.15: [Русский](ru/ANNOTATIONS.md) · [Қазақша](kk/ANNOTATIONS.md) · [English](en/ANNOTATIONS.md)

@@ -16,7 +16,7 @@
 создания многотрековых планшетов, расчёта производных кривых, описания литологии,
 выделения интервалов и подготовки мастерлогов.
 
-> **Текущая версия 0.7.16:** добавлен безопасный импорт GeoScape/Borland Paradox DB в единую модель редактора, автоматический поиск комплекта DB/PX/TV/FAM, анализ глубины и времени, профили, контроль качества, временной и глубинный LAS 2.0, пакетная конвертация и преобразование TIME → DEPTH.
+> **Текущая версия 0.7.17:** исправлено взаимодействие профессионального слоя аннотаций: кнопки панели F4 открывают редактор, созданные выноски и комментарии перемещаются, изменяют размер и редактируются двойным щелчком. Импорт GeoScape отдельно показывает стандартный серверный шаг 0,2 м и фактический шаг строк исходного DB.
 
 ## Основные возможности
 
@@ -93,8 +93,9 @@ geolog-gasratio-pixler
 - Редактор LAS: [Русский](docs/ru/LAS_EDITOR.md) · [Қазақша](docs/kk/LAS_EDITOR.md) · [English](docs/en/LAS_EDITOR.md)
 - Импорт SKF: [Русский](docs/ru/SKF_IMPORT.md) · [Қазақша](docs/kk/SKF_IMPORT.md) · [English](docs/en/SKF_IMPORT.md)
 - Импорт GeoScape/Paradox DB: [Русский](docs/ru/PARADOX_IMPORT.md) · [Қазақша](docs/kk/PARADOX_IMPORT.md) · [English](docs/en/PARADOX_IMPORT.md)
-- Release notes 0.7.16: [Русский](docs/ru/RELEASE_NOTES_0.7.16.md) · [Қазақша](docs/kk/RELEASE_NOTES_0.7.16.md) · [English](docs/en/RELEASE_NOTES_0.7.16.md)
-- Итоговый отчёт 0.7.16: [docs/IMPLEMENTATION_REPORT_0.7.16.md](docs/IMPLEMENTATION_REPORT_0.7.16.md)
+- Release notes 0.7.17: [Русский](docs/ru/RELEASE_NOTES_0.7.17.md) · [Қазақша](docs/kk/RELEASE_NOTES_0.7.17.md) · [English](docs/en/RELEASE_NOTES_0.7.17.md)
+- Отчёт hotfix 0.7.17: [docs/HOTFIX_REPORT_0.7.17.md](docs/HOTFIX_REPORT_0.7.17.md)
+- Итоговый отчёт импорта 0.7.16: [docs/IMPLEMENTATION_REPORT_0.7.16.md](docs/IMPLEMENTATION_REPORT_0.7.16.md)
 - Слой аннотаций: [Русский](docs/ru/ANNOTATIONS.md) · [Қазақша](docs/kk/ANNOTATIONS.md) · [English](docs/en/ANNOTATIONS.md)
 
 Дополнительная техническая документация находится в каталоге [`docs`](docs/).

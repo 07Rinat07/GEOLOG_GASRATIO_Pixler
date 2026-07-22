@@ -1,3 +1,14 @@
+# 0.7.17 — annotation interaction hotfix and GeoScape step clarification
+
+- fixed the misplaced annotation-axis methods that made compact F4 toolbar actions fail while constructing the editor;
+- added a visible error boundary so a future editor-construction failure cannot look like an unresponsive F4 action;
+- added a focused create/edit dialog with explicit Save/Cancel behavior and editable geometry;
+- fixed both tablet viewport event filters so drag, resize, double-click and context menu events reach existing annotation items;
+- increased the resize handle and improved the initial callout geometry/leader visibility;
+- added regression guards for dialog method ownership, event routing and direct-creation geometry;
+- separated the confirmed GeoScape server standard step (0.2 m) from the actual source-row step; `BLData.db` remains exported with its real 0.4 m `STEP` unless explicitly resampled;
+- synchronized RU/KK/EN interface text and documentation.
+
 # 0.7.16 — GeoScape/Paradox DB importer and LAS conversion
 
 - added bounded binary detection and read-only parsing for Borland Paradox DB instead of relying on the `.db` extension;

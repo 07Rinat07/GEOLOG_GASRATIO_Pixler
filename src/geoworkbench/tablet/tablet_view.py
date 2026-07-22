@@ -564,6 +564,13 @@ class TabletTrackWidget(QFrame):
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
         if isinstance(event, QMouseEvent):
+            if watched in {self.plot, self.plot.viewport()}:
+                annotation = self._annotation_for_event(event)
+                if annotation is not None and annotation.edit_mode:
+                    # Let QGraphicsView deliver the complete gesture/context
+                    # event to the annotation.  Consuming the viewport event
+                    # here previously made existing callouts impossible to edit.
+                    return False
             if (
                 event.type() == QEvent.Type.MouseButtonPress
                 and event.button() == Qt.MouseButton.RightButton
@@ -603,6 +610,21 @@ class TabletTrackWidget(QFrame):
                     self.header_drag_finished.emit(self.definition.track_id, global_x)
                     return True
         return super().eventFilter(watched, event)
+
+    def _annotation_for_event(self, event: QMouseEvent) -> TabletAnnotationItem | None:
+        scene = self.plot.scene()
+        current = scene.mouseGrabberItem() if scene is not None else None
+        if current is None:
+            try:
+                current = self.plot.itemAt(event.position().toPoint())
+            except (AttributeError, RuntimeError, TypeError):
+                return None
+        while current is not None:
+            if isinstance(current, TabletAnnotationItem):
+                return current
+            parent_item = getattr(current, "parentItem", None)
+            current = parent_item() if callable(parent_item) else None
+        return None
 
     def _handle_resize_event(self, event: QMouseEvent, watched: QObject | None = None) -> bool:
         event_type = event.type()
@@ -3012,6 +3034,19 @@ class TabletView(QWidget):
             if descriptor is not None and descriptor.role is not IndexRole.DEPTH
             else AnnotationAnchor.DEPTH
         )
+        fraction = max(0.0, min(1.0, float(x_fraction)))
+        if kind is AnnotationKind.CALLOUT:
+            width, height = 240.0, 86.0
+            offset_x = 54.0 if fraction <= 0.65 else -(width + 54.0)
+            offset_y = -68.0
+        elif kind is AnnotationKind.COMMENT:
+            width, height = 220.0, 76.0
+            offset_x = 12.0 if fraction <= 0.65 else -(width + 12.0)
+            offset_y = -42.0
+        else:
+            width, height = 240.0, 160.0
+            offset_x = 18.0 if fraction <= 0.65 else -(width + 18.0)
+            offset_y = -80.0
         return {
             "kind": kind.value,
             "anchor": anchor.value,
@@ -3019,7 +3054,11 @@ class TabletView(QWidget):
             "depth": float(depth),
             "axis_value": float(axis_value) if axis_value is not None else None,
             "axis_id": self.vertical_index_id,
-            "x_fraction": max(0.0, min(1.0, float(x_fraction))),
+            "x_fraction": fraction,
+            "offset_x": offset_x,
+            "offset_y": offset_y,
+            "width": width,
+            "height": height,
         }
 
     @staticmethod
@@ -4346,6 +4385,42 @@ class TabletView(QWidget):
             None,
         )
 
+    @staticmethod
+    def _annotation_ancestor(item: object | None) -> TabletAnnotationItem | None:
+        """Resolve a scene hit or mouse grabber to its annotation object."""
+
+        current = item
+        while current is not None:
+            if isinstance(current, TabletAnnotationItem):
+                return current
+            parent_item = getattr(current, "parentItem", None)
+            current = parent_item() if callable(parent_item) else None
+        return None
+
+    def _annotation_item_for_mouse_event(
+        self, plot: pg.PlotWidget, event: QMouseEvent
+    ) -> TabletAnnotationItem | None:
+        """Return the annotation that must receive this viewport mouse event.
+
+        PlotWidget mouse events are observed by this class before QGraphicsScene
+        dispatches them.  Prior to 0.7.17 the curve-selection/context-menu code
+        consumed those events first, so annotation items never received press,
+        move, release, double-click or right-click events.  Checking both the
+        current scene mouse grabber and the item below the cursor lets an active
+        drag continue even when the pointer leaves the box.
+        """
+
+        scene = plot.scene()
+        if scene is not None:
+            grabbed = self._annotation_ancestor(scene.mouseGrabberItem())
+            if grabbed is not None:
+                return grabbed
+        try:
+            hit = plot.itemAt(event.position().toPoint())
+        except (AttributeError, RuntimeError, TypeError):
+            return None
+        return self._annotation_ancestor(hit)
+
     def _handle_depth_wheel(
         self,
         event: QWheelEvent,
@@ -4410,6 +4485,21 @@ class TabletView(QWidget):
         if plot is not None and event.type() == QEvent.Type.Leave:
             self._hide_curve_pencil_hover(self._track_id_for_plot(plot))
         if plot is not None and isinstance(event, QMouseEvent):
+            if (
+                self._form_edit_mode
+                and event.type()
+                in {
+                    QEvent.Type.MouseMove,
+                    QEvent.Type.MouseButtonPress,
+                    QEvent.Type.MouseButtonRelease,
+                    QEvent.Type.MouseButtonDblClick,
+                }
+                and self._annotation_item_for_mouse_event(plot, event) is not None
+            ):
+                # Do not select a curve, pan a track or open the track context
+                # menu.  Returning False allows QGraphicsView/QGraphicsScene to
+                # deliver the event to TabletAnnotationItem.
+                return False
             track_id = self._track_id_for_plot(plot)
             if event.type() in {
                 QEvent.Type.MouseMove,

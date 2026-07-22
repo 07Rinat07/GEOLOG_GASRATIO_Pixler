@@ -1,4 +1,4 @@
-# GeoScape / Borland Paradox DB import — 0.7.16
+# GeoScape / Borland Paradox DB import — 0.7.17
 
 ## Purpose
 
@@ -23,6 +23,12 @@ Unknown `Sxxx` channels are not guessed: the source code remains the mnemonic, u
 ## Quality control
 
 The analyzer checks empty channels/rows, NaN/Infinity, huge values, statistical outliers, duplicate/reverse/negative depth, jumps, and chronology. Duplicate depth is kept by default. Explicit policies are keep all, first, last, mean, and median; applied removals are recorded in dataset metadata and logs. The protocol also records the schema signature, selected indexes, NULL, sorting, imported/skipped channel and row counts, diagnostic severity counts, and every explicit correction.
+
+## Standard and actual depth step
+
+The confirmed nominal GeoScape server grid is **0.2 m**. The importer displays it separately from the actual step of the selected depth channel. The supplied `BLData.db` contains rows predominantly at **0.4 m**, which indicates that this particular file was probably recorded with a different server setting.
+
+The LAS `STEP` header always describes the data grid that actually exists. The importer therefore never writes a false `STEP=0.2` for 0.4 m rows. To create a derived 0.2 m grid, open the document and explicitly run **LAS Editor → Resample depth…**, then choose the interpolation method. The source DB and the original imported dataset remain unchanged.
 
 ## LAS and TIME → DEPTH
 

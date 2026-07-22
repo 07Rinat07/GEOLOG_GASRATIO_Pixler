@@ -3722,10 +3722,40 @@ class MainWindow(QMainWindow):
                 self, self._t("annotations.title"), self._t("annotations.select_well")
             )
             return
-        DepthAnnotationsDialog(
-            self.depth_annotation_controller, self, language=self.language
-        ).exec()
+        self._open_annotation_dialog()
+
+    def _open_annotation_dialog(
+        self,
+        *,
+        initial_values: dict[str, object] | None = None,
+        annotation_id: str | None = None,
+    ) -> bool:
+        """Open the annotation UI and never leave an F4 action silently dead.
+
+        Qt signal callbacks can otherwise print a constructor exception only to
+        the console.  The user then sees a toolbar button that appears to do
+        nothing.  This UI boundary reports the failure visibly while preserving
+        the project and source data.
+        """
+
+        try:
+            dialog = DepthAnnotationsDialog(
+                self.depth_annotation_controller,
+                self,
+                language=self.language,
+                initial_values=initial_values,
+                annotation_id=annotation_id,
+            )
+            dialog.exec()
+        except Exception as exc:  # UI boundary: show unexpected plugin/Qt failures.
+            QMessageBox.critical(
+                self,
+                self._t("annotations.title"),
+                self._t("annotations.open_failed", error=str(exc)),
+            )
+            return False
         self._refresh_annotation_layer()
+        return True
 
     def _refresh_annotation_layer(self) -> None:
         well = self.session.current_well
@@ -3749,24 +3779,12 @@ class MainWindow(QMainWindow):
     def _create_annotation_from_tablet(self, payload: object) -> None:
         if self.session.current_well is None or not isinstance(payload, dict):
             return
-        DepthAnnotationsDialog(
-            self.depth_annotation_controller,
-            self,
-            language=self.language,
-            initial_values=dict(payload),
-        ).exec()
-        self._refresh_annotation_layer()
+        self._open_annotation_dialog(initial_values=dict(payload))
 
     def _edit_annotation_from_tablet(self, annotation_id: str) -> None:
         if self.session.current_well is None:
             return
-        DepthAnnotationsDialog(
-            self.depth_annotation_controller,
-            self,
-            language=self.language,
-            annotation_id=annotation_id,
-        ).exec()
-        self._refresh_annotation_layer()
+        self._open_annotation_dialog(annotation_id=annotation_id)
 
     def _delete_annotation_from_tablet(self, annotation_id: str) -> None:
         answer = QMessageBox.question(

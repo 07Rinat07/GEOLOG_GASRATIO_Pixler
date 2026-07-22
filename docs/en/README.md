@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.16:** added GeoScape/Borland Paradox DB import with DB/PX/TV/FAM bundle discovery, preview analysis, depth/time selection, profiles, quality control, opening in the existing editor, depth/time LAS 2.0 and batch conversion.
+> **0.7.17:** fixed F4 annotation buttons, the focused editor, drag, resize, double-click editing and context menus for existing callouts/comments. GeoScape import now shows the 0.2 m server standard separately from the DB file’s actual row step.
 
 
 

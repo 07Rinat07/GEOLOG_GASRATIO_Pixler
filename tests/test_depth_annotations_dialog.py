@@ -53,7 +53,7 @@ def test_depth_annotations_dialog_uses_selected_language(qapp) -> None:
 
     assert table is not None
     assert buttons is not None
-    assert dialog.windowTitle() == "Depth annotations"
+    assert dialog.windowTitle() == "Tablet annotation editor"
     assert table.horizontalHeaderItem(0).text() == "Depth"
     assert table.horizontalHeaderItem(1).text() == "Comment"
     assert dialog.findChild(QPushButton, "annotation-add-button").text() == "Add"
@@ -86,4 +86,27 @@ def test_time_annotation_axis_uses_seconds_for_datetime_index(qapp) -> None:
     expected = values.astype(np.int64).astype(np.float64) / 1_000_000_000.0
     assert dialog.axis_input.minimum() == pytest.approx(float(expected[0]))
     assert dialog.axis_input.maximum() == pytest.approx(float(expected[1]))
+    dialog.close()
+
+
+def test_direct_annotation_editor_saves_without_manager_add_button(qapp) -> None:
+    controller = make_controller()
+    dialog = DepthAnnotationsDialog(
+        controller,
+        initial_values={
+            "kind": "comment",
+            "anchor": "depth",
+            "depth": 150.0,
+            "x_fraction": 0.5,
+        },
+    )
+    dialog.text_input.setPlainText("Параметры бурового раствора")
+
+    dialog._save_single_item()
+
+    assert dialog.result() == dialog.DialogCode.Accepted
+    assert dialog.result_annotation_id is not None
+    saved = controller.get(dialog.result_annotation_id)
+    assert saved.text == "Параметры бурового раствора"
+    assert saved.kind.value == "comment"
     dialog.close()

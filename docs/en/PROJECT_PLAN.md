@@ -1,6 +1,14 @@
 # Project plan
 
 
+## Slice 0.7.17 — annotation interaction hotfix
+
+- [x] restore F4 actions and the focused Save/Cancel editor;
+- [x] restore drag/resize, double-click editing and context menus;
+- [x] add event-routing regression coverage;
+- [x] separate the GeoScape 0.2 m standard from the actual DB row step;
+- [ ] run the full Windows, PDF and physical-print smoke test.
+
 ## Slice 0.7.16 — GeoScape/Paradox DB import
 
 - [x] detect Paradox from binary structure and reject SQLite/random DB files;

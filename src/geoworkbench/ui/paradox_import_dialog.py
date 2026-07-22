@@ -33,7 +33,11 @@ from geoworkbench.importers.paradox.channel_dictionary import (
     ChannelDefinition,
     GeoScapeChannelDictionary,
 )
-from geoworkbench.importers.paradox.importer import default_mappings, import_paradox
+from geoworkbench.importers.paradox.importer import (
+    GEOSCAPE_STANDARD_DEPTH_STEP_M,
+    default_mappings,
+    import_paradox,
+)
 from geoworkbench.importers.paradox.models import (
     ChannelMapping,
     DatasetClassification,
@@ -249,10 +253,15 @@ class ParadoxImportDialog(QDialog):
         ):
             self.duplicate_policy.addItem(self._t(key), policy)
         self.drop_empty_channels = QCheckBox(self._t("paradox.drop_empty_channels"))
+        self.actual_depth_step = QLabel("—")
+        self.standard_depth_step = QLabel(f"{GEOSCAPE_STANDARD_DEPTH_STEP_M:g} m")
+        self.standard_depth_step.setToolTip(self._t("paradox.standard_depth_step_hint"))
         options.addRow(self._t("paradox.detected_type"), self.classification)
         options.addRow(self._t("paradox.depth_channel"), self.depth_field)
         options.addRow(self._t("paradox.time_channel"), self.time_field)
         options.addRow(self._t("paradox.active_index"), self.active_role)
+        options.addRow(self._t("paradox.actual_depth_step"), self.actual_depth_step)
+        options.addRow(self._t("paradox.standard_depth_step"), self.standard_depth_step)
         options.addRow(self._t("paradox.null_value"), self.null_value)
         options.addRow(self._t("paradox.duplicate_depth"), self.duplicate_policy)
         options.addRow(self.sort_index)
@@ -466,6 +475,7 @@ class ParadoxImportDialog(QDialog):
     def _populate_preview(self) -> None:
         if self.table is None:
             return
+        self._update_depth_step_labels()
         total = self.table.rows_read
         row_indexes = list(range(min(20, total)))
         tail_start = max(len(row_indexes), total - 20)
@@ -511,6 +521,46 @@ class ParadoxImportDialog(QDialog):
             )
         )
         self.preview.resizeColumnsToContents()
+
+    def _update_depth_step_labels(self) -> None:
+        if self.table is None:
+            return
+        depth_name = self.depth_field.currentData()
+        if depth_name not in self.table.columns:
+            self.actual_depth_step.setText("—")
+            self.actual_depth_step.setStyleSheet("")
+            return
+        values = np.asarray(self.table.columns[str(depth_name)].values, dtype=np.float64)
+        finite = values[np.isfinite(values)]
+        positive = np.diff(finite)
+        positive = positive[positive > 0]
+        if not positive.size:
+            self.actual_depth_step.setText("—")
+            self.actual_depth_step.setStyleSheet("")
+            return
+        actual = float(np.median(positive))
+        matches = np.isclose(
+            actual,
+            GEOSCAPE_STANDARD_DEPTH_STEP_M,
+            rtol=0.0,
+            atol=1e-6,
+        )
+        self.actual_depth_step.setText(
+            self._t(
+                "paradox.actual_depth_step_value",
+                step=f"{actual:g}",
+                status=self._t(
+                    "paradox.step_matches_standard"
+                    if matches
+                    else "paradox.step_differs_from_standard"
+                ),
+            )
+        )
+        self.actual_depth_step.setStyleSheet(
+            "color:#166534; font-weight:600;"
+            if matches
+            else "color:#9a3412; font-weight:600;"
+        )
 
     def _populate_index_combo(self, combo: QComboBox, candidates: tuple, role: str) -> None:
         combo.clear()
