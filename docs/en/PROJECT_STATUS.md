@@ -1,5 +1,9 @@
 # Current project status
 
+## Version 0.7.19 — annotations follow depth and time
+
+Fixed the tablet-wide annotation layer becoming detached from the vertical axis. Scrolling, panning, go-to and zoom remap the data anchor into current screen coordinates while preserving the box offset and size. The project format is unchanged.
+
 ## Version 0.7.18 — free annotations and responsive DB → LAS
 
 Annotations now use one tablet-wide overlay; Paradox import populates UI tables in slices and exposes a visible footer, six-stage progress and safe cancellation.

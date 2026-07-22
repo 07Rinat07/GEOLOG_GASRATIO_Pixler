@@ -16,7 +16,7 @@
 создания многотрековых планшетов, расчёта производных кривых, описания литологии,
 выделения интервалов и подготовки мастерлогов.
 
-> **Текущая версия 0.7.18:** аннотации работают в едином верхнем слое всего планшета, свободно перемещаются между колонками и изменяют размер восемью маркерами. Окно импорта GeoScape/Paradox DB стало отзывчивым: таблицы строятся порциями, доступны безопасная отмена/закрытие, поэтапный прогресс и подсказки.
+> **Текущая версия 0.7.19:** исправлена привязка аннотаций к вертикальной оси. При прокрутке, панорамировании и масштабировании выноски и комментарии теперь перемещаются вместе со своей глубиной, временем или точкой кривой, сохраняя заданное смещение и размер блока.
 
 ## Основные возможности
 
@@ -93,8 +93,8 @@ geolog-gasratio-pixler
 - Редактор LAS: [Русский](docs/ru/LAS_EDITOR.md) · [Қазақша](docs/kk/LAS_EDITOR.md) · [English](docs/en/LAS_EDITOR.md)
 - Импорт SKF: [Русский](docs/ru/SKF_IMPORT.md) · [Қазақша](docs/kk/SKF_IMPORT.md) · [English](docs/en/SKF_IMPORT.md)
 - Импорт GeoScape/Paradox DB: [Русский](docs/ru/PARADOX_IMPORT.md) · [Қазақша](docs/kk/PARADOX_IMPORT.md) · [English](docs/en/PARADOX_IMPORT.md)
-- Release notes 0.7.18: [Русский](docs/ru/RELEASE_NOTES_0.7.18.md) · [Қазақша](docs/kk/RELEASE_NOTES_0.7.18.md) · [English](docs/en/RELEASE_NOTES_0.7.18.md)
-- Отчёт hotfix 0.7.18: [docs/HOTFIX_REPORT_0.7.18.md](docs/HOTFIX_REPORT_0.7.18.md)
+- Release notes 0.7.19: [Русский](docs/ru/RELEASE_NOTES_0.7.19.md) · [Қазақша](docs/kk/RELEASE_NOTES_0.7.19.md) · [English](docs/en/RELEASE_NOTES_0.7.19.md)
+- Отчёт hotfix 0.7.19: [docs/HOTFIX_REPORT_0.7.19.md](docs/HOTFIX_REPORT_0.7.19.md)
 - Итоговый отчёт импорта 0.7.16: [docs/IMPLEMENTATION_REPORT_0.7.16.md](docs/IMPLEMENTATION_REPORT_0.7.16.md)
 - Слой аннотаций: [Русский](docs/ru/ANNOTATIONS.md) · [Қазақша](docs/kk/ANNOTATIONS.md) · [English](docs/en/ANNOTATIONS.md)
 

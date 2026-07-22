@@ -1,3 +1,11 @@
+# 0.7.19 — annotation depth/time synchronization hotfix
+
+- remap tablet-wide annotation anchors after every depth/time range change;
+- keep callout offsets, sizes and styles unchanged while scrolling, panning and zooming;
+- update curve-bound X/Y anchor coordinates against the current ViewBox;
+- reuse annotation graphics helpers during navigation and preserve active selection/drag state;
+- keep project and annotation schemas backward compatible.
+
 # 0.7.18 — tablet-wide annotation overlay and responsive Paradox import
 
 - moved annotations to one tablet-wide top overlay so boxes can cross track boundaries without losing their data anchor;

@@ -1,5 +1,13 @@
 # Project plan
 
+## Slice 0.7.19 — synchronize annotations with the axis
+
+- [x] remap screen anchors after scrolling and zooming;
+- [x] cover both shared-camera and direct ViewBox range paths;
+- [x] preserve saved offsets, size and style during navigation;
+- [x] reuse overlay graphics objects instead of rebuilding every wheel step;
+- [ ] run the Windows smoke test on depth/time tablets, PDF and printing.
+
 ## Slice 0.7.18 — stabilize interaction and import
 
 Run the Windows smoke test for annotations, PDF/print and safe Paradox cancellation on large tables.

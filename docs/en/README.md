@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.18:** callouts and comments use a tablet-wide overlay, move across columns, expose eight resize handles and support click/button editing. GeoScape/Paradox import reports six stages, populates previews without blocking the event loop and supports safe close/cancel.
+> **0.7.19:** callouts and comments are synchronized with depth and time. Scrolling and zooming move them together with their data anchor while preserving the box offset and size.
 
 
 

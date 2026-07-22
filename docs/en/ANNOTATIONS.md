@@ -1,4 +1,4 @@
-# Professional annotation layer — 0.7.18
+# Professional annotation layer — 0.7.19
 
 ## Free editing across the complete tablet
 
@@ -8,12 +8,16 @@ A single click exposes eight handles at the corners and side midpoints. Drag the
 
 Annotations are omitted from the project/settings tree and managed through the separate “All…” dialog, preventing navigation clutter.
 
+## Scroll synchronization 0.7.19
+
+The annotation screen position is remapped whenever the visible depth or time range changes. Mouse wheel, scrollbar, panning, go-to and zoom move the anchor with the data while keeping the saved box offset, width, height and style unchanged. When the anchored depth leaves the visible interval, the comment leaves the viewport as well.
+
 ## Interaction hotfix 0.7.17
 
 - the compact F4 **Callout**, **Comment** and **Image** actions now open the focused editor instead of failing inside the dialog constructor;
 - the focused editor has explicit **Save** and **Cancel** actions, while its Geometry tab controls initial offsets, width and height;
 - in F4 mode, pointer events over an annotation are delivered to the annotation rather than the curve or track below it;
-- drag the box by its background/border, resize with the lower-right handle, double-click to edit and right-click for the object menu;
+- drag the box by its background/border, resize with the corner and side handles, double-click to edit and right-click for the object menu;
 - a new callout starts with a clearly visible leader and places its text box on the available side of the track.
 
 The annotation layer adds persistent explanations to depth/time tablets, graphs and print forms. Every object is stored with the current well in the project instead of being a temporary UI label.
@@ -24,7 +28,7 @@ The annotation layer adds persistent explanations to depth/time tablets, graphs 
 2. Use the compact **Callout**, **Comment**, **Image** buttons or open **Annotations and callouts…**.
 3. Right-click the exact graph location to create an object at that coordinate.
 4. Double-click an existing annotation to open the unified appearance editor.
-5. In F4 mode, drag the body to move it and use the lower-right handle to resize it.
+5. In F4 mode, drag the body to move it and use the eight corner and side handles to resize it.
 
 ## Object types
 

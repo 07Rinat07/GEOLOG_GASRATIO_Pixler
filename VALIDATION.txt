@@ -1,4 +1,4 @@
-GEOLOG GASRATIO@Pixler 0.7.18 validation
+GEOLOG GASRATIO@Pixler 0.7.19 validation
 ========================================
 
 Date: 22 July 2026
@@ -7,47 +7,37 @@ Date: 22 July 2026
 PASS: python -m compileall -q src tests
 
 [2] Focused non-GUI regression suite
-PASS: 128 tests
+PASS: 188 tests
 
 Covered areas:
-- tablet-wide annotation geometry, source integration and project persistence;
-- annotation CRUD/history and LAS-merge survival;
-- Paradox detector, reader, import, batch, progress and dialog source guards;
-- depth/time indexes, aggregation, mapping, merge and project codecs;
-- LAS export planning and package version 0.7.18.
+- tablet-wide annotation source integration and eight-handle geometry;
+- depth/time anchor remapping during shared-camera navigation;
+- direct pyqtgraph ViewBox range-change synchronization;
+- annotation CRUD/history, project persistence and LAS-merge survival;
+- project codecs, migrations and image assets;
+- Paradox detector, reader, import, batch and progress regression;
+- depth/time indexes, aggregation, sampling, camera and LAS export planning;
+- package version 0.7.19.
 
-[3] Annotation interaction architecture
-PASS: one overlay spans the full tablet track canvas
-PASS: eight corner/side resize handles
-PASS: mouse capture during cross-column drag
-PASS: single select, double-click/F2/Enter edit, Delete, context menu
-PASS: annotations omitted from the project/settings tree
-PASS: overlay included in tablet print and Masterlog direct rendering
+[3] Annotation depth/time synchronization
+PASS: _apply_visible_depth remaps all annotation anchors after setYRange
+PASS: _on_depth_range_changed remaps anchors for direct ViewBox gestures
+PASS: only screen anchors change; saved offsets, dimensions and styles remain intact
+PASS: existing TabletAnnotationItem helpers are reused
+PASS: selection and transient drag geometry are preserved during layer refresh
+PASS: annotation/project schema remains backward compatible
 
-[4] Paradox responsiveness architecture
-PASS: binary reading and Dataset creation run in QThread workers
-PASS: preview/channel/issue tables are populated in <=12 ms timer slices
-PASS: no QApplication.processEvents re-entrancy
-PASS: ResizeToContents removed from the population hot path
-PASS: adaptive dialog, visible Cancel/Close, titlebar close and safe cancellation
-PASS: six-stage stable progress, counts, current file and elapsed time
-
-[5] Real source samples
-PASS: BLData(1).db = 3488 records / 70 fields; read ~0.28 s; S113 actual step 0.4 m
-PASS: D250(1).db = 1739 records / 101 fields; read ~0.26 s; mixed depth candidates
-PASS: standard GeoScape server step metadata remains 0.2 m
-
-[6] Localization and JSON
+[4] Localization and JSON
 PASS: RU/KK/EN contain 1490 identical keys
 PASS: named placeholders are synchronized
-PASS: all JSON resources are valid
+PASS: 20 JSON files are valid
 
-[7] Source immutability
+[5] Source immutability
 PASS: supplied DB/PX/TV/FAM SHA-256 hashes unchanged
 
-[8] GUI boundary
+[6] GUI boundary
 NOT RUN in this container: PySide6, pyqtgraph and lasio are unavailable.
-Required on Windows: real drag/resize/edit, project reopen, PDF/print, dialog
-repaint/close/cancel, and DB -> LAS round-trip.
+Required on Windows: scroll/zoom/pan with depth and time annotations, project
+reopen, PDF/print comparison, physical printing and DB -> LAS round-trip.
 
-Detailed report: docs/HOTFIX_REPORT_0.7.18.md
+Detailed report: docs/HOTFIX_REPORT_0.7.19.md

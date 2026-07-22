@@ -5180,6 +5180,10 @@ class TabletView(QWidget):
             self._update_stratigraphy_text_visibility(normalized_top, normalized_bottom)
         finally:
             self._depth_range_guard = False
+        # setYRange changes the data-to-screen transform immediately. Remap the
+        # annotation anchors before the next repaint so comments and callouts
+        # scroll/zoom together with their depth or time coordinate.
+        self._refresh_annotation_overlay_anchors()
         self._update_navigation_controls()
         if changed and emit_change:
             self.visible_depth_changed.emit(normalized_top, normalized_bottom)
@@ -7069,6 +7073,27 @@ class TabletView(QWidget):
         self._annotation_overlay.set_print_mode(self._annotation_print_mode)
         self._annotation_overlay.raise_()
 
+    def _refresh_annotation_overlay_anchors(self) -> None:
+        """Remap data-bound annotations after scrolling or zooming the axis.
+
+        Saved ``offset_x``/``offset_y`` values describe the callout box relative
+        to its depth/time/curve anchor. Only the anchor's screen position changes
+        during navigation. Updating just those positions preserves user geometry
+        and avoids rebuilding the complete annotation layer on every wheel step.
+        """
+
+        if not self._canvas_objects:
+            return
+        anchors: dict[str, QPointF] = {}
+        for canvas_item in self._canvas_objects:
+            if not is_annotation_object(canvas_item):
+                continue
+            record = annotation_from_canvas(canvas_item)
+            anchor = self._annotation_anchor_in_canvas(record)
+            if anchor is not None:
+                anchors[record.annotation_id] = anchor
+        self._annotation_overlay.set_anchor_positions(anchors)
+
     @property
     def selected_annotation_id(self) -> str | None:
         return self._annotation_overlay.selected_annotation_id
@@ -7281,6 +7306,10 @@ class TabletView(QWidget):
             self._synchronize_depth_ranges(top, bottom)
             self._update_lithology_text_visibility(top, bottom)
             self._update_stratigraphy_text_visibility(top, bottom)
+            # A direct ViewBox gesture (wheel, pan or zoom) bypasses
+            # _apply_visible_depth, so synchronize data-bound annotations here
+            # as well. Otherwise their boxes stay at stale screen coordinates.
+            self._refresh_annotation_overlay_anchors()
             self._update_navigation_controls()
             self.visible_depth_changed.emit(top, bottom)
         finally:

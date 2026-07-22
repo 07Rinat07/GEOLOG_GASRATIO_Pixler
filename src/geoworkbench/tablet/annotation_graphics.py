@@ -530,23 +530,70 @@ class TabletAnnotationOverlay(QWidget):
         self,
         entries: list[tuple[AnnotationRecord, QPointF, QPixmap | None]],
     ) -> None:
+        """Replace layer contents while reusing existing graphics helpers.
+
+        Depth navigation can refresh annotation anchors many times per second.
+        Reusing helpers avoids repeatedly rebuilding fonts, painter paths and
+        image pixmaps while preserving selection and an active mouse gesture.
+        """
+
         previous = self._selected_id
-        self._entries.clear()
-        self._order.clear()
+        old_entries = self._entries
+        next_entries: dict[str, tuple[TabletAnnotationItem, QPointF]] = {}
+        next_order: list[str] = []
         for record, anchor, pixmap in entries:
-            helper = TabletAnnotationItem(
-                record,
-                pixmap=pixmap,
-                edit_mode=self._edit_mode,
-                print_mode=self._print_mode,
-            )
-            helper._selected = record.annotation_id == previous
-            self._entries[record.annotation_id] = (helper, QPointF(anchor))
-            self._order.append(record.annotation_id)
+            annotation_id = record.annotation_id
+            existing = old_entries.get(annotation_id)
+            if existing is None:
+                helper = TabletAnnotationItem(
+                    record,
+                    pixmap=pixmap,
+                    edit_mode=self._edit_mode,
+                    print_mode=self._print_mode,
+                )
+            else:
+                helper, _old_anchor = existing
+                # Do not overwrite the transient geometry while the user is
+                # dragging. It is committed through geometry_changed on release.
+                if annotation_id != self._drag_id:
+                    helper.set_record(record, pixmap=pixmap)
+                helper.set_edit_mode(self._edit_mode)
+                helper.set_print_mode(self._print_mode)
+            helper._selected = annotation_id == previous
+            next_entries[annotation_id] = (helper, QPointF(anchor))
+            next_order.append(annotation_id)
+
+        self._entries = next_entries
+        self._order = next_order
         if previous not in self._entries:
             self._selected_id = None
             if previous is not None:
                 self.selection_changed.emit(None)
+        self._update_mask()
+        self.update()
+        self.raise_()
+
+    def set_anchor_positions(self, anchors: dict[str, QPointF]) -> None:
+        """Synchronize screen anchors after depth/time navigation.
+
+        Annotation geometry is stored as a pixel offset from a data-space
+        anchor. Therefore every change of the visible depth/time range must
+        remap that anchor into the current tablet canvas. This method updates
+        positions only; it never changes text, style, size or saved offsets.
+        """
+
+        changed = False
+        for annotation_id, (helper, current_anchor) in tuple(self._entries.items()):
+            next_anchor = anchors.get(annotation_id)
+            if next_anchor is None:
+                continue
+            normalized = QPointF(next_anchor)
+            if current_anchor == normalized:
+                continue
+            self._entries[annotation_id] = (helper, normalized)
+            changed = True
+        if not changed:
+            return
         self._update_mask()
         self.update()
         self.raise_()
