@@ -254,6 +254,8 @@ class MainWindow(QMainWindow):
         self.tablet_view.curve_pencil_requested.connect(self._start_curve_pencil_from_tablet)
         self.tablet_view.curve_edit_requested.connect(self._apply_curve_draw_edit)
         self.tablet_view.curve_pencil_mode_changed.connect(self._sync_pencil_action_from_tablet)
+        self.tablet_view.curve_pencil_undo_requested.connect(self.undo_curve_edit)
+        self.tablet_view.curve_pencil_redo_requested.connect(self.redo_curve_edit)
         self.tablet_view.track_rename_requested.connect(self._rename_live_track)
         self.tablet_view.track_group_rename_requested.connect(self._rename_live_track_group)
         self.tablet_view.track_curve_settings_requested.connect(
@@ -821,12 +823,14 @@ class MainWindow(QMainWindow):
 
         self.undo_action = self._localized_action("shell.undo_curve_edit")
         self.undo_action.setShortcut("Ctrl+Z")
+        self.undo_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         self.undo_action.triggered.connect(self.undo_curve_edit)
         self.undo_action.setEnabled(False)
         edit_menu.addAction(self.undo_action)
 
         self.redo_action = self._localized_action("shell.redo_curve_edit")
         self.redo_action.setShortcut("Ctrl+Shift+Z")
+        self.redo_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         self.redo_action.triggered.connect(self.redo_curve_edit)
         self.redo_action.setEnabled(False)
         edit_menu.addAction(self.redo_action)
@@ -2640,8 +2644,11 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Значение изменено; газовые производные пересчитаны")
 
     def _update_curve_edit_actions(self) -> None:
-        self.undo_action.setEnabled(self.curve_editing_controller.history.can_undo)
-        self.redo_action.setEnabled(self.curve_editing_controller.history.can_redo)
+        can_undo = self.curve_editing_controller.history.can_undo
+        can_redo = self.curve_editing_controller.history.can_redo
+        self.undo_action.setEnabled(can_undo)
+        self.redo_action.setEnabled(can_redo)
+        self.tablet_view.set_curve_pencil_history_state(can_undo, can_redo)
 
     def _build_tablet_from_curve_selection(self, mnemonics: object) -> None:
         selected = [str(item) for item in mnemonics] if isinstance(mnemonics, list) else []

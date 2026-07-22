@@ -731,6 +731,8 @@ class TabletView(QWidget):
     curve_pencil_requested = Signal(str, str)
     curve_edit_requested = Signal(str, object, object)
     curve_pencil_mode_changed = Signal(bool, str)
+    curve_pencil_undo_requested = Signal()
+    curve_pencil_redo_requested = Signal()
     save_layout_requested = Signal()
     visible_depth_changed = Signal(float, float)
     vertical_index_changed = Signal(str)
@@ -779,6 +781,8 @@ class TabletView(QWidget):
         self._curve_pencil_commit_ack: bool | None = None
         self._curve_pencil_commit_error = ""
         self._curve_pencil_unsaved = False
+        self._curve_pencil_can_undo = False
+        self._curve_pencil_can_redo = False
         self._curve_pencil_last_hover: tuple[str, _CurvePencilPoint, QPoint] | None = None
         self._pencil_cursor = self._build_pencil_cursor()
         self._cursor_depth: float | None = None
@@ -938,7 +942,7 @@ class TabletView(QWidget):
         self._curve_pencil_button.toggled.connect(self._tablet_pencil_button_toggled)
         pencil_layout.addWidget(self._curve_pencil_button)
         self._curve_pencil_mode_label = QLabel(self._localizer.text("tablet.curve_pencil_mode"))
-        pencil_layout.addWidget(self._curve_pencil_mode_label)
+        self._curve_pencil_mode_label.hide()
         self._curve_pencil_mode_selector = QComboBox()
         self._curve_pencil_mode_selector.addItem(
             self._localizer.text("tablet.curve_pencil_mode_freehand"),
@@ -954,7 +958,32 @@ class TabletView(QWidget):
         self._curve_pencil_mode_selector.currentIndexChanged.connect(
             self._curve_pencil_mode_changed
         )
-        pencil_layout.addWidget(self._curve_pencil_mode_selector)
+        # Keep the combo as a compatibility model, but expose the two modes as
+        # large, explicit buttons so the point-connection tool cannot disappear
+        # in a crowded Masterlog toolbar.
+        self._curve_pencil_mode_selector.hide()
+        self._curve_pencil_freehand_button = QPushButton(
+            self._localizer.text("tablet.curve_pencil_mode_freehand_button")
+        )
+        self._curve_pencil_freehand_button.setCheckable(True)
+        self._curve_pencil_freehand_button.setToolTip(
+            self._localizer.text("tablet.curve_pencil_mode_tooltip")
+        )
+        self._curve_pencil_freehand_button.clicked.connect(
+            lambda _checked=False: self._select_curve_pencil_mode(CurvePencilMode.FREEHAND)
+        )
+        pencil_layout.addWidget(self._curve_pencil_freehand_button)
+        self._curve_pencil_points_button = QPushButton(
+            self._localizer.text("tablet.curve_pencil_mode_points_button")
+        )
+        self._curve_pencil_points_button.setCheckable(True)
+        self._curve_pencil_points_button.setToolTip(
+            self._localizer.text("tablet.curve_pencil_mode_tooltip")
+        )
+        self._curve_pencil_points_button.clicked.connect(
+            lambda _checked=False: self._select_curve_pencil_mode(CurvePencilMode.CONNECT_POINTS)
+        )
+        pencil_layout.addWidget(self._curve_pencil_points_button)
         self._curve_pencil_target_label = QLabel(self._localizer.text("tablet.curve_pencil_target"))
         pencil_layout.addWidget(self._curve_pencil_target_label)
         self._curve_pencil_selector = QComboBox()
@@ -981,12 +1010,33 @@ class TabletView(QWidget):
         )
         self._curve_pencil_clear_button.clicked.connect(self.cancel_curve_pencil_gesture)
         pencil_layout.addWidget(self._curve_pencil_clear_button)
+        self._curve_pencil_undo_button = QPushButton(
+            self._localizer.text("tablet.curve_pencil_undo")
+        )
+        self._curve_pencil_undo_button.setToolTip(
+            self._localizer.text("tablet.curve_pencil_undo_tooltip")
+        )
+        self._curve_pencil_undo_button.clicked.connect(
+            lambda _checked=False: self.curve_pencil_undo_requested.emit()
+        )
+        pencil_layout.addWidget(self._curve_pencil_undo_button)
+        self._curve_pencil_redo_button = QPushButton(
+            self._localizer.text("tablet.curve_pencil_redo")
+        )
+        self._curve_pencil_redo_button.setToolTip(
+            self._localizer.text("tablet.curve_pencil_redo_tooltip")
+        )
+        self._curve_pencil_redo_button.clicked.connect(
+            lambda _checked=False: self.curve_pencil_redo_requested.emit()
+        )
+        pencil_layout.addWidget(self._curve_pencil_redo_button)
         self._curve_pencil_status = QLabel(self._localizer.text("tablet.curve_pencil_inactive"))
-        self._curve_pencil_status.setMinimumWidth(260)
+        self._curve_pencil_status.setMinimumWidth(180)
         self._curve_pencil_status.setToolTip(self._localizer.text("tablet.curve_pencil_tooltip"))
         pencil_layout.addWidget(self._curve_pencil_status)
         self._update_curve_pencil_bar_style()
         self._update_curve_pencil_mode_controls()
+        self.set_curve_pencil_history_state(False, False)
 
         self._vertical_scrollbar = QScrollBar(Qt.Orientation.Vertical)
         self._vertical_scrollbar.setRange(0, 0)
@@ -1037,11 +1087,35 @@ class TabletView(QWidget):
         self._curve_pencil_mode_selector.setItemText(
             1, self._localizer.text("tablet.curve_pencil_mode_points")
         )
+        self._curve_pencil_freehand_button.setText(
+            self._localizer.text("tablet.curve_pencil_mode_freehand_button")
+        )
+        self._curve_pencil_freehand_button.setToolTip(
+            self._localizer.text("tablet.curve_pencil_mode_tooltip")
+        )
+        self._curve_pencil_points_button.setText(
+            self._localizer.text("tablet.curve_pencil_mode_points_button")
+        )
+        self._curve_pencil_points_button.setToolTip(
+            self._localizer.text("tablet.curve_pencil_mode_tooltip")
+        )
         self._curve_pencil_mode_selector.setToolTip(
             self._localizer.text("tablet.curve_pencil_mode_tooltip")
         )
         self._curve_pencil_apply_button.setText(
             self._localizer.text("tablet.curve_pencil_apply_points")
+        )
+        self._curve_pencil_undo_button.setText(
+            self._localizer.text("tablet.curve_pencil_undo")
+        )
+        self._curve_pencil_redo_button.setText(
+            self._localizer.text("tablet.curve_pencil_redo")
+        )
+        self._curve_pencil_undo_button.setToolTip(
+            self._localizer.text("tablet.curve_pencil_undo_tooltip")
+        )
+        self._curve_pencil_redo_button.setToolTip(
+            self._localizer.text("tablet.curve_pencil_redo_tooltip")
         )
         self._curve_pencil_apply_button.setToolTip(
             self._localizer.text("tablet.curve_pencil_apply_points_tooltip")
@@ -1763,44 +1837,47 @@ class TabletView(QWidget):
 
     @staticmethod
     def _build_pencil_cursor() -> QCursor:
-        # A large high-contrast cursor remains visible on both white plots and
-        # dark Windows themes, including 125–200% display scaling.
-        pixmap = QPixmap(40, 40)
+        """Build a compact pencil cursor whose hotspot is the graphite tip."""
+
+        pixmap = QPixmap(26, 26)
         pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        # Short white halo keeps the compact cursor visible on dense curves.
         painter.setPen(
             QPen(
                 QColor("#ffffff"),
-                8.0,
+                6.0,
                 Qt.PenStyle.SolidLine,
                 Qt.PenCapStyle.RoundCap,
             )
         )
-        painter.drawLine(8, 32, 31, 9)
+        painter.drawLine(6, 20, 19, 7)
         painter.setPen(
             QPen(
                 QColor("#0f172a"),
-                5.0,
+                4.0,
                 Qt.PenStyle.SolidLine,
                 Qt.PenCapStyle.RoundCap,
             )
         )
-        painter.drawLine(8, 32, 31, 9)
+        painter.drawLine(6, 20, 19, 7)
         painter.setPen(
             QPen(
                 QColor("#f97316"),
-                3.0,
+                2.2,
                 Qt.PenStyle.SolidLine,
                 Qt.PenCapStyle.RoundCap,
             )
         )
-        painter.drawLine(10, 30, 29, 11)
-        painter.setPen(QPen(QColor("#0f172a"), 2.0))
-        painter.setBrush(QBrush(QColor("#fbbf24")))
-        painter.drawPolygon([QPoint(5, 35), QPoint(11, 31), QPoint(9, 37)])
+        painter.drawLine(7, 19, 18, 8)
+        painter.setPen(QPen(QColor("#0f172a"), 1.4))
+        painter.setBrush(QBrush(QColor("#fde68a")))
+        painter.drawPolygon([QPoint(3, 23), QPoint(7, 19), QPoint(8, 22)])
+        painter.setBrush(QBrush(QColor("#0f172a")))
+        painter.drawPolygon([QPoint(3, 23), QPoint(5, 21), QPoint(5, 23)])
         painter.end()
-        return QCursor(pixmap, 6, 35)
+        return QCursor(pixmap, 3, 23)
 
     @staticmethod
     def _curve_is_directly_editable(curve: CurveData) -> bool:
@@ -1848,6 +1925,30 @@ class TabletView(QWidget):
                 return item.track_id, item.object_id
         return None
 
+    def _select_curve_pencil_mode(self, mode: CurvePencilMode) -> None:
+        row = self._curve_pencil_mode_selector.findData(mode.value)
+        if row >= 0:
+            self._curve_pencil_mode_selector.setCurrentIndex(row)
+
+    def _sync_curve_pencil_mode_buttons(self) -> None:
+        point_mode = self._curve_pencil_mode is CurvePencilMode.CONNECT_POINTS
+        for button, checked in (
+            (self._curve_pencil_freehand_button, not point_mode),
+            (self._curve_pencil_points_button, point_mode),
+        ):
+            button.blockSignals(True)
+            button.setChecked(checked)
+            button.blockSignals(False)
+            button.setStyleSheet(
+                "QPushButton { padding: 5px 9px; border-radius: 4px; "
+                + (
+                    "background:#f97316; color:#ffffff; border:1px solid #c2410c; "
+                    "font-weight:700; }"
+                    if checked
+                    else "background:#fff7ed; color:#9a3412; border:1px solid #fdba74; }"
+                )
+            )
+
     def _curve_pencil_mode_changed(self, _row: int) -> None:
         raw = self._curve_pencil_mode_selector.currentData()
         try:
@@ -1855,15 +1956,18 @@ class TabletView(QWidget):
         except ValueError:
             mode = CurvePencilMode.FREEHAND
         if mode is self._curve_pencil_mode:
+            self._sync_curve_pencil_mode_buttons()
             self._update_curve_pencil_mode_controls()
             return
         self.cancel_curve_pencil_gesture()
         self._curve_pencil_mode = mode
         self._curve_pencil_commit_error = ""
+        self._sync_curve_pencil_mode_buttons()
         self._update_curve_pencil_mode_controls()
         self._update_curve_pencil_status()
 
     def _update_curve_pencil_mode_controls(self) -> None:
+        self._sync_curve_pencil_mode_buttons()
         point_mode = self._curve_pencil_mode is CurvePencilMode.CONNECT_POINTS
         self._curve_pencil_apply_button.setVisible(point_mode)
         self._curve_pencil_clear_button.setVisible(point_mode)
@@ -1873,6 +1977,12 @@ class TabletView(QWidget):
         self._curve_pencil_clear_button.setEnabled(
             point_mode and bool(self._curve_pencil_points)
         )
+
+    def set_curve_pencil_history_state(self, can_undo: bool, can_redo: bool) -> None:
+        self._curve_pencil_can_undo = bool(can_undo)
+        self._curve_pencil_can_redo = bool(can_redo)
+        self._curve_pencil_undo_button.setEnabled(self._curve_pencil_can_undo)
+        self._curve_pencil_redo_button.setEnabled(self._curve_pencil_can_redo)
 
     def _apply_curve_pencil_points(self) -> None:
         if self._curve_pencil_mode is not CurvePencilMode.CONNECT_POINTS:
@@ -2152,6 +2262,9 @@ class TabletView(QWidget):
         self._update_curve_pencil_status()
 
     def clear_curve_pencil_unsaved(self) -> None:
+        # Saving clears only the dirty indicator.  Undo/redo history remains
+        # available, matching standard editor behaviour; an undo after Save
+        # marks the project dirty again through the controller.
         self._curve_pencil_unsaved = False
         self._update_curve_pencil_status()
 
@@ -2701,6 +2814,17 @@ class TabletView(QWidget):
             menu.addSeparator()
             save_layout_action = menu.addAction(self._localizer.text("tablet.save_layout_as_form"))
             menu.addSeparator()
+        curve_undo_action = curve_redo_action = None
+        if graphical:
+            menu.addSeparator()
+            curve_undo_action = menu.addAction(
+                self._localizer.text("tablet.curve_pencil_undo_context")
+            )
+            curve_redo_action = menu.addAction(
+                self._localizer.text("tablet.curve_pencil_redo_context")
+            )
+            curve_undo_action.setEnabled(self._curve_pencil_can_undo)
+            curve_redo_action.setEnabled(self._curve_pencil_can_redo)
         undo_action = menu.addAction(self._localizer.text("tablet.undo_interaction"))
         redo_action = menu.addAction(self._localizer.text("tablet.redo_interaction"))
         if move_left is not None:
@@ -2740,6 +2864,10 @@ class TabletView(QWidget):
             self.track_remove_requested.emit(track_id)
         elif save_layout_action is not None and chosen is save_layout_action:
             self.save_layout_requested.emit()
+        elif curve_undo_action is not None and chosen is curve_undo_action:
+            self.curve_pencil_undo_requested.emit()
+        elif curve_redo_action is not None and chosen is curve_redo_action:
+            self.curve_pencil_redo_requested.emit()
         elif chosen is undo_action:
             self.undo_interaction()
         elif chosen is redo_action:

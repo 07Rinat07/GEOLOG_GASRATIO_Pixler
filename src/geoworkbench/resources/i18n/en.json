@@ -1180,5 +1180,13 @@
   "tablet.curve_pencil_clear_points": "Clear points",
   "tablet.curve_pencil_points_selected": "✎ {mnemonic}: {count} points selected. Press Connect, Enter, or double-click the last point.",
   "tablet.curve_pencil_commit_failed": "Edit was not applied: {error}. The orange line remains visible for correction and retry.",
-  "tablet.curve_pencil_live_readout": "✎ {mnemonic}\n{axis_name}: {axis}\nNew: {value}\nPrevious: {old}"
+  "tablet.curve_pencil_live_readout": "✎ {mnemonic}\n{axis_name}: {axis}\nNew: {value}\nPrevious: {old}",
+  "tablet.curve_pencil_mode_freehand_button": "✎ Freehand",
+  "tablet.curve_pencil_mode_points_button": "●—● Connect points",
+  "tablet.curve_pencil_undo": "↶ Undo",
+  "tablet.curve_pencil_redo": "↷ Redo",
+  "tablet.curve_pencil_undo_tooltip": "Undo the last applied curve edit (Ctrl+Z).",
+  "tablet.curve_pencil_redo_tooltip": "Redo the reverted curve edit (Ctrl+Shift+Z).",
+  "tablet.curve_pencil_undo_context": "Undo last curve edit",
+  "tablet.curve_pencil_redo_context": "Redo curve edit"
 }

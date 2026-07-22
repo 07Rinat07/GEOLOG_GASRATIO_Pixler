@@ -1,3 +1,13 @@
+# 0.7.13 — Compact pencil, visible point connection and reliable Undo/Redo
+
+- replaced the oversized diagonal cursor with a compact 26×26 pencil whose hotspot is the graphite tip;
+- exposed Freehand and Connect points as two permanent high-contrast buttons instead of a hidden/compressed combo box;
+- kept the existing point workflow: select two or more points and apply with Connect, Enter or a double-click on the last point;
+- added visible Undo and Redo buttons directly to the pencil bar and dedicated curve-history actions to the track context menu;
+- promoted Ctrl+Z and Ctrl+Shift+Z to application-wide shortcuts so graph, combo-box or table focus cannot swallow them;
+- synchronized button enabled states with the real CurveEditHistory stacks; undo/redo still recalculates dependent curves in memory and requires explicit Save;
+- added RU/KK/EN labels and source-contract regression checks.
+
 # 0.7.12 — Persistent pencil cursor and live value readout
 
 - kept the custom pencil cursor active on every target-plot mouse event, even when Qt/pyqtgraph restores the default arrow;

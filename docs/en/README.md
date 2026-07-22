@@ -1,6 +1,6 @@
 # User guide
 
-> **0.7.12:** the tablet keeps the pencil cursor visible and shows a floating card with depth/time, proposed value and previous value. Dependent parameters recalculate immediately in memory, while disk persistence still requires the Save button.
+> **0.7.13:** the tablet uses a compact pencil cursor, separate Freehand and Connect points buttons, and visible Undo/Redo controls. Dependent parameters recalculate immediately in memory, while disk persistence still requires the Save button.
 
 
 
@@ -53,7 +53,7 @@ absolute composition `TG_CALC`, `C1`, `C2` from relative component composition
 
 ## Geological-geochemical Masterlog
 
-The factory “Geological-geochemical Masterlog” follows the supplied working reference: 
+The factory “Geological-geochemical Masterlog” follows the supplied working reference:
 stratigraphy, WOB/ROP/DMC/D-exponent, depth, cuttings diagram, LBA, calcimetry, lithology,
 C1–C5/Total Gas, and rock descriptions. The factory form is protected; an editable user copy
 preserves column order, widths, captions, bindings, scales, and styles. The screen form is linked

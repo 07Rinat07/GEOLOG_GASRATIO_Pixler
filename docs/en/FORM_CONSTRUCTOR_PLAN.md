@@ -1,6 +1,6 @@
 # Universal form, header and print constructor
 
-Updated: 21 July 2026  
+Updated: 21 July 2026
 Implementation version: 0.7.1
 
 ## Purpose

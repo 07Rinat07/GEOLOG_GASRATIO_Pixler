@@ -1,3 +1,7 @@
+## Compact pencil, point connection and history — 0.7.13
+
+The tablet bar permanently exposes **“✎ Freehand”** and **“●—● Connect points”**. Select at least two points, then use **Connect**, Enter or double-click the final point. **Undo** and **Redo** buttons operate on curve edits, together with Ctrl+Z and Ctrl+Shift+Z. The compact 26×26 cursor uses its graphite tip as the value-edit hotspot.
+
 ## Persistent pencil and live values — 0.7.12
 
 The target plot reasserts the custom pencil cursor on every mouse event. A floating card shows the mnemonic, depth/time, proposed value and previous sampled value and remains visible while stationary and after data refresh.

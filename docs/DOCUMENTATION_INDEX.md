@@ -1,3 +1,4 @@
+- Pencil history and point connection 0.7.13: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 # Documentation Index
 - Persistent pencil cursor and live values 0.7.12: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
 - Pencil points, reference Masterlog and Constructor contrast 0.7.11: [Русский](ru/UI_WORKSPACE.md) · [Қазақша](kk/UI_WORKSPACE.md) · [English](en/UI_WORKSPACE.md)
@@ -54,11 +55,11 @@ Excel-подобная таблица и экспорт.
 <!-- BEGIN FORM_CONSTRUCTOR_SLICE23 -->
 ## Universal Form Constructor 0.7.1
 
-Plan: [Русский](ru/FORM_CONSTRUCTOR_PLAN.md) · [Қазақша](kk/FORM_CONSTRUCTOR_PLAN.md) · [English](en/FORM_CONSTRUCTOR_PLAN.md)  
-User guide: [Русский](ru/CONSTRUCTOR.md) · [Қазақша](kk/CONSTRUCTOR.md) · [English](en/CONSTRUCTOR.md)  
+Plan: [Русский](ru/FORM_CONSTRUCTOR_PLAN.md) · [Қазақша](kk/FORM_CONSTRUCTOR_PLAN.md) · [English](en/FORM_CONSTRUCTOR_PLAN.md)
+User guide: [Русский](ru/CONSTRUCTOR.md) · [Қазақша](kk/CONSTRUCTOR.md) · [English](en/CONSTRUCTOR.md)
 Asset import report: [CONSTRUCTOR_ASSET_IMPORT_REPORT.md](CONSTRUCTOR_ASSET_IMPORT_REPORT.md)
-Technical architecture: [CONSTRUCTOR_ARCHITECTURE.md](CONSTRUCTOR_ARCHITECTURE.md)  
-Text/form/stratigraphy guide: [Русский](ru/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [Қазақша](kk/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [English](en/FORM_CAPTIONS_AND_STRATIGRAPHY.md)  
+Technical architecture: [CONSTRUCTOR_ARCHITECTURE.md](CONSTRUCTOR_ARCHITECTURE.md)
+Text/form/stratigraphy guide: [Русский](ru/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [Қазақша](kk/FORM_CAPTIONS_AND_STRATIGRAPHY.md) · [English](en/FORM_CAPTIONS_AND_STRATIGRAPHY.md)
 <!-- END FORM_CONSTRUCTOR_SLICE23 -->
 
 ## Lithotype rendering 0.7.2

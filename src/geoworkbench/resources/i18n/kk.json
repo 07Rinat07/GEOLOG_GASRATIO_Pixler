@@ -1180,5 +1180,13 @@
   "tablet.curve_pencil_clear_points": "Нүктелерді тазарту",
   "tablet.curve_pencil_points_selected": "✎ {mnemonic}: {count} нүкте таңдалды. «Қосу» батырмасын, Enter пернесін басыңыз немесе соңғы нүктені екі рет шертіңіз.",
   "tablet.curve_pencil_commit_failed": "Өзгеріс қолданылмады: {error}. Қызғылт сары сызық түзету және қайта әрекет ету үшін сақталды.",
-  "tablet.curve_pencil_live_readout": "✎ {mnemonic}\n{axis_name}: {axis}\nЖаңа: {value}\nБұрын: {old}"
+  "tablet.curve_pencil_live_readout": "✎ {mnemonic}\n{axis_name}: {axis}\nЖаңа: {value}\nБұрын: {old}",
+  "tablet.curve_pencil_mode_freehand_button": "✎ Еркін",
+  "tablet.curve_pencil_mode_points_button": "●—● Нүктелерді қосу",
+  "tablet.curve_pencil_undo": "↶ Болдырмау",
+  "tablet.curve_pencil_redo": "↷ Қайталау",
+  "tablet.curve_pencil_undo_tooltip": "Қисықтың соңғы қолданылған түзетуін болдырмау (Ctrl+Z).",
+  "tablet.curve_pencil_redo_tooltip": "Болдырылмаған қисық түзетуін қайталау (Ctrl+Shift+Z).",
+  "tablet.curve_pencil_undo_context": "Қисықтың соңғы түзетуін болдырмау",
+  "tablet.curve_pencil_redo_context": "Қисық түзетуін қайталау"
 }

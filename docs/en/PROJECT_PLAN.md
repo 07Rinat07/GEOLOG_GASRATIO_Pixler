@@ -1,3 +1,12 @@
+## Slice 0.7.13 — compact pencil, visible points and Undo/Redo
+
+- [x] replace the long cursor with a compact 26×26 pencil using the graphite tip as its hotspot;
+- [x] expose Freehand and Connect points as permanent buttons;
+- [x] apply selected points with Connect, Enter or a double-click on the last point;
+- [x] add dedicated Undo and Redo buttons to the pencil bar;
+- [x] make Ctrl+Z and Ctrl+Shift+Z application-wide;
+- [x] recalculate dependent curves in memory and persist only on explicit Save.
+
 # Project plan
 
 ## Slice 0.7.12 — persistent pencil and live values

@@ -1180,5 +1180,13 @@
   "tablet.curve_pencil_clear_points": "Очистить точки",
   "tablet.curve_pencil_points_selected": "✎ {mnemonic}: выбрано точек — {count}. Нажмите «Соединить», Enter или дважды щёлкните последнюю точку.",
   "tablet.curve_pencil_commit_failed": "Правка не применена: {error}. Оранжевая линия сохранена для исправления и повторной попытки.",
-  "tablet.curve_pencil_live_readout": "✎ {mnemonic}\n{axis_name}: {axis}\nНовое: {value}\nБыло: {old}"
+  "tablet.curve_pencil_live_readout": "✎ {mnemonic}\n{axis_name}: {axis}\nНовое: {value}\nБыло: {old}",
+  "tablet.curve_pencil_mode_freehand_button": "✎ Свободно",
+  "tablet.curve_pencil_mode_points_button": "●—● Соединить точки",
+  "tablet.curve_pencil_undo": "↶ Отменить",
+  "tablet.curve_pencil_redo": "↷ Повторить",
+  "tablet.curve_pencil_undo_tooltip": "Отменить последнюю применённую правку кривой (Ctrl+Z).",
+  "tablet.curve_pencil_redo_tooltip": "Повторить отменённую правку кривой (Ctrl+Shift+Z).",
+  "tablet.curve_pencil_undo_context": "Отменить последнюю правку кривой",
+  "tablet.curve_pencil_redo_context": "Повторить правку кривой"
 }

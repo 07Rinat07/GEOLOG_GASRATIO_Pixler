@@ -1,34 +1,34 @@
-GEOLOG GASRATIO@Pixler 0.7.12 — Persistent pencil cursor and live value readout
+GEOLOG GASRATIO@Pixler 0.7.13 — Compact pencil, visible point connection and reliable Undo/Redo
 
 Implemented
-- The active tablet plot reasserts the custom pencil cursor on every mouse press, move, release and double-click event.
-- The PlotWidget and its viewport both receive the pencil cursor so pyqtgraph/Qt cannot silently restore the default arrow.
-- A floating in-plot card follows the pointer and shows:
-  - active mnemonic;
-  - depth/time coordinate;
-  - proposed value under the pencil;
-  - previous value of the nearest stored sample.
-- The card remains visible while the pointer is stationary.
-- The last card position/value is restored after the in-memory curve update and dependent recalculation refresh.
-- The card is hidden only when the pointer leaves the target graph, the target changes or pencil mode is disabled.
-- Dependent Gas Ratio, Pixler and custom-formula curves still recalculate immediately in memory.
-- Disk persistence still occurs only through explicit Save / diskette action.
-- Russian, Kazakh and English UI resources contain the same 1182 keys.
+- Replaced the oversized diagonal cursor with a compact 26×26 pencil.
+- The cursor hotspot is the graphite tip, so the edited value matches the visible contact point.
+- Added permanent high-contrast mode buttons:
+  - ✎ Freehand / Свободно / Еркін
+  - ●—● Connect points / Соединить точки / Нүктелерді қосу
+- Kept the existing point workflow: select at least two points, then apply with Connect, Enter or a double-click on the last point.
+- Added visible Undo and Redo buttons to the tablet pencil bar.
+- Added curve-specific Undo/Redo actions to the track context menu.
+- Changed Ctrl+Z and Ctrl+Shift+Z to application-wide shortcuts so plot/combo/table focus cannot swallow them.
+- Synchronized pencil history button enabled states with CurveEditHistory.
+- Saving clears the dirty marker but intentionally keeps Undo/Redo history; an undo after Save marks the project dirty again.
+- Undo and redo continue to recalculate dependent Gas Ratio, Pixler and custom-formula curves in memory.
+- Disk persistence still requires explicit Save / diskette action.
+- Russian, Kazakh and English resources contain the same 1190 keys.
 
-Automated validation
-- pytest: 1023 passed, 1 skipped
-- Pencil-focused TabletView tests: 6 passed
-- Pencil-focused MainWindow tests: 2 passed
-- Ruff: PASS
+Automated validation available in this container
 - compileall: PASS
-- RU/KK/EN translation synchronization: PASS (1182 keys per language)
-- Offscreen visual render of live pencil readout: PASS
-- ZIP integrity: PASS (checked after packaging)
+- Source-contract and edit-history tests: 14 passed
+- RU/KK/EN key-set parity: PASS (1190 keys per language)
+- JSON parsing for all three localization catalogs: PASS
 
-Generated review artifact
-- GEOLOG_0.7.12_pencil_live_values.png
+Not executed in this container
+- Full Qt/pyqtgraph GUI test suite: NOT RUN because PySide6 and pyqtgraph are not installed and no package source is available in this environment.
+- Ruff: NOT RUN because Ruff is not installed in this environment.
 
-Manual Windows checks still required
-- Confirm the operating-system cursor hotspot and size at the user's actual Windows DPI scaling.
-- Confirm the live card does not cover a critical part of a very narrow track; it is automatically clamped inside the viewport.
-- Physical printer margins and driver-specific non-printable areas.
+Required Windows smoke test
+1. Open a wide Masterlog tablet and enable the pencil.
+2. Confirm the cursor is compact and its tip matches the edited value.
+3. Select “Соединить точки”, place two or more points and apply with the button, Enter and double-click.
+4. Confirm Undo/Redo buttons and Ctrl+Z/Ctrl+Shift+Z restore both the source curve and recalculated dependants.
+5. Save, then undo once: the project must become unsaved again and retain redo availability.

@@ -1,3 +1,7 @@
+## Fix 0.7.13 — compact cursor and reliable edit history
+
+The pencil cursor is now a compact 26×26 image whose hotspot matches the graphite tip. Connect points is a permanent visible mode rather than a compressed combo-box entry. Undo/Redo are available on the pencil bar and track context menu, while Ctrl+Z/Ctrl+Shift+Z work regardless of widget focus. Dependent curves recalculate immediately in memory; disk persistence still requires explicit Save.
+
 # Current project status
 
 ## Fix 0.7.12 — persistent pencil cursor and live values
