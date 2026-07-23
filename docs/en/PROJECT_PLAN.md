@@ -6,16 +6,17 @@ only active work.
 ## P0 — release stability
 
 - [x] fix annotation routing and the full Qt test-process crash;
-- [x] bring Ruff and mypy to zero errors; the full pytest result is 1,182 passed and
+- [x] bring Ruff and mypy to zero errors; the full pytest result is 1,188 passed and
   10 skipped;
 - complete the mandatory Windows, HiDPI, PDF, and physical-print matrix;
 - do not label the build stable until the gate is green.
 
 ## P0 — architecture and data
 
-- first extract the annotation event router from `TabletView` without changing behavior,
+- [x] first extract the annotation event router from `TabletView` without changing behavior,
   protected by headless tests;
-- then separate navigation, track lifecycle, grid, and editing-mode responsibilities;
+- [x] move pan, zoom, home/end, and keyboard commands into a headless navigation coordinator;
+- then separate track lifecycle, grid, and editing-mode responsibilities;
 - split `MainWindow` into workspace, import, print, and session-binding commands;
 - add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
   source, and original mnemonic;

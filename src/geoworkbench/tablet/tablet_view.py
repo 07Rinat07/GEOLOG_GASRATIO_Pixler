@@ -86,9 +86,11 @@ from geoworkbench.ui.oriented_text_label import OrientedTextLabel
 from geoworkbench.tablet.curve_scaling import automatic_curve_range, normalize_curve_values
 from geoworkbench.tablet.camera import (
     DEPTH_VIEW_SPAN_PRESETS,
-    TabletCamera,
     recommended_initial_range,
-    recommended_initial_span,
+)
+from geoworkbench.tablet.navigation_coordinator import (
+    NavigationCommand,
+    TabletNavigationCoordinator,
 )
 from geoworkbench.tablet.geometry_cache import (
     CurveGeometryCache,
@@ -898,7 +900,7 @@ class TabletView(QWidget):
         self._axis_combo_guard = False
         self._span_combo_guard = False
         self._scrollbar_guard = False
-        self._camera = TabletCamera()
+        self._navigation = TabletNavigationCoordinator()
         self._pan_viewport: QObject | None = None
         self._pan_last_position: QPointF | None = None
         self._space_pressed = False
@@ -4780,24 +4782,15 @@ class TabletView(QWidget):
         bounds = self._axis_bounds()
         if current is None or bounds is None or not np.isfinite(steps) or steps == 0:
             return False
-        self._sync_camera(bounds, current)
-        domain_span = bounds[1] - bounds[0]
-        current_span = current[1] - current[0]
-        if np.isclose(current_span, domain_span, rtol=0.0, atol=max(domain_span, 1.0) * 1e-9):
-            descriptor = self._axis_descriptor()
-            initial_span = recommended_initial_span(
-                domain_span,
-                is_time=descriptor.is_time if descriptor is not None else False,
-                is_datetime=descriptor.is_datetime if descriptor is not None else False,
-                unit=descriptor.unit if descriptor is not None else "",
-            )
-            if initial_span < domain_span:
-                if steps > 0:
-                    current = (bounds[0], bounds[0] + initial_span)
-                else:
-                    current = (bounds[1] - initial_span, bounds[1])
-                self._sync_camera(bounds, current)
-        top, bottom = self._camera.pan_fraction(0.10 * float(steps))
+        descriptor = self._axis_descriptor()
+        top, bottom = self._navigation.scroll(
+            bounds,
+            current,
+            float(steps),
+            is_time=descriptor.is_time if descriptor is not None else False,
+            is_datetime=descriptor.is_datetime if descriptor is not None else False,
+            unit=descriptor.unit if descriptor is not None else "",
+        )
         return self._apply_visible_depth(top, bottom, emit_change=True)
 
     def zoom_depth(self, factor: float, anchor: float | None = None) -> bool:
@@ -4805,13 +4798,10 @@ class TabletView(QWidget):
         bounds = self._axis_bounds()
         if current is None or bounds is None or not np.isfinite(factor) or factor <= 0:
             return False
-        self._sync_camera(bounds, current)
-        top, bottom = self._camera.zoom(float(factor), anchor=anchor)
+        top, bottom = self._navigation.zoom(
+            bounds, current, float(factor), anchor=anchor
+        )
         return self._apply_visible_depth(top, bottom, emit_change=True)
-
-    def _sync_camera(self, bounds: tuple[float, float], current: tuple[float, float]) -> None:
-        self._camera.set_domain(*bounds, preserve_window=False)
-        self._camera.set_visible_range(*current)
 
     def _axis_value_at_event(
         self,
@@ -4837,22 +4827,18 @@ class TabletView(QWidget):
         bounds = self._axis_bounds()
         if current is None or bounds is None:
             return False
-        self._sync_camera(bounds, current)
-        key = event.key()
-        if key == Qt.Key.Key_Home:
-            target = self._camera.home()
-        elif key == Qt.Key.Key_End:
-            target = self._camera.end()
-        elif key == Qt.Key.Key_PageUp:
-            target = self._camera.pan_fraction(-0.9)
-        elif key == Qt.Key.Key_PageDown:
-            target = self._camera.pan_fraction(0.9)
-        elif key == Qt.Key.Key_Up:
-            target = self._camera.pan_fraction(-0.1)
-        elif key == Qt.Key.Key_Down:
-            target = self._camera.pan_fraction(0.1)
-        else:
+        commands: dict[int, NavigationCommand] = {
+            int(Qt.Key.Key_Home): NavigationCommand.HOME,
+            int(Qt.Key.Key_End): NavigationCommand.END,
+            int(Qt.Key.Key_PageUp): NavigationCommand.PAGE_UP,
+            int(Qt.Key.Key_PageDown): NavigationCommand.PAGE_DOWN,
+            int(Qt.Key.Key_Up): NavigationCommand.LINE_UP,
+            int(Qt.Key.Key_Down): NavigationCommand.LINE_DOWN,
+        }
+        command = commands.get(event.key())
+        if command is None:
             return False
+        target = self._navigation.navigate(bounds, current, command)
         self._apply_visible_depth(*target, emit_change=True)
         return True
 
@@ -5843,8 +5829,7 @@ class TabletView(QWidget):
         bounds = self._axis_bounds()
         if current is None or bounds is None or not np.isfinite(delta):
             return False
-        self._sync_camera(bounds, current)
-        top, bottom = self._camera.pan(float(delta))
+        top, bottom = self._navigation.pan(bounds, current, float(delta))
         return self._apply_visible_depth(top, bottom, emit_change=True)
 
     def _apply_visible_depth(self, top: float, bottom: float, *, emit_change: bool) -> bool:
