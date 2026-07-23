@@ -24,6 +24,7 @@
 - [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md) — channel semantics, UOM classes, and persisted bindings.
 - [IMPORT_REVIEW.md](IMPORT_REVIEW.md) — interactive mapping, QC preview, and atomic import acceptance.
 - [OPERATIONAL_EVENTS.md](OPERATIONAL_EVENTS.md) — typed drilling/geology events, QC, storage, and report projection.
+- [ACQUISITION_REPLAY.md](ACQUISITION_REPLAY.md) — append-only source, growing dataset, checkpoints, backpressure, and replay.
 
 ## Main workflows
 
@@ -41,6 +42,7 @@
 - Import Review: [RU](ru/IMPORT_REVIEW.md) · [KK](kk/IMPORT_REVIEW.md) · [EN](en/IMPORT_REVIEW.md)
 - DOCX/HTML export: [RU](ru/DOCX_HTML_EXPORT.md) · [KK](kk/DOCX_HTML_EXPORT.md) · [EN](en/DOCX_HTML_EXPORT.md)
 - Operational events: [RU](ru/OPERATIONAL_EVENTS.md) · [KK](kk/OPERATIONAL_EVENTS.md) · [EN](en/OPERATIONAL_EVENTS.md)
+- Acquisition replay: [RU](ru/ACQUISITION_REPLAY.md) · [KK](kk/ACQUISITION_REPLAY.md) · [EN](en/ACQUISITION_REPLAY.md)
 
 ## History
 
@@ -95,3 +97,11 @@ Every user-facing change must update the matching RU/KK/EN files in the same com
 - [Русская инструкция](ru/OPERATIONAL_EVENTS.md)
 - [Қазақша нұсқаулық](kk/OPERATIONAL_EVENTS.md)
 - [English guide](en/OPERATIONAL_EVENTS.md)
+
+## Append-only acquisition and replay
+
+- [Acquisition/replay contract](ACQUISITION_REPLAY.md)
+- [Release notes 0.7.42](RELEASE_NOTES_0.7.42.md)
+- [Русская инструкция](ru/ACQUISITION_REPLAY.md)
+- [Қазақша нұсқаулық](kk/ACQUISITION_REPLAY.md)
+- [English guide](en/ACQUISITION_REPLAY.md)

@@ -23,13 +23,14 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для среза 0.7.41 в текущем контейнере выполнены `compileall`, расширенный целевой набор
-operational events + project codec + ReportDefinition + import boundary: 108 passed, а также доступная
-headless-регрессия: 936 passed и 4 skipped. Из полного прогона исключены 84 test-файла,
-которые требуют отсутствующие `PySide6`, `pyqtgraph` или `lasio`; Ruff и mypy в контейнере
-также отсутствуют. Это не заменяет полный
-gate. Перед stable команды выше и Windows Word/LibreOffice/browser/PDF/HiDPI/physical-print
-smoke-test необходимо повторить в установленном окружении.
+Для среза 0.7.42 в текущем контейнере выполнены `compileall`, расширенный целевой набор
+acquisition + operational events + project codec/migrations + ReportDefinition/Passport/output
+transaction: 127 passed. Доступная headless-регрессия: 952 passed, 4 skipped и 3 deselected.
+Три deselected-сценария требуют отсутствующий `lasio`; 82 collection-модуля полного набора
+требуют `PySide6`, `pyqtgraph` или `lasio`. Ruff и mypy в контейнере также отсутствуют. Это не
+заменяет полный gate. Перед stable команды выше и Windows
+Word/LibreOffice/browser/PDF/HiDPI/physical-print smoke-test необходимо повторить в установленном
+окружении.
 
 ## Semantic Channel Dictionary
 
@@ -39,7 +40,7 @@ smoke-test необходимо повторить в установленном
 - сохранение исходной мнемоники, source UOM, confidence и evidence;
 - явный unresolved для неизвестного vendor-канала или UOM;
 - UOM quantity conflict как ошибка Import Review;
-- round-trip project format v17 и миграции v15 → v16 → v17;
+- round-trip project format v18 и миграции v15 → v16 → v17 → v18;
 - сохранение binding при copy/merge/resample/TIME↔DEPTH;
 - read-only гарантия `build_import_review()`;
 - plan/preview/commit на глубокой копии без изменения loader-owned dataset;
@@ -50,7 +51,7 @@ smoke-test необходимо повторить в установленном
 
 ## Operational events
 
-Для operational-event schema v1 и project format v17 обязательны проверки:
+Для operational-event schema v1 в текущем project format v18 обязательны проверки:
 
 - все шесть discriminator-типов принимают только собственный typed payload;
 - событие требует depth, elapsed-time или timezone-aware measurement timestamp;
@@ -62,6 +63,26 @@ smoke-test необходимо повторить в установленном
 - update увеличивает revision, remove поддерживает revision guard;
 - depth, relative-time и datetime EVENTS/DRILLING используют exact resolved bounds;
 - event без anchor выбранного индекса не подменяется другой координатой.
+
+## Append-only acquisition и replay
+
+Для acquisition schema v1 и project format v18 обязательны проверки:
+
+- dataset schema фиксирует точные index/curve IDs, metadata и active index;
+- records имеют уникальные IDs и непрерывную sequence начиная с 1;
+- `DATA_ROW` содержит точный набор индексов/кривых, а missing sample становится `NaN`;
+- DATETIME index принимает Unix nanoseconds, числовой индекс отклоняет non-finite values;
+- bounded buffer возвращает backpressure без потери record и продвижения sequence;
+- drain применяет records строго по порядку и поддерживает целочисленный limit;
+- ошибка row/event atomically восстанавливает dataset, events и append-only journal;
+- event upsert/delete сохраняет revision guard и пересчитывает deterministic QC;
+- checkpoint создаётся только при пустом buffer и подписывает row count, dataset/events/audit;
+- изменение rows, curve version/state, events, QC или checkpoint fingerprint обнаруживается;
+- replay с sequence 1 создаёт идентичные rows, events, QC и report projection;
+- resume разрешён только после совпавшего checkpoint и проверяет последующие checkpoints;
+- closed session требует final checkpoint, canonical UTC close time и final audit digest;
+- codec отклоняет unknown fields/kinds, schema mismatch, duplicate IDs и sequence gaps;
+- миграция v17 → v18 добавляет пустой `acquisition_sessions` без изменения проекта.
 
 ## Report Passport
 
@@ -162,7 +183,7 @@ install для local NTFS и network share, затем подтвердить re
 | Masterlog | интервалы, литотипы, legend, callouts, header | preview и PDF не расходятся по данным и геометрии |
 | Печать | A4/A3/custom/roll, 100%/fit, landscape/portrait | шкалы читаемы, линии не исчезают, страницы продолжаются корректно |
 | HiDPI | 100%, 125%, 150%, 200% | hit-testing и resize handles совпадают с изображением |
-| Миграция | проекты до форматов 17/16/15/14 | текст, геометрия, bindings и печатные настройки сохранены |
+| Миграция | проекты до форматов 18/17/16/15/14 | текст, геометрия, bindings и печатные настройки сохранены |
 
 ## Golden-render gate
 

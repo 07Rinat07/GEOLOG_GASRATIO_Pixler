@@ -24,7 +24,7 @@ only active work.
 - [x] extract print jobs, session binding, and project-tree workspace commands;
 - [x] prevent UI classes from directly mutating the serializable project model;
 - [x] add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
-  source, and original mnemonic; bindings introduced in v16 remain persisted in current v17;
+  source, and original mnemonic; bindings introduced in v16 remain persisted in current v18;
 - [x] add an interactive Import Review with manual overrides, QC preview, and atomic commit;
 - [x] add a reproducible report passport with fingerprints, bindings/UOM, formula versions, form revision, language, and render settings;
 - [x] add deterministic golden fixtures for screen/print grids, legends, lithotypes, and annotations;
@@ -35,9 +35,9 @@ only active work.
 
 - [x] typed drilling, gas, show, sample, casing, and formation-top events in project format v17;
 - [x] gap, duplicate, out-of-order, stale, and calibration QC;
-- [ ] append-only growing dataset, checkpoint, and deterministic replay;
+- [x] append-only growing dataset, checkpoint, and deterministic replay;
 - [ ] versioned lag/depth correction without changing the acquisition source;
-- [ ] WITSML 2.1 inventory, recorded replay, then a secured ETP 1.2 client.
+- [ ] offline WITSML 2.1 inventory and mapping fixtures, then a secured ETP 1.2 client after fixture replay.
 
 ## P1 — reporting
 

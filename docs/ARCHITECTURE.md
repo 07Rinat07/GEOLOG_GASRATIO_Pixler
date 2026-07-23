@@ -91,7 +91,7 @@ interpretation. Qt-обработчик дерева не присваивает
 
 ## Хранение и совместимость
 
-- текущий JSON-формат проекта — 16;
+- текущий JSON-формат проекта — 18;
 - текущий формат layout планшета — 14;
 - миграции выполняются последовательно и не должны удалять неизвестные данные молча;
 - исходные LAS и импортированные assets идентифицируются fingerprint/SHA-256;
@@ -126,7 +126,7 @@ payload definition и его SHA-256.
 
 Qt-независимый `services/interval_selection.py` содержит расчёт строк глубинного интервала;
 `DatasetIntervalSelection` остаётся UI-observer, но exporter больше не импортирует Qt только
-ради геометрии диапазона. Текущий project format v17 дополнительно хранит operational events.
+ради геометрии диапазона. Текущий project format v18 дополнительно хранит operational events и acquisition sessions.
 
 ## Печать
 
@@ -175,16 +175,16 @@ Dataset может иметь MD, TVD, TVDSS, относительное или 
 `UomDictionary` нормализует только явно известные единицы по quantity class. Каждая кривая
 хранит сериализуемый `SemanticChannelBinding`: canonical kind/mnemonic, quantity class,
 canonical/source UOM, aliases, sensor/source, исходную мнемонику, confidence, matched-by и
-evidence. Формат проекта v16 сохраняет этот снимок, поэтому новый каталог не меняет смысл уже
-подтверждённого проекта. `build_import_review()` формирует read-only модель диагностики.
+evidence. Формат проекта v18 сохраняет binding, введённый в v16, поэтому новый каталог не меняет смысл уже подтверждённого проекта. `build_import_review()` формирует read-only модель диагностики.
 `ImportReviewController` владеет plan/preview/commit на глубокой копии, а Qt-диалог только
 редактирует план. `DatasetImportJobExecutor` передаёт project-session port исключительно
 подтверждённую копию; отмена не изменяет коллекции проекта и `dirty`.
 
 ## Real-time boundary
 
-Real-time развивается отдельным адаптером: WITSML 2.1 inventory → recorded replay →
-append-only growing dataset → secured ETP 1.2. Measurement time и arrival time хранятся
+Real-time развивается отдельным адаптером: append-only growing dataset и recorded replay уже
+зафиксированы; далее идут versioned lag/depth correction → offline WITSML 2.1 inventory/fixtures →
+secured ETP 1.2. Measurement time и arrival time хранятся
 раздельно. Gap, duplicate, out-of-order, stale и calibration являются данными QC, а не
 только строками журнала. Lag/depth correction создаёт версионированное преобразование и
 не переписывает acquisition source.
@@ -220,13 +220,13 @@ append-only growing dataset → secured ETP 1.2. Measurement time и arrival tim
 Qt-слой выбирает путь и формат. `DatasetExportController` передаёт dataset и resolved report
 адаптеру. Финальный файл никогда не устанавливается напрямую: producer пишет в staging,
 `ReportOutputTransaction` рассчитывает fingerprint, финализирует Passport schema v4 и атомарно
-фиксирует output + sidecar. Project format v17 хранит operational events; ReportDocumentModel остаётся отдельным runtime contract.
+фиксирует output + sidecar. Project format v18 хранит operational events и acquisition sessions; ReportDocumentModel остаётся отдельным runtime contract.
 
 ## Граница operational events
 
 `domain/operational_events.py` определяет immutable schema v1: discriminator kind, typed payload,
 depth/time anchors, canonical UTC timestamps, source, revision, calibration и QC flags.
-`Well.operational_events` — сериализуемый объект `event_id → event` в project format v17.
+`Well.operational_events` — сериализуемый объект `event_id → event`, введённый в project format v17 и сохраняемый в текущем v18.
 
 Изменение коллекции разрешено только через `OperationalEventController`. Он проверяет well
 identity и expected revision, затем пересчитывает QC полной коллекции. UI/import code не должен
@@ -240,5 +240,18 @@ identity и expected revision, затем пересчитывает QC полн
 `ResolvedReportDefinition`. Он не вызывает interval resolver и не переключает индекс скрытно.
 Depth, relative-time и datetime indexes используют только соответствующий event anchor.
 
-Следующий streaming слой обязан быть append-only и воспроизводить эту же domain collection через
-checkpoint/replay, не заменяя acquisition source.
+## Граница append-only acquisition
+
+`domain/acquisition.py` определяет acquisition schema v1: immutable dataset schema, contiguous
+records, checkpoints и controlled-close metadata. `Well.acquisition_sessions` сериализуется в
+project format v18; миграция `v17 → v18` добавляет пустую collection без изменения datasets/events.
+
+`AcquisitionController` является единственной mutation boundary. Он использует bounded pending
+buffer, проверяет sequence/schema, атомарно применяет row/event record и при ошибке восстанавливает
+dataset, operational events и source journal. Growing dataset не заменяет строки и не меняет
+первичный source record.
+
+Checkpoint подписывает row count, dataset projection, event/QC projection и combined audit digest.
+`replay_acquisition_session()` воспроизводит журнал с начала либо продолжает только после verified
+checkpoint; divergence блокирует результат. Следующая производная граница — versioned lag/depth
+correction с явным provenance и выбором source/corrected axis без изменения append-only source.

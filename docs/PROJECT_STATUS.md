@@ -1,52 +1,63 @@
 # Статус проекта
 
-Срез: 23 июля 2026 года. Версия пакета: 0.7.41, тестовая сборка.
+Срез: 23 июля 2026 года. Версия пакета: 0.7.42, тестовая сборка.
 
 ## Решение о выпуске
 
 Последний полностью подтверждённый автоматический baseline 0.7.28: Ruff чист, mypy — 0 ошибок
-в 262 исходных файлах, полный pytest — 1217 пройдено и 10 пропущено. Для 0.7.41 выполнены
-`compileall`, расширенный целевой набор и доступная headless-регрессия. Полный набор
-по-прежнему требует `PySide6`, `pyqtgraph`, `lasio`, Ruff и mypy. Сборка остаётся тестовой до
-повторного полного gate и Windows/HiDPI/PDF/physical-print smoke-test.
+в 262 исходных файлах, полный pytest — 1217 пройдено и 10 пропущено. Для 0.7.42 выполнены
+`compileall`, расширенный целевой набор и доступная headless-регрессия. Полный набор требует
+`PySide6`, `pyqtgraph`, `lasio`, Ruff и mypy. Сборка остаётся тестовой до повторного полного gate
+и Windows/HiDPI/PDF/physical-print smoke-test.
 
 ## Подтверждённая рабочая основа
 
-- project format v17 с безопасной миграцией v16 → v17;
-- immutable operational-event schema v1 для drilling/gas/show/sample/casing/formation-top;
-- depth/time anchors, canonical UTC timestamps, source, revision и calibration metadata;
-- детерминированный QC: duplicate, out-of-order, gap, stale, calibration missing/expired;
-- единственная изменяющая граница `OperationalEventController` с optimistic revision;
-- строгий discriminator codec и round-trip typed payload;
-- EVENTS/DRILLING projection из точного `ResolvedReportDefinition` interval;
-- существующие ReportDefinition v2, Coverage v1, Passport v4 и output transaction v1;
-- удалены устаревшие дубликаты import-controller из `ui`, рабочая граница остаётся в `services`.
+- project format v18 с безопасной цепочкой миграций v16 → v17 → v18;
+- acquisition schema v1 и persisted `Well.acquisition_sessions`;
+- immutable dataset schema для индексов, кривых, UOM и semantic metadata;
+- append-only records `DATA_ROW`, `EVENT_UPSERT`, `EVENT_DELETE` с непрерывной sequence;
+- bounded pending buffer с явным backpressure без потери records;
+- атомарное применение записи с rollback dataset, events и journal;
+- checkpoints с row count, dataset/events SHA-256 и combined audit digest;
+- deterministic replay с начала или после проверенного checkpoint;
+- совпадение replayed rows, typed events, QC flags и exact ReportDefinition projection;
+- закрытая session с финальным checkpoint, canonical UTC timestamp и final audit digest;
+- сохранён operational-event contract 0.7.41 и существующие ReportDefinition v2, Coverage v1,
+  Passport v4 и output transaction v1.
 
 ## Результаты текущего среза
 
 | Проверка | Результат |
 |---|---|
-| Domain | 6 typed payload kinds и общий immutable envelope |
-| Storage | `Well.operational_events`, project format v17 |
-| Migration | v16 → v17 без изменения существующих данных |
-| QC | duplicate/out-of-order/gap/stale/calibration |
-| Mutation | create/update/remove через controller и revision conflict |
-| Report | depth, relative-time и datetime projection из resolved interval |
-| Негативные сценарии | unknown kind/field, payload mismatch, cross-well, duplicate ID |
-| Расширенный целевой набор | 108 passed |
-| Доступная headless-регрессия | 936 passed, 4 skipped |
+| Source contract | append-only records, contiguous sequence, immutable dataset schema |
+| Growing dataset | exact indexes/curves, append-only rows, `NaN` для missing sample |
+| Buffer | bounded queue, explicit backpressure, ordered drain |
+| Mutation | atomic row/event apply и rollback при ошибке |
+| Checkpoint | row count + dataset/events/audit SHA-256 |
+| Replay | с нуля или после verified checkpoint |
+| Storage | `Well.acquisition_sessions`, project format v18 |
+| Migration | v17 → v18 без изменения существующих datasets/events |
+| Негативные сценарии | gap/duplicate sequence, schema mismatch, tampered checkpoint/projection |
+| Расширенный целевой набор | 127 passed |
+| Доступная headless-регрессия | 952 passed, 4 skipped, 3 deselected |
+
+Три deselected-сценария требуют `lasio`; остальные недоступные collection-модули требуют
+`PySide6`/`pyqtgraph`. Это ограничение окружения, а не подтверждение полного release gate.
 
 ## Технический долг с наибольшим риском
 
 - повторить полный Ruff/mypy/Qt/LAS gate в установленном окружении;
 - выполнить Windows/NTFS/network-share и physical-print smoke-test;
-- добавить UI/import adapters поверх controller, не обходя mutation boundary;
-- определить persisted acquisition/checkpoint contract до начала WITSML/ETP.
+- добавить UI/import adapters поверх `AcquisitionController`, не обходя mutation boundary;
+- определить versioned correction provenance и правила выбора source/corrected depth axis;
+- после correction перейти к offline WITSML 2.1 inventory и fixture replay.
 
 ## Следующая контрольная точка
 
-Следующий вертикальный срез — append-only growing dataset, checkpoint и детерминированный
-replay. Критерий: записанный поток повторно создаёт те же events, QC flags и отчёт.
+Следующий вертикальный срез — версионированная lag/depth correction. Критерий: исходная запись
+остаётся неизменной, corrected axis имеет formula/version/provenance, а пользователь и отчёт явно
+выбирают source или corrected projection.
 
-Подробности: [Operational events](OPERATIONAL_EVENTS.md), [план](PROJECT_PLAN.md) и
+Подробности: [Acquisition replay](ACQUISITION_REPLAY.md),
+[Operational events](OPERATIONAL_EVENTS.md), [план](PROJECT_PLAN.md) и
 [проверки](TESTING.md).

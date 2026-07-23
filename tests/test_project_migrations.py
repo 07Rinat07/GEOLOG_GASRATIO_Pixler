@@ -182,3 +182,27 @@ def test_v16_project_adds_empty_operational_events_to_every_well() -> None:
     assert migrated["format_version"] == 17
     assert migrated["project"]["wells"]["well-1"]["operational_events"] == {}
     assert "operational_events" not in payload["project"]["wells"]["well-1"]
+
+
+def test_v17_project_adds_empty_acquisition_sessions_to_every_well() -> None:
+    payload = {
+        "format_version": 17,
+        "project": {
+            "project_id": "p",
+            "name": "P",
+            "wells": {
+                "well-1": {
+                    "well_id": "well-1",
+                    "name": "Well 1",
+                    "datasets": {},
+                    "operational_events": {},
+                }
+            },
+        },
+    }
+
+    migrated = migrate_project_payload(payload, 18)
+
+    assert migrated["format_version"] == 18
+    assert migrated["project"]["wells"]["well-1"]["acquisition_sessions"] == {}
+    assert "acquisition_sessions" not in payload["project"]["wells"]["well-1"]

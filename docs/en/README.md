@@ -50,11 +50,18 @@ and correct canonical mapping or UOM. Cancellation leaves the project unchanged.
 
 ## Operational events
 
-Project format v17 stores typed drilling, gas, show, sample, casing, and formation-top events.
+Project format v18 stores typed drilling, gas, show, sample, casing, and formation-top events.
 Every event has a depth and/or time anchor, source, revision, and QC flags. Duplicate,
 out-of-order, gap, stale, and calibration issues are calculated deterministically. EVENTS and
 DRILLING report sections reuse the same already-resolved interval as the curves. See
 [OPERATIONAL_EVENTS.md](OPERATIONAL_EVENTS.md).
+
+## Append-only acquisition and replay
+
+Project format v18 stores recorded acquisition sessions. The growing dataset and operational
+events are verified projections of an append-only journal. The bounded buffer never drops a
+record, checkpoints sign dataset/event fingerprints, and replay from zero or a verified checkpoint
+reproduces the same rows, QC, and reports. See [ACQUISITION_REPLAY.md](ACQUISITION_REPLAY.md).
 
 ## Report Passport
 

@@ -1,22 +1,23 @@
 # Project status
 
-Snapshot: 23 July 2026. Version: 0.7.41, test build.
+Snapshot: 23 July 2026. Version: 0.7.42, test build.
 
 ## Completed
 
-- six typed operational-event payloads: drilling, gas, show, sample, casing, formation top;
-- one envelope with depth/time anchors, canonical UTC timestamps, source, revision, and calibration;
-- duplicate, out-of-order, gap, stale, missing-calibration, and expired-calibration QC;
-- `OperationalEventController` as the single mutation boundary;
-- project format v17 with a safe v16 → v17 migration;
-- strict discriminator codec and typed-payload round trip;
-- EVENTS/DRILLING reuse exact `ResolvedReportDefinition` bounds;
-- removed obsolete import-controller duplicates from the `ui` package.
+- project format v18 with a safe v17 → v18 migration;
+- persisted acquisition schema v1 in `well.acquisition_sessions`;
+- immutable index/curve schema and append-only `DATA_ROW`, `EVENT_UPSERT`, and `EVENT_DELETE`;
+- contiguous sequence, bounded buffering, and explicit backpressure without record loss;
+- atomic dataset/event/journal rollback on apply failure;
+- checkpoints with row count and dataset/events/audit SHA-256 fingerprints;
+- deterministic replay from zero or after a verified checkpoint;
+- identical rows, operational events, QC flags, and report projection after replay;
+- closed sessions with a final checkpoint and final audit digest.
 
-Expanded focused set: 108 passed. Available headless regression: 936 passed, 4 skipped.
-The full Qt/LAS/Ruff/mypy gate and Windows/HiDPI/PDF/physical-print
-smoke tests remain mandatory.
+Expanded focused set: 127 passed. Available headless regression: 952 passed,
+4 skipped, and 3 deselected because `lasio` is unavailable. The full Qt/LAS/Ruff/mypy gate and
+Windows/HiDPI/PDF/physical-print smoke tests remain mandatory.
 
-Next slice: an append-only growing dataset with checkpoint and deterministic replay.
+Next slice: versioned lag/depth correction without modifying the append-only source.
 
-See [Operational events](OPERATIONAL_EVENTS.md) and the [engineering status](../PROJECT_STATUS.md).
+See [Acquisition replay](ACQUISITION_REPLAY.md) and the [engineering status](../PROJECT_STATUS.md).

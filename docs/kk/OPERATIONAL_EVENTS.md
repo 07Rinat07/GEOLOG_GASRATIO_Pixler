@@ -1,6 +1,6 @@
 # Типтелген operational events
 
-Күйі: 0.7.41 нұсқасында іске асырылды. Project format: v17.
+Күйі: event contract 0.7.41 нұсқасында енгізілді және ағымдағы project format v18 ішінде сақталады.
 
 Operational event — бір ұңғымаға және тереңдікке және/немесе уақытқа байланыстырылған
 өзгермейтін бұрғылау немесе геологиялық бақылау. Qt-тан тәуелсіз contract project storage,
@@ -49,7 +49,7 @@ Threshold мәндері immutable `OperationalEventQcPolicy` ішінде. Gas 
 deterministic list және әр mutation-нан кейін толық QC recalculation орындайды. UI/import adapter
 `Well.operational_events` моделін тікелей өзгертпеуі тиіс.
 
-## Project format v17
+## Project format v18 ішінде сақтау
 
 Events `well.operational_events` ішінде event ID бойынша сақталады. `v16 → v17` migration әр
 ұңғымаға бос collection қосады және datasets/interpretations деректерін өзгертпейді. Decoder
@@ -62,4 +62,6 @@ Events `well.operational_events` ішінде event ID бойынша сақта
 `elapsed_time_s` және UTC `measured_at` мәндеріне map жасалады. `DRILLING` section drilling
 events-ті, `EVENTS` section барлық түрді немесе `event_kinds` filter-ін таңдайды.
 
-Келесі срез — append-only growing dataset, checkpoint және deterministic replay.
+Append-only growing dataset, checkpoints және deterministic replay 0.7.42 нұсқасында аяқталды.
+Events сол revision/QC controller арқылы бірдей fingerprint-пен қайталанады. Келесі срез — source
+journal-ды өзгертпейтін versioned lag/depth correction. [Acquisition replay](ACQUISITION_REPLAY.md).

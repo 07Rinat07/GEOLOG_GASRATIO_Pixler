@@ -1,3 +1,13 @@
+# 0.7.42 — append-only acquisition and deterministic replay (test build)
+
+- added persisted acquisition schema v1 with immutable index/curve definitions and contiguous records;
+- implemented append-only growing datasets, typed event upsert/delete records, bounded buffering, and explicit backpressure;
+- made each record atomic across dataset, operational-event QC projection, and source journal;
+- added checkpoint row counts, dataset/events SHA-256 fingerprints, combined audit digest, and controlled close;
+- added transactional deterministic replay from zero or after a verified checkpoint, including metadata fingerprints and report-projection equality;
+- upgraded project format to v18 with a safe v17 → v18 migration;
+- added strict codec/migration/tamper tests and synchronized RU/KK/EN documentation.
+
 # 0.7.41 — typed operational events (test build)
 
 - added strict drilling/gas/show/sample/casing/formation-top payloads and one immutable event envelope;

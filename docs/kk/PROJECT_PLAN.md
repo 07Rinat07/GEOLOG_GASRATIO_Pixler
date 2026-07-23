@@ -24,7 +24,7 @@
 - [x] print jobs, session binding және жоба ағашының workspace командаларын шығару;
 - [x] UI кластарының сериализацияланатын жоба моделін тікелей өзгертуіне тыйым салу;
 - [x] параметр түрі, quantity class, UOM, aliases, дереккөз және бастапқы мнемоникасы бар
-  Semantic Channel Dictionary енгізу; v16-да қосылған binding ағымдағы v17-де де сақталады;
+  Semantic Channel Dictionary енгізу; v16-да қосылған binding ағымдағы v18-де де сақталады;
 - [x] manual overrides, QC preview және атомарлық commit бар интерактивті Import Review қосу;
 - [x] fingerprints, bindings/UOM, formula versions, form revision, language және render settings бар қайталанатын есеп паспортын енгізу;
 - [x] экран/баспа grid, legend, lithotypes және annotations үшін детерминирленген golden fixtures қосу;
@@ -35,9 +35,9 @@
 
 - [x] project format v17 ішіндегі drilling/gas/show/sample/casing/formation-top typed events;
 - [x] gap, duplicate, out-of-order, stale және calibration QC;
-- [ ] append-only growing dataset, checkpoint және deterministic replay;
+- [x] append-only growing dataset, checkpoint және deterministic replay;
 - [ ] acquisition source-ты өзгертпейтін нұсқаланған lag/depth correction;
-- [ ] WITSML 2.1 inventory, кейін recorded replay, соңында қорғалған ETP 1.2 client.
+- [ ] offline WITSML 2.1 inventory және mapping fixtures, содан кейін fixture replay өткен соң қорғалған ETP 1.2 client.
 
 ## P1 — есептер
 

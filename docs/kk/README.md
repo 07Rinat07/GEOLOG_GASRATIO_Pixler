@@ -51,11 +51,18 @@ quantity class, source/canonical UOM, sensor/source, confidence және сәй�
 
 ## Operational events
 
-Project format v17 drilling, gas, show, sample, casing және formation-top typed events сақтайды.
+Project format v18 drilling, gas, show, sample, casing және formation-top typed events сақтайды.
 Әр event depth және/немесе time anchor, source, revision және QC flags қамтиды. Duplicate,
 out-of-order, gap, stale және calibration мәселелері детерминирленген түрде есептеледі.
 EVENTS және DRILLING report sections curves қолданатын дайын resolved interval-ды қайта
 есептемей пайдаланады. Толығырақ: [OPERATIONAL_EVENTS.md](OPERATIONAL_EVENTS.md).
+
+## Append-only acquisition және replay
+
+Project format v18 жазылған acquisition sessions сақтайды. Growing dataset және operational
+events append-only journal-дың тексерілетін проекциялары. Bounded buffer record жоғалтпайды,
+checkpoints dataset/events fingerprints бекітеді, ал нөлден немесе verified checkpoint-тен replay
+сол rows, QC және есепті қайталайды. [ACQUISITION_REPLAY.md](ACQUISITION_REPLAY.md).
 
 ## Есеп паспорты
 

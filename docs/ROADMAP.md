@@ -21,7 +21,7 @@ Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke ch
 - [complete] define one screen/print grid contract and deterministic golden-render fixtures;
 - [x] add deterministic report provenance: source fingerprints, interval-scoped channel data, complete semantic bindings/UOM, formula versions, locale, content-addressed template revision, and render settings;
 - [x] resolve one immutable `ReportDefinition` and interval for Print Center preview/output, Masterlog, and selected CSV/XLSX export;
-- test project format v17 (including v16 → v17) and layout format v14 migrations with representative legacy files.
+- test project format v18 (including v16 → v17 → v18) and layout format v14 migrations with representative legacy files.
 
 Exit: bounded controllers, reproducible report passports, and deterministic structural/visual golden fixtures are complete; Windows raster/PDF/HiDPI validation remains.
 
@@ -39,13 +39,14 @@ Exit: the same channel is found consistently across vendors; every correction is
 
 ## Phase 3 — WITSML real-time path
 
-1. Read-only WITSML 2.1 object inventory and mapping fixtures.
-2. Recorded replay into an append-only growing dataset.
-3. Checkpoints, reconnect, backpressure, gaps, duplicates, out-of-order and stale-data QC.
+1. [complete] Recorded replay into an append-only growing dataset.
+2. [complete] Checkpoints, controlled close, backpressure, and deterministic event/QC replay.
+3. Read-only WITSML 2.1 object inventory and mapping fixtures.
 4. Secured ETP 1.2 client with credentials outside project files.
 5. Structured MudLogReport views and acknowledged rules/alarms.
 
-Exit: a recorded session can be replayed deterministically and produces the same audited result.
+Replay exit is complete in 0.7.42. The remaining phase exit requires WITSML fixtures, secured
+transport, reconnect coverage, and structured operational views.
 
 ## Phase 4 — unified reports and multiwell work
 

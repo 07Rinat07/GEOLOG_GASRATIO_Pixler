@@ -1,6 +1,6 @@
 # Typed operational events
 
-Status: implemented in version 0.7.41. Project format: v17.
+Status: the event contract was introduced in 0.7.41 and remains in current project format v18.
 
 An operational event is an immutable drilling or geological observation attached to one well
 and to depth and/or time. The Qt-free contract is shared by project storage, QC, the mutation
@@ -48,7 +48,7 @@ default. Results do not depend on JSON key order.
 listing, well identity checks, and full QC recalculation after every mutation. UI and import
 adapters must not mutate `Well.operational_events` directly.
 
-## Project format v17
+## Storage in project format v18
 
 Events are stored as `well.operational_events`, keyed by event ID. Migration `v16 → v17` adds
 an empty collection to every well without changing datasets or interpretations. The decoder
@@ -61,4 +61,7 @@ its exact inclusive bounds. Depth, relative-time, and datetime indexes map to `d
 `elapsed_time_s`, and UTC `measured_at` respectively. A `DRILLING` section selects drilling
 events. An `EVENTS` section selects all kinds or a comma-separated `event_kinds` option.
 
-The next slice is an append-only growing dataset with checkpoint and deterministic replay.
+Append-only growing datasets, checkpoints, and deterministic replay were completed in 0.7.42.
+Events replay through the same revision/QC controller and retain the same fingerprint. The next
+slice is versioned lag/depth correction without modifying the source journal. See
+[Acquisition replay](ACQUISITION_REPLAY.md).

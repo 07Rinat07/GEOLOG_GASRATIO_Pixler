@@ -7,6 +7,20 @@ from typing import Any
 
 import numpy as np
 
+from geoworkbench.domain.acquisition import (
+    AcquisitionCheckpoint,
+    AcquisitionCurveSchema,
+    AcquisitionDataRowPayload,
+    AcquisitionDatasetSchema,
+    AcquisitionEventDeletePayload,
+    AcquisitionEventUpsertPayload,
+    AcquisitionIndexSchema,
+    AcquisitionRecord,
+    AcquisitionRecordKind,
+    AcquisitionSession,
+    AcquisitionSessionState,
+)
+
 from geoworkbench.domain.operational_events import (
     CasingEventPayload,
     DrillingEventPayload,
@@ -64,8 +78,10 @@ from geoworkbench.data.las_import_report import (
     LasSourceSnapshot,
     validate_import_report,
 )
+from geoworkbench.services.acquisition import AcquisitionController, AcquisitionError
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
 from geoworkbench.services.las_parameter_resolver import infer_canonical_mnemonic
+from geoworkbench.services.operational_event_controller import OperationalEventConflictError
 from geoworkbench.services.semantic_channels import (
     SemanticChannelBinding,
     default_semantic_channel_dictionary,
@@ -80,7 +96,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 17
+PROJECT_FORMAT_VERSION = 18
 
 
 @dataclass(slots=True)
@@ -349,6 +365,296 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
     return dataset
 
 
+_ACQUISITION_INDEX_SCHEMA_KEYS = {
+    "index_id",
+    "mnemonic",
+    "index_type",
+    "role",
+    "unit",
+    "confidence",
+    "evidence",
+    "datetime_format",
+    "timezone",
+}
+_ACQUISITION_DATASET_SCHEMA_KEYS = {
+    "dataset_id",
+    "name",
+    "kind",
+    "depth_domain",
+    "indexes",
+    "active_index_id",
+    "curves",
+    "schema_version",
+}
+_ACQUISITION_RECORD_KEYS = {
+    "record_id",
+    "sequence",
+    "kind",
+    "payload",
+    "received_at",
+    "source",
+}
+_ACQUISITION_CHECKPOINT_KEYS = {
+    "checkpoint_id",
+    "sequence",
+    "row_count",
+    "dataset_digest",
+    "events_digest",
+    "audit_digest",
+    "created_at",
+}
+_ACQUISITION_SESSION_KEYS = {
+    "session_id",
+    "well_id",
+    "dataset_schema",
+    "records",
+    "checkpoints",
+    "state",
+    "closed_at",
+    "final_audit_digest",
+    "schema_version",
+}
+
+
+def _acquisition_index_schema_from_dict(data: dict[str, Any]) -> AcquisitionIndexSchema:
+    _require_exact_keys(data, _ACQUISITION_INDEX_SCHEMA_KEYS, "acquisition index schema")
+    raw_evidence = data.get("evidence", [])
+    if not isinstance(raw_evidence, list) or not all(
+        isinstance(item, str) for item in raw_evidence
+    ):
+        raise ProjectFormatError("Acquisition index evidence должен быть списком строк")
+    try:
+        return AcquisitionIndexSchema(
+            index_id=str(_required(data, "index_id", str)),
+            mnemonic=str(_required(data, "mnemonic", str)),
+            index_type=IndexType(str(_required(data, "index_type", str))),
+            role=IndexRole(str(_required(data, "role", str))),
+            unit=data.get("unit"),
+            confidence=float(data.get("confidence", 1.0)),
+            evidence=tuple(raw_evidence),
+            datetime_format=data.get("datetime_format"),
+            timezone=data.get("timezone"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректная acquisition index schema") from exc
+
+
+def _acquisition_curve_schema_from_dict(data: dict[str, Any]) -> AcquisitionCurveSchema:
+    _require_exact_keys(data, {"metadata"}, "acquisition curve schema")
+    metadata_data = _required(data, "metadata", dict)
+    allowed = {
+        "curve_id",
+        "original_mnemonic",
+        "canonical_mnemonic",
+        "unit",
+        "description",
+        "source_dataset_id",
+        "provenance",
+        "semantic",
+    }
+    _require_exact_keys(metadata_data, allowed, "acquisition curve metadata")
+    original_mnemonic = clean_mnemonic(_required(metadata_data, "original_mnemonic", str))
+    stored_canonical = (
+        clean_mnemonic(metadata_data.get("canonical_mnemonic"))
+        if metadata_data.get("canonical_mnemonic")
+        else None
+    )
+    unit = clean_display_text(metadata_data.get("unit")) or None
+    description = clean_display_text(metadata_data.get("description")) or None
+    inferred_canonical = infer_canonical_mnemonic(
+        original_mnemonic,
+        description=description or "",
+        unit=unit or "",
+    )
+    canonical_mnemonic = stored_canonical
+    if not stored_canonical or normalize_sensor_key(stored_canonical) == normalize_sensor_key(
+        original_mnemonic
+    ):
+        canonical_mnemonic = inferred_canonical or stored_canonical
+    raw_semantic = metadata_data.get("semantic")
+    if raw_semantic is not None and not isinstance(raw_semantic, dict):
+        raise ProjectFormatError("Acquisition curve semantic должен быть объектом")
+    semantic = (
+        _semantic_binding_from_dict(raw_semantic)
+        if isinstance(raw_semantic, dict)
+        else default_semantic_channel_dictionary().resolve(
+            original_mnemonic,
+            description=description or "",
+            unit=unit or "",
+            canonical_mnemonic=canonical_mnemonic,
+        )
+    )
+    try:
+        metadata = CurveMetadata(
+            curve_id=str(_required(metadata_data, "curve_id", str)),
+            original_mnemonic=original_mnemonic,
+            canonical_mnemonic=semantic.canonical_mnemonic,
+            unit=unit,
+            description=description,
+            source_dataset_id=str(_required(metadata_data, "source_dataset_id", str)),
+            provenance=str(metadata_data.get("provenance", "source")),
+            semantic=semantic,
+        )
+        return AcquisitionCurveSchema(metadata)
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректная acquisition curve schema") from exc
+
+
+def _acquisition_dataset_schema_from_dict(data: dict[str, Any]) -> AcquisitionDatasetSchema:
+    _require_exact_keys(data, _ACQUISITION_DATASET_SCHEMA_KEYS, "acquisition dataset schema")
+    raw_indexes = _required(data, "indexes", list)
+    raw_curves = _required(data, "curves", list)
+    if not all(isinstance(item, dict) for item in raw_indexes):
+        raise ProjectFormatError("Acquisition indexes должны быть списком объектов")
+    if not all(isinstance(item, dict) for item in raw_curves):
+        raise ProjectFormatError("Acquisition curves должны быть списком объектов")
+    try:
+        return AcquisitionDatasetSchema(
+            dataset_id=str(_required(data, "dataset_id", str)),
+            name=str(_required(data, "name", str)),
+            kind=DatasetKind(str(_required(data, "kind", str))),
+            depth_domain=DepthDomain(str(_required(data, "depth_domain", str))),
+            indexes=tuple(_acquisition_index_schema_from_dict(item) for item in raw_indexes),
+            active_index_id=str(_required(data, "active_index_id", str)),
+            curves=tuple(_acquisition_curve_schema_from_dict(item) for item in raw_curves),
+            schema_version=_required_int(data, "schema_version"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректная acquisition dataset schema") from exc
+
+
+def _acquisition_pairs_from_list(
+    data: dict[str, Any],
+    key: str,
+    *,
+    allow_none: bool,
+) -> tuple[tuple[str, float | int | None], ...]:
+    raw = _required(data, key, list)
+    result: list[tuple[str, float | int | None]] = []
+    for item in raw:
+        if not isinstance(item, list) or len(item) != 2 or not isinstance(item[0], str):
+            raise ProjectFormatError(f"{key} должен содержать пары [id, value]")
+        value = item[1]
+        if value is None and allow_none:
+            result.append((item[0], None))
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ProjectFormatError(f"{key} value должен быть числом")
+        result.append((item[0], value))
+    return tuple(result)
+
+
+def _acquisition_record_from_dict(data: dict[str, Any]) -> AcquisitionRecord:
+    _require_exact_keys(data, _ACQUISITION_RECORD_KEYS, "acquisition record")
+    try:
+        kind = AcquisitionRecordKind(str(_required(data, "kind", str)))
+    except ValueError as exc:
+        raise ProjectFormatError("Неизвестный acquisition record kind") from exc
+    payload_data = _required(data, "payload", dict)
+    try:
+        if kind is AcquisitionRecordKind.DATA_ROW:
+            _require_exact_keys(
+                payload_data,
+                {"index_values", "curve_values"},
+                "acquisition data row payload",
+            )
+            payload = AcquisitionDataRowPayload(
+                index_values=tuple(
+                    (key, value)
+                    for key, value in _acquisition_pairs_from_list(
+                        payload_data, "index_values", allow_none=False
+                    )
+                    if value is not None
+                ),
+                curve_values=tuple(
+                    (key, value)
+                    for key, value in _acquisition_pairs_from_list(
+                        payload_data, "curve_values", allow_none=True
+                    )
+                ),
+            )
+        elif kind is AcquisitionRecordKind.EVENT_UPSERT:
+            _require_exact_keys(
+                payload_data,
+                {"event", "expected_revision"},
+                "acquisition event upsert payload",
+            )
+            expected_revision = payload_data.get("expected_revision")
+            if expected_revision is not None and (
+                not isinstance(expected_revision, int) or isinstance(expected_revision, bool)
+            ):
+                raise ProjectFormatError("expected_revision должен быть целым числом")
+            payload = AcquisitionEventUpsertPayload(
+                event=_operational_event_from_dict(_required(payload_data, "event", dict)),
+                expected_revision=expected_revision,
+            )
+        else:
+            _require_exact_keys(
+                payload_data,
+                {"event_id", "expected_revision"},
+                "acquisition event delete payload",
+            )
+            payload = AcquisitionEventDeletePayload(
+                event_id=str(_required(payload_data, "event_id", str)),
+                expected_revision=_required_int(payload_data, "expected_revision"),
+            )
+        return AcquisitionRecord(
+            record_id=str(_required(data, "record_id", str)),
+            sequence=_required_int(data, "sequence"),
+            kind=kind,
+            payload=payload,
+            received_at=str(_required(data, "received_at", str)),
+            source=str(_required(data, "source", str)),
+        )
+    except ProjectFormatError:
+        raise
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректный acquisition record") from exc
+
+
+def _acquisition_checkpoint_from_dict(data: dict[str, Any]) -> AcquisitionCheckpoint:
+    _require_exact_keys(data, _ACQUISITION_CHECKPOINT_KEYS, "acquisition checkpoint")
+    try:
+        return AcquisitionCheckpoint(
+            checkpoint_id=str(_required(data, "checkpoint_id", str)),
+            sequence=_required_int(data, "sequence"),
+            row_count=_required_int(data, "row_count"),
+            dataset_digest=str(_required(data, "dataset_digest", str)),
+            events_digest=str(_required(data, "events_digest", str)),
+            audit_digest=str(_required(data, "audit_digest", str)),
+            created_at=str(_required(data, "created_at", str)),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректный acquisition checkpoint") from exc
+
+
+def _acquisition_session_from_dict(data: dict[str, Any]) -> AcquisitionSession:
+    _require_exact_keys(data, _ACQUISITION_SESSION_KEYS, "acquisition session")
+    raw_records = _required(data, "records", list)
+    raw_checkpoints = _required(data, "checkpoints", list)
+    if not all(isinstance(item, dict) for item in raw_records):
+        raise ProjectFormatError("Acquisition records должны быть списком объектов")
+    if not all(isinstance(item, dict) for item in raw_checkpoints):
+        raise ProjectFormatError("Acquisition checkpoints должны быть списком объектов")
+    try:
+        return AcquisitionSession(
+            session_id=str(_required(data, "session_id", str)),
+            well_id=str(_required(data, "well_id", str)),
+            dataset_schema=_acquisition_dataset_schema_from_dict(
+                _required(data, "dataset_schema", dict)
+            ),
+            records=[_acquisition_record_from_dict(item) for item in raw_records],
+            checkpoints=[
+                _acquisition_checkpoint_from_dict(item) for item in raw_checkpoints
+            ],
+            state=AcquisitionSessionState(str(_required(data, "state", str))),
+            closed_at=data.get("closed_at"),
+            final_audit_digest=data.get("final_audit_digest"),
+            schema_version=_required_int(data, "schema_version"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректная acquisition session") from exc
+
 _OPERATIONAL_EVENT_KEYS = {
     "event_id",
     "well_id",
@@ -600,6 +906,41 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
                 f"Operational event '{event_id}' относится к другой скважине"
             )
         well.operational_events[event_id] = event
+    raw_sessions = data.get("acquisition_sessions", {})
+    if not isinstance(raw_sessions, dict):
+        raise ProjectFormatError("Поле acquisition_sessions скважины должно быть объектом")
+    if len(raw_sessions) > 1:
+        raise ProjectFormatError(
+            "Скважина не может содержать несколько acquisition source sessions"
+        )
+    for session_id, item in raw_sessions.items():
+        if not isinstance(session_id, str) or not isinstance(item, dict):
+            raise ProjectFormatError("Запись acquisition session имеет неверный формат")
+        session = _acquisition_session_from_dict(item)
+        if session.session_id != session_id:
+            raise ProjectFormatError(
+                f"ID acquisition session '{session_id}' не совпадает с содержимым"
+            )
+        if session.well_id != well.well_id:
+            raise ProjectFormatError(
+                f"Acquisition session '{session_id}' относится к другой скважине"
+            )
+        if session.dataset_schema.dataset_id not in well.datasets:
+            raise ProjectFormatError(
+                f"Acquisition session '{session_id}' ссылается на неизвестный dataset"
+            )
+        try:
+            AcquisitionController(well, session)
+        except (
+            AcquisitionError,
+            OperationalEventConflictError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ) as exc:
+            raise ProjectFormatError(
+                f"Acquisition session '{session_id}' не совпадает с persisted projection"
+            ) from exc
     return well
 
 
