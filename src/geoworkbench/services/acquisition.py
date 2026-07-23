@@ -564,7 +564,9 @@ def dataset_from_acquisition_schema(schema: AcquisitionDatasetSchema) -> Dataset
     return dataset
 
 
-def acquisition_projection_digests(dataset: Dataset, well: Well) -> tuple[str, str]:
+def dataset_projection_digest(dataset: Dataset) -> str:
+    """Return a canonical SHA-256 fingerprint for one materialized dataset projection."""
+
     dataset_payload = {
         "dataset_id": dataset.dataset_id,
         "name": dataset.name,
@@ -582,7 +584,7 @@ def acquisition_projection_digests(dataset: Dataset, well: Well) -> tuple[str, s
         "curves": {
             curve_id: {
                 "metadata": _json_compatible(
-                    asdict(_canonical_curve_metadata(curve.metadata))
+                    asdict(canonical_curve_metadata(curve.metadata))
                 ),
                 "version": curve.version,
                 "state": curve.state.value,
@@ -591,14 +593,22 @@ def acquisition_projection_digests(dataset: Dataset, well: Well) -> tuple[str, s
             for curve_id, curve in sorted(dataset.curves.items())
         },
     }
+    return _sha256_payload(dataset_payload)
+
+
+def operational_events_digest(well: Well) -> str:
     events_payload = {
         event_id: _json_compatible(asdict(event))
         for event_id, event in sorted(well.operational_events.items())
     }
-    return _sha256_payload(dataset_payload), _sha256_payload(events_payload)
+    return _sha256_payload(events_payload)
 
 
-def _canonical_curve_metadata(metadata: CurveMetadata) -> CurveMetadata:
+def acquisition_projection_digests(dataset: Dataset, well: Well) -> tuple[str, str]:
+    return dataset_projection_digest(dataset), operational_events_digest(well)
+
+
+def canonical_curve_metadata(metadata: CurveMetadata) -> CurveMetadata:
     """Normalize implicit semantic metadata before hashing persisted projections."""
 
     original_mnemonic = clean_mnemonic(metadata.original_mnemonic)
@@ -633,6 +643,9 @@ def _canonical_curve_metadata(metadata: CurveMetadata) -> CurveMetadata:
         description=description,
         semantic=semantic,
     )
+
+
+_canonical_curve_metadata = canonical_curve_metadata
 
 
 def _append_dataset_row(

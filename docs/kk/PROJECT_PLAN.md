@@ -1,8 +1,8 @@
 # Жоба жоспары
 
 2026 жылғы 23 шілдедегі күй. Нұсқалар тарихы release notes файлдарында сақталады; мұнда
-тек өзекті жұмыс бар. 0.7.43 UI-hotfix жұмыс ретін өзгертпейді: келесі пәндік кесім —
-versioned lag/depth correction.
+тек өзекті жұмыс бар. 0.7.44 нұсқасы versioned lag/depth correction кесімін аяқтайды. Келесі
+пәндік кесім — read-only offline WITSML 2.1 inventory және mapping fixtures.
 
 ## P0 — шығарылым тұрақтылығы
 
@@ -25,7 +25,7 @@ versioned lag/depth correction.
 - [x] print jobs, session binding және жоба ағашының workspace командаларын шығару;
 - [x] UI кластарының сериализацияланатын жоба моделін тікелей өзгертуіне тыйым салу;
 - [x] параметр түрі, quantity class, UOM, aliases, дереккөз және бастапқы мнемоникасы бар
-  Semantic Channel Dictionary енгізу; v16-да қосылған binding ағымдағы v18-де де сақталады;
+  Semantic Channel Dictionary енгізу; v16-да қосылған binding ағымдағы v19-де де сақталады;
 - [x] manual overrides, QC preview және атомарлық commit бар интерактивті Import Review қосу;
 - [x] fingerprints, bindings/UOM, formula versions, form revision, language және render settings бар қайталанатын есеп паспортын енгізу;
 - [x] экран/баспа grid, legend, lithotypes және annotations үшін детерминирленген golden fixtures қосу;
@@ -37,7 +37,7 @@ versioned lag/depth correction.
 - [x] project format v17 ішіндегі drilling/gas/show/sample/casing/formation-top typed events;
 - [x] gap, duplicate, out-of-order, stale және calibration QC;
 - [x] append-only growing dataset, checkpoint және deterministic replay;
-- [ ] acquisition source-ты өзгертпейтін нұсқаланған lag/depth correction;
+- [x] acquisition source-ты өзгертпейтін нұсқаланған lag/depth correction;
 - [ ] offline WITSML 2.1 inventory және mapping fixtures, содан кейін fixture replay өткен соң қорғалған ETP 1.2 client.
 
 ## P1 — есептер

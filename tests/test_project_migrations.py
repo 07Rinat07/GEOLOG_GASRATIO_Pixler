@@ -206,3 +206,28 @@ def test_v17_project_adds_empty_acquisition_sessions_to_every_well() -> None:
     assert migrated["format_version"] == 18
     assert migrated["project"]["wells"]["well-1"]["acquisition_sessions"] == {}
     assert "acquisition_sessions" not in payload["project"]["wells"]["well-1"]
+
+
+def test_v18_project_adds_empty_lag_correction_profiles_to_every_well() -> None:
+    payload = {
+        "format_version": 18,
+        "project": {
+            "project_id": "p",
+            "name": "P",
+            "wells": {
+                "well-1": {
+                    "well_id": "well-1",
+                    "name": "Well 1",
+                    "datasets": {},
+                    "operational_events": {},
+                    "acquisition_sessions": {},
+                }
+            },
+        },
+    }
+
+    migrated = migrate_project_payload(payload, 19)
+
+    assert migrated["format_version"] == 19
+    assert migrated["project"]["wells"]["well-1"]["lag_correction_profiles"] == {}
+    assert "lag_correction_profiles" not in payload["project"]["wells"]["well-1"]

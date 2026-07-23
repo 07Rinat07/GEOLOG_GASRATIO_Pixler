@@ -68,7 +68,7 @@ UI может выбрать режим, границы, форму и язык,
 3. использовать только `resolved.interval`, `resolved.curve_ids`, `resolved.coverage` и payload definition;
 4. передать тот же definition snapshot в Report Passport.
 
-Project format v18 хранит `well.operational_events` и `well.acquisition_sessions`; events были введены в v17. Для разделов `EVENTS` и `DRILLING`
+Project format v19 хранит `well.operational_events` и `well.acquisition_sessions`; events были введены в v17. Для разделов `EVENTS` и `DRILLING`
 `resolve_operational_event_report()` использует точные границы уже готового
 `ResolvedReportDefinition`: depth → `depth_m`, relative time → `elapsed_time_s`, datetime →
 UTC `measured_at`. Option `event_kinds` задаёт список discriminator через запятую. Интервал

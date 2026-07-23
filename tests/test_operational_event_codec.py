@@ -56,8 +56,8 @@ def test_project_v18_round_trip_preserves_typed_events(tmp_path) -> None:
     loaded = load_project(target)
     events = loaded.wells["well-1"].operational_events
 
-    assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == 18
-    assert PROJECT_FORMAT_VERSION == 18
+    assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == 19
+    assert PROJECT_FORMAT_VERSION == 19
     assert isinstance(events["casing-1"].payload, CasingEventPayload)
     assert events["casing-1"].payload.outer_diameter_mm == 177.8
     assert isinstance(events["top-1"].payload, FormationTopEventPayload)

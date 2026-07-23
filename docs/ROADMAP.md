@@ -21,7 +21,7 @@ Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke ch
 - [complete] define one screen/print grid contract and deterministic golden-render fixtures;
 - [x] add deterministic report provenance: source fingerprints, interval-scoped channel data, complete semantic bindings/UOM, formula versions, locale, content-addressed template revision, and render settings;
 - [x] resolve one immutable `ReportDefinition` and interval for Print Center preview/output, Masterlog, and selected CSV/XLSX export;
-- test project format v18 (including v16 → v17 → v18) and layout format v14 migrations with representative legacy files.
+- test project format v19 (including v16 → v17 → v18 → v19) and layout format v14 migrations with representative legacy files.
 
 Exit: bounded controllers, reproducible report passports, and deterministic structural/visual golden fixtures are complete; Windows raster/PDF/HiDPI validation remains.
 
@@ -33,7 +33,7 @@ Exit: bounded controllers, reproducible report passports, and deterministic stru
   duplicates, warnings, manual overrides, and one atomic acceptance command;
 - [complete] store measurement time, arrival time, source, calibration, and QC flags in project format v17;
 - [complete] define typed drilling, gas, show, sample, casing, and formation-top events;
-- add versioned lag/depth correction without rewriting the acquired source.
+- [complete] add versioned lag/depth correction without rewriting the acquired source.
 
 Exit: the same channel is found consistently across vendors; every correction is reversible and audited.
 
@@ -41,11 +41,12 @@ Exit: the same channel is found consistently across vendors; every correction is
 
 1. [complete] Recorded replay into an append-only growing dataset.
 2. [complete] Checkpoints, controlled close, backpressure, and deterministic event/QC replay.
-3. Read-only WITSML 2.1 object inventory and mapping fixtures.
-4. Secured ETP 1.2 client with credentials outside project files.
-5. Structured MudLogReport views and acknowledged rules/alarms.
+3. [complete] Versioned lag/depth correction as immutable derived projections.
+4. Read-only WITSML 2.1 object inventory and mapping fixtures.
+5. Secured ETP 1.2 client with credentials outside project files.
+6. Structured MudLogReport views and acknowledged rules/alarms.
 
-Replay exit is complete in 0.7.42. The remaining phase exit requires WITSML fixtures, secured
+Replay and lag/depth correction exits are complete in 0.7.42 and 0.7.44. The remaining phase exit requires WITSML fixtures, secured
 transport, reconnect coverage, and structured operational views.
 
 ## Phase 4 — unified reports and multiwell work

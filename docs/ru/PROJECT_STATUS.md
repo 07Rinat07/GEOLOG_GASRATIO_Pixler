@@ -1,24 +1,41 @@
 # Статус проекта
 
-Срез: 23 июля 2026 года. Версия: 0.7.43, тестовая сборка.
+Срез: 23 июля 2026 года. Версия пакета: **0.7.44**, тестовая сборка. Project format: **v19**.
 
-## Выполнено
+## Решение о выпуске
 
-- приветственное окно показывается не менее 3000 мс без блокирующего `sleep`, затем плавно исчезает за 180 мс;
-- project format v18 и безопасная миграция v17 → v18;
-- persisted acquisition schema v1 в `well.acquisition_sessions`;
-- immutable index/curve schema и append-only `DATA_ROW`, `EVENT_UPSERT`, `EVENT_DELETE`;
-- непрерывная sequence, bounded buffer и явный backpressure без потери records;
-- атомарный rollback dataset/events/journal при ошибке;
-- checkpoints с row count и dataset/events/audit SHA-256;
-- deterministic replay с начала или после verified checkpoint;
-- одинаковые rows, operational events, QC flags и report projection после replay;
-- закрытая session с final checkpoint и final audit digest.
+Последний полностью подтверждённый автоматический baseline 0.7.28: Ruff чист, mypy — 0 ошибок
+в 262 исходных файлах, полный pytest — 1217 passed и 10 skipped. Для 0.7.44 в текущем контейнере
+выполнены `compileall`, 72 focused tests и доступная headless-регрессия: 987 passed, 4 skipped,
+3 deselected. Полный Qt/LAS/Ruff/mypy gate требует `PySide6`, `pyqtgraph`, `lasio`, Ruff и mypy.
+Windows/HiDPI/PDF/physical-print smoke-test также остаётся обязательным перед stable.
 
-Целевой startup/version набор: 13 passed. Доступная headless-регрессия: 964 passed,
-4 skipped, 3 deselected из-за отсутствующего `lasio`. Полный Qt/LAS/Ruff/mypy gate и
-Windows/HiDPI/PDF/physical-print smoke-test остаются обязательными.
+## Завершённый срез 0.7.44
 
-Следующий срез: versioned lag/depth correction без изменения append-only source.
+- immutable `LagCorrectionProfile` и непрерывные revisions;
+- методы constant-time, annular-volume/flow, pump-strokes и manual control points;
+- отдельный derived dataset на каждую revision, без изменения acquisition dataset/journal;
+- source и corrected DEPTH indexes в одной проверяемой проекции;
+- explicit repeated-time aggregation и `NaN` вместо скрытой экстраполяции;
+- source-prefix, output и acquisition provenance fingerprints;
+- проверка tampering/divergence при загрузке project format v19;
+- optimistic guards для add/activate revision;
+- Qt-окно в меню «Расчёты» с выбором кривых, preview и source/corrected axis;
+- ReportDefinition использует явно выбранный active index derived dataset;
+- безопасная миграция `v18 → v19` с пустым `lag_correction_profiles`.
 
-См. [Acquisition replay](ACQUISITION_REPLAY.md) и [общий статус](../PROJECT_STATUS.md).
+## Актуальная рабочая основа
+
+- package 0.7.44; project format v19; acquisition/event/lag schemas v1;
+- трёхсекундное неблокирующее приветственное окно;
+- Semantic Channel Dictionary и Import Review;
+- operational events и deterministic QC;
+- append-only acquisition, checkpoints, rollback и replay;
+- versioned lag/depth correction с reversible projections;
+- ReportDefinition schema v2, Coverage schema v1 и Report Passport schema v4;
+- recoverable output transaction и PDF/XLSX/CSV/TSV/DOCX/HTML adapters.
+
+## Следующий вертикальный срез
+
+Read-only offline WITSML 2.1 inventory и mapping fixtures. До успешного fixture replay сетевой
+ETP 1.2 client и хранение credentials в проекте не добавляются.

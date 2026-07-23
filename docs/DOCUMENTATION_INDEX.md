@@ -44,6 +44,7 @@
 - Operational events: [RU](ru/OPERATIONAL_EVENTS.md) · [KK](kk/OPERATIONAL_EVENTS.md) · [EN](en/OPERATIONAL_EVENTS.md)
 - Acquisition replay: [RU](ru/ACQUISITION_REPLAY.md) · [KK](kk/ACQUISITION_REPLAY.md) · [EN](en/ACQUISITION_REPLAY.md)
 - Startup splash 0.7.43: [RU](ru/RELEASE_NOTES_0.7.43.md) · [KK](kk/RELEASE_NOTES_0.7.43.md) · [EN](en/RELEASE_NOTES_0.7.43.md)
+- Lag/depth correction 0.7.44: [RU](ru/RELEASE_NOTES_0.7.44.md) · [KK](kk/RELEASE_NOTES_0.7.44.md) · [EN](en/RELEASE_NOTES_0.7.44.md)
 
 ## History
 
@@ -106,3 +107,5 @@ Every user-facing change must update the matching RU/KK/EN files in the same com
 - [Русская инструкция](ru/ACQUISITION_REPLAY.md)
 - [Қазақша нұсқаулық](kk/ACQUISITION_REPLAY.md)
 - [English guide](en/ACQUISITION_REPLAY.md)
+
+- [Версионная lag/depth correction](LAG_DEPTH_CORRECTION.md)

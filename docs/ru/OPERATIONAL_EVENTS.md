@@ -1,6 +1,6 @@
 # Типизированные operational events
 
-Статус: event contract реализован в 0.7.41 и сохраняется в текущем project format v18.
+Статус: event contract реализован в 0.7.41 и сохраняется в текущем project format v19.
 
 Operational event — неизменяемая запись операции или геологического наблюдения, привязанная
 к скважине и к глубине и/или времени. Контракт не зависит от Qt и используется одинаково
@@ -64,7 +64,7 @@ ISO-8601 timestamps обязаны содержать часовой пояс и
 UI или import adapter должны вызывать controller, а не менять `Well.operational_events`
 напрямую.
 
-## Хранение в project format v18
+## Хранение в project format v19
 
 События сохраняются в `well.operational_events` как объект `event_id → event`.
 Миграция `v16 → v17` добавляет пустой объект в каждую скважину и не изменяет существующие

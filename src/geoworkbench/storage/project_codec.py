@@ -21,6 +21,18 @@ from geoworkbench.domain.acquisition import (
     AcquisitionSessionState,
 )
 
+from geoworkbench.domain.lag_correction import (
+    AnnularVolumeFlowLagParameters,
+    ConstantTimeLagParameters,
+    ControlPointLagParameters,
+    LagCorrectionMethod,
+    LagCorrectionProfile,
+    LagCorrectionRevision,
+    LagCorrectionTarget,
+    LagDepthControlPoint,
+    PumpStrokeLagParameters,
+)
+
 from geoworkbench.domain.operational_events import (
     CasingEventPayload,
     DrillingEventPayload,
@@ -79,6 +91,10 @@ from geoworkbench.data.las_import_report import (
     validate_import_report,
 )
 from geoworkbench.services.acquisition import AcquisitionController, AcquisitionError
+from geoworkbench.services.lag_correction import (
+    LagCorrectionConflictError,
+    LagCorrectionController,
+)
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
 from geoworkbench.services.las_parameter_resolver import infer_canonical_mnemonic
 from geoworkbench.services.operational_event_controller import OperationalEventConflictError
@@ -96,7 +112,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 18
+PROJECT_FORMAT_VERSION = 19
 
 
 @dataclass(slots=True)
@@ -821,6 +837,171 @@ def _require_exact_keys(data: dict[str, Any], allowed: set[str], label: str) -> 
         raise ProjectFormatError(f"{label} содержит неизвестные поля: {unknown}")
 
 
+_LAG_REVISION_KEYS = {
+    "revision",
+    "method",
+    "parameters",
+    "source_time_index_id",
+    "source_depth_index_id",
+    "target_curve_ids",
+    "aggregation_policy",
+    "output_dataset_id",
+    "output_source_index_id",
+    "output_index_id",
+    "source_row_count",
+    "source_fingerprint",
+    "output_dataset_digest",
+    "source_sequence",
+    "source_audit_digest",
+    "formula_id",
+    "formula_version",
+    "created_at",
+    "created_by",
+    "comment",
+    "schema_version",
+}
+
+_LAG_PROFILE_KEYS = {
+    "profile_id",
+    "well_id",
+    "name",
+    "target",
+    "source_dataset_id",
+    "revisions",
+    "active_revision",
+    "schema_version",
+}
+
+
+def _lag_parameters_from_dict(
+    method: LagCorrectionMethod,
+    data: dict[str, Any],
+):
+    try:
+        if method is LagCorrectionMethod.CONSTANT_TIME:
+            _require_exact_keys(data, {"lag_seconds"}, "constant lag parameters")
+            return ConstantTimeLagParameters(float(data["lag_seconds"]))
+        if method is LagCorrectionMethod.ANNULAR_VOLUME_FLOW:
+            _require_exact_keys(
+                data,
+                {"annular_volume_m3", "flow_rate_m3_per_s"},
+                "annular volume/flow lag parameters",
+            )
+            return AnnularVolumeFlowLagParameters(
+                float(data["annular_volume_m3"]),
+                float(data["flow_rate_m3_per_s"]),
+            )
+        if method is LagCorrectionMethod.PUMP_STROKES:
+            _require_exact_keys(
+                data,
+                {
+                    "annular_volume_m3",
+                    "pump_output_m3_per_stroke",
+                    "strokes_per_minute",
+                },
+                "pump-stroke lag parameters",
+            )
+            return PumpStrokeLagParameters(
+                float(data["annular_volume_m3"]),
+                float(data["pump_output_m3_per_stroke"]),
+                float(data["strokes_per_minute"]),
+            )
+        _require_exact_keys(data, {"points"}, "control-point lag parameters")
+        raw_points = data.get("points")
+        if not isinstance(raw_points, list):
+            raise TypeError("points должен быть массивом")
+        points = []
+        for item in raw_points:
+            if not isinstance(item, dict):
+                raise TypeError("Контрольная точка должна быть объектом")
+            _require_exact_keys(item, {"row", "corrected_depth_m"}, "lag control point")
+            points.append(
+                LagDepthControlPoint(
+                    row=_required_int(item, "row"),
+                    corrected_depth_m=float(item["corrected_depth_m"]),
+                )
+            )
+        return ControlPointLagParameters(tuple(points))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректные параметры lag correction") from exc
+
+
+def _lag_revision_from_dict(data: dict[str, Any]) -> LagCorrectionRevision:
+    _require_exact_keys(data, _LAG_REVISION_KEYS, "lag correction revision")
+    raw_parameters = data.get("parameters")
+    raw_curve_ids = data.get("target_curve_ids")
+    if not isinstance(raw_parameters, dict):
+        raise ProjectFormatError("parameters lag correction revision должны быть объектом")
+    if not isinstance(raw_curve_ids, list) or not all(
+        isinstance(item, str) for item in raw_curve_ids
+    ):
+        raise ProjectFormatError("target_curve_ids lag correction должны быть массивом строк")
+    try:
+        method = LagCorrectionMethod(str(_required(data, "method", str)))
+        source_sequence = data.get("source_sequence")
+        if source_sequence is not None and (
+            not isinstance(source_sequence, int) or isinstance(source_sequence, bool)
+        ):
+            raise TypeError("source_sequence должен быть целым числом или null")
+        return LagCorrectionRevision(
+            revision=_required_int(data, "revision"),
+            method=method,
+            parameters=_lag_parameters_from_dict(method, raw_parameters),
+            source_time_index_id=(
+                str(data["source_time_index_id"])
+                if data.get("source_time_index_id") is not None
+                else None
+            ),
+            source_depth_index_id=str(_required(data, "source_depth_index_id", str)),
+            target_curve_ids=tuple(raw_curve_ids),
+            aggregation_policy=TimeDepthAggregationPolicy(
+                str(_required(data, "aggregation_policy", str))
+            ),
+            output_dataset_id=str(_required(data, "output_dataset_id", str)),
+            output_source_index_id=str(_required(data, "output_source_index_id", str)),
+            output_index_id=str(_required(data, "output_index_id", str)),
+            source_row_count=_required_int(data, "source_row_count"),
+            source_fingerprint=str(_required(data, "source_fingerprint", str)),
+            output_dataset_digest=str(_required(data, "output_dataset_digest", str)),
+            source_sequence=source_sequence,
+            source_audit_digest=(
+                str(data["source_audit_digest"])
+                if data.get("source_audit_digest") is not None
+                else None
+            ),
+            formula_id=str(_required(data, "formula_id", str)),
+            formula_version=_required_int(data, "formula_version"),
+            created_at=str(_required(data, "created_at", str)),
+            created_by=str(_required(data, "created_by", str)),
+            comment=str(data.get("comment", "")),
+            schema_version=_required_int(data, "schema_version"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректная lag correction revision") from exc
+
+
+def _lag_profile_from_dict(data: dict[str, Any]) -> LagCorrectionProfile:
+    _require_exact_keys(data, _LAG_PROFILE_KEYS, "lag correction profile")
+    raw_revisions = data.get("revisions")
+    if not isinstance(raw_revisions, list) or not all(
+        isinstance(item, dict) for item in raw_revisions
+    ):
+        raise ProjectFormatError("revisions lag correction должны быть массивом объектов")
+    try:
+        return LagCorrectionProfile(
+            profile_id=str(_required(data, "profile_id", str)),
+            well_id=str(_required(data, "well_id", str)),
+            name=str(_required(data, "name", str)),
+            target=LagCorrectionTarget(str(_required(data, "target", str))),
+            source_dataset_id=str(_required(data, "source_dataset_id", str)),
+            revisions=tuple(_lag_revision_from_dict(item) for item in raw_revisions),
+            active_revision=_required_int(data, "active_revision"),
+            schema_version=_required_int(data, "schema_version"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректный lag correction profile") from exc
+
+
 def _well_from_dict(data: dict[str, Any]) -> Well:
     well = Well(
         well_id=str(_required(data, "well_id", str)),
@@ -941,6 +1122,28 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
             raise ProjectFormatError(
                 f"Acquisition session '{session_id}' не совпадает с persisted projection"
             ) from exc
+    raw_lag_profiles = data.get("lag_correction_profiles", {})
+    if not isinstance(raw_lag_profiles, dict):
+        raise ProjectFormatError("Поле lag_correction_profiles скважины должно быть объектом")
+    for profile_id, item in raw_lag_profiles.items():
+        if not isinstance(profile_id, str) or not isinstance(item, dict):
+            raise ProjectFormatError("Запись lag correction профиля имеет неверный формат")
+        profile = _lag_profile_from_dict(item)
+        if profile.profile_id != profile_id:
+            raise ProjectFormatError(
+                f"ID lag correction профиля '{profile_id}' не совпадает с содержимым"
+            )
+        if profile.well_id != well.well_id:
+            raise ProjectFormatError(
+                f"Lag correction профиль '{profile_id}' относится к другой скважине"
+            )
+        well.lag_correction_profiles[profile_id] = profile
+    try:
+        LagCorrectionController(well)
+    except (LagCorrectionConflictError, KeyError, TypeError, ValueError) as exc:
+        raise ProjectFormatError(
+            "Lag correction profiles не совпадают с persisted projection"
+        ) from exc
     return well
 
 

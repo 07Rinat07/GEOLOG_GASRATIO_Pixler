@@ -68,11 +68,11 @@ JSON-файл проекта не считается универсальным 
 
 | ID | Требование | Статус |
 |---|---|---|
-| OPS-001 | Semantic Channel Dictionary: canonical kind, quantity class, UOM, aliases, sensor/source | готово для CSV/Excel, LAS, Paradox, project format v18 и derived-операций; расширение словаря выполняется данными без изменения Domain |
+| OPS-001 | Semantic Channel Dictionary: canonical kind, quantity class, UOM, aliases, sensor/source | готово для CSV/Excel, LAS, Paradox, project format v19 и derived-операций; расширение словаря выполняется данными без изменения Domain |
 | OPS-002 | Acquisition QC: measurement/arrival time, quality flags, gaps, duplicate/out-of-order/stale, calibration | базовый event QC schema v1 готов; stream alarms/acknowledgement остаются в OPS-006 |
-| OPS-003 | Versioned lag/depth correction для gas/cuttings с pump/volume/flow profiles | запланировано; P0, исходник append-only |
-| OPS-004 | Typed drilling/gas/show/sample/casing/top events с depth/time anchors и audit | готово: typed payload, revision controller, введено в project v17 и сохраняется в v18, strict codec и ReportDefinition projection |
-| OPS-005 | Growing dataset: append, replay, checkpoint, backpressure и controlled close | готово: acquisition schema v1, project v18, atomic controller, checkpoint fingerprints и deterministic replay |
+| OPS-003 | Versioned lag/depth correction для gas/cuttings с pump/volume/flow profiles | готово: schema v1, immutable revisions, source/corrected axes, project v19; исходник append-only |
+| OPS-004 | Typed drilling/gas/show/sample/casing/top events с depth/time anchors и audit | готово: typed payload, revision controller, введено в project v17 и сохраняется в v19, strict codec и ReportDefinition projection |
+| OPS-005 | Growing dataset: append, replay, checkpoint, backpressure и controlled close | готово: acquisition schema v1, project v19, atomic controller, checkpoint fingerprints и deterministic replay |
 | OPS-006 | QC/alarm rules: threshold, hysteresis, debounce, acknowledgement и audit | запланировано; не сертифицированная well-control system |
 | OPS-007 | Structured MudLogReport: cuttings/geology/show, chromatograph/gas peaks, drilling/Dxc/ECD/ROP stats | запланировано по WITSML domain |
 | OPS-008 | Pore-pressure/fracture-gradient workflow с predrill model, observations и uncertainty | позже; decision-support с паспортом методики |

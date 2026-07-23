@@ -1761,5 +1761,7 @@
   "visual_export.select_view": "Open the chart or tablet tab",
   "visual_export.success": "Visualization exported: {name}",
   "visual_export.svg_action": "Export current chart/tablet to SVG...",
-  "visual_export.title": "Visualization export"
+  "visual_export.title": "Visualization export",
+  "lag_correction.action": "Lag/depth correction...",
+  "lag_correction.source_missing": "The source correction dataset was not found."
 }

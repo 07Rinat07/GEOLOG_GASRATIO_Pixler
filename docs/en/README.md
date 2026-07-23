@@ -54,7 +54,7 @@ and correct canonical mapping or UOM. Cancellation leaves the project unchanged.
 
 ## Operational events
 
-Project format v18 stores typed drilling, gas, show, sample, casing, and formation-top events.
+Project format v19 stores typed drilling, gas, show, sample, casing, and formation-top events.
 Every event has a depth and/or time anchor, source, revision, and QC flags. Duplicate,
 out-of-order, gap, stale, and calibration issues are calculated deterministically. EVENTS and
 DRILLING report sections reuse the same already-resolved interval as the curves. See
@@ -62,7 +62,7 @@ DRILLING report sections reuse the same already-resolved interval as the curves.
 
 ## Append-only acquisition and replay
 
-Project format v18 stores recorded acquisition sessions. The growing dataset and operational
+Project format v19 stores recorded acquisition sessions. The growing dataset and operational
 events are verified projections of an append-only journal. The bounded buffer never drops a
 record, checkpoints sign dataset/event fingerprints, and replay from zero or a verified checkpoint
 reproduces the same rows, QC, and reports. See [ACQUISITION_REPLAY.md](ACQUISITION_REPLAY.md).
@@ -529,3 +529,11 @@ A selected interval can now be exported as editable DOCX or self-contained HTML.
 the same ReportDefinition and Coverage as CSV/XLSX: `0` remains zero, missing is `—`, and an
 unavailable channel is `#N/A`. A verifiable Report Passport schema v4 is written next to the
 artifact. [Guide](DOCX_HTML_EXPORT.md).
+
+## Versioned lag/depth correction
+
+“Calculations → Lag/depth correction...” creates a separate derived dataset and never rewrites the
+recorded acquisition dataset or append-only journal. Constant delay, annular-volume/flow, pump
+stroke, and manual control-point methods are supported. Every change creates a new immutable
+revision. An older revision can be activated, previewed, and opened on either the source or corrected
+depth axis for the workspace and report. See [LAG_DEPTH_CORRECTION.md](LAG_DEPTH_CORRECTION.md).

@@ -13,6 +13,7 @@ from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     from geoworkbench.domain.acquisition import AcquisitionSession
+    from geoworkbench.domain.lag_correction import LagCorrectionProfile
     from geoworkbench.domain.operational_events import OperationalEvent
     from geoworkbench.services.semantic_channels import SemanticChannelBinding
 
@@ -600,6 +601,7 @@ class Well:
     canvas_objects: list[CanvasObject] = field(default_factory=list)
     operational_events: dict[str, OperationalEvent] = field(default_factory=dict)
     acquisition_sessions: dict[str, AcquisitionSession] = field(default_factory=dict)
+    lag_correction_profiles: dict[str, LagCorrectionProfile] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

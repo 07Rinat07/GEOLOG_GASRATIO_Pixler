@@ -1,3 +1,15 @@
+# 0.7.44 — versioned lag/depth correction (test build)
+
+- added immutable lag correction profiles and revisions for gas, cuttings, and generic channels;
+- added constant-time, annular-volume/flow, pump-stroke, and manual control-point methods;
+- materialized a separate derived dataset per revision with source and corrected depth axes;
+- preserved the append-only acquisition dataset and source journal without in-place rewriting;
+- added source-prefix, output, formula, and acquisition provenance fingerprints with tamper checks;
+- added optimistic revision guards, rollback to any saved revision, and explicit source/corrected axis selection;
+- added a localized RU/KK/EN Qt workflow under the Calculations menu with curve selection and preview;
+- raised project format from v18 to v19 with a safe empty-profile migration;
+- verification in the available environment: 72 focused passed; 987 headless passed, 4 skipped, 3 deselected.
+
 # 0.7.43 — minimum three-second startup splash (test build)
 
 - kept the branded welcome window visible for at least 3000 ms from its actual show event;

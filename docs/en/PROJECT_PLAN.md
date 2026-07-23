@@ -1,8 +1,8 @@
 # Project plan
 
 Current as of 23 July 2026. Version history belongs in release notes; this file contains
-only active work. UI hotfix 0.7.43 does not change the roadmap order: the next domain slice is
-versioned lag/depth correction.
+only active work. Version 0.7.44 completes versioned lag/depth correction. The next domain slice
+is read-only offline WITSML 2.1 inventory and mapping fixtures.
 
 ## P0 — release stability
 
@@ -25,7 +25,7 @@ versioned lag/depth correction.
 - [x] extract print jobs, session binding, and project-tree workspace commands;
 - [x] prevent UI classes from directly mutating the serializable project model;
 - [x] add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
-  source, and original mnemonic; bindings introduced in v16 remain persisted in current v18;
+  source, and original mnemonic; bindings introduced in v16 remain persisted in current v19;
 - [x] add an interactive Import Review with manual overrides, QC preview, and atomic commit;
 - [x] add a reproducible report passport with fingerprints, bindings/UOM, formula versions, form revision, language, and render settings;
 - [x] add deterministic golden fixtures for screen/print grids, legends, lithotypes, and annotations;
@@ -37,7 +37,7 @@ versioned lag/depth correction.
 - [x] typed drilling, gas, show, sample, casing, and formation-top events in project format v17;
 - [x] gap, duplicate, out-of-order, stale, and calibration QC;
 - [x] append-only growing dataset, checkpoint, and deterministic replay;
-- [ ] versioned lag/depth correction without changing the acquisition source;
+- [x] versioned lag/depth correction without changing the acquisition source;
 - [ ] offline WITSML 2.1 inventory and mapping fixtures, then a secured ETP 1.2 client after fixture replay.
 
 ## P1 — reporting

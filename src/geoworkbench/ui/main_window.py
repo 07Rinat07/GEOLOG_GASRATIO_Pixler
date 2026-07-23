@@ -114,6 +114,7 @@ from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.derived_dataset_controller import DerivedDatasetController
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.lag_correction_controller import LagCorrectionProjectController
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
 from geoworkbench.project.time_to_depth_controller import TimeToDepthController
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
@@ -130,6 +131,7 @@ from geoworkbench.tablet.interval_interaction import IntervalEditMode
 from geoworkbench.tablet.lithology_legend import build_lithology_legend
 from geoworkbench.tablet.tablet_view import GeologicalInputMode, TabletView
 from geoworkbench.ui.track_inspector import TrackInspector
+from geoworkbench.ui.lag_correction_dialog import LagCorrectionDialog
 from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
 from geoworkbench.ui.time_to_depth_dialog import TimeToDepthDialog
 from geoworkbench.ui.branding import application_icon, logo_pixmap
@@ -405,6 +407,7 @@ class MainWindow(QMainWindow):
             self.session, self.formula_registry
         )
         self.custom_formula_controller = CustomFormulaController(self.session)
+        self.lag_correction_controller = LagCorrectionProjectController(self.session)
         self.time_depth_mapping_controller = TimeDepthMappingController(self.session)
         self.time_to_depth_controller = TimeToDepthController(self.session)
         self.depth_annotation_controller = DepthAnnotationController(self.session)
@@ -1386,6 +1389,10 @@ class MainWindow(QMainWindow):
         self.custom_formula_action = self._localized_action("shell.custom_formulas")
         self.custom_formula_action.triggered.connect(self.show_custom_formulas)
         calc_menu.addAction(self.custom_formula_action)
+
+        self.lag_correction_action = self._localized_action("lag_correction.action")
+        self.lag_correction_action.triggered.connect(self.show_lag_correction)
+        calc_menu.addAction(self.lag_correction_action)
 
         self.time_depth_mapping_action = self._localized_action("time_depth.action")
         self.time_depth_mapping_action.triggered.connect(self.show_time_depth_mapping)
@@ -3476,6 +3483,7 @@ class MainWindow(QMainWindow):
             reset_hooks=(self.custom_formula_controller.clear_history,),
             name="custom_formula",
         )
+        bindings.register(self.lag_correction_controller, name="lag_correction")
         bindings.register(self.time_depth_mapping_controller, name="time_depth_mapping")
         bindings.register(
             self.time_to_depth_controller,
@@ -3851,6 +3859,12 @@ class MainWindow(QMainWindow):
             import_skf=self._choose_and_import_skf,
         )
         dialog.exec()
+        if (
+            opened_from_projection
+            and self.session.current_dataset_id == dataset.dataset_id
+            and original_dataset_id in well.datasets
+        ):
+            self.session.current_dataset_id = original_dataset_id
         self._refresh_tree()
         self._update_title()
 
@@ -4509,6 +4523,39 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._log(f"Рассчитана кривая {result.output_mnemonic}: {result.profile_id}")
         self.statusBar().showMessage(f"Рассчитана кривая {result.output_mnemonic}")
+
+    def show_lag_correction(self) -> None:
+        dataset = self.session.current_dataset
+        well = self.session.current_well
+        if dataset is None or well is None:
+            QMessageBox.information(
+                self, self._t("lag_correction.action"), self._t("formula.select_dataset")
+            )
+            return
+        original_dataset_id = dataset.dataset_id
+        source_dataset_id = dataset.headers.get("LAG_SOURCE_DATASET_ID")
+        opened_from_projection = bool(source_dataset_id)
+        if source_dataset_id:
+            source = well.datasets.get(source_dataset_id)
+            if source is None:
+                QMessageBox.warning(
+                    self,
+                    self._t("lag_correction.action"),
+                    self._t("lag_correction.source_missing"),
+                )
+                return
+            self.session.current_dataset_id = source.dataset_id
+            dataset = source
+        dialog = LagCorrectionDialog(
+            dataset,
+            self.lag_correction_controller,
+            self,
+            language=self.language,
+        )
+        dialog.exec()
+        self._refresh_tree()
+        self._show_current_dataset()
+        self._update_title()
 
     def show_time_depth_mapping(self) -> None:
         dataset = self.session.current_dataset

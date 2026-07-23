@@ -1761,5 +1761,7 @@
   "visual_export.select_view": "График немесе планшет қойындысын ашыңыз",
   "visual_export.success": "Визуализация экспортталды: {name}",
   "visual_export.svg_action": "Ағымдағы графикті/планшетті SVG-ге экспорттау...",
-  "visual_export.title": "Визуализацияны экспорттау"
+  "visual_export.title": "Визуализацияны экспорттау",
+  "lag_correction.action": "Lag/depth түзетуі...",
+  "lag_correction.source_missing": "Түзетудің бастапқы dataset-і табылмады."
 }

@@ -1,8 +1,8 @@
 # План проекта
 
 Актуально на 23 июля 2026 года. История версий находится в release notes; здесь только
-действующий план. UI-hotfix 0.7.43 не меняет порядок работ: следующий предметный срез —
-versioned lag/depth correction.
+действующий план. Срез 0.7.44 завершает versioned lag/depth correction. Следующий предметный
+срез — offline WITSML 2.1 inventory и mapping fixtures.
 
 ## P0 — стабильность выпуска
 
@@ -25,7 +25,7 @@ versioned lag/depth correction.
 - [x] вынести print jobs, session binding и команды дерева проекта;
 - [x] запретить UI-классам напрямую менять сериализуемую модель проекта;
 - [x] создать Semantic Channel Dictionary: тип параметра, quantity class, UOM, aliases,
-  источник и исходная мнемоника; binding введён в v16 и сохраняется в текущем v18;
+  источник и исходная мнемоника; binding введён в v16 и сохраняется в текущем v19;
 - [x] добавить интерактивный Import Review с ручными overrides, QC preview и атомарным commit;
 - [x] добавить паспорт воспроизводимости отчёта с fingerprints, bindings/UOM, версиями формул, revision формы, языком и render settings;
 - [x] добавить детерминированные golden fixtures экранной и печатной сетки, legend, lithotypes и annotations;
@@ -37,7 +37,7 @@ versioned lag/depth correction.
 - [x] типизированные drilling/gas/show/sample/casing/formation-top события, project format v17;
 - [x] QC для gap, duplicate, out-of-order, stale и calibration;
 - [x] append-only growing dataset, checkpoint и deterministic replay;
-- [ ] версионированная lag/depth correction без изменения источника;
+- [x] версионированная lag/depth correction без изменения источника;
 - [ ] offline WITSML 2.1 inventory и mapping fixtures, затем защищённый ETP 1.2 client после fixture replay.
 
 ## P1 — отчёты

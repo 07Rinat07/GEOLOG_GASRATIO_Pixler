@@ -1,6 +1,6 @@
 # Typed operational events
 
-Status: the event contract was introduced in 0.7.41 and remains in current project format v18.
+Status: the event contract was introduced in 0.7.41 and remains in current project format v19.
 
 An operational event is an immutable drilling or geological observation attached to one well
 and to depth and/or time. The Qt-free contract is shared by project storage, QC, the mutation
@@ -48,7 +48,7 @@ default. Results do not depend on JSON key order.
 listing, well identity checks, and full QC recalculation after every mutation. UI and import
 adapters must not mutate `Well.operational_events` directly.
 
-## Storage in project format v18
+## Storage in project format v19
 
 Events are stored as `well.operational_events`, keyed by event ID. Migration `v16 → v17` adds
 an empty collection to every well without changing datasets or interpretations. The decoder

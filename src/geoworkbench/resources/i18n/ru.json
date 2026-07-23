@@ -1761,5 +1761,7 @@
   "visual_export.select_view": "Откройте вкладку графика или планшета",
   "visual_export.success": "Визуализация экспортирована: {name}",
   "visual_export.svg_action": "Экспортировать текущий график/планшет в SVG...",
-  "visual_export.title": "Экспорт визуализации"
+  "visual_export.title": "Экспорт визуализации",
+  "lag_correction.action": "Коррекция lag/depth...",
+  "lag_correction.source_missing": "Исходный dataset коррекции не найден."
 }

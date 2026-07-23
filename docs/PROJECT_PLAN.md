@@ -1,8 +1,8 @@
 # План проекта
 
 Актуально на 23 июля 2026 года. Старые изменения находятся в `CHANGELOG.md` и release notes;
-этот файл содержит только будущую работу и критерии приёмки. UI-hotfix 0.7.43 не меняет
-очерёдность roadmap: следующий предметный срез — versioned lag/depth correction.
+этот файл содержит только будущую работу и критерии приёмки. Срез 0.7.44 завершает
+versioned lag/depth correction; следующий предметный срез — offline WITSML 2.1 inventory и mapping fixtures.
 
 ## P0 — вернуть надёжный релизный контур
 
@@ -52,7 +52,7 @@ Qt-слой сохраняет диалоги, жесты, выбор польз
 ## P0 — единые данные и воспроизводимый отчёт
 
 - [x] создать Semantic Channel Dictionary: canonical kind, quantity class, UOM, aliases,
-  source/sensor и исходная мнемоника; binding введён в v16 и сохраняется в текущем v18;
+  source/sensor и исходная мнемоника; binding введён в v16 и сохраняется в текущем v19;
 - [x] добавить единый интерактивный Import Review для индекса, mapping, единиц, NULL и QC;
   preview и commit выполняются на копии, а отмена не изменяет проект;
 - [x] ввести Report Passport с fingerprint источника, bindings, версиями формул, UOM,
@@ -79,14 +79,14 @@ print-media schema v1 разрешает A4/A3/custom/roll, Fit/100%, двуме
   revisioned controller и точной ReportDefinition projection;
 - [x] QC для gap, duplicate, out-of-order, stale и calibration;
 - [x] append-only growing dataset, checkpoint и детерминированный replay;
-- [ ] версионированная lag/depth correction с просмотром исходной и скорректированной оси;
+- [x] версионированная lag/depth correction с immutable revisions, preview и выбором исходной/скорректированной оси;
 - [ ] offline WITSML 2.1 inventory и mapping;
 - [ ] защищённый ETP 1.2 client после успешного replay, без credentials в JSON проекта.
 
-Acquisition source/replay contract выполнен в 0.7.42: журнал, growing dataset, события, QC и
-отчётная проекция воспроизводятся с теми же fingerprints. Следующий критерий — versioned
-lag/depth correction с одновременным просмотром исходной и скорректированной оси без изменения
-append-only source.
+Acquisition source/replay contract выполнен в 0.7.42. Versioned lag/depth correction завершена
+в 0.7.44: source journal не изменяется, каждая revision создаёт отдельный derived dataset, а UI и
+ReportDefinition явно выбирают source/corrected axis. Следующий критерий — read-only offline
+WITSML 2.1 inventory и mapping fixtures до любого сетевого ETP-клиента.
 
 ## P1 — единая печать и отчётность
 
