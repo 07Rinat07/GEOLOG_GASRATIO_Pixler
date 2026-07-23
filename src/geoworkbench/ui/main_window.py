@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from weakref import ref
 
 import numpy as np
 from PySide6.QtCore import QSize, QStandardPaths, Qt
@@ -141,6 +142,10 @@ from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
 from geoworkbench.ui.time_to_depth_dialog import TimeToDepthDialog
 from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.home_page import HomeAction, HomePage
+from geoworkbench.ui.workspace_controller import (
+    WorkspaceController,
+    WorkspaceSurface,
+)
 from geoworkbench.ui.window_geometry import adaptive_window_geometry, constrain_window_geometry
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
@@ -199,6 +204,40 @@ from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.user_profiles import CursorLineSettings, UserProfileSettings
 from geoworkbench.services.mnemonic_registry import UserMnemonicRegistry
 from geoworkbench.services.time_display import format_elapsed_time, format_unix_seconds
+
+
+class _MainWindowWorkspacePort:
+    """Thin Qt adapter for headless workspace navigation rules."""
+
+    def __init__(self, window: MainWindow) -> None:
+        self._window_ref = ref(window)
+
+    @property
+    def _window(self) -> MainWindow:
+        window = self._window_ref()
+        if window is None:
+            raise RuntimeError("Main window is no longer available")
+        return window
+
+    def set_workspace_available(
+        self,
+        available: bool,
+        dataset_name: str | None,
+    ) -> None:
+        self._window.workspace_action.setEnabled(available)
+        self._window.home_page.set_workspace_dataset(dataset_name)
+
+    def show_home(self) -> None:
+        self._window.central_stack.setCurrentWidget(self._window.home_page)
+
+    def show_workspace(self, target: object | None) -> None:
+        if isinstance(target, QWidget):
+            self._window.tabs.setCurrentWidget(target)
+        self._window.central_stack.setCurrentWidget(self._window.tabs)
+
+    def show_navigation_status(self, surface: WorkspaceSurface) -> None:
+        key = "home.status" if surface is WorkspaceSurface.HOME else "home.workspace_status"
+        self._window.statusBar().showMessage(self._window._t(key))
 
 
 class MainWindow(QMainWindow):
@@ -387,6 +426,8 @@ class MainWindow(QMainWindow):
         self._create_home_page()
         self._create_toolbar()
         self.setStatusBar(QStatusBar())
+        self._workspace_controller = WorkspaceController(_MainWindowWorkspacePort(self))
+        self._workspace_controller.set_dataset(None)
         self._set_tablet_edit_mode(False)
         self.cursor_line_action.setChecked(self.cursor_line_settings.enabled)
         self.statusBar().showMessage(self._t("app.ready"))
@@ -1500,16 +1541,10 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_stack)
 
     def _show_home(self) -> None:
-        self.central_stack.setCurrentWidget(self.home_page)
-        self.statusBar().showMessage(self._t("home.status"))
+        self._workspace_controller.show_home()
 
     def _show_workspace(self, widget: QWidget | None = None) -> None:
-        if self.session.current_dataset is None:
-            return
-        if widget is not None:
-            self.tabs.setCurrentWidget(widget)
-        self.central_stack.setCurrentWidget(self.tabs)
-        self.statusBar().showMessage(self._t("home.workspace_status"))
+        self._workspace_controller.show_workspace(widget)
 
     def _create_toolbar(self) -> None:
         self.main_toolbar = QToolBar(self._t("toolbar.main"), self)
@@ -2141,12 +2176,9 @@ class MainWindow(QMainWindow):
             self.curve_browser_dock.hide()
             self.interpretation_properties.clear()
             self.interpretation_properties_dock.hide()
-            self.workspace_action.setEnabled(False)
-            self.home_page.set_workspace_dataset(None)
-            self._show_home()
+            self._workspace_controller.set_dataset(None)
             return
-        self.workspace_action.setEnabled(True)
-        self.home_page.set_workspace_dataset(dataset.name)
+        self._workspace_controller.set_dataset(dataset.name)
         self.curve_view.show_dataset(dataset)
         self.las_table_editor.set_dataset(dataset)
         self.tablet_view.set_dataset(dataset)

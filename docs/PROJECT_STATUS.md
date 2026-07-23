@@ -23,11 +23,12 @@
 
 | Проверка | Фактический результат |
 |---|---|
-| Полный pytest | 1202 пройдено, 10 пропущено; `python -m pytest` штатно завершён с кодом 0 |
+| Полный pytest | 1205 пройдено, 10 пропущено; `python -m pytest` штатно завершён с кодом 0 |
 | Ruff | все проверки пройдены |
-| mypy | 0 ошибок в 259 исходных файлах |
+| mypy | 0 ошибок в 260 исходных файлах |
 | Аннотации | восстановлены hit routing, область набора данных/формы и диагностика canvas-wide overlay |
 | Архитектура планшета | annotation/navigation изолированы; lifecycle управляет треками; grid renderer объединяет деления; edit-mode coordinator — единый источник состояния F4 |
+| Архитектура главного окна | `WorkspaceController` управляет доступностью данных и переходами между главной, workspace и целевой вкладкой |
 | Интерфейс планшета | верхние панели прокручиваются и не выталкивают окно за границы узкого экрана |
 | Экспорт изображений | устранены Windows-блокировка SVG и несовместимость формата PNG в PySide6 |
 | Физическая печать/HiDPI | требует подтверждения на целевой Windows-машине |
@@ -44,9 +45,9 @@
 ## Следующая контрольная точка
 
 Завершить Windows GUI/HiDPI/PDF/physical-print smoke-test и подписать релизную матрицу.
-Annotation event router, navigation coordinator, lifecycle треков, общий расчёт сетки и
-переходы edit-mode защищены headless/UI-тестами. Следующий архитектурный срез — выделение
-workspace actions из `MainWindow`.
+Annotation event router, navigation coordinator, lifecycle треков, общий расчёт сетки,
+переходы edit-mode и workspace-навигация защищены headless/UI-тестами. Следующий
+архитектурный срез — выделение import jobs из `MainWindow`.
 
 Подробности: [аудит](PRODUCT_AUDIT_2026.md), [план](PROJECT_PLAN.md),
 [roadmap](ROADMAP.md), [проверки](TESTING.md).
