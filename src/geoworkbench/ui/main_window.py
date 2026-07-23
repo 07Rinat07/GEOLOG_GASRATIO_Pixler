@@ -142,6 +142,10 @@ from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
 from geoworkbench.ui.time_to_depth_dialog import TimeToDepthDialog
 from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.home_page import HomeAction, HomePage
+from geoworkbench.ui.import_job_controller import (
+    ImportJobController,
+    ImportSourceKind,
+)
 from geoworkbench.ui.workspace_controller import (
     WorkspaceController,
     WorkspaceSurface,
@@ -238,6 +242,36 @@ class _MainWindowWorkspacePort:
     def show_navigation_status(self, surface: WorkspaceSurface) -> None:
         key = "home.status" if surface is WorkspaceSurface.HOME else "home.workspace_status"
         self._window.statusBar().showMessage(self._window._t(key))
+
+
+class _MainWindowImportJobPort:
+    """Map stable import kinds to the existing format-specific UI jobs."""
+
+    def __init__(self, window: MainWindow) -> None:
+        self._window_ref = ref(window)
+
+    @property
+    def _window(self) -> MainWindow:
+        window = self._window_ref()
+        if window is None:
+            raise RuntimeError("Main window is no longer available")
+        return window
+
+    def execute_import(self, kind: ImportSourceKind) -> None:
+        handlers = {
+            ImportSourceKind.LAS: self._window.open_las,
+            ImportSourceKind.CSV: self._window.open_csv,
+            ImportSourceKind.EXCEL: self._window.open_excel,
+            ImportSourceKind.PARADOX: self._window.open_paradox,
+        }
+        handlers[kind]()
+
+    def report_unknown_source(self, selected_label: str) -> None:
+        QMessageBox.warning(
+            self._window,
+            self._window._t("import.title"),
+            self._window._t("import.unknown_source", source=selected_label),
+        )
 
 
 class MainWindow(QMainWindow):
@@ -427,6 +461,7 @@ class MainWindow(QMainWindow):
         self._create_toolbar()
         self.setStatusBar(QStatusBar())
         self._workspace_controller = WorkspaceController(_MainWindowWorkspacePort(self))
+        self._import_job_controller = ImportJobController(_MainWindowImportJobPort(self))
         self._workspace_controller.set_dataset(None)
         self._set_tablet_edit_mode(False)
         self.cursor_line_action.setChecked(self.cursor_line_settings.enabled)
@@ -1674,27 +1709,16 @@ class MainWindow(QMainWindow):
             self.user_profile_settings.save_cursor_line_settings(self.cursor_line_settings)
 
     def open_data(self) -> None:
-        importers = {
-            "LAS 1.2/2.0": self.open_las,
-            "CSV/TXT": self.open_csv,
-            "Excel XLS/XLSX/XLSM": self.open_excel,
-            "GeoScape / Paradox DB": self.open_paradox,
-        }
+        choices = self._import_job_controller.choices(self._t)
         selected, accepted = QInputDialog.getItem(
             self,
             self._t("import.title"),
             self._t("import.source_type"),
-            list(importers),
+            [choice.label for choice in choices],
             0,
             False,
         )
-        if not accepted:
-            return
-        importer = importers.get(selected)
-        if importer is None:
-            QMessageBox.warning(self, "Универсальный импорт", "Неизвестный тип источника")
-            return
-        importer()
+        self._import_job_controller.dispatch(selected, accepted, self._t)
 
     def change_language(self, language: AppLanguage) -> None:
         if language is self.language:
