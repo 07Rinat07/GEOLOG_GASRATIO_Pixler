@@ -265,6 +265,22 @@ def _migrate_v15_to_v16(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v16_to_v17(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 16 не содержит объекта 'project'")
+    wells = project.get("wells", {})
+    if not isinstance(wells, dict):
+        raise ProjectMigrationError("Проект версии 16 содержит некорректный объект wells")
+    for well in wells.values():
+        if not isinstance(well, dict):
+            raise ProjectMigrationError("Некорректная запись скважины версии 16")
+        well.setdefault("operational_events", {})
+    migrated["format_version"] = 17
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -282,6 +298,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(12, _migrate_v12_to_v13)
 DEFAULT_PROJECT_MIGRATIONS.register(13, _migrate_v13_to_v14)
 DEFAULT_PROJECT_MIGRATIONS.register(14, _migrate_v14_to_v15)
 DEFAULT_PROJECT_MIGRATIONS.register(15, _migrate_v15_to_v16)
+DEFAULT_PROJECT_MIGRATIONS.register(16, _migrate_v16_to_v17)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

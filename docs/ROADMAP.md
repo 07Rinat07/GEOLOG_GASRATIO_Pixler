@@ -21,7 +21,7 @@ Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke ch
 - [complete] define one screen/print grid contract and deterministic golden-render fixtures;
 - [x] add deterministic report provenance: source fingerprints, interval-scoped channel data, complete semantic bindings/UOM, formula versions, locale, content-addressed template revision, and render settings;
 - [x] resolve one immutable `ReportDefinition` and interval for Print Center preview/output, Masterlog, and selected CSV/XLSX export;
-- test project format v16 and layout format v14 migrations with representative legacy files.
+- test project format v17 (including v16 → v17) and layout format v14 migrations with representative legacy files.
 
 Exit: bounded controllers, reproducible report passports, and deterministic structural/visual golden fixtures are complete; Windows raster/PDF/HiDPI validation remains.
 
@@ -31,8 +31,8 @@ Exit: bounded controllers, reproducible report passports, and deterministic stru
   dictionary while preserving source mnemonics and a version-stable binding snapshot;
 - [complete] add an interactive Import Review screen for mapping, units, index, NULL, gaps,
   duplicates, warnings, manual overrides, and one atomic acceptance command;
-- store measurement time, arrival time, source, calibration, and QC flags;
-- define typed drilling, gas, show, sample, casing, and formation-top events;
+- [complete] store measurement time, arrival time, source, calibration, and QC flags in project format v17;
+- [complete] define typed drilling, gas, show, sample, casing, and formation-top events;
 - add versioned lag/depth correction without rewriting the acquired source.
 
 Exit: the same channel is found consistently across vendors; every correction is reversible and audited.

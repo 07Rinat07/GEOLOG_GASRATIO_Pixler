@@ -163,3 +163,22 @@ def test_v15_project_advances_to_semantic_channel_format_without_mutating_curves
     assert migrated["format_version"] == 16
     assert migrated["project"] == payload["project"]
     assert payload["format_version"] == 15
+
+
+def test_v16_project_adds_empty_operational_events_to_every_well() -> None:
+    payload = {
+        "format_version": 16,
+        "project": {
+            "project_id": "p",
+            "name": "P",
+            "wells": {
+                "well-1": {"well_id": "well-1", "name": "Well 1", "datasets": {}}
+            },
+        },
+    }
+
+    migrated = migrate_project_payload(payload, 17)
+
+    assert migrated["format_version"] == 17
+    assert migrated["project"]["wells"]["well-1"]["operational_events"] == {}
+    assert "operational_events" not in payload["project"]["wells"]["well-1"]

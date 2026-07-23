@@ -12,6 +12,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
+    from geoworkbench.domain.operational_events import OperationalEvent
     from geoworkbench.services.semantic_channels import SemanticChannelBinding
 
 
@@ -596,6 +597,7 @@ class Well:
     stratigraphy: list[StratigraphyInterval] = field(default_factory=list)
     interpretations: dict[str, WellInterpretation] = field(default_factory=dict)
     canvas_objects: list[CanvasObject] = field(default_factory=list)
+    operational_events: dict[str, OperationalEvent] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

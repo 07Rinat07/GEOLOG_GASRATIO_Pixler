@@ -23,6 +23,7 @@
 - [CHANGELOG.md](CHANGELOG.md) — concise implementation history.
 - [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md) — channel semantics, UOM classes, and persisted bindings.
 - [IMPORT_REVIEW.md](IMPORT_REVIEW.md) — interactive mapping, QC preview, and atomic import acceptance.
+- [OPERATIONAL_EVENTS.md](OPERATIONAL_EVENTS.md) — typed drilling/geology events, QC, storage, and report projection.
 
 ## Main workflows
 
@@ -39,6 +40,7 @@
 - Semantic channels: [RU](ru/SEMANTIC_CHANNEL_DICTIONARY.md) · [KK](kk/SEMANTIC_CHANNEL_DICTIONARY.md) · [EN](en/SEMANTIC_CHANNEL_DICTIONARY.md)
 - Import Review: [RU](ru/IMPORT_REVIEW.md) · [KK](kk/IMPORT_REVIEW.md) · [EN](en/IMPORT_REVIEW.md)
 - DOCX/HTML export: [RU](ru/DOCX_HTML_EXPORT.md) · [KK](kk/DOCX_HTML_EXPORT.md) · [EN](en/DOCX_HTML_EXPORT.md)
+- Operational events: [RU](ru/OPERATIONAL_EVENTS.md) · [KK](kk/OPERATIONAL_EVENTS.md) · [EN](en/OPERATIONAL_EVENTS.md)
 
 ## History
 
@@ -86,3 +88,10 @@ Every user-facing change must update the matching RU/KK/EN files in the same com
 - [Русская инструкция](ru/DOCX_HTML_EXPORT.md)
 - [Қазақша нұсқаулық](kk/DOCX_HTML_EXPORT.md)
 - [English guide](en/DOCX_HTML_EXPORT.md)
+## Operational events
+
+- [Operational event contract](OPERATIONAL_EVENTS.md)
+- [Release notes 0.7.41](RELEASE_NOTES_0.7.41.md)
+- [Русская инструкция](ru/OPERATIONAL_EVENTS.md)
+- [Қазақша нұсқаулық](kk/OPERATIONAL_EVENTS.md)
+- [English guide](en/OPERATIONAL_EVENTS.md)

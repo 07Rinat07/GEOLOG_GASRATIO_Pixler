@@ -126,7 +126,7 @@ payload definition и его SHA-256.
 
 Qt-независимый `services/interval_selection.py` содержит расчёт строк глубинного интервала;
 `DatasetIntervalSelection` остаётся UI-observer, но exporter больше не импортирует Qt только
-ради геометрии диапазона. Формат проекта остаётся v16.
+ради геометрии диапазона. Текущий project format v17 дополнительно хранит operational events.
 
 ## Печать
 
@@ -220,4 +220,25 @@ append-only growing dataset → secured ETP 1.2. Measurement time и arrival tim
 Qt-слой выбирает путь и формат. `DatasetExportController` передаёт dataset и resolved report
 адаптеру. Финальный файл никогда не устанавливается напрямую: producer пишет в staging,
 `ReportOutputTransaction` рассчитывает fingerprint, финализирует Passport schema v4 и атомарно
-фиксирует output + sidecar. Project format остаётся v16.
+фиксирует output + sidecar. Project format v17 хранит operational events; ReportDocumentModel остаётся отдельным runtime contract.
+
+## Граница operational events
+
+`domain/operational_events.py` определяет immutable schema v1: discriminator kind, typed payload,
+depth/time anchors, canonical UTC timestamps, source, revision, calibration и QC flags.
+`Well.operational_events` — сериализуемый объект `event_id → event` в project format v17.
+
+Изменение коллекции разрешено только через `OperationalEventController`. Он проверяет well
+identity и expected revision, затем пересчитывает QC полной коллекции. UI/import code не должен
+писать в словарь напрямую.
+
+`OperationalEventQcEvaluator` не использует Qt, порядок dictionary или текущее системное время.
+Пороговые значения передаются через immutable policy. Поэтому одинаковая persisted collection
+даёт одинаковые duplicate/out-of-order/gap/stale/calibration flags.
+
+`resolve_operational_event_report()` является projection adapter над уже готовым
+`ResolvedReportDefinition`. Он не вызывает interval resolver и не переключает индекс скрытно.
+Depth, relative-time и datetime indexes используют только соответствующий event anchor.
+
+Следующий streaming слой обязан быть append-only и воспроизводить эту же domain collection через
+checkpoint/replay, не заменяя acquisition source.

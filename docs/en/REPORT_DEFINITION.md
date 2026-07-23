@@ -8,6 +8,10 @@ The resolver creates one inclusive row set, resolves mnemonics, preserves unreso
 unavailable channels, and calculates coverage. Preview, PDF/printing, and CSV/XLSX do not
 recalculate the interval or channel availability.
 
-Schema v1 payloads migrate to runtime schema v2. Project format remains v16.
+Schema v1 payloads migrate to runtime schema v2. Project format v17 adds `well.operational_events`. For `EVENTS` and `DRILLING`,
+`resolve_operational_event_report()` reuses the exact bounds of the existing
+`ResolvedReportDefinition`: depth maps to `depth_m`, relative time to `elapsed_time_s`, and
+datetime to UTC `measured_at`. The optional `event_kinds` value is a comma-separated kind list.
+No second interval resolution is allowed.
 
 See the [full contract](../REPORT_DEFINITION.md) and [coverage model](COVERAGE_MODEL.md).

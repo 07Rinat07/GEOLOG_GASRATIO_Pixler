@@ -1,23 +1,22 @@
 # Project status
 
-Snapshot: 23 July 2026. Version: 0.7.40, test build.
+Snapshot: 23 July 2026. Version: 0.7.41, test build.
 
 ## Completed
 
-- shared `ReportDocumentModel` schema v1;
-- DOCX and self-contained HTML from one `ResolvedReportDefinition`;
-- exact row indices with no second interval calculation;
-- Coverage: observed `0`, missing `—`, unavailable `#N/A`;
-- deterministic OOXML with no macros or external embedded objects;
-- inline-CSS HTML with no scripts or network resources;
-- recoverable output transaction and Report Passport schema v4;
-- fingerprints of the completed DOCX/HTML bytes;
-- project format remains v16.
+- six typed operational-event payloads: drilling, gas, show, sample, casing, formation top;
+- one envelope with depth/time anchors, canonical UTC timestamps, source, revision, and calibration;
+- duplicate, out-of-order, gap, stale, missing-calibration, and expired-calibration QC;
+- `OperationalEventController` as the single mutation boundary;
+- project format v17 with a safe v16 → v17 migration;
+- strict discriminator codec and typed-payload round trip;
+- EVENTS/DRILLING reuse exact `ResolvedReportDefinition` bounds;
+- removed obsolete import-controller duplicates from the `ui` package.
 
-Checks: 73 passed focused tests; available regression: 926 passed, 4 skipped, 3 LAS scenarios deselected.
-The full Qt/LAS/Ruff/mypy gate and Windows Word/browser/PDF/HiDPI/physical-print smoke tests
-remain mandatory.
+Expanded focused set: 108 passed. Available headless regression: 936 passed, 4 skipped.
+The full Qt/LAS/Ruff/mypy gate and Windows/HiDPI/PDF/physical-print
+smoke tests remain mandatory.
 
-Next slice: typed drilling, gas, show, sample, casing, and formation-top events.
+Next slice: an append-only growing dataset with checkpoint and deterministic replay.
 
-See [DOCX and HTML](DOCX_HTML_EXPORT.md) and the [engineering status](../PROJECT_STATUS.md).
+See [Operational events](OPERATIONAL_EVENTS.md) and the [engineering status](../PROJECT_STATUS.md).

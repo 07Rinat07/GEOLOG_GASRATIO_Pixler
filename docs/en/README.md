@@ -48,6 +48,14 @@ is registered, Import Review lets the user verify the index and QC, set NULL, ex
 and correct canonical mapping or UOM. Cancellation leaves the project unchanged. See
 [IMPORT_REVIEW.md](IMPORT_REVIEW.md) and [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md).
 
+## Operational events
+
+Project format v17 stores typed drilling, gas, show, sample, casing, and formation-top events.
+Every event has a depth and/or time anchor, source, revision, and QC flags. Duplicate,
+out-of-order, gap, stale, and calibration issues are calculated deterministically. EVENTS and
+DRILLING report sections reuse the same already-resolved interval as the curves. See
+[OPERATIONAL_EVENTS.md](OPERATIONAL_EVENTS.md).
+
 ## Report Passport
 
 Print Center, direct PNG/SVG/PDF, Masterlog PDF, and interpretation PDF exports create a

@@ -1,3 +1,14 @@
+# 0.7.41 — typed operational events (test build)
+
+- added strict drilling/gas/show/sample/casing/formation-top payloads and one immutable event envelope;
+- added depth/time anchors, canonical UTC timestamps, source, revision, calibration metadata, and persisted QC flags;
+- implemented deterministic duplicate, out-of-order, gap, stale, missing-calibration, and expired-calibration QC;
+- added a revisioned `OperationalEventController` as the only mutation boundary;
+- upgraded project format to v17 with a safe v16 → v17 migration and strict discriminator codec;
+- connected EVENTS/DRILLING to exact `ResolvedReportDefinition` bounds without interval recalculation;
+- removed obsolete import-controller duplicates from `ui`; the application boundary remains in `services`;
+- added RU/KK/EN documentation and focused domain/controller/QC/migration/codec/report tests.
+
 # 0.7.40 — DOCX and HTML report adapters (test build)
 
 - added shared Qt-free `ReportDocumentModel` schema v1 for DOCX and self-contained HTML;

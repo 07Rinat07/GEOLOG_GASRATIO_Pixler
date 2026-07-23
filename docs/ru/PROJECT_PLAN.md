@@ -24,7 +24,7 @@
 - [x] вынести print jobs, session binding и команды дерева проекта;
 - [x] запретить UI-классам напрямую менять сериализуемую модель проекта;
 - [x] создать Semantic Channel Dictionary: тип параметра, quantity class, UOM, aliases,
-  источник и исходная мнемоника; сохранять binding в формате проекта v16;
+  источник и исходная мнемоника; binding введён в v16 и сохраняется в текущем v17;
 - [x] добавить интерактивный Import Review с ручными overrides, QC preview и атомарным commit;
 - [x] добавить паспорт воспроизводимости отчёта с fingerprints, bindings/UOM, версиями формул, revision формы, языком и render settings;
 - [x] добавить детерминированные golden fixtures экранной и печатной сетки, legend, lithotypes и annotations;
@@ -33,10 +33,11 @@
 
 ## P1 — операции и real-time
 
-- типизированные drilling/gas/show/sample/casing/top события;
-- QC для gap, duplicate, out-of-order, stale и calibration;
-- версионированная lag/depth correction без изменения источника;
-- WITSML 2.1 inventory, затем replay, затем защищённый ETP 1.2 client.
+- [x] типизированные drilling/gas/show/sample/casing/formation-top события, project format v17;
+- [x] QC для gap, duplicate, out-of-order, stale и calibration;
+- [ ] append-only growing dataset, checkpoint и deterministic replay;
+- [ ] версионированная lag/depth correction без изменения источника;
+- [ ] WITSML 2.1 inventory, затем replay, затем защищённый ETP 1.2 client.
 
 ## P1 — отчёты
 

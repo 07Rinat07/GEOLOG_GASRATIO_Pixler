@@ -49,6 +49,14 @@ quantity class, source/canonical UOM, sensor/source, confidence және сәй�
 өзгертпейді. Толығырақ: [IMPORT_REVIEW.md](IMPORT_REVIEW.md) және
 [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md).
 
+## Operational events
+
+Project format v17 drilling, gas, show, sample, casing және formation-top typed events сақтайды.
+Әр event depth және/немесе time anchor, source, revision және QC flags қамтиды. Duplicate,
+out-of-order, gap, stale және calibration мәселелері детерминирленген түрде есептеледі.
+EVENTS және DRILLING report sections curves қолданатын дайын resolved interval-ды қайта
+есептемей пайдаланады. Толығырақ: [OPERATIONAL_EVENTS.md](OPERATIONAL_EVENTS.md).
+
 ## Есеп паспорты
 
 Print Center, direct PNG/SVG/PDF, Masterlog PDF немесе interpretation PDF сақталғанда нәтиже

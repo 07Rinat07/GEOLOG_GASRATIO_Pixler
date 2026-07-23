@@ -68,10 +68,10 @@ JSON-файл проекта не считается универсальным 
 
 | ID | Требование | Статус |
 |---|---|---|
-| OPS-001 | Semantic Channel Dictionary: canonical kind, quantity class, UOM, aliases, sensor/source | готово для CSV/Excel, LAS, Paradox, project format v16 и derived-операций; расширение словаря выполняется данными без изменения Domain |
-| OPS-002 | Acquisition QC: measurement/arrival time, quality flags, gaps, duplicate/out-of-order/stale, calibration | запланировано; P0 |
+| OPS-001 | Semantic Channel Dictionary: canonical kind, quantity class, UOM, aliases, sensor/source | готово для CSV/Excel, LAS, Paradox, project format v17 и derived-операций; расширение словаря выполняется данными без изменения Domain |
+| OPS-002 | Acquisition QC: measurement/arrival time, quality flags, gaps, duplicate/out-of-order/stale, calibration | базовый event QC schema v1 готов; stream alarms/acknowledgement остаются в OPS-006 |
 | OPS-003 | Versioned lag/depth correction для gas/cuttings с pump/volume/flow profiles | запланировано; P0, исходник append-only |
-| OPS-004 | Typed drilling/gas/show/sample/casing/top events с depth/time anchors и audit | запланировано; P0 |
+| OPS-004 | Typed drilling/gas/show/sample/casing/top events с depth/time anchors и audit | готово: typed payload, revision controller, project v17, strict codec и ReportDefinition projection |
 | OPS-005 | Growing dataset: append, replay, checkpoint, backpressure и controlled close | запланировано; P0 |
 | OPS-006 | QC/alarm rules: threshold, hysteresis, debounce, acknowledgement и audit | запланировано; не сертифицированная well-control system |
 | OPS-007 | Structured MudLogReport: cuttings/geology/show, chromatograph/gas peaks, drilling/Dxc/ECD/ROP stats | запланировано по WITSML domain |

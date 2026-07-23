@@ -7,6 +7,18 @@ from typing import Any
 
 import numpy as np
 
+from geoworkbench.domain.operational_events import (
+    CasingEventPayload,
+    DrillingEventPayload,
+    FormationTopEventPayload,
+    GasEventPayload,
+    OperationalEvent,
+    OperationalEventKind,
+    OperationalEventQcFlag,
+    SampleEventPayload,
+    ShowEventPayload,
+)
+
 from geoworkbench.domain.models import (
     CalculationState,
     CanvasObject,
@@ -68,7 +80,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 16
+PROJECT_FORMAT_VERSION = 17
 
 
 @dataclass(slots=True)
@@ -337,6 +349,172 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
     return dataset
 
 
+_OPERATIONAL_EVENT_KEYS = {
+    "event_id",
+    "well_id",
+    "kind",
+    "payload",
+    "depth_m",
+    "elapsed_time_s",
+    "measured_at",
+    "received_at",
+    "source",
+    "revision",
+    "calibration_id",
+    "calibrated_at",
+    "qc_flags",
+}
+
+
+def _operational_event_from_dict(data: dict[str, Any]) -> OperationalEvent:
+    unknown_keys = set(data) - _OPERATIONAL_EVENT_KEYS
+    if unknown_keys:
+        unknown = ", ".join(sorted(unknown_keys))
+        raise ProjectFormatError(f"Operational event содержит неизвестные поля: {unknown}")
+    try:
+        kind = OperationalEventKind(str(_required(data, "kind", str)))
+    except ValueError as exc:
+        raise ProjectFormatError(f"Неизвестный operational event kind: {data.get('kind')}") from exc
+    payload_data = _required(data, "payload", dict)
+    payload = _operational_payload_from_dict(kind, payload_data)
+    raw_flags = data.get("qc_flags", [])
+    if not isinstance(raw_flags, list) or not all(isinstance(item, str) for item in raw_flags):
+        raise ProjectFormatError("qc_flags operational event должен быть списком строк")
+    try:
+        flags = tuple(OperationalEventQcFlag(item) for item in raw_flags)
+        return OperationalEvent(
+            event_id=str(_required(data, "event_id", str)),
+            well_id=str(_required(data, "well_id", str)),
+            kind=kind,
+            payload=payload,
+            depth_m=_optional_float_field(data, "depth_m"),
+            elapsed_time_s=_optional_float_field(data, "elapsed_time_s"),
+            measured_at=data.get("measured_at"),
+            received_at=data.get("received_at"),
+            source=str(_required(data, "source", str)),
+            revision=_required_int(data, "revision"),
+            calibration_id=data.get("calibration_id"),
+            calibrated_at=data.get("calibrated_at"),
+            qc_flags=flags,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректный operational event") from exc
+
+
+def _operational_payload_from_dict(
+    kind: OperationalEventKind,
+    data: dict[str, Any],
+) -> (
+    DrillingEventPayload
+    | GasEventPayload
+    | ShowEventPayload
+    | SampleEventPayload
+    | CasingEventPayload
+    | FormationTopEventPayload
+):
+    try:
+        if kind is OperationalEventKind.DRILLING:
+            _require_exact_keys(
+                data,
+                {"activity", "rop_m_per_h", "rpm", "wob_kn", "hookload_kn"},
+                "drilling payload",
+            )
+            return DrillingEventPayload(
+                activity=data.get("activity"),
+                rop_m_per_h=_optional_float_field(data, "rop_m_per_h"),
+                rpm=_optional_float_field(data, "rpm"),
+                wob_kn=_optional_float_field(data, "wob_kn"),
+                hookload_kn=_optional_float_field(data, "hookload_kn"),
+            )
+        if kind is OperationalEventKind.GAS:
+            _require_exact_keys(
+                data,
+                {
+                    "total_gas_percent",
+                    "methane_percent",
+                    "ethane_percent",
+                    "propane_percent",
+                    "connection_gas_percent",
+                },
+                "gas payload",
+            )
+            return GasEventPayload(
+                total_gas_percent=_optional_float_field(data, "total_gas_percent"),
+                methane_percent=_optional_float_field(data, "methane_percent"),
+                ethane_percent=_optional_float_field(data, "ethane_percent"),
+                propane_percent=_optional_float_field(data, "propane_percent"),
+                connection_gas_percent=_optional_float_field(data, "connection_gas_percent"),
+            )
+        if kind is OperationalEventKind.SHOW:
+            _require_exact_keys(
+                data,
+                {"show_type", "intensity", "fluorescence_color", "description"},
+                "show payload",
+            )
+            intensity = data.get("intensity")
+            if intensity is not None and (
+                not isinstance(intensity, int) or isinstance(intensity, bool)
+            ):
+                raise TypeError("intensity должен быть целым числом")
+            return ShowEventPayload(
+                show_type=str(_required(data, "show_type", str)),
+                intensity=intensity,
+                fluorescence_color=data.get("fluorescence_color"),
+                description=data.get("description"),
+            )
+        if kind is OperationalEventKind.SAMPLE:
+            _require_exact_keys(
+                data,
+                {"sample_code", "sample_kind", "bottom_depth_m", "description"},
+                "sample payload",
+            )
+            return SampleEventPayload(
+                sample_code=str(_required(data, "sample_code", str)),
+                sample_kind=data.get("sample_kind"),
+                bottom_depth_m=_optional_float_field(data, "bottom_depth_m"),
+                description=data.get("description"),
+            )
+        if kind is OperationalEventKind.CASING:
+            _require_exact_keys(
+                data,
+                {"casing_type", "outer_diameter_mm", "shoe_depth_m", "status"},
+                "casing payload",
+            )
+            outer_diameter = data.get("outer_diameter_mm")
+            if isinstance(outer_diameter, bool) or not isinstance(outer_diameter, (int, float)):
+                raise TypeError("outer_diameter_mm должен быть числом")
+            return CasingEventPayload(
+                casing_type=str(_required(data, "casing_type", str)),
+                outer_diameter_mm=float(outer_diameter),
+                shoe_depth_m=_optional_float_field(data, "shoe_depth_m"),
+                status=data.get("status"),
+            )
+        _require_exact_keys(
+            data,
+            {"formation_code", "formation_name", "confidence", "description"},
+            "formation top payload",
+        )
+        return FormationTopEventPayload(
+            formation_code=str(_required(data, "formation_code", str)),
+            formation_name=data.get("formation_name"),
+            confidence=_optional_float_field(data, "confidence"),
+            description=data.get("description"),
+        )
+    except ProjectFormatError as exc:
+        raise ProjectFormatError(
+            f"Некорректный payload события {kind.value}: {exc}"
+        ) from exc
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError(f"Некорректный payload события {kind.value}") from exc
+
+
+def _require_exact_keys(data: dict[str, Any], allowed: set[str], label: str) -> None:
+    unknown_keys = set(data) - allowed
+    if unknown_keys:
+        unknown = ", ".join(sorted(unknown_keys))
+        raise ProjectFormatError(f"{label} содержит неизвестные поля: {unknown}")
+
+
 def _well_from_dict(data: dict[str, Any]) -> Well:
     well = Well(
         well_id=str(_required(data, "well_id", str)),
@@ -406,6 +584,22 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
             )
         well.interpretations[interpretation_id] = interpretation
     well.canvas_objects = [CanvasObject(**item) for item in data.get("canvas_objects", [])]
+    raw_events = data.get("operational_events", {})
+    if not isinstance(raw_events, dict):
+        raise ProjectFormatError("Поле operational_events скважины должно быть объектом")
+    for event_id, item in raw_events.items():
+        if not isinstance(event_id, str) or not isinstance(item, dict):
+            raise ProjectFormatError("Запись operational event имеет неверный формат")
+        event = _operational_event_from_dict(item)
+        if event.event_id != event_id:
+            raise ProjectFormatError(
+                f"ID operational event '{event_id}' не совпадает с содержимым"
+            )
+        if event.well_id != well.well_id:
+            raise ProjectFormatError(
+                f"Operational event '{event_id}' относится к другой скважине"
+            )
+        well.operational_events[event_id] = event
     return well
 
 

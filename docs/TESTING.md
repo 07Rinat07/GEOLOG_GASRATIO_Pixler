@@ -23,10 +23,11 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для среза 0.7.40 в текущем контейнере выполнены `compileall`, целевой набор и доступная
-headless/regression/source-integrity регрессия: 926 passed, 4 skipped, 3 LAS-сценария deselected. Целевой
-DOCX/HTML/transaction/passport набор — 73 passed. Полная коллекция по-прежнему требует
-`PySide6`, `pyqtgraph` и `lasio`; Ruff и mypy в контейнере отсутствуют. Это не заменяет полный
+Для среза 0.7.41 в текущем контейнере выполнены `compileall`, расширенный целевой набор
+operational events + project codec + ReportDefinition + import boundary: 108 passed, а также доступная
+headless-регрессия: 936 passed и 4 skipped. Из полного прогона исключены 84 test-файла,
+которые требуют отсутствующие `PySide6`, `pyqtgraph` или `lasio`; Ruff и mypy в контейнере
+также отсутствуют. Это не заменяет полный
 gate. Перед stable команды выше и Windows Word/LibreOffice/browser/PDF/HiDPI/physical-print
 smoke-test необходимо повторить в установленном окружении.
 
@@ -38,7 +39,7 @@ smoke-test необходимо повторить в установленном
 - сохранение исходной мнемоники, source UOM, confidence и evidence;
 - явный unresolved для неизвестного vendor-канала или UOM;
 - UOM quantity conflict как ошибка Import Review;
-- round-trip project format v16 и миграция v15 → v16;
+- round-trip project format v17 и миграции v15 → v16 → v17;
 - сохранение binding при copy/merge/resample/TIME↔DEPTH;
 - read-only гарантия `build_import_review()`;
 - plan/preview/commit на глубокой копии без изменения loader-owned dataset;
@@ -46,6 +47,21 @@ smoke-test необходимо повторить в установленном
 - блокировка commit при ошибках индекса или отсутствии импортируемых каналов;
 - отмена CSV/Excel/LAS/Paradox до project-session port;
 - одинаковый набор Import Review localization keys в RU/KK/EN.
+
+## Operational events
+
+Для operational-event schema v1 и project format v17 обязательны проверки:
+
+- все шесть discriminator-типов принимают только собственный typed payload;
+- событие требует depth, elapsed-time или timezone-aware measurement timestamp;
+- timestamps канонизируются в UTC и сохраняются при round-trip;
+- codec отклоняет unknown kind/field, payload mismatch, cross-well ID и key/event_id mismatch;
+- миграция v16 → v17 добавляет пустую collection и не изменяет исходный payload;
+- duplicate, out-of-order, gap, stale и calibration flags не зависят от порядка JSON keys;
+- controller блокирует duplicate ID, cross-well mutation и stale expected revision;
+- update увеличивает revision, remove поддерживает revision guard;
+- depth, relative-time и datetime EVENTS/DRILLING используют exact resolved bounds;
+- event без anchor выбранного индекса не подменяется другой координатой.
 
 ## Report Passport
 
@@ -146,7 +162,7 @@ install для local NTFS и network share, затем подтвердить re
 | Masterlog | интервалы, литотипы, legend, callouts, header | preview и PDF не расходятся по данным и геометрии |
 | Печать | A4/A3/custom/roll, 100%/fit, landscape/portrait | шкалы читаемы, линии не исчезают, страницы продолжаются корректно |
 | HiDPI | 100%, 125%, 150%, 200% | hit-testing и resize handles совпадают с изображением |
-| Миграция | проекты до форматов 16/15/14 | текст, геометрия, bindings и печатные настройки сохранены |
+| Миграция | проекты до форматов 17/16/15/14 | текст, геометрия, bindings и печатные настройки сохранены |
 
 ## Golden-render gate
 

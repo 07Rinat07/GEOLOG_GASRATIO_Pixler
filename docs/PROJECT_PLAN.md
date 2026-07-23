@@ -51,7 +51,7 @@ Qt-слой сохраняет диалоги, жесты, выбор польз
 ## P0 — единые данные и воспроизводимый отчёт
 
 - [x] создать Semantic Channel Dictionary: canonical kind, quantity class, UOM, aliases,
-  source/sensor и исходная мнемоника; сохранять binding каждой кривой в формате проекта v16;
+  source/sensor и исходная мнемоника; binding введён в v16 и сохраняется в текущем v17;
 - [x] добавить единый интерактивный Import Review для индекса, mapping, единиц, NULL и QC;
   preview и commit выполняются на копии, а отмена не изменяет проект;
 - [x] ввести Report Passport с fingerprint источника, bindings, версиями формул, UOM,
@@ -74,14 +74,16 @@ print-media schema v1 разрешает A4/A3/custom/roll, Fit/100%, двуме
 
 ## P1 — операционная геология и real-time
 
-- [ ] типизированные события drilling/gas/show/sample/casing/top;
+- [x] типизированные события drilling/gas/show/sample/casing/formation-top с project format v17,
+  revisioned controller и точной ReportDefinition projection;
+- [x] QC для gap, duplicate, out-of-order, stale и calibration;
 - [ ] append-only growing dataset, checkpoint и детерминированный replay;
-- [ ] QC для gap, duplicate, out-of-order, stale и calibration;
 - [ ] версионированная lag/depth correction с просмотром исходной и скорректированной оси;
 - [ ] offline WITSML 2.1 inventory и mapping;
 - [ ] защищённый ETP 1.2 client после успешного replay, без credentials в JSON проекта.
 
-Критерий: записанный поток воспроизводится повторно с теми же событиями, QC и отчётом.
+Текущий event-storage/QC/report contract выполнен в 0.7.41. Следующий критерий: записанный
+поток воспроизводится повторно с теми же событиями, QC и отчётом.
 
 ## P1 — единая печать и отчётность
 
