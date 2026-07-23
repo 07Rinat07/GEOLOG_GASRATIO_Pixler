@@ -483,3 +483,12 @@ Print Center-де тексеріңіз: деректерді өзгертпей 
 
 Тексерілген шектеулер [жоба күйінде](PROJECT_STATUS.md), ал басымдықтар
 [жоба жоспарында](PROJECT_PLAN.md) және [аудитте](PRODUCT_AUDIT_2026.md) берілген.
+
+## Ортақ есеп анықтамасы
+
+Preview, PDF/баспа және таңдалған аралық экспорты бір `ReportDefinition` және бір resolved
+interval қолданады. Толығырақ: [Ортақ ReportDefinition](REPORT_DEFINITION.md).
+
+## 0.7.37 coverage моделі
+
+Нөл, missing sample және unavailable channel preview/report/export contract ішінде бөлек сақталады. CSV `0`, бос ұяшық және `#N/A` қолданады; XLSX және Report Passport coverage metadata сақтайды. [Coverage моделі](COVERAGE_MODEL.md).

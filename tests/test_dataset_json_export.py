@@ -57,6 +57,9 @@ def test_json_export_preserves_all_indexes_metadata_and_nulls(tmp_path) -> None:
         "2026-01-01T00:00:02.000000000",
     ]
     assert data["curves"]["rop"]["values"] == [10.0, None, 30.0]
+    assert data["curves"]["rop"]["coverage"]["observed_count"] == 2
+    assert data["curves"]["rop"]["coverage"]["zero_count"] == 0
+    assert data["curves"]["rop"]["coverage"]["missing_count"] == 1
     assert "NaN" not in target.read_text(encoding="utf-8")
 
 

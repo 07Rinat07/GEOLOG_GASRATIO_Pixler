@@ -14,7 +14,13 @@ from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
 
 from geoworkbench.data.number_format import format_decimal_number
 from geoworkbench.domain.models import CurveData, Dataset, DatasetIndex, IndexRole, IndexType
-from geoworkbench.services.dataset_selection import depth_interval_indices
+from geoworkbench.services.interval_selection import depth_interval_indices
+from geoworkbench.services.coverage import (
+    ChannelAvailability,
+    ChannelCoverage,
+    analyze_curve_coverage,
+    unavailable_channel_coverage,
+)
 from geoworkbench.services.las_parameter_resolver import LasParameterResolver, ParameterMatch
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.parameter_labels import localized_curve_name
@@ -26,6 +32,7 @@ class SelectionExportError(RuntimeError):
 
 
 EXCEL_DECIMAL_NUMBER_FORMAT = "0.##############################"
+UNAVAILABLE_CELL = "#N/A"
 
 
 _PARAMETER_NAME_OVERRIDES: dict[AppLanguage, dict[str, str]] = {
@@ -88,6 +95,11 @@ class _ExportColumn:
     confidence: float | None
     matched_by: str
     provenance: str
+    availability: ChannelAvailability = ChannelAvailability.AVAILABLE
+    observed_count: int = 0
+    zero_count: int = 0
+    missing_count: int = 0
+    coverage_percent: float = 0.0
 
     @property
     def header(self) -> str:
@@ -104,21 +116,29 @@ def export_selection_text(
     *,
     delimiter: str = "\t",
     overwrite: bool = False,
+    unavailable_mnemonics: tuple[str, ...] = (),
 ) -> Path:
     if len(delimiter) != 1:
         raise ValueError("Разделитель должен состоять из одного символа")
     destination = Path(target)
     _validate_destination(destination, {".txt", ".csv"}, overwrite)
-    indices, curves = _selection(dataset, curve_ids, depth_top, depth_bottom)
+    indices, curves = _selection(
+        dataset, curve_ids, depth_top, depth_bottom,
+        allow_empty=bool(unavailable_mnemonics),
+    )
     temporary = _temporary_path(destination)
     try:
         with temporary.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream, delimiter=delimiter)
-            writer.writerow(_headers(dataset, curves))
+            writer.writerow(
+                _headers(dataset, curves)
+                + [f"{mnemonic} [UNAVAILABLE]" for mnemonic in unavailable_mnemonics]
+            )
             for index in indices:
                 writer.writerow(
                     [_number(dataset.depth[index])]
                     + [_number(curve.values[index]) for curve in curves]
+                    + [UNAVAILABLE_CELL for _mnemonic in unavailable_mnemonics]
                 )
         os.replace(temporary, destination)
     except Exception as exc:
@@ -136,10 +156,14 @@ def export_selection_excel(
     *,
     overwrite: bool = False,
     language: AppLanguage | str = AppLanguage.RU,
+    unavailable_mnemonics: tuple[str, ...] = (),
 ) -> Path:
     destination = Path(target)
     _validate_destination(destination, {".xlsx"}, overwrite)
-    indices, curves = _selection(dataset, curve_ids, depth_top, depth_bottom)
+    indices, curves = _selection(
+        dataset, curve_ids, depth_top, depth_bottom,
+        allow_empty=bool(unavailable_mnemonics),
+    )
     export_language = AppLanguage(language)
     export_indexes = _excel_indexes(dataset)
     index_columns = [
@@ -148,11 +172,26 @@ def export_selection_excel(
             index,
             primary=index.index_id == dataset.active_index_id,
             language=export_language,
+            row_indices=indices,
         )
         for index in export_indexes
     ]
-    curve_columns = _curve_export_columns(curves, language=export_language)
-    header: list[object] = [column.header for column in (*index_columns, *curve_columns)]
+    coverage_by_id = {
+        curve.metadata.curve_id: analyze_curve_coverage(curve, indices) for curve in curves
+    }
+    curve_columns = _curve_export_columns(
+        curves, language=export_language, coverage_by_id=coverage_by_id
+    )
+    unavailable_columns = [
+        _unavailable_export_column(
+            mnemonic,
+            unavailable_channel_coverage(mnemonic, int(indices.size)),
+            language=export_language,
+        )
+        for mnemonic in unavailable_mnemonics
+    ]
+    all_columns = (*index_columns, *curve_columns, *unavailable_columns)
+    header: list[object] = [column.header for column in all_columns]
     rows: list[list[object]] = [header]
     rows.extend(
         [_excel_index_value(index_value, int(index)) for index_value in export_indexes]
@@ -160,6 +199,7 @@ def export_selection_excel(
             None if not np.isfinite(curve.values[index]) else float(curve.values[index])
             for curve in curves
         ]
+        + [UNAVAILABLE_CELL for _column in unavailable_columns]
         for index in indices
     )
     metadata_labels = _metadata_labels(export_language)
@@ -179,9 +219,7 @@ def export_selection_excel(
                 [f"{metadata_labels['timezone']} {mnemonic}", index.timezone or ""],
             ]
         )
-    parameter_rows = _parameter_rows(
-        (*index_columns, *curve_columns), language=export_language
-    )
+    parameter_rows = _parameter_rows(all_columns, language=export_language)
     temporary = _temporary_path(destination)
     try:
         _write_xlsx(temporary, rows, metadata, parameter_rows)
@@ -194,7 +232,10 @@ def export_selection_excel(
 
 
 def _curve_export_columns(
-    curves: list[CurveData], *, language: AppLanguage
+    curves: list[CurveData],
+    *,
+    language: AppLanguage,
+    coverage_by_id: dict[str, ChannelCoverage] | None = None,
 ) -> list[_ExportColumn]:
     resolver = LasParameterResolver()
     result: list[_ExportColumn] = []
@@ -228,6 +269,7 @@ def _curve_export_columns(
         technical = original
         if canonical and canonical.casefold() != original.casefold():
             technical = f"{original} → {canonical}"
+        coverage = (coverage_by_id or {}).get(metadata.curve_id)
         result.append(
             _ExportColumn(
                 friendly_name=friendly,
@@ -239,10 +281,43 @@ def _curve_export_columns(
                 confidence=match.confidence if match is not None else None,
                 matched_by=match.matched_by if match is not None else "",
                 provenance=clean_display_text(metadata.provenance),
+                availability=(coverage.availability if coverage else ChannelAvailability.AVAILABLE),
+                observed_count=(coverage.observed_count if coverage else 0),
+                zero_count=(coverage.zero_count if coverage else 0),
+                missing_count=(coverage.missing_count if coverage else 0),
+                coverage_percent=(coverage.coverage_percent if coverage else 0.0),
             )
         )
     return result
 
+
+def _unavailable_export_column(
+    mnemonic: str,
+    coverage: ChannelCoverage,
+    *,
+    language: AppLanguage,
+) -> _ExportColumn:
+    friendly = {
+        AppLanguage.RU: "Канал недоступен",
+        AppLanguage.KK: "Арна қолжетімсіз",
+        AppLanguage.EN: "Channel unavailable",
+    }[language]
+    return _ExportColumn(
+        friendly_name=friendly,
+        technical_name=clean_mnemonic(mnemonic),
+        unit="",
+        canonical_mnemonic=clean_mnemonic(mnemonic).upper(),
+        source_description="",
+        recognized=False,
+        confidence=None,
+        matched_by="unavailable",
+        provenance="report-request",
+        availability=coverage.availability,
+        observed_count=coverage.observed_count,
+        zero_count=coverage.zero_count,
+        missing_count=coverage.missing_count,
+        coverage_percent=coverage.coverage_percent,
+    )
 
 def _index_export_column(
     dataset: Dataset,
@@ -250,6 +325,7 @@ def _index_export_column(
     *,
     primary: bool,
     language: AppLanguage,
+    row_indices: np.ndarray | None = None,
 ) -> _ExportColumn:
     mnemonic = clean_mnemonic(
         "DEPTH" if primary and index.role is IndexRole.DEPTH else index.mnemonic
@@ -260,6 +336,26 @@ def _index_export_column(
         else clean_display_text(index.unit or "")
     )
     friendly = _index_friendly_name(dataset, index, language=language)
+    selected_rows = (
+        np.asarray(row_indices, dtype=np.int64)
+        if row_indices is not None
+        else np.arange(np.asarray(index.values).size, dtype=np.int64)
+    )
+    selected_values = np.asarray(index.values)[selected_rows]
+    if index.index_type is IndexType.DATETIME:
+        finite_mask = ~np.isnat(selected_values.astype("datetime64[ns]"))
+        zero_count = 0
+    else:
+        numeric = selected_values.astype(np.float64)
+        finite_mask = np.isfinite(numeric)
+        zero_count = int(np.count_nonzero(finite_mask & (numeric == 0.0)))
+    observed_count = int(np.count_nonzero(finite_mask))
+    missing_count = int(selected_rows.size) - observed_count
+    coverage_percent = (
+        100.0 * observed_count / int(selected_rows.size)
+        if selected_rows.size
+        else 0.0
+    )
     return _ExportColumn(
         friendly_name=friendly,
         technical_name=mnemonic,
@@ -270,6 +366,11 @@ def _index_export_column(
         confidence=1.0,
         matched_by="index",
         provenance="index",
+        availability=ChannelAvailability.AVAILABLE,
+        observed_count=observed_count,
+        zero_count=zero_count,
+        missing_count=missing_count,
+        coverage_percent=coverage_percent,
     )
 
 
@@ -359,17 +460,20 @@ def _parameter_sheet_headers(language: AppLanguage) -> list[str]:
         AppLanguage.RU: [
             "№", "Понятное название", "Мнемоника LAS", "Каноническая мнемоника",
             "Единица", "Описание из LAS", "Распознано", "Уверенность",
-            "Метод сопоставления", "Происхождение",
+            "Метод сопоставления", "Происхождение", "Доступность",
+            "Наблюдений", "Нулей", "Пропусков", "Покрытие, %",
         ],
         AppLanguage.KK: [
             "№", "Түсінікті атауы", "LAS мнемоникасы", "Канондық мнемоника",
             "Өлшем бірлігі", "LAS сипаттамасы", "Анықталды", "Сенімділік",
-            "Сәйкестендіру әдісі", "Шығу тегі",
+            "Сәйкестендіру әдісі", "Шығу тегі", "Қолжетімділік",
+            "Бақылаулар", "Нөлдер", "Өткізіп алынған", "Қамту, %",
         ],
         AppLanguage.EN: [
             "No.", "Readable name", "LAS mnemonic", "Canonical mnemonic",
             "Unit", "LAS description", "Resolved", "Confidence",
-            "Match method", "Provenance",
+            "Match method", "Provenance", "Availability",
+            "Observed", "Zeros", "Missing", "Coverage, %",
         ],
     }[language]
 
@@ -397,14 +501,24 @@ def _parameter_rows(
                 column.confidence,
                 column.matched_by or "—",
                 column.provenance or "—",
+                column.availability.value,
+                column.observed_count,
+                column.zero_count,
+                column.missing_count,
+                column.coverage_percent,
             ]
         )
     return rows
 
 def _selection(
-    dataset: Dataset, curve_ids: list[str], depth_top: float, depth_bottom: float
+    dataset: Dataset,
+    curve_ids: list[str],
+    depth_top: float,
+    depth_bottom: float,
+    *,
+    allow_empty: bool = False,
 ) -> tuple[np.ndarray, list[CurveData]]:
-    if not curve_ids:
+    if not curve_ids and not allow_empty:
         raise ValueError("Выберите хотя бы один параметр")
     missing = [curve_id for curve_id in curve_ids if curve_id not in dataset.curves]
     if missing:
@@ -524,8 +638,8 @@ def _write_xlsx(
         cell.font = header_font
         cell.alignment = header_alignment
     parameters_sheet.freeze_panes = "A2"
-    parameters_sheet.auto_filter.ref = f"A1:J{max(1, len(parameter_rows))}"
-    parameter_widths = (6, 34, 20, 24, 15, 44, 14, 14, 22, 20)
+    parameters_sheet.auto_filter.ref = f"A1:O{max(1, len(parameter_rows))}"
+    parameter_widths = (6, 34, 20, 24, 15, 44, 14, 14, 22, 20, 16, 14, 12, 14, 14)
     for index, width in enumerate(parameter_widths, start=1):
         parameters_sheet.column_dimensions[get_column_letter(index)].width = width
     for row in parameters_sheet.iter_rows(min_row=2):
@@ -533,6 +647,8 @@ def _write_xlsx(
         row[5].alignment = Alignment(wrap_text=True, vertical="top")
         if isinstance(row[7].value, (int, float)):
             row[7].number_format = "0%"
+        if len(row) >= 15 and isinstance(row[14].value, (int, float)):
+            row[14].number_format = "0.00"
 
     metadata_sheet = workbook.create_sheet("Metadata")
     for row in metadata_rows:

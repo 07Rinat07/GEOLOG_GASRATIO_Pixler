@@ -28,7 +28,8 @@
 - [x] manual overrides, QC preview және атомарлық commit бар интерактивті Import Review қосу;
 - [x] fingerprints, bindings/UOM, formula versions, form revision, language және render settings бар қайталанатын есеп паспортын енгізу;
 - [x] экран/баспа grid, legend, lithotypes және annotations үшін детерминирленген golden fixtures қосу;
-- келесі қадамда preview, PDF және кестелік экспорт үшін `ReportDefinition` мен interval selection-ды біріктіру.
+- [x] preview, PDF және кестелік экспорт үшін `ReportDefinition` мен interval selection-ды біріктіру;
+- [x] coverage және нөл/missing/unavailable channel айырмасын анық енгізу.
 
 ## P1 — операциялар және нақты уақыт
 
@@ -39,8 +40,8 @@
 
 ## P1 — есептер
 
-- preview, PDF және кестелік экспортқа ортақ аралық моделі;
-- ортақ bindings, UOM, coverage және нөл/бос мәнді анық ажырату;
+- [x] preview, PDF және кестелік экспортқа ортақ аралық моделі;
+- [x] ортақ bindings, UOM, coverage және нөл/missing/unavailable мәндерін анық ажырату;
 - A4/A3/custom/roll, 100%/fit және бет жалғасын тексеру.
 
 ## P2 — дамыту

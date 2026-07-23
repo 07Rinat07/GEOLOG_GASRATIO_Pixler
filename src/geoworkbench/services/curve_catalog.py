@@ -7,6 +7,7 @@ import numpy as np
 
 from geoworkbench.catalogs.sensors import SensorCatalog, SensorMatch
 from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.services.coverage import analyze_curve_coverage
 
 
 class CurveCategory(StrEnum):
@@ -58,6 +59,8 @@ class CurveCatalogEntry:
     family: CurveFamily
     valid_count: int
     total_count: int
+    zero_count: int
+    missing_count: int
     minimum: float | None
     maximum: float | None
     reference_name: str = ""
@@ -303,6 +306,9 @@ def analyze_dataset_curves(
     entries: list[CurveCatalogEntry] = []
     for curve in dataset.curves.values():
         values = np.asarray(curve.values, dtype=float)
+        coverage = analyze_curve_coverage(
+            curve, np.arange(values.size, dtype=np.int64)
+        )
         finite = values[np.isfinite(values)]
         minimum = float(np.min(finite)) if finite.size else None
         maximum = float(np.max(finite)) if finite.size else None
@@ -333,8 +339,10 @@ def analyze_dataset_curves(
                 description=description,
                 category=classify_curve(curve, reference),
                 family=classify_curve_family(curve, reference),
-                valid_count=int(finite.size),
-                total_count=int(values.size),
+                valid_count=coverage.observed_count,
+                total_count=coverage.total_count,
+                zero_count=coverage.zero_count,
+                missing_count=coverage.missing_count,
                 minimum=minimum,
                 maximum=maximum,
                 reference_name=definition.name_ru if definition is not None else "",

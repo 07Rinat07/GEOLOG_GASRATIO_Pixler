@@ -51,6 +51,8 @@ def test_curve_catalog_exposes_quality_range_and_category() -> None:
     assert entries["C1"].category is CurveCategory.GAS
     assert entries["C1"].valid_count == 2
     assert entries["C1"].coverage_percent == 100.0 * 2.0 / 3.0
+    assert entries["C1"].zero_count == 0
+    assert entries["C1"].missing_count == 1
     assert entries["C1"].range_text == "1 … 2"
     assert entries["BIT_RPM"].category is CurveCategory.DRILLING
     assert entries["BIT_RPM"].family is CurveFamily.ROTARY_SPEED

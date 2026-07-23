@@ -142,6 +142,12 @@ class IntervalStatisticsPanel(QWidget):
                             mnemonic=item.mnemonic,
                             unit=item.unit or "—",
                             points=item.valid_count,
+                            zeros=item.zero_count,
+                            missing=(
+                                item.missing_count
+                                if item.missing_count is not None
+                                else max(0, (item.total_count or item.valid_count) - item.valid_count)
+                            ),
                             coverage=f"{item.coverage_percent:.1f}",
                         )
                     )

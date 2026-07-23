@@ -8,15 +8,20 @@
 
 ## Инженерная модель
 
-Планируемые основные сущности:
+Действующие основные сущности:
 
-- `ReportDefinition` — сохранённый профиль отчёта;
-- `ReportSectionDefinition` — выбранный раздел и порядок;
+- `ReportDefinition` schema v2 — immutable runtime-профиль dataset/index/sections/curves/form/language/interval;
+- `ResolvedReportDefinition` — единственный разрешённый диапазон, строки и curve IDs для downstream adapters;
+- `ReportSectionDefinition` — выбранный типизированный раздел и порядок;
 - `IntervalBoundaryPolicy` — способ образования интервалов;
 - `IntervalReportRow` — одна воспроизводимая интервальная строка;
 - `NumericAggregationDefinition` — статистики числового канала;
 - `ReportProvenance` — источники, формулы, версии, единицы и предупреждения;
-- `ReportExportService` — единая модель для PDF/DOCX/XLSX/HTML/CSV/TSV.
+- `ReportExportService` — следующий общий слой для PDF/DOCX/XLSX/HTML/CSV/TSV.
+
+В 0.7.37 Print Center preview/output, Masterlog и selected CSV/XLSX разрешают один
+`ReportDefinition` schema v2. Общая coverage-модель различает observed zero, missing sample и
+unavailable channel; разделы и exporters получают одни и те же coverage snapshots.
 
 Базовый PDF кальциметрии/ЛБА уже существует. Новый этап должен расширить его до общего
 отчёта по геологии, газам и технологии, не создавая второй несовместимый источник данных.

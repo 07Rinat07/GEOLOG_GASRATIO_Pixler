@@ -18,7 +18,10 @@ def statistics_columns(language: AppLanguage = AppLanguage.EN) -> tuple[str, ...
         localizer.text("statistics.parameter"),
         localizer.text("statistics.mnemonic"),
         localizer.text("statistics.unit"),
+        localizer.text("statistics.availability"),
         localizer.text("statistics.points"),
+        localizer.text("statistics.zeros"),
+        localizer.text("statistics.missing"),
         localizer.text("statistics.coverage"),
         localizer.text("statistics.minimum"),
         localizer.text("statistics.maximum"),
@@ -30,14 +33,23 @@ def statistics_rows(
     statistics: tuple[CurveIntervalStatistics, ...],
     *,
     display_names: Mapping[str, str] | None = None,
+    language: AppLanguage = AppLanguage.EN,
 ) -> tuple[tuple[object, ...], ...]:
     labels = display_names or {}
+    localizer = Localizer.create(language)
     return tuple(
         (
             labels.get(item.mnemonic, item.mnemonic),
             item.mnemonic,
             item.unit or "",
+            localizer.text(
+                "statistics.available"
+                if item.availability.value == "available"
+                else "statistics.unavailable"
+            ),
             item.valid_count,
+            item.zero_count,
+            item.missing_count if item.missing_count is not None else max(0, (item.total_count or item.valid_count) - item.valid_count),
             item.coverage_percent,
             _finite_or_none(item.minimum),
             _finite_or_none(item.maximum),
@@ -61,7 +73,7 @@ def statistics_tsv(
         f"{localizer.text('statistics.interval_header')}\t{interval_label}",
     ]
     lines.append("\t".join(statistics_columns(language)))
-    for row in statistics_rows(statistics, display_names=display_names):
+    for row in statistics_rows(statistics, display_names=display_names, language=language):
         lines.append("\t".join(_text(value) for value in row))
     return "\n".join(lines)
 
@@ -83,7 +95,7 @@ def export_interval_statistics_csv(
         writer.writerow((localizer.text("statistics.interval_header"), interval_label))
         writer.writerow(())
         writer.writerow(statistics_columns(language))
-        writer.writerows(statistics_rows(statistics, display_names=display_names))
+        writer.writerows(statistics_rows(statistics, display_names=display_names, language=language))
     return target
 
 
@@ -105,7 +117,7 @@ def export_interval_statistics_xlsx(
     sheet.append((localizer.text("statistics.interval_header"), interval_label))
     sheet.append(())
     sheet.append(statistics_columns(language))
-    for row in statistics_rows(statistics, display_names=display_names):
+    for row in statistics_rows(statistics, display_names=display_names, language=language):
         sheet.append(row)
 
     header_fill = PatternFill("solid", fgColor="DCE6F1")
@@ -113,14 +125,14 @@ def export_interval_statistics_xlsx(
         cell.font = Font(bold=True)
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
-    widths = (34, 18, 14, 14, 14, 16, 16, 16)
+    widths = (34, 18, 14, 16, 14, 12, 14, 14, 16, 16, 16)
     for index, width in enumerate(widths, start=1):
         sheet.column_dimensions[chr(64 + index)].width = width
-    for row in sheet.iter_rows(min_row=5, min_col=5, max_col=8):
+    for row in sheet.iter_rows(min_row=5, min_col=8, max_col=11):
         for cell in row:
             cell.number_format = "0.########"
     sheet.freeze_panes = "A5"
-    sheet.auto_filter.ref = f"A4:H{max(4, sheet.max_row)}"
+    sheet.auto_filter.ref = f"A4:K{max(4, sheet.max_row)}"
     workbook.save(target)
     return target
 

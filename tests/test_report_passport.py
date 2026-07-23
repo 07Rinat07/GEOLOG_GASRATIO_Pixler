@@ -356,3 +356,23 @@ def test_empty_well_level_artifact_has_no_fake_interval() -> None:
 
     assert passport.interval is None
     assert passport.verify()
+
+
+def test_report_passport_coverage_distinguishes_zero_missing_and_unavailable() -> None:
+    session = make_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.curves["curve-c1"].values[:] = np.array([0.0, np.nan, 30.0])
+
+    passport = ReportPassportBuilder().build(
+        session, request(curves=("C1", "H2S"))
+    )
+
+    by_mnemonic = {item.mnemonic: item for item in passport.coverage}
+    assert by_mnemonic["C1_RAW"].availability == "available"
+    assert by_mnemonic["C1_RAW"].observed_count == 2
+    assert by_mnemonic["C1_RAW"].zero_count == 1
+    assert by_mnemonic["C1_RAW"].missing_count == 1
+    assert by_mnemonic["H2S"].availability == "unavailable"
+    assert by_mnemonic["H2S"].unavailable_count == 3
+    assert any(item == "curve-not-found:H2S" for item in passport.warnings)

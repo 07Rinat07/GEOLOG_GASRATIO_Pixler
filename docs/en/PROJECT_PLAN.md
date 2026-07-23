@@ -28,7 +28,8 @@ only active work.
 - [x] add an interactive Import Review with manual overrides, QC preview, and atomic commit;
 - [x] add a reproducible report passport with fingerprints, bindings/UOM, formula versions, form revision, language, and render settings;
 - [x] add deterministic golden fixtures for screen/print grids, legends, lithotypes, and annotations;
-- unify `ReportDefinition` and interval selection for preview, PDF, and tabular export next.
+- [x] unify `ReportDefinition` and interval selection for preview, PDF, and tabular export;
+- [x] add coverage and an explicit zero/missing/unavailable-channel distinction.
 
 ## P1 — operations and real time
 
@@ -39,8 +40,8 @@ only active work.
 
 ## P1 — reporting
 
-- one interval model for preview, PDF, and tabular export;
-- shared bindings, UOM, coverage, and explicit zero/missing handling;
+- [x] one interval model for preview, PDF, and tabular export;
+- [x] shared bindings, UOM, coverage, and explicit zero/missing/unavailable handling;
 - A4/A3/custom/roll, 100%/fit, and page-continuation verification.
 
 ## P2 — expansion

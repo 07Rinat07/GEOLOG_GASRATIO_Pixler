@@ -100,3 +100,13 @@
 создают детерминированный JSON-sidecar с exact interval/channel values, source fingerprints,
 semantic bindings/UOM, formula versions, form revision, language и render settings. Будущая
 `ReportDefinition` обязана использовать этот же контракт. Подробнее: [REPORT_PASSPORT.md](REPORT_PASSPORT.md).
+
+## Единая ReportDefinition в 0.7.36
+
+Print Center, Masterlog и экспорт выделенного интервала CSV/XLSX теперь сначала создают и
+разрешают одну `ReportDefinition`. Dataset, index, curve IDs, form revision, language и interval
+не вычисляются повторно между preview и итоговым файлом. См. [REPORT_DEFINITION.md](REPORT_DEFINITION.md).
+
+## Coverage в 0.7.37
+
+CSV различает `0`, пустой missing sample и `#N/A` для unavailable channel. XLSX показывает availability, observed, zeros, missing и coverage на листе `Parameters`. Подробнее: [Coverage-модель](COVERAGE_MODEL.md).

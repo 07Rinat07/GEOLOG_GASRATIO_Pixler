@@ -1,6 +1,6 @@
 # Report Passport
 
-Статус: реализовано в версии 0.7.34. Формат паспорта: schema v1. Формат проекта остаётся v16.
+Статус: реализовано с версии 0.7.34; в 0.7.37 формат паспорта повышен до schema v2. Формат проекта остаётся v16.
 
 ## Назначение
 
@@ -74,3 +74,13 @@ Preview не считается финальным экспортом и не с
   выходного файла в будущем будет добавлен отдельный output fingerprint после унификации
   `ReportDefinition`;
 - ручной Windows/HiDPI/PDF/physical-print smoke-test остаётся обязательным для stable.
+
+## Связь с ReportDefinition
+
+Начиная с 0.7.36 sidecar сохраняет canonical payload `ReportDefinition` и её SHA-256. Это
+позволяет доказать, что preview, PDF/печать и табличный экспорт использовали один dataset,
+индекс, интервал, набор каналов, форму и язык.
+
+## Schema v2
+
+Начиная с 0.7.37 паспорт подписывает coverage snapshot: availability, observed, zeros, missing и unavailable для каждого запрошенного канала.

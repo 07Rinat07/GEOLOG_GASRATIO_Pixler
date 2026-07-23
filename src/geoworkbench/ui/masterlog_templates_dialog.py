@@ -20,6 +20,17 @@ from PySide6.QtWidgets import (
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.masterlog_symbol_controller import MasterlogSymbolController
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.report_definition import (
+    ReportDefinition,
+    ReportDefinitionError,
+    ReportIntervalMode,
+    ReportIntervalSelection,
+    ReportProfile,
+    ReportSectionDefinition,
+    ReportSectionKind,
+    ResolvedReportDefinition,
+    resolve_report_definition,
+)
 from geoworkbench.services.report_passport import (
     ReportKind,
     ReportPassportBuilder,
@@ -28,6 +39,7 @@ from geoworkbench.services.report_passport import (
     ReportRenderSettings,
     masterlog_template_snapshot,
     passport_sidecar_path,
+    report_definition_snapshot,
 )
 from geoworkbench.ui.masterlog_columns_dialog import MasterlogColumnsDialog
 from geoworkbench.ui.masterlog_curve_mapping_dialog import MasterlogCurveMappingDialog
@@ -325,6 +337,11 @@ class MasterlogTemplatesDialog(QDialog):
         if settings is None:
             return
         template = self.controller.session.project.masterlog_templates[template_id]
+        try:
+            _report, settings = self._resolve_report_definition(template, settings)
+        except (ReportDefinitionError, RuntimeError, ValueError) as exc:
+            QMessageBox.critical(self, self.windowTitle(), str(exc))
+            return
         if not self._confirm_preflight(template, settings):
             return
         MasterlogPreviewDialog(
@@ -342,6 +359,11 @@ class MasterlogTemplatesDialog(QDialog):
         template = self.controller.session.project.masterlog_templates[template_id]
         settings = self._ask_output_settings()
         if settings is None:
+            return
+        try:
+            report, settings = self._resolve_report_definition(template, settings)
+        except (ReportDefinitionError, RuntimeError, ValueError) as exc:
+            QMessageBox.critical(self, self.windowTitle(), str(exc))
             return
         if not self._confirm_preflight(template, settings):
             return
@@ -367,7 +389,7 @@ class MasterlogTemplatesDialog(QDialog):
             if answer != QMessageBox.StandardButton.Yes:
                 return
         try:
-            passport = self._build_report_passport(template, settings)
+            passport = self._build_report_passport(template, settings, report)
             export_masterlog_pdf(
                 template,
                 self.controller.session,
@@ -385,7 +407,12 @@ class MasterlogTemplatesDialog(QDialog):
         )
         QMessageBox.information(self, self.windowTitle(), message)
 
-    def _build_report_passport(self, template, settings: MasterlogOutputSettings):
+    def _build_report_passport(
+        self,
+        template,
+        settings: MasterlogOutputSettings,
+        report: ResolvedReportDefinition,
+    ):
         curve_mnemonics = tuple(
             mnemonic
             for column in template.columns
@@ -413,9 +440,14 @@ class MasterlogTemplatesDialog(QDialog):
             report_name=template.name,
             language=settings.language,
             render=render,
-            interval=settings.depth_range,
+            interval=report.interval.bounds,
             curve_mnemonics=curve_mnemonics,
-            form=masterlog_template_snapshot(template),
+            form=report_definition_snapshot(
+                report.definition.definition_id,
+                report.definition.name,
+                report.definition.payload(),
+                schema_version=report.definition.schema_version,
+            ),
         )
         return ReportPassportBuilder().build(self.controller.session, request)
 
@@ -426,6 +458,11 @@ class MasterlogTemplatesDialog(QDialog):
         template = self.controller.session.project.masterlog_templates[template_id]
         settings = self._ask_output_settings()
         if settings is None:
+            return
+        try:
+            _report, settings = self._resolve_report_definition(template, settings)
+        except (ReportDefinitionError, RuntimeError, ValueError) as exc:
+            QMessageBox.critical(self, self.windowTitle(), str(exc))
             return
         if not self._confirm_preflight(template, settings):
             return
@@ -444,6 +481,59 @@ class MasterlogTemplatesDialog(QDialog):
 
         dialog.paintRequested.connect(paint)
         dialog.exec()
+
+    def _resolve_report_definition(
+        self,
+        template,
+        settings: MasterlogOutputSettings,
+    ) -> tuple[ResolvedReportDefinition, MasterlogOutputSettings]:
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            raise ReportDefinitionError("Сначала выберите dataset")
+        requested_mnemonics = tuple(
+            dict.fromkeys(
+                mnemonic
+                for column in template.columns
+                for mnemonic in column.curve_mnemonics
+            )
+        )
+        curve_ids: list[str] = []
+        for mnemonic in requested_mnemonics:
+            curve = dataset.curve_by_mnemonic(mnemonic)
+            if curve is not None:
+                curve_ids.append(curve.metadata.curve_id)
+        form = masterlog_template_snapshot(template)
+        definition = ReportDefinition(
+            definition_id=f"masterlog:{dataset.dataset_id}:{template.template_id}",
+            name=template.name,
+            profile=ReportProfile.MASTERLOG,
+            dataset_id=dataset.dataset_id,
+            index_id=dataset.active_index_id or "",
+            interval=ReportIntervalSelection(
+                ReportIntervalMode.CUSTOM,
+                settings.depth_top,
+                settings.depth_bottom,
+            ),
+            language=settings.language.value,
+            curve_ids=tuple(dict.fromkeys(curve_ids)),
+            channel_mnemonics=requested_mnemonics,
+            sections=(ReportSectionDefinition(ReportSectionKind.MASTERLOG),),
+            form_kind=form.form_kind,
+            form_id=form.form_id,
+            form_revision=form.revision,
+        )
+        resolved = resolve_report_definition(dataset, definition)
+        try:
+            normalized = MasterlogOutputSettings(
+                float(resolved.interval.start),
+                float(resolved.interval.end),
+                settings.language,
+            )
+        except (TypeError, ValueError) as exc:
+            raise ReportDefinitionError(
+                "Masterlog требует числовой глубинный интервал"
+            ) from exc
+        return resolved, normalized
 
     def _ask_output_settings(self) -> MasterlogOutputSettings | None:
         depth_range = masterlog_depth_range(self.controller.session)

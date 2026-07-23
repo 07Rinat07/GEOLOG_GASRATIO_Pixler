@@ -4,5 +4,15 @@
 Начиная с 0.7.34 Print Center, прямой PNG/SVG/PDF, Masterlog PDF и интерпретационный PDF
 создают детерминированный JSON-sidecar. Он фиксирует exact interval/channel values, source
 fingerprints, semantic bindings/UOM, formula versions, form revision, language и render settings.
-Это действующий provenance-слой; будущая общая `ReportDefinition` должна использовать тот же
-контракт, а не создавать второй несовместимый паспорт. Подробнее: [REPORT_PASSPORT.md](REPORT_PASSPORT.md).
+Это действующий provenance-слой. Начиная с 0.7.36 общая `ReportDefinition` использует этот же
+контракт: sidecar содержит canonical definition payload и его SHA-256 вместе с фактически
+разрешённым интервалом. Подробнее: [REPORT_DEFINITION.md](REPORT_DEFINITION.md) и
+[REPORT_PASSPORT.md](REPORT_PASSPORT.md).
+
+## Coverage в 0.7.37
+
+`ResolvedReportDefinition` содержит coverage для каждого запрошенного канала. CSV сохраняет
+реальный ноль как `0`, missing sample как пустую ячейку, а unavailable channel как `#N/A`. XLSX
+дополнительно публикует availability/observed/zeros/missing/coverage на листе `Parameters`.
+JSON, Parquet и Report Passport schema v2 используют тот же headless-контракт. Подробнее:
+[COVERAGE_MODEL.md](COVERAGE_MODEL.md).

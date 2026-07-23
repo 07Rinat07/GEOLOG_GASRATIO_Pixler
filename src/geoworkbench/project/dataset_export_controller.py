@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import isfinite
 from pathlib import Path
+from typing import Any
 
-from geoworkbench.data.las_adapter import export_las
 from geoworkbench.data.dataset_json_export import export_dataset_json
 from geoworkbench.data.dataset_parquet_export import export_dataset_parquet
 from geoworkbench.data.las_export_plan import (
@@ -17,9 +17,37 @@ from geoworkbench.data.selection_export import (
     export_selection_excel,
     export_selection_text,
 )
-from geoworkbench.domain.models import Dataset, ExportProfile, new_id
+from geoworkbench.domain.models import Dataset, ExportProfile, IndexRole, new_id
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.report_definition import (
+    ReportDefinition,
+    ReportDefinitionError,
+    ReportIntervalContext,
+    ResolvedReportDefinition,
+    resolve_report_definition,
+)
+
+
+def export_las(
+    dataset: Dataset,
+    target: Path,
+    *,
+    overwrite: bool = False,
+    source_document: Any = None,
+    plan: LasExportPlan | None = None,
+) -> Path:
+    """Lazy LAS adapter boundary kept patchable for headless controller tests."""
+
+    from geoworkbench.data.las_adapter import export_las as adapter_export_las
+
+    return adapter_export_las(
+        dataset,
+        target,
+        overwrite=overwrite,
+        source_document=source_document,
+        plan=plan,
+    )
 
 
 @dataclass(slots=True)
@@ -145,6 +173,88 @@ class DatasetExportController:
             source_document=self.session.source_documents.get(dataset.dataset_id),
             plan=plan,
         )
+
+    def resolve_report(
+        self,
+        definition: ReportDefinition,
+        *,
+        context: ReportIntervalContext | None = None,
+        require_curves: bool = False,
+    ) -> ResolvedReportDefinition:
+        dataset = self._require_current_dataset()
+        return resolve_report_definition(
+            dataset,
+            definition,
+            context=context,
+            require_curves=require_curves,
+        )
+
+    def export_resolved_report_text(
+        self,
+        target: Path,
+        report: ResolvedReportDefinition,
+        *,
+        delimiter: str = ",",
+        overwrite: bool = False,
+    ) -> Path:
+        dataset = self._dataset_for_resolved_report(report)
+        top, bottom = self._numeric_depth_bounds(report)
+        return export_selection_text(
+            dataset,
+            target,
+            list(report.curve_ids),
+            top,
+            bottom,
+            delimiter=delimiter,
+            overwrite=overwrite,
+            unavailable_mnemonics=report.unavailable_channel_mnemonics,
+        )
+
+    def export_resolved_report_excel(
+        self,
+        target: Path,
+        report: ResolvedReportDefinition,
+        *,
+        overwrite: bool = False,
+        language: AppLanguage | str = AppLanguage.RU,
+    ) -> Path:
+        dataset = self._dataset_for_resolved_report(report)
+        top, bottom = self._numeric_depth_bounds(report)
+        return export_selection_excel(
+            dataset,
+            target,
+            list(report.curve_ids),
+            top,
+            bottom,
+            overwrite=overwrite,
+            language=language,
+            unavailable_mnemonics=report.unavailable_channel_mnemonics,
+        )
+
+    def _dataset_for_resolved_report(self, report: ResolvedReportDefinition) -> Dataset:
+        dataset = self._require_current_dataset()
+        if report.definition.dataset_id != dataset.dataset_id:
+            raise ReportDefinitionError("Разрешённый отчёт относится к другому dataset")
+        if report.interval.index_id != dataset.active_index_id:
+            raise ReportDefinitionError(
+                "Табличный экспорт поддерживает только активный индекс ReportDefinition"
+            )
+        return dataset
+
+    def _numeric_depth_bounds(
+        self, report: ResolvedReportDefinition
+    ) -> tuple[float, float]:
+        dataset = self._require_current_dataset()
+        if dataset.active_index.role is not IndexRole.DEPTH:
+            raise ReportDefinitionError(
+                "Табличный интервальный экспорт требует активный глубинный индекс"
+            )
+        try:
+            return float(report.interval.start), float(report.interval.end)
+        except (TypeError, ValueError) as exc:
+            raise ReportDefinitionError(
+                "Табличный интервальный экспорт требует числовые границы"
+            ) from exc
 
     def export_current_selection_text(
         self,

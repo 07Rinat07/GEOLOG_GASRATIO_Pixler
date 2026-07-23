@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from weakref import ref
 
@@ -115,6 +116,7 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
 from geoworkbench.project.time_to_depth_controller import TimeToDepthController
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
+from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.render_invalidation import DirtyReason
@@ -139,6 +141,17 @@ from geoworkbench.services.import_jobs import (
 from geoworkbench.services.session_binding import SessionBindingController
 from geoworkbench.services.print_jobs import PrintJobExecutor, report_render_settings
 from geoworkbench.services.workspace_commands import WorkspaceCommandController
+from geoworkbench.services.report_definition import (
+    ReportDefinition,
+    ReportDefinitionError,
+    ReportIntervalContext,
+    ReportIntervalMode,
+    ReportIntervalSelection,
+    ReportProfile,
+    ReportSectionDefinition,
+    ReportSectionKind,
+    ResolvedReportDefinition,
+)
 from geoworkbench.services.report_passport import (
     ReportKind,
     ReportPassportBuilder,
@@ -147,6 +160,8 @@ from geoworkbench.services.report_passport import (
     ReportRenderSettings,
     form_document_snapshot,
     passport_sidecar_path,
+    report_definition_snapshot,
+    tablet_layout_form_snapshot,
     write_report_passport,
 )
 from geoworkbench.ui.workspace_controller import (
@@ -2493,6 +2508,36 @@ class MainWindow(QMainWindow):
                 self._t("selection_export.select_curves"),
             )
             return
+
+        report_definition = ReportDefinition(
+            definition_id=f"selection:{dataset.dataset_id}",
+            name=f"{dataset.name} selection",
+            profile=ReportProfile.COMBINED,
+            dataset_id=dataset.dataset_id,
+            index_id=dataset.active_index_id or "",
+            interval=ReportIntervalSelection(ReportIntervalMode.SELECTION),
+            language=self.language.value,
+            curve_ids=tuple(selection.curve_ids),
+            channel_mnemonics=tuple(
+                dataset.curves[curve_id].metadata.original_mnemonic
+                for curve_id in selection.curve_ids
+                if curve_id in dataset.curves
+            ),
+            sections=(ReportSectionDefinition(ReportSectionKind.CURVES),),
+            form_kind="dataset-selection",
+            form_id=dataset.dataset_id,
+            form_revision="schema:1",
+        )
+        try:
+            resolved_report = self.dataset_export_controller.resolve_report(
+                report_definition,
+                context=ReportIntervalContext(selection_range=selection.interval),
+                require_curves=True,
+            )
+        except (ReportDefinitionError, RuntimeError, ValueError) as exc:
+            QMessageBox.critical(self, self._t("selection_export.title"), str(exc))
+            return
+
         is_excel = export_format == "xlsx"
         suffix = ".xlsx" if is_excel else ".csv"
         file_filter = "Excel (*.xlsx)" if is_excel else "CSV (*.csv)"
@@ -2508,29 +2553,32 @@ class MainWindow(QMainWindow):
         target = Path(filename)
         if target.suffix.casefold() != suffix:
             target = target.with_suffix(suffix)
-        overwrite = self._confirm_export_overwrite(target)
+        overwrite = self._confirm_export_overwrite(
+            target, include_report_passport=True
+        )
         if overwrite is None:
             return
-        depth_top, depth_bottom = selection.interval
         try:
+            passport = self._build_tabular_report_passport(
+                resolved_report, output_format=export_format
+            )
             if is_excel:
-                exported = self.dataset_export_controller.export_current_selection_excel(
+                exported = self.dataset_export_controller.export_resolved_report_excel(
                     target,
-                    list(selection.curve_ids),
-                    depth_top,
-                    depth_bottom,
+                    resolved_report,
                     overwrite=overwrite,
                     language=self.language,
                 )
             else:
-                exported = self.dataset_export_controller.export_current_selection_text(
+                exported = self.dataset_export_controller.export_resolved_report_text(
                     target,
-                    list(selection.curve_ids),
-                    depth_top,
-                    depth_bottom,
+                    resolved_report,
                     delimiter=",",
                     overwrite=overwrite,
                 )
+            passport_path = write_report_passport(
+                passport, exported, overwrite=overwrite
+            )
         except (
             FileExistsError,
             KeyError,
@@ -2538,18 +2586,64 @@ class MainWindow(QMainWindow):
             RuntimeError,
             ValueError,
             SelectionExportError,
+            ReportDefinitionError,
+            ReportPassportError,
         ) as exc:
             QMessageBox.critical(self, self._t("selection_export.title"), str(exc))
             self._log(self._t("selection_export.failed", error=str(exc)))
             return
-        self._log(self._t("selection_export.success", name=exported.name))
-        self.statusBar().showMessage(self._t("selection_export.success", name=exported.name))
+        message = self._t("selection_export.success", name=exported.name)
+        message += " · " + self._t("report_passport.saved", name=passport_path.name)
+        self._log(message)
+        self.statusBar().showMessage(message)
+
+    def _build_tabular_report_passport(
+        self,
+        report: ResolvedReportDefinition,
+        *,
+        output_format: str,
+    ):
+        dataset = self.session.current_dataset
+        if dataset is None:
+            raise ReportDefinitionError("Сначала выберите dataset")
+        curve_mnemonics = report.requested_channel_mnemonics or tuple(
+            dataset.curves[curve_id].metadata.original_mnemonic
+            for curve_id in report.curve_ids
+        )
+        definition = report.definition
+        request = ReportPassportRequest(
+            report_kind=ReportKind.INTERVAL,
+            report_name=definition.name,
+            language=definition.language,
+            render=ReportRenderSettings(
+                renderer="report-table-export:1",
+                output_format=output_format,
+                range_mode="custom",
+                strict_unicode=True,
+                options=(("index_id", report.interval.index_id),),
+            ),
+            interval=report.interval.bounds,
+            curve_mnemonics=curve_mnemonics,
+            form=report_definition_snapshot(
+                definition.definition_id,
+                definition.name,
+                definition.payload(),
+                schema_version=definition.schema_version,
+            ),
+        )
+        return ReportPassportBuilder().build(self.session, request)
 
     def _confirm_export_overwrite(
         self, target: Path, *, include_report_passport: bool = False
     ) -> bool | None:
         sidecar = passport_sidecar_path(target) if include_report_passport else None
-        existing = target if target.exists() else sidecar if sidecar is not None and sidecar.exists() else None
+        existing = (
+            target
+            if target.exists()
+            else sidecar
+            if sidecar is not None and sidecar.exists()
+            else None
+        )
         if existing is None:
             return False
         answer = QMessageBox.question(
@@ -2583,20 +2677,45 @@ class MainWindow(QMainWindow):
             else self._t("print_center.curves_source")
         )
         paged_tablet = current if isinstance(current, TabletView) else None
+        current_range = (
+            paged_tablet.visible_depth_range if paged_tablet is not None else None
+        )
+        full_range = (
+            paged_tablet.printable_vertical_range() if paged_tablet is not None else None
+        )
+        selected_range = (
+            self.dataset_selection.interval
+            if self.session.current_dataset is not None
+            and self.dataset_selection.dataset_id == self.session.current_dataset.dataset_id
+            and (
+                paged_tablet is None
+                or paged_tablet.vertical_index_id
+                == self.session.current_dataset.active_index_id
+            )
+            else None
+        )
+        report_context = ReportIntervalContext(
+            current_range=current_range,
+            full_range=full_range,
+            selection_range=selected_range,
+        )
         dialog = PrintCenterDialog(
             self,
             initial_page=self.print_page_settings,
             initial_preferences=self.print_export_preferences,
             language=self.language,
             source_name=resolved_name,
-            preview_callback=lambda job: self._preview_print_job(current, job, resolved_name),
+            preview_callback=lambda job: self._preview_print_job(
+                current,
+                job,
+                resolved_name,
+                report_context=report_context,
+                report_form=report_form,
+            ),
             supports_pagination=paged_tablet is not None,
-            current_vertical_range=(
-                paged_tablet.visible_depth_range if paged_tablet is not None else None
-            ),
-            full_vertical_range=(
-                paged_tablet.printable_vertical_range() if paged_tablet is not None else None
-            ),
+            current_vertical_range=current_range,
+            full_vertical_range=full_range,
+            selected_vertical_range=selected_range,
             vertical_unit=(
                 paged_tablet.printable_vertical_unit if paged_tablet is not None else ""
             ),
@@ -2608,17 +2727,43 @@ class MainWindow(QMainWindow):
         self.print_export_preferences = dialog.preferences()
         self.user_profile_settings.save_print_page_settings(job.page)
         self.user_profile_settings.save_print_export_preferences(self.print_export_preferences)
-        self._execute_print_job(current, job, resolved_name, report_form=report_form)
+        self._execute_print_job(
+            current,
+            job,
+            resolved_name,
+            report_form=report_form,
+            report_context=report_context,
+        )
 
-    def _preview_print_job(self, widget, job: PrintJobSettings, source_name: str) -> None:
-        printer = self._print_jobs.create_printer(widget, job)
+    def _preview_print_job(
+        self,
+        widget,
+        job: PrintJobSettings,
+        source_name: str,
+        *,
+        report_context: ReportIntervalContext,
+        report_form=None,
+    ) -> None:
+        try:
+            report, normalized_job = self._resolve_print_report(
+                widget,
+                job,
+                source_name,
+                report_context=report_context,
+                report_form=report_form,
+            )
+            del report
+            printer = self._print_jobs.create_printer(widget, normalized_job)
+        except (ReportDefinitionError, RuntimeError, ValueError) as exc:
+            QMessageBox.critical(self, self._t("print_center.title"), str(exc))
+            return
         preview = QPrintPreviewDialog(printer, self)
         preview.setWindowTitle(self._t("print.preview_title"))
         preview.paintRequested.connect(
             lambda requested: self._print_jobs.render_to_printer(
                 widget,
                 requested,
-                job,
+                normalized_job,
                 source_name=source_name,
                 language=self.language,
             )
@@ -2626,14 +2771,27 @@ class MainWindow(QMainWindow):
         preview.exec()
 
     def _execute_print_job(
-        self, widget, job: PrintJobSettings, source_name: str, *, report_form=None
+        self,
+        widget,
+        job: PrintJobSettings,
+        source_name: str,
+        *,
+        report_form=None,
+        report_context: ReportIntervalContext,
     ) -> None:
         try:
-            passport = self._build_print_passport(
-                widget, job, source_name, report_form=report_form
+            report, normalized_job = self._resolve_print_report(
+                widget,
+                job,
+                source_name,
+                report_context=report_context,
+                report_form=report_form,
             )
-            if job.output_format is PrintOutputFormat.PRINTER:
-                printer = self._print_jobs.create_printer(widget, job)
+            passport = self._build_print_passport(
+                report, normalized_job, source_name
+            )
+            if normalized_job.output_format is PrintOutputFormat.PRINTER:
+                printer = self._print_jobs.create_printer(widget, normalized_job)
                 dialog = QPrintDialog(printer, self)
                 dialog.setWindowTitle(self._t("print_center.physical_printer"))
                 if dialog.exec() != QDialog.DialogCode.Accepted:
@@ -2641,7 +2799,7 @@ class MainWindow(QMainWindow):
                 result = self._print_jobs.render_to_printer(
                     widget,
                     printer,
-                    job,
+                    normalized_job,
                     source_name=source_name,
                     language=self.language,
                     passport=passport,
@@ -2654,7 +2812,7 @@ class MainWindow(QMainWindow):
                         "report_passport.id", digest=result.passport_sha256[:12]
                     )
             else:
-                target = job.normalized_target()
+                target = normalized_job.normalized_target()
                 if target is None:
                     raise ValueError(self._t("print_center.choose_file_error"))
                 overwrite = self._confirm_print_overwrite(target)
@@ -2662,7 +2820,7 @@ class MainWindow(QMainWindow):
                     return
                 result = self._print_jobs.execute_file(
                     widget,
-                    job,
+                    normalized_job,
                     source_name=source_name,
                     language=self.language,
                     overwrite=overwrite,
@@ -2682,6 +2840,7 @@ class MainWindow(QMainWindow):
         except (
             FileExistsError,
             OSError,
+            ReportDefinitionError,
             ReportPassportError,
             RuntimeError,
             ValueError,
@@ -2692,43 +2851,145 @@ class MainWindow(QMainWindow):
         self._log(message)
         self.statusBar().showMessage(message)
 
-    def _build_print_passport(
+    def _resolve_print_report(
         self,
         widget,
         job: PrintJobSettings,
         source_name: str,
         *,
+        report_context: ReportIntervalContext,
         report_form=None,
-    ):
-        interval = None
-        curve_mnemonics = None
+    ) -> tuple[ResolvedReportDefinition, PrintJobSettings]:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            raise ReportDefinitionError("Сначала выберите dataset")
+        pagination = job.pagination
+        if pagination.range_mode is PrintRangeMode.CUSTOM:
+            interval = ReportIntervalSelection(
+                ReportIntervalMode.CUSTOM,
+                pagination.custom_start,
+                pagination.custom_end,
+            )
+        elif pagination.range_mode is PrintRangeMode.FULL:
+            interval = ReportIntervalSelection(ReportIntervalMode.FULL)
+        elif pagination.range_mode is PrintRangeMode.SELECTION:
+            interval = ReportIntervalSelection(ReportIntervalMode.SELECTION)
+        else:
+            interval = ReportIntervalSelection(ReportIntervalMode.CURRENT)
+
+        curve_ids = self._print_report_curve_ids(widget, dataset)
+        underlying_form = (
+            form_document_snapshot(report_form)
+            if report_form is not None
+            else tablet_layout_form_snapshot(
+                self.session.current_tablet_layout if isinstance(widget, TabletView) else None,
+                dataset_id=dataset.dataset_id,
+                name=source_name,
+            )
+        )
+        index_id = (
+            widget.vertical_index_id
+            if isinstance(widget, TabletView) and widget.vertical_index_id is not None
+            else dataset.active_index_id
+        )
+        definition = ReportDefinition(
+            definition_id=(
+                f"view:{dataset.dataset_id}:{underlying_form.form_kind}:"
+                f"{underlying_form.form_id}"
+            ),
+            name=source_name,
+            profile=ReportProfile.VIEW,
+            dataset_id=dataset.dataset_id,
+            index_id=index_id or "",
+            interval=interval,
+            language=self.language.value,
+            curve_ids=curve_ids,
+            channel_mnemonics=self._print_report_channel_mnemonics(widget, dataset),
+            sections=(ReportSectionDefinition(ReportSectionKind.CURVES),),
+            form_kind=underlying_form.form_kind,
+            form_id=underlying_form.form_id,
+            form_revision=underlying_form.revision,
+        )
+        resolved = self.dataset_export_controller.resolve_report(
+            definition, context=report_context
+        )
+        try:
+            start = float(resolved.interval.start)
+            end = float(resolved.interval.end)
+        except (TypeError, ValueError) as exc:
+            raise ReportDefinitionError(
+                "Print Center пока поддерживает числовой вертикальный интервал"
+            ) from exc
+        normalized_pagination = replace(
+            pagination,
+            range_mode=PrintRangeMode.CUSTOM,
+            custom_start=start,
+            custom_end=end,
+        )
+        return resolved, replace(job, pagination=normalized_pagination)
+
+    def _print_report_curve_ids(self, widget, dataset: Dataset) -> tuple[str, ...]:
         if isinstance(widget, TabletView):
-            pagination = job.pagination
-            if pagination.range_mode.value == "custom":
-                interval = (pagination.custom_start, pagination.custom_end)
-            elif pagination.range_mode.value == "full":
-                interval = widget.printable_vertical_range()
-            else:
-                interval = widget.visible_depth_range or widget.printable_vertical_range()
             layout = self.session.current_tablet_layout
             if layout is not None:
-                curve_mnemonics = tuple(
+                resolved: list[str] = []
+                for track in layout.tracks:
+                    if not track.visible:
+                        continue
+                    for mnemonic in track.curve_mnemonics:
+                        curve = dataset.curve_by_mnemonic(mnemonic)
+                        if curve is not None:
+                            resolved.append(curve.metadata.curve_id)
+                if resolved:
+                    return tuple(dict.fromkeys(resolved))
+        return tuple(sorted(dataset.curves))
+
+    def _print_report_channel_mnemonics(
+        self, widget, dataset: Dataset
+    ) -> tuple[str, ...]:
+        if isinstance(widget, TabletView):
+            layout = self.session.current_tablet_layout
+            if layout is not None:
+                values = [
                     mnemonic
                     for track in layout.tracks
                     if track.visible
                     for mnemonic in track.curve_mnemonics
-                )
-        form_snapshot = (
-            form_document_snapshot(report_form) if report_form is not None else None
+                ]
+                if values:
+                    return tuple(dict.fromkeys(values))
+        return tuple(
+            dataset.curves[curve_id].metadata.original_mnemonic
+            for curve_id in sorted(dataset.curves)
         )
+
+    def _build_print_passport(
+        self,
+        report: ResolvedReportDefinition,
+        job: PrintJobSettings,
+        source_name: str,
+    ):
+        dataset = self.session.current_dataset
+        if dataset is None:
+            raise ReportDefinitionError("Сначала выберите dataset")
+        curve_mnemonics = report.requested_channel_mnemonics or tuple(
+            dataset.curves[curve_id].metadata.original_mnemonic
+            for curve_id in report.curve_ids
+        )
+        definition = report.definition
         request = ReportPassportRequest(
             report_kind=ReportKind.VIEW,
             report_name=source_name,
-            language=self.language,
+            language=definition.language,
             render=report_render_settings(job),
-            interval=interval,
+            interval=report.interval.bounds,
             curve_mnemonics=curve_mnemonics,
-            form=form_snapshot,
+            form=report_definition_snapshot(
+                definition.definition_id,
+                definition.name,
+                definition.payload(),
+                schema_version=definition.schema_version,
+            ),
         )
         return ReportPassportBuilder().build(self.session, request)
 

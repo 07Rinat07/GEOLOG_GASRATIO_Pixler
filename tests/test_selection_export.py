@@ -170,3 +170,45 @@ def test_excel_depth_export_includes_formatted_secondary_datetime_index(tmp_path
     assert sheet["A2"].value == 101.0
     assert sheet["B2"].value == datetime(2026, 7, 18, 8, 0, 1)
     assert sheet["B2"].number_format == "yyyy-mm-dd hh:mm:ss.000"
+
+
+def test_selection_export_distinguishes_zero_missing_and_unavailable(tmp_path) -> None:
+    dataset = make_dataset()
+    dataset.curves["c1"].values[:] = np.array([0.0, np.nan, 3.0, 4.0])
+
+    csv_target = tmp_path / "coverage.csv"
+    xlsx_target = tmp_path / "coverage.xlsx"
+    export_selection_text(
+        dataset,
+        csv_target,
+        ["c1"],
+        100.0,
+        102.0,
+        delimiter=",",
+        unavailable_mnemonics=("H2S",),
+    )
+    export_selection_excel(
+        dataset,
+        xlsx_target,
+        ["c1"],
+        100.0,
+        102.0,
+        unavailable_mnemonics=("H2S",),
+    )
+
+    rows = list(csv.reader(csv_target.open(encoding="utf-8")))
+    assert rows[1][1:] == ["0", "#N/A"]
+    assert rows[2][1:] == ["", "#N/A"]
+
+    workbook = load_workbook(xlsx_target, data_only=True)
+    data = workbook["Data"]
+    assert data[2][1].value == 0.0
+    assert data[3][1].value is None
+    assert data[2][2].value == "#N/A"
+    parameters = workbook["Parameters"]
+    assert parameters[3][10].value == "available"
+    assert parameters[3][11].value == 2
+    assert parameters[3][12].value == 1
+    assert parameters[3][13].value == 1
+    assert parameters[4][10].value == "unavailable"
+    assert parameters[4][14].value == 0.0

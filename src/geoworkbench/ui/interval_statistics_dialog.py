@@ -38,13 +38,16 @@ class IntervalStatisticsDialog(QDialog):
                 )
             )
         )
-        self.table = QTableWidget(len(statistics), 6)
+        self.table = QTableWidget(len(statistics), 9)
         self.table.setObjectName("interval-statistics-table")
         self.table.setHorizontalHeaderLabels(
             [
                 self._t("statistics.curve"),
                 self._t("statistics.unit"),
                 self._t("statistics.points"),
+                self._t("statistics.zeros"),
+                self._t("statistics.missing"),
+                self._t("statistics.coverage"),
                 self._t("statistics.minimum"),
                 self._t("statistics.maximum"),
                 self._t("statistics.mean"),
@@ -55,6 +58,13 @@ class IntervalStatisticsDialog(QDialog):
                 item.mnemonic,
                 item.unit or "—",
                 str(item.valid_count),
+                str(item.zero_count),
+                str(
+                    item.missing_count
+                    if item.missing_count is not None
+                    else max(0, (item.total_count or item.valid_count) - item.valid_count)
+                ),
+                f"{item.coverage_percent:.1f}",
                 f"{item.minimum:.8g}",
                 f"{item.maximum:.8g}",
                 f"{item.mean:.8g}",

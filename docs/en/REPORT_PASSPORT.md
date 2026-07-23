@@ -1,6 +1,6 @@
 # Report Passport
 
-Status: implemented in version 0.7.34. Passport schema: v1. Project format remains v16.
+Status: implemented since version 0.7.34; version 0.7.37 upgrades the passport to schema v2. Project format remains v16.
 
 ## Purpose
 
@@ -67,3 +67,13 @@ longer available, the normalized project-data snapshot still identifies the valu
 - the passport is provenance evidence, not an organizational digital signature or certification;
 - output-file hashing will be added after the shared `ReportDefinition` pipeline is established;
 - the Windows/HiDPI/PDF/physical-print smoke matrix remains required for stable status.
+
+## ReportDefinition linkage
+
+Starting with 0.7.36, the sidecar stores the canonical `ReportDefinition` payload and SHA-256.
+This proves that preview, PDF/printing, and tabular export used the same dataset, index, interval,
+curve set, form, and language.
+
+## Schema v2
+
+Starting with 0.7.37, the passport signs a coverage snapshot with availability, observed, zero, missing, and unavailable counts for every requested channel.

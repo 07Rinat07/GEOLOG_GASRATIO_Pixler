@@ -10,6 +10,7 @@ import numpy as np
 
 from geoworkbench.domain.models import Dataset, IndexType
 from geoworkbench.services.semantic_channels import SemanticChannelBinding
+from geoworkbench.services.coverage import analyze_curve_coverage
 
 
 class DatasetJsonExportError(RuntimeError):
@@ -58,6 +59,9 @@ def dataset_to_json_dict(dataset: Dataset) -> dict[str, Any]:
                         "semantic": _semantic_to_dict(curve.metadata.semantic),
                     },
                     "values": [_finite_number(value) for value in curve.values],
+                    "coverage": analyze_curve_coverage(
+                        curve, np.arange(curve.values.size, dtype=np.int64)
+                    ).payload(),
                     "version": curve.version,
                     "state": curve.state.value,
                 }

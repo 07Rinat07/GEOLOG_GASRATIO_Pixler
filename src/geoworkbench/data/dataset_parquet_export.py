@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from geoworkbench.domain.models import Dataset, IndexType
+from geoworkbench.services.coverage import analyze_curve_coverage
 
 
 class DatasetParquetExportError(RuntimeError):
@@ -61,6 +62,9 @@ def export_dataset_parquet(
         name = _unique_column_name(curve.metadata.original_mnemonic, curve_id, names)
         names.append(name)
         arrays.append(pa.array(_nullable_numbers(curve.values), from_pandas=True))
+        coverage = analyze_curve_coverage(
+            curve, np.arange(curve.values.size, dtype=np.int64)
+        )
         column_metadata[name] = {
             "kind": "curve",
             "curve_id": curve_id,
@@ -70,6 +74,7 @@ def export_dataset_parquet(
             "provenance": curve.metadata.provenance,
             "version": curve.version,
             "state": curve.state.value,
+            "coverage": coverage.payload(),
         }
     metadata = {
         b"geoworkbench.format": b"geoworkbench.dataset.parquet.v1",

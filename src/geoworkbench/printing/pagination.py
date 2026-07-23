@@ -9,6 +9,7 @@ class PrintRangeMode(StrEnum):
     CURRENT = "current"
     FULL = "full"
     CUSTOM = "custom"
+    SELECTION = "selection"
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,8 +44,6 @@ class PrintPaginationSettings:
                 raise ValueError("Для пользовательского диапазона укажите начало и конец")
             if not isfinite(self.custom_start) or not isfinite(self.custom_end):
                 raise ValueError("Пользовательский диапазон должен содержать конечные числа")
-            if self.custom_start == self.custom_end:
-                raise ValueError("Начало и конец пользовательского диапазона не должны совпадать")
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +63,7 @@ def build_page_slices(
     pagination: PrintPaginationSettings,
     current_range: tuple[float, float] | None,
     full_range: tuple[float, float] | None,
+    selection_range: tuple[float, float] | None = None,
 ) -> tuple[PrintPageSlice, ...]:
     """Build deterministic non-empty page ranges for depth or time axes."""
 
@@ -80,13 +80,21 @@ def build_page_slices(
         end = min(domain_end, end)
         return (PrintPageSlice(start, end, 1, 1),)
 
-    if pagination.range_mode is PrintRangeMode.CUSTOM:
+    if pagination.range_mode is PrintRangeMode.SELECTION:
+        if selection_range is None:
+            raise ValueError("Выбранный интервал для печати отсутствует")
+        start, end = sorted(map(float, selection_range))
+        start = max(domain_start, start)
+        end = min(domain_end, end)
+        if start > end:
+            raise ValueError("Выбранный интервал находится вне данных")
+    elif pagination.range_mode is PrintRangeMode.CUSTOM:
         assert pagination.custom_start is not None
         assert pagination.custom_end is not None
         start, end = sorted((float(pagination.custom_start), float(pagination.custom_end)))
         start = max(domain_start, start)
         end = min(domain_end, end)
-        if start >= end:
+        if start > end:
             raise ValueError("Пользовательский диапазон находится вне данных")
     else:
         start, end = domain_start, domain_end

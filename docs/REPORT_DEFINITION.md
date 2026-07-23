@@ -5,7 +5,7 @@
 конкретного `Dataset`, после чего все последующие адаптеры используют одинаковый индекс,
 интервал и состав каналов.
 
-## Схема v1
+## Схема v2
 
 Определение содержит:
 
@@ -13,7 +13,7 @@
 - профиль: view, masterlog, geology, cuttings, calcimetry, LBA, gas, drilling, events или combined;
 - конкретные `dataset_id` и `index_id`;
 - язык RU/KK/EN;
-- выбранные curve IDs и типизированные разделы;
+- выбранные curve IDs, ожидаемые `channel_mnemonics` и типизированные разделы;
 - ссылку на форму/layout через kind, ID и content-addressed revision;
 - режим интервала и дополнительные детерминированные options.
 
@@ -36,8 +36,9 @@ Payload сериализуется в canonical JSON и имеет `content_sha2
 1. проверяет dataset и точный index ID без скрытого переключения оси;
 2. нормализует порядок границ и ограничивает их реальным диапазоном индекса;
 3. формирует включительный массив строк и `sample_count`;
-4. проверяет существование выбранных каналов;
-5. возвращает `ResolvedReportDefinition`, который становится единственным источником диапазона.
+4. строго проверяет curve IDs, разрешает ожидаемые мнемоники и сохраняет ненайденные как unavailable;
+5. рассчитывает coverage с отдельными zero/missing/unavailable состояниями;
+6. возвращает `ResolvedReportDefinition`, который становится единственным источником диапазона.
 
 Числовые и datetime-индексы используют один контракт. Print Center сейчас принимает числовую
 вертикальную ось; табличный интервальный экспорт — активный глубинный индекс.
@@ -64,7 +65,9 @@ UI может выбрать режим, границы, форму и язык,
 
 1. создать `ReportDefinition`;
 2. один раз получить `ResolvedReportDefinition`;
-3. использовать только `resolved.interval`, `resolved.curve_ids` и payload definition;
+3. использовать только `resolved.interval`, `resolved.curve_ids`, `resolved.coverage` и payload definition;
 4. передать тот же definition snapshot в Report Passport.
 
 Проектный JSON не изменён: текущий формат остаётся v16.
+
+Payload schema v1 читается как legacy и мигрируется в runtime schema v2. Подробнее о состояниях данных: [COVERAGE_MODEL.md](COVERAGE_MODEL.md).

@@ -45,3 +45,19 @@ Files named `RELEASE_NOTES_*`, implementation reports, and hotfix reports are hi
 They do not override the current status, plan, requirements, or testing gate.
 
 Every user-facing change must update the matching RU/KK/EN files in the same commit.
+
+## ReportDefinition
+
+- [Единая ReportDefinition](REPORT_DEFINITION.md)
+- [Release notes 0.7.36](RELEASE_NOTES_0.7.36.md)
+- [Русская инструкция](ru/REPORT_DEFINITION.md)
+- [Қазақша нұсқаулық](kk/REPORT_DEFINITION.md)
+- [English guide](en/REPORT_DEFINITION.md)
+
+## Coverage model
+
+- [Единая coverage-модель](COVERAGE_MODEL.md)
+- [Release notes 0.7.37](RELEASE_NOTES_0.7.37.md)
+- [Русская инструкция](ru/COVERAGE_MODEL.md)
+- [Қазақша нұсқаулық](kk/COVERAGE_MODEL.md)
+- [English guide](en/COVERAGE_MODEL.md)

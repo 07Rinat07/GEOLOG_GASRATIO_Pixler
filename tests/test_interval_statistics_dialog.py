@@ -16,7 +16,7 @@ def test_interval_statistics_dialog_renders_rows(qapp) -> None:
     assert table is not None
     assert table.rowCount() == 1
     assert table.item(0, 0).text() == "ROP"
-    assert table.item(0, 5).text() == "2.5"
+    assert table.item(0, 8).text() == "2.5"
     dialog.close()
 
 
@@ -32,7 +32,7 @@ def test_interval_statistics_dialog_uses_selected_language(qapp) -> None:
     assert table is not None
     assert dialog.windowTitle() == "Depth interval statistics"
     assert table.horizontalHeaderItem(0).text() == "Curve"
-    assert table.horizontalHeaderItem(5).text() == "Mean"
+    assert table.horizontalHeaderItem(8).text() == "Mean"
     assert any(label.text() == "Interval: 100–200" for label in dialog.findChildren(QLabel))
     buttons = dialog.findChild(QDialogButtonBox)
     assert buttons is not None

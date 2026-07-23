@@ -195,3 +195,42 @@ def test_definition_payload_rejects_non_object_section() -> None:
 
     with pytest.raises(ValueError, match="sections"):
         ReportDefinition.from_payload(payload)
+
+
+def test_channel_mnemonics_resolve_available_and_preserve_unavailable_coverage() -> None:
+    dataset = make_dataset()
+    item = ReportDefinition(
+        "report-coverage",
+        "Coverage",
+        ReportProfile.GAS,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.FULL),
+        channel_mnemonics=("C1", "H2S"),
+    )
+
+    resolved = resolve_report_definition(dataset, item, require_curves=True)
+
+    assert resolved.curve_ids == ("curve-c1",)
+    assert resolved.unavailable_channel_mnemonics == ("H2S",)
+    assert resolved.requested_channel_mnemonics == ("C1", "H2S")
+    assert [entry.availability.value for entry in resolved.coverage] == [
+        "available",
+        "unavailable",
+    ]
+    assert resolved.coverage[0].zero_count == 0
+    assert resolved.coverage[0].missing_count == 0
+    assert resolved.coverage[1].unavailable_count == 4
+
+
+def test_v1_report_definition_payload_migrates_to_v2() -> None:
+    original = definition(ReportIntervalSelection(ReportIntervalMode.FULL)).payload()
+    original["schema_version"] = 1
+    for section in original["sections"]:
+        section.pop("channel_mnemonics", None)
+    original.pop("channel_mnemonics", None)
+
+    restored = ReportDefinition.from_payload(original)
+
+    assert restored.schema_version == 2
+    assert restored.channel_mnemonics == ()

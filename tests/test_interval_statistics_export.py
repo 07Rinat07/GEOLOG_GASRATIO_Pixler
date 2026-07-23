@@ -19,8 +19,8 @@ def test_interval_statistics_tsv_is_excel_pasteable() -> None:
     )
 
     assert "Dataset\tWell A" in text
-    assert "Parameter\tMnemonic\tUnit\tPoints\tCoverage, %" in text
-    assert "ROP\tROP\tm/h\t3\t75" in text
+    assert "Parameter\tMnemonic\tUnit\tAvailability\tObserved\tZeros\tMissing\tCoverage, %" in text
+    assert "ROP\tROP\tm/h\tAvailable\t3\t0\t1\t75" in text
 
 
 def test_interval_statistics_exports_csv_and_xlsx(tmp_path) -> None:
@@ -37,7 +37,7 @@ def test_interval_statistics_exports_csv_and_xlsx(tmp_path) -> None:
         dataset_name="Well A",
     )
 
-    assert "ROP,ROP,m/h,3,75.0,1.0,5.0,3.0" in csv_path.read_text(
+    assert "ROP,ROP,m/h,Available,3,0,1,75.0,1.0,5.0,3.0" in csv_path.read_text(
         encoding="utf-8-sig"
     )
     sheet = load_workbook(xlsx_path, data_only=True).active
@@ -45,7 +45,7 @@ def test_interval_statistics_exports_csv_and_xlsx(tmp_path) -> None:
     assert sheet["B1"].value == "Well A"
     assert sheet["A5"].value == "ROP"
     assert sheet["B5"].value == "ROP"
-    assert sheet["E5"].value == 75.0
+    assert sheet["H5"].value == 75.0
 
 
 def test_interval_statistics_exports_missing_values_as_empty_cells(tmp_path) -> None:
@@ -61,11 +61,11 @@ def test_interval_statistics_exports_missing_values_as_empty_cells(tmp_path) -> 
         dataset_name="Well A",
     )
 
-    assert "EMPTY\tEMPTY\tppm\t0\t0\t\t\t" in text
+    assert "EMPTY\tEMPTY\tppm\tAvailable\t0\t0\t4\t0\t\t\t" in text
     sheet = load_workbook(xlsx_path, data_only=True).active
-    assert sheet["F5"].value is None
-    assert sheet["G5"].value is None
-    assert sheet["H5"].value is None
+    assert sheet["I5"].value is None
+    assert sheet["J5"].value is None
+    assert sheet["K5"].value is None
 
 
 def test_interval_statistics_xlsx_contains_localized_name_and_mnemonic(tmp_path) -> None:

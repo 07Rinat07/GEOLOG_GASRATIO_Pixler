@@ -78,3 +78,13 @@ Since 0.7.34, Print Center, direct PNG/SVG/PDF, Masterlog PDF, and interpretatio
 deterministic JSON sidecar containing exact interval/channel values, source fingerprints,
 semantic bindings/UOM, formula versions, form revision, language, and render settings. The future
 shared `ReportDefinition` must reuse this contract. See [REPORT_PASSPORT.md](REPORT_PASSPORT.md).
+
+## Shared ReportDefinition in 0.7.36
+
+Print Center, Masterlog, and selected-interval CSV/XLSX now create and resolve one
+`ReportDefinition` first. Dataset, index, curve IDs, form revision, language, and interval are not
+recalculated between preview and the final artifact. See [REPORT_DEFINITION.md](REPORT_DEFINITION.md).
+
+## Coverage in 0.7.37
+
+CSV distinguishes `0`, an empty missing sample, and `#N/A` for an unavailable channel. XLSX exposes availability, observed, zeros, missing, and coverage on the `Parameters` sheet. See [Coverage model](COVERAGE_MODEL.md).

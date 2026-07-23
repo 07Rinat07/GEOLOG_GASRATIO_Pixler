@@ -28,7 +28,8 @@
 - [x] добавить интерактивный Import Review с ручными overrides, QC preview и атомарным commit;
 - [x] добавить паспорт воспроизводимости отчёта с fingerprints, bindings/UOM, версиями формул, revision формы, языком и render settings;
 - [x] добавить детерминированные golden fixtures экранной и печатной сетки, legend, lithotypes и annotations;
-- следующим унифицировать `ReportDefinition` и interval selection для preview, PDF и табличного экспорта.
+- [x] унифицировать `ReportDefinition` и interval selection для preview, PDF и табличного экспорта;
+- [x] добавить coverage и явное различение нуля, пропуска и отсутствующего канала.
 
 ## P1 — операции и real-time
 
@@ -39,8 +40,8 @@
 
 ## P1 — отчёты
 
-- одна модель интервала для preview, PDF и табличного экспорта;
-- единые bindings, UOM, coverage и различение нуля/пропуска;
+- [x] одна модель интервала для preview, PDF и табличного экспорта;
+- [x] единые bindings, UOM, coverage и различение нуля/пропуска/unavailable channel;
 - проверка A4/A3/custom/roll, 100%/fit и продолжения страниц.
 
 ## P2 — развитие

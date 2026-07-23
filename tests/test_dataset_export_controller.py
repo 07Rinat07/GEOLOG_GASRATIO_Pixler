@@ -222,3 +222,61 @@ def test_default_export_plan_uses_declared_headers_without_source_report() -> No
     assert plan.version is LasExportVersion.V1_2
     assert plan.wrap is True
     assert plan.null_value == pytest.approx(-999.0)
+
+
+def test_export_controller_uses_one_resolved_report_for_csv_and_excel(tmp_path) -> None:
+    from geoworkbench.services.report_definition import (
+        ReportDefinition,
+        ReportIntervalContext,
+        ReportIntervalMode,
+        ReportIntervalSelection,
+        ReportProfile,
+    )
+
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0, 103.0]),
+    )
+    dataset.curves["rop"] = CurveData(
+        CurveMetadata("rop", "ROP", "ROP", "m/h", None, dataset.dataset_id),
+        np.array([10.0, 20.0, 30.0, 40.0]),
+    )
+    well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
+    session = ProjectSession(
+        project=Project("project-1", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+        current_dataset_id=dataset.dataset_id,
+    )
+    controller = DatasetExportController(session)
+    definition = ReportDefinition(
+        "selection:dataset-1",
+        "Selection",
+        ReportProfile.COMBINED,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        curve_ids=("rop",),
+    )
+
+    resolved = controller.resolve_report(
+        definition,
+        context=ReportIntervalContext(selection_range=(101.0, 102.0)),
+        require_curves=True,
+    )
+    csv_target = controller.export_resolved_report_text(
+        tmp_path / "report.csv", resolved
+    )
+    xlsx_target = controller.export_resolved_report_excel(
+        tmp_path / "report.xlsx", resolved
+    )
+
+    assert resolved.interval.bounds == (101.0, 102.0)
+    assert csv_target.read_text(encoding="utf-8").splitlines() == [
+        "DEPTH [m],ROP [m/h]",
+        "101,20",
+        "102,30",
+    ]
+    assert xlsx_target.read_bytes().startswith(b"PK")

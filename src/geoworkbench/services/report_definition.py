@@ -11,9 +11,10 @@ import numpy as np
 from numpy.typing import NDArray
 
 from geoworkbench.domain.models import Dataset, DatasetIndex, IndexType
+from geoworkbench.services.coverage import ChannelCoverage, analyze_dataset_coverage
 
 
-REPORT_DEFINITION_SCHEMA_VERSION = 1
+REPORT_DEFINITION_SCHEMA_VERSION = 2
 _SUPPORTED_LANGUAGES = {"ru", "kk", "en"}
 
 
@@ -78,12 +79,14 @@ class ReportSectionDefinition:
     kind: ReportSectionKind
     enabled: bool = True
     curve_ids: tuple[str, ...] = ()
+    channel_mnemonics: tuple[str, ...] = ()
     options: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.kind, ReportSectionKind):
             raise ValueError("Раздел отчёта должен использовать ReportSectionKind")
         _validate_string_tuple(self.curve_ids, "curve_ids раздела")
+        _validate_string_tuple(self.channel_mnemonics, "channel_mnemonics раздела")
         _validate_options(self.options)
 
 
@@ -97,6 +100,7 @@ class ReportDefinition:
     interval: ReportIntervalSelection
     language: str = "ru"
     curve_ids: tuple[str, ...] = ()
+    channel_mnemonics: tuple[str, ...] = ()
     sections: tuple[ReportSectionDefinition, ...] = ()
     form_kind: str | None = None
     form_id: str | None = None
@@ -124,6 +128,7 @@ class ReportDefinition:
             raise ValueError("Язык ReportDefinition должен быть ru, kk или en")
         object.__setattr__(self, "language", normalized_language)
         _validate_string_tuple(self.curve_ids, "curve_ids отчёта")
+        _validate_string_tuple(self.channel_mnemonics, "channel_mnemonics отчёта")
         if not all(isinstance(item, ReportSectionDefinition) for item in self.sections):
             raise ValueError("Разделы отчёта должны использовать ReportSectionDefinition")
         _validate_options(self.options)
@@ -156,6 +161,9 @@ class ReportDefinition:
                     kind=ReportSectionKind(str(item["kind"])),
                     enabled=bool(item.get("enabled", True)),
                     curve_ids=tuple(str(value) for value in item.get("curve_ids", ())),
+                    channel_mnemonics=tuple(
+                        str(value) for value in item.get("channel_mnemonics", ())
+                    ),
                     options=tuple(
                         (str(option[0]), str(option[1]))
                         for option in item.get("options", ())
@@ -172,6 +180,9 @@ class ReportDefinition:
                 interval=interval,
                 language=str(payload.get("language", "ru")),
                 curve_ids=tuple(str(value) for value in payload.get("curve_ids", ())),
+                channel_mnemonics=tuple(
+                    str(value) for value in payload.get("channel_mnemonics", ())
+                ),
                 sections=sections,
                 form_kind=_optional_text(payload.get("form_kind")),
                 form_id=_optional_text(payload.get("form_id")),
@@ -180,8 +191,10 @@ class ReportDefinition:
                     (str(option[0]), str(option[1]))
                     for option in payload.get("options", ())
                 ),
-                schema_version=int(
-                    payload.get("schema_version", REPORT_DEFINITION_SCHEMA_VERSION)
+                schema_version=(
+                    REPORT_DEFINITION_SCHEMA_VERSION
+                    if int(payload.get("schema_version", REPORT_DEFINITION_SCHEMA_VERSION)) == 1
+                    else int(payload.get("schema_version", REPORT_DEFINITION_SCHEMA_VERSION))
                 ),
             )
         except (KeyError, TypeError, ValueError) as exc:
@@ -196,6 +209,22 @@ class ReportDefinition:
             if section.enabled:
                 values.extend(section.curve_ids)
         return tuple(dict.fromkeys(values))
+
+    @property
+    def selected_channel_mnemonics(self) -> tuple[str, ...]:
+        values = list(self.channel_mnemonics)
+        for section in self.sections:
+            if section.enabled:
+                values.extend(section.channel_mnemonics)
+        result: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            normalized = value.strip()
+            key = normalized.casefold()
+            if normalized and key not in seen:
+                seen.add(key)
+                result.append(normalized)
+        return tuple(result)
 
     def payload(self) -> dict[str, Any]:
         return _json_ready(asdict(self))
@@ -248,10 +277,21 @@ class ResolvedReportDefinition:
     definition: ReportDefinition
     interval: ResolvedReportInterval
     curve_ids: tuple[str, ...]
+    unavailable_channel_mnemonics: tuple[str, ...] = ()
+    coverage: tuple[ChannelCoverage, ...] = field(default=(), repr=False, compare=False)
 
     @property
     def curve_count(self) -> int:
         return len(self.curve_ids)
+
+    @property
+    def requested_channel_count(self) -> int:
+        return len(self.coverage)
+
+    @property
+    def requested_channel_mnemonics(self) -> tuple[str, ...]:
+        values = [item.mnemonic for item in self.coverage]
+        return tuple(dict.fromkeys(values))
 
 
 def resolve_report_definition(
@@ -283,23 +323,46 @@ def resolve_report_definition(
     start, end = _clamp_range(index, requested, full_range)
     indices = _interval_indices(index, start, end)
 
-    selected = definition.selected_curve_ids
-    if require_curves and not selected:
-        raise ReportDefinitionError("ReportDefinition не содержит выбранных каналов")
-    missing = tuple(curve_id for curve_id in selected if curve_id not in dataset.curves)
-    if missing:
-        raise ReportDefinitionError("Каналы ReportDefinition не найдены: " + ", ".join(missing))
+    explicit_curve_ids = definition.selected_curve_ids
+    missing_ids = tuple(
+        curve_id for curve_id in explicit_curve_ids if curve_id not in dataset.curves
+    )
+    if missing_ids:
+        raise ReportDefinitionError(
+            "Каналы ReportDefinition не найдены по ID: " + ", ".join(missing_ids)
+        )
 
+    selected_ids = list(explicit_curve_ids)
+    unavailable: list[str] = []
+    for mnemonic in definition.selected_channel_mnemonics:
+        curve = dataset.curve_by_mnemonic(mnemonic)
+        if curve is None:
+            unavailable.append(mnemonic)
+        elif curve.metadata.curve_id not in selected_ids:
+            selected_ids.append(curve.metadata.curve_id)
+
+    if require_curves and not selected_ids and not unavailable:
+        raise ReportDefinitionError("ReportDefinition не содержит запрошенных каналов")
+
+    resolved_interval = ResolvedReportInterval(
+        index_id=index.index_id,
+        start=start,
+        end=end,
+        sample_count=int(indices.size),
+        indices=indices,
+    )
+    coverage = analyze_dataset_coverage(
+        dataset,
+        selected_ids,
+        indices,
+        unavailable_mnemonics=unavailable,
+    )
     return ResolvedReportDefinition(
         definition=definition,
-        interval=ResolvedReportInterval(
-            index_id=index.index_id,
-            start=start,
-            end=end,
-            sample_count=int(indices.size),
-            indices=indices,
-        ),
-        curve_ids=selected,
+        interval=resolved_interval,
+        curve_ids=tuple(selected_ids),
+        unavailable_channel_mnemonics=tuple(unavailable),
+        coverage=coverage,
     )
 
 

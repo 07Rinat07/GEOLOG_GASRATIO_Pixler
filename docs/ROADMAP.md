@@ -20,6 +20,7 @@ Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke ch
 - keep state-changing workflows behind application boundaries; import/print execution, session rebinding, workspace commands, tablet layout mutations, derived-dataset rollback, project image assets, and interactive Import Review use controllers/services; Semantic Channel Dictionary and atomic review/commit are complete;
 - [complete] define one screen/print grid contract and deterministic golden-render fixtures;
 - [x] add deterministic report provenance: source fingerprints, interval-scoped channel data, complete semantic bindings/UOM, formula versions, locale, content-addressed template revision, and render settings;
+- [x] resolve one immutable `ReportDefinition` and interval for Print Center preview/output, Masterlog, and selected CSV/XLSX export;
 - test project format v16 and layout format v14 migrations with representative legacy files.
 
 Exit: bounded controllers, reproducible report passports, and deterministic structural/visual golden fixtures are complete; Windows raster/PDF/HiDPI validation remains.
@@ -48,8 +49,9 @@ Exit: a recorded session can be replayed deterministically and produces the same
 
 ## Phase 4 — unified reports and multiwell work
 
-- one interval report model for geology, cuttings, calcimetry, LBA, gas, drilling, and events;
-- PDF plus tabular exports driven from the same selected interval and bindings;
+- [complete] one `ReportDefinition` and selected interval contract for geology, cuttings, calcimetry, LBA, gas, drilling, and events;
+- [complete] Print Center/Masterlog PDF plus selected CSV/XLSX are driven from the same resolved interval;
+- [complete] add shared coverage and an explicit zero/missing/unavailable-channel model;
 - multiwell correlation canvas with tops, ties, independent depth ranges, and paginated PDF;
 - template validation, versioning, import/export, and backward-compatible migrations.
 

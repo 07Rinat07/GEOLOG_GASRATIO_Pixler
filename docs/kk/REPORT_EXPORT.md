@@ -80,3 +80,13 @@ exact interval/channel values, source fingerprints, semantic bindings/UOM, formu
 form revision, language және render settings бар детерминирленген JSON sidecar жасайды. Болашақ
 ортақ `ReportDefinition` осы contract-ты қайта қолдануы тиіс. Толығырақ:
 [REPORT_PASSPORT.md](REPORT_PASSPORT.md).
+
+## 0.7.36 ішіндегі ортақ ReportDefinition
+
+Print Center, Masterlog және таңдалған аралықтың CSV/XLSX экспорты алдымен бір
+`ReportDefinition` жасап, resolve етеді. Dataset, index, curve IDs, form revision, language және
+interval preview мен соңғы файл арасында қайта есептелмейді. [REPORT_DEFINITION.md](REPORT_DEFINITION.md) қараңыз.
+
+## 0.7.37 coverage
+
+CSV ішінде `0`, бос missing sample және unavailable channel үшін `#N/A` ажыратылады. XLSX `Parameters` парағында availability, observed, zeros, missing және coverage көрсетеді. [Coverage моделі](COVERAGE_MODEL.md).

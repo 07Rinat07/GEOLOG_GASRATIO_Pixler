@@ -6,6 +6,7 @@ from typing import Iterable
 import numpy as np
 
 from geoworkbench.domain.models import Dataset
+from geoworkbench.services.coverage import ChannelAvailability, analyze_curve_coverage
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,6 +18,9 @@ class CurveIntervalStatistics:
     maximum: float
     mean: float
     total_count: int | None = None
+    zero_count: int = 0
+    missing_count: int | None = None
+    availability: ChannelAvailability = ChannelAvailability.AVAILABLE
 
     @property
     def coverage_percent(self) -> float:
@@ -58,6 +62,8 @@ def calculate_interval_statistics(
             continue
         selected = values[interval_mask]
         finite = selected[np.isfinite(selected)]
+        selected_indices = np.flatnonzero(interval_mask).astype(np.int64)
+        coverage = analyze_curve_coverage(curve, selected_indices)
         minimum = float(np.min(finite)) if finite.size else float("nan")
         maximum = float(np.max(finite)) if finite.size else float("nan")
         mean = float(np.mean(finite)) if finite.size else float("nan")
@@ -69,7 +75,10 @@ def calculate_interval_statistics(
                 minimum=minimum,
                 maximum=maximum,
                 mean=mean,
-                total_count=int(np.count_nonzero(interval_mask)),
+                total_count=coverage.total_count,
+                zero_count=coverage.zero_count,
+                missing_count=coverage.missing_count,
+                availability=coverage.availability,
             )
         )
     return tuple(statistics)

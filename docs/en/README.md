@@ -482,3 +482,12 @@ See [Rendering golden fixtures](GOLDEN_RENDERING.md).
 
 Verified limitations are listed in [project status](PROJECT_STATUS.md); priorities are in the
 [project plan](PROJECT_PLAN.md) and [audit](PRODUCT_AUDIT_2026.md).
+
+## Shared report definition
+
+Preview, PDF/printing, and selected-interval export use one `ReportDefinition` and one resolved
+interval. See [Shared ReportDefinition](REPORT_DEFINITION.md).
+
+## Coverage model 0.7.37
+
+Zero, a missing sample, and an unavailable channel are distinct in the preview/report/export contract. CSV uses `0`, an empty cell, and `#N/A`; XLSX and Report Passport preserve coverage metadata. See [Coverage model](COVERAGE_MODEL.md).

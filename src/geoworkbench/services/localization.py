@@ -6,8 +6,6 @@ from enum import StrEnum
 from importlib.resources import files
 from typing import Any
 
-from PySide6.QtCore import QSettings
-
 
 class AppLanguage(StrEnum):
     RU = "ru"
@@ -54,6 +52,8 @@ class LanguageSettings:
 
     @classmethod
     def system(cls) -> LanguageSettings:
+        from PySide6.QtCore import QSettings
+
         return cls(QSettings())
 
     def current(self) -> AppLanguage | None:

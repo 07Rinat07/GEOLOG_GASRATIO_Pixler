@@ -54,6 +54,7 @@ class PrintCenterDialog(QDialog):
         supports_pagination: bool = False,
         current_vertical_range: tuple[float, float] | None = None,
         full_vertical_range: tuple[float, float] | None = None,
+        selected_vertical_range: tuple[float, float] | None = None,
         vertical_unit: str = "",
     ) -> None:
         super().__init__(parent)
@@ -62,6 +63,7 @@ class PrintCenterDialog(QDialog):
         self.supports_pagination = supports_pagination
         self.current_vertical_range = current_vertical_range
         self.full_vertical_range = full_vertical_range
+        self.selected_vertical_range = selected_vertical_range
         self.vertical_unit = vertical_unit.strip()
         page = initial_page or PrintPageSettings()
         preferences = initial_preferences or PrintExportPreferences()
@@ -150,8 +152,18 @@ class PrintCenterDialog(QDialog):
             self._t("print_center.range_current"), PrintRangeMode.CURRENT.value
         )
         self.range_combo.addItem(self._t("print_center.range_full"), PrintRangeMode.FULL.value)
+        if selected_vertical_range is not None:
+            self.range_combo.addItem(
+                self._t("print_center.range_selection"),
+                PrintRangeMode.SELECTION.value,
+            )
         self.range_combo.addItem(self._t("print_center.range_custom"), PrintRangeMode.CUSTOM.value)
         requested_range = preferences.range_mode if supports_pagination else PrintRangeMode.CURRENT
+        if (
+            requested_range is PrintRangeMode.SELECTION
+            and selected_vertical_range is None
+        ):
+            requested_range = PrintRangeMode.CURRENT
         range_index = self.range_combo.findData(requested_range.value)
         self.range_combo.setCurrentIndex(max(0, range_index))
         self.range_combo.setEnabled(supports_pagination)

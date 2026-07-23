@@ -1,3 +1,34 @@
+# 0.7.37 — shared coverage model (test build)
+
+- added one headless coverage contract for observed values, real zeros, missing samples, and unavailable channels;
+- upgraded ReportDefinition and Report Passport to schema v2 while preserving project format v16;
+- added expected channel mnemonics, unavailable-channel resolution, and interval-scoped coverage to resolved reports;
+- made CSV/XLSX, JSON/Parquet, interval statistics, Curve Catalog, and report passports publish the same coverage semantics;
+- added RU/KK/EN documentation and focused regression/source-integrity coverage.
+
+# 0.7.36 — unified ReportDefinition and interval selection (test build)
+
+### Русский
+
+- добавлена immutable `ReportDefinition` schema v1 для view, Masterlog, geology, cuttings, calcimetry, LBA, gas, drilling, events и combined;
+- Print Center preview/output, Masterlog и selected CSV/XLSX используют один resolved dataset/index/interval/curve contract;
+- добавлен режим selected interval, защита DEPTH-selection от TIME-view и canonical definition snapshot в Report Passport;
+- Qt-независимый interval helper устранил лишнюю GUI-зависимость табличного экспорта; project format остаётся v16.
+
+### Қазақша
+
+- view, Masterlog, geology, cuttings, calcimetry, LBA, gas, drilling, events және combined үшін immutable `ReportDefinition` schema v1 қосылды;
+- Print Center preview/output, Masterlog және selected CSV/XLSX бір resolved dataset/index/interval/curve contract қолданады;
+- selected interval режимі, TIME-view үшін DEPTH-selection қорғанысы және Report Passport ішінде canonical definition snapshot қосылды;
+- Qt-тәуелсіз interval helper кестелік экспорттың артық GUI dependency-сін жойды; project format v16 болып қалады.
+
+### English
+
+- added immutable `ReportDefinition` schema v1 for view, Masterlog, geology, cuttings, calcimetry, LBA, gas, drilling, events, and combined;
+- Print Center preview/output, Masterlog, and selected CSV/XLSX use one resolved dataset/index/interval/curve contract;
+- added selected-interval mode, DEPTH-selection protection for TIME views, and a canonical definition snapshot in Report Passport;
+- a Qt-free interval helper removed the unnecessary GUI dependency from tabular export; project format remains v16.
+
 # 0.7.35 — deterministic screen/print golden rendering fixtures (test build)
 
 ## Русский

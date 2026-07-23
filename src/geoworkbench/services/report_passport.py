@@ -16,13 +16,18 @@ from geoworkbench import __version__
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.domain.models import CurveData, Dataset, MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.coverage import (
+    ChannelCoverage,
+    analyze_curve_coverage,
+    unavailable_channel_coverage,
+)
 
 if TYPE_CHECKING:
     from geoworkbench.forms.models import FormDocument
     from geoworkbench.tablet.models import TabletLayout
 
 
-REPORT_PASSPORT_SCHEMA_VERSION = 1
+REPORT_PASSPORT_SCHEMA_VERSION = 2
 REPORT_PASSPORT_SUFFIX = ".passport.json"
 
 
@@ -82,6 +87,23 @@ class ReportChannelSnapshot:
     version: int
     state: str
     values_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReportCoverageSnapshot:
+    channel_key: str
+    mnemonic: str
+    availability: str
+    primary_state: str
+    total_count: int
+    observed_count: int
+    zero_count: int
+    missing_count: int
+    unavailable_count: int
+    coverage_percent: float
+    missing_percent: float
+    zero_percent: float
+    zero_percent_of_observed: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +177,7 @@ class ReportPassport:
     interval: ReportIntervalSnapshot | None
     sources: tuple[ReportSourceFingerprint, ...]
     channels: tuple[ReportChannelSnapshot, ...]
+    coverage: tuple[ReportCoverageSnapshot, ...]
     formulas: tuple[ReportFormulaSnapshot, ...]
     form: ReportFormSnapshot
     language: str
@@ -190,6 +213,9 @@ class ReportPassport:
                 raise ValueError("Размер источника Report Passport не может быть отрицательным")
         for channel in self.channels:
             _validate_sha256(channel.values_sha256, "channel.values_sha256")
+        for item in self.coverage:
+            if item.total_count < 0:
+                raise ValueError("Coverage Report Passport содержит отрицательный total_count")
         for formula in self.formulas:
             if formula.expression_sha256 is not None:
                 _validate_sha256(formula.expression_sha256, "formula.expression_sha256")
@@ -237,6 +263,13 @@ class ReportPassportBuilder:
         interval = _interval_snapshot(dataset, request.interval)
         interval_mask = _interval_mask(dataset.active_index.values, interval)
         channels = tuple(_channel_snapshot(curve, interval_mask) for curve in curves)
+        coverage = tuple(
+            _coverage_snapshot(analyze_curve_coverage(curve, np.flatnonzero(interval_mask)))
+            for curve in curves
+        ) + tuple(
+            _coverage_snapshot(unavailable_channel_coverage(mnemonic, int(np.count_nonzero(interval_mask))))
+            for mnemonic in missing_curves
+        )
         form = request.form or tablet_layout_form_snapshot(
             session.current_tablet_layout,
             dataset_id=dataset.dataset_id,
@@ -268,6 +301,7 @@ class ReportPassportBuilder:
             interval=interval,
             sources=sources,
             channels=channels,
+            coverage=coverage,
             formulas=formulas,
             form=form,
             language=_language_value(request.language),
@@ -321,6 +355,7 @@ class ReportPassportBuilder:
             interval=interval,
             sources=(source,),
             channels=(),
+            coverage=(),
             formulas=(),
             form=form,
             language=_language_value(request.language),
@@ -716,6 +751,24 @@ def _channel_snapshot(
         values_sha256=_array_digest(values),
     )
 
+
+def _coverage_snapshot(item: ChannelCoverage) -> ReportCoverageSnapshot:
+    payload = item.payload()
+    return ReportCoverageSnapshot(
+        channel_key=item.channel_key,
+        mnemonic=item.mnemonic,
+        availability=item.availability.value,
+        primary_state=item.primary_state.value,
+        total_count=item.total_count,
+        observed_count=item.observed_count,
+        zero_count=item.zero_count,
+        missing_count=item.missing_count,
+        unavailable_count=item.unavailable_count,
+        coverage_percent=float(payload["coverage_percent"]),
+        missing_percent=float(payload["missing_percent"]),
+        zero_percent=float(payload["zero_percent"]),
+        zero_percent_of_observed=float(payload["zero_percent_of_observed"]),
+    )
 
 def _formula_snapshots(
     session: ProjectSession,

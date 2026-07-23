@@ -21,12 +21,14 @@ def test_interval_statistics_panel_renders_and_copies(qapp) -> None:
     assert table.item(0, 1).text() == "1"
     assert table.item(0, 2).text() == "3"
     assert table.item(0, 3).text() == "5"
-    assert "Points: 3" in table.item(0, 0).toolTip()
+    assert "Observed: 3" in table.item(0, 0).toolTip()
+    assert "Zeros: 0" in table.item(0, 0).toolTip()
+    assert "Missing: 1" in table.item(0, 0).toolTip()
 
     panel.copy_to_clipboard()
 
     assert "Dataset\tDataset A" in qapp.clipboard().text()
-    assert "Rate of Penetration\tROP\tm/h\t3\t75" in qapp.clipboard().text()
+    assert "Rate of Penetration\tROP\tm/h\tAvailable\t3\t0\t1\t75" in qapp.clipboard().text()
     panel.close()
 
 

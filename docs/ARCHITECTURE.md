@@ -109,6 +109,25 @@ Y синхронизирует треки; X остаётся независим
 редактирование, аннотации и часть orchestration. Целевая граница разделяет их на отдельные
 контроллеры с Qt-независимыми state transitions.
 
+## Единая ReportDefinition
+
+`services/report_definition.py` содержит immutable schema v1 и Qt-независимый resolver.
+Definition фиксирует report profile, dataset/index ID, sections, curve IDs, language, form
+revision и interval mode `full/current/custom/selection`. Resolver не переключает индекс
+молча: он проверяет точный ID, ограничивает диапазон фактическим доменом, создаёт один
+inclusive массив строк и возвращает `ResolvedReportDefinition`.
+
+Print Center замораживает viewport/full/selection context при открытии диалога. Preview и
+итоговый printer/PDF/page-export job получают один resolved range, после чего pagination
+нормализуется в точный custom interval. Планшет использует выбранный `vertical_index_id`;
+DEPTH-selection не предлагается для TIME-view. Masterlog preview/PDF/system preview и
+выбранный CSV/XLSX экспорт используют тот же контракт. Report Passport сохраняет canonical
+payload definition и его SHA-256.
+
+Qt-независимый `services/interval_selection.py` содержит расчёт строк глубинного интервала;
+`DatasetIntervalSelection` остаётся UI-observer, но exporter больше не импортирует Qt только
+ради геометрии диапазона. Формат проекта остаётся v16.
+
 ## Печать
 
 Печатный renderer работает в миллиметрах и не является снимком экрана. Одна модель формы
