@@ -22,8 +22,8 @@ only active work.
 - [x] make the editing-mode controller the sole owner of F4 and annotation-tool state;
 - [x] extract home/workspace/target-tab navigation from `MainWindow`;
 - [x] extract stable source kinds and universal-import routing;
-- [x] extract CSV/Excel plan execution and dataset registration;
-- extract LAS/Paradox jobs, print jobs, session binding, and remaining commands;
+- [x] extract CSV/Excel plans, LAS policy jobs, and Paradox dataset registration into one service;
+- extract print jobs, session binding, and remaining commands;
 - add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
   source, and original mnemonic;
 - add one Import Review and a reproducible report passport.

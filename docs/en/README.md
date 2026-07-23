@@ -11,7 +11,7 @@ Choose Русский, Қазақша, or English on first launch. You can later
 
 ## Import
 
-Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, Excel, or GeoScape/Paradox DB. Paradox also has “File → Import → GeoScape / Paradox DB” and `.db` drag-and-drop. The application validates the binary format, discovers same-name `.PX/.TV/.FAM` files, presents channels and depth/time candidates, and never applies an ambiguous index without confirmation. Source files are opened read-only. See [PARADOX_IMPORT.md](PARADOX_IMPORT.md).
+Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, Excel, or GeoScape/Paradox DB. Paradox also has “File → Import → GeoScape / Paradox DB” and `.db` drag-and-drop. The application validates the binary format, discovers same-name `.PX/.TV/.FAM` files, presents channels and depth/time candidates, and never applies an ambiguous index without confirmation. Source files are opened read-only. A dataset is committed to the project only after successful reading, policy evaluation, and any required user confirmation; cancelled or rejected files cannot create a partial well. See [PARADOX_IMPORT.md](PARADOX_IMPORT.md).
 
 Legacy Delphi SKF forms can be imported from “Forms → Form Library → Import and export → Import SKF” or “Constructor → Tablet forms”. See [SKF_IMPORT.md](SKF_IMPORT.md).
 

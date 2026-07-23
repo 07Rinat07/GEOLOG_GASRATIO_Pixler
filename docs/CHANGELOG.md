@@ -41,6 +41,35 @@
 - the selection is synchronized across every plot in the active form, while the right panel reports minimum, maximum, mean, valid-point count, and coverage for every visible parameter;
 - results can be copied as an Excel-compatible table or exported to XLSX/CSV; specialized lithology, sample, and stratigraphy gestures remain unchanged.
 
+# 0.7.29 — unified import-job boundary (test build)
+
+## Русский
+
+- маршрутизация импорта, CSV/Excel plans, LAS policy jobs и регистрация Paradox объединены в `services/import_jobs.py`;
+- `MainWindow` больше не вызывает LAS parser и не присоединяет Paradox dataset напрямую;
+- LAS batch outcome различает успех, ошибку, ручной пропуск, предупреждения и обратную глубину;
+- lossless source/import report и создание отдельной скважины проходят через один project-session port;
+- отменённый или отклонённый импорт не оставляет частично зарегистрированные данные;
+- добавлены headless regression-тесты и ленивое подключение LAS-адаптера.
+
+## Қазақша
+
+- import маршрутизациясы, CSV/Excel жоспарлары, LAS policy jobs және Paradox тіркеуі `services/import_jobs.py` ішінде біріктірілді;
+- `MainWindow` енді LAS parser шақырмайды және Paradox dataset-ті тікелей қоспайды;
+- LAS batch outcome сәтті нәтиже, қате, қолмен өткізу, ескерту және кері тереңдікті ажыратады;
+- lossless source/import report және жеке ұңғыма бір project-session port арқылы тіркеледі;
+- тоқтатылған немесе қабылданбаған import жартылай дерек қалдырмайды;
+- headless regression тесттері және LAS адаптерінің lazy жүктелуі қосылды.
+
+## English
+
+- centralized import routing, CSV/Excel plans, LAS policy jobs, and Paradox registration in `services/import_jobs.py`;
+- removed direct LAS parsing and Paradox dataset mutation from `MainWindow`;
+- added structured LAS batch outcomes for success, failure, manual skip, diagnostics, and descending depth;
+- committed lossless source/import reports and separate-well creation through one project-session port;
+- prevented cancelled or rejected imports from leaving partial project data;
+- added headless regression coverage and lazy LAS-adapter loading.
+
 # 0.7.28 — unified engineering grid (test build)
 
 - standardized major/minor grid levels for every graphical tablet track;

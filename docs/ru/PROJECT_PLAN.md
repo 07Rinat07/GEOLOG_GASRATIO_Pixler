@@ -22,8 +22,8 @@
 - [x] сделать контроллер режимов единственным владельцем состояния F4 и инструмента аннотаций;
 - [x] вынести навигацию между главной, workspace и целевой вкладкой из `MainWindow`;
 - [x] вынести стабильные типы и маршрутизацию универсального импорта;
-- [x] вынести выполнение CSV/Excel планов и регистрацию dataset;
-- вынести LAS/Paradox jobs, print jobs, session binding и остальные команды;
+- [x] вынести CSV/Excel планы, LAS policy jobs и регистрацию Paradox dataset в единый сервис;
+- вынести print jobs, session binding и остальные команды;
 - создать Semantic Channel Dictionary: тип параметра, quantity class, UOM, aliases,
   источник и исходная мнемоника;
 - добавить единый Import Review и паспорт воспроизводимости отчёта.

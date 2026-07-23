@@ -13,16 +13,23 @@ from geoworkbench.data.csv_adapter import (
 )
 from geoworkbench.data.excel_adapter import ExcelImportError, ExcelImportPlan
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
-from geoworkbench.ui.import_job_controller import ImportSourceKind
-from geoworkbench.ui.tabular_import_jobs import TabularImportJobExecutor
+from geoworkbench.services.import_jobs import (
+    DatasetImportJobExecutor,
+    ImportSourceKind,
+)
 
 
 @dataclass
 class FakeTabularImportPort:
     datasets: list[Dataset] = field(default_factory=list)
 
-    def add_imported_dataset(self, dataset: Dataset) -> None:
+    def add_imported_dataset(
+        self,
+        dataset: Dataset,
+        **_kwargs: object,
+    ) -> str:
         self.datasets.append(dataset)
+        return "Well"
 
 
 def make_result() -> CsvImportResult:
@@ -46,7 +53,7 @@ def test_csv_job_builds_plan_loads_and_registers_dataset(tmp_path: Path) -> None
         received.append((Path(source), selected))
         return result
 
-    executor = TabularImportJobExecutor(port, csv_loader=load)
+    executor = DatasetImportJobExecutor(port, csv_loader=load)
     source = tmp_path / "source.csv"
 
     outcome = executor.execute_csv(source, lambda: plan)
@@ -62,7 +69,7 @@ def test_excel_job_builds_plan_loads_and_registers_dataset(tmp_path: Path) -> No
     result = make_result()
     plan = ExcelImportPlan("Data", index_column="DEPTH")
 
-    executor = TabularImportJobExecutor(
+    executor = DatasetImportJobExecutor(
         port,
         excel_loader=lambda _source, _plan: result,
     )
@@ -91,7 +98,7 @@ def test_failed_tabular_job_returns_error_without_registering_dataset(
     def fail(*_args):
         raise error_type(message)
 
-    executor = TabularImportJobExecutor(
+    executor = DatasetImportJobExecutor(
         port,
         csv_loader=fail,
         excel_loader=fail,
@@ -115,11 +122,15 @@ def test_failed_tabular_job_returns_error_without_registering_dataset(
 
 def test_invalid_plan_and_registration_failure_are_reported(tmp_path: Path) -> None:
     class RejectingPort(FakeTabularImportPort):
-        def add_imported_dataset(self, dataset: Dataset) -> None:
+        def add_imported_dataset(
+            self,
+            dataset: Dataset,
+            **_kwargs: object,
+        ) -> str:
             del dataset
             raise ValueError("registration failed")
 
-    executor = TabularImportJobExecutor(
+    executor = DatasetImportJobExecutor(
         RejectingPort(),
         csv_loader=lambda _source, _plan: make_result(),
     )
@@ -146,7 +157,7 @@ def test_main_window_delegates_tabular_execution_to_job_executor() -> None:
         / "src/geoworkbench/ui/main_window.py"
     ).read_text(encoding="utf-8")
 
-    assert "self._tabular_import_jobs.execute_csv(" in source
-    assert "self._tabular_import_jobs.execute_excel(" in source
+    assert "self._dataset_import_jobs.execute_csv(" in source
+    assert "self._dataset_import_jobs.execute_excel(" in source
     assert "result = import_csv(" not in source
     assert "result = import_excel(" not in source

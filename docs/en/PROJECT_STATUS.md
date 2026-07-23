@@ -1,13 +1,15 @@
 # Project status
 
-Snapshot: 23 July 2026. Version 0.7.28, test build.
+Snapshot: 23 July 2026. Version 0.7.29, test build.
 
 ## Release decision
 
-The automated release gate is green: Ruff passes, mypy reports zero errors across 262 source
-files, and the complete pytest run reports 1,217 passed and 10 skipped with exit code zero.
-The build remains a test build until the Windows, HiDPI, PDF, and physical
-printer smoke matrix is signed off.
+The last complete 0.7.28 baseline is green: Ruff passes, mypy reports zero errors across
+262 source files, and the full pytest run reports 1,217 passed and 10 skipped. For 0.7.29,
+source compilation and an expanded regression suite for import jobs, adapters, and the
+project-session boundary completed with 105 passed and 3 platform skips; the 0.7.29 wheel built successfully. The full gate must be repeated in an installed environment because this container lacks
+PySide6, pyqtgraph, lasio, Ruff, and mypy, while the package index was unavailable. The build
+remains a test build until that gate and the Windows/HiDPI/PDF/physical-printer matrix pass.
 
 ## Working foundation
 
@@ -15,20 +17,14 @@ printer smoke matrix is signed off.
 - multi-dataset and multi-index projects;
 - multi-track tablet, intervals, lithology, and forms;
 - Masterlog, PDF, Print Center, and configurable major/minor grids;
-- `Shift + left drag` interval selection, all-visible-parameter statistics, and XLSX/CSV export;
+- `Shift + left drag` interval selection, visible-parameter statistics, and XLSX/CSV export;
 - annotations, project assets, and legacy project migrations;
 - synchronized RU/KK/EN user documentation.
 
-Annotation hit routing has been restored, Windows SVG locking and PySide6 PNG-buffer
-compatibility have been fixed, and the tablet toolbars now adapt to narrow screens.
+`ImportJobController` and `DatasetImportJobExecutor` now live in `services/import_jobs.py`.
+The shared boundary executes CSV/Excel plans, applies strict/compatible/manual LAS policy,
+preserves the lossless source/import report, and registers Paradox datasets. `MainWindow` only
+collects user choices and presents outcomes; rejected or failed files cannot create a partially
+registered dataset. The next slice covers print jobs and session binding.
 
-The annotation event router, navigation, and complete track lifecycle are now isolated from
-`TabletView`. Creation, rollback, ordering, Undo/Redo, and registry cleanup are covered by
-tests. A shared grid renderer now supplies matching major/minor divisions to screen and print,
-and depth tracks preserve their saved grid settings. The edit-mode coordinator is now the sole
-source of F4 and active annotation-tool state. `WorkspaceController` now owns dataset
-availability and home/workspace/target-tab transitions. The next architecture slice extracts
-LAS/Paradox jobs after `TabularImportJobExecutor` took ownership of confirmed CSV/Excel plan
-execution and dataset registration. See the
-[audit](PRODUCT_AUDIT_2026.md) and
-[plan](PROJECT_PLAN.md).
+See the [audit](PRODUCT_AUDIT_2026.md) and [plan](PROJECT_PLAN.md).

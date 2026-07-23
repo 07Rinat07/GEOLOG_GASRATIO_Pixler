@@ -17,7 +17,7 @@ Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke ch
 
 - split annotation routing, navigation, track lifecycle, grid rendering, and editing out of
   `TabletView`;
-- split workspace commands and long-running job coordination out of `MainWindow`;
+- continue splitting workspace commands and long-running jobs out of `MainWindow`; import routing, CSV/Excel execution, LAS policy jobs, and Paradox project commit are already behind one service boundary, while print/session commands remain;
 - define one screen/print grid contract and golden-render fixtures;
 - add report provenance: source fingerprints, channel bindings, UOM, formula versions,
   locale, template revision, and render settings;

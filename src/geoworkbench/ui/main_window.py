@@ -56,13 +56,10 @@ from geoworkbench.calculations.interval_statistics import calculate_interval_sta
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.importers.skf_importer import import_skf_file
 from geoworkbench.domain.models import Dataset, IndexRole
-from geoworkbench.data.las_adapter import (
-    LasExportError,
-    LasImportError,
-    import_las_with_report,
-)
-from geoworkbench.data.las_import_report import LasIssueSeverity
-from geoworkbench.data.las_import_policy import LasImportMode, evaluate_las_import
+from geoworkbench.data.las_adapter import LasExportError
+from geoworkbench.data.las_import_policy import LasImportMode
+from geoworkbench.data.las_import_report import LasImportIssue, LasImportReport
+from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.data.selection_export import SelectionExportError
 from geoworkbench.data.visualization_export import (
@@ -140,11 +137,11 @@ from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
 from geoworkbench.ui.time_to_depth_dialog import TimeToDepthDialog
 from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.home_page import HomeAction, HomePage
-from geoworkbench.ui.import_job_controller import (
+from geoworkbench.services.import_jobs import (
+    DatasetImportJobExecutor,
     ImportJobController,
     ImportSourceKind,
 )
-from geoworkbench.ui.tabular_import_jobs import TabularImportJobExecutor
 from geoworkbench.ui.workspace_controller import (
     WorkspaceController,
     WorkspaceSurface,
@@ -193,7 +190,7 @@ from geoworkbench.ui.print_center_dialog import PrintCenterDialog
 from geoworkbench.ui.print_page_dialog import PrintPageDialog
 from geoworkbench.ui.masterlog_templates_dialog import MasterlogTemplatesDialog
 from geoworkbench.visualization.curve_view import CurveView
-from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
+from geoworkbench.services.depth_axis import DepthDirection
 from geoworkbench.services.las_parameter_resolver import ParameterResolutionError
 from geoworkbench.services.localization import (
     LANGUAGE_NAMES,
@@ -265,9 +262,24 @@ class _MainWindowImportJobPort(_MainWindowPort):
         )
 
 
-class _MainWindowTabularImportPort(_MainWindowPort):
-    def add_imported_dataset(self, dataset: Dataset) -> None:
-        self._window.session.add_dataset(dataset)
+class _MainWindowDatasetImportPort(_MainWindowPort):
+    """Commit imported datasets through the project-session boundary."""
+
+    def add_imported_dataset(
+        self,
+        dataset: Dataset,
+        *,
+        source_document: LosslessLasDocument | None = None,
+        import_report: LasImportReport | None = None,
+        create_new_well: bool = False,
+    ) -> str:
+        well = self._window.session.add_dataset(
+            dataset,
+            source_document=source_document,
+            import_report=import_report,
+            create_new_well=create_new_well,
+        )
+        return well.name
 
 
 class MainWindow(QMainWindow):
@@ -458,8 +470,8 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar())
         self._workspace_controller = WorkspaceController(_MainWindowWorkspacePort(self))
         self._import_job_controller = ImportJobController(_MainWindowImportJobPort(self))
-        self._tabular_import_jobs = TabularImportJobExecutor(
-            _MainWindowTabularImportPort(self)
+        self._dataset_import_jobs = DatasetImportJobExecutor(
+            _MainWindowDatasetImportPort(self)
         )
         self._workspace_controller.set_dataset(None)
         self._set_tablet_edit_mode(False)
@@ -1855,75 +1867,54 @@ class MainWindow(QMainWindow):
         if paths:
             self._open_las_files(paths, LasImportMode.COMPATIBLE)
 
+    def _confirm_las_review(
+        self,
+        source: Path,
+        issues: tuple[LasImportIssue, ...],
+    ) -> bool:
+        messages = "\n".join(f"• {issue.message}" for issue in issues)
+        answer = QMessageBox.question(
+            self,
+            f"Ручная проверка: {source.name}",
+            messages + "\n\nОткрыть файл без автоматического исправления?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return answer == QMessageBox.StandardButton.Yes
+
     def _open_las_files(
         self,
         filenames: tuple[Path, ...],
         import_mode: LasImportMode,
     ) -> None:
-        last_dataset = None
-        last_well = None
-        errors: list[str] = []
-        descending_files: list[str] = []
-        import_warnings: list[str] = []
-        for source in filenames:
-            filename = str(source)
-            try:
-                import_result = import_las_with_report(filename)
-                decision = evaluate_las_import(import_result.report, import_mode)
-                if not decision.accepted:
-                    messages = "\n  ".join(issue.message for issue in decision.blocking_issues)
-                    raise LasImportError(f"режим {import_mode.value} отклонил файл:\n  {messages}")
-                if decision.requires_confirmation:
-                    messages = "\n".join(f"• {issue.message}" for issue in decision.review_issues)
-                    answer = QMessageBox.question(
-                        self,
-                        f"Ручная проверка: {source.name}",
-                        messages + "\n\nОткрыть файл без автоматического исправления?",
-                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                        QMessageBox.StandardButton.No,
-                    )
-                    if answer is not QMessageBox.StandardButton.Yes:
-                        self._log(f"LAS пропущен после ручной проверки: {filename}")
-                        continue
-                dataset = import_result.dataset
-                well = self.session.add_dataset(
-                    dataset,
-                    source_document=import_result.source_document,
-                    import_report=import_result.report,
-                    create_new_well=True,
-                )
-                last_dataset = dataset
-                last_well = well
-                if (
-                    import_mode is LasImportMode.COMPATIBLE
-                    and analyze_depth_axis(dataset.depth).direction is DepthDirection.DESCENDING
-                ):
-                    descending_files.append(source.name)
-                report_messages = tuple(
-                    issue.message
-                    for issue in import_result.report.issues
-                    if issue.code != "index-descending"
-                    and issue.severity is not LasIssueSeverity.INFO
-                )
-                if report_messages and import_mode is LasImportMode.COMPATIBLE:
-                    import_warnings.append(
-                        f"{source.name}:\n  " + "\n  ".join(report_messages)
-                    )
+        outcome = self._dataset_import_jobs.execute_las(
+            filenames,
+            import_mode,
+            confirm_review=self._confirm_las_review,
+        )
+        for item in outcome.files:
+            filename = str(item.source)
+            if item.succeeded:
                 self._log(f"Загружен LAS: {filename}")
-            except (OSError, LasImportError) as exc:
-                errors.append(f"{source.name}: {exc}")
-                self._log(f"ОШИБКА: {filename}: {exc}")
+            elif item.review_skipped:
+                self._log(f"LAS пропущен после ручной проверки: {filename}")
+            elif item.error:
+                self._log(f"ОШИБКА: {filename}: {item.error}")
 
-        if last_dataset is None or last_well is None:
-            QMessageBox.critical(self, "Ошибка LAS", "\n".join(errors) or "Файлы не загружены")
+        last = outcome.last_successful
+        errors = [f"{item.source.name}: {item.error}" for item in outcome.failed]
+        if last is None or last.result is None or last.well_name is None:
+            QMessageBox.critical(
+                self,
+                "Ошибка LAS",
+                "\n".join(errors) or "Файлы не загружены",
+            )
             return
 
-        # Activate through the common dataset-switch path.  Besides curves and
-        # layout it resets every well-scoped overlay (lithology, cuttings,
-        # stratigraphy, interpretations and depth annotations).
+        last_dataset = last.result.dataset
         self._show_current_dataset()
         self.inspector.setPlainText(
-            f"{self._t('inspector.well')}: {last_well.name}\n"
+            f"{self._t('inspector.well')}: {last.well_name}\n"
             f"{self._t('inspector.dataset')}: {last_dataset.name}\n"
             f"{self._t('inspector.curves')}: {len(last_dataset.curves)}\n"
             f"{self._t('inspector.samples')}: {len(last_dataset.depth)}\n"
@@ -1932,12 +1923,22 @@ class MainWindow(QMainWindow):
         )
         if errors:
             QMessageBox.warning(self, "Часть LAS не загружена", "\n".join(errors))
+
+        import_warnings = [
+            f"{item.source.name}:\n  " + "\n  ".join(item.warning_messages)
+            for item in outcome.successful
+            if item.warning_messages
+        ]
         if import_warnings:
             QMessageBox.warning(
                 self,
                 "Диагностика LAS",
                 "\n\n".join(import_warnings),
             )
+
+        descending_files = [
+            item.source.name for item in outcome.successful if item.descending_depth
+        ]
         if descending_files:
             QMessageBox.warning(
                 self,
@@ -1950,7 +1951,9 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
         self._show_workspace(self.tablet_view)
-        self.statusBar().showMessage(f"Загружено LAS-файлов: {len(filenames) - len(errors)}")
+        self.statusBar().showMessage(
+            f"Загружено LAS-файлов: {len(outcome.successful)}"
+        )
 
     def open_csv(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
@@ -1964,7 +1967,7 @@ class MainWindow(QMainWindow):
         dialog = CsvImportDialog(Path(filename), self, language=self.language)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        outcome = self._tabular_import_jobs.execute_csv(
+        outcome = self._dataset_import_jobs.execute_csv(
             Path(filename),
             dialog.import_plan,
         )
@@ -1994,7 +1997,7 @@ class MainWindow(QMainWindow):
         dialog = ExcelImportDialog(Path(filename), self, language=self.language)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        outcome = self._tabular_import_jobs.execute_excel(
+        outcome = self._dataset_import_jobs.execute_excel(
             Path(filename),
             dialog.import_plan,
         )
@@ -2025,8 +2028,15 @@ class MainWindow(QMainWindow):
         dialog = ParadoxImportDialog(selected, self, language=self.language)
         if dialog.exec() != QDialog.DialogCode.Accepted or dialog.import_result is None:
             return
-        result = dialog.import_result
-        self.session.add_dataset(result.dataset, create_new_well=True)
+        registration = self._dataset_import_jobs.register_paradox(
+            selected,
+            dialog.import_result,
+        )
+        if registration.result is None:
+            QMessageBox.critical(self, self._t("paradox.title"), registration.error)
+            self._log(f"Paradox не импортирован: {selected}: {registration.error}")
+            return
+        result = registration.result
         self._refresh_tree()
         self._show_current_dataset()
         self._update_title()

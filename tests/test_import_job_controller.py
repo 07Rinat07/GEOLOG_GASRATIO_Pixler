@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from geoworkbench.ui.import_job_controller import (
+from geoworkbench.services.import_jobs import (
     ImportJobController,
     ImportSourceKind,
 )

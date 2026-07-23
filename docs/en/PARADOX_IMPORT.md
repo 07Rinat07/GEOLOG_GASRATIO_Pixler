@@ -1,6 +1,8 @@
-# GeoScape / Borland Paradox DB import — 0.7.27
+# GeoScape / Borland Paradox DB import — 0.7.29
 
-> 0.7.27 does not change Paradox logic; this release fixes tablet annotation deletion and view scoping.
+## Import registration in 0.7.29
+
+DB reading and conversion still run in a cancellable worker thread. After a successful result, `DatasetImportJobExecutor` commits the dataset and its new well through the project-session boundary. `MainWindow` no longer mutates the project model directly. Failure, cancellation, or user rejection leaves no partially registered dataset, and the source DB remains unchanged.
 
 ## Batch-conversion correction in 0.7.26
 

@@ -22,8 +22,8 @@
 - [x] өңдеу режимдерінің контроллерін F4 және аннотация құралы күйінің жалғыз иесі ету;
 - [x] басты бет/workspace/мақсатты қойынды навигациясын `MainWindow` ішінен шығару;
 - [x] тұрақты дереккөз түрлері мен әмбебап import маршрутизациясын шығару;
-- [x] CSV/Excel жоспарларын орындау мен dataset тіркеуін шығару;
-- LAS/Paradox jobs, print jobs, session binding және қалған командаларды шығару;
+- [x] CSV/Excel жоспарларын, LAS policy jobs және Paradox dataset тіркеуін бірыңғай сервиске шығару;
+- print jobs, session binding және қалған командаларды шығару;
 - параметр түрі, quantity class, UOM, aliases, дереккөз және бастапқы мнемоникасы бар
   Semantic Channel Dictionary енгізу;
 - бірыңғай Import Review және қайталанатын есеп паспортын қосу.

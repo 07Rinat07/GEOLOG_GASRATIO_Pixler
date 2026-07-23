@@ -30,7 +30,7 @@
 | DATA-017 | Создание нового пустого LAS с выбранной версией, индексом, шагом и NULL | готово для LAS 1.2/2.0 и индексов MD/TVD/TVDSS |
 | DATA-018 | Сращивание LAS по глубине/времени с preview конфликтов | частично: depth merge с UI preview и Undo/Redo готов; стратегии конфликтов и TIME запланированы |
 | DATA-019 | Вставка кривых из GIS/GTI LAS с сопоставлением индексов и единиц | готово для exact/linear depth mapping с UI preview конфликтов и Undo/Redo |
-| DATA-020 | Единая точка импорта с маршрутизацией по реализованным форматам | готово для LAS/CSV/TXT/Excel |
+| DATA-020 | Единая точка импорта с маршрутизацией по реализованным форматам | готово для LAS/CSV/TXT/Excel/Paradox; выполнение и регистрация проходят через `DatasetImportJobExecutor` |
 | DATA-021 | DLIS v1/LIS79 через изолированный optional adapter | запланировано: read-only inventory, frame/channel mapping и import report на `dlisio` |
 | DATA-022 | SEG-Y как внешний большой dataset без загрузки полного куба в память | запланировано: read-only headers/traces, geometry QC и windowed access на `segyio` |
 | DATA-023 | GIS vector/raster с явным CRS | запланировано: GeoPackage, Shapefile compatibility и GeoTIFF/BigTIFF/COG через optional GDAL |
@@ -218,7 +218,7 @@ JSON-файл проекта не считается универсальным 
 - **SEC-001:** запрещены `pickle`, `eval` и исполняемые шаблоны для внешних данных.
 - **SEC-002:** атомарное сохранение, проверка формата и последовательные миграции.
 - **SAFE-001:** исходный LAS не перезаписывается без явного подтверждения.
-- **ARCH-001:** UI вызывает application-контроллеры; бизнес-правила не живут в Qt.
+- **ARCH-001:** UI вызывает application-контроллеры; бизнес-правила не живут в Qt. Импорт LAS/CSV/Excel/Paradox уже проходит через `services/import_jobs.py`; print/session команды переносятся следующими срезами.
 - **ARCH-002:** форматные адаптеры изолированы за контрактами импорта/экспорта.
 - **TEST-001:** каждый инкремент проходит Ruff, mypy и полный pytest.
 - **TEST-002:** stable запрещён при аварийном завершении процесса, незелёном полном наборе тестов или неподписанном обязательном GUI/print smoke-test.
