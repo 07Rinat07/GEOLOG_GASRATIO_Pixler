@@ -63,6 +63,11 @@ from geoworkbench.printing.text_rendering import (
     draw_oriented_text,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.report_passport import (
+    ReportPassport,
+    passport_sidecar_path,
+    write_report_passport,
+)
 from geoworkbench.services.las_parameter_resolver import LasParameterResolver
 from geoworkbench.tablet.grid_renderer import normalized_grid_lines
 from geoworkbench.tablet.lithology_legend import LithologyLegendEntry
@@ -282,12 +287,17 @@ def export_masterlog_pdf(
     *,
     overwrite: bool = False,
     settings: MasterlogOutputSettings | None = None,
+    passport: ReportPassport | None = None,
 ) -> Path:
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
         raise MasterlogRenderError("Masterlog PDF должен иметь расширение .pdf")
     if destination.exists() and not overwrite:
         raise FileExistsError(destination)
+    if passport is not None:
+        sidecar = passport_sidecar_path(destination)
+        if sidecar.exists() and not overwrite:
+            raise FileExistsError(sidecar)
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, name = tempfile.mkstemp(
         prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
@@ -312,6 +322,8 @@ def export_masterlog_pdf(
         if not temporary.exists() or temporary.stat().st_size == 0:
             raise MasterlogRenderError("Не удалось сформировать masterlog PDF")
         os.replace(temporary, destination)
+        if passport is not None:
+            write_report_passport(passport, destination, overwrite=overwrite)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
         if isinstance(exc, (FileExistsError, MasterlogRenderError)):

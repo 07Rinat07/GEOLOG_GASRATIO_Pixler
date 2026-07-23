@@ -1,3 +1,26 @@
+# 0.7.34 — deterministic Report Passport (test build)
+
+## Русский
+
+- добавлен подписанный JSON-sidecar для Print Center, прямого PNG/SVG/PDF, Masterlog и интерпретационного PDF;
+- паспорт фиксирует точный интервал и значения каналов, sources, полный semantic binding/UOM, версии формул, revision формы, язык и renderer settings;
+- повторный неизменившийся отчёт получает тот же SHA-256, а изменение JSON обнаруживается при загрузке;
+- физическая печать вычисляет digest без sidecar; project format остаётся v16.
+
+## Қазақша
+
+- Print Center, direct PNG/SVG/PDF, Masterlog және interpretation PDF үшін signed JSON sidecar қосылды;
+- паспорт exact interval/channel values, sources, толық semantic binding/UOM, formula versions, form revision, language және renderer settings сақтайды;
+- өзгермеген report бірдей SHA-256 береді, JSON өзгерісі load кезінде анықталады;
+- physical print sidecar жасамай digest есептейді; project format v16 болып қалады.
+
+## English
+
+- added a signed JSON sidecar for Print Center, direct PNG/SVG/PDF, Masterlog, and interpretation PDF;
+- captures exact interval/channel values, sources, complete semantic bindings/UOM, formula versions, form revision, language, and renderer settings;
+- unchanged reports produce the same SHA-256 and JSON tampering is detected on load;
+- physical printing computes the digest without a sidecar; project format remains v16.
+
 # Unreleased — factual DB depth step and transactional batch validation
 
 ## Русский

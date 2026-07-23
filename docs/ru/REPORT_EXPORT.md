@@ -93,3 +93,10 @@
 4. Вкладка «Отчёты» в Конструкторе, preview и preflight.
 5. PDF и XLSX, затем DOCX/HTML/CSV/TSV.
 6. Регрессионные тесты, сверка с планшетом и физическая Windows-проверка печати.
+
+## Реализованный паспорт текущих экспортов
+
+С версии 0.7.34 Print Center, прямой PNG/SVG/PDF, Masterlog PDF и интерпретационный PDF
+создают детерминированный JSON-sidecar с exact interval/channel values, source fingerprints,
+semantic bindings/UOM, formula versions, form revision, language и render settings. Будущая
+`ReportDefinition` обязана использовать этот же контракт. Подробнее: [REPORT_PASSPORT.md](REPORT_PASSPORT.md).

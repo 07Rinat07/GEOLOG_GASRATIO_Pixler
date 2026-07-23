@@ -137,8 +137,18 @@ from geoworkbench.services.import_jobs import (
     ImportSourceKind,
 )
 from geoworkbench.services.session_binding import SessionBindingController
-from geoworkbench.services.print_jobs import PrintJobExecutor
+from geoworkbench.services.print_jobs import PrintJobExecutor, report_render_settings
 from geoworkbench.services.workspace_commands import WorkspaceCommandController
+from geoworkbench.services.report_passport import (
+    ReportKind,
+    ReportPassportBuilder,
+    ReportPassportError,
+    ReportPassportRequest,
+    ReportRenderSettings,
+    form_document_snapshot,
+    passport_sidecar_path,
+    write_report_passport,
+)
 from geoworkbench.ui.workspace_controller import (
     WorkspaceController,
     WorkspaceSurface,
@@ -2535,13 +2545,17 @@ class MainWindow(QMainWindow):
         self._log(self._t("selection_export.success", name=exported.name))
         self.statusBar().showMessage(self._t("selection_export.success", name=exported.name))
 
-    def _confirm_export_overwrite(self, target: Path) -> bool | None:
-        if not target.exists():
+    def _confirm_export_overwrite(
+        self, target: Path, *, include_report_passport: bool = False
+    ) -> bool | None:
+        sidecar = passport_sidecar_path(target) if include_report_passport else None
+        existing = target if target.exists() else sidecar if sidecar is not None and sidecar.exists() else None
+        if existing is None:
             return False
         answer = QMessageBox.question(
             self,
             self._t("selection_export.title"),
-            self._t("export.overwrite_question", name=target.name),
+            self._t("export.overwrite_question", name=existing.name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -2553,6 +2567,7 @@ class MainWindow(QMainWindow):
         *,
         widget=None,
         source_name: str | None = None,
+        report_form=None,
     ) -> None:
         current = widget or self.tabs.currentWidget()
         if current not in (self.curve_view, self.tablet_view):
@@ -2593,7 +2608,7 @@ class MainWindow(QMainWindow):
         self.print_export_preferences = dialog.preferences()
         self.user_profile_settings.save_print_page_settings(job.page)
         self.user_profile_settings.save_print_export_preferences(self.print_export_preferences)
-        self._execute_print_job(current, job, resolved_name)
+        self._execute_print_job(current, job, resolved_name, report_form=report_form)
 
     def _preview_print_job(self, widget, job: PrintJobSettings, source_name: str) -> None:
         printer = self._print_jobs.create_printer(widget, job)
@@ -2610,8 +2625,13 @@ class MainWindow(QMainWindow):
         )
         preview.exec()
 
-    def _execute_print_job(self, widget, job: PrintJobSettings, source_name: str) -> None:
+    def _execute_print_job(
+        self, widget, job: PrintJobSettings, source_name: str, *, report_form=None
+    ) -> None:
         try:
+            passport = self._build_print_passport(
+                widget, job, source_name, report_form=report_form
+            )
             if job.output_format is PrintOutputFormat.PRINTER:
                 printer = self._print_jobs.create_printer(widget, job)
                 dialog = QPrintDialog(printer, self)
@@ -2624,10 +2644,15 @@ class MainWindow(QMainWindow):
                     job,
                     source_name=source_name,
                     language=self.language,
+                    passport=passport,
                 )
                 message = self._t(
                     "print_center.print_success_pages", count=result.page_count
                 )
+                if result.passport_sha256:
+                    message += " · " + self._t(
+                        "report_passport.id", digest=result.passport_sha256[:12]
+                    )
             else:
                 target = job.normalized_target()
                 if target is None:
@@ -2641,6 +2666,7 @@ class MainWindow(QMainWindow):
                     source_name=source_name,
                     language=self.language,
                     overwrite=overwrite,
+                    passport=passport,
                 )
                 primary = result.primary_path
                 name = primary.name if primary is not None else target.name
@@ -2649,20 +2675,72 @@ class MainWindow(QMainWindow):
                     name=name,
                     count=result.page_count,
                 )
-        except (FileExistsError, OSError, RuntimeError, ValueError) as exc:
+                if result.passport_path is not None:
+                    message += " · " + self._t(
+                        "report_passport.saved", name=result.passport_path.name
+                    )
+        except (
+            FileExistsError,
+            OSError,
+            ReportPassportError,
+            RuntimeError,
+            ValueError,
+        ) as exc:
             QMessageBox.critical(self, self._t("print_center.title"), str(exc))
             self._log(self._t("print_center.failed", error=str(exc)))
             return
         self._log(message)
         self.statusBar().showMessage(message)
 
+    def _build_print_passport(
+        self,
+        widget,
+        job: PrintJobSettings,
+        source_name: str,
+        *,
+        report_form=None,
+    ):
+        interval = None
+        curve_mnemonics = None
+        if isinstance(widget, TabletView):
+            pagination = job.pagination
+            if pagination.range_mode.value == "custom":
+                interval = (pagination.custom_start, pagination.custom_end)
+            elif pagination.range_mode.value == "full":
+                interval = widget.printable_vertical_range()
+            else:
+                interval = widget.visible_depth_range or widget.printable_vertical_range()
+            layout = self.session.current_tablet_layout
+            if layout is not None:
+                curve_mnemonics = tuple(
+                    mnemonic
+                    for track in layout.tracks
+                    if track.visible
+                    for mnemonic in track.curve_mnemonics
+                )
+        form_snapshot = (
+            form_document_snapshot(report_form) if report_form is not None else None
+        )
+        request = ReportPassportRequest(
+            report_kind=ReportKind.VIEW,
+            report_name=source_name,
+            language=self.language,
+            render=report_render_settings(job),
+            interval=interval,
+            curve_mnemonics=curve_mnemonics,
+            form=form_snapshot,
+        )
+        return ReportPassportBuilder().build(self.session, request)
+
     def _confirm_print_overwrite(self, target: Path) -> bool | None:
-        if not target.exists():
+        sidecar = passport_sidecar_path(target)
+        existing = target if target.exists() else sidecar if sidecar.exists() else None
+        if existing is None:
             return False
         answer = QMessageBox.question(
             self,
             self._t("print_center.title"),
-            self._t("export.overwrite_question", name=target.name),
+            self._t("export.overwrite_question", name=existing.name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -2670,7 +2748,11 @@ class MainWindow(QMainWindow):
 
     def _print_form_from_manager(self, form) -> None:
         self.apply_form_to_tablet(form, mark_dirty=False, notify=False)
-        self.open_print_center(widget=self.tablet_view, source_name=form.name)
+        self.open_print_center(
+            widget=self.tablet_view,
+            source_name=form.name,
+            report_form=form,
+        )
 
     def export_active_visualization(self, export_format: str) -> None:
         current = self.tabs.currentWidget()
@@ -2703,10 +2785,15 @@ class MainWindow(QMainWindow):
         target = Path(filename)
         if target.suffix.casefold() != suffix:
             target = target.with_suffix(suffix)
-        overwrite = self._confirm_export_overwrite(target)
+        overwrite = self._confirm_export_overwrite(
+            target, include_report_passport=True
+        )
         if overwrite is None:
             return
         try:
+            passport = self._build_visualization_passport(
+                current, export_format, view_name
+            )
             if export_format == "pdf":
                 exported = export_widget_pdf(
                     current,
@@ -2717,13 +2804,72 @@ class MainWindow(QMainWindow):
             else:
                 exporters = {"png": export_widget_png, "svg": export_widget_svg}
                 exported = exporters[export_format](current, target, overwrite=overwrite)
-        except (FileExistsError, OSError, VisualizationExportError) as exc:
+            passport_path = write_report_passport(passport, exported, overwrite=overwrite)
+        except (
+            FileExistsError,
+            OSError,
+            ReportPassportError,
+            VisualizationExportError,
+            ValueError,
+        ) as exc:
             QMessageBox.critical(self, self._t("visual_export.title"), str(exc))
             self._log(self._t("visual_export.failed", error=str(exc)))
             return
         message = self._t("visual_export.success", name=exported.name)
+        message += " · " + self._t("report_passport.saved", name=passport_path.name)
         self._log(message)
         self.statusBar().showMessage(message)
+
+    def _build_visualization_passport(
+        self, widget, export_format: str, view_name: str
+    ):
+        interval = None
+        curve_mnemonics = None
+        range_mode = "full"
+        if isinstance(widget, TabletView):
+            interval = widget.visible_depth_range or widget.printable_vertical_range()
+            range_mode = "current"
+            layout = self.session.current_tablet_layout
+            if layout is not None:
+                curve_mnemonics = tuple(
+                    mnemonic
+                    for track in layout.tracks
+                    if track.visible
+                    for mnemonic in track.curve_mnemonics
+                )
+        page = self.print_page_settings
+        is_pdf = export_format == "pdf"
+        render = ReportRenderSettings(
+            renderer="visualization-export:1",
+            output_format=export_format,
+            page_format=page.page_format.value if is_pdf else "screen",
+            orientation=page.orientation.value if is_pdf else None,
+            dpi=300 if is_pdf else 96,
+            fit_form_columns=page.fit_form_columns if is_pdf else False,
+            margins_mm=(
+                page.margin_left_mm,
+                page.margin_top_mm,
+                page.margin_right_mm,
+                page.margin_bottom_mm,
+            )
+            if is_pdf
+            else None,
+            range_mode=range_mode,
+            options=(
+                ("view", view_name),
+                ("width_px", str(widget.width())),
+                ("height_px", str(widget.height())),
+            ),
+        )
+        request = ReportPassportRequest(
+            report_kind=ReportKind.VIEW,
+            report_name=view_name,
+            language=self.language,
+            render=render,
+            interval=interval,
+            curve_mnemonics=curve_mnemonics,
+        )
+        return ReportPassportBuilder().build(self.session, request)
 
     def preview_active_visualization(self) -> None:
         current = self.tabs.currentWidget()

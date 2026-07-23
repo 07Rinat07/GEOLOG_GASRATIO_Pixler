@@ -23,13 +23,13 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для среза 0.7.33 в текущем контейнере выполнены `compileall`, сборка wheel и доступный
-headless/regression/source-integrity набор: 731 тест пройден, 4 платформенных сценария
-пропущено. Ещё 3 LAS-roundtrip сценария требуют `lasio`, а 1 Qt-сценарий — `PySide6`. Полный
-`pytest -q` остановился на сборке 95 Qt/LAS-зависимых модулей из-за отсутствующих PySide6,
-pyqtgraph и lasio. Ruff и mypy в контейнере отсутствуют. Это не заменяет полный gate. Перед
-стабильным выпуском команды выше и Windows/HiDPI/PDF/physical-print smoke-test необходимо
-повторить в установленном окружении.
+Для среза 0.7.34 в текущем контейнере выполнены `compileall`, сборка wheel и доступный
+headless/regression/source-integrity набор: 742 теста пройдено, 4 платформенных сценария
+пропущено. Ещё 4 LAS/Qt-сценария явно исключены из запуска из-за отсутствующих `lasio` и
+`PySide6`. Полный `pytest -q` остановился на сборке 95 Qt/LAS-зависимых модулей из-за
+отсутствующих PySide6, pyqtgraph и lasio. Ruff и mypy в контейнере отсутствуют. Это не
+заменяет полный gate. Перед стабильным выпуском команды выше и Windows/HiDPI/PDF/physical-
+print smoke-test необходимо повторить в установленном окружении.
 
 ## Semantic Channel Dictionary
 
@@ -47,6 +47,25 @@ pyqtgraph и lasio. Ruff и mypy в контейнере отсутствуют.
 - блокировка commit при ошибках индекса или отсутствии импортируемых каналов;
 - отмена CSV/Excel/LAS/Paradox до project-session port;
 - одинаковый набор Import Review localization keys в RU/KK/EN.
+
+## Report Passport
+
+Для воспроизводимости отчётов обязательны отдельные headless- и интеграционные проверки:
+
+- одинаковые данные, интервал, форма, язык и render settings дают одинаковый `passport_sha256`;
+- изменение значения внутри фактического интервала меняет digest, а изменение за его пределами — нет;
+- fingerprint индексной шкалы учитывает только реально использованные значения;
+- semantic binding сохраняется полностью: исходная и canonical mnemonic, kind, quantity class,
+  source/canonical/display UOM, sensor/source, confidence, aliases, matched_by и evidence;
+- source fingerprint использует приоритет import snapshot → embedded LAS → внешний файл с
+  предупреждением → normalized report-data snapshot;
+- абсолютный output path, время формирования и другие нестабильные поля отсутствуют в подписанном JSON;
+- формулы фиксируют ID, версию, provenance и SHA-256 выражения, когда выражение доступно;
+- формы и layouts используют content-addressed revision, Masterlog — versioned revision;
+- загрузчик sidecar обнаруживает любое изменение подписанного содержимого;
+- Print Center, прямой PNG/SVG/PDF, Masterlog PDF и interpretation PDF создают sidecar;
+- отмена перезаписи или ошибка построения паспорта не оставляет частично подтверждённый результат;
+- физическая печать возвращает digest паспорта, но не создаёт sidecar без output path.
 
 ## Обязательная матрица ручной проверки
 

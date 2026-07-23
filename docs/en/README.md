@@ -48,6 +48,15 @@ is registered, Import Review lets the user verify the index and QC, set NULL, ex
 and correct canonical mapping or UOM. Cancellation leaves the project unchanged. See
 [IMPORT_REVIEW.md](IMPORT_REVIEW.md) and [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md).
 
+## Report Passport
+
+Print Center, direct PNG/SVG/PDF, Masterlog PDF, and interpretation PDF exports create a
+`*.passport.json` file next to the result. It records source and exact interval-data fingerprints,
+semantic bindings/UOM, formula versions, form revision, language, and render settings. Repeating
+the report from an unchanged project produces the same SHA-256. Absolute paths and generation
+time are excluded. Physical printing displays the digest without a sidecar. See
+[REPORT_PASSPORT.md](REPORT_PASSPORT.md).
+
 ## GeoData depth workspace
 
 The form manager includes one coherent depth workspace grouped into Geology, Technology, and Gas

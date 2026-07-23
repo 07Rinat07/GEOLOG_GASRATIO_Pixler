@@ -91,7 +91,7 @@ interpretation. Qt-обработчик дерева не присваивает
 
 ## Хранение и совместимость
 
-- текущий JSON-формат проекта — 15;
+- текущий JSON-формат проекта — 16;
 - текущий формат layout планшета — 14;
 - миграции выполняются последовательно и не должны удалять неизвестные данные молча;
 - исходные LAS и импортированные assets идентифицируются fingerprint/SHA-256;
@@ -117,9 +117,11 @@ Y синхронизирует треки; X остаётся независим
 пользователем. Grid settings, axis divisions, header, legends, lithotypes и annotations
 обязаны использовать те же сериализуемые настройки.
 
-Целевая `ReportPassport` фиксирует source fingerprints, dataset/form IDs, bindings, UOM,
-формулы, интервал, locale, template revision и render options. Это делает отчёт повторяемым
-и объяснимым.
+`ReportPassport` реализован как headless application service. Он строит канонический JSON без
+времени генерации и абсолютного пути вывода, подписывает его SHA-256 и фиксирует source
+fingerprints, точный интервал и выбранные значения, полный semantic binding/UOM, версии формул,
+content-addressed form/template revision, locale и render options. Файловые экспорты сохраняют
+`<имя>.<формат>.passport.json`; загрузчик паспорта проверяет digest и обнаруживает изменение JSON.
 
 ## Данные и индексы
 

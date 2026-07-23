@@ -26,7 +26,8 @@
 - [x] параметр түрі, quantity class, UOM, aliases, дереккөз және бастапқы мнемоникасы бар
   Semantic Channel Dictionary енгізу және binding-ті project format v16 ішінде сақтау;
 - [x] manual overrides, QC preview және атомарлық commit бар интерактивті Import Review қосу;
-- келесі қадамда қайталанатын есеп паспортын енгізу.
+- [x] fingerprints, bindings/UOM, formula versions, form revision, language және render settings бар қайталанатын есеп паспортын енгізу;
+- келесі қадамда экран және баспа геометриясына golden fixtures қосу.
 
 ## P1 — операциялар және нақты уақыт
 

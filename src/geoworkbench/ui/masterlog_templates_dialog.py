@@ -20,6 +20,15 @@ from PySide6.QtWidgets import (
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.masterlog_symbol_controller import MasterlogSymbolController
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.report_passport import (
+    ReportKind,
+    ReportPassportBuilder,
+    ReportPassportError,
+    ReportPassportRequest,
+    ReportRenderSettings,
+    masterlog_template_snapshot,
+    passport_sidecar_path,
+)
 from geoworkbench.ui.masterlog_columns_dialog import MasterlogColumnsDialog
 from geoworkbench.ui.masterlog_curve_mapping_dialog import MasterlogCurveMappingDialog
 from geoworkbench.ui.masterlog_header_dialog import MasterlogHeaderDialog
@@ -347,30 +356,68 @@ class MasterlogTemplatesDialog(QDialog):
         target = Path(filename)
         if target.suffix.casefold() != ".pdf":
             target = target.with_suffix(".pdf")
-        if target.exists():
+        sidecar = passport_sidecar_path(target)
+        existing = target if target.exists() else sidecar if sidecar.exists() else None
+        if existing is not None:
             answer = QMessageBox.question(
                 self,
                 self.windowTitle(),
-                self._t("masterlog_preview.overwrite", name=target.name),
+                self._t("masterlog_preview.overwrite", name=existing.name),
             )
             if answer != QMessageBox.StandardButton.Yes:
                 return
         try:
+            passport = self._build_report_passport(template, settings)
             export_masterlog_pdf(
                 template,
                 self.controller.session,
                 target,
                 overwrite=True,
                 settings=settings,
+                passport=passport,
             )
-        except (OSError, MasterlogRenderError) as exc:
+        except (OSError, ValueError, MasterlogRenderError, ReportPassportError) as exc:
             QMessageBox.critical(self, self.windowTitle(), str(exc))
             return
-        QMessageBox.information(
-            self,
-            self.windowTitle(),
-            self._t("masterlog_preview.exported", name=target.name),
+        message = self._t("masterlog_preview.exported", name=target.name)
+        message += "\n" + self._t(
+            "report_passport.saved", name=passport_sidecar_path(target).name
         )
+        QMessageBox.information(self, self.windowTitle(), message)
+
+    def _build_report_passport(self, template, settings: MasterlogOutputSettings):
+        curve_mnemonics = tuple(
+            mnemonic
+            for column in template.columns
+            for mnemonic in column.curve_mnemonics
+        )
+        render = ReportRenderSettings(
+            renderer="masterlog-renderer:1",
+            output_format="pdf",
+            page_format=template.page_format,
+            orientation=str(template.properties.get("orientation", "portrait")),
+            dpi=300,
+            fit_form_columns=False,
+            margins_mm=(0.0, 0.0, 0.0, 0.0),
+            range_mode="custom",
+            show_page_numbers=True,
+            show_page_range=True,
+            strict_unicode=True,
+            options=(
+                ("depth_scale", str(template.depth_scale)),
+                ("header_height_mm", f"{template.header_height_mm:g}"),
+            ),
+        )
+        request = ReportPassportRequest(
+            report_kind=ReportKind.MASTERLOG,
+            report_name=template.name,
+            language=settings.language,
+            render=render,
+            interval=settings.depth_range,
+            curve_mnemonics=curve_mnemonics,
+            form=masterlog_template_snapshot(template),
+        )
+        return ReportPassportBuilder().build(self.controller.session, request)
 
     def _system_preview(self) -> None:
         template_id = self._selected_id()
@@ -469,11 +516,13 @@ class MasterlogTemplatesDialog(QDialog):
         target = Path(filename)
         if target.suffix.casefold() != ".json":
             target = target.with_suffix(".json")
-        if target.exists():
+        sidecar = passport_sidecar_path(target)
+        existing = target if target.exists() else sidecar if sidecar.exists() else None
+        if existing is not None:
             answer = QMessageBox.question(
                 self,
                 self.windowTitle(),
-                self._t("masterlog_preview.overwrite", name=target.name),
+                self._t("masterlog_preview.overwrite", name=existing.name),
             )
             if answer != QMessageBox.StandardButton.Yes:
                 return

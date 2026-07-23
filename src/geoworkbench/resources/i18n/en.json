@@ -1288,6 +1288,8 @@
   "ratio.parameter_unit_conversion": "Gas components cannot be converted safely to one unit: {details}.",
   "ratio.parameter_unknown_units": "Gas components use incompatible unknown units: {units}.",
   "ratio.title": "Gas Ratio",
+  "report_passport.id": "Report passport: {digest}",
+  "report_passport.saved": "Report passport: {name}",
   "resample.action": "Resample depth...",
   "resample.create": "Create copy",
   "resample.created": "Resampled copy created: {name}",

@@ -1288,6 +1288,8 @@
   "ratio.parameter_unit_conversion": "Невозможно безопасно привести газовые компоненты к одной единице: {details}.",
   "ratio.parameter_unknown_units": "Газовые компоненты имеют несовместимые неизвестные единицы: {units}.",
   "ratio.title": "Gas Ratio",
+  "report_passport.id": "Паспорт отчёта: {digest}",
+  "report_passport.saved": "Паспорт отчёта: {name}",
   "resample.action": "Ресэмплинг глубины...",
   "resample.create": "Создать копию",
   "resample.created": "Создана ресэмплированная копия: {name}",

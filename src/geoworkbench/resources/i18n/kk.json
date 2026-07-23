@@ -1288,6 +1288,8 @@
   "ratio.parameter_unit_conversion": "Газ компоненттерін бір өлшем бірлігіне қауіпсіз келтіру мүмкін емес: {details}.",
   "ratio.parameter_unknown_units": "Газ компоненттерінің белгісіз өлшем бірліктері үйлеспейді: {units}.",
   "ratio.title": "Gas Ratio",
+  "report_passport.id": "Есеп паспорты: {digest}",
+  "report_passport.saved": "Есеп паспорты: {name}",
   "resample.action": "Тереңдікті қайта дискреттеу...",
   "resample.create": "Көшірме жасау",
   "resample.created": "Қайта дискреттелген көшірме жасалды: {name}",

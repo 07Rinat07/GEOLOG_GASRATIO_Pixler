@@ -12,6 +12,11 @@ from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter, QTextDocument
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.report_passport import (
+    ReportPassport,
+    passport_sidecar_path,
+    write_report_passport,
+)
 
 
 class InterpretationReportError(RuntimeError):
@@ -300,12 +305,17 @@ def export_interpretation_report_pdf(
     *,
     language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
+    passport: ReportPassport | None = None,
 ) -> Path:
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
         raise InterpretationReportError("Отчёт должен иметь расширение .pdf")
     if destination.exists() and not overwrite:
         raise FileExistsError(destination)
+    if passport is not None:
+        sidecar = passport_sidecar_path(destination)
+        if sidecar.exists() and not overwrite:
+            raise FileExistsError(sidecar)
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{destination.stem}-", suffix=".pdf", dir=destination.parent
@@ -326,6 +336,8 @@ def export_interpretation_report_pdf(
         if not temporary.exists() or temporary.stat().st_size == 0:
             raise InterpretationReportError("Не удалось сформировать PDF-отчёт")
         os.replace(temporary, destination)
+        if passport is not None:
+            write_report_passport(passport, destination, overwrite=overwrite)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
         if isinstance(exc, (FileExistsError, InterpretationReportError)):

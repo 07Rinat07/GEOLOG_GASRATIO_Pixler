@@ -71,3 +71,10 @@ HTML for local interactive viewing, and PNG/SVG/PDF appendices for plots and Mas
 4. Reports tab, preview and preflight in the Constructor.
 5. PDF and XLSX, followed by DOCX/HTML/CSV/TSV.
 6. Regression tests, tablet parity and physical Windows print verification.
+
+## Implemented passport for current exports
+
+Since 0.7.34, Print Center, direct PNG/SVG/PDF, Masterlog PDF, and interpretation PDF create a
+deterministic JSON sidecar containing exact interval/channel values, source fingerprints,
+semantic bindings/UOM, formula versions, form revision, language, and render settings. The future
+shared `ReportDefinition` must reuse this contract. See [REPORT_PASSPORT.md](REPORT_PASSPORT.md).

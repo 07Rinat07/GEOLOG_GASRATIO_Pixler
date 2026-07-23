@@ -54,14 +54,16 @@ Qt-слой сохраняет диалоги, жесты, выбор польз
   source/sensor и исходная мнемоника; сохранять binding каждой кривой в формате проекта v16;
 - [x] добавить единый интерактивный Import Review для индекса, mapping, единиц, NULL и QC;
   preview и commit выполняются на копии, а отмена не изменяет проект;
-- [ ] ввести Report Passport с fingerprint источника, bindings, версиями формул, UOM,
+- [x] ввести Report Passport с fingerprint источника, bindings, версиями формул, UOM,
   revision формы, языком и настройками рендера;
 - [ ] добавить golden fixtures для экранной и печатной сетки, легенд, литотипов и аннотаций.
 
-Semantic Channel Dictionary и интерактивный Import Review выполнены: CSV/Excel, LAS и Paradox
-используют один resolver, пользователь проверяет индекс, NULL, mapping и UOM до регистрации, а
-отмена не изменяет проект. Следующий подэтап — Report Passport. Критерий всего блока: повторный
-отчёт из неизменившегося проекта имеет тот же паспорт и проверяемый результат.
+Semantic Channel Dictionary, интерактивный Import Review и Report Passport выполнены. Паспорт
+фиксирует только фактический интервал и каналы отчёта, исходные fingerprints, полный semantic
+binding/UOM, версии формул, content-addressed revision формы, язык и параметры renderer. Print
+Center, прямой PNG/SVG/PDF-экспорт, Masterlog PDF и интерпретационный PDF создают проверяемый
+JSON-sidecar; физическая печать вычисляет тот же digest без файлового sidecar. Следующий подэтап —
+golden fixtures общей экранной и печатной геометрии.
 
 ## P1 — операционная геология и real-time
 

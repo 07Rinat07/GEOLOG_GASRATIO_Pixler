@@ -26,7 +26,8 @@ only active work.
 - [x] add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
   source, and original mnemonic, persisted in project format v16;
 - [x] add an interactive Import Review with manual overrides, QC preview, and atomic commit;
-- add a reproducible report passport next.
+- [x] add a reproducible report passport with fingerprints, bindings/UOM, formula versions, form revision, language, and render settings;
+- add golden fixtures for shared screen and print geometry next.
 
 ## P1 — operations and real time
 

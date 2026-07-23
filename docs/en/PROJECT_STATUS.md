@@ -1,56 +1,55 @@
 # Project status
 
-Snapshot: 23 July 2026. Package version 0.7.33, test build.
+Snapshot: 23 July 2026. Package version: 0.7.34, test build.
 
 ## Release decision
 
-The last complete baseline is 0.7.28: Ruff passes, mypy reports zero errors across 262 source
-files, and full pytest reports 1,217 passed and 10 skipped. For 0.7.33, `compileall` and the
-available headless/regression/source-integrity suite completed with 731 passed and 4 skipped.
-Three LAS round-trip tests require `lasio`, one Qt scenario requires `PySide6`, and full
-collection also needs PySide6, pyqtgraph, and lasio. Ruff and mypy are unavailable in this
-container. The build remains a test build until the full gate and the mandatory
-Windows/HiDPI/PDF/physical-printer matrix pass.
+The last fully verified automated baseline is 0.7.28: Ruff clean, mypy with zero errors in 262
+source files, and full pytest with 1,217 passed and 10 skipped. For 0.7.34, `compileall` and the
+available headless/regression/source-integrity suite completed with 742 passed and 4 skipped.
+Four additional LAS/Qt scenarios were explicitly deselected because `lasio`/`PySide6` are absent;
+full collection reports 95 Qt/LAS import errors. Ruff and mypy are not installed in this container.
+The build remains a test build until the full gate and Windows/HiDPI/PDF/physical-print matrix pass.
 
 ## Verified foundation
 
 - safe LAS 1.2/2.0, CSV/TXT, Excel, and GeoScape/Paradox workflows;
-- multi-dataset and multi-index project format v16;
-- Semantic Channel Dictionary plus explicit UOM quantity classes;
-- persisted semantic binding for every curve;
-- one interactive Import Review for CSV, Excel, LAS, and Paradox;
-- index selection/validation, manual semantic and UOM overrides, and an additional NULL sentinel;
-- QC for NULL, duplicate, gap, order, unresolved, UOM conflict, all-NULL, and duplicate kind;
-- atomic acceptance through a deep-copy controller and project-session port;
-- multi-track tablet, forms, Masterlog, PDF, Print Center, annotations, and project assets;
+- multi-dataset/multi-index project format v16;
+- Semantic Channel Dictionary, UOM quantity classes, and persisted semantic bindings;
+- interactive Import Review with manual overrides, QC, and atomic commit;
+- deterministic Report Passport schema v1 with SHA-256 validation;
+- multi-track tablet, forms, Masterlog, Print Center, interpretation reports, and annotations;
 - synchronized RU/KK/EN user documentation.
 
-## Current-slice verification
+## Current increment results
 
 | Check | Result |
 |---|---|
-| Import Review controller | initial plan, preview, and commit do not mutate the source dataset |
-| Import jobs | CSV, Excel, LAS, and Paradox invoke review before project registration |
-| Cancellation | creates no dataset/well and does not change `dirty` |
-| QC | blocking errors disable commit; warnings remain visible |
-| Localization | RU/KK/EN catalogs contain the same 1733 keys |
-| Available regression | 731 passed, 4 skipped |
+| Determinism | unchanged data, form, language, and render settings produce the same digest |
+| Interval | only selected channel values inside the actual report interval are hashed |
+| Semantic/UOM | complete sensor/source, kind, quantity, UOM, confidence, aliases, and evidence snapshot |
+| Sources | import snapshot, embedded LAS, external file, or normalized report data has SHA-256 |
+| Formulas | ID, version, provenance, and expression SHA-256 where available |
+| Forms | Masterlog uses version; forms/layouts use content-addressed revisions |
+| Export | sidecars for Print Center, direct PNG/SVG/PDF, Masterlog, and interpretation PDF |
+| JSON validation | modified signed content is rejected |
+| Available regression | 742 passed, 4 skipped, 4 dependency-specific scenarios deselected |
 | Project format | remains v16 |
 
-## Highest-risk technical debt
+## Highest-risk remaining debt
 
-- `tablet/tablet_view.py` and `ui/main_window.py` remain large orchestration classes;
-- the full Ruff/mypy/Qt/LAS gate must be repeated for 0.7.33 in the complete environment;
-- the interactive dialog needs a manual Windows large-table and HiDPI test;
+- repeat the full Ruff/mypy/Qt/LAS gate in the complete environment;
+- complete the Windows/HiDPI/PDF/physical-print smoke matrix;
+- output and sidecar are individually atomic, not one filesystem transaction;
+- physical printing computes a digest but has no sidecar because it has no output path;
 - shared screen/print golden fixtures are still missing;
-- a UOM edit in Import Review corrects metadata but does not convert values.
+- output-file hashing follows the shared `ReportDefinition` pipeline.
 
 ## Next checkpoint
 
-The next vertical slice is Report Passport: source fingerprint, semantic bindings, formula
-versions, UOM, form revision, locale, and render settings. Golden fixtures follow. The manual
-Windows GUI/HiDPI/PDF/physical-printer smoke test remains mandatory for a stable release.
+Add golden fixtures for screen/print grids, legends, lithotypes, and annotations. The Windows
+GUI/HiDPI/PDF/physical-print smoke matrix remains mandatory for stable status.
 
-See [Import Review](IMPORT_REVIEW.md),
+See [Report Passport](REPORT_PASSPORT.md), [Import Review](IMPORT_REVIEW.md),
 [Semantic Channel Dictionary](SEMANTIC_CHANNEL_DICTIONARY.md), and the
-[plan](PROJECT_PLAN.md).
+[project plan](PROJECT_PLAN.md).
