@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Mapping, TypeVar
 
 
 T = TypeVar("T")
+D = TypeVar("D")
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +67,43 @@ class TrackLifecycleCoordinator:
         if missing:
             raise KeyError(missing[0])
         return {track_id: entries[track_id] for track_id in plan.ordered_ids}
+
+    def create_entries(
+        self,
+        definitions: Iterable[D],
+        *,
+        identify: Callable[[D], str],
+        create: Callable[[D], T],
+        rollback: Callable[[T], None] | None = None,
+    ) -> dict[str, T]:
+        """Create an ordered registry and roll back a partial failed build."""
+
+        entries: dict[str, T] = {}
+        try:
+            for definition in definitions:
+                track_id = identify(definition)
+                self._validate_ids((track_id,), "created")
+                if track_id in entries:
+                    raise ValueError(f"created track ids must be unique: {track_id}")
+                entries[track_id] = create(definition)
+        except Exception:
+            if rollback is not None:
+                for entry in reversed(tuple(entries.values())):
+                    rollback(entry)
+            raise
+        return entries
+
+    @staticmethod
+    def dispose_entries(
+        entries: Mapping[str, T],
+        dispose: Callable[[T], None],
+    ) -> tuple[str, ...]:
+        """Dispose entries in reverse visual order and report released ids."""
+
+        released = tuple(entries)
+        for entry in reversed(tuple(entries.values())):
+            dispose(entry)
+        return released
 
     @staticmethod
     def _validate_ids(track_ids: tuple[str, ...], label: str) -> None:

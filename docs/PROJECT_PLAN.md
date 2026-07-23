@@ -11,7 +11,7 @@
 - [x] исправить 6 ошибок Ruff;
 - [x] устранить ошибки mypy, начиная с enum/`str`, `None`, сигнатур Qt и
   несогласованных моделей геометрии;
-- [x] выполнить полный набор: 1193 теста пройдено, 10 пропущено, процесс завершён с кодом 0;
+- [x] выполнить полный набор: 1196 тестов пройдено, 10 пропущено, процесс завершён с кодом 0;
 - [ ] провести Windows/HiDPI/PDF/physical print smoke-test.
 
 Автоматический критерий выполнен 23 июля 2026 года: Ruff чист, mypy — 0 ошибок в
@@ -24,7 +24,9 @@
 - [x] выделить navigation coordinator для pan/zoom/home/end/keyboard с headless-тестами;
 - [x] вынести plan/order/reuse жизненного цикла треков; перестановка и Undo/Redo сохраняют
   существующие графики без полного rebuild;
-- [ ] вынести создание/удаление треков, затем grid renderer и edit-mode controller;
+- [x] вынести создание/регистрацию/удаление треков, включая rollback частичной сборки и
+  очистку event filters, viewport maps и overlay layers;
+- [ ] вынести grid renderer, затем edit-mode controller;
 - [ ] выделить из `MainWindow` workspace actions, import jobs, print jobs и session binding;
 - [ ] запретить UI-классам напрямую менять сериализуемую модель проекта;
 - [ ] покрыть новые границы headless-тестами до переноса следующего сценария.

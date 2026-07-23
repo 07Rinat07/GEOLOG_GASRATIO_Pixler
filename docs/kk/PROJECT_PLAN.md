@@ -6,7 +6,7 @@
 ## P0 — шығарылым тұрақтылығы
 
 - [x] аннотация оқиғаларын бағыттауды және толық Qt тестінің авариялық аяқталуын түзету;
-- [x] Ruff және mypy қателерін нөлге жеткізу; толық pytest нәтижесі — 1193 өтті,
+- [x] Ruff және mypy қателерін нөлге жеткізу; толық pytest нәтижесі — 1196 өтті,
   10 өткізіліп жіберілді;
 - міндетті Windows, HiDPI, PDF және физикалық баспа матрицасын орындау;
 - gate жасыл болғанша жинақты stable деп атамау.
@@ -17,7 +17,8 @@
   headless тесттермен қорғау;
 - [x] pan/zoom/home/end/keyboard командаларын headless navigation coordinator-ға шығару;
 - [x] track plan/order/reuse бөліп, Undo/Redo кезінде график даналарын сақтау;
-- кейін track creation/disposal, тор және өңдеу режимдерін бөлу;
+- [x] track creation, rollback және disposal-ды байланысты registry тазалауымен шығару;
+- кейін тор және өңдеу режимдерін бөлу;
 - `MainWindow` класын workspace, import, print және session-binding командаларына бөлу;
 - параметр түрі, quantity class, UOM, aliases, дереккөз және бастапқы мнемоникасы бар
   Semantic Channel Dictionary енгізу;

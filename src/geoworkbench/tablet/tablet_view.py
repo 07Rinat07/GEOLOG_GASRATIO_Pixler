@@ -3920,6 +3920,130 @@ class TabletView(QWidget):
         self._layout_model.remove_track(track_id)
         self.refresh_view()
 
+    def _create_rendered_track(
+        self,
+        definition: TrackDefinition,
+        visible_top: float | None,
+        visible_bottom: float | None,
+        axis_descriptor: VerticalAxisDescriptor | None,
+    ) -> RenderedTrack:
+        """Build and register one track through the lifecycle adapter boundary."""
+
+        track = TabletTrackWidget(definition, self._navigation_hint, axis_descriptor)
+        track.title.setText(self._localized_track_title(definition))
+        if definition.kind is TrackKind.LITHOLOGY:
+            hint = self._localizer.text("lithology.drag_hint")
+        elif definition.kind in {
+            TrackKind.CUTTINGS,
+            TrackKind.CALCIMETRY,
+            TrackKind.LBA,
+            TrackKind.TEXT,
+        }:
+            hint = self._localizer.text("cuttings.drag_hint")
+        elif definition.kind in {
+            TrackKind.DEPTH,
+            TrackKind.CURVE,
+            TrackKind.GAS,
+            TrackKind.DEXP,
+        }:
+            hint = (
+                f"{self._navigation_hint}\n"
+                f"{self._localizer.text('statistics.drag_hint')}"
+            )
+        else:
+            hint = self._navigation_hint
+        track.plot.setToolTip(hint)
+        track.title.setToolTip(hint)
+        track.selected.connect(self._track_selected_from_widget)
+        track.width_change_requested.connect(self._resize_track_from_widget)
+        track.header_drag_started.connect(self._start_track_header_drag)
+        track.header_drag_moved.connect(self._move_track_header_drag)
+        track.header_drag_finished.connect(self._finish_track_header_drag)
+        track.context_requested.connect(self.show_track_context_menu)
+        track.edit_requested.connect(self.track_full_edit_requested.emit)
+        track.curve_selected.connect(self._curve_header_selected)
+        track.curve_context_requested.connect(self._curve_header_context)
+        (
+            legend_labels,
+            curve_items,
+            relative_fill_items,
+            relative_baseline_item,
+        ) = self._populate_track(track, definition, visible_top, visible_bottom)
+        lithology_items = self._populate_lithology(track, definition)
+        lithology_label_items = self._populate_lithology_labels(track, definition)
+        lithology_description_items = self._populate_lithology_descriptions(
+            track, definition
+        )
+        # Professional annotations live once in the canvas-wide overlay;
+        # rendered tracks deliberately keep no duplicate annotation items.
+        annotation_items: dict[str, TabletAnnotationItem] = {}
+        rendered = RenderedTrack(
+            definition,
+            track,
+            track.plot,
+            legend_labels,
+            curve_items,
+            annotation_items,
+            lithology_items,
+            lithology_label_items,
+            lithology_description_items,
+            self._populate_cuttings(track, definition),
+            self._populate_sample_analysis(track, definition),
+            self._populate_stratigraphy(track, definition),
+            *self._populate_interpretation(track, definition),
+            curve_render_keys={},
+            relative_fill_items=relative_fill_items,
+            relative_baseline_item=relative_baseline_item,
+        )
+        view_box = track.plot.getViewBox()
+        view_box.disableAutoRange(axis=pg.ViewBox.YAxis)
+        self._apply_depth_limits(view_box)
+        track.plot.sigYRangeChanged.connect(self._on_depth_range_changed)
+        self._install_analysis_region(rendered)
+        self._register_track_overlays(rendered)
+        self._install_cursor(rendered)
+        if definition.kind is TrackKind.INTERPRETATION:
+            track.plot.scene().sigMouseClicked.connect(
+                lambda event, entry=rendered: self._interpretation_plot_clicked(
+                    entry, event
+                )
+            )
+        viewport = track.plot.viewport()
+        viewport.installEventFilter(self)
+        self._depth_viewports[viewport] = track.plot
+        self._register_wheel_targets(track, track.plot)
+        if definition.kind is TrackKind.INTERPRETATION:
+            self._interpretation_viewports[viewport] = rendered
+            cursor = (
+                Qt.CursorShape.CrossCursor
+                if self._interval_edit_mode is IntervalEditMode.CREATE
+                else Qt.CursorShape.SizeVerCursor
+                if self._interval_edit_mode is IntervalEditMode.RESIZE
+                else Qt.CursorShape.ArrowCursor
+            )
+            viewport.setCursor(cursor)
+        return rendered
+
+    def _dispose_rendered_track(self, rendered: RenderedTrack) -> None:
+        """Release registrations owned by one rendered track before Qt deletion."""
+
+        track_id = rendered.definition.track_id
+        plot = rendered.plot
+        if plot is not None:
+            viewport = plot.viewport()
+            viewport.removeEventFilter(self)
+            self._depth_viewports.pop(viewport, None)
+            self._interpretation_viewports.pop(viewport, None)
+            for target, registered_plot in tuple(self._wheel_targets.items()):
+                if registered_plot is plot:
+                    target.removeEventFilter(self)
+                    self._wheel_targets.pop(target, None)
+        self._overlay_layers.clear_track(track_id)
+        self._tooltip_items.pop(track_id, None)
+        self._rubber_band_items.pop(track_id, None)
+        self._tracks_layout.removeWidget(rendered.widget)
+        rendered.widget.deleteLater()
+
     def clear(self) -> None:
         self.cancel_curve_pencil_gesture()
         self.cancel_interval_interaction(emit_signal=False)
@@ -3927,13 +4051,17 @@ class TabletView(QWidget):
         self.cancel_sample_interaction()
         self.cancel_interval_analysis(clear_interval=False)
         self._dirty_registry.clear()
+        self._annotation_overlay.set_entries([])
+        self._track_lifecycle.dispose_entries(
+            self._rendered, self._dispose_rendered_track
+        )
+        self._rendered.clear()
         self._overlay_layers.clear()
         self._tooltip_items.clear()
         self._rubber_band_items.clear()
         self._depth_viewports.clear()
         self._wheel_targets.clear()
         self._interpretation_viewports.clear()
-        self._annotation_overlay.set_entries([])
         for layout in (self._group_header_layout, self._tracks_layout):
             while layout.count():
                 item = layout.takeAt(0)
@@ -3942,7 +4070,6 @@ class TabletView(QWidget):
                 widget = item.widget()
                 if widget is not None:
                     widget.deleteLater()
-        self._rendered.clear()
 
     def refresh_view(self) -> None:
         self.clear()
@@ -3983,116 +4110,28 @@ class TabletView(QWidget):
             visible_top, visible_bottom = self._normalize_depth_window(visible_top, visible_bottom)
             self._layout_model.set_visible_depth(visible_top, visible_bottom)
 
-        master_plot: pg.PlotWidget | None = None
         axis_descriptor = self._axis_descriptor()
-        for definition in visible:
-            track = TabletTrackWidget(definition, self._navigation_hint, axis_descriptor)
-            track.title.setText(self._localized_track_title(definition))
-            if definition.kind is TrackKind.LITHOLOGY:
-                track.plot.setToolTip(self._localizer.text("lithology.drag_hint"))
-                track.title.setToolTip(self._localizer.text("lithology.drag_hint"))
-            elif definition.kind in {
-                TrackKind.CUTTINGS,
-                TrackKind.CALCIMETRY,
-                TrackKind.LBA,
-                TrackKind.TEXT,
-            }:
-                hint = self._localizer.text("cuttings.drag_hint")
-                track.plot.setToolTip(hint)
-                track.title.setToolTip(hint)
-            elif definition.kind in {
-                TrackKind.DEPTH,
-                TrackKind.CURVE,
-                TrackKind.GAS,
-                TrackKind.DEXP,
-            }:
-                hint = (
-                    f"{self._navigation_hint}\n"
-                    f"{self._localizer.text('statistics.drag_hint')}"
-                )
-                track.plot.setToolTip(hint)
-                track.title.setToolTip(hint)
-            track.selected.connect(self._track_selected_from_widget)
-            track.width_change_requested.connect(self._resize_track_from_widget)
-            track.header_drag_started.connect(self._start_track_header_drag)
-            track.header_drag_moved.connect(self._move_track_header_drag)
-            track.header_drag_finished.connect(self._finish_track_header_drag)
-            track.context_requested.connect(self.show_track_context_menu)
-            track.edit_requested.connect(self.track_full_edit_requested.emit)
-            track.curve_selected.connect(self._curve_header_selected)
-            track.curve_context_requested.connect(self._curve_header_context)
-            (
-                legend_labels,
-                curve_items,
-                relative_fill_items,
-                relative_baseline_item,
-            ) = self._populate_track(
-                track,
+        self._rendered = self._track_lifecycle.create_entries(
+            visible,
+            identify=lambda definition: definition.track_id,
+            create=lambda definition: self._create_rendered_track(
                 definition,
                 visible_top,
                 visible_bottom,
-            )
-            # Professional annotations are rendered once by the tablet-wide
-            # overlay.  Keeping them in a ViewBox clipped movement at column
-            # borders and duplicated track-less comments.
-            annotation_items: dict[str, TabletAnnotationItem] = {}
-            lithology_items = self._populate_lithology(track, definition)
-            lithology_label_items = self._populate_lithology_labels(track, definition)
-            lithology_description_items = self._populate_lithology_descriptions(track, definition)
-            cuttings_items = self._populate_cuttings(track, definition)
-            analysis_items = self._populate_sample_analysis(track, definition)
-            stratigraphy_items = self._populate_stratigraphy(track, definition)
-            interpretation_items, interpretation_lanes = self._populate_interpretation(
-                track, definition
-            )
-            if master_plot is None:
-                master_plot = track.plot
-            view_box = track.plot.getViewBox()
-            view_box.disableAutoRange(axis=pg.ViewBox.YAxis)
-            self._apply_depth_limits(view_box)
-            track.plot.sigYRangeChanged.connect(self._on_depth_range_changed)
-            rendered = RenderedTrack(
-                definition,
-                track,
-                track.plot,
-                legend_labels,
-                curve_items,
-                annotation_items,
-                lithology_items,
-                lithology_label_items,
-                lithology_description_items,
-                cuttings_items,
-                analysis_items,
-                stratigraphy_items,
-                interpretation_items,
-                interpretation_lanes,
-                curve_render_keys={},
-                relative_fill_items=relative_fill_items,
-                relative_baseline_item=relative_baseline_item,
-            )
-            self._rendered[definition.track_id] = rendered
-            self._install_analysis_region(rendered)
-            self._register_track_overlays(rendered)
-            self._install_cursor(rendered)
-            if definition.kind is TrackKind.INTERPRETATION:
-                track.plot.scene().sigMouseClicked.connect(
-                    lambda event, entry=rendered: self._interpretation_plot_clicked(entry, event)
-                )
-            viewport = track.plot.viewport()
-            viewport.installEventFilter(self)
-            self._depth_viewports[viewport] = track.plot
-            self._register_wheel_targets(track, track.plot)
-            if definition.kind is TrackKind.INTERPRETATION:
-                self._interpretation_viewports[viewport] = rendered
-                cursor = (
-                    Qt.CursorShape.CrossCursor
-                    if self._interval_edit_mode is IntervalEditMode.CREATE
-                    else Qt.CursorShape.SizeVerCursor
-                    if self._interval_edit_mode is IntervalEditMode.RESIZE
-                    else Qt.CursorShape.ArrowCursor
-                )
-                viewport.setCursor(cursor)
-            self._tracks_layout.addWidget(track)
+                axis_descriptor,
+            ),
+            rollback=self._dispose_rendered_track,
+        )
+        for rendered in self._rendered.values():
+            self._tracks_layout.addWidget(rendered.widget)
+        master_plot = next(
+            (
+                rendered.plot
+                for rendered in self._rendered.values()
+                if rendered.plot is not None
+            ),
+            None,
+        )
 
         total_width = sum(track.width + 2 for track in visible)
         self._container.setFixedWidth(max(total_width, 1))

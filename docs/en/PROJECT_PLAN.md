@@ -6,7 +6,7 @@ only active work.
 ## P0 — release stability
 
 - [x] fix annotation routing and the full Qt test-process crash;
-- [x] bring Ruff and mypy to zero errors; the full pytest result is 1,193 passed and
+- [x] bring Ruff and mypy to zero errors; the full pytest result is 1,196 passed and
   10 skipped;
 - complete the mandatory Windows, HiDPI, PDF, and physical-print matrix;
 - do not label the build stable until the gate is green.
@@ -17,7 +17,8 @@ only active work.
   protected by headless tests;
 - [x] move pan, zoom, home/end, and keyboard commands into a headless navigation coordinator;
 - [x] extract track plan/order/reuse and preserve chart instances through Undo/Redo;
-- then extract track creation/disposal, grid, and editing-mode responsibilities;
+- [x] extract track creation, rollback, and disposal with related registry cleanup;
+- then extract grid and editing-mode responsibilities;
 - split `MainWindow` into workspace, import, print, and session-binding commands;
 - add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
   source, and original mnemonic;

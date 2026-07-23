@@ -1395,6 +1395,47 @@ def test_track_reorder_is_undoable(qapp) -> None:
     view.close()
 
 
+def test_clear_disposes_all_rendered_track_registries(qapp) -> None:
+    dataset = Dataset(
+        "dataset-track-disposal",
+        "Track disposal",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Depth", TrackKind.DEPTH),
+                TrackDefinition(
+                    "interpretation",
+                    "Interpretation",
+                    TrackKind.INTERPRETATION,
+                ),
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+
+    assert view.rendered_track_ids == ("depth", "interpretation")
+    assert view._depth_viewports
+    assert view._wheel_targets
+    assert view._interpretation_viewports
+    assert view.overlay_layer_stats().items > 0
+
+    view.clear()
+    qapp.processEvents()
+
+    assert view.rendered_track_ids == ()
+    assert view._depth_viewports == {}
+    assert view._wheel_targets == {}
+    assert view._interpretation_viewports == {}
+    assert view.overlay_layer_stats().items == 0
+    assert view._tracks_layout.count() == 0
+    view.close()
+
+
 def test_header_hit_testing_returns_track(qapp) -> None:
     dataset = Dataset(
         "dataset-header-hit",

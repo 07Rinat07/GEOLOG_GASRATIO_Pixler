@@ -48,3 +48,39 @@ def test_invalid_track_identity_is_rejected(track_ids: tuple[str, ...]) -> None:
 
     with pytest.raises(ValueError):
         coordinator.plan((), track_ids)
+
+
+def test_create_entries_preserves_order_and_dispose_runs_in_reverse() -> None:
+    coordinator = TrackLifecycleCoordinator()
+    disposed: list[str] = []
+
+    entries = coordinator.create_entries(
+        ("depth", "gas", "rop"),
+        identify=lambda track_id: track_id,
+        create=lambda track_id: f"rendered:{track_id}",
+    )
+    released = coordinator.dispose_entries(entries, disposed.append)
+
+    assert tuple(entries) == ("depth", "gas", "rop")
+    assert released == ("depth", "gas", "rop")
+    assert disposed == ["rendered:rop", "rendered:gas", "rendered:depth"]
+
+
+def test_create_entries_rolls_back_partial_build() -> None:
+    coordinator = TrackLifecycleCoordinator()
+    disposed: list[str] = []
+
+    def create(track_id: str) -> str:
+        if track_id == "broken":
+            raise RuntimeError("render failed")
+        return f"rendered:{track_id}"
+
+    with pytest.raises(RuntimeError, match="render failed"):
+        coordinator.create_entries(
+            ("depth", "broken"),
+            identify=lambda track_id: track_id,
+            create=create,
+            rollback=disposed.append,
+        )
+
+    assert disposed == ["rendered:depth"]
