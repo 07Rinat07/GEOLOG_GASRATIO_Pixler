@@ -387,6 +387,36 @@ def test_track_widget_applies_saved_grid_settings(qapp) -> None:
     widget.close()
 
 
+def test_depth_track_keeps_saved_grid_settings(qapp) -> None:
+    dataset = Dataset(
+        "dataset-depth-grid",
+        "Depth grid",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "depth",
+                    "Depth",
+                    TrackKind.DEPTH,
+                    grid_x=False,
+                    grid_y=False,
+                    grid_alpha=0.6,
+                )
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+
+    assert view._rendered["depth"].plot.getAxis("bottom").grid is False
+    assert view._rendered["depth"].plot.getAxis("left").grid is False
+    view.close()
+
+
 def test_track_widget_applies_saved_x_axis_label(qapp) -> None:
     widget = TabletTrackWidget(
         TrackDefinition("curve", "Curve", TrackKind.CURVE, x_axis_label="ROP, m/h")
@@ -1174,6 +1204,40 @@ def test_partial_style_refresh_updates_only_target_track(qapp) -> None:
     assert after.full_updates == before.full_updates
     assert after.partial_updates == before.partial_updates + 1
     assert view._rendered["rop"].curve_items["ROP"].opts["pen"].color().name() == "#ff0000"
+    view.close()
+
+
+def test_partial_static_refresh_updates_grid_divisions(qapp) -> None:
+    from geoworkbench.tablet.render_invalidation import DirtyReason
+
+    dataset = Dataset(
+        "dataset-grid-refresh",
+        "Grid refresh",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(0.0, 100.0, 101),
+    )
+    layout = TabletLayout(
+        [
+            TrackDefinition(
+                "curve",
+                "Curve",
+                TrackKind.CURVE,
+                grid_major_divisions=5,
+                grid_minor_divisions=5,
+            )
+        ]
+    )
+    view = TabletView()
+    view.set_layout_model(layout)
+    view.set_dataset(dataset)
+
+    layout.track_by_id("curve").set_grid(True, True, 0.4, 4, 10)
+    assert view.refresh_track("curve", DirtyReason.STATIC)
+
+    assert view._rendered["curve"].plot.getAxis("bottom").tickSpacing(
+        0.0, 100.0, 400.0
+    ) == [(25.0, 0.0), (2.5, 0.0)]
     view.close()
 
 

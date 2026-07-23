@@ -64,6 +64,7 @@ from geoworkbench.printing.text_rendering import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.las_parameter_resolver import LasParameterResolver
+from geoworkbench.tablet.grid_renderer import normalized_grid_lines
 from geoworkbench.tablet.lithology_legend import LithologyLegendEntry
 from geoworkbench.tablet.lithology_patterns import masterlog_lithology_brush
 from geoworkbench.tablet.sampling import select_visible_samples
@@ -1133,38 +1134,30 @@ def _paint_column_grid(
     major_color.setAlphaF(column.grid_alpha)
     minor_color = QColor("#94a3b8")
     minor_color.setAlphaF(column.grid_alpha * 0.45)
-    major = column.grid_major_divisions
-    minor = column.grid_minor_divisions
+    lines = normalized_grid_lines(
+        column.grid_major_divisions,
+        column.grid_minor_divisions,
+    )
     painter.save()
     painter.setClipRect(rect)
 
     def draw_axis(vertical: bool) -> None:
-        for major_index in range(major + 1):
-            fraction = major_index / major
+        for line in lines:
             position = (
-                rect.left() + rect.width() * fraction
+                rect.left() + rect.width() * line.fraction
                 if vertical
-                else rect.top() + rect.height() * fraction
+                else rect.top() + rect.height() * line.fraction
             )
-            painter.setPen(QPen(major_color, 0.2))
+            painter.setPen(
+                QPen(
+                    major_color if line.major else minor_color,
+                    0.2 if line.major else 0.1,
+                )
+            )
             if vertical:
                 painter.drawLine(QLineF(position, rect.top(), position, rect.bottom()))
             else:
                 painter.drawLine(QLineF(rect.left(), position, rect.right(), position))
-            if major_index == major:
-                continue
-            painter.setPen(QPen(minor_color, 0.1))
-            for minor_index in range(1, minor):
-                sub_fraction = (major_index + minor_index / minor) / major
-                sub_position = (
-                    rect.left() + rect.width() * sub_fraction
-                    if vertical
-                    else rect.top() + rect.height() * sub_fraction
-                )
-                if vertical:
-                    painter.drawLine(QLineF(sub_position, rect.top(), sub_position, rect.bottom()))
-                else:
-                    painter.drawLine(QLineF(rect.left(), sub_position, rect.right(), sub_position))
 
     if column.grid_x:
         draw_axis(True)

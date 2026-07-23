@@ -97,6 +97,11 @@ from geoworkbench.tablet.geometry_cache import (
     CurveGeometryKey,
     GeometryCacheStats,
 )
+from geoworkbench.tablet.grid_renderer import (
+    EngineeringGridAxisItem,
+    GridSettings,
+    TabletGridRenderer,
+)
 from geoworkbench.tablet.render_invalidation import (
     DirtyReason,
     DirtyRenderStats,
@@ -297,39 +302,6 @@ class VerticalAxisDescriptor:
         return self.role is IndexRole.TIME
 
 
-class EngineeringGridAxisItem(pg.AxisItem):
-    """Axis with stable major/minor engineering divisions for screen and export.
-
-    PyQtGraph's automatic density changes with widget size.  That is useful for
-    exploratory charts, but neighbouring well-log tracks must keep coincident
-    grid lines.  The configured divisions are therefore calculated from the
-    current visible range, which also keeps all tracks aligned while zooming.
-    """
-
-    def __init__(self, orientation: str) -> None:
-        super().__init__(orientation=orientation)
-        self._major_divisions = 5
-        self._minor_divisions = 5
-
-    def set_engineering_divisions(self, major: int, minor: int) -> None:
-        self._major_divisions = max(1, int(major))
-        self._minor_divisions = max(1, int(minor))
-        self.setStyle(maxTickLevel=1 if self._minor_divisions > 1 else 0)
-        self.picture = None
-        self.update()
-
-    def tickSpacing(self, minVal, maxVal, size):  # type: ignore[override]
-        span = abs(float(maxVal) - float(minVal))
-        if not np.isfinite(span) or span <= 0.0:
-            return super().tickSpacing(minVal, maxVal, size)
-        origin = min(float(minVal), float(maxVal))
-        major_spacing = span / self._major_divisions
-        levels = [(major_spacing, origin)]
-        if self._minor_divisions > 1:
-            levels.append((major_spacing / self._minor_divisions, origin))
-        return levels
-
-
 class TabletVerticalAxisItem(EngineeringGridAxisItem):
     """Readable vertical labels for depth, relative time and absolute timestamps."""
 
@@ -496,16 +468,7 @@ class TabletTrackWidget(QFrame):
             axis = self.plot.getAxis(axis_name)
             axis.setPen(pg.mkPen("#475569"))
             axis.setTextPen(pg.mkPen("#334155"))
-            if isinstance(axis, EngineeringGridAxisItem):
-                axis.set_engineering_divisions(
-                    definition.grid_major_divisions,
-                    definition.grid_minor_divisions,
-                )
-        self.plot.showGrid(
-            x=definition.grid_x,
-            y=definition.grid_y,
-            alpha=definition.grid_alpha,
-        )
+        TabletGridRenderer.apply(self.plot, GridSettings.from_track(definition))
         self.plot.setLabel("bottom", definition.x_axis_label)
         self.plot.getAxis("left").enableAutoSIPrefix(False)
         self.plot.hideAxis("left")
@@ -6089,7 +6052,7 @@ class TabletView(QWidget):
 
     def _track_static_descriptor(
         self, definition: TrackDefinition
-    ) -> tuple[str, int, bool, bool, float, str]:
+    ) -> tuple[str, int, GridSettings, str]:
         key = StaticLayerKey(
             track_id=definition.track_id,
             layer="frame-grid-axis",
@@ -6098,20 +6061,20 @@ class TabletView(QWidget):
                 definition.width,
                 definition.grid_x,
                 definition.grid_y,
+                definition.grid_major_divisions,
+                definition.grid_minor_divisions,
                 round(float(definition.grid_alpha), 6),
                 definition.x_axis_label,
             ),
         )
         return cast(
-            tuple[str, int, bool, bool, float, str],
+            tuple[str, int, GridSettings, str],
             self._static_layer_cache.get_or_build(
                 key,
                 lambda: (
                     definition.title,
                     int(definition.width),
-                    bool(definition.grid_x),
-                    bool(definition.grid_y),
-                    float(definition.grid_alpha),
+                    GridSettings.from_track(definition),
                     definition.x_axis_label,
                 ),
             ),
@@ -6120,15 +6083,13 @@ class TabletView(QWidget):
     def _apply_static_track_configuration(
         self, rendered: RenderedTrack, definition: TrackDefinition
     ) -> None:
-        title, width, grid_x, grid_y, grid_alpha, x_axis_label = self._track_static_descriptor(
-            definition
-        )
+        _title, width, grid, x_axis_label = self._track_static_descriptor(definition)
         if isinstance(rendered.widget, TabletTrackWidget):
             rendered.widget.definition = definition
             rendered.widget.title.setText(self._localized_track_title(definition))
             rendered.widget.set_track_width(int(width))
         if rendered.plot is not None:
-            rendered.plot.showGrid(x=bool(grid_x), y=bool(grid_y), alpha=float(grid_alpha))
+            TabletGridRenderer.apply(rendered.plot, grid)
             rendered.plot.setLabel("bottom", str(x_axis_label))
 
     def _apply_curve_styles(self, rendered: RenderedTrack, definition: TrackDefinition) -> None:
@@ -6332,7 +6293,6 @@ class TabletView(QWidget):
             )
             axis.setWidth(max(54, min(track.width() - 12, 92)))
             track.plot.hideAxis("bottom")
-            track.plot.showGrid(x=False, y=True, alpha=0.25)
             track.plot.setXRange(0.0, 1.0, padding=0)
             track.plot.getViewBox().setDefaultPadding(0.0)
             track.plot.setMouseEnabled(x=False, y=False)
