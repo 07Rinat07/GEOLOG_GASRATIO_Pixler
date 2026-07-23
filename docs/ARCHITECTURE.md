@@ -142,6 +142,18 @@ fingerprints, точный интервал и выбранные значени
 content-addressed form/template revision, locale и render options. Файловые экспорты сохраняют
 `<имя>.<формат>.passport.json`; загрузчик паспорта проверяет digest и обнаруживает изменение JSON.
 
+
+`printing/print_layout.py` является Qt-независимым источником истины для media schema v1:
+A4/A3/custom/roll, Fit/100%, physical 96-DPI mapping и overlap. `PrintDocumentPlan` строит
+декартово произведение vertical pagination и horizontal continuations. `page_renderer` и
+`tablet_print` получают уже разрешённый continuation slice; UI не вычисляет clipping самостоятельно.
+
+`printing/printer_gate.py` принимает нормализованный `PrinterCapabilities` snapshot. Qt-adapter
+после `QPrintDialog` повторно применяет собственный page layout, переводит minimum margins в
+миллиметры и проверяет state, supported media, custom bounds, printable area, DPI и выбранный
+page range. Gate errors блокируют `QPainter.begin`; warnings остаются в result/log. Report Passport
+schema v3 подписывает scale и continuation settings.
+
 `RenderGolden` schema v1 фиксирует геометрию до платформенного raster-layer: Qt-независимые
 `grid_geometry`, `lithology_pattern_catalog` и `annotation_layout` формируют canonical JSON,
 а два составных SVG дают визуальный screen/print эталон. Masterlog и экранные адаптеры используют

@@ -61,3 +61,11 @@ Every user-facing change must update the matching RU/KK/EN files in the same com
 - [Русская инструкция](ru/COVERAGE_MODEL.md)
 - [Қазақша нұсқаулық](kk/COVERAGE_MODEL.md)
 - [English guide](en/COVERAGE_MODEL.md)
+
+## Print media model
+
+- [Единая модель печати](PRINT_MEDIA_MODEL.md)
+- [Release notes 0.7.38](RELEASE_NOTES_0.7.38.md)
+- [Русская инструкция](ru/PRINT_MEDIA_MODEL.md)
+- [Қазақша нұсқаулық](kk/PRINT_MEDIA_MODEL.md)
+- [English guide](en/PRINT_MEDIA_MODEL.md)

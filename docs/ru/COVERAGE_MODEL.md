@@ -13,6 +13,6 @@
 
 В CSV ноль записывается как `0`, пропуск — пустая ячейка, недоступный канал — `#N/A`. В XLSX
 лист `Parameters` показывает availability, observed, zeros, missing и coverage. JSON, Parquet и
-Report Passport schema v2 содержат структурированный coverage payload.
+Report Passport schema v3 содержат структурированный coverage payload.
 
 Формат проекта остаётся v16. Полный контракт: [COVERAGE_MODEL.md](../COVERAGE_MODEL.md).

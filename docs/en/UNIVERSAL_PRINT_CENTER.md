@@ -73,3 +73,7 @@ Font embedding is enabled for `QPrinter`. Headers and footers use a verified Uni
 ## Stored preferences
 
 Page format, orientation, margins, column fitting, last file format, DPI, quality, range mode, units per page, and overlap are stored separately for the active engineer profile.
+
+## Print model 0.7.38
+
+Print Center supports A4/A3/custom/roll, Fit, and 100%. At 100%, source form widths are preserved and wide forms become numbered continuations with overlap. After the native dialog, the physical printer gate validates media, bounds, margins, printable area, and DPI. See [Print media and scale model](PRINT_MEDIA_MODEL.md).

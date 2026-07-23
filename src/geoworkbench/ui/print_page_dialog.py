@@ -17,6 +17,7 @@ from geoworkbench.printing.page_settings import (
     PrintPageFormat,
     PrintPageSettings,
 )
+from geoworkbench.printing.print_layout import PrintScaleMode
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
@@ -55,9 +56,24 @@ class PrintPageDialog(QDialog):
         )
         self.width_input = self._dimension_input(settings.custom_width_mm)
         self.height_input = self._dimension_input(settings.custom_height_mm)
+        self.scale_combo = QComboBox()
+        self.scale_combo.addItem(self._t("print_center.scale_fit"), PrintScaleMode.FIT.value)
+        self.scale_combo.addItem(
+            self._t("print_center.scale_actual"), PrintScaleMode.ACTUAL_SIZE.value
+        )
+        self.scale_combo.setCurrentIndex(
+            max(0, self.scale_combo.findData(settings.scale_mode.value))
+        )
+        self.scale_combo.currentIndexChanged.connect(self._update_custom_enabled)
         self.fit_columns_check = QCheckBox(self._t("print.fit_form_columns"))
         self.fit_columns_check.setChecked(settings.fit_form_columns)
         self.fit_columns_check.setToolTip(self._t("print.fit_form_columns_tooltip"))
+        self.continuation_overlap_input = self._continuation_input(
+            settings.continuation_overlap_mm
+        )
+        self.continuation_overlap_input.setToolTip(
+            self._t("print_center.continuation_overlap_tooltip")
+        )
         self.margin_left_input = self._margin_input(settings.margin_left_mm)
         self.margin_top_input = self._margin_input(settings.margin_top_mm)
         self.margin_right_input = self._margin_input(settings.margin_right_mm)
@@ -69,7 +85,12 @@ class PrintPageDialog(QDialog):
         layout.addRow(self._t("print.orientation"), self.orientation_combo)
         layout.addRow(self._t("print.width_mm"), self.width_input)
         layout.addRow(self._t("print.height_mm"), self.height_input)
+        layout.addRow(self._t("print_center.scale_mode"), self.scale_combo)
         layout.addRow(self.fit_columns_check)
+        layout.addRow(
+            self._t("print_center.continuation_overlap"),
+            self.continuation_overlap_input,
+        )
 
         margins_group = QGroupBox(self._t("print_center.margins_group"))
         margins_layout = QGridLayout(margins_group)
@@ -107,12 +128,23 @@ class PrintPageDialog(QDialog):
             margin_top_mm=self.margin_top_input.value(),
             margin_right_mm=self.margin_right_input.value(),
             margin_bottom_mm=self.margin_bottom_input.value(),
+            scale_mode=PrintScaleMode(str(self.scale_combo.currentData())),
+            continuation_overlap_mm=self.continuation_overlap_input.value(),
         )
 
     @staticmethod
     def _dimension_input(value: float) -> QDoubleSpinBox:
         control = QDoubleSpinBox()
         control.setRange(25.0, 5000.0)
+        control.setDecimals(1)
+        control.setSuffix(" mm")
+        control.setValue(value)
+        return control
+
+    @staticmethod
+    def _continuation_input(value: float) -> QDoubleSpinBox:
+        control = QDoubleSpinBox()
+        control.setRange(0.0, 50.0)
         control.setDecimals(1)
         control.setSuffix(" mm")
         control.setValue(value)
@@ -129,8 +161,13 @@ class PrintPageDialog(QDialog):
 
     def _update_custom_enabled(self) -> None:
         selected = self.format_combo.currentData()
+        scale_mode = PrintScaleMode(str(self.scale_combo.currentData()))
         self.width_input.setEnabled(
             selected in {PrintPageFormat.CUSTOM.value, PrintPageFormat.ROLL.value}
         )
         self.height_input.setEnabled(selected == PrintPageFormat.CUSTOM.value)
         self.orientation_combo.setEnabled(selected != PrintPageFormat.ROLL.value)
+        self.fit_columns_check.setEnabled(scale_mode is PrintScaleMode.FIT)
+        self.continuation_overlap_input.setEnabled(
+            scale_mode is PrintScaleMode.ACTUAL_SIZE
+        )

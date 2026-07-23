@@ -1,6 +1,6 @@
 # Report Passport
 
-Status: implemented since version 0.7.34; version 0.7.37 upgrades the passport to schema v2. Project format remains v16.
+Status: implemented since 0.7.34; coverage was added in schema v2 in 0.7.37 and the print model in schema v3 in 0.7.38. Project format remains v16.
 
 ## Purpose
 
@@ -77,3 +77,7 @@ curve set, form, and language.
 ## Schema v2
 
 Starting with 0.7.37, the passport signs a coverage snapshot with availability, observed, zero, missing, and unavailable counts for every requested channel.
+
+## Print model in schema v3
+
+Version 0.7.38 signs A4/A3/custom/roll, orientation, Fit/100%, continuation overlap, margins, and DPI. Changing the physical layout therefore changes `passport_sha256`.

@@ -29,6 +29,7 @@ from geoworkbench.printing.page_settings import (
     PrintPageSettings,
 )
 from geoworkbench.printing.pagination import PrintPaginationSettings, PrintRangeMode
+from geoworkbench.printing.print_layout import PrintScaleMode
 from geoworkbench.printing.print_job import (
     PrintExportPreferences,
     PrintJobSettings,
@@ -69,7 +70,7 @@ class PrintCenterDialog(QDialog):
         preferences = initial_preferences or PrintExportPreferences()
         self.source_name = _safe_file_stem(source_name)
         self.setWindowTitle(self._t("print_center.title"))
-        self.resize(690, 820)
+        self.resize(700, 900)
 
         root = QVBoxLayout(self)
         source_label = QLabel(self._t("print_center.source", name=source_name))
@@ -139,10 +140,31 @@ class PrintCenterDialog(QDialog):
         dimensions.addWidget(self.height_input)
         paper_layout.addRow(self._t("print_center.custom_size"), dimensions)
 
+        self.scale_combo = QComboBox()
+        self.scale_combo.addItem(self._t("print_center.scale_fit"), PrintScaleMode.FIT.value)
+        self.scale_combo.addItem(
+            self._t("print_center.scale_actual"), PrintScaleMode.ACTUAL_SIZE.value
+        )
+        scale_index = self.scale_combo.findData(page.scale_mode.value)
+        self.scale_combo.setCurrentIndex(max(0, scale_index))
+        self.scale_combo.currentIndexChanged.connect(self._update_enabled)
+        paper_layout.addRow(self._t("print_center.scale_mode"), self.scale_combo)
+
         self.fit_columns_check = QCheckBox(self._t("print.fit_form_columns"))
         self.fit_columns_check.setChecked(page.fit_form_columns)
         self.fit_columns_check.setToolTip(self._t("print.fit_form_columns_tooltip"))
         paper_layout.addRow(self.fit_columns_check)
+
+        self.continuation_overlap_input = self._continuation_input(
+            page.continuation_overlap_mm
+        )
+        self.continuation_overlap_input.setToolTip(
+            self._t("print_center.continuation_overlap_tooltip")
+        )
+        paper_layout.addRow(
+            self._t("print_center.continuation_overlap"),
+            self.continuation_overlap_input,
+        )
         root.addWidget(paper_group)
 
         pagination_group = QGroupBox(self._t("print_center.pagination_group"))
@@ -266,6 +288,8 @@ class PrintCenterDialog(QDialog):
             margin_top_mm=self.margin_top_input.value(),
             margin_right_mm=self.margin_right_input.value(),
             margin_bottom_mm=self.margin_bottom_input.value(),
+            scale_mode=PrintScaleMode(str(self.scale_combo.currentData())),
+            continuation_overlap_mm=self.continuation_overlap_input.value(),
         )
 
     def pagination_settings(self) -> PrintPaginationSettings:
@@ -354,9 +378,14 @@ class PrintCenterDialog(QDialog):
 
     def _update_enabled(self, _index: int | None = None) -> None:
         selected = PrintPageFormat(str(self.format_combo.currentData()))
+        scale_mode = PrintScaleMode(str(self.scale_combo.currentData()))
         self.width_input.setEnabled(selected in {PrintPageFormat.CUSTOM, PrintPageFormat.ROLL})
         self.height_input.setEnabled(selected is PrintPageFormat.CUSTOM)
         self.orientation_combo.setEnabled(selected is not PrintPageFormat.ROLL)
+        self.fit_columns_check.setEnabled(scale_mode is PrintScaleMode.FIT)
+        self.continuation_overlap_input.setEnabled(
+            scale_mode is PrintScaleMode.ACTUAL_SIZE
+        )
 
     def _update_pagination_enabled(self, _index: int | None = None) -> None:
         mode = PrintRangeMode(str(self.range_combo.currentData()))
@@ -404,6 +433,15 @@ class PrintCenterDialog(QDialog):
     def _dimension_input(value: float) -> QDoubleSpinBox:
         control = QDoubleSpinBox()
         control.setRange(25.0, 5000.0)
+        control.setDecimals(1)
+        control.setSuffix(" mm")
+        control.setValue(value)
+        return control
+
+    @staticmethod
+    def _continuation_input(value: float) -> QDoubleSpinBox:
+        control = QDoubleSpinBox()
+        control.setRange(0.0, 50.0)
         control.setDecimals(1)
         control.setSuffix(" mm")
         control.setValue(value)

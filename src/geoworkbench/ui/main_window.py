@@ -2803,6 +2803,7 @@ class MainWindow(QMainWindow):
                     source_name=source_name,
                     language=self.language,
                     passport=passport,
+                    require_physical_gate=True,
                 )
                 message = self._t(
                     "print_center.print_success_pages", count=result.page_count
@@ -2811,6 +2812,13 @@ class MainWindow(QMainWindow):
                     message += " · " + self._t(
                         "report_passport.id", digest=result.passport_sha256[:12]
                     )
+                if result.printer_gate is not None and result.printer_gate.warnings:
+                    message += " · " + self._t(
+                        "print_center.gate_warnings",
+                        count=len(result.printer_gate.warnings),
+                    )
+                    for issue in result.printer_gate.warnings:
+                        self._log(self._t("print_center.gate_" + issue.code.replace("-", "_")))
             else:
                 target = normalized_job.normalized_target()
                 if target is None:
@@ -3106,7 +3114,11 @@ class MainWindow(QMainWindow):
             page_format=page.page_format.value if is_pdf else "screen",
             orientation=page.orientation.value if is_pdf else None,
             dpi=300 if is_pdf else 96,
-            fit_form_columns=page.fit_form_columns if is_pdf else False,
+            fit_form_columns=page.effective_fit_form_columns if is_pdf else False,
+            scale_mode=page.scale_mode.value if is_pdf else None,
+            continuation_overlap_mm=(
+                page.continuation_overlap_mm if is_pdf else None
+            ),
             margins_mm=(
                 page.margin_left_mm,
                 page.margin_top_mm,

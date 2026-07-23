@@ -1,22 +1,22 @@
 # Жоба мәртебесі
 
-Кесім: 2026 жылғы 23 шілде. Нұсқа: 0.7.37, тесттік жинақ.
+Кесім: 2026 жылғы 23 шілде. Нұсқа: 0.7.38, тесттік жинақ.
 
 ## Орындалды
 
-- ортақ coverage schema v1 нақты нөлді, missing sample және unavailable channel күйін ажыратады;
-- `ReportDefinition` schema v2 тұрақты curve IDs және күтілетін мнемоникаларды сақтайды;
-- `ResolvedReportDefinition` unavailable channels және interval coverage қайтарады;
-- CSV ішінде сәйкесінше `0`, бос ұяшық және `#N/A` қолданылады;
-- XLSX, JSON, Parquet, interval statistics, Curve Catalog және Report Passport бір coverage contract қолданады;
-- Report Passport schema v2 нұсқасына көтерілді;
+- A4/A3/custom/roll үшін ортақ print-media schema v1;
+- reference DPI 96 негізіндегі Fit және 100%;
+- vertical pages және horizontal continuations бір deterministic plan құрайды;
+- preview, PDF, paged files және physical printer бір job қолданады;
+- system page range printer gate және final page count ішінде ескеріледі;
+- gate media, bounds, margins, printable area, DPI және device state тексереді;
+- Report Passport schema v3 деңгейіне көтерілді;
 - project format v16 болып қалады.
 
-Тексерулер: 57 мақсатты тест өтті, 1 optional Parquet scenario skipped; қолжетімді регрессия —
-876 passed, 4 skipped, 3 LAS tests deselected. Толық Qt/LAS/Ruff/mypy gate және Windows print
-smoke-test міндетті болып қалады.
+Тексерулер: 56 focused және 27 print-specific tests өтті; қолжетімді регрессия —
+910 passed, 4 skipped, 3 LAS tests deselected. Толық Qt/LAS/Ruff/mypy gate және real
+Windows/HiDPI/PDF/physical-print smoke-test міндетті.
 
-Келесі кезең: A4/A3/custom/roll, 100%/fit, page continuation және physical printer gate.
+Келесі кезең: output + passport filesystem transaction және дайын файл fingerprint.
 
-[Coverage моделі](COVERAGE_MODEL.md), [ReportDefinition](REPORT_DEFINITION.md) және
-[жалпы мәртебе](../PROJECT_STATUS.md).
+[Баспа моделі](PRINT_MEDIA_MODEL.md) және [жалпы мәртебе](../PROJECT_STATUS.md).

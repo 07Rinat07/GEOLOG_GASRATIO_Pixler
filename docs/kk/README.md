@@ -492,3 +492,7 @@ interval қолданады. Толығырақ: [Ортақ ReportDefinition](R
 ## 0.7.37 coverage моделі
 
 Нөл, missing sample және unavailable channel preview/report/export contract ішінде бөлек сақталады. CSV `0`, бос ұяшық және `#N/A` қолданады; XLSX және Report Passport coverage metadata сақтайды. [Coverage моделі](COVERAGE_MODEL.md).
+
+## 0.7.38 баспа моделі
+
+Print Center A4/A3/custom/roll, Fit және 100% қолдайды. 100% режимі пішін енін сақтайды және кең пішінді overlap бар continuation беттеріне бөледі. System dialog кейін physical printer gate media, bounds, margins, printable area және DPI тексереді. [Баспа пішімдері](PRINT_MEDIA_MODEL.md).

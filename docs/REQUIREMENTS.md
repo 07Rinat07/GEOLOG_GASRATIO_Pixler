@@ -178,10 +178,10 @@ JSON-файл проекта не считается универсальным 
 | EXPORT-008 | Именованные профили состава экспортируемых кривых | готово с сохранением в проекте и применением по мнемоникам |
 | EXPORT-009 | DOCX-отчёт из версионированного шаблона и общей Report Model | частично: готова типизированная сводка кальциметрии/ЛБА с отдельной экспертной интерпретацией и RU/KK/EN PDF; DOCX и общий шаблонизатор остаются |
 | EXPORT-010 | Simulator profiles для Eclipse/CMG/tNavigator | позже: GRDECL/EGRID с отдельным preflight совместимости, единиц и geometry |
-| PRINT-001 | Print Preview и проверка разрывов страниц | готово для активной визуализации и многостраничного masterlog A4/A3 через системный preview |
-| PRINT-002 | A4, A3, пользовательская страница и рулонная печать | готово для активной визуализации и masterlog: A4/A3, Custom 25–5000 мм и рулон |
+| PRINT-001 | Print Preview и проверка разрывов страниц | готово: preview использует тот же двумерный vertical × continuation plan, что PDF и printer |
+| PRINT-002 | A4, A3, пользовательская страница и рулонная печать | готово: единая media schema v1, custom 25–5000 мм, roll auto-length до 5000 мм на сегмент |
 | PRINT-003 | Конструктор шапки, легенды и печатного мастерлога | готово: независимые шаблоны шапки, динамическая литологическая легенда и depth/curve/stratigraphy/lithology/cuttings/calcimetry/LBA/lithology-description/cuttings-description колонки |
-| PRINT-004 | Системный принтер и экспорт без зависимости от экранного масштаба | готово для masterlog PDF и системного Print Preview через общий независимый renderer |
+| PRINT-004 | Системный принтер и экспорт без зависимости от экранного масштаба | готово: Fit/100% и continuations используют общий renderer; 100% фиксирует ширину при reference DPI 96 |
 | PRINT-005 | Печать графиков по временному диапазону | запланировано |
 | PRINT-006 | Именованные шаблоны мастерлога с версией, копированием и повторным использованием | готово: project storage и UI создания, копирования, переименования, удаления |
 | PRINT-007 | Редактируемая шапка: текст, бренд, логотип, изображение и динамические поля скважины | готов UI, типизированные текстовые стили/поля/линии и безопасный геометрический preview с whitelist project/well/dataset name |
@@ -189,7 +189,7 @@ JSON-файл проекта не считается универсальным 
 | PRINT-009 | Значки, подписи и изображения с привязкой к глубине, времени, параметру, интервалу, треку, странице или свободной позиции | частично: готовы depth/interval/parameter/time CRUD, Undo/Redo, preflight и печать SVG/PNG; время разрешается только через однозначную пару TIME/DEPTH и nearest-row policy; страница и свободная позиция запланированы |
 | PRINT-010 | Библиотека условных обозначений и импорт пользовательских SVG/PNG как проектных assets | готов расширяемый JSON-каталог с визуальным выбором, безопасный SVG-профиль, PNG/SVG import, SHA-256-дедупликация, хранение, preview/печать, переносимые пакеты и garbage collection |
 | PRINT-011 | Выбор сохранённой формы, интервала и языка RU/KK/EN перед печатью | готово для preview, PDF и системного Print Preview; full/current/custom/selection разрешаются одной `ReportDefinition` |
-| PRINT-012 | Повторяемая шапка, разрывы колонок и контроль продолжения на листах/рулоне | готово для PDF/Print Preview: вертикальная и горизонтальная пагинация с повторяемой шапкой; рулон непрерывный |
+| PRINT-012 | Повторяемая шапка, разрывы колонок и контроль продолжения на листах/рулоне | готово: vertical pages × horizontal continuations, глобальная нумерация, repeated headers и page range |
 | PRINT-013 | Интервальные lithology/description колонки Masterlog | готово: project lithotypes, цвет/штриховка, код и безопасный word-wrap описания с clipping по depth/page range |
 | PRINT-014 | Автолегенда литотипов, symbols/shows и peak callouts | частично: готовы динамическая легенда системных/project литотипов по всему справочнику или печатному интервалу и ручные callouts; автоматический поиск пиков и разнесение подписей запланированы |
 | CORR-001 | Многоскважинный correlation canvas с независимыми depth ranges, markers/horizons/ties и PDF | запланировано; референсная матрица в `docs/MASTERLOG_REFERENCE_REVIEW.md` |
@@ -204,13 +204,14 @@ JSON-файл проекта не считается универсальным 
 | PRINT-023 | Закрепление интерактивного запроса как управляемой печатной PDF-выноски | готово: хранение в проекте, preview/print/PDF renderer и список удаления для конкретной формы |
 | PRINT-024 | Инженерная сетка графических колонок Masterlog | готово: независимые вертикальная/горизонтальная сетки, крупные и мелкие деления, прозрачность, сохранение в форме и PDF renderer |
 | PRINT-025 | Динамическая литологическая легенда в независимой шапке | готово: full/used scope, учёт литологии и шлама печатного интервала, RU/KK/EN-названия, коды, цвета, штриховки и настройка числа колонок |
+| PRINT-026 | Physical printer capability gate после системного выбора устройства | готово: state, A4/A3/custom/roll support, physical bounds, minimum margins, printable area, nearest DPI, selected page range и feed warning |
 | VIEW-015 | Синхронная визирная линия по всем трекам планшета | готово: установка и drag мышью, ближайшие значения видимых кривых и литологии, панель параметров, профильные цвет/толщина/состояние и последняя глубина отдельно для dataset |
 | VIEW-016 | Интерактивный планшетный трек процентной шламограммы | готово: stacked 0–100% компоненты с цветами/паттернами литотипов, ручное добавление, default layout и состав под визиром |
 | VIEW-017 | Планшетная визуализация интерпретационных интервалов | готово: отдельный трек активной интерпретации, полосы по типам, hit-testing по глубине, синхронное выделение с менеджером/деревом и редактируемая панель свойств |
 | VIEW-018 | Выделение числового интервала Shift + ЛКМ на любой форме | готово: единая полоса на всех графиках, текущая depth/time ось, все видимые параметры и правая панель min/max/mean/count/coverage |
 | EXPORT-011 | Копирование и экспорт статистики выделенного интервала | готово: Excel-совместимый TSV в буфер, XLSX и UTF-8 CSV с dataset и границами оси |
 | EXPORT-012 | Единая `ReportDefinition` и один resolved interval для preview, PDF/печати и табличного экспорта | готово: schema v2 фиксирует dataset/index, sections, curve IDs, ожидаемые мнемоники, form revision, language и full/current/custom/selection; Print Center, Masterlog и выбранный CSV/XLSX используют один resolver и snapshot в Report Passport |
-| EXPORT-013 | Единая coverage-модель | готово: observed value/zero, missing sample и unavailable channel различаются в resolved report, CSV/XLSX/JSON/Parquet, интервальной статистике, Curve Catalog и Report Passport schema v2 |
+| EXPORT-013 | Единая coverage-модель | готово: observed value/zero, missing sample и unavailable channel различаются в resolved report, CSV/XLSX/JSON/Parquet, интервальной статистике, Curve Catalog и Report Passport schema v3 |
 
 Печатный рендер должен работать в миллиметрах и не должен быть скриншотом экранного
 `TabletView`.

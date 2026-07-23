@@ -14,6 +14,7 @@ from geoworkbench.printing.page_settings import (
     PrintPageSettings,
 )
 from geoworkbench.printing.pagination import PrintRangeMode
+from geoworkbench.printing.print_layout import PrintScaleMode
 from geoworkbench.printing.print_job import (
     PrintExportPreferences,
     PrintOutputFormat,
@@ -130,6 +131,10 @@ class UserProfileSettings:
                 margin_top_mm=float(payload.get("margin_top_mm", 10.0)),
                 margin_right_mm=float(payload.get("margin_right_mm", 10.0)),
                 margin_bottom_mm=float(payload.get("margin_bottom_mm", 10.0)),
+                scale_mode=PrintScaleMode(str(payload.get("scale_mode", "fit"))),
+                continuation_overlap_mm=float(
+                    payload.get("continuation_overlap_mm", 5.0)
+                ),
             )
         except (json.JSONDecodeError, TypeError, ValueError):
             return PrintPageSettings()
@@ -150,6 +155,8 @@ class UserProfileSettings:
                     "margin_top_mm": value.margin_top_mm,
                     "margin_right_mm": value.margin_right_mm,
                     "margin_bottom_mm": value.margin_bottom_mm,
+                    "scale_mode": value.scale_mode.value,
+                    "continuation_overlap_mm": value.continuation_overlap_mm,
                 }
             ),
         )

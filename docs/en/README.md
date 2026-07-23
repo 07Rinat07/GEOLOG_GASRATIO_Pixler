@@ -491,3 +491,7 @@ interval. See [Shared ReportDefinition](REPORT_DEFINITION.md).
 ## Coverage model 0.7.37
 
 Zero, a missing sample, and an unavailable channel are distinct in the preview/report/export contract. CSV uses `0`, an empty cell, and `#N/A`; XLSX and Report Passport preserve coverage metadata. See [Coverage model](COVERAGE_MODEL.md).
+
+## Print model 0.7.38
+
+Print Center supports A4/A3/custom/roll, Fit, and 100%. At 100%, source form widths are preserved and wide forms become numbered continuations with overlap. After the native dialog, the physical printer gate validates media, bounds, margins, printable area, and DPI. See [Print media and scale model](PRINT_MEDIA_MODEL.md).

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from geoworkbench.tablet.models import TabletLayout
 
 
-REPORT_PASSPORT_SCHEMA_VERSION = 2
+REPORT_PASSPORT_SCHEMA_VERSION = 3
 REPORT_PASSPORT_SUFFIX = ".passport.json"
 
 
@@ -135,6 +135,8 @@ class ReportRenderSettings:
     dpi: int | None = None
     image_quality: int | None = None
     fit_form_columns: bool | None = None
+    scale_mode: str | None = None
+    continuation_overlap_mm: float | None = None
     margins_mm: tuple[float, float, float, float] | None = None
     range_mode: str | None = None
     units_per_page: float | None = None
@@ -151,6 +153,10 @@ class ReportRenderSettings:
             raise ValueError("DPI Report Passport должен быть положительным")
         if self.image_quality is not None and not 0 <= self.image_quality <= 100:
             raise ValueError("Качество изображения должно находиться в диапазоне 0–100")
+        if self.scale_mode is not None and self.scale_mode not in {"fit", "actual_size"}:
+            raise ValueError("Неподдерживаемый режим масштаба Report Passport")
+        if self.continuation_overlap_mm is not None and self.continuation_overlap_mm < 0:
+            raise ValueError("Перекрытие страниц продолжения не может быть отрицательным")
         if self.margins_mm is not None and any(value < 0 for value in self.margins_mm):
             raise ValueError("Поля Report Passport не могут быть отрицательными")
         if self.units_per_page is not None and self.units_per_page <= 0:

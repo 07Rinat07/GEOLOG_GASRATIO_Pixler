@@ -15,9 +15,11 @@ from PySide6.QtGui import (
 from PySide6.QtSvg import QSvgGenerator
 from PySide6.QtWidgets import QWidget
 
+from geoworkbench.printing.document_renderer import build_document_plan
 from geoworkbench.printing.page_renderer import PageRenderError, paint_widget_page
 from geoworkbench.printing.page_settings import PrintPageSettings
-from geoworkbench.printing.print_job import PrintOutputFormat
+from geoworkbench.printing.pagination import PrintPaginationSettings, PrintRangeMode
+from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 
 
 class VisualizationExportError(RuntimeError):
@@ -66,7 +68,11 @@ def export_widget_page_image(
     if width <= 0 or height <= 0:
         raise VisualizationExportError("Визуализация не имеет допустимого размера")
     settings = page_settings or PrintPageSettings()
-    pixel_size = settings.page_pixel_size(width, height, dpi)
+    plan, _job = _single_output_plan(
+        widget, destination, output_format, settings, dpi=dpi, quality=quality
+    )
+    page = _require_single_output_page(plan, output_format.value.upper())
+    pixel_size = settings.page_pixel_size(plan.source_width_px, plan.source_height_px, dpi)
     if pixel_size.width() * pixel_size.height() > _MAX_RASTER_PAGE_PIXELS:
         raise VisualizationExportError(
             "Выбранное разрешение создаёт слишком большое изображение. "
@@ -81,14 +87,18 @@ def export_widget_page_image(
     image = QImage(pixel_size, image_format)
     image.fill(Qt.GlobalColor.white)
     full = QRectF(0.0, 0.0, float(pixel_size.width()), float(pixel_size.height()))
-    content = _content_rect_pixels(full, settings, width, height)
+    content = _content_rect_pixels(
+        full, settings, plan.source_width_px, plan.source_height_px
+    )
     painter = QPainter(image)
     try:
         paint_widget_page(
             widget,
             painter,
             content,
-            fit_form_columns=settings.fit_form_columns,
+            fit_form_columns=settings.effective_fit_form_columns,
+            scale_mode=settings.scale_mode,
+            continuation=page.continuation,
             high_quality=True,
         )
     except PageRenderError as exc:
@@ -128,6 +138,13 @@ def export_widget_svg(
     if width <= 0 or height <= 0:
         raise VisualizationExportError("Визуализация не имеет допустимого размера")
     settings = page_settings
+    plan = None
+    page = None
+    if settings is not None:
+        plan, _job = _single_output_plan(
+            widget, destination, PrintOutputFormat.SVG, settings, dpi=96, quality=92
+        )
+        page = _require_single_output_page(plan, "SVG")
     temporary = _temporary_path(destination)
     painter: QPainter | None = None
     generator: QSvgGenerator | None = None
@@ -138,12 +155,15 @@ def export_widget_svg(
             size = widget.size()
             content = QRectF(0.0, 0.0, float(width), float(height))
         else:
-            size = settings.page_pixel_size(width, height, 96)
+            assert plan is not None
+            size = settings.page_pixel_size(
+                plan.source_width_px, plan.source_height_px, 96
+            )
             content = _content_rect_pixels(
                 QRectF(0.0, 0.0, float(size.width()), float(size.height())),
                 settings,
-                width,
-                height,
+                plan.source_width_px,
+                plan.source_height_px,
             )
         generator.setSize(size)
         generator.setViewBox(QRect(0, 0, size.width(), size.height()))
@@ -158,7 +178,9 @@ def export_widget_svg(
                 widget,
                 painter,
                 content,
-                fit_form_columns=settings.fit_form_columns,
+                fit_form_columns=settings.effective_fit_form_columns,
+                scale_mode=settings.scale_mode,
+                continuation=page.continuation if page is not None else None,
                 high_quality=False,
             )
         if not painter.end():
@@ -199,38 +221,53 @@ def export_widget_pdf(
     page_settings: PrintPageSettings | None = None,
     dpi: int = 300,
 ) -> Path:
+    """Export the current view through the unified media/continuation plan."""
+
     destination = Path(target)
     _validate_destination(destination, (".pdf",), overwrite)
     width = widget.width()
     height = widget.height()
     if width <= 0 or height <= 0:
         raise VisualizationExportError("Визуализация не имеет допустимого размера")
+    settings = page_settings or PrintPageSettings()
+    plan, _job = _single_output_plan(
+        widget, destination, PrintOutputFormat.PDF, settings, dpi=dpi, quality=92
+    )
     temporary = _temporary_path(destination)
     painter: QPainter | None = None
     try:
         writer = QPdfWriter(str(temporary))
-        settings = page_settings or PrintPageSettings()
-        writer.setPageSize(settings.page_size_for_content(width, height))
+        writer.setPageSize(
+            settings.page_size_for_content(plan.source_width_px, plan.source_height_px)
+        )
         writer.setPageOrientation(settings.qt_orientation)
         writer.setPageMargins(settings.qt_margins, QPageLayout.Unit.Millimeter)
         writer.setResolution(dpi)
         writer.setTitle("GEOLOG GASRATIO@Pixler visualization")
         writer.setCreator("GEOLOG GASRATIO@Pixler")
-        page_width = writer.width()
-        page_height = writer.height()
         painter = QPainter()
         if not painter.begin(writer):
             raise VisualizationExportError("Не удалось запустить PDF renderer")
-        try:
+        content = _content_rect_pixels(
+            QRectF(0.0, 0.0, float(writer.width()), float(writer.height())),
+            settings,
+            plan.source_width_px,
+            plan.source_height_px,
+        )
+        for page_index, page in enumerate(plan.pages):
+            if page_index > 0 and not writer.newPage():
+                raise VisualizationExportError(
+                    "PDF renderer не смог создать страницу продолжения"
+                )
             paint_widget_page(
                 widget,
                 painter,
-                QRectF(0.0, 0.0, float(page_width), float(page_height)),
-                fit_form_columns=settings.fit_form_columns,
+                content,
+                fit_form_columns=settings.effective_fit_form_columns,
+                scale_mode=settings.scale_mode,
+                continuation=page.continuation,
                 high_quality=True,
             )
-        except PageRenderError as exc:
-            raise VisualizationExportError(str(exc)) from exc
         if not painter.end():
             raise VisualizationExportError("Не удалось завершить PDF renderer")
         if not temporary.exists() or temporary.stat().st_size == 0:
@@ -240,11 +277,48 @@ def export_widget_pdf(
         temporary.unlink(missing_ok=True)
         if isinstance(exc, VisualizationExportError):
             raise
-        raise VisualizationExportError(f"Не удалось экспортировать PDF: {destination}") from exc
+        if isinstance(exc, PageRenderError):
+            raise VisualizationExportError(str(exc)) from exc
+        raise VisualizationExportError(
+            f"Не удалось экспортировать PDF: {destination}"
+        ) from exc
     finally:
         if painter is not None and painter.isActive():
             painter.end()
     return destination
+
+
+def _single_output_plan(
+    widget: QWidget,
+    destination: Path,
+    output_format: PrintOutputFormat,
+    settings: PrintPageSettings,
+    *,
+    dpi: int,
+    quality: int,
+):
+    job = PrintJobSettings(
+        output_format=output_format,
+        page=settings,
+        dpi=dpi,
+        image_quality=quality,
+        target=destination,
+        pagination=PrintPaginationSettings(
+            range_mode=PrintRangeMode.CURRENT,
+            show_page_numbers=False,
+            show_page_range=False,
+        ),
+    )
+    return build_document_plan(widget, job), job
+
+
+def _require_single_output_page(plan, format_name: str):
+    if plan.page_count != 1:
+        raise VisualizationExportError(
+            f"Режим 100% требует {plan.page_count} страниц продолжения для {format_name}. "
+            "Используйте Центр печати для постраничного экспорта."
+        )
+    return plan.pages[0]
 
 
 def _content_rect_pixels(

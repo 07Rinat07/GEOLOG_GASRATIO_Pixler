@@ -1,3 +1,11 @@
+# 0.7.38 — unified print media and physical printer gate (test build)
+
+- added shared A4/A3/custom/roll media geometry and explicit Fit/100% modes;
+- added deterministic horizontal continuations combined with vertical pagination;
+- added printer capability validation for media, physical bounds, margins, printable area, DPI, state, and selected page range;
+- routed direct PDF through the continuation plan and made single-file raster/SVG fail explicitly when multiple pages are required;
+- upgraded Report Passport to schema v3 while keeping project format v16.
+
 # 0.7.37 — shared coverage model (test build)
 
 - added one headless coverage contract for observed values, real zeros, missing samples, and unavailable channels;

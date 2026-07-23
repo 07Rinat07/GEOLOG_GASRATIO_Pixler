@@ -23,14 +23,14 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для среза 0.7.37 в текущем контейнере выполнены `compileall`, локальная сборка wheel через `pip wheel --no-build-isolation` и доступный
-headless/regression/source-integrity набор: 876 тестов пройдено, 4 платформенных сценария
-пропущено, 3 LAS-сценария исключены без `lasio`. Полная коллекция обнаруживает 82
+Для среза 0.7.38 в текущем контейнере выполнены `compileall`, целевой набор и доступная
+headless/regression/source-integrity регрессия: 910 тестов пройдено, 4 платформенных сценария
+пропущено, 3 LAS-сценария исключены без `lasio`. Целевой print/report/version набор — 56 passed;
+print-media/printer-gate contract — 27 passed. Полная коллекция обнаруживает 82
 Qt/pyqtgraph/LAS-зависимых test-файла, которые не собираются без `PySide6`, `pyqtgraph` и
-`lasio`; один дополнительно собираемый UX-файл требует Qt fixture во время запуска. Ruff и
-mypy в контейнере отсутствуют. Стандартная build isolation не смогла скачать `setuptools>=69` из недоступного package index; локальная сборка без скачивания завершилась успешно. Это не заменяет полный gate. Перед стабильным выпуском команды
-выше и Windows/HiDPI/PDF/physical-print smoke-test необходимо повторить в установленном
-окружении.
+`lasio`; один дополнительный UX-файл требует Qt fixture во время запуска. Ruff и mypy в
+контейнере отсутствуют. Это не заменяет полный gate. Перед stable команды выше и аппаратный
+Windows/HiDPI/PDF/physical-print smoke-test необходимо повторить в установленном окружении.
 
 ## Semantic Channel Dictionary
 
@@ -87,7 +87,7 @@ mypy в контейнере отсутствуют. Стандартная buil
 
 ## Coverage model
 
-Для coverage schema v1 и report schemas v2 обязательны проверки:
+Для Coverage schema v1, ReportDefinition schema v2 и Report Passport schema v3 обязательны проверки:
 
 - конечный `0.0` классифицируется как `observed_zero`, а не missing;
 - `NaN` и `Infinity` доступного канала классифицируются как `missing_sample`;
@@ -96,8 +96,27 @@ mypy в контейнере отсутствуют. Стандартная buil
 - observed + missing = total для доступного канала, unavailable = total для недоступного;
 - CSV пишет `0`, пустую ячейку и `#N/A` без взаимной подмены;
 - XLSX Parameters, JSON, Parquet, Curve Catalog и interval statistics используют общий анализатор;
-- Report Passport schema v2 подписывает coverage, включая unavailable requests;
+- Report Passport schema v3 подписывает coverage, включая unavailable requests;
 - ReportDefinition payload v1 мигрируется в runtime schema v2.
+
+## Print media и physical printer gate
+
+Для print-media schema v1 обязательны проверки:
+
+- A4/A3 и portrait/landscape разрешаются в точные физические размеры;
+- custom media принимает 25–5000 мм, roll вычисляет длину и ограничивает сегмент 5000 мм;
+- Fit создаёт одну horizontal page, 100% использует reference DPI 96;
+- overlap меньше printable width и преобразуется детерминированно;
+- vertical pages × horizontal continuations имеют стабильный порядок и глобальную нумерацию;
+- preview, PDF, paged raster/SVG и printer получают один `PrintJobSettings`;
+- прямой PDF создаёт continuations, однофайловый raster/SVG блокирует скрытое clipping;
+- системному диалогу передаётся диапазон `1…N`; выбранный range учитывается в gate и результате;
+- gate блокирует invalid/error printer, unsupported media, invalid bounds, margins и printable area;
+- unsupported requested DPI заменяется ближайшим только с явным warning;
+- `tools/physical_print_gate.py` не отправляет реальную печать без `--print-test`;
+- Report Passport schema v3 подписывает format/orientation/scale/continuation/margins/DPI.
+
+Аппаратная матрица должна отдельно проверить драйверы офисного A4/A3-принтера и roll plotter.
 
 ## Обязательная матрица ручной проверки
 

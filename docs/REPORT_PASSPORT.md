@@ -1,6 +1,6 @@
 # Report Passport
 
-Статус: реализовано в версии 0.7.34. Формат паспорта: schema v2. Формат проекта остаётся v16.
+Статус: реализовано с версии 0.7.34; coverage добавлен в schema v2 в 0.7.37, а печатная модель — в schema v3 в 0.7.38. Формат проекта остаётся v16.
 
 ## Назначение
 
@@ -41,6 +41,7 @@ Preview не считается финальным экспортом и не с
 - вид формы, её ID, явная версия либо content-addressed revision и SHA-256 определения;
 - язык RU/KK/EN;
 - renderer, формат, DPI, размер и ориентация страницы, поля, pagination и дополнительные параметры;
+- scale mode Fit/100%, overlap и параметры горизонтальных продолжений;
 - fingerprint сохранённого import source, embedded lossless LAS либо доступного внешнего файла;
 - нормализованный fingerprint фактических данных отчёта;
 - coverage snapshot: availability, observed, zeros, missing и unavailable для каждого запрошенного канала.
@@ -73,6 +74,6 @@ Preview не считается финальным экспортом и не с
   организации или сертификатом регулятора;
 - прямое изменение уже сформированного PDF не меняет JSON автоматически; для строгого контроля
   выходного файла в будущем будет добавлен отдельный output fingerprint после унификации
-  `ReportDefinition`; начиная с 0.7.37 passport schema v2 сохраняет canonical payload schema v2, SHA-256 и coverage,
+  `ReportDefinition`; начиная с 0.7.37 coverage входит в passport; в 0.7.38 passport schema v3 сохраняет canonical ReportDefinition schema v2, SHA-256, coverage и print-media settings,
   поэтому preview/PDF/таблица сопоставляются по одному dataset/index/interval/curve/form contract;
 - ручной Windows/HiDPI/PDF/physical-print smoke-test остаётся обязательным для stable.

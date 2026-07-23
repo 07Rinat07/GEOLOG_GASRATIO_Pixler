@@ -42,7 +42,8 @@
 
 - [x] preview, PDF және кестелік экспортқа ортақ аралық моделі;
 - [x] ортақ bindings, UOM, coverage және нөл/missing/unavailable мәндерін анық ажырату;
-- A4/A3/custom/roll, 100%/fit және бет жалғасын тексеру.
+- [x] A4/A3/custom/roll, Fit/100%, continuation және physical printer gate;
+- [ ] output + passport filesystem transaction және дайын файл fingerprint.
 
 ## P2 — дамыту
 

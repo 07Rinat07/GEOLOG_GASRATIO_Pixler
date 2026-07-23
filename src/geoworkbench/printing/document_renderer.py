@@ -8,11 +8,17 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QApplication, QWidget
 
+from geoworkbench.printing.form_column_layout import original_column_layout
 from geoworkbench.printing.page_renderer import paint_widget_page
 from geoworkbench.printing.pagination import (
     PrintPageSlice,
-    PrintPaginationSettings,
     build_page_slices,
+)
+from geoworkbench.printing.print_job import PrintJobSettings
+from geoworkbench.printing.print_layout import (
+    PrintContinuationSlice,
+    PrintScaleMode,
+    build_horizontal_continuations,
 )
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -26,31 +32,90 @@ class PrintDocumentContext:
 
 
 @dataclass(frozen=True, slots=True)
+class PrintDocumentPage:
+    vertical: PrintPageSlice
+    continuation: PrintContinuationSlice
+    index: int
+    total: int
+
+    @property
+    def start(self) -> float | None:
+        return self.vertical.start
+
+    @property
+    def end(self) -> float | None:
+        return self.vertical.end
+
+    @property
+    def has_vertical_range(self) -> bool:
+        return self.vertical.has_vertical_range
+
+
+@dataclass(frozen=True, slots=True)
 class PrintDocumentPlan:
-    pages: tuple[PrintPageSlice, ...]
+    pages: tuple[PrintDocumentPage, ...]
     axis_label: str = ""
     axis_unit: str = ""
+    source_width_px: int = 1
+    source_height_px: int = 1
 
     @property
     def page_count(self) -> int:
         return len(self.pages)
 
+    @property
+    def continuation_count(self) -> int:
+        return max(page.continuation.total for page in self.pages)
 
-def build_document_plan(
-    widget: QWidget,
-    pagination: PrintPaginationSettings,
-) -> PrintDocumentPlan:
-    if not isinstance(widget, TabletView):
-        return PrintDocumentPlan((PrintPageSlice(None, None, 1, 1),))
-    pages = build_page_slices(
-        pagination=pagination,
-        current_range=widget.visible_depth_range,
-        full_range=widget.printable_vertical_range(),
+
+def printable_content_dimensions(widget: QWidget, job: PrintJobSettings) -> tuple[int, int]:
+    width = max(1, int(widget.width()))
+    height = max(1, int(widget.height()))
+    if isinstance(widget, TabletView) and widget.printable_tracks():
+        definitions = [item.definition for item in widget.printable_tracks()]
+        if job.page.scale_mode is PrintScaleMode.ACTUAL_SIZE:
+            width = original_column_layout(definitions).total_width
+        else:
+            width = max(width, sum(max(80, int(item.width)) for item in definitions))
+        height = max(1, max(item.widget.height() for item in widget.printable_tracks()))
+    return width, height
+
+
+def build_document_plan(widget: QWidget, job: PrintJobSettings) -> PrintDocumentPlan:
+    if isinstance(widget, TabletView):
+        vertical_pages = build_page_slices(
+            pagination=job.pagination,
+            current_range=widget.visible_depth_range,
+            full_range=widget.printable_vertical_range(),
+        )
+        axis_label = widget.printable_vertical_label
+        axis_unit = widget.printable_vertical_unit
+    else:
+        vertical_pages = (PrintPageSlice(None, None, 1, 1),)
+        axis_label = ""
+        axis_unit = ""
+
+    source_width, source_height = printable_content_dimensions(widget, job)
+    media = job.page.media_dimensions(source_width, source_height)
+    continuations = build_horizontal_continuations(
+        source_width_px=float(source_width),
+        available_width_mm=media.content_width_mm,
+        scale_mode=job.page.scale_mode,
+        overlap_mm=(
+            job.page.continuation_overlap_mm
+            if job.page.scale_mode is PrintScaleMode.ACTUAL_SIZE
+            else 0.0
+        ),
     )
+    total = len(vertical_pages) * len(continuations)
+    pages: list[PrintDocumentPage] = []
+    index = 1
+    for vertical in vertical_pages:
+        for continuation in continuations:
+            pages.append(PrintDocumentPage(vertical, continuation, index, total))
+            index += 1
     return PrintDocumentPlan(
-        pages,
-        axis_label=widget.printable_vertical_label,
-        axis_unit=widget.printable_vertical_unit,
+        tuple(pages), axis_label, axis_unit, source_width, source_height
     )
 
 
@@ -60,14 +125,13 @@ def paint_document_pages(
     page_device,
     page_rect: QRectF,
     *,
-    pagination: PrintPaginationSettings,
+    job: PrintJobSettings,
     context: PrintDocumentContext,
-    fit_form_columns: bool = True,
     high_quality: bool = True,
     first_page: int | None = None,
     last_page: int | None = None,
 ) -> PrintDocumentPlan:
-    plan = build_document_plan(widget, pagination)
+    plan = build_document_plan(widget, job)
     selected = tuple(
         page
         for page in plan.pages
@@ -89,9 +153,8 @@ def paint_document_pages(
                 page_rect,
                 page=page,
                 plan=plan,
-                pagination=pagination,
+                job=job,
                 context=context,
-                fit_form_columns=fit_form_columns,
                 high_quality=high_quality,
             )
     return plan
@@ -102,11 +165,10 @@ def paint_document_page(
     painter: QPainter,
     page_rect: QRectF,
     *,
-    page: PrintPageSlice,
+    page: PrintDocumentPage,
     plan: PrintDocumentPlan,
-    pagination: PrintPaginationSettings,
+    job: PrintJobSettings,
     context: PrintDocumentContext,
-    fit_form_columns: bool = True,
     high_quality: bool = True,
 ) -> None:
     if page_rect.width() <= 0 or page_rect.height() <= 0:
@@ -128,6 +190,10 @@ def paint_document_page(
         max(1.0, footer.top() - header.bottom() - 4.0),
     )
 
+    range_text = _page_range_text(widget, page, plan, job, localizer)
+    continuation_text = _continuation_text(page, localizer)
+    right_text = " · ".join(part for part in (range_text, continuation_text) if part)
+
     painter.save()
     try:
         painter.fillRect(page_rect, Qt.GlobalColor.white)
@@ -135,20 +201,22 @@ def paint_document_page(
             painter,
             header,
             title=context.title,
-            range_text=_page_range_text(widget, page, plan, pagination, localizer),
+            range_text=right_text,
         )
         paint_widget_page(
             widget,
             painter,
             body,
-            fit_form_columns=fit_form_columns,
+            fit_form_columns=job.page.effective_fit_form_columns,
+            scale_mode=job.page.scale_mode,
+            continuation=page.continuation,
             high_quality=high_quality,
         )
         _paint_footer(
             painter,
             footer,
             page=page,
-            show_page_numbers=pagination.show_page_numbers,
+            show_page_numbers=job.pagination.show_page_numbers,
             localizer=localizer,
         )
     finally:
@@ -187,7 +255,7 @@ def _paint_footer(
     painter: QPainter,
     rect: QRectF,
     *,
-    page: PrintPageSlice,
+    page: PrintDocumentPage,
     show_page_numbers: bool,
     localizer: Localizer,
 ) -> None:
@@ -213,12 +281,12 @@ def _paint_footer(
 
 def _page_range_text(
     widget: QWidget,
-    page: PrintPageSlice,
+    page: PrintDocumentPage,
     plan: PrintDocumentPlan,
-    pagination: PrintPaginationSettings,
+    job: PrintJobSettings,
     localizer: Localizer,
 ) -> str:
-    if not pagination.show_page_range or not page.has_vertical_range:
+    if not job.pagination.show_page_range or not page.has_vertical_range:
         return ""
     assert page.start is not None and page.end is not None
     if isinstance(widget, TabletView):
@@ -232,6 +300,16 @@ def _page_range_text(
     return localizer.text("print_center.page_range", axis=label, start=start, end=end)
 
 
+def _continuation_text(page: PrintDocumentPage, localizer: Localizer) -> str:
+    if page.continuation.total <= 1:
+        return ""
+    return localizer.text(
+        "print_center.continuation",
+        part=page.continuation.index,
+        total=page.continuation.total,
+    )
+
+
 def _band_heights(painter: QPainter, page_rect: QRectF) -> tuple[float, float]:
     dpi = max(72, painter.device().logicalDpiY()) if painter.device() is not None else 96
     millimeter = dpi / 25.4
@@ -240,7 +318,7 @@ def _band_heights(painter: QPainter, page_rect: QRectF) -> tuple[float, float]:
     return min(header, page_rect.height() * 0.12), min(footer, page_rect.height() * 0.10)
 
 
-def _apply_page_range(widget: QWidget, page: PrintPageSlice) -> None:
+def _apply_page_range(widget: QWidget, page: PrintDocumentPage) -> None:
     if isinstance(widget, TabletView) and page.has_vertical_range:
         assert page.start is not None and page.end is not None
         widget.set_visible_depth(page.start, page.end)
@@ -255,6 +333,5 @@ def _preserve_tablet_range(widget: QWidget) -> Iterator[None]:
     try:
         yield
     finally:
-        if original is not None:
-            widget.set_visible_depth(*original)
-            QApplication.processEvents()
+        widget.set_visible_depth(*original)
+        QApplication.processEvents()

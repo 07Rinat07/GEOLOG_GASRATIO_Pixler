@@ -41,6 +41,7 @@ from geoworkbench.printing.page_settings import (
     PrintPageFormat,
     PrintPageSettings,
 )
+from geoworkbench.printing.print_layout import PrintScaleMode
 from geoworkbench.ui.form_structure_editor_dialog import FormStructureEditorDialog
 from geoworkbench.ui.collapsible_section import CollapsibleSection
 
@@ -270,18 +271,16 @@ class FormManagerDialog(QDialog):
         self.fit_columns_check = QCheckBox(
             self._text("Автоподбор колонок", "Бағандарды автотаңдау", "Auto-fit columns")
         )
-        self.fit_columns_check.setChecked(self.print_page_settings.fit_form_columns)
+        self.fit_columns_check.setChecked(
+            self.print_page_settings.scale_mode is PrintScaleMode.FIT
+            and self.print_page_settings.fit_form_columns
+        )
         self.fit_columns_check.toggled.connect(self._print_layout_changed)
         self.fit_columns_check.setToolTip(self._text("Уместить все видимые колонки по ширине листа.", "Барлық көрінетін бағандарды парақ еніне сыйғызу.", "Fit all visible columns to the page width."))
         print_row.addWidget(self.fit_columns_check)
         print_box.addLayout(print_row)
-        self.print_layout_hint = QLabel(
-            self._text(
-                "Все видимые колонки размещаются по ширине листа без горизонтального обрезания.",
-                "Барлық көрінетін бағандар көлденең қиылмай парақ еніне орналастырылады.",
-                "All visible columns are placed across the page without horizontal clipping.",
-            )
-        )
+        self.print_layout_hint = QLabel()
+        self._update_print_layout_hint()
         self.print_layout_hint.setWordWrap(True)
         print_box.addWidget(self.print_layout_hint)
         right.addWidget(
@@ -609,6 +608,21 @@ class FormManagerDialog(QDialog):
         )
         self.details.setPlainText(details)
 
+    def _update_print_layout_hint(self) -> None:
+        if self.fit_columns_check.isChecked():
+            text = self._text(
+                "Fit: все видимые колонки размещаются по ширине листа без горизонтального обрезания.",
+                "Fit: барлық көрінетін бағандар көлденең қиылмай парақ еніне орналастырылады.",
+                "Fit: all visible columns are placed across the page without horizontal clipping.",
+            )
+        else:
+            text = self._text(
+                "100%: сохраняются физические пропорции; широкая форма печатается на страницах продолжения.",
+                "100%: физикалық пропорциялар сақталады; кең пішін жалғастыру беттеріне басылады.",
+                "100%: physical proportions are preserved; wide forms use continuation pages.",
+            )
+        self.print_layout_hint.setText(text)
+
     def _print_layout_changed(self, _value=None) -> None:
         orientation = PrintOrientation(str(self.print_orientation_combo.currentData()))
         self.print_page_settings = PrintPageSettings(
@@ -621,7 +635,14 @@ class FormManagerDialog(QDialog):
             margin_top_mm=self.print_page_settings.margin_top_mm,
             margin_right_mm=self.print_page_settings.margin_right_mm,
             margin_bottom_mm=self.print_page_settings.margin_bottom_mm,
+            scale_mode=(
+                PrintScaleMode.FIT
+                if self.fit_columns_check.isChecked()
+                else PrintScaleMode.ACTUAL_SIZE
+            ),
+            continuation_overlap_mm=self.print_page_settings.continuation_overlap_mm,
         )
+        self._update_print_layout_hint()
         if self.print_page_settings_changed is not None:
             self.print_page_settings_changed(self.print_page_settings)
         self._show_selected(self.tree_widget.currentItem(), None)

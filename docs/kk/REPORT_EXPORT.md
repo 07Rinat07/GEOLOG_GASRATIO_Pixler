@@ -90,3 +90,7 @@ interval preview мен соңғы файл арасында қайта есеп
 ## 0.7.37 coverage
 
 CSV ішінде `0`, бос missing sample және unavailable channel үшін `#N/A` ажыратылады. XLSX `Parameters` парағында availability, observed, zeros, missing және coverage көрсетеді. [Coverage моделі](COVERAGE_MODEL.md).
+
+## 0.7.38 баспа моделі
+
+A4/A3/custom/roll, Fit және 100% бір plan қолданады. 100% режимінде кең пішін continuation беттерін жасайды; PDF және printer бір multi-page job болып қалады. [PRINT_MEDIA_MODEL.md](PRINT_MEDIA_MODEL.md).

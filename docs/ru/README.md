@@ -507,3 +507,7 @@ resolved interval. Подробности: [Единая ReportDefinition](REPOR
 ## Coverage-модель 0.7.37
 
 Ноль, missing sample и unavailable channel различаются в preview/report/export contract. CSV использует `0`, пустую ячейку и `#N/A`; XLSX и Report Passport сохраняют coverage-метаданные. Подробнее: [Coverage-модель](COVERAGE_MODEL.md).
+
+## Печать 0.7.38
+
+Print Center поддерживает A4/A3/custom/roll, Fit и 100%. В 100% ширины формы сохраняются, а широкая форма разбивается на нумерованные продолжения с overlap. После системного диалога physical printer gate проверяет формат, физические пределы, поля, printable area и DPI. См. [Форматы и масштаб печати](PRINT_MEDIA_MODEL.md).

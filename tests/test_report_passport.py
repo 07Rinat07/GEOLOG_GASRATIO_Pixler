@@ -376,3 +376,23 @@ def test_report_passport_coverage_distinguishes_zero_missing_and_unavailable() -
     assert by_mnemonic["H2S"].availability == "unavailable"
     assert by_mnemonic["H2S"].unavailable_count == 3
     assert any(item == "curve-not-found:H2S" for item in passport.warnings)
+
+
+def test_report_passport_v3_signs_print_scale_and_continuation() -> None:
+    scoped = request()
+    scoped = replace(
+        scoped,
+        render=replace(
+            scoped.render,
+            scale_mode="actual_size",
+            continuation_overlap_mm=5.0,
+            fit_form_columns=False,
+        ),
+    )
+
+    passport = ReportPassportBuilder().build(make_session(), scoped)
+    payload = passport.payload(include_digest=False)
+
+    assert passport.schema_version == 3
+    assert payload["render"]["scale_mode"] == "actual_size"
+    assert payload["render"]["continuation_overlap_mm"] == 5.0

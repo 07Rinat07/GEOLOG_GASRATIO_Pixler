@@ -16,6 +16,7 @@ from geoworkbench.printing.document_renderer import (
     build_document_plan,
     paint_document_page,
     paint_document_pages,
+    printable_content_dimensions,
 )
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.unicode_support import (
@@ -71,16 +72,17 @@ def render_document_to_printer(
             painter,
             printer,
             QRectF(page),
-            pagination=job.pagination,
+            job=job,
             context=context,
-            fit_form_columns=job.page.fit_form_columns,
             high_quality=True,
             first_page=first,
             last_page=last,
         )
         if not painter.end():
             raise DocumentExportError("Не удалось завершить печатный renderer")
-        return plan.page_count
+        from geoworkbench.printing.printer_gate import selected_page_count
+
+        return selected_page_count(plan.page_count, first, last)
     except Exception as exc:
         if isinstance(exc, (DocumentExportError, UnicodePrintError, ValueError)):
             raise
@@ -105,7 +107,8 @@ def export_document_pdf(
     painter = QPainter()
     try:
         writer = QPdfWriter(str(temporary))
-        writer.setPageSize(job.page.page_size_for_content(widget.width(), widget.height()))
+        content_width, content_height = printable_content_dimensions(widget, job)
+        writer.setPageSize(job.page.page_size_for_content(content_width, content_height))
         writer.setPageOrientation(job.page.qt_orientation)
         writer.setPageMargins(job.page.qt_margins, QPageLayout.Unit.Millimeter)
         writer.setResolution(job.dpi)
@@ -118,9 +121,8 @@ def export_document_pdf(
             painter,
             writer,
             QRectF(0.0, 0.0, float(writer.width()), float(writer.height())),
-            pagination=job.pagination,
+            job=job,
             context=context,
-            fit_form_columns=job.page.fit_form_columns,
             high_quality=True,
         )
         if not painter.end():
@@ -159,7 +161,7 @@ def export_document_pages(
     destination = Path(target)
     _validate_destination(destination, job.output_format.accepted_suffixes, overwrite)
     _unicode_preflight(widget, context, job)
-    plan = build_document_plan(widget, job.pagination)
+    plan = build_document_plan(widget, job)
     paths = _page_paths(destination, plan.page_count)
     for path in paths:
         if path.exists() and not overwrite:
@@ -198,7 +200,8 @@ def export_document_pages(
 
 
 def _write_raster_page(widget, path, job, context, page, plan) -> None:
-    size = job.page.page_pixel_size(widget.width(), widget.height(), job.dpi)
+    content_width, content_height = printable_content_dimensions(widget, job)
+    size = job.page.page_pixel_size(content_width, content_height, job.dpi)
     if size.width() * size.height() > _MAX_RASTER_PAGE_PIXELS:
         raise DocumentExportError(
             "Выбранное разрешение создаёт слишком большое изображение. Уменьшите DPI."
@@ -215,12 +218,11 @@ def _write_raster_page(widget, path, job, context, page, plan) -> None:
         paint_document_page(
             widget,
             painter,
-            _content_rect_pixels(QRectF(image.rect()), job),
+            _content_rect_pixels(QRectF(image.rect()), job, content_width, content_height),
             page=page,
             plan=plan,
-            pagination=job.pagination,
+            job=job,
             context=context,
-            fit_form_columns=job.page.fit_form_columns,
             high_quality=True,
         )
     finally:
@@ -243,7 +245,8 @@ def _write_svg_page(widget, path, job, context, page, plan) -> None:
     temporary = _temporary_path(path)
     painter = QPainter()
     try:
-        size = job.page.page_pixel_size(widget.width(), widget.height(), 96)
+        content_width, content_height = printable_content_dimensions(widget, job)
+        size = job.page.page_pixel_size(content_width, content_height, 96)
         generator = QSvgGenerator()
         generator.setFileName(str(temporary))
         generator.setSize(size)
@@ -254,12 +257,16 @@ def _write_svg_page(widget, path, job, context, page, plan) -> None:
         paint_document_page(
             widget,
             painter,
-            _content_rect_pixels(QRectF(0.0, 0.0, float(size.width()), float(size.height())), job),
+            _content_rect_pixels(
+                QRectF(0.0, 0.0, float(size.width()), float(size.height())),
+                job,
+                content_width,
+                content_height,
+            ),
             page=page,
             plan=plan,
-            pagination=job.pagination,
+            job=job,
             context=context,
-            fit_form_columns=job.page.fit_form_columns,
             high_quality=False,
         )
         if not painter.end():
@@ -273,8 +280,13 @@ def _write_svg_page(widget, path, job, context, page, plan) -> None:
             painter.end()
 
 
-def _content_rect_pixels(full: QRectF, job: PrintJobSettings) -> QRectF:
-    page_mm = job.page.oriented_page_size_mm(1, 1)
+def _content_rect_pixels(
+    full: QRectF,
+    job: PrintJobSettings,
+    content_width: int,
+    content_height: int,
+) -> QRectF:
+    page_mm = job.page.oriented_page_size_mm(content_width, content_height)
     x_scale = full.width() / page_mm.width()
     y_scale = full.height() / page_mm.height()
     rect = QRectF(

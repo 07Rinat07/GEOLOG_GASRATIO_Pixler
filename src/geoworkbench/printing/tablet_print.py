@@ -12,6 +12,11 @@ from geoworkbench.printing.form_column_layout import (
     adaptive_column_layout,
     original_column_layout,
 )
+from geoworkbench.printing.print_layout import (
+    REFERENCE_PRINT_DPI,
+    PrintContinuationSlice,
+    PrintScaleMode,
+)
 from geoworkbench.tablet.tablet_view import TabletView
 
 
@@ -118,30 +123,82 @@ def paint_tablet_snapshot(
     painter: QPainter,
     page: QRectF,
     snapshot: TabletPrintSnapshot,
+    *,
+    scale_mode: PrintScaleMode = PrintScaleMode.FIT,
+    continuation: PrintContinuationSlice | None = None,
 ) -> None:
     if page.width() <= 0 or page.height() <= 0:
         raise TabletPrintError("Устройство печати не предоставило допустимую область страницы")
 
-    scale = min(
-        page.width() / snapshot.layout.total_width,
-        page.height() / snapshot.content_height,
+    if scale_mode is PrintScaleMode.FIT:
+        scale = min(
+            page.width() / snapshot.layout.total_width,
+            page.height() / snapshot.content_height,
+        )
+        rendered_width = snapshot.layout.total_width * scale
+        rendered_height = snapshot.content_height * scale
+        x = page.left() + (page.width() - rendered_width) / 2.0
+        y = page.top() + (page.height() - rendered_height) / 2.0
+
+        painter.save()
+        try:
+            painter.fillRect(page, Qt.GlobalColor.white)
+            for pixmap, logical_width in zip(
+                snapshot.pixmaps, snapshot.layout.widths, strict=True
+            ):
+                target = QRectF(
+                    x,
+                    y,
+                    logical_width * scale,
+                    (pixmap.height() / snapshot.raster_scale) * scale,
+                )
+                painter.drawPixmap(target, pixmap, QRectF(pixmap.rect()))
+                x += (logical_width + snapshot.layout.spacing) * scale
+        finally:
+            painter.restore()
+        return
+
+    device = painter.device()
+    dpi = max(1, device.logicalDpiX()) if device is not None else REFERENCE_PRINT_DPI
+    horizontal_scale = dpi / REFERENCE_PRINT_DPI
+    left = continuation.source_left_px if continuation is not None else 0.0
+    right = (
+        continuation.source_right_px
+        if continuation is not None
+        else float(snapshot.layout.total_width)
     )
-    rendered_width = snapshot.layout.total_width * scale
-    rendered_height = snapshot.content_height * scale
-    x = page.left() + (page.width() - rendered_width) / 2.0
-    y = page.top() + (page.height() - rendered_height) / 2.0
+    if right <= left:
+        raise TabletPrintError("Некорректная страница продолжения")
 
     painter.save()
     try:
         painter.fillRect(page, Qt.GlobalColor.white)
-        for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
-            target = QRectF(
-                x,
-                y,
-                logical_width * scale,
-                (pixmap.height() / snapshot.raster_scale) * scale,
-            )
-            painter.drawPixmap(target, pixmap, QRectF(pixmap.rect()))
-            x += (logical_width + snapshot.layout.spacing) * scale
+        painter.setClipRect(page)
+        source_x = 0.0
+        for pixmap, logical_width in zip(
+            snapshot.pixmaps, snapshot.layout.widths, strict=True
+        ):
+            track_left = source_x
+            track_right = track_left + logical_width
+            visible_left = max(left, track_left)
+            visible_right = min(right, track_right)
+            if visible_right > visible_left:
+                source_left = (visible_left - track_left) * snapshot.raster_scale
+                source_width = (visible_right - visible_left) * snapshot.raster_scale
+                target = QRectF(
+                    page.left() + (visible_left - left) * horizontal_scale,
+                    page.top(),
+                    (visible_right - visible_left) * horizontal_scale,
+                    page.height(),
+                )
+                source = QRectF(
+                    source_left,
+                    0.0,
+                    source_width,
+                    float(pixmap.height()),
+                )
+                painter.drawPixmap(target, pixmap, source)
+            source_x = track_right + snapshot.layout.spacing
     finally:
         painter.restore()
+
