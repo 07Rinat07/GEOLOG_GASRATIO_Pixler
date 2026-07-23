@@ -31,6 +31,8 @@ def test_f4_uses_one_oop_router_for_annotations_and_track_editing() -> None:
     assert "self._interaction_router.register(self._track_edit_interaction)" in source
     assert "TabletEditModeCoordinator(" in source
     assert "self._edit_mode_coordinator.set_form_edit_enabled(requested)" in source
+    assert "self._form_edit_mode =" not in source
+    assert "self._annotation_tool =" not in source
 
 
 def test_track_selection_and_full_editor_are_not_owned_by_overlay() -> None:

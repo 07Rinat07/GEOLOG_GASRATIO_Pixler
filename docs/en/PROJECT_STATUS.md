@@ -5,7 +5,7 @@ Snapshot: 23 July 2026. Version 0.7.28, test build.
 ## Release decision
 
 The automated release gate is green: Ruff passes, mypy reports zero errors across 259 source
-files, and the complete pytest run reports 1,201 passed and 10 skipped with exit code zero.
+files, and the complete pytest run reports 1,202 passed and 10 skipped with exit code zero.
 The build remains a test build until the Windows, HiDPI, PDF, and physical
 printer smoke matrix is signed off.
 
@@ -25,7 +25,8 @@ compatibility have been fixed, and the tablet toolbars now adapt to narrow scree
 The annotation event router, navigation, and complete track lifecycle are now isolated from
 `TabletView`. Creation, rollback, ordering, Undo/Redo, and registry cleanup are covered by
 tests. A shared grid renderer now supplies matching major/minor divisions to screen and print,
-and depth tracks preserve their saved grid settings. The next architecture slice is the
-editing-mode controller. See the
+and depth tracks preserve their saved grid settings. The edit-mode coordinator is now the sole
+source of F4 and active annotation-tool state. The next architecture slice extracts workspace
+actions from `MainWindow`. See the
 [audit](PRODUCT_AUDIT_2026.md) and
 [plan](PROJECT_PLAN.md).

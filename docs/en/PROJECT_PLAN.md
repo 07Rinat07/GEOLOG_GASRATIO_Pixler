@@ -6,7 +6,7 @@ only active work.
 ## P0 — release stability
 
 - [x] fix annotation routing and the full Qt test-process crash;
-- [x] bring Ruff and mypy to zero errors; the full pytest result is 1,201 passed and
+- [x] bring Ruff and mypy to zero errors; the full pytest result is 1,202 passed and
   10 skipped;
 - complete the mandatory Windows, HiDPI, PDF, and physical-print matrix;
 - do not label the build stable until the gate is green.
@@ -19,7 +19,7 @@ only active work.
 - [x] extract track plan/order/reuse and preserve chart instances through Undo/Redo;
 - [x] extract track creation, rollback, and disposal with related registry cleanup;
 - [x] extract a shared screen/print grid renderer with partial division updates;
-- then extract the editing-mode controller;
+- [x] make the editing-mode controller the sole owner of F4 and annotation-tool state;
 - split `MainWindow` into workspace, import, print, and session-binding commands;
 - add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
   source, and original mnemonic;

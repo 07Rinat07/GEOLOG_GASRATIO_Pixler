@@ -56,6 +56,27 @@ def test_curve_legend_label_includes_unit_only_when_present() -> None:
     assert curve_legend_label(make_curve("dataset", "GR", "  API  ")) == "GR [API]"
 
 
+def test_edit_mode_coordinator_is_tablet_view_state_source(qapp) -> None:
+    view = TabletView()
+    changes: list[object] = []
+    view.annotation_tool_changed.connect(changes.append)
+
+    view.set_form_edit_mode(True)
+    view.set_annotation_tool(AnnotationKind.COMMENT)
+
+    state = view._edit_mode_coordinator.state
+    assert view.form_edit_mode is state.form_edit_enabled is True
+    assert view.annotation_tool is state.annotation_tool is AnnotationKind.COMMENT
+
+    view.set_form_edit_mode(False)
+
+    state = view._edit_mode_coordinator.state
+    assert view.form_edit_mode is state.form_edit_enabled is False
+    assert view.annotation_tool is state.annotation_tool is None
+    assert changes == [AnnotationKind.COMMENT.value, None]
+    view.close()
+
+
 def test_callout_request_has_visible_leader_and_editable_box(qapp) -> None:
     dataset = Dataset(
         "dataset-1",

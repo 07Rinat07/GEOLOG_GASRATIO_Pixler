@@ -817,7 +817,6 @@ class TabletView(QWidget):
         self._canvas_objects: tuple[CanvasObject, ...] = ()
         self._image_assets: dict[str, ImageAsset] = {}
         self._annotation_print_mode = False
-        self._annotation_tool: AnnotationKind | None = None
         self._lithology: tuple[LithologyInterval, ...] = ()
         self._cuttings: tuple[CuttingsSample, ...] = ()
         self._stratigraphy: tuple[StratigraphyInterval, ...] = ()
@@ -831,7 +830,6 @@ class TabletView(QWidget):
         self._sync_guard = False
         self._depth_range_guard = False
         self._cursor_enabled = False
-        self._form_edit_mode = False
         self._selected_track_id: str | None = None
         self._curve_pencil_enabled = False
         self._curve_pencil_track_id: str | None = None
@@ -2829,11 +2827,12 @@ class TabletView(QWidget):
 
     @property
     def form_edit_mode(self) -> bool:
-        return self._form_edit_mode
+        return self._edit_mode_coordinator.state.form_edit_enabled
 
     @property
     def annotation_tool(self) -> AnnotationKind | None:
-        return self._annotation_tool
+        tool = self._edit_mode_coordinator.state.annotation_tool
+        return tool if isinstance(tool, AnnotationKind) else None
 
     def set_annotation_tool(self, kind: AnnotationKind | str | None) -> None:
         """Arm a direct annotation tool for the next click in any plot body.
@@ -2845,7 +2844,8 @@ class TabletView(QWidget):
         """
 
         normalized: AnnotationKind | None
-        if kind is None or not self._form_edit_mode:
+        previous = self.annotation_tool
+        if kind is None or not self.form_edit_mode:
             normalized = None
         else:
             try:
@@ -2855,9 +2855,8 @@ class TabletView(QWidget):
         state = self._edit_mode_coordinator.set_annotation_tool(normalized)
         effective = state.annotation_tool
         normalized = effective if isinstance(effective, AnnotationKind) else None
-        if normalized == self._annotation_tool:
+        if normalized == previous:
             return
-        self._annotation_tool = normalized
         cursor = (
             Qt.CursorShape.CrossCursor
             if normalized is not None
@@ -2874,23 +2873,23 @@ class TabletView(QWidget):
         """Enable structural form editing while leaving geological data entry intact."""
 
         requested = bool(enabled)
-        if not requested and self._annotation_tool is not None:
+        if not requested and self.annotation_tool is not None:
             # Disarm through the same public path so every viewport cursor and
             # toolbar action is restored before the handlers are disabled.
             self.set_annotation_tool(None)
         state = self._edit_mode_coordinator.set_form_edit_enabled(requested)
-        self._form_edit_mode = state.form_edit_enabled
-        if not self._form_edit_mode:
+        active = state.form_edit_enabled
+        if not active:
             self._interaction_router.reset("form_edit_disabled")
             self._interaction_watchdog.sync()
         hint = self._localizer.text(
-            "tablet.form_edit_on" if self._form_edit_mode else "tablet.form_edit_off"
+            "tablet.form_edit_on" if active else "tablet.form_edit_off"
         )
         for rendered in self._rendered.values():
             rendered.widget.title.setToolTip(hint)
             for item in (rendered.annotation_items or {}).values():
-                item.set_edit_mode(self._form_edit_mode)
-        self._annotation_overlay.set_edit_mode(self._form_edit_mode)
+                item.set_edit_mode(active)
+        self._annotation_overlay.set_edit_mode(active)
         self._annotation_overlay.raise_()
 
     def show_geological_context_menu(
@@ -2948,7 +2947,7 @@ class TabletView(QWidget):
                 )
 
         annotation_callout_action = annotation_comment_action = annotation_image_action = None
-        if self._form_edit_mode:
+        if self.form_edit_mode:
             menu.addSeparator()
             annotation_callout_action = menu.addAction(
                 self._localizer.text("annotations.add_callout_action")
@@ -2962,7 +2961,7 @@ class TabletView(QWidget):
 
         edit_track_action = rename_track_action = rename_group_action = None
         properties_action = save_action = None
-        if self._form_edit_mode:
+        if self.form_edit_mode:
             menu.addSeparator()
             edit_track_action = menu.addAction(self._localizer.text("tablet.edit_track_full"))
             rename_track_action = menu.addAction(self._localizer.text("tablet.rename_track"))
@@ -3075,7 +3074,7 @@ class TabletView(QWidget):
                 selected_curve = definition.curve_mnemonics[0]
             pencil_action = menu.addAction(self._localizer.text("tablet.curve_pencil_action"))
             pencil_action.setEnabled(bool(selected_curve))
-            if self._form_edit_mode:
+            if self.form_edit_mode:
                 add_curves = menu.addAction(self._localizer.text("tablet.add_curves"))
                 replace_curves = menu.addAction(self._localizer.text("tablet.choose_track_curves"))
                 curve_settings_action = menu.addAction(
@@ -3096,7 +3095,7 @@ class TabletView(QWidget):
                 self._localizer.text("annotations.save_curve_value_action")
             )
             menu.addSeparator()
-        if self._form_edit_mode and depth is not None:
+        if self.form_edit_mode and depth is not None:
             annotation_callout_action = menu.addAction(
                 self._localizer.text("annotations.add_callout_action")
             )
@@ -3111,7 +3110,7 @@ class TabletView(QWidget):
         edit_track_action = rename_track_action = rename_group_action = None
         move_left = move_right = hide_action = remove_action = None
         save_layout_action = None
-        if self._form_edit_mode:
+        if self.form_edit_mode:
             edit_track_action = menu.addAction(self._localizer.text("tablet.edit_track_full"))
             rename_track_action = menu.addAction(self._localizer.text("tablet.rename_track"))
             rename_group_action = menu.addAction(self._localizer.text("tablet.rename_group"))
@@ -3266,7 +3265,7 @@ class TabletView(QWidget):
         *,
         kind: AnnotationKind | None = None,
     ) -> dict[str, object] | None:
-        kind = kind or self._annotation_tool
+        kind = kind or self.annotation_tool
         if kind is None:
             return None
         point = self._mouse_event_plot_point(plot, event)
@@ -3403,7 +3402,7 @@ class TabletView(QWidget):
         pencil_action = menu.addAction(self._localizer.text("tablet.curve_pencil_action"))
         settings_action = (
             menu.addAction(self._localizer.text("tablet.curve_settings"))
-            if self._form_edit_mode
+            if self.form_edit_mode
             else None
         )
         chosen = menu.exec(pos)
@@ -4150,9 +4149,9 @@ class TabletView(QWidget):
             or rendered.plot is None
             or rendered.definition.kind
             not in {TrackKind.DEPTH, TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
-            or self._form_edit_mode
+            or self.form_edit_mode
             or self._curve_pencil_enabled
-            or self._annotation_tool is not None
+            or self.annotation_tool is not None
         ):
             return False
         snapped = self._snap_analysis_axis_value(axis_value)
@@ -4980,7 +4979,7 @@ class TabletView(QWidget):
         if shape is not None:
             setter(shape)
             return
-        if self._annotation_tool is not None:
+        if self.annotation_tool is not None:
             setter(Qt.CursorShape.CrossCursor)
         elif not self._curve_pencil_enabled:
             setter(Qt.CursorShape.ArrowCursor)
@@ -5469,7 +5468,7 @@ class TabletView(QWidget):
                         toggle=toggle,
                     )
                     if hit is not None:
-                        if not additive and not toggle and not self._form_edit_mode:
+                        if not additive and not toggle and not self.form_edit_mode:
                             popup_args = (
                                 track_id,
                                 float(event.position().x()),
@@ -7741,7 +7740,7 @@ class TabletView(QWidget):
             content_rect = plot_rect if content_rect.isEmpty() else content_rect.united(plot_rect)
             plot.viewport().setCursor(
                 Qt.CursorShape.CrossCursor
-                if self._annotation_tool is not None
+                if self.annotation_tool is not None
                 else Qt.CursorShape.ArrowCursor
             )
         self._annotation_overlay.set_content_rect(content_rect)
@@ -7801,7 +7800,7 @@ class TabletView(QWidget):
                     pixmap = image_asset_pixmap(asset)
             entries.append((record, anchor, pixmap))
         self._annotation_overlay.set_entries(entries)
-        self._annotation_overlay.set_edit_mode(self._form_edit_mode)
+        self._annotation_overlay.set_edit_mode(self.form_edit_mode)
         self._annotation_overlay.set_print_mode(self._annotation_print_mode)
         self._annotation_overlay.raise_()
 
