@@ -30,6 +30,13 @@ from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.domain.models import Dataset
 from geoworkbench.importers.paradox.models import ParadoxImportResult
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
+from geoworkbench.services.import_diagnostics import (
+    ImportDiagnostic,
+    ImportDiagnosticReport,
+    ImportDiagnosticStage,
+    diagnostic_from_exception,
+    policy_diagnostic,
+)
 
 
 if TYPE_CHECKING:
@@ -136,6 +143,7 @@ class LasImportOutcome:
     review_skipped: bool = False
     warning_messages: tuple[str, ...] = ()
     descending_depth: bool = False
+    diagnostics: tuple[ImportDiagnostic, ...] = ()
 
     @property
     def succeeded(self) -> bool:
@@ -161,6 +169,16 @@ class LasImportBatchOutcome:
     @property
     def last_successful(self) -> LasImportOutcome | None:
         return self.successful[-1] if self.successful else None
+
+    @property
+    def diagnostic_report(self) -> ImportDiagnosticReport:
+        return ImportDiagnosticReport(
+            tuple(
+                diagnostic
+                for item in self.files
+                for diagnostic in item.diagnostics
+            )
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,16 +277,40 @@ class DatasetImportJobExecutor:
     ) -> LasImportBatchOutcome:
         outcomes: list[LasImportOutcome] = []
         for source in sources:
+            stage = ImportDiagnosticStage.READ_SOURCE
             try:
                 result = self._las_loader(source)
+                stage = ImportDiagnosticStage.POLICY
                 decision = evaluate_las_import(result.report, mode)
+                report_diagnostics = tuple(
+                    policy_diagnostic(
+                        source,
+                        code=issue.code,
+                        message=issue.message,
+                        warning=issue.severity is LasIssueSeverity.WARNING,
+                    )
+                    for issue in result.report.issues
+                    if issue.severity is not LasIssueSeverity.INFO
+                )
                 if not decision.accepted:
                     messages = "\n  ".join(
                         issue.message for issue in decision.blocking_issues
                     )
-                    raise RuntimeError(
-                        f"режим {mode.value} отклонил файл:\n  {messages}"
+                    outcomes.append(
+                        LasImportOutcome(
+                            source=source,
+                            error=f"режим {mode.value} отклонил файл:\n  {messages}",
+                            diagnostics=tuple(
+                                policy_diagnostic(
+                                    source,
+                                    code=issue.code,
+                                    message=issue.message,
+                                )
+                                for issue in decision.blocking_issues
+                            ),
+                        )
                     )
+                    continue
                 if decision.requires_confirmation:
                     if confirm_review is None:
                         raise RuntimeError(
@@ -277,19 +319,29 @@ class DatasetImportJobExecutor:
                         )
                     if not confirm_review(source, decision.review_issues):
                         outcomes.append(
-                            LasImportOutcome(source=source, review_skipped=True)
+                            LasImportOutcome(
+                                source=source,
+                                review_skipped=True,
+                                diagnostics=report_diagnostics,
+                            )
                         )
                         continue
 
+                stage = ImportDiagnosticStage.REVIEW
                 dataset = self._review_or_original(
                     result.dataset, ImportSourceKind.LAS, source, review_dataset
                 )
                 if dataset is None:
                     outcomes.append(
-                        LasImportOutcome(source=source, review_skipped=True)
+                        LasImportOutcome(
+                            source=source,
+                            review_skipped=True,
+                            diagnostics=report_diagnostics,
+                        )
                     )
                     continue
                 result = replace(result, dataset=dataset)
+                stage = ImportDiagnosticStage.REGISTER
                 well_name = self._port.add_imported_dataset(
                     result.dataset,
                     source_document=result.source_document,
@@ -318,10 +370,23 @@ class DatasetImportJobExecutor:
                         well_name=well_name,
                         warning_messages=warning_messages,
                         descending_depth=descending,
+                        diagnostics=report_diagnostics,
                     )
                 )
-            except (OSError, RuntimeError, ValueError) as exc:
-                outcomes.append(LasImportOutcome(source=source, error=str(exc)))
+            except Exception as exc:  # noqa: BLE001 - import boundary must not crash Qt
+                diagnostic = diagnostic_from_exception(
+                    source,
+                    stage,
+                    exc,
+                    context={"import_mode": mode.value},
+                )
+                outcomes.append(
+                    LasImportOutcome(
+                        source=source,
+                        error=str(exc).strip() or diagnostic.summary,
+                        diagnostics=(diagnostic,),
+                    )
+                )
         return LasImportBatchOutcome(tuple(outcomes))
 
     @staticmethod

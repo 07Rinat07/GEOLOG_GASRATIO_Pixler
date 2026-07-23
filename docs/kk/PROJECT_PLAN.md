@@ -1,16 +1,24 @@
 # Жоба жоспары
 
-2026 жылғы 23 шілдедегі күй.
+2026 жылғы 24 шілдедегі күй.
 
-## 0.7.45 аяқталған жұмыс срезі
+## 0.7.46 жедел hotfix аяқталды
 
-- [x] әр бағанның торы мен бөліктерін тәуелсіз реттеу;
-- [x] тақырыптағы min/max, атау түсі және астыңғы сызық түсі;
-- [x] пішіннің бағандары, масштабтары, viewport, source binding және revision сақталуы;
-- [x] фонсыз, тығыз қиылған зауыттық белгілер;
-- [x] бір ұңғымада бірнеше тәуелсіз DEPTH/TIME datasets;
-- [x] ось/бірлік/ұңғыма/схема тексерілетін күнделікті LAS append;
-- [x] SHA-256 қайталануын тану және әр dataset-тің жеке audit тарихы;
-- [x] жаңа тереңдік LAS үшін өзгертілетін 0,2 м әдепкі қадам.
+- [x] tablet grid overlay ішінде `Qt.MouseButton.NoButton` қолдану;
+- [x] grid/tablet presentation қатесі импортталған dataset-ке қолжетімділікті жаппау;
+- [x] сәтті registration кейін safe table recovery workspace ашу;
+- [x] Import Review warning-терін бұғаттамай сақтау;
+- [x] әр файл қатесін read/parse/policy/review/register/present кезеңімен жинау;
+- [x] severity, тұрақты code, action, context, exception type және traceback сақтау;
+- [x] blocking report-ты автоматты жазу және UI ішінде Copy/Save беру;
+- [x] duplicate LAS mnemonic-ті физикалық бағанмен сақтау және тек зақымдалған арнаны өткізу.
 
-Кейін: бір пішіндегі alignment-controlled multi-dataset overlay, растауы бар каталог watcher, offline WITSML 2.1 inventory/mapping және содан кейін ғана ETP 1.2.
+Қолмен қабылдау шарты: проблемалық LAS-ты Windows/PySide6 ішінде тексеріп, import, table recovery,
+tablet first frame және diagnostic report қара workspace-сіз жұмыс істейтінін растау.
+
+## Кейінгі срездер
+
+- [ ] read-only offline WITSML 2.1 inventory және mapping fixtures;
+- [ ] бір пішіндегі alignment-controlled multi-dataset overlay;
+- [ ] preview растауы бар каталог watcher;
+- [ ] fixture replay өткеннен кейін ғана secured ETP 1.2.

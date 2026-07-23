@@ -269,3 +269,47 @@ def test_main_window_routes_all_imports_through_interactive_review() -> None:
     assert "def _review_imported_dataset(" in source
     assert source.count("review_dataset=self._review_imported_dataset") == 4
     assert "ImportReviewDialog(" in source
+
+
+def test_las_job_catches_unexpected_exception_and_records_actionable_diagnostic(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "unexpected.las"
+    port = FakeDatasetImportPort()
+
+    def broken_loader(_source: str | Path) -> FakeLasImportResult:
+        raise KeyError("curve mapping")
+
+    outcome = DatasetImportJobExecutor(port, las_loader=broken_loader).execute_las(
+        (source,), LasImportMode.COMPATIBLE
+    )
+
+    assert len(outcome.failed) == 1
+    assert outcome.failed[0].error == "'curve mapping'"
+    assert outcome.failed[0].diagnostics[0].stage.value == "read_source"
+    assert outcome.failed[0].diagnostics[0].code == "unexpected-import-error"
+    assert "KeyError" in outcome.diagnostic_report.to_text()
+    assert port.registrations == []
+
+
+def test_compatible_las_warnings_are_collected_without_blocking_registration(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "warning.las"
+    warning = LasImportIssue(
+        "duplicate-mnemonics",
+        LasIssueSeverity.WARNING,
+        "Duplicate curve names",
+    )
+    result = make_las_result(source, issues=(warning,))
+    port = FakeDatasetImportPort()
+
+    outcome = DatasetImportJobExecutor(
+        port, las_loader=lambda _source: result
+    ).execute_las((source,), LasImportMode.COMPATIBLE)
+
+    assert len(outcome.successful) == 1
+    assert outcome.failed == ()
+    assert outcome.diagnostic_report.warning_count == 1
+    assert outcome.diagnostic_report.error_count == 0
+    assert port.registrations

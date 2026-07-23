@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import cast
 
 import pyqtgraph as pg
+from PySide6.QtCore import Qt
+
 
 from geoworkbench.tablet.grid_geometry import (
     GridLine,
@@ -11,6 +14,9 @@ from geoworkbench.tablet.grid_geometry import (
     normalized_grid_lines,
 )
 from geoworkbench.tablet.models import TrackDefinition
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 __all__ = [
@@ -132,7 +138,10 @@ class TabletGridOverlay:
                 pen=self._pen(False),
             )
             line.setZValue(-1_000.0)
-            line.setAcceptedMouseButtons(0)
+            # PySide6 6.11 rejects a bare integer here.  The invalid value
+            # caused the first tablet render after LAS import to abort and left
+            # the workspace black even though the dataset had already loaded.
+            line.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
             self.plot.addItem(line, ignoreBounds=True)
             collection.append((line, False))
 
@@ -185,10 +194,21 @@ class TabletGridRenderer:
         # of truth for screen rendering and prevents a blank graph after loading.
         plot.showGrid(x=False, y=False)
         overlay = cls.overlay_for(plot)
-        if overlay is None:
-            overlay = TabletGridOverlay(plot)
-            setattr(plot, cls._OVERLAY_ATTRIBUTE, overlay)
-        overlay.apply(settings)
+        try:
+            if overlay is None:
+                overlay = TabletGridOverlay(plot)
+                setattr(plot, cls._OVERLAY_ATTRIBUTE, overlay)
+            overlay.apply(settings)
+        except Exception:  # noqa: BLE001 - presentation-only safety boundary
+            # Grid rendering is presentation-only and must never prevent a LAS
+            # dataset from opening.  Keep the legacy axis grid as a safe fallback
+            # and record the platform-specific failure in the application log.
+            _LOGGER.exception("Tablet grid overlay failed; using axis-grid fallback")
+            plot.showGrid(
+                x=settings.show_x,
+                y=settings.show_y,
+                alpha=settings.alpha,
+            )
 
     @classmethod
     def overlay_for(cls, plot: pg.PlotWidget) -> TabletGridOverlay | None:

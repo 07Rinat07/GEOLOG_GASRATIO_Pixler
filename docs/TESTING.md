@@ -1,6 +1,6 @@
 # Проверка качества
 
-Актуально на 23 июля 2026 года. Этот файл задаёт один действующий release gate. История
+Актуально на 24 июля 2026 года. Этот файл задаёт один действующий release gate. История
 проверок отдельных версий хранится в release notes и не является текущей инструкцией.
 
 ## Автоматический gate
@@ -23,12 +23,27 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для среза 0.7.45 в текущем контейнере выполнены `compileall`, focused forms/grid/symbols/
-daily-LAS/project/codec набор — 146 passed, и доступная headless-регрессия — 995 passed,
-4 skipped, 3 deselected. Три deselected-сценария требуют отсутствующий `lasio`; 82 collection-
-модуля полного набора требуют `PySide6`, `pyqtgraph` или `lasio`. Ruff и mypy в контейнере
-также отсутствуют. Это не заменяет полный gate. Перед stable команды выше и Windows/HiDPI/
-PDF/physical-print smoke-test необходимо повторить в установленном окружении.
+Для hotfix 0.7.46 в текущем контейнере выполнены `compileall`, focused import/recovery/
+diagnostics набор — 76 passed, и доступная headless-регрессия — 1011 passed, 4 skipped,
+3 deselected. Три deselected-сценария требуют отсутствующий `lasio`; Qt/LAS collection-модули
+требуют `PySide6`, `pyqtgraph` или `lasio`. Ruff и mypy в контейнере также отсутствуют.
+Это не заменяет полный gate. Перед stable команды выше и Windows/HiDPI/PDF/physical-print
+smoke-test необходимо повторить в установленном окружении.
+
+## Восстановление импорта LAS и диагностика
+
+Обязательные проверки 0.7.46:
+
+- grid overlay передаёт `Qt.MouseButton.NoButton`, а не обычное целое значение;
+- исключение overlay не прерывает регистрацию dataset и включает безопасный grid fallback;
+- исключение первого tablet render открывает LAS table recovery и сохраняет imported dataset;
+- Import Review warnings видимы, но не блокируют подтверждение;
+- ошибки чтения, parse, policy, review, registration и presentation получают точный stage;
+- blocking report атомарно сохраняется, а UI поддерживает Copy/Save;
+- duplicate mnemonics читаются по физическому столбцу;
+- повреждение одного канала создаёт warning и не отклоняет остальные каналы;
+- fixture 9847 строк / 73 канала проходит review без ошибок и создаёт bounded default layout;
+- реальный проблемный LAS проходит Windows/PySide6 smoke-test без чёрного рабочего окна.
 
 ## Приветственное окно запуска
 

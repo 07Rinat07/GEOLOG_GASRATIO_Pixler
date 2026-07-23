@@ -1,3 +1,16 @@
+# 0.7.46 — LAS import recovery and diagnostics hotfix (test build)
+
+- fixed a PySide6 type regression in the tablet grid overlay that could leave the workspace black after a successful LAS review;
+- replaced the invalid integer mouse-button mask with `Qt.MouseButton.NoButton`;
+- added a non-blocking axis-grid fallback so presentation-only grid failures cannot prevent dataset access;
+- added stage-aware import diagnostics with exception type, context, traceback and suggested corrective action;
+- automatically persists failed LAS diagnostic reports in the application data directory and allows copy/save from the UI;
+- added a safe LAS-table recovery workspace when curve/tablet rendering fails after dataset registration;
+- made the LAS import executor catch unexpected per-file exceptions instead of letting them escape into the Qt event loop;
+- read LAS curve values by physical column position to preserve duplicate mnemonics and skip only malformed channels;
+- added a 9,847-row/73-channel Cyrillic mixed-LAS regression fixture for review and bounded default-layout creation;
+- project format remains v20; existing forms, symbols and daily append history are unchanged.
+
 # 0.7.45 — reusable working forms and safe daily LAS growth (test build)
 
 - fixed tablet grid visibility independently of hidden pyqtgraph axes;

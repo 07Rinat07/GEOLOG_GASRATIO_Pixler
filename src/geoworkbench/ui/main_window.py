@@ -142,6 +142,12 @@ from geoworkbench.services.import_jobs import (
     ImportJobController,
     ImportSourceKind,
 )
+from geoworkbench.services.import_diagnostics import (
+    ImportDiagnostic,
+    ImportDiagnosticReport,
+    persist_import_diagnostic_report,
+    presentation_diagnostic,
+)
 from geoworkbench.services.session_binding import SessionBindingController
 from geoworkbench.services.print_jobs import PrintJobExecutor, report_render_settings
 from geoworkbench.services.workspace_commands import WorkspaceCommandController
@@ -181,6 +187,7 @@ from geoworkbench.ui.external_las_insert_dialog import ExternalLasInsertDialog
 from geoworkbench.ui.curve_settings_dialog import CurveSettingsDialog
 from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
 from geoworkbench.ui.import_review_dialog import ImportReviewDialog
+from geoworkbench.ui.import_diagnostics_dialog import ImportDiagnosticsDialog
 from geoworkbench.ui.paradox_import_dialog import ParadoxImportDialog
 from geoworkbench.ui.paradox_batch_dialog import ParadoxBatchDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
@@ -2011,7 +2018,10 @@ class MainWindow(QMainWindow):
             self,
             language=self.language,
         )
-        if dialog.exec() != QDialog.DialogCode.Accepted:
+        result = dialog.exec()
+        if dialog.failure is not None:
+            raise dialog.failure
+        if result != QDialog.DialogCode.Accepted:
             self._log(
                 self._t(
                     "import_review.cancelled_log",
@@ -2054,10 +2064,18 @@ class MainWindow(QMainWindow):
                 "Ошибка LAS",
                 "\n".join(errors) or "Файлы не загружены",
             )
+            diagnostics = outcome.diagnostic_report
+            if diagnostics.has_items:
+                self._persist_import_diagnostics(diagnostics)
+                ImportDiagnosticsDialog(
+                    diagnostics, self, language=self.language
+                ).exec()
             return
 
         last_dataset = last.result.dataset
-        self._show_current_dataset()
+        presentation_items = self._present_imported_dataset_safely(
+            last_dataset, last.source
+        )
         self.inspector.setPlainText(
             f"{self._t('inspector.well')}: {last.well_name}\n"
             f"{self._t('inspector.dataset')}: {last_dataset.name}\n"
@@ -2066,8 +2084,15 @@ class MainWindow(QMainWindow):
             f"{self._t('inspector.range')}: "
             f"{last_dataset.depth[0]:.2f}–{last_dataset.depth[-1]:.2f}"
         )
+        diagnostics = outcome.diagnostic_report.extend(*presentation_items)
         if errors:
             QMessageBox.warning(self, "Часть LAS не загружена", "\n".join(errors))
+
+        if diagnostics.error_count:
+            self._persist_import_diagnostics(diagnostics)
+            ImportDiagnosticsDialog(
+                diagnostics, self, language=self.language
+            ).exec()
 
         import_warnings = [
             f"{item.source.name}:\n  " + "\n  ".join(item.warning_messages)
@@ -2095,9 +2120,118 @@ class MainWindow(QMainWindow):
             )
         self._refresh_tree()
         self._update_title()
-        self._show_workspace(self.tablet_view)
+        self._show_workspace(
+            self.las_table_editor if presentation_items else self.tablet_view
+        )
         self.statusBar().showMessage(
             f"Загружено LAS-файлов: {len(outcome.successful)}"
+        )
+
+    def _persist_import_diagnostics(
+        self, report: ImportDiagnosticReport
+    ) -> Path | None:
+        root = Path(
+            QStandardPaths.writableLocation(
+                QStandardPaths.StandardLocation.AppDataLocation
+            )
+        ) / "diagnostics"
+        try:
+            target = persist_import_diagnostic_report(report, root, prefix="las_import")
+        except OSError as exc:
+            self._log(f"ОШИБКА СОХРАНЕНИЯ ДИАГНОСТИКИ: {exc}")
+            return None
+        self._log(f"Диагностический отчёт сохранён: {target}")
+        return target
+
+    def _present_imported_dataset_safely(
+        self, dataset: Dataset, source: Path
+    ) -> tuple[ImportDiagnostic, ...]:
+        """Render an imported dataset without allowing a Qt presentation bug to lose it.
+
+        Registration is already complete when this method runs.  If a plot/grid/form
+        widget raises, the table editor becomes the recovery workspace and a complete
+        diagnostic is returned to the caller.
+        """
+
+        try:
+            self._show_current_dataset()
+            return ()
+        except Exception as exc:  # noqa: BLE001 - keep imported data accessible
+            diagnostic = presentation_diagnostic(
+                source,
+                exc,
+                dataset_id=dataset.dataset_id,
+                dataset_name=dataset.name,
+            )
+            self._log(
+                f"ОШИБКА ОТОБРАЖЕНИЯ: {source.name}: "
+                f"{diagnostic.exception_type}: {diagnostic.details}"
+            )
+            recovery_diagnostics = self._show_import_recovery_workspace(
+                dataset, source
+            )
+            return (diagnostic, *recovery_diagnostics)
+
+    def _show_import_recovery_workspace(
+        self, dataset: Dataset, source: Path
+    ) -> tuple[ImportDiagnostic, ...]:
+        """Expose at least the LAS table when optional graphical rendering fails."""
+
+        diagnostics: list[ImportDiagnostic] = []
+        self._workspace_controller.set_dataset(dataset.name)
+        try:
+            self.las_table_editor.set_dataset(dataset)
+        except Exception as exc:  # noqa: BLE001 - secondary UI fallback
+            self._log(f"ОШИБКА ТАБЛИЦЫ LAS: {type(exc).__name__}: {exc}")
+            diagnostics.append(
+                self._recovery_component_diagnostic(
+                    source, dataset, exc, component="las_table"
+                )
+            )
+        try:
+            self.curve_browser.set_dataset(dataset)
+            self.curve_browser.select_recommended()
+        except Exception as exc:  # noqa: BLE001 - secondary UI fallback
+            self._log(f"ОШИБКА СПИСКА КРИВЫХ: {type(exc).__name__}: {exc}")
+            diagnostics.append(
+                self._recovery_component_diagnostic(
+                    source, dataset, exc, component="curve_browser"
+                )
+            )
+        try:
+            self.tablet_view.set_layout_model(TabletLayout())
+            self.tablet_view.set_dataset(None)
+        except Exception as exc:  # noqa: BLE001 - broken tablet must stay isolated
+            self._log(f"ОШИБКА СБРОСА ПЛАНШЕТА: {type(exc).__name__}: {exc}")
+            diagnostics.append(
+                self._recovery_component_diagnostic(
+                    source, dataset, exc, component="tablet_reset"
+                )
+            )
+        self._show_workspace(self.las_table_editor)
+        self.statusBar().showMessage(
+            self._t("import_diagnostics.recovery_table", dataset=dataset.name)
+        )
+        return tuple(diagnostics)
+
+    @staticmethod
+    def _recovery_component_diagnostic(
+        source: Path,
+        dataset: Dataset,
+        exc: BaseException,
+        *,
+        component: str,
+    ) -> ImportDiagnostic:
+        diagnostic = presentation_diagnostic(
+            source,
+            exc,
+            dataset_id=dataset.dataset_id,
+            dataset_name=dataset.name,
+        )
+        return replace(
+            diagnostic,
+            code=f"{component}-presentation-failed",
+            context=(*diagnostic.context, ("component", component)),
         )
 
     def open_csv(self) -> None:

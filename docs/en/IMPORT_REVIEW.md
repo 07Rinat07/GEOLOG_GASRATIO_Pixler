@@ -60,8 +60,17 @@ additional sentinel is recorded as `IMPORT_REVIEW_NULL_VALUE`.
 
 ## Compatibility
 
-- project format remains v16;
+- current project format v20 remains unchanged;
 - LAS/CSV/Excel/DB sources remain read-only;
 - the lossless LAS document and import report remain separate from the reviewed copy;
 - LAS batch import opens one review per file;
 - unit edits never perform implicit value conversion.
+
+## Diagnostics and recovery
+
+Since 0.7.46, warnings remain non-blocking while failures are collected by read, parse, policy,
+review, registration, and presentation stage. The report dialog shows a stable code, severity,
+source, corrective action, and traceback and supports Copy/Save. If registration succeeded but
+the tablet could not render, the application opens a safe LAS table without removing the imported
+data. Duplicate vendor mnemonics are read by physical column and one malformed channel is skipped
+with a warning instead of rejecting the whole source.

@@ -63,6 +63,7 @@ class ImportReviewDialog(QDialog):
         }
         self._updating = False
         self.accepted_dataset: Dataset | None = None
+        self.failure: Exception | None = None
         self.setWindowTitle(self._t("import_review.title", file=source.name))
         self.resize(1180, 760)
 
@@ -458,6 +459,10 @@ class ImportReviewDialog(QDialog):
             self.review_summary.setText(
                 self._t("import_review.invalid_plan", error=str(exc))
             )
+            return
+        except Exception as exc:  # noqa: BLE001 - return failure to import boundary
+            self.failure = exc
+            self.reject()
             return
         self.accepted_dataset = committed.dataset
         self.accept()

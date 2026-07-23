@@ -1,14 +1,11 @@
 # Project status
 
-23 July 2026 test build: package **0.7.45**, project format **v20**.
+24 July 2026 emergency test build: package **0.7.46**, project format **v20**.
 
-Completed: axis-independent tablet grid overlay; per-column grid/tick controls; editable curve-header scale and colours; reusable form revision/viewport persistence; 19 transparent tightly cropped symbols; explicit safe daily append to one DEPTH/TIME dataset; idempotent SHA-256 imports; per-dataset append history; default new depth LAS step 0.2 m.
+Completed hotfix: corrected the PySide6 grid-overlay mouse-button type; presentation failures no longer hide an already imported LAS; safe table recovery is available; Import Review warnings remain non-blocking; stage-aware actionable diagnostic reports can be copied, saved, and are automatically persisted for blocking failures; duplicate mnemonics are read by physical column position and isolated malformed channels no longer reject the entire source.
 
-Before stable: Windows/HiDPI visual smoke test, real daily LAS trial, full Qt/LAS/Ruff/mypy gate and physical-print verification. Directory watching and multi-dataset overlay within one form remain separate future slices.
+Project format v20, form schema v6, tablet layout v15, multi-DEPTH/TIME datasets, saved forms, symbols, annotations, curve settings, and daily LAS append contracts are unchanged.
 
+Verification: **76 focused passed**; available headless regression **1011 passed, 4 skipped, 3 deselected**; `compileall` passed and wheel 0.7.46 built. PySide6, pyqtgraph, lasio, Ruff, and mypy are unavailable in the container, so the real-LAS Windows/HiDPI first-frame smoke test and full installed gate remain mandatory.
 
-## Slice verification
-
-Focused forms/grid/symbols/daily-LAS/project/codec suite: **146 passed**. Available headless regression: **995 passed, 4 skipped, 3 deselected**. `compileall` passed; wheel 0.7.45 built successfully and contains all 19 transparent-symbol assets.
-
-Next slice: read-only offline WITSML 2.1 inventory and mapping fixtures.
+Next slice after Windows confirmation: read-only offline WITSML 2.1 inventory and mapping fixtures.

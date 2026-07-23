@@ -1,12 +1,11 @@
 # Жоба күйі
 
-2026 жылғы 23 шілде: **0.7.45** тесттік жинақ, project format **v20**.
+2026 жылғы 24 шілдедегі жедел тесттік жинақ: package **0.7.46**, project format **v20**.
 
-Аяқталды: осьтен тәуелсіз тор overlay; әр бағанның тор/бөлік параметрлері; қисық тақырыбындағы шкала және түстер; пішіннің revision/viewport сақталуы; 19 мөлдір тығыз қиылған белгі; тек таңдалған DEPTH/TIME dataset-ке қауіпсіз күнделікті append; SHA-256 қайталануын тану; әр dataset-тің жеке тарихы; жаңа тереңдік LAS қадамы 0,2 м.
+Hotfix аяқталды: PySide6 grid-overlay mouse-button типі түзетілді; presentation қатесі импортталған LAS-ты жасырмайды; қауіпсіз кестелік recovery бар; Import Review warning-тері бұғаттамайды; кезеңдік әрекетке жарамды diagnostic report көшіруге, сақтауға және blocking қате кезінде автоматты жазуға болады; қайталанатын mnemonic физикалық баған бойынша оқылады, бір зақымдалған арна бүкіл файлды тоқтатпайды.
 
-Stable алдында Windows/HiDPI визуалды тексеруі, нақты тәуліктік LAS сынағы, толық Qt/LAS/Ruff/mypy gate және баспа тексеруі қажет. 
-## Срезді тексеру
+Project format v20, form schema v6, tablet layout v15, бірнеше DEPTH/TIME datasets, сақталған пішіндер, белгілер, annotation, қисық параметрлері және күнделікті LAS append өзгермеді.
 
-Focused forms/grid/symbols/daily-LAS/project/codec: **146 passed**. Қолжетімді headless regression: **995 passed, 4 skipped, 3 deselected**. `compileall` өтті; wheel 0.7.45 сәтті жиналды және 19 transparent-symbol asset-тің бәрін қамтиды.
+Тексеру: **76 focused passed**; қолжетімді headless regression **1011 passed, 4 skipped, 3 deselected**; `compileall` өтті және wheel 0.7.46 жиналды. Контейнерде PySide6, pyqtgraph, lasio, Ruff және mypy жоқ, сондықтан нақты LAS-пен Windows/HiDPI first-frame smoke-test және толық gate міндетті.
 
-Келесі срез — offline WITSML 2.1 inventory және mapping fixtures.
+Windows растауынан кейінгі келесі срез: read-only offline WITSML 2.1 inventory және mapping fixtures.

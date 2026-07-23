@@ -125,15 +125,29 @@ def import_las_with_report(
         dataset.active_index.role = index_candidate.role
 
     semantic_dictionary = default_semantic_channel_dictionary()
+    channel_issues: list[LasImportIssue] = []
     try:
-        for item in list(las.curves)[1:]:
+        for curve_index, item in enumerate(list(las.curves)[1:], start=1):
             raw_mnemonic = str(item.mnemonic)
             mnemonic = clean_mnemonic(raw_mnemonic)
             unit = clean_display_text(item.unit) if item.unit else ""
             description = clean_display_text(item.descr) if item.descr else ""
-            values = np.asarray(las[raw_mnemonic], dtype=np.float64).copy()
-            if values.shape != depth.shape:
-                raise ValueError(f"Размер кривой {mnemonic} не совпадает со шкалой глубины")
+            try:
+                values = _curve_values_by_position(
+                    las, curve_index, raw_mnemonic, depth.shape
+                )
+            except (IndexError, KeyError, TypeError, ValueError) as exc:
+                # One malformed channel must not make an otherwise readable LAS
+                # unusable.  Keep the source immutable, skip only that channel and
+                # expose the exact reason in the import diagnostic report.
+                channel_issues.append(
+                    _warning(
+                        "channel-import-skipped",
+                        f"Канал {mnemonic or raw_mnemonic!r} пропущен: "
+                        f"{type(exc).__name__}: {exc}",
+                    )
+                )
+                continue
             curve_id = new_id()
             canonical = infer_canonical_mnemonic(
                 mnemonic,
@@ -169,9 +183,38 @@ def import_las_with_report(
             clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.params
         }
     except Exception as exc:
-        raise LasImportError(f"Некорректные данные LAS-файла: {source}") from exc
-    report = _build_import_report(source, source_document, las, depth)
+        raise LasImportError(
+            f"Некорректные метаданные LAS-файла: {source}: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
+    report = _build_import_report(
+        source, source_document, las, depth, extra_issues=tuple(channel_issues)
+    )
     return LasImportResult(dataset=dataset, report=report, source_document=source_document)
+
+
+def _curve_values_by_position(
+    las: Any,
+    curve_index: int,
+    raw_mnemonic: str,
+    expected_shape: tuple[int, ...],
+) -> np.ndarray:
+    """Read a curve by column index, preserving duplicate LAS mnemonics safely."""
+
+    matrix = np.asarray(getattr(las, "data", np.empty((0, 0))))
+    if matrix.ndim == 2 and matrix.shape[0] == expected_shape[0]:
+        if curve_index >= matrix.shape[1]:
+            raise IndexError(
+                f"столбец {curve_index} отсутствует в матрице из {matrix.shape[1]} столбцов"
+            )
+        values = np.asarray(matrix[:, curve_index], dtype=np.float64).copy()
+    else:
+        values = np.asarray(las[raw_mnemonic], dtype=np.float64).copy()
+    if values.shape != expected_shape:
+        raise ValueError(
+            f"размер {values.shape} не совпадает со шкалой индекса {expected_shape}"
+        )
+    return values
 
 
 def _build_import_report(
@@ -179,6 +222,8 @@ def _build_import_report(
     source_document: LosslessLasDocument,
     las: Any,
     depth: np.ndarray,
+    *,
+    extra_issues: tuple[LasImportIssue, ...] = (),
 ) -> LasImportReport:
     depth_report = analyze_depth_axis(depth)
     version = _section_value(getattr(las, "version", ()), "VERS")
@@ -195,7 +240,7 @@ def _build_import_report(
         wrap=wrap,
         null_value=_optional_float(null_text),
     )
-    issues: list[LasImportIssue] = []
+    issues: list[LasImportIssue] = list(extra_issues)
 
     _append_structure_issues(issues, source_document)
 

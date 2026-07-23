@@ -60,8 +60,16 @@ port арқылы бір командамен тіркейді. Сондықта
 
 ## Үйлесімділік
 
-- project format v16 болып қалады;
+- current project format v20 өзгермейді;
 - LAS/CSV/Excel/DB бастапқы файлдары тек оқу режимінде қалады;
 - lossless LAS document және import report review-көшірмеден бөлек сақталады;
 - LAS batch әр файл үшін жеке review ашады;
 - өлшем бірлігін өзгерту жасырын конверсия орындамайды.
+
+## Диагностика және recovery
+
+0.7.46 нұсқасынан warning-тер бұғаттамайды, ал қателер read, parse, policy, review, registration
+және presentation кезеңдері бойынша жиналады. Report dialog тұрақты code, severity, source,
+түзету әрекеті және traceback көрсетеді, Copy/Save қолдайды. Registration сәтті болып, tablet
+салынбаса, бағдарлама импортталған деректі өшірмей safe LAS table ашады. Duplicate vendor mnemonic
+физикалық бағанмен оқылады, бір зақымдалған арна бүкіл source-ты тоқтатпай warning арқылы өткізіледі.
