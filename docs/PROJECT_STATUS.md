@@ -23,12 +23,12 @@
 
 | Проверка | Фактический результат |
 |---|---|
-| Полный pytest | 1211 пройдено, 10 пропущено; `python -m pytest` штатно завершён с кодом 0 |
+| Полный pytest | 1217 пройдено, 10 пропущено; `python -m pytest` штатно завершён с кодом 0 |
 | Ruff | все проверки пройдены |
-| mypy | 0 ошибок в 261 исходном файле |
+| mypy | 0 ошибок в 262 исходных файлах |
 | Аннотации | восстановлены hit routing, область набора данных/формы и диагностика canvas-wide overlay |
 | Архитектура планшета | annotation/navigation изолированы; lifecycle управляет треками; grid renderer объединяет деления; edit-mode coordinator — единый источник состояния F4 |
-| Архитектура главного окна | `WorkspaceController` управляет навигацией; `ImportJobController` — стабильными типами и маршрутизацией LAS/CSV/Excel/Paradox |
+| Архитектура главного окна | workspace и import routing изолированы; `TabularImportJobExecutor` выполняет CSV/Excel планы и регистрирует dataset |
 | Интерфейс планшета | верхние панели прокручиваются и не выталкивают окно за границы узкого экрана |
 | Экспорт изображений | устранены Windows-блокировка SVG и несовместимость формата PNG в PySide6 |
 | Физическая печать/HiDPI | требует подтверждения на целевой Windows-машине |
@@ -46,8 +46,8 @@
 
 Завершить Windows GUI/HiDPI/PDF/physical-print smoke-test и подписать релизную матрицу.
 Annotation event router, navigation coordinator, lifecycle треков, общий расчёт сетки,
-переходы edit-mode, workspace-навигация и маршрутизация импорта защищены
-headless/UI-тестами. Следующий архитектурный срез — выполнение форматных import jobs.
+переходы edit-mode, workspace-навигация и CSV/Excel jobs защищены headless/UI-тестами.
+Следующий архитектурный срез — выполнение LAS/Paradox jobs.
 
 Подробности: [аудит](PRODUCT_AUDIT_2026.md), [план](PROJECT_PLAN.md),
 [roadmap](ROADMAP.md), [проверки](TESTING.md).

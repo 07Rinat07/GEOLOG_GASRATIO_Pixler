@@ -55,7 +55,7 @@ from geoworkbench.calculations.custom_formula import formula_inputs
 from geoworkbench.calculations.interval_statistics import calculate_interval_statistics
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.importers.skf_importer import import_skf_file
-from geoworkbench.domain.models import IndexRole
+from geoworkbench.domain.models import Dataset, IndexRole
 from geoworkbench.data.las_adapter import (
     LasExportError,
     LasImportError,
@@ -63,8 +63,6 @@ from geoworkbench.data.las_adapter import (
 )
 from geoworkbench.data.las_import_report import LasIssueSeverity
 from geoworkbench.data.las_import_policy import LasImportMode, evaluate_las_import
-from geoworkbench.data.csv_adapter import CsvImportError, import_csv
-from geoworkbench.data.excel_adapter import ExcelImportError, import_excel
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.data.selection_export import SelectionExportError
 from geoworkbench.data.visualization_export import (
@@ -146,6 +144,7 @@ from geoworkbench.ui.import_job_controller import (
     ImportJobController,
     ImportSourceKind,
 )
+from geoworkbench.ui.tabular_import_jobs import TabularImportJobExecutor
 from geoworkbench.ui.workspace_controller import (
     WorkspaceController,
     WorkspaceSurface,
@@ -210,9 +209,7 @@ from geoworkbench.services.mnemonic_registry import UserMnemonicRegistry
 from geoworkbench.services.time_display import format_elapsed_time, format_unix_seconds
 
 
-class _MainWindowWorkspacePort:
-    """Thin Qt adapter for headless workspace navigation rules."""
-
+class _MainWindowPort:
     def __init__(self, window: MainWindow) -> None:
         self._window_ref = ref(window)
 
@@ -222,6 +219,10 @@ class _MainWindowWorkspacePort:
         if window is None:
             raise RuntimeError("Main window is no longer available")
         return window
+
+
+class _MainWindowWorkspacePort(_MainWindowPort):
+    """Thin Qt adapter for headless workspace navigation rules."""
 
     def set_workspace_available(
         self,
@@ -244,18 +245,8 @@ class _MainWindowWorkspacePort:
         self._window.statusBar().showMessage(self._window._t(key))
 
 
-class _MainWindowImportJobPort:
+class _MainWindowImportJobPort(_MainWindowPort):
     """Map stable import kinds to the existing format-specific UI jobs."""
-
-    def __init__(self, window: MainWindow) -> None:
-        self._window_ref = ref(window)
-
-    @property
-    def _window(self) -> MainWindow:
-        window = self._window_ref()
-        if window is None:
-            raise RuntimeError("Main window is no longer available")
-        return window
 
     def execute_import(self, kind: ImportSourceKind) -> None:
         handlers = {
@@ -272,6 +263,11 @@ class _MainWindowImportJobPort:
             self._window._t("import.title"),
             self._window._t("import.unknown_source", source=selected_label),
         )
+
+
+class _MainWindowTabularImportPort(_MainWindowPort):
+    def add_imported_dataset(self, dataset: Dataset) -> None:
+        self._window.session.add_dataset(dataset)
 
 
 class MainWindow(QMainWindow):
@@ -462,6 +458,9 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar())
         self._workspace_controller = WorkspaceController(_MainWindowWorkspacePort(self))
         self._import_job_controller = ImportJobController(_MainWindowImportJobPort(self))
+        self._tabular_import_jobs = TabularImportJobExecutor(
+            _MainWindowTabularImportPort(self)
+        )
         self._workspace_controller.set_dataset(None)
         self._set_tablet_edit_mode(False)
         self.cursor_line_action.setChecked(self.cursor_line_settings.enabled)
@@ -1965,13 +1964,15 @@ class MainWindow(QMainWindow):
         dialog = CsvImportDialog(Path(filename), self, language=self.language)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        try:
-            result = import_csv(filename, dialog.import_plan())
-            self.session.add_dataset(result.dataset)
-        except (CsvImportError, FileNotFoundError, OSError, ValueError) as exc:
-            QMessageBox.critical(self, "Импорт CSV", str(exc))
-            self._log(f"CSV не импортирован: {exc}")
+        outcome = self._tabular_import_jobs.execute_csv(
+            Path(filename),
+            dialog.import_plan,
+        )
+        if outcome.result is None:
+            QMessageBox.critical(self, "Импорт CSV", outcome.error)
+            self._log(f"CSV не импортирован: {outcome.error}")
             return
+        result = outcome.result
         self._refresh_tree()
         self._show_current_dataset()
         self._update_title()
@@ -1993,13 +1994,15 @@ class MainWindow(QMainWindow):
         dialog = ExcelImportDialog(Path(filename), self, language=self.language)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        try:
-            result = import_excel(filename, dialog.import_plan())
-            self.session.add_dataset(result.dataset)
-        except (ExcelImportError, FileNotFoundError, OSError, ValueError) as exc:
-            QMessageBox.critical(self, "Импорт Excel", str(exc))
-            self._log(f"Excel не импортирован: {exc}")
+        outcome = self._tabular_import_jobs.execute_excel(
+            Path(filename),
+            dialog.import_plan,
+        )
+        if outcome.result is None:
+            QMessageBox.critical(self, "Импорт Excel", outcome.error)
+            self._log(f"Excel не импортирован: {outcome.error}")
             return
+        result = outcome.result
         self._refresh_tree()
         self._show_current_dataset()
         self._update_title()

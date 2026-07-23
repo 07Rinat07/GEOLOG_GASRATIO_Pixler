@@ -4,8 +4,8 @@ Snapshot: 23 July 2026. Version 0.7.28, test build.
 
 ## Release decision
 
-The automated release gate is green: Ruff passes, mypy reports zero errors across 261 source
-files, and the complete pytest run reports 1,211 passed and 10 skipped with exit code zero.
+The automated release gate is green: Ruff passes, mypy reports zero errors across 262 source
+files, and the complete pytest run reports 1,217 passed and 10 skipped with exit code zero.
 The build remains a test build until the Windows, HiDPI, PDF, and physical
 printer smoke matrix is signed off.
 
@@ -28,7 +28,7 @@ tests. A shared grid renderer now supplies matching major/minor divisions to scr
 and depth tracks preserve their saved grid settings. The edit-mode coordinator is now the sole
 source of F4 and active annotation-tool state. `WorkspaceController` now owns dataset
 availability and home/workspace/target-tab transitions. The next architecture slice extracts
-format-specific import execution after `ImportJobController` took ownership of localized
-LAS/CSV/Excel/Paradox routing. See the
+LAS/Paradox jobs after `TabularImportJobExecutor` took ownership of confirmed CSV/Excel plan
+execution and dataset registration. See the
 [audit](PRODUCT_AUDIT_2026.md) and
 [plan](PROJECT_PLAN.md).

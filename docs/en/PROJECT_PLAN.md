@@ -6,7 +6,7 @@ only active work.
 ## P0 — release stability
 
 - [x] fix annotation routing and the full Qt test-process crash;
-- [x] bring Ruff and mypy to zero errors; the full pytest result is 1,211 passed and
+- [x] bring Ruff and mypy to zero errors; the full pytest result is 1,217 passed and
   10 skipped;
 - complete the mandatory Windows, HiDPI, PDF, and physical-print matrix;
 - do not label the build stable until the gate is green.
@@ -22,7 +22,8 @@ only active work.
 - [x] make the editing-mode controller the sole owner of F4 and annotation-tool state;
 - [x] extract home/workspace/target-tab navigation from `MainWindow`;
 - [x] extract stable source kinds and universal-import routing;
-- extract format-specific import execution, print jobs, session binding, and remaining commands;
+- [x] extract CSV/Excel plan execution and dataset registration;
+- extract LAS/Paradox jobs, print jobs, session binding, and remaining commands;
 - add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
   source, and original mnemonic;
 - add one Import Review and a reproducible report passport.
