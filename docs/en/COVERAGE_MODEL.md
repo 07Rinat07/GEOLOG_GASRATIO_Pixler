@@ -13,6 +13,6 @@ resolved interval.
 
 CSV writes zero as `0`, a missing sample as an empty cell, and an unavailable channel as `#N/A`.
 XLSX adds availability, observed, zero, missing, and coverage columns on the `Parameters` sheet.
-JSON, Parquet, and Report Passport schema v3 include the structured coverage payload.
+JSON, Parquet, and Report Passport schema v4 include the structured coverage payload.
 
 Project format remains v16. Full contract: [COVERAGE_MODEL.md](../COVERAGE_MODEL.md).

@@ -511,3 +511,11 @@ resolved interval. Подробности: [Единая ReportDefinition](REPOR
 ## Печать 0.7.38
 
 Print Center поддерживает A4/A3/custom/roll, Fit и 100%. В 100% ширины формы сохраняются, а широкая форма разбивается на нумерованные продолжения с overlap. После системного диалога physical printer gate проверяет формат, физические пределы, поля, printable area и DPI. См. [Форматы и масштаб печати](PRINT_MEDIA_MODEL.md).
+
+## Транзакция файлов отчёта 0.7.39
+
+PDF, изображения/SVG, CSV/XLSX, Masterlog и интерпретационный PDF сначала записываются в
+staging и только затем устанавливаются вместе с Report Passport schema v4. Паспорт содержит
+SHA-256 и размер готового файла; при сбое прежняя пара восстанавливается из журнала. Для ручного
+recovery используется `python tools/recover_report_transactions.py <каталог>`. Подробнее:
+[Восстанавливаемая транзакция](REPORT_OUTPUT_TRANSACTION.md).

@@ -13,6 +13,6 @@ resolved interval жолдары бойынша есептейді.
 
 CSV ішінде нөл `0`, missing sample бос ұяшық, unavailable channel `#N/A` ретінде жазылады. XLSX
 `Parameters` парағында availability, observed, zeros, missing және coverage көрсетіледі. JSON,
-Parquet және Report Passport schema v3 құрылымдалған coverage payload сақтайды.
+Parquet және Report Passport schema v4 құрылымдалған coverage payload сақтайды.
 
 Project format v16 болып қалады. Толық contract: [COVERAGE_MODEL.md](../COVERAGE_MODEL.md).

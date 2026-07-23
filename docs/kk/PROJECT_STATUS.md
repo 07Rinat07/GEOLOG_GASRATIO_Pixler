@@ -1,22 +1,23 @@
 # Жоба мәртебесі
 
-Кесім: 2026 жылғы 23 шілде. Нұсқа: 0.7.38, тесттік жинақ.
+Кесім: 2026 жылғы 23 шілде. Нұсқа: 0.7.39, тесттік жинақ.
 
 ## Орындалды
 
-- A4/A3/custom/roll үшін ортақ print-media schema v1;
-- reference DPI 96 негізіндегі Fit және 100%;
-- vertical pages және horizontal continuations бір deterministic plan құрайды;
-- preview, PDF, paged files және physical printer бір job қолданады;
-- system page range printer gate және final page count ішінде ескеріледі;
-- gate media, bounds, margins, printable area, DPI және device state тексереді;
-- Report Passport schema v3 деңгейіне көтерілді;
+- recoverable report-output transaction schema v1;
+- staging, journal, backup, install, rollback және recovery;
+- дайын output fingerprints бар Report Passport schema v4;
+- sidecar load кезінде PDF/image/CSV/XLSX өзгерісін анықтау;
+- артық continuation pages транзакциялық тазалау;
+- Print Center, direct PNG/SVG/PDF, CSV/XLSX, Masterlog және interpretation PDF үшін ортақ service;
+- manual recovery tool;
 - project format v16 болып қалады.
 
-Тексерулер: 56 focused және 27 print-specific tests өтті; қолжетімді регрессия —
-910 passed, 4 skipped, 3 LAS tests deselected. Толық Qt/LAS/Ruff/mypy gate және real
-Windows/HiDPI/PDF/physical-print smoke-test міндетті.
+Тексеру: 37 focused tests; қолжетімді regression — 915 passed, 4 skipped,
+3 LAS tests deselected. Толық Qt/LAS/Ruff/mypy gate, Windows/NTFS/network-share recovery,
+PDF/HiDPI және physical-print smoke-test міндетті.
 
-Келесі кезең: output + passport filesystem transaction және дайын файл fingerprint.
+Келесі кезең: ReportDefinition, Coverage, output transaction және Report Passport schema v4
+арқылы DOCX және HTML adapters.
 
-[Баспа моделі](PRINT_MEDIA_MODEL.md) және [жалпы мәртебе](../PROJECT_STATUS.md).
+[Output транзакциясы](REPORT_OUTPUT_TRANSACTION.md) және [жалпы мәртебе](../PROJECT_STATUS.md).

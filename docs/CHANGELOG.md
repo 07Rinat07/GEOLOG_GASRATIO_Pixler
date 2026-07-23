@@ -1,3 +1,11 @@
+# 0.7.39 — recoverable report output transaction (test build)
+
+- added journaled staging/backup/install/rollback/recovery for output + passport;
+- upgraded Report Passport to schema v4 with fingerprints of completed output bytes;
+- routed Print Center, direct visualization, CSV/XLSX, Masterlog, and interpretation PDF through one transaction service;
+- added transactional continuation cleanup and a manual recovery tool;
+- kept project format v16.
+
 # 0.7.38 — unified print media and physical printer gate (test build)
 
 - added shared A4/A3/custom/roll media geometry and explicit Fit/100% modes;

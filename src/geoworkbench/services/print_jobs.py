@@ -29,8 +29,9 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.report_passport import (
     ReportPassport,
     ReportRenderSettings,
-    passport_sidecar_path,
-    write_report_passport,
+)
+from geoworkbench.services.report_output_transaction import (
+    execute_report_output_transaction,
 )
 
 
@@ -147,38 +148,42 @@ class PrintJobExecutor:
         target = job.normalized_target()
         if target is None:
             raise ValueError("Для файлового экспорта необходимо выбрать путь")
-        if passport is not None:
-            sidecar = passport_sidecar_path(target)
-            if sidecar.exists() and not overwrite:
-                raise FileExistsError(sidecar)
         context = PrintDocumentContext(source_name, language)
-        if job.output_format is PrintOutputFormat.PDF:
-            result = export_document_pdf(
-                widget,
-                target,
-                job,
-                context=context,
-                overwrite=overwrite,
-            )
-        else:
-            result = export_document_pages(
-                widget,
-                target,
-                job,
-                context=context,
-                overwrite=overwrite,
-            )
-        passport_path = (
-            write_report_passport(passport, target, overwrite=overwrite)
-            if passport is not None
-            else None
+        if passport is None:
+            if job.output_format is PrintOutputFormat.PDF:
+                result = export_document_pdf(
+                    widget, target, job, context=context, overwrite=overwrite
+                )
+            else:
+                result = export_document_pages(
+                    widget, target, job, context=context, overwrite=overwrite
+                )
+            return PrintJobResult(job.output_format, result.page_count, result.paths)
+
+        rendered_page_count = 0
+
+        def produce(staged_target: Path) -> tuple[Path, ...]:
+            nonlocal rendered_page_count
+            if job.output_format is PrintOutputFormat.PDF:
+                rendered = export_document_pdf(
+                    widget, staged_target, job, context=context, overwrite=False
+                )
+            else:
+                rendered = export_document_pages(
+                    widget, staged_target, job, context=context, overwrite=False
+                )
+            rendered_page_count = rendered.page_count
+            return rendered.paths
+
+        transaction = execute_report_output_transaction(
+            target, produce, passport, overwrite=overwrite
         )
         return PrintJobResult(
             job.output_format,
-            result.page_count,
-            result.paths,
-            passport_path=passport_path,
-            passport_sha256=passport.passport_sha256 if passport is not None else None,
+            rendered_page_count,
+            transaction.output_paths,
+            passport_path=transaction.passport_path,
+            passport_sha256=transaction.passport.passport_sha256,
         )
 
 

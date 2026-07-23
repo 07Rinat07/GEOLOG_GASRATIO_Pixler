@@ -140,7 +140,13 @@ Qt-независимый `services/interval_selection.py` содержит ра
 времени генерации и абсолютного пути вывода, подписывает его SHA-256 и фиксирует source
 fingerprints, точный интервал и выбранные значения, полный semantic binding/UOM, версии формул,
 content-addressed form/template revision, locale и render options. Файловые экспорты сохраняют
-`<имя>.<формат>.passport.json`; загрузчик паспорта проверяет digest и обнаруживает изменение JSON.
+`<имя>.<формат>.passport.json`; schema v4 содержит fingerprints уже сформированных output-файлов,
+а загрузчик проверяет digest JSON, размер и SHA-256 каждого artifact.
+
+`services/report_output_transaction.py` владеет recoverable filesystem transaction schema v1.
+Renderer пишет в staging, transaction журналирует backup/install/delete operations, устанавливает
+output и sidecar, повторно проверяет fingerprints и только затем фиксирует `committed`. Состояния
+до commit откатываются, committed-состояние после сбоя завершает только cleanup.
 
 
 `printing/print_layout.py` является Qt-независимым источником истины для media schema v1:
@@ -152,7 +158,7 @@ A4/A3/custom/roll, Fit/100%, physical 96-DPI mapping и overlap. `PrintDocumentP
 после `QPrintDialog` повторно применяет собственный page layout, переводит minimum margins в
 миллиметры и проверяет state, supported media, custom bounds, printable area, DPI и выбранный
 page range. Gate errors блокируют `QPainter.begin`; warnings остаются в result/log. Report Passport
-schema v3 подписывает scale и continuation settings.
+schema v4 подписывает scale/continuation settings и fingerprints готовых файлов.
 
 `RenderGolden` schema v1 фиксирует геометрию до платформенного raster-layer: Qt-независимые
 `grid_geometry`, `lithology_pattern_catalog` и `annotation_layout` формируют canonical JSON,

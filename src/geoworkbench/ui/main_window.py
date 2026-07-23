@@ -162,7 +162,9 @@ from geoworkbench.services.report_passport import (
     passport_sidecar_path,
     report_definition_snapshot,
     tablet_layout_form_snapshot,
-    write_report_passport,
+)
+from geoworkbench.services.report_output_transaction import (
+    execute_report_output_transaction,
 )
 from geoworkbench.ui.workspace_controller import (
     WorkspaceController,
@@ -2562,23 +2564,26 @@ class MainWindow(QMainWindow):
             passport = self._build_tabular_report_passport(
                 resolved_report, output_format=export_format
             )
-            if is_excel:
-                exported = self.dataset_export_controller.export_resolved_report_excel(
-                    target,
-                    resolved_report,
-                    overwrite=overwrite,
-                    language=self.language,
-                )
-            else:
-                exported = self.dataset_export_controller.export_resolved_report_text(
-                    target,
+            def produce(staged_target: Path) -> Path:
+                if is_excel:
+                    return self.dataset_export_controller.export_resolved_report_excel(
+                        staged_target,
+                        resolved_report,
+                        overwrite=False,
+                        language=self.language,
+                    )
+                return self.dataset_export_controller.export_resolved_report_text(
+                    staged_target,
                     resolved_report,
                     delimiter=",",
-                    overwrite=overwrite,
+                    overwrite=False,
                 )
-            passport_path = write_report_passport(
-                passport, exported, overwrite=overwrite
+
+            transaction = execute_report_output_transaction(
+                target, produce, passport, overwrite=overwrite
             )
+            exported = transaction.primary_path
+            passport_path = transaction.passport_path
         except (
             FileExistsError,
             KeyError,
@@ -3063,21 +3068,29 @@ class MainWindow(QMainWindow):
             passport = self._build_visualization_passport(
                 current, export_format, view_name
             )
-            if export_format == "pdf":
-                exported = export_widget_pdf(
-                    current,
-                    target,
-                    overwrite=overwrite,
-                    page_settings=self.print_page_settings,
-                )
-            else:
+            def produce(staged_target: Path) -> Path:
+                if export_format == "pdf":
+                    return export_widget_pdf(
+                        current,
+                        staged_target,
+                        overwrite=False,
+                        page_settings=self.print_page_settings,
+                    )
                 exporters = {"png": export_widget_png, "svg": export_widget_svg}
-                exported = exporters[export_format](current, target, overwrite=overwrite)
-            passport_path = write_report_passport(passport, exported, overwrite=overwrite)
+                return exporters[export_format](
+                    current, staged_target, overwrite=False
+                )
+
+            transaction = execute_report_output_transaction(
+                target, produce, passport, overwrite=overwrite
+            )
+            exported = transaction.primary_path
+            passport_path = transaction.passport_path
         except (
             FileExistsError,
             OSError,
             ReportPassportError,
+            RuntimeError,
             VisualizationExportError,
             ValueError,
         ) as exc:

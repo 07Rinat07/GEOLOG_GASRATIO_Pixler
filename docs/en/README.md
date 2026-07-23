@@ -495,3 +495,11 @@ Zero, a missing sample, and an unavailable channel are distinct in the preview/r
 ## Print model 0.7.38
 
 Print Center supports A4/A3/custom/roll, Fit, and 100%. At 100%, source form widths are preserved and wide forms become numbered continuations with overlap. After the native dialog, the physical printer gate validates media, bounds, margins, printable area, and DPI. See [Print media and scale model](PRINT_MEDIA_MODEL.md).
+
+## Report-file transaction 0.7.39
+
+PDF, images/SVG, CSV/XLSX, Masterlog, and interpretation PDF are written to staging and then
+installed together with Report Passport schema v4. The passport records SHA-256 and byte size of
+the completed file; failures restore the previous pair from the journal. Manual recovery uses
+`python tools/recover_report_transactions.py <directory>`. See
+[Recoverable report transaction](REPORT_OUTPUT_TRANSACTION.md).

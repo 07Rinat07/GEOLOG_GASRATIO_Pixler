@@ -43,7 +43,8 @@
 - [x] одна модель интервала для preview, PDF и табличного экспорта;
 - [x] единые bindings, UOM, coverage и различение нуля/пропуска/unavailable channel;
 - [x] A4/A3/custom/roll, Fit/100%, продолжения и physical printer gate;
-- [ ] единая filesystem-транзакция output + passport и fingerprint готового файла.
+- [x] единая filesystem-транзакция output + passport и fingerprint готового файла.
+- [ ] DOCX и HTML adapters через общий report contract.
 
 ## P2 — развитие
 

@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
 from functools import lru_cache
 from hashlib import sha256
+import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
     from geoworkbench.tablet.models import TabletLayout
 
 
-REPORT_PASSPORT_SCHEMA_VERSION = 3
+REPORT_PASSPORT_SCHEMA_VERSION = 4
 REPORT_PASSPORT_SUFFIX = ".passport.json"
 
 
@@ -104,6 +105,33 @@ class ReportCoverageSnapshot:
     missing_percent: float
     zero_percent: float
     zero_percent_of_observed: float
+
+
+
+
+@dataclass(frozen=True, slots=True)
+class ReportOutputArtifactSnapshot:
+    file_name: str
+    role: str
+    media_type: str
+    sha256: str
+    size_bytes: int
+    page_number: int | None = None
+
+    def __post_init__(self) -> None:
+        if not self.file_name or self.file_name != Path(self.file_name).name:
+            raise ValueError("Report Passport содержит небезопасное имя output-файла")
+        if self.role not in {"single-file", "page"}:
+            raise ValueError("Report Passport содержит неизвестную роль output-файла")
+        if not self.media_type.strip():
+            raise ValueError("MIME-type output-файла не должен быть пустым")
+        _validate_sha256(self.sha256, "artifact.sha256")
+        if self.size_bytes <= 0:
+            raise ValueError("Размер output-файла должен быть положительным")
+        if self.role == "page" and (self.page_number is None or self.page_number <= 0):
+            raise ValueError("Страница output-файла должна иметь положительный номер")
+        if self.role == "single-file" and self.page_number is not None:
+            raise ValueError("Одиночный output-файл не должен иметь номер страницы")
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,6 +214,7 @@ class ReportPassport:
     coverage: tuple[ReportCoverageSnapshot, ...]
     formulas: tuple[ReportFormulaSnapshot, ...]
     form: ReportFormSnapshot
+    artifacts: tuple[ReportOutputArtifactSnapshot, ...]
     language: str
     render: ReportRenderSettings
     warnings: tuple[str, ...]
@@ -226,6 +255,11 @@ class ReportPassport:
             if formula.expression_sha256 is not None:
                 _validate_sha256(formula.expression_sha256, "formula.expression_sha256")
         _validate_sha256(self.form.definition_sha256, "form.definition_sha256")
+        names: set[str] = set()
+        for artifact in self.artifacts:
+            if artifact.file_name in names:
+                raise ValueError("Report Passport содержит повторяющийся output-файл")
+            names.add(artifact.file_name)
         _language_value(self.language)
         if self.passport_sha256:
             _validate_sha256(self.passport_sha256, "passport_sha256")
@@ -310,6 +344,7 @@ class ReportPassportBuilder:
             coverage=coverage,
             formulas=formulas,
             form=form,
+            artifacts=(),
             language=_language_value(request.language),
             render=request.render,
             warnings=tuple(sorted(set(warnings))),
@@ -364,6 +399,7 @@ class ReportPassportBuilder:
             coverage=(),
             formulas=(),
             form=form,
+            artifacts=(),
             language=_language_value(request.language),
             render=request.render,
             warnings=(),
@@ -461,6 +497,102 @@ def masterlog_template_snapshot(template: MasterlogTemplate) -> ReportFormSnapsh
     )
 
 
+
+def finalize_report_passport(
+    passport: ReportPassport,
+    output_paths: Sequence[str | Path],
+    *,
+    artifact_names: Sequence[str] | None = None,
+) -> ReportPassport:
+    """Attach fingerprints of completed output bytes and re-sign the passport."""
+
+    if not passport.verify():
+        raise ReportPassportError("Report Passport имеет неверный контрольный SHA-256")
+    paths = tuple(Path(path) for path in output_paths)
+    if not paths:
+        raise ReportPassportError("Для финализации паспорта требуется output-файл")
+    names = tuple(artifact_names) if artifact_names is not None else tuple(path.name for path in paths)
+    if len(names) != len(paths):
+        raise ReportPassportError("Количество имён artifacts не совпадает с output-файлами")
+    multiple = len(paths) > 1
+    artifacts = tuple(
+        _output_artifact_snapshot(
+            path,
+            file_name=name,
+            role="page" if multiple else "single-file",
+            page_number=index if multiple else None,
+        )
+        for index, (path, name) in enumerate(zip(paths, names, strict=True), start=1)
+    )
+    unsigned = replace(passport, artifacts=artifacts, passport_sha256="")
+    return replace(unsigned, passport_sha256=_passport_digest(unsigned))
+
+
+def verify_report_output_artifacts(
+    payload: Mapping[str, Any] | ReportPassport,
+    directory: str | Path,
+) -> None:
+    values = payload.payload() if isinstance(payload, ReportPassport) else payload
+    artifacts = values.get("artifacts", ())
+    if artifacts is None:
+        return
+    if not isinstance(artifacts, (list, tuple)):
+        raise ReportPassportError("Report Passport содержит неверный artifacts payload")
+    root = Path(directory)
+    for item in artifacts:
+        if isinstance(item, ReportOutputArtifactSnapshot):
+            file_name = item.file_name
+            expected_size = item.size_bytes
+            expected_digest = item.sha256
+        elif isinstance(item, Mapping):
+            file_name = item.get("file_name")
+            expected_size = item.get("size_bytes")
+            expected_digest = item.get("sha256")
+        else:
+            raise ReportPassportError("Report Passport содержит повреждённый artifact")
+        if not isinstance(file_name, str) or file_name != Path(file_name).name:
+            raise ReportPassportError("Report Passport содержит небезопасное имя artifact")
+        if not isinstance(expected_size, int) or expected_size <= 0:
+            raise ReportPassportError("Report Passport содержит неверный размер artifact")
+        if not isinstance(expected_digest, str):
+            raise ReportPassportError("Report Passport не содержит SHA-256 artifact")
+        path = root / file_name
+        try:
+            size = path.stat().st_size
+        except OSError as exc:
+            raise ReportPassportError(f"Output artifact недоступен: {file_name}") from exc
+        if size != expected_size or _output_file_digest(path) != expected_digest:
+            raise ReportPassportError(f"Fingerprint output artifact не совпадает: {file_name}")
+
+
+def _output_artifact_snapshot(
+    path: Path,
+    *,
+    file_name: str,
+    role: str,
+    page_number: int | None,
+) -> ReportOutputArtifactSnapshot:
+    if not path.is_file() or path.stat().st_size <= 0:
+        raise ReportPassportError(f"Output artifact не создан или пуст: {path}")
+    media_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+    return ReportOutputArtifactSnapshot(
+        file_name=file_name,
+        role=role,
+        media_type=media_type,
+        sha256=_output_file_digest(path),
+        size_bytes=path.stat().st_size,
+        page_number=page_number,
+    )
+
+
+def _output_file_digest(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def passport_sidecar_path(output: str | Path) -> Path:
     target = Path(output)
     return target.with_name(target.name + REPORT_PASSPORT_SUFFIX)
@@ -474,6 +606,8 @@ def write_report_passport(
 ) -> Path:
     if not passport.verify():
         raise ReportPassportError("Report Passport имеет неверный контрольный SHA-256")
+    if not passport.artifacts:
+        raise ReportPassportError("Report Passport не содержит fingerprint output artifact")
     destination = passport_sidecar_path(output)
     if destination.exists() and not overwrite:
         raise FileExistsError(destination)
@@ -517,6 +651,8 @@ def load_report_passport(source: str | Path) -> dict[str, Any]:
     unsigned.pop("passport_sha256", None)
     if digest != sha256(_canonical_json(unsigned).encode("utf-8")).hexdigest():
         raise ReportPassportError("Контрольный SHA-256 Report Passport не совпадает")
+    if payload.get("artifacts"):
+        verify_report_output_artifacts(payload, path.parent)
     return payload
 
 

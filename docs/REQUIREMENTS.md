@@ -211,7 +211,8 @@ JSON-файл проекта не считается универсальным 
 | VIEW-018 | Выделение числового интервала Shift + ЛКМ на любой форме | готово: единая полоса на всех графиках, текущая depth/time ось, все видимые параметры и правая панель min/max/mean/count/coverage |
 | EXPORT-011 | Копирование и экспорт статистики выделенного интервала | готово: Excel-совместимый TSV в буфер, XLSX и UTF-8 CSV с dataset и границами оси |
 | EXPORT-012 | Единая `ReportDefinition` и один resolved interval для preview, PDF/печати и табличного экспорта | готово: schema v2 фиксирует dataset/index, sections, curve IDs, ожидаемые мнемоники, form revision, language и full/current/custom/selection; Print Center, Masterlog и выбранный CSV/XLSX используют один resolver и snapshot в Report Passport |
-| EXPORT-013 | Единая coverage-модель | готово: observed value/zero, missing sample и unavailable channel различаются в resolved report, CSV/XLSX/JSON/Parquet, интервальной статистике, Curve Catalog и Report Passport schema v3 |
+| EXPORT-013 | Единая coverage-модель | готово: observed value/zero, missing sample и unavailable channel различаются в resolved report, CSV/XLSX/JSON/Parquet, интервальной статистике, Curve Catalog и Report Passport schema v4 |
+| EXPORT-014 | Восстанавливаемая запись output + Report Passport и fingerprint готового файла | готово: staging, journal schema v1, backup/install/rollback/recovery, transactional continuation cleanup и Passport schema v4 artifacts |
 
 Печатный рендер должен работать в миллиметрах и не должен быть скриншотом экранного
 `TabletView`.

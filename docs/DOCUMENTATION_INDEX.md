@@ -69,3 +69,11 @@ Every user-facing change must update the matching RU/KK/EN files in the same com
 - [Русская инструкция](ru/PRINT_MEDIA_MODEL.md)
 - [Қазақша нұсқаулық](kk/PRINT_MEDIA_MODEL.md)
 - [English guide](en/PRINT_MEDIA_MODEL.md)
+
+## Report output transaction
+
+- [Восстанавливаемая транзакция output](REPORT_OUTPUT_TRANSACTION.md)
+- [Release notes 0.7.39](RELEASE_NOTES_0.7.39.md)
+- [Русская инструкция](ru/REPORT_OUTPUT_TRANSACTION.md)
+- [Қазақша нұсқаулық](kk/REPORT_OUTPUT_TRANSACTION.md)
+- [English guide](en/REPORT_OUTPUT_TRANSACTION.md)

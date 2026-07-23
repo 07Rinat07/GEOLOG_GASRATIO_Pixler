@@ -68,7 +68,7 @@ schema v1 фиксирует общую grid/legend/lithotype/annotation geometr
 ожидаемые channel mnemonics, form revision, language и full/current/custom/selection interval; Print Center, Masterlog
 и CSV/XLSX используют один resolved range, который также сохраняется в Report Passport.
 Coverage schema v1 различает observed value, observed zero, missing sample и unavailable channel;
-Report Passport schema v3 подписывает coverage, scale mode и continuation settings. Единая
+Report Passport schema v4 подписывает coverage, scale mode, continuation settings и fingerprints готовых output artifacts. Единая
 print-media schema v1 разрешает A4/A3/custom/roll, Fit/100%, двумерный page plan и capability gate
 после выбора физического устройства.
 
@@ -89,7 +89,7 @@ print-media schema v1 разрешает A4/A3/custom/roll, Fit/100%, двуме
 - [x] единый interval selection для preview, PDF и табличного экспорта;
 - [x] coverage и явное различение нуля, пропуска и отсутствующего канала;
 - [x] A4/A3/custom/roll, 100%/fit, page continuation и физический printer gate;
-- [ ] объединить запись output и passport sidecar в одну восстанавливаемую filesystem-транзакцию
+- [x] объединить запись output и passport sidecar в одну восстанавливаемую filesystem-транзакцию
   и добавить fingerprint готового output-файла;
 - [x] экспорт PDF/XLSX/CSV/TSV через общий ReportDefinition/Coverage contract;
 - [ ] DOCX и HTML — после filesystem-транзакции и output fingerprint.

@@ -43,7 +43,8 @@ only active work.
 - [x] one interval model for preview, PDF, and tabular export;
 - [x] shared bindings, UOM, coverage, and explicit zero/missing/unavailable handling;
 - [x] A4/A3/custom/roll, Fit/100%, continuation, and physical printer gate;
-- [ ] one recoverable output + passport filesystem transaction and output fingerprint.
+- [x] one recoverable output + passport filesystem transaction and output fingerprint.
+- [ ] DOCX and HTML adapters through the shared report contract.
 
 ## P2 — expansion
 

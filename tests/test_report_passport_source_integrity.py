@@ -18,10 +18,10 @@ def test_print_center_builds_and_writes_report_passport() -> None:
     assert "report_render_settings(job)" in window
     assert "passport=passport" in window
     assert "passport_sidecar_path(target)" in window
-    assert "write_report_passport(passport, target" in jobs
-    assert "passport_sha256" in jobs
+    assert "execute_report_output_transaction" in jobs
+    assert "transaction.passport.passport_sha256" in jobs
     assert "_build_visualization_passport" in window
-    assert "write_report_passport(passport, exported" in window
+    assert "execute_report_output_transaction" in window
 
 
 def test_masterlog_pdf_builds_template_revision_passport() -> None:
@@ -32,7 +32,7 @@ def test_masterlog_pdf_builds_template_revision_passport() -> None:
     assert "ReportKind.MASTERLOG" in dialog
     assert 'renderer="masterlog-renderer:1"' in dialog
     assert "passport=passport" in dialog
-    assert "write_report_passport(passport, destination" in renderer
+    assert "execute_report_output_transaction" in renderer
 
 
 def test_report_passport_does_not_persist_absolute_output_path_or_timestamp() -> None:
@@ -40,9 +40,9 @@ def test_report_passport_does_not_persist_absolute_output_path_or_timestamp() ->
 
     assert "created_at" not in service
     assert "generated_at" not in service
-    assert "output_path" not in service
+    assert "absolute_output_path" not in service
     assert "datetime.now" not in service
-    assert "Path(output).resolve" not in service
+    assert "file_name != Path(file_name).name" in service
     assert "target.name + REPORT_PASSPORT_SUFFIX" in service
 
 
@@ -54,4 +54,4 @@ def test_interpretation_report_uses_well_level_artifact_passport() -> None:
     assert "depth_interval_snapshot" in dialog
     assert "report_definition_snapshot" in dialog
     assert "passport=passport" in dialog
-    assert "write_report_passport(passport, destination" in renderer
+    assert "execute_report_output_transaction" in renderer

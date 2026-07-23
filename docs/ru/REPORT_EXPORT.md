@@ -114,3 +114,8 @@ CSV различает `0`, пустой missing sample и `#N/A` для unavail
 ## Печатная модель 0.7.38
 
 A4/A3/custom/roll, Fit и 100% используют один план. В 100% широкая форма создаёт продолжения; PDF и принтер остаются одним многостраничным заданием. См. [PRINT_MEDIA_MODEL.md](PRINT_MEDIA_MODEL.md).
+
+
+## Восстанавливаемая запись output в 0.7.39
+
+PDF, постраничные изображения/SVG, CSV/XLSX, Masterlog и интерпретационный PDF формируются в staging и фиксируются вместе с passport schema v4. Output bytes получают fingerprint до установки; rollback восстанавливает предыдущую пару. См. [транзакцию output](REPORT_OUTPUT_TRANSACTION.md).

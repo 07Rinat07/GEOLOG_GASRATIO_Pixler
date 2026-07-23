@@ -63,10 +63,9 @@ from geoworkbench.printing.text_rendering import (
     draw_oriented_text,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
-from geoworkbench.services.report_passport import (
-    ReportPassport,
-    passport_sidecar_path,
-    write_report_passport,
+from geoworkbench.services.report_passport import ReportPassport
+from geoworkbench.services.report_output_transaction import (
+    execute_report_output_transaction,
 )
 from geoworkbench.services.las_parameter_resolver import LasParameterResolver
 from geoworkbench.tablet.annotation_layout import LayoutRect, layout_annotation
@@ -296,12 +295,30 @@ def export_masterlog_pdf(
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
         raise MasterlogRenderError("Masterlog PDF должен иметь расширение .pdf")
+    if passport is not None:
+        try:
+            transaction = execute_report_output_transaction(
+                destination,
+                lambda staged: export_masterlog_pdf(
+                    template,
+                    session,
+                    staged,
+                    overwrite=False,
+                    settings=settings,
+                    passport=None,
+                ),
+                passport,
+                overwrite=overwrite,
+            )
+        except (FileExistsError, MasterlogRenderError):
+            raise
+        except Exception as exc:
+            raise MasterlogRenderError(
+                f"Не удалось зафиксировать masterlog PDF и Report Passport: {destination}"
+            ) from exc
+        return transaction.primary_path
     if destination.exists() and not overwrite:
         raise FileExistsError(destination)
-    if passport is not None:
-        sidecar = passport_sidecar_path(destination)
-        if sidecar.exists() and not overwrite:
-            raise FileExistsError(sidecar)
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, name = tempfile.mkstemp(
         prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
@@ -326,8 +343,6 @@ def export_masterlog_pdf(
         if not temporary.exists() or temporary.stat().st_size == 0:
             raise MasterlogRenderError("Не удалось сформировать masterlog PDF")
         os.replace(temporary, destination)
-        if passport is not None:
-            write_report_passport(passport, destination, overwrite=overwrite)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
         if isinstance(exc, (FileExistsError, MasterlogRenderError)):

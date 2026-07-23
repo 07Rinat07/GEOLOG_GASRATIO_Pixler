@@ -53,7 +53,8 @@ Exit: a recorded session can be replayed deterministically and produces the same
 - [complete] Print Center/Masterlog PDF plus selected CSV/XLSX are driven from the same resolved interval;
 - [complete] add shared coverage and an explicit zero/missing/unavailable-channel model;
 - [complete] unify A4/A3/custom/roll media, Fit/100%, continuation planning, and the physical printer capability gate;
-- atomically commit output + passport and add an output-file fingerprint before DOCX/HTML adapters;
+- completed: recoverable output + passport transaction and output-file fingerprints;
+- next: DOCX/HTML adapters through the same ReportDefinition/Coverage/transaction boundary;
 - multiwell correlation canvas with tops, ties, independent depth ranges, and paginated PDF;
 - template validation, versioning, import/export, and backward-compatible migrations.
 

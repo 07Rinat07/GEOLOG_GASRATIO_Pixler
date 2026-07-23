@@ -92,3 +92,8 @@ CSV distinguishes `0`, an empty missing sample, and `#N/A` for an unavailable ch
 ## Print model in 0.7.38
 
 A4/A3/custom/roll, Fit, and 100% share one plan. At 100%, a wide form creates continuations while PDF and the printer remain one multi-page job. See [PRINT_MEDIA_MODEL.md](PRINT_MEDIA_MODEL.md).
+
+
+## Recoverable output commit in 0.7.39
+
+PDF, paged images/SVG, CSV/XLSX, Masterlog, and interpretation PDF render into staging and commit with the schema-v4 passport. Output bytes are fingerprinted before install; rollback restores the previous pair. See [Report output transaction](REPORT_OUTPUT_TRANSACTION.md).

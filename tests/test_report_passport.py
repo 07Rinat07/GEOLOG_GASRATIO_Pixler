@@ -23,6 +23,7 @@ from geoworkbench.services.report_passport import (
     ReportPassportError,
     ReportPassportRequest,
     ReportRenderSettings,
+    finalize_report_passport,
     load_report_passport,
     passport_sidecar_path,
     write_report_passport,
@@ -131,12 +132,16 @@ def test_report_passport_sidecar_roundtrip_and_tamper_detection(tmp_path) -> Non
     output = tmp_path / "report.pdf"
     output.write_bytes(b"%PDF")
 
-    sidecar = write_report_passport(passport, output)
+    finalized = finalize_report_passport(passport, (output,))
+    sidecar = write_report_passport(finalized, output)
 
     assert sidecar == passport_sidecar_path(output)
-    assert load_report_passport(sidecar)["passport_sha256"] == passport.passport_sha256
+    loaded = load_report_passport(sidecar)
+    assert loaded["passport_sha256"] == finalized.passport_sha256
+    assert loaded["artifacts"][0]["file_name"] == "report.pdf"
+    assert loaded["artifacts"][0]["size_bytes"] == 4
     with pytest.raises(FileExistsError):
-        write_report_passport(passport, output)
+        write_report_passport(finalized, output)
 
     payload = json.loads(sidecar.read_text(encoding="utf-8"))
     payload["report_name"] = "tampered"
@@ -145,12 +150,28 @@ def test_report_passport_sidecar_roundtrip_and_tamper_detection(tmp_path) -> Non
         load_report_passport(sidecar)
 
 
+def test_report_passport_detects_modified_output_artifact(tmp_path) -> None:
+    passport = ReportPassportBuilder().build(make_session(), request())
+    output = tmp_path / "report.pdf"
+    output.write_bytes(b"%PDF-original")
+    finalized = finalize_report_passport(passport, (output,))
+    sidecar = write_report_passport(finalized, output)
+
+    output.write_bytes(b"%PDF-tampered")
+
+    with pytest.raises(ReportPassportError, match="Fingerprint output artifact"):
+        load_report_passport(sidecar)
+
+
 def test_writer_rejects_modified_passport_digest(tmp_path) -> None:
     passport = ReportPassportBuilder().build(make_session(), request())
-    invalid = replace(passport, report_name="Changed after signing")
+    output = tmp_path / "report.pdf"
+    output.write_bytes(b"%PDF")
+    finalized = finalize_report_passport(passport, (output,))
+    invalid = replace(finalized, report_name="Changed after signing")
 
     with pytest.raises(ReportPassportError, match="SHA-256"):
-        write_report_passport(invalid, tmp_path / "report.pdf")
+        write_report_passport(invalid, output)
 
 
 def test_report_passport_hashes_only_samples_inside_exact_interval() -> None:
@@ -378,7 +399,7 @@ def test_report_passport_coverage_distinguishes_zero_missing_and_unavailable() -
     assert any(item == "curve-not-found:H2S" for item in passport.warnings)
 
 
-def test_report_passport_v3_signs_print_scale_and_continuation() -> None:
+def test_report_passport_v4_signs_print_scale_and_continuation() -> None:
     scoped = request()
     scoped = replace(
         scoped,
@@ -393,6 +414,6 @@ def test_report_passport_v3_signs_print_scale_and_continuation() -> None:
     passport = ReportPassportBuilder().build(make_session(), scoped)
     payload = passport.payload(include_digest=False)
 
-    assert passport.schema_version == 3
+    assert passport.schema_version == 4
     assert payload["render"]["scale_mode"] == "actual_size"
     assert payload["render"]["continuation_overlap_mm"] == 5.0

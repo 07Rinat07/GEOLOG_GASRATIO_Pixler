@@ -496,3 +496,11 @@ interval қолданады. Толығырақ: [Ортақ ReportDefinition](R
 ## 0.7.38 баспа моделі
 
 Print Center A4/A3/custom/roll, Fit және 100% қолдайды. 100% режимі пішін енін сақтайды және кең пішінді overlap бар continuation беттеріне бөледі. System dialog кейін physical printer gate media, bounds, margins, printable area және DPI тексереді. [Баспа пішімдері](PRINT_MEDIA_MODEL.md).
+
+## Есеп файлдарының транзакциясы 0.7.39
+
+PDF, images/SVG, CSV/XLSX, Masterlog және interpretation PDF алдымен staging ішінде жазылып,
+Report Passport schema v4-пен бірге орнатылады. Passport дайын файлдың SHA-256 және byte size
+мәнін сақтайды; қате кезінде бұрынғы жұп journal арқылы қайтарылады. Қолмен recovery:
+`python tools/recover_report_transactions.py <каталог>`. Толығырақ:
+[Қалпына келетін транзакция](REPORT_OUTPUT_TRANSACTION.md).

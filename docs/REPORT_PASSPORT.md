@@ -1,79 +1,93 @@
 # Report Passport
 
-Статус: реализовано с версии 0.7.34; coverage добавлен в schema v2 в 0.7.37, а печатная модель — в schema v3 в 0.7.38. Формат проекта остаётся v16.
+Статус: реализовано с версии 0.7.34. Coverage добавлен в schema v2, печатная модель — в schema v3,
+а fingerprints готовых output artifacts — в schema v4 версии 0.7.39. Формат проекта остаётся v16.
 
 ## Назначение
 
-Report Passport — детерминированный JSON-sidecar, который объясняет, из каких данных и настроек
-получен конкретный PDF, PNG, SVG или другой результат Print Center. Для неизменившихся данных,
-формы, языка и параметров рендера повторная генерация создаёт тот же `passport_sha256`.
-
-Файловый паспорт сохраняется рядом с результатом:
+Report Passport — детерминированный JSON-sidecar, который объясняет происхождение конкретного
+PDF, изображения, CSV/XLSX или другого отчётного результата. Для неизменившихся данных, формы,
+языка, параметров рендера и output bytes повторная генерация создаёт тот же `passport_sha256`.
 
 ```text
 report.pdf
 report.pdf.passport.json
 ```
 
-Физическая печать не имеет пути для sidecar, поэтому приложение вычисляет и показывает digest
-паспорта, но не создаёт отдельный файл.
+Физическая печать не имеет файла, поэтому вычисляется предварительный digest без artifacts и
+sidecar не создаётся.
 
 ## Покрытые сценарии
 
 - Print Center: PDF и постраничные PNG/JPEG/TIFF/BMP/WebP/SVG;
-- прямой экспорт активной визуализации в PNG, SVG и PDF;
+- прямой PNG/SVG/PDF активной визуализации;
+- CSV/XLSX выбранного интервала;
 - Masterlog PDF;
-- интерпретационный PDF по пробам, кальциметрии и ЛБА;
-- физическая печать: вычисление digest без файлового sidecar.
-
-Preview не считается финальным экспортом и не создаёт паспорт.
+- интерпретационный PDF;
+- физическая печать: digest без файлового sidecar.
 
 ## Что фиксируется
 
 - версия приложения и schema паспорта;
-- идентификаторы проекта, скважины, dataset либо well-level artifact;
-- точный интервал, количество попавших в него отсчётов и SHA-256 значений индекса;
-- fingerprint только тех значений выбранных каналов, которые входят в интервал отчёта;
-- исходная/canonical мнемоника, canonical kind, quantity class, source/display/canonical UOM;
-- sensor ID, semantic source, family/category, confidence, matched-by, aliases и evidence;
-- provenance кривых, состояние и версия данных;
-- ID, версия и SHA-256 выражения встроенной или пользовательской формулы;
-- вид формы, её ID, явная версия либо content-addressed revision и SHA-256 определения;
+- проект, скважина, dataset либо well-level artifact;
+- точный индекс и интервал, sample count и SHA-256 значений индекса;
+- fingerprints фактических значений выбранных каналов;
+- полный semantic binding, UOM, sensor/source, confidence, aliases и evidence;
+- coverage: availability, observed, zeros, missing и unavailable;
+- формулы, версии и SHA-256 выражений;
+- form/template/report-definition revision и SHA-256;
 - язык RU/KK/EN;
-- renderer, формат, DPI, размер и ориентация страницы, поля, pagination и дополнительные параметры;
-- scale mode Fit/100%, overlap и параметры горизонтальных продолжений;
-- fingerprint сохранённого import source, embedded lossless LAS либо доступного внешнего файла;
-- нормализованный fingerprint фактических данных отчёта;
-- coverage snapshot: availability, observed, zeros, missing и unavailable для каждого запрошенного канала.
+- renderer, формат, DPI, media, orientation, margins, Fit/100% и continuations;
+- source/import/lossless fingerprints;
+- artifacts готового результата: basename, role/page, MIME-type, byte size и SHA-256.
 
 ## Приоритет fingerprint источника
 
-1. Сохранённый при импорте `LasSourceSnapshot` — `stored-at-import`.
+1. `LasSourceSnapshot` — `stored-at-import`.
 2. Встроенный lossless LAS artifact — `embedded-project-artifact`.
-3. Доступный CSV/Excel/Paradox/LAS-файл — `captured-at-report-time` с предупреждением.
-4. Нормализованные данные фактического отчёта — всегда включаются.
+3. Доступный внешний CSV/Excel/Paradox/LAS — `captured-at-report-time`.
+4. Нормализованный snapshot фактических данных отчёта — всегда.
 
-Абсолютные пути не записываются. В паспорте остаётся только имя файла. Недоступный источник
-помечается предупреждением, но нормализованный snapshot проекта всё равно позволяет проверить,
-какие значения вошли в отчёт.
+Абсолютные source/output paths в паспорт не входят.
 
-## Детерминизм и проверка
+## Schema v4: готовые output artifacts
 
-- JSON канонизируется с сортировкой ключей и без `NaN/Infinity` в метаданных;
-- timestamp и абсолютный output path отсутствуют;
-- числовые массивы приводятся к little-endian float64, `NaN` и signed zero нормализуются;
-- passport digest считается по всему содержимому кроме самого поля `passport_sha256`;
-- `load_report_passport()` пересчитывает SHA-256 и отклоняет изменённый JSON;
-- sidecar записывается через временный файл, `fsync` и атомарный `os.replace`.
+Паспорт финализируется только после того, как renderer завершил запись в staging. Для каждого
+файла сохраняются:
+
+- безопасный `file_name` без каталогов;
+- `single-file` либо `page`;
+- номер страницы для paged export;
+- MIME-type;
+- размер;
+- SHA-256 фактических bytes.
+
+`load_report_passport()` проверяет JSON digest, наличие output, размер и SHA-256. Изменение уже
+созданного PDF, изображения, CSV или XLSX обнаруживается.
+
+## Filesystem transaction schema v1
+
+Output и sidecar не устанавливаются независимыми операциями. Последовательность:
+
+```text
+staging → output fingerprint → signed passport → journaled backup/install
+→ installed-file verification → committed → cleanup
+```
+
+Сбой до `committed` восстанавливает предыдущую пару. Сбой после `committed` сохраняет новую пару
+и завершает только cleanup. Подробнее: [REPORT_OUTPUT_TRANSACTION.md](REPORT_OUTPUT_TRANSACTION.md).
+
+## Детерминизм
+
+- JSON канонизируется с сортировкой ключей;
+- timestamp, случайные ID и абсолютные output paths отсутствуют;
+- `NaN`, Infinity и signed zero нормализуются в инженерных fingerprints;
+- digest считается по всему payload кроме `passport_sha256`;
+- fingerprints зависят от фактического интервала и готовых output bytes.
 
 ## Ограничения
 
-- PDF/изображение и его JSON-sidecar являются двумя отдельными файлами; каждый записывается
-  атомарно, но файловая система не предоставляет общей транзакции для пары;
-- паспорт подтверждает происхождение и параметры отчёта, но не является электронной подписью
-  организации или сертификатом регулятора;
-- прямое изменение уже сформированного PDF не меняет JSON автоматически; для строгого контроля
-  выходного файла в будущем будет добавлен отдельный output fingerprint после унификации
-  `ReportDefinition`; начиная с 0.7.37 coverage входит в passport; в 0.7.38 passport schema v3 сохраняет canonical ReportDefinition schema v2, SHA-256, coverage и print-media settings,
-  поэтому preview/PDF/таблица сопоставляются по одному dataset/index/interval/curve/form contract;
-- ручной Windows/HiDPI/PDF/physical-print smoke-test остаётся обязательным для stable.
+- это не электронная подпись организации и не trusted timestamp;
+- физическая печать не имеет output artifact fingerprint;
+- recovery journal содержит временные absolute paths, но они не входят в passport;
+- Windows/NTFS/network-share/PDF/HiDPI/physical-print smoke-test обязателен перед stable.

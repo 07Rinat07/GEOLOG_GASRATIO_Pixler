@@ -12,10 +12,9 @@ from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter, QTextDocument
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.report_passport import (
-    ReportPassport,
-    passport_sidecar_path,
-    write_report_passport,
+from geoworkbench.services.report_passport import ReportPassport
+from geoworkbench.services.report_output_transaction import (
+    execute_report_output_transaction,
 )
 
 
@@ -310,12 +309,29 @@ def export_interpretation_report_pdf(
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
         raise InterpretationReportError("Отчёт должен иметь расширение .pdf")
+    if passport is not None:
+        try:
+            transaction = execute_report_output_transaction(
+                destination,
+                lambda staged: export_interpretation_report_pdf(
+                    report,
+                    staged,
+                    language=language,
+                    overwrite=False,
+                    passport=None,
+                ),
+                passport,
+                overwrite=overwrite,
+            )
+        except (FileExistsError, InterpretationReportError):
+            raise
+        except Exception as exc:
+            raise InterpretationReportError(
+                f"Не удалось зафиксировать PDF-отчёт и Report Passport: {destination}"
+            ) from exc
+        return transaction.primary_path
     if destination.exists() and not overwrite:
         raise FileExistsError(destination)
-    if passport is not None:
-        sidecar = passport_sidecar_path(destination)
-        if sidecar.exists() and not overwrite:
-            raise FileExistsError(sidecar)
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{destination.stem}-", suffix=".pdf", dir=destination.parent
@@ -336,8 +352,6 @@ def export_interpretation_report_pdf(
         if not temporary.exists() or temporary.stat().st_size == 0:
             raise InterpretationReportError("Не удалось сформировать PDF-отчёт")
         os.replace(temporary, destination)
-        if passport is not None:
-            write_report_passport(passport, destination, overwrite=overwrite)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
         if isinstance(exc, (FileExistsError, InterpretationReportError)):
