@@ -56,14 +56,16 @@ Qt-слой сохраняет диалоги, жесты, выбор польз
   preview и commit выполняются на копии, а отмена не изменяет проект;
 - [x] ввести Report Passport с fingerprint источника, bindings, версиями формул, UOM,
   revision формы, языком и настройками рендера;
-- [ ] добавить golden fixtures для экранной и печатной сетки, легенд, литотипов и аннотаций.
+- [x] добавить golden fixtures для экранной и печатной сетки, легенд, литотипов и аннотаций.
 
 Semantic Channel Dictionary, интерактивный Import Review и Report Passport выполнены. Паспорт
 фиксирует только фактический интервал и каналы отчёта, исходные fingerprints, полный semantic
 binding/UOM, версии формул, content-addressed revision формы, язык и параметры renderer. Print
 Center, прямой PNG/SVG/PDF-экспорт, Masterlog PDF и интерпретационный PDF создают проверяемый
-JSON-sidecar; физическая печать вычисляет тот же digest без файлового sidecar. Следующий подэтап —
-golden fixtures общей экранной и печатной геометрии.
+JSON-sidecar; физическая печать вычисляет тот же digest без файлового sidecar. Golden fixture
+schema v1 фиксирует общую grid/legend/lithotype/annotation geometry в подписанных JSON и
+составных SVG. Следующий вертикальный срез — единая `ReportDefinition` и interval selection для
+preview, PDF и табличного экспорта.
 
 ## P1 — операционная геология и real-time
 

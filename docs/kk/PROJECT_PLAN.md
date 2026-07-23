@@ -27,7 +27,8 @@
   Semantic Channel Dictionary енгізу және binding-ті project format v16 ішінде сақтау;
 - [x] manual overrides, QC preview және атомарлық commit бар интерактивті Import Review қосу;
 - [x] fingerprints, bindings/UOM, formula versions, form revision, language және render settings бар қайталанатын есеп паспортын енгізу;
-- келесі қадамда экран және баспа геометриясына golden fixtures қосу.
+- [x] экран/баспа grid, legend, lithotypes және annotations үшін детерминирленген golden fixtures қосу;
+- келесі қадамда preview, PDF және кестелік экспорт үшін `ReportDefinition` мен interval selection-ды біріктіру.
 
 ## P1 — операциялар және нақты уақыт
 

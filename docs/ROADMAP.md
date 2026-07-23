@@ -18,11 +18,11 @@ Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke ch
 - split annotation routing, navigation, track lifecycle, grid rendering, and editing out of
   `TabletView`;
 - keep state-changing workflows behind application boundaries; import/print execution, session rebinding, workspace commands, tablet layout mutations, derived-dataset rollback, project image assets, and interactive Import Review use controllers/services; Semantic Channel Dictionary and atomic review/commit are complete;
-- define one screen/print grid contract and golden-render fixtures;
+- [complete] define one screen/print grid contract and deterministic golden-render fixtures;
 - [x] add deterministic report provenance: source fingerprints, interval-scoped channel data, complete semantic bindings/UOM, formula versions, locale, content-addressed template revision, and render settings;
 - test project format v16 and layout format v14 migrations with representative legacy files.
 
-Exit: bounded controllers with headless tests and a reproducible report passport are complete; stable visual golden fixtures remain.
+Exit: bounded controllers, reproducible report passports, and deterministic structural/visual golden fixtures are complete; Windows raster/PDF/HiDPI validation remains.
 
 ## Phase 2 — semantic data and operational QC
 

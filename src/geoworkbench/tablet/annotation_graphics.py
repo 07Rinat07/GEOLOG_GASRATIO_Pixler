@@ -24,6 +24,12 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.annotation_schema import AnnotationKind, AnnotationRecord
+from geoworkbench.tablet.annotation_layout import (
+    LayoutPoint,
+    LayoutRect,
+    annotation_box_rect,
+    annotation_leader_endpoint,
+)
 from geoworkbench.tablet.annotation_interaction import (
     keep_annotation_reachable,
     resize_annotation_geometry,
@@ -101,12 +107,8 @@ class TabletAnnotationItem(QGraphicsObject):
         )
 
     def box_rect(self) -> QRectF:
-        return QRectF(
-            float(self.record.offset_x),
-            float(self.record.offset_y),
-            max(40.0, float(self.record.width)),
-            max(24.0, float(self.record.height)),
-        )
+        geometry = annotation_box_rect(self.record)
+        return QRectF(geometry.left, geometry.top, geometry.width, geometry.height)
 
     def resize_handle_rect(self) -> QRectF:
         """Backward-compatible alias for the south-east resize handle."""
@@ -338,31 +340,12 @@ class TabletAnnotationItem(QGraphicsObject):
 
     def _leader_end(self) -> QPointF:
         rect = self.box_rect()
-        transform = self._box_transform()
-        inverse, invertible = transform.inverted()
-        anchor = inverse.map(QPointF(0.0, 0.0)) if invertible else QPointF(0.0, 0.0)
-        x = min(max(anchor.x(), rect.left()), rect.right())
-        y = min(max(anchor.y(), rect.top()), rect.bottom())
-        # If the anchor projects inside the box, attach to the closest edge.
-        if rect.contains(anchor):
-            distances = {
-                "left": abs(anchor.x() - rect.left()),
-                "right": abs(anchor.x() - rect.right()),
-                "top": abs(anchor.y() - rect.top()),
-                "bottom": abs(anchor.y() - rect.bottom()),
-            }
-            edge = min(distances, key=lambda name: distances[name])
-            if edge == "left":
-                endpoint = QPointF(rect.left(), anchor.y())
-            elif edge == "right":
-                endpoint = QPointF(rect.right(), anchor.y())
-            elif edge == "top":
-                endpoint = QPointF(anchor.x(), rect.top())
-            else:
-                endpoint = QPointF(anchor.x(), rect.bottom())
-        else:
-            endpoint = QPointF(x, y)
-        return transform.map(endpoint)
+        endpoint = annotation_leader_endpoint(
+            LayoutPoint(0.0, 0.0),
+            box=LayoutRect(rect.left(), rect.top(), rect.width(), rect.height()),
+            rotation_degrees=float(self.record.style.rotation),
+        )
+        return QPointF(endpoint.x, endpoint.y)
 
 
 

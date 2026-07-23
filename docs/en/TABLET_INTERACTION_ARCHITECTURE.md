@@ -58,3 +58,7 @@ path, so project state is not bypassed through a direct Qt assignment.
 
 A source-integrity test rejects direct `TabletLayout.set_*`, `move_track`, `add_track`,
 `remove_track`, and `TrackDefinition.width` writes in `TabletView`.
+
+## Rendering control
+
+Shared grid, legend, lithotype, and annotation calculations are protected by deterministic fixtures. Verification and update rules are documented in [GOLDEN_RENDERING.md](GOLDEN_RENDERING.md).

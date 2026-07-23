@@ -471,6 +471,13 @@ count, colour, and opacity. These settings are stored in the form. Review them i
 the grid can be retained, softened, or disabled without changing data. Preview, PDF, and the
 printer use the same form model.
 
+## Rendering golden fixtures
+
+Screen and print grids, legend ordering, lithotype patterns, and annotation geometry are fixed by
+signed JSON contracts and composite SVG references. Verification is automatic; update the fixtures
+only after an intentional rendering-contract change by running `python tools/update_render_goldens.py`.
+See [Rendering golden fixtures](GOLDEN_RENDERING.md).
+
 ## Status and future work
 
 Verified limitations are listed in [project status](PROJECT_STATUS.md); priorities are in the

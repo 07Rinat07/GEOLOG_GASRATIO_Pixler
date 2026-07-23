@@ -23,13 +23,13 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для среза 0.7.34 в текущем контейнере выполнены `compileall`, сборка wheel и доступный
-headless/regression/source-integrity набор: 742 теста пройдено, 4 платформенных сценария
-пропущено. Ещё 4 LAS/Qt-сценария явно исключены из запуска из-за отсутствующих `lasio` и
-`PySide6`. Полный `pytest -q` остановился на сборке 95 Qt/LAS-зависимых модулей из-за
-отсутствующих PySide6, pyqtgraph и lasio. Ruff и mypy в контейнере отсутствуют. Это не
-заменяет полный gate. Перед стабильным выпуском команды выше и Windows/HiDPI/PDF/physical-
-print smoke-test необходимо повторить в установленном окружении.
+Для среза 0.7.35 в текущем контейнере выполнены `compileall`, сборка wheel и доступный
+headless/regression/source-integrity набор: 734 теста пройдено, 4 платформенных сценария
+пропущено. Три LAS-roundtrip сценария исключены из доступного запуска из-за отсутствующего
+`lasio`. Qt/pyqtgraph-зависимые файлы не собираются без `PySide6` и `pyqtgraph`. Ruff и
+mypy в контейнере отсутствуют. Это не заменяет полный gate. Перед стабильным выпуском команды
+выше и Windows/HiDPI/PDF/physical-print smoke-test необходимо повторить в установленном
+окружении.
 
 ## Semantic Channel Dictionary
 
@@ -83,10 +83,26 @@ print smoke-test необходимо повторить в установлен
 
 ## Golden-render gate
 
-Для сеток, литотипов, шапок, легенд и аннотаций должны существовать детерминированные
-fixtures. Сравниваются не только скриншоты: проверяются размеры страницы в миллиметрах,
-позиции ключевых объектов, число страниц, диапазоны осей и наличие обязательного текста.
-Допуск растрового сравнения документируется для каждой платформы.
+Committed fixtures находятся в `tests/golden_rendering` и обновляются только командой:
+
+```powershell
+.\.venv\Scripts\python.exe tools\update_render_goldens.py
+```
+
+Обязательные проверки:
+
+- regenerated JSON/SVG совпадают с committed файлами байт-в-байт;
+- SHA-256 canonical payload каждого JSON корректен;
+- screen px и print mm имеют одинаковые normalized major/minor grid fractions;
+- legend сохраняет порядок, deduplication, unknown fallback и RU/KK/EN подписи;
+- legacy lithotype alias разрешается в точный factory bitmap с content SHA-256;
+- bitmap tile сохраняет physical size при reference DPI 96;
+- annotation box, leader endpoint, rotation и clipping согласованы в px/mm;
+- fixture не содержит timestamp, абсолютный path, random ID или application version.
+
+Состав и правила описаны в [Golden rendering](GOLDEN_RENDERING.md). Structural/SVG goldens
+не заменяют Qt raster/PDF comparison: tolerance документируется отдельно для Windows и
+HiDPI 100%, 125%, 150% и 200%.
 
 ## Производительность
 

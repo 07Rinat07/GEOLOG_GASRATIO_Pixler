@@ -1,0 +1,491 @@
+{
+  "fixture_id": "grid.screen-print.standard.v1",
+  "payload": {
+    "alpha": 0.24,
+    "contract_version": 1,
+    "major_divisions": 4,
+    "minor_alpha_factor": 0.45,
+    "minor_divisions": 5,
+    "normalized_signature": [
+      {
+        "fraction": 0.0,
+        "major": true
+      },
+      {
+        "fraction": 0.05,
+        "major": false
+      },
+      {
+        "fraction": 0.1,
+        "major": false
+      },
+      {
+        "fraction": 0.15,
+        "major": false
+      },
+      {
+        "fraction": 0.2,
+        "major": false
+      },
+      {
+        "fraction": 0.25,
+        "major": true
+      },
+      {
+        "fraction": 0.3,
+        "major": false
+      },
+      {
+        "fraction": 0.35,
+        "major": false
+      },
+      {
+        "fraction": 0.4,
+        "major": false
+      },
+      {
+        "fraction": 0.45,
+        "major": false
+      },
+      {
+        "fraction": 0.5,
+        "major": true
+      },
+      {
+        "fraction": 0.55,
+        "major": false
+      },
+      {
+        "fraction": 0.6,
+        "major": false
+      },
+      {
+        "fraction": 0.65,
+        "major": false
+      },
+      {
+        "fraction": 0.7,
+        "major": false
+      },
+      {
+        "fraction": 0.75,
+        "major": true
+      },
+      {
+        "fraction": 0.8,
+        "major": false
+      },
+      {
+        "fraction": 0.85,
+        "major": false
+      },
+      {
+        "fraction": 0.9,
+        "major": false
+      },
+      {
+        "fraction": 0.95,
+        "major": false
+      },
+      {
+        "fraction": 1.0,
+        "major": true
+      }
+    ],
+    "print": {
+      "major_pen_mm": 0.2,
+      "minor_pen_mm": 0.1,
+      "rect": {
+        "height": 230.0,
+        "left": 15.0,
+        "top": 20.0,
+        "width": 150.0
+      },
+      "reference_dpi": 96.0,
+      "unit": "mm",
+      "x_lines": [
+        {
+          "major": true,
+          "position": 15.0
+        },
+        {
+          "major": false,
+          "position": 22.5
+        },
+        {
+          "major": false,
+          "position": 30.0
+        },
+        {
+          "major": false,
+          "position": 37.5
+        },
+        {
+          "major": false,
+          "position": 45.0
+        },
+        {
+          "major": true,
+          "position": 52.5
+        },
+        {
+          "major": false,
+          "position": 60.0
+        },
+        {
+          "major": false,
+          "position": 67.5
+        },
+        {
+          "major": false,
+          "position": 75.0
+        },
+        {
+          "major": false,
+          "position": 82.5
+        },
+        {
+          "major": true,
+          "position": 90.0
+        },
+        {
+          "major": false,
+          "position": 97.5
+        },
+        {
+          "major": false,
+          "position": 105.0
+        },
+        {
+          "major": false,
+          "position": 112.5
+        },
+        {
+          "major": false,
+          "position": 120.0
+        },
+        {
+          "major": true,
+          "position": 127.5
+        },
+        {
+          "major": false,
+          "position": 135.0
+        },
+        {
+          "major": false,
+          "position": 142.5
+        },
+        {
+          "major": false,
+          "position": 150.0
+        },
+        {
+          "major": false,
+          "position": 157.5
+        },
+        {
+          "major": true,
+          "position": 165.0
+        }
+      ],
+      "y_lines": [
+        {
+          "major": true,
+          "position": 20.0
+        },
+        {
+          "major": false,
+          "position": 31.5
+        },
+        {
+          "major": false,
+          "position": 43.0
+        },
+        {
+          "major": false,
+          "position": 54.5
+        },
+        {
+          "major": false,
+          "position": 66.0
+        },
+        {
+          "major": true,
+          "position": 77.5
+        },
+        {
+          "major": false,
+          "position": 89.0
+        },
+        {
+          "major": false,
+          "position": 100.5
+        },
+        {
+          "major": false,
+          "position": 112.0
+        },
+        {
+          "major": false,
+          "position": 123.5
+        },
+        {
+          "major": true,
+          "position": 135.0
+        },
+        {
+          "major": false,
+          "position": 146.5
+        },
+        {
+          "major": false,
+          "position": 158.0
+        },
+        {
+          "major": false,
+          "position": 169.5
+        },
+        {
+          "major": false,
+          "position": 181.0
+        },
+        {
+          "major": true,
+          "position": 192.5
+        },
+        {
+          "major": false,
+          "position": 204.0
+        },
+        {
+          "major": false,
+          "position": 215.5
+        },
+        {
+          "major": false,
+          "position": 227.0
+        },
+        {
+          "major": false,
+          "position": 238.5
+        },
+        {
+          "major": true,
+          "position": 250.0
+        }
+      ]
+    },
+    "screen": {
+      "rect": {
+        "height": 1180.0,
+        "left": 60.0,
+        "top": 80.0,
+        "width": 700.0
+      },
+      "unit": "px",
+      "x_axis_range": [
+        0.0,
+        200.0
+      ],
+      "x_lines": [
+        {
+          "major": true,
+          "position": 60.0
+        },
+        {
+          "major": false,
+          "position": 95.0
+        },
+        {
+          "major": false,
+          "position": 130.0
+        },
+        {
+          "major": false,
+          "position": 165.0
+        },
+        {
+          "major": false,
+          "position": 200.0
+        },
+        {
+          "major": true,
+          "position": 235.0
+        },
+        {
+          "major": false,
+          "position": 270.0
+        },
+        {
+          "major": false,
+          "position": 305.0
+        },
+        {
+          "major": false,
+          "position": 340.0
+        },
+        {
+          "major": false,
+          "position": 375.0
+        },
+        {
+          "major": true,
+          "position": 410.0
+        },
+        {
+          "major": false,
+          "position": 445.0
+        },
+        {
+          "major": false,
+          "position": 480.0
+        },
+        {
+          "major": false,
+          "position": 515.0
+        },
+        {
+          "major": false,
+          "position": 550.0
+        },
+        {
+          "major": true,
+          "position": 585.0
+        },
+        {
+          "major": false,
+          "position": 620.0
+        },
+        {
+          "major": false,
+          "position": 655.0
+        },
+        {
+          "major": false,
+          "position": 690.0
+        },
+        {
+          "major": false,
+          "position": 725.0
+        },
+        {
+          "major": true,
+          "position": 760.0
+        }
+      ],
+      "x_tick_levels": [
+        [
+          50.0,
+          0.0
+        ],
+        [
+          10.0,
+          0.0
+        ]
+      ],
+      "y_axis_range": [
+        1200.0,
+        1400.0
+      ],
+      "y_lines": [
+        {
+          "major": true,
+          "position": 80.0
+        },
+        {
+          "major": false,
+          "position": 139.0
+        },
+        {
+          "major": false,
+          "position": 198.0
+        },
+        {
+          "major": false,
+          "position": 257.0
+        },
+        {
+          "major": false,
+          "position": 316.0
+        },
+        {
+          "major": true,
+          "position": 375.0
+        },
+        {
+          "major": false,
+          "position": 434.0
+        },
+        {
+          "major": false,
+          "position": 493.0
+        },
+        {
+          "major": false,
+          "position": 552.0
+        },
+        {
+          "major": false,
+          "position": 611.0
+        },
+        {
+          "major": true,
+          "position": 670.0
+        },
+        {
+          "major": false,
+          "position": 729.0
+        },
+        {
+          "major": false,
+          "position": 788.0
+        },
+        {
+          "major": false,
+          "position": 847.0
+        },
+        {
+          "major": false,
+          "position": 906.0
+        },
+        {
+          "major": true,
+          "position": 965.0
+        },
+        {
+          "major": false,
+          "position": 1024.0
+        },
+        {
+          "major": false,
+          "position": 1083.0
+        },
+        {
+          "major": false,
+          "position": 1142.0
+        },
+        {
+          "major": false,
+          "position": 1201.0
+        },
+        {
+          "major": true,
+          "position": 1260.0
+        }
+      ],
+      "y_tick_levels": [
+        [
+          50.0,
+          1200.0
+        ],
+        [
+          10.0,
+          1200.0
+        ]
+      ]
+    }
+  },
+  "payload_sha256": "7ada77814eef290a9f86b94e9c213b9d7d6a6f8fb204f1ed4756dbcd939690a5",
+  "schema": "geoworkbench.render-golden/v1"
+}

@@ -1,0 +1,109 @@
+{
+  "fixture_id": "legend.multilingual.standard.v1",
+  "payload": {
+    "contract_version": 1,
+    "deduplication": "first occurrence",
+    "entries": {
+      "en": [
+        {
+          "code": "SS",
+          "color": "#e7cf8b",
+          "lithotype_id": "sandstone",
+          "name": "Sandstone",
+          "pattern_key": "sandstone_bricks"
+        },
+        {
+          "code": "CL",
+          "color": "#9ca3af",
+          "lithotype_id": "clay",
+          "name": "Clay",
+          "pattern_key": "clay_dash"
+        },
+        {
+          "code": "legacy_rock",
+          "color": "#b0b0b0",
+          "lithotype_id": "legacy_rock",
+          "name": "Legacy breccia / Наследованная брекчия",
+          "pattern_key": "solid"
+        },
+        {
+          "code": "DL",
+          "color": "#d8c5a1",
+          "lithotype_id": "dolomite",
+          "name": "Dolomite",
+          "pattern_key": "dolomite_rhombs"
+        }
+      ],
+      "kk": [
+        {
+          "code": "SS",
+          "color": "#e7cf8b",
+          "lithotype_id": "sandstone",
+          "name": "Құмтас",
+          "pattern_key": "sandstone_bricks"
+        },
+        {
+          "code": "CL",
+          "color": "#9ca3af",
+          "lithotype_id": "clay",
+          "name": "Саз",
+          "pattern_key": "clay_dash"
+        },
+        {
+          "code": "legacy_rock",
+          "color": "#b0b0b0",
+          "lithotype_id": "legacy_rock",
+          "name": "Legacy breccia / Наследованная брекчия",
+          "pattern_key": "solid"
+        },
+        {
+          "code": "DL",
+          "color": "#d8c5a1",
+          "lithotype_id": "dolomite",
+          "name": "Доломит",
+          "pattern_key": "dolomite_rhombs"
+        }
+      ],
+      "ru": [
+        {
+          "code": "SS",
+          "color": "#e7cf8b",
+          "lithotype_id": "sandstone",
+          "name": "Песчаник",
+          "pattern_key": "sandstone_bricks"
+        },
+        {
+          "code": "CL",
+          "color": "#9ca3af",
+          "lithotype_id": "clay",
+          "name": "Глина",
+          "pattern_key": "clay_dash"
+        },
+        {
+          "code": "legacy_rock",
+          "color": "#b0b0b0",
+          "lithotype_id": "legacy_rock",
+          "name": "Legacy breccia / Наследованная брекчия",
+          "pattern_key": "solid"
+        },
+        {
+          "code": "DL",
+          "color": "#d8c5a1",
+          "lithotype_id": "dolomite",
+          "name": "Доломит",
+          "pattern_key": "dolomite_rhombs"
+        }
+      ]
+    },
+    "selection_order": [
+      "sandstone",
+      "clay",
+      "sandstone",
+      "legacy_rock",
+      "dolomite"
+    ],
+    "unknown_color": "#b0b0b0"
+  },
+  "payload_sha256": "0935e7c7a589e41d530840f5131a53bc7f6c3d59d07bded3175c471d5a69c4d8",
+  "schema": "geoworkbench.render-golden/v1"
+}

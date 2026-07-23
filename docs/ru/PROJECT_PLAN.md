@@ -27,7 +27,8 @@
   источник и исходная мнемоника; сохранять binding в формате проекта v16;
 - [x] добавить интерактивный Import Review с ручными overrides, QC preview и атомарным commit;
 - [x] добавить паспорт воспроизводимости отчёта с fingerprints, bindings/UOM, версиями формул, revision формы, языком и render settings;
-- следующим добавить golden fixtures экранной и печатной геометрии.
+- [x] добавить детерминированные golden fixtures экранной и печатной сетки, legend, lithotypes и annotations;
+- следующим унифицировать `ReportDefinition` и interval selection для preview, PDF и табличного экспорта.
 
 ## P1 — операции и real-time
 

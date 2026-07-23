@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900px" height="1400px" viewBox="0 0 900 1400">
+<defs>
+<pattern id="pattern-sandstone-bricks" patternUnits="userSpaceOnUse" width="16" height="14"><image href="data:image/bmp;base64,Qk3WAgAAAAAAADYAAAAoAAAAEAAAAA4AAAABABgAAAAAAKACAADODgAA2A4AAAAAAAAAAAAAgP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//AAAAgP//gP//gP//gP//gP//gP//gP//AAAAgP//gP//gP//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//AAAAgP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgP//gP//gP//gP//AAAAgP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//gP//" width="16" height="14"/></pattern>
+<pattern id="pattern-clay-dash" patternUnits="userSpaceOnUse" width="16" height="14"><image href="data:image/bmp;base64,Qk3WAgAAAAAAADYAAAAoAAAAEAAAAA4AAAABABgAAAAAAKACAADEDgAAxA4AAAAAAAAAAAAAeP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54eP54" width="16" height="14"/></pattern>
+<pattern id="pattern-dolomite-rhombs" patternUnits="userSpaceOnUse" width="16" height="14"><image href="data:image/bmp;base64,Qk3WAgAAAAAAADYAAAAoAAAAEAAAAA4AAAABABgAAAAAAKACAADEDgAAxA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+AAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+AAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+AAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+AAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+AAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+AAAA/cD+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/cD+/cD+AAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+AAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+AAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+AAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+AAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+AAAA/cD+/cD+/cD+/cD+/cD+/cD+/cD+/cD+" width="16" height="14"/></pattern>
+</defs>
+<rect x="0" y="0" width="900" height="1400" fill="#ffffff"/>
+<rect x="60" y="80" width="700" height="1180" fill="#f8fafc" stroke="#334155" stroke-width="1"/>
+<line x1="60" y1="80" x2="60" y2="1260" stroke="#64748b" stroke-width="1"/>
+<line x1="95" y1="80" x2="95" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="130" y1="80" x2="130" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="165" y1="80" x2="165" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="200" y1="80" x2="200" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="235" y1="80" x2="235" y2="1260" stroke="#64748b" stroke-width="1"/>
+<line x1="270" y1="80" x2="270" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="305" y1="80" x2="305" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="340" y1="80" x2="340" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="375" y1="80" x2="375" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="410" y1="80" x2="410" y2="1260" stroke="#64748b" stroke-width="1"/>
+<line x1="445" y1="80" x2="445" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="480" y1="80" x2="480" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="515" y1="80" x2="515" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="550" y1="80" x2="550" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="585" y1="80" x2="585" y2="1260" stroke="#64748b" stroke-width="1"/>
+<line x1="620" y1="80" x2="620" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="655" y1="80" x2="655" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="690" y1="80" x2="690" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="725" y1="80" x2="725" y2="1260" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="760" y1="80" x2="760" y2="1260" stroke="#64748b" stroke-width="1"/>
+<line x1="60" y1="80" x2="760" y2="80" stroke="#64748b" stroke-width="1"/>
+<line x1="60" y1="139" x2="760" y2="139" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="198" x2="760" y2="198" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="257" x2="760" y2="257" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="316" x2="760" y2="316" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="375" x2="760" y2="375" stroke="#64748b" stroke-width="1"/>
+<line x1="60" y1="434" x2="760" y2="434" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="493" x2="760" y2="493" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="552" x2="760" y2="552" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="611" x2="760" y2="611" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="670" x2="760" y2="670" stroke="#64748b" stroke-width="1"/>
+<line x1="60" y1="729" x2="760" y2="729" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="788" x2="760" y2="788" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="847" x2="760" y2="847" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="906" x2="760" y2="906" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="965" x2="760" y2="965" stroke="#64748b" stroke-width="1"/>
+<line x1="60" y1="1024" x2="760" y2="1024" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="1083" x2="760" y2="1083" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="1142" x2="760" y2="1142" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="1201" x2="760" y2="1201" stroke="#cbd5e1" stroke-width="0.45"/>
+<line x1="60" y1="1260" x2="760" y2="1260" stroke="#64748b" stroke-width="1"/>
+<rect x="775" y="80" width="70" height="393.333333" fill="url(#pattern-sandstone-bricks)" stroke="#e7cf8b" stroke-width="1"/>
+<rect x="775" y="473.333333" width="70" height="393.333333" fill="url(#pattern-clay-dash)" stroke="#9ca3af" stroke-width="1"/>
+<rect x="775" y="866.666667" width="70" height="393.333333" fill="url(#pattern-dolomite-rhombs)" stroke="#d8c5a1" stroke-width="1"/>
+<line x1="256" y1="316" x2="274" y2="316" stroke="#2563eb" stroke-width="1.2"/>
+<rect x="274" y="270" width="220" height="76" rx="6" fill="#ffffff" stroke="#2563eb" stroke-width="1.2"/>
+<text x="282" y="292" font-family="Arial" font-size="13" fill="#0f172a">Total gas peak</text>
+<line x1="578" y1="599.2" x2="552.641252" y2="593.809832" stroke="#2563eb" stroke-width="1.2"/>
+<rect x="340" y="559.2" width="210" height="72" rx="6" fill="#fff7ed" stroke="#2563eb" stroke-width="1.2" transform="rotate(12 445 595.2)"/>
+<text x="348" y="581.2" font-family="Arial" font-size="13" fill="#0f172a" transform="rotate(12 445 595.2)">Check lag correction</text>
+<rect x="366" y="900.4" width="190" height="64" rx="6" fill="#ffffff" stroke="#2563eb" stroke-width="1.2"/>
+<text x="374" y="922.4" font-family="Arial" font-size="13" fill="#0f172a">Lithology transition</text>
+<line x1="739" y1="1177.4" x2="740" y2="1203.4" stroke="#2563eb" stroke-width="1.2"/>
+<rect x="740" y="1203.4" width="180" height="58" rx="6" fill="#ffffff" stroke="#2563eb" stroke-width="1.2"/>
+<text x="748" y="1225.4" font-family="Arial" font-size="13" fill="#0f172a">C1 = 12.4 %</text>
+<rect x="60" y="1280" width="785" height="90" fill="#ffffff" stroke="#64748b" stroke-width="1"/>
+<rect x="64" y="1288" width="28" height="74" fill="url(#pattern-sandstone-bricks)" stroke="#475569" stroke-width="0.8"/>
+<text x="98" y="1330" font-family="Arial" font-size="12" fill="#0f172a">SS — Sandstone</text>
+<rect x="260.25" y="1288" width="28" height="74" fill="#9ca3af" stroke="#475569" stroke-width="0.8"/>
+<text x="294.25" y="1330" font-family="Arial" font-size="12" fill="#0f172a">CL — Clay</text>
+<rect x="456.5" y="1288" width="28" height="74" fill="#b0b0b0" stroke="#475569" stroke-width="0.8"/>
+<text x="490.5" y="1330" font-family="Arial" font-size="12" fill="#0f172a">legacy_rock — Legacy breccia / Наследованная брекчия</text>
+<rect x="652.75" y="1288" width="28" height="74" fill="#d8c5a1" stroke="#475569" stroke-width="0.8"/>
+<text x="686.75" y="1330" font-family="Arial" font-size="12" fill="#0f172a">DL — Dolomite</text>
+</svg>

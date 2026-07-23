@@ -1,54 +1,50 @@
 # Жоба күйі
 
-Кесім: 2026 жылғы 23 шілде. Package version: 0.7.34, тест жинағы.
+Кесім: 2026 жылғы 23 шілде. Пакет нұсқасы: 0.7.35, тесттік жинақ.
 
 ## Шығарылым шешімі
 
-Соңғы толық расталған baseline — 0.7.28: Ruff таза, 262 source file ішінде mypy 0 error,
-толық pytest нәтижесі 1217 passed және 10 skipped. 0.7.34 үшін `compileall` және қолжетімді
-headless/regression/source-integrity suite аяқталды: 742 passed, 4 skipped. `lasio`/`PySide6`
-жоқ болғандықтан тағы 4 LAS/Qt scenario әдейі deselected; толық collection 95 Qt/LAS import
-error көрсетеді. Бұл контейнерде Ruff және mypy жоқ. Толық gate пен Windows/HiDPI/PDF/
-physical-print matrix орындалғанша жинақ test build болып қалады.
+Соңғы толық расталған baseline 0.7.28: Ruff таза, mypy — 262 source file ішінде 0 қате,
+толық pytest — 1217 өтті және 10 skipped. 0.7.35 үшін `compileall` және қолжетімді
+headless/regression/source-integrity регрессиясы орындалды: 734 тест өтті, 4 платформалық
+сценарий skipped. Үш LAS-roundtrip сценарийі `lasio` болмағандықтан қолжетімді жүгіруден
+алынды; Qt/pyqtgraph тәуелді файлдар `PySide6` және `pyqtgraph`-сыз жиналмайды. Ruff және
+mypy контейнерде жоқ. Жинақ толық gate және Windows/HiDPI/PDF/physical-print
+матрицасына дейін test build болып қалады.
 
 ## Расталған негіз
 
-- қауіпсіз LAS 1.2/2.0, CSV/TXT, Excel және GeoScape/Paradox workflows;
-- multi-dataset/multi-index project format v16;
-- Semantic Channel Dictionary, UOM quantity classes және сақталатын semantic bindings;
-- manual overrides, QC және atomic commit бар Import Review;
-- SHA-256 тексеруі бар детерминирленген Report Passport schema v1;
-- multi-track tablet, forms, Masterlog, Print Center, interpretation reports және annotations;
+- LAS, CSV/TXT, Excel және GeoScape/Paradox қауіпсіз import;
+- Semantic Channel Dictionary және Import Review бар project format v16;
+- детерминирленген Report Passport schema v1;
+- grid, legend, lithotypes және annotations үшін JSON/SVG golden fixtures;
+- grid, legend, pattern identity және annotation layout үшін ортақ screen/print geometry;
 - синхронды RU/KK/EN құжаттамасы.
 
-## Ағымдағы кезең нәтижесі
+## 0.7.35 нәтижелері
 
 | Тексеру | Нәтиже |
 |---|---|
-| Детерминизм | өзгермеген data/form/language/render settings бірдей digest береді |
-| Аралық | тек нақты report interval ішіндегі selected channel values хэштеледі |
-| Semantic/UOM | sensor/source, kind, quantity, UOM, confidence, aliases және evidence толық сақталады |
-| Sources | import snapshot, embedded LAS, external file немесе normalized report data SHA-256 алады |
-| Formulas | ID, version, provenance және бар болса expression SHA-256 сақталады |
-| Forms | Masterlog version қолданады, forms/layouts content-addressed revision қолданады |
-| Export | Print Center, direct PNG/SVG/PDF, Masterlog және interpretation PDF sidecar жасайды |
-| JSON validation | өзгертілген signed content қабылданбайды |
-| Қолжетімді regression | 742 passed, 4 skipped, 4 dependency-specific scenario deselected |
-| Project format | v16 болып қалады |
+| Golden schema | `geoworkbench.render-golden/v1`, canonical JSON және SHA-256 |
+| Grid | screen px және print mm үшін бірдей normalized fractions |
+| Legend | ортақ рет, deduplication, unknown fallback және RU/KK/EN |
+| Lithotypes | factory bitmap SHA-256 және 96 DPI physical tile size |
+| Annotations | ортақ box/leader/rotation/clipping contract |
+| Visual | screen және print SVG байт бойынша қайталанады |
+| Нысаналы golden-contract тесттері | 19 passed |
+| Қолжетімді регрессия | 734 passed, 4 skipped, 3 LAS scenarios deselected; Qt modules unavailable |
+| Project format | v16 |
 
-## Негізгі қалған тәуекел
+## Қалған тәуекел
 
-- толық Ruff/mypy/Qt/LAS gate-ті толық ортада қайталау;
-- Windows/HiDPI/PDF/physical-print smoke matrix орындау;
-- output және sidecar жеке atomic, бірақ бір filesystem transaction емес;
-- physical print digest есептейді, output path жоқ болғандықтан sidecar жасамайды;
-- ортақ screen/print golden fixtures жоқ;
-- output-file fingerprint ортақ `ReportDefinition` кейін қосылады.
+- толық Ruff/mypy/Qt/LAS gate-ті қайталау;
+- Windows/HiDPI/PDF/physical-print smoke-test орындау;
+- structural/SVG goldens platform raster tolerance тексеруін алмастырмайды;
+- `ReportDefinition`, interval selection және output fingerprint-ті біріктіру.
 
 ## Келесі бақылау нүктесі
 
-Screen/print grid, legend, lithotype және annotation үшін golden fixtures қосу. Stable мәртебесі
-үшін Windows GUI/HiDPI/PDF/physical-print smoke matrix міндетті.
+Preview, PDF және кестелік экспорт үшін ортақ `ReportDefinition` және бір interval selection.
 
-Толығырақ: [Report Passport](REPORT_PASSPORT.md), [Import Review](IMPORT_REVIEW.md),
-[Semantic Channel Dictionary](SEMANTIC_CHANNEL_DICTIONARY.md) және [жоспар](PROJECT_PLAN.md).
+[Golden rendering](GOLDEN_RENDERING.md), [Report Passport](REPORT_PASSPORT.md) және
+[жалпы жоспарды](../PROJECT_PLAN.md) қараңыз.

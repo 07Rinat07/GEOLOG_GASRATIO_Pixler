@@ -70,3 +70,7 @@
 
 Source-integrity тест запрещает возврат прямых вызовов `TabletLayout.set_*`, `move_track`,
 `add_track`, `remove_track` и присваивания `TrackDefinition.width` в `TabletView`.
+
+## Контроль рендера
+
+Общие расчёты grid, legend, lithotype и annotation закреплены детерминированными эталонами. Порядок проверки и обновления описан в [GOLDEN_RENDERING.md](GOLDEN_RENDERING.md).

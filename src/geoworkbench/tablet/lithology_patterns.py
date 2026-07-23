@@ -5,6 +5,11 @@ from functools import lru_cache
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor, QPainter, QPixmap
 
+from geoworkbench.tablet.lithology_pattern_catalog import (
+    resolve_lithology_pattern,
+    supported_pattern_keys,
+)
+
 
 _PATTERN_STYLES = {
     "solid": Qt.BrushStyle.SolidPattern,
@@ -24,62 +29,17 @@ _PATTERN_STYLES = {
 }
 
 
-# Historical compact pattern keys are retained in old projects and form templates.
-# Resolve them to the exact tiled BMP resources imported from the user's two legacy
-# lithotype catalogs instead of falling back to a flat colour.
-_LEGACY_BITMAP_PATTERN_ALIASES = {
-    "clay_dash": "constructor:lithology-clay",
-    "claystone_blocks": "constructor:lithology-claystone",
-    "silt_dots": "constructor:lithology-silt",
-    "siltstone_lines": "constructor:lithology-siltstone",
-    "sand_dots": "constructor:lithology-sand",
-    "sandstone_bricks": "constructor:lithology-sandstone",
-    "gravel_circles": "constructor:lithology-gravelit",
-    "conglomerate_pebbles": "constructor:lithology-conglomerate",
-    "limestone_bricks": "constructor:lithology-limestone",
-    "marl_ticks": "constructor:lithology-marl",
-    "dolomite_rhombs": "constructor:lithology-dolomite",
-    "anhydrite_chevrons": "constructor:lithology-anhydrite",
-    "gypsum_arrows": "constructor:lithology-gypsum",
-    "halite_crosses": "constructor:lithology-rock-salt",
-    "coal_bands": "constructor:lithology-coal",
-    "metamorphic_mesh": "constructor:lithology-metamorphic-rock",
-    "volcanic_angles": "constructor:lithology-volcanic-rock",
-}
-
-
-def supported_pattern_keys() -> tuple[str, ...]:
-    keys = list(_PATTERN_STYLES)
-    keys.extend(_LEGACY_BITMAP_PATTERN_ALIASES)
-    try:
-        from geoworkbench.form_constructor.asset_install import (
-            CONSTRUCTOR_PATTERN_PREFIX,
-            load_factory_constructor_registry,
-        )
-
-        keys.extend(
-            f"{CONSTRUCTOR_PATTERN_PREFIX}{asset.asset_id}"
-            for asset in load_factory_constructor_registry().all(kind="lithology_pattern")
-        )
-    except (OSError, RuntimeError, ValueError):
-        # The compact hatch catalog remains usable even when an installation is
-        # missing the optional bitmap resource directory.
-        pass
-    return tuple(dict.fromkeys(keys))
-
-
 @lru_cache(maxsize=256)
 def _constructor_pattern_pixmap(pattern_key: str) -> QPixmap:
-    from geoworkbench.form_constructor.asset_install import resolve_constructor_pattern_asset
-
-    asset = resolve_constructor_pattern_asset(pattern_key)
-    if asset is None:
+    descriptor = resolve_lithology_pattern(pattern_key)
+    if descriptor.kind != "bitmap" or descriptor.asset_path is None:
         return QPixmap()
-    return QPixmap(str(asset.asset_path))
+    return QPixmap(str(descriptor.asset_path))
 
 
 def lithology_brush(color: str, pattern_key: str) -> QBrush:
-    pattern_key = _LEGACY_BITMAP_PATTERN_ALIASES.get(pattern_key, pattern_key)
+    descriptor = resolve_lithology_pattern(pattern_key)
+    pattern_key = descriptor.resolved_key
     parsed_color = QColor(color)
     if not parsed_color.isValid():
         parsed_color = QColor("#b0b0b0")

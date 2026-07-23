@@ -34,6 +34,14 @@ Masterlog и не изменяют исходные LAS-данные.
 не выводить их в PDF и на физический принтер. В самостоятельном редакторе
 Masterlog по-прежнему доступны отдельные настройки сетки колонки.
 
+## Golden contract
+
+`tests/golden_rendering/grid_screen_print_v1.json` фиксирует normalized major/minor fractions,
+экранные координаты в пикселях и печатные координаты в миллиметрах. Источником является
+Qt-независимый `tablet/grid_geometry.py`; `grid_renderer` только адаптирует spacing к PyQtGraph,
+а Masterlog проецирует те же fractions в page rectangle. Составные SVG показывают сетку вместе
+с legend, lithotypes и annotations. Обновление выполняется `tools/update_render_goldens.py`.
+
 ## Совместимость
 
 Формат формы версии 4 и формат планшета версии 14 добавляют только необязательные

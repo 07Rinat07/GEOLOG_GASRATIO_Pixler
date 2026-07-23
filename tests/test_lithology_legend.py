@@ -1,5 +1,5 @@
 from geoworkbench.domain.models import LithologyInterval
-from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
+from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.tablet.lithology_legend import build_lithology_legend
 
 

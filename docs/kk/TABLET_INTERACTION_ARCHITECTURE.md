@@ -59,3 +59,7 @@ Resize/reorder жергілікті fallback қолданар алдында req
 
 Source-integrity тесті `TabletView` ішінде `TabletLayout.set_*`, `move_track`, `add_track`,
 `remove_track` және `TrackDefinition.width` тікелей өзгерістерінің қайта пайда болуына тыйым салады.
+
+## Рендерді бақылау
+
+Grid, legend, lithotype және annotation ортақ есептеулері детерминделген эталондармен бекітілген. Тексеру және жаңарту тәртібі [GOLDEN_RENDERING.md](GOLDEN_RENDERING.md) құжатында берілген.

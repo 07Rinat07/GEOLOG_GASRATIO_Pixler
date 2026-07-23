@@ -69,8 +69,12 @@ from geoworkbench.services.report_passport import (
     write_report_passport,
 )
 from geoworkbench.services.las_parameter_resolver import LasParameterResolver
-from geoworkbench.tablet.grid_renderer import normalized_grid_lines
-from geoworkbench.tablet.lithology_legend import LithologyLegendEntry
+from geoworkbench.tablet.annotation_layout import LayoutRect, layout_annotation
+from geoworkbench.tablet.grid_geometry import normalized_grid_lines
+from geoworkbench.tablet.lithology_legend import (
+    LithologyLegendEntry,
+    build_lithology_legend_from_ids,
+)
 from geoworkbench.tablet.lithology_patterns import masterlog_lithology_brush
 from geoworkbench.tablet.sampling import select_visible_samples
 
@@ -659,7 +663,10 @@ def _paint_lithotype_swatch(
     pattern_rect = QRectF(rect.left(), rect.top(), pattern_width, rect.height()).adjusted(
         0.25, 0.25, -0.25, -0.25
     )
-    painter.fillRect(pattern_rect, masterlog_lithology_brush(painter, lithotype.color, lithotype.pattern_key))
+    painter.fillRect(
+        pattern_rect,
+        masterlog_lithology_brush(painter, lithotype.color, lithotype.pattern_key),
+    )
     painter.setPen(QPen(QColor("#64748b"), 0.25))
     painter.drawRect(pattern_rect)
     if mode != "pattern_only":
@@ -780,30 +787,13 @@ def _masterlog_lithology_legend_entries(
                     seen.add(lithotype_id)
                     lithotype_ids.append(lithotype_id)
 
-    entries: list[LithologyLegendEntry] = []
-    for lithotype_id in lithotype_ids:
-        definition = catalog.get(lithotype_id)
-        if definition is None:
-            entries.append(
-                LithologyLegendEntry(
-                    lithotype_id,
-                    lithotype_id,
-                    unknown_descriptions.get(lithotype_id) or unknown_names[language],
-                    "#b0b0b0",
-                    "solid",
-                )
-            )
-            continue
-        entries.append(
-            LithologyLegendEntry(
-                definition.lithotype_id,
-                definition.code,
-                definition.localized_name(language.value),
-                definition.color,
-                definition.pattern_key,
-            )
-        )
-    return tuple(entries)
+    return build_lithology_legend_from_ids(
+        lithotype_ids,
+        catalog.values(),
+        name_resolver=lambda definition: definition.localized_name(language.value),
+        unknown_name=unknown_names[language],
+        unknown_descriptions=unknown_descriptions,
+    )
 
 
 def _paint_lithology_legend(
@@ -1834,27 +1824,36 @@ def _paint_annotations(
             if curve_x is not None:
                 anchor_x = curve_x
 
-        width = min(full_rect.width(), max(10.0, record.width * px_to_mm))
-        height = min(full_rect.height(), max(6.0, record.height * px_to_mm))
-        left = anchor_x + record.offset_x * px_to_mm
-        top_y = anchor_y + record.offset_y * px_to_mm
-        # Keep a small part reachable/printable, while still permitting a box
-        # to span several adjacent tracks.
-        visible_margin = min(4.0, width, height)
-        left = min(
-            max(left, full_rect.left() - width + visible_margin),
-            full_rect.right() - visible_margin,
+        resolved_layout = layout_annotation(
+            record,
+            anchor_x=anchor_x,
+            anchor_y=anchor_y,
+            bounds=LayoutRect(
+                full_rect.left(),
+                full_rect.top(),
+                full_rect.width(),
+                full_rect.height(),
+            ),
+            pixel_scale=px_to_mm,
+            visible_margin=4.0,
+            max_width=full_rect.width(),
+            max_height=full_rect.height(),
         )
-        top_y = min(
-            max(top_y, full_rect.top() - height + visible_margin),
-            full_rect.bottom() - visible_margin,
+        box_geometry = resolved_layout.box
+        box = QRectF(
+            box_geometry.left,
+            box_geometry.top,
+            box_geometry.width,
+            box_geometry.height,
         )
-        box = QRectF(left, top_y, width, height)
         style = record.style
 
         painter.save()
-        if record.kind in {AnnotationKind.CALLOUT, AnnotationKind.VALUE}:
-            endpoint = _closest_point_on_rect(box, QPointF(anchor_x, anchor_y))
+        if resolved_layout.leader_endpoint is not None:
+            endpoint = QPointF(
+                resolved_layout.leader_endpoint.x,
+                resolved_layout.leader_endpoint.y,
+            )
             leader = QPen(
                 _color(style.leader_color, "#2563eb"),
                 max(0.1, style.leader_width * px_to_mm),
@@ -1949,20 +1948,6 @@ def _paint_annotation_text(
         "bottom": Qt.AlignmentFlag.AlignBottom,
     }.get(style.vertical_alignment, Qt.AlignmentFlag.AlignTop)
     painter.drawText(rect, int(flags), text)
-
-
-def _closest_point_on_rect(rect: QRectF, point: QPointF) -> QPointF:
-    x = min(max(point.x(), rect.left()), rect.right())
-    y = min(max(point.y(), rect.top()), rect.bottom())
-    if rect.contains(point):
-        edges = (
-            (abs(point.x() - rect.left()), QPointF(rect.left(), point.y())),
-            (abs(point.x() - rect.right()), QPointF(rect.right(), point.y())),
-            (abs(point.y() - rect.top()), QPointF(point.x(), rect.top())),
-            (abs(point.y() - rect.bottom()), QPointF(point.x(), rect.bottom())),
-        )
-        return min(edges, key=lambda entry: entry[0])[1]
-    return QPointF(x, y)
 
 
 def _paint_annotation_arrow(

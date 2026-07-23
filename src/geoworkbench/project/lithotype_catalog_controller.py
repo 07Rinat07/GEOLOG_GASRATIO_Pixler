@@ -9,35 +9,13 @@ from geoworkbench.form_constructor.asset_install import (
     factory_asset_to_project_lithotype,
     load_factory_constructor_registry,
 )
+from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.project.session import ProjectSession
 
 
 _ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*$")
 _CODE_PATTERN = re.compile(r"^[A-ZА-Я0-9][A-ZА-Я0-9_-]{0,19}$")
 _COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
-
-
-@dataclass(frozen=True, slots=True)
-class CatalogLithotype:
-    lithotype_id: str
-    code: str
-    name_ru: str
-    name_en: str
-    category: str
-    color: str
-    pattern_key: str
-    system: bool
-    name_kk: str = ""
-    overridden: bool = False
-    source: str = "system"
-    aliases: tuple[str, ...] = ()
-
-    def localized_name(self, language: str) -> str:
-        if language == "kk":
-            return self.name_kk or self.name_ru
-        if language == "en":
-            return self.name_en
-        return self.name_ru
 
 
 @dataclass(slots=True)

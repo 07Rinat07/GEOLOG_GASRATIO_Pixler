@@ -123,6 +123,12 @@ fingerprints, точный интервал и выбранные значени
 content-addressed form/template revision, locale и render options. Файловые экспорты сохраняют
 `<имя>.<формат>.passport.json`; загрузчик паспорта проверяет digest и обнаруживает изменение JSON.
 
+`RenderGolden` schema v1 фиксирует геометрию до платформенного raster-layer: Qt-независимые
+`grid_geometry`, `lithology_pattern_catalog` и `annotation_layout` формируют canonical JSON,
+а два составных SVG дают визуальный screen/print эталон. Masterlog и экранные адаптеры используют
+эти общие функции, поэтому изменение division, legend resolution, bitmap identity или annotation
+leader требует явного обновления golden и объяснения изменения.
+
 ## Данные и индексы
 
 Dataset может иметь MD, TVD, TVDSS, относительное или абсолютное время; active index не

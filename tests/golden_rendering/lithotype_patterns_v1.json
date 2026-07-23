@@ -1,0 +1,78 @@
+{
+  "fixture_id": "lithotype.patterns.standard.v1",
+  "payload": {
+    "contract_version": 1,
+    "fallback": "solid",
+    "patterns": [
+      {
+        "asset_id": null,
+        "content_sha256": null,
+        "height_px": null,
+        "kind": "hatch",
+        "requested_key": "solid",
+        "resolved_key": "solid",
+        "style_name": "solid",
+        "width_px": null
+      },
+      {
+        "asset_id": null,
+        "content_sha256": null,
+        "height_px": null,
+        "kind": "hatch",
+        "requested_key": "carbonate",
+        "resolved_key": "carbonate",
+        "style_name": "cross",
+        "width_px": null
+      },
+      {
+        "asset_id": "lithology-sandstone",
+        "content_sha256": "84baf976c04c9ab9666930663e7d35f2639ea1e0a273e09121cac45dfff2ed0d",
+        "height_px": 14,
+        "kind": "bitmap",
+        "print_tile_mm_at_96dpi": [
+          4.233333,
+          3.704167
+        ],
+        "requested_key": "sandstone_bricks",
+        "resolved_key": "constructor:lithology-sandstone",
+        "screen_tile_px": [
+          16,
+          14
+        ],
+        "style_name": null,
+        "width_px": 16
+      },
+      {
+        "asset_id": "lithology-clay",
+        "content_sha256": "eb8ded3955ce430fddc17e533b046d789510deb73876eeddadebc61205667c73",
+        "height_px": 14,
+        "kind": "bitmap",
+        "print_tile_mm_at_96dpi": [
+          4.233333,
+          3.704167
+        ],
+        "requested_key": "constructor:lithology-clay",
+        "resolved_key": "constructor:lithology-clay",
+        "screen_tile_px": [
+          16,
+          14
+        ],
+        "style_name": null,
+        "width_px": 16
+      },
+      {
+        "asset_id": null,
+        "content_sha256": null,
+        "height_px": null,
+        "kind": "hatch",
+        "requested_key": "unknown-pattern",
+        "resolved_key": "solid",
+        "style_name": "solid",
+        "width_px": null
+      }
+    ],
+    "reference_dpi": 96.0
+  },
+  "payload_sha256": "368a34d5800310fd600333c9f4e483cbb545c7d817f5c40b1bcf675cb67e4d94",
+  "schema": "geoworkbench.render-golden/v1"
+}

@@ -1,0 +1,178 @@
+{
+  "fixture_id": "annotations.screen-print.standard.v1",
+  "payload": {
+    "annotations": [
+      {
+        "annotation_id": "callout-gas",
+        "kind": "callout",
+        "print": {
+          "anchor": {
+            "x": 57.0,
+            "y": 66.0
+          },
+          "box": {
+            "height": 20.108333,
+            "left": 61.7625,
+            "top": 53.829167,
+            "width": 58.208333
+          },
+          "leader_endpoint": {
+            "x": 61.7625,
+            "y": 66.0
+          },
+          "unit": "mm"
+        },
+        "rotation_degrees": 0.0,
+        "screen": {
+          "anchor": {
+            "x": 256.0,
+            "y": 316.0
+          },
+          "box": {
+            "height": 76.0,
+            "left": 274.0,
+            "top": 270.0,
+            "width": 220.0
+          },
+          "leader_endpoint": {
+            "x": 274.0,
+            "y": 316.0
+          },
+          "unit": "px"
+        },
+        "text": "Total gas peak"
+      },
+      {
+        "annotation_id": "warning-rotated",
+        "kind": "callout",
+        "print": {
+          "anchor": {
+            "x": 126.0,
+            "y": 121.2
+          },
+          "box": {
+            "height": 19.05,
+            "left": 63.029167,
+            "top": 110.616667,
+            "width": 55.5625
+          },
+          "leader_endpoint": {
+            "x": 119.290498,
+            "y": 119.773851
+          },
+          "unit": "mm"
+        },
+        "rotation_degrees": 12.0,
+        "screen": {
+          "anchor": {
+            "x": 578.0,
+            "y": 599.2
+          },
+          "box": {
+            "height": 72.0,
+            "left": 340.0,
+            "top": 559.2,
+            "width": 210.0
+          },
+          "leader_endpoint": {
+            "x": 552.641252,
+            "y": 593.809832
+          },
+          "unit": "px"
+        },
+        "text": "Check lag correction"
+      },
+      {
+        "annotation_id": "comment-note",
+        "kind": "comment",
+        "print": {
+          "anchor": {
+            "x": 78.0,
+            "y": 176.4
+          },
+          "box": {
+            "height": 16.933333,
+            "left": 81.175,
+            "top": 181.1625,
+            "width": 50.270833
+          },
+          "leader_endpoint": null,
+          "unit": "mm"
+        },
+        "rotation_degrees": 0.0,
+        "screen": {
+          "anchor": {
+            "x": 354.0,
+            "y": 882.4
+          },
+          "box": {
+            "height": 64.0,
+            "left": 366.0,
+            "top": 900.4,
+            "width": 190.0
+          },
+          "leader_endpoint": null,
+          "unit": "px"
+        },
+        "text": "Lithology transition"
+      },
+      {
+        "annotation_id": "value-edge",
+        "kind": "value",
+        "print": {
+          "anchor": {
+            "x": 160.5,
+            "y": 233.9
+          },
+          "box": {
+            "height": 15.345833,
+            "left": 161.0,
+            "top": 240.779167,
+            "width": 47.625
+          },
+          "leader_endpoint": {
+            "x": 161.0,
+            "y": 240.779167
+          },
+          "unit": "mm"
+        },
+        "rotation_degrees": 0.0,
+        "screen": {
+          "anchor": {
+            "x": 739.0,
+            "y": 1177.4
+          },
+          "box": {
+            "height": 58.0,
+            "left": 740.0,
+            "top": 1203.4,
+            "width": 180.0
+          },
+          "leader_endpoint": {
+            "x": 740.0,
+            "y": 1203.4
+          },
+          "unit": "px"
+        },
+        "text": "C1 = 12.4 %"
+      }
+    ],
+    "contract_version": 1,
+    "pixel_to_mm": 0.264583,
+    "print_bounds": {
+      "height": 230.0,
+      "left": 15.0,
+      "top": 20.0,
+      "width": 150.0
+    },
+    "reference_dpi": 96.0,
+    "screen_bounds": {
+      "height": 1180.0,
+      "left": 60.0,
+      "top": 80.0,
+      "width": 700.0
+    }
+  },
+  "payload_sha256": "5e11bec111c78d99eb64a2c311528019631d055f27595860337faf9a8672d145",
+  "schema": "geoworkbench.render-golden/v1"
+}

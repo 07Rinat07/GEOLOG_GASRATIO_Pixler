@@ -1,3 +1,26 @@
+# 0.7.35 — deterministic screen/print golden rendering fixtures (test build)
+
+## Русский
+
+- добавлены подписанные JSON golden fixtures и составные SVG для сетки, legend, lithotypes и annotations;
+- screen px и print mm используют общую Qt-независимую grid/annotation geometry;
+- legend resolution и legacy lithotype bitmap identity закреплены общими headless-контрактами;
+- committed fixtures воспроизводятся байт-в-байт через `tools/update_render_goldens.py`; project format остаётся v16.
+
+## Қазақша
+
+- grid, legend, lithotypes және annotations үшін signed JSON golden fixtures және құрамдас SVG қосылды;
+- screen px және print mm ортақ Qt-тан тәуелсіз grid/annotation geometry қолданады;
+- legend resolution және legacy lithotype bitmap identity ортақ headless contracts арқылы бекітілді;
+- committed fixtures `tools/update_render_goldens.py` арқылы байт бойынша қайталанады; project format v16 болып қалады.
+
+## English
+
+- added signed JSON golden fixtures and composite SVGs for grids, legends, lithotypes, and annotations;
+- screen px and print mm use shared Qt-independent grid and annotation geometry;
+- legend resolution and legacy lithotype bitmap identity are pinned by shared headless contracts;
+- committed fixtures reproduce byte for byte via `tools/update_render_goldens.py`; project format remains v16.
+
 # 0.7.34 — deterministic Report Passport (test build)
 
 ## Русский

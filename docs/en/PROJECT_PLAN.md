@@ -27,7 +27,8 @@ only active work.
   source, and original mnemonic, persisted in project format v16;
 - [x] add an interactive Import Review with manual overrides, QC preview, and atomic commit;
 - [x] add a reproducible report passport with fingerprints, bindings/UOM, formula versions, form revision, language, and render settings;
-- add golden fixtures for shared screen and print geometry next.
+- [x] add deterministic golden fixtures for screen/print grids, legends, lithotypes, and annotations;
+- unify `ReportDefinition` and interval selection for preview, PDF, and tabular export next.
 
 ## P1 — operations and real time
 
