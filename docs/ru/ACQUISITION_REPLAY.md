@@ -17,6 +17,6 @@
 - replay выполняется на рабочей копии с начала либо после совпавшего checkpoint, проверяет metadata/fingerprints и commit-ится только целиком;
 - закрытая сессия требует финальный checkpoint и совпавший final audit digest.
 
-Project format v18 ввёл сессии; текущий v19 хранит их в `well.acquisition_sessions`. Миграция `v17 → v18` добавляет
+Project format v18 ввёл сессии; текущий v20 хранит их в `well.acquisition_sessions`. Миграция `v17 → v18` добавляет
 пустую collection без изменения существующих данных. Версионированная lag/depth correction
 реализована в 0.7.44 как отдельная derived projection и не меняет append-only source.

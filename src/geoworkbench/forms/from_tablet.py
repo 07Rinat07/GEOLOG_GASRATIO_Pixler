@@ -37,6 +37,10 @@ def form_from_tablet_layout(
         index = dataset.active_index
     axis_kind = FormAxisKind.TIME if index.role is IndexRole.TIME else FormAxisKind.DEPTH
     form = FormDocument.create(name.strip(), axis_kind, description=description)
+    form.source_dataset_id = dataset.dataset_id
+    form.source_index_id = index.index_id
+    form.visible_axis_top = layout.visible_depth_top
+    form.visible_axis_bottom = layout.visible_depth_bottom
 
     for live_track in layout.tracks:
         bindings: list[ParameterBinding] = []
@@ -70,6 +74,8 @@ def form_from_tablet_layout(
                     x_scale=display.x_scale,
                     x_min=display.x_min,
                     x_max=display.x_max,
+                    header_text_color=display.header_text_color,
+                    header_line_color=display.header_line_color,
                 )
             )
 

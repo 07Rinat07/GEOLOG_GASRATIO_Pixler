@@ -108,6 +108,7 @@ from geoworkbench.project.stratigraphy_controller import StratigraphyController
 from geoworkbench.project.stratigraphy_catalog_controller import StratigraphyCatalogController
 from geoworkbench.project.nct_controller import NctCalculationController
 from geoworkbench.project.new_las_controller import NewLasController
+from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
 from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
@@ -210,6 +211,7 @@ from geoworkbench.ui.stratigraphy_dialog import (
 from geoworkbench.ui.tablet_track_editor_dialog import TabletTrackEditorDialog
 from geoworkbench.ui.nct_dialog import NctCalculationDialog
 from geoworkbench.ui.new_las_dialog import NewLasDialog
+from geoworkbench.ui.daily_las_growth_dialog import DailyLasGrowthDialog
 from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
 from geoworkbench.ui.las_editor_dialog import LasEditorDialog, LasEditorOperation
@@ -422,6 +424,7 @@ class MainWindow(QMainWindow):
         self.depth_axis_controller = DepthAxisController(self.session)
         self.nct_calculation_controller = NctCalculationController(self.session)
         self.new_las_controller = NewLasController(self.session)
+        self.daily_las_growth_controller = DailyLasGrowthController(self.session)
         self.las_range_editing_controller = LasRangeEditingController(self.session)
         self._configure_edit_dependencies()
         self.masterlog_template_controller = MasterlogTemplateController(self.session)
@@ -988,6 +991,14 @@ class MainWindow(QMainWindow):
         self.new_las_action.triggered.connect(self.create_new_las)
         file_menu.addAction(self.new_las_action)
         las_editor_menu.addAction(self.new_las_action)
+
+        self.daily_las_growth_action = self._localized_action("daily_las_growth.action")
+        self.daily_las_growth_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown)
+        )
+        self.daily_las_growth_action.triggered.connect(self.show_daily_las_growth)
+        file_menu.addAction(self.daily_las_growth_action)
+        las_editor_menu.addAction(self.daily_las_growth_action)
 
         self.open_data_action = self._localized_action("import.universal")
         self.open_data_action.setShortcut("Ctrl+I")
@@ -2402,6 +2413,37 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
         self._log(self._t("new_las.created", name=dataset.name))
+
+    def show_daily_las_growth(self) -> None:
+        if self.session.current_well is None:
+            QMessageBox.information(
+                self, self._t("daily_las_growth.action"), self._t("export.select_dataset")
+            )
+            return
+        dialog = DailyLasGrowthDialog(
+            self.daily_las_growth_controller, self, language=self.language
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.plan is None:
+            return
+        try:
+            outcome = self.daily_las_growth_controller.apply(dialog.plan)
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("daily_las_growth.action"), str(exc))
+            return
+        self.session.current_dataset_id = dialog.plan.target_dataset_id
+        self._show_current_dataset()
+        self._refresh_tree()
+        self._update_title()
+        if outcome.record is None:
+            message = self._t("daily_las_growth.no_changes")
+        else:
+            message = self._t(
+                "daily_las_growth.success",
+                added=outcome.plan.rows_added,
+                skipped=outcome.plan.rows_skipped,
+            )
+        self.statusBar().showMessage(message)
+        self._log(message)
 
     def export_current_las(self) -> None:
         dataset = self.session.current_dataset
@@ -4083,6 +4125,7 @@ class MainWindow(QMainWindow):
                 form.form_id = existing.form_id
                 form.style_id = existing.style_id
                 form.print_header_template_id = existing.print_header_template_id
+                form.revision = existing.revision + 1
                 form.validate()
             target = self.form_repository.save(form)
             self.depth_annotation_controller.rebind_current_scope(

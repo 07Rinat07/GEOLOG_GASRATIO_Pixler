@@ -380,6 +380,8 @@ class TabletController:
                     x_scale=scale,
                     x_min=minimum,
                     x_max=maximum,
+                    header_text_color=current.header_text_color,
+                    header_line_color=current.header_line_color,
                 ),
             )
         self.session.dirty = True
@@ -402,6 +404,8 @@ class TabletController:
                     x_scale=current.x_scale,
                     x_min=minimum,
                     x_max=maximum,
+                    header_text_color=current.header_text_color,
+                    header_line_color=current.header_line_color,
                 ),
             )
         self.session.dirty = True
@@ -467,6 +471,8 @@ class TabletController:
                     x_scale=x_scale,
                     x_min=minimum,
                     x_max=maximum,
+                    header_text_color=current.header_text_color,
+                    header_line_color=current.header_line_color,
                 ),
             )
         self.session.dirty = True

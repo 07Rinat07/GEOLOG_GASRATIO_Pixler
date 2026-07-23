@@ -119,7 +119,7 @@ def test_repository_saves_utf8_atomically(tmp_path) -> None:
     assert target.exists()
     assert restored.name == "Глубинная форма"
     raw = json.loads(target.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 4
+    assert raw["schema_version"] == 6
 
 
 def test_repository_lists_and_deletes(tmp_path) -> None:

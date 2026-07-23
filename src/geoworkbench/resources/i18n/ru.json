@@ -1763,5 +1763,8 @@
   "visual_export.svg_action": "Экспортировать текущий график/планшет в SVG...",
   "visual_export.title": "Экспорт визуализации",
   "lag_correction.action": "Коррекция lag/depth...",
-  "lag_correction.source_missing": "Исходный dataset коррекции не найден."
+  "lag_correction.source_missing": "Исходный dataset коррекции не найден.",
+  "daily_las_growth.action": "Ежедневно нарастить LAS...",
+  "daily_las_growth.success": "LAS наращён: добавлено строк — {added}, совпадающих пропущено — {skipped}.",
+  "daily_las_growth.no_changes": "Новых строк нет: файл уже учтён или полностью совпадает с dataset."
 }

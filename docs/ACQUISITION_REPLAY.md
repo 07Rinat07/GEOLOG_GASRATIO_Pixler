@@ -1,6 +1,6 @@
 # Append-only acquisition и deterministic replay
 
-Статус: реализовано в версии 0.7.42. Acquisition schema: v1. Current project format: v19 (acquisition introduced in v18).
+Статус: реализовано в версии 0.7.42. Acquisition schema: v1. Current project format: v20 (acquisition introduced in v18).
 
 ## Назначение
 

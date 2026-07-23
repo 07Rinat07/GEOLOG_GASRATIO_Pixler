@@ -1,6 +1,6 @@
 # Версионированная lag/depth correction
 
-Статус: реализовано в версии 0.7.44. Project format: v19. Lag correction schema: v1.
+Статус: реализовано в версии 0.7.44. Introduced in project format v19; current project format: v20. Lag correction schema: v1.
 
 ## Назначение
 

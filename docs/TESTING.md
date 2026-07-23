@@ -23,12 +23,12 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для среза 0.7.44 в текущем контейнере выполнены `compileall`, focused lag/project/codec/UI
-набор — 72 passed, и доступная headless-регрессия — 987 passed, 4 skipped, 3 deselected.
-Три deselected-сценария требуют отсутствующий `lasio`; 82 collection-модуля полного набора
-требуют `PySide6`, `pyqtgraph` или `lasio`. Ruff и mypy в контейнере также отсутствуют. Это не
-заменяет полный gate. Перед stable команды выше и Windows/HiDPI/PDF/physical-print smoke-test
-необходимо повторить в установленном окружении.
+Для среза 0.7.45 в текущем контейнере выполнены `compileall`, focused forms/grid/symbols/
+daily-LAS/project/codec набор — 146 passed, и доступная headless-регрессия — 995 passed,
+4 skipped, 3 deselected. Три deselected-сценария требуют отсутствующий `lasio`; 82 collection-
+модуля полного набора требуют `PySide6`, `pyqtgraph` или `lasio`. Ruff и mypy в контейнере
+также отсутствуют. Это не заменяет полный gate. Перед stable команды выше и Windows/HiDPI/
+PDF/physical-print smoke-test необходимо повторить в установленном окружении.
 
 ## Приветственное окно запуска
 
@@ -50,7 +50,7 @@
 - сохранение исходной мнемоники, source UOM, confidence и evidence;
 - явный unresolved для неизвестного vendor-канала или UOM;
 - UOM quantity conflict как ошибка Import Review;
-- round-trip project format v19 и миграции v15 → v16 → v17 → v18 → v19;
+- round-trip project format v20 и миграции v15 → v16 → v17 → v18 → v19 → v20;
 - сохранение binding при copy/merge/resample/TIME↔DEPTH;
 - read-only гарантия `build_import_review()`;
 - plan/preview/commit на глубокой копии без изменения loader-owned dataset;
@@ -61,7 +61,7 @@
 
 ## Operational events
 
-Для operational-event schema v1 в текущем project format v19 обязательны проверки:
+Для operational-event schema v1 в текущем project format v20 обязательны проверки:
 
 - все шесть discriminator-типов принимают только собственный typed payload;
 - событие требует depth, elapsed-time или timezone-aware measurement timestamp;
@@ -76,7 +76,7 @@
 
 ## Append-only acquisition и replay
 
-Для acquisition schema v1 в текущем project format v19 обязательны проверки:
+Для acquisition schema v1 в текущем project format v20 обязательны проверки:
 
 - dataset schema фиксирует точные index/curve IDs, metadata и active index;
 - records имеют уникальные IDs и непрерывную sequence начиная с 1;
@@ -97,7 +97,7 @@
 
 ## Versioned lag/depth correction
 
-Для lag correction schema v1 и project format v19 обязательны проверки:
+Для lag correction schema v1, введённой в v19 и сохраняемой в текущем project format v20, обязательны проверки:
 
 - constant-time, annular-volume/flow, pump-strokes и control-points formulas;
 - явные TIME/DEPTH indexes и repeated-time aggregation policy;
@@ -111,6 +111,24 @@
 - миграция `v18 → v19` добавляет пустой `lag_correction_profiles`;
 - UI работает через project-controller, показывает preview и явно выбирает source/corrected axis;
 - ReportDefinition фиксирует выбранный dataset/index без скрытого переключения оси.
+
+## Рабочие формы, графические колонки и ежедневное наращивание LAS
+
+Для project format v20, form schema v6 и tablet layout v15 обязательны проверки:
+
+- grid overlay остаётся видимым при скрытых осях и не зависит от состояния pyqtgraph axis;
+- каждая колонка отдельно сохраняет grid X/Y, major/minor divisions, alpha и print-grid;
+- curve header сохраняет min/max, linear/log, unit, цвет кривой, текста и нижней линии;
+- двойной щелчок по шапке маршрутизируется в настройку соответствующей кривой;
+- form round-trip сохраняет порядок/ширины, viewport, source dataset/index, revision и scope;
+- 19 заводских symbols имеют alpha-канал и tight crop; legacy olive/white canvas удалён;
+- новый DEPTH LAS использует редактируемый default step 0,2 м;
+- daily append требует явно выбранный dataset и точное совпадение DEPTH/TIME, type, UOM,
+  WELL, curve mnemonics и units;
+- одинаковое перекрытие пропускается, конфликтующее блокируется до изменения target;
+- повторный SHA-256 является no-op, а append history сохраняется при project round-trip;
+- append одного dataset не изменяет другие DEPTH/TIME datasets, формы и canvas objects;
+- миграция `v19 → v20` добавляет независимый пустой `append_history` каждому dataset.
 
 ## Report Passport
 

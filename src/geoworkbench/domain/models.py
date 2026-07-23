@@ -153,6 +153,49 @@ class DatasetIndex:
             raise ValueError("Confidence индекса должен находиться в диапазоне 0–1")
 
 
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetAppendRecord:
+    """Audit entry for one successful append-only daily LAS import."""
+
+    import_id: str
+    source_name: str
+    source_sha256: str
+    imported_at: str
+    index_role: IndexRole
+    index_type: IndexType
+    index_unit: str | None
+    start_value: str
+    stop_value: str
+    rows_added: int
+    rows_skipped: int
+    curve_mnemonics: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.import_id or not isinstance(self.import_id, str):
+            raise ValueError("import_id должен быть непустой строкой")
+        if not isinstance(self.source_name, str) or not self.source_name.strip():
+            raise ValueError("source_name должен быть непустой строкой")
+        if not re.fullmatch(r"[0-9a-f]{64}", self.source_sha256):
+            raise ValueError("source_sha256 должен быть SHA-256 в нижнем регистре")
+        if not isinstance(self.imported_at, str) or not self.imported_at.strip():
+            raise ValueError("imported_at должен быть непустой ISO-строкой")
+        if not isinstance(self.index_role, IndexRole) or not isinstance(self.index_type, IndexType):
+            raise ValueError("История импорта содержит неизвестную ось")
+        if self.index_unit is not None and not isinstance(self.index_unit, str):
+            raise ValueError("index_unit должен быть строкой или null")
+        if not isinstance(self.start_value, str) or not isinstance(self.stop_value, str):
+            raise ValueError("Границы импорта должны быть строками")
+        for value in (self.rows_added, self.rows_skipped):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError("Счётчики импорта должны быть неотрицательными целыми")
+        if not isinstance(self.curve_mnemonics, tuple) or not all(
+            isinstance(item, str) and item.strip() for item in self.curve_mnemonics
+        ):
+            raise ValueError("curve_mnemonics должен быть tuple непустых строк")
+
+
 @dataclass(slots=True)
 class Dataset:
     dataset_id: str
@@ -167,8 +210,13 @@ class Dataset:
     indexes: dict[str, DatasetIndex] = field(default_factory=dict)
     active_index_id: str | None = None
     version_headers: dict[str, str] = field(default_factory=dict)
+    append_history: list[DatasetAppendRecord] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.append_history, list) or not all(
+            isinstance(item, DatasetAppendRecord) for item in self.append_history
+        ):
+            raise ValueError("append_history должен содержать DatasetAppendRecord")
         self.depth = np.asarray(self.depth, dtype=np.float64)
         if self.depth.ndim != 1:
             raise ValueError("Шкала depth должна быть одномерной")

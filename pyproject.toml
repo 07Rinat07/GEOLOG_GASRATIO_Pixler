@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "geolog-gasratio-pixler"
-version = "0.7.44"
+version = "0.7.45"
 description = "Desktop workbench for LAS, gas ratio, Pixler profiles and geological masterlogs"
 authors = [
   { name = "Rinat Sarmuldin", email = "ura07srr@gmail.com" }
@@ -37,6 +37,7 @@ geoworkbench = [
   "resources/constructor_assets/*/*.json",
   "resources/constructor_assets/*/originals/*.bmp",
   "resources/constructor_assets/*/thumbnails/*.png",
+  "resources/constructor_assets/*/transparent/*.png",
 ]
 
 [tool.pytest.ini_options]

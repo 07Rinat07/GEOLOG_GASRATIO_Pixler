@@ -54,6 +54,7 @@ from geoworkbench.domain.models import (
     CuttingsComponent,
     CuttingsSample,
     Dataset,
+    DatasetAppendRecord,
     DatasetIndex,
     DatasetKind,
     DepthDomain,
@@ -112,7 +113,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 19
+PROJECT_FORMAT_VERSION = 20
 
 
 @dataclass(slots=True)
@@ -326,6 +327,31 @@ def _optional_float_field(data: dict[str, Any], key: str) -> float | None:
     return float(value) if value is not None else None
 
 
+def _dataset_append_record_from_dict(data: object) -> DatasetAppendRecord:
+    if not isinstance(data, dict):
+        raise ProjectFormatError("Запись истории наращивания должна быть объектом")
+    raw_curves = data.get("curve_mnemonics", [])
+    if not isinstance(raw_curves, list) or not all(isinstance(item, str) for item in raw_curves):
+        raise ProjectFormatError("curve_mnemonics истории наращивания должен быть списком строк")
+    try:
+        return DatasetAppendRecord(
+            import_id=str(_required(data, "import_id", str)),
+            source_name=str(_required(data, "source_name", str)),
+            source_sha256=str(_required(data, "source_sha256", str)),
+            imported_at=str(_required(data, "imported_at", str)),
+            index_role=IndexRole(str(_required(data, "index_role", str))),
+            index_type=IndexType(str(_required(data, "index_type", str))),
+            index_unit=(str(data["index_unit"]) if data.get("index_unit") is not None else None),
+            start_value=str(_required(data, "start_value", str)),
+            stop_value=str(_required(data, "stop_value", str)),
+            rows_added=_required_int(data, "rows_added"),
+            rows_skipped=_required_int(data, "rows_skipped"),
+            curve_mnemonics=tuple(raw_curves),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректная запись истории наращивания LAS") from exc
+
+
 def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
     try:
         kind = DatasetKind(str(_required(data, "kind", str)))
@@ -343,6 +369,9 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
     }
     if len(indexes) != len(raw_indexes):
         raise ProjectFormatError("Запись индекса должна быть объектом")
+    raw_append_history = data.get("append_history", [])
+    if not isinstance(raw_append_history, list):
+        raise ProjectFormatError("Поле append_history должно быть списком")
     try:
         dataset = Dataset(
             dataset_id=str(_required(data, "dataset_id", str)),
@@ -365,6 +394,10 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
             },
             indexes=indexes,
             active_index_id=data.get("active_index_id"),
+            append_history=[
+                _dataset_append_record_from_dict(item)
+                for item in raw_append_history
+            ],
         )
     except (TypeError, ValueError) as exc:
         raise ProjectFormatError("Файл содержит некорректные данные dataset") from exc

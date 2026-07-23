@@ -169,6 +169,8 @@ class FormApplyEngine:
                         x_scale=binding.x_scale,
                         x_min=binding.x_min,
                         x_max=binding.x_max,
+                        header_text_color=binding.header_text_color,
+                        header_line_color=binding.header_line_color,
                     )
                     if x_scale is None:
                         x_scale = binding.x_scale
@@ -218,6 +220,8 @@ class FormApplyEngine:
                 tracks=tracks,
                 vertical_index_id=preferred.index_id,
                 annotation_scope_id=f"dataset:{dataset.dataset_id}:form:{form.form_id}",
+                visible_depth_top=form.visible_axis_top,
+                visible_depth_bottom=form.visible_axis_bottom,
             ),
             resolutions,
         )

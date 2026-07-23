@@ -27,12 +27,12 @@
       "source_files": [
         "Башмак.bmp"
       ],
-      "content_sha256": "573a8a0faa4fb1205e551d1447c632d130a58ad55a4f8dce527f29d4d595113f",
-      "pixel_sha256": "17a3a47eb026c9cca579fb12a1fb65d0e63ecc8c7b846e93f4d748e0ad89bac3",
-      "width_px": 25,
-      "height_px": 35,
-      "asset_path": "symbols/originals/symbol-casing-shoe.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-casing-shoe.png",
+      "content_sha256": "5a22472eead7ccfe167619e27a9d3998e625ef880f2e696023d115d8b3072b27",
+      "pixel_sha256": "a10d4305eaae82f2eb3ca25f2dcee44db993811e675c369bd35b2eee11982347",
+      "width_px": 20,
+      "height_px": 33,
+      "asset_path": "symbols/transparent/symbol-casing-shoe.png",
+      "thumbnail_path": "symbols/transparent/symbol-casing-shoe.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -45,7 +45,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-formation-gas",
@@ -68,12 +82,12 @@
       "source_files": [
         "Газ Пласт.bmp"
       ],
-      "content_sha256": "97ca5015fdfebfb60a07db22b1f068a0e4eb82f4f80f802728ec86a46a4ba3dc",
-      "pixel_sha256": "219f0bf50c83911048aa5b37853e868b689298008d543e7c74dfd69953c82961",
-      "width_px": 36,
-      "height_px": 36,
-      "asset_path": "symbols/originals/symbol-formation-gas.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-formation-gas.png",
+      "content_sha256": "993893a219f4ec7abe462c0894e08c529550a018f16c185a2e86cdf513e00e0f",
+      "pixel_sha256": "7b0b4e605c1cea6c281b9caf80a25ecf8799be8530a4af52f5372bd28bf7d093",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "symbols/transparent/symbol-formation-gas.png",
+      "thumbnail_path": "symbols/transparent/symbol-formation-gas.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -86,7 +100,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-tripping-gas",
@@ -108,12 +136,12 @@
       "source_files": [
         "Газ СПО.bmp"
       ],
-      "content_sha256": "882913e3d0a2e355a09d14d3239c8005acc5498d0648a375681600660cdd612b",
-      "pixel_sha256": "757b03dfc791917e9850a801f7668904b33cc01634d80ebd771b957a1cc37bc0",
-      "width_px": 36,
-      "height_px": 36,
-      "asset_path": "symbols/originals/symbol-tripping-gas.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-tripping-gas.png",
+      "content_sha256": "a43c92bf69d8296bb81dc1f52d867c41aa7b18e72ae398daee18788313427ce6",
+      "pixel_sha256": "9e748ff0fbe0027c01f6def405e7b1fa58e23d9af1b8a6cfb16fc0433d856a8f",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "symbols/transparent/symbol-tripping-gas.png",
+      "thumbnail_path": "symbols/transparent/symbol-tripping-gas.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -126,7 +154,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-test-gas",
@@ -149,12 +191,12 @@
       "source_files": [
         "Газ Тест.bmp"
       ],
-      "content_sha256": "6a165a003e4548d579218fa3e686084a5def4e79c4bd6ddb11d69fe02d7a008c",
-      "pixel_sha256": "b452d813a1d0fc5839daf8c527b01ca23e93591aac4e5e4b1e1bf3d20bc5ecab",
-      "width_px": 36,
-      "height_px": 36,
-      "asset_path": "symbols/originals/symbol-test-gas.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-test-gas.png",
+      "content_sha256": "cee14dd958576252220658bcf75b03deab1d57fb24d18349759e3ab3f3bdd649",
+      "pixel_sha256": "88932f7954f5bf981c521ee0dfb7632b9059158aa8d19b7c6da6cfb230035820",
+      "width_px": 33,
+      "height_px": 33,
+      "asset_path": "symbols/transparent/symbol-test-gas.png",
+      "thumbnail_path": "symbols/transparent/symbol-test-gas.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -167,7 +209,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-background-gas",
@@ -190,12 +246,12 @@
       "source_files": [
         "Газ Фоновый.bmp"
       ],
-      "content_sha256": "a2d5f23072ab0ac14b7e1343eebe1c4c8ed53b9ee5c25cdd9008035316422461",
-      "pixel_sha256": "12702810d343c2d1755995204b3e0b85baf49d38096922dca5087f6b6a98a9a8",
-      "width_px": 36,
-      "height_px": 36,
-      "asset_path": "symbols/originals/symbol-background-gas.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-background-gas.png",
+      "content_sha256": "6a2ba29773694e454793dd58b5032fd95ec6814f21a606afdeaafe356293be86",
+      "pixel_sha256": "fa6b1662a9d415c77b5ffb60f6284fbfdf127039594c349a9a4b61ebe027cc90",
+      "width_px": 32,
+      "height_px": 33,
+      "asset_path": "symbols/transparent/symbol-background-gas.png",
+      "thumbnail_path": "symbols/transparent/symbol-background-gas.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -208,7 +264,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-mud-fill",
@@ -230,12 +300,12 @@
       "source_files": [
         "Долив.bmp"
       ],
-      "content_sha256": "5343e037e287d816f7af252c831b92447e0ab9d5025782f30f08b47269e9aedd",
-      "pixel_sha256": "eed7bde75a38855d397ecafe7aed64c94c9b5beed52a3cf2fc0c0a43eca37284",
-      "width_px": 23,
-      "height_px": 23,
-      "asset_path": "symbols/originals/symbol-mud-fill.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-mud-fill.png",
+      "content_sha256": "31a4e1d1e0177581660dd8119a2a444c05e8cc00a1f1d3c213711b0f6eed83fb",
+      "pixel_sha256": "95d2241023fc6d8496fbaea9549c1fcab1cdec780bac4d127d50fdd7ac957ac2",
+      "width_px": 16,
+      "height_px": 21,
+      "asset_path": "symbols/transparent/symbol-mud-fill.png",
+      "thumbnail_path": "symbols/transparent/symbol-mud-fill.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -248,7 +318,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-bit",
@@ -270,12 +354,12 @@
       "source_files": [
         "Долото.bmp"
       ],
-      "content_sha256": "f78019777d3136f1f792c52097d41fc2f07722d189a062f66e07dd7f4effb131",
-      "pixel_sha256": "92a2e9048156e93b5b415770859ba32a7ad8742397decda3d293eceb0000f4a8",
-      "width_px": 23,
-      "height_px": 37,
-      "asset_path": "symbols/originals/symbol-bit.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-bit.png",
+      "content_sha256": "554866242eb12632fbed38eca37f76035b2ab7e5c43d45c920b8978063a03739",
+      "pixel_sha256": "4a44cdc1b9541a5ba2011945fcaf0e4db31c0052f673e40524f9b115323f7efc",
+      "width_px": 19,
+      "height_px": 27,
+      "asset_path": "symbols/transparent/symbol-bit.png",
+      "thumbnail_path": "symbols/transparent/symbol-bit.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -288,7 +372,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-core-hydrocarbon-shows",
@@ -311,12 +409,12 @@
       "source_files": [
         "Кери с признаками УВ.bmp"
       ],
-      "content_sha256": "5cc496fe56dee6a72138acaa6de349558cbc17ac07a4b7f7cbd879885e6ed0f8",
-      "pixel_sha256": "10b869bf59ef8661df1b930ea4a387570be65e13c9fd18ea7fcd6c0f5bffa264",
+      "content_sha256": "a81b0556e805fba299112cf861340e28b8d37827a7902721a0a104f592930be9",
+      "pixel_sha256": "bcdfd1c97b7fbb487ec4fb2441024963ef3c920834fed9bddb8937667f46a0c7",
       "width_px": 21,
       "height_px": 34,
-      "asset_path": "symbols/originals/symbol-core-hydrocarbon-shows.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-core-hydrocarbon-shows.png",
+      "asset_path": "symbols/transparent/symbol-core-hydrocarbon-shows.png",
+      "thumbnail_path": "symbols/transparent/symbol-core-hydrocarbon-shows.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -329,7 +427,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-core",
@@ -351,12 +463,12 @@
       "source_files": [
         "КЕРН.bmp"
       ],
-      "content_sha256": "b35dfed49238ba2d0e346e6601d2d7801b2701b11d5799cf415ad50cbad01377",
-      "pixel_sha256": "4d66688750ee011a399412ba3df80e18242d19297242ef32f0a815dc8f04557f",
+      "content_sha256": "c75ef63b362d5d12f885f9ee74e8ff9f44f319d8a9188f07d0dbc046e31a9a0c",
+      "pixel_sha256": "54b1fba8e59ddc6b1efb612bd24450fa43d7e9d802dbcdc302f083c311c79eed",
       "width_px": 21,
       "height_px": 37,
-      "asset_path": "symbols/originals/symbol-core.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-core.png",
+      "asset_path": "symbols/transparent/symbol-core.png",
+      "thumbnail_path": "symbols/transparent/symbol-core.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -369,7 +481,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-column-marker",
@@ -390,12 +516,12 @@
       "source_files": [
         "Кол.bmp"
       ],
-      "content_sha256": "0838f9038ef685c165670f103e1965127dfe7f8dfc86ec93ff46ceaa46b84b34",
-      "pixel_sha256": "188a2135a8b13674ca40ff7122c1cb14a597c308631696534c36767078cf96e2",
-      "width_px": 22,
-      "height_px": 37,
-      "asset_path": "symbols/originals/symbol-column-marker.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-column-marker.png",
+      "content_sha256": "8c6719560d9aeeb2dc40dad375cb689ef7e337c740f7f86d16e14eb9d428b053",
+      "pixel_sha256": "cef2c9ab01ee2ee46d920bd1c2b79c8320fba48032739c13994636e1fb6ff091",
+      "width_px": 20,
+      "height_px": 28,
+      "asset_path": "symbols/transparent/symbol-column-marker.png",
+      "thumbnail_path": "symbols/transparent/symbol-column-marker.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -408,7 +534,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-h2s",
@@ -429,12 +569,12 @@
       "source_files": [
         "Н2S.bmp"
       ],
-      "content_sha256": "cf942f44a7f0bbc16f1577284c7bf6e3f21b417adc4361379e33d140ef9b9f1c",
-      "pixel_sha256": "e79a48898ba6f5cf400ee11cb7454f5abcfe239cc59a57f64f47712de6d2307e",
-      "width_px": 36,
-      "height_px": 36,
-      "asset_path": "symbols/originals/symbol-h2s.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-h2s.png",
+      "content_sha256": "95339604d0de58eb791b49f7afec88cfebffb4b30e3f05615d1251eb97de9146",
+      "pixel_sha256": "4502d28aad7a9583763669b8937fa2c3c08960fa18e6b864d1a429e4d5e50748",
+      "width_px": 32,
+      "height_px": 32,
+      "asset_path": "symbols/transparent/symbol-h2s.png",
+      "thumbnail_path": "symbols/transparent/symbol-h2s.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -447,7 +587,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-oil-saturation",
@@ -470,12 +624,12 @@
       "source_files": [
         "нефтенасыщенность.bmp"
       ],
-      "content_sha256": "29a6aa14fc49e0fc131643ba005bd090f8521953d3487950b1c420c0aa04a682",
-      "pixel_sha256": "f8c9d0f290f9eda6c87638d9e07696035e4f05b80524bc0fae1d00465c83f1e5",
-      "width_px": 25,
-      "height_px": 25,
-      "asset_path": "symbols/originals/symbol-oil-saturation.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-oil-saturation.png",
+      "content_sha256": "7af259f6ac39f43dfc2c3506a122f78ca71ab42a92a120050e7c67f0eff35ad5",
+      "pixel_sha256": "8d2dc12e8c34c627bf8e07f1add65c71ea8b6a83b2840badb08085bd84a0e02c",
+      "width_px": 16,
+      "height_px": 16,
+      "asset_path": "symbols/transparent/symbol-oil-saturation.png",
+      "thumbnail_path": "symbols/transparent/symbol-oil-saturation.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -488,7 +642,22 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ],
+        "legacy_canvas_removed": true
+      }
     },
     {
       "id": "symbol-residual-oil-saturation",
@@ -511,12 +680,12 @@
       "source_files": [
         "Остаточноя нефтенасыщенность.bmp"
       ],
-      "content_sha256": "9749bb8bcf58498019c9cf414a781ee6a4eebbbe57a81b5a1dea0a31c93b0909",
-      "pixel_sha256": "f75edc14c083febedcf10148cb01c675dc4eeec15babb04a017b267a944ec00c",
-      "width_px": 25,
-      "height_px": 25,
-      "asset_path": "symbols/originals/symbol-residual-oil-saturation.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-residual-oil-saturation.png",
+      "content_sha256": "17c0011d175e5fb14f1c84a9057828e542c449d3aa8e81beeae4672a38af6ccb",
+      "pixel_sha256": "92021a84db051f1040691ac81a126ef482be18ffa58197e8efebf4f8538cfa9d",
+      "width_px": 7,
+      "height_px": 7,
+      "asset_path": "symbols/transparent/symbol-residual-oil-saturation.png",
+      "thumbnail_path": "symbols/transparent/symbol-residual-oil-saturation.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -529,7 +698,22 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ],
+        "legacy_canvas_removed": true
+      }
     },
     {
       "id": "symbol-transfer",
@@ -551,12 +735,12 @@
       "source_files": [
         "Перекачка.bmp"
       ],
-      "content_sha256": "df0f64ec844d1b78ea21f64fac93d523e4c7e0a61dbab35f2ffb73fcb6f95f53",
-      "pixel_sha256": "8dfdc76f6bee43a69509969c25b827b6b8530470f74cfa04243e169ea96aff34",
-      "width_px": 23,
-      "height_px": 23,
-      "asset_path": "symbols/originals/symbol-transfer.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-transfer.png",
+      "content_sha256": "a3e942b5ef43d3fdb7b66057e4c0a519da157dbc9da41139641f6ed20ee46dea",
+      "pixel_sha256": "a42af8295b290a0980a46dd0ea74a5dce0a93b7a4604a66d48ec5b00582503ad",
+      "width_px": 16,
+      "height_px": 16,
+      "asset_path": "symbols/transparent/symbol-transfer.png",
+      "thumbnail_path": "symbols/transparent/symbol-transfer.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -569,7 +753,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-loss",
@@ -591,12 +789,12 @@
       "source_files": [
         "Поглощение.bmp"
       ],
-      "content_sha256": "bc08b8f897ce7cfe4bd0b2a01fa953b5dcc771f64f464e863e1a4767f87daf16",
-      "pixel_sha256": "6ecccb870f94f1aa7d4b322f6ad3118b811246b6abeed1d2918422fdfb31cefe",
-      "width_px": 25,
-      "height_px": 35,
-      "asset_path": "symbols/originals/symbol-loss.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-loss.png",
+      "content_sha256": "be89385e8959a6f8873abf9e47a4fc44e20fe4ed9333ae8a85471fcd76d1eb6a",
+      "pixel_sha256": "6b06e128080a4e857389af3edaeae5228601383d1ef02d52762b6fddd8a8acc5",
+      "width_px": 20,
+      "height_px": 29,
+      "asset_path": "symbols/transparent/symbol-loss.png",
+      "thumbnail_path": "symbols/transparent/symbol-loss.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -609,7 +807,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-influx",
@@ -631,12 +843,12 @@
       "source_files": [
         "Приток.bmp"
       ],
-      "content_sha256": "8c4e1e8736bdbe2dbf2f242d40022beca6d84b5a9e887bc4533409cda4df2f73",
-      "pixel_sha256": "1ff8fd6fb827ffa0fde716de2a3741ad9bd4dc374e6ddc4f26bed6715a1e3fa9",
-      "width_px": 25,
-      "height_px": 35,
-      "asset_path": "symbols/originals/symbol-influx.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-influx.png",
+      "content_sha256": "a371b1a8abe1e141cd93045243c0e20a714870f55870e7bca914fe9663a0788f",
+      "pixel_sha256": "eedcb1413bf1172ee27140e44ba9775669853260c8752acfa12ee0c75a60bd46",
+      "width_px": 20,
+      "height_px": 29,
+      "asset_path": "symbols/transparent/symbol-influx.png",
+      "thumbnail_path": "symbols/transparent/symbol-influx.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -649,7 +861,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-weak-oil-show",
@@ -671,12 +897,12 @@
       "source_files": [
         "Слабые нефтепроявления.bmp"
       ],
-      "content_sha256": "37efb441891e962015d94971a0afd6a5bd00977a987346362c995f33c2469e87",
-      "pixel_sha256": "7906edbbe72c086771fea361a38c2cf0871f07e735d4167b9d134a74b34dea04",
-      "width_px": 25,
-      "height_px": 25,
-      "asset_path": "symbols/originals/symbol-weak-oil-show.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-weak-oil-show.png",
+      "content_sha256": "98711bc38997e37726a749eb9b08c87820bd13fc9ffb37a7b259f1a66f6dc598",
+      "pixel_sha256": "a140f28e119ed9a8816ad5a7b692ab946a0a0f342fcfa2ae8c909febd02d091b",
+      "width_px": 16,
+      "height_px": 16,
+      "asset_path": "symbols/transparent/symbol-weak-oil-show.png",
+      "thumbnail_path": "symbols/transparent/symbol-weak-oil-show.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -689,7 +915,22 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ],
+        "legacy_canvas_removed": true
+      }
     },
     {
       "id": "symbol-co2",
@@ -710,12 +951,12 @@
       "source_files": [
         "СО2.bmp"
       ],
-      "content_sha256": "384b9ba98d49bd02247a3b61362beafe3dfa5e57682d487d355b08e9464f8ab2",
-      "pixel_sha256": "ef91439f0d92774563a47f46aaeeb3e07d9d612be777a41ac38dc9c3f098de91",
-      "width_px": 36,
-      "height_px": 36,
-      "asset_path": "symbols/originals/symbol-co2.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-co2.png",
+      "content_sha256": "9a2aca9e620a8eba8c4a14fd94bfbd9bb3afdc7588039979b3d389df595f2af3",
+      "pixel_sha256": "9ad5ef6fca5c238f86cd2cb6f88a57621169f1beb531604c2a3896f8e376ff17",
+      "width_px": 32,
+      "height_px": 33,
+      "asset_path": "symbols/transparent/symbol-co2.png",
+      "thumbnail_path": "symbols/transparent/symbol-co2.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -728,7 +969,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     },
     {
       "id": "symbol-cementing",
@@ -751,12 +1006,12 @@
       "source_files": [
         "Цем.bmp"
       ],
-      "content_sha256": "3a588f5b10c415e081cb964882b751c93ca27085807a7cae35963c7081ae65c5",
-      "pixel_sha256": "9d4381745a06a71eb239539303f02c3aaf3039fe47b0c2fd3f34eb7b9d96e7dd",
-      "width_px": 25,
-      "height_px": 35,
-      "asset_path": "symbols/originals/symbol-cementing.bmp",
-      "thumbnail_path": "symbols/thumbnails/symbol-cementing.png",
+      "content_sha256": "37a74b4ae9a825f56de65ab5934267d89bea80f03e457fac9373eb5a62efa44f",
+      "pixel_sha256": "d9f3b682c844b3b7ce8eb0bcb61dc4bf23bcbada67eb090a9b9b7a0093cb98eb",
+      "width_px": 20,
+      "height_px": 33,
+      "asset_path": "symbols/transparent/symbol-cementing.png",
+      "thumbnail_path": "symbols/transparent/symbol-cementing.png",
       "placement": {
         "depth_anchored": true,
         "default_width_mm": 4.0,
@@ -769,7 +1024,21 @@
           "*"
         ]
       },
-      "active": true
+      "active": true,
+      "render": {
+        "transparent_background": true,
+        "tight_crop": true,
+        "preserve_aspect_ratio": true,
+        "depth_anchored": true,
+        "default_width_mm": 4.0,
+        "default_height_mm": 4.0,
+        "allowed_tracks": [
+          "*"
+        ],
+        "allowed_parameters": [
+          "*"
+        ]
+      }
     }
   ]
 }

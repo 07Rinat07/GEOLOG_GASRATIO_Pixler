@@ -1,6 +1,6 @@
 # Нұсқаланатын lag/depth түзетуі
 
-Күйі: 0.7.44 нұсқасында іске асырылды. Project format: v19. Lag correction schema: v1.
+Күйі: 0.7.44 нұсқасында іске асырылды. Project format v19 ішінде енгізілді; ағымдағы project format: v20. Lag correction schema: v1.
 
 Түзету жерүсті өлшемін есептелген келу тереңдігімен байланыстырады және жазылған acquisition
 dataset пен append-only journal-ды өзгертпейді. Әр immutable профиль ревизиясы бастапқы және

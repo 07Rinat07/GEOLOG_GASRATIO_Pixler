@@ -1,58 +1,16 @@
 # Жоба жоспары
 
-2026 жылғы 23 шілдедегі күй. Нұсқалар тарихы release notes файлдарында сақталады; мұнда
-тек өзекті жұмыс бар. 0.7.44 нұсқасы versioned lag/depth correction кесімін аяқтайды. Келесі
-пәндік кесім — read-only offline WITSML 2.1 inventory және mapping fixtures.
+2026 жылғы 23 шілдедегі күй.
 
-## P0 — шығарылым тұрақтылығы
+## 0.7.45 аяқталған жұмыс срезі
 
-- [x] аннотация оқиғаларын бағыттауды және толық Qt тестінің авариялық аяқталуын түзету;
-- [x] Ruff және mypy қателерін нөлге жеткізу; 0.7.28 baseline нәтижесі — 1217 өтті,
-  10 өткізіліп жіберілді;
-- міндетті Windows, HiDPI, PDF және физикалық баспа матрицасын орындау;
-- ағымдағы нұсқа үшін толық Ruff/mypy/pytest gate-ті қайталау;
-- gate жасыл болғанша жинақты stable деп атамау.
+- [x] әр бағанның торы мен бөліктерін тәуелсіз реттеу;
+- [x] тақырыптағы min/max, атау түсі және астыңғы сызық түсі;
+- [x] пішіннің бағандары, масштабтары, viewport, source binding және revision сақталуы;
+- [x] фонсыз, тығыз қиылған зауыттық белгілер;
+- [x] бір ұңғымада бірнеше тәуелсіз DEPTH/TIME datasets;
+- [x] ось/бірлік/ұңғыма/схема тексерілетін күнделікті LAS append;
+- [x] SHA-256 қайталануын тану және әр dataset-тің жеке audit тарихы;
+- [x] жаңа тереңдік LAS үшін өзгертілетін 0,2 м әдепкі қадам.
 
-## P0 — архитектура және деректер
-
-- [x] `TabletView` ішінен annotation event router-ді мінез-құлықты өзгертпей шығару;
-- [x] pan/zoom/home/end/keyboard командаларын headless coordinator-ға шығару;
-- [x] track plan/order/reuse, creation, rollback және disposal бөліктерін шығару;
-- [x] экран/баспаға ортақ grid renderer-ді шығару;
-- [x] өңдеу режимі контроллерін F4 және аннотация құралы күйінің жалғыз иесі ету;
-- [x] басты бет/workspace/мақсатты қойынды навигациясын `MainWindow` ішінен шығару;
-- [x] әмбебап import маршрутизациясын және CSV/Excel/LAS/Paradox jobs-ты шығару;
-- [x] print jobs, session binding және жоба ағашының workspace командаларын шығару;
-- [x] UI кластарының сериализацияланатын жоба моделін тікелей өзгертуіне тыйым салу;
-- [x] параметр түрі, quantity class, UOM, aliases, дереккөз және бастапқы мнемоникасы бар
-  Semantic Channel Dictionary енгізу; v16-да қосылған binding ағымдағы v19-де де сақталады;
-- [x] manual overrides, QC preview және атомарлық commit бар интерактивті Import Review қосу;
-- [x] fingerprints, bindings/UOM, formula versions, form revision, language және render settings бар қайталанатын есеп паспортын енгізу;
-- [x] экран/баспа grid, legend, lithotypes және annotations үшін детерминирленген golden fixtures қосу;
-- [x] preview, PDF және кестелік экспорт үшін `ReportDefinition` мен interval selection-ды біріктіру;
-- [x] coverage және нөл/missing/unavailable channel айырмасын анық енгізу.
-
-## P1 — операциялар және нақты уақыт
-
-- [x] project format v17 ішіндегі drilling/gas/show/sample/casing/formation-top typed events;
-- [x] gap, duplicate, out-of-order, stale және calibration QC;
-- [x] append-only growing dataset, checkpoint және deterministic replay;
-- [x] acquisition source-ты өзгертпейтін нұсқаланған lag/depth correction;
-- [ ] offline WITSML 2.1 inventory және mapping fixtures, содан кейін fixture replay өткен соң қорғалған ETP 1.2 client.
-
-## P1 — есептер
-
-- [x] preview, PDF және кестелік экспортқа ортақ аралық моделі;
-- [x] ортақ bindings, UOM, coverage және нөл/missing/unavailable мәндерін анық ажырату;
-- [x] A4/A3/custom/roll, Fit/100%, continuation және physical printer gate;
-- [x] output + passport filesystem transaction және дайын файл fingerprint.
-- [x] ортақ ReportDefinition/Coverage contract және output transaction арқылы DOCX және HTML adapters.
-
-## P2 — дамыту
-
-- tops, ties және PDF бар multiwell correlation;
-- crossplot және статистикалық графиктер;
-- шектеулі нұсқаланған API және журналы мен рұқсаты бар Python console.
-
-Толық критерийлер: [инженерлік жоспар](../PROJECT_PLAN.md). Негіздеме:
-[аудит](PRODUCT_AUDIT_2026.md).
+Кейін: бір пішіндегі alignment-controlled multi-dataset overlay, растауы бар каталог watcher, offline WITSML 2.1 inventory/mapping және содан кейін ғана ETP 1.2.

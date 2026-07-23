@@ -14,7 +14,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 14
+LAYOUT_FORMAT_VERSION = 15
 
 
 class TabletLayoutFormatError(ValueError):
@@ -59,6 +59,8 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                         "x_scale": settings.x_scale.value,
                         "x_min": settings.x_min,
                         "x_max": settings.x_max,
+                        "header_text_color": settings.header_text_color,
+                        "header_line_color": settings.header_line_color,
                     }
                     for mnemonic, settings in track.curve_display.items()
                 },
@@ -198,6 +200,12 @@ def _track_from_dict(data: object) -> TrackDefinition:
             x_scale=XScale(raw_settings.get("x_scale", XScale.LINEAR.value)),
             x_min=float(raw_min) if raw_min is not None else None,
             x_max=float(raw_max) if raw_max is not None else None,
+            header_text_color=str(raw_settings.get("header_text_color", "#0f172a")),
+            header_line_color=(
+                str(raw_settings["header_line_color"])
+                if raw_settings.get("header_line_color") is not None
+                else None
+            ),
         )
     if not isinstance(raw_grid_x, bool) or not isinstance(raw_grid_y, bool):
         raise TypeError("grid_x и grid_y должны быть логическими значениями")
@@ -245,7 +253,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13):
+    if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -313,4 +321,15 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 track.setdefault("grid_major_divisions", 5)
                 track.setdefault("grid_minor_divisions", 5)
                 track.setdefault("grid_print", True)
+    migrated["version"] = 15
+    if isinstance(tracks, list):
+        for track in tracks:
+            if not isinstance(track, dict):
+                continue
+            display = track.get("curve_display", {})
+            if isinstance(display, dict):
+                for settings in display.values():
+                    if isinstance(settings, dict):
+                        settings.setdefault("header_text_color", "#0f172a")
+                        settings.setdefault("header_line_color", None)
     return migrated

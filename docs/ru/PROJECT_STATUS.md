@@ -1,41 +1,41 @@
 # Статус проекта
 
-Срез: 23 июля 2026 года. Версия пакета: **0.7.44**, тестовая сборка. Project format: **v19**.
+Срез: 23 июля 2026 года. Версия пакета: **0.7.45**, тестовая сборка. Project format: **v20**.
 
-## Решение о выпуске
+## Завершённый срез 0.7.45
 
-Последний полностью подтверждённый автоматический baseline 0.7.28: Ruff чист, mypy — 0 ошибок
-в 262 исходных файлах, полный pytest — 1217 passed и 10 skipped. Для 0.7.44 в текущем контейнере
-выполнены `compileall`, 72 focused tests и доступная headless-регрессия: 987 passed, 4 skipped,
-3 deselected. Полный Qt/LAS/Ruff/mypy gate требует `PySide6`, `pyqtgraph`, `lasio`, Ruff и mypy.
-Windows/HiDPI/PDF/physical-print smoke-test также остаётся обязательным перед stable.
-
-## Завершённый срез 0.7.44
-
-- immutable `LagCorrectionProfile` и непрерывные revisions;
-- методы constant-time, annular-volume/flow, pump-strokes и manual control points;
-- отдельный derived dataset на каждую revision, без изменения acquisition dataset/journal;
-- source и corrected DEPTH indexes в одной проверяемой проекции;
-- explicit repeated-time aggregation и `NaN` вместо скрытой экстраполяции;
-- source-prefix, output и acquisition provenance fingerprints;
-- проверка tampering/divergence при загрузке project format v19;
-- optimistic guards для add/activate revision;
-- Qt-окно в меню «Расчёты» с выбором кривых, preview и source/corrected axis;
-- ReportDefinition использует явно выбранный active index derived dataset;
-- безопасная миграция `v18 → v19` с пустым `lag_correction_profiles`.
+- инженерная сетка рисуется overlay-слоем и не исчезает при скрытых осях графика;
+- каждая колонка независимо хранит grid X/Y, major/minor divisions, alpha и print-grid;
+- шапка показывает название, min/max, единицу и тип шкалы; двойной щелчок открывает настройку;
+- цвет кривой, текста шапки и линии под названием сохраняются в layout v15 и form schema v6;
+- форма хранит ширины, порядок, viewport, источник, revision и стабильный annotation scope;
+- 19 заводских depth symbols преобразованы в прозрачные tightly-cropped PNG;
+- ежедневный LAS добавляется append-only в явно выбранный dataset текущей скважины;
+- DEPTH/TIME, index type/unit, WELL и curve schema проверяются до изменения данных;
+- повторный SHA-256 — no-op, одинаковое перекрытие пропускается, конфликт блокируется атомарно;
+- каждый dataset имеет собственный `append_history`; миграция `v19 → v20` не смешивает datasets;
+- новый глубинный LAS по умолчанию создаётся с шагом 0,2 м.
 
 ## Актуальная рабочая основа
 
-- package 0.7.44; project format v19; acquisition/event/lag schemas v1;
-- трёхсекундное неблокирующее приветственное окно;
-- Semantic Channel Dictionary и Import Review;
-- operational events и deterministic QC;
-- append-only acquisition, checkpoints, rollback и replay;
-- versioned lag/depth correction с reversible projections;
-- ReportDefinition schema v2, Coverage schema v1 и Report Passport schema v4;
-- recoverable output transaction и PDF/XLSX/CSV/TSV/DOCX/HTML adapters.
+Одна скважина может содержать много независимых DEPTH/TIME/derived datasets. Для каждого dataset
+сохраняются свой tablet layout, формы и scope аннотаций. Формы и графические объекты не являются
+строками LAS и поэтому не теряются при суточном append.
+
+## Ограничения перед stable
+
+Нужны Windows/HiDPI визуальный smoke-test сетки/шапки/значков, ручной импорт реальных суточных LAS,
+полный Qt/LAS/Ruff/mypy gate и проверка физической печати. Автоматический watcher каталога и overlay
+нескольких datasets в одной форме остаются будущими отдельными срезами.
+
+
+## Проверка среза
+
+- focused forms/grid/symbols/daily-LAS/project/codec: **146 passed**;
+- доступная headless-регрессия: **995 passed, 4 skipped, 3 deselected**;
+- `compileall` выполнен; wheel 0.7.45 успешно собран, все 19 transparent-symbol assets включены.
 
 ## Следующий вертикальный срез
 
-Read-only offline WITSML 2.1 inventory и mapping fixtures. До успешного fixture replay сетевой
-ETP 1.2 client и хранение credentials в проекте не добавляются.
+Read-only offline WITSML 2.1 inventory и mapping fixtures. Сетевой ETP 1.2 остаётся заблокирован до
+успешного fixture replay.

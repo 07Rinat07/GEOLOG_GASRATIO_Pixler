@@ -1763,5 +1763,8 @@
   "visual_export.svg_action": "Export current chart/tablet to SVG...",
   "visual_export.title": "Visualization export",
   "lag_correction.action": "Lag/depth correction...",
-  "lag_correction.source_missing": "The source correction dataset was not found."
+  "lag_correction.source_missing": "The source correction dataset was not found.",
+  "daily_las_growth.action": "Append daily LAS data...",
+  "daily_las_growth.success": "LAS appended: {added} rows added and {skipped} matching rows skipped.",
+  "daily_las_growth.no_changes": "No new rows: the file was already imported or fully matches the dataset."
 }

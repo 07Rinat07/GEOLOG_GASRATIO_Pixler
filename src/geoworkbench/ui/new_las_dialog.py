@@ -40,7 +40,7 @@ class NewLasDialog(QDialog):
             self.index_combo.addItem(index_type.value.upper(), index_type.value)
         self.start_input = self._number_input(0.0)
         self.stop_input = self._number_input(1000.0)
-        self.step_input = self._number_input(0.1, minimum=0.000001)
+        self.step_input = self._number_input(0.2, minimum=0.000001)
         self.null_input = self._number_input(-9999.25, minimum=-1e100, maximum=1e100)
         form.addRow(self._t("new_las.name"), self.name_input)
         form.addRow(self._t("new_las.version"), self.version_combo)

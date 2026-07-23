@@ -336,9 +336,17 @@ class TabletVerticalAxisItem(EngineeringGridAxisItem):
 
 class CurveHeaderLabel(QLabel):
     clicked = Signal(str)
+    double_clicked = Signal(str)
     context_requested = Signal(str, QPoint)
 
-    def __init__(self, mnemonic: str, text: str, color: str) -> None:
+    def __init__(
+        self,
+        mnemonic: str,
+        text: str,
+        curve_color: str,
+        text_color: str = "#0f172a",
+        line_color: str | None = None,
+    ) -> None:
         super().__init__(text)
         self.mnemonic = mnemonic
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
@@ -346,18 +354,28 @@ class CurveHeaderLabel(QLabel):
         self.setMinimumHeight(46)
         self.setWordWrap(True)
         self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self._color = color
+        self._curve_color = curve_color
+        self._text_color = text_color
+        self._line_color = line_color or curve_color
         self.set_selected(False)
 
     def set_selected(self, selected: bool) -> None:
         background = "#dbeafe" if selected else "#ffffff"
         border = "#2563eb" if selected else "#e2e8f0"
         self.setStyleSheet(
-            f"QLabel {{ background: {background}; color: #0f172a; "
-            f"border-left: 5px solid {self._color}; border-bottom: 1px solid {border}; "
+            f"QLabel {{ background: {background}; color: {self._text_color}; "
+            f"border-left: 5px solid {self._curve_color}; "
+            f"border-bottom: 2px solid {self._line_color if not selected else border}; "
             "padding: 2px 4px; font-size: 11px; font-weight: 600; } "
             "QLabel:hover { background: #eff6ff; }"
         )
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.double_clicked.emit(self.mnemonic)
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.LeftButton:
@@ -381,6 +399,7 @@ class TabletTrackWidget(QFrame):
     edit_requested = Signal(str)
     curve_selected = Signal(str, str)
     curve_context_requested = Signal(str, str, QPoint)
+    curve_edit_requested = Signal(str, str)
 
     RESIZE_MARGIN = 6
 
@@ -491,18 +510,27 @@ class TabletTrackWidget(QFrame):
             target.setMouseTracking(True)
             target.installEventFilter(self)
 
-    def set_curve_headers(self, rows: list[tuple[str, str, str]]) -> None:
+    def set_curve_headers(
+        self, rows: list[tuple[str, str, str, str, str | None]]
+    ) -> None:
         self._curve_header_labels.clear()
         while self.curve_header_layout.count():
             item = self.curve_header_layout.takeAt(0)
             widget = item.widget() if item is not None else None
             if widget is not None:
                 widget.deleteLater()
-        for mnemonic, text, color in rows:
-            label = CurveHeaderLabel(mnemonic, text, color)
+        for mnemonic, text, curve_color, text_color, line_color in rows:
+            label = CurveHeaderLabel(
+                mnemonic, text, curve_color, text_color, line_color
+            )
             label.clicked.connect(
                 lambda selected, track_id=self.definition.track_id: self.curve_selected.emit(
                     track_id, selected
+                )
+            )
+            label.double_clicked.connect(
+                lambda selected, track_id=self.definition.track_id: (
+                    self.curve_edit_requested.emit(track_id, selected)
                 )
             )
             label.context_requested.connect(
@@ -3933,6 +3961,7 @@ class TabletView(QWidget):
         track.edit_requested.connect(self.track_full_edit_requested.emit)
         track.curve_selected.connect(self._curve_header_selected)
         track.curve_context_requested.connect(self._curve_header_context)
+        track.curve_edit_requested.connect(self.track_curve_settings_requested.emit)
         (
             legend_labels,
             curve_items,
@@ -6115,7 +6144,7 @@ class TabletView(QWidget):
                 100.0 if definition.kind is TrackKind.CALCIMETRY or relative_gas else 1.0,
                 padding=0,
             )
-        header_rows: list[tuple[str, str, str]] = []
+        header_rows: list[tuple[str, str, str, str, str | None]] = []
         for index, (mnemonic, item) in enumerate((rendered.curve_items or {}).items()):
             style = definition.curve_style(mnemonic)
             if style is None:
@@ -6163,7 +6192,15 @@ class TabletView(QWidget):
                 if unit:
                     text += f" {unit}"
                 text += f" · {scale_marker}"
-            header_rows.append((mnemonic, text, style.color))
+            header_rows.append(
+                (
+                    mnemonic,
+                    text,
+                    style.color,
+                    settings.header_text_color,
+                    settings.header_line_color,
+                )
+            )
         rendered.widget.set_curve_headers(header_rows)
         if rendered.curve_render_keys is not None:
             rendered.curve_render_keys.clear()
@@ -6317,7 +6354,7 @@ class TabletView(QWidget):
             track.plot.setXRange(0.0, 100.0, padding=0)
             track.plot.setMouseEnabled(x=False, y=True)
             calc_curve_items: dict[str, pg.PlotDataItem] = {}
-            calc_header_rows: list[tuple[str, str, str]] = []
+            calc_header_rows: list[tuple[str, str, str, str, str | None]] = []
             calc_legend_labels: list[str] = []
             for index, mnemonic in enumerate(definition.curve_mnemonics):
                 curve = self._dataset.curve_by_mnemonic(mnemonic)
@@ -6369,8 +6406,15 @@ class TabletView(QWidget):
                 )
                 display_name = self._curve_display_name(definition, mnemonic, curve)
                 unit = (curve.metadata.unit or "%").strip() or "%"
+                display = definition.curve_display_settings(mnemonic)
                 calc_header_rows.append(
-                    (mnemonic, f"{display_name}\n0 … 100 {unit}", style.color)
+                    (
+                        mnemonic,
+                        f"{display_name}\n0 … 100 {unit}",
+                        style.color,
+                        display.header_text_color,
+                        display.header_line_color,
+                    )
                 )
                 calc_legend_labels.append(display_name)
                 calc_curve_items[mnemonic] = item
@@ -6400,7 +6444,7 @@ class TabletView(QWidget):
         track.plot.getViewBox().setDefaultPadding(0.0)
         legend_labels: list[str] = []
         curve_items: dict[str, pg.PlotDataItem] = {}
-        header_rows: list[tuple[str, str, str]] = []
+        header_rows: list[tuple[str, str, str, str, str | None]] = []
         for index, mnemonic in enumerate(definition.curve_mnemonics):
             curve = self._dataset.curve_by_mnemonic(mnemonic)
             if curve is None:
@@ -6466,7 +6510,15 @@ class TabletView(QWidget):
             )
             curve_items[mnemonic] = item
             legend_labels.append(display_name)
-            header_rows.append((mnemonic, header_text, resolved_style.color))
+            header_rows.append(
+                (
+                    mnemonic,
+                    header_text,
+                    resolved_style.color,
+                    settings.header_text_color,
+                    settings.header_line_color,
+                )
+            )
         track.set_curve_headers(header_rows)
         if not curve_items:
             track.title.setText(
@@ -6511,7 +6563,7 @@ class TabletView(QWidget):
 
         available: dict[str, np.ndarray] = {}
         styles: dict[str, CurveStyle] = {}
-        header_rows: list[tuple[str, str, str]] = []
+        header_rows: list[tuple[str, str, str, str, str | None]] = []
         legend_labels: list[str] = []
         for index, mnemonic in enumerate(definition.curve_mnemonics):
             curve = self._dataset.curve_by_mnemonic(mnemonic)
@@ -6527,7 +6579,16 @@ class TabletView(QWidget):
             available[mnemonic] = values
             styles[mnemonic] = style
             display_name = self._curve_display_name(definition, mnemonic, curve)
-            header_rows.append((mnemonic, f"{display_name}\n0 … 100 % · Σ=100%", style.color))
+            settings = definition.curve_display_settings(mnemonic)
+            header_rows.append(
+                (
+                    mnemonic,
+                    f"{display_name}\n0 … 100 % · Σ=100%",
+                    style.color,
+                    settings.header_text_color,
+                    settings.header_line_color,
+                )
+            )
             legend_labels.append(display_name)
 
         if not available:
@@ -7299,16 +7360,22 @@ class TabletView(QWidget):
                             "__calcite__",
                             self._localizer.text("tablet.calcimetry_header_calcite"),
                             "#06b6d4",
+                            "#0f172a",
+                            None,
                         ),
                         (
                             "__dolomite__",
                             self._localizer.text("tablet.calcimetry_header_dolomite"),
                             "#8b5cf6",
+                            "#0f172a",
+                            None,
                         ),
                         (
                             "__residue__",
                             self._localizer.text("tablet.calcimetry_header_residue"),
                             "#94a3b8",
+                            "#0f172a",
+                            None,
                         ),
                     ]
                 )
@@ -7323,6 +7390,8 @@ class TabletView(QWidget):
                         "__lba_legend__",
                         self._localizer.text("tablet.lba_columns"),
                         "#f97316",
+                        "#0f172a",
+                        None,
                     )
                 ]
             )

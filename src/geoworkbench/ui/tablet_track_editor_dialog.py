@@ -116,6 +116,43 @@ class TabletTrackEditorDialog(QDialog):
             self._text("Подписи внутри интервалов", "Интервал ішіндегі жазулар", "Interval labels"),
             self.show_interval_labels_input,
         )
+        self.grid_x_input = QCheckBox(
+            self._text("Вертикальные линии", "Тік сызықтар", "Vertical lines")
+        )
+        self.grid_x_input.setChecked(self.track.grid_x)
+        self.grid_y_input = QCheckBox(
+            self._text("Горизонтальные линии", "Көлденең сызықтар", "Horizontal lines")
+        )
+        self.grid_y_input.setChecked(self.track.grid_y)
+        grid_visibility = QHBoxLayout()
+        grid_visibility.addWidget(self.grid_x_input)
+        grid_visibility.addWidget(self.grid_y_input)
+        grid_visibility.addStretch(1)
+        self.grid_major_input = QSpinBox()
+        self.grid_major_input.setRange(1, 20)
+        self.grid_major_input.setValue(self.track.grid_major_divisions)
+        self.grid_minor_input = QSpinBox()
+        self.grid_minor_input.setRange(1, 20)
+        self.grid_minor_input.setValue(self.track.grid_minor_divisions)
+        grid_divisions = QHBoxLayout()
+        grid_divisions.addWidget(self.grid_major_input)
+        grid_divisions.addWidget(QLabel(self._text("основных", "негізгі", "major")))
+        grid_divisions.addWidget(self.grid_minor_input)
+        grid_divisions.addWidget(QLabel(self._text("малых", "ұсақ", "minor")))
+        grid_divisions.addStretch(1)
+        self.grid_alpha_input = QDoubleSpinBox()
+        self.grid_alpha_input.setRange(0.0, 1.0)
+        self.grid_alpha_input.setSingleStep(0.05)
+        self.grid_alpha_input.setDecimals(2)
+        self.grid_alpha_input.setValue(self.track.grid_alpha)
+        self.grid_print_input = QCheckBox(
+            self._text("Печатать сетку", "Торды басып шығару", "Print grid")
+        )
+        self.grid_print_input.setChecked(self.track.grid_print)
+        form.addRow(self._text("Сетка", "Тор", "Grid"), grid_visibility)
+        form.addRow(self._text("Деления сетки", "Тор бөліністері", "Grid divisions"), grid_divisions)
+        form.addRow(self._text("Прозрачность сетки", "Тор мөлдірлігі", "Grid opacity"), self.grid_alpha_input)
+        form.addRow("", self.grid_print_input)
         form.addRow(self._text("Тип", "Түрі", "Type"), QLabel(self.track.kind.value))
         root.addLayout(form)
 
@@ -128,7 +165,7 @@ class TabletTrackEditorDialog(QDialog):
                 )
             )
         )
-        self.table = QTableWidget(0, 7)
+        self.table = QTableWidget(0, 9)
         self.table.setHorizontalHeaderLabels(
             [
                 self._text("LAS", "LAS", "LAS"),
@@ -138,6 +175,8 @@ class TabletTrackEditorDialog(QDialog):
                 self._text("Стиль", "Стиль", "Style"),
                 self._text("Шкала", "Шкала", "Scale"),
                 self._text("Диапазон", "Диапазон", "Range"),
+                self._text("Текст шапки", "Тақырып мәтіні", "Header text"),
+                self._text("Линия шапки", "Тақырып сызығы", "Header line"),
             ]
         )
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -154,6 +193,28 @@ class TabletTrackEditorDialog(QDialog):
         color_button = QPushButton(self._text("Выбрать…", "Таңдау…", "Choose…"))
         color_button.clicked.connect(self._choose_color)
         color_row.addWidget(color_button)
+        self.header_text_color_input = QLineEdit("#0f172a")
+        header_text_color_row = QHBoxLayout()
+        header_text_color_row.addWidget(self.header_text_color_input)
+        header_text_color_button = QPushButton(self._text("Выбрать…", "Таңдау…", "Choose…"))
+        header_text_color_button.clicked.connect(
+            lambda: self._choose_color_for(self.header_text_color_input, "#0f172a")
+        )
+        header_text_color_row.addWidget(header_text_color_button)
+        self.header_line_color_input = QLineEdit()
+        self.header_line_color_input.setPlaceholderText(
+            self._text("Как цвет кривой", "Қисық түсі сияқты", "Same as curve")
+        )
+        header_line_color_row = QHBoxLayout()
+        header_line_color_row.addWidget(self.header_line_color_input)
+        header_line_color_button = QPushButton(self._text("Выбрать…", "Таңдау…", "Choose…"))
+        header_line_color_button.clicked.connect(
+            lambda: self._choose_color_for(self.header_line_color_input, self.color_input.text() or "#2563eb")
+        )
+        clear_header_line = QPushButton(self._text("Как кривая", "Қисық сияқты", "Use curve"))
+        clear_header_line.clicked.connect(self.header_line_color_input.clear)
+        header_line_color_row.addWidget(header_line_color_button)
+        header_line_color_row.addWidget(clear_header_line)
         self.line_width_input = QDoubleSpinBox()
         self.line_width_input.setRange(0.5, 10.0)
         self.line_width_input.setSingleStep(0.25)
@@ -181,7 +242,9 @@ class TabletTrackEditorDialog(QDialog):
         range_row.addWidget(QLabel("…"))
         range_row.addWidget(self.max_input)
         properties.addRow(self._text("Подпись параметра", "Параметр жазуы", "Parameter caption"), self.caption_input)
-        properties.addRow(self._text("Цвет", "Түс", "Colour"), color_row)
+        properties.addRow(self._text("Цвет кривой", "Қисық түсі", "Curve colour"), color_row)
+        properties.addRow(self._text("Цвет названия", "Атау түсі", "Header text colour"), header_text_color_row)
+        properties.addRow(self._text("Линия под названием", "Атау астындағы сызық", "Header underline"), header_line_color_row)
         properties.addRow(self._text("Толщина линии", "Сызық қалыңдығы", "Line width"), self.line_width_input)
         properties.addRow(self._text("Стиль линии", "Сызық стилі", "Line style"), self.style_input)
         properties.addRow(self._text("Шкала", "Шкала", "Scale"), self.scale_input)
@@ -244,6 +307,8 @@ class TabletTrackEditorDialog(QDialog):
                     self._style_name(style.line_style),
                     display.x_scale.value,
                     range_text,
+                    display.header_text_color,
+                    display.header_line_color or style.color,
                 )
                 for column, value in enumerate(values):
                     item = QTableWidgetItem(value)
@@ -272,6 +337,8 @@ class TabletTrackEditorDialog(QDialog):
         style = self.track.curve_style(mnemonic) or CurveStyle()
         self.caption_input.setText(display.display_name or mnemonic)
         self.color_input.setText(style.color)
+        self.header_text_color_input.setText(display.header_text_color)
+        self.header_line_color_input.setText(display.header_line_color or "")
         self.line_width_input.setValue(style.width)
         self.style_input.setCurrentIndex(self.style_input.findData(style.line_style))
         self.scale_input.setCurrentIndex(self.scale_input.findData(display.x_scale))
@@ -287,10 +354,15 @@ class TabletTrackEditorDialog(QDialog):
         self.max_input.setEnabled(manual)
 
     def _choose_color(self) -> None:
-        initial = QColor(self.color_input.text())
-        color = QColorDialog.getColor(initial if initial.isValid() else QColor("#2563eb"), self)
+        self._choose_color_for(self.color_input, "#2563eb")
+
+    def _choose_color_for(self, target: QLineEdit, fallback: str) -> None:
+        initial = QColor(target.text())
+        color = QColorDialog.getColor(
+            initial if initial.isValid() else QColor(fallback), self
+        )
         if color.isValid():
-            self.color_input.setText(color.name())
+            target.setText(color.name())
 
     def _apply_row(self) -> None:
         row = self._selected_row()
@@ -309,7 +381,14 @@ class TabletTrackEditorDialog(QDialog):
         minimum = self.min_input.value() if manual else None
         maximum = self.max_input.value() if manual else None
         try:
-            display = CurveDisplaySettings(caption, scale, minimum, maximum)
+            display = CurveDisplaySettings(
+                display_name=caption,
+                x_scale=scale,
+                x_min=minimum,
+                x_max=maximum,
+                header_text_color=self.header_text_color_input.text().strip(),
+                header_line_color=(self.header_line_color_input.text().strip() or None),
+            )
             style = CurveStyle(self.color_input.text().strip(), self.line_width_input.value(), style_kind)
         except ValueError as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
@@ -357,6 +436,12 @@ class TabletTrackEditorDialog(QDialog):
         self.track.show_interval_labels = self.show_interval_labels_input.isChecked()
         self.track.width = self.width_input.value()
         self.track.x_axis_label = axis
+        self.track.grid_x = self.grid_x_input.isChecked()
+        self.track.grid_y = self.grid_y_input.isChecked()
+        self.track.grid_major_divisions = self.grid_major_input.value()
+        self.track.grid_minor_divisions = self.grid_minor_input.value()
+        self.track.grid_alpha = self.grid_alpha_input.value()
+        self.track.grid_print = self.grid_print_input.isChecked()
         try:
             self.track.__post_init__()
         except ValueError as exc:

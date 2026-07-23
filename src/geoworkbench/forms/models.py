@@ -35,6 +35,8 @@ class ParameterBinding:
     x_scale: XScale = XScale.LINEAR
     x_min: float | None = None
     x_max: float | None = None
+    header_text_color: str = "#0f172a"
+    header_line_color: str | None = None
 
     def __post_init__(self) -> None:
         _require_id(self.binding_id, "binding_id")
@@ -44,6 +46,9 @@ class ParameterBinding:
             _require_text(self.source_mnemonic, "source_mnemonic", max_length=80)
         _require_text(self.unit, "unit", max_length=40, allow_empty=True)
         _validate_range(self.x_scale, self.x_min, self.x_max)
+        _validate_color(self.header_text_color, "header_text_color")
+        if self.header_line_color is not None:
+            _validate_color(self.header_line_color, "header_line_color")
 
     @classmethod
     def create(
@@ -57,6 +62,8 @@ class ParameterBinding:
         x_scale: XScale = XScale.LINEAR,
         x_min: float | None = None,
         x_max: float | None = None,
+        header_text_color: str = "#0f172a",
+        header_line_color: str | None = None,
     ) -> ParameterBinding:
         return cls(
             binding_id=str(uuid4()),
@@ -68,6 +75,8 @@ class ParameterBinding:
             x_scale=x_scale,
             x_min=x_min,
             x_max=x_max,
+            header_text_color=header_text_color,
+            header_line_color=header_line_color,
         )
 
 
@@ -246,6 +255,11 @@ class FormDocument:
     read_only: bool = False
     style_id: str = "default-screen"
     print_header_template_id: str | None = None
+    source_dataset_id: str | None = None
+    source_index_id: str | None = None
+    visible_axis_top: float | None = None
+    visible_axis_bottom: float | None = None
+    revision: int = 1
 
     def __post_init__(self) -> None:
         _require_id(self.form_id, "form_id")
@@ -254,6 +268,13 @@ class FormDocument:
         _require_id(self.style_id, "style_id")
         if self.print_header_template_id is not None:
             _require_id(self.print_header_template_id, "print_header_template_id")
+        if self.source_dataset_id is not None:
+            _require_id(self.source_dataset_id, "source_dataset_id")
+        if self.source_index_id is not None:
+            _require_id(self.source_index_id, "source_index_id")
+        if isinstance(self.revision, bool) or not isinstance(self.revision, int) or self.revision < 1:
+            raise ValueError("revision должен быть положительным целым числом")
+        _validate_optional_interval(self.visible_axis_top, self.visible_axis_bottom)
         if not isinstance(self.axis_kind, FormAxisKind):
             raise ValueError("axis_kind должен использовать FormAxisKind")
         if not isinstance(self.origin, FormTemplateOrigin):
@@ -329,6 +350,7 @@ class FormDocument:
         clone.name = name or f"{self.name} — копия"
         clone.origin = FormTemplateOrigin.USER
         clone.read_only = False
+        clone.revision = 1
         return clone
 
 
@@ -362,3 +384,21 @@ def _validate_range(scale: XScale, minimum: float | None, maximum: float | None)
         raise ValueError("Некорректный диапазон параметра")
     if scale is XScale.LOGARITHMIC and minimum <= 0:
         raise ValueError("Логарифмический диапазон должен быть положительным")
+
+
+def _validate_color(value: str, name: str) -> None:
+    if not isinstance(value, str) or not re.fullmatch(r"#[0-9A-Fa-f]{6}", value):
+        raise ValueError(f"{name} должен быть в формате #RRGGBB")
+
+
+def _validate_optional_interval(top: float | None, bottom: float | None) -> None:
+    if (top is None) != (bottom is None):
+        raise ValueError("Границы видимого интервала должны задаваться вместе")
+    if top is None or bottom is None:
+        return
+    if isinstance(top, bool) or isinstance(bottom, bool):
+        raise ValueError("Границы видимого интервала должны быть числами")
+    if not isinstance(top, (int, float)) or not isinstance(bottom, (int, float)):
+        raise ValueError("Границы видимого интервала должны быть числами")
+    if not isfinite(float(top)) or not isfinite(float(bottom)) or float(top) == float(bottom):
+        raise ValueError("Некорректный видимый интервал формы")

@@ -1,6 +1,6 @@
 # Типтелген operational events
 
-Күйі: event contract 0.7.41 нұсқасында енгізілді және ағымдағы project format v19 ішінде сақталады.
+Күйі: event contract 0.7.41 нұсқасында енгізілді және ағымдағы project format v20 ішінде сақталады.
 
 Operational event — бір ұңғымаға және тереңдікке және/немесе уақытқа байланыстырылған
 өзгермейтін бұрғылау немесе геологиялық бақылау. Qt-тан тәуелсіз contract project storage,
@@ -49,7 +49,7 @@ Threshold мәндері immutable `OperationalEventQcPolicy` ішінде. Gas 
 deterministic list және әр mutation-нан кейін толық QC recalculation орындайды. UI/import adapter
 `Well.operational_events` моделін тікелей өзгертпеуі тиіс.
 
-## Project format v19 ішінде сақтау
+## Project format v20 ішінде сақтау
 
 Events `well.operational_events` ішінде event ID бойынша сақталады. `v16 → v17` migration әр
 ұңғымаға бос collection қосады және datasets/interpretations деректерін өзгертпейді. Decoder

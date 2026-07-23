@@ -1,6 +1,6 @@
 # Append-only acquisition және deterministic replay
 
-Күйі: 0.7.42 нұсқасында іске асырылды. Acquisition schema: v1. Ағымдағы project format: v19 (acquisition v18-де енгізілген).
+Күйі: 0.7.42 нұсқасында іске асырылды. Acquisition schema: v1. Ағымдағы project format: v20 (acquisition v18-де енгізілген).
 
 Жазылған `AcquisitionSession` — бастапқы дереккөз. Growing `Dataset` және
 `operational_events` — сол жолдар, оқиғалар, QC flags және есеп деректерін дәл қайталауға тиіс
@@ -17,6 +17,6 @@
 - replay жұмыс көшірмесінде нөлден басталады немесе тек сәйкес checkpoint-тен кейін жалғасады, metadata/fingerprints тексеріп, тек толық күйде commit жасайды;
 - жабық session final checkpoint және сәйкес final audit digest талап етеді.
 
-Project format v18 session-дарды енгізді; ағымдағы v19 оларды `well.acquisition_sessions` ішінде сақтайды. `v17 → v18`
+Project format v18 session-дарды енгізді; ағымдағы v20 оларды `well.acquisition_sessions` ішінде сақтайды. `v17 → v18`
 migration бос collection қосып, бар деректерді өзгертпейді. Нұсқаланатын lag/depth correction
 0.7.44 ішінде бөлек derived projection ретінде іске асырылды және append-only source-ты өзгертпейді.

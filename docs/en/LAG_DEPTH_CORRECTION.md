@@ -1,6 +1,6 @@
 # Versioned lag/depth correction
 
-Status: implemented in 0.7.44. Project format: v19. Lag correction schema: v1.
+Status: implemented in 0.7.44. Introduced in project format v19; current project format: v20. Lag correction schema: v1.
 
 The correction maps a surface measurement to its calculated arrival depth without modifying the
 recorded acquisition dataset or append-only journal. Each immutable profile revision materializes a

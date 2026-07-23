@@ -1,3 +1,16 @@
+# 0.7.45 — reusable working forms and safe daily LAS growth (test build)
+
+- fixed tablet grid visibility independently of hidden pyqtgraph axes;
+- added per-track grid/tick controls and configurable curve-header caption/underline colours;
+- persisted form viewport, source binding and monotonically increasing revision in form schema v6;
+- added tightly cropped transparent PNG assets for all 19 factory depth symbols;
+- added explicit per-dataset daily LAS append with strict DEPTH/TIME, unit, well and curve-schema guards;
+- added idempotent source fingerprints, overlap conflict protection and per-dataset append audit history;
+- raised project format to v20 and tablet layout to v15;
+- changed the new depth LAS default step to 0.2 m;
+- included all 19 transparent symbols in wheel package data and removed legacy olive canvases;
+- verification in the available environment: 146 focused passed; 995 headless passed, 4 skipped, 3 deselected.
+
 # 0.7.44 — versioned lag/depth correction (test build)
 
 - added immutable lag correction profiles and revisions for gas, cuttings, and generic channels;

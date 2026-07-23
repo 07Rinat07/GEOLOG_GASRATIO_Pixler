@@ -91,3 +91,12 @@ Legacy `.skf` forms are converted at the repository boundary. Recognised Delphi 
 columns, tracks, parameter bindings and header elements. The result is an ordinary editable user
 `FormDocument` linked to an ordinary `MasterlogTemplate`; all later editing, preview and printing
 uses the existing Form Engine and Masterlog renderer.
+
+## Рабочие формы 0.7.45
+
+Form schema v6 сохраняет не только структуру колонок, но и видимый вертикальный интервал,
+`source_dataset_id`, `source_index_id` и монотонно возрастающую `revision`. Для каждой кривой
+сохраняются отдельные `x_min/x_max`, linear/log, стиль линии, цвет названия и цвет линии под
+названием. Для каждого трека отдельно сохраняются grid X/Y, major/minor divisions, alpha и
+печать сетки. Глубинные комментарии, изображения и символы хранятся в проекте под стабильным
+scope `dataset:{dataset_id}:form:{form_id}`; повторное применение формы возвращает тот же scope.

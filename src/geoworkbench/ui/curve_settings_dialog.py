@@ -219,11 +219,16 @@ class CurveSettingsDialog(QDialog):
                 return
             if scale is XScale.LOGARITHMIC and minimum <= 0:
                 return
+        previous = self._display.get(
+            mnemonic, self._track.curve_display_settings(mnemonic)
+        )
         self._display[mnemonic] = CurveDisplaySettings(
             display_name=self.display_name.text().strip() or mnemonic,
             x_scale=scale,
             x_min=minimum,
             x_max=maximum,
+            header_text_color=previous.header_text_color,
+            header_line_color=previous.header_line_color,
         )
         self._styles[mnemonic] = CurveStyle(
             color=str(self.color_button.property("curveColor") or "#2563eb"),

@@ -15,7 +15,7 @@ from geoworkbench.forms.models import (
 from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackKind, XScale
 
 
-FORM_SCHEMA_VERSION = 4
+FORM_SCHEMA_VERSION = 6
 
 
 class FormFormatError(ValueError):
@@ -34,6 +34,11 @@ def form_to_dict(form: FormDocument) -> dict[str, Any]:
         "read_only": form.read_only,
         "style_id": form.style_id,
         "print_header_template_id": form.print_header_template_id,
+        "source_dataset_id": form.source_dataset_id,
+        "source_index_id": form.source_index_id,
+        "visible_axis_top": form.visible_axis_top,
+        "visible_axis_bottom": form.visible_axis_bottom,
+        "revision": form.revision,
         "columns": [
             {
                 "column_id": column.column_id,
@@ -88,6 +93,11 @@ def form_from_dict(data: object) -> FormDocument:
             read_only=_boolean(migrated, "read_only", default=False),
             style_id=_string(migrated, "style_id", default="default-screen"),
             print_header_template_id=_optional_string(migrated, "print_header_template_id"),
+            source_dataset_id=_optional_string(migrated, "source_dataset_id"),
+            source_index_id=_optional_string(migrated, "source_index_id"),
+            visible_axis_top=_optional_number(migrated, "visible_axis_top"),
+            visible_axis_bottom=_optional_number(migrated, "visible_axis_bottom"),
+            revision=_integer(migrated, "revision", default=1),
             columns=columns,
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -110,6 +120,8 @@ def _binding_to_dict(binding: ParameterBinding) -> dict[str, Any]:
         "x_scale": binding.x_scale.value,
         "x_min": binding.x_min,
         "x_max": binding.x_max,
+        "header_text_color": binding.header_text_color,
+        "header_line_color": binding.header_line_color,
     }
 
 
@@ -140,6 +152,10 @@ def _binding_from_dict(data: object) -> ParameterBinding:
         x_scale=x_scale,
         x_min=x_min,
         x_max=x_max,
+        header_text_color=_string(
+            data, "header_text_color", default="#0f172a"
+        ),
+        header_line_color=_optional_string(data, "header_line_color"),
     )
 
 
@@ -209,7 +225,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1, 2, 3):
+    if version not in (0, 1, 2, 3, 4, 5):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -236,6 +252,17 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                         track.setdefault("grid_major_divisions", 5)
                         track.setdefault("grid_minor_divisions", 5)
                         track.setdefault("grid_print", True)
+                        bindings = track.get("bindings")
+                        if isinstance(bindings, list):
+                            for binding in bindings:
+                                if isinstance(binding, dict):
+                                    binding.setdefault("header_text_color", "#0f172a")
+                                    binding.setdefault("header_line_color", None)
+    migrated.setdefault("source_dataset_id", None)
+    migrated.setdefault("source_index_id", None)
+    migrated.setdefault("visible_axis_top", None)
+    migrated.setdefault("visible_axis_bottom", None)
+    migrated.setdefault("revision", 1)
     migrated["schema_version"] = FORM_SCHEMA_VERSION
     return migrated
 

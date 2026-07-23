@@ -56,12 +56,14 @@ class CurveStyle:
 
 @dataclass(frozen=True, slots=True)
 class CurveDisplaySettings:
-    """Per-curve caption and horizontal scale inside one tablet track."""
+    """Per-curve caption, header colours and horizontal scale inside one track."""
 
     display_name: str = ""
     x_scale: XScale = XScale.LINEAR
     x_min: float | None = None
     x_max: float | None = None
+    header_text_color: str = "#0f172a"
+    header_line_color: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.display_name, str):
@@ -69,6 +71,12 @@ class CurveDisplaySettings:
         if len(self.display_name.strip()) > 120:
             raise ValueError("Отображаемое имя кривой не должно превышать 120 символов")
         TrackDefinition._validate_x_settings(self.x_scale, self.x_min, self.x_max)
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", self.header_text_color):
+            raise ValueError("Цвет текста заголовка должен быть в формате #RRGGBB")
+        if self.header_line_color is not None and not re.fullmatch(
+            r"#[0-9A-Fa-f]{6}", self.header_line_color
+        ):
+            raise ValueError("Цвет линии заголовка должен быть в формате #RRGGBB или null")
 
     @property
     def automatic_range(self) -> bool:

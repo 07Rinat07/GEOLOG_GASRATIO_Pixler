@@ -231,3 +231,30 @@ def test_v18_project_adds_empty_lag_correction_profiles_to_every_well() -> None:
     assert migrated["format_version"] == 19
     assert migrated["project"]["wells"]["well-1"]["lag_correction_profiles"] == {}
     assert "lag_correction_profiles" not in payload["project"]["wells"]["well-1"]
+
+
+def test_v19_project_adds_independent_dataset_append_histories() -> None:
+    payload = {
+        "format_version": 19,
+        "project": {
+            "project_id": "p",
+            "name": "P",
+            "wells": {
+                "w": {
+                    "well_id": "w",
+                    "name": "W",
+                    "datasets": {
+                        "depth-a": {"dataset_id": "depth-a"},
+                        "time-a": {"dataset_id": "time-a"},
+                    },
+                }
+            },
+        },
+    }
+
+    migrated = migrate_project_payload(payload, 20)
+
+    assert migrated["format_version"] == 20
+    assert migrated["project"]["wells"]["w"]["datasets"]["depth-a"]["append_history"] == []
+    assert migrated["project"]["wells"]["w"]["datasets"]["time-a"]["append_history"] == []
+    assert "append_history" not in payload["project"]["wells"]["w"]["datasets"]["depth-a"]

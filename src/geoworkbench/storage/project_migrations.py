@@ -313,6 +313,28 @@ def _migrate_v18_to_v19(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v19_to_v20(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 19 не содержит объекта 'project'")
+    wells = project.get("wells", {})
+    if not isinstance(wells, dict):
+        raise ProjectMigrationError("Проект версии 19 содержит некорректный объект wells")
+    for well in wells.values():
+        if not isinstance(well, dict):
+            raise ProjectMigrationError("Некорректная запись скважины версии 19")
+        datasets = well.get("datasets", {})
+        if not isinstance(datasets, dict):
+            raise ProjectMigrationError("Некорректный datasets версии 19")
+        for dataset in datasets.values():
+            if not isinstance(dataset, dict):
+                raise ProjectMigrationError("Некорректный dataset версии 19")
+            dataset.setdefault("append_history", [])
+    migrated["format_version"] = 20
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -333,6 +355,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(15, _migrate_v15_to_v16)
 DEFAULT_PROJECT_MIGRATIONS.register(16, _migrate_v16_to_v17)
 DEFAULT_PROJECT_MIGRATIONS.register(17, _migrate_v17_to_v18)
 DEFAULT_PROJECT_MIGRATIONS.register(18, _migrate_v18_to_v19)
+DEFAULT_PROJECT_MIGRATIONS.register(19, _migrate_v19_to_v20)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

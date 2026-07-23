@@ -126,7 +126,7 @@ payload definition и его SHA-256.
 
 Qt-независимый `services/interval_selection.py` содержит расчёт строк глубинного интервала;
 `DatasetIntervalSelection` остаётся UI-observer, но exporter больше не импортирует Qt только
-ради геометрии диапазона. Текущий project format v19 дополнительно хранит operational events, acquisition sessions и lag correction profiles.
+ради геометрии диапазона. Текущий project format v20 дополнительно хранит operational events, acquisition sessions, lag correction profiles и независимый append history каждого dataset.
 
 ## Печать
 
