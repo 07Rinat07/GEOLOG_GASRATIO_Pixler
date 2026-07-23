@@ -4,9 +4,9 @@ Snapshot: 23 July 2026. Version 0.7.28, test build.
 
 ## Release decision
 
-The automated release gate is green: Ruff passes, mypy reports zero errors across 257 source
-files, and the complete pytest run reports 1,188 passed and 10 skipped without a Qt/Python
-process abort. The build remains a test build until the Windows, HiDPI, PDF, and physical
+The automated release gate is green: Ruff passes, mypy reports zero errors across 258 source
+files, and the complete pytest run reports 1,193 passed and 10 skipped with exit code zero.
+The build remains a test build until the Windows, HiDPI, PDF, and physical
 printer smoke matrix is signed off.
 
 ## Working foundation
@@ -22,7 +22,8 @@ printer smoke matrix is signed off.
 Annotation hit routing has been restored, Windows SVG locking and PySide6 PNG-buffer
 compatibility have been fixed, and the tablet toolbars now adapt to narrow screens.
 
-The annotation event router and pan/zoom/keyboard navigation are now isolated from
-`TabletView` behind headless tests. Next checkpoint: sign off the Windows smoke matrix,
-then extract track lifecycle. See the [audit](PRODUCT_AUDIT_2026.md) and
+The annotation event router, navigation, and track order/reuse are now isolated from
+`TabletView`. Reorder and Undo/Redo preserve existing chart instances. Next checkpoint:
+sign off the Windows smoke matrix, then extract track creation/disposal. See the
+[audit](PRODUCT_AUDIT_2026.md) and
 [plan](PROJECT_PLAN.md).

@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from collections.abc import Callable
+import sys
 
 import pytest
 
@@ -16,7 +17,28 @@ def qapp():
     from PySide6.QtWidgets import QApplication
 
     app = QApplication.instance() or QApplication([])
-    yield app
+    try:
+        yield app
+    finally:
+        app.closeAllWindows()
+        app.quit()
+
+
+@pytest.fixture(autouse=True)
+def close_qt_windows_after_test():
+    """Close leaked test windows before their local Python owners disappear."""
+
+    yield
+    if "PySide6.QtWidgets" not in sys.modules:
+        return
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance()
+    if app is None:
+        return
+    for widget in tuple(app.topLevelWidgets()):
+        widget.close()
+    app.processEvents()
 
 
 @pytest.fixture

@@ -1372,13 +1372,26 @@ def test_track_reorder_is_undoable(qapp) -> None:
         )
     )
     view.set_dataset(dataset)
+    original_widgets = {
+        track_id: rendered.widget for track_id, rendered in view._rendered.items()
+    }
 
     assert view.move_track_with_history("a", 2)
     assert [track.track_id for track in view.layout_model.tracks] == ["b", "c", "a"]
+    assert view.rendered_track_ids == ("b", "c", "a")
+    assert all(
+        view._rendered[track_id].widget is widget
+        for track_id, widget in original_widgets.items()
+    )
     assert view.undo_interaction()
     assert [track.track_id for track in view.layout_model.tracks] == ["a", "b", "c"]
+    assert view.rendered_track_ids == ("a", "b", "c")
     assert view.redo_interaction()
     assert [track.track_id for track in view.layout_model.tracks] == ["b", "c", "a"]
+    assert all(
+        view._rendered[track_id].widget is widget
+        for track_id, widget in original_widgets.items()
+    )
     view.close()
 
 

@@ -630,7 +630,10 @@ def test_window_inserts_curves_and_updates_transfer_history_actions(qapp, monkey
     window.close()
 
 
-def test_window_merges_datasets_and_updates_history_actions(qapp, monkeypatch) -> None:
+def test_window_merges_datasets_and_updates_history_actions(
+    qapp, monkeypatch, tmp_path
+) -> None:
+    monkeypatch.chdir(tmp_path)
     window = MainWindow(language=AppLanguage.EN)
     session, _ = make_session()
     target = session.current_dataset

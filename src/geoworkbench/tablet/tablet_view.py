@@ -152,6 +152,7 @@ from geoworkbench.tablet.interaction_router import (
     TabletInteractionRouter,
 )
 from geoworkbench.tablet.track_edit_tool import TrackEditInteractionHandler
+from geoworkbench.tablet.track_lifecycle import TrackLifecycleCoordinator
 from geoworkbench.tablet.edit_mode_coordinator import TabletEditModeCoordinator
 from geoworkbench.tablet.interaction_watchdog import TabletInteractionWatchdog
 from geoworkbench.tablet.selection_interaction import (
@@ -862,6 +863,7 @@ class TabletView(QWidget):
         self._selected_interval_id: str | None = None
         self._lithotype_catalog: dict[str, CatalogLithotype] = {}
         self._layout_model = TabletLayout()
+        self._track_lifecycle = TrackLifecycleCoordinator()
         self._rendered: dict[str, RenderedTrack] = {}
         self._sync_guard = False
         self._depth_range_guard = False
@@ -1907,7 +1909,8 @@ class TabletView(QWidget):
 
         def move(index: int) -> None:
             self._layout_model.move_track(track_id, index)
-            self.refresh_view()
+            if not self._reorder_rendered_tracks():
+                self.refresh_view()
             self.select_track(track_id, emit_signal=False)
             self.track_order_change_requested.emit(track_id, index)
 
@@ -1918,6 +1921,30 @@ class TabletView(QWidget):
                 _undo_callback=lambda: move(original_index),
             )
         )
+        return True
+
+    def _reorder_rendered_tracks(self) -> bool:
+        """Apply an order-only layout change without rebuilding chart widgets."""
+
+        requested_ids = tuple(
+            definition.track_id for definition in self._layout_model.visible_tracks()
+        )
+        plan = self._track_lifecycle.plan(tuple(self._rendered), requested_ids)
+        if not plan.can_reorder_in_place:
+            return False
+        reordered = self._track_lifecycle.reorder_retained(self._rendered, plan)
+        for index, track_id in enumerate(plan.ordered_ids):
+            self._tracks_layout.insertWidget(index, reordered[track_id].widget)
+        self._rendered = reordered
+        self._rebuild_group_headers()
+        self._synchronize_track_header_bands()
+        self._synchronize_track_heights()
+        self._apply_track_selection_style()
+        self._apply_curve_selection_style()
+        self._refresh_curve_pencil_targets()
+        self._sync_annotation_overlay_geometry()
+        self._refresh_annotation_overlay_anchors()
+        self._resize_restore_timer.start(0)
         return True
 
     def hit_test_header(self, track_id: str, local_x: float, local_y: float) -> HitResult | None:

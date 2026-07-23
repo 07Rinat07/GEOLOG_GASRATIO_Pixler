@@ -23,11 +23,11 @@
 
 | Проверка | Фактический результат |
 |---|---|
-| Полный pytest | 1188 пройдено, 10 пропущено; аварийного завершения Qt/Python нет |
+| Полный pytest | 1193 пройдено, 10 пропущено; процесс штатно завершён с кодом 0 |
 | Ruff | все проверки пройдены |
-| mypy | 0 ошибок в 257 исходных файлах |
+| mypy | 0 ошибок в 258 исходных файлах |
 | Аннотации | восстановлены hit routing, область набора данных/формы и диагностика canvas-wide overlay |
-| Архитектура планшета | annotation event router проверен headless-тестами; pan/zoom/keyboard вынесены в `TabletNavigationCoordinator` |
+| Архитектура планшета | annotation event router и navigation coordinator изолированы; order/reuse треков вынесен в `TrackLifecycleCoordinator` |
 | Интерфейс планшета | верхние панели прокручиваются и не выталкивают окно за границы узкого экрана |
 | Экспорт изображений | устранены Windows-блокировка SVG и несовместимость формата PNG в PySide6 |
 | Физическая печать/HiDPI | требует подтверждения на целевой Windows-машине |
@@ -44,9 +44,9 @@
 ## Следующая контрольная точка
 
 Завершить Windows GUI/HiDPI/PDF/physical-print smoke-test и подписать релизную матрицу.
-Annotation event router и navigation coordinator уже изолированы и защищены headless-тестами.
-Следующий архитектурный срез после ручного gate — track lifecycle; новые предметные модули
-до этой точки не добавляются.
+Annotation event router, navigation coordinator и безопасная перестановка треков без
+пересоздания уже защищены headless/UI-тестами. Следующий архитектурный срез после ручного
+gate — создание/удаление треков, затем grid renderer.
 
 Подробности: [аудит](PRODUCT_AUDIT_2026.md), [план](PROJECT_PLAN.md),
 [roadmap](ROADMAP.md), [проверки](TESTING.md).
