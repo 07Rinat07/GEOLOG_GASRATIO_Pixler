@@ -1,17 +1,16 @@
 # Статус проекта
 
-Срез: 23 июля 2026 года. Версия пакета: 0.7.30, тестовая сборка.
+Срез: 23 июля 2026 года. Версия пакета: 0.7.31, тестовая сборка.
 
 ## Решение о выпуске
 
 Последний полностью подтверждённый автоматический baseline версии 0.7.28: Ruff чист,
 mypy — 0 ошибок в 262 исходных файлах, полный pytest — 1217 пройдено и 10 пропущено.
-Для среза 0.7.30 выполнены полная компиляция исходников, сборка wheel и расширенный
-headless/source-integrity набор для session binding, workspace-команд, project controllers и
-печатной границы: 73 теста пройдено. Полный Ruff/mypy/Qt gate необходимо повторить в
-установленном окружении: текущий контейнер не содержит PySide6, pyqtgraph, lasio, Ruff и
-mypy, а доступный package index не отдаёт эти пакеты. Сборка остаётся тестовой также до
-обязательного Windows/HiDPI/PDF/physical-print smoke-test.
+Для среза 0.7.31 выполнены `compileall`, сборка wheel и доступная headless-регрессия:
+714 тестов пройдено, 4 платформенных сценария пропущено. Полный сбор pytest в текущем
+контейнере останавливается на 95 Qt/LAS-зависимых модулях, потому что отсутствуют PySide6,
+pyqtgraph и lasio. Ruff и mypy также недоступны. Поэтому сборка остаётся тестовой до
+повторного полного gate и Windows/HiDPI/PDF/physical-print smoke-test.
 
 ## Подтверждённая рабочая основа
 
@@ -21,7 +20,7 @@ mypy, а доступный package index не отдаёт эти пакеты.
 - синхронный многотрековый планшет, формы, интервалы и литология;
 - редактируемый Masterlog, header/forms, PDF и Print Center;
 - крупные и промежуточные сетки экрана/печати с сохранением в форме;
-- синхронное выделение интервала `Shift + ЛКМ`, статистика видимых параметров и XLSX/CSV;
+- синхронное выделение интервала `Shift + ЛКМ`, статистика и XLSX/CSV;
 - аннотации, project assets и миграции старых проектов;
 - синхронные наборы пользовательских документов RU/KK/EN.
 
@@ -30,26 +29,26 @@ mypy, а доступный package index не отдаёт эти пакеты.
 | Проверка | Фактический результат |
 |---|---|
 | Полный baseline 0.7.28 | 1217 тестов пройдено, 10 пропущено; Ruff чист; mypy — 0 ошибок в 262 файлах |
-| Срез 0.7.30 | 73 headless/regression/source-integrity тестов пройдено; `compileall` и wheel 0.7.30 завершены без ошибок |
-| Импортные jobs | CSV/Excel/LAS/Paradox выполняются через `DatasetImportJobExecutor` |
-| Печатные jobs | создание printer, PDF/страничный export и renderer вызываются через `services/print_jobs.py` |
-| Session binding | 26 session-aware контроллеров перепривязываются единым реестром со сбросом историй и временного состояния |
-| Workspace | команды дерева проекта выбирают well/dataset через `WorkspaceCommandController`; Qt-обработчик не меняет ID сессии напрямую |
+| Срез 0.7.31 | 714 доступных headless/regression/source-integrity тестов пройдено, 4 пропущено; `compileall` и wheel 0.7.31 завершены без ошибок |
+| Project model boundary | `MainWindow` не меняет dirty/collections/layout напрямую; tablet gestures проходят через headless mutation/controller boundary |
+| Derived datasets | отменённый merge/external-LAS export транзакционно удаляет временный dataset и восстанавливает selection/dirty |
+| Project assets | batch image assets валидируются целиком и устанавливаются через `MasterlogTemplateController` |
+| Session binding | 27 session-aware контроллеров перепривязываются единым реестром со сбросом историй и временного состояния |
 | Физическая печать/HiDPI | требует подтверждения на целевой Windows-машине |
 
 ## Технический долг с наибольшим риском
 
-- `tablet/tablet_view.py` — около 354 КБ;
-- `ui/main_window.py` — около 271 КБ;
-- `printing/masterlog_renderer.py` — около 91 КБ;
-- полный gate 0.7.30 нужно повторить в окружении со всеми зависимостями;
-- ряд UI-обработчиков всё ещё напрямую изменяет сериализуемые объекты проекта.
+- `tablet/tablet_view.py` и `ui/main_window.py` остаются крупными orchestration-классами;
+- полный Ruff/mypy/Qt/LAS gate 0.7.31 нужно повторить в окружении со всеми зависимостями;
+- отсутствуют golden fixtures для общей экранной и печатной геометрии;
+- Semantic Channel Dictionary и единый Import Review ещё не реализованы.
 
 ## Следующая контрольная точка
 
-Повторить полный Ruff/mypy/pytest gate, затем запретить прямую мутацию сериализуемой модели
-из UI и перенести следующий изменяющий сценарий за controller/service boundary. Ручной Windows
-GUI/HiDPI/PDF/physical-print smoke-test остаётся обязательным условием stable-выпуска.
+Следующий вертикальный срез — Semantic Channel Dictionary: canonical kind, quantity class,
+UOM, aliases, source/sensor и исходная мнемоника. После него — единый Import Review и Report
+Passport. Ручной Windows GUI/HiDPI/PDF/physical-print smoke-test остаётся обязательным условием
+stable-выпуска.
 
 Подробности: [аудит](PRODUCT_AUDIT_2026.md), [план](PROJECT_PLAN.md),
 [roadmap](ROADMAP.md), [проверки](TESTING.md).

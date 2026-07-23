@@ -66,7 +66,7 @@ Paradox чтение и преобразование остаются отмен
 ## Session binding и workspace-команды
 
 `SessionBindingController` хранит единый реестр session-aware компонентов. После открытия
-проекта он согласованно перепривязывает 26 контроллеров и запускает их reset hooks для Undo/Redo,
+проекта он согласованно перепривязывает 27 контроллеров и запускает их reset hooks для Undo/Redo,
 выделений и незавершённых режимов редактирования. Это исключает продолжение операций со старой
 `ProjectSession`, включая TIME↔DEPTH и LAS range workflows.
 
@@ -74,6 +74,20 @@ Paradox чтение и преобразование остаются отмен
 и только затем вызывает UI-port для отображения curve, track, lithology, stratigraphy или
 interpretation. Qt-обработчик дерева не присваивает `current_well_id` и `current_dataset_id`
 напрямую; некорректная команда не оставляет частично изменённый контекст.
+
+## Граница изменения сериализуемой модели
+
+`MainWindow` и диалоги собирают ввод, но commit выполняют через project/tablet controllers.
+`TabletLayoutMutationController` содержит Qt-независимые операции ширины, порядка, вертикального
+индекса и видимого диапазона. В основном приложении жест сначала отправляет синхронный request
+в `TabletController`; локальный mutation-controller используется как детерминированный fallback
+для standalone view и внутренней нормализации.
+
+`DerivedDatasetController` создаёт checkpoint перед merge/external-LAS copy и выполняет rollback
+всех dataset, появившихся после checkpoint, вместе с layout/source/import-report sidecars. Затем
+он восстанавливает исходные well/dataset selection и `dirty`. Batch project images устанавливаются
+только через `MasterlogTemplateController.install_image_assets`, который сначала валидирует весь
+набор и не допускает частичного commit при конфликте.
 
 ## Хранение и совместимость
 

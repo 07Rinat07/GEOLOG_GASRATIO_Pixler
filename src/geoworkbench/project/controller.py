@@ -33,6 +33,11 @@ class ProjectController:
         self.project_path = source
         return session
 
+    def mark_open_migration_required(self, required: bool) -> None:
+        """Record whether opening the project performed a save-worthy migration."""
+
+        self.session.dirty = bool(required)
+
     def save_project(self, target: Path | None = None) -> Path:
         destination = target or self.project_path
         if destination is None:

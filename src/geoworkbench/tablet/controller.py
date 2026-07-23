@@ -109,6 +109,16 @@ class TabletController:
         self.session.dirty = True
         return layout
 
+    def install_layout(self, layout: TabletLayout, *, mark_dirty: bool = True) -> TabletLayout:
+        """Install a prepared layout through the application mutation boundary."""
+
+        if not isinstance(layout, TabletLayout):
+            raise TypeError("Ожидалась модель планшета")
+        self.session.set_current_tablet_layout(layout)
+        if mark_dirty:
+            self.session.dirty = True
+        return layout
+
     @staticmethod
     def _family_track_spec(
         family: CurveFamily,
@@ -514,16 +524,22 @@ class TabletController:
         del self.session.tablet_presets[name]
         self.session.dirty = True
 
+    def move_track_to_index(self, track_id: str, target_index: int) -> bool:
+        layout = self._require_layout()
+        track = layout.track_by_id(track_id)
+        current_index = layout.tracks.index(track)
+        bounded = max(0, min(int(target_index), len(layout.tracks) - 1))
+        if bounded == current_index:
+            return False
+        layout.move_track(track_id, bounded)
+        self.session.dirty = True
+        return True
+
     def move_track(self, track_id: str, offset: int) -> bool:
         layout = self._require_layout()
         track = layout.track_by_id(track_id)
         current_index = layout.tracks.index(track)
-        target_index = max(0, min(current_index + offset, len(layout.tracks) - 1))
-        if target_index == current_index:
-            return False
-        layout.move_track(track_id, target_index)
-        self.session.dirty = True
-        return True
+        return self.move_track_to_index(track_id, current_index + int(offset))
 
     def hide_track(self, track_id: str) -> None:
         self._require_layout().set_track_visible(track_id, False)

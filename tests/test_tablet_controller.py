@@ -18,7 +18,14 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.tablet.controller import TabletController
-from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    CurveLineStyle,
+    CurveStyle,
+    TabletLayout,
+    TrackDefinition,
+    TrackKind,
+    XScale,
+)
 
 
 def make_session() -> ProjectSession:
@@ -541,3 +548,21 @@ def test_controller_renames_contiguous_merged_section() -> None:
     controller.rename_track_group(middle.track_id, "Геология")
 
     assert {track.group_title for track in layout.tracks} == {"Геология"}
+
+
+def test_controller_moves_track_to_absolute_index_and_installs_layout() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    movable = next(track for track in layout.tracks if track.kind is not TrackKind.DEPTH)
+    session.dirty = False
+
+    assert controller.move_track_to_index(movable.track_id, 0) is True
+    assert layout.tracks[0].track_id == movable.track_id
+    assert session.dirty is True
+
+    replacement = TabletLayout([TrackDefinition("depth-only", "Depth", TrackKind.DEPTH)])
+    session.dirty = False
+    assert controller.install_layout(replacement, mark_dirty=False) is replacement
+    assert session.current_tablet_layout is replacement
+    assert session.dirty is False

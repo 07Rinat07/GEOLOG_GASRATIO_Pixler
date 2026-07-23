@@ -535,6 +535,31 @@ class MasterlogTemplateController:
         self.session.dirty = True
         return asset
 
+    def install_image_assets(
+        self, assets: dict[str, ImageAsset]
+    ) -> tuple[ImageAsset, ...]:
+        """Validate and install a batch of image assets through one controller call."""
+
+        pending: list[ImageAsset] = []
+        resolved: list[ImageAsset] = []
+        for asset_id, asset in assets.items():
+            if asset_id != asset.asset_id:
+                raise ValueError(f"ID image asset не совпадает с ключом: {asset_id}")
+            validate_image_asset(asset.asset_id, asset)
+            existing = self.session.image_assets.get(asset.asset_id)
+            if existing is not None:
+                if existing.payload != asset.payload or existing.media_type != asset.media_type:
+                    raise ValueError(f"Конфликт содержимого image asset: {asset.asset_id}")
+                resolved.append(existing)
+            else:
+                pending.append(asset)
+                resolved.append(asset)
+        for asset in pending:
+            self.session.image_assets[asset.asset_id] = asset
+        if pending:
+            self.session.dirty = True
+        return tuple(resolved)
+
     def install_image_asset(self, asset: ImageAsset) -> ImageAsset:
         validate_image_asset(asset.asset_id, asset)
         existing = self.session.image_assets.get(asset.asset_id)

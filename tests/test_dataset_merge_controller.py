@@ -118,3 +118,31 @@ def test_merge_keeps_well_annotations_across_create_undo_and_redo() -> None:
 
     assert controller.redo() is result
     assert any(item.object_id == annotation.annotation_id for item in well.canvas_objects)
+
+
+def test_merge_controller_applies_validated_output_name_before_registration() -> None:
+    controller, source, _ = make_controller()
+
+    result = controller.create(
+        source.dataset_id,
+        controller.analyze(source.dataset_id),
+        name="  Combined export  ",
+    )
+
+    assert result.name == "Combined export"
+
+
+def test_merge_controller_rejects_blank_output_name_without_registering_dataset() -> None:
+    controller, source, _ = make_controller()
+    well = controller.session.current_well
+    assert well is not None
+    before = set(well.datasets)
+
+    with pytest.raises(ValueError, match="не должно быть пустым"):
+        controller.create(
+            source.dataset_id,
+            controller.analyze(source.dataset_id),
+            name="   ",
+        )
+
+    assert set(well.datasets) == before

@@ -14,7 +14,7 @@ from geoworkbench.domain.models import (
     Well,
 )
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
-from geoworkbench.printing.image_assets import ImageAsset
+from geoworkbench.printing.image_assets import ImageAsset, ImageAssetError
 from geoworkbench.project.session import ProjectSession
 
 
@@ -448,3 +448,62 @@ def test_masterlog_header_rejects_unsafe_type_and_geometry(
             width_mm=width_mm,
             height_mm=10.0,
         )
+
+
+def test_masterlog_template_controller_installs_image_asset_batch_atomically() -> None:
+    session = ProjectSession()
+    controller = MasterlogTemplateController(session)
+    payload = b"\x89PNG\r\n\x1a\nsafe"
+    digest = sha256(payload).hexdigest()
+    asset = ImageAsset(f"sha256:{digest}", "logo.png", "image/png", payload)
+
+    installed = controller.install_image_assets({asset.asset_id: asset})
+
+    assert installed == (asset,)
+    assert session.image_assets == {asset.asset_id: asset}
+    assert session.dirty is True
+
+    session.dirty = False
+    assert controller.install_image_assets({asset.asset_id: asset}) == (asset,)
+    assert session.dirty is False
+
+
+def test_masterlog_template_controller_rejects_asset_batch_without_partial_install() -> None:
+    session = ProjectSession()
+    controller = MasterlogTemplateController(session)
+    existing_payload = b"\x89PNG\r\n\x1a\nexisting"
+    existing_digest = sha256(existing_payload).hexdigest()
+    existing = ImageAsset(
+        f"sha256:{existing_digest}",
+        "existing.png",
+        "image/png",
+        existing_payload,
+    )
+    controller.install_image_asset(existing)
+    session.dirty = False
+
+    new_payload = b"\x89PNG\r\n\x1a\nnew"
+    new_digest = sha256(new_payload).hexdigest()
+    new_asset = ImageAsset(
+        f"sha256:{new_digest}",
+        "new.png",
+        "image/png",
+        new_payload,
+    )
+    conflicting = ImageAsset(
+        existing.asset_id,
+        "conflict.png",
+        "image/png",
+        b"\x89PNG\r\n\x1a\nconflict",
+    )
+
+    with pytest.raises(ImageAssetError, match="SHA-256 содержимого"):
+        controller.install_image_assets(
+            {
+                new_asset.asset_id: new_asset,
+                conflicting.asset_id: conflicting,
+            }
+        )
+
+    assert session.image_assets == {existing.asset_id: existing}
+    assert session.dirty is False

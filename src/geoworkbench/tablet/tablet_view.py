@@ -88,6 +88,7 @@ from geoworkbench.tablet.camera import (
     DEPTH_VIEW_SPAN_PRESETS,
     recommended_initial_range,
 )
+from geoworkbench.tablet.layout_mutations import TabletLayoutMutationController
 from geoworkbench.tablet.navigation_coordinator import (
     NavigationCommand,
     TabletNavigationCoordinator,
@@ -825,6 +826,7 @@ class TabletView(QWidget):
         self._selected_interval_id: str | None = None
         self._lithotype_catalog: dict[str, CatalogLithotype] = {}
         self._layout_model = TabletLayout()
+        self._layout_mutations = TabletLayoutMutationController(self._layout_model)
         self._track_lifecycle = TrackLifecycleCoordinator()
         self._rendered: dict[str, RenderedTrack] = {}
         self._sync_guard = False
@@ -1412,7 +1414,7 @@ class TabletView(QWidget):
         index = self._dataset.indexes[index_id]
         if index.role not in {IndexRole.DEPTH, IndexRole.TIME}:
             return False
-        changed = self._layout_model.set_vertical_index(index_id)
+        changed = self._layout_mutations.set_vertical_index(index_id)
         if not changed:
             return False
         self._cursor_depth = None
@@ -1789,7 +1791,9 @@ class TabletView(QWidget):
             return
 
         def apply(width: int) -> None:
-            definition.width = width
+            self.track_width_change_requested.emit(track_id, width)
+            if definition.width != width:
+                self._layout_mutations.set_track_width(track_id, width)
             rendered = self._rendered.get(track_id)
             if rendered is not None:
                 rendered.widget.set_track_width(width)
@@ -1799,7 +1803,6 @@ class TabletView(QWidget):
             self._rebuild_group_headers()
             self.invalidate_track(track_id, DirtyReason.STATIC)
             self.refresh_dirty_tracks()
-            self.track_width_change_requested.emit(track_id, width)
 
         self._interaction_history.execute(
             CallbackCommand(
@@ -1869,11 +1872,15 @@ class TabletView(QWidget):
             return False
 
         def move(index: int) -> None:
-            self._layout_model.move_track(track_id, index)
+            self.track_order_change_requested.emit(track_id, index)
+            current = self._layout_model.tracks.index(
+                self._layout_model.track_by_id(track_id)
+            )
+            if current != index:
+                self._layout_mutations.move_track_to_index(track_id, index)
             if not self._reorder_rendered_tracks():
                 self.refresh_view()
             self.select_track(track_id, emit_signal=False)
-            self.track_order_change_requested.emit(track_id, index)
 
         self._interaction_history.execute(
             CallbackCommand(
@@ -3639,6 +3646,7 @@ class TabletView(QWidget):
             or layout_model.vertical_index_id is None
             or layout_model.vertical_index_id == previous_index
         )
+        self._layout_mutations.bind(layout_model)
         if (
             previous_range is not None
             and same_axis
@@ -3648,7 +3656,7 @@ class TabletView(QWidget):
             # Changing a form/layout must not throw away the user's current
             # depth scale and scroll position.  The range is normalized against
             # the dataset during refresh, so it remains safe for the new tracks.
-            layout_model.set_visible_depth(*previous_range)
+            self._layout_mutations.set_visible_depth(*previous_range)
         self._layout_model = layout_model
         self._cursor_depth = layout_model.cursor_depth
         self.refresh_view()
@@ -3875,11 +3883,11 @@ class TabletView(QWidget):
         return " | ".join(values)
 
     def add_track(self, definition: TrackDefinition) -> None:
-        self._layout_model.add_track(definition)
+        self._layout_mutations.add_track(definition)
         self.refresh_view()
 
     def remove_track(self, track_id: str) -> None:
-        self._layout_model.remove_track(track_id)
+        self._layout_mutations.remove_track(track_id)
         self.refresh_view()
 
     def _create_rendered_track(
@@ -4067,10 +4075,10 @@ class TabletView(QWidget):
                 is_datetime=descriptor.is_datetime if descriptor is not None else False,
                 unit=descriptor.unit if descriptor is not None else "",
             )
-            self._layout_model.set_visible_depth(visible_top, visible_bottom)
+            self._layout_mutations.set_visible_depth(visible_top, visible_bottom)
         elif visible_top is not None and visible_bottom is not None:
             visible_top, visible_bottom = self._normalize_depth_window(visible_top, visible_bottom)
-            self._layout_model.set_visible_depth(visible_top, visible_bottom)
+            self._layout_mutations.set_visible_depth(visible_top, visible_bottom)
 
         axis_descriptor = self._axis_descriptor()
         self._rendered = self._track_lifecycle.create_entries(
@@ -4537,7 +4545,7 @@ class TabletView(QWidget):
                 selected_row = 0
                 first = self._axis_combo.itemData(0)
                 if isinstance(first, str):
-                    self._layout_model.vertical_index_id = first
+                    self._layout_mutations.set_vertical_index(first)
             self._axis_combo.setCurrentIndex(selected_row)
             self._axis_combo.setEnabled(self._axis_combo.count() > 1)
         finally:
@@ -5869,7 +5877,16 @@ class TabletView(QWidget):
         changed = current is None or not np.allclose(
             current, (normalized_top, normalized_bottom), rtol=0.0, atol=1e-9
         )
-        self._layout_model.set_visible_depth(normalized_top, normalized_bottom)
+        if changed and emit_change:
+            self.visible_depth_changed.emit(normalized_top, normalized_bottom)
+        current_after_request = self.visible_depth_range
+        if current_after_request is None or not np.allclose(
+            current_after_request,
+            (normalized_top, normalized_bottom),
+            rtol=0.0,
+            atol=1e-9,
+        ):
+            self._layout_mutations.set_visible_depth(normalized_top, normalized_bottom)
         self._depth_range_guard = True
         try:
             for rendered in self._rendered.values():
@@ -5885,8 +5902,6 @@ class TabletView(QWidget):
         # scroll/zoom together with their depth or time coordinate.
         self._refresh_annotation_overlay_anchors()
         self._update_navigation_controls()
-        if changed and emit_change:
-            self.visible_depth_changed.emit(normalized_top, normalized_bottom)
         return changed
 
     def _vertical_index(self) -> DatasetIndex | None:
@@ -8045,7 +8060,12 @@ class TabletView(QWidget):
         self._sync_guard = True
         try:
             top, bottom = self._normalize_depth_window(float(y_range[0]), float(y_range[1]))
-            self._layout_model.set_visible_depth(top, bottom)
+            self.visible_depth_changed.emit(top, bottom)
+            current_after_request = self.visible_depth_range
+            if current_after_request is None or not np.allclose(
+                current_after_request, (top, bottom), rtol=0.0, atol=1e-9
+            ):
+                self._layout_mutations.set_visible_depth(top, bottom)
             self._update_visible_curve_data(top, bottom)
             self._synchronize_depth_ranges(top, bottom)
             self._update_lithology_text_visibility(top, bottom)
@@ -8055,6 +8075,5 @@ class TabletView(QWidget):
             # as well. Otherwise their boxes stay at stale screen coordinates.
             self._refresh_annotation_overlay_anchors()
             self._update_navigation_controls()
-            self.visible_depth_changed.emit(top, bottom)
         finally:
             self._sync_guard = False

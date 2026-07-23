@@ -109,6 +109,7 @@ from geoworkbench.project.new_las_controller import NewLasController
 from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
+from geoworkbench.project.derived_dataset_controller import DerivedDatasetController
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
@@ -363,6 +364,7 @@ class MainWindow(QMainWindow):
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller = DatasetExportController(self.session)
         self.dataset_merge_controller = DatasetMergeController(self.session)
+        self.derived_dataset_controller = DerivedDatasetController(self.session)
         self.data_inspector_controller = DataInspectorController(self.session)
         self.header_editing_controller = HeaderEditingController(self.session)
         self.curve_metadata_controller = CurveMetadataController(self.session)
@@ -2206,7 +2208,9 @@ class MainWindow(QMainWindow):
         self._show_current_dataset()
         # A legacy annotation-scope migration must be saved. Normal project
         # opening remains clean when no migration was necessary.
-        self.session.dirty = annotation_scope_migration_required
+        self.project_controller.mark_open_migration_required(
+            annotation_scope_migration_required
+        )
         self._update_title()
         self._log(f"Проект открыт: {source}")
         self.statusBar().showMessage(f"Проект открыт: {source.name}")
@@ -2402,16 +2406,6 @@ class MainWindow(QMainWindow):
             overwrite=overwrite,
             plan=plan,
         )
-
-    def _discard_current_derived_dataset(self, restore_dataset_id: str) -> None:
-        current = self.session.current_dataset
-        well = self.session.current_well
-        if current is not None and well is not None and current.dataset_id != restore_dataset_id:
-            well.datasets.pop(current.dataset_id, None)
-            self.session.tablet_layouts.pop(current.dataset_id, None)
-            self.session.source_documents.pop(current.dataset_id, None)
-            self.session.import_reports.pop(current.dataset_id, None)
-        self.session.current_dataset_id = restore_dataset_id
 
     def export_selected_csv(self) -> None:
         self._export_selected_table("csv")
@@ -2930,6 +2924,7 @@ class MainWindow(QMainWindow):
             reset_hooks=(self.dataset_merge_controller.clear_history,),
             name="dataset_merge",
         )
+        bindings.register(self.derived_dataset_controller, name="derived_dataset")
         bindings.register(self.data_inspector_controller, name="data_inspector")
         bindings.register(
             self.header_editing_controller,
@@ -3412,7 +3407,6 @@ class MainWindow(QMainWindow):
             f"Шапка Masterlog сохранена: {template.name}"
             f"{warning_text}"
         )
-        self.session.dirty = True
         return form, summary
 
     def _set_form_print_page_settings(self, settings) -> None:
@@ -3436,9 +3430,7 @@ class MainWindow(QMainWindow):
         except (KeyError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("forms.title"), str(exc))
             return
-        self.session.set_current_tablet_layout(result.layout)
-        if mark_dirty:
-            self.session.dirty = True
+        self.tablet_controller.install_layout(result.layout, mark_dirty=mark_dirty)
         self.tablet_view.set_layout_model(result.layout)
         self.tablet_view.set_dataset(dataset)
         self._refresh_annotation_layer()
@@ -3561,7 +3553,6 @@ class MainWindow(QMainWindow):
         except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("ui.save_user_form"), str(exc))
             return
-        self.session.dirty = True
         self._refresh_annotation_layer()
         folder_name = self._t(
             "ui.user_time_forms" if form.axis_kind is FormAxisKind.TIME else "ui.user_depth_forms"
@@ -3685,9 +3676,9 @@ class MainWindow(QMainWindow):
     def _track_order_changed_from_drag(self, track_id: str, target_index: int) -> None:
         try:
             track = self.tablet_view.layout_model.track_by_id(track_id)
-        except KeyError:
+            self.tablet_controller.move_track_to_index(track_id, target_index)
+        except (KeyError, ValueError):
             return
-        self.session.dirty = True
         self._refresh_tree()
         self._update_title()
         self._log(self._t("tablet.track_moved", title=track.title))
@@ -5344,7 +5335,7 @@ class MainWindow(QMainWindow):
             or dialog.output_path is None
         ):
             return
-        previous_dataset_id = target.dataset_id
+        checkpoint = self.derived_dataset_controller.checkpoint()
         try:
             outcome = self.external_las_insert_controller.create_copy(
                 dialog.analysis,
@@ -5353,7 +5344,7 @@ class MainWindow(QMainWindow):
             )
             exported = self._export_current_dataset_to_path(dialog.output_path)
         except (KeyError, OSError, RuntimeError, ValueError, LasExportError) as exc:
-            self._discard_current_derived_dataset(previous_dataset_id)
+            self.derived_dataset_controller.rollback(checkpoint)
             QMessageBox.warning(self, self._t("external_las.title"), str(exc))
             return
         self._after_external_las_insert(
@@ -5420,17 +5411,17 @@ class MainWindow(QMainWindow):
             or dialog.output_path is None
         ):
             return
-        previous_dataset_id = target.dataset_id
+        checkpoint = self.derived_dataset_controller.checkpoint()
         try:
             result = self.dataset_merge_controller.create(
                 dialog.source_dataset_id,
                 dialog.analysis,
                 overlap_policy=dialog.overlap_policy,
+                name=dialog.output_path.stem,
             )
-            result.name = dialog.output_path.stem
             exported = self._export_current_dataset_to_path(dialog.output_path)
         except (KeyError, RuntimeError, ValueError, OSError, LasExportError) as exc:
-            self._discard_current_derived_dataset(previous_dataset_id)
+            self.derived_dataset_controller.rollback(checkpoint)
             QMessageBox.warning(self, self._t("merge.title"), str(exc))
             return
         self._after_dataset_merge(self._t("merge.copy_completed", name=exported.name))

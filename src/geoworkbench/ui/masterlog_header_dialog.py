@@ -1651,8 +1651,10 @@ class MasterlogHeaderDialog(QDialog):
             QMessageBox.warning(self, self.windowTitle(), str(exc))
         else:
             if dialog.imported_assets:
-                self.controller.session.image_assets.update(dialog.imported_assets)
-                self.controller.session.dirty = True
+                try:
+                    self.controller.install_image_assets(dialog.imported_assets)
+                except (ImageAssetError, ValueError) as exc:
+                    QMessageBox.warning(self, self.windowTitle(), str(exc))
         self.refresh()
 
     def _duplicate(self) -> None:

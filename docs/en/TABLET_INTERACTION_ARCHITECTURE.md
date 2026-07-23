@@ -44,3 +44,17 @@ A new tablet tool implements the router handler interface. It must not install a
 ## Invariant tests
 
 Tests verify paint-only overlay behavior, no native capture/mask, one commit per drag, track pass-through, annotation priority, restored track editing after tool cancellation, and capture cleanup after window deactivation or lost release.
+
+## Layout mutation boundary — 0.7.31
+
+`TabletView` owns Qt gestures, local geometry, and repainting. Serializable `TabletLayout`
+changes cross `TabletLayoutMutationController` or a synchronous request to the main
+`TabletController`. This includes track width/order, vertical index, and visible range.
+
+Resize/reorder sends the request before using the local fallback. When the application handles
+that signal and changes the shared layout, the view does not mutate it twice. Standalone tests and
+isolated view usage remain deterministic through the headless fallback. Undo/Redo follows the same
+path, so project state is not bypassed through a direct Qt assignment.
+
+A source-integrity test rejects direct `TabletLayout.set_*`, `move_track`, `add_track`,
+`remove_track`, and `TrackDefinition.width` writes in `TabletView`.

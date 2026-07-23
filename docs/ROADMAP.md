@@ -17,7 +17,7 @@ Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke ch
 
 - split annotation routing, navigation, track lifecycle, grid rendering, and editing out of
   `TabletView`;
-- continue splitting state-changing workflows out of `MainWindow`; import execution, print execution, session rebinding, and project-tree workspace commands are behind service/controller boundaries, while direct mutation of serializable project objects remains the next target;
+- keep state-changing workflows behind application boundaries; import/print execution, session rebinding, workspace commands, tablet layout mutations, derived-dataset rollback, and project image assets now use controllers/services; the next data slice is the Semantic Channel Dictionary and unified Import Review;
 - define one screen/print grid contract and golden-render fixtures;
 - add report provenance: source fingerprints, channel bindings, UOM, formula versions,
   locale, template revision, and render settings;

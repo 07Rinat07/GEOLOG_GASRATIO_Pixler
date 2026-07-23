@@ -1,17 +1,16 @@
 # Project status
 
-Snapshot: 23 July 2026. Version 0.7.30, test build.
+Snapshot: 23 July 2026. Version 0.7.31, test build.
 
 ## Release decision
 
 The last complete 0.7.28 baseline is green: Ruff passes, mypy reports zero errors across
-262 source files, and the full pytest run reports 1,217 passed and 10 skipped. For 0.7.30,
-`compileall`, wheel packaging, and 73 headless/regression/source-integrity tests covering
-session binding, workspace commands, project controllers, and the print boundary completed
-successfully. The full gate must be repeated in an installed environment because this container
-lacks PySide6, pyqtgraph, lasio, Ruff, and mypy, while the available package index does not
-provide them. The build remains a test build until that gate and the
-Windows/HiDPI/PDF/physical-printer matrix pass.
+262 source files, and the full pytest run reports 1,217 passed and 10 skipped. For 0.7.31,
+`compileall`, wheel packaging, and the available headless regression completed with 714 passed
+and 4 platform-specific skips. Full pytest collection stops at 95 Qt/LAS-dependent modules
+because this container lacks PySide6, pyqtgraph, and lasio; Ruff and mypy are unavailable as
+well. The build remains a test build until the full gate and the Windows/HiDPI/PDF/physical-
+printer matrix pass.
 
 ## Working foundation
 
@@ -23,10 +22,12 @@ Windows/HiDPI/PDF/physical-printer matrix pass.
 - annotations, project assets, and legacy migrations;
 - synchronized RU/KK/EN user documentation.
 
-Print execution now goes through `PrintJobExecutor`. `SessionBindingController` rebinds 26
-controllers and clears their Undo/Redo or transient selection state. Project-tree actions go
-through `WorkspaceCommandController`, so the tree handler in `MainWindow` no longer writes
-`current_well_id/current_dataset_id` directly. The next slice prevents direct mutation of the
-serializable project model from UI classes.
+State-changing UI actions now cross controller/service boundaries. Tablet resize/reorder,
+vertical-index, and visible-range changes use a dedicated headless mutation boundary;
+`MainWindow` no longer writes serialized collections or `dirty` directly. A cancelled merge or
+external-LAS export transaction removes the temporary dataset and restores the previous selection
+and dirty state. `SessionBindingController` now rebinds 27 controllers.
+
+The next slice is the Semantic Channel Dictionary followed by one Import Review.
 
 See the [audit](PRODUCT_AUDIT_2026.md) and [plan](PROJECT_PLAN.md).

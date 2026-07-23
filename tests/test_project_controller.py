@@ -121,3 +121,14 @@ def test_controller_requires_save_path() -> None:
 
     with pytest.raises(ValueError, match="путь"):
         controller.save_project()
+
+
+def test_controller_owns_dirty_state_for_open_migration() -> None:
+    controller = ProjectController(repository=MemoryProjectRepository(make_document()))
+    controller.session.dirty = False
+
+    controller.mark_open_migration_required(True)
+    assert controller.session.dirty is True
+
+    controller.mark_open_migration_required(False)
+    assert controller.session.dirty is False

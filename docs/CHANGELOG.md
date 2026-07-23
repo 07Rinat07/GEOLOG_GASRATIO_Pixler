@@ -41,6 +41,35 @@
 - the selection is synchronized across every plot in the active form, while the right panel reports minimum, maximum, mean, valid-point count, and coverage for every visible parameter;
 - results can be copied as an Excel-compatible table or exported to XLSX/CSV; specialized lithology, sample, and stratigraphy gestures remain unchanged.
 
+# 0.7.31 — project-model mutation and derived-dataset rollback boundaries (test build)
+
+## Русский
+
+- сериализуемые layout-изменения планшета перенесены за headless/controller boundary;
+- `MainWindow` больше не меняет `dirty`, project collections и текущий layout напрямую;
+- добавлен транзакционный checkpoint/rollback временных merge/external-LAS datasets;
+- rollback восстанавливает selection и прежний `dirty`, удаляя связанные sidecars;
+- image assets Masterlog устанавливаются атомарным batch-вызовом через controller;
+- session binding расширен до 27 контроллеров; добавлены source-integrity тесты.
+
+## Қазақша
+
+- планшеттің сериализацияланатын layout өзгерістері headless/controller шекарасына шығарылды;
+- `MainWindow` енді `dirty`, project collections және ағымдағы layout мәндерін тікелей өзгертпейді;
+- уақытша merge/external-LAS datasets үшін транзакциялық checkpoint/rollback қосылды;
+- rollback байланысты sidecar деректерін жойып, selection және бұрынғы `dirty` күйін қалпына келтіреді;
+- Masterlog image assets controller арқылы атомарлық batch шақыруымен орнатылады;
+- session binding 27 контроллерге кеңейтілді және source-integrity тесттері қосылды.
+
+## English
+
+- moved serializable tablet-layout changes behind a headless/controller boundary;
+- removed direct `dirty`, project-collection, and current-layout writes from `MainWindow`;
+- added transactional checkpoint/rollback for temporary merge/external-LAS datasets;
+- rollback removes related sidecars and restores selection plus the previous dirty state;
+- installs Masterlog image assets through one atomic controller batch;
+- expanded session binding to 27 controllers and added source-integrity coverage.
+
 # 0.7.30 — print, session, and workspace command boundaries (test build)
 
 ## Русский

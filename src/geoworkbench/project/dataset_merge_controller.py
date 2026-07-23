@@ -60,6 +60,7 @@ class DatasetMergeController:
         analysis: DatasetMergeAnalysis,
         *,
         overlap_policy: MergeOverlapPolicy = MergeOverlapPolicy.PRESERVE_EXISTING,
+        name: str | None = None,
     ) -> Dataset:
         target = self._target()
         result = create_merged_dataset(
@@ -68,6 +69,11 @@ class DatasetMergeController:
             analysis,
             overlap_policy=overlap_policy,
         )
+        if name is not None:
+            normalized = name.strip()
+            if not normalized:
+                raise ValueError("Имя производного dataset не должно быть пустым")
+            result.name = normalized
         well = self.session.current_well
         if well is None:
             raise RuntimeError("Сначала выберите скважину-приёмник")

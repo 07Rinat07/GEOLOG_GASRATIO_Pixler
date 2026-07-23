@@ -48,7 +48,7 @@ def test_masterlog_print_filters_annotations_by_active_form_scope() -> None:
 def test_legacy_scope_migration_marks_open_project_dirty_for_saving() -> None:
     source = Path("src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
     assert "annotation_scope_migration_required" in source
-    assert "self.session.dirty = annotation_scope_migration_required" in source
+    assert "self.project_controller.mark_open_migration_required(" in source
 
 
 def test_annotation_context_menu_compares_qactions_by_value() -> None:
