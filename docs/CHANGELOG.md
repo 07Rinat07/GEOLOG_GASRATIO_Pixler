@@ -1,3 +1,11 @@
+# 0.7.43 — minimum three-second startup splash (test build)
+
+- kept the branded welcome window visible for at least 3000 ms from its actual show event;
+- used a non-blocking Qt timer instead of sleeping or delaying application initialization;
+- preserved immediate completion when startup itself exceeds the minimum and retained the 180 ms fade;
+- added a Qt-independent timing helper, strict validation, and headless boundary tests;
+- kept project format v18 and acquisition schema v1 unchanged; synchronized RU/KK/EN guides.
+
 # 0.7.42 — append-only acquisition and deterministic replay (test build)
 
 - added persisted acquisition schema v1 with immutable index/curve definitions and contiguous records;

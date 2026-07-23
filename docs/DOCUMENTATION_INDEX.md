@@ -43,6 +43,7 @@
 - DOCX/HTML export: [RU](ru/DOCX_HTML_EXPORT.md) · [KK](kk/DOCX_HTML_EXPORT.md) · [EN](en/DOCX_HTML_EXPORT.md)
 - Operational events: [RU](ru/OPERATIONAL_EVENTS.md) · [KK](kk/OPERATIONAL_EVENTS.md) · [EN](en/OPERATIONAL_EVENTS.md)
 - Acquisition replay: [RU](ru/ACQUISITION_REPLAY.md) · [KK](kk/ACQUISITION_REPLAY.md) · [EN](en/ACQUISITION_REPLAY.md)
+- Startup splash 0.7.43: [RU](ru/RELEASE_NOTES_0.7.43.md) · [KK](kk/RELEASE_NOTES_0.7.43.md) · [EN](en/RELEASE_NOTES_0.7.43.md)
 
 ## History
 

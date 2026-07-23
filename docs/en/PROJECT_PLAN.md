@@ -1,7 +1,8 @@
 # Project plan
 
 Current as of 23 July 2026. Version history belongs in release notes; this file contains
-only active work.
+only active work. UI hotfix 0.7.43 does not change the roadmap order: the next domain slice is
+versioned lag/depth correction.
 
 ## P0 — release stability
 

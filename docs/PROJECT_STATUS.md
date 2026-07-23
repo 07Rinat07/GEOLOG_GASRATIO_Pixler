@@ -1,17 +1,18 @@
 # Статус проекта
 
-Срез: 23 июля 2026 года. Версия пакета: 0.7.42, тестовая сборка.
+Срез: 23 июля 2026 года. Версия пакета: 0.7.43, тестовая сборка.
 
 ## Решение о выпуске
 
 Последний полностью подтверждённый автоматический baseline 0.7.28: Ruff чист, mypy — 0 ошибок
-в 262 исходных файлах, полный pytest — 1217 пройдено и 10 пропущено. Для 0.7.42 выполнены
-`compileall`, расширенный целевой набор и доступная headless-регрессия. Полный набор требует
+в 262 исходных файлах, полный pytest — 1217 пройдено и 10 пропущено. Для 0.7.43 выполнены
+`compileall`, целевые startup timing-тесты и доступная headless-регрессия. Полный набор требует
 `PySide6`, `pyqtgraph`, `lasio`, Ruff и mypy. Сборка остаётся тестовой до повторного полного gate
 и Windows/HiDPI/PDF/physical-print smoke-test.
 
 ## Подтверждённая рабочая основа
 
+- приветственное окно с неблокирующим минимальным временем видимости 3000 мс и fade-out 180 мс;
 - project format v18 с безопасной цепочкой миграций v16 → v17 → v18;
 - acquisition schema v1 и persisted `Well.acquisition_sessions`;
 - immutable dataset schema для индексов, кривых, UOM и semantic metadata;
@@ -29,6 +30,7 @@
 
 | Проверка | Результат |
 |---|---|
+| Startup splash | минимум 3000 мс от фактического show event, затем fade-out 180 мс |
 | Source contract | append-only records, contiguous sequence, immutable dataset schema |
 | Growing dataset | exact indexes/curves, append-only rows, `NaN` для missing sample |
 | Buffer | bounded queue, explicit backpressure, ordered drain |
@@ -38,8 +40,8 @@
 | Storage | `Well.acquisition_sessions`, project format v18 |
 | Migration | v17 → v18 без изменения существующих datasets/events |
 | Негативные сценарии | gap/duplicate sequence, schema mismatch, tampered checkpoint/projection |
-| Расширенный целевой набор | 127 passed |
-| Доступная headless-регрессия | 952 passed, 4 skipped, 3 deselected |
+| Целевой startup/version набор | 13 passed |
+| Доступная headless-регрессия | 964 passed, 4 skipped, 3 deselected |
 
 Три deselected-сценария требуют `lasio`; остальные недоступные collection-модули требуют
 `PySide6`/`pyqtgraph`. Это ограничение окружения, а не подтверждение полного release gate.

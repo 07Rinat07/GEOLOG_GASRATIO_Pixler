@@ -1,7 +1,15 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QRect, QSize, Qt
-from PySide6.QtGui import QCursor
+from PySide6.QtCore import (
+    QEasingCurve,
+    QElapsedTimer,
+    QPropertyAnimation,
+    QRect,
+    QSize,
+    QTimer,
+    Qt,
+)
+from PySide6.QtGui import QCursor, QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -14,6 +22,10 @@ from PySide6.QtWidgets import (
 
 from geoworkbench import __version__
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.startup_timing import (
+    DEFAULT_SPLASH_MINIMUM_VISIBLE_MS,
+    remaining_splash_delay_ms,
+)
 from geoworkbench.ui.branding import logo_pixmap
 from geoworkbench.ui.drilling_animation import DrillingAnimation
 
@@ -21,7 +33,12 @@ from geoworkbench.ui.drilling_animation import DrillingAnimation
 class StartupSplash(QWidget):
     """Frameless branded startup surface with a live drilling rig."""
 
-    def __init__(self, language: AppLanguage) -> None:
+    def __init__(
+        self,
+        language: AppLanguage,
+        *,
+        minimum_visible_ms: int = DEFAULT_SPLASH_MINIMUM_VISIBLE_MS,
+    ) -> None:
         super().__init__(
             None,
             Qt.WindowType.SplashScreen
@@ -29,6 +46,16 @@ class StartupSplash(QWidget):
             | Qt.WindowType.WindowStaysOnTopHint,
         )
         self.localizer = Localizer.create(language)
+        # Validate through the shared headless helper before creating timers.
+        remaining_splash_delay_ms(
+            minimum_visible_ms=minimum_visible_ms, elapsed_ms=0
+        )
+        self.minimum_visible_ms = minimum_visible_ms
+        self._visible_timer = QElapsedTimer()
+        self._finish_timer = QTimer(self)
+        self._finish_timer.setSingleShot(True)
+        self._finish_timer.timeout.connect(self._start_fade)
+        self._finish_requested = False
         self.setObjectName("startupSplash")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(self._adaptive_size())
@@ -137,13 +164,38 @@ class StartupSplash(QWidget):
         target.moveCenter(available.center())
         self.move(target.topLeft())
 
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        if not self._visible_timer.isValid():
+            self._visible_timer.start()
+        if self._finish_requested and not self._finish_timer.isActive():
+            self._schedule_fade()
+
     def set_stage(self, text: str, progress: int) -> None:
         self.stage_label.setText(text)
         self.progress.setValue(max(0, min(100, progress)))
         self.repaint()
 
     def finish(self) -> None:
+        """Mark startup complete and fade only after the minimum display time."""
+
         self.set_stage(self.localizer.text("startup.stage.ready"), 100)
+        if self._finish_requested:
+            return
+        self._finish_requested = True
+        if self._visible_timer.isValid():
+            self._schedule_fade()
+
+    def _schedule_fade(self) -> None:
+        delay_ms = remaining_splash_delay_ms(
+            minimum_visible_ms=self.minimum_visible_ms,
+            elapsed_ms=self._visible_timer.elapsed(),
+        )
+        self._finish_timer.start(delay_ms)
+
+    def _start_fade(self) -> None:
+        if self._fade is not None:
+            return
         self._fade = QPropertyAnimation(self, b"windowOpacity", self)
         self._fade.setDuration(180)
         self._fade.setStartValue(1.0)

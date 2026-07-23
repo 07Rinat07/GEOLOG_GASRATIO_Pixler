@@ -23,14 +23,26 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для среза 0.7.42 в текущем контейнере выполнены `compileall`, расширенный целевой набор
-acquisition + operational events + project codec/migrations + ReportDefinition/Passport/output
-transaction: 127 passed. Доступная headless-регрессия: 952 passed, 4 skipped и 3 deselected.
-Три deselected-сценария требуют отсутствующий `lasio`; 82 collection-модуля полного набора
-требуют `PySide6`, `pyqtgraph` или `lasio`. Ruff и mypy в контейнере также отсутствуют. Это не
-заменяет полный gate. Перед stable команды выше и Windows
+Для среза 0.7.43 в текущем контейнере выполнены `compileall` и целевой набор
+startup timing + package version: 13 passed. Доступная headless-регрессия: 964 passed,
+4 skipped и 3 deselected. Три deselected-сценария требуют отсутствующий `lasio`;
+82 collection-модуля полного набора требуют `PySide6`, `pyqtgraph` или `lasio`.
+Ruff и mypy в контейнере также отсутствуют. Это не заменяет полный gate. Перед stable
+команды выше и Windows
 Word/LibreOffice/browser/PDF/HiDPI/physical-print smoke-test необходимо повторить в установленном
 окружении.
+
+## Приветственное окно запуска
+
+Для startup splash обязательны проверки:
+
+- default minimum visibility равна 3000 мс;
+- оставшаяся задержка уменьшается на фактически прошедшее время и не бывает отрицательной;
+- значения `bool`, float, строка и `None` не принимаются как миллисекунды;
+- отрицательные minimum/elapsed значения отклоняются;
+- Qt-интеграция запускает отсчёт от фактического `showEvent`, не блокирует event loop и
+  сохраняет fade-out 180 мс;
+- если инициализация уже заняла не менее трёх секунд, fade начинается без дополнительной паузы.
 
 ## Semantic Channel Dictionary
 
