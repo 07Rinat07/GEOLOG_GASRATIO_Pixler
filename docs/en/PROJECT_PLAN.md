@@ -44,7 +44,7 @@ only active work.
 - [x] shared bindings, UOM, coverage, and explicit zero/missing/unavailable handling;
 - [x] A4/A3/custom/roll, Fit/100%, continuation, and physical printer gate;
 - [x] one recoverable output + passport filesystem transaction and output fingerprint.
-- [ ] DOCX and HTML adapters through the shared report contract.
+- [x] DOCX and HTML adapters through the shared ReportDefinition/Coverage contract and output transaction.
 
 ## P2 — expansion
 

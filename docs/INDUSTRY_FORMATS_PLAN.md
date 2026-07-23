@@ -10,7 +10,7 @@
 |---|---|---|---|
 | DLIS/LIS | принять в ближайший отраслевой срез | `dlisio` как optional adapter | read-only DLIS v1/LIS79, inventory logical files/frames/channels, выбор frame/index, import report; исходник остаётся artifact |
 | GIS | принять в ближайший отраслевой срез | GDAL/OGR как системная optional-зависимость | GeoPackage как основной vector exchange, Shapefile только совместимость, GeoTIFF/BigTIFF/COG, явный CRS и reprojection preflight |
-| DOCX | принять после модели отчёта | `python-docx` как optional dependency | генерация из утверждённого `.docx`-шаблона; PDF остаётся канонической печатной формой |
+| DOCX | базовый adapter принят в 0.7.40 | stdlib OOXML; `python-docx` остаётся optional для будущих шаблонов | deterministic structured document; versioned user templates остаются отдельным расширением, PDF — каноническая печатная форма |
 | SEG-Y | второй приоритет | `segyio` как изолированный optional adapter | read-only headers/traces, geometry/QC, 2D section и выборка inline/xline; без загрузки полного куба в RAM и без скрытой перезаписи |
 | HDF5/NetCDF | слой больших научных массивов | `xarray` + `h5py`/`h5netcdf`, позднее Dask | chunked/lazy dataset, координаты/атрибуты/единицы; не является произвольным «импортом любого HDF5» |
 | GRDECL/EGRID | после модели 3D grid | `xtgeo` как optional adapter | сначала read-only corner-point grid и properties; экспорт только после unit/geometry/ACTNUM preflight |

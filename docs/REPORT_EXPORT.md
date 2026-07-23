@@ -25,3 +25,10 @@ Print Center использует один media/scale contract для A4/A3/cus
 ## Восстанавливаемая запись output в 0.7.39
 
 PDF, постраничные изображения/SVG, CSV/XLSX, Masterlog и интерпретационный PDF формируются в staging и фиксируются вместе с passport schema v4. Output bytes получают fingerprint до установки; rollback восстанавливает предыдущую пару. См. [транзакцию output](REPORT_OUTPUT_TRANSACTION.md).
+
+## DOCX и HTML в 0.7.40
+
+DOCX и self-contained HTML получают один `ResolvedReportDefinition`, его точные row indices и
+Coverage snapshots. Реальный ноль выводится как `0`, missing sample как `—`, unavailable channel
+как `#N/A`. Оба файла создаются в staging, подписываются Report Passport schema v4 по фактическим
+байтам и устанавливаются recoverable filesystem-транзакцией. См. [DOCX_HTML_EXPORT.md](DOCX_HTML_EXPORT.md).

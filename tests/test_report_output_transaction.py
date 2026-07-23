@@ -221,3 +221,60 @@ def test_committed_transaction_recovery_keeps_new_pair_and_only_cleans_journal(
     assert output.read_bytes() == b"committed"
     assert load_report_passport(passport_sidecar_path(output))["artifacts"][0]["size_bytes"] == 9
     assert not report_transaction_journal_path(output).exists()
+
+
+def test_transaction_fingerprints_docx_and_html_exports(tmp_path) -> None:
+    from geoworkbench.data.report_document_export import export_report_docx, export_report_html
+    from geoworkbench.services.report_definition import (
+        ReportDefinition,
+        ReportIntervalMode,
+        ReportIntervalSelection,
+        ReportProfile,
+        resolve_report_definition,
+    )
+
+    session_passport = _passport("Document")
+    dataset = Dataset(
+        "dataset-doc",
+        "Document dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([1.0, 2.0]),
+    )
+    dataset.curves["c1"] = CurveData(
+        CurveMetadata("c1", "C1", "C1", "ppm", "Methane", dataset.dataset_id),
+        np.array([0.0, np.nan]),
+    )
+    definition = ReportDefinition(
+        "doc:1",
+        "Document",
+        ReportProfile.GAS,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.FULL),
+        language="en",
+        curve_ids=("c1",),
+    )
+    report = resolve_report_definition(dataset, definition, require_curves=True)
+
+    docx_output = tmp_path / "report.docx"
+    html_output = tmp_path / "report.html"
+    docx_result = execute_report_output_transaction(
+        docx_output,
+        lambda staged: export_report_docx(dataset, staged, report),
+        session_passport,
+    )
+    html_result = execute_report_output_transaction(
+        html_output,
+        lambda staged: export_report_html(dataset, staged, report),
+        session_passport,
+    )
+
+    docx_payload = load_report_passport(docx_result.passport_path)
+    html_payload = load_report_passport(html_result.passport_path)
+    assert docx_payload["artifacts"][0]["media_type"] == (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert html_payload["artifacts"][0]["media_type"] == "text/html"
+    assert docx_payload["artifacts"][0]["size_bytes"] == docx_output.stat().st_size
+    assert html_payload["artifacts"][0]["size_bytes"] == html_output.stat().st_size

@@ -44,7 +44,7 @@
 - [x] ортақ bindings, UOM, coverage және нөл/missing/unavailable мәндерін анық ажырату;
 - [x] A4/A3/custom/roll, Fit/100%, continuation және physical printer gate;
 - [x] output + passport filesystem transaction және дайын файл fingerprint.
-- [ ] ортақ report contract арқылы DOCX және HTML adapters.
+- [x] ортақ ReportDefinition/Coverage contract және output transaction арқылы DOCX және HTML adapters.
 
 ## P2 — дамыту
 

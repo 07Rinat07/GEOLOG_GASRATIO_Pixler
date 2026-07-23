@@ -55,3 +55,9 @@ page number, MIME type, byte size және SHA-256 сақтайды. `load_repor
 - physical print файл жасамайды, сондықтан output fingerprint жоқ;
 - бұл ұйымның digital signature немесе trusted timestamp механизмі емес;
 - Windows және network filesystem smoke-test міндетті болып қалады.
+
+## 0.7.40 ішіндегі DOCX және HTML
+
+DOCX және HTML тек staging ішінде жасалып, Passport v4-пен бірге орнатылады. Транзакция дайын
+файлдың бос еместігін тексереді, MIME, өлшем және SHA-256 есептейді, ал қате кезінде бұрынғы
+құжат пен sidecar-ды қалпына келтіреді.

@@ -176,7 +176,7 @@ JSON-файл проекта не считается универсальным 
 | EXPORT-006 | JSON и Parquet без потери нескольких индексных колонок | готово; Parquet требует optional-группу analysis |
 | EXPORT-007 | Анализ потерь при экспорте времени/нескольких индексов в LAS | готово для LAS 1.2/2.0 со структурированным отчётом и рекомендацией JSON/Parquet |
 | EXPORT-008 | Именованные профили состава экспортируемых кривых | готово с сохранением в проекте и применением по мнемоникам |
-| EXPORT-009 | DOCX-отчёт из версионированного шаблона и общей Report Model | частично: готова типизированная сводка кальциметрии/ЛБА с отдельной экспертной интерпретацией и RU/KK/EN PDF; DOCX и общий шаблонизатор остаются |
+| EXPORT-009 | DOCX-отчёт из общей Report Model | готов базовый deterministic OOXML adapter из одного ResolvedReportDefinition/Coverage с recoverable transaction и Passport v4; versioned user templates остаются отдельным расширением |
 | EXPORT-010 | Simulator profiles для Eclipse/CMG/tNavigator | позже: GRDECL/EGRID с отдельным preflight совместимости, единиц и geometry |
 | PRINT-001 | Print Preview и проверка разрывов страниц | готово: preview использует тот же двумерный vertical × continuation plan, что PDF и printer |
 | PRINT-002 | A4, A3, пользовательская страница и рулонная печать | готово: единая media schema v1, custom 25–5000 мм, roll auto-length до 5000 мм на сегмент |
@@ -213,6 +213,7 @@ JSON-файл проекта не считается универсальным 
 | EXPORT-012 | Единая `ReportDefinition` и один resolved interval для preview, PDF/печати и табличного экспорта | готово: schema v2 фиксирует dataset/index, sections, curve IDs, ожидаемые мнемоники, form revision, language и full/current/custom/selection; Print Center, Masterlog и выбранный CSV/XLSX используют один resolver и snapshot в Report Passport |
 | EXPORT-013 | Единая coverage-модель | готово: observed value/zero, missing sample и unavailable channel различаются в resolved report, CSV/XLSX/JSON/Parquet, интервальной статистике, Curve Catalog и Report Passport schema v4 |
 | EXPORT-014 | Восстанавливаемая запись output + Report Passport и fingerprint готового файла | готово: staging, journal schema v1, backup/install/rollback/recovery, transactional continuation cleanup и Passport schema v4 artifacts |
+| EXPORT-015 | Self-contained HTML из общей Report Model | готово: один UTF-8 файл с inline CSS, без scripts/network resources, из точных row indices и Coverage; transaction + Passport v4 fingerprint |
 
 Печатный рендер должен работать в миллиметрах и не должен быть скриншотом экранного
 `TabletView`.

@@ -45,3 +45,8 @@ cleanup-ты аяқтайды. [Output транзакциясы](REPORT_OUTPUT_T
 Timestamp, random ID және absolute output paths passport ішінде жоқ. Бұл organizational digital
 signature немесе trusted timestamp емес. Physical print output fingerprint жасамайды. Windows,
 NTFS/network share, PDF, HiDPI және physical-print smoke-test міндетті.
+
+## 0.7.40 ішіндегі DOCX және HTML
+
+Passport schema v4 дайын DOCX/HTML файлының қауіпсіз атауын, MIME түрін, өлшемін және SHA-256
+мәнін сақтайды. Экспорттан кейінгі кез келген өзгеріс sidecar жүктеу кезінде анықталады.

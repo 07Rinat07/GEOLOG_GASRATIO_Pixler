@@ -44,7 +44,7 @@
 - [x] единые bindings, UOM, coverage и различение нуля/пропуска/unavailable channel;
 - [x] A4/A3/custom/roll, Fit/100%, продолжения и physical printer gate;
 - [x] единая filesystem-транзакция output + passport и fingerprint готового файла.
-- [ ] DOCX и HTML adapters через общий report contract.
+- [x] DOCX и HTML adapters через общий ReportDefinition/Coverage contract и output transaction.
 
 ## P2 — развитие
 

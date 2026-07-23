@@ -69,15 +69,15 @@ HTML for local interactive viewing, and PNG/SVG/PDF appendices for plots and Mas
 2. Geology, cuttings, LBA, calcimetry, stratigraphy and manual-description summaries.
 3. Gas and drilling-channel aggregation with quality metrics.
 4. Reports tab, preview and preflight in the Constructor.
-5. PDF and XLSX, followed by DOCX/HTML/CSV/TSV.
+5. PDF/XLSX/CSV/TSV/DOCX/HTML through shared ReportDefinition, Coverage, and output transaction contracts.
 6. Regression tests, tablet parity and physical Windows print verification.
 
 ## Implemented passport for current exports
 
 Since 0.7.34, Print Center, direct PNG/SVG/PDF, Masterlog PDF, and interpretation PDF create a
 deterministic JSON sidecar containing exact interval/channel values, source fingerprints,
-semantic bindings/UOM, formula versions, form revision, language, and render settings. The future
-shared `ReportDefinition` must reuse this contract. See [REPORT_PASSPORT.md](REPORT_PASSPORT.md).
+semantic bindings/UOM, formula versions, form revision, language, and render settings. The shared
+`ReportDefinition` reuses this contract. See [REPORT_PASSPORT.md](REPORT_PASSPORT.md).
 
 ## Shared ReportDefinition in 0.7.36
 
@@ -97,3 +97,11 @@ A4/A3/custom/roll, Fit, and 100% share one plan. At 100%, a wide form creates co
 ## Recoverable output commit in 0.7.39
 
 PDF, paged images/SVG, CSV/XLSX, Masterlog, and interpretation PDF render into staging and commit with the schema-v4 passport. Output bytes are fingerprinted before install; rollback restores the previous pair. See [Report output transaction](REPORT_OUTPUT_TRANSACTION.md).
+
+## DOCX and HTML in 0.7.40
+
+Selected-interval DOCX and HTML use the same `ResolvedReportDefinition` as CSV/XLSX. DOCX is
+deterministic OOXML with no macros or external embedded objects; HTML is one UTF-8 file with
+inline CSS and no scripts or network resources. Coverage keeps `0`, `—`, and `#N/A` distinct.
+Output and Passport v4 are written in one recoverable transaction. See
+[DOCX_HTML_EXPORT.md](DOCX_HTML_EXPORT.md).

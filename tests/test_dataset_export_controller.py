@@ -280,3 +280,61 @@ def test_export_controller_uses_one_resolved_report_for_csv_and_excel(tmp_path) 
         "102,30",
     ]
     assert xlsx_target.read_bytes().startswith(b"PK")
+
+
+def test_export_controller_uses_one_resolved_report_for_docx_and_html(tmp_path) -> None:
+    from geoworkbench.services.report_definition import (
+        ReportDefinition,
+        ReportIntervalContext,
+        ReportIntervalMode,
+        ReportIntervalSelection,
+        ReportProfile,
+    )
+
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0]),
+    )
+    dataset.curves["rop"] = CurveData(
+        CurveMetadata("rop", "ROP", "ROP", "m/h", "ROP", dataset.dataset_id),
+        np.array([0.0, np.nan, 30.0]),
+    )
+    well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
+    session = ProjectSession(
+        project=Project("project-1", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+        current_dataset_id=dataset.dataset_id,
+    )
+    controller = DatasetExportController(session)
+    definition = ReportDefinition(
+        "selection:dataset-1",
+        "Selection",
+        ReportProfile.COMBINED,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("rop",),
+        channel_mnemonics=("ROP", "H2S"),
+    )
+    resolved = controller.resolve_report(
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 101.0)),
+        require_curves=True,
+    )
+
+    docx_target = controller.export_resolved_report_docx(
+        tmp_path / "report.docx", resolved, language="en"
+    )
+    html_target = controller.export_resolved_report_html(
+        tmp_path / "report.html", resolved, language="en"
+    )
+
+    assert docx_target.read_bytes().startswith(b"PK")
+    html = html_target.read_text(encoding="utf-8")
+    assert 'data-state="zero">0</td>' in html
+    assert 'data-state="missing">—</td>' in html
+    assert 'data-state="unavailable">#N/A</td>' in html

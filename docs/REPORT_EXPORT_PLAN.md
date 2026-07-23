@@ -17,11 +17,12 @@
 - `IntervalReportRow` — одна воспроизводимая интервальная строка;
 - `NumericAggregationDefinition` — статистики числового канала;
 - `ReportProvenance` — источники, формулы, версии, единицы и предупреждения;
-- `ReportExportService` — следующий общий слой для PDF/DOCX/XLSX/HTML/CSV/TSV.
+- `ReportDocumentModel` schema v1 — общий read model для DOCX/HTML;
+- `ReportOutputTransaction` — общий recoverable commit для PDF/DOCX/XLSX/HTML/CSV/TSV.
 
-В 0.7.37 Print Center preview/output, Masterlog и selected CSV/XLSX разрешают один
+В 0.7.40 Print Center preview/output, Masterlog и selected CSV/XLSX/DOCX/HTML разрешают один
 `ReportDefinition` schema v2. Общая coverage-модель различает observed zero, missing sample и
-unavailable channel; разделы и exporters получают одни и те же coverage snapshots.
+unavailable channel; document/table adapters получают одни и те же interval indices и coverage snapshots.
 
 Базовый PDF кальциметрии/ЛБА уже существует. Новый этап должен расширить его до общего
 отчёта по геологии, газам и технологии, не создавая второй несовместимый источник данных.

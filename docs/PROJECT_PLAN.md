@@ -92,7 +92,7 @@ print-media schema v1 разрешает A4/A3/custom/roll, Fit/100%, двуме
 - [x] объединить запись output и passport sidecar в одну восстанавливаемую filesystem-транзакцию
   и добавить fingerprint готового output-файла;
 - [x] экспорт PDF/XLSX/CSV/TSV через общий ReportDefinition/Coverage contract;
-- [ ] DOCX и HTML — после filesystem-транзакции и output fingerprint.
+- [x] DOCX и HTML через общий ReportDefinition/Coverage contract, recoverable transaction и Passport v4.
 
 ## P2 — multiwell и автоматизация
 

@@ -503,3 +503,10 @@ installed together with Report Passport schema v4. The passport records SHA-256 
 the completed file; failures restore the previous pair from the journal. Manual recovery uses
 `python tools/recover_report_transactions.py <directory>`. See
 [Recoverable report transaction](REPORT_OUTPUT_TRANSACTION.md).
+
+## DOCX and HTML 0.7.40
+
+A selected interval can now be exported as editable DOCX or self-contained HTML. Both files use
+the same ReportDefinition and Coverage as CSV/XLSX: `0` remains zero, missing is `—`, and an
+unavailable channel is `#N/A`. A verifiable Report Passport schema v4 is written next to the
+artifact. [Guide](DOCX_HTML_EXPORT.md).

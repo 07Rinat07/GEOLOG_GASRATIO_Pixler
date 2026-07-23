@@ -91,3 +91,8 @@ staging → output fingerprint → signed passport → journaled backup/install
 - физическая печать не имеет output artifact fingerprint;
 - recovery journal содержит временные absolute paths, но они не входят в passport;
 - Windows/NTFS/network-share/PDF/HiDPI/physical-print smoke-test обязателен перед stable.
+
+## DOCX и HTML в 0.7.40
+
+Passport schema v4 сохраняет безопасное имя, MIME, размер и SHA-256 готового DOCX/HTML. Любое
+изменение документа после экспорта обнаруживается при загрузке sidecar.

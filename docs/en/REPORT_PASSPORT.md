@@ -53,3 +53,8 @@ pair and completes cleanup. See [Report output transaction](REPORT_OUTPUT_TRANSA
 Timestamps, random IDs, and absolute output paths are excluded. This mechanism is not an
 organizational digital signature or trusted timestamp. Physical printing has no output-file
 fingerprint. Windows/NTFS/network-share/PDF/HiDPI/physical-print smoke tests remain mandatory.
+
+## DOCX and HTML in 0.7.40
+
+Passport schema v4 stores the safe name, MIME type, size, and SHA-256 of the completed DOCX/HTML.
+Any later document modification is detected when the sidecar is loaded.

@@ -38,6 +38,7 @@
 - Report export: [RU](ru/REPORT_EXPORT.md) · [KK](kk/REPORT_EXPORT.md) · [EN](en/REPORT_EXPORT.md)
 - Semantic channels: [RU](ru/SEMANTIC_CHANNEL_DICTIONARY.md) · [KK](kk/SEMANTIC_CHANNEL_DICTIONARY.md) · [EN](en/SEMANTIC_CHANNEL_DICTIONARY.md)
 - Import Review: [RU](ru/IMPORT_REVIEW.md) · [KK](kk/IMPORT_REVIEW.md) · [EN](en/IMPORT_REVIEW.md)
+- DOCX/HTML export: [RU](ru/DOCX_HTML_EXPORT.md) · [KK](kk/DOCX_HTML_EXPORT.md) · [EN](en/DOCX_HTML_EXPORT.md)
 
 ## History
 
@@ -77,3 +78,11 @@ Every user-facing change must update the matching RU/KK/EN files in the same com
 - [Русская инструкция](ru/REPORT_OUTPUT_TRANSACTION.md)
 - [Қазақша нұсқаулық](kk/REPORT_OUTPUT_TRANSACTION.md)
 - [English guide](en/REPORT_OUTPUT_TRANSACTION.md)
+
+## DOCX and HTML export
+
+- [DOCX/HTML adapter contract](DOCX_HTML_EXPORT.md)
+- [Release notes 0.7.40](RELEASE_NOTES_0.7.40.md)
+- [Русская инструкция](ru/DOCX_HTML_EXPORT.md)
+- [Қазақша нұсқаулық](kk/DOCX_HTML_EXPORT.md)
+- [English guide](en/DOCX_HTML_EXPORT.md)

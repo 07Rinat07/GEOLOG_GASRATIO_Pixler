@@ -1,23 +1,23 @@
 # Project status
 
-Snapshot: 23 July 2026. Version: 0.7.39, test build.
+Snapshot: 23 July 2026. Version: 0.7.40, test build.
 
 ## Completed
 
-- recoverable report-output transaction schema v1;
-- staging, journal, backup, install, rollback, and recovery;
-- Report Passport schema v4 with completed-output fingerprints;
-- PDF/image/CSV/XLSX tamper detection when loading a sidecar;
-- transactional cleanup of obsolete continuation pages;
-- one service for Print Center, direct PNG/SVG/PDF, CSV/XLSX, Masterlog, and interpretation PDF;
-- manual recovery tool;
+- shared `ReportDocumentModel` schema v1;
+- DOCX and self-contained HTML from one `ResolvedReportDefinition`;
+- exact row indices with no second interval calculation;
+- Coverage: observed `0`, missing `—`, unavailable `#N/A`;
+- deterministic OOXML with no macros or external embedded objects;
+- inline-CSS HTML with no scripts or network resources;
+- recoverable output transaction and Report Passport schema v4;
+- fingerprints of the completed DOCX/HTML bytes;
 - project format remains v16.
 
-Checks: 37 focused tests; available regression: 915 passed, 4 skipped, and 3 LAS tests
-deselected. The full Qt/LAS/Ruff/mypy gate plus Windows/NTFS/network-share recovery,
-PDF/HiDPI, and physical-print smoke tests remain mandatory.
+Checks: 73 passed focused tests; available regression: 926 passed, 4 skipped, 3 LAS scenarios deselected.
+The full Qt/LAS/Ruff/mypy gate and Windows Word/browser/PDF/HiDPI/physical-print smoke tests
+remain mandatory.
 
-Next slice: DOCX and HTML adapters through ReportDefinition, Coverage, output transaction, and
-Report Passport schema v4.
+Next slice: typed drilling, gas, show, sample, casing, and formation-top events.
 
-See [Report output transaction](REPORT_OUTPUT_TRANSACTION.md) and the [engineering status](../PROJECT_STATUS.md).
+See [DOCX and HTML](DOCX_HTML_EXPORT.md) and the [engineering status](../PROJECT_STATUS.md).

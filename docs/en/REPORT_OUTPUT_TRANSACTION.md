@@ -56,3 +56,9 @@ is detected.
 - physical printing has no file and therefore no output fingerprint;
 - this is not an organizational digital signature or trusted timestamp;
 - Windows/network-filesystem smoke tests remain mandatory.
+
+## DOCX and HTML in 0.7.40
+
+DOCX and HTML are produced only in staging and installed together with Passport v4. The
+transaction verifies a non-empty completed file, calculates MIME, size, and SHA-256, and restores
+the previous document and sidecar after a failure.

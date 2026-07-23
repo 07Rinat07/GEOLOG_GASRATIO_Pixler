@@ -62,6 +62,7 @@ from geoworkbench.data.las_import_report import LasImportIssue, LasImportReport
 from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.data.selection_export import SelectionExportError
+from geoworkbench.data.report_document_export import ReportDocumentExportError
 from geoworkbench.data.visualization_export import (
     VisualizationExportError,
     export_widget_pdf,
@@ -1064,6 +1065,12 @@ class MainWindow(QMainWindow):
         export_excel_action = self._localized_action("selection_export.excel_action")
         export_excel_action.triggered.connect(self.export_selected_excel)
         file_menu.addAction(export_excel_action)
+        export_docx_action = self._localized_action("selection_export.docx_action")
+        export_docx_action.triggered.connect(self.export_selected_docx)
+        file_menu.addAction(export_docx_action)
+        export_html_action = self._localized_action("selection_export.html_action")
+        export_html_action.triggered.connect(self.export_selected_html)
+        file_menu.addAction(export_html_action)
         self.print_center_action = self._localized_action("print_center.action")
         self.print_center_action.setShortcut("Ctrl+P")
         self.print_center_action.triggered.connect(self.open_print_center)
@@ -2488,6 +2495,12 @@ class MainWindow(QMainWindow):
     def export_selected_excel(self) -> None:
         self._export_selected_table("xlsx")
 
+    def export_selected_docx(self) -> None:
+        self._export_selected_table("docx")
+
+    def export_selected_html(self) -> None:
+        self._export_selected_table("html")
+
     def _export_selected_table(self, export_format: str) -> None:
         dataset = self.session.current_dataset
         selection = self.dataset_selection
@@ -2540,9 +2553,21 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, self._t("selection_export.title"), str(exc))
             return
 
-        is_excel = export_format == "xlsx"
-        suffix = ".xlsx" if is_excel else ".csv"
-        file_filter = "Excel (*.xlsx)" if is_excel else "CSV (*.csv)"
+        formats = {
+            "csv": (".csv", "CSV (*.csv)"),
+            "xlsx": (".xlsx", "Excel (*.xlsx)"),
+            "docx": (".docx", "Word (*.docx)"),
+            "html": (".html", "HTML (*.html)"),
+        }
+        try:
+            suffix, file_filter = formats[export_format]
+        except KeyError:
+            QMessageBox.critical(
+                self,
+                self._t("selection_export.title"),
+                self._t("selection_export.unsupported_format", format=export_format),
+            )
+            return
         initial = Path.cwd() / f"{dataset.name}_selection{suffix}"
         filename, _ = QFileDialog.getSaveFileName(
             self,
@@ -2565,8 +2590,22 @@ class MainWindow(QMainWindow):
                 resolved_report, output_format=export_format
             )
             def produce(staged_target: Path) -> Path:
-                if is_excel:
+                if export_format == "xlsx":
                     return self.dataset_export_controller.export_resolved_report_excel(
+                        staged_target,
+                        resolved_report,
+                        overwrite=False,
+                        language=self.language,
+                    )
+                if export_format == "docx":
+                    return self.dataset_export_controller.export_resolved_report_docx(
+                        staged_target,
+                        resolved_report,
+                        overwrite=False,
+                        language=self.language,
+                    )
+                if export_format == "html":
+                    return self.dataset_export_controller.export_resolved_report_html(
                         staged_target,
                         resolved_report,
                         overwrite=False,
@@ -2591,6 +2630,7 @@ class MainWindow(QMainWindow):
             RuntimeError,
             ValueError,
             SelectionExportError,
+            ReportDocumentExportError,
             ReportDefinitionError,
             ReportPassportError,
         ) as exc:
@@ -2621,7 +2661,11 @@ class MainWindow(QMainWindow):
             report_name=definition.name,
             language=definition.language,
             render=ReportRenderSettings(
-                renderer="report-table-export:1",
+                renderer=(
+                    "report-document-export:1"
+                    if output_format in {"docx", "html"}
+                    else "report-table-export:2"
+                ),
                 output_format=output_format,
                 range_mode="custom",
                 strict_unicode=True,

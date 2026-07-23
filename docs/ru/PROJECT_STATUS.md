@@ -1,23 +1,23 @@
 # Статус проекта
 
-Срез: 23 июля 2026 года. Версия: 0.7.39, тестовая сборка.
+Срез: 23 июля 2026 года. Версия: 0.7.40, тестовая сборка.
 
 ## Выполнено
 
-- recoverable report-output transaction schema v1;
-- staging, journal, backup, install, rollback и recovery;
-- Report Passport schema v4 с fingerprint готовых output-файлов;
-- проверка изменения PDF/image/CSV/XLSX при загрузке sidecar;
-- транзакционная очистка устаревших страниц продолжения;
-- общий сервис для Print Center, direct PNG/SVG/PDF, CSV/XLSX, Masterlog и interpretation PDF;
-- ручной recovery tool;
+- общая `ReportDocumentModel` schema v1;
+- DOCX и автономный HTML из одного `ResolvedReportDefinition`;
+- точные row indices без повторного вычисления интервала;
+- Coverage: реальный `0`, missing `—`, unavailable `#N/A`;
+- deterministic OOXML без макросов и внешних объектов;
+- HTML с inline CSS без scripts и сетевых ресурсов;
+- recoverable output transaction и Report Passport schema v4;
+- fingerprint фактических DOCX/HTML байтов;
 - формат проекта остаётся v16.
 
-Проверки: 37 целевых тестов; доступная регрессия — 915 passed, 4 skipped,
-3 LAS tests deselected. Полный Qt/LAS/Ruff/mypy gate, Windows/NTFS/network-share recovery,
-PDF/HiDPI и physical-print smoke-test остаются обязательными.
+Проверки: 73 passed целевых; доступная регрессия — 926 passed, 4 skipped, 3 LAS-сценария deselected.
+Полный Qt/LAS/Ruff/mypy gate и Windows Word/browser/PDF/HiDPI/physical-print smoke-test
+остаются обязательными.
 
-Следующий этап: DOCX и HTML adapters через ReportDefinition, Coverage, output transaction и
-Report Passport schema v4.
+Следующий этап: типизированные drilling/gas/show/sample/casing/formation-top события.
 
-См. [Filesystem-транзакция](REPORT_OUTPUT_TRANSACTION.md) и [общий статус](../PROJECT_STATUS.md).
+См. [DOCX и HTML](DOCX_HTML_EXPORT.md) и [общий статус](../PROJECT_STATUS.md).

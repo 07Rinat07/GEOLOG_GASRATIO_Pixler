@@ -91,3 +91,9 @@ staging → output fingerprint → signed passport → journaled backup/install
 - физическая печать не имеет output artifact fingerprint;
 - recovery journal содержит временные absolute paths, но они не входят в passport;
 - Windows/NTFS/network-share/PDF/HiDPI/physical-print smoke-test обязателен перед stable.
+
+## DOCX и HTML artifacts в 0.7.40
+
+Schema v4 не изменяется. DOCX и HTML используют существующий `artifacts` contract: безопасный
+basename, role `single-file`, MIME, byte size и SHA-256 фактического файла. Проверка sidecar
+обнаруживает изменение OOXML ZIP или HTML после commit.

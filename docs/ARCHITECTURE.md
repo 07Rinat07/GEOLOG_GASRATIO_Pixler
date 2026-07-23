@@ -206,3 +206,18 @@ append-only growing dataset → secured ETP 1.2. Measurement time и arrival tim
 - safety-critical выводы не заявляются: приложение является decision-support tool.
 
 Текущие нарушения и план декомпозиции: [PRODUCT_AUDIT_2026.md](PRODUCT_AUDIT_2026.md).
+
+## Граница DOCX/HTML export
+
+`data/report_document_export.py` принимает только готовый `ResolvedReportDefinition` и не
+вызывает resolver повторно. `ReportDocumentModel` schema v1 содержит metadata, coverage и
+строки точного resolved interval. DOCX и HTML являются двумя сериализаторами одной модели:
+
+- DOCX — deterministic OOXML package стандартной библиотекой, без макросов, external links и
+  новой обязательной зависимости;
+- HTML — self-contained UTF-8 document с inline CSS, без scripts и network resources.
+
+Qt-слой выбирает путь и формат. `DatasetExportController` передаёт dataset и resolved report
+адаптеру. Финальный файл никогда не устанавливается напрямую: producer пишет в staging,
+`ReportOutputTransaction` рассчитывает fingerprint, финализирует Passport schema v4 и атомарно
+фиксирует output + sidecar. Project format остаётся v16.

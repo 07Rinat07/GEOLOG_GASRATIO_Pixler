@@ -17,6 +17,10 @@ from geoworkbench.data.selection_export import (
     export_selection_excel,
     export_selection_text,
 )
+from geoworkbench.data.report_document_export import (
+    export_report_docx,
+    export_report_html,
+)
 from geoworkbench.domain.models import Dataset, ExportProfile, IndexRole, new_id
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
@@ -231,6 +235,40 @@ class DatasetExportController:
             unavailable_mnemonics=report.unavailable_channel_mnemonics,
         )
 
+    def export_resolved_report_docx(
+        self,
+        target: Path,
+        report: ResolvedReportDefinition,
+        *,
+        overwrite: bool = False,
+        language: AppLanguage | str | None = None,
+    ) -> Path:
+        dataset = self._dataset_for_report_document(report)
+        return export_report_docx(
+            dataset,
+            target,
+            report,
+            overwrite=overwrite,
+            language=language,
+        )
+
+    def export_resolved_report_html(
+        self,
+        target: Path,
+        report: ResolvedReportDefinition,
+        *,
+        overwrite: bool = False,
+        language: AppLanguage | str | None = None,
+    ) -> Path:
+        dataset = self._dataset_for_report_document(report)
+        return export_report_html(
+            dataset,
+            target,
+            report,
+            overwrite=overwrite,
+            language=language,
+        )
+
     def _dataset_for_resolved_report(self, report: ResolvedReportDefinition) -> Dataset:
         dataset = self._require_current_dataset()
         if report.definition.dataset_id != dataset.dataset_id:
@@ -239,6 +277,14 @@ class DatasetExportController:
             raise ReportDefinitionError(
                 "Табличный экспорт поддерживает только активный индекс ReportDefinition"
             )
+        return dataset
+
+    def _dataset_for_report_document(self, report: ResolvedReportDefinition) -> Dataset:
+        dataset = self._require_current_dataset()
+        if report.definition.dataset_id != dataset.dataset_id:
+            raise ReportDefinitionError("Разрешённый отчёт относится к другому dataset")
+        if report.interval.index_id not in dataset.indexes:
+            raise ReportDefinitionError("Индекс ReportDefinition отсутствует в dataset")
         return dataset
 
     def _numeric_depth_bounds(

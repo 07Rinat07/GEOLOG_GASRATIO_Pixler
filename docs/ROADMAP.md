@@ -54,7 +54,7 @@ Exit: a recorded session can be replayed deterministically and produces the same
 - [complete] add shared coverage and an explicit zero/missing/unavailable-channel model;
 - [complete] unify A4/A3/custom/roll media, Fit/100%, continuation planning, and the physical printer capability gate;
 - completed: recoverable output + passport transaction and output-file fingerprints;
-- next: DOCX/HTML adapters through the same ReportDefinition/Coverage/transaction boundary;
+- [complete] DOCX/HTML adapters through the same ReportDefinition/Coverage/transaction boundary;
 - multiwell correlation canvas with tops, ties, independent depth ranges, and paginated PDF;
 - template validation, versioning, import/export, and backward-compatible migrations.
 

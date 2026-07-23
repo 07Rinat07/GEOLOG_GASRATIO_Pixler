@@ -1,3 +1,12 @@
+# 0.7.40 — DOCX and HTML report adapters (test build)
+
+- added shared Qt-free `ReportDocumentModel` schema v1 for DOCX and self-contained HTML;
+- both adapters consume one resolved ReportDefinition, exact row indices, and Coverage snapshots;
+- preserved observed zero, missing sample, and unavailable channel as `0`, `—`, and `#N/A`;
+- routed DOCX/HTML through the recoverable output transaction and Report Passport schema v4 fingerprints;
+- added RU/KK/EN menu actions, user guides, and regression/source-integrity tests;
+- kept project format v16.
+
 # 0.7.39 — recoverable report output transaction (test build)
 
 - added journaled staging/backup/install/rollback/recovery for output + passport;
