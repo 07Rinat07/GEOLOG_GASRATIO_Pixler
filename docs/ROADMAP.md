@@ -17,19 +17,20 @@ Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke ch
 
 - split annotation routing, navigation, track lifecycle, grid rendering, and editing out of
   `TabletView`;
-- keep state-changing workflows behind application boundaries; import/print execution, session rebinding, workspace commands, tablet layout mutations, derived-dataset rollback, and project image assets now use controllers/services; the next data slice is the Semantic Channel Dictionary and unified Import Review;
+- keep state-changing workflows behind application boundaries; import/print execution, session rebinding, workspace commands, tablet layout mutations, derived-dataset rollback, and project image assets use controllers/services; the Semantic Channel Dictionary and read-only Import Review contract are complete, while interactive review/commit is next;
 - define one screen/print grid contract and golden-render fixtures;
 - add report provenance: source fingerprints, channel bindings, UOM, formula versions,
   locale, template revision, and render settings;
-- test project format v15 and layout format v14 migrations with representative legacy files.
+- test project format v16 and layout format v14 migrations with representative legacy files.
 
 Exit: bounded controllers with headless tests, stable visual fixtures, reproducible report passport.
 
 ## Phase 2 — semantic data and operational QC
 
-- introduce canonical channel kinds based on quantity classes and an Energistics-compatible
-  UOM dictionary while preserving original mnemonics;
-- add an Import Review screen for mapping, units, index, NULL, gaps, duplicates, and warnings;
+- [complete] resolve canonical channel kinds through quantity classes and an explicit UOM
+  dictionary while preserving source mnemonics and a version-stable binding snapshot;
+- add an interactive Import Review screen for mapping, units, index, NULL, gaps, duplicates,
+  warnings, manual overrides, and one atomic acceptance command;
 - store measurement time, arrival time, source, calibration, and QC flags;
 - define typed drilling, gas, show, sample, casing, and formation-top events;
 - add versioned lag/depth correction without rewriting the acquired source.

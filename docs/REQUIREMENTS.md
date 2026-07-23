@@ -19,11 +19,11 @@
 | DATA-006 | DLIS/LIS через изолированный опциональный адаптер | запланировано; первый read-only профиль уточнён в DATA-021 |
 | DATA-007 | WITSML 2.1 / ETP 1.2 как growing well-data source | запланировано поэтапно: offline inventory/MudLogReport mapping → replay → secure network client; credentials не хранятся в проекте |
 | DATA-008 | Несколько файлов, скважин и наборов данных в одном проекте | готово |
-| DATA-009 | Безопасная диагностика NULL, дубликатов мнемоник, глубины и единиц | частично: NULL, мнемоники и индекс готовы; UOM запланирован |
+| DATA-009 | Безопасная диагностика NULL, дубликатов мнемоник, глубины и единиц | готово в headless-модели: NULL, unresolved, duplicate canonical kind, unknown UOM и quantity conflict; интерактивный review остаётся DATA-013 |
 | DATA-010 | Плагины импорта и экспорта без зависимости Domain от формата | готов контракт Plugin API; загрузка внешних плагинов позже |
 | DATA-011 | Автоматическое распознавание DEPTH/TIME/DATETIME/GENERIC по всем колонкам | готово для числовых, datetime64, Unix и ISO-8601 колонок |
 | DATA-012 | Несколько сохранённых индексов и выбор active index без потери колонок | готово, включая Data Inspector |
-| DATA-013 | Confidence, объяснение признаков и ручной выбор при неоднозначности | готово для сохранённых кандидатов; import review всех колонок запланирован |
+| DATA-013 | Confidence, объяснение признаков и ручной выбор при неоднозначности | частично: read-only review всех импортированных каналов готов; UI overrides, preview и атомарное подтверждение запланированы следующим срезом |
 | DATA-014 | Строгий, совместимый и ручной режимы LAS-импорта | готово для report-driven политики; parser profiles расширяются отдельно |
 | DATA-015 | Относительное время, Unix s/ms/us/ns, строки даты и составные DATE+TIME | частично: ядро и mapping CSV/TXT/Excel готовы; общий import review запланирован |
 | DATA-016 | Сохранение source snapshot, нормализованных данных, правок и import report | частично: fingerprint, lossless artifact и import provenance v7 готовы; единый журнал правок запланирован |
@@ -68,7 +68,7 @@ JSON-файл проекта не считается универсальным 
 
 | ID | Требование | Статус |
 |---|---|---|
-| OPS-001 | Semantic Channel Dictionary: canonical kind, dimension, UOM, aliases, sensor/source | запланировано; P0 до real-time adapters |
+| OPS-001 | Semantic Channel Dictionary: canonical kind, quantity class, UOM, aliases, sensor/source | готово для CSV/Excel, LAS, Paradox, project format v16 и derived-операций; расширение словаря выполняется данными без изменения Domain |
 | OPS-002 | Acquisition QC: measurement/arrival time, quality flags, gaps, duplicate/out-of-order/stale, calibration | запланировано; P0 |
 | OPS-003 | Versioned lag/depth correction для gas/cuttings с pump/volume/flow profiles | запланировано; P0, исходник append-only |
 | OPS-004 | Typed drilling/gas/show/sample/casing/top events с depth/time anchors и audit | запланировано; P0 |

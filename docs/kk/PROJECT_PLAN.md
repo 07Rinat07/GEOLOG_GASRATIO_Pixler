@@ -23,9 +23,10 @@
 - [x] әмбебап import маршрутизациясын және CSV/Excel/LAS/Paradox jobs-ты шығару;
 - [x] print jobs, session binding және жоба ағашының workspace командаларын шығару;
 - [x] UI кластарының сериализацияланатын жоба моделін тікелей өзгертуіне тыйым салу;
-- параметр түрі, quantity class, UOM, aliases, дереккөз және бастапқы мнемоникасы бар
-  Semantic Channel Dictionary енгізу;
-- бірыңғай Import Review және қайталанатын есеп паспортын қосу.
+- [x] параметр түрі, quantity class, UOM, aliases, дереккөз және бастапқы мнемоникасы бар
+  Semantic Channel Dictionary енгізу және binding-ті project format v16 ішінде сақтау;
+- дайын read-only headless model негізінде интерактивті Import Review, кейін қайталанатын
+  есеп паспортын қосу.
 
 ## P1 — операциялар және нақты уақыт
 

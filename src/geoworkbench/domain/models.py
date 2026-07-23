@@ -5,11 +5,14 @@ from enum import StrEnum
 from math import isfinite
 from pathlib import Path
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import numpy as np
 from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from geoworkbench.services.semantic_channels import SemanticChannelBinding
 
 
 def new_id() -> str:
@@ -82,6 +85,7 @@ class CurveMetadata:
     description: str | None
     source_dataset_id: str
     provenance: str = "source"
+    semantic: SemanticChannelBinding | None = None
 
 
 @dataclass(slots=True)

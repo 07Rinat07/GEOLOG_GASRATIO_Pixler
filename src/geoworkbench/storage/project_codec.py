@@ -54,6 +54,11 @@ from geoworkbench.data.las_import_report import (
 )
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
 from geoworkbench.services.las_parameter_resolver import infer_canonical_mnemonic
+from geoworkbench.services.semantic_channels import (
+    SemanticChannelBinding,
+    default_semantic_channel_dictionary,
+)
+from geoworkbench.services.uom_dictionary import QuantityClass
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 from geoworkbench.printing.image_assets import ImageAsset, ImageAssetError, load_image_assets
 from geoworkbench.storage.source_artifacts import (
@@ -63,7 +68,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 15
+PROJECT_FORMAT_VERSION = 16
 
 
 @dataclass(slots=True)
@@ -94,6 +99,38 @@ def _required_int(data: dict[str, Any], key: str) -> int:
     return value
 
 
+def _semantic_binding_from_dict(data: dict[str, Any]) -> SemanticChannelBinding:
+    raw_aliases = data.get("aliases", [])
+    raw_evidence = data.get("evidence", [])
+    if not isinstance(raw_aliases, list) or not all(
+        isinstance(item, str) for item in raw_aliases
+    ):
+        raise ProjectFormatError("Semantic aliases must be a list of strings")
+    if not isinstance(raw_evidence, list) or not all(
+        isinstance(item, str) for item in raw_evidence
+    ):
+        raise ProjectFormatError("Semantic evidence must be a list of strings")
+    try:
+        return SemanticChannelBinding(
+            canonical_kind=str(_required(data, "canonical_kind", str)),
+            canonical_mnemonic=clean_mnemonic(_required(data, "canonical_mnemonic", str)),
+            quantity_class=QuantityClass(str(_required(data, "quantity_class", str))),
+            canonical_uom=clean_display_text(data.get("canonical_uom")) or None,
+            source_uom=clean_display_text(data.get("source_uom")) or None,
+            aliases=tuple(raw_aliases),
+            sensor_id=(str(data["sensor_id"]) if data.get("sensor_id") is not None else None),
+            source=(str(data["source"]) if data.get("source") is not None else None),
+            family=str(data.get("family", "other")),
+            category=str(data.get("category", "unknown")),
+            source_mnemonic=clean_display_text(_required(data, "source_mnemonic", str)),
+            confidence=float(data.get("confidence", 0.0)),
+            matched_by=str(data.get("matched_by", "unresolved")),
+            evidence=tuple(raw_evidence),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Invalid semantic channel binding") from exc
+
+
 def _curve_from_dict(data: dict[str, Any]) -> CurveData:
     metadata_data = _required(data, "metadata", dict)
     original_mnemonic = clean_mnemonic(_required(metadata_data, "original_mnemonic", str))
@@ -117,14 +154,28 @@ def _curve_from_dict(data: dict[str, Any]) -> CurveData:
         original_mnemonic
     ):
         canonical_mnemonic = inferred_canonical or stored_canonical
+    raw_semantic = metadata_data.get("semantic")
+    if raw_semantic is not None and not isinstance(raw_semantic, dict):
+        raise ProjectFormatError("Curve semantic binding must be an object")
+    semantic = (
+        _semantic_binding_from_dict(raw_semantic)
+        if isinstance(raw_semantic, dict)
+        else default_semantic_channel_dictionary().resolve(
+            original_mnemonic,
+            description=description or "",
+            unit=unit or "",
+            canonical_mnemonic=canonical_mnemonic,
+        )
+    )
     metadata = CurveMetadata(
         curve_id=str(_required(metadata_data, "curve_id", str)),
         original_mnemonic=original_mnemonic,
-        canonical_mnemonic=canonical_mnemonic,
+        canonical_mnemonic=semantic.canonical_mnemonic,
         unit=unit,
         description=description,
         source_dataset_id=str(_required(metadata_data, "source_dataset_id", str)),
         provenance=str(metadata_data.get("provenance", "source")),
+        semantic=semantic,
     )
     values = np.asarray(_required(data, "values", list), dtype=np.float64)
     try:

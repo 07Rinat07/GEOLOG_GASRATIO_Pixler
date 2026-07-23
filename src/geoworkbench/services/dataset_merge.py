@@ -401,6 +401,7 @@ def _add_curve(
             description=metadata.description,
             source_dataset_id=result.dataset_id,
             provenance=provenance,
+            semantic=metadata.semantic,
         ),
         np.asarray(values, dtype=np.float64),
         version=max(1, template.version),

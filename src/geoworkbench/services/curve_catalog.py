@@ -224,6 +224,17 @@ def _catalog_match(curve: CurveData, catalog: SensorCatalog | None = None) -> Se
     if catalog is None:
         return None
     reference = catalog
+    if metadata.semantic is not None and metadata.semantic.sensor_id is not None:
+        try:
+            definition = reference.definition(metadata.semantic.sensor_id)
+        except KeyError:
+            pass
+        else:
+            return SensorMatch(
+                definition,
+                "semantic_binding",
+                metadata.semantic.confidence,
+            )
     requested = metadata.canonical_mnemonic or metadata.original_mnemonic
     match = reference.match(
         requested,
@@ -240,6 +251,12 @@ def _catalog_match(curve: CurveData, catalog: SensorCatalog | None = None) -> Se
 
 
 def classify_curve(curve: CurveData, catalog: SensorCatalog | None = None) -> CurveCategory:
+    semantic = curve.metadata.semantic
+    if semantic is not None:
+        try:
+            return CurveCategory(semantic.category)
+        except ValueError:
+            pass
     match = _catalog_match(curve, catalog)
     if match is not None:
         try:
@@ -262,6 +279,12 @@ def classify_curve(curve: CurveData, catalog: SensorCatalog | None = None) -> Cu
 
 
 def classify_curve_family(curve: CurveData, catalog: SensorCatalog | None = None) -> CurveFamily:
+    semantic = curve.metadata.semantic
+    if semantic is not None:
+        try:
+            return CurveFamily(semantic.family)
+        except ValueError:
+            pass
     match = _catalog_match(curve, catalog)
     if match is not None:
         try:
@@ -286,6 +309,7 @@ def analyze_dataset_curves(
         metadata = curve.metadata
         match = _catalog_match(curve, reference) if reference is not None else None
         definition = match.definition if match is not None else None
+        semantic = metadata.semantic
         description = (metadata.description or "").strip()
         if definition is not None and (
             not description or description == metadata.original_mnemonic
@@ -299,11 +323,13 @@ def analyze_dataset_curves(
                 curve_id=metadata.curve_id,
                 mnemonic=metadata.original_mnemonic,
                 canonical_mnemonic=(
-                    definition.canonical_mnemonic
+                    semantic.canonical_mnemonic
+                    if semantic is not None
+                    else definition.canonical_mnemonic
                     if definition is not None
                     else metadata.canonical_mnemonic or metadata.original_mnemonic
                 ),
-                unit=unit,
+                unit=(unit or (semantic.canonical_uom if semantic is not None else "") or ""),
                 description=description,
                 category=classify_curve(curve, reference),
                 family=classify_curve_family(curve, reference),
@@ -312,11 +338,29 @@ def analyze_dataset_curves(
                 minimum=minimum,
                 maximum=maximum,
                 reference_name=definition.name_ru if definition is not None else "",
-                reference_source=definition.source if definition is not None else "",
+                reference_source=(
+                    definition.source
+                    if definition is not None
+                    else semantic.source or ""
+                    if semantic is not None
+                    else ""
+                ),
                 reference_default_min=(definition.default_min if definition is not None else None),
                 reference_default_max=(definition.default_max if definition is not None else None),
-                matched_catalog_id=(definition.sensor_id if definition is not None else None),
-                match_method=(match.matched_by if match is not None else None),
+                matched_catalog_id=(
+                    definition.sensor_id
+                    if definition is not None
+                    else semantic.sensor_id
+                    if semantic is not None
+                    else None
+                ),
+                match_method=(
+                    match.matched_by
+                    if match is not None
+                    else semantic.matched_by
+                    if semantic is not None
+                    else None
+                ),
             )
         )
     return tuple(

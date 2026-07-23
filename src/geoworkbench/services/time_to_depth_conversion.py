@@ -165,6 +165,7 @@ def convert_time_dataset_to_depth(dataset: Dataset, plan: TimeToDepthPlan) -> Ti
                 curve.metadata.description,
                 dataset_id,
                 f"transform:time-to-depth:{dataset.dataset_id}:{plan.method.value}",
+                curve.metadata.semantic,
             ),
             converted,
         )

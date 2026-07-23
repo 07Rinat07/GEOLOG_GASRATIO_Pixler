@@ -40,6 +40,7 @@ from geoworkbench.domain.models import (
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection, analyze_depth_axis
 from geoworkbench.services.index_detection import IndexColumn, detect_index_candidates
 from geoworkbench.services.las_parameter_resolver import infer_canonical_mnemonic
+from geoworkbench.services.semantic_channels import default_semantic_channel_dictionary
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 
 
@@ -123,6 +124,7 @@ def import_las_with_report(
         dataset.active_index.index_type = index_candidate.index_type
         dataset.active_index.role = index_candidate.role
 
+    semantic_dictionary = default_semantic_channel_dictionary()
     try:
         for item in list(las.curves)[1:]:
             raw_mnemonic = str(item.mnemonic)
@@ -138,14 +140,22 @@ def import_las_with_report(
                 description=description,
                 unit=unit,
             )
+            semantic = semantic_dictionary.resolve(
+                mnemonic,
+                description=description,
+                unit=unit,
+                source_mnemonic=raw_mnemonic,
+                canonical_mnemonic=canonical,
+            )
             dataset.curves[curve_id] = CurveData(
                 metadata=CurveMetadata(
                     curve_id=curve_id,
                     original_mnemonic=mnemonic,
-                    canonical_mnemonic=canonical or mnemonic.upper(),
+                    canonical_mnemonic=semantic.canonical_mnemonic,
                     unit=unit or None,
                     description=description or None,
                     source_dataset_id=dataset_id,
+                    semantic=semantic,
                 ),
                 values=values,
             )

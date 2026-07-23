@@ -21,6 +21,7 @@
 - [TESTING.md](TESTING.md) — the only active release-quality gate.
 - [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md) — synchronization rules.
 - [CHANGELOG.md](CHANGELOG.md) — concise implementation history.
+- [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md) — channel semantics, UOM classes, persistence, and Import Review boundary.
 
 ## Main workflows
 
@@ -34,6 +35,7 @@
   [EN](en/PARADOX_IMPORT.md)
 - SKF import: [RU](ru/SKF_IMPORT.md) · [KK](kk/SKF_IMPORT.md) · [EN](en/SKF_IMPORT.md)
 - Report export: [RU](ru/REPORT_EXPORT.md) · [KK](kk/REPORT_EXPORT.md) · [EN](en/REPORT_EXPORT.md)
+- Semantic channels: [RU](ru/SEMANTIC_CHANNEL_DICTIONARY.md) · [KK](kk/SEMANTIC_CHANNEL_DICTIONARY.md) · [EN](en/SEMANTIC_CHANNEL_DICTIONARY.md)
 
 ## History
 

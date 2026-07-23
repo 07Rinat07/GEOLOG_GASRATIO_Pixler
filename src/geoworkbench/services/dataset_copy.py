@@ -80,6 +80,7 @@ def create_dataset_copy(
                 description=metadata.description,
                 source_dataset_id=dataset_id,
                 provenance=f"{provenance}:{source.dataset_id}:{metadata.curve_id}",
+                semantic=metadata.semantic,
             ),
             values=np.asarray(curve.values, dtype=np.float64).copy(),
             version=curve.version,

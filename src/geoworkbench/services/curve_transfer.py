@@ -141,6 +141,7 @@ def build_transferred_curves(
                     description=metadata.description,
                     source_dataset_id=target.dataset_id,
                     provenance=f"transfer:{source.dataset_id}:{curve_id}",
+                    semantic=metadata.semantic,
                 ),
                 values,
             )

@@ -23,9 +23,10 @@ only active work.
 - [x] extract universal-import routing and CSV/Excel/LAS/Paradox jobs;
 - [x] extract print jobs, session binding, and project-tree workspace commands;
 - [x] prevent UI classes from directly mutating the serializable project model;
-- add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
-  source, and original mnemonic;
-- add one Import Review and a reproducible report passport.
+- [x] add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
+  source, and original mnemonic, persisted in project format v16;
+- add an interactive Import Review on top of the completed read-only headless model, then
+  a reproducible report passport.
 
 ## P1 — operations and real time
 

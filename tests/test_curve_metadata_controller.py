@@ -154,3 +154,28 @@ def test_remove_rejects_imported_curve() -> None:
     controller = make_controller()
     with pytest.raises(ValueError, match="созданные пользователем"):
         controller.remove("c1")
+
+
+def test_metadata_edit_preserves_imported_source_mnemonic_in_semantic_binding() -> None:
+    controller = make_controller()
+    curve = controller.session.current_dataset.curves["c1"]  # type: ignore[union-attr]
+    binding = controller.semantic_dictionary.resolve(
+        "CH4",
+        unit="%",
+        source_mnemonic="VENDOR_CH4_RAW",
+    )
+    curve.metadata = CurveMetadata(
+        "c1",
+        "CH4",
+        binding.canonical_mnemonic,
+        "%",
+        "Methane",
+        "dataset-1",
+        semantic=binding,
+    )
+
+    controller.update("c1", mnemonic="METHANE", unit="ppm", description="Edited methane")
+
+    assert curve.metadata.semantic is not None
+    assert curve.metadata.semantic.source_mnemonic == "VENDOR_CH4_RAW"
+    assert curve.metadata.semantic.canonical_kind == "gas.c1"

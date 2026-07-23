@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from geoworkbench.domain.models import Dataset, IndexType
+from geoworkbench.services.semantic_channels import SemanticChannelBinding
 
 
 class DatasetJsonExportError(RuntimeError):
@@ -54,6 +55,7 @@ def dataset_to_json_dict(dataset: Dataset) -> dict[str, Any]:
                         "description": curve.metadata.description,
                         "source_dataset_id": curve.metadata.source_dataset_id,
                         "provenance": curve.metadata.provenance,
+                        "semantic": _semantic_to_dict(curve.metadata.semantic),
                     },
                     "values": [_finite_number(value) for value in curve.values],
                     "version": curve.version,
@@ -62,6 +64,27 @@ def dataset_to_json_dict(dataset: Dataset) -> dict[str, Any]:
                 for curve_id, curve in dataset.curves.items()
             },
         },
+    }
+
+
+def _semantic_to_dict(binding: SemanticChannelBinding | None) -> dict[str, Any] | None:
+    if binding is None:
+        return None
+    return {
+        "canonical_kind": binding.canonical_kind,
+        "canonical_mnemonic": binding.canonical_mnemonic,
+        "quantity_class": binding.quantity_class.value,
+        "canonical_uom": binding.canonical_uom,
+        "source_uom": binding.source_uom,
+        "aliases": list(binding.aliases),
+        "sensor_id": binding.sensor_id,
+        "source": binding.source,
+        "family": binding.family,
+        "category": binding.category,
+        "source_mnemonic": binding.source_mnemonic,
+        "confidence": binding.confidence,
+        "matched_by": binding.matched_by,
+        "evidence": list(binding.evidence),
     }
 
 

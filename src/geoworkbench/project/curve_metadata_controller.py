@@ -7,6 +7,10 @@ import numpy as np
 
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, new_id
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.semantic_channels import (
+    SemanticChannelDictionary,
+    default_semantic_channel_dictionary,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +44,9 @@ CurveCatalogCommand = CurveMetadataCommand | CurveCreationCommand | CurveRemoval
 class CurveMetadataController:
     session: ProjectSession
     max_commands: int = 100
+    semantic_dictionary: SemanticChannelDictionary = field(
+        default_factory=default_semantic_channel_dictionary
+    )
     _undo_stack: list[CurveCatalogCommand] = field(default_factory=list, init=False)
     _redo_stack: list[CurveCatalogCommand] = field(default_factory=list, init=False)
 
@@ -72,11 +79,23 @@ class CurveMetadataController:
         normalized_description = description.strip() or None
         self._validate(dataset, curve, normalized_mnemonic, normalized_unit, normalized_description)
         before = curve.metadata
+        semantic = self.semantic_dictionary.resolve(
+            normalized_mnemonic,
+            description=normalized_description or "",
+            unit=normalized_unit or "",
+            source_mnemonic=(
+                before.semantic.source_mnemonic
+                if before.semantic is not None
+                else normalized_mnemonic
+            ),
+        )
         after = replace(
             before,
             original_mnemonic=normalized_mnemonic,
+            canonical_mnemonic=semantic.canonical_mnemonic,
             unit=normalized_unit,
             description=normalized_description,
+            semantic=semantic,
         )
         if before == after:
             return
@@ -108,15 +127,22 @@ class CurveMetadataController:
             normalized_description,
         )
         curve_id = new_id()
+        semantic = self.semantic_dictionary.resolve(
+            normalized_mnemonic,
+            description=normalized_description or "",
+            unit=normalized_unit or "",
+            source_mnemonic=normalized_mnemonic,
+        )
         curve = CurveData(
             CurveMetadata(
                 curve_id=curve_id,
                 original_mnemonic=normalized_mnemonic,
-                canonical_mnemonic=None,
+                canonical_mnemonic=semantic.canonical_mnemonic,
                 unit=normalized_unit,
                 description=normalized_description,
                 source_dataset_id=dataset.dataset_id,
                 provenance="user",
+                semantic=semantic,
             ),
             np.full(dataset.depth.shape, np.nan, dtype=np.float64),
         )

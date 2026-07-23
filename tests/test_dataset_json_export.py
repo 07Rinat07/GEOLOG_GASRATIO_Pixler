@@ -71,3 +71,29 @@ def test_json_export_rejects_wrong_extension_and_overwrite(tmp_path) -> None:
         export_dataset_json(dataset, target)
 
     assert target.read_text(encoding="utf-8") == "original"
+
+
+def test_json_export_includes_semantic_channel_snapshot(tmp_path) -> None:
+    from geoworkbench.services.semantic_channels import SemanticChannelDictionary
+
+    dataset = make_multi_index_dataset()
+    curve = dataset.curves["rop"]
+    semantic = SemanticChannelDictionary().resolve("ROP", unit="m/h")
+    curve.metadata = CurveMetadata(
+        curve.metadata.curve_id,
+        curve.metadata.original_mnemonic,
+        semantic.canonical_mnemonic,
+        curve.metadata.unit,
+        curve.metadata.description,
+        curve.metadata.source_dataset_id,
+        curve.metadata.provenance,
+        semantic,
+    )
+
+    target = export_dataset_json(dataset, tmp_path / "semantic.json")
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    stored = payload["dataset"]["curves"]["rop"]["metadata"]["semantic"]
+
+    assert stored["canonical_kind"] == "drilling.rop"
+    assert stored["quantity_class"] == "linear_velocity"
+    assert stored["sensor_id"] == "editor_gid_106"

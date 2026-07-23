@@ -228,6 +228,7 @@ def build_external_las_curves(
                     description=description,
                     source_dataset_id=target.dataset_id,
                     provenance=provenance,
+                    semantic=source_metadata.semantic,
                 ),
                 values,
             )

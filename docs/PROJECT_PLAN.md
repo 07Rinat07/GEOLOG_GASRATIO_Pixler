@@ -50,14 +50,18 @@ Qt-слой сохраняет диалоги, жесты, выбор польз
 
 ## P0 — единые данные и воспроизводимый отчёт
 
-- [ ] создать Semantic Channel Dictionary: canonical kind, quantity class, UOM, aliases,
-  source/sensor и исходная мнемоника;
-- [ ] добавить единый Import Review для индекса, mapping, единиц, NULL и QC;
+- [x] создать Semantic Channel Dictionary: canonical kind, quantity class, UOM, aliases,
+  source/sensor и исходная мнемоника; сохранять binding каждой кривой в формате проекта v16;
+- [ ] добавить единый интерактивный Import Review для индекса, mapping, единиц, NULL и QC;
+  детерминированная read-only headless-модель review уже готова;
 - [ ] ввести Report Passport с fingerprint источника, bindings, версиями формул, UOM,
   revision формы, языком и настройками рендера;
 - [ ] добавить golden fixtures для экранной и печатной сетки, легенд, литотипов и аннотаций.
 
-Критерий: повторный отчёт из неизменившегося проекта имеет тот же паспорт и проверяемый результат.
+Текущий подэтап Semantic Channel Dictionary выполнен: CSV/Excel, LAS и Paradox используют
+один resolver, неизвестные единицы не угадываются, а binding переживает сохранение, копирование,
+merge, ресэмплинг и TIME↔DEPTH. Критерий всего блока: повторный отчёт из неизменившегося проекта
+имеет тот же паспорт и проверяемый результат.
 
 ## P1 — операционная геология и real-time
 

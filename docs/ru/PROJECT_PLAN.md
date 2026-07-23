@@ -23,9 +23,10 @@
 - [x] вынести маршрутизацию универсального импорта и CSV/Excel/LAS/Paradox jobs;
 - [x] вынести print jobs, session binding и команды дерева проекта;
 - [x] запретить UI-классам напрямую менять сериализуемую модель проекта;
-- создать Semantic Channel Dictionary: тип параметра, quantity class, UOM, aliases,
-  источник и исходная мнемоника;
-- добавить единый Import Review и паспорт воспроизводимости отчёта.
+- [x] создать Semantic Channel Dictionary: тип параметра, quantity class, UOM, aliases,
+  источник и исходная мнемоника; сохранять binding в формате проекта v16;
+- добавить интерактивный Import Review поверх готовой read-only headless-модели, затем
+  паспорт воспроизводимости отчёта.
 
 ## P1 — операции и real-time
 

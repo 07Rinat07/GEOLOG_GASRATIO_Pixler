@@ -231,6 +231,7 @@ def create_resampled_depth_copy(
                 description=metadata.description,
                 source_dataset_id=dataset_id,
                 provenance=provenance,
+                semantic=metadata.semantic,
             ),
             _interpolate_without_bridging(
                 dataset.depth,
@@ -329,6 +330,7 @@ def create_ascending_depth_copy(dataset: Dataset, *, name: str | None = None) ->
                 description=metadata.description,
                 source_dataset_id=dataset_id,
                 provenance=f"transform:reverse-depth:{dataset.dataset_id}",
+                semantic=metadata.semantic,
             ),
             np.asarray(curve.values[::-1], dtype=np.float64).copy(),
             version=curve.version,

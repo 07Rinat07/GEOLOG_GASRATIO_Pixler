@@ -731,3 +731,62 @@ def test_project_round_trip_preserves_professional_annotation_schema(tmp_path) -
     assert annotation.style.shadow_blur == 8.0
     assert annotation.locked is True
     assert annotation.print_enabled is True
+
+
+def test_project_round_trip_preserves_semantic_channel_binding(tmp_path) -> None:
+    from geoworkbench.services.semantic_channels import SemanticChannelDictionary
+
+    project = make_project()
+    dataset = project.wells["well-1"].datasets["dataset-1"]
+    curve = dataset.curves["curve-1"]
+    binding = SemanticChannelDictionary().resolve(
+        "C1",
+        unit="%",
+        source_mnemonic="Vendor_CH4",
+    )
+    curve.metadata = CurveMetadata(
+        curve.metadata.curve_id,
+        curve.metadata.original_mnemonic,
+        binding.canonical_mnemonic,
+        curve.metadata.unit,
+        curve.metadata.description,
+        curve.metadata.source_dataset_id,
+        curve.metadata.provenance,
+        binding,
+    )
+    target = tmp_path / "semantic.geolog.json"
+
+    save_project(project, target)
+    loaded = load_project(target)
+    restored = loaded.wells["well-1"].datasets["dataset-1"].curves["curve-1"].metadata
+
+    assert restored.semantic == binding
+    assert restored.semantic is not None
+    assert restored.semantic.source_mnemonic == "Vendor_CH4"
+    assert restored.semantic.sensor_id == binding.sensor_id
+    raw = json.loads(target.read_text(encoding="utf-8"))
+    assert raw["format_version"] == 16
+    semantic = raw["project"]["wells"]["well-1"]["datasets"]["dataset-1"]["curves"][
+        "curve-1"
+    ]["metadata"]["semantic"]
+    assert semantic["quantity_class"] == "volume_fraction"
+
+
+def test_legacy_curve_without_semantic_binding_is_enriched_on_load() -> None:
+    payload = {
+        "metadata": {
+            "curve_id": "curve-legacy",
+            "original_mnemonic": "ROP",
+            "canonical_mnemonic": "ROP",
+            "unit": "м/ч",
+            "description": "Rate of penetration",
+            "source_dataset_id": "dataset-1",
+        },
+        "values": [1.0, 2.0],
+    }
+
+    curve = _curve_from_dict(payload)
+
+    assert curve.metadata.semantic is not None
+    assert curve.metadata.semantic.canonical_kind == "drilling.rop"
+    assert curve.metadata.semantic.canonical_uom == "m/h"

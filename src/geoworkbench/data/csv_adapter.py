@@ -23,6 +23,7 @@ from geoworkbench.services.index_detection import (
     IndexColumn,
     detect_index_candidates,
 )
+from geoworkbench.services.semantic_channels import default_semantic_channel_dictionary
 from geoworkbench.services.time_normalization import normalize_iso8601_strings
 from geoworkbench.services.time_normalization import normalize_date_time_columns
 
@@ -185,20 +186,28 @@ def import_csv(
         dataset.active_index.role = candidate.role
         dataset.active_index.confidence = candidate.confidence
         dataset.active_index.evidence = candidate.evidence
+    semantic_dictionary = default_semantic_channel_dictionary()
     for position, header in enumerate(probe.columns):
         if position == index_position or position == time_position:
             continue
         mnemonic, unit = _split_header(header)
         curve_id = new_id()
+        semantic = semantic_dictionary.resolve(
+            mnemonic,
+            description=header,
+            unit=unit or "",
+            source_mnemonic=mnemonic,
+        )
         dataset.curves[curve_id] = CurveData(
             CurveMetadata(
                 curve_id,
                 mnemonic,
-                mnemonic.upper(),
+                semantic.canonical_mnemonic,
                 unit,
                 header,
                 dataset_id,
                 provenance=f"csv:{probe.path.name}",
+                semantic=semantic,
             ),
             _parse_numeric_column(data_rows, position, header, null_tokens),
         )

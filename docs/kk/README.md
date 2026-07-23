@@ -37,6 +37,16 @@ LAS бағандарының реті параметр мағынасын аны
 [LAS параметрлерін тану](LAS_PARAMETER_RESOLUTION.md).
 
 
+
+## Арналардың семантикалық сөздігі
+
+CSV/Excel, LAS және Paradox import кезінде бағдарлама бастапқы mnemonic-пен бірге canonical kind,
+quantity class, source/canonical UOM, sensor/source, confidence және сәйкестік түсіндірмесін
+сақтайды. Белгісіз vendor channel немесе UOM болжанбайды және анық белгіленеді. Binding project
+ішінде сақталып, catalog жаңарғаннан кейін өзгермейді. Headless Import Review қазірдің өзінде
+NULL, unresolved, UOM conflict және duplicate canonical kind диагностикасын береді; интерактивті
+растау келесі кезеңде қосылады. Толығырақ: [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md).
+
 ## GeoData тереңдік жұмыс пішіні
 
 Пішіндер менеджерінде «Геология», «Технология» және «Газдық деректер» бөлімдері бар біртұтас

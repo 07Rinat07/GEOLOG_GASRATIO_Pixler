@@ -172,6 +172,7 @@ def create_time_depth_aggregated_copy(
                 curve.metadata.description,
                 dataset_id,
                 f"transform:time-depth:{dataset.dataset_id}:{profile.profile_id}:v{profile.version}",
+                curve.metadata.semantic,
             ),
             aggregated,
         )

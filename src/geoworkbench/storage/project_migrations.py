@@ -253,6 +253,18 @@ def _migrate_v14_to_v15(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v15_to_v16(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 15 не содержит объекта 'project'")
+    # Semantic bindings are reconstructed by the current decoder for legacy curves.
+    # Keeping the migration structural avoids guessing inside raw JSON and preserves
+    # explicit canonical mnemonic decisions made by older versions.
+    migrated["format_version"] = 16
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -269,6 +281,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(11, _migrate_v11_to_v12)
 DEFAULT_PROJECT_MIGRATIONS.register(12, _migrate_v12_to_v13)
 DEFAULT_PROJECT_MIGRATIONS.register(13, _migrate_v13_to_v14)
 DEFAULT_PROJECT_MIGRATIONS.register(14, _migrate_v14_to_v15)
+DEFAULT_PROJECT_MIGRATIONS.register(15, _migrate_v15_to_v16)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

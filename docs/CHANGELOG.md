@@ -41,6 +41,32 @@
 - the selection is synchronized across every plot in the active form, while the right panel reports minimum, maximum, mean, valid-point count, and coverage for every visible parameter;
 - results can be copied as an Excel-compatible table or exported to XLSX/CSV; specialized lithology, sample, and stratigraphy gestures remain unchanged.
 
+# 0.7.32 — Semantic Channel Dictionary and Import Review core (test build)
+
+## Русский
+
+- добавлен единый semantic/UOM resolver для CSV/Excel, LAS и Paradox поверх Sensors-каталога;
+- semantic binding сохраняет canonical kind, quantity class, UOM, sensor/source, исходную мнемонику, confidence и evidence;
+- неизвестные vendor-каналы и UOM остаются явными, а quantity conflict попадает в Import Review;
+- binding сохраняется в project format v16 и переносится через copy/merge/resample/TIME↔DEPTH;
+- добавлена детерминированная read-only headless-модель Import Review.
+
+## Қазақша
+
+- Sensors catalog үстінде CSV/Excel, LAS және Paradox үшін ортақ semantic/UOM resolver қосылды;
+- binding canonical kind, quantity class, UOM, sensor/source, source mnemonic, confidence және evidence сақтайды;
+- белгісіз vendor channel/UOM анық қалады, quantity conflict Import Review ішінде көрсетіледі;
+- binding project format v16 ішінде және copy/merge/resample/TIME↔DEPTH кезінде сақталады;
+- детерминирленген read-only headless Import Review model қосылды.
+
+## English
+
+- added one semantic/UOM resolver for CSV/Excel, LAS, and Paradox on top of the Sensors catalog;
+- persisted canonical kind, quantity class, UOM, sensor/source, source mnemonic, confidence, and evidence;
+- kept unknown vendor channels/UOM explicit and surfaced quantity conflicts in Import Review;
+- preserved bindings through project format v16, copy/merge/resample, and TIME↔DEPTH;
+- added a deterministic read-only headless Import Review model.
+
 # 0.7.31 — project-model mutation and derived-dataset rollback boundaries (test build)
 
 ## Русский

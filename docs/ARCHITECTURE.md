@@ -125,8 +125,14 @@ Y синхронизирует треки; X остаётся независим
 
 Dataset может иметь MD, TVD, TVDSS, относительное или абсолютное время; active index не
 удаляет остальные колонки. TIME→DEPTH не считается однозначным без явной политики.
-Неизвестная единица не конвертируется молча. Целевой Semantic Channel Dictionary хранит
-canonical kind, quantity class, UOM, aliases, sensor/source и исходную мнемонику.
+Неизвестная единица не конвертируется молча. Реализованный `SemanticChannelDictionary`
+использует существующий Sensors-каталог как источник vendor aliases и sensor IDs, а
+`UomDictionary` нормализует только явно известные единицы по quantity class. Каждая кривая
+хранит сериализуемый `SemanticChannelBinding`: canonical kind/mnemonic, quantity class,
+canonical/source UOM, aliases, sensor/source, исходную мнемонику, confidence, matched-by и
+evidence. Формат проекта v16 сохраняет этот снимок, поэтому новый каталог не меняет смысл уже
+подтверждённого проекта. `build_import_review()` формирует read-only модель диагностики;
+интерактивные overrides и commit остаются отдельной application-границей следующего среза.
 
 ## Real-time boundary
 

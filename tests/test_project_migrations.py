@@ -146,3 +146,20 @@ def test_v14_project_adds_empty_interpretations_to_every_well() -> None:
     assert migrated["format_version"] == 15
     assert migrated["project"]["wells"]["well-1"]["interpretations"] == {}
     assert "interpretations" not in payload["project"]["wells"]["well-1"]
+
+
+def test_v15_project_advances_to_semantic_channel_format_without_mutating_curves() -> None:
+    payload = {
+        "format_version": 15,
+        "project": {
+            "project_id": "p",
+            "name": "P",
+            "wells": {},
+        },
+    }
+
+    migrated = migrate_project_payload(payload, 16)
+
+    assert migrated["format_version"] == 16
+    assert migrated["project"] == payload["project"]
+    assert payload["format_version"] == 15

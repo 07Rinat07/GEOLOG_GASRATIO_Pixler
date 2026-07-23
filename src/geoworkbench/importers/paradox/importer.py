@@ -20,6 +20,7 @@ from geoworkbench.domain.models import (
     IndexType,
     new_id,
 )
+from geoworkbench.services.semantic_channels import default_semantic_channel_dictionary
 
 from .analysis import analyze_table, convert_time_values
 from .channel_dictionary import GeoScapeChannelDictionary
@@ -259,6 +260,7 @@ def import_paradox(
         version_headers={"VERS": "2.0", "WRAP": "NO"},
     )
 
+    semantic_dictionary = default_semantic_channel_dictionary()
     used_mnemonics = {primary_mnemonic.casefold()}
     curves: dict[str, CurveData] = {}
     represented_sources = {
@@ -283,19 +285,27 @@ def import_paradox(
             )
             used_mnemonics.add(raw_mnemonic.casefold())
             raw_curve_id = new_id()
+            raw_unit = _raw_time_unit(time_representation, mapping.unit)
+            raw_description = _raw_time_description(
+                selected.language, field.name, time_representation
+            )
+            raw_semantic = semantic_dictionary.resolve(
+                raw_mnemonic,
+                description=raw_description,
+                unit=raw_unit,
+                source_mnemonic=field.name,
+                canonical_mnemonic=raw_mnemonic,
+            )
             curves[raw_curve_id] = CurveData(
                 CurveMetadata(
                     raw_curve_id,
                     raw_mnemonic,
-                    raw_mnemonic,
-                    _raw_time_unit(time_representation, mapping.unit),
-                    (
-                        _raw_time_description(
-                            selected.language, field.name, time_representation
-                        )
-                    ),
+                    raw_semantic.canonical_mnemonic,
+                    raw_unit,
+                    raw_description,
                     dataset_id,
                     provenance=f"paradox:{field.name}:{field.type_name}:raw-time",
+                    semantic=raw_semantic,
                 ),
                 source_values,
             )
@@ -337,15 +347,26 @@ def import_paradox(
         mnemonic = _unique_mnemonic(requested_mnemonic, used_mnemonics)
         used_mnemonics.add(mnemonic.casefold())
         curve_id = new_id()
+        resolved_description = description or _source_channel_description(
+            selected.language, field.name
+        )
+        semantic = semantic_dictionary.resolve(
+            requested_mnemonic,
+            description=resolved_description,
+            unit=unit,
+            source_mnemonic=field.name,
+            canonical_mnemonic=requested_mnemonic,
+        )
         curves[curve_id] = CurveData(
             CurveMetadata(
                 curve_id,
                 mnemonic,
-                mnemonic,
+                semantic.canonical_mnemonic,
                 unit or None,
-                description or _source_channel_description(selected.language, field.name),
+                resolved_description,
                 dataset_id,
                 provenance=f"paradox:{field.name}:{field.type_name}",
+                semantic=semantic,
             ),
             values,
         )
