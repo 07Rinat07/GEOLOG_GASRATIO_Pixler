@@ -17,6 +17,10 @@ class TimeToDepthController:
     _source_dataset_id: str | None = None
     _result: Dataset | None = None
 
+    def clear_history(self) -> None:
+        self._source_dataset_id = None
+        self._result = None
+
     def create_copy(self, plan: TimeToDepthPlan) -> TimeToDepthResult:
         source = self.session.current_dataset
         well = self.session.current_well

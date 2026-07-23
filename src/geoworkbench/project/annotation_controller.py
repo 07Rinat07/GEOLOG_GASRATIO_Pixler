@@ -458,6 +458,9 @@ class DepthAnnotationController:
         self.session.dirty = True
         return asset
 
+    def clear_history(self) -> None:
+        self.history.clear()
+
     def undo(self) -> str:
         command = self.history.undo()
         self.session.dirty = True

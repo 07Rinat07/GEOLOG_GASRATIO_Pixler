@@ -6,24 +6,23 @@ only active work.
 ## P0 — release stability
 
 - [x] fix annotation routing and the full Qt test-process crash;
-- [x] bring Ruff and mypy to zero errors; the full pytest result is 1,217 passed and
+- [x] bring Ruff and mypy to zero errors; baseline 0.7.28 reports 1,217 passed and
   10 skipped;
 - complete the mandatory Windows, HiDPI, PDF, and physical-print matrix;
+- repeat the full Ruff/mypy/pytest gate for the current version;
 - do not label the build stable until the gate is green.
 
 ## P0 — architecture and data
 
-- [x] first extract the annotation event router from `TabletView` without changing behavior,
-  protected by headless tests;
-- [x] move pan, zoom, home/end, and keyboard commands into a headless navigation coordinator;
-- [x] extract track plan/order/reuse and preserve chart instances through Undo/Redo;
-- [x] extract track creation, rollback, and disposal with related registry cleanup;
-- [x] extract a shared screen/print grid renderer with partial division updates;
+- [x] extract the annotation event router from `TabletView` without changing behavior;
+- [x] move pan, zoom, home/end, and keyboard commands into a headless coordinator;
+- [x] extract track plan/order/reuse, creation, rollback, and disposal;
+- [x] extract a shared screen/print grid renderer;
 - [x] make the editing-mode controller the sole owner of F4 and annotation-tool state;
 - [x] extract home/workspace/target-tab navigation from `MainWindow`;
-- [x] extract stable source kinds and universal-import routing;
-- [x] extract CSV/Excel plans, LAS policy jobs, and Paradox dataset registration into one service;
-- extract print jobs, session binding, and remaining commands;
+- [x] extract universal-import routing and CSV/Excel/LAS/Paradox jobs;
+- [x] extract print jobs, session binding, and project-tree workspace commands;
+- prevent UI classes from directly mutating the serializable project model;
 - add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
   source, and original mnemonic;
 - add one Import Review and a reproducible report passport.

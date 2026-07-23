@@ -67,6 +67,9 @@ class CurveEditingController:
         dataset = self._dataset_for_curve(command.curve)
         return self._after_change("redo", dataset, command.curve)
 
+    def clear_history(self) -> None:
+        self.history.clear()
+
     def _after_change(
         self,
         operation: Literal["edit", "undo", "redo"],

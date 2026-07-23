@@ -12,13 +12,12 @@ from PySide6.QtGui import (
     QDragEnterEvent,
     QDropEvent,
     QIcon,
-    QPageLayout,
     QPainter,
     QPen,
     QPixmap,
     QShowEvent,
 )
-from PySide6.QtPrintSupport import QPrintDialog, QPrintPreviewDialog, QPrinter
+from PySide6.QtPrintSupport import QPrintDialog, QPrintPreviewDialog
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -55,7 +54,7 @@ from geoworkbench.calculations.custom_formula import formula_inputs
 from geoworkbench.calculations.interval_statistics import calculate_interval_statistics
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.importers.skf_importer import import_skf_file
-from geoworkbench.domain.models import Dataset, IndexRole
+from geoworkbench.domain.models import CurveData, Dataset, IndexRole
 from geoworkbench.data.las_adapter import LasExportError
 from geoworkbench.data.las_import_policy import LasImportMode
 from geoworkbench.data.las_import_report import LasImportIssue, LasImportReport
@@ -114,12 +113,6 @@ from geoworkbench.project.masterlog_template_controller import MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
 from geoworkbench.project.time_to_depth_controller import TimeToDepthController
-from geoworkbench.printing.document_export import (
-    export_document_pages,
-    export_document_pdf,
-    render_document_to_printer,
-)
-from geoworkbench.printing.document_renderer import PrintDocumentContext
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
@@ -142,6 +135,9 @@ from geoworkbench.services.import_jobs import (
     ImportJobController,
     ImportSourceKind,
 )
+from geoworkbench.services.session_binding import SessionBindingController
+from geoworkbench.services.print_jobs import PrintJobExecutor
+from geoworkbench.services.workspace_commands import WorkspaceCommandController
 from geoworkbench.ui.workspace_controller import (
     WorkspaceController,
     WorkspaceSurface,
@@ -242,6 +238,65 @@ class _MainWindowWorkspacePort(_MainWindowPort):
         self._window.statusBar().showMessage(self._window._t(key))
 
 
+class _MainWindowWorkspaceCommandPort(_MainWindowPort):
+    """Render workspace commands after the headless controller selects context."""
+
+    def show_dataset(self, dataset: Dataset) -> None:
+        self._window._selected_track_id = None
+        self._window._show_current_dataset()
+
+    def show_curve(self, dataset: Dataset, curve: CurveData) -> None:
+        mnemonic = curve.metadata.original_mnemonic
+        self._window.curve_view.show_dataset(dataset, [mnemonic])
+        self._window._show_workspace(self._window.curve_view)
+        if self._window.pencil_action.isChecked():
+            self._window.curve_view.set_edit_mode(True)
+            self._window.statusBar().showMessage(
+                self._window._t("shell.curve_pencil_active_status", mnemonic=mnemonic)
+            )
+        self._window.inspector.setPlainText(
+            f"{self._window._t('inspector.curve')}: {mnemonic}\n"
+            f"{self._window._t('inspector.unit')}: "
+            f"{curve.metadata.unit or self._window._t('common.unset')}\n"
+            f"{self._window._t('inspector.description')}: "
+            f"{curve.metadata.description or self._window._t('common.none')}\n"
+            f"{self._window._t('inspector.version')}: {curve.version}\n"
+            f"{self._window._t('inspector.provenance')}: {curve.metadata.provenance}"
+        )
+
+    def show_track(self, track_id: str) -> None:
+        self._window._show_current_dataset()
+        self._window._show_track_in_inspector(track_id)
+        self._window._show_workspace(self._window.tablet_view)
+
+    def show_lithology(self) -> None:
+        self._window.show_lithology_editor()
+
+    def show_stratigraphy(self) -> None:
+        self._window.show_stratigraphy_editor()
+
+    def show_interpretations(self, interpretation_id: str | None) -> None:
+        if interpretation_id is not None:
+            self._window.interpretation_controller.select_interpretation(interpretation_id)
+            self._window.tablet_view.set_selected_interpretation(interpretation_id)
+        self._window.show_interpretation_intervals()
+
+    def show_interpretation_interval(
+        self,
+        interpretation_id: str,
+        interval_id: str,
+    ) -> None:
+        self._window._show_current_dataset()
+        self._window._select_interpretation_interval(interpretation_id, interval_id)
+        self._window._show_workspace(self._window.tablet_view)
+
+    def show_annotations(self) -> None:
+        self._window.show_depth_annotations()
+
+    def show_description_templates(self) -> None:
+        self._window.show_description_templates()
+
+
 class _MainWindowImportJobPort(_MainWindowPort):
     """Map stable import kinds to the existing format-specific UI jobs."""
 
@@ -336,6 +391,7 @@ class MainWindow(QMainWindow):
         self.las_range_editing_controller = LasRangeEditingController(self.session)
         self._configure_edit_dependencies()
         self.masterlog_template_controller = MasterlogTemplateController(self.session)
+        self._session_bindings = self._create_session_binding_controller()
         self.dataset_selection = DatasetIntervalSelection()
         self._selected_track_id: str | None = None
         self._interpretation_dialog: InterpretationIntervalsDialog | None = None
@@ -469,10 +525,15 @@ class MainWindow(QMainWindow):
         self._create_toolbar()
         self.setStatusBar(QStatusBar())
         self._workspace_controller = WorkspaceController(_MainWindowWorkspacePort(self))
+        self._workspace_commands = WorkspaceCommandController(
+            self.session, _MainWindowWorkspaceCommandPort(self)
+        )
+        self._session_bindings.register(self._workspace_commands, name="workspace_commands")
         self._import_job_controller = ImportJobController(_MainWindowImportJobPort(self))
         self._dataset_import_jobs = DatasetImportJobExecutor(
             _MainWindowDatasetImportPort(self)
         )
+        self._print_jobs = PrintJobExecutor()
         self._workspace_controller.set_dataset(None)
         self._set_tablet_edit_mode(False)
         self.cursor_line_action.setChecked(self.cursor_line_settings.enabled)
@@ -2125,50 +2186,7 @@ class MainWindow(QMainWindow):
             self._log(f"Проект не открыт: {source.name}: {exc}")
             return
 
-        self.tablet_controller.session = self.session
-        self.interpretation_controller.session = self.session
-        self.interpretation_controller.history.clear()
-        self.interpretation_controller.selected_interpretation_id = None
-        self.interpretation_controller.selected_interval_id = None
-        self.curve_editing_controller = CurveEditingController(self.session)
-        self.las_range_editing_controller.session = self.session
-        self._configure_edit_dependencies()
-        self.dataset_export_controller.session = self.session
-        self.dataset_merge_controller.session = self.session
-        self.dataset_merge_controller.clear_history()
-        self._update_merge_actions()
-        self.data_inspector_controller.session = self.session
-        self.header_editing_controller.session = self.session
-        self.header_editing_controller.clear_history()
-        self.curve_metadata_controller.session = self.session
-        self.curve_metadata_controller.clear_history()
-        self.curve_transfer_controller.session = self.session
-        self.curve_transfer_controller.clear_history()
-        self._update_transfer_actions()
-        self.external_las_insert_controller.session = self.session
-        self.external_las_insert_controller.formula_registry = self.formula_registry
-        self.external_las_insert_controller.clear_history()
-        self._update_external_las_insert_actions()
-        self.formula_execution_controller.session = self.session
-        self.custom_formula_controller.session = self.session
-        self.custom_formula_controller.clear_history()
-        self.depth_annotation_controller.session = self.session
-        self.depth_annotation_controller.history.clear()
-        self.lithology_controller.session = self.session
-        self.cuttings_controller.session = self.session
-        self.stratigraphy_controller.session = self.session
-        self.stratigraphy_catalog_controller.session = self.session
-        self.lithotype_catalog_controller.session = self.session
-        self.description_template_controller.session = self.session
-        self.depth_axis_controller.session = self.session
-        self.depth_axis_controller.clear_history()
-        self._update_depth_axis_actions()
-        self.nct_calculation_controller.session = self.session
-        self.new_las_controller.session = self.session
-        self.las_range_editing_controller.session = self.session
-        self.masterlog_template_controller.session = self.session
-        self._update_curve_edit_actions()
-        self._selected_track_id = None
+        self._bind_project_session()
         well = self.session.current_well
         saved_layout = self.session.current_tablet_layout
         annotation_scope_migration_required = bool(
@@ -2535,35 +2553,39 @@ class MainWindow(QMainWindow):
         self.user_profile_settings.save_print_export_preferences(self.print_export_preferences)
         self._execute_print_job(current, job, resolved_name)
 
-    def _configured_printer(self, widget, job: PrintJobSettings) -> QPrinter:
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        printer.setResolution(job.dpi)
-        printer.setPageSize(job.page.page_size_for_content(widget.width(), widget.height()))
-        printer.setPageOrientation(job.page.qt_orientation)
-        printer.setPageMargins(job.page.qt_margins, QPageLayout.Unit.Millimeter)
-        return printer
-
     def _preview_print_job(self, widget, job: PrintJobSettings, source_name: str) -> None:
-        printer = self._configured_printer(widget, job)
+        printer = self._print_jobs.create_printer(widget, job)
         preview = QPrintPreviewDialog(printer, self)
         preview.setWindowTitle(self._t("print.preview_title"))
-        context = PrintDocumentContext(source_name, self.language)
         preview.paintRequested.connect(
-            lambda requested: render_document_to_printer(widget, requested, job, context=context)
+            lambda requested: self._print_jobs.render_to_printer(
+                widget,
+                requested,
+                job,
+                source_name=source_name,
+                language=self.language,
+            )
         )
         preview.exec()
 
     def _execute_print_job(self, widget, job: PrintJobSettings, source_name: str) -> None:
-        context = PrintDocumentContext(source_name, self.language)
         try:
             if job.output_format is PrintOutputFormat.PRINTER:
-                printer = self._configured_printer(widget, job)
+                printer = self._print_jobs.create_printer(widget, job)
                 dialog = QPrintDialog(printer, self)
                 dialog.setWindowTitle(self._t("print_center.physical_printer"))
                 if dialog.exec() != QDialog.DialogCode.Accepted:
                     return
-                page_count = render_document_to_printer(widget, printer, job, context=context)
-                message = self._t("print_center.print_success_pages", count=page_count)
+                result = self._print_jobs.render_to_printer(
+                    widget,
+                    printer,
+                    job,
+                    source_name=source_name,
+                    language=self.language,
+                )
+                message = self._t(
+                    "print_center.print_success_pages", count=result.page_count
+                )
             else:
                 target = job.normalized_target()
                 if target is None:
@@ -2571,22 +2593,13 @@ class MainWindow(QMainWindow):
                 overwrite = self._confirm_print_overwrite(target)
                 if overwrite is None:
                     return
-                if job.output_format is PrintOutputFormat.PDF:
-                    result = export_document_pdf(
-                        widget,
-                        target,
-                        job,
-                        context=context,
-                        overwrite=overwrite,
-                    )
-                else:
-                    result = export_document_pages(
-                        widget,
-                        target,
-                        job,
-                        context=context,
-                        overwrite=overwrite,
-                    )
+                result = self._print_jobs.execute_file(
+                    widget,
+                    job,
+                    source_name=source_name,
+                    language=self.language,
+                    overwrite=overwrite,
+                )
                 primary = result.primary_path
                 name = primary.name if primary is not None else target.name
                 message = self._t(
@@ -2902,6 +2915,100 @@ class MainWindow(QMainWindow):
         self._show_current_dataset()
         self._refresh_tree()
         self._update_title()
+
+    def _create_session_binding_controller(self) -> SessionBindingController:
+        bindings = SessionBindingController()
+        bindings.register(self.tablet_controller, name="tablet")
+        bindings.register(
+            self.curve_editing_controller,
+            reset_hooks=(self.curve_editing_controller.clear_history,),
+            name="curve_editing",
+        )
+        bindings.register(self.dataset_export_controller, name="dataset_export")
+        bindings.register(
+            self.dataset_merge_controller,
+            reset_hooks=(self.dataset_merge_controller.clear_history,),
+            name="dataset_merge",
+        )
+        bindings.register(self.data_inspector_controller, name="data_inspector")
+        bindings.register(
+            self.header_editing_controller,
+            reset_hooks=(self.header_editing_controller.clear_history,),
+            name="header_editing",
+        )
+        bindings.register(
+            self.curve_metadata_controller,
+            reset_hooks=(self.curve_metadata_controller.clear_history,),
+            name="curve_metadata",
+        )
+        bindings.register(
+            self.curve_transfer_controller,
+            reset_hooks=(self.curve_transfer_controller.clear_history,),
+            name="curve_transfer",
+        )
+        bindings.register(
+            self.external_las_insert_controller,
+            reset_hooks=(self.external_las_insert_controller.clear_history,),
+            name="external_las_insert",
+        )
+        bindings.register(self.formula_execution_controller, name="formula_execution")
+        bindings.register(
+            self.custom_formula_controller,
+            reset_hooks=(self.custom_formula_controller.clear_history,),
+            name="custom_formula",
+        )
+        bindings.register(self.time_depth_mapping_controller, name="time_depth_mapping")
+        bindings.register(
+            self.time_to_depth_controller,
+            reset_hooks=(self.time_to_depth_controller.clear_history,),
+            name="time_to_depth",
+        )
+        bindings.register(
+            self.depth_annotation_controller,
+            reset_hooks=(self.depth_annotation_controller.clear_history,),
+            name="depth_annotation",
+        )
+        bindings.register(self.lithology_controller, name="lithology")
+        bindings.register(self.cuttings_controller, name="cuttings")
+        bindings.register(
+            self.interpretation_controller,
+            reset_hooks=(self.interpretation_controller.reset_state,),
+            name="interpretation",
+        )
+        bindings.register(self.stratigraphy_controller, name="stratigraphy")
+        bindings.register(
+            self.stratigraphy_catalog_controller, name="stratigraphy_catalog"
+        )
+        bindings.register(self.lithotype_catalog_controller, name="lithotype_catalog")
+        bindings.register(
+            self.description_template_controller, name="description_template"
+        )
+        bindings.register(
+            self.depth_axis_controller,
+            reset_hooks=(self.depth_axis_controller.clear_history,),
+            name="depth_axis",
+        )
+        bindings.register(self.nct_calculation_controller, name="nct_calculation")
+        bindings.register(self.new_las_controller, name="new_las")
+        bindings.register(
+            self.las_range_editing_controller,
+            reset_hooks=(self.las_range_editing_controller.clear_history,),
+            name="las_range_editing",
+        )
+        bindings.register(self.masterlog_template_controller, name="masterlog_template")
+        return bindings
+
+    def _bind_project_session(self) -> None:
+        self._session_bindings.bind(self.session)
+        self._selected_track_id = None
+        self._selected_annotation_id = None
+        self.external_las_insert_controller.formula_registry = self.formula_registry
+        self._configure_edit_dependencies()
+        self._update_merge_actions()
+        self._update_transfer_actions()
+        self._update_external_las_insert_actions()
+        self._update_depth_axis_actions()
+        self._update_curve_edit_actions()
 
     def _configure_edit_dependencies(self) -> None:
         graph = self.formula_registry.build_dependency_graph()
@@ -5641,73 +5748,8 @@ class MainWindow(QMainWindow):
         root.setExpanded(True)
 
     def _activate_tree_item(self, item: QTreeWidgetItem) -> None:
-        data = item.data(0, Qt.ItemDataRole.UserRole)
-        if not data:
-            return
-        if data[0] == "dataset":
-            _, well_id, dataset_id = data
-            self.session.current_well_id = well_id
-            self.session.current_dataset_id = dataset_id
-            dataset = self.session.current_dataset
-            if dataset is not None:
-                self._selected_track_id = None
-                self._show_current_dataset()
-        elif data[0] == "curve":
-            _, well_id, dataset_id, curve_id = data
-            self.session.current_well_id = well_id
-            self.session.current_dataset_id = dataset_id
-            dataset = self.session.current_dataset
-            if dataset is None:
-                return
-            curve = dataset.curves.get(curve_id)
-            if curve is not None:
-                mnemonic = curve.metadata.original_mnemonic
-                self.curve_view.show_dataset(dataset, [mnemonic])
-                self._show_workspace(self.curve_view)
-                if self.pencil_action.isChecked():
-                    self.curve_view.set_edit_mode(True)
-                    self.statusBar().showMessage(
-                        self._t("shell.curve_pencil_active_status", mnemonic=mnemonic)
-                    )
-                self.inspector.setPlainText(
-                    f"{self._t('inspector.curve')}: {mnemonic}\n"
-                    f"{self._t('inspector.unit')}: "
-                    f"{curve.metadata.unit or self._t('common.unset')}\n"
-                    f"{self._t('inspector.description')}: "
-                    f"{curve.metadata.description or self._t('common.none')}\n"
-                    f"{self._t('inspector.version')}: {curve.version}\n"
-                    f"{self._t('inspector.provenance')}: {curve.metadata.provenance}"
-                )
-        elif data[0] == "track":
-            _, well_id, dataset_id, track_id = data
-            self.session.current_well_id = well_id
-            self.session.current_dataset_id = dataset_id
-            self._show_current_dataset()
-            self._show_track_in_inspector(track_id)
-            self._show_workspace(self.tablet_view)
-        elif data[0] in ("lithology", "lithology_interval"):
-            self.session.current_well_id = data[1]
-            self.show_lithology_editor()
-        elif data[0] in ("stratigraphy", "stratigraphy_interval"):
-            self.session.current_well_id = data[1]
-            self.show_stratigraphy_editor()
-        elif data[0] in ("interpretations", "interpretation"):
-            self.session.current_well_id = data[1]
-            if data[0] == "interpretation":
-                self.interpretation_controller.select_interpretation(data[2])
-                self.tablet_view.set_selected_interpretation(data[2])
-            self.show_interpretation_intervals()
-        elif data[0] == "interpretation_interval":
-            _, well_id, interpretation_id, interval_id = data
-            self.session.current_well_id = well_id
-            self._show_current_dataset()
-            self._select_interpretation_interval(interpretation_id, interval_id)
-            self._show_workspace(self.tablet_view)
-        elif data[0] in ("annotations", "annotation"):
-            self.session.current_well_id = data[1]
-            self.show_depth_annotations()
-        elif data[0] == "description_templates":
-            self.show_description_templates()
+        payload = item.data(0, Qt.ItemDataRole.UserRole)
+        self._workspace_commands.activate(payload)
 
     def _show_tablet_curve_in_inspector(self, track_id: str, mnemonic: str) -> None:
         dataset = self.session.current_dataset

@@ -1,3 +1,10 @@
+## Reliable project switching and tree commands — 0.7.30
+
+After another project is opened, the application rebinds all workspace controllers to the new
+session and clears unfinished Undo/Redo, selections, and transient modes. Project-tree commands
+validate their well and dataset first; a stale item is safely ignored without partially changing
+the active dataset. The user workflow and command locations are unchanged.
+
 ## Compact pencil, point connection and history — 0.7.13
 
 The tablet bar permanently exposes **“✎ Freehand”** and **“●—● Connect points”**. Select at least two points, then use **Connect**, Enter or double-click the final point. **Undo** and **Redo** buttons operate on curve edits, together with Ctrl+Z and Ctrl+Shift+Z. The compact 26×26 cursor uses its graphite tip as the value-edit hotspot.

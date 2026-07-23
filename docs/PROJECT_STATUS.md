@@ -1,17 +1,17 @@
 # Статус проекта
 
-Срез: 23 июля 2026 года. Версия пакета: 0.7.29, тестовая сборка.
+Срез: 23 июля 2026 года. Версия пакета: 0.7.30, тестовая сборка.
 
 ## Решение о выпуске
 
 Последний полностью подтверждённый автоматический baseline версии 0.7.28: Ruff чист,
 mypy — 0 ошибок в 262 исходных файлах, полный pytest — 1217 пройдено и 10 пропущено.
-Для среза 0.7.29 выполнены компиляция исходников и расширенный регрессионный набор для
-import jobs, адаптеров и project-session boundary: 105 тестов пройдено, 3 платформенных
-теста пропущены; wheel пакета 0.7.29 собран без ошибок. Полный Ruff/mypy/Qt gate необходимо повторить
-в установленном окружении: текущий контейнер не содержит PySide6, pyqtgraph, lasio, Ruff и
-mypy, а package index был недоступен. Сборка остаётся тестовой также до обязательного
-Windows/HiDPI/PDF/physical-print smoke-test.
+Для среза 0.7.30 выполнены полная компиляция исходников, сборка wheel и расширенный
+headless/source-integrity набор для session binding, workspace-команд, project controllers и
+печатной границы: 73 теста пройдено. Полный Ruff/mypy/Qt gate необходимо повторить в
+установленном окружении: текущий контейнер не содержит PySide6, pyqtgraph, lasio, Ruff и
+mypy, а доступный package index не отдаёт эти пакеты. Сборка остаётся тестовой также до
+обязательного Windows/HiDPI/PDF/physical-print smoke-test.
 
 ## Подтверждённая рабочая основа
 
@@ -21,7 +21,7 @@ Windows/HiDPI/PDF/physical-print smoke-test.
 - синхронный многотрековый планшет, формы, интервалы и литология;
 - редактируемый Masterlog, header/forms, PDF и Print Center;
 - крупные и промежуточные сетки экрана/печати с сохранением в форме;
-- синхронное выделение числового интервала `Shift + ЛКМ`, сводка всех видимых параметров и экспорт XLSX/CSV;
+- синхронное выделение интервала `Shift + ЛКМ`, статистика видимых параметров и XLSX/CSV;
 - аннотации, project assets и миграции старых проектов;
 - синхронные наборы пользовательских документов RU/KK/EN.
 
@@ -30,26 +30,26 @@ Windows/HiDPI/PDF/physical-print smoke-test.
 | Проверка | Фактический результат |
 |---|---|
 | Полный baseline 0.7.28 | 1217 тестов пройдено, 10 пропущено; Ruff чист; mypy — 0 ошибок в 262 файлах |
-| Срез 0.7.29 | 105 регрессионных тестов пройдено, 3 пропущено; `compileall` и сборка wheel завершены без ошибок |
-| Архитектура планшета | annotation/navigation изолированы; lifecycle управляет треками; grid renderer объединяет деления; edit-mode coordinator — единый источник состояния F4 |
-| Архитектура главного окна | routing и CSV/Excel/LAS/Paradox jobs находятся в `services/import_jobs.py`; Qt-обработчики не вызывают LAS-парсер и не регистрируют результат Paradox напрямую |
-| Интерфейс планшета | верхние панели прокручиваются и не выталкивают окно за границы узкого экрана |
-| Экспорт изображений | устранены Windows-блокировка SVG и несовместимость формата PNG в PySide6 |
+| Срез 0.7.30 | 73 headless/regression/source-integrity тестов пройдено; `compileall` и wheel 0.7.30 завершены без ошибок |
+| Импортные jobs | CSV/Excel/LAS/Paradox выполняются через `DatasetImportJobExecutor` |
+| Печатные jobs | создание printer, PDF/страничный export и renderer вызываются через `services/print_jobs.py` |
+| Session binding | 26 session-aware контроллеров перепривязываются единым реестром со сбросом историй и временного состояния |
+| Workspace | команды дерева проекта выбирают well/dataset через `WorkspaceCommandController`; Qt-обработчик не меняет ID сессии напрямую |
 | Физическая печать/HiDPI | требует подтверждения на целевой Windows-машине |
 
 ## Технический долг с наибольшим риском
 
-- `tablet/tablet_view.py` — около 339 КБ;
-- `ui/main_window.py` — около 254 КБ;
+- `tablet/tablet_view.py` — около 354 КБ;
+- `ui/main_window.py` — около 271 КБ;
 - `printing/masterlog_renderer.py` — около 91 КБ;
-- полный gate 0.7.29 нужно повторить в окружении со всеми зависимостями;
-- print jobs, session binding и оставшиеся workspace-команды ещё находятся в Qt orchestration.
+- полный gate 0.7.30 нужно повторить в окружении со всеми зависимостями;
+- ряд UI-обработчиков всё ещё напрямую изменяет сериализуемые объекты проекта.
 
 ## Следующая контрольная точка
 
-Повторить полный Ruff/mypy/pytest gate, затем вынести print jobs и session binding из
-`MainWindow`. Ручной Windows GUI/HiDPI/PDF/physical-print smoke-test остаётся обязательным
-условием stable-выпуска.
+Повторить полный Ruff/mypy/pytest gate, затем запретить прямую мутацию сериализуемой модели
+из UI и перенести следующий изменяющий сценарий за controller/service boundary. Ручной Windows
+GUI/HiDPI/PDF/physical-print smoke-test остаётся обязательным условием stable-выпуска.
 
 Подробности: [аудит](PRODUCT_AUDIT_2026.md), [план](PROJECT_PLAN.md),
 [roadmap](ROADMAP.md), [проверки](TESTING.md).

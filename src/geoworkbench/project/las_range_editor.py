@@ -70,6 +70,11 @@ class LasRangeEditingController:
     def can_redo(self) -> bool:
         return bool(self._redo_stack)
 
+    def clear_history(self) -> None:
+        self._undo_stack.clear()
+        self._redo_stack.clear()
+        self.last_recalculation = None
+
     def set_constant(
         self,
         curve_ids: list[str],

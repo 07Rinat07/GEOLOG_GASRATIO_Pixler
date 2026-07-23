@@ -68,6 +68,11 @@ class InterpretationController:
                 return interval
         return None
 
+    def reset_state(self) -> None:
+        self.history.clear()
+        self.selected_interpretation_id = None
+        self.selected_interval_id = None
+
     def normalize_selection(self) -> None:
         """Normalize selected IDs after switching the current project well."""
         if self.session.current_well is None:

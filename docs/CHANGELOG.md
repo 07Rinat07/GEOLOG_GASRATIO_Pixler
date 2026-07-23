@@ -41,6 +41,35 @@
 - the selection is synchronized across every plot in the active form, while the right panel reports minimum, maximum, mean, valid-point count, and coverage for every visible parameter;
 - results can be copied as an Excel-compatible table or exported to XLSX/CSV; specialized lithology, sample, and stratigraphy gestures remain unchanged.
 
+# 0.7.30 — print, session, and workspace command boundaries (test build)
+
+## Русский
+
+- печатное выполнение перенесено в `services/print_jobs.py`: printer, PDF и постраничный raster/SVG export запускаются через один executor;
+- единый `SessionBindingController` перепривязывает 26 контроллеров и сбрасывает истории/временное состояние при открытии проекта;
+- исправлена перепривязка TIME↔DEPTH и LAS range editing после смены проекта;
+- `WorkspaceCommandController` проверяет payload дерева, выбирает well/dataset и маршрутизирует команды без прямого изменения ID из Qt-обработчика;
+- некорректная или устаревшая команда дерева не оставляет частично изменённый контекст сессии;
+- добавлены headless и source-integrity тесты архитектурных границ.
+
+## Қазақша
+
+- баспа орындауы `services/print_jobs.py` файлына көшірілді: printer, PDF және беттерге бөлінген raster/SVG export бір executor арқылы іске қосылады;
+- бірыңғай `SessionBindingController` 26 controller-ді қайта байланыстырып, жоба ашылғанда history мен уақытша күйді тазартады;
+- жоба ауысқаннан кейін TIME↔DEPTH және LAS range editing қайта байланысуы түзетілді;
+- `WorkspaceCommandController` ағаш payload мәнін тексеріп, well/dataset таңдайды және Qt өңдегішінен ID-лерді тікелей өзгертпей командаларды бағыттайды;
+- қате немесе ескірген ағаш командасы сессия контекстін жартылай өзгертілген күйде қалдырмайды;
+- архитектуралық шекараларға headless және source-integrity тесттері қосылды.
+
+## English
+
+- moved print execution into `services/print_jobs.py`, routing printer, PDF, and paged raster/SVG output through one executor;
+- added one `SessionBindingController` that rebinds 26 controllers and clears history/transient state after project open;
+- fixed TIME↔DEPTH and LAS range-editing rebinding across project changes;
+- added `WorkspaceCommandController` to validate tree payloads, select well/dataset context, and route commands without direct ID mutation in the Qt handler;
+- made invalid or stale tree commands atomic so they cannot leave a partially changed session context;
+- added headless and source-integrity coverage for the new boundaries.
+
 # 0.7.29 — unified import-job boundary (test build)
 
 ## Русский

@@ -6,24 +6,23 @@
 ## P0 — шығарылым тұрақтылығы
 
 - [x] аннотация оқиғаларын бағыттауды және толық Qt тестінің авариялық аяқталуын түзету;
-- [x] Ruff және mypy қателерін нөлге жеткізу; толық pytest нәтижесі — 1217 өтті,
+- [x] Ruff және mypy қателерін нөлге жеткізу; 0.7.28 baseline нәтижесі — 1217 өтті,
   10 өткізіліп жіберілді;
 - міндетті Windows, HiDPI, PDF және физикалық баспа матрицасын орындау;
+- ағымдағы нұсқа үшін толық Ruff/mypy/pytest gate-ті қайталау;
 - gate жасыл болғанша жинақты stable деп атамау.
 
 ## P0 — архитектура және деректер
 
-- [x] алдымен `TabletView` ішінен annotation event router-ді мінез-құлықты өзгертпей бөліп,
-  headless тесттермен қорғау;
-- [x] pan/zoom/home/end/keyboard командаларын headless navigation coordinator-ға шығару;
-- [x] track plan/order/reuse бөліп, Undo/Redo кезінде график даналарын сақтау;
-- [x] track creation, rollback және disposal-ды байланысты registry тазалауымен шығару;
-- [x] экран/баспаға ортақ grid renderer және бөліністерді жартылай жаңартуды шығару;
-- [x] өңдеу режимдерінің контроллерін F4 және аннотация құралы күйінің жалғыз иесі ету;
+- [x] `TabletView` ішінен annotation event router-ді мінез-құлықты өзгертпей шығару;
+- [x] pan/zoom/home/end/keyboard командаларын headless coordinator-ға шығару;
+- [x] track plan/order/reuse, creation, rollback және disposal бөліктерін шығару;
+- [x] экран/баспаға ортақ grid renderer-ді шығару;
+- [x] өңдеу режимі контроллерін F4 және аннотация құралы күйінің жалғыз иесі ету;
 - [x] басты бет/workspace/мақсатты қойынды навигациясын `MainWindow` ішінен шығару;
-- [x] тұрақты дереккөз түрлері мен әмбебап import маршрутизациясын шығару;
-- [x] CSV/Excel жоспарларын, LAS policy jobs және Paradox dataset тіркеуін бірыңғай сервиске шығару;
-- print jobs, session binding және қалған командаларды шығару;
+- [x] әмбебап import маршрутизациясын және CSV/Excel/LAS/Paradox jobs-ты шығару;
+- [x] print jobs, session binding және жоба ағашының workspace командаларын шығару;
+- UI кластарының сериализацияланатын жоба моделін тікелей өзгертуіне тыйым салу;
 - параметр түрі, quantity class, UOM, aliases, дереккөз және бастапқы мнемоникасы бар
   Semantic Channel Dictionary енгізу;
 - бірыңғай Import Review және қайталанатын есеп паспортын қосу.

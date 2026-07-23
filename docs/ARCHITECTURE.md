@@ -56,6 +56,25 @@ Paradox чтение и преобразование остаются отмен
 результата commit в проект выполняется только через import-job boundary. Отклонённый, отменённый
 или ошибочный файл не создаёт частично зарегистрированный dataset.
 
+## Граница print jobs
+
+`services/print_jobs.py` содержит `PrintJobExecutor`, который владеет конфигурацией
+`QPrinter`, физическим рендерингом, PDF и постраничным raster/SVG export. Qt-слой выбирает
+источник и назначение, открывает системные диалоги, подтверждает перезапись и показывает
+результат, но не вызывает функции renderer/export напрямую.
+
+## Session binding и workspace-команды
+
+`SessionBindingController` хранит единый реестр session-aware компонентов. После открытия
+проекта он согласованно перепривязывает 26 контроллеров и запускает их reset hooks для Undo/Redo,
+выделений и незавершённых режимов редактирования. Это исключает продолжение операций со старой
+`ProjectSession`, включая TIME↔DEPTH и LAS range workflows.
+
+`WorkspaceCommandController` проверяет payload дерева проекта, разрешает well/dataset context
+и только затем вызывает UI-port для отображения curve, track, lithology, stratigraphy или
+interpretation. Qt-обработчик дерева не присваивает `current_well_id` и `current_dataset_id`
+напрямую; некорректная команда не оставляет частично изменённый контекст.
+
 ## Хранение и совместимость
 
 - текущий JSON-формат проекта — 15;
@@ -79,8 +98,10 @@ Y синхронизирует треки; X остаётся независим
 ## Печать
 
 Печатный renderer работает в миллиметрах и не является снимком экрана. Одна модель формы
-должна питать preview, PDF и системный принтер. Grid settings, axis divisions, header,
-legends, lithotypes и annotations обязаны использовать те же сериализуемые настройки.
+питает preview, PDF и системный принтер. `PrintJobExecutor` является единственной прикладной
+точкой запуска printer/PDF/page-export jobs, а UI отвечает только за взаимодействие с
+пользователем. Grid settings, axis divisions, header, legends, lithotypes и annotations
+обязаны использовать те же сериализуемые настройки.
 
 Целевая `ReportPassport` фиксирует source fingerprints, dataset/form IDs, bindings, UOM,
 формулы, интервал, locale, template revision и render options. Это делает отчёт повторяемым

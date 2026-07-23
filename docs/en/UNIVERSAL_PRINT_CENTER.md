@@ -1,5 +1,12 @@
 # Print and Export Center
 
+## Unified execution boundary — 0.7.30
+
+Preview, physical printing, PDF, and paged raster/SVG export now run through one
+`PrintJobExecutor`. The user workflow, page settings, overwrite confirmation, and cancellation
+messages are unchanged; the refactoring prevents the main-window commands from diverging from
+the shared renderer.
+
 ## Purpose
 
 The Print and Export Center is the single window for preparing the active chart, tablet, or form for physical printing and file export. Open it through **File → Print and export center...** (`Ctrl+P`) or use **Print / export** in Form Manager.
