@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
@@ -120,6 +120,7 @@ class TabularImportOutcome:
     source: Path
     result: CsvImportResult | None = None
     error: str = ""
+    review_skipped: bool = False
 
     @property
     def succeeded(self) -> bool:
@@ -168,6 +169,7 @@ class ParadoxImportOutcome:
     result: ParadoxImportResult | None = None
     well_name: str | None = None
     error: str = ""
+    review_skipped: bool = False
 
     @property
     def succeeded(self) -> bool:
@@ -178,6 +180,7 @@ CsvLoader = Callable[[str | Path, CsvImportPlan], CsvImportResult]
 ExcelLoader = Callable[[str | Path, ExcelImportPlan], CsvImportResult]
 LasLoader = Callable[[str | Path], LasImportResult]
 LasReviewConfirmation = Callable[[Path, tuple[LasImportIssue, ...]], bool]
+ImportDatasetReview = Callable[[Dataset, ImportSourceKind, Path], Dataset | None]
 
 
 class DatasetImportJobExecutor:
@@ -206,9 +209,19 @@ class DatasetImportJobExecutor:
         self,
         source: Path,
         plan_factory: Callable[[], CsvImportPlan],
+        *,
+        review_dataset: ImportDatasetReview | None = None,
     ) -> TabularImportOutcome:
         try:
             result = self._csv_loader(source, plan_factory())
+            dataset = self._review_or_original(
+                result.dataset, ImportSourceKind.CSV, source, review_dataset
+            )
+            if dataset is None:
+                return TabularImportOutcome(
+                    ImportSourceKind.CSV, source, review_skipped=True
+                )
+            result = replace(result, dataset=dataset)
             self._port.add_imported_dataset(result.dataset)
         except (CsvImportError, FileNotFoundError, OSError, ValueError) as exc:
             return TabularImportOutcome(ImportSourceKind.CSV, source, error=str(exc))
@@ -218,9 +231,19 @@ class DatasetImportJobExecutor:
         self,
         source: Path,
         plan_factory: Callable[[], ExcelImportPlan],
+        *,
+        review_dataset: ImportDatasetReview | None = None,
     ) -> TabularImportOutcome:
         try:
             result = self._excel_loader(source, plan_factory())
+            dataset = self._review_or_original(
+                result.dataset, ImportSourceKind.EXCEL, source, review_dataset
+            )
+            if dataset is None:
+                return TabularImportOutcome(
+                    ImportSourceKind.EXCEL, source, review_skipped=True
+                )
+            result = replace(result, dataset=dataset)
             self._port.add_imported_dataset(result.dataset)
         except (ExcelImportError, FileNotFoundError, OSError, ValueError) as exc:
             return TabularImportOutcome(ImportSourceKind.EXCEL, source, error=str(exc))
@@ -232,6 +255,7 @@ class DatasetImportJobExecutor:
         mode: LasImportMode,
         *,
         confirm_review: LasReviewConfirmation | None = None,
+        review_dataset: ImportDatasetReview | None = None,
     ) -> LasImportBatchOutcome:
         outcomes: list[LasImportOutcome] = []
         for source in sources:
@@ -248,7 +272,8 @@ class DatasetImportJobExecutor:
                 if decision.requires_confirmation:
                     if confirm_review is None:
                         raise RuntimeError(
-                            "режим manual требует подтверждения диагностических сообщений"
+                            "режим manual требует подтверждения "
+                            "диагностических сообщений"
                         )
                     if not confirm_review(source, decision.review_issues):
                         outcomes.append(
@@ -256,6 +281,15 @@ class DatasetImportJobExecutor:
                         )
                         continue
 
+                dataset = self._review_or_original(
+                    result.dataset, ImportSourceKind.LAS, source, review_dataset
+                )
+                if dataset is None:
+                    outcomes.append(
+                        LasImportOutcome(source=source, review_skipped=True)
+                    )
+                    continue
+                result = replace(result, dataset=dataset)
                 well_name = self._port.add_imported_dataset(
                     result.dataset,
                     source_document=result.source_document,
@@ -290,12 +324,36 @@ class DatasetImportJobExecutor:
                 outcomes.append(LasImportOutcome(source=source, error=str(exc)))
         return LasImportBatchOutcome(tuple(outcomes))
 
+    @staticmethod
+    def _review_or_original(
+        dataset: Dataset,
+        kind: ImportSourceKind,
+        source: Path,
+        review_dataset: ImportDatasetReview | None,
+    ) -> Dataset | None:
+        return dataset if review_dataset is None else review_dataset(dataset, kind, source)
+
     def register_paradox(
         self,
         source: Path,
         result: ParadoxImportResult,
+        *,
+        review_dataset: ImportDatasetReview | None = None,
     ) -> ParadoxImportOutcome:
         try:
+            dataset = self._review_or_original(
+                result.dataset, ImportSourceKind.PARADOX, source, review_dataset
+            )
+            if dataset is None:
+                return ParadoxImportOutcome(source, review_skipped=True)
+            if dataset is not result.dataset:
+                removed = max(0, len(result.dataset.curves) - len(dataset.curves))
+                result = replace(
+                    result,
+                    dataset=dataset,
+                    imported_channels=len(dataset.curves),
+                    skipped_channels=result.skipped_channels + removed,
+                )
             well_name = self._port.add_imported_dataset(
                 result.dataset,
                 create_new_well=True,

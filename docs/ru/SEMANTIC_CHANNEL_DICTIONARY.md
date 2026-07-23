@@ -61,8 +61,10 @@ Curve Catalog сначала использует сохранённый binding
 - число конечных и NULL-значений;
 - unresolved channel, missing/unknown UOM, quantity conflict, all-null и duplicate canonical kind.
 
-Функция не изменяет dataset. Интерактивное окно, ручные overrides и атомарное подтверждение
-импорта являются следующим вертикальным срезом.
+`ImportReviewController` строит план, preview и валидированный commit на глубокой копии dataset.
+Интерактивное окно позволяет изменить индекс, NULL, включение каналов, canonical mapping, quantity
+class и UOM. Только подтверждённая копия передаётся project-session port; отмена не создаёт dataset
+и не меняет `dirty`. Подробнее: [IMPORT_REVIEW.md](IMPORT_REVIEW.md).
 
 ## Совместимость
 

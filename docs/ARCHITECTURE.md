@@ -131,8 +131,10 @@ Dataset может иметь MD, TVD, TVDSS, относительное или 
 хранит сериализуемый `SemanticChannelBinding`: canonical kind/mnemonic, quantity class,
 canonical/source UOM, aliases, sensor/source, исходную мнемонику, confidence, matched-by и
 evidence. Формат проекта v16 сохраняет этот снимок, поэтому новый каталог не меняет смысл уже
-подтверждённого проекта. `build_import_review()` формирует read-only модель диагностики;
-интерактивные overrides и commit остаются отдельной application-границей следующего среза.
+подтверждённого проекта. `build_import_review()` формирует read-only модель диагностики.
+`ImportReviewController` владеет plan/preview/commit на глубокой копии, а Qt-диалог только
+редактирует план. `DatasetImportJobExecutor` передаёт project-session port исключительно
+подтверждённую копию; отмена не изменяет коллекции проекта и `dirty`.
 
 ## Real-time boundary
 

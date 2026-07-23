@@ -43,9 +43,11 @@ LAS бағандарының реті параметр мағынасын аны
 CSV/Excel, LAS және Paradox import кезінде бағдарлама бастапқы mnemonic-пен бірге canonical kind,
 quantity class, source/canonical UOM, sensor/source, confidence және сәйкестік түсіндірмесін
 сақтайды. Белгісіз vendor channel немесе UOM болжанбайды және анық белгіленеді. Binding project
-ішінде сақталып, catalog жаңарғаннан кейін өзгермейді. Headless Import Review қазірдің өзінде
-NULL, unresolved, UOM conflict және duplicate canonical kind диагностикасын береді; интерактивті
-растау келесі кезеңде қосылады. Толығырақ: [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md).
+ішінде сақталып, catalog жаңарғаннан кейін өзгермейді. CSV/TXT, Excel, LAS немесе Paradox
+жобаға тіркелмес бұрын Import Review index пен QC-ді тексеруге, NULL орнатуға, арнаны алып
+тастауға және canonical mapping немесе UOM-ды түзетуге мүмкіндік береді. Бас тарту жобаны
+өзгертпейді. Толығырақ: [IMPORT_REVIEW.md](IMPORT_REVIEW.md) және
+[SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md).
 
 ## GeoData тереңдік жұмыс пішіні
 

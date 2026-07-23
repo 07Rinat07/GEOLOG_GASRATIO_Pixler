@@ -221,3 +221,51 @@ def test_main_window_delegates_las_and_paradox_project_mutation() -> None:
     assert "self.session.add_dataset(result.dataset, create_new_well=True)" not in source
     assert not (project_root / "src/geoworkbench/ui/import_job_controller.py").exists()
     assert not (project_root / "src/geoworkbench/ui/tabular_import_jobs.py").exists()
+
+
+def test_semantic_las_review_can_cancel_before_project_registration(tmp_path: Path) -> None:
+    source = tmp_path / "review.las"
+    result = make_las_result(source)
+    port = FakeDatasetImportPort()
+    executor = DatasetImportJobExecutor(port, las_loader=lambda _source: result)
+    calls: list[tuple[Dataset, object, Path]] = []
+
+    outcome = executor.execute_las(
+        (source,),
+        LasImportMode.COMPATIBLE,
+        review_dataset=lambda dataset, kind, path: calls.append((dataset, kind, path)) or None,
+    )
+
+    assert len(outcome.skipped) == 1
+    assert outcome.failed == ()
+    assert calls == [(result.dataset, "las", source)]
+    assert port.registrations == []
+
+
+def test_paradox_review_cancellation_prevents_registration(tmp_path: Path) -> None:
+    source = tmp_path / "source.db"
+    dataset = make_dataset()
+    result = cast(ParadoxImportResult, SimpleNamespace(dataset=dataset))
+    port = FakeDatasetImportPort()
+    executor = DatasetImportJobExecutor(port)
+
+    outcome = executor.register_paradox(
+        source,
+        result,
+        review_dataset=lambda _dataset, _kind, _source: None,
+    )
+
+    assert outcome.review_skipped is True
+    assert outcome.result is None
+    assert port.registrations == []
+
+
+def test_main_window_routes_all_imports_through_interactive_review() -> None:
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "src/geoworkbench/ui/main_window.py"
+    ).read_text(encoding="utf-8")
+
+    assert "def _review_imported_dataset(" in source
+    assert source.count("review_dataset=self._review_imported_dataset") == 4
+    assert "ImportReviewDialog(" in source

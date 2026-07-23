@@ -1,59 +1,56 @@
 # Статус проекта
 
-Срез: 23 июля 2026 года. Версия пакета: 0.7.32, тестовая сборка.
+Срез: 23 июля 2026 года. Версия пакета: 0.7.33, тестовая сборка.
 
 ## Решение о выпуске
 
-Последний полностью подтверждённый автоматический baseline версии 0.7.28: Ruff чист,
-mypy — 0 ошибок в 262 исходных файлах, полный pytest — 1217 пройдено и 10 пропущено.
-Для среза 0.7.32 выполнены `compileall`, сборка wheel и доступная headless-регрессия:
-707 тестов пройдено, 4 платформенных сценария пропущено. Полный сбор pytest в текущем
-контейнере останавливается на 95 Qt/LAS-зависимых модулях, потому что отсутствуют PySide6,
-pyqtgraph и lasio. Ruff и mypy также недоступны. Поэтому сборка остаётся тестовой до
-повторного полного gate и Windows/HiDPI/PDF/physical-print smoke-test.
+Последний полностью подтверждённый автоматический baseline 0.7.28: Ruff чист, mypy — 0 ошибок
+в 262 исходных файлах, полный pytest — 1217 пройдено и 10 пропущено. Для 0.7.33 выполнены
+`compileall` и доступная headless/regression/source-integrity регрессия: 731 тест пройден,
+4 платформенных сценария пропущено. Три LAS-roundtrip теста требуют `lasio`, один Qt-сценарий
+требует `PySide6`; полный сбор также недоступен без PySide6, pyqtgraph и lasio. Ruff и mypy в
+контейнере отсутствуют. Сборка остаётся тестовой до повторного полного gate и обязательной
+Windows/HiDPI/PDF/physical-print матрицы.
 
 ## Подтверждённая рабочая основа
 
-- LAS 1.2/2.0, CSV/TXT/Excel и GeoScape/Paradox workflows;
-- безопасные копии, таблица LAS, операции над кривыми, Undo/Redo и формулы;
-- проект с несколькими datasets и индексами, формат проекта 16;
-- единый Semantic Channel Dictionary поверх каталога Sensors;
-- сохранённый semantic binding каждой кривой: canonical kind/mnemonic, quantity class,
-  canonical/source UOM, aliases, sensor/source, исходная мнемоника, confidence и evidence;
-- read-only headless-модель Import Review для индекса, NULL, UOM-конфликтов, unresolved и
-  duplicate canonical kinds;
-- синхронный многотрековый планшет, формы, интервалы и литология;
-- редактируемый Masterlog, header/forms, PDF и Print Center;
-- аннотации, project assets и миграции старых проектов;
-- синхронные наборы пользовательских документов RU/KK/EN.
+- безопасные LAS 1.2/2.0, CSV/TXT, Excel и GeoScape/Paradox workflows;
+- multi-dataset/multi-index проект формата v16;
+- Semantic Channel Dictionary и явный UOM quantity-class dictionary;
+- сериализуемый semantic binding каждой кривой;
+- единый интерактивный Import Review для CSV/Excel/LAS/Paradox;
+- выбор и проверка индекса, ручные semantic/UOM overrides, дополнительный NULL-sentinel;
+- QC по NULL, duplicate, gap, order, unresolved, UOM conflict, all-null и duplicate kind;
+- атомарное подтверждение через deep-copy controller и project-session port;
+- многотрековый планшет, формы, Masterlog, PDF, Print Center, аннотации и project assets;
+- синхронные пользовательские документы RU/KK/EN.
 
-## Результаты проверки
+## Результаты текущего среза
 
-| Проверка | Фактический результат |
+| Проверка | Результат |
 |---|---|
-| Полный baseline 0.7.28 | 1217 тестов пройдено, 10 пропущено; Ruff чист; mypy — 0 ошибок в 262 файлах |
-| Срез 0.7.32 | 707 доступных headless/regression/source-integrity тестов пройдено, 4 пропущено; `compileall` и wheel 0.7.32 завершены без ошибок |
-| Semantic dictionary | CSV/Excel, LAS и Paradox создают один сериализуемый binding; неизвестные каналы/UOM остаются явными |
-| Project format v16 | semantic binding сохраняется и восстанавливается; legacy curves обогащаются при чтении без перезаписи прежнего canonical решения |
-| Derived curves | copy, transfer, merge, reverse/resample и TIME↔DEPTH сохраняют semantic snapshot |
-| Import Review core | детерминированно показывает индекс, confidence, NULL, unresolved, UOM conflict и duplicate canonical kind без изменения dataset |
-| Физическая печать/HiDPI | требует подтверждения на целевой Windows-машине |
+| Import Review controller | initial plan, preview и commit работают без мутации исходного dataset |
+| Импортные jobs | CSV, Excel, LAS и Paradox вызывают review до регистрации в проекте |
+| Отмена | dataset/well не создаётся, `dirty` не меняется |
+| QC | блокирующие ошибки отключают commit; предупреждения остаются видимыми |
+| Локализация | каталоги RU/KK/EN содержат одинаковые 1733 ключа |
+| Доступная регрессия | 731 passed, 4 skipped |
+| Project format | остаётся v16 |
 
 ## Технический долг с наибольшим риском
 
 - `tablet/tablet_view.py` и `ui/main_window.py` остаются крупными orchestration-классами;
-- полный Ruff/mypy/Qt/LAS gate 0.7.32 нужно повторить в окружении со всеми зависимостями;
-- отсутствуют golden fixtures для общей экранной и печатной геометрии;
-- Import Review пока является headless/read-only контрактом: интерактивное подтверждение,
-  ручные overrides и единая commit-граница ещё не реализованы.
+- полный Ruff/mypy/Qt/LAS gate 0.7.33 нужно повторить в полном окружении;
+- интерактивный диалог нужно проверить вручную на Windows при больших таблицах и HiDPI;
+- отсутствуют golden fixtures общей экранной и печатной геометрии;
+- изменение UOM в Import Review исправляет метаданные, но не выполняет пересчёт значений.
 
 ## Следующая контрольная точка
 
-Следующий вертикальный срез — единый интерактивный Import Review поверх готовой headless-модели:
-индекс, mapping, единицы, NULL, QC, ручные semantic overrides и атомарное подтверждение импорта.
-После него — Report Passport. Ручной Windows GUI/HiDPI/PDF/physical-print smoke-test остаётся
-обязательным условием stable-выпуска.
+Следующий вертикальный срез — Report Passport: fingerprint источника, semantic bindings,
+версии формул, UOM, revision формы, язык и настройки рендера. После него — golden fixtures.
+Ручной Windows GUI/HiDPI/PDF/physical-print smoke-test остаётся обязательным условием stable.
 
-Подробности: [Semantic Channel Dictionary](SEMANTIC_CHANNEL_DICTIONARY.md),
-[аудит](PRODUCT_AUDIT_2026.md), [план](PROJECT_PLAN.md), [roadmap](ROADMAP.md),
-[проверки](TESTING.md).
+Подробности: [Import Review](IMPORT_REVIEW.md),
+[Semantic Channel Dictionary](SEMANTIC_CHANNEL_DICTIONARY.md),
+[план](PROJECT_PLAN.md) и [проверки](TESTING.md).

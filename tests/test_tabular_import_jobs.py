@@ -161,3 +161,53 @@ def test_main_window_delegates_tabular_execution_to_job_executor() -> None:
     assert "self._dataset_import_jobs.execute_excel(" in source
     assert "result = import_csv(" not in source
     assert "result = import_excel(" not in source
+
+
+def test_tabular_review_cancellation_prevents_registration(tmp_path: Path) -> None:
+    port = FakeTabularImportPort()
+    executor = DatasetImportJobExecutor(
+        port,
+        csv_loader=lambda _source, _plan: make_result(),
+    )
+
+    outcome = executor.execute_csv(
+        tmp_path / "source.csv",
+        lambda: CsvImportPlan(index_column="DEPTH"),
+        review_dataset=lambda _dataset, _kind, _source: None,
+    )
+
+    assert outcome.review_skipped is True
+    assert outcome.result is None
+    assert outcome.error == ""
+    assert port.datasets == []
+
+
+def test_tabular_review_registers_only_accepted_dataset_copy(tmp_path: Path) -> None:
+    port = FakeTabularImportPort()
+    loaded = make_result()
+    accepted = Dataset(
+        "dataset-reviewed",
+        "Reviewed",
+        DatasetKind.USER,
+        DepthDomain.MD,
+        np.array([100.0, 100.2]),
+    )
+    calls: list[tuple[Dataset, ImportSourceKind, Path]] = []
+    executor = DatasetImportJobExecutor(
+        port,
+        excel_loader=lambda _source, _plan: loaded,
+    )
+    source = tmp_path / "source.xlsx"
+
+    outcome = executor.execute_excel(
+        source,
+        lambda: ExcelImportPlan("Data", index_column="DEPTH"),
+        review_dataset=lambda dataset, kind, path: calls.append((dataset, kind, path))
+        or accepted,
+    )
+
+    assert outcome.succeeded is True
+    assert outcome.result is not None
+    assert outcome.result.dataset is accepted
+    assert calls == [(loaded.dataset, ImportSourceKind.EXCEL, source)]
+    assert port.datasets == [accepted]

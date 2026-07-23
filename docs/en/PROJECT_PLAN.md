@@ -25,8 +25,8 @@ only active work.
 - [x] prevent UI classes from directly mutating the serializable project model;
 - [x] add a Semantic Channel Dictionary with property kind, quantity class, UOM, aliases,
   source, and original mnemonic, persisted in project format v16;
-- add an interactive Import Review on top of the completed read-only headless model, then
-  a reproducible report passport.
+- [x] add an interactive Import Review with manual overrides, QC preview, and atomic commit;
+- add a reproducible report passport next.
 
 ## P1 — operations and real time
 

@@ -25,8 +25,8 @@
 - [x] UI кластарының сериализацияланатын жоба моделін тікелей өзгертуіне тыйым салу;
 - [x] параметр түрі, quantity class, UOM, aliases, дереккөз және бастапқы мнемоникасы бар
   Semantic Channel Dictionary енгізу және binding-ті project format v16 ішінде сақтау;
-- дайын read-only headless model негізінде интерактивті Import Review, кейін қайталанатын
-  есеп паспортын қосу.
+- [x] manual overrides, QC preview және атомарлық commit бар интерактивті Import Review қосу;
+- келесі қадамда қайталанатын есеп паспортын енгізу.
 
 ## P1 — операциялар және нақты уақыт
 

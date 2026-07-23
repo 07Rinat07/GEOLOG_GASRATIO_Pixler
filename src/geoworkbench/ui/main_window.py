@@ -149,6 +149,7 @@ from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
 from geoworkbench.ui.external_las_insert_dialog import ExternalLasInsertDialog
 from geoworkbench.ui.curve_settings_dialog import CurveSettingsDialog
 from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
+from geoworkbench.ui.import_review_dialog import ImportReviewDialog
 from geoworkbench.ui.paradox_import_dialog import ParadoxImportDialog
 from geoworkbench.ui.paradox_batch_dialog import ParadoxBatchDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
@@ -1945,6 +1946,29 @@ class MainWindow(QMainWindow):
         )
         return answer == QMessageBox.StandardButton.Yes
 
+    def _review_imported_dataset(
+        self,
+        dataset: Dataset,
+        source_kind: ImportSourceKind,
+        source: Path,
+    ) -> Dataset | None:
+        dialog = ImportReviewDialog(
+            dataset,
+            source,
+            source_kind,
+            self,
+            language=self.language,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            self._log(
+                self._t(
+                    "import_review.cancelled_log",
+                    file=source.name,
+                )
+            )
+            return None
+        return dialog.accepted_dataset
+
     def _open_las_files(
         self,
         filenames: tuple[Path, ...],
@@ -1954,6 +1978,7 @@ class MainWindow(QMainWindow):
             filenames,
             import_mode,
             confirm_review=self._confirm_las_review,
+            review_dataset=self._review_imported_dataset,
         )
         for item in outcome.files:
             filename = str(item.source)
@@ -1967,6 +1992,11 @@ class MainWindow(QMainWindow):
         last = outcome.last_successful
         errors = [f"{item.source.name}: {item.error}" for item in outcome.failed]
         if last is None or last.result is None or last.well_name is None:
+            if outcome.skipped and not errors:
+                self.statusBar().showMessage(
+                    self._t("import_review.batch_cancelled_status")
+                )
+                return
             QMessageBox.critical(
                 self,
                 "Ошибка LAS",
@@ -2033,7 +2063,13 @@ class MainWindow(QMainWindow):
         outcome = self._dataset_import_jobs.execute_csv(
             Path(filename),
             dialog.import_plan,
+            review_dataset=self._review_imported_dataset,
         )
+        if outcome.review_skipped:
+            self.statusBar().showMessage(
+                self._t("import_review.cancelled_status", file=Path(filename).name)
+            )
+            return
         if outcome.result is None:
             QMessageBox.critical(self, "Импорт CSV", outcome.error)
             self._log(f"CSV не импортирован: {outcome.error}")
@@ -2063,7 +2099,13 @@ class MainWindow(QMainWindow):
         outcome = self._dataset_import_jobs.execute_excel(
             Path(filename),
             dialog.import_plan,
+            review_dataset=self._review_imported_dataset,
         )
+        if outcome.review_skipped:
+            self.statusBar().showMessage(
+                self._t("import_review.cancelled_status", file=Path(filename).name)
+            )
+            return
         if outcome.result is None:
             QMessageBox.critical(self, "Импорт Excel", outcome.error)
             self._log(f"Excel не импортирован: {outcome.error}")
@@ -2094,7 +2136,13 @@ class MainWindow(QMainWindow):
         registration = self._dataset_import_jobs.register_paradox(
             selected,
             dialog.import_result,
+            review_dataset=self._review_imported_dataset,
         )
+        if registration.review_skipped:
+            self.statusBar().showMessage(
+                self._t("import_review.cancelled_status", file=selected.name)
+            )
+            return
         if registration.result is None:
             QMessageBox.critical(self, self._t("paradox.title"), registration.error)
             self._log(f"Paradox не импортирован: {selected}: {registration.error}")

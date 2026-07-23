@@ -43,5 +43,7 @@ reverse/resample, TIME↔DEPTH, aggregation, and dataset JSON export preserve it
 
 `build_import_review(dataset)` returns a deterministic read-only model with index details,
 semantic bindings, valid/NULL counts, unresolved channels, missing/unknown UOM, quantity
-conflicts, all-null channels, and duplicate canonical kinds. It never mutates the dataset.
-The interactive screen, manual overrides, and atomic acceptance command are the next slice.
+conflicts, all-null channels, and duplicate canonical kinds. `ImportReviewController` builds the
+plan, preview, and validated commit on a deep copy. The dialog supports index, NULL, channel
+inclusion, canonical mapping, quantity class, and UOM overrides. Only the accepted copy reaches
+the project-session port; cancellation leaves the project unchanged. See [IMPORT_REVIEW.md](IMPORT_REVIEW.md).

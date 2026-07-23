@@ -43,9 +43,10 @@ at random. Gas Ratio converts `%`, `ppm`, `ppb`, and fractions to a compatible s
 CSV/Excel, LAS, and Paradox imports now retain the source mnemonic together with canonical kind,
 quantity class, source/canonical UOM, sensor/source, confidence, and match evidence. An unknown
 vendor channel or UOM remains explicit instead of being guessed. The binding is persisted in the
-project and does not change when the catalog is updated. The current headless Import Review model
-already reports NULL, unresolved channels, UOM conflicts, and duplicate canonical kinds;
-interactive acceptance is the next slice. See [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md).
+project and does not change when the catalog is updated. Before CSV/TXT, Excel, LAS, or Paradox
+is registered, Import Review lets the user verify the index and QC, set NULL, exclude channels,
+and correct canonical mapping or UOM. Cancellation leaves the project unchanged. See
+[IMPORT_REVIEW.md](IMPORT_REVIEW.md) and [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md).
 
 ## GeoData depth workspace
 

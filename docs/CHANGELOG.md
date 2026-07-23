@@ -41,6 +41,32 @@
 - the selection is synchronized across every plot in the active form, while the right panel reports minimum, maximum, mean, valid-point count, and coverage for every visible parameter;
 - results can be copied as an Excel-compatible table or exported to XLSX/CSV; specialized lithology, sample, and stratigraphy gestures remain unchanged.
 
+# 0.7.33 — interactive Import Review and atomic import acceptance (test build)
+
+## Русский
+
+- добавлен единый интерактивный Import Review для CSV/TXT, Excel, LAS и GeoScape/Paradox;
+- доступны ручные настройки индекса, NULL, состава каналов, canonical mapping, quantity class и UOM;
+- QC preview показывает ошибки индекса, NULL, gaps/order, unresolved, UOM conflicts, all-null и duplicate kinds;
+- preview и commit выполняются на глубокой копии, а в проект попадает только подтверждённый dataset;
+- отмена review не создаёт скважину/dataset и не меняет `dirty`; формат проекта остаётся v16.
+
+## Қазақша
+
+- CSV/TXT, Excel, LAS және GeoScape/Paradox үшін ортақ интерактивті Import Review қосылды;
+- index, NULL, channel composition, canonical mapping, quantity class және UOM қолмен түзетіледі;
+- QC preview index errors, NULL, gaps/order, unresolved, UOM conflicts, all-null және duplicate kinds көрсетеді;
+- preview және commit терең көшірмеде орындалады, жобаға тек расталған dataset беріледі;
+- review-ден бас тарту well/dataset жасамайды және `dirty` күйін өзгертпейді; project format v16 сақталды.
+
+## English
+
+- added one interactive Import Review for CSV/TXT, Excel, LAS, and GeoScape/Paradox;
+- added manual index, NULL, channel inclusion, canonical mapping, quantity class, and UOM overrides;
+- QC preview covers index errors, NULL, gaps/order, unresolved channels, UOM conflicts, all-null, and duplicate kinds;
+- preview and commit run on a deep copy, and only the accepted dataset reaches the project;
+- cancelling review creates no well/dataset and leaves `dirty` unchanged; project format remains v16.
+
 # 0.7.32 — Semantic Channel Dictionary and Import Review core (test build)
 
 ## Русский

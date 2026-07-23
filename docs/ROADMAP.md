@@ -17,7 +17,7 @@ Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke ch
 
 - split annotation routing, navigation, track lifecycle, grid rendering, and editing out of
   `TabletView`;
-- keep state-changing workflows behind application boundaries; import/print execution, session rebinding, workspace commands, tablet layout mutations, derived-dataset rollback, and project image assets use controllers/services; the Semantic Channel Dictionary and read-only Import Review contract are complete, while interactive review/commit is next;
+- keep state-changing workflows behind application boundaries; import/print execution, session rebinding, workspace commands, tablet layout mutations, derived-dataset rollback, project image assets, and interactive Import Review use controllers/services; Semantic Channel Dictionary and atomic review/commit are complete;
 - define one screen/print grid contract and golden-render fixtures;
 - add report provenance: source fingerprints, channel bindings, UOM, formula versions,
   locale, template revision, and render settings;
@@ -29,8 +29,8 @@ Exit: bounded controllers with headless tests, stable visual fixtures, reproduci
 
 - [complete] resolve canonical channel kinds through quantity classes and an explicit UOM
   dictionary while preserving source mnemonics and a version-stable binding snapshot;
-- add an interactive Import Review screen for mapping, units, index, NULL, gaps, duplicates,
-  warnings, manual overrides, and one atomic acceptance command;
+- [complete] add an interactive Import Review screen for mapping, units, index, NULL, gaps,
+  duplicates, warnings, manual overrides, and one atomic acceptance command;
 - store measurement time, arrival time, source, calibration, and QC flags;
 - define typed drilling, gas, show, sample, casing, and formation-top events;
 - add versioned lag/depth correction without rewriting the acquired source.
