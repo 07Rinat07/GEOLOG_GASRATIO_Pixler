@@ -19,7 +19,7 @@ Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, Excel, or 
 
 Legacy Delphi SKF forms can be imported from “Forms → Form Library → Import and export → Import SKF” or “Constructor → Tablet forms”. See [SKF_IMPORT.md](SKF_IMPORT.md).
 
-Version 0.7.56 continuously reports whether the current form width fits portrait or landscape A4 in both Form Library and the structure editor. While columns are resized it shows physical/logical width, expected reduction, and concrete advice: shrink widths, hide secondary tracks, use landscape A4, A3/roll media, or split the form. The same state is visible in the tablet status bar. Interval statistics automatically dock right or bottom and remain inside the screen. Logs and diagnostics ZIP remain available from Help.
+Version 0.7.57 continuously reports whether the current form width fits portrait or landscape A4 in both Form Library and the structure editor. While columns are resized it shows physical/logical width, expected reduction, and concrete advice: shrink widths, hide secondary tracks, use landscape A4, A3/roll media, or split the form. The same state is visible in the tablet status bar. Interval statistics opens as a screen-constrained overlay over the tablet right edge, does not consume form width, and is cleared with the old interval selection when forms change. Logs and diagnostics ZIP remain available from Help.
 
 ## Table editing
 

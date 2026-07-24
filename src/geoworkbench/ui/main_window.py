@@ -809,6 +809,14 @@ class MainWindow(QMainWindow):
         self.interval_statistics_panel.set_dock_mode(mode)
 
     def _adapt_interval_statistics_dock(self, *, force: bool = False) -> None:
+        """Keep interval statistics as an in-window floating overlay.
+
+        A docked panel steals width from wide tablet forms and can push its own
+        controls outside the monitor.  A constrained floating QDockWidget may
+        overlap the right edge of the tablet, but it never changes the form
+        geometry and is always clamped to the active screen work area.
+        """
+
         dock = getattr(self, "interval_statistics_dock", None)
         panel = getattr(self, "interval_statistics_panel", None)
         if dock is None or panel is None:
@@ -819,33 +827,28 @@ class MainWindow(QMainWindow):
             return
         self._interval_statistics_adapting = True
         try:
-            central = self.centralWidget()
-            central_width = central.width() if central is not None else self.width()
-            use_bottom = self.width() < 1450 or central_width < 980
-            target_area = (
-                Qt.DockWidgetArea.BottomDockWidgetArea
-                if use_bottom
-                else Qt.DockWidgetArea.RightDockWidgetArea
-            )
-            if dock.isFloating():
-                dock.setFloating(False)
-            if self.dockWidgetArea(dock) != target_area:
-                self.addDockWidget(target_area, dock)
-            if use_bottom:
-                panel.set_dock_mode("bottom")
-                dock.setMinimumWidth(0)
-                dock.setMaximumWidth(16777215)
-                dock.setMinimumHeight(170)
-                dock.setMaximumHeight(320)
-                self.resizeDocks([dock], [230], Qt.Orientation.Vertical)
-            else:
-                panel.set_dock_mode("side")
-                dock.setMinimumHeight(0)
-                dock.setMaximumHeight(16777215)
-                dock.setMinimumWidth(300)
-                dock.setMaximumWidth(430)
-                preferred = max(320, min(390, self.width() // 4))
-                self.resizeDocks([dock], [preferred], Qt.Orientation.Horizontal)
+            panel.set_dock_mode("side")
+            dock.setMinimumWidth(300)
+            dock.setMaximumWidth(430)
+            dock.setMinimumHeight(280)
+            dock.setMaximumHeight(16777215)
+            if not dock.isFloating():
+                dock.setFloating(True)
+
+            width = max(320, min(390, self.width() // 4))
+            height = max(320, min(720, self.height() - 150))
+            dock.resize(width, height)
+
+            main_rect = self.frameGeometry()
+            target_x = main_rect.right() - width - 14
+            target_y = main_rect.top() + 92
+            screen = self.screen() or QApplication.screenAt(main_rect.center())
+            if screen is not None:
+                available = screen.availableGeometry()
+                target_x = max(available.left() + 8, min(target_x, available.right() - width - 8))
+                target_y = max(available.top() + 8, min(target_y, available.bottom() - height - 8))
+            dock.move(target_x, target_y)
+            dock.raise_()
         finally:
             self._interval_statistics_adapting = False
 
@@ -4435,6 +4438,11 @@ class MainWindow(QMainWindow):
                 self.statusBar().showMessage(str(exc), 5000)
                 self._log(str(exc))
             return False
+
+        # Interval selection belongs to the previous visual form.  Keeping it
+        # after a form switch leaves stale shading and an orphan statistics
+        # panel, so clear it before replacing the track/header widget tree.
+        self._clear_interval_analysis()
 
         # A form replaces the whole track/header widget tree.  The active pencil
         # must be ended only after the candidate model is known to be valid, and

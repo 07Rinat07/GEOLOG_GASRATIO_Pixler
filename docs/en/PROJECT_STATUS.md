@@ -1,8 +1,8 @@
 # Project status
 
-24 July 2026 corrective build: package **0.7.56**, project format **v20**, form schema **v6**, tablet layout **v16**.
+24 July 2026 corrective build: package **0.7.57**, project format **v20**, form schema **v6**, tablet layout **v16**.
 
-## Completed in 0.7.56
+## Completed in 0.7.57
 
 - added one A4 form-width audit for portrait and landscape orientation;
 - Form Library reports physical/logical width, fit percentage, and an actionable recommendation;

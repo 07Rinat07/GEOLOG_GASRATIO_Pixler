@@ -1,8 +1,8 @@
 # Project plan
 
-Current on 24 July 2026. Hotfix **0.7.56** keeps project format v20, form schema v6, and tablet layout v16.
+Current on 24 July 2026. Hotfix **0.7.57** keeps project format v20, form schema v6, and tablet layout v16.
 
-## P0 — hotfix 0.7.56: A4 width guidance and adaptive statistics
+## P0 — hotfix 0.7.57: A4 width guidance and adaptive statistics
 
 - [x] calculate total visible form width in px and approximate mm;
 - [x] compare the form with usable portrait and landscape A4 widths;
