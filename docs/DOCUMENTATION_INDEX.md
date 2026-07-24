@@ -46,6 +46,7 @@
 - Acquisition replay: [RU](ru/ACQUISITION_REPLAY.md) · [KK](kk/ACQUISITION_REPLAY.md) · [EN](en/ACQUISITION_REPLAY.md)
 - Application diagnostics: [RU](ru/APPLICATION_DIAGNOSTICS.md) · [KK](kk/APPLICATION_DIAGNOSTICS.md) · [EN](en/APPLICATION_DIAGNOSTICS.md)
 - Startup splash 0.7.43: [RU](ru/RELEASE_NOTES_0.7.43.md) · [KK](kk/RELEASE_NOTES_0.7.43.md) · [EN](en/RELEASE_NOTES_0.7.43.md)
+- Readable rulers and compact statistics 0.7.53: [RU](ru/RELEASE_NOTES_0.7.53.md) · [KK](kk/RELEASE_NOTES_0.7.53.md) · [EN](en/RELEASE_NOTES_0.7.53.md)
 - Qt cleanup and compact headers 0.7.52: [RU](ru/RELEASE_NOTES_0.7.52.md) · [KK](kk/RELEASE_NOTES_0.7.52.md) · [EN](en/RELEASE_NOTES_0.7.52.md)
 - Runtime diagnostics and safe pencil lifecycle 0.7.51: [RU](ru/RELEASE_NOTES_0.7.51.md) · [KK](kk/RELEASE_NOTES_0.7.51.md) · [EN](en/RELEASE_NOTES_0.7.51.md)
 - Safe Qt form lifecycle 0.7.50: [RU](ru/RELEASE_NOTES_0.7.50.md) · [KK](kk/RELEASE_NOTES_0.7.50.md) · [EN](en/RELEASE_NOTES_0.7.50.md)

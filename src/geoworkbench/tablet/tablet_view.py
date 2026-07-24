@@ -221,8 +221,8 @@ def _safe_delete_later(target: object | None) -> bool:
     return True
 
 
-CURVE_HEADER_EDITOR_HEIGHT = 52
-CURVE_HEADER_LABEL_HEIGHT = 38
+CURVE_HEADER_EDITOR_HEIGHT = 58
+CURVE_HEADER_LABEL_HEIGHT = 40
 
 
 class GeologicalInputMode(StrEnum):
@@ -481,24 +481,37 @@ class CurveScaleRuler(QWidget):
         major_divisions: int,
         minor_divisions: int,
         line_color: str,
+        *,
+        unit: str = "",
+        scale_caption: str = "Scale",
+        linear_label: str = "lin.",
+        logarithmic_label: str = "log.",
     ) -> None:
         super().__init__()
         self._minimum = float(minimum)
         self._maximum = float(maximum)
         self._scale = scale
+        self._unit = str(unit).strip()
+        self._scale_caption = str(scale_caption).strip() or "Scale"
+        self._linear_label = str(linear_label).strip() or "lin."
+        self._logarithmic_label = str(logarithmic_label).strip() or "log."
         self._major_divisions = max(1, int(major_divisions))
         self._minor_divisions = max(1, int(minor_divisions))
         self._line_color = line_color
         self.setMinimumWidth(0)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setMinimumHeight(16)
-        self.setMaximumHeight(18)
+        self.setMinimumHeight(24)
+        self.setMaximumHeight(26)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
-    def set_values(self, minimum: float, maximum: float, scale: XScale) -> None:
+    def set_values(
+        self, minimum: float, maximum: float, scale: XScale, unit: str | None = None
+    ) -> None:
         self._minimum = float(minimum)
         self._maximum = float(maximum)
         self._scale = scale
+        if unit is not None:
+            self._unit = str(unit).strip()
         self.update()
 
     def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802
@@ -508,13 +521,41 @@ class CurveScaleRuler(QWidget):
         rect = self.rect().adjusted(2, 1, -2, -1)
         if rect.width() <= 1 or rect.height() <= 1:
             return
+
         color = QColor(self._line_color)
-        painter.setPen(QPen(color, 1.2))
-        baseline = rect.top() + 4
+        if not color.isValid():
+            color = QColor("#2563eb")
+        painter.fillRect(rect, QColor("#f8fafc"))
+
+        caption_font = painter.font()
+        caption_font.setPixelSize(8)
+        caption_font.setBold(True)
+        painter.setFont(caption_font)
+        painter.setPen(QPen(QColor("#334155"), 1.0))
+        mode = (
+            self._logarithmic_label
+            if self._scale is XScale.LOGARITHMIC
+            else self._linear_label
+        )
+        unit = self._unit or "—"
+        caption = f"{self._scale_caption}: {unit} · {mode}"
+        painter.drawText(
+            rect.left(),
+            rect.top(),
+            rect.width(),
+            9,
+            Qt.AlignmentFlag.AlignCenter,
+            caption,
+        )
+
+        baseline = rect.top() + 10
+        painter.setPen(QPen(color, 1.8))
         painter.drawLine(rect.left(), baseline, rect.right(), baseline)
-        font = painter.font()
-        font.setPointSizeF(max(6.0, font.pointSizeF() - 2.0))
-        painter.setFont(font)
+
+        value_font = painter.font()
+        value_font.setPixelSize(7)
+        value_font.setBold(False)
+        painter.setFont(value_font)
         painter.setPen(QPen(color, 1.0))
         occupied_right = -10_000
         metrics = painter.fontMetrics()
@@ -523,7 +564,7 @@ class CurveScaleRuler(QWidget):
             x = rect.left() + round(rect.width() * line.fraction)
             tick = 6 if line.major else 3
             painter.drawLine(x, baseline, x, baseline + tick)
-            if not line.major or line.fraction in (0.0, 1.0):
+            if not line.major:
                 continue
             try:
                 value = scale_value_at_fraction(
@@ -533,8 +574,13 @@ class CurveScaleRuler(QWidget):
                 continue
             label = format_scale_value(value)
             width = metrics.horizontalAdvance(label)
-            left = max(rect.left(), min(x - width // 2, rect.right() - width))
-            if left <= occupied_right + 3:
+            if line.fraction <= 0.0:
+                left = rect.left()
+            elif line.fraction >= 1.0:
+                left = rect.right() - width
+            else:
+                left = max(rect.left(), min(x - width // 2, rect.right() - width))
+            if left <= occupied_right + 2 and line.fraction not in (0.0, 1.0):
                 continue
             painter.drawText(
                 left,
@@ -544,7 +590,7 @@ class CurveScaleRuler(QWidget):
                 Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
                 label,
             )
-            occupied_right = left + width
+            occupied_right = max(occupied_right, left + width)
 
 
 class CurveHeaderEditor(QFrame):
@@ -695,6 +741,10 @@ class CurveHeaderEditor(QFrame):
             spec.major_divisions,
             spec.minor_divisions,
             self._line_color,
+            unit=spec.unit,
+            scale_caption=spec.scale_label,
+            linear_label=spec.linear_label,
+            logarithmic_label=spec.logarithmic_label,
         )
         self.ruler.setToolTip(spec.scale_tooltip)
         root.addWidget(self.ruler)
@@ -802,7 +852,7 @@ class CurveHeaderEditor(QFrame):
             scale_index = self.scale.findData(scale.value)
             if scale_index >= 0:
                 self.scale.setCurrentIndex(scale_index)
-            self.ruler.set_values(float(minimum), float(maximum), scale)
+            self.ruler.set_values(float(minimum), float(maximum), scale, str(unit))
             self.setToolTip(
                 f"{self._title_text} · {float(minimum):g} … "
                 f"{float(maximum):g} {str(unit).strip()} [{self.mnemonic}]"
@@ -859,7 +909,7 @@ class CurveHeaderEditor(QFrame):
         scale_data = self.scale.currentData() or XScale.LINEAR.value
         scale = XScale(str(scale_data))
         if minimum < maximum and not (scale is XScale.LOGARITHMIC and minimum <= 0):
-            self.ruler.set_values(minimum, maximum, scale)
+            self.ruler.set_values(minimum, maximum, scale, self.unit.text().strip())
 
     def _commit_range(self) -> None:
         if self._disposed or self._loading:
@@ -885,19 +935,29 @@ class CurveHeaderEditor(QFrame):
         )
         self.minimum.setStyleSheet(normal_style)
         self.maximum.setStyleSheet(normal_style)
-        self.ruler.set_values(minimum, maximum, scale)
+        self.ruler.set_values(minimum, maximum, scale, self.unit.text().strip())
         self.range_changed.emit(self.mnemonic, minimum, maximum)
 
     def _commit_unit(self) -> None:
         if not self._disposed and not self._loading:
-            self.unit_changed.emit(self.mnemonic, self.unit.text().strip())
+            unit = self.unit.text().strip()
+            self.ruler.set_values(
+                float(self.minimum.value()),
+                float(self.maximum.value()),
+                XScale(str(self.scale.currentData() or XScale.LINEAR.value)),
+                unit,
+            )
+            self.unit_changed.emit(self.mnemonic, unit)
 
     def _commit_scale(self) -> None:
         if self._disposed or self._loading:
             return
         value = str(self.scale.currentData() or XScale.LINEAR.value)
         self.ruler.set_values(
-            float(self.minimum.value()), float(self.maximum.value()), XScale(value)
+            float(self.minimum.value()),
+            float(self.maximum.value()),
+            XScale(value),
+            self.unit.text().strip(),
         )
         self.scale_changed.emit(self.mnemonic, value)
 
@@ -4341,7 +4401,7 @@ class TabletView(QWidget):
 
     def _apply_geological_mode_cursors_base(self) -> None:
         for rendered in self._rendered.values():
-            if rendered.plot is None:
+            if rendered.plot is None or not _qt_object_is_alive(rendered.plot):
                 continue
             kind = rendered.definition.kind
             active = (
@@ -4375,8 +4435,14 @@ class TabletView(QWidget):
                 )
             )
             cursor = Qt.CursorShape.CrossCursor if active else Qt.CursorShape.ArrowCursor
-            rendered.plot.viewport().setCursor(cursor)
-            rendered.plot.setCursor(cursor)
+            try:
+                viewport = rendered.plot.viewport()
+            except RuntimeError:
+                continue
+            if _qt_object_is_alive(viewport):
+                viewport.setCursor(cursor)
+            if _qt_object_is_alive(rendered.plot):
+                rendered.plot.setCursor(cursor)
 
     def set_cuttings(self, samples: list[CuttingsSample]) -> None:
         self._cuttings = tuple(samples)
@@ -6015,6 +6081,16 @@ class TabletView(QWidget):
         return super().event(event)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        if not _qt_object_is_alive(watched):
+            return False
+        wheel_plot = self._wheel_targets.get(watched)
+        if wheel_plot is not None and not _qt_object_is_alive(wheel_plot):
+            self._wheel_targets.pop(watched, None)
+            wheel_plot = None
+        depth_plot = self._depth_viewports.get(watched)
+        if depth_plot is not None and not _qt_object_is_alive(depth_plot):
+            self._depth_viewports.pop(watched, None)
+            self._interpretation_viewports.pop(watched, None)
         if event.type() in {
             QEvent.Type.UngrabMouse,
             QEvent.Type.WindowDeactivate,
@@ -6023,7 +6099,6 @@ class TabletView(QWidget):
             self._interaction_router.cancel_active(event.type().name)
             self._interaction_watchdog.sync()
 
-        wheel_plot = self._wheel_targets.get(watched)
         if wheel_plot is not None and isinstance(event, QWheelEvent):
             self._handle_depth_wheel(event, plot=wheel_plot, watched=watched)
             return True
@@ -6035,6 +6110,10 @@ class TabletView(QWidget):
             self._handle_depth_wheel(event)
             return True
         plot = self._depth_viewports.get(watched)
+        if plot is not None and not _qt_object_is_alive(plot):
+            self._depth_viewports.pop(watched, None)
+            self._interpretation_viewports.pop(watched, None)
+            plot = None
         if plot is not None and isinstance(event, QKeyEvent):
             if event.type() == QEvent.Type.KeyPress:
                 if (
@@ -6764,8 +6843,12 @@ class TabletView(QWidget):
         return self._apply_visible_depth(top, bottom, emit_change=True)
 
     def _apply_visible_depth(self, top: float, bottom: float, *, emit_change: bool) -> bool:
-        first = next((entry.plot for entry in self._rendered.values() if entry.plot), None)
-        if first is None or not np.isfinite(top) or not np.isfinite(bottom) or top == bottom:
+        live_entries = tuple(
+            entry
+            for entry in self._rendered.values()
+            if entry.plot is not None and _qt_object_is_alive(entry.plot)
+        )
+        if not live_entries or not np.isfinite(top) or not np.isfinite(bottom) or top == bottom:
             return False
         normalized_top, normalized_bottom = self._normalize_depth_window(top, bottom)
         current = self.visible_depth_range
@@ -6784,9 +6867,17 @@ class TabletView(QWidget):
             self._layout_mutations.set_visible_depth(normalized_top, normalized_bottom)
         self._depth_range_guard = True
         try:
-            for rendered in self._rendered.values():
-                if rendered.plot is not None:
-                    rendered.plot.setYRange(normalized_top, normalized_bottom, padding=0)
+            for rendered in live_entries:
+                try:
+                    rendered.plot.setYRange(
+                        normalized_top, normalized_bottom, padding=0
+                    )
+                except RuntimeError as exc:
+                    log_exception(
+                        "tablet.depth_range.stale_plot_skipped",
+                        exc,
+                        track_id=rendered.definition.track_id,
+                    )
             self._update_visible_curve_data(normalized_top, normalized_bottom)
             self._update_lithology_text_visibility(normalized_top, normalized_bottom)
             self._update_stratigraphy_text_visibility(normalized_top, normalized_bottom)

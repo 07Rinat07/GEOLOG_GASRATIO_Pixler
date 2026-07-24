@@ -771,7 +771,7 @@ class MainWindow(QMainWindow):
             self._clear_interval_analysis
         )
         self.interval_statistics_dock.setWidget(self.interval_statistics_panel)
-        self.interval_statistics_dock.setMinimumWidth(320)
+        self.interval_statistics_dock.setMinimumWidth(280)
         self.interval_statistics_dock.setMaximumWidth(680)
         self.interval_statistics_dock.setFeatures(
             QDockWidget.DockWidgetFeature.DockWidgetClosable
@@ -5249,7 +5249,7 @@ class MainWindow(QMainWindow):
         self.interval_statistics_dock.raise_()
         self.resizeDocks(
             [self.interval_statistics_dock],
-            [430],
+            [370],
             Qt.Orientation.Horizontal,
         )
 

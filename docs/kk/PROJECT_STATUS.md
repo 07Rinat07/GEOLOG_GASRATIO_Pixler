@@ -1,30 +1,11 @@
 # Жоба күйі
 
-2026 жылғы 24 шілдедегі түзету жинағы: package **0.7.52**. Project format **v20**, form schema
-**v6**, tablet layout **v16**.
+2026 жылғы 24 шілде: package **0.7.53**, project format **v20**, form schema **v6**, tablet
+layout **v16**.
 
-## 0.7.52 ішінде аяқталды
+Орындалды: өлшем бірлігі және лин./лог. режимі жазылған контрастты инженерлік шкала, ықшам
+интервал статистикасы, параметрдің мнемоникасы мен бірлігі, жойылған PlotWidget үшін cursor,
+wheel және depth guard.
 
-- импортты қалпына келтіру, планшетті reset ету және пішін ауыстыру кезіндегі
-  `CurveHeaderEditor already deleted` қатесі түзетілді;
-- event filter немесе `deleteLater()` алдында әр QObject Shiboken арқылы тексеріледі;
-- бір stale wrapper қате берсе де қалған тректерді тазалау жалғасады және қайталама тазалау қауіпсіз;
-- өңделетін қисық тақырыбы 82 px-ден 52 px-ге, қарапайым белгі 38 px-ге қысқарды;
-- минимум, бірлік, максимум, шкала түрі және инженерлік сызғыш ықшам түрде сақталды;
-- бос орынды азайту үшін ортақ тақырып жолағы 360 px-пен шектелді;
-- QFont өлшемі `-1` және бастапқы түс stylesheet ескертулері түзетілді;
-- индекс қайталануы, біркелкі емес қадам және үзілістер бастапқы LAS-ты өзгертпейтін нақты
-  ұсыныстары бар бөгемейтін ескертулер болып қалды.
-
-## Тексеру
-
-- focused lifecycle/header/diagnostics suite: **125 passed**;
-- қолжетімді headless regression: **1052 passed, 4 skipped, 4 deselected**;
-- `compileall` сәтті;
-- Windows/PySide6 smoke-test: проблемалық LAS, 20 пішін ауыстыру, қайталама reset және тар
-  бағандағы ықшам тақырыптарды визуалды тексеру міндетті.
-
-## Келесі vertical slice
-
-Read-only offline WITSML 2.1 inventory және mapping fixtures. ETP 1.2 fixture replay орындалғанға
-дейін жабық.
+Тексеру: **49 focused passed**; **1039 headless passed, 4 skipped, 3 deselected**; `compileall`
+сәтті. Windows/PySide6 визуалды және lifecycle smoke-test міндетті.

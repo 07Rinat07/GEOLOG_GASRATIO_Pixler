@@ -53,8 +53,8 @@ def test_curve_headers_use_compact_professional_height_budget() -> None:
         encoding="utf-8"
     )
 
-    assert "CURVE_HEADER_EDITOR_HEIGHT = 52" in source
-    assert "CURVE_HEADER_LABEL_HEIGHT = 38" in source
+    assert "CURVE_HEADER_EDITOR_HEIGHT = 58" in source
+    assert "CURVE_HEADER_LABEL_HEIGHT = 40" in source
     assert "len(rows) * CURVE_HEADER_EDITOR_HEIGHT" in source
     assert "min(360" in source
     assert 'separator = QLabel("—")' in source

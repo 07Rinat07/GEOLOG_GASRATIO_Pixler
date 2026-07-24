@@ -41,21 +41,31 @@ class IntervalStatisticsPanel(QWidget):
         self.summary = QLabel(self._t("statistics.panel_hint"))
         self.summary.setWordWrap(True)
         self.summary.setStyleSheet(
-            "font-weight: 600; padding: 7px; background: #eef2ff; "
-            "color: #1e293b; border: 1px solid #c7d2fe; border-radius: 4px;"
+            "font-weight:600; font-size:9px; padding:5px 6px; background:#eef2ff; "
+            "color:#1e293b; border:1px solid #c7d2fe; border-radius:4px;"
         )
         self.table = QTableWidget(0, 4)
         self.table.setObjectName("interval-statistics-panel-table")
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
+        self.table.setWordWrap(True)
+        self.table.setTextElideMode(Qt.TextElideMode.ElideRight)
+        self.table.setStyleSheet(
+            "QTableWidget {font-size:8px; gridline-color:#475569;} "
+            "QTableWidget::item {padding:1px 3px;} "
+            "QHeaderView::section {font-size:8px; font-weight:600; padding:2px 3px;}"
+        )
         self.table.verticalHeader().hide()
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().setMinimumSectionSize(28)
+        self.table.verticalHeader().setDefaultSectionSize(34)
+        header = self.table.horizontalHeader()
+        header.setMinimumSectionSize(48)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         for column in range(1, 4):
-            self.table.horizontalHeader().setSectionResizeMode(
-                column, QHeaderView.ResizeMode.ResizeToContents
-            )
-        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
+            self.table.setColumnWidth(column, 66)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         self.copy_button = QPushButton()
         self.copy_button.clicked.connect(self.copy_to_clipboard)
@@ -74,7 +84,8 @@ class IntervalStatisticsPanel(QWidget):
         buttons.addWidget(self.clear_button)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
         layout.addWidget(self.summary)
         layout.addWidget(self.table, 1)
         layout.addLayout(buttons)
@@ -121,7 +132,10 @@ class IntervalStatisticsPanel(QWidget):
         labels = self._display_names
         for row, item in enumerate(statistics):
             readable = labels.get(item.mnemonic, item.mnemonic)
-            parameter = readable if readable == item.mnemonic else f"{readable}\n{item.mnemonic}"
+            details = item.mnemonic
+            if item.unit:
+                details = f"{details} · {item.unit}"
+            parameter = readable if readable == details else f"{readable}\n{details}"
             values = (
                 parameter,
                 self._format_number(item.minimum),
@@ -152,7 +166,7 @@ class IntervalStatisticsPanel(QWidget):
                         )
                     )
                 self.table.setItem(row, column, cell)
-        self.table.resizeRowsToContents()
+            self.table.setRowHeight(row, 34 if "\n" in parameter else 28)
         self._set_actions_enabled(bool(statistics))
 
     def clear_report(self) -> None:

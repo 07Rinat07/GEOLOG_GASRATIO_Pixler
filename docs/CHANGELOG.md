@@ -1,3 +1,11 @@
+# 0.7.53 — Readable engineering rulers and compact interval statistics (test build)
+
+- Labelled each header ruler with display unit and linear/logarithmic mode.
+- Increased ruler contrast and rendered endpoint/major tick values inside the scale band.
+- Reduced interval-statistics fonts and row spacing while showing mnemonic and unit.
+- Skipped deleted PlotWidget wrappers during cursor, wheel and visible-depth updates.
+- Kept project format v20, form schema v6 and tablet layout v16 unchanged.
+
 # 0.7.52 — Idempotent Qt teardown and compact professional headers (test build)
 
 - Validated QObject wrappers with Shiboken before event-filter removal or deletion.

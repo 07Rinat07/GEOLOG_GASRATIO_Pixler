@@ -17,7 +17,7 @@ def test_interval_statistics_panel_renders_and_copies(qapp) -> None:
     table = panel.findChild(QTableWidget, "interval-statistics-panel-table")
     assert table is not None
     assert table.rowCount() == 1
-    assert table.item(0, 0).text() == "Rate of Penetration\nROP"
+    assert table.item(0, 0).text() == "Rate of Penetration\nROP · m/h"
     assert table.item(0, 1).text() == "1"
     assert table.item(0, 2).text() == "3"
     assert table.item(0, 3).text() == "5"
