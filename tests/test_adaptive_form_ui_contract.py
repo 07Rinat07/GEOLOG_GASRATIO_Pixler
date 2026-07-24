@@ -26,16 +26,13 @@ def test_form_library_reports_portrait_and_landscape_fit() -> None:
     assert "FormWidthLevel.NEEDS_FIT" in source
 
 
-def test_interval_statistics_is_screen_clamped_floating_overlay() -> None:
+def test_interval_statistics_uses_screen_clamped_overlay_without_stealing_form_width() -> None:
     source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
-    assert "def _adapt_interval_statistics_overlay" in source
-    assert "calculate_interval_statistics_overlay_geometry" in source
+    assert "def _adapt_interval_statistics_dock" in source
     assert "dock.setFloating(True)" in source
-    assert "Qt.DockWidgetArea.NoDockWidgetArea" in source
-    statistics_block = source[source.index("def _create_interval_statistics_panel") :]
-    statistics_block = statistics_block[: statistics_block.index("def _create_issues_panel")]
-    assert "DockWidgetFloatable" in statistics_block
-    assert "BottomDockWidgetArea" not in statistics_block
+    assert "screen.availableGeometry()" in source
+    assert "target_x = main_rect.right() - width - 14" in source
+    assert 'panel.set_dock_mode("side")' in source
 
 
 def test_runtime_diagnostics_include_a4_width_state() -> None:

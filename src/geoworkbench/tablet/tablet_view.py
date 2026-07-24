@@ -108,6 +108,20 @@ from geoworkbench.tablet.grid_renderer import (
     TabletGridRenderer,
 )
 from geoworkbench.tablet.grid_geometry import normalized_grid_lines
+from geoworkbench.tablet.header_geometry import (
+    CURVE_HEADER_BOTTOM_CLEARANCE,
+    CURVE_HEADER_MAX_VISIBLE_ROWS,
+    CURVE_HEADER_ROW_HEIGHT,
+    align_curve_header_band_height,
+    curve_header_content_height,
+    curve_header_overflows,
+    curve_header_viewport_height,
+)
+from geoworkbench.tablet.screen_style import (
+    muted_screen_curve_color,
+    professional_curve_color,
+    screen_curve_width,
+)
 from geoworkbench.tablet.curve_scale import format_scale_value, scale_value_at_fraction
 from geoworkbench.tablet.render_invalidation import (
     DirtyReason,
@@ -221,7 +235,7 @@ def _safe_delete_later(target: object | None) -> bool:
     return True
 
 
-CURVE_HEADER_EDITOR_HEIGHT = 58
+CURVE_HEADER_EDITOR_HEIGHT = CURVE_HEADER_ROW_HEIGHT
 CURVE_HEADER_LABEL_HEIGHT = CURVE_HEADER_EDITOR_HEIGHT
 
 
@@ -1072,6 +1086,10 @@ class TabletTrackWidget(QFrame):
         self.curve_header_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.curve_header_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.curve_header_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.curve_header_scroll.verticalScrollBar().setSingleStep(CURVE_HEADER_EDITOR_HEIGHT)
+        self.curve_header_scroll.verticalScrollBar().setPageStep(
+            CURVE_HEADER_MAX_VISIBLE_ROWS * CURVE_HEADER_EDITOR_HEIGHT
+        )
         self.curve_header_scroll.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
@@ -1083,7 +1101,10 @@ class TabletTrackWidget(QFrame):
         self.curve_header_scroll.setStyleSheet(
             "QScrollArea {background:#ffffff; border:0;} "
             "QScrollArea QWidget#qt_scrollarea_viewport {background:#ffffff;} "
-            "QScrollBar:vertical {width:8px;}"
+            "QScrollBar:vertical {width:11px; background:#f1f5f9;} "
+            "QScrollBar::handle:vertical {background:#94a3b8; min-height:24px; "
+            "border-radius:4px; margin:1px;} "
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {height:0;}"
         )
         self.curve_header_scroll.viewport().setStyleSheet("background:#ffffff;")
         self.curve_header_scroll.hide()
@@ -1231,11 +1252,30 @@ class TabletTrackWidget(QFrame):
         # tracks with three curve captions and tracks without captions start
         # their PlotWidget at different Y pixels even though their numeric
         # depth ranges are identical.
-        content_height = max(0, len(rows) * CURVE_HEADER_EDITOR_HEIGHT)
-        self._natural_curve_header_height = min(360, content_height)
-        self.curve_header.setMinimumHeight(content_height)
+        content_height = curve_header_content_height(
+            len(rows),
+            row_height=CURVE_HEADER_EDITOR_HEIGHT,
+            bottom_clearance=CURVE_HEADER_BOTTOM_CLEARANCE,
+        )
+        self._natural_curve_header_height = curve_header_viewport_height(
+            len(rows),
+            row_height=CURVE_HEADER_EDITOR_HEIGHT,
+            max_visible_rows=CURVE_HEADER_MAX_VISIBLE_ROWS,
+        )
+        self.curve_header.setFixedHeight(content_height)
         self.curve_header_scroll.setMaximumHeight(self._natural_curve_header_height)
         self.curve_header_scroll.setVisible(bool(rows))
+        overflow = curve_header_overflows(
+            len(rows), max_visible_rows=CURVE_HEADER_MAX_VISIBLE_ROWS
+        )
+        self.curve_header_scroll.setToolTip(
+            self._localizer.text(
+                "tablet.curve_header_scroll_hint",
+                hidden=max(0, len(rows) - CURVE_HEADER_MAX_VISIBLE_ROWS),
+            )
+            if overflow
+            else ""
+        )
 
     @property
     def natural_title_header_height(self) -> int:
@@ -1257,7 +1297,9 @@ class TabletTrackWidget(QFrame):
         list rather than distributed between editors.
         """
 
-        normalized = max(0, int(height))
+        normalized = align_curve_header_band_height(
+            height, row_height=CURVE_HEADER_EDITOR_HEIGHT
+        )
         self.curve_header_scroll.setVisible(normalized > 0)
         self.curve_header_scroll.setMinimumHeight(normalized)
         self.curve_header_scroll.setMaximumHeight(normalized)
@@ -7156,13 +7198,16 @@ class TabletView(QWidget):
             style = definition.curve_style(mnemonic)
             if style is None:
                 style = CurveStyle(
-                    color=pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))).name(),
-                    width=1.5,
+                    color=professional_curve_color(index),
+                    width=1.25,
                 )
+            screen_color = muted_screen_curve_color(style.color)
             item.setPen(
                 pg.mkPen(
-                    style.color,
-                    width=style.width,
+                    screen_color,
+                    width=screen_curve_width(
+                        style.width, len(definition.curve_mnemonics)
+                    ),
                     style={
                         CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
                         CurveLineStyle.DASH: Qt.PenStyle.DashLine,
@@ -7173,8 +7218,8 @@ class TabletView(QWidget):
             )
             fill = (rendered.relative_fill_items or {}).get(mnemonic)
             if fill is not None:
-                color = pg.mkColor(style.color)
-                color.setAlpha(135)
+                color = pg.mkColor(screen_color)
+                color.setAlpha(105)
                 fill.setBrush(pg.mkBrush(color))
             if self._dataset is None:
                 continue
@@ -7507,12 +7552,15 @@ class TabletView(QWidget):
             resolved_style = definition.curve_style(mnemonic)
             if resolved_style is None:
                 resolved_style = CurveStyle(
-                    color=pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))).name(),
-                    width=1.5,
+                    color=professional_curve_color(index),
+                    width=1.25,
                 )
+            screen_color = muted_screen_curve_color(resolved_style.color)
             pen = pg.mkPen(
-                resolved_style.color,
-                width=resolved_style.width,
+                screen_color,
+                width=screen_curve_width(
+                    resolved_style.width, len(definition.curve_mnemonics)
+                ),
                 style={
                     CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
                     CurveLineStyle.DASH: Qt.PenStyle.DashLine,
@@ -7644,8 +7692,8 @@ class TabletView(QWidget):
             if not np.any(np.isfinite(values)):
                 continue
             style = definition.curve_style(mnemonic) or CurveStyle(
-                color=pg.intColor(index, hues=max(1, len(definition.curve_mnemonics))).name(),
-                width=1.25,
+                color=professional_curve_color(index),
+                width=1.10,
             )
             available[mnemonic] = values
             styles[mnemonic] = style
@@ -7705,16 +7753,20 @@ class TabletView(QWidget):
         for mnemonic in available:
             band = band_by_name[mnemonic]
             style = styles[mnemonic]
+            screen_color = muted_screen_curve_color(style.color)
             upper_curve = pg.PlotDataItem(
                 band.upper,
                 stack.depth,
-                pen=pg.mkPen(style.color, width=style.width),
+                pen=pg.mkPen(
+                    screen_color,
+                    width=screen_curve_width(style.width, len(available)),
+                ),
                 connect="finite",
             )
             upper_curve.setZValue(2)
             track.plot.addItem(upper_curve)
-            color = pg.mkColor(style.color)
-            color.setAlpha(135)
+            color = pg.mkColor(screen_color)
+            color.setAlpha(92)
             fill = pg.FillBetweenItem(lower_curve, upper_curve, brush=pg.mkBrush(color), pen=None)
             fill.setZValue(-10)
             curve = self._dataset.curve_by_mnemonic(mnemonic)

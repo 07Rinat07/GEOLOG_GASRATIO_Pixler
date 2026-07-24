@@ -23,6 +23,7 @@ from geoworkbench.domain.models import (
     StratigraphyInterval,
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
+from geoworkbench.tablet.header_geometry import curve_header_viewport_height
 from geoworkbench.tablet.models import (
     CurveDisplaySettings,
     CurveLineStyle,
@@ -1753,8 +1754,10 @@ def test_many_curve_headers_remain_named_and_generic_title_is_readable(qapp) -> 
     assert rendered.widget.title.text() == "Параметры (9)"
     assert len(rendered.widget._curve_header_labels) == 9
     assert all(label.text().strip() for label in rendered.widget._curve_header_labels.values())
-    assert rendered.widget.curve_header_scroll.maximumHeight() == min(
-        360, len(mnemonics) * CURVE_HEADER_EDITOR_HEIGHT
+    assert rendered.widget.curve_header_scroll.maximumHeight() == (
+        curve_header_viewport_height(
+            len(mnemonics), row_height=CURVE_HEADER_EDITOR_HEIGHT
+        )
     )
     view.close()
 

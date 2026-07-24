@@ -20,14 +20,14 @@ from geoworkbench.tablet.models import CurveStyle, TrackKind, XScale
 _DYNAMIC_FACTORY_IDS = {"factory-depth-basic", "factory-time-basic"}
 _CATEGORY_ORDER = ("drilling", "mud", "gas", "petrophysics", "dexp", "other")
 _FALLBACK_COLORS = (
-    "#2563eb",
-    "#dc2626",
-    "#16a34a",
-    "#9333ea",
-    "#ea580c",
-    "#0891b2",
-    "#ca8a04",
+    "#1d4ed8",
+    "#b91c1c",
+    "#047857",
+    "#7c3aed",
+    "#b45309",
+    "#0e7490",
     "#475569",
+    "#be185d",
 )
 
 _CATEGORY_TITLES: dict[str, dict[str, str]] = {
@@ -217,7 +217,7 @@ def _binding_from_curve(
         display_name=display_name,
         source_mnemonic=metadata.original_mnemonic,
         unit=metadata.unit or (match.definition.unit if match is not None else ""),
-        style=CurveStyle(color=color, width=1.5),
+        style=CurveStyle(color=color, width=1.25),
         x_scale=scale,
         x_min=minimum,
         x_max=maximum,

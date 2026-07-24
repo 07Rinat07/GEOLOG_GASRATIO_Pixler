@@ -1849,5 +1849,6 @@
   "forms.width_landscape": "A4 кітаптық: {percent}% → альбомдық",
   "forms.width_fit": "A4 альбомдық: {percent}% → Fit",
   "forms.width_split": "Кең пішін: ≈ {pages} A4 бет",
-  "forms.width_tooltip": "Көрінетін бағандар: {columns}\nПішін ені: {width} px ≈ {width_mm} мм\nКітаптық A4: {portrait}%\nАльбомдық A4: {landscape}%\nЖасыл — сыяды; сары — альбомдық бағыт жақсы; қызғылт — Fit қажет; қызыл — пішінді бөлу немесе A3/орам қолдану."
+  "forms.width_tooltip": "Көрінетін бағандар: {columns}\nПішін ені: {width} px ≈ {width_mm} мм\nКітаптық A4: {portrait}%\nАльбомдық A4: {landscape}%\nЖасыл — сыяды; сары — альбомдық бағыт жақсы; қызғылт — Fit қажет; қызыл — пішінді бөлу немесе A3/орам қолдану.",
+  "tablet.curve_header_scroll_hint": "Тақырыпты айналдырыңыз: төменде тағы {hidden} параметр бар. Соңғы жол толық көрсетіледі."
 }

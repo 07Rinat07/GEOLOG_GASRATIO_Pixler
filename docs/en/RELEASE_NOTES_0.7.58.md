@@ -1,9 +1,11 @@
-# GEOLOG GASRATIO@Pixler 0.7.58 — full project and floating statistics
+# GEOLOG GASRATIO@Pixler 0.7.58
 
-- The change is implemented directly in the complete project archive rather than a patch-only delivery.
-- Interval statistics no longer uses a side dock that reduces tablet width.
-- The floating overlay may cover the right side of plots but is always clamped to the active monitor.
-- It follows main-window move and resize events.
-- Closing the panel, switching form, or switching dataset clears stale selection, shading, and report.
-- Added headless geometry tests and integration source-contract tests.
-- Package **0.7.58**; project format **v20**; form schema **v6**; tablet layout **v16**.
+## Fixed
+
+- Dense headers no longer end with a partially visible final parameter: the viewport contains complete 58 px rows only.
+- Added bottom safety clearance and row-based scrolling for columns with more than six parameters.
+- Added a restrained screen curve profile without changing persisted colours or print output.
+- Softened minor grids and hide them when pixel spacing is unreadable.
+- Removed obsolete duplicate UI import controllers.
+
+Project format v20, form schema v6, tablet layout v16. No migration is required.

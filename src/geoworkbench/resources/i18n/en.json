@@ -1849,5 +1849,6 @@
   "forms.width_landscape": "Portrait A4: {percent}% → landscape",
   "forms.width_fit": "Landscape A4: {percent}% → Fit",
   "forms.width_split": "Wide form: ≈ {pages} A4 pages",
-  "forms.width_tooltip": "Visible columns: {columns}\nForm width: {width} px ≈ {width_mm} mm\nPortrait A4: {portrait}%\nLandscape A4: {landscape}%\nGreen — fits; yellow — prefer landscape; orange — Fit required; red — split the form or use A3/roll media."
+  "forms.width_tooltip": "Visible columns: {columns}\nForm width: {width} px ≈ {width_mm} mm\nPortrait A4: {portrait}%\nLandscape A4: {landscape}%\nGreen — fits; yellow — prefer landscape; orange — Fit required; red — split the form or use A3/roll media.",
+  "tablet.curve_header_scroll_hint": "Scroll the header: {hidden} more parameters are below. The final row is always shown in full."
 }

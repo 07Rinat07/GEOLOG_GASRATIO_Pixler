@@ -21,8 +21,8 @@
 - [TESTING.md](TESTING.md) — the only active release-quality gate.
 - [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md) — synchronization rules.
 - [CHANGELOG.md](CHANGELOG.md) — concise implementation history.
-- [RELEASE_NOTES_0.7.58.md](RELEASE_NOTES_0.7.58.md) — full-project floating interval overlay and stale-selection reset.
 - [RELEASE_NOTES_0.7.56.md](RELEASE_NOTES_0.7.56.md) — A4 form-width guidance and adaptive interval statistics.
+- [RELEASE_NOTES_0.7.57.md](RELEASE_NOTES_0.7.57.md) — interval statistics overlay and form-switch selection reset.
 - [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md) — channel semantics, UOM classes, and persisted bindings.
 - [IMPORT_REVIEW.md](IMPORT_REVIEW.md) — interactive mapping, QC preview, and atomic import acceptance.
 - [OPERATIONAL_EVENTS.md](OPERATIONAL_EVENTS.md) — typed drilling/geology events, QC, storage, and report projection.

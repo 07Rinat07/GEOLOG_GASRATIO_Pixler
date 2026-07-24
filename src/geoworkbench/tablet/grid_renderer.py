@@ -14,6 +14,7 @@ from geoworkbench.tablet.grid_geometry import (
     normalized_grid_lines,
 )
 from geoworkbench.tablet.models import TrackDefinition
+from geoworkbench.tablet.screen_style import minor_grid_is_readable, screen_grid_alpha
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -147,9 +148,8 @@ class TabletGridOverlay:
 
     def _pen(self, major: bool):
         color = pg.mkColor("#64748b" if major else "#94a3b8")
-        alpha = self.settings.alpha if major else self.settings.alpha * 0.45
-        color.setAlphaF(max(0.0, min(1.0, float(alpha))))
-        return pg.mkPen(color, width=0.9 if major else 0.55)
+        color.setAlphaF(screen_grid_alpha(self.settings.alpha, major=major))
+        return pg.mkPen(color, width=0.75 if major else 0.35)
 
     def _range_changed(self, *_args: object) -> None:
         self._refresh()
@@ -164,15 +164,26 @@ class TabletGridOverlay:
             self.settings.major_divisions,
             self.settings.minor_divisions,
         )
+        viewport = self.plot.viewport()
+        show_minor_x = minor_grid_is_readable(
+            viewport.width(),
+            self.settings.major_divisions,
+            self.settings.minor_divisions,
+        )
+        show_minor_y = minor_grid_is_readable(
+            viewport.height(),
+            self.settings.major_divisions,
+            self.settings.minor_divisions,
+        )
         for index, grid_line in enumerate(divisions):
             if index < len(self._vertical):
-                line, _major = self._vertical[index]
+                line, major = self._vertical[index]
                 line.setPos(x_min + (x_max - x_min) * grid_line.fraction)
-                line.setVisible(self.settings.show_x)
+                line.setVisible(self.settings.show_x and (major or show_minor_x))
             if index < len(self._horizontal):
-                line, _major = self._horizontal[index]
+                line, major = self._horizontal[index]
                 line.setPos(y_min + (y_max - y_min) * grid_line.fraction)
-                line.setVisible(self.settings.show_y)
+                line.setVisible(self.settings.show_y and (major or show_minor_y))
 
 
 class TabletGridRenderer:
