@@ -214,6 +214,7 @@ from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
 from geoworkbench.ui.dataset_merge_dialog import DatasetMergeDialog
 from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.ui.interval_statistics_panel import IntervalStatisticsPanel
+from geoworkbench.ui.interval_statistics_overlay import IntervalStatisticsOverlay
 from geoworkbench.ui.interpretation_report_dialog import InterpretationReportDialog
 from geoworkbench.ui.interpretation_intervals_dialog import InterpretationIntervalsDialog
 from geoworkbench.ui.interpretation_properties import InterpretationPropertiesPanel
@@ -626,7 +627,10 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
-        if hasattr(self, "interval_statistics_dock") and self.interval_statistics_dock.isVisible():
+        if (
+            hasattr(self, "interval_statistics_dock")
+            and self.interval_statistics_dock.isVisible()
+        ):
             QTimer.singleShot(0, self._adapt_interval_statistics_dock)
 
     def _apply_adaptive_initial_geometry(self) -> None:
@@ -770,10 +774,6 @@ class MainWindow(QMainWindow):
         self.interpretation_properties_dock.hide()
 
     def _create_interval_statistics_panel(self) -> None:
-        self.interval_statistics_dock = QDockWidget(
-            self._t("statistics.panel_title"), self
-        )
-        self.interval_statistics_dock.setObjectName("intervalStatisticsDock")
         self.interval_statistics_panel = IntervalStatisticsPanel(language=self.language)
         self.interval_statistics_panel.export_requested.connect(
             self._export_interval_statistics
@@ -781,76 +781,40 @@ class MainWindow(QMainWindow):
         self.interval_statistics_panel.clear_requested.connect(
             self._clear_interval_analysis
         )
-        self.interval_statistics_dock.setWidget(self.interval_statistics_panel)
-        self.interval_statistics_dock.setAllowedAreas(
-            Qt.DockWidgetArea.RightDockWidgetArea | Qt.DockWidgetArea.BottomDockWidgetArea
+        # Keep statistics inside the tab workspace.  A child overlay may cover
+        # the right edge of a wide form, but it cannot enlarge the QMainWindow,
+        # cross a monitor boundary, or snap back after the user drags it.
+        self.interval_statistics_dock = IntervalStatisticsOverlay(
+            self._t("statistics.panel_title"),
+            self.interval_statistics_panel,
+            self.tablet_view,
         )
-        self.interval_statistics_dock.setMinimumWidth(280)
-        self.interval_statistics_dock.setMaximumWidth(430)
-        self.interval_statistics_dock.setFeatures(
-            QDockWidget.DockWidgetFeature.DockWidgetClosable
-            | QDockWidget.DockWidgetFeature.DockWidgetMovable
+        self.interval_statistics_dock.closeRequested.connect(
+            self._clear_interval_analysis
         )
-        self._interval_statistics_adapting = False
-        self.addDockWidget(
-            Qt.DockWidgetArea.RightDockWidgetArea, self.interval_statistics_dock
+        self.interval_statistics_dock.movedByUser.connect(
+            lambda: log_event(
+                "statistics.overlay.moved",
+                x=self.interval_statistics_dock.x(),
+                y=self.interval_statistics_dock.y(),
+                width=self.interval_statistics_dock.width(),
+                height=self.interval_statistics_dock.height(),
+            )
         )
-        self.interval_statistics_dock.dockLocationChanged.connect(
-            self._interval_statistics_dock_location_changed
-        )
+        self.interval_statistics_dock.setMinimumSize(260, 220)
+        self.interval_statistics_dock.setMaximumSize(430, 16777215)
         self.interval_statistics_dock.hide()
 
-    def _interval_statistics_dock_location_changed(
-        self, area: Qt.DockWidgetArea
-    ) -> None:
-        if getattr(self, "_interval_statistics_adapting", False):
-            return
-        mode = "bottom" if area == Qt.DockWidgetArea.BottomDockWidgetArea else "side"
-        self.interval_statistics_panel.set_dock_mode(mode)
-
     def _adapt_interval_statistics_dock(self, *, force: bool = False) -> None:
-        """Keep interval statistics as an in-window floating overlay.
+        """Clamp the in-window statistics overlay without overriding a drag."""
 
-        A docked panel steals width from wide tablet forms and can push its own
-        controls outside the monitor.  A constrained floating QDockWidget may
-        overlap the right edge of the tablet, but it never changes the form
-        geometry and is always clamped to the active screen work area.
-        """
-
-        dock = getattr(self, "interval_statistics_dock", None)
-        panel = getattr(self, "interval_statistics_panel", None)
-        if dock is None or panel is None:
+        overlay = getattr(self, "interval_statistics_dock", None)
+        if overlay is None:
             return
-        if not force and not dock.isVisible():
+        if not force and not overlay.isVisible():
             return
-        if getattr(self, "_interval_statistics_adapting", False):
-            return
-        self._interval_statistics_adapting = True
-        try:
-            panel.set_dock_mode("side")
-            dock.setMinimumWidth(300)
-            dock.setMaximumWidth(430)
-            dock.setMinimumHeight(280)
-            dock.setMaximumHeight(16777215)
-            if not dock.isFloating():
-                dock.setFloating(True)
-
-            width = max(320, min(390, self.width() // 4))
-            height = max(320, min(720, self.height() - 150))
-            dock.resize(width, height)
-
-            main_rect = self.frameGeometry()
-            target_x = main_rect.right() - width - 14
-            target_y = main_rect.top() + 92
-            screen = self.screen() or QApplication.screenAt(main_rect.center())
-            if screen is not None:
-                available = screen.availableGeometry()
-                target_x = max(available.left() + 8, min(target_x, available.right() - width - 8))
-                target_y = max(available.top() + 8, min(target_y, available.bottom() - height - 8))
-            dock.move(target_x, target_y)
-            dock.raise_()
-        finally:
-            self._interval_statistics_adapting = False
+        overlay.constrain_to_parent(anchor_right=False)
+        overlay.raise_()
 
     def _create_issues_panel(self) -> None:
         self.issues_dock = QDockWidget(self._t("dock.log"), self)
@@ -874,7 +838,6 @@ class MainWindow(QMainWindow):
         self.tabifyDockWidget(self.project_dock, self.curve_browser_dock)
         self.tabifyDockWidget(self.inspector_dock, self.interpretation_properties_dock)
         self.tabifyDockWidget(self.inspector_dock, self.cursor_dock)
-        self.tabifyDockWidget(self.inspector_dock, self.interval_statistics_dock)
 
         self.left_panel_rail = QToolBar(self._t("panel.left_rail"), self)
         self.left_panel_rail.setObjectName("leftPanelRail")
@@ -1002,7 +965,7 @@ class MainWindow(QMainWindow):
 
     def _panel_toggle_action(
         self,
-        dock: QDockWidget,
+        dock: QDockWidget | IntervalStatisticsOverlay,
         text_key: str,
         tooltip_key: str,
         icon: QStyle.StandardPixmap,
@@ -1020,7 +983,9 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _enforce_single_side_panel(
-        visible: bool, active: QDockWidget, siblings: tuple[QDockWidget, ...]
+        visible: bool,
+        active: QDockWidget | IntervalStatisticsOverlay,
+        siblings: tuple[QDockWidget | IntervalStatisticsOverlay, ...],
     ) -> None:
         if not visible or active.isFloating():
             return
@@ -2580,6 +2545,8 @@ class MainWindow(QMainWindow):
     def _show_current_dataset(self) -> None:
         if hasattr(self, "pencil_action"):
             self.pencil_action.setChecked(False)
+        if hasattr(self, "interval_statistics_panel"):
+            self._clear_interval_analysis()
         dataset = self.session.current_dataset
         self._update_external_las_insert_actions()
         if dataset is None:
@@ -5326,9 +5293,7 @@ class MainWindow(QMainWindow):
             statistics=statistics,
             display_names=display_names,
         )
-        self._adapt_interval_statistics_dock(force=True)
-        self.interval_statistics_dock.show()
-        self.interval_statistics_dock.raise_()
+        self.interval_statistics_dock.show_preserving_position()
 
     def _export_interval_statistics(self, export_format: str) -> None:
         statistics = self.interval_statistics_panel.statistics

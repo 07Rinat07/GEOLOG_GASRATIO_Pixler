@@ -1,3 +1,14 @@
+# 0.7.60 — constrained in-tablet interval statistics overlay
+
+- Replaced the native floating statistics dock with a movable child overlay inside TabletView.
+- Prevented the panel from resizing the form or crossing the tablet workspace boundary.
+- Preserved user position across window resize instead of snapping the panel back to the right.
+- Routed close, dataset switch, and form switch through complete interval-analysis cleanup.
+- Added adaptive 2×2 action buttons for narrow panel widths.
+- Added pure geometry, source-contract, Qt lifecycle, and root-README scope regression tests.
+- Removed hotfix details and test results from the root README; technical history remains under docs.
+- Kept project format v20, form schema v6 and tablet layout v16 unchanged.
+
 # 0.7.59 — localized dense-header form switching hotfix (test build)
 
 - Initialized a localizer on every `TabletTrackWidget`, including direct/plugin construction.

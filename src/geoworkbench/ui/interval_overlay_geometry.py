@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
-class OverlayRect:
-    """Toolkit-independent rectangle used for floating statistics geometry."""
+class OverlayGeometry:
+    """Integer geometry for an overlay constrained to its parent widget."""
 
     x: int
     y: int
@@ -21,50 +21,64 @@ class OverlayRect:
         return self.y + self.height
 
 
-def calculate_interval_statistics_overlay_geometry(
+def constrain_overlay_geometry(
     *,
-    main_window: OverlayRect,
-    available_screen: OverlayRect,
-    preferred_width: int = 380,
-    preferred_height: int = 680,
-    minimum_width: int = 320,
-    minimum_height: int = 300,
-    screen_margin: int = 10,
-    main_top_offset: int = 94,
-    main_right_inset: int = 16,
-) -> OverlayRect:
-    """Return a screen-safe overlay rectangle anchored over the tablet's right edge.
+    parent_width: int,
+    parent_height: int,
+    requested_x: int,
+    requested_y: int,
+    requested_width: int,
+    requested_height: int,
+    margin: int = 8,
+    minimum_width: int = 260,
+    minimum_height: int = 220,
+) -> OverlayGeometry:
+    """Clamp an overlay fully inside its parent rectangle.
 
-    The function deliberately does not depend on Qt, which makes the placement
-    contract testable in a headless environment.  The overlay may cover the
-    tablet, but it never increases the main-window minimum width and never
-    leaves the active monitor work area.
+    The function deliberately works with plain integers so the geometry policy
+    can be exhaustively tested without Qt or a display server.
     """
 
-    screen_width = max(1, available_screen.width)
-    screen_height = max(1, available_screen.height)
-    margin = max(
-        0,
-        min(
-            int(screen_margin),
-            max(0, (screen_width - 1) // 2),
-            max(0, (screen_height - 1) // 2),
-        ),
+    parent_width = max(1, int(parent_width))
+    parent_height = max(1, int(parent_height))
+    margin = max(0, int(margin))
+
+    available_width = max(1, parent_width - margin * 2)
+    available_height = max(1, parent_height - margin * 2)
+
+    lower_width = min(max(1, int(minimum_width)), available_width)
+    lower_height = min(max(1, int(minimum_height)), available_height)
+    width = min(available_width, max(lower_width, int(requested_width)))
+    height = min(available_height, max(lower_height, int(requested_height)))
+
+    maximum_x = max(margin, parent_width - margin - width)
+    maximum_y = max(margin, parent_height - margin - height)
+    x = min(max(margin, int(requested_x)), maximum_x)
+    y = min(max(margin, int(requested_y)), maximum_y)
+    return OverlayGeometry(x=x, y=y, width=width, height=height)
+
+
+def right_anchored_overlay_geometry(
+    *,
+    parent_width: int,
+    parent_height: int,
+    preferred_width: int = 370,
+    preferred_height: int = 720,
+    margin: int = 8,
+    top_offset: int = 8,
+    minimum_width: int = 260,
+    minimum_height: int = 220,
+) -> OverlayGeometry:
+    """Return a screen-independent right-anchored child-overlay geometry."""
+
+    return constrain_overlay_geometry(
+        parent_width=parent_width,
+        parent_height=parent_height,
+        requested_x=int(parent_width) - int(margin) - int(preferred_width),
+        requested_y=max(int(margin), int(top_offset)),
+        requested_width=preferred_width,
+        requested_height=preferred_height,
+        margin=margin,
+        minimum_width=minimum_width,
+        minimum_height=minimum_height,
     )
-    safe_x = available_screen.x + margin
-    safe_y = available_screen.y + margin
-    safe_width = max(1, screen_width - margin * 2)
-    safe_height = max(1, screen_height - margin * 2)
-
-    requested_width = max(int(minimum_width), int(preferred_width))
-    requested_height = max(int(minimum_height), int(preferred_height))
-    width = min(requested_width, safe_width)
-    height = min(requested_height, safe_height)
-
-    target_x = main_window.x + main_window.width - width - int(main_right_inset)
-    target_y = main_window.y + int(main_top_offset)
-    max_x = safe_x + safe_width - width
-    max_y = safe_y + safe_height - height
-    x = min(max(target_x, safe_x), max_x)
-    y = min(max(target_y, safe_y), max_y)
-    return OverlayRect(x=x, y=y, width=width, height=height)

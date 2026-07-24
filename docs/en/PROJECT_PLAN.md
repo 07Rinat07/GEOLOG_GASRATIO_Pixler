@@ -1,18 +1,21 @@
 # Project plan
 
-Current on 24 July 2026. Hotfix **0.7.59** keeps project format v20, form schema v6, and tablet layout v16.
+Current on 24 July 2026. Version **0.7.60** keeps project format v20, form schema v6, and tablet layout v16.
 
-## P0 — hotfix 0.7.59: safe switching of dense localized forms
+## P0 — 0.7.60: screen-safe interval statistics and README discipline
 
-- [x] initialize a localizer in every `TabletTrackWidget`;
-- [x] pass the active `TabletView` localizer to every new rendered track;
-- [x] keep a safe fallback for direct test/plugin widget construction;
-- [x] cover the track-creation boundary with a source-contract test;
-- [x] add a Qt regression test for a seven-parameter form and overflow tooltip;
-- [x] synchronize status, changelog, testing, and RU/KK/EN release notes;
-- [ ] Windows/PySide6: repeatedly switch dense forms under RU/KK/EN and verify rollback.
+- [x] replace the floating `QDockWidget` with a child overlay inside the tablet;
+- [x] prevent the panel from consuming form width;
+- [x] constrain size and position to the workspace;
+- [x] preserve user position during resize without snapping right;
+- [x] clear selection, shading, and report on close, form switch, and dataset switch;
+- [x] compact panel buttons for narrow widths;
+- [x] add pure geometry, source-contract, and Qt regression tests;
+- [x] remove release notes and technical results from the root README;
+- [x] add an automated README scope test;
+- [ ] Windows/PySide6: verify drag/resize/close/form-switch at 100%, 125%, and 150% DPI.
 
-Exit criterion: a form with an internally scrollable header applies without `AttributeError`, while any unrelated failure preserves the previous working form.
+Exit criterion: the panel remains inside the tablet, does not shrink the form, does not snap right after manual movement, and is fully cleared on form switch.
 
 ## Next stages
 

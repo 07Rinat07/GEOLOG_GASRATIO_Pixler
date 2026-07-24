@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QAbstractItemView,
-    QHBoxLayout,
+    QGridLayout,
     QLabel,
     QPushButton,
     QHeaderView,
@@ -77,13 +77,28 @@ class IntervalStatisticsPanel(QWidget):
         self.csv_button.clicked.connect(lambda: self.export_requested.emit("csv"))
         self.clear_button = QPushButton()
         self.clear_button.clicked.connect(self.clear_requested.emit)
+        for button in (
+            self.copy_button,
+            self.xlsx_button,
+            self.csv_button,
+            self.clear_button,
+        ):
+            button.setMinimumWidth(0)
+            button.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+            )
+            button.setStyleSheet("font-size:8px; padding:2px 4px;")
 
-        buttons = QHBoxLayout()
-        buttons.addWidget(self.copy_button)
-        buttons.addWidget(self.xlsx_button)
-        buttons.addWidget(self.csv_button)
-        buttons.addStretch(1)
-        buttons.addWidget(self.clear_button)
+        buttons = QGridLayout()
+        buttons.setContentsMargins(0, 0, 0, 0)
+        buttons.setHorizontalSpacing(4)
+        buttons.setVerticalSpacing(3)
+        buttons.addWidget(self.copy_button, 0, 0)
+        buttons.addWidget(self.xlsx_button, 0, 1)
+        buttons.addWidget(self.csv_button, 1, 0)
+        buttons.addWidget(self.clear_button, 1, 1)
+        buttons.setColumnStretch(0, 1)
+        buttons.setColumnStretch(1, 1)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)

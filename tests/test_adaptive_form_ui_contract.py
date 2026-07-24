@@ -26,13 +26,13 @@ def test_form_library_reports_portrait_and_landscape_fit() -> None:
     assert "FormWidthLevel.NEEDS_FIT" in source
 
 
-def test_interval_statistics_uses_screen_clamped_overlay_without_stealing_form_width() -> None:
+def test_interval_statistics_uses_parent_clamped_overlay_without_stealing_form_width() -> None:
     source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
     assert "def _adapt_interval_statistics_dock" in source
-    assert "dock.setFloating(True)" in source
-    assert "screen.availableGeometry()" in source
-    assert "target_x = main_rect.right() - width - 14" in source
-    assert 'panel.set_dock_mode("side")' in source
+    assert "IntervalStatisticsOverlay(" in source
+    assert "self.tablet_view," in source
+    assert "overlay.constrain_to_parent(anchor_right=False)" in source
+    assert "setFloating(True)" not in source
 
 
 def test_runtime_diagnostics_include_a4_width_state() -> None:

@@ -1,18 +1,21 @@
 # Жоба жоспары
 
-2026 жылғы 24 шілдеге өзекті. **0.7.59** hotfix project format v20, form schema v6 және tablet layout v16 сақтайды.
+2026 жылғы 24 шілдеге өзекті. **0.7.60** нұсқасы project format v20, form schema v6 және tablet layout v16 сақтайды.
 
-## P0 — hotfix 0.7.59: тығыз localized пішіндерді қауіпсіз ауыстыру
+## P0 — 0.7.60: экран шегіндегі интервал статистикасы және README тәртібі
 
-- [x] әр `TabletTrackWidget` ішінде localizer инициализациялау;
-- [x] `TabletView` белсенді localizer-ін барлық жаңа track-ке беру;
-- [x] test/plugin арқылы тікелей жасалған widget үшін fallback сақтау;
-- [x] track creation boundary үшін source-contract тест қосу;
-- [x] жеті параметрлі форма және overflow tooltip үшін Qt regression тест қосу;
-- [x] status, changelog, testing және RU/KK/EN release notes синхрондау;
-- [ ] Windows/PySide6: RU/KK/EN тілдерінде тығыз пішіндерді бірнеше рет ауыстырып, rollback тексеру.
+- [x] floating `QDockWidget` орнына планшет ішіндегі child overlay қолдану;
+- [x] панельдің пішін еніне әсерін жою;
+- [x] өлшемі мен орнын жұмыс аймағымен шектеу;
+- [x] resize кезінде пайдаланушы орнын сақтап, оң жаққа қайтармау;
+- [x] жабу, форма және dataset ауысу кезінде selection, shading және есепті тазалау;
+- [x] тар панель үшін батырмаларды ықшамдау;
+- [x] pure geometry, source-contract және Qt regression-тесттерін қосу;
+- [x] түбірлік README-ден release notes пен техникалық нәтижелерді алып тастау;
+- [x] README scope-test қосу;
+- [ ] Windows/PySide6: DPI 100%, 125%, 150% кезінде drag/resize/close/form-switch тексеру.
 
-Шығу шарты: ішкі scroll бар тақырыпты пішін `AttributeError`-сыз қолданылады, ал басқа қате кезінде алдыңғы жұмыс істейтін пішін сақталады.
+Шығу шарты: панель планшет ішінде қалады, пішінді қыспайды, қолмен жылжытқаннан кейін оңға қайтпайды және форма ауысқанда толық тазаланады.
 
 ## Келесі кезеңдер
 
