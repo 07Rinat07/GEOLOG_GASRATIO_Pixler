@@ -234,6 +234,8 @@ class DepthAnnotationController:
         locked: bool = False,
         print_enabled: bool = True,
         scope_id: str | None = None,
+        symbol_id: str | None = None,
+        transparent_background: bool = True,
     ) -> AnnotationRecord:
         normalized = self._normalize_annotation(
             kind=kind,
@@ -257,6 +259,8 @@ class DepthAnnotationController:
             locked=locked,
             print_enabled=print_enabled,
             scope_id=scope_id or self.current_scope_id(),
+            symbol_id=symbol_id,
+            transparent_background=transparent_background,
         )
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
@@ -294,6 +298,8 @@ class DepthAnnotationController:
             "locked": current.locked,
             "print_enabled": current.print_enabled,
             "scope_id": current.scope_id,
+            "symbol_id": current.symbol_id,
+            "transparent_background": current.transparent_background,
         }
         values.update(changes)
         if (
@@ -371,6 +377,8 @@ class DepthAnnotationController:
             locked=False,
             print_enabled=current.print_enabled,
             scope_id=current.scope_id,
+            symbol_id=current.symbol_id,
+            transparent_background=current.transparent_background,
         )
 
     def add_curve_value(
@@ -531,6 +539,8 @@ class DepthAnnotationController:
                         unit = sampled_unit
 
         asset_ref = self._optional_text(values.get("asset_ref"), 200)
+        symbol_id = self._optional_text(values.get("symbol_id"), 200)
+        transparent_background = bool(values.get("transparent_background", True))
         if kind in {AnnotationKind.IMAGE, AnnotationKind.SYMBOL}:
             if not asset_ref:
                 raise ValueError("Для изображения или обозначения необходимо выбрать файл")
@@ -571,6 +581,8 @@ class DepthAnnotationController:
                 self._optional_text(values.get("scope_id"), 300)
                 or self.current_scope_id()
             ),
+            symbol_id=symbol_id if kind is AnnotationKind.SYMBOL else None,
+            transparent_background=transparent_background,
         )
 
     @staticmethod
@@ -613,6 +625,8 @@ class DepthAnnotationController:
                 locked=record.locked,
                 print_enabled=record.print_enabled,
                 scope_id=record.scope_id,
+                symbol_id=record.symbol_id,
+                transparent_background=record.transparent_background,
             ),
         )
 

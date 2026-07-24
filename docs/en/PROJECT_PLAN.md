@@ -1,21 +1,23 @@
 # Project plan
 
-Current on 24 July 2026. Version **0.7.60** keeps project format v20, form schema v6, and tablet layout v16.
+Current on 24 July 2026. Version **0.7.61** keeps project format v20, form schema v6, and tablet layout v16.
 
-## P0 — 0.7.60: screen-safe interval statistics and README discipline
+## P0 — 0.7.61: insert catalog symbols on graphs
 
-- [x] replace the floating `QDockWidget` with a child overlay inside the tablet;
-- [x] prevent the panel from consuming form width;
-- [x] constrain size and position to the workspace;
-- [x] preserve user position during resize without snapping right;
-- [x] clear selection, shading, and report on close, form switch, and dataset switch;
-- [x] compact panel buttons for narrow widths;
-- [x] add pure geometry, source-contract, and Qt regression tests;
-- [x] remove release notes and technical results from the root README;
-- [x] add an automated README scope test;
-- [ ] Windows/PySide6: verify drag/resize/close/form-switch at 100%, 125%, and 150% DPI.
+- [x] add a dedicated Insert symbol command to the F4 toolbar and graph context menu;
+- [x] open the built-in catalog with thumbnails, localized names, categories, and search;
+- [x] offer cropped transparent and original background-preserving variants;
+- [x] select a track, curve parameter, or depth-only anchor;
+- [x] set exact depth and initial size before insertion;
+- [x] persist the catalog ID and background mode in the annotation model;
+- [x] copy the image into project-owned storage without an external path;
+- [x] reuse left-button movement, eight resize handles, and Undo/Redo;
+- [x] synchronize RU/KK/EN documentation and instructions;
+- [x] add regression tests for the model, catalog, integration, and localization;
+- [ ] Windows/PySide6: verify insertion, drag/resize, reopen, PDF, and printing at 100%, 125%, and 150% DPI.
 
-Exit criterion: the panel remains inside the tablet, does not shrink the form, does not snap right after manual movement, and is fully cleared on form switch.
+Exit criterion: a symbol can be selected from the catalog, anchored to the required depth/parameter,
+persisted in the project, and adjusted precisely with the mouse without damaging the form or graphs.
 
 ## Next stages
 

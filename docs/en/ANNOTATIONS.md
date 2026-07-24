@@ -1,4 +1,19 @@
-# Professional annotation layer — 0.7.27
+# Professional annotation layer — 0.7.61
+
+## Insert a symbol from the catalog — 0.7.61
+
+1. Open the tablet and enable form edit mode with **F4**.
+2. Select **Insert symbol** on the compact toolbar or use the same command in the graph context menu.
+3. Find a symbol by name, category, or alias and select its catalog row.
+4. Keep **Crop background around symbol** enabled for the transparent cutout, or clear it to use the original background-preserving image.
+5. Select the track, optional curve parameter, exact depth, and initial width/height.
+6. Press **Insert**. The symbol appears on the graph and is selected automatically.
+7. Drag it precisely with the left mouse button. Resize it with the eight corner and side handles.
+
+With a parameter selected, the object is curve-anchored at the specified depth; without a parameter,
+it remains depth-anchored inside the selected track. The image is copied into project-owned storage,
+so the external BMP/PNG file is not required after saving. The symbol ID and background mode persist
+with the annotation. Screen, PDF, and printer output use the same object.
 
 ## Deletion and current-form scope — 0.7.27
 

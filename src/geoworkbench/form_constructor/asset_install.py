@@ -6,9 +6,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast
 
-from PySide6.QtCore import QBuffer, QIODevice
-from PySide6.QtGui import QImage
-
 from geoworkbench.domain.models import ProjectLithotype
 from geoworkbench.form_constructor.asset_registry import AssetDefinition, ConstructorAssetRegistry
 from geoworkbench.printing.image_assets import ImageAsset, PNG_MEDIA_TYPE
@@ -52,10 +49,80 @@ def factory_asset_to_png(asset: AssetDefinition) -> ImageAsset:
     )
 
 
+def factory_symbol_variant_path(
+    asset: AssetDefinition,
+    *,
+    transparent_background: bool = True,
+) -> Path:
+    """Resolve the transparent cutout or the preserved-background factory symbol."""
+
+    if asset.kind != "depth_symbol":
+        raise ValueError(f"Ресурс не является глубинным обозначением: {asset.asset_id}")
+    if transparent_background:
+        return asset.asset_path
+    original = asset.asset_path.parent.parent / "originals" / f"{asset.asset_id}.bmp"
+    if not original.is_file():
+        raise FileNotFoundError(f"Исходный значок не найден: {original}")
+    return original
+
+
+def factory_symbol_to_png(
+    asset: AssetDefinition,
+    *,
+    transparent_background: bool = True,
+    language: str = "ru",
+) -> ImageAsset:
+    """Convert one catalog symbol variant into a project-owned PNG asset."""
+
+    source = factory_symbol_variant_path(
+        asset, transparent_background=transparent_background
+    )
+    payload = _png_payload(str(source))
+    digest = sha256(payload).hexdigest()
+    suffix = "transparent" if transparent_background else "original"
+    return ImageAsset(
+        asset_id=f"sha256:{digest}",
+        original_name=f"{asset.display_name(language)}-{suffix}.png",
+        media_type=PNG_MEDIA_TYPE,
+        payload=payload,
+    )
+
+
+def install_symbol_into_project(
+    session: ProjectSession,
+    asset: AssetDefinition,
+    *,
+    transparent_background: bool = True,
+    language: str = "ru",
+) -> ImageAsset:
+    """Install the selected catalog-symbol variant once and return its image asset."""
+
+    image_asset = factory_symbol_to_png(
+        asset,
+        transparent_background=transparent_background,
+        language=language,
+    )
+    existing = session.image_assets.get(image_asset.asset_id)
+    if existing is not None and existing.payload != image_asset.payload:
+        raise ValueError(f"Конфликт графического ресурса: {asset.asset_id}")
+    if existing is None:
+        session.image_assets[image_asset.asset_id] = image_asset
+        session.dirty = True
+        return image_asset
+    return existing
+
+
 
 
 @lru_cache(maxsize=256)
 def _png_payload(asset_path: str) -> bytes:
+    try:
+        from PySide6.QtCore import QBuffer, QIODevice
+        from PySide6.QtGui import QImage
+    except ModuleNotFoundError as exc:  # pragma: no cover - deployment guard
+        raise RuntimeError(
+            "Для преобразования ресурсов конструктора требуется установленный PySide6"
+        ) from exc
     image = QImage(asset_path)
     if image.isNull():
         raise ValueError(f"Не удалось прочитать ресурс конструктора: {asset_path}")

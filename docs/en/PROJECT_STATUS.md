@@ -1,22 +1,24 @@
 # Project status
 
-24 July 2026: package **0.7.60**, project format **v20**, form schema **v6**, tablet layout **v16**.
+24 July 2026: package **0.7.61**, project format **v20**, form schema **v6**, tablet layout **v16**.
 
-## Completed in 0.7.60
+## Completed in 0.7.61
 
-- replaced the native floating statistics window with an in-tablet overlay;
-- the panel no longer consumes form width and cannot leave the workspace;
-- a user-selected position survives main-window resizing;
-- closing the panel or switching form/dataset clears interval analysis;
-- panel actions adapt to narrow widths;
-- added pure geometry, source-contract, and Qt regression tests;
-- removed hotfix details and test results from the root README;
-- added an automated root-README scope test.
+- added a dedicated command for inserting built-in catalog symbols on tablet graphs;
+- the picker provides thumbnails, localized names, categories, and search;
+- users can select a cropped transparent image or the original background-preserving variant;
+- track, curve/depth anchor, exact depth, and initial size are selected before insertion;
+- the inserted object supports left-button dragging and resizing through eight handles;
+- each symbol is stored in project-owned image storage with its catalog ID and background mode;
+- existing Undo/Redo, project persistence, PDF, and printing are reused without a parallel format;
+- documentation and instructions are synchronized in Russian, Kazakh, and English;
+- the root README remains free of technical release history.
 
 ## Verification
 
-Container verification: **19 focused passed**; available headless regression:
-**1094 passed, 4 skipped, 3 deselected**. Qt tests require Windows/PySide6.
+Available container verification: **103 focused tests passed**; `compileall` succeeded. The full
+Qt/UI run was not available because PySide6, pyqtgraph, and lasio are missing; complete automated
+and manual verification remains mandatory in the installed Windows project environment.
 
 ## Next vertical slice
 

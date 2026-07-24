@@ -122,6 +122,7 @@ from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.derived_dataset_controller import DerivedDatasetController
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.form_constructor.asset_install import install_symbol_into_project
 from geoworkbench.project.lag_correction_controller import LagCorrectionProjectController
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
 from geoworkbench.project.time_to_depth_controller import TimeToDepthController
@@ -208,6 +209,7 @@ from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
+from geoworkbench.ui.symbol_insertion_dialog import SymbolInsertionDialog
 from geoworkbench.ui.depth_resample_dialog import DepthResampleDialog
 from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDialog
 from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
@@ -1355,6 +1357,20 @@ class MainWindow(QMainWindow):
             lambda checked: self._toggle_annotation_tool(AnnotationKind.IMAGE, checked)
         )
         edit_menu.addAction(self.annotation_image_action)
+        self.annotation_symbol_action = self._localized_action(
+            "annotations.toolbar_symbol"
+        )
+        self._set_action_help(
+            self.annotation_symbol_action, "annotations.tool_symbol_hint"
+        )
+        self.annotation_symbol_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)
+        )
+        self.annotation_symbol_action.setEnabled(False)
+        self.annotation_symbol_action.triggered.connect(
+            lambda: self._create_annotation_at_view_center(AnnotationKind.SYMBOL)
+        )
+        edit_menu.addAction(self.annotation_symbol_action)
 
         self.lithology_action = self._localized_action("lithology.action")
         self.lithology_action.triggered.connect(self.show_lithology_editor)
@@ -1878,6 +1894,7 @@ class MainWindow(QMainWindow):
         self.form_edit_toolbar.addAction(self.annotation_callout_action)
         self.form_edit_toolbar.addAction(self.annotation_comment_action)
         self.form_edit_toolbar.addAction(self.annotation_image_action)
+        self.form_edit_toolbar.addAction(self.annotation_symbol_action)
         self.form_edit_toolbar.addAction(self.annotation_manager_toolbar_action)
         self.form_edit_toolbar.addAction(self.annotation_edit_selected_action)
         self.form_edit_toolbar.addAction(self.annotation_delete_selected_action)
@@ -4538,6 +4555,7 @@ class MainWindow(QMainWindow):
         self.annotation_callout_action.setEnabled(enabled)
         self.annotation_comment_action.setEnabled(enabled)
         self.annotation_image_action.setEnabled(enabled)
+        self.annotation_symbol_action.setEnabled(enabled)
         if not enabled:
             self.tablet_view.set_annotation_tool(None)
         selected_enabled = enabled and self._selected_annotation_id is not None
@@ -5452,6 +5470,41 @@ class MainWindow(QMainWindow):
         self._refresh_annotation_layer()
         return True
 
+    def _open_symbol_insertion_dialog(
+        self,
+        *,
+        initial_values: dict[str, object] | None = None,
+    ) -> bool:
+        if self.session.current_well is None:
+            return False
+        try:
+            dialog = SymbolInsertionDialog(
+                self.depth_annotation_controller,
+                self,
+                language=self.language,
+                initial_values=initial_values,
+            )
+            if dialog.exec() != QDialog.DialogCode.Accepted or dialog.selection is None:
+                return False
+            selection = dialog.selection
+            image_asset = install_symbol_into_project(
+                self.session,
+                selection.symbol,
+                transparent_background=selection.transparent_background,
+                language=self.language.value,
+            )
+            record = self.depth_annotation_controller.add_annotation(
+                **selection.annotation_values(asset_ref=image_asset.asset_id)
+            )
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("symbol_insert.title"), str(exc))
+            return False
+        self._refresh_annotation_layer()
+        self.tablet_view.select_annotation(record.annotation_id)
+        self._annotation_selection_changed(record.annotation_id)
+        self.statusBar().showMessage(self._t("symbol_insert.inserted_status"))
+        return True
+
     def _refresh_annotation_layer(self) -> None:
         """Refresh annotations only, preserving the rendered tablet.
 
@@ -5529,6 +5582,9 @@ class MainWindow(QMainWindow):
             return
         values = dict(payload)
         direct_create = bool(values.pop("direct_create", False))
+        if str(values.get("kind", "")) == AnnotationKind.SYMBOL.value:
+            self._open_symbol_insertion_dialog(initial_values=values)
+            return
         if not direct_create:
             self._open_annotation_dialog(initial_values=values)
             return

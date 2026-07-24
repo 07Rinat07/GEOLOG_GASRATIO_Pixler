@@ -143,6 +143,8 @@ class AnnotationRecord:
     locked: bool = False
     print_enabled: bool = True
     scope_id: str | None = None
+    symbol_id: str | None = None
+    transparent_background: bool = True
 
 
 STYLE_PRESETS: dict[str, AnnotationStyle] = {
@@ -206,6 +208,10 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
             locked=bool(item.properties.get("locked", False)),
             print_enabled=bool(item.properties.get("print_enabled", True)),
             scope_id=_optional_string(item.properties.get("scope_id"), maximum=300),
+            symbol_id=_optional_string(item.properties.get("symbol_id"), maximum=200),
+            transparent_background=bool(
+                item.properties.get("transparent_background", True)
+            ),
         )
     raw_kind = item.properties.get("kind", AnnotationKind.CALLOUT.value)
     raw_anchor = item.anchor_type or AnnotationAnchor.TRACK.value
@@ -245,6 +251,10 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
         locked=bool(item.properties.get("locked", False)),
         print_enabled=bool(item.properties.get("print_enabled", True)),
         scope_id=_optional_string(item.properties.get("scope_id"), maximum=300),
+        symbol_id=_optional_string(item.properties.get("symbol_id"), maximum=200),
+        transparent_background=bool(
+            item.properties.get("transparent_background", True)
+        ),
     )
 
 
@@ -264,6 +274,8 @@ def annotation_properties(
     locked: bool,
     print_enabled: bool,
     scope_id: str | None = None,
+    symbol_id: str | None = None,
+    transparent_background: bool = True,
 ) -> dict[str, Any]:
     properties: dict[str, Any] = {
         "schema_version": ANNOTATION_SCHEMA_VERSION,
@@ -287,6 +299,9 @@ def annotation_properties(
         properties["parameter_value"] = float(parameter_value)
     if asset_ref:
         properties["asset_ref"] = asset_ref
+    if symbol_id:
+        properties["symbol_id"] = symbol_id
+        properties["transparent_background"] = bool(transparent_background)
     return properties
 
 

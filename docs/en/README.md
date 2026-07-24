@@ -128,7 +128,7 @@ numeric track.
 
 ## Annotation layer
 
-**F4** exposes callouts, comments, images, symbols and saved curve values. Objects can be anchored to depth, time, a track or a parameter, then moved and resized directly on the graph. The unified editor controls fonts, colors, background, border, leader, arrow, shadow, alignment and print permission. Annotations are stored with the well, survive LAS merging and render consistently on screen, in PDF and on a printer. See [ANNOTATIONS.md](ANNOTATIONS.md).
+**F4** exposes callouts, comments, images, symbols and saved curve values. **Insert symbol** opens the built-in localized catalog with search and lets the user choose a transparent cutout or original background, track, parameter, depth, and initial size. The inserted object is moved with the left mouse button and resized through eight handles. Annotations are stored with the well, survive LAS merging and render consistently on screen, in PDF and on a printer. See [ANNOTATIONS.md](ANNOTATIONS.md).
 
 ## Lithology intervals
 

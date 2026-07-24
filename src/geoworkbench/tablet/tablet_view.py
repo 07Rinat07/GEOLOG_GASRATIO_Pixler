@@ -3810,7 +3810,8 @@ class TabletView(QWidget):
                     self._localizer.text("geology.context.edit_full_sample")
                 )
 
-        annotation_callout_action = annotation_comment_action = annotation_image_action = None
+        annotation_callout_action = annotation_comment_action = None
+        annotation_image_action = annotation_symbol_action = None
         if self.form_edit_mode:
             menu.addSeparator()
             annotation_callout_action = menu.addAction(
@@ -3821,6 +3822,9 @@ class TabletView(QWidget):
             )
             annotation_image_action = menu.addAction(
                 self._localizer.text("annotations.add_image_action")
+            )
+            annotation_symbol_action = menu.addAction(
+                self._localizer.text("annotations.add_symbol_action")
             )
 
         edit_track_action = rename_track_action = rename_group_action = None
@@ -3840,6 +3844,8 @@ class TabletView(QWidget):
             annotation_kind = AnnotationKind.COMMENT
         elif chosen is annotation_image_action:
             annotation_kind = AnnotationKind.IMAGE
+        elif chosen is annotation_symbol_action:
+            annotation_kind = AnnotationKind.SYMBOL
         if annotation_kind is not None:
             self.annotation_add_requested.emit(
                 self._annotation_request_payload(
@@ -3946,7 +3952,8 @@ class TabletView(QWidget):
                 )
                 menu.addSeparator()
 
-        annotation_callout_action = annotation_comment_action = annotation_image_action = None
+        annotation_callout_action = annotation_comment_action = None
+        annotation_image_action = annotation_symbol_action = None
         save_value_action = None
         curve_value = None
         if local_x is not None and local_y is not None:
@@ -3968,6 +3975,9 @@ class TabletView(QWidget):
             )
             annotation_image_action = menu.addAction(
                 self._localizer.text("annotations.add_image_action")
+            )
+            annotation_symbol_action = menu.addAction(
+                self._localizer.text("annotations.add_symbol_action")
             )
             menu.addSeparator()
 
@@ -4024,6 +4034,7 @@ class TabletView(QWidget):
                 chosen is annotation_callout_action
                 or chosen is annotation_comment_action
                 or chosen is annotation_image_action
+                or chosen is annotation_symbol_action
             )
         ):
             kind = (
@@ -4032,6 +4043,8 @@ class TabletView(QWidget):
                 else AnnotationKind.COMMENT
                 if chosen is annotation_comment_action
                 else AnnotationKind.IMAGE
+                if chosen is annotation_image_action
+                else AnnotationKind.SYMBOL
             )
             self.annotation_add_requested.emit(
                 self._annotation_request_payload(
@@ -4102,10 +4115,14 @@ class TabletView(QWidget):
             width, height = 220.0, 76.0
             offset_x = 12.0 if fraction <= 0.65 else -(width + 12.0)
             offset_y = -42.0
-        else:
+        elif kind is AnnotationKind.IMAGE:
             width, height = 240.0, 160.0
             offset_x = 18.0 if fraction <= 0.65 else -(width + 18.0)
             offset_y = -80.0
+        else:
+            width, height = 64.0, 64.0
+            offset_x = -width / 2.0
+            offset_y = -height / 2.0
         return {
             "kind": kind.value,
             "anchor": anchor.value,

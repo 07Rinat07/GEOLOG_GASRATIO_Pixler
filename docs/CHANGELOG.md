@@ -1,3 +1,13 @@
+# 0.7.61 — catalog symbol insertion on tablet graphs
+
+- Added a dedicated localized symbol catalog dialog to the F4 toolbar and graph context menus.
+- Added search, transparent/original background selection, track, curve/depth anchor, exact depth, and initial size.
+- Stored selected images as project-owned PNG assets and persisted catalog ID/background mode.
+- Reused existing left-button drag, eight-handle resizing, Undo/Redo, screen, PDF, and print paths.
+- Updated RU/KK/EN documentation and added model/catalog/integration/localization regression tests.
+- Kept project format v20, form schema v6, and tablet layout v16 unchanged.
+- Verification in the available environment: 103 focused tests passed; compileall succeeded; full Qt/UI requires PySide6, pyqtgraph, and lasio.
+
 # 0.7.60 — constrained in-tablet interval statistics overlay
 
 - Replaced the native floating statistics dock with a movable child overlay inside TabletView.

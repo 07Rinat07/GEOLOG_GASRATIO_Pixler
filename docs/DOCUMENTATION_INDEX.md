@@ -46,6 +46,8 @@
 - DOCX/HTML export: [RU](ru/DOCX_HTML_EXPORT.md) · [KK](kk/DOCX_HTML_EXPORT.md) · [EN](en/DOCX_HTML_EXPORT.md)
 - Operational events: [RU](ru/OPERATIONAL_EVENTS.md) · [KK](kk/OPERATIONAL_EVENTS.md) · [EN](en/OPERATIONAL_EVENTS.md)
 - Acquisition replay: [RU](ru/ACQUISITION_REPLAY.md) · [KK](kk/ACQUISITION_REPLAY.md) · [EN](en/ACQUISITION_REPLAY.md)
+- Catalog symbol insertion on graphs 0.7.61: [RU](ru/RELEASE_NOTES_0.7.61.md) · [KK](kk/RELEASE_NOTES_0.7.61.md) · [EN](en/RELEASE_NOTES_0.7.61.md)
+- Build manifest 0.7.61: [BUILD_MANIFEST_0.7.61.md](BUILD_MANIFEST_0.7.61.md)
 - Screen-safe interval statistics overlay 0.7.60: [RU](ru/RELEASE_NOTES_0.7.60.md) · [KK](kk/RELEASE_NOTES_0.7.60.md) · [EN](en/RELEASE_NOTES_0.7.60.md)
 - Build manifest 0.7.60: [BUILD_MANIFEST_0.7.60.md](BUILD_MANIFEST_0.7.60.md)
 - Application diagnostics: [RU](ru/APPLICATION_DIAGNOSTICS.md) · [KK](kk/APPLICATION_DIAGNOSTICS.md) · [EN](en/APPLICATION_DIAGNOSTICS.md)
