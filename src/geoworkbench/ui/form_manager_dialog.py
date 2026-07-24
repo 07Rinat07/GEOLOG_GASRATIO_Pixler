@@ -42,6 +42,7 @@ from geoworkbench.printing.page_settings import (
     PrintPageSettings,
 )
 from geoworkbench.printing.print_layout import PrintScaleMode
+from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
 from geoworkbench.ui.form_structure_editor_dialog import FormStructureEditorDialog
 from geoworkbench.ui.collapsible_section import CollapsibleSection
 
@@ -280,8 +281,9 @@ class FormManagerDialog(QDialog):
         print_row.addWidget(self.fit_columns_check)
         print_box.addLayout(print_row)
         self.print_layout_hint = QLabel()
-        self._update_print_layout_hint()
         self.print_layout_hint.setWordWrap(True)
+        self.print_layout_hint.setTextFormat(Qt.TextFormat.RichText)
+        self._update_print_layout_hint()
         print_box.addWidget(self.print_layout_hint)
         right.addWidget(
             CollapsibleSection(
@@ -508,7 +510,9 @@ class FormManagerDialog(QDialog):
             self.apply_button.setEnabled(False)
             self.print_button.setEnabled(False)
             self.masterlog_sync_button.setEnabled(False)
+            self._update_print_layout_hint()
             return
+        self._update_print_layout_hint()
         tracks = sum(len(column.tracks) for column in form.columns)
         bindings = sum(len(track.bindings) for column in form.columns for track in column.tracks)
         origin = (
@@ -609,18 +613,105 @@ class FormManagerDialog(QDialog):
         self.details.setPlainText(details)
 
     def _update_print_layout_hint(self) -> None:
-        if self.fit_columns_check.isChecked():
-            text = self._text(
-                "Fit: все видимые колонки размещаются по ширине листа без горизонтального обрезания.",
-                "Fit: барлық көрінетін бағандар көлденең қиылмай парақ еніне орналастырылады.",
-                "Fit: all visible columns are placed across the page without horizontal clipping.",
+        form = self._current()
+        if form is None:
+            self.print_layout_hint.setStyleSheet(
+                "padding:6px 8px; border:1px solid #94a3b8; border-radius:5px; "
+                "background:#f1f5f9; color:#475569;"
+            )
+            self.print_layout_hint.setText(
+                self._text(
+                    "Выберите форму, чтобы проверить её ширину относительно A4.",
+                    "A4 еніне сәйкестігін тексеру үшін пішінді таңдаңыз.",
+                    "Select a form to check its width against A4.",
+                )
+            )
+            return
+        widths = [column.width for column in form.columns if column.visible]
+        audit = audit_form_width(widths)
+        if audit.visible_columns == 0:
+            self.print_layout_hint.setStyleSheet(
+                "padding:6px 8px; border:1px solid #94a3b8; border-radius:5px; "
+                "background:#f1f5f9; color:#475569;"
+            )
+            self.print_layout_hint.setText(
+                self._text(
+                    "В форме нет видимых колонок. Добавьте или включите колонку.",
+                    "Пішінде көрінетін баған жоқ. Баған қосыңыз немесе қосыңыз.",
+                    "The form has no visible columns. Add or enable a column.",
+                )
+            )
+            return
+        orientation = PrintOrientation(str(self.print_orientation_combo.currentData()))
+        selected_scale = (
+            audit.portrait_scale_percent
+            if orientation is PrintOrientation.PORTRAIT
+            else audit.landscape_scale_percent
+        )
+        if audit.level is FormWidthLevel.FITS_PORTRAIT:
+            color = "#166534"
+            background = "#dcfce7"
+            recommendation = self._text(
+                "Форма помещается на книжный A4 без уменьшения.",
+                "Пішін кітаптық A4 парағына кішірейтусіз сыяды.",
+                "The form fits portrait A4 without reduction.",
+            )
+        elif audit.level is FormWidthLevel.FITS_LANDSCAPE:
+            color = "#92400e"
+            background = "#fef3c7"
+            recommendation = self._text(
+                "Для читаемой печати выберите альбомный A4 или уменьшите ширину колонок.",
+                "Оқылатын баспа үшін альбомдық A4 таңдаңыз немесе баған енін азайтыңыз.",
+                "Use landscape A4 for readable output or reduce column widths.",
+            )
+        elif audit.level is FormWidthLevel.NEEDS_FIT:
+            color = "#9a3412"
+            background = "#ffedd5"
+            recommendation = self._text(
+                "Форма шире A4. Используйте автоподбор, альбомную ориентацию либо скройте второстепенные колонки.",
+                "Пішін A4-тен кең. Автосыйғызуды, альбомдық бағытты қолданыңыз немесе қосымша бағандарды жасырыңыз.",
+                "The form is wider than A4. Use fit-to-page, landscape, or hide secondary columns.",
             )
         else:
-            text = self._text(
-                "100%: сохраняются физические пропорции; широкая форма печатается на страницах продолжения.",
-                "100%: физикалық пропорциялар сақталады; кең пішін жалғастыру беттеріне басылады.",
-                "100%: physical proportions are preserved; wide forms use continuation pages.",
+            color = "#991b1b"
+            background = "#fee2e2"
+            recommendation = self._text(
+                "Форма слишком широкая для одного A4: разделите её на две формы, используйте A3/рулон или страницы продолжения.",
+                "Пішін бір A4 үшін тым кең: екі пішінге бөліңіз, A3/орам не жалғастыру беттерін пайдаланыңыз.",
+                "The form is too wide for one A4: split it, use A3/roll media, or continuation pages.",
             )
+        mode = (
+            self._text("автоподбор включён", "автосыйғызу қосулы", "fit enabled")
+            if self.fit_columns_check.isChecked()
+            else self._text("масштаб 100%", "масштаб 100%", "100% scale")
+        )
+        text = self._text(
+            (
+                f"<b>A4-контроль:</b> {audit.visible_columns} колонок, "
+                f"{audit.total_width_px} px ≈ {audit.total_width_mm:.0f} мм. "
+                f"Книжный A4: {audit.portrait_scale_percent:.0f}%, "
+                f"альбомный A4: {audit.landscape_scale_percent:.0f}%. "
+                f"Текущий режим: {mode} ({selected_scale:.0f}%).<br>{recommendation}"
+            ),
+            (
+                f"<b>A4 бақылауы:</b> {audit.visible_columns} баған, "
+                f"{audit.total_width_px} px ≈ {audit.total_width_mm:.0f} мм. "
+                f"Кітаптық A4: {audit.portrait_scale_percent:.0f}%, "
+                f"альбомдық A4: {audit.landscape_scale_percent:.0f}%. "
+                f"Ағымдағы режим: {mode} ({selected_scale:.0f}%).<br>{recommendation}"
+            ),
+            (
+                f"<b>A4 width check:</b> {audit.visible_columns} columns, "
+                f"{audit.total_width_px} px ≈ {audit.total_width_mm:.0f} mm. "
+                f"Portrait A4: {audit.portrait_scale_percent:.0f}%, "
+                f"landscape A4: {audit.landscape_scale_percent:.0f}%. "
+                f"Current mode: {mode} ({selected_scale:.0f}%).<br>{recommendation}"
+            ),
+        )
+        self.print_layout_hint.setStyleSheet(
+            f"padding:6px 8px; border:1px solid {color}; border-radius:5px; "
+            f"background:{background}; color:{color};"
+        )
         self.print_layout_hint.setText(text)
 
     def _print_layout_changed(self, _value=None) -> None:

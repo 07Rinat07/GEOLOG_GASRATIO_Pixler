@@ -1842,5 +1842,12 @@
   "visual_export.select_view": "График немесе планшет қойындысын ашыңыз",
   "visual_export.success": "Визуализация экспортталды: {name}",
   "visual_export.svg_action": "Ағымдағы графикті/планшетті SVG-ге экспорттау...",
-  "visual_export.title": "Визуализацияны экспорттау"
+  "visual_export.title": "Визуализацияны экспорттау",
+  "forms.width_no_form": "A4: пішін таңдалмаған",
+  "forms.width_no_form_tooltip": "A4 еніне сәйкестігін тексеру үшін пішінді ашыңыз немесе жасаңыз.",
+  "forms.width_portrait": "A4 кітаптық: жарайды",
+  "forms.width_landscape": "A4 кітаптық: {percent}% → альбомдық",
+  "forms.width_fit": "A4 альбомдық: {percent}% → Fit",
+  "forms.width_split": "Кең пішін: ≈ {pages} A4 бет",
+  "forms.width_tooltip": "Көрінетін бағандар: {columns}\nПішін ені: {width} px ≈ {width_mm} мм\nКітаптық A4: {portrait}%\nАльбомдық A4: {landscape}%\nЖасыл — сыяды; сары — альбомдық бағыт жақсы; қызғылт — Fit қажет; қызыл — пішінді бөлу немесе A3/орам қолдану."
 }

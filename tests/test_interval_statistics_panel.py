@@ -48,3 +48,17 @@ def test_interval_statistics_panel_marks_missing_values(qapp) -> None:
     assert panel.table.item(0, 2).text() == "—"
     assert panel.table.item(0, 3).text() == "—"
     panel.close()
+
+
+def test_interval_statistics_panel_switches_between_side_and_bottom_modes(qapp) -> None:
+    panel = IntervalStatisticsPanel(language=AppLanguage.EN)
+    panel.set_dock_mode("bottom")
+    assert panel.dock_mode == "bottom"
+    assert panel.summary.wordWrap() is False
+    assert panel.table.columnWidth(1) == 92
+
+    panel.set_dock_mode("side")
+    assert panel.dock_mode == "side"
+    assert panel.summary.wordWrap() is True
+    assert panel.table.columnWidth(1) == 58
+    panel.close()

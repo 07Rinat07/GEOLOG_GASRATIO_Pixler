@@ -1,3 +1,11 @@
+# 0.7.56 — A4 form-width guidance and adaptive interval statistics (test build)
+
+- Added deterministic portrait/landscape A4 width audits for forms.
+- Added live width guidance to Form Library, structure editor, preview, status bar, and diagnostics.
+- Docked interval statistics right on wide windows and bottom on narrow windows, preventing off-screen floating panels.
+- Added compact side/bottom table modes without changing project or form schemas.
+- Kept project format v20, form schema v6 and tablet layout v16 unchanged.
+
 # 0.7.55 — Top-packed synchronized curve headers (test build)
 
 - Kept one common header band for exact depth-plot alignment.

@@ -1842,5 +1842,12 @@
   "visual_export.select_view": "Откройте вкладку графика или планшета",
   "visual_export.success": "Визуализация экспортирована: {name}",
   "visual_export.svg_action": "Экспортировать текущий график/планшет в SVG...",
-  "visual_export.title": "Экспорт визуализации"
+  "visual_export.title": "Экспорт визуализации",
+  "forms.width_no_form": "A4: форма не выбрана",
+  "forms.width_no_form_tooltip": "Откройте или создайте форму, чтобы проверить её ширину относительно A4.",
+  "forms.width_portrait": "A4 книжн.: подходит",
+  "forms.width_landscape": "A4 книжн.: {percent}% → альбомная",
+  "forms.width_fit": "A4 альбомн.: {percent}% → Fit",
+  "forms.width_split": "Широкая форма: ≈ {pages} стр. A4",
+  "forms.width_tooltip": "Видимых колонок: {columns}\nШирина формы: {width} px ≈ {width_mm} мм\nКнижный A4: {portrait}%\nАльбомный A4: {landscape}%\nЗелёный — помещается; жёлтый — лучше альбомная ориентация; оранжевый — нужен Fit; красный — разделить форму или использовать A3/рулон."
 }

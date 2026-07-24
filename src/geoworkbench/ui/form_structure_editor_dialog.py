@@ -31,6 +31,7 @@ from geoworkbench.domain.text_presentation import (
     TEXT_VERTICAL_POSITIONS,
 )
 from geoworkbench.printing.text_rendering import draw_oriented_text
+from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
 from geoworkbench.tablet.models import TrackKind
 from geoworkbench.ui.track_content_editor_dialog import TrackContentEditorDialog
 
@@ -113,6 +114,22 @@ class _FormPreview(QWidget):
                     )
                     top += track_height
             x += width
+
+        audit = audit_form_width(
+            column.width if column.visible else 0 for column in form.columns
+        )
+        boundaries = (
+            (audit.portrait_capacity_px, "A4 книжн.", QColor("#dc2626")),
+            (audit.landscape_capacity_px, "A4 альбомн.", QColor("#d97706")),
+        )
+        for capacity_px, caption, color in boundaries:
+            if audit.total_width_px <= capacity_px or audit.total_width_px <= 0:
+                continue
+            boundary_x = margin + round(available * capacity_px / audit.total_width_px)
+            painter.setPen(QPen(color, 1, Qt.PenStyle.DashLine))
+            painter.drawLine(boundary_x, margin, boundary_x, self.height() - margin)
+            painter.setPen(color)
+            painter.drawText(boundary_x + 3, margin + 12, caption)
 
 
 class FormStructureEditorDialog(QDialog):
@@ -197,6 +214,10 @@ class FormStructureEditorDialog(QDialog):
         )
         self.preview = _FormPreview()
         right_layout.addWidget(self.preview)
+        self.width_advice = QLabel()
+        self.width_advice.setWordWrap(True)
+        self.width_advice.setTextFormat(Qt.TextFormat.RichText)
+        right_layout.addWidget(self.width_advice)
 
         properties = QFormLayout()
         self.title_edit = QLineEdit()
@@ -314,6 +335,7 @@ class FormStructureEditorDialog(QDialog):
         )
         root.addLayout(actions)
         self._reload_tree()
+        self._update_width_advice()
         self._update_dirty_state()
 
     def _text(self, ru: str, kk: str, en: str) -> str:
@@ -343,6 +365,66 @@ class FormStructureEditorDialog(QDialog):
         layout.addWidget(button)
         return button
 
+
+    def _update_width_advice(self) -> None:
+        audit = audit_form_width(
+            column.width if column.visible else 0 for column in self.editor.form.columns
+        )
+        if audit.visible_columns == 0:
+            self.width_advice.setStyleSheet(
+                "padding:6px 8px; border:1px solid #94a3b8; border-radius:5px; "
+                "background:#f1f5f9; color:#475569;"
+            )
+            self.width_advice.setText(
+                self._text(
+                    "В форме нет видимых колонок. Добавьте колонку для проверки A4.",
+                    "Пішінде көрінетін баған жоқ. A4 тексеру үшін баған қосыңыз.",
+                    "The form has no visible columns. Add a column to check A4.",
+                )
+            )
+            return
+        if audit.level is FormWidthLevel.FITS_PORTRAIT:
+            color, background = "#166534", "#dcfce7"
+            recommendation = self._text(
+                "Помещается на книжный A4 без уменьшения.",
+                "Кітаптық A4 парағына кішірейтусіз сыяды.",
+                "Fits portrait A4 without reduction.",
+            )
+        elif audit.level is FormWidthLevel.FITS_LANDSCAPE:
+            color, background = "#92400e", "#fef3c7"
+            recommendation = self._text(
+                "Для книжного A4 уменьшите ширину; для альбомного A4 форма подходит.",
+                "Кітаптық A4 үшін енін азайтыңыз; альбомдық A4 үшін пішін жарайды.",
+                "Reduce widths for portrait A4; the form fits landscape A4.",
+            )
+        elif audit.level is FormWidthLevel.NEEDS_FIT:
+            color, background = "#9a3412", "#ffedd5"
+            recommendation = self._text(
+                "Широкая форма: уменьшите самые широкие колонки, скройте второстепенные или включите автоподбор при печати.",
+                "Кең пішін: ең кең бағандарды азайтыңыз, қосымша бағандарды жасырыңыз немесе баспада автосыйғызуды қосыңыз.",
+                "Wide form: reduce the widest columns, hide secondary tracks, or use fit-to-page.",
+            )
+        else:
+            color, background = "#991b1b", "#fee2e2"
+            recommendation = self._text(
+                "Слишком широкая форма: разделите её на рабочую и печатную, либо используйте A3/рулон.",
+                "Пішін тым кең: жұмыс және баспа пішіндеріне бөліңіз немесе A3/орам қолданыңыз.",
+                "Form is too wide: split it into working/print forms or use A3/roll media.",
+            )
+        text = self._text(
+            f"<b>Ширина формы:</b> {audit.visible_columns} колонок, {audit.total_width_px} px ≈ {audit.total_width_mm:.0f} мм. "
+            f"Книжный A4: {audit.portrait_scale_percent:.0f}%; альбомный: {audit.landscape_scale_percent:.0f}%.<br>{recommendation}",
+            f"<b>Пішін ені:</b> {audit.visible_columns} баған, {audit.total_width_px} px ≈ {audit.total_width_mm:.0f} мм. "
+            f"Кітаптық A4: {audit.portrait_scale_percent:.0f}%; альбомдық: {audit.landscape_scale_percent:.0f}%.<br>{recommendation}",
+            f"<b>Form width:</b> {audit.visible_columns} columns, {audit.total_width_px} px ≈ {audit.total_width_mm:.0f} mm. "
+            f"Portrait A4: {audit.portrait_scale_percent:.0f}%; landscape: {audit.landscape_scale_percent:.0f}%.<br>{recommendation}",
+        )
+        self.width_advice.setStyleSheet(
+            f"padding:6px 8px; border:1px solid {color}; border-radius:5px; "
+            f"background:{background}; color:{color};"
+        )
+        self.width_advice.setText(text)
+
     def _apply_form_name(self) -> None:
         if self._updating_properties:
             return
@@ -361,6 +443,7 @@ class FormStructureEditorDialog(QDialog):
     def _form_changed(self) -> None:
         self.draft.changed()
         self.preview_controller.changed(self.editor.form)
+        self._update_width_advice()
         self._update_dirty_state()
 
     def _update_dirty_state(self) -> None:
@@ -434,6 +517,7 @@ class FormStructureEditorDialog(QDialog):
             if first_item is not None:
                 self.tree.setCurrentItem(first_item)
         self.preview.set_form(self.editor.form, selected_id)
+        self._update_width_advice()
 
     def _selection_changed(self, _current, _previous) -> None:
         ref = self._selected_ref()

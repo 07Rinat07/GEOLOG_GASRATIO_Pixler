@@ -7,7 +7,7 @@ from pathlib import Path
 from weakref import ref
 
 import numpy as np
-from PySide6.QtCore import QUrl, QSize, QStandardPaths, Qt
+from PySide6.QtCore import QTimer, QUrl, QSize, QStandardPaths, Qt
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -127,6 +127,7 @@ from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingC
 from geoworkbench.project.time_to_depth_controller import TimeToDepthController
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.pagination import PrintRangeMode
+from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
 from geoworkbench.storage.project_codec import ProjectFormatError
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.render_invalidation import DirtyReason
@@ -602,6 +603,11 @@ class MainWindow(QMainWindow):
         self._create_home_page()
         self._create_toolbar()
         self.setStatusBar(QStatusBar())
+        self.form_width_indicator = QLabel()
+        self.form_width_indicator.setObjectName("formWidthIndicator")
+        self.form_width_indicator.setMinimumWidth(180)
+        self.form_width_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.statusBar().addPermanentWidget(self.form_width_indicator)
         self._workspace_controller = WorkspaceController(_MainWindowWorkspacePort(self))
         self._workspace_commands = WorkspaceCommandController(
             self.session, _MainWindowWorkspaceCommandPort(self)
@@ -617,6 +623,11 @@ class MainWindow(QMainWindow):
         self.cursor_line_action.setChecked(self.cursor_line_settings.enabled)
         self.statusBar().showMessage(self._t("app.ready"))
         self._update_title()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        super().resizeEvent(event)
+        if hasattr(self, "interval_statistics_dock") and self.interval_statistics_dock.isVisible():
+            QTimer.singleShot(0, self._adapt_interval_statistics_dock)
 
     def _apply_adaptive_initial_geometry(self) -> None:
         """Fit the first window inside the active laptop/desktop work area."""
@@ -771,17 +782,72 @@ class MainWindow(QMainWindow):
             self._clear_interval_analysis
         )
         self.interval_statistics_dock.setWidget(self.interval_statistics_panel)
+        self.interval_statistics_dock.setAllowedAreas(
+            Qt.DockWidgetArea.RightDockWidgetArea | Qt.DockWidgetArea.BottomDockWidgetArea
+        )
         self.interval_statistics_dock.setMinimumWidth(280)
-        self.interval_statistics_dock.setMaximumWidth(680)
+        self.interval_statistics_dock.setMaximumWidth(430)
         self.interval_statistics_dock.setFeatures(
             QDockWidget.DockWidgetFeature.DockWidgetClosable
             | QDockWidget.DockWidgetFeature.DockWidgetMovable
-            | QDockWidget.DockWidgetFeature.DockWidgetFloatable
         )
+        self._interval_statistics_adapting = False
         self.addDockWidget(
             Qt.DockWidgetArea.RightDockWidgetArea, self.interval_statistics_dock
         )
+        self.interval_statistics_dock.dockLocationChanged.connect(
+            self._interval_statistics_dock_location_changed
+        )
         self.interval_statistics_dock.hide()
+
+    def _interval_statistics_dock_location_changed(
+        self, area: Qt.DockWidgetArea
+    ) -> None:
+        if getattr(self, "_interval_statistics_adapting", False):
+            return
+        mode = "bottom" if area == Qt.DockWidgetArea.BottomDockWidgetArea else "side"
+        self.interval_statistics_panel.set_dock_mode(mode)
+
+    def _adapt_interval_statistics_dock(self, *, force: bool = False) -> None:
+        dock = getattr(self, "interval_statistics_dock", None)
+        panel = getattr(self, "interval_statistics_panel", None)
+        if dock is None or panel is None:
+            return
+        if not force and not dock.isVisible():
+            return
+        if getattr(self, "_interval_statistics_adapting", False):
+            return
+        self._interval_statistics_adapting = True
+        try:
+            central = self.centralWidget()
+            central_width = central.width() if central is not None else self.width()
+            use_bottom = self.width() < 1450 or central_width < 980
+            target_area = (
+                Qt.DockWidgetArea.BottomDockWidgetArea
+                if use_bottom
+                else Qt.DockWidgetArea.RightDockWidgetArea
+            )
+            if dock.isFloating():
+                dock.setFloating(False)
+            if self.dockWidgetArea(dock) != target_area:
+                self.addDockWidget(target_area, dock)
+            if use_bottom:
+                panel.set_dock_mode("bottom")
+                dock.setMinimumWidth(0)
+                dock.setMaximumWidth(16777215)
+                dock.setMinimumHeight(170)
+                dock.setMaximumHeight(320)
+                self.resizeDocks([dock], [230], Qt.Orientation.Vertical)
+            else:
+                panel.set_dock_mode("side")
+                dock.setMinimumHeight(0)
+                dock.setMaximumHeight(16777215)
+                dock.setMinimumWidth(300)
+                dock.setMaximumWidth(430)
+                preferred = max(320, min(390, self.width() // 4))
+                self.resizeDocks([dock], [preferred], Qt.Orientation.Horizontal)
+        finally:
+            self._interval_statistics_adapting = False
 
     def _create_issues_panel(self) -> None:
         self.issues_dock = QDockWidget(self._t("dock.log"), self)
@@ -4451,6 +4517,9 @@ class MainWindow(QMainWindow):
         if notify:
             self.statusBar().showMessage(message)
             self._log(message)
+        width_audit = audit_form_width(
+            track.width for track in result.layout.visible_tracks()
+        )
         log_event(
             "forms.apply.completed",
             form_id=getattr(form, "form_id", ""),
@@ -4458,6 +4527,10 @@ class MainWindow(QMainWindow):
             tracks=len(result.layout.tracks),
             missing=len(result.missing),
             mark_dirty=mark_dirty,
+            form_width_px=width_audit.total_width_px,
+            a4_portrait_percent=f"{width_audit.portrait_scale_percent:.1f}",
+            a4_landscape_percent=f"{width_audit.landscape_scale_percent:.1f}",
+            a4_width_level=width_audit.level.value,
         )
         return True
 
@@ -5245,13 +5318,9 @@ class MainWindow(QMainWindow):
             statistics=statistics,
             display_names=display_names,
         )
+        self._adapt_interval_statistics_dock(force=True)
         self.interval_statistics_dock.show()
         self.interval_statistics_dock.raise_()
-        self.resizeDocks(
-            [self.interval_statistics_dock],
-            [370],
-            Qt.Orientation.Horizontal,
-        )
 
     def _export_interval_statistics(self, export_format: str) -> None:
         statistics = self.interval_statistics_panel.statistics
@@ -7257,6 +7326,57 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(
             f"GEOLOG GASRATIO@Pixler {__version__} — {self.session.project.name}{marker}"
         )
+        self._update_form_width_indicator()
+
+    def _update_form_width_indicator(self) -> None:
+        indicator = getattr(self, "form_width_indicator", None)
+        if indicator is None:
+            return
+        visible = self.tablet_view.layout_model.visible_tracks()
+        if not visible:
+            indicator.setText(self._t("forms.width_no_form"))
+            indicator.setToolTip(self._t("forms.width_no_form_tooltip"))
+            indicator.setStyleSheet(
+                "QLabel#formWidthIndicator {padding:2px 8px; border-radius:4px; "
+                "background:#e2e8f0; color:#475569;}"
+            )
+            return
+        audit = audit_form_width(track.width for track in visible)
+        if audit.level is FormWidthLevel.FITS_PORTRAIT:
+            caption = self._t(
+                "forms.width_portrait", percent=f"{audit.portrait_scale_percent:.0f}"
+            )
+            color, background = "#166534", "#dcfce7"
+        elif audit.level is FormWidthLevel.FITS_LANDSCAPE:
+            caption = self._t(
+                "forms.width_landscape", percent=f"{audit.portrait_scale_percent:.0f}"
+            )
+            color, background = "#92400e", "#fef3c7"
+        elif audit.level is FormWidthLevel.NEEDS_FIT:
+            caption = self._t(
+                "forms.width_fit", percent=f"{audit.landscape_scale_percent:.0f}"
+            )
+            color, background = "#9a3412", "#ffedd5"
+        else:
+            caption = self._t(
+                "forms.width_split", pages=audit.portrait_pages_at_actual_size
+            )
+            color, background = "#991b1b", "#fee2e2"
+        indicator.setText(caption)
+        indicator.setStyleSheet(
+            f"QLabel#formWidthIndicator {{padding:2px 8px; border:1px solid {color}; "
+            f"border-radius:4px; background:{background}; color:{color}; font-weight:600;}}"
+        )
+        indicator.setToolTip(
+            self._t(
+                "forms.width_tooltip",
+                columns=audit.visible_columns,
+                width=audit.total_width_px,
+                width_mm=f"{audit.total_width_mm:.0f}",
+                portrait=f"{audit.portrait_scale_percent:.0f}",
+                landscape=f"{audit.landscape_scale_percent:.0f}",
+            )
+        )
 
     def _log(self, text: str) -> None:
         self.issues.append(text)
@@ -7268,6 +7388,9 @@ class MainWindow(QMainWindow):
     def _diagnostic_runtime_context(self) -> dict[str, object]:
         dataset = self.session.current_dataset
         target = self.tablet_view.curve_pencil_target
+        width_audit = audit_form_width(
+            track.width for track in self.tablet_view.layout_model.visible_tracks()
+        )
         return {
             "language": self.language.value,
             "project_name": self.session.project.name,
@@ -7278,6 +7401,10 @@ class MainWindow(QMainWindow):
             "tablet_visible_track_count": len(
                 self.tablet_view.layout_model.visible_tracks()
             ),
+            "tablet_form_width_px": width_audit.total_width_px,
+            "tablet_a4_portrait_percent": round(width_audit.portrait_scale_percent, 1),
+            "tablet_a4_landscape_percent": round(width_audit.landscape_scale_percent, 1),
+            "tablet_a4_width_level": width_audit.level.value,
             "selected_track_id": self._selected_track_id or "",
             "pencil_active": self.tablet_view.curve_pencil_enabled,
             "pencil_track_id": target[0] if target is not None else "",

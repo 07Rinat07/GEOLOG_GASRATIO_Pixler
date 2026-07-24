@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QHeaderView,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -37,6 +38,7 @@ class IntervalStatisticsPanel(QWidget):
         self._display_names: dict[str, str] = {}
         self._dataset_name = ""
         self._interval_label = "—"
+        self._dock_mode = "side"
 
         self.summary = QLabel(self._t("statistics.panel_hint"))
         self.summary.setWordWrap(True)
@@ -89,8 +91,39 @@ class IntervalStatisticsPanel(QWidget):
         layout.addWidget(self.summary)
         layout.addWidget(self.table, 1)
         layout.addLayout(buttons)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        self.set_dock_mode("side")
         self.set_language(language)
         self._set_actions_enabled(False)
+
+    def set_dock_mode(self, mode: str) -> None:
+        if mode not in {"side", "bottom"}:
+            raise ValueError("Режим панели статистики должен быть side или bottom")
+        self._dock_mode = mode
+        header = self.table.horizontalHeader()
+        if mode == "bottom":
+            self.summary.setWordWrap(False)
+            self.summary.setMaximumHeight(42)
+            self.table.verticalHeader().setDefaultSectionSize(28)
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            for column in range(1, 4):
+                header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
+                self.table.setColumnWidth(column, 92)
+            self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        else:
+            self.summary.setWordWrap(True)
+            self.summary.setMaximumHeight(86)
+            self.table.verticalHeader().setDefaultSectionSize(32)
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            for column in range(1, 4):
+                header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
+                self.table.setColumnWidth(column, 58)
+            self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.table.resizeRowsToContents()
+
+    @property
+    def dock_mode(self) -> str:
+        return self._dock_mode
 
     @property
     def statistics(self) -> tuple[CurveIntervalStatistics, ...]:
@@ -166,7 +199,10 @@ class IntervalStatisticsPanel(QWidget):
                         )
                     )
                 self.table.setItem(row, column, cell)
-            self.table.setRowHeight(row, 34 if "\n" in parameter else 28)
+            if self._dock_mode == "bottom":
+                self.table.setRowHeight(row, 30 if "\n" in parameter else 26)
+            else:
+                self.table.setRowHeight(row, 34 if "\n" in parameter else 28)
         self._set_actions_enabled(bool(statistics))
 
     def clear_report(self) -> None:
@@ -174,6 +210,7 @@ class IntervalStatisticsPanel(QWidget):
         self._display_names = {}
         self._dataset_name = ""
         self._interval_label = "—"
+        self._dock_mode = "side"
         self.table.setRowCount(0)
         self.summary.setText(self._t("statistics.panel_hint"))
         self._set_actions_enabled(False)

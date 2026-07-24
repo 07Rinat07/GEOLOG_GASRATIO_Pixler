@@ -19,7 +19,7 @@ Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, Excel, or 
 
 Legacy Delphi SKF forms can be imported from “Forms → Form Library → Import and export → Import SKF” or “Constructor → Tablet forms”. See [SKF_IMPORT.md](SKF_IMPORT.md).
 
-Version 0.7.55 top-packs every curve parameter inside the shared synchronized header band. Unused space is kept only below the last parameter, so scales no longer spread vertically while plot depth origins remain aligned. The constructor action is also repaired after the lag/depth workflow regression. Logs and diagnostics ZIP remain available from Help.
+Version 0.7.56 continuously reports whether the current form width fits portrait or landscape A4 in both Form Library and the structure editor. While columns are resized it shows physical/logical width, expected reduction, and concrete advice: shrink widths, hide secondary tracks, use landscape A4, A3/roll media, or split the form. The same state is visible in the tablet status bar. Interval statistics automatically dock right or bottom and remain inside the screen. Logs and diagnostics ZIP remain available from Help.
 
 ## Table editing
 

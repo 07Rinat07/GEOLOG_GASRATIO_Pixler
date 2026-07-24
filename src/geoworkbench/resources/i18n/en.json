@@ -1842,5 +1842,12 @@
   "visual_export.select_view": "Open the chart or tablet tab",
   "visual_export.success": "Visualization exported: {name}",
   "visual_export.svg_action": "Export current chart/tablet to SVG...",
-  "visual_export.title": "Visualization export"
+  "visual_export.title": "Visualization export",
+  "forms.width_no_form": "A4: no form selected",
+  "forms.width_no_form_tooltip": "Open or create a form to check its width against A4.",
+  "forms.width_portrait": "Portrait A4: fits",
+  "forms.width_landscape": "Portrait A4: {percent}% → landscape",
+  "forms.width_fit": "Landscape A4: {percent}% → Fit",
+  "forms.width_split": "Wide form: ≈ {pages} A4 pages",
+  "forms.width_tooltip": "Visible columns: {columns}\nForm width: {width} px ≈ {width_mm} mm\nPortrait A4: {portrait}%\nLandscape A4: {landscape}%\nGreen — fits; yellow — prefer landscape; orange — Fit required; red — split the form or use A3/roll media."
 }
