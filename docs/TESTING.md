@@ -23,12 +23,27 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для hotfix 0.7.48 в текущем контейнере выполнены `compileall`, focused header/form/import
-набор — 152 passed, 3 skipped, 3 deselected, и доступная headless-регрессия — 1020 passed,
-4 skipped, 3 deselected. Deselect требует отсутствующий `lasio`, а Qt collection-модули —
-`PySide6` и `pyqtgraph`. Ruff и mypy в контейнере также отсутствуют. Это не заменяет полный
-gate. Перед stable необходимы Windows/HiDPI smoke-test инженерной шкалы, узких колонок,
-реальных DB/LAS, PDF и physical print.
+Для hotfix 0.7.49 в текущем контейнере выполнены `compileall`, wheel build, focused
+header/form/transaction-набор — **150 passed**, и доступная headless-регрессия — **1037 passed, 4 skipped, 3 deselected**.
+Исключённые collection-модули требуют отсутствующие `PySide6`, `pyqtgraph` или `lasio`; Ruff и
+mypy в контейнере также отсутствуют. Это не заменяет полный gate. Перед stable необходимы
+Windows/HiDPI smoke-test адаптивной шапки, немедленного изменения геометрии кривой, rollback
+форм, реальных DB/LAS, PDF и physical print.
+
+## Адаптивная шкала и транзакционное переключение форм 0.7.49
+
+Обязательные проверки:
+
+- новые/автоматически materialized bindings получают `XScale.LINEAR`; явно сохранённый log не меняется;
+- изменение `x_min/x_max` меняет `CurveRenderKey` и normalized X-координаты графика;
+- range применяется после debounce или Enter без отдельной микрокнопки;
+- minimum и maximum остаются видимыми при минимальной поддерживаемой ширине трека;
+- unit и scale selector не вытесняют границы диапазона;
+- candidate form рендерится до commit в session;
+- render/commit exception восстанавливает layout, dirty state и selected track;
+- Cancel после live preview восстанавливает исходную форму;
+- print из Form Manager прекращается после неудачного apply;
+- Windows/PySide6/HiDPI подтверждает узкие колонки, ручной диапазон и реальный rollback.
 
 ## Инженерная шкала и единица в шапке
 

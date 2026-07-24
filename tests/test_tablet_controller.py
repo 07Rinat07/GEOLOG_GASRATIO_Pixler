@@ -70,7 +70,7 @@ def test_build_default_layout_registers_it_in_session() -> None:
         TrackKind.CURVE,
     ]
     assert layout.tracks[1].curve_mnemonics == ["C1", "C2"]
-    assert layout.tracks[1].x_scale is XScale.LOGARITHMIC
+    assert layout.tracks[1].x_scale is XScale.LINEAR
     assert session.dirty is True
 
 
@@ -85,7 +85,7 @@ def test_default_layout_groups_tgas_with_gas_curves() -> None:
 
     gas = next(track for track in layout.tracks if track.kind is TrackKind.GAS)
     assert gas.curve_mnemonics == ["TGAS", "C1", "C2"]
-    assert gas.x_scale is XScale.LOGARITHMIC
+    assert gas.x_scale is XScale.LINEAR
     assert all(
         "TGAS" not in track.curve_mnemonics
         for track in layout.tracks
@@ -467,7 +467,7 @@ def test_layout_groups_only_compatible_resistivity_curves() -> None:
     resistance = next(track for track in layout.tracks if track.title == "RES")
     gamma = next(track for track in layout.tracks if track.title == "GR")
     assert resistance.curve_mnemonics == ["ILD", "LLD"]
-    assert resistance.x_scale is XScale.LOGARITHMIC
+    assert resistance.x_scale is XScale.LINEAR
     assert gamma.curve_mnemonics == ["GR"]
     assert gamma.x_scale is XScale.LINEAR
 
@@ -566,3 +566,18 @@ def test_controller_moves_track_to_absolute_index_and_installs_layout() -> None:
     assert controller.install_layout(replacement, mark_dirty=False) is replacement
     assert session.current_tablet_layout is replacement
     assert session.dirty is False
+
+
+def test_controller_restores_layout_and_exact_dirty_marker() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    controller.build_default_layout()
+    session.dirty = True
+
+    restored = TabletLayout([TrackDefinition("restored-depth", "Depth", TrackKind.DEPTH)])
+    assert controller.restore_layout(restored, dirty=False) is restored
+    assert session.current_tablet_layout is restored
+    assert session.dirty is False
+
+    controller.restore_layout(restored, dirty=True)
+    assert session.dirty is True

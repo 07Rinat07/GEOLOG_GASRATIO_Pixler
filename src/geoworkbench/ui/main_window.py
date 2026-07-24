@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from copy import deepcopy
+from dataclasses import dataclass, replace
 from pathlib import Path
 from weakref import ref
 
@@ -80,6 +81,10 @@ from geoworkbench.forms import (
     FormAxisKind,
     FormRepository,
     form_from_tablet_layout,
+)
+from geoworkbench.forms.layout_transaction import (
+    ReversibleApplyError,
+    apply_reversibly,
 )
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.data_inspector_controller import DataInspectorController
@@ -376,6 +381,15 @@ class _MainWindowDatasetImportPort(_MainWindowPort):
             create_new_well=create_new_well,
         )
         return well.name
+
+
+@dataclass(frozen=True, slots=True)
+class _TabletFormSnapshot:
+    """Last known-good tablet state used for form preview/apply rollback."""
+
+    layout: TabletLayout
+    session_dirty: bool
+    selected_track_id: str | None
 
 
 class MainWindow(QMainWindow):
@@ -3260,7 +3274,8 @@ class MainWindow(QMainWindow):
         return True if answer == QMessageBox.StandardButton.Yes else None
 
     def _print_form_from_manager(self, form) -> None:
-        self.apply_form_to_tablet(form, mark_dirty=False, notify=False)
+        if not self.apply_form_to_tablet(form, mark_dirty=False, notify=False):
+            return
         self.open_print_center(
             widget=self.tablet_view,
             source_name=form.name,
@@ -4057,22 +4072,48 @@ class MainWindow(QMainWindow):
         self._update_title()
 
     def show_form_manager(self) -> None:
+        snapshot = self._capture_tablet_form_snapshot()
+        preview_applied = False
+
+        def preview(form) -> None:
+            nonlocal preview_applied
+            preview_applied = (
+                self.apply_form_to_tablet(form, mark_dirty=False, notify=False)
+                or preview_applied
+            )
+
         dialog = FormManagerDialog(
             self.form_repository,
             self,
             language=self.language.value,
             dataset=self.session.current_dataset,
-            preview_callback=lambda form: self.apply_form_to_tablet(
-                form, mark_dirty=False, notify=False
-            ),
+            preview_callback=preview,
             print_page_settings=self.print_page_settings,
             print_page_settings_changed=self._set_form_print_page_settings,
             print_form_callback=self._print_form_from_manager,
             skf_import_callback=self._import_skf_form_and_header,
         )
-        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.selected_form is None:
+        accepted = dialog.exec() == QDialog.DialogCode.Accepted
+        if not accepted or dialog.selected_form is None:
+            if preview_applied and snapshot is not None:
+                try:
+                    self._restore_tablet_form_snapshot(snapshot)
+                except Exception as exc:
+                    QMessageBox.warning(
+                        self,
+                        self._t("forms.title"),
+                        self._t("forms.rollback_failed", error=str(exc)),
+                    )
             return
-        self.apply_form_to_tablet(dialog.selected_form)
+        if not self.apply_form_to_tablet(dialog.selected_form) and snapshot is not None:
+            try:
+                self._restore_tablet_form_snapshot(snapshot)
+            except Exception as exc:
+                QMessageBox.warning(
+                    self,
+                    self._t("forms.title"),
+                    self._t("forms.rollback_failed", error=str(exc)),
+                )
 
     def _choose_and_import_skf(self) -> bool:
         title = {
@@ -4146,21 +4187,89 @@ class MainWindow(QMainWindow):
             )
         )
 
-    def apply_form_to_tablet(self, form, *, mark_dirty: bool = True, notify: bool = True) -> None:
+    def _capture_tablet_form_snapshot(self) -> _TabletFormSnapshot | None:
+        if self.session.current_dataset is None:
+            return None
+        return _TabletFormSnapshot(
+            layout=deepcopy(self.tablet_view.layout_model),
+            session_dirty=bool(self.session.dirty),
+            selected_track_id=self._selected_track_id,
+        )
+
+    def _restore_tablet_form_snapshot(
+        self, snapshot: _TabletFormSnapshot
+    ) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            raise RuntimeError(self._t("forms.rollback_dataset_missing"))
+        restored = deepcopy(snapshot.layout)
+        # Session and TabletView must share the same model object; otherwise
+        # later controller commands would mutate one copy while the screen
+        # continued rendering another.
+        self.tablet_controller.restore_layout(
+            restored, dirty=snapshot.session_dirty
+        )
+        self.tablet_view.set_layout_and_dataset(
+            restored, dataset, preserve_current_range=False
+        )
+        self._selected_track_id = snapshot.selected_track_id
+        self._refresh_annotation_layer()
+        self._refresh_tree()
+        self._update_title()
+
+    def apply_form_to_tablet(
+        self, form, *, mark_dirty: bool = True, notify: bool = True
+    ) -> bool:
         dataset = self.session.current_dataset
         if dataset is None:
             QMessageBox.information(self, self._t("forms.title"), self._t("forms.open_first"))
-            return
+            return False
         try:
             result = self.form_apply_engine.build_layout(form, dataset)
-        except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("forms.title"), str(exc))
-            return
-        self.tablet_controller.install_layout(result.layout, mark_dirty=mark_dirty)
-        self.tablet_view.set_layout_model(result.layout)
-        self.tablet_view.set_dataset(dataset)
-        self._refresh_annotation_layer()
-        self._show_workspace(self.tablet_view)
+        except (KeyError, RuntimeError, TypeError, ValueError) as exc:
+            if notify:
+                QMessageBox.warning(self, self._t("forms.title"), str(exc))
+            else:
+                self.statusBar().showMessage(str(exc), 5000)
+                self._log(str(exc))
+            return False
+
+        snapshot = self._capture_tablet_form_snapshot()
+        assert snapshot is not None
+
+        def render_candidate(layout: TabletLayout) -> None:
+            self.tablet_view.set_layout_and_dataset(
+                layout, dataset, preserve_current_range=True
+            )
+
+        def commit_candidate(layout: TabletLayout) -> None:
+            self.tablet_controller.install_layout(layout, mark_dirty=mark_dirty)
+            self._refresh_annotation_layer()
+            self._show_workspace(self.tablet_view)
+
+        try:
+            apply_reversibly(
+                candidate=result.layout,
+                snapshot=snapshot,
+                render_candidate=render_candidate,
+                commit_candidate=commit_candidate,
+                restore_snapshot=self._restore_tablet_form_snapshot,
+            )
+        except ReversibleApplyError as exc:
+            message = self._t(
+                "forms.apply_failed_restored", error=str(exc.operation_error)
+            )
+            if exc.rollback_error is not None:
+                message += "\n" + self._t(
+                    "forms.rollback_failed", error=str(exc.rollback_error)
+                )
+            if notify:
+                QMessageBox.warning(self, self._t("forms.title"), message)
+            else:
+                self.statusBar().showMessage(message, 7000)
+            self._log(message)
+            return False
+
         self._selected_track_id = None
         self._refresh_tree()
         self._update_title()
@@ -4176,6 +4285,7 @@ class MainWindow(QMainWindow):
         if notify:
             self.statusBar().showMessage(message)
             self._log(message)
+        return True
 
     def build_default_tablet(self) -> None:
         dataset = self.session.current_dataset

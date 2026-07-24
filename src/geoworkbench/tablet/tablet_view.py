@@ -196,6 +196,16 @@ class CurvePencilMode(StrEnum):
     CONNECT_POINTS = "connect_points"
 
 
+@dataclass(frozen=True, slots=True)
+class CurveRenderKey:
+    """Raw viewport geometry plus the display transform applied to it."""
+
+    geometry: CurveGeometryKey
+    scale: XScale
+    minimum: float
+    maximum: float
+
+
 @dataclass(slots=True)
 class RenderedTrack:
     definition: TrackDefinition
@@ -219,7 +229,7 @@ class RenderedTrack:
     sample_preview: pg.BarGraphItem | None = None
     stratigraphy_preview: pg.BarGraphItem | None = None
     selection_highlight: pg.BarGraphItem | None = None
-    curve_render_keys: dict[str, CurveGeometryKey] | None = None
+    curve_render_keys: dict[str, CurveRenderKey] | None = None
     relative_fill_items: dict[str, pg.FillBetweenItem] | None = None
     relative_baseline_item: pg.PlotDataItem | None = None
     curve_pencil_preview: pg.PlotDataItem | None = None
@@ -432,8 +442,9 @@ class CurveScaleRuler(QWidget):
         self._major_divisions = max(1, int(major_divisions))
         self._minor_divisions = max(1, int(minor_divisions))
         self._line_color = line_color
-        self.setMinimumWidth(52)
-        self.setMinimumHeight(28)
+        self.setMinimumWidth(0)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setMinimumHeight(20)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
     def set_values(self, minimum: float, maximum: float, scale: XScale) -> None:
@@ -451,7 +462,7 @@ class CurveScaleRuler(QWidget):
             return
         color = QColor(self._line_color)
         painter.setPen(QPen(color, 1.2))
-        baseline = rect.top() + 7
+        baseline = rect.top() + 4
         painter.drawLine(rect.left(), baseline, rect.right(), baseline)
         font = painter.font()
         font.setPointSizeF(max(6.0, font.pointSizeF() - 2.0))
@@ -462,7 +473,7 @@ class CurveScaleRuler(QWidget):
         lines = normalized_grid_lines(self._major_divisions, self._minor_divisions)
         for line in lines:
             x = rect.left() + round(rect.width() * line.fraction)
-            tick = 7 if line.major else 3
+            tick = 6 if line.major else 3
             painter.drawLine(x, baseline, x, baseline + tick)
             if not line.major or line.fraction in (0.0, 1.0):
                 continue
@@ -479,9 +490,9 @@ class CurveScaleRuler(QWidget):
                 continue
             painter.drawText(
                 left,
-                baseline + 9,
+                baseline + 7,
                 width,
-                rect.height() - baseline,
+                max(1, rect.height() - baseline - 7),
                 Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
                 label,
             )
@@ -489,6 +500,15 @@ class CurveScaleRuler(QWidget):
 
 
 class CurveHeaderEditor(QFrame):
+    """Responsive per-curve engineering header.
+
+    The editor deliberately keeps minimum and maximum in a dedicated row.  Older
+    versions placed two fixed-width spin boxes, two buttons and a stretch in one
+    line, so one boundary disappeared as soon as a working form was narrowed.
+    Every row below can shrink down to the minimum supported track width and no
+    scale boundary is hidden.
+    """
+
     clicked = Signal(str)
     double_clicked = Signal(str)
     context_requested = Signal(str, QPoint)
@@ -496,6 +516,8 @@ class CurveHeaderEditor(QFrame):
     auto_range_requested = Signal(str)
     unit_changed = Signal(str, str)
     scale_changed = Signal(str, str)
+
+    RANGE_COMMIT_DELAY_MS = 220
 
     def __init__(
         self,
@@ -514,18 +536,26 @@ class CurveHeaderEditor(QFrame):
         self._line_color = line_color or curve_color
         self._invalid_range_message = spec.invalid_range_message
         self._loading = True
-        self.setMinimumHeight(80)
+        self.setMinimumHeight(82)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.setToolTip(
             f"{title} · {spec.minimum:g} … {spec.maximum:g} {spec.unit} [{mnemonic}]"
         )
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 2, 0, 2)
-        root.setSpacing(1)
+        root.setContentsMargins(1, 1, 1, 1)
+        root.setSpacing(0)
+
+        # Row 1: caption and actions.  The caption is the only compressible item;
+        # auto-range and settings always remain reachable in a narrow column.
         top = QHBoxLayout()
-        top.setContentsMargins(5, 0, 3, 0)
-        top.setSpacing(3)
+        top.setContentsMargins(2, 0, 1, 0)
+        top.setSpacing(2)
         self.title_label = QLabel(title)
+        self.title_label.setMinimumWidth(0)
+        self.title_label.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
+        )
         self.title_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.title_label.setStyleSheet(
             f"background:transparent; color:{self._text_color}; "
@@ -533,65 +563,82 @@ class CurveHeaderEditor(QFrame):
         )
         top.addWidget(self.title_label, 1)
 
+        self.auto_button = QToolButton()
+        self.auto_button.setText("A")
+        self.auto_button.setAutoRaise(True)
+        self.auto_button.setToolTip(spec.auto_tooltip)
+        self.auto_button.setFixedSize(17, 17)
+        self.auto_button.setStyleSheet("QToolButton {font-size:9px; padding:0;}")
+        self.auto_button.clicked.connect(
+            lambda: self.auto_range_requested.emit(self.mnemonic)
+        )
+        top.addWidget(self.auto_button)
+
+        self.settings_button = QToolButton()
+        self.settings_button.setText("⚙")
+        self.settings_button.setAutoRaise(True)
+        self.settings_button.setToolTip(spec.settings_tooltip)
+        self.settings_button.setFixedSize(17, 17)
+        self.settings_button.clicked.connect(
+            lambda: self.double_clicked.emit(self.mnemonic)
+        )
+        top.addWidget(self.settings_button)
+        root.addLayout(top)
+
+        # Row 2: both boundaries always share the available width.  There are no
+        # fixed spacer/buttons between them, therefore neither field can vanish.
+        range_row = QHBoxLayout()
+        range_row.setContentsMargins(2, 0, 2, 0)
+        range_row.setSpacing(2)
+        self.minimum = self._spin(spec.minimum)
+        self.maximum = self._spin(spec.maximum)
+        self.minimum.setToolTip(spec.apply_range_tooltip)
+        self.maximum.setToolTip(spec.apply_range_tooltip)
+        range_row.addWidget(self.minimum, 1)
+        separator = QLabel("…")
+        separator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        separator.setFixedWidth(6)
+        separator.setStyleSheet(
+            f"background:transparent; color:{self._line_color}; font-size:9px;"
+        )
+        range_row.addWidget(separator)
+        range_row.addWidget(self.maximum, 1)
+        root.addLayout(range_row)
+
+        # Row 3: display unit and scale type.  Both controls are independently
+        # editable and naturally compress with the column.
+        meta_row = QHBoxLayout()
+        meta_row.setContentsMargins(2, 0, 2, 0)
+        meta_row.setSpacing(2)
         self.unit = QLineEdit(spec.unit)
         self.unit.setMaxLength(40)
         self.unit.setPlaceholderText("—")
         self.unit.setToolTip(spec.unit_tooltip)
-        self.unit.setMaximumWidth(68)
-        self.unit.setFixedHeight(20)
+        self.unit.setMinimumWidth(20)
+        self.unit.setFixedHeight(18)
+        self.unit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.unit.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.unit.setStyleSheet(
             "QLineEdit {background:#ffffff; color:#111827; border:1px solid #94a3b8; "
-            "border-radius:2px; padding:0 3px; font-size:9px; font-weight:600;}"
+            "border-radius:2px; padding:0 2px; font-size:9px; font-weight:600;}"
         )
-        top.addWidget(self.unit)
+        meta_row.addWidget(self.unit, 3)
 
         self.scale = QComboBox()
         self.scale.addItem(spec.linear_label, XScale.LINEAR.value)
         self.scale.addItem(spec.logarithmic_label, XScale.LOGARITHMIC.value)
-        self.scale.setCurrentIndex(max(0, self.scale.findData(spec.scale.value)))
+        scale_index = self.scale.findData(spec.scale.value)
+        self.scale.setCurrentIndex(scale_index if scale_index >= 0 else 0)
         self.scale.setToolTip(spec.scale_tooltip)
-        self.scale.setMaximumWidth(52)
-        self.scale.setFixedHeight(20)
+        self.scale.setMinimumWidth(24)
+        self.scale.setFixedHeight(18)
+        self.scale.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.scale.setStyleSheet(
             "QComboBox {background:#ffffff; color:#111827; border:1px solid #94a3b8; "
-            "padding:0 2px; font-size:8px;}"
+            "padding:0 1px; font-size:8px;}"
         )
-        top.addWidget(self.scale)
-
-        settings = QToolButton()
-        settings.setText("⚙")
-        settings.setAutoRaise(True)
-        settings.setToolTip(spec.settings_tooltip)
-        settings.clicked.connect(lambda: self.double_clicked.emit(self.mnemonic))
-        top.addWidget(settings)
-        root.addLayout(top)
-
-        row = QHBoxLayout()
-        row.setContentsMargins(5, 0, 3, 0)
-        row.setSpacing(3)
-        self.minimum = self._spin(spec.minimum)
-        self.maximum = self._spin(spec.maximum)
-        row.addWidget(self.minimum)
-        row.addStretch(1)
-        auto = QToolButton()
-        auto.setText("A")
-        auto.setAutoRaise(True)
-        auto.setToolTip(spec.auto_tooltip)
-        auto.setFixedWidth(18)
-        auto.setStyleSheet("QToolButton {font-size:9px; padding:0;}")
-        auto.clicked.connect(lambda: self.auto_range_requested.emit(self.mnemonic))
-        row.addWidget(auto)
-        apply_range = QToolButton()
-        apply_range.setText("✓")
-        apply_range.setAutoRaise(True)
-        apply_range.setToolTip(spec.apply_range_tooltip)
-        apply_range.setFixedWidth(18)
-        apply_range.setStyleSheet("QToolButton {font-size:10px; padding:0;}")
-        apply_range.clicked.connect(self._commit_range)
-        row.addWidget(apply_range)
-        row.addWidget(self.maximum)
-        root.addLayout(row)
+        meta_row.addWidget(self.scale, 2)
+        root.addLayout(meta_row)
 
         self.ruler = CurveScaleRuler(
             spec.minimum,
@@ -604,8 +651,19 @@ class CurveHeaderEditor(QFrame):
         self.ruler.setToolTip(spec.scale_tooltip)
         root.addWidget(self.ruler)
 
-        self.minimum.valueChanged.connect(self._preview_range)
-        self.maximum.valueChanged.connect(self._preview_range)
+        # Range changes are debounced.  This lets the user edit both boundaries
+        # without the first field immediately rebuilding the whole header.  Once
+        # focus leaves the pair, the curve geometry is updated automatically; no
+        # tiny Apply button is required.
+        self._last_range_editor: QDoubleSpinBox | None = None
+        self._range_commit_timer = QTimer(self)
+        self._range_commit_timer.setSingleShot(True)
+        self._range_commit_timer.setInterval(self.RANGE_COMMIT_DELAY_MS)
+        self._range_commit_timer.timeout.connect(self._commit_range_when_idle)
+        self.minimum.valueChanged.connect(self._schedule_range_commit)
+        self.maximum.valueChanged.connect(self._schedule_range_commit)
+        self.minimum.editingFinished.connect(self._schedule_range_commit)
+        self.maximum.editingFinished.connect(self._schedule_range_commit)
         self.minimum.lineEdit().returnPressed.connect(self._commit_range)
         self.maximum.lineEdit().returnPressed.connect(self._commit_range)
         self.unit.editingFinished.connect(self._commit_unit)
@@ -622,13 +680,13 @@ class CurveHeaderEditor(QFrame):
         spin.setKeyboardTracking(False)
         spin.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         spin.setFrame(True)
-        spin.setMinimumWidth(56)
-        spin.setMaximumWidth(82)
-        spin.setFixedHeight(22)
+        spin.setMinimumWidth(24)
+        spin.setFixedHeight(20)
+        spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
         spin.setStyleSheet(
             "QDoubleSpinBox {background:#ffffff; color:#111827; border:1px solid #64748b; "
-            "border-radius:2px; font-size:9px; font-weight:600; padding:0 2px;}"
+            "border-radius:2px; font-size:9px; font-weight:600; padding:0 1px;}"
         )
         return spin
 
@@ -647,21 +705,49 @@ class CurveHeaderEditor(QFrame):
             f"border-left:5px solid {self._curve_color}; border-bottom:2px solid {border};}}"
         )
 
+    def _schedule_range_commit(self, *_args: object) -> None:
+        if self._loading:
+            return
+        sender = self.sender()
+        if sender is self.minimum or sender is self.maximum:
+            self._last_range_editor = sender
+        self._preview_range()
+        self._range_commit_timer.start()
+
+    def _commit_range_when_idle(self) -> None:
+        focused = (
+            self.minimum
+            if self.minimum.hasFocus()
+            else self.maximum
+            if self.maximum.hasFocus()
+            else None
+        )
+        # Moving from one boundary to the other must not rebuild the header in
+        # the middle of entering the pair. Arrow-key edits in the currently
+        # focused field, however, are applied after the debounce interval.
+        if focused is not None and focused is not self._last_range_editor:
+            self._range_commit_timer.start()
+            return
+        self._commit_range()
+
     def _preview_range(self) -> None:
         if self._loading:
             return
         minimum = float(self.minimum.value())
         maximum = float(self.maximum.value())
-        scale = XScale(str(self.scale.currentData()))
+        scale_data = self.scale.currentData() or XScale.LINEAR.value
+        scale = XScale(str(scale_data))
         if minimum < maximum and not (scale is XScale.LOGARITHMIC and minimum <= 0):
             self.ruler.set_values(minimum, maximum, scale)
 
     def _commit_range(self) -> None:
         if self._loading:
             return
+        self._range_commit_timer.stop()
         minimum = float(self.minimum.value())
         maximum = float(self.maximum.value())
-        scale = XScale(str(self.scale.currentData()))
+        scale_data = self.scale.currentData() or XScale.LINEAR.value
+        scale = XScale(str(scale_data))
         invalid = minimum >= maximum or (scale is XScale.LOGARITHMIC and minimum <= 0)
         if invalid:
             self.setToolTip(self._invalid_range_message)
@@ -674,7 +760,7 @@ class CurveHeaderEditor(QFrame):
             return
         normal_style = (
             "QDoubleSpinBox {background:#ffffff; color:#111827; border:1px solid #64748b; "
-            "border-radius:2px; font-size:9px; font-weight:600; padding:0 2px;}"
+            "border-radius:2px; font-size:9px; font-weight:600; padding:0 1px;}"
         )
         self.minimum.setStyleSheet(normal_style)
         self.maximum.setStyleSheet(normal_style)
@@ -688,7 +774,7 @@ class CurveHeaderEditor(QFrame):
     def _commit_scale(self) -> None:
         if self._loading:
             return
-        value = str(self.scale.currentData())
+        value = str(self.scale.currentData() or XScale.LINEAR.value)
         self.ruler.set_values(
             float(self.minimum.value()), float(self.maximum.value()), XScale(value)
         )
@@ -3834,7 +3920,7 @@ class TabletView(QWidget):
         top, bottom = sorted((float(y_range[0]), float(y_range[1])))
         return top, bottom
 
-    def set_dataset(self, dataset: Dataset | None) -> None:
+    def _replace_dataset_reference(self, dataset: Dataset | None) -> None:
         previous_id = self._dataset.dataset_id if self._dataset is not None else None
         next_id = dataset.dataset_id if dataset is not None else None
         if previous_id != next_id:
@@ -3844,6 +3930,9 @@ class TabletView(QWidget):
         self._dataset = dataset
         self._geometry_cache.clear()
         self._static_layer_cache.clear()
+
+    def set_dataset(self, dataset: Dataset | None) -> None:
+        self._replace_dataset_reference(dataset)
         self.refresh_view()
 
     def set_canvas_objects(self, canvas_objects: list[CanvasObject]) -> None:
@@ -4029,7 +4118,11 @@ class TabletView(QWidget):
         self._stratigraphy = tuple(intervals)
         self.refresh_view()
 
-    def set_layout_model(self, layout_model: TabletLayout) -> None:
+    def _bind_layout_model(
+        self, layout_model: TabletLayout, *, preserve_current_range: bool
+    ) -> None:
+        if not isinstance(layout_model, TabletLayout):
+            raise TypeError("Ожидалась модель планшета")
         previous_range = self.visible_depth_range
         previous_index = self.vertical_index_id
         same_axis = (
@@ -4039,7 +4132,8 @@ class TabletView(QWidget):
         )
         self._layout_mutations.bind(layout_model)
         if (
-            previous_range is not None
+            preserve_current_range
+            and previous_range is not None
             and same_axis
             and layout_model.visible_depth_top is None
             and layout_model.visible_depth_bottom is None
@@ -4050,6 +4144,31 @@ class TabletView(QWidget):
             self._layout_mutations.set_visible_depth(*previous_range)
         self._layout_model = layout_model
         self._cursor_depth = layout_model.cursor_depth
+
+    def set_layout_model(self, layout_model: TabletLayout) -> None:
+        self._bind_layout_model(layout_model, preserve_current_range=True)
+        self.refresh_view()
+        if self._cursor_depth is not None and self._dataset is not None:
+            self.set_cursor_depth(self._cursor_depth)
+
+    def set_layout_and_dataset(
+        self,
+        layout_model: TabletLayout,
+        dataset: Dataset | None,
+        *,
+        preserve_current_range: bool = True,
+    ) -> None:
+        """Install a form layout and its dataset in one render pass.
+
+        MainWindow uses this method inside a transaction.  Rendering the candidate
+        before committing it to ProjectSession prevents a failed form from leaving
+        the saved working layout half-replaced.
+        """
+
+        self._replace_dataset_reference(dataset)
+        self._bind_layout_model(
+            layout_model, preserve_current_range=preserve_current_range
+        )
         self.refresh_view()
         if self._cursor_depth is not None and self._dataset is not None:
             self.set_cursor_depth(self._cursor_depth)
@@ -6640,15 +6759,23 @@ class TabletView(QWidget):
             budget = self._lod_point_budget(
                 rendered.plot.viewport().height() if rendered.plot is not None else 1000
             )
-            key = self._curve_geometry_key(
+            geometry_key = self._curve_geometry_key(
                 mnemonic, depth, source_values, top, bottom, budget, logarithmic
             )
-            render_keys = rendered.curve_render_keys
-            if render_keys is not None and render_keys.get(mnemonic) == key:
-                continue
-            values, visible_depth = self._geometry_cache.get_or_build(key, depth, source_values)
             minimum, maximum = self._curve_display_range(
                 rendered.definition, mnemonic, source_values
+            )
+            render_key = CurveRenderKey(
+                geometry=geometry_key,
+                scale=settings.x_scale,
+                minimum=float(minimum),
+                maximum=float(maximum),
+            )
+            render_keys = rendered.curve_render_keys
+            if render_keys is not None and render_keys.get(mnemonic) == render_key:
+                continue
+            values, visible_depth = self._geometry_cache.get_or_build(
+                geometry_key, depth, source_values
             )
             if rendered.definition.kind is TrackKind.CALCIMETRY:
                 normalized = np.where(np.isfinite(values), np.clip(values, 0.0, 100.0), np.nan)
@@ -6658,7 +6785,7 @@ class TabletView(QWidget):
                 )
             item.setData(normalized, visible_depth, connect="finite")
             if render_keys is not None:
-                render_keys[mnemonic] = key
+                render_keys[mnemonic] = render_key
 
     def _update_relative_gas_track_data(
         self, rendered: RenderedTrack, top: float, bottom: float

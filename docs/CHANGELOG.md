@@ -1,3 +1,13 @@
+# 0.7.49 — Responsive curve ranges and transactional form switching (test build)
+
+- Defaulted new and automatically materialized curve bindings to linear scale.
+- Included scale/minimum/maximum in the curve render key so edited limits rebuild plotted geometry.
+- Replaced the fragile one-row header with responsive rows that preserve both limits, unit, and scale type.
+- Applied valid ranges automatically after debounce or immediately with Enter.
+- Rendered candidate forms before project-session commit and restored the previous working layout on failure.
+- Restored the original layout when Form Manager preview is cancelled and blocked printing after failed apply.
+- Kept project format v20, form schema v6, and tablet layout v16 unchanged.
+
 # 0.7.48 — Engineering curve-header ruler and editable units (test build)
 
 - Replaced faint header range fields with a full-width colored engineering ruler.

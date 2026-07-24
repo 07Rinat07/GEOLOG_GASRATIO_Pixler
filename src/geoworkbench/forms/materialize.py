@@ -207,15 +207,9 @@ def _binding_from_curve(
     minimum = match.definition.default_min if match is not None else None
     maximum = match.definition.default_max if match is not None else None
     minimum, maximum = _safe_default_range(minimum, maximum)
+    # Dataset-driven working forms always begin with a linear engineering
+    # scale.  Logarithmic display remains available as an explicit saved setting.
     scale = XScale.LINEAR
-    if (
-        match is not None
-        and match.definition.family == "resistivity"
-        and minimum is not None
-        and maximum is not None
-        and minimum > 0
-    ):
-        scale = XScale.LOGARITHMIC
     stable_part = _safe_id(metadata.curve_id or metadata.original_mnemonic)
     return ParameterBinding(
         binding_id=f"binding-auto-{position}-{stable_part}",

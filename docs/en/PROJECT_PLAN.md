@@ -1,35 +1,31 @@
 # Project plan
 
-Current as of 24 July 2026. Package 0.7.48 keeps project format v20 and advances tablet layout
-to v16. After Windows validation, the next domain slice remains offline WITSML 2.1 inventory.
+Current as of 24 July 2026. Corrective slice 0.7.49 keeps project format v20, form schema v6,
+and tablet layout v16. After Windows validation, the next domain slice is read-only offline
+WITSML 2.1 inventory and mapping fixtures.
 
-## Completed corrective hotfix 0.7.48
+## P0 — hotfix 0.7.49: reliable scales and safe forms
 
-- [x] show high-contrast editable minimum and maximum at the ruler edges;
-- [x] draw a full-width engineering ruler with major/minor ticks;
-- [x] reuse the exact divisions saved for the column grid;
-- [x] interpolate labels separately for linear and logarithmic scales;
-- [x] let users prepare both limits before commit with `✓` or Enter;
-- [x] edit display unit and scale type directly in the header;
-- [x] keep unit override presentation-only without numeric conversion;
-- [x] persist unit/range/scale/colors in layouts and user forms;
-- [x] migrate tablet layout v15 to v16 with `unit_override = null`;
-- [ ] run Windows/PySide6/HiDPI smoke tests for wide and narrow columns.
+- [x] default new and automatically materialized curves to a linear scale;
+- [x] include scale/minimum/maximum in the render key so manual ranges move the curve itself;
+- [x] apply valid ranges after a debounce or immediately with Enter;
+- [x] preserve both range editors at the minimum supported track width;
+- [x] place unit and linear/logarithmic selection in a separate responsive row;
+- [x] keep the engineering ruler aligned with the column's major/minor grid divisions;
+- [x] render a candidate form before committing it to the project session;
+- [x] restore the last working form, dirty marker, and selection after failure;
+- [x] roll back live preview when Form Manager is cancelled;
+- [x] prevent printing a form that could not be applied safely;
+- [x] cover render-before-commit, rollback, and range geometry with headless tests;
+- [ ] run Windows/PySide6/HiDPI smoke tests for narrow columns, manual ranges, and rollback.
 
-## Completed corrective hotfix 0.7.47
+0.7.49 exit criterion: editing minimum/maximum visibly repositions the curve; both boundaries
+remain reachable in a narrow column; failed form switching or cancelled preview never leaves a
+partially applied layout.
 
-- [x] normalize mixed DB index order in the accepted copy only;
-- [x] apply one stable permutation to every index and curve;
-- [x] expose `index-sorted-copy` diagnostics;
-- [x] prefer explicit DEPT/DEPTH/MD for batch DB → LAS while preserving ambiguity safety;
-- [x] honor saved profiles and sort before LAS round-trip;
-- [x] edit manual min/max directly in ordinary curve headers;
-- [x] persist auto/manual range and header colors in the working form;
-- [ ] Windows smoke-test D1174.db, BLData.db, batch conversion, and narrow headers.
-
-## Planned follow-ups
+## Next slices
 
 - [ ] read-only offline WITSML 2.1 inventory and mapping fixtures;
-- [ ] optional aligned multi-dataset overlays inside one form;
-- [ ] directory watcher with preview confirmation;
+- [ ] alignment-controlled multi-dataset overlays in one form;
+- [ ] directory watcher with preview confirmation for daily growth;
 - [ ] secured ETP 1.2 only after successful fixture replay.

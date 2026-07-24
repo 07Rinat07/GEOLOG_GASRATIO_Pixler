@@ -111,3 +111,16 @@ major/minor divisions, что и сетка колонки. Minimum/maximum от
 `ParameterBinding.unit`; при применении формы она возвращается в `CurveDisplaySettings`.
 Tablet layout v16 мигрирует v15 через `unit_override = null`, поэтому старые проекты продолжают
 показывать единицу исходного канала.
+
+## Адаптивная шкала и транзакционное применение формы 0.7.49
+
+Новые и автоматически materialized bindings используют `XScale.LINEAR`; явно сохранённый
+логарифмический режим не перезаписывается. Curve render key включает raw viewport geometry,
+`x_scale`, `x_min` и `x_max`, поэтому изменение пределов перестраивает положение кривой, а не
+только текст ruler. Header разбит на адаптивные строки: caption/actions, minimum/maximum,
+unit/scale и ruler.
+
+Form Manager применяет layout через reversible transaction. Candidate сначала полностью
+рендерится в `TabletView`, затем устанавливается через `TabletController`. При ошибке render или
+commit восстанавливаются snapshot layout, dirty marker и selected track. Cancel после live preview
+восстанавливает исходную форму; частично применённая форма не остаётся рабочей.

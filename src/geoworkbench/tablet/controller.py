@@ -119,13 +119,22 @@ class TabletController:
             self.session.dirty = True
         return layout
 
+    def restore_layout(self, layout: TabletLayout, *, dirty: bool) -> TabletLayout:
+        """Restore a previously captured working layout and its dirty marker."""
+
+        if not isinstance(layout, TabletLayout):
+            raise TypeError("Ожидалась модель планшета")
+        self.session.set_current_tablet_layout(layout)
+        self.session.dirty = bool(dirty)
+        return layout
+
     @staticmethod
     def _family_track_spec(
         family: CurveFamily,
         mnemonics: list[str],
     ) -> tuple[str, TrackKind, int, XScale]:
         specs: dict[CurveFamily, tuple[str, TrackKind, int, XScale]] = {
-            CurveFamily.GAS: ("GAS", TrackKind.GAS, 380, XScale.LOGARITHMIC),
+            CurveFamily.GAS: ("GAS", TrackKind.GAS, 380, XScale.LINEAR),
             CurveFamily.ROP: ("ROP", TrackKind.CURVE, 300, XScale.LINEAR),
             CurveFamily.ROTARY_SPEED: ("RPM", TrackKind.CURVE, 280, XScale.LINEAR),
             CurveFamily.WOB: ("WOB", TrackKind.CURVE, 280, XScale.LINEAR),
@@ -145,7 +154,7 @@ class TabletController:
             CurveFamily.BULK_DENSITY: ("RHOB", TrackKind.CURVE, 280, XScale.LINEAR),
             CurveFamily.NEUTRON: ("NPHI", TrackKind.CURVE, 280, XScale.LINEAR),
             CurveFamily.SONIC: ("DT", TrackKind.CURVE, 300, XScale.LINEAR),
-            CurveFamily.RESISTIVITY: ("RES", TrackKind.CURVE, 340, XScale.LOGARITHMIC),
+            CurveFamily.RESISTIVITY: ("RES", TrackKind.CURVE, 340, XScale.LINEAR),
             CurveFamily.PEF: ("PEF", TrackKind.CURVE, 280, XScale.LINEAR),
             CurveFamily.DEXP: ("DEXP / NCT", TrackKind.DEXP, 320, XScale.LINEAR),
             CurveFamily.OTHER: (" / ".join(mnemonics), TrackKind.CURVE, 280, XScale.LINEAR),
@@ -262,7 +271,9 @@ class TabletController:
             title = "Газ"
             mnemonics = available_mnemonics(dataset, GAS_MNEMONIC_ORDER)
             width = 360
-            x_scale = XScale.LOGARITHMIC
+            # A logarithmic scale is now an explicit user choice.  New tracks
+            # always start linear so the header and column grid are predictable.
+            x_scale = XScale.LINEAR
         elif kind is TrackKind.DEXP:
             title = "DEXP / NCT"
             mnemonics = available_mnemonics(dataset, DEXP_MNEMONIC_ORDER)
