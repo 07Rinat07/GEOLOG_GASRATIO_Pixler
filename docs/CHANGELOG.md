@@ -1,8 +1,10 @@
-# 0.7.57 — overlay interval statistics and form-switch selection reset (test build)
+# 0.7.58 — verified full-project interval overlay rebuild (test build)
 
-- Interval statistics now opens as a constrained floating overlay over the right side of the tablet instead of consuming form width.
-- Overlay geometry is clamped to the active screen, so its title bar, close control, table, and action buttons remain reachable.
-- Switching forms clears the previous interval selection, shading, dataset selection, and statistics report before replacing the tablet layout.
+- Rebuilt the interval-statistics change directly in the complete project tree instead of distributing a patch-only delta.
+- Statistics is now a permanently floating, screen-clamped QDockWidget overlay and never contributes to the main-window minimum width.
+- The overlay follows main-window resize/move events and remains inside the active monitor work area, including negative multi-monitor coordinates.
+- Closing the overlay, switching form, or switching dataset clears interval shading, dataset selection, and the stale report.
+- Added toolkit-independent geometry tests and integration source-contract tests.
 - Project format remains v20; form schema remains v6; tablet layout remains v16.
 
 # 0.7.56 — A4 form-width guidance and adaptive interval statistics (test build)

@@ -1,20 +1,20 @@
 # Project status
 
-24 July 2026 corrective build: package **0.7.57**, project format **v20**, form schema **v6**, tablet layout **v16**.
+24 July 2026 corrective full build: package **0.7.58**, project format **v20**, form schema **v6**, tablet layout **v16**.
 
-## Completed in 0.7.57
+## Completed in 0.7.58
 
-- added one A4 form-width audit for portrait and landscape orientation;
-- Form Library reports physical/logical width, fit percentage, and an actionable recommendation;
-- the structure editor refreshes the warning while column widths change;
-- editor preview marks portrait and landscape A4 boundaries;
-- the tablet status bar continuously reports the current form-width class;
-- interval statistics automatically dock right or bottom and remain inside the screen;
-- diagnostics include form width and A4 percentages.
+- rebuilt the change directly in the complete 0.7.56 project tree;
+- interval statistics is always a floating overlay and no longer reduces tablet width;
+- geometry is clamped to the active monitor, including multi-monitor coordinates;
+- the overlay follows main-window move and resize events;
+- window close, Clear, form switching, and dataset switching remove stale selection;
+- previous A4 guidance, reusable forms, diagnostics, and all earlier fixes remain included;
+- added three geometry tests and four integration contract tests.
 
 ## Verification
 
-Focused width/layout/source-contract: **13 passed**. Available headless regression: **1069 passed, 4 skipped, 3 deselected**. `compileall` passed. Windows/PySide6 smoke testing remains required for dock transitions, window resizing, and 100/125/150% DPI.
+Focused overlay suite: **27 passed**. Available headless regression: **1048 passed, 4 skipped**. `compileall` completed for `src` and `tests`. A full visual smoke test requires Windows with PySide6/pyqtgraph.
 
 ## Next vertical slice
 
