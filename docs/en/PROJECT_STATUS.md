@@ -1,29 +1,32 @@
-# Project status
+# GEOLOG GASRATIO@Pixler project status
 
-25 July 2026. Package version: **0.7.64**. Project format: **v20**,
-form schema: **v7**, tablet layout: **v17**.
+Snapshot: 25 July 2026. Package version: **0.7.65**. Project format: **v20**,
+form schema: **v8**, tablet layout: **v18**.
 
-## Completed in 0.7.64
+## Completed in 0.7.65
 
-- retained the 0.7.63 compact Stratigraphy, Lithology, Cuttings, Calcimetry, LBA, and Depth columns
-  and the form-schema v6 → v7 and tablet-layout v16 → v17 migrations;
-- kept the existing protected template set without adding a duplicate MASTERLOG template;
-- **Create form** no longer opens a blind small name prompt;
-- the new window lists every built-in and user form with search, axis, and origin columns;
-- selecting a form shows its description, column widths, tracks, parameters, and mnemonics;
-- duplicate names are blocked regardless of letter case or repeated whitespace;
-- accidental whitespace in a new name is normalized automatically;
-- user guides and feature maps are synchronized in Russian, Kazakh, and English;
-- the root README remains concise and contains no detailed release history.
+- the old small name prompt was removed from both **Create form** and **Save user form**; each
+  command now shows all ready, factory, and user forms, search, and detailed structure;
+- a duplicate name is blocked case-insensitively after whitespace normalization, while saving over
+  an editable user form creates a new revision only after an explicit warning;
+- four confirmed local forms with legacy names are polished, moved to `forms/ready`, and protected
+  as ready templates without adding a separate duplicate MASTERLOG factory template;
+- the actual JSON structure is preserved, including columns, tracks, parameters, scales, styles,
+  and order;
+- stratigraphy, lithology, cuttings, calcimetry, LBA, and depth are reduced by **50%** during
+  migration with a **48 px** minimum, while other graphs retain an **80 px** minimum;
+- forms at v7 or older migrate once to **v8**, and tablets at v17 or older migrate once to **v18**;
+- documentation, instructions, and release notes are synchronized in Russian, Kazakh, and English.
 
 ## Verification
 
-Coverage includes dependency-free name normalization and duplicate detection, source-contract
-checks for the new dialog, GUI scenarios for listing forms and blocking duplicates, the absence of a duplicate
-MASTERLOG template, and compact-width behavior. Complete visual Qt/UI, HiDPI, PDF, and physical
-printer verification remains a Windows gate with PySide6, pyqtgraph, and lasio installed.
+Model, codec/repository, migration, naming, layout/print, and source-integrity tests pass. The
+automated audit checks localized document parity, Markdown links, all 1881 interface keys, package
+version, graph-symbol persistence, compact widths, and the complete form creation/save workflow.
+A full visual Qt/UI run requires a Windows environment with PySide6, pyqtgraph, and lasio.
 
-## Next stage
+## Local-form transfer limitation
 
-After the Windows smoke test, continue the approved plan with read-only offline WITSML 2.1
-inventory and mapping fixtures.
+The supplied source ZIP does not contain the four JSON files stored in the Windows application
+profile. On the same computer they are parsed and promoted automatically. A clean installation on
+another computer requires exporting or copying those JSON files from the local form library.

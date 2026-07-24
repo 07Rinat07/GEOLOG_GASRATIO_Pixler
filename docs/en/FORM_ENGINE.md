@@ -98,22 +98,37 @@ the project layout. Disabling auto-fit preserves the form's original proportions
 
 All factory and user forms use one page renderer. Form Manager can send the selected compatible form directly to the Print and Export Center. The center supports the native physical printer, PDF, PNG, JPEG/JPG, TIFF, BMP, WebP, and SVG. It provides A4, A3, custom and roll media, portrait/landscape orientation, four independent margins, 72–600 DPI, and JPEG/WebP quality. Raster output is generated at the physical paper pixel dimensions for the selected DPI. Every visible track is printed, including tracks outside the horizontal viewport; temporary print widths are restored after rendering.
 
-## Curated working-form library
+## Factory and ready-form library
 
-Form Manager exposes three protected built-in working templates and all user forms. A separate duplicate MASTERLOG template is not created:
+The manager keeps two user-visible factory working templates:
 
 1. **Integrated mud logging form — geology, drilling and gas**;
-2. **MASTERLOG — geological and geochemical form**;
-3. **Engineering and drilling monitoring — time form**.
+2. **Engineering and drilling monitoring — time form**.
 
-The names are polished and localized consistently in Russian, Kazakh, and English. The templates
-ship with a clean installation and cannot be overwritten accidentally. Editing creates an
-independent user copy that retains section groups, column order, widths, parameter bindings,
-scales, and styles. Legacy IDs remain readable for project compatibility.
+A separate factory MASTERLOG entry is not added to the curated list. Its legacy identifier remains
+readable only for project compatibility.
 
-`FormColumn.group_title` stores the section caption. Form application propagates it to
-`TrackDefinition.group_title`, layout persistence keeps it, and the tablet renders one merged
-caption above adjacent columns. Column order is defined entirely by the template.
+On the first run, the form repository checks the existing application-profile library. Four
+confirmed legacy names are atomically promoted to **Ready forms**, polished, and protected from
+accidental overwrite:
+
+- `GEO_TECH_GAS_A4_albom` → **Геология, технология и газ — A4, альбомная**;
+- `Geo_Tech_Gas_Logging_form A4 albom` → **Геолого-технологический газовый каротаж — A4, альбомная**;
+- `Геология_plus_под A4 книжная` → **Геология Plus — A4, книжная**;
+- `Форма Мастерлога под A4 книга` → **Мастерлог — A4, книжная**.
+
+A form name is stored once in its JSON, so these exact polished names are shown in RU, KK, and EN interfaces; only the surrounding library labels are localized.
+
+The migration moves the actual columns, tracks, parameters, scales, styles, and widths from the
+existing JSON rather than creating empty placeholders. Files are stored under `forms/ready`; old
+copies are removed only after a successful atomic write. All other user forms and names remain
+untouched. A ready form is opened as a protected template and edited through an independent user
+copy. On a new computer without the old profile, these four local forms appear after their JSON
+files are transferred or imported.
+
+`FormColumn.group_title` stores a section caption. Applying the form transfers it to
+`TrackDefinition.group_title`, persists it in the layout, and renders one shared header above
+adjacent columns.
 
 ## Shared cuttings sample
 
@@ -124,35 +139,45 @@ not exceed `100%`.
 
 ## Compact geological columns
 
-The default widths of **Stratigraphy**, **Lithology**, **Cuttings log**, **Calcimetry**, **LBA**,
-and **Depth** are reduced by **40%** in all factory forms and in saved user forms after the one-time migration. This
-releases horizontal space for drilling, gas, and other graph tracks. Curve, gas, interpretation,
-and text tracks are not compacted automatically.
+During upgrade, **Stratigraphy**, **Lithology**, **Cuttings**, **Calcimetry**, **LBA**, and
+**Depth** widths are reduced once by **50%**. The conversion covers factory templates, the four
+ready local forms, ordinary user forms, and saved tablet layouts. Curve, gas, interpretation, and
+text tracks are not reduced automatically.
 
-Compact kinds can be resized from **48 to 2000 px**. Ordinary graph and text tracks retain the
-safe **80 px** minimum. Width can be changed by dragging the right edge with the mouse, through
-the track inspector, or in the form structure editor.
+Compact kinds allow **48–2000 px**. Ordinary graph and text tracks retain an **80 px** safety
+minimum. After migration, users can resize a column by dragging its boundary, using Track
+Inspector, or using the structure editor; current-schema objects preserve that explicit width
+without another automatic reduction.
 
-Legacy user forms using schema v6 migrate to v7 on first open: only the listed compact columns are
-reduced. Saved tablet layouts v16 migrate to v17 in the same way. Once saved, the same form is not
-reduced again. User names, ordering, parameter bindings, and all other graph widths are preserved.
+Forms using schema v7 or older migrate to **form schema v8** on first load. Saved tablets using
+layout v17 or older migrate to **tablet layout v18**. Successfully read user forms are immediately
+rewritten in the new schema, so the conversion does not depend on a manual resave. Names, order,
+parameter bindings, scales, styles, and other graph widths are preserved.
 
-Preview, PDF, and physical printing in **Actual size** mode use the saved compact proportions.
-**Fit columns** may temporarily redistribute widths for the selected paper without changing the
-working form.
+Actual-size preview, PDF, and physical printing use the stored compact proportions. Fit columns may
+temporarily redistribute widths for the selected paper, but the working form is restored when the
+print operation closes.
 
+## Creating and saving a form with the library visible
 
-## Creating and naming a new form
+Both **Create form** and **Save user form** use one large reference window instead of the old small
+name prompt. Until confirmation, the window shows **all ready**, factory, and user forms. It
+provides search plus **Name**, **Axis**, **Type**, and **Structure** columns; Structure shows the
+column and track counts.
 
-**Create form** opens a dedicated window that keeps the library visible until the new name is
-confirmed. The left side lists **all built-in and user forms**, not only the manager's short curated
-set. Search and the **Name**, **Axis**, and **Origin** columns are available.
+Selecting a form shows its description, vertical axis, type, revision, column/track/parameter
+counts, visible columns with stored widths, and bound parameter mnemonics. Search covers names,
+descriptions, columns, and parameters.
 
-Selecting an existing form shows its description, vertical-axis type, origin, column, track, and
-parameter counts, visible column names with saved widths, and the mnemonics of bound parameters.
-This lets the user review established naming patterns before creating an unclear or duplicate name.
+In **Create form** mode, the user selects a name and the Depth or Time axis. A duplicate is blocked
+case-insensitively after whitespace normalization.
 
-The bottom section accepts the new form name and the **Depth** or **Time** axis. The application
-removes accidental leading and trailing spaces and collapses repeated internal whitespace. An exact
-match with an existing form is blocked regardless of letter case or extra spacing. Once an available
-name is entered, **Create** becomes enabled and the form is stored in the user library.
+In **Save user form** mode, the axis is fixed from the current tablet. An available name creates a
+new user form. Matching an existing editable user form displays an explicit replacement warning
+and, after confirmation, saves a new revision with the same `form_id`. A ready or factory protected
+template name cannot be used. Double-clicking an editable form copies its name into the field for
+an intentional update.
+
+The form is written immediately to the local repository. Project data and annotations are separate
+and still require **Ctrl+S** to save the project.
+

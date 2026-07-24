@@ -1,3 +1,16 @@
+# 0.7.65 — ready-form promotion and complete save dialog
+
+- Replaced the legacy `QInputDialog` in tablet-form saving with the full library reference dialog.
+- Added Ready / Factory / User categories, search, form details, duplicate-name blocking, and
+  explicit revision replacement for editable user forms.
+- Promoted the four confirmed local legacy names to protected Ready forms while preserving their
+  actual JSON structures; no separate duplicate MASTERLOG factory template is shown.
+- Reduced Stratigraphy, Lithology, Cuttings, Calcimetry, LBA, and Depth once by 50%, with a 48 px
+  compact minimum and an 80 px standard minimum.
+- Migrated form schema v7 → v8 and tablet layout v17 → v18 exactly once.
+- Synchronized RU/KK/EN documentation, release notes, status, plan, and regression tests.
+- Kept project format v20 and the root README unchanged.
+
 # 0.7.64 — form naming reference and complete creation workflow
 
 - Replaced the small blind Create form prompt with a dedicated library-reference dialog.

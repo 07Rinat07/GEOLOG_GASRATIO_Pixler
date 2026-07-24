@@ -244,15 +244,15 @@ def test_add_cuttings_track_does_not_require_curves() -> None:
     track = controller.add_track(TrackKind.CUTTINGS)
 
     assert track.title == "Шламограмма"
-    assert track.width == 144
+    assert track.width == 120
     assert track.curve_mnemonics == []
 
 
 @pytest.mark.parametrize(
     ("kind", "title", "width"),
     [
-        (TrackKind.CALCIMETRY, "Кальциметрия", 132),
-        (TrackKind.LBA, "ЛБА", 156),
+        (TrackKind.CALCIMETRY, "Кальциметрия", 110),
+        (TrackKind.LBA, "ЛБА", 130),
     ],
 )
 def test_add_sample_analysis_tracks_without_curves(kind, title, width) -> None:
@@ -324,7 +324,7 @@ def test_stratigraphy_track_and_default_layout_do_not_require_curves() -> None:
 
     assert TrackKind.STRATIGRAPHY in [track.kind for track in layout.tracks]
     assert added.title == "Стратиграфия"
-    assert added.width == 132
+    assert added.width == 110
     assert added.curve_mnemonics == []
 
 

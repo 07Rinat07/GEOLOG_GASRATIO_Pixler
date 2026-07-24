@@ -83,6 +83,7 @@ from geoworkbench.forms import (
     FormAxisKind,
     FormRepository,
     form_from_tablet_layout,
+    materialized_factory_templates,
 )
 from geoworkbench.forms.layout_transaction import (
     ReversibleApplyError,
@@ -205,6 +206,7 @@ from geoworkbench.ui.import_diagnostics_dialog import ImportDiagnosticsDialog
 from geoworkbench.ui.paradox_import_dialog import ParadoxImportDialog
 from geoworkbench.ui.paradox_batch_dialog import ParadoxBatchDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
+from geoworkbench.ui.form_create_dialog import FormCreateDialog
 from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
@@ -4584,31 +4586,34 @@ class MainWindow(QMainWindow):
             else "ui.axis_depth"
         )
         suggested = f"{dataset.name} — {axis_word}"
-        name, accepted = QInputDialog.getText(
-            self,
-            self._t("ui.save_user_form"),
-            self._t("tablet.preset_name"),
-            text=suggested,
-        )
-        if not accepted or not name.strip():
-            return
-        normalized = name.strip()
-        existing = next(
-            (
+        try:
+            factory_forms = [
                 form
-                for form in self.form_repository.list_forms()
-                if form.name.casefold() == normalized.casefold()
+                for form in materialized_factory_templates(
+                    dataset, str(self.language)
+                ).values()
+                if form.form_id != "factory-masterlog-geological-geochemical"
+            ]
+        except (KeyError, RuntimeError, ValueError):
+            factory_forms = []
+        repository_forms = self.form_repository.list_forms()
+        dialog = FormCreateDialog(
+            [*factory_forms, *repository_forms],
+            self,
+            language=str(self.language),
+            mode="save",
+            initial_name=suggested,
+            initial_axis_kind=(
+                FormAxisKind.TIME
+                if index is not None and index.role is IndexRole.TIME
+                else FormAxisKind.DEPTH
             ),
-            None,
+            axis_editable=False,
         )
-        if existing is not None:
-            answer = QMessageBox.question(
-                self,
-                self._t("ui.save_user_form"),
-                self._t("ui.replace_user_form", name=existing.name),
-            )
-            if answer != QMessageBox.StandardButton.Yes:
-                return
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        normalized = dialog.form_name
+        existing = dialog.existing_form
         try:
             form = form_from_tablet_layout(
                 layout,

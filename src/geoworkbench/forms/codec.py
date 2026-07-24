@@ -22,7 +22,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-FORM_SCHEMA_VERSION = 7
+FORM_SCHEMA_VERSION = 8
 
 
 class FormFormatError(ValueError):
@@ -232,7 +232,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1, 2, 3, 4, 5, 6):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -265,7 +265,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                                 if isinstance(binding, dict):
                                     binding.setdefault("header_text_color", "#0f172a")
                                     binding.setdefault("header_line_color", None)
-    if version <= 6 and isinstance(columns, list):
+    if version <= 7 and isinstance(columns, list):
         for column in columns:
             if not isinstance(column, dict):
                 continue

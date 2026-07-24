@@ -37,10 +37,10 @@ def test_compact_track_kinds_accept_48_px_but_curve_keeps_80_px_minimum() -> Non
         TrackDefinition("curve", "Curve", TrackKind.CURVE, width=79)
 
 
-def test_layout_v16_migration_reduces_only_requested_geology_tracks() -> None:
+def test_layout_v17_migration_applies_stable_target_widths() -> None:
     restored = layout_from_dict(
         {
-            "version": 16,
+            "version": 17,
             "tracks": [
                 {"track_id": "depth", "title": "Depth", "kind": "depth", "width": 120},
                 {
@@ -54,15 +54,15 @@ def test_layout_v16_migration_reduces_only_requested_geology_tracks() -> None:
         }
     )
 
-    assert restored.track_by_id("depth").width == 72
-    assert restored.track_by_id("lithology").width == 132
+    assert restored.track_by_id("depth").width == 60
+    assert restored.track_by_id("lithology").width == 110
     assert restored.track_by_id("curve").width == 300
-    assert layout_to_dict(restored)["version"] == 17
+    assert layout_to_dict(restored)["version"] == 18
 
 
-def test_form_v6_migration_reduces_user_columns_once() -> None:
+def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None:
     payload = {
-        "schema_version": 6,
+        "schema_version": 7,
         "form_id": "legacy-user-form",
         "name": "Legacy user form",
         "axis_kind": "depth",
@@ -92,10 +92,10 @@ def test_form_v6_migration_reduces_user_columns_once() -> None:
     encoded = form_to_dict(restored)
     restored_again = form_from_dict(encoded)
 
-    assert restored.columns[0].width == 72
+    assert restored.columns[0].width == 60
     assert restored.columns[1].width == 300
-    assert encoded["schema_version"] == 7
-    assert restored_again.columns[0].width == 72
+    assert encoded["schema_version"] == 8
+    assert restored_again.columns[0].width == 60
 
 
 def test_repository_reads_legacy_user_form_with_compact_widths(tmp_path) -> None:
@@ -148,14 +148,10 @@ def test_ready_forms_are_built_in_with_compact_geology_columns() -> None:
 
     assert tuple(forms) == (
         "factory-geodata-depth-workspace",
-        "factory-masterlog-geological-geochemical",
         "factory-engineering-control-time",
     )
     assert forms["factory-geodata-depth-workspace"].name == (
         "Комплексная ГТИ-форма — геология, технология и газ"
-    )
-    assert forms["factory-masterlog-geological-geochemical"].name == (
-        "MASTERLOG — геолого-геохимическая форма"
     )
     assert forms["factory-engineering-control-time"].name == (
         "Инженерно-технологический мониторинг — временная форма"
@@ -190,7 +186,7 @@ def test_form_column_minimum_follows_its_track_kind() -> None:
     form.validate()
 
 
-def test_layout_v16_migration_compacts_every_requested_kind() -> None:
+def test_layout_v17_migration_compacts_every_requested_kind() -> None:
     tracks = [
         {
             "track_id": kind.value,
@@ -204,10 +200,14 @@ def test_layout_v16_migration_compacts_every_requested_kind() -> None:
         {"track_id": "text", "title": "Text", "kind": "text", "width": 200}
     )
 
-    restored = layout_from_dict({"version": 16, "tracks": tracks})
+    restored = layout_from_dict({"version": 17, "tracks": tracks})
 
-    for kind in COMPACT_KINDS:
-        assert restored.track_by_id(kind.value).width == 120
+    expected = {
+        kind: 100
+        for kind in COMPACT_KINDS
+    }
+    for kind, width in expected.items():
+        assert restored.track_by_id(kind.value).width == width
     assert restored.track_by_id("text").width == 200
 
 
@@ -215,17 +215,14 @@ def test_ready_form_names_are_localized_and_polished() -> None:
     expected = {
         "ru": {
             "factory-geodata-depth-workspace": "Комплексная ГТИ-форма — геология, технология и газ",
-            "factory-masterlog-geological-geochemical": "MASTERLOG — геолого-геохимическая форма",
             "factory-engineering-control-time": "Инженерно-технологический мониторинг — временная форма",
         },
         "kk": {
             "factory-geodata-depth-workspace": "Кешенді ГТИ пішіні — геология, технология және газ",
-            "factory-masterlog-geological-geochemical": "MASTERLOG — геологиялық-геохимиялық пішін",
             "factory-engineering-control-time": "Инженерлік-технологиялық мониторинг — уақыттық пішін",
         },
         "en": {
             "factory-geodata-depth-workspace": "Integrated mud logging form — geology, drilling and gas",
-            "factory-masterlog-geological-geochemical": "MASTERLOG — geological and geochemical form",
             "factory-engineering-control-time": "Engineering and drilling monitoring — time form",
         },
     }

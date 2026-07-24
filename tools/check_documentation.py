@@ -261,9 +261,9 @@ def audit_compact_column_coverage(root: Path) -> list[AuditIssue]:
         f"RELEASE_NOTES_{project_version}.md",
     )
     language_tokens = {
-        "ru": ("40%", "48", "80", "MASTERLOG", "пользователь", "v7", "v17"),
-        "kk": ("40%", "48", "80", "MASTERLOG", "пайдаланушы", "v7", "v17"),
-        "en": ("40%", "48", "80", "MASTERLOG", "user", "v7", "v17"),
+        "ru": ("50%", "48", "80", "готов", "пользователь", "v8", "v18"),
+        "kk": ("50%", "48", "80", "дайын", "пайдаланушы", "v8", "v18"),
+        "en": ("50%", "48", "80", "ready", "user", "v8", "v18"),
     }
 
     for language in LANGUAGES:
@@ -307,9 +307,9 @@ def audit_form_creation_naming_coverage(root: Path) -> list[AuditIssue]:
         f"RELEASE_NOTES_{project_version}.md",
     )
     language_tokens = {
-        "ru": ("Создать форму", "все встроенные", "пользовательские", "совпад", "пробел"),
-        "kk": ("Пішін жасау", "барлық кірістірілген", "пайдаланушы", "қайталан", "бос орын"),
-        "en": ("Create form", "all built-in", "user form", "duplicate", "whitespace"),
+        "ru": ("Создать форму", "Сохранить пользовательскую форму", "все готовые", "пользовательские", "совпад", "пробел"),
+        "kk": ("Пішін жасау", "Пайдаланушы пішінін сақтау", "барлық дайын", "пайдаланушы", "қайталан", "бос орын"),
+        "en": ("Create form", "Save user form", "all ready", "user form", "duplicate", "whitespace"),
     }
 
     for language in LANGUAGES:

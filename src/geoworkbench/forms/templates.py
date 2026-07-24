@@ -267,7 +267,6 @@ def factory_templates(language: str = "ru") -> dict[str, FormDocument]:
 
 CURATED_FACTORY_TEMPLATE_IDS: tuple[str, ...] = (
     "factory-geodata-depth-workspace",
-    "factory-masterlog-geological-geochemical",
     "factory-engineering-control-time",
 )
 
@@ -284,7 +283,7 @@ def curated_factory_templates(language: str = "ru") -> dict[str, FormDocument]:
 
 
 def _apply_compact_geology_widths(form: FormDocument) -> None:
-    """Reduce geology reference columns by 40% while preserving graph space."""
+    """Reduce geology reference columns by 50% while preserving graph space."""
 
     for column in form.columns:
         kinds = [track.kind for track in column.tracks]

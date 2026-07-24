@@ -97,19 +97,21 @@ absolute composition `TG_CALC`, `C1`, `C2` from relative component composition
 `C1_REL`–`C5_REL`; a fully missing sample remains `NULL/NaN`. See
 [GeoData depth workspace](GEODATA_DEPTH_WORKSPACE.md).
 
-## Geological-geochemical Masterlog
+## Ready forms promoted from the local library
 
-The factory “Geological-geochemical Masterlog” follows the supplied working reference:
-stratigraphy, WOB/ROP/DMC/D-exponent, depth, cuttings diagram, LBA, calcimetry, lithology,
-C1–C5/Total Gas, and rock descriptions. The factory form is protected; an editable user copy
-preserves column order, widths, captions, bindings, scales, and styles. The screen form is linked
-to the `geological_geochemical` print header.
+The application does not add a separate duplicate factory MASTERLOG template. When Form Library is
+opened for the first time, four confirmed user forms from the existing profile are parsed, migrated
+to the current schema, and moved to the protected **Ready forms** section:
 
-Calcimetry displays calcite CaCO₃, dolomite CaMg(CO₃)₂, and the calculated insoluble residue for
-each sample interval. A measured `0` remains zero, while a missing value is not drawn. LBA uses
-interval symbols for bitumen type and intensity 1–5, while the complete observation remains in
-the tooltip and project data. For ordinary curves, LAS NULL/NaN breaks the line, so points on
-opposite sides of a missing interval are never connected.
+- **Геология, технология и газ — A4, альбомная**;
+- **Геолого-технологический газовый каротаж — A4, альбомная**;
+- **Геология Plus — A4, книжная**;
+- **Мастерлог — A4, книжная**.
+
+The migration preserves the actual columns, tracks, parameter bindings, scales, styles, and widths
+from the existing JSON files; it does not create empty placeholders. Ready forms are protected from
+accidental overwrite and are edited through a user copy. On a new computer without the old profile,
+transfer the JSON files for these forms. See [Form Engine](FORM_ENGINE.md).
 
 ## LAS export
 
@@ -551,16 +553,20 @@ depth axis for the workspace and report. See [LAG_DEPTH_CORRECTION.md](LAG_DEPTH
 
 ## Geological form column widths
 
-Stratigraphy, lithology, cuttings log, calcimetry, LBA, and depth use widths reduced by 40% from
-the previous templates. They can be adjusted manually from 48 px. Ordinary graphs and text
-columns retain an 80 px minimum. Legacy user forms and saved tablets are migrated when opened.
-See [Form Engine](FORM_ENGINE.md) for the full workflow and the built-in user MASTERLOG template.
+Stratigraphy, lithology, cuttings, calcimetry, LBA, and depth are reduced once by **50%** while
+migrating to form schema **v8** and tablet layout **v18**. They remain manually adjustable from
+**48 px**. Ordinary graph and text columns keep an **80 px** safety minimum. The migration covers
+factory, ready, and user forms as well as the saved tablet layout. A width selected by the user
+after migration is not reduced again. See [Form Engine](FORM_ENGINE.md).
 
+## Create and save a form while reviewing the library
 
+Both **Create form** and **Save user form** open a large window that shows **all ready**, factory,
+and user forms before a name is entered. The selected item displays axis, type, description,
+revision, columns, widths, tracks, and parameters. Search covers names, descriptions, columns, and
+mnemonics.
 
-### Create a form without duplicate names
-
-In Form Library, click **Create form**. A window opens with every built-in and user form, search,
-and details for the selected item. Review the existing names, enter a new one, select **Depth** or
-**Time**, and click **Create**. Names that differ only by case or extra spaces are rejected. See
-[FORM_ENGINE.md](FORM_ENGINE.md) for the complete workflow.
+A new name is checked case-insensitively after whitespace normalization, and any duplicate is
+blocked. When saving the current tablet, an available name creates a new user form; matching an
+editable user form explicitly offers to save the next revision. Ready and factory template names
+cannot be reused. See [FORM_ENGINE.md](FORM_ENGINE.md).

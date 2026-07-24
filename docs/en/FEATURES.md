@@ -57,19 +57,21 @@ are localized.
 
 ## Verifying compact columns
 
-1. Open any factory form or the built-in **MASTERLOG — geological and geochemical form** template.
-2. Confirm that stratigraphy, lithology, cuttings, calcimetry, LBA, and depth use less space while
-   curve graph widths remain unchanged.
-3. Drag the compact column's right edge or set its width in the inspector. The minimum is 48 px.
-4. Save with **Ctrl+S**, close, and reopen the project. The widths must be restored.
-5. Create a user copy before changing the built-in template.
+1. Open a factory, ready, or user depth form.
+2. After the one-time form schema **v8** / tablet layout **v18** migration, verify that
+   stratigraphy, lithology, cuttings, calcimetry, LBA, and depth are **50%** narrower.
+3. Curves and text must not be reduced automatically; their safety minimum is **80 px**.
+4. Drag a compact column boundary or set the width in the inspector. The minimum is **48 px**.
+5. Press **Ctrl+S**, close, and reopen the project. The selected widths must be restored.
+6. Edit a ready form only through a separate user copy.
 
+### Create and save while reviewing names
 
-
-### Create a form while reviewing existing names
-
-- **Create form** opens a dedicated window containing every built-in and user form.
+- **Create form** and **Save user form** open the same large reference window.
+- It shows **all ready**, factory, and user forms before confirmation.
 - Search covers names, descriptions, columns, and parameters.
-- The selected form shows its axis, origin, description, columns, widths, tracks, and parameters.
-- A duplicate name is blocked regardless of case or repeated whitespace.
-- After an available name and axis are selected, the new form is stored in the user library.
+- The selected form displays axis, type, revision, structure, widths, and mnemonics.
+- A duplicate name is blocked case-insensitively after whitespace normalization.
+- In save mode, matching an editable user form intentionally creates the next revision; a ready or
+  factory template cannot be replaced.
+

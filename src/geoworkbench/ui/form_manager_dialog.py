@@ -356,6 +356,11 @@ class FormManagerDialog(QDialog):
             )
         except (KeyError, RuntimeError, ValueError):
             factory = list(factory_templates(self.language).values())
+        factory = [
+            form
+            for form in factory
+            if form.form_id != "factory-masterlog-geological-geochemical"
+        ]
         return [*factory, *self.repository.list_forms()]
 
     def reload(self, selected_id: str | None = None) -> None:
@@ -363,8 +368,22 @@ class FormManagerDialog(QDialog):
         self.tree_widget.clear()
         try:
             factory = self._factory_forms()
-            user_forms = self.repository.list_forms()
+            repository_forms = self.repository.list_forms()
+            ready_forms = [item for item in repository_forms if item.read_only]
+            user_forms = [item for item in repository_forms if not item.read_only]
             categories = (
+                (
+                    "ready-depth",
+                    self._text("Готовые формы — глубина", "Дайын пішіндер — тереңдік", "Ready forms — depth"),
+                    [item for item in ready_forms if item.axis_kind is FormAxisKind.DEPTH],
+                    True,
+                ),
+                (
+                    "ready-time",
+                    self._text("Готовые формы — время", "Дайын пішіндер — уақыт", "Ready forms — time"),
+                    [item for item in ready_forms if item.axis_kind is FormAxisKind.TIME],
+                    True,
+                ),
                 (
                     "factory-depth",
                     self._text("Заводские формы — глубина", "Зауыттық пішіндер — тереңдік", "Factory forms — depth"),
@@ -445,7 +464,7 @@ class FormManagerDialog(QDialog):
                             and group_item.data(
                                 0, Qt.ItemDataRole.UserRole + 1
                             )
-                            == "user-depth"
+                            in {"user-depth", "ready-depth"}
                         )
                     ),
                     self.tree_widget.topLevelItem(0),

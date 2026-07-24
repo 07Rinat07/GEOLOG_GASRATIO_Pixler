@@ -39,7 +39,7 @@ COMPACT_TRACK_KINDS = frozenset(
 STANDARD_MIN_TRACK_WIDTH = 80
 COMPACT_MIN_TRACK_WIDTH = 48
 MAX_TRACK_WIDTH = 2000
-COMPACT_WIDTH_FACTOR = 0.60
+COMPACT_WIDTH_FACTOR = 0.50
 
 
 def minimum_track_width(kind: TrackKind) -> int:
@@ -54,9 +54,18 @@ def minimum_width_for_track_kinds(kinds: Iterable[TrackKind]) -> int:
 
 
 def compact_track_width(kind: TrackKind, width: int) -> int:
+    """Return the one-time compact width used by migrations and templates.
+
+    Requested geology/reference columns are reduced by 50 percent and protected
+    by a 48 px minimum.  Idempotence is provided by the form/layout schema
+    version: the conversion runs only while upgrading an older persisted object.
+    A current-schema form keeps any later width chosen by the user.
+    """
+
+    normalized = max(1, min(MAX_TRACK_WIDTH, int(width)))
     if kind not in COMPACT_TRACK_KINDS:
-        return max(STANDARD_MIN_TRACK_WIDTH, min(MAX_TRACK_WIDTH, int(width)))
-    reduced = int(round(int(width) * COMPACT_WIDTH_FACTOR))
+        return max(STANDARD_MIN_TRACK_WIDTH, normalized)
+    reduced = int(round(normalized * COMPACT_WIDTH_FACTOR))
     return max(COMPACT_MIN_TRACK_WIDTH, min(MAX_TRACK_WIDTH, reduced))
 
 
