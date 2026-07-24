@@ -32,7 +32,12 @@ from geoworkbench.tablet.models import (
     TrackKind,
     XScale,
 )
-from geoworkbench.tablet.tablet_view import TabletTrackWidget, TabletView, curve_legend_label
+from geoworkbench.tablet.tablet_view import (
+    CURVE_HEADER_EDITOR_HEIGHT,
+    TabletTrackWidget,
+    TabletView,
+    curve_legend_label,
+)
 from geoworkbench.project.annotation_schema import AnnotationKind
 
 
@@ -1748,7 +1753,9 @@ def test_many_curve_headers_remain_named_and_generic_title_is_readable(qapp) -> 
     assert rendered.widget.title.text() == "Параметры (9)"
     assert len(rendered.widget._curve_header_labels) == 9
     assert all(label.text().strip() for label in rendered.widget._curve_header_labels.values())
-    assert rendered.widget.curve_header_scroll.maximumHeight() == 320
+    assert rendered.widget.curve_header_scroll.maximumHeight() == min(
+        360, len(mnemonics) * CURVE_HEADER_EDITOR_HEIGHT
+    )
     view.close()
 
 
@@ -1800,10 +1807,14 @@ def test_masterlog_tracks_reserve_one_header_band_and_align_plot_viewports(qapp)
     view.show()
     qapp.processEvents()
 
-    assert view._rendered["drilling"].widget.natural_curve_header_height == 144
+    expected_header_height = 3 * CURVE_HEADER_EDITOR_HEIGHT
+    assert (
+        view._rendered["drilling"].widget.natural_curve_header_height
+        == expected_header_height
+    )
     assert {
         rendered.widget.curve_header_scroll.height() for rendered in view._rendered.values()
-    } == {144}
+    } == {expected_header_height}
 
     viewport_tops = {
         rendered.plot.viewport().mapToGlobal(QPoint(0, 0)).y()
@@ -2658,3 +2669,36 @@ def test_tablet_view_renders_rich_annotation_only_on_bound_track(qapp) -> None:
     assert item is not None
     assert item.isVisible() is True
     view.close()
+
+
+def test_curve_header_parameters_are_top_packed_inside_common_band(qapp) -> None:
+    track = TabletTrackWidget(
+        TrackDefinition(
+            "track-top-packed",
+            "Technology",
+            TrackKind.CURVE,
+            curve_mnemonics=["WOB", "ROP", "RPM"],
+            width=260,
+        )
+    )
+    track.set_curve_headers(
+        [
+            ("WOB", "Weight on bit", "#2563eb", "#0f172a", None),
+            ("ROP", "Rate of penetration", "#dc2626", "#0f172a", None),
+            ("RPM", "Rotary speed", "#16a34a", "#0f172a", None),
+        ]
+    )
+    track.set_synchronized_header_height(320)
+    track.resize(260, 700)
+    track.show()
+    qapp.processEvents()
+
+    labels = [track._curve_header_labels[key] for key in ("WOB", "ROP", "RPM")]
+    tops = [label.mapTo(track.curve_header, QPoint(0, 0)).y() for label in labels]
+    bottoms = [top + label.height() for top, label in zip(tops, labels, strict=True)]
+
+    assert tops[0] <= 1
+    assert tops[1] == pytest.approx(bottoms[0], abs=1)
+    assert tops[2] == pytest.approx(bottoms[1], abs=1)
+    assert bottoms[-1] < track.curve_header_scroll.height()
+    track.close()

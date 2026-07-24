@@ -46,3 +46,12 @@ def test_constructor_documentation_is_synchronized() -> None:
     for language in ("ru", "kk", "en"):
         assert (ROOT / f"docs/{language}/FORM_CONSTRUCTOR_PLAN.md").is_file()
         assert (ROOT / f"docs/{language}/CONSTRUCTOR.md").is_file()
+
+
+def test_constructor_does_not_reference_lag_projection_locals() -> None:
+    source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text("utf-8")
+    constructor_body = source.split("    def show_constructor", 1)[1].split(
+        "    def show_form_manager", 1
+    )[0]
+    assert "opened_from_projection" not in constructor_body
+    assert "original_dataset_id" not in constructor_body

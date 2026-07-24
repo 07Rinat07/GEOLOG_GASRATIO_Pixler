@@ -1057,8 +1057,17 @@ class TabletTrackWidget(QFrame):
         self.curve_header_layout = QVBoxLayout(self.curve_header)
         self.curve_header_layout.setContentsMargins(0, 0, 0, 0)
         self.curve_header_layout.setSpacing(0)
+        # Professional well-log headers keep every curve title anchored at the
+        # top of the common header band.  The remaining synchronized space must
+        # stay below the last parameter; otherwise QBoxLayout distributes it
+        # between fixed-height editors and creates the large blank gaps seen in
+        # sparse tracks.
+        self.curve_header_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.curve_header_scroll = QScrollArea()
         self.curve_header_scroll.setWidgetResizable(True)
+        self.curve_header_scroll.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        )
         self.curve_header_scroll.setWidget(self.curve_header)
         self.curve_header_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.curve_header_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -1209,13 +1218,22 @@ class TabletTrackWidget(QFrame):
                 )
             )
             self._curve_header_labels[mnemonic] = label
-            self.curve_header_layout.addWidget(label)
+            self.curve_header_layout.addWidget(
+                label, 0, Qt.AlignmentFlag.AlignTop
+            )
+        # Absorb the synchronized band's unused height only after the final
+        # parameter.  This is the key invariant: parameter blocks are packed at
+        # y=0 in every track, and any empty area is below them, never between
+        # them or above the first one.
+        self.curve_header_layout.addStretch(1)
         # The natural height is used by TabletView to reserve one common
         # parameter-header band for every column.  Without that common band,
         # tracks with three curve captions and tracks without captions start
         # their PlotWidget at different Y pixels even though their numeric
         # depth ranges are identical.
-        self._natural_curve_header_height = min(360, max(0, len(rows) * CURVE_HEADER_EDITOR_HEIGHT))
+        content_height = max(0, len(rows) * CURVE_HEADER_EDITOR_HEIGHT)
+        self._natural_curve_header_height = min(360, content_height)
+        self.curve_header.setMinimumHeight(content_height)
         self.curve_header_scroll.setMaximumHeight(self._natural_curve_header_height)
         self.curve_header_scroll.setVisible(bool(rows))
 
@@ -1231,7 +1249,13 @@ class TabletTrackWidget(QFrame):
         return self._natural_curve_header_height
 
     def set_synchronized_header_height(self, height: int) -> None:
-        """Reserve the same header band above every plot in the form."""
+        """Reserve one common band while keeping local parameters top-packed.
+
+        A common band is required so every PlotWidget starts on the same pixel
+        row and depth grids remain aligned.  The child layout owns a trailing
+        stretch, therefore extra height is consumed below the local parameter
+        list rather than distributed between editors.
+        """
 
         normalized = max(0, int(height))
         self.curve_header_scroll.setVisible(normalized > 0)
@@ -5293,13 +5317,13 @@ class TabletView(QWidget):
         self._group_header_container.show()
 
     def _synchronize_track_header_bands(self) -> None:
-        """Align the plot viewport origin for every visible Masterlog column.
+        """Align plot origins while pinning every parameter stack to the top.
 
-        All plots can share exactly the same numeric Y range and still look
-        vertically shifted when their title/header widgets consume different
-        heights.  A Masterlog requires one horizontal parameter-header band,
-        therefore every track reserves the maximum natural header height of
-        the current form, including depth and special interval tracks.
+        The form reserves the maximum natural header height so all depth plots
+        begin on the same pixel row.  Each track's internal header layout is
+        top-aligned and has a trailing stretch, so sparse columns show any
+        unavoidable remainder below their last parameter instead of producing
+        gaps between rows.
         """
 
         title_height = max(

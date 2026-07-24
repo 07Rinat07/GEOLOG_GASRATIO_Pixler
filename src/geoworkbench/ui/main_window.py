@@ -4145,12 +4145,6 @@ class MainWindow(QMainWindow):
             import_skf=self._choose_and_import_skf,
         )
         dialog.exec()
-        if (
-            opened_from_projection
-            and self.session.current_dataset_id == dataset.dataset_id
-            and original_dataset_id in well.datasets
-        ):
-            self.session.current_dataset_id = original_dataset_id
         self._refresh_tree()
         self._update_title()
 
@@ -5032,6 +5026,12 @@ class MainWindow(QMainWindow):
             language=self.language,
         )
         dialog.exec()
+        if (
+            opened_from_projection
+            and self.session.current_dataset_id == dataset.dataset_id
+            and original_dataset_id in well.datasets
+        ):
+            self.session.current_dataset_id = original_dataset_id
         self._refresh_tree()
         self._show_current_dataset()
         self._update_title()

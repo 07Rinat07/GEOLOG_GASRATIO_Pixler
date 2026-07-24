@@ -1,3 +1,12 @@
+# 0.7.55 — Top-packed synchronized curve headers (test build)
+
+- Kept one common header band for exact depth-plot alignment.
+- Anchored every parameter stack to the top and consumed surplus height only below it.
+- Prevented QVBoxLayout from distributing blank space between fixed curve headers.
+- Retained internal scrolling for dense parameter tracks.
+- Fixed the constructor `opened_from_projection` NameError and moved projection restoration back to lag correction.
+- Kept project format v20, form schema v6 and tablet layout v16 unchanged.
+
 # 0.7.54 — Stable curve headers and readable tooltip identity (test build)
 
 - Removed the linear/log selector from the working header and kept scale mode in full settings.

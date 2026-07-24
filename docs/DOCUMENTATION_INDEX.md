@@ -121,3 +121,5 @@ Every user-facing change must update the matching RU/KK/EN files in the same com
 - [English guide](en/ACQUISITION_REPLAY.md)
 
 - [Версионная lag/depth correction](LAG_DEPTH_CORRECTION.md)
+
+- 0.7.55: [RU](ru/RELEASE_NOTES_0.7.55.md) · [KK](kk/RELEASE_NOTES_0.7.55.md) · [EN](en/RELEASE_NOTES_0.7.55.md)
