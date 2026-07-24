@@ -1,31 +1,29 @@
 # Жоба жоспары
 
-2026 жылғы 24 шілдедегі күй. 0.7.49 түзету срезі project format v20, form schema v6 және
-tablet layout v16 мәндерін сақтайды. Windows тексерісінен кейінгі келесі domain slice —
-read-only offline WITSML 2.1 inventory және mapping fixtures.
+2026 жылғы 24 шілдедегі күй. 0.7.50 hotfix project format v20, form schema v6 және tablet layout
+v16 нұсқаларын өзгертпейді. Windows тексеруінен кейінгі келесі өнімдік срез — read-only offline
+WITSML 2.1 inventory және mapping fixtures.
 
-## P0 — 0.7.49 hotfix: сенімді шкала және қауіпсіз пішіндер
+## P0 — hotfix 0.7.50: пішін виджеттерінің қауіпсіз өмірлік циклі
 
-- [x] жаңа және автоматты жасалған қисықтар үшін linear scale әдепкі ету;
-- [x] manual range графиктің өзін өзгертуі үшін scale/minimum/maximum render key құрамына енгізу;
-- [x] дұрыс диапазонды debounce кейін немесе Enter арқылы бірден қолдану;
-- [x] графикалық баған тарылғанда minimum және maximum өрістерін жоғалтпау;
-- [x] unit және linear/logarithmic selector-ды бөлек responsive қатарға орналастыру;
-- [x] engineering ruler мен grid major/minor divisions сәйкестігін сақтау;
-- [x] жаңа пішінді project session commit алдында толық render жасау;
-- [x] қате кезінде соңғы жұмыс пішінін, dirty marker және selection күйін қайтару;
-- [x] Form Manager Cancel кезінде live preview-ды rollback жасау;
-- [x] қауіпсіз қолданылмаған пішінді print-ке жібермеу;
-- [x] render-before-commit, rollback және range үшін headless tests қосу;
-- [ ] Windows/PySide6/HiDPI ішінде тар баған, manual range және rollback smoke-test орындау.
+- [x] ескі Qt ағашын жоймас бұрын header debounce таймерлерін тоқтату;
+- [x] disposal кезінде minimum, maximum, unit және scale сигналдарын бұғаттау;
+- [x] `deleteLater` алдында track event filter-лерін алып тастау;
+- [x] layout transaction/rebuild кезінде header mutation өңдеуге тыйым салу;
+- [x] snapshot ішінде widget сілтемелерін сақтамай, deep-copied `TabletLayout` арқылы қалпына келтіру;
+- [x] қабылданған пішін үшін бір бастапқы rollback snapshot қолдану;
+- [x] reversible apply-дан кейін Form Manager-дің екінші rollback әрекетін алып тастау;
+- [x] preview Cancel кезінде бастапқы пішінге бөлек rollback сақтау;
+- [x] disposal, single rollback және rebuild guard үшін headless tests қосу;
+- [ ] Windows/PySide6 smoke-test: wide және narrow пішіндер арасында 20 рет ауысу, оның ішінде
+  ауысар алдында minimum/maximum өзгерту.
 
-0.7.49 критерийі: minimum/maximum өзгерісі қисықты көрінетін түрде қайта салады; тар бағанда екі
-шек қолжетімді; сәтсіз form switch немесе preview Cancel планшетті жартылай өзгерген күйде
-қалдырмайды.
+0.7.50 критерийі: бірнеше рет ауысу `Internal C++ object already deleted` қатесін тудырмайды;
+кез келген сәтсіздік жартылай планшетті емес, толық жұмыс істейтін алдыңғы пішінді қалдырады.
 
 ## Келесі кезеңдер
 
 - [ ] read-only offline WITSML 2.1 inventory және mapping fixtures;
 - [ ] бір пішіндегі alignment-controlled multi-dataset overlays;
-- [ ] күнделікті өсімге preview растауы бар directory watcher;
-- [ ] fixture replay өткеннен кейін ғана secured ETP 1.2.
+- [ ] күнделікті өсімді preview арқылы растауға арналған directory watcher;
+- [ ] сәтті fixture replay-дан кейін ғана secured ETP 1.2.

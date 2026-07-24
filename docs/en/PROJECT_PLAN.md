@@ -1,29 +1,27 @@
 # Project plan
 
-Current as of 24 July 2026. Corrective slice 0.7.49 keeps project format v20, form schema v6,
-and tablet layout v16. After Windows validation, the next domain slice is read-only offline
-WITSML 2.1 inventory and mapping fixtures.
+Current as of 24 July 2026. Hotfix 0.7.50 keeps project format v20, form schema v6, and tablet
+layout v16. After Windows confirmation, the next product slice is read-only offline WITSML 2.1
+inventory and mapping fixtures.
 
-## P0 — hotfix 0.7.49: reliable scales and safe forms
+## P0 — hotfix 0.7.50: safe form-widget lifecycle
 
-- [x] default new and automatically materialized curves to a linear scale;
-- [x] include scale/minimum/maximum in the render key so manual ranges move the curve itself;
-- [x] apply valid ranges after a debounce or immediately with Enter;
-- [x] preserve both range editors at the minimum supported track width;
-- [x] place unit and linear/logarithmic selection in a separate responsive row;
-- [x] keep the engineering ruler aligned with the column's major/minor grid divisions;
-- [x] render a candidate form before committing it to the project session;
-- [x] restore the last working form, dirty marker, and selection after failure;
-- [x] roll back live preview when Form Manager is cancelled;
-- [x] prevent printing a form that could not be applied safely;
-- [x] cover render-before-commit, rollback, and range geometry with headless tests;
-- [ ] run Windows/PySide6/HiDPI smoke tests for narrow columns, manual ranges, and rollback.
+- [x] stop header debounce timers before deleting the old Qt tree;
+- [x] block minimum, maximum, unit, and scale signals during disposal;
+- [x] remove track event filters before `deleteLater`;
+- [x] ignore header mutations during a layout transaction/rebuild;
+- [x] restore only from a deep-copied `TabletLayout`, with no widget references in snapshots;
+- [x] use one original rollback snapshot for the accepted form;
+- [x] remove the second Form Manager rollback after reversible apply;
+- [x] retain a separate original-form rollback when preview is cancelled;
+- [x] cover disposal, single rollback, and rebuild guards with headless tests;
+- [ ] run a Windows/PySide6 smoke test with 20 consecutive switches between wide and narrow
+  forms, including a minimum/maximum edit immediately before switching.
 
-0.7.49 exit criterion: editing minimum/maximum visibly repositions the curve; both boundaries
-remain reachable in a narrow column; failed form switching or cancelled preview never leaves a
-partially applied layout.
+0.7.50 exit criterion: repeated switching never raises `Internal C++ object already deleted`;
+any failure leaves a complete working previous form rather than a partially rendered tablet.
 
-## Next slices
+## Next stages
 
 - [ ] read-only offline WITSML 2.1 inventory and mapping fixtures;
 - [ ] alignment-controlled multi-dataset overlays in one form;

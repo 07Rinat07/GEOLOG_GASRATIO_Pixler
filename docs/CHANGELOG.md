@@ -1,3 +1,12 @@
+# 0.7.50 — Safe Qt form lifecycle and single model rollback (test build)
+
+- Explicitly disposed debounced curve-header editors before deleting their Qt tree.
+- Blocked stale range/unit/scale events during tablet rebuild and form transactions.
+- Rebuilt rollback state from a deep-copied layout model without reusing deleted widgets.
+- Removed the second competing Form Manager rollback after a failed reversible apply.
+- Kept project format v20, form schema v6, and tablet layout v16 unchanged.
+- Verification: 171 focused passed; 1044 headless passed, 4 skipped, 4 deselected.
+
 # 0.7.49 — Responsive curve ranges and transactional form switching (test build)
 
 - Defaulted new and automatically materialized curve bindings to linear scale.

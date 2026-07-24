@@ -1,28 +1,28 @@
 # Статус проекта
 
-Срез: 24 июля 2026 года. Версия пакета: **0.7.49**, исправляющая тестовая сборка.
-Project format: **v20**, form schema: **v6**, tablet layout: **v16**.
+Срез: 24 июля 2026 года. Версия пакета: **0.7.50**, критическое исправление жизненного
+цикла форм. Project format: **v20**, form schema: **v6**, tablet layout: **v16**.
 
-## Завершено в 0.7.49
+## Завершено в 0.7.50
 
-- новые и автоматически созданные кривые используют линейную шкалу по умолчанию;
-- ручные minimum/maximum входят в ключ рендера и перестраивают нормализованную геометрию кривой;
-- диапазон применяется автоматически после короткой паузы или сразу по Enter;
-- адаптивная шапка сохраняет minimum, maximum, unit и scale type в узкой колонке;
-- engineering ruler продолжает использовать major/minor divisions сетки конкретной колонки;
-- новая форма рендерится до записи в session;
-- ошибка render/commit восстанавливает последнюю рабочую форму, dirty-state и выбранный трек;
-- отмена Form Manager после preview возвращает исходную конфигурацию;
-- существующие явно сохранённые logarithmic bindings не изменяются;
+- `CurveHeaderEditor` имеет явный idempotent disposal-контракт;
+- debounce-таймер диапазона останавливается до `deleteLater`, сигналы полей блокируются;
+- каждый трек гасит header callbacks и снимает event filters до удаления Qt-дерева;
+- во время перестроения планшета изменения range/unit/scale из старой шапки игнорируются;
+- откат формы создаёт новое Qt-дерево только из `TabletLayout`, без повторного использования
+  уничтоженных виджетов;
+- Form Manager передаёт исходный snapshot в одну reversible transaction и больше не выполняет
+  второй конкурирующий rollback после неудачного apply;
+- отмена preview по-прежнему восстанавливает исходную форму, dirty-state и выбранный трек;
 - project/form/layout schema не менялись, миграция не требуется.
 
 ## Проверка
 
-- focused header/form/transaction: **150 passed**;
-- доступная headless-регрессия: **1037 passed, 4 skipped, 3 deselected**;
-- `compileall` и wheel build выполнены;
-- Windows smoke-test реального Qt-render, HiDPI, узких колонок и rollback обязателен из-за
-  отсутствия PySide6/pyqtgraph в контейнере.
+- focused form/layout/lifecycle: **171 passed**;
+- доступная headless-регрессия: **1044 passed, 4 skipped, 4 deselected**;
+- `compileall` выполнен;
+- Windows smoke-test с PySide6 остаётся обязательным для быстрого многократного переключения
+  форм и проверки отсутствия `Internal C++ object already deleted`.
 
 ## Следующий вертикальный срез
 

@@ -23,12 +23,26 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для hotfix 0.7.49 в текущем контейнере выполнены `compileall`, wheel build, focused
-header/form/transaction-набор — **150 passed**, и доступная headless-регрессия — **1037 passed, 4 skipped, 3 deselected**.
-Исключённые collection-модули требуют отсутствующие `PySide6`, `pyqtgraph` или `lasio`; Ruff и
-mypy в контейнере также отсутствуют. Это не заменяет полный gate. Перед stable необходимы
-Windows/HiDPI smoke-test адаптивной шапки, немедленного изменения геометрии кривой, rollback
-форм, реальных DB/LAS, PDF и physical print.
+Для hotfix 0.7.50 в текущем контейнере выполнены `compileall`, focused
+form/layout/lifecycle-набор — **171 passed**, и доступная headless-регрессия —
+**1044 passed, 4 skipped, 4 deselected**. Исключённые collection-модули требуют отсутствующие
+`PySide6`, `pyqtgraph` или `lasio`; Ruff и mypy в контейнере также отсутствуют. Это не заменяет
+полный gate. Перед stable обязателен Windows/PySide6 smoke-test быстрого переключения форм,
+редактирования range перед переключением, реальных DB/LAS, PDF и physical print.
+
+## Безопасный Qt lifecycle форм 0.7.50
+
+Обязательные проверки:
+
+- старый `CurveHeaderEditor` останавливает debounce timer до `deleteLater`;
+- после disposal queued callback не читает minimum/maximum/unit/scale;
+- layout rebuild игнорирует stale header mutations;
+- accepted form использует один исходный rollback snapshot;
+- rollback создаёт новое Qt-дерево из deep-copied `TabletLayout`;
+- failed apply не запускает второй rollback из Form Manager;
+- Cancel после preview восстанавливает исходную форму ровно один раз;
+- Windows/PySide6 выполняет не менее 20 последовательных переключений без
+  `Internal C++ object already deleted` и без повреждения первой формы.
 
 ## Адаптивная шкала и транзакционное переключение форм 0.7.49
 

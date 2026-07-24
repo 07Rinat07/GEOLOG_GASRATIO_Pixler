@@ -452,6 +452,7 @@ class MainWindow(QMainWindow):
         self._session_bindings = self._create_session_binding_controller()
         self.dataset_selection = DatasetIntervalSelection()
         self._selected_track_id: str | None = None
+        self._form_layout_transaction_active = False
         self._interpretation_dialog: InterpretationIntervalsDialog | None = None
         self.print_page_settings = self.user_profile_settings.print_page_settings()
         self.print_export_preferences = self.user_profile_settings.print_export_preferences()
@@ -4105,15 +4106,9 @@ class MainWindow(QMainWindow):
                         self._t("forms.rollback_failed", error=str(exc)),
                     )
             return
-        if not self.apply_form_to_tablet(dialog.selected_form) and snapshot is not None:
-            try:
-                self._restore_tablet_form_snapshot(snapshot)
-            except Exception as exc:
-                QMessageBox.warning(
-                    self,
-                    self._t("forms.title"),
-                    self._t("forms.rollback_failed", error=str(exc)),
-                )
+        self.apply_form_to_tablet(
+            dialog.selected_form, rollback_snapshot=snapshot
+        )
 
     def _choose_and_import_skf(self) -> bool:
         title = {
@@ -4203,22 +4198,32 @@ class MainWindow(QMainWindow):
         if dataset is None:
             raise RuntimeError(self._t("forms.rollback_dataset_missing"))
         restored = deepcopy(snapshot.layout)
-        # Session and TabletView must share the same model object; otherwise
-        # later controller commands would mutate one copy while the screen
-        # continued rendering another.
-        self.tablet_controller.restore_layout(
-            restored, dirty=snapshot.session_dirty
-        )
-        self.tablet_view.set_layout_and_dataset(
-            restored, dataset, preserve_current_range=False
-        )
-        self._selected_track_id = snapshot.selected_track_id
-        self._refresh_annotation_layer()
-        self._refresh_tree()
-        self._update_title()
+        # Session and TabletView must share the same fresh model object.  Qt
+        # widgets from the failed candidate are never reused: the view disposes
+        # them and rebuilds the previous form solely from this serialized model.
+        previous_transaction_state = self._form_layout_transaction_active
+        self._form_layout_transaction_active = True
+        try:
+            self.tablet_controller.restore_layout(
+                restored, dirty=snapshot.session_dirty
+            )
+            self.tablet_view.set_layout_and_dataset(
+                restored, dataset, preserve_current_range=False
+            )
+            self._selected_track_id = snapshot.selected_track_id
+            self._refresh_annotation_layer()
+            self._refresh_tree()
+            self._update_title()
+        finally:
+            self._form_layout_transaction_active = previous_transaction_state
 
     def apply_form_to_tablet(
-        self, form, *, mark_dirty: bool = True, notify: bool = True
+        self,
+        form,
+        *,
+        mark_dirty: bool = True,
+        notify: bool = True,
+        rollback_snapshot: _TabletFormSnapshot | None = None,
     ) -> bool:
         dataset = self.session.current_dataset
         if dataset is None:
@@ -4234,7 +4239,7 @@ class MainWindow(QMainWindow):
                 self._log(str(exc))
             return False
 
-        snapshot = self._capture_tablet_form_snapshot()
+        snapshot = rollback_snapshot or self._capture_tablet_form_snapshot()
         assert snapshot is not None
 
         def render_candidate(layout: TabletLayout) -> None:
@@ -4248,6 +4253,7 @@ class MainWindow(QMainWindow):
             self._show_workspace(self.tablet_view)
 
         try:
+            self._form_layout_transaction_active = True
             apply_reversibly(
                 candidate=result.layout,
                 snapshot=snapshot,
@@ -4269,6 +4275,8 @@ class MainWindow(QMainWindow):
                 self.statusBar().showMessage(message, 7000)
             self._log(message)
             return False
+        finally:
+            self._form_layout_transaction_active = False
 
         self._selected_track_id = None
         self._refresh_tree()
@@ -6728,6 +6736,8 @@ class MainWindow(QMainWindow):
     def _set_curve_range_from_header(
         self, track_id: str, mnemonic: str, minimum: float, maximum: float
     ) -> None:
+        if self._form_layout_transaction_active or self.tablet_view.is_rebuilding_layout:
+            return
         try:
             track = self.tablet_view.layout_model.track_by_id(track_id)
             current = track.curve_display_settings(mnemonic)
@@ -6756,6 +6766,8 @@ class MainWindow(QMainWindow):
         self._update_title()
 
     def _set_curve_auto_range_from_header(self, track_id: str, mnemonic: str) -> None:
+        if self._form_layout_transaction_active or self.tablet_view.is_rebuilding_layout:
+            return
         try:
             track = self.tablet_view.layout_model.track_by_id(track_id)
             current = track.curve_display_settings(mnemonic)
@@ -6776,6 +6788,8 @@ class MainWindow(QMainWindow):
     def _set_curve_unit_from_header(
         self, track_id: str, mnemonic: str, unit: str
     ) -> None:
+        if self._form_layout_transaction_active or self.tablet_view.is_rebuilding_layout:
+            return
         try:
             track = self.tablet_view.layout_model.track_by_id(track_id)
             current = track.curve_display_settings(mnemonic)
@@ -6793,6 +6807,8 @@ class MainWindow(QMainWindow):
     def _set_curve_scale_from_header(
         self, track_id: str, mnemonic: str, scale_value: str
     ) -> None:
+        if self._form_layout_transaction_active or self.tablet_view.is_rebuilding_layout:
+            return
         try:
             scale = XScale(scale_value)
             track = self.tablet_view.layout_model.track_by_id(track_id)

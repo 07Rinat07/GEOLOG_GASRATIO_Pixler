@@ -19,7 +19,7 @@ Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, Excel, or 
 
 Legacy Delphi SKF forms can be imported from “Forms → Form Library → Import and export → Import SKF” or “Constructor → Tablet forms”. See [SKF_IMPORT.md](SKF_IMPORT.md).
 
-In 0.7.49, new and automatically materialized curves default to a linear scale. Editing header minimum/maximum immediately changes the plotted geometry; both limits, unit, and scale type remain available in narrow columns. Form preview and application are transactional and restore the last working form after a failure.
+Version 0.7.50 fixes form switching after curve-scale editing. Deferred minimum/maximum commits and Qt signals are stopped before the previous form is destroyed. If an apply fails, the tablet never reuses old widgets; it rebuilds the last working form from its saved model.
 
 ## Table editing
 

@@ -535,6 +535,7 @@ class CurveHeaderEditor(QFrame):
         self._text_color = text_color
         self._line_color = line_color or curve_color
         self._invalid_range_message = spec.invalid_range_message
+        self._disposed = False
         self._loading = True
         self.setMinimumHeight(82)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -671,6 +672,39 @@ class CurveHeaderEditor(QFrame):
         self._loading = False
         self.set_selected(False)
 
+    def dispose(self) -> None:
+        """Stop deferred editor work before Qt destroys the header widget.
+
+        Form switching replaces an entire tablet tree.  A debounced range commit
+        may still be queued while the old tree is being removed.  Letting that
+        callback touch child widgets after Qt deleted them raises the PySide6
+        ``Internal C++ object already deleted`` error and can also break rollback.
+        Disposal is explicit and idempotent so every queued Python callback can
+        return without dereferencing a dead Qt object.
+        """
+
+        if self._disposed:
+            return
+        self._disposed = True
+        self._loading = True
+        try:
+            self._range_commit_timer.stop()
+            self._range_commit_timer.timeout.disconnect(self._commit_range_when_idle)
+        except (RuntimeError, TypeError):
+            pass
+        for control in (
+            self.minimum,
+            self.maximum,
+            self.unit,
+            self.scale,
+            self.auto_button,
+            self.settings_button,
+        ):
+            try:
+                control.blockSignals(True)
+            except RuntimeError:
+                pass
+
     @staticmethod
     def _spin(value: float) -> QDoubleSpinBox:
         spin = QDoubleSpinBox()
@@ -691,6 +725,8 @@ class CurveHeaderEditor(QFrame):
         return spin
 
     def text(self) -> str:
+        if self._disposed:
+            return self._title_text
         unit = self.unit.text().strip()
         return (
             f"{self._title_text}\n{self.minimum.value():g} … {self.maximum.value():g}"
@@ -698,6 +734,8 @@ class CurveHeaderEditor(QFrame):
         )
 
     def set_selected(self, selected: bool) -> None:
+        if self._disposed:
+            return
         background = "#dbeafe" if selected else "#ffffff"
         border = "#2563eb" if selected else self._line_color
         self.setStyleSheet(
@@ -706,7 +744,7 @@ class CurveHeaderEditor(QFrame):
         )
 
     def _schedule_range_commit(self, *_args: object) -> None:
-        if self._loading:
+        if self._disposed or self._loading:
             return
         sender = self.sender()
         if sender is self.minimum or sender is self.maximum:
@@ -715,6 +753,8 @@ class CurveHeaderEditor(QFrame):
         self._range_commit_timer.start()
 
     def _commit_range_when_idle(self) -> None:
+        if self._disposed:
+            return
         focused = (
             self.minimum
             if self.minimum.hasFocus()
@@ -731,7 +771,7 @@ class CurveHeaderEditor(QFrame):
         self._commit_range()
 
     def _preview_range(self) -> None:
-        if self._loading:
+        if self._disposed or self._loading:
             return
         minimum = float(self.minimum.value())
         maximum = float(self.maximum.value())
@@ -741,7 +781,7 @@ class CurveHeaderEditor(QFrame):
             self.ruler.set_values(minimum, maximum, scale)
 
     def _commit_range(self) -> None:
-        if self._loading:
+        if self._disposed or self._loading:
             return
         self._range_commit_timer.stop()
         minimum = float(self.minimum.value())
@@ -768,11 +808,11 @@ class CurveHeaderEditor(QFrame):
         self.range_changed.emit(self.mnemonic, minimum, maximum)
 
     def _commit_unit(self) -> None:
-        if not self._loading:
+        if not self._disposed and not self._loading:
             self.unit_changed.emit(self.mnemonic, self.unit.text().strip())
 
     def _commit_scale(self) -> None:
-        if self._loading:
+        if self._disposed or self._loading:
             return
         value = str(self.scale.currentData() or XScale.LINEAR.value)
         self.ruler.set_values(
@@ -781,6 +821,9 @@ class CurveHeaderEditor(QFrame):
         self.scale_changed.emit(self.mnemonic, value)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self._disposed:
+            event.ignore()
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             self.double_clicked.emit(self.mnemonic)
             event.accept()
@@ -788,6 +831,9 @@ class CurveHeaderEditor(QFrame):
         super().mouseDoubleClickEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self._disposed:
+            event.ignore()
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.mnemonic)
             event.accept()
@@ -924,12 +970,32 @@ class TabletTrackWidget(QFrame):
             target.setMouseTracking(True)
             target.installEventFilter(self)
 
+    def _dispose_curve_header_editors(self) -> None:
+        for label in tuple(self._curve_header_labels.values()):
+            if isinstance(label, CurveHeaderEditor):
+                label.dispose()
+        self._curve_header_labels.clear()
+
+    def prepare_for_disposal(self) -> None:
+        """Quiesce deferred header callbacks before the track is deleted."""
+
+        self._dispose_curve_header_editors()
+        for target in (self.title, self.plot, self.plot.viewport()):
+            try:
+                target.removeEventFilter(self)
+            except RuntimeError:
+                pass
+        try:
+            self.blockSignals(True)
+        except RuntimeError:
+            pass
+
     def set_curve_headers(
         self,
         rows: list[tuple[str, str, str, str, str | None]],
         editable_ranges: dict[str, CurveHeaderRangeSpec] | None = None,
     ) -> None:
-        self._curve_header_labels.clear()
+        self._dispose_curve_header_editors()
         while self.curve_header_layout.count():
             item = self.curve_header_layout.takeAt(0)
             widget = item.widget() if item is not None else None
@@ -1306,6 +1372,7 @@ class TabletView(QWidget):
         self._layout_mutations = TabletLayoutMutationController(self._layout_model)
         self._track_lifecycle = TrackLifecycleCoordinator()
         self._rendered: dict[str, RenderedTrack] = {}
+        self._layout_rebuild_active = False
         self._sync_guard = False
         self._depth_range_guard = False
         self._cursor_enabled = False
@@ -3931,6 +3998,10 @@ class TabletView(QWidget):
         self._geometry_cache.clear()
         self._static_layer_cache.clear()
 
+    @property
+    def is_rebuilding_layout(self) -> bool:
+        return self._layout_rebuild_active
+
     def set_dataset(self, dataset: Dataset | None) -> None:
         self._replace_dataset_reference(dataset)
         self.refresh_view()
@@ -4513,6 +4584,7 @@ class TabletView(QWidget):
         """Release registrations owned by one rendered track before Qt deletion."""
 
         track_id = rendered.definition.track_id
+        rendered.widget.prepare_for_disposal()
         plot = rendered.plot
         if plot is not None:
             viewport = plot.viewport()
@@ -4557,6 +4629,15 @@ class TabletView(QWidget):
                     widget.deleteLater()
 
     def refresh_view(self) -> None:
+        if self._layout_rebuild_active:
+            return
+        self._layout_rebuild_active = True
+        try:
+            self._refresh_view_impl()
+        finally:
+            self._layout_rebuild_active = False
+
+    def _refresh_view_impl(self) -> None:
         self.clear()
         self._dirty_registry.record_full_update()
         self._refresh_axis_selector()

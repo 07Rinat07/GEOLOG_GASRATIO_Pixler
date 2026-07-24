@@ -1,27 +1,25 @@
 # План проекта
 
-Актуально на 24 июля 2026 года. Исправляющий срез 0.7.49 сохраняет project format v20,
-form schema v6 и tablet layout v16. После Windows-подтверждения следующий предметный этап —
-read-only offline WITSML 2.1 inventory и mapping fixtures.
+Актуально на 24 июля 2026 года. Hotfix 0.7.50 сохраняет project format v20, form schema v6 и
+tablet layout v16. Следующий предметный этап после Windows-подтверждения — read-only offline
+WITSML 2.1 inventory и mapping fixtures.
 
-## P0 — hotfix 0.7.49: надёжная шкала и безопасные формы
+## P0 — hotfix 0.7.50: безопасный жизненный цикл форм
 
-- [x] устанавливать линейную шкалу по умолчанию для новых и автоматически созданных кривых;
-- [x] включать scale/minimum/maximum в ключ рендера, чтобы ручной диапазон менял сам график;
-- [x] применять корректный диапазон автоматически после debounce либо сразу по Enter;
-- [x] сохранять оба поля диапазона при минимальной ширине графической колонки;
-- [x] размещать unit и linear/logarithmic selector в отдельной адаптивной строке;
-- [x] сохранять синхронизацию engineering ruler с major/minor divisions сетки;
-- [x] рендерить новую форму до commit в project session;
-- [x] восстанавливать последнюю рабочую форму, dirty marker и selection после ошибки;
-- [x] откатывать live preview при отмене менеджера форм;
-- [x] запрещать печать формы, которую не удалось безопасно применить;
-- [x] покрыть render-before-commit, rollback и диапазон независимыми headless-тестами;
-- [ ] выполнить Windows/PySide6/HiDPI smoke-test узких колонок, ручного диапазона и rollback.
+- [x] останавливать debounce-таймеры шапки до удаления старого Qt-дерева;
+- [x] блокировать сигналы minimum, maximum, unit и scale при disposal;
+- [x] снимать event filters трека до `deleteLater`;
+- [x] запрещать обработку header mutations во время layout transaction/rebuild;
+- [x] восстанавливать форму только из deep-copied `TabletLayout`, не сохраняя ссылки на widgets;
+- [x] использовать один исходный rollback snapshot для принятой формы;
+- [x] убрать повторный rollback в Form Manager после reversible apply;
+- [x] сохранить отдельный rollback исходной формы при Cancel после preview;
+- [x] покрыть disposal, single rollback и rebuild guard headless-тестами;
+- [ ] выполнить Windows/PySide6 smoke-test: 20 последовательных переключений между широкими и
+  узкими формами, включая редактирование minimum/maximum непосредственно перед переключением.
 
-Критерий 0.7.49: изменение minimum/maximum заметно перестраивает кривую; при сжатии колонки
-оба предела остаются доступными; неудачное переключение или отмена preview не оставляет планшет
-в частично изменённом состоянии.
+Критерий 0.7.50: формы можно многократно переключать без `Internal C++ object already deleted`;
+при любой ошибке остаётся полностью рабочая предыдущая форма, а не частично построенный планшет.
 
 ## Следующие этапы
 

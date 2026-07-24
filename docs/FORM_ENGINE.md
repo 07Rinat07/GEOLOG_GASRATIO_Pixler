@@ -124,3 +124,15 @@ Form Manager применяет layout через reversible transaction. Candid
 рендерится в `TabletView`, затем устанавливается через `TabletController`. При ошибке render или
 commit восстанавливаются snapshot layout, dirty marker и selected track. Cancel после live preview
 восстанавливает исходную форму; частично применённая форма не остаётся рабочей.
+
+## Жизненный цикл Qt-форм 0.7.50
+
+Snapshot формы содержит только `TabletLayout`, dirty-state и selected track. Qt-виджеты в
+snapshot не входят. Перед удалением трека каждый `CurveHeaderEditor` переводится в disposed-state:
+его debounce timer останавливается, сигналы editor controls блокируются, event filters снимаются.
+Queued callbacks сначала проверяют disposed flag и не обращаются к удалённым C++ объектам.
+
+Form Manager передаёт исходный snapshot непосредственно в `apply_form_to_tablet`. Candidate
+рендерится и commit-ится внутри одной reversible transaction. При ошибке выполняется один rollback:
+предыдущая форма создаётся заново из deep copy модели. Повторный rollback из вызывающего диалога
+запрещён, так как он конкурировал с deferred Qt deletion и мог повредить уже восстановленный экран.
