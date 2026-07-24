@@ -1837,7 +1837,7 @@ class MainWindow(QMainWindow):
         )
         self.form_edit_caption = QLabel(self._t("ui.form_edit_toolbar"))
         self.form_edit_caption.setStyleSheet(
-            "font-weight: 700; color: #1e3a8a; padding-right: 8px;"
+            "background:transparent; font-weight:700; color:#1e3a8a; padding-right:8px;"
         )
         self.form_edit_caption.setToolTip(self._t("ui.help.tablet_edit_mode"))
         self.form_edit_toolbar.addWidget(self.form_edit_caption)

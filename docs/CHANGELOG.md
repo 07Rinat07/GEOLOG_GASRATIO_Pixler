@@ -1,3 +1,12 @@
+# 0.7.54 — Stable curve headers and readable tooltip identity (test build)
+
+- Removed the linear/log selector from the working header and kept scale mode in full settings.
+- Unified editable and plain curve-header heights so scale changes cannot alter form geometry.
+- Added mandatory endpoint labels, adaptive intermediate labels and pale-colour contrast handling.
+- Used human-readable parameter names with mnemonics in graph and pencil hover text.
+- Forced readable QToolTip colours and transparent helper-label backgrounds.
+- Kept project format v20, form schema v6 and tablet layout v16 unchanged.
+
 # 0.7.53 — Readable engineering rulers and compact interval statistics (test build)
 
 - Labelled each header ruler with display unit and linear/logarithmic mode.

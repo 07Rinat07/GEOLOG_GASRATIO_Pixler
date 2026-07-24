@@ -4,11 +4,12 @@ from pathlib import Path
 def test_engineering_ruler_has_visible_caption_and_safe_pixel_fonts() -> None:
     source = Path("src/geoworkbench/tablet/tablet_view.py").read_text(encoding="utf-8")
 
-    assert 'caption = f"{self._scale_caption}: {unit} · {mode}"' in source
+    assert 'caption += f" · {self._unit}"' in source
     assert "caption_font.setPixelSize(8)" in source
-    assert "value_font.setPixelSize(7)" in source
-    assert "painter.setPen(QPen(color, 1.8))" in source
-    assert "self.setMinimumHeight(24)" in source
+    assert "value_font.setPixelSize(8)" in source
+    assert 'QPen(QColor("#334155"), 3.0)' in source
+    assert "self.setFixedHeight(28)" in source
+    assert "self.scale = QComboBox()" not in source
 
 
 def test_stale_plot_wrappers_are_skipped_during_navigation_and_cursor_updates() -> None:

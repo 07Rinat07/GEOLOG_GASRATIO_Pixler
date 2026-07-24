@@ -222,7 +222,7 @@ def _safe_delete_later(target: object | None) -> bool:
 
 
 CURVE_HEADER_EDITOR_HEIGHT = 58
-CURVE_HEADER_LABEL_HEIGHT = 40
+CURVE_HEADER_LABEL_HEIGHT = CURVE_HEADER_EDITOR_HEIGHT
 
 
 class GeologicalInputMode(StrEnum):
@@ -412,7 +412,7 @@ class CurveHeaderLabel(QLabel):
         self.mnemonic = mnemonic
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         self.setToolTip(f"{text.replace(chr(10), ' · ')} [{mnemonic}]")
-        self.setMinimumHeight(CURVE_HEADER_LABEL_HEIGHT)
+        self.setFixedHeight(CURVE_HEADER_LABEL_HEIGHT)
         self.setWordWrap(True)
         self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self._curve_color = curve_color
@@ -500,8 +500,7 @@ class CurveScaleRuler(QWidget):
         self._line_color = line_color
         self.setMinimumWidth(0)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setMinimumHeight(24)
-        self.setMaximumHeight(26)
+        self.setFixedHeight(28)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
     def set_values(
@@ -518,54 +517,84 @@ class CurveScaleRuler(QWidget):
         del event
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        rect = self.rect().adjusted(2, 1, -2, -1)
-        if rect.width() <= 1 or rect.height() <= 1:
+        rect = self.rect().adjusted(1, 1, -1, -1)
+        if rect.width() <= 3 or rect.height() <= 3:
             return
 
-        color = QColor(self._line_color)
-        if not color.isValid():
-            color = QColor("#2563eb")
-        painter.fillRect(rect, QColor("#f8fafc"))
+        configured = QColor(self._line_color)
+        if not configured.isValid():
+            configured = QColor("#2563eb")
+        # Bright curve colours (yellow, white, pale cyan) disappear on the
+        # paper-white header.  Preserve the configured hue but force enough
+        # contrast for the ruler itself; curve geometry keeps its exact colour.
+        ruler_color = QColor(configured)
+        if ruler_color.lightness() > 176:
+            ruler_color = ruler_color.darker(185)
+
+        painter.fillRect(rect, QColor("#ffffff"))
+        painter.setPen(QPen(QColor("#cbd5e1"), 1.0))
+        painter.drawRect(rect)
 
         caption_font = painter.font()
         caption_font.setPixelSize(8)
         caption_font.setBold(True)
         painter.setFont(caption_font)
-        painter.setPen(QPen(QColor("#334155"), 1.0))
-        mode = (
-            self._logarithmic_label
-            if self._scale is XScale.LOGARITHMIC
-            else self._linear_label
-        )
-        unit = self._unit or "—"
-        caption = f"{self._scale_caption}: {unit} · {mode}"
+        painter.setPen(QPen(QColor("#0f172a"), 1.0))
+        caption = self._scale_caption
+        if self._unit:
+            caption += f" · {self._unit}"
         painter.drawText(
-            rect.left(),
+            rect.left() + 2,
             rect.top(),
-            rect.width(),
+            max(1, rect.width() - 4),
             9,
             Qt.AlignmentFlag.AlignCenter,
             caption,
         )
 
-        baseline = rect.top() + 10
-        painter.setPen(QPen(color, 1.8))
-        painter.drawLine(rect.left(), baseline, rect.right(), baseline)
+        baseline = rect.top() + 9
+        # A dark under-stroke guarantees visibility; the configured curve hue
+        # remains visible as the thinner foreground stroke.
+        painter.setPen(QPen(QColor("#334155"), 3.0))
+        painter.drawLine(rect.left() + 1, baseline, rect.right() - 1, baseline)
+        painter.setPen(QPen(ruler_color, 1.5))
+        painter.drawLine(rect.left() + 1, baseline, rect.right() - 1, baseline)
 
         value_font = painter.font()
-        value_font.setPixelSize(7)
-        value_font.setBold(False)
+        value_font.setPixelSize(8)
+        value_font.setBold(True)
         painter.setFont(value_font)
-        painter.setPen(QPen(color, 1.0))
-        occupied_right = -10_000
         metrics = painter.fontMetrics()
+        text_pen = QPen(QColor("#0f172a"), 1.0)
+        tick_pen = QPen(QColor("#334155"), 1.0)
         lines = normalized_grid_lines(self._major_divisions, self._minor_divisions)
+        major_lines = [line for line in lines if line.major]
+
         for line in lines:
             x = rect.left() + round(rect.width() * line.fraction)
             tick = 6 if line.major else 3
+            painter.setPen(tick_pen)
             painter.drawLine(x, baseline, x, baseline + tick)
-            if not line.major:
-                continue
+
+        # Endpoints are mandatory.  Interior labels are added only when enough
+        # horizontal room exists, so narrow tracks never show clipped gibberish.
+        labelled = []
+        if major_lines:
+            labelled.extend((major_lines[0], major_lines[-1]))
+            if rect.width() >= 92 and len(major_lines) > 2:
+                midpoint = min(major_lines[1:-1], key=lambda line: abs(line.fraction - 0.5))
+                labelled.append(midpoint)
+            if rect.width() >= 190:
+                for line in major_lines[1:-1]:
+                    if line not in labelled:
+                        labelled.append(line)
+        labelled = sorted(
+            {line.fraction: line for line in labelled}.values(),
+            key=lambda line: line.fraction,
+        )
+
+        occupied: list[tuple[int, int]] = []
+        for line in labelled:
             try:
                 value = scale_value_at_fraction(
                     self._minimum, self._maximum, self._scale, line.fraction
@@ -573,33 +602,42 @@ class CurveScaleRuler(QWidget):
             except ValueError:
                 continue
             label = format_scale_value(value)
-            width = metrics.horizontalAdvance(label)
+            maximum_label_width = max(14, rect.width() // (3 if rect.width() >= 92 else 2))
+            label = metrics.elidedText(label, Qt.TextElideMode.ElideRight, maximum_label_width)
+            width = max(1, metrics.horizontalAdvance(label))
+            x = rect.left() + round(rect.width() * line.fraction)
             if line.fraction <= 0.0:
-                left = rect.left()
+                left = rect.left() + 1
             elif line.fraction >= 1.0:
-                left = rect.right() - width
+                left = rect.right() - width - 1
             else:
-                left = max(rect.left(), min(x - width // 2, rect.right() - width))
-            if left <= occupied_right + 2 and line.fraction not in (0.0, 1.0):
+                left = max(rect.left() + 1, min(x - width // 2, rect.right() - width - 1))
+            interval = (left, left + width)
+            if line.fraction not in (0.0, 1.0) and any(
+                interval[0] <= right + 3 and interval[1] >= left_used - 3
+                for left_used, right in occupied
+            ):
                 continue
+            painter.setPen(text_pen)
             painter.drawText(
                 left,
                 baseline + 7,
                 width,
-                max(1, rect.height() - baseline - 7),
+                max(1, rect.bottom() - baseline - 6),
                 Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
                 label,
             )
-            occupied_right = max(occupied_right, left + width)
+            occupied.append(interval)
 
 
 class CurveHeaderEditor(QFrame):
     """Responsive per-curve engineering header.
 
     The working view follows a compact professional log-header layout: caption,
-    editable ``minimum — unit — maximum`` and an engineering ruler.  Scale mode
-    and actions remain in the caption row, so several curves fit above a track
-    without forcing every other column to reserve a very tall empty header band.
+    editable ``minimum — unit — maximum`` and an engineering ruler.  Linear or
+    logarithmic mode is deliberately absent from the working header and remains
+    available only in the full curve-settings dialog, so switching scale cannot
+    alter the header geometry or create blank bands in neighbouring tracks.
     """
 
     clicked = Signal(str)
@@ -628,11 +666,11 @@ class CurveHeaderEditor(QFrame):
         self._text_color = text_color
         self._line_color = line_color or curve_color
         self._invalid_range_message = spec.invalid_range_message
+        self._scale = spec.scale
         self._disposed = False
         self._loading = True
-        self.setMinimumHeight(CURVE_HEADER_EDITOR_HEIGHT)
-        self.setMaximumHeight(CURVE_HEADER_EDITOR_HEIGHT + 4)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.setFixedHeight(CURVE_HEADER_EDITOR_HEIGHT)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setToolTip(
             f"{title} · {spec.minimum:g} … {spec.maximum:g} {spec.unit} [{mnemonic}]"
         )
@@ -652,33 +690,18 @@ class CurveHeaderEditor(QFrame):
             QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
         )
         self.title_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.title_label.setFixedHeight(14)
         self.title_label.setStyleSheet(
             f"background:transparent; color:{self._text_color}; "
             "font-weight:700; font-size:9px;"
         )
         top.addWidget(self.title_label, 1)
 
-        self.scale = QComboBox()
-        self.scale.addItem(spec.linear_label, XScale.LINEAR.value)
-        self.scale.addItem(spec.logarithmic_label, XScale.LOGARITHMIC.value)
-        scale_index = self.scale.findData(spec.scale.value)
-        self.scale.setCurrentIndex(scale_index if scale_index >= 0 else 0)
-        self.scale.setToolTip(spec.scale_tooltip)
-        self.scale.setMinimumWidth(30)
-        self.scale.setMaximumWidth(42)
-        self.scale.setFixedHeight(15)
-        self.scale.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        self.scale.setStyleSheet(
-            "QComboBox {background:#ffffff; color:#111827; border:1px solid #94a3b8; "
-            "padding:0 1px; font-size:7px;}"
-        )
-        top.addWidget(self.scale)
-
         self.auto_button = QToolButton()
         self.auto_button.setText("A")
         self.auto_button.setAutoRaise(True)
         self.auto_button.setToolTip(spec.auto_tooltip)
-        self.auto_button.setFixedSize(15, 15)
+        self.auto_button.setFixedSize(14, 14)
         self.auto_button.setStyleSheet("QToolButton {font-size:9px; padding:0;}")
         self.auto_button.clicked.connect(
             lambda: self.auto_range_requested.emit(self.mnemonic)
@@ -689,7 +712,7 @@ class CurveHeaderEditor(QFrame):
         self.settings_button.setText("⚙")
         self.settings_button.setAutoRaise(True)
         self.settings_button.setToolTip(spec.settings_tooltip)
-        self.settings_button.setFixedSize(15, 15)
+        self.settings_button.setFixedSize(14, 14)
         self.settings_button.clicked.connect(
             lambda: self.double_clicked.emit(self.mnemonic)
         )
@@ -721,7 +744,7 @@ class CurveHeaderEditor(QFrame):
         self.unit.setToolTip(spec.unit_tooltip)
         self.unit.setMinimumWidth(16)
         self.unit.setMaximumWidth(56)
-        self.unit.setFixedHeight(17)
+        self.unit.setFixedHeight(14)
         self.unit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.unit.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.unit.setStyleSheet(
@@ -765,7 +788,6 @@ class CurveHeaderEditor(QFrame):
         self.minimum.lineEdit().returnPressed.connect(self._commit_range)
         self.maximum.lineEdit().returnPressed.connect(self._commit_range)
         self.unit.editingFinished.connect(self._commit_unit)
-        self.scale.currentIndexChanged.connect(self._commit_scale)
         self._loading = False
         self.set_selected(False)
 
@@ -793,7 +815,6 @@ class CurveHeaderEditor(QFrame):
             self.minimum,
             self.maximum,
             self.unit,
-            self.scale,
             self.auto_button,
             self.settings_button,
         ):
@@ -812,7 +833,7 @@ class CurveHeaderEditor(QFrame):
         spin.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         spin.setFrame(True)
         spin.setMinimumWidth(24)
-        spin.setFixedHeight(17)
+        spin.setFixedHeight(14)
         spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
         spin.setStyleSheet(
@@ -849,9 +870,7 @@ class CurveHeaderEditor(QFrame):
             self.minimum.setValue(float(minimum))
             self.maximum.setValue(float(maximum))
             self.unit.setText(str(unit))
-            scale_index = self.scale.findData(scale.value)
-            if scale_index >= 0:
-                self.scale.setCurrentIndex(scale_index)
+            self._scale = scale
             self.ruler.set_values(float(minimum), float(maximum), scale, str(unit))
             self.setToolTip(
                 f"{self._title_text} · {float(minimum):g} … "
@@ -906,8 +925,7 @@ class CurveHeaderEditor(QFrame):
             return
         minimum = float(self.minimum.value())
         maximum = float(self.maximum.value())
-        scale_data = self.scale.currentData() or XScale.LINEAR.value
-        scale = XScale(str(scale_data))
+        scale = self._scale
         if minimum < maximum and not (scale is XScale.LOGARITHMIC and minimum <= 0):
             self.ruler.set_values(minimum, maximum, scale, self.unit.text().strip())
 
@@ -917,8 +935,7 @@ class CurveHeaderEditor(QFrame):
         self._range_commit_timer.stop()
         minimum = float(self.minimum.value())
         maximum = float(self.maximum.value())
-        scale_data = self.scale.currentData() or XScale.LINEAR.value
-        scale = XScale(str(scale_data))
+        scale = self._scale
         invalid = minimum >= maximum or (scale is XScale.LOGARITHMIC and minimum <= 0)
         if invalid:
             self.setToolTip(self._invalid_range_message)
@@ -944,22 +961,11 @@ class CurveHeaderEditor(QFrame):
             self.ruler.set_values(
                 float(self.minimum.value()),
                 float(self.maximum.value()),
-                XScale(str(self.scale.currentData() or XScale.LINEAR.value)),
+                self._scale,
                 unit,
             )
             self.unit_changed.emit(self.mnemonic, unit)
 
-    def _commit_scale(self) -> None:
-        if self._disposed or self._loading:
-            return
-        value = str(self.scale.currentData() or XScale.LINEAR.value)
-        self.ruler.set_values(
-            float(self.minimum.value()),
-            float(self.maximum.value()),
-            XScale(value),
-            self.unit.text().strip(),
-        )
-        self.scale_changed.emit(self.mnemonic, value)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if self._disposed:
@@ -1738,7 +1744,9 @@ class TabletView(QWidget):
         navigation.addWidget(self._span_combo)
         navigation.addWidget(self._full_range_button)
         self._navigation_help_label = QLabel(self._navigation_hint)
-        self._navigation_help_label.setStyleSheet("color: #64748b; font-size: 10px;")
+        self._navigation_help_label.setStyleSheet(
+            "background:transparent; color:#64748b; font-size:10px;"
+        )
         self._navigation_help_label.setToolTip(self._navigation_hint)
         navigation.addWidget(self._navigation_help_label)
 
@@ -3152,7 +3160,7 @@ class TabletView(QWidget):
                 )
             )
             self._curve_pencil_status.setStyleSheet(
-                "color:#b91c1c; font-weight:700; padding:2px 6px;"
+                "background:transparent; color:#b91c1c; font-weight:700; padding:2px 6px;"
             )
         elif self._curve_pencil_enabled and self._curve_pencil_mnemonic:
             if (
@@ -3162,7 +3170,7 @@ class TabletView(QWidget):
                 self._curve_pencil_status.setText(
                     self._localizer.text(
                         "tablet.curve_pencil_points_selected",
-                        mnemonic=self._curve_pencil_mnemonic,
+                        curve=self._curve_pencil_display_label(),
                         count=len(self._curve_pencil_points),
                     )
                 )
@@ -3173,17 +3181,21 @@ class TabletView(QWidget):
                     else "tablet.curve_pencil_active"
                 )
                 self._curve_pencil_status.setText(
-                    self._localizer.text(key, mnemonic=self._curve_pencil_mnemonic)
+                    self._localizer.text(key, curve=self._curve_pencil_display_label())
                 )
             self._curve_pencil_status.setStyleSheet(
-                "color:#9a3412; font-weight:700; padding:2px 6px;"
+                "background:transparent; color:#9a3412; font-weight:700; padding:2px 6px;"
             )
         elif self._curve_pencil_selector.count() == 0:
             self._curve_pencil_status.setText(self._localizer.text("tablet.curve_pencil_no_curves"))
-            self._curve_pencil_status.setStyleSheet("color:#64748b; padding:2px 6px;")
+            self._curve_pencil_status.setStyleSheet(
+                "background:transparent; color:#64748b; padding:2px 6px;"
+            )
         else:
             self._curve_pencil_status.setText(self._localizer.text("tablet.curve_pencil_inactive"))
-            self._curve_pencil_status.setStyleSheet("color:#475569; padding:2px 6px;")
+            self._curve_pencil_status.setStyleSheet(
+                "background:transparent; color:#475569; padding:2px 6px;"
+            )
         self._update_curve_pencil_bar_style()
         self._update_curve_pencil_mode_controls()
 
@@ -3197,6 +3209,19 @@ class TabletView(QWidget):
         # marks the project dirty again through the controller.
         self._curve_pencil_unsaved = False
         self._update_curve_pencil_status()
+
+    def _curve_pencil_display_label(self) -> str:
+        """Return one human-readable label shared by pencil status and hover UI."""
+
+        mnemonic = self._curve_pencil_mnemonic or ""
+        if not mnemonic or self._dataset is None or self._curve_pencil_track_id is None:
+            return mnemonic
+        rendered = self._rendered.get(self._curve_pencil_track_id)
+        curve = self._dataset.curve_by_mnemonic(mnemonic)
+        if rendered is None or curve is None:
+            return mnemonic
+        display_name = self._curve_display_name(rendered.definition, mnemonic, curve)
+        return f"{display_name} [{mnemonic}]"
 
     def _apply_curve_pencil_cursors(self) -> None:
         self._apply_geological_mode_cursors_base()
@@ -3217,7 +3242,7 @@ class TabletView(QWidget):
             rendered.plot.setCursor(self._pencil_cursor)
             rendered.plot.setToolTip(
                 self._localizer.text(
-                    "tablet.curve_pencil_active", mnemonic=self._curve_pencil_mnemonic or ""
+                    "tablet.curve_pencil_active", curve=self._curve_pencil_display_label()
                 )
             )
             if rendered.curve_pencil_badge is None:
@@ -3230,7 +3255,7 @@ class TabletView(QWidget):
                 )
                 rendered.curve_pencil_badge = badge
             rendered.curve_pencil_badge.setText(
-                f"✎ {self._curve_pencil_mnemonic or ''}"
+                f"✎ {self._curve_pencil_display_label()}"
             )
             rendered.curve_pencil_badge.adjustSize()
             rendered.curve_pencil_badge.move(8, 8)
@@ -3348,7 +3373,7 @@ class TabletView(QWidget):
         label.setText(
             self._localizer.text(
                 "tablet.curve_pencil_live_readout",
-                mnemonic=self._curve_pencil_mnemonic,
+                curve=self._curve_pencil_display_label(),
                 axis_name=axis_name,
                 axis=axis_text,
                 value=value_text,
@@ -7161,7 +7186,7 @@ class TabletView(QWidget):
                     unit=unit,
                     scale=settings.x_scale,
                     automatic=settings.automatic_range,
-                    scale_label=scale_marker,
+                    scale_label=self._localizer.text("curve_settings.header_scale_caption"),
                     linear_label=self._localizer.text("curve_settings.scale_short.linear"),
                     logarithmic_label=self._localizer.text(
                         "curve_settings.scale_short.logarithmic"
@@ -7401,6 +7426,9 @@ class TabletView(QWidget):
                 display = definition.curve_display_settings(mnemonic)
                 source_unit = (curve.metadata.unit or "%").strip() or "%"
                 unit = display.unit_override if display.unit_override is not None else source_unit
+                item.setToolTip(
+                    f"{display_name} [{mnemonic}]" + (f" · {unit}" if unit else "")
+                )
                 calc_header_rows.append(
                     (
                         mnemonic,
@@ -7504,6 +7532,9 @@ class TabletView(QWidget):
                 pen=pen,
                 connect="finite",
             )
+            item.setToolTip(
+                f"{display_name} [{mnemonic}]" + (f" · {unit}" if unit else "")
+            )
             curve_items[mnemonic] = item
             legend_labels.append(display_name)
             header_rows.append(
@@ -7521,7 +7552,7 @@ class TabletView(QWidget):
                 unit=unit,
                 scale=settings.x_scale,
                 automatic=settings.automatic_range,
-                scale_label=scale_marker,
+                scale_label=self._localizer.text("curve_settings.header_scale_caption"),
                 linear_label=self._localizer.text("curve_settings.scale_short.linear"),
                 logarithmic_label=self._localizer.text("curve_settings.scale_short.logarithmic"),
                 major_divisions=definition.grid_major_divisions,
@@ -7662,9 +7693,15 @@ class TabletView(QWidget):
             color.setAlpha(135)
             fill = pg.FillBetweenItem(lower_curve, upper_curve, brush=pg.mkBrush(color), pen=None)
             fill.setZValue(-10)
-            fill.setToolTip(
-                self._localizer.text("tablet.relative_gas_fill_tooltip", component=mnemonic)
+            curve = self._dataset.curve_by_mnemonic(mnemonic)
+            display_name = (
+                self._curve_display_name(definition, mnemonic, curve)
+                if curve is not None
+                else mnemonic
             )
+            tooltip = f"{display_name} [{mnemonic}] · %"
+            upper_curve.setToolTip(tooltip)
+            fill.setToolTip(tooltip)
             track.plot.addItem(fill)
             curve_items[mnemonic] = upper_curve
             fill_items[mnemonic] = fill

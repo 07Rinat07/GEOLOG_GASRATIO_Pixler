@@ -10,6 +10,7 @@ from PySide6.QtCore import (
     QtMsgType,
     qInstallMessageHandler,
 )
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication, QInputDialog
 
 from geoworkbench import __version__
@@ -93,8 +94,29 @@ def _install_qt_message_logging(manager: ApplicationLogManager) -> None:
     qInstallMessageHandler(handler)
 
 
+def _configure_readable_tooltips(app: QApplication) -> None:
+    """Force readable tooltips independently of the Windows/global palette.
+
+    Some Windows themes combine a white tooltip base with inherited white text,
+    producing an apparently blank highlighted sentence.  Set both palette roles
+    and a narrowly scoped QToolTip stylesheet so ordinary labels and dialogs keep
+    their existing theme while help text remains legible.
+    """
+
+    palette = app.palette()
+    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor("#fffbe6"))
+    palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#0f172a"))
+    app.setPalette(palette)
+    app.setStyleSheet(
+        app.styleSheet()
+        + "\nQToolTip { color:#0f172a; background-color:#fffbe6; "
+        "border:1px solid #64748b; padding:4px 6px; opacity:255; }"
+    )
+
+
 def main() -> int:
     app = DiagnosticApplication(sys.argv)
+    _configure_readable_tooltips(app)
     app.setApplicationName("GEOLOG GASRATIO@Pixler")
     app.setOrganizationName("GeoLog")
 

@@ -54,11 +54,12 @@ def test_curve_headers_use_compact_professional_height_budget() -> None:
     )
 
     assert "CURVE_HEADER_EDITOR_HEIGHT = 58" in source
-    assert "CURVE_HEADER_LABEL_HEIGHT = 40" in source
+    assert "CURVE_HEADER_LABEL_HEIGHT = CURVE_HEADER_EDITOR_HEIGHT" in source
     assert "len(rows) * CURVE_HEADER_EDITOR_HEIGHT" in source
     assert "min(360" in source
     assert 'separator = QLabel("—")' in source
-    assert "self.scale.setMaximumWidth(42)" in source
+    assert "self.setFixedHeight(CURVE_HEADER_EDITOR_HEIGHT)" in source
+    assert "self.scale = QComboBox()" not in source
     assert "self.unit.setMaximumWidth(56)" in source
 
 
