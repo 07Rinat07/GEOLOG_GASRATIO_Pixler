@@ -1,52 +1,67 @@
-# Версионированная lag/depth correction
+# Версионированная коррекция lag/depth
 
-Статус: реализовано в версии 0.7.44. Введено в project format v19; текущий project format: v20. Lag correction schema: v1.
+Статус: реализовано в версии 0.7.44. Введено в project format v19; текущий project format v20.
+Lag correction schema: v1.
 
 ## Назначение
 
 Коррекция связывает измерение на поверхности с расчётной глубиной поступления газа, шлама или
 другого канала. Первичный acquisition dataset и append-only journal остаются неизменными. Каждая
-коррекция материализуется как отдельный `DatasetKind.DERIVED` и хранит обе глубинные оси:
+коррекция создаётся как отдельный `DatasetKind.DERIVED` и хранит две оси:
 
-- source depth — исходная глубина регистрации;
-- corrected depth — глубина после выбранного lag-профиля.
+- **source depth** — исходная глубина регистрации;
+- **corrected depth** — глубина после выбранного lag-профиля.
 
-## Методы
+## Методы расчёта
 
-- `constant_time`: постоянная задержка в секундах;
-- `annular_volume_flow`: задержка `annular_volume_m3 / flow_rate_m3_per_s`;
-- `pump_strokes`: задержка из объёма затрубья, подачи насоса и ходов в минуту;
-- `control_points`: кусочно-линейная глубина по контрольным точкам `row → corrected depth`.
+- `constant_time` — постоянная задержка в секундах;
+- `annular_volume_flow` — задержка `annular_volume_m3 / flow_rate_m3_per_s`;
+- `pump_strokes` — расчёт по объёму затрубья, подаче насоса и ходам в минуту;
+- `control_points` — кусочно-линейная зависимость `row → corrected depth`.
 
-TIME-based методы требуют явный TIME и DEPTH index. Повторные временные значения разрешаются
-только через выбранную `TimeDepthAggregationPolicy`. За диапазоном, где результат нельзя получить
-без экстраполяции, corrected depth остаётся `NaN`.
+TIME-based методы требуют явные TIME и DEPTH indexes. Повторяющиеся значения времени разрешаются
+только через выбранную `TimeDepthAggregationPolicy`. За пределами достоверной интерполяции
+corrected depth остаётся `NaN`; скрытая экстраполяция не выполняется.
 
 ## Версии и provenance
 
-`LagCorrectionProfile` содержит непрерывные immutable revisions. Revision фиксирует метод,
-параметры, индексы, curve IDs, aggregation policy, source row count, source SHA-256, output
-SHA-256, acquisition sequence/audit digest, formula ID/version, UTC timestamp, автора и комментарий.
-Новая revision создаёт новый output dataset; прежний результат не перезаписывается. Active revision
-можно переключить с optimistic revision guard.
+`LagCorrectionProfile` содержит последовательные неизменяемые revisions. Revision фиксирует
+метод, параметры, индексы, curve IDs, aggregation policy, количество исходных строк, source и
+output SHA-256, acquisition sequence/audit digest, formula ID/version, UTC-время, автора и
+комментарий. Новая revision создаёт новый output dataset и не перезаписывает прежний результат.
 
-Source fingerprint подписывает использованный префикс строк, поэтому append-only рост исходника
-разрешён, а изменение исторических значений или metadata обнаруживается. Codec при открытии
-проекта пересобирает каждую derived projection и отклоняет divergence или tampering.
+Source fingerprint подписывает фактически использованный префикс строк. Добавление новых строк в
+append-only источник разрешено, а изменение исторических значений, metadata или materialized
+output обнаруживается при загрузке проекта.
 
 ## Пользовательский сценарий
 
-Откройте исходный dataset и выберите «Расчёты → Коррекция lag/depth...». В окне доступны:
+1. Выберите исходный dataset.
+2. Откройте **Расчёты → Коррекция lag/depth...**.
+3. Выберите или создайте профиль и назначение каналов.
+4. Укажите TIME/DEPTH indexes и метод расчёта.
+5. Заполните параметры метода, автора и комментарий новой revision.
+6. Проверьте preview source depth, corrected depth и lag.
+7. Создайте revision и при необходимости сделайте её активной.
+8. Откройте derived dataset на исходной или скорректированной оси.
 
-1. профиль, назначение и набор кривых;
-2. TIME/DEPTH indexes и метод расчёта;
-3. новая revision с автором и комментарием;
-4. preview source/corrected depth и lag;
-5. активация прежней revision;
-6. открытие derived dataset на source или corrected axis.
+`ReportDefinition` фиксирует выбранный index явно, поэтому preview, экспорт и отчёт не меняют
+координату скрытно.
 
-Выбранная ось становится active index derived dataset. `ReportDefinition` фиксирует этот index
-явно, поэтому preview, экспорт и отчёт не переключают координату скрытно.
+## Сохранение, откат и повторное открытие
+
+Профиль и revisions являются частью проекта. После создания или переключения revision нажмите
+**Ctrl+S**. При закрытии без сохранения изменения текущего сеанса будут потеряны. Для контроля
+повторно откройте проект и проверьте активную revision, выбранную ось, source/output fingerprints
+и derived dataset. Активация старой revision не удаляет новые revisions.
+
+## Ограничения и проверка
+
+- исходный acquisition dataset не изменяется;
+- исправление не должно использовать неявные единицы или скрытую экстраполяцию;
+- предупреждения по TIME/DEPTH, дубликатам и диапазону необходимо устранить до создания revision;
+- отчёт и экспорт должны использовать явно выбранную ось;
+- перед рабочим применением сравните несколько контрольных глубин с ручным расчётом.
 
 ## Миграция
 

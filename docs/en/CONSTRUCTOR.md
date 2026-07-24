@@ -1,61 +1,118 @@
-## Contrast and reference Masterlog — 0.7.11
-
-Constructor navigation, lists, tables, tabs and collapsible sections now use explicit colours and remain readable under dark Windows themes. The recommended reference Masterlog with editable fields and two replaceable logo slots is shown first.
-
 # Constructor guide
 
-Open **Constructor → Open constructor** or press `Ctrl+Shift+K`.
+Constructor combines tablet forms, Masterlog print templates, headers, columns, assets, symbols,
+and preflight. The interface remains readable in light and dark Windows themes. The recommended
+reference Masterlog with editable fields and two replaceable logo slots is shown first.
 
-The tablet-form tab opens the existing Form Manager. Rapid selection is debounced and guarded
-by a revision token. Wheel pans depth, `Ctrl + wheel` zooms around the pointer, and touchpad
-navigation also works over plots, headers and empty tablet areas.
+## Opening and navigation
 
-The print tab provides the WYSIWYG header editor, columns, curve mapping, page and scale,
-depth symbols, project images and final preview. The canvas uses millimetres. A red dashed
-line shows the physical page width; content to its right will overflow.
+Choose **Constructor → Open constructor** or press `Ctrl+Shift+K`.
 
-Supported page profiles: A0–A4, Letter, Legal, custom and roll, with portrait or landscape
-orientation where applicable. Header elements include text, dynamic fields, images, lines,
-lithology legend and LBA legend. Images may be BMP, PNG, JPEG, TIFF, WebP or SVG and support
-fit, fill, stretch, rotation and opacity.
+In the tablet-form tab:
 
-The asset tab contains 117 lithotypes and 19 depth symbols with multilingual names, aliases,
-thumbnails and checksums. Lithotypes use tiled non-smoothed patterns. Legend scopes are used,
-all, manually selected, and used plus selected.
+- mouse wheel pans the visible depth range;
+- `Ctrl + wheel` zooms around the pointer;
+- touchpad navigation works over plots, headers, and empty space;
+- rapid form switching is protected by debounce and a revision token.
 
-Depth symbols support point, interval, curve-parameter and time anchors. Choose the column,
-parameter, image, size, label and X/Y millimetre offsets. The semantic depth anchor remains the
-source of truth while offsets provide precise visual adjustment.
+## Tablet forms
 
-Run preflight before output. It checks datasets, columns, header overflow, missing resources,
-curve bindings and depth-symbol validity.
+The **Tablet forms** tab opens Form Manager. Depth or time forms can be created, copied, edited,
+imported, exported, and applied. Review column order, width, curve bindings, scales, grid, units,
+and text direction.
+
+After changing a form, save it in the library, apply it to the tablet, and press **Ctrl+S** to save
+the current project. Form export creates a separate portable file and does not replace project save.
+
+## Print forms and headers
+
+A Masterlog template provides:
+
+- **Header editor** — a WYSIWYG canvas in millimetres;
+- **Form columns** — composition, order, width, curves, and scales;
+- **Parameter mapping** — required mnemonics bound to the current dataset;
+- **Page and scale** — A0–A4, Letter, Legal, custom, roll, orientation, and depth scale;
+- **Depth symbols** — point, interval, curve-parameter, or time anchors;
+- **Project images** — graphics import and reuse;
+- **Preview** — the same renderer used for final output.
+
+A red dashed boundary shows physical page width. An object to its right will overflow the selected
+sheet.
+
+## Header elements
+
+Text, dynamic fields, images, lines, lithology legend, and LBA legend are supported. Coordinates
+and dimensions use millimetres. Elements can be moved, duplicated, reordered, rotated, aligned,
+and given opacity.
+
+BMP, PNG, JPEG, TIFF, WebP, and SVG support:
+
+- `fit` — preserve aspect ratio inside the box;
+- `fill` — fill the box with cropping;
+- `stretch` — stretch to the box.
 
 ## Text direction and placement
 
-Select a column or track in the form structure editor and choose horizontal 0°, vertical
-bottom-to-top 90°, or vertical top-to-bottom 90°, together with near-top, centred, or near-bottom
-placement. Header text, dynamic fields, and individual lithotype labels expose the same settings.
-Centre is the default, and preview/printing consume the persisted values directly.
+Select a column or track in the structure editor and choose:
 
-## Standard lithotypes in working editors
+- horizontal 0°;
+- bottom-to-top 90°;
+- top-to-bottom 90°;
+- near-top, centered, or near-bottom placement.
 
-All 117 supplied patterns are immediately available in the lithology interval selector and in all
-four cuttings-composition rows, with a real tiled thumbnail. The catalog can add project rocks,
-override a factory entry, or reset that override.
+The same settings apply to header text, dynamic fields, and lithotype labels. Preview and print use
+the stored values.
 
-A header may contain either a dynamic lithology legend or one **`lithotype_swatch`** element.
-The swatch supports pattern-only, pattern-and-name, or pattern-code-name modes, plus label
-rotation and vertical placement.
+## Lithotypes and rock patterns
 
-## Exact rock patterns and labels
+The catalog contains 117 canonical lithotypes. Search works by RU/KK/EN name, legacy name, alias,
+and ID. Lithotypes use tiled non-smoothed BMP textures and do not stretch when depth scale changes.
 
-The standard rocks use the original BMP patterns from both supplied catalogs. Each bitmap is
-tiled without smoothing and remains at its native pixel scale while the depth view is zoomed.
+Lithology-legend scopes are:
 
-Text over the **Lithology** and **Cuttings** patterns is disabled by default. Names, codes and
-percentages remain available in the editor and tooltip. A specialised form can enable **Show
-code/percentage over pattern** in the track editor or form-structure editor.
+- rocks used in the well;
+- the complete project catalog;
+- manually selected rocks;
+- used plus selected rocks.
 
-## KazGeology ready blank 0.7.5
+Text over **Lithology** and **Cuttings** patterns is disabled by default. Name, code, and percentage
+remain available in the editor and tooltip. Enable code/percentage overlay in track or form-structure
+settings for specialized forms.
 
-Masterlog presets now include **“Geological-technological survey — ready blank”**. It targets A3 landscape and includes two logo upload slots, well metadata, legends, construction, coloured scales and manual rock descriptions. Guide: [KAZGEOLOGY_TEMPLATE.md](KAZGEOLOGY_TEMPLATE.md).
+## Symbols
+
+The catalog contains 19 factory symbols. A print depth symbol selects anchor type, depth/interval,
+column, parameter, image, width, height, label, and X/Y millimetre offset. Depth or time remains the
+semantic anchor; the offset only refines visual placement.
+
+For interactive insertion directly on a tablet graph, use **F4 → Insert symbol**. The object can be
+moved with the left mouse button, resized with eight handles, and saved with the project. See
+[ANNOTATIONS.md](ANNOTATIONS.md).
+
+## Preflight before output
+
+The **Preflight** tab checks:
+
+- dataset and required columns;
+- header elements outside the page;
+- missing images and assets;
+- curve bindings and units;
+- depth-symbol validity;
+- scale, media, and page continuations.
+
+Resolve `error` items before PDF or physical printing. After preflight, open preview and visually
+check the header, scales, labels, symbols, and page boundaries.
+
+## Saving and reopen verification
+
+- **Ctrl+S** saves current project changes.
+- Saving a form in the library makes it reusable.
+- Form/template export creates a separate exchange file.
+- PDF and printing do not replace saving the project or form.
+- After important changes, close and reopen the project/form, then repeat preflight and preview.
+
+## Ready KazGeology form
+
+**Geological-technological investigations — ready form** targets A3 landscape and includes two
+logo areas, well details, legends, construction, colored scales, and manual rock descriptions.
+See [KAZGEOLOGY_TEMPLATE.md](KAZGEOLOGY_TEMPLATE.md).

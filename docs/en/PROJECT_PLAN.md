@@ -1,27 +1,21 @@
 # Project plan
 
-Current on 24 July 2026. Version **0.7.61** keeps project format v20, form schema v6, and tablet layout v16.
+Current as of 24 July 2026. Version **0.7.62** keeps project format v20,
+form schema v6, and tablet layout v16 unchanged.
 
-## P0 — 0.7.61: insert catalog symbols on graphs
+## P0 — feature and documentation audit
 
-- [x] add a dedicated Insert symbol command to the F4 toolbar and graph context menu;
-- [x] open the built-in catalog with thumbnails, localized names, categories, and search;
-- [x] offer cropped transparent and original background-preserving variants;
-- [x] select a track, curve parameter, or depth-only anchor;
-- [x] set exact depth and initial size before insertion;
-- [x] persist the catalog ID and background mode in the annotation model;
-- [x] copy the image into project-owned storage without an external path;
-- [x] reuse left-button movement, eight resize handles, and Undo/Redo;
-- [x] synchronize RU/KK/EN documentation and instructions;
-- [x] add regression tests for the model, catalog, integration, and localization;
-- [ ] Windows/PySide6: verify insertion, drag/resize, reopen, PDF, and printing at 100%, 125%, and 150% DPI.
-
-Exit criterion: a symbol can be selected from the catalog, anchored to the required depth/parameter,
-persisted in the project, and adjusted precisely with the mouse without damaging the form or graphs.
+- [x] verify identical RU/KK/EN document sets;
+- [x] verify internal links and interface localization keys;
+- [x] add the [feature map](FEATURES.md);
+- [x] document project saving, closing without saving, reopening, and export;
+- [x] complete the catalog-symbol insertion and saving workflow;
+- [x] add an automated documentation audit and regression tests;
+- [ ] run the complete Windows/PySide6 smoke test at 100/125/150% DPI.
 
 ## Next stages
 
 - [ ] read-only offline WITSML 2.1 inventory and mapping fixtures;
 - [ ] alignment-controlled multi-dataset overlays in one form;
-- [ ] directory watcher with preview confirmation for daily growth;
-- [ ] secured ETP 1.2 only after successful fixture replay.
+- [ ] directory watcher with preview confirmation of daily growth;
+- [ ] secured ETP 1.2 after successful fixture replay.

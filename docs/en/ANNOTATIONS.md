@@ -15,6 +15,35 @@ it remains depth-anchored inside the selected track. The image is copied into pr
 so the external BMP/PNG file is not required after saving. The symbol ID and background mode persist
 with the annotation. Screen, PDF, and printer output use the same object.
 
+### Saving, reopening, and export
+
+A symbol is not written to disk by a separate command. Inserting, moving, or resizing it marks
+the current project as modified. Press **Ctrl+S** or choose **File → Save**. The save operation
+records the project-owned image, catalog identifier, background mode, track, parameter or
+depth-only anchor, depth, position, size, appearance, visibility, lock state, and print flag.
+
+Control check:
+
+1. save the project with **Ctrl+S**;
+2. close it through the normal close command;
+3. reopen the same project;
+4. verify position, size, depth, track, parameter, and background mode;
+5. open preview or PDF when the symbol must be printed.
+
+If the project is closed and saving is declined, the insertion and every edit made after the last
+save are lost. PDF, a screenshot, and physical printing do not replace project saving. The
+external BMP/PNG is not required after a successful save because the project owns an internal copy.
+
+### Precise editing and safe reversal
+
+- a single click selects the symbol and displays eight resize handles;
+- dragging the object body with the left mouse button changes its position;
+- dragging a handle changes width and/or height;
+- **Undo** reverses the last completed gesture and **Redo** reapplies it in the current session;
+- a locked object must first be unlocked in the annotation editor;
+- **Delete** or the delete command removes the selected object after confirmation;
+- the print flag controls whether the symbol appears in preview, PDF, and physical printing.
+
 ## Deletion and current-form scope — 0.7.27
 
 An annotation can be removed through four equivalent paths: the object context menu, the **Delete** key, the full manager button, and the **Delete annotation** button in the focused editor. After confirmation the object is removed from the model, disappears immediately and remains recoverable through Undo.

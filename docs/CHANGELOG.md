@@ -1,3 +1,12 @@
+# 0.7.62 — multilingual documentation audit and user-workflow verification
+
+- Added synchronized RU/KK/EN feature maps covering the main user-facing workflows.
+- Documented project saving, closing without saving, reopening, Undo/Redo, and export boundaries.
+- Expanded catalog-symbol instructions with persistence, restoration, delete, lock, print, and PDF behavior.
+- Added a dependency-free documentation checker for localized files, links, i18n keys, version alignment, and required workflows.
+- Added regression tests for the documentation contract.
+- Kept the root README concise and kept project format v20, form schema v6, and tablet layout v16 unchanged.
+
 # 0.7.61 — catalog symbol insertion on tablet graphs
 
 - Added a dedicated localized symbol catalog dialog to the F4 toolbar and graph context menus.

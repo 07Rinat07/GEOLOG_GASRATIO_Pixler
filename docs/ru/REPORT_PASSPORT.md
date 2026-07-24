@@ -1,21 +1,22 @@
 # Report Passport
 
 Статус: реализовано с версии 0.7.34. Coverage добавлен в schema v2, печатная модель — в schema v3,
-а fingerprints готовых output artifacts — в schema v4 версии 0.7.39. Формат проекта остаётся v16.
+а fingerprints готовых output artifacts — в schema v4 версии 0.7.39.
 
 ## Назначение
 
-Report Passport — детерминированный JSON-sidecar, который объясняет происхождение конкретного
-PDF, изображения, CSV/XLSX или другого отчётного результата. Для неизменившихся данных, формы,
-языка, параметров рендера и output bytes повторная генерация создаёт тот же `passport_sha256`.
+Report Passport — детерминированный JSON-sidecar, который описывает происхождение PDF,
+изображения, CSV/XLSX, DOCX/HTML или другого отчётного результата. При неизменных данных,
+ReportDefinition, языке, параметрах рендера и output bytes повторная генерация создаёт тот же
+`passport_sha256`.
 
 ```text
 report.pdf
 report.pdf.passport.json
 ```
 
-Физическая печать не имеет файла, поэтому вычисляется предварительный digest без artifacts и
-sidecar не создаётся.
+Физическая печать не создаёт файл, поэтому для неё доступен только предварительный digest без
+output artifact и файлового sidecar.
 
 ## Покрытые сценарии
 
@@ -24,22 +25,23 @@ sidecar не создаётся.
 - CSV/XLSX выбранного интервала;
 - Masterlog PDF;
 - интерпретационный PDF;
+- DOCX и HTML через общий отчётный контракт;
 - физическая печать: digest без файлового sidecar.
 
 ## Что фиксируется
 
 - версия приложения и schema паспорта;
-- проект, скважина, dataset либо well-level artifact;
-- точный индекс и интервал, sample count и SHA-256 значений индекса;
+- проект, скважина, dataset или well-level artifact;
+- индекс, точный интервал, sample count и SHA-256 значений индекса;
 - fingerprints фактических значений выбранных каналов;
-- полный semantic binding, UOM, sensor/source, confidence, aliases и evidence;
+- semantic bindings, UOM, sensor/source, confidence, aliases и evidence;
 - coverage: availability, observed, zeros, missing и unavailable;
 - формулы, версии и SHA-256 выражений;
 - form/template/report-definition revision и SHA-256;
 - язык RU/KK/EN;
 - renderer, формат, DPI, media, orientation, margins, Fit/100% и continuations;
 - source/import/lossless fingerprints;
-- artifacts готового результата: basename, role/page, MIME-type, byte size и SHA-256.
+- basename, role/page, MIME, byte size и SHA-256 готовых artifacts.
 
 ## Приоритет fingerprint источника
 
@@ -50,24 +52,14 @@ sidecar не создаётся.
 
 Абсолютные source/output paths в паспорт не входят.
 
-## Schema v4: готовые output artifacts
+## Проверка и файловая транзакция
 
-Паспорт финализируется только после того, как renderer завершил запись в staging. Для каждого
-файла сохраняются:
+Паспорт финализируется только после записи output во staging. Для каждого файла сохраняются
+безопасное имя без каталогов, роль `single-file` или `page`, номер страницы, MIME, размер и
+SHA-256 фактических bytes.
 
-- безопасный `file_name` без каталогов;
-- `single-file` либо `page`;
-- номер страницы для paged export;
-- MIME-type;
-- размер;
-- SHA-256 фактических bytes.
-
-`load_report_passport()` проверяет JSON digest, наличие output, размер и SHA-256. Изменение уже
-созданного PDF, изображения, CSV или XLSX обнаруживается.
-
-## Filesystem transaction schema v1
-
-Output и sidecar не устанавливаются независимыми операциями. Последовательность:
+`load_report_passport()` проверяет digest JSON, наличие output, размер и SHA-256. Output и sidecar
+устанавливаются recoverable transaction schema v1:
 
 ```text
 staging → output fingerprint → signed passport → journaled backup/install
@@ -75,24 +67,26 @@ staging → output fingerprint → signed passport → journaled backup/install
 ```
 
 Сбой до `committed` восстанавливает предыдущую пару. Сбой после `committed` сохраняет новую пару
-и завершает только cleanup. Подробнее: [REPORT_OUTPUT_TRANSACTION.md](REPORT_OUTPUT_TRANSACTION.md).
+и завершает cleanup. Подробнее: [REPORT_OUTPUT_TRANSACTION.md](REPORT_OUTPUT_TRANSACTION.md).
 
 ## Детерминизм
 
 - JSON канонизируется с сортировкой ключей;
 - timestamp, случайные ID и абсолютные output paths отсутствуют;
 - `NaN`, Infinity и signed zero нормализуются в инженерных fingerprints;
-- digest считается по всему payload кроме `passport_sha256`;
-- fingerprints зависят от фактического интервала и готовых output bytes.
+- digest считается по payload без поля `passport_sha256`;
+- fingerprints зависят от выбранного интервала и готовых output bytes.
+
+## Сохранение и повторная проверка
+
+Паспорт создаётся при успешном экспорте отчёта. Он не заменяет сохранение проекта через
+**Ctrl+S**. Для проверки храните output и sidecar рядом, затем повторно откройте sidecar через
+поддерживаемую команду проверки. Перемещение пары допустимо, так как абсолютные output paths в
+паспорт не входят; переименование или изменение output нарушит проверку fingerprint.
 
 ## Ограничения
 
-- это не электронная подпись организации и не trusted timestamp;
-- физическая печать не имеет output artifact fingerprint;
-- recovery journal содержит временные absolute paths, но они не входят в passport;
+- механизм не является электронной подписью организации или trusted timestamp;
+- physical print не имеет output-file fingerprint;
+- recovery journal может содержать временные absolute paths, но они не входят в паспорт;
 - Windows/NTFS/network-share/PDF/HiDPI/physical-print smoke-test обязателен перед stable.
-
-## DOCX и HTML в 0.7.40
-
-Passport schema v4 сохраняет безопасное имя, MIME, размер и SHA-256 готового DOCX/HTML. Любое
-изменение документа после экспорта обнаруживается при загрузке sidecar.

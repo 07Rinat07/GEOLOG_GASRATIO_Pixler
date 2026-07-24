@@ -1,6 +1,6 @@
 # Roadmap — GEOLOG Gas Ratio & Pixler
 
-Updated: 23 July 2026. The roadmap is ordered by risk and dependency. A phase is complete
+Updated: 24 July 2026. The roadmap is ordered by risk and dependency. A phase is complete
 only when its automated and manual acceptance criteria pass.
 
 ## Phase 0 — release recovery
@@ -10,6 +10,7 @@ only when its automated and manual acceptance criteria pass.
 - make the complete pytest suite deterministic on the supported Windows environment;
 - run the tablet, annotation, PDF, HiDPI, and physical-printer smoke matrix;
 - publish a stable build only after every mandatory gate is green.
+- keep RU/KK/EN user-document sets, links, save/reopen workflows, and i18n keys under an automated documentation gate.
 
 Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke checklist.
 

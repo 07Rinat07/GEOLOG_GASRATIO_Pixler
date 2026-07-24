@@ -258,3 +258,14 @@ JSON-файл проекта не считается универсальным 
   warnings, and leave the source file unchanged.
 - Unknown vendor controls shall be skipped or mapped heuristically without aborting recognised
   content, except when the stream itself is malformed or violates safety limits.
+
+
+## 9. Документация и локализация
+
+| ID | Требование | Статус |
+|---|---|---|
+| DOC-001 | Для каждой пользовательской функции существуют синхронные инструкции RU/KK/EN | готово: одинаковый набор локализованных Markdown-файлов проверяется автоматически |
+| DOC-002 | Инструкция объясняет сохранение, закрытие без сохранения, повторное открытие, Undo/Redo и экспорт | готово для общей модели проекта и значков; применяется как обязательный контракт для новых функций |
+| DOC-003 | Все относительные ссылки документации разрешаются в существующие файлы | готово: `tools/check_documentation.py` и regression-тест |
+| DOC-004 | Набор интерфейсных ключей одинаков в RU/KK/EN | готово: автоматическая проверка JSON-каталогов |
+| DOC-005 | Корневой README остаётся кратким, подробности находятся в `docs`, CHANGELOG и release notes | готово и проверяется release-review процессом |

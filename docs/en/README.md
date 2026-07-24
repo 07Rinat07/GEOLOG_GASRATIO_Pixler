@@ -13,6 +13,15 @@ The welcome window remains visible for at least **3 seconds** so the logo, drill
 Choose Русский, Қазақша, or English on first launch. You can later change the language from
 “Language / Язык / Тіл”. The selected language is applied immediately to the entire open interface; no application restart is required.
 
+## Saving the project and user changes
+
+Changes to tables, forms, intervals, annotations, and inserted symbols first exist in the current
+session. Press **Ctrl+S** or choose **File → Save** to write them to disk. Individual objects do
+not need separate save buttons. When a modified project is closed, the application should offer
+to save it; closing without saving discards changes made after the last save. LAS/PDF/CSV/Excel/
+DOCX/HTML export creates a separate file and does not replace project saving. See the complete
+[Features and instructions](FEATURES.md) map.
+
 ## Import
 
 Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, Excel, or GeoScape/Paradox DB. Paradox also has “File → Import → GeoScape / Paradox DB” and `.db` drag-and-drop. The application validates the binary format, discovers same-name `.PX/.TV/.FAM` files, presents channels and depth/time candidates, and never applies an ambiguous index without confirmation. Source files are opened read-only. A dataset is committed to the project only after successful reading, policy evaluation, and any required user confirmation; cancelled or rejected files cannot create a partial well. See [PARADOX_IMPORT.md](PARADOX_IMPORT.md).

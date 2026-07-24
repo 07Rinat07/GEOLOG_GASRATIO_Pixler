@@ -3,6 +3,7 @@
 ## Start here
 
 - User guide: [Русский](ru/README.md) · [Қазақша](kk/README.md) · [English](en/README.md)
+- Feature map: [Русский](ru/FEATURES.md) · [Қазақша](kk/FEATURES.md) · [English](en/FEATURES.md)
 - Product audit: [Русский](ru/PRODUCT_AUDIT_2026.md) ·
   [Қазақша](kk/PRODUCT_AUDIT_2026.md) · [English](en/PRODUCT_AUDIT_2026.md)
 - Project plan: [Русский](ru/PROJECT_PLAN.md) · [Қазақша](kk/PROJECT_PLAN.md) ·
@@ -31,6 +32,8 @@
 
 ## Main workflows
 
+- Documentation audit 0.7.62: [release notes](RELEASE_NOTES_0.7.62.md) · [build manifest](BUILD_MANIFEST_0.7.62.md)
+- Current feature map: [RU](ru/FEATURES.md) · [KK](kk/FEATURES.md) · [EN](en/FEATURES.md)
 - LAS Editor: [RU](ru/LAS_EDITOR.md) · [KK](kk/LAS_EDITOR.md) · [EN](en/LAS_EDITOR.md)
 - Tablet workspace: [RU](ru/UI_WORKSPACE.md) · [KK](kk/UI_WORKSPACE.md) · [EN](en/UI_WORKSPACE.md)
 - Form Constructor: [RU](ru/CONSTRUCTOR.md) · [KK](kk/CONSTRUCTOR.md) · [EN](en/CONSTRUCTOR.md)

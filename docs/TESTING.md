@@ -3,6 +3,31 @@
 Актуально на 24 июля 2026 года. Этот файл задаёт один действующий release gate. История
 проверок отдельных версий хранится в release notes и не является текущей инструкцией.
 
+## Аудит функций и документации 0.7.62
+
+Обязательные проверки:
+
+- `docs/ru`, `docs/kk`, `docs/en` содержат одинаковый набор пользовательских Markdown-файлов;
+- все относительные ссылки в корневом README и каталоге `docs` ведут на существующие файлы;
+- `ru.json`, `kk.json`, `en.json` содержат одинаковый набор стабильных интерфейсных ключей;
+- версия в `pyproject.toml`, `src/geoworkbench/__init__.py`, release notes и build manifest совпадает;
+- основные руководства на трёх языках объясняют сохранение через `Ctrl+S`, закрытие без
+  сохранения, повторное открытие и отличие экспорта от сохранения проекта;
+- инструкция по значкам описывает выбор, привязку, перемещение, изменение размера, Undo/Redo,
+  удаление, блокировку, флаг печати, сохранение и повторное открытие;
+- корневой README остаётся кратким и не содержит детальной истории исправлений.
+
+Проверка 0.7.62 в доступном контейнере: documentation audit — **82 файла на язык**,
+**1881 i18n-ключ**; доступный headless-набор — **1103 passed, 4 skipped, 3 deselected**.
+Полный collection блокируют 82 модуля, которым требуются PySide6, pyqtgraph или lasio.
+
+Минимальная независимая проверка:
+
+```powershell
+python tools/check_documentation.py
+python -m pytest -q tests/test_documentation_sync_0762.py tests/test_graph_symbol_insertion.py
+```
+
 ## Вставка справочных значков на графики 0.7.61
 
 Обязательные проверки:
@@ -28,7 +53,8 @@ source-contract тестами.
 Запускать из корня проекта в установленном Windows-окружении:
 
 ```powershell
-.venv\Scripts\python.exe -B -m ruff check src tests
+.venv\Scripts\python.exe -B tools/check_documentation.py
+.venv\Scripts\python.exe -B -m ruff check src tests tools
 .venv\Scripts\python.exe -B -m mypy src
 .venv\Scripts\python.exe -B -m pytest -q -p no:cacheprovider
 ```
