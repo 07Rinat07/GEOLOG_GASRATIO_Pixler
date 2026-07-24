@@ -57,6 +57,7 @@ from geoworkbench.importers.paradox.profiles import (
 )
 from geoworkbench.importers.paradox.reader import read_paradox
 from geoworkbench.importers.paradox.progress import paradox_progress_state
+from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.time_display import format_datetime_value, format_elapsed_time
 
@@ -796,6 +797,7 @@ class ParadoxImportDialog(QDialog):
         self._population_stage = "done"
         self._restore_population_updates()
         self._update_depth_step_labels()
+        self._apply_index_sort_recommendation()
         depth_name = self.depth_field.currentData() or self._t("paradox.not_selected")
         selected_time = self.time_field.currentData() or self._t("paradox.not_selected")
         self.preview_summary.setText(
@@ -822,6 +824,28 @@ class ParadoxImportDialog(QDialog):
         self.progress_detail.setText(self._t("paradox.ready_hint"))
         self.progress_hint.setText(self._t("paradox.ready_instructions"))
         self._set_busy(False)
+
+    def _apply_index_sort_recommendation(self) -> None:
+        if self.table is None:
+            return
+        role = str(self.active_role.currentData() or "auto")
+        field_name = (
+            self.time_field.currentData()
+            if role == "time"
+            else self.depth_field.currentData()
+        )
+        if field_name not in self.table.columns:
+            return
+        try:
+            values = np.asarray(
+                self.table.columns[str(field_name)].values, dtype=np.float64
+            )
+        except (TypeError, ValueError):
+            return
+        analysis = analyze_depth_axis(values)
+        if analysis.direction is DepthDirection.MIXED:
+            self.sort_index.setChecked(True)
+            self.sort_index.setToolTip(self._t("paradox.sort_index_recommended"))
 
     def _localized_issue_message(self, issue) -> str:
         key = f"paradox.issue_code.{issue.code.replace('-', '_')}"

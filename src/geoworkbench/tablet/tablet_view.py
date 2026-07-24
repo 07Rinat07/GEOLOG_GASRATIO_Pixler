@@ -24,8 +24,10 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
+    QAbstractSpinBox,
     QApplication,
     QComboBox,
+    QDoubleSpinBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -389,6 +391,156 @@ class CurveHeaderLabel(QLabel):
         super().mousePressEvent(event)
 
 
+@dataclass(frozen=True, slots=True)
+class CurveHeaderRangeSpec:
+    minimum: float
+    maximum: float
+    unit: str
+    scale: XScale
+    automatic: bool
+    scale_label: str
+    settings_tooltip: str
+    auto_tooltip: str
+    invalid_range_message: str
+
+
+class CurveHeaderEditor(QFrame):
+    clicked = Signal(str)
+    double_clicked = Signal(str)
+    context_requested = Signal(str, QPoint)
+    range_changed = Signal(str, float, float)
+    auto_range_requested = Signal(str)
+
+    def __init__(
+        self,
+        mnemonic: str,
+        title: str,
+        curve_color: str,
+        text_color: str,
+        line_color: str | None,
+        spec: CurveHeaderRangeSpec,
+    ) -> None:
+        super().__init__()
+        self.mnemonic = mnemonic
+        self._title_text = title
+        self._curve_color = curve_color
+        self._text_color = text_color
+        self._line_color = line_color or curve_color
+        self._invalid_range_message = spec.invalid_range_message
+        self._loading = True
+        self.setMinimumHeight(46)
+        self.setToolTip(
+            f"{title} · {spec.minimum:g} … {spec.maximum:g} {spec.unit} [{mnemonic}]"
+        )
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(5, 1, 3, 1)
+        root.setSpacing(0)
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
+        top.setSpacing(2)
+        self.title_label = QLabel(title)
+        self.title_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.title_label.setStyleSheet("background:transparent; font-weight:600; font-size:10px;")
+        top.addWidget(self.title_label, 1)
+        settings = QToolButton()
+        settings.setText("⚙")
+        settings.setAutoRaise(True)
+        settings.setToolTip(spec.settings_tooltip)
+        settings.clicked.connect(lambda: self.double_clicked.emit(self.mnemonic))
+        top.addWidget(settings)
+        root.addLayout(top)
+
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(1)
+        self.minimum = self._spin(spec.minimum)
+        self.maximum = self._spin(spec.maximum)
+        row.addWidget(self.minimum, 1)
+        separator = QLabel("…")
+        separator.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        separator.setStyleSheet("background:transparent; font-size:9px;")
+        row.addWidget(separator)
+        row.addWidget(self.maximum, 1)
+        suffix = QLabel((spec.unit + " · " if spec.unit else "") + spec.scale_label)
+        suffix.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        suffix.setStyleSheet("background:transparent; font-size:8px;")
+        row.addWidget(suffix)
+        auto = QToolButton()
+        auto.setText("A")
+        auto.setAutoRaise(True)
+        auto.setToolTip(spec.auto_tooltip)
+        auto.setStyleSheet("QToolButton {font-size:9px; padding:0;}")
+        auto.clicked.connect(lambda: self.auto_range_requested.emit(self.mnemonic))
+        row.addWidget(auto)
+        root.addLayout(row)
+
+        self.minimum.editingFinished.connect(self._commit_range)
+        self.maximum.editingFinished.connect(self._commit_range)
+        self._loading = False
+        self.set_selected(False)
+
+    @staticmethod
+    def _spin(value: float) -> QDoubleSpinBox:
+        spin = QDoubleSpinBox()
+        spin.setDecimals(6)
+        spin.setRange(-1e12, 1e12)
+        spin.setValue(float(value))
+        spin.setKeyboardTracking(False)
+        spin.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
+        spin.setFrame(False)
+        spin.setMinimumWidth(42)
+        spin.setMaximumHeight(19)
+        spin.setStyleSheet("QDoubleSpinBox {background:#f8fafc; font-size:9px; padding:0 2px;}")
+        return spin
+
+    def text(self) -> str:
+        return f"{self._title_text}\n{self.minimum.value():g} … {self.maximum.value():g}"
+
+    def set_selected(self, selected: bool) -> None:
+        background = "#dbeafe" if selected else "#ffffff"
+        border = "#2563eb" if selected else self._line_color
+        self.setStyleSheet(
+            f"QFrame {{background:{background}; color:{self._text_color}; "
+            f"border-left:5px solid {self._curve_color}; border-bottom:2px solid {border};}}"
+        )
+
+    def _commit_range(self) -> None:
+        if self._loading:
+            return
+        minimum = float(self.minimum.value())
+        maximum = float(self.maximum.value())
+        if minimum >= maximum:
+            self.setToolTip(self._invalid_range_message)
+            self.minimum.setStyleSheet("QDoubleSpinBox {background:#fee2e2; font-size:9px;}")
+            self.maximum.setStyleSheet("QDoubleSpinBox {background:#fee2e2; font-size:9px;}")
+            return
+        normal_style = (
+            "QDoubleSpinBox {background:#f8fafc; font-size:9px; padding:0 2px;}"
+        )
+        self.minimum.setStyleSheet(normal_style)
+        self.maximum.setStyleSheet(normal_style)
+        self.range_changed.emit(self.mnemonic, minimum, maximum)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.double_clicked.emit(self.mnemonic)
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit(self.mnemonic)
+            event.accept()
+            return
+        if event.button() == Qt.MouseButton.RightButton:
+            self.context_requested.emit(self.mnemonic, event.globalPosition().toPoint())
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+
 class TabletTrackWidget(QFrame):
     selected = Signal(str)
     width_change_requested = Signal(str, int)
@@ -400,6 +552,8 @@ class TabletTrackWidget(QFrame):
     curve_selected = Signal(str, str)
     curve_context_requested = Signal(str, str, QPoint)
     curve_edit_requested = Signal(str, str)
+    curve_range_change_requested = Signal(str, str, float, float)
+    curve_auto_range_requested = Signal(str, str)
 
     RESIZE_MARGIN = 6
 
@@ -414,7 +568,7 @@ class TabletTrackWidget(QFrame):
         self._resize_gesture: TrackResizeGesture | None = None
         self._header_drag_origin_x: int | None = None
         self._header_dragging = False
-        self._curve_header_labels: dict[str, CurveHeaderLabel] = {}
+        self._curve_header_labels: dict[str, CurveHeaderLabel | CurveHeaderEditor] = {}
         self._natural_curve_header_height = 0
         self.setObjectName(f"track-{definition.track_id}")
         self.setFrameShape(QFrame.Shape.StyledPanel)
@@ -511,7 +665,9 @@ class TabletTrackWidget(QFrame):
             target.installEventFilter(self)
 
     def set_curve_headers(
-        self, rows: list[tuple[str, str, str, str, str | None]]
+        self,
+        rows: list[tuple[str, str, str, str, str | None]],
+        editable_ranges: dict[str, CurveHeaderRangeSpec] | None = None,
     ) -> None:
         self._curve_header_labels.clear()
         while self.curve_header_layout.count():
@@ -519,10 +675,29 @@ class TabletTrackWidget(QFrame):
             widget = item.widget() if item is not None else None
             if widget is not None:
                 widget.deleteLater()
+        ranges = editable_ranges or {}
         for mnemonic, text, curve_color, text_color, line_color in rows:
-            label = CurveHeaderLabel(
-                mnemonic, text, curve_color, text_color, line_color
-            )
+            spec = ranges.get(mnemonic)
+            if spec is None:
+                label: CurveHeaderLabel | CurveHeaderEditor = CurveHeaderLabel(
+                    mnemonic, text, curve_color, text_color, line_color
+                )
+            else:
+                label = CurveHeaderEditor(
+                    mnemonic, text.split("\n", 1)[0], curve_color, text_color, line_color, spec
+                )
+                label.range_changed.connect(
+                    lambda selected, minimum, maximum, track_id=self.definition.track_id: (
+                        self.curve_range_change_requested.emit(
+                            track_id, selected, minimum, maximum
+                        )
+                    )
+                )
+                label.auto_range_requested.connect(
+                    lambda selected, track_id=self.definition.track_id: (
+                        self.curve_auto_range_requested.emit(track_id, selected)
+                    )
+                )
             label.clicked.connect(
                 lambda selected, track_id=self.definition.track_id: self.curve_selected.emit(
                     track_id, selected
@@ -803,6 +978,8 @@ class TabletView(QWidget):
     track_rename_requested = Signal(str)
     track_group_rename_requested = Signal(str)
     track_curve_settings_requested = Signal(str, str)
+    track_curve_range_requested = Signal(str, str, float, float)
+    track_curve_auto_range_requested = Signal(str, str)
     curve_pencil_requested = Signal(str, str)
     curve_edit_requested = Signal(str, object, object)
     curve_pencil_mode_changed = Signal(bool, str)
@@ -3962,6 +4139,8 @@ class TabletView(QWidget):
         track.curve_selected.connect(self._curve_header_selected)
         track.curve_context_requested.connect(self._curve_header_context)
         track.curve_edit_requested.connect(self.track_curve_settings_requested.emit)
+        track.curve_range_change_requested.connect(self.track_curve_range_requested.emit)
+        track.curve_auto_range_requested.connect(self.track_curve_auto_range_requested.emit)
         (
             legend_labels,
             curve_items,
@@ -6445,6 +6624,7 @@ class TabletView(QWidget):
         legend_labels: list[str] = []
         curve_items: dict[str, pg.PlotDataItem] = {}
         header_rows: list[tuple[str, str, str, str, str | None]] = []
+        header_ranges: dict[str, CurveHeaderRangeSpec] = {}
         for index, mnemonic in enumerate(definition.curve_mnemonics):
             curve = self._dataset.curve_by_mnemonic(mnemonic)
             if curve is None:
@@ -6519,7 +6699,18 @@ class TabletView(QWidget):
                     settings.header_line_color,
                 )
             )
-        track.set_curve_headers(header_rows)
+            header_ranges[mnemonic] = CurveHeaderRangeSpec(
+                minimum=minimum,
+                maximum=maximum,
+                unit=unit,
+                scale=settings.x_scale,
+                automatic=settings.automatic_range,
+                scale_label=scale_marker,
+                settings_tooltip=self._localizer.text("curve_settings.title"),
+                auto_tooltip=self._localizer.text("curve_settings.auto_range"),
+                invalid_range_message=self._localizer.text("curve_settings.invalid_range"),
+            )
+        track.set_curve_headers(header_rows, header_ranges)
         if not curve_items:
             track.title.setText(
                 self._localizer.text("tablet.no_numeric_data", title=definition.title)

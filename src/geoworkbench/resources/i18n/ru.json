@@ -1811,5 +1811,15 @@
   "visual_export.select_view": "Откройте вкладку графика или планшета",
   "visual_export.success": "Визуализация экспортирована: {name}",
   "visual_export.svg_action": "Экспортировать текущий график/планшет в SVG...",
-  "visual_export.title": "Экспорт визуализации"
+  "visual_export.title": "Экспорт визуализации",
+  "import_review.sort_index": "Сортировать принятую копию по активному индексу",
+  "import_review.sort_index_hint": "Исходный файл не изменяется. Все индексы и каналы принятой копии переставляются синхронно; смешанный порядок больше не блокирует импорт.",
+  "curve_settings.log_range_positive": "Для логарифмической шкалы минимум должен быть больше нуля.",
+  "curve_settings.header_range_saved": "Диапазон {curve}: {minimum} … {maximum} сохранён в текущей форме.",
+  "curve_settings.header_auto_saved": "Для {curve} восстановлен автоматический диапазон и сохранён в текущей форме.",
+  "paradox.sort_index_recommended": "В источнике обнаружен смешанный порядок. Сортировка принятой копии включена автоматически; исходный DB не изменяется.",
+  "curve_settings.header_text_color": "Цвет названия в шапке",
+  "curve_settings.header_line_color": "Цвет линии в шапке",
+  "curve_settings.header_line_as_curve": "Как у кривой",
+  "import_review.issue.index-sorted-copy": "Принятая копия отсортирована по активному индексу; исходный файл не изменён."
 }

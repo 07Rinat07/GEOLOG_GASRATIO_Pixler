@@ -74,3 +74,10 @@ source, corrective action, and traceback and supports Copy/Save. If registration
 the tablet could not render, the application opens a safe LAS table without removing the imported
 data. Duplicate vendor mnemonics are read by physical column and one malformed channel is skipped
 with a warning instead of rejecting the whole source.
+## Repairable mixed DB order
+
+Since 0.7.47, a mixed numeric index can be repaired with “Sort the accepted copy by the active
+index”. GeoScape/Paradox enables the recommendation automatically. All indexes, depth values,
+and curves use one stable permutation; the source DB and loader-owned dataset remain unchanged.
+The review records `index-sorted-copy`, while duplicates and gaps remain explicit warnings.
+

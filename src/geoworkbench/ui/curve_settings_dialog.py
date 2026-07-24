@@ -116,6 +116,40 @@ class CurveSettingsDialog(QDialog):
         self.color_button.clicked.connect(self._choose_color)
         form.addRow(self._t("curve_settings.color"), self.color_button)
 
+        self.header_text_color_button = QPushButton()
+        self.header_text_color_button.clicked.connect(
+            lambda: self._choose_button_color(
+                self.header_text_color_button,
+                "headerTextColor",
+                "#0f172a",
+                self._t("curve_settings.header_text_color"),
+            )
+        )
+        form.addRow(
+            self._t("curve_settings.header_text_color"),
+            self.header_text_color_button,
+        )
+
+        header_line_row = QHBoxLayout()
+        self.header_line_color_button = QPushButton()
+        self.header_line_color_button.clicked.connect(
+            lambda: self._choose_button_color(
+                self.header_line_color_button,
+                "headerLineColor",
+                str(self.color_button.property("curveColor") or "#2563eb"),
+                self._t("curve_settings.header_line_color"),
+            )
+        )
+        self.header_line_auto = QCheckBox(
+            self._t("curve_settings.header_line_as_curve")
+        )
+        self.header_line_auto.toggled.connect(
+            lambda checked: self.header_line_color_button.setEnabled(not checked)
+        )
+        header_line_row.addWidget(self.header_line_color_button, 1)
+        header_line_row.addWidget(self.header_line_auto)
+        form.addRow(self._t("curve_settings.header_line_color"), header_line_row)
+
         self.line_width_input = QDoubleSpinBox()
         self.line_width_input.setDecimals(1)
         self.line_width_input.setSingleStep(0.5)
@@ -198,6 +232,21 @@ class CurveSettingsDialog(QDialog):
             self.minimum.setValue(minimum)
             self.maximum.setValue(maximum)
             self._set_color(style.color)
+            self._set_button_color(
+                self.header_text_color_button,
+                "headerTextColor",
+                display.header_text_color,
+            )
+            line_color = display.header_line_color or style.color
+            self._set_button_color(
+                self.header_line_color_button,
+                "headerLineColor",
+                line_color,
+            )
+            self.header_line_auto.setChecked(display.header_line_color is None)
+            self.header_line_color_button.setEnabled(
+                display.header_line_color is not None
+            )
             self.line_width_input.setValue(style.width)
             self.line_style.setCurrentIndex(
                 max(0, self.line_style.findData(style.line_style.value))
@@ -219,16 +268,24 @@ class CurveSettingsDialog(QDialog):
                 return
             if scale is XScale.LOGARITHMIC and minimum <= 0:
                 return
-        previous = self._display.get(
-            mnemonic, self._track.curve_display_settings(mnemonic)
-        )
         self._display[mnemonic] = CurveDisplaySettings(
             display_name=self.display_name.text().strip() or mnemonic,
             x_scale=scale,
             x_min=minimum,
             x_max=maximum,
-            header_text_color=previous.header_text_color,
-            header_line_color=previous.header_line_color,
+            header_text_color=str(
+                self.header_text_color_button.property("headerTextColor")
+                or "#0f172a"
+            ),
+            header_line_color=(
+                None
+                if self.header_line_auto.isChecked()
+                else str(
+                    self.header_line_color_button.property("headerLineColor")
+                    or self.color_button.property("curveColor")
+                    or "#2563eb"
+                )
+            ),
         )
         self._styles[mnemonic] = CurveStyle(
             color=str(self.color_button.property("curveColor") or "#2563eb"),
@@ -274,11 +331,31 @@ class CurveSettingsDialog(QDialog):
         if color.isValid():
             self._set_color(color.name())
 
+    def _choose_button_color(
+        self, button: QPushButton, property_name: str, fallback: str, title: str
+    ) -> None:
+        initial = QColor(str(button.property(property_name) or fallback))
+        color = QColorDialog.getColor(initial, self, title)
+        if color.isValid():
+            self._set_button_color(button, property_name, color.name())
+
+    @staticmethod
+    def _set_button_color(
+        button: QPushButton, property_name: str, color: str
+    ) -> None:
+        button.setProperty(property_name, color)
+        button.setText(color)
+        foreground = "#000000" if QColor(color).lightness() > 150 else "#ffffff"
+        button.setStyleSheet(
+            f"QPushButton {{ background: {color}; color: {foreground}; }}"
+        )
+
     def _set_color(self, color: str) -> None:
         self.color_button.setProperty("curveColor", color)
         self.color_button.setText(color)
+        foreground = "#000000" if QColor(color).lightness() > 150 else "#ffffff"
         self.color_button.setStyleSheet(
-            f"QPushButton {{ background: {color}; color: {'#000000' if QColor(color).lightness() > 150 else '#ffffff'}; }}"
+            f"QPushButton {{ background: {color}; color: {foreground}; }}"
         )
 
     def _suggested_range(self, mnemonic: str, scale: XScale) -> tuple[float, float]:

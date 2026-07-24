@@ -2,19 +2,16 @@
 
 2026 жылғы 24 шілдедегі күй.
 
-## 0.7.46 жедел hotfix аяқталды
+## 0.7.47 түзету hotfix аяқталды
 
-- [x] tablet grid overlay ішінде `Qt.MouseButton.NoButton` қолдану;
-- [x] grid/tablet presentation қатесі импортталған dataset-ке қолжетімділікті жаппау;
-- [x] сәтті registration кейін safe table recovery workspace ашу;
-- [x] Import Review warning-терін бұғаттамай сақтау;
-- [x] әр файл қатесін read/parse/policy/review/register/present кезеңімен жинау;
-- [x] severity, тұрақты code, action, context, exception type және traceback сақтау;
-- [x] blocking report-ты автоматты жазу және UI ішінде Copy/Save беру;
-- [x] duplicate LAS mnemonic-ті физикалық бағанмен сақтау және тек зақымдалған арнаны өткізу.
-
-Қолмен қабылдау шарты: проблемалық LAS-ты Windows/PySide6 ішінде тексеріп, import, table recovery,
-tablet first frame және diagnostic report қара workspace-сіз жұмыс істейтінін растау.
+- [x] DB mixed index ретін тек қабылданған көшірмеде сұрыптау;
+- [x] барлық индекс пен қисыққа бір тұрақты перестановка қолдану;
+- [x] `index-sorted-copy` диагностикасын көрсету;
+- [x] batch DB → LAS үшін DEPT/DEPTH/MD-ны басым таңдап, ambiguity safety сақтау;
+- [x] сақталған профильді қолданып, LAS round-trip алдында сұрыптау;
+- [x] ordinary curve тақырыбында manual min/max өңдеу;
+- [x] auto/manual range және тақырып түстерін жұмыс пішінінде сақтау;
+- [ ] D1174.db, BLData.db, batch conversion және тар тақырыптарды Windows-та тексеру.
 
 ## Кейінгі срездер
 

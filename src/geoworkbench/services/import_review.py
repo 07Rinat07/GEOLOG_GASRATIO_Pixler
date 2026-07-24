@@ -137,6 +137,7 @@ class ImportReviewPlan:
     index_unit: str | None
     channels: tuple[ImportChannelOverride, ...]
     null_value: float | None = None
+    sort_by_index: bool = False
 
     def __post_init__(self) -> None:
         if not self.active_index_id.strip():
@@ -159,6 +160,8 @@ class ImportReviewPlan:
             object.__setattr__(self, "index_type", index_type)
         if self.index_unit is not None:
             object.__setattr__(self, "index_unit", self.index_unit.strip() or None)
+        if not isinstance(self.sort_by_index, bool):
+            raise ValueError("sort_by_index must be a boolean")
         if self.null_value is not None:
             if isinstance(self.null_value, bool):
                 raise ValueError("NULL sentinel must be a finite number")
@@ -218,6 +221,7 @@ class ImportReviewController:
             index_role=index.role,
             index_type=index.index_type,
             index_unit=index.unit,
+            sort_by_index=_index_requires_sort(index.values),
             channels=tuple(
                 ImportChannelOverride(
                     curve_id=curve.metadata.curve_id,
@@ -278,6 +282,9 @@ class ImportReviewController:
             (*selected_index.evidence, "manual import review index confirmation")
         )
         candidate.set_active_index(plan.active_index_id)
+        if plan.sort_by_index:
+            _sort_dataset_by_active_index(candidate)
+            candidate.parameters["IMPORT_REVIEW_SORTED_BY_INDEX"] = "true"
 
         for curve_id in tuple(candidate.curves):
             override = override_by_id.get(curve_id)
@@ -341,6 +348,62 @@ class ImportReviewController:
         )
 
 
+def _index_requires_sort(values: np.ndarray) -> bool:
+    array = np.asarray(values)
+    if array.size < 3:
+        return False
+    if np.issubdtype(array.dtype, np.datetime64):
+        valid = array[~np.isnat(array)]
+        if valid.size < 3:
+            return False
+        differences = np.diff(valid.astype("datetime64[ns]").astype(np.int64))
+        return bool(np.any(differences < 0) and np.any(differences > 0))
+    if np.issubdtype(array.dtype, np.number):
+        valid = np.asarray(array, dtype=np.float64)
+        valid = valid[np.isfinite(valid)]
+        if valid.size < 3:
+            return False
+        differences = np.diff(valid)
+        return bool(np.any(differences < 0) and np.any(differences > 0))
+    return False
+
+
+def _sort_dataset_by_active_index(dataset: Dataset) -> None:
+    values = np.asarray(dataset.active_index.values)
+    if values.size < 2:
+        return
+    if np.issubdtype(values.dtype, np.datetime64):
+        key = values.astype("datetime64[ns]").astype(np.int64)
+        key = np.where(np.isnat(values), np.iinfo(np.int64).max, key)
+    elif np.issubdtype(values.dtype, np.number):
+        numeric = np.asarray(values, dtype=np.float64)
+        key = np.where(np.isfinite(numeric), numeric, np.inf)
+    else:
+        key = np.asarray([str(item) for item in values], dtype=object)
+    order = np.argsort(key, kind="stable")
+    if np.array_equal(order, np.arange(values.size)):
+        return
+    depth_values = np.asarray(dataset.depth)
+    for index in dataset.indexes.values():
+        index_values = np.asarray(index.values)
+        if index_values.size != values.size:
+            raise ValueError(
+                f"Index {index.mnemonic} length does not match active index during sorting"
+            )
+        index.values = index_values[order].copy()
+    for curve in dataset.curves.values():
+        curve_values = np.asarray(curve.values)
+        if curve_values.size != values.size:
+            raise ValueError(
+                "Curve "
+                f"{curve.metadata.original_mnemonic} length does not match active "
+                "index during sorting"
+            )
+        curve.values = curve_values[order].copy()
+    if depth_values.size == values.size:
+        dataset.depth = depth_values[order].copy()
+
+
 def build_import_review(
     dataset: Dataset,
     *,
@@ -351,6 +414,14 @@ def build_import_review(
     resolver = dictionary or default_semantic_channel_dictionary()
     active_index = dataset.active_index
     dataset_issues: list[ImportReviewIssue] = []
+    if dataset.parameters.get("IMPORT_REVIEW_SORTED_BY_INDEX") == "true":
+        dataset_issues.append(
+            ImportReviewIssue(
+                "index-sorted-copy",
+                ImportReviewSeverity.INFO,
+                "Accepted copy is sorted by the active index; the source is unchanged",
+            )
+        )
     index_values = np.asarray(active_index.values)
     index_valid_count, index_null_count = _valid_and_null_counts(index_values)
     if index_values.size == 0:

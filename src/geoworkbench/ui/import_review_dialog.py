@@ -125,6 +125,8 @@ class ImportReviewDialog(QDialog):
         self.index_type = QComboBox()
         self.index_unit = QLineEdit()
         self.null_value = QLineEdit()
+        self.sort_index = QCheckBox(self._t("import_review.sort_index"))
+        self.sort_index.setToolTip(self._t("import_review.sort_index_hint"))
         self.null_value.setPlaceholderText(self._t("import_review.null_placeholder"))
         for role in IndexRole:
             self.index_role.addItem(self._t(f"import_review.index_role.{role.value}"), role)
@@ -138,6 +140,7 @@ class ImportReviewDialog(QDialog):
         form.addRow(self._t("import_review.index_type"), self.index_type)
         form.addRow(self._t("import_review.index_unit"), self.index_unit)
         form.addRow(self._t("import_review.null_value"), self.null_value)
+        form.addRow(self.sort_index)
         note = QLabel(self._t("import_review.null_note"))
         note.setWordWrap(True)
         form.addRow(note)
@@ -147,6 +150,7 @@ class ImportReviewDialog(QDialog):
         self.index_type.currentIndexChanged.connect(self._refresh_review)
         self.index_unit.editingFinished.connect(self._refresh_review)
         self.null_value.editingFinished.connect(self._refresh_review)
+        self.sort_index.toggled.connect(self._refresh_review)
         return group
 
     def _build_channel_table(self) -> QWidget:
@@ -236,6 +240,7 @@ class ImportReviewDialog(QDialog):
         selected = self.active_index.findData(self._initial_plan.active_index_id)
         self.active_index.setCurrentIndex(max(0, selected))
         self._load_index_fields(self._initial_plan.active_index_id)
+        self.sort_index.setChecked(self._initial_plan.sort_by_index)
         self._updating = False
 
     def _load_index_fields(self, index_id: str) -> None:
@@ -267,6 +272,7 @@ class ImportReviewDialog(QDialog):
             index_type=index_type if isinstance(index_type, IndexType) else str(index_type),
             index_unit=self.index_unit.text().strip() or None,
             null_value=null_value,
+            sort_by_index=self.sort_index.isChecked(),
             channels=tuple(
                 self._channel_overrides[curve_id]
                 for curve_id in self.dataset.curves

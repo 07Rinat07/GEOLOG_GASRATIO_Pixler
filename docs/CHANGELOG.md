@@ -1,3 +1,11 @@
+# 0.7.47 — DB import normalization and editable curve-header ranges (test build)
+
+- GeoScape/Paradox mixed index order is normalized in the accepted copy only.
+- Batch DB → LAS prefers explicit depth fields and honors profiles without unsafe guessing.
+- Ordinary curve headers directly edit/persist min/max and restore auto range.
+- Full curve settings expose independent header text and underline colors.
+- Project format remains v20; form schema v6 and tablet layout v15 are unchanged.
+
 # 0.7.46 — LAS import recovery and diagnostics hotfix (test build)
 
 - fixed a PySide6 type regression in the tablet grid overlay that could leave the workspace black after a successful LAS review;

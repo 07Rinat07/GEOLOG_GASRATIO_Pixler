@@ -44,6 +44,7 @@
 - Operational events: [RU](ru/OPERATIONAL_EVENTS.md) · [KK](kk/OPERATIONAL_EVENTS.md) · [EN](en/OPERATIONAL_EVENTS.md)
 - Acquisition replay: [RU](ru/ACQUISITION_REPLAY.md) · [KK](kk/ACQUISITION_REPLAY.md) · [EN](en/ACQUISITION_REPLAY.md)
 - Startup splash 0.7.43: [RU](ru/RELEASE_NOTES_0.7.43.md) · [KK](kk/RELEASE_NOTES_0.7.43.md) · [EN](en/RELEASE_NOTES_0.7.43.md)
+- DB import and editable curve-header ranges 0.7.47: [RU](ru/RELEASE_NOTES_0.7.47.md) · [KK](kk/RELEASE_NOTES_0.7.47.md) · [EN](en/RELEASE_NOTES_0.7.47.md)
 - LAS import recovery and diagnostics 0.7.46: [RU](ru/RELEASE_NOTES_0.7.46.md) · [KK](kk/RELEASE_NOTES_0.7.46.md) · [EN](en/RELEASE_NOTES_0.7.46.md)
 - Рабочие формы и ежедневное наращивание LAS 0.7.45: [RU](ru/RELEASE_NOTES_0.7.45.md) · [KK](kk/RELEASE_NOTES_0.7.45.md) · [EN](en/RELEASE_NOTES_0.7.45.md)
 - Lag/depth correction 0.7.44: [RU](ru/RELEASE_NOTES_0.7.44.md) · [KK](kk/RELEASE_NOTES_0.7.44.md) · [EN](en/RELEASE_NOTES_0.7.44.md)

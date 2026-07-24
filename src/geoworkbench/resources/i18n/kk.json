@@ -1811,5 +1811,15 @@
   "visual_export.select_view": "График немесе планшет қойындысын ашыңыз",
   "visual_export.success": "Визуализация экспортталды: {name}",
   "visual_export.svg_action": "Ағымдағы графикті/планшетті SVG-ге экспорттау...",
-  "visual_export.title": "Визуализацияны экспорттау"
+  "visual_export.title": "Визуализацияны экспорттау",
+  "import_review.sort_index": "Қабылданған көшірмені белсенді индекс бойынша сұрыптау",
+  "import_review.sort_index_hint": "Бастапқы файл өзгермейді. Қабылданған көшірменің барлық индекстері мен арналары бірге қайта реттеледі; аралас реттілік импортты бұғаттамайды.",
+  "curve_settings.log_range_positive": "Логарифмдік шкала үшін минимум нөлден үлкен болуы керек.",
+  "curve_settings.header_range_saved": "{curve} диапазоны: {minimum} … {maximum} ағымдағы формада сақталды.",
+  "curve_settings.header_auto_saved": "{curve} үшін автоматты диапазон қалпына келтіріліп, ағымдағы формада сақталды.",
+  "paradox.sort_index_recommended": "Дереккөзде аралас реттілік анықталды. Қабылданған көшірмені сұрыптау автоматты түрде қосылды; бастапқы DB өзгермейді.",
+  "curve_settings.header_text_color": "Тақырыптағы атау түсі",
+  "curve_settings.header_line_color": "Тақырыптағы сызық түсі",
+  "curve_settings.header_line_as_curve": "Қисық түсіндей",
+  "import_review.issue.index-sorted-copy": "Қабылданған көшірме белсенді индекс бойынша сұрыпталды; бастапқы файл өзгертілмеді."
 }

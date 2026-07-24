@@ -1811,5 +1811,15 @@
   "visual_export.select_view": "Open the chart or tablet tab",
   "visual_export.success": "Visualization exported: {name}",
   "visual_export.svg_action": "Export current chart/tablet to SVG...",
-  "visual_export.title": "Visualization export"
+  "visual_export.title": "Visualization export",
+  "import_review.sort_index": "Sort the accepted copy by the active index",
+  "import_review.sort_index_hint": "The source file is not changed. Every index and channel in the accepted copy is reordered together, so mixed ordering no longer blocks import.",
+  "curve_settings.log_range_positive": "A logarithmic scale requires a minimum greater than zero.",
+  "curve_settings.header_range_saved": "Range for {curve}: {minimum} … {maximum} was saved in the current form.",
+  "curve_settings.header_auto_saved": "Automatic range for {curve} was restored and saved in the current form.",
+  "paradox.sort_index_recommended": "Mixed source order was detected. Sorting the accepted copy was enabled automatically; the source DB is not changed.",
+  "curve_settings.header_text_color": "Header name color",
+  "curve_settings.header_line_color": "Header line color",
+  "curve_settings.header_line_as_curve": "Same as curve",
+  "import_review.issue.index-sorted-copy": "The accepted copy was sorted by the active index; the source file was not changed."
 }

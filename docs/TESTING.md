@@ -23,12 +23,26 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для hotfix 0.7.46 в текущем контейнере выполнены `compileall`, focused import/recovery/
-diagnostics набор — 76 passed, и доступная headless-регрессия — 1011 passed, 4 skipped,
-3 deselected. Три deselected-сценария требуют отсутствующий `lasio`; Qt/LAS collection-модули
-требуют `PySide6`, `pyqtgraph` или `lasio`. Ruff и mypy в контейнере также отсутствуют.
-Это не заменяет полный gate. Перед stable команды выше и Windows/HiDPI/PDF/physical-print
-smoke-test необходимо повторить в установленном окружении.
+Для hotfix 0.7.47 в текущем контейнере выполнены `compileall`, focused DB/import/form набор —
+149 passed, 3 skipped, 3 deselected, и доступная headless-регрессия — 1012 passed, 4 skipped,
+3 deselected. Deselect требует отсутствующий `lasio`, а Qt collection-модули — `PySide6` и
+`pyqtgraph`. Ruff и mypy в контейнере также отсутствуют. Это не заменяет полный gate. Перед
+stable необходимы Windows/HiDPI smoke-test реальных D1174.db/BLData.db, batch DB → LAS,
+редактор диапазона в шапке, PDF и physical print.
+
+
+## DB normalization и диапазон в шапке
+
+Обязательные проверки 0.7.47:
+
+- mixed numeric index предлагает сортировку принятой копии и после неё не содержит blocking error;
+- source dataset и DB не изменяются, все индексы/кривые используют одну стабильную перестановку;
+- duplicate/gap остаются warning, NULL/constant index остаются error;
+- batch выбирает явный DEPT при mixed classification и не выбирает близкие generic candidates;
+- manual/profile batch plan принудительно сортирует экспортную копию до LAS round-trip;
+- шапка ordinary curve содержит редактируемые min/max и auto-range;
+- manual range, logarithmic guard, header text/line colors сохраняются через TabletController;
+- narrow-column и Windows/PySide6 interaction проверяются вручную.
 
 ## Восстановление импорта LAS и диагностика
 

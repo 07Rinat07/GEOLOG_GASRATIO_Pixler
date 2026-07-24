@@ -1,11 +1,21 @@
 # Project status
 
-24 July 2026 emergency test build: package **0.7.46**, project format **v20**.
+24 July 2026 corrective test build: package **0.7.47**, project format **v20**, form schema
+**v6**, tablet layout **v15**.
 
-Completed hotfix: corrected the PySide6 grid-overlay mouse-button type; presentation failures no longer hide an already imported LAS; safe table recovery is available; Import Review warnings remain non-blocking; stage-aware actionable diagnostic reports can be copied, saved, and are automatically persisted for blocking failures; duplicate mnemonics are read by physical column position and isolated malformed channels no longer reject the entire source.
+## Completed in 0.7.47
 
-Project format v20, form schema v6, tablet layout v15, multi-DEPTH/TIME datasets, saved forms, symbols, annotations, curve settings, and daily LAS append contracts are unchanged.
+- mixed DB depth order is normalized in the accepted copy without changing the source;
+- Import Review no longer blocks repairable `D1174.db`-class inputs;
+- batch DB → LAS uses explicit DEPT/DEPTH/MD fields and saved manual profiles;
+- weak ambiguous candidates still require confirmation;
+- each ordinary curve header directly edits and persists minimum/maximum;
+- automatic range, logarithmic validation, header-name color, and underline color use the existing
+  `CurveDisplaySettings` contract without a project migration;
+- the 0.7.46 import diagnostic center remains active.
 
-Verification: **76 focused passed**; available headless regression **1011 passed, 4 skipped, 3 deselected**; `compileall` passed and wheel 0.7.46 built. PySide6, pyqtgraph, lasio, Ruff, and mypy are unavailable in the container, so the real-LAS Windows/HiDPI first-frame smoke test and full installed gate remain mandatory.
+Verification: **149 passed, 3 skipped, 3 deselected** in the focused suite and **1012 passed,
+4 skipped, 3 deselected** in the available headless regression. `compileall` passed and wheel
+0.7.47 built. A Windows DB/Qt smoke test remains mandatory.
 
-Next slice after Windows confirmation: read-only offline WITSML 2.1 inventory and mapping fixtures.
+Next slice: read-only offline WITSML 2.1 inventory and mapping fixtures.

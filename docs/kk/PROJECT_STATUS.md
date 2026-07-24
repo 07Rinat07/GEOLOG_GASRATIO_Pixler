@@ -1,11 +1,20 @@
 # Жоба күйі
 
-2026 жылғы 24 шілдедегі жедел тесттік жинақ: package **0.7.46**, project format **v20**.
+2026 жылғы 24 шілдедегі түзету тесттік жинағы: package **0.7.47**, project format **v20**,
+form schema **v6**, tablet layout **v15**.
 
-Hotfix аяқталды: PySide6 grid-overlay mouse-button типі түзетілді; presentation қатесі импортталған LAS-ты жасырмайды; қауіпсіз кестелік recovery бар; Import Review warning-тері бұғаттамайды; кезеңдік әрекетке жарамды diagnostic report көшіруге, сақтауға және blocking қате кезінде автоматты жазуға болады; қайталанатын mnemonic физикалық баған бойынша оқылады, бір зақымдалған арна бүкіл файлды тоқтатпайды.
+## 0.7.47 ішінде аяқталды
 
-Project format v20, form schema v6, tablet layout v15, бірнеше DEPTH/TIME datasets, сақталған пішіндер, белгілер, annotation, қисық параметрлері және күнделікті LAS append өзгермеді.
+- DB тереңдік индексінің аралас реті бастапқы файлды өзгертпей қабылданған көшірмеде сұрыпталады;
+- Import Review түзетілетін `D1174.db` түріндегі файлды бұғаттамайды;
+- batch DB → LAS DEPT/DEPTH/MD және сақталған қолмен профильді қолданады;
+- әлсіз екіұшты кандидаттар әлі де растауды қажет етеді;
+- әр кәдімгі қисықтың minimum/maximum мәндері тақырыпта өңделіп, пішінде сақталады;
+- auto-range, logarithmic validation, атау түсі және сызық түсі project migration-сыз сақталады;
+- 0.7.46 import diagnostics орталығы сақталды.
 
-Тексеру: **76 focused passed**; қолжетімді headless regression **1011 passed, 4 skipped, 3 deselected**; `compileall` өтті және wheel 0.7.46 жиналды. Контейнерде PySide6, pyqtgraph, lasio, Ruff және mypy жоқ, сондықтан нақты LAS-пен Windows/HiDPI first-frame smoke-test және толық gate міндетті.
+Тексеру: focused suite **149 passed, 3 skipped, 3 deselected**; headless regression
+**1012 passed, 4 skipped, 3 deselected**; `compileall` өтті, wheel 0.7.47 жиналды.
+Windows DB/Qt smoke-test міндетті.
 
-Windows растауынан кейінгі келесі срез: read-only offline WITSML 2.1 inventory және mapping fixtures.
+Келесі срез: read-only offline WITSML 2.1 inventory және mapping fixtures.

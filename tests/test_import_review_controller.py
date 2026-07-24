@@ -172,3 +172,25 @@ def test_plan_rejects_duplicate_curve_overrides() -> None:
             index_unit="m",
             channels=(ImportChannelOverride("c1"), ImportChannelOverride("c1")),
         )
+
+
+def test_initial_plan_sorts_mixed_index_copy_without_mutating_source() -> None:
+    dataset = _dataset()
+    dataset.active_index.values = np.array([101.0, 100.0, 102.0])
+    dataset.depth = dataset.active_index.values.copy()
+    dataset.curves["rop"].values = np.array([2.0, 1.0, 3.0])
+    dataset.curves["spp"].values = np.array([110.0, 100.0, 120.0])
+    controller = ImportReviewController()
+
+    plan = controller.initial_plan(dataset)
+    preview = controller.preview(dataset, plan)
+    committed = controller.commit(dataset, plan)
+
+    assert plan.sort_by_index is True
+    assert preview.error_count == 0
+    assert {issue.code for issue in preview.issues} >= {"index-sorted-copy"}
+    np.testing.assert_allclose(committed.dataset.active_index.values, [100.0, 101.0, 102.0])
+    np.testing.assert_allclose(committed.dataset.curves["rop"].values, [1.0, 2.0, 3.0])
+    np.testing.assert_allclose(committed.dataset.curves["spp"].values, [100.0, 110.0, 120.0])
+    assert committed.dataset.parameters["IMPORT_REVIEW_SORTED_BY_INDEX"] == "true"
+    np.testing.assert_allclose(dataset.active_index.values, [101.0, 100.0, 102.0])

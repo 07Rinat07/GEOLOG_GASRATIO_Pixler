@@ -403,3 +403,95 @@ def test_batch_can_create_explicit_geoscape_02_derived_grid(tmp_path: Path) -> N
     assert reopened.parameters["PARADOX_BATCH_RESAMPLE_METHOD"] == (
         "linear-without-bridging"
     )
+
+
+def test_batch_uses_explicit_dept_candidate_even_when_table_is_classified_mixed() -> None:
+    from geoworkbench.importers.paradox.batch import _select_automatic_candidate
+    from geoworkbench.importers.paradox.models import IndexCandidate
+
+    candidates = (
+        IndexCandidate("RANGE", "depth", 0.88, (), ()),
+        IndexCandidate("DEPT", "depth", 0.82, (), ("reverse",)),
+    )
+    underscored = (IndexCandidate("HOLE_DEPTH", "depth", 0.75, (), ()),)
+
+    assert _select_automatic_candidate(candidates, "depth") == "DEPT"
+    assert _select_automatic_candidate(underscored, "depth") == "HOLE_DEPTH"
+
+
+def test_batch_does_not_guess_between_generic_close_candidates() -> None:
+    from geoworkbench.importers.paradox.batch import _select_automatic_candidate
+    from geoworkbench.importers.paradox.models import IndexCandidate
+
+    candidates = (
+        IndexCandidate("S110", "depth", 0.81, (), ()),
+        IndexCandidate("S115", "depth", 0.78, (), ()),
+    )
+
+    assert _select_automatic_candidate(candidates, "depth") is None
+
+
+def test_batch_auto_uses_explicit_dept_from_mixed_table_and_sorts_copy(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import sys
+    from types import ModuleType, SimpleNamespace
+
+    from geoworkbench.importers.paradox import batch
+    from geoworkbench.importers.paradox.models import (
+        DatasetClassification,
+        IndexCandidate,
+        QualitySummary,
+    )
+
+    source = tmp_path / "D1174.db"
+    source.write_bytes(b"placeholder")
+    table = SimpleNamespace(rows_read=3)
+    quality = QualitySummary(
+        DatasetClassification.MIXED,
+        (
+            IndexCandidate("RANGE", "depth", 0.88, (), ()),
+            IndexCandidate("DEPT", "depth", 0.82, (), ("mixed-order",)),
+        ),
+        (),
+        (),
+    )
+    captured = {}
+    dataset = SimpleNamespace(
+        active_index=SimpleNamespace(values=[100.0, 101.0, 102.0]),
+        curves={},
+        parameters={},
+    )
+    imported = SimpleNamespace(dataset=dataset, imported_channels=70)
+
+    monkeypatch.setattr(batch, "read_paradox", lambda *args, **kwargs: table)
+    monkeypatch.setattr(batch, "analyze_table", lambda value: quality)
+    monkeypatch.setattr(batch, "default_mappings", lambda *args, **kwargs: ())
+
+    def import_paradox(_source, plan, **_kwargs):
+        captured["plan"] = plan
+        return imported
+
+    monkeypatch.setattr(batch, "import_paradox", import_paradox)
+
+    adapter = ModuleType("geoworkbench.data.las_adapter")
+    adapter.export_las = lambda _dataset, target, **_kwargs: Path(target).write_text(
+        "LAS", encoding="utf-8"
+    )
+    adapter.import_las = lambda _target: SimpleNamespace(
+        active_index=SimpleNamespace(values=[100.0, 101.0, 102.0]),
+        headers={"STRT": "100", "STOP": "102", "STEP": "1"},
+        curves={},
+    )
+    export_plan = ModuleType("geoworkbench.data.las_export_plan")
+    export_plan.LasExportPlan = lambda **kwargs: SimpleNamespace(precision=5, **kwargs)
+    monkeypatch.setitem(sys.modules, "geoworkbench.data.las_adapter", adapter)
+    monkeypatch.setitem(sys.modules, "geoworkbench.data.las_export_plan", export_plan)
+
+    (result,) = batch.convert_batch([source], tmp_path / "out")
+
+    assert result.status is batch.BatchStatus.SUCCESS
+    assert captured["plan"].depth_field == "DEPT"
+    assert captured["plan"].sort_by_index is True
+    assert captured["plan"].active_role == "depth"

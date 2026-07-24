@@ -480,6 +480,12 @@ class MainWindow(QMainWindow):
         self.tablet_view.track_curve_settings_requested.connect(
             self._show_curve_settings_from_context
         )
+        self.tablet_view.track_curve_range_requested.connect(
+            self._set_curve_range_from_header
+        )
+        self.tablet_view.track_curve_auto_range_requested.connect(
+            self._set_curve_auto_range_from_header
+        )
         self.tablet_view.save_layout_requested.connect(self.save_tablet_preset)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.track_order_change_requested.connect(self._track_order_changed_from_drag)
@@ -6601,6 +6607,53 @@ class MainWindow(QMainWindow):
             track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
         )
         self._refresh_tree()
+        self._update_title()
+
+    def _set_curve_range_from_header(
+        self, track_id: str, mnemonic: str, minimum: float, maximum: float
+    ) -> None:
+        try:
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+            current = track.curve_display_settings(mnemonic)
+            if current.x_scale is XScale.LOGARITHMIC and minimum <= 0:
+                raise ValueError(self._t("curve_settings.log_range_positive"))
+            updated = replace(current, x_min=float(minimum), x_max=float(maximum))
+            self.tablet_controller.set_curve_display_settings(track_id, mnemonic, updated)
+        except (KeyError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("curve_settings.title"), str(exc))
+            self.tablet_view.refresh_track(
+                track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
+            )
+            return
+        self.tablet_view.refresh_track(
+            track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
+        )
+        self.statusBar().showMessage(
+            self._t(
+                "curve_settings.header_range_saved",
+                curve=mnemonic,
+                minimum=f"{minimum:g}",
+                maximum=f"{maximum:g}",
+            ),
+            4000,
+        )
+        self._update_title()
+
+    def _set_curve_auto_range_from_header(self, track_id: str, mnemonic: str) -> None:
+        try:
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+            current = track.curve_display_settings(mnemonic)
+            updated = replace(current, x_min=None, x_max=None)
+            self.tablet_controller.set_curve_display_settings(track_id, mnemonic, updated)
+        except (KeyError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("curve_settings.title"), str(exc))
+            return
+        self.tablet_view.refresh_track(
+            track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
+        )
+        self.statusBar().showMessage(
+            self._t("curve_settings.header_auto_saved", curve=mnemonic), 4000
+        )
         self._update_title()
 
     def edit_selected_track(self) -> None:

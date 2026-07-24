@@ -59,3 +59,10 @@ Depth export writes the active index first as `DEPT.M`; `STRT`, `STOP`, and a me
 ## Verified samples and limitations
 
 The supplied samples verify Paradox 7.x `NUMBER` and `LONG`: `BLData.db` has 3488 rows/70 fields and `D250.db` has 1739/101. The implementation also contains bounded best-effort decoding for Alpha, Date, Short, Logical, Time, Timestamp, AutoIncrement, BCD, and Bytes/Blob, but those types were not present in the supplied samples and require additional real-world validation. A field-level decode error is logged and must not crash the application.
+## Mixed order and batch DB → LAS (0.7.47)
+
+When the selected DEPT/DEPTH/MD contains increasing and decreasing segments, only the accepted
+or export copy is sorted and every row stays aligned. Batch prefers explicit depth names even for
+a mixed table, but does not guess between weak candidates. Save a profile during single-file
+review and select it in batch when confirmation is required.
+

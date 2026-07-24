@@ -19,7 +19,13 @@ from geoworkbench.services.depth_axis import (
 
 from .analysis import analyze_table
 from .importer import default_mappings, import_paradox
-from .models import DatasetClassification, IssueSeverity, ParadoxImportPlan, ParadoxTable
+from .models import (
+    DatasetClassification,
+    IndexCandidate,
+    IssueSeverity,
+    ParadoxImportPlan,
+    ParadoxTable,
+)
 from .reader import read_paradox
 
 
@@ -115,37 +121,47 @@ def convert_batch(
             stage_key = "paradox.batch_stage_plan"
             plan = plan_factory(source, table) if plan_factory is not None else None
             if plan is None:
-                if quality.classification in {
-                    DatasetClassification.MIXED,
-                    DatasetClassification.UNDEFINED,
-                }:
-                    results.append(
-                        BatchItemResult(
-                            source,
-                            target,
-                            BatchStatus.CONFIGURATION_REQUIRED,
-                            message("paradox.batch_ambiguous"),
-                            records=table.rows_read,
-                            warnings=len(material_issues),
+                depth = _select_automatic_candidate(quality.depth_candidates, "depth")
+                time = _select_automatic_candidate(quality.time_candidates, "time")
+                required = depth if mode == "depth" else time
+                if required is None:
+                    available = (
+                        quality.depth_candidates
+                        if mode == "depth"
+                        else quality.time_candidates
+                    )
+                    if available or quality.classification in {
+                        DatasetClassification.MIXED,
+                        DatasetClassification.UNDEFINED,
+                    }:
+                        results.append(
+                            BatchItemResult(
+                                source,
+                                target,
+                                BatchStatus.CONFIGURATION_REQUIRED,
+                                message("paradox.batch_ambiguous"),
+                                records=table.rows_read,
+                                warnings=len(material_issues),
+                            )
+                        )
+                        continue
+                    raise ValueError(
+                        message(
+                            "paradox.batch_no_depth"
+                            if mode == "depth"
+                            else "paradox.batch_no_time"
                         )
                     )
-                    continue
-                depth = quality.depth_candidates[0].field_name if quality.depth_candidates else None
-                time = quality.time_candidates[0].field_name if quality.time_candidates else None
-                if mode == "depth" and depth is None:
-                    raise ValueError(message("paradox.batch_no_depth"))
-                if mode == "time" and time is None:
-                    raise ValueError(message("paradox.batch_no_time"))
                 plan = ParadoxImportPlan(
                     quality.classification,
                     depth,
                     time,
                     mode,
                     -999.25,
-                    False,
+                    True,
                     default_mappings(table, language=language),
                 )
-            plan = replace(plan, active_role=mode)
+            plan = replace(plan, active_role=mode, sort_by_index=True)
             if mode == "depth" and target_depth_step is not None:
                 plan = replace(
                     plan,
@@ -227,6 +243,41 @@ def convert_batch(
                 progress(source.name, position, total)
     return tuple(results)
 
+
+_PREFERRED_DEPTH_FIELDS = {"DEPT", "DEPTH", "MD", "HOLEDEPTH", "BITDEPTH"}
+_PREFERRED_TIME_FIELDS = {"TIME", "DATETIME", "TIMESTAMP", "ETIME", "EPOCH", "S0"}
+
+
+def _normalized_field_name(value: str) -> str:
+    return "".join(character for character in value.upper() if character.isalnum())
+
+
+def _select_automatic_candidate(
+    candidates: tuple[IndexCandidate, ...], mode: str
+) -> str | None:
+    """Return a deterministic safe batch index or require explicit configuration.
+
+    GeoScape tables frequently contain several monotonic service columns.  A strict
+    classification of ``mixed`` must not hide an explicit DEPT/TIME column, but a
+    weak generic numeric candidate is still not selected silently.
+    """
+
+    if not candidates:
+        return None
+    preferred = _PREFERRED_DEPTH_FIELDS if mode == "depth" else _PREFERRED_TIME_FIELDS
+    exact = [
+        item
+        for item in candidates
+        if _normalized_field_name(item.field_name) in preferred
+        and item.confidence >= 0.50
+    ]
+    if len(exact) == 1:
+        return exact[0].field_name
+    first = candidates[0]
+    second_confidence = candidates[1].confidence if len(candidates) > 1 else 0.0
+    if first.confidence >= 0.75 and first.confidence - second_confidence >= 0.10:
+        return first.field_name
+    return None
 
 _DEFAULT_MESSAGES = {
     "paradox.batch_cancelled": "Пакетная конвертация отменена пользователем",
