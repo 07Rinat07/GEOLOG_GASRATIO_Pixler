@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-MIN_TRACK_WIDTH = 80
-MAX_TRACK_WIDTH = 2000
+from geoworkbench.tablet.models import MAX_TRACK_WIDTH, STANDARD_MIN_TRACK_WIDTH
+
+
+MIN_TRACK_WIDTH = STANDARD_MIN_TRACK_WIDTH
 
 
 @dataclass(frozen=True, slots=True)

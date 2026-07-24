@@ -156,6 +156,7 @@ from geoworkbench.tablet.models import (
     TrackDefinition,
     TrackKind,
     XScale,
+    minimum_track_width,
 )
 from geoworkbench.tablet.relative_gas import (
     build_relative_gas_stack,
@@ -1347,10 +1348,10 @@ class TabletTrackWidget(QFrame):
         self.setFixedWidth(int(width))
         if self.definition.kind is TrackKind.DEPTH:
             axis = self.plot.getAxis("left")
-            axis_width = max(54, min(int(width) - 12, 92))
+            axis_width = max(36, min(int(width) - 8, 92))
             axis.setStyle(
                 autoExpandTextSpace=False,
-                tickTextWidth=max(48, min(int(width) - 16, 88)),
+                tickTextWidth=max(30, min(int(width) - 12, 88)),
                 tickLength=-6,
             )
             axis.setWidth(axis_width)
@@ -1439,7 +1440,11 @@ class TabletTrackWidget(QFrame):
             and event.button() == Qt.MouseButton.LeftButton
             and in_resize_zone
         ):
-            self._resize_gesture = TrackResizeGesture(self.width(), global_position.x())
+            self._resize_gesture = TrackResizeGesture(
+                self.width(),
+                global_position.x(),
+                minimum_width=minimum_track_width(self.definition.kind),
+            )
             self.setCursor(Qt.CursorShape.SizeHorCursor)
             return True
         if event_type == QEvent.Type.MouseMove and self._resize_gesture is not None:
@@ -7455,10 +7460,10 @@ class TabletView(QWidget):
             axis.setLabel(text="")
             axis.setStyle(
                 autoExpandTextSpace=False,
-                tickTextWidth=max(48, min(track.width() - 16, 88)),
+                tickTextWidth=max(30, min(track.width() - 12, 88)),
                 tickLength=-6,
             )
-            axis.setWidth(max(54, min(track.width() - 12, 92)))
+            axis.setWidth(max(36, min(track.width() - 8, 92)))
             track.plot.hideAxis("bottom")
             track.plot.setXRange(0.0, 1.0, padding=0)
             track.plot.getViewBox().setDefaultPadding(0.0)
@@ -8857,7 +8862,7 @@ class TabletView(QWidget):
         # inside the vertically transformed pyqtgraph ViewBox it can collapse a
         # rich-text item to an invisible geometry.  Wrap plain text explicitly
         # and let rich HTML retain the formatting produced by QTextEdit.
-        text_width = max(80, definition.width - 30)
+        text_width = max(32, definition.width - 16)
         wrap_columns = max(18, int(text_width / 7.0))
         described_ranges: list[tuple[float, float]] = []
 

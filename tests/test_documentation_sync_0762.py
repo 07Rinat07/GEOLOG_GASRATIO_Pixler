@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from tools.check_documentation import (
+    audit_compact_column_coverage,
+    audit_form_creation_naming_coverage,
     audit_i18n_key_parity,
     audit_localized_document_structure,
     audit_localized_file_parity,
@@ -46,3 +48,15 @@ def test_guides_cover_save_reopen_and_catalog_symbols() -> None:
     """The complete symbol lifecycle must remain documented in every language."""
 
     assert audit_user_workflow_coverage(ROOT) == []
+
+
+def test_guides_cover_compact_columns_and_embedded_user_template() -> None:
+    """All three languages must explain widths, migration, and the built-in template."""
+
+    assert audit_compact_column_coverage(ROOT) == []
+
+
+def test_guides_cover_visible_library_and_duplicate_name_protection() -> None:
+    """Creation instructions must show how to review and name forms in every language."""
+
+    assert audit_form_creation_naming_coverage(ROOT) == []

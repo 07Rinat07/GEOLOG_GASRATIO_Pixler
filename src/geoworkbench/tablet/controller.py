@@ -23,6 +23,7 @@ from geoworkbench.tablet.models import (
     TrackDefinition,
     TrackKind,
     XScale,
+    compact_track_width,
 )
 
 
@@ -202,7 +203,14 @@ class TabletController:
         return track
 
     def _context_tracks(self) -> list[TrackDefinition]:
-        tracks = [TrackDefinition(new_id(), "Глубина", TrackKind.DEPTH, width=120)]
+        tracks = [
+            TrackDefinition(
+                new_id(),
+                "Глубина",
+                TrackKind.DEPTH,
+                width=compact_track_width(TrackKind.DEPTH, 120),
+            )
+        ]
         well = self.session.current_well
         if well is None:
             return tracks
@@ -212,22 +220,44 @@ class TabletController:
             )
         if well.stratigraphy:
             tracks.append(
-                TrackDefinition(new_id(), "Стратиграфия", TrackKind.STRATIGRAPHY, width=220)
+                TrackDefinition(
+                    new_id(),
+                    "Стратиграфия",
+                    TrackKind.STRATIGRAPHY,
+                    width=compact_track_width(TrackKind.STRATIGRAPHY, 220),
+                )
             )
         if well.lithology:
-            tracks.append(TrackDefinition(new_id(), "Литология", TrackKind.LITHOLOGY, width=180))
+            tracks.append(
+                TrackDefinition(
+                    new_id(),
+                    "Литология",
+                    TrackKind.LITHOLOGY,
+                    width=compact_track_width(TrackKind.LITHOLOGY, 180),
+                )
+            )
             tracks.append(TrackDefinition(new_id(), "Описание пород", TrackKind.TEXT, width=320))
         if well.cuttings:
             if any(item.components for item in well.cuttings):
                 tracks.append(
-                    TrackDefinition(new_id(), "Шламограмма", TrackKind.CUTTINGS, width=240)
+                    TrackDefinition(
+                        new_id(),
+                        "Шламограмма",
+                        TrackKind.CUTTINGS,
+                        width=compact_track_width(TrackKind.CUTTINGS, 240),
+                    )
                 )
             if any(
                 item.calcite_percent is not None or item.dolomite_percent is not None
                 for item in well.cuttings
             ):
                 tracks.append(
-                    TrackDefinition(new_id(), "Кальциметрия", TrackKind.CALCIMETRY, width=220)
+                    TrackDefinition(
+                        new_id(),
+                        "Кальциметрия",
+                        TrackKind.CALCIMETRY,
+                        width=compact_track_width(TrackKind.CALCIMETRY, 220),
+                    )
                 )
             if any(
                 any(
@@ -250,7 +280,14 @@ class TabletController:
                 )
                 for item in well.cuttings
             ):
-                tracks.append(TrackDefinition(new_id(), "ЛБА", TrackKind.LBA, width=260))
+                tracks.append(
+                    TrackDefinition(
+                        new_id(),
+                        "ЛБА",
+                        TrackKind.LBA,
+                        width=compact_track_width(TrackKind.LBA, 260),
+                    )
+                )
         return tracks
 
     def add_track(
@@ -265,7 +302,7 @@ class TabletController:
         x_scale = XScale.LINEAR
         if kind is TrackKind.DEPTH:
             title = "Глубина"
-            width = 120
+            width = compact_track_width(TrackKind.DEPTH, 120)
             mnemonics = []
         elif kind is TrackKind.GAS:
             title = "Газ"
@@ -282,23 +319,23 @@ class TabletController:
             width = 320
         elif kind is TrackKind.LITHOLOGY:
             title = "Литология"
-            width = 180
+            width = compact_track_width(TrackKind.LITHOLOGY, 180)
             mnemonics = []
         elif kind is TrackKind.CUTTINGS:
             title = "Шламограмма"
-            width = 240
+            width = compact_track_width(TrackKind.CUTTINGS, 240)
             mnemonics = []
         elif kind is TrackKind.CALCIMETRY:
             title = "Кальциметрия"
-            width = 220
+            width = compact_track_width(TrackKind.CALCIMETRY, 220)
             mnemonics = []
         elif kind is TrackKind.LBA:
             title = "ЛБА"
-            width = 260
+            width = compact_track_width(TrackKind.LBA, 260)
             mnemonics = []
         elif kind is TrackKind.STRATIGRAPHY:
             title = "Стратиграфия"
-            width = 220
+            width = compact_track_width(TrackKind.STRATIGRAPHY, 220)
             mnemonics = []
         elif kind is TrackKind.INTERPRETATION:
             title = "Интерпретация"

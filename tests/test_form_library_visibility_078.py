@@ -32,7 +32,7 @@ def test_form_library_text_remains_visible_with_dark_application_palette(qapp, t
             for index in range(dialog.tree_widget.topLevelItemCount())
         ]
         assert [group.text(0) for group in groups] == [
-            "Заводские формы — глубина  (2)",
+            "Заводские формы — глубина  (3)",
             "Заводские формы — время  (1)",
             "Пользовательские формы — глубина  (1)",
             "Пользовательские формы — время  (1)",

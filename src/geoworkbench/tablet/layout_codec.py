@@ -11,10 +11,11 @@ from geoworkbench.tablet.models import (
     TrackDefinition,
     TrackKind,
     XScale,
+    compact_track_width,
 )
 
 
-LAYOUT_FORMAT_VERSION = 16
+LAYOUT_FORMAT_VERSION = 17
 
 
 class TabletLayoutFormatError(ValueError):
@@ -259,7 +260,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15):
+    if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -348,4 +349,16 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 for settings in display.values():
                     if isinstance(settings, dict):
                         settings.setdefault("unit_override", None)
+    migrated["version"] = 17
+    if isinstance(tracks, list):
+        for track in tracks:
+            if not isinstance(track, dict):
+                continue
+            try:
+                kind = TrackKind(str(track.get("kind", TrackKind.CURVE.value)))
+            except ValueError:
+                continue
+            raw_width = track.get("width", 260)
+            if isinstance(raw_width, int) and not isinstance(raw_width, bool):
+                track["width"] = compact_track_width(kind, raw_width)
     return migrated

@@ -32,7 +32,7 @@ from geoworkbench.domain.text_presentation import (
 )
 from geoworkbench.printing.text_rendering import draw_oriented_text
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
-from geoworkbench.tablet.models import TrackKind
+from geoworkbench.tablet.models import TrackKind, minimum_width_for_track_kinds
 from geoworkbench.ui.track_content_editor_dialog import TrackContentEditorDialog
 
 _ITEM_KIND_ROLE = Qt.ItemDataRole.UserRole
@@ -274,7 +274,7 @@ class FormStructureEditorDialog(QDialog):
         )
 
         self.width_spin = QSpinBox()
-        self.width_spin.setRange(80, 2000)
+        self.width_spin.setRange(48, 2000)
         self.width_spin.setSuffix(" px")
         self.width_spin.valueChanged.connect(self._apply_width)
         properties.addRow(
@@ -551,6 +551,9 @@ class FormStructureEditorDialog(QDialog):
                 self.group_edit.setEnabled(True)
                 self.group_edit.setText(column.group_title)
                 self.width_spin.setEnabled(True)
+                self.width_spin.setMinimum(
+                    minimum_width_for_track_kinds(track.kind for track in column.tracks)
+                )
                 self.width_spin.setValue(column.width)
                 self.kind_combo.setEnabled(False)
                 self._select_combo_data(

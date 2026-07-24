@@ -22,6 +22,7 @@ from geoworkbench.tablet.models import (
     TrackDefinition,
     TrackKind,
     XScale,
+    minimum_track_width,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 
@@ -56,7 +57,7 @@ class TrackInspector(QWidget):
         form = QFormLayout()
         self._main_form = form
         self.width_input = QSpinBox()
-        self.width_input.setRange(80, 2000)
+        self.width_input.setRange(48, 2000)
         form.addRow(self._t("inspector.width"), self.width_input)
 
         self.scale_input = QComboBox()
@@ -256,6 +257,7 @@ class TrackInspector(QWidget):
             f"{self._t('inspector.curves')}: "
             f"{', '.join(curve_names) or self._t('common.none')}"
         )
+        self.width_input.setMinimum(minimum_track_width(track.kind))
         self.width_input.setValue(track.width)
         self.scale_input.setCurrentIndex(self.scale_input.findData(track.x_scale.value))
         automatic = track.x_min is None or track.x_max is None

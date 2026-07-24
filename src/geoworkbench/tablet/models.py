@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from math import isfinite
@@ -23,6 +24,40 @@ class TrackKind(StrEnum):
     STRATIGRAPHY = "stratigraphy"
     INTERPRETATION = "interpretation"
     TEXT = "text"
+
+
+COMPACT_TRACK_KINDS = frozenset(
+    {
+        TrackKind.DEPTH,
+        TrackKind.LITHOLOGY,
+        TrackKind.CUTTINGS,
+        TrackKind.CALCIMETRY,
+        TrackKind.LBA,
+        TrackKind.STRATIGRAPHY,
+    }
+)
+STANDARD_MIN_TRACK_WIDTH = 80
+COMPACT_MIN_TRACK_WIDTH = 48
+MAX_TRACK_WIDTH = 2000
+COMPACT_WIDTH_FACTOR = 0.60
+
+
+def minimum_track_width(kind: TrackKind) -> int:
+    return COMPACT_MIN_TRACK_WIDTH if kind in COMPACT_TRACK_KINDS else STANDARD_MIN_TRACK_WIDTH
+
+
+def minimum_width_for_track_kinds(kinds: Iterable[TrackKind]) -> int:
+    normalized = tuple(kinds)
+    if normalized and all(kind in COMPACT_TRACK_KINDS for kind in normalized):
+        return COMPACT_MIN_TRACK_WIDTH
+    return STANDARD_MIN_TRACK_WIDTH
+
+
+def compact_track_width(kind: TrackKind, width: int) -> int:
+    if kind not in COMPACT_TRACK_KINDS:
+        return max(STANDARD_MIN_TRACK_WIDTH, min(MAX_TRACK_WIDTH, int(width)))
+    reduced = int(round(int(width) * COMPACT_WIDTH_FACTOR))
+    return max(COMPACT_MIN_TRACK_WIDTH, min(MAX_TRACK_WIDTH, reduced))
 
 
 class XScale(StrEnum):
@@ -122,8 +157,11 @@ class TrackDefinition:
         self.title_position = normalize_text_vertical_position(self.title_position)
         if not isinstance(self.show_interval_labels, bool):
             raise ValueError("show_interval_labels должен быть логическим")
-        if self.width < 80:
-            raise ValueError("Ширина трека должна быть не меньше 80 px")
+        minimum = minimum_track_width(self.kind)
+        if not minimum <= self.width <= MAX_TRACK_WIDTH:
+            raise ValueError(
+                f"Ширина трека должна быть от {minimum} до {MAX_TRACK_WIDTH} px"
+            )
         self._validate_x_settings(self.x_scale, self.x_min, self.x_max)
         if not all(isinstance(key, str) and key.strip() for key in self.curve_styles):
             raise ValueError("Ключи стилей кривых должны быть непустыми строками")
@@ -162,8 +200,11 @@ class TrackDefinition:
         x_min: float | None,
         x_max: float | None,
     ) -> None:
-        if width < 80 or width > 2000:
-            raise ValueError("Ширина трека должна быть от 80 до 2000 px")
+        minimum = minimum_track_width(self.kind)
+        if width < minimum or width > MAX_TRACK_WIDTH:
+            raise ValueError(
+                f"Ширина трека должна быть от {minimum} до {MAX_TRACK_WIDTH} px"
+            )
         self._validate_x_settings(x_scale, x_min, x_max)
         self.width = width
         self.x_scale = x_scale
@@ -328,9 +369,13 @@ class TabletLayout:
         return [track for track in self.tracks if track.visible]
 
     def set_track_width(self, track_id: str, width: int) -> None:
-        if width < 80:
-            raise ValueError("Ширина трека должна быть не меньше 80 px")
-        self.track_by_id(track_id).width = width
+        track = self.track_by_id(track_id)
+        minimum = minimum_track_width(track.kind)
+        if width < minimum or width > MAX_TRACK_WIDTH:
+            raise ValueError(
+                f"Ширина трека должна быть от {minimum} до {MAX_TRACK_WIDTH} px"
+            )
+        track.width = width
 
     def set_track_visible(self, track_id: str, visible: bool) -> None:
         self.track_by_id(track_id).visible = visible

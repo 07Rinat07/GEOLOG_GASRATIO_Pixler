@@ -10,7 +10,13 @@ from geoworkbench.domain.text_presentation import (
     normalize_text_orientation,
     normalize_text_vertical_position,
 )
-from geoworkbench.tablet.models import CurveStyle, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    MAX_TRACK_WIDTH,
+    CurveStyle,
+    TrackKind,
+    XScale,
+    minimum_width_for_track_kinds,
+)
 
 
 class FormAxisKind(StrEnum):
@@ -198,8 +204,11 @@ class FormColumn:
         self.title_position = normalize_text_vertical_position(self.title_position)
         if isinstance(self.width, bool) or not isinstance(self.width, int):
             raise ValueError("width должен быть целым числом")
-        if not 80 <= self.width <= 2000:
-            raise ValueError("Ширина колонки должна быть от 80 до 2000 px")
+        minimum = minimum_width_for_track_kinds(track.kind for track in self.tracks)
+        if not minimum <= self.width <= MAX_TRACK_WIDTH:
+            raise ValueError(
+                f"Ширина колонки должна быть от {minimum} до {MAX_TRACK_WIDTH} px"
+            )
         if not isinstance(self.visible, bool) or not isinstance(self.locked, bool):
             raise ValueError("visible и locked должны быть логическими")
         _ensure_unique([track.track_id for track in self.tracks], "track_id")
@@ -303,6 +312,9 @@ class FormDocument:
         track_ids: list[str] = []
         binding_ids: list[str] = []
         for column in self.columns:
+            for track in column.tracks:
+                track.__post_init__()
+            column.__post_init__()
             track_ids.extend(track.track_id for track in column.tracks)
             for track in column.tracks:
                 binding_ids.extend(binding.binding_id for binding in track.bindings)

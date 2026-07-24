@@ -33,6 +33,7 @@ from geoworkbench.forms.materialize import materialized_factory_templates
 from geoworkbench.forms.templates import (
     CURATED_FACTORY_TEMPLATE_IDS,
     curated_factory_templates,
+    factory_templates,
 )
 from geoworkbench.forms.preview import PreviewCallback
 from geoworkbench.form_constructor.preview_revision import PreviewRevisionGate
@@ -44,6 +45,7 @@ from geoworkbench.printing.page_settings import (
 from geoworkbench.printing.print_layout import PrintScaleMode
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
 from geoworkbench.ui.form_structure_editor_dialog import FormStructureEditorDialog
+from geoworkbench.ui.form_create_dialog import FormCreateDialog
 from geoworkbench.ui.collapsible_section import CollapsibleSection
 
 
@@ -334,19 +336,33 @@ class FormManagerDialog(QDialog):
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
 
+    def _factory_forms(self) -> list[FormDocument]:
+        try:
+            materialized = materialized_factory_templates(self.dataset, self.language)
+            return [
+                materialized[form_id]
+                for form_id in CURATED_FACTORY_TEMPLATE_IDS
+                if form_id in materialized
+            ]
+        except (KeyError, RuntimeError, ValueError):
+            return list(curated_factory_templates(self.language).values())
+
+    def _available_forms(self) -> list[FormDocument]:
+        """Return every factory and user form for the naming reference dialog."""
+
+        try:
+            factory = list(
+                materialized_factory_templates(self.dataset, self.language).values()
+            )
+        except (KeyError, RuntimeError, ValueError):
+            factory = list(factory_templates(self.language).values())
+        return [*factory, *self.repository.list_forms()]
+
     def reload(self, selected_id: str | None = None) -> None:
         self.tree_widget.blockSignals(True)
         self.tree_widget.clear()
         try:
-            try:
-                materialized = materialized_factory_templates(self.dataset, self.language)
-                factory = [
-                    materialized[form_id]
-                    for form_id in CURATED_FACTORY_TEMPLATE_IDS
-                    if form_id in materialized
-                ]
-            except (KeyError, RuntimeError, ValueError):
-                factory = list(curated_factory_templates(self.language).values())
+            factory = self._factory_forms()
             user_forms = self.repository.list_forms()
             categories = (
                 (
@@ -739,24 +755,14 @@ class FormManagerDialog(QDialog):
         self._show_selected(self.tree_widget.currentItem(), None)
 
     def _create(self) -> None:
-        name, ok = QInputDialog.getText(
-            self, self.windowTitle(), self._text("Название формы", "Пішін атауы", "Form name")
-        )
-        if not ok or not name.strip():
-            return
-        depth_label = self._text("Глубина", "Тереңдік", "Depth")
-        time_label = self._text("Время", "Уақыт", "Time")
-        axis_text, ok = QInputDialog.getItem(
+        dialog = FormCreateDialog(
+            self._available_forms(),
             self,
-            self.windowTitle(),
-            self._text("Вертикальная ось", "Тік ось", "Vertical axis"),
-            [depth_label, time_label],
-            editable=False,
+            language=self.language,
         )
-        if not ok:
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        axis_kind = FormAxisKind.DEPTH if axis_text == depth_label else FormAxisKind.TIME
-        form = FormDocument.create(name.strip(), axis_kind)
+        form = FormDocument.create(dialog.form_name, dialog.axis_kind)
         self.repository.save(form)
         self.reload(form.form_id)
 

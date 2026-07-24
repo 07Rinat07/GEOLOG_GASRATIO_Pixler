@@ -34,6 +34,7 @@ from geoworkbench.tablet.models import (
     TrackDefinition,
     TrackKind,
     XScale,
+    minimum_track_width,
 )
 
 
@@ -85,7 +86,7 @@ class TabletTrackEditorDialog(QDialog):
             self._text("Например: Геология", "Мысалы: Геология", "For example: Geology")
         )
         self.width_input = QSpinBox()
-        self.width_input.setRange(80, 2000)
+        self.width_input.setRange(minimum_track_width(self.track.kind), 2000)
         self.width_input.setSuffix(" px")
         self.width_input.setValue(self.track.width)
         self.axis_input = QLineEdit(self.track.x_axis_label)

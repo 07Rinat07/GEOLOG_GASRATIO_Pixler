@@ -11,7 +11,14 @@ from geoworkbench.forms.models import (
     FormTrack,
     ParameterBinding,
 )
-from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    COMPACT_TRACK_KINDS,
+    CurveLineStyle,
+    CurveStyle,
+    TrackKind,
+    XScale,
+    compact_track_width,
+)
 
 TemplateLanguage = Literal["ru", "kk", "en"]
 
@@ -180,14 +187,14 @@ _TEXT: dict[str, dict[str, str]] = {
     "lba": {"ru": "ЛБА", "kk": "ЛБА", "en": "LBA"},
     "stratigraphy": {"ru": "Стратиграфия", "kk": "Стратиграфия", "en": "Stratigraphy"},
     "masterlog_reference_form": {
-        "ru": "МАСТЕРЛОГ — эталонная глубинная форма по образцу",
-        "kk": "МАСТЕРЛОГ — үлгі бойынша эталондық тереңдік пішіні",
-        "en": "MASTERLOG — reference depth form from the supplied example",
+        "ru": "MASTERLOG — геолого-геохимическая форма",
+        "kk": "MASTERLOG — геологиялық-геохимиялық пішін",
+        "en": "MASTERLOG — geological and geochemical form",
     },
     "geodata_depth_form": {
-        "ru": "Глубинка — геология, технология и газ",
-        "kk": "Тереңдік пішіні — геология, технология және газ",
-        "en": "Depth workspace — geology, drilling and gas",
+        "ru": "Комплексная ГТИ-форма — геология, технология и газ",
+        "kk": "Кешенді ГТИ пішіні — геология, технология және газ",
+        "en": "Integrated mud logging form — geology, drilling and gas",
     },
     "geology_section": {"ru": "Геология", "kk": "Геология", "en": "Geology"},
     "technology_section": {"ru": "Технология", "kk": "Технология", "en": "Technology"},
@@ -207,9 +214,9 @@ _TEXT: dict[str, dict[str, str]] = {
         "en": "Insoluble residue",
     },
     "engineering_control_time": {
-        "ru": "Инженерно-технологический контроль — время",
-        "kk": "Инженерлік-технологиялық бақылау — уақыт",
-        "en": "Engineering control — time",
+        "ru": "Инженерно-технологический мониторинг — временная форма",
+        "kk": "Инженерлік-технологиялық мониторинг — уақыттық пішін",
+        "en": "Engineering and drilling monitoring — time form",
     },
     "pumps": {"ru": "Насосы и расходы", "kk": "Сорғылар және шығындар", "en": "Pumps and flow"},
     "mud_gas_monitoring": {"ru": "Раствор и газ", "kk": "Ерітінді және газ", "en": "Mud and gas"},
@@ -253,6 +260,8 @@ def factory_templates(language: str = "ru") -> dict[str, FormDocument]:
         "factory-engineering-control-time": _engineering_control_time(lang),
         "factory-masterlog-geological-geochemical": _masterlog_geological_geochemical(lang),
     }
+    for form in templates.values():
+        _apply_compact_geology_widths(form)
     return {key: deepcopy(value) for key, value in templates.items()}
 
 
@@ -272,6 +281,18 @@ def curated_factory_templates(language: str = "ru") -> dict[str, FormDocument]:
 
     available = factory_templates(language)
     return {form_id: available[form_id] for form_id in CURATED_FACTORY_TEMPLATE_IDS}
+
+
+def _apply_compact_geology_widths(form: FormDocument) -> None:
+    """Reduce geology reference columns by 40% while preserving graph space."""
+
+    for column in form.columns:
+        kinds = [track.kind for track in column.tracks]
+        if not kinds or not all(kind in COMPACT_TRACK_KINDS for kind in kinds):
+            continue
+        column.width = compact_track_width(kinds[0], column.width)
+        column.__post_init__()
+    form.validate()
 
 
 def _factory(

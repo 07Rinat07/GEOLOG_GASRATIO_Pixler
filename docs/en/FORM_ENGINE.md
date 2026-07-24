@@ -100,17 +100,20 @@ All factory and user forms use one page renderer. Form Manager can send the sele
 
 ## Curated working-form library
 
-The form manager exposes three verified factory templates: GeoData Depth Workspace,
-Geological-Geochemical Masterlog, and Engineering Control — Time. Legacy IDs remain loadable
-for existing projects, but experimental duplicate factory forms are hidden from the user list.
+Form Manager exposes three protected built-in working templates and all user forms. A separate duplicate MASTERLOG template is not created:
 
-`FormColumn.group_title` stores a form-section caption. Form application propagates it to
-`TrackDefinition.group_title`, layout codec v10 persists it, and the tablet renders one merged
-caption above adjacent columns. Column order comes entirely from the template; the depth track is
-not moved into a separately pinned area.
+1. **Integrated mud logging form — geology, drilling and gas**;
+2. **MASTERLOG — geological and geochemical form**;
+3. **Engineering and drilling monitoring — time form**.
 
-Factory templates are immutable. Creating a copy produces an independent user form that retains
-section captions, column order, widths, parameter bindings, scales, and styles.
+The names are polished and localized consistently in Russian, Kazakh, and English. The templates
+ship with a clean installation and cannot be overwritten accidentally. Editing creates an
+independent user copy that retains section groups, column order, widths, parameter bindings,
+scales, and styles. Legacy IDs remain readable for project compatibility.
+
+`FormColumn.group_title` stores the section caption. Form application propagates it to
+`TrackDefinition.group_title`, layout persistence keeps it, and the tablet renders one merged
+caption above adjacent columns. Column order is defined entirely by the template.
 
 ## Shared cuttings sample
 
@@ -118,3 +121,38 @@ Cuttings, LBA, Calcimetry, and Description belong to one `CuttingsSample`. Re-ed
 same object atomically by `sample_id`, so linked tracks cannot drift apart or create duplicates.
 Validation allows up to four rock components with an exact `100%` total; calcite plus dolomite may
 not exceed `100%`.
+
+## Compact geological columns
+
+The default widths of **Stratigraphy**, **Lithology**, **Cuttings log**, **Calcimetry**, **LBA**,
+and **Depth** are reduced by **40%** in all factory forms and in saved user forms after the one-time migration. This
+releases horizontal space for drilling, gas, and other graph tracks. Curve, gas, interpretation,
+and text tracks are not compacted automatically.
+
+Compact kinds can be resized from **48 to 2000 px**. Ordinary graph and text tracks retain the
+safe **80 px** minimum. Width can be changed by dragging the right edge with the mouse, through
+the track inspector, or in the form structure editor.
+
+Legacy user forms using schema v6 migrate to v7 on first open: only the listed compact columns are
+reduced. Saved tablet layouts v16 migrate to v17 in the same way. Once saved, the same form is not
+reduced again. User names, ordering, parameter bindings, and all other graph widths are preserved.
+
+Preview, PDF, and physical printing in **Actual size** mode use the saved compact proportions.
+**Fit columns** may temporarily redistribute widths for the selected paper without changing the
+working form.
+
+
+## Creating and naming a new form
+
+**Create form** opens a dedicated window that keeps the library visible until the new name is
+confirmed. The left side lists **all built-in and user forms**, not only the manager's short curated
+set. Search and the **Name**, **Axis**, and **Origin** columns are available.
+
+Selecting an existing form shows its description, vertical-axis type, origin, column, track, and
+parameter counts, visible column names with saved widths, and the mnemonics of bound parameters.
+This lets the user review established naming patterns before creating an unclear or duplicate name.
+
+The bottom section accepts the new form name and the **Depth** or **Time** axis. The application
+removes accidental leading and trailing spaces and collapses repeated internal whitespace. An exact
+match with an existing form is blocked regardless of letter case or extra spacing. Once an available
+name is entered, **Create** becomes enabled and the form is stored in the user library.

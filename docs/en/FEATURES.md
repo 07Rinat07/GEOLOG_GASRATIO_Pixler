@@ -54,3 +54,22 @@ workflow. Historical build notes remain in release notes and do not replace the 
 LAS mnemonics, units, object identifiers, user-authored names and descriptions, formulas, and
 imported file content remain unchanged. The application interface and built-in user documentation
 are localized.
+
+## Verifying compact columns
+
+1. Open any factory form or the built-in **MASTERLOG — geological and geochemical form** template.
+2. Confirm that stratigraphy, lithology, cuttings, calcimetry, LBA, and depth use less space while
+   curve graph widths remain unchanged.
+3. Drag the compact column's right edge or set its width in the inspector. The minimum is 48 px.
+4. Save with **Ctrl+S**, close, and reopen the project. The widths must be restored.
+5. Create a user copy before changing the built-in template.
+
+
+
+### Create a form while reviewing existing names
+
+- **Create form** opens a dedicated window containing every built-in and user form.
+- Search covers names, descriptions, columns, and parameters.
+- The selected form shows its axis, origin, description, columns, widths, tracks, and parameters.
+- A duplicate name is blocked regardless of case or repeated whitespace.
+- After an available name and axis are selected, the new form is stored in the user library.

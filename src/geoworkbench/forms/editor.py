@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from geoworkbench.forms.models import FormColumn, FormDocument, FormTrack
-from geoworkbench.tablet.models import TrackKind
+from geoworkbench.tablet.models import (
+    MAX_TRACK_WIDTH,
+    TrackKind,
+    minimum_width_for_track_kinds,
+)
 
 
 @dataclass(slots=True)
@@ -119,8 +123,11 @@ class FormStructureEditor:
 
     def set_column_width(self, column_id: str, width: int) -> None:
         column = self.column(column_id)
-        if not 80 <= width <= 2000:
-            raise ValueError("Ширина колонки должна быть от 80 до 2000 px")
+        minimum = minimum_width_for_track_kinds(track.kind for track in column.tracks)
+        if not minimum <= width <= MAX_TRACK_WIDTH:
+            raise ValueError(
+                f"Ширина колонки должна быть от {minimum} до {MAX_TRACK_WIDTH} px"
+            )
         column.width = int(width)
         column.__post_init__()
         self.form.validate()
@@ -238,10 +245,14 @@ class FormStructureEditor:
         self.dirty = True
 
     def set_track_kind(self, track_id: str, kind: TrackKind) -> None:
-        _column, track = self.track(track_id)
+        column, track = self.track(track_id)
         if track.locked:
             raise PermissionError("Дорожка заблокирована")
         track.kind = kind
         track.__post_init__()
+        minimum = minimum_width_for_track_kinds(item.kind for item in column.tracks)
+        if column.width < minimum:
+            column.width = minimum
+        column.__post_init__()
         self.form.validate()
         self.dirty = True

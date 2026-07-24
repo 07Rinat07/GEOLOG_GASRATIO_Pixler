@@ -12,10 +12,17 @@ from geoworkbench.forms.models import (
     FormTrack,
     ParameterBinding,
 )
-from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackKind, XScale
+from geoworkbench.tablet.models import (
+    COMPACT_TRACK_KINDS,
+    CurveLineStyle,
+    CurveStyle,
+    TrackKind,
+    XScale,
+    compact_track_width,
+)
 
 
-FORM_SCHEMA_VERSION = 6
+FORM_SCHEMA_VERSION = 7
 
 
 class FormFormatError(ValueError):
@@ -225,7 +232,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1, 2, 3, 4, 5):
+    if version not in (0, 1, 2, 3, 4, 5, 6):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -258,6 +265,27 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                                 if isinstance(binding, dict):
                                     binding.setdefault("header_text_color", "#0f172a")
                                     binding.setdefault("header_line_color", None)
+    if version <= 6 and isinstance(columns, list):
+        for column in columns:
+            if not isinstance(column, dict):
+                continue
+            tracks = column.get("tracks")
+            if not isinstance(tracks, list) or not tracks:
+                continue
+            kinds: list[TrackKind] = []
+            for track in tracks:
+                if not isinstance(track, dict):
+                    continue
+                try:
+                    kinds.append(TrackKind(str(track.get("kind", "curve"))))
+                except ValueError:
+                    kinds = []
+                    break
+            if kinds and all(kind in COMPACT_TRACK_KINDS for kind in kinds):
+                raw_width = column.get("width", 260)
+                if isinstance(raw_width, int) and not isinstance(raw_width, bool):
+                    column["width"] = compact_track_width(kinds[0], raw_width)
+
     migrated.setdefault("source_dataset_id", None)
     migrated.setdefault("source_index_id", None)
     migrated.setdefault("visible_axis_top", None)

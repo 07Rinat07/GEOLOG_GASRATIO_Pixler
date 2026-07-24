@@ -22,6 +22,7 @@ from geoworkbench.printing.print_layout import (
 )
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.tablet.models import minimum_track_width
 from geoworkbench.tablet.tablet_view import TabletView
 
 
@@ -76,7 +77,13 @@ def printable_content_dimensions(widget: QWidget, job: PrintJobSettings) -> tupl
         if job.page.scale_mode is PrintScaleMode.ACTUAL_SIZE:
             width = original_column_layout(definitions).total_width
         else:
-            width = max(width, sum(max(80, int(item.width)) for item in definitions))
+            width = max(
+                width,
+                sum(
+                    max(minimum_track_width(item.kind), int(item.width))
+                    for item in definitions
+                ),
+            )
         height = max(1, max(item.widget.height() for item in widget.printable_tracks()))
     return width, height
 

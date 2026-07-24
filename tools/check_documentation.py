@@ -247,6 +247,96 @@ def audit_user_workflow_coverage(root: Path) -> list[AuditIssue]:
     return issues
 
 
+
+def audit_compact_column_coverage(root: Path) -> list[AuditIssue]:
+    """Require the compact-column and embedded-template workflow in every language."""
+
+    issues: list[AuditIssue] = []
+    project_version = _project_version(root)
+    required_documents = (
+        "FORM_ENGINE.md",
+        "FEATURES.md",
+        "PROJECT_STATUS.md",
+        "PROJECT_PLAN.md",
+        f"RELEASE_NOTES_{project_version}.md",
+    )
+    language_tokens = {
+        "ru": ("40%", "48", "80", "MASTERLOG", "пользователь", "v7", "v17"),
+        "kk": ("40%", "48", "80", "MASTERLOG", "пайдаланушы", "v7", "v17"),
+        "en": ("40%", "48", "80", "MASTERLOG", "user", "v7", "v17"),
+    }
+
+    for language in LANGUAGES:
+        language_dir = root / "docs" / language
+        missing = [name for name in required_documents if not (language_dir / name).exists()]
+        for filename in missing:
+            issues.append(
+                AuditIssue(
+                    "compact-columns",
+                    f"docs/{language}/{filename} is required for compact-column coverage",
+                )
+            )
+
+        combined = "\n".join(
+            _read_text(language_dir / filename)
+            for filename in required_documents
+            if (language_dir / filename).exists()
+        )
+        for token in language_tokens[language]:
+            if token not in combined:
+                issues.append(
+                    AuditIssue(
+                        "compact-columns",
+                        f"docs/{language} does not cover required token: {token}",
+                    )
+                )
+    return issues
+
+
+def audit_form_creation_naming_coverage(root: Path) -> list[AuditIssue]:
+    """Require the visible-library naming workflow in every user guide."""
+
+    issues: list[AuditIssue] = []
+    project_version = _project_version(root)
+    required_documents = (
+        "README.md",
+        "FEATURES.md",
+        "FORM_ENGINE.md",
+        "PROJECT_STATUS.md",
+        "PROJECT_PLAN.md",
+        f"RELEASE_NOTES_{project_version}.md",
+    )
+    language_tokens = {
+        "ru": ("Создать форму", "все встроенные", "пользовательские", "совпад", "пробел"),
+        "kk": ("Пішін жасау", "барлық кірістірілген", "пайдаланушы", "қайталан", "бос орын"),
+        "en": ("Create form", "all built-in", "user form", "duplicate", "whitespace"),
+    }
+
+    for language in LANGUAGES:
+        language_dir = root / "docs" / language
+        for filename in required_documents:
+            if not (language_dir / filename).exists():
+                issues.append(
+                    AuditIssue(
+                        "form-naming",
+                        f"docs/{language}/{filename} is required for form naming coverage",
+                    )
+                )
+        combined = "\n".join(
+            _read_text(language_dir / filename)
+            for filename in required_documents
+            if (language_dir / filename).exists()
+        )
+        for token in language_tokens[language]:
+            if token not in combined:
+                issues.append(
+                    AuditIssue(
+                        "form-naming",
+                        f"docs/{language} does not cover required token: {token}",
+                    )
+                )
+    return issues
+
 def run_audit(root: Path) -> list[AuditIssue]:
     """Run every documentation contract in a deterministic order."""
 
@@ -257,6 +347,8 @@ def run_audit(root: Path) -> list[AuditIssue]:
         audit_i18n_key_parity,
         audit_version_contract,
         audit_user_workflow_coverage,
+        audit_compact_column_coverage,
+        audit_form_creation_naming_coverage,
     )
     issues: list[AuditIssue] = []
     for check in checks:

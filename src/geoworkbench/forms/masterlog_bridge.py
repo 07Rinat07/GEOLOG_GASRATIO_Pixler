@@ -13,7 +13,7 @@ from geoworkbench.domain.models import (
 from geoworkbench.forms.models import FormAxisKind, FormDocument, FormTrack, ParameterBinding
 from geoworkbench.printing.header_fields import header_field_defaults
 from geoworkbench.printing.masterlog_presets import builtin_header_preset
-from geoworkbench.tablet.models import TrackKind, XScale
+from geoworkbench.tablet.models import TrackKind, XScale, minimum_track_width
 
 
 FORM_MASTERLOG_BRIDGE_VERSION = 1
@@ -130,7 +130,10 @@ def _visible_tracks(form: FormDocument) -> Iterable[tuple[object, FormTrack]]:
 def _scaled_widths(
     tracks: list[tuple[object, FormTrack]], printable_width_mm: float
 ) -> tuple[float, ...]:
-    weights = [max(80.0, float(getattr(column, "width", 260))) for column, _ in tracks]
+    weights = [
+        max(float(minimum_track_width(track.kind)), float(getattr(column, "width", 260)))
+        for column, track in tracks
+    ]
     total = sum(weights)
     raw = [printable_width_mm * value / total for value in weights]
     if all(value >= _MIN_COLUMN_WIDTH_MM for value in raw):

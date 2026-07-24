@@ -4,7 +4,12 @@ from dataclasses import dataclass
 from math import isfinite
 from typing import Sequence
 
-from geoworkbench.tablet.models import TrackDefinition, TrackKind
+from geoworkbench.tablet.models import (
+    COMPACT_MIN_TRACK_WIDTH,
+    TrackDefinition,
+    TrackKind,
+    minimum_track_width,
+)
 
 
 _DEFAULT_SPACING_PX = 2
@@ -23,8 +28,11 @@ class AdaptiveColumnLayout:
     spacing: int = _DEFAULT_SPACING_PX
 
     def __post_init__(self) -> None:
-        if not self.widths or any(width < 80 for width in self.widths):
-            raise ValueError("Печатная ширина каждой колонки должна быть не меньше 80 px")
+        if not self.widths or any(width < COMPACT_MIN_TRACK_WIDTH for width in self.widths):
+            raise ValueError(
+                "Печатная ширина каждой колонки должна быть не меньше "
+                f"{COMPACT_MIN_TRACK_WIDTH} px"
+            )
         if self.spacing < 0:
             raise ValueError("Интервал между колонками не может быть отрицательным")
 
@@ -88,7 +96,10 @@ def original_column_layout(
     if not visible:
         raise ValueError("Нет видимых колонок для печати")
     return AdaptiveColumnLayout(
-        tuple(max(80, min(2000, int(track.width))) for track in visible),
+        tuple(
+            max(minimum_track_width(track.kind), min(2000, int(track.width)))
+            for track in visible
+        ),
         spacing,
     )
 

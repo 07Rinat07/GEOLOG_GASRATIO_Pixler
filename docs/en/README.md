@@ -548,3 +548,19 @@ recorded acquisition dataset or append-only journal. Constant delay, annular-vol
 stroke, and manual control-point methods are supported. Every change creates a new immutable
 revision. An older revision can be activated, previewed, and opened on either the source or corrected
 depth axis for the workspace and report. See [LAG_DEPTH_CORRECTION.md](LAG_DEPTH_CORRECTION.md).
+
+## Geological form column widths
+
+Stratigraphy, lithology, cuttings log, calcimetry, LBA, and depth use widths reduced by 40% from
+the previous templates. They can be adjusted manually from 48 px. Ordinary graphs and text
+columns retain an 80 px minimum. Legacy user forms and saved tablets are migrated when opened.
+See [Form Engine](FORM_ENGINE.md) for the full workflow and the built-in user MASTERLOG template.
+
+
+
+### Create a form without duplicate names
+
+In Form Library, click **Create form**. A window opens with every built-in and user form, search,
+and details for the selected item. Review the existing names, enter a new one, select **Depth** or
+**Time**, and click **Create**. Names that differ only by case or extra spaces are rejected. See
+[FORM_ENGINE.md](FORM_ENGINE.md) for the complete workflow.

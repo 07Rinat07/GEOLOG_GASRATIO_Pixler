@@ -1,3 +1,23 @@
+# 0.7.64 — form naming reference and complete creation workflow
+
+- Replaced the small blind Create form prompt with a dedicated library-reference dialog.
+- Listed all built-in and user forms with search, axis, origin, description, widths, tracks, parameters, and mnemonics.
+- Blocked duplicate names case-insensitively after whitespace normalization.
+- Kept the existing protected template set unchanged; no duplicate MASTERLOG template is added.
+- Retained compact-column migrations, symbol workflows, and the complete RU/KK/EN documentation audit.
+- Added naming, source-contract, GUI, template-set, and documentation regression coverage.
+- Kept project format v20, form schema v7, tablet layout v17, and the root README unchanged.
+
+# 0.7.63 — compact geology columns and user-form migration
+
+- Reduced Stratigraphy, Lithology, Cuttings, Calcimetry, LBA, and Depth defaults by 40% in every built-in form.
+- Added a 48 px kind-specific minimum while preserving the 80 px minimum for curve and text tracks.
+- Migrated legacy user forms from schema v6 to v7 and saved tablet layouts from v16 to v17 exactly once.
+- Preserved the existing protected template set without adding a duplicate MASTERLOG form.
+- Preserved compact widths in project reopening and actual-size print/PDF paths.
+- Updated synchronized RU/KK/EN instructions and added regression coverage for widths, migrations, and templates.
+- Kept project format v20 and the root README unchanged.
+
 # 0.7.62 — multilingual documentation audit and user-workflow verification
 
 - Added synchronized RU/KK/EN feature maps covering the main user-facing workflows.

@@ -32,7 +32,8 @@
 
 ## Main workflows
 
-- Documentation audit 0.7.62: [release notes](RELEASE_NOTES_0.7.62.md) · [build manifest](BUILD_MANIFEST_0.7.62.md)
+- Compact columns and embedded user MASTERLOG 0.7.63: [release notes](RELEASE_NOTES_0.7.63.md) · [build manifest](BUILD_MANIFEST_0.7.63.md)
+- Previous documentation audit 0.7.62: [release notes](RELEASE_NOTES_0.7.62.md) · [build manifest](BUILD_MANIFEST_0.7.62.md)
 - Current feature map: [RU](ru/FEATURES.md) · [KK](kk/FEATURES.md) · [EN](en/FEATURES.md)
 - LAS Editor: [RU](ru/LAS_EDITOR.md) · [KK](kk/LAS_EDITOR.md) · [EN](en/LAS_EDITOR.md)
 - Tablet workspace: [RU](ru/UI_WORKSPACE.md) · [KK](kk/UI_WORKSPACE.md) · [EN](en/UI_WORKSPACE.md)
@@ -132,3 +133,9 @@ Every user-facing change must update the matching RU/KK/EN files in the same com
 - [Версионная lag/depth correction](LAG_DEPTH_CORRECTION.md)
 
 - 0.7.55: [RU](ru/RELEASE_NOTES_0.7.55.md) · [KK](kk/RELEASE_NOTES_0.7.55.md) · [EN](en/RELEASE_NOTES_0.7.55.md)
+
+
+## Current build
+
+- [Release notes 0.7.64](RELEASE_NOTES_0.7.64.md) — form naming reference and built-in user layout.
+- [Build manifest 0.7.64](BUILD_MANIFEST_0.7.64.md) — package contents and verification scope.

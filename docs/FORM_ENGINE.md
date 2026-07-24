@@ -75,8 +75,8 @@ All factory and user forms use one page renderer. Form Manager can send the sele
 
 ## GeoData depth workspace — current form slice
 
-The user-visible factory library is curated to three working forms: GeoData Depth Workspace,
-Geological-Geochemical Masterlog, and Engineering Control — Time. Legacy factory IDs remain
+The user-visible factory library is curated to three working forms: Integrated mud logging form — geology, drilling and gas,
+MASTERLOG — geological and geochemical form, and Engineering and drilling monitoring — time form. Legacy factory IDs remain
 decodable for old projects but are not listed as duplicate templates. `FormColumn.group_title` is
 persisted and propagated to layout v10 so adjacent columns render under merged Geology,
 Technology, and Gas Data section captions.

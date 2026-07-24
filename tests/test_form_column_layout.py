@@ -63,3 +63,15 @@ def test_original_layout_preserves_form_widths() -> None:
     layout = original_column_layout(_tracks())
 
     assert layout.widths == (120, 420, 360, 220, 520)
+
+
+def test_original_layout_preserves_48_px_compact_columns() -> None:
+    tracks = [
+        TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=48),
+        TrackDefinition("strat", "Stratigraphy", TrackKind.STRATIGRAPHY, width=54),
+        TrackDefinition("curve", "Curve", TrackKind.CURVE, width=180),
+    ]
+
+    layout = original_column_layout(tracks)
+
+    assert layout.widths == (48, 54, 180)

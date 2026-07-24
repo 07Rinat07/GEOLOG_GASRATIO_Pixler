@@ -2,7 +2,7 @@
 
 Updated: 20 July 2026
 
-The **GeoData Depth Workspace** is the interactive screen for daily review and manual entry of
+The **Integrated mud logging form — geology, drilling and gas** is the interactive screen for daily review and manual entry of
 geological and drilling data on one depth coordinate. It is separate from the printable Masterlog:
 the workspace is used for editing, while the Masterlog is the final composite report with an
 independently editable header.
@@ -55,9 +55,9 @@ same depth is aligned horizontally across every section.
 
 The factory-form manager exposes only the curated working set:
 
-- GeoData Depth Workspace;
-- Geological-Geochemical Masterlog;
-- Engineering Control — Time.
+- Integrated mud logging form — geology, drilling and gas;
+- MASTERLOG — geological and geochemical form;
+- Engineering and drilling monitoring — time form.
 
 Legacy system IDs remain loadable for existing projects, but experimental and duplicate factory
 forms no longer clutter the manager. Factory forms are read-only; create a user copy before
