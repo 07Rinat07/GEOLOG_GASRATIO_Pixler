@@ -48,10 +48,11 @@ def form_from_tablet_layout(
             curve = dataset.curve_by_mnemonic(mnemonic)
             display = live_track.curve_display_settings(mnemonic)
             style = live_track.curve_style(mnemonic) or CurveStyle()
-            unit = ""
+            unit = display.unit_override if display.unit_override is not None else ""
             canonical = mnemonic
             if curve is not None:
-                unit = (curve.metadata.unit or "").strip()
+                if display.unit_override is None:
+                    unit = (curve.metadata.unit or "").strip()
                 canonical = (
                     curve.metadata.canonical_mnemonic
                     or curve.metadata.original_mnemonic

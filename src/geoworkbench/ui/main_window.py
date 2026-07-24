@@ -486,6 +486,12 @@ class MainWindow(QMainWindow):
         self.tablet_view.track_curve_auto_range_requested.connect(
             self._set_curve_auto_range_from_header
         )
+        self.tablet_view.track_curve_unit_requested.connect(
+            self._set_curve_unit_from_header
+        )
+        self.tablet_view.track_curve_scale_requested.connect(
+            self._set_curve_scale_from_header
+        )
         self.tablet_view.save_layout_requested.connect(self.save_tablet_preset)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.track_order_change_requested.connect(self._track_order_changed_from_drag)
@@ -6656,6 +6662,59 @@ class MainWindow(QMainWindow):
         )
         self._update_title()
 
+
+    def _set_curve_unit_from_header(
+        self, track_id: str, mnemonic: str, unit: str
+    ) -> None:
+        try:
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+            current = track.curve_display_settings(mnemonic)
+            updated = replace(current, unit_override=unit.strip())
+            self.tablet_controller.set_curve_display_settings(track_id, mnemonic, updated)
+        except (KeyError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("curve_settings.title"), str(exc))
+            return
+        self.statusBar().showMessage(
+            self._t("curve_settings.header_unit_saved", curve=mnemonic, unit=unit.strip() or "—"),
+            4000,
+        )
+        self._update_title()
+
+    def _set_curve_scale_from_header(
+        self, track_id: str, mnemonic: str, scale_value: str
+    ) -> None:
+        try:
+            scale = XScale(scale_value)
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+            current = track.curve_display_settings(mnemonic)
+            minimum, maximum = current.x_min, current.x_max
+            if scale is XScale.LOGARITHMIC and minimum is not None and minimum <= 0:
+                minimum = maximum = None
+            updated = replace(current, x_scale=scale, x_min=minimum, x_max=maximum)
+            self.tablet_controller.set_curve_display_settings(track_id, mnemonic, updated)
+        except (KeyError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("curve_settings.title"), str(exc))
+            self.tablet_view.refresh_track(
+                track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
+            )
+            return
+        self.tablet_view.refresh_track(
+            track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
+        )
+        self.statusBar().showMessage(
+            self._t(
+                "curve_settings.header_scale_saved",
+                curve=mnemonic,
+                scale=self._t(
+                    "curve_settings.logarithmic"
+                    if scale is XScale.LOGARITHMIC
+                    else "curve_settings.linear"
+                ),
+            ),
+            4000,
+        )
+        self._update_title()
+
     def edit_selected_track(self) -> None:
         if not self._selected_track_id:
             QMessageBox.information(
@@ -6874,7 +6933,9 @@ class MainWindow(QMainWindow):
         except (KeyError, TypeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("inspector.title"), str(exc))
             return
-        self.tablet_view.refresh_track(track_id, DirtyReason.STATIC)
+        self.tablet_view.refresh_track(
+            track_id, DirtyReason.STATIC | DirtyReason.STYLE
+        )
         self._refresh_tree()
         self._update_title()
         self._log(self._t("inspector.grid_updated"))

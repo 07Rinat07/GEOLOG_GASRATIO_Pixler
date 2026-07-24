@@ -92,6 +92,11 @@ class CurveSettingsDialog(QDialog):
         self.display_name.setMaxLength(120)
         form.addRow(self._t("curve_settings.display_name"), self.display_name)
 
+        self.unit = QLineEdit()
+        self.unit.setMaxLength(40)
+        self.unit.setToolTip(self._t("curve_settings.unit_override_tooltip"))
+        form.addRow(self._t("curve_settings.unit"), self.unit)
+
         self.scale = QComboBox()
         self.scale.addItem(self._t("curve_settings.linear"), XScale.LINEAR.value)
         self.scale.addItem(self._t("curve_settings.logarithmic"), XScale.LOGARITHMIC.value)
@@ -224,6 +229,11 @@ class CurveSettingsDialog(QDialog):
             )
             self.mnemonic_label.setText(mnemonic)
             self.display_name.setText(fallback_name)
+            source_unit = (metadata.unit or "").strip() if metadata is not None else ""
+            self.unit.setText(
+                display.unit_override if display.unit_override is not None else source_unit
+            )
+            self.unit.setPlaceholderText(source_unit or self._t("curve_settings.unit_empty"))
             self.scale.setCurrentIndex(max(0, self.scale.findData(display.x_scale.value)))
             self.auto_range.setChecked(display.automatic_range)
             suggested = self._suggested_range(mnemonic, display.x_scale)
@@ -273,6 +283,7 @@ class CurveSettingsDialog(QDialog):
             x_scale=scale,
             x_min=minimum,
             x_max=maximum,
+            unit_override=self.unit.text().strip(),
             header_text_color=str(
                 self.header_text_color_button.property("headerTextColor")
                 or "#0f172a"

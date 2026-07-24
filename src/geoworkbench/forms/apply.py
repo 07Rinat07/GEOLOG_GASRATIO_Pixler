@@ -169,6 +169,7 @@ class FormApplyEngine:
                         x_scale=binding.x_scale,
                         x_min=binding.x_min,
                         x_max=binding.x_max,
+                        unit_override=binding.unit or None,
                         header_text_color=binding.header_text_color,
                         header_line_color=binding.header_line_color,
                     )

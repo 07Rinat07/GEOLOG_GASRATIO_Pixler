@@ -1821,5 +1821,12 @@
   "curve_settings.header_text_color": "Тақырыптағы атау түсі",
   "curve_settings.header_line_color": "Тақырыптағы сызық түсі",
   "curve_settings.header_line_as_curve": "Қисық түсіндей",
-  "import_review.issue.index-sorted-copy": "Қабылданған көшірме белсенді индекс бойынша сұрыпталды; бастапқы файл өзгертілмеді."
+  "import_review.issue.index-sorted-copy": "Қабылданған көшірме белсенді индекс бойынша сұрыпталды; бастапқы файл өзгертілмеді.",
+  "curve_settings.unit": "Тақырыптағы өлшем бірлігі",
+  "curve_settings.unit_empty": "бірліксіз",
+  "curve_settings.unit_override_tooltip": "Бұл бірлік тақырыпта көрсетіліп, пішінде сақталады. Сандық мәндер қайта есептелмейді.",
+  "curve_settings.header_scale_tooltip": "Шкала осы баған торының негізгі және аралық бөліністерін пайдаланады.",
+  "curve_settings.header_unit_saved": "{curve} бірлігі: «{unit}» ағымдағы пішінде сақталды.",
+  "curve_settings.header_scale_saved": "{curve} шкаласы: {scale} ағымдағы пішінде сақталды.",
+  "curve_settings.header_apply_range_tooltip": "Енгізілген минимум мен максимумды қисыққа қолданып, ағымдағы пішінде сақтау."
 }

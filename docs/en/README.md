@@ -19,7 +19,7 @@ Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, Excel, or 
 
 Legacy Delphi SKF forms can be imported from “Forms → Form Library → Import and export → Import SKF” or “Constructor → Tablet forms”. See [SKF_IMPORT.md](SKF_IMPORT.md).
 
-In 0.7.47, mixed DEPT order in DB files is repaired by sorting the accepted copy, and batch DB → LAS uses an explicit index or a saved profile.
+In 0.7.48, each ordinary curve header shows an engineering ruler, editable unit and limits, linear/logarithmic mode, and ticks aligned with the column grid.
 
 ## Table editing
 

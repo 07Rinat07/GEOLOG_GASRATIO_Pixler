@@ -21,7 +21,7 @@ Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke ch
 - [complete] define one screen/print grid contract and deterministic golden-render fixtures;
 - [x] add deterministic report provenance: source fingerprints, interval-scoped channel data, complete semantic bindings/UOM, formula versions, locale, content-addressed template revision, and render settings;
 - [x] resolve one immutable `ReportDefinition` and interval for Print Center preview/output, Masterlog, and selected CSV/XLSX export;
-- test project format v20 (including v16 → v17 → v18 → v19 → v20), form schema v6, and layout format v15 migrations with representative legacy files.
+- test project format v20 (including v16 → v17 → v18 → v19 → v20), form schema v6, and layout format v16 migrations with representative legacy files.
 
 Exit: bounded controllers, reproducible report passports, and deterministic structural/visual golden fixtures are complete; Windows raster/PDF/HiDPI validation remains.
 

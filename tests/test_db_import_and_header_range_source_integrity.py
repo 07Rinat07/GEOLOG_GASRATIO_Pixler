@@ -52,3 +52,19 @@ def test_curve_header_contains_direct_range_editor_and_persists_via_controller()
     assert "header_line_color_button" in (
         ROOT / "src/geoworkbench/ui/curve_settings_dialog.py"
     ).read_text(encoding="utf-8")
+
+
+def test_curve_header_has_visible_grid_aligned_scale_and_editable_unit() -> None:
+    tablet = (ROOT / "src/geoworkbench/tablet/tablet_view.py").read_text(encoding="utf-8")
+    window = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+
+    assert "class CurveScaleRuler(QWidget):" in tablet
+    assert "normalized_grid_lines(self._major_divisions, self._minor_divisions)" in tablet
+    assert "unit_changed = Signal(str, str)" in tablet
+    assert "scale_changed = Signal(str, str)" in tablet
+    assert "track_curve_unit_requested = Signal(str, str, str)" in tablet
+    assert "track_curve_scale_requested = Signal(str, str, str)" in tablet
+    assert tablet.count("apply_range_tooltip=self._localizer.text(") == 2
+    assert "elif definition.kind is TrackKind.CALCIMETRY:" in tablet
+    assert "_set_curve_unit_from_header" in window
+    assert "_set_curve_scale_from_header" in window

@@ -1821,5 +1821,12 @@
   "curve_settings.header_text_color": "Header name color",
   "curve_settings.header_line_color": "Header line color",
   "curve_settings.header_line_as_curve": "Same as curve",
-  "import_review.issue.index-sorted-copy": "The accepted copy was sorted by the active index; the source file was not changed."
+  "import_review.issue.index-sorted-copy": "The accepted copy was sorted by the active index; the source file was not changed.",
+  "curve_settings.unit": "Header unit",
+  "curve_settings.unit_empty": "no unit",
+  "curve_settings.unit_override_tooltip": "This unit is displayed in the header and saved in the form. Numeric values are not converted.",
+  "curve_settings.header_scale_tooltip": "The scale uses the same major and minor divisions as this column grid.",
+  "curve_settings.header_unit_saved": "Unit for {curve}: “{unit}” was saved in the current form.",
+  "curve_settings.header_scale_saved": "Scale for {curve}: {scale} was saved in the current form.",
+  "curve_settings.header_apply_range_tooltip": "Apply the entered minimum and maximum to the curve and save them in the current form."
 }

@@ -23,13 +23,27 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для hotfix 0.7.47 в текущем контейнере выполнены `compileall`, focused DB/import/form набор —
-149 passed, 3 skipped, 3 deselected, и доступная headless-регрессия — 1012 passed, 4 skipped,
-3 deselected. Deselect требует отсутствующий `lasio`, а Qt collection-модули — `PySide6` и
-`pyqtgraph`. Ruff и mypy в контейнере также отсутствуют. Это не заменяет полный gate. Перед
-stable необходимы Windows/HiDPI smoke-test реальных D1174.db/BLData.db, batch DB → LAS,
-редактор диапазона в шапке, PDF и physical print.
+Для hotfix 0.7.48 в текущем контейнере выполнены `compileall`, focused header/form/import
+набор — 152 passed, 3 skipped, 3 deselected, и доступная headless-регрессия — 1020 passed,
+4 skipped, 3 deselected. Deselect требует отсутствующий `lasio`, а Qt collection-модули —
+`PySide6` и `pyqtgraph`. Ruff и mypy в контейнере также отсутствуют. Это не заменяет полный
+gate. Перед stable необходимы Windows/HiDPI smoke-test инженерной шкалы, узких колонок,
+реальных DB/LAS, PDF и physical print.
 
+## Инженерная шкала и единица в шапке
+
+Обязательные проверки 0.7.48:
+
+- ruler использует normalized major/minor divisions той же колонки, что и grid overlay;
+- linear labels вычисляются линейно, logarithmic labels — в log10-пространстве;
+- minimum/maximum можно изменить до commit, а `✓`/Enter сохраняет оба значения атомарно;
+- `A` возвращает auto-range; invalid и non-positive logarithmic range не сохраняется;
+- display unit и scale type редактируются в шапке и полном Curve Settings;
+- unit override не изменяет массив значений и source metadata;
+- layout v16 и user form round-trip сохраняют unit/range/scale/header colors;
+- миграция v15 → v16 добавляет `unit_override = null`;
+- изменение major/minor grid divisions перерисовывает и grid, и header ruler;
+- Windows/PySide6/HiDPI проверяет читаемость широких и узких колонок.
 
 ## DB normalization и диапазон в шапке
 
@@ -143,7 +157,7 @@ stable необходимы Windows/HiDPI smoke-test реальных D1174.db/B
 
 ## Рабочие формы, графические колонки и ежедневное наращивание LAS
 
-Для project format v20, form schema v6 и tablet layout v15 обязательны проверки:
+Для project format v20, form schema v6 и tablet layout v16 обязательны проверки:
 
 - grid overlay остаётся видимым при скрытых осях и не зависит от состояния pyqtgraph axis;
 - каждая колонка отдельно сохраняет grid X/Y, major/minor divisions, alpha и print-grid;

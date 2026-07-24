@@ -15,6 +15,7 @@ def test_form_preserves_viewport_revision_and_header_colours() -> None:
         "ROP",
         "Скорость бурения",
         source_mnemonic="ROP",
+        unit="м/ч",
         style=CurveStyle("#ef4444", 2.0),
         x_scale=XScale.LINEAR,
         x_min=0.0,
@@ -49,5 +50,6 @@ def test_form_preserves_viewport_revision_and_header_colours() -> None:
     assert restored.visible_axis_bottom == 1050.0
     assert restored.columns[0].width == 410
     assert restored.columns[0].tracks[0].grid_x is False
+    assert restored_binding.unit == "м/ч"
     assert restored_binding.header_text_color == "#1d4ed8"
     assert restored_binding.header_line_color == "#f59e0b"

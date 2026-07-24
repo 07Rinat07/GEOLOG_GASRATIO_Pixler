@@ -64,6 +64,7 @@ class CurveDisplaySettings:
     x_max: float | None = None
     header_text_color: str = "#0f172a"
     header_line_color: str | None = None
+    unit_override: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.display_name, str):
@@ -71,6 +72,11 @@ class CurveDisplaySettings:
         if len(self.display_name.strip()) > 120:
             raise ValueError("Отображаемое имя кривой не должно превышать 120 символов")
         TrackDefinition._validate_x_settings(self.x_scale, self.x_min, self.x_max)
+        if self.unit_override is not None:
+            if not isinstance(self.unit_override, str):
+                raise ValueError("Пользовательская единица измерения должна быть строкой или null")
+            if len(self.unit_override.strip()) > 40:
+                raise ValueError("Единица измерения не должна превышать 40 символов")
         if not re.fullmatch(r"#[0-9A-Fa-f]{6}", self.header_text_color):
             raise ValueError("Цвет текста заголовка должен быть в формате #RRGGBB")
         if self.header_line_color is not None and not re.fullmatch(

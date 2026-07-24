@@ -381,11 +381,13 @@ class TabletTrackEditorDialog(QDialog):
         minimum = self.min_input.value() if manual else None
         maximum = self.max_input.value() if manual else None
         try:
+            current_display = self.track.curve_display_settings(mnemonic)
             display = CurveDisplaySettings(
                 display_name=caption,
                 x_scale=scale,
                 x_min=minimum,
                 x_max=maximum,
+                unit_override=current_display.unit_override,
                 header_text_color=self.header_text_color_input.text().strip(),
                 header_line_color=(self.header_line_color_input.text().strip() or None),
             )

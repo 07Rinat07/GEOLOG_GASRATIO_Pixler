@@ -388,3 +388,54 @@ def test_layout_codec_migrates_v12_without_annotation_scope() -> None:
     )
 
     assert restored.annotation_scope_id is None
+
+
+def test_layout_codec_round_trip_preserves_curve_unit_override() -> None:
+    source = make_layout()
+    source.track_by_id("gas").set_curve_display(
+        "C1",
+        CurveDisplaySettings(
+            display_name="Метан",
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.001,
+            x_max=100.0,
+            unit_override="об.%",
+        ),
+    )
+
+    restored = layout_from_dict(layout_to_dict(source))
+
+    assert restored.track_by_id("gas").curve_display_settings("C1").unit_override == "об.%"
+
+
+def test_layout_codec_migrates_v15_curve_unit_to_source_metadata_mode() -> None:
+    restored = layout_from_dict(
+        {
+            "version": 15,
+            "tracks": [
+                {
+                    "track_id": "curve",
+                    "title": "Curve",
+                    "kind": "curve",
+                    "curve_mnemonics": ["GR"],
+                    "curve_display": {
+                        "GR": {
+                            "display_name": "Gamma ray",
+                            "x_scale": "linear",
+                            "x_min": 0.0,
+                            "x_max": 150.0,
+                            "header_text_color": "#0f172a",
+                            "header_line_color": None,
+                        }
+                    },
+                }
+            ],
+        }
+    )
+
+    assert restored.track_by_id("curve").curve_display_settings("GR").unit_override is None
+
+
+def test_curve_display_rejects_too_long_unit_override() -> None:
+    with pytest.raises(ValueError, match="40"):
+        CurveDisplaySettings(unit_override="x" * 41)

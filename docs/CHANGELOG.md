@@ -1,3 +1,15 @@
+# 0.7.48 — Engineering curve-header ruler and editable units (test build)
+
+- Replaced faint header range fields with a full-width colored engineering ruler.
+- Reused each column's saved major/minor grid divisions for ruler ticks and labels.
+- Added correct linear and logarithmic interpolation of intermediate scale values.
+- Added an explicit `✓` commit so both limits can be edited before the layout refreshes.
+- Added direct display-unit and scale-type editors to every ordinary curve header.
+- Persisted `unit_override` in tablet layout v16 and reused existing form binding units.
+- Migrated layout v15 to v16 with source metadata units preserved by default.
+- Project format remains v20 and form schema remains v6.
+- Verification: 152 focused passed; 1020 headless passed, 4 skipped, 3 deselected.
+
 # 0.7.47 — DB import normalization and editable curve-header ranges (test build)
 
 - GeoScape/Paradox mixed index order is normalized in the accepted copy only.

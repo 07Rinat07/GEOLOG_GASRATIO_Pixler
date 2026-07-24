@@ -14,7 +14,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 15
+LAYOUT_FORMAT_VERSION = 16
 
 
 class TabletLayoutFormatError(ValueError):
@@ -59,6 +59,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                         "x_scale": settings.x_scale.value,
                         "x_min": settings.x_min,
                         "x_max": settings.x_max,
+                        "unit_override": settings.unit_override,
                         "header_text_color": settings.header_text_color,
                         "header_line_color": settings.header_line_color,
                     }
@@ -200,6 +201,11 @@ def _track_from_dict(data: object) -> TrackDefinition:
             x_scale=XScale(raw_settings.get("x_scale", XScale.LINEAR.value)),
             x_min=float(raw_min) if raw_min is not None else None,
             x_max=float(raw_max) if raw_max is not None else None,
+            unit_override=(
+                str(raw_settings["unit_override"])
+                if raw_settings.get("unit_override") is not None
+                else None
+            ),
             header_text_color=str(raw_settings.get("header_text_color", "#0f172a")),
             header_line_color=(
                 str(raw_settings["header_line_color"])
@@ -253,7 +259,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("version")
     if version == LAYOUT_FORMAT_VERSION:
         return data
-    if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14):
+    if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
     if version == 1:
@@ -332,4 +338,14 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                     if isinstance(settings, dict):
                         settings.setdefault("header_text_color", "#0f172a")
                         settings.setdefault("header_line_color", None)
+    migrated["version"] = 16
+    if isinstance(tracks, list):
+        for track in tracks:
+            if not isinstance(track, dict):
+                continue
+            display = track.get("curve_display", {})
+            if isinstance(display, dict):
+                for settings in display.values():
+                    if isinstance(settings, dict):
+                        settings.setdefault("unit_override", None)
     return migrated

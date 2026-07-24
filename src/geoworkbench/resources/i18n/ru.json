@@ -1821,5 +1821,12 @@
   "curve_settings.header_text_color": "Цвет названия в шапке",
   "curve_settings.header_line_color": "Цвет линии в шапке",
   "curve_settings.header_line_as_curve": "Как у кривой",
-  "import_review.issue.index-sorted-copy": "Принятая копия отсортирована по активному индексу; исходный файл не изменён."
+  "import_review.issue.index-sorted-copy": "Принятая копия отсортирована по активному индексу; исходный файл не изменён.",
+  "curve_settings.unit": "Единица в шапке",
+  "curve_settings.unit_empty": "без единицы",
+  "curve_settings.unit_override_tooltip": "Единица отображается в шапке и сохраняется в форме. Числовые значения не пересчитываются.",
+  "curve_settings.header_scale_tooltip": "Шкала использует те же основные и промежуточные деления, что и вертикальная сетка этой колонки.",
+  "curve_settings.header_unit_saved": "Единица {curve}: «{unit}» сохранена в текущей форме.",
+  "curve_settings.header_scale_saved": "Шкала {curve}: {scale} сохранена в текущей форме.",
+  "curve_settings.header_apply_range_tooltip": "Применить введённые минимум и максимум к кривой и сохранить их в текущей форме."
 }
