@@ -23,6 +23,7 @@ from PySide6.QtGui import (
     QPixmap,
     QWheelEvent,
 )
+from shiboken6 import isValid as shiboken_is_valid
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
     QApplication,
@@ -177,6 +178,51 @@ from geoworkbench.tablet.selection_interaction import (
     TrackHeaderDrag,
     choose_best_hit,
 )
+
+
+def _qt_object_is_alive(target: object | None) -> bool:
+    """Return False for wrappers whose underlying Qt C++ object was deleted.
+
+    PySide keeps a Python wrapper alive for a short time after Qt destroys the
+    corresponding C++ object.  Any method call on that wrapper raises
+    ``RuntimeError: Internal C++ object already deleted``.  Cleanup paths must
+    therefore validate every event-filter target before touching it.
+    """
+
+    if target is None:
+        return False
+    try:
+        return bool(shiboken_is_valid(target))
+    except (RuntimeError, TypeError):
+        return False
+
+
+def _safe_remove_event_filter(target: object | None, owner: QObject) -> bool:
+    """Best-effort event-filter removal used by idempotent tablet teardown."""
+
+    if not _qt_object_is_alive(target):
+        return False
+    try:
+        cast(QObject, target).removeEventFilter(owner)
+    except (RuntimeError, TypeError):
+        return False
+    return True
+
+
+def _safe_delete_later(target: object | None) -> bool:
+    """Schedule a live QObject for deletion and ignore an already-dead wrapper."""
+
+    if not _qt_object_is_alive(target):
+        return False
+    try:
+        cast(QObject, target).deleteLater()
+    except (RuntimeError, TypeError):
+        return False
+    return True
+
+
+CURVE_HEADER_EDITOR_HEIGHT = 52
+CURVE_HEADER_LABEL_HEIGHT = 38
 
 
 class GeologicalInputMode(StrEnum):
@@ -366,7 +412,7 @@ class CurveHeaderLabel(QLabel):
         self.mnemonic = mnemonic
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         self.setToolTip(f"{text.replace(chr(10), ' · ')} [{mnemonic}]")
-        self.setMinimumHeight(46)
+        self.setMinimumHeight(CURVE_HEADER_LABEL_HEIGHT)
         self.setWordWrap(True)
         self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self._curve_color = curve_color
@@ -381,7 +427,7 @@ class CurveHeaderLabel(QLabel):
             f"QLabel {{ background: {background}; color: {self._text_color}; "
             f"border-left: 5px solid {self._curve_color}; "
             f"border-bottom: 2px solid {self._line_color if not selected else border}; "
-            "padding: 2px 4px; font-size: 11px; font-weight: 600; } "
+            "padding: 1px 3px; font-size: 9px; font-weight: 600; } "
             "QLabel:hover { background: #eff6ff; }"
         )
 
@@ -445,7 +491,8 @@ class CurveScaleRuler(QWidget):
         self._line_color = line_color
         self.setMinimumWidth(0)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setMinimumHeight(20)
+        self.setMinimumHeight(16)
+        self.setMaximumHeight(18)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
     def set_values(self, minimum: float, maximum: float, scale: XScale) -> None:
@@ -503,11 +550,10 @@ class CurveScaleRuler(QWidget):
 class CurveHeaderEditor(QFrame):
     """Responsive per-curve engineering header.
 
-    The editor deliberately keeps minimum and maximum in a dedicated row.  Older
-    versions placed two fixed-width spin boxes, two buttons and a stretch in one
-    line, so one boundary disappeared as soon as a working form was narrowed.
-    Every row below can shrink down to the minimum supported track width and no
-    scale boundary is hidden.
+    The working view follows a compact professional log-header layout: caption,
+    editable ``minimum — unit — maximum`` and an engineering ruler.  Scale mode
+    and actions remain in the caption row, so several curves fit above a track
+    without forcing every other column to reserve a very tall empty header band.
     """
 
     clicked = Signal(str)
@@ -538,7 +584,8 @@ class CurveHeaderEditor(QFrame):
         self._invalid_range_message = spec.invalid_range_message
         self._disposed = False
         self._loading = True
-        self.setMinimumHeight(82)
+        self.setMinimumHeight(CURVE_HEADER_EDITOR_HEIGHT)
+        self.setMaximumHeight(CURVE_HEADER_EDITOR_HEIGHT + 4)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.setToolTip(
             f"{title} · {spec.minimum:g} … {spec.maximum:g} {spec.unit} [{mnemonic}]"
@@ -561,15 +608,31 @@ class CurveHeaderEditor(QFrame):
         self.title_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.title_label.setStyleSheet(
             f"background:transparent; color:{self._text_color}; "
-            "font-weight:700; font-size:10px;"
+            "font-weight:700; font-size:9px;"
         )
         top.addWidget(self.title_label, 1)
+
+        self.scale = QComboBox()
+        self.scale.addItem(spec.linear_label, XScale.LINEAR.value)
+        self.scale.addItem(spec.logarithmic_label, XScale.LOGARITHMIC.value)
+        scale_index = self.scale.findData(spec.scale.value)
+        self.scale.setCurrentIndex(scale_index if scale_index >= 0 else 0)
+        self.scale.setToolTip(spec.scale_tooltip)
+        self.scale.setMinimumWidth(30)
+        self.scale.setMaximumWidth(42)
+        self.scale.setFixedHeight(15)
+        self.scale.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.scale.setStyleSheet(
+            "QComboBox {background:#ffffff; color:#111827; border:1px solid #94a3b8; "
+            "padding:0 1px; font-size:7px;}"
+        )
+        top.addWidget(self.scale)
 
         self.auto_button = QToolButton()
         self.auto_button.setText("A")
         self.auto_button.setAutoRaise(True)
         self.auto_button.setToolTip(spec.auto_tooltip)
-        self.auto_button.setFixedSize(17, 17)
+        self.auto_button.setFixedSize(15, 15)
         self.auto_button.setStyleSheet("QToolButton {font-size:9px; padding:0;}")
         self.auto_button.clicked.connect(
             lambda: self.auto_range_requested.emit(self.mnemonic)
@@ -580,15 +643,16 @@ class CurveHeaderEditor(QFrame):
         self.settings_button.setText("⚙")
         self.settings_button.setAutoRaise(True)
         self.settings_button.setToolTip(spec.settings_tooltip)
-        self.settings_button.setFixedSize(17, 17)
+        self.settings_button.setFixedSize(15, 15)
         self.settings_button.clicked.connect(
             lambda: self.double_clicked.emit(self.mnemonic)
         )
         top.addWidget(self.settings_button)
         root.addLayout(top)
 
-        # Row 2: both boundaries always share the available width.  There are no
-        # fixed spacer/buttons between them, therefore neither field can vanish.
+        # Row 2: compact Schlumberger-style scale endpoints.  The unit lives
+        # between both boundaries; every control can shrink, so minimum and
+        # maximum remain visible even in the narrowest supported column.
         range_row = QHBoxLayout()
         range_row.setContentsMargins(2, 0, 2, 0)
         range_row.setSpacing(2)
@@ -597,50 +661,32 @@ class CurveHeaderEditor(QFrame):
         self.minimum.setToolTip(spec.apply_range_tooltip)
         self.maximum.setToolTip(spec.apply_range_tooltip)
         range_row.addWidget(self.minimum, 1)
-        separator = QLabel("…")
+        separator = QLabel("—")
         separator.setAlignment(Qt.AlignmentFlag.AlignCenter)
         separator.setFixedWidth(6)
         separator.setStyleSheet(
-            f"background:transparent; color:{self._line_color}; font-size:9px;"
+            f"background:transparent; color:{self._line_color}; font-size:8px;"
         )
         range_row.addWidget(separator)
-        range_row.addWidget(self.maximum, 1)
-        root.addLayout(range_row)
 
-        # Row 3: display unit and scale type.  Both controls are independently
-        # editable and naturally compress with the column.
-        meta_row = QHBoxLayout()
-        meta_row.setContentsMargins(2, 0, 2, 0)
-        meta_row.setSpacing(2)
         self.unit = QLineEdit(spec.unit)
         self.unit.setMaxLength(40)
         self.unit.setPlaceholderText("—")
         self.unit.setToolTip(spec.unit_tooltip)
-        self.unit.setMinimumWidth(20)
-        self.unit.setFixedHeight(18)
-        self.unit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.unit.setMinimumWidth(16)
+        self.unit.setMaximumWidth(56)
+        self.unit.setFixedHeight(17)
+        self.unit.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.unit.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.unit.setStyleSheet(
-            "QLineEdit {background:#ffffff; color:#111827; border:1px solid #94a3b8; "
-            "border-radius:2px; padding:0 2px; font-size:9px; font-weight:600;}"
+            "QLineEdit {background:transparent; color:#334155; border:0; "
+            "border-bottom:1px solid #94a3b8; padding:0 1px; font-size:8px; "
+            "font-weight:600;} QLineEdit:focus {background:#ffffff; "
+            "border:1px solid #2563eb;}"
         )
-        meta_row.addWidget(self.unit, 3)
-
-        self.scale = QComboBox()
-        self.scale.addItem(spec.linear_label, XScale.LINEAR.value)
-        self.scale.addItem(spec.logarithmic_label, XScale.LOGARITHMIC.value)
-        scale_index = self.scale.findData(spec.scale.value)
-        self.scale.setCurrentIndex(scale_index if scale_index >= 0 else 0)
-        self.scale.setToolTip(spec.scale_tooltip)
-        self.scale.setMinimumWidth(24)
-        self.scale.setFixedHeight(18)
-        self.scale.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.scale.setStyleSheet(
-            "QComboBox {background:#ffffff; color:#111827; border:1px solid #94a3b8; "
-            "padding:0 1px; font-size:8px;}"
-        )
-        meta_row.addWidget(self.scale, 2)
-        root.addLayout(meta_row)
+        range_row.addWidget(self.unit, 1)
+        range_row.addWidget(self.maximum, 1)
+        root.addLayout(range_row)
 
         self.ruler = CurveScaleRuler(
             spec.minimum,
@@ -716,12 +762,12 @@ class CurveHeaderEditor(QFrame):
         spin.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         spin.setFrame(True)
         spin.setMinimumWidth(24)
-        spin.setFixedHeight(20)
+        spin.setFixedHeight(17)
         spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
         spin.setStyleSheet(
             "QDoubleSpinBox {background:#ffffff; color:#111827; border:1px solid #64748b; "
-            "border-radius:2px; font-size:9px; font-weight:600; padding:0 1px;}"
+            "border-radius:1px; font-size:8px; font-weight:600; padding:0;}"
         )
         return spin
 
@@ -1007,23 +1053,35 @@ class TabletTrackWidget(QFrame):
 
     def _dispose_curve_header_editors(self) -> None:
         for label in tuple(self._curve_header_labels.values()):
+            if not _qt_object_is_alive(label):
+                continue
             if isinstance(label, CurveHeaderEditor):
-                label.dispose()
+                try:
+                    label.dispose()
+                except RuntimeError:
+                    # Qt may have already deleted the C++ object while a queued
+                    # form/import refresh is draining.  The registry is still
+                    # cleared below, making repeated disposal idempotent.
+                    pass
         self._curve_header_labels.clear()
 
     def prepare_for_disposal(self) -> None:
-        """Quiesce deferred header callbacks before the track is deleted."""
+        """Quiesce deferred callbacks before deleting a rendered track tree."""
 
         self._dispose_curve_header_editors()
-        for target in (self.title, self.plot, self.plot.viewport()):
+        targets: list[object | None] = [self.title, self.plot]
+        if _qt_object_is_alive(self.plot):
             try:
-                target.removeEventFilter(self)
+                targets.append(self.plot.viewport())
             except RuntimeError:
                 pass
-        try:
-            self.blockSignals(True)
-        except RuntimeError:
-            pass
+        for target in targets:
+            _safe_remove_event_filter(target, self)
+        if _qt_object_is_alive(self):
+            try:
+                self.blockSignals(True)
+            except RuntimeError:
+                pass
 
     def set_curve_headers(
         self,
@@ -1035,7 +1093,7 @@ class TabletTrackWidget(QFrame):
             item = self.curve_header_layout.takeAt(0)
             widget = item.widget() if item is not None else None
             if widget is not None:
-                widget.deleteLater()
+                _safe_delete_later(widget)
         ranges = editable_ranges or {}
         for mnemonic, text, curve_color, text_color, line_color in rows:
             spec = ranges.get(mnemonic)
@@ -1091,7 +1149,7 @@ class TabletTrackWidget(QFrame):
         # tracks with three curve captions and tracks without captions start
         # their PlotWidget at different Y pixels even though their numeric
         # depth ranges are identical.
-        self._natural_curve_header_height = min(480, max(0, len(rows) * 82))
+        self._natural_curve_header_height = min(360, max(0, len(rows) * CURVE_HEADER_EDITOR_HEIGHT))
         self.curve_header_scroll.setMaximumHeight(self._natural_curve_header_height)
         self.curve_header_scroll.setVisible(bool(rows))
 
@@ -4754,25 +4812,56 @@ class TabletView(QWidget):
         return rendered
 
     def _dispose_rendered_track(self, rendered: RenderedTrack) -> None:
-        """Release registrations owned by one rendered track before Qt deletion."""
+        """Release one track without ever dereferencing a dead Qt wrapper.
+
+        Import recovery, form switching and pencil teardown may all request a
+        rebuild in the same event-loop turn.  Qt can therefore destroy a child
+        ``CurveHeaderEditor`` before Python drains the previous registry.  Every
+        cleanup operation is best-effort and the Python registries are cleared
+        regardless, so the operation is safe to repeat.
+        """
 
         track_id = rendered.definition.track_id
-        rendered.widget.prepare_for_disposal()
+        widget = rendered.widget
         plot = rendered.plot
-        if plot is not None:
-            viewport = plot.viewport()
-            viewport.removeEventFilter(self)
-            self._depth_viewports.pop(viewport, None)
-            self._interpretation_viewports.pop(viewport, None)
-            for target, registered_plot in tuple(self._wheel_targets.items()):
-                if registered_plot is plot:
-                    target.removeEventFilter(self)
+        try:
+            if _qt_object_is_alive(rendered.widget):
+                rendered.widget.prepare_for_disposal()
+        except BaseException as exc:  # cleanup must never block recovery
+            log_exception("tablet.track.dispose.widget_failed", exc, track_id=track_id)
+
+        viewport: object | None = None
+        if _qt_object_is_alive(plot):
+            try:
+                viewport = plot.viewport()
+            except RuntimeError:
+                viewport = None
+        _safe_remove_event_filter(viewport, self)
+        if viewport is not None:
+            try:
+                self._depth_viewports.pop(viewport, None)
+                self._interpretation_viewports.pop(viewport, None)
+            except RuntimeError:
+                pass
+
+        for target, registered_plot in tuple(self._wheel_targets.items()):
+            if not _qt_object_is_alive(target) or registered_plot is plot:
+                _safe_remove_event_filter(target, self)
+                try:
                     self._wheel_targets.pop(target, None)
+                except RuntimeError:
+                    pass
+
         self._overlay_layers.clear_track(track_id)
         self._tooltip_items.pop(track_id, None)
         self._rubber_band_items.pop(track_id, None)
-        self._tracks_layout.removeWidget(rendered.widget)
-        rendered.widget.deleteLater()
+        try:
+            if _qt_object_is_alive(widget):
+                self._tracks_layout.removeWidget(widget)
+        except RuntimeError:
+            pass
+        _safe_delete_later(widget)
+
 
     def clear(self) -> None:
         # A full widget-tree rebuild invalidates the active track and all header
@@ -4795,7 +4884,11 @@ class TabletView(QWidget):
         self._dirty_registry.clear()
         self._annotation_overlay.set_entries([])
         self._track_lifecycle.dispose_entries(
-            self._rendered, self._dispose_rendered_track
+            self._rendered,
+            self._dispose_rendered_track,
+            on_error=lambda track_id, exc: log_exception(
+                "tablet.track.dispose.failed", exc, track_id=track_id
+            ),
         )
         self._rendered.clear()
         self._overlay_layers.clear()
@@ -4811,7 +4904,7 @@ class TabletView(QWidget):
                     continue
                 widget = item.widget()
                 if widget is not None:
-                    widget.deleteLater()
+                    _safe_delete_later(widget)
 
     def refresh_view(self) -> None:
         if self._layout_rebuild_active:

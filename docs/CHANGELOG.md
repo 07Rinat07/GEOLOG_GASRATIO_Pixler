@@ -1,3 +1,12 @@
+# 0.7.52 — Idempotent Qt teardown and compact professional headers (test build)
+
+- Validated QObject wrappers with Shiboken before event-filter removal or deletion.
+- Continued reverse-order track disposal after one stale Qt wrapper and made tablet reset idempotent.
+- Prevented a deleted CurveHeaderEditor from blocking import recovery or form switching.
+- Reduced editable header rows from 82 px to 52 px and capped the synchronized band at 360 px.
+- Added specific non-destructive actions for duplicate indices, irregular steps and index gaps.
+- Kept project format v20, form schema v6 and tablet layout v16 unchanged.
+
 # 0.7.51 — Persistent diagnostics and safe pencil/form lifecycle (test build)
 
 - Added rotating application/crash logs, Python/thread exception hooks, Qt message capture, and Qt event exception logging.

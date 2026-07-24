@@ -299,7 +299,9 @@ class TabletAnnotationItem(QGraphicsObject):
     def _paint_text_content(self, painter: QPainter, content: QRectF) -> None:
         style = self.record.style
         font = QFont(style.font_family)
-        font.setPointSizeF(style.font_size)
+        # Legacy/project-provided styles may contain Qt's sentinel -1.  Passing
+        # it back to QFont emits a runtime warning and can make diagnostics noisy.
+        font.setPointSizeF(max(1.0, float(style.font_size)))
         font.setBold(style.bold)
         font.setItalic(style.italic)
         font.setUnderline(style.underline)

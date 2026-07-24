@@ -1,28 +1,27 @@
 # План проекта
 
-Актуально на 24 июля 2026 года. Hotfix 0.7.51 сохраняет project format v20, form schema v6 и
-tablet layout v16. После Windows-подтверждения исправлений следующий предметный этап —
-read-only offline WITSML 2.1 inventory и mapping fixtures.
+Актуально на 24 июля 2026 года. Hotfix **0.7.52** сохраняет project format v20, form schema v6
+и tablet layout v16. Следующий предметный этап после Windows-подтверждения — read-only offline
+WITSML 2.1 inventory и mapping fixtures.
 
-## P0 — hotfix 0.7.51: диагностика и безопасный lifecycle карандаша
+## P0 — hotfix 0.7.52: идемпотентная очистка Qt и компактные шапки
 
-- [x] вести вращаемый UTF-8 журнал в каталоге данных приложения;
-- [x] записывать необработанные Python/thread exceptions и полный traceback;
-- [x] перехватывать Qt messages и исключения, вышедшие из Qt event handlers;
-- [x] журналировать form apply/preview/rollback, tablet render и curve-pencil commit;
-- [x] добавить команды открытия журнала, копирования пути и создания diagnostics ZIP;
-- [x] исключить из diagnostics ZIP значения LAS, проектные assets и сохранённые формы;
-- [x] после карандаша обновлять только затронутые curve tracks без полного rebuild;
-- [x] сохранять размеры колонок, scroll position и остальные виджеты формы после штриха;
-- [x] перед полным rebuild выключать карандаш и очищать stale track/curve targets;
-- [x] перед form apply сначала проверять candidate model, затем завершать pencil mode;
-- [x] покрыть logging, bundle privacy и lifecycle source contracts headless-тестами;
-- [ ] выполнить Windows/PySide6 smoke-test: рисование в нескольких колонках, Undo/Redo и не менее
-  20 переходов между формами после штриха без повреждения layout и Qt lifecycle errors.
+- [x] проверять QObject через `shiboken6.isValid()` до обращения к C++-объекту;
+- [x] безопасно удалять event filters и вызывать `deleteLater()`;
+- [x] продолжать освобождение остальных треков после ошибки одного wrapper;
+- [x] сделать повторный reset планшета идемпотентным;
+- [x] не допускать блокировки import recovery и form rollback удалённым `CurveHeaderEditor`;
+- [x] уменьшить высоту редактируемой шапки до 52 px и обычной подписи до 38 px;
+- [x] сохранить прямое редактирование min/unit/max и выбор linear/log;
+- [x] синхронизировать инженерную линейку с сохранёнными делениями сетки;
+- [x] ограничить общий пояс шапок 360 px;
+- [x] добавить конкретные рекомендации для LAS duplicates/non-uniform step/gaps;
+- [x] покрыть cleanup/header/diagnostics headless и source-contract тестами;
+- [ ] Windows/PySide6: импортировать проблемный LAS, выполнить 20 form switches и 20 reset без
+  `already deleted`, затем проверить широкие и узкие колонки при 100/125/150% DPI.
 
-Критерий 0.7.51: после рисования планшет не меняет форму и размеры колонок; переход на другую
-форму остаётся рабочим; при любой ошибке пользователь может создать один diagnostics ZIP с
-traceback и последовательностью системных событий.
+Критерий выхода: imported dataset всегда остаётся доступным, очистка не падает на удалённых
+виджетах, а рабочая шапка занимает существенно меньше места без потери шкалы и единицы.
 
 ## Следующие этапы
 

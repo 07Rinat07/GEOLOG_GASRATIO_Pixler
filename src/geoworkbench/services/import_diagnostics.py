@@ -135,6 +135,20 @@ def policy_diagnostic(
     message: str,
     warning: bool = False,
 ) -> ImportDiagnostic:
+    actions = {
+        "duplicate-index-values": (
+            "Duplicate index rows are allowed for review. Choose an explicit duplicate "
+            "policy (keep all, first or last) before resampling; the source file remains unchanged."
+        ),
+        "non-uniform-step": (
+            "A non-uniform step is valid for display. Keep the original samples or create a "
+            "separate resampled copy (for example 0.2 m); do not rewrite the source LAS."
+        ),
+        "index-gaps": (
+            "Index gaps will be shown as missing intervals. Fill/interpolate only in a derived "
+            "copy when the geological workflow explicitly requires it."
+        ),
+    }
     return ImportDiagnostic(
         source=Path(source),
         stage=ImportDiagnosticStage.POLICY,
@@ -146,9 +160,10 @@ def policy_diagnostic(
         ),
         summary=message,
         details=message,
-        suggested_action=(
+        suggested_action=actions.get(
+            code,
             "Review the LAS header/index/channel mapping. Use compatible or manual mode "
-            "only when the source values are trustworthy."
+            "only when the source values are trustworthy.",
         ),
     )
 

@@ -23,12 +23,25 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для hotfix 0.7.51 в текущем контейнере выполнены `compileall`, focused
-logging/form/pencil/tablet-набор — **245 passed**, и доступная headless-регрессия —
-**1048 passed, 4 skipped, 4 deselected**. Исключённые collection-модули требуют отсутствующие
+Для hotfix 0.7.52 в текущем контейнере выполнены `compileall`, focused
+lifecycle/header/diagnostics-набор — **125 passed**, и доступная headless-регрессия —
+**1052 passed, 4 skipped, 4 deselected**. Исключённые collection-модули требуют отсутствующие
 `PySide6`, `pyqtgraph` или `lasio`; Ruff и mypy в контейнере также отсутствуют. Это не заменяет
 полный gate. Перед stable обязателен Windows/PySide6 smoke-test реального карандаша, Undo/Redo,
 переключения форм сразу после штриха, создания diagnostics ZIP, реальных DB/LAS, PDF и печати.
+
+
+## Идемпотентная очистка Qt и компактные шапки 0.7.52
+
+Обязательные проверки:
+
+- удалённый `CurveHeaderEditor` пропускается без вызова `removeEventFilter`;
+- ошибка освобождения одного трека не останавливает очистку остальных;
+- повторный `TabletView.clear()` не вызывает исключение и оставляет registry пустыми;
+- импорт recovery workspace строится после ошибки старого Qt wrapper;
+- 6 кривых занимают не более 312 пикселей шапки, а общий предел равен 360 пикселям;
+- минимум, единица, максимум и инженерная линейка видимы при рабочей ширине колонки;
+- Windows/PySide6 выполняет 20 циклов import/form switch/reset без `already deleted`.
 
 ## Runtime-диагностика и lifecycle карандаша 0.7.51
 

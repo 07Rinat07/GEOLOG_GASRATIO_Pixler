@@ -19,7 +19,7 @@ Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, Excel, or 
 
 Legacy Delphi SKF forms can be imported from “Forms → Form Library → Import and export → Import SKF” or “Constructor → Tablet forms”. See [SKF_IMPORT.md](SKF_IMPORT.md).
 
-Version 0.7.51 adds persistent application logs. The Help menu can open the log directory or build a diagnostics ZIP for support. A pencil stroke now refreshes only affected curves, preserving the working form, column widths and horizontal position. Pencil mode is safely stopped before a form switch. See [Application diagnostics](APPLICATION_DIAGNOSTICS.md).
+Version 0.7.52 fixes teardown of already-deleted Qt curve-header editors, so import recovery, tablet reset and form switching are no longer blocked by `CurveHeaderEditor already deleted`. Parameter headers are denser while retaining minimum, unit, maximum, scale type and the engineering ruler. Logs and diagnostics ZIP remain available from Help. See [Application diagnostics](APPLICATION_DIAGNOSTICS.md).
 
 ## Table editing
 

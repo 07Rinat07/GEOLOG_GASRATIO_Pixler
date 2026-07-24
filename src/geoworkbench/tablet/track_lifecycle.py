@@ -97,12 +97,23 @@ class TrackLifecycleCoordinator:
     def dispose_entries(
         entries: Mapping[str, T],
         dispose: Callable[[T], None],
+        *,
+        on_error: Callable[[str, BaseException], None] | None = None,
     ) -> tuple[str, ...]:
-        """Dispose entries in reverse visual order and report released ids."""
+        """Dispose every entry in reverse order even when one cleanup fails.
+
+        Qt widget trees can already be partially destroyed when a queued form
+        switch or import-recovery refresh reaches Python.  One stale wrapper must
+        not prevent later tracks and registries from being released.
+        """
 
         released = tuple(entries)
-        for entry in reversed(tuple(entries.values())):
-            dispose(entry)
+        for track_id, entry in reversed(tuple(entries.items())):
+            try:
+                dispose(entry)
+            except BaseException as exc:
+                if on_error is not None:
+                    on_error(track_id, exc)
         return released
 
     @staticmethod

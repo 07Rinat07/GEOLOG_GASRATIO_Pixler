@@ -73,7 +73,8 @@ class _AnnotationValues(TypedDict):
 class _ColorButton(QPushButton):
     def __init__(self, color: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._color = color
+        candidate = QColor(color)
+        self._color = candidate.name() if candidate.isValid() else "#ffffff"
         self.clicked.connect(self._choose)
         self._refresh()
 

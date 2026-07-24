@@ -1,32 +1,28 @@
 # Жоба күйі
 
-2026 жылғы 24 шілдедегі түзету жинағы: package **0.7.51**, тұрақты runtime диагностикасы және
-қауіпсіз қарындаш/пішін lifecycle. Project format: **v20**, form schema: **v6**, tablet layout:
-**v16**.
+2026 жылғы 24 шілдедегі түзету жинағы: package **0.7.52**. Project format **v20**, form schema
+**v6**, tablet layout **v16**.
 
-## 0.7.51 ішінде аяқталды
+## 0.7.52 ішінде аяқталды
 
-- қолданба айналмалы `geolog.log` және бөлек `geolog-crash.log` файлдарын жүргізеді;
-- ұсталмаған Python/thread exceptions, Qt messages және Qt event-handler қателері жазылады;
-- form apply/rollback, толық tablet render және curve-pencil commit тұрақты оқиға кодтары мен
-  толық traceback қолданады;
-- «Анықтама» мәзірі журнал бумасын ашады, жолды көшіреді және diagnostics ZIP құрады;
-- diagnostics bundle LAS мәндерін, datasets, пішіндер мен project assets қоспайды;
-- қарындаш commit тек өзгерген және қайта есептелген curve tracks жаңартады;
-- шапканың автоматты диапазондары қолданыстағы редакторларды жоймай орнында жаңартылады;
-- әр штрихтан кейін планшет толық қайта құрылмайды, сондықтан пішін, ендер және көлденең орын
-  сақталады;
-- толық form rebuild алдында pencil mode, preview және stale track/curve targets тазартылады;
-- candidate form алдымен тексеріліп, содан кейін ғана виджеттер ауыстырылады;
-- apply/rollback қателері журналға жазылады, ал rollback тек модельден қайта құрылады.
+- импортты қалпына келтіру, планшетті reset ету және пішін ауыстыру кезіндегі
+  `CurveHeaderEditor already deleted` қатесі түзетілді;
+- event filter немесе `deleteLater()` алдында әр QObject Shiboken арқылы тексеріледі;
+- бір stale wrapper қате берсе де қалған тректерді тазалау жалғасады және қайталама тазалау қауіпсіз;
+- өңделетін қисық тақырыбы 82 px-ден 52 px-ге, қарапайым белгі 38 px-ге қысқарды;
+- минимум, бірлік, максимум, шкала түрі және инженерлік сызғыш ықшам түрде сақталды;
+- бос орынды азайту үшін ортақ тақырып жолағы 360 px-пен шектелді;
+- QFont өлшемі `-1` және бастапқы түс stylesheet ескертулері түзетілді;
+- индекс қайталануы, біркелкі емес қадам және үзілістер бастапқы LAS-ты өзгертпейтін нақты
+  ұсыныстары бар бөгемейтін ескертулер болып қалды.
 
 ## Тексеру
 
-- focused logging/form/pencil/tablet suite: **245 passed**;
-- қолжетімді headless regression: **1048 passed, 4 skipped, 4 deselected**;
+- focused lifecycle/header/diagnostics suite: **125 passed**;
+- қолжетімді headless regression: **1052 passed, 4 skipped, 4 deselected**;
 - `compileall` сәтті;
-- Windows PySide6 smoke-test міндетті: нақты сурет салу, Undo/Redo, штрихтан кейін пішін ауыстыру
-  және diagnostics ZIP құру.
+- Windows/PySide6 smoke-test: проблемалық LAS, 20 пішін ауыстыру, қайталама reset және тар
+  бағандағы ықшам тақырыптарды визуалды тексеру міндетті.
 
 ## Келесі vertical slice
 
