@@ -1,21 +1,18 @@
 # Project plan
 
-Current on 24 July 2026. Hotfix **0.7.58** keeps project format v20, form schema v6, and tablet layout v16.
+Current on 24 July 2026. Hotfix **0.7.59** keeps project format v20, form schema v6, and tablet layout v16.
 
-## P0 — hotfix 0.7.58: complete header rows and readable screen plots
+## P0 — hotfix 0.7.59: safe switching of dense localized forms
 
-- [x] calculate header content and viewport geometry with pure functions;
-- [x] cap the viewport at six complete rows without exposing a partial next row;
-- [x] keep bottom clearance so the final parameter cannot slide under the plot;
-- [x] scroll dense headers one row at a time with a visible scrollbar;
-- [x] replace saturated hue-wheel fallback colours with a restrained palette;
-- [x] reduce screen saturation without changing persisted colours or print output;
-- [x] reduce only ordinary thin pens in multi-curve tracks;
-- [x] soften minor grids and hide them when pixel spacing is unreadable;
-- [x] synchronize README, status, testing, and RU/KK/EN release notes;
-- [ ] Windows/PySide6: verify forms with 1, 6, 7, 9, and 12 parameters at 100/125/150% DPI.
+- [x] initialize a localizer in every `TabletTrackWidget`;
+- [x] pass the active `TabletView` localizer to every new rendered track;
+- [x] keep a safe fallback for direct test/plugin widget construction;
+- [x] cover the track-creation boundary with a source-contract test;
+- [x] add a Qt regression test for a seven-parameter form and overflow tooltip;
+- [x] synchronize status, changelog, testing, and RU/KK/EN release notes;
+- [ ] Windows/PySide6: repeatedly switch dense forms under RU/KK/EN and verify rollback.
 
-Exit criterion: no parameter row is displayed partially, the final row is reachable through scrolling, and multi-curve plots remain readable without a neon palette or excessive minor grid.
+Exit criterion: a form with an internally scrollable header applies without `AttributeError`, while any unrelated failure preserves the previous working form.
 
 ## Next stages
 

@@ -40,6 +40,7 @@ from geoworkbench.tablet.tablet_view import (
     curve_legend_label,
 )
 from geoworkbench.project.annotation_schema import AnnotationKind
+from geoworkbench.services.localization import AppLanguage
 
 
 def make_curve(dataset_id: str, mnemonic: str, unit: str | None) -> CurveData:
@@ -55,6 +56,41 @@ def make_curve(dataset_id: str, mnemonic: str, unit: str | None) -> CurveData:
         np.array([1.0, 2.0]),
     )
 
+
+
+
+def test_dense_form_track_receives_active_localizer_and_renders_overflow_hint(qapp) -> None:
+    dataset = Dataset(
+        "dataset-localized-header",
+        "Localized header",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    mnemonics = [f"C{index}" for index in range(1, 8)]
+    for mnemonic in mnemonics:
+        curve = make_curve(dataset.dataset_id, mnemonic, "%")
+        dataset.curves[curve.metadata.curve_id] = curve
+
+    view = TabletView(language=AppLanguage.EN)
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "dense",
+                    "Dense",
+                    TrackKind.CURVE,
+                    curve_mnemonics=mnemonics,
+                )
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+
+    widget = view._rendered["dense"].widget
+    assert widget._localizer.language is AppLanguage.EN
+    assert "Scroll the header" in widget.curve_header_scroll.toolTip()
+    view.close()
 
 def test_curve_legend_label_includes_unit_only_when_present() -> None:
     assert curve_legend_label(make_curve("dataset", "C1", "%")) == "C1 [%]"

@@ -1,3 +1,12 @@
+# 0.7.59 — localized dense-header form switching hotfix (test build)
+
+- Initialized a localizer on every `TabletTrackWidget`, including direct/plugin construction.
+- Passed the active `TabletView` localizer into every rendered track.
+- Fixed form application failures on dense tracks whose header list exceeds six visible rows.
+- Preserved transactional rollback and the previous working form when rendering fails.
+- Added source-contract and Qt integration regression tests for localized overflow tooltips.
+- Kept project format v20, form schema v6 and tablet layout v16 unchanged.
+
 # 0.7.58 — complete curve-header rows and restrained screen plots (test build)
 
 - Snapped dense curve-header viewports to complete 58 px rows and added bottom safety clearance.

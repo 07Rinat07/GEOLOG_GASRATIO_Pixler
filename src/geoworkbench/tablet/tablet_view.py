@@ -1029,8 +1029,15 @@ class TabletTrackWidget(QFrame):
         definition: TrackDefinition,
         navigation_hint: str = "",
         vertical_axis: VerticalAxisDescriptor | None = None,
+        localizer: Localizer | None = None,
     ) -> None:
         super().__init__()
+        # Track widgets render localized overflow/help text themselves.  Keep a
+        # valid localizer on every instance, including direct test/plugin
+        # construction, and let TabletView pass its active language explicitly.
+        # The missing field previously raised AttributeError only on dense
+        # forms whose curve-header list overflowed the visible row limit.
+        self._localizer = localizer or Localizer.create(AppLanguage.RU)
         self.definition = definition
         self._resize_gesture: TrackResizeGesture | None = None
         self._header_drag_origin_x: int | None = None
@@ -4868,7 +4875,12 @@ class TabletView(QWidget):
     ) -> RenderedTrack:
         """Build and register one track through the lifecycle adapter boundary."""
 
-        track = TabletTrackWidget(definition, self._navigation_hint, axis_descriptor)
+        track = TabletTrackWidget(
+            definition,
+            self._navigation_hint,
+            axis_descriptor,
+            localizer=self._localizer,
+        )
         track.title.setText(self._localized_track_title(definition))
         if definition.kind is TrackKind.LITHOLOGY:
             hint = self._localizer.text("lithology.drag_hint")
