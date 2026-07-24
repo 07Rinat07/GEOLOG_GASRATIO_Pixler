@@ -19,7 +19,7 @@ Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, Excel, or 
 
 Legacy Delphi SKF forms can be imported from “Forms → Form Library → Import and export → Import SKF” or “Constructor → Tablet forms”. See [SKF_IMPORT.md](SKF_IMPORT.md).
 
-Version 0.7.50 fixes form switching after curve-scale editing. Deferred minimum/maximum commits and Qt signals are stopped before the previous form is destroyed. If an apply fails, the tablet never reuses old widgets; it rebuilds the last working form from its saved model.
+Version 0.7.51 adds persistent application logs. The Help menu can open the log directory or build a diagnostics ZIP for support. A pencil stroke now refreshes only affected curves, preserving the working form, column widths and horizontal position. Pencil mode is safely stopped before a form switch. See [Application diagnostics](APPLICATION_DIAGNOSTICS.md).
 
 ## Table editing
 

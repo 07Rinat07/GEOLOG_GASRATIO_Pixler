@@ -136,3 +136,16 @@ Form Manager передаёт исходный snapshot непосредстве
 рендерится и commit-ится внутри одной reversible transaction. При ошибке выполняется один rollback:
 предыдущая форма создаётся заново из deep copy модели. Повторный rollback из вызывающего диалога
 запрещён, так как он конкурировал с deferred Qt deletion и мог повредить уже восстановленный экран.
+
+## Runtime-диагностика и pencil-safe refresh 0.7.51
+
+Curve-pencil commit больше не вызывает `TabletView.set_dataset()` и не пересоздаёт полное
+Qt-дерево формы. `refresh_dataset_curves()` расширяет original/canonical mnemonics, сбрасывает
+геометрический cache только этих кривых и выполняет `DATA | STATIC` invalidation только для
+треков, содержащих изменённые либо пересчитанные параметры. Остальные track widgets, ширины,
+scroll position и form layout остаются живыми.
+
+Любой настоящий layout rebuild сначала завершает pencil mode, удаляет preview и очищает stable
+track/curve target до disposal старых виджетов. Form candidate проверяется до этого шага. Apply,
+render и rollback имеют стабильные event codes в `geolog.log`; при ошибке support bundle содержит
+traceback, но не копирует проектные данные.

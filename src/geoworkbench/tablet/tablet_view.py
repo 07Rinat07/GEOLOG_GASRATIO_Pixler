@@ -76,6 +76,7 @@ from geoworkbench.project.annotation_schema import (
     is_annotation_object,
 )
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
+from geoworkbench.services.application_logging import log_event, log_exception
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.services.time_display import (
@@ -733,6 +734,40 @@ class CurveHeaderEditor(QFrame):
             + (f" {unit}" if unit else "")
         )
 
+    def update_display_range(
+        self, minimum: float, maximum: float, scale: XScale, unit: str
+    ) -> None:
+        """Refresh an automatic range without replacing this Qt editor.
+
+        Curve-pencil commits update values in the current Dataset.  Recreating
+        the complete header for that data-only change would dispose focused Qt
+        controls and reintroduce the form-switch lifecycle failure.  The existing
+        editor is therefore updated in place with signals and debounce disabled.
+        """
+
+        if self._disposed:
+            return
+        self._range_commit_timer.stop()
+        self._loading = True
+        try:
+            self.minimum.setValue(float(minimum))
+            self.maximum.setValue(float(maximum))
+            self.unit.setText(str(unit))
+            scale_index = self.scale.findData(scale.value)
+            if scale_index >= 0:
+                self.scale.setCurrentIndex(scale_index)
+            self.ruler.set_values(float(minimum), float(maximum), scale)
+            self.setToolTip(
+                f"{self._title_text} · {float(minimum):g} … "
+                f"{float(maximum):g} {str(unit).strip()} [{self.mnemonic}]"
+            )
+        except RuntimeError:
+            # The owner may already be inside a full Qt disposal path.  That path
+            # will rebuild the header from the serialized layout model.
+            self._disposed = True
+        finally:
+            self._loading = False
+
     def set_selected(self, selected: bool) -> None:
         if self._disposed:
             return
@@ -1079,6 +1114,17 @@ class TabletTrackWidget(QFrame):
         self.curve_header_scroll.setMinimumHeight(normalized)
         self.curve_header_scroll.setMaximumHeight(normalized)
         self.curve_header_scroll.setFixedHeight(normalized)
+
+    def update_curve_header_range(
+        self, mnemonic: str, minimum: float, maximum: float, scale: XScale, unit: str
+    ) -> bool:
+        """Update one editable header without replacing any child widgets."""
+
+        label = self._curve_header_labels.get(mnemonic)
+        if not isinstance(label, CurveHeaderEditor):
+            return False
+        label.update_display_range(minimum, maximum, scale, unit)
+        return True
 
     def set_selected_curve(self, mnemonic: str | None) -> None:
         for key, label in self._curve_header_labels.items():
@@ -2867,6 +2913,7 @@ class TabletView(QWidget):
         if not enabled:
             was_enabled = self._curve_pencil_enabled
             active_mnemonic = self._curve_pencil_mnemonic or ""
+            active_track = self._curve_pencil_track_id or ""
             self._curve_pencil_enabled = False
             self._curve_pencil_points.clear()
             self._curve_pencil_last_hover = None
@@ -2874,13 +2921,33 @@ class TabletView(QWidget):
             self._curve_pencil_button.blockSignals(True)
             self._curve_pencil_button.setChecked(False)
             self._curve_pencil_button.blockSignals(False)
-            self._apply_geological_mode_cursors()
+            try:
+                self._apply_geological_mode_cursors()
+            except RuntimeError as exc:
+                # A failed previous render may have left a deleted Qt wrapper in
+                # the rendered map.  Disabling the tool must still complete; the
+                # subsequent full rebuild replaces that map from the model.
+                log_exception(
+                    "tablet.pencil.cursor_cleanup_failed",
+                    exc,
+                    track_id=active_track,
+                    mnemonic=active_mnemonic,
+                )
+            self._curve_pencil_track_id = None
+            self._curve_pencil_mnemonic = None
+            self._curve_pencil_curve_id = None
             self._update_curve_pencil_status()
             if was_enabled:
+                log_event(
+                    "tablet.pencil.disabled",
+                    track_id=active_track,
+                    mnemonic=active_mnemonic,
+                )
                 self.curve_pencil_mode_changed.emit(False, active_mnemonic)
             return True
 
         if self._dataset is None:
+            log_event("tablet.pencil.enable_rejected", reason="dataset-missing")
             return False
         if track_id is not None and mnemonic is not None:
             requested = (track_id, mnemonic)
@@ -2901,6 +2968,12 @@ class TabletView(QWidget):
                 and len(data) == 2
                 and self._set_curve_pencil_target(str(data[0]), str(data[1]))
             ):
+                log_event(
+                    "tablet.pencil.enable_rejected",
+                    reason="editable-target-missing",
+                    requested_track=track_id or "",
+                    requested_mnemonic=mnemonic or "",
+                )
                 return False
         self._curve_pencil_enabled = True
         self._curve_pencil_points.clear()
@@ -2911,6 +2984,13 @@ class TabletView(QWidget):
         self._apply_curve_pencil_cursors()
         self._scroll_to_curve_pencil_target()
         self._update_curve_pencil_status()
+        log_event(
+            "tablet.pencil.enabled",
+            track_id=self._curve_pencil_track_id or "",
+            mnemonic=self._curve_pencil_mnemonic or "",
+            curve_id=self._curve_pencil_curve_id or "",
+            mode=self._curve_pencil_mode.value,
+        )
         self.curve_pencil_mode_changed.emit(True, self._curve_pencil_mnemonic or "")
         return True
 
@@ -3294,11 +3374,28 @@ class TabletView(QWidget):
         new_values[order] = sorted_values
         self._curve_pencil_commit_ack = None
         self._curve_pencil_commit_error = ""
+        log_event(
+            "tablet.pencil.commit_requested",
+            track_id=self._curve_pencil_track_id or "",
+            mnemonic=self._curve_pencil_mnemonic or "",
+            curve_id=self._curve_pencil_curve_id,
+            points=len(points),
+            samples=int(indices.size),
+            top=top,
+            bottom=bottom,
+        )
         self.curve_edit_requested.emit(self._curve_pencil_curve_id, indices, new_values)
         # Legacy/test receivers may not acknowledge explicitly.  In that case the
         # emitted request is treated as accepted.  The real application always
         # acknowledges success or failure synchronously from MainWindow.
-        return self._curve_pencil_commit_ack is not False
+        accepted = self._curve_pencil_commit_ack is not False
+        log_event(
+            "tablet.pencil.commit_finished",
+            accepted=accepted,
+            error=self._curve_pencil_commit_error,
+            mnemonic=self._curve_pencil_mnemonic or "",
+        )
+        return accepted
 
     def _handle_curve_pencil_event(
         self,
@@ -4006,6 +4103,82 @@ class TabletView(QWidget):
         self._replace_dataset_reference(dataset)
         self.refresh_view()
 
+    def refresh_dataset_curves(
+        self, dataset: Dataset, mnemonics: tuple[str, ...] | list[str] | set[str]
+    ) -> int:
+        """Refresh edited curves without rebuilding the form widget tree.
+
+        Pencil edits mutate the current Dataset in memory.  Replacing the complete
+        tablet after every stroke used to delete every CurveHeaderEditor, reset the
+        horizontal scroll position and leave the active pencil target pointing at
+        destroyed Qt objects.  A data-only invalidation preserves the working form,
+        column widths and editor lifecycle while updating affected curves and their
+        automatic header ranges in place.
+        """
+
+        current_id = self._dataset.dataset_id if self._dataset is not None else None
+        if current_id != dataset.dataset_id:
+            self.set_dataset(dataset)
+            return len(self._rendered)
+
+        self._dataset = dataset
+        requested = {str(item).strip() for item in mnemonics if str(item).strip()}
+        changed = set(requested)
+        for mnemonic in tuple(requested):
+            curve = dataset.curve_by_mnemonic(mnemonic)
+            if curve is None:
+                continue
+            changed.add(curve.metadata.original_mnemonic)
+            if curve.metadata.canonical_mnemonic:
+                changed.add(curve.metadata.canonical_mnemonic)
+        if not changed:
+            return 0
+        for mnemonic in changed:
+            self._geometry_cache.invalidate_curve(mnemonic)
+
+        track_ids: list[str] = []
+        for track_id, rendered in self._rendered.items():
+            affected = changed.intersection(rendered.definition.curve_mnemonics)
+            if not affected:
+                continue
+            track_ids.append(track_id)
+            # Preserve every existing CurveHeaderEditor.  Automatic ranges are
+            # refreshed in place; the curve geometry receives a data-only dirty
+            # reason, so no form/header widget is recreated after a pencil stroke.
+            if not is_relative_gas_track(rendered.definition.curve_mnemonics):
+                for mnemonic in affected:
+                    curve = dataset.curve_by_mnemonic(mnemonic)
+                    if curve is None:
+                        continue
+                    settings = rendered.definition.curve_display_settings(mnemonic)
+                    if not settings.automatic_range:
+                        continue
+                    minimum, maximum = self._curve_display_range(
+                        rendered.definition,
+                        mnemonic,
+                        np.asarray(curve.values, dtype=float),
+                    )
+                    source_unit = (curve.metadata.unit or "").strip()
+                    unit = (
+                        settings.unit_override
+                        if settings.unit_override is not None
+                        else source_unit
+                    )
+                    rendered.widget.update_curve_header_range(
+                        mnemonic, minimum, maximum, settings.x_scale, unit
+                    )
+            self.invalidate_track(track_id, DirtyReason.DATA)
+        updated = self.refresh_dirty_tracks() if track_ids else 0
+        log_event(
+            "tablet.curves.incremental_refresh",
+            dataset_id=dataset.dataset_id,
+            mnemonics=",".join(sorted(changed)),
+            tracks=",".join(track_ids),
+            updated=updated,
+            pencil_active=self._curve_pencil_enabled,
+        )
+        return updated
+
     def set_canvas_objects(self, canvas_objects: list[CanvasObject]) -> None:
         """Synchronize project canvas objects without rebuilding curves.
 
@@ -4602,7 +4775,19 @@ class TabletView(QWidget):
         rendered.widget.deleteLater()
 
     def clear(self) -> None:
-        self.cancel_curve_pencil_gesture()
+        # A full widget-tree rebuild invalidates the active track and all header
+        # editors.  Leave pencil mode before disposal instead of carrying stale
+        # Qt references into the next form.  Data-only pencil updates use
+        # refresh_dataset_curves() and therefore do not pass through this path.
+        if self._curve_pencil_enabled:
+            log_event(
+                "tablet.pencil.cancelled_for_full_rebuild",
+                track_id=self._curve_pencil_track_id or "",
+                mnemonic=self._curve_pencil_mnemonic or "",
+            )
+            self.set_curve_pencil_mode(False)
+        else:
+            self.cancel_curve_pencil_gesture()
         self.cancel_interval_interaction(emit_signal=False)
         self.cancel_lithology_interaction()
         self.cancel_sample_interaction()
@@ -4630,10 +4815,31 @@ class TabletView(QWidget):
 
     def refresh_view(self) -> None:
         if self._layout_rebuild_active:
+            log_event("tablet.render.full.skipped", reason="already-rebuilding")
             return
         self._layout_rebuild_active = True
+        log_event(
+            "tablet.render.full.started",
+            dataset_id=self._dataset.dataset_id if self._dataset is not None else "",
+            tracks=len(self._layout_model.tracks),
+            visible_tracks=len(self._layout_model.visible_tracks()),
+            pencil_active=self._curve_pencil_enabled,
+        )
         try:
             self._refresh_view_impl()
+        except BaseException as exc:
+            log_exception(
+                "tablet.render.full.failed",
+                exc,
+                dataset_id=self._dataset.dataset_id if self._dataset is not None else "",
+                tracks=len(self._layout_model.tracks),
+            )
+            raise
+        else:
+            log_event(
+                "tablet.render.full.finished",
+                rendered_tracks=len(self._rendered),
+            )
         finally:
             self._layout_rebuild_active = False
 

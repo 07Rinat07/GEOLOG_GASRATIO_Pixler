@@ -23,12 +23,29 @@
 Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
 в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
 
-Для hotfix 0.7.50 в текущем контейнере выполнены `compileall`, focused
-form/layout/lifecycle-набор — **171 passed**, и доступная headless-регрессия —
-**1044 passed, 4 skipped, 4 deselected**. Исключённые collection-модули требуют отсутствующие
+Для hotfix 0.7.51 в текущем контейнере выполнены `compileall`, focused
+logging/form/pencil/tablet-набор — **245 passed**, и доступная headless-регрессия —
+**1048 passed, 4 skipped, 4 deselected**. Исключённые collection-модули требуют отсутствующие
 `PySide6`, `pyqtgraph` или `lasio`; Ruff и mypy в контейнере также отсутствуют. Это не заменяет
-полный gate. Перед stable обязателен Windows/PySide6 smoke-test быстрого переключения форм,
-редактирования range перед переключением, реальных DB/LAS, PDF и physical print.
+полный gate. Перед stable обязателен Windows/PySide6 smoke-test реального карандаша, Undo/Redo,
+переключения форм сразу после штриха, создания diagnostics ZIP, реальных DB/LAS, PDF и печати.
+
+## Runtime-диагностика и lifecycle карандаша 0.7.51
+
+Обязательные проверки:
+
+- при запуске создаётся UTF-8 `geolog.log`, а ротация не удаляет все предыдущие журналы;
+- uncaught Python/thread exception сохраняет exception type и полный traceback;
+- Qt messages и исключения из event handler получают стабильный event code;
+- diagnostics ZIP содержит system report и журналы, но не копирует LAS/project/form assets;
+- Help menu открывает log directory, копирует путь и сохраняет diagnostics ZIP;
+- pencil commit не вызывает `TabletView.set_dataset()` и полный widget-tree rebuild;
+- обновляются edited, affected и recalculated mnemonics во всех содержащих их треках;
+- column widths, horizontal scroll и unrelated widgets не меняются после штриха;
+- полный layout rebuild сначала выключает pencil mode и очищает stale targets;
+- candidate form проверяется до деактивации карандаша; apply/rollback exception попадает в log;
+- Windows/PySide6: несколько штрихов, Undo/Redo и 20 form switches без исчезновения колонок,
+  `Internal C++ object already deleted` и потери первой формы.
 
 ## Безопасный Qt lifecycle форм 0.7.50
 

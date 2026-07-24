@@ -1,3 +1,13 @@
+# 0.7.51 — Persistent diagnostics and safe pencil/form lifecycle (test build)
+
+- Added rotating application/crash logs, Python/thread exception hooks, Qt message capture, and Qt event exception logging.
+- Added Help actions to open logs, copy the current path, and build a privacy-bounded diagnostics ZIP.
+- Logged form transactions, tablet rebuilds, pencil commits, incremental curve refreshes, and rollback failures.
+- Replaced the full tablet rebuild after each pencil stroke with affected-track data/static invalidation.
+- Disabled pencil mode and cleared stale targets before every full form rebuild.
+- Kept project format v20, form schema v6, and tablet layout v16 unchanged.
+- Verification: 245 focused passed; 1048 headless passed, 4 skipped, 4 deselected.
+
 # 0.7.50 — Safe Qt form lifecycle and single model rollback (test build)
 
 - Explicitly disposed debounced curve-header editors before deleting their Qt tree.

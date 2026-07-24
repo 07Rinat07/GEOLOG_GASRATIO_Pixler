@@ -273,3 +273,11 @@ Checkpoint подписывает row count, dataset projection, event/QC projec
 `replay_acquisition_session()` воспроизводит журнал с начала либо продолжает только после verified
 checkpoint; divergence блокирует результат. Производная lag/depth boundary реализована отдельно и
 не меняет append-only source.
+
+## Application diagnostics boundary (0.7.51)
+
+`services/application_logging.py` is the single persistent runtime logging boundary. It owns the
+rotating UTF-8 handler, faulthandler file, Python/thread exception hooks and privacy-bounded support
+bundle. Qt integration is installed in `app/main.py`; domain and service modules emit stable event
+names without depending on Qt. Diagnostic bundles include logs and runtime metadata only and never
+traverse project asset directories.

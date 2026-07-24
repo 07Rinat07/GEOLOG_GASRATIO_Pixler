@@ -25,6 +25,7 @@
 - [IMPORT_REVIEW.md](IMPORT_REVIEW.md) — interactive mapping, QC preview, and atomic import acceptance.
 - [OPERATIONAL_EVENTS.md](OPERATIONAL_EVENTS.md) — typed drilling/geology events, QC, storage, and report projection.
 - [ACQUISITION_REPLAY.md](ACQUISITION_REPLAY.md) — append-only source, growing dataset, checkpoints, backpressure, and replay.
+- [APPLICATION_DIAGNOSTICS.md](en/APPLICATION_DIAGNOSTICS.md) — persistent logs, support bundle, and privacy boundary.
 
 ## Main workflows
 
@@ -43,7 +44,9 @@
 - DOCX/HTML export: [RU](ru/DOCX_HTML_EXPORT.md) · [KK](kk/DOCX_HTML_EXPORT.md) · [EN](en/DOCX_HTML_EXPORT.md)
 - Operational events: [RU](ru/OPERATIONAL_EVENTS.md) · [KK](kk/OPERATIONAL_EVENTS.md) · [EN](en/OPERATIONAL_EVENTS.md)
 - Acquisition replay: [RU](ru/ACQUISITION_REPLAY.md) · [KK](kk/ACQUISITION_REPLAY.md) · [EN](en/ACQUISITION_REPLAY.md)
+- Application diagnostics: [RU](ru/APPLICATION_DIAGNOSTICS.md) · [KK](kk/APPLICATION_DIAGNOSTICS.md) · [EN](en/APPLICATION_DIAGNOSTICS.md)
 - Startup splash 0.7.43: [RU](ru/RELEASE_NOTES_0.7.43.md) · [KK](kk/RELEASE_NOTES_0.7.43.md) · [EN](en/RELEASE_NOTES_0.7.43.md)
+- Runtime diagnostics and safe pencil lifecycle 0.7.51: [RU](ru/RELEASE_NOTES_0.7.51.md) · [KK](kk/RELEASE_NOTES_0.7.51.md) · [EN](en/RELEASE_NOTES_0.7.51.md)
 - Safe Qt form lifecycle 0.7.50: [RU](ru/RELEASE_NOTES_0.7.50.md) · [KK](kk/RELEASE_NOTES_0.7.50.md) · [EN](en/RELEASE_NOTES_0.7.50.md)
 - Responsive curve ranges and transactional forms 0.7.49: [RU](ru/RELEASE_NOTES_0.7.49.md) · [KK](kk/RELEASE_NOTES_0.7.49.md) · [EN](en/RELEASE_NOTES_0.7.49.md)
 - Engineering curve-header scale and editable units 0.7.48: [RU](ru/RELEASE_NOTES_0.7.48.md) · [KK](kk/RELEASE_NOTES_0.7.48.md) · [EN](en/RELEASE_NOTES_0.7.48.md)

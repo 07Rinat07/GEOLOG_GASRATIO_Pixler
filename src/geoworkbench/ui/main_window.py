@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, replace
+from datetime import datetime
 from pathlib import Path
 from weakref import ref
 
 import numpy as np
-from PySide6.QtCore import QSize, QStandardPaths, Qt
+from PySide6.QtCore import QUrl, QSize, QStandardPaths, Qt
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
     QCursor,
+    QDesktopServices,
     QDragEnterEvent,
     QDropEvent,
     QIcon,
@@ -146,6 +148,11 @@ from geoworkbench.services.import_jobs import (
     DatasetImportJobExecutor,
     ImportJobController,
     ImportSourceKind,
+)
+from geoworkbench.services.application_logging import (
+    current_application_log_manager,
+    log_event,
+    log_exception,
 )
 from geoworkbench.services.import_diagnostics import (
     ImportDiagnostic,
@@ -1667,6 +1674,31 @@ class MainWindow(QMainWindow):
         self._set_action_help(self.remove_track_action, "ui.help.remove_track")
         self.remove_track_action.triggered.connect(self.remove_selected_track)
         tablet_menu.addAction(self.remove_track_action)
+
+        self.open_logs_action = self._localized_action("diagnostics.open_logs")
+        self.open_logs_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
+        )
+        self.open_logs_action.triggered.connect(self.open_log_folder)
+        help_menu.addAction(self.open_logs_action)
+
+        self.copy_log_path_action = self._localized_action(
+            "diagnostics.copy_log_path"
+        )
+        self.copy_log_path_action.triggered.connect(self.copy_current_log_path)
+        help_menu.addAction(self.copy_log_path_action)
+
+        self.build_diagnostics_action = self._localized_action(
+            "diagnostics.build_bundle"
+        )
+        self.build_diagnostics_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
+        )
+        self.build_diagnostics_action.triggered.connect(
+            self.build_diagnostic_bundle
+        )
+        help_menu.addAction(self.build_diagnostics_action)
+        help_menu.addSeparator()
 
         about_action = self._localized_action("shell.about")
         about_action.triggered.connect(self.show_about)
@@ -3870,6 +3902,24 @@ class MainWindow(QMainWindow):
         else:
             self.statusBar().showMessage(self._t("shell.curve_pencil_inactive_status"), 3000)
 
+    def _deactivate_curve_pencil_for_layout_change(self, reason: str) -> None:
+        """End curve editing before a form replaces the Qt widget tree."""
+
+        target = self.tablet_view.curve_pencil_target
+        was_active = self.tablet_view.curve_pencil_enabled or self.pencil_action.isChecked()
+        self.curve_view.set_edit_mode(False)
+        self.tablet_view.set_curve_pencil_mode(False)
+        self.pencil_action.blockSignals(True)
+        self.pencil_action.setChecked(False)
+        self.pencil_action.blockSignals(False)
+        if was_active:
+            log_event(
+                "forms.pencil.deactivated_for_layout_change",
+                reason=reason,
+                track_id=target[0] if target is not None else "",
+                mnemonic=target[1] if target is not None else "",
+            )
+
     def _start_curve_pencil_from_tablet(self, track_id: str, mnemonic: str) -> None:
         editable = {item_mnemonic for _, item_mnemonic in self._editable_curve_choices()}
         target = mnemonic if mnemonic in editable else self._choose_curve_for_pencil(mnemonic)
@@ -3929,6 +3979,13 @@ class MainWindow(QMainWindow):
         indices: object,
         new_values: object,
     ) -> None:
+        sample_count = int(np.asarray(indices).size)
+        log_event(
+            "curve_edit.requested",
+            curve_id=curve_id,
+            samples=sample_count,
+            tablet_pencil=self.tablet_view.curve_pencil_enabled,
+        )
         try:
             outcome = self.curve_editing_controller.edit_curve(
                 curve_id,
@@ -3937,6 +3994,12 @@ class MainWindow(QMainWindow):
                 description="Карандаш",
             )
         except (IndexError, KeyError, RuntimeError, ValueError) as exc:
+            log_exception(
+                "curve_edit.failed",
+                exc,
+                curve_id=curve_id,
+                samples=sample_count,
+            )
             self.tablet_view.acknowledge_curve_pencil_commit(False, str(exc))
             QMessageBox.warning(self, "Редактор кривой", str(exc))
             return
@@ -3967,7 +4030,16 @@ class MainWindow(QMainWindow):
             self.curve_view.set_edit_mode(
                 self.pencil_action.isChecked() and not tablet_pencil_active
             )
-            self.tablet_view.set_dataset(dataset)
+            changed_mnemonics = tuple(
+                dict.fromkeys(
+                    (
+                        outcome.mnemonic,
+                        *outcome.affected_mnemonics,
+                        *outcome.recalculated_mnemonics,
+                    )
+                )
+            )
+            self.tablet_view.refresh_dataset_curves(dataset, changed_mnemonics)
             self.las_table_editor.set_dataset(dataset)
         self._update_curve_edit_actions()
         self._update_title()
@@ -3986,6 +4058,16 @@ class MainWindow(QMainWindow):
         self._log(
             f"{outcome.operation}: {outcome.mnemonic}; зависимые: {affected}; "
             f"пересчитано: {recalculated}; ошибки: {failed}"
+        )
+        log_event(
+            "curve_edit.completed",
+            operation=outcome.operation,
+            dataset_id=outcome.dataset_id,
+            mnemonic=outcome.mnemonic,
+            affected=",".join(outcome.affected_mnemonics),
+            recalculated=",".join(outcome.recalculated_mnemonics),
+            failed=",".join(outcome.failed_mnemonics),
+            incremental_tablet_refresh=True,
         )
 
     def _after_table_edit(self) -> None:
@@ -4075,6 +4157,15 @@ class MainWindow(QMainWindow):
     def show_form_manager(self) -> None:
         snapshot = self._capture_tablet_form_snapshot()
         preview_applied = False
+        log_event(
+            "forms.manager.opened",
+            dataset_id=(
+                self.session.current_dataset.dataset_id
+                if self.session.current_dataset is not None
+                else ""
+            ),
+            pencil_active=self.tablet_view.curve_pencil_enabled,
+        )
 
         def preview(form) -> None:
             nonlocal preview_applied
@@ -4100,14 +4191,29 @@ class MainWindow(QMainWindow):
                 try:
                     self._restore_tablet_form_snapshot(snapshot)
                 except Exception as exc:
+                    log_exception(
+                        "forms.manager.cancel_restore_failed",
+                        exc,
+                    )
                     QMessageBox.warning(
                         self,
                         self._t("forms.title"),
                         self._t("forms.rollback_failed", error=str(exc)),
                     )
+            log_event(
+                "forms.manager.closed",
+                accepted=False,
+                preview_applied=preview_applied,
+            )
             return
         self.apply_form_to_tablet(
             dialog.selected_form, rollback_snapshot=snapshot
+        )
+        log_event(
+            "forms.manager.closed",
+            accepted=True,
+            form_id=getattr(dialog.selected_form, "form_id", ""),
+            form_name=getattr(dialog.selected_form, "name", ""),
         )
 
     def _choose_and_import_skf(self) -> bool:
@@ -4203,6 +4309,11 @@ class MainWindow(QMainWindow):
         # them and rebuilds the previous form solely from this serialized model.
         previous_transaction_state = self._form_layout_transaction_active
         self._form_layout_transaction_active = True
+        log_event(
+            "forms.rollback.started",
+            tracks=len(restored.tracks),
+            selected_track=snapshot.selected_track_id or "",
+        )
         try:
             self.tablet_controller.restore_layout(
                 restored, dirty=snapshot.session_dirty
@@ -4214,6 +4325,17 @@ class MainWindow(QMainWindow):
             self._refresh_annotation_layer()
             self._refresh_tree()
             self._update_title()
+            log_event(
+                "forms.rollback.finished",
+                tracks=len(restored.tracks),
+            )
+        except BaseException as exc:
+            log_exception(
+                "forms.rollback.failed",
+                exc,
+                tracks=len(restored.tracks),
+            )
+            raise
         finally:
             self._form_layout_transaction_active = previous_transaction_state
 
@@ -4229,9 +4351,24 @@ class MainWindow(QMainWindow):
         if dataset is None:
             QMessageBox.information(self, self._t("forms.title"), self._t("forms.open_first"))
             return False
+        log_event(
+            "forms.apply.requested",
+            form_id=getattr(form, "form_id", ""),
+            form_name=getattr(form, "name", ""),
+            dataset_id=dataset.dataset_id,
+            preview=not mark_dirty,
+            pencil_active=self.tablet_view.curve_pencil_enabled,
+        )
         try:
             result = self.form_apply_engine.build_layout(form, dataset)
         except (KeyError, RuntimeError, TypeError, ValueError) as exc:
+            log_exception(
+                "forms.apply.build_failed",
+                exc,
+                form_id=getattr(form, "form_id", ""),
+                form_name=getattr(form, "name", ""),
+                dataset_id=dataset.dataset_id,
+            )
             if notify:
                 QMessageBox.warning(self, self._t("forms.title"), str(exc))
             else:
@@ -4239,12 +4376,26 @@ class MainWindow(QMainWindow):
                 self._log(str(exc))
             return False
 
+        # A form replaces the whole track/header widget tree.  The active pencil
+        # must be ended only after the candidate model is known to be valid, and
+        # before any existing Qt object is disposed.
+        self._deactivate_curve_pencil_for_layout_change("form-apply")
         snapshot = rollback_snapshot or self._capture_tablet_form_snapshot()
         assert snapshot is not None
 
         def render_candidate(layout: TabletLayout) -> None:
+            log_event(
+                "forms.apply.render_started",
+                tracks=len(layout.tracks),
+                form_id=getattr(form, "form_id", ""),
+            )
             self.tablet_view.set_layout_and_dataset(
                 layout, dataset, preserve_current_range=True
+            )
+            log_event(
+                "forms.apply.render_finished",
+                tracks=len(layout.tracks),
+                form_id=getattr(form, "form_id", ""),
             )
 
         def commit_candidate(layout: TabletLayout) -> None:
@@ -4262,6 +4413,19 @@ class MainWindow(QMainWindow):
                 restore_snapshot=self._restore_tablet_form_snapshot,
             )
         except ReversibleApplyError as exc:
+            log_exception(
+                "forms.apply.failed",
+                exc.operation_error,
+                form_id=getattr(form, "form_id", ""),
+                form_name=getattr(form, "name", ""),
+                rollback_failed=exc.rollback_error is not None,
+            )
+            if exc.rollback_error is not None:
+                log_exception(
+                    "forms.apply.rollback_failed",
+                    exc.rollback_error,
+                    form_id=getattr(form, "form_id", ""),
+                )
             message = self._t(
                 "forms.apply_failed_restored", error=str(exc.operation_error)
             )
@@ -4293,6 +4457,14 @@ class MainWindow(QMainWindow):
         if notify:
             self.statusBar().showMessage(message)
             self._log(message)
+        log_event(
+            "forms.apply.completed",
+            form_id=getattr(form, "form_id", ""),
+            form_name=getattr(form, "name", ""),
+            tracks=len(result.layout.tracks),
+            missing=len(result.missing),
+            mark_dirty=mark_dirty,
+        )
         return True
 
     def build_default_tablet(self) -> None:
@@ -7088,9 +7260,117 @@ class MainWindow(QMainWindow):
 
     def _log(self, text: str) -> None:
         self.issues.append(text)
+        log_event("ui.issue", text=text)
         normalized = text.casefold()
         if "ошибка" in normalized or "error" in normalized or "failed" in normalized:
             self.issues_dock.show()
+
+    def _diagnostic_runtime_context(self) -> dict[str, object]:
+        dataset = self.session.current_dataset
+        target = self.tablet_view.curve_pencil_target
+        return {
+            "language": self.language.value,
+            "project_name": self.session.project.name,
+            "project_dirty": self.session.dirty,
+            "dataset_id": dataset.dataset_id if dataset is not None else "",
+            "dataset_name": dataset.name if dataset is not None else "",
+            "tablet_track_count": len(self.tablet_view.layout_model.tracks),
+            "tablet_visible_track_count": len(
+                self.tablet_view.layout_model.visible_tracks()
+            ),
+            "selected_track_id": self._selected_track_id or "",
+            "pencil_active": self.tablet_view.curve_pencil_enabled,
+            "pencil_track_id": target[0] if target is not None else "",
+            "pencil_mnemonic": target[1] if target is not None else "",
+            "form_transaction_active": self._form_layout_transaction_active,
+        }
+
+    def open_log_folder(self) -> None:
+        manager = current_application_log_manager()
+        if manager is None:
+            QMessageBox.warning(
+                self, self._t("diagnostics.title"), self._t("diagnostics.unavailable")
+            )
+            return
+        manager.flush()
+        opened = QDesktopServices.openUrl(
+            QUrl.fromLocalFile(str(manager.log_directory))
+        )
+        log_event(
+            "diagnostics.log_folder.opened",
+            path=manager.log_directory,
+            opened=opened,
+        )
+        if not opened:
+            QMessageBox.information(
+                self,
+                self._t("diagnostics.title"),
+                self._t("diagnostics.log_folder_path", path=manager.log_directory),
+            )
+
+    def copy_current_log_path(self) -> None:
+        manager = current_application_log_manager()
+        if manager is None:
+            QMessageBox.warning(
+                self, self._t("diagnostics.title"), self._t("diagnostics.unavailable")
+            )
+            return
+        manager.flush()
+        QApplication.clipboard().setText(str(manager.current_log_path))
+        self.statusBar().showMessage(
+            self._t("diagnostics.path_copied", path=manager.current_log_path), 5000
+        )
+        log_event(
+            "diagnostics.log_path.copied",
+            path=manager.current_log_path,
+        )
+
+    def build_diagnostic_bundle(self) -> None:
+        manager = current_application_log_manager()
+        if manager is None:
+            QMessageBox.warning(
+                self, self._t("diagnostics.title"), self._t("diagnostics.unavailable")
+            )
+            return
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        default_directory = Path(
+            QStandardPaths.writableLocation(
+                QStandardPaths.StandardLocation.DesktopLocation
+            )
+        )
+        default_path = default_directory / f"GEOLOG_diagnostics_{timestamp}.zip"
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("diagnostics.save_title"),
+            str(default_path),
+            "ZIP (*.zip)",
+        )
+        if not filename:
+            return
+        target = Path(filename)
+        if target.suffix.lower() != ".zip":
+            target = target.with_suffix(".zip")
+        try:
+            result = manager.build_diagnostic_bundle(
+                target, runtime_context=self._diagnostic_runtime_context()
+            )
+        except (OSError, RuntimeError, ValueError) as exc:
+            log_exception("diagnostics.bundle.failed", exc, destination=target)
+            QMessageBox.critical(
+                self,
+                self._t("diagnostics.title"),
+                self._t("diagnostics.save_failed", error=str(exc)),
+            )
+            return
+        QMessageBox.information(
+            self,
+            self._t("diagnostics.title"),
+            self._t(
+                "diagnostics.bundle_saved",
+                path=result.path,
+                count=len(result.included_files),
+            ),
+        )
 
     def show_about(self) -> None:
         dialog = QMessageBox(self)

@@ -1,25 +1,28 @@
 # План проекта
 
-Актуально на 24 июля 2026 года. Hotfix 0.7.50 сохраняет project format v20, form schema v6 и
-tablet layout v16. Следующий предметный этап после Windows-подтверждения — read-only offline
-WITSML 2.1 inventory и mapping fixtures.
+Актуально на 24 июля 2026 года. Hotfix 0.7.51 сохраняет project format v20, form schema v6 и
+tablet layout v16. После Windows-подтверждения исправлений следующий предметный этап —
+read-only offline WITSML 2.1 inventory и mapping fixtures.
 
-## P0 — hotfix 0.7.50: безопасный жизненный цикл форм
+## P0 — hotfix 0.7.51: диагностика и безопасный lifecycle карандаша
 
-- [x] останавливать debounce-таймеры шапки до удаления старого Qt-дерева;
-- [x] блокировать сигналы minimum, maximum, unit и scale при disposal;
-- [x] снимать event filters трека до `deleteLater`;
-- [x] запрещать обработку header mutations во время layout transaction/rebuild;
-- [x] восстанавливать форму только из deep-copied `TabletLayout`, не сохраняя ссылки на widgets;
-- [x] использовать один исходный rollback snapshot для принятой формы;
-- [x] убрать повторный rollback в Form Manager после reversible apply;
-- [x] сохранить отдельный rollback исходной формы при Cancel после preview;
-- [x] покрыть disposal, single rollback и rebuild guard headless-тестами;
-- [ ] выполнить Windows/PySide6 smoke-test: 20 последовательных переключений между широкими и
-  узкими формами, включая редактирование minimum/maximum непосредственно перед переключением.
+- [x] вести вращаемый UTF-8 журнал в каталоге данных приложения;
+- [x] записывать необработанные Python/thread exceptions и полный traceback;
+- [x] перехватывать Qt messages и исключения, вышедшие из Qt event handlers;
+- [x] журналировать form apply/preview/rollback, tablet render и curve-pencil commit;
+- [x] добавить команды открытия журнала, копирования пути и создания diagnostics ZIP;
+- [x] исключить из diagnostics ZIP значения LAS, проектные assets и сохранённые формы;
+- [x] после карандаша обновлять только затронутые curve tracks без полного rebuild;
+- [x] сохранять размеры колонок, scroll position и остальные виджеты формы после штриха;
+- [x] перед полным rebuild выключать карандаш и очищать stale track/curve targets;
+- [x] перед form apply сначала проверять candidate model, затем завершать pencil mode;
+- [x] покрыть logging, bundle privacy и lifecycle source contracts headless-тестами;
+- [ ] выполнить Windows/PySide6 smoke-test: рисование в нескольких колонках, Undo/Redo и не менее
+  20 переходов между формами после штриха без повреждения layout и Qt lifecycle errors.
 
-Критерий 0.7.50: формы можно многократно переключать без `Internal C++ object already deleted`;
-при любой ошибке остаётся полностью рабочая предыдущая форма, а не частично построенный планшет.
+Критерий 0.7.51: после рисования планшет не меняет форму и размеры колонок; переход на другую
+форму остаётся рабочим; при любой ошибке пользователь может создать один diagnostics ZIP с
+traceback и последовательностью системных событий.
 
 ## Следующие этапы
 

@@ -1,29 +1,34 @@
 # Жоба күйі
 
-2026 жылғы 24 шілдедегі түзету жинағы: package **0.7.50**, пішін виджеттерінің өмірлік цикліне
-арналған маңызды түзету. Project format: **v20**, form schema: **v6**, tablet layout: **v16**.
+2026 жылғы 24 шілдедегі түзету жинағы: package **0.7.51**, тұрақты runtime диагностикасы және
+қауіпсіз қарындаш/пішін lifecycle. Project format: **v20**, form schema: **v6**, tablet layout:
+**v16**.
 
-## 0.7.50 ішінде аяқталды
+## 0.7.51 ішінде аяқталды
 
-- `CurveHeaderEditor` үшін айқын idempotent disposal келісімі қосылды;
-- range debounce таймері `deleteLater` алдында тоқтайды, өріс сигналдары бұғатталады;
-- әр трек Qt ағашын жоймас бұрын header callback-тарын тоқтатып, event filter-лерді алып тастайды;
-- планшет қайта құрылып жатқанда ескі шапкадан келген range/unit/scale өзгерістері еленбейді;
-- rollback жойылған виджеттерді қайта қолданбай, `TabletLayout` моделінен жаңа Qt ағашын құрады;
-- Form Manager бастапқы snapshot-ты бір reversible transaction-ға береді және сәтсіз apply-дан
-  кейін екінші бәсекелес rollback орындамайды;
-- preview-ды болдырмау бастапқы пішінді, dirty-state пен таңдалған тректі қалпына келтіреді;
-- project/form/layout schema өзгермеді, migration қажет емес.
+- қолданба айналмалы `geolog.log` және бөлек `geolog-crash.log` файлдарын жүргізеді;
+- ұсталмаған Python/thread exceptions, Qt messages және Qt event-handler қателері жазылады;
+- form apply/rollback, толық tablet render және curve-pencil commit тұрақты оқиға кодтары мен
+  толық traceback қолданады;
+- «Анықтама» мәзірі журнал бумасын ашады, жолды көшіреді және diagnostics ZIP құрады;
+- diagnostics bundle LAS мәндерін, datasets, пішіндер мен project assets қоспайды;
+- қарындаш commit тек өзгерген және қайта есептелген curve tracks жаңартады;
+- шапканың автоматты диапазондары қолданыстағы редакторларды жоймай орнында жаңартылады;
+- әр штрихтан кейін планшет толық қайта құрылмайды, сондықтан пішін, ендер және көлденең орын
+  сақталады;
+- толық form rebuild алдында pencil mode, preview және stale track/curve targets тазартылады;
+- candidate form алдымен тексеріліп, содан кейін ғана виджеттер ауыстырылады;
+- apply/rollback қателері журналға жазылады, ал rollback тек модельден қайта құрылады.
 
 ## Тексеру
 
-- focused form/layout/lifecycle: **171 passed**;
-- қолжетімді headless regression: **1044 passed, 4 skipped, 4 deselected**;
-- `compileall` сәтті орындалды;
-- PySide6 бар Windows smoke-test жылдам бірнеше рет пішін ауыстыруды және
-  `Internal C++ object already deleted` қатесінің жойылғанын тексеруі тиіс.
+- focused logging/form/pencil/tablet suite: **245 passed**;
+- қолжетімді headless regression: **1048 passed, 4 skipped, 4 deselected**;
+- `compileall` сәтті;
+- Windows PySide6 smoke-test міндетті: нақты сурет салу, Undo/Redo, штрихтан кейін пішін ауыстыру
+  және diagnostics ZIP құру.
 
-## Келесі вертикалдық срез
+## Келесі vertical slice
 
-Read-only offline WITSML 2.1 inventory және mapping fixtures. Fixture replay аяқталғанша ETP 1.2
-бұғатталған күйде қалады.
+Read-only offline WITSML 2.1 inventory және mapping fixtures. ETP 1.2 fixture replay орындалғанға
+дейін жабық.
