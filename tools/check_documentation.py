@@ -382,6 +382,51 @@ def audit_catalog_toolbar_diagnostics_coverage(root: Path) -> list[AuditIssue]:
                 )
     return issues
 
+
+def audit_compact_curve_header_coverage(root: Path) -> list[AuditIssue]:
+    """Require the parameter-labelled compact-ruler workflow in every language."""
+
+    issues: list[AuditIssue] = []
+    project_version = _project_version(root)
+    required_documents = (
+        "README.md",
+        "FEATURES.md",
+        "TABLET_ENGINE_2.md",
+        "UI_WORKSPACE.md",
+        "PROJECT_STATUS.md",
+        "PROJECT_PLAN.md",
+        f"RELEASE_NOTES_{project_version}.md",
+    )
+    language_tokens = {
+        "ru": ("Нагрузка на долото", "44 px", "58", "заводск", "пользователь", "Шкала"),
+        "kk": ("Қашауға түсетін жүктеме", "44 px", "58", "зауыттық", "пайдаланушы", "Шкала"),
+        "en": ("Weight on bit", "44 px", "58", "factory", "user", "Scale"),
+    }
+    for language in LANGUAGES:
+        language_dir = root / "docs" / language
+        for filename in required_documents:
+            if not (language_dir / filename).exists():
+                issues.append(
+                    AuditIssue(
+                        "compact-curve-header",
+                        f"docs/{language}/{filename} is required",
+                    )
+                )
+        combined = "\n".join(
+            _read_text(language_dir / filename)
+            for filename in required_documents
+            if (language_dir / filename).exists()
+        )
+        for token in language_tokens[language]:
+            if token not in combined:
+                issues.append(
+                    AuditIssue(
+                        "compact-curve-header",
+                        f"docs/{language} does not cover required token: {token}",
+                    )
+                )
+    return issues
+
 def run_audit(root: Path) -> list[AuditIssue]:
     """Run every documentation contract in a deterministic order."""
 
@@ -395,6 +440,7 @@ def run_audit(root: Path) -> list[AuditIssue]:
         audit_compact_column_coverage,
         audit_form_creation_naming_coverage,
         audit_catalog_toolbar_diagnostics_coverage,
+        audit_compact_curve_header_coverage,
     )
     issues: list[AuditIssue] = []
     for check in checks:

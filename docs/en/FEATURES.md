@@ -83,3 +83,11 @@ are localized.
   **Form editing** remains inside the window.
 - **Help → Clear diagnostics data…** removes only service logs and reports after confirmation;
   projects, LAS files, forms, and exported ZIP bundles remain untouched.
+
+## Compact parameter rulers — 0.7.67
+
+- The duplicated generic **Scale** caption is removed from numeric curve headers.
+- Each ruler is labelled with its parameter name and unit, for example **Weight on bit · t**.
+- One block uses 44 px instead of 58 px while retaining minimum/unit/maximum, `A`, and `⚙`.
+- The common renderer applies the layout to every factory, ready, and user form.
+- Project, form, and tablet schemas are unchanged; existing forms do not need to be resaved.

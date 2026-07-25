@@ -1,3 +1,11 @@
+# 0.7.67 — compact parameter-labelled curve rulers
+
+- Removed the redundant generic Scale caption from numeric curve headers.
+- Labelled each engineering ruler with the localized parameter name and unit.
+- Reduced complete parameter rows from 58 px to 44 px while retaining range editors and A/settings controls.
+- Applied the shared layout to factory, ready, and user forms without schema migration.
+- Synchronized RU/KK/EN user guides, status, plan, release notes, and regression coverage.
+
 # 0.7.66 — unified form catalog, diagnostics cleanup, responsive toolbars
 
 - Form Library now uses the same complete 18-template factory catalog as create/save workflows.

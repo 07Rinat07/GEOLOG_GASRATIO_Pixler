@@ -570,3 +570,16 @@ A new name is checked case-insensitively after whitespace normalization, and any
 blocked. When saving the current tablet, an available name creates a new user form; matching an
 editable user form explicitly offers to save the next revision. Ready and factory template names
 cannot be reused. See [FORM_ENGINE.md](FORM_ENGINE.md).
+
+## Compact parameter scale header — 0.7.67
+
+The generic **Scale** caption is no longer repeated in every numeric track. The ruler is labelled
+directly with the parameter name and unit, for example **Weight on bit · t**. One compact edit row
+remains above the ruler: minimum, unit, and maximum. Two small controls remain on the ruler's right:
+`A` restores the automatic range and `⚙` opens the complete curve settings.
+
+One parameter block is reduced from 58 to 44 px, so more parameters remain visible and more vertical
+space is available for the graph. The shared renderer applies this automatically to every factory,
+ready, and user form. Forms do not need to be resaved or migrated; saved ranges, units, colours,
+widths, and bindings remain unchanged. When a track contains more than six parameters, internal
+scrolling still advances by complete rows and never clips the bottom block.

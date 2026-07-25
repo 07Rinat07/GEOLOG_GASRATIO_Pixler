@@ -16,20 +16,25 @@ def test_working_curve_header_has_fixed_geometry_and_no_scale_selector() -> None
     assert "self.setFixedHeight(CURVE_HEADER_EDITOR_HEIGHT)" in source
     assert "self.scale = QComboBox()" not in source
     assert "self._scale = spec.scale" in source
-    assert "Linear or\n    logarithmic mode is deliberately absent" in source
+    assert "Linear" in source
+    assert "logarithmic mode is deliberately absent" in source
 
 
-def test_engineering_ruler_draws_contrast_caption_ticks_and_mandatory_endpoints() -> None:
+def test_engineering_ruler_uses_curve_name_without_generic_scale_caption() -> None:
     source = (ROOT / "src/geoworkbench/tablet/tablet_view.py").read_text(
         encoding="utf-8"
     )
 
+    assert "curve_caption=title" in source
+    assert "self._curve_caption = str(curve_caption).strip()" in source
     assert 'caption += f" · {self._unit}"' in source
+    assert "painter.fontMetrics().elidedText" in source
     assert 'QPen(QColor("#334155"), 3.0)' in source
     assert "ruler_color.lightness() > 176" in source
     assert "labelled.extend((major_lines[0], major_lines[-1]))" in source
     assert "metrics.elidedText" in source
-    assert 'curve_settings.header_scale_caption' in source
+    assert 'curve_settings.header_scale_caption' not in source
+    assert "action_strip.setFixedSize(14, 28)" in source
 
 
 def test_curve_hover_and_pencil_readout_use_human_readable_identity() -> None:
@@ -67,14 +72,13 @@ def test_toolbar_help_labels_do_not_inherit_opaque_white_backgrounds() -> None:
     assert 'background:transparent; font-weight:700; color:#1e3a8a;' in window
 
 
-def test_localizations_expose_scale_caption_and_curve_identity_placeholder() -> None:
+def test_localizations_preserve_curve_identity_placeholder() -> None:
     for language in ("ru", "kk", "en"):
         payload = json.loads(
             (ROOT / f"src/geoworkbench/resources/i18n/{language}.json").read_text(
                 encoding="utf-8"
             )
         )
-        assert payload["curve_settings.header_scale_caption"]
         assert "{curve}" in payload["tablet.curve_pencil_active"]
         assert "{curve}" in payload["tablet.curve_pencil_live_readout"]
         assert "{mnemonic}" not in payload["tablet.curve_pencil_live_readout"]

@@ -1,26 +1,25 @@
 # GEOLOG GASRATIO@Pixler project plan
 
-Current as of 25 July 2026. Version **0.7.66** uses project format **v20**,
+Current as of 25 July 2026. Version **0.7.67** uses project format **v20**,
 form schema **v8**, and tablet layout **v18**.
 
 ## Completed
 
-- [x] use one complete registry for Form Library, create, and save workflows;
-- [x] show the same Ready, **18 factory**, and user forms in every window;
-- [x] make the main and F4 toolbars responsive without clipping the right-side toggle;
-- [x] add **Clear diagnostics data…** with confirmation and a safe deletion scope;
-- [x] automatically limit accumulated import diagnostics to the newest 30 reports;
-- [x] update RU/KK/EN documentation and add regression tests.
+- [x] remove the duplicated generic **Scale** caption from every numeric curve header;
+- [x] label the ruler with the parameter name and unit, for example **Weight on bit · t**;
+- [x] reduce a complete block from 58 to 44 px without losing range editing or `A`/`⚙` actions;
+- [x] apply the change to all factory, ready, and user forms through the shared renderer;
+- [x] preserve complete-row scrolling and project v20 / form v8 / tablet v18 compatibility;
+- [x] update RU/KK/EN documentation and regression tests.
 
 ## Next stage
 
-- [ ] visually verify normal/compact switching on Windows at 900, 1366, 1600, and 1920 px widths
-  and 100–150% scaling;
-- [ ] confirm identical form membership in browse/create/save windows against the real profile;
+- [ ] visually verify headers on Windows at track widths of 80, 120, 160, and 250 px;
+- [ ] confirm long localized names remain readable and elide correctly;
 - [ ] continue the approved project plan after user acceptance.
 
 ## Acceptance criterion
 
-At the screenshot window width, the **Editing** caption and button remain inside the right edge.
-The ordinary library shows the same 18 factory forms as the save window. After diagnostics cleanup,
-logging is recreated while projects and user data remain untouched.
+Instead of a generic **Scale** caption, every ruler shows its own parameter name. Editable minimum,
+unit, maximum, `A`, `⚙`, endpoints, and ticks remain available. No factory, ready, or user form
+requires manual updating.

@@ -472,7 +472,6 @@ class CurveHeaderRangeSpec:
     unit: str
     scale: XScale
     automatic: bool
-    scale_label: str
     linear_label: str
     logarithmic_label: str
     major_divisions: int
@@ -486,7 +485,13 @@ class CurveHeaderRangeSpec:
 
 
 class CurveScaleRuler(QWidget):
-    """Compact engineering scale aligned with the track's normalized grid."""
+    """Compact engineering scale labelled by the actual curve name.
+
+    The former generic ``Scale`` caption duplicated information already shown
+    above the ruler and consumed one complete title row in every parameter
+    block.  The ruler now owns the curve identity itself, which removes that
+    duplicate row while preserving the editable range and engineering ticks.
+    """
 
     def __init__(
         self,
@@ -498,7 +503,7 @@ class CurveScaleRuler(QWidget):
         line_color: str,
         *,
         unit: str = "",
-        scale_caption: str = "Scale",
+        curve_caption: str = "",
         linear_label: str = "lin.",
         logarithmic_label: str = "log.",
     ) -> None:
@@ -507,7 +512,7 @@ class CurveScaleRuler(QWidget):
         self._maximum = float(maximum)
         self._scale = scale
         self._unit = str(unit).strip()
-        self._scale_caption = str(scale_caption).strip() or "Scale"
+        self._curve_caption = str(curve_caption).strip()
         self._linear_label = str(linear_label).strip() or "lin."
         self._logarithmic_label = str(logarithmic_label).strip() or "log."
         self._major_divisions = max(1, int(major_divisions))
@@ -555,9 +560,14 @@ class CurveScaleRuler(QWidget):
         caption_font.setBold(True)
         painter.setFont(caption_font)
         painter.setPen(QPen(QColor("#0f172a"), 1.0))
-        caption = self._scale_caption
+        caption = self._curve_caption
         if self._unit:
             caption += f" · {self._unit}"
+        caption = painter.fontMetrics().elidedText(
+            caption,
+            Qt.TextElideMode.ElideRight,
+            max(1, rect.width() - 4),
+        )
         painter.drawText(
             rect.left() + 2,
             rect.top(),
@@ -648,11 +658,11 @@ class CurveScaleRuler(QWidget):
 class CurveHeaderEditor(QFrame):
     """Responsive per-curve engineering header.
 
-    The working view follows a compact professional log-header layout: caption,
-    editable ``minimum — unit — maximum`` and an engineering ruler.  Linear or
-    logarithmic mode is deliberately absent from the working header and remains
-    available only in the full curve-settings dialog, so switching scale cannot
-    alter the header geometry or create blank bands in neighbouring tracks.
+    The working view follows a compact professional log-header layout: editable
+    ``minimum — unit — maximum`` and a ruler labelled by the curve name.  Linear
+    or logarithmic mode is deliberately absent from the working header and
+    remains available only in the full curve-settings dialog, so switching scale
+    cannot alter the header geometry or create blank bands in neighbouring tracks.
     """
 
     clicked = Signal(str)
@@ -694,47 +704,7 @@ class CurveHeaderEditor(QFrame):
         root.setContentsMargins(1, 1, 1, 1)
         root.setSpacing(0)
 
-        # Row 1: caption and actions.  The caption is the only compressible item;
-        # auto-range and settings always remain reachable in a narrow column.
-        top = QHBoxLayout()
-        top.setContentsMargins(2, 0, 1, 0)
-        top.setSpacing(2)
-        self.title_label = QLabel(title)
-        self.title_label.setMinimumWidth(0)
-        self.title_label.setSizePolicy(
-            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
-        )
-        self.title_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        self.title_label.setFixedHeight(14)
-        self.title_label.setStyleSheet(
-            f"background:transparent; color:{self._text_color}; "
-            "font-weight:700; font-size:9px;"
-        )
-        top.addWidget(self.title_label, 1)
-
-        self.auto_button = QToolButton()
-        self.auto_button.setText("A")
-        self.auto_button.setAutoRaise(True)
-        self.auto_button.setToolTip(spec.auto_tooltip)
-        self.auto_button.setFixedSize(14, 14)
-        self.auto_button.setStyleSheet("QToolButton {font-size:9px; padding:0;}")
-        self.auto_button.clicked.connect(
-            lambda: self.auto_range_requested.emit(self.mnemonic)
-        )
-        top.addWidget(self.auto_button)
-
-        self.settings_button = QToolButton()
-        self.settings_button.setText("⚙")
-        self.settings_button.setAutoRaise(True)
-        self.settings_button.setToolTip(spec.settings_tooltip)
-        self.settings_button.setFixedSize(14, 14)
-        self.settings_button.clicked.connect(
-            lambda: self.double_clicked.emit(self.mnemonic)
-        )
-        top.addWidget(self.settings_button)
-        root.addLayout(top)
-
-        # Row 2: compact Schlumberger-style scale endpoints.  The unit lives
+        # Row 1: compact Schlumberger-style scale endpoints.  The unit lives
         # between both boundaries; every control can shrink, so minimum and
         # maximum remain visible even in the narrowest supported column.
         range_row = QHBoxLayout()
@@ -772,6 +742,12 @@ class CurveHeaderEditor(QFrame):
         range_row.addWidget(self.maximum, 1)
         root.addLayout(range_row)
 
+        # Row 2: the engineering ruler is labelled directly by the parameter
+        # name.  Auto-range and settings use a narrow vertical action strip,
+        # preserving both commands without recreating the former title row.
+        ruler_row = QHBoxLayout()
+        ruler_row.setContentsMargins(0, 0, 0, 0)
+        ruler_row.setSpacing(0)
         self.ruler = CurveScaleRuler(
             spec.minimum,
             spec.maximum,
@@ -780,12 +756,45 @@ class CurveHeaderEditor(QFrame):
             spec.minor_divisions,
             self._line_color,
             unit=spec.unit,
-            scale_caption=spec.scale_label,
+            curve_caption=title,
             linear_label=spec.linear_label,
             logarithmic_label=spec.logarithmic_label,
         )
-        self.ruler.setToolTip(spec.scale_tooltip)
-        root.addWidget(self.ruler)
+        ruler_identity = title + (f" · {spec.unit}" if spec.unit else "")
+        self.ruler.setToolTip(
+            f"{ruler_identity} [{mnemonic}]\n{spec.scale_tooltip}"
+        )
+        ruler_row.addWidget(self.ruler, 1)
+
+        action_strip = QWidget()
+        action_strip.setFixedSize(14, 28)
+        action_strip.setStyleSheet("background:#ffffff;")
+        action_layout = QVBoxLayout(action_strip)
+        action_layout.setContentsMargins(0, 0, 0, 0)
+        action_layout.setSpacing(0)
+
+        self.auto_button = QToolButton()
+        self.auto_button.setText("A")
+        self.auto_button.setAutoRaise(True)
+        self.auto_button.setToolTip(spec.auto_tooltip)
+        self.auto_button.setFixedSize(14, 14)
+        self.auto_button.setStyleSheet("QToolButton {font-size:9px; padding:0;}")
+        self.auto_button.clicked.connect(
+            lambda: self.auto_range_requested.emit(self.mnemonic)
+        )
+        action_layout.addWidget(self.auto_button)
+
+        self.settings_button = QToolButton()
+        self.settings_button.setText("⚙")
+        self.settings_button.setAutoRaise(True)
+        self.settings_button.setToolTip(spec.settings_tooltip)
+        self.settings_button.setFixedSize(14, 14)
+        self.settings_button.clicked.connect(
+            lambda: self.double_clicked.emit(self.mnemonic)
+        )
+        action_layout.addWidget(self.settings_button)
+        ruler_row.addWidget(action_strip)
+        root.addLayout(ruler_row)
 
         # Range changes are debounced.  This lets the user edit both boundaries
         # without the first field immediately rebuilding the whole header.  Once
@@ -7289,7 +7298,6 @@ class TabletView(QWidget):
                     unit=unit,
                     scale=settings.x_scale,
                     automatic=settings.automatic_range,
-                    scale_label=self._localizer.text("curve_settings.header_scale_caption"),
                     linear_label=self._localizer.text("curve_settings.scale_short.linear"),
                     logarithmic_label=self._localizer.text(
                         "curve_settings.scale_short.logarithmic"
@@ -7658,7 +7666,6 @@ class TabletView(QWidget):
                 unit=unit,
                 scale=settings.x_scale,
                 automatic=settings.automatic_range,
-                scale_label=self._localizer.text("curve_settings.header_scale_caption"),
                 linear_label=self._localizer.text("curve_settings.scale_short.linear"),
                 logarithmic_label=self._localizer.text("curve_settings.scale_short.logarithmic"),
                 major_divisions=definition.grid_major_divisions,

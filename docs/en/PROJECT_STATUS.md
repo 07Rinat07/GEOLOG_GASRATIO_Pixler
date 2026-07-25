@@ -1,26 +1,27 @@
 # GEOLOG GASRATIO@Pixler project status
 
-Snapshot: 25 July 2026. Package version: **0.7.66**. Project format: **v20**,
+Snapshot: 25 July 2026. Package version: **0.7.67**. Project format: **v20**,
 form schema: **v8**, tablet layout: **v18**.
 
-## Completed in 0.7.66
+## Completed in 0.7.67
 
-- the ordinary Form Library and the create/save windows now use one catalog; Ready forms, all
-  **18 factory** forms, and user forms appear everywhere;
-- the mismatch between the library's curated subset and the save dialog's full list is removed;
-- the main toolbar and **Form editing (F4)** toolbar are responsive: secondary commands switch to
-  icon-only mode while the right-side toggle remains visible;
-- **Clear diagnostics data…** adds confirmation, safe log/report cleanup, and automatic logging
-  restart;
-- import-diagnostics retention is limited to the newest 30 reports of each type;
-- instructions and release notes are updated in Russian, Kazakh, and English.
+- removed the duplicated generic **Scale** caption from every numeric curve header;
+- labelled the engineering ruler with the parameter name and unit, for example
+  **Weight on bit · t**;
+- removed the separate title row, reducing one complete parameter block from 58 to 44 px and
+  saving about 24% of vertical header space;
+- retained minimum/unit/maximum, automatic range, settings, ticks, and mandatory endpoints;
+- applied the layout through the shared `TabletTrackWidget` to every factory, ready, and user form
+  without changing project format, form schema, or tablet layout;
+- synchronized instructions and release notes in Russian, Kazakh, and English.
 
-## Retained from 0.7.65
+## Retained from 0.7.66
 
-The complete form-naming dialog, four-local-form migration, compact geological columns, form schema
-v8, and tablet layout v18 remain unchanged.
+The unified full form catalog, responsive top toolbars, safe diagnostics cleanup, bounded import
+report retention, complete save dialog, and compact geology-column migration remain unchanged.
 
 ## Verification
 
-Regression tests cover the unified catalog, toolbar adaptation, and diagnostics cleanup. A complete
-visual Qt/UI run still requires a Windows environment with PySide6 and pyqtgraph.
+Regression coverage checks 44 px geometry, parameter-name ruler captions, removal of the legacy
+**Scale** key, preserved `A`/`⚙` controls, and RU/KK/EN documentation. Full visual Qt/UI verification
+requires Windows with PySide6 and pyqtgraph.

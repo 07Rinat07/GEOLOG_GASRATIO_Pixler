@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-CURVE_HEADER_ROW_HEIGHT = 58
+# One parameter block now contains only the editable range row and the
+# engineering ruler.  The curve name is rendered directly inside the ruler,
+# so the former dedicated title row and the redundant ``Scale`` caption no
+# longer consume vertical space.
+CURVE_HEADER_ROW_HEIGHT = 44
 CURVE_HEADER_MAX_VISIBLE_ROWS = 6
 CURVE_HEADER_BOTTOM_CLEARANCE = 2
 

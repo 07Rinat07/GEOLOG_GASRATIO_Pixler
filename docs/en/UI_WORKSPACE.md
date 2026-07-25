@@ -114,3 +114,10 @@ automatically after the window is widened; a restore margin prevents flicker nea
 The ordinary **Form library**, **Create form**, and **Save user form** windows now use one registry.
 All three show the same Ready forms, all **18 factory** forms, and user forms. Only the obsolete
 duplicate MASTERLOG item retained for old-project compatibility remains hidden.
+
+## Saving space in parameter headers — 0.7.67
+
+Each numeric curve ruler is now labelled by the parameter itself instead of the word **Scale**.
+For example, the user sees **Weight on bit · t**, the range, and ticks in one block. The block is
+14 px shorter, while automatic-range and settings controls remain available on the right. The same
+layout is used when any factory, ready, or user form is opened.

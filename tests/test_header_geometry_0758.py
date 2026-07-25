@@ -10,7 +10,7 @@ from geoworkbench.tablet.header_geometry import (
 
 
 def test_dense_header_viewport_contains_only_complete_rows() -> None:
-    assert CURVE_HEADER_ROW_HEIGHT == 58
+    assert CURVE_HEADER_ROW_HEIGHT == 44
     assert CURVE_HEADER_MAX_VISIBLE_ROWS == 6
     assert curve_header_viewport_height(7) == 6 * CURVE_HEADER_ROW_HEIGHT
     assert curve_header_viewport_height(12) == 6 * CURVE_HEADER_ROW_HEIGHT
@@ -25,7 +25,7 @@ def test_header_content_keeps_last_row_above_graph_boundary() -> None:
 
 
 def test_synchronized_header_height_never_cuts_a_row_in_half() -> None:
-    assert align_curve_header_band_height(360) == 348
-    assert align_curve_header_band_height(320) == 290
-    assert align_curve_header_band_height(174) == 174
+    assert align_curve_header_band_height(360) == 352
+    assert align_curve_header_band_height(320) == 308
+    assert align_curve_header_band_height(174) == 132
     assert align_curve_header_band_height(0) == 0

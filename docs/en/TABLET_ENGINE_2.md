@@ -98,3 +98,11 @@ opens re-editing. `Esc` cancels an unfinished gesture.
 
 The text track renders the sample rich-text description, wraps it to the column width, and hides the
 screen label when the interval is too short. The complete stored content is not discarded.
+
+## Compact ruler labelled by parameter — 0.7.67
+
+`CurveHeaderEditor` no longer creates a separate title row or a generic **Scale** caption. The
+localized parameter name and unit are painted inside `CurveScaleRuler`; the range remains editable
+as minimum/unit/maximum, while `A` and `⚙` occupy a 14 px vertical action strip. The shared
+`CURVE_HEADER_ROW_HEIGHT` is 44 px instead of 58 px. Synchronized headers, complete-row scrolling,
+mandatory endpoints, and grid divisions are preserved.
