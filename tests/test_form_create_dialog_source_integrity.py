@@ -13,7 +13,8 @@ def test_create_and_tablet_save_use_library_reference_dialog() -> None:
 
     assert "FormCreateDialog(" in manager
     assert "def _available_forms" in manager
-    assert "materialized_factory_templates(self.dataset, self.language).values()" in manager
+    assert "complete_form_catalog(self.repository, self.dataset, self.language)" in manager
+    assert "visible_factory_forms(self.dataset, self.language)" in manager
     assert 'mode="save"' in main_window
     assert "dialog.existing_form" in main_window
 

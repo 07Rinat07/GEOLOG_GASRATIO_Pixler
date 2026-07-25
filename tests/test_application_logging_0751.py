@@ -130,3 +130,81 @@ def test_diagnostic_labels_exist_in_all_languages() -> None:
             )
         )
         assert required.issubset(data)
+
+
+def test_clear_diagnostic_data_removes_logs_and_reports_then_resumes_logging(
+    tmp_path: Path,
+) -> None:
+    logs = tmp_path / "logs"
+    reports = tmp_path / "diagnostics"
+    reports.mkdir(parents=True)
+    (reports / "las_import_1.txt").write_text("report", encoding="utf-8")
+    exported_bundle = tmp_path / "GEOLOG_diagnostics_exported.zip"
+    exported_bundle.write_bytes(b"user export")
+    project_file = tmp_path / "well.geolog.json"
+    project_file.write_text("{}", encoding="utf-8")
+    unrelated_log_folder_file = logs / "keep-user-note.txt"
+    logs.mkdir(parents=True, exist_ok=True)
+    unrelated_log_folder_file.write_text("keep", encoding="utf-8")
+    nested = reports / "old"
+    nested.mkdir()
+    (nested / "las_import_2.json").write_text("{}", encoding="utf-8")
+
+    manager = ApplicationLogManager(
+        logs,
+        application_version="0.7.66-test",
+        max_bytes=4096,
+        backup_count=2,
+    )
+    try:
+        manager.event("before.reset")
+        manager.flush()
+        (logs / "geolog.log.1").write_text("old log", encoding="utf-8")
+
+        result = manager.clear_diagnostic_data(
+            extra_directories=(reports,),
+        )
+
+        assert result.deleted_files >= 4
+        assert result.freed_bytes > 0
+        assert result.failed_paths == ()
+        assert list(reports.rglob("*")) == []
+        assert manager.current_log_path.exists()
+        assert manager.crash_log_path.exists()
+        assert exported_bundle.read_bytes() == b"user export"
+        assert project_file.read_text(encoding="utf-8") == "{}"
+        assert unrelated_log_folder_file.read_text(encoding="utf-8") == "keep"
+
+        manager.event("after.reset")
+        manager.flush()
+        current = manager.current_log_path.read_text(encoding="utf-8")
+        assert "diagnostics.data.reset" in current
+        assert "after.reset" in current
+        assert "before.reset" not in current
+    finally:
+        manager.close()
+
+
+def test_diagnostics_reset_action_and_labels_are_wired() -> None:
+    main_source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"diagnostics.clear_data"' in main_source
+    assert "def clear_diagnostic_data(self)" in main_source
+    assert "manager.clear_diagnostic_data(" in main_source
+
+    required = {
+        "diagnostics.clear_data",
+        "diagnostics.clear_title",
+        "diagnostics.clear_confirm",
+        "diagnostics.clear_done",
+        "diagnostics.clear_partial",
+        "diagnostics.clear_failed",
+    }
+    for language in ("ru", "kk", "en"):
+        data = json.loads(
+            (ROOT / f"src/geoworkbench/resources/i18n/{language}.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert required.issubset(data)

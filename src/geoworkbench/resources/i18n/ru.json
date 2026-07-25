@@ -1879,5 +1879,11 @@
   "symbol_insert.category_gas": "Газ",
   "symbol_insert.category_hydrocarbon_show": "Нефтегазопроявления",
   "symbol_insert.category_other": "Прочее",
-  "symbol_insert.category_well_construction": "Конструкция скважины"
+  "symbol_insert.category_well_construction": "Конструкция скважины",
+  "diagnostics.clear_data": "Сбросить данные диагностики…",
+  "diagnostics.clear_title": "Сброс данных диагностики",
+  "diagnostics.clear_confirm": "Удалить накопленные журналы приложения и сохранённые отчёты диагностики импорта? Экспортированные ZIP-пакеты и файлы проектов удалены не будут. После очистки журналирование продолжится автоматически.",
+  "diagnostics.clear_done": "Диагностические данные очищены. Удалено файлов: {count}. Освобождено: {size}.",
+  "diagnostics.clear_partial": "Очистка завершена частично. Удалено файлов: {count}, освобождено: {size}. Не удалось удалить объектов: {failed}.",
+  "diagnostics.clear_failed": "Не удалось очистить диагностические данные: {error}"
 }

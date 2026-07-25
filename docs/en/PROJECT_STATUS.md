@@ -1,32 +1,26 @@
 # GEOLOG GASRATIO@Pixler project status
 
-Snapshot: 25 July 2026. Package version: **0.7.65**. Project format: **v20**,
+Snapshot: 25 July 2026. Package version: **0.7.66**. Project format: **v20**,
 form schema: **v8**, tablet layout: **v18**.
 
-## Completed in 0.7.65
+## Completed in 0.7.66
 
-- the old small name prompt was removed from both **Create form** and **Save user form**; each
-  command now shows all ready, factory, and user forms, search, and detailed structure;
-- a duplicate name is blocked case-insensitively after whitespace normalization, while saving over
-  an editable user form creates a new revision only after an explicit warning;
-- four confirmed local forms with legacy names are polished, moved to `forms/ready`, and protected
-  as ready templates without adding a separate duplicate MASTERLOG factory template;
-- the actual JSON structure is preserved, including columns, tracks, parameters, scales, styles,
-  and order;
-- stratigraphy, lithology, cuttings, calcimetry, LBA, and depth are reduced by **50%** during
-  migration with a **48 px** minimum, while other graphs retain an **80 px** minimum;
-- forms at v7 or older migrate once to **v8**, and tablets at v17 or older migrate once to **v18**;
-- documentation, instructions, and release notes are synchronized in Russian, Kazakh, and English.
+- the ordinary Form Library and the create/save windows now use one catalog; Ready forms, all
+  **18 factory** forms, and user forms appear everywhere;
+- the mismatch between the library's curated subset and the save dialog's full list is removed;
+- the main toolbar and **Form editing (F4)** toolbar are responsive: secondary commands switch to
+  icon-only mode while the right-side toggle remains visible;
+- **Clear diagnostics data…** adds confirmation, safe log/report cleanup, and automatic logging
+  restart;
+- import-diagnostics retention is limited to the newest 30 reports of each type;
+- instructions and release notes are updated in Russian, Kazakh, and English.
+
+## Retained from 0.7.65
+
+The complete form-naming dialog, four-local-form migration, compact geological columns, form schema
+v8, and tablet layout v18 remain unchanged.
 
 ## Verification
 
-Model, codec/repository, migration, naming, layout/print, and source-integrity tests pass. The
-automated audit checks localized document parity, Markdown links, all 1881 interface keys, package
-version, graph-symbol persistence, compact widths, and the complete form creation/save workflow.
-A full visual Qt/UI run requires a Windows environment with PySide6, pyqtgraph, and lasio.
-
-## Local-form transfer limitation
-
-The supplied source ZIP does not contain the four JSON files stored in the Windows application
-profile. On the same computer they are parsed and promoted automatically. A clean installation on
-another computer requires exporting or copying those JSON files from the local form library.
+Regression tests cover the unified catalog, toolbar adaptation, and diagnostics cleanup. A complete
+visual Qt/UI run still requires a Windows environment with PySide6 and pyqtgraph.

@@ -337,6 +337,51 @@ def audit_form_creation_naming_coverage(root: Path) -> list[AuditIssue]:
                 )
     return issues
 
+
+
+def audit_catalog_toolbar_diagnostics_coverage(root: Path) -> list[AuditIssue]:
+    """Require the 0.7.66 catalog, responsive-toolbar, and cleanup workflows."""
+
+    issues: list[AuditIssue] = []
+    project_version = _project_version(root)
+    required_documents = (
+        "APPLICATION_DIAGNOSTICS.md",
+        "UI_WORKSPACE.md",
+        "FORM_ENGINE.md",
+        "PROJECT_STATUS.md",
+        "PROJECT_PLAN.md",
+        f"RELEASE_NOTES_{project_version}.md",
+    )
+    language_tokens = {
+        "ru": ("18 заводских", "Сбросить данные диагностики", "адаптив", "Редактирование"),
+        "kk": ("18 зауыттық", "Диагностика деректерін тазарту", "бейім", "Пішінді өңдеу"),
+        "en": ("18 factory", "Clear diagnostics data", "responsive", "Form editing"),
+    }
+    for language in LANGUAGES:
+        language_dir = root / "docs" / language
+        for filename in required_documents:
+            if not (language_dir / filename).exists():
+                issues.append(
+                    AuditIssue(
+                        "catalog-toolbar-diagnostics",
+                        f"docs/{language}/{filename} is required",
+                    )
+                )
+        combined = "\n".join(
+            _read_text(language_dir / filename)
+            for filename in required_documents
+            if (language_dir / filename).exists()
+        )
+        for token in language_tokens[language]:
+            if token not in combined:
+                issues.append(
+                    AuditIssue(
+                        "catalog-toolbar-diagnostics",
+                        f"docs/{language} does not cover required token: {token}",
+                    )
+                )
+    return issues
+
 def run_audit(root: Path) -> list[AuditIssue]:
     """Run every documentation contract in a deterministic order."""
 
@@ -349,6 +394,7 @@ def run_audit(root: Path) -> list[AuditIssue]:
         audit_user_workflow_coverage,
         audit_compact_column_coverage,
         audit_form_creation_naming_coverage,
+        audit_catalog_toolbar_diagnostics_coverage,
     )
     issues: list[AuditIssue] = []
     for check in checks:

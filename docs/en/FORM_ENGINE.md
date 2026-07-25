@@ -181,3 +181,11 @@ an intentional update.
 The form is written immediately to the local repository. Project data and annotations are separate
 and still require **Ctrl+S** to save the project.
 
+
+## Authoritative catalog source — 0.7.66
+
+The `forms.catalog` service builds the complete form catalog. It materializes every available
+factory form for the active dataset, excludes only the compatibility-only hidden MASTERLOG
+duplicate, and appends Ready and user documents from `FormRepository`. Browse, create, and save
+workflows no longer maintain separate curated lists, so form counts and identifiers are consistent
+throughout the application.

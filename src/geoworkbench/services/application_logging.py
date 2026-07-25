@@ -48,6 +48,14 @@ class DiagnosticBundleResult:
     included_files: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class DiagnosticResetResult:
+    deleted_files: int
+    deleted_directories: int
+    freed_bytes: int
+    failed_paths: tuple[str, ...] = ()
+
+
 class ApplicationLogManager:
     """Persistent rotating diagnostics for application, Qt and support events.
 
@@ -70,15 +78,30 @@ class ApplicationLogManager:
         self.current_log_path = self.log_directory / "geolog.log"
         self.crash_log_path = self.log_directory / "geolog-crash.log"
         self._closed = False
+        self._maintenance_lock = threading.RLock()
+        self._max_bytes = max(1024, int(max_bytes))
+        self._backup_count = max(1, int(backup_count))
         self._logger = logging.getLogger(_LOGGER_NAME)
         self._logger.setLevel(logging.DEBUG)
         self._logger.propagate = False
         self._logger.handlers.clear()
+        self._open_runtime_targets()
+        logging.captureWarnings(True)
+        self.event(
+            "application.logging.started",
+            version=self.application_version,
+            python=sys.version.split()[0],
+            platform=platform.platform(),
+            pid=os.getpid(),
+            log_file=self.current_log_path,
+        )
 
+    def _open_runtime_targets(self) -> None:
+        self.log_directory.mkdir(parents=True, exist_ok=True)
         handler = RotatingFileHandler(
             self.current_log_path,
-            maxBytes=max(1024, int(max_bytes)),
-            backupCount=max(1, int(backup_count)),
+            maxBytes=self._max_bytes,
+            backupCount=self._backup_count,
             encoding="utf-8",
             delay=False,
         )
@@ -92,20 +115,33 @@ class ApplicationLogManager:
         )
         self._logger.addHandler(handler)
         self._handler = handler
-        self._crash_handle = self.crash_log_path.open("a", encoding="utf-8", buffering=1)
+        self._crash_handle = self.crash_log_path.open(
+            "a", encoding="utf-8", buffering=1
+        )
         try:
             faulthandler.enable(file=self._crash_handle, all_threads=True)
         except (RuntimeError, OSError):
             pass
-        logging.captureWarnings(True)
-        self.event(
-            "application.logging.started",
-            version=self.application_version,
-            python=sys.version.split()[0],
-            platform=platform.platform(),
-            pid=os.getpid(),
-            log_file=self.current_log_path,
-        )
+
+    def _close_runtime_targets(self) -> None:
+        try:
+            faulthandler.disable()
+        except RuntimeError:
+            pass
+        handler = getattr(self, "_handler", None)
+        if handler is not None:
+            try:
+                handler.flush()
+                handler.close()
+            finally:
+                self._logger.removeHandler(handler)
+        crash_handle = getattr(self, "_crash_handle", None)
+        if crash_handle is not None:
+            try:
+                crash_handle.flush()
+                crash_handle.close()
+            except Exception:
+                pass
 
     @property
     def logger(self) -> logging.Logger:
@@ -152,24 +188,87 @@ class ApplicationLogManager:
             pass
 
     def close(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        self.event("application.logging.stopped")
-        self.flush()
-        try:
-            faulthandler.disable()
-        except RuntimeError:
-            pass
-        for handler in tuple(self._logger.handlers):
+        with self._maintenance_lock:
+            if self._closed:
+                return
+            self.event("application.logging.stopped")
+            self.flush()
+            self._close_runtime_targets()
+            self._closed = True
+
+    def clear_diagnostic_data(
+        self,
+        *,
+        extra_directories: tuple[Path, ...] = (),
+    ) -> DiagnosticResetResult:
+        """Clear accumulated runtime logs and generated diagnostic reports.
+
+        The active logging targets are closed before deletion so the operation
+        also works on Windows. They are recreated immediately afterwards, which
+        means diagnostics continue working without restarting the application.
+        Exported support ZIP files outside the application data directory are
+        intentionally untouched.
+        """
+
+        with self._maintenance_lock:
+            if self._closed:
+                raise RuntimeError("Application logging is already closed")
+            self.flush()
+            self._close_runtime_targets()
+            deleted_files = 0
+            deleted_directories = 0
+            freed_bytes = 0
+            failed: list[str] = []
             try:
-                handler.close()
+                for path in sorted(self.log_directory.glob("geolog*.log*")):
+                    if not path.is_file():
+                        continue
+                    try:
+                        freed_bytes += path.stat().st_size
+                        path.unlink()
+                        deleted_files += 1
+                    except OSError:
+                        failed.append(str(path))
+                for directory in extra_directories:
+                    root = Path(directory).expanduser().resolve()
+                    if not root.exists():
+                        continue
+                    # Delete children only. The service-owned root is preserved
+                    # so subsequent reports can be written without a race.
+                    for path in sorted(
+                        root.rglob("*"),
+                        key=lambda item: len(item.parts),
+                        reverse=True,
+                    ):
+                        try:
+                            if path.is_file() or path.is_symlink():
+                                try:
+                                    freed_bytes += path.stat().st_size
+                                except OSError:
+                                    pass
+                                path.unlink()
+                                deleted_files += 1
+                            elif path.is_dir():
+                                path.rmdir()
+                                deleted_directories += 1
+                        except OSError:
+                            failed.append(str(path))
             finally:
-                self._logger.removeHandler(handler)
-        try:
-            self._crash_handle.close()
-        except Exception:
-            pass
+                self._open_runtime_targets()
+            result = DiagnosticResetResult(
+                deleted_files=deleted_files,
+                deleted_directories=deleted_directories,
+                freed_bytes=freed_bytes,
+                failed_paths=tuple(failed),
+            )
+            self.event(
+                "diagnostics.data.reset",
+                deleted_files=result.deleted_files,
+                deleted_directories=result.deleted_directories,
+                freed_bytes=result.freed_bytes,
+                failed_paths=len(result.failed_paths),
+            )
+            return result
 
     def recent_log_files(self) -> tuple[Path, ...]:
         candidates = [

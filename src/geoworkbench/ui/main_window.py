@@ -83,8 +83,8 @@ from geoworkbench.forms import (
     FormAxisKind,
     FormRepository,
     form_from_tablet_layout,
-    materialized_factory_templates,
 )
+from geoworkbench.forms.catalog import complete_form_catalog
 from geoworkbench.forms.layout_transaction import (
     ReversibleApplyError,
     apply_reversibly,
@@ -145,6 +145,7 @@ from geoworkbench.ui.track_inspector import TrackInspector
 from geoworkbench.ui.lag_correction_dialog import LagCorrectionDialog
 from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
 from geoworkbench.ui.time_to_depth_dialog import TimeToDepthDialog
+from geoworkbench.ui.toolbar_adaptation import choose_toolbar_adaptation
 from geoworkbench.ui.branding import application_icon, logo_pixmap
 from geoworkbench.ui.home_page import HomeAction, HomePage
 from geoworkbench.services.import_jobs import (
@@ -631,6 +632,8 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
+        if hasattr(self, "main_toolbar"):
+            QTimer.singleShot(0, self._update_toolbar_adaptation)
         if (
             hasattr(self, "interval_statistics_dock")
             and self.interval_statistics_dock.isVisible()
@@ -1750,6 +1753,17 @@ class MainWindow(QMainWindow):
             self.build_diagnostic_bundle
         )
         help_menu.addAction(self.build_diagnostics_action)
+
+        self.clear_diagnostics_action = self._localized_action(
+            "diagnostics.clear_data"
+        )
+        self.clear_diagnostics_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
+        )
+        self.clear_diagnostics_action.triggered.connect(
+            self.clear_diagnostic_data
+        )
+        help_menu.addAction(self.clear_diagnostics_action)
         help_menu.addSeparator()
 
         about_action = self._localized_action("shell.about")
@@ -1911,9 +1925,102 @@ class MainWindow(QMainWindow):
         self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.form_edit_toolbar)
         self.form_edit_toolbar.hide()
+
+        # Toolbars must never impose a desktop-sized minimum width on the main
+        # window.  Their labels are reduced adaptively when the available width
+        # is insufficient; full commands remain available through tooltips and
+        # the application menus.
+        self.main_toolbar.setMinimumWidth(0)
+        self.form_edit_toolbar.setMinimumWidth(0)
+        self._main_toolbar_compact_buttons = (
+            self.las_editor_button,
+            self.form_manager_button,
+            self.constructor_button,
+        )
+        self._main_toolbar_compact_actions = (
+            self.home_action,
+            self.open_project_action,
+            self.open_data_action,
+            self.save_action,
+            self.pencil_action,
+            self.cursor_line_action,
+        )
+        self._main_toolbar_expanded_width = max(
+            1760, self.main_toolbar.sizeHint().width() + 24
+        )
+        self._form_toolbar_expanded_width = max(
+            1760, self.form_edit_toolbar.sizeHint().width() + 24
+        )
+        self._main_toolbar_is_compact = False
+        self._form_toolbar_is_compact = False
+
         # Every action receives at least a localized caption/shortcut tooltip;
         # high-value actions keep their more detailed help text above.
         self._retranslate_registered_actions()
+        QTimer.singleShot(0, self._update_toolbar_adaptation)
+
+    @staticmethod
+    def _set_toolbar_action_style(
+        toolbar: QToolBar, action: QAction, style: Qt.ToolButtonStyle
+    ) -> None:
+        button = toolbar.widgetForAction(action)
+        if isinstance(button, QToolButton):
+            button.setToolButtonStyle(style)
+
+    def _update_toolbar_adaptation(self) -> None:
+        """Keep both top toolbars inside the current window width."""
+
+        if not hasattr(self, "main_toolbar"):
+            return
+        available = max(320, self.width() - 12)
+        main_mode = choose_toolbar_adaptation(
+            available,
+            self._main_toolbar_expanded_width,
+            currently_compact=self._main_toolbar_is_compact,
+        )
+        form_mode = choose_toolbar_adaptation(
+            available,
+            self._form_toolbar_expanded_width,
+            currently_compact=self._form_toolbar_is_compact,
+        )
+        self._apply_main_toolbar_mode(main_mode.compact, main_mode.ultra_compact)
+        self._apply_form_toolbar_mode(form_mode.compact, form_mode.ultra_compact)
+
+    def _apply_main_toolbar_mode(self, compact: bool, ultra_compact: bool) -> None:
+        style = (
+            Qt.ToolButtonStyle.ToolButtonIconOnly
+            if compact
+            else Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        for button in self._main_toolbar_compact_buttons:
+            button.setToolButtonStyle(style)
+        for action in self._main_toolbar_compact_actions:
+            self._set_toolbar_action_style(self.main_toolbar, action, style)
+
+        # The right-side edit-mode command is the control the user must always
+        # see.  It keeps its caption in ordinary compact mode and switches to an
+        # icon only on genuinely narrow windows.
+        self.edit_mode_button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonIconOnly
+            if ultra_compact
+            else Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self._main_toolbar_is_compact = compact
+
+    def _apply_form_toolbar_mode(self, compact: bool, ultra_compact: bool) -> None:
+        self.form_edit_toolbar.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonIconOnly
+            if compact
+            else Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self.form_edit_caption.setText(
+            "F4" if ultra_compact else self._t("ui.form_edit_toolbar")
+        )
+        self.form_edit_caption.setMinimumWidth(0)
+        self.form_edit_caption.setMaximumWidth(
+            32 if ultra_compact else 240
+        )
+        self._form_toolbar_is_compact = compact
 
     def toggle_cursor_line(self, enabled: bool) -> None:
         self.tablet_view.set_cursor_enabled(enabled)
@@ -2032,6 +2139,7 @@ class MainWindow(QMainWindow):
 
         self._refresh_tree()
         self._update_title()
+        QTimer.singleShot(0, self._update_toolbar_adaptation)
 
     def select_user_profile(self) -> None:
         profiles = self.user_profile_settings.profiles()
@@ -4586,19 +4694,11 @@ class MainWindow(QMainWindow):
             else "ui.axis_depth"
         )
         suggested = f"{dataset.name} — {axis_word}"
-        try:
-            factory_forms = [
-                form
-                for form in materialized_factory_templates(
-                    dataset, str(self.language)
-                ).values()
-                if form.form_id != "factory-masterlog-geological-geochemical"
-            ]
-        except (KeyError, RuntimeError, ValueError):
-            factory_forms = []
-        repository_forms = self.form_repository.list_forms()
+        catalog = complete_form_catalog(
+            self.form_repository, dataset, str(self.language)
+        )
         dialog = FormCreateDialog(
-            [*factory_forms, *repository_forms],
+            catalog,
             self,
             language=str(self.language),
             mode="save",
@@ -7532,6 +7632,71 @@ class MainWindow(QMainWindow):
                 count=len(result.included_files),
             ),
         )
+
+    def clear_diagnostic_data(self) -> None:
+        manager = current_application_log_manager()
+        if manager is None:
+            QMessageBox.warning(
+                self, self._t("diagnostics.title"), self._t("diagnostics.unavailable")
+            )
+            return
+        answer = QMessageBox.question(
+            self,
+            self._t("diagnostics.clear_title"),
+            self._t("diagnostics.clear_confirm"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        app_data_root = Path(
+            QStandardPaths.writableLocation(
+                QStandardPaths.StandardLocation.AppDataLocation
+            )
+        )
+        try:
+            result = manager.clear_diagnostic_data(
+                extra_directories=(app_data_root / "diagnostics",)
+            )
+        except (OSError, RuntimeError, ValueError) as exc:
+            log_exception("diagnostics.data.reset_failed", exc)
+            QMessageBox.critical(
+                self,
+                self._t("diagnostics.clear_title"),
+                self._t("diagnostics.clear_failed", error=str(exc)),
+            )
+            return
+        freed = self._format_diagnostic_size(result.freed_bytes)
+        if result.failed_paths:
+            QMessageBox.warning(
+                self,
+                self._t("diagnostics.clear_title"),
+                self._t(
+                    "diagnostics.clear_partial",
+                    count=result.deleted_files,
+                    size=freed,
+                    failed=len(result.failed_paths),
+                ),
+            )
+        else:
+            QMessageBox.information(
+                self,
+                self._t("diagnostics.clear_title"),
+                self._t(
+                    "diagnostics.clear_done",
+                    count=result.deleted_files,
+                    size=freed,
+                ),
+            )
+
+    @staticmethod
+    def _format_diagnostic_size(size_bytes: int) -> str:
+        size = max(0, int(size_bytes))
+        if size < 1024:
+            return f"{size} B"
+        if size < 1024 * 1024:
+            return f"{size / 1024:.1f} KB"
+        return f"{size / (1024 * 1024):.1f} MB"
 
     def show_about(self) -> None:
         dialog = QMessageBox(self)

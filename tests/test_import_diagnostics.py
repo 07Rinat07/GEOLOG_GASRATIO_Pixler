@@ -67,3 +67,29 @@ def test_diagnostic_report_is_persisted_atomically(tmp_path: Path) -> None:
     assert target.exists()
     assert "bad row" in target.read_text(encoding="utf-8")
     assert list(target.parent.glob("*.tmp")) == []
+
+
+def test_persisted_diagnostic_reports_are_pruned_to_retention_limit(
+    tmp_path: Path,
+) -> None:
+    from geoworkbench.services.import_diagnostics import (
+        persist_import_diagnostic_report,
+    )
+
+    diagnostic = diagnostic_from_exception(
+        tmp_path / "broken.las",
+        ImportDiagnosticStage.READ_SOURCE,
+        ValueError("bad row"),
+    )
+    report = ImportDiagnosticReport((diagnostic,))
+    root = tmp_path / "diagnostics"
+
+    for _ in range(5):
+        persist_import_diagnostic_report(
+            report,
+            root,
+            prefix="las_import",
+            max_retained=3,
+        )
+
+    assert len(list(root.glob("las_import_*.txt"))) == 3

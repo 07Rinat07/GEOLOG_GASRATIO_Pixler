@@ -100,3 +100,17 @@ On a numeric track, hold `Shift` and left-drag an interval. A blue band appears 
 plot in the form and the right panel reports point count, coverage, minimum, maximum, and mean
 for every visible curve. The table can be copied, saved as XLSX or CSV, and cleared without
 changing the LAS file or project.
+
+## Responsive top toolbars — 0.7.66
+
+The main toolbar and the **Form editing (F4)** toolbar now use the actual window width. When all
+command captions cannot fit, secondary buttons automatically switch to a compact icon-only mode.
+The full caption remains available in the tooltip and the corresponding menu. The right-side
+**Form editing** toggle has priority and must remain inside the window. Text captions return
+automatically after the window is widened; a restore margin prevents flicker near the threshold.
+
+## One complete form catalog — 0.7.66
+
+The ordinary **Form library**, **Create form**, and **Save user form** windows now use one registry.
+All three show the same Ready forms, all **18 factory** forms, and user forms. Only the obsolete
+duplicate MASTERLOG item retained for old-project compatibility remains hidden.

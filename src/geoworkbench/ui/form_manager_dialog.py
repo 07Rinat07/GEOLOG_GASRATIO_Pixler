@@ -29,12 +29,7 @@ from geoworkbench.domain.models import Dataset, IndexRole
 from geoworkbench.forms.models import FormAxisKind, FormDocument
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.apply import FormApplyEngine
-from geoworkbench.forms.materialize import materialized_factory_templates
-from geoworkbench.forms.templates import (
-    CURATED_FACTORY_TEMPLATE_IDS,
-    curated_factory_templates,
-    factory_templates,
-)
+from geoworkbench.forms.catalog import complete_form_catalog, visible_factory_forms
 from geoworkbench.forms.preview import PreviewCallback
 from geoworkbench.form_constructor.preview_revision import PreviewRevisionGate
 from geoworkbench.printing.page_settings import (
@@ -337,31 +332,16 @@ class FormManagerDialog(QDialog):
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
 
     def _factory_forms(self) -> list[FormDocument]:
-        try:
-            materialized = materialized_factory_templates(self.dataset, self.language)
-            return [
-                materialized[form_id]
-                for form_id in CURATED_FACTORY_TEMPLATE_IDS
-                if form_id in materialized
-            ]
-        except (KeyError, RuntimeError, ValueError):
-            return list(curated_factory_templates(self.language).values())
+        """Use the same complete factory catalog as create/save dialogs."""
+
+        return list(visible_factory_forms(self.dataset, self.language))
 
     def _available_forms(self) -> list[FormDocument]:
-        """Return every factory and user form for the naming reference dialog."""
+        """Return the authoritative catalog used by every form workflow."""
 
-        try:
-            factory = list(
-                materialized_factory_templates(self.dataset, self.language).values()
-            )
-        except (KeyError, RuntimeError, ValueError):
-            factory = list(factory_templates(self.language).values())
-        factory = [
-            form
-            for form in factory
-            if form.form_id != "factory-masterlog-geological-geochemical"
-        ]
-        return [*factory, *self.repository.list_forms()]
+        return list(
+            complete_form_catalog(self.repository, self.dataset, self.language)
+        )
 
     def reload(self, selected_id: str | None = None) -> None:
         self.tree_widget.blockSignals(True)

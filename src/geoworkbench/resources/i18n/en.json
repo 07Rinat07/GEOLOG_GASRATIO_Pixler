@@ -1879,5 +1879,11 @@
   "symbol_insert.category_gas": "Gas",
   "symbol_insert.category_hydrocarbon_show": "Hydrocarbon shows",
   "symbol_insert.category_other": "Other",
-  "symbol_insert.category_well_construction": "Well construction"
+  "symbol_insert.category_well_construction": "Well construction",
+  "diagnostics.clear_data": "Clear diagnostics data…",
+  "diagnostics.clear_title": "Clear diagnostics data",
+  "diagnostics.clear_confirm": "Delete accumulated application logs and saved import-diagnostics reports? Exported ZIP bundles and project files will not be removed. Logging resumes automatically after the reset.",
+  "diagnostics.clear_done": "Diagnostics data was cleared. Files deleted: {count}. Space freed: {size}.",
+  "diagnostics.clear_partial": "Diagnostics cleanup completed partially. Files deleted: {count}, space freed: {size}. Items not removed: {failed}.",
+  "diagnostics.clear_failed": "Diagnostics data could not be cleared: {error}"
 }

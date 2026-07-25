@@ -270,8 +270,15 @@ def persist_import_diagnostic_report(
     directory: str | Path,
     *,
     prefix: str = "import",
+    max_retained: int = 30,
 ) -> Path:
-    """Atomically persist a diagnostic report for later support analysis."""
+    """Atomically persist a report and prune old service-owned copies.
+
+    Import failures can be repetitive, so an unbounded report directory would
+    become stale application-data clutter. The newest ``max_retained`` reports
+    for the same prefix are kept. A non-positive value disables pruning for
+    callers that explicitly need a complete archive.
+    """
 
     root = Path(directory)
     root.mkdir(parents=True, exist_ok=True)
@@ -280,5 +287,13 @@ def persist_import_diagnostic_report(
     temporary = target.with_suffix(target.suffix + ".tmp")
     temporary.write_text(report.to_text(include_technical=True), encoding="utf-8")
     temporary.replace(target)
+    if max_retained > 0:
+        reports = sorted(
+            (path for path in root.glob(f"{prefix}_*.txt") if path.is_file()),
+            key=lambda path: path.stat().st_mtime_ns,
+            reverse=True,
+        )
+        for obsolete in reports[max_retained:]:
+            obsolete.unlink(missing_ok=True)
     return target
 

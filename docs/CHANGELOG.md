@@ -1,3 +1,10 @@
+# 0.7.66 — unified form catalog, diagnostics cleanup, responsive toolbars
+
+- Form Library now uses the same complete 18-template factory catalog as create/save workflows.
+- Main and form-editing toolbars compact labels automatically before right-side controls are clipped.
+- Help menu adds safe diagnostics cleanup; import reports are retained with a 30-file limit.
+- RU/KK/EN documentation and regression coverage were updated.
+
 # 0.7.65 — ready-form promotion and complete save dialog
 
 - Replaced the legacy `QInputDialog` in tablet-form saving with the full library reference dialog.

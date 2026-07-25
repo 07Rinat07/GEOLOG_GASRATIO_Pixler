@@ -1879,5 +1879,11 @@
   "symbol_insert.category_gas": "Газ",
   "symbol_insert.category_hydrocarbon_show": "Көмірсутек белгілері",
   "symbol_insert.category_other": "Басқа",
-  "symbol_insert.category_well_construction": "Ұңғыма конструкциясы"
+  "symbol_insert.category_well_construction": "Ұңғыма конструкциясы",
+  "diagnostics.clear_data": "Диагностика деректерін тазарту…",
+  "diagnostics.clear_title": "Диагностика деректерін тазарту",
+  "diagnostics.clear_confirm": "Жиналған қолданба журналдары мен сақталған импорт диагностикасы есептерін жою керек пе? Экспортталған ZIP пакеттері мен жоба файлдары жойылмайды. Тазартудан кейін журнал жүргізу автоматты түрде жалғасады.",
+  "diagnostics.clear_done": "Диагностика деректері тазартылды. Жойылған файлдар: {count}. Босатылған орын: {size}.",
+  "diagnostics.clear_partial": "Тазарту ішінара аяқталды. Жойылған файлдар: {count}, босатылған орын: {size}. Жойылмаған нысандар: {failed}.",
+  "diagnostics.clear_failed": "Диагностика деректерін тазарту мүмкін болмады: {error}"
 }

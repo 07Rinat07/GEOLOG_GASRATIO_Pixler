@@ -75,3 +75,11 @@ are localized.
 - In save mode, matching an editable user form intentionally creates the next revision; a ready or
   factory template cannot be replaced.
 
+
+## Catalog, toolbars, and diagnostics — 0.7.66
+
+- Browse, create, and save workflows show the same Ready, **18 factory**, and user forms.
+- Top toolbars are responsive: secondary captions are hidden when width is limited while
+  **Form editing** remains inside the window.
+- **Help → Clear diagnostics data…** removes only service logs and reports after confirmation;
+  projects, LAS files, forms, and exported ZIP bundles remain untouched.

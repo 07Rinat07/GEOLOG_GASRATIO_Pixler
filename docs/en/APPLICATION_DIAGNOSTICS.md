@@ -19,3 +19,19 @@ it outside the support workflow.
 
 For a reproducible report, perform the failing action, create the diagnostics bundle immediately,
 and attach the ZIP together with a brief description of the clicks that caused the problem.
+
+## Clearing accumulated data
+
+Use **Help → Clear diagnostics data…** to remove only service-owned data accumulated in the
+application profile:
+
+- the current log, rotated logs, and the crash log;
+- saved text reports produced by import diagnostics;
+- empty diagnostics subdirectories owned by the application.
+
+The application asks for confirmation and then reports the number of deleted files and the space
+freed. Logging resumes automatically without restarting the program. Projects, LAS files, user
+forms, settings, and diagnostics ZIP bundles previously exported by the user are not removed.
+
+To prevent unbounded growth, the application automatically retains no more than the 30 newest
+import-diagnostics reports of each type.
