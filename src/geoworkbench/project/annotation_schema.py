@@ -186,6 +186,11 @@ def is_annotation_object(item: CanvasObject) -> bool:
 def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
     if item.object_type == LEGACY_DEPTH_ANNOTATION_TYPE:
         depth = item.top_depth if item.top_depth is not None else item.y
+        legacy_symbol_id = _optional_string(
+            item.properties.get("symbol_id"), maximum=200
+        )
+        legacy_minimum = 2.0 if legacy_symbol_id else 40.0
+        legacy_minimum_height = 2.0 if legacy_symbol_id else 24.0
         return AnnotationRecord(
             annotation_id=item.object_id,
             kind=AnnotationKind.CALLOUT,
@@ -201,14 +206,14 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
             x_fraction=_number(item.x, 0.04, 0.0, 1.0),
             offset_x=_number(item.properties.get("offset_x_px"), 14.0, -10000.0, 10000.0),
             offset_y=_number(item.properties.get("offset_y_px"), -22.0, -10000.0, 10000.0),
-            width=_number(item.width, 210.0, 40.0, 4000.0),
-            height=_number(item.height, 64.0, 24.0, 4000.0),
+            width=_number(item.width, 210.0, legacy_minimum, 4000.0),
+            height=_number(item.height, 64.0, legacy_minimum_height, 4000.0),
             style=AnnotationStyle.from_mapping(item.properties.get("style")),
             visible=bool(item.properties.get("visible", True)),
             locked=bool(item.properties.get("locked", False)),
             print_enabled=bool(item.properties.get("print_enabled", True)),
             scope_id=_optional_string(item.properties.get("scope_id"), maximum=300),
-            symbol_id=_optional_string(item.properties.get("symbol_id"), maximum=200),
+            symbol_id=legacy_symbol_id,
             transparent_background=bool(
                 item.properties.get("transparent_background", True)
             ),
@@ -228,6 +233,10 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
     )
     axis_value = _finite_number(item.properties.get("axis_value"))
     parameter_value = _finite_number(item.properties.get("parameter_value"))
+    symbol_id = _optional_string(item.properties.get("symbol_id"), maximum=200)
+    symbol_geometry = kind is AnnotationKind.SYMBOL or bool(symbol_id)
+    minimum_width = 2.0 if symbol_geometry else 40.0
+    minimum_height = 2.0 if symbol_geometry else 24.0
     return AnnotationRecord(
         annotation_id=item.object_id,
         kind=kind,
@@ -243,15 +252,15 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
         x_fraction=_number(item.x, 0.5, 0.0, 1.0),
         offset_x=_number(item.properties.get("offset_x_px"), 18.0, -10000.0, 10000.0),
         offset_y=_number(item.properties.get("offset_y_px"), -36.0, -10000.0, 10000.0),
-        width=_number(item.width, 220.0, 40.0, 4000.0),
-        height=_number(item.height, 76.0, 24.0, 4000.0),
+        width=_number(item.width, 220.0, minimum_width, 4000.0),
+        height=_number(item.height, 76.0, minimum_height, 4000.0),
         style=AnnotationStyle.from_mapping(item.properties.get("style")),
         asset_ref=_optional_string(item.properties.get("asset_ref"), maximum=200),
         visible=bool(item.properties.get("visible", True)),
         locked=bool(item.properties.get("locked", False)),
         print_enabled=bool(item.properties.get("print_enabled", True)),
         scope_id=_optional_string(item.properties.get("scope_id"), maximum=300),
-        symbol_id=_optional_string(item.properties.get("symbol_id"), maximum=200),
+        symbol_id=symbol_id,
         transparent_background=bool(
             item.properties.get("transparent_background", True)
         ),

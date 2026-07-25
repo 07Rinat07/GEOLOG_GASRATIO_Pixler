@@ -812,7 +812,7 @@ def test_pencil_action_edits_visible_curve_directly_in_tablet(qapp) -> None:
     assert window.tabs.currentWidget() is window.tablet_view
     assert window.tablet_view.curve_pencil_enabled is True
     assert window.tablet_view.curve_pencil_target == ("curve", "ROP")
-    assert window.pencil_action in window.main_toolbar.actions()
+    assert window.pencil_button.defaultAction() is window.pencil_action
     window.close()
 
 

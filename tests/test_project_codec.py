@@ -36,6 +36,11 @@ from geoworkbench.data.las_import_report import (
     LasIssueSeverity,
     LasSourceSnapshot,
 )
+from geoworkbench.project.annotation_schema import (
+    ANNOTATION_OBJECT_TYPE,
+    AnnotationKind,
+    annotation_from_canvas,
+)
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.project_codec import (
@@ -790,3 +795,37 @@ def test_legacy_curve_without_semantic_binding_is_enriched_on_load() -> None:
     assert curve.metadata.semantic is not None
     assert curve.metadata.semantic.canonical_kind == "drilling.rop"
     assert curve.metadata.semantic.canonical_uom == "m/h"
+
+
+def test_project_roundtrip_preserves_two_pixel_catalog_symbol(tmp_path: Path) -> None:
+    project = make_project()
+    well = next(iter(project.wells.values()))
+    well.canvas_objects.append(
+        CanvasObject(
+            object_id="tiny-symbol",
+            object_type=ANNOTATION_OBJECT_TYPE,
+            anchor_type="depth",
+            x=0.5,
+            y=100.0,
+            width=2.0,
+            height=5.0,
+            top_depth=100.0,
+            bottom_depth=100.0,
+            track_id="gas",
+            properties={
+                "kind": AnnotationKind.SYMBOL.value,
+                "symbol_id": "symbol-bit",
+                "asset_ref": "asset-symbol-bit",
+            },
+        )
+    )
+    target = tmp_path / "tiny-symbol.geolog"
+
+    save_project(project, target)
+    restored = load_project(target)
+    record = annotation_from_canvas(
+        next(iter(restored.wells.values())).canvas_objects[-1]
+    )
+
+    assert record.width == 2.0
+    assert record.height == 5.0

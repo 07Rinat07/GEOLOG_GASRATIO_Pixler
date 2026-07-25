@@ -29,7 +29,9 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QColorDialog,
     QDockWidget,
+    QFrame,
     QFileDialog,
+    QHBoxLayout,
     QInputDialog,
     QLabel,
     QListWidget,
@@ -400,6 +402,26 @@ class _MainWindowDatasetImportPort(_MainWindowPort):
         return well.name
 
 
+class _ResponsiveToolbarRow(QWidget):
+    """Single toolbar item whose width is always constrained by the window.
+
+    QToolBar normally creates a private extension button when several native
+    actions do not fit. On Windows that extension button can be inserted after
+    our own adaptation pass and push the pinned right-side command outside the
+    viewport. Keeping the complete row inside one expanding QWidget removes
+    that native overflow path; visibility is controlled only by our explicit
+    ``⋯`` menu.
+    """
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
+        hint = super().minimumSizeHint()
+        return QSize(0, max(1, hint.height()))
+
+    def sizeHint(self) -> QSize:  # noqa: N802 - Qt API
+        hint = super().sizeHint()
+        return QSize(0, max(1, hint.height()))
+
+
 @dataclass(frozen=True, slots=True)
 class _TabletFormSnapshot:
     """Last known-good tablet state used for form preview/apply rollback."""
@@ -482,6 +504,7 @@ class MainWindow(QMainWindow):
         self._toolbar_observed_screens: list[object] = []
         self._toolbar_adaptation_in_progress = False
         self._main_toolbar_overflow_signature: tuple[str, ...] = ()
+        self._form_toolbar_overflow_signature: tuple[str, ...] = ()
         self._apply_adaptive_initial_geometry()
 
         self.tabs = QTabWidget()
@@ -1823,7 +1846,7 @@ class MainWindow(QMainWindow):
 
     def _toolbar_button(
         self,
-        toolbar: QToolBar,
+        toolbar: QWidget,
         action: QAction,
         *,
         text_beside_icon: bool = True,
@@ -1837,7 +1860,20 @@ class MainWindow(QMainWindow):
             else Qt.ToolButtonStyle.ToolButtonIconOnly
         )
         button.setAutoRaise(False)
+        button.setMinimumWidth(0)
         return button
+
+    @staticmethod
+    def _toolbar_separator_widget(parent: QWidget) -> QFrame:
+        separator = QFrame(parent)
+        separator.setObjectName("toolbarSeparator")
+        separator.setFrameShape(QFrame.Shape.VLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        separator.setFixedWidth(8)
+        separator.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+        )
+        return separator
 
     def _create_home_page(self) -> None:
         self.home_page = HomePage(
@@ -1909,28 +1945,75 @@ class MainWindow(QMainWindow):
             "QToolBar#mainToolbar QToolButton:pressed { background: #dbeafe; }"
             "QToolBar#mainToolbar QToolButton:checked { background: #dbeafe; "
             "border-color: #3b82f6; color: #1e3a8a; }"
+            "QToolBar#mainToolbar QToolButton#qt_toolbar_ext_button { "
+            "min-width:0px; max-width:0px; width:0px; padding:0px; border:0px; }"
         )
 
-        self.main_toolbar.addAction(self.home_action)
-        self._main_toolbar_separator_home = self.main_toolbar.addSeparator()
-        self.las_editor_button = self._toolbar_button(self.main_toolbar, self.las_editor_action)
-        self.form_manager_button = self._toolbar_button(self.main_toolbar, self.form_manager_action)
-        self.constructor_button = self._toolbar_button(self.main_toolbar, self.constructor_action)
-        # These are ordinary direct buttons. No menu is attached to Form Manager.
-        self.main_toolbar.addWidget(self.las_editor_button)
-        self.main_toolbar.addWidget(self.form_manager_button)
-        self.main_toolbar.addWidget(self.constructor_button)
-        self._main_toolbar_separator_files = self.main_toolbar.addSeparator()
-        self.main_toolbar.addAction(self.open_project_action)
-        self.main_toolbar.addAction(self.open_data_action)
-        self.main_toolbar.addAction(self.save_action)
-        self._main_toolbar_separator_tools = self.main_toolbar.addSeparator()
-        # Keep the two high-frequency visual tools visible; the remaining
-        # specialist actions stay in their menus and do not overload the bar.
-        self.main_toolbar.addAction(self.pencil_action)
-        self.main_toolbar.addAction(self.cursor_line_action)
+        # Keep the complete main row inside one QWidget. This deliberately
+        # bypasses QToolBar's private extension button, which may be inserted
+        # asynchronously by the Windows style after a DPI or monitor change.
+        self.main_toolbar_row = _ResponsiveToolbarRow(self.main_toolbar)
+        self.main_toolbar_row.setObjectName("mainToolbarRow")
+        self.main_toolbar_row.setMinimumWidth(0)
+        self.main_toolbar_row.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        self.main_toolbar_layout = QHBoxLayout(self.main_toolbar_row)
+        self.main_toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_toolbar_layout.setSpacing(6)
 
-        self.main_toolbar_overflow_menu = QMenu(self.main_toolbar)
+        self.home_button = self._toolbar_button(
+            self.main_toolbar_row, self.home_action
+        )
+        self.las_editor_button = self._toolbar_button(
+            self.main_toolbar_row, self.las_editor_action
+        )
+        self.form_manager_button = self._toolbar_button(
+            self.main_toolbar_row, self.form_manager_action
+        )
+        self.constructor_button = self._toolbar_button(
+            self.main_toolbar_row, self.constructor_action
+        )
+        self.open_project_button = self._toolbar_button(
+            self.main_toolbar_row, self.open_project_action
+        )
+        self.open_data_button = self._toolbar_button(
+            self.main_toolbar_row, self.open_data_action
+        )
+        self.save_button = self._toolbar_button(
+            self.main_toolbar_row, self.save_action
+        )
+        self.pencil_button = self._toolbar_button(
+            self.main_toolbar_row, self.pencil_action
+        )
+        self.cursor_line_button = self._toolbar_button(
+            self.main_toolbar_row, self.cursor_line_action
+        )
+
+        self._main_toolbar_separator_home = self._toolbar_separator_widget(
+            self.main_toolbar_row
+        )
+        self._main_toolbar_separator_files = self._toolbar_separator_widget(
+            self.main_toolbar_row
+        )
+        self._main_toolbar_separator_tools = self._toolbar_separator_widget(
+            self.main_toolbar_row
+        )
+
+        self.main_toolbar_layout.addWidget(self.home_button)
+        self.main_toolbar_layout.addWidget(self._main_toolbar_separator_home)
+        self.main_toolbar_layout.addWidget(self.las_editor_button)
+        self.main_toolbar_layout.addWidget(self.form_manager_button)
+        self.main_toolbar_layout.addWidget(self.constructor_button)
+        self.main_toolbar_layout.addWidget(self._main_toolbar_separator_files)
+        self.main_toolbar_layout.addWidget(self.open_project_button)
+        self.main_toolbar_layout.addWidget(self.open_data_button)
+        self.main_toolbar_layout.addWidget(self.save_button)
+        self.main_toolbar_layout.addWidget(self._main_toolbar_separator_tools)
+        self.main_toolbar_layout.addWidget(self.pencil_button)
+        self.main_toolbar_layout.addWidget(self.cursor_line_button)
+
+        self.main_toolbar_overflow_menu = QMenu(self.main_toolbar_row)
         for action in (
             self.home_action,
             self.las_editor_action,
@@ -1943,7 +2026,7 @@ class MainWindow(QMainWindow):
             self.cursor_line_action,
         ):
             self.main_toolbar_overflow_menu.addAction(action)
-        self.main_toolbar_overflow_button = QToolButton(self.main_toolbar)
+        self.main_toolbar_overflow_button = QToolButton(self.main_toolbar_row)
         self.main_toolbar_overflow_button.setObjectName("mainToolbarOverflowButton")
         self.main_toolbar_overflow_button.setText("⋯")
         self.main_toolbar_overflow_button.setToolTip(self._t("toolbar.more_actions"))
@@ -1953,23 +2036,26 @@ class MainWindow(QMainWindow):
         )
         self.main_toolbar_overflow_button.setAutoRaise(False)
         self.main_toolbar_overflow_button.setFixedWidth(38)
-        self.main_toolbar.addWidget(self.main_toolbar_overflow_button)
+        self.main_toolbar_layout.addWidget(self.main_toolbar_overflow_button)
         self.main_toolbar_overflow_button.hide()
 
-        self.main_toolbar_spacer = QWidget(self.main_toolbar)
+        self.main_toolbar_spacer = QWidget(self.main_toolbar_row)
         self.main_toolbar_spacer.setMinimumWidth(0)
         self.main_toolbar_spacer.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
-        self.main_toolbar.addWidget(self.main_toolbar_spacer)
+        self.main_toolbar_layout.addWidget(self.main_toolbar_spacer, 1)
         self.edit_mode_button = self._toolbar_button(
-            self.main_toolbar, self.tablet_edit_mode_action
+            self.main_toolbar_row, self.tablet_edit_mode_action
         )
         self.edit_mode_button.setObjectName("tabletEditModeToolbarButton")
+        self.edit_mode_button.setMinimumWidth(34)
         self.edit_mode_button.setSizePolicy(
-            QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred
         )
-        self.main_toolbar.addWidget(self.edit_mode_button)
+        self.main_toolbar_layout.addWidget(self.edit_mode_button)
+
+        self.main_toolbar.addWidget(self.main_toolbar_row)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.main_toolbar)
 
         self.form_edit_toolbar = QToolBar(self._t("ui.form_edit_toolbar"), self)
@@ -1984,28 +2070,81 @@ class MainWindow(QMainWindow):
             "QToolBar#formEditToolbar QToolButton { min-height: 28px; padding: 3px 7px; "
             "border-radius: 5px; }"
             "QToolBar#formEditToolbar QToolButton:hover { background: #dbeafe; }"
+            "QToolBar#formEditToolbar QToolButton#qt_toolbar_ext_button { "
+            "min-width:0px; max-width:0px; width:0px; padding:0px; border:0px; }"
         )
-        self.form_edit_caption = QLabel(self._t("ui.form_edit_toolbar"))
+        self.form_edit_row = _ResponsiveToolbarRow(self.form_edit_toolbar)
+        self.form_edit_row.setObjectName("formEditToolbarRow")
+        self.form_edit_row.setMinimumWidth(0)
+        self.form_edit_row.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        self.form_edit_layout = QHBoxLayout(self.form_edit_row)
+        self.form_edit_layout.setContentsMargins(0, 0, 0, 0)
+        self.form_edit_layout.setSpacing(4)
+
+        self.form_edit_caption = QLabel(
+            self._t("ui.form_edit_toolbar"), self.form_edit_row
+        )
         self.form_edit_caption.setStyleSheet(
             "background:transparent; font-weight:700; color:#1e3a8a; padding-right:8px;"
         )
         self.form_edit_caption.setToolTip(self._t("ui.help.tablet_edit_mode"))
-        self.form_edit_toolbar.addWidget(self.form_edit_caption)
-        self.form_edit_toolbar.addAction(self.annotation_callout_action)
-        self.form_edit_toolbar.addAction(self.annotation_comment_action)
-        self.form_edit_toolbar.addAction(self.annotation_image_action)
-        self.form_edit_toolbar.addAction(self.annotation_symbol_action)
-        self.form_edit_toolbar.addAction(self.annotation_manager_toolbar_action)
-        self.form_edit_toolbar.addAction(self.annotation_edit_selected_action)
-        self.form_edit_toolbar.addAction(self.annotation_delete_selected_action)
-        self.form_edit_toolbar.addSeparator()
-        self.form_edit_toolbar.addAction(self.add_curve_track_action)
-        self.form_edit_toolbar.addAction(self.edit_selected_track_action)
-        self.form_edit_toolbar.addAction(self.move_left_action)
-        self.form_edit_toolbar.addAction(self.move_right_action)
-        self.form_edit_toolbar.addAction(self.remove_track_action)
-        self.form_edit_toolbar.addSeparator()
-        self.form_edit_toolbar.addAction(self.save_user_form_action)
+        self.form_edit_layout.addWidget(self.form_edit_caption)
+
+        form_actions = (
+            self.annotation_callout_action,
+            self.annotation_comment_action,
+            self.annotation_image_action,
+            self.annotation_symbol_action,
+            self.annotation_manager_toolbar_action,
+            self.annotation_edit_selected_action,
+            self.annotation_delete_selected_action,
+            self.add_curve_track_action,
+            self.edit_selected_track_action,
+            self.move_left_action,
+            self.move_right_action,
+            self.remove_track_action,
+            self.save_user_form_action,
+        )
+        self._form_toolbar_buttons = {
+            action: self._toolbar_button(self.form_edit_row, action)
+            for action in form_actions
+        }
+        for action in form_actions[:7]:
+            self.form_edit_layout.addWidget(self._form_toolbar_buttons[action])
+        self._form_toolbar_separator_annotations = self._toolbar_separator_widget(
+            self.form_edit_row
+        )
+        self.form_edit_layout.addWidget(self._form_toolbar_separator_annotations)
+        for action in form_actions[7:12]:
+            self.form_edit_layout.addWidget(self._form_toolbar_buttons[action])
+        self._form_toolbar_separator_tracks = self._toolbar_separator_widget(
+            self.form_edit_row
+        )
+        self.form_edit_layout.addWidget(self._form_toolbar_separator_tracks)
+        self.form_edit_layout.addWidget(
+            self._form_toolbar_buttons[self.save_user_form_action]
+        )
+
+        self.form_edit_overflow_menu = QMenu(self.form_edit_row)
+        for action in form_actions:
+            self.form_edit_overflow_menu.addAction(action)
+        self.form_edit_overflow_button = QToolButton(self.form_edit_row)
+        self.form_edit_overflow_button.setObjectName("formEditToolbarOverflowButton")
+        self.form_edit_overflow_button.setText("⋯")
+        self.form_edit_overflow_button.setToolTip(self._t("toolbar.more_actions"))
+        self.form_edit_overflow_button.setMenu(self.form_edit_overflow_menu)
+        self.form_edit_overflow_button.setPopupMode(
+            QToolButton.ToolButtonPopupMode.InstantPopup
+        )
+        self.form_edit_overflow_button.setAutoRaise(False)
+        self.form_edit_overflow_button.setFixedWidth(34)
+        self.form_edit_layout.addWidget(self.form_edit_overflow_button)
+        self.form_edit_overflow_button.hide()
+        self.form_edit_layout.addStretch(1)
+
+        self.form_edit_toolbar.addWidget(self.form_edit_row)
         self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.form_edit_toolbar)
         self.form_edit_toolbar.hide()
@@ -2023,33 +2162,57 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
         )
         self._main_toolbar_compact_buttons = (
+            self.home_button,
             self.las_editor_button,
             self.form_manager_button,
             self.constructor_button,
+            self.open_project_button,
+            self.open_data_button,
+            self.save_button,
+            self.pencil_button,
+            self.cursor_line_button,
         )
-        self._main_toolbar_compact_actions = (
-            self.home_action,
-            self.open_project_action,
-            self.open_data_action,
-            self.save_action,
-            self.pencil_action,
-            self.cursor_line_action,
-        )
+        self._main_toolbar_compact_actions: tuple[QAction, ...] = ()
         self._main_toolbar_overflow_candidates = (
-            ("home", self.home_action),
+            ("home", self.home_button),
             ("constructor", self.constructor_button),
-            ("pencil", self.pencil_action),
-            ("cursor", self.cursor_line_action),
+            ("pencil", self.pencil_button),
+            ("cursor", self.cursor_line_button),
             ("las_editor", self.las_editor_button),
             ("forms", self.form_manager_button),
-            ("open_project", self.open_project_action),
-            ("open_data", self.open_data_action),
-            ("save", self.save_action),
+            ("open_project", self.open_project_button),
+            ("open_data", self.open_data_button),
+            ("save", self.save_button),
         )
         self._main_toolbar_separators = (
             self._main_toolbar_separator_home,
             self._main_toolbar_separator_files,
             self._main_toolbar_separator_tools,
+        )
+        self._form_toolbar_overflow_candidates = (
+            ("move_right", self._form_toolbar_buttons[self.move_right_action]),
+            ("move_left", self._form_toolbar_buttons[self.move_left_action]),
+            ("remove_track", self._form_toolbar_buttons[self.remove_track_action]),
+            ("edit_track", self._form_toolbar_buttons[self.edit_selected_track_action]),
+            ("add_track", self._form_toolbar_buttons[self.add_curve_track_action]),
+            (
+                "delete_annotation",
+                self._form_toolbar_buttons[self.annotation_delete_selected_action],
+            ),
+            ("edit_annotation", self._form_toolbar_buttons[self.annotation_edit_selected_action]),
+            (
+                "manage_annotations",
+                self._form_toolbar_buttons[self.annotation_manager_toolbar_action],
+            ),
+            ("image", self._form_toolbar_buttons[self.annotation_image_action]),
+            ("comment", self._form_toolbar_buttons[self.annotation_comment_action]),
+            ("callout", self._form_toolbar_buttons[self.annotation_callout_action]),
+            ("symbol", self._form_toolbar_buttons[self.annotation_symbol_action]),
+            ("save_form", self._form_toolbar_buttons[self.save_user_form_action]),
+        )
+        self._form_toolbar_separators = (
+            self._form_toolbar_separator_annotations,
+            self._form_toolbar_separator_tracks,
         )
         self._main_toolbar_is_compact = False
         self._main_toolbar_is_ultra_compact = False
@@ -2090,78 +2253,102 @@ class MainWindow(QMainWindow):
     def _set_form_toolbar_visual_mode(
         self, compact: bool, ultra_compact: bool
     ) -> None:
-        self.form_edit_toolbar.setToolButtonStyle(
+        style = (
             Qt.ToolButtonStyle.ToolButtonIconOnly
             if compact
             else Qt.ToolButtonStyle.ToolButtonTextBesideIcon
         )
+        for button in self._form_toolbar_buttons.values():
+            button.setToolButtonStyle(style)
         self.form_edit_caption.setText(
             "F4" if ultra_compact else self._t("ui.form_edit_toolbar")
         )
         self.form_edit_caption.setMinimumWidth(0)
         self.form_edit_caption.setMaximumWidth(32 if ultra_compact else 240)
 
-    def _toolbar_required_width(
-        self, toolbar: QToolBar, *, expanding_widget: QWidget | None = None
+    @staticmethod
+    def _responsive_row_required_width(
+        layout: QHBoxLayout,
+        *,
+        expanding_widget: QWidget | None = None,
+        hidden_widget_ids: set[int] | None = None,
+        chrome_width: int = 24,
     ) -> int:
-        """Measure intended toolbar contents in Qt logical pixels.
+        """Measure one custom toolbar row without native QToolBar state.
 
-        The native QToolBar layout may already hide overflowing widgets before
-        this method runs.  Those native visibility flags must not affect the
-        measurement, otherwise a clipped row can incorrectly report that it
-        fits.  Only widgets deliberately moved into our own overflow menu are
-        excluded.
+        The row contains every visible button inside one constrained QWidget,
+        so the private Qt extension button is never part of this calculation.
+        Explicit overflow membership is used instead of QWidget visibility,
+        which can lag behind a Windows DPI/monitor transition.
         """
 
         from geoworkbench.ui.toolbar_adaptation import required_toolbar_width
 
-        toolbar.ensurePolished()
-        layout = toolbar.layout()
-        if layout is not None:
-            layout.activate()
-
-        hidden_widget_ids: set[int] = set()
-        hide_main_separators = False
-        if toolbar is self.main_toolbar:
-            hidden_keys = set(self._main_toolbar_overflow_signature)
-            hide_main_separators = bool(hidden_keys)
-            for key, item in self._main_toolbar_overflow_candidates:
-                if key not in hidden_keys:
-                    continue
-                widget = self._main_toolbar_item_widget(item)
-                if widget is not None:
-                    hidden_widget_ids.add(id(widget))
-            if not hidden_keys:
-                hidden_widget_ids.add(id(self.main_toolbar_overflow_button))
-
+        hidden = hidden_widget_ids or set()
         widths: list[int] = []
-        for action in toolbar.actions():
-            if not action.isVisible():
-                continue
-            if action.isSeparator():
-                if not hide_main_separators:
-                    widths.append(8)
-                continue
-            widget = toolbar.widgetForAction(action)
-            if (
-                widget is None
-                or widget is expanding_widget
-                or id(widget) in hidden_widget_ids
-            ):
+        for index in range(layout.count()):
+            item = layout.itemAt(index)
+            widget = item.widget()
+            if widget is None or widget is expanding_widget or id(widget) in hidden:
                 continue
             widget.ensurePolished()
-            hint = widget.sizeHint().width()
-            minimum = widget.minimumSizeHint().width()
-            widths.append(max(1, hint, minimum, widget.minimumWidth()))
-        spacing = 6
-        if layout is not None and layout.spacing() >= 0:
-            spacing = layout.spacing()
-        margins = toolbar.contentsMargins()
-        # Style-sheet padding and native extension-button metrics are not fully
-        # represented by contentsMargins on every Windows style.  Reserve 40
-        # logical pixels so the rightmost control never sits on the screen edge.
-        chrome = margins.left() + margins.right() + 40
-        return required_toolbar_width(widths, spacing=spacing, chrome_width=chrome)
+            widths.append(
+                max(
+                    1,
+                    widget.sizeHint().width(),
+                    widget.minimumSizeHint().width(),
+                    widget.minimumWidth(),
+                )
+            )
+        margins = layout.contentsMargins()
+        chrome = (
+            max(0, int(chrome_width))
+            + margins.left()
+            + margins.right()
+        )
+        return required_toolbar_width(
+            widths, spacing=max(0, layout.spacing()), chrome_width=chrome
+        )
+
+    def _toolbar_required_width(
+        self, toolbar: QToolBar, *, expanding_widget: QWidget | None = None
+    ) -> int:
+        if toolbar is self.main_toolbar:
+            hidden_keys = set(self._main_toolbar_overflow_signature)
+            hidden_ids = {
+                id(widget)
+                for key, widget in self._main_toolbar_overflow_candidates
+                if key in hidden_keys
+            }
+            if not hidden_keys:
+                hidden_ids.add(id(self.main_toolbar_overflow_button))
+            else:
+                hidden_ids.update(id(item) for item in self._main_toolbar_separators)
+            return self._responsive_row_required_width(
+                self.main_toolbar_layout,
+                expanding_widget=self.main_toolbar_spacer,
+                hidden_widget_ids=hidden_ids,
+                chrome_width=28,
+            )
+
+        if toolbar is self.form_edit_toolbar:
+            hidden_keys = set(self._form_toolbar_overflow_signature)
+            hidden_ids = {
+                id(widget)
+                for key, widget in self._form_toolbar_overflow_candidates
+                if key in hidden_keys
+            }
+            if not hidden_keys:
+                hidden_ids.add(id(self.form_edit_overflow_button))
+            else:
+                hidden_ids.update(id(item) for item in self._form_toolbar_separators)
+            return self._responsive_row_required_width(
+                self.form_edit_layout,
+                hidden_widget_ids=hidden_ids,
+                chrome_width=24,
+            )
+
+        return max(1, toolbar.sizeHint().width())
 
     def _measure_main_toolbar_mode(
         self, compact: bool, ultra_compact: bool
@@ -2183,48 +2370,58 @@ class MainWindow(QMainWindow):
         return item if isinstance(item, QWidget) else None
 
     def _set_main_toolbar_overflow(self, hidden_keys: tuple[str, ...]) -> None:
-        """Move low-priority commands to the menu without hiding their actions."""
+        """Move low-priority commands to our menu inside the fixed row."""
 
         normalized = tuple(hidden_keys)
         if normalized == self._main_toolbar_overflow_signature:
             return
         self._main_toolbar_overflow_signature = normalized
         hidden = set(normalized)
-        for key, item in self._main_toolbar_overflow_candidates:
-            widget = self._main_toolbar_item_widget(item)
-            if widget is not None:
-                widget.setVisible(key not in hidden)
+        for key, widget in self._main_toolbar_overflow_candidates:
+            widget.setVisible(key not in hidden)
         self.main_toolbar_overflow_button.setVisible(bool(hidden))
         for separator in self._main_toolbar_separators:
-            widget = self.main_toolbar.widgetForAction(separator)
-            if widget is not None:
-                widget.setVisible(not bool(hidden))
-        layout = self.main_toolbar.layout()
-        if layout is not None:
-            layout.activate()
-        self.main_toolbar.updateGeometry()
+            separator.setVisible(not bool(hidden))
+        self.main_toolbar_layout.activate()
+        self.main_toolbar_row.updateGeometry()
+
+    def _set_form_toolbar_overflow(self, hidden_keys: tuple[str, ...]) -> None:
+        normalized = tuple(hidden_keys)
+        if normalized == self._form_toolbar_overflow_signature:
+            return
+        self._form_toolbar_overflow_signature = normalized
+        hidden = set(normalized)
+        for key, widget in self._form_toolbar_overflow_candidates:
+            widget.setVisible(key not in hidden)
+        self.form_edit_overflow_button.setVisible(bool(hidden))
+        for separator in self._form_toolbar_separators:
+            separator.setVisible(not bool(hidden))
+        self.form_edit_layout.activate()
+        self.form_edit_row.updateGeometry()
+
+    @staticmethod
+    def _overflow_candidate_widths(
+        candidates: tuple[tuple[str, QWidget], ...], spacing: int
+    ) -> list[int]:
+        widths: list[int] = []
+        for _key, widget in candidates:
+            widget.ensurePolished()
+            widths.append(
+                max(1, widget.sizeHint().width(), widget.minimumSizeHint().width())
+                + max(0, int(spacing))
+            )
+        return widths
 
     def _fit_main_toolbar_overflow(self, available: int) -> None:
-        """Guarantee that the pinned edit button remains inside the viewport."""
+        """Guarantee that the pinned edit button remains inside the row."""
 
         self._set_main_toolbar_overflow(())
         required = self._toolbar_required_width(
             self.main_toolbar, expanding_widget=self.main_toolbar_spacer
         )
-        candidate_widths: list[int] = []
-        for _key, item in self._main_toolbar_overflow_candidates:
-            widget = self._main_toolbar_item_widget(item)
-            if widget is None:
-                candidate_widths.append(0)
-            else:
-                candidate_widths.append(
-                    max(
-                        1,
-                        widget.sizeHint().width(),
-                        widget.minimumSizeHint().width(),
-                    )
-                    + 6
-                )
+        candidate_widths = self._overflow_candidate_widths(
+            self._main_toolbar_overflow_candidates, self.main_toolbar_layout.spacing()
+        )
         count = overflow_item_count(
             available,
             required,
@@ -2232,24 +2429,46 @@ class MainWindow(QMainWindow):
             overflow_button_width=max(
                 38, self.main_toolbar_overflow_button.sizeHint().width()
             ),
-            safety_margin=24,
+            safety_margin=28,
         )
-        if count <= 0:
-            return
         hidden = [
-            key for key, _item in self._main_toolbar_overflow_candidates[:count]
+            key for key, _widget in self._main_toolbar_overflow_candidates[:count]
         ]
         self._set_main_toolbar_overflow(tuple(hidden))
-        # Platform styles can reserve more native toolbar chrome than their
-        # size hints report.  Continue hiding until the measured row fits.
-        for key, _item in self._main_toolbar_overflow_candidates[count:]:
+        for key, _widget in self._main_toolbar_overflow_candidates[count:]:
             required = self._toolbar_required_width(
                 self.main_toolbar, expanding_widget=self.main_toolbar_spacer
             )
-            if required <= max(0, available - 24):
+            if required <= max(0, available - 28):
                 break
             hidden.append(key)
             self._set_main_toolbar_overflow(tuple(hidden))
+
+    def _fit_form_toolbar_overflow(self, available: int) -> None:
+        self._set_form_toolbar_overflow(())
+        required = self._toolbar_required_width(self.form_edit_toolbar)
+        candidate_widths = self._overflow_candidate_widths(
+            self._form_toolbar_overflow_candidates, self.form_edit_layout.spacing()
+        )
+        count = overflow_item_count(
+            available,
+            required,
+            candidate_widths,
+            overflow_button_width=max(
+                34, self.form_edit_overflow_button.sizeHint().width()
+            ),
+            safety_margin=24,
+        )
+        hidden = [
+            key for key, _widget in self._form_toolbar_overflow_candidates[:count]
+        ]
+        self._set_form_toolbar_overflow(tuple(hidden))
+        for key, _widget in self._form_toolbar_overflow_candidates[count:]:
+            required = self._toolbar_required_width(self.form_edit_toolbar)
+            if required <= max(0, available - 24):
+                break
+            hidden.append(key)
+            self._set_form_toolbar_overflow(tuple(hidden))
 
     def _update_toolbar_adaptation(self) -> None:
         """Keep both top toolbars inside the actual logical window width."""
@@ -2259,8 +2478,11 @@ class MainWindow(QMainWindow):
         self._toolbar_adaptation_in_progress = True
         try:
             toolbar_width = self.main_toolbar.contentsRect().width()
-            available = max(120, min(self.width(), toolbar_width or self.width()) - 8)
+            available = max(
+                120, min(self.width(), toolbar_width or self.width()) - 8
+            )
             self._set_main_toolbar_overflow(())
+            self._set_form_toolbar_overflow(())
 
             main_expanded = self._measure_main_toolbar_mode(False, False)
             main_compact = self._measure_main_toolbar_mode(True, False)
@@ -2293,6 +2515,7 @@ class MainWindow(QMainWindow):
             self._apply_form_toolbar_mode(
                 form_mode.compact, form_mode.ultra_compact
             )
+            self._fit_form_toolbar_overflow(available)
         finally:
             self._toolbar_adaptation_in_progress = False
 

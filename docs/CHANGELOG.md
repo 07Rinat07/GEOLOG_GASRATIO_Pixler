@@ -1,3 +1,11 @@
+# 0.7.70 — constrained toolbar rows and tiny catalog symbols
+
+- replaced native multi-action QToolBar layout with one constrained application-owned row;
+- pinned Form editing inside the window and added explicit `⋯` overflow to both top toolbars;
+- allowed catalog symbols to shrink independently to 2×2 logical pixels;
+- preserved safe minimum sizes for normal annotations and images;
+- updated synchronized RU/KK/EN guides and regression tests.
+
 # 0.7.69 — guaranteed DPI-aware toolbar overflow
 
 - Added a real **“⋯”** overflow menu as the final fallback when icon-only controls still exceed the live toolbar width.

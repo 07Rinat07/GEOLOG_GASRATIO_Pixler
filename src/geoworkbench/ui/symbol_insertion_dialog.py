@@ -179,9 +179,9 @@ class SymbolInsertionDialog(QDialog):
     def _size_input(object_name: str) -> QDoubleSpinBox:
         control = QDoubleSpinBox()
         control.setObjectName(object_name)
-        control.setRange(24.0, 1200.0)
+        control.setRange(2.0, 1200.0)
         control.setDecimals(1)
-        control.setSingleStep(4.0)
+        control.setSingleStep(1.0)
         control.setSuffix(" px")
         return control
 

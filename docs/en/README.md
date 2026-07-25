@@ -1,5 +1,10 @@
 # User guide
 
+## Changes in 0.7.70
+
+The top toolbars now use an application-owned responsive row and no longer depend on Qt's native overflow arrow. **Form editing** stays inside the window on laptops and external monitors at different DPI scales. Inserted symbols can be narrowed freely in width or height down to 2 logical pixels; `Shift` preserves aspect ratio. See [UI_WORKSPACE.md](UI_WORKSPACE.md) and [ANNOTATIONS.md](ANNOTATIONS.md).
+
+
 GEOLOG GASRATIO@Pixler is an editor for drilling, mud-logging, and LAS data.
 
 - a ready A3 KazGeology Masterlog template with two uploadable logos and coloured scales;

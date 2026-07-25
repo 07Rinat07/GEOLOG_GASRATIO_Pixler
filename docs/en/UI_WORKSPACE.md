@@ -1,5 +1,10 @@
 ## Reliable project switching and tree commands — 0.7.30
 
+## Toolbar without native overflow — 0.7.70
+
+The main toolbar and the F4 toolbar each use one constrained responsive row. The application no longer relies on the native `QToolBar` extension arrow, which could appear after clicks or after moving the window to an external monitor and push **Form editing** beyond the right edge. The pinned right-side control remains inside the window; other commands switch from labels to icons and then move into the application-owned **`⋯`** menu. Recalculation runs after window, DPI, system-font, style and monitor work-area changes.
+
+
 After another project is opened, the application rebinds all workspace controllers to the new
 session and clears unfinished Undo/Redo, selections, and transient modes. Project-tree commands
 validate their well and dataset first; a stale item is safely ignored without partially changing

@@ -107,7 +107,10 @@ def test_f4_edit_mode_toggles_secondary_toolbar(qapp, tmp_path, monkeypatch) -> 
     assert window.annotation_comment_action.text() == "Комментарий"
     assert window.annotation_image_action.text() == "Изображение"
     assert window.annotation_manager_toolbar_action.text() == "Все…"
-    assert window.annotation_manager_toolbar_action in window.form_edit_toolbar.actions()
+    manager_button = window._form_toolbar_buttons[
+        window.annotation_manager_toolbar_action
+    ]
+    assert manager_button.defaultAction() is window.annotation_manager_toolbar_action
     assert window.form_manager_button.defaultAction() is window.form_manager_action
     assert window.form_manager_button.menu() is None
 

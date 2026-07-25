@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from geoworkbench.ui.toolbar_adaptation import (
     choose_toolbar_adaptation,
     overflow_item_count,
@@ -105,6 +107,61 @@ def test_main_toolbar_has_dpi_watchers_and_real_overflow_menu() -> None:
     assert "mainToolbarOverflowButton" in source
     assert "self.edit_mode_button" in source
     assert "self._main_toolbar_overflow_candidates" in source
-    assert "native QToolBar layout may already hide overflowing widgets" in source
-    assert "widget.isHidden()" not in source[source.index("def _toolbar_required_width"):source.index("def _measure_main_toolbar_mode")]
+    assert "class _ResponsiveToolbarRow" in source
+    assert "self.main_toolbar.addWidget(self.main_toolbar_row)" in source
+    assert "self.main_toolbar.addAction(self.home_action)" not in source
+    assert "qt_toolbar_ext_button" in source
+    assert "def _responsive_row_required_width" in source
+    measured = source[
+        source.index("def _toolbar_required_width") : source.index(
+            "def _measure_main_toolbar_mode"
+        )
+    ]
+    assert "widget.isHidden()" not in measured
     assert source.count('("constructor", self.constructor_button)') == 1
+
+
+def test_toolbar_uses_one_constrained_row_and_pins_edit_control_after_stretch() -> None:
+    source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+
+    create = source[source.index("def _create_toolbar"):source.index("def toggle_cursor_line")]
+    assert "self.main_toolbar_layout.addWidget(self.main_toolbar_spacer, 1)" in create
+    assert "self.main_toolbar_layout.addWidget(self.edit_mode_button)" in create
+    spacer_position = create.index(
+        "self.main_toolbar_layout.addWidget(self.main_toolbar_spacer, 1)"
+    )
+    edit_position = create.index(
+        "self.main_toolbar_layout.addWidget(self.edit_mode_button)"
+    )
+    assert spacer_position < edit_position
+    assert "self.main_toolbar_overflow_button" in create
+    assert "self.form_edit_toolbar.addWidget(self.form_edit_row)" in create
+
+
+def test_composite_toolbar_keeps_pinned_button_inside_at_multiple_widths() -> None:
+    pytest.importorskip("PySide6")
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.ui.main_window import MainWindow
+
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow()
+    window.show()
+    try:
+        for width in (1920, 1536, 1366, 1024, 760):
+            window.resize(width, 800)
+            app.processEvents()
+            window._update_toolbar_adaptation()
+            app.processEvents()
+
+            row_rect = window.main_toolbar_row.rect()
+            edit_rect = window.edit_mode_button.geometry()
+            assert edit_rect.left() >= row_rect.left()
+            assert edit_rect.right() <= row_rect.right()
+
+        # The native toolbar sees one expanding row rather than many actions,
+        # so it has no reason to insert its private extension button.
+        assert len(window.main_toolbar.actions()) == 1
+    finally:
+        window.close()
+        app.processEvents()

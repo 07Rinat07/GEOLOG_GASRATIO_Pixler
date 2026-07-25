@@ -1,6 +1,14 @@
 # GEOLOG GASRATIO@Pixler project plan
 
-Current as of 25 July 2026. Version **0.7.69** uses project format **v20**,
+## Completed in 0.7.70
+
+- removed the recurring native overflow arrow after interaction and monitor changes;
+- added application-owned `⋯` overflow for both top toolbars;
+- removed the 48×28 px catalog-symbol narrowing limit; the minimum visible size is 2×2 logical pixels;
+- added regression coverage for toolbar composition and tiny-symbol geometry.
+
+
+Current as of 25 July 2026. Version **0.7.70** uses project format **v20**,
 form schema **v8**, and tablet layout **v18**.
 
 ## Completed in 0.7.69

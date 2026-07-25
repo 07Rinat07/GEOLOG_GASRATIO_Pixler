@@ -555,6 +555,8 @@ class DepthAnnotationController:
                 style_raw if isinstance(style_raw, dict) else None
             )
         )
+        symbol_minimum = 2.0 if kind is AnnotationKind.SYMBOL else 40.0
+        symbol_minimum_height = 2.0 if kind is AnnotationKind.SYMBOL else 24.0
         return AnnotationRecord(
             annotation_id="",
             kind=kind,
@@ -570,8 +572,16 @@ class DepthAnnotationController:
             x_fraction=self._bounded(values.get("x_fraction"), 0.5, 0.0, 1.0, "Позиция по ширине"),
             offset_x=self._bounded(values.get("offset_x"), 18.0, -10000.0, 10000.0, "Смещение X"),
             offset_y=self._bounded(values.get("offset_y"), -36.0, -10000.0, 10000.0, "Смещение Y"),
-            width=self._bounded(values.get("width"), 220.0, 40.0, 4000.0, "Ширина"),
-            height=self._bounded(values.get("height"), 76.0, 24.0, 4000.0, "Высота"),
+            width=self._bounded(
+                values.get("width"), 220.0, symbol_minimum, 4000.0, "Ширина"
+            ),
+            height=self._bounded(
+                values.get("height"),
+                76.0,
+                symbol_minimum_height,
+                4000.0,
+                "Высота",
+            ),
             style=style,
             asset_ref=asset_ref,
             visible=bool(values.get("visible", True)),

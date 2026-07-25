@@ -1,5 +1,10 @@
 # Professional annotation layer — 0.7.61
 
+## Free symbol narrowing — 0.7.70
+
+Select a symbol and use the eight frame handles. Left/right handles change width only, top/bottom handles change height only, and corner handles change both dimensions. A catalog symbol can be reduced to 2 logical pixels on either axis, allowing a wide symbol to become a long thin marker or a narrow tall marker. The former 48×28 px symbol limit no longer applies. Hold **Shift** to preserve the starting aspect ratio temporarily. Press **Ctrl+S** after adjustment; the dimensions are stored with the project and restored when it is reopened.
+
+
 ## Insert a symbol from the catalog — 0.7.61
 
 1. Open the tablet and enable form edit mode with **F4**.

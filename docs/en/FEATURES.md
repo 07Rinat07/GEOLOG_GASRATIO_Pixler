@@ -1,5 +1,15 @@
 # Features and instructions
 
+## Reliable toolbar fitting and tiny symbols — 0.7.70
+
+- application-owned responsive row instead of native `QToolBar` overflow;
+- **Form editing** pinned inside the right edge;
+- automatic migration of commands into **`⋯`** on narrow or high-DPI screens;
+- identical adaptation for the main and F4 toolbars;
+- independent symbol narrowing in width or height down to 2 logical pixels;
+- preserved small dimensions in project save, preview, PDF and printing.
+
+
 This file is the current map of user-facing GEOLOG GASRATIO@Pixler features. Each area explains
 what the feature does, where the command is located, and which document contains the complete
 workflow. Historical build notes remain in release notes and do not replace the user guide.

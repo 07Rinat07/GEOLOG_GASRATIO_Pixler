@@ -102,3 +102,29 @@ def test_shift_resize_preserves_starting_aspect_ratio() -> None:
     )
     assert corner == (10, 20, 125, 62.5)
     assert corner[2] / corner[3] == 2.0
+
+
+def test_catalog_symbol_can_be_narrowed_to_two_logical_pixels() -> None:
+    assert resize_annotation_geometry(
+        10,
+        20,
+        100,
+        60,
+        "e",
+        -500,
+        0,
+        minimum_width=2.0,
+        minimum_height=2.0,
+    ) == (10, 20, 2.0, 60)
+
+    assert resize_annotation_geometry(
+        10,
+        20,
+        100,
+        60,
+        "s",
+        0,
+        -500,
+        minimum_width=2.0,
+        minimum_height=2.0,
+    ) == (10, 20, 100, 2.0)

@@ -1,6 +1,13 @@
 # GEOLOG GASRATIO@Pixler project status
 
-Snapshot: 25 July 2026. Package version: **0.7.69**. Project format: **v20**,
+## Completed in 0.7.70
+
+- the main and F4 toolbars use one constrained responsive row without native Qt overflow;
+- the right-side editing control remains inside the window;
+- catalog symbols can be narrowed independently to 2 logical pixels and retain their size after Ctrl+S/reopen.
+
+
+Snapshot: 25 July 2026. Package version: **0.7.70**. Project format: **v20**,
 form schema: **v8**, tablet layout: **v18**.
 
 ## Completed in 0.7.69

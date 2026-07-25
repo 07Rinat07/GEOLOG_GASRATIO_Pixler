@@ -32,6 +32,7 @@ from geoworkbench.tablet.annotation_layout import (
     image_content_target,
 )
 from geoworkbench.tablet.annotation_interaction import (
+    CATALOG_SYMBOL_MINIMUM_DIMENSION,
     keep_annotation_reachable,
     resize_annotation_geometry,
 )
@@ -264,7 +265,11 @@ class TabletAnnotationItem(QGraphicsObject):
         painter.setBrush(fill)
         painter.drawRoundedRect(rect, style.corner_radius, style.corner_radius)
 
-        content = rect.adjusted(style.padding, style.padding, -style.padding, -style.padding)
+        content = (
+            rect
+            if record.kind is AnnotationKind.SYMBOL
+            else rect.adjusted(style.padding, style.padding, -style.padding, -style.padding)
+        )
         if (
             record.kind in {AnnotationKind.IMAGE, AnnotationKind.SYMBOL}
             and not self._pixmap.isNull()
@@ -617,6 +622,19 @@ class TabletAnnotationOverlay(QWidget):
             offset_y += delta.y()
         else:
             local_delta = _unrotate_delta(delta, helper.record.style.rotation)
+            symbol_resize = (
+                helper.record.kind is AnnotationKind.SYMBOL
+                or bool(helper.record.symbol_id)
+            )
+            minimum_dimension = (
+                CATALOG_SYMBOL_MINIMUM_DIMENSION if symbol_resize else None
+            )
+            resize_kwargs: dict[str, float | bool] = {
+                "preserve_aspect": preserve_aspect
+            }
+            if minimum_dimension is not None:
+                resize_kwargs["minimum_width"] = minimum_dimension
+                resize_kwargs["minimum_height"] = minimum_dimension
             offset_x, offset_y, width, height = resize_annotation_geometry(
                 offset_x,
                 offset_y,
@@ -625,7 +643,7 @@ class TabletAnnotationOverlay(QWidget):
                 gesture.mode,
                 local_delta.x(),
                 local_delta.y(),
-                preserve_aspect=preserve_aspect,
+                **resize_kwargs,
             )
         offset_x, offset_y = self._keep_reachable(
             anchor, offset_x, offset_y, width, height
