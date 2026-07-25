@@ -1,5 +1,10 @@
 # Features and instructions
 
+
+## On-screen toolbars and one-pixel symbols — 0.7.71
+
+Both top toolbars have a hard cap based on the current window width and re-adapt after F4, action-state, DPI or monitor changes. Catalog symbols no longer receive the generic 40×24 px rendering minimum and can be independently narrowed to 1×1 logical pixel with Ctrl+S persistence.
+
 ## Reliable toolbar fitting and tiny symbols — 0.7.70
 
 - application-owned responsive row instead of native `QToolBar` overflow;

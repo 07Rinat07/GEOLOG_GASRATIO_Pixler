@@ -402,6 +402,26 @@ class _MainWindowDatasetImportPort(_MainWindowPort):
         return well.name
 
 
+class _ConstrainedToolBar(QToolBar):
+    """Top toolbar that never contributes a desktop-wide minimum width.
+
+    QMainWindow asks each docked toolbar for its minimum size.  On Windows the
+    native QToolBar layout can temporarily report the complete uncollapsed
+    action width after a monitor/DPI change or after another toolbar becomes
+    visible.  A maximized window cannot honour that width, so the toolbar row
+    is laid out beyond the right edge.  The application owns overflow itself;
+    therefore only the toolbar height is a meaningful size hint.
+    """
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
+        hint = super().minimumSizeHint()
+        return QSize(0, max(1, hint.height()))
+
+    def sizeHint(self) -> QSize:  # noqa: N802 - Qt API
+        hint = super().sizeHint()
+        return QSize(0, max(1, hint.height()))
+
+
 class _ResponsiveToolbarRow(QWidget):
     """Single toolbar item whose width is always constrained by the window.
 
@@ -1928,7 +1948,7 @@ class MainWindow(QMainWindow):
         self._workspace_controller.show_workspace(widget)
 
     def _create_toolbar(self) -> None:
-        self.main_toolbar = QToolBar(self._t("toolbar.main"), self)
+        self.main_toolbar = _ConstrainedToolBar(self._t("toolbar.main"), self)
         self.main_toolbar.setObjectName("mainToolbar")
         self.main_toolbar.setMovable(False)
         self.main_toolbar.setFloatable(False)
@@ -1956,7 +1976,7 @@ class MainWindow(QMainWindow):
         self.main_toolbar_row.setObjectName("mainToolbarRow")
         self.main_toolbar_row.setMinimumWidth(0)
         self.main_toolbar_row.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
         )
         self.main_toolbar_layout = QHBoxLayout(self.main_toolbar_row)
         self.main_toolbar_layout.setContentsMargins(0, 0, 0, 0)
@@ -2058,7 +2078,7 @@ class MainWindow(QMainWindow):
         self.main_toolbar.addWidget(self.main_toolbar_row)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.main_toolbar)
 
-        self.form_edit_toolbar = QToolBar(self._t("ui.form_edit_toolbar"), self)
+        self.form_edit_toolbar = _ConstrainedToolBar(self._t("ui.form_edit_toolbar"), self)
         self.form_edit_toolbar.setObjectName("formEditToolbar")
         self.form_edit_toolbar.setMovable(False)
         self.form_edit_toolbar.setFloatable(False)
@@ -2077,7 +2097,7 @@ class MainWindow(QMainWindow):
         self.form_edit_row.setObjectName("formEditToolbarRow")
         self.form_edit_row.setMinimumWidth(0)
         self.form_edit_row.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
         )
         self.form_edit_layout = QHBoxLayout(self.form_edit_row)
         self.form_edit_layout.setContentsMargins(0, 0, 0, 0)
@@ -2222,7 +2242,24 @@ class MainWindow(QMainWindow):
         # Every action receives at least a localized caption/shortcut tooltip;
         # high-value actions keep their more detailed help text above.
         self._retranslate_registered_actions()
-        QTimer.singleShot(0, self._update_toolbar_adaptation)
+        self.form_edit_toolbar.visibilityChanged.connect(
+            lambda _visible: self._schedule_toolbar_adaptation()
+        )
+        for action in (
+            self.home_action,
+            self.las_editor_action,
+            self.form_manager_action,
+            self.constructor_action,
+            self.open_project_action,
+            self.open_data_action,
+            self.save_action,
+            self.pencil_action,
+            self.cursor_line_action,
+            self.tablet_edit_mode_action,
+            *form_actions,
+        ):
+            action.changed.connect(self._schedule_toolbar_adaptation)
+        self._schedule_toolbar_adaptation()
 
     @staticmethod
     def _set_toolbar_action_style(
@@ -2470,6 +2507,43 @@ class MainWindow(QMainWindow):
             hidden.append(key)
             self._set_form_toolbar_overflow(tuple(hidden))
 
+    def _cap_toolbar_rows_to_window(self) -> int:
+        """Hard-limit custom rows to the current logical window width.
+
+        This is intentionally independent of QToolBar.sizeHint().  The native
+        toolbar can briefly keep an obsolete DPI-dependent width after F4 is
+        toggled or the window is moved between screens.  A fixed row cap makes
+        it geometrically impossible for either row to enlarge the main window
+        or place the pinned right-side command outside the viewport.
+        """
+
+        window_width = max(1, int(self.contentsRect().width() or self.width()))
+        main_contents = int(self.main_toolbar.contentsRect().width())
+        main_available = min(
+            window_width,
+            main_contents if main_contents > 0 else window_width,
+        )
+        main_cap = max(80, main_available - 24)
+        self.main_toolbar_row.setFixedWidth(main_cap)
+
+        form_contents = int(self.form_edit_toolbar.contentsRect().width())
+        form_available = min(
+            window_width,
+            form_contents if form_contents > 0 else window_width,
+        )
+        form_cap = max(80, form_available - 20)
+        self.form_edit_row.setFixedWidth(form_cap)
+        return main_cap
+
+    def _schedule_toolbar_adaptation(self) -> None:
+        """Run immediate and delayed passes after action/visibility changes."""
+
+        if not hasattr(self, "main_toolbar"):
+            return
+        QTimer.singleShot(0, self._update_toolbar_adaptation)
+        QTimer.singleShot(60, self._update_toolbar_adaptation)
+        QTimer.singleShot(180, self._update_toolbar_adaptation)
+
     def _update_toolbar_adaptation(self) -> None:
         """Keep both top toolbars inside the actual logical window width."""
 
@@ -2477,10 +2551,8 @@ class MainWindow(QMainWindow):
             return
         self._toolbar_adaptation_in_progress = True
         try:
-            toolbar_width = self.main_toolbar.contentsRect().width()
-            available = max(
-                120, min(self.width(), toolbar_width or self.width()) - 8
-            )
+            row_cap = self._cap_toolbar_rows_to_window()
+            available = max(120, row_cap - 4)
             self._set_main_toolbar_overflow(())
             self._set_form_toolbar_overflow(())
 
@@ -5187,6 +5259,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(
             self._t("ui.form_edit_enabled") if enabled else self._t("ui.form_edit_disabled")
         )
+        self._schedule_toolbar_adaptation()
 
     def save_current_tablet_as_user_form(self) -> None:
         layout = self.session.current_tablet_layout

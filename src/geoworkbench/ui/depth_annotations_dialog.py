@@ -953,8 +953,8 @@ class DepthAnnotationsDialog(QDialog):
         self.axis_display.setEnabled(anchor is AnnotationAnchor.TIME)
         self.asset_name.setEnabled(kind in {AnnotationKind.IMAGE, AnnotationKind.SYMBOL})
         if kind is AnnotationKind.SYMBOL:
-            self.width_input.setMinimum(2.0)
-            self.height_input.setMinimum(2.0)
+            self.width_input.setMinimum(1.0)
+            self.height_input.setMinimum(1.0)
         else:
             self.width_input.setMinimum(40.0)
             self.height_input.setMinimum(24.0)

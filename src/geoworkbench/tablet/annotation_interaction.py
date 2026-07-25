@@ -2,7 +2,7 @@ from __future__ import annotations
 
 
 RESIZE_HANDLES = frozenset({"nw", "n", "ne", "e", "se", "s", "sw", "w"})
-CATALOG_SYMBOL_MINIMUM_DIMENSION = 2.0
+CATALOG_SYMBOL_MINIMUM_DIMENSION = 1.0
 
 
 def resize_annotation_geometry(

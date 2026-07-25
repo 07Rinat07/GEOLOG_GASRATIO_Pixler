@@ -1,4 +1,10 @@
-# GEOLOG GASRATIO@Pixler project status
+# Project status
+
+## Completed in 0.7.71
+
+Both top toolbars are hard-capped to the window width and re-adapt after F4, action-state, DPI and monitor changes. Catalog symbols truly narrow to 1×1 logical pixel while normal annotations retain the 40×24 px safety minimum.
+
+Snapshot: 25 July 2026. Package version: **0.7.71**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Completed in 0.7.70
 

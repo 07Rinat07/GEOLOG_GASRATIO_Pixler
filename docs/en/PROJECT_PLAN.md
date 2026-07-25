@@ -1,4 +1,10 @@
-# GEOLOG GASRATIO@Pixler project plan
+# Project plan
+
+## Completed in 0.7.71
+
+Fixed rightward interface expansion after F4/clicks on an external monitor, hard-capped both toolbars to the window width, and removed the hidden 40×24 px layout clamp for catalog symbols. Geometry persistence and RU/KK/EN documentation were verified.
+
+Current as of 25 July 2026. Version **0.7.71** uses project format **v20**, form schema **v8**, tablet layout **v18**.
 
 ## Completed in 0.7.70
 

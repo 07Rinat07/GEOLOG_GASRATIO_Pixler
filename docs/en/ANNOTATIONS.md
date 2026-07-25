@@ -1,5 +1,10 @@
 # Professional annotation layer — 0.7.61
 
+
+## True symbol narrowing down to 1 px — 0.7.71
+
+The model previously preserved a tiny width, but the shared screen layout expanded the box back to at least 40 px. That clamp has been removed. After selecting a symbol, drag the left or right side handle continuously down to **1 logical pixel**; top and bottom handles change height independently. Corner handles change both dimensions and **Shift** temporarily preserves the aspect ratio. The tiny size is saved with **Ctrl+S** and restored after reopening, in preview, PDF and printing.
+
 ## Free symbol narrowing — 0.7.70
 
 Select a symbol and use the eight frame handles. Left/right handles change width only, top/bottom handles change height only, and corner handles change both dimensions. A catalog symbol can be reduced to 2 logical pixels on either axis, allowing a wide symbol to become a long thin marker or a narrow tall marker. The former 48×28 px symbol limit no longer applies. Hold **Shift** to preserve the starting aspect ratio temporarily. Press **Ctrl+S** after adjustment; the dimensions are stored with the project and restored when it is reopened.

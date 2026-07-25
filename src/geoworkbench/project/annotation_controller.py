@@ -555,8 +555,8 @@ class DepthAnnotationController:
                 style_raw if isinstance(style_raw, dict) else None
             )
         )
-        symbol_minimum = 2.0 if kind is AnnotationKind.SYMBOL else 40.0
-        symbol_minimum_height = 2.0 if kind is AnnotationKind.SYMBOL else 24.0
+        symbol_minimum = 1.0 if kind is AnnotationKind.SYMBOL else 40.0
+        symbol_minimum_height = 1.0 if kind is AnnotationKind.SYMBOL else 24.0
         return AnnotationRecord(
             annotation_id="",
             kind=kind,

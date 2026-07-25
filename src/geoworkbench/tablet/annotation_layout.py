@@ -91,8 +91,11 @@ def annotation_box_rect(
     """
 
     scale = _positive_finite(pixel_scale, "pixel_scale")
-    width = max(40.0, float(record.width)) * scale
-    height = max(24.0, float(record.height)) * scale
+    symbol_geometry = record.kind is AnnotationKind.SYMBOL or bool(record.symbol_id)
+    minimum_width = 1.0 if symbol_geometry else 40.0
+    minimum_height = 1.0 if symbol_geometry else 24.0
+    width = max(minimum_width, float(record.width)) * scale
+    height = max(minimum_height, float(record.height)) * scale
     if max_width is not None:
         width = min(width, _positive_finite(max_width, "max_width"))
     if max_height is not None:

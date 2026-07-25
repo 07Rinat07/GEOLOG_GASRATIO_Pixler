@@ -1,3 +1,11 @@
+# 0.7.71 — hard toolbar bounds and true one-pixel symbols
+
+- prevented both top toolbars from contributing an oversized minimum width after F4/action/DPI changes;
+- hard-capped both custom toolbar rows to the live logical window width and rechecked them immediately and after delayed Windows metric updates;
+- removed the hidden generic 40×24 annotation-layout clamp for catalog symbols;
+- allowed symbol geometry down to 1×1 logical pixel while preserving safe minima for normal images and text annotations;
+- synchronized RU/KK/EN documentation and added regression tests.
+
 # 0.7.70 — constrained toolbar rows and tiny catalog symbols
 
 - replaced native multi-action QToolBar layout with one constrained application-owned row;

@@ -1,5 +1,10 @@
 ## Reliable project switching and tree commands — 0.7.30
 
+
+## Hard toolbar width bounds — 0.7.71
+
+The main toolbar and the **Form editing (F4)** toolbar are capped to the actual logical window width. They no longer contribute a desktop-wide minimum size and therefore cannot push the interface beyond an external monitor. Immediate and delayed recalculation runs after F4 visibility changes, action-state changes, monitor transfer and DPI updates. The right-side command stays inside the window while lower-priority actions move to icons and the **`⋯`** menu.
+
 ## Toolbar without native overflow — 0.7.70
 
 The main toolbar and the F4 toolbar each use one constrained responsive row. The application no longer relies on the native `QToolBar` extension arrow, which could appear after clicks or after moving the window to an external monitor and push **Form editing** beyond the right edge. The pinned right-side control remains inside the window; other commands switch from labels to icons and then move into the application-owned **`⋯`** menu. Recalculation runs after window, DPI, system-font, style and monitor work-area changes.
