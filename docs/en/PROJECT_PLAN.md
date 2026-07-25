@@ -1,25 +1,37 @@
 # GEOLOG GASRATIO@Pixler project plan
 
-Current as of 25 July 2026. Version **0.7.67** uses project format **v20**,
+Current as of 25 July 2026. Version **0.7.69** uses project format **v20**,
 form schema **v8**, and tablet layout **v18**.
 
-## Completed
+## Completed in 0.7.69
 
-- [x] remove the duplicated generic **Scale** caption from every numeric curve header;
-- [x] label the ruler with the parameter name and unit, for example **Weight on bit · t**;
-- [x] reduce a complete block from 58 to 44 px without losing range editing or `A`/`⚙` actions;
-- [x] apply the change to all factory, ready, and user forms through the shared renderer;
-- [x] preserve complete-row scrolling and project v20 / form v8 / tablet v18 compatibility;
-- [x] update RU/KK/EN documentation and regression tests.
+- [x] replace the fixed toolbar threshold with actual localized-button measurement;
+- [x] support expanded, compact, and ultra-compact modes;
+- [x] add the **“⋯”** overflow menu as the final clipping safeguard;
+- [x] keep the right editing command outside the removable-action list;
+- [x] recalculate after window, DPI, font, style, and screen work-area changes;
+- [x] run immediate and delayed checks after monitor transfer;
+- [x] update synchronized RU/KK/EN documentation and tests.
+
+## Retained from 0.7.68
+
+- [x] independent catalog-symbol width and height changes;
+- [x] single-axis side handles and free two-axis corner handles;
+- [x] **Shift** for proportional resizing;
+- [x] preserved Undo/Redo, **Ctrl+S**, reopening, preview, PDF, and print behavior;
+- [x] unchanged project v20, form v8, and tablet v18 schemas.
 
 ## Next stage
 
-- [ ] visually verify headers on Windows at track widths of 80, 120, 160, and 250 px;
-- [ ] confirm long localized names remain readable and elide correctly;
+- [ ] visually verify the toolbar on Windows at 100%, 125%, and 150% scaling, including moving the
+  window between a laptop and external monitor;
+- [ ] verify horizontal/vertical stretching with transparent and original-background symbols;
+- [ ] verify **Shift** with all eight handles and rotated objects;
 - [ ] continue the approved project plan after user acceptance.
 
 ## Acceptance criterion
 
-Instead of a generic **Scale** caption, every ruler shows its own parameter name. Editable minimum,
-unit, maximum, `A`, `⚙`, endpoints, and ticks remain available. No factory, ready, or user form
-requires manual updating.
+The right editing command is fully visible on the external monitor and laptop. When space is short,
+captions disappear first and lower-priority commands remain available in **“⋯”**. A symbol can be
+stretched on one or both axes, stored with **Ctrl+S**, and restored identically after reopening and in
+preview, PDF, and print.

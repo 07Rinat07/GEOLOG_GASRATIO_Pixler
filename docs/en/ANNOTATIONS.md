@@ -8,12 +8,26 @@
 4. Keep **Crop background around symbol** enabled for the transparent cutout, or clear it to use the original background-preserving image.
 5. Select the track, optional curve parameter, exact depth, and initial width/height.
 6. Press **Insert**. The symbol appears on the graph and is selected automatically.
-7. Drag it precisely with the left mouse button. Resize it with the eight corner and side handles.
+7. Drag it precisely with the left mouse button. Side handles stretch the symbol independently in width or height; corner handles freely change both dimensions. Hold **Shift** to preserve the original aspect ratio.
 
 With a parameter selected, the object is curve-anchored at the specified depth; without a parameter,
 it remains depth-anchored inside the selected track. The image is copied into project-owned storage,
 so the external BMP/PNG file is not required after saving. The symbol ID and background mode persist
 with the annotation. Screen, PDF, and printer output use the same object.
+
+### Free and proportional stretching — 0.7.68
+
+For built-in catalog symbols, the annotation frame is the real image drawing area. Changing width
+alone therefore lengthens the mark, while changing height alone makes it taller or flatter. Normal
+imported photographs and images still preserve their original aspect ratio inside the frame to avoid
+unintended distortion.
+
+- left and right handles change width only;
+- top and bottom handles change height only;
+- corner handles freely change width and height together;
+- **Shift** temporarily enables proportional resizing for any handle;
+- one completed drag is stored as one Undo/Redo operation;
+- the resulting width and height are saved by **Ctrl+S** and restored after reopening.
 
 ### Saving, reopening, and export
 
@@ -38,7 +52,9 @@ external BMP/PNG is not required after a successful save because the project own
 
 - a single click selects the symbol and displays eight resize handles;
 - dragging the object body with the left mouse button changes its position;
-- dragging a handle changes width and/or height;
+- side handles change only width or only height, so the symbol can be lengthened or made taller;
+- corner handles freely change width and height together;
+- hold **Shift** while dragging any handle to preserve the starting aspect ratio;
 - **Undo** reverses the last completed gesture and **Redo** reapplies it in the current session;
 - a locked object must first be unlocked in the annotation editor;
 - **Delete** or the delete command removes the selected object after confirmation;

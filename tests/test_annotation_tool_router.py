@@ -20,6 +20,7 @@ class FakeSurface:
     selected_annotation_id: str | None = None
     interaction_active: bool = False
     updates: int = 0
+    preserve_aspect_updates: list[bool] | None = None
     cancelled: int = 0
 
     def hit_test(self, x: float, y: float) -> AnnotationSurfaceHit | None:
@@ -40,9 +41,18 @@ class FakeSurface:
         self.interaction_active = True
         return True
 
-    def update_interaction(self, x: float, y: float) -> None:
+    def update_interaction(
+        self,
+        x: float,
+        y: float,
+        *,
+        preserve_aspect: bool = False,
+    ) -> None:
         del x, y
         self.updates += 1
+        if self.preserve_aspect_updates is None:
+            self.preserve_aspect_updates = []
+        self.preserve_aspect_updates.append(preserve_aspect)
 
     def finish_interaction(self, *, commit: bool) -> AnnotationGeometryChange | None:
         self.interaction_active = False
@@ -191,3 +201,23 @@ def test_double_click_after_second_press_cancels_drag_and_opens_editor() -> None
     assert response.release_capture is True
     assert surface.interaction_active is False
     assert calls["edit"] == ["a1"]
+
+
+def test_shift_modifier_requests_proportional_resize() -> None:
+    surface = FakeSurface(hit=AnnotationSurfaceHit("a1", resize_handle="se"))
+    calls = _calls()
+    handler = _handler(surface, calls)
+    handler.set_enabled(True)
+    handler.handle(
+        TabletInputEvent(InputEventKind.POINTER_PRESS, button=PointerButton.LEFT)
+    )
+
+    handler.handle(
+        TabletInputEvent(
+            InputEventKind.POINTER_MOVE,
+            pressed_buttons=frozenset({PointerButton.LEFT}),
+            modifiers=frozenset({"shift"}),
+        )
+    )
+
+    assert surface.preserve_aspect_updates == [True]

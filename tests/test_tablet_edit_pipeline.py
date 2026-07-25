@@ -39,8 +39,14 @@ class Surface:
         self.interaction_active = True
         return True
 
-    def update_interaction(self, x: float, y: float) -> None:
-        del x, y
+    def update_interaction(
+        self,
+        x: float,
+        y: float,
+        *,
+        preserve_aspect: bool = False,
+    ) -> None:
+        del x, y, preserve_aspect
 
     def finish_interaction(self, *, commit: bool) -> AnnotationGeometryChange | None:
         self.interaction_active = False

@@ -50,7 +50,13 @@ class AnnotationInteractionSurface(Protocol):
         y: float,
     ) -> bool: ...
 
-    def update_interaction(self, x: float, y: float) -> None: ...
+    def update_interaction(
+        self,
+        x: float,
+        y: float,
+        *,
+        preserve_aspect: bool = False,
+    ) -> None: ...
 
     def finish_interaction(self, *, commit: bool) -> AnnotationGeometryChange | None: ...
 
@@ -196,7 +202,11 @@ class AnnotationInteractionHandler:
                 change = self._surface.finish_interaction(commit=True)
                 self._emit_geometry(change)
                 return InteractionResponse.consumed(release_capture=True)
-            self._surface.update_interaction(event.x, event.y)
+            self._surface.update_interaction(
+                event.x,
+                event.y,
+                preserve_aspect="shift" in event.modifiers,
+            )
             return InteractionResponse.consumed(capture=True)
 
         if event.kind is InputEventKind.POINTER_RELEASE:

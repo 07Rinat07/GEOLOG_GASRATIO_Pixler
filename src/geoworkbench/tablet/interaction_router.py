@@ -38,6 +38,7 @@ class TabletInputEvent:
     track_id: str | None = None
     button: PointerButton = PointerButton.NONE
     pressed_buttons: frozenset[PointerButton] = field(default_factory=frozenset)
+    modifiers: frozenset[str] = field(default_factory=frozenset)
     key: str | None = None
     global_x: int = 0
     global_y: int = 0

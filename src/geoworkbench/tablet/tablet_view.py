@@ -6010,6 +6010,19 @@ class TabletView(QWidget):
         return frozenset(pressed)
 
     @staticmethod
+    def _keyboard_modifiers(modifiers: Qt.KeyboardModifier) -> frozenset[str]:
+        names: set[str] = set()
+        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+            names.add("shift")
+        if modifiers & Qt.KeyboardModifier.ControlModifier:
+            names.add("control")
+        if modifiers & Qt.KeyboardModifier.AltModifier:
+            names.add("alt")
+        if modifiers & Qt.KeyboardModifier.MetaModifier:
+            names.add("meta")
+        return frozenset(names)
+
+    @staticmethod
     def _key_name(event: QKeyEvent) -> str | None:
         keys: dict[int, str] = {
             int(Qt.Key.Key_Escape): "escape",
@@ -6041,6 +6054,7 @@ class TabletView(QWidget):
             track_id=self._track_id_for_plot(plot) if plot is not None else None,
             button=self._pointer_button(event.button()),
             pressed_buttons=self._pressed_pointer_buttons(event.buttons()),
+            modifiers=self._keyboard_modifiers(event.modifiers()),
             global_x=global_point.x(),
             global_y=global_point.y(),
             payload=_QtPointerPayload(plot, event),
@@ -6055,6 +6069,7 @@ class TabletView(QWidget):
             kind=InputEventKind.KEY_PRESS,
             track_id=self._track_id_for_plot(plot) if plot is not None else None,
             key=self._key_name(event),
+            modifiers=self._keyboard_modifiers(event.modifiers()),
             payload=_QtPointerPayload(plot, event),
         )
 

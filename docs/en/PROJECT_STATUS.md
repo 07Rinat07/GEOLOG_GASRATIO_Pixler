@@ -1,27 +1,34 @@
 # GEOLOG GASRATIO@Pixler project status
 
-Snapshot: 25 July 2026. Package version: **0.7.67**. Project format: **v20**,
+Snapshot: 25 July 2026. Package version: **0.7.69**. Project format: **v20**,
 form schema: **v8**, tablet layout: **v18**.
 
-## Completed in 0.7.67
+## Completed in 0.7.69
 
-- removed the duplicated generic **Scale** caption from every numeric curve header;
-- labelled the engineering ruler with the parameter name and unit, for example
-  **Weight on bit · t**;
-- removed the separate title row, reducing one complete parameter block from 58 to 44 px and
-  saving about 24% of vertical header space;
-- retained minimum/unit/maximum, automatic range, settings, ticks, and mandatory endpoints;
-- applied the layout through the shared `TabletTrackWidget` to every factory, ready, and user form
-  without changing project format, form schema, or tablet layout;
-- synchronized instructions and release notes in Russian, Kazakh, and English.
+- the top toolbar selects expanded, compact, or ultra-compact mode from the actually measured
+  localized button widths in Qt logical pixels;
+- the fixed resolution threshold was removed: calculation includes the system font, style, and DPI;
+- when even icon-only mode does not fit, lower-priority commands move into the **“⋯”** menu;
+- the right-side **Form editing** toggle is not removable and remains inside the available toolbar width;
+- recalculation runs after window, font, style, DPI, screen geometry/work-area, and monitor changes;
+- immediate and delayed metric checks run after moving the window between a laptop and external monitor;
+- user documentation, release notes, and regression tests are synchronized across RU/KK/EN.
 
-## Retained from 0.7.66
+## Retained from 0.7.68
 
-The unified full form catalog, responsive top toolbars, safe diagnostics cleanup, bounded import
-report retention, complete save dialog, and compact geology-column migration remain unchanged.
+- catalog symbols stretch independently in width and height;
+- side handles resize one axis, corner handles resize both axes, and **Shift** preserves proportions;
+- normal imported images remain undistorted;
+- width and height participate in Undo/Redo, persist through **Ctrl+S**, restore after reopening, and
+  render consistently on screen, in preview, PDF, and print.
 
-## Verification
+## Retained from previous versions
 
-Regression coverage checks 44 px geometry, parameter-name ruler captions, removal of the legacy
-**Scale** key, preserved `A`/`⚙` controls, and RU/KK/EN documentation. Full visual Qt/UI verification
-requires Windows with PySide6 and pyqtgraph.
+Compact 44 px parameter headers without the duplicate **Scale** caption, compact geology columns,
+one complete catalog of ready, **18 factory**, and user forms, the complete create/save form dialog,
+and **Clear diagnostics data…** remain unchanged.
+
+## Compatibility
+
+Project format, form schema, and tablet layout are unchanged. Existing projects and forms require no
+migration. The root `README.md` remains concise and contains no detailed fix history.

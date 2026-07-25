@@ -29,6 +29,7 @@ from geoworkbench.tablet.annotation_layout import (
     LayoutRect,
     annotation_box_rect,
     annotation_leader_endpoint,
+    image_content_target,
 )
 from geoworkbench.tablet.annotation_interaction import (
     keep_annotation_reachable,
@@ -280,14 +281,22 @@ class TabletAnnotationItem(QGraphicsObject):
         image_rect = content.adjusted(0.0, 0.0, 0.0, -caption_height)
         source = QRectF(self._pixmap.rect())
         if source.width() > 0 and source.height() > 0 and image_rect.isValid():
-            ratio = min(image_rect.width() / source.width(), image_rect.height() / source.height())
-            width = source.width() * ratio
-            height = source.height() * ratio
+            target_layout = image_content_target(
+                source.width(),
+                source.height(),
+                LayoutRect(
+                    image_rect.left(),
+                    image_rect.top(),
+                    image_rect.width(),
+                    image_rect.height(),
+                ),
+                preserve_aspect=self.record.kind is not AnnotationKind.SYMBOL,
+            )
             target = QRectF(
-                image_rect.center().x() - width / 2.0,
-                image_rect.center().y() - height / 2.0,
-                width,
-                height,
+                target_layout.left,
+                target_layout.top,
+                target_layout.width,
+                target_layout.height,
             )
             painter.drawPixmap(target, self._pixmap, source)
         if caption_height > 0:
@@ -586,7 +595,13 @@ class TabletAnnotationOverlay(QWidget):
         )
         return True
 
-    def update_interaction(self, x: float, y: float) -> None:
+    def update_interaction(
+        self,
+        x: float,
+        y: float,
+        *,
+        preserve_aspect: bool = False,
+    ) -> None:
         gesture = self._gesture
         if gesture is None:
             return
@@ -610,6 +625,7 @@ class TabletAnnotationOverlay(QWidget):
                 gesture.mode,
                 local_delta.x(),
                 local_delta.y(),
+                preserve_aspect=preserve_aspect,
             )
         offset_x, offset_y = self._keep_reachable(
             anchor, offset_x, offset_y, width, height

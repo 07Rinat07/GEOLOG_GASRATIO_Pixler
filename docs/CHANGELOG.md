@@ -1,3 +1,21 @@
+# 0.7.69 — guaranteed DPI-aware toolbar overflow
+
+- Added a real **“⋯”** overflow menu as the final fallback when icon-only controls still exceed the live toolbar width.
+- Kept the right-side Form editing control outside the removable-action list so it remains visible.
+- Recalculate after window, font, style, DPI, monitor geometry, and available-work-area changes.
+- Added same-screen DPI watchers plus immediate and delayed checks after monitor transfer.
+- Preserved all 0.7.68 symbol stretching, persistence, preview, PDF, and printing behavior.
+- Updated synchronized RU/KK/EN user guides, release notes, status, plan, and regression tests.
+- Kept project format v20, form schema v8, tablet layout v18, and the root README unchanged.
+
+# 0.7.68 — free stretching of catalog symbols
+
+- Made catalog symbols use the complete persisted width and height instead of aspect-fit rendering.
+- Added independent horizontal/vertical side-handle stretching and free two-axis corner resizing.
+- Added Shift-modified aspect-ratio locking while preserving normal imported-image proportions.
+- Kept Undo/Redo, project persistence, preview, PDF, print, and existing schemas unchanged.
+- Updated synchronized RU/KK/EN instructions and regression coverage.
+
 # 0.7.67 — compact parameter-labelled curve rulers
 
 - Removed the redundant generic Scale caption from numeric curve headers.

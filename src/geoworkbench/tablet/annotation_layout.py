@@ -42,6 +42,37 @@ class AnnotationLayout:
     leader_endpoint: LayoutPoint | None
 
 
+def image_content_target(
+    source_width: float,
+    source_height: float,
+    destination: LayoutRect,
+    *,
+    preserve_aspect: bool,
+) -> LayoutRect:
+    """Resolve the image drawing rectangle inside an annotation box.
+
+    Normal imported images use ``preserve_aspect=True``. Catalog symbols use
+    ``False`` so their persisted width and height are independent and the mark
+    can be deliberately lengthened or flattened on the graph.
+    """
+
+    width = _positive_finite(source_width, "source_width")
+    height = _positive_finite(source_height, "source_height")
+    if destination.width <= 0.0 or destination.height <= 0.0:
+        return LayoutRect(destination.left, destination.top, 0.0, 0.0)
+    if not preserve_aspect:
+        return destination
+    scale = min(destination.width / width, destination.height / height)
+    target_width = width * scale
+    target_height = height * scale
+    return LayoutRect(
+        destination.left + (destination.width - target_width) / 2.0,
+        destination.top + (destination.height - target_height) / 2.0,
+        target_width,
+        target_height,
+    )
+
+
 def annotation_box_rect(
     record: AnnotationRecord,
     *,

@@ -27,7 +27,7 @@ workflow. Historical build notes remain in release notes and do not replace the 
 | Tablet | curve selection, tracks, scales, ranges, grids, forms, scrolling and cursor | [Workspace](UI_WORKSPACE.md), [Tablet Engine](TABLET_ENGINE_2.md) |
 | Graph editing | pencil, point correction, Undo/Redo, safe rebuild | [Interaction architecture](TABLET_INTERACTION_ARCHITECTURE.md) |
 | Annotations | callouts, comments, images, saved curve values, symbols | [Annotations](ANNOTATIONS.md) |
-| Catalog symbols | transparent/original background, track, parameter, depth, move, resize, save and reopen | [Annotations](ANNOTATIONS.md) |
+| Catalog symbols | transparent/original background, anchoring, independent width/height stretch, Shift aspect lock, save and reopen | [Annotations](ANNOTATIONS.md) |
 | Lithology and intervals | lithotypes, descriptions, stratigraphy, samples, calcimetry and LBA | [User guide](README.md), [Forms and stratigraphy](FORM_CAPTIONS_AND_STRATIGRAPHY.md) |
 | Operational events | drilling, gas, shows, samples, casing, formation tops, QC | [Operational events](OPERATIONAL_EVENTS.md) |
 | Channels and Sensors | semantic kinds, units, bindings, sensor catalog | [Semantic dictionary](SEMANTIC_CHANNEL_DICTIONARY.md) |
@@ -44,7 +44,7 @@ workflow. Historical build notes remain in release notes and do not replace the 
 
 1. Open the tablet, press **F4**, and choose **Insert symbol**.
 2. Select the background variant, track, parameter or depth-only anchor, depth, and size.
-3. After insertion, use the left mouse button for precise placement and the handles for resizing.
+3. After insertion, use the left mouse button for precise placement. Side handles stretch one axis, corner handles resize both axes freely, and **Shift** preserves the aspect ratio.
 4. Press **Ctrl+S**. There is no separate Save Symbol button: the object is saved with the project.
 5. Close and reopen the project. Verify position, size, depth, track, parameter, and background mode.
 6. Check preview/PDF when required. PDF export does not replace project saving.
@@ -91,3 +91,21 @@ are localized.
 - One block uses 44 px instead of 58 px while retaining minimum/unit/maximum, `A`, and `⚙`.
 - The common renderer applies the layout to every factory, ready, and user form.
 - Project, form, and tablet schemas are unchanged; existing forms do not need to be resaved.
+
+## Free catalog-symbol stretching — 0.7.68
+
+- Side handles independently change a catalog symbol's width or height.
+- Corner handles freely change both dimensions, allowing a long, tall, or compact technical mark.
+- Holding **Shift** preserves the starting aspect ratio.
+- Normal imported images remain undistorted and continue to fit with their aspect ratio preserved.
+- The resulting width and height participate in Undo/Redo, persist with the project, and render the
+  same way in preview, PDF, and print.
+
+## Guaranteed top-toolbar placement — 0.7.69
+
+- The responsive toolbar uses real logical button, system-font, and current-DPI metrics.
+- Captions become icons when space is limited; if that is still insufficient, lower-priority commands
+  move into the **“⋯”** menu.
+- The right-side **Form editing** toggle is never hidden or moved into overflow.
+- Recalculation runs after window, style, font, DPI, work-area, and monitor changes.
+- The **“⋯”** menu uses the original actions, so shortcuts and command permissions are unchanged.

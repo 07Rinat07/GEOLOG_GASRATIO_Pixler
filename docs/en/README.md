@@ -123,6 +123,15 @@ preservation. Settings, warnings, and overwrite confirmation use the selected la
 Formula Profiles displays the passport, expression, output, source, and input-curve mapping.
 DEXP names and descriptions are available in RU/KK/EN; formulas and units are not translated.
 
+## Top toolbar on a laptop and external monitor
+
+Main-toolbar captions automatically switch to icons when their measured width does not fit the
+window. The calculation uses logical pixels and repeats after resize, monitor transfer, DPI, system
+font, or work-area changes. If even the ultra-compact row does not fit, secondary commands move into
+the **“⋯”** menu while the right-side **Form editing** toggle remains inside the window. Full names
+remain available in tooltips, the overflow menu, and the corresponding application menus. See
+[UI_WORKSPACE.md](UI_WORKSPACE.md).
+
 ## Interval statistics
 
 On any numeric tablet track, hold `Shift`, press the left mouse button, and drag from the start
@@ -139,7 +148,7 @@ numeric track.
 
 ## Annotation layer
 
-**F4** exposes callouts, comments, images, symbols and saved curve values. **Insert symbol** opens the built-in localized catalog with search and lets the user choose a transparent cutout or original background, track, parameter, depth, and initial size. The inserted object is moved with the left mouse button and resized through eight handles. Annotations are stored with the well, survive LAS merging and render consistently on screen, in PDF and on a printer. See [ANNOTATIONS.md](ANNOTATIONS.md).
+**F4** exposes callouts, comments, images, symbols and saved curve values. **Insert symbol** opens the built-in localized catalog with search and lets the user choose a transparent cutout or original background, track, parameter, depth, and initial size. The inserted object is moved with the left mouse button. Side handles stretch width or height independently, corner handles freely resize both dimensions, and **Shift** preserves the aspect ratio. Annotations are stored with the well, survive LAS merging and render consistently on screen, in PDF and on a printer. See [ANNOTATIONS.md](ANNOTATIONS.md).
 
 ## Lithology intervals
 

@@ -1884,5 +1884,6 @@
   "diagnostics.clear_confirm": "Delete accumulated application logs and saved import-diagnostics reports? Exported ZIP bundles and project files will not be removed. Logging resumes automatically after the reset.",
   "diagnostics.clear_done": "Diagnostics data was cleared. Files deleted: {count}. Space freed: {size}.",
   "diagnostics.clear_partial": "Diagnostics cleanup completed partially. Files deleted: {count}, space freed: {size}. Items not removed: {failed}.",
-  "diagnostics.clear_failed": "Diagnostics data could not be cleared: {error}"
+  "diagnostics.clear_failed": "Diagnostics data could not be cleared: {error}",
+  "toolbar.more_actions": "More toolbar commands"
 }

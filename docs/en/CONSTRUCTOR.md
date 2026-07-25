@@ -86,7 +86,8 @@ column, parameter, image, width, height, label, and X/Y millimetre offset. Depth
 semantic anchor; the offset only refines visual placement.
 
 For interactive insertion directly on a tablet graph, use **F4 → Insert symbol**. The object can be
-moved with the left mouse button, resized with eight handles, and saved with the project. See
+moved with the left mouse button. Side handles stretch width or height independently, corner handles
+resize both dimensions, and **Shift** preserves the aspect ratio. The object is saved with the project. See
 [ANNOTATIONS.md](ANNOTATIONS.md).
 
 ## Preflight before output
