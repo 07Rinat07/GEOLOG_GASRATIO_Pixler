@@ -133,7 +133,11 @@ def test_excel_export_formats_datetime_index_as_excel_date_and_time(tmp_path) ->
     assert data_sheet["A2"].value == datetime(2026, 7, 18, 8, 15, 31, 250000)
     assert data_sheet["A3"].value == datetime(2026, 7, 18, 8, 15, 32, 375000)
     assert data_sheet["A2"].number_format == "yyyy-mm-dd hh:mm:ss.000"
-    assert dict(metadata_sheet.values)["Часовой пояс источника DATETIME"] == "UTC"
+    metadata = dict(metadata_sheet.values)
+    assert metadata["Верх интервала"] == 101.0
+    assert metadata["Низ интервала"] == 102.0
+    assert "Начало интервала" not in metadata
+    assert metadata["Часовой пояс источника DATETIME"] == "UTC"
 
 
 def test_excel_depth_export_includes_formatted_secondary_datetime_index(tmp_path) -> None:

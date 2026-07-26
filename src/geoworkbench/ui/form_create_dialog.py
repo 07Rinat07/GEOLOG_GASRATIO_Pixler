@@ -212,12 +212,14 @@ class FormCreateDialog(QDialog):
 
         self.axis_combo = QComboBox(input_box)
         self.axis_combo.addItem(
-            self._text("Глубина", "Тереңдік", "Depth"), FormAxisKind.DEPTH
+            self._text("Глубина", "Тереңдік", "Depth"),
+            FormAxisKind.DEPTH.value,
         )
         self.axis_combo.addItem(
-            self._text("Время", "Уақыт", "Time"), FormAxisKind.TIME
+            self._text("Время", "Уақыт", "Time"),
+            FormAxisKind.TIME.value,
         )
-        target_index = self.axis_combo.findData(initial_axis_kind)
+        target_index = self.axis_combo.findData(initial_axis_kind.value)
         self.axis_combo.setCurrentIndex(max(0, target_index))
         self.axis_combo.setEnabled(axis_editable)
         self.axis_combo.currentIndexChanged.connect(self._validate)
@@ -493,5 +495,8 @@ class FormCreateDialog(QDialog):
             return
         self._name = clean_form_name(self.name_input.text())
         data = self.axis_combo.currentData()
-        self._axis_kind = data if isinstance(data, FormAxisKind) else FormAxisKind.DEPTH
+        try:
+            self._axis_kind = FormAxisKind(str(data))
+        except ValueError:
+            self._axis_kind = FormAxisKind.DEPTH
         self.accept()

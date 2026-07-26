@@ -1,6 +1,10 @@
 # Professional annotation layer — 0.7.61
 
 
+## Practically unrestricted narrowing with a usable selection frame — 0.7.72
+
+A symbol's stored width or height can be reduced to `0.01` logical pixel. On screen this produces the thinnest visible one-device-pixel line. Left/right handles change width only, top/bottom handles change height only, corner handles change both axes, and **Shift** preserves the aspect ratio. When the symbol becomes extremely thin, a separate selection frame of at least `18×18 px` remains available for mouse interaction; it does not enlarge or persist as the symbol geometry. After **Ctrl+S** and project reopen, the object can be selected again, moved, or stretched.
+
 ## True symbol narrowing down to 1 px — 0.7.71
 
 The model previously preserved a tiny width, but the shared screen layout expanded the box back to at least 40 px. That clamp has been removed. After selecting a symbol, drag the left or right side handle continuously down to **1 logical pixel**; top and bottom handles change height independently. Corner handles change both dimensions and **Shift** temporarily preserves the aspect ratio. The tiny size is saved with **Ctrl+S** and restored after reopening, in preview, PDF and printing.

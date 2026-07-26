@@ -1,16 +1,20 @@
 # Roadmap — GEOLOG Gas Ratio & Pixler
 
-Updated: 24 July 2026. The roadmap is ordered by risk and dependency. A phase is complete
+Updated: 27 July 2026. The roadmap is ordered by risk and dependency. A phase is complete
 only when its automated and manual acceptance criteria pass.
 
 ## Phase 0 — release recovery
 
-- restore annotation event routing and eliminate the Qt test-process crash;
-- resolve all Ruff findings and establish a decreasing, then zero, mypy baseline;
-- make the complete pytest suite deterministic on the supported Windows environment;
+- establish a decreasing, then zero, mypy baseline;
 - run the tablet, annotation, PDF, HiDPI, and physical-printer smoke matrix;
 - publish a stable build only after every mandatory gate is green.
 - keep RU/KK/EN user-document sets, links, save/reopen workflows, and i18n keys under an automated documentation gate.
+
+The 0.7.72 automated increment removes the two top command rows from the native toolbar area,
+keeps ultra-thin symbol geometry editable and visible, and makes numeric TIME CSV/XLSX reuse exact
+resolved rows. The complete pytest suite now exits cleanly on the supported Windows test runner.
+The phase remains open until mypy and the signed Windows
+external-monitor/HiDPI/physical-print matrix pass.
 
 Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke checklist.
 
@@ -21,7 +25,7 @@ Exit: Ruff = 0, mypy = 0, pytest = 0 failures, no process abort, signed smoke ch
 - keep state-changing workflows behind application boundaries; import/print execution, session rebinding, workspace commands, tablet layout mutations, derived-dataset rollback, project image assets, and interactive Import Review use controllers/services; Semantic Channel Dictionary and atomic review/commit are complete;
 - [complete] define one screen/print grid contract and deterministic golden-render fixtures;
 - [x] add deterministic report provenance: source fingerprints, interval-scoped channel data, complete semantic bindings/UOM, formula versions, locale, content-addressed template revision, and render settings;
-- [x] resolve one immutable `ReportDefinition` and interval for Print Center preview/output, Masterlog, and selected CSV/XLSX export;
+- [x] resolve one immutable `ReportDefinition` and interval for Print Center preview/output, Masterlog, and selected CSV/XLSX export, including exact resolved rows for active numeric DEPTH/TIME indexes;
 - test project format v20 (including v16 → v17 → v18 → v19 → v20), form schema v6, and layout format v16 migrations with representative legacy files.
 
 Exit: bounded controllers, reproducible report passports, and deterministic structural/visual golden fixtures are complete; Windows raster/PDF/HiDPI validation remains.

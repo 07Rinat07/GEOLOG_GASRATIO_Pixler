@@ -32,18 +32,20 @@ def test_form_library_text_remains_visible_with_dark_application_palette(qapp, t
             for index in range(dialog.tree_widget.topLevelItemCount())
         ]
         assert [group.text(0) for group in groups] == [
-            "Заводские формы — глубина  (3)",
-            "Заводские формы — время  (1)",
+            "Готовые формы — глубина  (0)",
+            "Готовые формы — время  (0)",
+            "Заводские формы — глубина  (15)",
+            "Заводские формы — время  (3)",
             "Пользовательские формы — глубина  (1)",
             "Пользовательские формы — время  (1)",
         ]
         assert all(group.foreground(0).color() == QColor(Qt.GlobalColor.black) for group in groups)
 
-        factory_names = [groups[0].child(index).text(0) for index in range(groups[0].childCount())]
-        assert any("Глубинка — геология, технология и газ" in name for name in factory_names)
-        assert any("МАСТЕРЛОГ" in name for name in factory_names)
-        assert groups[2].child(0).text(0) == "Моя глубинная форма"
-        assert groups[3].child(0).text(0) == "Моя временная форма"
-        assert groups[0].child(0).foreground(0).color() == QColor(Qt.GlobalColor.black)
+        factory_names = [groups[2].child(index).text(0) for index in range(groups[2].childCount())]
+        assert any("Комплексная ГТИ-форма" in name for name in factory_names)
+        assert any("Gas Ratio & Pixler" in name for name in factory_names)
+        assert groups[4].child(0).text(0) == "Моя глубинная форма"
+        assert groups[5].child(0).text(0) == "Моя временная форма"
+        assert groups[2].child(0).foreground(0).color() == QColor(Qt.GlobalColor.black)
     finally:
         qapp.setPalette(original)

@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import cos, isfinite, radians, sin
 
-from geoworkbench.project.annotation_schema import AnnotationKind, AnnotationRecord
+from geoworkbench.project.annotation_schema import (
+    CATALOG_SYMBOL_MINIMUM_DIMENSION,
+    AnnotationKind,
+    AnnotationRecord,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,8 +96,8 @@ def annotation_box_rect(
 
     scale = _positive_finite(pixel_scale, "pixel_scale")
     symbol_geometry = record.kind is AnnotationKind.SYMBOL or bool(record.symbol_id)
-    minimum_width = 1.0 if symbol_geometry else 40.0
-    minimum_height = 1.0 if symbol_geometry else 24.0
+    minimum_width = CATALOG_SYMBOL_MINIMUM_DIMENSION if symbol_geometry else 40.0
+    minimum_height = CATALOG_SYMBOL_MINIMUM_DIMENSION if symbol_geometry else 24.0
     width = max(minimum_width, float(record.width)) * scale
     height = max(minimum_height, float(record.height)) * scale
     if max_width is not None:

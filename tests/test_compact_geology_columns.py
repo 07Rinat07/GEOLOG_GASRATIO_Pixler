@@ -11,7 +11,6 @@ from geoworkbench.forms.templates import curated_factory_templates, factory_temp
 from geoworkbench.tablet.layout_codec import layout_from_dict, layout_to_dict
 from geoworkbench.tablet.models import (
     COMPACT_MIN_TRACK_WIDTH,
-    TabletLayout,
     TrackDefinition,
     TrackKind,
 )

@@ -11,17 +11,21 @@ os.environ.setdefault("QT_OPENGL", "software")
 os.environ.setdefault("QT_QUICK_BACKEND", "software")
 os.environ.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
 
+_SESSION_QAPP: object | None = None
+
 
 @pytest.fixture(scope="session")
 def qapp():
     from PySide6.QtWidgets import QApplication
 
+    global _SESSION_QAPP
     app = QApplication.instance() or QApplication([])
-    try:
-        yield app
-    finally:
-        app.closeAllWindows()
-        app.quit()
+    _SESSION_QAPP = app
+    # The release test runner exits immediately with pytest's verified result.
+    # Keep the Python wrapper alive until that exit: destroying QApplication
+    # during fixture teardown can abort in the Windows offscreen backend after
+    # every test has already passed.
+    yield app
 
 
 @pytest.fixture(autouse=True)

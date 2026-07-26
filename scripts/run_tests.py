@@ -13,6 +13,21 @@ import os
 import sys
 
 
+def _exit_immediately(result: int) -> None:
+    if sys.platform == "win32":
+        import ctypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+        kernel32.TerminateProcess.argtypes = (ctypes.c_void_p, ctypes.c_uint)
+        kernel32.TerminateProcess.restype = ctypes.c_int
+        process = kernel32.GetCurrentProcess()
+        if kernel32.TerminateProcess(process, result) == 0:
+            raise ctypes.WinError(ctypes.get_last_error())
+        raise RuntimeError("TerminateProcess returned before the process stopped")
+    os._exit(result)
+
+
 def main() -> int:
     os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -33,4 +48,4 @@ if __name__ == "__main__":
     # tests and prevents an unrelated native shutdown fault from replacing it.
     sys.stdout.flush()
     sys.stderr.flush()
-    os._exit(result)
+    _exit_immediately(result)

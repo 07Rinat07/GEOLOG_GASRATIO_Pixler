@@ -121,7 +121,11 @@ class IntervalStatisticsOverlay(QFrame):
             return
         parent_size = parent.size()
         preferred_width = min(390, max(300, parent_size.width() // 4))
-        preferred_height = min(720, max(320, parent_size.height() - 24))
+        # Keep enough vertical room for a meaningful user drag.  Making the
+        # panel almost as tall as its parent leaves only a few pixels of legal
+        # movement and causes a saved position to jump back near the top after
+        # resize, especially while a stacked workspace page is still hidden.
+        preferred_height = min(720, max(320, parent_size.height() * 3 // 4))
         if anchor_right or not self._user_positioned:
             geometry = right_anchored_overlay_geometry(
                 parent_width=parent_size.width(),

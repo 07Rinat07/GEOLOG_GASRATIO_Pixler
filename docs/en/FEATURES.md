@@ -1,6 +1,10 @@
 # Features and instructions
 
 
+## Workspace-bounded command rows and ultra-thin symbols — 0.7.72
+
+Both top command rows live in an application-owned central host instead of the native `QMainWindow` toolbar area. They cannot raise the native window minimum width after F4, action-state, or DPI changes. Catalog-symbol width and height persist independently down to `0.01` logical pixel; this renders as the thinnest visible line, while a separate selection frame preserves mouse usability.
+
 ## On-screen toolbars and one-pixel symbols — 0.7.71
 
 Both top toolbars have a hard cap based on the current window width and re-adapt after F4, action-state, DPI or monitor changes. Catalog symbols no longer receive the generic 40×24 px rendering minimum and can be independently narrowed to 1×1 logical pixel with Ctrl+S persistence.

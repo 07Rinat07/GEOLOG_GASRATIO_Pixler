@@ -26,12 +26,14 @@
 - [RELEASE_NOTES_0.7.57.md](RELEASE_NOTES_0.7.57.md) — interval statistics overlay and form-switch selection reset.
 - [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md) — channel semantics, UOM classes, and persisted bindings.
 - [IMPORT_REVIEW.md](IMPORT_REVIEW.md) — interactive mapping, QC preview, and atomic import acceptance.
+- [GS2_IMPORT.md](GS2_IMPORT.md) — safe GeoScape II container contract and decoder roadmap.
 - [OPERATIONAL_EVENTS.md](OPERATIONAL_EVENTS.md) — typed drilling/geology events, QC, storage, and report projection.
 - [ACQUISITION_REPLAY.md](ACQUISITION_REPLAY.md) — append-only source, growing dataset, checkpoints, backpressure, and replay.
 - [APPLICATION_DIAGNOSTICS.md](en/APPLICATION_DIAGNOSTICS.md) — persistent logs, support bundle, and privacy boundary.
 
 ## Main workflows
 
+- Responsive command host and ultra-thin symbols 0.7.72: [RU](ru/RELEASE_NOTES_0.7.72.md) · [KK](kk/RELEASE_NOTES_0.7.72.md) · [EN](en/RELEASE_NOTES_0.7.72.md) · [build manifest](BUILD_MANIFEST_0.7.72.md)
 - Compact columns and embedded user MASTERLOG 0.7.63: [release notes](RELEASE_NOTES_0.7.63.md) · [build manifest](BUILD_MANIFEST_0.7.63.md)
 - Previous documentation audit 0.7.62: [release notes](RELEASE_NOTES_0.7.62.md) · [build manifest](BUILD_MANIFEST_0.7.62.md)
 - Current feature map: [RU](ru/FEATURES.md) · [KK](kk/FEATURES.md) · [EN](en/FEATURES.md)

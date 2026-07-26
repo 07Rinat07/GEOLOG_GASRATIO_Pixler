@@ -12,6 +12,10 @@ from geoworkbench.domain.models import CanvasObject
 ANNOTATION_OBJECT_TYPE = "annotation"
 LEGACY_DEPTH_ANNOTATION_TYPE = "depth_annotation"
 ANNOTATION_SCHEMA_VERSION = 2
+# Catalog symbols may be flattened to a single rendered device pixel.  The
+# small positive reference-space floor prevents invalid zero/negative geometry
+# while imposing no practical visual width limit.
+CATALOG_SYMBOL_MINIMUM_DIMENSION = 0.01
 
 
 class AnnotationKind(StrEnum):
@@ -189,8 +193,8 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
         legacy_symbol_id = _optional_string(
             item.properties.get("symbol_id"), maximum=200
         )
-        legacy_minimum = 1.0 if legacy_symbol_id else 40.0
-        legacy_minimum_height = 1.0 if legacy_symbol_id else 24.0
+        legacy_minimum = CATALOG_SYMBOL_MINIMUM_DIMENSION if legacy_symbol_id else 40.0
+        legacy_minimum_height = CATALOG_SYMBOL_MINIMUM_DIMENSION if legacy_symbol_id else 24.0
         return AnnotationRecord(
             annotation_id=item.object_id,
             kind=AnnotationKind.CALLOUT,
@@ -235,8 +239,8 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
     parameter_value = _finite_number(item.properties.get("parameter_value"))
     symbol_id = _optional_string(item.properties.get("symbol_id"), maximum=200)
     symbol_geometry = kind is AnnotationKind.SYMBOL or bool(symbol_id)
-    minimum_width = 1.0 if symbol_geometry else 40.0
-    minimum_height = 1.0 if symbol_geometry else 24.0
+    minimum_width = CATALOG_SYMBOL_MINIMUM_DIMENSION if symbol_geometry else 40.0
+    minimum_height = CATALOG_SYMBOL_MINIMUM_DIMENSION if symbol_geometry else 24.0
     return AnnotationRecord(
         annotation_id=item.object_id,
         kind=kind,

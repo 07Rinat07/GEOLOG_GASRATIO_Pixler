@@ -10,6 +10,7 @@ import numpy as np
 from geoworkbench.domain.models import CanvasObject, Well, new_id
 from geoworkbench.project.annotation_schema import (
     ANNOTATION_OBJECT_TYPE,
+    CATALOG_SYMBOL_MINIMUM_DIMENSION,
     LEGACY_DEPTH_ANNOTATION_TYPE,
     AnnotationAnchor,
     AnnotationKind,
@@ -555,8 +556,16 @@ class DepthAnnotationController:
                 style_raw if isinstance(style_raw, dict) else None
             )
         )
-        symbol_minimum = 1.0 if kind is AnnotationKind.SYMBOL else 40.0
-        symbol_minimum_height = 1.0 if kind is AnnotationKind.SYMBOL else 24.0
+        symbol_minimum = (
+            CATALOG_SYMBOL_MINIMUM_DIMENSION
+            if kind is AnnotationKind.SYMBOL
+            else 40.0
+        )
+        symbol_minimum_height = (
+            CATALOG_SYMBOL_MINIMUM_DIMENSION
+            if kind is AnnotationKind.SYMBOL
+            else 24.0
+        )
         return AnnotationRecord(
             annotation_id="",
             kind=kind,

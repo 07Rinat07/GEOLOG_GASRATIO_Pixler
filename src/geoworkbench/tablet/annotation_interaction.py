@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from geoworkbench.project.annotation_schema import (
+    CATALOG_SYMBOL_MINIMUM_DIMENSION as CATALOG_SYMBOL_MINIMUM_DIMENSION,
+)
+
 
 RESIZE_HANDLES = frozenset({"nw", "n", "ne", "e", "se", "s", "sw", "w"})
-CATALOG_SYMBOL_MINIMUM_DIMENSION = 1.0
 
 
 def resize_annotation_geometry(
@@ -91,7 +94,6 @@ def _resize_with_aspect_ratio(
 
     original_width = right - left
     original_height = bottom - top
-    ratio = original_width / original_height
     minimum_scale = max(
         float(minimum_width) / original_width,
         float(minimum_height) / original_height,

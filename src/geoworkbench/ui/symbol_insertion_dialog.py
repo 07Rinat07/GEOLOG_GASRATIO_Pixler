@@ -29,6 +29,7 @@ from geoworkbench.form_constructor.asset_install import (
 )
 from geoworkbench.form_constructor.asset_registry import AssetDefinition
 from geoworkbench.project.annotation_controller import DepthAnnotationController
+from geoworkbench.project.annotation_schema import CATALOG_SYMBOL_MINIMUM_DIMENSION
 from geoworkbench.project.symbol_insertion import SymbolInsertionSelection
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.models import TrackKind
@@ -179,9 +180,9 @@ class SymbolInsertionDialog(QDialog):
     def _size_input(object_name: str) -> QDoubleSpinBox:
         control = QDoubleSpinBox()
         control.setObjectName(object_name)
-        control.setRange(1.0, 1200.0)
-        control.setDecimals(1)
-        control.setSingleStep(1.0)
+        control.setDecimals(2)
+        control.setSingleStep(0.25)
+        control.setRange(CATALOG_SYMBOL_MINIMUM_DIMENSION, 1200.0)
         control.setSuffix(" px")
         return control
 

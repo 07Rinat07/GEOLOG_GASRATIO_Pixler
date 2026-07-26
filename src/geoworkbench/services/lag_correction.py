@@ -9,8 +9,6 @@ import numpy as np
 from numpy.typing import NDArray
 
 from geoworkbench.domain.lag_correction import (
-    AnnularVolumeFlowLagParameters,
-    ConstantTimeLagParameters,
     ControlPointLagParameters,
     LagCorrectionAxisMode,
     LagCorrectionMethod,
@@ -20,7 +18,6 @@ from geoworkbench.domain.lag_correction import (
     LagCorrectionTarget,
     LAG_CORRECTION_FORMULA_ID,
     LAG_CORRECTION_FORMULA_VERSION,
-    PumpStrokeLagParameters,
     lag_seconds,
 )
 from geoworkbench.domain.models import (

@@ -147,8 +147,8 @@ def test_symbol_annotation_survives_project_round_trip(tmp_path: Path) -> None:
         x_fraction=0.5,
         offset_x=-32.0,
         offset_y=-32.0,
-        width=144.0,
-        height=42.0,
+        width=0.01,
+        height=0.01,
         asset_ref=image.asset_id,
         symbol_id="symbol-bit",
         transparent_background=True,
@@ -170,8 +170,8 @@ def test_symbol_annotation_survives_project_round_trip(tmp_path: Path) -> None:
     assert loaded_item.properties["symbol_id"] == "symbol-bit"
     assert loaded_item.properties["transparent_background"] is True
     assert loaded_item.properties["asset_ref"] in loaded.image_assets
-    assert loaded_item.width == 144.0
-    assert loaded_item.height == 42.0
+    assert loaded_item.width == 0.01
+    assert loaded_item.height == 0.01
 
 def test_symbol_insertion_ui_is_wired_to_toolbar_context_and_mouse_geometry() -> None:
     main_window = Path("src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")

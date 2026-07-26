@@ -1,6 +1,6 @@
 # Проверка качества
 
-Актуально на 25 июля 2026 года. Этот файл задаёт один действующий release gate. История
+Актуально на 27 июля 2026 года. Этот файл задаёт один действующий release gate. История
 проверок отдельных версий хранится в release notes и не является текущей инструкцией.
 
 ## Компактные колонки и встроенная пользовательская форма 0.7.63
@@ -83,14 +83,17 @@ source-contract тестами.
 
 ```powershell
 .venv\Scripts\python.exe -B tools/check_documentation.py
-.venv\Scripts\python.exe -B -m ruff check src tests tools
+.venv\Scripts\python.exe -B -m ruff check src tests tools scripts
 .venv\Scripts\python.exe -B -m mypy src
-.venv\Scripts\python.exe -B -m pytest -q -p no:cacheprovider
+.venv\Scripts\python.exe -B scripts/run_tests.py -p no:cacheprovider
 ```
 
 Требования:
 
 - каждая команда завершается с кодом 0;
+- полный Qt-набор на Windows запускается через `scripts/run_tests.py`: после завершения pytest
+  изолированный процесс обходит нестабильную выгрузку нативных Qt DLL, не пропуская fixture/plugin
+  teardown и не изменяя код результата;
 - pytest не допускает skipped обязательных сценариев, зависания или аварийного завершения;
 - тесты не создают изменённые проектные/LAS-файлы в рабочем дереве;
 - выборочный успешный набор не заменяет полный прогон.
@@ -100,8 +103,9 @@ source-contract тестами.
 переключает формы без `TabletTrackWidget._localizer` AttributeError. В контейнере выполняются
 source-contract тесты; фактическая Qt-геометрия проверяется на Windows/PySide6.
 
-Последний полностью подтверждённый baseline 0.7.28: Ruff — 0 ошибок; mypy — 0 ошибок
-в 262 исходных файлах; полный pytest — 1217 пройдено и 10 пропущено, код завершения 0.
+Автоматический срез 0.7.72: Ruff — 0 ошибок; documentation audit — 92 файла на язык и
+1901 i18n-ключ; полный pytest — 1668 пройдено и 10 пропущено, код завершения 0.
+Mypy остаётся открытым release blocker и зафиксирован в `PROJECT_PLAN.md`.
 
 Для hotfix 0.7.58 в текущем контейнере выполнены `compileall`, focused
 header/screen-style/source-contract-набор — **19 passed**, и доступная headless-регрессия —

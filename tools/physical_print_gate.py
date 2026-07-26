@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+# The standalone gate intentionally adds the local ``src`` directory before
+# importing optional Qt/project modules.
+# ruff: noqa: E402
+
 import argparse
 import json
 from pathlib import Path

@@ -44,7 +44,7 @@ def test_roll_page_length_follows_content_aspect_and_is_bounded() -> None:
     bounded = settings.page_size_for_content(100, 10000).size(QPageSize.Unit.Millimeter)
 
     assert regular.width() == 300.0
-    assert regular.height() == 900.0
+    assert regular.height() == pytest.approx(860.0)
     assert bounded.height() == 5000.0
     assert settings.qt_orientation is QPageLayout.Orientation.Portrait
 

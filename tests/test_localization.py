@@ -65,6 +65,8 @@ def test_main_window_uses_selected_language_for_shell(qapp) -> None:
     assert "Show full depth range" in tablet_labels
     assert window.statusBar().currentMessage() == "Ready: import data"
     window.close()
+    window.deleteLater()
+    qapp.processEvents()
 
 
 def test_print_vocabulary_is_available_in_three_languages() -> None:
@@ -126,3 +128,5 @@ def test_language_switch_retranslates_open_interface_without_restart(qapp) -> No
     assert window.tablet_view._full_range_button.text() == en.text("tablet.full_range")
     assert window.language_actions[AppLanguage.EN].isChecked()
     window.close()
+    window.deleteLater()
+    qapp.processEvents()

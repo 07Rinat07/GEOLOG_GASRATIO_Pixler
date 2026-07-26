@@ -2,14 +2,18 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from openpyxl import load_workbook
 
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
     Dataset,
+    DatasetIndex,
     DatasetKind,
     DepthDomain,
     ExportProfile,
+    IndexRole,
+    IndexType,
     Project,
     Well,
 )
@@ -280,6 +284,78 @@ def test_export_controller_uses_one_resolved_report_for_csv_and_excel(tmp_path) 
         "102,30",
     ]
     assert xlsx_target.read_bytes().startswith(b"PK")
+
+
+def test_resolved_report_exports_active_numeric_time_interval(tmp_path) -> None:
+    from geoworkbench.services.report_definition import (
+        ReportDefinition,
+        ReportIntervalContext,
+        ReportIntervalMode,
+        ReportIntervalSelection,
+        ReportProfile,
+    )
+
+    dataset = Dataset(
+        "dataset-time",
+        "GS2 multipart",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0, 103.0]),
+    )
+    time_index = DatasetIndex(
+        "time",
+        "TIME",
+        IndexType.RELATIVE_TIME,
+        IndexRole.TIME,
+        "s",
+        np.array([0.0, 1.0, 2.0, 3.0]),
+    )
+    dataset.add_index(time_index, make_active=True)
+    dataset.curves["tg"] = CurveData(
+        CurveMetadata("tg", "TG", "TG", "%", "Total gas", dataset.dataset_id),
+        np.array([10.0, 20.0, 30.0, 40.0]),
+    )
+    well = Well("well-time", "Well", datasets={dataset.dataset_id: dataset})
+    session = ProjectSession(
+        project=Project("project-time", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+        current_dataset_id=dataset.dataset_id,
+    )
+    controller = DatasetExportController(session)
+    definition = ReportDefinition(
+        "selection:dataset-time",
+        "Time selection",
+        ReportProfile.GAS,
+        dataset.dataset_id,
+        time_index.index_id,
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("tg",),
+    )
+    resolved = controller.resolve_report(
+        definition,
+        context=ReportIntervalContext(selection_range=(1.0, 2.0)),
+        require_curves=True,
+    )
+
+    csv_target = controller.export_resolved_report_text(
+        tmp_path / "time.csv", resolved
+    )
+    xlsx_target = controller.export_resolved_report_excel(
+        tmp_path / "time.xlsx", resolved, language="en"
+    )
+
+    assert csv_target.read_text(encoding="utf-8").splitlines() == [
+        "TIME [s],TG [%]",
+        "1,20",
+        "2,30",
+    ]
+    workbook = load_workbook(xlsx_target, data_only=True)
+    data_rows = list(workbook["Data"].values)
+    metadata = dict(workbook["Metadata"].values)
+    assert data_rows[1:] == [(1.0, 20.0), (2.0, 30.0)]
+    assert metadata["Interval start"] == 1.0
+    assert metadata["Interval end"] == 2.0
 
 
 def test_export_controller_uses_one_resolved_report_for_docx_and_html(tmp_path) -> None:

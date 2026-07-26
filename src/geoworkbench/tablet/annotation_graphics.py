@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from math import atan2, cos, pi, sin
+from math import atan2, cos, hypot, pi, sin
 
 from PySide6.QtCore import QLineF, QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
@@ -112,6 +112,48 @@ class TabletAnnotationItem(QGraphicsObject):
         geometry = annotation_box_rect(self.record)
         return QRectF(geometry.left, geometry.top, geometry.width, geometry.height)
 
+    def selection_rect(self) -> QRectF:
+        """Return a usable edit frame without changing persisted geometry.
+
+        A catalog symbol may legitimately be only a fraction of one logical
+        pixel wide.  The visible mark remains that narrow, while the edit frame
+        is expanded around its centre so users can still reselect and resize it
+        after saving or reopening the project.
+        """
+
+        rect = self.box_rect()
+        if not (
+            self.record.kind is AnnotationKind.SYMBOL or bool(self.record.symbol_id)
+        ):
+            return rect
+        minimum_extent = 18.0
+        horizontal = max(0.0, (minimum_extent - rect.width()) / 2.0)
+        vertical = max(0.0, (minimum_extent - rect.height()) / 2.0)
+        return rect.adjusted(-horizontal, -vertical, horizontal, vertical)
+
+    def rendered_box_rect(self, painter: QPainter) -> QRectF:
+        """Return visible symbol geometry without changing the stored size.
+
+        Sub-pixel catalog geometry is valid and must survive round-trips, but a
+        target smaller than one physical device pixel can disappear entirely
+        in a raster backend. Expand only the painted rectangle around the same
+        centre so each non-zero axis remains visible on the current device.
+        """
+
+        rect = self.box_rect()
+        if not (
+            self.record.kind is AnnotationKind.SYMBOL or bool(self.record.symbol_id)
+        ):
+            return rect
+        transform = painter.deviceTransform()
+        horizontal_scale = max(1e-9, hypot(transform.m11(), transform.m12()))
+        vertical_scale = max(1e-9, hypot(transform.m21(), transform.m22()))
+        minimum_width = 1.0 / horizontal_scale
+        minimum_height = 1.0 / vertical_scale
+        horizontal = max(0.0, (minimum_width - rect.width()) / 2.0)
+        vertical = max(0.0, (minimum_height - rect.height()) / 2.0)
+        return rect.adjusted(-horizontal, -vertical, horizontal, vertical)
+
     def resize_handle_rect(self) -> QRectF:
         """Backward-compatible alias for the south-east resize handle."""
 
@@ -120,7 +162,7 @@ class TabletAnnotationItem(QGraphicsObject):
     def resize_handle_rects(self) -> dict[str, QRectF]:
         """Return eight analogue-style resize handles around the text box."""
 
-        rect = self.box_rect()
+        rect = self.selection_rect()
         size = self.HANDLE_SIZE
         half = size / 2.0
         return {
@@ -168,6 +210,15 @@ class TabletAnnotationItem(QGraphicsObject):
     def boundingRect(self) -> QRectF:  # noqa: N802
         blur = max(12.0, float(self.record.style.shadow_blur) + 8.0)
         rect = self._box_shape().boundingRect().adjusted(-blur, -blur, blur, blur)
+        selection_bounds = self.selection_rect().adjusted(
+            -self.HANDLE_SIZE / 2.0,
+            -self.HANDLE_SIZE / 2.0,
+            self.HANDLE_SIZE / 2.0,
+            self.HANDLE_SIZE / 2.0,
+        )
+        if self.record.style.rotation:
+            selection_bounds = self._box_transform().mapRect(selection_bounds)
+        rect = rect.united(selection_bounds)
         if self._has_leader():
             rect = rect.united(
                 QRectF(QPointF(0.0, 0.0), self._leader_end()).normalized()
@@ -245,7 +296,7 @@ class TabletAnnotationItem(QGraphicsObject):
     def _paint_box(self, painter: QPainter) -> None:
         record = self.record
         style = record.style
-        rect = self.box_rect()
+        rect = self.rendered_box_rect(painter)
         painter.save()
         if style.rotation:
             painter.translate(rect.center())
@@ -336,7 +387,7 @@ class TabletAnnotationItem(QGraphicsObject):
 
     def _paint_edit_handles(self, painter: QPainter) -> None:
         painter.save()
-        rect = self.box_rect()
+        rect = self.selection_rect()
         if self.record.style.rotation:
             painter.translate(rect.center())
             painter.rotate(self.record.style.rotation)
@@ -558,7 +609,7 @@ class TabletAnnotationOverlay(QWidget):
         annotation_id, helper, local = hit
         handle = helper.resize_handle_at(local)
         box_local = helper._point_in_box_coordinates(local)
-        movable = handle is not None or helper.box_rect().contains(box_local)
+        movable = handle is not None or helper.selection_rect().contains(box_local)
         return AnnotationSurfaceHit(
             annotation_id=annotation_id,
             locked=bool(helper.record.locked),
@@ -851,6 +902,13 @@ class TabletAnnotationOverlay(QWidget):
                 return annotation_id, helper, local
             if helper.shape().contains(local):
                 return annotation_id, helper, local
+            if (
+                helper.record.kind is AnnotationKind.SYMBOL
+                or bool(helper.record.symbol_id)
+            ):
+                box_local = helper._point_in_box_coordinates(local)
+                if helper.selection_rect().contains(box_local):
+                    return annotation_id, helper, local
         return None
 
     def _keep_reachable(

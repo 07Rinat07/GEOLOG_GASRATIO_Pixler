@@ -8,7 +8,7 @@ from pathlib import Path
 from weakref import ref
 
 import numpy as np
-from PySide6.QtCore import QEvent, QTimer, QUrl, QSize, QStandardPaths, Qt
+from PySide6.QtCore import QEvent, QTimer, QUrl, QSize, QStandardPaths, Qt, Signal
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -416,16 +416,35 @@ class _MainWindowDatasetImportPort(_MainWindowPort):
         return well.name
 
 
-class _ConstrainedToolBar(QToolBar):
-    """Top toolbar that never contributes a desktop-wide minimum width.
+class _ResponsiveCommandBar(QFrame):
+    """Application-owned command bar with no native toolbar overflow.
 
-    QMainWindow asks each docked toolbar for its minimum size.  On Windows the
-    native QToolBar layout can temporarily report the complete uncollapsed
-    action width after a monitor/DPI change or after another toolbar becomes
-    visible.  A maximized window cannot honour that width, so the toolbar row
-    is laid out beyond the right edge.  The application owns overflow itself;
-    therefore only the toolbar height is a meaningful size hint.
+    This widget deliberately does not inherit ``QToolBar``.  Even when a
+    QToolBar is inserted into the central widget, its private extension action
+    can be recalculated after a click, F4 toggle or DPI transition and feed a
+    desktop-wide minimum width back into the layout.  A plain frame has no
+    extension button and no docking geometry, so only our explicit ``⋯`` menu
+    controls overflow.
     """
+
+    visibilityChanged = Signal(bool)
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        margins: tuple[int, int, int, int] = (0, 0, 0, 0),
+    ) -> None:
+        super().__init__(parent)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setMinimumWidth(0)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self._content_layout = QVBoxLayout(self)
+        self._content_layout.setContentsMargins(*margins)
+        self._content_layout.setSpacing(0)
+
+    def set_content_widget(self, widget: QWidget) -> None:
+        self._content_layout.addWidget(widget)
 
     def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
         hint = super().minimumSizeHint()
@@ -434,6 +453,14 @@ class _ConstrainedToolBar(QToolBar):
     def sizeHint(self) -> QSize:  # noqa: N802 - Qt API
         hint = super().sizeHint()
         return QSize(0, max(1, hint.height()))
+
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt API
+        super().showEvent(event)
+        self.visibilityChanged.emit(True)
+
+    def hideEvent(self, event) -> None:  # noqa: N802 - Qt API
+        super().hideEvent(event)
+        self.visibilityChanged.emit(False)
 
 
 class _ResponsiveToolbarRow(QWidget):
@@ -445,6 +472,26 @@ class _ResponsiveToolbarRow(QWidget):
     viewport. Keeping the complete row inside one expanding QWidget removes
     that native overflow path; visibility is controlled only by our explicit
     ``⋯`` menu.
+    """
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
+        hint = super().minimumSizeHint()
+        return QSize(0, max(1, hint.height()))
+
+    def sizeHint(self) -> QSize:  # noqa: N802 - Qt API
+        hint = super().sizeHint()
+        return QSize(0, max(1, hint.height()))
+
+
+class _ResponsiveToolbarHost(QWidget):
+    """Central-widget host for application-owned command rows.
+
+    The rows intentionally live outside ``QMainWindow``'s native toolbar area.
+    On Windows a docked ``QToolBar`` may raise the top-level minimum width after
+    a checked action, DPI transition or second toolbar visibility change.  The
+    window can then become wider than the monitor even while maximized.  A
+    central host clips and adapts its children instead of changing the native
+    window constraints.
     """
 
     def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
@@ -540,6 +587,10 @@ class MainWindow(QMainWindow):
         self._main_toolbar_overflow_signature: tuple[str, ...] = ()
         self._form_toolbar_overflow_signature: tuple[str, ...] = ()
         self._apply_adaptive_initial_geometry()
+        # Explicitly override child-layout minimum-width propagation.  The
+        # workspace is scrollable; a command row or dock must never enlarge the
+        # native window beyond the monitor after a click or DPI transition.
+        self.setMinimumSize(640, 480)
 
         self.tabs = QTabWidget()
         self.curve_view = CurveView(self.dataset_selection, language=self.language)
@@ -694,10 +745,30 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(self._t("app.ready"))
         self._update_title()
 
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
+        """Never advertise a width larger than the active monitor work area.
+
+        This is a final Windows safety boundary. Child views remain scrollable,
+        while a transient toolbar or dock size hint cannot make a maximized
+        window extend past the external monitor.
+        """
+
+        hint = super().minimumSizeHint()
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            return QSize(min(max(640, hint.width()), 1280), max(480, hint.height()))
+        available = screen.availableGeometry()
+        width_cap = max(640, int(available.width()) - 24)
+        height_cap = max(480, int(available.height()) - 24)
+        return QSize(
+            min(max(640, hint.width()), width_cap),
+            min(max(480, hint.height()), height_cap),
+        )
+
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
         if hasattr(self, "main_toolbar"):
-            QTimer.singleShot(0, self._update_toolbar_adaptation)
+            self._schedule_toolbar_adaptation()
         if (
             hasattr(self, "interval_statistics_dock")
             and self.interval_statistics_dock.isVisible()
@@ -753,7 +824,10 @@ class MainWindow(QMainWindow):
         if screen is None or any(item is screen for item in self._toolbar_observed_screens):
             return
         self._toolbar_observed_screens.append(screen)
-        callback = lambda *_args: self._on_toolbar_metrics_changed()
+
+        def callback(*_args: object) -> None:
+            self._on_toolbar_metrics_changed()
+
         screen.logicalDotsPerInchChanged.connect(callback)
         screen.geometryChanged.connect(callback)
         screen.availableGeometryChanged.connect(callback)
@@ -1888,9 +1962,11 @@ class MainWindow(QMainWindow):
         action: QAction,
         *,
         text_beside_icon: bool = True,
+        icon_size: int = 22,
     ) -> QToolButton:
         button = QToolButton(toolbar)
         button.setDefaultAction(action)
+        button.setIconSize(QSize(icon_size, icon_size))
         button.setPopupMode(QToolButton.ToolButtonPopupMode.DelayedPopup)
         button.setToolButtonStyle(
             Qt.ToolButtonStyle.ToolButtonTextBesideIcon
@@ -1966,25 +2042,19 @@ class MainWindow(QMainWindow):
         self._workspace_controller.show_workspace(widget)
 
     def _create_toolbar(self) -> None:
-        self.main_toolbar = _ConstrainedToolBar(self._t("toolbar.main"), self)
+        self.main_toolbar = _ResponsiveCommandBar(self, margins=(8, 6, 8, 6))
         self.main_toolbar.setObjectName("mainToolbar")
-        self.main_toolbar.setMovable(False)
-        self.main_toolbar.setFloatable(False)
-        self.main_toolbar.setIconSize(QSize(22, 22))
-        self.main_toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.main_toolbar.setStyleSheet(
-            "QToolBar#mainToolbar { spacing: 6px; padding: 6px 8px; "
+            "QFrame#mainToolbar { "
             "border-bottom: 1px solid #cbd5e1; background: #ffffff; }"
-            "QToolBar#mainToolbar QToolButton { min-height: 32px; padding: 4px 9px; "
+            "QFrame#mainToolbar QToolButton { min-height: 32px; padding: 4px 9px; "
             "border: 1px solid #d8e0ea; border-radius: 7px; color: #1e293b; "
             "font-weight: 600; background: #f8fafc; }"
-            "QToolBar#mainToolbar QToolButton:hover { background: #eff6ff; "
+            "QFrame#mainToolbar QToolButton:hover { background: #eff6ff; "
             "border-color: #60a5fa; color: #1d4ed8; }"
-            "QToolBar#mainToolbar QToolButton:pressed { background: #dbeafe; }"
-            "QToolBar#mainToolbar QToolButton:checked { background: #dbeafe; "
+            "QFrame#mainToolbar QToolButton:pressed { background: #dbeafe; }"
+            "QFrame#mainToolbar QToolButton:checked { background: #dbeafe; "
             "border-color: #3b82f6; color: #1e3a8a; }"
-            "QToolBar#mainToolbar QToolButton#qt_toolbar_ext_button { "
-            "min-width:0px; max-width:0px; width:0px; padding:0px; border:0px; }"
         )
 
         # Keep the complete main row inside one QWidget. This deliberately
@@ -2093,23 +2163,16 @@ class MainWindow(QMainWindow):
         )
         self.main_toolbar_layout.addWidget(self.edit_mode_button)
 
-        self.main_toolbar.addWidget(self.main_toolbar_row)
-        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.main_toolbar)
+        self.main_toolbar.set_content_widget(self.main_toolbar_row)
 
-        self.form_edit_toolbar = _ConstrainedToolBar(self._t("ui.form_edit_toolbar"), self)
+        self.form_edit_toolbar = _ResponsiveCommandBar(self, margins=(7, 4, 7, 4))
         self.form_edit_toolbar.setObjectName("formEditToolbar")
-        self.form_edit_toolbar.setMovable(False)
-        self.form_edit_toolbar.setFloatable(False)
-        self.form_edit_toolbar.setIconSize(QSize(18, 18))
-        self.form_edit_toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.form_edit_toolbar.setStyleSheet(
-            "QToolBar#formEditToolbar { spacing: 4px; padding: 4px 7px; "
+            "QFrame#formEditToolbar { "
             "background: #eff6ff; border-bottom: 1px solid #93c5fd; }"
-            "QToolBar#formEditToolbar QToolButton { min-height: 28px; padding: 3px 7px; "
+            "QFrame#formEditToolbar QToolButton { min-height: 28px; padding: 3px 7px; "
             "border-radius: 5px; }"
-            "QToolBar#formEditToolbar QToolButton:hover { background: #dbeafe; }"
-            "QToolBar#formEditToolbar QToolButton#qt_toolbar_ext_button { "
-            "min-width:0px; max-width:0px; width:0px; padding:0px; border:0px; }"
+            "QFrame#formEditToolbar QToolButton:hover { background: #dbeafe; }"
         )
         self.form_edit_row = _ResponsiveToolbarRow(self.form_edit_toolbar)
         self.form_edit_row.setObjectName("formEditToolbarRow")
@@ -2146,7 +2209,7 @@ class MainWindow(QMainWindow):
             self.save_user_form_action,
         )
         self._form_toolbar_buttons = {
-            action: self._toolbar_button(self.form_edit_row, action)
+            action: self._toolbar_button(self.form_edit_row, action, icon_size=18)
             for action in form_actions
         }
         for action in form_actions[:7]:
@@ -2182,10 +2245,39 @@ class MainWindow(QMainWindow):
         self.form_edit_overflow_button.hide()
         self.form_edit_layout.addStretch(1)
 
-        self.form_edit_toolbar.addWidget(self.form_edit_row)
-        self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
-        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.form_edit_toolbar)
+        self.form_edit_toolbar.set_content_widget(self.form_edit_row)
         self.form_edit_toolbar.hide()
+
+        # The two command rows are regular central widgets, not native docked
+        # QMainWindow toolbars.  This prevents Windows/Qt from increasing the
+        # native minimum width after F4, action state or monitor/DPI changes.
+        workspace = self.takeCentralWidget()
+        if workspace is None:
+            raise RuntimeError("Central workspace must exist before toolbars")
+        self.toolbar_host = _ResponsiveToolbarHost(self)
+        self.toolbar_host.setObjectName("responsiveToolbarHost")
+        self.toolbar_host.setMinimumWidth(0)
+        self.toolbar_host.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+        )
+        self.toolbar_host_layout = QVBoxLayout(self.toolbar_host)
+        self.toolbar_host_layout.setContentsMargins(0, 0, 0, 0)
+        self.toolbar_host_layout.setSpacing(0)
+        self.toolbar_host_layout.addWidget(self.main_toolbar)
+        self.toolbar_host_layout.addWidget(self.form_edit_toolbar)
+
+        self.workspace_shell = QWidget(self)
+        self.workspace_shell.setObjectName("workspaceShell")
+        self.workspace_shell.setMinimumWidth(0)
+        self.workspace_shell.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding
+        )
+        self.workspace_shell_layout = QVBoxLayout(self.workspace_shell)
+        self.workspace_shell_layout.setContentsMargins(0, 0, 0, 0)
+        self.workspace_shell_layout.setSpacing(0)
+        self.workspace_shell_layout.addWidget(self.toolbar_host)
+        self.workspace_shell_layout.addWidget(workspace, 1)
+        self.setCentralWidget(self.workspace_shell)
 
         # Toolbars must never impose a desktop-sized minimum width on the main
         # window.  Their labels are reduced adaptively when the available width
@@ -2194,10 +2286,10 @@ class MainWindow(QMainWindow):
         self.main_toolbar.setMinimumWidth(0)
         self.form_edit_toolbar.setMinimumWidth(0)
         self.main_toolbar.setSizePolicy(
-            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
         self.form_edit_toolbar.setSizePolicy(
-            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
         self._main_toolbar_compact_buttons = (
             self.home_button,
@@ -2281,9 +2373,10 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _set_toolbar_action_style(
-        toolbar: QToolBar, action: QAction, style: Qt.ToolButtonStyle
+        toolbar: QWidget, action: QAction, style: Qt.ToolButtonStyle
     ) -> None:
-        button = toolbar.widgetForAction(action)
+        widget_for_action = getattr(toolbar, "widgetForAction", None)
+        button = widget_for_action(action) if callable(widget_for_action) else None
         if isinstance(button, QToolButton):
             button.setToolButtonStyle(style)
 
@@ -2366,7 +2459,7 @@ class MainWindow(QMainWindow):
         )
 
     def _toolbar_required_width(
-        self, toolbar: QToolBar, *, expanding_widget: QWidget | None = None
+        self, toolbar: QWidget, *, expanding_widget: QWidget | None = None
     ) -> int:
         if toolbar is self.main_toolbar:
             hidden_keys = set(self._main_toolbar_overflow_signature)
@@ -2418,11 +2511,6 @@ class MainWindow(QMainWindow):
     ) -> int:
         self._set_form_toolbar_visual_mode(compact, ultra_compact)
         return self._toolbar_required_width(self.form_edit_toolbar)
-
-    def _main_toolbar_item_widget(self, item) -> QWidget | None:
-        if isinstance(item, QAction):
-            return self.main_toolbar.widgetForAction(item)
-        return item if isinstance(item, QWidget) else None
 
     def _set_main_toolbar_overflow(self, hidden_keys: tuple[str, ...]) -> None:
         """Move low-priority commands to our menu inside the fixed row."""
@@ -2536,20 +2624,24 @@ class MainWindow(QMainWindow):
         """
 
         window_width = max(1, int(self.contentsRect().width() or self.width()))
-        main_contents = int(self.main_toolbar.contentsRect().width())
-        main_available = min(
-            window_width,
-            main_contents if main_contents > 0 else window_width,
-        )
-        main_cap = max(80, main_available - 24)
+        host_width = int(getattr(self, "toolbar_host", self).contentsRect().width())
+        if host_width <= 0:
+            host_width = window_width
+        available_width = max(1, min(window_width, host_width))
+
+        # As ordinary central widgets the toolbar shells fill the host.  Cap
+        # both command bars and their single custom rows, leaving space for the
+        # QToolBar frame/padding.  The cap is derived only from current geometry
+        # and can never feed a wider minimum back to the native window.
+        self.main_toolbar.setMaximumWidth(available_width)
+        self.form_edit_toolbar.setMaximumWidth(available_width)
+        # Use the host width directly. The command frame's current geometry may
+        # still contain the previous narrow maximum during the first layout
+        # pass after a window expansion.
+        main_cap = max(80, available_width - 18)
         self.main_toolbar_row.setFixedWidth(main_cap)
 
-        form_contents = int(self.form_edit_toolbar.contentsRect().width())
-        form_available = min(
-            window_width,
-            form_contents if form_contents > 0 else window_width,
-        )
-        form_cap = max(80, form_available - 20)
+        form_cap = max(80, available_width - 16)
         self.form_edit_row.setFixedWidth(form_cap)
         return main_cap
 
@@ -7418,7 +7510,7 @@ class MainWindow(QMainWindow):
             return
         checkpoint = self.derived_dataset_controller.checkpoint()
         try:
-            result = self.dataset_merge_controller.create(
+            self.dataset_merge_controller.create(
                 dialog.source_dataset_id,
                 dialog.analysis,
                 overlap_policy=dialog.overlap_policy,

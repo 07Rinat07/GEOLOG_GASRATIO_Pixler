@@ -23,6 +23,7 @@ from geoworkbench.domain.models import (
     StratigraphyInterval,
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
+from geoworkbench.tablet.grid_renderer import GridSettings, TabletGridRenderer
 from geoworkbench.tablet.header_geometry import curve_header_viewport_height
 from geoworkbench.tablet.models import (
     CurveDisplaySettings,
@@ -33,6 +34,7 @@ from geoworkbench.tablet.models import (
     TrackKind,
     XScale,
 )
+from geoworkbench.tablet.screen_style import muted_screen_curve_color
 from geoworkbench.tablet.tablet_view import (
     CURVE_HEADER_EDITOR_HEIGHT,
     TabletTrackWidget,
@@ -416,7 +418,7 @@ def test_tablet_view_applies_saved_curve_pen_style(qapp) -> None:
     view.set_dataset(dataset)
 
     pen = view._rendered["gas"].curve_items["C1"].opts["pen"]
-    assert pen.color().name() == "#123456"
+    assert pen.color().name() == muted_screen_curve_color("#123456")
     assert pen.widthF() == 3.5
     assert pen.style() == Qt.PenStyle.DashDotLine
     view.close()
@@ -437,7 +439,10 @@ def test_track_widget_applies_saved_grid_settings(qapp) -> None:
         )
     )
 
-    assert widget.plot.getAxis("bottom").grid == pytest.approx(102.0)
+    overlay = TabletGridRenderer.overlay_for(widget.plot)
+    assert overlay is not None
+    assert overlay.settings == GridSettings(True, False, 4, 10, 0.4)
+    assert widget.plot.getAxis("bottom").grid is False
     assert widget.plot.getAxis("left").grid is False
     assert widget.plot.getAxis("bottom").tickSpacing(0.0, 100.0, 400.0) == [
         (25.0, 0.0),
@@ -1266,7 +1271,10 @@ def test_partial_style_refresh_updates_only_target_track(qapp) -> None:
     assert view._rendered["tg"].widget is tg_widget
     assert after.full_updates == before.full_updates
     assert after.partial_updates == before.partial_updates + 1
-    assert view._rendered["rop"].curve_items["ROP"].opts["pen"].color().name() == "#ff0000"
+    assert (
+        view._rendered["rop"].curve_items["ROP"].opts["pen"].color().name()
+        == muted_screen_curve_color("#ff0000")
+    )
     view.close()
 
 

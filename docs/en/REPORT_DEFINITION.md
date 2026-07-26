@@ -8,6 +8,11 @@ The resolver creates one inclusive row set, resolves mnemonics, preserves unreso
 unavailable channels, and calculates coverage. Preview, PDF/printing, and CSV/XLSX do not
 recalculate the interval or channel availability.
 
+Resolved tabular export supports an active numeric depth or relative-time index. CSV/XLSX use the
+exact `resolved.interval.indices`; the first column, unit, and boundaries come from the active
+index. TIME metadata uses “Interval start” and “Interval end”. DATETIME boundaries are not yet
+supported by this adapter.
+
 Schema v1 payloads migrate to runtime schema v2. Project format v19 stores `well.operational_events` and `well.acquisition_sessions`; events were introduced in v17. For `EVENTS` and `DRILLING`,
 `resolve_operational_event_report()` reuses the exact bounds of the existing
 `ResolvedReportDefinition`: depth maps to `depth_m`, relative time to `elapsed_time_s`, and

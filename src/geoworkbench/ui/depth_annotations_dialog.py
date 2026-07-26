@@ -37,6 +37,7 @@ from geoworkbench.domain.models import IndexRole, IndexType
 from geoworkbench.printing.image_assets import ImageAssetError
 from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.annotation_schema import (
+    CATALOG_SYMBOL_MINIMUM_DIMENSION,
     AnnotationAnchor,
     AnnotationKind,
     AnnotationRecord,
@@ -492,8 +493,8 @@ class DepthAnnotationsDialog(QDialog):
         self.x_fraction_input = self._number_input(0.0, 100.0, 50.0, decimals=1, suffix=" %")
         self.offset_x_input = self._number_input(-10000.0, 10000.0, 18.0, decimals=1, suffix=" px")
         self.offset_y_input = self._number_input(-10000.0, 10000.0, -36.0, decimals=1, suffix=" px")
-        self.width_input = self._number_input(40.0, 4000.0, 220.0, decimals=1, suffix=" px")
-        self.height_input = self._number_input(24.0, 4000.0, 76.0, decimals=1, suffix=" px")
+        self.width_input = self._number_input(40.0, 4000.0, 220.0, decimals=2, suffix=" px")
+        self.height_input = self._number_input(24.0, 4000.0, 76.0, decimals=2, suffix=" px")
         self.radius_input = self._number_input(0.0, 64.0, 6.0, decimals=1, suffix=" px")
         self.padding_input = self._number_input(0.0, 64.0, 7.0, decimals=1, suffix=" px")
         self.rotation_input = self._number_input(-180.0, 180.0, 0.0, decimals=1, suffix="°")
@@ -953,8 +954,8 @@ class DepthAnnotationsDialog(QDialog):
         self.axis_display.setEnabled(anchor is AnnotationAnchor.TIME)
         self.asset_name.setEnabled(kind in {AnnotationKind.IMAGE, AnnotationKind.SYMBOL})
         if kind is AnnotationKind.SYMBOL:
-            self.width_input.setMinimum(1.0)
-            self.height_input.setMinimum(1.0)
+            self.width_input.setMinimum(CATALOG_SYMBOL_MINIMUM_DIMENSION)
+            self.height_input.setMinimum(CATALOG_SYMBOL_MINIMUM_DIMENSION)
         else:
             self.width_input.setMinimum(40.0)
             self.height_input.setMinimum(24.0)

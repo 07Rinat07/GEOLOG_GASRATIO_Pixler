@@ -1,6 +1,10 @@
 # User guide
 
 
+## Changes in 0.7.72
+
+The top command rows were moved out of Qt's native toolbar area into an application-owned responsive host above the workspace. F4 toggling, button clicks, and external-monitor transfer can therefore no longer enlarge the window beyond the screen. A catalog symbol can be narrowed with no practical limit down to the thinnest visible one-pixel line, while a separate selection frame keeps an extremely thin object selectable. Details: [RELEASE_NOTES_0.7.72.md](RELEASE_NOTES_0.7.72.md).
+
 ## Changes in 0.7.71
 
 Fixed the interface expanding to the right after enabling F4 and clicking controls on an external monitor: both top toolbars are hard-capped to the window width. Catalog symbols now truly narrow to one logical pixel; the hidden 40×24 px clamp was removed from screen and print layout. Details: [RELEASE_NOTES_0.7.71.md](RELEASE_NOTES_0.7.71.md).

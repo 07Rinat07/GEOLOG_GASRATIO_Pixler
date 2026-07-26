@@ -169,8 +169,8 @@ def test_constructor_remains_readable_with_dark_application_palette(qapp, tmp_pa
 
 
 def test_reference_masterlog_screen_form_links_exact_header() -> None:
-    from geoworkbench.forms.templates import curated_factory_templates
+    from geoworkbench.forms.templates import factory_templates
 
-    form = curated_factory_templates("ru")["factory-masterlog-geological-geochemical"]
-    assert "эталонная глубинная форма" in form.name.casefold()
+    form = factory_templates("ru")["factory-masterlog-geological-geochemical"]
+    assert form.name == "MASTERLOG — геолого-геохимическая форма"
     assert form.print_header_template_id == "kazgeology_blank"

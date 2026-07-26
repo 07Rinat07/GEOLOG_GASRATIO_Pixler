@@ -110,3 +110,25 @@ def test_direct_annotation_editor_saves_without_manager_add_button(qapp) -> None
     assert saved.text == "Параметры бурового раствора"
     assert saved.kind.value == "comment"
     dialog.close()
+
+
+def test_symbol_editor_preserves_subpixel_geometry(qapp) -> None:
+    dialog = DepthAnnotationsDialog(
+        make_controller(),
+        initial_values={
+            "kind": "symbol",
+            "anchor": "depth",
+            "depth": 150.0,
+            "x_fraction": 0.5,
+            "width": 0.01,
+            "height": 0.01,
+        },
+    )
+
+    assert dialog.width_input.decimals() == 2
+    assert dialog.height_input.decimals() == 2
+    assert dialog.width_input.minimum() == 0.01
+    assert dialog.height_input.minimum() == 0.01
+    assert dialog.width_input.value() == 0.01
+    assert dialog.height_input.value() == 0.01
+    dialog.close()

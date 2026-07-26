@@ -11,6 +11,16 @@ tables; `GS2#101.db` has TIME, DEPTH, and 206 channels on a 0.2 m grid. The five
 longer blocks table import and produces actionable diagnostics.
 
 
+## Completed in 0.7.72
+
+The top command rows were moved out of the native toolbar area into an application-owned central
+responsive host, and the window minimum is capped to the active monitor work area. Symbols retain
+geometry down to `0.01` logical pixel, render at no less than one device pixel, and use a separate
+selection/move frame. CSV/XLSX uses the exact rows of an active numeric DEPTH/TIME index.
+Automated checks are complete; manual Windows external-monitor/HiDPI/physical-print acceptance
+remains open.
+
+Snapshot: 27 July 2026. Package version: **0.7.72**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Completed in 0.7.71
 

@@ -117,14 +117,19 @@ def export_selection_text(
     delimiter: str = "\t",
     overwrite: bool = False,
     unavailable_mnemonics: tuple[str, ...] = (),
+    row_indices: np.ndarray | None = None,
 ) -> Path:
     if len(delimiter) != 1:
         raise ValueError("Разделитель должен состоять из одного символа")
     destination = Path(target)
     _validate_destination(destination, {".txt", ".csv"}, overwrite)
     indices, curves = _selection(
-        dataset, curve_ids, depth_top, depth_bottom,
+        dataset,
+        curve_ids,
+        depth_top,
+        depth_bottom,
         allow_empty=bool(unavailable_mnemonics),
+        row_indices=row_indices,
     )
     temporary = _temporary_path(destination)
     try:
@@ -136,7 +141,7 @@ def export_selection_text(
             )
             for index in indices:
                 writer.writerow(
-                    [_number(dataset.depth[index])]
+                    [_text_index_value(dataset.active_index, int(index))]
                     + [_number(curve.values[index]) for curve in curves]
                     + [UNAVAILABLE_CELL for _mnemonic in unavailable_mnemonics]
                 )
@@ -157,12 +162,17 @@ def export_selection_excel(
     overwrite: bool = False,
     language: AppLanguage | str = AppLanguage.RU,
     unavailable_mnemonics: tuple[str, ...] = (),
+    row_indices: np.ndarray | None = None,
 ) -> Path:
     destination = Path(target)
     _validate_destination(destination, {".xlsx"}, overwrite)
     indices, curves = _selection(
-        dataset, curve_ids, depth_top, depth_bottom,
+        dataset,
+        curve_ids,
+        depth_top,
+        depth_bottom,
         allow_empty=bool(unavailable_mnemonics),
+        row_indices=row_indices,
     )
     export_language = AppLanguage(language)
     export_indexes = _excel_indexes(dataset)
@@ -203,10 +213,16 @@ def export_selection_excel(
         for index in indices
     )
     metadata_labels = _metadata_labels(export_language)
+    interval_role = (
+        IndexRole.DEPTH if row_indices is None else dataset.active_index.role
+    )
+    interval_start_label, interval_end_label = _interval_boundary_labels(
+        export_language, interval_role
+    )
     metadata: list[list[object]] = [
         [metadata_labels["dataset"], clean_display_text(dataset.name)],
-        [metadata_labels["depth_top"], depth_top],
-        [metadata_labels["depth_bottom"], depth_bottom],
+        [interval_start_label, depth_top],
+        [interval_end_label, depth_bottom],
         [metadata_labels["rows"], int(indices.size)],
         [metadata_labels["source"], str(dataset.source_path or "")],
         [metadata_labels["language"], export_language.value],
@@ -455,6 +471,19 @@ def _metadata_labels(language: AppLanguage) -> dict[str, str]:
     }[language]
 
 
+def _interval_boundary_labels(
+    language: AppLanguage, role: IndexRole
+) -> tuple[str, str]:
+    if role is IndexRole.DEPTH:
+        labels = _metadata_labels(language)
+        return labels["depth_top"], labels["depth_bottom"]
+    return {
+        AppLanguage.RU: ("Начало интервала", "Конец интервала"),
+        AppLanguage.KK: ("Аралықтың басталуы", "Аралықтың аяқталуы"),
+        AppLanguage.EN: ("Interval start", "Interval end"),
+    }[language]
+
+
 def _parameter_sheet_headers(language: AppLanguage) -> list[str]:
     return {
         AppLanguage.RU: [
@@ -517,13 +546,26 @@ def _selection(
     depth_bottom: float,
     *,
     allow_empty: bool = False,
+    row_indices: np.ndarray | None = None,
 ) -> tuple[np.ndarray, list[CurveData]]:
     if not curve_ids and not allow_empty:
         raise ValueError("Выберите хотя бы один параметр")
     missing = [curve_id for curve_id in curve_ids if curve_id not in dataset.curves]
     if missing:
         raise KeyError(f"Кривые не найдены: {', '.join(missing)}")
-    indices = depth_interval_indices(dataset, depth_top, depth_bottom)
+    if row_indices is None:
+        indices = depth_interval_indices(dataset, depth_top, depth_bottom)
+    else:
+        raw_indices = np.asarray(row_indices)
+        if (
+            raw_indices.ndim != 1
+            or raw_indices.size == 0
+            or not np.issubdtype(raw_indices.dtype, np.integer)
+        ):
+            raise ValueError("Индексы строк экспорта должны быть непустым целочисленным массивом")
+        indices = raw_indices.astype(np.int64, copy=True)
+        if np.any(indices < 0) or np.any(indices >= dataset.depth.size):
+            raise IndexError("Индекс строки экспорта находится вне dataset")
     return indices, [dataset.curves[curve_id] for curve_id in curve_ids]
 
 
@@ -563,6 +605,14 @@ def _excel_indexes(dataset: Dataset) -> tuple[DatasetIndex, ...]:
 
 def _number(value: float) -> str:
     return "" if not np.isfinite(value) else format_decimal_number(float(value))
+
+
+def _text_index_value(index: DatasetIndex, row: int) -> str:
+    value = np.asarray(index.values)[row]
+    if index.index_type is not IndexType.DATETIME:
+        return _number(float(value))
+    normalized = value.astype("datetime64[ns]")
+    return "" if np.isnat(normalized) else str(normalized)
 
 
 def _excel_index_value(index: DatasetIndex, row: int) -> object:

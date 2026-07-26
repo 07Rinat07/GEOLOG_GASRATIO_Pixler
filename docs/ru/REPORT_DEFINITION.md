@@ -8,6 +8,11 @@ Resolver один раз формирует включительный набо�
 ненайденные каналы как unavailable и рассчитывает coverage. Preview, PDF/печать и CSV/XLSX не
 вычисляют интервал или доступность повторно.
 
+Табличный resolved-экспорт поддерживает активный числовой индекс глубины или относительного
+времени. CSV/XLSX используют точный `resolved.interval.indices`; первый столбец, единица и
+границы берутся из активного индекса. Для TIME метаданные называются «Начало интервала» и
+«Конец интервала». DATETIME-границы в этом адаптере пока не поддерживаются.
+
 Payload schema v1 мигрируется в runtime schema v2. Project format v19 хранит
 `well.operational_events`. Разделы `EVENTS` и `DRILLING` используют точные границы готового
 `ResolvedReportDefinition`: depth → `depth_m`, relative time → `elapsed_time_s`, datetime →

@@ -8,7 +8,6 @@ from math import isfinite
 import numpy as np
 
 from geoworkbench.domain.models import (
-    CurveData,
     CurveMetadata,
     Dataset,
     IndexRole,

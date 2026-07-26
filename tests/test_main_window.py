@@ -12,11 +12,11 @@ from geoworkbench.domain.models import (
     Project,
     Well,
 )
-from geoworkbench.project.curve_editing_controller import CurveEditingController
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.report_passport import passport_sidecar_path
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.models import CurveLineStyle
 from geoworkbench.ui.main_window import MainWindow
@@ -53,11 +53,7 @@ def make_session() -> tuple[ProjectSession, TabletLayout]:
 
 def bind_session(window: MainWindow, session: ProjectSession) -> None:
     window.project_controller.session = session
-    window.tablet_controller.session = session
-    window.dataset_export_controller.session = session
-    window.depth_annotation_controller.session = session
-    window.curve_editing_controller = CurveEditingController(session)
-    window._update_curve_edit_actions()
+    window._bind_project_session()
 
 
 def test_window_starts_on_clear_home_page(qapp) -> None:
@@ -191,7 +187,10 @@ def test_window_builds_interval_statistics_panel_from_tablet_gesture(qapp) -> No
     assert statistics[0].minimum == 1.0
     assert statistics[0].maximum == 2.0
     assert statistics[0].mean == 1.5
-    assert window.interval_statistics_panel.table.item(0, 0).text() == "Rate of Penetration\nROP"
+    assert (
+        window.interval_statistics_panel.table.item(0, 0).text()
+        == "Rate of Penetration\nROP · m/h"
+    )
     assert window.interval_statistics_panel.table.item(0, 1).text() == "1"
     assert window.interval_statistics_panel.table.item(0, 2).text() == "1.5"
     assert window.interval_statistics_panel.table.item(0, 3).text() == "2"
@@ -412,6 +411,9 @@ def test_window_exports_synchronized_selection_to_csv(qapp, tmp_path, monkeypatc
 
 def test_window_exports_active_curve_view_to_png(qapp, tmp_path, monkeypatch) -> None:
     window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    window._show_current_dataset()
     window.resize(800, 600)
     window.show()
     window.tabs.setCurrentWidget(window.curve_view)
@@ -426,11 +428,15 @@ def test_window_exports_active_curve_view_to_png(qapp, tmp_path, monkeypatch) ->
     window.export_active_visualization("png")
 
     assert target.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert passport_sidecar_path(target).is_file()
     window.close()
 
 
 def test_window_exports_active_tablet_to_pdf(qapp, tmp_path, monkeypatch) -> None:
     window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    window._show_current_dataset()
     window.resize(800, 600)
     window.show()
     window.tabs.setCurrentWidget(window.tablet_view)
@@ -445,6 +451,7 @@ def test_window_exports_active_tablet_to_pdf(qapp, tmp_path, monkeypatch) -> Non
     window.export_active_visualization("pdf")
 
     assert target.read_bytes().startswith(b"%PDF-")
+    assert passport_sidecar_path(target).is_file()
     window.close()
 
 

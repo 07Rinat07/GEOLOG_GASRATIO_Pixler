@@ -7,7 +7,7 @@ from PySide6.QtGui import QBrush, QColor, QPainter, QPixmap
 
 from geoworkbench.tablet.lithology_pattern_catalog import (
     resolve_lithology_pattern,
-    supported_pattern_keys,
+    supported_pattern_keys as supported_pattern_keys,
 )
 
 

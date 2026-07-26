@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from geoworkbench.project.annotation_schema import (
     AnnotationAnchor,
     AnnotationKind,
@@ -47,10 +49,10 @@ def _record(
 
 def test_catalog_symbol_layout_does_not_restore_generic_40_by_24_minimum() -> None:
     box = annotation_box_rect(
-        _record(AnnotationKind.SYMBOL, width=1.0, height=7.0, symbol_id="bit")
+        _record(AnnotationKind.SYMBOL, width=0.01, height=7.0, symbol_id="bit")
     )
 
-    assert box.width == 1.0
+    assert box.width == 0.01
     assert box.height == 7.0
 
 
@@ -63,8 +65,8 @@ def test_normal_annotation_layout_keeps_safe_minimum() -> None:
     assert box.height == 24.0
 
 
-def test_catalog_symbol_can_be_narrowed_to_one_logical_pixel() -> None:
-    assert CATALOG_SYMBOL_MINIMUM_DIMENSION == 1.0
+def test_catalog_symbol_can_be_narrowed_to_one_rendered_pixel() -> None:
+    assert CATALOG_SYMBOL_MINIMUM_DIMENSION == 0.01
     geometry = resize_annotation_geometry(
         10,
         20,
@@ -76,13 +78,17 @@ def test_catalog_symbol_can_be_narrowed_to_one_logical_pixel() -> None:
         minimum_width=CATALOG_SYMBOL_MINIMUM_DIMENSION,
         minimum_height=CATALOG_SYMBOL_MINIMUM_DIMENSION,
     )
-    assert geometry == (10, 20, 1.0, 60)
+    assert geometry[0] == 10.0
+    assert geometry[1] == 20.0
+    assert geometry[2] == pytest.approx(0.01)
+    assert geometry[3] == 60.0
 
 
 def test_top_toolbars_have_hard_window_cap_and_zero_minimum_hint() -> None:
     source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
 
-    assert "class _ConstrainedToolBar(QToolBar)" in source
+    assert "class _ResponsiveCommandBar(QFrame)" in source
+    assert "visibilityChanged = Signal(bool)" in source
     assert "def _cap_toolbar_rows_to_window" in source
     assert "self.main_toolbar_row.setFixedWidth(main_cap)" in source
     assert "self.form_edit_row.setFixedWidth(form_cap)" in source

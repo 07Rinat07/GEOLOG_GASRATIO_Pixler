@@ -41,14 +41,18 @@ Payload сериализуется в canonical JSON и имеет `content_sha2
 6. возвращает `ResolvedReportDefinition`, который становится единственным источником диапазона.
 
 Числовые и datetime-индексы используют один контракт. Print Center сейчас принимает числовую
-вертикальную ось; табличный интервальный экспорт — активный глубинный индекс.
+вертикальную ось. Табличный resolved-экспорт поддерживает активный числовой индекс глубины или
+относительного времени: CSV/XLSX получают точный `resolved.interval.indices`, а первый столбец,
+единица и границы берутся из активного индекса. DATETIME-границы в этом табличном адаптере пока
+не поддерживаются.
 
 ## Подключённые сценарии
 
 - **Print Center:** preview и file/physical-print job получают один resolved definition;
   downstream pagination переводится в точный custom range, поэтому повторного чтения viewport нет.
 - **Selected interval CSV/XLSX:** один selection definition разрешается до открытия exporter;
-  CSV и Excel используют те же границы и curve IDs.
+  CSV и Excel используют те же строки, границы и curve IDs. Для числового TIME метаданные
+  называются «Начало интервала»/«Конец интервала», а не «Верх/низ интервала».
 - **Masterlog:** preview, PDF и системный preview используют одну definition и нормализованный
   depth range.
 - **Report Passport:** sidecar хранит полный payload definition и его digest вместе с

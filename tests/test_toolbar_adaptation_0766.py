@@ -108,9 +108,10 @@ def test_main_toolbar_has_dpi_watchers_and_real_overflow_menu() -> None:
     assert "self.edit_mode_button" in source
     assert "self._main_toolbar_overflow_candidates" in source
     assert "class _ResponsiveToolbarRow" in source
-    assert "self.main_toolbar.addWidget(self.main_toolbar_row)" in source
+    assert "class _ResponsiveCommandBar(QFrame)" in source
+    assert "self.main_toolbar.set_content_widget(self.main_toolbar_row)" in source
     assert "self.main_toolbar.addAction(self.home_action)" not in source
-    assert "qt_toolbar_ext_button" in source
+    assert "qt_toolbar_ext_button" not in source
     assert "def _responsive_row_required_width" in source
     measured = source[
         source.index("def _toolbar_required_width") : source.index(
@@ -135,7 +136,7 @@ def test_toolbar_uses_one_constrained_row_and_pins_edit_control_after_stretch() 
     )
     assert spacer_position < edit_position
     assert "self.main_toolbar_overflow_button" in create
-    assert "self.form_edit_toolbar.addWidget(self.form_edit_row)" in create
+    assert "self.form_edit_toolbar.set_content_widget(self.form_edit_row)" in create
 
 
 def test_composite_toolbar_keeps_pinned_button_inside_at_multiple_widths() -> None:
@@ -159,9 +160,24 @@ def test_composite_toolbar_keeps_pinned_button_inside_at_multiple_widths() -> No
             assert edit_rect.left() >= row_rect.left()
             assert edit_rect.right() <= row_rect.right()
 
-        # The native toolbar sees one expanding row rather than many actions,
-        # so it has no reason to insert its private extension button.
-        assert len(window.main_toolbar.actions()) == 1
+        narrow_width = window.main_toolbar_row.width()
+        window.resize(1366, 800)
+        app.processEvents()
+        window._update_toolbar_adaptation()
+        app.processEvents()
+        assert window.main_toolbar_row.width() > narrow_width
+
+        # The command frame owns the row directly and has no native toolbar
+        # actions that could create Qt's private extension button.
+        assert window.main_toolbar.layout().indexOf(window.main_toolbar_row) == 0
+        assert window.main_toolbar.actions() == []
+        assert window.home_button.iconSize().width() == 22
+        assert (
+            window._form_toolbar_buttons[window.annotation_symbol_action]
+            .iconSize()
+            .width()
+            == 18
+        )
     finally:
         window.close()
         app.processEvents()

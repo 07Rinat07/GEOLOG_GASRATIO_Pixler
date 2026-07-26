@@ -12,6 +12,18 @@
 - confirmed the СГ-8 Jet 4 database has no channel units or formal array relationships, so
   unresolved S/SB codes remain unchanged instead of being guessed.
 
+# 0.7.72 — central responsive command host and ultra-thin symbols
+
+- replaced both top `QToolBar` instances with plain application-owned `QFrame` command rows outside the native QMainWindow toolbar area, so F4/action/DPI changes cannot create a Qt extension button or enlarge the native window beyond the monitor;
+- capped the main-window minimum size to the active screen work area as a final Windows safety boundary;
+- reduced catalog-symbol stored geometry floor to 0.01 logical pixel while preserving a one-device-pixel visible render;
+- added a separate 18×18 px minimum selection frame so ultra-thin symbols remain selectable without changing saved geometry;
+- fixed selection-frame dragging, sprite bounds, two-decimal geometry editing, and project round-trip coverage for ultra-thin symbols;
+- extended resolved CSV/XLSX export to active numeric TIME indexes using the exact resolved row set and axis-appropriate metadata;
+- removed obsolete duplicate import modules and synchronized QA expectations with the current form, grid, print, and GS2 flows;
+- made the isolated Windows release-test runner return pytest's verified result without unstable native Qt DLL teardown;
+- synchronized RU/KK/EN guides and added regression coverage.
+
 # 0.7.71 — hard toolbar bounds and true one-pixel symbols
 
 - prevented both top toolbars from contributing an oversized minimum width after F4/action/DPI changes;

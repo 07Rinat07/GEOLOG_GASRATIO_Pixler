@@ -21,7 +21,7 @@ from geoworkbench.data.report_document_export import (
     export_report_docx,
     export_report_html,
 )
-from geoworkbench.domain.models import Dataset, ExportProfile, IndexRole, new_id
+from geoworkbench.domain.models import Dataset, ExportProfile, new_id
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.report_definition import (
@@ -202,16 +202,17 @@ class DatasetExportController:
         overwrite: bool = False,
     ) -> Path:
         dataset = self._dataset_for_resolved_report(report)
-        top, bottom = self._numeric_depth_bounds(report)
+        start, end = self._numeric_interval_bounds(report)
         return export_selection_text(
             dataset,
             target,
             list(report.curve_ids),
-            top,
-            bottom,
+            start,
+            end,
             delimiter=delimiter,
             overwrite=overwrite,
             unavailable_mnemonics=report.unavailable_channel_mnemonics,
+            row_indices=report.interval.indices,
         )
 
     def export_resolved_report_excel(
@@ -223,16 +224,17 @@ class DatasetExportController:
         language: AppLanguage | str = AppLanguage.RU,
     ) -> Path:
         dataset = self._dataset_for_resolved_report(report)
-        top, bottom = self._numeric_depth_bounds(report)
+        start, end = self._numeric_interval_bounds(report)
         return export_selection_excel(
             dataset,
             target,
             list(report.curve_ids),
-            top,
-            bottom,
+            start,
+            end,
             overwrite=overwrite,
             language=language,
             unavailable_mnemonics=report.unavailable_channel_mnemonics,
+            row_indices=report.interval.indices,
         )
 
     def export_resolved_report_docx(
@@ -287,14 +289,9 @@ class DatasetExportController:
             raise ReportDefinitionError("Индекс ReportDefinition отсутствует в dataset")
         return dataset
 
-    def _numeric_depth_bounds(
+    def _numeric_interval_bounds(
         self, report: ResolvedReportDefinition
     ) -> tuple[float, float]:
-        dataset = self._require_current_dataset()
-        if dataset.active_index.role is not IndexRole.DEPTH:
-            raise ReportDefinitionError(
-                "Табличный интервальный экспорт требует активный глубинный индекс"
-            )
         try:
             return float(report.interval.start), float(report.interval.end)
         except (TypeError, ValueError) as exc:

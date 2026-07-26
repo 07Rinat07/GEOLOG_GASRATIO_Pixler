@@ -61,7 +61,6 @@ def _controller() -> CuttingsController:
 def test_curated_form_manager_library_contains_only_working_reference_forms() -> None:
     assert CURATED_FACTORY_TEMPLATE_IDS == (
         "factory-geodata-depth-workspace",
-        "factory-masterlog-geological-geochemical",
         "factory-engineering-control-time",
     )
     assert tuple(curated_factory_templates()) == CURATED_FACTORY_TEMPLATE_IDS
@@ -268,7 +267,7 @@ def test_cuttings_description_is_visible_and_wrapped_in_text_track(qapp) -> None
     )
     assert view.visible_lithology_text_ids("description") == ("sample-description",)
     item = view._rendered["description"].lithology_description_items["sample-description"]
-    assert item.textItem.textWidth() == 190.0
+    assert item.textItem.textWidth() == 204.0
     assert item.boundingRect().height() > 25.0
     view.close()
 

@@ -73,13 +73,13 @@ def write_golden_fixtures(directory: str | Path) -> tuple[Path, ...]:
     documents = build_golden_documents()
     for filename, document in documents.items():
         path = target / filename
-        path.write_text(_json_text(document.as_dict()), encoding="utf-8")
+        path.write_text(_json_text(document.as_dict()), encoding="utf-8", newline="\n")
         written.append(path)
     screen_svg = target / "screen_tablet_v1.svg"
-    screen_svg.write_text(_render_surface_svg("screen"), encoding="utf-8")
+    screen_svg.write_text(_render_surface_svg("screen"), encoding="utf-8", newline="\n")
     written.append(screen_svg)
     print_svg = target / "print_masterlog_v1.svg"
-    print_svg.write_text(_render_surface_svg("print"), encoding="utf-8")
+    print_svg.write_text(_render_surface_svg("print"), encoding="utf-8", newline="\n")
     written.append(print_svg)
     return tuple(written)
 
