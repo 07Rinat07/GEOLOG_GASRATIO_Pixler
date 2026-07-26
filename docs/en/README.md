@@ -1,6 +1,10 @@
 # User guide
 
 
+## Changes in 0.7.73
+
+A modeless **File → Capture WITS Level 0...** monitor was added. Pixler can act as a TCP server or client, preserves original GSWITS bytes in append-only `*.wits` files, records UTC/offset/size for every TCP chunk in `*.chunks.jsonl`, and shows complete `&& ... !!` frames. This slice does not create a Dataset. See [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
+
 ## Changes in 0.7.72
 
 The top command rows were moved out of Qt's native toolbar area into an application-owned responsive host above the workspace. F4 toggling, button clicks, and external-monitor transfer can therefore no longer enlarge the window beyond the screen. A catalog symbol can be narrowed with no practical limit down to the thinnest visible one-pixel line, while a separate selection frame keeps an extremely thin object selectable. Details: [RELEASE_NOTES_0.7.72.md](RELEASE_NOTES_0.7.72.md).

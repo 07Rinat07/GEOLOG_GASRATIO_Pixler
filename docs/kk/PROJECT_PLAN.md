@@ -1,8 +1,22 @@
 # Жоба жоспары
 
-2026 жылғы 27 шілдеге өзекті. Бұл файлда тек аяқталмаған жұмыс берілген; орындалған кезеңдер
+0.7.73 кезеңінен кейін 2026 жылғы 27 шілдеге өзекті. Бұл файлда тек аяқталмаған жұмыс берілген; орындалған кезеңдер
 [жоба күйінде](PROJECT_STATUS.md), түбірлік [өзгерістер тарихында](../CHANGELOG.md) және release
 notes ішінде сақталады.
+
+
+## Басымдық: WITS0 parser және live acquisition
+
+Алғашқы raw-capture кезеңі дайын. Аяқталмаған жұмыс:
+
+- [ ] 5–10 минут нақты GSWITS raw деректерін алу;
+- [ ] TCP mode, IP, порт, encoding және record интервалдарын растау;
+- [ ] `frame → record/item/raw value` parser іске асыру;
+- [ ] live және replay output салыстыру;
+- [ ] raw жоғалтпай unknown fields және parse errors көрсету;
+- [ ] channel/UOM/index mapping үшін Import Review қосу;
+- [ ] append-only AcquisitionSession және live time/depth graphs жасау;
+- [ ] Windows reconnect/soak/restart тексеруін орындау.
 
 ## GeoScape II GS2 қабылдауы
 

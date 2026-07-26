@@ -1,5 +1,22 @@
 # Project status
 
+## In development: WITS0 real-time integration
+
+The first raw-capture boundary is implemented: TCP server/client, client reconnect, incremental
+`&& ... !!` decoding, append-only `*.wits`, a UTC `*.chunks.jsonl` index, replay, and a modeless
+monitor. The built-in GeoScape GSWITS profile schema v1 contains 11 records and 105 fields. The
+next slice is parsing, Import Review, and append-only AcquisitionSession commit; mapping still
+requires confirmation with real raw data.
+
+## In development: offline WITSML 2.x inventory
+
+Safe, read-only inspection is implemented for individual XML/WITSML files, directories, and
+ZIP/EPC packages. The dialog shows top-level objects, `schemaVersion`, UUIDs, references, and,
+for each `Channel`, mnemonic, data type, unit, source, class, indexes, and range. Archives are
+never extracted; traversal, DTD/entity declarations, encryption, duplicate paths, and resource
+limit violations are rejected. This slice does not create a `Dataset`, read channel arrays, or
+connect through ETP.
+
 ## In development: GeoScape II GS2
 
 Safe container validation and selected inner-table import through the existing Paradox reader,
@@ -10,6 +27,15 @@ tables; `GS2#101.db` has TIME, DEPTH, and 206 channels on a 0.2 m grid. The five
 `FORMULAS.RESGID → S-code` mappings, Sensors fallback, and audit metadata. A missing driver no
 longer blocks table import and produces actionable diagnostics.
 
+
+## Completed in 0.7.73
+
+A Qt-independent WITS0 source adapter and modeless **WITS Level 0 Capture** window were added.
+The network worker does not block the GUI; raw bytes are stored before framing and UI queue
+pressure cannot discard raw data. TCP chunks are indexed by UTC/offset/size and live/replay use
+the same decoder. No Dataset is created yet.
+
+Snapshot: 27 July 2026. Package version: **0.7.73**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Completed in 0.7.72
 

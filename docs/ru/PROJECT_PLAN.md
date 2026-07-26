@@ -1,8 +1,22 @@
 # План проекта
 
-Актуально на 27 июля 2026 года. Здесь перечислена только незавершённая работа; реализованные
+Актуально на 27 июля 2026 года после среза 0.7.73. Здесь перечислена только незавершённая работа; реализованные
 срезы находятся в [состоянии проекта](PROJECT_STATUS.md), корневой
 [истории изменений](../CHANGELOG.md) и release notes.
+
+
+## Приоритет: WITS0 parser и live acquisition
+
+Первый raw-capture срез готов. Незавершённая работа:
+
+- [ ] получить 5–10 минут реального GSWITS raw-потока;
+- [ ] подтвердить TCP mode, IP, порт, кодировку и интервалы records;
+- [ ] реализовать parser `frame → record/item/raw value`;
+- [ ] сравнить live и replay output;
+- [ ] показать unknown fields и parse errors без потери raw;
+- [ ] добавить Import Review для channel/UOM/index mapping;
+- [ ] создать append-only AcquisitionSession и live time/depth graphs;
+- [ ] выполнить Windows reconnect/soak/restart проверку.
 
 ## Приёмка GeoScape II GS2
 

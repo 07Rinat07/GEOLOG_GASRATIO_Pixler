@@ -1,5 +1,22 @@
 # Состояние проекта
 
+## В разработке: WITS0 real-time integration
+
+Первый raw-capture boundary реализован: TCP server/client, client reconnect, incremental
+`&& ... !!` decoder, append-only `*.wits`, UTC chunk-index `*.chunks.jsonl`, replay iterator,
+modeless monitor и встроенный GeoScape GSWITS profile schema v1 на 11 records/105 fields.
+Следующий срез — parser, unknown-field diagnostics, Import Review и commit в append-only
+`AcquisitionSession`. Реальная совместимость профиля остаётся неподтверждённой до получения
+raw-дампа конкретного комплекса.
+
+## В разработке: офлайн-инвентарь WITSML 2.x
+
+Добавлен безопасный read-only просмотр отдельных XML/WITSML-файлов, каталогов и ZIP/EPC-пакетов.
+Интерфейс показывает top-level объекты, `schemaVersion`, UUID, ссылки, а для `Channel` —
+мнемонику, тип данных, единицу, источник, класс, индексы и диапазон. Архивы не извлекаются на
+диск; traversal, DTD/entity, шифрование, дубликаты путей и ресурсные превышения отклоняются.
+Текущий срез не создаёт `Dataset`, не читает channel arrays и не подключается по ETP.
+
 ## В разработке: GeoScape II GS2
 
 Готов безопасный контейнерный фундамент и импорт выбранной внутренней таблицы через существующий
@@ -9,6 +26,16 @@ Paradox reader, Import Review и `Dataset`. На образце СГ-8 подт�
 адаптер `GS2.mdb` с диагностикой драйвера: он извлекает паспорт СГ-8 и подтверждённые связи
 `FORMULAS.RESGID → S-код`, дополняет их Sensors и сохраняет аудит в `Dataset`. В реальном MDB
 нет единиц и формальных связей с массивами, поэтому неоднозначные каналы остаются исходными.
+
+## Завершено в 0.7.73
+
+Добавлен Qt-независимый WITS0 source adapter и модельное окно **«Захват WITS Level 0»**.
+Сетевой worker не блокирует GUI; raw bytes сохраняются раньше framing, а заполнение UI event
+queue не приводит к потере raw. TCP chunks индексируются по UTC/offset/size, frame decoder
+одинаково используется для live и replay. Встроенный GeoScape-профиль строго валидируется, но
+ещё не создаёт Dataset.
+
+Срез: 27 июля 2026 года. Версия пакета: **0.7.73**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Завершено в 0.7.72
 

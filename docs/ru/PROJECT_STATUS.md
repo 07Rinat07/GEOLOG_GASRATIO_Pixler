@@ -1,5 +1,21 @@
 # Состояние проекта
 
+## В разработке: WITS0 real-time integration
+
+Реализован первый raw-capture boundary: TCP server/client, client reconnect, incremental
+`&& ... !!` decoder, append-only `*.wits`, UTC chunk-index `*.chunks.jsonl`, replay және
+modeless monitor. Встроенный GeoScape GSWITS profile schema v1 содержит 11 records и 105 fields.
+Следующий срез — parser, Import Review и append-only AcquisitionSession; mapping нужно подтвердить
+реальным raw-дампом.
+
+## В разработке: офлайн-инвентарь WITSML 2.x
+
+Добавлен безопасный read-only просмотр отдельных XML/WITSML-файлов, каталогов и ZIP/EPC-пакетов.
+Диалог показывает top-level объекты, `schemaVersion`, UUID, ссылки, а для `Channel` — мнемонику,
+тип данных, единицу, источник, класс, индексы и диапазон. Архивы не извлекаются на диск;
+traversal, DTD/entity, шифрование, дубликаты путей и ресурсные превышения отклоняются. Этот срез
+не создаёт `Dataset`, не читает channel arrays и не подключается по ETP.
+
 ## В разработке: GeoScape II GS2
 
 Добавлены безопасная проверка контейнера, выбор внутренней таблицы и её импорт через существующий
@@ -9,6 +25,14 @@ Paradox reader, Import Review и `Dataset`. На образце СГ-8 расп�
 read-only Qt ODBC/ACE: импорт получает `WELLS`, формулы `RESGID → S-код`, Sensors fallback и
 аудит. Отсутствие драйвера не блокирует импорт и сопровождается конкретной диагностикой.
 
+
+## Завершено в 0.7.73
+
+Добавлены Qt-независимый WITS0 source adapter и окно **«Захват WITS Level 0»**. Сетевой worker
+не блокирует GUI; raw bytes сохраняются раньше framing, а UI queue не влияет на raw. TCP chunks
+индексируются по UTC/offset/size, live и replay используют один decoder. Dataset ещё не создаётся.
+
+Срез: 27 июля 2026 года. Версия пакета: **0.7.73**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Завершено в 0.7.72
 

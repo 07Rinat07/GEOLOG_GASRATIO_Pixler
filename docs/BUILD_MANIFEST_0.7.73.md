@@ -1,0 +1,25 @@
+# Build manifest — GEOLOG GASRATIO@Pixler 0.7.73
+
+- Package version: `0.7.73`
+- Project format: `v20`
+- Form schema: `v8`
+- Tablet layout: `v18`
+- Main increment: headless WITS Level 0 TCP raw-capture service in server and client modes
+- TCP boundary: incremental `&& ... !!` decoder shared by live capture and raw replay
+- Storage boundary: append-only `*.wits` segments plus `*.chunks.jsonl` UTC/offset sidecars
+- Threading boundary: socket `accept`, `connect`, and `recv` remain outside the Qt GUI thread
+- Field profile: strict GeoScape GSWITS schema v1 with `11` records and `105` fields derived from the supplied manual; real-stream confirmation remains required
+- User interface: modeless **File → WITS Level 0 Capture...** monitor with source settings, status, raw frames, and events
+- WITSML increment: safe read-only inventory for XML/WITSML/ZIP/EPC objects and Channel metadata
+- Localized interface catalogs: RU/KK/EN parity maintained
+- Localized documentation: RU/KK/EN WITS0 capture, WITSML inventory, release notes, status, and plan updated together
+- Targeted protocol/import/documentation test gate: `66 passed`, `2 skipped` in `0.50 s`
+- Documentation audit: passed with `95` localized Markdown files per language and `1967` synchronized i18n keys
+- `compileall`: passed for `src`, `tests`, `tools`, and `scripts`
+- Full-suite attempt: collection is blocked in this minimal environment because PySide6 and pyqtgraph are not installed; this is recorded rather than reported as a pass
+- Ruff: unavailable in the current build package index; no claim of a Ruff pass is made
+- Wheel: `geolog_gasratio_pixler-0.7.73-py3-none-any.whl` (`2,931,354` bytes); SHA-256 `57250e29a2be800f94eb0aecaa67bb595d792a556b39f0485e2891203bcb679d`
+- Wheel integrity and required WITS0/WITSML package-data paths: passed
+- Wheel build command: `python -m pip wheel . --no-deps --no-build-isolation`
+- Qt runtime note: PySide6 is unavailable in the current Linux validation environment, so offscreen Qt runtime tests are skipped; static wiring tests remain enabled
+- Field acceptance remains open for real GSWITS client/server traffic, Windows long-duration capture, raw rotation, and reconnect scenarios

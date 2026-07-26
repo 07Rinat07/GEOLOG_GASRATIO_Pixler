@@ -71,7 +71,8 @@ Codec строго отклоняет неизвестные поля, неве�
 ## Ограничения текущего среза
 
 - source session владеет одной dataset/event projection для скважины;
-- live network transport, WITSML и ETP пока не входят в контракт;
+- WITS0 TCP raw-capture boundary уже реализован отдельно и пока не создаёт acquisition records; parser, mapping и atomic session start остаются следующим срезом;
+- офлайн-инвентарь WITSML 2.x уже реализован как read-only preflight, но channel arrays, mapping, network transport и ETP пока не входят в acquisition-контракт;
 - lag/depth correction реализована в 0.7.44 как отдельная версионированная derived projection и не изменяет
   append-only source;
 - UI adapters должны вызывать controller и не менять `Dataset`, events или session напрямую.

@@ -15,6 +15,7 @@
 Основные возможности:
 
 - импорт и проверка LAS, CSV, GeoScape/Paradox DB и таблиц контейнера GeoScape II GS2;
+- безопасный инвентарь WITSML 2.x и первичный захват WITS Level 0 по TCP в режимах client/server;
 - глубинные и временные datasets с безопасным наращиванием данных;
 - настраиваемые многоколонные планшеты и повторно используемые рабочие формы;
 - редактирование кривых, интервальные объекты, комментарии и обозначения;
@@ -56,6 +57,7 @@ geolog-gasratio-pixler
 - [Указатель документации](docs/DOCUMENTATION_INDEX.md)
 - [Статус проекта](docs/PROJECT_STATUS.md)
 - [План разработки](docs/PROJECT_PLAN.md)
+- [Общий план интеграции WITS0/WITSML](docs/WITS_INTEGRATION_PLAN.md)
 - [История изменений](docs/CHANGELOG.md)
 - [Проверка качества](docs/TESTING.md)
 

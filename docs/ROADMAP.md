@@ -42,17 +42,28 @@ Exit: bounded controllers, reproducible report passports, and deterministic stru
 
 Exit: the same channel is found consistently across vendors; every correction is reversible and audited.
 
-## Phase 3 — WITSML real-time path
+## Phase 3 — real-time acquisition: WITS0 and WITSML
 
 1. [complete] Recorded replay into an append-only growing dataset.
 2. [complete] Checkpoints, controlled close, backpressure, and deterministic event/QC replay.
 3. [complete] Versioned lag/depth correction as immutable derived projections.
-4. Read-only WITSML 2.1 object inventory and mapping fixtures.
-5. Secured ETP 1.2 client with credentials outside project files.
-6. Structured MudLogReport views and acknowledged rules/alarms.
+4. [first slice complete] Read-only WITSML 2.x XML/ZIP/EPC object and channel inventory.
+5. [complete in 0.7.73] WITS0 TCP server/client raw capture, reconnect, `&& ... !!` framing,
+   append-only segments, UTC chunk index, replay iterator, modeless monitor, and a strict
+   GeoScape GSWITS profile schema v1.
+6. WITS0 parser, unknown-field diagnostics, Import Review, immutable acquisition schema, and
+   live Dataset commit.
+7. Live current-values/time/depth UI, quality/gap markers, disk-spool and restart recovery.
+8. WITSML channel arrays and offline Dataset mapping.
+9. Read-only WITSML 1.4.1.1 SOAP adapter.
+10. Secured ETP 1.2 client with credentials outside project files.
+11. Structured MudLogReport views and acknowledged rules/alarms.
 
-Replay and lag/depth correction exits are complete in 0.7.42 and 0.7.44. The remaining phase exit requires WITSML fixtures, secured
-transport, reconnect coverage, and structured operational views.
+The WITS0 raw boundary stores bytes before semantic interpretation and uses the same decoder for
+live traffic and replay. The phase exit still requires a real anonymized GSWITS capture, verified
+record/item mapping, atomic session creation, soak/reconnect/restart coverage, official WITSML
+fixtures, secured transport, and structured operational views. See
+[WITS_INTEGRATION_PLAN.md](WITS_INTEGRATION_PLAN.md).
 
 ## Phase 4 — unified reports and multiwell work
 

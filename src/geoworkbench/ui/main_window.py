@@ -224,6 +224,8 @@ from geoworkbench.ui.import_diagnostics_dialog import ImportDiagnosticsDialog
 from geoworkbench.ui.paradox_import_dialog import ParadoxImportDialog
 from geoworkbench.ui.paradox_batch_dialog import ParadoxBatchDialog
 from geoworkbench.ui.gs2_import_dialog import Gs2ImportDialog
+from geoworkbench.ui.witsml_inventory_dialog import WitsmlInventoryDialog
+from geoworkbench.ui.wits0_capture_dialog import Wits0CaptureDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
 from geoworkbench.ui.form_create_dialog import FormCreateDialog
 from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
@@ -1295,6 +1297,16 @@ class MainWindow(QMainWindow):
         self.open_gs2_action = self._localized_action("shell.import_gs2")
         self.open_gs2_action.triggered.connect(lambda: self.open_gs2())
         file_menu.addAction(self.open_gs2_action)
+
+        self.inspect_witsml_action = self._localized_action("shell.inspect_witsml")
+        self.inspect_witsml_action.triggered.connect(
+            lambda: self.open_witsml_inventory()
+        )
+        file_menu.addAction(self.inspect_witsml_action)
+
+        self.capture_wits0_action = self._localized_action("shell.capture_wits0")
+        self.capture_wits0_action.triggered.connect(self.open_wits0_capture)
+        file_menu.addAction(self.capture_wits0_action)
 
         self.paradox_batch_action = self._localized_action("paradox.batch_action")
         self.paradox_batch_action.setIcon(
@@ -3419,10 +3431,44 @@ class MainWindow(QMainWindow):
         dialog.open_las_requested.connect(self._open_generated_las)
         dialog.exec()
 
+    def open_wits0_capture(self) -> None:
+        """Open the modeless WITS0 TCP raw-capture monitor."""
+
+        existing = getattr(self, "_wits0_capture_dialog", None)
+        if existing is not None and existing.isVisible():
+            existing.raise_()
+            existing.activateWindow()
+            return
+        dialog = Wits0CaptureDialog(self, language=self.language)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        dialog.destroyed.connect(lambda: setattr(self, "_wits0_capture_dialog", None))
+        self._wits0_capture_dialog = dialog
+        dialog.show()
+
+    def open_witsml_inventory(self, source: str | Path | None = None) -> None:
+        """Inspect WITSML 2.x metadata without importing or changing the project."""
+
+        if source is None:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                self._t("witsml.title"),
+                "",
+                self._t("witsml.file_filter"),
+            )
+            if not filename:
+                return
+            selected = Path(filename)
+        else:
+            selected = Path(source)
+
+        dialog = WitsmlInventoryDialog(selected, self, language=self.language)
+        dialog.exec()
+
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
+        supported_suffixes = {".db", ".gs2", ".xml", ".witsml", ".epc", ".zip"}
         if any(
-            Path(url.toLocalFile()).suffix.casefold() in {".db", ".gs2"}
+            Path(url.toLocalFile()).suffix.casefold() in supported_suffixes
             for url in urls
         ):
             event.acceptProposedAction()
@@ -3440,6 +3486,19 @@ class MainWindow(QMainWindow):
             for path in gs2_paths:
                 self.open_gs2(path)
             return
+
+        witsml_suffixes = {".xml", ".witsml", ".epc", ".zip"}
+        witsml_paths = [
+            Path(url.toLocalFile())
+            for url in event.mimeData().urls()
+            if Path(url.toLocalFile()).suffix.casefold() in witsml_suffixes
+        ]
+        if witsml_paths:
+            event.acceptProposedAction()
+            for path in witsml_paths:
+                self.open_witsml_inventory(path)
+            return
+
         paths = [
             Path(url.toLocalFile())
             for url in event.mimeData().urls()

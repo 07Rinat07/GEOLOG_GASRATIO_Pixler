@@ -17,7 +17,7 @@
 | 3D | после SEG-Y/GIS/grid domain models | PyVista/VTK как optional UI-модуль | скважины, поверхности и ограниченные grid/seismic slices; level-of-detail и memory budget обязательны |
 | SQL | принять для метаданных | сначала встроенный SQLite repository; SQLAlchemy 2 для будущего PostgreSQL | проекты, скважины, каталоги, provenance, задания и аудит; массивы остаются в chunked/object storage |
 | RESCUE/Petrel | исследование, без обещания импорта | отдельный compatibility spike | только после публичного профиля формата, легальных fixtures и round-trip/loss matrix |
-| WITSML | принять после operational data foundation | WITSML 2.1 schemas, ETP 1.2 позже | offline inventory и MudLogReport/Log mapping перед replay/network; secrets вне project JSON |
+| WITSML | первый offline inventory-срез реализован; mapping и network далее | WITSML 2.x XML, официальные 2.1 schemas для следующей валидации, ETP 1.2 позже | read-only XML/ZIP/EPC object/channel inventory готов; далее atomic Dataset mapping и MudLogReport/Log перед network; secrets вне project JSON |
 | Eclipse/CMG/tNavigator | экспорт после grid model | GRDECL/EGRID через адаптеры | отдельные экспортные профили и simulator-specific preflight; не считать один GRDECL универсально совместимым |
 
 NoSQL в основной план не включён: текущие сущности, связи, версии и аудит естественно ложатся в

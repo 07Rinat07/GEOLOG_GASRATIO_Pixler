@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Channel xmlns="http://www.energistics.org/energyml/data/witsmlv2"
+         xmlns:eml="http://www.energistics.org/energyml/data/commonv2"
+         schemaVersion="2.1"
+         uuid="0d4d2c32-47a8-4fc9-9f48-42a00a6ebdda">
+  <eml:Citation>
+    <eml:Title>Synthetic measured depth</eml:Title>
+    <eml:Description>Offline inventory demonstration fixture.</eml:Description>
+  </eml:Citation>
+  <Mnemonic>DEPT</Mnemonic>
+  <DataType>double</DataType>
+  <Uom>m</Uom>
+  <GrowingStatus>active</GrowingStatus>
+  <Source>Synthetic WITS rig feed</Source>
+  <TimeDepth>depth</TimeDepth>
+  <LoggingMethod>MWD</LoggingMethod>
+  <ChannelClass>
+    <eml:Title>Depth</eml:Title>
+  </ChannelClass>
+  <StartIndex>
+    <Depth uom="m">1000.0</Depth>
+  </StartIndex>
+  <EndIndex>
+    <Depth uom="m">1250.5</Depth>
+  </EndIndex>
+  <Index>
+    <IndexType>measured depth</IndexType>
+    <Uom>m</Uom>
+    <Direction>increasing</Direction>
+    <Mnemonic>DEPT</Mnemonic>
+    <DatumReference>
+      <eml:Title>Rotary Kelly Bushing</eml:Title>
+    </DatumReference>
+  </Index>
+  <Wellbore>
+    <eml:ContentType>application/x-witsml+xml;version=2.1;type=Wellbore</eml:ContentType>
+    <eml:Title>Demo wellbore</eml:Title>
+    <eml:Uuid>944d97b8-b5e9-46de-a9a6-3fe0e536857b</eml:Uuid>
+  </Wellbore>
+</Channel>

@@ -1,6 +1,10 @@
 # Мүмкіндіктер мен нұсқаулықтар
 
 
+## WITS Level 0 raw-қабылдау — 0.7.73
+
+**Файл → WITS Level 0 қабылдау...** TCP server/client режимдерін, append-only raw-сегменттерді, UTC chunk index, incremental `&& ... !!` framing және клиенттің автоматты қайта қосылуын қолдайды. Socket жұмысы Qt ағынын бұғаттамайды. Мәндер әзірше Dataset-ке жазылмайды. Толығырақ: [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
+
 ## Жұмыс аймағымен физикалық шектелген панельдер және аса жіңішке белгілер — 0.7.72
 
 Екі жоғарғы командалар қатары `QMainWindow` native toolbar-area ішінде емес, орталық аймақтың жеке контейнерінде орналасады. F4, батырма күйі немесе DPI өзгергеннен кейін олар терезенің минимал енін үлкейте алмайды. Анықтамалық белгілерінің ені мен биіктігі `0,01` логикалық пиксельге дейін тәуелсіз сақталады; экранда бұл ең жіңішке көрінетін сызық, ал жеке таңдау рамкасы қайта таңдауды жеңілдетеді.
@@ -41,6 +45,7 @@
 | Бөлім | Негізгі мүмкіндіктер | Толық нұсқаулық |
 |---|---|---|
 | Жобалар және тіл | іске қосу, жобаны жасау/ашу, RU/KK/EN, қауіпсіз сақтау | [Пайдаланушы нұсқаулығы](README.md) |
+| WITS0 деректері | TCP server/client, raw capture, frames, reconnect, replay-ready файлдар | [WITS0 қабылдау](WITS0_CAPTURE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
 | Деректер импорты | LAS, CSV, Excel, TXT, GeoScape/Paradox, SKF, алдын ала қарау және сәйкестікті тексеру | [Import Review](IMPORT_REVIEW.md), [LAS Editor](LAS_EDITOR.md), [Paradox](PARADOX_IMPORT.md), [SKF](SKF_IMPORT.md) |
 | Импорт диагностикасы | NULL, қайталанулар, тереңдік/уақыт, өлшем бірліктері, бос аралықтар, қате журналы | [Import Review](IMPORT_REVIEW.md), [Қолданба диагностикасы](APPLICATION_DIAGNOSTICS.md) |
 | Деректер жиындары | бірнеше ұңғыма және dataset, біріктіру, күнделікті толықтыру, replay | [Жұмыс аймағы](UI_WORKSPACE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |

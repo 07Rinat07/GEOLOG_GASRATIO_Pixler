@@ -1,16 +1,18 @@
-# Unreleased — GeoScape II GS2 import
+# Unreleased — GeoScape II GS2 acceptance
 
-- added safe `.gs2` validation, table inventory, single-member extraction, File/universal-import
-  entry points, and drag-and-drop;
-- confirmed all 13 `GS2#*.db` members in the СГ-8 sample as Paradox 7.x tables;
-- routed a selected inner table through the existing Paradox mapping dialog, Import Review, and
-  `Dataset` registration while preserving the original `.gs2` source path;
-- added schema-compatible multipart discovery and memory-bounded TIME-series merging with
-  monotonicity, overlap, gap, progress, cancellation, and cleanup checks;
-- added read-only Qt ODBC/ACE metadata loading with actionable missing-driver diagnostics,
-  `WELLS`, proven `FORMULAS.RESGID → S-code` mappings, Sensors fallback, and Dataset provenance;
-- confirmed the СГ-8 Jet 4 database has no channel units or formal array relationships, so
-  unresolved S/SB codes remain unchanged instead of being guessed.
+- continue versioned fixtures and reference LAS/Excel comparison for GeoScape II containers;
+- keep ambiguous S/SB channel codes unresolved until proven by metadata or reference exports.
+
+# 0.7.73 — WITS0 raw capture and WITSML 2.x inventory
+
+- added a Qt-independent WITS0 TCP server/client source adapter with bounded client reconnect;
+- added append-only raw segments plus UTC/offset/size JSONL chunk indexes;
+- added one incremental `&& ... !!` decoder shared by live traffic and raw-file replay;
+- added a modeless localized capture monitor without socket work in the GUI thread;
+- added a strict GeoScape GSWITS profile schema v1 with 11 records and 105 fields from the vendor manual;
+- added safe read-only WITSML 2.x XML/directory/ZIP/EPC object and Channel inventory;
+- kept WITS0 parsing/Dataset commit and WITSML arrays/SOAP/ETP intentionally outside this slice;
+- synchronized RU/KK/EN guides, status, plan, requirements, architecture, and regression tests.
 
 # 0.7.72 — central responsive command host and ultra-thin symbols
 

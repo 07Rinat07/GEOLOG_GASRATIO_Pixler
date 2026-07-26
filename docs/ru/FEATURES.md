@@ -1,6 +1,10 @@
 # Возможности и инструкции
 
 
+## WITS Level 0 raw-захват — 0.7.73
+
+Команда **Файл → Захват WITS Level 0...** поддерживает TCP server/client, append-only raw-сегменты, UTC chunk index, incremental `&& ... !!` framing и автоматическое переподключение клиента. Сетевой worker не блокирует Qt. Значения пока не добавляются в Dataset. Подробнее: [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
+
 ## Панели, физически ограниченные рабочей областью, и сверхтонкие значки — 0.7.72
 
 Обе верхние командные строки находятся в собственном контейнере центральной области, а не в native toolbar-area `QMainWindow`. Они не могут увеличить минимальную ширину окна после F4, нажатий или смены DPI. Значки справочника сохраняют независимые ширину/высоту вплоть до `0,01` логического пикселя; на экране это минимально видимая линия, а отдельная рамка выделения сохраняет удобство повторного выбора.
@@ -40,6 +44,7 @@
 | Область | Основные возможности | Подробная инструкция |
 |---|---|---|
 | Проекты и язык | запуск, создание/открытие проекта, RU/KK/EN, безопасное сохранение | [Руководство пользователя](README.md) |
+| WITS0-данные | TCP server/client, raw capture, frames, reconnect, replay-ready файлы | [Захват WITS0](WITS0_CAPTURE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
 | Импорт данных | LAS, CSV, Excel, TXT, GeoScape/Paradox, SKF, предпросмотр и проверка соответствий | [Import Review](IMPORT_REVIEW.md), [LAS Editor](LAS_EDITOR.md), [Paradox](PARADOX_IMPORT.md), [SKF](SKF_IMPORT.md) |
 | Диагностика импорта | NULL, дубликаты, глубина/время, единицы, пропуски, журнал ошибки | [Import Review](IMPORT_REVIEW.md), [Диагностика приложения](APPLICATION_DIAGNOSTICS.md) |
 | Наборы данных | несколько скважин и datasets, объединение, ежедневное наращивание, replay | [Рабочая область](UI_WORKSPACE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |

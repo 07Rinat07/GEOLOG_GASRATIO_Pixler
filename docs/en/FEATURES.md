@@ -1,6 +1,10 @@
 # Features and instructions
 
 
+## WITS Level 0 raw capture — 0.7.73
+
+**File → Capture WITS Level 0...** supports TCP server/client operation, append-only raw segments, a UTC chunk index, incremental `&& ... !!` framing, and automatic client reconnect. Socket work stays outside the Qt thread. Values are not yet committed to a Dataset. See [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
+
 ## Workspace-bounded command rows and ultra-thin symbols — 0.7.72
 
 Both top command rows live in an application-owned central host instead of the native `QMainWindow` toolbar area. They cannot raise the native window minimum width after F4, action-state, or DPI changes. Catalog-symbol width and height persist independently down to `0.01` logical pixel; this renders as the thinnest visible line, while a separate selection frame preserves mouse usability.
@@ -39,6 +43,7 @@ workflow. Historical build notes remain in release notes and do not replace the 
 | Area | Main capabilities | Detailed instructions |
 |---|---|---|
 | Projects and language | startup, create/open project, RU/KK/EN, safe saving | [User guide](README.md) |
+| WITS0 data | TCP server/client, raw capture, frames, reconnect, replay-ready files | [WITS0 capture](WITS0_CAPTURE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
 | Data import | LAS, CSV, Excel, TXT, GeoScape/Paradox, SKF, preview and mapping review | [Import Review](IMPORT_REVIEW.md), [LAS Editor](LAS_EDITOR.md), [Paradox](PARADOX_IMPORT.md), [SKF](SKF_IMPORT.md) |
 | Import diagnostics | NULL, duplicates, depth/time, units, gaps, error log | [Import Review](IMPORT_REVIEW.md), [Application diagnostics](APPLICATION_DIAGNOSTICS.md) |
 | Datasets | multiple wells and datasets, merge, daily append, replay | [Workspace](UI_WORKSPACE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |

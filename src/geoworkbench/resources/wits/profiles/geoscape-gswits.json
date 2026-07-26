@@ -1,0 +1,942 @@
+{
+  "schemaVersion": 1,
+  "profileId": "geoscape-gswits",
+  "title": "GeoScape GSWITS WITS Level 0",
+  "version": 1,
+  "encoding": "ascii",
+  "frame": {
+    "start": "&&",
+    "end": "!!"
+  },
+  "reference": "GSWITSProxy Manual, pages 18-21; field mapping must be confirmed against a real raw stream.",
+  "records": [
+    {
+      "record": 1,
+      "nameRu": "Общее: данные по времени",
+      "indexType": "time",
+      "sendPolicy": "Периодически по времени; интервал 0 означает отправку по мере поступления данных.",
+      "fields": [
+        {
+          "item": 8,
+          "canonicalMnemonic": "BIT_DEPTH",
+          "nameRu": "Положение долота",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 10,
+          "canonicalMnemonic": "HOLE_DEPTH",
+          "nameRu": "Глубина забоя",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 12,
+          "canonicalMnemonic": "BLOCK_POSITION",
+          "nameRu": "Положение тальблока",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 13,
+          "canonicalMnemonic": "ROP_AVG",
+          "nameRu": "Скорость бурения по времени",
+          "sourceUnit": "M/HR",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 14,
+          "canonicalMnemonic": "HKLD_AVG",
+          "nameRu": "Вес на крюке",
+          "sourceUnit": "KDN",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 15,
+          "canonicalMnemonic": "HKLD_MAX",
+          "nameRu": "Вес на крюке",
+          "sourceUnit": "KDN",
+          "valueKind": "float",
+          "aggregation": "maximum"
+        },
+        {
+          "item": 16,
+          "canonicalMnemonic": "WOB_AVG",
+          "nameRu": "Нагрузка на долото",
+          "sourceUnit": "KDN",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 17,
+          "canonicalMnemonic": "WOB_MAX",
+          "nameRu": "Нагрузка на долото",
+          "sourceUnit": "KDN",
+          "valueKind": "float",
+          "aggregation": "maximum"
+        },
+        {
+          "item": 18,
+          "canonicalMnemonic": "TOP_DRIVE_TQ_AVG",
+          "nameRu": "Крутящий момент на верхнем приводе",
+          "sourceUnit": "KNM",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 19,
+          "canonicalMnemonic": "TOP_DRIVE_TQ_MAX",
+          "nameRu": "Крутящий момент на верхнем приводе",
+          "sourceUnit": "KNM",
+          "valueKind": "float",
+          "aggregation": "maximum"
+        },
+        {
+          "item": 20,
+          "canonicalMnemonic": "TOP_DRIVE_RPM_AVG",
+          "nameRu": "Число оборотов верхнего привода в минуту",
+          "sourceUnit": "RPM",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 21,
+          "canonicalMnemonic": "SPP_AVG",
+          "nameRu": "Давление на манифольде",
+          "sourceUnit": "KPA",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 22,
+          "canonicalMnemonic": "ANNULUS_PRESSURE_AVG",
+          "nameRu": "Давление в межколонном пространстве",
+          "sourceUnit": "KPA",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 23,
+          "canonicalMnemonic": "PUMP_1_SPM_AVG",
+          "nameRu": "Число ходов 1 насоса",
+          "sourceUnit": "SPM",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 24,
+          "canonicalMnemonic": "PUMP_2_SPM_AVG",
+          "nameRu": "Число ходов 2 насоса",
+          "sourceUnit": "SPM",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 25,
+          "canonicalMnemonic": "PUMP_3_SPM_AVG",
+          "nameRu": "Число ходов 3 насоса",
+          "sourceUnit": "SPM",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 26,
+          "canonicalMnemonic": "PIT_VOL_AVG",
+          "nameRu": "Суммарный объем в емкостях",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 28,
+          "canonicalMnemonic": "FLOW_OUT_PERCENT_AVG",
+          "nameRu": "Расход на выходе, процент",
+          "sourceUnit": "%",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 29,
+          "canonicalMnemonic": "FLOW_OUT_AVG",
+          "nameRu": "Расход на выходе",
+          "sourceUnit": "L/M",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 30,
+          "canonicalMnemonic": "FLOW_IN_AVG",
+          "nameRu": "Расход на входе",
+          "sourceUnit": "L/M",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 31,
+          "canonicalMnemonic": "MW_OUT_AVG",
+          "nameRu": "Плотность раствора на выходе",
+          "sourceUnit": "KGM3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 32,
+          "canonicalMnemonic": "MW_IN_AVG",
+          "nameRu": "Плотность раствора на входе",
+          "sourceUnit": "KGM3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 33,
+          "canonicalMnemonic": "TEMP_OUT_AVG",
+          "nameRu": "Температура раствора на выходе",
+          "sourceUnit": "DEGC",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 34,
+          "canonicalMnemonic": "TEMP_IN_AVG",
+          "nameRu": "Температура на входе",
+          "sourceUnit": "DEGC",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 35,
+          "canonicalMnemonic": "CONDUCTIVITY_OUT_AVG",
+          "nameRu": "Удельная электропроводность раствора на выходе",
+          "sourceUnit": "MMHO",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 36,
+          "canonicalMnemonic": "CONDUCTIVITY_IN_AVG",
+          "nameRu": "Удельная электропроводность раствора на входе",
+          "sourceUnit": "MMHO",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 39,
+          "canonicalMnemonic": "GAS_DEPTH",
+          "nameRu": "Глубина для газа",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 40,
+          "canonicalMnemonic": "TG_AVG",
+          "nameRu": "Суммарное содержание горючих газов",
+          "sourceUnit": "%",
+          "valueKind": "float",
+          "aggregation": "average"
+        }
+      ]
+    },
+    {
+      "record": 2,
+      "nameRu": "Бурение: данные по глубине",
+      "indexType": "depth",
+      "sendPolicy": "Периодически по глубине; интервал 0 означает отправку по мере поступления данных.",
+      "fields": [
+        {
+          "item": 8,
+          "canonicalMnemonic": "HOLE_DEPTH",
+          "nameRu": "Глубина забоя",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 10,
+          "canonicalMnemonic": "ROP",
+          "nameRu": "Скорость бурения по глубине",
+          "sourceUnit": "M/HR",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 11,
+          "canonicalMnemonic": "WOB",
+          "nameRu": "Нагрузка на долото",
+          "sourceUnit": "KDN",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 12,
+          "canonicalMnemonic": "HKLD",
+          "nameRu": "Вес на крюке",
+          "sourceUnit": "KDN",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 13,
+          "canonicalMnemonic": "SPP",
+          "nameRu": "Давление на манифольде",
+          "sourceUnit": "KPA",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 14,
+          "canonicalMnemonic": "TQ",
+          "nameRu": "Крутящий момент на роторе",
+          "sourceUnit": "KNM",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 15,
+          "canonicalMnemonic": "RPM",
+          "nameRu": "Число оборотов ротора в минуту",
+          "sourceUnit": "RPM",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 17,
+          "canonicalMnemonic": "MW_IN",
+          "nameRu": "Плотность раствора на входе",
+          "sourceUnit": "KGM3",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 19,
+          "canonicalMnemonic": "FLOW_IN",
+          "nameRu": "Расход на входе",
+          "sourceUnit": "L/M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 20,
+          "canonicalMnemonic": "FLOW_OUT",
+          "nameRu": "Расход на выходе",
+          "sourceUnit": "L/M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 22,
+          "canonicalMnemonic": "PIT_VOL",
+          "nameRu": "Суммарный объем в емкостях",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 23,
+          "canonicalMnemonic": "COST_PER_METER",
+          "nameRu": "Стоимость метра проходки",
+          "sourceUnit": "$/M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 25,
+          "canonicalMnemonic": "BIT_HOURS",
+          "nameRu": "Время бурения за рейс",
+          "sourceUnit": "HR",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 26,
+          "canonicalMnemonic": "BIT_FOOTAGE",
+          "nameRu": "Проходка на долото",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        }
+      ]
+    },
+    {
+      "record": 3,
+      "nameRu": "Бурение: наращивание бурового инструмента",
+      "indexType": "event",
+      "sendPolicy": "Отправляется при наращивании, когда есть отрыв от забоя.",
+      "fields": [
+        {
+          "item": 8,
+          "canonicalMnemonic": "BIT_DEPTH",
+          "nameRu": "Положение долота",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 10,
+          "canonicalMnemonic": "HOLE_DEPTH",
+          "nameRu": "Глубина забоя",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 18,
+          "canonicalMnemonic": "HKLD_MAX",
+          "nameRu": "Вес на крюке",
+          "sourceUnit": "KDN",
+          "valueKind": "float",
+          "aggregation": "maximum"
+        }
+      ]
+    },
+    {
+      "record": 6,
+      "nameRu": "СПО и спуск обсадной колонны",
+      "indexType": "event",
+      "sendPolicy": "Отправляется при СПО, когда изменяется число свечей.",
+      "fields": [
+        {
+          "item": 8,
+          "canonicalMnemonic": "BIT_DEPTH",
+          "nameRu": "Положение долота",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 10,
+          "canonicalMnemonic": "HOLE_DEPTH",
+          "nameRu": "Глубина забоя",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 21,
+          "canonicalMnemonic": "HKLD_MAX",
+          "nameRu": "Вес на крюке",
+          "sourceUnit": "KDN",
+          "valueKind": "float",
+          "aggregation": "maximum"
+        },
+        {
+          "item": 22,
+          "canonicalMnemonic": "HKLD_MIN",
+          "nameRu": "Вес на крюке",
+          "sourceUnit": "KDN",
+          "valueKind": "float",
+          "aggregation": "minimum"
+        },
+        {
+          "item": 23,
+          "canonicalMnemonic": "HKLD_AVG",
+          "nameRu": "Вес на крюке",
+          "sourceUnit": "KDN",
+          "valueKind": "float",
+          "aggregation": "average"
+        }
+      ]
+    },
+    {
+      "record": 7,
+      "nameRu": "Инклинометрия",
+      "indexType": "event",
+      "sendPolicy": "Отправляется при поступлении новых данных инклинометрии.",
+      "fields": [
+        {
+          "item": 8,
+          "canonicalMnemonic": "INCLINATION_DEPTH",
+          "nameRu": "Глубина инклинометра",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 11,
+          "canonicalMnemonic": "HOLE_DEPTH",
+          "nameRu": "Глубина забоя",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 13,
+          "canonicalMnemonic": "INC",
+          "nameRu": "Зенитный угол",
+          "sourceUnit": "DEG",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 14,
+          "canonicalMnemonic": "AZI",
+          "nameRu": "Азимутальный угол",
+          "sourceUnit": "DEG",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 16,
+          "canonicalMnemonic": "MAGNETIC_ROLL",
+          "nameRu": "Магнитный Roll",
+          "sourceUnit": "DEG",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 17,
+          "canonicalMnemonic": "GRAVITY_ROLL",
+          "nameRu": "Гравитационный Roll",
+          "sourceUnit": "DEG",
+          "valueKind": "float",
+          "aggregation": "exact"
+        }
+      ]
+    },
+    {
+      "record": 8,
+      "nameRu": "MWD: оценка параметров пласта в процессе бурения",
+      "indexType": "event",
+      "sendPolicy": "Отправляется при поступлении новых MWD-данных.",
+      "fields": [
+        {
+          "item": 8,
+          "canonicalMnemonic": "HOLE_DEPTH",
+          "nameRu": "Глубина забоя",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 10,
+          "canonicalMnemonic": "BIT_DEPTH",
+          "nameRu": "Положение долота",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 15,
+          "canonicalMnemonic": "RES",
+          "nameRu": "Резистивность пород",
+          "sourceUnit": "OHMM",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 23,
+          "canonicalMnemonic": "GR",
+          "nameRu": "Естественная радиоактивность",
+          "sourceUnit": "API",
+          "valueKind": "float",
+          "aggregation": "exact"
+        }
+      ]
+    },
+    {
+      "record": 11,
+      "nameRu": "Объем активных емкостей",
+      "indexType": "time",
+      "sendPolicy": "Периодически по времени; интервал 0 означает отправку по мере поступления данных.",
+      "fields": [
+        {
+          "item": 8,
+          "canonicalMnemonic": "HOLE_DEPTH",
+          "nameRu": "Глубина забоя",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 10,
+          "canonicalMnemonic": "PIT_VOL_AVG",
+          "nameRu": "Суммарный объем в емкостях",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 11,
+          "canonicalMnemonic": "ACTIVE_PIT_VOL_AVG",
+          "nameRu": "Объем активных емкостей",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 15,
+          "canonicalMnemonic": "PIT_1_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 1",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 16,
+          "canonicalMnemonic": "PIT_2_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 2",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 17,
+          "canonicalMnemonic": "PIT_3_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 3",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 18,
+          "canonicalMnemonic": "PIT_4_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 4",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 19,
+          "canonicalMnemonic": "PIT_5_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 5",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 20,
+          "canonicalMnemonic": "PIT_6_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 6",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 21,
+          "canonicalMnemonic": "PIT_7_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 7",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 22,
+          "canonicalMnemonic": "PIT_8_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 8",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 23,
+          "canonicalMnemonic": "PIT_9_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 9",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 24,
+          "canonicalMnemonic": "PIT_10_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 10",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 25,
+          "canonicalMnemonic": "PIT_11_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 11",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 26,
+          "canonicalMnemonic": "PIT_12_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 12",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 27,
+          "canonicalMnemonic": "PIT_13_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 13",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 28,
+          "canonicalMnemonic": "PIT_14_VOL_AVG",
+          "nameRu": "Объем раствора в емкости 14",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 29,
+          "canonicalMnemonic": "TRIP_TANK_VOL",
+          "nameRu": "Объем раствора в доливочных емкостях",
+          "sourceUnit": "M3",
+          "valueKind": "float",
+          "aggregation": "exact"
+        }
+      ]
+    },
+    {
+      "record": 12,
+      "nameRu": "Хроматограф: измерительный цикл по времени",
+      "indexType": "time",
+      "sendPolicy": "Отправляется при поступлении новых данных хроматографа.",
+      "fields": [
+        {
+          "item": 8,
+          "canonicalMnemonic": "GAS_DEPTH",
+          "nameRu": "Глубина для газа",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 12,
+          "canonicalMnemonic": "C1",
+          "nameRu": "C1",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 13,
+          "canonicalMnemonic": "C2",
+          "nameRu": "C2",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 14,
+          "canonicalMnemonic": "C3",
+          "nameRu": "C3",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 15,
+          "canonicalMnemonic": "IC4",
+          "nameRu": "iC4",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 16,
+          "canonicalMnemonic": "NC4",
+          "nameRu": "nC4",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 17,
+          "canonicalMnemonic": "IC5",
+          "nameRu": "iC5",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 18,
+          "canonicalMnemonic": "NC5",
+          "nameRu": "nC5",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "exact"
+        }
+      ]
+    },
+    {
+      "record": 13,
+      "nameRu": "Хроматограф: измерительный цикл по глубине",
+      "indexType": "depth_lagged",
+      "sendPolicy": "Отправляется по глубине с учетом отставания.",
+      "fields": [
+        {
+          "item": 8,
+          "canonicalMnemonic": "GAS_DEPTH",
+          "nameRu": "Глубина для газа",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 10,
+          "canonicalMnemonic": "C1_AVG",
+          "nameRu": "C1",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 13,
+          "canonicalMnemonic": "C2_AVG",
+          "nameRu": "C2",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 16,
+          "canonicalMnemonic": "C3_AVG",
+          "nameRu": "C3",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 19,
+          "canonicalMnemonic": "IC4_AVG",
+          "nameRu": "iC4",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 22,
+          "canonicalMnemonic": "NC4_AVG",
+          "nameRu": "nC4",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 25,
+          "canonicalMnemonic": "IC5_AVG",
+          "nameRu": "iC5",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 28,
+          "canonicalMnemonic": "NC5_AVG",
+          "nameRu": "nC5",
+          "sourceUnit": "PPM",
+          "valueKind": "float",
+          "aggregation": "average"
+        }
+      ]
+    },
+    {
+      "record": 14,
+      "nameRu": "Непрерывный контроль отставания бурового раствора",
+      "indexType": "depth_lagged",
+      "sendPolicy": "Отправляется по глубине с учетом отставания.",
+      "fields": [
+        {
+          "item": 8,
+          "canonicalMnemonic": "GAS_DEPTH",
+          "nameRu": "Глубина для газа",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 10,
+          "canonicalMnemonic": "MW_IN",
+          "nameRu": "Плотность раствора на входе",
+          "sourceUnit": "KGM3",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 11,
+          "canonicalMnemonic": "MW_OUT_AVG",
+          "nameRu": "Плотность раствора на выходе",
+          "sourceUnit": "KGM3",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 12,
+          "canonicalMnemonic": "TEMP_IN",
+          "nameRu": "Температура на входе",
+          "sourceUnit": "DEGC",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 13,
+          "canonicalMnemonic": "TEMP_OUT_AVG",
+          "nameRu": "Температура раствора на выходе",
+          "sourceUnit": "DEGC",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 14,
+          "canonicalMnemonic": "CONDUCTIVITY_IN",
+          "nameRu": "Удельная электропроводность раствора на входе",
+          "sourceUnit": "MMHO",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 15,
+          "canonicalMnemonic": "CONDUCTIVITY_OUT_AVG",
+          "nameRu": "Удельная электропроводность раствора на выходе",
+          "sourceUnit": "MMHO",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 20,
+          "canonicalMnemonic": "TG_CHROM_AVG",
+          "nameRu": "Сумма газов по хроматографу",
+          "sourceUnit": "%",
+          "valueKind": "float",
+          "aggregation": "average"
+        }
+      ]
+    },
+    {
+      "record": 17,
+      "nameRu": "Цементирование скважины",
+      "indexType": "event",
+      "sendPolicy": "Отправляется только во время цементирования.",
+      "fields": [
+        {
+          "item": 8,
+          "canonicalMnemonic": "HOLE_DEPTH",
+          "nameRu": "Глубина забоя",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        },
+        {
+          "item": 13,
+          "canonicalMnemonic": "HKLD_AVG",
+          "nameRu": "Вес на крюке",
+          "sourceUnit": "KDN",
+          "valueKind": "float",
+          "aggregation": "average"
+        },
+        {
+          "item": 14,
+          "canonicalMnemonic": "BLOCK_POSITION",
+          "nameRu": "Положение тальблока",
+          "sourceUnit": "M",
+          "valueKind": "float",
+          "aggregation": "exact"
+        }
+      ]
+    }
+  ]
+}

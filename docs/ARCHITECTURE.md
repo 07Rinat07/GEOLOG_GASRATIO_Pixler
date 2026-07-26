@@ -180,6 +180,18 @@ evidence. Формат проекта v19 сохраняет binding, введё
 редактирует план. `DatasetImportJobExecutor` передаёт project-session port исключительно
 подтверждённую копию; отмена не изменяет коллекции проекта и `dirty`.
 
+## WITS0 source-adapter boundary — 0.7.73
+
+`geoworkbench.acquisition.wits0_capture` owns TCP client/server I/O, reconnect, raw segmentation
+and immutable event snapshots. It never imports Qt and never mutates a `Project`, `Well`, `Dataset`
+or `AcquisitionSession`. Raw bytes are written before framing. The Qt dialog polls a bounded event
+queue, so UI pressure can hide old presentation events but cannot discard the source stream.
+
+`geoworkbench.acquisition.wits0` owns the incremental `&& ... !!` decoder, replay iterator and
+strict profile schema. Live and replay use the same framing implementation. The built-in GeoScape
+profile is evidence from a vendor manual, not proof of a specific rig stream; parser/mapping must
+retain unknown records and require Import Review before an immutable acquisition schema is created.
+
 ## Real-time boundary
 
 Real-time развивается отдельным адаптером: append-only growing dataset и recorded replay уже

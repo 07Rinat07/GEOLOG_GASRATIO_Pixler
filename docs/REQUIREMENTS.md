@@ -18,6 +18,7 @@
 | DATA-005 | Импорт табличных JSON и TXT | частично: числовой TXT с разделителями готов; JSON запланирован |
 | DATA-006 | DLIS/LIS через изолированный опциональный адаптер | запланировано; первый read-only профиль уточнён в DATA-021 |
 | DATA-007 | WITSML 2.1 / ETP 1.2 как growing well-data source | запланировано поэтапно: offline inventory/MudLogReport mapping → replay → secure network client; credentials не хранятся в проекте |
+| DATA-028 | WITS Level 0 через TCP client/server с lossless raw capture и replay | частично: в 0.7.73 готовы worker, reconnect, framing, raw segments, UTC chunk index, monitor и GeoScape profile; parser, Import Review и Dataset commit запланированы |
 | DATA-008 | Несколько файлов, скважин и наборов данных в одном проекте | готово |
 | DATA-009 | Безопасная диагностика NULL, дубликатов мнемоник, глубины и единиц | готово: единый Import Review показывает NULL, duplicate index/kind, gaps/order, unresolved, unknown UOM и quantity conflict до регистрации dataset |
 | DATA-010 | Плагины импорта и экспорта без зависимости Domain от формата | готов контракт Plugin API; загрузка внешних плагинов позже |
@@ -75,6 +76,7 @@ JSON-файл проекта не считается универсальным 
 | OPS-005 | Growing dataset: append, replay, checkpoint, backpressure и controlled close | готово: acquisition schema v1, текущий project v20, atomic controller, checkpoint fingerprints и deterministic replay |
 | OPS-006 | QC/alarm rules: threshold, hysteresis, debounce, acknowledgement и audit | запланировано; не сертифицированная well-control system |
 | OPS-007 | Structured MudLogReport: cuttings/geology/show, chromatograph/gas peaks, drilling/Dxc/ECD/ROP stats | запланировано по WITSML domain |
+| OPS-010 | WITS0 live source adapter → semantic mapping → append-only AcquisitionSession | частично: raw boundary и deterministic frame replay готовы; parser, schema confirmation, live UI и recovery остаются |
 | OPS-008 | Pore-pressure/fracture-gradient workflow с predrill model, observations и uncertainty | позже; decision-support с паспортом методики |
 | OPS-009 | Flow/pit/connection trends, kick/loss и hole-cleaning indicators | позже; после OPS-001…006 |
 

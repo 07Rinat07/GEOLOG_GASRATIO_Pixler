@@ -1,5 +1,22 @@
 # Жоба күйі
 
+## Әзірленуде: WITS0 real-time integration
+
+Алғашқы raw-capture boundary іске асырылды: TCP server/client, client reconnect, incremental
+`&& ... !!` decoder, append-only `*.wits`, UTC `*.chunks.jsonl` index, replay және modeless
+monitor. Кіріктірілген GeoScape GSWITS profile schema v1 ішінде 11 records және 105 fields бар.
+Келесі кезең — parser, Import Review және append-only AcquisitionSession; mapping нақты raw арқылы
+расталуы тиіс.
+
+## Әзірленуде: WITSML 2.x офлайн түгендеуі
+
+Жеке XML/WITSML файлдарын, каталогтарды және ZIP/EPC пакеттерін қауіпсіз read-only режимде қарау
+қосылды. Диалог top-level нысандарды, `schemaVersion`, UUID, сілтемелерді, ал `Channel` үшін
+мнемониканы, дерек түрін, өлшем бірлігін, дереккөзді, сыныпты, индекстерді және ауқымды көрсетеді.
+Архивтер дискіге шығарылмайды; traversal, DTD/entity, шифрлау, қайталанған жолдар және ресурс
+лимитінен асу қабылданбайды. Бұл срез `Dataset` құрмайды, channel arrays оқымайды және ETP арқылы
+қосылмайды.
+
 ## Әзірленуде: GeoScape II GS2
 
 Контейнерді қауіпсіз тексеру және таңдалған ішкі кестені қолданыстағы Paradox reader, Import
@@ -9,6 +26,15 @@ Review және `Dataset` арқылы импорттау қосылды. СГ-8
 ODBC/ACE арқылы оқылады: `WELLS`, `FORMULAS.RESGID → S-код`, Sensors fallback және аудит
 қосылады. Драйвер жоқ болса да кесте импорты тоқтамайды және нақты диагностика көрсетіледі.
 
+
+## 0.7.73 нұсқасында аяқталды
+
+Qt-тәуелсіз WITS0 source adapter және модельсіз **WITS Level 0 қабылдау** терезесі қосылды.
+Желілік worker GUI-ді бұғаттамайды; raw bytes framing алдында сақталады және UI queue қысымы raw
+деректерін жоғалтпайды. TCP chunks UTC/offset/size арқылы индекстеледі, live/replay бір decoder
+қолданады. Dataset әзірше жасалмайды.
+
+Күй күні: 27 шілде 2026 жыл. Пакет нұсқасы: **0.7.73**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## 0.7.72 нұсқасында аяқталды
 
