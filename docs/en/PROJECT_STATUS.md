@@ -4,8 +4,11 @@
 
 Safe container validation and selected inner-table import through the existing Paradox reader,
 Import Review, and `Dataset` are implemented. The СГ-8 sample contains 13 recognized Paradox 7.x
-tables; `GS2#101.db` has TIME, DEPTH, and 206 channels on a 0.2 m grid. Reading `GS2.mdb` and
-automatically merging multipart time tables remain open.
+tables; `GS2#101.db` has TIME, DEPTH, and 206 channels on a 0.2 m grid. The five
+`GS2#1…GS2#1_4` parts are automatically merged into a validated 4,338,103-row TIME series.
+`GS2.mdb` is read through a read-only Qt ODBC/ACE adapter: imports receive `WELLS`,
+`FORMULAS.RESGID → S-code` mappings, Sensors fallback, and audit metadata. A missing driver no
+longer blocks table import and produces actionable diagnostics.
 
 
 

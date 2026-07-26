@@ -5,7 +5,12 @@
 - confirmed all 13 `GS2#*.db` members in the СГ-8 sample as Paradox 7.x tables;
 - routed a selected inner table through the existing Paradox mapping dialog, Import Review, and
   `Dataset` registration while preserving the original `.gs2` source path;
-- documented remaining Access metadata and multipart TIME-table merge work.
+- added schema-compatible multipart discovery and memory-bounded TIME-series merging with
+  monotonicity, overlap, gap, progress, cancellation, and cleanup checks;
+- added read-only Qt ODBC/ACE metadata loading with actionable missing-driver diagnostics,
+  `WELLS`, proven `FORMULAS.RESGID → S-code` mappings, Sensors fallback, and Dataset provenance;
+- confirmed the СГ-8 Jet 4 database has no channel units or formal array relationships, so
+  unresolved S/SB codes remain unchanged instead of being guessed.
 
 # 0.7.71 — hard toolbar bounds and true one-pixel symbols
 
