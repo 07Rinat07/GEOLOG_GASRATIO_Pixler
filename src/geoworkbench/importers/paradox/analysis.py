@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
 import math
 
@@ -23,11 +24,17 @@ _DEPTH_NAME_HINTS = {"DEPT", "DEPTH", "MD", "TVD", "TVDSS", "HOLEDEPTH", "BITDEP
 _TIME_NAME_HINTS = {"TIME", "DATETIME", "TIMESTAMP", "ETIME", "EPOCH", "UNIXTIME", "LOGTIME", "S0"}
 
 
-def analyze_table(table: ParadoxTable) -> QualitySummary:
+def analyze_table(
+    table: ParadoxTable,
+    *,
+    cancelled: Callable[[], bool] | None = None,
+) -> QualitySummary:
     depth: list[IndexCandidate] = []
     time: list[IndexCandidate] = []
-    issues = [*table.issues, *_table_quality_issues(table)]
+    _check_cancelled(cancelled)
+    issues = [*table.issues, *_table_quality_issues(table, cancelled)]
     for field in table.fields:
+        _check_cancelled(cancelled)
         column = table.columns[field.name]
         if not field.is_numeric or column.is_empty:
             if column.is_empty:
@@ -54,6 +61,7 @@ def analyze_table(table: ParadoxTable) -> QualitySummary:
     depth.sort(key=lambda item: item.confidence, reverse=True)
     time.sort(key=lambda item: item.confidence, reverse=True)
     classification = _classify(depth, time)
+    _check_cancelled(cancelled)
     issues.extend(_quality_issues(table, depth[0] if depth else None, time[0] if time else None))
     return QualitySummary(classification, tuple(depth), tuple(time), tuple(issues))
 
@@ -96,11 +104,15 @@ def convert_time_values(values: np.ndarray) -> tuple[np.ndarray, np.ndarray | No
     return elapsed, None, "relative-seconds"
 
 
-def _table_quality_issues(table: ParadoxTable) -> list[ParadoxIssue]:
+def _table_quality_issues(
+    table: ParadoxTable,
+    cancelled: Callable[[], bool] | None = None,
+) -> list[ParadoxIssue]:
     issues: list[ParadoxIssue] = []
     row_has_value = np.zeros(table.rows_read, dtype=bool)
     known_types = {int(item) for item in ParadoxFieldType}
     for field in table.fields:
+        _check_cancelled(cancelled)
         column = table.columns[field.name]
         if field.type_code not in known_types:
             issues.append(
@@ -188,6 +200,11 @@ def _table_quality_issues(table: ParadoxTable) -> list[ParadoxIssue]:
             )
         )
     return issues
+
+
+def _check_cancelled(cancelled: Callable[[], bool] | None) -> None:
+    if cancelled is not None and cancelled():
+        raise RuntimeError("Анализ Paradox отменён пользователем")
 
 
 def _depth_candidate(name: str, values: np.ndarray) -> IndexCandidate:

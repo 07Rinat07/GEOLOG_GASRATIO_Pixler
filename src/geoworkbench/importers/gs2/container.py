@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -11,6 +11,10 @@ import zipfile
 
 
 _DATA_FILE = re.compile(r"^GS2#.+\.db$", re.IGNORECASE)
+_MULTIPART_FILE = re.compile(
+    r"^(?P<base>GS2#\d+)(?:_(?P<part>\d+))?\.db$",
+    re.IGNORECASE,
+)
 _COPY_CHUNK_SIZE = 1024 * 1024
 
 
@@ -43,6 +47,28 @@ class Gs2TableSummary:
     record_count: int
     record_size: int
     header_size: int
+    field_names: tuple[str, ...]
+    field_types: tuple[int, ...]
+    field_sizes: tuple[int, ...]
+
+    @property
+    def field_count(self) -> int:
+        return len(self.field_names)
+
+    @property
+    def has_depth(self) -> bool:
+        return any(name.casefold() == "depth" for name in self.field_names)
+
+    @property
+    def has_time(self) -> bool:
+        return any(name.casefold() == "time" for name in self.field_names)
+
+
+@dataclass(frozen=True, slots=True)
+class Gs2MultipartSummary:
+    base_name: str
+    member_names: tuple[str, ...]
+    record_count: int
     field_names: tuple[str, ...]
 
     @property
@@ -79,6 +105,60 @@ class Gs2ContainerManifest:
                 table.field_count,
                 table.record_count,
             ),
+        )
+
+    @property
+    def multipart_groups(self) -> tuple[Gs2MultipartSummary, ...]:
+        tables_by_name = {
+            table.member_name.casefold(): table for table in self.tables
+        }
+        grouped: dict[str, list[tuple[int, Gs2TableSummary]]] = {}
+        for table in self.tables:
+            match = _MULTIPART_FILE.fullmatch(
+                PurePosixPath(table.member_name).name
+            )
+            if match is None:
+                continue
+            base = match.group("base")
+            part_text = match.group("part")
+            part = int(part_text) if part_text is not None else 0
+            grouped.setdefault(base.casefold(), []).append((part, table))
+
+        summaries: list[Gs2MultipartSummary] = []
+        for base_key, parts in grouped.items():
+            if len(parts) < 2 or 0 not in {part for part, _table in parts}:
+                continue
+            ordered = sorted(parts, key=lambda item: item[0])
+            expected_parts = list(range(len(ordered)))
+            if [part for part, _table in ordered] != expected_parts:
+                continue
+            first = ordered[0][1]
+            if any(
+                table.field_names != first.field_names
+                or table.field_types != first.field_types
+                or table.field_sizes != first.field_sizes
+                or table.record_size != first.record_size
+                for _part, table in ordered[1:]
+            ):
+                continue
+            if not first.has_time:
+                continue
+            base_name = PurePosixPath(first.member_name).stem
+            summaries.append(
+                Gs2MultipartSummary(
+                    base_name=base_name,
+                    member_names=tuple(
+                        table.member_name for _part, table in ordered
+                    ),
+                    record_count=sum(
+                        tables_by_name[table.member_name.casefold()].record_count
+                        for _part, table in ordered
+                    ),
+                    field_names=first.field_names,
+                )
+            )
+        return tuple(
+            sorted(summaries, key=lambda group: group.base_name.casefold())
         )
 
 
@@ -226,7 +306,12 @@ def _inspect_paradox_table(
     schema_end = schema_start + field_count * 2
     if len(header) < schema_end:
         return None
-    field_sizes = [header[schema_start + 2 * index + 1] for index in range(field_count)]
+    field_types = tuple(
+        header[schema_start + 2 * index] for index in range(field_count)
+    )
+    field_sizes = tuple(
+        header[schema_start + 2 * index + 1] for index in range(field_count)
+    )
     if sum(field_sizes) != record_size:
         return None
     marker = b"".join(
@@ -252,6 +337,8 @@ def _inspect_paradox_table(
         record_size=record_size,
         header_size=header_size,
         field_names=names,
+        field_types=field_types,
+        field_sizes=field_sizes,
     )
 
 
@@ -318,3 +405,104 @@ def extract_gs2_table(
         except (OSError, zipfile.BadZipFile, RuntimeError, StopIteration) as exc:
             raise Gs2ContainerError(f"Не удалось извлечь таблицу GS2: {exc}") from exc
         yield target, manifest
+
+
+@contextmanager
+def extract_gs2_metadata(
+    source: str | Path,
+    *,
+    limits: Gs2ContainerLimits | None = None,
+) -> Iterator[tuple[Path, Gs2ContainerManifest]]:
+    """Extract only ``GS2.mdb`` for the replaceable Access metadata adapter."""
+
+    manifest = inspect_gs2(source, limits=limits)
+    selected = manifest.metadata_member
+    with tempfile.TemporaryDirectory(prefix="geoworkbench-gs2-metadata-") as temporary:
+        destination = Path(temporary)
+        target = destination / PurePosixPath(selected.name).name
+        try:
+            with zipfile.ZipFile(manifest.source, "r") as archive:
+                info = next(
+                    info
+                    for info in archive.infolist()
+                    if not info.is_dir()
+                    and _safe_member_name(info.filename).casefold()
+                    == selected.name.casefold()
+                )
+                with archive.open(info, "r") as reader, target.open("wb") as writer:
+                    shutil.copyfileobj(reader, writer, length=_COPY_CHUNK_SIZE)
+        except (OSError, zipfile.BadZipFile, RuntimeError, StopIteration) as exc:
+            raise Gs2ContainerError(f"Не удалось извлечь GS2.mdb: {exc}") from exc
+        yield target, manifest
+
+
+@contextmanager
+def extract_gs2_tables(
+    source: str | Path,
+    member_names: tuple[str, ...],
+    *,
+    limits: Gs2ContainerLimits | None = None,
+    progress: Callable[[str, int, int], None] | None = None,
+    cancelled: Callable[[], bool] | None = None,
+) -> Iterator[tuple[tuple[Path, ...], Gs2ContainerManifest]]:
+    """Extract a validated ordered set of inner tables into one temporary directory."""
+
+    if not member_names:
+        raise Gs2ContainerError("Не выбраны таблицы GS2 для извлечения")
+    manifest = inspect_gs2(source, limits=limits)
+    available = {
+        member.name.casefold(): member for member in manifest.data_members
+    }
+    selected: list[Gs2Member] = []
+    for member_name in member_names:
+        member = available.get(member_name.casefold())
+        if member is None:
+            raise Gs2ContainerError(
+                f"Таблица отсутствует в контейнере GS2: {member_name}"
+            )
+        selected.append(member)
+    if len({member.name.casefold() for member in selected}) != len(selected):
+        raise Gs2ContainerError("Список таблиц GS2 содержит дубликаты")
+
+    with tempfile.TemporaryDirectory(prefix="geoworkbench-gs2-tables-") as temporary:
+        destination = Path(temporary)
+        targets: list[Path] = []
+        extracted_size = 0
+        total_size = sum(member.size for member in selected)
+        if progress is not None:
+            progress("extract", 0, total_size)
+        try:
+            with zipfile.ZipFile(manifest.source, "r") as archive:
+                info_by_name = {
+                    _safe_member_name(info.filename).casefold(): info
+                    for info in archive.infolist()
+                    if not info.is_dir()
+                }
+                for member in selected:
+                    if cancelled is not None and cancelled():
+                        raise Gs2ContainerError(
+                            "Извлечение таблиц GS2 отменено пользователем"
+                        )
+                    info = info_by_name[member.name.casefold()]
+                    target = destination / PurePosixPath(member.name).name
+                    with archive.open(info, "r") as reader, target.open("wb") as writer:
+                        while True:
+                            if cancelled is not None and cancelled():
+                                raise Gs2ContainerError(
+                                    "Извлечение таблиц GS2 отменено пользователем"
+                                )
+                            chunk = reader.read(_COPY_CHUNK_SIZE)
+                            if not chunk:
+                                break
+                            writer.write(chunk)
+                            extracted_size += len(chunk)
+                            if progress is not None:
+                                progress("extract", extracted_size, total_size)
+                    targets.append(target)
+        except Gs2ContainerError:
+            raise
+        except (KeyError, OSError, zipfile.BadZipFile, RuntimeError) as exc:
+            raise Gs2ContainerError(
+                f"Не удалось извлечь таблицы GS2: {exc}"
+            ) from exc
+        yield tuple(targets), manifest

@@ -9,6 +9,7 @@ import re
 
 import numpy as np
 
+from geoworkbench.catalogs.sensors import active_sensor_catalog
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
@@ -20,7 +21,7 @@ from geoworkbench.domain.models import (
     IndexType,
     new_id,
 )
-from geoworkbench.services.semantic_channels import default_semantic_channel_dictionary
+from geoworkbench.services.semantic_channels import SemanticChannelDictionary
 
 from .analysis import analyze_table, convert_time_values
 from .channel_dictionary import GeoScapeChannelDictionary
@@ -260,7 +261,7 @@ def import_paradox(
         version_headers={"VERS": "2.0", "WRAP": "NO"},
     )
 
-    semantic_dictionary = default_semantic_channel_dictionary()
+    semantic_dictionary = SemanticChannelDictionary(active_sensor_catalog())
     used_mnemonics = {primary_mnemonic.casefold()}
     curves: dict[str, CurveData] = {}
     represented_sources = {

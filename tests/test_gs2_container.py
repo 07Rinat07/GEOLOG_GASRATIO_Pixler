@@ -11,6 +11,7 @@ from geoworkbench.importers.gs2 import (
     Gs2ContainerError,
     Gs2ContainerLimits,
     extract_gs2,
+    extract_gs2_metadata,
     inspect_gs2,
 )
 
@@ -58,6 +59,29 @@ def test_inspect_and_extract_valid_gs2(tmp_path: Path) -> None:
         assert (directory / "GS2.mdb").read_bytes() == b"access-metadata"
         assert (directory / "GS2#1_1.db").read_bytes() == b"\x03\x04"
     assert not directory.exists()
+    assert source.read_bytes() == original
+
+
+def test_extract_metadata_copies_only_mdb_and_cleans_temporary_directory(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "metadata-only.gs2"
+    write_gs2(
+        source,
+        {
+            "GS2.mdb": b"access-metadata",
+            "GS2#1.db": b"large-data-placeholder",
+        },
+    )
+    original = source.read_bytes()
+
+    with extract_gs2_metadata(source) as (database, manifest):
+        temporary = database.parent
+        assert database.read_bytes() == b"access-metadata"
+        assert manifest.metadata_member.name == "GS2.mdb"
+        assert sorted(item.name for item in temporary.iterdir()) == ["GS2.mdb"]
+
+    assert not temporary.exists()
     assert source.read_bytes() == original
 
 
@@ -121,3 +145,22 @@ def test_identifies_paradox_depth_table_and_prefers_it(tmp_path: Path) -> None:
     assert manifest.preferred_table is not None
     assert manifest.preferred_table.member_name == "GS2#101.db"
     assert manifest.preferred_table.field_names == ("Time", "Depth")
+
+
+def test_discovers_only_contiguous_schema_compatible_parts(tmp_path: Path) -> None:
+    source = tmp_path / "parts.gs2"
+    write_gs2(
+        source,
+        {
+            "GS2.mdb": b"metadata",
+            "GS2#1.db": paradox_depth_header(),
+            "GS2#1_1.db": paradox_depth_header(),
+            "GS2#5.db": paradox_depth_header(),
+        },
+    )
+
+    groups = inspect_gs2(source).multipart_groups
+
+    assert len(groups) == 1
+    assert groups[0].member_names == ("GS2#1.db", "GS2#1_1.db")
+    assert groups[0].record_count == 2

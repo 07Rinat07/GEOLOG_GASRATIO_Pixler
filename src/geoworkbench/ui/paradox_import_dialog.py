@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from threading import Event
 from time import monotonic
@@ -62,14 +63,22 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.time_display import format_datetime_value, format_elapsed_time
 
 
+ParadoxTableLoader = Callable[..., ParadoxTable]
+
+
 class _ReaderWorker(QObject):
     finished = Signal(object)
     failed = Signal(str)
     progress = Signal(str, int, int)
 
-    def __init__(self, source: Path) -> None:
+    def __init__(
+        self,
+        source: Path,
+        table_loader: ParadoxTableLoader | None = None,
+    ) -> None:
         super().__init__()
         self.source = source
+        self.table_loader = table_loader or read_paradox
         self._cancel_event = Event()
 
     def request_cancel(self) -> None:
@@ -82,7 +91,7 @@ class _ReaderWorker(QObject):
     @Slot()
     def run(self) -> None:
         try:
-            table = read_paradox(
+            table = self.table_loader(
                 self.source,
                 progress=lambda phase, current, total: self.progress.emit(phase, current, total),
                 cancelled=lambda: self.cancel_requested,
@@ -90,7 +99,10 @@ class _ReaderWorker(QObject):
             if self.cancel_requested:
                 raise RuntimeError("Импорт Paradox отменён пользователем")
             self.progress.emit("analysis", 0, 1)
-            quality = analyze_table(table)
+            quality = analyze_table(
+                table,
+                cancelled=lambda: self.cancel_requested,
+            )
             self.progress.emit("analysis", 1, 1)
         except Exception as exc:
             self.failed.emit(str(exc))
@@ -149,12 +161,16 @@ class ParadoxImportDialog(QDialog):
         *,
         language: AppLanguage = AppLanguage.RU,
         configuration_only: bool = False,
+        table_loader: ParadoxTableLoader | None = None,
+        channel_dictionary: GeoScapeChannelDictionary | None = None,
     ) -> None:
         super().__init__(parent)
         self.source = source
         self.language = language
         self.localizer = Localizer.create(language)
         self.configuration_only = bool(configuration_only)
+        self.table_loader = table_loader
+        self.channel_dictionary = channel_dictionary
         self.selected_plan: ParadoxImportPlan | None = None
         self.table: ParadoxTable | None = None
         self.quality: QualitySummary | None = None
@@ -507,7 +523,7 @@ class ParadoxImportDialog(QDialog):
 
     def _start_reader(self) -> None:
         thread = QThread(self)
-        worker = _ReaderWorker(self.source)
+        worker = _ReaderWorker(self.source, self.table_loader)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         worker.progress.connect(self._on_progress)
@@ -617,7 +633,9 @@ class ParadoxImportDialog(QDialog):
         self.active_role.setCurrentIndex(1 if quality.depth_candidates else 2)
 
         self._population_mappings = default_mappings(
-            table, language=self.localizer.language.value
+            table,
+            language=self.localizer.language.value,
+            dictionary=self.channel_dictionary,
         )
         self._population_warning_fields = {
             issue.field_name for issue in quality.issues if issue.field_name

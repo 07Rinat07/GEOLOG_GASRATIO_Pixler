@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from weakref import ref
 
@@ -59,7 +60,17 @@ from geoworkbench.catalogs.sensors import SensorCatalog, set_active_sensor_catal
 from geoworkbench.calculations.custom_formula import formula_inputs
 from geoworkbench.calculations.interval_statistics import calculate_interval_statistics
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
-from geoworkbench.importers.gs2 import Gs2ContainerError, extract_gs2_table
+from geoworkbench.importers.gs2 import (
+    Gs2ContainerError,
+    extract_gs2_table,
+)
+from geoworkbench.importers.gs2.multipart import read_gs2_multipart
+from geoworkbench.importers.gs2.metadata import (
+    annotate_gs2_dataset,
+    channel_dictionary_for_table,
+    metadata_dataset_parameters,
+    metadata_well_headers,
+)
 from geoworkbench.importers.skf_importer import import_skf_file
 from geoworkbench.domain.models import CurveData, Dataset, IndexRole
 from geoworkbench.data.las_adapter import LasExportError
@@ -3178,31 +3189,102 @@ class MainWindow(QMainWindow):
         container_dialog = Gs2ImportDialog(selected, self, language=self.language)
         if container_dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        member_name = container_dialog.selected_table_member
-        if member_name is None:
+        member_names = container_dialog.selected_table_members
+        if not member_names:
             return
-        try:
-            with extract_gs2_table(selected, member_name) as (table_path, _manifest):
-                dialog = ParadoxImportDialog(table_path, self, language=self.language)
-                if (
-                    dialog.exec() != QDialog.DialogCode.Accepted
-                    or dialog.import_result is None
-                ):
-                    return
-                result = dialog.import_result
-                result.dataset.name = f"{selected.stem} — {Path(member_name).stem}"
-                result.dataset.source_path = selected.resolve()
-                result.dataset.parameters.update(
-                    {
-                        "SOURCE_FORMAT": "GeoScape II GS2",
-                        "SOURCE_FILE": str(selected.resolve()),
-                        "SOURCE_BUNDLE": selected.name,
-                        "GS2_TABLE": member_name,
-                    }
-                )
-        except Gs2ContainerError as exc:
-            QMessageBox.critical(self, self._t("gs2.title"), str(exc))
+        manifest = container_dialog.manifest
+        metadata = container_dialog.metadata
+        selected_summary = (
+            next(
+                (
+                    table
+                    for table in manifest.tables
+                    if table.member_name.casefold() == member_names[0].casefold()
+                ),
+                None,
+            )
+            if manifest is not None
+            else None
+        )
+        channel_dictionary = None
+        matched_metadata_channels = 0
+        matched_sensor_channels = 0
+        if metadata is not None and selected_summary is not None:
+            (
+                channel_dictionary,
+                matched_metadata_channels,
+                matched_sensor_channels,
+            ) = channel_dictionary_for_table(
+                metadata,
+                selected_summary.field_names,
+                member_names[0],
+            )
+        result = None
+        if len(member_names) == 1:
+            member_name = member_names[0]
+            try:
+                with extract_gs2_table(selected, member_name) as (table_path, _manifest):
+                    dialog = ParadoxImportDialog(
+                        table_path,
+                        self,
+                        language=self.language,
+                        channel_dictionary=channel_dictionary,
+                    )
+                    if (
+                        dialog.exec() != QDialog.DialogCode.Accepted
+                        or dialog.import_result is None
+                    ):
+                        return
+                    result = dialog.import_result
+            except Gs2ContainerError as exc:
+                QMessageBox.critical(self, self._t("gs2.title"), str(exc))
+                return
+            table_label = Path(member_name).stem
+        else:
+            dialog = ParadoxImportDialog(
+                selected,
+                self,
+                language=self.language,
+                table_loader=partial(
+                    read_gs2_multipart,
+                    member_names=member_names,
+                ),
+                channel_dictionary=channel_dictionary,
+            )
+            if (
+                dialog.exec() != QDialog.DialogCode.Accepted
+                or dialog.import_result is None
+            ):
+                return
+            result = dialog.import_result
+            table_label = f"{Path(member_names[0]).stem} ({len(member_names)} parts)"
+
+        if result is None:
             return
+        result.dataset.name = f"{selected.stem} — {table_label}"
+        result.dataset.source_path = selected.resolve()
+        annotated_metadata_curves = 0
+        if metadata is not None:
+            annotated_metadata_curves = annotate_gs2_dataset(
+                result.dataset,
+                metadata,
+                member_names[0],
+            )
+            result.dataset.parameters.update(metadata_dataset_parameters(metadata))
+            result.dataset.headers.update(metadata_well_headers(metadata))
+        result.dataset.parameters.update(
+            {
+                "SOURCE_FORMAT": "GeoScape II GS2",
+                "SOURCE_FILE": str(selected.resolve()),
+                "SOURCE_BUNDLE": selected.name,
+                "GS2_TABLE": member_names[0],
+                "GS2_TABLES": "; ".join(member_names),
+                "GS2_MULTIPART": str(len(member_names) > 1).lower(),
+                "GS2_METADATA_MATCHED_CHANNELS": str(matched_metadata_channels),
+                "GS2_METADATA_ANNOTATED_CURVES": str(annotated_metadata_curves),
+                "GS2_SENSORS_MATCHED_CHANNELS": str(matched_sensor_channels),
+            }
+        )
         registration = self._dataset_import_jobs.register_gs2(
             selected,
             result,
@@ -3223,7 +3305,7 @@ class MainWindow(QMainWindow):
             self._t(
                 "gs2.imported",
                 file=selected.name,
-                table=member_name,
+                table=table_label,
                 rows=registration.result.table.rows_read,
             )
         )

@@ -12,11 +12,16 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.importers.gs2 import Gs2ContainerError, Gs2ContainerManifest, inspect_gs2
+from geoworkbench.importers.gs2.metadata import (
+    Gs2Metadata,
+    Gs2MetadataState,
+    read_gs2_container_metadata,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 class Gs2ImportDialog(QDialog):
-    """Container inspection UI used until the binary channel decoder is available."""
+    """Inspect a GS2 container, Access metadata, and selectable Paradox series."""
 
     def __init__(
         self,
@@ -29,6 +34,7 @@ class Gs2ImportDialog(QDialog):
         self.source = Path(source)
         self.localizer = Localizer.create(language)
         self.manifest: Gs2ContainerManifest | None = None
+        self.metadata: Gs2Metadata | None = None
         self.setWindowTitle(self._t("gs2.title"))
         self.resize(680, 480)
 
@@ -64,7 +70,17 @@ class Gs2ImportDialog(QDialog):
             return
 
         manifest = self.manifest
+        multipart_groups = manifest.multipart_groups
+        grouped_members = {
+            member_name.casefold()
+            for group in multipart_groups
+            for member_name in group.member_names
+        }
+        preferred_index = -1
+        preferred_score: tuple[bool, int, int] | None = None
         for table in manifest.tables:
+            if table.member_name.casefold() in grouped_members:
+                continue
             roles = "/".join(
                 role
                 for role, enabled in (
@@ -81,34 +97,92 @@ class Gs2ImportDialog(QDialog):
                     fields=table.field_count,
                     roles=roles or "—",
                 ),
-                table.member_name,
+                (table.member_name,),
             )
-        preferred = manifest.preferred_table
-        if preferred is not None:
-            index = self.table_combo.findData(preferred.member_name)
-            if index >= 0:
-                self.table_combo.setCurrentIndex(index)
-        self.table_combo.setVisible(bool(manifest.tables))
-        self.ok_button.setEnabled(bool(manifest.tables))
+            score = (table.has_depth, table.field_count, table.record_count)
+            if preferred_score is None or score > preferred_score:
+                preferred_score = score
+                preferred_index = self.table_combo.count() - 1
+        for group in multipart_groups:
+            roles = "/".join(
+                role
+                for role, enabled in (
+                    ("DEPTH", group.has_depth),
+                    ("TIME", group.has_time),
+                )
+                if enabled
+            )
+            self.table_combo.addItem(
+                self._t(
+                    "gs2.group_item",
+                    file=group.base_name,
+                    parts=len(group.member_names),
+                    rows=group.record_count,
+                    fields=group.field_count,
+                    roles=roles or "—",
+                ),
+                group.member_names,
+            )
+            score = (group.has_depth, group.field_count, group.record_count)
+            if preferred_score is None or score > preferred_score:
+                preferred_score = score
+                preferred_index = self.table_combo.count() - 1
+        if preferred_index >= 0:
+            self.table_combo.setCurrentIndex(preferred_index)
+        self.table_combo.setVisible(self.table_combo.count() > 0)
+        self.ok_button.setEnabled(self.table_combo.count() > 0)
+        self.metadata = read_gs2_container_metadata(self.source)
         member_lines = "\n".join(
             f"• {member.name} — {member.size:,} bytes"
             for member in manifest.data_members
         )
-        details.setPlainText(
-            self._t(
-                "gs2.valid",
-                metadata=manifest.metadata_member.name,
-                count=len(manifest.data_members),
-                tables=len(manifest.tables),
-                unpacked=f"{manifest.uncompressed_size:,}",
-                members=member_lines,
-            )
+        container_text = self._t(
+            "gs2.valid",
+            metadata=manifest.metadata_member.name,
+            count=len(manifest.data_members),
+            tables=len(manifest.tables),
+            unpacked=f"{manifest.uncompressed_size:,}",
+            members=member_lines,
         )
+        details.setPlainText(
+            f"{container_text}\n\n{self._metadata_summary(self.metadata)}"
+        )
+
+    def _metadata_summary(self, metadata: Gs2Metadata) -> str:
+        diagnostic = metadata.diagnostics[0] if metadata.diagnostics else None
+        values = {
+            "adapter": metadata.adapter or "—",
+            "tables": len(metadata.database_tables),
+            "channels": len(metadata.channels),
+            "formulas": len(metadata.formulas),
+            "reason": diagnostic.message if diagnostic is not None else "—",
+            "action": diagnostic.action if diagnostic is not None else "—",
+        }
+        key = {
+            Gs2MetadataState.LOADED: "gs2.metadata_loaded",
+            Gs2MetadataState.PARTIAL: "gs2.metadata_partial",
+            Gs2MetadataState.UNAVAILABLE: "gs2.metadata_unavailable",
+            Gs2MetadataState.FAILED: "gs2.metadata_failed",
+        }[metadata.state]
+        return self._t(key, **values)
 
     @property
     def selected_table_member(self) -> str | None:
+        members = self.selected_table_members
+        return members[0] if len(members) == 1 else None
+
+    @property
+    def selected_table_members(self) -> tuple[str, ...]:
         value = self.table_combo.currentData()
-        return str(value) if value else None
+        if isinstance(value, tuple) and all(
+            isinstance(item, str) for item in value
+        ):
+            return value
+        if isinstance(value, list) and all(
+            isinstance(item, str) for item in value
+        ):
+            return tuple(value)
+        return (str(value),) if value else ()
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)

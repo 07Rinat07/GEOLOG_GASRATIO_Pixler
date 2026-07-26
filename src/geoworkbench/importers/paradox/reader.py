@@ -36,6 +36,7 @@ def read_paradox(
     *,
     progress: Callable[[str, int, int], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
+    retain_temporal_raw: bool = True,
 ) -> ParadoxTable:
     source = Path(path).expanduser().resolve()
     probe = probe_db_format(source)
@@ -57,7 +58,15 @@ def read_paradox(
         raw_header = _read_exact(stream, header_size, 0)
         header, fields = _parse_header(raw_header)
         _notify(progress, "schema", 1, 1)
-        table = _read_records(stream, source, header, fields, progress, cancelled)
+        table = _read_records(
+            stream,
+            source,
+            header,
+            fields,
+            progress,
+            cancelled,
+            retain_temporal_raw=retain_temporal_raw,
+        )
     table.bundle = discover_bundle(source)
     return table
 
@@ -175,6 +184,8 @@ def _read_records(
     fields: tuple[ParadoxField, ...],
     progress: Callable[[str, int, int], None] | None,
     cancelled: Callable[[], bool] | None,
+    *,
+    retain_temporal_raw: bool,
 ) -> ParadoxTable:
     # Numeric channels are allocated once at the declared record count. This
     # avoids a Python-object list plus a second full NumPy copy for large GTI
@@ -200,7 +211,7 @@ def _read_records(
     temporal_raw: dict[str, np.ndarray] = {
         field.name: np.full(header.record_count, None, dtype=object)
         for field in fields
-        if field.type_code in temporal_types
+        if retain_temporal_raw and field.type_code in temporal_types
     }
     issues: list[ParadoxIssue] = []
     block_number = header.first_block

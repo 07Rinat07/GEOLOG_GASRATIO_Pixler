@@ -46,9 +46,44 @@ The Access adapter must be replaceable. The primary Windows implementation may u
 Access Database Engine/ODBC, while missing-driver and bitness mismatch cases must produce
 actionable diagnostics rather than a generic import failure.
 
-Multipart time tables must be ordered using decoded TIME bounds and metadata; filenames alone are
-insufficient evidence. `GS2.mdb` remains necessary for authoritative channel names, units, and
-relationships, but is no longer a blocker for importing a selected table.
+Multipart tables are offered as one series only when the base part and every contiguous suffix
+exist, all field names/types/sizes match, and a TIME field is present. Individual fragments of a
+valid group are hidden from normal selection, preventing an accidental partial import. The merger
+normalizes supported TIME representations to seconds for validation, rejects non-monotonic parts
+and overlaps, reports large inter-part gaps as QC warnings, checks decoded-memory limits,
+preallocates the final arrays once, and preserves monotonic progress/cancellation during both
+extraction and reading. The СГ-8 series combines five parts into 4,338,103 rows.
+
+## Access metadata implemented
+
+The importer extracts only `GS2.mdb` into an automatically removed directory and opens that copy
+read-only through the PySide6 Qt SQL ODBC adapter. Microsoft Access Database Engine must match the
+application bitness. Missing QODBC/ACE, a bitness mismatch, and open failures are warnings with a
+specific remedy; they never block a valid Paradox table.
+
+For the supplied СГ-8 container, the database is a 10,670,080-byte Jet 4 database with 103 user
+tables. The implemented projection reads `WELLS`, `FORMULAS`, `LOGGINGSERVICE`, explicit
+channel-like tables when present, and inventories all table names:
+
+- `WELLS` identifies well 224, СГ-8, Kazakhstan, the Karaton field and Karaton Subsalt area;
+- `Гелиос` is `STATIONMODEL`, not a company;
+- `FORMULAS` has 24 rows, including 17 rows with `RESGID`;
+- the proven relation is `FORMULAS.RESGID=N -> Paradox field SN`;
+- 13 such formula outputs exist in `GS2#101.db`, including `S1009`, `S204`, `S820`, `S1004`,
+  `S1015`–`S1017`, and `S600`.
+
+This particular MDB contains neither channel-unit columns nor formal Access relationships linking
+rows to `GS2#*.db`. `RESGID` is a channel identifier and must not be treated as the number in
+`GS2#101`. Formula rows without `RESGID` are not guessed. Confirmed formula names are combined
+with the existing Sensors `legacy_gid` catalog for canonical mnemonics and units; unresolved
+`Sxxx` and `SBxxxx` fields remain unchanged. Applied Access relations are retained in curve
+semantic evidence/provenance, while the well passport, formula snapshot, channel relations, and
+driver diagnostics are stored in `Dataset.parameters`.
+
+The main `GS2#1…GS2#1_4` TIME series has no direct output-name relation in `FORMULAS`, so its
+eight S-codes use Sensors where a deterministic legacy mapping exists and otherwise remain raw.
+Supporting another GeoScape Access schema requires a new projection, not changes to the container
+or Paradox readers.
 
 ## Index and resampling invariant
 
@@ -60,4 +95,6 @@ to the 0.2 m project grid is a separate derived operation and never mutates the 
 
 GS2 support is complete when tests reproduce the reference index and selected channels from at
 least three representative containers, including the СГ-8 sample, and cover multipart arrays,
-NULL, cancellation, corruption, cleanup, C1–C5, total gas, and LAS export.
+NULL, cancellation, corruption, cleanup, C1–C5, total gas, and LAS export. The remaining acceptance
+work is versioned/golden Access fixtures and comparison with authoritative GeoScape LAS/Excel
+exports; the СГ-8 MDB cannot supply units that it does not contain.
