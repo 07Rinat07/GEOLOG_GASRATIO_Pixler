@@ -1943,7 +1943,7 @@
   "wits0.select_raw_directory": "WITS0 raw-деректері үшін қалтаны таңдаңыз",
   "wits0.profile": "Профиль",
   "wits0.profile_value": "{title}; жазбалар: {records}",
-  "wits0.capture_only_warning": "Бұл кезең WITS0 ағынын тек қабылдап, өзгеріссіз сақтайды. Деректер әзірше Dataset-ке қосылмайды және дабылдар үшін қолданылмайды.",
+  "wits0.capture_only_warning": "Бастапқы ағын өзгеріссіз сақталады және таңдалған профильмен қатар талданады. Типтелген өрістер мен диагностика әзірше Dataset-ке жазылмайды және дабылдар үшін қолданылмайды.",
   "wits0.status_group": "Қабылдау күйі",
   "wits0.state": "Күйі",
   "wits0.peer": "Қашықтағы тарап",
@@ -1965,5 +1965,13 @@
   "wits0.state_connected": "Қосылды",
   "wits0.state_retry_wait": "Қайта қосылу күтілуде",
   "wits0.state_stopping": "Тоқтатылуда",
-  "wits0.state_failed": "Қате"
+  "wits0.state_failed": "Қате",
+  "wits0.parsed_tab": "Талданған өрістер",
+  "wits0.parsed_fields": "Талданған өрістер",
+  "wits0.parser_warnings": "Парсер ескертулері",
+  "wits0.parser_errors": "Парсер қателері",
+  "wits0.sequence_anomalies": "Реттілік ауытқулары",
+  "wits0.last_sequence": "Соңғы реттілік",
+  "wits0.parsed_frame_header": "Жазба {record}; sequence {sequence}; күйі {status}; өрістер {fields}",
+  "wits0.parsed_diagnostics": "Диагностика:"
 }

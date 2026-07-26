@@ -51,6 +51,8 @@ Exit: the same channel is found consistently across vendors; every correction is
 5. [complete in 0.7.73] WITS0 TCP server/client raw capture, reconnect, `&& ... !!` framing,
    append-only segments, UTC chunk index, replay iterator, modeless monitor, and a strict
    GeoScape GSWITS profile schema v1.
+5a. [complete in 0.7.74] Typed WITS0 parser, structured diagnostics, per-record sequence tracking, and identical live/replay processing.
+
 6. WITS0 parser, unknown-field diagnostics, Import Review, immutable acquisition schema, and
    live Dataset commit.
 7. Live current-values/time/depth UI, quality/gap markers, disk-spool and restart recovery.

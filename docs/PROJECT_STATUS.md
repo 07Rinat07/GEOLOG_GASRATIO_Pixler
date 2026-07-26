@@ -2,38 +2,43 @@
 
 ## В разработке: WITS0 real-time integration
 
-Первый raw-capture boundary реализован: TCP server/client, client reconnect, incremental
-`&& ... !!` decoder, append-only `*.wits`, UTC chunk-index `*.chunks.jsonl`, replay iterator,
-modeless monitor и встроенный GeoScape GSWITS profile schema v1 на 11 records/105 fields.
-Следующий срез — parser, unknown-field diagnostics, Import Review и commit в append-only
-`AcquisitionSession`. Реальная совместимость профиля остаётся неподтверждённой до получения
-raw-дампа конкретного комплекса.
+Raw-capture boundary и типизированный parser реализованы: TCP server/client, reconnect,
+`&& ... !!` framing, append-only `*.wits`, UTC chunk-index, единый live/replay
+`Wits0StreamProcessor`, immutable parsed fields, diagnostics и sequence tracking по record.
+Следующий срез — Import Review и append-only AcquisitionSession; mapping нужно подтвердить
+реальным raw-дампом.
 
 ## В разработке: офлайн-инвентарь WITSML 2.x
 
 Добавлен безопасный read-only просмотр отдельных XML/WITSML-файлов, каталогов и ZIP/EPC-пакетов.
-Интерфейс показывает top-level объекты, `schemaVersion`, UUID, ссылки, а для `Channel` —
-мнемонику, тип данных, единицу, источник, класс, индексы и диапазон. Архивы не извлекаются на
-диск; traversal, DTD/entity, шифрование, дубликаты путей и ресурсные превышения отклоняются.
-Текущий срез не создаёт `Dataset`, не читает channel arrays и не подключается по ETP.
+Диалог показывает top-level объекты, `schemaVersion`, UUID, ссылки, а для `Channel` — мнемонику,
+тип данных, единицу, источник, класс, индексы и диапазон. Архивы не извлекаются на диск;
+traversal, DTD/entity, шифрование, дубликаты путей и ресурсные превышения отклоняются. Этот срез
+не создаёт `Dataset`, не читает channel arrays и не подключается по ETP.
 
 ## В разработке: GeoScape II GS2
 
-Готов безопасный контейнерный фундамент и импорт выбранной внутренней таблицы через существующий
-Paradox reader, Import Review и `Dataset`. На образце СГ-8 подтверждены 13 таблиц Paradox 7.x;
+Добавлены безопасная проверка контейнера, выбор внутренней таблицы и её импорт через существующий
+Paradox reader, Import Review и `Dataset`. На образце СГ-8 распознаны 13 таблиц Paradox 7.x;
 `GS2#101.db` содержит TIME, DEPTH и 206 каналов на сетке 0,2 м. Пять частей `GS2#1…GS2#1_4`
-объединяются в одну проверенную TIME-серию из 4 338 103 строк. Добавлен read-only Qt ODBC/ACE
-адаптер `GS2.mdb` с диагностикой драйвера: он извлекает паспорт СГ-8 и подтверждённые связи
-`FORMULAS.RESGID → S-код`, дополняет их Sensors и сохраняет аудит в `Dataset`. В реальном MDB
-нет единиц и формальных связей с массивами, поэтому неоднозначные каналы остаются исходными.
+автоматически объединяются в проверенную TIME-серию из 4 338 103 строк. `GS2.mdb` читается через
+read-only Qt ODBC/ACE: импорт получает `WELLS`, формулы `RESGID → S-код`, Sensors fallback и
+аудит. Отсутствие драйвера не блокирует импорт и сопровождается конкретной диагностикой.
+
+
+## Завершено в 0.7.74
+
+Добавлены типизированный WITS0 parser, immutable parsed models, diagnostics и sequence tracking
+по каждому record. Live TCP и replay используют один pipeline; окно захвата показывает parsed
+fields и anomalies. Dataset commit остаётся следующим этапом.
+
+Срез: 27 июля 2026 года. Версия пакета: **0.7.74**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Завершено в 0.7.73
 
-Добавлен Qt-независимый WITS0 source adapter и модельное окно **«Захват WITS Level 0»**.
-Сетевой worker не блокирует GUI; raw bytes сохраняются раньше framing, а заполнение UI event
-queue не приводит к потере raw. TCP chunks индексируются по UTC/offset/size, frame decoder
-одинаково используется для live и replay. Встроенный GeoScape-профиль строго валидируется, но
-ещё не создаёт Dataset.
+Добавлены Qt-независимый WITS0 source adapter и окно **«Захват WITS Level 0»**. Сетевой worker
+не блокирует GUI; raw bytes сохраняются раньше framing, а UI queue не влияет на raw. TCP chunks
+индексируются по UTC/offset/size, live и replay используют один decoder. Dataset ещё не создаётся.
 
 Срез: 27 июля 2026 года. Версия пакета: **0.7.73**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
@@ -50,10 +55,7 @@ external-monitor/HiDPI/physical-print приёмка остаётся откры
 
 ## Завершено в 0.7.71
 
-- обе верхние панели жёстко ограничены шириной окна и не увеличивают минимальную ширину интерфейса;
-- пересчёт выполняется после F4, изменения команд, DPI и смены монитора;
-- значки справочника реально сужаются до 1×1 логического пикселя на экране и при печати;
-- обычные аннотации сохраняют безопасный минимум 40×24 px.
+Обе верхние панели жёстко ограничены шириной окна и повторно адаптируются после F4, изменения команд, DPI и смены монитора. Значки справочника реально сужаются до 1×1 логического пикселя; обычные аннотации сохраняют минимум 40×24 px.
 
 Срез: 25 июля 2026 года. Версия пакета: **0.7.71**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 

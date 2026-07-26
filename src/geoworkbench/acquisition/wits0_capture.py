@@ -14,7 +14,18 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Deque
 
-from geoworkbench.acquisition.wits0 import Wits0FrameDecoder, Wits0FrameTooLargeError
+from geoworkbench.acquisition.wits0 import (
+    Wits0FrameTooLargeError,
+    Wits0Profile,
+    load_builtin_wits0_profile,
+)
+from geoworkbench.acquisition.wits0_parser import (
+    Wits0DiagnosticCode,
+    Wits0DiagnosticSeverity,
+    Wits0ParsedFrame,
+    Wits0SequenceStatus,
+    Wits0StreamProcessor,
+)
 
 
 class Wits0ConnectionMode(StrEnum):
@@ -38,6 +49,7 @@ class Wits0CaptureEventKind(StrEnum):
     CONNECTION = "connection"
     DISCONNECTION = "disconnection"
     FRAME = "frame"
+    DIAGNOSTIC = "diagnostic"
     RAW_SEGMENT = "raw_segment"
     WARNING = "warning"
     ERROR = "error"
@@ -98,6 +110,7 @@ class Wits0CaptureEvent:
     state: Wits0CaptureState | None = None
     peer: str | None = None
     frame: bytes | None = None
+    parsed_frame: Wits0ParsedFrame | None = None
     raw_file: str | None = None
 
 
@@ -110,6 +123,15 @@ class Wits0CaptureSnapshot:
     last_received_at: str | None = None
     bytes_received: int = 0
     frames_received: int = 0
+    parsed_fields: int = 0
+    parser_warnings: int = 0
+    parser_errors: int = 0
+    unknown_records: int = 0
+    unknown_fields: int = 0
+    sequence_gaps: int = 0
+    sequence_duplicates: int = 0
+    sequence_out_of_order: int = 0
+    last_sequence: str | None = None
     connections: int = 0
     disconnects: int = 0
     errors: int = 0
@@ -216,8 +238,18 @@ class Wits0CaptureEngine:
     widgets never touch a socket and the project model is not mutated by this first capture slice.
     """
 
-    def __init__(self, config: Wits0CaptureConfig) -> None:
+    def __init__(
+        self,
+        config: Wits0CaptureConfig,
+        *,
+        profile: Wits0Profile | None = None,
+    ) -> None:
         self.config = config
+        self.profile = profile or load_builtin_wits0_profile()
+        if self.profile.encoding.casefold() != config.encoding.casefold():
+            raise ValueError(
+                "WITS0 capture encoding must match the selected parser profile"
+            )
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._socket_lock = threading.Lock()
@@ -373,7 +405,10 @@ class Wits0CaptureEngine:
     def _capture_connection(self, connection: socket.socket, peer: str) -> None:
         connection.settimeout(self.config.socket_timeout_s)
         connection_id = uuid.uuid4().hex
-        decoder = Wits0FrameDecoder(max_frame_bytes=self.config.max_frame_bytes)
+        processor = Wits0StreamProcessor(
+            self.profile,
+            max_frame_bytes=self.config.max_frame_bytes,
+        )
         writer = Wits0RawCaptureWriter(
             self.config.raw_directory,
             source_name=self.config.source_name,
@@ -421,33 +456,34 @@ class Wits0CaptureEngine:
                 self._increment_snapshot(bytes_received=len(chunk))
                 self._set_snapshot_fields(last_received_at=received_at)
                 try:
-                    frames = decoder.append(chunk)
+                    frames = processor.append(
+                        chunk,
+                        received_at=received_at,
+                        source_ref=str(raw_file),
+                    )
                 except Wits0FrameTooLargeError as exc:
                     self._set_snapshot_fields(
-                        discarded_prefix_bytes=decoder.discarded_bytes,
+                        discarded_prefix_bytes=processor.discarded_bytes,
                     )
-                    decoder = Wits0FrameDecoder(max_frame_bytes=self.config.max_frame_bytes)
+                    processor = Wits0StreamProcessor(
+                        self.profile,
+                        max_frame_bytes=self.config.max_frame_bytes,
+                    )
                     self._record_warning(str(exc), peer=peer)
                     continue
-                for frame in frames:
-                    self._increment_snapshot(frames_received=1)
-                    self._emit(
-                        Wits0CaptureEvent(
-                            kind=Wits0CaptureEventKind.FRAME,
-                            occurred_at=received_at,
-                            message="WITS0 frame received",
-                            peer=peer,
-                            frame=frame,
-                            raw_file=str(raw_file),
-                        )
+                for parsed_frame in frames:
+                    self._record_parsed_frame(
+                        parsed_frame,
+                        peer=peer,
+                        raw_file=raw_file,
                     )
                 with self._snapshot_lock:
                     self._snapshot = replace(
                         self._snapshot,
-                        discarded_prefix_bytes=decoder.discarded_bytes,
+                        discarded_prefix_bytes=processor.discarded_bytes,
                     )
         finally:
-            pending = decoder.reset()
+            pending = processor.reset()
             if pending:
                 self._record_warning(
                     f"Connection ended with {len(pending)} incomplete WITS0 bytes",
@@ -466,6 +502,66 @@ class Wits0CaptureEngine:
                     occurred_at=_utc_now(),
                     message="WITS0 TCP connection closed",
                     peer=peer,
+                )
+            )
+
+    def _record_parsed_frame(
+        self,
+        parsed_frame: Wits0ParsedFrame,
+        *,
+        peer: str,
+        raw_file: Path,
+    ) -> None:
+        increments = {
+            "frames_received": 1,
+            "parsed_fields": len(parsed_frame.fields),
+            "parser_warnings": parsed_frame.warning_count,
+            "parser_errors": parsed_frame.error_count,
+            "unknown_records": parsed_frame.unknown_record_count,
+            "unknown_fields": parsed_frame.unknown_field_count,
+            "sequence_gaps": int(
+                parsed_frame.sequence_status is Wits0SequenceStatus.GAP
+            ),
+            "sequence_duplicates": int(
+                parsed_frame.sequence_status is Wits0SequenceStatus.DUPLICATE
+            ),
+            "sequence_out_of_order": int(
+                parsed_frame.sequence_status is Wits0SequenceStatus.OUT_OF_ORDER
+            ),
+        }
+        self._increment_snapshot(**increments)
+        if parsed_frame.record_no is not None and parsed_frame.sequence_no is not None:
+            self._set_snapshot_fields(
+                last_sequence=(
+                    f"{parsed_frame.record_no:02d}:{parsed_frame.sequence_no}"
+                )
+            )
+        self._emit(
+            Wits0CaptureEvent(
+                kind=Wits0CaptureEventKind.FRAME,
+                occurred_at=parsed_frame.received_at or _utc_now(),
+                message=(
+                    f"WITS0 record {parsed_frame.record_no:02d} parsed"
+                    if parsed_frame.record_no is not None
+                    else "WITS0 mixed/unknown frame parsed"
+                ),
+                peer=peer,
+                frame=parsed_frame.raw_frame,
+                parsed_frame=parsed_frame,
+                raw_file=str(raw_file),
+            )
+        )
+        for diagnostic in parsed_frame.diagnostics:
+            if diagnostic.severity is Wits0DiagnosticSeverity.INFO:
+                continue
+            self._emit(
+                Wits0CaptureEvent(
+                    kind=Wits0CaptureEventKind.DIAGNOSTIC,
+                    occurred_at=parsed_frame.received_at or _utc_now(),
+                    message=f"{diagnostic.code.value}: {diagnostic.message}",
+                    peer=peer,
+                    parsed_frame=parsed_frame,
+                    raw_file=str(raw_file),
                 )
             )
 

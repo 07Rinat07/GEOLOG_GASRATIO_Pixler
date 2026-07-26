@@ -29,6 +29,7 @@ from geoworkbench.acquisition import (
     Wits0CaptureEventKind,
     Wits0CaptureState,
     Wits0ConnectionMode,
+    Wits0ParsedFrame,
     load_builtin_wits0_profile,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -63,10 +64,14 @@ class Wits0CaptureDialog(QDialog):
         self.raw_text = QPlainTextEdit(self)
         self.raw_text.setReadOnly(True)
         self.raw_text.document().setMaximumBlockCount(4_000)
+        self.parsed_text = QPlainTextEdit(self)
+        self.parsed_text.setReadOnly(True)
+        self.parsed_text.document().setMaximumBlockCount(8_000)
         self.event_text = QPlainTextEdit(self)
         self.event_text.setReadOnly(True)
-        self.event_text.document().setMaximumBlockCount(2_000)
+        self.event_text.document().setMaximumBlockCount(4_000)
         self.tabs.addTab(self.raw_text, self._t("wits0.raw_tab"))
+        self.tabs.addTab(self.parsed_text, self._t("wits0.parsed_tab"))
         self.tabs.addTab(self.event_text, self._t("wits0.events_tab"))
         root.addWidget(self.tabs, 1)
 
@@ -164,6 +169,11 @@ class Wits0CaptureDialog(QDialog):
         self.raw_file_value = QLabel("—", group)
         self.bytes_value = QLabel("0", group)
         self.frames_value = QLabel("0", group)
+        self.parsed_fields_value = QLabel("0", group)
+        self.parser_warnings_value = QLabel("0", group)
+        self.parser_errors_value = QLabel("0", group)
+        self.sequence_anomalies_value = QLabel("0", group)
+        self.last_sequence_value = QLabel("—", group)
         self.errors_value = QLabel("0", group)
         self.last_received_value = QLabel("—", group)
 
@@ -173,6 +183,11 @@ class Wits0CaptureDialog(QDialog):
             ("wits0.raw_file", self.raw_file_value),
             ("wits0.bytes", self.bytes_value),
             ("wits0.frames", self.frames_value),
+            ("wits0.parsed_fields", self.parsed_fields_value),
+            ("wits0.parser_warnings", self.parser_warnings_value),
+            ("wits0.parser_errors", self.parser_errors_value),
+            ("wits0.sequence_anomalies", self.sequence_anomalies_value),
+            ("wits0.last_sequence", self.last_sequence_value),
             ("wits0.errors", self.errors_value),
             ("wits0.last_received", self.last_received_value),
         )
@@ -199,7 +214,7 @@ class Wits0CaptureDialog(QDialog):
             QMessageBox.critical(self, self._t("wits0.title"), str(exc))
             return
         self._save_settings(config)
-        engine = Wits0CaptureEngine(config)
+        engine = Wits0CaptureEngine(config, profile=self.profile)
         try:
             engine.start()
         except RuntimeError as exc:
@@ -246,6 +261,10 @@ class Wits0CaptureDialog(QDialog):
             if event.kind is Wits0CaptureEventKind.FRAME and event.frame is not None:
                 text = event.frame.decode(engine.config.encoding, errors="replace")
                 self.raw_text.appendPlainText(text)
+                if event.parsed_frame is not None:
+                    self.parsed_text.appendPlainText(
+                        self._format_parsed_frame(event.parsed_frame)
+                    )
                 continue
             detail = event.message
             if event.peer:
@@ -264,6 +283,11 @@ class Wits0CaptureDialog(QDialog):
             self.raw_file_value.setText("—")
             self.bytes_value.setText("0")
             self.frames_value.setText("0")
+            self.parsed_fields_value.setText("0")
+            self.parser_warnings_value.setText("0")
+            self.parser_errors_value.setText("0")
+            self.sequence_anomalies_value.setText("0")
+            self.last_sequence_value.setText("—")
             self.errors_value.setText("0")
             self.last_received_value.setText("—")
         else:
@@ -273,9 +297,49 @@ class Wits0CaptureDialog(QDialog):
             self.raw_file_value.setToolTip(snapshot.current_raw_file or "")
             self.bytes_value.setText(f"{snapshot.bytes_received:,}".replace(",", " "))
             self.frames_value.setText(str(snapshot.frames_received))
+            self.parsed_fields_value.setText(str(snapshot.parsed_fields))
+            self.parser_warnings_value.setText(str(snapshot.parser_warnings))
+            self.parser_errors_value.setText(str(snapshot.parser_errors))
+            sequence_anomalies = (
+                snapshot.sequence_gaps
+                + snapshot.sequence_duplicates
+                + snapshot.sequence_out_of_order
+            )
+            self.sequence_anomalies_value.setText(str(sequence_anomalies))
+            self.last_sequence_value.setText(snapshot.last_sequence or "—")
             self.errors_value.setText(str(snapshot.errors))
             self.last_received_value.setText(snapshot.last_received_at or "—")
         self.state_value.setText(self._t(f"wits0.state_{state.value}"))
+
+    def _format_parsed_frame(self, frame: Wits0ParsedFrame) -> str:
+        record = f"{frame.record_no:02d}" if frame.record_no is not None else "—"
+        sequence = str(frame.sequence_no) if frame.sequence_no is not None else "—"
+        lines = [
+            self._t(
+                "wits0.parsed_frame_header",
+                record=record,
+                sequence=sequence,
+                status=frame.sequence_status.value,
+                fields=len(frame.fields),
+            )
+        ]
+        for field in frame.fields:
+            value = "—" if field.value is None else str(field.value)
+            mnemonic = field.canonical_mnemonic or "UNKNOWN"
+            unit = f" {field.source_unit}" if field.source_unit else ""
+            marker = " !" if field.has_error else ""
+            lines.append(
+                f"{field.record_no:02d}{field.item_no:02d}  "
+                f"{mnemonic:<28} = {value}{unit}{marker}"
+            )
+        if frame.diagnostics:
+            lines.append(self._t("wits0.parsed_diagnostics"))
+            lines.extend(
+                f"  [{item.severity.value}] {item.code.value}: {item.message}"
+                for item in frame.diagnostics
+            )
+        lines.append("")
+        return "\n".join(lines)
 
     def _refresh_controls(self) -> None:
         running = self.engine is not None and self.engine.is_running

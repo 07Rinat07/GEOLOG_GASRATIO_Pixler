@@ -1,45 +1,90 @@
-# WITS Level 0 capture
+# WITS Level 0 capture and parsing
 
 ## Purpose
 
-**File → Capture WITS Level 0...** receives a GSWITS TCP stream and preserves the original bytes
-unchanged. This slice is a safe raw-capture boundary: it does not yet commit values to a Dataset or
-execute alarms.
+**File → Capture WITS Level 0...** receives a GSWITS TCP stream, preserves the incoming bytes
+unchanged, and passes every complete frame through a typed parser. Version 0.7.74 does not commit
+values to a Dataset or run alarms: the raw boundary, parser, and diagnostics remain separate from
+project mutation.
 
 ## TCP server setup
 
-Use this mode when GSWITS is configured as an **Outgoing connection (TCP client)**.
+Use this mode when GSWITS is configured as an **outgoing connection (TCP client)**.
 
-1. Select **Incoming connection - TCP server**.
-2. Use `0.0.0.0` to listen on all local interfaces, or enter one interface address.
-3. Enter the same port used by GSWITS.
+1. Select **Incoming connection — TCP server**.
+2. Use `0.0.0.0` for all local interfaces or a specific local IP.
+3. Enter the same port to which GSWITS connects.
 4. Select the raw-data directory and press **Start capture**.
-5. Save the GSWITS network settings and verify its connected indicator.
+5. Save the GSWITS settings and verify the connection state.
 
 ## TCP client setup
 
-Use this mode when GSWITS is configured as an **Incoming connection (TCP server)**.
+Use this mode when GSWITS is configured as an **incoming connection (TCP server)**.
 
-1. Select **Outgoing connection - TCP client**.
-2. Enter the GSWITS computer address and port.
+1. Select **Outgoing connection — TCP client**.
+2. Enter the GSWITS computer IP and port.
 3. Press **Start capture**.
-4. Pixler retries automatically after a disconnect with a bounded increasing delay.
+4. After a disconnect, Pixler retries with bounded increasing delay.
 
-## Stored data
+## Preserved data
 
-Each connection receives a separate directory. Binary `*.wits` files contain the exact incoming
-bytes; `*.chunks.jsonl` files record the UTC arrival time, offset, and size of each TCP chunk.
-Segments are never overwritten and can be used for deterministic replay.
+Every connection gets a separate directory. `*.wits` files contain the exact incoming bytes, while
+`*.chunks.jsonl` records UTC arrival time, offset, TCP chunk size, and connection ID. Segments are
+append-only and suitable for deterministic replay.
 
-## Verification
+## Parser pipeline
 
-**Latest frames** shows frames delimited by `&&` and `!!`. **Connections and errors** shows
-connections, disconnects, raw-segment creation, and failures. Closing the window stops the worker
-and closes its files.
+One `Wits0StreamProcessor` is used by live TCP and replay:
+
+```text
+TCP chunk / raw chunk
+        ↓
+Wits0FrameDecoder: && ... !!
+        ↓
+Wits0Parser: record/item/raw value
+        ↓
+profile-driven typing
+        ↓
+Wits0SequenceTracker
+        ↓
+immutable Wits0ParsedFrame + diagnostics
+```
+
+The parser supports `float`, `integer`, `text`, `date`, and `time`. Standard header items 01–07
+cover the record identifier, sequence number, well, wellbore, date, time, and activity code. Items
+08–99 are resolved through `geoscape-gswits.json`.
+
+A malformed line does not reject the whole frame. Its original line, raw value, unknown
+`record/item`, and conversion error remain available for the future Import Review workflow.
+
+## Sequence-number control
+
+Sequence numbers are tracked independently for each record number. States are:
+
+- `first` — the first sequence for that record;
+- `contiguous` — the expected next value;
+- `duplicate` — a repeated last sequence;
+- `gap` — one or more values are missing;
+- `out_of_order` — an older value arrived;
+- `invalid` or `unavailable` — item 02 is malformed or absent.
+
+A reconnect creates a new stream processor, so sequence state is not carried across different TCP
+connections. A raw file can be processed again by the same pipeline.
+
+## Monitor window
+
+- **Latest frames** shows original `&& ... !!` frames.
+- **Parsed fields** shows record, sequence status, mnemonic, typed value, unit, and diagnostics.
+- **Connections and errors** shows connections, disconnects, raw segments, parser warnings, and
+  errors.
+- The status panel counts fields, parser warnings/errors, and sequence anomalies.
+
+Closing the window stops the worker and closes files.
 
 ## Limitations
 
-- the built-in GeoScape profile is based on the GSWITS manual and must be confirmed with real raw data;
-- unknown fields are not interpreted in this slice;
-- do not expose a WITS0 port directly to the Internet;
-- raw files do not replace project saving with **Ctrl+S** and remain independent files after reopen.
+- the GeoScape profile is based on the GSWITS manual and must be confirmed against a real stream;
+- unknown fields are preserved but are not yet editable through Import Review;
+- the parser does not convert units or create an `AcquisitionSession`;
+- do not expose the WITS0 port directly to the internet;
+- raw files do not replace project saving with **Ctrl+S**.

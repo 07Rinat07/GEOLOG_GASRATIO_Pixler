@@ -66,7 +66,7 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 
 Пока не реализованы channel arrays, mapping в Dataset, SOAP и ETP.
 
-### 3.3. WITS0 capture — первый срез 0.7.73
+### 3.3. WITS0 capture и parser — срезы 0.7.73–0.7.74
 
 Реализованы:
 
@@ -78,10 +78,17 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 - JSONL sidecar с UTC-временем получения, offset и размером каждого TCP chunk;
 - отдельный worker thread, не блокирующий Qt GUI;
 - modeless окно состояния, raw-пакетов и ошибок;
-- replay raw-файла через тот же frame decoder;
-- встроенный профиль GeoScape GSWITS schema v1: 11 записей и 105 полей.
+- replay raw-файла через тот же `Wits0StreamProcessor`;
+- встроенный профиль GeoScape GSWITS: 11 записей и 105 vendor fields;
+- immutable `Wits0ParsedFrame` и `Wits0ParsedField`;
+- типы `float`, `integer`, `text`, `date`, `time`;
+- сохранение исходной строки и raw reference;
+- диагностика unknown record/item, duplicate field, invalid line/value и NaN/Inf;
+- sequence tracking отдельно по каждому record: first/contiguous/duplicate/gap/out-of-order;
+- один framing/parsing/sequence pipeline для live TCP и replay;
+- вкладка разобранных полей и parser counters в modeless monitor.
 
-Данный срез намеренно не создаёт Dataset и не интерпретирует значения.
+Срез 0.7.74 намеренно не выполняет UOM conversion, Import Review и Dataset commit.
 
 ## 4. Целевая архитектура
 
@@ -221,16 +228,22 @@ Wits0Frame
 - [ ] подтвердить кодировку и line endings;
 - [ ] проверить длительную запись и ротацию файлов на Windows.
 
-### Этап B — WITS0 parser and diagnostics — следующий
+### Этап B — WITS0 parser and diagnostics — реализован в 0.7.74
 
-- [ ] parse record/item/value без зависимости от GUI;
-- [ ] сохранить исходную строку и raw reference;
-- [ ] поддержать отсутствие пробела между ID и значением;
-- [ ] определить пакет с одной или несколькими records;
-- [ ] фиксировать unknown records/items;
-- [ ] валидировать число, NaN/Inf, date/time и пустое значение;
-- [ ] добавить deterministic parser fixtures из synthetic и real anonymized raw;
-- [ ] сравнить live и replay parser output byte-for-byte.
+- [x] parse record/item/value без зависимости от GUI;
+- [x] сохранить исходную строку и raw reference;
+- [x] поддержать отсутствие пробела между ID и значением;
+- [x] определить single-record и mixed-record frames;
+- [x] фиксировать unknown records/items и duplicate fields;
+- [x] типизировать float/integer/text/date/time;
+- [x] валидировать пустое значение, malformed number и NaN/Inf;
+- [x] контролировать sequence number отдельно по каждому record;
+- [x] диагностировать duplicate/gap/out-of-order/missing/invalid sequence;
+- [x] использовать один `Wits0StreamProcessor` для live и replay;
+- [x] доказать равенство live/replay output тестами с разными chunk boundaries;
+- [x] показать разобранные поля и diagnostics в окне захвата.
+
+Полевая приёмка parser остаётся открытой до получения реального anonymized raw-потока.
 
 ### Этап C — Import Review and schema creation
 
@@ -270,8 +283,8 @@ Wits0Frame
 - [ ] disk free-space checks;
 - [ ] configurable raw retention and rotation;
 - [ ] disk spool when Dataset commit is unavailable;
-- [ ] duplicate and out-of-order detection;
-- [ ] sequence-gap detection when vendor sequence is known;
+- [x] parser-level duplicate and out-of-order sequence detection;
+- [x] parser-level sequence-gap detection for item 02;
 - [ ] restart recovery for incomplete sessions;
 - [ ] long-running soak test;
 - [ ] Windows startup/service strategy evaluated separately;

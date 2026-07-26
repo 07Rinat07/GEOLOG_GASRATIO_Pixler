@@ -1943,7 +1943,7 @@
   "wits0.select_raw_directory": "Select a directory for WITS0 raw data",
   "wits0.profile": "Profile",
   "wits0.profile_value": "{title}; records: {records}",
-  "wits0.capture_only_warning": "This slice only receives and preserves WITS0 unchanged. Data is not yet committed to a Dataset or used for alarms.",
+  "wits0.capture_only_warning": "The raw stream is preserved unchanged and parsed by the selected profile at the same time. Typed fields and diagnostics are not yet committed to a Dataset or used for alarms.",
   "wits0.status_group": "Capture status",
   "wits0.state": "State",
   "wits0.peer": "Remote peer",
@@ -1965,5 +1965,13 @@
   "wits0.state_connected": "Connected",
   "wits0.state_retry_wait": "Waiting to reconnect",
   "wits0.state_stopping": "Stopping",
-  "wits0.state_failed": "Failed"
+  "wits0.state_failed": "Failed",
+  "wits0.parsed_tab": "Parsed fields",
+  "wits0.parsed_fields": "Parsed fields",
+  "wits0.parser_warnings": "Parser warnings",
+  "wits0.parser_errors": "Parser errors",
+  "wits0.sequence_anomalies": "Sequence anomalies",
+  "wits0.last_sequence": "Last sequence",
+  "wits0.parsed_frame_header": "Record {record}; sequence {sequence}; status {status}; fields {fields}",
+  "wits0.parsed_diagnostics": "Diagnostics:"
 }

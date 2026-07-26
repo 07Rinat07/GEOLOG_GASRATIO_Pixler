@@ -1,7 +1,7 @@
 # Мүмкіндіктер мен нұсқаулықтар
 
 
-## WITS Level 0 raw-қабылдау — 0.7.73
+## WITS Level 0 raw-қабылдау және parser — 0.7.74
 
 **Файл → WITS Level 0 қабылдау...** TCP server/client режимдерін, append-only raw-сегменттерді, UTC chunk index, incremental `&& ... !!` framing және клиенттің автоматты қайта қосылуын қолдайды. Socket жұмысы Qt ағынын бұғаттамайды. Мәндер әзірше Dataset-ке жазылмайды. Толығырақ: [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
 

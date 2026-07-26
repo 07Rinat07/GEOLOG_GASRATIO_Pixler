@@ -2,10 +2,10 @@
 
 ## В разработке: WITS0 real-time integration
 
-Реализован первый raw-capture boundary: TCP server/client, client reconnect, incremental
-`&& ... !!` decoder, append-only `*.wits`, UTC chunk-index `*.chunks.jsonl`, replay және
-modeless monitor. Встроенный GeoScape GSWITS profile schema v1 содержит 11 records и 105 fields.
-Следующий срез — parser, Import Review и append-only AcquisitionSession; mapping нужно подтвердить
+Raw-capture boundary и типизированный parser реализованы: TCP server/client, reconnect,
+`&& ... !!` framing, append-only `*.wits`, UTC chunk-index, единый live/replay
+`Wits0StreamProcessor`, immutable parsed fields, diagnostics и sequence tracking по record.
+Следующий срез — Import Review и append-only AcquisitionSession; mapping нужно подтвердить
 реальным raw-дампом.
 
 ## В разработке: офлайн-инвентарь WITSML 2.x
@@ -25,6 +25,14 @@ Paradox reader, Import Review и `Dataset`. На образце СГ-8 расп�
 read-only Qt ODBC/ACE: импорт получает `WELLS`, формулы `RESGID → S-код`, Sensors fallback и
 аудит. Отсутствие драйвера не блокирует импорт и сопровождается конкретной диагностикой.
 
+
+## Завершено в 0.7.74
+
+Добавлены типизированный WITS0 parser, immutable parsed models, diagnostics и sequence tracking
+по каждому record. Live TCP и replay используют один pipeline; окно захвата показывает parsed
+fields и anomalies. Dataset commit остаётся следующим этапом.
+
+Срез: 27 июля 2026 года. Версия пакета: **0.7.74**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Завершено в 0.7.73
 

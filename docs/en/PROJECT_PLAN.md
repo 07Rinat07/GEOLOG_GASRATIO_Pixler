@@ -1,22 +1,21 @@
 # Project plan
 
-Current on 27 July 2026 after the 0.7.73 slice. This file contains unfinished work only; implemented increments belong in
+Current on 27 July 2026 after the 0.7.74 slice. This file contains unfinished work only; implemented increments belong in
 [project status](PROJECT_STATUS.md), the root [changelog](../CHANGELOG.md), and release notes.
 
 
-## Priority: WITS0 parser and live acquisition
+## Priority: WITS0 Import Review and live acquisition
 
-The first raw-capture slice is complete. Remaining work:
+Raw capture and the typed parser are complete. Remaining work:
 
 - [ ] obtain 5–10 minutes of real GSWITS raw data;
-- [ ] confirm TCP mode, address, port, encoding, and record intervals;
-- [ ] implement `frame → record/item/raw value` parsing;
-- [ ] compare live and replay output;
-- [ ] surface unknown fields and parse errors without losing raw data;
+- [ ] confirm TCP mode, address, port, encoding, header fields, and record intervals;
+- [ ] compare the built-in GeoScape profile with real record/item values;
 - [ ] add Import Review for channel/UOM/index mapping;
+- [ ] preserve versioned user profile overrides;
+- [ ] create an immutable AcquisitionDatasetSchema after mapping confirmation;
 - [ ] create an append-only AcquisitionSession and live time/depth graphs;
 - [ ] complete Windows reconnect/soak/restart validation.
-
 ## GeoScape II GS2 acceptance
 
 - [ ] add versioned projections and anonymized Access/Paradox fixtures from other GeoScape versions;

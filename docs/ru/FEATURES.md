@@ -1,9 +1,9 @@
 # Возможности и инструкции
 
 
-## WITS Level 0 raw-захват — 0.7.73
+## WITS Level 0 raw-захват и parser — 0.7.74
 
-Команда **Файл → Захват WITS Level 0...** поддерживает TCP server/client, append-only raw-сегменты, UTC chunk index, incremental `&& ... !!` framing и автоматическое переподключение клиента. Сетевой worker не блокирует Qt. Значения пока не добавляются в Dataset. Подробнее: [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
+Команда **Файл → Захват WITS Level 0...** поддерживает TCP server/client, append-only raw-сегменты, UTC chunk index, incremental `&& ... !!` framing и автоматическое переподключение клиента. Сетевой worker не блокирует Qt. Значения типизируются, диагностируются unknown fields и sequence anomalies; Dataset ещё не создаётся. Подробнее: [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
 
 ## Панели, физически ограниченные рабочей областью, и сверхтонкие значки — 0.7.72
 

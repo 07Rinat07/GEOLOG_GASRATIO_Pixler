@@ -293,3 +293,11 @@ rotating UTF-8 handler, faulthandler file, Python/thread exception hooks and pri
 bundle. Qt integration is installed in `app/main.py`; domain and service modules emit stable event
 names without depending on Qt. Diagnostic bundles include logs and runtime metadata only and never
 traverse project asset directories.
+
+## WITS0 typed parser boundary — 0.7.74
+
+`Wits0StreamProcessor` is the single byte-stream contract used by TCP capture and raw replay. It
+combines incremental `&& ... !!` framing, profile-driven typing, immutable parsed models,
+structured diagnostics, and per-record sequence tracking. Unknown or malformed fields remain in
+the parsed result with their original line and raw value. This layer does not mutate the project,
+convert UOM, or commit to `AcquisitionSession`; those responsibilities remain behind Import Review.

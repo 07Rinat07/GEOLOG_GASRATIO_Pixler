@@ -2,10 +2,10 @@
 
 ## Әзірленуде: WITS0 real-time integration
 
-Алғашқы raw-capture boundary іске асырылды: TCP server/client, client reconnect, incremental
-`&& ... !!` decoder, append-only `*.wits`, UTC `*.chunks.jsonl` index, replay және modeless
-monitor. Кіріктірілген GeoScape GSWITS profile schema v1 ішінде 11 records және 105 fields бар.
-Келесі кезең — parser, Import Review және append-only AcquisitionSession; mapping нақты raw арқылы
+Raw-capture boundary және типтелген parser дайын: TCP server/client, reconnect,
+`&& ... !!` framing, append-only `*.wits`, UTC chunk-index, бір live/replay
+`Wits0StreamProcessor`, immutable parsed fields, diagnostics және record бойынша sequence tracking.
+Келесі кезең — Import Review және append-only AcquisitionSession; mapping нақты raw арқылы
 расталуы тиіс.
 
 ## Әзірленуде: WITSML 2.x офлайн түгендеуі
@@ -26,6 +26,14 @@ Review және `Dataset` арқылы импорттау қосылды. СГ-8
 ODBC/ACE арқылы оқылады: `WELLS`, `FORMULAS.RESGID → S-код`, Sensors fallback және аудит
 қосылады. Драйвер жоқ болса да кесте импорты тоқтамайды және нақты диагностика көрсетіледі.
 
+
+## 0.7.74 нұсқасында аяқталды
+
+Типтелген WITS0 parser, immutable parsed models, diagnostics және әр record үшін sequence tracking
+қосылды. Live TCP және replay бір pipeline қолданады; қабылдау терезесі parsed fields және
+anomalies көрсетеді. Dataset commit келесі кезең болып қалады.
+
+Күй күні: 27 шілде 2026 жыл. Пакет нұсқасы: **0.7.74**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## 0.7.73 нұсқасында аяқталды
 

@@ -1943,7 +1943,7 @@
   "wits0.select_raw_directory": "Выберите каталог для WITS0 raw-данных",
   "wits0.profile": "Профиль",
   "wits0.profile_value": "{title}; записей: {records}",
-  "wits0.capture_only_warning": "Этот этап только принимает и без изменений сохраняет WITS0. Данные ещё не добавляются в Dataset и не используются для тревог.",
+  "wits0.capture_only_warning": "Raw-поток сохраняется без изменений и одновременно разбирается профилем. Типизированные поля и диагностика пока не добавляются в Dataset и не используются для тревог.",
   "wits0.status_group": "Состояние захвата",
   "wits0.state": "Состояние",
   "wits0.peer": "Удалённая сторона",
@@ -1965,5 +1965,13 @@
   "wits0.state_connected": "Подключено",
   "wits0.state_retry_wait": "Ожидание переподключения",
   "wits0.state_stopping": "Остановка",
-  "wits0.state_failed": "Ошибка"
+  "wits0.state_failed": "Ошибка",
+  "wits0.parsed_tab": "Разобранные поля",
+  "wits0.parsed_fields": "Разобрано полей",
+  "wits0.parser_warnings": "Предупреждений парсера",
+  "wits0.parser_errors": "Ошибок парсера",
+  "wits0.sequence_anomalies": "Аномалий последовательности",
+  "wits0.last_sequence": "Последняя последовательность",
+  "wits0.parsed_frame_header": "Запись {record}; sequence {sequence}; статус {status}; полей {fields}",
+  "wits0.parsed_diagnostics": "Диагностика:"
 }

@@ -158,14 +158,20 @@ def test_tcp_server_capture_writes_raw_stream_and_emits_complete_frames(
 
     snapshot = engine.snapshot()
     events = engine.drain_events(max_events=500)
-    frames = [item.frame for item in events if item.kind is Wits0CaptureEventKind.FRAME]
+    frame_events = [
+        item for item in events if item.kind is Wits0CaptureEventKind.FRAME
+    ]
+    frames = [item.frame for item in frame_events]
     raw_files = sorted(tmp_path.rglob("*.wits"))
 
     assert frames == [b"&&\r\n010812.3\r\n!!", b"&&0208100!!"]
+    assert all(item.parsed_frame is not None for item in frame_events)
     assert snapshot.connections == 1
     assert snapshot.disconnects == 1
     assert snapshot.bytes_received == len(b"garbage&&\r\n010812.3\r\n!!&&0208100!!")
     assert snapshot.discarded_prefix_bytes == len(b"garbage")
+    assert snapshot.parsed_fields == 2
+    assert snapshot.parser_warnings >= 2  # both minimal frames omit sequence field 02
     assert len(raw_files) == 1
     assert raw_files[0].read_bytes() == b"garbage&&\r\n010812.3\r\n!!&&0208100!!"
     assert raw_files[0].with_suffix(".chunks.jsonl").exists()

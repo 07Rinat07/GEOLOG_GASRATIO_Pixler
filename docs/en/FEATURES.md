@@ -1,7 +1,7 @@
 # Features and instructions
 
 
-## WITS Level 0 raw capture — 0.7.73
+## WITS Level 0 raw capture and parser — 0.7.74
 
 **File → Capture WITS Level 0...** supports TCP server/client operation, append-only raw segments, a UTC chunk index, incremental `&& ... !!` framing, and automatic client reconnect. Socket work stays outside the Qt thread. Values are not yet committed to a Dataset. See [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
 

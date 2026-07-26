@@ -18,6 +18,20 @@ from geoworkbench.acquisition.wits0 import (
     load_builtin_wits0_profile,
     load_wits0_profile,
 )
+from geoworkbench.acquisition.wits0_parser import (
+    Wits0Diagnostic,
+    Wits0DiagnosticCode,
+    Wits0DiagnosticSeverity,
+    Wits0ParsedField,
+    Wits0ParsedFrame,
+    Wits0Parser,
+    Wits0ParserConfig,
+    Wits0SequenceStatus,
+    Wits0SequenceTracker,
+    Wits0StreamProcessor,
+    iter_parsed_wits0_frames,
+    process_wits0_chunks,
+)
 from geoworkbench.acquisition.wits0_capture import (
     Wits0CaptureConfig,
     Wits0CaptureEngine,
@@ -32,6 +46,16 @@ from geoworkbench.acquisition.wits0_capture import (
 __all__ = [
     "WITS0_PROFILE_SCHEMA_VERSION",
     "Wits0CaptureConfig",
+    "Wits0Diagnostic",
+    "Wits0DiagnosticCode",
+    "Wits0DiagnosticSeverity",
+    "Wits0ParsedField",
+    "Wits0ParsedFrame",
+    "Wits0Parser",
+    "Wits0ParserConfig",
+    "Wits0SequenceStatus",
+    "Wits0SequenceTracker",
+    "Wits0StreamProcessor",
     "Wits0CaptureEngine",
     "Wits0CaptureEvent",
     "Wits0CaptureEventKind",
@@ -46,7 +70,9 @@ __all__ = [
     "Wits0ProfileError",
     "Wits0RawCaptureWriter",
     "Wits0RecordDefinition",
+    "iter_parsed_wits0_frames",
     "iter_wits0_frames",
+    "process_wits0_chunks",
     "load_builtin_wits0_profile",
     "load_wits0_profile",
 ]

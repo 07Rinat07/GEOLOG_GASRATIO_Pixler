@@ -1,3 +1,12 @@
+# 0.7.74 — typed WITS0 parser and sequence diagnostics
+
+- Added immutable typed WITS0 frame/field models with raw-line preservation.
+- Added profile-driven float/integer/text/date/time conversion and structured diagnostics.
+- Added per-record sequence tracking for missing, invalid, duplicate, gap, and out-of-order values.
+- Unified live TCP and raw replay under one `Wits0StreamProcessor`.
+- Added parsed-field UI, parser counters, RU/KK/EN localization, and deterministic tests.
+- Kept project format v20, form schema v8, and tablet layout v18 unchanged.
+
 # Unreleased — GeoScape II GS2 acceptance
 
 - continue versioned fixtures and reference LAS/Excel comparison for GeoScape II containers;
