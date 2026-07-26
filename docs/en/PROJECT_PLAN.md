@@ -1,5 +1,24 @@
 # Project plan
 
+## New track: GeoScape II GS2 import
+
+- [x] safely identify, validate, and temporarily extract the `.gs2` ZIP container;
+- [x] validate `GS2.mdb`, `GS2#*.db`, unsafe paths, duplicates, and extraction limits;
+- [x] expose GS2 in universal import, the File menu, and drag-and-drop;
+- [ ] read channel relationships from `GS2.mdb` through ACE/ODBC with driver diagnostics;
+- [x] confirm Paradox 7.x format for every `GS2#*.db` table in the СГ-8 sample;
+- [x] import a selected table with TIME/DEPTH, actual step, provenance, and QC;
+- [x] feed the selected table into `Dataset` and Import Review;
+- [ ] automatically merge multipart TIME tables;
+- [ ] resolve channel names and units from `GS2.mdb` for Gas Ratio/Pixler and export;
+- [x] preserve the source grid and create 0.2 m data only through explicit resampling;
+- [ ] compare the result with reference LAS/Excel exports from GeoScape.
+
+The current stage adds a selected table to the project. Full support requires automatic table
+merging and reproducible channel mapping from `GS2.mdb`.
+
+
+
 ## Completed in 0.7.71
 
 Fixed rightward interface expansion after F4/clicks on an external monitor, hard-capped both toolbars to the window width, and removed the hidden 40×24 px layout clamp for catalog symbols. Geometry persistence and RU/KK/EN documentation were verified.

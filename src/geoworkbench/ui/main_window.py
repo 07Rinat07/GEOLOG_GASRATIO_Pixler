@@ -59,6 +59,7 @@ from geoworkbench.catalogs.sensors import SensorCatalog, set_active_sensor_catal
 from geoworkbench.calculations.custom_formula import formula_inputs
 from geoworkbench.calculations.interval_statistics import calculate_interval_statistics
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
+from geoworkbench.importers.gs2 import Gs2ContainerError, extract_gs2_table
 from geoworkbench.importers.skf_importer import import_skf_file
 from geoworkbench.domain.models import CurveData, Dataset, IndexRole
 from geoworkbench.data.las_adapter import LasExportError
@@ -211,6 +212,7 @@ from geoworkbench.ui.import_review_dialog import ImportReviewDialog
 from geoworkbench.ui.import_diagnostics_dialog import ImportDiagnosticsDialog
 from geoworkbench.ui.paradox_import_dialog import ParadoxImportDialog
 from geoworkbench.ui.paradox_batch_dialog import ParadoxBatchDialog
+from geoworkbench.ui.gs2_import_dialog import Gs2ImportDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
 from geoworkbench.ui.form_create_dialog import FormCreateDialog
 from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
@@ -371,6 +373,7 @@ class _MainWindowImportJobPort(_MainWindowPort):
             ImportSourceKind.CSV: self._window.open_csv,
             ImportSourceKind.EXCEL: self._window.open_excel,
             ImportSourceKind.PARADOX: self._window.open_paradox,
+            ImportSourceKind.GS2: self._window.open_gs2,
         }
         handlers[kind]()
 
@@ -1203,6 +1206,10 @@ class MainWindow(QMainWindow):
         self.open_paradox_action = self._localized_action("shell.import_paradox")
         self.open_paradox_action.triggered.connect(lambda: self.open_paradox())
         file_menu.addAction(self.open_paradox_action)
+
+        self.open_gs2_action = self._localized_action("shell.import_gs2")
+        self.open_gs2_action.triggered.connect(lambda: self.open_gs2())
+        file_menu.addAction(self.open_gs2_action)
 
         self.paradox_batch_action = self._localized_action("paradox.batch_action")
         self.paradox_batch_action.setIcon(
@@ -3155,6 +3162,72 @@ class MainWindow(QMainWindow):
         if dialog.requested_action == "save_las":
             self.export_current_las()
 
+    def open_gs2(self, source: str | Path | None = None) -> None:
+        if source is None:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                self._t("gs2.title"),
+                "",
+                "GeoScape II (*.gs2 *.GS2);;All files (*)",
+            )
+            if not filename:
+                return
+            selected = Path(filename)
+        else:
+            selected = Path(source)
+        container_dialog = Gs2ImportDialog(selected, self, language=self.language)
+        if container_dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        member_name = container_dialog.selected_table_member
+        if member_name is None:
+            return
+        try:
+            with extract_gs2_table(selected, member_name) as (table_path, _manifest):
+                dialog = ParadoxImportDialog(table_path, self, language=self.language)
+                if (
+                    dialog.exec() != QDialog.DialogCode.Accepted
+                    or dialog.import_result is None
+                ):
+                    return
+                result = dialog.import_result
+                result.dataset.name = f"{selected.stem} — {Path(member_name).stem}"
+                result.dataset.source_path = selected.resolve()
+                result.dataset.parameters.update(
+                    {
+                        "SOURCE_FORMAT": "GeoScape II GS2",
+                        "SOURCE_FILE": str(selected.resolve()),
+                        "SOURCE_BUNDLE": selected.name,
+                        "GS2_TABLE": member_name,
+                    }
+                )
+        except Gs2ContainerError as exc:
+            QMessageBox.critical(self, self._t("gs2.title"), str(exc))
+            return
+        registration = self._dataset_import_jobs.register_gs2(
+            selected,
+            result,
+            review_dataset=self._review_imported_dataset,
+        )
+        if registration.review_skipped:
+            self.statusBar().showMessage(
+                self._t("import_review.cancelled_status", file=selected.name)
+            )
+            return
+        if registration.result is None:
+            QMessageBox.critical(self, self._t("gs2.title"), registration.error)
+            return
+        self._refresh_tree()
+        self._show_current_dataset()
+        self._update_title()
+        self.statusBar().showMessage(
+            self._t(
+                "gs2.imported",
+                file=selected.name,
+                table=member_name,
+                rows=registration.result.table.rows_read,
+            )
+        )
+
     def open_paradox_batch(self) -> None:
         filenames, _ = QFileDialog.getOpenFileNames(
             self,
@@ -3174,12 +3247,25 @@ class MainWindow(QMainWindow):
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
-        if any(Path(url.toLocalFile()).suffix.casefold() == ".db" for url in urls):
+        if any(
+            Path(url.toLocalFile()).suffix.casefold() in {".db", ".gs2"}
+            for url in urls
+        ):
             event.acceptProposedAction()
             return
         super().dragEnterEvent(event)
 
     def dropEvent(self, event: QDropEvent) -> None:
+        gs2_paths = [
+            Path(url.toLocalFile())
+            for url in event.mimeData().urls()
+            if Path(url.toLocalFile()).suffix.casefold() == ".gs2"
+        ]
+        if gs2_paths:
+            event.acceptProposedAction()
+            for path in gs2_paths:
+                self.open_gs2(path)
+            return
         paths = [
             Path(url.toLocalFile())
             for url in event.mimeData().urls()

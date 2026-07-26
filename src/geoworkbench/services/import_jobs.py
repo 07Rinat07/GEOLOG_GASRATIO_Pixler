@@ -56,6 +56,7 @@ class ImportSourceKind(StrEnum):
     CSV = "csv"
     EXCEL = "excel"
     PARADOX = "paradox"
+    GS2 = "gs2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +76,7 @@ _SOURCE_LABEL_KEYS = (
     (ImportSourceKind.CSV, "import.source_csv"),
     (ImportSourceKind.EXCEL, "import.source_excel"),
     (ImportSourceKind.PARADOX, "import.source_paradox"),
+    (ImportSourceKind.GS2, "import.source_gs2"),
 )
 
 
@@ -405,9 +407,38 @@ class DatasetImportJobExecutor:
         *,
         review_dataset: ImportDatasetReview | None = None,
     ) -> ParadoxImportOutcome:
+        return self._register_paradox_result(
+            source,
+            result,
+            ImportSourceKind.PARADOX,
+            review_dataset=review_dataset,
+        )
+
+    def register_gs2(
+        self,
+        source: Path,
+        result: ParadoxImportResult,
+        *,
+        review_dataset: ImportDatasetReview | None = None,
+    ) -> ParadoxImportOutcome:
+        return self._register_paradox_result(
+            source,
+            result,
+            ImportSourceKind.GS2,
+            review_dataset=review_dataset,
+        )
+
+    def _register_paradox_result(
+        self,
+        source: Path,
+        result: ParadoxImportResult,
+        source_kind: ImportSourceKind,
+        *,
+        review_dataset: ImportDatasetReview | None = None,
+    ) -> ParadoxImportOutcome:
         try:
             dataset = self._review_or_original(
-                result.dataset, ImportSourceKind.PARADOX, source, review_dataset
+                result.dataset, source_kind, source, review_dataset
             )
             if dataset is None:
                 return ParadoxImportOutcome(source, review_skipped=True)

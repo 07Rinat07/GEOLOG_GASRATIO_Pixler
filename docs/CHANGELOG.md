@@ -1,3 +1,12 @@
+# Unreleased — GeoScape II GS2 import
+
+- added safe `.gs2` validation, table inventory, single-member extraction, File/universal-import
+  entry points, and drag-and-drop;
+- confirmed all 13 `GS2#*.db` members in the СГ-8 sample as Paradox 7.x tables;
+- routed a selected inner table through the existing Paradox mapping dialog, Import Review, and
+  `Dataset` registration while preserving the original `.gs2` source path;
+- documented remaining Access metadata and multipart TIME-table merge work.
+
 # 0.7.71 — hard toolbar bounds and true one-pixel symbols
 
 - prevented both top toolbars from contributing an oversized minimum width after F4/action/DPI changes;

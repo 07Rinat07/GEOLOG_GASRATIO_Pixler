@@ -1,5 +1,14 @@
 # Project status
 
+## In development: GeoScape II GS2
+
+Safe container validation and selected inner-table import through the existing Paradox reader,
+Import Review, and `Dataset` are implemented. The СГ-8 sample contains 13 recognized Paradox 7.x
+tables; `GS2#101.db` has TIME, DEPTH, and 206 channels on a 0.2 m grid. Reading `GS2.mdb` and
+automatically merging multipart time tables remain open.
+
+
+
 ## Completed in 0.7.71
 
 Both top toolbars are hard-capped to the window width and re-adapt after F4, action-state, DPI and monitor changes. Catalog symbols truly narrow to 1×1 logical pixel while normal annotations retain the 40×24 px safety minimum.

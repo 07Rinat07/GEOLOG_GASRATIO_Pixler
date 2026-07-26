@@ -11,6 +11,7 @@ class ImportSourceKind(StrEnum):
     CSV = "csv"
     EXCEL = "excel"
     PARADOX = "paradox"
+    GS2 = "gs2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +31,7 @@ _SOURCE_LABEL_KEYS = (
     (ImportSourceKind.CSV, "import.source_csv"),
     (ImportSourceKind.EXCEL, "import.source_excel"),
     (ImportSourceKind.PARADOX, "import.source_paradox"),
+    (ImportSourceKind.GS2, "import.source_gs2"),
 )
 
 

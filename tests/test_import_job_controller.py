@@ -28,6 +28,7 @@ def localize(key: str) -> str:
         "import.source_csv": "CSV",
         "import.source_excel": "Excel",
         "import.source_paradox": "Paradox",
+        "import.source_gs2": "GS2",
     }[key]
 
 
@@ -39,6 +40,7 @@ def test_choices_have_stable_kinds_and_localized_labels() -> None:
         (ImportSourceKind.CSV, "CSV"),
         (ImportSourceKind.EXCEL, "Excel"),
         (ImportSourceKind.PARADOX, "Paradox"),
+        (ImportSourceKind.GS2, "GS2"),
     ]
 
 
@@ -49,6 +51,7 @@ def test_choices_have_stable_kinds_and_localized_labels() -> None:
         ("CSV", ImportSourceKind.CSV),
         ("Excel", ImportSourceKind.EXCEL),
         ("Paradox", ImportSourceKind.PARADOX),
+        ("GS2", ImportSourceKind.GS2),
     ],
 )
 def test_dispatch_routes_every_supported_source(
