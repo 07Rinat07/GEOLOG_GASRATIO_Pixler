@@ -17,10 +17,10 @@ from geoworkbench.acquisition import (
 def _frame(record: int, sequence: str, *lines: str) -> bytes:
     body = [
         "&&",
-        f"{record:02d}01{record}",
-        f"{record:02d}02{sequence}",
-        f"{record:02d}03SG-8",
-        f"{record:02d}041",
+        f"{record:02d}01SG-8",
+        f"{record:02d}0201",
+        f"{record:02d}03{record}",
+        f"{record:02d}04{sequence}",
         f"{record:02d}05260727",
         f"{record:02d}060215450",
         f"{record:02d}070",
@@ -45,7 +45,10 @@ def test_parser_returns_typed_header_and_profile_fields() -> None:
     assert parsed.sequence_status is Wits0SequenceStatus.UNAVAILABLE
     assert parsed.received_at == "2026-07-27T02:15:45.000Z"
     assert parsed.source_ref == "capture.wits"
-    assert parsed.field(1, 2).value == 42  # type: ignore[union-attr]
+    assert parsed.field(1, 1).value == "SG-8"  # type: ignore[union-attr]
+    assert parsed.field(1, 2).value == 1  # type: ignore[union-attr]
+    assert parsed.field(1, 3).value == 1  # type: ignore[union-attr]
+    assert parsed.field(1, 4).value == 42  # type: ignore[union-attr]
     assert parsed.field(1, 5).value == date(2026, 7, 27)  # type: ignore[union-attr]
     assert parsed.field(1, 6).value == time(2, 15, 45)  # type: ignore[union-attr]
     assert parsed.field(1, 8).value == 123.4  # type: ignore[union-attr]
@@ -58,7 +61,7 @@ def test_parser_returns_typed_header_and_profile_fields() -> None:
 def test_parser_preserves_unknown_and_malformed_fields_with_diagnostics() -> None:
     profile = load_builtin_wits0_profile()
     parser = Wits0Parser(profile)
-    raw = b"&&\n01021\n0108not-a-number\n019912.5\n019912.6\nbad\n990812\n!!"
+    raw = b"&&\n01041\n0108not-a-number\n019912.5\n019912.6\nbad\n990812\n!!"
 
     parsed = parser.parse(raw)
     codes = [item.code for item in parsed.diagnostics]
@@ -114,7 +117,7 @@ def test_missing_and_invalid_sequence_are_diagnosed_without_dropping_frame() -> 
     processor = Wits0StreamProcessor(profile)
 
     missing, invalid = processor.append(
-        b"&&\n0108123\n!!&&\n0102abc\n0108124\n!!"
+        b"&&\n0108123\n!!&&\n0104abc\n0108124\n!!"
     )
 
     assert missing.sequence_status is Wits0SequenceStatus.UNAVAILABLE

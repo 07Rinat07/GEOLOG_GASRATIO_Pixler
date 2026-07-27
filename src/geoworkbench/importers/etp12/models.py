@@ -42,6 +42,14 @@ class Etp12SessionState(StrEnum):
     FAILED = "failed"
 
 
+class Etp12QualityLevel(StrEnum):
+    GOOD = "good"
+    SUSPECT = "suspect"
+    BAD = "bad"
+    MISSING = "missing"
+    UNKNOWN = "unknown"
+
+
 class Etp12SubscriptionState(StrEnum):
     PENDING = "pending"
     ACTIVE = "active"
@@ -279,6 +287,34 @@ class Etp12DataArray:
 
 
 @dataclass(frozen=True, slots=True)
+class Etp12AttributeMetadata:
+    attribute_id: int
+    attribute_name: str
+    data_kind: str | None = None
+    uom: str | None = None
+    depth_datum: str | None = None
+    property_kind_uri: str | None = None
+    axis_vector_lengths: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class Etp12ValueAttribute:
+    attribute_id: int
+    value: object
+    name: str | None = None
+    data_kind: str | None = None
+    uom: str | None = None
+    property_kind_uri: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Etp12PointQuality:
+    level: Etp12QualityLevel = Etp12QualityLevel.UNKNOWN
+    flags: tuple[str, ...] = ()
+    message: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class Etp12ChannelMetadata:
     channel_id: int
     channel_uri: str
@@ -292,6 +328,7 @@ class Etp12ChannelMetadata:
     index_uom: str | None = None
     index_name: str | None = None
     custom_data: Mapping[str, object] = field(default_factory=dict)
+    attribute_metadata: tuple[Etp12AttributeMetadata, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,6 +337,8 @@ class Etp12ChannelPoint:
     index: object
     value: object
     value_attributes: Mapping[str, object] = field(default_factory=dict)
+    attributes: tuple[Etp12ValueAttribute, ...] = ()
+    quality: Etp12PointQuality = field(default_factory=Etp12PointQuality)
 
 
 @dataclass(frozen=True, slots=True)
@@ -312,6 +351,7 @@ class Etp12ChannelBatch:
     protocol: Etp12Protocol
     generation: int = 1
     channel_uris: Mapping[int, str] = field(default_factory=dict)
+    wire_sha256: str | None = None
 
     def __post_init__(self) -> None:
         if self.received_at_utc.tzinfo is None:
@@ -319,6 +359,30 @@ class Etp12ChannelBatch:
         if self.generation < 1:
             raise ValueError("generation must be positive")
 
+
+
+
+@dataclass(frozen=True, slots=True)
+class Etp12RangePage:
+    page_number: int
+    start_index: object
+    end_index: object
+    batches: tuple[Etp12ChannelBatch, ...]
+    point_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class Etp12RangeRecoveryResult:
+    request_uuid: str
+    subscription_id: str
+    pages: tuple[Etp12RangePage, ...]
+    completed: bool
+    last_index: object | None
+    diagnostics: tuple[str, ...] = ()
+
+    @property
+    def point_count(self) -> int:
+        return sum(page.point_count for page in self.pages)
 
 @dataclass(frozen=True, slots=True)
 class Etp12SubscriptionDefinition:

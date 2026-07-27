@@ -171,7 +171,7 @@ def test_tcp_server_capture_writes_raw_stream_and_emits_complete_frames(
     assert snapshot.bytes_received == len(b"garbage&&\r\n010812.3\r\n!!&&0208100!!")
     assert snapshot.discarded_prefix_bytes == len(b"garbage")
     assert snapshot.parsed_fields == 2
-    assert snapshot.parser_warnings >= 2  # both minimal frames omit sequence field 02
+    assert snapshot.parser_warnings >= 2  # both minimal frames omit sequence field 04
     assert len(raw_files) == 1
     assert raw_files[0].read_bytes() == b"garbage&&\r\n010812.3\r\n!!&&0208100!!"
     assert raw_files[0].with_suffix(".chunks.jsonl").exists()

@@ -1,3 +1,8 @@
+## 0.7.83 кейінгі ағымдағы инкремент: ETP I.2
+
+Келесі срез valueAttributes/quality, GetRanges paging/recovery, captured ETP replay, interoperability
+matrix және Windows soak tooling қамтиды. Нақты серверлер мен Windows сыртқы gate болып қалады.
+
 ## 0.7.82 нұсқасында аяқталды: ETP ChannelData жазу
 
 Келесі кезең — далалық үйлесімділік, сапа атрибуттары және серверлік paging/range recovery.

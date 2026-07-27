@@ -42,7 +42,7 @@ def test_etp_credentials_have_separate_windows_namespace() -> None:
 
 def test_packaging_and_ui_hooks_are_present() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'version = "0.7.82"' in pyproject
+    assert 'version = "0.7.83"' in pyproject
     for requirement in ("websockets>=16", "fastavro>=1.9", "etptypes>=1.2", "etpproto>=1.0.7"):
         assert requirement in pyproject
 

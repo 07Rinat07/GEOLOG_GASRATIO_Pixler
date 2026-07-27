@@ -3,6 +3,30 @@
 Актуально на 27 июля 2026 года. Этот файл задаёт один действующий release gate. История
 проверок отдельных версий хранится в release notes и не является текущей инструкцией.
 
+## GeoScape WITS compatibility 0.7.83
+
+Обязательные проверки:
+
+- built-in profile version 2 ссылается на `geosensor-wits-level0`;
+- catalog содержит ровно 963 поля и records 1–25;
+- стандартная шапка соответствует `01 Well`, `02 Sidetrack`, `03 Record`, `04 Sequence`,
+  `05 Date`, `06 Time`, `07 Activity`;
+- sequence tracker использует item `04` отдельно для каждого record;
+- profile field с проверенным UOM имеет приоритет над generic catalog fallback;
+- реальный record 11 fixture из руководства даёт sequence `3458`;
+- live/replay при разных chunk boundaries возвращают равные immutable frames;
+- reference pack не содержит EXE/BPL/DLL/MDB/FDB/ZIP/PDF;
+- generator отклоняет unsafe ZIP paths и duplicate record/item;
+- Windows MDB exporter содержит только read-only SELECT и SHA-256 manifest.
+
+Минимальная проверка:
+
+```powershell
+python -m pytest -q tests/test_wits0_catalog.py tests/test_wits0_parser.py `
+  tests/test_geosensor_wits_catalog_tool.py tests/test_geosensor_reference_contracts.py
+python tools/check_documentation.py
+```
+
 ## Компактные колонки и встроенная пользовательская форма 0.7.63
 
 Обязательные проверки:

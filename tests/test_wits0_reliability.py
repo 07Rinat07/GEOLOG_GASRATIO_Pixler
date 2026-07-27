@@ -64,8 +64,10 @@ class _Settings:
 def _frame(sequence: int = 1) -> bytes:
     return (
         "&&\r\n"
-        "020102\r\n"
-        f"0202{sequence}\r\n"
+        "0201SG-8\r\n"
+        "020201\r\n"
+        "020302\r\n"
+        f"0204{sequence}\r\n"
         "0205260727\r\n"
         "02060315450\r\n"
         "0208123.4\r\n"

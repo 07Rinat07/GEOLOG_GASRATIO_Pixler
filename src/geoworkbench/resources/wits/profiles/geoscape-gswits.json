@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "profileId": "geoscape-gswits",
   "title": "GeoScape GSWITS WITS Level 0",
-  "version": 1,
+  "version": 2,
   "encoding": "ascii",
   "frame": {
     "start": "&&",
     "end": "!!"
   },
-  "reference": "GSWITSProxy Manual, pages 18-21; field mapping must be confirmed against a real raw stream.",
+  "reference": "GeoSensor GeoScape2 WITS.csv (SHA-256 35d960785d0a6c25635587125e01ae19a3e6a90209514d9d10997fe56b54b2aa) and GSWITS user manual; standard header is 01 Well, 02 Sidetrack, 03 Record, 04 Sequence, 05 Date, 06 Time, 07 Activity.",
   "records": [
     {
       "record": 1,
@@ -938,5 +938,6 @@
         }
       ]
     }
-  ]
+  ],
+  "fieldCatalogId": "geosensor-wits-level0"
 }

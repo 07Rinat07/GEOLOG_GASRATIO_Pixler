@@ -17,9 +17,9 @@ CAPTURE_SOURCE = ROOT / "src" / "geoworkbench" / "ui" / "wits0_capture_dialog.py
 def _frame() -> bytes:
     return (
         "&&\r\n"
-        "02012\r\n"
-        "02021\r\n"
-        "0203SG-8\r\n"
+        "0201SG-8\r\n"
+        "020201\r\n"
+        "020302\r\n"
         "02041\r\n"
         "0205260727\r\n"
         "02060215450\r\n"

@@ -36,9 +36,15 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 порт остаются пользовательскими настройками. Пакеты ограничены маркерами `&&` и `!!`; TCP не
 сохраняет границы пакетов, следовательно отдельный incremental frame decoder обязателен.
 
-Руководство описывает записи 1, 2, 3, 6, 7, 8, 11, 12, 13, 14 и 17. Их поля перенесены в
-машинно-читаемый профиль `geoscape-gswits.json`, но окончательное соответствие должно быть
-подтверждено реальным raw-дампом конкретного комплекса.
+Руководство описывает записи 1, 2, 3, 6, 7, 8, 11, 12, 13, 14 и 17. Архив GeoScape 2 дополнительно
+содержит `GeoScape/WITS.csv`: 963 поля записей 1–25 с short/long mnemonic, типом и объявленной
+длиной. Из него создан встроенный каталог `geosensor-wits-level0.json` и воспроизводимый generator.
+
+Каталог подтвердил стандартную шапку: `01` Well Identifier, `02` Sidetrack/Hole Section,
+`03` Record Identifier, `04` Sequence Identifier, `05` Date, `06` Time, `07` Activity Code.
+Следовательно, sequence tracking выполняется по item `04`. Профиль `geoscape-gswits.json` хранит
+проверенные UOM/index/aggregation для 11 фактически передаваемых GSWITS records, а полный каталог
+используется как безопасный parser fallback без выдумывания единиц измерения.
 
 ## 3. Текущая реализованная база
 
@@ -83,7 +89,8 @@ Streaming/Subscribe, correlation/ACK и восстановление подпи�
 - отдельный worker thread, не блокирующий Qt GUI;
 - modeless окно состояния, raw-пакетов и ошибок;
 - replay raw-файла через тот же `Wits0StreamProcessor`;
-- встроенный профиль GeoScape GSWITS: 11 записей и 105 vendor fields;
+- встроенный профиль GeoScape GSWITS: 11 передаваемых записей и 105 полей с проверенными UOM;
+- полный производный GeoSensor catalog: 963 поля записей 1–25;
 - immutable `Wits0ParsedFrame` и `Wits0ParsedField`;
 - типы `float`, `integer`, `text`, `date`, `time`;
 - сохранение исходной строки и raw reference;
@@ -261,7 +268,8 @@ Wits0Frame
 - [x] доказать равенство live/replay output тестами с разными chunk boundaries;
 - [x] показать разобранные поля и diagnostics в окне захвата.
 
-Полевая приёмка parser остаётся открытой до получения реального anonymized raw-потока.
+Стандартная шапка, sequence item `04` и field inventory подтверждены поставленным GeoScape 2 archive.
+Полевая приёмка значений, UOM и дополнительных GID-mapping остаётся открытой до получения реального anonymized raw-потока.
 
 ### Этап C — Import Review and schema creation — реализован в 0.7.75
 
@@ -349,6 +357,20 @@ Wits0Frame
 - [ ] проверить interoperability на 2–3 реальных WITSML 1.4.1.1 Store implementation;
 - [ ] подтвердить server-specific OptionsIn dialects и paging/maxDataNodes на реальных серверах.
 
+### Compatibility patch — GeoScape WITS reference — выполнен в 0.7.83
+
+- [x] статически проанализировать поставленный `GeoScape2.zip` без запуска binaries;
+- [x] зафиксировать SHA-256 архива, manual и ключевых WITS/WITSML files;
+- [x] исправить header mapping `01–07` и перенести source sequence на item `04`;
+- [x] добавить полный каталог 963 WITS fields для records 1–25;
+- [x] сохранить profile override с проверенными UOM выше generic catalog fallback;
+- [x] добавить реальный record 11 fixture из руководства GSWITS;
+- [x] доказать одинаковое live/replay parsing при разных TCP chunk boundaries;
+- [x] добавить безопасный deterministic generator из `GeoScape/WITS.csv`;
+- [x] исключить vendor EXE/BPL/MDB/FDB/PDF из wheel и source distribution;
+- [ ] на Windows экспортировать нужные read-only таблицы `GSWITS.mdb` через Jet/ACE или mdbtools;
+- [ ] подтвердить GID, WITSUnit, multiplier/offset и additional-field mapping реальным потоком.
+
 ### Этап I — WITSML 2.x / ETP 1.2 — программный контур выполнен в 0.7.81–0.7.82
 
 - [x] защищённая WebSocket-сессия и subprotocol `etp12.energistics.org`;
@@ -362,9 +384,15 @@ Wits0Frame
 - [x] normalized measurement batches и append-only ETP `AcquisitionSession`;
 - [x] bounded queue, backpressure, checkpoints, controlled close и resume открытой сессии;
 - [x] overlap deduplication после reconnect по SHA-256 от schema digest, URI, индекса и значения;
-- [ ] interoperability matrix с промышленными ETP Store/producer;
-- [ ] server-specific paging/range recovery и chunked payload verification;
-- [ ] интерпретация `valueAttributes`/quality flags;
+- [ ] interoperability matrix минимум для 2 Store и 1 streaming producer;
+- [ ] registry `AttributeMetadataRecord.attributeId → name/dataKind/UOM/propertyKind`;
+- [ ] нормализация `valueAttributes` в immutable quality flags без потери unknown attributes;
+- [ ] `GetRanges` recovery с `requestUuid`, channel ranges, primary/secondary index intervals и FIN paging;
+- [ ] range resume от последнего committed index с overlap deduplication;
+- [ ] captured ETP stream format: direction, UTC, generation, raw Avro bytes, header summary и SHA-256 chain;
+- [ ] deterministic replay captured stream через тот же decode/correlation/channel pipeline;
+- [ ] server-specific multipart/chunked payload verification и response-size limits;
+- [ ] Windows soak tooling: reconnect, paging, capture rotation, memory, disk guard и clean close;
 - [ ] 8–24-часовой Windows soak с реальным WITSML 2.x producer/store.
 
 ### Этап J — Rules, alarms and structured MudLog views
@@ -406,7 +434,30 @@ Record 3, 6, 7, 8 and 17 подключаются после стабильно�
 - разрыв и повторное подключение;
 - список дополнительных пользовательских полей, если они включены.
 
-## 9. Нефункциональные требования
+## 9. Собранные reference-материалы
+
+В проект включаются только хеши, анализ и производные factual dictionaries:
+
+```text
+vendor_reference/geosensor_geoscape2/
+├── README.md
+├── analysis/ANALYSIS_GEOSCAPE2_WITS.md
+├── inventory/reference_manifest.json
+├── inventory/static_analysis_inventory.json
+└── derived/
+    ├── wits_level0_fields.json
+    ├── wits_level0_fields.csv
+    ├── wits_level0_summary.json
+    ├── witsml1411_result_codes.json
+    └── witsml_capabilities_summary.json
+```
+
+Runtime catalog находится в `src/geoworkbench/resources/wits/catalogs/`. Оригинальные vendor
+binaries/databases/manuals остаются внешними файлами и проверяются по SHA-256. Generator:
+`tools/build_geosensor_wits_catalog.py`. Для read-only экспорта mapping из `GSWITS.mdb` на Windows
+подготовлен `tools/export_geosensor_gswits_mdb.ps1` с ACE/Jet provider и hash manifest.
+
+## 10. Нефункциональные требования
 
 - GUI не выполняет blocking socket I/O.
 - Raw bytes не отбрасываются из-за переполнения UI event queue.
@@ -418,7 +469,7 @@ Record 3, 6, 7, 8 and 17 подключаются после стабильно�
 - Dataset изменяется только через application/domain controller boundary.
 - Программа является decision-support tool и не заменяет решения персонала ГТИ и буровой.
 
-## 10. Критерий первой полевой версии
+## 11. Критерий первой полевой версии
 
 Первая полевая версия считается готовой, когда она:
 

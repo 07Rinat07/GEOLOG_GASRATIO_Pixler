@@ -1,3 +1,9 @@
+# 0.7.83 — GeoScape WITS compatibility reference
+
+- corrected GSWITS header and sequence item 04;
+- added 963-field GeoSensor WITS catalog and deterministic generator;
+- added vendor reference manifest and real manual fixture.
+
 # 0.7.82 — ETP ChannelData AcquisitionSession
 
 - URI-stable ETP channel discovery and Semantic Channel/UOM Import Review;

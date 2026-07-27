@@ -14,6 +14,8 @@ from geoworkbench.acquisition.wits0 import (
 )
 
 
+from geoworkbench.acquisition.wits0_catalog import load_builtin_wits0_catalog
+
 Wits0TypedValue: TypeAlias = float | int | str | date | time | None
 
 
@@ -149,7 +151,7 @@ class Wits0ParsedFrame:
 
 @dataclass(frozen=True, slots=True)
 class Wits0ParserConfig:
-    sequence_item_no: int = 2
+    sequence_item_no: int = 4
     max_lines_per_frame: int = 10_000
     max_line_chars: int = 16_384
     accept_decimal_comma: bool = True
@@ -166,34 +168,34 @@ class Wits0ParserConfig:
 _STANDARD_HEADER_FIELDS: dict[int, Wits0FieldDefinition] = {
     1: Wits0FieldDefinition(
         item_no=1,
-        canonical_mnemonic="WITS_RECORD_IDENTIFIER",
-        name_ru="Идентификатор записи WITS",
-        source_unit=None,
-        value_kind="text",
-        aggregation="exact",
-    ),
-    2: Wits0FieldDefinition(
-        item_no=2,
-        canonical_mnemonic="WITS_SEQUENCE",
-        name_ru="Номер последовательности",
-        source_unit=None,
-        value_kind="integer",
-        aggregation="exact",
-    ),
-    3: Wits0FieldDefinition(
-        item_no=3,
         canonical_mnemonic="WELL_IDENTIFIER",
         name_ru="Идентификатор скважины",
         source_unit=None,
         value_kind="text",
         aggregation="exact",
     ),
+    2: Wits0FieldDefinition(
+        item_no=2,
+        canonical_mnemonic="SIDETRACK_HOLE_SECTION",
+        name_ru="Номер бокового ствола или секции скважины",
+        source_unit=None,
+        value_kind="integer",
+        aggregation="exact",
+    ),
+    3: Wits0FieldDefinition(
+        item_no=3,
+        canonical_mnemonic="WITS_RECORD_IDENTIFIER",
+        name_ru="Идентификатор записи WITS",
+        source_unit=None,
+        value_kind="integer",
+        aggregation="exact",
+    ),
     4: Wits0FieldDefinition(
         item_no=4,
-        canonical_mnemonic="WELLBORE_IDENTIFIER",
-        name_ru="Идентификатор ствола",
+        canonical_mnemonic="WITS_SEQUENCE",
+        name_ru="Номер последовательности",
         source_unit=None,
-        value_kind="text",
+        value_kind="integer",
         aggregation="exact",
     ),
     5: Wits0FieldDefinition(
@@ -217,7 +219,7 @@ _STANDARD_HEADER_FIELDS: dict[int, Wits0FieldDefinition] = {
         canonical_mnemonic="ACTIVITY_CODE",
         name_ru="Код работы WITS",
         source_unit=None,
-        value_kind="text",
+        value_kind="integer",
         aggregation="exact",
     ),
 }
@@ -241,6 +243,15 @@ class Wits0Parser:
         self.config = config or Wits0ParserConfig()
         self._start_marker = profile.start_marker.encode("ascii")
         self._end_marker = profile.end_marker.encode("ascii")
+        self._catalog_definitions: dict[tuple[int, int], Wits0FieldDefinition] = {}
+        self._catalog_records: set[int] = set()
+        if profile.field_catalog_id is not None:
+            catalog = load_builtin_wits0_catalog(profile.field_catalog_id)
+            self._catalog_definitions = {
+                (field.record_no, field.item_no): field.to_definition()
+                for field in catalog.fields
+            }
+            self._catalog_records = set(catalog.record_numbers)
 
     def parse(
         self,
@@ -338,7 +349,10 @@ class Wits0Parser:
             field_diagnostics: list[Wits0Diagnostic] = []
 
             record_definition = self.profile.record(record_no)
-            if record_definition is None and record_no not in unknown_records_reported:
+            record_is_known = (
+                record_definition is not None or record_no in self._catalog_records
+            )
+            if not record_is_known and record_no not in unknown_records_reported:
                 unknown_records_reported.add(record_no)
                 diagnostic = Wits0Diagnostic(
                     code=Wits0DiagnosticCode.UNKNOWN_RECORD,
@@ -468,7 +482,11 @@ class Wits0Parser:
         if item_no in _STANDARD_HEADER_FIELDS:
             return _STANDARD_HEADER_FIELDS[item_no]
         record = self.profile.record(record_no)
-        return record.field(item_no) if record is not None else None
+        if record is not None:
+            profile_field = record.field(item_no)
+            if profile_field is not None:
+                return profile_field
+        return self._catalog_definitions.get((record_no, item_no))
 
     def _parse_value(
         self,
@@ -540,7 +558,7 @@ class Wits0Parser:
 class Wits0SequenceTracker:
     """Track monotonic sequence numbers independently for every WITS record."""
 
-    def __init__(self, *, sequence_item_no: int = 2) -> None:
+    def __init__(self, *, sequence_item_no: int = 4) -> None:
         if isinstance(sequence_item_no, bool) or not 0 <= sequence_item_no <= 99:
             raise ValueError("sequence_item_no must be in the range 0..99")
         self.sequence_item_no = sequence_item_no

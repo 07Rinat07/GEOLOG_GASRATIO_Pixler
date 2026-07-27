@@ -1,3 +1,9 @@
+## 0.7.83 нұсқасында аяқталды: GeoScape WITS үйлесімділігі
+
+01–07 header items және 04 sequence item түзетілді. 1–25 records үшін 963 өрістік каталог,
+қайталанатын generator, reference хештері және manual-frame regression tests қосылды. Vendor binaries
+мен дерекқорлар сыртқы күйде қалады және таратылмайды.
+
 ## 0.7.82 нұсқасында аяқталды: ETP ChannelData AcquisitionSession
 
 URI бойынша тұрақты Import Review, normalized measurement batch және reconnect overlap дедупликациясы бар append-only жазу аяқталды.

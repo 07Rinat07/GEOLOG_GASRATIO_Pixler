@@ -171,6 +171,7 @@ class Wits0Profile:
     start_marker: str
     end_marker: str
     reference: str | None
+    field_catalog_id: str | None
     records: tuple[Wits0RecordDefinition, ...]
     schema_version: int = WITS0_PROFILE_SCHEMA_VERSION
 
@@ -190,6 +191,7 @@ class Wits0Profile:
         if self.start_marker == self.end_marker:
             raise Wits0ProfileError("WITS0 profile markers must differ")
         _optional_text(self.reference, "reference")
+        _optional_text(self.field_catalog_id, "field_catalog_id")
         if not self.records:
             raise Wits0ProfileError("WITS0 profile must contain records")
         record_numbers = [item.record_no for item in self.records]
@@ -262,6 +264,7 @@ def _profile_from_payload(payload: Any) -> Wits0Profile:
         "encoding",
         "frame",
         "reference",
+        "fieldCatalogId",
         "records",
     }
     _reject_unknown(payload, allowed, "WITS0 profile")
@@ -327,6 +330,7 @@ def _profile_from_payload(payload: Any) -> Wits0Profile:
         start_marker=_required_str(frame, "start"),
         end_marker=_required_str(frame, "end"),
         reference=_optional_str(payload, "reference"),
+        field_catalog_id=_optional_str(payload, "fieldCatalogId"),
         records=tuple(records),
         schema_version=_required_int(payload, "schemaVersion"),
     )

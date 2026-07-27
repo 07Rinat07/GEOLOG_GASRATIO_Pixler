@@ -1,5 +1,11 @@
 # WITS Level 0 қабылдау және талдау
 
+## GeoScape GSWITS стандартты тақырыбы
+
+GeoSensor `WITS.csv` каталогы мынаны растайды: `01` Well Identifier, `02` Sidetrack/Hole Section,
+`03` Record Identifier, `04` Sequence Identifier, `05` Date, `06` Time, `07` Activity Code.
+Sequence QC item `04` мәнін қолданады; item `02` sequence number емес.
+
 ## Мақсаты
 
 **Файл → WITS Level 0 қабылдау...** командасы GSWITS TCP ағынын қабылдайды, кіріс байттарын
@@ -53,6 +59,7 @@ immutable Wits0ParsedFrame + diagnostics
 Parser `float`, `integer`, `text`, `date` және `time` түрлерін қолдайды. 01–07 стандартты header
 өрістері жазба идентификаторын, sequence number, ұңғыманы, оқпанды, күнді, уақытты және жұмыс
 кодын сипаттайды. 08–99 өрістері `geoscape-gswits.json` профилімен сәйкестендіріледі.
+Items 08–99 алдымен тексерілген профильмен, кейін толық `geosensor-wits-level0.json` каталогымен салыстырылады; каталог UOM ойлап таппайды.
 
 Бұзылған жол бүкіл пакетті жоймайды. Бастапқы жол, raw мән, белгісіз `record/item` және түрлендіру
 қатесі Import Review қолданатын детерминирленген discovery snapshot ішінде қалады.

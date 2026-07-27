@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "sourceArchive": {
+    "filename": "GeoScape2.zip",
+    "size": 162855035,
+    "sha256": "b9b358b76e1956058421ce6969ff04a0c961a986160dc2f207d2bfa5a921cf44"
+  },
+  "manual": {
+    "filename": "GSWITSProxy Manual(1).pdf",
+    "size": 644994,
+    "sha256": "5d3e27cf94e022460bc68dfc234591a2c4ea2bfbbe2426f789c8edfd58902c43"
+  },
+  "referenceFiles": [
+    {
+      "path": "GeoScape/WITS.csv",
+      "size": 38818,
+      "sha256": "35d960785d0a6c25635587125e01ae19a3e6a90209514d9d10997fe56b54b2aa"
+    },
+    {
+      "path": "GeoScape/GSWITSProxy.exe",
+      "size": 6096384,
+      "sha256": "8e91bbc861af40624f3dfec238241f7df0385e8d44406cffb768d5abd80812da"
+    },
+    {
+      "path": "GeoScape/GSWITSReceiver.bpl",
+      "size": 278528,
+      "sha256": "debca1f91276271191ae05d5af7e5f0251cba86b09f5ddd36c6cd61274799850"
+    },
+    {
+      "path": "GeoScape/GSWITSMLServer.exe",
+      "size": 4069888,
+      "sha256": "d8b36a9a98976a192819b2c49df616800e6308189848427d780e6fd965d42281"
+    },
+    {
+      "path": "GeoScape/WITSMLCodes.csv",
+      "size": 12302,
+      "sha256": "a3c5558617161f361899a7f335e60b886c6de83930041088aa4a0e39d35feb79"
+    },
+    {
+      "path": "GeoScape/capServers 1.3.1.1.xml",
+      "size": 788,
+      "sha256": "cf14b4713404086badb28a48f28c7a314bb585be79f15012bb3960da3df9bac9"
+    },
+    {
+      "path": "GeoScape/capServers 1.4.1.1.xml",
+      "size": 1122,
+      "sha256": "b80adb6a7e4ef97242233d0ac4823ae6070ca03be251e56460dfa8bc89dda152"
+    },
+    {
+      "path": "GeoScape/LocalAppDataFolder/GeoSensor/GSWITS.mdb",
+      "size": 2240512,
+      "sha256": "c9ba4c7e4c1f5f4827f1bf4a4aaf745b608f22e4a8dad87e538addb1aff631e4"
+    },
+    {
+      "path": "GeoScape/LocalAppDataFolder/GeoSensor/GSWITSML.mdb",
+      "size": 913408,
+      "sha256": "4d5e036d446b02a7785b3416f931d91bb6c25a1bd0e8e146419a3b29c38cb9bb"
+    }
+  ],
+  "redistributionPolicy": "Original vendor binaries and databases are intentionally excluded from the source distribution; only hashes, analysis, and derived factual dictionaries are included.",
+  "derivedArtifacts": [
+    {
+      "path": "derived/wits_level0_fields.csv",
+      "size": 44988,
+      "sha256": "60476f2ba33700bac64faf8e451cd3dd0114e522c28fa0c14b8f34d7788849f5"
+    },
+    {
+      "path": "derived/wits_level0_fields.json",
+      "size": 228276,
+      "sha256": "18091f167e5010e1cb7803710609974385d83339dae1d44e93e919355c81d616"
+    },
+    {
+      "path": "derived/wits_level0_summary.json",
+      "size": 770,
+      "sha256": "23725c8a4a09f3491ae163d00c7c98e6b493fc0c540c573b612fc495396f2153"
+    },
+    {
+      "path": "derived/witsml1411_result_codes.json",
+      "size": 23688,
+      "sha256": "a0c13695adedc26bf2808d7a71dde99eb908f5e9eb7c36604306803ad3138c11"
+    },
+    {
+      "path": "derived/witsml_capabilities_summary.json",
+      "size": 2386,
+      "sha256": "9cf2ffcd2fd2926e0898eae46caaddeab791d94ba404f9b30c4497441f4c6bfe"
+    }
+  ],
+  "runtimeCatalog": {
+    "path": "src/geoworkbench/resources/wits/catalogs/geosensor-wits-level0.json",
+    "size": 228276,
+    "sha256": "18091f167e5010e1cb7803710609974385d83339dae1d44e93e919355c81d616"
+  }
+}

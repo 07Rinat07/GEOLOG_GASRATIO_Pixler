@@ -17,8 +17,8 @@
 | DATA-004 | Импорт Excel с выбором листа, строки заголовка и колонки глубины | готово для XLS/XLSX/XLSM, включая DATE+TIME mapping, openpyxl и LibreOffice |
 | DATA-005 | Импорт табличных JSON и TXT | частично: числовой TXT с разделителями готов; JSON запланирован |
 | DATA-006 | DLIS/LIS через изолированный опциональный адаптер | запланировано; первый read-only профиль уточнён в DATA-021 |
-| DATA-007 | WITSML 2.1 / ETP 1.2 как growing well-data source | запланировано поэтапно: offline inventory/MudLogReport mapping → replay → secure network client; credentials не хранятся в проекте |
-| DATA-028 | WITS Level 0 через TCP client/server с lossless raw capture и replay | частично: в 0.7.74 готовы worker, reconnect, framing, raw segments, UTC chunk index, typed parser, diagnostics, sequence QC, monitor и GeoScape profile; Import Review и Dataset commit запланированы |
+| DATA-007 | WITSML 2.1 / ETP 1.2 как growing well-data source | частично: secure ETP session, Discovery/Store/Data Array, Channel Subscribe, Import Review и append-only AcquisitionSession готовы; valueAttributes, range paging/recovery, captured replay и real interoperability остаются этапом I.2 |
+| DATA-028 | WITS Level 0 через TCP client/server с lossless raw capture и replay | готов программный контур: raw capture/replay, typed parser, Import Review, append-only session, live UI и reliability; в 0.7.83 исправлена шапка GSWITS и добавлен каталог 963 полей, полевой Windows gate остаётся открытым |
 | DATA-008 | Несколько файлов, скважин и наборов данных в одном проекте | готово |
 | DATA-009 | Безопасная диагностика NULL, дубликатов мнемоник, глубины и единиц | готово: единый Import Review показывает NULL, duplicate index/kind, gaps/order, unresolved, unknown UOM и quantity conflict до регистрации dataset |
 | DATA-010 | Плагины импорта и экспорта без зависимости Domain от формата | готов контракт Plugin API; загрузка внешних плагинов позже |

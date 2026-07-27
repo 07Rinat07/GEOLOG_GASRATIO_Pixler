@@ -1,3 +1,8 @@
+## Текущий инкремент после 0.7.83: ETP I.2
+
+Следующий срез включает valueAttributes/quality, GetRanges paging/recovery, captured ETP replay,
+interoperability matrix и Windows soak tooling. Реальные серверы и Windows остаются внешними gate-проверками.
+
 ## Завершено в 0.7.82: запись ETP ChannelData
 
 Следующий этап — полевая совместимость, атрибуты качества и серверные paging/range recovery.

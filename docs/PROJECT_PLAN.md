@@ -1,3 +1,8 @@
+## Current increment after 0.7.83: ETP I.2 interoperability and replay
+
+Implement valueAttributes/quality mapping, GetRanges paging and recovery, captured ETP stream replay,
+interoperability matrix evidence, and Windows soak tooling. Real server and Windows acceptance remain external gates.
+
 ## Completed in 0.7.82: ETP ChannelData acquisition
 
 The next increment is field interoperability, channel quality attributes and server-specific paging/range recovery.

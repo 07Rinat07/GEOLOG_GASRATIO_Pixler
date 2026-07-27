@@ -80,3 +80,12 @@ workspace.json
 # Qt generated cache
 *.qmlc
 *.jsc
+
+# External vendor reference originals (keep only hashes and derived factual artifacts)
+vendor_reference/**/original/
+vendor_reference/**/*.exe
+vendor_reference/**/*.dll
+vendor_reference/**/*.bpl
+vendor_reference/**/*.mdb
+vendor_reference/**/*.fdb
+vendor_reference/**/*.zip

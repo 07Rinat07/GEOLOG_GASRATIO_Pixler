@@ -1,0 +1,49 @@
+{
+  "catalogId": "geosensor-wits-level0",
+  "fieldCount": 963,
+  "recordCount": 25,
+  "records": {
+    "1": 45,
+    "2": 36,
+    "3": 26,
+    "4": 39,
+    "5": 23,
+    "6": 34,
+    "7": 26,
+    "8": 55,
+    "9": 29,
+    "10": 33,
+    "11": 35,
+    "12": 28,
+    "13": 48,
+    "14": 29,
+    "15": 59,
+    "16": 41,
+    "17": 38,
+    "18": 31,
+    "19": 31,
+    "20": 65,
+    "21": 49,
+    "22": 10,
+    "23": 37,
+    "24": 64,
+    "25": 52
+  },
+  "declaredTypes": {
+    "A": 112,
+    "D": 28,
+    "F": 590,
+    "L": 81,
+    "S": 125,
+    "T": 27
+  },
+  "standardHeader": {
+    "01": "Well Identifier",
+    "02": "Sidetrack/Hole Sect No.",
+    "03": "Record Identifier",
+    "04": "Sequence Identifier",
+    "05": "Date",
+    "06": "Time",
+    "07": "Activity Code"
+  }
+}

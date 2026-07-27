@@ -1,3 +1,9 @@
+## Completed in 0.7.83: GeoScape WITS compatibility
+
+Header items 01–07 and sequence item 04 are corrected. The 963-field records 1–25 catalog,
+reproducible generator, reference hashes, and manual-frame regression tests are included. Vendor binaries
+and databases remain external and are not redistributed.
+
 ## Completed in 0.7.82: ETP ChannelData AcquisitionSession
 
 URI-stable Import Review, normalized measurement batches and append-only acquisition with reconnect overlap deduplication are complete.

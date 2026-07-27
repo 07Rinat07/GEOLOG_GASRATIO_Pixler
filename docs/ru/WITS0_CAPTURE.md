@@ -1,5 +1,11 @@
 # Захват и разбор WITS Level 0
 
+## Стандартная шапка GeoScape GSWITS
+
+Каталог GeoSensor `WITS.csv` подтверждает: `01` — Well Identifier, `02` — Sidetrack/Hole Section,
+`03` — Record Identifier, `04` — Sequence Identifier, `05` — Date, `06` — Time, `07` — Activity Code.
+Sequence QC использует item `04`; item `02` не является sequence number.
+
 ## Назначение
 
 Команда **Файл → Захват WITS Level 0...** принимает поток GSWITS по TCP, сохраняет входные
@@ -50,9 +56,10 @@ Wits0SequenceTracker
 immutable Wits0ParsedFrame + diagnostics
 ```
 
-Parser поддерживает `float`, `integer`, `text`, `date` и `time`. Для стандартных заголовочных
-полей 01–07 распознаются идентификаторы записи, sequence number, скважина, ствол, дата, время и
-код работы. Поля 08–99 сопоставляются с профилем `geoscape-gswits.json`.
+Parser поддерживает `float`, `integer`, `text`, `date` и `time`. Стандартные items 01–07 — это
+скважина, секция/боковой ствол, идентификатор записи, sequence number, дата, время и код работы.
+Поля 08–99 сначала сопоставляются с проверенным профилем `geoscape-gswits.json`, затем с полным
+каталогом `geosensor-wits-level0.json`; каталог не выдумывает UOM.
 
 Повреждённая строка не отменяет пакет. Исходная строка, исходное значение, неизвестный
 `record/item` и ошибка преобразования остаются в `Wits0ParsedFrame` и входят в детерминированный
@@ -67,7 +74,7 @@ Parser поддерживает `float`, `integer`, `text`, `date` и `time`. Д
 - `duplicate` — повтор последнего sequence number;
 - `gap` — обнаружен пропуск;
 - `out_of_order` — пришло более старое значение;
-- `invalid` или `unavailable` — поле 02 повреждено либо отсутствует.
+- `invalid` или `unavailable` — поле 04 повреждено либо отсутствует.
 
 При reconnect создаётся новый stream processor, поэтому sequence state не переносится между
 разными TCP-соединениями. Raw-файл можно повторно обработать тем же pipeline.

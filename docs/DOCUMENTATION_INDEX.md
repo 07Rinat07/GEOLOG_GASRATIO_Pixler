@@ -5,6 +5,7 @@
 - User guide: [Русский](ru/README.md) · [Қазақша](kk/README.md) · [English](en/README.md)
 - Feature map: [Русский](ru/FEATURES.md) · [Қазақша](kk/FEATURES.md) · [English](en/FEATURES.md)
 - WITS0 capture: [Русский](ru/WITS0_CAPTURE.md) · [Қазақша](kk/WITS0_CAPTURE.md) · [English](en/WITS0_CAPTURE.md)
+- GeoSensor WITS catalog: [Русский](ru/WITS0_VENDOR_CATALOG.md) · [Қазақша](kk/WITS0_VENDOR_CATALOG.md) · [English](en/WITS0_VENDOR_CATALOG.md)
 - WITS0 AcquisitionSession: [Русский](ru/WITS0_ACQUISITION.md) · [Қазақша](kk/WITS0_ACQUISITION.md) · [English](en/WITS0_ACQUISITION.md)
 - WITS0 live monitor: [Русский](ru/WITS0_LIVE_VIEW.md) · [Қазақша](kk/WITS0_LIVE_VIEW.md) · [English](en/WITS0_LIVE_VIEW.md)
 - WITSML inventory: [Русский](ru/WITSML_INVENTORY.md) · [Қазақша](kk/WITSML_INVENTORY.md) · [English](en/WITSML_INVENTORY.md)
@@ -20,6 +21,7 @@
 - [PRODUCT_AUDIT_2026.md](PRODUCT_AUDIT_2026.md) — evidence, risks, and market comparison.
 - [ROADMAP.md](ROADMAP.md) — ordered phases and exit criteria.
 - [WITS_INTEGRATION_PLAN.md](WITS_INTEGRATION_PLAN.md) — WITS0/WITSML architecture, milestones, and field acceptance.
+- [ETP12_INTEROPERABILITY_GATE.md](ETP12_INTEROPERABILITY_GATE.md) — stage I.2 matrix, range recovery, captured replay, and Windows soak acceptance.
 - [WITS0_ACQUISITION.md](WITS0_ACQUISITION.md) — normalized batches, bounded queue, checkpoints, resume, and controlled close.
 - [WITS0_LIVE_VIEW.md](WITS0_LIVE_VIEW.md) — current values, time/depth axes, pause-view, history, downsampling, and quality markers.
 - [WITS0_RELIABILITY.md](WITS0_RELIABILITY.md) — connection records, disk guard, raw retention, restart recovery, workspace persistence, and Windows soak tooling.
@@ -43,6 +45,8 @@
 - [APPLICATION_DIAGNOSTICS.md](en/APPLICATION_DIAGNOSTICS.md) — persistent logs, support bundle, and privacy boundary.
 
 ## Main workflows
+
+- GeoScape WITS compatibility 0.7.83: [RU](ru/RELEASE_NOTES_0.7.83.md) · [KK](kk/RELEASE_NOTES_0.7.83.md) · [EN](en/RELEASE_NOTES_0.7.83.md) · [build manifest](BUILD_MANIFEST_0.7.83.md)
 
 - WITS0 reliability 0.7.78: [RU](ru/RELEASE_NOTES_0.7.78.md) · [KK](kk/RELEASE_NOTES_0.7.78.md) · [EN](en/RELEASE_NOTES_0.7.78.md) · [build manifest](BUILD_MANIFEST_0.7.78.md)
 
@@ -69,6 +73,7 @@
 - DOCX/HTML export: [RU](ru/DOCX_HTML_EXPORT.md) · [KK](kk/DOCX_HTML_EXPORT.md) · [EN](en/DOCX_HTML_EXPORT.md)
 - Operational events: [RU](ru/OPERATIONAL_EVENTS.md) · [KK](kk/OPERATIONAL_EVENTS.md) · [EN](en/OPERATIONAL_EVENTS.md)
 - WITS0 capture: [RU](ru/WITS0_CAPTURE.md) · [KK](kk/WITS0_CAPTURE.md) · [EN](en/WITS0_CAPTURE.md)
+- GeoSensor WITS catalog: [RU](ru/WITS0_VENDOR_CATALOG.md) · [KK](kk/WITS0_VENDOR_CATALOG.md) · [EN](en/WITS0_VENDOR_CATALOG.md)
 - WITS0 AcquisitionSession: [RU](ru/WITS0_ACQUISITION.md) · [KK](kk/WITS0_ACQUISITION.md) · [EN](en/WITS0_ACQUISITION.md)
 - WITS0 reliability: [RU](ru/WITS0_RELIABILITY.md) · [KK](kk/WITS0_RELIABILITY.md) · [EN](en/WITS0_RELIABILITY.md)
 - Acquisition replay: [RU](ru/ACQUISITION_REPLAY.md) · [KK](kk/ACQUISITION_REPLAY.md) · [EN](en/ACQUISITION_REPLAY.md)

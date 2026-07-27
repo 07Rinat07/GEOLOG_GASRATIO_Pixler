@@ -1,0 +1,964 @@
+record,item,description,shortMnemonic,longMnemonic,declaredType,valueKind,declaredLength
+1,1,Well Identifier,WID,WELLID,A,text,16
+1,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+1,3,Record Identifier,RID,RECID,S,integer,2
+1,4,Sequence Identifier,SQID,SEQID,L,integer,4
+1,5,Date,DATE,DATE,D,date,4
+1,6,Time,TIME,TIME,T,time,4
+1,7,Activity Code,ACTC,ACTCOD,S,integer,2
+1,8,Depth Bit (meas),DBTM,DEPTBITM,F,float,4
+1,9,Depth Bit (vert),DBTV,DEPTBITV,F,float,4
+1,10,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+1,11,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+1,12,Block Position,BPOS,BLKPOS,F,float,4
+1,13,Rate of Penetration (avg),ROPA,ROPA,F,float,4
+1,14,Hookload (avg),HKLA,HKLA,F,float,4
+1,15,Hookload (max),HKLX,HKLX,F,float,4
+1,16,"Weight-on-Bit (surf,avg)",WOBA,WOBA,F,float,4
+1,17,"Weight-on-Bit (surf,max)",WOBX,WOBX,F,float,4
+1,18,"Rotary Torque (surf,avg)",TQA,TORQA,F,float,4
+1,19,"Rotary Torque (surf,max)",TQX,TORQX,F,float,4
+1,20,"Rotary Speed (surf,avg)",RPMA,RPMA,S,integer,2
+1,21,Standpipe Pressure (avg),SPPA,SPPA,F,float,4
+1,22,Casing (Choke) Pressure,CHKP,CHKP,F,float,4
+1,23,Pump Stroke Rate #1,SPM1,SPM1,S,integer,2
+1,24,Pump Stroke Rate #2,SPM2,SPM2,S,integer,2
+1,25,Pump Stroke Rate #3,SPM3,SPM3,S,integer,2
+1,26,Tank Volume (active),TVA,TVOLACT,F,float,4
+1,27,Tank Volume Change (act),TVCA,TVOLCACT,F,float,4
+1,28,Mud Flow Out %,MFOP,MFOP,S,integer,2
+1,29,Mud Flow Out (avg),MFOA,MFOA,F,float,4
+1,30,Mud Flow In (avg),MFIA,MFIA,F,float,4
+1,31,Mud Density Out (avg),MDOA,MDOA,F,float,4
+1,32,Mud Density In (avg),MDIA,MDIA,F,float,4
+1,33,Mud Temperature Out (avg),MTOA,MTOA,F,float,4
+1,34,Mud Temperature In (avg),MTIA,MTIA,F,float,4
+1,35,Mud Conductivity Out (avg),MCOA,MCOA,F,float,4
+1,36,Mud Conductivity In (avg),MCIA,MCIA,F,float,4
+1,37,Pump Stroke Count (cum),STKC,STKC,L,integer,4
+1,38,Lag Strokes,LSTK,LAGSTKS,S,integer,2
+1,39,Depth Returns (meas),DRTM,DEPTRETM,F,float,4
+1,40,Gas (avg),GASA,GASA,F,float,4
+1,41,SPARE 1,SPR1,SPARE1,F,float,4
+1,42,SPARE 2,SPR2,SPARE2,F,float,4
+1,43,SPARE 3,SPR3,SPARE3,F,float,4
+1,44,SPARE 4,SPR4,SPARE4,F,float,4
+1,45,SPARE 5,SPR5,SPARE5,F,float,4
+2,1,Well Identifier,WID,WELLID,A,text,16
+2,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+2,3,Record Identifier,RID,RECID,S,integer,2
+2,4,Sequence Identifier,SQID,SEQID,L,integer,4
+2,5,Date,DATE,DATE,D,date,4
+2,6,Time,TIME,TIME,T,time,4
+2,7,Activity Code,ACTC,ACTCOD,S,integer,2
+2,8,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+2,9,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+2,10,Rate of Penetration (avg),ROPA,ROPA,F,float,4
+2,11,"Weight-on-Bit (surf,avg)",WOBA,WOBA,F,float,4
+2,12,Hookload (avg),HKLA,HKLA,F,float,4
+2,13,Standpipe Pressure (avg),SPPA,SPPA,F,float,4
+2,14,"Rotary Torque (surf,avg)",TQA,TORQA,F,float,4
+2,15,"Rotary Speed (surf,avg)",RPMA,RPMA,S,integer,2
+2,16,Bit Revolutions (cum),BRVC,BTREVC,L,integer,4
+2,17,Mud Density In (avg),MDIA,MDIA,F,float,4
+2,18,ECD at Total Depth,ECDT,ECDTD,F,float,4
+2,19,Mud Flow In (avg),MFIA,MFIA,F,float,4
+2,20,Mud Flow Out (avg),MFOA,MFOA,F,float,4
+2,21,Mud Flow Out %,MFOP,MFOP,S,integer,2
+2,22,Tank Volume (active),TVA,TVOLACT,F,float,4
+2,23,Cost/Distance (inst),CPDI,CPDI,F,float,0
+2,24,Cost/Distance (cum),CPDC,CPDC,F,float,4
+2,25,Bit Drilled Time,BDTI,BTDTIME,F,float,4
+2,26,Bit Drilled Distance,BDDI,BTDDIST,F,float,4
+2,27,Corr. Drilling Exponent,DXC,DXC,F,float,4
+2,28,SPARE 1,SPR1,SPARE1,F,float,4
+2,29,SPARE 2,SPR2,SPARE2,F,float,4
+2,30,SPARE 3,SPR3,SPARE3,F,float,4
+2,31,SPARE 4,SPR4,SPARE4,F,float,4
+2,32,SPARE 5,SPR5,SPARE5,F,float,4
+2,33,SPARE 6,SPR6,SPARE6,F,float,4
+2,34,SPARE 7,SPR7,SPARE7,F,float,4
+2,35,SPARE 8,SPR8,SPARE8,F,float,4
+2,36,SPARE 9,SPR9,SPARE9,F,float,4
+3,1,Well Identifier,WID,WELLID,A,text,16
+3,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+3,3,Record Identifier,RID,RECID,S,integer,2
+3,4,Sequence Identifier,SQID,SEQID,L,integer,4
+3,5,Date,DATE,DATE,D,date,4
+3,6,Time,TIME,TIME,T,time,4
+3,7,Activity Code,ACTC,ACTCOD,S,integer,2
+3,8,Depth Connection (meas),DCNM,DEPTCONM,F,float,4
+3,9,Depth Connection (vert),DCNV,DEPTCONV,F,float,4
+3,10,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+3,11,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+3,12,Elapsed Time Bottom-Slips,ETBS,ETIMEBTS,S,integer,2
+3,13,Elapsed Time In-Slips,ETSL,ETIMESLP,S,integer,2
+3,14,Elapsed Time Slips-Bottom,ETSB,ETIMESTB,S,integer,2
+3,15,Elapsed Time Pumps-Off,ETPO,ETIMEPOF,S,integer,2
+3,16,Running Speed - up (max),RSUX,RSUX,F,float,4
+3,17,Running Speed - down (max),RSDX,RSDX,F,float,4
+3,18,Hookload (max),HKLX,HKLX,F,float,4
+3,19,"String Weight (rot,avg)",STWT,STRGWT,F,float,4
+3,20,Torque - Make Up (max),TQMX,TORQMUX,F,float,4
+3,21,Torque - Breakout (max),TQBX,TORQBOX,F,float,4
+3,22,SPARE 1,SPR1,SPARE1,F,float,4
+3,23,SPARE 2,SPR2,SPARE2,F,float,4
+3,24,SPARE 3,SPR3,SPARE3,F,float,4
+3,25,SPARE 4,SPR4,SPARE4,F,float,4
+3,26,SPARE 5,SPR5,SPARE5,F,float,4
+4,1,Well Identifier,WID,WELLID,A,text,16
+4,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+4,3,Record Identifier,RID,RECID,S,integer,2
+4,4,Sequence Identifier,SQID,SEQID,L,integer,4
+4,5,Date,DATE,DATE,D,date,4
+4,6,Time,TIME,TIME,T,time,4
+4,7,Activity Code,ACTC,ACTCOD,S,integer,2
+4,8,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+4,9,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+4,10,Depth Bit (meas),DBTM,DEPTBITM,F,float,4
+4,11,Depth Bit (vert),DBTV,DEPTBITV,F,float,4
+4,12,Mud Density In (avg),MDIA,MDIA,F,float,4
+4,13,Mud Flow In (avg),MFIA,MFIA,F,float,4
+4,14,Standpipe Pressure (avg),SPPA,SPPA,F,float,4
+4,15,Plastic Viscosity,PV,PV,F,float,4
+4,16,Yield Point,YP,YP,F,float,4
+4,17,Pressure Loss - bit,PLB,PLB,F,float,4
+4,18,Pressure Loss - string,PLDS,PLDS,F,float,4
+4,19,Pressure Loss - annulus,PLA,PLA,F,float,4
+4,20,Pressure Loss - surface,PLSU,PLSU,F,float,4
+4,21,Pressure Loss - mud motor,PLMM,PLMM,F,float,4
+4,22,Pressure Loss - MWD tool,PLMW,PLMWD,F,float,4
+4,23,Pressure Loss - % at bit,PLPB,PLPB,F,float,4
+4,24,Bit Hydraulic Power,BHP,BHP,F,float,4
+4,25,Bit Hydraulic Power/Area,BHPA,BHPA,F,float,4
+4,26,Jet Impact Force,JIF,JIF,F,float,4
+4,27,Jet Velocity,JV,JV,F,float,4
+4,28,Annular Velocity (min),AVN,AVELN,F,float,4
+4,29,Annular Velocity (max),AVX,AVELX,F,float,4
+4,30,ECD at Total Depth,ECDT,ECDTD,F,float,4
+4,31,ECD at Bit,ECDB,ECDBIT,F,float,4
+4,32,ECD at Casing Shoe,ECDC,ECDCSG,F,float,4
+4,33,Pump Hydraulic Power,PHP,PHP,F,float,4
+4,34,Calc/Obs Press.Loss ratio,PLCO,PLCO,F,float,4
+4,35,SPARE 1,SPR1,SPARE1,F,float,4
+4,36,SPARE 2,SPR2,SPARE2,F,float,4
+4,37,SPARE 3,SPR3,SPARE3,F,float,4
+4,38,SPARE 4,SPR4,SPARE4,F,float,4
+4,39,SPARE 5,SPR5,SPARE5,F,float,4
+5,1,Well Identifier,WID,WELLID,A,text,16
+5,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+5,3,Record Identifier,RID,RECID,S,integer,2
+5,4,Sequence Identifier,SQID,SEQID,L,integer,4
+5,5,Date,DATE,DATE,D,date,4
+5,6,Time,TIME,TIME,T,time,4
+5,7,Activity Code,ACTC,ACTCOD,S,integer,2
+5,8,Depth Bit (meas),DBTM,DEPTBITM,F,float,4
+5,9,Depth Bit (vert),DBTV,DEPTBITV,F,float,4
+5,10,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+5,11,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+5,12,Trip Number,TNUM,TRIPNUM,S,integer,2
+5,13,In-Slips Status,STIS,STATUSIS,A,text,2
+5,14,Hookload (avg),HKLA,HKLA,F,float,4
+5,15,Block Position,BPOS,BLKPOS,F,float,4
+5,16,Running Speed - up (max),RSUX,RSUX,F,float,4
+5,17,Running Speed - down (max),RSDX,RSDX,F,float,4
+5,18,Fill/Gain Volume Obs.(cum),FVOC,FVOLOC,F,float,4
+5,19,SPARE 1,SPR1,SPARE1,F,float,4
+5,20,SPARE 2,SPR2,SPARE2,F,float,4
+5,21,SPARE 3,SPR3,SPARE3,F,float,4
+5,22,SPARE 4,SPR4,SPARE4,F,float,4
+5,23,SPARE 5,SPR5,SPARE5,F,float,4
+6,1,Well Identifier,WID,WELLID,A,text,16
+6,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+6,3,Record Identifier,RID,RECID,S,integer,2
+6,4,Sequence Identifier,SQID,SEQID,L,integer,4
+6,5,Date,DATE,DATE,D,date,4
+6,6,Time,TIME,TIME,T,time,4
+6,7,Activity Code,ACTC,ACTCOD,S,integer,2
+6,8,Depth Bit (meas),DBTM,DEPTBITM,F,float,4
+6,9,Depth Bit (vert),DBTV,DEPTBITV,F,float,4
+6,10,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+6,11,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+6,12,Trip Number,TNUM,TRIPNUM,S,integer,2
+6,13,Connections Done,CDON,CONNDONE,S,integer,2
+6,14,Connections Remaining,CREM,CONNREM,S,integer,2
+6,15,Elapsed Time In-Slips,ETSL,ETIMESLP,S,integer,2
+6,16,Elapsed Time Out-of-Slips,ETOS,ETIMEOS,S,integer,2
+6,17,Running Speed -up (max),RSUX,RSUX,F,float,4
+6,18,Running Speed -up (avg),RSUA,RSUA,F,float,4
+6,19,Running Speed -down (max),RSDX,RSDX,F,float,4
+6,20,Running Speed -down (avg),RSDA,RSDA,F,float,4
+6,21,Hookload (max),HKLX,HKLX,F,float,4
+6,22,Hookload (min),HKLN,HKLN,F,float,4
+6,23,Hookload (avg),HKLA,HKLA,F,float,4
+6,24,Torque - Make Up (max),TQMX,TORQMUX,F,float,4
+6,25,Torque - Breakout (max),TQBX,TORQBOX,F,float,4
+6,26,Fill/Gain Volume Obs.,FVO,FVOLO,F,float,4
+6,27,Fill/Gain Volume Exp.,FVE,FVOLE,F,float,4
+6,28,Fill/Gain Volume Obs.(cum),FVOC,FVOLOC,F,float,4
+6,29,Fill/Gain Volume Exp (cum),FVEC,FVOLEC,F,float,4
+6,30,SPARE 1,SPR1,SPARE1,F,float,4
+6,31,SPARE 2,SPR2,SPARE2,F,float,4
+6,32,SPARE 3,SPR3,SPARE3,F,float,4
+6,33,SPARE 4,SPR4,SPARE4,F,float,4
+6,34,SPARE 5,SPR5,SPARE5,F,float,4
+7,1,Well Identifier,WID,WELLID,A,text,16
+7,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+7,3,Record Identifier,RID,RECID,S,integer,2
+7,4,Sequence Identifier,SQID,SEQID,L,integer,4
+7,5,Date,DATE,DATE,D,date,4
+7,6,Time,TIME,TIME,T,time,4
+7,7,Activity Code,ACTC,ACTCOD,S,integer,2
+7,8,Depth Svy/reading (meas),DSVM,DEPTSVYM,F,float,4
+7,9,Depth Svy/reading (vert),DSVV,DEPTSVYV,F,float,4
+7,10,Pass Number,PASS,PASSNUM,S,integer,2
+7,11,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+7,12,Svy Type,STYP,SVYTYPE,A,text,8
+7,13,Svy Inclination,SINC,SVYINC,F,float,4
+7,14,Svy Azimuth (uncorrected),SAZU,SVYAZU,F,float,4
+7,15,Svy Azimuth (corrected),SAZC,SVYAZC,F,float,4
+7,16,Svy Magnetic Toolface,SMTF,SVYMTF,F,float,4
+7,17,Svy Gravity Toolface,SGTF,SVYGTF,F,float,4
+7,18,Svy North-South Position,SNS,SVYNS,F,float,4
+7,19,Svy East-West Position,SEW,SVYEW,F,float,4
+7,20,Svy Dog Leg Severity,SDLS,SVYDLS,F,float,4
+7,21,Svy Rate of Walk,SWLK,SVYWALK,F,float,4
+7,22,SPARE 1,SPR1,SPARE1,F,float,4
+7,23,SPARE 2,SPR2,SPARE2,F,float,4
+7,24,SPARE 3,SPR3,SPARE3,F,float,4
+7,25,SPARE 4,SPR4,SPARE4,F,float,4
+7,26,SPARE 5,SPR5,SPARE5,F,float,4
+8,1,Well Identifier,WID,WELLID,A,text,16
+8,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+8,3,Record Identifier,RID,RECID,S,integer,2
+8,4,Sequence Identifier,SQID,SEQID,L,integer,4
+8,5,Date,DATE,DATE,D,date,4
+8,6,Time,TIME,TIME,T,time,4
+8,7,Activity Code,ACTC,ACTCOD,S,integer,2
+8,8,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+8,9,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+8,10,Depth Bit (meas),DBTM,DEPTBITM,F,float,4
+8,11,Depth Bit (vert),DBTV,DEPTBITV,F,float,4
+8,12,Pass Number,PASS,PASSNUM,S,integer,2
+8,13,Depth Resis 1 sensor (meas),DR1M,DEPTRS1M,F,float,4
+8,14,Depth Resis 1 sensor (vert),DR1V,DEPTRS1V,F,float,4
+8,15,Resis 1 reading,MR1,MR1,F,float,4
+8,16,Resis 1 (borehole corr),MR1C,MR1C,F,float,4
+8,17,Depth Resis 2 sensor (meas),DR2M,DEPTRS2M,F,float,4
+8,18,Depth Resis 2 sensor (vert),DR2V,DEPTRS2V,F,float,4
+8,19,Resis 2 reading,MR2,MR2,F,float,4
+8,20,Resis 2 (borehole corr),MR2C,MR2C,F,float,4
+8,21,Depth G.Ray 1 sensor(meas),DG1M,DEPTGR1M,F,float,4
+8,22,Depth G.Ray 1 sensor(vert),DG1V,DEPTGR1V,F,float,4
+8,23,Gamma Ray 1 reading,MG1,MG1,F,float,4
+8,24,Gamma Ray 1(borehole corr),MG1C,MG1C,F,float,4
+8,25,Depth G.Ray 2 sensor(meas),DG2M,DEPTGR2M,F,float,4
+8,26,Depth G.Ray 2 sensor(vert),DG2V,DEPTGR2V,F,float,4
+8,27,Gamma Ray 2 reading,MG2,MG2,F,float,4
+8,28,Gamma Ray 2(borehole corr),MG2C,MG2C,F,float,4
+8,29,Depth Por 1 sensor (meas),DP1M,DEPTP1M,F,float,4
+8,30,Depth Por 1 sensor (vert),DP1V,DEPTP1V,F,float,4
+8,31,Porosity Tool 1 reading,MPO1,MPO1,F,float,4
+8,32,Depth Por 2 sensor (meas),DP2M,DEPTP2M,F,float,4
+8,33,Depth Por 2 sensor (vert),DP2V,DEPTP2V,F,float,4
+8,34,Porosity Tool 2 reading,MPO2,MPO2,F,float,4
+8,35,Downhole Fluid Temp (ann),MFTA,MFTANN,F,float,4
+8,36,Downhole Fluid Temp (pipe),MFTP,MFTPIPE,F,float,4
+8,37,Downhole Fluid Resis (ann),MFRA,MFRANN,F,float,4
+8,38,Downhole Fluid Resis (pipe),MFRP,MFRPIPE,F,float,4
+8,39,Depth Form Density (meas),DFDM,DEPTFDM,F,float,4
+8,40,Depth Form Density (vert),DFDV,DEPTFDV,F,float,4
+8,41,Formation Density,MFD,MFD,F,float,4
+8,42,Depth Caliper (meas),DCLM,DEPTCALM,F,float,4
+8,43,Depth Caliper (vert),DCLV,DEPTCALV,F,float,4
+8,44,Caliper,MCLP,MCLP,F,float,4
+8,45,Pore Pressure Grad MWD,MFPP,MFPP,F,float,4
+8,46,Frac Pressure Grad MWD,MFFP,MFFP,F,float,4
+8,47,SPARE 1,SPR1,SPARE1,F,float,4
+8,48,SPARE 2,SPR2,SPARE2,F,float,4
+8,49,SPARE 3,SPR3,SPARE3,F,float,4
+8,50,SPARE 4,SPR4,SPARE4,F,float,4
+8,51,SPARE 5,SPR5,SPARE5,F,float,4
+8,52,SPARE 6,SPR6,SPARE6,F,float,4
+8,53,SPARE 7,SPR7,SPARE7,F,float,4
+8,54,SPARE 8,SPR8,SPARE8,F,float,4
+8,55,SPARE 9,SPR9,SPARE9,F,float,4
+9,1,Well Identifier,WID,WELLID,A,text,16
+9,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+9,3,Record Identifier,RID,RECID,S,integer,2
+9,4,Sequence Identifier,SQID,SEQID,L,integer,4
+9,5,Date,DATE,DATE,D,date,4
+9,6,Time,TIME,TIME,T,time,4
+9,7,Activity Code,ACTC,ACTCOD,S,integer,2
+9,8,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+9,9,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+9,10,Depth Bit (meas),DBTM,DEPTBITM,F,float,4
+9,11,Depth Bit (vert),DBTV,DEPTBITV,F,float,4
+9,12,Pass Number,PASS,PASSNUM,S,integer,2
+9,13,Bottom-hole annulus press,MBPA,MBHPANN,F,float,4
+9,14,Bottom-hole internal press,MBPI,MBHPINT,F,float,4
+9,15,Downhole Wt-on-Bit (avg),MWBA,MWOBA,F,float,4
+9,16,Downhole Wt-on-Bit (max),MWBX,MWOBX,F,float,4
+9,17,Downhole Torque (avg),MTQA,MTORQA,F,float,4
+9,18,Downhole Torque (max),MTQX,MTORQX,F,float,4
+9,19,Downhole Motor RPM,MMRP,MMMRPM,S,integer,2
+9,20,MWD Tool Alternator Voltage,MALT,MALTVOLT,S,integer,2
+9,21,SPARE 1,SPR1,SPARE1,F,float,4
+9,22,SPARE 2,SPR2,SPARE2,F,float,4
+9,23,SPARE 3,SPR3,SPARE3,F,float,4
+9,24,SPARE 4,SPR4,SPARE4,F,float,4
+9,25,SPARE 5,SPR5,SPARE5,F,float,4
+9,26,SPARE 6,SPR6,SPARE6,F,float,4
+9,27,SPARE 7,SPR7,SPARE7,F,float,4
+9,28,SPARE 8,SPR8,SPARE8,F,float,4
+9,29,SPARE 9,SPR9,SPARE9,F,float,4
+10,1,Well Identifier,WID,WELLID,A,text,16
+10,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+10,3,Record Identifier,RID,RECID,S,integer,2
+10,4,Sequence Identifier,SQID,SEQID,L,integer,4
+10,5,Date,DATE,DATE,D,date,4
+10,6,Time,TIME,TIME,T,time,4
+10,7,Activity Code,ACTC,ACTCOD,S,integer,2
+10,8,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+10,9,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+10,10,Depth Sample (meas),DSAM,DEPTSAMM,F,float,4
+10,11,Depth Sample (vert),DSAV,DEPTSAMV,F,float,4
+10,12,Est. Form. Pore Press Grad.,FPPG,FPOREPG,F,float,4
+10,13,Est. Form. Frac Press Grad.,FFPG,FFRACPG,F,float,4
+10,14,Est. Form. Overburden Grad.,FOPG,FOBPG,F,float,4
+10,15,Est. Kick Tolerance,KTOL,KTOL,F,float,4
+10,16,Max. Permitted SICP (init),PSIP,PSIPX,F,float,4
+10,17,Connection Gas (avg),CGSA,CONNGASA,F,float,4
+10,18,Connection Gas (max),CGSX,CONNGASX,F,float,4
+10,19,Connection Gas (last),CGSL,CONNGASL,F,float,4
+10,20,Last Trip Gas,TGAS,TRIPGAS,F,float,4
+10,21,Shale Density,SDEN,SHALEDEN,F,float,4
+10,22,Cuttings CEC,CEC,CEC,F,float,4
+10,23,Cavings %,CAV,CAVINGS,S,integer,2
+10,24,Corr. Drilling Exponent,DXC,DXC,F,float,4
+10,25,SPARE 1,SPR1,SPARE1,F,float,4
+10,26,SPARE 2,SPR2,SPARE2,F,float,4
+10,27,SPARE 3,SPR3,SPARE3,F,float,4
+10,28,SPARE 4,SPR4,SPARE4,F,float,4
+10,29,SPARE 5,SPR5,SPARE5,F,float,4
+10,30,SPARE 6,SPR6,SPARE6,F,float,4
+10,31,SPARE 7,SPR7,SPARE7,F,float,4
+10,32,SPARE 8,SPR8,SPARE8,F,float,4
+10,33,SPARE 9,SPR9,SPARE9,F,float,4
+11,1,Well Identifier,WID,WELLID,A,text,16
+11,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+11,3,Record Identifier,RID,RECID,S,integer,2
+11,4,Sequence Identifier,SQID,SEQID,L,integer,4
+11,5,Date,DATE,DATE,D,date,4
+11,6,Time,TIME,TIME,T,time,4
+11,7,Activity Code,ACTC,ACTCOD,S,integer,2
+11,8,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+11,9,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+11,10,Tank Volume (total),TVT,TVOLTOT,F,float,4
+11,11,Tank Volume (active),TVA,TVOLACT,F,float,4
+11,12,Tank Volume Change (total),TVCT,TVOLCTOT,F,float,4
+11,13,Tank Volume Change (active),TVCA,TVOLCACT,F,float,4
+11,14,Tank Volume Reset Time,TVRT,TVRESET,L,integer,4
+11,15,Tank 01 Volume,TV01,TVOL01,F,float,4
+11,16,Tank 02 Volume,TV02,TVOL02,F,float,4
+11,17,Tank 03 Volume,TV03,TVOL03,F,float,4
+11,18,Tank 04 Volume,TV04,TVOL04,F,float,4
+11,19,Tank 05 Volume,TV05,TVOL05,F,float,4
+11,20,Tank 06 Volume,TV06,TVOL06,F,float,4
+11,21,Tank 07 Volume,TV07,TVOL07,F,float,4
+11,22,Tank 08 Volume,TV08,TVOL08,F,float,4
+11,23,Tank 09 Volume,TV09,TVOL09,F,float,4
+11,24,Tank 10 Volume,TV10,TVOL10,F,float,4
+11,25,Tank 11 Volume,TV11,TVOL11,F,float,4
+11,26,Tank 12 Volume,TV12,TVOL12,F,float,4
+11,27,Tank 13 Volume,TV13,TVOL13,F,float,4
+11,28,Tank 14 Volume,TV14,TVOL14,F,float,4
+11,29,Trip Tank 1 Volume,TTV1,TTVOL1,F,float,4
+11,30,Trip Tank 2 Volume,TTV2,TTVOL2,F,float,4
+11,31,SPARE 1,SPR1,SPARE1,F,float,4
+11,32,SPARE 2,SPR2,SPARE2,F,float,4
+11,33,SPARE 3,SPR3,SPARE3,F,float,4
+11,34,SPARE 4,SPR4,SPARE4,F,float,4
+11,35,SPARE 5,SPR5,SPARE5,F,float,4
+12,1,Well Identifier,WID,WELLID,A,text,16
+12,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+12,3,Record Identifier,RID,RECID,S,integer,2
+12,4,Sequence Identifier,SQID,SEQID,L,integer,4
+12,5,Date,DATE,DATE,D,date,4
+12,6,Time,TIME,TIME,T,time,4
+12,7,Activity Code,ACTC,ACTCOD,S,integer,2
+12,8,Depth Chrom Sample (meas),DCHM,DEPTCHRM,F,float,4
+12,9,Depth Chrom Sample (vert),DCHV,DEPTCHRV,F,float,4
+12,10,Date Chrom Sample,DCHR,DATECHR,D,date,4
+12,11,Time Chrom Sample,TCHR,TIMECHR,T,time,4
+12,12,Methane (C1),METH,METHANE,F,float,4
+12,13,Ethane (C2),ETH,ETHANE,F,float,4
+12,14,Propane (C3),PRP,PROPANE,F,float,4
+12,15,Iso-Butane (IC4),IBUT,IBUTANE,F,float,4
+12,16,Nor-Butane (NC4),NBUT,NBUTANE,F,float,4
+12,17,Iso-Pentane (IC5),IPEN,IPENTANE,F,float,4
+12,18,Nor-Pentane (NC5),NPEN,NPENTANE,F,float,4
+12,19,Neo-Pentane (EC5),EPEN,EPENTANE,F,float,4
+12,20,Iso-Hexane (IC6),IHEX,IHEXANE,F,float,4
+12,21,Nor-Hexane (NC6),NHEX,NHEXANE,F,float,4
+12,22,Carbon Dioxide,CO2,CO2,F,float,4
+12,23,Acetylene,ACET,ACET,F,float,4
+12,24,SPARE 1,SPR1,SPARE1,F,float,4
+12,25,SPARE 2,SPR2,SPARE2,F,float,4
+12,26,SPARE 3,SPR3,SPARE3,F,float,4
+12,27,SPARE 4,SPR4,SPARE4,F,float,4
+12,28,SPARE 5,SPR5,SPARE5,F,float,4
+13,1,Well Identifier,WID,WELLID,A,text,16
+13,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+13,3,Record Identifier,RID,RECID,S,integer,2
+13,4,Sequence Identifier,SQID,SEQID,L,integer,4
+13,5,Date,DATE,DATE,D,date,4
+13,6,Time,TIME,TIME,T,time,4
+13,7,Activity Code,ACTC,ACTCOD,S,integer,2
+13,8,Depth Returns (meas),DRTM,DEPTRETM,F,float,4
+13,9,Depth Returns (vert),DRTV,DEPTRETV,F,float,4
+13,10,Methane (C1) (avg),MTHA,METHA,L,integer,4
+13,11,Methane (C1) (min),MTHN,METHN,L,integer,4
+13,12,Methane (C1) (max),MTHX,METHX,L,integer,4
+13,13,Ethane (C2) (avg),ETHA,ETHA,L,integer,4
+13,14,Ethane (C2) (min),ETHN,ETHN,L,integer,4
+13,15,Ethane (C2) (max),ETHX,ETHX,L,integer,4
+13,16,Propane (C3) (avg),PRPA,PROPA,L,integer,4
+13,17,Propane (C3) (min),PRPN,PROPN,L,integer,4
+13,18,Propane (C3) (max),PRPX,PROPX,L,integer,4
+13,19,Iso-Butane (IC4) (avg),IBTA,IBUTA,L,integer,4
+13,20,Iso-Butane (IC4) (min),IBTN,IBUTN,L,integer,4
+13,21,Iso-Butane (IC4) (max),IBTX,IBUTX,L,integer,4
+13,22,Nor-Butane (NC4) (avg),NBTA,NBUTA,L,integer,4
+13,23,Nor-Butane (NC4) (min),NBTN,NBUTN,L,integer,4
+13,24,Nor-Butane (NC4) (max),NBTX,NBUTX,L,integer,4
+13,25,Iso-Pentane (IC5) (avg),IPNA,IPENTA,L,integer,4
+13,26,Iso-Pentane (IC5) (min),IPNN,IPENTN,L,integer,4
+13,27,Iso-Pentane (IC5) (max),IPNX,IPENTX,L,integer,4
+13,28,Nor-Pentane (NC5) (avg),NPNA,NPENTA,L,integer,4
+13,29,Nor-Pentane (NC5) (min),NPNN,NPENTN,L,integer,4
+13,30,Nor-Pentane (NC5) (max),NPNX,NPENTX,L,integer,4
+13,31,Neo-Pentane (EC5) (avg),EPNA,EPENTA,L,integer,4
+13,32,Neo-Pentane (EC5) (min),EPNN,EPENTN,L,integer,4
+13,33,Neo-Pentane (EC5) (max),EPNX,EPENTX,L,integer,4
+13,34,Iso-Hexane (IC6) (avg),IHXA,IHEXA,L,integer,4
+13,35,Iso-Hexane (IC6) (min),IHXN,IHEXN,L,integer,4
+13,36,Iso-Hexane (IC6) (max),IHXX,IHEXX,L,integer,4
+13,37,Nor-Hexane (NC6) (avg),NHXA,NHEXA,L,integer,4
+13,38,Nor-Hexane (NC6) (min),NHXN,NHEXN,L,integer,4
+13,39,Nor-Hexane (NC6) (max),NHXX,NHEXX,L,integer,4
+13,40,Carbon Dioxide (avg),CO2A,CO2A,L,integer,4
+13,41,Carbon Dioxide (min),CO2N,CO2N,L,integer,4
+13,42,Carbon Dioxide (max),CO2X,CO2X,L,integer,4
+13,43,Acetylene,ACET,ACET,L,integer,4
+13,44,SPARE 1,SPR1,SPARE1,F,float,4
+13,45,SPARE 2,SPR2,SPARE2,F,float,4
+13,46,SPARE 3,SPR3,SPARE3,F,float,4
+13,47,SPARE 4,SPR4,SPARE4,F,float,4
+13,48,SPARE 5,SPR5,SPARE5,F,float,4
+14,1,Well Identifier,WID,WELLID,A,text,16
+14,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+14,3,Record Identifier,RID,RECID,S,integer,2
+14,4,Sequence Identifier,SQID,SEQID,L,integer,4
+14,5,Date,DATE,DATE,D,date,4
+14,6,Time,TIME,TIME,T,time,4
+14,7,Activity Code,ACTC,ACTCOD,S,integer,2
+14,8,Depth Returns (meas),DRTM,DEPTRETM,F,float,4
+14,9,Depth Returns (vert),DRTV,DEPTRETV,F,float,4
+14,10,Mud Density In (lagd),MDIL,MDIL,F,float,4
+14,11,Mud Density Out (avg),MDOA,MDOA,F,float,4
+14,12,Mud Temperature In (lagd),MTIL,MTIL,F,float,4
+14,13,Mud Temperature Out (avg),MTOA,MTOA,F,float,4
+14,14,Mud Conductivity In (lagd),MCIL,MCIL,F,float,4
+14,15,Mud Conductivity Out (avg),MCOA,MCOA,F,float,4
+14,16,Hyd.Sulfide Haz.Pot. (avg),HHPA,HSHPA,F,float,4
+14,17,Hyd.Sulfide pH (avg),HPHA,HSPHA,F,float,4
+14,18,Hyd.Sulfide pHS (avg),HPSA,HSPHSA,F,float,4
+14,19,Gas In (lagd),GSIL,GASIL,F,float,4
+14,20,Gas (avg),GASA,GASA,F,float,4
+14,21,Gas (max),GASX,GASX,F,float,4
+14,22,Carbon Dioxide (avg),CO2A,CO2A,L,integer,4
+14,23,Hydrogen Sulfide (avg),HSA,HSA,L,integer,4
+14,24,Hydrogen Sulfide (max),HSX,HSX,L,integer,4
+14,25,SPARE 1,SPR1,SPARE1,F,float,4
+14,26,SPARE 2,SPR2,SPARE2,F,float,4
+14,27,SPARE 3,SPR3,SPARE3,F,float,4
+14,28,SPARE 4,SPR4,SPARE4,F,float,4
+14,29,SPARE 5,SPR5,SPARE5,F,float,4
+15,1,Well Identifier,WID,WELLID,A,text,16
+15,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+15,3,Record Identifier,RID,RECID,S,integer,2
+15,4,Sequence Identifier,SQID,SEQID,L,integer,4
+15,5,Date,DATE,DATE,D,date,4
+15,6,Time,TIME,TIME,T,time,4
+15,7,Activity Code,ACTC,ACTCOD,S,integer,2
+15,8,Depth Sample (meas),DSAM,DEPTSAMM,F,float,4
+15,9,Depth Sample (vert),DSAV,DEPTSAMV,F,float,4
+15,10,Descriptionription type,Description,DescriptionTYPE,A,text,8
+15,11,Lith 1 type,L1TY,L1TYPE,A,text,16
+15,12,Lith 1 %,L1PC,L1PERC,S,integer,2
+15,13,Lith 1 classification,L1CL,L1CLASS,A,text,16
+15,14,Lith 1 color,L1CO,L1COLOR,A,text,16
+15,15,Lith 1 texture,L1TX,L1TEXT,A,text,16
+15,16,Lith 1 hardness,L1HD,L1HARD,A,text,16
+15,17,Lith 1 grain size,L1SZ,L1SIZE,A,text,16
+15,18,Lith 1 roundness,L1RD,L1ROUND,A,text,16
+15,19,Lith 1 sorting,L1SO,L1SORT,A,text,16
+15,20,Lith 1 matrix/cement,L1MC,L1MATCEM,A,text,16
+15,21,Lith 1 accessories,L1AC,L1ACC,A,text,16
+15,22,Lith 1 porosity,L1PO,L1POR,F,float,4
+15,23,Lith 1 permeability,L1PE,L1PERM,F,float,4
+15,24,Lith 2 type,L2TY,L2TYPE,A,text,16
+15,25,Lith 2 %,L2PC,L2PERC,S,integer,2
+15,26,Lith 2 classification,L2CL,L2CLASS,A,text,16
+15,27,Lith 2 color,L2CO,L2COLOR,A,text,16
+15,28,Lith 2 texture,L2TX,L2TEXT,A,text,16
+15,29,Lith 2 hardness,L2HD,L2HARD,A,text,16
+15,30,Lith 2 grain size,L2SZ,L2SIZE,A,text,16
+15,31,Lith 2 roundness,L2RD,L2ROUND,A,text,16
+15,32,Lith 2 sorting,L2SO,L2SORT,A,text,16
+15,33,Lith 2 matrix/cement,L2MC,L2MATCEM,A,text,16
+15,34,Lith 2 accessories,L2AC,L2ACC,A,text,16
+15,35,Lith 2 porosity,L2PO,L2POR,F,float,4
+15,36,Lith 2 permeability,L2PE,L2PERM,F,float,4
+15,37,Lith 3 type,L3TY,L3TYPE,A,text,16
+15,38,Lith 3 %,L3PC,L3PERC,S,integer,2
+15,39,Lith 3 classification,L3CL,L3CLASS,A,text,16
+15,40,Lith 4 type,L4TY,L4TYPE,A,text,16
+15,41,Lith 4 %,L4PC,L4PERC,S,integer,2
+15,42,Lith 4 classification,L4CL,L4CLASS,A,text,16
+15,43,Lith 5 type,L5TY,L5TYPE,A,text,16
+15,44,Lith 5 %,L5PC,L5PERC,S,integer,2
+15,45,Lith 5 classification,L5CL,L5CLASS,A,text,16
+15,46,Fossils,FOSS,FOSS,A,text,16
+15,47,Composite Show,SHOW,COMPSHOW,A,text,16
+15,48,Bulk Density,BDEN,BULKDEN,F,float,4
+15,49,Cuttings Gas,GCUT,GASCUTT,F,float,4
+15,50,Calcimetry Calcite %,CCAL,CCAL,F,float,4
+15,51,Calcimetry Dolomite %,CDOL,CDOL,F,float,4
+15,52,Cuttings CEC,CEC,CEC,F,float,4
+15,53,Cavings %,CAV,CAVINGS,S,integer,2
+15,54,Shale Density,SDEN,SHALEDEN,F,float,4
+15,55,SPARE 1,SPR1,SPARE1,F,float,4
+15,56,SPARE 2,SPR2,SPARE2,F,float,4
+15,57,SPARE 3,SPR3,SPARE3,F,float,4
+15,58,SPARE 4,SPR4,SPARE4,F,float,4
+15,59,SPARE 5,SPR5,SPARE5,F,float,4
+16,1,Well Identifier,WID,WELLID,A,text,16
+16,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+16,3,Record Identifier,RID,RECID,S,integer,2
+16,4,Sequence Identifier,SQID,SEQID,L,integer,4
+16,5,Date,DATE,DATE,D,date,4
+16,6,Time,TIME,TIME,T,time,4
+16,7,Activity Code,ACTC,ACTCOD,S,integer,2
+16,8,Show Number,SWNO,SHOWNUM,S,integer,2
+16,9,Show Intv1 Top Depth (meas),DSTM,DEPTSITM,F,float,4
+16,10,Show Intv1 Top Depth (vert),DSTV,SEPTSITV,F,float,4
+16,11,Show Intv Bott Depth (meas),DSBM,DEPTSIBM,F,float,4
+16,12,Show Intv1 Bott Depth (vert),DSBV,DEPTSIBV,F,float,4
+16,13,Show Lith type,WLTY,SHLTYPE,A,text,16
+16,14,Show Lith classification,WLCL,SHLCLASS,A,text,16
+16,15,Show Lith color,WLCO,SHLCOLOR,A,text,16
+16,16,Show Lith texture,WLTX,SHLTEXT,A,text,16
+16,17,Show Lith hardness,WLHD,SHLHARD,A,text,16
+16,18,Show Lith grain size,WLSZ,SHLSIZE,A,text,16
+16,19,Show Lith roundness,WLRD,SHLROUND,A,text,16
+16,20,Show Lith sorting,WLSO,SHLSORT,A,text,16
+16,21,Show Lith matrix/cement,WLMC,SHLMC,A,text,16
+16,22,Show Lith accessories,WLAC,SHLACC,A,text,16
+16,23,Show Lith porosity - visible,WLPV,SHLPORV,A,text,16
+16,24,Show Lith porosity - meas,WLPM,SHLPORM,F,float,4
+16,25,Show Lith permeability,WLPE,SHLPERM,F,float,4
+16,26,Show Lith stain description,WLST,SHLSTAIN,A,text,64
+16,27,Show Lith fluor description,WLFL,SHLFLUOR,A,text,64
+16,28,Show Lith cut description,WLCT,SHLCUT,A,text,64
+16,29,Show Lith cuttings gas,WLGC,SHLGCUT,F,float,4
+16,30,Show titrated salinity,WSAL,SHSAL,L,integer,4
+16,31,Show Mud Smple Methane,MTHM,METHMUD,L,integer,4
+16,32,Show Mud Smple Ethane,ETHM,ETHMUD,L,integer,4
+16,33,Show Mud Smple Propane,PRPM,PROPMUD,L,integer,4
+16,34,Show Mud Smple I-Butane,IBTM,IBUTMUD,L,integer,4
+16,35,Show Mud Smple N-Butane,NBTM,NBUTMUD,L,integer,4
+16,36,Show Mud Smple I-Pentane,IPNM,IPENMUD,L,integer,4
+16,37,Show Mud Smple N-Pentane,NPNM,NPENMUD,L,integer,4
+16,38,Show Mud Smple N-Pentane,EPNM,EPENMUD,L,integer,4
+16,39,Show Mud Smple I-Hexane,IHXM,IHEXMUD,L,integer,4
+16,40,Show Mud Smple N-Hexane,NHXM,NHEXMUD,L,integer,4
+16,41,Show Comments,WCOM,SHOWCOMM,A,text,128
+17,1,Well Identifier,WID,WELLID,A,text,16
+17,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+17,3,Record Identifier,RID,RECID,S,integer,2
+17,4,Sequence Identifier,SQID,SEQID,L,integer,4
+17,5,Date,DATE,DATE,D,date,4
+17,6,Time,TIME,TIME,T,time,4
+17,7,Activity Code,ACTC,ACTCOD,S,integer,2
+17,8,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+17,9,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+17,10,Depth Casing Shoe (meas),DCGM,DEPTCSGM,F,float,4
+17,11,Depth Casing Shoe (vert),DCGV,DEPTCSGV,F,float,4
+17,12,Cem Pump Pressure (avg),CPPA,CEMPPA,F,float,4
+17,13,Hookload (avg),HKLA,HKLA,F,float,4
+17,14,Block Position,BPOS,BLKPOS,F,float,4
+17,15,Cem Flow Rate In (calc),CFIC,CEMFIC,F,float,4
+17,16,Cem Flow Rate In (avg),CFIA,CEMFIA,F,float,4
+17,17,Cem Flow Rate Out (avg),CFOA,CEMFOA,F,float,4
+17,18,Cem Flow Out %,CFOP,CEMFOP,S,integer,2
+17,19,Cem Fluid Dens In (avg),CDIA,CEMDIA,F,float,4
+17,20,Cem Fluid Dens Out (avg),CDOA,CEMDOA,F,float,4
+17,21,ECD at Casing Shoe,ECDC,ECDCSG,F,float,4
+17,22,Cem Fluid Temp In (avg),CTIA,CEMTIA,F,float,4
+17,23,Cem Fluid Temp Out (avg),CTOA,CEMTOA,F,float,4
+17,24,Cem Stage Number,CSTG,CEMSTAGE,S,integer,2
+17,25,Cem Depth to DV Tool,DDVT,DEPTDVT,F,float,4
+17,26,Cem Fluid Type/Batch,CTYP,CEMFTYPE,A,text,16
+17,27,Cem Cumulative Returns,CCRT,CEMCUMRT,F,float,4
+17,28,Cem Indiv Vol Pumped,CIVL,CEMIVOL,F,float,4
+17,29,Cem Cement Vol Pumped,CCVL,CEMCVOL,F,float,4
+17,30,Cem Total Vol Pumped,CTVL,CEMTVOL,F,float,4
+17,31,Cem Volume to Bump Plug,CBVL,CEMBPVOL,F,float,4
+17,32,Cem No./Status of Plug(s),CPLG,CEMPLUGS,A,text,8
+17,33,Cem Job Type,CJTY,CEMJTYP,A,text,16
+17,34,SPARE 1,SPR1,SPARE1,F,float,4
+17,35,SPARE 2,SPR2,SPARE2,F,float,4
+17,36,SPARE 3,SPR3,SPARE3,F,float,4
+17,37,SPARE 4,SPR4,SPARE4,F,float,4
+17,38,SPARE 5,SPR5,SPARE5,F,float,4
+18,1,Well Identifier,WID,WELLID,A,text,16
+18,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+18,3,Record Identifier,RID,RECID,S,integer,2
+18,4,Sequence Identifier,SQID,SEQID,L,integer,4
+18,5,Date,DATE,DATE,D,date,4
+18,6,Time,TIME,TIME,T,time,4
+18,7,Activity Code,ACTC,ACTCOD,S,integer,2
+18,8,DST identification,DSID,DSTID,A,text,8
+18,9,DST Intvl Top Depth (meas),DDTM,DEPTDITM,F,float,4
+18,10,DST Intvl Top Depth (vert),DDTV,DEPTDITV,F,float,4
+18,11,DST Intvl Bott Depth (meas),DDBM,DEPTDIBM,F,float,4
+18,12,DST Intvl Bott Depth (vert),DDBV,DEPTDIBV,F,float,4
+18,13,DST Tool Time,DTTI,DSTTTIME,L,integer,4
+18,14,DST State of Well,DSTA,DSTSTATE,S,integer,2
+18,15,"DST Surf Pressure, Tubing",DSPT,DSTSPTUB,F,float,4
+18,16,"DST Surf Pressure, Casing",DSPC,DSTSPCAS,F,float,4
+18,17,"DST Surf Temp, Tubing",DSTT,DSTSTTUB,F,float,4
+18,18,DST Bottom Hole Pressure,DBHP,DSTBHP,F,float,4
+18,19,DST Bottom Hole Temp,DBHT,DSTBHT,F,float,4
+18,20,DST Liquid Flow Rate,DLFR,DSTLIQFR,F,float,4
+18,21,DST Gas Flow Rate,DGFR,DSTGASFR,F,float,4
+18,22,DST Total Flow Rate,DTFR,DSTTOTFR,F,float,4
+18,23,DST Cum Liquid Production,DCLP,DSTCLP,F,float,4
+18,24,DST Cum Gas Production,DCGP,DSTCGP,F,float,4
+18,25,DST Cum Total Production,DCTP,DSTCTP,F,float,4
+18,26,Hydrogen Sulfide (avg),HSA,HSA,L,integer,4
+18,27,SPARE 1,SPR1,SPARE1,F,float,4
+18,28,SPARE 2,SPR2,SPARE2,F,float,4
+18,29,SPARE 3,SPR3,SPARE3,F,float,4
+18,30,SPARE 4,SPR4,SPARE4,F,float,4
+18,31,SPARE 5,SPR5,SPARE5,F,float,4
+19,1,Well Identifier,WID,WELLID,A,text,16
+19,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+19,3,Record Identifier,RID,RECID,S,integer,2
+19,4,Sequence Identifier,SQID,SEQID,L,integer,4
+19,5,Date,DATE,DATE,D,date,4
+19,6,Time,TIME,TIME,T,time,4
+19,7,Activity Code,ACTC,ACTCOD,S,integer,2
+19,8,DST identification,DSID,DSTID,A,text,8
+19,9,DST Intvl Top Depth (meas),DDTM,DEPTDITM,F,float,4
+19,10,DST Intvl Top Depth (vert),DDTV,DEPTDITV,F,float,4
+19,11,DST Intvl Bott Depth (meas),DDBM,DEPTDIBM,F,float,4
+19,12,DST Intvl Bott Depth (vert),DDBV,DEPTDIBV,F,float,4
+19,13,DST Tool Time,DTTI,DSTTTIME,L,integer,4
+19,14,DST State of Well,DSTA,DSTSTATE,S,integer,2
+19,15,"DST Surf Pressure, Tubing",DSPT,DSTSPTUB,F,float,4
+19,16,"DST Surf Pressure, Casing",DSPC,DSTSPCAS,F,float,4
+19,17,"DST Surf Temp, Tubing",DSTT,DSTSTTUB,F,float,4
+19,18,DST Bottom Hole Pressure,DBHP,DSTBHP,F,float,4
+19,19,DST Bottom Hole Temp,DBHT,DSTBHT,F,float,4
+19,20,DST Liquid Flow Rate,DLFR,DSTLIQFR,F,float,4
+19,21,DST Gas Flow Rate,DGFR,DSTGASFR,F,float,4
+19,22,DST Total Flow Rate,DTFR,DSTTOTFR,F,float,4
+19,23,DST Cum Liquid Production,DCLP,DSTCLP,F,float,4
+19,24,DST Cum Gas Production,DCGP,DSTCGP,F,float,4
+19,25,DST Cum Total Production,DCTP,DSTCTP,F,float,4
+19,26,Hydrogen Sulfide (avg),HSA,HSA,L,integer,4
+19,27,SPARE 1,SPR1,SPARE1,F,float,4
+19,28,SPARE 2,SPR2,SPARE2,F,float,4
+19,29,SPARE 3,SPR3,SPARE3,F,float,4
+19,30,SPARE 4,SPR4,SPARE4,F,float,4
+19,31,SPARE 5,SPR5,SPARE5,F,float,4
+20,1,Well Identifier,WID,WELLID,A,text,16
+20,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+20,3,Record Identifier,RID,RECID,S,integer,2
+20,4,Sequence Identifier,SQID,SEQID,L,integer,4
+20,5,Date,DATE,DATE,D,date,4
+20,6,Time,TIME,TIME,T,time,4
+20,7,Activity Code,ACTC,ACTCOD,S,integer,2
+20,8,Mud Rept Depth (meas),MRDM,MREPDM,F,float,4
+20,9,Mud Rept Depth (vert),MRDV,MREPDV,F,float,4
+20,10,Mud Rept Number,MNUM,MREPNUM,S,integer,2
+20,11,Mud Rept Mud Type,MTYP,MRMTYPE,A,text,16
+20,12,Mud Rept Sample Location,MLOC,MRSLOC,A,text,8
+20,13,Mud Rept Sample Date,MDAT,MRSDATE,D,date,4
+20,14,Mud Rept Sample Time,MTIM,MRSTIME,T,time,4
+20,15,Mud Rept Mud Density,MDEN,MRDENS,F,float,4
+20,16,Mud Rept Funnel Vis,MFV,MRFVIS,S,integer,2
+20,17,Mud Rept Funnel Vis Temp,MFVT,MRFVIST,F,float,4
+20,18,Mud Rept Plastic Vis,MPV,MRPV,F,float,4
+20,19,Mud Rept Yield Point,MYP,MRYP,F,float,4
+20,20,Mud Rept Gel - 10 sec,MGL1,MRGEL10S,F,float,4
+20,21,Mud Rept Gel - 10 min,MGL2,MRGEL10M,F,float,4
+20,22,Mud Rept Gel - 30 min,MGL3,MRGEL30M,F,float,4
+20,23,Mud Rept Filtrate,MFIL,MRFILT,F,float,4
+20,24,Mud Rept Filter Cake,MCAK,MRCAKE,S,integer,2
+20,25,Mud Rept HTHP Temp,MHT,MRHT,F,float,4
+20,26,Mud Rept HTHP Pressure,MHP,MRHP,F,float,4
+20,27,Mud Rept HTHP Filtrate,MHFI,MRHFILT,F,float,4
+20,28,Mud Rept HTHP Filter Cake,MHCK,MRHCAKE,S,integer,2
+20,29,Mud Rept Solids % (retort),MSOL,MRSOLRET,F,float,4
+20,30,Mud Rept Water % (retort),MWAT,MRWATRET,F,float,4
+20,31,Mud Rept Oil % (retort),MOIL,MROILRET,F,float,4
+20,32,Mud Rept Sand %,MSAN,MRSAND,F,float,4
+20,33,Mud Rept Low Grav Sol %,MLGS,MRLGSOL,F,float,4
+20,34,Mud Rept Solids % (calc),MSCA,MRSOLCAL,F,float,4
+20,35,Mud Rept Barite content,MBRT,MRBARITE,F,float,4
+20,36,Mud Rept LCM content,MLCM,MRLCM,F,float,4
+20,37,Mud Rept MBT capacity,MMBT,MRMBT,F,float,4
+20,38,Mud Rept pH,MPH,MRPH,F,float,4
+20,39,Mud Rept pH sample temp,MPHT,MRPHT,F,float,4
+20,40,Mud Rept Pm,MPM,MRPM,F,float,4
+20,41,Mud Rept Pf,MPF,MRPF,F,float,4
+20,42,Mud Rept Mf,MMF,MRMF,F,float,4
+20,43,Mud Rept P1,MRP1,MRP1,F,float,4
+20,44,Mud Rept P2,MRP2,MRP2,F,float,4
+20,45,Mud Rept Chlorides,MCHL,MRCHLOR,F,float,4
+20,46,Mud Rept Calcium,MCAL,MRCALC,F,float,4
+20,47,Mud Rept Magnesium,MMAG,MRMAG,F,float,4
+20,48,Mud Rept Potassium,MPOT,MRPOT,F,float,4
+20,49,Mud Rept Rheometer temp,MRHT,MRRHETEM,F,float,4
+20,50,Mud Rept Viscom 3 rpm,M3,MRVIS3,F,float,4
+20,51,Mud Rept Viscom 6 rpm,M6,MRVIS6,F,float,4
+20,52,Mud Rept Viscom 100 rpm,M100,MRVIS100,F,float,4
+20,53,Mud Rept Viscom 200 rpm,M200,MRVIS200,F,float,4
+20,54,Mud Rept Viscom 300 rpm,M300,MRVIS300,F,float,4
+20,55,Mud Rept Viscom 600 rpm,M600,MRVIS600,F,float,4
+20,56,Mud Rept Brine %,MBRI,MRBRINE,F,float,4
+20,57,Mud Rept Alkalinity,MALK,MRALK,F,float,4
+20,58,Mud Rept Lime content,MLIM,MRLIME,F,float,4
+20,59,Mud Rept Elect. Stability,MELS,MRELECST,F,float,4
+20,60,"Mud Rept CaCl, Wt %",MCCL,MRCACL,F,float,4
+20,61,SPARE 1,SPR1,SPARE1,F,float,4
+20,62,SPARE 2,SPR2,SPARE2,F,float,4
+20,63,SPARE 3,SPR3,SPARE3,F,float,4
+20,64,SPARE 4,SPR4,SPARE4,F,float,4
+20,65,SPARE 5,SPR5,SPARE5,F,float,4
+21,1,Well Identifier,WID,WELLID,A,text,16
+21,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+21,3,Record Identifier,RID,RECID,S,integer,2
+21,4,Sequence Identifier,SQID,SEQID,L,integer,4
+21,5,Date,DATE,DATE,D,date,4
+21,6,Time,TIME,TIME,T,time,4
+21,7,Activity Code,ACTC,ACTCOD,S,integer,2
+21,8,Bit Number,BNUM,BTNUM,A,text,8
+21,9,Bit Diameter,BDIA,BTDIAM,F,float,4
+21,10,Bit Manufacturer,BMAN,BTMANUF,A,text,16
+21,11,Bit Name,BNAM,BTNAME,A,text,16
+21,12,Bit IADC Code,BCOD,BTCODE,A,text,8
+21,13,Bit Serial Number,BSER,BTSERNUM,A,text,16
+21,14,Bit Cost,BCST,BTCOST,F,float,4
+21,15,Bit Jet 1 Diameter,BJT1,BTJET1,F,float,4
+21,16,Bit Jet 2 Diameter,BJT2,BTJET2,F,float,4
+21,17,Bit Jet 3 Diameter,BJT3,BTJET3,F,float,4
+21,18,Bit Jet 4 Diameter,BJT4,BTJET4,F,float,4
+21,19,Bit Center Jet Diameter,BJTC,BTJETCEN,F,float,4
+21,20,Bit Total Flow Area,BTFA,BTTFA,F,float,4
+21,21,Bit Starting Depth (In),BDPI,BTDEPIN,F,float,4
+21,22,Bit Ending Depth (Out),BDPO,BTDEPOUT,F,float,4
+21,23,Bit Run Drilled Distance,BDDI,BTDDIST,F,float,4
+21,24,Bit Run Drilled Time,BDTI,BTDTIME,F,float,4
+21,25,Bit Run Reamed Time,BRTI,BTRTIME,F,float,4
+21,26,Bit Penetration Rate (avg),BRPA,BTROPA,F,float,4
+21,27,Bit Weight-on-Bit (avg),BWBA,BTWOBA,F,float,4
+21,28,Bit Weight-on-Bit (max),BWBX,BTWOBX,F,float,4
+21,29,Bit Rotary Speed (avg),BRMA,BTRPMA,S,integer,2
+21,30,Bit Rotary Speed (max),BRMX,BTRPMX,S,integer,2
+21,31,Bit Mud Flow Rate (avg),BMFA,BTMFA,F,float,4
+21,32,Bit Mud Density (avg),BMDA,BTMDA,F,float,4
+21,33,Bit Standpipe Pressure (avg),BSPA,BTSPPA,F,float,4
+21,34,Bit Reason Run,BRUN,BTRUN,A,text,16
+21,35,Bit Reason Pulled,BPUL,BTPULL,A,text,16
+21,36,Bit Grade In,BGI,BTGRDIN,A,text,16
+21,37,Bit Grade Out,BGO,BTGRDOUT,A,text,16
+21,38,Bit Shock Sub Used ?,BSHK,BTSHKSUB,A,text,1
+21,39,Bit Mud Motor Used ?,BMM,BTMUDMOT,A,text,1
+21,40,Bit Comments,BCOM,BTCOMM,A,text,128
+21,41,SPARE 1,SPR1,SPARE1,F,float,4
+21,42,SPARE 2,SPR2,SPARE2,F,float,4
+21,43,SPARE 3,SPR3,SPARE3,F,float,4
+21,44,SPARE 4,SPR4,SPARE4,F,float,4
+21,45,SPARE 5,SPR5,SPARE5,F,float,4
+21,46,SPARE 6,SPR6,SPARE6,F,float,4
+21,47,SPARE 7,SPR7,SPARE7,F,float,4
+21,48,SPARE 8,SPR8,SPARE8,F,float,4
+21,49,SPARE 9,SPR9,SPARE9,F,float,4
+22,1,Well Identifier,WID,WELLID,A,text,16
+22,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+22,3,Record Identifier,RID,RECID,S,integer,2
+22,4,Sequence Identifier,SQID,SEQID,L,integer,4
+22,5,Date,DATE,DATE,D,date,4
+22,6,Time,TIME,TIME,T,time,4
+22,7,Activity Code,ACTC,ACTCOD,S,integer,2
+22,8,Depth Hole (meas),DMEA,DEPTMEAS,F,float,4
+22,9,Depth Hole (vert),DVER,DEPTVERT,F,float,4
+22,10,Comments,COMM,COMM,A,text,256
+23,1,Well Identifier,WID,WELLID,A,text,16
+23,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+23,3,Record Identifier,RID,RECID,S,integer,2
+23,4,Sequence Identifier,SQID,SEQID,L,integer,4
+23,5,Date,DATE,DATE,D,date,4
+23,6,Time,TIME,TIME,T,time,4
+23,7,Activity Code,ACTC,ACTCOD,S,integer,2
+23,8,Well Name,WELL,WELLNAME,A,text,32
+23,9,Well Identification Number,WNUM,WELLNUM,A,text,16
+23,10,Operator,OPER,OPERATOR,A,text,32
+23,11,Well Classification (Lahee),WCLS,WELLCLAS,A,text,16
+23,12,Well Location,WLOC,LOCATION,A,text,32
+23,13,Well Univ.Tran.Mercator,WUTM,WELLUTM,A,text,16
+23,14,Well Surface Latitude,WLAT,WELLLAT,A,text,16
+23,15,Well Surface Longitude,WLON,WELLLON,A,text,16
+23,16,Field Name,FLD,FIELD,A,text,32
+23,17,Elev : Datum-MSL,ELDP,ELEVDP,F,float,4
+23,18,Elev : Kelly Bushing-MSL,ELKB,ELEVKB,F,float,4
+23,19,Elev : Ground Level-MSL,ELGL,ELEVGL,F,float,4
+23,20,Water Depth (mean),WDPM,WATDEPT,F,float,4
+23,21,Spud Date,SPDT,SPUDDATE,D,date,4
+23,22,Custom Field 01 Identifier,CUS1,CUS1,A,text,32
+23,23,Custom Field 02 Identifier,CUS2,CUS2,A,text,32
+23,24,Custom Field 03 Identifier,CUS3,CUS3,A,text,32
+23,25,Custom Field 04 Identifier,CUS4,CUS4,A,text,32
+23,26,Custom Field 05 Identifier,CUS5,CUS5,A,text,32
+23,27,Custom Field 06 Identifier,CUS6,CUS6,A,text,32
+23,28,Custom Field 07 Identifier,CUS7,CUS7,A,text,32
+23,29,Custom Field 08 Identifier,CUS8,CUS8,A,text,32
+23,30,Custom Field 09 Identifier,CUS9,CUS9,A,text,32
+23,31,Custom Field 10 Identifier,CUS0,CUS0,A,text,32
+23,32,Units Type used,UNIT,UNIT,A,text,8
+23,33,Time Zone Offset,TOFF,TOFFSET,L,integer,4
+23,34,SPARE 1,SPR1,SPARE1,F,float,4
+23,35,SPARE 2,SPR2,SPARE2,F,float,4
+23,36,SPARE 3,SPR3,SPARE3,F,float,4
+23,37,SPARE 4,SPR4,SPARE4,F,float,4
+24,1,Well Identifier,WID,WELLID,A,text,16
+24,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+24,3,Record Identifier,RID,RECID,S,integer,2
+24,4,Sequence Identifier,SQID,SEQID,L,integer,4
+24,5,Date,DATE,DATE,D,date,4
+24,6,Time,TIME,TIME,T,time,4
+24,7,Activity Code,ACTC,ACTCOD,S,integer,2
+24,8,Water Depth (mean),WDPM,WATDEPT,F,float,4
+24,9,Tide,TIDE,TIDE,F,float,4
+24,10,Vessel Heading,VHED,VESSHEAD,F,float,4
+24,11,Rig VCG,RVCG,RIGVCG,F,float,4
+24,12,Riser Tension,RTEN,RISTENS,F,float,4
+24,13,Rig Offset (avg),OFSA,OFFSETA,F,float,4
+24,14,Rig Offset (max),OFSX,OFFSETX,F,float,4
+24,15,Rig Offset Direction,OFSD,OFFSETD,F,float,4
+24,16,LMRP Angle (avg),LANA,LMRPANA,F,float,4
+24,17,LMRP Angle (max),LANX,LMRPANX,F,float,4
+24,18,"LMRP Angle, Direction",LAND,LMRPAND,F,float,4
+24,19,Fluid Density in Riser,MDRI,MDRISER,F,float,4
+24,20,Mooring Line #01 Tens(avg),TA01,MLTA01,F,float,4
+24,21,Mooring Line #01 Tens(max),TX01,MLTX01,F,float,4
+24,22,Mooring Line #02 Tens(avg),TA02,MLTA02,F,float,4
+24,23,Mooring Line #02 Tens(max),TX02,MLTX02,F,float,4
+24,24,Mooring Line #03 Tens(avg),TA03,MLTA03,F,float,4
+24,25,Mooring Line #03 Tens(max),TX03,MLTX03,F,float,4
+24,26,Mooring Line #04 Tens(avg),TA04,MLTA04,F,float,4
+24,27,Mooring Line #04 Tens(max),TX04,MLTX04,F,float,4
+24,28,Mooring Line #05 Tens(avg),TA05,MLTA05,F,float,4
+24,29,Mooring Line #05 Tens(max),TX05,MLTX05,F,float,4
+24,30,Mooring Line #06 Tens(avg),TA06,MLTA06,F,float,4
+24,31,Mooring Line #06 Tens(max),TX06,MLTX06,F,float,4
+24,32,Mooring Line #07 Tens(avg),TA07,MLTA07,F,float,4
+24,33,Mooring Line #07 Tens(max),TX07,MLTX07,F,float,4
+24,34,Mooring Line #08 Tens(avg),TA08,MLTA08,F,float,4
+24,35,Mooring Line #08 Tens(max),TX08,MLTX08,F,float,4
+24,36,Mooring Line #09 Tens(avg),TA09,MLTA09,F,float,4
+24,37,Mooring Line #09 Tens(max),TX09,MLTX09,F,float,4
+24,38,Mooring Line #10 Tens(avg),TA10,MLTA10,F,float,4
+24,39,Mooring Line #10 Tens(max),TX10,MLTX10,F,float,4
+24,40,Mooring Line #11 Tens(avg),TA11,MLTA11,F,float,4
+24,41,Mooring Line #11 Tens(max),TX11,MLTX11,F,float,4
+24,42,Mooring Line #12 Tens(avg),TA12,MLTA12,F,float,4
+24,43,Mooring Line #12 Tens(max),TX12,MLTX12,F,float,4
+24,44,"Thruster #01, Force",TF01,THRF01,F,float,4
+24,45,"Thruster #01, Direction",TD01,THRD01,F,float,4
+24,46,"Thruster #02, Force",TF02,THRF02,F,float,4
+24,47,"Thruster #02, Direction",TD02,THRD02,F,float,4
+24,48,"Thruster #03, Force",TF03,THRF03,F,float,4
+24,49,"Thruster #03, Direction",TD03,THRD03,F,float,4
+24,50,"Thruster #04, Force",TF04,THRF04,F,float,4
+24,51,"Thruster #04, Direction",TD04,THRD04,F,float,4
+24,52,"Thruster #05, Force",TF05,THRF05,F,float,4
+24,53,"Thruster #05, Direction",TD05,THRD05,F,float,4
+24,54,"Thruster #06, Force",TF06,THRF06,F,float,4
+24,55,"Thruster #06, Direction",TD06,THRF06,F,float,4
+24,56,"Thruster #07, Force",TF07,THRF07,F,float,4
+24,57,"Thruster #07, Direction",TD07,THRD07,F,float,4
+24,58,"Thruster #08, Force",TF08,THRF08,F,float,4
+24,59,"Thruster #08, Direction",TD08,THRD08,F,float,4
+24,60,SPARE 1,SPR1,SPARE1,F,float,4
+24,61,SPARE 2,SPR2,SPARE2,F,float,4
+24,62,SPARE 3,SPR3,SPARE3,F,float,4
+24,63,SPARE 4,SPR4,SPARE4,F,float,4
+24,64,SPARE 5,SPR5,SPARE5,F,float,4
+25,1,Well Identifier,WID,WELLID,A,text,16
+25,2,Sidetrack/Hole Sect No.,SKNO,STKNUM,S,integer,2
+25,3,Record Identifier,RID,RECID,S,integer,2
+25,4,Sequence Identifier,SQID,SEQID,L,integer,4
+25,5,Date,DATE,DATE,D,date,4
+25,6,Time,TIME,TIME,T,time,4
+25,7,Activity Code,ACTC,ACTCOD,S,integer,2
+25,8,Water Depth (mean),WDPM,WATDEPT,F,float,4
+25,9,Air Temperature,AIRT,AIRTEMP,F,float,4
+25,10,Barometric Pressure,BARP,BARPRES,F,float,4
+25,11,"Waves, Significant Height",WVSH,WVSHGHT,F,float,4
+25,12,"Waves, Maximum Height",WVMH,WVMHGHT,F,float,4
+25,13,"Waves, Mean Period",WVMP,WVMPER,S,integer,2
+25,14,"Waves, Direction",WVDI,WVDIR,F,float,4
+25,15,"Swell, Significant Height",SWSH,SWSHGHT,F,float,4
+25,16,"Swell, Maximum Height",SWMH,SWMHGHT,F,float,4
+25,17,"Swell, Mean Period",SWMP,SWMPER,S,integer,2
+25,18,"Swell, Direction",SWDI,SWDIR,F,float,4
+25,19,Wind Speed ( 1 min ),WSPD,WINDSPD,F,float,4
+25,20,Wind Gusts ( 5 sec ),WGST,WINDGUST,F,float,4
+25,21,Wind Direction,WDIR,WINDDIR,F,float,4
+25,22,Anemometer Height,ANEM,ANEMHGHT,F,float,4
+25,23,Current Speed,CSPD,CURRSPD,S,integer,2
+25,24,Current Direction,CDIR,CURRDIR,F,float,4
+25,25,Depth current measured,DCUR,DEPTCURR,F,float,4
+25,26,Vessel Mean Draft,VMD,VESMDRFT,F,float,4
+25,27,"Heave, Peak-to-Peak (sig)",HVSG,HEAVSIG,F,float,4
+25,28,"Heave, Peak-to-Peak (max)",HVMX,HEAVMAX,F,float,4
+25,29,"Heave, Mean Period",HVMP,HEAVMPER,S,integer,2
+25,30,"Roll, Peak-to-Peak (sig)",RLSG,ROLLSIG,F,float,4
+25,31,"Roll, Peak-to-Peak (max)",RLMX,ROLLMAX,F,float,4
+25,32,"Roll, Mean Period",RLMP,ROLLMPER,S,integer,2
+25,33,"Pitch, Peak-to-Peak (sig)",PTSG,PTCHSIG,F,float,4
+25,34,"Pitch, Peak-to-Peak (max)",PTMX,PTCHMAX,F,float,4
+25,35,"Pitch, Mean Period",PTMP,PTCHMPER,S,integer,2
+25,36,"Yaw, Peak-to Peak (sig)",YWSG,YAWSIG,F,float,4
+25,37,"Yaw, Peak-to-Peak (max)",YWMX,YAWMAX,F,float,4
+25,38,"Yaw, Mean Period",YWMP,YAWMPER,S,integer,2
+25,39,"Surge, Peak-to-Peak (sig)",SUSG,SURGSIG,F,float,4
+25,40,"Surge, Peak-to-Peak (max)",SUMX,SURGMAX,F,float,4
+25,41,"Surge, Mean Period",SUMP,SURGMPER,S,integer,2
+25,42,"Sway, Peak-to-Peak (sig)",SYSG,SWAYSIG,F,float,4
+25,43,"Sway, Peak-to-Peak (max)",SYMX,SWAYMAX,F,float,4
+25,44,"Sway, Mean Period",SYMP,SWAYMPER,S,integer,2
+25,45,Trim,TRIM,TRIM,F,float,4
+25,46,Heel,HEEL,HEEL,F,float,4
+25,47,Weather Comments,WSCM,WSSCOMM,A,text,128
+25,48,SPARE 1,SPR1,SPARE1,F,float,4
+25,49,SPARE 2,SPR2,SPARE2,F,float,4
+25,50,SPARE 3,SPR3,SPARE3,F,float,4
+25,51,SPARE 4,SPR4,SPARE4,F,float,4
+25,52,SPARE 5,SPR5,SPARE5,F,float,4

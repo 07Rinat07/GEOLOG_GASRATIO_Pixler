@@ -1,3 +1,10 @@
+## Completed in 0.7.83: GeoScape WITS compatibility reference
+
+- Corrected standard header items 01–07 and source sequence item 04.
+- Added the full 963-field GeoSensor WITS Level 0 catalog for records 1–25.
+- Added deterministic catalog generation, vendor hashes, manual fixture, and live/replay regression tests.
+- Original vendor binaries and databases remain external and are not distributed.
+
 ## Completed in 0.7.82: ETP ChannelData AcquisitionSession
 
 URI-stable Import Review, normalized measurement batches and append-only acquisition with reconnect overlap deduplication are complete.

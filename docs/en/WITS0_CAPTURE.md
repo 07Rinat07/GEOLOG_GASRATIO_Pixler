@@ -1,5 +1,11 @@
 # WITS Level 0 capture and parsing
 
+## GeoScape GSWITS standard header
+
+The GeoSensor `WITS.csv` catalog confirms: `01` Well Identifier, `02` Sidetrack/Hole Section,
+`03` Record Identifier, `04` Sequence Identifier, `05` Date, `06` Time, and `07` Activity Code.
+Sequence QC uses item `04`; item `02` is not a sequence number.
+
 ## Purpose
 
 **File → Capture WITS Level 0...** receives a GSWITS TCP stream, preserves the incoming bytes
@@ -50,9 +56,10 @@ Wits0SequenceTracker
 immutable Wits0ParsedFrame + diagnostics
 ```
 
-The parser supports `float`, `integer`, `text`, `date`, and `time`. Standard header items 01–07
-cover the record identifier, sequence number, well, wellbore, date, time, and activity code. Items
-08–99 are resolved through `geoscape-gswits.json`.
+The parser supports `float`, `integer`, `text`, `date`, and `time`. Standard items 01–07 are the
+well, sidetrack/hole section, record identifier, sequence number, date, time, and activity code.
+Items 08–99 resolve through the reviewed `geoscape-gswits.json` profile first and then through the
+complete `geosensor-wits-level0.json` catalog; the catalog does not invent UOM.
 
 A malformed line does not reject the whole frame. Its original line, raw value, unknown
 `record/item`, and conversion error remain in the deterministic discovery snapshot used by Import Review.
@@ -66,7 +73,7 @@ Sequence numbers are tracked independently for each record number. States are:
 - `duplicate` — a repeated last sequence;
 - `gap` — one or more values are missing;
 - `out_of_order` — an older value arrived;
-- `invalid` or `unavailable` — item 02 is malformed or absent.
+- `invalid` or `unavailable` — item 04 is malformed or absent.
 
 A reconnect creates a new stream processor, so sequence state is not carried across different TCP
 connections. A raw file can be processed again by the same pipeline.

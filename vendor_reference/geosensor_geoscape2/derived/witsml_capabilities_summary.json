@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "capServers": [
+    {
+      "sourcePath": "GeoScape/capServers 1.3.1.1.xml",
+      "sha256": "cf14b4713404086badb28a48f28c7a314bb585be79f15012bb3960da3df9bac9",
+      "rootVersion": "1.3.1.1",
+      "apiVersion": "1.3.1",
+      "name": "GS WITSML Server",
+      "vendor": "GeoSensor",
+      "serverVersion": "1.0",
+      "schemaVersion": "1.3.1.1",
+      "supportUomConversion": null,
+      "compressionMethod": null,
+      "maxRequestLatestValues": null,
+      "functions": [
+        {
+          "name": "WMLS_GetVersion",
+          "dataObjects": []
+        },
+        {
+          "name": "WMLS_GetCap",
+          "dataObjects": [
+            {
+              "name": "capServer",
+              "attributes": {}
+            }
+          ]
+        },
+        {
+          "name": "WMLS_GetFromStore",
+          "dataObjects": [
+            {
+              "name": "log",
+              "attributes": {}
+            },
+            {
+              "name": "well",
+              "attributes": {}
+            },
+            {
+              "name": "wellbore",
+              "attributes": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourcePath": "GeoScape/capServers 1.4.1.1.xml",
+      "sha256": "b80adb6a7e4ef97242233d0ac4823ae6070ca03be251e56460dfa8bc89dda152",
+      "rootVersion": "1.4.1.1",
+      "apiVersion": "1.4.1",
+      "name": "GS WITSML Server",
+      "vendor": "GeoSensor",
+      "serverVersion": "1.0",
+      "schemaVersion": "1.4.1.1",
+      "supportUomConversion": "False",
+      "compressionMethod": "None",
+      "maxRequestLatestValues": "1000",
+      "functions": [
+        {
+          "name": "WMLS_GetVersion",
+          "dataObjects": []
+        },
+        {
+          "name": "WMLS_GetCap",
+          "dataObjects": [
+            {
+              "name": "capServer",
+              "attributes": {}
+            }
+          ]
+        },
+        {
+          "name": "WMLS_GetFromStore",
+          "dataObjects": [
+            {
+              "name": "log",
+              "attributes": {
+                "maxDataNodes": "100",
+                "maxDataPoints": "5000"
+              }
+            },
+            {
+              "name": "well",
+              "attributes": {}
+            },
+            {
+              "name": "wellbore",
+              "attributes": {}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

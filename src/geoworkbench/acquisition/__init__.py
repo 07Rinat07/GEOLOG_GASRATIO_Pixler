@@ -18,6 +18,13 @@ from geoworkbench.acquisition.wits0 import (
     load_builtin_wits0_profile,
     load_wits0_profile,
 )
+from geoworkbench.acquisition.wits0_catalog import (
+    WITS0_CATALOG_SCHEMA_VERSION,
+    Wits0CatalogField,
+    Wits0FieldCatalog,
+    load_builtin_wits0_catalog,
+    load_wits0_catalog,
+)
 from geoworkbench.acquisition.wits0_parser import (
     Wits0Diagnostic,
     Wits0DiagnosticCode,
@@ -66,7 +73,10 @@ from geoworkbench.acquisition.wits0_capture import (
 
 __all__ = [
     "WITS0_PROFILE_SCHEMA_VERSION",
+    "WITS0_CATALOG_SCHEMA_VERSION",
     "Wits0CaptureConfig",
+    "Wits0CatalogField",
+    "Wits0FieldCatalog",
     "Wits0Diagnostic",
     "Wits0DiagnosticCode",
     "Wits0DiagnosticSeverity",
@@ -95,7 +105,9 @@ __all__ = [
     "iter_wits0_frames",
     "process_wits0_chunks",
     "load_builtin_wits0_profile",
+    "load_builtin_wits0_catalog",
     "load_wits0_profile",
+    "load_wits0_catalog",
     "WITS0_RECOVERY_SCHEMA_VERSION",
     "WITS0_WORKSPACE_SCHEMA_VERSION",
     "Wits0ConnectionJournal",

@@ -1,0 +1,180 @@
+{
+  "archive": {
+    "filename": "GeoScape2.zip",
+    "sha256": "b9b358b76e1956058421ce6969ff04a0c961a986160dc2f207d2bfa5a921cf44",
+    "entries": 367,
+    "uncompressed_bytes": 243432793,
+    "compressed_bytes": 162786847,
+    "unsafe_paths": [],
+    "duplicate_paths": []
+  },
+  "wits_csv": {
+    "rows": 963,
+    "records": {
+      "1": 45,
+      "2": 36,
+      "3": 26,
+      "4": 39,
+      "5": 23,
+      "6": 34,
+      "7": 26,
+      "8": 55,
+      "9": 29,
+      "10": 33,
+      "11": 35,
+      "12": 28,
+      "13": 48,
+      "14": 29,
+      "15": 59,
+      "16": 41,
+      "17": 38,
+      "18": 31,
+      "19": 31,
+      "20": 65,
+      "21": 49,
+      "22": 10,
+      "23": 37,
+      "24": 64,
+      "25": 52
+    },
+    "types": {
+      "A": 112,
+      "S": 125,
+      "L": 81,
+      "D": 28,
+      "T": 27,
+      "F": 590
+    }
+  },
+  "critical_header_mapping": {
+    "01": "Well Identifier",
+    "02": "Sidetrack/Hole Sect No.",
+    "03": "Record Identifier",
+    "04": "Sequence Identifier",
+    "05": "Date",
+    "06": "Time",
+    "07": "Activity Code"
+  },
+  "key_files": [
+    {
+      "path": "DBDIR/GEOSCAPE.FDB",
+      "size": 5480448,
+      "sha256": "07417438dc5182f735c1fd58d6ad5093a3d8dec939f9840bb69bcf56dd2b47c1"
+    },
+    {
+      "path": "DBDIR/WELLS.FDB",
+      "size": 2998272,
+      "sha256": "8ab7167cb770b24cacc9725a5c20e2bd9aa0e3439391dfaae40691ea3c6f39e5"
+    },
+    {
+      "path": "GS1TCPReceiver.bpl",
+      "size": 225280,
+      "sha256": "db147231a9e21f94cb7a5fb8c1cbd2305fd0c93baaced24c49704f84c82a3299"
+    },
+    {
+      "path": "GSNetConfig.exe",
+      "size": 18432,
+      "sha256": "b9285b1c194bc9b8231353f032bb650a2660cd0e958cb40110e5c8a5c58df17e"
+    },
+    {
+      "path": "GSWITSMLServer.exe",
+      "size": 4069888,
+      "sha256": "d8b36a9a98976a192819b2c49df616800e6308189848427d780e6fd965d42281"
+    },
+    {
+      "path": "GSWITSProxy.exe",
+      "size": 6096384,
+      "sha256": "8e91bbc861af40624f3dfec238241f7df0385e8d44406cffb768d5abd80812da"
+    },
+    {
+      "path": "GSWITSProxyTrial.exe",
+      "size": 6096384,
+      "sha256": "888af2ec76d598ca62f6a796c8946097f5b9759726c4efbfc73d37b96ff18f07"
+    },
+    {
+      "path": "GSWITSReceiver.bpl",
+      "size": 278528,
+      "sha256": "debca1f91276271191ae05d5af7e5f0251cba86b09f5ddd36c6cd61274799850"
+    },
+    {
+      "path": "GSWebServer.exe",
+      "size": 1144832,
+      "sha256": "dd01132bb27265ad1070eb7ec657c008ddb16a020d66dc895219145a9287252a"
+    },
+    {
+      "path": "GeoScape.INI",
+      "size": 234,
+      "sha256": "8a03ddbe2e97f307f0bbf9367e27f6fa99ad00e2a6f5227bab8ecf705c8f3906"
+    },
+    {
+      "path": "Help/Руководство по передаче данных.pdf",
+      "size": 3848877,
+      "sha256": "5e1e0b0a734c5a88eb5f6345accd6eb796abd1251bc6e9b887a649cb826c5af0"
+    },
+    {
+      "path": "Help/Руководство пользователя GSWITS.pdf",
+      "size": 644994,
+      "sha256": "5d3e27cf94e022460bc68dfc234591a2c4ea2bfbbe2426f789c8edfd58902c43"
+    },
+    {
+      "path": "LocalAppDataFolder/GeoSensor/GS.mdb",
+      "size": 1126400,
+      "sha256": "6750a1ab327516efe917094b5cb34a22f46961edabd27283f131edf210a1bfb1"
+    },
+    {
+      "path": "LocalAppDataFolder/GeoSensor/GSWITS.mdb",
+      "size": 2240512,
+      "sha256": "c9ba4c7e4c1f5f4827f1bf4a4aaf745b608f22e4a8dad87e538addb1aff631e4"
+    },
+    {
+      "path": "LocalAppDataFolder/GeoSensor/GSWITSML.mdb",
+      "size": 913408,
+      "sha256": "4d5e036d446b02a7785b3416f931d91bb6c25a1bd0e8e146419a3b29c38cb9bb"
+    },
+    {
+      "path": "LocalAppDataFolder/GeoSensor/GSWeb.mdb",
+      "size": 352256,
+      "sha256": "a489a888f4123aa39a1ab7bf286b60552610d83ecc5d99c9224c93db3394417f"
+    },
+    {
+      "path": "LocalAppDataFolder/GeoSensor/WITSMLCodes.csv",
+      "size": 12302,
+      "sha256": "a3c5558617161f361899a7f335e60b886c6de83930041088aa4a0e39d35feb79"
+    },
+    {
+      "path": "ModBusGenericProfiles.ini",
+      "size": 3765,
+      "sha256": "95832268b7bc8f69ac037170de719579a5df049f0d2b197618bf828968603e15"
+    },
+    {
+      "path": "TCPCLServ.bpl",
+      "size": 139264,
+      "sha256": "4b70ecefb9310c982c7347b86cef1f3e07a68676870c21e0b4181bc0021142e0"
+    },
+    {
+      "path": "WITS.csv",
+      "size": 38818,
+      "sha256": "35d960785d0a6c25635587125e01ae19a3e6a90209514d9d10997fe56b54b2aa"
+    },
+    {
+      "path": "WITSMLCodes.csv",
+      "size": 12302,
+      "sha256": "a3c5558617161f361899a7f335e60b886c6de83930041088aa4a0e39d35feb79"
+    },
+    {
+      "path": "XMLReceiver.bpl",
+      "size": 572416,
+      "sha256": "8ae6241d05e3755f4325cc257e70070ae2c5d405675985eec99b9379b55889b3"
+    },
+    {
+      "path": "capServers 1.3.1.1.xml",
+      "size": 788,
+      "sha256": "cf14b4713404086badb28a48f28c7a314bb585be79f15012bb3960da3df9bac9"
+    },
+    {
+      "path": "capServers 1.4.1.1.xml",
+      "size": 1122,
+      "sha256": "b80adb6a7e4ef97242233d0ac4823ae6070ca03be251e56460dfa8bc89dda152"
+    }
+  ]
+}

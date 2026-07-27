@@ -1,3 +1,8 @@
+## Current increment after 0.7.83: ETP I.2
+
+The next slice covers valueAttributes/quality, GetRanges paging and recovery, captured ETP replay,
+an interoperability matrix, and Windows soak tooling. Real servers and Windows remain external gates.
+
 ## Completed in 0.7.82: ETP ChannelData acquisition
 
 The next increment is field interoperability, channel quality attributes and server-specific paging/range recovery.

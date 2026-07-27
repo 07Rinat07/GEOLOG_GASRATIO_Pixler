@@ -31,10 +31,10 @@ from geoworkbench.services.wits0_import_review import (
 def _frame(record: int, sequence: int, *lines: str) -> bytes:
     body = (
         "&&",
-        f"{record:02d}01{record}",
-        f"{record:02d}02{sequence}",
-        f"{record:02d}03SG-8",
-        f"{record:02d}041",
+        f"{record:02d}01SG-8",
+        f"{record:02d}0201",
+        f"{record:02d}03{record}",
+        f"{record:02d}04{sequence}",
         f"{record:02d}05260727",
         f"{record:02d}060215450",
         f"{record:02d}070",

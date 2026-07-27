@@ -1,3 +1,9 @@
+## Завершено в 0.7.83: совместимость GeoScape WITS
+
+Исправлены header items 01–07 и sequence item 04, добавлен каталог 963 полей records 1–25,
+воспроизводимый generator, хеши reference-файлов и regression tests на реальном примере руководства.
+Vendor binaries и базы остаются внешними и не распространяются.
+
 ## Завершено в 0.7.82: ETP ChannelData AcquisitionSession
 
 Завершены устойчивый по URI Import Review, нормализованные measurement batches и append-only запись с дедупликацией перекрытия после reconnect.

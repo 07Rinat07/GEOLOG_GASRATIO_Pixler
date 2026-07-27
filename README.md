@@ -69,8 +69,10 @@ Rinat Sarmuldin (Сармулдин Ринат) — ura07srr@gmail.com
 
 Условия распространения указаны в [LICENSE](LICENSE).
 
-## ETP 1.2
+## WITS / ETP integration
 
-Version 0.7.82 extends the secure WITSML 2.x / ETP 1.2 client with URI-stable ChannelData Import Review, normalized batches, append-only acquisition, reconnect overlap deduplication, while retaining Discovery, Store,
-Data Array, Channel Subscribe, reconnect recovery and a non-blocking desktop browser. See
-`docs/ETP12_ARCHITECTURE.md` and `docs/ETP12_INTEROPERABILITY_GATE.md`.
+Version 0.7.83 corrects the GeoScape GSWITS header and source sequence item, adds the complete
+963-field GeoSensor WITS Level 0 catalog, and preserves the 0.7.82 ETP ChannelData Import Review,
+normalized batches, append-only acquisition, reconnect overlap deduplication, Discovery, Store,
+Data Array and Channel Subscribe. See `docs/WITS_INTEGRATION_PLAN.md`,
+`docs/ru/WITS0_VENDOR_CATALOG.md`, and `docs/ETP12_INTEROPERABILITY_GATE.md`.
