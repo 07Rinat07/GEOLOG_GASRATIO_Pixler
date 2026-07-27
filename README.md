@@ -21,7 +21,7 @@ py -3.11 -m venv .venv
 .venv\Scripts\activate
 python -m pip install --upgrade pip
 pip install -e ".[dev]"
-geolog-gasratio-pixler
+python -m geoworkbench.app.main
 ```
 
 ## Документация
