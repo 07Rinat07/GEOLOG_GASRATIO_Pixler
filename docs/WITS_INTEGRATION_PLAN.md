@@ -65,8 +65,10 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 - ресурсные лимиты и защита XML/ZIP.
 
 В 0.7.79 реализованы offline channel arrays, Import Review, численная UOM-нормализация и
-атомарное создание Dataset. В 0.7.80 добавлен read-only WITSML 1.4.1.1 SOAP-контур. Пока не
-реализованы binary Avro и ETP.
+атомарное создание Dataset. В 0.7.80 добавлен read-only WITSML 1.4.1.1 SOAP-контур. В 0.7.81
+добавлена основа ETP 1.2: secure WebSocket, negotiation, Discovery, Store, Data Array, Channel
+Streaming/Subscribe, correlation/ACK и восстановление подписок. Реальная server interoperability
+и привязка ChannelData к append-only AcquisitionSession остаются открыты.
 
 ### 3.3. WITS0 capture, parser, Import Review, AcquisitionSession, Live UI и reliability — срезы 0.7.73–0.7.78
 
@@ -424,3 +426,20 @@ Record 3, 6, 7, 8 and 17 подключаются после стабильно�
 8. сохраняет gaps, unknown fields, QC и provenance;
 9. проходит длительный Windows soak test;
 10. не заявляет неподтверждённую промышленную сертификацию.
+
+## 10. Этап I — WITSML 2.x / ETP 1.2 — выполнено в 0.7.81
+
+Реализованы:
+
+- WSS transport с subprotocol `etp12.energistics.org`;
+- RequestSession/OpenSession и проверка negotiated protocols;
+- read-only Discovery, Store и Data Array;
+- приём ChannelData protocol 1 и восстановимая подписка protocol 21;
+- even client message IDs, correlation, multipart FIN и automatic ACK;
+- ProtocolException routing, timeout и max-message guard;
+- bounded reconnect watchdog и restore с последнего channel index;
+- credentials вне project file и hash-chained audit;
+- QThread/asyncio ETP browser.
+
+Следующий ETP-срез: реальная interoperability matrix, ChannelData normalization, semantic/UOM mapping
+и append-only ETP AcquisitionSession.

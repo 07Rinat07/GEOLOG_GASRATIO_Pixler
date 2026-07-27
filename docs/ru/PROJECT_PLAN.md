@@ -1,6 +1,20 @@
 # План проекта
 
-Актуально на 27 июля 2026 года после среза 0.7.80. Здесь перечислена только незавершённая работа;
+## Завершено в 0.7.81: WITSML 2.1 / ETP 1.2
+
+- [x] защищённая WebSocket-сессия и protocol negotiation;
+- [x] read-only Discovery, Store, Data Array и channel subscription;
+- [x] correlation, multipart FIN, ACK и bounded reconnect;
+- [x] secrets вне проекта и hash-chained audit.
+
+## Следующий ETP-срез
+
+- [ ] interoperability matrix с реальными ETP servers;
+- [ ] ChannelData → normalized batches → append-only ETP AcquisitionSession;
+- [ ] semantic/UOM mapping и workspace persistence;
+- [ ] reconnect overlap и soak 8–24 часа.
+
+Актуально на 27 июля 2026 года после среза 0.7.81. Здесь перечислена только незавершённая работа;
 реализованные срезы находятся в [состоянии проекта](PROJECT_STATUS.md), корневой
 [истории изменений](../CHANGELOG.md) и release notes.
 

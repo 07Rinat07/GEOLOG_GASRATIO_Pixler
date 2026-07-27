@@ -228,6 +228,7 @@ from geoworkbench.ui.gs2_import_dialog import Gs2ImportDialog
 from geoworkbench.ui.witsml_inventory_dialog import WitsmlInventoryDialog
 from geoworkbench.ui.witsml_import_dialog import WitsmlImportDialog
 from geoworkbench.ui.witsml1411_dialog import Witsml1411Dialog
+from geoworkbench.ui.etp12_dialog import Etp12Dialog
 from geoworkbench.ui.wits0_capture_dialog import Wits0CaptureDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
 from geoworkbench.ui.form_create_dialog import FormCreateDialog
@@ -1316,6 +1317,10 @@ class MainWindow(QMainWindow):
         self.open_witsml1411_action = self._localized_action("shell.open_witsml1411")
         self.open_witsml1411_action.triggered.connect(self.open_witsml1411_store)
         file_menu.addAction(self.open_witsml1411_action)
+
+        self.open_etp12_action = self._localized_action("shell.open_etp12")
+        self.open_etp12_action.triggered.connect(self.open_etp12_session)
+        file_menu.addAction(self.open_etp12_action)
 
         self.capture_wits0_action = self._localized_action("shell.capture_wits0")
         self.capture_wits0_action.triggered.connect(self.open_wits0_capture)
@@ -3587,6 +3592,20 @@ class MainWindow(QMainWindow):
             f"rows={len(dataset.active_index.values)}; curves={len(dataset.curves)}; "
             f"digest={registration.commit.dataset_digest}"
         )
+
+    def open_etp12_session(self) -> None:
+        """Open a secure WITSML 2.x / ETP 1.2 browser and channel subscriber."""
+
+        existing = getattr(self, "_etp12_dialog", None)
+        if existing is not None and existing.isVisible():
+            existing.raise_()
+            existing.activateWindow()
+            return
+        dialog = Etp12Dialog(self, language=self.language)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        dialog.destroyed.connect(lambda: setattr(self, "_etp12_dialog", None))
+        self._etp12_dialog = dialog
+        dialog.show()
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         urls = event.mimeData().urls() if event.mimeData().hasUrls() else []

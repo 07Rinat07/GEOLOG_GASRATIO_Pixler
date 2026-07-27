@@ -1,6 +1,24 @@
 # План проекта
 
-Актуально на 27 июля 2026 года после среза 0.7.80. Здесь перечислена только незавершённая работа;
+## Completed in 0.7.81: WITSML 2.1 / ETP 1.2
+
+- [x] secure WebSocket session and `etp12.energistics.org` negotiation;
+- [x] Core, Discovery, Store, Data Array, Channel Streaming and Channel Subscribe;
+- [x] correlation, multipart FIN, ACK and ProtocolException handling;
+- [x] credentials outside project files and hash-chained audit;
+- [x] bounded reconnect watchdog and subscription restore from retained indexes;
+- [x] QThread/asyncio desktop browser and live channel table.
+
+## Next ETP product slice
+
+- [ ] run interoperability matrix against real ETP 1.2 stores;
+- [ ] convert ChannelData into normalized batches and append-only ETP AcquisitionSession;
+- [ ] map channel metadata through Semantic Channel Dictionary and UOM conversion;
+- [ ] support server-specific auth/proxy/client-certificate profiles where required;
+- [ ] persist ETP workspace/subscription definitions without secrets;
+- [ ] complete 8–24-hour reconnect/overlap/memory soak.
+
+Актуально на 27 июля 2026 года после среза 0.7.81. Здесь перечислена только незавершённая работа;
 реализованные срезы находятся в [состоянии проекта](PROJECT_STATUS.md), корневой
 [истории изменений](CHANGELOG.md) и release notes.
 

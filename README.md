@@ -68,3 +68,9 @@ Rinat Sarmuldin (Сармулдин Ринат) — ura07srr@gmail.com
 ## Лицензия
 
 Условия распространения указаны в [LICENSE](LICENSE).
+
+## ETP 1.2
+
+Version 0.7.81 adds a secure read-only WITSML 2.x / ETP 1.2 client foundation with Discovery, Store,
+Data Array, Channel Subscribe, reconnect recovery and a non-blocking desktop browser. See
+`docs/ETP12_ARCHITECTURE.md` and `docs/ETP12_INTEROPERABILITY_GATE.md`.

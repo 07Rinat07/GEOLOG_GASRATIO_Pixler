@@ -1,5 +1,19 @@
 # Project plan
 
+## Completed in 0.7.81: WITSML 2.1 / ETP 1.2
+
+- [x] secure WebSocket session and protocol negotiation;
+- [x] read-only Discovery, Store, Data Array and channel subscription;
+- [x] correlation, multipart FIN, ACK and bounded reconnect;
+- [x] secrets outside projects and hash-chained audit.
+
+## Next ETP slice
+
+- [ ] real-server interoperability matrix;
+- [ ] ChannelData → normalized batches → append-only ETP AcquisitionSession;
+- [ ] semantic/UOM mapping and workspace persistence;
+- [ ] reconnect overlap and 8–24-hour soak.
+
 Current on 27 July 2026 after the 0.7.80 slice. This file contains unfinished work only; implemented
 increments are recorded in project status, changelog and release notes.
 

@@ -1,5 +1,12 @@
 # Состояние проекта
 
+## Завершено в 0.7.81: основа клиента WITSML 2.x / ETP 1.2
+
+Реализованы защищённый WSS transport, RequestSession/OpenSession negotiation, read-only Discovery,
+Store и Data Array, Channel Streaming/Channel Subscribe, correlation, multipart FIN, automatic ACK и
+восстановление подписок после reconnect. Credentials и audit отделены от project file. Открыты
+реальная Avro interoperability с ETP server и Windows Qt-приёмка.
+
 ## В разработке: полевая приёмка WITS0
 
 Программные этапы raw capture, parser, Import Review, append-only `AcquisitionSession`, live monitor

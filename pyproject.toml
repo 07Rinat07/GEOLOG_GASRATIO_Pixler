@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "geolog-gasratio-pixler"
-version = "0.7.80"
+version = "0.7.81"
 description = "Desktop workbench for LAS, gas ratio, Pixler profiles and geological masterlogs"
 authors = [
   { name = "Rinat Sarmuldin", email = "ura07srr@gmail.com" }
@@ -17,7 +17,11 @@ dependencies = [
   "pyqtgraph>=0.13.7",
   "lasio>=0.31",
   "openpyxl>=3.1",
-  "tzdata>=2024.1"
+  "tzdata>=2024.1",
+  "websockets>=16,<17",
+  "fastavro>=1.9,<2",
+  "etptypes>=1.2,<2",
+  "etpproto>=1.0.7,<2"
 ]
 
 [project.optional-dependencies]

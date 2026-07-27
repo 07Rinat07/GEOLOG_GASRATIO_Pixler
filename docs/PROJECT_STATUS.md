@@ -1,3 +1,12 @@
+## Completed in 0.7.81: WITSML 2.x / ETP 1.2 client foundation
+
+Added secure WSS/WebSocket transport, protocol negotiation, read-only Discovery/Store/Data Array,
+Channel Streaming and recoverable Channel Subscribe. The protocol engine implements even client
+message IDs, correlation, multipart FIN, automatic ACK, typed ProtocolException handling, bounded
+reconnect and subscription restoration from retained indexes. Credentials use a separate Windows
+Credential Manager namespace and audit is hash-chained. Real ETP server and Qt runtime acceptance
+remain open.
+
 
 ## Completed in 0.7.80: WITSML 1.4.1.1 SOAP read-only
 

@@ -1,3 +1,10 @@
+# 0.7.81 — WITSML 2.x / ETP 1.2 client foundation
+
+Added a secure binary WebSocket client, RequestSession/OpenSession negotiation, read-only Discovery,
+Store and Data Array access, Channel Streaming/Channel Subscribe, correlation, multipart FIN, automatic
+ACK, hash-chained audit and automatic reconnect with subscription recovery. Added a persistent
+QThread/asyncio browser. Real-server Avro and Windows Qt interoperability remain external gates.
+
 # 0.7.80 — WITSML 1.4.1.1 SOAP read-only
 
 - added `WMLS_GetVersion`, `WMLS_GetCap` and read-only `WMLS_GetFromStore`;

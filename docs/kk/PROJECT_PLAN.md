@@ -1,5 +1,19 @@
 # Жоба жоспары
 
+## 0.7.81 нұсқасында аяқталды: WITSML 2.1 / ETP 1.2
+
+- [x] қорғалған WebSocket session және protocol negotiation;
+- [x] read-only Discovery, Store, Data Array және channel subscription;
+- [x] correlation, multipart FIN, ACK және bounded reconnect;
+- [x] secret project-тен тыс және hash-chained audit.
+
+## Келесі ETP кезеңі
+
+- [ ] нақты ETP server interoperability matrix;
+- [ ] ChannelData → normalized batch → append-only ETP AcquisitionSession;
+- [ ] semantic/UOM mapping және workspace persistence;
+- [ ] reconnect overlap және 8–24 сағат soak.
+
 0.7.80 кезеңінен кейін 2026 жылғы 27 шілдеге өзекті. Бұл файлда тек аяқталмаған жұмыс берілген;
 орындалған кезеңдер project status, changelog және release notes ішінде көрсетіледі.
 

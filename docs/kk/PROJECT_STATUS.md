@@ -1,3 +1,10 @@
+## 0.7.81 нұсқасында аяқталды: WITSML 2.x / ETP 1.2 клиент негізі
+
+Қорғалған WSS transport, RequestSession/OpenSession negotiation, read-only Discovery, Store және Data
+Array, Channel Streaming/Channel Subscribe, correlation, multipart FIN, automatic ACK және reconnect
+кезінде subscription restore іске асырылды. Credentials пен audit project file-дан бөлек. Нақты ETP
+server Avro interoperability және Windows Qt acceptance ашық қалады.
+
 
 ## 0.7.80 ішінде аяқталды: WITSML 1.4.1.1 SOAP тек оқу
 
