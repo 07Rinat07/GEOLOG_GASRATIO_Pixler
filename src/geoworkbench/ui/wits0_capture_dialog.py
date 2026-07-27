@@ -31,6 +31,9 @@ from geoworkbench.acquisition import (
     Wits0CaptureEventKind,
     Wits0CaptureState,
     Wits0ConnectionMode,
+    Wits0DiskSpacePolicy,
+    Wits0RawRetentionPolicy,
+    Wits0WorkspaceSettings,
     Wits0ParsedFrame,
     load_builtin_wits0_profile,
 )
@@ -41,6 +44,10 @@ from geoworkbench.services.wits0_acquisition import (
     Wits0AcquisitionRuntime,
     Wits0AcquisitionState,
     Wits0BackpressurePolicy,
+)
+from geoworkbench.services.wits0_recovery import (
+    open_wits0_sessions,
+    restore_wits0_import_review_commit,
 )
 from geoworkbench.services.wits0_import_review import (
     Wits0CustomProfile,
@@ -75,6 +82,9 @@ class Wits0CaptureDialog(QDialog):
         self.language = language
         self.localizer = Localizer.create(language)
         self.settings = QSettings()
+        self.workspace_settings = Wits0WorkspaceSettings(self.settings)
+        self._last_workspace_state = None
+        self._connection_events_recorded: set[tuple[str, bool]] = set()
         self.well_provider = well_provider
         self.on_dataset_changed = on_dataset_changed
         self.engine: Wits0CaptureEngine | None = None
@@ -150,6 +160,7 @@ class Wits0CaptureDialog(QDialog):
         self.poll_timer.setInterval(100)
         self.poll_timer.timeout.connect(self._poll_engine)
         self.poll_timer.start()
+        self._restore_open_acquisition_session()
         self._refresh_controls()
         self._refresh_snapshot()
 
@@ -178,6 +189,47 @@ class Wits0CaptureDialog(QDialog):
         self.port_spin.setRange(1, 65_535)
         self.port_spin.setValue(int(self.settings.value("wits0/port", 2041)))
         form.addRow(self._t("wits0.port"), self.port_spin)
+
+        self.disk_critical_spin = QSpinBox(group)
+        self.disk_critical_spin.setRange(64, 1_048_576)
+        self.disk_critical_spin.setSuffix(" MB")
+        self.disk_critical_spin.setValue(
+            int(self.settings.value("wits0/disk_critical_mb", 512))
+        )
+        form.addRow(self._t("wits0.disk_critical_mb"), self.disk_critical_spin)
+
+        self.disk_warning_spin = QSpinBox(group)
+        self.disk_warning_spin.setRange(64, 1_048_576)
+        self.disk_warning_spin.setSuffix(" MB")
+        self.disk_warning_spin.setValue(
+            int(self.settings.value("wits0/disk_warning_mb", 2048))
+        )
+        form.addRow(self._t("wits0.disk_warning_mb"), self.disk_warning_spin)
+
+        self.retention_days_spin = QSpinBox(group)
+        self.retention_days_spin.setRange(1, 3650)
+        self.retention_days_spin.setValue(
+            int(self.settings.value("wits0/retention_days", 30))
+        )
+        form.addRow(self._t("wits0.retention_days"), self.retention_days_spin)
+
+        self.retention_gb_spin = QSpinBox(group)
+        self.retention_gb_spin.setRange(1, 102_400)
+        self.retention_gb_spin.setSuffix(" GB")
+        self.retention_gb_spin.setValue(
+            int(self.settings.value("wits0/retention_max_gb", 20))
+        )
+        form.addRow(self._t("wits0.retention_max_gb"), self.retention_gb_spin)
+
+        self.retention_keep_spin = QSpinBox(group)
+        self.retention_keep_spin.setRange(0, 10_000)
+        self.retention_keep_spin.setValue(
+            int(self.settings.value("wits0/retention_keep_segments", 4))
+        )
+        form.addRow(
+            self._t("wits0.retention_keep_segments"),
+            self.retention_keep_spin,
+        )
 
         self.source_edit = QLineEdit(
             str(self.settings.value("wits0/source_name", "GeoScape-GSWITS")), group
@@ -243,6 +295,10 @@ class Wits0CaptureDialog(QDialog):
         self.acquisition_backpressure_value = QLabel("0", group)
         self.errors_value = QLabel("0", group)
         self.last_received_value = QLabel("—", group)
+        self.disk_state_value = QLabel("—", group)
+        self.disk_free_value = QLabel("—", group)
+        self.retention_deleted_value = QLabel("0 / 0 B", group)
+        self.recovery_state_value = QLabel("—", group)
 
         rows = (
             ("wits0.state", self.state_value),
@@ -267,6 +323,10 @@ class Wits0CaptureDialog(QDialog):
             ("wits0.acquisition_backpressure", self.acquisition_backpressure_value),
             ("wits0.errors", self.errors_value),
             ("wits0.last_received", self.last_received_value),
+            ("wits0.disk_state", self.disk_state_value),
+            ("wits0.disk_free", self.disk_free_value),
+            ("wits0.retention_deleted", self.retention_deleted_value),
+            ("wits0.recovery_state", self.recovery_state_value),
         )
         for row, (key, value) in enumerate(rows):
             layout.addWidget(QLabel(self._t(key), group), row, 0)
@@ -300,6 +360,15 @@ class Wits0CaptureDialog(QDialog):
             QMessageBox.critical(self, self._t("wits0.title"), str(exc))
             return
         self.engine = engine
+        runtime = self.acquisition_runtime
+        engine.set_recovery_context(
+            acquisition_session_id=(
+                runtime.session.session_id if runtime is not None else None
+            ),
+            custom_profile_path=(
+                str(self.review_profile_path) if self.review_profile_path else None
+            ),
+        )
         self.event_text.appendPlainText(self._t("wits0.started_message"))
         self._refresh_controls()
 
@@ -314,6 +383,8 @@ class Wits0CaptureDialog(QDialog):
 
     def _capture_config(self) -> Wits0CaptureConfig:
         mode = Wits0ConnectionMode(str(self.mode_combo.currentData()))
+        critical_mb = self.disk_critical_spin.value()
+        warning_mb = max(critical_mb, self.disk_warning_spin.value())
         return Wits0CaptureConfig(
             mode=mode,
             host=self.host_edit.text().strip(),
@@ -321,6 +392,15 @@ class Wits0CaptureDialog(QDialog):
             raw_directory=Path(self.raw_directory_edit.text()).expanduser(),
             source_name=self.source_edit.text().strip(),
             encoding=self.profile.encoding,
+            disk_policy=Wits0DiskSpacePolicy(
+                critical_free_bytes=critical_mb * 1024 * 1024,
+                warning_free_bytes=warning_mb * 1024 * 1024,
+            ),
+            retention_policy=Wits0RawRetentionPolicy(
+                max_age_days=self.retention_days_spin.value(),
+                max_total_bytes=self.retention_gb_spin.value() * 1024**3,
+                keep_min_segments=self.retention_keep_spin.value(),
+            ),
         )
 
     def _save_settings(self, config: Wits0CaptureConfig) -> None:
@@ -329,14 +409,69 @@ class Wits0CaptureDialog(QDialog):
         self.settings.setValue("wits0/port", config.port)
         self.settings.setValue("wits0/source_name", config.source_name)
         self.settings.setValue("wits0/raw_directory", str(config.raw_directory))
+        self.settings.setValue(
+            "wits0/disk_critical_mb",
+            config.disk_policy.critical_free_bytes // (1024 * 1024),
+        )
+        self.settings.setValue(
+            "wits0/disk_warning_mb",
+            config.disk_policy.warning_free_bytes // (1024 * 1024),
+        )
+        self.settings.setValue(
+            "wits0/retention_days",
+            config.retention_policy.max_age_days or 30,
+        )
+        self.settings.setValue(
+            "wits0/retention_max_gb",
+            (config.retention_policy.max_total_bytes or 20 * 1024**3) // 1024**3,
+        )
+        self.settings.setValue(
+            "wits0/retention_keep_segments",
+            config.retention_policy.keep_min_segments,
+        )
         self.settings.sync()
 
     def _poll_engine(self) -> None:
         engine = self.engine
         if engine is None:
             self._refresh_snapshot()
+            self._persist_workspace_state()
             return
         for event in engine.drain_events(max_events=500):
+            runtime = self.acquisition_runtime
+            if (
+                runtime is not None
+                and runtime.state is Wits0AcquisitionState.OPEN
+                and event.kind
+                in {
+                    Wits0CaptureEventKind.CONNECTION,
+                    Wits0CaptureEventKind.DISCONNECTION,
+                }
+                and event.connection_id
+            ):
+                connected = event.kind is Wits0CaptureEventKind.CONNECTION
+                event_key = (event.connection_id, connected)
+                if event_key not in self._connection_events_recorded:
+                    try:
+                        runtime.submit_connection_event(
+                            connected=connected,
+                            occurred_at=event.occurred_at,
+                            connection_id=event.connection_id,
+                            peer=event.peer,
+                            reason=event.reason,
+                            raw_file=event.raw_file,
+                            bytes_received=event.bytes_received,
+                            frames_received=event.frames_received,
+                        )
+                    except Wits0AcquisitionBackpressureError as exc:
+                        self.event_text.appendPlainText(
+                            self._t(
+                                "wits0.acquisition_backpressure_event",
+                                error=str(exc),
+                            )
+                        )
+                    else:
+                        self._connection_events_recorded.add(event_key)
             if event.kind is Wits0CaptureEventKind.FRAME and event.frame is not None:
                 text = event.frame.decode(engine.config.encoding, errors="replace")
                 self.raw_text.appendPlainText(text)
@@ -373,6 +508,7 @@ class Wits0CaptureDialog(QDialog):
                     self._notify_dataset_changed(runtime)
         self._refresh_snapshot()
         self._refresh_controls()
+        self._persist_workspace_state()
 
     def _refresh_snapshot(self) -> None:
         snapshot = self.engine.snapshot() if self.engine is not None else None
@@ -389,6 +525,10 @@ class Wits0CaptureDialog(QDialog):
             self.last_sequence_value.setText("—")
             self.errors_value.setText("0")
             self.last_received_value.setText("—")
+            self.disk_state_value.setText("—")
+            self.disk_free_value.setText("—")
+            self.retention_deleted_value.setText("0 / 0 B")
+            self.recovery_state_value.setText("—")
         else:
             state = snapshot.state
             self.peer_value.setText(snapshot.current_peer or "—")
@@ -408,6 +548,25 @@ class Wits0CaptureDialog(QDialog):
             self.last_sequence_value.setText(snapshot.last_sequence or "—")
             self.errors_value.setText(str(snapshot.errors))
             self.last_received_value.setText(snapshot.last_received_at or "—")
+            self.disk_state_value.setText(
+                self._t(f"wits0.disk_state_{snapshot.disk_state.value}")
+            )
+            self.disk_free_value.setText(self._format_bytes(snapshot.disk_free_bytes))
+            self.retention_deleted_value.setText(
+                f"{snapshot.retention_segments_deleted} / "
+                f"{self._format_bytes(snapshot.retention_bytes_deleted)}"
+            )
+            recovery_key = (
+                "wits0.recovery_unclean"
+                if snapshot.recovery_unclean_detected
+                else "wits0.recovery_clean"
+            )
+            self.recovery_state_value.setText(
+                self._t(
+                    recovery_key,
+                    repaired=snapshot.recovery_sidecars_repaired,
+                )
+            )
         self.state_value.setText(self._t(f"wits0.state_{state.value}"))
         self._refresh_discovery_status()
         self._refresh_acquisition_status()
@@ -451,6 +610,11 @@ class Wits0CaptureDialog(QDialog):
             self.source_edit,
             self.raw_directory_edit,
             self.browse_button,
+            self.disk_critical_spin,
+            self.disk_warning_spin,
+            self.retention_days_spin,
+            self.retention_gb_spin,
+            self.retention_keep_spin,
         ):
             widget.setEnabled(not running)
         self.start_button.setEnabled(not running)
@@ -460,8 +624,11 @@ class Wits0CaptureDialog(QDialog):
         acquisition_open = runtime is not None and runtime.state is Wits0AcquisitionState.OPEN
         commit_current = (
             self.review_commit is not None
-            and self.review_commit.custom_profile.discovery_fingerprint
-            == self.discovery.snapshot().fingerprint
+            and (
+                not has_channels
+                or self.review_commit.custom_profile.discovery_fingerprint
+                == self.discovery.snapshot().fingerprint
+            )
         )
         self.review_button.setEnabled(has_channels and not acquisition_open)
         self.reset_discovery_button.setEnabled(
@@ -515,7 +682,39 @@ class Wits0CaptureDialog(QDialog):
             QMessageBox.critical(self, self._t("wits0.title"), str(exc))
             return
         self.acquisition_runtime = runtime
+        engine = self.engine
+        if engine is not None:
+            engine.set_recovery_context(
+                acquisition_session_id=runtime.session.session_id,
+                custom_profile_path=(
+                    str(self.review_profile_path) if self.review_profile_path else None
+                ),
+            )
         self._notify_dataset_changed(runtime)
+        self._restore_workspace_state(runtime)
+        snapshot = engine.snapshot() if engine is not None else None
+        if (
+            snapshot is not None
+            and snapshot.state is Wits0CaptureState.CONNECTED
+            and snapshot.current_connection_id
+        ):
+            try:
+                runtime.submit_connection_event(
+                    connected=True,
+                    occurred_at=snapshot.last_received_at or snapshot.started_at or _utc_now(),
+                    connection_id=snapshot.current_connection_id,
+                    peer=snapshot.current_peer,
+                    raw_file=snapshot.current_raw_file,
+                    reason="session_started_while_connected",
+                )
+            except Wits0AcquisitionBackpressureError as exc:
+                self.event_text.appendPlainText(
+                    self._t("wits0.acquisition_backpressure_event", error=str(exc))
+                )
+            else:
+                self._connection_events_recorded.add(
+                    (snapshot.current_connection_id, True)
+                )
         self.event_text.appendPlainText(
             self._t(
                 "wits0.acquisition_started_event",
@@ -537,6 +736,7 @@ class Wits0CaptureDialog(QDialog):
             return
         if applied:
             self._notify_dataset_changed(runtime)
+        self._persist_workspace_state()
         self.event_text.appendPlainText(
             self._t("wits0.acquisition_flushed_event", count=len(applied))
         )
@@ -557,6 +757,14 @@ class Wits0CaptureDialog(QDialog):
             QMessageBox.critical(self, self._t("wits0.title"), str(exc))
             return
         self._notify_dataset_changed(runtime)
+        self._persist_workspace_state()
+        if engine is not None:
+            engine.set_recovery_context(
+                acquisition_session_id=None,
+                custom_profile_path=(
+                    str(self.review_profile_path) if self.review_profile_path else None
+                ),
+            )
         self.event_text.appendPlainText(
             self._t(
                 "wits0.acquisition_closed_event",
@@ -694,9 +902,16 @@ class Wits0CaptureDialog(QDialog):
 
     def _refresh_discovery_status(self) -> None:
         snapshot = self.discovery.snapshot()
-        self.discovered_channels_value.setText(str(len(snapshot.channels)))
         commit = self.review_commit
-        if not snapshot.channels:
+        channel_count = len(snapshot.channels)
+        if channel_count == 0 and commit is not None:
+            channel_count = sum(
+                1 for item in commit.custom_profile.channels if item.import_enabled
+            )
+        self.discovered_channels_value.setText(str(channel_count))
+        if not snapshot.channels and commit is not None:
+            state_key = "wits0.review_state_recovered"
+        elif not snapshot.channels:
             state_key = "wits0.review_state_empty"
         elif commit is None:
             state_key = "wits0.review_state_pending"
@@ -714,7 +929,100 @@ class Wits0CaptureDialog(QDialog):
         )
         self.custom_profile_value.setToolTip(profile_path)
 
+    def _workspace_id(self, runtime: Wits0AcquisitionRuntime | None = None) -> str:
+        active = runtime or self.acquisition_runtime
+        if active is not None:
+            return active.session.well_id
+        well = self.well_provider() if self.well_provider is not None else None
+        return well.well_id if well is not None else "default"
+
+    def _persist_workspace_state(self) -> None:
+        runtime = self.acquisition_runtime
+        if runtime is None:
+            return
+        try:
+            state = self.live_view.workspace_state()
+        except (RuntimeError, ValueError):
+            return
+        if state == self._last_workspace_state:
+            return
+        self.workspace_settings.save(self._workspace_id(runtime), state)
+        self._last_workspace_state = state
+
+    def _restore_workspace_state(self, runtime: Wits0AcquisitionRuntime) -> None:
+        state = self.workspace_settings.load(self._workspace_id(runtime))
+        try:
+            self.live_view.apply_workspace_state(state)
+        except (RuntimeError, ValueError):
+            return
+        self._last_workspace_state = self.live_view.workspace_state()
+
+    def _restore_open_acquisition_session(self) -> None:
+        well = self.well_provider() if self.well_provider is not None else None
+        custom_profile = self.previous_custom_profile
+        if well is None or custom_profile is None:
+            return
+        sessions = open_wits0_sessions(well)
+        if not sessions:
+            return
+        workspace = self.workspace_settings.load(well.well_id)
+        session = next(
+            (
+                item
+                for item in sessions
+                if item.session_id == workspace.acquisition_session_id
+            ),
+            sessions[-1],
+        )
+        try:
+            commit = restore_wits0_import_review_commit(session, custom_profile)
+            runtime = Wits0AcquisitionRuntime(
+                well,
+                commit,
+                session_id=session.session_id,
+                session=session,
+                config=Wits0AcquisitionConfig(
+                    max_pending_records=256,
+                    drain_batch_size=64,
+                    checkpoint_every_records=500,
+                    checkpoint_interval_seconds=60.0,
+                    backpressure_policy=Wits0BackpressurePolicy.DRAIN_THEN_RETRY,
+                ),
+            )
+        except (ValueError, RuntimeError) as exc:
+            self.event_text.appendPlainText(
+                self._t("wits0.recovery_restore_failed", error=str(exc))
+            )
+            return
+        self.review_commit = commit
+        self.acquisition_runtime = runtime
+        self._notify_dataset_changed(runtime)
+        self._restore_workspace_state(runtime)
+        self.event_text.appendPlainText(
+            self._t(
+                "wits0.recovery_restored_event",
+                session=session.session_id,
+                sequence=session.last_sequence,
+            )
+        )
+
+    @staticmethod
+    def _format_bytes(value: int | None) -> str:
+        if value is None:
+            return "—"
+        size = float(max(0, value))
+        units = ("B", "KB", "MB", "GB", "TB")
+        unit = units[0]
+        for candidate in units:
+            unit = candidate
+            if size < 1024.0 or candidate == units[-1]:
+                break
+            size /= 1024.0
+        precision = 0 if unit == "B" else 1
+        return f"{size:.{precision}f} {unit}"
+
     def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        self._persist_workspace_state()
         engine = self.engine
         if engine is not None and engine.is_running:
             engine.stop(timeout=2.0)
@@ -732,3 +1040,11 @@ class Wits0CaptureDialog(QDialog):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
+
+
+def _utc_now() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace(
+        "+00:00", "Z"
+    )

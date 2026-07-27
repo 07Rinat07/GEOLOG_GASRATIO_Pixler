@@ -1,12 +1,13 @@
 # Project status
 
-## In development: WITS0 live monitor and field reliability
+## In development: WITS0 field acceptance
 
-Raw capture, the typed parser, Import Review, the append-only `AcquisitionSession`, and the main
-live monitor are implemented. Current values, time/depth axes, auto-follow, pause-view,
-history/downsampling, and quality/gap markers operate over the growing Dataset. Workspace
-settings, connection events, independent channel scales, and Windows field acceptance remain.
-The built-in GeoScape mapping still requires confirmation against real anonymized GSWITS traffic.
+The software slices for raw capture, parser, Import Review, append-only acquisition, live monitor
+and reliability are implemented. Connection records, disk guard, raw retention, restart recovery,
+workspace persistence and Windows soak tooling are complete. Remaining work is a real 8–24 hour
+GSWITS soak, controlled low-space/disk-full exercise, independent channel scales, Windows
+startup/service evaluation and a signed field checklist. The built-in GeoScape mapping still
+requires confirmation against anonymized real traffic.
 
 ## In development: offline WITSML 2.x inventory
 
@@ -27,6 +28,19 @@ tables; `GS2#101.db` has TIME, DEPTH, and 206 channels on a 0.2 m grid. The five
 `FORMULAS.RESGID → S-code` mappings, Sensors fallback, and audit metadata. A missing driver no
 longer blocks table import and produces actionable diagnostics.
 
+
+
+## Completed in 0.7.78
+
+Added stable connection IDs, an append-only fsync lifecycle journal, typed connection acquisition
+records, a pre-write disk guard, inactive raw retention, an atomic recovery manifest, safe sidecar
+repair, open-session restart recovery, per-well workspace persistence and Python/PowerShell Windows
+soak tooling. Project format remains v20.
+
+## Completed in 0.7.77
+
+Added the read-only live projection with current values, time/depth axes, auto-follow, pause-view,
+history/downsampling and source/axis/invalid/missing markers over the growing Dataset.
 
 ## Completed in 0.7.76
 

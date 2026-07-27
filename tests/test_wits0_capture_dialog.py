@@ -47,6 +47,18 @@ def test_wits0_capture_ui_connects_review_to_bounded_acquisition_runtime() -> No
     assert "def _on_wits0_dataset_changed" in main_source
 
 
+def test_wits0_capture_ui_exposes_reliability_and_restart_recovery_controls() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert "Wits0DiskSpacePolicy" in source
+    assert "Wits0RawRetentionPolicy" in source
+    assert "submit_connection_event" in source
+    assert "def _restore_open_acquisition_session" in source
+    assert "restore_wits0_import_review_commit" in source
+    assert "Wits0WorkspaceSettings" in source
+    assert "def _persist_workspace_state" in source
+
+
 @pytest.mark.skipif(
     importlib.util.find_spec("PySide6") is None,
     reason="PySide6 is not installed in the headless test environment",

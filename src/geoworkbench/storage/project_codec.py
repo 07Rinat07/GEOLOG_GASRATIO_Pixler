@@ -35,6 +35,7 @@ from geoworkbench.domain.lag_correction import (
 
 from geoworkbench.domain.operational_events import (
     CasingEventPayload,
+    ConnectionEventPayload,
     DrillingEventPayload,
     FormationTopEventPayload,
     GasEventPayload,
@@ -766,6 +767,7 @@ def _operational_payload_from_dict(
     | SampleEventPayload
     | CasingEventPayload
     | FormationTopEventPayload
+    | ConnectionEventPayload
 ):
     try:
         if kind is OperationalEventKind.DRILLING:
@@ -843,6 +845,29 @@ def _operational_payload_from_dict(
                 outer_diameter_mm=float(outer_diameter),
                 shoe_depth_m=_optional_float_field(data, "shoe_depth_m"),
                 status=data.get("status"),
+            )
+        if kind is OperationalEventKind.CONNECTION:
+            _require_exact_keys(
+                data,
+                {
+                    "state",
+                    "connection_id",
+                    "peer",
+                    "reason",
+                    "raw_file",
+                    "bytes_received",
+                    "frames_received",
+                },
+                "connection payload",
+            )
+            return ConnectionEventPayload(
+                state=str(_required(data, "state", str)),
+                connection_id=str(_required(data, "connection_id", str)),
+                peer=data.get("peer"),
+                reason=data.get("reason"),
+                raw_file=data.get("raw_file"),
+                bytes_received=_required_int(data, "bytes_received"),
+                frames_received=_required_int(data, "frames_received"),
             )
         _require_exact_keys(
             data,

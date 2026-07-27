@@ -1,12 +1,13 @@
 # Состояние проекта
 
-## В разработке: WITS0 live monitor и полевая надёжность
+## В разработке: полевая приёмка WITS0
 
-Raw capture, типизированный parser, Import Review, append-only `AcquisitionSession` и основной
-live monitor реализованы. Текущие значения, time/depth axes, auto-follow, pause-view,
-history/downsampling и quality/gap markers работают поверх growing Dataset. Остаются workspace
-settings, connection events, независимые шкалы каналов и полевая Windows-приёмка. Встроенный
-GeoScape mapping по-прежнему требуется подтвердить реальным anonymized GSWITS raw-потоком.
+Программные этапы raw capture, parser, Import Review, append-only `AcquisitionSession`, live monitor
+и reliability завершены. Реализованы connection records, disk guard, raw retention, restart
+recovery, workspace persistence и Windows soak-test tooling. Остаются реальный 8–24-часовой GSWITS
+soak, контролируемый low-space/disk-full тест, independent channel scales, Windows startup/service
+strategy и подписанный полевой checklist. Встроенный GeoScape mapping требуется подтвердить
+реальным anonymized raw-потоком.
 
 ## В разработке: офлайн-инвентарь WITSML 2.x
 
@@ -25,6 +26,26 @@ Paradox reader, Import Review и `Dataset`. На образце СГ-8 расп�
 read-only Qt ODBC/ACE: импорт получает `WELLS`, формулы `RESGID → S-код`, Sensors fallback и
 аудит. Отсутствие драйвера не блокирует импорт и сопровождается конкретной диагностикой.
 
+
+
+## Завершено в 0.7.78
+
+Добавлены stable connection IDs, append-only fsync JSONL lifecycle journal и типизированные
+connection/disconnection acquisition records. Capture worker получил pre-write disk-space guard,
+retention неактивных raw-сегментов и atomic recovery manifest. Startup безопасно исправляет
+обрезанный chunk-index sidecar, а открытая WITS0-сессия восстанавливается по immutable schema и
+versioned custom profile. Live workspace сохраняется per well. Добавлены Python/PowerShell Windows
+soak tools с JSON-отчётом.
+
+Срез: 27 июля 2026 года. Версия пакета: **0.7.78**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
+
+## Завершено в 0.7.77
+
+Добавлен read-only `AcquisitionLiveView`: current values, time/depth axes, auto-follow, pause-view,
+history/downsampling и source/axis/invalid/missing markers поверх growing Dataset. Пауза
+представления не останавливает acquisition.
+
+Срез: 27 июля 2026 года. Версия пакета: **0.7.77**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Завершено в 0.7.76
 

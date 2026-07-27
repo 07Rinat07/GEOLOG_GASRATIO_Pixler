@@ -17,6 +17,7 @@ from geoworkbench.acquisition.wits0_parser import (
 from geoworkbench.domain.acquisition import (
     AcquisitionCheckpoint,
     AcquisitionDataRowPayload,
+    AcquisitionEventUpsertPayload,
     AcquisitionRecord,
     AcquisitionRecordKind,
     AcquisitionSession,
@@ -25,6 +26,11 @@ from geoworkbench.domain.acquisition import (
     canonical_acquisition_timestamp,
 )
 from geoworkbench.domain.models import IndexType, Well
+from geoworkbench.domain.operational_events import (
+    ConnectionEventPayload,
+    OperationalEvent,
+    OperationalEventKind,
+)
 from geoworkbench.services.acquisition import (
     AcquisitionApplyResult,
     AcquisitionBackpressureError,
@@ -683,22 +689,68 @@ class Wits0AcquisitionRuntime:
                     "Normalized WITS0 batch belongs to another acquisition schema"
                 )
         records = self._records_for_batches(materialized)
-        try:
-            self.controller.enqueue_many(records)
-        except AcquisitionBackpressureError as exc:
-            self._backpressure_count += 1
-            if self.config.backpressure_policy is Wits0BackpressurePolicy.DRAIN_THEN_RETRY:
-                self.drain(limit=self.config.drain_batch_size)
-                try:
-                    self.controller.enqueue_many(records)
-                except AcquisitionBackpressureError as retry_exc:
-                    self._last_error = str(retry_exc)
-                    raise Wits0AcquisitionBackpressureError(str(retry_exc)) from retry_exc
-            else:
-                self._last_error = str(exc)
-                raise Wits0AcquisitionBackpressureError(str(exc)) from exc
-        self._records_enqueued += len(records)
+        self._enqueue_records(records)
         self._batches_normalized += len(materialized)
+
+    def submit_connection_event(
+        self,
+        *,
+        connected: bool,
+        occurred_at: str,
+        connection_id: str,
+        peer: str | None = None,
+        reason: str | None = None,
+        raw_file: str | None = None,
+        bytes_received: int = 0,
+        frames_received: int = 0,
+    ) -> AcquisitionRecord:
+        """Append one connection/disconnection event through the same bounded queue."""
+
+        self._require_open()
+        timestamp = canonical_acquisition_timestamp(occurred_at)
+        state = "connected" if connected else "disconnected"
+        event_id = sha256(
+            "|".join(
+                (
+                    self.session.session_id,
+                    "connection",
+                    connection_id,
+                    state,
+                    timestamp,
+                )
+            ).encode("utf-8")
+        ).hexdigest()
+        event = OperationalEvent(
+            event_id=event_id,
+            well_id=self.session.well_id,
+            kind=OperationalEventKind.CONNECTION,
+            payload=ConnectionEventPayload(
+                state=state,
+                connection_id=connection_id,
+                peer=peer,
+                reason=reason,
+                raw_file=raw_file,
+                bytes_received=bytes_received,
+                frames_received=frames_received,
+            ),
+            measured_at=timestamp,
+            received_at=timestamp,
+            source="wits0:connection",
+        )
+        sequence = self.session.last_sequence + self.controller.pending_count + 1
+        record = AcquisitionRecord(
+            record_id=f"{self.session.session_id}:connection:{event_id}",
+            sequence=sequence,
+            kind=AcquisitionRecordKind.EVENT_UPSERT,
+            payload=AcquisitionEventUpsertPayload(event),
+            received_at=timestamp,
+            source=(
+                f"wits0:connection;state={state};connection-id={connection_id};"
+                f"peer={peer or ''};reason={reason or ''};raw={raw_file or ''}"
+            ),
+        )
+        self._enqueue_records((record,))
+        return record
 
     def drain(self, *, limit: int | None = None) -> tuple[AcquisitionApplyResult, ...]:
         self._require_not_closed()
@@ -779,6 +831,23 @@ class Wits0AcquisitionRuntime:
             last_applied_sequence=self.session.last_sequence,
             last_error=self._last_error,
         )
+
+    def _enqueue_records(self, records: tuple[AcquisitionRecord, ...]) -> None:
+        try:
+            self.controller.enqueue_many(records)
+        except AcquisitionBackpressureError as exc:
+            self._backpressure_count += 1
+            if self.config.backpressure_policy is Wits0BackpressurePolicy.DRAIN_THEN_RETRY:
+                self.drain(limit=self.config.drain_batch_size)
+                try:
+                    self.controller.enqueue_many(records)
+                except AcquisitionBackpressureError as retry_exc:
+                    self._last_error = str(retry_exc)
+                    raise Wits0AcquisitionBackpressureError(str(retry_exc)) from retry_exc
+            else:
+                self._last_error = str(exc)
+                raise Wits0AcquisitionBackpressureError(str(exc)) from exc
+        self._records_enqueued += len(records)
 
     def _records_for_batches(
         self,

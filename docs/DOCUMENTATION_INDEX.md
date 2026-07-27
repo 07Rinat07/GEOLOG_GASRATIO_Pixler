@@ -22,6 +22,7 @@
 - [WITS_INTEGRATION_PLAN.md](WITS_INTEGRATION_PLAN.md) — WITS0/WITSML architecture, milestones, and field acceptance.
 - [WITS0_ACQUISITION.md](WITS0_ACQUISITION.md) — normalized batches, bounded queue, checkpoints, resume, and controlled close.
 - [WITS0_LIVE_VIEW.md](WITS0_LIVE_VIEW.md) — current values, time/depth axes, pause-view, history, downsampling, and quality markers.
+- [WITS0_RELIABILITY.md](WITS0_RELIABILITY.md) — connection records, disk guard, raw retention, restart recovery, workspace persistence, and Windows soak tooling.
 - [PROJECT_PLAN.md](PROJECT_PLAN.md) — current tasks; historical slices are excluded.
 - [PROJECT_STATUS.md](PROJECT_STATUS.md) — verified implementation and quality state.
 - [REQUIREMENTS.md](REQUIREMENTS.md) — product requirements matrix.
@@ -29,6 +30,7 @@
 - [TESTING.md](TESTING.md) — the only active release-quality gate.
 - [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md) — synchronization rules.
 - [CHANGELOG.md](CHANGELOG.md) — concise implementation history.
+- [RELEASE_NOTES_0.7.78.md](RELEASE_NOTES_0.7.78.md) — WITS0 reliability and restart recovery.
 - [RELEASE_NOTES_0.7.77.md](RELEASE_NOTES_0.7.77.md) — WITS0 live current values and time/depth history monitor.
 - [RELEASE_NOTES_0.7.56.md](RELEASE_NOTES_0.7.56.md) — A4 form-width guidance and adaptive interval statistics.
 - [RELEASE_NOTES_0.7.57.md](RELEASE_NOTES_0.7.57.md) — interval statistics overlay and form-switch selection reset.
@@ -41,6 +43,8 @@
 - [APPLICATION_DIAGNOSTICS.md](en/APPLICATION_DIAGNOSTICS.md) — persistent logs, support bundle, and privacy boundary.
 
 ## Main workflows
+
+- WITS0 reliability 0.7.78: [RU](ru/RELEASE_NOTES_0.7.78.md) · [KK](kk/RELEASE_NOTES_0.7.78.md) · [EN](en/RELEASE_NOTES_0.7.78.md) · [build manifest](BUILD_MANIFEST_0.7.78.md)
 
 - WITS0 AcquisitionSession 0.7.76: [RU](ru/RELEASE_NOTES_0.7.76.md) · [KK](kk/RELEASE_NOTES_0.7.76.md) · [EN](en/RELEASE_NOTES_0.7.76.md) · [build manifest](BUILD_MANIFEST_0.7.76.md)
 - WITS0 Import Review 0.7.75: [RU](ru/RELEASE_NOTES_0.7.75.md) · [KK](kk/RELEASE_NOTES_0.7.75.md) · [EN](en/RELEASE_NOTES_0.7.75.md) · [build manifest](BUILD_MANIFEST_0.7.75.md)
@@ -66,6 +70,7 @@
 - Operational events: [RU](ru/OPERATIONAL_EVENTS.md) · [KK](kk/OPERATIONAL_EVENTS.md) · [EN](en/OPERATIONAL_EVENTS.md)
 - WITS0 capture: [RU](ru/WITS0_CAPTURE.md) · [KK](kk/WITS0_CAPTURE.md) · [EN](en/WITS0_CAPTURE.md)
 - WITS0 AcquisitionSession: [RU](ru/WITS0_ACQUISITION.md) · [KK](kk/WITS0_ACQUISITION.md) · [EN](en/WITS0_ACQUISITION.md)
+- WITS0 reliability: [RU](ru/WITS0_RELIABILITY.md) · [KK](kk/WITS0_RELIABILITY.md) · [EN](en/WITS0_RELIABILITY.md)
 - Acquisition replay: [RU](ru/ACQUISITION_REPLAY.md) · [KK](kk/ACQUISITION_REPLAY.md) · [EN](en/ACQUISITION_REPLAY.md)
 - Catalog symbol insertion on graphs 0.7.61: [RU](ru/RELEASE_NOTES_0.7.61.md) · [KK](kk/RELEASE_NOTES_0.7.61.md) · [EN](en/RELEASE_NOTES_0.7.61.md)
 - Build manifest 0.7.61: [BUILD_MANIFEST_0.7.61.md](BUILD_MANIFEST_0.7.61.md)

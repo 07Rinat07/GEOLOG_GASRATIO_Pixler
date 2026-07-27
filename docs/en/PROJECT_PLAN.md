@@ -1,50 +1,41 @@
 # Project plan
 
-Current on 27 July 2026 after the 0.7.77 slice. This file contains unfinished work only; implemented increments belong in
-[project status](PROJECT_STATUS.md), the root [changelog](../CHANGELOG.md), and release notes.
+Current on 27 July 2026 after the 0.7.78 slice. This file contains unfinished work only; implemented
+increments are recorded in project status, changelog and release notes.
 
+## Priority: WITS0 field acceptance
 
-## Priority: WITS0 live monitor and field reliability
+Raw capture, parser, Import Review, normalized batches, append-only session, live monitor and the
+software reliability layer are implemented. Remaining field work:
 
-Raw capture, the typed parser, Import Review, normalized batches, the append-only
-`AcquisitionSession`, and the main `AcquisitionLiveView` monitor are complete. Remaining work:
+- [ ] capture 5–10 minutes of anonymized real GSWITS raw traffic;
+- [ ] confirm TCP mode, address, port, encoding, headers and record intervals;
+- [ ] verify the built-in and custom GeoScape profiles against real record/item values;
+- [ ] complete an 8–24 hour Windows soak with real GSWITS and retain the JSON report;
+- [ ] verify reconnect after GSWITS, application and Windows restarts;
+- [ ] execute a controlled low-space/disk-full test without raw loss;
+- [ ] decide Windows startup/service strategy and complete a signed field checklist;
+- [ ] add independent tracks/scales for incompatible units;
+- [ ] define a new-source-session policy after a previous session is closed.
 
-- [ ] obtain 5–10 minutes of real GSWITS raw data;
-- [ ] confirm TCP mode, address, port, encoding, header fields, and record intervals;
-- [ ] compare the built-in GeoScape profile and saved custom profile with real record/item values;
-- [ ] persist selected channels, axis mode, ranges, and follow mode in workspace settings;
-- [ ] add connection events and connection-gap markers as acquisition records;
-- [ ] add independent tracks/scales for channels with incompatible units;
-- [ ] define a new-session policy after a previous session is closed;
-- [ ] complete Windows reconnect/soak/restart/disk-full validation.
+## Next product increment: offline WITSML data import
+
+- [ ] select `ChannelSet` and `Channel` from the safe inventory;
+- [ ] read channel arrays without network ETP;
+- [ ] select time/depth index and bind Well/Wellbore;
+- [ ] perform semantic/UOM Import Review;
+- [ ] atomically create an immutable Dataset;
+- [ ] add official or licensed fixtures with explicit provenance.
 
 ## GeoScape II GS2 acceptance
 
-- [ ] add versioned projections and anonymized Access/Paradox fixtures from other GeoScape versions;
-- [ ] cover damaged, truncated, and multipart tables with reproducible golden fixtures;
-- [ ] compare СГ-8 and at least two other GS2 files with reference GeoScape LAS/Excel exports;
-- [ ] confirm C1–C5, total gas, TIME/DEPTH, units, ranges, and file splitting;
-- [ ] verify Gas Ratio/Pixler on channels proven through `GS2.mdb`.
-
-The automated numeric-TIME CSV/XLSX test confirms the shared resolved-export path but does not
-replace comparison with real reference LAS/Excel output.
-
-## Manual 0.7.72 acceptance
-
-- [ ] verify both command rows on Windows at 100%, 125%, and 150% DPI;
-- [ ] move the window between a laptop and external monitor, including F4 and repeated actions;
-- [ ] verify transparent and original symbols with all eight handles, **Shift**, and rotation;
-- [ ] confirm reselect, move, and resize of an ultra-thin symbol after **Ctrl+S** and reopen;
-- [ ] compare screen, preview, PDF, and physical print for `0.01` logical-pixel geometry.
-
-## Release recovery
-
-- [ ] resolve the current mypy findings and internal error;
-- [ ] complete the signed tablet/annotation/PDF/HiDPI/physical-printer smoke checklist;
-- [ ] publish a stable build only after the mandatory gate is green.
+- [ ] add versioned projections and anonymized fixtures from other GeoScape releases;
+- [ ] test damaged, truncated and multipart tables with golden fixtures;
+- [ ] compare SG-8 and at least two other containers with reference LAS/Excel exports;
+- [ ] confirm C1–C5, total gas, TIME/DEPTH, units and file segmentation.
 
 ## Acceptance criterion
 
-The window stays inside the active monitor work area, the right editing command remains available,
-and an ultra-thin symbol remains visible, selectable, and editable without changing stored
-geometry. CSV/XLSX use the exact rows of the active numeric DEPTH/TIME axis.
+One real GSWITS stream must survive reconnect, view pause, project save, crash restart and low-space
+boundary while raw bytes, connection journal, recovery manifest, acquisition session, checkpoints
+and Dataset projection remain consistent.

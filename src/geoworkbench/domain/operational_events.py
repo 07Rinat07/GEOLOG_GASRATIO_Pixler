@@ -14,6 +14,7 @@ class OperationalEventKind(StrEnum):
     SAMPLE = "sample"
     CASING = "casing"
     FORMATION_TOP = "formation_top"
+    CONNECTION = "connection"
 
 
 class OperationalEventQcFlag(StrEnum):
@@ -134,6 +135,31 @@ class FormationTopEventPayload:
         _validate_optional_text(self.description, "description")
 
 
+@dataclass(frozen=True, slots=True)
+class ConnectionEventPayload:
+    state: str
+    connection_id: str
+    peer: str | None = None
+    reason: str | None = None
+    raw_file: str | None = None
+    bytes_received: int = 0
+    frames_received: int = 0
+
+    def __post_init__(self) -> None:
+        if self.state not in {"connected", "disconnected"}:
+            raise ValueError("Connection event state must be connected or disconnected")
+        _validate_required_text(self.connection_id, "connection_id")
+        _validate_optional_text(self.peer, "peer")
+        _validate_optional_text(self.reason, "reason")
+        _validate_optional_text(self.raw_file, "raw_file")
+        for value, name in (
+            (self.bytes_received, "bytes_received"),
+            (self.frames_received, "frames_received"),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"{name} must be a non-negative integer")
+
+
 OperationalEventPayload: TypeAlias = (
     DrillingEventPayload
     | GasEventPayload
@@ -141,6 +167,7 @@ OperationalEventPayload: TypeAlias = (
     | SampleEventPayload
     | CasingEventPayload
     | FormationTopEventPayload
+    | ConnectionEventPayload
 )
 
 _PAYLOAD_TYPE_BY_KIND: dict[OperationalEventKind, type[OperationalEventPayload]] = {
@@ -150,6 +177,7 @@ _PAYLOAD_TYPE_BY_KIND: dict[OperationalEventKind, type[OperationalEventPayload]]
     OperationalEventKind.SAMPLE: SampleEventPayload,
     OperationalEventKind.CASING: CasingEventPayload,
     OperationalEventKind.FORMATION_TOP: FormationTopEventPayload,
+    OperationalEventKind.CONNECTION: ConnectionEventPayload,
 }
 
 

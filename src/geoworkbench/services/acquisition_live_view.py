@@ -225,6 +225,10 @@ class AcquisitionLiveView:
     def selected_curve_ids(self) -> tuple[str, ...]:
         return self._selected_curve_ids
 
+    @property
+    def history_window(self) -> tuple[float, float] | None:
+        return self._manual_window
+
     def available_axis_modes(self) -> tuple[AcquisitionLiveAxisMode, ...]:
         modes = [AcquisitionLiveAxisMode.AUTO]
         for mode in (

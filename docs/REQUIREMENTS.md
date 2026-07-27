@@ -76,7 +76,7 @@ JSON-файл проекта не считается универсальным 
 | OPS-005 | Growing dataset: append, replay, checkpoint, backpressure и controlled close | готово: acquisition schema v1, текущий project v20, atomic controller, checkpoint fingerprints и deterministic replay |
 | OPS-006 | QC/alarm rules: threshold, hysteresis, debounce, acknowledgement и audit | запланировано; не сертифицированная well-control system |
 | OPS-007 | Structured MudLogReport: cuttings/geology/show, chromatograph/gas peaks, drilling/Dxc/ECD/ROP stats | запланировано по WITSML domain |
-| OPS-010 | WITS0 live source adapter → semantic mapping → append-only AcquisitionSession | частично: raw boundary и deterministic frame replay готовы; parser, schema confirmation, live UI и recovery остаются |
+| OPS-010 | WITS0 live source adapter → semantic mapping → append-only AcquisitionSession | программно готово: capture/parser/review/normalization/live/reliability; остаются real GSWITS field acceptance, independent scales и service strategy |
 | OPS-008 | Pore-pressure/fracture-gradient workflow с predrill model, observations и uncertainty | позже; decision-support с паспортом методики |
 | OPS-009 | Flow/pit/connection trends, kick/loss и hole-cleaning indicators | позже; после OPS-001…006 |
 

@@ -1,3 +1,14 @@
+# 0.7.78 — WITS0 reliability, restart recovery and Windows soak tooling
+
+- Added stable connection IDs, an append-only fsync JSONL lifecycle journal, and typed connection/disconnection acquisition records.
+- Added a rate-limited pre-write disk-space guard with warning and hard critical thresholds.
+- Added configurable inactive raw-segment retention with active-file protection.
+- Added atomic recovery manifests and safe repair of crash-truncated chunk-index sidecars without changing raw bytes.
+- Added open-session reconstruction from immutable schema plus versioned custom profile with continuous sequence/checkpoints.
+- Persisted live axis, follow, pause, history and selected-curve workspace state per well.
+- Added headless Python and PowerShell Windows reconnect/soak-test tooling with JSON reports.
+- Preserved project format v20, form schema v8, and tablet layout v18.
+
 # 0.7.77 — WITS0 current values and live/history graphs
 
 - Added read-only `AcquisitionLiveView` over the growing Dataset and append-only session.

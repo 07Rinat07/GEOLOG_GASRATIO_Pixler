@@ -301,3 +301,17 @@ combines incremental `&& ... !!` framing, profile-driven typing, immutable parse
 structured diagnostics, and per-record sequence tracking. Unknown or malformed fields remain in
 the parsed result with their original line and raw value. This layer does not mutate the project,
 convert UOM, or commit to `AcquisitionSession`; those responsibilities remain behind Import Review.
+
+## Граница WITS0 reliability — 0.7.78
+
+`acquisition/wits0_reliability.py` владеет disk policy, retention, sidecar recovery, atomic run
+manifest, append-only connection journal и presentation workspace codec. Модуль не импортирует Qt
+и не изменяет `Project`. `Wits0CaptureEngine` проверяет диск до raw write, защищает активный сегмент
+от retention и публикует immutable lifecycle events. При открытой сессии Qt polling boundary
+передаёт connection/disconnection в `Wits0AcquisitionRuntime`, который создаёт typed event records
+только через bounded `AcquisitionController`.
+
+Restart recovery не угадывает discovery statistics: `services/wits0_recovery.py` восстанавливает
+normalizer contract только из persisted immutable `AcquisitionDatasetSchema` и versioned custom
+profile. Raw `.wits` никогда не переписывается; допустима только атомарная обрезка недостоверного
+хвоста JSONL sidecar. Workspace state хранится отдельно в `QSettings` и не является domain data.

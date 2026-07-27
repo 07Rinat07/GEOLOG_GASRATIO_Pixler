@@ -36,6 +36,7 @@ from geoworkbench.services.acquisition_live_view import (
     AcquisitionLiveViewConfig,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.acquisition.wits0_reliability import Wits0WorkspaceState
 
 if TYPE_CHECKING:
     from geoworkbench.services.wits0_acquisition import Wits0AcquisitionRuntime
@@ -269,6 +270,73 @@ class Wits0LiveViewWidget(QWidget):
             widget.setEnabled(True)
         self._populate_axes()
         self._populate_curves()
+        self.refresh(force=True)
+
+    def workspace_state(self) -> Wits0WorkspaceState:
+        view = self._view
+        history = view.history_window if view is not None else None
+        axis_mode = (
+            view.axis_mode.value
+            if view is not None
+            else str(self.axis_combo.currentData() or "auto")
+        )
+        return Wits0WorkspaceState(
+            axis_mode=axis_mode,
+            auto_follow=(view.auto_follow if view is not None else self.auto_follow_check.isChecked()),
+            paused=(view.paused if view is not None else self.pause_button.isChecked()),
+            follow_span=float(self.window_spin.value()),
+            max_points=int(self.max_points_spin.value()),
+            selected_curve_ids=self._selected_curve_ids(),
+            history_start=history[0] if history is not None else None,
+            history_end=history[1] if history is not None else None,
+            acquisition_session_id=(
+                self._runtime.session.session_id if self._runtime is not None else None
+            ),
+        )
+
+    def apply_workspace_state(self, state: Wits0WorkspaceState) -> None:
+        if not isinstance(state, Wits0WorkspaceState):
+            raise TypeError("state must use Wits0WorkspaceState")
+        view = self._view
+        self._updating_controls = True
+        try:
+            self.max_points_spin.setValue(state.max_points)
+            axis_index = self.axis_combo.findData(state.axis_mode)
+            if axis_index >= 0:
+                self.axis_combo.setCurrentIndex(axis_index)
+            self.auto_follow_check.setChecked(state.auto_follow)
+            self.window_spin.setValue(state.follow_span)
+            selected = set(state.selected_curve_ids)
+            if selected:
+                for row in range(self.curve_list.count()):
+                    item = self.curve_list.item(row)
+                    curve_id = item.data(Qt.ItemDataRole.UserRole)
+                    item.setCheckState(
+                        Qt.CheckState.Checked
+                        if curve_id in selected
+                        else Qt.CheckState.Unchecked
+                    )
+            self.pause_button.setChecked(state.paused)
+        finally:
+            self._updating_controls = False
+        if view is not None:
+            try:
+                view.set_axis_mode(AcquisitionLiveAxisMode(state.axis_mode))
+            except ValueError:
+                view.set_axis_mode(AcquisitionLiveAxisMode.AUTO)
+            view.set_selected_curves(self._selected_curve_ids())
+            view.set_follow_span(state.follow_span)
+            view.set_auto_follow(state.auto_follow)
+            if not state.auto_follow and state.history_start is not None and state.history_end is not None:
+                view.set_history_window(state.history_start, state.history_end)
+            if state.paused:
+                view.pause()
+                self.pause_button.setText(self._t("wits0_live.resume_view"))
+            else:
+                view.resume()
+                self.pause_button.setText(self._t("wits0_live.pause_view"))
+        self._last_revision = None
+        self._update_span_controls()
         self.refresh(force=True)
 
     def clear_runtime(self) -> None:

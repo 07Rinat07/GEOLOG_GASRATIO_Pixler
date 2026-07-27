@@ -1,12 +1,12 @@
 # Жоба күйі
 
-## Әзірленуде: WITS0 live monitor және далалық сенімділік
+## Әзірленуде: WITS0 далалық қабылдауы
 
-Raw capture, типтелген parser, Import Review, append-only `AcquisitionSession` және негізгі
-live monitor орындалды. Current values, time/depth axes, auto-follow, pause-view,
-history/downsampling және quality/gap markers growing Dataset үстінде жұмыс істейді. Workspace
-settings, connection events, арналардың тәуелсіз шкалалары және Windows далалық қабылдауы қалды.
-Кірістірілген GeoScape mapping нақты anonymized GSWITS raw-ағынымен әлі расталуы тиіс.
+Raw capture, parser, Import Review, append-only acquisition, live monitor және reliability software
+кезеңдері орындалды. Connection records, disk guard, raw retention, restart recovery, workspace
+persistence және Windows soak tooling дайын. Нақты 8–24 сағаттық GSWITS soak, бақыланатын
+low-space/disk-full сынағы, independent channel scales, Windows startup/service бағалауы және signed
+field checklist қалды. GeoScape mapping нақты anonymized ағынмен расталуы тиіс.
 
 ## Әзірленуде: WITSML 2.x офлайн түгендеуі
 
@@ -26,6 +26,19 @@ Review және `Dataset` арқылы импорттау қосылды. СГ-8
 ODBC/ACE арқылы оқылады: `WELLS`, `FORMULAS.RESGID → S-код`, Sensors fallback және аудит
 қосылады. Драйвер жоқ болса да кесте импорты тоқтамайды және нақты диагностика көрсетіледі.
 
+
+
+## 0.7.78 нұсқасында аяқталды
+
+Stable connection IDs, append-only fsync lifecycle journal, типтелген connection acquisition
+records, pre-write disk guard, inactive raw retention, atomic recovery manifest, sidecar repair,
+ашық сессияны restart recovery, per-well workspace persistence және Python/PowerShell Windows soak
+құралдары қосылды. Project format v20 болып қалды.
+
+## 0.7.77 нұсқасында аяқталды
+
+Growing Dataset үстінде current values, time/depth axes, auto-follow, pause-view,
+history/downsampling және source/axis/invalid/missing markers бар read-only live projection қосылды.
 
 ## 0.7.76 нұсқасында аяқталды
 

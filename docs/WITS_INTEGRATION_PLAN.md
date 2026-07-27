@@ -66,7 +66,7 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 
 Пока не реализованы channel arrays, mapping в Dataset, SOAP и ETP.
 
-### 3.3. WITS0 capture, parser, Import Review, AcquisitionSession и Live UI — срезы 0.7.73–0.7.77
+### 3.3. WITS0 capture, parser, Import Review, AcquisitionSession, Live UI и reliability — срезы 0.7.73–0.7.78
 
 Реализованы:
 
@@ -100,7 +100,7 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 - read-only time/depth axes, auto-follow, pause-view и history window;
 - peak-preserving downsampling и markers для sequence/axis/missing/invalid gaps.
 
-Срезы 0.7.76–0.7.77 добавили normalized batches, append-only `AcquisitionSession`,
+Срезы 0.7.76–0.7.78 добавили normalized batches, append-only `AcquisitionSession`,
 current values и live/history time/depth visualization. Численное UOM conversion по-прежнему
 не выполняется молча: разные совместимые единицы блокируются до отдельного conversion-слоя.
 
@@ -284,7 +284,7 @@ Wits0Frame
 - [x] controlled close with final checkpoint and audit digest;
 - [x] raw SHA-256, record/source sequence, reception timestamp and raw-reference provenance;
 - [x] resume of a persisted open session with continuous acquisition sequence;
-- [ ] reconnect gaps and connection events as explicit acquisition records;
+- [x] reconnect boundaries and connection/disconnection events as explicit acquisition records;
 - [ ] start-new-session policy after a previous session for the same well is closed.
 
 ### Этап E — Live UI — основной срез реализован в 0.7.77
@@ -296,21 +296,25 @@ Wits0Frame
 - [x] history window и peak-preserving downsampling с сохранением NaN-разрывов;
 - [x] quality/gap markers для source sequence, axis intervals, invalid и missing spans;
 - [x] выбор отображаемых каналов в live monitor;
-- [ ] connection/disconnection events как отдельные acquisition records;
-- [ ] selected channels, axis mode и ranges сохраняются в workspace settings;
+- [x] connection/disconnection events как отдельные acquisition records;
+- [x] selected channels, axis mode, follow/pause state и history range сохраняются в workspace settings;
 - [ ] отдельные дорожки/масштабы для каналов с несовместимыми единицами.
 
-### Этап F — Reliability gate
+### Этап F — Reliability gate — программный срез реализован в 0.7.78
 
-- [ ] disk free-space checks;
-- [ ] configurable raw retention and rotation;
-- [ ] disk spool when Dataset commit is unavailable;
-- [x] parser-level duplicate and out-of-order sequence detection;
-- [x] parser-level sequence-gap detection for item 02;
-- [ ] restart recovery for incomplete sessions;
-- [ ] long-running soak test;
-- [ ] Windows startup/service strategy evaluated separately;
-- [ ] signed field smoke checklist.
+- [x] rate-limited disk free-space checks before raw writes and during idle connections;
+- [x] configurable raw retention with protected active segment, age/size/minimum-count policy;
+- [x] raw append-only storage remains the disk spool when Dataset commit is unavailable;
+- [x] parser-level duplicate, out-of-order and sequence-gap detection;
+- [x] append-only connection lifecycle JSONL and typed acquisition connection records;
+- [x] atomic recovery manifest and crash-truncated sidecar repair without modifying raw bytes;
+- [x] restart recovery for persisted open WITS0 sessions;
+- [x] per-well live workspace persistence;
+- [x] Windows-friendly synthetic reconnect/soak tooling and JSON report;
+- [ ] complete an 8–24 hour real Windows soak with anonymized GSWITS traffic;
+- [ ] execute a controlled physical disk-full/low-space exercise;
+- [ ] evaluate Windows startup/service strategy separately;
+- [ ] complete a signed field smoke checklist.
 
 ### Этап G — WITSML offline data import
 
