@@ -1,3 +1,11 @@
+# 0.7.80 — WITSML 1.4.1.1 SOAP read-only
+
+- added `WMLS_GetVersion`, `WMLS_GetCap` and read-only `WMLS_GetFromStore`;
+- added Well → Wellbore → Log → LogCurveInfo → LogData navigation;
+- added timeout, bounded retry, response limits and hash-chained audit;
+- stored passwords outside project files through Windows Credential Manager;
+- reused WITSML Import Review and atomic Dataset registration for remote LogData.
+
 # 0.7.79 — WITSML 2.x ChannelSet bulk-data import
 
 - Added safe embedded/relative-file ChannelData array reading for XML, directories, ZIP and EPC.

@@ -227,6 +227,7 @@ from geoworkbench.ui.paradox_batch_dialog import ParadoxBatchDialog
 from geoworkbench.ui.gs2_import_dialog import Gs2ImportDialog
 from geoworkbench.ui.witsml_inventory_dialog import WitsmlInventoryDialog
 from geoworkbench.ui.witsml_import_dialog import WitsmlImportDialog
+from geoworkbench.ui.witsml1411_dialog import Witsml1411Dialog
 from geoworkbench.ui.wits0_capture_dialog import Wits0CaptureDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
 from geoworkbench.ui.form_create_dialog import FormCreateDialog
@@ -1311,6 +1312,10 @@ class MainWindow(QMainWindow):
             lambda: self.open_witsml_data_import()
         )
         file_menu.addAction(self.import_witsml_data_action)
+
+        self.open_witsml1411_action = self._localized_action("shell.open_witsml1411")
+        self.open_witsml1411_action.triggered.connect(self.open_witsml1411_store)
+        file_menu.addAction(self.open_witsml1411_action)
 
         self.capture_wits0_action = self._localized_action("shell.capture_wits0")
         self.capture_wits0_action.triggered.connect(self.open_wits0_capture)
@@ -3542,6 +3547,45 @@ class MainWindow(QMainWindow):
             f"WITSML IMPORTED: {selected.name}: dataset={dataset.dataset_id}; "
             f"rows={len(dataset.active_index.values)}; curves={len(dataset.curves)}; "
             f"digest={commit.dataset_digest}"
+        )
+
+    def open_witsml1411_store(self) -> None:
+        """Browse a WITSML 1.4.1.1 SOAP store in read-only mode and import one log."""
+
+        dialog = Witsml1411Dialog(self, language=self.language)
+        result = dialog.exec()
+        if result != QDialog.DialogCode.Accepted or dialog.accepted_commit is None:
+            return
+        commit = dialog.accepted_commit
+        try:
+            registration = WitsmlProjectImportController(self.session).register(
+                commit,
+                create_new_well=self.session.current_well is None,
+            )
+        except Exception as exc:  # noqa: BLE001 - controller rolls back project state
+            self._log(f"WITSML 1.4.1.1 PROJECT IMPORT ERROR: {exc}")
+            QMessageBox.critical(
+                self,
+                self._t("witsml1411.title"),
+                self._t("witsml_import.failed", error=str(exc)),
+            )
+            return
+        dataset = registration.commit.dataset
+        self._refresh_tree()
+        self._update_title()
+        self._show_current_dataset()
+        self.statusBar().showMessage(
+            self._t(
+                "witsml_import.imported",
+                dataset=dataset.name,
+                rows=len(dataset.active_index.values),
+                channels=len(dataset.curves),
+            )
+        )
+        self._log(
+            f"WITSML 1.4.1.1 IMPORTED: dataset={dataset.dataset_id}; "
+            f"rows={len(dataset.active_index.values)}; curves={len(dataset.curves)}; "
+            f"digest={registration.commit.dataset_digest}"
         )
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:

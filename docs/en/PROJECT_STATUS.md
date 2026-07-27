@@ -16,6 +16,13 @@ time/depth index and scalar numeric channels. Import Review performs semantic ma
 conversion and row QC, then atomically creates a Dataset with source/data SHA-256 and a stable
 digest. Binary Avro, multidimensional arrays, SOAP and ETP remain later work.
 
+## Completed in 0.7.80: WITSML 1.4.1.1 SOAP read-only
+
+Added a read-only Store API client for GetVersion, GetCap and GetFromStore, hierarchy browsing from
+Well through LogData, bounded timeout/retry, hash-chained audit and Windows Credential Manager
+password storage. Remote LogData reuses the existing WITSML Import Review and atomic Dataset
+registration. Add, Update and Delete are rejected by the client boundary.
+
 ## In development: GeoScape II GS2
 
 Safe container validation and selected inner-table import through the existing Paradox reader,

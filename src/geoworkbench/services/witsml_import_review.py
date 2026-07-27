@@ -525,6 +525,12 @@ class WitsmlImportReviewController:
                 "WITSML_CHANNEL_SET_KEY": channel_set.key,
                 "WITSML_INDEX_KEY": index.key,
                 "WITSML_DATA_LAYOUT": "[[indexes],[channels]]",
+                "WITSML_TRANSPORT": (
+                    "SOAP" if (channel_set.schema_version or "").startswith("1.4.1") else "OFFLINE"
+                ),
+                "WITSML_API_VERSION": (
+                    "1.4.1.1" if (channel_set.schema_version or "").startswith("1.4.1") else ""
+                ),
                 "WITSML_ROWS_SOURCE": str(len(channel_set.rows)),
                 "WITSML_ROWS_IMPORTED": str(review.import_row_count),
                 "WITSML_ROWS_SKIPPED": str(review.skipped_row_count),

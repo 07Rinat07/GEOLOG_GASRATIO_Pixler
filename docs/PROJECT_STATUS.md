@@ -1,3 +1,10 @@
+
+## Completed in 0.7.80: WITSML 1.4.1.1 SOAP read-only
+
+Added a read-only Store API client for GetVersion, GetCap and GetFromStore, hierarchy browsing from
+Well through LogData, bounded timeout/retry, hash-chained audit and Windows Credential Manager
+password storage. Remote LogData reuses the existing WITSML Import Review and atomic Dataset
+registration. Add, Update and Delete are rejected by the client boundary.
 # Состояние проекта
 
 ## В разработке: полевая приёмка WITS0

@@ -1,3 +1,10 @@
+
+## 0.7.80 ішінде аяқталды: WITSML 1.4.1.1 SOAP тек оқу
+
+GetVersion, GetCap және read-only GetFromStore, Well → Wellbore → Log → LogData навигациясы,
+timeout, bounded retry, hash-chained audit және Windows Credential Manager құпиясөз сақтау қосылды.
+Remote LogData қолданыстағы Import Review және атомарлық Dataset тіркеуін пайдаланады. Add, Update
+және Delete клиент шекарасында тыйым салынған.
 # Жоба күйі
 
 ## Әзірленуде: WITS0 далалық қабылдауы

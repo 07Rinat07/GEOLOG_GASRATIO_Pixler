@@ -1,6 +1,6 @@
 # План проекта
 
-Актуально на 27 июля 2026 года после среза 0.7.79. Здесь перечислена только незавершённая работа;
+Актуально на 27 июля 2026 года после среза 0.7.80. Здесь перечислена только незавершённая работа;
 реализованные срезы находятся в [состоянии проекта](PROJECT_STATUS.md), корневой
 [истории изменений](CHANGELOG.md) и release notes.
 
@@ -28,11 +28,20 @@ monitor и программный reliability-контур готовы. До п
 - [x] атомарное создание и регистрация immutable Dataset;
 - [x] синтетический fixture и regression tests.
 
-## Следующий продуктовый этап: WITSML 1.4.1.1 SOAP read-only
+## Завершено в 0.7.80: WITSML 1.4.1.1 SOAP read-only
 
-- [ ] GetVersion/GetCap и read-only Well → Wellbore → Log → LogData;
-- [ ] credentials вне project file, timeout/retry/audit;
-- [ ] без Add/Update/Delete в первом срезе.
+- [x] GetVersion/GetCap и read-only Well → Wellbore → Log → LogCurveInfo → LogData;
+- [x] timeout, bounded retry, response-size guard и hash-chained audit;
+- [x] credentials вне project file через Windows Credential Manager;
+- [x] повторное использование Import Review и атомарной регистрации Dataset;
+- [x] запрет Add/Update/Delete на уровне клиента.
+
+## Следующий продуктовый этап: WITSML 2.1 / ETP 1.2
+
+- [ ] выбрать и проверить ETP 1.2 client library;
+- [ ] реализовать session negotiation, Discovery и Channel Streaming;
+- [ ] преобразовать ChannelData в общий normalized measurement pipeline;
+- [ ] добавить reconnect и восстановление подписок без потери provenance.
 
 ## Приёмка GeoScape II GS2
 

@@ -1,6 +1,6 @@
 # Project plan
 
-Current on 27 July 2026 after the 0.7.79 slice. This file contains unfinished work only; implemented
+Current on 27 July 2026 after the 0.7.80 slice. This file contains unfinished work only; implemented
 increments are recorded in project status, changelog and release notes.
 
 ## Priority: WITS0 field acceptance
@@ -27,11 +27,20 @@ software reliability layer are implemented. Remaining field work:
 - [x] atomically create and register an immutable Dataset;
 - [x] include a synthetic fixture with explicit provenance and regression tests.
 
-## Next product increment: WITSML 1.4.1.1 SOAP read-only
+## Completed in 0.7.80: WITSML 1.4.1.1 SOAP read-only
 
-- [ ] implement GetVersion/GetCap and read-only Well → Wellbore → Log → LogData;
-- [ ] keep credentials outside project files;
-- [ ] add timeout/retry/audit without Add/Update/Delete.
+- [x] GetVersion/GetCap and read-only Well → Wellbore → Log → LogCurveInfo → LogData;
+- [x] timeout, bounded retry, response-size guard and hash-chained audit;
+- [x] credentials outside project files through Windows Credential Manager;
+- [x] reuse Import Review and atomic Dataset registration;
+- [x] reject Add/Update/Delete at the client boundary.
+
+## Next product increment: WITSML 2.1 / ETP 1.2
+
+- [ ] select and validate an ETP 1.2 client library;
+- [ ] implement session negotiation, Discovery and Channel Streaming;
+- [ ] map ChannelData into the shared normalized measurement pipeline;
+- [ ] add reconnect and subscription recovery with preserved provenance.
 
 ## GeoScape II GS2 acceptance
 

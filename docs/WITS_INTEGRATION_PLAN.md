@@ -65,7 +65,8 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 - ресурсные лимиты и защита XML/ZIP.
 
 В 0.7.79 реализованы offline channel arrays, Import Review, численная UOM-нормализация и
-атомарное создание Dataset. Пока не реализованы binary Avro, SOAP и ETP.
+атомарное создание Dataset. В 0.7.80 добавлен read-only WITSML 1.4.1.1 SOAP-контур. Пока не
+реализованы binary Avro и ETP.
 
 ### 3.3. WITS0 capture, parser, Import Review, AcquisitionSession, Live UI и reliability — срезы 0.7.73–0.7.78
 
@@ -328,14 +329,23 @@ Wits0Frame
 - [x] synthetic fixture with explicit provenance and regression tests;
 - [ ] binary Avro and multidimensional array channels remain later extensions.
 
-### Этап H — WITSML 1.4.1.1 SOAP read-only
+### Этап H — WITSML 1.4.1.1 SOAP read-only — выполнен в 0.7.80
 
-- [ ] `WMLS_GetVersion`;
-- [ ] `WMLS_GetCap`;
-- [ ] Well → Wellbore → Log → LogCurveInfo → LogData;
-- [ ] read-only credentials outside project files;
-- [ ] retry, timeout and audit;
-- [ ] no Add/Update/Delete in the first slice.
+- [x] SOAP 1.1 `WMLS_GetVersion` и выбор поддерживаемой версии 1.4.1.x;
+- [x] `WMLS_GetCap` с обязательным `dataVersion` и разбором capServer;
+- [x] read-only `WMLS_GetFromStore` для Well → Wellbore → Log → LogCurveInfo → LogData;
+- [x] строгий запрет Add/Update/Delete на уровне SOAP client boundary;
+- [x] configurable timeout, bounded exponential retry и response-size guard;
+- [x] SOAP Fault, negative WITSML Result и XML DTD/entity обрабатываются без скрытого retry;
+- [x] append-only hash-chained JSONL audit без request XML, password и Authorization;
+- [x] public connection profiles без password;
+- [x] Windows Credential Manager для persistent password storage;
+- [x] non-Windows development fallback только в памяти;
+- [x] LogData CSV/nullValue parsing и преобразование в общий WitsmlChannelSetData;
+- [x] повторное использование Semantic/UOM Import Review, Dataset digest и атомарной регистрации;
+- [x] modeless network I/O не выполняется в GUI thread: browser tasks идут через QThread;
+- [ ] проверить interoperability на 2–3 реальных WITSML 1.4.1.1 Store implementation;
+- [ ] подтвердить server-specific OptionsIn dialects и paging/maxDataNodes на реальных серверах.
 
 ### Этап I — WITSML 2.x / ETP 1.2
 

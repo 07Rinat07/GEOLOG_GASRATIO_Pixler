@@ -43,16 +43,19 @@ class WitsmlImportDialog(QDialog):
 
     def __init__(
         self,
-        source: str | Path,
+        source: str | Path | None = None,
         parent: QWidget | None = None,
         *,
         language: AppLanguage = AppLanguage.RU,
+        package: WitsmlDataPackage | None = None,
     ) -> None:
         super().__init__(parent)
-        self.source = Path(source)
+        if source is None and package is None:
+            raise ValueError("source or package is required")
+        self.source = Path(source) if source is not None else package.source
         self.localizer = Localizer.create(language)
         self.controller = WitsmlImportReviewController()
-        self.package: WitsmlDataPackage | None = None
+        self.package: WitsmlDataPackage | None = package
         self.plan: WitsmlImportReviewPlan | None = None
         self.accepted_commit: WitsmlImportCommit | None = None
         self.failure: Exception | None = None
@@ -122,7 +125,10 @@ class WitsmlImportDialog(QDialog):
         self.dataset_name.textChanged.connect(self._preview)
         self.sort_index.toggled.connect(self._preview)
         self.drop_invalid.toggled.connect(self._preview)
-        self._load()
+        if package is None:
+            self._load()
+        else:
+            self._populate_package(package)
 
     @property
     def accepted_dataset(self):
@@ -137,6 +143,9 @@ class WitsmlImportDialog(QDialog):
             self.diagnostics.setPlainText(str(exc))
             self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
             return
+        self._populate_package(package)
+
+    def _populate_package(self, package: WitsmlDataPackage) -> None:
         self.package = package
         self._updating = True
         for channel_set in package.channel_sets:

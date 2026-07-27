@@ -16,6 +16,13 @@ strategy и подписанный полевой checklist. Встроенны�
 строгое UOM conversion, QC строк и атомарно создаёт Dataset с source/data SHA-256 и стабильным
 digest. Binary Avro, multidimensional arrays, SOAP и ETP остаются последующими этапами.
 
+## Завершено в 0.7.80: WITSML 1.4.1.1 SOAP только для чтения
+
+Добавлены GetVersion, GetCap и read-only GetFromStore, просмотр Well → Wellbore → Log → LogData,
+тайм-ауты, bounded retry, hash-chained audit и хранение пароля в Windows Credential Manager.
+Удалённый LogData проходит существующие Import Review и атомарную регистрацию Dataset. Add,
+Update и Delete запрещены на уровне клиента.
+
 ## В разработке: GeoScape II GS2
 
 Добавлены безопасная проверка контейнера, выбор внутренней таблицы и её импорт через существующий
