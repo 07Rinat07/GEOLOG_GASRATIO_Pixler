@@ -630,7 +630,17 @@ class ParadoxImportDialog(QDialog):
         finally:
             self.depth_field.blockSignals(False)
             self.time_field.blockSignals(False)
-        self.active_role.setCurrentIndex(1 if quality.depth_candidates else 2)
+        if quality.classification is DatasetClassification.TIME:
+            recommended_role = "time"
+        elif quality.classification in {
+            DatasetClassification.DEPTH,
+            DatasetClassification.TIME_WITH_DEPTH,
+        }:
+            recommended_role = "depth"
+        else:
+            recommended_role = "auto"
+        recommended_index = self.active_role.findData(recommended_role)
+        self.active_role.setCurrentIndex(max(0, recommended_index))
 
         self._population_mappings = default_mappings(
             table,
@@ -974,8 +984,15 @@ class ParadoxImportDialog(QDialog):
         for field in self.table.fields:
             if field.is_numeric and field.name not in used:
                 combo.addItem(f"{field.name} — {self._t('paradox.manual')}", field.name)
-        if combo.count() > 1:
-            combo.setCurrentIndex(1)
+        reliable_row = next(
+            (
+                row
+                for row, candidate in enumerate(candidates, start=1)
+                if candidate.confidence >= 0.65
+            ),
+            0,
+        )
+        combo.setCurrentIndex(reliable_row)
 
     def import_plan(self) -> ParadoxImportPlan:
         assert self.table is not None

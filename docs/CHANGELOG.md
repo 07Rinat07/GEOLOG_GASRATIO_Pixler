@@ -1,3 +1,10 @@
+# 0.7.88 — GeoScape2 TIME/DEPTH index classification fix
+
+- Unix timestamps can no longer be auto-selected as measured depth.
+- The same source field cannot be assigned to both TIME and DEPTH.
+- Low-confidence depth candidates are no longer selected automatically.
+- Time-only GS2/Paradox tables now default to TIME/DATETIME mode.
+
 # 0.7.87 — Linear form defaults and LAS zero continuity
 
 - Set every factory screen form and built-in Masterlog preset to a linear default scale.

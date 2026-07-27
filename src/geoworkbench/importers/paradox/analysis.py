@@ -254,6 +254,21 @@ def _depth_candidate(name: str, values: np.ndarray) -> IndexCandidate:
     if _looks_like_ole_date(finite):
         score -= 0.45
         warnings.append("значения похожи на календарное время OLE/Delphi")
+    unix_scale = unix_timestamp_scale(finite)
+    if unix_scale is not None:
+        _, unix_unit = unix_scale
+        # Absolute Unix timestamps are time coordinates, never measured depth.
+        # Without this guard a monotonic timestamp column could score as both
+        # TIME and DEPTH and then appear as ~1.7e9 metres in the tablet.
+        score -= 0.80
+        warnings.append(f"значения похожи на Unix timestamp ({unix_unit})")
+    if normalized not in _DEPTH_NAME_HINTS and span < 10.0:
+        # A short, monotonic engineering channel (ROP, torque, pressure, etc.)
+        # must not become an automatic depth index merely because its samples
+        # happen to increase with a stable step.  Non-standard short depth
+        # columns remain available for explicit manual selection.
+        score = min(score, 0.49)
+        warnings.append("короткий диапазон без признака глубины в названии")
     return IndexCandidate(
         name,
         "depth",
@@ -458,6 +473,16 @@ def _unix_scale(median: float) -> tuple[float, str] | None:
         None,
     )
 
+
+
+def unix_timestamp_scale(values: np.ndarray) -> tuple[float, str] | None:
+    """Return the Unix timestamp scale for finite numeric values, if detected."""
+
+    numeric = np.asarray(values, dtype=np.float64)
+    finite = numeric[np.isfinite(numeric)]
+    if not finite.size:
+        return None
+    return _unix_scale(float(np.median(finite)))
 
 def _elapsed_from_datetime(values: np.ndarray) -> np.ndarray:
     result = np.full(values.shape, np.nan, dtype=np.float64)

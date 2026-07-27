@@ -23,7 +23,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.services.semantic_channels import SemanticChannelDictionary
 
-from .analysis import analyze_table, convert_time_values
+from .analysis import analyze_table, convert_time_values, unix_timestamp_scale
 from .channel_dictionary import GeoScapeChannelDictionary
 from .models import (
     ChannelMapping,
@@ -110,11 +110,25 @@ def import_paradox(
     use_time = selected.active_role == "time" or (
         selected.active_role == "auto" and depth_field is None and time_field is not None
     )
+    if depth_field is not None and depth_field == time_field:
+        raise ParadoxImportError(
+            "Один исходный канал нельзя одновременно использовать как глубину и время. "
+            "Для временной таблицы оставьте канал глубины невыбранным либо выберите "
+            "реальный канал измеренной глубины."
+        )
+
     depth_values = (
         np.asarray(parsed.columns[depth_field].values, dtype=np.float64)
         if depth_field is not None
         else None
     )
+    if depth_values is not None:
+        finite_depth = depth_values[np.isfinite(depth_values)]
+        if finite_depth.size and unix_timestamp_scale(finite_depth) is not None:
+            raise ParadoxImportError(
+                f"Канал {depth_field} содержит Unix timestamp, а не глубину в метрах. "
+                "Выберите этот канал как время и укажите отдельный канал глубины."
+            )
     elapsed: np.ndarray | None = None
     datetimes: np.ndarray | None = None
     time_representation = ""

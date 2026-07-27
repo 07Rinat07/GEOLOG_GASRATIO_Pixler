@@ -593,3 +593,74 @@ def test_import_plan_rejects_unknown_qt_string_enum_values() -> None:
 
     with pytest.raises(ValueError, match="повторяющейся глубины"):
         ParadoxImportPlan(duplicate_depth_policy="not-a-policy")
+
+
+def _timestamp_table(tmp_path: Path) -> ParadoxTable:
+    source = tmp_path / "timestamp-only.db"
+    source.write_bytes(b"")
+    time_field = ParadoxField(0, "TIME", int(ParadoxFieldType.NUMBER), 8, 0)
+    value_field = ParadoxField(1, "ROP", int(ParadoxFieldType.NUMBER), 8, 8)
+    timestamps = np.array([1_784_590_000.0, 1_784_590_001.0, 1_784_590_002.0])
+    return ParadoxTable(
+        source=source,
+        bundle=ParadoxBundle(main=source),
+        header=ParadoxHeader(16, 4096, 2, 2, 3, 1, 1, 1, 2, 12, 1251, "TIME.db"),
+        fields=(time_field, value_field),
+        columns={
+            "TIME": ParadoxColumn(
+                time_field,
+                timestamps,
+                filled_count=3,
+                minimum=float(timestamps[0]),
+                maximum=float(timestamps[-1]),
+            ),
+            "ROP": ParadoxColumn(
+                value_field,
+                np.array([10.0, 11.0, 12.0]),
+                filled_count=3,
+                minimum=10.0,
+                maximum=12.0,
+            ),
+        },
+        rows_read=3,
+    )
+
+
+def test_unix_timestamp_is_not_offered_as_depth_candidate(tmp_path: Path) -> None:
+    table = _timestamp_table(tmp_path)
+
+    quality = analyze_table(table)
+
+    assert quality.classification is DatasetClassification.TIME
+    assert quality.time_candidates[0].field_name == "TIME"
+    assert not any(
+        candidate.field_name == "TIME" and candidate.confidence >= 0.25
+        for candidate in quality.depth_candidates
+    )
+
+
+def test_import_rejects_same_source_column_for_depth_and_time(tmp_path: Path) -> None:
+    table = _timestamp_table(tmp_path)
+    plan = ParadoxImportPlan(
+        classification=DatasetClassification.TIME_WITH_DEPTH,
+        depth_field="TIME",
+        time_field="TIME",
+        active_role="time",
+        mappings=default_mappings(table),
+    )
+
+    with pytest.raises(RuntimeError, match="одновременно использовать как глубину и время"):
+        import_paradox(table.source, plan, table=table, quality=analyze_table(table))
+
+
+def test_import_rejects_unix_timestamp_selected_as_depth(tmp_path: Path) -> None:
+    table = _timestamp_table(tmp_path)
+    plan = ParadoxImportPlan(
+        classification=DatasetClassification.DEPTH,
+        depth_field="TIME",
+        active_role="depth",
+        mappings=default_mappings(table),
+    )
+
+    with pytest.raises(RuntimeError, match="Unix timestamp"):
+        import_paradox(table.source, plan, table=table, quality=analyze_table(table))
