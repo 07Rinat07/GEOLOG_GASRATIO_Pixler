@@ -2,10 +2,11 @@
 
 ## Әзірленуде: WITS0 live monitor және далалық сенімділік
 
-Raw capture, типтелген parser, Import Review және append-only `AcquisitionSession` орындалды.
-Келесі срез current values, time/depth live graphs, quality/gap markers және workspace settings
-қосады. Кірістірілген GeoScape mapping әлі де нақты anonymized GSWITS raw-ағынымен расталуы тиіс;
-Windows reconnect/soak/restart/disk-full қабылдауы ашық қалады.
+Raw capture, типтелген parser, Import Review, append-only `AcquisitionSession` және негізгі
+live monitor орындалды. Current values, time/depth axes, auto-follow, pause-view,
+history/downsampling және quality/gap markers growing Dataset үстінде жұмыс істейді. Workspace
+settings, connection events, арналардың тәуелсіз шкалалары және Windows далалық қабылдауы қалды.
+Кірістірілген GeoScape mapping нақты anonymized GSWITS raw-ағынымен әлі расталуы тиіс.
 
 ## Әзірленуде: WITSML 2.x офлайн түгендеуі
 

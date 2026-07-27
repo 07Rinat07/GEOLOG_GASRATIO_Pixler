@@ -1,3 +1,14 @@
+# 0.7.77 — WITS0 current values and live/history graphs
+
+- Added read-only `AcquisitionLiveView` over the growing Dataset and append-only session.
+- Added current values with good/missing/invalid/source-gap/stale quality states.
+- Added time/depth axis switching, including read-only derived secondary axes.
+- Added auto-follow, pause-view without stopping acquisition, history pan/zoom, and configurable rendering budgets.
+- Reused peak-preserving downsampling with NaN-break retention.
+- Added source-sequence, axis-gap, invalid-value, and missing-span markers.
+- Added a localized Monitor tab to the modeless WITS0 capture window.
+- Preserved project format v20, form schema v8, and tablet layout v18.
+
 # 0.7.76 — WITS0 normalized batches and append-only AcquisitionSession
 
 - Added deterministic `Wits0FrameNormalizer` output with reviewed time/depth indexes, sparse numeric rows, raw SHA-256, source sequence, reception time, and raw-reference provenance.

@@ -66,7 +66,7 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 
 Пока не реализованы channel arrays, mapping в Dataset, SOAP и ETP.
 
-### 3.3. WITS0 capture, parser и Import Review — срезы 0.7.73–0.7.75
+### 3.3. WITS0 capture, parser, Import Review, AcquisitionSession и Live UI — срезы 0.7.73–0.7.77
 
 Реализованы:
 
@@ -94,10 +94,15 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 - hide/rename/manual semantic override;
 - versioned custom mapping profiles без изменения встроенного GeoScape profile;
 - атомарный commit immutable `AcquisitionDatasetSchema`;
-- stale-state при появлении нового или изменённого record/item после подтверждения.
+- stale-state при появлении нового или изменённого record/item после подтверждения;
+- deterministic normalized measurement batches и bounded append-only runtime;
+- current values с quality state;
+- read-only time/depth axes, auto-follow, pause-view и history window;
+- peak-preserving downsampling и markers для sequence/axis/missing/invalid gaps.
 
-Срез 0.7.75 намеренно не выполняет численное UOM conversion и не начинает
-`AcquisitionSession`; разные совместимые единицы блокируются до отдельного conversion-слоя.
+Срезы 0.7.76–0.7.77 добавили normalized batches, append-only `AcquisitionSession`,
+current values и live/history time/depth visualization. Численное UOM conversion по-прежнему
+не выполняется молча: разные совместимые единицы блокируются до отдельного conversion-слоя.
 
 ## 4. Целевая архитектура
 
@@ -282,16 +287,18 @@ Wits0Frame
 - [ ] reconnect gaps and connection events as explicit acquisition records;
 - [ ] start-new-session policy after a previous session for the same well is closed.
 
-### Этап E — Live UI
+### Этап E — Live UI — основной срез реализован в 0.7.77
 
-- [ ] current values table;
-- [ ] time graph;
-- [ ] depth graph;
-- [ ] auto-follow and pause-view without stopping acquisition;
-- [ ] history window and downsampling;
-- [ ] quality/gap markers;
-- [ ] connection and sequence diagnostics;
-- [ ] selected channels and ranges saved in workspace settings.
+- [x] current values table с последним finite value и явным quality state;
+- [x] time graph по реальному time index или read-only UTC `received_at` axis;
+- [x] depth graph по реальному depth index или semantic depth curve;
+- [x] auto-follow и pause-view без остановки acquisition;
+- [x] history window и peak-preserving downsampling с сохранением NaN-разрывов;
+- [x] quality/gap markers для source sequence, axis intervals, invalid и missing spans;
+- [x] выбор отображаемых каналов в live monitor;
+- [ ] connection/disconnection events как отдельные acquisition records;
+- [ ] selected channels, axis mode и ranges сохраняются в workspace settings;
+- [ ] отдельные дорожки/масштабы для каналов с несовместимыми единицами.
 
 ### Этап F — Reliability gate
 

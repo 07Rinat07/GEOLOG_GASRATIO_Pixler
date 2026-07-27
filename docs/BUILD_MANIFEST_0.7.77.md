@@ -1,0 +1,31 @@
+# Build manifest — GEOLOG GASRATIO@Pixler 0.7.77
+
+- Package version: `0.7.77`
+- Project format: `v20`
+- Form schema: `v8`
+- Tablet layout: `v18`
+- Main increment: WITS0 current values and live/history time/depth visualization
+- Read boundary: `AcquisitionLiveView` validates the growing Dataset against append-only `AcquisitionSession`
+- Current values: latest finite value plus explicit good/missing/invalid/source-gap/stale state
+- Time axis: existing time index or read-only UTC axis derived from `AcquisitionRecord.received_at`
+- Depth axis: existing depth index or read-only axis derived from a reviewed semantic depth curve
+- Pause-view: freezes only visible rows; acquisition intake and Dataset append continue
+- Auto-follow/history: configurable trailing window or user-selected history interval
+- Downsampling: shared peak-preserving `select_visible_samples()` with NaN separator retention
+- Markers: source-sequence gaps, axis gaps, invalid values, and missing-value spans
+- Provenance extension: source sequence status, raw SHA-256, and record/item quality codes
+- Capture integration: localized Monitor tab bound to the current WITS0 runtime
+- Compatibility: no project/form/tablet schema migration
+- Targeted WITS0/acquisition/project-codec/semantic/UOM/WITSML/GS2/documentation gate: `157 passed`, `4 skipped` in `1.09 s`
+- Skipped tests: Qt offscreen construction tests only; PySide6/pyqtgraph are unavailable in this Linux validation environment
+- Full-suite collection attempt: `1266 tests collected`, then `83` collection errors caused by missing PySide6; no full-suite pass is claimed
+- Documentation audit: passed with `101` localized Markdown files per language and `2087` synchronized i18n keys
+- `compileall`: passed for `src`, `tests`, `tools`, and `scripts`
+- Ruff and mypy: unavailable in the current environment; no pass is claimed
+- Wheel: `geolog_gasratio_pixler-0.7.77-py3-none-any.whl` (`2984278` bytes)
+- Wheel SHA-256: `bed7ddc71a21733251f873763ec93be0a5b0217ab239094c373e517ee804dd4e`
+- Wheel integrity/version/module/resource checks: passed, including live-view service/widget, WITS0 runtime, RU/KK/EN catalogs, and GeoScape profile
+- Isolated wheel smoke import: passed for package version, live-view config/axis enums, and built-in WITS0 profile
+- Wheel build command: `python -m pip wheel . --no-deps --no-build-isolation`
+- Deliberate boundary: workspace persistence, connection-event records, independent per-unit tracks, alarms, and field acceptance remain open
+- Field acceptance remains open for real anonymized GSWITS traffic and Windows reconnect/soak/restart/disk-full testing

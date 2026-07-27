@@ -2,10 +2,11 @@
 
 ## In development: WITS0 live monitor and field reliability
 
-Raw capture, the typed parser, Import Review, and the append-only `AcquisitionSession` are
-implemented. The next slice connects current values, time/depth live graphs, quality/gap markers,
-and workspace settings. The built-in GeoScape mapping still requires confirmation against real
-anonymized GSWITS raw traffic; Windows reconnect/soak/restart/disk-full acceptance remains open.
+Raw capture, the typed parser, Import Review, the append-only `AcquisitionSession`, and the main
+live monitor are implemented. Current values, time/depth axes, auto-follow, pause-view,
+history/downsampling, and quality/gap markers operate over the growing Dataset. Workspace
+settings, connection events, independent channel scales, and Windows field acceptance remain.
+The built-in GeoScape mapping still requires confirmation against real anonymized GSWITS traffic.
 
 ## In development: offline WITSML 2.x inventory
 

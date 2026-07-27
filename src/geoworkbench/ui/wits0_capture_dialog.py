@@ -50,6 +50,7 @@ from geoworkbench.services.wits0_import_review import (
     save_wits0_custom_profile,
 )
 from geoworkbench.ui.wits0_import_review_dialog import Wits0ImportReviewDialog
+from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
 
 if TYPE_CHECKING:
     from geoworkbench.domain.models import Well
@@ -100,8 +101,10 @@ class Wits0CaptureDialog(QDialog):
         self.event_text = QPlainTextEdit(self)
         self.event_text.setReadOnly(True)
         self.event_text.document().setMaximumBlockCount(4_000)
+        self.live_view = Wits0LiveViewWidget(self, language=language)
         self.tabs.addTab(self.raw_text, self._t("wits0.raw_tab"))
         self.tabs.addTab(self.parsed_text, self._t("wits0.parsed_tab"))
+        self.tabs.addTab(self.live_view, self._t("wits0.live_tab"))
         self.tabs.addTab(self.event_text, self._t("wits0.events_tab"))
         root.addWidget(self.tabs, 1)
 
@@ -565,6 +568,7 @@ class Wits0CaptureDialog(QDialog):
         self._refresh_controls()
 
     def _notify_dataset_changed(self, runtime: Wits0AcquisitionRuntime) -> None:
+        self.live_view.bind_runtime(runtime)
         callback = self.on_dataset_changed
         if callback is not None:
             callback(runtime.session.dataset_schema.dataset_id)

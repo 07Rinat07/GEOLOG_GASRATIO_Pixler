@@ -6,6 +6,7 @@
 - Feature map: [Русский](ru/FEATURES.md) · [Қазақша](kk/FEATURES.md) · [English](en/FEATURES.md)
 - WITS0 capture: [Русский](ru/WITS0_CAPTURE.md) · [Қазақша](kk/WITS0_CAPTURE.md) · [English](en/WITS0_CAPTURE.md)
 - WITS0 AcquisitionSession: [Русский](ru/WITS0_ACQUISITION.md) · [Қазақша](kk/WITS0_ACQUISITION.md) · [English](en/WITS0_ACQUISITION.md)
+- WITS0 live monitor: [Русский](ru/WITS0_LIVE_VIEW.md) · [Қазақша](kk/WITS0_LIVE_VIEW.md) · [English](en/WITS0_LIVE_VIEW.md)
 - WITSML inventory: [Русский](ru/WITSML_INVENTORY.md) · [Қазақша](kk/WITSML_INVENTORY.md) · [English](en/WITSML_INVENTORY.md)
 - Product audit: [Русский](ru/PRODUCT_AUDIT_2026.md) ·
   [Қазақша](kk/PRODUCT_AUDIT_2026.md) · [English](en/PRODUCT_AUDIT_2026.md)
@@ -20,6 +21,7 @@
 - [ROADMAP.md](ROADMAP.md) — ordered phases and exit criteria.
 - [WITS_INTEGRATION_PLAN.md](WITS_INTEGRATION_PLAN.md) — WITS0/WITSML architecture, milestones, and field acceptance.
 - [WITS0_ACQUISITION.md](WITS0_ACQUISITION.md) — normalized batches, bounded queue, checkpoints, resume, and controlled close.
+- [WITS0_LIVE_VIEW.md](WITS0_LIVE_VIEW.md) — current values, time/depth axes, pause-view, history, downsampling, and quality markers.
 - [PROJECT_PLAN.md](PROJECT_PLAN.md) — current tasks; historical slices are excluded.
 - [PROJECT_STATUS.md](PROJECT_STATUS.md) — verified implementation and quality state.
 - [REQUIREMENTS.md](REQUIREMENTS.md) — product requirements matrix.
@@ -27,6 +29,7 @@
 - [TESTING.md](TESTING.md) — the only active release-quality gate.
 - [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md) — synchronization rules.
 - [CHANGELOG.md](CHANGELOG.md) — concise implementation history.
+- [RELEASE_NOTES_0.7.77.md](RELEASE_NOTES_0.7.77.md) — WITS0 live current values and time/depth history monitor.
 - [RELEASE_NOTES_0.7.56.md](RELEASE_NOTES_0.7.56.md) — A4 form-width guidance and adaptive interval statistics.
 - [RELEASE_NOTES_0.7.57.md](RELEASE_NOTES_0.7.57.md) — interval statistics overlay and form-switch selection reset.
 - [SEMANTIC_CHANNEL_DICTIONARY.md](SEMANTIC_CHANNEL_DICTIONARY.md) — channel semantics, UOM classes, and persisted bindings.

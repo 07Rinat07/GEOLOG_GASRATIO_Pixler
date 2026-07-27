@@ -1,23 +1,23 @@
 # План проекта
 
-Актуально на 27 июля 2026 года после среза 0.7.76. Здесь перечислена только незавершённая работа; реализованные
+Актуально на 27 июля 2026 года после среза 0.7.77. Здесь перечислена только незавершённая работа; реализованные
 срезы находятся в [состоянии проекта](PROJECT_STATUS.md), корневой
 [истории изменений](CHANGELOG.md) и release notes.
 
 
 ## Приоритет: WITS0 live monitor и полевая надёжность
 
-Raw capture, типизированный parser, Import Review, normalized batches и append-only
-`AcquisitionSession` через `AcquisitionController` готовы. Незавершённая работа:
+Raw capture, типизированный parser, Import Review, normalized batches, append-only
+`AcquisitionSession` и основной live monitor через `AcquisitionLiveView` готовы. Незавершённая
+работа:
 
 - [ ] получить 5–10 минут реального GSWITS raw-потока;
 - [ ] подтвердить TCP mode, IP, порт, кодировку, header fields и интервалы records;
 - [ ] сверить встроенный GeoScape profile и сохранённый custom profile с реальными record/item;
-- [ ] подключить таблицу current values к growing Dataset;
-- [ ] добавить live time graph и depth graph с auto-follow и pause-view;
-- [ ] показать quality, sequence-gap и connection-gap markers;
-- [ ] сохранять выбранные каналы, диапазоны и режим следования в workspace settings;
-- [ ] добавить connection events и явную политику новой сессии после закрытия предыдущей;
+- [ ] сохранять выбранные каналы, axis mode, диапазоны и follow mode в workspace settings;
+- [ ] добавить connection events и connection-gap markers как acquisition records;
+- [ ] добавить независимые дорожки/шкалы для каналов с несовместимыми единицами;
+- [ ] определить политику новой сессии после закрытия предыдущей;
 - [ ] выполнить Windows reconnect/soak/restart/disk-full проверку.
 
 ## Приёмка GeoScape II GS2

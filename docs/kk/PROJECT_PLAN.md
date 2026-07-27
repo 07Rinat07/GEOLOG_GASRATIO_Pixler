@@ -1,23 +1,22 @@
 # Жоба жоспары
 
-0.7.76 кезеңінен кейін 2026 жылғы 27 шілдеге өзекті. Бұл файлда тек аяқталмаған жұмыс берілген; орындалған кезеңдер
+0.7.77 кезеңінен кейін 2026 жылғы 27 шілдеге өзекті. Бұл файлда тек аяқталмаған жұмыс берілген; орындалған кезеңдер
 [жоба күйінде](PROJECT_STATUS.md), түбірлік [өзгерістер тарихында](../CHANGELOG.md) және release
 notes ішінде сақталады.
 
 
 ## Басымдық: WITS0 live monitor және далалық сенімділік
 
-Raw capture, типтелген parser, Import Review, normalized batches және `AcquisitionController`
-арқылы append-only `AcquisitionSession` дайын. Аяқталмаған жұмыс:
+Raw capture, типтелген parser, Import Review, normalized batches, append-only
+`AcquisitionSession` және негізгі `AcquisitionLiveView` monitor дайын. Аяқталмаған жұмыс:
 
 - [ ] 5–10 минут нақты GSWITS raw деректерін алу;
 - [ ] TCP mode, IP, порт, encoding, header fields және record интервалдарын растау;
-- [ ] кірістірілген GeoScape profile және сақталған custom profile-ды нақты record/item мәндерімен салыстыру;
-- [ ] current values кестесін growing Dataset-пен байланыстыру;
-- [ ] auto-follow және pause-view бар live time graph және depth graph қосу;
-- [ ] quality, sequence-gap және connection-gap markers көрсету;
-- [ ] таңдалған арналар, диапазондар және follow mode-ты workspace settings ішінде сақтау;
-- [ ] connection events және алдыңғысы жабылғаннан кейін жаңа сессия ашудың айқын саясатын қосу;
+- [ ] кірістірілген GeoScape profile және custom profile-ды нақты record/item мәндерімен салыстыру;
+- [ ] таңдалған арналар, axis mode, диапазондар және follow mode-ты workspace settings ішінде сақтау;
+- [ ] connection events және connection-gap markers-ті acquisition records ретінде қосу;
+- [ ] бірліктері үйлеспейтін арналар үшін тәуелсіз tracks/scales қосу;
+- [ ] алдыңғы сессия жабылғаннан кейін жаңа сессия саясатын анықтау;
 - [ ] Windows reconnect/soak/restart/disk-full тексеруін орындау.
 
 ## GeoScape II GS2 қабылдауы

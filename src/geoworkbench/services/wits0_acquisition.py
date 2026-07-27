@@ -140,11 +140,33 @@ class Wits0MeasurementBatch:
         return sum(item.value is not None for item in self.measurements)
 
     def to_acquisition_record(self, sequence: int) -> AcquisitionRecord:
-        source_parts = [f"wits0:record={self.record_no:02d}"]
+        source_parts = [
+            f"wits0:record={self.record_no:02d}",
+            f"sequence-status={self.sequence_status.value}",
+            f"raw-sha256={self.raw_sha256}",
+        ]
         if self.source_sequence_no is not None:
             source_parts.append(f"source-sequence={self.source_sequence_no}")
         if self.source_ref:
             source_parts.append(f"ref={self.source_ref}")
+        quality_entries = sorted(
+            {
+                f"{measurement.source_id}:{diagnostic.code.value}"
+                for measurement in self.measurements
+                for diagnostic in measurement.diagnostics
+            }
+        )
+        if quality_entries:
+            source_parts.append(f"quality={','.join(quality_entries)}")
+        frame_quality = sorted(
+            {
+                diagnostic.code.value
+                for diagnostic in self.diagnostics
+                if diagnostic.source_id is None
+            }
+        )
+        if frame_quality:
+            source_parts.append(f"frame-quality={','.join(frame_quality)}")
         return AcquisitionRecord(
             record_id=f"wits0-{self.batch_id}",
             sequence=sequence,
