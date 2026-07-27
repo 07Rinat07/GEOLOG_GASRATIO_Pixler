@@ -1,3 +1,10 @@
+# 0.7.82 — ETP ChannelData AcquisitionSession
+
+- URI-stable ETP channel discovery and Semantic Channel/UOM Import Review;
+- normalized time/depth measurement batches;
+- append-only ETP AcquisitionSession with bounded backpressure and checkpoints;
+- exact overlap deduplication after reconnect and reload restoration.
+
 # 0.7.81 — WITSML 2.x / ETP 1.2 client foundation
 
 Added a secure binary WebSocket client, RequestSession/OpenSession negotiation, read-only Discovery,

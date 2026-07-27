@@ -42,7 +42,7 @@ def test_etp_credentials_have_separate_windows_namespace() -> None:
 
 def test_packaging_and_ui_hooks_are_present() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'version = "0.7.81"' in pyproject
+    assert 'version = "0.7.82"' in pyproject
     for requirement in ("websockets>=16", "fastavro>=1.9", "etptypes>=1.2", "etpproto>=1.0.7"):
         assert requirement in pyproject
 
@@ -54,6 +54,8 @@ def test_packaging_and_ui_hooks_are_present() -> None:
     assert "class _Etp12Worker(QThread)" in dialog
     assert "asyncio.run(self._main())" in dialog
     assert 'command == "subscribe"' in dialog
+    assert "Etp12ImportReviewDialog" in dialog
+    assert "Etp12AcquisitionRuntime" in dialog
 
 
 def test_open_session_parser_accepts_enum_role_and_string_compression() -> None:

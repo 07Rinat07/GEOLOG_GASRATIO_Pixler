@@ -349,17 +349,23 @@ Wits0Frame
 - [ ] проверить interoperability на 2–3 реальных WITSML 1.4.1.1 Store implementation;
 - [ ] подтвердить server-specific OptionsIn dialects и paging/maxDataNodes на реальных серверах.
 
-### Этап I — WITSML 2.x / ETP 1.2
+### Этап I — WITSML 2.x / ETP 1.2 — программный контур выполнен в 0.7.81–0.7.82
 
-- [ ] secured WebSocket session;
-- [ ] protocol negotiation;
-- [ ] Discovery and Store;
-- [ ] Data Array;
-- [ ] Channel Streaming;
-- [ ] correlation and acknowledgements;
-- [ ] subscription recovery;
-- [ ] credentials outside project files;
-- [ ] same normalized `MeasurementBatch` boundary as WITS0.
+- [x] защищённая WebSocket-сессия и subprotocol `etp12.energistics.org`;
+- [x] RequestSession/OpenSession и проверка negotiated protocols;
+- [x] read-only Discovery, Store и Data Array;
+- [x] Channel Streaming protocol 1 и Channel Subscribe protocol 21;
+- [x] correlation, multipart FIN, acknowledgement и ProtocolException routing;
+- [x] reconnect watchdog и восстановление подписок с retained index;
+- [x] credentials вне project file и hash-chained audit;
+- [x] URI-устойчивый ChannelMetadata discovery и Semantic Channel/UOM Import Review;
+- [x] normalized measurement batches и append-only ETP `AcquisitionSession`;
+- [x] bounded queue, backpressure, checkpoints, controlled close и resume открытой сессии;
+- [x] overlap deduplication после reconnect по SHA-256 от schema digest, URI, индекса и значения;
+- [ ] interoperability matrix с промышленными ETP Store/producer;
+- [ ] server-specific paging/range recovery и chunked payload verification;
+- [ ] интерпретация `valueAttributes`/quality flags;
+- [ ] 8–24-часовой Windows soak с реальным WITSML 2.x producer/store.
 
 ### Этап J — Rules, alarms and structured MudLog views
 
@@ -426,20 +432,3 @@ Record 3, 6, 7, 8 and 17 подключаются после стабильно�
 8. сохраняет gaps, unknown fields, QC и provenance;
 9. проходит длительный Windows soak test;
 10. не заявляет неподтверждённую промышленную сертификацию.
-
-## 10. Этап I — WITSML 2.x / ETP 1.2 — выполнено в 0.7.81
-
-Реализованы:
-
-- WSS transport с subprotocol `etp12.energistics.org`;
-- RequestSession/OpenSession и проверка negotiated protocols;
-- read-only Discovery, Store и Data Array;
-- приём ChannelData protocol 1 и восстановимая подписка protocol 21;
-- even client message IDs, correlation, multipart FIN и automatic ACK;
-- ProtocolException routing, timeout и max-message guard;
-- bounded reconnect watchdog и restore с последнего channel index;
-- credentials вне project file и hash-chained audit;
-- QThread/asyncio ETP browser.
-
-Следующий ETP-срез: реальная interoperability matrix, ChannelData normalization, semantic/UOM mapping
-и append-only ETP AcquisitionSession.

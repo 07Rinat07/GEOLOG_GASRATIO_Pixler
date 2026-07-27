@@ -3601,11 +3601,26 @@ class MainWindow(QMainWindow):
             existing.raise_()
             existing.activateWindow()
             return
-        dialog = Etp12Dialog(self, language=self.language)
+        dialog = Etp12Dialog(
+            self,
+            language=self.language,
+            well_provider=lambda: self.session.current_well,
+            on_dataset_changed=self._on_etp12_dataset_changed,
+        )
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         dialog.destroyed.connect(lambda: setattr(self, "_etp12_dialog", None))
         self._etp12_dialog = dialog
         dialog.show()
+
+    def _on_etp12_dataset_changed(self, dataset_id: str) -> None:
+        well = self.session.current_well
+        if well is None or dataset_id not in well.datasets:
+            return
+        self.session.current_dataset_id = dataset_id
+        self.session.dirty = True
+        self._refresh_tree()
+        self._show_current_dataset()
+        self._update_title()
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         urls = event.mimeData().urls() if event.mimeData().hasUrls() else []

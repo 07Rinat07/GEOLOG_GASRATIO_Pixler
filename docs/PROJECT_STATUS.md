@@ -1,3 +1,7 @@
+## Completed in 0.7.82: ETP ChannelData AcquisitionSession
+
+URI-stable Import Review, normalized measurement batches and append-only acquisition with reconnect overlap deduplication are complete.
+
 ## Completed in 0.7.81: WITSML 2.x / ETP 1.2 client foundation
 
 Added secure WSS/WebSocket transport, protocol negotiation, read-only Discovery/Store/Data Array,

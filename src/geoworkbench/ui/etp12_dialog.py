@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import replace
 from pathlib import Path
 from queue import Queue
-from typing import Any
+from typing import Any, Callable, TYPE_CHECKING
 from uuid import uuid4
 
 from PySide6.QtCore import QStandardPaths, QThread, Qt, Signal
@@ -47,7 +47,23 @@ from geoworkbench.services.etp12_credentials import (
     default_etp12_credential_store,
 )
 from geoworkbench.services.etp12_profiles import Etp12ProfileStore
+from geoworkbench.services.etp12_import_review import (
+    Etp12DiscoveryAccumulator,
+    Etp12ImportReviewCommit,
+    restore_etp12_import_review_commit,
+)
+from geoworkbench.services.etp12_acquisition import (
+    Etp12AcquisitionConfig,
+    Etp12AcquisitionRuntime,
+    Etp12AcquisitionState,
+    Etp12BackpressurePolicy,
+    open_etp12_sessions,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.etp12_import_review_dialog import Etp12ImportReviewDialog
+
+if TYPE_CHECKING:
+    from geoworkbench.domain.models import Well
 
 
 class _Etp12Worker(QThread):
@@ -124,7 +140,12 @@ class _Etp12Worker(QThread):
                     self.snapshot.emit(service.snapshot())
                 elif command == "subscribe":
                     service = self._require_service()
-                    snapshot = await service.subscribe(payload)
+                    definition = payload
+                    metadata = await service.get_channel_metadata(
+                        {str(index): uri for index, uri in enumerate(definition.channel_uris)}
+                    )
+                    self.channel_metadata.emit(metadata)
+                    snapshot = await service.subscribe(definition)
                     self.snapshot.emit(service.snapshot())
                     self.channel_metadata.emit({"subscription": snapshot})
                 elif command == "unsubscribe":
@@ -167,6 +188,8 @@ class Etp12Dialog(QDialog):
         language: AppLanguage = AppLanguage.RU,
         profile_store: Etp12ProfileStore | None = None,
         credential_store: Etp12CredentialStore | None = None,
+        well_provider: Callable[[], "Well | None"] | None = None,
+        on_dataset_changed: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
@@ -176,6 +199,12 @@ class Etp12Dialog(QDialog):
         self.worker = _Etp12Worker(root / "etp12" / "audit.jsonl", self)
         self._connected = False
         self._latest_channel_values: dict[int, tuple[object, object]] = {}
+        self.well_provider = well_provider
+        self.on_dataset_changed = on_dataset_changed
+        self.discovery = Etp12DiscoveryAccumulator()
+        self.channel_metadata_by_uri: dict[str, object] = {}
+        self.review_commit: Etp12ImportReviewCommit | None = None
+        self.acquisition_runtime: Etp12AcquisitionRuntime | None = None
 
         self.setWindowTitle(self._t("etp12.title"))
         self.resize(1180, 820)
@@ -280,6 +309,25 @@ class Etp12Dialog(QDialog):
             button.setEnabled(False)
             channel_buttons.addWidget(button)
         channel_layout.addLayout(channel_buttons)
+        acquisition_buttons = QHBoxLayout()
+        self.review_button = QPushButton(self._t("etp12.review_action"), channel_box)
+        self.start_acquisition_button = QPushButton(
+            self._t("etp12.acquisition_start"), channel_box
+        )
+        self.flush_acquisition_button = QPushButton(
+            self._t("etp12.acquisition_flush"), channel_box
+        )
+        self.close_acquisition_button = QPushButton(
+            self._t("etp12.acquisition_close"), channel_box
+        )
+        for button in (
+            self.review_button,
+            self.start_acquisition_button,
+            self.flush_acquisition_button,
+            self.close_acquisition_button,
+        ):
+            acquisition_buttons.addWidget(button)
+        channel_layout.addLayout(acquisition_buttons)
         right_layout.addWidget(channel_box)
 
         self.channel_table = QTableWidget(0, 5, right)
@@ -309,6 +357,10 @@ class Etp12Dialog(QDialog):
         self.metadata_button.clicked.connect(lambda: self.worker.submit("metadata", self._channel_uri_list()))
         self.subscribe_button.clicked.connect(self._subscribe)
         self.unsubscribe_button.clicked.connect(lambda: self.worker.submit("unsubscribe", "ui-main"))
+        self.review_button.clicked.connect(self._review_import)
+        self.start_acquisition_button.clicked.connect(self._start_acquisition)
+        self.flush_acquisition_button.clicked.connect(self._flush_acquisition)
+        self.close_acquisition_button.clicked.connect(self._close_acquisition)
         self.tree.currentItemChanged.connect(self._tree_selection)
         self.profile_combo.currentIndexChanged.connect(self._profile_selected)
 
@@ -322,6 +374,7 @@ class Etp12Dialog(QDialog):
         self.worker.failed.connect(self._on_failed)
         self.worker.start()
         self._load_profiles()
+        self._refresh_acquisition_controls()
 
     def _t(self, key: str, **kwargs: object) -> str:
         return self.localizer.text(key, **kwargs)
@@ -472,16 +525,35 @@ class Etp12Dialog(QDialog):
             self.details.appendPlainText(
                 self._t("etp12.subscription_active", channels=len(snapshot.channel_ids))
             )
+            self._refresh_acquisition_controls()
             return
         rows = [value for value in values.values() if hasattr(value, "channel_id")]
+        if rows:
+            self.channel_metadata_by_uri = {value.channel_uri: value for value in rows}
+            self.discovery.update_metadata(rows)
+            if self.acquisition_runtime is not None:
+                self.acquisition_runtime.update_metadata(rows)
+            else:
+                self._restore_open_acquisition_session()
         self.channel_table.setRowCount(len(rows))
         for row, value in enumerate(rows):
             for column, text in enumerate((
                 value.channel_id, value.channel_name, value.uom or "", value.index_kind or "", ""
             )):
                 self.channel_table.setItem(row, column, QTableWidgetItem(str(text)))
+        self._refresh_acquisition_controls()
 
     def _on_channel_batch(self, batch: Etp12ChannelBatch) -> None:
+        self.discovery.observe(batch)
+        runtime = self.acquisition_runtime
+        if runtime is not None and runtime.state is Etp12AcquisitionState.OPEN:
+            try:
+                runtime.submit_channel_batch(batch)
+                if runtime.controller.pending_count >= runtime.config.drain_batch_size:
+                    runtime.drain(limit=runtime.config.drain_batch_size)
+                    self._notify_dataset_changed(runtime)
+            except Exception as exc:  # noqa: BLE001
+                self.details.appendPlainText(str(exc))
         for point in batch.points:
             self._latest_channel_values[point.channel_id] = (point.index, point.value)
         by_id = {
@@ -497,6 +569,161 @@ class Etp12Dialog(QDialog):
                 self.channel_table.setItem(row, 0, QTableWidgetItem(str(channel_id)))
             self.channel_table.setItem(row, 3, QTableWidgetItem(str(index)))
             self.channel_table.setItem(row, 4, QTableWidgetItem(str(value)))
+        self._refresh_acquisition_controls()
+
+    def _restore_open_acquisition_session(self) -> None:
+        if self.acquisition_runtime is not None:
+            return
+        well = self.well_provider() if self.well_provider is not None else None
+        if well is None:
+            return
+        sessions = open_etp12_sessions(well)
+        if not sessions:
+            return
+        snapshot = self.discovery.snapshot()
+        if not snapshot.channels:
+            return
+        session = sessions[-1]
+        try:
+            commit = restore_etp12_import_review_commit(session, snapshot)
+            runtime = Etp12AcquisitionRuntime(
+                well,
+                commit,
+                session_id=session.session_id,
+                metadata=self.channel_metadata_by_uri,
+                session=session,
+                config=Etp12AcquisitionConfig(
+                    max_pending_records=256,
+                    drain_batch_size=64,
+                    checkpoint_every_records=500,
+                    checkpoint_interval_seconds=60.0,
+                    overlap_window_points=100_000,
+                    backpressure_policy=Etp12BackpressurePolicy.DRAIN_THEN_RETRY,
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.details.appendPlainText(
+                self._t("etp12.acquisition_restore_failed", error=str(exc))
+            )
+            return
+        self.review_commit = commit
+        self.acquisition_runtime = runtime
+        self._notify_dataset_changed(runtime)
+        self.details.appendPlainText(
+            self._t(
+                "etp12.acquisition_restored",
+                session=session.session_id,
+                sequence=session.last_sequence,
+            )
+        )
+        self._refresh_acquisition_controls()
+
+    def _review_import(self) -> None:
+        snapshot = self.discovery.snapshot()
+        if not snapshot.channels:
+            QMessageBox.warning(self, self._t("etp12.title"), self._t("etp12.review_no_channels"))
+            return
+        dialog = Etp12ImportReviewDialog(
+            snapshot, self, language=self.localizer.language
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.commit_result is None:
+            return
+        self.review_commit = dialog.commit_result
+        self.details.appendPlainText(
+            self._t(
+                "etp12.review_committed",
+                channels=len(dialog.commit_result.schema.curves),
+                digest=dialog.commit_result.schema_digest[:16],
+            )
+        )
+        self._refresh_acquisition_controls()
+
+    def _start_acquisition(self) -> None:
+        commit = self.review_commit
+        well = self.well_provider() if self.well_provider is not None else None
+        snapshot = self.discovery.snapshot()
+        if commit is None or commit.review.discovery_fingerprint != snapshot.fingerprint:
+            QMessageBox.warning(self, self._t("etp12.title"), self._t("etp12.review_required"))
+            return
+        if well is None:
+            QMessageBox.warning(self, self._t("etp12.title"), self._t("etp12.well_required"))
+            return
+        try:
+            runtime = Etp12AcquisitionRuntime(
+                well,
+                commit,
+                session_id=f"etp12-{uuid4()}",
+                metadata=self.channel_metadata_by_uri,
+                config=Etp12AcquisitionConfig(
+                    max_pending_records=256,
+                    drain_batch_size=64,
+                    checkpoint_every_records=500,
+                    checkpoint_interval_seconds=60.0,
+                    overlap_window_points=100_000,
+                    backpressure_policy=Etp12BackpressurePolicy.DRAIN_THEN_RETRY,
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.critical(self, self._t("etp12.title"), str(exc))
+            return
+        self.acquisition_runtime = runtime
+        self._notify_dataset_changed(runtime)
+        self.details.appendPlainText(
+            self._t("etp12.acquisition_started", session=runtime.session.session_id)
+        )
+        self._refresh_acquisition_controls()
+
+    def _flush_acquisition(self) -> None:
+        runtime = self.acquisition_runtime
+        if runtime is None or runtime.state is not Etp12AcquisitionState.OPEN:
+            return
+        try:
+            applied = runtime.flush()
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.critical(self, self._t("etp12.title"), str(exc))
+            return
+        if applied:
+            self._notify_dataset_changed(runtime)
+        self.details.appendPlainText(self._t("etp12.acquisition_flushed", count=len(applied)))
+        self._refresh_acquisition_controls()
+
+    def _close_acquisition(self) -> None:
+        runtime = self.acquisition_runtime
+        if runtime is None or runtime.state is not Etp12AcquisitionState.OPEN:
+            return
+        try:
+            checkpoint = runtime.close()
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.critical(self, self._t("etp12.title"), str(exc))
+            return
+        self._notify_dataset_changed(runtime)
+        self.details.appendPlainText(
+            self._t("etp12.acquisition_closed", sequence=checkpoint.sequence)
+        )
+        self._refresh_acquisition_controls()
+
+    def _notify_dataset_changed(self, runtime: Etp12AcquisitionRuntime) -> None:
+        callback = self.on_dataset_changed
+        if callback is not None:
+            callback(runtime.session.dataset_schema.dataset_id)
+
+    def _refresh_acquisition_controls(self) -> None:
+        snapshot = self.discovery.snapshot()
+        runtime = self.acquisition_runtime
+        open_runtime = runtime is not None and runtime.state is Etp12AcquisitionState.OPEN
+        commit_current = (
+            self.review_commit is not None
+            and self.review_commit.review.discovery_fingerprint == snapshot.fingerprint
+        )
+        has_well = self.well_provider is not None and self.well_provider() is not None
+        self.review_button.setEnabled(bool(snapshot.channels) and not open_runtime)
+        self.start_acquisition_button.setEnabled(
+            commit_current and runtime is None and has_well
+        )
+        self.flush_acquisition_button.setEnabled(
+            open_runtime and runtime is not None and runtime.controller.pending_count > 0
+        )
+        self.close_acquisition_button.setEnabled(open_runtime)
 
     def _on_snapshot(self, value: object) -> None:
         self.details.appendPlainText(
@@ -536,6 +763,13 @@ class Etp12Dialog(QDialog):
         self._tree_selection(self.tree.currentItem(), None)
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        runtime = self.acquisition_runtime
+        if runtime is not None and runtime.state is Etp12AcquisitionState.OPEN:
+            try:
+                runtime.close()
+                self._notify_dataset_changed(runtime)
+            except Exception as exc:  # noqa: BLE001
+                self.details.appendPlainText(str(exc))
         self.worker.submit("stop")
         self.worker.wait(5000)
         super().closeEvent(event)

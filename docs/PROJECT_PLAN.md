@@ -1,3 +1,7 @@
+## Completed in 0.7.82: ETP ChannelData acquisition
+
+The next increment is field interoperability, channel quality attributes and server-specific paging/range recovery.
+
 # План проекта
 
 ## Completed in 0.7.81: WITSML 2.1 / ETP 1.2

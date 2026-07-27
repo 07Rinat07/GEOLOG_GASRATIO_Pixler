@@ -71,6 +71,6 @@ Rinat Sarmuldin (Сармулдин Ринат) — ura07srr@gmail.com
 
 ## ETP 1.2
 
-Version 0.7.81 adds a secure read-only WITSML 2.x / ETP 1.2 client foundation with Discovery, Store,
+Version 0.7.82 extends the secure WITSML 2.x / ETP 1.2 client with URI-stable ChannelData Import Review, normalized batches, append-only acquisition, reconnect overlap deduplication, while retaining Discovery, Store,
 Data Array, Channel Subscribe, reconnect recovery and a non-blocking desktop browser. See
 `docs/ETP12_ARCHITECTURE.md` and `docs/ETP12_INTEROPERABILITY_GATE.md`.

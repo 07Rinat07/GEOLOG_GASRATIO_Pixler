@@ -1,3 +1,7 @@
+## 0.7.82 нұсқасында аяқталды: ETP ChannelData AcquisitionSession
+
+URI бойынша тұрақты Import Review, normalized measurement batch және reconnect overlap дедупликациясы бар append-only жазу аяқталды.
+
 ## 0.7.81 нұсқасында аяқталды: WITSML 2.x / ETP 1.2 клиент негізі
 
 Қорғалған WSS transport, RequestSession/OpenSession negotiation, read-only Discovery, Store және Data

@@ -378,6 +378,12 @@ class Etp12ClientService:
                         getattr(first_index, "maximum_value", None) if first_index is not None else None
                     ),
                     description=_string_or_none(getattr(value, "source", None)),
+                    index_uom=_string_or_none(
+                        getattr(first_index, "uom", None) if first_index is not None else None
+                    ),
+                    index_name=_string_or_none(
+                        getattr(first_index, "index_name", None) if first_index is not None else None
+                    ),
                     custom_data=_public_mapping(getattr(value, "custom_data", {})),
                 )
         return result
@@ -558,6 +564,8 @@ class Etp12ClientService:
                 message_id=message.header.message_id,
                 correlation_id=message.header.correlation_id,
                 protocol=Etp12Protocol(message.header.protocol),
+                generation=self.generation,
+                channel_uris={channel_id: uri for uri, channel_id in snapshot.channel_ids.items()},
             )
             for callback in tuple(self._channel_callbacks):
                 result = callback(batch)

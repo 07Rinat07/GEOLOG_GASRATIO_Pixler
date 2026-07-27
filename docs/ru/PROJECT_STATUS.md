@@ -1,3 +1,7 @@
+## Завершено в 0.7.82: ETP ChannelData AcquisitionSession
+
+Завершены устойчивый по URI Import Review, нормализованные measurement batches и append-only запись с дедупликацией перекрытия после reconnect.
+
 # Состояние проекта
 
 ## Завершено в 0.7.81: основа клиента WITSML 2.x / ETP 1.2

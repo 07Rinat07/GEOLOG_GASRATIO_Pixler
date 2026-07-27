@@ -289,6 +289,8 @@ class Etp12ChannelMetadata:
     start_index: object | None
     end_index: object | None
     description: str | None = None
+    index_uom: str | None = None
+    index_name: str | None = None
     custom_data: Mapping[str, object] = field(default_factory=dict)
 
 
@@ -308,6 +310,14 @@ class Etp12ChannelBatch:
     message_id: int
     correlation_id: int
     protocol: Etp12Protocol
+    generation: int = 1
+    channel_uris: Mapping[int, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.received_at_utc.tzinfo is None:
+            raise ValueError("received_at_utc must be timezone-aware")
+        if self.generation < 1:
+            raise ValueError("generation must be positive")
 
 
 @dataclass(frozen=True, slots=True)
