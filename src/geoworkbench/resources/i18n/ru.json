@@ -2222,5 +2222,8 @@
   "witsml_import.review_summary": "Будет импортировано строк: {rows}; исключено: {skipped}; предупреждений: {warnings}; ошибок: {errors}.",
   "witsml_import.sort_index": "Сортировать строки по выбранному индексу",
   "witsml_import.summary": "{file}: наборов ChannelSet — {sets}, диагностик пакета — {diagnostics}.",
-  "witsml_import.title": "Импорт данных WITSML 2.x"
+  "witsml_import.title": "Импорт данных WITSML 2.x",
+  "tablet.rename_curve": "Переименовать параметр…",
+  "tablet.rename_curve_title": "Название параметра",
+  "tablet.rename_curve_prompt": "Введите понятное название для {mnemonic}:"
 }

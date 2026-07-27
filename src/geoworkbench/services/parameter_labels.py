@@ -7,6 +7,12 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 
 _CYRILLIC_RE = re.compile(r"[А-Яа-яЁёӘәҒғҚқҢңӨөҰұҮүҺһІі]")
+_VENDOR_SENSOR_CODE_RE = re.compile(r"^(?:S|GID)\d+$", re.IGNORECASE)
+_GENERIC_SOURCE_CHANNEL_RE = re.compile(
+    r"^(?:исходн(?:ый|ая|ое)\s+(?:канал|кривая)|source\s+channel|"
+    r"бастапқы\s+арна|канал)\s*(?:S|GID)?\d*$",
+    re.IGNORECASE,
+)
 
 _ENGLISH_NAMES: dict[str, str] = {
     "TOTAL_GAS": "Total Gas",
@@ -130,6 +136,16 @@ def localized_curve_name(
         return _ENGLISH_NAMES.get(canonical, _canonical_title(canonical))
 
     clean_description = description.strip()
+    is_vendor_code = bool(_VENDOR_SENSOR_CODE_RE.fullmatch(mnemonic))
+    is_generic_description = bool(
+        clean_description and _GENERIC_SOURCE_CHANNEL_RE.fullmatch(clean_description)
+    )
+    if is_vendor_code and (not clean_description or is_generic_description):
+        if language is AppLanguage.KK:
+            return "Анықталмаған арна"
+        if language is AppLanguage.EN:
+            return "Unknown channel"
+        return "Неопределённый канал"
     if not clean_description:
         return mnemonic
     if language is AppLanguage.RU:

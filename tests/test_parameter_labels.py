@@ -34,3 +34,27 @@ def test_explicit_user_caption_still_has_priority() -> None:
         )
         == "Давление буровых насосов"
     )
+
+
+def test_explicit_gamma_description_overrides_reused_geoscape_gid() -> None:
+    assert (
+        localized_curve_name(
+            "S810",
+            description="гамма",
+            unit="API",
+            language=AppLanguage.RU,
+        )
+        == "Гамма-каротаж"
+    )
+
+
+def test_geoscape2_gid_810_is_available_when_source_has_no_description() -> None:
+    assert localized_curve_name("S810", unit="°C") == "Температура в емкости 8"
+
+
+def test_unresolved_vendor_channel_is_presented_without_duplicate_technical_text() -> None:
+    assert (
+        localized_curve_name("S811", description="Исходный канал S811")
+        == "Неопределённый канал"
+    )
+    assert localized_curve_name("S811") == "Неопределённый канал"

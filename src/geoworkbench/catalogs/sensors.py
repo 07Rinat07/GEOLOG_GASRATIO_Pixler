@@ -222,6 +222,16 @@ class SensorCatalog:
             selected = _choose_candidate(description_matches, unit=unit)
             return SensorMatch(selected, "description", 0.9)
 
+        # LAS/GeoScape descriptions often use a short mnemonic alias instead of
+        # the full Russian caption (for example "гамма" or "GAMMA").  Treat
+        # aliases as description candidates before falling back to a numeric
+        # legacy GID so an explicit source caption always wins over S810-style
+        # vendor codes.
+        description_aliases = self._alias_index.get(description_key, ()) if description_key else ()
+        if description_aliases:
+            selected = _choose_candidate(description_aliases, unit=unit)
+            return SensorMatch(selected, "description_alias", 0.86)
+
         # Several legacy GeoTotal/GeoScape exports encode the Sensors.DB GID as
         # ``S300``, ``S720`` and similar vendor mnemonics.  An explicit LAS
         # description is checked first because some vendors reuse the same S-code

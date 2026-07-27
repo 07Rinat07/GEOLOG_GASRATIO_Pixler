@@ -39,7 +39,7 @@ def _encode_number(value: float | None) -> bytes:
     return _encode_sorted(struct.pack(">d", value))
 
 
-def write_synthetic_paradox(path: Path) -> None:
+def write_synthetic_paradox(path: Path, *, include_ordinal_catalog: bool = True) -> None:
     header_size = 0x1000
     block_size = 0x800
     record_size = 12
@@ -61,7 +61,8 @@ def write_synthetic_paradox(path: Path) -> None:
     for value in (b"SYNTH.db\x00", b"DEPT\x00", b"VALUE\x00"):
         header[cursor : cursor + len(value)] = value
         cursor += len(value)
-    header[cursor : cursor + 4] = struct.pack("<HH", 1, 2)
+    if include_ordinal_catalog:
+        header[cursor : cursor + 4] = struct.pack("<HH", 1, 2)
 
     block = bytearray(block_size)
     struct.pack_into("<HHh", block, 0, 0, 0, (len(rows) - 1) * record_size)
@@ -110,6 +111,18 @@ def test_reader_reads_schema_records_and_nulls(tmp_path: Path) -> None:
     )
     assert table.columns["VALUE"].null_count == 1
 
+
+
+
+def test_reader_finds_field_names_without_optional_ordinal_catalog(tmp_path: Path) -> None:
+    source = tmp_path / "without-ordinals.db"
+    write_synthetic_paradox(source, include_ordinal_catalog=False)
+
+    table = read_paradox(source)
+
+    assert table.header.table_name == "SYNTH.db"
+    assert [field.name for field in table.fields] == ["DEPT", "VALUE"]
+    np.testing.assert_allclose(table.columns["DEPT"].values, [100, 101, 102])
 
 def test_analysis_and_import_use_existing_dataset_model(tmp_path: Path) -> None:
     source = tmp_path / "sample.db"

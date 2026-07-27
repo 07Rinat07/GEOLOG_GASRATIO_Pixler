@@ -5,7 +5,8 @@
   "sources": [
     "Editor/Sensors.DB",
     "Geolog-055/Sensors.DB",
-    "Таблицы GeoScape.xls"
+    "Таблицы GeoScape.xls",
+    "GeoScape2/Sensors.DB"
   ],
   "sensors": [
     {
@@ -4035,7 +4036,9 @@
       "aliases": [
         "GR",
         "GAMMA",
-        "GAMMA_RAY"
+        "GAMMA_RAY",
+        "Гамма",
+        "Гамма-каротаж"
       ],
       "name_ru": "Гамма-каротаж",
       "short_name_ru": "Гамма-каротаж",
@@ -8366,6 +8369,2228 @@
       "source": "Geolog-055/Sensors.DB",
       "legacy_table": "Stratigr",
       "legacy_number": 10
+    },
+    {
+      "id": "geoscape2_gid_15",
+      "canonical_mnemonic": "SENSOR_15",
+      "aliases": [
+        "GID15",
+        "GeoLink строка"
+      ],
+      "name_ru": "GeoLink строка",
+      "short_name_ru": "GeoLink строка",
+      "unit": "",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 15
+    },
+    {
+      "id": "geoscape2_gid_16",
+      "canonical_mnemonic": "SENSOR_16",
+      "aliases": [
+        "GID16",
+        "GeoLink статус"
+      ],
+      "name_ru": "GeoLink статус",
+      "short_name_ru": "GeoLink статус",
+      "unit": "",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 16
+    },
+    {
+      "id": "geoscape2_gid_60",
+      "canonical_mnemonic": "SENSOR_60",
+      "aliases": [
+        "GID60",
+        "Число ходов 4 насоса",
+        "Ходы 4 нас."
+      ],
+      "name_ru": "Число ходов 4 насоса",
+      "short_name_ru": "Ходы 4 нас.",
+      "unit": "мин-1",
+      "family": "rotary_speed",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 110.0,
+      "color": "#ea580c",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 60
+    },
+    {
+      "id": "geoscape2_gid_100",
+      "canonical_mnemonic": "SENSOR_100",
+      "aliases": [
+        "GID100",
+        "Код технологической операции",
+        "Код операции"
+      ],
+      "name_ru": "Код технологической операции",
+      "short_name_ru": "Код операции",
+      "unit": "",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 100
+    },
+    {
+      "id": "geoscape2_gid_117",
+      "canonical_mnemonic": "SENSOR_117",
+      "aliases": [
+        "GID117",
+        "Время выхода шлама",
+        "Время для шлама"
+      ],
+      "name_ru": "Время выхода шлама",
+      "short_name_ru": "Время для шлама",
+      "unit": "мин",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 150.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 117
+    },
+    {
+      "id": "geoscape2_gid_223",
+      "canonical_mnemonic": "SENSOR_223",
+      "aliases": [
+        "GID223",
+        "A-Экспонента"
+      ],
+      "name_ru": "A-Экспонента",
+      "short_name_ru": "A-Экспонента",
+      "unit": "",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 223
+    },
+    {
+      "id": "geoscape2_gid_302",
+      "canonical_mnemonic": "SENSOR_302",
+      "aliases": [
+        "GID302",
+        "Давление в межколонном пространстве",
+        "Давл. межкол."
+      ],
+      "name_ru": "Давление в межколонном пространстве",
+      "short_name_ru": "Давл. межкол.",
+      "unit": "атм",
+      "family": "pressure",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#7c3aed",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 302
+    },
+    {
+      "id": "geoscape2_gid_400",
+      "canonical_mnemonic": "SENSOR_400",
+      "aliases": [
+        "GID400",
+        "Объем скважины"
+      ],
+      "name_ru": "Объем скважины",
+      "short_name_ru": "Объем скважины",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 200.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 400
+    },
+    {
+      "id": "geoscape2_gid_401",
+      "canonical_mnemonic": "SENSOR_401",
+      "aliases": [
+        "GID401",
+        "Объем в затрубье",
+        "Объем затруб"
+      ],
+      "name_ru": "Объем в затрубье",
+      "short_name_ru": "Объем затруб",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 200.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 401
+    },
+    {
+      "id": "geoscape2_gid_402",
+      "canonical_mnemonic": "SENSOR_402",
+      "aliases": [
+        "GID402",
+        "Объем металла"
+      ],
+      "name_ru": "Объем металла",
+      "short_name_ru": "Объем металла",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 200.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 402
+    },
+    {
+      "id": "geoscape2_gid_403",
+      "canonical_mnemonic": "SENSOR_403",
+      "aliases": [
+        "GID403",
+        "Объем в трубах"
+      ],
+      "name_ru": "Объем в трубах",
+      "short_name_ru": "Объем в трубах",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 200.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 403
+    },
+    {
+      "id": "geoscape2_gid_404",
+      "canonical_mnemonic": "SENSOR_404",
+      "aliases": [
+        "GID404",
+        "Объем р-ра в скважине",
+        "Р-ра в скважине"
+      ],
+      "name_ru": "Объем р-ра в скважине",
+      "short_name_ru": "Р-ра в скважине",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 200.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 404
+    },
+    {
+      "id": "geoscape2_gid_610",
+      "canonical_mnemonic": "SENSOR_610",
+      "aliases": [
+        "GID610",
+        "Плотность р-ра в 7 емкости",
+        "Плотн в 7 емк."
+      ],
+      "name_ru": "Плотность р-ра в 7 емкости",
+      "short_name_ru": "Плотн в 7 емк.",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 610
+    },
+    {
+      "id": "geoscape2_gid_611",
+      "canonical_mnemonic": "SENSOR_611",
+      "aliases": [
+        "GID611",
+        "Плотность р-ра в 8 емкости",
+        "Плотн в 8 емк."
+      ],
+      "name_ru": "Плотность р-ра в 8 емкости",
+      "short_name_ru": "Плотн в 8 емк.",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 611
+    },
+    {
+      "id": "geoscape2_gid_709",
+      "canonical_mnemonic": "SENSOR_709",
+      "aliases": [
+        "GID709",
+        "Уровень р-ра в емкости 7",
+        "Уров. в. 7 емк."
+      ],
+      "name_ru": "Уровень р-ра в емкости 7",
+      "short_name_ru": "Уров. в. 7 емк.",
+      "unit": "м",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 709
+    },
+    {
+      "id": "geoscape2_gid_710",
+      "canonical_mnemonic": "SENSOR_710",
+      "aliases": [
+        "GID710",
+        "Уровень р-ра в емкости 8",
+        "Уров. в. 8 емк."
+      ],
+      "name_ru": "Уровень р-ра в емкости 8",
+      "short_name_ru": "Уров. в. 8 емк.",
+      "unit": "м",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 710
+    },
+    {
+      "id": "geoscape2_gid_723",
+      "canonical_mnemonic": "SENSOR_723",
+      "aliases": [
+        "GID723",
+        "Объем р-ра в емкости 7",
+        "Объем в 7 емк."
+      ],
+      "name_ru": "Объем р-ра в емкости 7",
+      "short_name_ru": "Объем в 7 емк.",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 1000.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 723
+    },
+    {
+      "id": "geoscape2_gid_724",
+      "canonical_mnemonic": "SENSOR_724",
+      "aliases": [
+        "GID724",
+        "Объем р-ра в емкости 8",
+        "Объем в 8 емк."
+      ],
+      "name_ru": "Объем р-ра в емкости 8",
+      "short_name_ru": "Объем в 8 емк.",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 1000.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 724
+    },
+    {
+      "id": "geoscape2_gid_739",
+      "canonical_mnemonic": "SENSOR_739",
+      "aliases": [
+        "GID739",
+        "Уровень р-ра в емкости 7 (абс)",
+        "Абс.уров.7 емк."
+      ],
+      "name_ru": "Уровень р-ра в емкости 7 (абс)",
+      "short_name_ru": "Абс.уров.7 емк.",
+      "unit": "м",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 5.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 739
+    },
+    {
+      "id": "geoscape2_gid_740",
+      "canonical_mnemonic": "SENSOR_740",
+      "aliases": [
+        "GID740",
+        "Уровень р-ра в емкости 8 (абс)",
+        "Абс.уров.8 емк."
+      ],
+      "name_ru": "Уровень р-ра в емкости 8 (абс)",
+      "short_name_ru": "Абс.уров.8 емк.",
+      "unit": "м",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 5.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 740
+    },
+    {
+      "id": "geoscape2_gid_809",
+      "canonical_mnemonic": "SENSOR_809",
+      "aliases": [
+        "GID809",
+        "Температура в емкости 7",
+        "Темп. в 7 емк."
+      ],
+      "name_ru": "Температура в емкости 7",
+      "short_name_ru": "Темп. в 7 емк.",
+      "unit": "°C",
+      "family": "temperature",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#dc2626",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 809
+    },
+    {
+      "id": "geoscape2_gid_810",
+      "canonical_mnemonic": "SENSOR_810",
+      "aliases": [
+        "GID810",
+        "Температура в емкости 8",
+        "Темп. в 8 емк."
+      ],
+      "name_ru": "Температура в емкости 8",
+      "short_name_ru": "Темп. в 8 емк.",
+      "unit": "°C",
+      "family": "temperature",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#dc2626",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 810
+    },
+    {
+      "id": "geoscape2_gid_1009",
+      "canonical_mnemonic": "SENSOR_1009",
+      "aliases": [
+        "GID1009",
+        "Cумма ходов насоса 4",
+        "Сумм.ход.нас. 4"
+      ],
+      "name_ru": "Cумма ходов насоса 4",
+      "short_name_ru": "Сумм.ход.нас. 4",
+      "unit": "",
+      "family": "rotary_speed",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 1000.0,
+      "color": "#ea580c",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1009
+    },
+    {
+      "id": "geoscape2_gid_1010",
+      "canonical_mnemonic": "FLOW_IN",
+      "aliases": [
+        "GID1010",
+        "Расход на вх. 4 насоса",
+        "Расх. на вх. 4"
+      ],
+      "name_ru": "Расход на вх. 4 насоса",
+      "short_name_ru": "Расх. на вх. 4",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 5.0,
+      "color": "#002595",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1010
+    },
+    {
+      "id": "geoscape2_gid_1111",
+      "canonical_mnemonic": "SENSOR_1111",
+      "aliases": [
+        "GID1111",
+        "Вертикальная глубина",
+        "Верт. глуб."
+      ],
+      "name_ru": "Вертикальная глубина",
+      "short_name_ru": "Верт. глуб.",
+      "unit": "м",
+      "family": "drilling_depth",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#1d4ed8",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1111
+    },
+    {
+      "id": "geoscape2_gid_1202",
+      "canonical_mnemonic": "SENSOR_1202",
+      "aliases": [
+        "GID1202",
+        "Обороты долота"
+      ],
+      "name_ru": "Обороты долота",
+      "short_name_ru": "Обороты долота",
+      "unit": "",
+      "family": "rotary_speed",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 10000.0,
+      "color": "#ea580c",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1202
+    },
+    {
+      "id": "geoscape2_gid_1203",
+      "canonical_mnemonic": "SENSOR_1203",
+      "aliases": [
+        "GID1203",
+        "Обороты долота на забое",
+        "Об. дол. забой"
+      ],
+      "name_ru": "Обороты долота на забое",
+      "short_name_ru": "Об. дол. забой",
+      "unit": "",
+      "family": "drilling_depth",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 10000.0,
+      "color": "#1d4ed8",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1203
+    },
+    {
+      "id": "geoscape2_gid_1204",
+      "canonical_mnemonic": "SENSOR_1204",
+      "aliases": [
+        "GID1204",
+        "Обороты долота в минуту",
+        "Обороты долота"
+      ],
+      "name_ru": "Обороты долота в минуту",
+      "short_name_ru": "Обороты долота",
+      "unit": "мин-1",
+      "family": "rotary_speed",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 10000.0,
+      "color": "#ea580c",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1204
+    },
+    {
+      "id": "geoscape2_gid_1302",
+      "canonical_mnemonic": "SENSOR_1302",
+      "aliases": [
+        "GID1302",
+        "Момент на ВСП"
+      ],
+      "name_ru": "Момент на ВСП",
+      "short_name_ru": "Момент на ВСП",
+      "unit": "т*м",
+      "family": "torque",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#c2410c",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1302
+    },
+    {
+      "id": "geoscape2_gid_1303",
+      "canonical_mnemonic": "SENSOR_1303",
+      "aliases": [
+        "GID1303",
+        "Обороты ВСП"
+      ],
+      "name_ru": "Обороты ВСП",
+      "short_name_ru": "Обороты ВСП",
+      "unit": "мин-1",
+      "family": "rotary_speed",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#ea580c",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1303
+    },
+    {
+      "id": "geoscape2_gid_1310",
+      "canonical_mnemonic": "SENSOR_1310",
+      "aliases": [
+        "GID1310",
+        "Предельный момент",
+        "Пред. момент"
+      ],
+      "name_ru": "Предельный момент",
+      "short_name_ru": "Пред. момент",
+      "unit": "т*м",
+      "family": "torque",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#c2410c",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1310
+    },
+    {
+      "id": "geoscape2_gid_1510",
+      "canonical_mnemonic": "SENSOR_1510",
+      "aliases": [
+        "GID1510",
+        "Концентрация сероводорода 1",
+        "Сероводород 1"
+      ],
+      "name_ru": "Концентрация сероводорода 1",
+      "short_name_ru": "Сероводород 1",
+      "unit": "мг/м3",
+      "family": "gas",
+      "category": "gas",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#f59e0b",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1510
+    },
+    {
+      "id": "geoscape2_gid_1511",
+      "canonical_mnemonic": "SENSOR_1511",
+      "aliases": [
+        "GID1511",
+        "Концентрация сероводорода 2",
+        "Сероводород 2"
+      ],
+      "name_ru": "Концентрация сероводорода 2",
+      "short_name_ru": "Сероводород 2",
+      "unit": "мг/м3",
+      "family": "gas",
+      "category": "gas",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#f59e0b",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1511
+    },
+    {
+      "id": "geoscape2_gid_1512",
+      "canonical_mnemonic": "SENSOR_1512",
+      "aliases": [
+        "GID1512",
+        "Концентрация сероводорода 3",
+        "Сероводород 3"
+      ],
+      "name_ru": "Концентрация сероводорода 3",
+      "short_name_ru": "Сероводород 3",
+      "unit": "мг/м3",
+      "family": "gas",
+      "category": "gas",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#f59e0b",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1512
+    },
+    {
+      "id": "geoscape2_gid_1628",
+      "canonical_mnemonic": "NC4",
+      "aliases": [
+        "GID1628",
+        "nC4"
+      ],
+      "name_ru": "nC4",
+      "short_name_ru": "nC4",
+      "unit": "%",
+      "family": "gas",
+      "category": "gas",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1628
+    },
+    {
+      "id": "geoscape2_gid_1629",
+      "canonical_mnemonic": "NC5",
+      "aliases": [
+        "GID1629",
+        "nC5"
+      ],
+      "name_ru": "nC5",
+      "short_name_ru": "nC5",
+      "unit": "%",
+      "family": "gas",
+      "category": "gas",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1629
+    },
+    {
+      "id": "geoscape2_gid_1659",
+      "canonical_mnemonic": "SENSOR_1659",
+      "aliases": [
+        "GID1659",
+        "Относительная концентрация nC4",
+        "Отн. nC4"
+      ],
+      "name_ru": "Относительная концентрация nC4",
+      "short_name_ru": "Отн. nC4",
+      "unit": "%",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1659
+    },
+    {
+      "id": "geoscape2_gid_1660",
+      "canonical_mnemonic": "SENSOR_1660",
+      "aliases": [
+        "GID1660",
+        "Относительная концентрация nC5",
+        "Отн. nC5"
+      ],
+      "name_ru": "Относительная концентрация nC5",
+      "short_name_ru": "Отн. nC5",
+      "unit": "%",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1660
+    },
+    {
+      "id": "geoscape2_gid_1800",
+      "canonical_mnemonic": "SENSOR_1800",
+      "aliases": [
+        "GID1800",
+        "Wh (Wetness)",
+        "Wh"
+      ],
+      "name_ru": "Wh (Wetness)",
+      "short_name_ru": "Wh",
+      "unit": "",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1800
+    },
+    {
+      "id": "geoscape2_gid_1801",
+      "canonical_mnemonic": "SENSOR_1801",
+      "aliases": [
+        "GID1801",
+        "Bh (Balance)",
+        "Bh"
+      ],
+      "name_ru": "Bh (Balance)",
+      "short_name_ru": "Bh",
+      "unit": "",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1801
+    },
+    {
+      "id": "geoscape2_gid_1802",
+      "canonical_mnemonic": "SENSOR_1802",
+      "aliases": [
+        "GID1802",
+        "Ch (Character)",
+        "Ch"
+      ],
+      "name_ru": "Ch (Character)",
+      "short_name_ru": "Ch",
+      "unit": "",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 1802
+    },
+    {
+      "id": "geoscape2_gid_2247",
+      "canonical_mnemonic": "SENSOR_2247",
+      "aliases": [
+        "GID2247",
+        "Напряженность магнитного поля",
+        "Напр. маг. поля"
+      ],
+      "name_ru": "Напряженность магнитного поля",
+      "short_name_ru": "Напр. маг. поля",
+      "unit": "мТл",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 2247
+    },
+    {
+      "id": "geoscape2_gid_2248",
+      "canonical_mnemonic": "SENSOR_2248",
+      "aliases": [
+        "GID2248",
+        "Глубина инклинометра",
+        "Глубина инкл."
+      ],
+      "name_ru": "Глубина инклинометра",
+      "short_name_ru": "Глубина инкл.",
+      "unit": "м",
+      "family": "drilling_depth",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#1d4ed8",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 2248
+    },
+    {
+      "id": "geoscape2_gid_2249",
+      "canonical_mnemonic": "SENSOR_2249",
+      "aliases": [
+        "GID2249",
+        "Глубина ест. радиоактивности породы",
+        "Глубина е.р.п."
+      ],
+      "name_ru": "Глубина ест. радиоактивности породы",
+      "short_name_ru": "Глубина е.р.п.",
+      "unit": "м",
+      "family": "drilling_depth",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#1d4ed8",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 2249
+    },
+    {
+      "id": "geoscape2_gid_2250",
+      "canonical_mnemonic": "SENSOR_2250",
+      "aliases": [
+        "GID2250",
+        "Резистивность пород",
+        "Резистивность"
+      ],
+      "name_ru": "Резистивность пород",
+      "short_name_ru": "Резистивность",
+      "unit": "Ом*м",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 2250
+    },
+    {
+      "id": "geoscape2_gid_2251",
+      "canonical_mnemonic": "SENSOR_2251",
+      "aliases": [
+        "GID2251",
+        "Глубина TRIM"
+      ],
+      "name_ru": "Глубина TRIM",
+      "short_name_ru": "Глубина TRIM",
+      "unit": "м",
+      "family": "drilling_depth",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#1d4ed8",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 2251
+    },
+    {
+      "id": "geoscape2_gid_3000",
+      "canonical_mnemonic": "SENSOR_3000",
+      "aliases": [
+        "GID3000",
+        "Расход на ЦГ"
+      ],
+      "name_ru": "Расход на ЦГ",
+      "short_name_ru": "Расход на ЦГ",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3000
+    },
+    {
+      "id": "geoscape2_gid_3001",
+      "canonical_mnemonic": "SENSOR_3001",
+      "aliases": [
+        "GID3001",
+        "Расход ТР ИМ-1"
+      ],
+      "name_ru": "Расход ТР ИМ-1",
+      "short_name_ru": "Расход ТР ИМ-1",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3001
+    },
+    {
+      "id": "geoscape2_gid_3002",
+      "canonical_mnemonic": "SENSOR_3002",
+      "aliases": [
+        "GID3002",
+        "Расход ТР ИМ-2"
+      ],
+      "name_ru": "Расход ТР ИМ-2",
+      "short_name_ru": "Расход ТР ИМ-2",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3002
+    },
+    {
+      "id": "geoscape2_gid_3003",
+      "canonical_mnemonic": "SENSOR_3003",
+      "aliases": [
+        "GID3003",
+        "Расход продавливания",
+        "Расх. продавл."
+      ],
+      "name_ru": "Расход продавливания",
+      "short_name_ru": "Расх. продавл.",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3003
+    },
+    {
+      "id": "geoscape2_gid_3004",
+      "canonical_mnemonic": "SENSOR_3004",
+      "aliases": [
+        "GID3004",
+        "Расход ТР ИМ-1-1",
+        "Расх. ИМ-1-1"
+      ],
+      "name_ru": "Расход ТР ИМ-1-1",
+      "short_name_ru": "Расх. ИМ-1-1",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3004
+    },
+    {
+      "id": "geoscape2_gid_3005",
+      "canonical_mnemonic": "SENSOR_3005",
+      "aliases": [
+        "GID3005",
+        "Расход ТР ИМ-1-2",
+        "Расх. ИМ-1-2"
+      ],
+      "name_ru": "Расход ТР ИМ-1-2",
+      "short_name_ru": "Расх. ИМ-1-2",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3005
+    },
+    {
+      "id": "geoscape2_gid_3006",
+      "canonical_mnemonic": "SENSOR_3006",
+      "aliases": [
+        "GID3006",
+        "Расход ТР ИМ-1-3",
+        "Расх. ИМ-1-3"
+      ],
+      "name_ru": "Расход ТР ИМ-1-3",
+      "short_name_ru": "Расх. ИМ-1-3",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3006
+    },
+    {
+      "id": "geoscape2_gid_3007",
+      "canonical_mnemonic": "SENSOR_3007",
+      "aliases": [
+        "GID3007",
+        "Расход ТР ИМ-1-4",
+        "Расх. ИМ-1-4"
+      ],
+      "name_ru": "Расход ТР ИМ-1-4",
+      "short_name_ru": "Расх. ИМ-1-4",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3007
+    },
+    {
+      "id": "geoscape2_gid_3008",
+      "canonical_mnemonic": "SENSOR_3008",
+      "aliases": [
+        "GID3008",
+        "Расход ТР ИМ-1-5",
+        "Расх. ИМ-1-5"
+      ],
+      "name_ru": "Расход ТР ИМ-1-5",
+      "short_name_ru": "Расх. ИМ-1-5",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3008
+    },
+    {
+      "id": "geoscape2_gid_3009",
+      "canonical_mnemonic": "SENSOR_3009",
+      "aliases": [
+        "GID3009",
+        "Расход ТР ИМ-2-1",
+        "Расх. ИМ-2-1"
+      ],
+      "name_ru": "Расход ТР ИМ-2-1",
+      "short_name_ru": "Расх. ИМ-2-1",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3009
+    },
+    {
+      "id": "geoscape2_gid_3010",
+      "canonical_mnemonic": "SENSOR_3010",
+      "aliases": [
+        "GID3010",
+        "Расход ТР ИМ-2-2",
+        "Расх. ИМ-2-2"
+      ],
+      "name_ru": "Расход ТР ИМ-2-2",
+      "short_name_ru": "Расх. ИМ-2-2",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3010
+    },
+    {
+      "id": "geoscape2_gid_3011",
+      "canonical_mnemonic": "SENSOR_3011",
+      "aliases": [
+        "GID3011",
+        "Расход ТР ИМ-2-3",
+        "Расх. ИМ-2-3"
+      ],
+      "name_ru": "Расход ТР ИМ-2-3",
+      "short_name_ru": "Расх. ИМ-2-3",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3011
+    },
+    {
+      "id": "geoscape2_gid_3012",
+      "canonical_mnemonic": "SENSOR_3012",
+      "aliases": [
+        "GID3012",
+        "Расход ТР ИМ-2-4",
+        "Расх. ИМ-2-4"
+      ],
+      "name_ru": "Расход ТР ИМ-2-4",
+      "short_name_ru": "Расх. ИМ-2-4",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3012
+    },
+    {
+      "id": "geoscape2_gid_3013",
+      "canonical_mnemonic": "SENSOR_3013",
+      "aliases": [
+        "GID3013",
+        "Расход ТР ИМ-2-5",
+        "Расх. ИМ-2-5"
+      ],
+      "name_ru": "Расход ТР ИМ-2-5",
+      "short_name_ru": "Расх. ИМ-2-5",
+      "unit": "л/с",
+      "family": "flow",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 30.0,
+      "color": "#0891b2",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3013
+    },
+    {
+      "id": "geoscape2_gid_3100",
+      "canonical_mnemonic": "SENSOR_3100",
+      "aliases": [
+        "GID3100",
+        "Объем закачанного ТР",
+        "Объем ТР"
+      ],
+      "name_ru": "Объем закачанного ТР",
+      "short_name_ru": "Объем ТР",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3100
+    },
+    {
+      "id": "geoscape2_gid_3101",
+      "canonical_mnemonic": "SENSOR_3101",
+      "aliases": [
+        "GID3101",
+        "Объем закачанного ТР ИМ-1",
+        "Объем ТР ИМ-1"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-1",
+      "short_name_ru": "Объем ТР ИМ-1",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3101
+    },
+    {
+      "id": "geoscape2_gid_3102",
+      "canonical_mnemonic": "SENSOR_3102",
+      "aliases": [
+        "GID3102",
+        "Объем закачанного ТР ИМ-2",
+        "Объем ТР ИМ-2"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-2",
+      "short_name_ru": "Объем ТР ИМ-2",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3102
+    },
+    {
+      "id": "geoscape2_gid_3103",
+      "canonical_mnemonic": "SENSOR_3103",
+      "aliases": [
+        "GID3103",
+        "Объем продавливания",
+        "Объем продавл."
+      ],
+      "name_ru": "Объем продавливания",
+      "short_name_ru": "Объем продавл.",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3103
+    },
+    {
+      "id": "geoscape2_gid_3104",
+      "canonical_mnemonic": "SENSOR_3104",
+      "aliases": [
+        "GID3104",
+        "Объем закачанного ТР ИМ-1-1",
+        "Объем ИМ-1-1"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-1-1",
+      "short_name_ru": "Объем ИМ-1-1",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3104
+    },
+    {
+      "id": "geoscape2_gid_3105",
+      "canonical_mnemonic": "SENSOR_3105",
+      "aliases": [
+        "GID3105",
+        "Объем закачанного ТР ИМ-1-2",
+        "Объем ИМ-1-2"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-1-2",
+      "short_name_ru": "Объем ИМ-1-2",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3105
+    },
+    {
+      "id": "geoscape2_gid_3106",
+      "canonical_mnemonic": "SENSOR_3106",
+      "aliases": [
+        "GID3106",
+        "Объем закачанного ТР ИМ-1-3",
+        "Объем ИМ-1-3"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-1-3",
+      "short_name_ru": "Объем ИМ-1-3",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3106
+    },
+    {
+      "id": "geoscape2_gid_3107",
+      "canonical_mnemonic": "SENSOR_3107",
+      "aliases": [
+        "GID3107",
+        "Объем закачанного ТР ИМ-1-4",
+        "Объем ИМ-1-4"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-1-4",
+      "short_name_ru": "Объем ИМ-1-4",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3107
+    },
+    {
+      "id": "geoscape2_gid_3108",
+      "canonical_mnemonic": "SENSOR_3108",
+      "aliases": [
+        "GID3108",
+        "Объем закачанного ТР ИМ-1-5",
+        "Объем ИМ-1-5"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-1-5",
+      "short_name_ru": "Объем ИМ-1-5",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3108
+    },
+    {
+      "id": "geoscape2_gid_3109",
+      "canonical_mnemonic": "SENSOR_3109",
+      "aliases": [
+        "GID3109",
+        "Объем закачанного ТР ИМ-2-1",
+        "Объем ИМ-2-1"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-2-1",
+      "short_name_ru": "Объем ИМ-2-1",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3109
+    },
+    {
+      "id": "geoscape2_gid_3110",
+      "canonical_mnemonic": "SENSOR_3110",
+      "aliases": [
+        "GID3110",
+        "Объем закачанного ТР ИМ-2-2",
+        "Объем ИМ-2-2"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-2-2",
+      "short_name_ru": "Объем ИМ-2-2",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3110
+    },
+    {
+      "id": "geoscape2_gid_3111",
+      "canonical_mnemonic": "SENSOR_3111",
+      "aliases": [
+        "GID3111",
+        "Объем закачанного ТР ИМ-2-3",
+        "Объем ИМ-2-3"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-2-3",
+      "short_name_ru": "Объем ИМ-2-3",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3111
+    },
+    {
+      "id": "geoscape2_gid_3112",
+      "canonical_mnemonic": "SENSOR_3112",
+      "aliases": [
+        "GID3112",
+        "Объем закачанного ТР ИМ-2-4",
+        "Объем ИМ-2-4"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-2-4",
+      "short_name_ru": "Объем ИМ-2-4",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3112
+    },
+    {
+      "id": "geoscape2_gid_3113",
+      "canonical_mnemonic": "SENSOR_3113",
+      "aliases": [
+        "GID3113",
+        "Объем закачанного ТР ИМ-2-5",
+        "Объем ИМ-2-5"
+      ],
+      "name_ru": "Объем закачанного ТР ИМ-2-5",
+      "short_name_ru": "Объем ИМ-2-5",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 90.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3113
+    },
+    {
+      "id": "geoscape2_gid_3120",
+      "canonical_mnemonic": "SENSOR_3120",
+      "aliases": [
+        "GID3120",
+        "Объем этапа"
+      ],
+      "name_ru": "Объем этапа",
+      "short_name_ru": "Объем этапа",
+      "unit": "м3",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3120
+    },
+    {
+      "id": "geoscape2_gid_3121",
+      "canonical_mnemonic": "SENSOR_3121",
+      "aliases": [
+        "GID3121",
+        "Код этапа цементирования",
+        "Код этапа цем."
+      ],
+      "name_ru": "Код этапа цементирования",
+      "short_name_ru": "Код этапа цем.",
+      "unit": "",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3121
+    },
+    {
+      "id": "geoscape2_gid_3300",
+      "canonical_mnemonic": "SENSOR_3300",
+      "aliases": [
+        "GID3300",
+        "Давление на ЦГ"
+      ],
+      "name_ru": "Давление на ЦГ",
+      "short_name_ru": "Давление на ЦГ",
+      "unit": "атм",
+      "family": "pressure",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 200.0,
+      "color": "#7c3aed",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3300
+    },
+    {
+      "id": "geoscape2_gid_3301",
+      "canonical_mnemonic": "SENSOR_3301",
+      "aliases": [
+        "GID3301",
+        "Давление ИМ-1"
+      ],
+      "name_ru": "Давление ИМ-1",
+      "short_name_ru": "Давление ИМ-1",
+      "unit": "атм",
+      "family": "pressure",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 200.0,
+      "color": "#7c3aed",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3301
+    },
+    {
+      "id": "geoscape2_gid_3302",
+      "canonical_mnemonic": "SENSOR_3302",
+      "aliases": [
+        "GID3302",
+        "Давление ИМ-2"
+      ],
+      "name_ru": "Давление ИМ-2",
+      "short_name_ru": "Давление ИМ-2",
+      "unit": "атм",
+      "family": "pressure",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 200.0,
+      "color": "#7c3aed",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3302
+    },
+    {
+      "id": "geoscape2_gid_3600",
+      "canonical_mnemonic": "SENSOR_3600",
+      "aliases": [
+        "GID3600",
+        "Плотность ТР"
+      ],
+      "name_ru": "Плотность ТР",
+      "short_name_ru": "Плотность ТР",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3600
+    },
+    {
+      "id": "geoscape2_gid_3601",
+      "canonical_mnemonic": "SENSOR_3601",
+      "aliases": [
+        "GID3601",
+        "Плотность ТР ИМ-1",
+        "Плотн. ТР ИМ-1"
+      ],
+      "name_ru": "Плотность ТР ИМ-1",
+      "short_name_ru": "Плотн. ТР ИМ-1",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3601
+    },
+    {
+      "id": "geoscape2_gid_3602",
+      "canonical_mnemonic": "SENSOR_3602",
+      "aliases": [
+        "GID3602",
+        "Плотность ТР ИМ-2",
+        "Плотн. ТР ИМ-2"
+      ],
+      "name_ru": "Плотность ТР ИМ-2",
+      "short_name_ru": "Плотн. ТР ИМ-2",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3602
+    },
+    {
+      "id": "geoscape2_gid_3603",
+      "canonical_mnemonic": "SENSOR_3603",
+      "aliases": [
+        "GID3603",
+        "Плотность ТР ИМ-1-1",
+        "Плотн. ИМ-1-1"
+      ],
+      "name_ru": "Плотность ТР ИМ-1-1",
+      "short_name_ru": "Плотн. ИМ-1-1",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3603
+    },
+    {
+      "id": "geoscape2_gid_3604",
+      "canonical_mnemonic": "SENSOR_3604",
+      "aliases": [
+        "GID3604",
+        "Плотность ТР ИМ-1-2",
+        "Плотн. ИМ-1-2"
+      ],
+      "name_ru": "Плотность ТР ИМ-1-2",
+      "short_name_ru": "Плотн. ИМ-1-2",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3604
+    },
+    {
+      "id": "geoscape2_gid_3605",
+      "canonical_mnemonic": "SENSOR_3605",
+      "aliases": [
+        "GID3605",
+        "Плотность ТР ИМ-1-3",
+        "Плотн. ИМ-1-3"
+      ],
+      "name_ru": "Плотность ТР ИМ-1-3",
+      "short_name_ru": "Плотн. ИМ-1-3",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3605
+    },
+    {
+      "id": "geoscape2_gid_3606",
+      "canonical_mnemonic": "SENSOR_3606",
+      "aliases": [
+        "GID3606",
+        "Плотность ТР ИМ-1-4",
+        "Плотн. ИМ-1-4"
+      ],
+      "name_ru": "Плотность ТР ИМ-1-4",
+      "short_name_ru": "Плотн. ИМ-1-4",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3606
+    },
+    {
+      "id": "geoscape2_gid_3607",
+      "canonical_mnemonic": "SENSOR_3607",
+      "aliases": [
+        "GID3607",
+        "Плотность ТР ИМ-1-5",
+        "Плотн. ИМ-1-5"
+      ],
+      "name_ru": "Плотность ТР ИМ-1-5",
+      "short_name_ru": "Плотн. ИМ-1-5",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3607
+    },
+    {
+      "id": "geoscape2_gid_3608",
+      "canonical_mnemonic": "SENSOR_3608",
+      "aliases": [
+        "GID3608",
+        "Плотность ТР ИМ-2-1",
+        "Плотн. ИМ-2-1"
+      ],
+      "name_ru": "Плотность ТР ИМ-2-1",
+      "short_name_ru": "Плотн. ИМ-2-1",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3608
+    },
+    {
+      "id": "geoscape2_gid_3609",
+      "canonical_mnemonic": "SENSOR_3609",
+      "aliases": [
+        "GID3609",
+        "Плотность ТР ИМ-2-2",
+        "Плотн. ИМ-2-2"
+      ],
+      "name_ru": "Плотность ТР ИМ-2-2",
+      "short_name_ru": "Плотн. ИМ-2-2",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3609
+    },
+    {
+      "id": "geoscape2_gid_3610",
+      "canonical_mnemonic": "SENSOR_3610",
+      "aliases": [
+        "GID3610",
+        "Плотность ТР ИМ-2-3",
+        "Плотн. ИМ-2-3"
+      ],
+      "name_ru": "Плотность ТР ИМ-2-3",
+      "short_name_ru": "Плотн. ИМ-2-3",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3610
+    },
+    {
+      "id": "geoscape2_gid_3611",
+      "canonical_mnemonic": "SENSOR_3611",
+      "aliases": [
+        "GID3611",
+        "Плотность ТР ИМ-2-4",
+        "Плотн. ИМ-2-4"
+      ],
+      "name_ru": "Плотность ТР ИМ-2-4",
+      "short_name_ru": "Плотн. ИМ-2-4",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3611
+    },
+    {
+      "id": "geoscape2_gid_3612",
+      "canonical_mnemonic": "SENSOR_3612",
+      "aliases": [
+        "GID3612",
+        "Плотность ТР ИМ-2-5",
+        "Плотн. ИМ-2-5"
+      ],
+      "name_ru": "Плотность ТР ИМ-2-5",
+      "short_name_ru": "Плотн. ИМ-2-5",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3612
+    },
+    {
+      "id": "geoscape2_gid_3613",
+      "canonical_mnemonic": "SENSOR_3613",
+      "aliases": [
+        "GID3613",
+        "Плотность ЦА-1",
+        "Плотн. ЦА-1"
+      ],
+      "name_ru": "Плотность ЦА-1",
+      "short_name_ru": "Плотн. ЦА-1",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3613
+    },
+    {
+      "id": "geoscape2_gid_3614",
+      "canonical_mnemonic": "SENSOR_3614",
+      "aliases": [
+        "GID3614",
+        "Плотность ЦА-2",
+        "Плотн. ЦА-2"
+      ],
+      "name_ru": "Плотность ЦА-2",
+      "short_name_ru": "Плотн. ЦА-2",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3614
+    },
+    {
+      "id": "geoscape2_gid_3615",
+      "canonical_mnemonic": "SENSOR_3615",
+      "aliases": [
+        "GID3615",
+        "Плотность ЦА-3",
+        "Плотн. ЦА-3"
+      ],
+      "name_ru": "Плотность ЦА-3",
+      "short_name_ru": "Плотн. ЦА-3",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3615
+    },
+    {
+      "id": "geoscape2_gid_3616",
+      "canonical_mnemonic": "SENSOR_3616",
+      "aliases": [
+        "GID3616",
+        "Плотность ЦА-4",
+        "Плотн. ЦА-4"
+      ],
+      "name_ru": "Плотность ЦА-4",
+      "short_name_ru": "Плотн. ЦА-4",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3616
+    },
+    {
+      "id": "geoscape2_gid_3617",
+      "canonical_mnemonic": "SENSOR_3617",
+      "aliases": [
+        "GID3617",
+        "Плотность в осреднительной емкости",
+        "Плотн. в осред."
+      ],
+      "name_ru": "Плотность в осреднительной емкости",
+      "short_name_ru": "Плотн. в осред.",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3617
+    },
+    {
+      "id": "geoscape2_gid_3618",
+      "canonical_mnemonic": "SENSOR_3618",
+      "aliases": [
+        "GID3618",
+        "Плотность в емкости продавливания",
+        "Плотн. продавл."
+      ],
+      "name_ru": "Плотность в емкости продавливания",
+      "short_name_ru": "Плотн. продавл.",
+      "unit": "г/см3",
+      "family": "mud_density",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 3.0,
+      "color": "#92400e",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3618
+    },
+    {
+      "id": "geoscape2_gid_3708",
+      "canonical_mnemonic": "SENSOR_3708",
+      "aliases": [
+        "GID3708",
+        "Уровень в емкости продавливания",
+        "Уров. продавл."
+      ],
+      "name_ru": "Уровень в емкости продавливания",
+      "short_name_ru": "Уров. продавл.",
+      "unit": "°C",
+      "family": "pit_volume",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 50.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3708
+    },
+    {
+      "id": "geoscape2_gid_3800",
+      "canonical_mnemonic": "SENSOR_3800",
+      "aliases": [
+        "GID3800",
+        "Температура ТР",
+        "Темп. ТР"
+      ],
+      "name_ru": "Температура ТР",
+      "short_name_ru": "Темп. ТР",
+      "unit": "°C",
+      "family": "temperature",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 50.0,
+      "color": "#dc2626",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3800
+    },
+    {
+      "id": "geoscape2_gid_3801",
+      "canonical_mnemonic": "SENSOR_3801",
+      "aliases": [
+        "GID3801",
+        "Температура ТР ИМ-1",
+        "Темп. ТР-1"
+      ],
+      "name_ru": "Температура ТР ИМ-1",
+      "short_name_ru": "Темп. ТР-1",
+      "unit": "°C",
+      "family": "temperature",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 50.0,
+      "color": "#dc2626",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3801
+    },
+    {
+      "id": "geoscape2_gid_3802",
+      "canonical_mnemonic": "SENSOR_3802",
+      "aliases": [
+        "GID3802",
+        "Температура ТР ИМ-2",
+        "Темп. ТР-2"
+      ],
+      "name_ru": "Температура ТР ИМ-2",
+      "short_name_ru": "Темп. ТР-2",
+      "unit": "°C",
+      "family": "temperature",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 50.0,
+      "color": "#dc2626",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3802
+    },
+    {
+      "id": "geoscape2_gid_3803",
+      "canonical_mnemonic": "SENSOR_3803",
+      "aliases": [
+        "GID3803",
+        "Температура ЦА-1",
+        "Темп. ЦА-1"
+      ],
+      "name_ru": "Температура ЦА-1",
+      "short_name_ru": "Темп. ЦА-1",
+      "unit": "°C",
+      "family": "temperature",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 50.0,
+      "color": "#dc2626",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3803
+    },
+    {
+      "id": "geoscape2_gid_3804",
+      "canonical_mnemonic": "SENSOR_3804",
+      "aliases": [
+        "GID3804",
+        "Температура ЦА-2",
+        "Темп. ЦА-2"
+      ],
+      "name_ru": "Температура ЦА-2",
+      "short_name_ru": "Темп. ЦА-2",
+      "unit": "°C",
+      "family": "temperature",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 50.0,
+      "color": "#dc2626",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3804
+    },
+    {
+      "id": "geoscape2_gid_3805",
+      "canonical_mnemonic": "SENSOR_3805",
+      "aliases": [
+        "GID3805",
+        "Температура ЦА-3",
+        "Темп. ЦА-3"
+      ],
+      "name_ru": "Температура ЦА-3",
+      "short_name_ru": "Темп. ЦА-3",
+      "unit": "°C",
+      "family": "temperature",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 50.0,
+      "color": "#dc2626",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3805
+    },
+    {
+      "id": "geoscape2_gid_3806",
+      "canonical_mnemonic": "SENSOR_3806",
+      "aliases": [
+        "GID3806",
+        "Температура ЦА-4",
+        "Темп. ЦА-4"
+      ],
+      "name_ru": "Температура ЦА-4",
+      "short_name_ru": "Темп. ЦА-4",
+      "unit": "°C",
+      "family": "temperature",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 50.0,
+      "color": "#dc2626",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3806
+    },
+    {
+      "id": "geoscape2_gid_3807",
+      "canonical_mnemonic": "SENSOR_3807",
+      "aliases": [
+        "GID3807",
+        "Температура в осреднительной емкости",
+        "Темп. в осред."
+      ],
+      "name_ru": "Температура в осреднительной емкости",
+      "short_name_ru": "Темп. в осред.",
+      "unit": "°C",
+      "family": "temperature",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 50.0,
+      "color": "#dc2626",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3807
+    },
+    {
+      "id": "geoscape2_gid_3808",
+      "canonical_mnemonic": "SENSOR_3808",
+      "aliases": [
+        "GID3808",
+        "Температура в емкости продавливания",
+        "Темп. продавл."
+      ],
+      "name_ru": "Температура в емкости продавливания",
+      "short_name_ru": "Темп. продавл.",
+      "unit": "°C",
+      "family": "temperature",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 50.0,
+      "color": "#dc2626",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3808
+    },
+    {
+      "id": "geoscape2_gid_3998",
+      "canonical_mnemonic": "SENSOR_3998",
+      "aliases": [
+        "GID3998",
+        "Время с начала этапа",
+        "Время этапа"
+      ],
+      "name_ru": "Время с начала этапа",
+      "short_name_ru": "Время этапа",
+      "unit": "",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3998
+    },
+    {
+      "id": "geoscape2_gid_3999",
+      "canonical_mnemonic": "SENSOR_3999",
+      "aliases": [
+        "GID3999",
+        "Время с начала контроля",
+        "Время контроля"
+      ],
+      "name_ru": "Время с начала контроля",
+      "short_name_ru": "Время контроля",
+      "unit": "",
+      "family": "other",
+      "category": "other",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#4b5563",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 3999
+    },
+    {
+      "id": "geoscape2_gid_4000",
+      "canonical_mnemonic": "SENSOR_4000",
+      "aliases": [
+        "GID4000",
+        "Давление на забое",
+        "Давл. забой"
+      ],
+      "name_ru": "Давление на забое",
+      "short_name_ru": "Давл. забой",
+      "unit": "атм",
+      "family": "pressure",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#7c3aed",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 4000
+    },
+    {
+      "id": "geoscape2_gid_4001",
+      "canonical_mnemonic": "SENSOR_4001",
+      "aliases": [
+        "GID4001",
+        "Давление на пласт 1",
+        "Давл. пласт 1"
+      ],
+      "name_ru": "Давление на пласт 1",
+      "short_name_ru": "Давл. пласт 1",
+      "unit": "атм",
+      "family": "pressure",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#7c3aed",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 4001
+    },
+    {
+      "id": "geoscape2_gid_4002",
+      "canonical_mnemonic": "SENSOR_4002",
+      "aliases": [
+        "GID4002",
+        "Давление на пласт 2",
+        "Давл. пласт 2"
+      ],
+      "name_ru": "Давление на пласт 2",
+      "short_name_ru": "Давл. пласт 2",
+      "unit": "атм",
+      "family": "pressure",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#7c3aed",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 4002
+    },
+    {
+      "id": "geoscape2_gid_4003",
+      "canonical_mnemonic": "SENSOR_4003",
+      "aliases": [
+        "GID4003",
+        "Давление на пласт 3",
+        "Давл. пласт 3"
+      ],
+      "name_ru": "Давление на пласт 3",
+      "short_name_ru": "Давл. пласт 3",
+      "unit": "атм",
+      "family": "pressure",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#7c3aed",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 4003
+    },
+    {
+      "id": "geoscape2_gid_4004",
+      "canonical_mnemonic": "SENSOR_4004",
+      "aliases": [
+        "GID4004",
+        "Давление на пласт 4",
+        "Давл. пласт 4"
+      ],
+      "name_ru": "Давление на пласт 4",
+      "short_name_ru": "Давл. пласт 4",
+      "unit": "атм",
+      "family": "pressure",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#7c3aed",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 4004
+    },
+    {
+      "id": "geoscape2_gid_4005",
+      "canonical_mnemonic": "SENSOR_4005",
+      "aliases": [
+        "GID4005",
+        "Давление на пласт 5",
+        "Давл. пласт 5"
+      ],
+      "name_ru": "Давление на пласт 5",
+      "short_name_ru": "Давл. пласт 5",
+      "unit": "атм",
+      "family": "pressure",
+      "category": "drilling",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#7c3aed",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 4005
+    },
+    {
+      "id": "geoscape2_gid_7000",
+      "canonical_mnemonic": "CONDUCTIVITY",
+      "aliases": [
+        "GID7000",
+        "Удельная электропроводность р-ра на выходе",
+        "Эл-пр на вых."
+      ],
+      "name_ru": "Удельная электропроводность р-ра на выходе",
+      "short_name_ru": "Эл-пр на вых.",
+      "unit": "См/м",
+      "family": "conductivity",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 7000
+    },
+    {
+      "id": "geoscape2_gid_7001",
+      "canonical_mnemonic": "CONDUCTIVITY",
+      "aliases": [
+        "GID7001",
+        "Удельная электропроводность р-ра на входе",
+        "Эл-пр на вх."
+      ],
+      "name_ru": "Удельная электропроводность р-ра на входе",
+      "short_name_ru": "Эл-пр на вх.",
+      "unit": "См/м",
+      "family": "conductivity",
+      "category": "mud",
+      "default_min": 0.0,
+      "default_max": 100.0,
+      "color": "#2563eb",
+      "source": "GeoScape2/Sensors.DB",
+      "legacy_gid": 7001
     }
   ]
 }

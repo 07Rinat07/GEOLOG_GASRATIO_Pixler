@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMessageBox,
+    QPushButton,
     QStatusBar,
     QStyle,
     QSizePolicy,
@@ -6104,7 +6105,11 @@ class MainWindow(QMainWindow):
         curve_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         curve_list.setAlternatingRowColors(True)
         selected_set = set(preselected)
-        for curve in dataset.curves.values():
+        curve_by_id = {curve.metadata.curve_id: curve for curve in dataset.curves.values()}
+
+        def refresh_item(item: QListWidgetItem) -> None:
+            curve_id = str(item.data(int(Qt.ItemDataRole.UserRole) + 1))
+            curve = curve_by_id[curve_id]
             mnemonic = clean_mnemonic(curve.metadata.original_mnemonic)
             unit = clean_display_text(curve.metadata.unit)
             description = clean_display_text(curve.metadata.description)
@@ -6117,7 +6122,7 @@ class MainWindow(QMainWindow):
             details = f"{readable}  [{mnemonic}]"
             if unit:
                 details += f"  ·  {unit}"
-            item = QListWidgetItem(details)
+            item.setText(details)
             item.setData(Qt.ItemDataRole.UserRole, mnemonic)
             item.setToolTip(
                 "\n".join(
@@ -6130,17 +6135,29 @@ class MainWindow(QMainWindow):
                     if value
                 )
             )
+
+        for curve in dataset.curves.values():
+            mnemonic = clean_mnemonic(curve.metadata.original_mnemonic)
+            item = QListWidgetItem()
+            item.setData(int(Qt.ItemDataRole.UserRole) + 1, curve.metadata.curve_id)
             item.setFlags(
                 item.flags() | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
             )
             item.setCheckState(
                 Qt.CheckState.Checked if mnemonic in selected_set else Qt.CheckState.Unchecked
             )
+            refresh_item(item)
             curve_list.addItem(item)
 
         pressed_state: dict[int, Qt.CheckState] = {}
+        active_item: list[QListWidgetItem | None] = [None]
+
+        rename_button = QPushButton(self._t("tablet.rename_curve"))
+        rename_button.setEnabled(False)
 
         def remember_state(item: QListWidgetItem) -> None:
+            active_item[0] = item
+            rename_button.setEnabled(True)
             pressed_state[id(item)] = item.checkState()
 
         def toggle_full_row(item: QListWidgetItem) -> None:
@@ -6154,9 +6171,55 @@ class MainWindow(QMainWindow):
                     else Qt.CheckState.Checked
                 )
 
+        def rename_curve(item: QListWidgetItem | None = None) -> None:
+            target = item or active_item[0]
+            if target is None:
+                return
+            curve_id = str(target.data(int(Qt.ItemDataRole.UserRole) + 1))
+            curve = curve_by_id[curve_id]
+            mnemonic = clean_mnemonic(curve.metadata.original_mnemonic)
+            unit = clean_display_text(curve.metadata.unit)
+            description = clean_display_text(curve.metadata.description)
+            current_name = localized_curve_name(
+                mnemonic,
+                description=description,
+                unit=unit,
+                language=self.language,
+            )
+            name, accepted = QInputDialog.getText(
+                dialog,
+                self._t("tablet.rename_curve_title"),
+                self._t("tablet.rename_curve_prompt", mnemonic=mnemonic),
+                text=(description or current_name),
+            )
+            name = clean_display_text(name)
+            if not accepted or not name:
+                return
+            try:
+                self.curve_metadata_controller.update(
+                    curve_id,
+                    mnemonic=mnemonic,
+                    unit=unit,
+                    description=name,
+                )
+            except (RuntimeError, ValueError) as exc:
+                QMessageBox.warning(dialog, self._t("tablet.rename_curve_title"), str(exc))
+                return
+            refresh_item(target)
+            self._refresh_tree()
+            self._update_title()
+
         curve_list.itemPressed.connect(remember_state)
         curve_list.itemClicked.connect(toggle_full_row)
+        curve_list.itemDoubleClicked.connect(lambda item, _row: rename_curve(item))
+        rename_button.clicked.connect(lambda: rename_curve())
         layout.addWidget(curve_list)
+
+        action_row = QHBoxLayout()
+        action_row.addWidget(rename_button)
+        action_row.addStretch(1)
+        layout.addLayout(action_row)
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )

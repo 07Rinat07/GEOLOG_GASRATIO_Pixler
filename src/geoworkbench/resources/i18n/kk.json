@@ -2222,5 +2222,8 @@
   "witsml_import.review_summary": "Импортталатын жол: {rows}; алынып тасталды: {skipped}; ескерту: {warnings}; қате: {errors}.",
   "witsml_import.sort_index": "Жолдарды таңдалған индекс бойынша сұрыптау",
   "witsml_import.summary": "{file}: ChannelSet саны — {sets}, пакет диагностикасы — {diagnostics}.",
-  "witsml_import.title": "WITSML 2.x деректерін импорттау"
+  "witsml_import.title": "WITSML 2.x деректерін импорттау",
+  "tablet.rename_curve": "Параметр атауын өзгерту…",
+  "tablet.rename_curve_title": "Параметр атауы",
+  "tablet.rename_curve_prompt": "{mnemonic} үшін түсінікті атау енгізіңіз:"
 }

@@ -2222,5 +2222,8 @@
   "witsml_import.review_summary": "Rows to import: {rows}; skipped: {skipped}; warnings: {warnings}; errors: {errors}.",
   "witsml_import.sort_index": "Sort rows by the selected index",
   "witsml_import.summary": "{file}: {sets} ChannelSets, {diagnostics} package diagnostics.",
-  "witsml_import.title": "Import WITSML 2.x data"
+  "witsml_import.title": "Import WITSML 2.x data",
+  "tablet.rename_curve": "Rename parameter…",
+  "tablet.rename_curve_title": "Parameter name",
+  "tablet.rename_curve_prompt": "Enter a readable name for {mnemonic}:"
 }

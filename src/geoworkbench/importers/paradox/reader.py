@@ -134,35 +134,113 @@ def _parse_header(raw: bytes) -> tuple[ParadoxHeader, tuple[ParadoxField, ...]]:
     )
 
 
+_PARADOX_FIELD_NAME = re.compile(r"^[^\x00-\x1f\x7f]{1,128}$")
+
+
 def _parse_names(
     raw: bytes,
     start: int,
     field_count: int,
     code_page: int,
 ) -> tuple[list[str], str | None]:
+    encoding = codepage_name(code_page)
     marker = b"".join(struct.pack("<H", ordinal) for ordinal in range(1, field_count + 1))
     marker_position = raw.find(marker, start)
-    if marker_position < 0:
-        raise ParadoxReadError("Не найден каталог имён полей Paradox")
-    chunks = [chunk for chunk in raw[start:marker_position].split(b"\x00") if chunk]
-    if len(chunks) < field_count:
-        raise ParadoxReadError("В заголовке недостаточно имён полей")
-    encoding = codepage_name(code_page)
-    names_raw = chunks[-field_count:]
+
+    if marker_position >= 0:
+        chunks = [chunk for chunk in raw[start:marker_position].split(b"\x00") if chunk]
+        if len(chunks) < field_count:
+            raise ParadoxReadError("В заголовке недостаточно имён полей")
+        names_raw = chunks[-field_count:]
+        table_candidates = chunks[:-field_count]
+    else:
+        # Some Paradox 7/11 tables (including GeoScape 2 Sensors.DB) do not
+        # contain the optional ordinal catalogue 1..N after the field names.
+        # In that case locate the contiguous run of N null-terminated printable
+        # identifiers in the header.  Binary header fragments are rejected and
+        # never treated as field names.
+        names_raw, names_start = _find_field_name_run(
+            raw,
+            start=start,
+            field_count=field_count,
+            encoding=encoding,
+        )
+        table_candidates = [
+            chunk for chunk in raw[start:names_start].split(b"\x00") if chunk
+        ]
+
     names = [chunk.decode(encoding, errors="replace").strip() for chunk in names_raw]
     names = _deduplicate_names(names)
-    table_candidates = chunks[:-field_count]
-    table_name = None
-    for candidate in reversed(table_candidates):
-        match = re.search(rb"([A-Z][A-Za-z0-9_ .()\-]{0,259}\.db)$", candidate)
+    table_name = _find_table_name(table_candidates, encoding)
+    return names, table_name
+
+
+def _find_field_name_run(
+    raw: bytes,
+    *,
+    start: int,
+    field_count: int,
+    encoding: str,
+) -> tuple[list[bytes], int]:
+    chunks: list[tuple[int, bytes]] = []
+    cursor = start
+    while cursor < len(raw):
+        end = raw.find(b"\x00", cursor)
+        if end < 0:
+            end = len(raw)
+        chunk = raw[cursor:end]
+        if chunk:
+            chunks.append((cursor, chunk))
+        cursor = end + 1
+
+    runs: list[list[tuple[int, bytes]]] = []
+    current: list[tuple[int, bytes]] = []
+    for offset, chunk in chunks:
+        if _is_field_name_chunk(chunk, encoding):
+            current.append((offset, chunk))
+        else:
+            if len(current) >= field_count:
+                runs.append(current)
+            current = []
+    if len(current) >= field_count:
+        runs.append(current)
+
+    if not runs:
+        raise ParadoxReadError("Не найден каталог имён полей Paradox")
+
+    # Prefer the shortest valid run and then the earliest one.  This avoids
+    # consuming unrelated textual metadata after the schema while remaining
+    # deterministic for malformed headers.
+    runs.sort(key=lambda run: (len(run), run[0][0]))
+    run = runs[0][:field_count]
+    return [chunk for _offset, chunk in run], run[0][0]
+
+
+def _is_field_name_chunk(chunk: bytes, encoding: str) -> bool:
+    if not 1 <= len(chunk) <= 256:
+        return False
+    try:
+        text = chunk.decode(encoding, errors="strict").strip()
+    except UnicodeDecodeError:
+        return False
+    if not text or not _PARADOX_FIELD_NAME.fullmatch(text):
+        return False
+    if text.lower().endswith(".db"):
+        return False
+    # Require at least one alphabetic/underscore character. Pure binary
+    # counters and ordinal data must not start a candidate name run.
+    return any(character.isalpha() or character == "_" for character in text)
+
+
+def _find_table_name(candidates: list[bytes], encoding: str) -> str | None:
+    for candidate in reversed(candidates):
+        match = re.search(rb"([A-Za-z][A-Za-z0-9_ .()\-]{0,259}\.db)$", candidate, re.I)
         if match is not None:
-            table_name = match.group(1).decode(encoding, errors="replace").strip()
-            break
+            return match.group(1).decode(encoding, errors="replace").strip()
         text = candidate.decode(encoding, errors="ignore").strip()
         if text and len(text) <= 260 and text.replace("_", "").isalnum():
-            table_name = text
-            break
-    return names, table_name
+            return text
+    return None
 
 
 def _deduplicate_names(names: list[str]) -> list[str]:

@@ -134,3 +134,22 @@ def test_equal_legacy_default_range_is_loaded_as_autoscale() -> None:
     definition = catalog.match("ZR").definition
     assert definition.default_min is None
     assert definition.default_max is None
+
+
+def test_geoscape2_sensor_database_additions_are_available_by_gid() -> None:
+    catalog = default_sensor_catalog()
+
+    match = catalog.match("S810", unit="°C")
+    assert match is not None
+    assert match.matched_by == "legacy_gid"
+    assert match.definition.name_ru == "Температура в емкости 8"
+    assert match.definition.source == "GeoScape2/Sensors.DB"
+
+
+def test_description_alias_has_priority_over_numeric_legacy_gid() -> None:
+    catalog = default_sensor_catalog()
+
+    match = catalog.match("S810", description="гамма", unit="API")
+    assert match is not None
+    assert match.matched_by == "description_alias"
+    assert match.definition.canonical_mnemonic == "GR"
