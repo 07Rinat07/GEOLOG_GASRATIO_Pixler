@@ -3,9 +3,9 @@
 ## Мақсаты
 
 **Файл → WITS Level 0 қабылдау...** командасы GSWITS TCP ағынын қабылдайды, кіріс байттарын
-өзгеріссіз сақтайды және әр толық пакетті типтелген parser арқылы өткізеді. 0.7.75 нұсқасы
-мәндерді Dataset-ке жазбайды және дабылдарды іске қоспайды: raw шекарасы, parser және диагностика
-жобаны өзгертуден бөлек қалады.
+өзгеріссіз сақтайды және әр толық пакетті типтелген parser арқылы өткізеді. 0.7.76 нұсқасында
+расталған Import Review-дан кейін append-only `AcquisitionSession` бастауға болады; raw шекарасы
+мен parser өзгермейді, ал Dataset тек `AcquisitionController` арқылы жаңартылады.
 
 ## TCP серверін баптау
 
@@ -98,11 +98,28 @@ Fingerprint mapping surface-ті сипаттайды, сондықтан бар
 **Ескірді** күйіне ауыстырып, қайта тексеруді талап етеді. **Анықтауды тазарту** тек ағымдағы
 snapshot пен commit-ті тазартады; дискідегі versioned profiles сақталады.
 
+## AcquisitionSession
+
+Schema расталғаннан кейін ағымдағы ұңғыманы таңдап, **Сессияны бастау** түймесін басыңыз. Қолданба:
+
+1. қабылданған frames-ті immutable normalized measurement batches түріне айналдырады;
+2. records-ті bounded queue ішіне жартылай enqueue жасамай, атомдық түрде орналастырады;
+3. backpressure кезінде `DRAIN_THEN_RETRY` саясатын қолданады;
+4. жолдарды тек `AcquisitionController` арқылы жазады;
+5. checkpoints-ті pending queue бос кезде ғана жасайды;
+6. pending, applied, skipped, checkpoints және backpressure көрсетеді;
+7. **Сессияны жабу** кезінде қабылдауды тоқтатып, queue-ды босатып, финалдық checkpoint жасайды.
+
+Growing Dataset жоба ағашында бірден таңдалады. **Queue-ды жазу** барлық күтіп тұрған records-ті
+қолмен қолданады. Белсенді сессия кезінде терезе жабылса, TCP worker алдымен тоқтайды, қалған
+immutable events өңделеді және controlled close орындалады. Толық контракт: [WITS0_ACQUISITION.md](WITS0_ACQUISITION.md).
+
 ## Шектеулер
 
 - GeoScape профилі GSWITS нұсқаулығына негізделген және нақты raw ағынмен тексерілуі тиіс;
 - белгісіз өрістер Import Review ішінде сақталып, өңделеді, бірақ қолмен растауды талап етеді;
 - сандық UOM conversion әлі орындалмайды: source және canonical UOM бір канондық бірлікке шешілуі керек;
-- растау schema және versioned mapping profile жасайды, бірақ `AcquisitionSession` әлі басталмайды;
+- current values және арнайы live time/depth graphs келесі кезеңде қосылады;
+- reconnect әзірге жеке connection-gap records жасамайды, ал бұрын пайдаланылған ұңғыма үшін жаңа сессияға жеке саясат қажет;
 - WITS0 портын интернетке тікелей ашуға болмайды;
 - raw файлдар жобаны **Ctrl+S** арқылы сақтауды алмастырмайды.

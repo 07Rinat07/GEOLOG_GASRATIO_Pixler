@@ -1,6 +1,10 @@
 # Features and instructions
 
 
+## WITS0 normalized batches and append-only AcquisitionSession — 0.7.76
+
+After a current Import Review, **File → Capture WITS Level 0...** starts an acquisition session for the current well. `Wits0FrameNormalizer` converts frames into deterministic immutable batches, while `Wits0AcquisitionRuntime` writes them only through the bounded `AcquisitionController`, with atomic enqueue, backpressure, checkpoints, and controlled close. Status shows pending/applied/skipped/checkpoints/backpressure, and the growing Dataset appears in the project immediately. See [WITS0_ACQUISITION.md](WITS0_ACQUISITION.md) and [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
+
 ## WITS0 Import Review and immutable schema — 0.7.75
 
 **File → Capture WITS Level 0...** now builds an immutable discovery snapshot of every data `record/item`. **Import Review…** shows types, UOM, samples, and QC; proposes Semantic Channel Dictionary mappings; supports time/depth index selection, hiding, and overrides; and atomically creates an immutable `AcquisitionDatasetSchema`. Mapping is stored in a separate versioned custom profile; numerical UOM conversion and `AcquisitionSession` remain the next increment. See [WITS0_CAPTURE.md](WITS0_CAPTURE.md).

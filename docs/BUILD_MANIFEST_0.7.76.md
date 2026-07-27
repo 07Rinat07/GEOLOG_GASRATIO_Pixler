@@ -1,0 +1,35 @@
+# Build manifest — GEOLOG GASRATIO@Pixler 0.7.76
+
+- Package version: `0.7.76`
+- Project format: `v20`
+- Form schema: `v8`
+- Tablet layout: `v18`
+- Main increment: WITS0 normalized measurement batches and append-only `AcquisitionSession`
+- Normalization boundary: `Wits0FrameNormalizer` consumes only a verified immutable `Wits0ImportReviewCommit`
+- Index handling: WITS header date/time becomes UTC Unix nanoseconds; a reviewed numeric field may provide depth/time index
+- Sparse rows: missing or invalid curve values remain explicit `None` and are projected as `NaN`
+- Sequence policy: duplicate, invalid, and out-of-order source frames are skipped by default; gaps remain accepted and diagnosable
+- Provenance: schema digest, raw SHA-256, WITS record, source sequence, reception timestamp, and raw reference are retained
+- Runtime boundary: `Wits0AcquisitionRuntime` is the WITS0 coordinator over `AcquisitionController`
+- Bounded queue: atomic `enqueue_many()` validates complete batches before mutating pending state
+- Long-session identity check: `AcquisitionController` maintains an incremental record-ID index instead of rebuilding it from the append-only history for every frame
+- Backpressure: explicit `RAISE` and one-shot `DRAIN_THEN_RETRY` policies
+- Checkpoints: created only with an empty pending queue by record-count/time policy
+- Controlled close: drains all pending records, creates a final checkpoint, and persists the final audit digest
+- Resume: an open persisted session resumes after project reload with continuous acquisition sequence and authoritative counters
+- Capture integration: current-well session start, queue flush, controlled close, counters, and growing-Dataset selection
+- Thread boundary: socket I/O stays in the worker; project mutation stays in GUI event polling
+- Compatibility: no project/form/tablet schema migration
+- Targeted WITS0/acquisition/project-codec/semantic/UOM/WITSML/GS2/documentation gate: `140 passed`, `3 skipped` in `1.00 s`
+- Skipped tests: Qt offscreen construction tests only; PySide6 is unavailable in this Linux validation environment
+- Full-suite attempt: collection is blocked by missing PySide6 and pyqtgraph (`83` collection errors, `2` collection-time skips); this is recorded rather than reported as a pass
+- Documentation audit: passed with `99` localized Markdown files per language and `2053` synchronized i18n keys
+- `compileall`: passed for `src`, `tests`, `tools`, and `scripts`
+- Ruff and mypy: unavailable in the current environment; no pass is claimed
+- Wheel: `geolog_gasratio_pixler-0.7.76-py3-none-any.whl` (`2,969,479` bytes)
+- Wheel SHA-256: `5b046a17ac3612b6ef6ecefd49dfdfa3086e56566dc04e123650273f12c240f1`
+- Wheel integrity/version/module/resource checks: passed, including WITS0 normalizer/runtime, Import Review, parser, capture dialog, RU/KK/EN catalogs, and GeoScape profile
+- Isolated wheel smoke import: passed for package version, built-in WITS0 profile, acquisition config, discovery accumulator, and runtime module
+- Wheel build command: `python -m pip wheel . --no-deps --no-build-isolation`
+- Deliberate boundary: current-values table, dedicated live time/depth graphs, connection-gap records, and start-new-session policy remain stage E/reliability work
+- Field acceptance remains open for real anonymized GSWITS traffic, header/index confirmation, Windows reconnect/soak/restart/disk-full testing, and comparison with vendor output

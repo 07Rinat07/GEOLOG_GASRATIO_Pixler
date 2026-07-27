@@ -1,6 +1,10 @@
 # Мүмкіндіктер мен нұсқаулықтар
 
 
+## WITS0 normalized batches және append-only AcquisitionSession — 0.7.76
+
+Өзекті Import Review-дан кейін **Файл → WITS Level 0 қабылдау...** терезесі ағымдағы ұңғыма үшін acquisition-сессия бастайды. `Wits0FrameNormalizer` frames-ті deterministic immutable batches түріне айналдырады, ал `Wits0AcquisitionRuntime` оларды bounded `AcquisitionController` арқылы ғана жазады: atomic enqueue, backpressure, checkpoints және controlled close қолданылады. Күй pending/applied/skipped/checkpoints/backpressure көрсетеді; growing Dataset жобаға бірден қосылады. Толығырақ: [WITS0_ACQUISITION.md](WITS0_ACQUISITION.md) және [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
+
 ## WITS0 Import Review және immutable schema — 0.7.75
 
 **Файл → WITS Level 0 қабылдау...** терезесі барлық data `record/item` үшін immutable discovery snapshot жасайды. **Импортты тексеру…** type, UOM, samples және QC көрсетіп, Semantic Channel Dictionary mapping ұсынады, time/depth index таңдауға, арнаны жасыруға немесе өзгертуге және immutable `AcquisitionDatasetSchema` атомарлық жасауға мүмкіндік береді. Mapping бөлек versioned custom profile ішінде сақталады; сандық UOM conversion және `AcquisitionSession` келесі кезеңде орындалады. Толығырақ: [WITS0_CAPTURE.md](WITS0_CAPTURE.md).

@@ -31,6 +31,22 @@ def test_main_window_exposes_modeless_wits0_capture_action() -> None:
     assert "dialog.exec()" not in source[source.index("def open_wits0_capture") : source.index("def open_witsml_inventory")]
 
 
+def test_wits0_capture_ui_connects_review_to_bounded_acquisition_runtime() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    main_source = MAIN_WINDOW.read_text(encoding="utf-8")
+
+    assert "Wits0AcquisitionRuntime" in source
+    assert "Wits0AcquisitionConfig" in source
+    assert "Wits0BackpressurePolicy.DRAIN_THEN_RETRY" in source
+    assert "def _start_acquisition" in source
+    assert "def _flush_acquisition" in source
+    assert "def _close_acquisition" in source
+    assert "well_provider" in source
+    assert "on_dataset_changed" in source
+    assert "well_provider=lambda: self.session.current_well" in main_source
+    assert "def _on_wits0_dataset_changed" in main_source
+
+
 @pytest.mark.skipif(
     importlib.util.find_spec("PySide6") is None,
     reason="PySide6 is not installed in the headless test environment",

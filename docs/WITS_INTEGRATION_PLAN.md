@@ -270,16 +270,17 @@ Wits0Frame
 Полевая приёмка mapping остаётся открытой до получения реального anonymized raw-потока.
 Численное преобразование совместимых UOM вынесено в следующий отдельный normalization slice.
 
-### Этап D — Live AcquisitionSession
+### Этап D — Live AcquisitionSession — реализован в 0.7.76
 
-- [ ] WITS frame → normalized measurement batch;
-- [ ] append records through `AcquisitionController` only;
-- [ ] bounded ingest queue and explicit backpressure;
-- [ ] checkpoint policy;
-- [ ] controlled close;
-- [ ] reconnect gaps and connection events;
-- [ ] resume or start-new-session policy;
-- [ ] raw/reference provenance in records.
+- [x] WITS frame → deterministic immutable normalized measurement batch;
+- [x] append records through `AcquisitionController` only;
+- [x] atomic bounded ingest queue and explicit `RAISE` / `DRAIN_THEN_RETRY` backpressure;
+- [x] checkpoint policy by applied-record threshold or elapsed time on an empty queue;
+- [x] controlled close with final checkpoint and audit digest;
+- [x] raw SHA-256, record/source sequence, reception timestamp and raw-reference provenance;
+- [x] resume of a persisted open session with continuous acquisition sequence;
+- [ ] reconnect gaps and connection events as explicit acquisition records;
+- [ ] start-new-session policy after a previous session for the same well is closed.
 
 ### Этап E — Live UI
 

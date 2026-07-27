@@ -1,12 +1,11 @@
 # Жоба күйі
 
-## Әзірленуде: WITS0 real-time integration
+## Әзірленуде: WITS0 live monitor және далалық сенімділік
 
-Raw-capture boundary, типтелген parser және Import Review дайын: TCP server/client, reconnect,
-`&& ... !!` framing, append-only `*.wits`, бір live/replay pipeline, record/item-ды
-детерминирленген анықтау, semantic/UOM mapping, time/depth index таңдау және immutable
-`AcquisitionDatasetSchema` атомарлық құру. Келесі кезең — append-only `AcquisitionSession`;
-кірістірілген mapping нақты raw арқылы әлі де расталуы тиіс.
+Raw capture, типтелген parser, Import Review және append-only `AcquisitionSession` орындалды.
+Келесі срез current values, time/depth live graphs, quality/gap markers және workspace settings
+қосады. Кірістірілген GeoScape mapping әлі де нақты anonymized GSWITS raw-ағынымен расталуы тиіс;
+Windows reconnect/soak/restart/disk-full қабылдауы ашық қалады.
 
 ## Әзірленуде: WITSML 2.x офлайн түгендеуі
 
@@ -26,6 +25,17 @@ Review және `Dataset` арқылы импорттау қосылды. СГ-8
 ODBC/ACE арқылы оқылады: `WELLS`, `FORMULAS.RESGID → S-код`, Sensors fallback және аудит
 қосылады. Драйвер жоқ болса да кесте импорты тоқтамайды және нақты диагностика көрсетіледі.
 
+
+## 0.7.76 нұсқасында аяқталды
+
+`Wits0FrameNormalizer`, immutable normalized measurement batches және
+`Wits0AcquisitionRuntime` қосылды. Расталған frames атомдық bounded enqueue, backpressure policy,
+checkpoints және controlled close арқылы append-only `AcquisitionSession` ішіне түседі. WITS0
+терезесі ағымдағы ұңғыма үшін сессия бастайды, pending/applied/skipped counters көрсетеді және
+growing Dataset таңдайды. Live/replay batches детерминирленген; жабық сессия project format
+өзгермей save/reopen тексеруінен өтеді.
+
+Күй күні: 27 шілде 2026 жыл. Пакет нұсқасы: **0.7.76**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## 0.7.75 нұсқасында аяқталды
 

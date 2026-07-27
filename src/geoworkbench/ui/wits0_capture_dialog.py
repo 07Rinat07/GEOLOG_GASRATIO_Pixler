@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable, TYPE_CHECKING
+from uuid import uuid4
 
 from PySide6.QtCore import QSettings, QStandardPaths, QTimer
 from PySide6.QtWidgets import (
@@ -33,6 +35,13 @@ from geoworkbench.acquisition import (
     load_builtin_wits0_profile,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.wits0_acquisition import (
+    Wits0AcquisitionBackpressureError,
+    Wits0AcquisitionConfig,
+    Wits0AcquisitionRuntime,
+    Wits0AcquisitionState,
+    Wits0BackpressurePolicy,
+)
 from geoworkbench.services.wits0_import_review import (
     Wits0CustomProfile,
     Wits0DiscoveryAccumulator,
@@ -41,6 +50,9 @@ from geoworkbench.services.wits0_import_review import (
     save_wits0_custom_profile,
 )
 from geoworkbench.ui.wits0_import_review_dialog import Wits0ImportReviewDialog
+
+if TYPE_CHECKING:
+    from geoworkbench.domain.models import Well
 
 
 class Wits0CaptureDialog(QDialog):
@@ -55,12 +67,17 @@ class Wits0CaptureDialog(QDialog):
         parent: QWidget | None = None,
         *,
         language: AppLanguage = AppLanguage.RU,
+        well_provider: Callable[[], "Well | None"] | None = None,
+        on_dataset_changed: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(parent)
         self.language = language
         self.localizer = Localizer.create(language)
         self.settings = QSettings()
+        self.well_provider = well_provider
+        self.on_dataset_changed = on_dataset_changed
         self.engine: Wits0CaptureEngine | None = None
+        self.acquisition_runtime: Wits0AcquisitionRuntime | None = None
         self.profile = load_builtin_wits0_profile()
         self.discovery = Wits0DiscoveryAccumulator(self.profile)
         self.review_commit: Wits0ImportReviewCommit | None = None
@@ -105,6 +122,21 @@ class Wits0CaptureDialog(QDialog):
         self.reset_discovery_button.clicked.connect(self._reset_discovery)
         actions.addWidget(self.review_button)
         actions.addWidget(self.reset_discovery_button)
+        self.start_acquisition_button = QPushButton(
+            self._t("wits0.acquisition_start"), self
+        )
+        self.flush_acquisition_button = QPushButton(
+            self._t("wits0.acquisition_flush"), self
+        )
+        self.close_acquisition_button = QPushButton(
+            self._t("wits0.acquisition_close"), self
+        )
+        self.start_acquisition_button.clicked.connect(self._start_acquisition)
+        self.flush_acquisition_button.clicked.connect(self._flush_acquisition)
+        self.close_acquisition_button.clicked.connect(self._close_acquisition)
+        actions.addWidget(self.start_acquisition_button)
+        actions.addWidget(self.flush_acquisition_button)
+        actions.addWidget(self.close_acquisition_button)
         actions.addStretch(1)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         buttons.rejected.connect(self.close)
@@ -200,6 +232,12 @@ class Wits0CaptureDialog(QDialog):
         self.review_state_value = QLabel("—", group)
         self.schema_digest_value = QLabel("—", group)
         self.custom_profile_value = QLabel("—", group)
+        self.acquisition_state_value = QLabel("—", group)
+        self.acquisition_pending_value = QLabel("0", group)
+        self.acquisition_applied_value = QLabel("0", group)
+        self.acquisition_skipped_value = QLabel("0", group)
+        self.acquisition_checkpoints_value = QLabel("0", group)
+        self.acquisition_backpressure_value = QLabel("0", group)
         self.errors_value = QLabel("0", group)
         self.last_received_value = QLabel("—", group)
 
@@ -218,6 +256,12 @@ class Wits0CaptureDialog(QDialog):
             ("wits0.review_state", self.review_state_value),
             ("wits0.schema_digest", self.schema_digest_value),
             ("wits0.custom_profile_file", self.custom_profile_value),
+            ("wits0.acquisition_state", self.acquisition_state_value),
+            ("wits0.acquisition_pending", self.acquisition_pending_value),
+            ("wits0.acquisition_applied", self.acquisition_applied_value),
+            ("wits0.acquisition_skipped", self.acquisition_skipped_value),
+            ("wits0.acquisition_checkpoints", self.acquisition_checkpoints_value),
+            ("wits0.acquisition_backpressure", self.acquisition_backpressure_value),
             ("wits0.errors", self.errors_value),
             ("wits0.last_received", self.last_received_value),
         )
@@ -244,7 +288,8 @@ class Wits0CaptureDialog(QDialog):
             QMessageBox.critical(self, self._t("wits0.title"), str(exc))
             return
         self._save_settings(config)
-        self._reset_discovery(show_confirmation=False)
+        if self.review_commit is None and self.acquisition_runtime is None:
+            self._reset_discovery(show_confirmation=False)
         engine = Wits0CaptureEngine(config, profile=self.profile)
         try:
             engine.start()
@@ -297,6 +342,14 @@ class Wits0CaptureDialog(QDialog):
                     self.parsed_text.appendPlainText(
                         self._format_parsed_frame(event.parsed_frame)
                     )
+                    runtime = self.acquisition_runtime
+                    if runtime is not None and runtime.state is Wits0AcquisitionState.OPEN:
+                        try:
+                            runtime.submit_frame(event.parsed_frame)
+                        except Wits0AcquisitionBackpressureError as exc:
+                            self.event_text.appendPlainText(
+                                self._t("wits0.acquisition_backpressure_event", error=str(exc))
+                            )
                 continue
             detail = event.message
             if event.peer:
@@ -304,6 +357,17 @@ class Wits0CaptureDialog(QDialog):
             if event.raw_file:
                 detail = f"{detail}: {event.raw_file}"
             self.event_text.appendPlainText(f"{event.occurred_at}  {detail}")
+        runtime = self.acquisition_runtime
+        if runtime is not None and runtime.state is Wits0AcquisitionState.OPEN:
+            try:
+                applied = runtime.drain(limit=runtime.config.drain_batch_size)
+            except Exception as exc:
+                self.event_text.appendPlainText(
+                    self._t("wits0.acquisition_error_event", error=str(exc))
+                )
+            else:
+                if applied:
+                    self._notify_dataset_changed(runtime)
         self._refresh_snapshot()
         self._refresh_controls()
 
@@ -343,6 +407,7 @@ class Wits0CaptureDialog(QDialog):
             self.last_received_value.setText(snapshot.last_received_at or "—")
         self.state_value.setText(self._t(f"wits0.state_{state.value}"))
         self._refresh_discovery_status()
+        self._refresh_acquisition_status()
 
     def _format_parsed_frame(self, frame: Wits0ParsedFrame) -> str:
         record = f"{frame.record_no:02d}" if frame.record_no is not None else "—"
@@ -388,8 +453,141 @@ class Wits0CaptureDialog(QDialog):
         self.start_button.setEnabled(not running)
         self.stop_button.setEnabled(running)
         has_channels = bool(self.discovery.snapshot().channels)
-        self.review_button.setEnabled(has_channels)
-        self.reset_discovery_button.setEnabled(has_channels or self.review_commit is not None)
+        runtime = self.acquisition_runtime
+        acquisition_open = runtime is not None and runtime.state is Wits0AcquisitionState.OPEN
+        commit_current = (
+            self.review_commit is not None
+            and self.review_commit.custom_profile.discovery_fingerprint
+            == self.discovery.snapshot().fingerprint
+        )
+        self.review_button.setEnabled(has_channels and not acquisition_open)
+        self.reset_discovery_button.setEnabled(
+            not acquisition_open and (has_channels or self.review_commit is not None)
+        )
+        has_well = self.well_provider is not None and self.well_provider() is not None
+        self.start_acquisition_button.setEnabled(
+            commit_current
+            and self.acquisition_runtime is None
+            and not acquisition_open
+            and has_well
+        )
+        self.flush_acquisition_button.setEnabled(
+            acquisition_open and runtime is not None and runtime.controller.pending_count > 0
+        )
+        self.close_acquisition_button.setEnabled(acquisition_open)
+
+
+    def _start_acquisition(self) -> None:
+        commit = self.review_commit
+        well = self.well_provider() if self.well_provider is not None else None
+        snapshot = self.discovery.snapshot()
+        if commit is None or commit.custom_profile.discovery_fingerprint != snapshot.fingerprint:
+            QMessageBox.warning(
+                self,
+                self._t("wits0.title"),
+                self._t("wits0.acquisition_review_required"),
+            )
+            return
+        if well is None:
+            QMessageBox.warning(
+                self,
+                self._t("wits0.title"),
+                self._t("wits0.acquisition_well_required"),
+            )
+            return
+        try:
+            runtime = Wits0AcquisitionRuntime(
+                well,
+                commit,
+                session_id=f"wits0-{uuid4()}",
+                config=Wits0AcquisitionConfig(
+                    max_pending_records=256,
+                    drain_batch_size=64,
+                    checkpoint_every_records=500,
+                    checkpoint_interval_seconds=60.0,
+                    backpressure_policy=Wits0BackpressurePolicy.DRAIN_THEN_RETRY,
+                ),
+            )
+        except (ValueError, RuntimeError) as exc:
+            QMessageBox.critical(self, self._t("wits0.title"), str(exc))
+            return
+        self.acquisition_runtime = runtime
+        self._notify_dataset_changed(runtime)
+        self.event_text.appendPlainText(
+            self._t(
+                "wits0.acquisition_started_event",
+                session=runtime.session.session_id,
+                dataset=runtime.session.dataset_schema.name,
+            )
+        )
+        self._refresh_acquisition_status()
+        self._refresh_controls()
+
+    def _flush_acquisition(self) -> None:
+        runtime = self.acquisition_runtime
+        if runtime is None or runtime.state is not Wits0AcquisitionState.OPEN:
+            return
+        try:
+            applied = runtime.flush()
+        except Exception as exc:
+            QMessageBox.critical(self, self._t("wits0.title"), str(exc))
+            return
+        if applied:
+            self._notify_dataset_changed(runtime)
+        self.event_text.appendPlainText(
+            self._t("wits0.acquisition_flushed_event", count=len(applied))
+        )
+        self._refresh_acquisition_status()
+        self._refresh_controls()
+
+    def _close_acquisition(self) -> None:
+        runtime = self.acquisition_runtime
+        if runtime is None or runtime.state is not Wits0AcquisitionState.OPEN:
+            return
+        engine = self.engine
+        if engine is not None and engine.is_running:
+            engine.stop(timeout=2.0)
+            self._poll_engine()
+        try:
+            checkpoint = runtime.close()
+        except Exception as exc:
+            QMessageBox.critical(self, self._t("wits0.title"), str(exc))
+            return
+        self._notify_dataset_changed(runtime)
+        self.event_text.appendPlainText(
+            self._t(
+                "wits0.acquisition_closed_event",
+                sequence=checkpoint.sequence,
+                checkpoint=checkpoint.checkpoint_id,
+            )
+        )
+        self._refresh_acquisition_status()
+        self._refresh_controls()
+
+    def _notify_dataset_changed(self, runtime: Wits0AcquisitionRuntime) -> None:
+        callback = self.on_dataset_changed
+        if callback is not None:
+            callback(runtime.session.dataset_schema.dataset_id)
+
+    def _refresh_acquisition_status(self) -> None:
+        runtime = self.acquisition_runtime
+        if runtime is None:
+            self.acquisition_state_value.setText(self._t("wits0.acquisition_state_none"))
+            self.acquisition_pending_value.setText("0")
+            self.acquisition_applied_value.setText("0")
+            self.acquisition_skipped_value.setText("0")
+            self.acquisition_checkpoints_value.setText("0")
+            self.acquisition_backpressure_value.setText("0")
+            return
+        snapshot = runtime.snapshot()
+        self.acquisition_state_value.setText(
+            self._t(f"wits0.acquisition_state_{snapshot.state.value}")
+        )
+        self.acquisition_pending_value.setText(str(snapshot.pending_records))
+        self.acquisition_applied_value.setText(str(snapshot.records_applied))
+        self.acquisition_skipped_value.setText(str(snapshot.frames_skipped))
+        self.acquisition_checkpoints_value.setText(str(snapshot.checkpoints_created))
+        self.acquisition_backpressure_value.setText(str(snapshot.backpressure_count))
 
     def _custom_profile_directory(self) -> Path:
         return Path(
@@ -468,6 +666,14 @@ class Wits0CaptureDialog(QDialog):
         show_confirmation: bool = True,
     ) -> None:
         snapshot = self.discovery.snapshot()
+        runtime = self.acquisition_runtime
+        if runtime is not None and runtime.state is Wits0AcquisitionState.OPEN:
+            QMessageBox.warning(
+                self,
+                self._t("wits0_review.title"),
+                self._t("wits0.acquisition_close_before_reset"),
+            )
+            return
         if show_confirmation and (snapshot.channels or self.review_commit is not None):
             answer = QMessageBox.question(
                 self,
@@ -508,6 +714,15 @@ class Wits0CaptureDialog(QDialog):
         engine = self.engine
         if engine is not None and engine.is_running:
             engine.stop(timeout=2.0)
+            self._poll_engine()
+        runtime = self.acquisition_runtime
+        if runtime is not None and runtime.state is Wits0AcquisitionState.OPEN:
+            try:
+                runtime.close()
+            except Exception as exc:
+                self.event_text.appendPlainText(str(exc))
+            else:
+                self._notify_dataset_changed(runtime)
         self.poll_timer.stop()
         super().closeEvent(event)
 

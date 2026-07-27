@@ -1,3 +1,11 @@
+# 0.7.76 — WITS0 normalized batches and append-only AcquisitionSession
+
+- Added deterministic `Wits0FrameNormalizer` output with reviewed time/depth indexes, sparse numeric rows, raw SHA-256, source sequence, reception time, and raw-reference provenance.
+- Added `Wits0AcquisitionRuntime` over `AcquisitionController` with atomic bounded `enqueue_many()`, explicit backpressure, draining, checkpoints, open-session resume, and controlled close.
+- Integrated session start, queue flush, close, and pending/applied/skipped/checkpoint/backpressure status into the modeless WITS0 window.
+- Kept socket I/O in the worker and project mutation in the GUI polling boundary.
+- Preserved project format v20, form schema v8, and tablet layout v18; current-values and live graph UI remain stage E.
+
 # 0.7.75 — WITS0 Import Review and immutable acquisition schema
 
 - Added deterministic immutable WITS0 discovery snapshots for all data record/item fields.

@@ -1,12 +1,11 @@
 # Project status
 
-## In development: WITS0 real-time integration
+## In development: WITS0 live monitor and field reliability
 
-The raw-capture boundary, typed parser, and Import Review are implemented: TCP server/client,
-reconnect, `&& ... !!` framing, append-only `*.wits`, one live/replay pipeline, deterministic
-record/item discovery, semantic/UOM mapping, time/depth index selection, and atomic creation of
-an immutable `AcquisitionDatasetSchema`. The next slice is append-only `AcquisitionSession`;
-the built-in mapping still requires confirmation with real raw data.
+Raw capture, the typed parser, Import Review, and the append-only `AcquisitionSession` are
+implemented. The next slice connects current values, time/depth live graphs, quality/gap markers,
+and workspace settings. The built-in GeoScape mapping still requires confirmation against real
+anonymized GSWITS raw traffic; Windows reconnect/soak/restart/disk-full acceptance remains open.
 
 ## In development: offline WITSML 2.x inventory
 
@@ -27,6 +26,17 @@ tables; `GS2#101.db` has TIME, DEPTH, and 206 channels on a 0.2 m grid. The five
 `FORMULAS.RESGID → S-code` mappings, Sensors fallback, and audit metadata. A missing driver no
 longer blocks table import and produces actionable diagnostics.
 
+
+## Completed in 0.7.76
+
+Added `Wits0FrameNormalizer`, immutable normalized measurement batches, and
+`Wits0AcquisitionRuntime`. Confirmed frames pass through atomic bounded enqueue, a backpressure
+policy, checkpoints, and controlled close into an append-only `AcquisitionSession`. The WITS0
+window starts a session for the current well, shows pending/applied/skipped counters, and selects
+the growing Dataset. Live/replay batches are deterministic, and a closed session survives project
+save/reopen without a project-format change.
+
+Snapshot: 27 July 2026. Package version: **0.7.76**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Completed in 0.7.75
 

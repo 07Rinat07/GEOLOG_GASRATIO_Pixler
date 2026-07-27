@@ -5,6 +5,7 @@
 - User guide: [Русский](ru/README.md) · [Қазақша](kk/README.md) · [English](en/README.md)
 - Feature map: [Русский](ru/FEATURES.md) · [Қазақша](kk/FEATURES.md) · [English](en/FEATURES.md)
 - WITS0 capture: [Русский](ru/WITS0_CAPTURE.md) · [Қазақша](kk/WITS0_CAPTURE.md) · [English](en/WITS0_CAPTURE.md)
+- WITS0 AcquisitionSession: [Русский](ru/WITS0_ACQUISITION.md) · [Қазақша](kk/WITS0_ACQUISITION.md) · [English](en/WITS0_ACQUISITION.md)
 - WITSML inventory: [Русский](ru/WITSML_INVENTORY.md) · [Қазақша](kk/WITSML_INVENTORY.md) · [English](en/WITSML_INVENTORY.md)
 - Product audit: [Русский](ru/PRODUCT_AUDIT_2026.md) ·
   [Қазақша](kk/PRODUCT_AUDIT_2026.md) · [English](en/PRODUCT_AUDIT_2026.md)
@@ -18,6 +19,7 @@
 - [PRODUCT_AUDIT_2026.md](PRODUCT_AUDIT_2026.md) — evidence, risks, and market comparison.
 - [ROADMAP.md](ROADMAP.md) — ordered phases and exit criteria.
 - [WITS_INTEGRATION_PLAN.md](WITS_INTEGRATION_PLAN.md) — WITS0/WITSML architecture, milestones, and field acceptance.
+- [WITS0_ACQUISITION.md](WITS0_ACQUISITION.md) — normalized batches, bounded queue, checkpoints, resume, and controlled close.
 - [PROJECT_PLAN.md](PROJECT_PLAN.md) — current tasks; historical slices are excluded.
 - [PROJECT_STATUS.md](PROJECT_STATUS.md) — verified implementation and quality state.
 - [REQUIREMENTS.md](REQUIREMENTS.md) — product requirements matrix.
@@ -37,6 +39,7 @@
 
 ## Main workflows
 
+- WITS0 AcquisitionSession 0.7.76: [RU](ru/RELEASE_NOTES_0.7.76.md) · [KK](kk/RELEASE_NOTES_0.7.76.md) · [EN](en/RELEASE_NOTES_0.7.76.md) · [build manifest](BUILD_MANIFEST_0.7.76.md)
 - WITS0 Import Review 0.7.75: [RU](ru/RELEASE_NOTES_0.7.75.md) · [KK](kk/RELEASE_NOTES_0.7.75.md) · [EN](en/RELEASE_NOTES_0.7.75.md) · [build manifest](BUILD_MANIFEST_0.7.75.md)
 - WITS0 raw capture 0.7.73: [RU](ru/RELEASE_NOTES_0.7.73.md) · [KK](kk/RELEASE_NOTES_0.7.73.md) · [EN](en/RELEASE_NOTES_0.7.73.md) · [build manifest](BUILD_MANIFEST_0.7.73.md)
 - WITS0 typed parser 0.7.74: [RU](ru/RELEASE_NOTES_0.7.74.md) · [KK](kk/RELEASE_NOTES_0.7.74.md) · [EN](en/RELEASE_NOTES_0.7.74.md) · [build manifest](BUILD_MANIFEST_0.7.74.md)
@@ -59,6 +62,7 @@
 - DOCX/HTML export: [RU](ru/DOCX_HTML_EXPORT.md) · [KK](kk/DOCX_HTML_EXPORT.md) · [EN](en/DOCX_HTML_EXPORT.md)
 - Operational events: [RU](ru/OPERATIONAL_EVENTS.md) · [KK](kk/OPERATIONAL_EVENTS.md) · [EN](en/OPERATIONAL_EVENTS.md)
 - WITS0 capture: [RU](ru/WITS0_CAPTURE.md) · [KK](kk/WITS0_CAPTURE.md) · [EN](en/WITS0_CAPTURE.md)
+- WITS0 AcquisitionSession: [RU](ru/WITS0_ACQUISITION.md) · [KK](kk/WITS0_ACQUISITION.md) · [EN](en/WITS0_ACQUISITION.md)
 - Acquisition replay: [RU](ru/ACQUISITION_REPLAY.md) · [KK](kk/ACQUISITION_REPLAY.md) · [EN](en/ACQUISITION_REPLAY.md)
 - Catalog symbol insertion on graphs 0.7.61: [RU](ru/RELEASE_NOTES_0.7.61.md) · [KK](kk/RELEASE_NOTES_0.7.61.md) · [EN](en/RELEASE_NOTES_0.7.61.md)
 - Build manifest 0.7.61: [BUILD_MANIFEST_0.7.61.md](BUILD_MANIFEST_0.7.61.md)

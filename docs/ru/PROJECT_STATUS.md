@@ -1,12 +1,11 @@
 # Состояние проекта
 
-## В разработке: WITS0 real-time integration
+## В разработке: WITS0 live monitor и полевая надёжность
 
-Raw-capture boundary, типизированный parser и Import Review реализованы: TCP server/client,
-reconnect, `&& ... !!` framing, append-only `*.wits`, единый live/replay pipeline,
-детерминированное обнаружение record/item, semantic/UOM mapping, выбор time/depth index и
-атомарное создание immutable `AcquisitionDatasetSchema`. Следующий срез — append-only
-`AcquisitionSession`; встроенный mapping по-прежнему нужно подтвердить реальным raw-дампом.
+Raw capture, типизированный parser, Import Review и append-only `AcquisitionSession` реализованы.
+Следующий срез подключает current values, time/depth live graphs, quality/gap markers и workspace
+settings. Встроенный GeoScape mapping по-прежнему требуется подтвердить реальным anonymized
+GSWITS raw-потоком; Windows reconnect/soak/restart/disk-full приёмка остаётся открытой.
 
 ## В разработке: офлайн-инвентарь WITSML 2.x
 
@@ -25,6 +24,17 @@ Paradox reader, Import Review и `Dataset`. На образце СГ-8 расп�
 read-only Qt ODBC/ACE: импорт получает `WELLS`, формулы `RESGID → S-код`, Sensors fallback и
 аудит. Отсутствие драйвера не блокирует импорт и сопровождается конкретной диагностикой.
 
+
+## Завершено в 0.7.76
+
+Добавлены `Wits0FrameNormalizer`, immutable normalized measurement batches и
+`Wits0AcquisitionRuntime`. Подтверждённые frames проходят через атомарный bounded enqueue,
+backpressure policy, checkpoints и controlled close в append-only `AcquisitionSession`.
+Окно WITS0 запускает сессию для текущей скважины, показывает pending/applied/skipped counters и
+выбирает growing Dataset. Live/replay batches детерминированы, закрытая сессия проходит project
+save/reopen без изменения project format.
+
+Срез: 27 июля 2026 года. Версия пакета: **0.7.76**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Завершено в 0.7.75
 

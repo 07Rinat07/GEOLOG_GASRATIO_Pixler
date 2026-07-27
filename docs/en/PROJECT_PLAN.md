@@ -1,22 +1,24 @@
 # Project plan
 
-Current on 27 July 2026 after the 0.7.75 slice. This file contains unfinished work only; implemented increments belong in
+Current on 27 July 2026 after the 0.7.76 slice. This file contains unfinished work only; implemented increments belong in
 [project status](PROJECT_STATUS.md), the root [changelog](../CHANGELOG.md), and release notes.
 
 
-## Priority: WITS0 append-only AcquisitionSession and live acquisition
+## Priority: WITS0 live monitor and field reliability
 
-Raw capture, the typed parser, and Import Review with an immutable `AcquisitionDatasetSchema` are
-complete. Remaining work:
+Raw capture, the typed parser, Import Review, normalized batches, and the append-only
+`AcquisitionSession` through `AcquisitionController` are complete. Remaining work:
 
 - [ ] obtain 5–10 minutes of real GSWITS raw data;
 - [ ] confirm TCP mode, address, port, encoding, header fields, and record intervals;
 - [ ] compare the built-in GeoScape profile and saved custom profile with real record/item values;
-- [ ] convert confirmed WITS0 frames into normalized measurement batches;
-- [ ] create an append-only `AcquisitionSession` through `AcquisitionController`;
-- [ ] add checkpoints, a bounded queue, backpressure, and controlled close;
-- [ ] connect current values and live time/depth graphs;
-- [ ] complete Windows reconnect/soak/restart validation.
+- [ ] connect a current-values table to the growing Dataset;
+- [ ] add live time and depth graphs with auto-follow and pause-view;
+- [ ] show quality, sequence-gap, and connection-gap markers;
+- [ ] persist selected channels, ranges, and follow mode in workspace settings;
+- [ ] add connection events and an explicit new-session policy after a previous session is closed;
+- [ ] complete Windows reconnect/soak/restart/disk-full validation.
+
 ## GeoScape II GS2 acceptance
 
 - [ ] add versioned projections and anonymized Access/Paradox fixtures from other GeoScape versions;

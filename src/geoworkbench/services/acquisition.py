@@ -118,6 +118,12 @@ class AcquisitionController:
         self.session = session
         self.max_pending_records = max_pending_records
         self._pending: deque[AcquisitionRecord] = deque()
+        # Keep an incremental identity index. Rebuilding a set from the complete
+        # append-only record history on every live frame would make long sessions
+        # progressively slower (O(n²) over the session lifetime).
+        self._known_record_ids: set[str] = {
+            item.record_id for item in session.records
+        }
         self._qc_evaluator = OperationalEventQcEvaluator(qc_policy or OperationalEventQcPolicy())
         created_dataset = session.dataset_schema.dataset_id not in well.datasets
         events_snapshot = dict(well.operational_events)
@@ -143,24 +149,46 @@ class AcquisitionController:
     def pending_count(self) -> int:
         return len(self._pending)
 
+    @property
+    def remaining_capacity(self) -> int:
+        return self.max_pending_records - len(self._pending)
+
     def enqueue(self, record: AcquisitionRecord) -> None:
+        self.enqueue_many((record,))
+
+    def enqueue_many(self, records: Iterable[AcquisitionRecord]) -> None:
+        """Atomically enqueue a contiguous record batch without partial buffer mutation."""
+
         self._require_open()
-        if len(self._pending) >= self.max_pending_records:
+        materialized = tuple(records)
+        if not materialized:
+            return
+        if len(materialized) > self.remaining_capacity:
             raise AcquisitionBackpressureError(
-                f"Acquisition buffer заполнен: {self.max_pending_records} records"
+                "Acquisition buffer capacity exceeded: "
+                f"pending={len(self._pending)}, incoming={len(materialized)}, "
+                f"capacity={self.max_pending_records}"
             )
         expected_sequence = self.session.last_sequence + len(self._pending) + 1
-        if record.sequence != expected_sequence:
-            raise AcquisitionConflictError(
-                f"Acquisition sequence conflict: expected {expected_sequence}, "
-                f"actual {record.sequence}"
-            )
-        record_ids = {item.record_id for item in self.session.records}
-        record_ids.update(item.record_id for item in self._pending)
-        if record.record_id in record_ids:
-            raise AcquisitionConflictError(f"Acquisition record уже существует: {record.record_id}")
-        self._validate_record_schema(record)
-        self._pending.append(record)
+        incoming_ids: set[str] = set()
+        for offset, record in enumerate(materialized):
+            expected = expected_sequence + offset
+            if record.sequence != expected:
+                raise AcquisitionConflictError(
+                    f"Acquisition sequence conflict: expected {expected}, "
+                    f"actual {record.sequence}"
+                )
+            if (
+                record.record_id in self._known_record_ids
+                or record.record_id in incoming_ids
+            ):
+                raise AcquisitionConflictError(
+                    f"Acquisition record уже существует: {record.record_id}"
+                )
+            self._validate_record_schema(record)
+            incoming_ids.add(record.record_id)
+        self._pending.extend(materialized)
+        self._known_record_ids.update(incoming_ids)
 
     def append(self, record: AcquisitionRecord) -> AcquisitionApplyResult:
         self.enqueue(record)

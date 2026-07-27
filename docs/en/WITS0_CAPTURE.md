@@ -3,9 +3,9 @@
 ## Purpose
 
 **File → Capture WITS Level 0...** receives a GSWITS TCP stream, preserves the incoming bytes
-unchanged, and passes every complete frame through a typed parser. Version 0.7.75 does not commit
-values to a Dataset or run alarms: the raw boundary, parser, and diagnostics remain separate from
-project mutation.
+unchanged, and passes every complete frame through a typed parser. In version 0.7.76, a confirmed
+Import Review can start an append-only `AcquisitionSession`; the raw boundary and parser remain
+immutable, while Dataset mutation occurs only through `AcquisitionController`.
 
 ## TCP server setup
 
@@ -99,11 +99,29 @@ a confirmation. A new `record/item`, changed inferred type/UOM, or newly availab
 marks the schema **Stale** and requires another review. **Reset discovery** clears only the current
 snapshot and commit; saved versioned profiles remain on disk.
 
+## AcquisitionSession
+
+After confirming the schema, select the current well and press **Start session**. The application:
+
+1. converts received frames into immutable normalized measurement batches;
+2. places records into a bounded queue atomically, without partial enqueue;
+3. applies the configured `DRAIN_THEN_RETRY` policy under backpressure;
+4. writes rows only through `AcquisitionController`;
+5. creates checkpoints only when the pending queue is empty;
+6. shows pending, applied, skipped, checkpoints, and backpressure;
+7. on **Close session**, stops intake, drains the queue, and creates the final checkpoint.
+
+The growing Dataset is selected immediately in the project tree. **Flush queue** manually applies
+all pending records. Closing the window during an active session first stops the TCP worker,
+processes remaining immutable events, and performs controlled close. Full contract:
+[WITS0_ACQUISITION.md](WITS0_ACQUISITION.md).
+
 ## Limitations
 
 - the GeoScape profile is based on the GSWITS manual and must be confirmed against a real stream;
 - unknown fields are preserved and editable in Import Review but require manual confirmation;
 - numerical UOM conversion is not yet performed: source and canonical UOM must resolve to the same canonical unit;
-- confirmation creates a schema and versioned mapping profile but does not yet start an `AcquisitionSession`;
+- current values and dedicated live time/depth graphs are the next increment;
+- reconnect does not yet create separate connection-gap records, and a new session for a previously used well requires an explicit policy;
 - do not expose the WITS0 port directly to the internet;
 - raw files do not replace project saving with **Ctrl+S**.
