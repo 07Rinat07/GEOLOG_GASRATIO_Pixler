@@ -1,6 +1,6 @@
 # Project plan
 
-Current on 27 July 2026 after the 0.7.78 slice. This file contains unfinished work only; implemented
+Current on 27 July 2026 after the 0.7.79 slice. This file contains unfinished work only; implemented
 increments are recorded in project status, changelog and release notes.
 
 ## Priority: WITS0 field acceptance
@@ -18,14 +18,20 @@ software reliability layer are implemented. Remaining field work:
 - [ ] add independent tracks/scales for incompatible units;
 - [ ] define a new-source-session policy after a previous session is closed.
 
-## Next product increment: offline WITSML data import
+## Completed in 0.7.79: offline WITSML data import
 
-- [ ] select `ChannelSet` and `Channel` from the safe inventory;
-- [ ] read channel arrays without network ETP;
-- [ ] select time/depth index and bind Well/Wellbore;
-- [ ] perform semantic/UOM Import Review;
-- [ ] atomically create an immutable Dataset;
-- [ ] add official or licensed fixtures with explicit provenance.
+- [x] select `ChannelSet`, active `Index` and scalar numeric `Channel` values;
+- [x] read embedded Data and safe relative FileUri without network ETP;
+- [x] bind time/depth index and Well/Wellbore metadata;
+- [x] perform Semantic Channel Dictionary/UOM Import Review with numeric conversion;
+- [x] atomically create and register an immutable Dataset;
+- [x] include a synthetic fixture with explicit provenance and regression tests.
+
+## Next product increment: WITSML 1.4.1.1 SOAP read-only
+
+- [ ] implement GetVersion/GetCap and read-only Well → Wellbore → Log → LogData;
+- [ ] keep credentials outside project files;
+- [ ] add timeout/retry/audit without Add/Update/Delete.
 
 ## GeoScape II GS2 acceptance
 

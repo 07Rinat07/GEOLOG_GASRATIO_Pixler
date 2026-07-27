@@ -1,6 +1,6 @@
 # План проекта
 
-Актуально на 27 июля 2026 года после среза 0.7.78. Здесь перечислена только незавершённая работа;
+Актуально на 27 июля 2026 года после среза 0.7.79. Здесь перечислена только незавершённая работа;
 реализованные срезы находятся в [состоянии проекта](PROJECT_STATUS.md), корневой
 [истории изменений](CHANGELOG.md) и release notes.
 
@@ -19,14 +19,20 @@ monitor и программный reliability-контур готовы. До п
 - [ ] добавить независимые дорожки/шкалы для несовместимых единиц;
 - [ ] определить политику новой source session после закрытия предыдущей.
 
-## Следующий продуктовый этап: WITSML offline data import
+## Завершено в 0.7.79: WITSML offline data import
 
-- [ ] выбрать `ChannelSet` и `Channel` из существующего безопасного inventory;
-- [ ] прочитать channel arrays без сетевого ETP;
-- [ ] определить time/depth index и Well/Wellbore binding;
-- [ ] выполнить Semantic Channel Dictionary/UOM Import Review;
-- [ ] атомарно создать immutable Dataset;
-- [ ] добавить официальные или лицензированные fixtures с доказуемым происхождением.
+- [x] выбор `ChannelSet`, активного `Index` и scalar numeric `Channel`;
+- [x] embedded Data и безопасный relative FileUri без сетевого ETP;
+- [x] time/depth index, Well/Wellbore metadata и UOM conversion;
+- [x] Semantic Channel Dictionary Import Review;
+- [x] атомарное создание и регистрация immutable Dataset;
+- [x] синтетический fixture и regression tests.
+
+## Следующий продуктовый этап: WITSML 1.4.1.1 SOAP read-only
+
+- [ ] GetVersion/GetCap и read-only Well → Wellbore → Log → LogData;
+- [ ] credentials вне project file, timeout/retry/audit;
+- [ ] без Add/Update/Delete в первом срезе.
 
 ## Приёмка GeoScape II GS2
 

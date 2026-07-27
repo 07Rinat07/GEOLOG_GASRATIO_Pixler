@@ -1,6 +1,6 @@
 # Жоба жоспары
 
-0.7.78 кезеңінен кейін 2026 жылғы 27 шілдеге өзекті. Бұл файлда тек аяқталмаған жұмыс берілген;
+0.7.79 кезеңінен кейін 2026 жылғы 27 шілдеге өзекті. Бұл файлда тек аяқталмаған жұмыс берілген;
 орындалған кезеңдер project status, changelog және release notes ішінде көрсетіледі.
 
 ## Басымдық: WITS0 далалық қабылдауы
@@ -18,14 +18,20 @@ software reliability қабаты дайын. Қалған жұмыс:
 - [ ] сәйкес емес өлшем бірліктері үшін тәуелсіз track/scale қосу;
 - [ ] жабылған сессиядан кейін жаңа source session саясатын анықтау.
 
-## Келесі өнімдік кезең: WITSML offline data import
+## 0.7.79 ішінде аяқталды: WITSML offline data import
 
-- [ ] қауіпсіз inventory ішінен `ChannelSet` және `Channel` таңдау;
-- [ ] network ETP қолданбай channel arrays оқу;
-- [ ] time/depth index және Well/Wellbore байланысын таңдау;
-- [ ] semantic/UOM Import Review орындау;
-- [ ] immutable Dataset-ті атомарлы жасау;
-- [ ] provenance анық official немесе licensed fixtures қосу.
+- [x] `ChannelSet`, белсенді `Index` және scalar numeric `Channel` таңдау;
+- [x] network ETP қолданбай embedded Data және қауіпсіз relative FileUri оқу;
+- [x] time/depth index және Well/Wellbore metadata байланыстыру;
+- [x] сандық conversion бар Semantic Channel Dictionary/UOM Import Review;
+- [x] immutable Dataset-ті атомарлық құру және тіркеу;
+- [x] анық provenance және regression tests бар синтетикалық fixture.
+
+## Келесі өнімдік кезең: WITSML 1.4.1.1 SOAP read-only
+
+- [ ] GetVersion/GetCap және read-only Well → Wellbore → Log → LogData;
+- [ ] credentials-ті project file сыртында сақтау;
+- [ ] Add/Update/Delete қолданбай timeout/retry/audit қосу.
 
 ## Қабылдау критерийі
 

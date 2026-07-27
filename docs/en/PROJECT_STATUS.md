@@ -9,14 +9,12 @@ GSWITS soak, controlled low-space/disk-full exercise, independent channel scales
 startup/service evaluation and a signed field checklist. The built-in GeoScape mapping still
 requires confirmation against anonymized real traffic.
 
-## In development: offline WITSML 2.x inventory
+## Completed in 0.7.79: offline WITSML 2.x import
 
-Safe, read-only inspection is implemented for individual XML/WITSML files, directories, and
-ZIP/EPC packages. The dialog shows top-level objects, `schemaVersion`, UUIDs, references, and,
-for each `Channel`, mnemonic, data type, unit, source, class, indexes, and range. Archives are
-never extracted; traversal, DTD/entity declarations, encryption, duplicate paths, and resource
-limit violations are rejected. This slice does not create a `Dataset`, read channel arrays, or
-connect through ETP.
+The safe inventory now reads embedded/relative-file `ChannelData`, selects a ChannelSet, active
+time/depth index and scalar numeric channels. Import Review performs semantic mapping, strict UOM
+conversion and row QC, then atomically creates a Dataset with source/data SHA-256 and a stable
+digest. Binary Avro, multidimensional arrays, SOAP and ETP remain later work.
 
 ## In development: GeoScape II GS2
 

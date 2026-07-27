@@ -64,7 +64,8 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 - `Channel` mnemonic, data type, UOM, source, class, indexes and range;
 - ресурсные лимиты и защита XML/ZIP.
 
-Пока не реализованы channel arrays, mapping в Dataset, SOAP и ETP.
+В 0.7.79 реализованы offline channel arrays, Import Review, численная UOM-нормализация и
+атомарное создание Dataset. Пока не реализованы binary Avro, SOAP и ETP.
 
 ### 3.3. WITS0 capture, parser, Import Review, AcquisitionSession, Live UI и reliability — срезы 0.7.73–0.7.78
 
@@ -316,16 +317,16 @@ Wits0Frame
 - [ ] evaluate Windows startup/service strategy separately;
 - [ ] complete a signed field smoke checklist.
 
-### Этап G — WITSML offline data import
+### Этап G — WITSML offline data import — выполнен в 0.7.79
 
-- [ ] ChannelSet and Channel selection;
-- [ ] data arrays;
-- [ ] time/depth index selection;
-- [ ] Well/Wellbore binding;
-- [ ] UOM normalization;
-- [ ] Import Review;
-- [ ] atomic Dataset creation;
-- [ ] official or licensed fixtures with clear provenance.
+- [x] ChannelSet, active Index and scalar numeric Channel selection;
+- [x] embedded JSON-compatible Data and safe relative text/JSON FileUri;
+- [x] time/depth index selection and Well/Wellbore metadata binding;
+- [x] strict numerical UOM normalization;
+- [x] semantic Import Review and invalid-row policy;
+- [x] atomic creation and registration of the exact reviewed Dataset;
+- [x] synthetic fixture with explicit provenance and regression tests;
+- [ ] binary Avro and multidimensional array channels remain later extensions.
 
 ### Этап H — WITSML 1.4.1.1 SOAP read-only
 

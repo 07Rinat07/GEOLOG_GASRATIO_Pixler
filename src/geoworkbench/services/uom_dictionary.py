@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 import re
-from typing import Iterable
+from typing import Iterable, Sequence
+
+import numpy as np
 
 
 class QuantityClass(StrEnum):
@@ -57,6 +59,22 @@ class UomResolution:
     canonical: str
     quantity_class: QuantityClass
     recognized: bool
+
+
+@dataclass(frozen=True, slots=True)
+class UomConversion:
+    source_uom: str
+    target_uom: str
+    quantity_class: QuantityClass
+    scale: float
+    offset: float = 0.0
+
+    def convert_scalar(self, value: float | int) -> float:
+        return float(value) * self.scale + self.offset
+
+    def convert_array(self, values: Sequence[float] | np.ndarray) -> np.ndarray:
+        array = np.asarray(values, dtype=np.float64)
+        return array * self.scale + self.offset
 
 
 _NON_WORD = re.compile(r"\s+")
@@ -129,6 +147,61 @@ _DEFAULT_UOMS: tuple[UomDefinition, ...] = (
 )
 
 
+# Canonical-unit conversion entries use: family, scale-to-base, offset-to-base.
+# A conversion is allowed only inside the same family. This is intentionally stricter
+# than QuantityClass because, for example, API and uR/h are both gamma-ray units but
+# do not have a universal linear conversion.
+_CONVERSION_TO_BASE: dict[str, tuple[str, float, float]] = {
+    "1": ("dimensionless", 1.0, 0.0),
+    "v/v": ("volume_fraction", 1.0, 0.0),
+    "%": ("volume_fraction", 1e-2, 0.0),
+    "ppm": ("volume_fraction", 1e-6, 0.0),
+    "ppb": ("volume_fraction", 1e-9, 0.0),
+    "m": ("length", 1.0, 0.0),
+    "ft": ("length", 0.3048, 0.0),
+    "in": ("length", 0.0254, 0.0),
+    "s": ("time", 1.0, 0.0),
+    "min": ("time", 60.0, 0.0),
+    "h": ("time", 3600.0, 0.0),
+    "m/s": ("linear_velocity", 1.0, 0.0),
+    "m/h": ("linear_velocity", 1.0 / 3600.0, 0.0),
+    "ft/h": ("linear_velocity", 0.3048 / 3600.0, 0.0),
+    "min/m": ("slowness", 60.0, 0.0),
+    "us/ft": ("slowness", 1e-6 / 0.3048, 0.0),
+    "Pa": ("pressure", 1.0, 0.0),
+    "kPa": ("pressure", 1e3, 0.0),
+    "MPa": ("pressure", 1e6, 0.0),
+    "bar": ("pressure", 1e5, 0.0),
+    "psi": ("pressure", 6894.757293168, 0.0),
+    "atm": ("pressure", 101325.0, 0.0),
+    "kg": ("mass", 1.0, 0.0),
+    "g": ("mass", 1e-3, 0.0),
+    "t": ("mass", 1e3, 0.0),
+    "N": ("force", 1.0, 0.0),
+    "kN": ("force", 1e3, 0.0),
+    "N.m": ("torque", 1.0, 0.0),
+    "t.m": ("torque", 9806.65, 0.0),
+    "m3": ("volume", 1.0, 0.0),
+    "cm3": ("volume", 1e-6, 0.0),
+    "L": ("volume", 1e-3, 0.0),
+    "m3/h": ("volume_flow_rate", 1.0 / 3600.0, 0.0),
+    "L/s": ("volume_flow_rate", 1e-3, 0.0),
+    "kg/m3": ("mass_density", 1.0, 0.0),
+    "g/cm3": ("mass_density", 1000.0, 0.0),
+    "degC": ("temperature_c", 1.0, 0.0),
+    "deg": ("angle", 1.0, 0.0),
+    "mg/L": ("mass_concentration", 1.0, 0.0),
+    "mg/g": ("mass_fraction", 1.0, 0.0),
+    "mS/cm": ("conductivity", 1.0, 0.0),
+    "ohm.m": ("resistivity", 1.0, 0.0),
+    "mD": ("permeability", 1.0, 0.0),
+    "V": ("electric_potential", 1.0, 0.0),
+    "mV": ("electric_potential", 1e-3, 0.0),
+    "A": ("electric_current", 1.0, 0.0),
+    "mA": ("electric_current", 1e-3, 0.0),
+}
+
+
 class UomDictionary:
     """Immutable UOM alias dictionary with explicit unknown-unit handling."""
 
@@ -168,6 +241,47 @@ class UomDictionary:
         if not left.recognized or not right.recognized:
             return None
         return left.quantity_class is right.quantity_class
+
+    def conversion(self, source: str | None, target: str | None) -> UomConversion | None:
+        left = self.resolve(source)
+        right = self.resolve(target)
+        if not left.recognized or not right.recognized:
+            return None
+        if left.quantity_class is not right.quantity_class:
+            return None
+        if left.canonical == right.canonical:
+            return UomConversion(
+                left.canonical, right.canonical, left.quantity_class, 1.0, 0.0
+            )
+        source_entry = _CONVERSION_TO_BASE.get(left.canonical)
+        target_entry = _CONVERSION_TO_BASE.get(right.canonical)
+        if source_entry is None or target_entry is None:
+            return None
+        source_family, source_scale, source_offset = source_entry
+        target_family, target_scale, target_offset = target_entry
+        if source_family != target_family:
+            return None
+        scale = source_scale / target_scale
+        offset = (source_offset - target_offset) / target_scale
+        return UomConversion(
+            left.canonical, right.canonical, left.quantity_class, scale, offset
+        )
+
+    def convert_scalar(
+        self, value: float | int, source: str | None, target: str | None
+    ) -> float:
+        conversion = self.conversion(source, target)
+        if conversion is None:
+            raise ValueError(f"Unsupported UOM conversion: {source!r} -> {target!r}")
+        return conversion.convert_scalar(value)
+
+    def convert_array(
+        self, values: Sequence[float] | np.ndarray, source: str | None, target: str | None
+    ) -> np.ndarray:
+        conversion = self.conversion(source, target)
+        if conversion is None:
+            raise ValueError(f"Unsupported UOM conversion: {source!r} -> {target!r}")
+        return conversion.convert_array(values)
 
 
 _DEFAULT_DICTIONARY = UomDictionary()

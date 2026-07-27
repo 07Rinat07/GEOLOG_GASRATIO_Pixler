@@ -141,6 +141,7 @@ from geoworkbench.form_constructor.asset_install import install_symbol_into_proj
 from geoworkbench.project.lag_correction_controller import LagCorrectionProjectController
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
 from geoworkbench.project.time_to_depth_controller import TimeToDepthController
+from geoworkbench.project.witsml_import_controller import WitsmlProjectImportController
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
@@ -225,6 +226,7 @@ from geoworkbench.ui.paradox_import_dialog import ParadoxImportDialog
 from geoworkbench.ui.paradox_batch_dialog import ParadoxBatchDialog
 from geoworkbench.ui.gs2_import_dialog import Gs2ImportDialog
 from geoworkbench.ui.witsml_inventory_dialog import WitsmlInventoryDialog
+from geoworkbench.ui.witsml_import_dialog import WitsmlImportDialog
 from geoworkbench.ui.wits0_capture_dialog import Wits0CaptureDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
 from geoworkbench.ui.form_create_dialog import FormCreateDialog
@@ -1303,6 +1305,12 @@ class MainWindow(QMainWindow):
             lambda: self.open_witsml_inventory()
         )
         file_menu.addAction(self.inspect_witsml_action)
+
+        self.import_witsml_data_action = self._localized_action("shell.import_witsml_data")
+        self.import_witsml_data_action.triggered.connect(
+            lambda: self.open_witsml_data_import()
+        )
+        file_menu.addAction(self.import_witsml_data_action)
 
         self.capture_wits0_action = self._localized_action("shell.capture_wits0")
         self.capture_wits0_action.triggered.connect(self.open_wits0_capture)
@@ -3478,6 +3486,63 @@ class MainWindow(QMainWindow):
 
         dialog = WitsmlInventoryDialog(selected, self, language=self.language)
         dialog.exec()
+
+    def open_witsml_data_import(self, source: str | Path | None = None) -> None:
+        """Review and atomically import one WITSML 2.x ChannelSet Dataset."""
+
+        if source is None:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                self._t("witsml_import.title"),
+                "",
+                self._t("witsml.file_filter"),
+            )
+            if not filename:
+                return
+            selected = Path(filename)
+        else:
+            selected = Path(source)
+
+        dialog = WitsmlImportDialog(selected, self, language=self.language)
+        result = dialog.exec()
+        if result != QDialog.DialogCode.Accepted or dialog.accepted_commit is None:
+            if dialog.failure is not None:
+                self._log(f"WITSML IMPORT ERROR: {selected.name}: {dialog.failure}")
+            return
+        commit = dialog.accepted_commit
+        # The exact immutable Dataset reviewed by the operator is registered once.
+        # No parsing or mapping is repeated after the dialog is accepted.
+        try:
+            result = WitsmlProjectImportController(self.session).register(
+                commit,
+                create_new_well=self.session.current_well is None,
+            )
+        except Exception as exc:  # noqa: BLE001 - controller has already rolled project state back
+            self._log(f"WITSML PROJECT IMPORT ERROR: {selected.name}: {exc}")
+            QMessageBox.critical(
+                self,
+                self._t("witsml_import.title"),
+                self._t("witsml_import.failed", error=str(exc)),
+            )
+            return
+        commit = result.commit
+        dataset = commit.dataset
+        self._refresh_tree()
+        self._update_title()
+        self._show_current_dataset()
+        self.statusBar().showMessage(
+            self._t(
+                "witsml_import.imported",
+                dataset=dataset.name,
+                rows=len(dataset.active_index.values),
+                channels=len(dataset.curves),
+            )
+        )
+        self._log(
+            f"WITSML IMPORTED: {selected.name}: dataset={dataset.dataset_id}; "
+            f"rows={len(dataset.active_index.values)}; curves={len(dataset.curves)}; "
+            f"digest={commit.dataset_digest}"
+        )
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         urls = event.mimeData().urls() if event.mimeData().hasUrls() else []

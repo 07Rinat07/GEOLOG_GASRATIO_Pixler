@@ -9,13 +9,12 @@ soak, контролируемый low-space/disk-full тест, independent cha
 strategy и подписанный полевой checklist. Встроенный GeoScape mapping требуется подтвердить
 реальным anonymized raw-потоком.
 
-## В разработке: офлайн-инвентарь WITSML 2.x
+## Завершено в 0.7.79: офлайн-импорт WITSML 2.x
 
-Добавлен безопасный read-only просмотр отдельных XML/WITSML-файлов, каталогов и ZIP/EPC-пакетов.
-Диалог показывает top-level объекты, `schemaVersion`, UUID, ссылки, а для `Channel` — мнемонику,
-тип данных, единицу, источник, класс, индексы и диапазон. Архивы не извлекаются на диск;
-traversal, DTD/entity, шифрование, дубликаты путей и ресурсные превышения отклоняются. Этот срез
-не создаёт `Dataset`, не читает channel arrays и не подключается по ETP.
+Безопасный inventory расширен чтением embedded/relative-file `ChannelData`, выбором ChannelSet,
+активного time/depth index и scalar numeric каналов. Import Review выполняет semantic mapping,
+строгое UOM conversion, QC строк и атомарно создаёт Dataset с source/data SHA-256 и стабильным
+digest. Binary Avro, multidimensional arrays, SOAP и ETP остаются последующими этапами.
 
 ## В разработке: GeoScape II GS2
 

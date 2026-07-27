@@ -8,14 +8,12 @@ persistence және Windows soak tooling дайын. Нақты 8–24 саға
 low-space/disk-full сынағы, independent channel scales, Windows startup/service бағалауы және signed
 field checklist қалды. GeoScape mapping нақты anonymized ағынмен расталуы тиіс.
 
-## Әзірленуде: WITSML 2.x офлайн түгендеуі
+## 0.7.79 ішінде аяқталды: WITSML 2.x офлайн импорты
 
-Жеке XML/WITSML файлдарын, каталогтарды және ZIP/EPC пакеттерін қауіпсіз read-only режимде қарау
-қосылды. Диалог top-level нысандарды, `schemaVersion`, UUID, сілтемелерді, ал `Channel` үшін
-мнемониканы, дерек түрін, өлшем бірлігін, дереккөзді, сыныпты, индекстерді және ауқымды көрсетеді.
-Архивтер дискіге шығарылмайды; traversal, DTD/entity, шифрлау, қайталанған жолдар және ресурс
-лимитінен асу қабылданбайды. Бұл срез `Dataset` құрмайды, channel arrays оқымайды және ETP арқылы
-қосылмайды.
+Қауіпсіз inventory енді embedded/relative-file `ChannelData` оқиды, ChannelSet, белсенді time/depth
+index және scalar numeric channel таңдауға мүмкіндік береді. Import Review semantic mapping,
+қатаң UOM conversion және row QC орындайды, содан кейін source/data SHA-256 және тұрақты digest бар
+Dataset-ті атомарлық құрады. Binary Avro, multidimensional arrays, SOAP және ETP кейінгі жұмыс.
 
 ## Әзірленуде: GeoScape II GS2
 

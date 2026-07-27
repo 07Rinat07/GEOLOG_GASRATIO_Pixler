@@ -161,3 +161,11 @@ Every user-facing change must update the matching RU/KK/EN files in the same com
 
 - [Release notes 0.7.64](RELEASE_NOTES_0.7.64.md) — form naming reference and built-in user layout.
 - [Build manifest 0.7.64](BUILD_MANIFEST_0.7.64.md) — package contents and verification scope.
+
+## WITSML data import and parallel field gate
+
+- [WITSML 2.x ChannelSet data import](WITSML_DATA_IMPORT.md)
+- [RU](ru/WITSML_DATA_IMPORT.md) · [KK](kk/WITSML_DATA_IMPORT.md) · [EN](en/WITSML_DATA_IMPORT.md)
+- [WITS0 Windows field gate](WITS0_WINDOWS_FIELD_GATE.md)
+- [RU](ru/WITS0_WINDOWS_FIELD_GATE.md) · [KK](kk/WITS0_WINDOWS_FIELD_GATE.md) · [EN](en/WITS0_WINDOWS_FIELD_GATE.md)
+- [Release notes 0.7.79](RELEASE_NOTES_0.7.79.md) · [build manifest](BUILD_MANIFEST_0.7.79.md)

@@ -1,3 +1,12 @@
+# 0.7.79 — WITSML 2.x ChannelSet bulk-data import
+
+- Added safe embedded/relative-file ChannelData array reading for XML, directories, ZIP and EPC.
+- Added ChannelSet/index/channel selection, semantic Import Review and strict UOM conversion.
+- Added UTC time and numeric depth Dataset indexes, invalid-row policy, sorting and deterministic provenance.
+- Added atomic registration of the exact reviewed immutable Dataset with rollback on project failure.
+- Added a parallel real-GSWITS Windows field-gate checklist; the physical gate remains open.
+- Preserved project format v20, form schema v8 and tablet layout v18.
+
 # 0.7.78 — WITS0 reliability, restart recovery and Windows soak tooling
 
 - Added stable connection IDs, an append-only fsync JSONL lifecycle journal, and typed connection/disconnection acquisition records.

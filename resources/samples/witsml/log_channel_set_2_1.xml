@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Log xmlns="http://www.energistics.org/energyml/data/witsmlv2"
+     xmlns:eml="http://www.energistics.org/energyml/data/commonv2"
+     schemaVersion="2.1"
+     uuid="934d0fb8-95a9-48a3-98bd-97e03821c386">
+  <eml:Citation>
+    <eml:Title>SG-8 drilling log</eml:Title>
+  </eml:Citation>
+  <Wellbore>
+    <eml:Title>SG-8</eml:Title>
+    <eml:Uuid>944d97b8-b5e9-46de-a9a6-3fe0e536857b</eml:Uuid>
+  </Wellbore>
+  <ChannelSet uuid="3a495af4-4f7f-4cdb-bec2-6abf63b814f4">
+    <eml:Citation>
+      <eml:Title>Depth drilling channels</eml:Title>
+      <eml:Description>Synthetic embedded ChannelData example.</eml:Description>
+    </eml:Citation>
+    <Index>
+      <IndexType>measured depth</IndexType>
+      <Uom>m</Uom>
+      <Direction>increasing</Direction>
+      <Mnemonic>DEPT</Mnemonic>
+      <DatumReference>RKB</DatumReference>
+    </Index>
+    <Channel uuid="3d415dbb-41d4-4a52-a9fc-c37d7b4b895a">
+      <eml:Citation><eml:Title>Rate of penetration</eml:Title></eml:Citation>
+      <Mnemonic>ROP</Mnemonic>
+      <DataType>double</DataType>
+      <Uom>ft/h</Uom>
+      <Source>Synthetic GSWITS bridge</Source>
+      <TimeDepth>depth</TimeDepth>
+      <LoggingMethod>surface</LoggingMethod>
+      <ChannelClass><eml:Title>Drilling mechanics</eml:Title></ChannelClass>
+    </Channel>
+    <Channel uuid="b07aa6a3-e04a-43a0-ab80-a5e2bfcd6e96">
+      <eml:Citation><eml:Title>Weight on bit</eml:Title></eml:Citation>
+      <Mnemonic>WOB</Mnemonic>
+      <DataType>double</DataType>
+      <Uom>kN</Uom>
+      <Source>Synthetic GSWITS bridge</Source>
+      <TimeDepth>depth</TimeDepth>
+      <LoggingMethod>surface</LoggingMethod>
+      <ChannelClass><eml:Title>Drilling mechanics</eml:Title></ChannelClass>
+    </Channel>
+    <Channel uuid="4bbb7dfa-78ae-4d16-9f10-fe8465e7d87c">
+      <eml:Citation><eml:Title>Operator state</eml:Title></eml:Citation>
+      <Mnemonic>STATE</Mnemonic>
+      <DataType>string</DataType>
+      <Uom>1</Uom>
+    </Channel>
+    <Data>
+      <Data>
+        [
+          [[1000.0], [32.80839895, 75.0, "drilling"]],
+          [[1000.5], [39.37007874, 76.0, "drilling"]],
+          [[1001.0], [null, 77.0, "connection"]]
+        ]
+      </Data>
+    </Data>
+    <ChannelState>final</ChannelState>
+    <TimeDepth>depth</TimeDepth>
+    <Wellbore>
+      <eml:Title>SG-8</eml:Title>
+      <eml:Uuid>944d97b8-b5e9-46de-a9a6-3fe0e536857b</eml:Uuid>
+    </Wellbore>
+  </ChannelSet>
+</Log>
