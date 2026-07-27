@@ -91,6 +91,10 @@ from geoworkbench.services.time_display import (
 )
 from geoworkbench.ui.oriented_text_label import OrientedTextLabel
 from geoworkbench.tablet.curve_scaling import automatic_curve_range, normalize_curve_values
+from geoworkbench.tablet.axis_selection import (
+    dataset_has_absolute_calendar_time,
+    resolve_vertical_axis,
+)
 from geoworkbench.tablet.camera import (
     DEPTH_VIEW_SPAN_PRESETS,
     recommended_initial_range,
@@ -4350,50 +4354,37 @@ class TabletView(QWidget):
         self._dataset = dataset
         self._geometry_cache.clear()
         self._static_layer_cache.clear()
-        self._prefer_calendar_time_axis_for_geoscape(dataset)
 
     def _prefer_calendar_time_axis_for_geoscape(self, dataset: Dataset | None) -> None:
-        """Migrate old GS2 forms from elapsed seconds to calendar time.
+        """Reconcile the saved form axis with the current GS2 dataset.
 
-        Versions before 0.7.86 stored GeoScape absolute timestamps together
-        with a derived ``TIME [s]`` index and selected the derived index in the
-        tablet form.  Long recordings were consequently displayed as values
-        such as ``11523:34:24``.  Preserve an explicitly selected depth axis,
-        but migrate an old relative-time selection to the companion DATETIME
-        index when the import metadata proves that calendar timestamps exist.
+        A form can retain ``vertical_index_id`` from the previously displayed
+        dataset.  Looking up that id in a newly imported GS2 dataset may return
+        ``None``; dereferencing it caused form application and rollback to fail
+        with ``'NoneType' object has no attribute 'role'``.
+
+        Resolve stale ids safely, preserve explicit depth selections and migrate
+        legacy relative TIME axes to the companion DATETIME index when import
+        provenance proves that absolute calendar timestamps are available.
         """
 
         if dataset is None:
             return
-        representation = dataset.parameters.get(
-            "PARADOX_TIME_REPRESENTATION", ""
-        ).casefold()
-        source_format = dataset.parameters.get("SOURCE_FORMAT", "").casefold()
-        absolute_source = representation.startswith(("ole-", "unix-")) or (
-            "geoscape" in source_format
-            and any(
-                index.index_type is IndexType.DATETIME
-                for index in dataset.indexes.values()
-            )
+        resolution = resolve_vertical_axis(
+            dataset,
+            self._layout_model.vertical_index_id,
+            prefer_calendar_time=dataset_has_absolute_calendar_time(dataset),
         )
-        if not absolute_source:
+        if resolution.index is None or not resolution.replace_layout_index:
             return
-
-        requested_id = self._layout_model.vertical_index_id
-        requested = dataset.indexes.get(requested_id) if requested_id else dataset.active_index
-        if requested.role is not IndexRole.TIME or requested.index_type is IndexType.DATETIME:
-            return
-        candidates = [
-            index
-            for index in dataset.indexes.values()
-            if index.role is IndexRole.TIME
-            and index.index_type is IndexType.DATETIME
-            and index.values.shape == requested.values.shape
-        ]
-        if not candidates:
-            return
-        preferred = max(candidates, key=lambda item: item.confidence)
-        self._layout_mutations.set_vertical_index(preferred.index_id)
+        previous_index_id = self._layout_model.vertical_index_id
+        self._layout_mutations.set_vertical_index(resolution.index.index_id)
+        log_event(
+            "tablet.vertical_axis.reconciled",
+            previous_index_id=previous_index_id or "",
+            next_index_id=resolution.index.index_id,
+            calendar_time_preferred=resolution.calendar_time_preferred,
+        )
 
     @property
     def is_rebuilding_layout(self) -> bool:
@@ -4401,6 +4392,7 @@ class TabletView(QWidget):
 
     def set_dataset(self, dataset: Dataset | None) -> None:
         self._replace_dataset_reference(dataset)
+        self._prefer_calendar_time_axis_for_geoscape(dataset)
         self.refresh_view()
 
     def refresh_dataset_curves(
@@ -4697,6 +4689,7 @@ class TabletView(QWidget):
 
     def set_layout_model(self, layout_model: TabletLayout) -> None:
         self._bind_layout_model(layout_model, preserve_current_range=True)
+        self._prefer_calendar_time_axis_for_geoscape(self._dataset)
         self.refresh_view()
         if self._cursor_depth is not None and self._dataset is not None:
             self.set_cursor_depth(self._cursor_depth)
@@ -4719,6 +4712,7 @@ class TabletView(QWidget):
         self._bind_layout_model(
             layout_model, preserve_current_range=preserve_current_range
         )
+        self._prefer_calendar_time_axis_for_geoscape(dataset)
         self.refresh_view()
         if self._cursor_depth is not None and self._dataset is not None:
             self.set_cursor_depth(self._cursor_depth)
