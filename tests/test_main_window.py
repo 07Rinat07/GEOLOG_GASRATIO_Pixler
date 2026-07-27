@@ -1,5 +1,6 @@
 import numpy as np
-from PySide6.QtWidgets import QDialog, QFileDialog, QInputDialog, QMessageBox
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QDialog, QFileDialog, QInputDialog, QLabel, QMessageBox
 
 from geoworkbench.domain.models import (
     CanvasObject,
@@ -216,24 +217,28 @@ def test_window_opens_localized_interpretation_report(qapp, monkeypatch) -> None
     window.close()
 
 
-def test_about_dialog_contains_logo(qapp, monkeypatch) -> None:
+def test_about_dialog_contains_author_details(qapp, monkeypatch) -> None:
     window = MainWindow()
-    captured: list[QMessageBox] = []
+    captured: list[QDialog] = []
 
-    def capture(dialog: QMessageBox) -> int:
+    def capture(dialog: QDialog) -> int:
         captured.append(dialog)
-        return 0
+        return int(QDialog.DialogCode.Accepted)
 
-    monkeypatch.setattr(QMessageBox, "exec", capture)
+    monkeypatch.setattr(QDialog, "exec", capture)
 
     window.show_about()
 
     assert len(captured) == 1
-    assert not captured[0].iconPixmap().isNull()
-    assert "GEOLOG GASRATIO@Pixler" in captured[0].text()
-    assert "Версия" in captured[0].text()
-    assert "Rinat Sarmuldin" not in captured[0].text()
-    assert "ura07srr@gmail.com" not in captured[0].text()
+    labels = captured[0].findChildren(QLabel)
+    texts = [label.text() for label in labels]
+    assert "GEOLOG GASRATIO@Pixler" in texts
+    assert any(text.startswith("Версия ") for text in texts)
+    assert "Rinat Sarmuldin" in texts
+    assert "ura07srr@gmail.com" in texts
+    email_label = next(label for label in labels if label.text() == "ura07srr@gmail.com")
+    assert not email_label.openExternalLinks()
+    assert email_label.textInteractionFlags() & Qt.TextInteractionFlag.TextSelectableByMouse
     window.close()
 
 

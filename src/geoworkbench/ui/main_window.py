@@ -18,6 +18,7 @@ from PySide6.QtGui import (
     QDropEvent,
     QIcon,
     QPainter,
+    QPalette,
     QPen,
     QPixmap,
     QShowEvent,
@@ -8827,31 +8828,82 @@ class MainWindow(QMainWindow):
         dialog.setWindowTitle("GEOLOG GASRATIO@Pixler")
         dialog.setWindowIcon(application_icon())
         dialog.setModal(True)
-        dialog.setMinimumSize(760, 460)
+        dialog.setMinimumSize(860, 500)
+        dialog.resize(900, 520)
 
         root_layout = QVBoxLayout(dialog)
+        root_layout.setContentsMargins(28, 28, 28, 20)
+        root_layout.setSpacing(18)
+
         content_layout = QHBoxLayout()
-        content_layout.setSpacing(22)
+        content_layout.setSpacing(24)
 
         image_label = QLabel(dialog)
         image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        image_label.setMinimumSize(520, 330)
+        image_label.setFixedSize(520, 330)
         image_label.setPixmap(about_rig_pixmap(520, 330))
-        content_layout.addWidget(image_label, 1)
+        content_layout.addWidget(image_label, 1, Qt.AlignmentFlag.AlignCenter)
 
-        info_label = QLabel(dialog)
-        info_label.setTextFormat(Qt.TextFormat.RichText)
-        info_label.setOpenExternalLinks(True)
-        info_label.setText(
-            f"<b>GEOLOG GASRATIO@Pixler</b><br>"
-            f"Версия {__version__}<br><br>"
-            "Автор: Rinat Sarmuldin<br>"
-            '<a href="mailto:ura07srr@gmail.com">ura07srr@gmail.com</a>'
+        palette = dialog.palette()
+        panel_background = palette.color(QPalette.ColorRole.AlternateBase).name()
+        panel_border = palette.color(QPalette.ColorRole.Mid).name()
+        muted_text = palette.color(QPalette.ColorRole.PlaceholderText).name()
+
+        info_panel = QFrame(dialog)
+        info_panel.setObjectName("aboutInfoPanel")
+        info_panel.setMinimumWidth(270)
+        info_panel.setStyleSheet(
+            "QFrame#aboutInfoPanel {"
+            f"background-color: {panel_background};"
+            f"border: 1px solid {panel_border};"
+            "border-radius: 12px;"
+            "}"
         )
-        info_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        info_label.setWordWrap(True)
-        content_layout.addWidget(info_label)
+        info_layout = QVBoxLayout(info_panel)
+        info_layout.setContentsMargins(24, 24, 24, 24)
+        info_layout.setSpacing(8)
+        info_layout.addStretch(1)
 
+        title_label = QLabel("GEOLOG GASRATIO@Pixler", info_panel)
+        title_label.setStyleSheet("font-size: 18px; font-weight: 700; border: none;")
+        title_label.setWordWrap(True)
+        info_layout.addWidget(title_label)
+
+        version_label = QLabel(f"Версия {__version__}", info_panel)
+        version_label.setStyleSheet(
+            f"color: {muted_text}; font-size: 12px; border: none;"
+        )
+        info_layout.addWidget(version_label)
+
+        separator = QFrame(info_panel)
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        separator.setStyleSheet("margin-top: 10px; margin-bottom: 10px;")
+        info_layout.addWidget(separator)
+
+        author_caption = QLabel("АВТОР И РАЗРАБОТЧИК", info_panel)
+        author_caption.setStyleSheet(
+            f"color: {muted_text}; font-size: 10px; font-weight: 600; border: none;"
+        )
+        info_layout.addWidget(author_caption)
+
+        author_name = QLabel("Rinat Sarmuldin", info_panel)
+        author_name.setStyleSheet("font-size: 16px; font-weight: 700; border: none;")
+        info_layout.addWidget(author_name)
+
+        email_caption = QLabel("Электронная почта", info_panel)
+        email_caption.setStyleSheet(
+            f"color: {muted_text}; font-size: 11px; border: none; margin-top: 8px;"
+        )
+        info_layout.addWidget(email_caption)
+
+        email_label = QLabel("ura07srr@gmail.com", info_panel)
+        email_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        email_label.setStyleSheet("font-size: 13px; border: none;")
+        info_layout.addWidget(email_label)
+        info_layout.addStretch(1)
+
+        content_layout.addWidget(info_panel, 0, Qt.AlignmentFlag.AlignVCenter)
         root_layout.addLayout(content_layout, 1)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok, parent=dialog)
