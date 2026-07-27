@@ -121,9 +121,23 @@ def localized_curve_name(
     # That is not a deliberate user caption and must not suppress a newly
     # available catalog translation such as S300 -> Давление на манифольде.
     technical_names = {mnemonic.casefold()}
+    generated_names = set(technical_names)
     if match is not None:
-        technical_names.add(match.definition.canonical_mnemonic.casefold())
-    if explicit and explicit.casefold() not in technical_names:
+        definition = match.definition
+        canonical = definition.canonical_mnemonic.strip().upper()
+        generated_names.update(
+            name.strip().casefold()
+            for name in (
+                definition.canonical_mnemonic,
+                definition.name_ru,
+                definition.short_name_ru,
+                _ENGLISH_NAMES.get(canonical, ""),
+                _KAZAKH_NAMES.get(canonical, ""),
+                _canonical_title(canonical),
+            )
+            if name and name.strip()
+        )
+    if explicit and explicit.casefold() not in generated_names:
         return explicit
 
     if match is not None:

@@ -79,6 +79,11 @@ from geoworkbench.project.annotation_schema import (
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.application_logging import log_event, log_exception
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.geology_labels import (
+    localized_lithotype_name,
+    localized_rock_text,
+)
+from geoworkbench.forms.templates import localized_factory_label
 from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.services.time_display import (
     elapsed_to_seconds,
@@ -4810,7 +4815,7 @@ class TabletView(QWidget):
         )
         if interval is not None:
             lithotype = self._lithotype_catalog.get(interval.lithotype_id)
-            rock = lithotype.name_ru if lithotype is not None else interval.lithotype_id
+            rock = self._localized_lithotype_name(lithotype, interval.lithotype_id)
             interval_text = (
                 f"{self._localizer.text('cursor.lithology')}: {rock} "
                 f"({interval.top_depth:g}–{interval.bottom_depth:g} {depth_unit})"
@@ -4867,7 +4872,7 @@ class TabletView(QWidget):
             parts = []
             for component in sample.components:
                 lithotype = self._lithotype_catalog.get(component.lithotype_id)
-                name = lithotype.name_ru if lithotype is not None else component.lithotype_id
+                name = self._localized_lithotype_name(lithotype, component.lithotype_id)
                 parts.append(f"{name}: {component.percentage:g}%")
             if parts:
                 values.append(
@@ -5435,7 +5440,8 @@ class TabletView(QWidget):
                 groups.append((title, width))
 
         for title, width in groups:
-            label = QLabel(title or " ")
+            localized_title = localized_factory_label(title, self._localizer.language)
+            label = QLabel(localized_title or " ")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setFixedWidth(max(1, width - 2))
             label.setFixedHeight(30)
@@ -7839,7 +7845,10 @@ class TabletView(QWidget):
         track.set_curve_headers(header_rows, header_ranges)
         if not curve_items:
             track.title.setText(
-                self._localizer.text("tablet.no_numeric_data", title=definition.title)
+                self._localizer.text(
+                    "tablet.no_numeric_data",
+                    title=self._localized_track_title(definition),
+                )
             )
             message = pg.TextItem(
                 self._localizer.text("tablet.no_numeric_data_short"),
@@ -7911,7 +7920,10 @@ class TabletView(QWidget):
         if not available:
             track.set_curve_headers([])
             track.title.setText(
-                self._localizer.text("tablet.no_numeric_data", title=definition.title)
+                self._localizer.text(
+                    "tablet.no_numeric_data",
+                    title=self._localized_track_title(definition),
+                )
             )
             message = pg.TextItem(
                 self._localizer.text("tablet.no_numeric_data_short"),
@@ -7988,12 +8000,16 @@ class TabletView(QWidget):
         self, definition: TrackDefinition, mnemonic: str, curve: CurveData
     ) -> str:
         metadata = curve.metadata
+        configured = localized_factory_label(
+            definition.curve_display_settings(mnemonic).display_name,
+            self._localizer.language,
+        )
         return localized_curve_name(
             metadata.original_mnemonic or mnemonic,
             description=metadata.description or "",
             unit=metadata.unit or "",
             language=self._localizer.language,
-            configured=definition.curve_display_settings(mnemonic).display_name,
+            configured=configured,
         )
 
     def _localized_track_title(self, definition: TrackDefinition) -> str:
@@ -8011,6 +8027,14 @@ class TabletView(QWidget):
         key = standard.get(definition.kind)
         if key is not None:
             return self._localizer.text(key)
+
+        localized_title = localized_factory_label(
+            definition.title,
+            self._localizer.language,
+        )
+        if localized_title != definition.title:
+            return localized_title
+
         if definition.kind in {TrackKind.CURVE, TrackKind.DEXP} and definition.curve_mnemonics:
             generated = " / ".join(definition.curve_mnemonics)
             if definition.title.strip() == generated or len(definition.title.strip()) > 64:
@@ -8066,6 +8090,22 @@ class TabletView(QWidget):
         else:
             padding = (maximum - minimum) * 0.04
         return minimum - padding, maximum + padding
+
+    def _localized_lithotype_name(
+        self, lithotype: CatalogLithotype | None, fallback: str
+    ) -> str:
+        return localized_lithotype_name(
+            lithotype,
+            self._localizer.language,
+            fallback,
+        )
+
+    def _localized_rock_text(self, value: str) -> str:
+        return localized_rock_text(
+            value,
+            self._lithotype_catalog.values(),
+            self._localizer.language,
+        )
 
     def _populate_lithology(
         self, track: TabletTrackWidget, definition: TrackDefinition
@@ -8147,11 +8187,12 @@ class TabletView(QWidget):
         interpretation = self._current_interpretation()
         track.plot.hideAxis("bottom")
         track.plot.setMouseEnabled(x=False, y=True)
+        localized_title = self._localized_track_title(definition)
         if interpretation is None:
-            track.title.setText(definition.title)
+            track.title.setText(localized_title)
             track.plot.setXRange(0.0, 1.0, padding=0)
             return {}, {}
-        track.title.setText(f"{definition.title}: {interpretation.name}")
+        track.title.setText(f"{localized_title}: {interpretation.name}")
         interval_types = sorted(
             {item.interval_type for item in interpretation.intervals}, key=str.casefold
         )
@@ -9092,8 +9133,9 @@ class TabletView(QWidget):
             if overlaps_sample_text:
                 continue
             lithotype = self._lithotype_catalog.get(interval.lithotype_id)
-            fallback = lithotype.name_ru if lithotype is not None else interval.lithotype_id
-            description = (interval.description or "").strip() or fallback
+            fallback = self._localized_lithotype_name(lithotype, interval.lithotype_id)
+            raw_description = (interval.description or "").strip()
+            description = self._localized_rock_text(raw_description) if raw_description else fallback
             label = pg.TextItem(anchor=(0.0, 0.5))
             label.setHtml(
                 f'<div style="color:#202020; margin:0; padding:0;">{plain_html(description)}</div>'

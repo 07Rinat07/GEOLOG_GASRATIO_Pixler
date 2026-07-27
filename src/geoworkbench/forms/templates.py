@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from functools import lru_cache
+import re
 from typing import Literal
 
 from geoworkbench.forms.models import (
@@ -34,6 +36,16 @@ _TEXT: dict[str, dict[str, str]] = {
     "depth": {"ru": "Глубина", "kk": "Тереңдік", "en": "Depth"},
     "time": {"ru": "Время", "kk": "Уақыт", "en": "Time"},
     "curves": {"ru": "Кривые", "kk": "Қисықтар", "en": "Curves"},
+    "petrophysics": {
+        "ru": "ГИС и петрофизика",
+        "kk": "ГИС және петрофизика",
+        "en": "Petrophysics",
+    },
+    "other_las_curves": {
+        "ru": "Прочие кривые LAS",
+        "kk": "Басқа LAS қисықтары",
+        "en": "Other LAS curves",
+    },
     "basic_depth": {
         "ru": "LAS — рабочая глубинная форма",
         "kk": "LAS — жұмыс тереңдік пішіні",
@@ -237,6 +249,71 @@ def _language(language: str) -> TemplateLanguage:
 
 def _t(key: str, language: TemplateLanguage) -> str:
     return _TEXT[key][language]
+
+
+_LABEL_SUFFIX_RE = re.compile(r"^(?P<label>.*?)(?P<suffix>\s+\d+)$")
+
+
+def _language_code(language: object) -> TemplateLanguage:
+    raw = getattr(language, "value", language)
+    return _language(str(raw))
+
+
+def _normalized_factory_label(value: str) -> str:
+    normalized = " ".join(str(value).split()).casefold()
+    return normalized.translate(
+        str.maketrans({
+            "–": "-",
+            "—": "-",
+            "−": "-",
+            "‑": "-",
+        })
+    )
+
+
+@lru_cache(maxsize=3)
+def _factory_label_aliases(language: TemplateLanguage) -> dict[str, str]:
+    """Map every built-in RU/KK/EN form caption to one target language.
+
+    Persisted layouts keep their user-visible text rather than a translation
+    key.  This alias index lets the tablet retranslate known factory captions
+    at runtime without modifying the saved project or overriding genuinely
+    custom names.
+    """
+
+    aliases: dict[str, str] = {}
+    for translations in _TEXT.values():
+        target = translations.get(language, translations.get("ru", "")).strip()
+        if not target:
+            continue
+        for source in translations.values():
+            normalized = _normalized_factory_label(source)
+            if normalized:
+                aliases.setdefault(normalized, target)
+    return aliases
+
+
+def localized_factory_label(value: str, language: object) -> str:
+    """Translate a known factory form/track/parameter caption at runtime.
+
+    Unknown labels are returned unchanged so user-defined names remain exactly
+    as entered. Numeric suffixes used by automatically split LAS columns, for
+    example ``Бурение 2``, are preserved after translation.
+    """
+
+    original = str(value)
+    compact = " ".join(original.split())
+    if not compact:
+        return original
+    aliases = _factory_label_aliases(_language_code(language))
+    translated = aliases.get(_normalized_factory_label(compact))
+    if translated is not None:
+        return translated
+    suffix_match = _LABEL_SUFFIX_RE.fullmatch(compact)
+    if suffix_match is None:
+        return original
+    base = aliases.get(_normalized_factory_label(suffix_match.group("label")))
+    return f"{base}{suffix_match.group('suffix')}" if base is not None else original
 
 
 def factory_templates(language: str = "ru") -> dict[str, FormDocument]:

@@ -32,9 +32,10 @@
 - [TESTING.md](TESTING.md) — the only active release-quality gate.
 - [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md) — synchronization rules.
 - [CHANGELOG.md](CHANGELOG.md) — concise implementation history.
-- [RELEASE_NOTES_0.7.92.md](RELEASE_NOTES_0.7.92.md) — current compact tablet-caption behavior and migration contract.
-- [BUILD_MANIFEST_0.7.92.md](BUILD_MANIFEST_0.7.92.md) — current package contents and executed validation.
-- [HOTFIX_REPORT_0.7.92.md](HOTFIX_REPORT_0.7.92.md) — rotated-caption fitting and LBA orientation report.
+- [RELEASE_NOTES_0.7.93.md](RELEASE_NOTES_0.7.93.md) — current runtime form, technology and geology localization contract.
+- [BUILD_MANIFEST_0.7.93.md](BUILD_MANIFEST_0.7.93.md) — current package contents and executed validation.
+- [HOTFIX_REPORT_0.7.93.md](HOTFIX_REPORT_0.7.93.md) — runtime multilingual tablet localization report.
+- [RELEASE_NOTES_0.7.92.md](RELEASE_NOTES_0.7.92.md) — compact tablet-caption behavior and migration contract.
 - [RELEASE_NOTES_0.7.90.md](RELEASE_NOTES_0.7.90.md) — documentation and startup-command synchronization history.
 - [RELEASE_NOTES_0.7.78.md](RELEASE_NOTES_0.7.78.md) — WITS0 reliability and restart recovery.
 - [RELEASE_NOTES_0.7.77.md](RELEASE_NOTES_0.7.77.md) — WITS0 live current values and time/depth history monitor.

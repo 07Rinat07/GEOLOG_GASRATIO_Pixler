@@ -1,7 +1,7 @@
 # Project status
 
-## Current build 0.7.92
-- Long rotated compact-column captions are fitted without clipping; LBA is horizontal by default.
+## Current build 0.7.93
+- Switching RU/KK/EN now retranslates standard form, section, technology-parameter and catalog-rock labels at runtime; custom captions and free-form descriptions remain unchanged.
 
 The canonical startup command is `python -m geoworkbench.app.main`. The root README and current
 RU/KK/EN guides are synchronized, `docs/TESTING.md` defines one active release gate, and automated

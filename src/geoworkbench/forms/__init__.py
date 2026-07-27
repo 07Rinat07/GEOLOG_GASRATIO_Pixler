@@ -22,7 +22,7 @@ from geoworkbench.forms.models import (
 from geoworkbench.forms.apply import BindingResolution, FormApplyEngine, FormApplyResult
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.from_tablet import form_from_tablet_layout
-from geoworkbench.forms.templates import factory_templates
+from geoworkbench.forms.templates import factory_templates, localized_factory_label
 from geoworkbench.forms.draft import DraftFormController
 from geoworkbench.forms.preview import FormPreviewController
 from geoworkbench.forms.materialize import (
@@ -53,6 +53,7 @@ __all__ = [
     "FormTrack",
     "ParameterBinding",
     "factory_templates",
+    "localized_factory_label",
     "materialized_factory_templates",
     "materialize_form_for_dataset",
     "MaterializedFormInfo",

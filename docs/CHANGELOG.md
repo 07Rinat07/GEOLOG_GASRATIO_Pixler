@@ -1,3 +1,12 @@
+# 0.7.93 — runtime localization of tablet forms, technology and rocks
+
+- Standard factory track and group captions are translated immediately when switching RU/KK/EN without reapplying the form.
+- Technology curve captions use factory aliases and the sensor catalog in the active language.
+- Catalog lithotype names in cursor summaries, cuttings composition and rock-description fallbacks follow the active language.
+- Exact catalog rock names are translated conservatively; free-form geological descriptions and custom user captions remain unchanged.
+- Numeric suffixes of generated columns such as `Бурение 2` are preserved after translation.
+- Project format remains v21, form schema v11 and tablet layout v21.
+
 # 0.7.92 — fitting of rotated compact captions and horizontal LBA
 
 - Long vertical titles are measured with real font metrics and fitted into the header without clipping.
