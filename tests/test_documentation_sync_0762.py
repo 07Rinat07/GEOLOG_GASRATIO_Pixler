@@ -7,6 +7,8 @@ from tools.check_documentation import (
     audit_localized_document_structure,
     audit_localized_file_parity,
     audit_markdown_links,
+    audit_startup_command_contract,
+    audit_current_documentation_contract,
     audit_user_workflow_coverage,
     audit_version_contract,
 )
@@ -60,3 +62,15 @@ def test_guides_cover_visible_library_and_duplicate_name_protection() -> None:
     """Creation instructions must show how to review and name forms in every language."""
 
     assert audit_form_creation_naming_coverage(ROOT) == []
+
+
+def test_documented_startup_command_matches_module_entrypoint() -> None:
+    """README and localized guides must use the executable module command."""
+
+    assert audit_startup_command_contract(ROOT) == []
+
+
+def test_current_index_and_testing_guide_match_package_version() -> None:
+    """Current documentation navigation may not point to an older build."""
+
+    assert audit_current_documentation_contract(ROOT) == []

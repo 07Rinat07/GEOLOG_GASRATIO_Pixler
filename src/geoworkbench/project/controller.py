@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from geoworkbench.domain.models import Dataset
 from geoworkbench.project.repository import ProjectRepository
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.json_project_repository import JsonProjectRepository
@@ -37,6 +38,30 @@ class ProjectController:
         """Record whether opening the project performed a save-worthy migration."""
 
         self.session.dirty = bool(required)
+
+    def select_existing_dataset(
+        self,
+        dataset_id: str,
+        *,
+        mark_dirty: bool = False,
+    ) -> Dataset:
+        """Select a dataset in the current well through the project boundary.
+
+        Acquisition callbacks use this method after appending rows to an existing
+        dataset.  The Qt layer therefore does not mutate serialized session fields
+        directly.
+        """
+
+        well = self.session.current_well
+        if well is None:
+            raise KeyError("No current well")
+        dataset = well.datasets.get(dataset_id)
+        if dataset is None:
+            raise KeyError(dataset_id)
+        self.session.current_dataset_id = dataset_id
+        if mark_dirty:
+            self.session.dirty = True
+        return dataset
 
     def save_project(self, target: Path | None = None) -> Path:
         destination = target or self.project_path

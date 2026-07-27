@@ -29,6 +29,9 @@ def test_root_readme_contains_only_project_overview_and_navigation() -> None:
     for link in required_links:
         assert link in text
 
+    assert "python -m geoworkbench.app.main" in text
+    assert "docs/TESTING.md" in text
+
 
 def test_root_has_no_release_manifest_document() -> None:
     root_manifests = list(ROOT.glob("FULL_PROJECT_*_MANIFEST.md"))

@@ -16,7 +16,8 @@ _SESSION_QAPP: object | None = None
 
 @pytest.fixture(scope="session")
 def qapp():
-    from PySide6.QtWidgets import QApplication
+    qt_widgets = pytest.importorskip("PySide6.QtWidgets")
+    QApplication = qt_widgets.QApplication
 
     global _SESSION_QAPP
     app = QApplication.instance() or QApplication([])

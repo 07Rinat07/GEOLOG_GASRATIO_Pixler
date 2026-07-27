@@ -1,3 +1,14 @@
+# Состояние проекта
+
+## Текущая сборка 0.7.90
+
+- Канонический запуск проекта: `python -m geoworkbench.app.main`.
+- Корневой README и RU/KK/EN-руководства очищены от устаревших стартовых блоков.
+- `docs/TESTING.md` описывает единый быстрый, полный и Windows GUI release gate.
+- Documentation audit проверяет текущую версию, ссылки на release notes/build manifest и команду запуска.
+- Добавлен независимый static regression-тест module entry point без импорта PySide6.
+- Исправления 0.7.87–0.7.89 сохранены: линейные формы по умолчанию, корректная TIME/DEPTH-классификация GS2 и безопасное применение формы с устаревшим `vertical_index_id`.
+
 ## Completed in 0.7.83: GeoScape WITS compatibility reference
 
 - Corrected standard header items 01–07 and source sequence item 04.
@@ -25,7 +36,6 @@ Added a read-only Store API client for GetVersion, GetCap and GetFromStore, hier
 Well through LogData, bounded timeout/retry, hash-chained audit and Windows Credential Manager
 password storage. Remote LogData reuses the existing WITSML Import Review and atomic Dataset
 registration. Add, Update and Delete are rejected by the client boundary.
-# Состояние проекта
 
 ## В разработке: полевая приёмка WITS0
 

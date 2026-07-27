@@ -3485,8 +3485,7 @@ class MainWindow(QMainWindow):
         well = self.session.current_well
         if well is None or dataset_id not in well.datasets:
             return
-        self.session.current_dataset_id = dataset_id
-        self.session.dirty = True
+        self.project_controller.select_existing_dataset(dataset_id, mark_dirty=True)
         self._refresh_tree()
         self._show_current_dataset()
         self._update_title()
@@ -3629,8 +3628,7 @@ class MainWindow(QMainWindow):
         well = self.session.current_well
         if well is None or dataset_id not in well.datasets:
             return
-        self.session.current_dataset_id = dataset_id
-        self.session.dirty = True
+        self.project_controller.select_existing_dataset(dataset_id, mark_dirty=True)
         self._refresh_tree()
         self._show_current_dataset()
         self._update_title()

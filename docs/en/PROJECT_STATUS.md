@@ -1,3 +1,12 @@
+# Project status
+
+## Current build 0.7.90
+
+The canonical startup command is `python -m geoworkbench.app.main`. The root README and current
+RU/KK/EN guides are synchronized, `docs/TESTING.md` defines one active release gate, and automated
+tests verify the module entry point, current documentation version, and release-notes/build-manifest
+links. The 0.7.87–0.7.89 fixes remain in place without changing project, form, or tablet formats.
+
 ## Completed in 0.7.83: GeoScape WITS compatibility
 
 Header items 01–07 and sequence item 04 are corrected. The 963-field records 1–25 catalog,

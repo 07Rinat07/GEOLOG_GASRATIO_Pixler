@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+from geoworkbench import __version__
 from geoworkbench.importers.etp12.etpproto_adapter import _index_value
 from geoworkbench.importers.etp12.models import Etp12MessageHeader
 from geoworkbench.services.etp12_credentials import WindowsEtp12CredentialStore
@@ -42,7 +43,7 @@ def test_etp_credentials_have_separate_windows_namespace() -> None:
 
 def test_packaging_and_ui_hooks_are_present() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'version = "0.7.83"' in pyproject
+    assert f'version = "{__version__}"' in pyproject
     for requirement in ("websockets>=16", "fastavro>=1.9", "etptypes>=1.2", "etpproto>=1.0.7"):
         assert requirement in pyproject
 

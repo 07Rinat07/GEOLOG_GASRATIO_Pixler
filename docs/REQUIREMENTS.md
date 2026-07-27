@@ -230,6 +230,8 @@ JSON-файл проекта не считается универсальным 
 - **ARCH-002:** форматные адаптеры изолированы за контрактами импорта/экспорта.
 - **TEST-001:** каждый инкремент проходит Ruff, mypy и полный pytest.
 - **TEST-002:** stable запрещён при аварийном завершении процесса, незелёном полном наборе тестов или неподписанном обязательном GUI/print smoke-test.
+- **TEST-003:** команда запуска, документация и package entry points проверяются единым regression-контрактом без импорта Qt.
+- **TEST-004:** изолированный pytest runner явно загружает pytest-asyncio, а reduced-environment runner исключает только collection-файлы с подтверждённо отсутствующими desktop dependencies.
 - **PROV-001:** готово для Print Center, прямого PNG/SVG/PDF, Masterlog PDF и интерпретационного PDF: подписанный JSON-sidecar фиксирует fingerprints источников, точный интервал и значения выбранных каналов, полный semantic binding/UOM, версии формул, content-addressed revision формы, локаль и параметры рендера; физическая печать вычисляет тот же digest без файлового sidecar.
 - **PERF-001:** большие кривые отображаются по видимому диапазону с ограничением точек.
 - **PERF-002:** SEG-Y/grid/NetCDF/HDF5 читаются окнами или chunks с измеряемым memory budget.
@@ -272,3 +274,4 @@ JSON-файл проекта не считается универсальным 
 | DOC-003 | Все относительные ссылки документации разрешаются в существующие файлы | готово: `tools/check_documentation.py` и regression-тест |
 | DOC-004 | Набор интерфейсных ключей одинаков в RU/KK/EN | готово: автоматическая проверка JSON-каталогов |
 | DOC-005 | Корневой README остаётся кратким, подробности находятся в `docs`, CHANGELOG и release notes | готово и проверяется release-review процессом |
+| DOC-006 | Каноническая команда запуска `python -m geoworkbench.app.main` совпадает в README, RU/KK/EN, TESTING и исполняемом module entry point | готово: проверяется documentation audit и `test_module_entrypoint_contract_0790.py` |

@@ -17,6 +17,7 @@ LANGUAGES = ("ru", "kk", "en")
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 VERSION_RE = re.compile(r'^version\s*=\s*"([^"]+)"', re.MULTILINE)
 PACKAGE_VERSION_RE = re.compile(r'^__version__\s*=\s*"([^"]+)"', re.MULTILINE)
+CANONICAL_LAUNCH_COMMAND = "python -m geoworkbench.app.main"
 
 
 @dataclass(frozen=True)
@@ -202,6 +203,103 @@ def audit_version_contract(root: Path) -> list[AuditIssue]:
             )
     return issues
 
+
+
+def audit_startup_command_contract(root: Path) -> list[AuditIssue]:
+    """Keep one canonical module startup command in code and current documentation."""
+
+    issues: list[AuditIssue] = []
+    required_documents = (
+        root / "README.md",
+        root / "docs" / "ru" / "README.md",
+        root / "docs" / "kk" / "README.md",
+        root / "docs" / "en" / "README.md",
+        root / "docs" / "TESTING.md",
+    )
+    for path in required_documents:
+        if not path.exists():
+            issues.append(
+                AuditIssue(
+                    "startup-command",
+                    f"Missing startup document: {path.relative_to(root)}",
+                )
+            )
+            continue
+        if CANONICAL_LAUNCH_COMMAND not in _read_text(path):
+            issues.append(
+                AuditIssue(
+                    "startup-command",
+                    f"{path.relative_to(root)} must contain {CANONICAL_LAUNCH_COMMAND!r}",
+                )
+            )
+
+    main_path = root / "src" / "geoworkbench" / "app" / "main.py"
+    if main_path.exists():
+        main_text = _read_text(main_path)
+        if 'if __name__ == "__main__":' not in main_text or "SystemExit(main())" not in main_text:
+            issues.append(
+                AuditIssue(
+                    "startup-command",
+                    "geoworkbench.app.main must expose an executable python -m guard",
+                )
+            )
+    else:
+        issues.append(AuditIssue("startup-command", "Missing src/geoworkbench/app/main.py"))
+
+    pyproject_text = _read_text(root / "pyproject.toml")
+    expected_entrypoint = 'geoworkbench.app.main:main'
+    if pyproject_text.count(expected_entrypoint) < 1:
+        issues.append(
+            AuditIssue(
+                "startup-command",
+                f"pyproject scripts must target {expected_entrypoint}",
+            )
+        )
+    return issues
+
+
+def audit_current_documentation_contract(root: Path) -> list[AuditIssue]:
+    """Keep the documentation index and testing guide aligned with the package version."""
+
+    issues: list[AuditIssue] = []
+    version = _project_version(root)
+    checks = {
+        root / "docs" / "DOCUMENTATION_INDEX.md": (
+            f"RELEASE_NOTES_{version}.md",
+            f"BUILD_MANIFEST_{version}.md",
+            "TESTING.md",
+        ),
+        root / "docs" / "TESTING.md": (
+            version,
+            CANONICAL_LAUNCH_COMMAND,
+            "test_module_entrypoint_contract_0790.py",
+            "test_test_runner_contract_0790.py",
+            "run_headless_tests.py",
+        ),
+        root / "README.md": (
+            CANONICAL_LAUNCH_COMMAND,
+            "docs/TESTING.md",
+        ),
+    }
+    for path, tokens in checks.items():
+        if not path.exists():
+            issues.append(
+                AuditIssue(
+                    "current-documentation",
+                    f"Missing current document: {path.relative_to(root)}",
+                )
+            )
+            continue
+        content = _read_text(path)
+        for token in tokens:
+            if token not in content:
+                issues.append(
+                    AuditIssue(
+                        "current-documentation",
+                        f"{path.relative_to(root)} does not reference current token: {token}",
+                    )
+                )
+    return issues
 
 def audit_user_workflow_coverage(root: Path) -> list[AuditIssue]:
     """Check the high-risk save/reopen and graph-symbol workflows in each guide."""
@@ -436,6 +534,8 @@ def run_audit(root: Path) -> list[AuditIssue]:
         audit_markdown_links,
         audit_i18n_key_parity,
         audit_version_contract,
+        audit_startup_command_contract,
+        audit_current_documentation_contract,
         audit_user_workflow_coverage,
         audit_compact_column_coverage,
         audit_form_creation_naming_coverage,

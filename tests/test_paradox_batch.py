@@ -264,6 +264,7 @@ def test_batch_preserves_actual_fractional_depth_step(
     tmp_path: Path,
     step: float,
 ) -> None:
+    pytest.importorskip("lasio")
     from geoworkbench.data.las_adapter import import_las
     from geoworkbench.importers.paradox import batch
     from geoworkbench.importers.paradox.importer import default_mappings
@@ -364,6 +365,7 @@ def test_batch_roundtrip_failure_does_not_replace_or_leave_target(
 
 
 def test_batch_can_create_explicit_geoscape_02_derived_grid(tmp_path: Path) -> None:
+    pytest.importorskip("lasio")
     from geoworkbench.data.las_adapter import import_las
     from geoworkbench.importers.paradox import batch
     from geoworkbench.importers.paradox.importer import default_mappings

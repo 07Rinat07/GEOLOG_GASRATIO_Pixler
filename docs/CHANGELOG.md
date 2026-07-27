@@ -1,3 +1,13 @@
+# 0.7.90 — актуальная документация, запуск и тестовый gate
+
+- Канонический запуск синхронизирован как `python -m geoworkbench.app.main`.
+- Корневой и RU/KK/EN README очищены от устаревших инструкций.
+- `TESTING.md` и `DOCUMENTATION_INDEX.md` приведены к текущей версии.
+- Добавлены автоматические контракты запуска и current-documentation regression-тесты.
+- Исправлена загрузка pytest-asyncio в изолированном runner и добавлен безопасный headless runner.
+- Устранены устаревшая проверка версии 0.7.83 и прямое изменение dirty-state из MainWindow acquisition callbacks.
+- Project v21, form schema v9 и tablet layout v19 не изменены.
+
 # 0.7.89 — безопасное переключение форм после импорта GeoScape2
 
 - Исправлен сбой `NoneType.role` при открытии нового GS2-набора поверх формы,

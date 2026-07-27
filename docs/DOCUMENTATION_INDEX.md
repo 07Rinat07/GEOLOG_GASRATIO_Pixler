@@ -32,6 +32,9 @@
 - [TESTING.md](TESTING.md) — the only active release-quality gate.
 - [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md) — synchronization rules.
 - [CHANGELOG.md](CHANGELOG.md) — concise implementation history.
+- [RELEASE_NOTES_0.7.90.md](RELEASE_NOTES_0.7.90.md) — current documentation and startup-command contract.
+- [BUILD_MANIFEST_0.7.90.md](BUILD_MANIFEST_0.7.90.md) — current package contents and executed validation.
+- [HOTFIX_REPORT_0.7.90.md](HOTFIX_REPORT_0.7.90.md) — documentation, startup, and test-runner root-cause report.
 - [RELEASE_NOTES_0.7.78.md](RELEASE_NOTES_0.7.78.md) — WITS0 reliability and restart recovery.
 - [RELEASE_NOTES_0.7.77.md](RELEASE_NOTES_0.7.77.md) — WITS0 live current values and time/depth history monitor.
 - [RELEASE_NOTES_0.7.56.md](RELEASE_NOTES_0.7.56.md) — A4 form-width guidance and adaptive interval statistics.
@@ -164,8 +167,9 @@ Every user-facing change must update the matching RU/KK/EN files in the same com
 
 ## Current build
 
-- [Release notes 0.7.80](RELEASE_NOTES_0.7.80.md) — WITSML 1.4.1.1 SOAP read-only.
-- [Build manifest 0.7.80](BUILD_MANIFEST_0.7.80.md) — package contents and verification scope.
+- [Release notes 0.7.90](RELEASE_NOTES_0.7.90.md) — canonical module startup, current README, and documentation/test gate maintenance.
+- [Build manifest 0.7.90](BUILD_MANIFEST_0.7.90.md) — package contents and executed verification scope.
+- [Testing guide](TESTING.md) — current quick, full, and Windows GUI release gates.
 
 ## WITSML data import and parallel field gate
 

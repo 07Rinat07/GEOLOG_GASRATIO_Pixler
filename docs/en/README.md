@@ -1,30 +1,25 @@
 # User guide
 
+GEOLOG GASRATIO@Pixler is an editor for drilling, mud-logging, LAS, and GeoScape2/GS2 data.
 
-## Changes in 0.7.73
+## Installation and startup
 
-A modeless **File → Capture WITS Level 0...** monitor was added. Pixler can act as a TCP server or client, preserves original GSWITS bytes in append-only `*.wits` files, records UTC/offset/size for every TCP chunk in `*.chunks.jsonl`, and shows complete `&& ... !!` frames. This slice does not create a Dataset. See [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
+Python 3.11 or newer is required. Open PowerShell in the project root and run:
 
-## Changes in 0.7.72
+```powershell
+py -3.11 -m venv .venv
+.venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m geoworkbench.app.main
+```
 
-The top command rows were moved out of Qt's native toolbar area into an application-owned responsive host above the workspace. F4 toggling, button clicks, and external-monitor transfer can therefore no longer enlarge the window beyond the screen. A catalog symbol can be narrowed with no practical limit down to the thinnest visible one-pixel line, while a separate selection frame keeps an extremely thin object selectable. Details: [RELEASE_NOTES_0.7.72.md](RELEASE_NOTES_0.7.72.md).
+The canonical tested startup command is `python -m geoworkbench.app.main`. The same command is
+used by the README, regression tests, and the release gate. Run it from the activated virtual
+environment.
 
-## Changes in 0.7.71
-
-Fixed the interface expanding to the right after enabling F4 and clicking controls on an external monitor: both top toolbars are hard-capped to the window width. Catalog symbols now truly narrow to one logical pixel; the hidden 40×24 px clamp was removed from screen and print layout. Details: [RELEASE_NOTES_0.7.71.md](RELEASE_NOTES_0.7.71.md).
-
-## Changes in 0.7.70
-
-The top toolbars now use an application-owned responsive row and no longer depend on Qt's native overflow arrow. **Form editing** stays inside the window on laptops and external monitors at different DPI scales. Inserted symbols can be narrowed freely in width or height down to 2 logical pixels; `Shift` preserves aspect ratio. See [UI_WORKSPACE.md](UI_WORKSPACE.md) and [ANNOTATIONS.md](ANNOTATIONS.md).
-
-
-GEOLOG GASRATIO@Pixler is an editor for drilling, mud-logging, and LAS data.
-
-- a ready A3 KazGeology Masterlog template with two uploadable logos and coloured scales;
-
-## Startup
-
-The welcome window remains visible for at least **3 seconds** so the logo, drilling animation, and loading status can be seen. If initialization takes longer, it closes as soon as the application is ready with a short fade-out.
+The welcome window remains visible for at least **3 seconds** so the logo, drilling animation, and
+loading status can be seen. If initialization takes longer, it closes after the application is ready.
 
 ## Language
 

@@ -132,3 +132,25 @@ def test_controller_owns_dirty_state_for_open_migration() -> None:
 
     controller.mark_open_migration_required(False)
     assert controller.session.dirty is False
+
+
+def test_controller_selects_existing_dataset_and_owns_dirty_state() -> None:
+    repository = MemoryProjectRepository(make_document())
+    controller = ProjectController(repository=repository)
+    controller.open_project(Path("project.geolog.json"))
+    controller.session.dirty = False
+
+    selected = controller.select_existing_dataset("dataset-1", mark_dirty=True)
+
+    assert selected.dataset_id == "dataset-1"
+    assert controller.session.current_dataset_id == "dataset-1"
+    assert controller.session.dirty is True
+
+
+def test_controller_rejects_unknown_existing_dataset() -> None:
+    repository = MemoryProjectRepository(make_document())
+    controller = ProjectController(repository=repository)
+    controller.open_project(Path("project.geolog.json"))
+
+    with pytest.raises(KeyError, match="missing"):
+        controller.select_existing_dataset("missing", mark_dirty=True)

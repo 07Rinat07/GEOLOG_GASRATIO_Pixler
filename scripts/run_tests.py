@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Run the project test suite in an isolated, headless Qt environment.
 
-Third-party pytest plugins installed globally are intentionally disabled. In
-particular, tracing/async plugins from the host environment can own native
-threads during Qt teardown and make a successful PySide6 suite exit with a
-segmentation fault. The project tests do not require those plugins.
+Unrelated pytest plugins installed globally are intentionally disabled because
+tracing or async plugins from the host environment can own native threads during
+Qt teardown. The project-owned pytest-asyncio plugin is loaded explicitly so ETP
+coroutine tests remain part of the isolated suite.
 """
 
 from __future__ import annotations
@@ -37,7 +37,16 @@ def main() -> int:
 
     import pytest
 
-    return int(pytest.main(["-q", *sys.argv[1:]]))
+    return int(
+        pytest.main(
+            [
+                "-q",
+                "-p",
+                "pytest_asyncio.plugin",
+                *sys.argv[1:],
+            ]
+        )
+    )
 
 
 if __name__ == "__main__":

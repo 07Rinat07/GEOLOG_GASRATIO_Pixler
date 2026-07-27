@@ -8,7 +8,7 @@ only when its automated and manual acceptance criteria pass.
 - establish a decreasing, then zero, mypy baseline;
 - run the tablet, annotation, PDF, HiDPI, and physical-printer smoke matrix;
 - publish a stable build only after every mandatory gate is green.
-- keep RU/KK/EN user-document sets, links, save/reopen workflows, and i18n keys under an automated documentation gate.
+- keep RU/KK/EN user-document sets, links, save/reopen workflows, i18n keys, current-version navigation, and the canonical `python -m geoworkbench.app.main` startup command under an automated documentation gate.
 
 The 0.7.72 automated increment removes the two top command rows from the native toolbar area,
 keeps ultra-thin symbol geometry editable and visible, and makes numeric TIME CSV/XLSX reuse exact
