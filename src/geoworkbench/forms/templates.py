@@ -328,6 +328,8 @@ def _axis_column(
         group_title=group_title,
         width=width,
         locked=True,
+        title_orientation=compact_track_title_orientation(TrackKind.DEPTH),
+        title_position=compact_track_title_position(TrackKind.DEPTH),
         tracks=[
             FormTrack(
                 track_id=f"track-{axis.value}-axis",
@@ -382,6 +384,8 @@ def _special_column(
         title=title,
         group_title=group_title,
         width=width,
+        title_orientation=compact_track_title_orientation(kind),
+        title_position=compact_track_title_position(kind),
         tracks=[
             FormTrack(
                 track_id=f"track-{column_id}",

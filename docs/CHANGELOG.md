@@ -1,3 +1,11 @@
+# 0.7.92 — fitting of rotated compact captions and horizontal LBA
+
+- Long vertical titles are measured with real font metrics and fitted into the header without clipping.
+- Rotated title height increased to 96 px.
+- LBA is horizontal by default in factory forms, new tracks and migrated layouts.
+- Form schema advanced to v11 and tablet layout to v21; project format remains v21.
+- RU/KK/EN release notes, build manifest, testing guide and documentation index are synchronized.
+
 # 0.7.90 — актуальная документация, запуск и тестовый gate
 
 - Канонический запуск синхронизирован как `python -m geoworkbench.app.main`.

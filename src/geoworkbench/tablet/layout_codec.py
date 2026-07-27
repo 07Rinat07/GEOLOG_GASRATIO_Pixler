@@ -18,7 +18,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 20
+LAYOUT_FORMAT_VERSION = 21
 
 
 class TabletLayoutFormatError(ValueError):
@@ -264,7 +264,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     if version == LAYOUT_FORMAT_VERSION:
         return data
     if version not in (
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
     ):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
@@ -380,11 +380,10 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 for settings in display.values():
                     if isinstance(settings, dict):
                         _migrate_scale_payload_to_linear(settings)
-    migrated["version"] = 19
+    migrated["version"] = 20
     if isinstance(tracks, list):
-        # Version 20 rotates compact geology/reference titles so narrow columns
-        # stay readable after width compaction. Preserve any explicit non-
-        # horizontal orientation already chosen by the user.
+        # Version 21 preserves vertical captions for long compact columns and
+        # changes the short LBA caption back to horizontal in existing layouts.
         for track in tracks:
             if not isinstance(track, dict):
                 continue
@@ -394,8 +393,11 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 continue
             if kind not in COMPACT_TRACK_KINDS:
                 continue
-            if str(track.get("title_orientation", "horizontal")) == "horizontal":
-                track["title_orientation"] = compact_track_title_orientation(kind)
+            orientation = compact_track_title_orientation(kind)
+            if kind is TrackKind.LBA:
+                track["title_orientation"] = orientation
+            elif str(track.get("title_orientation", "horizontal")) == "horizontal":
+                track["title_orientation"] = orientation
             track.setdefault("title_position", compact_track_title_position(kind))
     migrated["version"] = LAYOUT_FORMAT_VERSION
     return migrated

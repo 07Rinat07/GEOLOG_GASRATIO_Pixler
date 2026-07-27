@@ -1,6 +1,7 @@
 # Project status
 
-## Current build 0.7.90
+## Current build 0.7.92
+- Long rotated compact-column captions are fitted without clipping; LBA is horizontal by default.
 
 The canonical startup command is `python -m geoworkbench.app.main`. The root README and current
 RU/KK/EN guides are synchronized, `docs/TESTING.md` defines one active release gate, and automated

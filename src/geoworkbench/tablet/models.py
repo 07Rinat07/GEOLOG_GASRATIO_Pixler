@@ -42,6 +42,7 @@ MAX_TRACK_WIDTH = 2000
 COMPACT_WIDTH_FACTOR = 0.50
 COMPACT_TITLE_ORIENTATION = "vertical_bottom_to_top"
 COMPACT_TITLE_POSITION = "center"
+VERTICAL_COMPACT_TITLE_KINDS = COMPACT_TRACK_KINDS - {TrackKind.LBA}
 
 
 def compact_track_title_orientation(kind: TrackKind) -> str:
@@ -53,7 +54,7 @@ def compact_track_title_orientation(kind: TrackKind) -> str:
     caption across all ready forms and migrated projects.
     """
 
-    return COMPACT_TITLE_ORIENTATION if kind in COMPACT_TRACK_KINDS else "horizontal"
+    return COMPACT_TITLE_ORIENTATION if kind in VERTICAL_COMPACT_TITLE_KINDS else "horizontal"
 
 
 def compact_track_title_position(kind: TrackKind) -> str:

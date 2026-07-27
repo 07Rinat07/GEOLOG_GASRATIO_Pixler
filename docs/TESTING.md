@@ -1,6 +1,6 @@
 # Проверка качества и release gate
 
-Документ актуален для **GEOLOG GASRATIO@Pixler 0.7.90**. Исторические результаты отдельных
+Документ актуален для **GEOLOG GASRATIO@Pixler 0.7.92**. Исторические результаты отдельных
 версий находятся в `RELEASE_NOTES_*`, `BUILD_MANIFEST_*` и `CHANGELOG.md`; они не заменяют
 текущие команды проверки.
 
@@ -38,6 +38,7 @@ python -m pytest -q `
   tests/test_root_readme_scope.py `
   tests/test_gs2_form_axis_hotfix_0789.py `
   tests/test_index_detection.py `
+  tests/test_compact_geology_columns.py `
   tests/test_form_engine_models.py `
   tests/test_masterlog_presets.py
 ```

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +13,7 @@ from geoworkbench.tablet.layout_codec import layout_from_dict, layout_to_dict
 from geoworkbench.tablet.models import (
     COMPACT_MIN_TRACK_WIDTH,
     TrackDefinition,
+    compact_track_title_orientation,
     TrackKind,
 )
 
@@ -59,7 +61,7 @@ def test_layout_v17_migration_applies_stable_target_widths() -> None:
     assert restored.track_by_id("lithology").title_orientation == "vertical_bottom_to_top"
     assert restored.track_by_id("curve").width == 300
     assert restored.track_by_id("curve").title_orientation == "horizontal"
-    assert layout_to_dict(restored)["version"] == 20
+    assert layout_to_dict(restored)["version"] == 21
 
 
 def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None:
@@ -98,7 +100,7 @@ def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None
     assert restored.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
     assert restored.columns[1].width == 300
     assert restored.columns[1].tracks[0].title_orientation == "horizontal"
-    assert encoded["schema_version"] == 10
+    assert encoded["schema_version"] == 11
     assert restored_again.columns[0].width == 60
 
 
@@ -147,9 +149,12 @@ def test_all_factory_forms_use_compact_widths_for_requested_column_kinds() -> No
                 assert column.width >= COMPACT_MIN_TRACK_WIDTH
                 assert column.width < 220
                 assert all(
-                    track.title_orientation == "vertical_bottom_to_top"
+                    track.title_orientation == compact_track_title_orientation(track.kind)
                     for track in column.tracks
                 )
+                if len(kinds) == 1:
+                    kind = next(iter(kinds))
+                    assert column.title_orientation == compact_track_title_orientation(kind)
 
 
 def test_ready_forms_are_built_in_with_compact_geology_columns() -> None:
@@ -174,9 +179,12 @@ def test_ready_forms_are_built_in_with_compact_geology_columns() -> None:
                 assert column.width >= COMPACT_MIN_TRACK_WIDTH
                 assert column.width < 220
                 assert all(
-                    track.title_orientation == "vertical_bottom_to_top"
+                    track.title_orientation == compact_track_title_orientation(track.kind)
                     for track in column.tracks
                 )
+                if len(kinds) == 1:
+                    kind = next(iter(kinds))
+                    assert column.title_orientation == compact_track_title_orientation(kind)
 
 
 def test_form_column_minimum_follows_its_track_kind() -> None:
@@ -222,6 +230,95 @@ def test_layout_v17_migration_compacts_every_requested_kind() -> None:
     for kind, width in expected.items():
         assert restored.track_by_id(kind.value).width == width
     assert restored.track_by_id("text").width == 200
+
+
+def test_lba_defaults_to_horizontal_while_long_compact_titles_stay_vertical() -> None:
+    forms = factory_templates("ru")
+    compact_tracks = [
+        track
+        for form in forms.values()
+        for column in form.columns
+        for track in column.tracks
+        if track.kind in COMPACT_KINDS
+    ]
+
+    assert any(track.kind is TrackKind.LBA for track in compact_tracks)
+    for track in compact_tracks:
+        expected = (
+            "horizontal" if track.kind is TrackKind.LBA else "vertical_bottom_to_top"
+        )
+        assert track.title_orientation == expected
+
+
+def test_v20_layout_migration_restores_lba_horizontal_default() -> None:
+    restored = layout_from_dict(
+        {
+            "version": 20,
+            "tracks": [
+                {
+                    "track_id": "lba",
+                    "title": "ЛБА",
+                    "kind": "lba",
+                    "width": 130,
+                    "title_orientation": "vertical_bottom_to_top",
+                },
+                {
+                    "track_id": "cuttings",
+                    "title": "Шламограмма",
+                    "kind": "cuttings",
+                    "width": 120,
+                    "title_orientation": "vertical_bottom_to_top",
+                },
+            ],
+        }
+    )
+
+    assert restored.track_by_id("lba").title_orientation == "horizontal"
+    assert restored.track_by_id("cuttings").title_orientation == "vertical_bottom_to_top"
+    assert layout_to_dict(restored)["version"] == 21
+
+
+def test_v10_form_migration_restores_lba_horizontal_default() -> None:
+    restored = form_from_dict(
+        {
+            "schema_version": 10,
+            "form_id": "legacy-lba",
+            "name": "Legacy LBA",
+            "axis_kind": "depth",
+            "columns": [
+                {
+                    "column_id": "lba-column",
+                    "title": "ЛБА",
+                    "width": 130,
+                    "title_orientation": "vertical_bottom_to_top",
+                    "tracks": [
+                        {
+                            "track_id": "lba-track",
+                            "title": "ЛБА",
+                            "kind": "lba",
+                            "title_orientation": "vertical_bottom_to_top",
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert restored.columns[0].title_orientation == "horizontal"
+    assert restored.columns[0].tracks[0].title_orientation == "horizontal"
+    assert form_to_dict(restored)["schema_version"] == 11
+
+
+def test_rotated_title_renderer_fits_long_single_word_captions() -> None:
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "src/geoworkbench/ui/oriented_text_label.py"
+    ).read_text(encoding="utf-8")
+
+    assert "QFontMetricsF" in source
+    assert "horizontalAdvance(text)" in source
+    assert "Qt.TextFlag.TextSingleLine" in source
+    assert "max(5.5, point_size * scale * 0.97)" in source
 
 
 def test_ready_form_names_are_localized_and_polished() -> None:

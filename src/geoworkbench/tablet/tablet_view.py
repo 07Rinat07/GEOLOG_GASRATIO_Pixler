@@ -1095,7 +1095,7 @@ class TabletTrackWidget(QFrame):
             "background: #f8fafc; color: #0f172a; "
             "border-bottom: 1px solid #cbd5e1;"
         )
-        self.title.setFixedHeight(88 if definition.title_orientation != "horizontal" else 36)
+        self.title.setFixedHeight(96 if definition.title_orientation != "horizontal" else 36)
 
         self.curve_header = QWidget()
         self.curve_header.setObjectName("tablet-curve-header-content")
@@ -1311,7 +1311,7 @@ class TabletTrackWidget(QFrame):
 
     @property
     def natural_title_header_height(self) -> int:
-        return 88 if self.definition.title_orientation != "horizontal" else 36
+        return 96 if self.definition.title_orientation != "horizontal" else 36
 
     def set_synchronized_title_header_height(self, height: int) -> None:
         self.title.setFixedHeight(max(36, int(height)))

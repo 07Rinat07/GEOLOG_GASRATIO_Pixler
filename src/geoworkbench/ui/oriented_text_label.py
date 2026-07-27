@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QRectF, QSize, Qt
-from PySide6.QtGui import QPainter, QPaintEvent
+from PySide6.QtGui import QFont, QFontMetricsF, QPainter, QPaintEvent
 from PySide6.QtWidgets import QLabel, QStyle, QStyleOption
 
 from geoworkbench.domain.text_presentation import (
@@ -82,7 +82,6 @@ class OrientedTextLabel(QLabel):
         if content.width() <= 0.0 or content.height() <= 0.0:
             return
         painter.setPen(self.palette().color(self.foregroundRole()))
-        painter.setFont(self.font())
         painter.translate(content.center())
         painter.rotate(text_angle(self._orientation))
         rotated = QRectF(
@@ -91,6 +90,8 @@ class OrientedTextLabel(QLabel):
             content.height(),
             content.width(),
         )
+        rendered_text = " ".join(self.text().splitlines()).strip()
+        painter.setFont(self._fitted_rotated_font(rendered_text, rotated))
         horizontal = {
             "left": Qt.AlignmentFlag.AlignLeft,
             "center": Qt.AlignmentFlag.AlignHCenter,
@@ -98,9 +99,45 @@ class OrientedTextLabel(QLabel):
         }[rotated_text_alignment(self._orientation, self._position)]
         painter.drawText(
             rotated,
-            horizontal | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
-            self.text(),
+            horizontal | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextSingleLine,
+            rendered_text,
         )
+
+    def _fitted_rotated_font(self, text: str, target: QRectF) -> QFont:
+        """Shrink a rotated caption only as much as required to avoid clipping.
+
+        Qt's word wrapping does not split long words such as ``Стратиграфия``
+        or ``Шламограмма``.  In a 90-degree header that caused the beginning or
+        end of the caption to be cut off.  Measure the actual glyph width and
+        fit one readable line into the rotated rectangle instead.
+        """
+
+        font = QFont(self.font())
+        if not text or target.width() <= 0.0 or target.height() <= 0.0:
+            return font
+
+        metrics = QFontMetricsF(font)
+        text_width = max(1.0, metrics.horizontalAdvance(text))
+        text_height = max(1.0, metrics.height())
+        width_ratio = target.width() / text_width
+        height_ratio = target.height() / text_height
+        scale = min(1.0, width_ratio, height_ratio)
+        if scale >= 0.999:
+            return font
+
+        point_size = font.pointSizeF()
+        if point_size <= 0.0:
+            pixel_size = font.pixelSize()
+            point_size = pixel_size * 0.75 if pixel_size > 0 else 9.0
+        font.setPointSizeF(max(5.5, point_size * scale * 0.97))
+
+        # A small horizontal condensation is preferable to clipping when the
+        # platform font metrics differ slightly from the development machine.
+        fitted_width = QFontMetricsF(font).horizontalAdvance(text)
+        if fitted_width > target.width():
+            stretch = int(round(100.0 * target.width() / max(1.0, fitted_width)))
+            font.setStretch(max(70, min(100, stretch)))
+        return font
 
     def _apply_horizontal_alignment(self) -> None:
         vertical = {
