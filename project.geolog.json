@@ -1,5 +1,5 @@
 {
-  "format_version": 20,
+  "format_version": 21,
   "project": {
     "project_id": "4f511ef4-fff8-49d1-be5e-8dffceb6427f",
     "name": "Новый проект",
@@ -741503,7 +741503,7 @@
   },
   "tablet_layouts": {
     "68f758d8-adf7-4ab2-a7bf-36a7454a7f5c": {
-      "version": 16,
+      "version": 19,
       "visible_depth_top": 1883.1572512000002,
       "visible_depth_bottom": 1933.1572512,
       "cursor_depth": null,
@@ -741519,7 +741519,7 @@
           "show_interval_labels": false,
           "kind": "stratigraphy",
           "curve_mnemonics": [],
-          "width": 80,
+          "width": 48,
           "visible": true,
           "locked": false,
           "x_scale": "linear",
@@ -741617,7 +741617,7 @@
           "show_interval_labels": false,
           "kind": "depth",
           "curve_mnemonics": [],
-          "width": 80,
+          "width": 48,
           "visible": true,
           "locked": false,
           "x_scale": "linear",
@@ -741642,7 +741642,7 @@
           "show_interval_labels": false,
           "kind": "cuttings",
           "curve_mnemonics": [],
-          "width": 80,
+          "width": 48,
           "visible": true,
           "locked": false,
           "x_scale": "linear",
@@ -741667,7 +741667,7 @@
           "show_interval_labels": false,
           "kind": "lba",
           "curve_mnemonics": [],
-          "width": 80,
+          "width": 48,
           "visible": true,
           "locked": false,
           "x_scale": "linear",
@@ -741694,7 +741694,7 @@
           "curve_mnemonics": [
             "CACO3_(КАЛЬЦИТ)"
           ],
-          "width": 80,
+          "width": 48,
           "visible": true,
           "locked": false,
           "x_scale": "linear",
@@ -741735,7 +741735,7 @@
           "show_interval_labels": false,
           "kind": "lithology",
           "curve_mnemonics": [],
-          "width": 80,
+          "width": 48,
           "visible": true,
           "locked": false,
           "x_scale": "linear",
@@ -741772,8 +741772,8 @@
           "width": 195,
           "visible": true,
           "locked": false,
-          "x_scale": "logarithmic",
-          "x_min": 0.001,
+          "x_scale": "linear",
+          "x_min": 0.0,
           "x_max": 100.0,
           "curve_styles": {
             "C1": {
@@ -741820,8 +741820,8 @@
           "curve_display": {
             "C1": {
               "display_name": "Метан C1",
-              "x_scale": "logarithmic",
-              "x_min": 0.001,
+              "x_scale": "linear",
+              "x_min": 0.0,
               "x_max": 100.0,
               "unit_override": "%",
               "header_text_color": "#0f172a",
@@ -741829,8 +741829,8 @@
             },
             "C2": {
               "display_name": "Этан C2",
-              "x_scale": "logarithmic",
-              "x_min": 0.001,
+              "x_scale": "linear",
+              "x_min": 0.0,
               "x_max": 100.0,
               "unit_override": "%",
               "header_text_color": "#0f172a",
@@ -741838,8 +741838,8 @@
             },
             "C3": {
               "display_name": "Пропан C3",
-              "x_scale": "logarithmic",
-              "x_min": 0.001,
+              "x_scale": "linear",
+              "x_min": 0.0,
               "x_max": 100.0,
               "unit_override": "%",
               "header_text_color": "#0f172a",
@@ -741847,8 +741847,8 @@
             },
             "C4": {
               "display_name": "Бутан C4",
-              "x_scale": "logarithmic",
-              "x_min": 0.001,
+              "x_scale": "linear",
+              "x_min": 0.0,
               "x_max": 100.0,
               "unit_override": "%",
               "header_text_color": "#0f172a",
@@ -741856,8 +741856,8 @@
             },
             "IC4": {
               "display_name": "Изобутан iC4",
-              "x_scale": "logarithmic",
-              "x_min": 0.001,
+              "x_scale": "linear",
+              "x_min": 0.0,
               "x_max": 100.0,
               "unit_override": "%",
               "header_text_color": "#0f172a",
@@ -741865,8 +741865,8 @@
             },
             "C5": {
               "display_name": "Пентан C5",
-              "x_scale": "logarithmic",
-              "x_min": 0.001,
+              "x_scale": "linear",
+              "x_min": 0.0,
               "x_max": 100.0,
               "unit_override": "%",
               "header_text_color": "#0f172a",
@@ -741874,8 +741874,8 @@
             },
             "IC5": {
               "display_name": "Изопентан iC5",
-              "x_scale": "logarithmic",
-              "x_min": 0.001,
+              "x_scale": "linear",
+              "x_min": 0.0,
               "x_max": 100.0,
               "unit_override": "%",
               "header_text_color": "#0f172a",
@@ -741883,8 +741883,8 @@
             },
             "СУММА_ГАЗОВ": {
               "display_name": "Суммарный газ",
-              "x_scale": "logarithmic",
-              "x_min": 0.001,
+              "x_scale": "linear",
+              "x_min": 0.0,
               "x_max": 100.0,
               "unit_override": "%",
               "header_text_color": "#0f172a",

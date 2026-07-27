@@ -1,3 +1,10 @@
+# 0.7.87 — Linear form defaults and LAS zero continuity
+
+- Set every factory screen form and built-in Masterlog preset to a linear default scale.
+- Added one-time form schema v9, tablet layout v19 and project format v21 migrations.
+- Preserved valid LAS zeroes on linear gas tracks while keeping NULL/NaN as real gaps.
+- Kept logarithmic scale available as an explicit user option for strictly positive data.
+
 # 0.7.83 — GeoScape WITS compatibility reference
 
 - corrected GSWITS header and sequence item 04;

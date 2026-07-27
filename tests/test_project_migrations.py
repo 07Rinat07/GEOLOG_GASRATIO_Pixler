@@ -258,3 +258,69 @@ def test_v19_project_adds_independent_dataset_append_histories() -> None:
     assert migrated["project"]["wells"]["w"]["datasets"]["depth-a"]["append_history"] == []
     assert migrated["project"]["wells"]["w"]["datasets"]["time-a"]["append_history"] == []
     assert "append_history" not in payload["project"]["wells"]["w"]["datasets"]["depth-a"]
+
+
+def test_v20_project_migrates_all_persisted_form_scales_to_linear() -> None:
+    payload = {
+        "format_version": 20,
+        "project": {
+            "project_id": "p",
+            "name": "P",
+            "wells": {},
+            "masterlog_templates": {
+                "gas-template": {
+                    "template_id": "gas-template",
+                    "name": "Gas",
+                    "columns": [
+                        {
+                            "column_id": "gas",
+                            "x_scale": "logarithmic",
+                            "x_min": 0.001,
+                            "x_max": 100.0,
+                            "curve_styles": {
+                                "C2": {"x_min": 0.001, "x_max": 100.0}
+                            },
+                        }
+                    ],
+                }
+            },
+        },
+        "tablet_layouts": {
+            "well": {
+                "version": 18,
+                "tracks": [
+                    {
+                        "track_id": "gas",
+                        "x_scale": "logarithmic",
+                        "x_min": 0.001,
+                        "x_max": 100.0,
+                        "curve_display": {
+                            "C2": {
+                                "x_scale": "logarithmic",
+                                "x_min": 0.001,
+                                "x_max": 100.0,
+                            }
+                        },
+                    }
+                ],
+            }
+        },
+        "tablet_presets": {},
+    }
+
+    migrated = migrate_project_payload(payload, 21)
+
+    column = migrated["project"]["masterlog_templates"]["gas-template"]["columns"][0]
+    track = migrated["tablet_layouts"]["well"]["tracks"][0]
+    assert migrated["format_version"] == 21
+    assert column["x_scale"] == "linear"
+    assert column["x_min"] == 0.0
+    assert column["curve_styles"]["C2"]["x_min"] == 0.0
+    assert track["x_scale"] == "linear"
+    assert track["x_min"] == 0.0
+    assert track["curve_display"]["C2"]["x_scale"] == "linear"
+    assert track["curve_display"]["C2"]["x_min"] == 0.0
+
+    # Migration must be non-mutating.
+    original_column = payload["project"]["masterlog_templates"]["gas-template"]["columns"][0]
+    assert original_column["x_scale"] == "logarithmic"

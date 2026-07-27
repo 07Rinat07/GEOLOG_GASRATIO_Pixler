@@ -519,12 +519,12 @@ def _reference_gas_column() -> MasterlogColumnTemplate:
         "curves",
         72.0,
         curves,
-        x_scale="logarithmic",
-        x_min=0.001,
+        x_scale="linear",
+        x_min=0.0,
         x_max=100.0,
         show_legend=True,
         curve_styles={
-            mnemonic: MasterlogCurveStyle(color, 1.25, "solid", 0.001, 100.0)
+            mnemonic: MasterlogCurveStyle(color, 1.25, "solid", 0.0, 100.0)
             for mnemonic, color in zip(curves, palette, strict=True)
         },
         grid_x=True,
@@ -723,8 +723,8 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
                     "curves",
                     42,
                     ["ILM", "ILD"],
-                    "logarithmic",
-                    0.2,
+                    "linear",
+                    0.0,
                     2000,
                 ),
                 (
@@ -733,8 +733,8 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
                     "curves",
                     62,
                     ["TG", "C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5"],
-                    "logarithmic",
-                    1,
+                    "linear",
+                    0,
                     1000000,
                 ),
                 (
@@ -793,8 +793,8 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
                     "curves",
                     70,
                     ["TG", "C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5"],
-                    "logarithmic",
-                    1,
+                    "linear",
+                    0,
                     1000000,
                 ),
                 (

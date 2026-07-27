@@ -335,6 +335,111 @@ def _migrate_v19_to_v20(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v20_to_v21(payload: ProjectPayload) -> ProjectPayload:
+    """Make persisted form/layout defaults linear without removing log support.
+
+    Version 21 is a one-time compatibility migration.  Older projects could
+    store logarithmic defaults in Masterlog templates and tablet layouts.  LAS
+    zeroes are valid measurements, but they cannot be represented on a log
+    axis and therefore appeared as broken curve segments.  Existing payloads
+    are converted to linear defaults; users may still select logarithmic mode
+    explicitly after the upgraded project is saved.
+    """
+
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 20 не содержит объекта 'project'")
+
+    templates = project.get("masterlog_templates", {})
+    if not isinstance(templates, dict):
+        raise ProjectMigrationError(
+            "Проект версии 20 содержит некорректный masterlog_templates"
+        )
+    for template in templates.values():
+        if not isinstance(template, dict):
+            raise ProjectMigrationError("Некорректный шаблон Masterlog версии 20")
+        columns = template.get("columns", [])
+        if not isinstance(columns, list):
+            raise ProjectMigrationError("Некорректные колонки Masterlog версии 20")
+        for column in columns:
+            if not isinstance(column, dict):
+                raise ProjectMigrationError("Некорректная колонка Masterlog версии 20")
+            column_was_logarithmic = _migrate_scale_payload_to_linear(column)
+            curve_styles = column.get("curve_styles", {})
+            if not isinstance(curve_styles, dict):
+                raise ProjectMigrationError(
+                    "Некорректные стили кривых Masterlog версии 20"
+                )
+            if column_was_logarithmic:
+                for style in curve_styles.values():
+                    if isinstance(style, dict):
+                        _migrate_positive_minimum_to_zero(style)
+
+    # Tablet layouts/presets have their own versioned decoder.  Normalising
+    # them here as well makes the raw upgraded project deterministic and also
+    # covers external consumers that inspect project JSON without that decoder.
+    for collection_name in ("tablet_layouts", "tablet_presets"):
+        collection = migrated.get(collection_name, {})
+        if not isinstance(collection, dict):
+            raise ProjectMigrationError(
+                f"Проект версии 20 содержит некорректный {collection_name}"
+            )
+        for layout in collection.values():
+            if not isinstance(layout, dict):
+                raise ProjectMigrationError(
+                    f"Некорректная компоновка в {collection_name} версии 20"
+                )
+            tracks = layout.get("tracks", [])
+            if not isinstance(tracks, list):
+                raise ProjectMigrationError(
+                    f"Некорректные дорожки в {collection_name} версии 20"
+                )
+            for track in tracks:
+                if not isinstance(track, dict):
+                    raise ProjectMigrationError(
+                        f"Некорректная дорожка в {collection_name} версии 20"
+                    )
+                _migrate_scale_payload_to_linear(track)
+                curve_display = track.get("curve_display", {})
+                if not isinstance(curve_display, dict):
+                    raise ProjectMigrationError(
+                        f"Некорректный curve_display в {collection_name} версии 20"
+                    )
+                for settings in curve_display.values():
+                    if isinstance(settings, dict):
+                        _migrate_scale_payload_to_linear(settings)
+
+    migrated["format_version"] = 21
+    return migrated
+
+
+def _migrate_scale_payload_to_linear(payload: dict[str, Any]) -> bool:
+    """Convert a legacy logarithmic payload and report whether it changed."""
+
+    was_logarithmic = payload.get("x_scale") == "logarithmic"
+    if was_logarithmic:
+        payload["x_scale"] = "linear"
+        _migrate_positive_minimum_to_zero(payload)
+    else:
+        payload.setdefault("x_scale", "linear")
+    return was_logarithmic
+
+
+def _migrate_positive_minimum_to_zero(payload: dict[str, Any]) -> None:
+    minimum = payload.get("x_min")
+    maximum = payload.get("x_max")
+    if (
+        isinstance(minimum, (int, float))
+        and not isinstance(minimum, bool)
+        and isinstance(maximum, (int, float))
+        and not isinstance(maximum, bool)
+        and minimum > 0
+        and maximum > 0
+    ):
+        payload["x_min"] = 0.0
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -356,6 +461,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(16, _migrate_v16_to_v17)
 DEFAULT_PROJECT_MIGRATIONS.register(17, _migrate_v17_to_v18)
 DEFAULT_PROJECT_MIGRATIONS.register(18, _migrate_v18_to_v19)
 DEFAULT_PROJECT_MIGRATIONS.register(19, _migrate_v19_to_v20)
+DEFAULT_PROJECT_MIGRATIONS.register(20, _migrate_v20_to_v21)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

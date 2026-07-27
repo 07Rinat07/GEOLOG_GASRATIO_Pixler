@@ -46,7 +46,7 @@ def test_builtin_masterlog_presets_are_unique_and_cover_core_tracks() -> None:
     gas = next(column for column in field.template.columns if column.column_id == "gas")
     assert set(gas.curve_styles) == set(gas.curve_mnemonics)
     assert len({style.color for style in gas.curve_styles.values()}) > 1
-    assert gas.curve_styles["TG"].x_min == 1.0
+    assert gas.curve_styles["TG"].x_min == 0.0
     assert gas.grid_x is True
     assert gas.grid_y is True
     assert gas.grid_major_divisions == 5
@@ -125,8 +125,8 @@ def test_geological_geochemical_reference_preset_matches_working_masterlog_struc
     assert drilling.curve_styles["DMC"].x_max == 50.0
     assert drilling.curve_styles["DEXP"].x_max == 3.0
     gas = preset.template.columns[7]
-    assert gas.x_scale == "logarithmic"
-    assert gas.x_min == 0.001
+    assert gas.x_scale == "linear"
+    assert gas.x_min == 0.0
     assert gas.x_max == 100.0
     assert gas.curve_mnemonics[-1] == "TG"
 
@@ -161,8 +161,13 @@ def test_kazgeology_reference_blank_has_uploadable_logo_slots_and_expected_colum
     ]
     assert preset.template.columns[-1].properties["automatic_lithology_fallback"] is False
     gas = preset.template.columns[7]
-    assert gas.x_scale == "logarithmic"
-    assert gas.x_min == 0.001
+    assert gas.x_scale == "linear"
+    assert gas.x_min == 0.0
     assert gas.x_max == 100.0
     assert gas.grid_major_divisions == 5
     assert gas.grid_minor_divisions == 10
+
+
+def test_every_builtin_masterlog_column_is_linear_by_default() -> None:
+    for preset in BUILTIN_MASTERLOG_FORM_PRESETS:
+        assert all(column.x_scale == "linear" for column in preset.template.columns)

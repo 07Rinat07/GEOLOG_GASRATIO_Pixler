@@ -114,7 +114,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 20
+PROJECT_FORMAT_VERSION = 21
 
 
 @dataclass(slots=True)

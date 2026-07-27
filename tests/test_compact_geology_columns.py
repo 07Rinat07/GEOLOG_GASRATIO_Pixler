@@ -56,7 +56,7 @@ def test_layout_v17_migration_applies_stable_target_widths() -> None:
     assert restored.track_by_id("depth").width == 60
     assert restored.track_by_id("lithology").width == 110
     assert restored.track_by_id("curve").width == 300
-    assert layout_to_dict(restored)["version"] == 18
+    assert layout_to_dict(restored)["version"] == 19
 
 
 def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None:
@@ -93,7 +93,7 @@ def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None
 
     assert restored.columns[0].width == 60
     assert restored.columns[1].width == 300
-    assert encoded["schema_version"] == 8
+    assert encoded["schema_version"] == 9
     assert restored_again.columns[0].width == 60
 
 

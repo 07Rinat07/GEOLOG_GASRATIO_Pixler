@@ -395,7 +395,6 @@ def _binding(
     unit: str = "",
     color: str = "#2563eb",
     *,
-    log: bool = False,
     width: float = 1.5,
     line_style: CurveLineStyle = CurveLineStyle.SOLID,
     x_min: float | None = None,
@@ -407,7 +406,7 @@ def _binding(
         display_name=name,
         unit=unit,
         style=CurveStyle(color=color, width=width, line_style=line_style),
-        x_scale=XScale.LOGARITHMIC if log else XScale.LINEAR,
+        x_scale=XScale.LINEAR,
         x_min=x_min,
         x_max=x_max,
     )
@@ -437,10 +436,10 @@ def _ratio_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
 
 def _pixler_bindings() -> list[ParameterBinding]:
     return [
-        _binding("PIXLER_C1_C2", "C1/C2", "", "#2563eb", log=True),
-        _binding("PIXLER_C1_C3", "C1/C3", "", "#16a34a", log=True),
-        _binding("PIXLER_C1_C4", "C1/C4", "", "#ea580c", log=True),
-        _binding("PIXLER_C1_C5", "C1/C5", "", "#9333ea", log=True),
+        _binding("PIXLER_C1_C2", "C1/C2", "", "#2563eb"),
+        _binding("PIXLER_C1_C3", "C1/C3", "", "#16a34a"),
+        _binding("PIXLER_C1_C4", "C1/C4", "", "#ea580c"),
+        _binding("PIXLER_C1_C5", "C1/C5", "", "#9333ea"),
     ]
 
 
@@ -989,13 +988,12 @@ def _geodata_depth_workspace(language: TemplateLanguage) -> FormDocument:
             _t("total_gas", language),
             "%",
             "#dc2626",
-            log=True,
-            x_min=0.001,
+            x_min=0.0,
             x_max=100,
             width=2.0,
         ),
-        _binding("C1", _t("methane", language), "%", "#111827", log=True, x_min=0.001, x_max=100),
-        _binding("C2", _t("ethane", language), "%", "#84cc16", log=True, x_min=0.001, x_max=100),
+        _binding("C1", _t("methane", language), "%", "#111827", x_min=0.0, x_max=100),
+        _binding("C2", _t("ethane", language), "%", "#84cc16", x_min=0.0, x_max=100),
     ]
     relative_bindings = [
         _binding("C1_REL", _t("methane", language), "%", "#111827", x_min=0, x_max=100, width=2.0),
@@ -1108,24 +1106,23 @@ def _geodata_depth_workspace(language: TemplateLanguage) -> FormDocument:
 def _masterlog_geological_geochemical(language: TemplateLanguage) -> FormDocument:
     """Screen working form mirroring the supplied geological Masterlog layout."""
     gas_bindings = [
-        _binding("C1", _t("methane", language), "%", "#2563eb", log=True, x_min=0.001, x_max=100),
-        _binding("C2", _t("ethane", language), "%", "#84cc16", log=True, x_min=0.001, x_max=100),
-        _binding("C3", _t("propane", language), "%", "#22d3ee", log=True, x_min=0.001, x_max=100),
-        _binding("C4", _t("butane", language), "%", "#fb923c", log=True, x_min=0.001, x_max=100),
+        _binding("C1", _t("methane", language), "%", "#2563eb", x_min=0.0, x_max=100),
+        _binding("C2", _t("ethane", language), "%", "#84cc16", x_min=0.0, x_max=100),
+        _binding("C3", _t("propane", language), "%", "#22d3ee", x_min=0.0, x_max=100),
+        _binding("C4", _t("butane", language), "%", "#fb923c", x_min=0.0, x_max=100),
         _binding(
-            "IC4", _t("isobutane", language), "%", "#a16207", log=True, x_min=0.001, x_max=100
+            "IC4", _t("isobutane", language), "%", "#a16207", x_min=0.0, x_max=100
         ),
-        _binding("C5", _t("pentane", language), "%", "#9333ea", log=True, x_min=0.001, x_max=100),
+        _binding("C5", _t("pentane", language), "%", "#9333ea", x_min=0.0, x_max=100),
         _binding(
-            "IC5", _t("isopentane", language), "%", "#d946ef", log=True, x_min=0.001, x_max=100
+            "IC5", _t("isopentane", language), "%", "#d946ef", x_min=0.0, x_max=100
         ),
         _binding(
             "TG",
             _t("total_gas", language),
             "%",
             "#dc2626",
-            log=True,
-            x_min=0.001,
+            x_min=0.0,
             x_max=100,
             width=2.0,
         ),

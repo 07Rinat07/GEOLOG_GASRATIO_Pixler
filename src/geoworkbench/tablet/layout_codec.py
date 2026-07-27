@@ -15,7 +15,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 18
+LAYOUT_FORMAT_VERSION = 19
 
 
 class TabletLayoutFormatError(ValueError):
@@ -261,7 +261,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     if version == LAYOUT_FORMAT_VERSION:
         return data
     if version not in (
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
     ):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
@@ -363,5 +363,39 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
             raw_width = track.get("width", 260)
             if isinstance(raw_width, int) and not isinstance(raw_width, bool):
                 track["width"] = compact_track_width(kind, raw_width)
+    migrated["version"] = 18
+    if isinstance(tracks, list):
+        # Version 19 makes every previously saved tablet/form layout linear by
+        # default.  This is a one-time migration: users may explicitly switch a
+        # curve back to logarithmic mode after the project has been upgraded.
+        for track in tracks:
+            if not isinstance(track, dict):
+                continue
+            _migrate_scale_payload_to_linear(track)
+            display = track.get("curve_display")
+            if isinstance(display, dict):
+                for settings in display.values():
+                    if isinstance(settings, dict):
+                        _migrate_scale_payload_to_linear(settings)
     migrated["version"] = LAYOUT_FORMAT_VERSION
     return migrated
+
+
+def _migrate_scale_payload_to_linear(payload: dict[str, Any]) -> None:
+    """Convert one legacy track/curve scale payload to a linear default."""
+
+    if payload.get("x_scale") != XScale.LOGARITHMIC.value:
+        payload.setdefault("x_scale", XScale.LINEAR.value)
+        return
+    payload["x_scale"] = XScale.LINEAR.value
+    minimum = payload.get("x_min")
+    maximum = payload.get("x_max")
+    if (
+        isinstance(minimum, (int, float))
+        and not isinstance(minimum, bool)
+        and isinstance(maximum, (int, float))
+        and not isinstance(maximum, bool)
+        and minimum > 0
+        and maximum > 0
+    ):
+        payload["x_min"] = 0.0

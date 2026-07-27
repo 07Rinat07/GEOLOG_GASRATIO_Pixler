@@ -439,3 +439,40 @@ def test_layout_codec_migrates_v15_curve_unit_to_source_metadata_mode() -> None:
 def test_curve_display_rejects_too_long_unit_override() -> None:
     with pytest.raises(ValueError, match="40"):
         CurveDisplaySettings(unit_override="x" * 41)
+
+
+def test_layout_v18_migrates_track_and_curve_log_scales_to_linear() -> None:
+    restored = layout_from_dict(
+        {
+            "version": 18,
+            "tracks": [
+                {
+                    "track_id": "gas",
+                    "title": "Gas",
+                    "kind": "gas",
+                    "curve_mnemonics": ["C2"],
+                    "x_scale": "logarithmic",
+                    "x_min": 0.001,
+                    "x_max": 100.0,
+                    "curve_display": {
+                        "C2": {
+                            "display_name": "Ethane",
+                            "x_scale": "logarithmic",
+                            "x_min": 0.001,
+                            "x_max": 100.0,
+                        }
+                    },
+                }
+            ],
+        }
+    )
+
+    track = restored.track_by_id("gas")
+    settings = track.curve_display_settings("C2")
+    assert track.x_scale is XScale.LINEAR
+    assert track.x_min == 0.0
+    assert track.x_max == 100.0
+    assert settings.x_scale is XScale.LINEAR
+    assert settings.x_min == 0.0
+    assert settings.x_max == 100.0
+    assert layout_to_dict(restored)["version"] == 19

@@ -60,7 +60,7 @@ class TabletController:
             unit_key = (entry.unit if entry is not None else "").strip().casefold()
             if family in {CurveFamily.GAS, CurveFamily.DEXP}:
                 # Gas components and DEXP/NCT are intentionally compared together;
-                # the logarithmic gas track handles their broad magnitude spread.
+                # each curve remains linear by default; logarithmic mode is an explicit choice.
                 unit_key = ""
             elif family is CurveFamily.OTHER:
                 unit_key = mnemonic.casefold()

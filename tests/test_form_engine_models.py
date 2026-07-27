@@ -119,7 +119,7 @@ def test_repository_saves_utf8_atomically(tmp_path) -> None:
     assert target.exists()
     assert restored.name == "Глубинная форма"
     raw = json.loads(target.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 8
+    assert raw["schema_version"] == 9
 
 
 def test_repository_lists_and_deletes(tmp_path) -> None:
@@ -407,4 +407,55 @@ def test_masterlog_screen_form_matches_reference_column_order() -> None:
         "IC5",
         "TG",
     ]
-    assert all(item.x_scale.value == "logarithmic" for item in gas_bindings)
+    assert all(item.x_scale.value == "linear" for item in gas_bindings)
+
+
+def test_v8_form_migrates_logarithmic_bindings_to_linear_defaults() -> None:
+    restored = form_from_dict(
+        {
+            "schema_version": 8,
+            "form_id": "legacy-log-form",
+            "name": "Legacy gas form",
+            "axis_kind": "depth",
+            "origin": "user",
+            "read_only": False,
+            "columns": [
+                {
+                    "column_id": "gas-column",
+                    "title": "Gas",
+                    "width": 300,
+                    "tracks": [
+                        {
+                            "track_id": "gas-track",
+                            "title": "Gas",
+                            "kind": "gas",
+                            "bindings": [
+                                {
+                                    "binding_id": "c2-binding",
+                                    "canonical_parameter_id": "C2",
+                                    "display_name": "Ethane",
+                                    "unit": "%",
+                                    "x_scale": "logarithmic",
+                                    "x_min": 0.001,
+                                    "x_max": 100.0,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    binding = restored.columns[0].tracks[0].bindings[0]
+    assert binding.x_scale.value == "linear"
+    assert binding.x_min == 0.0
+    assert binding.x_max == 100.0
+    assert form_to_dict(restored)["schema_version"] == 9
+
+
+def test_every_factory_form_binding_is_linear_by_default() -> None:
+    for form in factory_templates().values():
+        for column in form.columns:
+            for track in column.tracks:
+                assert all(binding.x_scale.value == "linear" for binding in track.bindings)

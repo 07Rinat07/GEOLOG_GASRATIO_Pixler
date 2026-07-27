@@ -22,7 +22,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-FORM_SCHEMA_VERSION = 8
+FORM_SCHEMA_VERSION = 9
 
 
 class FormFormatError(ValueError):
@@ -232,7 +232,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -286,6 +286,27 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                 if isinstance(raw_width, int) and not isinstance(raw_width, bool):
                     column["width"] = compact_track_width(kinds[0], raw_width)
 
+    if version <= 8 and isinstance(columns, list):
+        # Version 9 establishes a safe linear default for every persisted form.
+        # Existing forms may contain logarithmic gas bindings where valid LAS
+        # zeroes were rendered as gaps.  Migrate those defaults once, while the
+        # user can still explicitly select a logarithmic scale afterwards.
+        for column in columns:
+            if not isinstance(column, dict):
+                continue
+            tracks = column.get("tracks")
+            if not isinstance(tracks, list):
+                continue
+            for track in tracks:
+                if not isinstance(track, dict):
+                    continue
+                bindings = track.get("bindings")
+                if not isinstance(bindings, list):
+                    continue
+                for binding in bindings:
+                    if isinstance(binding, dict):
+                        _migrate_binding_to_linear_default(binding)
+
     migrated.setdefault("source_dataset_id", None)
     migrated.setdefault("source_index_id", None)
     migrated.setdefault("visible_axis_top", None)
@@ -293,6 +314,26 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     migrated.setdefault("revision", 1)
     migrated["schema_version"] = FORM_SCHEMA_VERSION
     return migrated
+
+
+def _migrate_binding_to_linear_default(binding: dict[str, Any]) -> None:
+    """Convert one legacy logarithmic form binding to a linear default."""
+
+    if binding.get("x_scale") != XScale.LOGARITHMIC.value:
+        binding.setdefault("x_scale", XScale.LINEAR.value)
+        return
+    binding["x_scale"] = XScale.LINEAR.value
+    minimum = binding.get("x_min")
+    maximum = binding.get("x_max")
+    if (
+        isinstance(minimum, (int, float))
+        and not isinstance(minimum, bool)
+        and isinstance(maximum, (int, float))
+        and not isinstance(maximum, bool)
+        and minimum > 0
+        and maximum > 0
+    ):
+        binding["x_min"] = 0.0
 
 
 def _string(

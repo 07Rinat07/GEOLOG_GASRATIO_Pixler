@@ -95,7 +95,14 @@ def _sample_stream() -> bytes:
     gas_curve = _component(
         "TCurveSeries",
         "C1Series",
-        {"Mnemonic": "C1", "Caption": "Метан C1", "Unit": "%", "XMin": 0.001, "XMax": 100.0},
+        {
+            "Mnemonic": "C1",
+            "Caption": "Метан C1",
+            "Unit": "%",
+            "ScaleType": "logarithmic",
+            "XMin": 0.001,
+            "XMax": 100.0,
+        },
     )
     gas = _component(
         "TGasTrack",
@@ -135,7 +142,11 @@ def test_skf_importer_builds_form_and_masterlog_header() -> None:
     assert drilling.tracks[0].bindings[0].x_max == 100.0
     gas = next(column for column in result.form.columns if column.title == "Газ")
     assert gas.tracks[0].kind is TrackKind.GAS
-    assert gas.tracks[0].bindings[0].source_mnemonic == "C1"
+    gas_binding = gas.tracks[0].bindings[0]
+    assert gas_binding.source_mnemonic == "C1"
+    assert gas_binding.x_scale.value == "linear"
+    assert gas_binding.x_min == 0.0
+    assert gas_binding.x_max == 100.0
     assert result.report.component_count == 7
     assert result.report.source_size_bytes == len(_sample_stream())
     assert len(result.report.source_sha256) == 64

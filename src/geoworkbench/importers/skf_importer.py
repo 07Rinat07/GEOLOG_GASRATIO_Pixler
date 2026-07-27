@@ -465,9 +465,21 @@ def _binding_from_component(
         component, "Description", "ParameterName", "LongName"
     ) or mnemonic
     unit = _text_property(component, "Unit", "Units", "Measure", "UOM")
-    scale = XScale.LOGARITHMIC if _is_log_scale(component) else XScale.LINEAR
+    source_was_logarithmic = _is_log_scale(component)
+    # Imported forms follow the application-wide linear default.  The source
+    # flag is used only to widen a former positive-only range to zero; users can
+    # opt into logarithmic mode explicitly after import.
+    scale = XScale.LINEAR
     minimum = _number_property(component, "XMin", "ScaleMin", "Min", "Minimum", "LeftValue")
     maximum = _number_property(component, "XMax", "ScaleMax", "Max", "Maximum", "RightValue")
+    if (
+        source_was_logarithmic
+        and minimum is not None
+        and maximum is not None
+        and minimum > 0
+        and maximum > 0
+    ):
+        minimum = 0.0
     x_min, x_max = _safe_range(scale, minimum, maximum)
     return ParameterBinding.create(
         canonical_parameter_id=_safe_identifier(mnemonic, prefix="parameter"),

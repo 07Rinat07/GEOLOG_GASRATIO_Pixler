@@ -1095,8 +1095,8 @@
           "TG"
         ],
         "properties": {},
-        "x_scale": "logarithmic",
-        "x_min": 0.001,
+        "x_scale": "linear",
+        "x_min": 0.0,
         "x_max": 100.0,
         "show_legend": true,
         "line_color": "#2563eb",
@@ -1107,56 +1107,56 @@
             "color": "#dc2626",
             "width": 1.25,
             "line_style": "solid",
-            "x_min": 0.001,
+            "x_min": 0.0,
             "x_max": 100.0
           },
           "C2": {
             "color": "#84cc16",
             "width": 1.25,
             "line_style": "solid",
-            "x_min": 0.001,
+            "x_min": 0.0,
             "x_max": 100.0
           },
           "C3": {
             "color": "#22d3ee",
             "width": 1.25,
             "line_style": "solid",
-            "x_min": 0.001,
+            "x_min": 0.0,
             "x_max": 100.0
           },
           "C4": {
             "color": "#fb923c",
             "width": 1.25,
             "line_style": "solid",
-            "x_min": 0.001,
+            "x_min": 0.0,
             "x_max": 100.0
           },
           "IC4": {
             "color": "#65a30d",
             "width": 1.25,
             "line_style": "solid",
-            "x_min": 0.001,
+            "x_min": 0.0,
             "x_max": 100.0
           },
           "C5": {
             "color": "#9333ea",
             "width": 1.25,
             "line_style": "solid",
-            "x_min": 0.001,
+            "x_min": 0.0,
             "x_max": 100.0
           },
           "IC5": {
             "color": "#d946ef",
             "width": 1.25,
             "line_style": "solid",
-            "x_min": 0.001,
+            "x_min": 0.0,
             "x_max": 100.0
           },
           "TG": {
             "color": "#ef4444",
             "width": 1.25,
             "line_style": "solid",
-            "x_min": 0.001,
+            "x_min": 0.0,
             "x_max": 100.0
           }
         },
