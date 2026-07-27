@@ -164,7 +164,7 @@ from geoworkbench.ui.toolbar_adaptation import (
     choose_toolbar_adaptation,
     overflow_item_count,
 )
-from geoworkbench.ui.branding import application_icon, logo_pixmap
+from geoworkbench.ui.branding import application_icon, about_rig_pixmap, logo_pixmap
 from geoworkbench.ui.home_page import HomeAction, HomePage
 from geoworkbench.services.import_jobs import (
     DatasetImportJobExecutor,
@@ -8760,9 +8760,39 @@ class MainWindow(QMainWindow):
         return f"{size / (1024 * 1024):.1f} MB"
 
     def show_about(self) -> None:
-        dialog = QMessageBox(self)
+        dialog = QDialog(self)
         dialog.setWindowTitle("GEOLOG GASRATIO@Pixler")
-        dialog.setIconPixmap(logo_pixmap(280))
-        dialog.setText(f"GEOLOG GASRATIO@Pixler\nВерсия {__version__}")
-        dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+        dialog.setWindowIcon(application_icon())
+        dialog.setModal(True)
+        dialog.setMinimumSize(760, 460)
+
+        root_layout = QVBoxLayout(dialog)
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(22)
+
+        image_label = QLabel(dialog)
+        image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        image_label.setMinimumSize(520, 330)
+        image_label.setPixmap(about_rig_pixmap(520, 330))
+        content_layout.addWidget(image_label, 1)
+
+        info_label = QLabel(dialog)
+        info_label.setTextFormat(Qt.TextFormat.RichText)
+        info_label.setOpenExternalLinks(True)
+        info_label.setText(
+            f"<b>GEOLOG GASRATIO@Pixler</b><br>"
+            f"Версия {__version__}<br><br>"
+            "Автор: Rinat Sarmuldin<br>"
+            '<a href="mailto:ura07srr@gmail.com">ura07srr@gmail.com</a>'
+        )
+        info_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        info_label.setWordWrap(True)
+        content_layout.addWidget(info_label)
+
+        root_layout.addLayout(content_layout, 1)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok, parent=dialog)
+        buttons.accepted.connect(dialog.accept)
+        root_layout.addWidget(buttons)
+
         dialog.exec()

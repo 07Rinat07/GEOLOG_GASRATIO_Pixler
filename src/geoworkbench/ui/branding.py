@@ -7,6 +7,7 @@ from PySide6.QtGui import QIcon, QPixmap
 
 
 _LOGO_RESOURCE = "resources/geologist-logo.png"
+_ABOUT_RIG_RESOURCE = "resources/about-rig.png"
 
 
 def logo_pixmap(maximum_size: int | None = None) -> QPixmap:
@@ -21,6 +22,21 @@ def logo_pixmap(maximum_size: int | None = None) -> QPixmap:
     return pixmap.scaled(
         maximum_size,
         maximum_size,
+        Qt.AspectRatioMode.KeepAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+
+
+def about_rig_pixmap(width: int, height: int) -> QPixmap:
+    if width < 1 or height < 1:
+        raise ValueError("Размер изображения должен быть положительным")
+    raw = files("geoworkbench").joinpath(_ABOUT_RIG_RESOURCE).read_bytes()
+    pixmap = QPixmap()
+    if not pixmap.loadFromData(raw):
+        raise RuntimeError("Не удалось загрузить изображение для окна о программе")
+    return pixmap.scaled(
+        width,
+        height,
         Qt.AspectRatioMode.KeepAspectRatio,
         Qt.TransformationMode.SmoothTransformation,
     )
