@@ -57,6 +57,7 @@ class IntervalStatisticsOverlay(QFrame):
         self._content.setParent(self)
         self._drag_origin_global: QPoint | None = None
         self._drag_origin_local: QPoint | None = None
+        self._drag_moved = False
         self._user_positioned = False
         self._toggle_action = QAction(title, self)
         self._toggle_action.setCheckable(True)
@@ -179,6 +180,7 @@ class IntervalStatisticsOverlay(QFrame):
                 ):
                     self._drag_origin_global = mouse_event.globalPosition().toPoint()
                     self._drag_origin_local = self.pos()
+                    self._drag_moved = False
                     self.raise_()
                     return True
             elif event.type() == QEvent.Type.MouseMove:
@@ -190,11 +192,16 @@ class IntervalStatisticsOverlay(QFrame):
                     and mouse_event.buttons() & Qt.MouseButton.LeftButton
                 ):
                     delta = mouse_event.globalPosition().toPoint() - self._drag_origin_global
-                    self.move_constrained(self._drag_origin_local + delta, user_move=True)
+                    self.move_constrained(self._drag_origin_local + delta, user_move=False)
+                    self._user_positioned = True
+                    self._drag_moved = True
                     return True
             elif event.type() == QEvent.Type.MouseButtonRelease:
                 self._drag_origin_global = None
                 self._drag_origin_local = None
+                if self._drag_moved:
+                    self._drag_moved = False
+                    self.movedByUser.emit()
                 return True
         return super().eventFilter(watched, event)
 

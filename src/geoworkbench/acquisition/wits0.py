@@ -203,8 +203,11 @@ class Wits0Profile:
 
 
 def load_builtin_wits0_profile(profile_id: str = "geoscape-gswits") -> Wits0Profile:
-    resource = files("geoworkbench.resources").joinpath(
-        "wits", "profiles", f"{profile_id}.json"
+    resource = (
+        files("geoworkbench.resources")
+        .joinpath("wits")
+        .joinpath("profiles")
+        .joinpath(f"{profile_id}.json")
     )
     try:
         payload = resource.read_text(encoding="utf-8")

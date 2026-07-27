@@ -1,7 +1,10 @@
 import numpy as np
 import pytest
 
-from geoworkbench.tablet.sampling import select_visible_samples
+from geoworkbench.tablet.sampling import (
+    select_visible_samples,
+    snap_viewport_to_axis_samples,
+)
 
 
 def test_select_visible_samples_filters_depth_and_invalid_values() -> None:
@@ -10,8 +13,10 @@ def test_select_visible_samples_filters_depth_and_invalid_values() -> None:
 
     selected_values, selected_depth = select_visible_samples(depth, values, 100.0, 102.0)
 
-    np.testing.assert_allclose(selected_depth, [100.0, 101.0, 102.0])
-    np.testing.assert_allclose(selected_values, [2.0, np.nan, 4.0], equal_nan=True)
+    # One source sample immediately above the viewport is retained so the
+    # first visible line segment is not clipped during wheel scrolling.
+    np.testing.assert_allclose(selected_depth, [99.0, 100.0, 101.0, 102.0])
+    np.testing.assert_allclose(selected_values, [1.0, 2.0, np.nan, 4.0], equal_nan=True)
 
 
 def test_select_visible_samples_decimates_and_preserves_interval_edges() -> None:
@@ -104,3 +109,44 @@ def test_select_visible_samples_inserts_break_for_large_axis_hole() -> None:
     gap_indexes = np.flatnonzero(np.isnan(selected_values))
     assert gap_indexes.size == 1
     assert 102.0 < selected_depth[gap_indexes[0]] < 120.0
+
+
+def test_select_visible_samples_keeps_curve_visible_between_source_rows() -> None:
+    axis = np.array([0.0, 10.0, 20.0, 30.0])
+    values = np.array([1.0, 2.0, 3.0, 4.0])
+
+    selected_values, selected_axis = select_visible_samples(
+        axis, values, 12.0, 18.0
+    )
+
+    assert selected_axis[0] <= 10.0
+    assert selected_axis[-1] >= 20.0
+    assert np.all(np.isfinite(selected_values))
+
+
+def test_select_visible_samples_does_not_bridge_real_gap_when_viewport_is_inside_it() -> None:
+    axis = np.array([0.0, 1.0, 2.0, 100.0, 101.0, 102.0])
+    values = np.arange(axis.size, dtype=np.float64)
+
+    selected_values, selected_axis = select_visible_samples(
+        axis, values, 40.0, 60.0
+    )
+
+    gap_positions = np.flatnonzero(np.isnan(selected_values))
+    assert gap_positions.size == 1
+    assert 2.0 < selected_axis[gap_positions[0]] < 100.0
+
+
+def test_empty_time_viewport_snaps_to_nearest_recorded_window() -> None:
+    axis = np.array([0.0, 1.0, 2.0, 100.0, 101.0, 102.0])
+
+    top, bottom = snap_viewport_to_axis_samples(axis, 40.0, 60.0)
+
+    assert bottom - top == pytest.approx(20.0)
+    assert np.any((axis >= top) & (axis <= bottom))
+
+
+def test_nonempty_viewport_is_not_moved() -> None:
+    axis = np.array([0.0, 1.0, 2.0, 100.0])
+
+    assert snap_viewport_to_axis_samples(axis, 0.5, 1.5) == pytest.approx((0.5, 1.5))

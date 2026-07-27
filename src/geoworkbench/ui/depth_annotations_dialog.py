@@ -99,8 +99,8 @@ class _ColorButton(QPushButton):
         foreground = "#ffffff" if QColor(self._color).lightness() < 128 else "#111827"
         self.setText(self._color.upper())
         self.setStyleSheet(
-            f"QPushButton {{ background:{self._color}; color:{foreground}; "
-            "border:1px solid #64748b; border-radius:4px; padding:4px 8px; }}"
+            f"QPushButton {{ background-color:{self._color}; color:{foreground}; "
+            "border:1px solid #64748b; border-radius:4px; padding:4px 8px; }"
         )
 
 
@@ -702,7 +702,9 @@ class DepthAnnotationsDialog(QDialog):
         self._update_field_visibility()
 
     def _load_style(self, style: AnnotationStyle) -> None:
-        self.font_input.setCurrentFont(QFont(style.font_family))
+        selected_font = QFont(style.font_family)
+        selected_font.setPointSizeF(max(1.0, float(style.font_size)))
+        self.font_input.setCurrentFont(selected_font)
         self.font_size_input.setValue(style.font_size)
         self.bold_input.setChecked(style.bold)
         self.italic_input.setChecked(style.italic)

@@ -6,6 +6,52 @@ from numpy.typing import NDArray
 
 MAX_RENDERED_POINTS = 5000
 _AXIS_GAP_FACTOR = 5.0
+_VIEWPORT_CONTEXT_POINTS = 2
+
+
+def snap_viewport_to_axis_samples(
+    axis: NDArray[np.float64],
+    top: float,
+    bottom: float,
+) -> tuple[float, float]:
+    """Move an entirely empty viewport to the nearest recorded axis sample.
+
+    GeoScape time series can contain long periods where acquisition was not
+    running. Mapping a scrollbar linearly over the complete calendar interval
+    allowed the user to stop inside such a period and see a completely empty
+    tablet. The real timestamp gap is preserved, but navigation jumps to the
+    closest recorded window instead of leaving the screen stranded in empty
+    time.
+    """
+
+    visible_top, visible_bottom = sorted((float(top), float(bottom)))
+    finite = np.asarray(axis, dtype=np.float64)
+    finite = finite[np.isfinite(finite)]
+    if finite.size == 0 or visible_bottom <= visible_top:
+        return visible_top, visible_bottom
+    finite.sort(kind="stable")
+    start = int(np.searchsorted(finite, visible_top, side="left"))
+    if start < finite.size and finite[start] <= visible_bottom:
+        return visible_top, visible_bottom
+
+    center = (visible_top + visible_bottom) / 2.0
+    insertion = int(np.searchsorted(finite, center, side="left"))
+    candidates: list[float] = []
+    if insertion < finite.size:
+        candidates.append(float(finite[insertion]))
+    if insertion > 0:
+        candidates.append(float(finite[insertion - 1]))
+    if not candidates:
+        return visible_top, visible_bottom
+    nearest = min(candidates, key=lambda value: abs(value - center))
+    span = visible_bottom - visible_top
+    data_top = float(finite[0])
+    data_bottom = float(finite[-1])
+    if span >= data_bottom - data_top:
+        return data_top, data_bottom
+    snapped_top = nearest - span / 2.0
+    snapped_top = max(data_top, min(snapped_top, data_bottom - span))
+    return snapped_top, snapped_top + span
 
 
 def select_visible_samples(
@@ -41,9 +87,29 @@ def select_visible_samples(
         raise ValueError("Для отрисовки требуется минимум две точки")
 
     visible_top, visible_bottom = sorted((float(top), float(bottom)))
-    axis_mask = np.isfinite(depth) & (depth >= visible_top) & (depth <= visible_bottom)
-    selected_depth = np.asarray(depth[axis_mask], dtype=np.float64)
-    selected_values = np.asarray(values[axis_mask], dtype=np.float64).copy()
+
+    # Sort the complete finite axis first, then retain a small context margin on
+    # both sides of the viewport.  Selecting only samples strictly inside the
+    # visible interval made a continuous curve disappear whenever the viewport
+    # landed between two source rows.  It also clipped the first and last line
+    # segment on every wheel/scroll update.
+    finite_axis = np.isfinite(depth)
+    ordered_depth = np.asarray(depth[finite_axis], dtype=np.float64)
+    ordered_values = np.asarray(values[finite_axis], dtype=np.float64).copy()
+    if ordered_depth.size == 0:
+        return ordered_values, ordered_depth
+    order = np.argsort(ordered_depth, kind="stable")
+    if not np.array_equal(order, np.arange(order.size)):
+        ordered_depth = ordered_depth[order]
+        ordered_values = ordered_values[order]
+
+    normal_step = _nominal_axis_step(ordered_depth)
+    start = int(np.searchsorted(ordered_depth, visible_top, side="left"))
+    stop = int(np.searchsorted(ordered_depth, visible_bottom, side="right"))
+    context_start = max(0, start - _VIEWPORT_CONTEXT_POINTS)
+    context_stop = min(ordered_depth.size, stop + _VIEWPORT_CONTEXT_POINTS)
+    selected_depth = ordered_depth[context_start:context_stop]
+    selected_values = ordered_values[context_start:context_stop]
     if selected_depth.size == 0:
         return selected_values, selected_depth
 
@@ -51,16 +117,11 @@ def select_visible_samples(
     if positive_values_only:
         selected_values[selected_values <= 0.0] = np.nan
 
-    order = np.argsort(selected_depth, kind="stable")
-    if not np.array_equal(order, np.arange(order.size)):
-        selected_depth = selected_depth[order]
-        selected_values = selected_values[order]
-
     selected_depth, selected_values = _collapse_duplicate_axis_samples(
         selected_depth, selected_values
     )
     selected_depth, selected_values = _insert_large_axis_gap_markers(
-        selected_depth, selected_values
+        selected_depth, selected_values, normal_step=normal_step
     )
     if selected_depth.size <= max_points:
         return selected_values, selected_depth
@@ -85,17 +146,18 @@ def _collapse_duplicate_axis_samples(
 
 
 def _insert_large_axis_gap_markers(
-    axis: NDArray[np.float64], values: NDArray[np.float64]
+    axis: NDArray[np.float64],
+    values: NDArray[np.float64],
+    *,
+    normal_step: float | None = None,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Insert one NaN point where a regular acquisition grid has a large hole."""
-    if axis.size < 3:
+    if axis.size < 2:
         return axis, values
     deltas = np.diff(axis)
-    positive = deltas[np.isfinite(deltas) & (deltas > 0.0)]
-    if positive.size < 2:
-        return axis, values
-    normal_step = float(np.median(positive))
-    if not np.isfinite(normal_step) or normal_step <= 0.0:
+    if normal_step is None:
+        normal_step = _nominal_axis_step(axis)
+    if normal_step is None or not np.isfinite(normal_step) or normal_step <= 0.0:
         return axis, values
     threshold = normal_step * _AXIS_GAP_FACTOR
     gap_indexes = np.flatnonzero(deltas > threshold)
@@ -114,6 +176,19 @@ def _insert_large_axis_gap_markers(
     output_axis.append(float(axis[-1]))
     output_values.append(float(values[-1]))
     return np.asarray(output_axis, dtype=np.float64), np.asarray(output_values, dtype=np.float64)
+
+
+def _nominal_axis_step(axis: NDArray[np.float64]) -> float | None:
+    """Return the robust positive source step for gap classification."""
+
+    if axis.size < 2:
+        return None
+    deltas = np.diff(axis)
+    positive = deltas[np.isfinite(deltas) & (deltas > 0.0)]
+    if positive.size == 0:
+        return None
+    step = float(np.median(positive))
+    return step if np.isfinite(step) and step > 0.0 else None
 
 
 def _downsample_preserving_gaps(

@@ -16,6 +16,8 @@ from PySide6.QtGui import (
     QDesktopServices,
     QDragEnterEvent,
     QDropEvent,
+    QColor,
+    QFont,
     QIcon,
     QPainter,
     QPalette,
@@ -3459,12 +3461,21 @@ class MainWindow(QMainWindow):
             existing.raise_()
             existing.activateWindow()
             return
-        dialog = Wits0CaptureDialog(
-            self,
-            language=self.language,
-            well_provider=lambda: self.session.current_well,
-            on_dataset_changed=self._on_wits0_dataset_changed,
-        )
+        try:
+            dialog = Wits0CaptureDialog(
+                self,
+                language=self.language,
+                well_provider=lambda: self.session.current_well,
+                on_dataset_changed=self._on_wits0_dataset_changed,
+            )
+        except Exception as exc:
+            log_exception("wits0.capture.open_failed", exc)
+            QMessageBox.critical(
+                self,
+                self._t("wits0.title"),
+                self._t("wits0.open_error", error=str(exc)),
+            )
+            return
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         dialog.destroyed.connect(lambda: setattr(self, "_wits0_capture_dialog", None))
         self._wits0_capture_dialog = dialog
@@ -8836,7 +8847,7 @@ class MainWindow(QMainWindow):
         root_layout.setSpacing(18)
 
         content_layout = QHBoxLayout()
-        content_layout.setSpacing(24)
+        content_layout.setSpacing(34)
 
         image_label = QLabel(dialog)
         image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -8844,62 +8855,85 @@ class MainWindow(QMainWindow):
         image_label.setPixmap(about_rig_pixmap(520, 330))
         content_layout.addWidget(image_label, 1, Qt.AlignmentFlag.AlignCenter)
 
-        palette = dialog.palette()
-        panel_background = palette.color(QPalette.ColorRole.AlternateBase).name()
-        panel_border = palette.color(QPalette.ColorRole.Mid).name()
-        muted_text = palette.color(QPalette.ColorRole.PlaceholderText).name()
-
-        info_panel = QFrame(dialog)
+        # The information column deliberately has no forced background.  It follows
+        # the active Qt palette, so dark and light themes remain readable.
+        info_panel = QWidget(dialog)
         info_panel.setObjectName("aboutInfoPanel")
-        info_panel.setMinimumWidth(270)
-        info_panel.setStyleSheet(
-            "QFrame#aboutInfoPanel {"
-            f"background-color: {panel_background};"
-            f"border: 1px solid {panel_border};"
-            "border-radius: 12px;"
-            "}"
-        )
+        info_panel.setMinimumWidth(260)
         info_layout = QVBoxLayout(info_panel)
-        info_layout.setContentsMargins(24, 24, 24, 24)
-        info_layout.setSpacing(8)
+        info_layout.setContentsMargins(0, 12, 0, 12)
+        info_layout.setSpacing(7)
         info_layout.addStretch(1)
 
+        palette = dialog.palette()
+        window_color = palette.color(QPalette.ColorRole.Window)
+        text_color = palette.color(QPalette.ColorRole.WindowText)
+        dark_theme = window_color.lightness() < 128
+        muted_color = QColor("#B8C0CC" if dark_theme else "#5B6470")
+        separator_color = QColor("#4B5563" if dark_theme else "#C4CAD2")
+
+        def configure_label(
+            label: QLabel,
+            *,
+            point_size: int,
+            weight: QFont.Weight = QFont.Weight.Normal,
+            color: QColor = text_color,
+        ) -> None:
+            font = label.font()
+            font.setPointSize(point_size)
+            font.setWeight(weight)
+            label.setFont(font)
+            label_palette = label.palette()
+            label_palette.setColor(QPalette.ColorRole.WindowText, color)
+            label.setPalette(label_palette)
+            label.setStyleSheet(
+                f"color: {color.name()}; background: transparent; border: none;"
+            )
+
         title_label = QLabel("GEOLOG GASRATIO@Pixler", info_panel)
-        title_label.setStyleSheet("font-size: 18px; font-weight: 700; border: none;")
         title_label.setWordWrap(True)
+        configure_label(
+            title_label,
+            point_size=15,
+            weight=QFont.Weight.Bold,
+        )
         info_layout.addWidget(title_label)
 
         version_label = QLabel(f"Версия {__version__}", info_panel)
-        version_label.setStyleSheet(
-            f"color: {muted_text}; font-size: 12px; border: none;"
-        )
+        configure_label(version_label, point_size=10, color=muted_color)
         info_layout.addWidget(version_label)
 
         separator = QFrame(info_panel)
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        separator.setStyleSheet("margin-top: 10px; margin-bottom: 10px;")
-        info_layout.addWidget(separator)
-
-        author_caption = QLabel("АВТОР И РАЗРАБОТЧИК", info_panel)
-        author_caption.setStyleSheet(
-            f"color: {muted_text}; font-size: 10px; font-weight: 600; border: none;"
+        separator.setObjectName("aboutSeparator")
+        separator.setFixedHeight(1)
+        separator.setStyleSheet(
+            f"QFrame#aboutSeparator {{ background-color: {separator_color.name()}; border: none; }}"
         )
+        info_layout.addSpacing(12)
+        info_layout.addWidget(separator)
+        info_layout.addSpacing(12)
+
+        author_caption = QLabel("Автор и разработчик", info_panel)
+        configure_label(author_caption, point_size=10, color=muted_color)
         info_layout.addWidget(author_caption)
 
         author_name = QLabel("Rinat Sarmuldin", info_panel)
-        author_name.setStyleSheet("font-size: 16px; font-weight: 700; border: none;")
+        configure_label(
+            author_name,
+            point_size=14,
+            weight=QFont.Weight.DemiBold,
+        )
         info_layout.addWidget(author_name)
 
         email_caption = QLabel("Электронная почта", info_panel)
-        email_caption.setStyleSheet(
-            f"color: {muted_text}; font-size: 11px; border: none; margin-top: 8px;"
-        )
+        configure_label(email_caption, point_size=10, color=muted_color)
+        info_layout.addSpacing(9)
         info_layout.addWidget(email_caption)
 
         email_label = QLabel("ura07srr@gmail.com", info_panel)
         email_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        email_label.setStyleSheet("font-size: 13px; border: none;")
+        email_label.setOpenExternalLinks(False)
+        configure_label(email_label, point_size=11)
         info_layout.addWidget(email_label)
         info_layout.addStretch(1)
 

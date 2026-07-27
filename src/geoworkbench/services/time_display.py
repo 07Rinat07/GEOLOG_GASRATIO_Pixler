@@ -160,6 +160,57 @@ def format_unix_seconds(
     )
 
 
+def format_datetime_axis_tick(value: float, spacing: float) -> str:
+    """Format one absolute-time axis tick as a compact two-line label.
+
+    A single-line ``DD.MM.YYYY HH:MM:SS`` label is wider than the dedicated
+    tablet time column and was clipped down to the last few digits.  The date
+    and clock are therefore rendered on separate lines while retaining the
+    complete day, month, year, hour, minute and second.  Sub-second labels are
+    shown only when the axis spacing actually requires that precision.
+    """
+
+    moment = unix_seconds_to_datetime(value)
+    if moment is None:
+        return ""
+    clock = moment.strftime("%H:%M:%S")
+    if abs(float(spacing)) < 1.0 and moment.microsecond:
+        clock += f".{moment.microsecond // 1_000:03d}".rstrip("0").rstrip(".")
+    return f"{moment:%d.%m.%Y}\n{clock}"
+
+
+def format_duration_compact(seconds: float, *, language: str = "ru") -> str:
+    """Return a concise, human-readable duration for tablet navigation.
+
+    The function is intentionally independent from Qt so the same formatting
+    can be regression-tested and reused by other time-axis controls.
+    """
+
+    try:
+        numeric = float(seconds)
+    except (TypeError, ValueError):
+        return "—"
+    if not math.isfinite(numeric):
+        return "—"
+    sign = "−" if numeric < 0 else ""
+    numeric = abs(numeric)
+
+    if language == "en":
+        day_unit, hour_unit, minute_unit, second_unit = "d", "h", "min", "s"
+    elif language == "kk":
+        day_unit, hour_unit, minute_unit, second_unit = "тәул", "сағ", "мин", "с"
+    else:
+        day_unit, hour_unit, minute_unit, second_unit = "сут", "ч", "мин", "с"
+
+    if numeric >= 86_400 and math.isclose(numeric % 86_400, 0.0, abs_tol=1e-6):
+        return f"{sign}{numeric / 86_400:g} {day_unit}"
+    if numeric >= 3_600 and math.isclose(numeric % 3_600, 0.0, abs_tol=1e-6):
+        return f"{sign}{numeric / 3_600:g} {hour_unit}"
+    if numeric >= 60 and math.isclose(numeric % 60, 0.0, abs_tol=1e-6):
+        return f"{sign}{numeric / 60:g} {minute_unit}"
+    return f"{sign}{numeric:g} {second_unit}"
+
+
 def format_elapsed_time(value: float, unit: str | None = "s") -> str:
     seconds = elapsed_to_seconds(value, unit)
     if seconds is None:

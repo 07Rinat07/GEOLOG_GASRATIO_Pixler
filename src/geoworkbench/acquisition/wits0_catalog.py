@@ -117,8 +117,11 @@ class Wits0FieldCatalog:
 def load_builtin_wits0_catalog(
     catalog_id: str = "geosensor-wits-level0",
 ) -> Wits0FieldCatalog:
-    resource = files("geoworkbench.resources").joinpath(
-        "wits", "catalogs", f"{catalog_id}.json"
+    resource = (
+        files("geoworkbench.resources")
+        .joinpath("wits")
+        .joinpath("catalogs")
+        .joinpath(f"{catalog_id}.json")
     )
     try:
         payload = json.loads(resource.read_text(encoding="utf-8"))

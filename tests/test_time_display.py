@@ -16,7 +16,9 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.services.time_display import (
     format_datetime_at_row,
+    format_datetime_axis_tick,
     format_datetime_value,
+    format_duration_compact,
     format_elapsed_time,
     format_index_at_row,
     format_time_curve_at_row,
@@ -83,6 +85,19 @@ def test_datetime_format_is_platform_independent() -> None:
     assert format_datetime_value(value, include_milliseconds=True) == "11.04.2014 05:43:29.125"
     seconds = (value.astype(np.int64) / 1_000_000_000.0)
     assert format_unix_seconds(seconds, include_milliseconds=True) == "11.04.2014 05:43:29.125"
+
+
+def test_datetime_axis_tick_is_compact_and_keeps_full_calendar_information() -> None:
+    value = np.datetime64("2026-07-27T18:34:24", "ns")
+    seconds = float(value.astype(np.int64)) / 1_000_000_000.0
+
+    assert format_datetime_axis_tick(seconds, 60.0) == "27.07.2026\n18:34:24"
+
+
+def test_duration_compact_uses_operator_friendly_units() -> None:
+    assert format_duration_compact(1_800, language="ru") == "30 мин"
+    assert format_duration_compact(7_200, language="ru") == "2 ч"
+    assert format_duration_compact(86_400, language="ru") == "1 сут"
 
 
 def test_elapsed_time_is_not_rendered_as_raw_seconds() -> None:

@@ -17,6 +17,15 @@ from geoworkbench.importers.paradox import (
     read_paradox,
 )
 from geoworkbench.importers.paradox.importer import default_mappings
+from geoworkbench.importers.paradox.models import (
+    ParadoxBundle,
+    ParadoxColumn,
+    ParadoxField,
+    ParadoxFieldType,
+    ParadoxHeader,
+    ParadoxTable,
+)
+from geoworkbench.domain.models import IndexType
 
 
 def _encode_sorted(payload: bytes) -> bytes:
@@ -173,6 +182,50 @@ def test_numeric_time_preserves_raw_source_values(tmp_path: Path) -> None:
     assert raw_curve is not None
     np.testing.assert_allclose(raw_curve.values, [1.5, np.nan, 3.5], equal_nan=True)
     assert result.dataset.active_index.mnemonic == "TIME"
+
+
+def test_absolute_geoscape_time_prefers_datetime_axis(tmp_path: Path) -> None:
+    source = tmp_path / "absolute-time.db"
+    source.write_bytes(b"")
+    time_field = ParadoxField(0, "TIME", int(ParadoxFieldType.NUMBER), 8, 0)
+    value_field = ParadoxField(1, "ROP", int(ParadoxFieldType.NUMBER), 8, 8)
+    timestamps = np.array([1_700_000_000.0, 1_700_000_060.0, 1_700_000_120.0])
+    table = ParadoxTable(
+        source=source,
+        bundle=ParadoxBundle(main=source),
+        header=ParadoxHeader(16, 4096, 2, 2, 3, 1, 1, 1, 2, 12, 1251, "ABS.db"),
+        fields=(time_field, value_field),
+        columns={
+            "TIME": ParadoxColumn(
+                time_field,
+                timestamps,
+                filled_count=3,
+                minimum=float(timestamps[0]),
+                maximum=float(timestamps[-1]),
+            ),
+            "ROP": ParadoxColumn(
+                value_field,
+                np.array([10.0, 11.0, 12.0]),
+                filled_count=3,
+                minimum=10.0,
+                maximum=12.0,
+            ),
+        },
+        rows_read=3,
+    )
+    plan = ParadoxImportPlan(
+        classification=DatasetClassification.TIME,
+        time_field="TIME",
+        active_role="time",
+        mappings=default_mappings(table),
+    )
+
+    result = import_paradox(source, plan, table=table, quality=analyze_table(table))
+
+    assert result.dataset.active_index.index_type is IndexType.DATETIME
+    assert result.dataset.active_index.mnemonic == "DATETIME"
+    assert result.dataset.parameters["PARADOX_TIME_AXIS_PREFERRED"] == "datetime"
+    assert any(index.mnemonic == "TIME" for index in result.dataset.indexes.values())
 
 
 def test_bundle_lookup_is_case_insensitive(tmp_path: Path) -> None:

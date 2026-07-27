@@ -156,6 +156,7 @@ def import_paradox(
 
     dataset_id = new_id()
     primary_index_id = f"{dataset_id}:paradox-primary"
+    active_index_id = primary_index_id
     indexes: dict[str, DatasetIndex] = {
         primary_index_id: DatasetIndex(
             primary_index_id,
@@ -194,6 +195,12 @@ def import_paradox(
             evidence=(f"source field {time_field}; {time_representation}",),
             datetime_format=time_representation,
         )
+        if use_time:
+            # GeoScape stores real calendar timestamps.  Keep the derived
+            # elapsed TIME index for calculations, but present the absolute
+            # DATETIME index by default so operators see year/month/day and
+            # clock time instead of multi-thousand-hour counters.
+            active_index_id = datetime_id
 
     headers = {
         "WELL": parsed.source.stem,
@@ -235,6 +242,9 @@ def import_paradox(
             "PARADOX_DEPTH_FIELD": depth_field or "",
             "PARADOX_TIME_FIELD": time_field or "",
             "PARADOX_TIME_REPRESENTATION": time_representation,
+            "PARADOX_TIME_AXIS_PREFERRED": (
+                "datetime" if use_time and datetimes is not None else "relative"
+            ),
             "GEOSCAPE_STANDARD_DEPTH_STEP_M": f"{GEOSCAPE_STANDARD_DEPTH_STEP_M:g}",
             "PARADOX_ACTUAL_DEPTH_STEP_M": (
                 f"{actual_depth_step:g}" if actual_depth_step > 0 else ""
@@ -257,7 +267,7 @@ def import_paradox(
             "SOURCE_READ_ONLY": "true",
         },
         indexes=indexes,
-        active_index_id=primary_index_id,
+        active_index_id=active_index_id,
         version_headers={"VERS": "2.0", "WRAP": "NO"},
     )
 

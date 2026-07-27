@@ -21,7 +21,12 @@ LANGUAGE_NAMES = {
 
 
 def load_catalog(language: AppLanguage) -> dict[str, str]:
-    resource = files("geoworkbench").joinpath("resources", "i18n", f"{language.value}.json")
+    resource = (
+        files("geoworkbench")
+        .joinpath("resources")
+        .joinpath("i18n")
+        .joinpath(f"{language.value}.json")
+    )
     payload = json.loads(resource.read_text(encoding="utf-8"))
     if not isinstance(payload, dict) or not all(
         isinstance(key, str) and isinstance(value, str) for key, value in payload.items()

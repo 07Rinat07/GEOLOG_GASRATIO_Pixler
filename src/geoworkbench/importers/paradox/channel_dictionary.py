@@ -41,7 +41,11 @@ class GeoScapeChannelDictionary:
 
     @classmethod
     def load(cls, user_path: str | Path | None = None) -> "GeoScapeChannelDictionary":
-        resource = files("geoworkbench").joinpath("resources", "geoscape_channels.json")
+        resource = (
+            files("geoworkbench")
+            .joinpath("resources")
+            .joinpath("geoscape_channels.json")
+        )
         system = _read_definitions(json.loads(resource.read_text(encoding="utf-8")))
         user: dict[str, ChannelDefinition] = {}
         if user_path is not None and Path(user_path).exists():

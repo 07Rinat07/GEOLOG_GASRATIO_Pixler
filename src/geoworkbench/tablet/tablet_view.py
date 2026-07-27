@@ -81,7 +81,10 @@ from geoworkbench.services.application_logging import log_event, log_exception
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.services.time_display import (
+    elapsed_to_seconds,
     format_datetime_at_row,
+    format_datetime_axis_tick,
+    format_duration_compact,
     format_elapsed_time,
     format_time_curve_at_row,
     format_unix_seconds,
@@ -123,6 +126,7 @@ from geoworkbench.tablet.screen_style import (
     screen_curve_width,
 )
 from geoworkbench.tablet.curve_scale import format_scale_value, scale_value_at_fraction
+from geoworkbench.tablet.sampling import snap_viewport_to_axis_samples
 from geoworkbench.tablet.render_invalidation import (
     DirtyReason,
     DirtyRenderStats,
@@ -238,6 +242,18 @@ def _safe_delete_later(target: object | None) -> bool:
 
 CURVE_HEADER_EDITOR_HEIGHT = CURVE_HEADER_ROW_HEIGHT
 CURVE_HEADER_LABEL_HEIGHT = CURVE_HEADER_EDITOR_HEIGHT
+TIME_VIEW_SPAN_PRESETS_SECONDS: tuple[float, ...] = (
+    60.0,
+    5 * 60.0,
+    15 * 60.0,
+    30 * 60.0,
+    60 * 60.0,
+    2 * 60 * 60.0,
+    6 * 60 * 60.0,
+    12 * 60 * 60.0,
+    24 * 60 * 60.0,
+    7 * 24 * 60 * 60.0,
+)
 
 
 class GeologicalInputMode(StrEnum):
@@ -395,15 +411,7 @@ class TabletVerticalAxisItem(EngineeringGridAxisItem):
 
     @staticmethod
     def _format_datetime(value: float, spacing: float) -> str:
-        rendered = format_unix_seconds(value)
-        if rendered == "—":
-            return ""
-        absolute_spacing = abs(spacing)
-        if absolute_spacing >= 86_400:
-            return rendered[:10]
-        if absolute_spacing >= 60:
-            return rendered[:16]
-        return rendered[11:19]
+        return format_datetime_axis_tick(value, spacing)
 
     def _format_relative_time(self, value: float) -> str:
         rendered = format_elapsed_time(value, self.descriptor.unit)
@@ -1063,9 +1071,12 @@ class TabletTrackWidget(QFrame):
         display_width = definition.width
         if definition.kind is TrackKind.DEPTH and vertical_axis is not None:
             if vertical_axis.is_datetime:
-                display_width = max(display_width, 210)
+                # Full calendar labels are rendered on two lines, so a compact
+                # dedicated time column remains readable without consuming the
+                # width of an ordinary curve track.
+                display_width = max(display_width, 124)
             elif vertical_axis.is_time:
-                display_width = max(display_width, 150)
+                display_width = max(display_width, 104)
         self.setMinimumWidth(display_width)
         self.setMaximumWidth(display_width)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
@@ -1791,9 +1802,7 @@ class TabletView(QWidget):
         self._span_combo.setMinimumWidth(132)
         self._span_combo.setEditable(True)
         self._span_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        for span in DEPTH_VIEW_SPAN_PRESETS:
-            self._span_combo.addItem(f"{span:g} {self._vertical_span_unit()}", span)
-        self._span_combo.addItem(self._localizer.text("tablet.depth_span_custom"), None)
+        self._rebuild_vertical_span_presets()
         # currentIndexChanged is intentional here.  The former ``activated``
         # connection only committed a preset after a very specific mouse/keyboard
         # activation path.  On an editable combo box the displayed value could
@@ -4341,6 +4350,50 @@ class TabletView(QWidget):
         self._dataset = dataset
         self._geometry_cache.clear()
         self._static_layer_cache.clear()
+        self._prefer_calendar_time_axis_for_geoscape(dataset)
+
+    def _prefer_calendar_time_axis_for_geoscape(self, dataset: Dataset | None) -> None:
+        """Migrate old GS2 forms from elapsed seconds to calendar time.
+
+        Versions before 0.7.86 stored GeoScape absolute timestamps together
+        with a derived ``TIME [s]`` index and selected the derived index in the
+        tablet form.  Long recordings were consequently displayed as values
+        such as ``11523:34:24``.  Preserve an explicitly selected depth axis,
+        but migrate an old relative-time selection to the companion DATETIME
+        index when the import metadata proves that calendar timestamps exist.
+        """
+
+        if dataset is None:
+            return
+        representation = dataset.parameters.get(
+            "PARADOX_TIME_REPRESENTATION", ""
+        ).casefold()
+        source_format = dataset.parameters.get("SOURCE_FORMAT", "").casefold()
+        absolute_source = representation.startswith(("ole-", "unix-")) or (
+            "geoscape" in source_format
+            and any(
+                index.index_type is IndexType.DATETIME
+                for index in dataset.indexes.values()
+            )
+        )
+        if not absolute_source:
+            return
+
+        requested_id = self._layout_model.vertical_index_id
+        requested = dataset.indexes.get(requested_id) if requested_id else dataset.active_index
+        if requested.role is not IndexRole.TIME or requested.index_type is IndexType.DATETIME:
+            return
+        candidates = [
+            index
+            for index in dataset.indexes.values()
+            if index.role is IndexRole.TIME
+            and index.index_type is IndexType.DATETIME
+            and index.values.shape == requested.values.shape
+        ]
+        if not candidates:
+            return
+        preferred = max(candidates, key=lambda item: item.confidence)
+        self._layout_mutations.set_vertical_index(preferred.index_id)
 
     @property
     def is_rebuilding_layout(self) -> bool:
@@ -5643,6 +5696,7 @@ class TabletView(QWidget):
                     self._layout_mutations.set_vertical_index(first)
             self._axis_combo.setCurrentIndex(selected_row)
             self._axis_combo.setEnabled(self._axis_combo.count() > 1)
+            self._rebuild_vertical_span_presets()
         finally:
             self._axis_combo_guard = False
 
@@ -5753,8 +5807,21 @@ class TabletView(QWidget):
     def _parse_axis_value(self, text: str) -> float | None:
         descriptor = self._axis_descriptor()
         if descriptor is not None and descriptor.is_datetime:
+            localized = " ".join(text.replace("\n", " ").split())
+            for pattern in (
+                "%d.%m.%Y %H:%M:%S",
+                "%d.%m.%Y %H:%M",
+                "%d.%m.%Y",
+            ):
+                try:
+                    moment = datetime.strptime(localized, pattern).replace(
+                        tzinfo=timezone.utc
+                    )
+                    return float(moment.timestamp())
+                except ValueError:
+                    continue
             try:
-                normalized = text.replace("Z", "+00:00")
+                normalized = localized.replace("Z", "+00:00")
                 moment = datetime.fromisoformat(normalized)
                 if moment.tzinfo is None:
                     moment = moment.replace(tzinfo=timezone.utc)
@@ -5814,13 +5881,8 @@ class TabletView(QWidget):
             return
         # Do not mutate the combo contents while the user is still typing a
         # multi-digit value. The timer commits the complete number automatically.
-        normalized = text.strip().casefold()
-        unit = self._vertical_span_unit().casefold()
-        if unit and normalized.endswith(unit):
-            normalized = normalized[: -len(unit)].strip()
-        try:
-            span = float(normalized.replace(",", "."))
-        except ValueError:
+        span = self._parse_vertical_span_text(text)
+        if span is None:
             self._span_edit_timer.stop()
             return
         if np.isfinite(span) and span > 0:
@@ -5829,19 +5891,89 @@ class TabletView(QWidget):
             self._span_edit_timer.stop()
 
     def _apply_depth_span_text(self, text: str) -> bool:
-        normalized = text.strip().casefold()
-        unit = self._vertical_span_unit().casefold()
-        if unit and normalized.endswith(unit):
-            normalized = normalized[: -len(unit)].strip()
-        try:
-            span = float(normalized.replace(",", "."))
-        except ValueError:
-            return False
-        if not np.isfinite(span) or span <= 0:
+        span = self._parse_vertical_span_text(text)
+        if span is None:
             return False
         current = self.visible_depth_range
         top = current[0] if current is not None else None
         return self.set_vertical_span(span, top=top)
+
+    def _parse_vertical_span_text(self, text: str) -> float | None:
+        normalized = text.strip().casefold().replace(",", ".")
+        if not normalized:
+            return None
+        descriptor = self._axis_descriptor()
+        if descriptor is not None and descriptor.is_time:
+            match = re.fullmatch(r"([+-]?\d+(?:\.\d+)?)\s*([a-zа-яёқүұөәіµ]*)", normalized)
+            if match is None:
+                return None
+            numeric = float(match.group(1))
+            suffix = match.group(2)
+            factors = {
+                "": 1.0,
+                "s": 1.0,
+                "sec": 1.0,
+                "с": 1.0,
+                "сек": 1.0,
+                "min": 60.0,
+                "m": 60.0,
+                "мин": 60.0,
+                "h": 3_600.0,
+                "hr": 3_600.0,
+                "ч": 3_600.0,
+                "сағ": 3_600.0,
+                "d": 86_400.0,
+                "day": 86_400.0,
+                "сут": 86_400.0,
+                "тәул": 86_400.0,
+            }
+            if suffix not in factors or not np.isfinite(numeric) or numeric <= 0:
+                return None
+            seconds = numeric * factors[suffix]
+            seconds_per_axis_unit = 1.0
+            if not descriptor.is_datetime:
+                converted = elapsed_to_seconds(1.0, descriptor.unit)
+                if converted is not None and converted > 0:
+                    seconds_per_axis_unit = converted
+            return seconds / seconds_per_axis_unit
+
+        unit = self._vertical_span_unit().casefold()
+        if unit and normalized.endswith(unit):
+            normalized = normalized[: -len(unit)].strip()
+        try:
+            span = float(normalized)
+        except ValueError:
+            return None
+        return span if np.isfinite(span) and span > 0 else None
+
+    def _vertical_span_presets(self) -> tuple[float, ...]:
+        descriptor = self._axis_descriptor()
+        if descriptor is None or not descriptor.is_time:
+            return DEPTH_VIEW_SPAN_PRESETS
+        seconds_per_axis_unit = 1.0
+        if not descriptor.is_datetime:
+            converted = elapsed_to_seconds(1.0, descriptor.unit)
+            if converted is not None and converted > 0:
+                seconds_per_axis_unit = converted
+        return tuple(seconds / seconds_per_axis_unit for seconds in TIME_VIEW_SPAN_PRESETS_SECONDS)
+
+    def _rebuild_vertical_span_presets(self) -> None:
+        current = self.visible_depth_range
+        visible_span = current[1] - current[0] if current is not None else None
+        self._span_combo_guard = True
+        self._span_combo.blockSignals(True)
+        try:
+            self._span_combo.clear()
+            for span in self._vertical_span_presets():
+                self._span_combo.addItem(self._format_vertical_span(span), span)
+            self._span_combo.addItem(
+                self._localizer.text("tablet.depth_span_custom"), None
+            )
+            if visible_span is not None:
+                self._span_combo.setEditText(self._format_vertical_span(visible_span))
+        finally:
+            self._span_combo.blockSignals(False)
+            self._span_combo_guard = False
 
     def _vertical_span_unit(self) -> str:
         descriptor = self._axis_descriptor()
@@ -5850,17 +5982,28 @@ class TabletView(QWidget):
         # ``m`` in the parser made a valid value such as ``30 м`` fail silently.
         if descriptor is None or descriptor.role is IndexRole.DEPTH:
             return self._localizer.text("tablet.depth_span_unit")
+        if descriptor.is_datetime:
+            return "s"
         if descriptor.unit:
             return descriptor.unit
-        return self._localizer.text("tablet.depth_span_unit")
+        return "s"
 
     def _format_vertical_span(self, span: float) -> str:
+        descriptor = self._axis_descriptor()
+        if descriptor is not None and descriptor.is_time:
+            seconds = float(span)
+            if not descriptor.is_datetime:
+                converted = elapsed_to_seconds(float(span), descriptor.unit)
+                if converted is not None:
+                    seconds = converted
+            return format_duration_compact(
+                seconds, language=self._localizer.language.value
+            )
         return f"{float(span):g} {self._vertical_span_unit()}".strip()
 
     def _sync_depth_span_control(self, visible_span: float) -> None:
         if not np.isfinite(visible_span) or visible_span <= 0:
             return
-        unit = self._vertical_span_unit()
         matching_row = -1
         self._span_combo_guard = True
         self._span_combo.blockSignals(True)
@@ -5872,13 +6015,13 @@ class TabletView(QWidget):
                         row, self._localizer.text("tablet.depth_span_custom")
                     )
                     continue
-                self._span_combo.setItemText(row, f"{float(raw):g} {unit}")
+                self._span_combo.setItemText(row, self._format_vertical_span(float(raw)))
                 if np.isclose(float(raw), visible_span, rtol=0.0, atol=1e-6):
                     matching_row = row
             if matching_row >= 0:
                 self._span_combo.setCurrentIndex(matching_row)
             else:
-                self._span_combo.setEditText(f"{visible_span:g} {unit}")
+                self._span_combo.setEditText(self._format_vertical_span(visible_span))
         finally:
             self._span_combo.blockSignals(False)
             self._span_combo_guard = False
@@ -7179,6 +7322,11 @@ class TabletView(QWidget):
         if normalized_bottom > data_bottom:
             normalized_bottom = data_bottom
             normalized_top = data_bottom - span
+        descriptor = self._axis_descriptor()
+        if descriptor is not None and descriptor.is_time:
+            normalized_top, normalized_bottom = snap_viewport_to_axis_samples(
+                self._axis_values(), normalized_top, normalized_bottom
+            )
         return normalized_top, normalized_bottom
 
     def _apply_depth_limits(self, view_box: pg.ViewBox) -> None:
