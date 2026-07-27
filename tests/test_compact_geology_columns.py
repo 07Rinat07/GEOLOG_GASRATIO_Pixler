@@ -54,9 +54,12 @@ def test_layout_v17_migration_applies_stable_target_widths() -> None:
     )
 
     assert restored.track_by_id("depth").width == 60
+    assert restored.track_by_id("depth").title_orientation == "vertical_bottom_to_top"
     assert restored.track_by_id("lithology").width == 110
+    assert restored.track_by_id("lithology").title_orientation == "vertical_bottom_to_top"
     assert restored.track_by_id("curve").width == 300
-    assert layout_to_dict(restored)["version"] == 19
+    assert restored.track_by_id("curve").title_orientation == "horizontal"
+    assert layout_to_dict(restored)["version"] == 20
 
 
 def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None:
@@ -92,8 +95,10 @@ def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None
     restored_again = form_from_dict(encoded)
 
     assert restored.columns[0].width == 60
+    assert restored.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
     assert restored.columns[1].width == 300
-    assert encoded["schema_version"] == 9
+    assert restored.columns[1].tracks[0].title_orientation == "horizontal"
+    assert encoded["schema_version"] == 10
     assert restored_again.columns[0].width == 60
 
 
@@ -131,6 +136,7 @@ def test_repository_reads_legacy_user_form_with_compact_widths(tmp_path) -> None
     form = FormRepository(tmp_path / "forms").load("legacy")
 
     assert form.columns[0].width == COMPACT_MIN_TRACK_WIDTH
+    assert form.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
 
 
 def test_all_factory_forms_use_compact_widths_for_requested_column_kinds() -> None:
@@ -140,6 +146,10 @@ def test_all_factory_forms_use_compact_widths_for_requested_column_kinds() -> No
             if kinds and kinds.issubset(COMPACT_KINDS):
                 assert column.width >= COMPACT_MIN_TRACK_WIDTH
                 assert column.width < 220
+                assert all(
+                    track.title_orientation == "vertical_bottom_to_top"
+                    for track in column.tracks
+                )
 
 
 def test_ready_forms_are_built_in_with_compact_geology_columns() -> None:
@@ -163,6 +173,10 @@ def test_ready_forms_are_built_in_with_compact_geology_columns() -> None:
             if kinds and kinds.issubset(COMPACT_KINDS):
                 assert column.width >= COMPACT_MIN_TRACK_WIDTH
                 assert column.width < 220
+                assert all(
+                    track.title_orientation == "vertical_bottom_to_top"
+                    for track in column.tracks
+                )
 
 
 def test_form_column_minimum_follows_its_track_kind() -> None:

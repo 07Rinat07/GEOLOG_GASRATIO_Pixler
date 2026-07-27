@@ -17,6 +17,8 @@ from geoworkbench.tablet.models import (
     CurveStyle,
     TrackKind,
     XScale,
+    compact_track_title_orientation,
+    compact_track_title_position,
     compact_track_width,
 )
 
@@ -333,6 +335,8 @@ def _axis_column(
                 kind=TrackKind.DEPTH,
                 locked=True,
                 x_axis_label="MD" if axis is FormAxisKind.DEPTH else "TIME",
+                title_orientation=compact_track_title_orientation(TrackKind.DEPTH),
+                title_position=compact_track_title_position(TrackKind.DEPTH),
             )
         ],
     )
@@ -384,6 +388,8 @@ def _special_column(
                 title=title,
                 kind=kind,
                 bindings=list(bindings or []),
+                title_orientation=compact_track_title_orientation(kind),
+                title_position=compact_track_title_position(kind),
             )
         ],
     )

@@ -88,11 +88,12 @@ def test_confirmed_local_forms_are_promoted_and_renamed_atomically(
     assert ready_path.exists()
     assert not legacy_path.exists()
     payload = json.loads(ready_path.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == 9
+    assert payload["schema_version"] == 10
     assert payload["name"] == polished_name
     assert payload["read_only"] is True
     assert payload["origin"] == "factory"
     assert payload["columns"][0]["width"] == 60
+    assert payload["columns"][0]["tracks"][0]["title_orientation"] == "vertical_bottom_to_top"
 
     # A second process/startup sees the same protected template and does not
     # increment the revision or reduce the width again.

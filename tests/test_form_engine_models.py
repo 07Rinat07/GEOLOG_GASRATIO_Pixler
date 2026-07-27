@@ -119,7 +119,7 @@ def test_repository_saves_utf8_atomically(tmp_path) -> None:
     assert target.exists()
     assert restored.name == "Глубинная форма"
     raw = json.loads(target.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 9
+    assert raw["schema_version"] == 10
 
 
 def test_repository_lists_and_deletes(tmp_path) -> None:
@@ -451,7 +451,7 @@ def test_v8_form_migrates_logarithmic_bindings_to_linear_defaults() -> None:
     assert binding.x_scale.value == "linear"
     assert binding.x_min == 0.0
     assert binding.x_max == 100.0
-    assert form_to_dict(restored)["schema_version"] == 9
+    assert form_to_dict(restored)["schema_version"] == 10
 
 
 def test_every_factory_form_binding_is_linear_by_default() -> None:

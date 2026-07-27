@@ -23,6 +23,8 @@ from geoworkbench.tablet.models import (
     TrackDefinition,
     TrackKind,
     XScale,
+    compact_track_title_orientation,
+    compact_track_title_position,
     compact_track_width,
 )
 
@@ -209,6 +211,8 @@ class TabletController:
                 "Глубина",
                 TrackKind.DEPTH,
                 width=compact_track_width(TrackKind.DEPTH, 120),
+                title_orientation=compact_track_title_orientation(TrackKind.DEPTH),
+                title_position=compact_track_title_position(TrackKind.DEPTH),
             )
         ]
         well = self.session.current_well
@@ -225,6 +229,8 @@ class TabletController:
                     "Стратиграфия",
                     TrackKind.STRATIGRAPHY,
                     width=compact_track_width(TrackKind.STRATIGRAPHY, 220),
+                    title_orientation=compact_track_title_orientation(TrackKind.STRATIGRAPHY),
+                    title_position=compact_track_title_position(TrackKind.STRATIGRAPHY),
                 )
             )
         if well.lithology:
@@ -234,6 +240,8 @@ class TabletController:
                     "Литология",
                     TrackKind.LITHOLOGY,
                     width=compact_track_width(TrackKind.LITHOLOGY, 180),
+                    title_orientation=compact_track_title_orientation(TrackKind.LITHOLOGY),
+                    title_position=compact_track_title_position(TrackKind.LITHOLOGY),
                 )
             )
             tracks.append(TrackDefinition(new_id(), "Описание пород", TrackKind.TEXT, width=320))
@@ -245,6 +253,8 @@ class TabletController:
                         "Шламограмма",
                         TrackKind.CUTTINGS,
                         width=compact_track_width(TrackKind.CUTTINGS, 240),
+                        title_orientation=compact_track_title_orientation(TrackKind.CUTTINGS),
+                        title_position=compact_track_title_position(TrackKind.CUTTINGS),
                     )
                 )
             if any(
@@ -257,6 +267,8 @@ class TabletController:
                         "Кальциметрия",
                         TrackKind.CALCIMETRY,
                         width=compact_track_width(TrackKind.CALCIMETRY, 220),
+                        title_orientation=compact_track_title_orientation(TrackKind.CALCIMETRY),
+                        title_position=compact_track_title_position(TrackKind.CALCIMETRY),
                     )
                 )
             if any(
@@ -286,6 +298,8 @@ class TabletController:
                         "ЛБА",
                         TrackKind.LBA,
                         width=compact_track_width(TrackKind.LBA, 260),
+                        title_orientation=compact_track_title_orientation(TrackKind.LBA),
+                        title_position=compact_track_title_position(TrackKind.LBA),
                     )
                 )
         return tracks
@@ -358,6 +372,8 @@ class TabletController:
             curve_mnemonics=mnemonics,
             width=width,
             x_scale=x_scale,
+            title_orientation=compact_track_title_orientation(kind),
+            title_position=compact_track_title_position(kind),
         )
         self._require_layout().add_track(track)
         self.session.dirty = True

@@ -40,6 +40,26 @@ STANDARD_MIN_TRACK_WIDTH = 80
 COMPACT_MIN_TRACK_WIDTH = 48
 MAX_TRACK_WIDTH = 2000
 COMPACT_WIDTH_FACTOR = 0.50
+COMPACT_TITLE_ORIENTATION = "vertical_bottom_to_top"
+COMPACT_TITLE_POSITION = "center"
+
+
+def compact_track_title_orientation(kind: TrackKind) -> str:
+    """Return the compact default caption direction for special tablet columns.
+
+    Geology/reference tracks such as depth, stratigraphy, lithology and
+    cuttings have no parameter-header band of their own. Rendering their title
+    vertically makes the requested compact widths usable without truncating the
+    caption across all ready forms and migrated projects.
+    """
+
+    return COMPACT_TITLE_ORIENTATION if kind in COMPACT_TRACK_KINDS else "horizontal"
+
+
+def compact_track_title_position(kind: TrackKind) -> str:
+    """Return the default vertical anchoring for special tablet captions."""
+
+    return COMPACT_TITLE_POSITION if kind in COMPACT_TRACK_KINDS else "center"
 
 
 def minimum_track_width(kind: TrackKind) -> int:

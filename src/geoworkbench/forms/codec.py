@@ -18,11 +18,13 @@ from geoworkbench.tablet.models import (
     CurveStyle,
     TrackKind,
     XScale,
+    compact_track_title_orientation,
+    compact_track_title_position,
     compact_track_width,
 )
 
 
-FORM_SCHEMA_VERSION = 9
+FORM_SCHEMA_VERSION = 10
 
 
 class FormFormatError(ValueError):
@@ -232,7 +234,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -306,6 +308,29 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                 for binding in bindings:
                     if isinstance(binding, dict):
                         _migrate_binding_to_linear_default(binding)
+
+    if version <= 9 and isinstance(columns, list):
+        # Version 10 makes compact geology/reference titles vertical by default
+        # so narrow special columns remain readable in all tablet forms. Keep
+        # existing custom non-horizontal settings untouched.
+        for column in columns:
+            if not isinstance(column, dict):
+                continue
+            tracks = column.get("tracks")
+            if not isinstance(tracks, list):
+                continue
+            for track in tracks:
+                if not isinstance(track, dict):
+                    continue
+                try:
+                    kind = TrackKind(str(track.get("kind", TrackKind.CURVE.value)))
+                except ValueError:
+                    continue
+                if kind not in COMPACT_TRACK_KINDS:
+                    continue
+                if str(track.get("title_orientation", "horizontal")) == "horizontal":
+                    track["title_orientation"] = compact_track_title_orientation(kind)
+                track.setdefault("title_position", compact_track_title_position(kind))
 
     migrated.setdefault("source_dataset_id", None)
     migrated.setdefault("source_index_id", None)

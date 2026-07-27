@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 from geoworkbench.tablet.models import (
+    COMPACT_TRACK_KINDS,
     CurveDisplaySettings,
     CurveLineStyle,
     CurveStyle,
@@ -11,11 +12,13 @@ from geoworkbench.tablet.models import (
     TrackDefinition,
     TrackKind,
     XScale,
+    compact_track_title_orientation,
+    compact_track_title_position,
     compact_track_width,
 )
 
 
-LAYOUT_FORMAT_VERSION = 19
+LAYOUT_FORMAT_VERSION = 20
 
 
 class TabletLayoutFormatError(ValueError):
@@ -261,7 +264,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     if version == LAYOUT_FORMAT_VERSION:
         return data
     if version not in (
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
     ):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
@@ -377,6 +380,23 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 for settings in display.values():
                     if isinstance(settings, dict):
                         _migrate_scale_payload_to_linear(settings)
+    migrated["version"] = 19
+    if isinstance(tracks, list):
+        # Version 20 rotates compact geology/reference titles so narrow columns
+        # stay readable after width compaction. Preserve any explicit non-
+        # horizontal orientation already chosen by the user.
+        for track in tracks:
+            if not isinstance(track, dict):
+                continue
+            try:
+                kind = TrackKind(str(track.get("kind", TrackKind.CURVE.value)))
+            except ValueError:
+                continue
+            if kind not in COMPACT_TRACK_KINDS:
+                continue
+            if str(track.get("title_orientation", "horizontal")) == "horizontal":
+                track["title_orientation"] = compact_track_title_orientation(kind)
+            track.setdefault("title_position", compact_track_title_position(kind))
     migrated["version"] = LAYOUT_FORMAT_VERSION
     return migrated
 
