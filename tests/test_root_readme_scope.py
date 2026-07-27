@@ -22,10 +22,9 @@ def test_root_readme_contains_only_project_overview_and_navigation() -> None:
         assert fragment.casefold() not in text.casefold()
 
     required_links = (
-        "docs/PROJECT_STATUS.md",
-        "docs/PROJECT_PLAN.md",
-        "docs/CHANGELOG.md",
-        "docs/TESTING.md",
+        "docs/ru/README.md",
+        "docs/kk/README.md",
+        "docs/en/README.md",
     )
     for link in required_links:
         assert link in text

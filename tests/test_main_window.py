@@ -230,8 +230,10 @@ def test_about_dialog_contains_logo(qapp, monkeypatch) -> None:
 
     assert len(captured) == 1
     assert not captured[0].iconPixmap().isNull()
-    assert "Rinat Sarmuldin" in captured[0].text()
-    assert "ura07srr@gmail.com" in captured[0].text()
+    assert "GEOLOG GASRATIO@Pixler" in captured[0].text()
+    assert "Версия" in captured[0].text()
+    assert "Rinat Sarmuldin" not in captured[0].text()
+    assert "ura07srr@gmail.com" not in captured[0].text()
     window.close()
 
 

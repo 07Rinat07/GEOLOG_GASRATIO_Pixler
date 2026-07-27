@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QLabel, QPushButton
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.ui.las_editor_dialog import LasEditorDialog, LasEditorOperation
@@ -16,6 +16,20 @@ def test_las_editor_disables_dataset_operations_without_dataset(qapp) -> None:
     assert not buttons["Редактировать таблицу"].isEnabled()
     assert not buttons["Вставить данные из LAS"].isEnabled()
     assert dialog.operation is None
+
+
+def test_las_editor_summary_uses_palette_aware_colors(qapp) -> None:
+    dialog = LasEditorDialog(None)
+    summary = next(
+        label
+        for label in dialog.findChildren(QLabel)
+        if "Рабочий LAS не выбран" in label.text()
+    )
+
+    style = summary.styleSheet()
+    assert "palette(base)" in style
+    assert "palette(text)" in style
+    assert "#f8fafc" not in style
 
 
 def test_las_editor_records_selected_operation(qapp) -> None:

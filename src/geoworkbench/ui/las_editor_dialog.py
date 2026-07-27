@@ -56,7 +56,11 @@ class LasEditorDialog(QDialog):
         summary.setWordWrap(True)
         summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         summary.setStyleSheet(
-            "padding:10px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc;"
+            "padding:10px; "
+            "border:1px solid palette(mid); "
+            "border-radius:6px; "
+            "background-color:palette(base); "
+            "color:palette(text);"
         )
         root.addWidget(summary)
 

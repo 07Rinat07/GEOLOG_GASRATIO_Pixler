@@ -8763,12 +8763,6 @@ class MainWindow(QMainWindow):
         dialog = QMessageBox(self)
         dialog.setWindowTitle("GEOLOG GASRATIO@Pixler")
         dialog.setIconPixmap(logo_pixmap(280))
-        dialog.setText(
-            f"Версия {__version__}\n\n"
-            "Автор: Rinat Sarmuldin (Сармулдин Ринат)\n"
-            "E-mail: ura07srr@gmail.com\n\n"
-            "Реализовано: загрузка и безопасный экспорт LAS, базовые Gas Ratio, "
-            "версионированные проекты, многотрековый планшет и редактор кривых с Undo/Redo."
-        )
+        dialog.setText(f"GEOLOG GASRATIO@Pixler\nВерсия {__version__}")
         dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
         dialog.exec()
