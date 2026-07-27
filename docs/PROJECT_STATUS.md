@@ -2,11 +2,11 @@
 
 ## В разработке: WITS0 real-time integration
 
-Raw-capture boundary и типизированный parser реализованы: TCP server/client, reconnect,
-`&& ... !!` framing, append-only `*.wits`, UTC chunk-index, единый live/replay
-`Wits0StreamProcessor`, immutable parsed fields, diagnostics и sequence tracking по record.
-Следующий срез — Import Review и append-only AcquisitionSession; mapping нужно подтвердить
-реальным raw-дампом.
+Raw-capture boundary, типизированный parser и Import Review реализованы: TCP server/client,
+reconnect, `&& ... !!` framing, append-only `*.wits`, единый live/replay pipeline,
+детерминированное обнаружение record/item, semantic/UOM mapping, выбор time/depth index и
+атомарное создание immutable `AcquisitionDatasetSchema`. Следующий срез — append-only
+`AcquisitionSession`; встроенный mapping по-прежнему нужно подтвердить реальным raw-дампом.
 
 ## В разработке: офлайн-инвентарь WITSML 2.x
 
@@ -25,6 +25,16 @@ Paradox reader, Import Review и `Dataset`. На образце СГ-8 расп�
 read-only Qt ODBC/ACE: импорт получает `WELLS`, формулы `RESGID → S-код`, Sensors fallback и
 аудит. Отсутствие драйвера не блокирует импорт и сопровождается конкретной диагностикой.
 
+
+## Завершено в 0.7.75
+
+Добавлен WITS0 Import Review: immutable discovery snapshot, таблица всех record/item,
+Semantic Channel Dictionary, исходные и канонические UOM, выбор time/depth index,
+hide/rename/manual override, versioned custom profile и атомарный commit immutable
+`AcquisitionDatasetSchema`. Новые или изменённые record/item делают подтверждённую схему
+устаревшей без изменения raw/parser данных.
+
+Срез: 27 июля 2026 года. Версия пакета: **0.7.75**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Завершено в 0.7.74
 

@@ -1,6 +1,10 @@
 # Возможности и инструкции
 
 
+## WITS0 Import Review и immutable schema — 0.7.75
+
+Окно **Файл → Захват WITS Level 0...** теперь собирает immutable discovery snapshot всех data `record/item`. Команда **Проверка импорта…** показывает типы, UOM, samples и QC, предлагает Semantic Channel Dictionary mapping, позволяет выбрать time/depth index, скрыть или переопределить канал и атомарно создать immutable `AcquisitionDatasetSchema`. Mapping сохраняется отдельным versioned custom profile; численное UOM conversion и `AcquisitionSession` остаются следующим этапом. Подробнее: [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
+
 ## WITS Level 0 raw-захват и parser — 0.7.74
 
 Команда **Файл → Захват WITS Level 0...** поддерживает TCP server/client, append-only raw-сегменты, UTC chunk index, incremental `&& ... !!` framing и автоматическое переподключение клиента. Сетевой worker не блокирует Qt. Значения типизируются, диагностируются unknown fields и sequence anomalies; Dataset ещё не создаётся. Подробнее: [WITS0_CAPTURE.md](WITS0_CAPTURE.md).

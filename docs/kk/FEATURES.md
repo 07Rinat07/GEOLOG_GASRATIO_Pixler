@@ -1,6 +1,10 @@
 # Мүмкіндіктер мен нұсқаулықтар
 
 
+## WITS0 Import Review және immutable schema — 0.7.75
+
+**Файл → WITS Level 0 қабылдау...** терезесі барлық data `record/item` үшін immutable discovery snapshot жасайды. **Импортты тексеру…** type, UOM, samples және QC көрсетіп, Semantic Channel Dictionary mapping ұсынады, time/depth index таңдауға, арнаны жасыруға немесе өзгертуге және immutable `AcquisitionDatasetSchema` атомарлық жасауға мүмкіндік береді. Mapping бөлек versioned custom profile ішінде сақталады; сандық UOM conversion және `AcquisitionSession` келесі кезеңде орындалады. Толығырақ: [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
+
 ## WITS Level 0 raw-қабылдау және parser — 0.7.74
 
 **Файл → WITS Level 0 қабылдау...** TCP server/client режимдерін, append-only raw-сегменттерді, UTC chunk index, incremental `&& ... !!` framing және клиенттің автоматты қайта қосылуын қолдайды. Socket жұмысы Qt ағынын бұғаттамайды. Мәндер әзірше Dataset-ке жазылмайды. Толығырақ: [WITS0_CAPTURE.md](WITS0_CAPTURE.md).

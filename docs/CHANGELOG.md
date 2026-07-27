@@ -1,3 +1,12 @@
+# 0.7.75 — WITS0 Import Review and immutable acquisition schema
+
+- Added deterministic immutable WITS0 discovery snapshots for all data record/item fields.
+- Added Semantic Channel Dictionary/UOM mapping, time/depth index selection, hide/rename/manual overrides, and QC.
+- Added atomic `AcquisitionDatasetSchema` commit with a stable SHA-256 digest.
+- Added exclusive-create versioned WITS0 custom mapping profiles without modifying the built-in GeoScape profile.
+- Integrated Import Review, schema stale state, profile path, and reset controls into the modeless capture window.
+- Kept numerical UOM conversion and `AcquisitionSession` ingestion outside this slice.
+
 # 0.7.74 — typed WITS0 parser and sequence diagnostics
 
 - Added immutable typed WITS0 frame/field models with raw-line preservation.

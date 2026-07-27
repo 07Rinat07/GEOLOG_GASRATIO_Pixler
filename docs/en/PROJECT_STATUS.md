@@ -2,11 +2,11 @@
 
 ## In development: WITS0 real-time integration
 
-The raw-capture boundary and typed parser are implemented: TCP server/client, reconnect,
-`&& ... !!` framing, append-only `*.wits`, a UTC chunk index, one live/replay
-`Wits0StreamProcessor`, immutable parsed fields, diagnostics, and per-record sequence tracking.
-The next slice is Import Review and append-only AcquisitionSession commit; mapping still requires
-confirmation with real raw data.
+The raw-capture boundary, typed parser, and Import Review are implemented: TCP server/client,
+reconnect, `&& ... !!` framing, append-only `*.wits`, one live/replay pipeline, deterministic
+record/item discovery, semantic/UOM mapping, time/depth index selection, and atomic creation of
+an immutable `AcquisitionDatasetSchema`. The next slice is append-only `AcquisitionSession`;
+the built-in mapping still requires confirmation with real raw data.
 
 ## In development: offline WITSML 2.x inventory
 
@@ -27,6 +27,16 @@ tables; `GS2#101.db` has TIME, DEPTH, and 206 channels on a 0.2 m grid. The five
 `FORMULAS.RESGID → S-code` mappings, Sensors fallback, and audit metadata. A missing driver no
 longer blocks table import and produces actionable diagnostics.
 
+
+## Completed in 0.7.75
+
+Added WITS0 Import Review with an immutable discovery snapshot, every detected record/item,
+Semantic Channel Dictionary binding, source and canonical UOM, time/depth index selection,
+hide/rename/manual overrides, versioned custom profiles, and an atomic immutable
+`AcquisitionDatasetSchema` commit. New or changed record/items mark a confirmed schema stale
+without mutating raw or parser data.
+
+Snapshot: 27 July 2026. Package version: **0.7.75**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## Completed in 0.7.74
 

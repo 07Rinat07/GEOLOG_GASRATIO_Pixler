@@ -66,7 +66,7 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 
 Пока не реализованы channel arrays, mapping в Dataset, SOAP и ETP.
 
-### 3.3. WITS0 capture и parser — срезы 0.7.73–0.7.74
+### 3.3. WITS0 capture, parser и Import Review — срезы 0.7.73–0.7.75
 
 Реализованы:
 
@@ -86,9 +86,18 @@ WITS0 TCP / WITS0 raw / GS2 / LAS / CSV / Excel / WITSML XML/EPC / SOAP / ETP
 - диагностика unknown record/item, duplicate field, invalid line/value и NaN/Inf;
 - sequence tracking отдельно по каждому record: first/contiguous/duplicate/gap/out-of-order;
 - один framing/parsing/sequence pipeline для live TCP и replay;
-- вкладка разобранных полей и parser counters в modeless monitor.
+- вкладка разобранных полей и parser counters в modeless monitor;
+- immutable discovery snapshot всех обнаруженных data record/item;
+- детерминированный fingerprint mapping surface, не меняющийся от новых значений тех же полей;
+- Semantic Channel Dictionary binding и явные source/canonical UOM;
+- выбор WITS header datetime или numeric depth/time field как active index;
+- hide/rename/manual semantic override;
+- versioned custom mapping profiles без изменения встроенного GeoScape profile;
+- атомарный commit immutable `AcquisitionDatasetSchema`;
+- stale-state при появлении нового или изменённого record/item после подтверждения.
 
-Срез 0.7.74 намеренно не выполняет UOM conversion, Import Review и Dataset commit.
+Срез 0.7.75 намеренно не выполняет численное UOM conversion и не начинает
+`AcquisitionSession`; разные совместимые единицы блокируются до отдельного conversion-слоя.
 
 ## 4. Целевая архитектура
 
@@ -245,16 +254,21 @@ Wits0Frame
 
 Полевая приёмка parser остаётся открытой до получения реального anonymized raw-потока.
 
-### Этап C — Import Review and schema creation
+### Этап C — Import Review and schema creation — реализован в 0.7.75
 
-- [ ] показать все обнаруженные channels;
-- [ ] сопоставить их с Semantic Channel Dictionary;
-- [ ] определить source and canonical UOM;
-- [ ] выбрать time/depth index;
-- [ ] разрешить hide/rename/override;
-- [ ] сохранить versioned custom profile;
-- [ ] сформировать immutable `AcquisitionDatasetSchema`;
-- [ ] выполнить atomic confirmation before session start.
+- [x] показать все обнаруженные channels и sample/statistics snapshot;
+- [x] сопоставить их с Semantic Channel Dictionary;
+- [x] определить source and canonical UOM без молчаливого conversion;
+- [x] выбрать WITS header datetime или numeric time/depth index;
+- [x] разрешить hide/rename/manual semantic override;
+- [x] сохранить versioned custom profile через exclusive-create;
+- [x] сформировать immutable `AcquisitionDatasetSchema`;
+- [x] выполнить atomic confirmation before session start;
+- [x] использовать один discovery contract для live/replay;
+- [x] помечать schema stale только при изменении mapping surface, а не при новых значениях уже известных fields.
+
+Полевая приёмка mapping остаётся открытой до получения реального anonymized raw-потока.
+Численное преобразование совместимых UOM вынесено в следующий отдельный normalization slice.
 
 ### Этап D — Live AcquisitionSession
 

@@ -2,11 +2,11 @@
 
 ## Әзірленуде: WITS0 real-time integration
 
-Raw-capture boundary және типтелген parser дайын: TCP server/client, reconnect,
-`&& ... !!` framing, append-only `*.wits`, UTC chunk-index, бір live/replay
-`Wits0StreamProcessor`, immutable parsed fields, diagnostics және record бойынша sequence tracking.
-Келесі кезең — Import Review және append-only AcquisitionSession; mapping нақты raw арқылы
-расталуы тиіс.
+Raw-capture boundary, типтелген parser және Import Review дайын: TCP server/client, reconnect,
+`&& ... !!` framing, append-only `*.wits`, бір live/replay pipeline, record/item-ды
+детерминирленген анықтау, semantic/UOM mapping, time/depth index таңдау және immutable
+`AcquisitionDatasetSchema` атомарлық құру. Келесі кезең — append-only `AcquisitionSession`;
+кірістірілген mapping нақты raw арқылы әлі де расталуы тиіс.
 
 ## Әзірленуде: WITSML 2.x офлайн түгендеуі
 
@@ -26,6 +26,16 @@ Review және `Dataset` арқылы импорттау қосылды. СГ-8
 ODBC/ACE арқылы оқылады: `WELLS`, `FORMULAS.RESGID → S-код`, Sensors fallback және аудит
 қосылады. Драйвер жоқ болса да кесте импорты тоқтамайды және нақты диагностика көрсетіледі.
 
+
+## 0.7.75 нұсқасында аяқталды
+
+WITS0 Import Review қосылды: immutable discovery snapshot, барлық анықталған record/item,
+Semantic Channel Dictionary сәйкестігі, бастапқы және канондық UOM, time/depth index таңдау,
+hide/rename/manual override, versioned custom profile және immutable
+`AcquisitionDatasetSchema` атомарлық commit. Жаңа немесе өзгерген record/item raw/parser
+деректерін өзгертпей, расталған схеманы ескірген күйге ауыстырады.
+
+Күй күні: 27 шілде 2026 жыл. Пакет нұсқасы: **0.7.75**. Project format: **v20**, form schema: **v8**, tablet layout: **v18**.
 
 ## 0.7.74 нұсқасында аяқталды
 

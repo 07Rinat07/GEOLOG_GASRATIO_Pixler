@@ -33,6 +33,14 @@ from geoworkbench.acquisition import (
     load_builtin_wits0_profile,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.wits0_import_review import (
+    Wits0CustomProfile,
+    Wits0DiscoveryAccumulator,
+    Wits0ImportReviewCommit,
+    load_wits0_custom_profile,
+    save_wits0_custom_profile,
+)
+from geoworkbench.ui.wits0_import_review_dialog import Wits0ImportReviewDialog
 
 
 class Wits0CaptureDialog(QDialog):
@@ -49,10 +57,15 @@ class Wits0CaptureDialog(QDialog):
         language: AppLanguage = AppLanguage.RU,
     ) -> None:
         super().__init__(parent)
+        self.language = language
         self.localizer = Localizer.create(language)
         self.settings = QSettings()
         self.engine: Wits0CaptureEngine | None = None
         self.profile = load_builtin_wits0_profile()
+        self.discovery = Wits0DiscoveryAccumulator(self.profile)
+        self.review_commit: Wits0ImportReviewCommit | None = None
+        self.review_profile_path: Path | None = None
+        self.previous_custom_profile = self._load_previous_custom_profile()
 
         self.setWindowTitle(self._t("wits0.title"))
         self.resize(980, 720)
@@ -83,6 +96,15 @@ class Wits0CaptureDialog(QDialog):
         self.stop_button.clicked.connect(self._stop_capture)
         actions.addWidget(self.start_button)
         actions.addWidget(self.stop_button)
+        self.review_button = QPushButton(self._t("wits0.review_action"), self)
+        self.review_button.clicked.connect(self._open_import_review)
+        self.reset_discovery_button = QPushButton(
+            self._t("wits0.reset_discovery_action"),
+            self,
+        )
+        self.reset_discovery_button.clicked.connect(self._reset_discovery)
+        actions.addWidget(self.review_button)
+        actions.addWidget(self.reset_discovery_button)
         actions.addStretch(1)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         buttons.rejected.connect(self.close)
@@ -174,6 +196,10 @@ class Wits0CaptureDialog(QDialog):
         self.parser_errors_value = QLabel("0", group)
         self.sequence_anomalies_value = QLabel("0", group)
         self.last_sequence_value = QLabel("—", group)
+        self.discovered_channels_value = QLabel("0", group)
+        self.review_state_value = QLabel("—", group)
+        self.schema_digest_value = QLabel("—", group)
+        self.custom_profile_value = QLabel("—", group)
         self.errors_value = QLabel("0", group)
         self.last_received_value = QLabel("—", group)
 
@@ -188,6 +214,10 @@ class Wits0CaptureDialog(QDialog):
             ("wits0.parser_errors", self.parser_errors_value),
             ("wits0.sequence_anomalies", self.sequence_anomalies_value),
             ("wits0.last_sequence", self.last_sequence_value),
+            ("wits0.discovered_channels", self.discovered_channels_value),
+            ("wits0.review_state", self.review_state_value),
+            ("wits0.schema_digest", self.schema_digest_value),
+            ("wits0.custom_profile_file", self.custom_profile_value),
             ("wits0.errors", self.errors_value),
             ("wits0.last_received", self.last_received_value),
         )
@@ -214,6 +244,7 @@ class Wits0CaptureDialog(QDialog):
             QMessageBox.critical(self, self._t("wits0.title"), str(exc))
             return
         self._save_settings(config)
+        self._reset_discovery(show_confirmation=False)
         engine = Wits0CaptureEngine(config, profile=self.profile)
         try:
             engine.start()
@@ -262,6 +293,7 @@ class Wits0CaptureDialog(QDialog):
                 text = event.frame.decode(engine.config.encoding, errors="replace")
                 self.raw_text.appendPlainText(text)
                 if event.parsed_frame is not None:
+                    self.discovery.observe(event.parsed_frame)
                     self.parsed_text.appendPlainText(
                         self._format_parsed_frame(event.parsed_frame)
                     )
@@ -310,6 +342,7 @@ class Wits0CaptureDialog(QDialog):
             self.errors_value.setText(str(snapshot.errors))
             self.last_received_value.setText(snapshot.last_received_at or "—")
         self.state_value.setText(self._t(f"wits0.state_{state.value}"))
+        self._refresh_discovery_status()
 
     def _format_parsed_frame(self, frame: Wits0ParsedFrame) -> str:
         record = f"{frame.record_no:02d}" if frame.record_no is not None else "—"
@@ -354,6 +387,122 @@ class Wits0CaptureDialog(QDialog):
             widget.setEnabled(not running)
         self.start_button.setEnabled(not running)
         self.stop_button.setEnabled(running)
+        has_channels = bool(self.discovery.snapshot().channels)
+        self.review_button.setEnabled(has_channels)
+        self.reset_discovery_button.setEnabled(has_channels or self.review_commit is not None)
+
+    def _custom_profile_directory(self) -> Path:
+        return Path(
+            QStandardPaths.writableLocation(
+                QStandardPaths.StandardLocation.AppDataLocation
+            )
+        ) / "wits0" / "profiles"
+
+    def _load_previous_custom_profile(self) -> Wits0CustomProfile | None:
+        raw_path = str(self.settings.value("wits0/custom_profile_path", "")).strip()
+        if not raw_path:
+            return None
+        try:
+            profile = load_wits0_custom_profile(raw_path)
+        except ValueError:
+            return None
+        if (
+            profile.base_profile_id != self.profile.profile_id
+            or profile.base_profile_version != self.profile.version
+        ):
+            return None
+        self.review_profile_path = Path(raw_path)
+        return profile
+
+    def _open_import_review(self) -> None:
+        snapshot = self.discovery.snapshot()
+        if not snapshot.channels:
+            QMessageBox.information(
+                self,
+                self._t("wits0_review.title"),
+                self._t("wits0.review_no_channels"),
+            )
+            return
+        profile_directory = self._custom_profile_directory()
+        dialog = Wits0ImportReviewDialog(
+            snapshot,
+            self.profile,
+            self,
+            language=self.language,
+            custom_profile=self.previous_custom_profile,
+            dataset_name=self.source_edit.text().strip() or "WITS0 Live",
+            profile_directory=profile_directory,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.commit_result is None:
+            return
+        commit = dialog.commit_result
+        try:
+            profile_path = save_wits0_custom_profile(
+                commit.custom_profile,
+                profile_directory,
+            )
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, self._t("wits0_review.title"), str(exc))
+            return
+        self.review_commit = commit
+        self.previous_custom_profile = commit.custom_profile
+        self.review_profile_path = profile_path
+        self.settings.setValue("wits0/custom_profile_path", str(profile_path))
+        self.settings.sync()
+        self._refresh_discovery_status()
+        self._refresh_controls()
+        QMessageBox.information(
+            self,
+            self._t("wits0_review.title"),
+            self._t(
+                "wits0.review_saved",
+                digest=commit.schema_digest,
+                path=str(profile_path),
+            ),
+        )
+
+    def _reset_discovery(
+        self,
+        _checked: bool = False,
+        *,
+        show_confirmation: bool = True,
+    ) -> None:
+        snapshot = self.discovery.snapshot()
+        if show_confirmation and (snapshot.channels or self.review_commit is not None):
+            answer = QMessageBox.question(
+                self,
+                self._t("wits0_review.title"),
+                self._t("wits0.reset_discovery_confirm"),
+            )
+            if answer is not QMessageBox.StandardButton.Yes:
+                return
+        self.discovery.reset()
+        self.review_commit = None
+        self.review_profile_path = None
+        self._refresh_discovery_status()
+        self._refresh_controls()
+
+    def _refresh_discovery_status(self) -> None:
+        snapshot = self.discovery.snapshot()
+        self.discovered_channels_value.setText(str(len(snapshot.channels)))
+        commit = self.review_commit
+        if not snapshot.channels:
+            state_key = "wits0.review_state_empty"
+        elif commit is None:
+            state_key = "wits0.review_state_pending"
+        elif commit.custom_profile.discovery_fingerprint == snapshot.fingerprint:
+            state_key = "wits0.review_state_confirmed"
+        else:
+            state_key = "wits0.review_state_stale"
+        self.review_state_value.setText(self._t(state_key))
+        digest = commit.schema_digest if commit is not None else ""
+        self.schema_digest_value.setText(digest[:16] if digest else "—")
+        self.schema_digest_value.setToolTip(digest)
+        profile_path = str(self.review_profile_path) if self.review_profile_path else ""
+        self.custom_profile_value.setText(
+            Path(profile_path).name if profile_path else "—"
+        )
+        self.custom_profile_value.setToolTip(profile_path)
 
     def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         engine = self.engine

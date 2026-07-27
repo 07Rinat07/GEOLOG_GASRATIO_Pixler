@@ -1,6 +1,10 @@
 # Features and instructions
 
 
+## WITS0 Import Review and immutable schema — 0.7.75
+
+**File → Capture WITS Level 0...** now builds an immutable discovery snapshot of every data `record/item`. **Import Review…** shows types, UOM, samples, and QC; proposes Semantic Channel Dictionary mappings; supports time/depth index selection, hiding, and overrides; and atomically creates an immutable `AcquisitionDatasetSchema`. Mapping is stored in a separate versioned custom profile; numerical UOM conversion and `AcquisitionSession` remain the next increment. See [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
+
 ## WITS Level 0 raw capture and parser — 0.7.74
 
 **File → Capture WITS Level 0...** supports TCP server/client operation, append-only raw segments, a UTC chunk index, incremental `&& ... !!` framing, and automatic client reconnect. Socket work stays outside the Qt thread. Values are not yet committed to a Dataset. See [WITS0_CAPTURE.md](WITS0_CAPTURE.md).

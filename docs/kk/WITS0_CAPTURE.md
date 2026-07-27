@@ -3,7 +3,7 @@
 ## Мақсаты
 
 **Файл → WITS Level 0 қабылдау...** командасы GSWITS TCP ағынын қабылдайды, кіріс байттарын
-өзгеріссіз сақтайды және әр толық пакетті типтелген parser арқылы өткізеді. 0.7.74 нұсқасы
+өзгеріссіз сақтайды және әр толық пакетті типтелген parser арқылы өткізеді. 0.7.75 нұсқасы
 мәндерді Dataset-ке жазбайды және дабылдарды іске қоспайды: raw шекарасы, parser және диагностика
 жобаны өзгертуден бөлек қалады.
 
@@ -55,7 +55,7 @@ Parser `float`, `integer`, `text`, `date` және `time` түрлерін қо�
 кодын сипаттайды. 08–99 өрістері `geoscape-gswits.json` профилімен сәйкестендіріледі.
 
 Бұзылған жол бүкіл пакетті жоймайды. Бастапқы жол, raw мән, белгісіз `record/item` және түрлендіру
-қатесі кейінгі Import Review үшін `Wits0ParsedFrame` ішінде қалады.
+қатесі Import Review қолданатын детерминирленген discovery snapshot ішінде қалады.
 
 ## Sequence number бақылауы
 
@@ -81,10 +81,28 @@ Reconnect кезінде жаңа stream processor жасалады, сонды�
 
 Терезе жабылғанда worker тоқтап, файлдар жабылады.
 
+## Import Review
+
+Пакеттер қабылданғаннан кейін **Импортты тексеру…** түймесін басыңыз. Диалог immutable snapshot-пен жұмыс істеп:
+
+1. әр анықталған `record/item`, бастапқы mnemonic, type, UOM, статистика және мысалдарды көрсетеді;
+2. Semantic Channel Dictionary арқылы semantic binding ұсынады;
+3. WITS header datetime немесе сандық depth/time өрісін active index ретінде таңдауға мүмкіндік береді;
+4. арнаны жасыруға, canonical mnemonic/kind, quantity class және UOM өзгертуге мүмкіндік береді;
+5. non-numeric curves, үйлеспейтін quantity classes және сандық UOM conversion қажеттілігін бұғаттайды;
+6. immutable `AcquisitionDatasetSchema` бір атомарлық әрекетпен жасайды;
+7. кірістірілген GeoScape profile-ды өзгертпей, mapping-ті бөлек versioned JSON profile ретінде сақтайды.
+
+Fingerprint mapping surface-ті сипаттайды, сондықтан бар өрістердің жаңа мәндері растауды жоймайды.
+Жаңа `record/item`, inferred type/UOM өзгеруі немесе жаңа index source пайда болуы схеманы
+**Ескірді** күйіне ауыстырып, қайта тексеруді талап етеді. **Анықтауды тазарту** тек ағымдағы
+snapshot пен commit-ті тазартады; дискідегі versioned profiles сақталады.
+
 ## Шектеулер
 
 - GeoScape профилі GSWITS нұсқаулығына негізделген және нақты raw ағынмен тексерілуі тиіс;
-- белгісіз өрістер сақталады, бірақ Import Review арқылы әлі өңделмейді;
-- parser UOM conversion орындамайды және `AcquisitionSession` жасамайды;
+- белгісіз өрістер Import Review ішінде сақталып, өңделеді, бірақ қолмен растауды талап етеді;
+- сандық UOM conversion әлі орындалмайды: source және canonical UOM бір канондық бірлікке шешілуі керек;
+- растау schema және versioned mapping profile жасайды, бірақ `AcquisitionSession` әлі басталмайды;
 - WITS0 портын интернетке тікелей ашуға болмайды;
 - raw файлдар жобаны **Ctrl+S** арқылы сақтауды алмастырмайды.

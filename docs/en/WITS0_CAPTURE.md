@@ -3,7 +3,7 @@
 ## Purpose
 
 **File → Capture WITS Level 0...** receives a GSWITS TCP stream, preserves the incoming bytes
-unchanged, and passes every complete frame through a typed parser. Version 0.7.74 does not commit
+unchanged, and passes every complete frame through a typed parser. Version 0.7.75 does not commit
 values to a Dataset or run alarms: the raw boundary, parser, and diagnostics remain separate from
 project mutation.
 
@@ -55,7 +55,7 @@ cover the record identifier, sequence number, well, wellbore, date, time, and ac
 08–99 are resolved through `geoscape-gswits.json`.
 
 A malformed line does not reject the whole frame. Its original line, raw value, unknown
-`record/item`, and conversion error remain available for the future Import Review workflow.
+`record/item`, and conversion error remain in the deterministic discovery snapshot used by Import Review.
 
 ## Sequence-number control
 
@@ -81,10 +81,29 @@ connections. A raw file can be processed again by the same pipeline.
 
 Closing the window stops the worker and closes files.
 
+## Import Review
+
+After frames have been received, press **Import Review…**. The dialog operates on an immutable
+snapshot and:
+
+1. shows every detected `record/item`, source mnemonic, type, UOM, statistics, and samples;
+2. proposes semantic bindings through the Semantic Channel Dictionary;
+3. selects WITS header datetime or a numeric depth/time field as the active index;
+4. supports hide, canonical mnemonic/kind, quantity class, and UOM overrides;
+5. blocks non-numeric curves, incompatible quantity classes, and required numerical UOM conversion;
+6. atomically creates an immutable `AcquisitionDatasetSchema`;
+7. saves the mapping as a separate versioned JSON profile without modifying the built-in GeoScape profile.
+
+The fingerprint describes the mapping surface, so more values for existing fields do not invalidate
+a confirmation. A new `record/item`, changed inferred type/UOM, or newly available index source
+marks the schema **Stale** and requires another review. **Reset discovery** clears only the current
+snapshot and commit; saved versioned profiles remain on disk.
+
 ## Limitations
 
 - the GeoScape profile is based on the GSWITS manual and must be confirmed against a real stream;
-- unknown fields are preserved but are not yet editable through Import Review;
-- the parser does not convert units or create an `AcquisitionSession`;
+- unknown fields are preserved and editable in Import Review but require manual confirmation;
+- numerical UOM conversion is not yet performed: source and canonical UOM must resolve to the same canonical unit;
+- confirmation creates a schema and versioned mapping profile but does not yet start an `AcquisitionSession`;
 - do not expose the WITS0 port directly to the internet;
 - raw files do not replace project saving with **Ctrl+S**.

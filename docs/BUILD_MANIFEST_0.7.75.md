@@ -1,0 +1,32 @@
+# Build manifest — GEOLOG GASRATIO@Pixler 0.7.75
+
+- Package version: `0.7.75`
+- Project format: `v20`
+- Form schema: `v8`
+- Tablet layout: `v18`
+- Main increment: WITS0 Import Review and atomic immutable `AcquisitionDatasetSchema`
+- Discovery boundary: `Wits0DiscoveryAccumulator` creates immutable channel/statistics snapshots from typed live or replay frames
+- Mapping fingerprint: covers the profile, detected record/item fields, inferred value kinds/UOM, and header-datetime availability; additional values for existing fields do not invalidate confirmation
+- Mapping proposal: existing Semantic Channel Dictionary and UOM dictionary are reused rather than duplicating channel logic in the WITS0 adapter
+- Review controls: active time/depth index, channel include/hide, canonical mnemonic, semantic kind, quantity class, source UOM, and canonical UOM
+- Blocking QC: missing or incompatible index, non-numeric curve, quantity/UOM conflict, and required numerical UOM conversion
+- Explicit QC: unknown record/item, unknown UOM/quantity, unresolved semantic channel, all-NULL channel, and duplicate semantic mapping remain visible
+- Atomic result: draft and preview do not mutate raw/parser/project state; confirmation creates one immutable schema plus a SHA-256 schema digest
+- Versioned mapping: custom profiles are strict JSON schema v1 and are saved as exclusive-create `<profile-id>.vN.json` files without modifying `geoscape-gswits.json`
+- Base-profile safety: saved mappings are accepted only for the matching built-in profile ID and version
+- Capture integration: modeless WITS0 monitor adds Import Review/reset actions, discovered-channel count, confirmed/stale state, schema digest, and saved-profile path
+- Stale policy: a new or changed mapping-surface field invalidates the confirmed schema; additional samples for unchanged fields do not
+- Shared parser boundary: live TCP and replay still use the same `Wits0StreamProcessor`
+- Targeted WITS0/acquisition/import/semantic/UOM/WITSML/GS2/documentation gate: `109 passed`, `3 skipped` in `0.79 s`
+- Skipped tests: Qt offscreen construction tests only; PySide6 is unavailable in this Linux validation environment
+- Full-suite attempt: collection is blocked by missing PySide6 and pyqtgraph (`83` collection errors); this is recorded rather than reported as a pass
+- Documentation audit: passed with `97` localized Markdown files per language and `2031` synchronized i18n keys
+- `compileall`: passed for `src`, `tests`, `tools`, and `scripts`
+- Ruff and mypy: unavailable in the current environment; no pass is claimed
+- Wheel: `geolog_gasratio_pixler-0.7.75-py3-none-any.whl` (`2,959,946` bytes)
+- Wheel SHA-256: `5b5cd75496d669959bfcd43e6fe0f22cc5ac8962f372253f03e6c173e04dffc2`
+- Wheel integrity/version/module/resource checks: passed, including Import Review service/dialog, RU/KK/EN catalogs, and GeoScape profile
+- Isolated wheel smoke import: passed for package version, built-in WITS0 profile, discovery accumulator, and review controller
+- Wheel build command: `python -m pip wheel . --no-deps --no-build-isolation`
+- Deliberate boundary: numerical UOM conversion, normalized measurement batches, and append-only `AcquisitionSession` ingestion remain stage D
+- Field acceptance remains open for real anonymized GSWITS traffic, header/index confirmation, Windows reconnect/soak/restart testing, and comparison with vendor output

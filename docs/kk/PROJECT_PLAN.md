@@ -1,21 +1,22 @@
 # Жоба жоспары
 
-0.7.74 кезеңінен кейін 2026 жылғы 27 шілдеге өзекті. Бұл файлда тек аяқталмаған жұмыс берілген; орындалған кезеңдер
+0.7.75 кезеңінен кейін 2026 жылғы 27 шілдеге өзекті. Бұл файлда тек аяқталмаған жұмыс берілген; орындалған кезеңдер
 [жоба күйінде](PROJECT_STATUS.md), түбірлік [өзгерістер тарихында](../CHANGELOG.md) және release
 notes ішінде сақталады.
 
 
-## Басымдық: WITS0 Import Review және live acquisition
+## Басымдық: WITS0 append-only AcquisitionSession және live acquisition
 
-Raw capture және типтелген parser дайын. Аяқталмаған жұмыс:
+Raw capture, типтелген parser және immutable `AcquisitionDatasetSchema` жасайтын Import Review
+дайын. Аяқталмаған жұмыс:
 
 - [ ] 5–10 минут нақты GSWITS raw деректерін алу;
 - [ ] TCP mode, IP, порт, encoding, header fields және record интервалдарын растау;
-- [ ] кірістірілген GeoScape profile-ды нақты record/item мәндерімен салыстыру;
-- [ ] channel/UOM/index mapping үшін Import Review қосу;
-- [ ] versioned пайдаланушы profile overrides сақтау;
-- [ ] mapping расталғаннан кейін immutable AcquisitionDatasetSchema жасау;
-- [ ] append-only AcquisitionSession және live time/depth graphs жасау;
+- [ ] кірістірілген GeoScape profile және сақталған custom profile-ды нақты record/item мәндерімен салыстыру;
+- [ ] расталған WITS0 frames-ті normalized measurement batches түріне айналдыру;
+- [ ] `AcquisitionController` арқылы append-only `AcquisitionSession` жасау;
+- [ ] checkpoint, bounded queue, backpressure және controlled close қосу;
+- [ ] current values және live time/depth graphs қосу;
 - [ ] Windows reconnect/soak/restart тексеруін орындау.
 ## GeoScape II GS2 қабылдауы
 

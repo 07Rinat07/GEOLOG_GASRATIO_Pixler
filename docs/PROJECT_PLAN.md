@@ -1,21 +1,22 @@
 # План проекта
 
-Актуально на 27 июля 2026 года после среза 0.7.74. Здесь перечислена только незавершённая работа; реализованные
+Актуально на 27 июля 2026 года после среза 0.7.75. Здесь перечислена только незавершённая работа; реализованные
 срезы находятся в [состоянии проекта](PROJECT_STATUS.md), корневой
 [истории изменений](CHANGELOG.md) и release notes.
 
 
-## Приоритет: WITS0 Import Review и live acquisition
+## Приоритет: WITS0 append-only AcquisitionSession и live acquisition
 
-Raw capture и типизированный parser готовы. Незавершённая работа:
+Raw capture, типизированный parser и Import Review с immutable `AcquisitionDatasetSchema` готовы.
+Незавершённая работа:
 
 - [ ] получить 5–10 минут реального GSWITS raw-потока;
 - [ ] подтвердить TCP mode, IP, порт, кодировку, header fields и интервалы records;
-- [ ] сверить встроенный GeoScape profile с реальными record/item;
-- [ ] добавить Import Review для channel/UOM/index mapping;
-- [ ] сохранить versioned пользовательские profile overrides;
-- [ ] создать immutable AcquisitionDatasetSchema после подтверждения mapping;
-- [ ] создать append-only AcquisitionSession и live time/depth graphs;
+- [ ] сверить встроенный GeoScape profile и сохранённый custom profile с реальными record/item;
+- [ ] преобразовать подтверждённые WITS0 frames в normalized measurement batches;
+- [ ] создать append-only `AcquisitionSession` через `AcquisitionController`;
+- [ ] добавить checkpoint, bounded queue, backpressure и controlled close;
+- [ ] подключить current values и live time/depth graphs;
 - [ ] выполнить Windows reconnect/soak/restart проверку.
 ## Приёмка GeoScape II GS2
 

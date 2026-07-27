@@ -37,6 +37,7 @@
 
 ## Main workflows
 
+- WITS0 Import Review 0.7.75: [RU](ru/RELEASE_NOTES_0.7.75.md) · [KK](kk/RELEASE_NOTES_0.7.75.md) · [EN](en/RELEASE_NOTES_0.7.75.md) · [build manifest](BUILD_MANIFEST_0.7.75.md)
 - WITS0 raw capture 0.7.73: [RU](ru/RELEASE_NOTES_0.7.73.md) · [KK](kk/RELEASE_NOTES_0.7.73.md) · [EN](en/RELEASE_NOTES_0.7.73.md) · [build manifest](BUILD_MANIFEST_0.7.73.md)
 - WITS0 typed parser 0.7.74: [RU](ru/RELEASE_NOTES_0.7.74.md) · [KK](kk/RELEASE_NOTES_0.7.74.md) · [EN](en/RELEASE_NOTES_0.7.74.md) · [build manifest](BUILD_MANIFEST_0.7.74.md)
 - Responsive command host and ultra-thin symbols 0.7.72: [RU](ru/RELEASE_NOTES_0.7.72.md) · [KK](kk/RELEASE_NOTES_0.7.72.md) · [EN](en/RELEASE_NOTES_0.7.72.md) · [build manifest](BUILD_MANIFEST_0.7.72.md)
