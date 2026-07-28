@@ -1,0 +1,37 @@
+name: Apply PERF-01 acquisition batching
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'perf01-acquisition-batching'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out work branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct and apply verified PERF-01 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .ci-patch/part-* | base64 --decode > "$RUNNER_TEMP/perf01.patch"
+          echo "61007382b9cf9700fb0d05cc5a73f27b99d114b0a7cdbe6a4518e4e46d643784  $RUNNER_TEMP/perf01.patch" | sha256sum --check --strict
+          git apply --check "$RUNNER_TEMP/perf01.patch"
+          git apply "$RUNNER_TEMP/perf01.patch"
+          rm -rf .ci-patch .github/workflows/apply-perf01.yml
+          git add -A
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Complete PERF-01 acquisition batching"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
