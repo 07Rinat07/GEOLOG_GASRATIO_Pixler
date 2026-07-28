@@ -5,7 +5,8 @@
 
 ## Unreleased
 
-- Исправлен Windows Release gate: setup-uv теперь использует существующую опубликованную версию `0.11.29` вместо недоступной `0.11.32`; добавлен regression-контракт для всех трёх jobs.
+- Исправлен Windows Release gate: для `websockets 16.1.1` в Windows/Python 3.11 release-lock закреплён SHA-256 wheel `cp311-win_amd64` вместо SHA-256 source archive; добавлен regression-контракт.
+- Для воспроизводимости Windows Release gate `setup-uv` закреплён на action v8.1.0 и опубликованной версии `uv 0.11.29`; одинаковая конфигурация проверяется во всех трёх jobs.
 - Закрыт SEC-02: профили ETP теперь задают лимиты суммарного encoded-размера multipart,
   количества частей и времени сборки; превышение лимита завершает pending requests и закрывает
   сессию, а audit сохраняет только безопасные счётчики и причину.

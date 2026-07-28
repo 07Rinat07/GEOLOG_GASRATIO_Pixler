@@ -79,11 +79,26 @@ def test_release_lock_is_targeted_fully_pinned_and_hashed() -> None:
     }
     assert names == EXPECTED_RUNTIME_PACKAGES
 
+    # The release lock targets CPython 3.11 on Windows x86-64.
+    # websockets publishes both an sdist and platform wheels; uv selects
+    # the cp311-win_amd64 wheel for this target, so its wheel hash must be
+    # present and the source archive hash must not be used as the only hash.
+    assert (
+        "sha256:7421fad442de870a8cbf2287d1cad7e706ece0dbfeba5e911df132cbdc1cb56a"
+        in text
+    )
+    assert (
+        "sha256:db234eda965dcce15df96bb9709f587cd87d4d52aaf0e80e2f34ec04c7670c57"
+        not in text
+    )
+
 
 def test_workflow_syncs_the_lock_and_uploads_three_artifact_groups() -> None:
     text = _read(WORKFLOW)
     assert text.count('version: "0.11.29"') == 3
-    assert 'version: "0.11.32"' not in text
+    assert text.count(
+        'astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b'
+    ) == 3
     assert text.count("runs-on: windows-latest") == 3
     assert text.count("uv pip sync requirements/release.lock") == 3
     assert text.count("--require-hashes") == 3
