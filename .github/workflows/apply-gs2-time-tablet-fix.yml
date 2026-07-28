@@ -1,0 +1,37 @@
+name: Apply GS2 time tablet fix
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix-gs2-time-tablet-rendering'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out work branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct and apply verified patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .ci-patch/gs2-time-tablet.patch.b64 | base64 --decode > "$RUNNER_TEMP/gs2-time-tablet.patch"
+          echo "1b8d9a300a1300f13bef863baae32f24692b6687fd4bf7c23eed70bfb6c1be07  $RUNNER_TEMP/gs2-time-tablet.patch" | sha256sum --check --strict
+          git apply --check "$RUNNER_TEMP/gs2-time-tablet.patch"
+          git apply "$RUNNER_TEMP/gs2-time-tablet.patch"
+          rm -rf .ci-patch .github/workflows/apply-gs2-time-tablet-fix.yml
+          git add -A
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Fix GS2 time tablet rendering"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
