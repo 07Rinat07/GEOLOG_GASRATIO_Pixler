@@ -3,7 +3,7 @@ name: Apply GS2 time tablet fix
 on:
   pull_request:
     branches: [main]
-    types: [opened, reopened]
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: write
@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat .ci-patch/gs2-time-tablet.patch.b64 | base64 --decode > "$RUNNER_TEMP/gs2-time-tablet.patch"
+          cat .ci-patch/part-* | base64 --decode > "$RUNNER_TEMP/gs2-time-tablet.patch"
           echo "1b8d9a300a1300f13bef863baae32f24692b6687fd4bf7c23eed70bfb6c1be07  $RUNNER_TEMP/gs2-time-tablet.patch" | sha256sum --check --strict
           git apply --check "$RUNNER_TEMP/gs2-time-tablet.patch"
           git apply "$RUNNER_TEMP/gs2-time-tablet.patch"
