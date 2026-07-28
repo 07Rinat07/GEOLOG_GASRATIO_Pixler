@@ -15,6 +15,7 @@ from tools.windows_release_matrix import (
     configure_qt_environment,
     validate_effective_scale,
     validate_physical_arguments,
+    wait_for_pdf_ready,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -144,3 +145,41 @@ def test_release_workflow_runs_and_uploads_windows_acceptance_artifacts() -> Non
     assert "build/ci-artifacts/windows-acceptance" in text
     assert "release-windows-acceptance-${{ github.run_id }}" in text
     assert text.count("actions/upload-artifact@") == 3
+
+
+class _FakePdfDocument:
+    def __init__(self, statuses: list[str]) -> None:
+        self._statuses = statuses
+        self._index = 0
+
+    def status(self):
+        value = self._statuses[min(self._index, len(self._statuses) - 1)]
+        self._index += 1
+        return type("Status", (), {"name": value})()
+
+    def error(self) -> str:
+        return "invalid"
+
+
+class _FakeApplication:
+    def __init__(self) -> None:
+        self.processed = 0
+
+    def processEvents(self) -> None:
+        self.processed += 1
+
+
+def test_pdf_readiness_waits_for_async_qt_loading() -> None:
+    document = _FakePdfDocument(["Loading", "Loading", "Ready"])
+    app = _FakeApplication()
+
+    wait_for_pdf_ready(document, app, timeout_seconds=1.0)
+
+    assert app.processed == 2
+
+
+def test_pdf_readiness_reports_qt_load_error() -> None:
+    document = _FakePdfDocument(["Loading", "Error"])
+
+    with pytest.raises(RuntimeError, match="failed to load"):
+        wait_for_pdf_ready(document, _FakeApplication(), timeout_seconds=1.0)

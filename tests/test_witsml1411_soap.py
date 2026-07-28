@@ -76,7 +76,7 @@ def test_get_version_builds_soap_action_and_basic_auth() -> None:
     ])
     client = Witsml1411SoapClient(
         _profile(),
-        Witsml1411Credentials("operator", "secret"),
+        Witsml1411Credentials("operator", "secret"),  # pragma: allowlist secret
         transport=transport,
     )
 
@@ -112,7 +112,7 @@ def test_profile_endpoint_rejects_embedded_credentials_and_fragments() -> None:
         Witsml1411ConnectionProfile(
             "embedded-secret",
             "Unsafe",
-            "https://operator:secret@store.example.test/witsml",
+            "https://operator:secret@store.example.test/witsml",  # pragma: allowlist secret
         )
     with pytest.raises(ValueError, match="must not contain a URL fragment"):
         Witsml1411ConnectionProfile(
@@ -163,7 +163,7 @@ def test_urllib_transport_rejects_redirects_before_forwarding_credentials() -> N
             endpoint=endpoint,
             soap_action="test",
             body=b"<soap/>",
-            headers={"Authorization": "Basic must-not-be-forwarded"},
+            headers={"Authorization": "Basic must-not-be-forwarded"},  # pragma: allowlist secret
             timeout_seconds=2.0,
             verify_tls=True,
             max_response_bytes=4096,
@@ -330,13 +330,18 @@ def test_profile_store_and_credentials_never_serialize_password(tmp_path: Path) 
     profile = _profile()
     store.upsert(profile)
     credential_store = InMemoryWitsmlCredentialStore()
-    credential_store.save(profile.credential_id or "", Witsml1411Credentials("operator", "top-secret"))
+    credential_store.save(
+        profile.credential_id or "",
+        Witsml1411Credentials("operator", "top-secret"),  # pragma: allowlist secret
+    )
 
     text = profile_path.read_text(encoding="utf-8")
     assert "top-secret" not in text
     assert "password" not in text.casefold()
     assert store.load_all() == (profile,)
-    assert credential_store.load("cred-test").password == "top-secret"
+    assert (
+        credential_store.load("cred-test").password == "top-secret"  # pragma: allowlist secret
+    )
 
 
 def test_hash_chained_audit_redacts_endpoint_userinfo_and_does_not_store_password(tmp_path: Path) -> None:
@@ -347,7 +352,7 @@ def test_hash_chained_audit_redacts_endpoint_userinfo_and_does_not_store_passwor
     ])
     client = Witsml1411SoapClient(
         _profile(),
-        Witsml1411Credentials("operator", "audit-secret"),
+        Witsml1411Credentials("operator", "audit-secret"),  # pragma: allowlist secret
         transport=transport,
         audit=sink,
     )

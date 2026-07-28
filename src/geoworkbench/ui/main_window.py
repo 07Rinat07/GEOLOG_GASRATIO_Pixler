@@ -392,14 +392,18 @@ class _MainWindowImportJobPort(_MainWindowPort):
     """Map stable import kinds to the existing format-specific UI jobs."""
 
     def execute_import(self, kind: ImportSourceKind) -> None:
-        handlers = {
-            ImportSourceKind.LAS: self._window.open_las,
-            ImportSourceKind.CSV: self._window.open_csv,
-            ImportSourceKind.EXCEL: self._window.open_excel,
-            ImportSourceKind.PARADOX: self._window.open_paradox,
-            ImportSourceKind.GS2: self._window.open_gs2,
-        }
-        handlers[kind]()
+        if kind is ImportSourceKind.LAS:
+            self._window.open_las()
+        elif kind is ImportSourceKind.CSV:
+            self._window.open_csv()
+        elif kind is ImportSourceKind.EXCEL:
+            self._window.open_excel()
+        elif kind is ImportSourceKind.PARADOX:
+            self._window.open_paradox()
+        elif kind is ImportSourceKind.GS2:
+            self._window.open_gs2()
+        else:
+            raise ValueError(f"Unsupported import source kind: {kind}")
 
     def report_unknown_source(self, selected_label: str) -> None:
         QMessageBox.warning(
@@ -4622,9 +4626,12 @@ class MainWindow(QMainWindow):
                         overwrite=False,
                         page_settings=self.print_page_settings,
                     )
-                exporters = {"png": export_widget_png, "svg": export_widget_svg}
-                return exporters[export_format](
-                    current, staged_target, overwrite=False
+                if export_format == "png":
+                    return export_widget_png(current, staged_target, overwrite=False)
+                if export_format == "svg":
+                    return export_widget_svg(current, staged_target, overwrite=False)
+                raise ValueError(
+                    f"Неподдерживаемый формат визуализации: {export_format}"
                 )
 
             transaction = execute_report_output_transaction(

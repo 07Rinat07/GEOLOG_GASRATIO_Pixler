@@ -938,7 +938,9 @@ class CurveHeaderEditor(QFrame):
         if self._disposed or self._loading:
             return
         sender = self.sender()
-        if sender is self.minimum or sender is self.maximum:
+        if isinstance(sender, QDoubleSpinBox) and (
+            sender is self.minimum or sender is self.maximum
+        ):
             self._last_range_editor = sender
         self._preview_range()
         self._range_commit_timer.start()

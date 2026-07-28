@@ -104,6 +104,12 @@ def test_workflow_syncs_the_lock_and_uploads_three_artifact_groups() -> None:
     assert text.count("--require-hashes") == 3
     assert "pip-audit==2.10.1" in text
     assert "detect-secrets==1.5.0" in text
+    gate = _read(ROOT / "tools" / "release_security_gate.py")
+    assert "tests[\\\\/]golden_rendering" in gate
+    assert "(^|[\\\\/])(\\.git|build" in gate
+    assert "([\\\\/]|$)" in gate
+    assert 'r"\\.(bmp|png|jpe?g|gif|webp|ico|pdf|docx|xlsx|zip|svg)$"' in gate
+    assert 'uses:\\s*[^@\\s]+@[0-9a-f]{40}' in gate
     assert "bandit==1.9.4" in text
     assert "tools/release_security_gate.py" in text
     assert "build/ci-artifacts/quality" in text
@@ -127,3 +133,4 @@ def test_security_gate_produces_required_machine_readable_reports() -> None:
     assert "--require-hashes" in text
     assert '"cyclonedx-json"' in text
     assert '"--all-files"' in text
+    assert '"--no-verify"' in text

@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 import platform
 import sys
+import time
 from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -245,6 +246,25 @@ def validate_effective_scale(requested: float, effective: float) -> None:
         )
 
 
+def wait_for_pdf_ready(document: Any, app: Any, *, timeout_seconds: float = 10.0) -> None:
+    """Process Qt events until an asynchronously loaded PDF is ready or fails."""
+
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        status = document.status()
+        status_name = str(getattr(status, "name", status)).casefold()
+        if status_name == "ready":
+            return
+        if status_name == "error":
+            raise RuntimeError(f"QPdfDocument failed to load PDF: {document.error()}")
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"QPdfDocument loading timed out with status: {status_name}"
+            )
+        app.processEvents()
+        time.sleep(0.01)
+
+
 def build_checklist(
     *,
     scale_factor: float,
@@ -307,6 +327,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     checklist_path = output_dir / "windows-release-checklist.json"
     _write_json(checklist_path, checklist)
+    failed_cases = [item for item in results if item.status != "passed"]
+    for item in failed_cases:
+        print(f"[FAIL] {item.case_id}: {item.error}", file=sys.stderr)
     print(json.dumps(checklist, ensure_ascii=False, indent=2))
 
     automated_ok = checklist["automated"]["status"] == "passed"
@@ -446,7 +469,8 @@ def _run_case(app, case: MatrixCase, output_dir: Path) -> CaseResult:
         document = QPdfDocument()
         load_error = document.load(str(pdf_path))
         if load_error != QPdfDocument.Error.None_:
-            raise RuntimeError(f"QPdfDocument failed to load PDF: {load_error}")
+            raise RuntimeError(f"QPdfDocument failed to start loading PDF: {load_error}")
+        wait_for_pdf_ready(document, app)
         if document.pageCount() != result.page_count:
             raise RuntimeError(
                 "renderer and QPdfDocument page counts differ: "

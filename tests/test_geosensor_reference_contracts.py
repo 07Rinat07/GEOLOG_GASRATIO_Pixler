@@ -15,7 +15,7 @@ def test_reference_pack_contains_only_derived_data_and_hashes() -> None:
         (reference / "inventory/reference_manifest.json").read_text(encoding="utf-8")
     )
     assert manifest["sourceArchive"]["sha256"] == (
-        "b9b358b76e1956058421ce6969ff04a0c961a986160dc2f207d2bfa5a921cf44"
+        "b9b358b76e1956058421ce6969ff04a0c961a986160dc2f207d2bfa5a921cf44"  # pragma: allowlist secret
     )
     assert manifest["redistributionPolicy"]
 

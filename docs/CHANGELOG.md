@@ -5,6 +5,9 @@
 
 ## Unreleased
 
+- Исправлены ошибки следующего полного Windows Release gate: устранены три ошибки mypy,
+  `QPdfDocument` ожидает асинхронный статус `Ready`, а исключения secret scan работают с
+  Windows/Linux separators и не сканируют CI artifacts, golden outputs и явно синтетические fixtures.
 - Исправлен Windows Release gate: для `websockets 16.1.1` в Windows/Python 3.11 release-lock закреплён SHA-256 wheel `cp311-win_amd64` вместо SHA-256 source archive; добавлен regression-контракт.
 - Для воспроизводимости Windows Release gate `setup-uv` закреплён на action v8.1.0 и опубликованной версии `uv 0.11.29`; одинаковая конфигурация проверяется во всех трёх jobs.
 - Закрыт SEC-02: профили ETP теперь задают лимиты суммарного encoded-размера multipart,

@@ -277,7 +277,7 @@ async def test_protocol_engine_dispatches_unsolicited_channel_data() -> None:
     "endpoint,allow,verify",
     [
         ("ws://example.com/etp", False, True),
-        ("wss://user:pass@example.com/etp", False, True),
+        ("wss://user:pass@example.com/etp", False, True),  # pragma: allowlist secret
         ("wss://example.com/etp", False, False),
     ],
 )
@@ -414,13 +414,16 @@ async def test_websocket_adapter_uses_etp_subprotocol_and_basic_auth(monkeypatch
         allow_insecure_localhost=True,
         max_message_bytes=128 * 1024,
     )
-    await value.connect(secure_profile, Etp12Credentials("reader", "secret"))
+    # pragma: allowlist nextline secret
+    await value.connect(
+        secure_profile, Etp12Credentials("reader", "secret")
+    )
 
     kwargs = captured["kwargs"]
     assert kwargs["subprotocols"] == ["etp12.energistics.org"]
     assert kwargs["max_size"] == 128 * 1024
     assert kwargs["additional_headers"]["Authorization"] == (
-        "Basic " + base64.b64encode(b"reader:secret").decode("ascii")
+        "Basic " + base64.b64encode(b"reader:secret").decode("ascii")  # pragma: allowlist secret
     )
     await value.close("done")
 
