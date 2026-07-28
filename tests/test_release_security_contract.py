@@ -82,6 +82,8 @@ def test_release_lock_is_targeted_fully_pinned_and_hashed() -> None:
 
 def test_workflow_syncs_the_lock_and_uploads_three_artifact_groups() -> None:
     text = _read(WORKFLOW)
+    assert text.count('version: "0.11.29"') == 3
+    assert 'version: "0.11.32"' not in text
     assert text.count("runs-on: windows-latest") == 3
     assert text.count("uv pip sync requirements/release.lock") == 3
     assert text.count("--require-hashes") == 3
