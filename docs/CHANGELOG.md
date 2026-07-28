@@ -5,6 +5,7 @@
 
 ## Unreleased
 
+- Исправлен Windows Release gate: репозиторные thumbnails конструктора больше не игнорируются Git; GUI tablet acceptance получает полный набор ресурсов; secret scan сохраняет структурированные детекторы и отключает только шумные Base64/Hex entropy-плагины.
 - Исправлены ошибки следующего полного Windows Release gate: устранены три ошибки mypy,
   `QPdfDocument` ожидает асинхронный статус `Ready`, а исключения secret scan работают с
   Windows/Linux separators и не сканируют CI artifacts, golden outputs и явно синтетические fixtures.

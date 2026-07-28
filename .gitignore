@@ -69,6 +69,12 @@ attachments/*
 !attachments/.gitkeep
 preview_cache/
 thumbnails/
+
+# Repository-owned constructor thumbnails are source assets, not runtime cache.
+!resources/constructor_assets/**/thumbnails/
+!resources/constructor_assets/**/thumbnails/*.png
+!src/geoworkbench/resources/constructor_assets/**/thumbnails/
+!src/geoworkbench/resources/constructor_assets/**/thumbnails/*.png
 captures/
 diagnostics/
 raw/

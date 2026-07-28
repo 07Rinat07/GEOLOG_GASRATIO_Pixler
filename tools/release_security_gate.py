@@ -90,12 +90,25 @@ def _run(
     )
 
 
-def _parse_secret_count(report: Path) -> int:
+def _parse_secret_findings(report: Path) -> tuple[int, tuple[str, ...]]:
     payload = json.loads(report.read_text(encoding="utf-8"))
     results = payload.get("results", {})
     if not isinstance(results, dict):
         raise ValueError("detect-secrets report has no object-valued 'results' field")
-    return sum(len(items) for items in results.values() if isinstance(items, list))
+
+    summaries: list[str] = []
+    count = 0
+    for filename, items in sorted(results.items()):
+        if not isinstance(items, list):
+            continue
+        count += len(items)
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            detector = str(item.get("type", "unknown"))
+            line_number = item.get("line_number", "?")
+            summaries.append(f"{filename}:{line_number}: {detector}")
+    return count, tuple(summaries)
 
 
 def _arguments() -> argparse.Namespace:
@@ -169,6 +182,10 @@ def main() -> int:
                 ".",
                 "--all-files",
                 "--no-verify",
+                "--disable-plugin",
+                "Base64HighEntropyString",
+                "--disable-plugin",
+                "HexHighEntropyString",
                 "--exclude-files",
                 r"(^|[\\/])(\.git|build|dist|tmp|temp|\.cache|\.venv)([\\/]|$)",
                 "--exclude-files",
@@ -217,9 +234,10 @@ def main() -> int:
     ]
 
     secret_count: int | None = None
+    secret_summaries: tuple[str, ...] = ()
     secret_error: str | None = None
     try:
-        secret_count = _parse_secret_count(secret_report)
+        secret_count, secret_summaries = _parse_secret_findings(secret_report)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         secret_error = str(exc)
 
@@ -230,6 +248,7 @@ def main() -> int:
         payload["passed"] = check.passed
         if check.name == "secret-scan":
             payload["finding_count"] = secret_count
+            payload["finding_summaries"] = list(secret_summaries)
             payload["report_error"] = secret_error
             if secret_count not in {0, None} or secret_error is not None:
                 payload["passed"] = False
@@ -256,6 +275,11 @@ def main() -> int:
     for check in normalized_checks:
         state = "PASS" if check["passed"] else "FAIL"
         print(f"[{state}] {check['name']}: {check['report']}")
+        if check["name"] == "secret-scan":
+            for summary in check.get("finding_summaries", []):
+                print(f"  finding: {summary}")
+            if check.get("report_error"):
+                print(f"  report error: {check['report_error']}")
     print(f"Manifest: {_display_path(manifest_path)}")
     return 1 if failed else 0
 

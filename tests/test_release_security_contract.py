@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
+import json
 import re
 import tomllib
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / "requirements" / "release.lock"
@@ -134,3 +135,58 @@ def test_security_gate_produces_required_machine_readable_reports() -> None:
     assert '"cyclonedx-json"' in text
     assert '"--all-files"' in text
     assert '"--no-verify"' in text
+
+
+def test_secret_scan_keeps_structured_detectors_and_disables_entropy_noise() -> None:
+    text = _read(ROOT / "tools" / "release_security_gate.py")
+    assert '"--disable-plugin"' in text
+    assert '"Base64HighEntropyString"' in text
+    assert '"HexHighEntropyString"' in text
+    assert 'finding_summaries' in text
+
+
+def test_repository_constructor_thumbnails_are_not_ignored() -> None:
+    ignore = _read(ROOT / ".gitignore")
+    assert "!resources/constructor_assets/**/thumbnails/*.png" in ignore
+    assert "!src/geoworkbench/resources/constructor_assets/**/thumbnails/*.png" in ignore
+
+    package_root = ROOT / "src" / "geoworkbench" / "resources" / "constructor_assets"
+    manifests = (
+        package_root / "lithology" / "manifest.json",
+        package_root / "symbols" / "manifest.json",
+    )
+    for manifest in manifests:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+        root = manifest.parent.parent
+        for asset in payload["assets"]:
+            thumbnail = asset.get("thumbnail_path")
+            if thumbnail:
+                assert (root / thumbnail).is_file(), thumbnail
+
+
+def test_secret_report_parser_returns_safe_metadata_only(tmp_path: Path) -> None:
+    from tools.release_security_gate import _parse_secret_findings
+
+    report = tmp_path / "secret-scan.json"
+    report.write_text(
+        json.dumps(
+            {
+                "results": {
+                    "src/example.py": [
+                        {
+                            "type": "GitHub Token",
+                            "line_number": 12,
+                            "hashed_secret": "not-exposed",
+                        }
+                    ]
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    count, summaries = _parse_secret_findings(report)
+
+    assert count == 1
+    assert summaries == ("src/example.py:12: GitHub Token",)
+    assert "not-exposed" not in summaries[0]
