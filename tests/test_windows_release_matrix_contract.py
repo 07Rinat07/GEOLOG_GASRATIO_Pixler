@@ -145,7 +145,7 @@ def test_release_workflow_runs_and_uploads_windows_acceptance_artifacts() -> Non
 
     assert "windows-acceptance:" in text
     assert "tools/windows_release_matrix.py" in text
-    assert "--platform offscreen" in text
+    assert "--platform windows" in text
     assert 'foreach ($Scale in @("1.0", "1.25", "1.5", "2.0"))' in text
     assert "build/ci-artifacts/windows-acceptance" in text
     assert "release-windows-acceptance-${{ github.run_id }}" in text

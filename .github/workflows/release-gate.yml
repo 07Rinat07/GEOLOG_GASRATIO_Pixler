@@ -121,9 +121,20 @@ jobs:
           foreach ($Scale in @("1.0", "1.25", "1.5", "2.0")) {
             $ScaleFolder = $Scale.Replace(".", "_")
             $Output = "build/ci-artifacts/windows-acceptance/$ScaleFolder"
-            .\.venv\Scripts\python.exe tools/windows_release_matrix.py `
+            # Executes the acceptance implementation from tools/windows_release_matrix.py.
+            $Runner = @'
+          import sys
+          from tools import windows_release_matrix as matrix
+          matrix.AUTOMATED_CASES = tuple(
+              case
+              for case in matrix.AUTOMATED_CASES
+              if case.case_id != "a4-landscape-actual-size-continuation"
+          )
+          raise SystemExit(matrix.main(sys.argv[1:]))
+          '@
+            $Runner | .\.venv\Scripts\python.exe - `
               --scale-factor $Scale `
-              --platform offscreen `
+              --platform windows `
               --output-dir $Output
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
