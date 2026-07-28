@@ -5,6 +5,9 @@
 
 ## Unreleased
 
+- Подготовлена автоматизируемая часть REL-03: Windows GUI/HiDPI/PDF matrix для
+  100/125/150/200%, машиночитаемый checklist и отдельный CI artifact; physical-printer gate
+  остаётся открытым до реального отпечатка и визуального подтверждения.
 - Закрыт REL-02: добавлен hash-pinned runtime lock для Windows x86-64/Python 3.11, CycloneDX
   SBOM, dependency/secret/Bandit gate и отдельные Windows quality/security CI artifacts.
 - Закрыт REL-01: backlog `mypy` сокращён с 234 ошибок до нуля, усилены runtime-контракты

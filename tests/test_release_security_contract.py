@@ -80,18 +80,20 @@ def test_release_lock_is_targeted_fully_pinned_and_hashed() -> None:
     assert names == EXPECTED_RUNTIME_PACKAGES
 
 
-def test_workflow_syncs_the_lock_and_uploads_both_artifact_groups() -> None:
+def test_workflow_syncs_the_lock_and_uploads_three_artifact_groups() -> None:
     text = _read(WORKFLOW)
-    assert text.count("runs-on: windows-latest") == 2
-    assert text.count("uv pip sync requirements/release.lock") == 2
-    assert text.count("--require-hashes") == 2
+    assert text.count("runs-on: windows-latest") == 3
+    assert text.count("uv pip sync requirements/release.lock") == 3
+    assert text.count("--require-hashes") == 3
     assert "pip-audit==2.10.1" in text
     assert "detect-secrets==1.5.0" in text
     assert "bandit==1.9.4" in text
     assert "tools/release_security_gate.py" in text
     assert "build/ci-artifacts/quality" in text
     assert "build/ci-artifacts/security" in text
-    assert text.count("actions/upload-artifact@") == 2
+    assert "build/ci-artifacts/windows-acceptance" in text
+    assert "tools/windows_release_matrix.py" in text
+    assert text.count("actions/upload-artifact@") == 3
     assert "persist-credentials: false" in text
 
 

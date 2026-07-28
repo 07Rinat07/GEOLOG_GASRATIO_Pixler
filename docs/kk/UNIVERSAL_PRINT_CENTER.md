@@ -77,3 +77,18 @@ Qt қолданбадан Unicode жолдарын алады; LAS/CSV баст�
 ## 0.7.38 баспа моделі
 
 Print Center A4/A3/custom/roll, Fit және 100% қолдайды. 100% режимі пішін енін сақтайды және кең пішінді overlap бар continuation беттеріне бөледі. System dialog кейін physical printer gate media, bounds, margins, printable area және DPI тексереді. [Баспа пішімдері](PRINT_MEDIA_MODEL.md).
+
+## Windows release acceptance
+
+Stable шығарылым алдында автоматты матрица Print Center-ді Windows/Qt 100%, 125%, 150% және 200%
+масштабтары үшін бөлек процестерде іске қосады. Ол A4, A3 және орамды, кітаптық және альбомдық
+бағдарды, Fit және 100%, continuation pages, RU/KK/EN Unicode, PDF және сынақ интерфейсінің
+суретін тексереді. Evidence пен `windows-release-checklist.json` тек
+`build/ci-artifacts/windows-acceptance` ішінде сақталады және Git не бастапқы код архивіне кірмейді.
+
+Инженер нақты принтерді таңдап, сынақ парағын жіберіп, жиектерді, clipping, оқылымдылықты, түсті
+және беттердің ретін көзбен растағанға дейін автоматты нәтиже `pending_physical_printer` болып
+қалады. Физикалық растау `tools/windows_release_matrix.py` командасының `--printer`, `--operator`,
+`--print-test`, `--confirm-physical-output` және `--require-physical` параметрлерімен орындалады.
+Осы evidence болмаса, REL-03 аяқталған болып есептелмейді.
+

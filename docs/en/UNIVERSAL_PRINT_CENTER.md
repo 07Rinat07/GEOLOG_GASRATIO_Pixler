@@ -77,3 +77,18 @@ Page format, orientation, margins, column fitting, last file format, DPI, qualit
 ## Print model 0.7.38
 
 Print Center supports A4/A3/custom/roll, Fit, and 100%. At 100%, source form widths are preserved and wide forms become numbered continuations with overlap. After the native dialog, the physical printer gate validates media, bounds, margins, printable area, and DPI. See [Print media and scale model](PRINT_MEDIA_MODEL.md).
+
+## Windows release acceptance
+
+Before a stable release, the automated matrix starts Print Center in separate processes for
+Windows/Qt scale factors 100%, 125%, 150%, and 200%. It covers A4, A3, and roll media, portrait and
+landscape, Fit and 100%, continuation pages, RU/KK/EN Unicode, PDF output, and a test-widget
+screenshot. Evidence and `windows-release-checklist.json` are written only below
+`build/ci-artifacts/windows-acceptance`; they are not committed or included as source artifacts.
+
+The automated result remains `pending_physical_printer` until an engineer selects a real printer,
+sends the acceptance sheet, and visually confirms margins, clipping, readability, colour, and page
+order. Physical confirmation uses `--printer`, `--operator`, `--print-test`,
+`--confirm-physical-output`, and `--require-physical` with `tools/windows_release_matrix.py`.
+Without that evidence, REL-03 is not complete.
+

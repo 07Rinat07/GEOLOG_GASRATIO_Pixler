@@ -62,6 +62,7 @@ python -m pytest -q `
   tests/test_documentation_sync_0762.py `
   tests/test_root_readme_scope.py `
   tests/test_release_security_contract.py `
+  tests/test_windows_release_matrix_contract.py `
   tests/test_gs2_form_axis_hotfix_0789.py `
   tests/test_index_detection.py `
   tests/test_compact_geology_columns.py `
@@ -76,7 +77,9 @@ python -m pytest -q `
 - синхронность RU/KK/EN-документации и корректность внутренних ссылок;
 - безопасное согласование TIME/DEPTH после импорта GeoScape2/GS2;
 - сохранение линейной шкалы по умолчанию в формах и Masterlog-пресетах;
-- отсутствие синтаксических ошибок в Python-модулях.
+- отсутствие синтаксических ошибок в Python-модулях;
+- контракт Windows GUI/HiDPI/PDF acceptance matrix и невозможность автоматически объявить
+  физическую печать пройденной.
 
 ## 3. Расширенная проверка в headless-контейнере
 
@@ -135,15 +138,36 @@ python tools/release_security_gate.py
 - `bandit.json`;
 - `security-manifest.json` с SHA-256 lock-файла, командами и статусами.
 
-Workflow `.github/workflows/release-gate.yml` отдельно выполняет полный Windows quality gate и
-Linux security gate. Логи качества и security reports загружаются как два CI artifact с retention
-30 дней. Artifact не коммитится и не считается успешным gate, если соответствующая команда
-завершилась ненулевым кодом.
+Workflow `.github/workflows/release-gate.yml` отдельно выполняет Windows quality gate,
+Windows GUI/HiDPI/PDF acceptance и Windows security gate. Логи качества, acceptance evidence
+и security reports загружаются как три CI artifact с retention 30 дней. Artifact не коммитится
+и не считается успешным gate, если соответствующая команда завершилась ненулевым кодом.
 
-## 6. Ручная Windows-приёмка GUI
+## 6. Автоматическая Windows GUI/HiDPI/PDF matrix
 
-Автоматические source-contract и headless-тесты не заменяют проверку настоящего интерфейса.
-Минимальный smoke-сценарий:
+`tools/windows_release_matrix.py` запускается отдельным процессом для каждого Qt scale factor
+`1.0`, `1.25`, `1.5` и `2.0`. Матрица проверяет A4/A3/roll, portrait/landscape, Fit/100%,
+continuation pages, Unicode RU/KK/EN, инженерные символы, создание и повторное чтение PDF. Для
+каждого случая сохраняются PDF, снимок тестового QWidget и `windows-release-checklist.json`.
+Результаты создаются только в игнорируемом `build/ci-artifacts/windows-acceptance`.
+
+Локальный запуск одного масштаба в Windows:
+
+```powershell
+python tools/windows_release_matrix.py `
+  --scale-factor 1.25 `
+  --platform windows `
+  --output-dir build/ci-artifacts/windows-acceptance/1_25
+```
+
+CI запускает все четыре масштаба. Успешная автоматическая матрица получает общий статус
+`pending_physical_printer`: наличие PDF и screenshots не доказывает реальную подачу бумаги,
+цвет, clipping, поля драйвера и читаемость физического отпечатка.
+
+## 7. Ручная Windows-приёмка GUI и физической печати
+
+Автоматические source-contract, headless и Windows matrix не заменяют проверку настоящего
+интерфейса и принтера. Минимальный smoke-сценарий:
 
 1. Запустить приложение командой `python -m geoworkbench.app.main`.
 2. Импортировать временную и глубинную таблицы GeoScape2/GS2.
@@ -157,7 +181,27 @@ Linux security gate. Логи качества и security reports загруж�
 При ошибке нужно создать diagnostics ZIP через меню «Справка» и приложить его вместе со
 скриншотом, исходным файлом и точной последовательностью действий.
 
-## 7. Правило обновления тестов и документации
+Физический acceptance checklist фиксируется той же командой и считается пройденным только при
+явном выборе принтера, фактической отправке задания и визуальном подтверждении оператором:
+
+```powershell
+python tools/windows_release_matrix.py `
+  --scale-factor 1.0 `
+  --platform windows `
+  --output-dir build/ci-artifacts/windows-acceptance/physical `
+  --printer "ТОЧНОЕ ИМЯ ПРИНТЕРА" `
+  --operator "ФИО инженера" `
+  --print-test `
+  --confirm-physical-output `
+  --require-physical
+```
+
+Команда последовательно проверяет и печатает A4, A3, custom и roll cases, включая все страницы
+продолжения. Без `--print-test`, `--operator` и `--confirm-physical-output` инструмент не может
+записать physical-printer status `passed`. Полученный checklist хранится как release artifact,
+а не в Git.
+
+## 8. Правило обновления тестов и документации
 
 Любое изменение запуска, импорта, формы, миграции, формата проекта или пользовательского
 поведения должно в одном изменении обновлять:

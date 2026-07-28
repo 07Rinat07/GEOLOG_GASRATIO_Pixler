@@ -77,3 +77,18 @@ Qt получает от приложения Unicode-строки; исходн
 ## Печать 0.7.38
 
 Print Center поддерживает A4/A3/custom/roll, Fit и 100%. В 100% ширины формы сохраняются, а широкая форма разбивается на нумерованные продолжения с overlap. После системного диалога physical printer gate проверяет формат, физические пределы, поля, printable area и DPI. См. [Форматы и масштаб печати](PRINT_MEDIA_MODEL.md).
+
+## Windows release acceptance
+
+Перед stable-выпуском автоматическая матрица запускает Print Center отдельными процессами для
+масштабов Windows/Qt 100%, 125%, 150% и 200%. Она проверяет A4, A3 и рулон, книжную и альбомную
+ориентацию, Fit и 100%, continuation pages, Unicode RU/KK/EN, PDF и снимок тестового интерфейса.
+Evidence и `windows-release-checklist.json` сохраняются только в
+`build/ci-artifacts/windows-acceptance` и не входят в Git или архив исходников.
+
+Автоматический результат имеет статус `pending_physical_printer`, пока инженер не выберет
+реальный принтер, не отправит тестовый лист и не подтвердит визуально поля, clipping, читаемость,
+цвет и порядок страниц. Для подтверждения используются `--printer`, `--operator`, `--print-test`,
+`--confirm-physical-output` и `--require-physical` команды
+`tools/windows_release_matrix.py`. Без этих параметров REL-03 не считается закрытым.
+
