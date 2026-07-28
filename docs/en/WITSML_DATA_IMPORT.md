@@ -30,9 +30,11 @@ precedence. Binary Avro payloads are reported as unsupported rather than guessed
 ## Safety controls
 
 The reader rejects DTD/entity declarations, non-WITSML namespaces, unsupported schema versions,
-absolute or escaping `FileUri` paths, encrypted archive members, duplicate archive paths,
-suspicious compression ratios and configured file/element/row/cell limits. ZIP/EPC members are
-read in memory and are never extracted to arbitrary disk paths.
+absolute or escaping `FileUri` paths, encrypted archive members, duplicate archive paths, and
+suspicious compression ratios. XML is consumed in streaming chunks and stops before a complete
+tree can materialize when byte size, depth, elements, text, or attributes exceed their limits.
+Rows, cells, and external data payloads have separate caps. ZIP/EPC members are never extracted to
+arbitrary disk paths.
 
 Structurally valid rows are retained even when an index value is invalid. Import Review can then
 count, display and explicitly drop those rows. Source bytes and source/data SHA-256 values remain

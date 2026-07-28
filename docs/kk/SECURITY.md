@@ -29,6 +29,14 @@ Parser сәтті аяқталуы деректің дұрыстығын дәл�
 report-пен салыстырыңыз. Export бөлек файл жасайды және project үшін **Ctrl+S** әрекетін
 алмастырмайды.
 
+## LAS/XML ерте лимиттері
+
+LAS `lasio` іске қосылмай тұрып bounded streaming оқуынан өтеді; лимиттен асқан файл уақытша
+Dataset құрмайды. WITSML 2.x inventory/data import және WITSML 1.4.1.1 SOAP бір streaming XML
+parser қолданады. Ол byte, depth, element, text және attribute лимиттері бойынша тоқтайды, ал
+DTD/entity/external entity/notation толық tree құрылмай тұрып тыйым салынады. Лимиттерді тек
+расталған source және нақты memory budget болғанда үлкейтіңіз.
+
 ## WITS0: тек жергілікті немесе оқшауланған желі
 
 WITS Level 0 ішінде кірістірілген encryption және authentication жоқ.

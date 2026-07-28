@@ -5,8 +5,12 @@ from hashlib import sha256
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from defusedxml.ElementTree import fromstring as safe_xml_fromstring
-from defusedxml.common import DefusedXmlException
+from geoworkbench.services.bounded_input import (
+    BoundedXmlError,
+    InputLimitError,
+    XmlInputLimits,
+    parse_bounded_xml_text,
+)
 
 from geoworkbench.importers.witsml import (
     WitsmlChannelSetData,
@@ -27,8 +31,17 @@ from geoworkbench.importers.witsml1411.models import (
 from geoworkbench.importers.witsml1411.queries import WITSML_1SERIES_NAMESPACE
 
 
-_FORBIDDEN_XML = (b"<!doctype", b"<!entity")
 _NUMERIC_TYPES = {"byte", "short", "int", "integer", "long", "float", "double", "decimal"}
+
+_WITSML1411_XML_LIMITS = XmlInputLimits(
+    max_bytes=128 * 1024**2,
+    max_depth=128,
+    max_elements=500_000,
+    max_text_bytes=128 * 1024**2,
+    max_attributes=1_000_000,
+    max_attribute_bytes=64 * 1024**2,
+    max_attributes_per_element=256,
+)
 
 
 class Witsml1411ParseError(ValueError):
@@ -300,18 +313,13 @@ def _parse_log_header(element: ET.Element) -> Witsml1411LogHeader:
 
 
 def _parse_xml(xml_text: str, *, expected_roots: set[str]) -> ET.Element:
-    payload = xml_text.encode("utf-8")
-    lowered = payload[:8192].lower()
-    if any(marker in lowered for marker in _FORBIDDEN_XML):
-        raise Witsml1411ParseError("WITSML XML contains a forbidden DTD/entity declaration")
     try:
-        root = safe_xml_fromstring(
-            payload,
-            forbid_dtd=True,
-            forbid_entities=True,
-            forbid_external=True,
+        root = parse_bounded_xml_text(
+            xml_text,
+            limits=_WITSML1411_XML_LIMITS,
+            source_name="WITSML 1.4.1.1 payload",
         )
-    except (ET.ParseError, DefusedXmlException) as exc:
+    except (BoundedXmlError, InputLimitError) as exc:
         raise Witsml1411ParseError(f"Invalid or forbidden WITSML XML: {exc}") from exc
     namespace, local = _split_tag(root.tag)
     if local not in expected_roots:

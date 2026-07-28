@@ -12,8 +12,9 @@
 - URL ішінде пайдаланушы аты немесе құпиясөз болмауы тиіс;
 - құпиясөз профильге және жобаға сериализацияланбайды;
 - Windows Credential Manager қолданылады;
-- SOAP ішіндегі DTD/entity қабылданбайды;
-- жауап өлшемі шектеледі;
+- SOAP/XML byte, depth, element, мәтін және attribute лимиттері бар streaming parser арқылы оқылады;
+- DTD/entity/external entity/notation толық tree құрылмай тұрып қабылданбайды;
+- HTTP жауап өлшемі XML parsing басталғанға дейін шектеледі;
 - аудит XML сұрауын және Authorization мәнін сақтамайды;
 - remote endpoint тек certificate chain және hostname verification бар `https://` арқылы
   рұқсат етіледі;

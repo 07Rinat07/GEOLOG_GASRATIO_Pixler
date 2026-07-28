@@ -143,7 +143,22 @@ Windows GUI/HiDPI/PDF acceptance и Windows security gate. Логи качест
 и security reports загружаются как три CI artifact с retention 30 дней. Artifact не коммитится
 и не считается успешным gate, если соответствующая команда завершилась ненулевым кодом.
 
-## 6. Автоматическая Windows GUI/HiDPI/PDF matrix
+## 6. SEC-03: bounded LAS/XML inputs
+
+Регрессия `tests/test_bounded_input_limits.py` проверяет раннее прекращение binary read, chunk size,
+XML namespace/text/tail, запрет DTD/entity/notation и отдельные лимиты bytes, depth, elements,
+text, attributes и attribute bytes. Интеграционные случаи подтверждают те же ограничения в
+WITSML inventory и ChannelSet data import. `tests/test_las_adapter.py` проверяет, что oversized LAS
+отклоняется до вызова `lasio`, а семантический parser получает уже проверенную in-memory копию.
+
+Минимальный локальный запуск:
+
+```bash
+python -m pytest -q tests/test_bounded_input_limits.py tests/test_witsml_inventory.py \
+  tests/test_witsml_data_arrays.py tests/test_witsml1411_soap.py tests/test_lossless_las.py
+```
+
+## 7. Автоматическая Windows GUI/HiDPI/PDF matrix
 
 `tools/windows_release_matrix.py` запускается отдельным процессом для каждого Qt scale factor
 `1.0`, `1.25`, `1.5` и `2.0`. Матрица проверяет A4/A3/roll, portrait/landscape, Fit/100%,
@@ -164,7 +179,7 @@ CI запускает все четыре масштаба. Успешная а�
 `pending_physical_printer`: наличие PDF и screenshots не доказывает реальную подачу бумаги,
 цвет, clipping, поля драйвера и читаемость физического отпечатка.
 
-## 7. Ручная Windows-приёмка GUI и физической печати
+## 8. Ручная Windows-приёмка GUI и физической печати
 
 Автоматические source-contract, headless и Windows matrix не заменяют проверку настоящего
 интерфейса и принтера. Минимальный smoke-сценарий:
@@ -201,7 +216,7 @@ python tools/windows_release_matrix.py `
 записать physical-printer status `passed`. Полученный checklist хранится как release artifact,
 а не в Git.
 
-## 8. Правило обновления тестов и документации
+## 9. Правило обновления тестов и документации
 
 Любое изменение запуска, импорта, формы, миграции, формата проекта или пользовательского
 поведения должно в одном изменении обновлять:

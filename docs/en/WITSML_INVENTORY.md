@@ -34,14 +34,16 @@ creation are handled by the separate [data-import workflow](WITSML_DATA_IMPORT.m
 
 ## Security boundary
 
-ZIP/EPC content is never extracted to the file system. The reader rejects traversal paths,
-case-insensitive duplicate names, encrypted members, oversized entries, excessive total
-uncompressed size, suspicious compression ratios, and excessive XML element counts. DTD and
-custom XML entities are forbidden. Single files and directories use the same size and element
-limits.
+ZIP/EPC content is never extracted to the file system. XML is read in chunks directly from a
+file or archive member; a complete payload is not loaded before preflight validation. Parsing
+stops immediately when byte size, nesting depth, element count, aggregate text, attribute count,
+attribute bytes, or per-element attributes exceed their limits. DTDs, entities, external entities,
+and notations are rejected by streaming parser callbacks rather than by scanning only a prefix.
 
-Limits are configurable through `WitsmlInventoryLimits`. Defaults are intended for offline
-metadata inventory, not unlimited loading of large time-series arrays.
+Traversal paths, case-insensitive duplicate names, encrypted members, total uncompressed size,
+and suspicious compression ratios are also checked. Limits are configurable through
+`WitsmlInventoryLimits`. Defaults are intended for offline metadata inventory, not unlimited
+loading of large time-series arrays.
 
 ## Current limitations
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import os
 import tempfile
 from collections import Counter
@@ -53,6 +54,20 @@ class LasExportError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class LasInputLimits:
+    max_file_size: int = 512 * 1024**2
+    chunk_size: int = 1024 * 1024
+
+    def __post_init__(self) -> None:
+        for value, name in (
+            (self.max_file_size, "max_file_size"),
+            (self.chunk_size, "chunk_size"),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
+
+
+@dataclass(frozen=True, slots=True)
 class LasImportResult:
     dataset: Dataset
     report: LasImportReport
@@ -68,6 +83,8 @@ def import_las(path: str | Path, kind: DatasetKind = DatasetKind.GTI) -> Dataset
 def import_las_with_report(
     path: str | Path,
     kind: DatasetKind = DatasetKind.GTI,
+    *,
+    limits: LasInputLimits | None = None,
 ) -> LasImportResult:
     source = Path(path)
     if not source.exists():
@@ -75,10 +92,19 @@ def import_las_with_report(
     if source.suffix.lower() != ".las":
         raise LasImportError(f"Ожидался LAS-файл, получен: {source.suffix}")
 
+    safety = limits or LasInputLimits()
     try:
-        source_document = read_lossless_las(source)
-        las = lasio.read(
+        source_document = read_lossless_las(
             source,
+            max_bytes=safety.max_file_size,
+            chunk_size=safety.chunk_size,
+        )
+        decoded_source = source_document.raw_bytes.decode(
+            source_document.encoding,
+            errors="replace",
+        )
+        las = lasio.read(
+            io.StringIO(decoded_source),
             ignore_header_errors=True,
             encoding=source_document.encoding,
             encoding_errors="replace",
