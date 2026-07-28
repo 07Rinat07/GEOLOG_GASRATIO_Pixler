@@ -1,0 +1,37 @@
+name: Apply PERF-01 mypy fix
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'perf01-acquisition-batching'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out work branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply narrow mypy correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode .ci-fix/perf01-mypy.patch.b64 > "$RUNNER_TEMP/perf01-mypy.patch"
+          echo "9fe167c7d4722c343cd5afb07c49e96158d6c553ad01b3b2c8a520d2687ec26e  $RUNNER_TEMP/perf01-mypy.patch" | sha256sum --check --strict
+          git apply --check "$RUNNER_TEMP/perf01-mypy.patch"
+          git apply "$RUNNER_TEMP/perf01-mypy.patch"
+          rm -rf .ci-fix .github/workflows/apply-perf01-mypy-fix.yml
+          git add -A
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Fix PERF-01 mypy narrowing"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
