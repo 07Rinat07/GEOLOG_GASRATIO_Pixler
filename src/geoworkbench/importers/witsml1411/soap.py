@@ -13,8 +13,12 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 import xml.etree.ElementTree as ET
 
-from defusedxml.ElementTree import fromstring as safe_xml_fromstring
-from defusedxml.common import DefusedXmlException
+from geoworkbench.services.bounded_input import (
+    BoundedXmlError,
+    InputLimitError,
+    XmlInputLimits,
+    parse_bounded_xml_bytes,
+)
 
 from geoworkbench.importers.witsml1411.models import (
     Witsml1411AuditEvent,
@@ -35,7 +39,15 @@ XSI = "http://www.w3.org/2001/XMLSchema-instance"
 XSD = "http://www.w3.org/2001/XMLSchema"
 WITSML_MESSAGE = "http://www.witsml.org/message/120"
 WITSML_ACTION = "http://www.witsml.org/action/120/Store."
-_FORBIDDEN_XML = (b"<!doctype", b"<!entity")
+_SOAP_XML_LIMITS = XmlInputLimits(
+    max_bytes=128 * 1024**2,
+    max_depth=128,
+    max_elements=500_000,
+    max_text_bytes=128 * 1024**2,
+    max_attributes=1_000_000,
+    max_attribute_bytes=64 * 1024**2,
+    max_attributes_per_element=256,
+)
 
 for prefix, namespace in (
     ("soap", SOAP_ENV),
@@ -371,17 +383,13 @@ def _qualified_name(namespace: str, local_name: str) -> str:
 def _parse_soap_response(payload: bytes, operation: str) -> dict[str, str]:
     if not payload:
         raise Witsml1411Error("SOAP response is empty")
-    lowered = payload[:8192].lower()
-    if any(marker in lowered for marker in _FORBIDDEN_XML):
-        raise Witsml1411Error("SOAP response contains a forbidden DTD/entity declaration")
     try:
-        root = safe_xml_fromstring(
+        root = parse_bounded_xml_bytes(
             payload,
-            forbid_dtd=True,
-            forbid_entities=True,
-            forbid_external=True,
+            limits=_SOAP_XML_LIMITS,
+            source_name="WITSML 1.4.1.1 SOAP response",
         )
-    except (ET.ParseError, DefusedXmlException) as exc:
+    except (BoundedXmlError, InputLimitError) as exc:
         raise Witsml1411Error(f"Invalid or forbidden SOAP XML: {exc}") from exc
     body = next((item for item in root.iter() if _local(item.tag) == "Body"), None)
     if body is None:

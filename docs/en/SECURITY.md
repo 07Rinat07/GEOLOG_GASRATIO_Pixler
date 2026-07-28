@@ -27,6 +27,14 @@ A successful parser does not prove that the data is correct. Compare critical ch
 intervals with the source report. Export creates a separate file and does not replace **Ctrl+S**
 for the project.
 
+## Early LAS/XML limits
+
+LAS uses a bounded streaming read before `lasio` starts; an oversized file cannot create a
+temporary Dataset. WITSML 2.x inventory/data import and WITSML 1.4.1.1 SOAP share one streaming
+XML parser. It stops on byte, depth, element, text, and attribute limits and rejects DTDs,
+entities, external entities, and notations before a complete tree can materialize. Raise limits
+only for a confirmed source and with an explicit memory budget.
+
 ## WITS0: local or isolated networks only
 
 WITS Level 0 provides no built-in encryption or authentication.

@@ -12,6 +12,14 @@ are retained in result metadata or a manifest.
 Table edits first exist in the project's working dataset. **Ctrl+S** saves the project but does not
 create a new LAS file. Export a new LAS copy when the result must be used by another application.
 
+## Streaming read and limits
+
+Before `lasio` starts, the source LAS is read in bounded chunks with an early size cap.
+`LasInputLimits` defaults to 512 MiB with a 1 MiB chunk. A file that is already oversized or grows
+while being read is rejected before the LAS parser runs and before a temporary Dataset can be
+registered. Lossless bytes, encoding, and SHA-256 use the same validated copy, so semantic parsing
+does not reopen the source path.
+
 ## Main operations
 
 - **Create new LAS** — range, step, MD/TVD/TVDSS index, LAS 1.2/2.0, and NULL.

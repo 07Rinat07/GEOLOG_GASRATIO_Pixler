@@ -246,6 +246,7 @@ divergence, unknown fields и разрывы revision sequence.
 - исходный файл не перезаписывается скрытно;
 - `eval`, `pickle` и неограниченное исполнение шаблонов запрещены;
 - входные размеры и количество элементов проверяются до выделения пропорциональной памяти;
+- LAS проходит bounded chunk-read до `lasio`; WITSML 2.x/1.4.1.1 XML строит дерево через общий Expat streaming boundary с лимитами bytes/depth/elements/text/attributes и запретом DTD/entity/external entity/notation;
 - удалённый WITSML использует HTTPS с проверкой TLS и без redirect credentials; WITS0 по
   умолчанию bind только на loopback;
 - UI не обходит controller при изменении project state;

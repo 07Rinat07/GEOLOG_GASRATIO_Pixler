@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import StrEnum
@@ -7,19 +8,22 @@ from hashlib import sha256
 import json
 from math import isfinite
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterator
+from typing import Any, BinaryIO, Iterator, cast
 from urllib.parse import unquote, urlsplit
 import xml.etree.ElementTree as ET
 import zipfile
 
-from defusedxml.ElementTree import fromstring as safe_xml_fromstring
-from defusedxml.common import DefusedXmlException
+from geoworkbench.services.bounded_input import (
+    BoundedXmlError,
+    InputLimitError,
+    XmlInputLimits,
+    parse_bounded_xml_stream,
+)
 
 
 WITSML_V2_NAMESPACE = "http://www.energistics.org/energyml/data/witsmlv2"
 COMMON_V2_NAMESPACE = "http://www.energistics.org/energyml/data/commonv2"
 _XML_SUFFIXES = {".xml", ".witsml"}
-_FORBIDDEN_XML_DECLARATIONS = (b"<!doctype", b"<!entity")
 _NUMERIC_TYPES = {"byte", "bytes", "double", "float", "int", "long"}
 
 
@@ -41,6 +45,11 @@ class WitsmlDataLimits:
     max_total_size: int = 768 * 1024**2
     max_compression_ratio: float = 500.0
     max_elements: int = 500_000
+    max_depth: int = 128
+    max_text_bytes: int = 64 * 1024**2
+    max_attributes: int = 1_000_000
+    max_attribute_bytes: int = 64 * 1024**2
+    max_attributes_per_element: int = 256
     max_rows: int = 2_000_000
     max_cells: int = 40_000_000
     max_diagnostics: int = 2_000
@@ -52,6 +61,11 @@ class WitsmlDataLimits:
             "max_external_data_size",
             "max_total_size",
             "max_elements",
+            "max_depth",
+            "max_text_bytes",
+            "max_attributes",
+            "max_attribute_bytes",
+            "max_attributes_per_element",
             "max_rows",
             "max_cells",
             "max_diagnostics",
@@ -164,7 +178,8 @@ class WitsmlDataPackage:
 @dataclass(frozen=True, slots=True)
 class _XmlDocument:
     name: str
-    payload: bytes
+    path: Path | None = None
+    archive_member: str | None = None
 
 
 class _SourceAccessor:
@@ -217,7 +232,7 @@ class _SourceAccessor:
                     continue
                 if info.file_size > self.limits.max_xml_size:
                     raise WitsmlDataError(f"XML member exceeds size limit: {name}")
-                yield _XmlDocument(name, self._archive.read(info))
+                yield _XmlDocument(name, archive_member=info.filename)
             return
         if self._directory_root is not None:
             candidates = sorted(
@@ -234,11 +249,38 @@ class _SourceAccessor:
                 total += size
                 if total > self.limits.max_total_size:
                     raise WitsmlDataError("WITSML directory exceeds total size limit")
-                yield _XmlDocument(item.relative_to(self._directory_root).as_posix(), item.read_bytes())
+                yield _XmlDocument(item.relative_to(self._directory_root).as_posix(), path=item)
             return
         if self.source.stat().st_size > self.limits.max_xml_size:
             raise WitsmlDataError("WITSML XML file exceeds size limit")
-        yield _XmlDocument(self.source.name, self.source.read_bytes())
+        yield _XmlDocument(self.source.name, path=self.source)
+
+    @contextmanager
+    def open_xml(self, document: _XmlDocument) -> Iterator[BinaryIO]:
+        if document.archive_member is not None:
+            if self._archive is None:
+                raise WitsmlDataError("WITSML archive is not open")
+            with self._archive.open(document.archive_member, "r") as stream:
+                yield cast(BinaryIO, stream)
+            return
+        if document.path is None:
+            raise WitsmlDataError(f"XML source is unavailable: {document.name}")
+        with document.path.open("rb") as stream:
+            yield cast(BinaryIO, stream)
+
+    def hash_xml(self, document: _XmlDocument) -> str:
+        digest = sha256()
+        total = 0
+        with self.open_xml(document) as stream:
+            while True:
+                chunk = stream.read(64 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > self.limits.max_xml_size:
+                    raise WitsmlDataError(f"XML file exceeds size limit: {document.name}")
+                digest.update(chunk)
+        return digest.hexdigest()
 
     def read_relative(self, document_name: str, uri: str) -> tuple[str, bytes]:
         member_name = _resolve_relative_name(document_name, uri)
@@ -287,7 +329,7 @@ def read_witsml_channel_sets(
             raise WitsmlDataError("No WITSML XML documents were found")
         for document in documents:
             try:
-                root = _parse_xml(document, safety)
+                root = _parse_xml(document, safety, accessor)
             except WitsmlDataError as exc:
                 _append_issue(
                     package_issues,
@@ -411,7 +453,7 @@ def _parse_channel_set(
     wellbore = _direct_child(element, "Wellbore")
     wellbore_title = _reference_text(wellbore, "Title") if wellbore is not None else None
     wellbore_uuid = _reference_text(wellbore, "Uuid") if wellbore is not None else None
-    source_hash = sha256(document.payload).hexdigest()
+    source_hash = accessor.hash_xml(document)
     data_hash = sha256(payload).hexdigest()
     return WitsmlChannelSetData(
         source=source,
@@ -640,24 +682,31 @@ def _parse_utc_datetime(value: str) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def _parse_xml(document: _XmlDocument, limits: WitsmlDataLimits) -> ET.Element:
-    lowered = document.payload.lower()
-    if any(marker in lowered for marker in _FORBIDDEN_XML_DECLARATIONS):
-        raise WitsmlDataError(f"DTD/entity declarations are forbidden: {document.name}")
+def _parse_xml(
+    document: _XmlDocument,
+    limits: WitsmlDataLimits,
+    accessor: _SourceAccessor,
+) -> ET.Element:
+    xml_limits = XmlInputLimits(
+        max_bytes=limits.max_xml_size,
+        max_depth=limits.max_depth,
+        max_elements=limits.max_elements,
+        max_text_bytes=limits.max_text_bytes,
+        max_attributes=limits.max_attributes,
+        max_attribute_bytes=limits.max_attribute_bytes,
+        max_attributes_per_element=limits.max_attributes_per_element,
+    )
     try:
-        root = safe_xml_fromstring(
-            document.payload,
-            forbid_dtd=True,
-            forbid_entities=True,
-            forbid_external=True,
-        )
-    except (ET.ParseError, DefusedXmlException) as exc:
+        with accessor.open_xml(document) as stream:
+            root = parse_bounded_xml_stream(
+                stream,
+                limits=xml_limits,
+                source_name=document.name,
+            )
+    except (OSError, RuntimeError, BoundedXmlError, InputLimitError) as exc:
         raise WitsmlDataError(
             f"Invalid or forbidden XML in {document.name}: {exc}"
         ) from exc
-    count = sum(1 for _item in root.iter())
-    if count > limits.max_elements:
-        raise WitsmlDataError(f"XML element count exceeds limit: {document.name}")
     namespace, _local = _split_tag(root.tag)
     if namespace != WITSML_V2_NAMESPACE:
         raise WitsmlDataError(f"Document is not WITSML 2.x: {document.name}")

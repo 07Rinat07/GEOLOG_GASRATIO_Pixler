@@ -7,6 +7,7 @@ import pytest
 from geoworkbench.data.las_adapter import (
     LasExportError,
     LasImportError,
+    LasInputLimits,
     export_las,
     import_las,
     import_las_with_report,
@@ -188,6 +189,31 @@ def test_import_report_detects_source_section_structure(tmp_path, monkeypatch) -
 def test_import_las_rejects_missing_file(tmp_path) -> None:
     with pytest.raises(FileNotFoundError):
         import_las(tmp_path / "missing.las")
+
+
+
+
+def test_import_las_rejects_oversized_source_before_lasio(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "oversized.las"
+    source.write_bytes(b"~V\nVERS. 2.0\n~A\n" + b"1 2\n" * 100)
+    called = False
+
+    def fail_if_called(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("lasio must not run after the size guard fails")
+
+    monkeypatch.setattr("geoworkbench.data.las_adapter.lasio.read", fail_if_called)
+
+    with pytest.raises(LasImportError) as error:
+        import_las_with_report(
+            source,
+            limits=LasInputLimits(max_file_size=32, chunk_size=8),
+        )
+
+    assert called is False
+    assert error.value.__cause__ is not None
+    assert "bytes limit exceeded" in str(error.value.__cause__)
 
 
 def test_import_las_rejects_wrong_extension(tmp_path) -> None:
@@ -384,6 +410,8 @@ def test_import_las_passes_detected_cp866_encoding_to_parser(tmp_path, monkeypat
 
     import_las(source)
 
+    assert hasattr(captured["file_ref"], "read")
+    assert captured["file_ref"].read().startswith("~Version Information")
     assert captured["encoding"] == "cp866"
     assert captured["encoding_errors"] == "replace"
     assert captured["autodetect_encoding"] is False

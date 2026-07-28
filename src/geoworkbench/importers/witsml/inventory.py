@@ -1,21 +1,25 @@
 from __future__ import annotations
 
 from collections import Counter
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 import re
-from typing import Iterable, Iterator
+from typing import BinaryIO, cast, Iterable, Iterator
 from uuid import UUID
 import xml.etree.ElementTree as ET
 import zipfile
 
-from defusedxml.ElementTree import fromstring as safe_xml_fromstring
-from defusedxml.common import DefusedXmlException
+from geoworkbench.services.bounded_input import (
+    BoundedXmlError,
+    InputLimitError,
+    XmlInputLimits,
+    parse_bounded_xml_stream,
+)
 
 
 _WITSML_V2_NAMESPACE = "http://www.energistics.org/energyml/data/witsmlv2"
 _XML_SUFFIXES = {".xml", ".witsml"}
-_FORBIDDEN_XML_DECLARATIONS = (b"<!doctype", b"<!entity")
 _VERSION_PATTERN = re.compile(r"^2(?:\.\d+){0,2}$")
 _SAFE_UUID_PATTERN = re.compile(r"^[0-9a-fA-F-]{32,36}$")
 
@@ -33,6 +37,11 @@ class WitsmlInventoryLimits:
     max_total_size: int = 512 * 1024**2
     max_compression_ratio: float = 500.0
     max_elements: int = 500_000
+    max_depth: int = 128
+    max_text_bytes: int = 64 * 1024**2
+    max_attributes: int = 1_000_000
+    max_attribute_bytes: int = 64 * 1024**2
+    max_attributes_per_element: int = 256
 
     def __post_init__(self) -> None:
         for value, name in (
@@ -40,6 +49,11 @@ class WitsmlInventoryLimits:
             (self.max_file_size, "max_file_size"),
             (self.max_total_size, "max_total_size"),
             (self.max_elements, "max_elements"),
+            (self.max_depth, "max_depth"),
+            (self.max_text_bytes, "max_text_bytes"),
+            (self.max_attributes, "max_attributes"),
+            (self.max_attribute_bytes, "max_attribute_bytes"),
+            (self.max_attributes_per_element, "max_attributes_per_element"),
         ):
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:
                 raise ValueError(f"{name} должен быть положительным целым числом")
@@ -148,7 +162,8 @@ class WitsmlInventory:
 @dataclass(frozen=True, slots=True)
 class _XmlSource:
     name: str
-    payload: bytes
+    path: Path
+    archive_member: str | None = None
 
 
 def inspect_witsml(
@@ -212,11 +227,7 @@ def _iter_xml_sources(path: Path, limits: WitsmlInventoryLimits) -> Iterator[_Xm
             total_size += size
             if total_size > limits.max_total_size:
                 raise WitsmlInventoryError("Общий размер XML превышает безопасный лимит")
-            try:
-                payload = item.read_bytes()
-            except OSError as exc:
-                raise WitsmlInventoryError(f"Не удалось прочитать {item}: {exc}") from exc
-            yield _XmlSource(item.relative_to(path).as_posix(), payload)
+            yield _XmlSource(item.relative_to(path).as_posix(), item)
         return
 
     if not path.is_file():
@@ -228,10 +239,7 @@ def _iter_xml_sources(path: Path, limits: WitsmlInventoryLimits) -> Iterator[_Xm
 
     size = path.stat().st_size
     _validate_member_size(path.name, size, limits)
-    try:
-        yield _XmlSource(path.name, path.read_bytes())
-    except OSError as exc:
-        raise WitsmlInventoryError(f"Не удалось прочитать {path}: {exc}") from exc
+    yield _XmlSource(path.name, path)
 
 
 def _iter_zip_xml_sources(
@@ -277,13 +285,7 @@ def _iter_zip_xml_sources(
                     xml_infos.append((name, info))
 
             for name, info in sorted(xml_infos, key=lambda item: item[0].casefold()):
-                with archive.open(info, "r") as stream:
-                    payload = stream.read(limits.max_file_size + 1)
-                if len(payload) > limits.max_file_size:
-                    raise WitsmlInventoryError(
-                        f"XML-файл превышает безопасный лимит: {name}"
-                    )
-                yield _XmlSource(name, payload)
+                yield _XmlSource(name, path, info.filename)
     except WitsmlInventoryError:
         raise
     except (OSError, RuntimeError, zipfile.BadZipFile, zipfile.LargeZipFile) as exc:
@@ -294,20 +296,23 @@ def _parse_witsml_object(
     source: _XmlSource,
     limits: WitsmlInventoryLimits,
 ) -> tuple[WitsmlObjectSummary, tuple[WitsmlDiagnostic, ...]]:
-    payload = source.payload
-    lowered = payload[: min(len(payload), 256 * 1024)].lower()
-    if any(token in lowered for token in _FORBIDDEN_XML_DECLARATIONS):
-        raise WitsmlInventoryError(
-            "DTD и пользовательские XML entity запрещены для офлайн-импорта"
-        )
+    xml_limits = XmlInputLimits(
+        max_bytes=limits.max_file_size,
+        max_depth=limits.max_depth,
+        max_elements=limits.max_elements,
+        max_text_bytes=limits.max_text_bytes,
+        max_attributes=limits.max_attributes,
+        max_attribute_bytes=limits.max_attribute_bytes,
+        max_attributes_per_element=limits.max_attributes_per_element,
+    )
     try:
-        root = safe_xml_fromstring(
-            payload,
-            forbid_dtd=True,
-            forbid_entities=True,
-            forbid_external=True,
-        )
-    except (ET.ParseError, DefusedXmlException) as exc:
+        with _open_xml_source(source) as stream:
+            root = parse_bounded_xml_stream(
+                stream,
+                limits=xml_limits,
+                source_name=source.name,
+            )
+    except (OSError, RuntimeError, zipfile.BadZipFile, BoundedXmlError, InputLimitError) as exc:
         raise WitsmlInventoryError(f"Некорректный или небезопасный XML: {exc}") from exc
 
     namespace, object_type = _split_tag(root.tag)
@@ -316,12 +321,7 @@ def _parse_witsml_object(
             f"Корневой namespace не является WITSML 2.x: {namespace or 'отсутствует'}"
         )
 
-    elements = tuple(root.iter())
-    if len(elements) > limits.max_elements:
-        raise WitsmlInventoryError(
-            f"Слишком много XML-элементов: {len(elements)} > {limits.max_elements}"
-        )
-
+    element_count = sum(1 for _ in root.iter())
     schema_version = _clean_text(root.attrib.get("schemaVersion"))
     diagnostics: list[WitsmlDiagnostic] = []
     if schema_version is None:
@@ -378,10 +378,21 @@ def _parse_witsml_object(
             growing_status=growing_status,
             references=references,
             channel=channel,
-            element_count=len(elements),
+            element_count=element_count,
         ),
         tuple(diagnostics),
     )
+
+
+@contextmanager
+def _open_xml_source(source: _XmlSource) -> Iterator[BinaryIO]:
+    if source.archive_member is None:
+        with source.path.open("rb") as stream:
+            yield cast(BinaryIO, stream)
+        return
+    with zipfile.ZipFile(source.path, "r") as archive:
+        with archive.open(source.archive_member, "r") as stream:
+            yield cast(BinaryIO, stream)
 
 
 def _channel_summary(root: ET.Element) -> WitsmlChannelSummary:

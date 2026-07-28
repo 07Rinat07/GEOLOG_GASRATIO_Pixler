@@ -34,6 +34,9 @@ disclosure after a fixed build is available.
   listens on loopback by default and remote bind requires an isolated trusted network.
 - The application does not execute scripts embedded in a project. Importers reject unsupported
   active content and enforce resource limits before proportional allocation where implemented.
+- LAS is bounded before `lasio` starts. WITSML 2.x and 1.4.1.1 XML is consumed by one streaming
+  parser with byte, depth, element, text and attribute limits; DTDs, entities, external entities
+  and notations are rejected before a complete tree can materialize.
 - ETP profiles bound each WebSocket message and each multipart response by encoded bytes, part
   count, and assembly time. Exceeding a multipart limit fails pending requests and closes the
   session instead of retaining or dispatching late parts.

@@ -12,8 +12,9 @@ not expose Add, Update or Delete operations. The hierarchy is discovered in this
 - endpoint URLs may not embed user information;
 - passwords are not serialized with profiles or projects;
 - Windows persistence uses Windows Credential Manager;
-- SOAP DTD/entity declarations are rejected;
-- response size is bounded;
+- SOAP/XML uses a streaming parser with byte, depth, element, text, and attribute limits;
+- DTDs, entities, external entities, and notations are rejected before a complete tree is built;
+- HTTP response size is bounded before XML parsing;
 - audit events contain no request XML or Authorization data;
 - a remote endpoint is allowed only over `https://` with certificate-chain and hostname
   verification;

@@ -51,8 +51,8 @@ roadmap, build report или release plan.
   forks и releases.
 - [x] **SEC-02:** ETP multipart ограничен суммарным encoded-объёмом, числом частей и временем
   сборки; превышение завершает pending requests и закрывает недоверенную сессию.
-- [ ] **SEC-03:** перевести большие LAS/XML inputs на streaming с ранними лимитами размера,
-  глубины, элементов, текста и атрибутов.
+- [x] **SEC-03:** большие LAS/XML inputs переведены на streaming с ранними лимитами размера,
+  глубины, элементов, текста и атрибутов; DTD/entity/external entity/notation блокируются до materialization.
 - [ ] **SEC-04:** удалять WITS0 raw retention только из application-owned каталога с marker;
   remote bind разрешать только с явным предупреждением и сетевой политикой.
 - [ ] **SEC-05:** завершить provenance/license review встроенных lithology/symbol assets и

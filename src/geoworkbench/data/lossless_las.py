@@ -6,6 +6,7 @@ from enum import StrEnum
 from hashlib import sha256
 from pathlib import Path
 
+from geoworkbench.services.bounded_input import BinaryInputLimits, read_bounded_path
 from geoworkbench.services.text_normalization import display_text_score
 
 
@@ -77,8 +78,17 @@ class LosslessLasDocument:
         return self.raw_bytes
 
 
-def read_lossless_las(path: str | Path) -> LosslessLasDocument:
-    return parse_lossless_las(Path(path).read_bytes())
+def read_lossless_las(
+    path: str | Path,
+    *,
+    max_bytes: int = 512 * 1024**2,
+    chunk_size: int = 1024 * 1024,
+) -> LosslessLasDocument:
+    raw_bytes = read_bounded_path(
+        path,
+        limits=BinaryInputLimits(max_bytes=max_bytes, chunk_size=chunk_size),
+    )
+    return parse_lossless_las(raw_bytes)
 
 
 def parse_lossless_las(raw_bytes: bytes) -> LosslessLasDocument:
