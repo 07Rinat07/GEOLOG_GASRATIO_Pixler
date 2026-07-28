@@ -571,7 +571,9 @@ class Etp12AcquisitionRuntime:
 
     def drain(self, *, limit: int | None = None) -> tuple[AcquisitionApplyResult, ...]:
         self._require_not_closed()
-        results = self.controller.drain(limit=limit)
+        results = self.controller.drain(
+            limit=limit, batch_size=self.config.drain_batch_size
+        )
         self._records_applied += len(results)
         if self.controller.pending_count == 0:
             self._create_checkpoint_if_due()
@@ -597,7 +599,9 @@ class Etp12AcquisitionRuntime:
         self._require_open()
         self.state = Etp12AcquisitionState.CLOSING
         try:
-            self.controller.drain(limit=None)
+            self.controller.drain(
+                limit=None, batch_size=self.config.drain_batch_size
+            )
             self._records_applied = self.session.last_sequence
             checkpoint = self.controller.close(
                 checkpoint_id=f"etp12-final-{self.session.last_sequence}",
@@ -646,7 +650,10 @@ class Etp12AcquisitionRuntime:
             self._backpressure_count += 1
             if self.config.backpressure_policy is Etp12BackpressurePolicy.RAISE:
                 raise Etp12AcquisitionBackpressureError(str(exc)) from exc
-        self.controller.drain(limit=self.config.drain_batch_size)
+        self.controller.drain(
+            limit=self.config.drain_batch_size,
+            batch_size=self.config.drain_batch_size,
+        )
         self._records_applied = self.session.last_sequence
         try:
             self.controller.enqueue_many(records)

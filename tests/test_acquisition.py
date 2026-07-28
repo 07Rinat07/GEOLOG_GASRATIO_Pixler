@@ -419,3 +419,100 @@ def test_controller_rejects_diverged_historical_checkpoint_on_restore() -> None:
 
     with pytest.raises(AcquisitionConflictError, match="checkpoint diverged"):
         AcquisitionController(well, session)
+
+
+def _batch_row(sequence: int) -> AcquisitionRecord:
+    return AcquisitionRecord(
+        record_id=f"batch-row-{sequence}",
+        sequence=sequence,
+        kind=AcquisitionRecordKind.DATA_ROW,
+        payload=AcquisitionDataRowPayload(
+            index_values=(("depth-index", float(sequence)),),
+            curve_values=(("total-gas", float(sequence % 10)), ("rop", 12.0)),
+        ),
+        received_at="2026-07-23T10:00:00+05:00",
+        source="fixture:batch",
+    )
+
+
+def test_append_many_uses_batch64_geometric_buffers_and_one_digest_per_batch(
+    monkeypatch,
+) -> None:
+    import geoworkbench.services.acquisition as acquisition_module
+
+    well = Well("well-1", "Well 1")
+    session = AcquisitionSession("session-1", well.well_id, make_schema())
+    controller = AcquisitionController(well, session, max_pending_records=64)
+    original = acquisition_module.acquisition_projection_digests
+    digest_calls = 0
+
+    def counted_projection_digests(dataset, target_well):
+        nonlocal digest_calls
+        digest_calls += 1
+        return original(dataset, target_well)
+
+    monkeypatch.setattr(
+        acquisition_module,
+        "acquisition_projection_digests",
+        counted_projection_digests,
+    )
+    results = controller.append_many(_batch_row(index) for index in range(1, 129))
+
+    assert len(results) == 128
+    assert digest_calls == 0
+    assert controller.buffer_capacity == 128
+    assert controller.buffer_reallocations == 1
+    assert controller.dataset.depth.tolist() == [float(index) for index in range(1, 129)]
+    assert len({item.record_chain_digest for item in results}) == 128
+    assert all(item.batch_end_sequence == 64 for item in results[:64])
+    assert all(item.batch_end_sequence == 128 for item in results[64:])
+    assert all(item.digest_mode == "incremental_chain" for item in results)
+    controller.current_result()
+    assert digest_calls == 1
+
+
+def test_failed_mixed_batch_uses_logical_rollback_without_copying_projection() -> None:
+    well = Well("well-1", "Well 1")
+    session = AcquisitionSession("session-1", well.well_id, make_schema())
+    controller = AcquisitionController(well, session)
+    chain_before = controller.record_chain_digest
+    versions_before = {key: curve.version for key, curve in controller.dataset.curves.items()}
+    invalid_delete = AcquisitionRecord(
+        record_id="invalid-delete-2",
+        sequence=2,
+        kind=AcquisitionRecordKind.EVENT_DELETE,
+        payload=AcquisitionEventDeletePayload("missing-event", expected_revision=1),
+        received_at="2026-07-23T10:00:00+05:00",
+        source="fixture:batch",
+    )
+    controller.enqueue_many((_batch_row(1), invalid_delete))
+
+    with pytest.raises(Exception, match="missing-event|событ"):
+        controller.drain()
+
+    assert controller.pending_count == 2
+    assert session.records == []
+    assert controller.dataset.depth.size == 0
+    assert all(curve.values.size == 0 for curve in controller.dataset.curves.values())
+    assert {key: curve.version for key, curve in controller.dataset.curves.items()} == versions_before
+    assert controller.record_chain_digest == chain_before
+    assert controller.buffer_capacity == 64
+
+
+def test_record_hash_chain_is_deterministic_after_replay() -> None:
+    source_well = Well("well-1", "Source")
+    source_session = AcquisitionSession("session-1", source_well.well_id, make_schema())
+    source_controller = AcquisitionController(source_well, source_session)
+    source_controller.append_many(_batch_row(index) for index in range(1, 71))
+
+    target_well = Well("well-1", "Target")
+    replay_acquisition_session(source_session, target_well)
+    target_session = target_well.acquisition_sessions["session-1"]
+    restored = AcquisitionController(target_well, target_session)
+
+    assert restored.record_chain_digest == source_controller.record_chain_digest
+    current = restored.current_result()
+    assert current.record_chain_digest == source_controller.record_chain_digest
+    assert (current.dataset_digest, current.events_digest) == acquisition_projection_digests(
+        restored.dataset, target_well
+    )

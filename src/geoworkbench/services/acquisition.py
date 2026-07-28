@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from collections import deque
 from copy import deepcopy
+from itertools import islice
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 import json
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 import numpy as np
 
@@ -58,6 +59,10 @@ class AcquisitionReplayError(AcquisitionError):
     """Raised when deterministic replay diverges from the recorded source."""
 
 
+DEFAULT_ACQUISITION_BATCH_SIZE = 64
+MIN_ACQUISITION_BUFFER_CAPACITY = 64
+
+
 @dataclass(frozen=True, slots=True)
 class AcquisitionApplyResult:
     sequence: int
@@ -67,6 +72,9 @@ class AcquisitionApplyResult:
     dataset_digest: str
     events_digest: str
     audit_digest: str
+    record_chain_digest: str = ""
+    batch_end_sequence: int | None = None
+    digest_mode: str = "projection"
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +87,157 @@ class AcquisitionReplayResult:
     dataset_digest: str
     events_digest: str
     audit_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class _DatasetBufferCheckpoint:
+    size: int
+    curve_versions: tuple[tuple[str, int], ...]
+
+
+class _DatasetAppendBuffer:
+    """Geometrically growing acquisition arrays with logical-length rollback."""
+
+    def __init__(self, dataset: Dataset, schema: AcquisitionDatasetSchema) -> None:
+        _validate_dataset_schema(dataset, schema)
+        self.dataset = dataset
+        self.schema = schema
+        self.size = len(dataset.depth)
+        self.capacity = _geometric_capacity(self.size)
+        self.reallocations = 0
+        self._index_buffers: dict[str, np.ndarray[Any, Any]] = {}
+        self._curve_buffers: dict[str, np.ndarray[Any, Any]] = {}
+        for index_schema in schema.indexes:
+            source = dataset.indexes[index_schema.index_id].values
+            dtype = (
+                np.dtype("datetime64[ns]")
+                if index_schema.index_type is IndexType.DATETIME
+                else np.dtype(np.float64)
+            )
+            buffer = np.empty(self.capacity, dtype=dtype)
+            if self.size:
+                buffer[: self.size] = np.asarray(source, dtype=dtype)
+            self._index_buffers[index_schema.index_id] = buffer
+        for curve_schema in schema.curves:
+            curve_id = curve_schema.metadata.curve_id
+            buffer = np.empty(self.capacity, dtype=np.float64)
+            if self.size:
+                buffer[: self.size] = np.asarray(
+                    dataset.curves[curve_id].values, dtype=np.float64
+                )
+            self._curve_buffers[curve_id] = buffer
+        self._publish()
+
+    def checkpoint(self) -> _DatasetBufferCheckpoint:
+        return _DatasetBufferCheckpoint(
+            self.size,
+            tuple(
+                (curve_id, self.dataset.curves[curve_id].version)
+                for curve_id in self._curve_buffers
+            ),
+        )
+
+    def append_many(self, payloads: Sequence[AcquisitionDataRowPayload]) -> None:
+        if not payloads:
+            return
+        start = self.size
+        end = start + len(payloads)
+        self._ensure_capacity(end)
+        index_rows = [payload.indexes_dict() for payload in payloads]
+        curve_rows = [payload.curves_dict() for payload in payloads]
+        for index_schema in self.schema.indexes:
+            raw_values = [row[index_schema.index_id] for row in index_rows]
+            if index_schema.index_type is IndexType.DATETIME:
+                if any(
+                    isinstance(value, bool) or not isinstance(value, int)
+                    for value in raw_values
+                ):
+                    raise AcquisitionConflictError("DATETIME acquisition index требует Unix ns")
+                values = np.asarray(raw_values, dtype=np.int64).astype("datetime64[ns]")
+            else:
+                values = np.asarray(raw_values, dtype=np.float64)
+            self._index_buffers[index_schema.index_id][start:end] = values
+        for curve_schema in self.schema.curves:
+            curve_id = curve_schema.metadata.curve_id
+            values = np.asarray(
+                [
+                    np.nan if row[curve_id] is None else float(row[curve_id])
+                    for row in curve_rows
+                ],
+                dtype=np.float64,
+            )
+            self._curve_buffers[curve_id][start:end] = values
+            self.dataset.curves[curve_id].version += len(payloads)
+        self.size = end
+        self._publish()
+
+    def rollback(self, checkpoint: _DatasetBufferCheckpoint) -> None:
+        if checkpoint.size < 0 or checkpoint.size > self.capacity:
+            raise AcquisitionConflictError("Некорректный logical rollback acquisition buffer")
+        self.size = checkpoint.size
+        for curve_id, version in checkpoint.curve_versions:
+            self.dataset.curves[curve_id].version = version
+        self._publish()
+
+    def _ensure_capacity(self, required: int) -> None:
+        if required <= self.capacity:
+            return
+        capacity = self.capacity
+        while capacity < required:
+            capacity *= 2
+        for key, previous in tuple(self._index_buffers.items()):
+            expanded = np.empty(capacity, dtype=previous.dtype)
+            expanded[: self.size] = previous[: self.size]
+            self._index_buffers[key] = expanded
+        for key, previous in tuple(self._curve_buffers.items()):
+            expanded = np.empty(capacity, dtype=previous.dtype)
+            expanded[: self.size] = previous[: self.size]
+            self._curve_buffers[key] = expanded
+        self.capacity = capacity
+        self.reallocations += 1
+
+    def _publish(self) -> None:
+        for index_id, buffer in self._index_buffers.items():
+            self.dataset.indexes[index_id].values = buffer[: self.size]
+        for curve_id, buffer in self._curve_buffers.items():
+            self.dataset.curves[curve_id].values = buffer[: self.size]
+        active = self.dataset.active_index
+        if active.role is IndexRole.DEPTH:
+            self.dataset.depth = np.asarray(active.values, dtype=np.float64)
+        else:
+            self.dataset.depth = np.arange(self.size, dtype=np.float64)
+
+
+def _geometric_capacity(size: int) -> int:
+    capacity = MIN_ACQUISITION_BUFFER_CAPACITY
+    while capacity < max(1, size):
+        capacity *= 2
+    return capacity
+
+
+def _chain_seed(session: AcquisitionSession, kind: str) -> str:
+    return _sha256_payload(
+        {
+            "kind": f"acquisition-{kind}-chain-v1",
+            "session_id": session.session_id,
+            "well_id": session.well_id,
+            "schema": asdict(session.dataset_schema),
+        }
+    )
+
+
+def _encoded_record(record: AcquisitionRecord) -> bytes:
+    return json.dumps(
+        _json_compatible(asdict(record)),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def _chain_step(previous_digest: str, kind: str, encoded_record: bytes) -> str:
+    material = bytes.fromhex(previous_digest) + kind.encode("ascii") + b"\0" + encoded_record
+    return sha256(material).hexdigest()
 
 
 class AcquisitionController:
@@ -133,6 +292,14 @@ class AcquisitionController:
                 qc_evaluator=self._qc_evaluator,
             )
             self._ensure_dataset()
+            self._dataset_buffer = _DatasetAppendBuffer(
+                self.dataset, self.session.dataset_schema
+            )
+            self._record_chain_digest = _chain_seed(self.session, "record")
+            self._dataset_chain_digest = _chain_seed(self.session, "dataset")
+            self._events_chain_digest = _chain_seed(self.session, "events")
+            for persisted_record in self.session.records:
+                self._advance_incremental_chains(persisted_record)
             self._validate_persisted_projection()
         except Exception:
             well.operational_events = events_snapshot
@@ -152,6 +319,26 @@ class AcquisitionController:
     @property
     def remaining_capacity(self) -> int:
         return self.max_pending_records - len(self._pending)
+
+    @property
+    def buffer_capacity(self) -> int:
+        return self._dataset_buffer.capacity
+
+    @property
+    def buffer_reallocations(self) -> int:
+        return self._dataset_buffer.reallocations
+
+    @property
+    def record_chain_digest(self) -> str:
+        return self._record_chain_digest
+
+    @property
+    def dataset_chain_digest(self) -> str:
+        return self._dataset_chain_digest
+
+    @property
+    def events_chain_digest(self) -> str:
+        return self._events_chain_digest
 
     def enqueue(self, record: AcquisitionRecord) -> None:
         self.enqueue_many((record,))
@@ -192,20 +379,69 @@ class AcquisitionController:
 
     def append(self, record: AcquisitionRecord) -> AcquisitionApplyResult:
         self.enqueue(record)
-        results = self.drain(limit=1)
+        results = self.drain(limit=1, batch_size=1)
         return results[0]
 
-    def drain(self, *, limit: int | None = None) -> tuple[AcquisitionApplyResult, ...]:
+    def append_many(
+        self,
+        records: Iterable[AcquisitionRecord],
+        *,
+        batch_size: int = DEFAULT_ACQUISITION_BATCH_SIZE,
+    ) -> tuple[AcquisitionApplyResult, ...]:
+        """Stream records through bounded atomic batches (64 by default)."""
+
+        if (
+            isinstance(batch_size, bool)
+            or not isinstance(batch_size, int)
+            or batch_size < 1
+        ):
+            raise ValueError("batch_size должен быть положительным целым числом")
+        if self._pending:
+            raise AcquisitionConflictError(
+                "append_many требует пустой pending buffer; сначала вызовите drain()"
+            )
+        chunk_size = min(batch_size, self.max_pending_records)
+        chunk: list[AcquisitionRecord] = []
+        results: list[AcquisitionApplyResult] = []
+        for record in records:
+            chunk.append(record)
+            if len(chunk) < chunk_size:
+                continue
+            self.enqueue_many(chunk)
+            results.extend(self.drain(limit=len(chunk), batch_size=chunk_size))
+            chunk.clear()
+        if chunk:
+            self.enqueue_many(chunk)
+            results.extend(self.drain(limit=len(chunk), batch_size=chunk_size))
+        return tuple(results)
+
+    def drain(
+        self,
+        *,
+        limit: int | None = None,
+        batch_size: int = DEFAULT_ACQUISITION_BATCH_SIZE,
+    ) -> tuple[AcquisitionApplyResult, ...]:
         if limit is not None and (
             isinstance(limit, bool) or not isinstance(limit, int) or limit < 0
         ):
             raise ValueError("limit должен быть неотрицательным целым числом")
+        if (
+            isinstance(batch_size, bool)
+            or not isinstance(batch_size, int)
+            or batch_size < 1
+        ):
+            raise ValueError("batch_size должен быть положительным целым числом")
         results: list[AcquisitionApplyResult] = []
         while self._pending and (limit is None or len(results) < limit):
-            record = self._pending[0]
-            result = self._apply_atomically(record)
-            self._pending.popleft()
-            results.append(result)
+            remaining = len(self._pending)
+            if limit is not None:
+                remaining = min(remaining, limit - len(results))
+            batch_count = min(batch_size, remaining)
+            batch = tuple(islice(self._pending, 0, batch_count))
+            applied = self._apply_batch_atomically(batch)
+            for _item in batch:
+                self._pending.popleft()
+            results.extend(applied)
         return tuple(results)
 
     def create_checkpoint(self, checkpoint_id: str, *, created_at: str) -> AcquisitionCheckpoint:
@@ -281,46 +517,133 @@ class AcquisitionController:
                 dataset_digest,
                 events_digest,
             ),
+            record_chain_digest=self._record_chain_digest,
+            batch_end_sequence=self.session.last_sequence,
+            digest_mode="projection",
         )
 
-    def _apply_atomically(self, record: AcquisitionRecord) -> AcquisitionApplyResult:
-        dataset_snapshot = _dataset_values_snapshot(self.dataset)
+    def _apply_batch_atomically(
+        self, records: Sequence[AcquisitionRecord]
+    ) -> tuple[AcquisitionApplyResult, ...]:
+        if not records:
+            return ()
+        buffer_checkpoint = self._dataset_buffer.checkpoint()
         events_snapshot = dict(self.well.operational_events)
         record_count = len(self.session.records)
+        chain_checkpoint = (
+            self._record_chain_digest,
+            self._dataset_chain_digest,
+            self._events_chain_digest,
+        )
+        applied: list[
+            tuple[AcquisitionRecord, int, int, int, str, str, str]
+        ] = []
+        row_records: list[AcquisitionRecord] = []
+
+        def flush_rows() -> None:
+            if not row_records:
+                return
+            payloads: list[AcquisitionDataRowPayload] = []
+            for item in row_records:
+                assert isinstance(item.payload, AcquisitionDataRowPayload)
+                payloads.append(item.payload)
+            self._dataset_buffer.append_many(payloads)
+            for item in row_records:
+                self.session.records.append(item)
+                self._advance_incremental_chains(item)
+                applied.append(
+                    (
+                        item,
+                        1,
+                        0,
+                        0,
+                        self._dataset_chain_digest,
+                        self._events_chain_digest,
+                        self._record_chain_digest,
+                    )
+                )
+            row_records.clear()
+
         try:
-            rows, upserts, deletes = self._apply_record(record)
-            self.session.records.append(record)
-            dataset_digest, events_digest = acquisition_projection_digests(
-                self.dataset, self.well
-            )
-            return AcquisitionApplyResult(
-                sequence=record.sequence,
-                rows_appended=rows,
-                events_upserted=upserts,
-                events_deleted=deletes,
-                dataset_digest=dataset_digest,
-                events_digest=events_digest,
-                audit_digest=_audit_digest(
-                    self.session.session_id,
-                    record.sequence,
-                    dataset_digest,
-                    events_digest,
-                ),
+            for record in records:
+                if record.kind is AcquisitionRecordKind.DATA_ROW:
+                    row_records.append(record)
+                    continue
+                flush_rows()
+                rows, upserts, deletes = self._apply_event_record(record)
+                self.session.records.append(record)
+                self._advance_incremental_chains(record)
+                applied.append(
+                    (
+                        record,
+                        rows,
+                        upserts,
+                        deletes,
+                        self._dataset_chain_digest,
+                        self._events_chain_digest,
+                        self._record_chain_digest,
+                    )
+                )
+            flush_rows()
+            batch_end_sequence = records[-1].sequence
+            return tuple(
+                AcquisitionApplyResult(
+                    sequence=record.sequence,
+                    rows_appended=rows,
+                    events_upserted=upserts,
+                    events_deleted=deletes,
+                    dataset_digest=dataset_chain_digest,
+                    events_digest=events_chain_digest,
+                    audit_digest=_incremental_audit_digest(
+                        self.session.session_id,
+                        record.sequence,
+                        record_chain_digest,
+                        dataset_chain_digest,
+                        events_chain_digest,
+                    ),
+                    record_chain_digest=record_chain_digest,
+                    batch_end_sequence=batch_end_sequence,
+                    digest_mode="incremental_chain",
+                )
+                for (
+                    record,
+                    rows,
+                    upserts,
+                    deletes,
+                    dataset_chain_digest,
+                    events_chain_digest,
+                    record_chain_digest,
+                ) in applied
             )
         except Exception:
             del self.session.records[record_count:]
-            _restore_dataset_values(self.dataset, dataset_snapshot)
+            self._dataset_buffer.rollback(buffer_checkpoint)
+            (
+                self._record_chain_digest,
+                self._dataset_chain_digest,
+                self._events_chain_digest,
+            ) = chain_checkpoint
             self.well.operational_events = events_snapshot
             self._event_controller = OperationalEventController(
                 self.well, qc_evaluator=self._qc_evaluator
             )
             raise
 
-    def _apply_record(self, record: AcquisitionRecord) -> tuple[int, int, int]:
+    def _advance_incremental_chains(self, record: AcquisitionRecord) -> None:
+        encoded_record = _encoded_record(record)
+        self._record_chain_digest = _chain_step(
+            self._record_chain_digest, "record", encoded_record
+        )
         if record.kind is AcquisitionRecordKind.DATA_ROW:
-            assert isinstance(record.payload, AcquisitionDataRowPayload)
-            _append_dataset_row(self.dataset, self.session.dataset_schema, record.payload)
-            return 1, 0, 0
+            self._dataset_chain_digest = _chain_step(
+                self._dataset_chain_digest, "dataset", encoded_record
+            )
+        else:
+            self._events_chain_digest = _chain_step(
+                self._events_chain_digest, "events", encoded_record
+            )
+
+    def _apply_event_record(self, record: AcquisitionRecord) -> tuple[int, int, int]:
         if record.kind is AcquisitionRecordKind.EVENT_UPSERT:
             assert isinstance(record.payload, AcquisitionEventUpsertPayload)
             payload = record.payload
@@ -368,6 +691,9 @@ class AcquisitionController:
         expected_well = Well(self.well.well_id, self.well.name)
         expected_dataset = dataset_from_acquisition_schema(self.session.dataset_schema)
         expected_well.datasets[expected_dataset.dataset_id] = expected_dataset
+        expected_buffer = _DatasetAppendBuffer(
+            expected_dataset, self.session.dataset_schema
+        )
         expected_events = OperationalEventController(
             expected_well,
             qc_evaluator=self._qc_evaluator,
@@ -385,11 +711,7 @@ class AcquisitionController:
             )
         for record in self.session.records:
             if isinstance(record.payload, AcquisitionDataRowPayload):
-                _append_dataset_row(
-                    expected_dataset,
-                    self.session.dataset_schema,
-                    record.payload,
-                )
+                expected_buffer.append_many((record.payload,))
             elif isinstance(record.payload, AcquisitionEventUpsertPayload):
                 if record.payload.expected_revision is None:
                     expected_events.create(replace(record.payload.event, qc_flags=()))
@@ -498,21 +820,41 @@ def replay_acquisition_session(
             if checkpoint.sequence > start_sequence:
                 checkpoints_by_sequence.setdefault(checkpoint.sequence, []).append(checkpoint)
         rows = upserts = deletes = 0
+        replay_batch: list[AcquisitionRecord] = []
         for record in source.records[start_sequence:]:
+            replay_batch.append(record)
+            checkpoint_boundary = record.sequence in checkpoints_by_sequence
+            if (
+                len(replay_batch) < DEFAULT_ACQUISITION_BATCH_SIZE
+                and not checkpoint_boundary
+            ):
+                continue
             try:
-                result = controller.append(record)
+                results = controller.append_many(replay_batch)
             except Exception as exc:
                 raise AcquisitionReplayError(
                     f"Replay diverged at sequence {record.sequence}: {exc}"
                 ) from exc
-            rows += result.rows_appended
-            upserts += result.events_upserted
-            deletes += result.events_deleted
+            rows += sum(item.rows_appended for item in results)
+            upserts += sum(item.events_upserted for item in results)
+            deletes += sum(item.events_deleted for item in results)
+            replay_batch.clear()
             for expected_checkpoint in checkpoints_by_sequence.get(record.sequence, []):
                 try:
                     _verify_projection_against_checkpoint(controller, expected_checkpoint)
                 except AcquisitionConflictError as exc:
                     raise AcquisitionReplayError(str(exc)) from exc
+        if replay_batch:
+            last_record = replay_batch[-1]
+            try:
+                results = controller.append_many(replay_batch)
+            except Exception as exc:
+                raise AcquisitionReplayError(
+                    f"Replay diverged at sequence {last_record.sequence}: {exc}"
+                ) from exc
+            rows += sum(item.rows_appended for item in results)
+            upserts += sum(item.events_upserted for item in results)
+            deletes += sum(item.events_deleted for item in results)
 
         target_session.checkpoints = deepcopy(source.checkpoints)
         target_session.state = source.state
@@ -681,29 +1023,9 @@ def _append_dataset_row(
     schema: AcquisitionDatasetSchema,
     payload: AcquisitionDataRowPayload,
 ) -> None:
-    index_values = payload.indexes_dict()
-    curve_values = payload.curves_dict()
-    for index_schema in schema.indexes:
-        index = dataset.indexes[index_schema.index_id]
-        raw_index_value = index_values[index_schema.index_id]
-        if index_schema.index_type is IndexType.DATETIME:
-            if isinstance(raw_index_value, bool) or not isinstance(raw_index_value, int):
-                raise AcquisitionConflictError("DATETIME acquisition index требует Unix ns")
-            index_value = np.asarray([raw_index_value], dtype=np.int64).astype("datetime64[ns]")
-        else:
-            index_value = np.asarray([float(raw_index_value)], dtype=np.float64)
-        index.values = np.concatenate((index.values, index_value))
-    for curve_schema in schema.curves:
-        curve = dataset.curves[curve_schema.metadata.curve_id]
-        raw_curve_value = curve_values[curve_schema.metadata.curve_id]
-        curve_value = np.nan if raw_curve_value is None else float(raw_curve_value)
-        curve.values = np.append(curve.values, curve_value)
-        curve.version += 1
-    active = dataset.active_index
-    if active.role is IndexRole.DEPTH:
-        dataset.depth = np.asarray(active.values, dtype=np.float64)
-    else:
-        dataset.depth = np.arange(len(active.values), dtype=np.float64)
+    """Compatibility helper; live acquisition reuses one geometric buffer."""
+
+    _DatasetAppendBuffer(dataset, schema).append_many((payload,))
 
 
 def _validate_dataset_schema(dataset: Dataset, schema: AcquisitionDatasetSchema) -> None:
@@ -767,28 +1089,6 @@ def _copy_session_state(target: AcquisitionSession, source: AcquisitionSession) 
     target.final_audit_digest = source.final_audit_digest
 
 
-def _dataset_values_snapshot(dataset: Dataset) -> dict[str, Any]:
-    return {
-        "depth": dataset.depth.copy(),
-        "indexes": {key: item.values.copy() for key, item in dataset.indexes.items()},
-        "curves": {
-            key: (item.values.copy(), item.version, item.state)
-            for key, item in dataset.curves.items()
-        },
-    }
-
-
-def _restore_dataset_values(dataset: Dataset, snapshot: dict[str, Any]) -> None:
-    dataset.depth = snapshot["depth"]
-    for key, values in snapshot["indexes"].items():
-        dataset.indexes[key].values = values
-    for key, (values, version, state) in snapshot["curves"].items():
-        curve = dataset.curves[key]
-        curve.values = values
-        curve.version = version
-        curve.state = state
-
-
 def _verify_projection_against_checkpoint(
     controller: AcquisitionController,
     checkpoint: AcquisitionCheckpoint,
@@ -826,6 +1126,25 @@ def _validate_projection_checkpoint(
         raise AcquisitionConflictError(
             f"Replay checkpoint diverged: {checkpoint.checkpoint_id}"
         )
+
+
+def _incremental_audit_digest(
+    session_id: str,
+    sequence: int,
+    record_chain_digest: str,
+    dataset_chain_digest: str,
+    events_chain_digest: str,
+) -> str:
+    return _sha256_payload(
+        {
+            "kind": "acquisition-incremental-audit-v1",
+            "session_id": session_id,
+            "sequence": sequence,
+            "record_chain_digest": record_chain_digest,
+            "dataset_chain_digest": dataset_chain_digest,
+            "events_chain_digest": events_chain_digest,
+        }
+    )
 
 
 def _audit_digest(

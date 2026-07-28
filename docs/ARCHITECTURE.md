@@ -314,6 +314,13 @@ Checkpoint подписывает row count, dataset projection, event/QC projec
 checkpoint; divergence блокирует результат. Производная lag/depth boundary реализована отдельно и
 не меняет append-only source.
 
+PERF-01 отделяет live mutation от дорогой полной fingerprint-проверки. `AcquisitionController`
+дренирует records атомарными batch по 64, а `_DatasetAppendBuffer` держит NumPy storage с
+геометрическим ростом и публикует только logical slice. Failed mixed batch откатывает logical row
+count, curve versions, events и три incremental hash chains без копирования всей materialized
+проекции. Полные dataset/events digests по-прежнему вычисляются на checkpoint, `current_result()` и
+verification boundary, поэтому persisted fingerprints и replay contract не изменены.
+
 ## Application diagnostics boundary (0.7.51)
 
 `services/application_logging.py` is the single persistent runtime logging boundary. It owns the

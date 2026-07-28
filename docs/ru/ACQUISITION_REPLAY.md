@@ -20,3 +20,13 @@
 Project format v18 ввёл сессии; текущий v20 хранит их в `well.acquisition_sessions`. Миграция `v17 → v18` добавляет
 пустую collection без изменения существующих данных. Версионированная lag/depth correction
 реализована в 0.7.44 как отдельная derived projection и не меняет append-only source.
+
+## Пакетная materialization
+
+Live mutation применяется атомарными batch по 64 records. Массивы индексов и кривых растут
+геометрически и публикуют только logical slice; failed mixed data/event batch восстанавливает
+logical row count, curve versions, events и incremental record/dataset/events hash chains без
+копирования полной проекции. Во время streaming `AcquisitionApplyResult` использует
+`digest_mode=incremental_chain`. Совместимые полные dataset/events fingerprints остаются операциями
+checkpoint и `current_result()`. Replay использует ту же batch boundary и завершает batch на каждом
+persisted checkpoint.

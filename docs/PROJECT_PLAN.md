@@ -61,8 +61,9 @@ roadmap, build report или release plan.
 
 ## P0 — производительность и хранение
 
-- [ ] **PERF-01:** заменить per-row NumPy growth и полный digest в acquisition на
-  `append_many(64)`, геометрические buffers, logical rollback и incremental hash chain.
+- [x] **PERF-01:** acquisition использует `append_many()` с batch 64, геометрические
+  index/curve buffers, logical-length rollback и incremental record/dataset/events hash chains;
+  полный projection digest выполняется только на checkpoint/current result.
 - [ ] **PERF-02:** добавить checkpoint/replay без двойного хранения materialized Dataset и
   полного journal.
 - [ ] **PERF-03:** закрепить benchmark 50k/100k/1M: `T(2N)/T(N) <= 2.5`, p95 batch64
