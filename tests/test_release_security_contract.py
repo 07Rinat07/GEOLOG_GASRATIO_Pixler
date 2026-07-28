@@ -80,10 +80,6 @@ def test_release_lock_is_targeted_fully_pinned_and_hashed() -> None:
     }
     assert names == EXPECTED_RUNTIME_PACKAGES
 
-    # The release lock targets CPython 3.11 on Windows x86-64.
-    # websockets publishes both an sdist and platform wheels; uv selects
-    # the cp311-win_amd64 wheel for this target, so its wheel hash must be
-    # present and the source archive hash must not be used as the only hash.
     assert (
         "sha256:7421fad442de870a8cbf2287d1cad7e706ece0dbfeba5e911df132cbdc1cb56a"
         in text
@@ -98,7 +94,7 @@ def test_workflow_syncs_the_lock_and_uploads_three_artifact_groups() -> None:
     text = _read(WORKFLOW)
     assert text.count('version: "0.11.29"') == 3
     assert text.count(
-        'astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b'
+        "astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b"
     ) == 3
     assert text.count("runs-on: windows-latest") == 3
     assert text.count("uv pip sync requirements/release.lock") == 3
@@ -203,11 +199,11 @@ def test_repository_enforces_lf_for_platform_stable_text_contracts() -> None:
     assert "*.png binary" in attributes
 
 
-def test_windows_acceptance_uses_headless_qt_on_windows_runner() -> None:
+def test_windows_acceptance_uses_native_qt_on_windows_runner() -> None:
     workflow = _read(WORKFLOW)
     assert "runs-on: windows-latest" in workflow
-    assert "--platform offscreen" in workflow
-    assert "--platform windows" not in workflow
+    assert "--platform windows" in workflow
+    assert "--platform offscreen" not in workflow
 
 
 def test_secret_scan_exclusions_cover_only_known_false_positive_lines() -> None:
@@ -224,5 +220,5 @@ def test_secret_scan_exclusions_cover_only_known_false_positive_lines() -> None:
         'uses: actions/checkout@0123456789abcdef0123456789abcdef01234567',
     )
     assert all(pattern.search(line) for line in known_false_positives)
-    assert pattern.search('api_key = "ghp_example_real_token_shape"') is None
-    assert pattern.search('password = "operator-entered-value"') is None
+    assert pattern.search('api_key = "ghp_example_real_token_shape"') is None  # pragma: allowlist secret
+    assert pattern.search('password = "operator-entered-value"') is None  # pragma: allowlist secret
