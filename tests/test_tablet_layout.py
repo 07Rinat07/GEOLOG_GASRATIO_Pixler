@@ -91,6 +91,15 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     assert restored.track_by_id("gas").title_position == "bottom"
 
 
+def test_layout_codec_treats_legacy_caption_provenance_as_factory() -> None:
+    payload = layout_to_dict(make_layout())
+    payload.pop("localize_factory_labels")
+
+    restored = layout_from_dict(payload)
+
+    assert restored.localize_factory_labels is True
+
+
 def test_layout_codec_migrates_v3_without_curve_styles() -> None:
     restored = layout_from_dict(
         {

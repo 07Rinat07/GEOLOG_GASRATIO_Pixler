@@ -88,6 +88,29 @@ def test_select_visible_samples_sorts_depth_and_collapses_duplicates() -> None:
     np.testing.assert_allclose(selected_values, [10.0, 40.0, 20.0, 40.0])
 
 
+def test_select_visible_samples_skips_sort_for_monotonic_axis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    depth = np.arange(10_000, dtype=np.float64)
+    values = depth * 2.0
+
+    def fail_if_sorted(*_args: object, **_kwargs: object) -> np.ndarray:
+        raise AssertionError("monotonic axes must not allocate a sort permutation")
+
+    monkeypatch.setattr(np, "argsort", fail_if_sorted)
+
+    selected_values, selected_depth = select_visible_samples(
+        depth,
+        values,
+        100.0,
+        200.0,
+    )
+
+    assert selected_depth[0] == 98.0
+    assert selected_depth[-1] == 202.0
+    assert selected_values[0] == 196.0
+
+
 def test_select_visible_samples_keeps_real_zero_and_breaks_null_interval() -> None:
     depth = np.array([100.0, 101.0, 102.0, 103.0])
     values = np.array([4.0, 0.0, np.nan, 7.0])

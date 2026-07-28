@@ -182,7 +182,13 @@ class Wits0CaptureDialog(QDialog):
         self.mode_combo.setCurrentIndex(max(0, mode_index))
         form.addRow(self._t("wits0.mode"), self.mode_combo)
 
-        self.host_edit = QLineEdit(str(self.settings.value("wits0/host", "0.0.0.0")), group)
+        # WITS0 has no transport authentication or encryption. New profiles
+        # therefore listen on loopback unless the operator explicitly selects a
+        # trusted field-network interface.
+        self.host_edit = QLineEdit(
+            str(self.settings.value("wits0/host", "127.0.0.1")),
+            group,
+        )
         form.addRow(self._t("wits0.host"), self.host_edit)
 
         self.port_spin = QSpinBox(group)

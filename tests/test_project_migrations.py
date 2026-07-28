@@ -33,6 +33,19 @@ def test_default_registry_migrates_v1_payload_to_v2() -> None:
     assert migrated["tablet_layouts"] == {}
 
 
+def test_current_format_payload_skips_redundant_deep_copy() -> None:
+    payload = {
+        "format_version": 21,
+        "project": {"project_id": "p", "name": "Project", "wells": {}},
+        "tablet_layouts": {},
+        "tablet_presets": {},
+    }
+
+    migrated = migrate_project_payload(payload, 21)
+
+    assert migrated is payload
+
+
 def test_v7_project_migrates_with_empty_masterlog_templates() -> None:
     payload = {
         "format_version": 7,

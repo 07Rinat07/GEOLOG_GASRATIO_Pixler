@@ -84,6 +84,7 @@ Dataset ішінде мыналар жазылады:
 
 ## Ағымдағы шектеулер
 
-Бұл срез тек scalar numeric офлайн-деректерді импорттайды. Binary Avro, көпөлшемді channel array,
-WITSML 1.4.1.1 SOAP және WITSML 2.x/ETP streaming кейінгі кезеңдерде орындалады. Бөлек Windows
-WITS0 field reliability gate параллель жүреді және 0.7.79 релизімен өтті деп есептелмейді.
+Офлайн импорт тек scalar numeric деректерді өңдейді; Binary Avro және көпөлшемді channel array
+қолдау көрсетілмейді. WITSML 1.4.1.1 read-only SOAP пен ETP 1.2 foundation бөлек контурларда
+іске асырылған, ал production ETP interoperability және Windows WITS0 field reliability gate әлі
+ашық.

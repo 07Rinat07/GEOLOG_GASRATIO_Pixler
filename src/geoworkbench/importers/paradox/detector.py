@@ -11,6 +11,10 @@ _MAX_RECORDS = 100_000_000
 _MAX_RECORD_SIZE = 16 * 1024 * 1024
 _MAX_HEADER_SIZE = 16 * 1024 * 1024
 _SUPPORTED_DB_FILE_TYPES = {0, 2, 3, 4, 5, 6, 7, 8}
+_DATA_BLOCK_HEADER_SIZE = 6
+_ARRAY_ITEM_SIZE_BYTES = 8
+_TEMPORAL_RAW_FIELD_TYPES = {2, 20, 21, 23}
+DEFAULT_MAX_PARADOX_ARRAY_BYTES = 2 * 1024**3
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,7 +28,27 @@ class FormatProbe:
         return self.format_name == "paradox"
 
 
-def probe_db_format(path: str | Path) -> FormatProbe:
+def estimate_paradox_array_bytes(
+    record_count: int,
+    field_types: tuple[int, ...],
+    *,
+    retain_temporal_raw: bool,
+) -> int:
+    """Estimate the count-sized NumPy arrays created by the Paradox reader."""
+    array_count = len(field_types)
+    if retain_temporal_raw:
+        array_count += sum(
+            field_type in _TEMPORAL_RAW_FIELD_TYPES for field_type in field_types
+        )
+    return record_count * array_count * _ARRAY_ITEM_SIZE_BYTES
+
+
+def probe_db_format(
+    path: str | Path,
+    *,
+    retain_temporal_raw: bool = True,
+    max_array_bytes: int = DEFAULT_MAX_PARADOX_ARRAY_BYTES,
+) -> FormatProbe:
     source = Path(path)
     try:
         size = source.stat().st_size
@@ -62,14 +86,46 @@ def probe_db_format(path: str | Path) -> FormatProbe:
         failures.append("invalid field count")
     if record_count > _MAX_RECORDS:
         failures.append("record count exceeds safety limit")
+    if not file_blocks and record_count:
+        failures.append("records declared without data blocks")
+    if not file_blocks and (first_block or last_block):
+        failures.append("invalid block chain bounds")
     if file_blocks and not (1 <= first_block <= file_blocks and 1 <= last_block <= file_blocks):
         failures.append("invalid block chain bounds")
-    if 0x78 + field_count * 2 > min(header_size, len(header)):
+    if record_size and max_table_size:
+        records_per_block = max(
+            0,
+            (max_table_size * 1024 - _DATA_BLOCK_HEADER_SIZE) // record_size,
+        )
+        if record_count > file_blocks * records_per_block:
+            failures.append("record count exceeds declared block capacity")
+    schema_end = 0x78 + field_count * 2
+    if schema_end > min(header_size, len(header)):
         failures.append("field schema exceeds header")
-    if record_size and field_count and 0x78 + field_count * 2 <= len(header):
-        declared = sum(header[0x79 + 2 * index] for index in range(field_count))
+    if record_size and field_count and schema_end <= len(header):
+        field_types = tuple(
+            header[0x78 + 2 * index] for index in range(field_count)
+        )
+        field_sizes = tuple(
+            header[0x79 + 2 * index] for index in range(field_count)
+        )
+        if any(field_size == 0 for field_size in field_sizes):
+            failures.append("zero-sized field is not supported")
+        declared = sum(field_sizes)
         if declared != record_size:
             failures.append("sum of field sizes does not match record size")
+        estimated_array_bytes = estimate_paradox_array_bytes(
+            record_count,
+            field_types,
+            retain_temporal_raw=retain_temporal_raw,
+        )
+        if max_array_bytes <= 0:
+            failures.append("invalid array allocation budget")
+        elif estimated_array_bytes > max_array_bytes:
+            failures.append(
+                "estimated column allocation exceeds memory budget: "
+                f"{estimated_array_bytes} > {max_array_bytes} bytes"
+            )
     expected_minimum = header_size + file_blocks * max_table_size * 1024
     if file_blocks and size < expected_minimum:
         failures.append("file is truncated relative to declared blocks")

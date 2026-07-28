@@ -107,6 +107,7 @@ class TabletController:
             tracks,
             vertical_index_id=preferred_index.index_id,
             annotation_scope_id=f"dataset:{dataset.dataset_id}:default",
+            localize_factory_labels=True,
         )
         self.session.set_current_tablet_layout(layout)
         self.session.dirty = True

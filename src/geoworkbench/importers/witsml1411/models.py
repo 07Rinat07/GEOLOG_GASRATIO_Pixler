@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Mapping
+from ipaddress import ip_address
+from typing import Any, Mapping, cast
+from urllib.parse import urlsplit
 
 
 class Witsml1411AuthMode(StrEnum):
@@ -58,8 +60,21 @@ class Witsml1411ConnectionProfile:
         data_version = self.data_version.strip()
         if not profile_id or not name or not endpoint:
             raise ValueError("profile_id, name and endpoint must be non-empty")
-        if not endpoint.casefold().startswith(("http://", "https://")):
+        parts = urlsplit(endpoint)
+        scheme = parts.scheme.casefold()
+        if scheme not in {"http", "https"}:
             raise ValueError("WITSML endpoint must use HTTP or HTTPS")
+        if not parts.hostname:
+            raise ValueError("WITSML endpoint must contain a host")
+        if parts.username is not None or parts.password is not None:
+            raise ValueError("Credentials must not be embedded in the WITSML endpoint URL")
+        if parts.fragment:
+            raise ValueError("WITSML endpoint must not contain a URL fragment")
+        local = _is_loopback_host(parts.hostname)
+        if scheme == "http" and not local:
+            raise ValueError("Remote WITSML endpoints must use HTTPS")
+        if scheme == "https" and not self.verify_tls and not local:
+            raise ValueError("TLS verification can be disabled only for localhost")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
         if not data_version:
@@ -107,7 +122,7 @@ class Witsml1411ConnectionProfile:
             auth_mode=Witsml1411AuthMode(str(data.get("auth_mode", "basic"))),
             username=str(data.get("username", "")),
             credential_id=(str(data["credential_id"]) if data.get("credential_id") else None),
-            timeout_seconds=float(data.get("timeout_seconds", 20.0)),
+            timeout_seconds=_coerce_float(data.get("timeout_seconds", 20.0)),
             verify_tls=bool(data.get("verify_tls", True)),
             data_version=str(data.get("data_version", "1.4.1.1")),
             retry=Witsml1411RetryPolicy(
@@ -117,6 +132,22 @@ class Witsml1411ConnectionProfile:
                 retry_http_statuses=tuple(int(item) for item in statuses),
             ),
         )
+
+
+def _is_loopback_host(host: str) -> bool:
+    normalized = host.rstrip(".").casefold()
+    if normalized == "localhost":
+        return True
+    try:
+        return ip_address(normalized).is_loopback
+    except ValueError:
+        return False
+
+
+def _coerce_float(value: object) -> float:
+    """Preserve ``float`` input semantics while narrowing an untyped payload."""
+
+    return float(cast(Any, value))
 
 
 @dataclass(frozen=True, slots=True)

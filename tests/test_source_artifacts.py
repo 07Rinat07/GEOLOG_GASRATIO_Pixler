@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -46,6 +47,47 @@ def test_source_artifact_load_rejects_tampered_content(tmp_path) -> None:
     artifact.write_bytes(b"tampered")
 
     with pytest.raises(SourceArtifactError, match="Размер|SHA-256"):
+        load_source_documents(project_path, manifest)
+
+
+def test_source_artifact_load_rejects_declared_size_mismatch_before_read(
+    tmp_path, monkeypatch
+) -> None:
+    project_path = tmp_path / "well.geolog.json"
+    manifest = save_source_documents(
+        project_path,
+        {"dataset-1": parse_lossless_las(b"~A\n1\n")},
+    )
+    manifest["dataset-1"]["size_bytes"] += 1
+
+    def unexpected_read_bytes(_path: Path) -> bytes:
+        raise AssertionError("size mismatch must be rejected before read_bytes")
+
+    monkeypatch.setattr(Path, "read_bytes", unexpected_read_bytes)
+
+    with pytest.raises(SourceArtifactError, match="Размер"):
+        load_source_documents(project_path, manifest)
+
+
+def test_source_artifact_load_rejects_symlinked_sidecar(
+    tmp_path, monkeypatch, symlink_or_skip
+) -> None:
+    project_path = tmp_path / "well.geolog.json"
+    manifest = save_source_documents(
+        project_path,
+        {"dataset-1": parse_lossless_las(b"~A\n1\n")},
+    )
+    target = tmp_path / manifest["dataset-1"]["path"]
+    replacement = target.with_name("replacement.las")
+    target.replace(replacement)
+    symlink_or_skip(target, replacement)
+
+    def unexpected_read_bytes(_path: Path) -> bytes:
+        raise AssertionError("symlinked sidecar must be rejected before read_bytes")
+
+    monkeypatch.setattr(Path, "read_bytes", unexpected_read_bytes)
+
+    with pytest.raises(SourceArtifactError, match="не найден"):
         load_source_documents(project_path, manifest)
 
 

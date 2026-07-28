@@ -354,6 +354,7 @@ class TabletLayout:
     cursor_depth: float | None = None
     vertical_index_id: str | None = None
     annotation_scope_id: str | None = None
+    localize_factory_labels: bool = False
 
     def __post_init__(self) -> None:
         self._validate_visible_depth(self.visible_depth_top, self.visible_depth_bottom)
@@ -369,6 +370,8 @@ class TabletLayout:
             or len(self.annotation_scope_id) > 300
         ):
             raise ValueError("annotation_scope_id должен быть непустой строкой до 300 символов или null")
+        if not isinstance(self.localize_factory_labels, bool):
+            raise ValueError("localize_factory_labels должен быть логическим")
 
     def add_track(self, track: TrackDefinition, index: int | None = None) -> None:
         if any(existing.track_id == track.track_id for existing in self.tracks):

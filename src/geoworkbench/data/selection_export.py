@@ -13,14 +13,15 @@ from openpyxl.styles import Alignment, Font, PatternFill  # type: ignore[import-
 from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
 
 from geoworkbench.data.number_format import format_decimal_number
+from geoworkbench.data.spreadsheet_safety import protect_spreadsheet_row
 from geoworkbench.domain.models import CurveData, Dataset, DatasetIndex, IndexRole, IndexType
-from geoworkbench.services.interval_selection import depth_interval_indices
 from geoworkbench.services.coverage import (
     ChannelAvailability,
     ChannelCoverage,
     analyze_curve_coverage,
     unavailable_channel_coverage,
 )
+from geoworkbench.services.interval_selection import depth_interval_indices
 from geoworkbench.services.las_parameter_resolver import LasParameterResolver, ParameterMatch
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.parameter_labels import localized_curve_name
@@ -136,8 +137,10 @@ def export_selection_text(
         with temporary.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream, delimiter=delimiter)
             writer.writerow(
-                _headers(dataset, curves)
-                + [f"{mnemonic} [UNAVAILABLE]" for mnemonic in unavailable_mnemonics]
+                protect_spreadsheet_row(
+                    _headers(dataset, curves)
+                    + [f"{mnemonic} [UNAVAILABLE]" for mnemonic in unavailable_mnemonics]
+                )
             )
             for index in indices:
                 writer.writerow(
@@ -653,7 +656,7 @@ def _write_xlsx(
     data_sheet = workbook.active
     data_sheet.title = "Data"
     for row in data_rows:
-        data_sheet.append(row)
+        data_sheet.append(protect_spreadsheet_row(row))
 
     header_fill = PatternFill("solid", fgColor="1F4E78")
     header_font = Font(bold=True, color="FFFFFF")
@@ -682,7 +685,7 @@ def _write_xlsx(
 
     parameters_sheet = workbook.create_sheet("Parameters")
     for row in parameter_rows:
-        parameters_sheet.append(row)
+        parameters_sheet.append(protect_spreadsheet_row(row))
     for cell in parameters_sheet[1]:
         cell.fill = header_fill
         cell.font = header_font
@@ -702,7 +705,7 @@ def _write_xlsx(
 
     metadata_sheet = workbook.create_sheet("Metadata")
     for row in metadata_rows:
-        metadata_sheet.append(row)
+        metadata_sheet.append(protect_spreadsheet_row(row))
     for cell in metadata_sheet[1]:
         cell.font = Font(bold=True)
     metadata_sheet.column_dimensions["A"].width = 36

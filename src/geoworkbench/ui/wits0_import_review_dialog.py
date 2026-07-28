@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGridLayout,
     QGroupBox,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -31,13 +30,11 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.uom_dictionary import QuantityClass
 from geoworkbench.services.wits0_import_review import (
     Wits0ChannelKey,
-    Wits0ChannelOverride,
     Wits0CustomProfile,
     Wits0DiscoverySnapshot,
     Wits0ImportReview,
     Wits0ImportReviewCommit,
     Wits0ImportReviewController,
-    Wits0ImportReviewPlan,
     Wits0ImportReviewValidationError,
     next_wits0_custom_profile_revision,
 )

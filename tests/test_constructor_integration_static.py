@@ -43,8 +43,8 @@ def test_constructor_translation_keys_are_synchronized() -> None:
 
 
 def test_constructor_documentation_is_synchronized() -> None:
+    assert (ROOT / "docs/PROJECT_PLAN.md").is_file()
     for language in ("ru", "kk", "en"):
-        assert (ROOT / f"docs/{language}/FORM_CONSTRUCTOR_PLAN.md").is_file()
         assert (ROOT / f"docs/{language}/CONSTRUCTOR.md").is_file()
 
 

@@ -168,7 +168,7 @@ from geoworkbench.ui.toolbar_adaptation import (
     choose_toolbar_adaptation,
     overflow_item_count,
 )
-from geoworkbench.ui.branding import application_icon, about_rig_pixmap, logo_pixmap
+from geoworkbench.ui.branding import application_icon, about_rig_pixmap
 from geoworkbench.ui.home_page import HomeAction, HomePage
 from geoworkbench.services.import_jobs import (
     DatasetImportJobExecutor,

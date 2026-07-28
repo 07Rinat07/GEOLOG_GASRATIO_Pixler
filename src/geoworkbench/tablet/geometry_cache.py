@@ -78,6 +78,7 @@ class CurveGeometryCache:
             key.bottom,
             max_points=key.max_points,
             positive_values_only=key.positive_values_only,
+            include_viewport_context=False,
         )
         # Prevent accidental mutation of cached geometry by callers.
         sampled_values.setflags(write=False)

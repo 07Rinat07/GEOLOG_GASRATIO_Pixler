@@ -54,10 +54,10 @@ def _write_fractional_depth_paradox(path: Path, step: float) -> None:
 
 
 def test_batch_name_mask_supports_only_safe_filename_placeholders() -> None:
-    source = Path('/tmp/BLData.db')
+    source = Path('/tmp/sample.db')
 
-    assert _target_name('{source_name}_{mode}.las', source, 'depth') == 'BLData_depth.las'
-    assert _target_name('{source_name}-{mode}', source, 'time') == 'BLData-time.las'
+    assert _target_name('{source_name}_{mode}.las', source, 'depth') == 'sample_depth.las'
+    assert _target_name('{source_name}-{mode}', source, 'time') == 'sample-time.las'
 
     with pytest.raises(ValueError, match='только'):
         _target_name('{unknown}.las', source, 'depth')
@@ -447,7 +447,7 @@ def test_batch_auto_uses_explicit_dept_from_mixed_table_and_sorts_copy(
         QualitySummary,
     )
 
-    source = tmp_path / "D1174.db"
+    source = tmp_path / "mixed_input.db"
     source.write_bytes(b"placeholder")
     table = SimpleNamespace(rows_read=3)
     quality = QualitySummary(

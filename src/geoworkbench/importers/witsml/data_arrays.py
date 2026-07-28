@@ -12,6 +12,9 @@ from urllib.parse import unquote, urlsplit
 import xml.etree.ElementTree as ET
 import zipfile
 
+from defusedxml.ElementTree import fromstring as safe_xml_fromstring
+from defusedxml.common import DefusedXmlException
+
 
 WITSML_V2_NAMESPACE = "http://www.energistics.org/energyml/data/witsmlv2"
 COMMON_V2_NAMESPACE = "http://www.energistics.org/energyml/data/commonv2"
@@ -532,44 +535,46 @@ def _parse_rows(
             continue
         index_values = tuple(raw_indexes) + (None,) * (len(indexes) - len(raw_indexes))
         channel_values = tuple(raw_channels) + (None,) * (len(channels) - len(raw_channels))
-        valid = True
-        for spec, value in zip(indexes, index_values, strict=True):
-            if not _valid_index_value(spec, value):
-                valid = False
+        for index_spec, index_value in zip(indexes, index_values, strict=True):
+            if not _valid_index_value(index_spec, index_value):
                 _append_issue(
                     issues,
                     WitsmlDataIssue(
                         "invalid-index-value",
                         WitsmlDataSeverity.ERROR,
-                        f"Invalid value for index {spec.mnemonic}: {value!r}",
+                        f"Invalid value for index {index_spec.mnemonic}: {index_value!r}",
                         source_name,
                         row_number=row_number,
                     ),
                     limits,
                 )
-            elif spec.is_time and isinstance(value, str) and not _has_utc_offset(value):
+            elif (
+                index_spec.is_time
+                and isinstance(index_value, str)
+                and not _has_utc_offset(index_value)
+            ):
                 _append_issue(
                     issues,
                     WitsmlDataIssue(
                         "non-utc-time-index",
                         WitsmlDataSeverity.WARNING,
-                        f"Time index {spec.mnemonic} is not expressed as UTC and will be normalized",
+                        f"Time index {index_spec.mnemonic} is not expressed as UTC and will be normalized",
                         source_name,
                         row_number=row_number,
                     ),
                     limits,
                 )
-        for spec, value in zip(channels, channel_values, strict=True):
-            if not _valid_channel_value(spec, value):
+        for channel_spec, channel_value in zip(channels, channel_values, strict=True):
+            if not _valid_channel_value(channel_spec, channel_value):
                 _append_issue(
                     issues,
                     WitsmlDataIssue(
                         "invalid-channel-value",
                         WitsmlDataSeverity.WARNING,
-                        f"Invalid value for channel {spec.mnemonic}: {value!r}",
+                        f"Invalid value for channel {channel_spec.mnemonic}: {channel_value!r}",
                         source_name,
                         row_number=row_number,
-                        channel_key=spec.key,
+                        channel_key=channel_spec.key,
                     ),
                     limits,
                 )
@@ -640,9 +645,16 @@ def _parse_xml(document: _XmlDocument, limits: WitsmlDataLimits) -> ET.Element:
     if any(marker in lowered for marker in _FORBIDDEN_XML_DECLARATIONS):
         raise WitsmlDataError(f"DTD/entity declarations are forbidden: {document.name}")
     try:
-        root = ET.fromstring(document.payload)
-    except ET.ParseError as exc:
-        raise WitsmlDataError(f"Invalid XML in {document.name}: {exc}") from exc
+        root = safe_xml_fromstring(
+            document.payload,
+            forbid_dtd=True,
+            forbid_entities=True,
+            forbid_external=True,
+        )
+    except (ET.ParseError, DefusedXmlException) as exc:
+        raise WitsmlDataError(
+            f"Invalid or forbidden XML in {document.name}: {exc}"
+        ) from exc
     count = sum(1 for _item in root.iter())
     if count > limits.max_elements:
         raise WitsmlDataError(f"XML element count exceeds limit: {document.name}")

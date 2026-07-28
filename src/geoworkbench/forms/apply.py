@@ -4,7 +4,12 @@ from dataclasses import dataclass, field
 
 from geoworkbench.catalogs.sensors import SensorCatalog, active_sensor_catalog, normalize_sensor_key
 from geoworkbench.domain.models import Dataset, IndexRole, new_id
-from geoworkbench.forms.models import FormDocument, FormAxisKind, ParameterBinding
+from geoworkbench.forms.models import (
+    FormAxisKind,
+    FormDocument,
+    FormTemplateOrigin,
+    ParameterBinding,
+)
 from geoworkbench.forms.materialize import materialize_form_for_dataset
 from geoworkbench.services.las_parameter_resolver import (
     DatasetParameterResolution,
@@ -223,6 +228,7 @@ class FormApplyEngine:
                 annotation_scope_id=f"dataset:{dataset.dataset_id}:form:{form.form_id}",
                 visible_depth_top=form.visible_axis_top,
                 visible_depth_bottom=form.visible_axis_bottom,
+                localize_factory_labels=form.origin is FormTemplateOrigin.FACTORY,
             ),
             resolutions,
         )

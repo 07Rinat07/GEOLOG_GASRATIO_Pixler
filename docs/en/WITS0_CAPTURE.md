@@ -9,19 +9,24 @@ Sequence QC uses item `04`; item `02` is not a sequence number.
 ## Purpose
 
 **File → Capture WITS Level 0...** receives a GSWITS TCP stream, preserves the incoming bytes
-unchanged, and passes every complete frame through a typed parser. In version 0.7.76, a confirmed
-Import Review can start an append-only `AcquisitionSession`; the raw boundary and parser remain
-immutable, while Dataset mutation occurs only through `AcquisitionController`.
+unchanged, and passes every complete frame through a typed parser. A confirmed Import Review can
+start an append-only `AcquisitionSession`; the raw boundary and parser remain immutable, while
+Dataset mutation occurs only through `AcquisitionController`.
 
 ## TCP server setup
 
 Use this mode when GSWITS is configured as an **outgoing connection (TCP client)**.
 
 1. Select **Incoming connection — TCP server**.
-2. Use `0.0.0.0` for all local interfaces or a specific local IP.
-3. Enter the same port to which GSWITS connects.
-4. Select the raw-data directory and press **Start capture**.
-5. Save the GSWITS settings and verify the connection state.
+2. Keep the default `127.0.0.1` address when GSWITS runs on the same computer.
+3. For another computer, bind a specific trusted interface address. Use `0.0.0.0` only after an
+   explicit decision on an isolated trusted network with a firewall allowlist.
+4. Enter the same port to which GSWITS connects.
+5. Select the raw-data directory and press **Start capture**.
+6. Save the GSWITS settings and verify the connection state.
+
+WITS0 provides no built-in encryption or authentication. Never expose the listener to the internet
+or configure router port forwarding.
 
 ## TCP client setup
 
@@ -128,7 +133,6 @@ processes remaining immutable events, and performs controlled close. Full contra
 - the GeoScape profile is based on the GSWITS manual and must be confirmed against a real stream;
 - unknown fields are preserved and editable in Import Review but require manual confirmation;
 - numerical UOM conversion is not yet performed: source and canonical UOM must resolve to the same canonical unit;
-- current values and dedicated live time/depth graphs are the next increment;
-- reconnect does not yet create separate connection-gap records, and a new session for a previously used well requires an explicit policy;
-- do not expose the WITS0 port directly to the internet;
+- never expose the WITS0 port to the internet; a remote bind is allowed only on an isolated
+  trusted network with a firewall allowlist;
 - raw files do not replace project saving with **Ctrl+S**.

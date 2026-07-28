@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import replace
 from pathlib import Path
 from queue import Queue
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING
 from uuid import uuid4
 
 from PySide6.QtCore import QStandardPaths, QThread, Qt, Signal

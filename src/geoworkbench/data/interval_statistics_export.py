@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import csv
 import math
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping
 
 from openpyxl import Workbook  # type: ignore[import-untyped]
 from openpyxl.styles import Alignment, Font, PatternFill  # type: ignore[import-untyped]
 
 from geoworkbench.calculations.interval_statistics import CurveIntervalStatistics
+from geoworkbench.data.spreadsheet_safety import protect_spreadsheet_row
 from geoworkbench.services.localization import AppLanguage, Localizer
 
 
@@ -69,12 +70,12 @@ def statistics_tsv(
 ) -> str:
     localizer = Localizer.create(language)
     lines = [
-        f"{localizer.text('statistics.dataset_header')}\t{dataset_name}",
-        f"{localizer.text('statistics.interval_header')}\t{interval_label}",
+        _tsv_row((localizer.text("statistics.dataset_header"), dataset_name)),
+        _tsv_row((localizer.text("statistics.interval_header"), interval_label)),
     ]
-    lines.append("\t".join(statistics_columns(language)))
+    lines.append(_tsv_row(statistics_columns(language)))
     for row in statistics_rows(statistics, display_names=display_names, language=language):
-        lines.append("\t".join(_text(value) for value in row))
+        lines.append(_tsv_row(row))
     return "\n".join(lines)
 
 
@@ -91,11 +92,26 @@ def export_interval_statistics_csv(
     localizer = Localizer.create(language)
     with target.open("w", encoding="utf-8-sig", newline="") as stream:
         writer = csv.writer(stream)
-        writer.writerow((localizer.text("statistics.dataset_header"), dataset_name))
-        writer.writerow((localizer.text("statistics.interval_header"), interval_label))
+        writer.writerow(
+            protect_spreadsheet_row(
+                (localizer.text("statistics.dataset_header"), dataset_name)
+            )
+        )
+        writer.writerow(
+            protect_spreadsheet_row(
+                (localizer.text("statistics.interval_header"), interval_label)
+            )
+        )
         writer.writerow(())
-        writer.writerow(statistics_columns(language))
-        writer.writerows(statistics_rows(statistics, display_names=display_names, language=language))
+        writer.writerow(protect_spreadsheet_row(statistics_columns(language)))
+        writer.writerows(
+            protect_spreadsheet_row(row)
+            for row in statistics_rows(
+                statistics,
+                display_names=display_names,
+                language=language,
+            )
+        )
     return target
 
 
@@ -113,12 +129,16 @@ def export_interval_statistics_xlsx(
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = localizer.text("statistics.sheet_title")
-    sheet.append((localizer.text("statistics.dataset_header"), dataset_name))
-    sheet.append((localizer.text("statistics.interval_header"), interval_label))
+    sheet.append(
+        protect_spreadsheet_row((localizer.text("statistics.dataset_header"), dataset_name))
+    )
+    sheet.append(
+        protect_spreadsheet_row((localizer.text("statistics.interval_header"), interval_label))
+    )
     sheet.append(())
-    sheet.append(statistics_columns(language))
+    sheet.append(protect_spreadsheet_row(statistics_columns(language)))
     for row in statistics_rows(statistics, display_names=display_names, language=language):
-        sheet.append(row)
+        sheet.append(protect_spreadsheet_row(row))
 
     header_fill = PatternFill("solid", fgColor="DCE6F1")
     for cell in sheet[4]:
@@ -143,6 +163,10 @@ def _text(value: object) -> str:
     if isinstance(value, float):
         return f"{value:.12g}"
     return str(value)
+
+
+def _tsv_row(values: tuple[object, ...]) -> str:
+    return "\t".join(_text(value) for value in protect_spreadsheet_row(values))
 
 
 def _finite_or_none(value: float) -> float | None:

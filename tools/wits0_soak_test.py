@@ -26,7 +26,7 @@ SOURCE_ROOT = PROJECT_ROOT / "src"
 if str(SOURCE_ROOT) not in sys.path:
     sys.path.insert(0, str(SOURCE_ROOT))
 
-from geoworkbench.acquisition import (
+from geoworkbench.acquisition import (  # noqa: E402 - source path bootstrap
     Wits0CaptureConfig,
     Wits0CaptureEngine,
     Wits0CaptureEventKind,

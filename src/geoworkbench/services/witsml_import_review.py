@@ -5,7 +5,6 @@ from enum import StrEnum
 from hashlib import sha256
 import json
 from math import isfinite
-from typing import Iterable
 
 import numpy as np
 

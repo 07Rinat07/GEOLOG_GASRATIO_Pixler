@@ -1,6 +1,8 @@
 # Архитектура
 
-Актуально на 23 июля 2026 года.
+<!-- runtime-contract: package=0.7.93; project=v21; form=v11; layout=v21 -->
+
+Актуально на 28 июля 2026 года.
 
 ## Модель
 
@@ -42,6 +44,18 @@ src/geoworkbench/
 ├── ui/                окна и диалоги PySide6
 └── visualization/     независимые модели визуализации
 ```
+
+## Composition root и зависимости
+
+Текущая сборка ещё частично собирает services/controllers внутри `MainWindow`. Целевая граница —
+один `ApplicationContext`, создаваемый в `app`: он владеет repositories, semantic/UOM catalogs,
+credential/audit services и adapter factories. Feature coordinators получают только необходимые
+ports; domain/application не импортируют Qt, `ui`, `tablet` view или конкретный renderer.
+
+Глобальные активные каталоги не являются источником истины. Каждый import/replay/derived workflow
+получает один immutable `SemanticContext` и сохраняет version, source mnemonic, resolved kind/UOM
+и evidence. Это делает одинаковым разрешение каналов во всех адаптерах и воспроизводимым после
+обновления каталога.
 
 ## Граница импортных jobs
 
@@ -91,8 +105,9 @@ interpretation. Qt-обработчик дерева не присваивает
 
 ## Хранение и совместимость
 
-- текущий JSON-формат проекта — 18;
-- текущий формат layout планшета — 14;
+- текущий JSON-формат проекта — 21;
+- текущая schema формы — 11;
+- текущий формат layout планшета — 21;
 - миграции выполняются последовательно и не должны удалять неизвестные данные молча;
 - исходные LAS и импортированные assets идентифицируются fingerprint/SHA-256;
 - сохранение JSON атомарное; внешние абсолютные пути не являются переносимой частью проекта;
@@ -111,7 +126,7 @@ Y синхронизирует треки; X остаётся независим
 
 ## Единая ReportDefinition
 
-`services/report_definition.py` содержит immutable schema v1 и Qt-независимый resolver.
+`services/report_definition.py` содержит immutable schema v2 и Qt-независимый resolver.
 Definition фиксирует report profile, dataset/index ID, sections, curve IDs, language, form
 revision и interval mode `full/current/custom/selection`. Resolver не переключает индекс
 молча: он проверяет точный ID, ограничивает диапазон фактическим доменом, создаёт один
@@ -126,7 +141,8 @@ payload definition и его SHA-256.
 
 Qt-независимый `services/interval_selection.py` содержит расчёт строк глубинного интервала;
 `DatasetIntervalSelection` остаётся UI-observer, но exporter больше не импортирует Qt только
-ради геометрии диапазона. Текущий project format v20 дополнительно хранит operational events, acquisition sessions, lag correction profiles и независимый append history каждого dataset.
+ради геометрии диапазона. Текущий project format v21 хранит operational events, acquisition
+sessions, lag correction profiles и независимый append history каждого dataset.
 
 ## Печать
 
@@ -229,13 +245,21 @@ divergence, unknown fields и разрывы revision sequence.
 
 - исходный файл не перезаписывается скрытно;
 - `eval`, `pickle` и неограниченное исполнение шаблонов запрещены;
+- входные размеры и количество элементов проверяются до выделения пропорциональной памяти;
+- удалённый WITSML использует HTTPS с проверкой TLS и без redirect credentials; WITS0 по
+  умолчанию bind только на loopback;
 - UI не обходит controller при изменении project state;
 - экран, PDF и printer используют одну семантику формы;
 - ноль, пропуск и отсутствующий канал различаются;
 - любой расчёт сохраняет входы, единицы, версию и provenance;
 - safety-critical выводы не заявляются: приложение является decision-support tool.
 
-Текущие нарушения и план декомпозиции: [PRODUCT_AUDIT_2026.md](PRODUCT_AUDIT_2026.md).
+Acquisition append должен быть амортизированно O(1) на строку и применять данные batch-операцией;
+полный digest/копирование массива не выполняются на каждую строку. Tablet caches используют
+revision данных и лимит байтов, а не временный `id()` копии массива. Save/open имеет измеряемый
+time/RSS budget и выполняется над immutable snapshot.
+
+Текущие нарушения и порядок декомпозиции: [PROJECT_PLAN.md](PROJECT_PLAN.md).
 
 ## Граница DOCX/HTML export
 
@@ -256,7 +280,8 @@ Qt-слой выбирает путь и формат. `DatasetExportController`
 
 `domain/operational_events.py` определяет immutable schema v1: discriminator kind, typed payload,
 depth/time anchors, canonical UTC timestamps, source, revision, calibration и QC flags.
-`Well.operational_events` — сериализуемый объект `event_id → event`, введённый в project format v17 и сохраняемый в текущем v19.
+`Well.operational_events` — сериализуемый объект `event_id → event`, введённый в project format
+v17 и сохраняемый в текущем v21.
 
 Изменение коллекции разрешено только через `OperationalEventController`. Он проверяет well
 identity и expected revision, затем пересчитывает QC полной коллекции. UI/import code не должен
@@ -274,7 +299,8 @@ Depth, relative-time и datetime indexes используют только со�
 
 `domain/acquisition.py` определяет acquisition schema v1: immutable dataset schema, contiguous
 records, checkpoints и controlled-close metadata. `Well.acquisition_sessions` введён в
-project format v18 и сохраняется в v19; миграция `v17 → v18` добавляет пустую collection без изменения datasets/events.
+project format v18 и сохраняется в текущем v21; миграция `v17 → v18` добавляет пустую
+collection без изменения datasets/events.
 
 `AcquisitionController` является единственной mutation boundary. Он использует bounded pending
 buffer, проверяет sequence/schema, атомарно применяет row/event record и при ошибке восстанавливает

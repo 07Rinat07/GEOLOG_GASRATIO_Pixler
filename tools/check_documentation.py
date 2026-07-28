@@ -7,6 +7,7 @@ CI or packaging environment before the desktop stack is installed.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import re
 import sys
@@ -17,7 +18,27 @@ LANGUAGES = ("ru", "kk", "en")
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 VERSION_RE = re.compile(r'^version\s*=\s*"([^"]+)"', re.MULTILINE)
 PACKAGE_VERSION_RE = re.compile(r'^__version__\s*=\s*"([^"]+)"', re.MULTILINE)
+INTEGER_CONSTANT_RE = re.compile(r"^{name}\s*=\s*(\d+)\s*$", re.MULTILINE)
 CANONICAL_LAUNCH_COMMAND = "python -m geoworkbench.app.main"
+CANONICAL_PROJECT_PLAN = Path("docs/PROJECT_PLAN.md")
+ALLOWED_VALIDATION_FILES = {
+    Path("docs/validation/ETP12_INTEROPERABILITY_MATRIX_TEMPLATE.csv"),
+}
+FORBIDDEN_DOCUMENT_PATTERNS = (
+    "RELEASE_NOTES_*",
+    "BUILD_MANIFEST_*",
+    "HOTFIX_REPORT_*",
+    "IMPLEMENTATION_REPORT_*",
+    "INCREMENT_*",
+)
+FORBIDDEN_DOCUMENT_NAMES = {
+    "PRODUCT_AUDIT_2026.md",
+    "PROJECT_STATUS.md",
+    "ROADMAP.md",
+}
+FORBIDDEN_DOCUMENT_NAMES_CASEFOLD = {
+    filename.casefold() for filename in FORBIDDEN_DOCUMENT_NAMES
+}
 
 
 @dataclass(frozen=True)
@@ -61,15 +82,12 @@ def audit_localized_file_parity(root: Path) -> list[AuditIssue]:
 
 
 def audit_localized_document_structure(root: Path) -> list[AuditIssue]:
-    """Detect materially incomplete current guides while allowing historical note variance."""
+    """Detect materially incomplete current guides."""
 
     issues: list[AuditIssue] = []
     file_sets = localized_markdown_sets(root)
     common = set.intersection(*file_sets.values())
     for filename in sorted(common):
-        if filename.startswith("RELEASE_NOTES_"):
-            continue
-
         texts = {
             language: _read_text(root / "docs" / language / filename)
             for language in LANGUAGES
@@ -112,6 +130,48 @@ def audit_localized_document_structure(root: Path) -> list[AuditIssue]:
             )
     return issues
 
+
+def audit_documentation_hygiene(root: Path) -> list[AuditIssue]:
+    """Keep generated reports, parallel plans, and validation output out of docs."""
+
+    issues: list[AuditIssue] = []
+    docs_root = root / "docs"
+    if not docs_root.exists():
+        return [AuditIssue("documentation-hygiene", "Missing docs directory")]
+
+    for path in sorted(candidate for candidate in docs_root.rglob("*") if candidate.is_file()):
+        relative = path.relative_to(root)
+        filename = path.name
+        reason: str | None = None
+
+        if any(
+            fnmatch.fnmatchcase(filename.casefold(), pattern.casefold())
+            for pattern in FORBIDDEN_DOCUMENT_PATTERNS
+        ):
+            reason = "historical build report"
+        elif filename.casefold().endswith("_plan.md") and relative != CANONICAL_PROJECT_PLAN:
+            reason = f"parallel plan; use {CANONICAL_PROJECT_PLAN.as_posix()}"
+        elif filename.casefold() in FORBIDDEN_DOCUMENT_NAMES_CASEFOLD:
+            reason = "superseded status, roadmap, or audit"
+        elif relative.parts[:2] == ("docs", "validation"):
+            if relative not in ALLOWED_VALIDATION_FILES:
+                reason = "generated validation output"
+        elif (
+            "validation" in path.stem.casefold()
+            and path.suffix.casefold() in {".json", ".log", ".pdf", ".png", ".txt"}
+        ):
+            reason = "generated validation output"
+
+        if reason is not None:
+            issues.append(
+                AuditIssue(
+                    "documentation-hygiene",
+                    f"{relative.as_posix()} is forbidden: {reason}",
+                )
+            )
+    return issues
+
+
 def _iter_local_markdown_links(path: Path) -> list[str]:
     targets: list[str] = []
     for raw_target in MARKDOWN_LINK_RE.findall(_read_text(path)):
@@ -138,6 +198,50 @@ def audit_markdown_links(root: Path) -> list[AuditIssue]:
                     )
                 )
     return issues
+
+
+def audit_documentation_navigation(root: Path) -> list[AuditIssue]:
+    """Require every Markdown document to be reachable from the canonical index."""
+
+    docs_root = (root / "docs").resolve()
+    entrypoint = docs_root / "DOCUMENTATION_INDEX.md"
+    if not entrypoint.exists():
+        return [
+            AuditIssue(
+                "documentation-navigation",
+                "Missing docs/DOCUMENTATION_INDEX.md",
+            )
+        ]
+
+    all_documents = {
+        path.resolve()
+        for path in docs_root.rglob("*.md")
+        if path.is_file()
+    }
+    reachable: set[Path] = set()
+    pending = [entrypoint]
+    while pending:
+        path = pending.pop()
+        if path in reachable or path not in all_documents:
+            continue
+        reachable.add(path)
+        for target in _iter_local_markdown_links(path):
+            resolved = (path.parent / target).resolve()
+            try:
+                resolved.relative_to(docs_root)
+            except ValueError:
+                continue
+            if resolved.suffix.casefold() == ".md" and resolved not in reachable:
+                pending.append(resolved)
+
+    return [
+        AuditIssue(
+            "documentation-navigation",
+            f"{path.relative_to(root).as_posix()} is not reachable from "
+            "docs/DOCUMENTATION_INDEX.md",
+        )
+        for path in sorted(all_documents - reachable)
+    ]
 
 
 def audit_i18n_key_parity(root: Path) -> list[AuditIssue]:
@@ -169,8 +273,67 @@ def _project_version(root: Path) -> str:
     return match.group(1)
 
 
+def _integer_constant(path: Path, name: str) -> int:
+    pattern = re.compile(INTEGER_CONSTANT_RE.pattern.format(name=re.escape(name)), re.MULTILINE)
+    match = pattern.search(_read_text(path))
+    if match is None:
+        raise ValueError(f"{name} was not found in {path}")
+    return int(match.group(1))
+
+
+def runtime_contract_marker(root: Path) -> str:
+    """Build the machine-checkable current runtime contract from source constants."""
+
+    project_format = _integer_constant(
+        root / "src" / "geoworkbench" / "storage" / "project_codec.py",
+        "PROJECT_FORMAT_VERSION",
+    )
+    form_schema = _integer_constant(
+        root / "src" / "geoworkbench" / "forms" / "codec.py",
+        "FORM_SCHEMA_VERSION",
+    )
+    layout_format = _integer_constant(
+        root / "src" / "geoworkbench" / "tablet" / "layout_codec.py",
+        "LAYOUT_FORMAT_VERSION",
+    )
+    return (
+        "<!-- runtime-contract: "
+        f"package={_project_version(root)}; "
+        f"project=v{project_format}; "
+        f"form=v{form_schema}; "
+        f"layout=v{layout_format} -->"
+    )
+
+
+def audit_runtime_contract(root: Path) -> list[AuditIssue]:
+    """Keep the canonical architecture and project plan aligned with runtime schemas."""
+
+    marker = runtime_contract_marker(root)
+    current_documents = (
+        root / "docs" / "ARCHITECTURE.md",
+        root / "docs" / "PROJECT_PLAN.md",
+    )
+    issues: list[AuditIssue] = []
+    for path in current_documents:
+        if not path.exists():
+            issues.append(
+                AuditIssue(
+                    "runtime-contract",
+                    f"Missing current document: {path.relative_to(root)}",
+                )
+            )
+        elif marker not in _read_text(path):
+            issues.append(
+                AuditIssue(
+                    "runtime-contract",
+                    f"{path.relative_to(root)} must contain {marker}",
+                )
+            )
+    return issues
+
+
 def audit_version_contract(root: Path) -> list[AuditIssue]:
-    """Keep package metadata and required current-version documents aligned."""
+    """Keep package metadata aligned without requiring per-build documents."""
 
     issues: list[AuditIssue] = []
     project_version = _project_version(root)
@@ -184,23 +347,6 @@ def audit_version_contract(root: Path) -> list[AuditIssue]:
                 f"pyproject={project_version}, package={package_version or 'missing'}",
             )
         )
-
-    required_root_docs = [
-        root / "docs" / f"RELEASE_NOTES_{project_version}.md",
-        root / "docs" / f"BUILD_MANIFEST_{project_version}.md",
-    ]
-    for path in required_root_docs:
-        if not path.exists():
-            issues.append(
-                AuditIssue("version", f"Missing current document: {path.relative_to(root)}")
-            )
-
-    for language in LANGUAGES:
-        path = root / "docs" / language / f"RELEASE_NOTES_{project_version}.md"
-        if not path.exists():
-            issues.append(
-                AuditIssue("version", f"Missing current document: {path.relative_to(root)}")
-            )
     return issues
 
 
@@ -259,18 +405,19 @@ def audit_startup_command_contract(root: Path) -> list[AuditIssue]:
 
 
 def audit_current_documentation_contract(root: Path) -> list[AuditIssue]:
-    """Keep the documentation index and testing guide aligned with the package version."""
+    """Keep the documentation index and testing guide on canonical entry points."""
 
     issues: list[AuditIssue] = []
-    version = _project_version(root)
     checks = {
         root / "docs" / "DOCUMENTATION_INDEX.md": (
-            f"RELEASE_NOTES_{version}.md",
-            f"BUILD_MANIFEST_{version}.md",
+            "PROJECT_PLAN.md",
+            "ARCHITECTURE.md",
             "TESTING.md",
+            "ru/README.md",
+            "kk/README.md",
+            "en/README.md",
         ),
         root / "docs" / "TESTING.md": (
-            version,
             CANONICAL_LAUNCH_COMMAND,
             "test_module_entrypoint_contract_0790.py",
             "test_test_runner_contract_0790.py",
@@ -309,8 +456,6 @@ def audit_user_workflow_coverage(root: Path) -> list[AuditIssue]:
         "README.md",
         "FEATURES.md",
         "ANNOTATIONS.md",
-        "PROJECT_STATUS.md",
-        "PROJECT_PLAN.md",
     }
     workflow_tokens = {
         "ru": ("Ctrl+S", "повторно", "Вставить значок", "FEATURES.md"),
@@ -350,13 +495,9 @@ def audit_compact_column_coverage(root: Path) -> list[AuditIssue]:
     """Require the compact-column and embedded-template workflow in every language."""
 
     issues: list[AuditIssue] = []
-    project_version = _project_version(root)
     required_documents = (
         "FORM_ENGINE.md",
         "FEATURES.md",
-        "PROJECT_STATUS.md",
-        "PROJECT_PLAN.md",
-        f"RELEASE_NOTES_{project_version}.md",
     )
     language_tokens = {
         "ru": ("50%", "48", "80", "готов", "пользователь", "v8", "v18"),
@@ -395,14 +536,10 @@ def audit_form_creation_naming_coverage(root: Path) -> list[AuditIssue]:
     """Require the visible-library naming workflow in every user guide."""
 
     issues: list[AuditIssue] = []
-    project_version = _project_version(root)
     required_documents = (
         "README.md",
         "FEATURES.md",
         "FORM_ENGINE.md",
-        "PROJECT_STATUS.md",
-        "PROJECT_PLAN.md",
-        f"RELEASE_NOTES_{project_version}.md",
     )
     language_tokens = {
         "ru": ("Создать форму", "Сохранить пользовательскую форму", "все готовые", "пользовательские", "совпад", "пробел"),
@@ -441,14 +578,11 @@ def audit_catalog_toolbar_diagnostics_coverage(root: Path) -> list[AuditIssue]:
     """Require the 0.7.66 catalog, responsive-toolbar, and cleanup workflows."""
 
     issues: list[AuditIssue] = []
-    project_version = _project_version(root)
     required_documents = (
         "APPLICATION_DIAGNOSTICS.md",
         "UI_WORKSPACE.md",
         "FORM_ENGINE.md",
-        "PROJECT_STATUS.md",
-        "PROJECT_PLAN.md",
-        f"RELEASE_NOTES_{project_version}.md",
+        "FEATURES.md",
     )
     language_tokens = {
         "ru": ("18 заводских", "Сбросить данные диагностики", "адаптив", "Редактирование"),
@@ -485,15 +619,11 @@ def audit_compact_curve_header_coverage(root: Path) -> list[AuditIssue]:
     """Require the parameter-labelled compact-ruler workflow in every language."""
 
     issues: list[AuditIssue] = []
-    project_version = _project_version(root)
     required_documents = (
         "README.md",
         "FEATURES.md",
         "TABLET_ENGINE_2.md",
         "UI_WORKSPACE.md",
-        "PROJECT_STATUS.md",
-        "PROJECT_PLAN.md",
-        f"RELEASE_NOTES_{project_version}.md",
     )
     language_tokens = {
         "ru": ("Нагрузка на долото", "44 px", "58", "заводск", "пользователь", "Шкала"),
@@ -529,11 +659,14 @@ def run_audit(root: Path) -> list[AuditIssue]:
     """Run every documentation contract in a deterministic order."""
 
     checks = (
+        audit_documentation_hygiene,
         audit_localized_file_parity,
         audit_localized_document_structure,
         audit_markdown_links,
+        audit_documentation_navigation,
         audit_i18n_key_parity,
         audit_version_contract,
+        audit_runtime_contract,
         audit_startup_command_contract,
         audit_current_documentation_contract,
         audit_user_workflow_coverage,

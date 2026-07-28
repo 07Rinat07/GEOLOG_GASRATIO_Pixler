@@ -656,7 +656,7 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
             properties={
                 "preset_origin": "geological_geochemical_reference",
                 "orientation": "landscape",
-                "reference_document": "Masterlog Akshabulak well 494",
+                "reference_document": "Anonymized geological-geochemical Masterlog reference",
                 "editable_columns": True,
             },
         ),

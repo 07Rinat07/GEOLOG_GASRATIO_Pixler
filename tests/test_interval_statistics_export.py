@@ -1,3 +1,5 @@
+import csv
+
 from openpyxl import load_workbook
 
 from geoworkbench.calculations.interval_statistics import CurveIntervalStatistics
@@ -46,6 +48,51 @@ def test_interval_statistics_exports_csv_and_xlsx(tmp_path) -> None:
     assert sheet["A5"].value == "ROP"
     assert sheet["B5"].value == "ROP"
     assert sheet["H5"].value == 75.0
+
+
+def test_statistics_csv_and_xlsx_protect_formula_like_text_only(tmp_path) -> None:
+    mnemonic = "\n+MNEMONIC"
+    statistics = (
+        CurveIntervalStatistics(mnemonic, "=UNIT", 3, -5.0, 5.0, 0.0, 4),
+    )
+    display_names = {mnemonic: "\ufeff@DISPLAY"}
+    csv_path = export_interval_statistics_csv(
+        tmp_path / "formula-guard.csv",
+        statistics,
+        interval_label="\n-INTERVAL",
+        dataset_name=" \t=DATA()",
+        display_names=display_names,
+    )
+    xlsx_path = export_interval_statistics_xlsx(
+        tmp_path / "formula-guard.xlsx",
+        statistics,
+        interval_label="\n-INTERVAL",
+        dataset_name=" \t=DATA()",
+        display_names=display_names,
+    )
+
+    with csv_path.open(encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.reader(stream))
+    assert rows[0][1] == "' \t=DATA()"
+    assert rows[1][1] == "'\n-INTERVAL"
+    assert rows[4][0] == "'\ufeff@DISPLAY"
+    assert rows[4][1] == "'\n+MNEMONIC"
+    assert rows[4][2] == "'=UNIT"
+    assert rows[4][8] == "-5.0"
+
+    sheet = load_workbook(xlsx_path, data_only=False).active
+    assert sheet["B1"].value == "' \t=DATA()"
+    assert sheet["B2"].value == "'\n-INTERVAL"
+    assert sheet["A5"].value == "'\ufeff@DISPLAY"
+    assert sheet["B5"].value == "'\n+MNEMONIC"
+    assert sheet["C5"].value == "'=UNIT"
+    assert sheet["I5"].value == -5.0
+    assert sheet["I5"].data_type == "n"
+    assert all(
+        cell.data_type != "f"
+        for row in sheet.iter_rows()
+        for cell in row
+    )
 
 
 def test_interval_statistics_exports_missing_values_as_empty_cells(tmp_path) -> None:

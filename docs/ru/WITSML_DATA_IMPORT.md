@@ -86,6 +86,7 @@ Dataset фиксирует:
 
 ## Текущие ограничения
 
-В этом срезе импортируются только scalar numeric офлайн-данные. Binary Avro, многомерные массивы,
-WITSML 1.4.1.1 SOAP и поток WITSML 2.x/ETP остаются следующими этапами. Отдельный Windows WITS0
-field reliability gate выполняется параллельно и не считается пройденным выпуском 0.7.79.
+Офлайн-импорт обрабатывает только scalar numeric данные; Binary Avro и многомерные массивы не
+поддерживаются. WITSML 1.4.1.1 read-only SOAP и ETP 1.2 foundation реализованы отдельными
+контурами, но production ETP interoperability и Windows WITS0 field reliability gate ещё не
+закрыты.

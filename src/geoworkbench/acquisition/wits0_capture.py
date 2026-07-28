@@ -5,7 +5,6 @@ import os
 import re
 import socket
 import threading
-import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field, replace
@@ -34,7 +33,6 @@ from geoworkbench.acquisition.wits0_reliability import (
     recover_wits0_raw_directory,
 )
 from geoworkbench.acquisition.wits0_parser import (
-    Wits0DiagnosticCode,
     Wits0DiagnosticSeverity,
     Wits0ParsedFrame,
     Wits0SequenceStatus,

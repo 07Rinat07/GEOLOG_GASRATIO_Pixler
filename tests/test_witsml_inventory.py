@@ -178,15 +178,21 @@ def test_directory_inventory_is_recursive_and_reports_duplicate_uuid(
             "не является WITSML 2.x",
         ),
         (
-            f"""<!DOCTYPE Channel [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+            f"""{' ' * 300_000}<!DOCTYPE Channel [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
 <Channel xmlns="{WITSML_NS}" schemaVersion="2.1">&xxe;</Channel>""",
-            "DTD",
+            "небезопасный XML",
         ),
         (
             _channel_xml(version="1.4.1.1"),
             "Неподдерживаемая schemaVersion",
         ),
     ],
+    ids=(
+        "witsml-1-namespace",
+        "lookalike-namespace",
+        "padded-doctype",
+        "unsupported-version",
+    ),
 )
 def test_rejects_non_witsml2_or_unsafe_xml(
     tmp_path: Path,

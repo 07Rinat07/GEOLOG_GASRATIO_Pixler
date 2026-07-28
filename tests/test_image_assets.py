@@ -1,13 +1,15 @@
+from pathlib import Path
+
 import pytest
 
 from geoworkbench.printing.image_assets import (
+    MAX_IMAGE_ASSET_BYTES,
     ImageAssetError,
     create_png_asset,
     create_svg_asset,
     load_image_assets,
     save_image_assets,
 )
-
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"safe-test-payload"
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"><rect width="20" height="10" fill="#f00"/></svg>'
@@ -68,6 +70,7 @@ def test_svg_asset_round_trip_uses_svg_extension(tmp_path) -> None:
         b'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>',
         b'<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.test/x"/></svg>',
         b'<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg>&x;</svg>',
+        b' ' * 9000 + b'<!DOCTYPE svg [<!ENTITY x "boom">]><svg>&x;</svg>',
         b'<svg xmlns="http://www.w3.org/2000/svg"><rect style="fill:url(https://example.test/x)"/></svg>',
         b'<svg xmlns="http://www.w3.org/2000/svg"><foreignObject/></svg>',
     ],
@@ -90,6 +93,56 @@ def test_image_asset_rejects_symlinked_storage_directory(tmp_path, symlink_or_sk
 
     with pytest.raises(ImageAssetError):
         load_image_assets(project, {})
+
+
+def test_image_asset_load_rejects_symlinked_sidecar(
+    tmp_path, monkeypatch, symlink_or_skip
+) -> None:
+    source = tmp_path / "logo.png"
+    source.write_bytes(PNG)
+    project = tmp_path / "well.geolog.json"
+    asset = create_png_asset(source)
+    manifest = save_image_assets(project, {asset.asset_id: asset})
+    target = tmp_path / manifest[asset.asset_id]["path"]
+    replacement = target.with_name("replacement.png")
+    target.replace(replacement)
+    symlink_or_skip(target, replacement)
+
+    def unexpected_read_bytes(_path: Path) -> bytes:
+        raise AssertionError("symlinked sidecar must be rejected before read_bytes")
+
+    monkeypatch.setattr(Path, "read_bytes", unexpected_read_bytes)
+
+    with pytest.raises(ImageAssetError, match="не найден"):
+        load_image_assets(project, manifest)
+
+
+def test_image_asset_load_rejects_oversized_sidecar_before_read(
+    tmp_path, monkeypatch
+) -> None:
+    project = tmp_path / "well.geolog.json"
+    digest = "0" * 64
+    target = tmp_path / "well.geolog.json.assets" / "images" / f"{digest}.png"
+    target.parent.mkdir(parents=True)
+    with target.open("wb") as stream:
+        stream.truncate(MAX_IMAGE_ASSET_BYTES + 1)
+    manifest = {
+        f"sha256:{digest}": {
+            "path": target.relative_to(tmp_path).as_posix(),
+            "sha256": digest,
+            "size_bytes": MAX_IMAGE_ASSET_BYTES + 1,
+            "media_type": "image/png",
+            "original_name": "oversized.png",
+        }
+    }
+
+    def unexpected_read_bytes(_path: Path) -> bytes:
+        raise AssertionError("oversized sidecar must be rejected before read_bytes")
+
+    monkeypatch.setattr(Path, "read_bytes", unexpected_read_bytes)
+
+    with pytest.raises(ImageAssetError, match="лимит"):
+        load_image_assets(project, manifest)
 
 
 def test_image_asset_save_removes_only_orphaned_managed_png_files(

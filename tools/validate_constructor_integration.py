@@ -49,9 +49,9 @@ def main() -> int:
     require("def show_constructor" in main_window, "Constructor action handler not wired")
     require((ROOT / "src/geoworkbench/ui/constructor_dialog.py").is_file(), "Dialog missing")
 
+    require((ROOT / "docs/PROJECT_PLAN.md").is_file(), "Canonical project plan missing")
     for language in ("ru", "kk", "en"):
         require((ROOT / f"docs/{language}/CONSTRUCTOR.md").is_file(), "Guide missing")
-        require((ROOT / f"docs/{language}/FORM_CONSTRUCTOR_PLAN.md").is_file(), "Plan missing")
 
     print("Universal Constructor integration: OK")
     print("Lithotypes: 117")

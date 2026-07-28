@@ -1,10 +1,22 @@
+import csv
 import json
 
 import numpy as np
 import pytest
 from openpyxl import load_workbook
 
-from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Well
+from geoworkbench.data.interpretation_export import (
+    export_interpretation_csv,
+    export_interpretation_excel,
+)
+from geoworkbench.domain.models import (
+    Dataset,
+    DatasetKind,
+    DepthDomain,
+    InterpretationInterval,
+    Well,
+    WellInterpretation,
+)
 from geoworkbench.project.interpretation_controller import InterpretationController
 from geoworkbench.project.session import ProjectSession
 
@@ -118,6 +130,64 @@ def test_interpretation_exports_json_csv_and_excel(tmp_path) -> None:
     workbook = load_workbook(xlsx_path, read_only=True)
     assert workbook["Intervals"]["D2"].value == "Fluid"
     assert workbook["Metadata"]["B3"].value == "Primary"
+
+
+def test_interpretation_csv_and_xlsx_protect_formula_like_text_only(tmp_path) -> None:
+    interpretation = WellInterpretation(
+        interpretation_id="\t=INTERPRETATION_ID",
+        name="\ufeff@NAME",
+        description="\n-DESCRIPTION",
+        intervals=[
+            InterpretationInterval(
+                interval_id=" \t=INTERVAL_ID",
+                top_depth=-5.0,
+                bottom_depth=10.0,
+                interval_type="\n+TYPE",
+                label="\ufeff@LABEL",
+                color="#aabbcc",
+                comment="\n-COMMENT",
+            )
+        ],
+    )
+    csv_path = export_interpretation_csv(
+        interpretation,
+        tmp_path / "formula-guard.csv",
+    )
+    xlsx_path = export_interpretation_excel(
+        interpretation,
+        tmp_path / "formula-guard.xlsx",
+        well_name="=WELL",
+    )
+
+    with csv_path.open(encoding="utf-8-sig", newline="") as stream:
+        row = next(csv.DictReader(stream))
+    assert row["interval_id"] == "' \t=INTERVAL_ID"
+    assert row["top_depth"] == "-5.0"
+    assert row["interval_type"] == "'\n+TYPE"
+    assert row["label"] == "'\ufeff@LABEL"
+    assert row["color"] == "#aabbcc"
+    assert row["comment"] == "'\n-COMMENT"
+
+    workbook = load_workbook(xlsx_path, data_only=False)
+    intervals = workbook["Intervals"]
+    metadata = workbook["Metadata"]
+    assert intervals["A2"].value == "' \t=INTERVAL_ID"
+    assert intervals["B2"].value == -5.0
+    assert intervals["B2"].data_type == "n"
+    assert intervals["D2"].value == "'\n+TYPE"
+    assert intervals["E2"].value == "'\ufeff@LABEL"
+    assert intervals["F2"].value == "#aabbcc"
+    assert intervals["G2"].value == "'\n-COMMENT"
+    assert metadata["B1"].value == "'=WELL"
+    assert metadata["B2"].value == "'\t=INTERPRETATION_ID"
+    assert metadata["B3"].value == "'\ufeff@NAME"
+    assert metadata["B4"].value == "'\n-DESCRIPTION"
+    assert all(
+        cell.data_type != "f"
+        for sheet in workbook.worksheets
+        for workbook_row in sheet.iter_rows()
+        for cell in workbook_row
+    )
 
 
 def test_interpretation_controller_synchronizes_interval_selection() -> None:

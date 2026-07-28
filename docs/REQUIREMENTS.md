@@ -69,11 +69,11 @@ JSON-файл проекта не считается универсальным 
 
 | ID | Требование | Статус |
 |---|---|---|
-| OPS-001 | Semantic Channel Dictionary: canonical kind, quantity class, UOM, aliases, sensor/source | готово для CSV/Excel, LAS, Paradox, project format v20 и derived-операций; расширение словаря выполняется данными без изменения Domain |
+| OPS-001 | Semantic Channel Dictionary: canonical kind, quantity class, UOM, aliases, sensor/source | готово для CSV/Excel, LAS, Paradox, текущего project format v21 и derived-операций; расширение словаря выполняется данными без изменения Domain |
 | OPS-002 | Acquisition QC: measurement/arrival time, quality flags, gaps, duplicate/out-of-order/stale, calibration | базовый event QC schema v1 готов; stream alarms/acknowledgement остаются в OPS-006 |
-| OPS-003 | Versioned lag/depth correction для gas/cuttings с pump/volume/flow profiles | готово: schema v1, immutable revisions, source/corrected axes, введено в project v19 и сохраняется в v20; исходник append-only |
-| OPS-004 | Typed drilling/gas/show/sample/casing/top events с depth/time anchors и audit | готово: typed payload, revision controller, введено в project v17 и сохраняется в v20, strict codec и ReportDefinition projection |
-| OPS-005 | Growing dataset: append, replay, checkpoint, backpressure и controlled close | готово: acquisition schema v1, текущий project v20, atomic controller, checkpoint fingerprints и deterministic replay |
+| OPS-003 | Versioned lag/depth correction для gas/cuttings с pump/volume/flow profiles | готово: schema v1, immutable revisions, source/corrected axes, введено в project v19 и сохраняется в текущем v21; исходник append-only |
+| OPS-004 | Typed drilling/gas/show/sample/casing/top events с depth/time anchors и audit | готово: typed payload, revision controller, введено в project v17 и сохраняется в текущем v21, strict codec и ReportDefinition projection |
+| OPS-005 | Growing dataset: append, replay, checkpoint, backpressure и controlled close | готово: acquisition schema v1, текущий project v21, atomic controller, checkpoint fingerprints и deterministic replay |
 | OPS-006 | QC/alarm rules: threshold, hysteresis, debounce, acknowledgement и audit | запланировано; не сертифицированная well-control system |
 | OPS-007 | Structured MudLogReport: cuttings/geology/show, chromatograph/gas peaks, drilling/Dxc/ECD/ROP stats | запланировано по WITSML domain |
 | OPS-010 | WITS0 live source adapter → semantic mapping → append-only AcquisitionSession | программно готово: capture/parser/review/normalization/live/reliability; остаются real GSWITS field acceptance, independent scales и service strategy |
@@ -194,7 +194,7 @@ JSON-файл проекта не считается универсальным 
 | PRINT-012 | Повторяемая шапка, разрывы колонок и контроль продолжения на листах/рулоне | готово: vertical pages × horizontal continuations, глобальная нумерация, repeated headers и page range |
 | PRINT-013 | Интервальные lithology/description колонки Masterlog | готово: project lithotypes, цвет/штриховка, код и безопасный word-wrap описания с clipping по depth/page range |
 | PRINT-014 | Автолегенда литотипов, symbols/shows и peak callouts | частично: готовы динамическая легенда системных/project литотипов по всему справочнику или печатному интервалу и ручные callouts; автоматический поиск пиков и разнесение подписей запланированы |
-| CORR-001 | Многоскважинный correlation canvas с независимыми depth ranges, markers/horizons/ties и PDF | запланировано; референсная матрица в `docs/MASTERLOG_REFERENCE_REVIEW.md` |
+| CORR-001 | Многоскважинный correlation canvas с независимыми depth ranges, markers/horizons/ties и PDF | запланировано после performance/RSS gate; `PROJECT_PLAN.md`, EXT-03 |
 | PRINT-015 | Preflight формы перед preview/PDF/печатью: данные, кривые, assets, шкалы, геометрия и число страниц | готово с блокировкой ошибок и подтверждением предупреждений |
 | PRINT-016 | Импорт/экспорт переносимой формы с preview состава и независимой копией | готово для versioned JSON-пакета с SHA-256-проверенными PNG/SVG-assets |
 | PRINT-017 | Сопоставление стандартных параметров формы с кривыми LAS другой фирмы | готово: dataset-specific binding UI, автовыбор по мнемонике, полная валидация, project persistence, renderer и preflight; исходный LAS не изменяется |
@@ -273,5 +273,5 @@ JSON-файл проекта не считается универсальным 
 | DOC-002 | Инструкция объясняет сохранение, закрытие без сохранения, повторное открытие, Undo/Redo и экспорт | готово для общей модели проекта и значков; применяется как обязательный контракт для новых функций |
 | DOC-003 | Все относительные ссылки документации разрешаются в существующие файлы | готово: `tools/check_documentation.py` и regression-тест |
 | DOC-004 | Набор интерфейсных ключей одинаков в RU/KK/EN | готово: автоматическая проверка JSON-каталогов |
-| DOC-005 | Корневой README остаётся кратким, подробности находятся в `docs`, CHANGELOG и release notes | готово и проверяется release-review процессом |
+| DOC-005 | Корневой README остаётся кратким; подробности находятся в `docs`, а единая история — в `CHANGELOG.md` | готово и проверяется documentation audit |
 | DOC-006 | Каноническая команда запуска `python -m geoworkbench.app.main` совпадает в README, RU/KK/EN, TESTING и исполняемом module entry point | готово: проверяется documentation audit и `test_module_entrypoint_contract_0790.py` |

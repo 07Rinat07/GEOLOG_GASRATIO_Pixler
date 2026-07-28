@@ -33,6 +33,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
         "cursor_depth": layout.cursor_depth,
         "vertical_index_id": layout.vertical_index_id,
         "annotation_scope_id": layout.annotation_scope_id,
+        "localize_factory_labels": layout.localize_factory_labels,
         "tracks": [
             {
                 "track_id": track.track_id,
@@ -97,6 +98,10 @@ def layout_from_dict(data: object) -> TabletLayout:
     raw_cursor_depth = data.get("cursor_depth")
     raw_vertical_index_id = data.get("vertical_index_id")
     raw_annotation_scope_id = data.get("annotation_scope_id")
+    # Version 21 layouts predate explicit caption provenance.  Treat those
+    # payloads as localizable to preserve the runtime behavior introduced in
+    # 0.7.93; newly created layouts always persist their explicit choice.
+    raw_localize_factory_labels = data.get("localize_factory_labels", True)
     if raw_vertical_index_id is not None and (
         not isinstance(raw_vertical_index_id, str) or not raw_vertical_index_id.strip()
     ):
@@ -107,6 +112,8 @@ def layout_from_dict(data: object) -> TabletLayout:
         or len(raw_annotation_scope_id) > 300
     ):
         raise TabletLayoutFormatError("annotation_scope_id должен быть строкой до 300 символов или null")
+    if not isinstance(raw_localize_factory_labels, bool):
+        raise TabletLayoutFormatError("localize_factory_labels должен быть логическим")
     for name, value in (
         ("visible_depth_top", raw_depth_top),
         ("visible_depth_bottom", raw_depth_bottom),
@@ -123,6 +130,7 @@ def layout_from_dict(data: object) -> TabletLayout:
             cursor_depth=float(raw_cursor_depth) if raw_cursor_depth is not None else None,
             vertical_index_id=raw_vertical_index_id,
             annotation_scope_id=raw_annotation_scope_id,
+            localize_factory_labels=raw_localize_factory_labels,
         )
     except ValueError as exc:
         raise TabletLayoutFormatError("Некорректный видимый интервал глубины") from exc

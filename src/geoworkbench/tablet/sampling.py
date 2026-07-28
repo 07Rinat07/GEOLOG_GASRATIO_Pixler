@@ -62,6 +62,7 @@ def select_visible_samples(
     *,
     max_points: int = MAX_RENDERED_POINTS,
     positive_values_only: bool = False,
+    include_viewport_context: bool = True,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Prepare one curve for screen rendering without inventing continuity.
 
@@ -98,16 +99,33 @@ def select_visible_samples(
     ordered_values = np.asarray(values[finite_axis], dtype=np.float64).copy()
     if ordered_depth.size == 0:
         return ordered_values, ordered_depth
-    order = np.argsort(ordered_depth, kind="stable")
-    if not np.array_equal(order, np.arange(order.size)):
+
+    # LAS/acquisition indexes are normally monotonic. Avoid allocating and
+    # sorting an N-element permutation for every viewport update in that common
+    # case; retain the stable-sort fallback for imported unsorted sources.
+    is_monotonic = bool(
+        ordered_depth.size < 2 or np.all(ordered_depth[1:] >= ordered_depth[:-1])
+    )
+    if not is_monotonic:
+        order = np.argsort(ordered_depth, kind="stable")
         ordered_depth = ordered_depth[order]
         ordered_values = ordered_values[order]
 
     normal_step = _nominal_axis_step(ordered_depth)
     start = int(np.searchsorted(ordered_depth, visible_top, side="left"))
     stop = int(np.searchsorted(ordered_depth, visible_bottom, side="right"))
-    context_start = max(0, start - _VIEWPORT_CONTEXT_POINTS)
-    context_stop = min(ordered_depth.size, stop + _VIEWPORT_CONTEXT_POINTS)
+    if include_viewport_context:
+        context_start = max(0, start - _VIEWPORT_CONTEXT_POINTS)
+        context_stop = min(ordered_depth.size, stop + _VIEWPORT_CONTEXT_POINTS)
+    elif start == stop:
+        # Keep the segment crossing a viewport that falls between source rows.
+        # Ordinary non-empty ranges remain exact so point counts and editing
+        # boundaries describe only samples inside the requested interval.
+        context_start = max(0, start - 1)
+        context_stop = min(ordered_depth.size, stop + 1)
+    else:
+        context_start = start
+        context_stop = stop
     selected_depth = ordered_depth[context_start:context_stop]
     selected_values = ordered_values[context_start:context_stop]
     if selected_depth.size == 0:

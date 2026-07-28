@@ -1,16 +1,16 @@
 import csv
-from datetime import datetime
 import zipfile
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
+from openpyxl import load_workbook
 
 from geoworkbench.data.selection_export import (
     EXCEL_DECIMAL_NUMBER_FORMAT,
     export_selection_excel,
     export_selection_text,
 )
-from openpyxl import load_workbook
-
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
@@ -66,6 +66,59 @@ def test_text_export_writes_small_values_without_scientific_notation(tmp_path) -
     with target.open(encoding="utf-8", newline="") as stream:
         rows = list(csv.reader(stream))
     assert rows[1] == ["101", "0.000052"]
+
+
+def test_selection_csv_and_xlsx_protect_formula_like_metadata_and_headers(tmp_path) -> None:
+    dataset = make_dataset()
+    dataset.name = "\t=HYPERLINK(\"https://example.invalid\")"
+    dataset.source_path = Path("-source.las")
+    dataset.curves["c1"] = CurveData(
+        CurveMetadata(
+            "c1",
+            "\n+CMD()",
+            None,
+            "@unit",
+            "-description",
+            dataset.dataset_id,
+            provenance="\ufeff@provenance",
+        ),
+        np.array([1.0, -2.0, 3.0, 4.0]),
+    )
+    csv_target = tmp_path / "formula-guard.csv"
+    xlsx_target = tmp_path / "formula-guard.xlsx"
+
+    export_selection_text(
+        dataset,
+        csv_target,
+        ["c1"],
+        101.0,
+        101.0,
+        delimiter=",",
+    )
+    export_selection_excel(dataset, xlsx_target, ["c1"], 101.0, 101.0)
+
+    with csv_target.open(encoding="utf-8", newline="") as stream:
+        csv_rows = list(csv.reader(stream))
+    assert csv_rows[0][1] == "'\n+CMD() [@unit]"
+    assert csv_rows[1][1] == "-2"
+
+    workbook = load_workbook(xlsx_target, data_only=False)
+    assert workbook["Data"]["B2"].value == -2.0
+    assert workbook["Data"]["B2"].data_type == "n"
+    assert workbook["Parameters"]["C3"].value == "'+CMD()"
+    assert workbook["Parameters"]["E3"].value == "'@unit"
+    assert workbook["Parameters"]["F3"].value == "'-description"
+    assert workbook["Parameters"]["J3"].value == "'\ufeff@provenance"
+    assert workbook["Metadata"]["B1"].value == (
+        "'=HYPERLINK(\"https://example.invalid\")"
+    )
+    assert workbook["Metadata"]["B5"].value == "'-source.las"
+    assert all(
+        cell.data_type != "f"
+        for sheet in workbook.worksheets
+        for row in sheet.iter_rows()
+        for cell in row
+    )
 
 
 def test_excel_export_is_valid_openxml_with_data_and_metadata_sheets(tmp_path) -> None:

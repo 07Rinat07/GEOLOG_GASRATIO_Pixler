@@ -24,6 +24,7 @@ def _dataset() -> Dataset:
 def test_form_apply_builds_layout_and_reports_missing_bindings() -> None:
     result = FormApplyEngine().build_layout(factory_templates()["factory-gas-ratio"], _dataset())
 
+    assert result.layout.localize_factory_labels is True
     assert result.layout.tracks[0].kind.value == "depth"
     assert any("TGAS" in track.curve_mnemonics for track in result.layout.tracks)
     assert any("ROP_AVG" in track.curve_mnemonics for track in result.layout.tracks)
@@ -50,6 +51,7 @@ def test_form_apply_propagates_track_title_presentation() -> None:
     result = FormApplyEngine().build_layout(form, _dataset())
     applied = next(track for track in result.layout.tracks if track.title == source_track.title)
 
+    assert result.layout.localize_factory_labels is False
     assert applied.title_orientation == "vertical_top_to_bottom"
     assert applied.title_position == "top"
 

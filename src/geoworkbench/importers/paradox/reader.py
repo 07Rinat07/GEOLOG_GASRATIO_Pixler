@@ -10,7 +10,11 @@ import numpy as np
 
 from .bundle import discover_bundle
 from .decoder import codepage_name, decode_field, numeric_value
-from .detector import probe_db_format
+from .detector import (
+    DEFAULT_MAX_PARADOX_ARRAY_BYTES,
+    estimate_paradox_array_bytes,
+    probe_db_format,
+)
 from .models import (
     IssueSeverity,
     ParadoxColumn,
@@ -37,9 +41,14 @@ def read_paradox(
     progress: Callable[[str, int, int], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
     retain_temporal_raw: bool = True,
+    max_array_bytes: int = DEFAULT_MAX_PARADOX_ARRAY_BYTES,
 ) -> ParadoxTable:
     source = Path(path).expanduser().resolve()
-    probe = probe_db_format(source)
+    probe = probe_db_format(
+        source,
+        retain_temporal_raw=retain_temporal_raw,
+        max_array_bytes=max_array_bytes,
+    )
     if not probe.is_paradox:
         if probe.format_name == "sqlite":
             raise ParadoxReadError(
@@ -66,6 +75,7 @@ def read_paradox(
             progress,
             cancelled,
             retain_temporal_raw=retain_temporal_raw,
+            max_array_bytes=max_array_bytes,
         )
     table.bundle = discover_bundle(source)
     return table
@@ -105,6 +115,8 @@ def _parse_header(raw: bytes) -> tuple[ParadoxHeader, tuple[ParadoxField, ...]]:
     if schema_end > len(raw):
         raise ParadoxReadError("Схема полей выходит за границу заголовка")
     pairs = [(raw[schema_start + 2 * i], raw[schema_start + 2 * i + 1]) for i in range(field_count)]
+    if any(size == 0 for _type_code, size in pairs):
+        raise ParadoxReadError("Поле Paradox не может иметь нулевой размер")
     names, table_name = _parse_names(raw, schema_end, field_count, code_page)
     fields: list[ParadoxField] = []
     offset = 0
@@ -264,7 +276,15 @@ def _read_records(
     cancelled: Callable[[], bool] | None,
     *,
     retain_temporal_raw: bool,
+    max_array_bytes: int,
 ) -> ParadoxTable:
+    _validate_record_allocation(
+        header,
+        fields,
+        retain_temporal_raw=retain_temporal_raw,
+        max_array_bytes=max_array_bytes,
+    )
+
     # Numeric channels are allocated once at the declared record count. This
     # avoids a Python-object list plus a second full NumPy copy for large GTI
     # tables. Temporal typed fields keep a compact object-sidecar with decoded
@@ -438,6 +458,62 @@ def _read_records(
         rows_read=row_number,
         issues=issues,
     )
+
+
+def _validate_record_allocation(
+    header: ParadoxHeader,
+    fields: tuple[ParadoxField, ...],
+    *,
+    retain_temporal_raw: bool,
+    max_array_bytes: int,
+) -> None:
+    """Reject contradictory header counts before allocating column arrays."""
+    if not 1 <= header.record_size:
+        raise ParadoxReadError("Некорректный размер записи Paradox")
+    if not 1 <= header.max_table_size_kib <= 255:
+        raise ParadoxReadError("Некорректный размер блока данных Paradox")
+    if not 0 <= header.record_count <= _MAX_RECORDS:
+        raise ParadoxReadError("Количество записей превышает безопасный предел")
+    if not 0 <= header.file_blocks <= 0xFFFF:
+        raise ParadoxReadError("Некорректное количество блоков данных Paradox")
+    if header.file_blocks == 0:
+        if header.record_count:
+            raise ParadoxReadError(
+                "В заголовке объявлены записи, но отсутствуют блоки данных"
+            )
+        if header.first_block or header.last_block:
+            raise ParadoxReadError("Некорректные границы цепочки блоков Paradox")
+    else:
+        if not (
+            1 <= header.first_block <= header.file_blocks
+            and 1 <= header.last_block <= header.file_blocks
+        ):
+            raise ParadoxReadError("Некорректные границы цепочки блоков Paradox")
+
+        records_per_block = max(
+            0,
+            (header.block_size - _DATA_BLOCK_HEADER_SIZE) // header.record_size,
+        )
+        declared_capacity = header.file_blocks * records_per_block
+        if header.record_count > declared_capacity:
+            raise ParadoxReadError(
+                "Количество записей в заголовке превышает вместимость блоков данных: "
+                f"{header.record_count} > {declared_capacity}"
+            )
+    if any(field.size <= 0 for field in fields):
+        raise ParadoxReadError("Поле Paradox не может иметь нулевой размер")
+    if max_array_bytes <= 0:
+        raise ParadoxReadError("Лимит памяти Paradox должен быть положительным")
+    estimated_array_bytes = estimate_paradox_array_bytes(
+        header.record_count,
+        tuple(field.type_code for field in fields),
+        retain_temporal_raw=retain_temporal_raw,
+    )
+    if estimated_array_bytes > max_array_bytes:
+        raise ParadoxReadError(
+            "Оценочный размер массивов Paradox превышает лимит памяти: "
+            f"{estimated_array_bytes} > {max_array_bytes} байт"
+        )
 
 
 def _read_exact(stream: BinaryIO, size: int, offset: int) -> bytes:

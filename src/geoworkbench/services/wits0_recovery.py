@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from geoworkbench.domain.acquisition import AcquisitionSession, AcquisitionSessionState
-from geoworkbench.domain.models import IndexRole, Well
+from geoworkbench.domain.models import Well
 from geoworkbench.services.wits0_import_review import (
     Wits0ChannelKey,
     Wits0CustomProfile,

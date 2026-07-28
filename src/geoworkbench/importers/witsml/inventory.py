@@ -9,6 +9,9 @@ from uuid import UUID
 import xml.etree.ElementTree as ET
 import zipfile
 
+from defusedxml.ElementTree import fromstring as safe_xml_fromstring
+from defusedxml.common import DefusedXmlException
+
 
 _WITSML_V2_NAMESPACE = "http://www.energistics.org/energyml/data/witsmlv2"
 _XML_SUFFIXES = {".xml", ".witsml"}
@@ -298,9 +301,14 @@ def _parse_witsml_object(
             "DTD и пользовательские XML entity запрещены для офлайн-импорта"
         )
     try:
-        root = ET.fromstring(payload)
-    except ET.ParseError as exc:
-        raise WitsmlInventoryError(f"Некорректный XML: {exc}") from exc
+        root = safe_xml_fromstring(
+            payload,
+            forbid_dtd=True,
+            forbid_entities=True,
+            forbid_external=True,
+        )
+    except (ET.ParseError, DefusedXmlException) as exc:
+        raise WitsmlInventoryError(f"Некорректный или небезопасный XML: {exc}") from exc
 
     namespace, object_type = _split_tag(root.tag)
     if namespace != _WITSML_V2_NAMESPACE:

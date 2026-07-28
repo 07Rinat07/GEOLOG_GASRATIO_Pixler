@@ -43,10 +43,9 @@ class ParadoxImportError(RuntimeError):
 
 
 # GeoScape server installations normally register depth on a 0.2 m grid.
-# A particular source table can still contain a different actual interval
-# (the supplied BLData sample is effectively 0.4 m).  Keep both facts separate:
-# LAS STEP describes rows that really exist, while this constant is stored as
-# source-system metadata and shown by the import dialog.
+# A source table can still contain a different actual interval. Keep both facts
+# separate: LAS STEP describes rows that really exist, while this constant is
+# stored as source-system metadata and shown by the import dialog.
 GEOSCAPE_STANDARD_DEPTH_STEP_M = 0.2
 
 

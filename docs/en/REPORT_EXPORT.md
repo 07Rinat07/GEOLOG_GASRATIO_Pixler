@@ -1,13 +1,17 @@
 # Report export and interval summary
 
-Status: mandatory before the final release.
-
 ## Purpose
 
-The subsystem must create a reproducible report for a selected well and depth range. It complements
+The subsystem creates a reproducible report for a selected well and depth range. It complements
 rather than replaces the printable Masterlog by adding structured interval tables, statistics, and
 appendices. Every value must come from persisted project data; missing values must never be turned
 into zero or an invented geological description.
+
+## Spreadsheet export safety
+
+For CSV, TSV, and XLSX exports, text whose first meaningful character is `=`, `+`, `-`, or `@`
+receives a leading apostrophe and cannot execute as a spreadsheet formula. Numbers and dates remain
+typed values. The protection covers data, metadata, headers, and user-authored descriptions.
 
 ## Report types
 

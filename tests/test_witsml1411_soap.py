@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import json
+import threading
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -10,12 +12,14 @@ import pytest
 from geoworkbench.importers.witsml1411 import (
     Witsml1411ConnectionProfile,
     Witsml1411Credentials,
+    Witsml1411HttpRequest,
     Witsml1411HttpResponse,
     Witsml1411ReadOnlyService,
     Witsml1411RetryPolicy,
     Witsml1411ServerError,
     Witsml1411SoapClient,
     Witsml1411TransportError,
+    UrllibWitsml1411HttpTransport,
 )
 from geoworkbench.services.witsml1411_audit import (
     InMemoryWitsml1411AuditSink,
@@ -81,6 +85,97 @@ def test_get_version_builds_soap_action_and_basic_auth() -> None:
     assert request.headers["Authorization"].startswith("Basic ")
     assert b"secret" not in request.body
     assert b"WMLS_GetVersion" in request.body
+
+
+def test_remote_profiles_require_verified_https() -> None:
+    with pytest.raises(ValueError, match="must use HTTPS"):
+        Witsml1411ConnectionProfile("remote-http", "Remote", "http://store.example.test")
+    with pytest.raises(ValueError, match="localhost"):
+        Witsml1411ConnectionProfile(
+            "remote-unverified",
+            "Remote",
+            "https://store.example.test",
+            verify_tls=False,
+        )
+
+    local = Witsml1411ConnectionProfile(
+        "local-dev",
+        "Local development store",
+        "http://127.0.0.1:8080/store",
+    )
+    assert local.endpoint.startswith("http://127.0.0.1")
+
+
+def test_profile_endpoint_rejects_embedded_credentials_and_fragments() -> None:
+    with pytest.raises(ValueError, match="Credentials must not be embedded"):
+        Witsml1411ConnectionProfile(
+            "embedded-secret",
+            "Unsafe",
+            "https://operator:secret@store.example.test/witsml",
+        )
+    with pytest.raises(ValueError, match="must not contain a URL fragment"):
+        Witsml1411ConnectionProfile(
+            "fragment",
+            "Unsafe",
+            "https://store.example.test/witsml#credential",
+        )
+
+
+def test_urllib_transport_rejects_redirects_before_forwarding_credentials() -> None:
+    class RedirectHandler(BaseHTTPRequestHandler):
+        followed = False
+        post_bodies: list[bytes] = []
+        redirected_authorizations: list[str | None] = []
+
+        def do_POST(self) -> None:  # noqa: N802 - stdlib handler contract
+            content_length = int(self.headers.get("Content-Length", "0"))
+            type(self).post_bodies.append(self.rfile.read(content_length))
+            self.send_response(302)
+            self.send_header("Location", "/redirected")
+            self.send_header("Content-Length", "0")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.flush()
+            self.close_connection = True
+
+        def do_GET(self) -> None:  # noqa: N802 - stdlib handler contract
+            type(self).followed = True
+            type(self).redirected_authorizations.append(
+                self.headers.get("Authorization")
+            )
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.flush()
+            self.close_connection = True
+
+        def log_message(self, _format: str, *_args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+    worker = threading.Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    try:
+        endpoint = f"http://127.0.0.1:{server.server_port}/store"
+        request = Witsml1411HttpRequest(
+            endpoint=endpoint,
+            soap_action="test",
+            body=b"<soap/>",
+            headers={"Authorization": "Basic must-not-be-forwarded"},
+            timeout_seconds=2.0,
+            verify_tls=True,
+            max_response_bytes=4096,
+        )
+        with pytest.raises(Witsml1411TransportError, match="HTTP 302"):
+            UrllibWitsml1411HttpTransport().send(request)
+        assert RedirectHandler.post_bodies == [b"<soap/>"]
+        assert RedirectHandler.followed is False
+        assert RedirectHandler.redirected_authorizations == []
+    finally:
+        server.shutdown()
+        worker.join(timeout=2.0)
+        server.server_close()
 
 
 def test_retry_is_applied_only_to_retryable_transport_failures() -> None:
@@ -222,6 +317,22 @@ def test_soap_dtd_is_rejected_without_retry() -> None:
     <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body/></soap:Envelope>'''
     transport = ScriptedTransport([Witsml1411HttpResponse(200, {}, payload)])
     client = Witsml1411SoapClient(_profile(), transport=transport)
+    with pytest.raises(Exception, match="forbidden"):
+        client.get_version()
+    assert len(transport.requests) == 1
+
+
+def test_soap_dtd_is_rejected_even_after_a_long_xml_preamble() -> None:
+    payload = (
+        b" " * 9_000
+        + b'''<!DOCTYPE x [<!ENTITY a "expanded">]>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+      <soap:Body><WMLS_GetVersionResponse><Result>&a;</Result></WMLS_GetVersionResponse></soap:Body>
+    </soap:Envelope>'''
+    )
+    transport = ScriptedTransport([Witsml1411HttpResponse(200, {}, payload)])
+    client = Witsml1411SoapClient(_profile(), transport=transport)
+
     with pytest.raises(Exception, match="forbidden"):
         client.get_version()
     assert len(transport.requests) == 1

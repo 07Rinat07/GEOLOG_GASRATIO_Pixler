@@ -27,9 +27,8 @@ class Gs2ContainerLimits:
     max_members: int = 10_000
     max_member_size: int = 2 * 1024**3
     max_uncompressed_size: int = 8 * 1024**3
-    # Sparse GeoScape tables legitimately exceed 500:1 (the СГ-8 sample
-    # contains ratios up to ~589:1). Absolute member and total-size limits
-    # remain the primary zip-bomb boundary.
+    # Sparse GeoScape tables can legitimately compress above 500:1. Absolute
+    # member and total-size limits remain the primary zip-bomb boundary.
     max_compression_ratio: float = 1_000.0
 
 

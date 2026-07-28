@@ -13,6 +13,9 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 import xml.etree.ElementTree as ET
 
+from defusedxml.ElementTree import fromstring as safe_xml_fromstring
+from defusedxml.common import DefusedXmlException
+
 from geoworkbench.importers.witsml1411.models import (
     Witsml1411AuditEvent,
     Witsml1411AuthMode,
@@ -95,6 +98,21 @@ class Witsml1411HttpTransport(Protocol):
     def send(self, request: Witsml1411HttpRequest) -> Witsml1411HttpResponse: ...
 
 
+class _RejectRedirectHandler(urlrequest.HTTPRedirectHandler):
+    """Keep credentials and SOAP bodies on the explicitly configured origin."""
+
+    def redirect_request(
+        self,
+        req: urlrequest.Request,
+        fp: object,
+        code: int,
+        msg: str,
+        headers: object,
+        newurl: str,
+    ) -> None:
+        return None
+
+
 class UrllibWitsml1411HttpTransport:
     def send(self, request: Witsml1411HttpRequest) -> Witsml1411HttpResponse:
         context = None
@@ -109,11 +127,14 @@ class UrllibWitsml1411HttpTransport:
             method="POST",
             headers=dict(request.headers),
         )
+        handlers: list[urlrequest.BaseHandler] = [_RejectRedirectHandler()]
+        if context is not None:
+            handlers.append(urlrequest.HTTPSHandler(context=context))
+        opener = urlrequest.build_opener(*handlers)
         try:
-            with urlrequest.urlopen(
+            with opener.open(
                 http_request,
                 timeout=request.timeout_seconds,
-                context=context,
             ) as response:
                 payload = response.read(request.max_response_bytes + 1)
                 if len(payload) > request.max_response_bytes:
@@ -327,15 +348,24 @@ class Witsml1411SoapClient:
 
 
 def _build_soap_envelope(operation: str, arguments: Mapping[str, str]) -> bytes:
-    envelope = ET.Element(ET.QName(SOAP_ENV, "Envelope"))
-    body = ET.SubElement(envelope, ET.QName(SOAP_ENV, "Body"))
-    body.set(ET.QName(SOAP_ENV, "encodingStyle"), SOAP_ENC)
-    operation_element = ET.SubElement(body, ET.QName(WITSML_MESSAGE, operation))
+    envelope = ET.Element(_qualified_name(SOAP_ENV, "Envelope"))
+    body = ET.SubElement(envelope, _qualified_name(SOAP_ENV, "Body"))
+    body.set(_qualified_name(SOAP_ENV, "encodingStyle"), SOAP_ENC)
+    operation_element = ET.SubElement(
+        body,
+        _qualified_name(WITSML_MESSAGE, operation),
+    )
     for name, value in arguments.items():
         item = ET.SubElement(operation_element, name)
-        item.set(ET.QName(XSI, "type"), "xsd:string")
+        item.set(_qualified_name(XSI, "type"), "xsd:string")
         item.text = value
     return ET.tostring(envelope, encoding="utf-8", xml_declaration=True)
+
+
+def _qualified_name(namespace: str, local_name: str) -> str:
+    """Return ElementTree's Clark notation used on the XML wire."""
+
+    return f"{{{namespace}}}{local_name}"
 
 
 def _parse_soap_response(payload: bytes, operation: str) -> dict[str, str]:
@@ -345,16 +375,26 @@ def _parse_soap_response(payload: bytes, operation: str) -> dict[str, str]:
     if any(marker in lowered for marker in _FORBIDDEN_XML):
         raise Witsml1411Error("SOAP response contains a forbidden DTD/entity declaration")
     try:
-        root = ET.fromstring(payload)
-    except ET.ParseError as exc:
-        raise Witsml1411Error(f"Invalid SOAP XML: {exc}") from exc
+        root = safe_xml_fromstring(
+            payload,
+            forbid_dtd=True,
+            forbid_entities=True,
+            forbid_external=True,
+        )
+    except (ET.ParseError, DefusedXmlException) as exc:
+        raise Witsml1411Error(f"Invalid or forbidden SOAP XML: {exc}") from exc
     body = next((item for item in root.iter() if _local(item.tag) == "Body"), None)
     if body is None:
         raise Witsml1411Error("SOAP Body is missing")
     fault = next((item for item in body if _local(item.tag) == "Fault"), None)
     if fault is not None:
-        values = {_local(item.tag): (item.text or "").strip() for item in fault.iter()}
-        raise Witsml1411SoapFault(values.get("faultcode"), values.get("faultstring"))
+        fault_values = {
+            _local(item.tag): (item.text or "").strip() for item in fault.iter()
+        }
+        raise Witsml1411SoapFault(
+            fault_values.get("faultcode"),
+            fault_values.get("faultstring"),
+        )
     expected = operation + "Response"
     response = next((item for item in body.iter() if _local(item.tag) == expected), None)
     if response is None:

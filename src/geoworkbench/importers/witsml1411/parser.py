@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass
 from hashlib import sha256
-from io import StringIO
 from pathlib import Path
-import re
-from typing import Iterable
 import xml.etree.ElementTree as ET
+
+from defusedxml.ElementTree import fromstring as safe_xml_fromstring
+from defusedxml.common import DefusedXmlException
 
 from geoworkbench.importers.witsml import (
     WitsmlChannelSetData,
@@ -306,9 +305,14 @@ def _parse_xml(xml_text: str, *, expected_roots: set[str]) -> ET.Element:
     if any(marker in lowered for marker in _FORBIDDEN_XML):
         raise Witsml1411ParseError("WITSML XML contains a forbidden DTD/entity declaration")
     try:
-        root = ET.fromstring(payload)
-    except ET.ParseError as exc:
-        raise Witsml1411ParseError(f"Invalid WITSML XML: {exc}") from exc
+        root = safe_xml_fromstring(
+            payload,
+            forbid_dtd=True,
+            forbid_entities=True,
+            forbid_external=True,
+        )
+    except (ET.ParseError, DefusedXmlException) as exc:
+        raise Witsml1411ParseError(f"Invalid or forbidden WITSML XML: {exc}") from exc
     namespace, local = _split_tag(root.tag)
     if local not in expected_roots:
         raise Witsml1411ParseError(f"Unexpected WITSML root: {local}")

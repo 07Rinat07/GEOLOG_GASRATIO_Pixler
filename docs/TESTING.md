@@ -1,8 +1,8 @@
 # Проверка качества и release gate
 
-Документ актуален для **GEOLOG GASRATIO@Pixler 0.7.93**. Исторические результаты отдельных
-версий находятся в `RELEASE_NOTES_*`, `BUILD_MANIFEST_*` и `CHANGELOG.md`; они не заменяют
-текущие команды проверки.
+Документ актуален для **GEOLOG GASRATIO@Pixler 0.7.93**. Краткая история находится только в
+`CHANGELOG.md`; результаты конкретных CI/сборок хранятся как artifacts и не заменяют текущие
+команды проверки.
 
 ## 1. Подготовка окружения
 
@@ -10,7 +10,7 @@
 
 ```powershell
 py -3.11 -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
@@ -46,7 +46,7 @@ python -m pytest -q `
 Этот набор проверяет:
 
 - единый способ запуска `python -m geoworkbench.app.main`;
-- соответствие версии пакета release notes и build manifest;
+- соответствие версии пакета runtime-контракту документации;
 - синхронность RU/KK/EN-документации и корректность внутренних ссылок;
 - безопасное согласование TIME/DEPTH после импорта GeoScape2/GS2;
 - сохранение линейной шкалы по умолчанию в формах и Masterlog-пресетах;
@@ -71,6 +71,7 @@ python scripts/run_headless_tests.py
 В установленном Windows-окружении:
 
 ```powershell
+$env:PYTHONUTF8 = "1"
 python tools/check_documentation.py
 python -m ruff check src tests tools scripts
 python -m mypy src
@@ -80,6 +81,10 @@ python scripts/run_tests.py -p no:cacheprovider
 Каждая команда должна завершиться с кодом `0`. Успешный выборочный набор не заменяет полный
 прогон. Пропуски обязательных сценариев, зависание процесса, native crash Qt или изменённые
 тестами файлы проекта считаются блокирующими дефектами.
+
+UTF-8 фиксируется явно: иначе Windows console с CP1251 может аварийно завершить `mypy` при выводе
+диагностики, содержащей символы единиц измерения, и замаскировать обычный type-check debt под
+внутреннюю ошибку инструмента.
 
 `scripts/run_tests.py` является штатной оболочкой полного pytest-прогона. Она отключает случайные
 глобальные плагины, но явно загружает проектный `pytest_asyncio.plugin`, поэтому async ETP-тесты
@@ -112,9 +117,9 @@ python scripts/run_tests.py -p no:cacheprovider
 - regression-тест;
 - корневой README, если изменился запуск или базовый workflow;
 - соответствующие RU/KK/EN-инструкции;
-- `CHANGELOG.md`, release notes и build manifest текущей версии;
+- `CHANGELOG.md`;
 - `tools/check_documentation.py`, если новый контракт можно проверить автоматически.
 
-Версия не считается готовой только по `compileall` или нескольким выбранным тестам. В build
-manifest должны быть отдельно указаны реально выполненные проверки и проверки, которые не могли
-быть выполнены в текущей среде.
+Версия не считается готовой только по `compileall` или нескольким выбранным тестам. В CI artifact
+должны быть отдельно указаны реально выполненные проверки и проверки, которые не могли быть
+выполнены в текущей среде.

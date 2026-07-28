@@ -4,9 +4,9 @@ Form Engine stores editable depth and time forms independently from a concrete L
 A form references canonical parameters, while the mnemonic dictionary resolves them to curves in
 the active dataset.
 
-## Implemented first slice
+## Current model
 
-- versioned form schema v1;
+- versioned form schema, currently v11;
 - form, column, track and parameter-binding models;
 - depth and time form types;
 - identifier, width, range and duplicate-link validation;
@@ -14,8 +14,6 @@ the active dataset.
 - user-form repository;
 - read-only factory templates and editable copies;
 - basic depth, basic time, gas components, Gas Ratio, Pixler and interpretation templates.
-
-The visual form editor is the next stage and will use these models as the single source of truth.
 
 ## Form manager
 

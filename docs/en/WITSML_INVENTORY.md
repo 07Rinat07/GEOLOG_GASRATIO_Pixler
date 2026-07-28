@@ -29,8 +29,8 @@ Each object row shows the source member, XML type, `schemaVersion`, `Citation` t
 - every direct `Index`, including type, mnemonic, unit, direction, and datum reference;
 - `StartIndex` and `EndIndex`.
 
-This layer is an inventory and preflight check. Semantic channel mapping, acquisition-schema
-creation, and appending rows to a `Dataset` remain a separate atomic workflow.
+This layer is only an inventory and preflight check. Semantic mapping and atomic `Dataset`
+creation are handled by the separate [data-import workflow](WITSML_DATA_IMPORT.md).
 
 ## Security boundary
 
@@ -46,13 +46,13 @@ metadata inventory, not unlimited loading of large time-series arrays.
 ## Current limitations
 
 - official XSD validation is not yet performed;
-- WITSML 1.x is not supported;
-- channel data arrays are not imported;
-- ETP 1.2, authentication, TLS, and network secrets are not implemented;
+- WITSML 1.x and channel data arrays are not parsed by this metadata-only command;
+- inventory performs no network requests and uses no credentials;
 - an `.epc` or `.zip` extension alone never makes package content trusted.
 
-## Next increment
+## Related workflows
 
-The next increment will transform selected `Channel` objects and indexes into a proposed
-`AcquisitionDatasetSchema`, present mapping/QC for review, and only then create a growing dataset
-atomically. A network ETP client follows after the offline mapping and replay contract is complete.
+Use [offline data import](WITSML_DATA_IMPORT.md) for bulk ChannelSet data and
+[read-only SOAP](WITSML_1411_SOAP.md) for WITSML 1.4.1.1. ETP 1.2 has a separate foundation,
+while production interoperability and the long-running field gate remain open in the
+[single project plan](../PROJECT_PLAN.md).

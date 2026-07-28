@@ -19,7 +19,7 @@ def _large_mixed_dataset() -> Dataset:
     depth = 47.0 + np.arange(9847, dtype=np.float64) * 0.2
     dataset = Dataset(
         "mixed-9847",
-        "Геология_plus_Технология",
+        "Синтетический_смешанный_набор",
         DatasetKind.GTI,
         DepthDomain.MD,
         depth,

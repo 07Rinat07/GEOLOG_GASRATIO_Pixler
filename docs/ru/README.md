@@ -4,11 +4,38 @@ GEOLOG GASRATIO@Pixler — редактор буровых, газокарота
 
 ## Установка и запуск
 
-Требуется Python 3.11 или новее. Откройте PowerShell в корне проекта и выполните:
+Требуется Python 3.11 или новее. Все команды выполняются из корня проекта.
+
+### Windows 10/11 — PowerShell
 
 ```powershell
 py -3.11 -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m geoworkbench.app.main
+```
+
+### Linux
+
+Убедитесь, что `python3 --version` показывает версию 3.11 или новее:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m geoworkbench.app.main
+```
+
+### macOS
+
+Если Python 3.11+ ещё не установлен, его можно установить командой
+`brew install python@3.11`, затем выполнить:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 python -m geoworkbench.app.main
@@ -16,6 +43,10 @@ python -m geoworkbench.app.main
 
 Каноническая команда запуска — `python -m geoworkbench.app.main`. Она используется в README,
 тестах и release gate. Команду следует выполнять из активированного виртуального окружения.
+Для запуска без инструментов разработки замените `-e ".[dev]"` на `-e .`. Основной release-gate
+проекта выполняется в Windows; на Linux и macOS перед рабочим применением проверьте GUI, печать и
+полевые подключения на целевой машине. Дополнительные зависимости и решение типичных ошибок Qt
+описаны в [корневом README](../../README.md).
 
 Приветственное окно показывается не менее **3 секунд**, чтобы логотип, анимация буровой и статус
 загрузки оставались видимыми. Если инициализация длится дольше, окно закрывается после готовности
@@ -561,8 +592,10 @@ Sensors и распознаёт распространённые псевдон�
 
 ## Состояние и дальнейшее развитие
 
-Подтверждённые ограничения и результаты проверок находятся в [статусе проекта](PROJECT_STATUS.md),
-а приоритеты — в [плане проекта](PROJECT_PLAN.md) и [аудите](PRODUCT_AUDIT_2026.md).
+Подтверждённые ограничения и порядок работ находятся в
+[едином плане проекта](../PROJECT_PLAN.md), а безопасный
+импорт, сеть, credentials, diagnostics и incident reporting — в
+[инструкции по безопасности](SECURITY.md).
 
 ## Единое определение отчёта
 

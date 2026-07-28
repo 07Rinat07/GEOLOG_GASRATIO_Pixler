@@ -331,6 +331,7 @@ class CurveView(QWidget):
                 float(np.min(finite_depth)),
                 float(np.max(finite_depth)),
                 max_points=MAX_RENDERED_POINTS,
+                include_viewport_context=False,
             )
             if visible_depth.size == 0 or not np.any(np.isfinite(visible_values)):
                 continue
@@ -400,6 +401,7 @@ class CurveView(QWidget):
                 top,
                 bottom,
                 max_points=MAX_RENDERED_POINTS,
+                include_viewport_context=False,
             )
             item.setData(values, visible_depth, connect="finite")
 

@@ -5440,7 +5440,9 @@ class TabletView(QWidget):
                 groups.append((title, width))
 
         for title, width in groups:
-            localized_title = localized_factory_label(title, self._localizer.language)
+            localized_title = title
+            if self._layout_model.localize_factory_labels:
+                localized_title = localized_factory_label(title, self._localizer.language)
             label = QLabel(localized_title or " ")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setFixedWidth(max(1, width - 2))
@@ -7211,7 +7213,10 @@ class TabletView(QWidget):
             values[np.isnat(dates)] = np.nan
             return values
         try:
-            return raw.astype(np.float64)
+            # Numeric indexes are persisted as float64 in the normal path.
+            # Reusing that array keeps CurveGeometryKey.axis_revision stable and
+            # avoids an O(N) copy on every pan/zoom refresh.
+            return raw.astype(np.float64, copy=False)
         except (TypeError, ValueError):
             return np.full(raw.shape, np.nan, dtype=np.float64)
 
@@ -8000,10 +8005,12 @@ class TabletView(QWidget):
         self, definition: TrackDefinition, mnemonic: str, curve: CurveData
     ) -> str:
         metadata = curve.metadata
-        configured = localized_factory_label(
-            definition.curve_display_settings(mnemonic).display_name,
-            self._localizer.language,
-        )
+        configured = definition.curve_display_settings(mnemonic).display_name
+        if self._layout_model.localize_factory_labels:
+            configured = localized_factory_label(
+                configured,
+                self._localizer.language,
+            )
         return localized_curve_name(
             metadata.original_mnemonic or mnemonic,
             description=metadata.description or "",
@@ -8025,15 +8032,16 @@ class TabletView(QWidget):
             TrackKind.TEXT: "tablet.track.description",
         }
         key = standard.get(definition.kind)
-        if key is not None:
+        if key is not None and self._layout_model.localize_factory_labels:
             return self._localizer.text(key)
 
-        localized_title = localized_factory_label(
-            definition.title,
-            self._localizer.language,
-        )
-        if localized_title != definition.title:
-            return localized_title
+        if self._layout_model.localize_factory_labels:
+            localized_title = localized_factory_label(
+                definition.title,
+                self._localizer.language,
+            )
+            if localized_title != definition.title:
+                return localized_title
 
         if definition.kind in {TrackKind.CURVE, TrackKind.DEXP} and definition.curve_mnemonics:
             generated = " / ".join(definition.curve_mnemonics)

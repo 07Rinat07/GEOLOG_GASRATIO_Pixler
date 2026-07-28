@@ -7,6 +7,10 @@ from pathlib import Path
 
 from openpyxl import Workbook  # type: ignore[import-untyped]
 
+from geoworkbench.data.spreadsheet_safety import (
+    protect_spreadsheet_row,
+    protect_spreadsheet_value,
+)
 from geoworkbench.domain.models import WellInterpretation
 
 
@@ -64,7 +68,12 @@ def export_interpretation_csv(
             for interval in interpretation.intervals:
                 row = asdict(interval)
                 row["comment"] = row["comment"] or ""
-                writer.writerow(row)
+                writer.writerow(
+                    {
+                        column: protect_spreadsheet_value(row[column])
+                        for column in _COLUMNS
+                    }
+                )
     except OSError as exc:
         raise InterpretationExportError(
             f"Не удалось экспортировать интерпретацию: {destination}"
@@ -83,10 +92,14 @@ def export_interpretation_excel(
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Intervals"
-    sheet.append(list(_COLUMNS))
+    sheet.append(protect_spreadsheet_row(_COLUMNS))
     for interval in interpretation.intervals:
         row = asdict(interval)
-        sheet.append([row[column] if row[column] is not None else "" for column in _COLUMNS])
+        sheet.append(
+            protect_spreadsheet_row(
+                row[column] if row[column] is not None else "" for column in _COLUMNS
+            )
+        )
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
     widths = (38, 14, 14, 22, 32, 12, 60)
@@ -94,10 +107,14 @@ def export_interpretation_excel(
         sheet.column_dimensions[chr(64 + index)].width = width
 
     meta = workbook.create_sheet("Metadata")
-    meta.append(["well_name", well_name or ""])
-    meta.append(["interpretation_id", interpretation.interpretation_id])
-    meta.append(["name", interpretation.name])
-    meta.append(["description", interpretation.description or ""])
+    meta.append(protect_spreadsheet_row(("well_name", well_name or "")))
+    meta.append(
+        protect_spreadsheet_row(("interpretation_id", interpretation.interpretation_id))
+    )
+    meta.append(protect_spreadsheet_row(("name", interpretation.name)))
+    meta.append(
+        protect_spreadsheet_row(("description", interpretation.description or ""))
+    )
     try:
         workbook.save(destination)
     except OSError as exc:

@@ -27,12 +27,18 @@ class ProjectMigrationRegistry:
         self.migrations[source_version] = migration
 
     def migrate(self, payload: ProjectPayload, target_version: int) -> ProjectPayload:
-        current = deepcopy(payload)
-        source_version = self._read_version(current)
+        source_version = self._read_version(payload)
         if source_version > target_version:
             raise ProjectMigrationError(
                 f"Версия проекта {source_version} новее поддерживаемой {target_version}"
             )
+        # Current-format project files are already immutable input for the codec.
+        # Avoid duplicating the complete JSON tree (including every curve array)
+        # when no migration is required.
+        if source_version == target_version:
+            return payload
+
+        current = deepcopy(payload)
 
         while source_version < target_version:
             migration = self.migrations.get(source_version)

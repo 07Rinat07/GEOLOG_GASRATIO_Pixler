@@ -1,39 +1,9 @@
 # Features and instructions
 
-
-## WITS0 normalized batches and append-only AcquisitionSession — 0.7.76
-
-After a current Import Review, **File → Capture WITS Level 0...** starts an acquisition session for the current well. `Wits0FrameNormalizer` converts frames into deterministic immutable batches, while `Wits0AcquisitionRuntime` writes them only through the bounded `AcquisitionController`, with atomic enqueue, backpressure, checkpoints, and controlled close. Status shows pending/applied/skipped/checkpoints/backpressure, and the growing Dataset appears in the project immediately. See [WITS0_ACQUISITION.md](WITS0_ACQUISITION.md) and [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
-
-## WITS0 Import Review and immutable schema — 0.7.75
-
-**File → Capture WITS Level 0...** now builds an immutable discovery snapshot of every data `record/item`. **Import Review…** shows types, UOM, samples, and QC; proposes Semantic Channel Dictionary mappings; supports time/depth index selection, hiding, and overrides; and atomically creates an immutable `AcquisitionDatasetSchema`. Mapping is stored in a separate versioned custom profile; numerical UOM conversion and `AcquisitionSession` remain the next increment. See [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
-
-## WITS Level 0 raw capture and parser — 0.7.74
-
-**File → Capture WITS Level 0...** supports TCP server/client operation, append-only raw segments, a UTC chunk index, incremental `&& ... !!` framing, and automatic client reconnect. Socket work stays outside the Qt thread. Values are not yet committed to a Dataset. See [WITS0_CAPTURE.md](WITS0_CAPTURE.md).
-
-## Workspace-bounded command rows and ultra-thin symbols — 0.7.72
-
-Both top command rows live in an application-owned central host instead of the native `QMainWindow` toolbar area. They cannot raise the native window minimum width after F4, action-state, or DPI changes. Catalog-symbol width and height persist independently down to `0.01` logical pixel; this renders as the thinnest visible line, while a separate selection frame preserves mouse usability.
-
-## On-screen toolbars and one-pixel symbols — 0.7.71
-
-Both top toolbars have a hard cap based on the current window width and re-adapt after F4, action-state, DPI or monitor changes. Catalog symbols no longer receive the generic 40×24 px rendering minimum and can be independently narrowed to 1×1 logical pixel with Ctrl+S persistence.
-
-## Reliable toolbar fitting and tiny symbols — 0.7.70
-
-- application-owned responsive row instead of native `QToolBar` overflow;
-- **Form editing** pinned inside the right edge;
-- automatic migration of commands into **`⋯`** on narrow or high-DPI screens;
-- identical adaptation for the main and F4 toolbars;
-- independent symbol narrowing in width or height down to 2 logical pixels;
-- preserved small dimensions in project save, preview, PDF and printing.
-
-
 This file is the current map of user-facing GEOLOG GASRATIO@Pixler features. Each area explains
 what the feature does, where the command is located, and which document contains the complete
-workflow. Historical build notes remain in release notes and do not replace the user guide.
+workflow. Major changes are recorded in the [CHANGELOG](../CHANGELOG.md), while implementation
+details remain in Git.
 
 ## General working rules
 
@@ -108,7 +78,7 @@ are localized.
   factory template cannot be replaced.
 
 
-## Catalog, toolbars, and diagnostics — 0.7.66
+## Catalog, toolbars, and diagnostics
 
 - Browse, create, and save workflows show the same Ready, **18 factory**, and user forms.
 - Top toolbars are responsive: secondary captions are hidden when width is limited while
@@ -116,7 +86,7 @@ are localized.
 - **Help → Clear diagnostics data…** removes only service logs and reports after confirmation;
   projects, LAS files, forms, and exported ZIP bundles remain untouched.
 
-## Compact parameter rulers — 0.7.67
+## Compact parameter rulers
 
 - The duplicated generic **Scale** caption is removed from numeric curve headers.
 - Each ruler is labelled with its parameter name and unit, for example **Weight on bit · t**.
@@ -124,7 +94,7 @@ are localized.
 - The common renderer applies the layout to every factory, ready, and user form.
 - Project, form, and tablet schemas are unchanged; existing forms do not need to be resaved.
 
-## Free catalog-symbol stretching — 0.7.68
+## Free catalog-symbol stretching
 
 - Side handles independently change a catalog symbol's width or height.
 - Corner handles freely change both dimensions, allowing a long, tall, or compact technical mark.
@@ -133,7 +103,7 @@ are localized.
 - The resulting width and height participate in Undo/Redo, persist with the project, and render the
   same way in preview, PDF, and print.
 
-## Guaranteed top-toolbar placement — 0.7.69
+## Guaranteed top-toolbar placement
 
 - The responsive toolbar uses real logical button, system-font, and current-DPI metrics.
 - Captions become icons when space is limited; if that is still insufficient, lower-priority commands
@@ -141,3 +111,15 @@ are localized.
 - The right-side **Form editing** toggle is never hidden or moved into overflow.
 - Recalculation runs after window, style, font, DPI, work-area, and monitor changes.
 - The **“⋯”** menu uses the original actions, so shortcuts and command permissions are unchanged.
+
+## Field data and system design
+
+- [Application architecture](ARCHITECTURE.md)
+- ETP 1.2: [architecture](ETP12_ARCHITECTURE.md),
+  [acquisition](ETP12_ACQUISITION.md),
+  [interoperability gate](ETP12_INTEROPERABILITY_GATE.md)
+- WITS0: [live view](WITS0_LIVE_VIEW.md), [reliability](WITS0_RELIABILITY.md),
+  [vendor catalog](WITS0_VENDOR_CATALOG.md),
+  [Windows field gate](WITS0_WINDOWS_FIELD_GATE.md)
+- WITSML: [inventory](WITSML_INVENTORY.md),
+  [data import](WITSML_DATA_IMPORT.md)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,21 +17,40 @@ from geoworkbench.importers.etp12.protocol import Etp12ProtocolEngine
 from geoworkbench.services.etp12_audit import JsonlEtp12AuditSink
 
 
-class RequestSession: pass
-class OpenSession: pass
-class Acknowledge: pass
+class RequestSession:
+    pass
+
+
+class OpenSession:
+    pass
+
+
+class Acknowledge:
+    pass
+
+
 class CloseSession:
     def __init__(self, reason: str) -> None:
         self.reason = reason
+
+
 class ProtocolException:
     def __init__(self, message: str) -> None:
         self.error = SimpleNamespace(code=1, message=message)
         self.errors = {}
-class Query: pass
+
+
+class Query:
+    pass
+
+
 class Response:
     def __init__(self, value: str) -> None:
         self.value = value
-class ChannelData: pass
+
+
+class ChannelData:
+    pass
 
 
 class FakeFactory:

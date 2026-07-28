@@ -4,12 +4,38 @@ GEOLOG GASRATIO@Pixler — бұрғылау, газ каротажы, LAS жән
 
 ## Орнату және іске қосу
 
-Python 3.11 немесе одан жаңа нұсқа қажет. PowerShell терезесін жоба түбірінде ашып, келесі
-командаларды орындаңыз:
+Python 3.11 немесе одан жаңа нұсқа қажет. Барлық командаларды жоба түбірінде орындаңыз.
+
+### Windows 10/11 — PowerShell
 
 ```powershell
 py -3.11 -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m geoworkbench.app.main
+```
+
+### Linux
+
+`python3 --version` командасы 3.11 немесе одан жаңа нұсқаны көрсетуі керек:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m geoworkbench.app.main
+```
+
+### macOS
+
+Python 3.11+ әлі орнатылмаса, оны `brew install python@3.11` командасымен орнатып, кейін
+мыналарды орындаңыз:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 python -m geoworkbench.app.main
@@ -17,7 +43,11 @@ python -m geoworkbench.app.main
 
 Негізгі тексерілетін іске қосу командасы — `python -m geoworkbench.app.main`. Ол README,
 тесттер және release gate ішінде бірдей қолданылады. Команданы белсенді virtual environment
-ішінде орындаңыз.
+ішінде орындаңыз. Әзірлеу құралдарынсыз тек іске қосу үшін `-e ".[dev]"` орнына `-e .`
+қолданыңыз. Негізгі release gate Windows жүйесінде орындалады; Linux және macOS жүйелерінде
+жұмысқа қолданар алдында GUI, басып шығару және далалық қосылымдарды мақсатты компьютерде
+тексеріңіз. Қосымша тәуелділіктер мен Qt қателерін шешу жолдары
+[түбірлік README файлында](../../README.md) берілген.
 
 Сәлемдесу терезесі логотип, бұрғылау анимациясы және жүктеу күйі көрінуі үшін кемінде **3 секунд**
 көрсетіледі. Инициализация ұзағырақ болса, терезе қолданба дайын болғаннан кейін жабылады.
@@ -545,8 +575,10 @@ Print Center-де тексеріңіз: деректерді өзгертпей 
 
 ## Күй және әрі қарай дамыту
 
-Тексерілген шектеулер [жоба күйінде](PROJECT_STATUS.md), ал басымдықтар
-[жоба жоспарында](PROJECT_PLAN.md) және [аудитте](PRODUCT_AUDIT_2026.md) берілген.
+Тексерілген шектеулер мен басымдықтар
+[бірыңғай жоба жоспарында](../PROJECT_PLAN.md) берілген. Safe import,
+network, credentials, diagnostics және incident reporting
+[қауіпсіздік нұсқаулығында](SECURITY.md) сипатталған.
 
 ## Ортақ есеп анықтамасы
 

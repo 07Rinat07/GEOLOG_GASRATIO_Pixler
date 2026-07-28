@@ -15,7 +15,15 @@ not expose Add, Update or Delete operations. The hierarchy is discovered in this
 - SOAP DTD/entity declarations are rejected;
 - response size is bounded;
 - audit events contain no request XML or Authorization data;
-- TLS certificate verification is enabled by default.
+- a remote endpoint is allowed only over `https://` with certificate-chain and hostname
+  verification;
+- `http://` or disabled TLS verification is allowed only for loopback
+  (`127.0.0.1`/`localhost`) in a controlled test;
+- HTTP redirects are not followed: enter and independently confirm the final URL so credentials
+  cannot be moved to another origin or a downgrade.
+
+On a certificate error, stop and contact the server administrator. Never put the password in the
+URL or disable verification for a remote address.
 
 ## Retry policy
 

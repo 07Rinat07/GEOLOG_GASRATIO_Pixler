@@ -84,7 +84,7 @@ The Dataset records:
 
 ## Current exclusions
 
-This slice imports scalar numeric offline data only. Binary Avro, multidimensional channel arrays,
-WITSML 1.4.1.1 SOAP and WITSML 2.x/ETP streaming remain later increments. The separate Windows
-WITS0 field reliability gate continues in parallel and is not implied to have passed by this
-release.
+Offline import handles scalar numeric data only; Binary Avro and multidimensional channel arrays
+are unsupported. WITSML 1.4.1.1 read-only SOAP and the ETP 1.2 foundation are separate implemented
+paths, while production ETP interoperability and the Windows WITS0 field-reliability gate remain
+open.

@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import os
 import re
+import stat
 import tempfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
+
+from defusedxml.common import DefusedXmlException
+from defusedxml.ElementTree import fromstring as safe_xml_fromstring
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 PNG_MEDIA_TYPE = "image/png"
@@ -129,8 +133,35 @@ def save_image_assets(project_path: Path, assets: dict[str, ImageAsset]) -> dict
         _validate_asset(asset_id, asset)
         digest = asset_id.removeprefix("sha256:")
         target = directory / f"{digest}{_extension(asset.media_type)}"
-        if target.exists():
-            if target.is_symlink() or target.read_bytes() != asset.payload:
+        if target.exists() or target.is_symlink():
+            before = _regular_file_stat(
+                target,
+                f"Существующий image asset повреждён: {target.name}",
+            )
+            if (
+                before.st_size > MAX_IMAGE_ASSET_BYTES
+                or before.st_size != len(asset.payload)
+            ):
+                raise ImageAssetError(
+                    f"Существующий image asset повреждён: {target.name}"
+                )
+            try:
+                existing = target.read_bytes()
+            except OSError as exc:
+                raise ImageAssetError(
+                    f"Существующий image asset повреждён: {target.name}"
+                ) from exc
+            after = _regular_file_stat(
+                target,
+                f"Существующий image asset повреждён: {target.name}",
+            )
+            if (
+                after.st_size > MAX_IMAGE_ASSET_BYTES
+                or after.st_size != len(asset.payload)
+                or len(existing) > MAX_IMAGE_ASSET_BYTES
+                or len(existing) != len(asset.payload)
+                or existing != asset.payload
+            ):
                 raise ImageAssetError(f"Существующий image asset повреждён: {target.name}")
         else:
             _atomic_write(target, asset.payload)
@@ -166,22 +197,41 @@ def load_image_assets(project_path: Path, manifest: Any) -> dict[str, ImageAsset
             or asset_id != f"sha256:{digest}"
             or not isinstance(size, int)
             or isinstance(size, bool)
+            or size < 0
             or not isinstance(name, str)
             or raw.get("media_type") not in {PNG_MEDIA_TYPE, SVG_MEDIA_TYPE}
         ):
             raise ImageAssetError("Описание image asset некорректно")
         relative = Path(path)
-        target = (project_path.parent / relative).resolve(strict=False)
-        if relative.is_absolute() or ".." in relative.parts or not target.is_relative_to(directory):
+        candidate = project_path.parent / relative
+        target = candidate.resolve(strict=False)
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or not target.is_relative_to(directory)
+        ):
             raise ImageAssetError("Image asset находится вне каталога проекта")
-        if not target.is_file() or target.is_symlink():
-            raise ImageAssetError(f"Image asset не найден: {relative}")
-        payload = target.read_bytes()
         media_type = str(raw["media_type"])
-        if target.suffix.casefold() != _extension(media_type):
+        if candidate.suffix.casefold() != _extension(media_type):
             raise ImageAssetError("Расширение image asset не соответствует media_type")
+        before = _regular_file_stat(candidate, f"Image asset не найден: {relative}")
+        if before.st_size > MAX_IMAGE_ASSET_BYTES or size > MAX_IMAGE_ASSET_BYTES:
+            raise ImageAssetError("Image asset превышает лимит 10 МБ")
+        if before.st_size != size:
+            raise ImageAssetError(f"Image asset повреждён: {relative}")
+        try:
+            payload = candidate.read_bytes()
+        except OSError as exc:
+            raise ImageAssetError(f"Image asset не найден: {relative}") from exc
+        after = _regular_file_stat(candidate, f"Image asset не найден: {relative}")
         asset = ImageAsset(asset_id, name, media_type, payload)
-        if len(payload) != size or sha256(payload).hexdigest() != digest:
+        if (
+            after.st_size > MAX_IMAGE_ASSET_BYTES
+            or after.st_size != size
+            or len(payload) > MAX_IMAGE_ASSET_BYTES
+            or len(payload) != size
+            or sha256(payload).hexdigest() != digest
+        ):
             raise ImageAssetError(f"Image asset повреждён: {relative}")
         _validate_asset(asset_id, asset)
         assets[asset_id] = asset
@@ -230,12 +280,27 @@ def _extension(media_type: str) -> str:
     return ".svg" if media_type == SVG_MEDIA_TYPE else ".png"
 
 
+def _regular_file_stat(path: Path, error_message: str) -> os.stat_result:
+    try:
+        result = path.lstat()
+    except OSError as exc:
+        raise ImageAssetError(error_message) from exc
+    if not stat.S_ISREG(result.st_mode):
+        raise ImageAssetError(error_message)
+    return result
+
+
 def _validate_svg_payload(payload: bytes) -> None:
     if not payload or any(marker in payload.lower() for marker in _SVG_FORBIDDEN_RAW):
         raise ImageAssetError("SVG содержит запрещённые DTD или entities")
     try:
-        root = ET.fromstring(payload)
-    except (ET.ParseError, ValueError) as exc:
+        root = safe_xml_fromstring(
+            payload,
+            forbid_dtd=True,
+            forbid_entities=True,
+            forbid_external=True,
+        )
+    except (ET.ParseError, DefusedXmlException, ValueError) as exc:
         raise ImageAssetError("SVG имеет некорректную XML-структуру") from exc
     if _local_name(root.tag) != "svg":
         raise ImageAssetError("Корневой элемент SVG должен быть <svg>")

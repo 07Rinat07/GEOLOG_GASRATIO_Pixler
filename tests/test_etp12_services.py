@@ -137,9 +137,12 @@ def service():
         allow_insecure_localhost=True,
     )
     engines = []
+
     def factory():
-        engine = FakeEngine(); engines.append(engine)
+        engine = FakeEngine()
+        engines.append(engine)
         return engine, FakeFactory()
+
     value = Etp12ClientService(profile, engine_factory=factory)
     value._test_engines = engines
     return value

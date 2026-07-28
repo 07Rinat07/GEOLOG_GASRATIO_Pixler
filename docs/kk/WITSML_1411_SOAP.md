@@ -15,7 +15,15 @@
 - SOAP ішіндегі DTD/entity қабылданбайды;
 - жауап өлшемі шектеледі;
 - аудит XML сұрауын және Authorization мәнін сақтамайды;
-- TLS тексеруі әдепкіде қосулы.
+- remote endpoint тек certificate chain және hostname verification бар `https://` арқылы
+  рұқсат етіледі;
+- `http://` немесе TLS verification өшіру тек loopback (`127.0.0.1`/`localhost`) және
+  бақыланатын test үшін жарамды;
+- HTTP redirects орындалмайды: credentials басқа origin немесе downgrade ішіне өтпеуі үшін
+  final URL-ді енгізіп, бөлек растаңыз.
+
+Certificate error болса, жұмысты тоқтатып, server administrator-ға хабарласыңыз. Password-ты URL
+ішіне жазбаңыз және remote address үшін verification өшірмеңіз.
 
 ## Қайталау саясаты
 

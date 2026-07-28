@@ -58,14 +58,76 @@ temp/
 # Runtime user data and generated output
 projects/*
 !projects/.gitkeep
+*.geolog.json
+*.geolog.json.assets/
 exports/*
 !exports/.gitkeep
-reports/
+reports/*
+!reports/.gitkeep
 output/
 attachments/*
 !attachments/.gitkeep
 preview_cache/
 thumbnails/
+captures/
+diagnostics/
+raw/
+
+# Well, acquisition and field files are user data, not source code
+*.[lL][aA][sS]
+*.[wW][iI][tT][sS]
+*.[wW][iI][tT][sS][mM][lL]
+*.[eE][pP][cC]
+*.[dD][lL][iI][sS]
+*.[lL][iI][sS]
+*.[sS][kK][fF]
+*.[gG][sS]2
+*.[mM][dD][bB]
+*.[aA][cC][cC][dD][bB]
+*.[fF][dD][bB]
+*.[dD][bB]
+*.[sS][qQ][lL][iI][tT][eE]
+*.[sS][qQ][lL][iI][tT][eE]3
+*.[dD][uU][cC][kK][dD][bB]
+*.sqlite-*
+*.[hH]5
+*.[hH][dD][fF]5
+*.[sS][gG][yY]
+*.[sS][eE][gG][yY]
+*.[pP][aA][rR][qQ][uU][eE][tT]
+*.[fF][eE][aA][tT][hH][eE][rR]
+*.[aA][rR][rR][oO][wW]
+*.zarr/
+*.jsonl
+*.ndjson
+*.[rR][aA][wW]
+
+# Save dialogs may point at the repository root; keep manual exports out
+/*.[cC][sS][vV]
+/*.[tT][sS][vV]
+/*.[xX][lL][sS]
+/*.[xX][lL][sS][xX]
+/*.[xX][lL][sS][mM]
+/*.[pP][dD][fF]
+/*.[dD][oO][cC][xX]
+/*.[hH][tT][mM][lL]
+/*.[xX][mM][lL]
+/*.[zZ][iI][pP]
+/*.[pP][nN][gG]
+/*.[jJ][pP][gG]
+/*.[jJ][pP][eE][gG]
+/*.[tT][iI][fF]
+/*.[tT][iI][fF][fF]
+/*.[bB][mM][pP]
+/*.[wW][eE][bB][pP]
+/*.[sS][vV][gG]
+/MERGE_REPORT_*.txt
+
+# Explicit repository-owned synthetic fixtures and factual references
+!tests/fixtures/**
+!resources/samples/**
+!vendor_reference/**/derived/**
+!docs/validation/ETP12_INTEROPERABILITY_MATRIX_TEMPLATE.csv
 
 # Local databases and journals
 *.sqlite-journal
@@ -76,6 +138,10 @@ thumbnails/
 # User workspace settings
 user_settings.json
 workspace.json
+
+# Local agent/session state
+/.agents/
+/.codex/
 
 # Qt generated cache
 *.qmlc

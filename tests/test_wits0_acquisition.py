@@ -15,7 +15,7 @@ from geoworkbench.acquisition import (
 )
 from geoworkbench.domain.acquisition import AcquisitionSessionState
 from geoworkbench.domain.models import IndexType, Well
-from geoworkbench.services.acquisition import AcquisitionBackpressureError, AcquisitionController
+from geoworkbench.services.acquisition import AcquisitionBackpressureError
 from geoworkbench.services.wits0_acquisition import (
     Wits0AcquisitionBackpressureError,
     Wits0AcquisitionConfig,

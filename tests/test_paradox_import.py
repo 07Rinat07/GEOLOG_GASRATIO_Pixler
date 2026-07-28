@@ -6,6 +6,7 @@ import struct
 import numpy as np
 import pytest
 
+import geoworkbench.importers.paradox.reader as paradox_reader
 from geoworkbench.importers.paradox import (
     DatasetClassification,
     ParadoxImportPlan,
@@ -100,6 +101,100 @@ def test_format_detector_distinguishes_paradox_sqlite_and_invalid(tmp_path: Path
 
     with pytest.raises(ParadoxReadError, match="SQLite DB"):
         read_paradox(sqlite)
+
+
+def test_record_count_cannot_exceed_block_capacity_before_allocation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "malicious-count.db"
+    write_synthetic_paradox(source)
+    accepted_probe = probe_db_format(source)
+    assert accepted_probe.is_paradox
+
+    payload = bytearray(source.read_bytes())
+    struct.pack_into("<I", payload, 0x06, 100_000_000)
+    source.write_bytes(payload)
+
+    rejected_probe = probe_db_format(source)
+    assert not rejected_probe.is_paradox
+    assert "record count exceeds declared block capacity" in rejected_probe.reason
+
+    # Simulate a stale/compromised preflight result: the reader must repeat the
+    # capacity check itself before any count-sized NumPy allocation.
+    monkeypatch.setattr(
+        paradox_reader,
+        "probe_db_format",
+        lambda _path, **_kwargs: accepted_probe,
+    )
+
+    def fail_if_allocated(*_args: object, **_kwargs: object) -> np.ndarray:
+        raise AssertionError("NumPy allocation happened before header validation")
+
+    monkeypatch.setattr(paradox_reader.np, "full", fail_if_allocated)
+    with pytest.raises(ParadoxReadError, match="превышает вместимость блоков"):
+        read_paradox(source)
+
+
+def test_zero_sized_field_is_rejected_before_allocation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "zero-sized-field.db"
+    write_synthetic_paradox(source)
+    accepted_probe = probe_db_format(source)
+    assert accepted_probe.is_paradox
+
+    payload = bytearray(source.read_bytes())
+    payload[0x79] = 12
+    payload[0x7B] = 0
+    source.write_bytes(payload)
+
+    rejected_probe = probe_db_format(source)
+    assert not rejected_probe.is_paradox
+    assert "zero-sized field" in rejected_probe.reason
+
+    monkeypatch.setattr(
+        paradox_reader,
+        "probe_db_format",
+        lambda _path, **_kwargs: accepted_probe,
+    )
+
+    def fail_if_allocated(*_args: object, **_kwargs: object) -> np.ndarray:
+        raise AssertionError("NumPy allocation happened before field validation")
+
+    monkeypatch.setattr(paradox_reader.np, "full", fail_if_allocated)
+    with pytest.raises(ParadoxReadError, match="нулевой размер"):
+        read_paradox(source)
+
+
+def test_aggregate_array_budget_is_checked_before_allocation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "over-budget.db"
+    write_synthetic_paradox(source)
+    accepted_probe = probe_db_format(source)
+    assert accepted_probe.is_paradox
+
+    rejected_probe = probe_db_format(source, max_array_bytes=47)
+    assert not rejected_probe.is_paradox
+    assert "estimated column allocation exceeds memory budget: 48 > 47" in (
+        rejected_probe.reason
+    )
+
+    monkeypatch.setattr(
+        paradox_reader,
+        "probe_db_format",
+        lambda _path, **_kwargs: accepted_probe,
+    )
+
+    def fail_if_allocated(*_args: object, **_kwargs: object) -> np.ndarray:
+        raise AssertionError("NumPy allocation happened before budget validation")
+
+    monkeypatch.setattr(paradox_reader.np, "full", fail_if_allocated)
+    with pytest.raises(ParadoxReadError, match="48 > 47"):
+        read_paradox(source, max_array_bytes=47)
 
 
 def test_reader_reads_schema_records_and_nulls(tmp_path: Path) -> None:
@@ -229,9 +324,9 @@ def test_absolute_geoscape_time_prefers_datetime_axis(tmp_path: Path) -> None:
 
 
 def test_bundle_lookup_is_case_insensitive(tmp_path: Path) -> None:
-    db = tmp_path / "BLData.db"
+    db = tmp_path / "sample.db"
     db.write_bytes(b"")
-    for name in ("BLDATA.PX", "bldata.tv", "BLData.Fam"):
+    for name in ("SAMPLE.PX", "sample.tv", "Sample.Fam"):
         (tmp_path / name).write_bytes(b"")
 
     bundle = discover_bundle(db)
@@ -239,26 +334,6 @@ def test_bundle_lookup_is_case_insensitive(tmp_path: Path) -> None:
     assert bundle.primary_index is not None
     assert bundle.table_view is not None
     assert bundle.family is not None
-
-
-@pytest.mark.parametrize(
-    ("sample_name", "records", "fields"),
-    (("BLData(1).db", 3488, 70), ("D250(1).db", 1739, 101)),
-)
-def test_external_reference_samples_when_available(
-    sample_name: str,
-    records: int,
-    fields: int,
-) -> None:
-    source = Path("/mnt/data") / sample_name
-    if not source.exists():
-        pytest.skip("external user-provided verification sample is not present")
-
-    table = read_paradox(source)
-
-    assert table.rows_read == records
-    assert len(table.fields) == fields
-    assert not [issue for issue in table.issues if issue.severity.value == "critical"]
 
 
 def test_profile_round_trip_and_schema_guard(tmp_path: Path) -> None:
@@ -517,50 +592,6 @@ def test_field_decoders_cover_supported_paradox_types() -> None:
         field(ParadoxFieldType.BYTES, 2), b"\x01\x02", encoding="cp1251"
     ) == b"\x01\x02"
     assert decode_field(field(ParadoxFieldType.NUMBER, 8), b"\x00" * 8, encoding="cp1251") is None
-
-
-def test_external_samples_keep_column_alignment_and_index_candidates() -> None:
-    bl_source = Path("/mnt/data/BLData(1).db")
-    d250_source = Path("/mnt/data/D250(1).db")
-    if not bl_source.exists() or not d250_source.exists():
-        pytest.skip("external user-provided verification samples are not present")
-
-    bl = read_paradox(bl_source)
-    bl_quality = analyze_table(bl)
-    np.testing.assert_allclose(bl.columns["S113"].values[[0, -1]], [309.2, 1717.6])
-    assert bl_quality.depth_candidates[0].field_name == "S113"
-    assert bl_quality.time_candidates[0].field_name == "S0"
-    assert bl_quality.classification is DatasetClassification.TIME_WITH_DEPTH
-    bl_result = import_paradox(
-        bl_source,
-        ParadoxImportPlan(
-            classification=DatasetClassification.TIME_WITH_DEPTH,
-            depth_field="S113",
-            time_field="S0",
-            active_role="depth",
-            mappings=default_mappings(bl),
-        ),
-        table=bl,
-        quality=bl_quality,
-    )
-    # The source file really stores rows at about 0.4 m, while the confirmed
-    # GeoScape server standard is 0.2 m.  Never write a false LAS STEP=0.2
-    # unless a separate, explicit resampling operation has created that grid.
-    assert bl_result.dataset.headers["STEP"] == "0.4"
-    assert bl_result.dataset.parameters["GEOSCAPE_STANDARD_DEPTH_STEP_M"] == "0.2"
-    assert bl_result.dataset.parameters["PARADOX_ACTUAL_DEPTH_STEP_M"] == "0.4"
-    assert bl_result.dataset.parameters["PARADOX_DEPTH_STEP_MATCHES_STANDARD"] == "false"
-
-    d250 = read_paradox(d250_source)
-    d250_quality = analyze_table(d250)
-    np.testing.assert_allclose(d250.columns["S101"].values[[0, -1]], [250.4, 661.8])
-    assert d250_quality.time_candidates[0].field_name == "S0"
-    assert {item.field_name for item in d250_quality.depth_candidates[:3]} == {
-        "S101",
-        "S115",
-        "S108",
-    }
-    assert d250_quality.classification is DatasetClassification.MIXED
 
 
 def test_import_plan_normalizes_qt_string_enum_values(tmp_path: Path) -> None:

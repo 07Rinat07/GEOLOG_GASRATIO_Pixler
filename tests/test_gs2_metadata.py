@@ -125,11 +125,11 @@ def test_access_snapshot_resolves_only_explicit_channels_for_selected_table(
                 "WELLS",
                 (
                     {
-                        "WELLID": "well-8",
-                        "WELLNAME": "СГ-8",
-                        "COUNTRY": "Казахстан",
-                        "OILFIELD": "Каратон",
-                        "FIELD": "Каратон Подсолевое",
+                        "WELLID": "synthetic-001",
+                        "WELLNAME": "SYNTHETIC-001",
+                        "COUNTRY": "Testland",
+                        "OILFIELD": "Synthetic Field",
+                        "FIELD": "Synthetic Area",
                     },
                 ),
             ),
@@ -152,10 +152,10 @@ def test_access_snapshot_resolves_only_explicit_channels_for_selected_table(
     assert by_source["S1"].unit == "%"
     assert by_source["S2"].name_en == "Calculated gas"
     assert metadata_well_headers(metadata) == {
-        "WELL": "СГ-8",
-        "FLD": "Каратон",
-        "LOC": "Каратон Подсолевое",
-        "CTRY": "Казахстан",
+        "WELL": "SYNTHETIC-001",
+        "FLD": "Synthetic Field",
+        "LOC": "Synthetic Area",
+        "CTRY": "Testland",
     }
 
 

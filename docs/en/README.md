@@ -4,11 +4,37 @@ GEOLOG GASRATIO@Pixler is an editor for drilling, mud-logging, LAS, and GeoScape
 
 ## Installation and startup
 
-Python 3.11 or newer is required. Open PowerShell in the project root and run:
+Python 3.11 or newer is required. Run every command from the project root.
+
+### Windows 10/11 — PowerShell
 
 ```powershell
 py -3.11 -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m geoworkbench.app.main
+```
+
+### Linux
+
+Confirm that `python3 --version` reports Python 3.11 or newer:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m geoworkbench.app.main
+```
+
+### macOS
+
+If Python 3.11+ is not installed yet, install it with `brew install python@3.11`, then run:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 python -m geoworkbench.app.main
@@ -16,7 +42,10 @@ python -m geoworkbench.app.main
 
 The canonical tested startup command is `python -m geoworkbench.app.main`. The same command is
 used by the README, regression tests, and the release gate. Run it from the activated virtual
-environment.
+environment. To run the application without development tools, replace `-e ".[dev]"` with
+`-e .`. The primary release gate runs on Windows; on Linux and macOS, validate the GUI, printing,
+and field connections on the target machine before operational use. See the
+[root README](../../README.md) for optional dependencies and Qt troubleshooting.
 
 The welcome window remains visible for at least **3 seconds** so the logo, drilling animation, and
 loading status can be seen. If initialization takes longer, it closes after the application is ready.
@@ -534,8 +563,10 @@ See [Rendering golden fixtures](GOLDEN_RENDERING.md).
 
 ## Status and future work
 
-Verified limitations are listed in [project status](PROJECT_STATUS.md); priorities are in the
-[project plan](PROJECT_PLAN.md) and [audit](PRODUCT_AUDIT_2026.md).
+Verified limitations and priorities are maintained in the
+[single project plan](../PROJECT_PLAN.md). Safe imports, networking,
+credentials, diagnostics, and incident reporting are covered by the
+[security guide](SECURITY.md).
 
 ## Shared report definition
 

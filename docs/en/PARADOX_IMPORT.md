@@ -1,68 +1,59 @@
-# GeoScape / Borland Paradox DB import — 0.7.29
+# GeoScape / Borland Paradox DB import
 
-## Import registration in 0.7.29
+## Purpose and opening
 
-DB reading and conversion still run in a cancellable worker thread. After a successful result, `DatasetImportJobExecutor` commits the dataset and its new well through the project-session boundary. `MainWindow` no longer mutates the project model directly. Failure, cancellation, or user rejection leaves no partially registered dataset, and the source DB remains unchanged.
+The importer converts GeoScape/Borland Paradox tables into the standard `Dataset` model. Use
+**File → Import → GeoScape / Paradox DB**, universal import, or drag a `.db` file into the window.
+The extension is not trusted: SQLite is checked first, followed by the bounded Paradox binary
+structure. Source DB/PX/TV/FAM files are opened read-only.
 
-## Batch-conversion correction in 0.7.26
+For `sample.db`, the application looks for `sample.PX`, `sample.TV`, and `sample.FAM`
+case-insensitively. A missing companion is reported but does not block DB-only import.
 
-On Windows, Qt enum user data may be returned as plain strings. After manual batch configuration this previously caused `'str' object has no attribute 'value'`. The import plan now normalizes classification, duplicate-depth policy, active index, NULL, and language immediately. This is unrelated to a 0.4/0.2 m step: LAS accepts the actual `STEP=0.4`; a 0.2 m grid is created only by explicit resampling. Batch errors now also identify the failing stage: reading, analysis, planning, import, writing, or LAS reopen validation.
+## Security and resources
 
-## Responsive dialog and safe close
+The header, record size, fields, blocks, declared capacity, and aggregate memory budget are
+validated before arrays are allocated. Zero-sized fields, contradictory counters, truncated
+blocks, and budget overruns are rejected. Reading, analysis, and `Dataset` creation run in a
+cancellable worker; failure or closing cannot leave a partially registered dataset.
 
-Binary block reading, analysis and Dataset creation run in worker threads. Channel, preview and diagnostics tables are populated in short Qt timer slices, allowing repaint, close and cancellation events to continue. Expensive `ResizeToContents` work is disabled during population.
+## Import Review
 
-The header shows the current file, one of six stages, overall percentage, processed count and elapsed time. The footer always keeps Cancel/Close, Save LAS and Open in editor visible. Closing during an operation requests cancellation and waits for a safe read boundary; the source DB is never modified.
+The dialog shows format, version, size, rows, fields, and companion files. Users select channels,
+LAS mnemonics, descriptions, units, NULL rules, and the active TIME/DEPTH index. Preview reads only
+the first and last 20 rows. An ambiguous index is never applied automatically.
 
-## Purpose
+OLE/Delphi Automation dates, Unix timestamps, and relative seconds/milliseconds are supported.
+A numeric `TIME` index is created while the source number is retained as `<channel>_RAW`.
 
-The importer converts GeoScape/Borland Paradox tables into the existing GEOLOG GASRATIO@Pixler multi-index `Dataset` model. After index confirmation, the standard table, graphs, LAS editor, project storage, merge, tablets, and printing are used; no parallel editor or duplicate curve model is created.
+## Channels, profiles, and QC
 
-## Opening data
+Unknown `Sxxx` channels are not guessed. Confirmed mappings live in a dictionary; a profile stores
+the schema SHA-256, indexes, mappings, NULL, and processing rules and is applied only to an exact
+structure match.
 
-Use **File → Import → GeoScape / Paradox DB**, universal import, or drag a `.db` file into the window. The extension is not trusted: SQLite is checked first, then bounded Paradox binary structure. DB/PX/TV/FAM sources are opened read-only and never overwritten.
+Checks cover empty rows/channels, NaN/Infinity, outliers, duplicate/reverse/negative depth, jumps,
+and chronology. Duplicates are retained by default; first/last/mean/median require an explicit
+choice. Every correction and row count is recorded in provenance.
 
-Selecting `BLData.db` discovers case-insensitive same-name `BLData.PX`, `BLData.TV`, and `BLData.FAM`. Missing companions produce a warning but do not block DB-only import.
+## Actual step and resampling
 
-## Analysis dialog
+The nominal GeoScape 0.2 m grid is displayed separately from the source's actual step. The LAS
+`STEP` header always describes rows that exist. A derived 0.2 m grid is created only through
+**LAS Editor → Resample depth…**; the source DB and imported `Dataset` remain unchanged.
 
-The dialog shows format, version, size, row/field counts, and bundle files. The channel table controls inclusion, LAS mnemonic, description, and unit. Preview loads only the first and last 20 rows. Reading, analysis, and dataset creation run in worker threads with progress and cancellation.
+## LAS, TIME → DEPTH, and batch
 
-Depth and time candidates are scored by completeness, monotonicity, range, step stability, name, duplicates, and reversals. Users can always replace the proposed index; ambiguous candidates are classified as mixed and are not silently converted. OLE/Delphi Automation date, Unix scales, and relative seconds/milliseconds are supported. A numeric elapsed `TIME` index is created while the original numeric source is retained as `<channel>_RAW`.
+Depth LAS uses `DEPT.M`, while time LAS uses `TIME.SEC`; `STRT/STOP/STEP` are derived from data.
+TIME → DEPTH creates a separate derived dataset with first/last/mean/median/min/max, nearest, or
+linear methods.
 
-## Channels and profiles
+**Tools → Batch DB → LAS conversion** supports files/directories, recursive search, profiles,
+`{source_name}_{mode}.las`, overwrite protection, progress, cancellation, and a JSON log.
+An ambiguous file receives **Configuration required**.
 
-Unknown `Sxxx` channels are not guessed: the source code remains the mnemonic, unit stays empty, and the description identifies the source channel. A JSON dictionary stores confirmed mappings, with user entries taking priority. Import profiles store an exact SHA-256 schema signature, indexes, mappings, NULL, and processing rules; they are applied only to an exact structure match.
+## Limitations
 
-## Quality control
-
-The analyzer checks empty channels/rows, NaN/Infinity, huge values, statistical outliers, duplicate/reverse/negative depth, jumps, and chronology. Duplicate depth is kept by default. Explicit policies are keep all, first, last, mean, and median; applied removals are recorded in dataset metadata and logs. The protocol also records the schema signature, selected indexes, NULL, sorting, imported/skipped channel and row counts, diagnostic severity counts, and every explicit correction.
-
-## Standard and actual depth step
-
-The confirmed nominal GeoScape server grid is **0.2 m**. The importer displays it separately from the actual step of the selected depth channel. The supplied `BLData.db` contains rows predominantly at **0.4 m**, which indicates that this particular file was probably recorded with a different server setting.
-
-The LAS `STEP` header always describes the data grid that actually exists. The importer therefore never writes a false `STEP=0.2` for 0.4 m rows. To create a derived 0.2 m grid, open the document and explicitly run **LAS Editor → Resample depth…**, then choose the interpolation method. The source DB and the original imported dataset remain unchanged.
-
-The batch converter follows the same contract: a 0.2 m source step produces `STEP=0.2`, while a 0.4 m source step produces `STEP=0.4`. No intermediate rows are added silently. **Depth LAS grid** offers an explicit derived **GeoScape 0.2 m** option: depth is sorted, the last row at each duplicate depth is kept, and numeric channels are linearly interpolated without bridging NULL gaps. **As source** remains the safe default. A temporary LAS is created first; the built-in reader then compares the complete index, `STRT/STOP/STEP`, channel set, and channel values. The final file is installed only after successful validation; on failure the temporary file is removed and any previous LAS remains intact.
-
-## LAS and TIME → DEPTH
-
-Depth export writes the active index first as `DEPT.M`; `STRT`, `STOP`, and a median positive `STEP` are derived from data. Time export writes `TIME.SEC`, stores the initial date/time in the header, and retains depth as `DEPTH.M`.
-
-**Convert time data to depth** creates a new derived dataset without modifying the source. Methods are first, last, mean, median, minimum, maximum, nearest, and explicit linear interpolation. Missing bins are not aggressively filled unless linear interpolation is selected.
-
-## Batch conversion
-
-**Tools → Batch DB → LAS conversion** accepts files or directories, recursive search, a profile, depth/time output, `{source_name}_{mode}.las` naming, skip/overwrite protection, progress, cancellation, and a JSON log next to the result. An ambiguous file without a matching profile receives a **Configuration required** status. Select the row, click **Configure selected DB…**, assign depth/time in the standard import dialog, and apply the plan to the batch operation. The plan is retained for the current session and only that file can be retried.
-
-## Verified samples and limitations
-
-The supplied samples verify Paradox 7.x `NUMBER` and `LONG`: `BLData.db` has 3488 rows/70 fields and `D250.db` has 1739/101. The implementation also contains bounded best-effort decoding for Alpha, Date, Short, Logical, Time, Timestamp, AutoIncrement, BCD, and Bytes/Blob, but those types were not present in the supplied samples and require additional real-world validation. A field-level decode error is logged and must not crash the application.
-## Mixed order and batch DB → LAS (0.7.47)
-
-When the selected DEPT/DEPTH/MD contains increasing and decreasing segments, only the accepted
-or export copy is sorted and every row stays aligned. Batch prefers explicit depth names even for
-a mixed table, but does not guess between weak candidates. Save a profile during single-file
-review and select it in batch when confirmation is required.
-
+Synthetic fixtures cover `NUMBER`, `LONG`, and bounded decoders for Alpha, Date, Short, Logical,
+Time, Timestamp, AutoIncrement, BCD, and Bytes/Blob. Field validation uses anonymized tables only;
+those files and conversion outputs are not stored in Git.

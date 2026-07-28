@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ctypes import POINTER, Structure, byref, c_byte, c_void_p, cast, sizeof, string_at
+from ctypes import POINTER, Structure, byref, c_byte, c_void_p, cast, string_at
 from ctypes import wintypes
 from dataclasses import dataclass
 import os
