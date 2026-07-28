@@ -57,6 +57,9 @@ WITS Level 0 ішінде кірістірілген encryption және authent
   қолмен көшірмеңіз.
 - Күтілетін Well/Wellbore шегіндегі least-privilege read-only account қолданыңыз. Time,
   response size және retry count шектеңіз.
+- ETP profile ішінде бір message, multipart жалпы encoded көлемі, parts саны және assembly time
+  үшін бөлек limits орнатыңыз. Кез келген multipart limit асса pending requests аяқталып, session
+  жабылады; нақты operational қажеттілік болмаса бұл мәндерді үлкейтпеңіз.
 
 Unknown project, email немесе diagnostic bundle ішінен алынған endpoint-ке server owner оны бөлек
 сенімді арнамен растамайынша қосылмаңыз.

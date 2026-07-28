@@ -55,6 +55,9 @@ interface, and notify the administrator. Do not delete evidence before triage.
   credentials to a different URL manually.
 - Use a least-privilege read-only account scoped to the expected Well/Wellbore. Bound time,
   response size, and retry count.
+- Set separate ETP profile limits for one message, total multipart encoded bytes, part count, and
+  assembly time. Exceeding any multipart limit fails pending requests and closes the session; do
+  not raise these values without a confirmed operational need.
 
 Do not connect to an endpoint obtained from an unknown project, email, or diagnostic bundle until
 the server owner confirms it through a separate trusted channel.

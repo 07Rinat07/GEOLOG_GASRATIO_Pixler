@@ -28,6 +28,14 @@ class Etp12RequestTimeout(Etp12ProtocolError):
     pass
 
 
+class Etp12MultipartLimitError(Etp12ProtocolError):
+    pass
+
+
+class Etp12MultipartTimeout(Etp12ProtocolError):
+    pass
+
+
 class Etp12RemoteError(Etp12ProtocolError):
     def __init__(self, message: str, *, body: object | None = None) -> None:
         self.body = body
@@ -73,6 +81,9 @@ class _PendingResponse:
     event: asyncio.Event
     messages: list[Etp12ReceivedMessage]
     error: BaseException | None = None
+    encoded_size_bytes: int = 0
+    multipart_started_at: float | None = None
+    multipart_timeout_task: asyncio.Task[None] | None = None
 
 
 class Etp12ProtocolEngine:
@@ -198,9 +209,27 @@ class Etp12ProtocolEngine:
             try:
                 await asyncio.wait_for(pending.event.wait(), timeout=wait_timeout)
             except TimeoutError as exc:
-                raise Etp12RequestTimeout(
+                error = Etp12RequestTimeout(
                     f"ETP request {message_id} timed out after {wait_timeout:g} seconds"
-                ) from exc
+                )
+                if pending.multipart_started_at is not None:
+                    pending.error = error
+                    self._audit(
+                        "multipart",
+                        "failed",
+                        correlation_id=message_id,
+                        duration=time.monotonic() - pending.multipart_started_at,
+                        detail=str(error),
+                        metadata={
+                            "parts": len(pending.messages),
+                            "encoded_size_bytes": pending.encoded_size_bytes,
+                        },
+                    )
+                    await self._fail_session(
+                        error,
+                        reason="ETP multipart request timeout",
+                    )
+                raise error from exc
             if pending.error is not None:
                 raise pending.error
             self._audit(
@@ -208,7 +237,10 @@ class Etp12ProtocolEngine:
                 "success",
                 message_id=message_id,
                 duration=time.monotonic() - started,
-                metadata={"parts": len(pending.messages)},
+                metadata={
+                    "parts": len(pending.messages),
+                    "encoded_size_bytes": pending.encoded_size_bytes,
+                },
             )
             return tuple(sorted(pending.messages, key=lambda item: item.header.message_id))
         except Exception as exc:
@@ -222,6 +254,9 @@ class Etp12ProtocolEngine:
             raise
         finally:
             self._pending.pop(message_id, None)
+            timeout_task = pending.multipart_timeout_task
+            if timeout_task is not None and not timeout_task.done():
+                timeout_task.cancel()
 
     async def send_unsolicited(
         self,
@@ -302,7 +337,11 @@ class Etp12ProtocolEngine:
                     continue
                 correlated_pending = self._pending.get(header.correlation_id)
                 if correlated_pending is not None:
-                    correlated_pending.messages.append(message)
+                    self._append_correlated_message(
+                        header.correlation_id,
+                        correlated_pending,
+                        message,
+                    )
                     if header.is_final:
                         correlated_pending.event.set()
                     continue
@@ -314,7 +353,124 @@ class Etp12ProtocolEngine:
             if self.state not in {Etp12SessionState.CLOSING, Etp12SessionState.CLOSED}:
                 self.state = Etp12SessionState.FAILED
                 self._audit("receiver", "failed", detail=str(exc))
-            await self._abort_pending(Etp12ConnectionClosed(str(exc)))
+            await self._fail_session(exc, reason="ETP receive loop failed")
+
+    def _append_correlated_message(
+        self,
+        correlation_id: int,
+        pending: _PendingResponse,
+        message: Etp12ReceivedMessage,
+    ) -> None:
+        profile = self.profile
+        if profile is None:
+            raise Etp12ProtocolError("ETP profile is not configured")
+
+        header = message.header
+        multipart = bool(header.message_flags & Etp12MessageHeader.MULTIPART) or not header.is_final
+        if pending.multipart_started_at is not None:
+            multipart = True
+
+        next_parts = len(pending.messages) + 1
+        next_size = pending.encoded_size_bytes + message.encoded_size_bytes
+        if multipart and next_parts > profile.max_multipart_parts:
+            error = Etp12MultipartLimitError(
+                f"ETP multipart response {correlation_id} exceeded the part limit of "
+                f"{profile.max_multipart_parts}"
+            )
+            pending.error = error
+            self._audit(
+                "multipart",
+                "failed",
+                correlation_id=correlation_id,
+                detail=str(error),
+                metadata={
+                    "parts": next_parts,
+                    "encoded_size_bytes": next_size,
+                    "limit": "parts",
+                },
+            )
+            raise error
+        if multipart and next_size > profile.max_multipart_bytes:
+            error = Etp12MultipartLimitError(
+                f"ETP multipart response {correlation_id} exceeded the encoded-size limit of "
+                f"{profile.max_multipart_bytes} bytes"
+            )
+            pending.error = error
+            self._audit(
+                "multipart",
+                "failed",
+                correlation_id=correlation_id,
+                detail=str(error),
+                metadata={
+                    "parts": next_parts,
+                    "encoded_size_bytes": next_size,
+                    "limit": "encoded_size_bytes",
+                },
+            )
+            raise error
+
+        pending.messages.append(message)
+        pending.encoded_size_bytes = next_size
+        if multipart and not header.is_final and pending.multipart_started_at is None:
+            pending.multipart_started_at = time.monotonic()
+            pending.multipart_timeout_task = asyncio.create_task(
+                self._expire_multipart_response(correlation_id, pending),
+                name=f"etp12-multipart-{correlation_id}",
+            )
+
+    async def _expire_multipart_response(
+        self,
+        correlation_id: int,
+        pending: _PendingResponse,
+    ) -> None:
+        profile = self.profile
+        if profile is None:
+            return
+        try:
+            await asyncio.sleep(profile.multipart_timeout_seconds)
+        except asyncio.CancelledError:
+            raise
+        if self._pending.get(correlation_id) is not pending or pending.event.is_set():
+            return
+
+        error = Etp12MultipartTimeout(
+            f"ETP multipart response {correlation_id} did not finish within "
+            f"{profile.multipart_timeout_seconds:g} seconds"
+        )
+        pending.error = error
+        self._audit(
+            "multipart",
+            "failed",
+            correlation_id=correlation_id,
+            duration=profile.multipart_timeout_seconds,
+            detail=str(error),
+            metadata={
+                "parts": len(pending.messages),
+                "encoded_size_bytes": pending.encoded_size_bytes,
+            },
+        )
+        await self._fail_session(error, reason="ETP multipart assembly timeout")
+
+    async def _fail_session(self, error: BaseException, *, reason: str) -> None:
+        self.last_error = str(error)
+        if self.state not in {Etp12SessionState.CLOSING, Etp12SessionState.CLOSED}:
+            self.state = Etp12SessionState.FAILED
+        try:
+            await self.adapter.close(reason)
+        except Exception:
+            pass
+        receiver_task = self._receiver_task
+        if (
+            receiver_task is not None
+            and receiver_task is not asyncio.current_task()
+            and not receiver_task.done()
+        ):
+            receiver_task.cancel()
+            try:
+                await receiver_task
+            except asyncio.CancelledError:
+                pass
+        await self._abort_pending(Etp12ConnectionClosed(str(error)))
 
     async def _send_acknowledgement(self, correlation_id: int) -> None:
         message_id = self._allocate_message_id()
@@ -342,7 +498,8 @@ class Etp12ProtocolEngine:
 
     async def _abort_pending(self, error: BaseException) -> None:
         for pending in tuple(self._pending.values()):
-            pending.error = error
+            if pending.error is None:
+                pending.error = error
             pending.event.set()
 
     def _allocate_message_id(self) -> int:

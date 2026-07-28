@@ -334,6 +334,7 @@ class EtpProtoWebSocketAdapter:
             ),
             body=message.body,
             body_name=message.body.__class__.__name__,
+            encoded_size_bytes=len(raw),
         )
 
     async def close(self, reason: str) -> None:

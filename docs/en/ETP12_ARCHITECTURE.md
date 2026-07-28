@@ -37,6 +37,12 @@ Client message IDs are even. Requests have correlation ID zero. Responses and mu
 to the original request ID. The engine completes a request only after FIN and returns parts ordered by
 message ID. ACK requests are answered independently and never enter the request-response payload list.
 
+Each connection profile independently limits one WebSocket message, the total encoded bytes in a
+multipart response, its part count, and the time from the first non-final part to FIN. The defaults are
+16 MiB per message, 64 MiB per multipart response, 256 parts, and 30 seconds. The adapter reports the
+actual binary frame length before decoding; a limit breach fails all pending work and closes the session
+so late parts cannot be reclassified as unsolicited traffic.
+
 ## Read-only policy
 
 Public operations are limited to Discovery, Store retrieval, Data Array retrieval, channel metadata and

@@ -99,7 +99,11 @@ class FakeEngine:
             supported_compression=[],
             endpoint_capabilities={},
         )
-        return (Etp12ReceivedMessage(Etp12MessageHeader(0, 2, 2, 1, 2), body, "OpenSession"),)
+        return (
+            Etp12ReceivedMessage(
+                Etp12MessageHeader(0, 2, 2, 1, 2), body, "OpenSession", 64
+            ),
+        )
 
     async def request(self, body, **kwargs):
         self.requested.append(body)
@@ -128,7 +132,14 @@ class FakeEngine:
             response = SimpleNamespace(success={"0": "ok"})
         else:
             raise AssertionError(kind)
-        return (Etp12ReceivedMessage(Etp12MessageHeader(3, 2, 4, 3, 2), response, type(response).__name__),)
+        return (
+            Etp12ReceivedMessage(
+                Etp12MessageHeader(3, 2, 4, 3, 2),
+                response,
+                type(response).__name__,
+                128,
+            ),
+        )
 
     async def close(self, reason=""):
         self.state = Etp12SessionState.CLOSED

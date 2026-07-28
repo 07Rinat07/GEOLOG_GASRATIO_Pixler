@@ -57,6 +57,12 @@ def test_packaging_and_ui_hooks_are_present() -> None:
     assert 'command == "subscribe"' in dialog
     assert "Etp12ImportReviewDialog" in dialog
     assert "Etp12AcquisitionRuntime" in dialog
+    assert "self.max_multipart_mb" in dialog
+    assert "self.max_multipart_parts" in dialog
+    assert "self.multipart_timeout" in dialog
+    assert "max_multipart_bytes=" in dialog
+    assert "max_multipart_parts=" in dialog
+    assert "multipart_timeout_seconds=" in dialog
 
 
 def test_open_session_parser_accepts_enum_role_and_string_compression() -> None:

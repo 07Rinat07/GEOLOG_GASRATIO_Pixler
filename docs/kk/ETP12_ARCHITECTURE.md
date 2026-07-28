@@ -35,6 +35,12 @@ Client message ID жұп. Request correlation ID нөл. Response және multi
 сілтейді. Request тек FIN келгенде аяқталады және бөліктер message ID бойынша қайтарылады. ACK бөлек
 өңделеді және application response тізіміне кірмейді.
 
+Әр connection profile бір WebSocket message өлшемін, multipart response жалпы encoded көлемін,
+бөліктер санын және бірінші аяқталмаған бөліктен FIN-ге дейінгі уақытты бөлек шектейді. Әдепкі
+мәндер: message үшін 16 MiB, multipart үшін 64 MiB, 256 бөлік және 30 секунд. Adapter decode алдында
+binary frame нақты өлшемін береді; лимит асса pending requests аяқталып, session жабылады, сондықтан
+кеш келген бөліктер unsolicited traffic ретінде өңделмейді.
+
 ## Read-only policy
 
 Тек Discovery, Store retrieval, Data Array retrieval, channel metadata және subscription ашық. Put,

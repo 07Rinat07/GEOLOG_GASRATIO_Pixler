@@ -282,6 +282,15 @@ class Etp12Dialog(QDialog):
         self.max_message_mb = QSpinBox(connection_box)
         self.max_message_mb.setRange(1, 512)
         self.max_message_mb.setValue(16)
+        self.max_multipart_mb = QSpinBox(connection_box)
+        self.max_multipart_mb.setRange(1, 4096)
+        self.max_multipart_mb.setValue(64)
+        self.max_multipart_parts = QSpinBox(connection_box)
+        self.max_multipart_parts.setRange(1, 100_000)
+        self.max_multipart_parts.setValue(256)
+        self.multipart_timeout = QSpinBox(connection_box)
+        self.multipart_timeout.setRange(1, 3600)
+        self.multipart_timeout.setValue(30)
         connection_form.addRow(self._t("etp12.profile"), self.profile_combo)
         connection_form.addRow(self._t("etp12.endpoint"), self.endpoint)
         connection_form.addRow(self._t("etp12.auth"), self.auth_mode)
@@ -292,6 +301,9 @@ class Etp12Dialog(QDialog):
         connection_form.addRow("", self.allow_local_ws)
         connection_form.addRow(self._t("etp12.timeout"), self.timeout)
         connection_form.addRow(self._t("etp12.max_message"), self.max_message_mb)
+        connection_form.addRow(self._t("etp12.max_multipart"), self.max_multipart_mb)
+        connection_form.addRow(self._t("etp12.max_multipart_parts"), self.max_multipart_parts)
+        connection_form.addRow(self._t("etp12.multipart_timeout"), self.multipart_timeout)
         root_layout.addWidget(connection_box)
 
         connection_buttons = QHBoxLayout()
@@ -459,6 +471,11 @@ class Etp12Dialog(QDialog):
         self.allow_local_ws.setChecked(profile.allow_insecure_localhost)
         self.timeout.setValue(round(profile.request_timeout_seconds))
         self.max_message_mb.setValue(max(1, profile.max_message_bytes // (1024 * 1024)))
+        self.max_multipart_mb.setValue(
+            max(1, profile.max_multipart_bytes // (1024 * 1024))
+        )
+        self.max_multipart_parts.setValue(profile.max_multipart_parts)
+        self.multipart_timeout.setValue(round(profile.multipart_timeout_seconds))
         self.secret.clear()
         if profile.credential_id:
             try:
@@ -486,6 +503,9 @@ class Etp12Dialog(QDialog):
             allow_insecure_localhost=self.allow_local_ws.isChecked(),
             request_timeout_seconds=float(self.timeout.value()),
             max_message_bytes=self.max_message_mb.value() * 1024 * 1024,
+            max_multipart_bytes=self.max_multipart_mb.value() * 1024 * 1024,
+            max_multipart_parts=self.max_multipart_parts.value(),
+            multipart_timeout_seconds=float(self.multipart_timeout.value()),
         )
         return profile, Etp12Credentials(self.username.text(), self.secret.text())
 

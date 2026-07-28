@@ -34,6 +34,9 @@ disclosure after a fixed build is available.
   listens on loopback by default and remote bind requires an isolated trusted network.
 - The application does not execute scripts embedded in a project. Importers reject unsupported
   active content and enforce resource limits before proportional allocation where implemented.
+- ETP profiles bound each WebSocket message and each multipart response by encoded bytes, part
+  count, and assembly time. Exceeding a multipart limit fails pending requests and closes the
+  session instead of retaining or dispatching late parts.
 - Logs and support bundles must not traverse project asset directories or include secrets.
 
 If confidential data is suspected in Git history, stop further distribution, classify the data,

@@ -1,6 +1,8 @@
 from .models import *  # noqa: F401,F403
 from .protocol import (  # noqa: F401
     Etp12ConnectionClosed,
+    Etp12MultipartLimitError,
+    Etp12MultipartTimeout,
     Etp12ProtocolEngine,
     Etp12ProtocolError,
     Etp12RemoteError,

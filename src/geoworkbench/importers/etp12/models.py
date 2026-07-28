@@ -127,6 +127,9 @@ class Etp12ConnectionProfile:
     ping_interval_seconds: float = 20.0
     ping_timeout_seconds: float = 20.0
     max_message_bytes: int = 16 * 1024 * 1024
+    max_multipart_bytes: int = 64 * 1024 * 1024
+    max_multipart_parts: int = 256
+    multipart_timeout_seconds: float = 30.0
     request_acknowledgement: bool = True
     reconnect: Etp12RetryPolicy = field(default_factory=Etp12RetryPolicy)
 
@@ -160,11 +163,31 @@ class Etp12ConnectionProfile:
             (self.close_timeout_seconds, "close_timeout_seconds"),
             (self.ping_interval_seconds, "ping_interval_seconds"),
             (self.ping_timeout_seconds, "ping_timeout_seconds"),
+            (self.multipart_timeout_seconds, "multipart_timeout_seconds"),
         ):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise TypeError(f"{label} must be numeric")
             if value <= 0:
                 raise ValueError(f"{label} must be positive")
+        for value, label in (
+            (self.max_message_bytes, "max_message_bytes"),
+            (self.max_multipart_bytes, "max_multipart_bytes"),
+            (self.max_multipart_parts, "max_multipart_parts"),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"{label} must be an integer")
         if self.max_message_bytes < 64 * 1024:
             raise ValueError("max_message_bytes must be at least 64 KiB")
+        if self.max_multipart_bytes < 64 * 1024:
+            raise ValueError("max_multipart_bytes must be at least 64 KiB")
+        if self.max_multipart_bytes > 4 * 1024 * 1024 * 1024:
+            raise ValueError("max_multipart_bytes must not exceed 4 GiB")
+        if self.max_multipart_parts < 1:
+            raise ValueError("max_multipart_parts must be at least 1")
+        if self.max_multipart_parts > 100_000:
+            raise ValueError("max_multipart_parts must not exceed 100000")
+        if self.multipart_timeout_seconds > 3600:
+            raise ValueError("multipart_timeout_seconds must not exceed 3600")
         if not isinstance(self.auth_mode, Etp12AuthMode):
             object.__setattr__(self, "auth_mode", Etp12AuthMode(str(self.auth_mode)))
         object.__setattr__(self, "profile_id", profile_id)
@@ -191,6 +214,9 @@ class Etp12ConnectionProfile:
             "ping_interval_seconds": self.ping_interval_seconds,
             "ping_timeout_seconds": self.ping_timeout_seconds,
             "max_message_bytes": self.max_message_bytes,
+            "max_multipart_bytes": self.max_multipart_bytes,
+            "max_multipart_parts": self.max_multipart_parts,
+            "multipart_timeout_seconds": self.multipart_timeout_seconds,
             "request_acknowledgement": self.request_acknowledgement,
             "reconnect": {
                 "max_attempts": self.reconnect.max_attempts,
@@ -231,6 +257,17 @@ class Etp12ConnectionProfile:
             ),
             max_message_bytes=_public_int(
                 data.get("max_message_bytes", 16 * 1024 * 1024), "max_message_bytes"
+            ),
+            max_multipart_bytes=_public_int(
+                data.get("max_multipart_bytes", 64 * 1024 * 1024),
+                "max_multipart_bytes",
+            ),
+            max_multipart_parts=_public_int(
+                data.get("max_multipart_parts", 256), "max_multipart_parts"
+            ),
+            multipart_timeout_seconds=_public_float(
+                data.get("multipart_timeout_seconds", 30.0),
+                "multipart_timeout_seconds",
             ),
             request_acknowledgement=bool(data.get("request_acknowledgement", True)),
             reconnect=Etp12RetryPolicy(
@@ -478,6 +515,15 @@ class Etp12ReceivedMessage:
     header: Etp12MessageHeader
     body: object
     body_name: str
+    encoded_size_bytes: int
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.encoded_size_bytes, bool)
+            or not isinstance(self.encoded_size_bytes, int)
+            or self.encoded_size_bytes < 1
+        ):
+            raise ValueError("encoded_size_bytes must be a positive integer")
 
 
 @dataclass(frozen=True, slots=True)

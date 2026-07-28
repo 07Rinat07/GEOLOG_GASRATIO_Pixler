@@ -15,7 +15,9 @@ _ALLOWED_PROFILE = {
     "profile_id", "name", "endpoint", "auth_mode", "username", "credential_id",
     "verify_tls", "allow_insecure_localhost", "ca_file", "open_timeout_seconds",
     "request_timeout_seconds", "close_timeout_seconds", "ping_interval_seconds",
-    "ping_timeout_seconds", "max_message_bytes", "request_acknowledgement", "reconnect",
+    "ping_timeout_seconds", "max_message_bytes", "max_multipart_bytes",
+    "max_multipart_parts", "multipart_timeout_seconds", "request_acknowledgement",
+    "reconnect",
 }
 _ALLOWED_RETRY = {
     "max_attempts", "initial_backoff_seconds", "max_backoff_seconds", "multiplier"
