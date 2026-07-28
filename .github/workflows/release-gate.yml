@@ -123,7 +123,7 @@ jobs:
             $Output = "build/ci-artifacts/windows-acceptance/$ScaleFolder"
             .\.venv\Scripts\python.exe tools/windows_release_matrix.py `
               --scale-factor $Scale `
-              --platform offscreen `
+              --platform windows `
               --output-dir $Output
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
