@@ -159,13 +159,11 @@ class _DatasetAppendBuffer:
             self._index_buffers[index_schema.index_id][start:end] = values
         for curve_schema in self.schema.curves:
             curve_id = curve_schema.metadata.curve_id
-            values = np.asarray(
-                [
-                    np.nan if row[curve_id] is None else float(row[curve_id])
-                    for row in curve_rows
-                ],
-                dtype=np.float64,
-            )
+            curve_values: list[float] = []
+            for row in curve_rows:
+                raw_value = row[curve_id]
+                curve_values.append(np.nan if raw_value is None else float(raw_value))
+            values = np.asarray(curve_values, dtype=np.float64)
             self._curve_buffers[curve_id][start:end] = values
             self.dataset.curves[curve_id].version += len(payloads)
         self.size = end
