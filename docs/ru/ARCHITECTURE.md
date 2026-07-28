@@ -9,3 +9,5 @@ raw write и защищает активный сегмент. Connection/discon
 Restart recovery использует persisted immutable schema и versioned custom profile, а не
 восстанавливает вымышленные discovery statistics. `.wits` не переписывается; исправляется только
 недостоверный хвост JSONL sidecar. `QSettings` содержит только состояние представления.
+
+SEC-04 разрешает destructive retention только при действительном path-bound marker владения приложения. Non-loopback server допустим только после подтверждённого предупреждения и с non-global IPv4 CIDR allowlist; sockets от peers вне политики закрываются до raw capture и журналируются как rejected.

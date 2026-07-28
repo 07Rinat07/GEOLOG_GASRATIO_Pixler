@@ -1,6 +1,13 @@
 from __future__ import annotations
 
 import json
+from ipaddress import (
+    IPv4Address,
+    IPv4Network,
+    collapse_addresses,
+    ip_address,
+    ip_network,
+)
 import os
 import re
 import socket
@@ -26,6 +33,7 @@ from geoworkbench.acquisition.wits0_reliability import (
     Wits0DiskSpacePolicy,
     Wits0DiskSpaceState,
     Wits0RawRetentionManager,
+    initialize_wits0_raw_directory,
     Wits0RawRetentionPolicy,
     Wits0RecoveryManifest,
     Wits0RecoveryChanges,
@@ -72,6 +80,66 @@ class Wits0CaptureEventKind(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class Wits0RemoteBindPolicy:
+    """Explicit allowlist required for a non-loopback WITS0 TCP server."""
+
+    allowed_peer_networks: tuple[str, ...]
+    warning_acknowledged: bool = False
+    allow_wildcard_bind: bool = False
+
+    def __post_init__(self) -> None:
+        if isinstance(self.allowed_peer_networks, str):
+            raise ValueError("allowed_peer_networks must be a tuple of IPv4 CIDRs")
+        normalized: list[IPv4Network] = []
+        for value in self.allowed_peer_networks:
+            try:
+                network = ip_network(str(value).strip(), strict=False)
+            except ValueError as exc:
+                raise ValueError(f"Invalid WITS0 allowed peer network: {value}") from exc
+            if not isinstance(network, IPv4Network):
+                raise ValueError("WITS0 remote bind currently supports IPv4 networks only")
+            if network.prefixlen == 0 or network.is_global or network.is_multicast:
+                raise ValueError(
+                    "WITS0 allowed peer networks must be isolated non-global IPv4 ranges"
+                )
+            normalized.append(network)
+        if not normalized:
+            raise ValueError("Remote WITS0 bind requires at least one allowed peer network")
+        if not isinstance(self.warning_acknowledged, bool):
+            raise ValueError("warning_acknowledged must be a boolean")
+        if not isinstance(self.allow_wildcard_bind, bool):
+            raise ValueError("allow_wildcard_bind must be a boolean")
+        collapsed = tuple(str(item) for item in collapse_addresses(normalized))
+        object.__setattr__(self, "allowed_peer_networks", collapsed)
+
+    def allows_peer(self, host: str) -> bool:
+        try:
+            address = ip_address(host.strip())
+        except ValueError:
+            return False
+        if not isinstance(address, IPv4Address):
+            return False
+        return any(
+            address in ip_network(network, strict=False)
+            for network in self.allowed_peer_networks
+        )
+
+
+def is_wits0_loopback_host(host: str) -> bool:
+    normalized = host.strip().casefold()
+    if normalized == "localhost":
+        return True
+    try:
+        return ip_address(normalized).is_loopback
+    except ValueError:
+        return False
+
+
+def wits0_remote_bind_required(mode: Wits0ConnectionMode, host: str) -> bool:
+    return mode is Wits0ConnectionMode.TCP_SERVER and not is_wits0_loopback_host(host)
+
+
+@dataclass(frozen=True, slots=True)
 class Wits0CaptureConfig:
     mode: Wits0ConnectionMode
     host: str
@@ -88,6 +156,7 @@ class Wits0CaptureConfig:
     event_capacity: int = 2_000
     disk_policy: Wits0DiskSpacePolicy = field(default_factory=Wits0DiskSpacePolicy)
     retention_policy: Wits0RawRetentionPolicy = field(default_factory=Wits0RawRetentionPolicy)
+    remote_bind_policy: Wits0RemoteBindPolicy | None = None
     recovery_enabled: bool = True
 
     def __post_init__(self) -> None:
@@ -123,8 +192,35 @@ class Wits0CaptureConfig:
             raise ValueError("disk_policy must use Wits0DiskSpacePolicy")
         if not isinstance(self.retention_policy, Wits0RawRetentionPolicy):
             raise ValueError("retention_policy must use Wits0RawRetentionPolicy")
+        if self.remote_bind_policy is not None and not isinstance(
+            self.remote_bind_policy, Wits0RemoteBindPolicy
+        ):
+            raise ValueError("remote_bind_policy must use Wits0RemoteBindPolicy")
+        if wits0_remote_bind_required(self.mode, self.host):
+            self._validate_remote_server_bind()
         if not isinstance(self.recovery_enabled, bool):
             raise ValueError("recovery_enabled must be a boolean")
+
+    def _validate_remote_server_bind(self) -> None:
+        try:
+            address = ip_address(self.host.strip())
+        except ValueError as exc:
+            raise ValueError(
+                "Remote WITS0 server bind must use an explicit IPv4 interface address"
+            ) from exc
+        if not isinstance(address, IPv4Address):
+            raise ValueError("Remote WITS0 server bind currently supports IPv4 only")
+        if address.is_global:
+            raise ValueError("Remote WITS0 server bind must not use a global IPv4 address")
+        policy = self.remote_bind_policy
+        if policy is None:
+            raise ValueError("Remote WITS0 server bind requires an explicit network policy")
+        if not policy.warning_acknowledged:
+            raise ValueError(
+                "Remote WITS0 server bind requires an explicit security warning acknowledgement"
+            )
+        if address.is_unspecified and not policy.allow_wildcard_bind:
+            raise ValueError("Wildcard WITS0 bind requires explicit allow_wildcard_bind")
 
 
 @dataclass(frozen=True, slots=True)
@@ -331,6 +427,7 @@ class Wits0CaptureEngine:
             policy=config.disk_policy,
         )
         self._retention = Wits0RawRetentionManager(config.retention_policy)
+        self._retention_warning_emitted = False
         reliability_root = config.raw_directory / _safe_component(config.source_name)
         self._journal = Wits0ConnectionJournal(reliability_root / "connections.jsonl")
         self._recovery_store = Wits0RecoveryStore(reliability_root / ".wits0-recovery.json")
@@ -346,6 +443,14 @@ class Wits0CaptureEngine:
         if self.is_running:
             raise RuntimeError("WITS0 capture is already running")
         self.config.raw_directory.mkdir(parents=True, exist_ok=True)
+        try:
+            initialize_wits0_raw_directory(
+                self.config.raw_directory,
+                adopt_existing=False,
+            )
+        except ValueError:
+            # Existing unowned directories remain usable for capture, but retention fails closed.
+            pass
         previous = self._recovery_store.load() if self.config.recovery_enabled else None
         recovery = (
             recover_wits0_raw_directory(self.config.raw_directory)
@@ -395,6 +500,19 @@ class Wits0CaptureEngine:
                     reason=previous.failure or previous.state.value,
                 )
             )
+        if not retention.ownership_verified:
+            self._retention_warning_emitted = True
+            self._emit(
+                Wits0CaptureEvent(
+                    kind=Wits0CaptureEventKind.WARNING,
+                    occurred_at=started_at,
+                    message=(
+                        "Raw retention is disabled because the directory ownership marker "
+                        f"is not verified ({retention.skip_reason})"
+                    ),
+                    reason=retention.skip_reason,
+                )
+            )
         if retention.segments_deleted:
             self._emit(
                 Wits0CaptureEvent(
@@ -406,6 +524,21 @@ class Wits0CaptureEngine:
                     ),
                 )
             )
+        policy = self.config.remote_bind_policy
+        if policy is not None and wits0_remote_bind_required(
+            self.config.mode, self.config.host
+        ):
+            self._emit(
+                Wits0CaptureEvent(
+                    kind=Wits0CaptureEventKind.WARNING,
+                    occurred_at=started_at,
+                    message=(
+                        f"Remote WITS0 bind enabled on {self.config.host}; allowed peers: "
+                        + ", ".join(policy.allowed_peer_networks)
+                    ),
+                    reason="remote_bind_enabled",
+                )
+            )
         self._journal.append(
             Wits0ConnectionJournalRecord(
                 event="run_started",
@@ -415,6 +548,11 @@ class Wits0CaptureEngine:
                 mode=self.config.mode.value,
                 endpoint=f"{self.config.host}:{self.config.port}",
                 peer=None,
+                reason=(
+                    "remote_bind_allowed_peers=" + ",".join(policy.allowed_peer_networks)
+                    if policy is not None
+                    else None
+                ),
             )
         )
         self._emit_state(Wits0CaptureState.STARTING, "WITS0 capture is starting")
@@ -554,6 +692,35 @@ class Wits0CaptureEngine:
                         break
                     raise
                 peer = f"{address[0]}:{address[1]}"
+                policy = self.config.remote_bind_policy
+                if policy is not None and not policy.allows_peer(address[0]):
+                    rejected_at = _utc_now()
+                    try:
+                        connection.close()
+                    except OSError:
+                        pass
+                    self._emit(
+                        Wits0CaptureEvent(
+                            kind=Wits0CaptureEventKind.WARNING,
+                            occurred_at=rejected_at,
+                            message="Rejected WITS0 peer outside the configured network allowlist",
+                            peer=peer,
+                            reason="peer_not_allowlisted",
+                        )
+                    )
+                    self._journal.append(
+                        Wits0ConnectionJournalRecord(
+                            event="connection_rejected",
+                            occurred_at=rejected_at,
+                            run_id=self.run_id,
+                            connection_id=None,
+                            mode=self.config.mode.value,
+                            endpoint=f"{self.config.host}:{self.config.port}",
+                            peer=peer,
+                            reason="peer_not_allowlisted",
+                        )
+                    )
+                    continue
                 self._replace_active_socket(connection)
                 self._capture_connection(connection, peer)
                 if self._stop.is_set():
@@ -678,6 +845,23 @@ class Wits0CaptureEngine:
                         self.config.raw_directory,
                         protected_paths=(raw_file,),
                     )
+                    if (
+                        not retention.ownership_verified
+                        and not self._retention_warning_emitted
+                    ):
+                        self._retention_warning_emitted = True
+                        self._emit(
+                            Wits0CaptureEvent(
+                                kind=Wits0CaptureEventKind.WARNING,
+                                occurred_at=received_at,
+                                message=(
+                                    "Raw retention is disabled because the directory ownership "
+                                    f"marker is not verified ({retention.skip_reason})"
+                                ),
+                                connection_id=connection_id,
+                                reason=retention.skip_reason,
+                            )
+                        )
                     if retention.segments_deleted:
                         self._increment_snapshot(
                             retention_segments_deleted=retention.segments_deleted,

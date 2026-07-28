@@ -17,9 +17,15 @@ raw segment, bytes and frame count are preserved without creating fake Dataset r
 
 `Wits0DiskSpaceGuard` checks free space before raw writes and while the socket is idle. Warning state
 continues capture; critical state rejects the next raw write, closes the connection with
-`critical_free_space`, and fails explicitly. `Wits0RawRetentionManager` deletes only inactive `.wits`
-segments and known sidecars, protects the active segment, and applies age/size/minimum-count limits.
-It never deletes journals, manifests or projects.
+`critical_free_space`, and fails explicitly.
+
+`Wits0RawRetentionManager` is fail-closed. It may delete only inactive `.wits` segments and their
+known `.chunks.jsonl`/`.meta.json` sidecars below a directory containing a valid
+`.geoworkbench-wits0-owned.json` marker. The marker is bound to the resolved directory path, so a
+copied marker does not authorize another directory. A new empty raw directory is marked
+automatically; adopting a non-empty directory requires an explicit operator confirmation. Missing,
+malformed, copied, or unsupported markers disable deletion while capture can continue. The active
+segment, journals, recovery manifests, unrelated files, and projects are never retention targets.
 
 ## Restart recovery
 

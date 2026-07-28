@@ -248,7 +248,8 @@ divergence, unknown fields и разрывы revision sequence.
 - входные размеры и количество элементов проверяются до выделения пропорциональной памяти;
 - LAS проходит bounded chunk-read до `lasio`; WITSML 2.x/1.4.1.1 XML строит дерево через общий Expat streaming boundary с лимитами bytes/depth/elements/text/attributes и запретом DTD/entity/external entity/notation;
 - удалённый WITSML использует HTTPS с проверкой TLS и без redirect credentials; WITS0 по
-  умолчанию bind только на loopback;
+  умолчанию bind только на loopback, remote bind требует non-global CIDR allowlist и явного
+  подтверждения, а raw retention требует path-bound application marker;
 - UI не обходит controller при изменении project state;
 - экран, PDF и printer используют одну семантику формы;
 - ноль, пропуск и отсутствующий канал различаются;
@@ -342,3 +343,9 @@ Restart recovery не угадывает discovery statistics: `services/wits0_r
 normalizer contract только из persisted immutable `AcquisitionDatasetSchema` и versioned custom
 profile. Raw `.wits` никогда не переписывается; допустима только атомарная обрезка недостоверного
 хвоста JSONL sidecar. Workspace state хранится отдельно в `QSettings` и не является domain data.
+
+SEC-04 отделяет запись raw от права на destructive retention. Удаление разрешено только при
+действительном `.geoworkbench-wits0-owned.json`, привязанном к resolved path каталога. Новый пустой
+каталог получает marker автоматически; непустой каталог требует явного adoption. Non-loopback
+server bind проходит отдельный policy boundary: подтверждение предупреждения, non-global IPv4 CIDR
+allowlist, отдельное разрешение wildcard и фильтрация peer до создания raw writer.

@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 import time
+import uuid
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from enum import StrEnum
@@ -14,6 +15,9 @@ from typing import Callable, Iterable, Protocol, TypedDict, Unpack
 
 WITS0_RECOVERY_SCHEMA_VERSION = 1
 WITS0_WORKSPACE_SCHEMA_VERSION = 1
+WITS0_RAW_DIRECTORY_MARKER_SCHEMA_VERSION = 1
+WITS0_RAW_DIRECTORY_MARKER_NAME = ".geoworkbench-wits0-owned.json"
+WITS0_RAW_DIRECTORY_OWNER = "geoworkbench.wits0"
 
 
 class Wits0DiskSpaceState(StrEnum):
@@ -145,6 +149,128 @@ class Wits0DiskSpaceGuard:
 
 
 @dataclass(frozen=True, slots=True)
+class Wits0RawDirectoryOwnership:
+    root: str
+    marker_path: str
+    verified: bool
+    reason: str | None = None
+    ownership_id: str | None = None
+    created_at: str | None = None
+
+
+def inspect_wits0_raw_directory(root: str | Path) -> Wits0RawDirectoryOwnership:
+    """Return a strict ownership verdict for a WITS0 raw directory.
+
+    Retention may delete files only when this marker is valid. Missing or malformed markers are
+    fail-closed and never repaired implicitly.
+    """
+
+    root_path = Path(root)
+    marker_path = root_path / WITS0_RAW_DIRECTORY_MARKER_NAME
+
+    def verdict(
+        verified: bool,
+        *,
+        reason: str | None = None,
+        ownership_id: str | None = None,
+        created_at: str | None = None,
+    ) -> Wits0RawDirectoryOwnership:
+        return Wits0RawDirectoryOwnership(
+            root=str(root_path),
+            marker_path=str(marker_path),
+            verified=verified,
+            reason=reason,
+            ownership_id=ownership_id,
+            created_at=created_at,
+        )
+
+    if root_path.is_symlink():
+        return verdict(False, reason="root_is_symlink")
+    if not marker_path.exists():
+        return verdict(False, reason="marker_missing")
+    if marker_path.is_symlink() or not marker_path.is_file():
+        return verdict(False, reason="marker_not_regular_file")
+    try:
+        payload = json.loads(marker_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return verdict(False, reason="marker_invalid_json")
+    if not isinstance(payload, dict):
+        return verdict(False, reason="marker_invalid_payload")
+    try:
+        schema_version = int(payload["schema_version"])
+        owner = str(payload["owner"])
+        ownership_id = str(payload["ownership_id"]).strip()
+        created_at = str(payload["created_at"]).strip()
+        declared_root = str(payload["root"]).strip()
+    except (KeyError, TypeError, ValueError):
+        return verdict(False, reason="marker_invalid_payload")
+    if schema_version != WITS0_RAW_DIRECTORY_MARKER_SCHEMA_VERSION:
+        return verdict(False, reason="marker_schema_unsupported")
+    try:
+        parsed_id = uuid.UUID(ownership_id)
+        parsed_created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        resolved_root = str(root_path.resolve())
+    except (OSError, ValueError):
+        return verdict(False, reason="marker_invalid_payload")
+    if (
+        owner != WITS0_RAW_DIRECTORY_OWNER
+        or parsed_id.hex != ownership_id.casefold()
+        or parsed_created_at.tzinfo is None
+        or declared_root != resolved_root
+    ):
+        return verdict(False, reason="marker_owner_mismatch")
+    return verdict(
+        True,
+        ownership_id=ownership_id,
+        created_at=created_at,
+    )
+
+
+def initialize_wits0_raw_directory(
+    root: str | Path,
+    *,
+    adopt_existing: bool = False,
+) -> Wits0RawDirectoryOwnership:
+    """Create the ownership marker for a new directory or an explicitly adopted one.
+
+    A non-empty directory is never adopted implicitly.  An invalid existing marker is also never
+    overwritten, because that could turn an unrelated directory into a retention target.
+    """
+
+    root_path = Path(root)
+    if root_path.exists() and root_path.is_symlink():
+        raise ValueError("WITS0 raw directory must not be a symbolic link")
+    root_path.mkdir(parents=True, exist_ok=True)
+    current = inspect_wits0_raw_directory(root_path)
+    if current.verified:
+        return current
+    if current.reason != "marker_missing":
+        raise ValueError(f"WITS0 raw directory marker is invalid: {current.reason}")
+    entries = tuple(root_path.iterdir())
+    if entries and not adopt_existing:
+        raise ValueError(
+            "WITS0 raw directory is not empty and must be explicitly adopted before retention"
+        )
+    payload = json.dumps(
+        {
+            "schema_version": WITS0_RAW_DIRECTORY_MARKER_SCHEMA_VERSION,
+            "owner": WITS0_RAW_DIRECTORY_OWNER,
+            "ownership_id": uuid.uuid4().hex,
+            "created_at": _utc_now(),
+            "root": str(root_path.resolve()),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    _atomic_write_bytes(root_path / WITS0_RAW_DIRECTORY_MARKER_NAME, payload)
+    verified = inspect_wits0_raw_directory(root_path)
+    if not verified.verified:
+        raise RuntimeError("WITS0 raw directory marker could not be verified after creation")
+    return verified
+
+
+@dataclass(frozen=True, slots=True)
 class Wits0RawRetentionPolicy:
     max_age_days: int | None = 30
     max_total_bytes: int | None = 20 * 1024 * 1024 * 1024
@@ -178,10 +304,12 @@ class Wits0RawRetentionResult:
     bytes_deleted: int
     bytes_remaining: int
     deleted_paths: tuple[str, ...]
+    ownership_verified: bool = True
+    skip_reason: str | None = None
 
 
 class Wits0RawRetentionManager:
-    """Delete only complete, inactive ``.wits`` segments and their known sidecars."""
+    """Delete inactive raw segments only inside a verified application-owned directory."""
 
     def __init__(self, policy: Wits0RawRetentionPolicy | None = None) -> None:
         self.policy = policy or Wits0RawRetentionPolicy()
@@ -194,6 +322,18 @@ class Wits0RawRetentionManager:
         now: float | None = None,
     ) -> Wits0RawRetentionResult:
         root_path = Path(root)
+        ownership = inspect_wits0_raw_directory(root_path)
+        if not ownership.verified:
+            return Wits0RawRetentionResult(
+                segments_scanned=0,
+                segments_deleted=0,
+                bytes_deleted=0,
+                bytes_remaining=0,
+                deleted_paths=(),
+                ownership_verified=False,
+                skip_reason=ownership.reason,
+            )
+
         protected = {Path(item).resolve() for item in protected_paths}
         current_time = time.time() if now is None else float(now)
         segments: list[tuple[Path, int, float]] = []
@@ -224,7 +364,11 @@ class Wits0RawRetentionManager:
             )
             if not age_due and not size_due:
                 continue
-            for related in _segment_related_paths(path):
+            try:
+                path.unlink()
+            except OSError:
+                continue
+            for related in _segment_related_paths(path)[1:]:
                 try:
                     related.unlink(missing_ok=True)
                 except OSError:
@@ -238,6 +382,7 @@ class Wits0RawRetentionManager:
             bytes_deleted=deleted_bytes,
             bytes_remaining=total,
             deleted_paths=tuple(deleted),
+            ownership_verified=True,
         )
 
 

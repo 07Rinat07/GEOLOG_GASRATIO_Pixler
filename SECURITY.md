@@ -30,8 +30,12 @@ disclosure after a fixed build is available.
 - Projects, LAS files, WITS/WITSML captures, exports, diagnostic bundles and raw sidecars are user
   data, not source code. They must not be committed unless they are explicitly approved,
   synthetic and documented test fixtures.
-- Credentials remain outside project files. Remote WITSML uses HTTPS with verified TLS; WITS0
-  listens on loopback by default and remote bind requires an isolated trusted network.
+- Credentials remain outside project files. Remote WITSML uses HTTPS with verified TLS. WITS0
+  listens on loopback by default; non-loopback server bind requires an acknowledged warning, a
+  non-global IPv4 CIDR allowlist, and rejects peers outside that policy.
+- WITS0 raw retention is fail-closed. It deletes inactive `.wits` segments and known sidecars only
+  below a directory containing a valid path-bound `.geoworkbench-wits0-owned.json` marker. A
+  non-empty unmarked directory must be explicitly adopted by the operator.
 - The application does not execute scripts embedded in a project. Importers reject unsupported
   active content and enforce resource limits before proportional allocation where implemented.
 - LAS is bounded before `lasio` starts. WITSML 2.x and 1.4.1.1 XML is consumed by one streaming

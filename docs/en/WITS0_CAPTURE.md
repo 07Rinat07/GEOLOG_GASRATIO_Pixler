@@ -19,14 +19,17 @@ Use this mode when GSWITS is configured as an **outgoing connection (TCP client)
 
 1. Select **Incoming connection — TCP server**.
 2. Keep the default `127.0.0.1` address when GSWITS runs on the same computer.
-3. For another computer, bind a specific trusted interface address. Use `0.0.0.0` only after an
-   explicit decision on an isolated trusted network with a firewall allowlist.
-4. Enter the same port to which GSWITS connects.
-5. Select the raw-data directory and press **Start capture**.
-6. Save the GSWITS settings and verify the connection state.
+3. For another computer, enter a specific non-global IPv4 interface and the trusted peer networks
+   as CIDR values, for example `192.168.10.0/24`. Public/global ranges and `0.0.0.0/0` are rejected.
+4. `0.0.0.0` additionally requires the **Allow explicit 0.0.0.0 bind** option.
+5. Enter the same port to which GSWITS connects and select the raw-data directory.
+6. Press **Start capture** and confirm the security warning. Capture accepts only peers inside the
+   configured allowlist; other connections are closed and recorded as `connection_rejected`.
+7. Save the GSWITS settings and verify the connection state.
 
 WITS0 provides no built-in encryption or authentication. Never expose the listener to the internet
-or configure router port forwarding.
+or configure router port forwarding. The warning acknowledgement is required for every non-loopback
+server start and is not a substitute for a firewall.
 
 ## TCP client setup
 
@@ -42,6 +45,11 @@ Use this mode when GSWITS is configured as an **incoming connection (TCP server)
 Every connection gets a separate directory. `*.wits` files contain the exact incoming bytes, while
 `*.chunks.jsonl` records UTC arrival time, offset, TCP chunk size, and connection ID. Segments are
 append-only and suitable for deterministic replay.
+
+Automatic retention is enabled only when the selected root contains a valid, path-bound
+`.geoworkbench-wits0-owned.json` marker. A new empty directory is marked automatically. A non-empty
+unmarked directory requires explicit adoption; declining adoption keeps capture available but leaves
+retention disabled. Invalid or copied markers block deletion. Retention never targets unrelated files.
 
 ## Parser pipeline
 
@@ -133,6 +141,6 @@ processes remaining immutable events, and performs controlled close. Full contra
 - the GeoScape profile is based on the GSWITS manual and must be confirmed against a real stream;
 - unknown fields are preserved and editable in Import Review but require manual confirmation;
 - numerical UOM conversion is not yet performed: source and canonical UOM must resolve to the same canonical unit;
-- never expose the WITS0 port to the internet; a remote bind is allowed only on an isolated
-  trusted network with a firewall allowlist;
+- never expose the WITS0 port to the internet; non-loopback server bind requires explicit
+  acknowledgement, a non-global CIDR peer allowlist, and a firewall;
 - raw files do not replace project saving with **Ctrl+S**.

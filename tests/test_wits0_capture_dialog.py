@@ -52,6 +52,11 @@ def test_wits0_capture_ui_exposes_reliability_and_restart_recovery_controls() ->
 
     assert "Wits0DiskSpacePolicy" in source
     assert "Wits0RawRetentionPolicy" in source
+    assert "Wits0RemoteBindPolicy" in source
+    assert "allowed_peer_networks" in source
+    assert "wits0.remote_bind_warning" in source
+    assert "inspect_wits0_raw_directory" in source
+    assert "wits0.raw_directory_adopt_warning" in source
     assert "submit_connection_event" in source
     assert "def _restore_open_acquisition_session" in source
     assert "restore_wits0_import_review_commit" in source
@@ -63,7 +68,11 @@ def test_wits0_capture_setting_int_rejects_corrupt_values(tmp_path: Path) -> Non
     pytest.importorskip("PySide6")
     from PySide6.QtCore import QSettings
 
-    from geoworkbench.ui.wits0_capture_dialog import _setting_int
+    from geoworkbench.ui.wits0_capture_dialog import (
+        _network_values,
+        _setting_bool,
+        _setting_int,
+    )
 
     settings = QSettings(str(tmp_path / "wits0-settings.ini"), QSettings.Format.IniFormat)
     settings.setValue("valid", "4096")
@@ -74,6 +83,18 @@ def test_wits0_capture_setting_int_rejects_corrupt_values(tmp_path: Path) -> Non
     assert _setting_int(settings, "invalid", 10) == 10
     assert _setting_int(settings, "boolean", 10) == 10
     assert _setting_int(settings, "missing", 10) == 10
+
+    settings.setValue("enabled", "true")
+    settings.setValue("disabled", "0")
+    settings.setValue("corrupt_bool", "sometimes")
+    assert _setting_bool(settings, "enabled", False)
+    assert not _setting_bool(settings, "disabled", True)
+    assert _setting_bool(settings, "corrupt_bool", True)
+    assert _network_values("192.168.10.0/24, 10.0.0.5/32; 172.16.0.0/16") == (
+        "192.168.10.0/24",
+        "10.0.0.5/32",
+        "172.16.0.0/16",
+    )
 
 
 @pytest.mark.skipif(

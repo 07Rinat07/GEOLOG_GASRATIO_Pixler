@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Callable, TYPE_CHECKING
 from uuid import uuid4
 
 from PySide6.QtCore import QSettings, QStandardPaths, QTimer
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -33,10 +35,14 @@ from geoworkbench.acquisition import (
     Wits0ConnectionMode,
     Wits0DiskSpacePolicy,
     Wits0RawRetentionPolicy,
+    Wits0RemoteBindPolicy,
     Wits0WorkspaceSettings,
     Wits0WorkspaceState,
     Wits0ParsedFrame,
+    initialize_wits0_raw_directory,
+    inspect_wits0_raw_directory,
     load_builtin_wits0_profile,
+    wits0_remote_bind_required,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.wits0_acquisition import (
@@ -191,6 +197,27 @@ class Wits0CaptureDialog(QDialog):
             group,
         )
         form.addRow(self._t("wits0.host"), self.host_edit)
+
+        self.allowed_networks_edit = QLineEdit(
+            str(self.settings.value("wits0/allowed_peer_networks", "")),
+            group,
+        )
+        self.allowed_networks_edit.setPlaceholderText(
+            self._t("wits0.allowed_peer_networks_placeholder")
+        )
+        form.addRow(
+            self._t("wits0.allowed_peer_networks"),
+            self.allowed_networks_edit,
+        )
+
+        self.allow_wildcard_bind_check = QCheckBox(
+            self._t("wits0.allow_wildcard_bind"),
+            group,
+        )
+        self.allow_wildcard_bind_check.setChecked(
+            _setting_bool(self.settings, "wits0/allow_wildcard_bind", False)
+        )
+        form.addRow("", self.allow_wildcard_bind_check)
 
         self.port_spin = QSpinBox(group)
         self.port_spin.setRange(1, 65_535)
@@ -351,9 +378,30 @@ class Wits0CaptureDialog(QDialog):
             self.raw_directory_edit.setText(selected)
 
     def _start_capture(self) -> None:
+        mode = Wits0ConnectionMode(str(self.mode_combo.currentData()))
+        host = self.host_edit.text().strip()
+        remote_acknowledged = False
+        if wits0_remote_bind_required(mode, host):
+            networks = ", ".join(_network_values(self.allowed_networks_edit.text())) or "—"
+            response = QMessageBox.warning(
+                self,
+                self._t("wits0.title"),
+                self._t(
+                    "wits0.remote_bind_warning",
+                    host=host,
+                    networks=networks,
+                ),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if response != QMessageBox.StandardButton.Yes:
+                return
+            remote_acknowledged = True
         try:
-            config = self._capture_config()
-            config.raw_directory.mkdir(parents=True, exist_ok=True)
+            config = self._capture_config(
+                remote_warning_acknowledged=remote_acknowledged
+            )
+            self._prepare_raw_directory(config.raw_directory)
         except (OSError, ValueError) as exc:
             QMessageBox.critical(self, self._t("wits0.title"), str(exc))
             return
@@ -379,6 +427,33 @@ class Wits0CaptureDialog(QDialog):
         self.event_text.appendPlainText(self._t("wits0.started_message"))
         self._refresh_controls()
 
+    def _prepare_raw_directory(self, path: Path) -> None:
+        path.mkdir(parents=True, exist_ok=True)
+        ownership = inspect_wits0_raw_directory(path)
+        if ownership.verified:
+            return
+        if ownership.reason != "marker_missing":
+            raise ValueError(
+                self._t(
+                    "wits0.raw_directory_marker_invalid",
+                    reason=ownership.reason or "unknown",
+                )
+            )
+        try:
+            initialize_wits0_raw_directory(path, adopt_existing=False)
+            return
+        except ValueError:
+            pass
+        response = QMessageBox.warning(
+            self,
+            self._t("wits0.title"),
+            self._t("wits0.raw_directory_adopt_warning", path=str(path)),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if response == QMessageBox.StandardButton.Yes:
+            initialize_wits0_raw_directory(path, adopt_existing=True)
+
     def _stop_capture(self) -> None:
         engine = self.engine
         if engine is None:
@@ -388,13 +463,29 @@ class Wits0CaptureDialog(QDialog):
         self._poll_engine()
         self._refresh_controls()
 
-    def _capture_config(self) -> Wits0CaptureConfig:
+    def _capture_config(
+        self,
+        *,
+        remote_warning_acknowledged: bool = False,
+    ) -> Wits0CaptureConfig:
         mode = Wits0ConnectionMode(str(self.mode_combo.currentData()))
+        host = self.host_edit.text().strip()
         critical_mb = self.disk_critical_spin.value()
         warning_mb = max(critical_mb, self.disk_warning_spin.value())
+        remote_policy = (
+            Wits0RemoteBindPolicy(
+                allowed_peer_networks=_network_values(
+                    self.allowed_networks_edit.text()
+                ),
+                warning_acknowledged=remote_warning_acknowledged,
+                allow_wildcard_bind=self.allow_wildcard_bind_check.isChecked(),
+            )
+            if wits0_remote_bind_required(mode, host)
+            else None
+        )
         return Wits0CaptureConfig(
             mode=mode,
-            host=self.host_edit.text().strip(),
+            host=host,
             port=self.port_spin.value(),
             raw_directory=Path(self.raw_directory_edit.text()).expanduser(),
             source_name=self.source_edit.text().strip(),
@@ -408,11 +499,20 @@ class Wits0CaptureDialog(QDialog):
                 max_total_bytes=self.retention_gb_spin.value() * 1024**3,
                 keep_min_segments=self.retention_keep_spin.value(),
             ),
+            remote_bind_policy=remote_policy,
         )
 
     def _save_settings(self, config: Wits0CaptureConfig) -> None:
         self.settings.setValue("wits0/mode", config.mode.value)
         self.settings.setValue("wits0/host", config.host)
+        self.settings.setValue(
+            "wits0/allowed_peer_networks",
+            self.allowed_networks_edit.text().strip(),
+        )
+        self.settings.setValue(
+            "wits0/allow_wildcard_bind",
+            self.allow_wildcard_bind_check.isChecked(),
+        )
         self.settings.setValue("wits0/port", config.port)
         self.settings.setValue("wits0/source_name", config.source_name)
         self.settings.setValue("wits0/raw_directory", str(config.raw_directory))
@@ -613,6 +713,8 @@ class Wits0CaptureDialog(QDialog):
         for widget in (
             self.mode_combo,
             self.host_edit,
+            self.allowed_networks_edit,
+            self.allow_wildcard_bind_check,
             self.port_spin,
             self.source_edit,
             self.raw_directory_edit,
@@ -1063,6 +1165,26 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace(
         "+00:00", "Z"
     )
+
+
+def _network_values(value: str) -> tuple[str, ...]:
+    return tuple(
+        item
+        for item in (part.strip() for part in re.split(r"[,;\s]+", value))
+        if item
+    )
+
+
+def _setting_bool(settings: QSettings, key: str, default: bool) -> bool:
+    value = settings.value(key, default)
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().casefold()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
 
 
 def _setting_int(settings: QSettings, key: str, default: int) -> int:

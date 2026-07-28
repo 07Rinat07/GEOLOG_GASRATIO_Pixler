@@ -42,12 +42,17 @@ DTD/entity/external entity/notation толық tree құрылмай тұрып 
 WITS Level 0 ішінде кірістірілген encryption және authentication жоқ.
 
 - GSWITS сол компьютерде жұмыс істесе, TCP server адресін әдепкі `127.0.0.1` күйінде қалдырыңыз.
-- Бөлек компьютер үшін сенімді интерфейстің нақты адресін көрсетіңіз.
-- `0.0.0.0` тек физикалық немесе логикалық оқшауланған сенімді желіде, firewall allowlist және
-  айқын рұқсат болғанда пайдаланыңыз.
+- Non-loopback server үшін нақты non-global IPv4 interface, қауіпсіздік ескертуін айқын растау
+  және кемінде бір non-global IPv4 CIDR peer allowlist қажет. Allowlist-тен тыс peers жабылып,
+  journal-ға жазылады.
+- `0.0.0.0` жеке wildcard-bind рұқсатын талап етеді. Global IPv4, global CIDR және `0.0.0.0/0`
+  қабылданбайды; қолданба саясаты firewall орнын баспайды.
 - WITS0 port-ты интернетке ешқашан ашпаңыз; public-cloud listener немесе router port-forward
   баптамаңыз.
-- Field capture алдында IP/port, source owner, raw directory, free disk space және
+- Raw retention тек path-bound `.geoworkbench-wits0-owned.json` marker астында рұқсат етіледі.
+  Жаңа бос каталог автоматты белгіленеді; бос емес каталог тек оператордың айқын шешімімен
+  қабылданады. Marker жоқ немесе жарамсыз болса, жою толық өшіріледі.
+- Field capture алдында IP/port, source owner, CIDR allowlist, raw directory, free disk space және
   stop/recovery plan растаңыз.
 
 Белгісіз peer қосылса, capture тоқтатып, journal мен raw segments сақтаңыз, интерфейсті
