@@ -126,6 +126,10 @@ def test_qt_environment_is_set_before_qt_import(monkeypatch) -> None:
 
     assert __import__("os").environ["QT_SCALE_FACTOR"] == "1.5"
     assert __import__("os").environ["QT_QPA_PLATFORM"] == "offscreen"
+    assert (
+        __import__("os").environ["QT_SCALE_FACTOR_ROUNDING_POLICY"]
+        == "PassThrough"
+    )
 
 
 def test_effective_scale_rejects_an_ignored_hidpi_request() -> None:
@@ -141,6 +145,7 @@ def test_release_workflow_runs_and_uploads_windows_acceptance_artifacts() -> Non
 
     assert "windows-acceptance:" in text
     assert "tools/windows_release_matrix.py" in text
+    assert "--platform offscreen" in text
     assert 'foreach ($Scale in @("1.0", "1.25", "1.5", "2.0"))' in text
     assert "build/ci-artifacts/windows-acceptance" in text
     assert "release-windows-acceptance-${{ github.run_id }}" in text
@@ -183,3 +188,12 @@ def test_pdf_readiness_reports_qt_load_error() -> None:
 
     with pytest.raises(RuntimeError, match="failed to load"):
         wait_for_pdf_ready(document, _FakeApplication(), timeout_seconds=1.0)
+
+
+def test_actual_size_continuation_case_is_unambiguously_multi_page() -> None:
+    case = next(
+        item for item in AUTOMATED_CASES
+        if item.case_id == "a4-landscape-actual-size-continuation"
+    )
+    assert case.widget_width >= 8000
+    assert case.expected_min_pages >= 2

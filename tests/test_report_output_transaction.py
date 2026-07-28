@@ -278,3 +278,18 @@ def test_transaction_fingerprints_docx_and_html_exports(tmp_path) -> None:
     assert html_payload["artifacts"][0]["media_type"] == "text/html"
     assert docx_payload["artifacts"][0]["size_bytes"] == docx_output.stat().st_size
     assert html_payload["artifacts"][0]["size_bytes"] == html_output.stat().st_size
+
+
+def test_report_output_media_type_does_not_depend_on_windows_registry(monkeypatch) -> None:
+    from geoworkbench.services import report_passport
+
+    monkeypatch.setattr(report_passport.mimetypes, "guess_type", lambda _name: (None, None))
+
+    assert report_passport._stable_output_media_type("report.docx") == (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert report_passport._stable_output_media_type("report.html") == "text/html"
+    assert report_passport._stable_output_media_type("report.pdf") == "application/pdf"
+    assert report_passport._stable_output_media_type("unknown.bin") == (
+        "application/octet-stream"
+    )

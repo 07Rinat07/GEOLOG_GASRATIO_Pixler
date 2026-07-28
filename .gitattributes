@@ -1,0 +1,24 @@
+# Keep generated contracts byte-stable on Windows and Unix checkouts.
+* text=auto
+
+*.py text eol=lf
+*.pyi text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.svg text eol=lf
+*.txt text eol=lf
+*.lock text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.zip binary

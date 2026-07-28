@@ -5,6 +5,7 @@
 
 ## Unreleased
 
+- Исправлена оставшаяся Windows-специфика Release gate: golden-файлы сравниваются с нормализованными переводами строк, MIME DOCX определяется без Windows Registry, secret scan исключает только известные UI-метки, а GUI/PDF matrix запускается через headless Qt offscreen на Windows runner с гарантированно многостраничным continuation case.
 - Исправлен Windows Release gate: репозиторные thumbnails конструктора больше не игнорируются Git; GUI tablet acceptance получает полный набор ресурсов; secret scan сохраняет структурированные детекторы и отключает только шумные Base64/Hex entropy-плагины.
 - Исправлены ошибки следующего полного Windows Release gate: устранены три ошибки mypy,
   `QPdfDocument` ожидает асинхронный статус `Ready`, а исключения secret scan работают с

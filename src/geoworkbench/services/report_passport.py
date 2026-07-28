@@ -31,6 +31,20 @@ if TYPE_CHECKING:
 REPORT_PASSPORT_SCHEMA_VERSION = 4
 REPORT_PASSPORT_SUFFIX = ".passport.json"
 
+# ``mimetypes`` consults the Windows registry and may return
+# ``application/octet-stream`` for Office Open XML files on clean CI images.
+# Release fingerprints must be stable across operator workstations and CI.
+_STABLE_OUTPUT_MEDIA_TYPES: dict[str, str] = {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".html": "text/html",
+    ".htm": "text/html",
+    ".pdf": "application/pdf",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
 
 class ReportPassportError(RuntimeError):
     pass
@@ -577,7 +591,7 @@ def _output_artifact_snapshot(
 ) -> ReportOutputArtifactSnapshot:
     if not path.is_file() or path.stat().st_size <= 0:
         raise ReportPassportError(f"Output artifact не создан или пуст: {path}")
-    media_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+    media_type = _stable_output_media_type(file_name)
     return ReportOutputArtifactSnapshot(
         file_name=file_name,
         role=role,
@@ -586,6 +600,14 @@ def _output_artifact_snapshot(
         size_bytes=path.stat().st_size,
         page_number=page_number,
     )
+
+
+def _stable_output_media_type(file_name: str) -> str:
+    suffix = Path(file_name).suffix.casefold()
+    explicit = _STABLE_OUTPUT_MEDIA_TYPES.get(suffix)
+    if explicit is not None:
+        return explicit
+    return mimetypes.guess_type(file_name)[0] or "application/octet-stream"
 
 
 def _output_file_digest(path: Path) -> str:

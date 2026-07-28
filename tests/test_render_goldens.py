@@ -25,7 +25,9 @@ def test_committed_render_goldens_match_deterministic_generator(tmp_path: Path) 
         sorted(expected_golden_files())
     )
     for filename in expected_golden_files():
-        assert (generated / filename).read_bytes() == (GOLDEN_DIR / filename).read_bytes()
+        generated_bytes = (generated / filename).read_bytes().replace(b"\r\n", b"\n")
+        committed_bytes = (GOLDEN_DIR / filename).read_bytes().replace(b"\r\n", b"\n")
+        assert generated_bytes == committed_bytes
 
 
 def test_json_goldens_have_valid_payload_checksums() -> None:

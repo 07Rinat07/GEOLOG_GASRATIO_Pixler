@@ -111,6 +111,10 @@ def test_workflow_syncs_the_lock_and_uploads_three_artifact_groups() -> None:
     assert "([\\\\/]|$)" in gate
     assert 'r"\\.(bmp|png|jpe?g|gif|webp|ico|pdf|docx|xlsx|zip|svg)$"' in gate
     assert 'uses:\\s*[^@\\s]+@[0-9a-f]{40}' in gate
+    assert 'detect-secrets' in gate
+    assert 'etp12\\\\?\\.secret' in gate
+    assert 'witsml1411\\\\?\\.password' in gate
+    assert 'hashed_secret' in gate
     assert "bandit==1.9.4" in text
     assert "tools/release_security_gate.py" in text
     assert "build/ci-artifacts/quality" in text
@@ -190,3 +194,35 @@ def test_secret_report_parser_returns_safe_metadata_only(tmp_path: Path) -> None
     assert count == 1
     assert summaries == ("src/example.py:12: GitHub Token",)
     assert "not-exposed" not in summaries[0]
+
+
+def test_repository_enforces_lf_for_platform_stable_text_contracts() -> None:
+    attributes = _read(ROOT / ".gitattributes")
+    assert "*.json text eol=lf" in attributes
+    assert "*.svg text eol=lf" in attributes
+    assert "*.png binary" in attributes
+
+
+def test_windows_acceptance_uses_headless_qt_on_windows_runner() -> None:
+    workflow = _read(WORKFLOW)
+    assert "runs-on: windows-latest" in workflow
+    assert "--platform offscreen" in workflow
+    assert "--platform windows" not in workflow
+
+
+def test_secret_scan_exclusions_cover_only_known_false_positive_lines() -> None:
+    import re
+
+    from tools.release_security_gate import SECRET_SCAN_EXCLUDE_LINES
+
+    pattern = re.compile(SECRET_SCAN_EXCLUDE_LINES)
+    known_false_positives = (
+        'detect-secrets==1.5.0',
+        '"etp12.secret": "Password or bearer token",',
+        '"witsml1411.password": "Password",',
+        '"hashed_secret": "not-exposed",',
+        'uses: actions/checkout@0123456789abcdef0123456789abcdef01234567',
+    )
+    assert all(pattern.search(line) for line in known_false_positives)
+    assert pattern.search('api_key = "ghp_example_real_token_shape"') is None
+    assert pattern.search('password = "operator-entered-value"') is None

@@ -25,6 +25,16 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOCK = ROOT / "requirements" / "release.lock"
 DEFAULT_ARTIFACT_DIR = ROOT / "build" / "ci-artifacts" / "security"
 
+# Known non-secret metadata/UI labels that trigger detect-secrets' generic
+# Secret Keyword plugin. Keep this list narrow; structured token/private-key
+# detectors remain active for every non-excluded source file.
+SECRET_SCAN_EXCLUDE_LINES = (
+    r"(?i)(uses:\s*[^@\s]+@[0-9a-f]{40}|"
+    r"sha-?256|content_sha256|pixel_sha256|payload_sha256|"
+    r"archiveSha256|fileSha256|detect-secrets|hashed_secret|"
+    r"etp12\\?\.secret|witsml1411\\?\.password)"
+)
+
 
 @dataclass(frozen=True)
 class CheckResult:
@@ -201,11 +211,7 @@ def main() -> int:
                 "--exclude-files",
                 r"\.(bmp|png|jpe?g|gif|webp|ico|pdf|docx|xlsx|zip|svg)$",
                 "--exclude-lines",
-                (
-                    r"(?i)(uses:\s*[^@\s]+@[0-9a-f]{40}|"
-                    r"sha-?256|content_sha256|pixel_sha256|payload_sha256|"
-                    r"archiveSha256|fileSha256)"
-                ),
+                SECRET_SCAN_EXCLUDE_LINES,
             ],
             report=secret_report,
             stdout_to_report=True,

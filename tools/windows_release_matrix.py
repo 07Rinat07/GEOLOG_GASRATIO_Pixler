@@ -100,7 +100,9 @@ AUTOMATED_CASES = (
         orientation="landscape",
         scale_mode="actual_size",
         dpi=300,
-        widget_width=2200,
+        # Large enough to require continuation even when Windows maps pixels
+        # using the requested 300 DPI instead of logical screen DPI.
+        widget_width=8000,
         widget_height=720,
         expected_min_pages=2,
         language="en",
@@ -230,6 +232,7 @@ def validate_physical_arguments(args: argparse.Namespace) -> None:
 def configure_qt_environment(scale_factor: float, platform_name: str) -> None:
     os.environ["QT_SCALE_FACTOR"] = _format_scale(scale_factor)
     os.environ["QT_QPA_PLATFORM"] = platform_name
+    os.environ.setdefault("QT_SCALE_FACTOR_ROUNDING_POLICY", "PassThrough")
     os.environ.setdefault("QT_OPENGL", "software")
     os.environ.setdefault("QT_QUICK_BACKEND", "software")
     os.environ.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
@@ -331,6 +334,10 @@ def main(argv: list[str] | None = None) -> int:
     for item in failed_cases:
         print(f"[FAIL] {item.case_id}: {item.error}", file=sys.stderr)
     print(json.dumps(checklist, ensure_ascii=False, indent=2))
+    if failed_cases:
+        print("Automated acceptance failures:", file=sys.stderr)
+        for item in failed_cases:
+            print(f"  - {item.case_id}: {item.error}", file=sys.stderr)
 
     automated_ok = checklist["automated"]["status"] == "passed"
     physical_ok = checklist["physical_printer"]["status"] == "passed"
