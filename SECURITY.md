@@ -45,7 +45,8 @@ with synthetic fixtures. Deleting only the latest copy is not sufficient.
 
 Before a stable release:
 
-1. create a clean Python 3.11 environment from a reviewed dependency lock;
+1. create a clean Windows x86-64/Python 3.11 environment from the reviewed, fully
+   pinned and hashed runtime `requirements/release.lock`;
 2. run Ruff, mypy, the full pytest suite, documentation audit and compileall;
 3. run dependency, secret and static scans and produce an SBOM;
 4. run resource-bound/fuzz regressions for project, Paradox, XML/WITSML, ZIP/EPC, spreadsheet,
@@ -53,6 +54,19 @@ Before a stable release:
 5. verify that the source/package contains no user projects, raw captures, credentials or local
    absolute paths;
 6. preserve the commands and machine-readable results with the release manifest.
+
+The reproducible gate is:
+
+```text
+uv pip sync requirements/release.lock --python .venv --require-hashes
+uv pip install --python .venv --no-deps --no-build-isolation --editable .
+python tools/release_security_gate.py
+```
+
+The security command emits dependency-audit JSON, a CycloneDX JSON SBOM, detect-secrets output,
+Bandit JSON and a manifest containing the lock SHA-256 and every exit status. Reports belong only
+under the ignored `build/ci-artifacts` directory and in the corresponding CI artifact; do not
+commit generated scan output or place it in `docs`.
 
 User-facing summaries are available in
 [Russian](docs/ru/SECURITY.md), [Kazakh](docs/kk/SECURITY.md) and

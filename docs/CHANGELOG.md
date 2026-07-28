@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- Закрыт REL-02: добавлен hash-pinned runtime lock для Windows x86-64/Python 3.11, CycloneDX
+  SBOM, dependency/secret/Bandit gate и отдельные Windows quality/security CI artifacts.
 - Закрыт REL-01: backlog `mypy` сокращён с 234 ошибок до нуля, усилены runtime-контракты
   acquisition/ETP/WITS/WITSML/UI и стабилизирован Windows Qt lifecycle полного test gate.
 - Проведён аудит поддерживаемости, производительности и безопасности.

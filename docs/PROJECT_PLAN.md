@@ -43,7 +43,8 @@ roadmap, build report или release plan.
 
 ## P0 — выпуск и безопасность
 
-- [ ] **REL-02:** добавить dependency lock с hashes, SBOM, dependency/secret scan и CI artifacts.
+- [x] **REL-02:** добавлены Windows/Python 3.11 runtime lock с hashes, CycloneDX SBOM,
+  dependency/secret/static scans и отдельные quality/security CI artifacts.
 - [ ] **REL-03:** пройти Windows GUI/HiDPI/PDF/physical-printer matrix и сохранить checklist.
 - [ ] **SEC-01:** согласовать очистку опубликованной Git history от пользовательского
   `project.geolog.json`, sidecars и inferred service author identities; проверить clones, caches,

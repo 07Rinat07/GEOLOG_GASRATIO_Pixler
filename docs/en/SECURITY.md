@@ -123,6 +123,20 @@ Deleting files only from HEAD is insufficient: earlier commits and external copi
 expose the content. Do not rewrite history or delete evidence without coordination with the data
 owner and incident-response lead.
 
+## Pre-release package verification
+
+A release build is created only in a clean Windows x86-64/Python 3.11 environment from
+the reviewed runtime `requirements/release.lock`. Every application dependency in the lock uses
+an exact version and SHA-256 hash; installation uses `--require-hashes`, after which the project
+itself is installed with `--no-deps` and without build isolation. CI-only tools are installed
+separately at exact versions and are not part of the distributed application graph.
+
+Before release, run the complete quality gate and `python tools/release_security_gate.py`. The
+security command produces dependency-audit JSON, a CycloneDX JSON SBOM, detect-secrets output,
+Bandit JSON, and a manifest containing the lock SHA-256 and exit codes. Results stay only in the
+ignored `build/ci-artifacts` directory and CI artifacts. Do not commit them, move them into `docs`,
+or treat the gate as successful when any mandatory check has a non-zero exit code.
+
 ## Pre-field checklist
 
 - the known repository incident has been classified, the remote is restricted, and real fixtures

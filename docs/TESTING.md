@@ -6,7 +6,7 @@
 
 ## 1. Подготовка окружения
 
-Из корня проекта в Windows PowerShell:
+Для повседневной разработки из корня проекта в Windows PowerShell:
 
 ```powershell
 py -3.11 -m venv .venv
@@ -14,6 +14,31 @@ py -3.11 -m venv .venv
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
+
+Для release gate используется хешированный `requirements/release.lock`. Он содержит полный
+runtime-граф распространяемого приложения для CPython 3.11 на Windows x86-64. Quality- и
+security-инструменты не входят в состав приложения: workflow устанавливает их отдельно и только
+в точно закреплённых версиях. Воспроизводимая установка runtime:
+
+```powershell
+uv venv .venv --python 3.11
+uv pip sync requirements/release.lock --python .venv --require-hashes
+uv pip install --python .venv --no-deps --no-build-isolation --editable .
+```
+
+Lock обновляется осознанным отдельным изменением после проверки diff:
+
+```powershell
+uv pip compile pyproject.toml `
+  --python-version 3.11 `
+  --python-platform windows `
+  --generate-hashes `
+  --output-file requirements/release.lock
+```
+
+Нельзя вручную удалять transitive requirements или hashes из готового lock-файла. После
+обновления проверяются целевая платформа в заголовке, полный runtime-граф и diff каждого hash.
+Локальное виртуальное окружение и кэш `uv` не входят в архив проекта.
 
 Канонический запуск приложения:
 
@@ -36,6 +61,7 @@ python -m pytest -q `
   tests/test_test_runner_contract_0790.py `
   tests/test_documentation_sync_0762.py `
   tests/test_root_readme_scope.py `
+  tests/test_release_security_contract.py `
   tests/test_gs2_form_axis_hotfix_0789.py `
   tests/test_index_detection.py `
   tests/test_compact_geology_columns.py `
@@ -91,7 +117,30 @@ UTF-8 фиксируется явно: иначе Windows console с CP1251 мо
 не пропускаются. Оболочка сохраняет код результата тестов и изолирует завершение процесса от
 нестабильной выгрузки нативных Qt DLL.
 
-## 5. Ручная Windows-приёмка GUI
+## 5. Security gate и CI artifacts
+
+После установки окружения из lock-файла выполняется:
+
+```powershell
+python tools/release_security_gate.py
+```
+
+Команда запускает `pip-audit` в строгом hash-режиме, создаёт CycloneDX JSON SBOM, проверяет
+исходный код через `detect-secrets` и запускает Bandit для `src`, `tools` и `scripts`. Результаты
+пишутся только в игнорируемый каталог `build/ci-artifacts/security`:
+
+- `dependency-audit.json`;
+- `sbom.cdx.json`;
+- `secret-scan.json`;
+- `bandit.json`;
+- `security-manifest.json` с SHA-256 lock-файла, командами и статусами.
+
+Workflow `.github/workflows/release-gate.yml` отдельно выполняет полный Windows quality gate и
+Linux security gate. Логи качества и security reports загружаются как два CI artifact с retention
+30 дней. Artifact не коммитится и не считается успешным gate, если соответствующая команда
+завершилась ненулевым кодом.
+
+## 6. Ручная Windows-приёмка GUI
 
 Автоматические source-contract и headless-тесты не заменяют проверку настоящего интерфейса.
 Минимальный smoke-сценарий:
@@ -108,7 +157,7 @@ UTF-8 фиксируется явно: иначе Windows console с CP1251 мо
 При ошибке нужно создать diagnostics ZIP через меню «Справка» и приложить его вместе со
 скриншотом, исходным файлом и точной последовательностью действий.
 
-## 6. Правило обновления тестов и документации
+## 7. Правило обновления тестов и документации
 
 Любое изменение запуска, импорта, формы, миграции, формата проекта или пользовательского
 поведения должно в одном изменении обновлять:

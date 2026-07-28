@@ -1,8 +1,8 @@
 # Документация
 
 Документация разделена на три уровня: пользовательские инструкции, инженерные контракты и один
-план проекта. История хранится в одном changelog, а generated test/build results — вне Git
-(как CI artifacts после появления CI).
+план проекта. История хранится в одном changelog, а generated test/build results — вне Git как
+artifacts workflow `.github/workflows/release-gate.yml`.
 
 ## Начало работы
 

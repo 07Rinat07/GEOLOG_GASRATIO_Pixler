@@ -1,0 +1,75 @@
+# This file is generated for CPython 3.11 on Windows x86-64.
+# It contains the complete runtime dependency graph of the desktop application.
+# Regenerate only after reviewing the dependency diff:
+#   uv pip compile pyproject.toml --python-version 3.11 --python-platform windows \
+#     --generate-hashes --output-file requirements/release.lock
+
+colorama==0.4.6 \
+    --hash=sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6
+    # via pyqtgraph
+defusedxml==0.7.1 \
+    --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
+    # via geolog-gasratio-pixler
+et-xmlfile==2.0.0 \
+    --hash=sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa
+    # via openpyxl
+etpproto==1.0.7 \
+    --hash=sha256:92ee87760317242654b700fd406113aede53c9dd6bddb120de681344d2669a17
+    # via geolog-gasratio-pixler
+etptypes==1.2.0 \
+    --hash=sha256:078c194d04b2b56f480e22b723e7a14e5d528be75622640d742262f137f83163
+    # via
+    #   etpproto
+    #   geolog-gasratio-pixler
+fastavro==1.12.2 \
+    --hash=sha256:eec44256856fd59d29d1f1d0950ace18a58e4228e7d49de5d5e1b1875b227dde
+    # via
+    #   etpproto
+    #   geolog-gasratio-pixler
+lasio==0.32 \
+    --hash=sha256:4c0daa5f99d99b505a62ce58144d2512944ac6ee8e620ab251109d8f2a6ca7f8
+    # via geolog-gasratio-pixler
+numpy==2.3.4 \
+    --hash=sha256:faba246fb30ea2a526c2e9645f61612341de1a83fb1e0c5edf4ddda5a9c10996
+    # via
+    #   geolog-gasratio-pixler
+    #   lasio
+    #   pyqtgraph
+openpyxl==3.1.5 \
+    --hash=sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2
+    # via geolog-gasratio-pixler
+pydantic==1.10.26 \
+    --hash=sha256:ac1089f723e2106ebde434377d31239e00870a7563245072968e5af5cc4d33df
+    # via etptypes
+pyqtgraph==0.14.0 \
+    --hash=sha256:7abb7c3e17362add64f8711b474dffac5e7b0e9245abdf992e9a44119b7aa4f5
+    # via geolog-gasratio-pixler
+pyside6==6.11.1 \
+    --hash=sha256:0968877ab1fb4ef3587a284da6fe05e8647ada56a6a3750b6395188e01f4aba6
+    # via geolog-gasratio-pixler
+pyside6-addons==6.11.1 \
+    --hash=sha256:0d13c4dfd671b050a48e4f8d8ddc724b7248f9c0437e7fc47fdf316278572923
+    # via pyside6
+pyside6-essentials==6.11.1 \
+    --hash=sha256:63311bd48e32c584599ab04b9ef7c324082374cd2c9fa533f978fb893bb47e40
+    # via
+    #   pyside6
+    #   pyside6-addons
+shiboken6==6.11.1 \
+    --hash=sha256:c2c6863aa80ec18c0f82cea3417837b279cdc60024ac17123461dc9042577df7
+    # via
+    #   pyside6
+    #   pyside6-addons
+    #   pyside6-essentials
+typing-extensions==4.16.0 \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
+    # via pydantic
+typingx==0.6.0 \
+    --hash=sha256:9250517e145bf97e97ee1366fef27cd5d4e98250ebfc1d3f73b3dd9f34c9e8fa
+    # via etptypes
+tzdata==2026.3 \
+    --hash=sha256:dc096730c87af6cab1b171c9d532be840741ff5d459015e7f6947bd7d7e54931
+    # via geolog-gasratio-pixler
+websockets==16.1.1 \
+    --hash=sha256:db234eda965dcce15df96bb9709f587cd87d4d52aaf0e80e2f34ec04c7670c57
+    # via geolog-gasratio-pixler

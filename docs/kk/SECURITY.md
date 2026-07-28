@@ -124,6 +124,20 @@ Files-ті тек HEAD ішінен жою жеткіліксіз: earlier commi
 қалдырады. Data owner және incident-response lead-пен келіспей history rewrite жасамаңыз немесе
 evidence жоймаңыз.
 
+## Пакетті шығару алдындағы тексеру
+
+Release build тек тексерілген runtime `requirements/release.lock` файлы бойынша таза
+Windows x86-64/Python 3.11 ортасында жасалады. Lock-файлдағы әр application dependency нақты
+version және SHA-256 hash арқылы бекітіледі; орнату `--require-hashes` параметрімен орындалады,
+содан кейін жобаның өзі `--no-deps` және build isolation қолданбай орнатылады. CI tools бөлек
+нақты versions арқылы орнатылады және таратылатын application graph құрамына кірмейді.
+
+Шығару алдында толық quality gate және `python tools/release_security_gate.py` орындалады.
+Security командасы dependency audit JSON, CycloneDX JSON SBOM, `detect-secrets` нәтижесін,
+Bandit JSON және lock-файлдың SHA-256 мәні мен exit codes бар manifest жасайды. Нәтижелер тек Git
+елемейтін `build/ci-artifacts` ішінде және CI artifacts ретінде сақталады. Оларды commit жасауға,
+`docs` ішіне көшіруге немесе міндетті тексерудің коды нөл болмаса successful деп санауға болмайды.
+
 ## Field іске қосу алдындағы checklist
 
 - белгілі repository incident classify жасалды, remote шектелді және real fixtures жаңа
