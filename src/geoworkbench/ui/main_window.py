@@ -3779,14 +3779,17 @@ class MainWindow(QMainWindow):
         if dataset is None:
             self.curve_view.clear()
             self.las_table_editor.set_dataset(None)
-            self.tablet_view.set_layout_model(TabletLayout())
-            self.tablet_view.set_dataset(None)
+            self.tablet_view.set_lithology(
+                [], self.lithotype_catalog_controller.available(), refresh=False
+            )
+            self.tablet_view.set_cuttings([], refresh=False)
+            self.tablet_view.set_stratigraphy([], refresh=False)
+            self.tablet_view.set_interpretations([], refresh=False)
+            self.tablet_view.set_layout_and_dataset(
+                TabletLayout(), None, preserve_current_range=False
+            )
             self.tablet_view.set_image_assets(self.session.image_assets)
             self.tablet_view.set_canvas_objects([])
-            self.tablet_view.set_lithology([], self.lithotype_catalog_controller.available())
-            self.tablet_view.set_cuttings([])
-            self.tablet_view.set_stratigraphy([])
-            self.tablet_view.set_interpretations([])
             self.curve_browser.set_dataset(None)
             self.curve_browser_dock.hide()
             self.interpretation_properties.clear()
@@ -3796,7 +3799,6 @@ class MainWindow(QMainWindow):
         self._workspace_controller.set_dataset(dataset.name)
         self.curve_view.show_dataset(dataset)
         self.las_table_editor.set_dataset(dataset)
-        self.tablet_view.set_dataset(dataset)
         self.tablet_view.set_image_assets(self.session.image_assets)
         self.curve_browser.set_dataset(dataset)
         self.curve_browser.select_recommended()
@@ -3808,26 +3810,34 @@ class MainWindow(QMainWindow):
         self.tablet_view.set_lithology(
             well.lithology if well is not None else [],
             self.lithotype_catalog_controller.available(),
+            refresh=False,
         )
-        self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
-        self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
+        self.tablet_view.set_cuttings(
+            well.cuttings if well is not None else [], refresh=False
+        )
+        self.tablet_view.set_stratigraphy(
+            well.stratigraphy if well is not None else [], refresh=False
+        )
         self.interpretation_controller.normalize_selection()
         self.tablet_view.set_interpretations(
             list(well.interpretations.values()) if well is not None else [],
             self.interpretation_controller.selected_interpretation_id,
+            refresh=False,
         )
+        saved_layout = self.session.current_tablet_layout
+        layout = saved_layout or self.tablet_controller.build_default_layout()
+        # Install the GS2 dataset, its final form and all geological overlays in
+        # one render pass.  Rendering the previous dataset's compact depth form
+        # first left several deleteLater() widget trees alive in the same event
+        # loop turn, producing clipped headers and stale grey plot fragments.
+        self.tablet_view.set_layout_and_dataset(layout, dataset)
         selected_interpretation_id = self.interpretation_controller.selected_interpretation_id
         selected_interval_id = self.interpretation_controller.selected_interval_id
         if selected_interpretation_id and selected_interval_id:
             self._select_interpretation_interval(selected_interpretation_id, selected_interval_id)
         else:
             self._clear_interpretation_interval_selection()
-        saved_layout = self.session.current_tablet_layout
-        if saved_layout is None:
-            self.build_default_tablet()
-        else:
-            self.tablet_view.set_layout_model(saved_layout)
-            self._refresh_annotation_layer()
+        self._refresh_annotation_layer()
         self._show_workspace(self.tablet_view)
 
     def show_las_editor(self) -> None:
@@ -5753,8 +5763,7 @@ class MainWindow(QMainWindow):
             return
 
         layout = self.tablet_controller.build_default_layout()
-        self.tablet_view.set_layout_model(layout)
-        self.tablet_view.set_dataset(dataset)
+        self.tablet_view.set_layout_and_dataset(layout, dataset)
         self._refresh_annotation_layer()
         self._refresh_tree()
         self._update_title()

@@ -52,6 +52,10 @@ linear methods.
 `{source_name}_{mode}.las`, overwrite protection, progress, cancellation, and a JSON log.
 An ambiguous file receives **Configuration required**.
 
+## Time tablet after import
+
+When absolute calendar time is available, the tablet uses `DATETIME` as its vertical axis. The real width of the date/time column is shared by the scroll canvas, merged group headers, and partial track refreshes. The Dataset, selected form, and geological layers are installed in one render pass, preventing overlapping headers, clipped scales, and stale grey fragments from the previous tablet.
+
 ## Limitations
 
 Synthetic fixtures cover `NUMBER`, `LONG`, and bounded decoders for Alpha, Date, Short, Logical,

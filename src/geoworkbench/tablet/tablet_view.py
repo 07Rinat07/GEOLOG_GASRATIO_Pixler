@@ -176,6 +176,10 @@ from geoworkbench.tablet.relative_gas import (
     is_relative_gas_track,
 )
 from geoworkbench.tablet.resize import TrackResizeGesture
+from geoworkbench.tablet.track_geometry import (
+    effective_track_width,
+    horizontal_track_extent,
+)
 from geoworkbench.tablet.annotation_graphics import (
     TabletAnnotationItem,
     TabletAnnotationOverlay,
@@ -1079,15 +1083,12 @@ class TabletTrackWidget(QFrame):
             "QFrame { background: #ffffff; border: 1px solid #cbd5e1; } "
             "QLabel { background: #f8fafc; color: #0f172a; }"
         )
-        display_width = definition.width
-        if definition.kind is TrackKind.DEPTH and vertical_axis is not None:
-            if vertical_axis.is_datetime:
-                # Full calendar labels are rendered on two lines, so a compact
-                # dedicated time column remains readable without consuming the
-                # width of an ordinary curve track.
-                display_width = max(display_width, 124)
-            elif vertical_axis.is_time:
-                display_width = max(display_width, 104)
+        display_width = effective_track_width(
+            definition,
+            axis_role=vertical_axis.role if vertical_axis is not None else None,
+            axis_type=vertical_axis.index_type if vertical_axis is not None else None,
+        )
+        self._display_width = display_width
         self.setMinimumWidth(display_width)
         self.setMaximumWidth(display_width)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
@@ -1375,8 +1376,13 @@ class TabletTrackWidget(QFrame):
                 "border-bottom:1px solid #cbd5e1;"
             )
 
+    @property
+    def display_width(self) -> int:
+        return self._display_width
+
     def set_track_width(self, width: int) -> None:
-        self.setFixedWidth(int(width))
+        self._display_width = max(1, int(width))
+        self.setFixedWidth(self._display_width)
         if self.definition.kind is TrackKind.DEPTH:
             axis = self.plot.getAxis("left")
             axis_width = max(36, min(int(width) - 8, 92))
@@ -2420,6 +2426,8 @@ class TabletView(QWidget):
         self,
         interpretations: list[WellInterpretation],
         selected_interpretation_id: str | None = None,
+        *,
+        refresh: bool = True,
     ) -> None:
         self._interpretations = tuple(interpretations)
         available_ids = {item.interpretation_id for item in self._interpretations}
@@ -2434,7 +2442,8 @@ class TabletView(QWidget):
             item.interval_id == self._selected_interval_id for item in current.intervals
         ):
             self._selected_interval_id = None
-        self.refresh_view()
+        if refresh:
+            self.refresh_view()
 
     def set_selected_interpretation(
         self, interpretation_id: str | None, *, emit_signal: bool = False
@@ -2604,6 +2613,27 @@ class TabletView(QWidget):
     def redo_interaction(self) -> bool:
         return self._interaction_history.redo()
 
+    def _track_display_width(self, definition: TrackDefinition) -> int:
+        rendered = self._rendered.get(definition.track_id)
+        if rendered is not None and isinstance(rendered.widget, TabletTrackWidget):
+            return rendered.widget.display_width
+        descriptor = self._axis_descriptor()
+        return effective_track_width(
+            definition,
+            axis_role=descriptor.role if descriptor is not None else None,
+            axis_type=descriptor.index_type if descriptor is not None else None,
+        )
+
+    def _update_track_canvas_width(self) -> int:
+        visible = self._layout_model.visible_tracks()
+        total_width = horizontal_track_extent(
+            (self._track_display_width(track) for track in visible),
+            spacing=self._tracks_layout.spacing(),
+        )
+        self._container.setFixedWidth(max(total_width, 1))
+        self._tracks_container.setFixedWidth(max(total_width, 1))
+        return total_width
+
     def _resize_track_from_widget(self, track_id: str, new_width: int) -> None:
         try:
             definition = self._layout_model.track_by_id(track_id)
@@ -2619,10 +2649,15 @@ class TabletView(QWidget):
                 self._layout_mutations.set_track_width(track_id, width)
             rendered = self._rendered.get(track_id)
             if rendered is not None:
-                rendered.widget.set_track_width(width)
-            total_width = sum(track.width + 2 for track in self._layout_model.visible_tracks())
-            self._container.setFixedWidth(max(total_width, 1))
-            self._tracks_container.setFixedWidth(max(total_width, 1))
+                descriptor = self._axis_descriptor()
+                rendered.widget.set_track_width(
+                    effective_track_width(
+                        definition,
+                        axis_role=descriptor.role if descriptor is not None else None,
+                        axis_type=descriptor.index_type if descriptor is not None else None,
+                    )
+                )
+            self._update_track_canvas_width()
             self._rebuild_group_headers()
             self.invalidate_track(track_id, DirtyReason.STATIC)
             self.refresh_dirty_tracks()
@@ -4559,10 +4594,13 @@ class TabletView(QWidget):
         self,
         intervals: list[LithologyInterval],
         catalog: tuple[CatalogLithotype, ...],
+        *,
+        refresh: bool = True,
     ) -> None:
         self._lithology = tuple(intervals)
         self._lithotype_catalog = {item.lithotype_id: item for item in catalog}
-        self.refresh_view()
+        if refresh:
+            self.refresh_view()
 
     @property
     def geological_input_mode(self) -> GeologicalInputMode:
@@ -4625,9 +4663,12 @@ class TabletView(QWidget):
             if _qt_object_is_alive(rendered.plot):
                 rendered.plot.setCursor(cursor)
 
-    def set_cuttings(self, samples: list[CuttingsSample]) -> None:
+    def set_cuttings(
+        self, samples: list[CuttingsSample], *, refresh: bool = True
+    ) -> None:
         self._cuttings = tuple(samples)
-        self.refresh_view()
+        if refresh:
+            self.refresh_view()
 
     def stratigraphy_interval_at_depth(self, depth: float) -> StratigraphyInterval | None:
         value = float(depth)
@@ -4663,9 +4704,12 @@ class TabletView(QWidget):
             matches = [item for item in self._cuttings if np.isclose(item.bottom_depth, value)]
         return max(matches, key=lambda item: item.top_depth) if matches else None
 
-    def set_stratigraphy(self, intervals: list[StratigraphyInterval]) -> None:
+    def set_stratigraphy(
+        self, intervals: list[StratigraphyInterval], *, refresh: bool = True
+    ) -> None:
         self._stratigraphy = tuple(intervals)
-        self.refresh_view()
+        if refresh:
+            self.refresh_view()
 
     def _bind_layout_model(
         self, layout_model: TabletLayout, *, preserve_current_range: bool
@@ -5252,9 +5296,7 @@ class TabletView(QWidget):
             None,
         )
 
-        total_width = sum(track.width + 2 for track in visible)
-        self._container.setFixedWidth(max(total_width, 1))
-        self._tracks_container.setFixedWidth(max(total_width, 1))
+        self._update_track_canvas_width()
         self._rebuild_group_headers()
         self._synchronize_track_header_bands()
         self._apply_geological_mode_cursors()
@@ -5434,7 +5476,7 @@ class TabletView(QWidget):
         groups: list[tuple[str, int]] = []
         for track in visible:
             title = track.group_title.strip()
-            width = int(track.width) + 2
+            width = self._track_display_width(track) + self._group_header_layout.spacing()
             if groups and groups[-1][0] == title:
                 previous_title, previous_width = groups[-1]
                 groups[-1] = (previous_title, previous_width + width)
@@ -7394,7 +7436,14 @@ class TabletView(QWidget):
         if isinstance(rendered.widget, TabletTrackWidget):
             rendered.widget.definition = definition
             rendered.widget.title.setText(self._localized_track_title(definition))
-            rendered.widget.set_track_width(int(width))
+            descriptor = self._axis_descriptor()
+            rendered.widget.set_track_width(
+                effective_track_width(
+                    definition,
+                    axis_role=descriptor.role if descriptor is not None else None,
+                    axis_type=descriptor.index_type if descriptor is not None else None,
+                )
+            )
         if rendered.plot is not None:
             TabletGridRenderer.apply(rendered.plot, grid)
             rendered.plot.setLabel("bottom", str(x_axis_label))

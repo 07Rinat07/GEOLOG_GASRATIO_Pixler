@@ -2749,3 +2749,54 @@ def test_curve_header_parameters_are_top_packed_inside_common_band(qapp) -> None
     assert tops[2] == pytest.approx(bottoms[1], abs=1)
     assert bottoms[-1] < track.curve_header_scroll.height()
     track.close()
+
+
+def test_datetime_depth_width_stays_aligned_after_static_refresh(qapp) -> None:
+    from PySide6.QtWidgets import QLabel
+
+    from geoworkbench.tablet.render_invalidation import DirtyReason
+    from geoworkbench.tablet.track_geometry import horizontal_track_extent
+
+    dataset = _dataset_with_depth_and_datetime()
+    layout = TabletLayout(
+        [
+            TrackDefinition(
+                "time",
+                "Time",
+                TrackKind.DEPTH,
+                width=48,
+                group_title="Axis",
+            ),
+            TrackDefinition(
+                "rop",
+                "ROP",
+                TrackKind.CURVE,
+                width=280,
+                curve_mnemonics=["ROP"],
+                group_title="Drilling",
+            ),
+        ],
+        vertical_index_id="time-index",
+    )
+    view = TabletView()
+    view.resize(700, 500)
+    view.set_layout_and_dataset(layout, dataset)
+    view.show()
+    qapp.processEvents()
+
+    time_widget = view._rendered["time"].widget
+    assert time_widget.display_width == 124
+    expected = horizontal_track_extent((124, 280), spacing=2)
+    assert view._tracks_container.width() == expected
+
+    labels = view._group_header_container.findChildren(QLabel)
+    assert len(labels) == 2
+    assert sum(label.width() for label in labels) + 2 == expected
+
+    view.invalidate_track("time", DirtyReason.STATIC)
+    assert view.refresh_dirty_tracks() == 1
+    qapp.processEvents()
+
+    assert time_widget.display_width == 124
+    assert view._tracks_container.width() == expected
+    view.close()

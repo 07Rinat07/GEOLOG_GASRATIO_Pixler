@@ -5,6 +5,7 @@
 
 ## Unreleased
 
+- Исправлен временной планшет после импорта GeoScape2/GS2: ширина DATETIME-оси теперь учитывается в общем canvas и групповых заголовках, статическое обновление не сжимает колонку времени, а dataset, форма и геологические слои устанавливаются одним render pass без остаточных Qt-виджетов.
 - Закрыт SEC-04: WITS0 retention работает только в каталоге с проверенным path-bound application marker; непустой каталог требует явного принятия оператором. Non-loopback TCP server bind требует подтверждённого предупреждения, non-global IPv4 CIDR allowlist, отдельного разрешения для `0.0.0.0` и отклоняет peers вне политики.
 - Закрыт SEC-03: LAS читается bounded streaming-блоками до запуска `lasio`, а WITSML 2.x inventory/data import и WITSML 1.4.1.1 SOAP используют единый streaming XML parser с ранними лимитами размера, глубины, элементов, текста и атрибутов; DTD/entity/external entity/notation блокируются callback-ами Expat.
 - Исправлена оставшаяся Windows-специфика Release gate: golden-файлы сравниваются с нормализованными переводами строк, MIME DOCX определяется без Windows Registry, secret scan исключает только известные UI-метки, а GUI/PDF matrix запускается через headless Qt offscreen на Windows runner с гарантированно многостраничным continuation case.
