@@ -8,7 +8,7 @@ from hashlib import sha256
 import json
 from math import isfinite
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Iterator
+from typing import Any, BinaryIO, Iterator, cast
 from urllib.parse import unquote, urlsplit
 import xml.etree.ElementTree as ET
 import zipfile
@@ -261,12 +261,12 @@ class _SourceAccessor:
             if self._archive is None:
                 raise WitsmlDataError("WITSML archive is not open")
             with self._archive.open(document.archive_member, "r") as stream:
-                yield stream
+                yield cast(BinaryIO, stream)
             return
         if document.path is None:
             raise WitsmlDataError(f"XML source is unavailable: {document.name}")
         with document.path.open("rb") as stream:
-            yield stream
+            yield cast(BinaryIO, stream)
 
     def hash_xml(self, document: _XmlDocument) -> str:
         digest = sha256()

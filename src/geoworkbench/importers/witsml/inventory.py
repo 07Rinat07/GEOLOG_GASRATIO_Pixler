@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 import re
-from typing import BinaryIO, Iterable, Iterator
+from typing import BinaryIO, cast, Iterable, Iterator
 from uuid import UUID
 import xml.etree.ElementTree as ET
 import zipfile
@@ -388,11 +388,11 @@ def _parse_witsml_object(
 def _open_xml_source(source: _XmlSource) -> Iterator[BinaryIO]:
     if source.archive_member is None:
         with source.path.open("rb") as stream:
-            yield stream
+            yield cast(BinaryIO, stream)
         return
     with zipfile.ZipFile(source.path, "r") as archive:
         with archive.open(source.archive_member, "r") as stream:
-            yield stream
+            yield cast(BinaryIO, stream)
 
 
 def _channel_summary(root: ET.Element) -> WitsmlChannelSummary:
