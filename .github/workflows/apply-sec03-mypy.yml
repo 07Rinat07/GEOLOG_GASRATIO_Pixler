@@ -1,0 +1,41 @@
+name: Apply SEC-03 mypy fix
+
+on:
+  push:
+    branches: [sec03-streaming-limits]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: true
+          fetch-depth: 1
+
+      - name: Apply typed stream fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "e07f92eae984bab8a85120940c91c54ba645542388f0f2b34284d8ca9e944021  .github/sec03-mypy-fix.b64" | sha256sum --check --strict
+          base64 --decode .github/sec03-mypy-fix.b64 > /tmp/sec03-mypy-fix.patch
+          echo "b1db1d512c3bc551bc0e6aaf38a4cdad045b34462afa027c7a0f72ee4eac2789  /tmp/sec03-mypy-fix.patch" | sha256sum --check --strict
+          git apply --check /tmp/sec03-mypy-fix.patch
+          git apply --index /tmp/sec03-mypy-fix.patch
+          python -m compileall -q src
+
+      - name: Commit clean fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/sec03-mypy-fix.b64 .github/workflows/apply-sec03-mypy.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Fix WITSML binary stream typing"
+          git push origin HEAD:sec03-streaming-limits
