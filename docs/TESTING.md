@@ -232,7 +232,17 @@ python tools/windows_release_matrix.py `
 записать physical-printer status `passed`. Полученный checklist хранится как release artifact,
 а не в Git.
 
-## 10. Правило обновления тестов и документации
+## 10. Регрессия GeoScape2/GS2 временного планшета
+
+`tests/test_gs2_time_tablet_rendering.py` проверяет единый расчёт фактической ширины DATETIME-колонки, canvas и групповых заголовков, а также один transactional render при смене dataset. Qt-сценарий в `tests/test_tablet_view.py` подтверждает, что статическое обновление не сжимает временную ось и не нарушает выравнивание треков.
+
+Минимальный запуск:
+
+```bash
+python -m pytest -q tests/test_gs2_time_tablet_rendering.py tests/test_gs2_form_axis_hotfix_0789.py tests/test_tablet_view.py
+```
+
+## 11. Правило обновления тестов и документации
 
 Любое изменение запуска, импорта, формы, миграции, формата проекта или пользовательского
 поведения должно в одном изменении обновлять:
