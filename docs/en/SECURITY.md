@@ -40,13 +40,18 @@ only for a confirmed source and with an explicit memory budget.
 WITS Level 0 provides no built-in encryption or authentication.
 
 - Keep the TCP server address at its `127.0.0.1` default when GSWITS runs on the same computer.
-- For a separate computer, bind a specific trusted interface address.
-- Use `0.0.0.0` only after explicit approval on a physically or logically isolated trusted
-  network with a firewall allowlist.
+- A non-loopback server requires a specific non-global IPv4 interface, an explicit warning
+  acknowledgement, and at least one non-global IPv4 CIDR peer allowlist. Peers outside the
+  allowlist are closed and journaled.
+- `0.0.0.0` requires a separate wildcard-bind approval. Global IPv4 interfaces, global CIDRs, and
+  `0.0.0.0/0` are rejected; the application policy does not replace a firewall.
 - Never expose the WITS0 port to the internet or configure a public-cloud listener or router
   port-forward.
-- Before field capture, confirm the IP/port, source owner, raw directory, available disk space,
-  and stop/recovery plan.
+- Raw retention is permitted only under a path-bound `.geoworkbench-wits0-owned.json` marker.
+  New empty directories are marked automatically; adopting a non-empty directory requires an
+  explicit operator decision. Missing or invalid markers disable deletion.
+- Before field capture, confirm the IP/port, source owner, CIDR allowlist, raw directory, available
+  disk space, and stop/recovery plan.
 
 If an unknown peer connects, stop capture, preserve the journal and raw segments, isolate the
 interface, and notify the administrator. Do not delete evidence before triage.

@@ -14,6 +14,7 @@ from geoworkbench.acquisition import (
     Wits0DiskSpaceGuard,
     Wits0DiskSpacePolicy,
     Wits0DiskSpaceState,
+    WITS0_RAW_DIRECTORY_MARKER_NAME,
     Wits0RawRetentionManager,
     Wits0RawRetentionPolicy,
     Wits0RecoveryManifest,
@@ -22,6 +23,8 @@ from geoworkbench.acquisition import (
     Wits0StreamProcessor,
     Wits0WorkspaceSettings,
     Wits0WorkspaceState,
+    initialize_wits0_raw_directory,
+    inspect_wits0_raw_directory,
     load_builtin_wits0_profile,
     recover_wits0_raw_directory,
 )
@@ -130,6 +133,7 @@ def test_disk_space_guard_is_rate_limited_and_stops_on_critical_space(tmp_path: 
 def test_raw_retention_deletes_oldest_complete_segments_and_sidecars(
     tmp_path: Path,
 ) -> None:
+    initialize_wits0_raw_directory(tmp_path)
     paths = []
     for index in range(4):
         path = tmp_path / f"segment-{index}.wits"
@@ -154,6 +158,77 @@ def test_raw_retention_deletes_oldest_complete_segments_and_sidecars(
     assert paths[2].exists()
     assert paths[3].exists()
     assert not paths[0].with_suffix(".chunks.jsonl").exists()
+
+
+def test_raw_retention_fails_closed_without_application_marker(tmp_path: Path) -> None:
+    segment = tmp_path / "segment.wits"
+    segment.write_bytes(b"raw")
+    os.utime(segment, (1, 1))
+    manager = Wits0RawRetentionManager(
+        Wits0RawRetentionPolicy(max_age_days=1, max_total_bytes=1, keep_min_segments=0)
+    )
+
+    result = manager.apply(tmp_path, now=10 * 86_400)
+
+    assert segment.exists()
+    assert result.segments_deleted == 0
+    assert not result.ownership_verified
+    assert result.skip_reason == "marker_missing"
+
+
+def test_raw_directory_marker_requires_explicit_adoption_for_nonempty_directory(
+    tmp_path: Path,
+) -> None:
+    existing = tmp_path / "operator-notes.txt"
+    existing.write_text("keep", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="explicitly adopted"):
+        initialize_wits0_raw_directory(tmp_path)
+
+    ownership = initialize_wits0_raw_directory(tmp_path, adopt_existing=True)
+
+    assert ownership.verified
+    assert existing.read_text(encoding="utf-8") == "keep"
+    assert (tmp_path / WITS0_RAW_DIRECTORY_MARKER_NAME).is_file()
+    assert inspect_wits0_raw_directory(tmp_path).ownership_id == ownership.ownership_id
+
+
+def test_copied_raw_directory_marker_does_not_authorize_another_path(
+    tmp_path: Path,
+) -> None:
+    owned = tmp_path / "owned"
+    other = tmp_path / "other"
+    initialize_wits0_raw_directory(owned)
+    other.mkdir()
+    (other / WITS0_RAW_DIRECTORY_MARKER_NAME).write_bytes(
+        (owned / WITS0_RAW_DIRECTORY_MARKER_NAME).read_bytes()
+    )
+    segment = other / "segment.wits"
+    segment.write_bytes(b"raw")
+
+    result = Wits0RawRetentionManager(
+        Wits0RawRetentionPolicy(max_age_days=1, max_total_bytes=1, keep_min_segments=0)
+    ).apply(other, now=10 * 86_400)
+
+    assert segment.exists()
+    assert result.skip_reason == "marker_owner_mismatch"
+
+
+def test_corrupt_raw_directory_marker_blocks_retention(tmp_path: Path) -> None:
+    marker = tmp_path / WITS0_RAW_DIRECTORY_MARKER_NAME
+    marker.write_text("not-json", encoding="utf-8")
+    segment = tmp_path / "segment.wits"
+    segment.write_bytes(b"raw")
+    manager = Wits0RawRetentionManager(
+        Wits0RawRetentionPolicy(max_age_days=1, max_total_bytes=1, keep_min_segments=0)
+    )
+
+    result = manager.apply(tmp_path, now=10 * 86_400)
+
+    assert segment.exists()
+    assert result.skip_reason == "marker_invalid_json"
+    with pytest.raises(ValueError, match="marker is invalid"):
+        initialize_wits0_raw_directory(tmp_path, adopt_existing=True)
 
 
 def test_raw_recovery_repairs_crash_truncated_sidecar_without_touching_raw(

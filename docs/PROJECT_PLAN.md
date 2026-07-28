@@ -53,8 +53,9 @@ roadmap, build report или release plan.
   сборки; превышение завершает pending requests и закрывает недоверенную сессию.
 - [x] **SEC-03:** большие LAS/XML inputs переведены на streaming с ранними лимитами размера,
   глубины, элементов, текста и атрибутов; DTD/entity/external entity/notation блокируются до materialization.
-- [ ] **SEC-04:** удалять WITS0 raw retention только из application-owned каталога с marker;
-  remote bind разрешать только с явным предупреждением и сетевой политикой.
+- [x] **SEC-04:** WITS0 raw retention удаляет данные только из application-owned каталога с
+  path-bound marker; remote server bind требует явного предупреждения, non-global CIDR allowlist
+  и отбрасывает peers вне политики.
 - [ ] **SEC-05:** завершить provenance/license review встроенных lithology/symbol assets и
   заменить vendor-specific labels там, где нет подтверждённого права и продуктовой необходимости.
 

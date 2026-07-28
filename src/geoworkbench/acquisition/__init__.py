@@ -40,6 +40,8 @@ from geoworkbench.acquisition.wits0_parser import (
     process_wits0_chunks,
 )
 from geoworkbench.acquisition.wits0_reliability import (
+    WITS0_RAW_DIRECTORY_MARKER_NAME,
+    WITS0_RAW_DIRECTORY_MARKER_SCHEMA_VERSION,
     WITS0_RECOVERY_SCHEMA_VERSION,
     WITS0_WORKSPACE_SCHEMA_VERSION,
     Wits0ConnectionJournal,
@@ -49,6 +51,7 @@ from geoworkbench.acquisition.wits0_reliability import (
     Wits0DiskSpacePolicy,
     Wits0DiskSpaceSnapshot,
     Wits0DiskSpaceState,
+    Wits0RawDirectoryOwnership,
     Wits0RawRecoveryReport,
     Wits0RawRetentionManager,
     Wits0RawRetentionPolicy,
@@ -58,6 +61,8 @@ from geoworkbench.acquisition.wits0_reliability import (
     Wits0RecoveryStore,
     Wits0WorkspaceSettings,
     Wits0WorkspaceState,
+    initialize_wits0_raw_directory,
+    inspect_wits0_raw_directory,
     recover_wits0_raw_directory,
 )
 from geoworkbench.acquisition.wits0_capture import (
@@ -69,6 +74,9 @@ from geoworkbench.acquisition.wits0_capture import (
     Wits0CaptureState,
     Wits0ConnectionMode,
     Wits0RawCaptureWriter,
+    Wits0RemoteBindPolicy,
+    is_wits0_loopback_host,
+    wits0_remote_bind_required,
 )
 
 __all__ = [
@@ -108,6 +116,8 @@ __all__ = [
     "load_builtin_wits0_catalog",
     "load_wits0_profile",
     "load_wits0_catalog",
+    "WITS0_RAW_DIRECTORY_MARKER_NAME",
+    "WITS0_RAW_DIRECTORY_MARKER_SCHEMA_VERSION",
     "WITS0_RECOVERY_SCHEMA_VERSION",
     "WITS0_WORKSPACE_SCHEMA_VERSION",
     "Wits0ConnectionJournal",
@@ -117,14 +127,20 @@ __all__ = [
     "Wits0DiskSpacePolicy",
     "Wits0DiskSpaceSnapshot",
     "Wits0DiskSpaceState",
+    "Wits0RawDirectoryOwnership",
     "Wits0RawRecoveryReport",
     "Wits0RawRetentionManager",
     "Wits0RawRetentionPolicy",
     "Wits0RawRetentionResult",
+    "Wits0RemoteBindPolicy",
     "Wits0RecoveryManifest",
     "Wits0RecoveryState",
     "Wits0RecoveryStore",
     "Wits0WorkspaceSettings",
     "Wits0WorkspaceState",
+    "initialize_wits0_raw_directory",
+    "inspect_wits0_raw_directory",
+    "is_wits0_loopback_host",
     "recover_wits0_raw_directory",
+    "wits0_remote_bind_required",
 ]

@@ -158,7 +158,23 @@ python -m pytest -q tests/test_bounded_input_limits.py tests/test_witsml_invento
   tests/test_witsml_data_arrays.py tests/test_witsml1411_soap.py tests/test_lossless_las.py
 ```
 
-## 7. Автоматическая Windows GUI/HiDPI/PDF matrix
+## 7. SEC-04: WITS0 ownership marker и remote-bind policy
+
+`tests/test_wits0_reliability.py` проверяет fail-closed retention без marker, явное принятие
+непустого каталога, отказ при повреждённом marker и невозможность авторизовать другой путь
+скопированным marker. `tests/test_wits0_capture.py` проверяет loopback default, обязательные
+warning acknowledgement и CIDR allowlist для non-loopback server, отдельное разрешение wildcard
+`0.0.0.0`, запрет global/unbounded networks и фильтрацию peers политикой. UI contract проверяет
+поля allowlist, warning и adoption flow.
+
+Минимальный локальный запуск:
+
+```bash
+python -m pytest -q tests/test_wits0_reliability.py tests/test_wits0_capture.py \
+  tests/test_wits0_capture_dialog.py
+```
+
+## 8. Автоматическая Windows GUI/HiDPI/PDF matrix
 
 `tools/windows_release_matrix.py` запускается отдельным процессом для каждого Qt scale factor
 `1.0`, `1.25`, `1.5` и `2.0`. Матрица проверяет A4/A3/roll, portrait/landscape, Fit/100%,
@@ -179,7 +195,7 @@ CI запускает все четыре масштаба. Успешная а�
 `pending_physical_printer`: наличие PDF и screenshots не доказывает реальную подачу бумаги,
 цвет, clipping, поля драйвера и читаемость физического отпечатка.
 
-## 8. Ручная Windows-приёмка GUI и физической печати
+## 9. Ручная Windows-приёмка GUI и физической печати
 
 Автоматические source-contract, headless и Windows matrix не заменяют проверку настоящего
 интерфейса и принтера. Минимальный smoke-сценарий:
@@ -216,7 +232,7 @@ python tools/windows_release_matrix.py `
 записать physical-printer status `passed`. Полученный checklist хранится как release artifact,
 а не в Git.
 
-## 9. Правило обновления тестов и документации
+## 10. Правило обновления тестов и документации
 
 Любое изменение запуска, импорта, формы, миграции, формата проекта или пользовательского
 поведения должно в одном изменении обновлять:
