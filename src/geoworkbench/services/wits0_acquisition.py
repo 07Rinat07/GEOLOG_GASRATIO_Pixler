@@ -16,6 +16,7 @@ from geoworkbench.acquisition.wits0_parser import (
 )
 from geoworkbench.domain.acquisition import (
     AcquisitionCheckpoint,
+    AcquisitionCurveSchema,
     AcquisitionDataRowPayload,
     AcquisitionEventUpsertPayload,
     AcquisitionRecord,
@@ -222,10 +223,11 @@ class Wits0FrameNormalizer:
         self.schema = commit.schema
         self.policy = policy or Wits0FrameNormalizerPolicy()
         self._index = self.schema.indexes[0]
-        self._selected_index = commit.review.selected_index
-        if self._selected_index is None:
+        selected_index = commit.review.selected_index
+        if selected_index is None:
             raise ValueError("WITS0 Import Review commit has no selected index")
-        self._curve_by_key: dict[Wits0ChannelKey, object] = {}
+        self._selected_index = selected_index
+        self._curve_by_key: dict[Wits0ChannelKey, AcquisitionCurveSchema] = {}
         for curve in self.schema.curves:
             provenance = curve.metadata.provenance
             if not provenance.startswith("wits0:"):

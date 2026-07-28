@@ -414,7 +414,7 @@ class Wits0ImportReviewDialog(QDialog):
             self.channel_canonical_uom.clear()
             self.channel_samples.setText("—")
         else:
-            self.channel_id.setText(key.source_id)
+            self.channel_id.setText(channel.key.source_id)
             self.channel_source.setText(channel.source_mnemonic)
             self.channel_enabled.setChecked(override.import_enabled)
             self.channel_canonical.setText(override.canonical_mnemonic)

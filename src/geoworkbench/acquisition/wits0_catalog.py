@@ -26,15 +26,22 @@ class Wits0CatalogField:
     declared_length: int
 
     def __post_init__(self) -> None:
-        for value, label in ((self.record_no, "record_no"), (self.item_no, "item_no")):
-            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 99:
+        for numeric_value, label in (
+            (self.record_no, "record_no"),
+            (self.item_no, "item_no"),
+        ):
+            if (
+                isinstance(numeric_value, bool)
+                or not isinstance(numeric_value, int)
+                or not 0 <= numeric_value <= 99
+            ):
                 raise Wits0ProfileError(f"{label} must be an integer in the range 0..99")
-        for value, label in (
+        for text_value, label in (
             (self.description, "description"),
             (self.short_mnemonic, "short_mnemonic"),
             (self.long_mnemonic, "long_mnemonic"),
         ):
-            if not isinstance(value, str) or not value.strip():
+            if not isinstance(text_value, str) or not text_value.strip():
                 raise Wits0ProfileError(f"{label} must be a non-empty string")
         if self.declared_type not in _SUPPORTED_DECLARED_TYPES:
             raise Wits0ProfileError(

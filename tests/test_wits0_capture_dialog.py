@@ -59,6 +59,23 @@ def test_wits0_capture_ui_exposes_reliability_and_restart_recovery_controls() ->
     assert "def _persist_workspace_state" in source
 
 
+def test_wits0_capture_setting_int_rejects_corrupt_values(tmp_path: Path) -> None:
+    pytest.importorskip("PySide6")
+    from PySide6.QtCore import QSettings
+
+    from geoworkbench.ui.wits0_capture_dialog import _setting_int
+
+    settings = QSettings(str(tmp_path / "wits0-settings.ini"), QSettings.Format.IniFormat)
+    settings.setValue("valid", "4096")
+    settings.setValue("invalid", "not-an-integer")
+    settings.setValue("boolean", True)
+
+    assert _setting_int(settings, "valid", 10) == 4096
+    assert _setting_int(settings, "invalid", 10) == 10
+    assert _setting_int(settings, "boolean", 10) == 10
+    assert _setting_int(settings, "missing", 10) == 10
+
+
 @pytest.mark.skipif(
     importlib.util.find_spec("PySide6") is None,
     reason="PySide6 is not installed in the headless test environment",

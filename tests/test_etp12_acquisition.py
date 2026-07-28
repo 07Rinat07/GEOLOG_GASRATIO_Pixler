@@ -25,6 +25,7 @@ from geoworkbench.services.etp12_import_review import (
     Etp12ImportReviewController,
     restore_etp12_import_review_commit,
 )
+from geoworkbench.services.uom_dictionary import QuantityClass
 
 
 def _metadata(channel_id: int = 10) -> dict[str, Etp12ChannelMetadata]:
@@ -122,6 +123,35 @@ def test_import_review_builds_immutable_schema_and_uom_conversion_plan() -> None
     assert by_name["ROP"].conversion_required
 
 
+def test_import_review_accepts_equal_unknown_uom_with_explicit_quantity() -> None:
+    _metadata_map, snapshot, _commit_result = _commit()
+    controller = Etp12ImportReviewController()
+    plan = controller.initial_plan(snapshot)
+    channels = tuple(
+        replace(
+            channel,
+            quantity_class=QuantityClass.LENGTH,
+            source_uom="vendor-depth",
+            canonical_uom="vendor-depth",
+        )
+        if channel.channel_uri.endswith("(rop)")
+        else channel
+        for channel in plan.channels
+    )
+
+    review_plan = replace(plan, channels=channels)
+    review = controller.preview(snapshot, review_plan)
+    commit = controller.commit(snapshot, review_plan)
+
+    rop = next(item for item in review.channels if item.channel_uri.endswith("(rop)"))
+    assert review.error_count == 0
+    assert review.schema_preview is not None
+    assert rop.quantity_class is QuantityClass.LENGTH
+    assert not any(issue.code == "quantity-uom-conflict" for issue in rop.issues)
+    assert commit.schema == review.schema_preview
+    assert commit.review.error_count == 0
+
+
 def test_normalizer_groups_channel_points_and_converts_units() -> None:
     metadata, _snapshot, commit = _commit()
     result = Etp12ChannelNormalizer(commit, metadata).normalize(_batch())
@@ -134,6 +164,13 @@ def test_normalizer_groups_channel_points_and_converts_units() -> None:
     assert values["ROP"] == pytest.approx(10.0)
     assert values["SPP"] == pytest.approx(123.3654083395)
     assert len(batch.point_hashes) == 2
+
+
+def test_normalizer_rejects_untyped_channel_metadata() -> None:
+    _metadata_map, _snapshot, commit = _commit()
+
+    with pytest.raises(TypeError, match="metadata must contain Etp12ChannelMetadata"):
+        Etp12ChannelNormalizer(commit, {"invalid": object()})
 
 
 def test_normalizer_rejects_other_subscription_without_mutation() -> None:

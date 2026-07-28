@@ -52,7 +52,11 @@ class WitsmlImportDialog(QDialog):
         super().__init__(parent)
         if source is None and package is None:
             raise ValueError("source or package is required")
-        self.source = Path(source) if source is not None else package.source
+        if source is not None:
+            self.source = Path(source)
+        else:
+            assert package is not None
+            self.source = package.source
         self.localizer = Localizer.create(language)
         self.controller = WitsmlImportReviewController()
         self.package: WitsmlDataPackage | None = package
@@ -275,14 +279,20 @@ class WitsmlImportDialog(QDialog):
         for row in range(self.table.rowCount()):
             key_item = self.table.item(row, 1)
             key = key_item.data(Qt.ItemDataRole.UserRole) if key_item is not None else None
+            if not isinstance(key, str):
+                continue
             item = review_by_key.get(key)
             if item is None:
                 continue
-            self.table.item(row, 7).setText(
-                f"{item.valid_count}/{item.null_count}/{item.invalid_count}"
-            )
+            counts_item = self.table.item(row, 7)
+            if counts_item is not None:
+                counts_item.setText(
+                    f"{item.valid_count}/{item.null_count}/{item.invalid_count}"
+                )
             messages = "; ".join(issue.message for issue in item.issues)
-            self.table.item(row, 8).setText(messages or self._t("witsml_import.ok"))
+            status_item = self.table.item(row, 8)
+            if status_item is not None:
+                status_item.setText(messages or self._t("witsml_import.ok"))
         lines = [
             self._t(
                 "witsml_import.review_summary",

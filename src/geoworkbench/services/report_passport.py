@@ -540,6 +540,9 @@ def verify_report_output_artifacts(
         raise ReportPassportError("Report Passport содержит неверный artifacts payload")
     root = Path(directory)
     for item in artifacts:
+        file_name: object
+        expected_size: object
+        expected_digest: object
         if isinstance(item, ReportOutputArtifactSnapshot):
             file_name = item.file_name
             expected_size = item.size_bytes
@@ -895,7 +898,6 @@ def _channel_snapshot(
 
 
 def _coverage_snapshot(item: ChannelCoverage) -> ReportCoverageSnapshot:
-    payload = item.payload()
     return ReportCoverageSnapshot(
         channel_key=item.channel_key,
         mnemonic=item.mnemonic,
@@ -906,10 +908,10 @@ def _coverage_snapshot(item: ChannelCoverage) -> ReportCoverageSnapshot:
         zero_count=item.zero_count,
         missing_count=item.missing_count,
         unavailable_count=item.unavailable_count,
-        coverage_percent=float(payload["coverage_percent"]),
-        missing_percent=float(payload["missing_percent"]),
-        zero_percent=float(payload["zero_percent"]),
-        zero_percent_of_observed=float(payload["zero_percent_of_observed"]),
+        coverage_percent=item.coverage_percent,
+        missing_percent=item.missing_percent,
+        zero_percent=item.zero_percent,
+        zero_percent_of_observed=item.zero_percent_of_observed,
     )
 
 def _formula_snapshots(
@@ -1012,27 +1014,39 @@ def _interval_mask(
         raise ReportPassportError("Активный индекс Report Passport должен быть одномерным")
     if np.issubdtype(array.dtype, np.datetime64):
         try:
-            start = np.datetime64(str(interval.start), "ns")
-            end = np.datetime64(str(interval.end), "ns")
+            start_datetime = np.datetime64(str(interval.start), "ns")
+            end_datetime = np.datetime64(str(interval.end), "ns")
         except ValueError as exc:
             raise ReportPassportError("Границы datetime-интервала имеют неверный формат") from exc
-        if start == end:
+        if start_datetime == end_datetime:
             raise ReportPassportError("Интервал Report Passport должен иметь разные границы")
-        lower, upper = (start, end) if start <= end else (end, start)
+        lower, upper = (
+            (start_datetime, end_datetime)
+            if start_datetime <= end_datetime
+            else (end_datetime, start_datetime)
+        )
         normalized = array.astype("datetime64[ns]")
         return (~np.isnat(normalized)) & (normalized >= lower) & (normalized <= upper)
     try:
         numeric = np.asarray(array, dtype=np.float64)
-        start = float(interval.start)
-        end = float(interval.end)
+        start_value = float(interval.start)
+        end_value = float(interval.end)
     except (TypeError, ValueError) as exc:
         raise ReportPassportError("Границы числового интервала имеют неверный формат") from exc
-    if not np.isfinite(start) or not np.isfinite(end):
+    if not np.isfinite(start_value) or not np.isfinite(end_value):
         raise ReportPassportError("Границы интервала должны быть конечными")
-    if start == end:
+    if start_value == end_value:
         raise ReportPassportError("Интервал Report Passport должен иметь разные границы")
-    lower, upper = (start, end) if start <= end else (end, start)
-    return np.isfinite(numeric) & (numeric >= lower) & (numeric <= upper)
+    numeric_lower, numeric_upper = (
+        (start_value, end_value)
+        if start_value <= end_value
+        else (end_value, start_value)
+    )
+    return (
+        np.isfinite(numeric)
+        & (numeric >= numeric_lower)
+        & (numeric <= numeric_upper)
+    )
 
 
 def _report_data_size_bytes(

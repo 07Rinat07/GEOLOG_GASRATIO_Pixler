@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass, replace
 from datetime import date, datetime, time
 from enum import StrEnum
@@ -341,25 +342,28 @@ class Wits0Parser:
                 )
                 continue
 
-            record_no = int(line[:2])
+            parsed_record_no = int(line[:2])
             item_no = int(line[2:4])
             raw_value = line[4:].lstrip(" \t=:").strip()
-            record_numbers.append(record_no)
-            definition = self._definition(record_no, item_no)
+            record_numbers.append(parsed_record_no)
+            definition = self._definition(parsed_record_no, item_no)
             field_diagnostics: list[Wits0Diagnostic] = []
 
-            record_definition = self.profile.record(record_no)
+            record_definition = self.profile.record(parsed_record_no)
             record_is_known = (
-                record_definition is not None or record_no in self._catalog_records
+                record_definition is not None or parsed_record_no in self._catalog_records
             )
-            if not record_is_known and record_no not in unknown_records_reported:
-                unknown_records_reported.add(record_no)
+            if (
+                not record_is_known
+                and parsed_record_no not in unknown_records_reported
+            ):
+                unknown_records_reported.add(parsed_record_no)
                 diagnostic = Wits0Diagnostic(
                     code=Wits0DiagnosticCode.UNKNOWN_RECORD,
                     severity=Wits0DiagnosticSeverity.WARNING,
-                    message=f"WITS0 record {record_no:02d} is absent from profile",
+                    message=f"WITS0 record {parsed_record_no:02d} is absent from profile",
                     line_no=line_no,
-                    record_no=record_no,
+                    record_no=parsed_record_no,
                     item_no=item_no,
                     raw_line=original_line,
                 )
@@ -370,24 +374,27 @@ class Wits0Parser:
                     code=Wits0DiagnosticCode.UNKNOWN_FIELD,
                     severity=Wits0DiagnosticSeverity.WARNING,
                     message=(
-                        f"WITS0 field {record_no:02d}{item_no:02d} is absent from profile"
+                        f"WITS0 field {parsed_record_no:02d}{item_no:02d} "
+                        "is absent from profile"
                     ),
                     line_no=line_no,
-                    record_no=record_no,
+                    record_no=parsed_record_no,
                     item_no=item_no,
                     raw_line=original_line,
                 )
                 field_diagnostics.append(diagnostic)
                 diagnostics.append(diagnostic)
 
-            field_key = (record_no, item_no)
+            field_key = (parsed_record_no, item_no)
             if field_key in seen:
                 diagnostic = Wits0Diagnostic(
                     code=Wits0DiagnosticCode.DUPLICATE_FIELD,
                     severity=Wits0DiagnosticSeverity.WARNING,
-                    message=f"Duplicate WITS0 field {record_no:02d}{item_no:02d}",
+                    message=(
+                        f"Duplicate WITS0 field {parsed_record_no:02d}{item_no:02d}"
+                    ),
                     line_no=line_no,
-                    record_no=record_no,
+                    record_no=parsed_record_no,
                     item_no=item_no,
                     raw_line=original_line,
                 )
@@ -400,7 +407,7 @@ class Wits0Parser:
                 raw_value,
                 value_kind=value_kind,
                 line_no=line_no,
-                record_no=record_no,
+                record_no=parsed_record_no,
                 item_no=item_no,
                 raw_line=original_line,
             )
@@ -409,7 +416,7 @@ class Wits0Parser:
             parsed_fields.append(
                 Wits0ParsedField(
                     line_no=line_no,
-                    record_no=record_no,
+                    record_no=parsed_record_no,
                     item_no=item_no,
                     raw_line=original_line,
                     raw_value=raw_value,
@@ -427,7 +434,7 @@ class Wits0Parser:
             )
 
         unique_records = tuple(dict.fromkeys(record_numbers))
-        record_no = unique_records[0] if len(unique_records) == 1 else None
+        frame_record_no = unique_records[0] if len(unique_records) == 1 else None
         if len(unique_records) > 1:
             diagnostics.append(
                 Wits0Diagnostic(
@@ -471,7 +478,7 @@ class Wits0Parser:
             raw_text=raw_text,
             received_at=received_at,
             source_ref=source_ref,
-            record_no=record_no,
+            record_no=frame_record_no,
             sequence_no=sequence_no,
             sequence_status=sequence_status,
             fields=tuple(parsed_fields),
@@ -716,7 +723,7 @@ class Wits0StreamProcessor:
 
 
 def iter_parsed_wits0_frames(
-    source: str | Path | BinaryIO,
+    source: str | os.PathLike[str] | BinaryIO,
     *,
     profile: Wits0Profile,
     chunk_size: int = 65_536,
@@ -729,15 +736,19 @@ def iter_parsed_wits0_frames(
     if isinstance(chunk_size, bool) or chunk_size < 1:
         raise ValueError("chunk_size must be positive")
     processor = Wits0StreamProcessor(profile, max_frame_bytes=max_frame_bytes)
-    owns_stream = not hasattr(source, "read")
     stream: BinaryIO
-    if owns_stream:
-        stream = Path(source).open("rb")
+    source_path: Path | None
+    if isinstance(source, (str, os.PathLike)):
+        owns_stream = True
+        source_path = Path(source)
+        stream = source_path.open("rb")
     else:
-        stream = source  # type: ignore[assignment]
+        owns_stream = False
+        source_path = None
+        stream = source
     effective_ref = source_ref
-    if effective_ref is None and owns_stream:
-        effective_ref = str(Path(source))
+    if effective_ref is None and source_path is not None:
+        effective_ref = str(source_path)
     try:
         while chunk := stream.read(chunk_size):
             yield from processor.append(

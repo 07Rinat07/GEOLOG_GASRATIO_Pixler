@@ -56,17 +56,17 @@ class AcquisitionLiveViewConfig:
         ):
             if isinstance(value, bool) or not isinstance(value, int) or value < 2:
                 raise ValueError(f"{name} must be an integer >= 2")
-        for value, name in (
+        for numeric_value, name in (
             (self.time_window_seconds, "time_window_seconds"),
             (self.depth_window, "depth_window"),
             (self.axis_gap_factor, "axis_gap_factor"),
             (self.stale_after_seconds, "stale_after_seconds"),
         ):
             if (
-                isinstance(value, bool)
-                or not isinstance(value, (int, float))
-                or not isfinite(float(value))
-                or float(value) <= 0.0
+                isinstance(numeric_value, bool)
+                or not isinstance(numeric_value, (int, float))
+                or not isfinite(float(numeric_value))
+                or float(numeric_value) <= 0.0
             ):
                 raise ValueError(f"{name} must be a finite positive number")
 
@@ -275,7 +275,10 @@ class AcquisitionLiveView:
         end_value = float(end)
         if not isfinite(start_value) or not isfinite(end_value) or start_value == end_value:
             raise ValueError("History window requires two different finite boundaries")
-        self._manual_window = tuple(sorted((start_value, end_value)))
+        self._manual_window = (
+            min(start_value, end_value),
+            max(start_value, end_value),
+        )
         self._auto_follow = False
 
     def clear_history_window(self) -> None:

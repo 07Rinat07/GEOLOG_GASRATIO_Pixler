@@ -5,6 +5,7 @@ from enum import StrEnum
 from hashlib import sha256
 import json
 from math import isfinite
+from typing import TypeGuard
 
 import numpy as np
 
@@ -261,6 +262,8 @@ class WitsmlImportReviewController:
         plan: WitsmlImportReviewPlan,
     ) -> WitsmlImportReview:
         index = _index_by_key(channel_set, plan.active_index_key)
+        plan_index_type = _normalized_index_type(plan.index_type)
+        plan_index_role = _normalized_index_role(plan.index_role)
         override_by_key = {item.channel_key: item for item in plan.channels}
         unknown = set(override_by_key).difference(item.key for item in channel_set.channels)
         if unknown:
@@ -289,11 +292,11 @@ class WitsmlImportReviewController:
         imported_index = index_values[valid_mask] if plan.drop_invalid_index_rows else index_values
         if imported_index.size == 0:
             issues.append(WitsmlImportIssue("empty-index", WitsmlImportSeverity.ERROR, "No rows remain for import"))
-        if plan.index_role is not _index_contract(index)[1]:
+        if plan_index_role is not _index_contract(index)[1]:
             issues.append(WitsmlImportIssue("index-role-conflict", WitsmlImportSeverity.ERROR, "Selected index role conflicts with WITSML metadata"))
-        if plan.index_type is not _index_contract(index)[0]:
+        if plan_index_type is not _index_contract(index)[0]:
             issues.append(WitsmlImportIssue("index-type-conflict", WitsmlImportSeverity.ERROR, "Selected index type conflicts with WITSML metadata"))
-        if plan.index_type is not IndexType.DATETIME:
+        if plan_index_type is not IndexType.DATETIME:
             conversion = self.uoms.conversion(index.uom, plan.index_uom)
             if conversion is None:
                 issues.append(
@@ -321,7 +324,9 @@ class WitsmlImportReviewController:
             )
             canonical_mnemonic = (override.canonical_mnemonic or binding.canonical_mnemonic).strip().upper()
             canonical_kind = (override.canonical_kind or binding.canonical_kind).strip().casefold()
-            quantity = override.quantity_class or binding.quantity_class
+            quantity = _normalized_quantity_class(
+                override.quantity_class or binding.quantity_class
+            )
             target_uom = override.canonical_uom or binding.canonical_uom or _canonical_or_source(self.uoms, channel.uom)
             values = [row.channel_values[channel.position] for row in channel_set.rows]
             valid_count = sum(_finite_number(value) for value in values)
@@ -443,8 +448,8 @@ class WitsmlImportReviewController:
             skipped_row_count=invalid_count if plan.drop_invalid_index_rows else 0,
             active_index_key=index.key,
             index_mnemonic=plan.index_mnemonic,
-            index_type=plan.index_type,
-            index_role=plan.index_role,
+            index_type=plan_index_type,
+            index_role=plan_index_role,
             index_uom=plan.index_uom,
             channels=tuple(channel_reviews),
             issues=tuple(issues),
@@ -458,11 +463,14 @@ class WitsmlImportReviewController:
         review = self.preview(channel_set, plan)
         if review.error_count:
             raise WitsmlImportValidationError(review)
+        plan_index_type = _normalized_index_type(plan.index_type)
+        plan_index_role = _normalized_index_role(plan.index_role)
+        plan_dataset_kind = _normalized_dataset_kind(plan.dataset_kind)
         index = _index_by_key(channel_set, plan.active_index_key)
         raw_index, valid_mask = _index_values(channel_set, index)
         mask = valid_mask if plan.drop_invalid_index_rows else np.ones(len(channel_set.rows), dtype=bool)
         index_values = raw_index[mask]
-        if plan.index_type is IndexType.DATETIME:
+        if plan_index_type is IndexType.DATETIME:
             typed_index = np.array(index_values, dtype="datetime64[ns]")
             index_unit = None
             timezone_name = "UTC"
@@ -481,8 +489,8 @@ class WitsmlImportReviewController:
         dataset_index = DatasetIndex(
             index_id=index_id,
             mnemonic=plan.index_mnemonic,
-            index_type=plan.index_type,
-            role=plan.index_role,
+            index_type=plan_index_type,
+            role=plan_index_role,
             unit=index_unit,
             values=typed_index,
             confidence=1.0,
@@ -494,12 +502,16 @@ class WitsmlImportReviewController:
             datetime_format=datetime_format,
             timezone=timezone_name,
         )
-        depth_domain = _depth_domain(plan.index_type)
-        depth = typed_index.astype(np.float64) if plan.index_role is IndexRole.DEPTH else np.arange(len(typed_index), dtype=np.float64)
+        depth_domain = _depth_domain(plan_index_type)
+        depth = (
+            typed_index.astype(np.float64)
+            if plan_index_role is IndexRole.DEPTH
+            else np.arange(len(typed_index), dtype=np.float64)
+        )
         dataset = Dataset(
             dataset_id=plan.dataset_id,
             name=plan.dataset_name,
-            kind=plan.dataset_kind,
+            kind=plan_dataset_kind,
             depth_domain=depth_domain,
             depth=depth,
             source_path=channel_set.source,
@@ -610,7 +622,7 @@ def _index_values(
 ) -> tuple[np.ndarray, np.ndarray]:
     raw = [row.index_values[index.position] for row in channel_set.rows]
     if index.is_time:
-        values: list[np.datetime64] = []
+        datetime_values: list[np.datetime64] = []
         valid: list[bool] = []
         for value in raw:
             try:
@@ -618,14 +630,20 @@ def _index_values(
             except ValueError:
                 parsed = None
             if parsed is None:
-                values.append(np.datetime64("NaT", "ns"))
+                datetime_values.append(np.datetime64("NaT", "ns"))
                 valid.append(False)
             else:
-                values.append(np.datetime64(parsed.replace(tzinfo=None), "ns"))
+                datetime_values.append(np.datetime64(parsed.replace(tzinfo=None), "ns"))
                 valid.append(True)
-        return np.array(values, dtype="datetime64[ns]"), np.array(valid, dtype=bool)
-    values = np.array([float(value) if _finite_number(value) else np.nan for value in raw], dtype=np.float64)
-    return values, np.isfinite(values)
+        return np.array(datetime_values, dtype="datetime64[ns]"), np.array(
+            valid,
+            dtype=bool,
+        )
+    numeric_values = np.array(
+        [float(value) if _finite_number(value) else np.nan for value in raw],
+        dtype=np.float64,
+    )
+    return numeric_values, np.isfinite(numeric_values)
 
 
 def _canonical_or_source(uoms: UomDictionary, value: str | None) -> str | None:
@@ -682,7 +700,7 @@ def _depth_domain(index_type: IndexType) -> DepthDomain:
     }.get(index_type, DepthDomain.MD)
 
 
-def _finite_number(value: object) -> bool:
+def _finite_number(value: object) -> TypeGuard[int | float]:
     return not isinstance(value, bool) and isinstance(value, (int, float)) and isfinite(float(value))
 
 
@@ -728,8 +746,32 @@ def _dataset_digest(dataset: Dataset) -> str:
         ],
     }
     digest.update(json.dumps(metadata, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8"))
-    for item in dataset.indexes.values():
-        digest.update(np.asarray(item.values).tobytes(order="C"))
-    for item in dataset.curves.values():
-        digest.update(np.asarray(item.values, dtype=np.float64).tobytes(order="C"))
+    for dataset_index in dataset.indexes.values():
+        digest.update(np.asarray(dataset_index.values).tobytes(order="C"))
+    for curve in dataset.curves.values():
+        digest.update(np.asarray(curve.values, dtype=np.float64).tobytes(order="C"))
     return digest.hexdigest()
+
+
+def _normalized_quantity_class(value: QuantityClass | str) -> QuantityClass:
+    if isinstance(value, QuantityClass):
+        return value
+    return QuantityClass(value)
+
+
+def _normalized_index_type(value: IndexType | str) -> IndexType:
+    if isinstance(value, IndexType):
+        return value
+    return IndexType(value)
+
+
+def _normalized_index_role(value: IndexRole | str) -> IndexRole:
+    if isinstance(value, IndexRole):
+        return value
+    return IndexRole(value)
+
+
+def _normalized_dataset_kind(value: DatasetKind | str) -> DatasetKind:
+    if isinstance(value, DatasetKind):
+        return value
+    return DatasetKind(value)

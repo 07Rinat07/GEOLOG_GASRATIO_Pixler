@@ -174,6 +174,34 @@ def test_plan_rejects_duplicate_curve_overrides() -> None:
         )
 
 
+def test_plan_normalizes_serialized_enum_values_before_commit() -> None:
+    dataset = _dataset()
+    controller = ImportReviewController()
+    initial = controller.initial_plan(dataset)
+    rop_override = replace(
+        initial.channels[0],
+        canonical_mnemonic="ROP_SERIALIZED",
+        canonical_kind="drilling.rop_serialized",
+        quantity_class="linear_velocity",
+    )
+    plan = replace(
+        initial,
+        index_role="depth",
+        index_type="md",
+        channels=(rop_override, *initial.channels[1:]),
+    )
+
+    committed = controller.commit(dataset, plan)
+
+    assert plan.index_role is IndexRole.DEPTH
+    assert plan.index_type is IndexType.MD
+    assert rop_override.quantity_class is QuantityClass.LINEAR_VELOCITY
+    binding = committed.dataset.curves["rop"].metadata.semantic
+    assert binding is not None
+    assert binding.canonical_kind == "drilling.rop_serialized"
+    assert binding.quantity_class is QuantityClass.LINEAR_VELOCITY
+
+
 def test_initial_plan_sorts_mixed_index_copy_without_mutating_source() -> None:
     dataset = _dataset()
     dataset.active_index.values = np.array([101.0, 100.0, 102.0])

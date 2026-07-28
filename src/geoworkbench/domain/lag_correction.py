@@ -265,16 +265,18 @@ def _required_text(value: object, name: str) -> None:
         raise ValueError(f"{name} должен быть непустой строкой")
 
 
-def _finite_number(value: object, name: str) -> None:
+def _finite_number(value: object, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{name} должен быть числом")
-    if not isfinite(float(value)):
+    number = float(value)
+    if not isfinite(number):
         raise ValueError(f"{name} должен быть конечным")
+    return number
 
 
 def _positive_number(value: object, name: str, *, allow_zero: bool = False) -> None:
-    _finite_number(value, name)
-    minimum_ok = float(value) >= 0.0 if allow_zero else float(value) > 0.0
+    number = _finite_number(value, name)
+    minimum_ok = number >= 0.0 if allow_zero else number > 0.0
     if not minimum_ok:
         qualifier = "неотрицательным" if allow_zero else "положительным"
         raise ValueError(f"{name} должен быть {qualifier}")

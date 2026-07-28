@@ -133,17 +133,17 @@ class AcquisitionDataRowPayload:
             raise ValueError("index_values не должны содержать повторяющиеся ID")
         if len({key for key, _value in self.curve_values}) != len(self.curve_values):
             raise ValueError("curve_values не должны содержать повторяющиеся ID")
-        for _index_id, value in self.index_values:
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
+        for _index_id, index_value in self.index_values:
+            if isinstance(index_value, bool) or not isinstance(index_value, (int, float)):
                 raise ValueError("Значение индекса должно быть числом")
-            if not isfinite(float(value)):
+            if not isfinite(float(index_value)):
                 raise ValueError("Значение индекса должно быть конечным")
-        for _curve_id, value in self.curve_values:
-            if value is None:
+        for _curve_id, curve_value in self.curve_values:
+            if curve_value is None:
                 continue
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
+            if isinstance(curve_value, bool) or not isinstance(curve_value, (int, float)):
                 raise ValueError("Значение кривой должно быть числом или None")
-            if not isfinite(float(value)):
+            if not isfinite(float(curve_value)):
                 raise ValueError("Значение кривой должно быть конечным")
 
     def indexes_dict(self) -> dict[str, float | int]:
@@ -241,18 +241,25 @@ class AcquisitionCheckpoint:
 
     def __post_init__(self) -> None:
         _required_text(self.checkpoint_id, "checkpoint_id")
-        for value, name in ((self.sequence, "sequence"), (self.row_count, "row_count")):
-            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        for counter_value, name in (
+            (self.sequence, "sequence"),
+            (self.row_count, "row_count"),
+        ):
+            if (
+                isinstance(counter_value, bool)
+                or not isinstance(counter_value, int)
+                or counter_value < 0
+            ):
                 raise ValueError(f"{name} должен быть неотрицательным целым числом")
-        for value, name in (
+        for digest_value, name in (
             (self.dataset_digest, "dataset_digest"),
             (self.events_digest, "events_digest"),
             (self.audit_digest, "audit_digest"),
         ):
-            if not isinstance(value, str) or len(value) != 64:
+            if not isinstance(digest_value, str) or len(digest_value) != 64:
                 raise ValueError(f"{name} должен быть SHA-256 hex digest")
             try:
-                int(value, 16)
+                int(digest_value, 16)
             except ValueError as exc:
                 raise ValueError(f"{name} должен быть SHA-256 hex digest") from exc
         object.__setattr__(self, "created_at", canonical_acquisition_timestamp(self.created_at))

@@ -462,6 +462,40 @@ def test_window_exports_active_tablet_to_pdf(qapp, tmp_path, monkeypatch) -> Non
     window.close()
 
 
+def test_preview_active_visualization_uses_current_tablet_interval(qapp, monkeypatch) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    window._show_current_dataset()
+    window.tabs.setCurrentWidget(window.tablet_view)
+    window.tablet_view.set_visible_depth(100.0, 101.0)
+    captured: dict[str, object] = {}
+
+    def capture_preview(
+        widget,
+        job,
+        source_name,
+        *,
+        report_context,
+        report_form=None,
+    ) -> None:
+        captured.update(
+            widget=widget,
+            job=job,
+            source_name=source_name,
+            report_context=report_context,
+            report_form=report_form,
+        )
+
+    monkeypatch.setattr(window, "_preview_print_job", capture_preview)
+
+    window.preview_active_visualization()
+
+    assert captured["widget"] is window.tablet_view
+    assert captured["report_context"].current_range == (100.0, 101.0)
+    window.close()
+
+
 def test_window_saves_and_applies_export_curve_profile(qapp, monkeypatch) -> None:
     window = MainWindow()
     session, _ = make_session()

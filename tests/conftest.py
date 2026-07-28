@@ -31,21 +31,29 @@ def qapp():
 
 @pytest.fixture(autouse=True)
 def close_qt_windows_after_test():
-    """Close leaked test windows before their local Python owners disappear."""
+    """Dispose application windows without deleting Qt-owned popups separately."""
 
     yield
     if "PySide6.QtWidgets" not in sys.modules:
         return
+    from PySide6.QtCore import QCoreApplication, QEvent
     from PySide6.QtWidgets import QApplication, QWidget
     from shiboken6 import isValid
 
     app = QApplication.instance()
     if app is None:
         return
+    application_roots: list[QWidget] = []
     for widget in tuple(app.topLevelWidgets()):
         if isinstance(widget, QWidget) and isValid(widget):
             widget.close()
+            if type(widget).__module__.startswith("geoworkbench."):
+                application_roots.append(widget)
     app.processEvents()
+    for widget in application_roots:
+        if isValid(widget):
+            widget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 @pytest.fixture

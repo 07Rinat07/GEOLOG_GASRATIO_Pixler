@@ -34,6 +34,7 @@ from geoworkbench.acquisition import (
     Wits0DiskSpacePolicy,
     Wits0RawRetentionPolicy,
     Wits0WorkspaceSettings,
+    Wits0WorkspaceState,
     Wits0ParsedFrame,
     load_builtin_wits0_profile,
 )
@@ -83,7 +84,7 @@ class Wits0CaptureDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.settings = QSettings()
         self.workspace_settings = Wits0WorkspaceSettings(self.settings)
-        self._last_workspace_state = None
+        self._last_workspace_state: Wits0WorkspaceState | None = None
         self._connection_events_recorded: set[tuple[str, bool]] = set()
         self.well_provider = well_provider
         self.on_dataset_changed = on_dataset_changed
@@ -193,14 +194,14 @@ class Wits0CaptureDialog(QDialog):
 
         self.port_spin = QSpinBox(group)
         self.port_spin.setRange(1, 65_535)
-        self.port_spin.setValue(int(self.settings.value("wits0/port", 2041)))
+        self.port_spin.setValue(_setting_int(self.settings, "wits0/port", 2041))
         form.addRow(self._t("wits0.port"), self.port_spin)
 
         self.disk_critical_spin = QSpinBox(group)
         self.disk_critical_spin.setRange(64, 1_048_576)
         self.disk_critical_spin.setSuffix(" MB")
         self.disk_critical_spin.setValue(
-            int(self.settings.value("wits0/disk_critical_mb", 512))
+            _setting_int(self.settings, "wits0/disk_critical_mb", 512)
         )
         form.addRow(self._t("wits0.disk_critical_mb"), self.disk_critical_spin)
 
@@ -208,14 +209,14 @@ class Wits0CaptureDialog(QDialog):
         self.disk_warning_spin.setRange(64, 1_048_576)
         self.disk_warning_spin.setSuffix(" MB")
         self.disk_warning_spin.setValue(
-            int(self.settings.value("wits0/disk_warning_mb", 2048))
+            _setting_int(self.settings, "wits0/disk_warning_mb", 2048)
         )
         form.addRow(self._t("wits0.disk_warning_mb"), self.disk_warning_spin)
 
         self.retention_days_spin = QSpinBox(group)
         self.retention_days_spin.setRange(1, 3650)
         self.retention_days_spin.setValue(
-            int(self.settings.value("wits0/retention_days", 30))
+            _setting_int(self.settings, "wits0/retention_days", 30)
         )
         form.addRow(self._t("wits0.retention_days"), self.retention_days_spin)
 
@@ -223,14 +224,14 @@ class Wits0CaptureDialog(QDialog):
         self.retention_gb_spin.setRange(1, 102_400)
         self.retention_gb_spin.setSuffix(" GB")
         self.retention_gb_spin.setValue(
-            int(self.settings.value("wits0/retention_max_gb", 20))
+            _setting_int(self.settings, "wits0/retention_max_gb", 20)
         )
         form.addRow(self._t("wits0.retention_max_gb"), self.retention_gb_spin)
 
         self.retention_keep_spin = QSpinBox(group)
         self.retention_keep_spin.setRange(0, 10_000)
         self.retention_keep_spin.setValue(
-            int(self.settings.value("wits0/retention_keep_segments", 4))
+            _setting_int(self.settings, "wits0/retention_keep_segments", 4)
         )
         form.addRow(
             self._t("wits0.retention_keep_segments"),
@@ -656,8 +657,12 @@ class Wits0CaptureDialog(QDialog):
     def _start_acquisition(self) -> None:
         commit = self.review_commit
         well = self.well_provider() if self.well_provider is not None else None
-        snapshot = self.discovery.snapshot()
-        if commit is None or commit.custom_profile.discovery_fingerprint != snapshot.fingerprint:
+        discovery_snapshot = self.discovery.snapshot()
+        if (
+            commit is None
+            or commit.custom_profile.discovery_fingerprint
+            != discovery_snapshot.fingerprint
+        ):
             QMessageBox.warning(
                 self,
                 self._t("wits0.title"),
@@ -698,19 +703,23 @@ class Wits0CaptureDialog(QDialog):
             )
         self._notify_dataset_changed(runtime)
         self._restore_workspace_state(runtime)
-        snapshot = engine.snapshot() if engine is not None else None
+        capture_snapshot = engine.snapshot() if engine is not None else None
         if (
-            snapshot is not None
-            and snapshot.state is Wits0CaptureState.CONNECTED
-            and snapshot.current_connection_id
+            capture_snapshot is not None
+            and capture_snapshot.state is Wits0CaptureState.CONNECTED
+            and capture_snapshot.current_connection_id
         ):
             try:
                 runtime.submit_connection_event(
                     connected=True,
-                    occurred_at=snapshot.last_received_at or snapshot.started_at or _utc_now(),
-                    connection_id=snapshot.current_connection_id,
-                    peer=snapshot.current_peer,
-                    raw_file=snapshot.current_raw_file,
+                    occurred_at=(
+                        capture_snapshot.last_received_at
+                        or capture_snapshot.started_at
+                        or _utc_now()
+                    ),
+                    connection_id=capture_snapshot.current_connection_id,
+                    peer=capture_snapshot.current_peer,
+                    raw_file=capture_snapshot.current_raw_file,
                     reason="session_started_while_connected",
                 )
             except Wits0AcquisitionBackpressureError as exc:
@@ -719,7 +728,7 @@ class Wits0CaptureDialog(QDialog):
                 )
             else:
                 self._connection_events_recorded.add(
-                    (snapshot.current_connection_id, True)
+                    (capture_snapshot.current_connection_id, True)
                 )
         self.event_text.appendPlainText(
             self._t(
@@ -1054,3 +1063,15 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace(
         "+00:00", "Z"
     )
+
+
+def _setting_int(settings: QSettings, key: str, default: int) -> int:
+    value = settings.value(key, default)
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, (int, float, str)):
+        try:
+            return int(value)
+        except (TypeError, ValueError, OverflowError):
+            return default
+    return default

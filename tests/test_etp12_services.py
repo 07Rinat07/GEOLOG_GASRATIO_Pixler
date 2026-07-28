@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,7 +18,10 @@ from geoworkbench.importers.etp12.models import (
     Etp12SubscriptionDefinition,
     Etp12SubscriptionState,
 )
-from geoworkbench.importers.etp12.service import Etp12ClientService
+from geoworkbench.importers.etp12.service import (
+    Etp12ClientService,
+    _greatest_resume_index,
+)
 from geoworkbench.services.etp12_profiles import Etp12ProfileStore
 
 
@@ -184,6 +188,78 @@ async def test_subscription_state_and_restore_after_reconnect(service) -> None:
 
 
 @pytest.mark.asyncio
+async def test_restore_subscriptions_forwards_latest_datetime_normalized_to_utc(
+    service,
+) -> None:
+    await service.connect()
+    definition = Etp12SubscriptionDefinition(
+        subscription_id="datetime-resume",
+        channel_uris=("eml:///witsml21.Channel(42)",),
+    )
+    snapshot = await service.subscribe(definition)
+    local_timezone = timezone(timedelta(hours=5))
+    earlier = datetime(2026, 7, 1, 7, tzinfo=timezone.utc)
+    later = datetime(2026, 7, 1, 13, tzinfo=local_timezone)
+    service._subscriptions[definition.subscription_id] = replace(
+        snapshot,
+        last_indexes={41: earlier, 42: later},
+    )
+
+    restored = await service.restore_subscriptions()
+
+    assert len(restored) == 1
+    engine = service.engine
+    assert engine is not None
+    subscribe_request = next(
+        request for request in reversed(engine.requested) if request.kind == "subscribe"
+    )
+    forwarded = next(iter(subscribe_request.channels.values())).start_index
+    assert forwarded == datetime(2026, 7, 1, 8, tzinfo=timezone.utc)
+    assert forwarded.tzinfo is timezone.utc
+    await service.close()
+
+
+@pytest.mark.asyncio
+async def test_restore_subscriptions_suspends_only_subscription_with_naive_datetime(
+    service,
+) -> None:
+    await service.connect()
+    good_definition = Etp12SubscriptionDefinition(
+        subscription_id="good",
+        channel_uris=("eml:///witsml21.Channel(42)",),
+    )
+    bad_definition = Etp12SubscriptionDefinition(
+        subscription_id="bad",
+        channel_uris=("eml:///witsml21.Channel(43)",),
+    )
+    good_snapshot = await service.subscribe(good_definition)
+    bad_snapshot = await service.subscribe(bad_definition)
+    service._subscriptions[good_definition.subscription_id] = replace(
+        good_snapshot,
+        last_indexes={42: 100, 43: 120},
+    )
+    service._subscriptions[bad_definition.subscription_id] = replace(
+        bad_snapshot,
+        last_indexes={
+            42: datetime(2026, 7, 1, 8, tzinfo=timezone.utc),
+            43: datetime(2026, 7, 1, 9),
+        },
+    )
+
+    restored = await service.restore_subscriptions()
+
+    assert [item.definition.subscription_id for item in restored] == ["good"]
+    subscriptions = {
+        item.definition.subscription_id: item
+        for item in service.snapshot().subscriptions
+    }
+    assert subscriptions["good"].state is Etp12SubscriptionState.ACTIVE
+    assert subscriptions["bad"].state is Etp12SubscriptionState.SUSPENDED
+    assert "timezone" in (subscriptions["bad"].last_error or "")
+    await service.close()
+
+
+@pytest.mark.asyncio
 async def test_watchdog_reconnects_and_restores_subscription(service) -> None:
     await service.connect()
     definition = Etp12SubscriptionDefinition(
@@ -221,3 +297,13 @@ def test_profile_store_strict_and_secret_free(tmp_path: Path) -> None:
     assert "password" not in text.casefold()
     assert "secret" not in text.casefold()
     assert store.load_all() == (profile,)
+
+
+def test_resume_index_prefers_greatest_comparable_value_and_safe_fallback() -> None:
+    assert _greatest_resume_index((2, 9, 4)) == 9
+    assert _greatest_resume_index(("2026-07-01", "2026-07-03", "2026-07-02")) == (
+        "2026-07-03"
+    )
+
+    opaque = object()
+    assert _greatest_resume_index((1, opaque)) is opaque

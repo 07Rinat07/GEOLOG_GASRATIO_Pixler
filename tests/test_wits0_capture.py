@@ -5,7 +5,7 @@ import socket
 import threading
 import time
 from io import BytesIO
-from pathlib import Path
+from pathlib import Path, PurePath
 
 import pytest
 
@@ -52,6 +52,15 @@ def test_replay_uses_the_same_incremental_decoder() -> None:
     source = BytesIO(b"prefix&&01081!!\r\n&&02082!!suffix")
 
     frames = tuple(iter_wits0_frames(source, chunk_size=3))
+
+    assert frames == (b"&&01081!!", b"&&02082!!")
+
+
+def test_replay_accepts_generic_pathlike_sources(tmp_path: Path) -> None:
+    source = tmp_path / "capture.wits"
+    source.write_bytes(b"prefix&&01081!!\r\n&&02082!!suffix")
+
+    frames = tuple(iter_wits0_frames(PurePath(source), chunk_size=3))
 
     assert frames == (b"&&01081!!", b"&&02082!!")
 

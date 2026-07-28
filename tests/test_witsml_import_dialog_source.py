@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -32,6 +34,71 @@ def test_import_dialog_keeps_preview_and_commit_separate() -> None:
     assert "self.controller.commit(" in source
     assert "self.accepted_commit" in source
     assert "ProjectSession" not in source
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None,
+    reason="PySide6 is not installed in the headless test environment",
+)
+def test_witsml_dialog_ignores_late_task_result_after_reject(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication, QDialog
+
+    from geoworkbench.services.witsml1411_profiles import Witsml1411ProfileStore
+    from geoworkbench.services.witsml_credentials import (
+        InMemoryWitsmlCredentialStore,
+    )
+    from geoworkbench.ui.witsml1411_dialog import Witsml1411Dialog
+
+    app = QApplication.instance() or QApplication([])
+    dialog = Witsml1411Dialog(
+        profile_store=Witsml1411ProfileStore(tmp_path / "profiles.json"),
+        credential_store=InMemoryWitsmlCredentialStore(),
+    )
+    started = threading.Event()
+    release = threading.Event()
+    callbacks: list[object] = []
+
+    def task() -> object:
+        started.set()
+        release.wait(timeout=2.0)
+        return object()
+
+    worker = None
+    try:
+        dialog.show()
+        dialog._start_task(task, callbacks.append)
+        assert started.wait(timeout=2.0)
+        worker = dialog._task
+        assert worker is not None
+        assert worker.isRunning()
+
+        dialog.reject()
+
+        assert dialog.result() == QDialog.DialogCode.Rejected
+        assert worker.isRunning()
+        assert worker.parent() is app
+
+        release.set()
+        deadline = time.monotonic() + 2.0
+        while dialog._task is not None and time.monotonic() < deadline:
+            app.processEvents()
+            time.sleep(0.01)
+
+        assert dialog._task is None
+        assert callbacks == []
+    finally:
+        release.set()
+        if worker is not None:
+            try:
+                worker.wait(2_000)
+            except RuntimeError:
+                pass
+        dialog.deleteLater()
+        app.processEvents()
 
 
 @pytest.mark.skipif(

@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
-from typing import Callable, Iterable, Protocol
+from typing import Callable, Iterable, Protocol, TypedDict, Unpack
 
 
 WITS0_RECOVERY_SCHEMA_VERSION = 1
@@ -27,6 +27,20 @@ class Wits0RecoveryState(StrEnum):
     RUNNING = "running"
     STOPPED = "stopped"
     FAILED = "failed"
+
+
+class Wits0RecoveryChanges(TypedDict, total=False):
+    """Type-safe mutable fields accepted by the recovery manifest store."""
+
+    state: Wits0RecoveryState
+    clean_shutdown: bool
+    current_connection_id: str | None
+    current_peer: str | None
+    current_raw_file: str | None
+    last_received_at: str | None
+    acquisition_session_id: str | None
+    custom_profile_path: str | None
+    failure: str | None
 
 
 class Wits0DiskSpaceError(OSError):
@@ -384,7 +398,11 @@ class Wits0RecoveryStore:
         ).encode("utf-8")
         _atomic_write_bytes(self.path, payload)
 
-    def update(self, manifest: Wits0RecoveryManifest, **changes: object) -> Wits0RecoveryManifest:
+    def update(
+        self,
+        manifest: Wits0RecoveryManifest,
+        **changes: Unpack[Wits0RecoveryChanges],
+    ) -> Wits0RecoveryManifest:
         updated = replace(manifest, updated_at=_utc_now(), **changes)
         self.save(updated)
         return updated

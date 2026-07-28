@@ -5,6 +5,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from functools import partial
 from pathlib import Path
+from typing import TypedDict, cast
 from weakref import ref
 
 import numpy as np
@@ -122,7 +123,9 @@ from geoworkbench.project.curve_editing_controller import (
 )
 from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.annotation_schema import (
+    AnnotationAnchor,
     AnnotationKind,
+    AnnotationStyle,
     annotation_from_canvas,
     is_annotation_object,
 )
@@ -493,6 +496,27 @@ class _ResponsiveToolbarRow(QWidget):
         return QSize(0, max(1, hint.height()))
 
 
+class _SymbolAnnotationValues(TypedDict):
+    kind: AnnotationKind
+    anchor: AnnotationAnchor
+    text: str
+    track_id: str
+    depth: float
+    parameter_mnemonic: str | None
+    x_fraction: float
+    offset_x: float
+    offset_y: float
+    width: float
+    height: float
+    style: AnnotationStyle
+    asset_ref: str
+    symbol_id: str
+    transparent_background: bool
+    visible: bool
+    locked: bool
+    print_enabled: bool
+
+
 class _ResponsiveToolbarHost(QWidget):
     """Central-widget host for application-owned command rows.
 
@@ -783,7 +807,7 @@ class MainWindow(QMainWindow):
             hasattr(self, "interval_statistics_dock")
             and self.interval_statistics_dock.isVisible()
         ):
-            QTimer.singleShot(0, self._adapt_interval_statistics_dock)
+            QTimer.singleShot(0, self, self._adapt_interval_statistics_dock)
 
     def changeEvent(self, event) -> None:  # noqa: N802 - Qt API
         """Recalculate responsive chrome after font, style or DPI changes."""
@@ -795,8 +819,8 @@ class MainWindow(QMainWindow):
             QEvent.Type.StyleChange,
             QEvent.Type.ScreenChangeInternal,
         } and hasattr(self, "main_toolbar"):
-            QTimer.singleShot(0, self._update_toolbar_adaptation)
-            QTimer.singleShot(120, self._update_toolbar_adaptation)
+            QTimer.singleShot(0, self, self._update_toolbar_adaptation)
+            QTimer.singleShot(120, self, self._update_toolbar_adaptation)
 
     def _apply_adaptive_initial_geometry(self) -> None:
         """Fit the first window inside the active laptop/desktop work area."""
@@ -817,8 +841,8 @@ class MainWindow(QMainWindow):
         # The first pass sees the final native toolbar geometry.  The delayed
         # pass covers a Windows DPI/font-metric update that can arrive just
         # after a window is moved to another monitor.
-        QTimer.singleShot(0, self._update_toolbar_adaptation)
-        QTimer.singleShot(120, self._update_toolbar_adaptation)
+        QTimer.singleShot(0, self, self._update_toolbar_adaptation)
+        QTimer.singleShot(120, self, self._update_toolbar_adaptation)
         if self._initial_geometry_checked or self.isMaximized() or self.isFullScreen():
             return
         self._initial_geometry_checked = True
@@ -835,16 +859,13 @@ class MainWindow(QMainWindow):
             return
         self._toolbar_observed_screens.append(screen)
 
-        def callback(*_args: object) -> None:
-            self._on_toolbar_metrics_changed()
+        screen.logicalDotsPerInchChanged.connect(self._on_toolbar_metrics_changed)
+        screen.geometryChanged.connect(self._on_toolbar_metrics_changed)
+        screen.availableGeometryChanged.connect(self._on_toolbar_metrics_changed)
 
-        screen.logicalDotsPerInchChanged.connect(callback)
-        screen.geometryChanged.connect(callback)
-        screen.availableGeometryChanged.connect(callback)
-
-    def _on_toolbar_metrics_changed(self) -> None:
-        QTimer.singleShot(0, self._update_toolbar_adaptation)
-        QTimer.singleShot(120, self._update_toolbar_adaptation)
+    def _on_toolbar_metrics_changed(self, *_args: object) -> None:
+        QTimer.singleShot(0, self, self._update_toolbar_adaptation)
+        QTimer.singleShot(120, self, self._update_toolbar_adaptation)
 
     def _on_window_screen_changed(self, screen=None) -> None:
         """Recalculate toolbars after moving between monitors or DPI scales."""
@@ -2470,6 +2491,8 @@ class MainWindow(QMainWindow):
         widths: list[int] = []
         for index in range(layout.count()):
             item = layout.itemAt(index)
+            if item is None:
+                continue
             widget = item.widget()
             if widget is None or widget is expanding_widget or id(widget) in hidden:
                 continue
@@ -2658,7 +2681,9 @@ class MainWindow(QMainWindow):
         """
 
         window_width = max(1, int(self.contentsRect().width() or self.width()))
-        host_width = int(getattr(self, "toolbar_host", self).contentsRect().width())
+        toolbar_host = getattr(self, "toolbar_host", None)
+        host_widget = toolbar_host if isinstance(toolbar_host, QWidget) else self
+        host_width = int(host_widget.contentsRect().width())
         if host_width <= 0:
             host_width = window_width
         available_width = max(1, min(window_width, host_width))
@@ -2684,9 +2709,9 @@ class MainWindow(QMainWindow):
 
         if not hasattr(self, "main_toolbar"):
             return
-        QTimer.singleShot(0, self._update_toolbar_adaptation)
-        QTimer.singleShot(60, self._update_toolbar_adaptation)
-        QTimer.singleShot(180, self._update_toolbar_adaptation)
+        QTimer.singleShot(0, self, self._update_toolbar_adaptation)
+        QTimer.singleShot(60, self, self._update_toolbar_adaptation)
+        QTimer.singleShot(180, self, self._update_toolbar_adaptation)
 
     def _update_toolbar_adaptation(self) -> None:
         """Keep both top toolbars inside the actual logical window width."""
@@ -2866,7 +2891,7 @@ class MainWindow(QMainWindow):
 
         self._refresh_tree()
         self._update_title()
-        QTimer.singleShot(0, self._update_toolbar_adaptation)
+        QTimer.singleShot(0, self, self._update_toolbar_adaptation)
 
     def select_user_profile(self) -> None:
         profiles = self.user_profile_settings.profiles()
@@ -3526,8 +3551,8 @@ class MainWindow(QMainWindow):
             selected = Path(source)
 
         dialog = WitsmlImportDialog(selected, self, language=self.language)
-        result = dialog.exec()
-        if result != QDialog.DialogCode.Accepted or dialog.accepted_commit is None:
+        dialog_result = dialog.exec()
+        if dialog_result != QDialog.DialogCode.Accepted or dialog.accepted_commit is None:
             if dialog.failure is not None:
                 self._log(f"WITSML IMPORT ERROR: {selected.name}: {dialog.failure}")
             return
@@ -3535,7 +3560,7 @@ class MainWindow(QMainWindow):
         # The exact immutable Dataset reviewed by the operator is registered once.
         # No parsing or mapping is repeated after the dialog is accepted.
         try:
-            result = WitsmlProjectImportController(self.session).register(
+            import_result = WitsmlProjectImportController(self.session).register(
                 commit,
                 create_new_well=self.session.current_well is None,
             )
@@ -3547,7 +3572,7 @@ class MainWindow(QMainWindow):
                 self._t("witsml_import.failed", error=str(exc)),
             )
             return
-        commit = result.commit
+        commit = import_result.commit
         dataset = commit.dataset
         self._refresh_tree()
         self._update_title()
@@ -4696,6 +4721,13 @@ class MainWindow(QMainWindow):
                 image_quality=self.print_export_preferences.image_quality,
             ),
             self.tabs.tabText(self.tabs.currentIndex()),
+            report_context=ReportIntervalContext(
+                current_range=(
+                    current.visible_depth_range
+                    if isinstance(current, TabletView)
+                    else None
+                )
+            ),
         )
 
     def configure_print_page(self) -> None:
@@ -6732,9 +6764,11 @@ class MainWindow(QMainWindow):
                 transparent_background=selection.transparent_background,
                 language=self.language.value,
             )
-            record = self.depth_annotation_controller.add_annotation(
-                **selection.annotation_values(asset_ref=image_asset.asset_id)
+            annotation_values = cast(
+                _SymbolAnnotationValues,
+                selection.annotation_values(asset_ref=image_asset.asset_id),
             )
+            record = self.depth_annotation_controller.add_annotation(**annotation_values)
         except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("symbol_insert.title"), str(exc))
             return False

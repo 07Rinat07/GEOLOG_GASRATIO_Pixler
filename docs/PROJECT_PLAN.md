@@ -43,7 +43,6 @@ roadmap, build report или release plan.
 
 ## P0 — выпуск и безопасность
 
-- [ ] **REL-01:** устранить текущий backlog `mypy`, затем выполнить весь gate в чистом Python 3.11.
 - [ ] **REL-02:** добавить dependency lock с hashes, SBOM, dependency/secret scan и CI artifacts.
 - [ ] **REL-03:** пройти Windows GUI/HiDPI/PDF/physical-printer matrix и сохранить checklist.
 - [ ] **SEC-01:** согласовать очистку опубликованной Git history от пользовательского

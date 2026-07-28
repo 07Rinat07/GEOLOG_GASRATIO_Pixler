@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, TypedDict, Unpack
 
 from geoworkbench.importers.witsml import WitsmlChannelSetData, WitsmlDataPackage
 from geoworkbench.importers.witsml1411.models import (
@@ -35,6 +35,15 @@ class Witsml1411Handshake:
     capabilities: Witsml1411Capabilities
     result_code: int
     supplementary_message: str | None
+
+
+class Witsml1411LogFetchOptions(TypedDict, total=False):
+    mnemonics: Iterable[str]
+    start_index: str | None
+    end_index: str | None
+    start_datetime_index: str | None
+    end_datetime_index: str | None
+    max_data_nodes: int
 
 
 class Witsml1411ReadOnlyService:
@@ -108,14 +117,23 @@ class Witsml1411ReadOnlyService:
         end_datetime_index: str | None = None,
         max_data_nodes: int = 200_000,
     ) -> WitsmlChannelSetData:
+        if isinstance(mnemonics, (str, bytes)):
+            raise TypeError("mnemonics must be an iterable of strings, not str or bytes")
+        selected_mnemonics = tuple(mnemonics)
+        if not all(isinstance(item, str) for item in selected_mnemonics):
+            raise TypeError("mnemonics must contain only strings")
+        if (
+            isinstance(max_data_nodes, bool)
+            or not isinstance(max_data_nodes, int)
+            or max_data_nodes < 1
+        ):
+            raise ValueError("max_data_nodes must be a positive integer")
         self._ensure_ready()
-        if max_data_nodes < 1:
-            raise ValueError("max_data_nodes must be positive")
         query = log_data_query(
             log.uid_well,
             log.uid_wellbore,
             log.uid,
-            mnemonics=tuple(mnemonics),
+            mnemonics=selected_mnemonics,
             start_index=start_index,
             end_index=end_index,
             start_datetime_index=start_datetime_index,
@@ -137,7 +155,11 @@ class Witsml1411ReadOnlyService:
             endpoint_label=sanitize_endpoint(self.soap.profile.endpoint),
         )
 
-    def fetch_log_package(self, log: Witsml1411LogHeader, **kwargs: object) -> WitsmlDataPackage:
+    def fetch_log_package(
+        self,
+        log: Witsml1411LogHeader,
+        **kwargs: Unpack[Witsml1411LogFetchOptions],
+    ) -> WitsmlDataPackage:
         channel_set = self.fetch_log_channel_set(log, **kwargs)
         return WitsmlDataPackage(
             source=channel_set.source,

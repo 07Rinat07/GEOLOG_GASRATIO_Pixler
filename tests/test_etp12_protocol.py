@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -186,6 +187,43 @@ def test_profile_public_serialization_has_no_secret() -> None:
     assert "password" not in text
     assert "bearer" not in text
     assert Etp12ConnectionProfile.from_public_dict(value) == profile()
+
+
+def test_profile_public_serialization_rejects_non_numeric_limits() -> None:
+    value = profile().to_public_dict()
+    value["request_timeout_seconds"] = object()
+
+    with pytest.raises(TypeError, match="request_timeout_seconds must be numeric"):
+        Etp12ConnectionProfile.from_public_dict(value)
+
+
+def test_profile_public_serialization_rejects_boolean_timeout_from_json() -> None:
+    value = json.loads(json.dumps(profile().to_public_dict()))
+    value["request_timeout_seconds"] = True
+
+    with pytest.raises(TypeError, match="request_timeout_seconds must be numeric"):
+        Etp12ConnectionProfile.from_public_dict(value)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value", "message"),
+    [
+        ("max_attempts", False, "max_attempts must be an integer"),
+        ("multiplier", True, "multiplier must be numeric"),
+    ],
+)
+def test_profile_public_serialization_rejects_boolean_reconnect_fields_from_json(
+    field_name: str,
+    value: bool,
+    message: str,
+) -> None:
+    payload = json.loads(json.dumps(profile().to_public_dict()))
+    reconnect = payload["reconnect"]
+    assert isinstance(reconnect, dict)
+    reconnect[field_name] = value
+
+    with pytest.raises(TypeError, match=message):
+        Etp12ConnectionProfile.from_public_dict(payload)
 
 
 @pytest.mark.asyncio

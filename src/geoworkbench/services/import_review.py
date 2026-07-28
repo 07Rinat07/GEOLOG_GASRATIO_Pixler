@@ -274,8 +274,12 @@ class ImportReviewController:
         self._apply_null_sentinel(candidate, plan.null_value)
         selected_index = candidate.indexes[plan.active_index_id]
         selected_index.mnemonic = plan.index_mnemonic.strip()
-        selected_index.role = plan.index_role
-        selected_index.index_type = plan.index_type
+        index_role = plan.index_role
+        index_type = plan.index_type
+        if not isinstance(index_role, IndexRole) or not isinstance(index_type, IndexType):
+            raise ValueError("Import Review plan contains non-normalized index semantics")
+        selected_index.role = index_role
+        selected_index.index_type = index_type
         selected_index.unit = plan.index_unit
         selected_index.evidence = _unique(
             (*selected_index.evidence, "manual import review index confirmation")
@@ -594,6 +598,8 @@ def _manual_binding(
     ).strip().upper()
     canonical_kind = (override.canonical_kind or automatic.canonical_kind).strip().casefold()
     quantity = override.quantity_class or automatic.quantity_class
+    if not isinstance(quantity, QuantityClass):
+        quantity = QuantityClass(quantity)
     uom = dictionary.uoms.resolve(unit)
     evidence = [
         "manual import review override",

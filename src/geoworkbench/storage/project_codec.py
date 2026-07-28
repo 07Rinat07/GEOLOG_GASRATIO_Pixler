@@ -17,6 +17,7 @@ from geoworkbench.domain.acquisition import (
     AcquisitionIndexSchema,
     AcquisitionRecord,
     AcquisitionRecordKind,
+    AcquisitionRecordPayload,
     AcquisitionSession,
     AcquisitionSessionState,
 )
@@ -602,6 +603,7 @@ def _acquisition_record_from_dict(data: dict[str, Any]) -> AcquisitionRecord:
         raise ProjectFormatError("Неизвестный acquisition record kind") from exc
     payload_data = _required(data, "payload", dict)
     try:
+        payload: AcquisitionRecordPayload
         if kind is AcquisitionRecordKind.DATA_ROW:
             _require_exact_keys(
                 payload_data,

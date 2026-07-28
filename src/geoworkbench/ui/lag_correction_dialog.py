@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import TypedDict, cast
 
 import numpy as np
 from PySide6.QtCore import Qt
@@ -32,6 +33,7 @@ from geoworkbench.domain.lag_correction import (
     ControlPointLagParameters,
     LagCorrectionAxisMode,
     LagCorrectionMethod,
+    LagCorrectionParameters,
     LagCorrectionProfile,
     LagCorrectionTarget,
     LagDepthControlPoint,
@@ -40,6 +42,18 @@ from geoworkbench.domain.lag_correction import (
 from geoworkbench.domain.models import Dataset, IndexRole, TimeDepthAggregationPolicy
 from geoworkbench.project.lag_correction_controller import LagCorrectionProjectController
 from geoworkbench.services.localization import AppLanguage
+
+
+class _LagCorrectionRequestValues(TypedDict):
+    source_time_index_id: str | None
+    source_depth_index_id: str
+    target_curve_ids: tuple[str, ...]
+    method: LagCorrectionMethod
+    parameters: LagCorrectionParameters
+    aggregation_policy: TimeDepthAggregationPolicy
+    created_at: str
+    created_by: str
+    comment: str
 
 
 _TEXT = {
@@ -512,7 +526,7 @@ class LagCorrectionDialog(QDialog):
             if (item := self.curve_list.item(index)).checkState() == Qt.CheckState.Checked
         )
 
-    def _parameters(self):
+    def _parameters(self) -> LagCorrectionParameters:
         method = self.method_selector.currentData()
         if method is LagCorrectionMethod.CONSTANT_TIME:
             return ConstantTimeLagParameters(self.lag_seconds_spin.value())
@@ -542,24 +556,29 @@ class LagCorrectionDialog(QDialog):
             return ControlPointLagParameters(tuple(points))
         raise ValueError("Не выбран метод lag correction")
 
-    def _request_values(self) -> dict[str, object]:
+    def _request_values(self) -> _LagCorrectionRequestValues:
         curves = self._selected_curves()
         if not curves:
             raise ValueError(self.text["select_curve"])
         depth_index_id = self.depth_selector.currentData()
         method = self.method_selector.currentData()
         time_index_id = self.time_selector.currentData()
+        aggregation_policy = self.policy_selector.currentData()
         if depth_index_id is None or (
             method is not LagCorrectionMethod.CONTROL_POINTS and time_index_id is None
         ):
             raise ValueError(self.text["select_indexes"])
+        if not isinstance(method, LagCorrectionMethod):
+            raise ValueError("Не выбран метод lag correction")
+        if not isinstance(aggregation_policy, TimeDepthAggregationPolicy):
+            raise ValueError("Не выбрана политика агрегации")
         return {
             "source_time_index_id": None if time_index_id is None else str(time_index_id),
             "source_depth_index_id": str(depth_index_id),
             "target_curve_ids": curves,
             "method": method,
             "parameters": self._parameters(),
-            "aggregation_policy": self.policy_selector.currentData(),
+            "aggregation_policy": aggregation_policy,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "created_by": self.author_edit.text().strip(),
             "comment": self.comment_edit.text(),
@@ -688,5 +707,5 @@ class LagCorrectionDialog(QDialog):
 
 
 def _format_number(value: object) -> str:
-    numeric = float(value)
+    numeric = float(cast(float, value))
     return "—" if not np.isfinite(numeric) else f"{numeric:.6g}"

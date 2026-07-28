@@ -77,7 +77,9 @@ def test_main_window_measures_actual_modes_and_rechecks_after_screen_change() ->
     assert "def _measure_main_toolbar_mode" in source
     assert "def _measure_form_toolbar_mode" in source
     assert "handle.screenChanged.connect(self._on_window_screen_changed)" in source
-    assert "QTimer.singleShot(120, self._update_toolbar_adaptation)" in source
+    assert "QTimer.singleShot(120, self, self._update_toolbar_adaptation)" in source
+    assert "screen.logicalDotsPerInchChanged.connect(self._on_toolbar_metrics_changed)" in source
+    assert "screen.geometryChanged.connect(self._on_toolbar_metrics_changed)" in source
     assert "self.main_toolbar_spacer" in source
     assert "1760" not in source[source.index("def _create_toolbar"):source.index("def toggle_cursor_line")]
 

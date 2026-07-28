@@ -7,6 +7,22 @@ from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
 
+def _public_float(value: object, field_name: str) -> float:
+    if not isinstance(value, bool) and isinstance(
+        value, (str, bytes, bytearray, int, float)
+    ):
+        return float(value)
+    raise TypeError(f"{field_name} must be numeric")
+
+
+def _public_int(value: object, field_name: str) -> int:
+    if not isinstance(value, bool) and isinstance(
+        value, (str, bytes, bytearray, int, float)
+    ):
+        return int(value)
+    raise TypeError(f"{field_name} must be an integer")
+
+
 class Etp12Protocol(IntEnum):
     CORE = 0
     CHANNEL_STREAMING = 1
@@ -198,18 +214,36 @@ class Etp12ConnectionProfile:
             verify_tls=bool(data.get("verify_tls", True)),
             allow_insecure_localhost=bool(data.get("allow_insecure_localhost", False)),
             ca_file=(str(data["ca_file"]) if data.get("ca_file") else None),
-            open_timeout_seconds=float(data.get("open_timeout_seconds", 20.0)),
-            request_timeout_seconds=float(data.get("request_timeout_seconds", 30.0)),
-            close_timeout_seconds=float(data.get("close_timeout_seconds", 10.0)),
-            ping_interval_seconds=float(data.get("ping_interval_seconds", 20.0)),
-            ping_timeout_seconds=float(data.get("ping_timeout_seconds", 20.0)),
-            max_message_bytes=int(data.get("max_message_bytes", 16 * 1024 * 1024)),
+            open_timeout_seconds=_public_float(
+                data.get("open_timeout_seconds", 20.0), "open_timeout_seconds"
+            ),
+            request_timeout_seconds=_public_float(
+                data.get("request_timeout_seconds", 30.0), "request_timeout_seconds"
+            ),
+            close_timeout_seconds=_public_float(
+                data.get("close_timeout_seconds", 10.0), "close_timeout_seconds"
+            ),
+            ping_interval_seconds=_public_float(
+                data.get("ping_interval_seconds", 20.0), "ping_interval_seconds"
+            ),
+            ping_timeout_seconds=_public_float(
+                data.get("ping_timeout_seconds", 20.0), "ping_timeout_seconds"
+            ),
+            max_message_bytes=_public_int(
+                data.get("max_message_bytes", 16 * 1024 * 1024), "max_message_bytes"
+            ),
             request_acknowledgement=bool(data.get("request_acknowledgement", True)),
             reconnect=Etp12RetryPolicy(
-                max_attempts=int(retry_map.get("max_attempts", 8)),
-                initial_backoff_seconds=float(retry_map.get("initial_backoff_seconds", 0.5)),
-                max_backoff_seconds=float(retry_map.get("max_backoff_seconds", 30.0)),
-                multiplier=float(retry_map.get("multiplier", 2.0)),
+                max_attempts=_public_int(retry_map.get("max_attempts", 8), "max_attempts"),
+                initial_backoff_seconds=_public_float(
+                    retry_map.get("initial_backoff_seconds", 0.5),
+                    "initial_backoff_seconds",
+                ),
+                max_backoff_seconds=_public_float(
+                    retry_map.get("max_backoff_seconds", 30.0),
+                    "max_backoff_seconds",
+                ),
+                multiplier=_public_float(retry_map.get("multiplier", 2.0), "multiplier"),
             ),
         )
 

@@ -273,7 +273,7 @@ class EtpProtoWebSocketAdapter:
             if not credentials.secret.strip():
                 raise ValueError("Bearer token is empty")
             headers["Authorization"] = f"Bearer {credentials.secret.strip()}"
-        kwargs = {
+        kwargs: dict[str, object] = {
             "subprotocols": [self.SUBPROTOCOL],
             "ssl": ssl_context,
             "open_timeout": profile.open_timeout_seconds,

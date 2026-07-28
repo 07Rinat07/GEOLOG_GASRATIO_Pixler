@@ -685,19 +685,19 @@ def _append_dataset_row(
     curve_values = payload.curves_dict()
     for index_schema in schema.indexes:
         index = dataset.indexes[index_schema.index_id]
-        raw_value = index_values[index_schema.index_id]
+        raw_index_value = index_values[index_schema.index_id]
         if index_schema.index_type is IndexType.DATETIME:
-            if isinstance(raw_value, bool) or not isinstance(raw_value, int):
+            if isinstance(raw_index_value, bool) or not isinstance(raw_index_value, int):
                 raise AcquisitionConflictError("DATETIME acquisition index требует Unix ns")
-            value = np.asarray([raw_value], dtype=np.int64).astype("datetime64[ns]")
+            index_value = np.asarray([raw_index_value], dtype=np.int64).astype("datetime64[ns]")
         else:
-            value = np.asarray([float(raw_value)], dtype=np.float64)
-        index.values = np.concatenate((index.values, value))
+            index_value = np.asarray([float(raw_index_value)], dtype=np.float64)
+        index.values = np.concatenate((index.values, index_value))
     for curve_schema in schema.curves:
         curve = dataset.curves[curve_schema.metadata.curve_id]
-        raw_value = curve_values[curve_schema.metadata.curve_id]
-        value = np.nan if raw_value is None else float(raw_value)
-        curve.values = np.append(curve.values, value)
+        raw_curve_value = curve_values[curve_schema.metadata.curve_id]
+        curve_value = np.nan if raw_curve_value is None else float(raw_curve_value)
+        curve.values = np.append(curve.values, curve_value)
         curve.version += 1
     active = dataset.active_index
     if active.role is IndexRole.DEPTH:
@@ -720,12 +720,14 @@ def _validate_dataset_schema(dataset: Dataset, schema: AcquisitionDatasetSchema)
     if set(dataset.curves) != {item.metadata.curve_id for item in schema.curves}:
         raise AcquisitionConflictError("Curves dataset не совпадают с acquisition schema")
     for index_schema in schema.indexes:
-        actual = AcquisitionIndexSchema.from_index(dataset.indexes[index_schema.index_id])
-        if actual != index_schema:
+        actual_index_schema = AcquisitionIndexSchema.from_index(
+            dataset.indexes[index_schema.index_id]
+        )
+        if actual_index_schema != index_schema:
             raise AcquisitionConflictError("Index metadata не совпадает с acquisition schema")
     for curve_schema in schema.curves:
-        actual = dataset.curves[curve_schema.metadata.curve_id].metadata
-        if actual != curve_schema.metadata:
+        actual_curve_metadata = dataset.curves[curve_schema.metadata.curve_id].metadata
+        if actual_curve_metadata != curve_schema.metadata:
             raise AcquisitionConflictError("Curve metadata не совпадает с acquisition schema")
     row_count = len(dataset.depth)
     if any(len(index.values) != row_count for index in dataset.indexes.values()):

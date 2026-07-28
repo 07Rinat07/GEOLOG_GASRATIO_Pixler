@@ -13,7 +13,7 @@ import shutil
 import sys
 import threading
 from types import TracebackType
-from typing import Any, Callable
+from typing import Any, Callable, cast
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
@@ -364,7 +364,10 @@ def application_logger() -> logging.Logger:
 def log_event(event: str, **context: object) -> None:
     manager = current_application_log_manager()
     if manager is not None:
-        manager.event(event, **context)
+        level = context.pop("level", logging.INFO)
+        if not isinstance(level, int):
+            raise TypeError("logging level must be an integer")
+        manager.event(event, level=level, **context)
     else:
         application_logger().info("event=%s%s", event, _context_text(context))
 
@@ -404,7 +407,7 @@ def install_python_exception_hooks(manager: ApplicationLogManager) -> None:
             previous(exc_type, exc, traceback)
 
     def thread_hook(args: threading.ExceptHookArgs) -> None:
-        exc = args.exc_value
+        exc = cast(BaseException, args.exc_value)
         if exc.__traceback__ is None and args.exc_traceback is not None:
             exc = exc.with_traceback(args.exc_traceback)
         manager.exception(

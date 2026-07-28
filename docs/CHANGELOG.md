@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- Закрыт REL-01: backlog `mypy` сокращён с 234 ошибок до нуля, усилены runtime-контракты
+  acquisition/ETP/WITS/WITSML/UI и стабилизирован Windows Qt lifecycle полного test gate.
 - Проведён аудит поддерживаемости, производительности и безопасности.
 - Усилены WITSML 1.4.1.1 SOAP TLS/redirect rules, XML/SVG parsing, Paradox allocation guards, sidecar
   integrity checks и spreadsheet formula neutralization.

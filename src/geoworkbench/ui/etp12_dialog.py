@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from pathlib import Path
 from queue import Queue
-from typing import Callable, TYPE_CHECKING
+from typing import Callable, Mapping, TYPE_CHECKING
 from uuid import uuid4
 
 from PySide6.QtCore import QStandardPaths, QThread, Qt, Signal
@@ -33,12 +34,18 @@ from PySide6.QtWidgets import (
 from geoworkbench.importers.etp12 import (
     Etp12AuthMode,
     Etp12ChannelBatch,
+    Etp12ChannelMetadata,
     Etp12ClientService,
     Etp12ConnectionProfile,
     Etp12Credentials,
+    Etp12DataArray,
     Etp12DataArrayIdentifier,
+    Etp12DataObject,
+    Etp12NegotiatedSession,
     Etp12Resource,
+    Etp12SessionSnapshot,
     Etp12SubscriptionDefinition,
+    Etp12SubscriptionSnapshot,
 )
 from geoworkbench.services.etp12_audit import JsonlEtp12AuditSink
 from geoworkbench.services.etp12_credentials import (
@@ -65,12 +72,39 @@ if TYPE_CHECKING:
     from geoworkbench.domain.models import Well
 
 
+@dataclass(frozen=True, slots=True)
+class _Etp12ConnectRequest:
+    profile: Etp12ConnectionProfile
+    credentials: Etp12Credentials
+
+
+@dataclass(frozen=True, slots=True)
+class _Etp12DiscoveryRequest:
+    uri: str
+    depth: int
+    data_object_types: tuple[str, ...]
+    scope: str
+    include_edges: bool
+
+
+def _channel_uri_payload(payload: object) -> tuple[str, ...]:
+    if not isinstance(payload, tuple):
+        raise TypeError("ETP channel URI payload must be a tuple")
+    uris: list[str] = []
+    for item in payload:
+        if not isinstance(item, str):
+            raise TypeError("ETP channel URI payload must contain strings")
+        uris.append(item)
+    return tuple(uris)
+
+
 class _Etp12Worker(QThread):
     connected = Signal(object)
     resources = Signal(object)
     object_received = Signal(object)
     array_received = Signal(object)
     channel_metadata = Signal(object)
+    subscription = Signal(object)
     channel_batch = Signal(object)
     snapshot = Signal(object)
     failed = Signal(str)
@@ -94,13 +128,14 @@ class _Etp12Worker(QThread):
             command, payload = await asyncio.to_thread(self.commands.get)
             try:
                 if command == "connect":
-                    profile, credentials = payload
+                    if not isinstance(payload, _Etp12ConnectRequest):
+                        raise TypeError("ETP connect command requires a typed request")
                     if self._service is not None:
                         await self._service.close()
                     audit = JsonlEtp12AuditSink(self.audit_path)
                     service = Etp12ClientService(
-                        profile,
-                        credentials,
+                        payload.profile,
+                        payload.credentials,
                         audit=audit.record,
                     )
                     service.add_channel_callback(self._on_channel_batch)
@@ -114,42 +149,58 @@ class _Etp12Worker(QThread):
                     self.connected.emit(negotiated)
                     self.snapshot.emit(service.snapshot())
                 elif command == "discover":
+                    if not isinstance(payload, _Etp12DiscoveryRequest):
+                        raise TypeError("ETP discover command requires a typed request")
                     service = self._require_service()
-                    values = await service.discover(**payload)
-                    self.resources.emit(values)
+                    resources = await service.discover(
+                        payload.uri,
+                        depth=payload.depth,
+                        data_object_types=payload.data_object_types,
+                        scope=payload.scope,
+                        include_edges=payload.include_edges,
+                    )
+                    self.resources.emit(resources)
                     self.snapshot.emit(service.snapshot())
                 elif command == "get_object":
+                    if not isinstance(payload, str):
+                        raise TypeError("ETP object command requires a URI string")
                     service = self._require_service()
-                    values = await service.get_data_objects({"selected": str(payload)})
-                    self.object_received.emit(values.get("selected"))
+                    objects = await service.get_data_objects({"selected": payload})
+                    self.object_received.emit(objects.get("selected"))
                     self.snapshot.emit(service.snapshot())
                 elif command == "get_array":
+                    if not isinstance(payload, Etp12DataArrayIdentifier):
+                        raise TypeError("ETP array command requires an array identifier")
                     service = self._require_service()
                     identifier = payload
-                    values = await service.get_data_arrays([identifier])
-                    self.array_received.emit(values.get(identifier.key))
+                    arrays = await service.get_data_arrays([identifier])
+                    self.array_received.emit(arrays.get(identifier.key))
                     self.snapshot.emit(service.snapshot())
                 elif command == "metadata":
                     service = self._require_service()
-                    uris = tuple(payload)
-                    values = await service.get_channel_metadata(
+                    uris = _channel_uri_payload(payload)
+                    metadata = await service.get_channel_metadata(
                         {str(index): uri for index, uri in enumerate(uris)}
                     )
-                    self.channel_metadata.emit(values)
+                    self.channel_metadata.emit(metadata)
                     self.snapshot.emit(service.snapshot())
                 elif command == "subscribe":
+                    if not isinstance(payload, Etp12SubscriptionDefinition):
+                        raise TypeError("ETP subscribe command requires a subscription definition")
                     service = self._require_service()
                     definition = payload
                     metadata = await service.get_channel_metadata(
                         {str(index): uri for index, uri in enumerate(definition.channel_uris)}
                     )
                     self.channel_metadata.emit(metadata)
-                    snapshot = await service.subscribe(definition)
+                    subscription = await service.subscribe(definition)
                     self.snapshot.emit(service.snapshot())
-                    self.channel_metadata.emit({"subscription": snapshot})
+                    self.subscription.emit(subscription)
                 elif command == "unsubscribe":
+                    if not isinstance(payload, str):
+                        raise TypeError("ETP unsubscribe command requires a subscription id")
                     service = self._require_service()
-                    await service.unsubscribe(str(payload))
+                    await service.unsubscribe(payload)
                     self.snapshot.emit(service.snapshot())
                 elif command == "close":
                     if self._service is not None:
@@ -160,6 +211,8 @@ class _Etp12Worker(QThread):
                     if self._service is not None:
                         await self._service.close()
                     break
+                else:
+                    raise ValueError(f"Unsupported ETP worker command: {command}")
             except Exception as exc:  # noqa: BLE001 - displayed to operator
                 self.failed.emit(str(exc))
                 if self._service is not None:
@@ -201,7 +254,7 @@ class Etp12Dialog(QDialog):
         self.well_provider = well_provider
         self.on_dataset_changed = on_dataset_changed
         self.discovery = Etp12DiscoveryAccumulator()
-        self.channel_metadata_by_uri: dict[str, object] = {}
+        self.channel_metadata_by_uri: dict[str, Etp12ChannelMetadata] = {}
         self.review_commit: Etp12ImportReviewCommit | None = None
         self.acquisition_runtime: Etp12AcquisitionRuntime | None = None
 
@@ -368,6 +421,7 @@ class Etp12Dialog(QDialog):
         self.worker.object_received.connect(self._on_object)
         self.worker.array_received.connect(self._on_array)
         self.worker.channel_metadata.connect(self._on_metadata)
+        self.worker.subscription.connect(self._on_subscription)
         self.worker.channel_batch.connect(self._on_channel_batch)
         self.worker.snapshot.connect(self._on_snapshot)
         self.worker.failed.connect(self._on_failed)
@@ -377,6 +431,11 @@ class Etp12Dialog(QDialog):
 
     def _t(self, key: str, **kwargs: object) -> str:
         return self.localizer.text(key, **kwargs)
+
+    def _reject_worker_payload(self, label: str, value: object) -> None:
+        message = f"Unexpected ETP {label} payload: {type(value).__name__}"
+        self.status.setText(message)
+        self.details.appendPlainText(message)
 
     def _load_profiles(self) -> None:
         self.profile_combo.blockSignals(True)
@@ -440,17 +499,20 @@ class Etp12Dialog(QDialog):
             QMessageBox.critical(self, self._t("etp12.title"), str(exc))
             return
         self.status.setText(self._t("etp12.connecting"))
-        self.worker.submit("connect", (profile, credentials))
+        self.worker.submit("connect", _Etp12ConnectRequest(profile, credentials))
 
     def _discover(self) -> None:
         types = tuple(value.strip() for value in self.object_type.text().split(",") if value.strip())
-        self.worker.submit("discover", {
-            "uri": self.discovery_uri.text().strip(),
-            "depth": 1,
-            "data_object_types": types,
-            "scope": "targetsOrSelf",
-            "include_edges": False,
-        })
+        self.worker.submit(
+            "discover",
+            _Etp12DiscoveryRequest(
+                uri=self.discovery_uri.text().strip(),
+                depth=1,
+                data_object_types=types,
+                scope="targetsOrSelf",
+                include_edges=False,
+            ),
+        )
 
     def _get_object(self) -> None:
         item = self.tree.currentItem()
@@ -481,6 +543,9 @@ class Etp12Dialog(QDialog):
         return tuple(line.strip() for line in self.channel_uris.toPlainText().splitlines() if line.strip())
 
     def _on_connected(self, value: object) -> None:
+        if not isinstance(value, Etp12NegotiatedSession):
+            self._reject_worker_payload("negotiated-session", value)
+            return
         self._connected = True
         self.status.setText(self._t(
             "etp12.connected",
@@ -492,17 +557,28 @@ class Etp12Dialog(QDialog):
         self._load_profiles()
 
     def _on_resources(self, values: object) -> None:
+        if not isinstance(values, tuple) or not all(
+            isinstance(value, Etp12Resource) for value in values
+        ):
+            self._reject_worker_payload("resources", values)
+            return
+        resources = tuple(
+            value for value in values if isinstance(value, Etp12Resource)
+        )
         self.tree.clear()
-        for resource in values:
+        for resource in resources:
             item = QTreeWidgetItem([resource.name, resource.data_object_type, resource.uri])
             item.setData(0, Qt.ItemDataRole.UserRole, resource)
             self.tree.addTopLevelItem(item)
         self.tree.resizeColumnToContents(0)
-        self.details.setPlainText(self._t("etp12.resources_count", count=len(values)))
+        self.details.setPlainText(self._t("etp12.resources_count", count=len(resources)))
 
     def _on_object(self, value: object) -> None:
         if value is None:
             self.details.setPlainText(self._t("etp12.object_missing"))
+            return
+        if not isinstance(value, Etp12DataObject):
+            self._reject_worker_payload("data-object", value)
             return
         preview = value.data[:4000].decode("utf-8", errors="replace")
         self.details.setPlainText(
@@ -513,20 +589,24 @@ class Etp12Dialog(QDialog):
         if value is None:
             self.details.setPlainText(self._t("etp12.array_missing"))
             return
+        if not isinstance(value, Etp12DataArray):
+            self._reject_worker_payload("data-array", value)
+            return
         self.details.setPlainText(
             f"Array: {value.identifier.uri} {value.identifier.path_in_resource}\n"
             f"Dimensions: {value.dimensions}\nValues: {str(value.values)[:4000]}"
         )
 
     def _on_metadata(self, values: object) -> None:
-        if isinstance(values, dict) and "subscription" in values:
-            snapshot = values["subscription"]
-            self.details.appendPlainText(
-                self._t("etp12.subscription_active", channels=len(snapshot.channel_ids))
-            )
-            self._refresh_acquisition_controls()
+        if not isinstance(values, Mapping):
+            self._reject_worker_payload("channel-metadata", values)
             return
-        rows = [value for value in values.values() if hasattr(value, "channel_id")]
+        rows: list[Etp12ChannelMetadata] = []
+        for value in values.values():
+            if not isinstance(value, Etp12ChannelMetadata):
+                self._reject_worker_payload("channel-metadata", value)
+                return
+            rows.append(value)
         if rows:
             self.channel_metadata_by_uri = {value.channel_uri: value for value in rows}
             self.discovery.update_metadata(rows)
@@ -542,6 +622,15 @@ class Etp12Dialog(QDialog):
                 self.channel_table.setItem(row, column, QTableWidgetItem(str(text)))
         self._refresh_acquisition_controls()
 
+    def _on_subscription(self, value: object) -> None:
+        if not isinstance(value, Etp12SubscriptionSnapshot):
+            self._reject_worker_payload("subscription", value)
+            return
+        self.details.appendPlainText(
+            self._t("etp12.subscription_active", channels=len(value.channel_ids))
+        )
+        self._refresh_acquisition_controls()
+
     def _on_channel_batch(self, batch: Etp12ChannelBatch) -> None:
         self.discovery.observe(batch)
         runtime = self.acquisition_runtime
@@ -555,11 +644,15 @@ class Etp12Dialog(QDialog):
                 self.details.appendPlainText(str(exc))
         for point in batch.points:
             self._latest_channel_values[point.channel_id] = (point.index, point.value)
-        by_id = {
-            int(self.channel_table.item(row, 0).text()): row
-            for row in range(self.channel_table.rowCount())
-            if self.channel_table.item(row, 0) is not None
-        }
+        by_id: dict[int, int] = {}
+        for table_row in range(self.channel_table.rowCount()):
+            item = self.channel_table.item(table_row, 0)
+            if item is None:
+                continue
+            try:
+                by_id[int(item.text())] = table_row
+            except ValueError:
+                continue
         for channel_id, (index, value) in self._latest_channel_values.items():
             row = by_id.get(channel_id)
             if row is None:
@@ -725,6 +818,9 @@ class Etp12Dialog(QDialog):
         self.close_acquisition_button.setEnabled(open_runtime)
 
     def _on_snapshot(self, value: object) -> None:
+        if not isinstance(value, Etp12SessionSnapshot):
+            self._reject_worker_payload("session-snapshot", value)
+            return
         self.details.appendPlainText(
             self._t(
                 "etp12.snapshot",

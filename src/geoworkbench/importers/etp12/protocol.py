@@ -293,18 +293,18 @@ class Etp12ProtocolEngine:
                         self.factory.protocol_exception_message(message.body), body=message.body
                     )
                     if header.correlation_id in self._pending:
-                        pending = self._pending[header.correlation_id]
-                        pending.error = error
-                        pending.event.set()
+                        failed_pending = self._pending[header.correlation_id]
+                        failed_pending.error = error
+                        failed_pending.event.set()
                     else:
                         self.last_error = str(error)
                         await self._dispatch_unsolicited(message)
                     continue
-                pending = self._pending.get(header.correlation_id)
-                if pending is not None:
-                    pending.messages.append(message)
+                correlated_pending = self._pending.get(header.correlation_id)
+                if correlated_pending is not None:
+                    correlated_pending.messages.append(message)
                     if header.is_final:
-                        pending.event.set()
+                        correlated_pending.event.set()
                     continue
                 await self._dispatch_unsolicited(message)
         except asyncio.CancelledError:

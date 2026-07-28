@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, time
 from io import BytesIO
+from pathlib import Path, PurePath
 
 from geoworkbench.acquisition import (
     Wits0DiagnosticCode,
@@ -158,3 +159,21 @@ def test_live_chunking_and_replay_use_identical_parser_and_sequence_pipeline() -
         Wits0SequenceStatus.FIRST,
         Wits0SequenceStatus.GAP,
     ]
+
+
+def test_parsed_replay_accepts_generic_pathlike_sources(tmp_path: Path) -> None:
+    profile = load_builtin_wits0_profile()
+    source = tmp_path / "capture.wits"
+    source.write_bytes(_frame(1, "1", "0108100"))
+
+    frames = tuple(
+        iter_parsed_wits0_frames(
+            PurePath(source),
+            profile=profile,
+            chunk_size=5,
+        )
+    )
+
+    assert len(frames) == 1
+    assert frames[0].record_no == 1
+    assert frames[0].source_ref == str(PurePath(source))

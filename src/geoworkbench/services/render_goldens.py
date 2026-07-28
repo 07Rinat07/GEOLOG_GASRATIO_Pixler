@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from base64 import b64encode
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from functools import partial
 from hashlib import sha256
 from html import escape
 import json
@@ -158,7 +159,7 @@ def _legend_payload() -> dict[str, Any]:
         resolved = build_lithology_legend_from_ids(
             ids,
             catalog,
-            name_resolver=lambda item, selected=language: item.localized_name(selected),
+            name_resolver=partial(_localized_catalog_name, language=language),
             unknown_name=names[language],
             unknown_descriptions=unknown,
         )
@@ -179,6 +180,10 @@ def _legend_payload() -> dict[str, Any]:
         "unknown_color": "#b0b0b0",
         "entries": entries,
     }
+
+
+def _localized_catalog_name(item: CatalogLithotype, *, language: str) -> str:
+    return item.localized_name(language)
 
 
 def _lithotype_payload() -> dict[str, Any]:
@@ -317,8 +322,11 @@ def _golden_catalog() -> tuple[CatalogLithotype, ...]:
 
 
 def _golden_annotations() -> tuple[AnnotationRecord, ...]:
-    base = dict(
+    base = AnnotationRecord(
+        annotation_id="callout-gas",
+        kind=AnnotationKind.CALLOUT,
         anchor=AnnotationAnchor.DEPTH,
+        text="Total gas peak",
         track_id="gas",
         depth=1250.0,
         axis_value=None,
@@ -327,6 +335,11 @@ def _golden_annotations() -> tuple[AnnotationRecord, ...]:
         parameter_value=None,
         unit="",
         x_fraction=0.5,
+        offset_x=18.0,
+        offset_y=-46.0,
+        width=220.0,
+        height=76.0,
+        style=AnnotationStyle(),
         asset_ref=None,
         visible=True,
         locked=False,
@@ -334,20 +347,10 @@ def _golden_annotations() -> tuple[AnnotationRecord, ...]:
         scope_id="dataset:golden:default",
     )
     return (
-        AnnotationRecord(
-            annotation_id="callout-gas",
-            kind=AnnotationKind.CALLOUT,
-            text="Total gas peak",
-            offset_x=18.0,
-            offset_y=-46.0,
-            width=220.0,
-            height=76.0,
-            style=AnnotationStyle(),
-            **base,
-        ),
-        AnnotationRecord(
+        base,
+        replace(
+            base,
             annotation_id="warning-rotated",
-            kind=AnnotationKind.CALLOUT,
             text="Check lag correction",
             offset_x=-238.0,
             offset_y=-40.0,
@@ -361,9 +364,9 @@ def _golden_annotations() -> tuple[AnnotationRecord, ...]:
                 rotation=12.0,
                 bold=True,
             ),
-            **base,
         ),
-        AnnotationRecord(
+        replace(
+            base,
             annotation_id="comment-note",
             kind=AnnotationKind.COMMENT,
             text="Lithology transition",
@@ -372,9 +375,9 @@ def _golden_annotations() -> tuple[AnnotationRecord, ...]:
             width=190.0,
             height=64.0,
             style=AnnotationStyle(shadow=False, border_color="#64748b"),
-            **base,
         ),
-        AnnotationRecord(
+        replace(
+            base,
             annotation_id="value-edge",
             kind=AnnotationKind.VALUE,
             text="C1 = 12.4 %",
@@ -387,7 +390,6 @@ def _golden_annotations() -> tuple[AnnotationRecord, ...]:
                 border_color="#2563eb",
                 leader_color="#2563eb",
             ),
-            **base,
         ),
     )
 

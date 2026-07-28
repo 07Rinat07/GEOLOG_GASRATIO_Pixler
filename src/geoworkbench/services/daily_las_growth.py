@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 import numpy as np
@@ -312,7 +313,7 @@ def _strict_direction(values: np.ndarray, label: str) -> int:
 def _index_key(value: object) -> tuple[str, int | float]:
     if isinstance(value, (np.integer, int)):
         return ("i", int(value))
-    return ("f", round(float(value), 9))
+    return ("f", round(float(cast(float, value)), 9))
 
 
 def _same_value(left: float, right: float) -> bool:
@@ -345,7 +346,7 @@ def _format_index_value(value: object) -> str:
     if isinstance(value, np.datetime64):
         return str(value.astype("datetime64[ns]"))
     try:
-        return f"{float(value):.12g}"
+        return f"{float(cast(float, value)):.12g}"
     except (TypeError, ValueError):
         return str(value)
 

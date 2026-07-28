@@ -6,7 +6,7 @@ import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, cast
 from xml.sax.saxutils import escape as xml_escape
 
 import numpy as np
@@ -603,12 +603,12 @@ def _index_unit(index: DatasetIndex) -> str:
 
 def _format_index_value(index: DatasetIndex, value: object) -> str:
     if index.index_type is IndexType.DATETIME:
-        normalized = np.datetime64(value, "ns")
+        normalized = np.datetime64(cast(str, value), "ns")
         if np.isnat(normalized):
             return MISSING_CELL
         return np.datetime_as_string(normalized, unit="ms")
     try:
-        numeric = float(value)
+        numeric = float(cast(float, value))
     except (TypeError, ValueError):
         return MISSING_CELL
     return MISSING_CELL if not np.isfinite(numeric) else format_decimal_number(numeric)

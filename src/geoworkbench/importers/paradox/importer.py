@@ -607,7 +607,7 @@ def _raw_time_description(language: str, field_name: str, representation: str) -
     )
 
 
-def _raw_time_unit(representation: str, configured_unit: str) -> str | None:
+def _raw_time_unit(representation: str, configured_unit: str) -> str:
     if configured_unit:
         return configured_unit
     if representation == "ole-automation-days":

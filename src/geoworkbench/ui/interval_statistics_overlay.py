@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QPoint, QTimer, Qt, Signal
+from PySide6.QtCore import QEvent, QObject, QPoint, QTimer, Qt, Signal
 from PySide6.QtGui import QAction, QMouseEvent
 from PySide6.QtWidgets import (
     QFrame,
@@ -166,7 +166,7 @@ class IntervalStatisticsOverlay(QFrame):
             self._user_positioned = True
             self.movedByUser.emit()
 
-    def eventFilter(self, watched: object, event: QEvent) -> bool:  # noqa: N802
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
         if watched is self.parentWidget() and event.type() == QEvent.Type.Resize:
             if self.isVisible():
                 QTimer.singleShot(0, self._constrain_after_parent_resize)

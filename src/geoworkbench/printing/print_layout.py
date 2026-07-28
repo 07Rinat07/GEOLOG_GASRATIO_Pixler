@@ -78,7 +78,7 @@ _STANDARD_MEDIA_MM: dict[str, tuple[float, float]] = {
 
 def standard_media_size_mm(page_format: str) -> tuple[float, float] | None:
     size = _STANDARD_MEDIA_MM.get(str(page_format).casefold())
-    return tuple(size) if size is not None else None
+    return size
 
 
 def resolve_media_dimensions(

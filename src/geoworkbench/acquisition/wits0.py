@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
@@ -226,7 +227,7 @@ def load_wits0_profile(path: str | Path) -> Wits0Profile:
 
 
 def iter_wits0_frames(
-    source: str | Path | BinaryIO,
+    source: str | os.PathLike[str] | BinaryIO,
     *,
     chunk_size: int = 65_536,
     start_marker: bytes = b"&&",
@@ -242,12 +243,13 @@ def iter_wits0_frames(
         end_marker=end_marker,
         max_frame_bytes=max_frame_bytes,
     )
-    owns_stream = not hasattr(source, "read")
     stream: BinaryIO
-    if owns_stream:
+    if isinstance(source, (str, os.PathLike)):
+        owns_stream = True
         stream = Path(source).open("rb")
     else:
-        stream = source  # type: ignore[assignment]
+        owns_stream = False
+        stream = source
     try:
         while chunk := stream.read(chunk_size):
             yield from decoder.append(chunk)

@@ -214,21 +214,23 @@ class Etp12DiscoveryAccumulator:
         if not self.subscription_id:
             self.subscription_id = batch.subscription_id
         self.generation = max(self.generation, batch.generation)
-        for channel_id, uri in batch.channel_uris.items():
-            self._id_to_uri[int(channel_id)] = str(uri)
+        for channel_id, mapped_uri in batch.channel_uris.items():
+            self._id_to_uri[int(channel_id)] = str(mapped_uri)
         self._batch_count += 1
         self._point_count += len(batch.points)
         for point in batch.points:
-            uri = batch.channel_uris.get(point.channel_id) or self._id_to_uri.get(point.channel_id)
-            if uri is None:
+            channel_uri = batch.channel_uris.get(point.channel_id) or self._id_to_uri.get(
+                point.channel_id
+            )
+            if channel_uri is None:
                 continue
-            channel = self._channels.get(uri)
+            channel = self._channels.get(channel_uri)
             if channel is None:
                 channel = _MutableChannel(
                     Etp12ChannelMetadata(
                         channel_id=point.channel_id,
-                        channel_uri=uri,
-                        channel_name=uri.rsplit("/", 1)[-1],
+                        channel_uri=channel_uri,
+                        channel_name=channel_uri.rsplit("/", 1)[-1],
                         data_kind=None,
                         uom=None,
                         index_kind=None,
@@ -236,7 +238,7 @@ class Etp12DiscoveryAccumulator:
                         end_index=None,
                     )
                 )
-                self._channels[uri] = channel
+                self._channels[channel_uri] = channel
             channel.observe(point.value, max_samples=self.max_samples_per_channel)
 
     def snapshot(self) -> Etp12DiscoverySnapshot:
@@ -465,6 +467,9 @@ class Etp12ImportReviewController:
         plan: Etp12ImportReviewPlan,
     ) -> Etp12ImportReview:
         issues: list[Etp12ReviewIssue] = []
+        dataset_kind = _dataset_kind(plan.dataset_kind)
+        index_type = _index_type(plan.index_type)
+        index_role = _index_role(plan.index_role)
         if plan.discovery_fingerprint != snapshot.fingerprint:
             issues.append(
                 Etp12ReviewIssue(
@@ -482,7 +487,7 @@ class Etp12ImportReviewController:
                     "Review plan does not cover exactly the discovered ETP channels",
                 )
             )
-        if plan.index_type is IndexType.DATETIME and (plan.timezone or "").upper() != "UTC":
+        if index_type is IndexType.DATETIME and (plan.timezone or "").upper() != "UTC":
             issues.append(
                 Etp12ReviewIssue(
                     "missing-utc-timezone",
@@ -490,7 +495,7 @@ class Etp12ImportReviewController:
                     "ETP datetime index must be normalized to UTC",
                 )
             )
-        if plan.index_type is not IndexType.DATETIME:
+        if index_type is not IndexType.DATETIME:
             if not _conversion_supported(self.uoms, plan.index_source_uom, plan.index_canonical_uom):
                 issues.append(
                     Etp12ReviewIssue(
@@ -515,7 +520,10 @@ class Etp12ImportReviewController:
                 source_mnemonic=channel.channel_name,
                 canonical_mnemonic=canonical_mnemonic,
             )
-            quantity = override.quantity_class or automatic.quantity_class
+            quantity = _quantity_class(
+                override.quantity_class,
+                fallback=automatic.quantity_class,
+            )
             canonical_kind = (override.canonical_kind or automatic.canonical_kind).strip().casefold()
             source_uom = override.source_uom
             canonical_uom = override.canonical_uom
@@ -542,7 +550,11 @@ class Etp12ImportReviewController:
                             channel.channel_uri,
                         )
                     )
-                elif quantity is not QuantityClass.UNKNOWN and conversion.quantity_class is not quantity:
+                elif (
+                    quantity is not QuantityClass.UNKNOWN
+                    and conversion is not None
+                    and conversion.quantity_class is not quantity
+                ):
                     channel_issues.append(
                         Etp12ReviewIssue(
                             "quantity-uom-conflict",
@@ -601,12 +613,19 @@ class Etp12ImportReviewController:
             )
         schema = None
         if not _has_errors(issues, rows):
-            schema = self._build_schema(snapshot, plan, rows)
+            schema = self._build_schema(
+                snapshot,
+                plan,
+                rows,
+                dataset_kind=dataset_kind,
+                index_type=index_type,
+                index_role=index_role,
+            )
         return Etp12ImportReview(
             discovery_fingerprint=snapshot.fingerprint,
             subscription_id=snapshot.subscription_id,
-            index_type=plan.index_type,
-            index_role=plan.index_role,
+            index_type=index_type,
+            index_role=index_role,
             index_source_uom=plan.index_source_uom,
             index_canonical_uom=plan.index_canonical_uom,
             channels=tuple(rows),
@@ -635,17 +654,21 @@ class Etp12ImportReviewController:
         snapshot: Etp12DiscoverySnapshot,
         plan: Etp12ImportReviewPlan,
         rows: list[Etp12ChannelReview],
+        *,
+        dataset_kind: DatasetKind,
+        index_type: IndexType,
+        index_role: IndexRole,
     ) -> AcquisitionDatasetSchema:
         index = AcquisitionIndexSchema(
             index_id=plan.index_id,
             mnemonic=plan.index_mnemonic,
-            index_type=plan.index_type,
-            role=plan.index_role,
+            index_type=index_type,
+            role=index_role,
             unit=plan.index_canonical_uom,
             confidence=1.0,
             evidence=("ETP ChannelMetadata index", f"subscription={snapshot.subscription_id}"),
-            datetime_format="unix-ns" if plan.index_type is IndexType.DATETIME else None,
-            timezone=plan.timezone if plan.index_type is IndexType.DATETIME else None,
+            datetime_format="unix-ns" if index_type is IndexType.DATETIME else None,
+            timezone=plan.timezone if index_type is IndexType.DATETIME else None,
         )
         depth_domain = {
             IndexType.MD: DepthDomain.MD,
@@ -653,7 +676,7 @@ class Etp12ImportReviewController:
             IndexType.TVDSS: DepthDomain.TVDSS,
             IndexType.DATETIME: DepthDomain.TIME,
             IndexType.RELATIVE_TIME: DepthDomain.TIME,
-        }.get(plan.index_type, DepthDomain.TIME)
+        }.get(index_type, DepthDomain.TIME)
         override_by_uri = {item.channel_uri: item for item in plan.channels}
         discovered_by_uri = {item.channel_uri: item for item in snapshot.channels}
         curves: list[AcquisitionCurveSchema] = []
@@ -699,7 +722,7 @@ class Etp12ImportReviewController:
         return AcquisitionDatasetSchema(
             dataset_id=plan.dataset_id,
             name=plan.dataset_name.strip(),
-            kind=plan.dataset_kind,
+            kind=dataset_kind,
             depth_domain=depth_domain,
             indexes=(index,),
             active_index_id=index.index_id,
@@ -813,6 +836,28 @@ def _conversion_supported(uoms: UomDictionary, source: str | None, target: str |
     left = (source or "").strip().casefold()
     right = (target or "").strip().casefold()
     return left == right or uoms.conversion(source, target) is not None
+
+
+def _dataset_kind(value: DatasetKind | str) -> DatasetKind:
+    return value if isinstance(value, DatasetKind) else DatasetKind(str(value))
+
+
+def _index_type(value: IndexType | str) -> IndexType:
+    return value if isinstance(value, IndexType) else IndexType(str(value))
+
+
+def _index_role(value: IndexRole | str) -> IndexRole:
+    return value if isinstance(value, IndexRole) else IndexRole(str(value))
+
+
+def _quantity_class(
+    value: QuantityClass | str | None,
+    *,
+    fallback: QuantityClass,
+) -> QuantityClass:
+    if value is None:
+        return fallback
+    return value if isinstance(value, QuantityClass) else QuantityClass(str(value))
 
 
 def _has_errors(issues: Iterable[Etp12ReviewIssue], rows: Iterable[Etp12ChannelReview]) -> bool:

@@ -1043,7 +1043,7 @@ class Wits0ImportReviewController:
                     import_enabled=item.import_enabled,
                     canonical_mnemonic=item.canonical_mnemonic,
                     canonical_kind=item.canonical_kind,
-                    quantity_class=item.quantity_class,
+                    quantity_class=_normalized_quantity_class(item.quantity_class),
                     source_uom=item.source_uom,
                     canonical_uom=item.canonical_uom,
                 )
@@ -1083,7 +1083,7 @@ class Wits0ImportReviewController:
         issues: list[Wits0ReviewIssue] = []
         source_resolution = self.dictionary.uoms.resolve(override.source_uom)
         canonical_resolution = self.dictionary.uoms.resolve(override.canonical_uom)
-        quantity = override.quantity_class
+        quantity = _normalized_quantity_class(override.quantity_class)
         evidence = [
             f"WITS0 field={channel.key.source_id}",
             "mapping confirmed in WITS0 Import Review",
@@ -1280,6 +1280,12 @@ def acquisition_schema_digest(schema: AcquisitionDatasetSchema) -> str:
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()
+
+
+def _normalized_quantity_class(value: QuantityClass | str) -> QuantityClass:
+    if isinstance(value, QuantityClass):
+        return value
+    return QuantityClass(value)
 
 
 def save_wits0_custom_profile(

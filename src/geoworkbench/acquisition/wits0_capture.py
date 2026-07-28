@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
-from typing import Deque
+from typing import BinaryIO, Deque, TextIO, TypedDict, Unpack
 
 from geoworkbench.acquisition.wits0 import (
     Wits0FrameTooLargeError,
@@ -28,6 +28,7 @@ from geoworkbench.acquisition.wits0_reliability import (
     Wits0RawRetentionManager,
     Wits0RawRetentionPolicy,
     Wits0RecoveryManifest,
+    Wits0RecoveryChanges,
     Wits0RecoveryState,
     Wits0RecoveryStore,
     recover_wits0_raw_directory,
@@ -175,6 +176,36 @@ class Wits0CaptureSnapshot:
     recovery_unclean_detected: bool = False
 
 
+class _Wits0CaptureSnapshotChanges(TypedDict, total=False):
+    current_peer: str | None
+    current_raw_file: str | None
+    last_received_at: str | None
+    discarded_prefix_bytes: int
+    current_connection_id: str | None
+    disk_state: Wits0DiskSpaceState
+    disk_free_bytes: int | None
+    last_sequence: str | None
+
+
+class _Wits0CaptureSnapshotIncrements(TypedDict, total=False):
+    bytes_received: int
+    frames_received: int
+    parsed_fields: int
+    parser_warnings: int
+    parser_errors: int
+    unknown_records: int
+    unknown_fields: int
+    sequence_gaps: int
+    sequence_duplicates: int
+    sequence_out_of_order: int
+    connections: int
+    disconnects: int
+    errors: int
+    dropped_ui_events: int
+    retention_segments_deleted: int
+    retention_bytes_deleted: int
+
+
 class Wits0RawCaptureWriter:
     """Append-only WITS0 raw segments with a timestamp/offset JSONL sidecar."""
 
@@ -192,8 +223,8 @@ class Wits0RawCaptureWriter:
         self.segment_bytes = int(segment_bytes)
         self._segment_no = 0
         self._size = 0
-        self._data = None
-        self._index = None
+        self._data: BinaryIO | None = None
+        self._index: TextIO | None = None
         self._data_path: Path | None = None
 
     @property
@@ -774,7 +805,7 @@ class Wits0CaptureEngine:
         peer: str,
         raw_file: Path,
     ) -> None:
-        increments = {
+        increments: _Wits0CaptureSnapshotIncrements = {
             "frames_received": 1,
             "parsed_fields": len(parsed_frame.fields),
             "parser_warnings": parsed_frame.warning_count,
@@ -863,7 +894,7 @@ class Wits0CaptureEngine:
             )
         return snapshot
 
-    def _update_manifest(self, **changes: object) -> None:
+    def _update_manifest(self, **changes: Unpack[Wits0RecoveryChanges]) -> None:
         manifest = self._manifest
         if manifest is None:
             return
@@ -887,11 +918,17 @@ class Wits0CaptureEngine:
         with self._snapshot_lock:
             self._snapshot = replace(self._snapshot, state=state)
 
-    def _set_snapshot_fields(self, **changes: object) -> None:
+    def _set_snapshot_fields(
+        self,
+        **changes: Unpack[_Wits0CaptureSnapshotChanges],
+    ) -> None:
         with self._snapshot_lock:
             self._snapshot = replace(self._snapshot, **changes)
 
-    def _increment_snapshot(self, **increments: int) -> None:
+    def _increment_snapshot(
+        self,
+        **increments: Unpack[_Wits0CaptureSnapshotIncrements],
+    ) -> None:
         with self._snapshot_lock:
             changes = {
                 key: getattr(self._snapshot, key) + value

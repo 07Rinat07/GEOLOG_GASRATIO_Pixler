@@ -261,14 +261,7 @@ def _language_code(language: object) -> TemplateLanguage:
 
 def _normalized_factory_label(value: str) -> str:
     normalized = " ".join(str(value).split()).casefold()
-    return normalized.translate(
-        str.maketrans({
-            "–": "-",
-            "—": "-",
-            "−": "-",
-            "‑": "-",
-        })
-    )
+    return normalized.translate(str.maketrans("–—−‑", "----"))
 
 
 @lru_cache(maxsize=3)

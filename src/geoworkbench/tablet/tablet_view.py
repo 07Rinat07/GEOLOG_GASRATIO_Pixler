@@ -119,7 +119,7 @@ from geoworkbench.tablet.grid_renderer import (
     GridSettings,
     TabletGridRenderer,
 )
-from geoworkbench.tablet.grid_geometry import normalized_grid_lines
+from geoworkbench.tablet.grid_geometry import GridLine, normalized_grid_lines
 from geoworkbench.tablet.header_geometry import (
     CURVE_HEADER_BOTTOM_CLEARANCE,
     CURVE_HEADER_MAX_VISIBLE_ROWS,
@@ -620,7 +620,7 @@ class CurveScaleRuler(QWidget):
 
         # Endpoints are mandatory.  Interior labels are added only when enough
         # horizontal room exists, so narrow tracks never show clipped gibberish.
-        labelled = []
+        labelled: list[GridLine] = []
         if major_lines:
             labelled.extend((major_lines[0], major_lines[-1]))
             if rect.width() >= 92 and len(major_lines) > 2:
@@ -5082,8 +5082,8 @@ class TabletView(QWidget):
         except BaseException as exc:  # cleanup must never block recovery
             log_exception("tablet.track.dispose.widget_failed", exc, track_id=track_id)
 
-        viewport: object | None = None
-        if _qt_object_is_alive(plot):
+        viewport: QObject | None = None
+        if plot is not None and _qt_object_is_alive(plot):
             try:
                 viewport = plot.viewport()
             except RuntimeError:
@@ -7162,8 +7162,11 @@ class TabletView(QWidget):
         self._depth_range_guard = True
         try:
             for rendered in live_entries:
+                plot = rendered.plot
+                if plot is None or not _qt_object_is_alive(plot):
+                    continue
                 try:
-                    rendered.plot.setYRange(
+                    plot.setYRange(
                         normalized_top, normalized_bottom, padding=0
                     )
                 except RuntimeError as exc:

@@ -14,6 +14,7 @@ from geoworkbench.importers.witsml1411 import (
     Witsml1411Credentials,
     Witsml1411HttpRequest,
     Witsml1411HttpResponse,
+    Witsml1411LogHeader,
     Witsml1411ReadOnlyService,
     Witsml1411RetryPolicy,
     Witsml1411ServerError,
@@ -243,7 +244,10 @@ def test_hierarchy_logdata_and_import_review_reuse() -> None:
         Witsml1411HttpResponse(200, {}, _soap_response("WMLS_GetFromStore", Result="1", XMLout=logs_xml, SuppMsgOut="")),
         Witsml1411HttpResponse(200, {}, _soap_response("WMLS_GetFromStore", Result="1", XMLout=data_xml, SuppMsgOut="")),
     ]
-    service = Witsml1411ReadOnlyService(Witsml1411SoapClient(_profile(), transport=ScriptedTransport(script)))
+    transport = ScriptedTransport(script)
+    service = Witsml1411ReadOnlyService(
+        Witsml1411SoapClient(_profile(), transport=transport)
+    )
 
     handshake = service.handshake()
     assert handshake.selected_version == "1.4.1.1"
@@ -251,7 +255,12 @@ def test_hierarchy_logdata_and_import_review_reuse() -> None:
     well = service.list_wells()[0]
     wellbore = service.list_wellbores(well.uid)[0]
     log = service.list_logs(well.uid, wellbore.uid)[0]
-    channel_set = service.fetch_log_channel_set(log)
+    package = service.fetch_log_package(
+        log,
+        mnemonics=("DEPT", "ROP"),
+        max_data_nodes=500,
+    )
+    channel_set = package.channel_sets[0]
 
     assert channel_set.title == "Drilling"
     assert channel_set.indexes[0].mnemonic == "DEPT"
@@ -266,6 +275,53 @@ def test_hierarchy_logdata_and_import_review_reuse() -> None:
     assert rop.values[0] == pytest.approx(10.0)
     assert np.isnan(rop.values[1])
     assert commit.dataset.parameters["WITSML_SCHEMA_VERSION"] == "1.4.1.1"
+    assert (
+        b"&lt;mnemonicList&gt;DEPT,ROP&lt;/mnemonicList&gt;"
+        in transport.requests[-1].body
+    )
+    assert "maxDataNodes=500" in transport.requests[-1].body.decode("utf-8")
+
+
+@pytest.mark.parametrize(
+    ("options", "error_type"),
+    [
+        ({"mnemonics": "GR"}, TypeError),
+        ({"mnemonics": b"GR"}, TypeError),
+        ({"mnemonics": ("GR", 7)}, TypeError),
+        ({"max_data_nodes": True}, ValueError),
+        ({"max_data_nodes": 0}, ValueError),
+        ({"max_data_nodes": 1.5}, ValueError),
+    ],
+)
+def test_fetch_log_package_rejects_invalid_options_before_network(
+    options: dict[str, object],
+    error_type: type[Exception],
+) -> None:
+    transport = ScriptedTransport([])
+    service = Witsml1411ReadOnlyService(
+        Witsml1411SoapClient(_profile(), transport=transport)
+    )
+    log = Witsml1411LogHeader(
+        uid="log-1",
+        uid_well="well-1",
+        uid_wellbore="wellbore-1",
+        name="Drilling",
+        name_well=None,
+        name_wellbore=None,
+        index_type="measured depth",
+        index_curve="DEPT",
+        start_index=None,
+        end_index=None,
+        start_datetime_index=None,
+        end_datetime_index=None,
+        direction="increasing",
+        curves=(),
+    )
+
+    with pytest.raises(error_type):
+        service.fetch_log_package(log, **options)
+
+    assert transport.requests == []
 
 
 def test_profile_store_and_credentials_never_serialize_password(tmp_path: Path) -> None:

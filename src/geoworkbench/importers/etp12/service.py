@@ -452,15 +452,12 @@ class Etp12ClientService:
         restored: list[Etp12SubscriptionSnapshot] = []
         for definition in definitions:
             previous = self._subscriptions[definition.subscription_id]
-            start_index = definition.start_index
-            if previous.last_indexes:
-                # Resume from the greatest retained index. The server remains the
-                # authority and may return overlap; downstream acquisition deduplicates.
-                try:
-                    start_index = max(previous.last_indexes.values())
-                except TypeError:
-                    start_index = next(reversed(tuple(previous.last_indexes.values())))
             try:
+                start_index = definition.start_index
+                if previous.last_indexes:
+                    # Resume from the greatest retained index. The server remains the
+                    # authority and may return overlap; downstream acquisition deduplicates.
+                    start_index = _greatest_resume_index(previous.last_indexes.values())
                 restored.append(await self.subscribe(replace(definition, start_index=start_index)))
             except Exception as exc:
                 self._subscriptions[definition.subscription_id] = replace(
@@ -620,10 +617,9 @@ def _string_tuple(value: object) -> tuple[str, ...]:
         return ()
     if isinstance(value, str):
         return (value,) if value else ()
-    try:
-        return tuple(str(_enum_value(item)) for item in value)  # type: ignore[arg-type]
-    except TypeError:
-        return (str(_enum_value(value)),)
+    if isinstance(value, Iterable):
+        return tuple(str(_enum_value(item)) for item in value)
+    return (str(_enum_value(value)),)
 
 
 def _parse_resource(value: object) -> Etp12Resource:
@@ -690,7 +686,33 @@ def _string_or_none(value: object) -> str | None:
 def _int_or_none(value: object) -> int | None:
     if value is None:
         return None
+    unwrapped = _unwrap(value)
+    if not isinstance(unwrapped, (str, bytes, bytearray, int, float)):
+        return None
     try:
-        return int(_unwrap(value))
+        return int(unwrapped)
     except (TypeError, ValueError):
         return None
+
+
+def _greatest_resume_index(values: Iterable[object]) -> object:
+    retained = tuple(values)
+    if not retained:
+        raise ValueError("At least one retained ETP index is required")
+    if all(isinstance(value, (int, float)) for value in retained):
+        numeric_values = tuple(
+            value for value in retained if isinstance(value, (int, float))
+        )
+        return max(numeric_values)
+    if all(isinstance(value, str) for value in retained):
+        text_values = tuple(value for value in retained if isinstance(value, str))
+        return max(text_values)
+    if all(isinstance(value, datetime) for value in retained):
+        datetime_values = tuple(
+            value for value in retained if isinstance(value, datetime)
+        )
+        if any(value.tzinfo is None or value.utcoffset() is None for value in datetime_values):
+            raise ValueError("ETP resume datetime indexes must include timezone information")
+        utc_values = tuple(value.astimezone(timezone.utc) for value in datetime_values)
+        return max(utc_values)
+    return retained[-1]

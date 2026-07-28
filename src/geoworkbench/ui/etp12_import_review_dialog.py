@@ -109,8 +109,9 @@ class Etp12ImportReviewDialog(QDialog):
                 item = QTableWidgetItem(text)
                 if column in {1, 2, 8}:
                     item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                if column == 1:
+                    item.setData(Qt.ItemDataRole.UserRole, channel.channel_uri)
                 self.table.setItem(row, column, item)
-            self.table.item(row, 1).setData(Qt.ItemDataRole.UserRole, channel.channel_uri)
         self.table.resizeColumnsToContents()
         root.addWidget(self.table, 1)
 
@@ -147,7 +148,7 @@ class Etp12ImportReviewDialog(QDialog):
         existing = {item.channel_uri: item for item in self.plan.channels}
         for row, channel in enumerate(self.snapshot.channels):
             current = existing[channel.channel_uri]
-            quantity_text = self.table.item(row, 6).text().strip()
+            quantity_text = self._cell_text(row, 6)
             try:
                 quantity = QuantityClass(quantity_text)
             except ValueError:
@@ -156,14 +157,16 @@ class Etp12ImportReviewDialog(QDialog):
                 replace(
                     current,
                     import_enabled=self._checks[row].isChecked(),
-                    source_uom=self.table.item(row, 3).text().strip() or None,
-                    canonical_mnemonic=self.table.item(row, 4).text().strip() or None,
-                    canonical_kind=self.table.item(row, 5).text().strip() or None,
+                    source_uom=self._cell_text(row, 3) or None,
+                    canonical_mnemonic=self._cell_text(row, 4) or None,
+                    canonical_kind=self._cell_text(row, 5) or None,
                     quantity_class=quantity,
-                    canonical_uom=self.table.item(row, 7).text().strip() or None,
+                    canonical_uom=self._cell_text(row, 7) or None,
                 )
             )
         index_type = self.index_type.currentData()
+        if not isinstance(index_type, IndexType):
+            raise ValueError("ETP Import Review requires a valid index type")
         return replace(
             self.plan,
             dataset_name=self.dataset_name.text().strip(),
@@ -174,6 +177,14 @@ class Etp12ImportReviewDialog(QDialog):
             timezone="UTC" if index_type is IndexType.DATETIME else None,
             channels=tuple(overrides),
         )
+
+    def _cell_text(self, row: int, column: int) -> str:
+        item = self.table.item(row, column)
+        if item is None:
+            raise ValueError(
+                f"ETP Import Review table cell ({row}, {column}) is missing"
+            )
+        return item.text().strip()
 
     def _preview(self) -> None:
         try:

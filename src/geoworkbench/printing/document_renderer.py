@@ -340,5 +340,6 @@ def _preserve_tablet_range(widget: QWidget) -> Iterator[None]:
     try:
         yield
     finally:
-        widget.set_visible_depth(*original)
+        if original is not None:
+            widget.set_visible_depth(*original)
         QApplication.processEvents()

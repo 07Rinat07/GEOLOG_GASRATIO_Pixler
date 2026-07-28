@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QStandardPaths, QThread, Qt, Signal
+from PySide6.QtCore import QObject, QStandardPaths, QThread, Qt, Signal
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -26,6 +30,7 @@ from geoworkbench.importers.witsml1411 import (
     Witsml1411AuthMode,
     Witsml1411ConnectionProfile,
     Witsml1411Credentials,
+    Witsml1411Handshake,
     Witsml1411LogHeader,
     Witsml1411ReadOnlyService,
     Witsml1411RetryPolicy,
@@ -33,6 +38,7 @@ from geoworkbench.importers.witsml1411 import (
     Witsml1411Well,
     Witsml1411Wellbore,
 )
+from geoworkbench.importers.witsml import WitsmlDataPackage
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.witsml1411_audit import JsonlWitsml1411AuditSink
 from geoworkbench.services.witsml1411_profiles import Witsml1411ProfileStore
@@ -48,7 +54,11 @@ class _TaskThread(QThread):
     succeeded = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, function, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        function: Callable[[], object],
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
         self.function = function
 
@@ -83,6 +93,7 @@ class Witsml1411Dialog(QDialog):
         self.service: Witsml1411ReadOnlyService | None = None
         self.accepted_commit: WitsmlImportCommit | None = None
         self._task: _TaskThread | None = None
+        self._closing = False
 
         self.setWindowTitle(self._t("witsml1411.title"))
         self.resize(1050, 720)
@@ -226,7 +237,7 @@ class Witsml1411Dialog(QDialog):
                 QMessageBox.warning(self, self._t("witsml1411.title"), str(exc))
         audit = JsonlWitsml1411AuditSink(self.audit_path)
 
-        def task():
+        def task() -> object:
             service = Witsml1411ReadOnlyService(
                 Witsml1411SoapClient(profile, credentials, audit=audit)
             )
@@ -237,7 +248,19 @@ class Witsml1411Dialog(QDialog):
         self._start_task(task, self._connected)
 
     def _connected(self, result: object) -> None:
-        service, handshake, wells = result
+        if not isinstance(result, tuple) or len(result) != 3:
+            self._invalid_task_result("connection")
+            return
+        service, handshake, raw_wells = result
+        if (
+            not isinstance(service, Witsml1411ReadOnlyService)
+            or not isinstance(handshake, Witsml1411Handshake)
+            or not isinstance(raw_wells, tuple)
+            or not all(isinstance(item, Witsml1411Well) for item in raw_wells)
+        ):
+            self._invalid_task_result("connection")
+            return
+        wells = tuple(item for item in raw_wells if isinstance(item, Witsml1411Well))
         self.service = service
         self.refresh_button.setEnabled(True)
         self.status.setText(
@@ -256,8 +279,13 @@ class Witsml1411Dialog(QDialog):
         self._start_task(self.service.list_wells, self._populate_wells)
 
     def _populate_wells(self, wells: object) -> None:
+        if not isinstance(wells, tuple) or not all(
+            isinstance(item, Witsml1411Well) for item in wells
+        ):
+            self._invalid_task_result("wells")
+            return
         self.tree.clear()
-        for well in wells:
+        for well in (item for item in wells if isinstance(item, Witsml1411Well)):
             item = QTreeWidgetItem([well.name, "Well", "", well.field or ""])
             item.setData(0, Qt.ItemDataRole.UserRole, well)
             item.setChildIndicatorPolicy(QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator)
@@ -265,29 +293,40 @@ class Witsml1411Dialog(QDialog):
         self.tree.resizeColumnToContents(0)
 
     def _expanded(self, item: QTreeWidgetItem) -> None:
-        if self.service is None or item.childCount() > 0:
+        service = self.service
+        if service is None or item.childCount() > 0:
             return
         value = item.data(0, Qt.ItemDataRole.UserRole)
         if isinstance(value, Witsml1411Well):
             self._start_task(
-                lambda: self.service.list_wellbores(value.uid),
+                partial(service.list_wellbores, value.uid),
                 lambda rows: self._populate_wellbores(item, rows),
             )
         elif isinstance(value, Witsml1411Wellbore):
             self._start_task(
-                lambda: self.service.list_logs(value.uid_well, value.uid),
+                partial(service.list_logs, value.uid_well, value.uid),
                 lambda rows: self._populate_logs(item, rows),
             )
 
     def _populate_wellbores(self, parent: QTreeWidgetItem, rows: object) -> None:
-        for value in rows:
+        if not isinstance(rows, tuple) or not all(
+            isinstance(item, Witsml1411Wellbore) for item in rows
+        ):
+            self._invalid_task_result("wellbores")
+            return
+        for value in (item for item in rows if isinstance(item, Witsml1411Wellbore)):
             item = QTreeWidgetItem([value.name, "Wellbore", "", value.status or ""])
             item.setData(0, Qt.ItemDataRole.UserRole, value)
             item.setChildIndicatorPolicy(QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator)
             parent.addChild(item)
 
     def _populate_logs(self, parent: QTreeWidgetItem, rows: object) -> None:
-        for value in rows:
+        if not isinstance(rows, tuple) or not all(
+            isinstance(item, Witsml1411LogHeader) for item in rows
+        ):
+            self._invalid_task_result("logs")
+            return
+        for value in (item for item in rows if isinstance(item, Witsml1411LogHeader)):
             range_text = " — ".join(
                 item for item in (value.start_index or value.start_datetime_index, value.end_index or value.end_datetime_index) if item
             )
@@ -307,14 +346,18 @@ class Witsml1411Dialog(QDialog):
     def _import_selected(self) -> None:
         item = self.tree.currentItem()
         log = item.data(0, Qt.ItemDataRole.UserRole) if item is not None else None
-        if self.service is None or not isinstance(log, Witsml1411LogHeader):
+        service = self.service
+        if service is None or not isinstance(log, Witsml1411LogHeader):
             return
         self._start_task(
-            lambda: self.service.fetch_log_package(log),
+            partial(service.fetch_log_package, log),
             self._review_package,
         )
 
     def _review_package(self, package: object) -> None:
+        if not isinstance(package, WitsmlDataPackage):
+            self._invalid_task_result("log package")
+            return
         dialog = WitsmlImportDialog(
             parent=self,
             language=self.localizer.language,
@@ -324,8 +367,17 @@ class Witsml1411Dialog(QDialog):
             self.accepted_commit = dialog.accepted_commit
             self.accept()
 
-    def _start_task(self, function, callback) -> None:
-        if self._task is not None:
+    def _invalid_task_result(self, operation: str) -> None:
+        message = f"Invalid WITSML background task result: {operation}"
+        self.status.setText(message)
+        QMessageBox.critical(self, self._t("witsml1411.title"), message)
+
+    def _start_task(
+        self,
+        function: Callable[[], object],
+        callback: Callable[[object], None],
+    ) -> None:
+        if self._closing or self._task is not None:
             return
         self.status.setText(self._t("witsml1411.working"))
         self.connect_button.setEnabled(False)
@@ -335,21 +387,49 @@ class Witsml1411Dialog(QDialog):
         self._task = task
 
         def succeeded(value: object) -> None:
-            self._finish_task()
-            callback(value)
+            if self._finish_task(task):
+                callback(value)
+
+        def failed(message: str) -> None:
+            if self._finish_task(task):
+                self._task_failed(message)
 
         task.succeeded.connect(succeeded)
-        task.failed.connect(self._task_failed)
+        task.failed.connect(failed)
         task.finished.connect(task.deleteLater)
         task.start()
 
-    def _finish_task(self) -> None:
+    def _finish_task(self, task: _TaskThread) -> bool:
+        if task is not self._task:
+            return False
         self._task = None
+        if self._closing:
+            return False
         self.connect_button.setEnabled(True)
         self.refresh_button.setEnabled(self.service is not None)
         self._selection_changed(self.tree.currentItem(), None)
+        return True
 
     def _task_failed(self, message: str) -> None:
-        self._finish_task()
         self.status.setText(message)
         QMessageBox.critical(self, self._t("witsml1411.title"), message)
+
+    def reject(self) -> None:
+        self._prepare_to_close()
+        super().reject()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self._prepare_to_close()
+        super().closeEvent(event)
+
+    def _prepare_to_close(self) -> None:
+        self._closing = True
+        task = self._task
+        if task is None:
+            return
+        try:
+            running = task.isRunning()
+        except RuntimeError:
+            return
+        if running:
+            task.setParent(QApplication.instance())

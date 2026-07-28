@@ -12,6 +12,7 @@ from typing import Callable, Iterable, Mapping
 
 from geoworkbench.domain.acquisition import (
     AcquisitionCheckpoint,
+    AcquisitionCurveSchema,
     AcquisitionDataRowPayload,
     AcquisitionRecord,
     AcquisitionRecordKind,
@@ -173,7 +174,7 @@ class Etp12ChannelNormalizer:
         self.schema = commit.schema
         self.uoms = uoms or default_uom_dictionary()
         self._index = self.schema.indexes[0]
-        self._curve_by_uri: dict[str, object] = {}
+        self._curve_by_uri: dict[str, AcquisitionCurveSchema] = {}
         self._source_uom_by_uri: dict[str, str | None] = {}
         override_by_uri = {item.channel_uri: item for item in commit.plan.channels}
         for curve in self.schema.curves:
@@ -192,6 +193,8 @@ class Etp12ChannelNormalizer:
     ) -> None:
         values = metadata.values() if isinstance(metadata, Mapping) else metadata
         for item in values:
+            if not isinstance(item, Etp12ChannelMetadata):
+                raise TypeError("metadata must contain Etp12ChannelMetadata")
             self._id_to_uri[item.channel_id] = item.channel_uri
 
     def normalize(self, batch: Etp12ChannelBatch) -> Etp12NormalizationResult:
@@ -205,7 +208,9 @@ class Etp12ChannelNormalizer:
             )
             return Etp12NormalizationResult((), (diagnostic,))
         id_to_uri = dict(self._id_to_uri)
-        id_to_uri.update({int(key): value for key, value in batch.channel_uris.items()})
+        id_to_uri.update(
+            {int(key): channel_uri for key, channel_uri in batch.channel_uris.items()}
+        )
         grouped: dict[float | int, dict[str, tuple[float, str]]] = {}
         grouped_diagnostics: dict[float | int, list[Etp12NormalizationDiagnostic]] = {}
         for point in batch.points:
@@ -258,7 +263,9 @@ class Etp12ChannelNormalizer:
                     )
                 )
                 continue
-            point_hash = _point_hash(self.commit.schema_digest, uri, index_value, numeric)
+            normalized_point_hash = _point_hash(
+                self.commit.schema_digest, uri, index_value, numeric
+            )
             row = grouped.setdefault(index_value, {})
             row_diags = grouped_diagnostics.setdefault(index_value, [])
             previous = row.get(uri)
@@ -281,7 +288,7 @@ class Etp12ChannelNormalizer:
                         uri,
                     )
                 )
-            row[uri] = (numeric, point_hash)
+            row[uri] = (numeric, normalized_point_hash)
 
         normalized: list[Etp12MeasurementBatch] = []
         received_at = batch.received_at_utc.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -292,20 +299,20 @@ class Etp12ChannelNormalizer:
             row_diags = list(grouped_diagnostics.get(index_value, ()))
             for uri, curve in sorted(self._curve_by_uri.items()):
                 current = row.get(uri)
-                value = current[0] if current is not None else None
-                point_hash = current[1] if current is not None else None
-                if point_hash is not None:
-                    hashes.append(point_hash)
+                measurement_value = current[0] if current is not None else None
+                measurement_hash = current[1] if current is not None else None
+                if measurement_hash is not None:
+                    hashes.append(measurement_hash)
                 measurements.append(
                     Etp12NormalizedMeasurement(
                         curve_id=curve.metadata.curve_id,
                         channel_uri=uri,
                         canonical_mnemonic=curve.metadata.canonical_mnemonic
                         or curve.metadata.original_mnemonic,
-                        value=value,
+                        value=measurement_value,
                         source_uom=self._source_uom_by_uri[uri],
                         canonical_uom=curve.metadata.unit,
-                        point_sha256=point_hash,
+                        point_sha256=measurement_hash,
                     )
                 )
             if not hashes:

@@ -680,22 +680,30 @@ class TabletAnnotationOverlay(QWidget):
             minimum_dimension = (
                 CATALOG_SYMBOL_MINIMUM_DIMENSION if symbol_resize else None
             )
-            resize_kwargs: dict[str, float | bool] = {
-                "preserve_aspect": preserve_aspect
-            }
-            if minimum_dimension is not None:
-                resize_kwargs["minimum_width"] = minimum_dimension
-                resize_kwargs["minimum_height"] = minimum_dimension
-            offset_x, offset_y, width, height = resize_annotation_geometry(
-                offset_x,
-                offset_y,
-                width,
-                height,
-                gesture.mode,
-                local_delta.x(),
-                local_delta.y(),
-                **resize_kwargs,
-            )
+            if minimum_dimension is None:
+                offset_x, offset_y, width, height = resize_annotation_geometry(
+                    offset_x,
+                    offset_y,
+                    width,
+                    height,
+                    gesture.mode,
+                    local_delta.x(),
+                    local_delta.y(),
+                    preserve_aspect=preserve_aspect,
+                )
+            else:
+                offset_x, offset_y, width, height = resize_annotation_geometry(
+                    offset_x,
+                    offset_y,
+                    width,
+                    height,
+                    gesture.mode,
+                    local_delta.x(),
+                    local_delta.y(),
+                    preserve_aspect=preserve_aspect,
+                    minimum_width=minimum_dimension,
+                    minimum_height=minimum_dimension,
+                )
         offset_x, offset_y = self._keep_reachable(
             anchor, offset_x, offset_y, width, height
         )
