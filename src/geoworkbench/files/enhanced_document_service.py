@@ -7,6 +7,22 @@ import fitz
 from geoworkbench.files.document_service import DocumentError, DocumentService
 
 
+_FONT_ALIASES: dict[str, str] = {
+    "helv": "GWHelveticaRegular",
+    "hebo": "GWHelveticaBold",
+    "heit": "GWHelveticaItalic",
+    "hebi": "GWHelveticaBoldItalic",
+    "tiro": "GWTimesRegular",
+    "tibo": "GWTimesBold",
+    "tiit": "GWTimesItalic",
+    "tibi": "GWTimesBoldItalic",
+    "cour": "GWCourierRegular",
+    "cobo": "GWCourierBold",
+    "coit": "GWCourierItalic",
+    "cobi": "GWCourierBoldItalic",
+}
+
+
 class EnhancedDocumentService(DocumentService):
     """Document service extensions used by the interactive PDF tools."""
 
@@ -37,6 +53,18 @@ class EnhancedDocumentService(DocumentService):
         self.dirty = True
         return len(prepared)
 
+    @staticmethod
+    def _install_unicode_font(page: fitz.Page, fontname: str) -> str:
+        alias = _FONT_ALIASES.get(fontname)
+        if alias is None:
+            raise DocumentError(f"Неподдерживаемый PDF-шрифт: {fontname}")
+        try:
+            font = fitz.Font(fontname)
+            page.insert_font(fontname=alias, fontbuffer=font.buffer)
+        except Exception as exc:
+            raise DocumentError(f"Не удалось встроить PDF-шрифт: {exc}") from exc
+        return alias
+
     def add_styled_pdf_text(
         self,
         rect: tuple[float, float, float, float],
@@ -58,6 +86,7 @@ class EnhancedDocumentService(DocumentService):
 
         self._begin_edit()
         try:
+            embedded_font = self._install_unicode_font(page, fontname)
             if replace:
                 page.add_redact_annot(target, fill=(1.0, 1.0, 1.0), cross_out=False)
                 page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)
@@ -68,7 +97,7 @@ class EnhancedDocumentService(DocumentService):
                 text,
                 fontsize=max(4.0, min(144.0, font_size)),
                 color=color,
-                fontname=fontname,
+                fontname=embedded_font,
                 align=max(0, min(2, alignment)),
                 overlay=True,
             )
