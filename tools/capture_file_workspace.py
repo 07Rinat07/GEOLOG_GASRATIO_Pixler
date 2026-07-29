@@ -7,12 +7,12 @@ import fitz
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication, QTabWidget
 
-from geoworkbench.ui.file_workspace_expert import FileWorkspaceWidget
+from geoworkbench.ui.file_workspace_v2 import FileWorkspaceWidget
 
 
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Capture Files workspace acceptance screenshots"
+        description="Capture localized Files workspace acceptance screenshots"
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
@@ -44,9 +44,7 @@ def _sample_pdf(path: Path) -> Path:
     try:
         for index in range(3):
             page = document.new_page(width=595, height=842)
-            page.insert_text(
-                (55, 62), "GEOLOG GASRATIO · FILES WORKSPACE", fontsize=17
-            )
+            page.insert_text((55, 62), "GEOLOG GASRATIO · FILES WORKSPACE", fontsize=17)
             page.insert_text(
                 (55, 96), f"Acceptance document · page {index + 1}", fontsize=11
             )
@@ -55,8 +53,8 @@ def _sample_pdf(path: Path) -> Path:
             )
             page.insert_textbox(
                 fitz.Rect(78, 160, 510, 290),
-                "PDF editing area\nSelect a rectangle and use the contextual command bar.\n"
-                "Annotations, notes, text and secure redaction are handled by PyMuPDF.",
+                "PDF editing area\nUse the visible square eraser or select an area for formatted text.\n"
+                "Redaction, annotations and styled text are handled by PyMuPDF.",
                 fontsize=14,
                 align=fitz.TEXT_ALIGN_CENTER,
             )
@@ -86,28 +84,27 @@ def _save(
         raise RuntimeError(f"Failed to capture workspace screenshot: {path}")
 
 
-def main() -> int:
-    args = _arguments()
-    output = args.output_dir.resolve()
-    output.mkdir(parents=True, exist_ok=True)
-
-    application = QApplication.instance() or QApplication([])
-    application.setStyle("Fusion")
-    application.setPalette(_dark_palette())
-
-    widget = FileWorkspaceWidget(language="ru")
-    widget.resize(1600, 950)
+def _capture_language(
+    language: str,
+    source: Path,
+    output: Path,
+    application: QApplication,
+) -> None:
+    widget = FileWorkspaceWidget(language=language)
+    widget.resize(1680, 980)
     widget.show()
     application.processEvents()
 
-    source = _sample_pdf(output / "acceptance-document.pdf")
     widget.document_service.open(source)
     widget._refresh_document()
     widget._fit_page()
-    _save(widget, output / "files-pdf-editor.png", application)
+    widget.eraser_button.setChecked(True)
+    application.processEvents()
+    _save(widget, output / f"{language}-files-pdf-eraser.png", application)
+    widget.eraser_button.setChecked(False)
 
     widget.sections.setCurrentIndex(1)
-    _save(widget, output / "files-pdf-tools.png", application)
+    _save(widget, output / f"{language}-files-pdf-tools.png", application)
 
     widget.sections.setCurrentIndex(4)
     volume_index = widget.converter_category.findData("volume")
@@ -125,12 +122,12 @@ def main() -> int:
     widget.expression_input.setText("sqrt(144) + 2 1/2")
     widget._convert_units_live()
     widget._calculate_expression_live()
-    _save(widget, output / "files-engineering-tools.png", application)
+    _save(widget, output / f"{language}-files-engineering-tools.png", application)
 
     petroleum_tabs = widget.findChild(QTabWidget, "petroleumCalculatorTabs")
     if petroleum_tabs is not None:
         petroleum_tabs.setCurrentIndex(0)
-    _save(widget, output / "files-petroleum-calculators.png", application)
+    _save(widget, output / f"{language}-files-petroleum-calculators.png", application)
 
     widget.sections.setCurrentIndex(2)
     widget.logo_text.setPlainText("BPServices\nGEOLOG")
@@ -139,13 +136,27 @@ def main() -> int:
     widget.logo_border_width.setValue(3)
     widget.logo_border_color.setText("#4c9dff")
     widget._refresh_logo()
-    _save(widget, output / "files-logo-designer.png", application)
+    _save(widget, output / f"{language}-files-logo-designer.png", application)
 
     widget.sections.setCurrentIndex(3)
-    _save(widget, output / "files-archive-manager.png", application)
+    _save(widget, output / f"{language}-files-archive-manager.png", application)
 
     widget.close()
     application.processEvents()
+
+
+def main() -> int:
+    args = _arguments()
+    output = args.output_dir.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+
+    application = QApplication.instance() or QApplication([])
+    application.setStyle("Fusion")
+    application.setPalette(_dark_palette())
+
+    source = _sample_pdf(output / "acceptance-document.pdf")
+    for language in ("ru", "kk", "en"):
+        _capture_language(language, source, output, application)
     return 0
 
 
