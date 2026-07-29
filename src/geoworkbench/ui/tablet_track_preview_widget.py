@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from math import pi, sin
 
-from PySide6.QtCore import QRectF, QSize, Qt
+from PySide6.QtCore import QLineF, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QWidget
 
@@ -72,7 +72,11 @@ class TabletTrackPreviewWidget(QWidget):
 
         for mnemonic in self._track.curve_mnemonics or [""]:
             display = self._track.curve_display_settings(mnemonic) if mnemonic else None
-            style = self._track.curve_style(mnemonic) if mnemonic else CurveStyle()
+            style = (
+                self._track.curve_style(mnemonic) or CurveStyle()
+                if mnemonic
+                else CurveStyle()
+            )
             row = QRectF(page.left(), y, page.width(), curve_row_height)
             painter.fillRect(row, QColor("#ffffff"))
             painter.setPen(QPen(QColor("#cbd5e1"), 0.7))
@@ -90,7 +94,14 @@ class TabletTrackPreviewWidget(QWidget):
                 painter.drawText(row.adjusted(row.width() - 110, 0, -6, 0), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, value_range)
                 underline = display.header_line_color or style.color
                 painter.setPen(self._curve_pen(style, underline, 1.0))
-                painter.drawLine(row.left() + 4, row.bottom() - 2, row.right() - 4, row.bottom() - 2)
+                painter.drawLine(
+                    QLineF(
+                        row.left() + 4,
+                        row.bottom() - 2,
+                        row.right() - 4,
+                        row.bottom() - 2,
+                    )
+                )
             y += curve_row_height
             if y >= page.top() + header_height:
                 break
@@ -131,19 +142,19 @@ class TabletTrackPreviewWidget(QWidget):
             for index in range(1, divisions):
                 x = body.left() + body.width() * index / divisions
                 painter.setPen(QPen(major, 0.8))
-                painter.drawLine(x, body.top(), x, body.bottom())
+                painter.drawLine(QLineF(x, body.top(), x, body.bottom()))
             minor_divisions = max(divisions, divisions * max(1, self._track.grid_minor_divisions))
             for index in range(1, minor_divisions):
                 if index % max(1, self._track.grid_minor_divisions) == 0:
                     continue
                 x = body.left() + body.width() * index / minor_divisions
                 painter.setPen(QPen(minor, 0.45))
-                painter.drawLine(x, body.top(), x, body.bottom())
+                painter.drawLine(QLineF(x, body.top(), x, body.bottom()))
         if self._track.grid_y:
             for index in range(1, 10):
                 y = body.top() + body.height() * index / 10.0
                 painter.setPen(QPen(major if index % 5 == 0 else minor, 0.7))
-                painter.drawLine(body.left(), y, body.right(), y)
+                painter.drawLine(QLineF(body.left(), y, body.right(), y))
 
     def _draw_curves(self, painter: QPainter, body: QRectF) -> None:
         mnemonics = self._track.curve_mnemonics[:8]

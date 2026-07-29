@@ -366,7 +366,7 @@ class TabletTrackEditorDialog(QDialog):
         return row
 
     def _connect_preview_signals(self) -> None:
-        for control in (
+        for line_edit in (
             self.title_input,
             self.group_input,
             self.axis_input,
@@ -375,16 +375,16 @@ class TabletTrackEditorDialog(QDialog):
             self.header_text_color_input,
             self.header_line_color_input,
         ):
-            control.textChanged.connect(self._refresh_preview)
-        for control in (
+            line_edit.textChanged.connect(self._refresh_preview)
+        for combo_box in (
             self.title_orientation_input,
             self.title_position_input,
             self.style_input,
             self.scale_input,
             self.auto_range_input,
         ):
-            control.currentIndexChanged.connect(self._refresh_preview)
-        for control in (
+            combo_box.currentIndexChanged.connect(self._refresh_preview)
+        for spin_box in (
             self.width_input,
             self.grid_major_input,
             self.grid_minor_input,
@@ -393,14 +393,14 @@ class TabletTrackEditorDialog(QDialog):
             self.min_input,
             self.max_input,
         ):
-            control.valueChanged.connect(self._refresh_preview)
-        for control in (
+            spin_box.valueChanged.connect(self._refresh_preview)
+        for check_box in (
             self.show_interval_labels_input,
             self.grid_x_input,
             self.grid_y_input,
             self.grid_print_input,
         ):
-            control.toggled.connect(self._refresh_preview)
+            check_box.toggled.connect(self._refresh_preview)
 
     def _reload(self, selected: int | None = None) -> None:
         self._loading = True
