@@ -7,7 +7,7 @@ import fitz
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
-from geoworkbench.ui.file_workspace_production import FileWorkspaceWidget
+from geoworkbench.ui.file_workspace_expert import FileWorkspaceWidget
 
 
 def _arguments() -> argparse.Namespace:
@@ -80,7 +80,7 @@ def main() -> int:
     application.setPalette(_dark_palette())
 
     widget = FileWorkspaceWidget(language="ru")
-    widget.resize(1600, 900)
+    widget.resize(1600, 950)
     widget.show()
     application.processEvents()
 
@@ -89,6 +89,9 @@ def main() -> int:
     widget._refresh_document()
     widget._fit_page()
     _save(widget, output / "files-pdf-editor.png", application)
+
+    widget.sections.setCurrentIndex(1)
+    _save(widget, output / "files-pdf-tools.png", application)
 
     widget.sections.setCurrentIndex(4)
     volume_index = widget.converter_category.findData("volume")
@@ -107,6 +110,11 @@ def main() -> int:
     widget._convert_units_live()
     widget._calculate_expression_live()
     _save(widget, output / "files-engineering-tools.png", application)
+
+    petroleum_tabs = widget.findChild(type(widget.sections), "petroleumCalculatorTabs")
+    if petroleum_tabs is not None:
+        petroleum_tabs.setCurrentIndex(0)
+    _save(widget, output / "files-petroleum-calculators.png", application)
 
     widget.sections.setCurrentIndex(2)
     widget.logo_text.setPlainText("BPServices\nGEOLOG")
