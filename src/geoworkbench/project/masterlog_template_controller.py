@@ -19,6 +19,11 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.header_fields import header_field_defaults
+from geoworkbench.printing.header_catalog import (
+    HEADER_CATALOG_KIND,
+    catalog_items as header_catalog_items,
+    resolve_catalog_header,
+)
 from geoworkbench.printing.image_assets import ImageAsset, validate_image_asset
 from geoworkbench.printing.masterlog_presets import builtin_form_preset, builtin_header_preset
 
@@ -55,6 +60,148 @@ class MasterlogTemplateController:
             current_fields = {}
         template.properties["header_fields"] = {**header_field_defaults(), **current_fields}
         self._touch(template)
+        return template
+
+    def header_catalog_items(self, language: Any = None):
+        from geoworkbench.services.localization import AppLanguage
+
+        resolved = language if isinstance(language, AppLanguage) else AppLanguage.RU
+        return header_catalog_items(self.session.project.masterlog_templates, resolved)
+
+    def create_header_template(
+        self,
+        name: str,
+        *,
+        preset_catalog_id: str | None = None,
+        preferred_orientation: str = "both",
+    ) -> MasterlogTemplate:
+        normalized = self._validate_unique_name(name)
+        if preset_catalog_id is None:
+            preset_catalog_id = "factory-header:project_well"
+        source = resolve_catalog_header(
+            self.session.project.masterlog_templates, preset_catalog_id
+        )
+        template = MasterlogTemplate(
+            template_id=new_id(),
+            name=normalized,
+            page_format="A4",
+            depth_scale=source.depth_scale,
+            header_height_mm=source.header_height_mm,
+            header_elements=list(deepcopy(source.header_elements)),
+            columns=[],
+            properties={
+                "catalog_kind": HEADER_CATALOG_KIND,
+                "preferred_orientation": preferred_orientation,
+                "header_fields": {
+                    **header_field_defaults(),
+                    **(
+                        source.properties.get("header_fields", {})
+                        if isinstance(source.properties.get("header_fields"), dict)
+                        else {}
+                    ),
+                },
+            },
+        )
+        self.session.project.masterlog_templates[template.template_id] = template
+        self.session.dirty = True
+        return template
+
+    def save_header_to_catalog(
+        self, source_template_id: str, name: str
+    ) -> MasterlogTemplate:
+        source = self._require(source_template_id)
+        normalized = self._validate_unique_name(name)
+        properties = deepcopy(source.properties)
+        properties["catalog_kind"] = HEADER_CATALOG_KIND
+        properties.setdefault("preferred_orientation", "both")
+        template = MasterlogTemplate(
+            template_id=new_id(),
+            name=normalized,
+            page_format=source.page_format,
+            depth_scale=source.depth_scale,
+            header_height_mm=source.header_height_mm,
+            header_elements=list(deepcopy(source.header_elements)),
+            columns=[],
+            properties=properties,
+            version=1,
+        )
+        self.session.project.masterlog_templates[template.template_id] = template
+        self.session.dirty = True
+        return template
+
+    def import_header_template(
+        self,
+        source: MasterlogTemplate,
+        image_assets: dict[str, ImageAsset],
+        name: str,
+    ) -> MasterlogTemplate:
+        normalized = self._validate_unique_name(name)
+        for asset_id, asset in image_assets.items():
+            existing = self.session.image_assets.get(asset_id)
+            if existing is not None and existing.payload != asset.payload:
+                raise ValueError(f"Конфликт содержимого image asset: {asset_id}")
+        properties = deepcopy(source.properties)
+        properties["catalog_kind"] = HEADER_CATALOG_KIND
+        properties.setdefault("preferred_orientation", "both")
+        template = MasterlogTemplate(
+            template_id=new_id(),
+            name=normalized,
+            page_format=source.page_format,
+            depth_scale=source.depth_scale,
+            header_height_mm=source.header_height_mm,
+            header_elements=list(deepcopy(source.header_elements)),
+            columns=[],
+            properties=properties,
+            version=1,
+        )
+        self.session.project.masterlog_templates[template.template_id] = template
+        self.session.image_assets.update(image_assets)
+        self.session.dirty = True
+        return template
+
+    def apply_header_catalog_item(
+        self, target_template_id: str, catalog_id: str
+    ) -> MasterlogTemplate:
+        target = self._require(target_template_id)
+        source = resolve_catalog_header(
+            self.session.project.masterlog_templates, catalog_id
+        )
+        target.header_height_mm = source.header_height_mm
+        target.header_elements = list(deepcopy(source.header_elements))
+        target.properties["header_catalog_origin"] = catalog_id
+        current_fields = target.properties.get("header_fields")
+        source_fields = source.properties.get("header_fields")
+        target.properties["header_fields"] = {
+            **header_field_defaults(),
+            **(source_fields if isinstance(source_fields, dict) else {}),
+            **(current_fields if isinstance(current_fields, dict) else {}),
+        }
+        self._touch(target)
+        return target
+
+    def copy_header_catalog_item(
+        self, catalog_id: str, name: str
+    ) -> MasterlogTemplate:
+        source = resolve_catalog_header(
+            self.session.project.masterlog_templates, catalog_id
+        )
+        normalized = self._validate_unique_name(name)
+        properties = deepcopy(source.properties)
+        properties["catalog_kind"] = HEADER_CATALOG_KIND
+        properties.pop("factory_preset_id", None)
+        template = MasterlogTemplate(
+            template_id=new_id(),
+            name=normalized,
+            page_format=source.page_format,
+            depth_scale=source.depth_scale,
+            header_height_mm=source.header_height_mm,
+            header_elements=list(deepcopy(source.header_elements)),
+            columns=[],
+            properties=properties,
+            version=1,
+        )
+        self.session.project.masterlog_templates[template.template_id] = template
+        self.session.dirty = True
         return template
 
     def header_fields(self, template_id: str) -> dict[str, str]:

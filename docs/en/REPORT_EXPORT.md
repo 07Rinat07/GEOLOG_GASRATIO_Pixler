@@ -109,3 +109,13 @@ deterministic OOXML with no macros or external embedded objects; HTML is one UTF
 inline CSS and no scripts or network resources. Coverage keeps `0`, `—`, and `#N/A` distinct.
 Output and Passport v4 are written in one recoverable transaction. See
 [DOCX_HTML_EXPORT.md](DOCX_HTML_EXPORT.md).
+
+## Print header and logo catalogs
+
+Print Center selects the header independently from the current depth or time form. Factory-ready
+options cover Masterlog, daily technology control, technology research, emergency, and compact
+printing. User headers can be added, imported from SKF, edited, duplicated, and deleted. The
+header-only importer excludes the graph body. In an Image element editor, a logo is selected from
+a separate catalog supporting add, rename, image replacement, duplicate, and delete operations.
+After selection, the header remains editable or can be saved as a new template. Full guide:
+[PRINT_HEADER_AND_LOGO_CATALOGS.md](../PRINT_HEADER_AND_LOGO_CATALOGS.md).

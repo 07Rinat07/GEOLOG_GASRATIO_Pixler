@@ -275,3 +275,16 @@ python -m pytest -q tests/test_gs2_time_tablet_rendering.py tests/test_gs2_form_
 Версия не считается готовой только по `compileall` или нескольким выбранным тестам. В CI artifact
 должны быть отдельно указаны реально выполненные проверки и проверки, которые не могли быть
 выполнены в текущей среде.
+
+## Каталоги печатных шапок и логотипов
+
+Минимальная доменная и SKF-проверка:
+
+```bash
+python -m pytest -q tests/test_header_catalog.py tests/test_logo_catalog.py \
+  tests/test_project_logo_catalog_migration.py tests/test_masterlog_presets.py \
+  tests/test_skf_importer.py
+```
+
+Полный Windows Release gate дополнительно проверяет Qt-диалоги, A4/A3 portrait/landscape,
+многостраничный PDF, SVG/PNG assets и отсутствие регрессий существующих Masterlog/форм.

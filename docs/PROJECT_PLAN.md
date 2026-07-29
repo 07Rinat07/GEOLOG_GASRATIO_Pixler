@@ -1,6 +1,6 @@
 # Единый план проекта
 
-<!-- runtime-contract: package=0.7.93; project=v21; form=v11; layout=v21 -->
+<!-- runtime-contract: package=0.7.93; project=v22; form=v11; layout=v21 -->
 
 Актуально на 28 июля 2026 года. Это единственный план проекта. Завершённая работа фиксируется
 только в [CHANGELOG.md](CHANGELOG.md); инструкции и технические контракты не содержат отдельных
@@ -8,7 +8,7 @@ roadmap, build report или release plan.
 
 ## Текущая база
 
-- пакет `0.7.93`; project `v21`; form `v11`; tablet layout `v21`;
+- пакет `0.7.93`; project `v22`; form `v11`; tablet layout `v21`;
 - пользовательские project/LAS sidecars исключены из новых коммитов; опубликованная история
   Git требует отдельной согласованной очистки;
 - WITS0, WITSML 1.4.1.1, WITSML 2.x/ETP foundation, GS2/Paradox, планшет, формы и отчёты

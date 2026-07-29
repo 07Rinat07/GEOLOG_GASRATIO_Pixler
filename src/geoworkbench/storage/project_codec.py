@@ -65,6 +65,7 @@ from geoworkbench.domain.models import (
     TimeDepthAggregationPolicy,
     TimeDepthMappingProfile,
     LithologyInterval,
+    LogoCatalogEntry,
     InterpretationInterval,
     WellInterpretation,
     MasterlogColumnTemplate,
@@ -115,7 +116,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 21
+PROJECT_FORMAT_VERSION = 22
 
 
 @dataclass(slots=True)
@@ -1294,6 +1295,28 @@ def project_from_dict(data: dict[str, Any]) -> Project:
                 f"ID шаблона мастерлога '{template_id}' не совпадает с содержимым"
             )
         project.masterlog_templates[template_id] = template
+    raw_logo_catalog = data.get("logo_catalog", {})
+    if not isinstance(raw_logo_catalog, dict):
+        raise ProjectFormatError("Поле 'logo_catalog' должно быть объектом")
+    for logo_id, item in raw_logo_catalog.items():
+        if not isinstance(logo_id, str) or not isinstance(item, dict):
+            raise ProjectFormatError("Запись каталога логотипов имеет неверный формат")
+        try:
+            entry = LogoCatalogEntry(
+                logo_id=str(_required(item, "logo_id", str)),
+                name=str(_required(item, "name", str)),
+                asset_id=str(_required(item, "asset_id", str)),
+                category=str(item.get("category", "")),
+                notes=str(item.get("notes", "")),
+                version=int(item.get("version", 1)),
+            )
+        except (TypeError, ValueError) as exc:
+            raise ProjectFormatError(f"Некорректная запись логотипа '{logo_id}'") from exc
+        if entry.logo_id != logo_id:
+            raise ProjectFormatError(
+                f"ID записи логотипа '{logo_id}' не совпадает с содержимым"
+            )
+        project.logo_catalog[logo_id] = entry
     raw_formulas = data.get("custom_formulas", {})
     if not isinstance(raw_formulas, dict):
         raise ProjectFormatError("Поле 'custom_formulas' должно быть объектом")
@@ -1464,6 +1487,15 @@ def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> Projec
             raise ProjectFormatError(str(exc)) from exc
         try:
             document.image_assets = load_image_assets(source, raw.get("image_assets", {}))
+            missing_logo_assets = sorted(
+                {entry.asset_id for entry in document.project.logo_catalog.values()}
+                - set(document.image_assets)
+            )
+            if missing_logo_assets:
+                raise ProjectFormatError(
+                    "Каталог логотипов ссылается на отсутствующие image assets: "
+                    + ", ".join(missing_logo_assets)
+                )
         except ImageAssetError as exc:
             raise ProjectFormatError(str(exc)) from exc
         return document

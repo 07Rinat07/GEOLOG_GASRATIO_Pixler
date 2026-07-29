@@ -58,6 +58,7 @@ from geoworkbench.printing.image_assets import (
 )
 from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_HEADER_PRESETS
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
+from geoworkbench.project.logo_catalog_controller import LogoCatalogController
 from geoworkbench.project.lithotype_catalog_controller import (
     CatalogLithotype,
     LithotypeCatalogController,
@@ -65,6 +66,7 @@ from geoworkbench.project.lithotype_catalog_controller import (
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
+from geoworkbench.ui.logo_catalog_dialog import LogoCatalogDialog
 
 
 _TEXT = {
@@ -196,12 +198,14 @@ class HeaderElementDialog(QDialog):
         language: AppLanguage = AppLanguage.RU,
         image_assets: dict[str, ImageAsset] | None = None,
         lithotypes: dict[str, CatalogLithotype] | None = None,
+        logo_catalog_controller: LogoCatalogController | None = None,
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
         self._original_properties = dict(element.properties) if element is not None else {}
         self.image_assets = image_assets or {}
         self.lithotypes = lithotypes or {}
+        self.logo_catalog_controller = logo_catalog_controller
         self.imported_assets: dict[str, ImageAsset] = {}
         self.setWindowTitle(self.localizer.text("masterlog_header.properties"))
         self.setMinimumWidth(480)
@@ -476,8 +480,18 @@ class HeaderElementDialog(QDialog):
             self.image_opacity_input.setValue(100.0)
         self.image_import_button = QPushButton(self.localizer.text("masterlog_header.import_image"))
         self.image_import_button.clicked.connect(self._import_image)
+        self.logo_catalog_button = QPushButton(
+            {
+                AppLanguage.RU: "Каталог логотипов...",
+                AppLanguage.KK: "Логотиптар каталогы...",
+                AppLanguage.EN: "Logo catalog...",
+            }[language]
+        )
+        self.logo_catalog_button.clicked.connect(self._choose_logo_catalog)
+        self.logo_catalog_button.setEnabled(self.logo_catalog_controller is not None)
         image_row = QHBoxLayout()
         image_row.addWidget(self.image_input, 1)
+        image_row.addWidget(self.logo_catalog_button)
         image_row.addWidget(self.image_import_button)
 
         layout = QFormLayout(self)
@@ -592,6 +606,7 @@ class HeaderElementDialog(QDialog):
         self.properties_input.setVisible(False)
         self.image_input.setVisible(element_type == "image")
         self.image_import_button.setVisible(element_type == "image")
+        self.logo_catalog_button.setVisible(element_type == "image")
         for control in (self.image_mode_input, self.image_rotation_input, self.image_opacity_input):
             control.setVisible(element_type == "image")
         self.text_label.setVisible(element_type == "text")
@@ -628,6 +643,29 @@ class HeaderElementDialog(QDialog):
         )
         self.legend_manual_label.setVisible(visible)
         self.legend_manual_input.setVisible(visible)
+
+    def _choose_logo_catalog(self) -> None:
+        if self.logo_catalog_controller is None:
+            return
+        dialog = LogoCatalogDialog(
+            self.logo_catalog_controller,
+            self,
+            language=self.localizer.language,
+            selection_mode=True,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted or not dialog.selected_asset_id:
+            return
+        asset = self.logo_catalog_controller.session.image_assets.get(
+            dialog.selected_asset_id
+        )
+        if asset is None:
+            return
+        self.image_assets[asset.asset_id] = asset
+        index = self.image_input.findData(asset.asset_id)
+        if index < 0:
+            self.image_input.addItem(asset.original_name, asset.asset_id)
+            index = self.image_input.count() - 1
+        self.image_input.setCurrentIndex(index)
 
     def _import_image(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
@@ -982,6 +1020,22 @@ class MasterlogHeaderDialog(QDialog):
             }[language]
         )
         self.preset_button.clicked.connect(self._apply_preset)
+        self.catalog_button = QPushButton(
+            {
+                AppLanguage.RU: "Каталог шапок...",
+                AppLanguage.KK: "Тақырыптар каталогы...",
+                AppLanguage.EN: "Header catalog...",
+            }[language]
+        )
+        self.catalog_button.clicked.connect(self._open_header_catalog)
+        self.save_catalog_button = QPushButton(
+            {
+                AppLanguage.RU: "Сохранить в каталог...",
+                AppLanguage.KK: "Каталогқа сақтау...",
+                AppLanguage.EN: "Save to catalog...",
+            }[language]
+        )
+        self.save_catalog_button.clicked.connect(self._save_to_header_catalog)
         self.data_button = QPushButton(_TEXT[language]["data"])
         self.data_button.clicked.connect(self._edit_header_data)
         self.fit_button = QPushButton(_TEXT[language]["fit"])
@@ -989,6 +1043,8 @@ class MasterlogHeaderDialog(QDialog):
 
         left_buttons = QHBoxLayout()
         left_buttons.addWidget(self.data_button)
+        left_buttons.addWidget(self.catalog_button)
+        left_buttons.addWidget(self.save_catalog_button)
         left_buttons.addWidget(self.preset_button)
         left_buttons.addWidget(self.fit_button)
 
@@ -1577,9 +1633,52 @@ class MasterlogHeaderDialog(QDialog):
             language=self.localizer.language,
             image_assets=self.controller.session.image_assets,
             lithotypes=self._available_lithotypes(),
+            logo_catalog_controller=LogoCatalogController(self.controller.session),
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._apply(dialog, None)
+
+    def _open_header_catalog(self) -> None:
+        from geoworkbench.ui.header_catalog_dialog import HeaderCatalogDialog
+
+        dialog = HeaderCatalogDialog(
+            self.controller,
+            self,
+            language=self.localizer.language,
+            selection_mode=True,
+            target_template_id=self.template_id,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._fit_on_refresh = True
+            self.refresh()
+
+    def _save_to_header_catalog(self) -> None:
+        name, accepted = QInputDialog.getText(
+            self,
+            self.save_catalog_button.text().replace("...", ""),
+            {
+                AppLanguage.RU: "Название новой шапки",
+                AppLanguage.KK: "Жаңа тақырып атауы",
+                AppLanguage.EN: "New header name",
+            }[self.localizer.language],
+            text=f"{self.template.name} — шапка",
+        )
+        if not accepted:
+            return
+        try:
+            template = self.controller.save_header_to_catalog(self.template_id, name)
+        except ValueError as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self.windowTitle(),
+            {
+                AppLanguage.RU: f"Шапка сохранена в каталог: {template.name}",
+                AppLanguage.KK: f"Тақырып каталогқа сақталды: {template.name}",
+                AppLanguage.EN: f"Header saved to catalog: {template.name}",
+            }[self.localizer.language],
+        )
 
     def _apply_preset(self) -> None:
         presets = BUILTIN_MASTERLOG_HEADER_PRESETS
@@ -1617,6 +1716,7 @@ class MasterlogHeaderDialog(QDialog):
                 language=self.localizer.language,
                 image_assets=self.controller.session.image_assets,
                 lithotypes=self._available_lithotypes(),
+                logo_catalog_controller=LogoCatalogController(self.controller.session),
             )
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self._apply(dialog, element.element_id)

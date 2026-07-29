@@ -653,6 +653,28 @@ class Well:
 
 
 @dataclass(slots=True)
+class LogoCatalogEntry:
+    logo_id: str
+    name: str
+    asset_id: str
+    category: str = ""
+    notes: str = ""
+    version: int = 1
+
+    def __post_init__(self) -> None:
+        if not self.logo_id.strip() or not self.name.strip() or not self.asset_id.strip():
+            raise ValueError("ID, имя и image asset логотипа не могут быть пустыми")
+        if len(self.name) > 160:
+            raise ValueError("Имя логотипа не должно превышать 160 символов")
+        if len(self.category) > 80:
+            raise ValueError("Категория логотипа не должна превышать 80 символов")
+        if len(self.notes) > 1000:
+            raise ValueError("Примечание логотипа не должно превышать 1000 символов")
+        if isinstance(self.version, bool) or not isinstance(self.version, int) or self.version < 1:
+            raise ValueError("Версия записи логотипа должна быть положительным целым числом")
+
+
+@dataclass(slots=True)
 class Project:
     project_id: str
     name: str
@@ -661,6 +683,7 @@ class Project:
     stratigraphy_units: dict[str, ProjectStratigraphyUnit] = field(default_factory=dict)
     description_templates: dict[str, str] = field(default_factory=dict)
     masterlog_templates: dict[str, MasterlogTemplate] = field(default_factory=dict)
+    logo_catalog: dict[str, LogoCatalogEntry] = field(default_factory=dict)
     custom_formulas: dict[str, CustomFormulaDefinition] = field(default_factory=dict)
     export_profiles: dict[str, ExportProfile] = field(default_factory=dict)
     time_depth_mapping_profiles: dict[str, TimeDepthMappingProfile] = field(default_factory=dict)

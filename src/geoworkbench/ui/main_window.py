@@ -143,6 +143,7 @@ from geoworkbench.project.dataset_export_controller import DatasetExportControll
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.derived_dataset_controller import DerivedDatasetController
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
+from geoworkbench.project.logo_catalog_controller import LogoCatalogController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.form_constructor.asset_install import install_symbol_into_project
 from geoworkbench.project.lag_correction_controller import LagCorrectionProjectController
@@ -150,6 +151,7 @@ from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingC
 from geoworkbench.project.time_to_depth_controller import TimeToDepthController
 from geoworkbench.project.witsml_import_controller import WitsmlProjectImportController
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
+from geoworkbench.printing.header_catalog import catalog_items, resolve_catalog_header
 from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
 from geoworkbench.storage.project_codec import ProjectFormatError
@@ -276,6 +278,8 @@ from geoworkbench.ui.las_curve_browser import LasCurveBrowser
 from geoworkbench.ui.print_center_dialog import PrintCenterDialog
 from geoworkbench.ui.print_page_dialog import PrintPageDialog
 from geoworkbench.ui.masterlog_templates_dialog import MasterlogTemplatesDialog
+from geoworkbench.ui.header_catalog_dialog import HeaderCatalogDialog
+from geoworkbench.ui.logo_catalog_dialog import LogoCatalogDialog
 from geoworkbench.visualization.curve_view import CurveView
 from geoworkbench.services.depth_axis import DepthDirection
 from geoworkbench.services.las_parameter_resolver import ParameterResolutionError
@@ -607,6 +611,7 @@ class MainWindow(QMainWindow):
         self.las_range_editing_controller = LasRangeEditingController(self.session)
         self._configure_edit_dependencies()
         self.masterlog_template_controller = MasterlogTemplateController(self.session)
+        self.logo_catalog_controller = LogoCatalogController(self.session)
         self._session_bindings = self._create_session_binding_controller()
         self.dataset_selection = DatasetIntervalSelection()
         self._selected_track_id: str | None = None
@@ -1435,6 +1440,26 @@ class MainWindow(QMainWindow):
         templates_action = self._localized_action("masterlog_templates.action")
         templates_action.triggered.connect(self.show_masterlog_templates)
         print_menu.addAction(templates_action)
+        header_catalog_action = QAction(
+            {
+                AppLanguage.RU: "Каталог печатных шапок...",
+                AppLanguage.KK: "Баспа тақырыптарының каталогы...",
+                AppLanguage.EN: "Print header catalog...",
+            }[self.language],
+            self,
+        )
+        header_catalog_action.triggered.connect(self.show_header_catalog)
+        print_menu.addAction(header_catalog_action)
+        logo_catalog_action = QAction(
+            {
+                AppLanguage.RU: "Каталог логотипов...",
+                AppLanguage.KK: "Логотиптар каталогы...",
+                AppLanguage.EN: "Logo catalog...",
+            }[self.language],
+            self,
+        )
+        logo_catalog_action.triggered.connect(self.show_logo_catalog)
+        print_menu.addAction(logo_catalog_action)
         self.interpretation_report_action = self._localized_action("interpretation_report.action")
         self.interpretation_report_action.triggered.connect(self.show_interpretation_report)
         print_menu.addAction(self.interpretation_report_action)
@@ -1888,6 +1913,26 @@ class MainWindow(QMainWindow):
         constructor_templates_action = self._localized_action("masterlog_templates.action")
         constructor_templates_action.triggered.connect(self.show_masterlog_templates)
         constructor_menu.addAction(constructor_templates_action)
+        constructor_header_catalog_action = QAction(
+            {
+                AppLanguage.RU: "Каталог печатных шапок...",
+                AppLanguage.KK: "Баспа тақырыптарының каталогы...",
+                AppLanguage.EN: "Print header catalog...",
+            }[self.language],
+            self,
+        )
+        constructor_header_catalog_action.triggered.connect(self.show_header_catalog)
+        constructor_menu.addAction(constructor_header_catalog_action)
+        constructor_logo_catalog_action = QAction(
+            {
+                AppLanguage.RU: "Каталог логотипов...",
+                AppLanguage.KK: "Логотиптар каталогы...",
+                AppLanguage.EN: "Logo catalog...",
+            }[self.language],
+            self,
+        )
+        constructor_logo_catalog_action.triggered.connect(self.show_logo_catalog)
+        constructor_menu.addAction(constructor_logo_catalog_action)
 
         self.lithology_legend_action = self._localized_action("legend.action")
         self.lithology_legend_action.triggered.connect(self.show_lithology_legend)
@@ -4283,6 +4328,13 @@ class MainWindow(QMainWindow):
             vertical_unit=(
                 paged_tablet.printable_vertical_unit if paged_tablet is not None else ""
             ),
+            header_choices=self._print_header_choices(),
+            initial_header_template_id=(
+                getattr(report_form, "print_header_template_id", None)
+                if report_form is not None
+                else None
+            ),
+            manage_headers_callback=self._manage_print_headers,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -4317,6 +4369,7 @@ class MainWindow(QMainWindow):
                 report_form=report_form,
             )
             del report
+            header_template = self._resolve_print_header(normalized_job)
             printer = self._print_jobs.create_printer(widget, normalized_job)
         except (ReportDefinitionError, RuntimeError, ValueError) as exc:
             QMessageBox.critical(self, self._t("print_center.title"), str(exc))
@@ -4330,6 +4383,8 @@ class MainWindow(QMainWindow):
                 normalized_job,
                 source_name=source_name,
                 language=self.language,
+                header_template=header_template,
+                session=self.session,
             )
         )
         preview.exec()
@@ -4354,6 +4409,7 @@ class MainWindow(QMainWindow):
             passport = self._build_print_passport(
                 report, normalized_job, source_name
             )
+            header_template = self._resolve_print_header(normalized_job)
             if normalized_job.output_format is PrintOutputFormat.PRINTER:
                 printer = self._print_jobs.create_printer(widget, normalized_job)
                 dialog = QPrintDialog(printer, self)
@@ -4368,6 +4424,8 @@ class MainWindow(QMainWindow):
                     language=self.language,
                     passport=passport,
                     require_physical_gate=True,
+                    header_template=header_template,
+                    session=self.session,
                 )
                 message = self._t(
                     "print_center.print_success_pages", count=result.page_count
@@ -4397,6 +4455,8 @@ class MainWindow(QMainWindow):
                     language=self.language,
                     overwrite=overwrite,
                     passport=passport,
+                    header_template=header_template,
+                    session=self.session,
                 )
                 primary = result.primary_path
                 name = primary.name if primary is not None else target.name
@@ -4779,6 +4839,57 @@ class MainWindow(QMainWindow):
         self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
         self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
         self._update_title()
+
+    def show_header_catalog(self) -> None:
+        HeaderCatalogDialog(
+            self.masterlog_template_controller,
+            self,
+            language=self.language,
+        ).exec()
+        self._update_title()
+
+    def show_logo_catalog(self) -> None:
+        LogoCatalogDialog(
+            self.logo_catalog_controller,
+            self,
+            language=self.language,
+        ).exec()
+        self._update_title()
+
+    def _print_header_choices(self) -> tuple[tuple[str, str], ...]:
+        choices: list[tuple[str, str]] = []
+        known: set[str] = set()
+        for item in catalog_items(
+            self.session.project.masterlog_templates, self.language
+        ):
+            label = item.name
+            if item.factory:
+                label += " — заводская"
+            choices.append((item.catalog_id, label))
+            known.add(item.catalog_id)
+        for template in sorted(
+            self.session.project.masterlog_templates.values(),
+            key=lambda value: value.name.casefold(),
+        ):
+            if template.template_id in known or not template.header_elements:
+                continue
+            choices.append((template.template_id, f"{template.name} — из Masterlog"))
+        return tuple(choices)
+
+    def _manage_print_headers(self) -> tuple[tuple[str, str], ...]:
+        self.show_header_catalog()
+        return self._print_header_choices()
+
+    def _resolve_print_header(self, job: PrintJobSettings):
+        catalog_id = job.header_template_id
+        if catalog_id is None:
+            return None
+        try:
+            return resolve_catalog_header(
+                self.session.project.masterlog_templates, catalog_id
+            )
+        except KeyError as exc:
+            raise ValueError(f"Печатная шапка не найдена: {catalog_id}") from exc
 
     def save_export_profile(self) -> None:
         dataset = self.session.current_dataset
@@ -5530,8 +5641,12 @@ class MainWindow(QMainWindow):
         template = self.masterlog_template_controller.import_template(
             result.header_template, result.image_assets, template_name
         )
+        header_name = f"{template.name} — печатная шапка"
+        header_template = self.masterlog_template_controller.save_header_to_catalog(
+            template.template_id, header_name
+        )
         form = result.form
-        form.print_header_template_id = template.template_id
+        form.print_header_template_id = header_template.template_id
         existing_form_names = {item.name.casefold() for item in self.form_repository.list_forms()}
         original_name = form.name
         suffix = 2
@@ -5549,7 +5664,8 @@ class MainWindow(QMainWindow):
             f"Элементов шапки: {result.report.header_element_count}\n"
             f"Изображений: {result.report.image_asset_count}\n"
             f"Форма сохранена: {form.name}\n"
-            f"Шапка Masterlog сохранена: {template.name}"
+            f"Шаблон Masterlog сохранён: {template.name}\n"
+            f"Печатная шапка сохранена в каталог: {header_template.name}"
             f"{warning_text}"
         )
         return form, summary

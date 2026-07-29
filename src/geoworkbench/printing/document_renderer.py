@@ -8,8 +8,14 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QApplication, QWidget
 
+from geoworkbench.domain.models import MasterlogTemplate
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.form_column_layout import original_column_layout
 from geoworkbench.printing.page_renderer import paint_widget_page
+from geoworkbench.printing.masterlog_renderer import (
+    masterlog_header_size_mm,
+    paint_masterlog_header,
+)
 from geoworkbench.printing.pagination import (
     PrintPageSlice,
     build_page_slices,
@@ -30,6 +36,8 @@ from geoworkbench.tablet.tablet_view import TabletView
 class PrintDocumentContext:
     title: str
     language: AppLanguage = AppLanguage.RU
+    header_template: MasterlogTemplate | None = None
+    session: ProjectSession | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,7 +190,14 @@ def paint_document_page(
         raise ValueError("Недопустимая область страницы")
 
     localizer = Localizer.create(context.language)
-    header_height, footer_height = _band_heights(painter, page_rect)
+    simple_header_height, footer_height = _band_heights(painter, page_rect)
+    header_height = (
+        _print_header_band_height(
+            painter, page_rect, context.header_template
+        )
+        if context.header_template is not None and context.session is not None
+        else simple_header_height
+    )
     header = QRectF(page_rect.left(), page_rect.top(), page_rect.width(), header_height)
     footer = QRectF(
         page_rect.left(),
@@ -204,12 +219,21 @@ def paint_document_page(
     painter.save()
     try:
         painter.fillRect(page_rect, Qt.GlobalColor.white)
-        _paint_header(
-            painter,
-            header,
-            title=context.title,
-            range_text=right_text,
-        )
+        if context.header_template is not None and context.session is not None:
+            paint_masterlog_header(
+                painter,
+                header,
+                context.header_template,
+                context.session,
+                language=context.language,
+            )
+        else:
+            _paint_header(
+                painter,
+                header,
+                title=context.title,
+                range_text=right_text,
+            )
         paint_widget_page(
             widget,
             painter,
@@ -315,6 +339,20 @@ def _continuation_text(page: PrintDocumentPage, localizer: Localizer) -> str:
         part=page.continuation.index,
         total=page.continuation.total,
     )
+
+
+def _print_header_band_height(
+    painter: QPainter, page_rect: QRectF, template: MasterlogTemplate
+) -> float:
+    size = masterlog_header_size_mm(template)
+    if size.width() <= 0 or size.height() <= 0:
+        return 1.0
+    proportional = page_rect.width() * size.height() / size.width()
+    dpi = max(72, painter.device().logicalDpiY()) if painter.device() is not None else 96
+    minimum = min(page_rect.height() * 0.08, 15.0 * dpi / 25.4)
+    # A very tall imported header must not consume the whole sheet.  The header
+    # stays legible while at least half of the printable page remains for curves.
+    return max(minimum, min(proportional, page_rect.height() * 0.46))
 
 
 def _band_heights(painter: QPainter, page_rect: QRectF) -> tuple[float, float]:
