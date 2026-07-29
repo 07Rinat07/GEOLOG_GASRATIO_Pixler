@@ -31,13 +31,13 @@ def test_files_workspace_falls_back_without_pdf_dependency(monkeypatch) -> None:
     _application()
     monkeypatch.delitem(
         sys.modules,
-        "geoworkbench.ui.file_workspace_v2",
+        "geoworkbench.ui.file_workspace_v3",
         raising=False,
     )
     original_import = builtins.__import__
 
     def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "geoworkbench.ui.file_workspace_v2":
+        if name == "geoworkbench.ui.file_workspace_v3":
             raise ModuleNotFoundError("No module named 'fitz'", name="fitz")
         return original_import(name, globals, locals, fromlist, level)
 
