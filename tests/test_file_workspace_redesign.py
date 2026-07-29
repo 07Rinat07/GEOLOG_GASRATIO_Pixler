@@ -5,7 +5,7 @@ from pathlib import Path
 import fitz
 from PySide6.QtWidgets import QApplication, QFrame, QTabWidget
 
-from geoworkbench.ui.file_workspace_shell import FileWorkspaceWidget
+from geoworkbench.ui.file_workspace_production import FileWorkspaceWidget
 
 
 def _application() -> QApplication:
@@ -38,7 +38,7 @@ def test_modern_workspace_is_discoverable_and_has_command_bar() -> None:
 
     assert widget.objectName() == "modernFileWorkspace"
     assert widget.tab_title("ru") == "Файлы / PDF / Калькулятор"
-    assert widget.sections.tabPosition() == QTabWidget.TabPosition.West
+    assert widget.sections.tabPosition() == QTabWidget.TabPosition.North
     assert widget.findChild(QFrame, "filesHeader") is not None
     assert widget.findChild(QFrame, "commandBar") is not None
     assert widget.findChild(QFrame, "contextBar") is not None
