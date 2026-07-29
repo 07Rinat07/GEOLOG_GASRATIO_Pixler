@@ -14,7 +14,7 @@ def _is_optional_dependency_error(error: ModuleNotFoundError) -> bool:
 
 
 class FileWorkspaceWidget(QWidget):
-    """Load the full Files workspace without making it a startup dependency.
+    """Load the modern Files workspace without making it a startup dependency.
 
     Existing installations may update the application before their virtual
     environment receives newly introduced PDF/image packages. In that state the
@@ -32,8 +32,8 @@ class FileWorkspaceWidget(QWidget):
         language: str = "ru",
     ) -> FileWorkspaceWidget:
         try:
-            from geoworkbench.ui.file_workspace_full_widget import (
-                FileWorkspaceWidget as FullFileWorkspaceWidget,
+            from geoworkbench.ui.file_workspace_redesign import (
+                FileWorkspaceWidget as ModernFileWorkspaceWidget,
             )
         except ModuleNotFoundError as error:
             if not _is_optional_dependency_error(error):
@@ -41,7 +41,7 @@ class FileWorkspaceWidget(QWidget):
             instance = super().__new__(cls)
             instance._missing_dependency = error.name or "неизвестный модуль"
             return instance
-        return cast(FileWorkspaceWidget, FullFileWorkspaceWidget(parent, language=language))
+        return cast(FileWorkspaceWidget, ModernFileWorkspaceWidget(parent, language=language))
 
     def __init__(
         self,
