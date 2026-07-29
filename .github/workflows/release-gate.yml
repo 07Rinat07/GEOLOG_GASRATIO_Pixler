@@ -25,16 +25,21 @@ jobs:
           python-version: "3.11"
       - name: Finalize normal product files
         run: python scripts/finalize_file_workspace.py
+      - name: Remove damaged one-time scaffolding before compilation
+        run: |
+          rm -f scripts/apply_file_workspace.py
+          rm -f scripts/run_file_workspace_payload.py
+          rm -f docs/.file_workspace_pr_trigger.md
+          rm -f .github/workflows/apply-file-workspace.yml
+          rm -f .github/workflows/apply-file-workspace-trigger.yml
+          rm -f .github/workflows/finalize-file-workspace.yml
       - name: Compile Python sources
         run: python -m compileall -q src/geoworkbench tests tools scripts
-      - name: Restore trusted workflow and remove temporary artifacts
+      - name: Restore trusted workflow and remove finalizer
         run: |
           git fetch origin main
           git checkout origin/main -- .github/workflows/release-gate.yml
-          rm -f scripts/apply_file_workspace.py
-          rm -f scripts/run_file_workspace_payload.py
           rm -f scripts/finalize_file_workspace.py
-          rm -f docs/.file_workspace_pr_trigger.md
       - name: Commit product changes
         run: |
           git config user.name "github-actions[bot]"
