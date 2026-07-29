@@ -20,7 +20,9 @@ EXPECTED_RUNTIME_PACKAGES = {
     "lasio",
     "numpy",
     "openpyxl",
+    "pillow",
     "pydantic",
+    "pymupdf",
     "pyqtgraph",
     "pyside6",
     "pyside6-addons",
@@ -106,14 +108,14 @@ def test_workflow_syncs_the_lock_and_uploads_three_artifact_groups() -> None:
     assert "pip-audit==2.10.1" in text
     assert "detect-secrets==1.5.0" in text
     gate = _read(ROOT / "tools" / "release_security_gate.py")
-    assert "tests[\\\\/]golden_rendering" in gate
-    assert "(^|[\\\\/])(\\.git|build" in gate
-    assert "([\\\\/]|$)" in gate
-    assert 'r"\\.(bmp|png|jpe?g|gif|webp|ico|pdf|docx|xlsx|zip|svg)$"' in gate
-    assert 'uses:\\s*[^@\\s]+@[0-9a-f]{40}' in gate
+    assert "tests[\\/]golden_rendering" in gate
+    assert "(^|[\\/])(\.git|build" in gate
+    assert "([\\/]|$)" in gate
+    assert 'r"\.(bmp|png|jpe?g|gif|webp|ico|pdf|docx|xlsx|zip|svg)$"' in gate
+    assert 'uses:\s*[^@\s]+@[0-9a-f]{40}' in gate
     assert 'detect-secrets' in gate
-    assert 'etp12\\\\?\\.secret' in gate
-    assert 'witsml1411\\\\?\\.password' in gate
+    assert 'etp12\\?\.secret' in gate
+    assert 'witsml1411\\?\.password' in gate
     assert 'hashed_secret' in gate
     assert "bandit==1.9.4" in text
     assert "tools/release_security_gate.py" in text
