@@ -281,6 +281,10 @@ from geoworkbench.ui.print_page_dialog import PrintPageDialog
 from geoworkbench.ui.masterlog_templates_dialog import MasterlogTemplatesDialog
 from geoworkbench.ui.header_catalog_dialog import HeaderCatalogDialog
 from geoworkbench.ui.logo_catalog_dialog import LogoCatalogDialog
+from geoworkbench.ui.skf_import_options_dialog import (
+    SkfImportMode,
+    SkfImportOptionsDialog,
+)
 from geoworkbench.visualization.curve_view import CurveView
 from geoworkbench.services.depth_axis import DepthDirection
 from geoworkbench.services.las_parameter_resolver import ParameterResolutionError
@@ -5641,8 +5645,13 @@ class MainWindow(QMainWindow):
         )
         if not filename:
             return False
+        options = SkfImportOptionsDialog(self, language=self.language)
+        if options.exec() != QDialog.DialogCode.Accepted:
+            return False
         try:
-            _form, summary = self._import_skf_form_and_header(Path(filename))
+            _form, summary = self._import_skf_form_and_header(
+                Path(filename), mode=options.mode
+            )
         except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, title, str(exc))
             return False
@@ -5651,8 +5660,17 @@ class MainWindow(QMainWindow):
         self._update_title()
         return True
 
-    def _import_skf_form_and_header(self, source: Path):
+    def _import_skf_form_and_header(
+        self,
+        source: Path,
+        *,
+        mode: SkfImportMode = SkfImportMode.FORM_AND_HEADER,
+    ):
         result = import_skf_file(source)
+        form = None
+        template = None
+        header_template = None
+
         existing_template_names = {
             item.name.casefold() for item in self.session.project.masterlog_templates.values()
         }
@@ -5661,36 +5679,57 @@ class MainWindow(QMainWindow):
         while template_name.casefold() in existing_template_names:
             template_name = f"{result.header_template.name} ({suffix})"
             suffix += 1
-        template = self.masterlog_template_controller.import_template(
-            result.header_template, result.image_assets, template_name
-        )
-        header_name = f"{template.name} — печатная шапка"
-        header_template = self.masterlog_template_controller.save_header_to_catalog(
-            template.template_id, header_name
-        )
-        form = result.form
-        form.print_header_template_id = header_template.template_id
-        existing_form_names = {item.name.casefold() for item in self.form_repository.list_forms()}
-        original_name = form.name
-        suffix = 2
-        while form.name.casefold() in existing_form_names:
-            form.name = f"{original_name} ({suffix})"
-            suffix += 1
-        self.form_repository.save(form)
+
+        if mode is SkfImportMode.FORM_AND_HEADER:
+            template = self.masterlog_template_controller.import_template(
+                result.header_template, result.image_assets, template_name
+            )
+            header_name = f"{template.name} — печатная шапка"
+            header_template = self.masterlog_template_controller.save_header_to_catalog(
+                template.template_id, header_name
+            )
+        elif mode is SkfImportMode.HEADER_ONLY:
+            header_template = self.masterlog_template_controller.import_header_template(
+                result.header_template,
+                result.image_assets,
+                f"{template_name} — печатная шапка",
+            )
+
+        if mode in {SkfImportMode.FORM_AND_HEADER, SkfImportMode.FORM_ONLY}:
+            form = result.form
+            if header_template is not None:
+                form.print_header_template_id = header_template.template_id
+            existing_form_names = {
+                item.name.casefold() for item in self.form_repository.list_forms()
+            }
+            original_name = form.name
+            suffix = 2
+            while form.name.casefold() in existing_form_names:
+                form.name = f"{original_name} ({suffix})"
+                suffix += 1
+            self.form_repository.save(form)
+
         warning_text = ""
         if result.report.warnings:
-            warning_text = "\n\nПредупреждения:\n- " + "\n- ".join(result.report.warnings)
-        summary = (
-            f"SKF импортирован: {result.report.source_name}\n"
-            f"Компонентов Delphi: {result.report.component_count}\n"
-            f"Колонок формы: {result.report.column_count}\n"
-            f"Элементов шапки: {result.report.header_element_count}\n"
-            f"Изображений: {result.report.image_asset_count}\n"
-            f"Форма сохранена: {form.name}\n"
-            f"Шаблон Masterlog сохранён: {template.name}\n"
-            f"Печатная шапка сохранена в каталог: {header_template.name}"
-            f"{warning_text}"
-        )
+            warning_text = "\n\nПредупреждения:\n- " + "\n- ".join(
+                result.report.warnings
+            )
+        lines = [
+            f"SKF импортирован: {result.report.source_name}",
+            f"Компонентов Delphi: {result.report.component_count}",
+            f"Колонок формы: {result.report.column_count}",
+            f"Элементов шапки: {result.report.header_element_count}",
+            f"Изображений: {result.report.image_asset_count}",
+        ]
+        if form is not None:
+            lines.append(f"Форма сохранена: {form.name}")
+        if template is not None:
+            lines.append(f"Шаблон Masterlog сохранён: {template.name}")
+        if header_template is not None:
+            lines.append(
+                f"Печатная шапка сохранена в каталог: {header_template.name}"
+            )
+        summary = "\n".join(lines) + warning_text
         return form, summary
 
     def _set_form_print_page_settings(self, settings) -> None:

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QRectF, Qt
+from PySide6.QtCore import QRectF, QSettings, Qt, QTimer
 from PySide6.QtGui import QColor, QBrush, QPen, QTransform, QWheelEvent
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -37,7 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.domain.models import MasterlogHeaderElement
+from geoworkbench.domain.models import MasterlogHeaderElement, MasterlogTemplate
 from geoworkbench.domain.text_presentation import (
     TEXT_ORIENTATIONS,
     TEXT_VERTICAL_POSITIONS,
@@ -59,6 +60,7 @@ from geoworkbench.printing.image_assets import (
 )
 from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_HEADER_PRESETS
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.logo_catalog_controller import LogoCatalogController
 from geoworkbench.project.lithotype_catalog_controller import (
     CatalogLithotype,
@@ -69,6 +71,7 @@ from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 from geoworkbench.ui.logo_catalog_dialog import LogoCatalogDialog
 from geoworkbench.ui.header_preview_widget import HeaderPreviewWidget
+from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
 
 
 _TEXT = {
@@ -201,6 +204,9 @@ class HeaderElementDialog(QDialog):
         image_assets: dict[str, ImageAsset] | None = None,
         lithotypes: dict[str, CatalogLithotype] | None = None,
         logo_catalog_controller: LogoCatalogController | None = None,
+        preview_template: MasterlogTemplate | None = None,
+        preview_session: ProjectSession | None = None,
+        preview_element_id: str | None = None,
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
@@ -209,6 +215,10 @@ class HeaderElementDialog(QDialog):
         self.lithotypes = lithotypes or {}
         self.logo_catalog_controller = logo_catalog_controller
         self.imported_assets: dict[str, ImageAsset] = {}
+        self.preview_template = preview_template
+        self.preview_session = preview_session
+        self.preview_element_id = preview_element_id
+        self.live_preview: HeaderPreviewWidget | None = None
         self.setWindowTitle(self.localizer.text("masterlog_header.properties"))
         self.setMinimumWidth(480)
 
@@ -496,7 +506,8 @@ class HeaderElementDialog(QDialog):
         image_row.addWidget(self.logo_catalog_button)
         image_row.addWidget(self.image_import_button)
 
-        layout = QFormLayout(self)
+        form_widget = QWidget()
+        layout = QFormLayout(form_widget)
         layout.addRow(self.localizer.text("masterlog_header.type"), self.type_input)
         for label, control in zip(
             (
@@ -580,6 +591,106 @@ class HeaderElementDialog(QDialog):
         )
         self.legend_scope_input.currentIndexChanged.connect(self._update_legend_manual_visibility)
         self._update_property_inputs(str(self.type_input.currentData() or "text"))
+
+        form_scroll = QScrollArea()
+        form_scroll.setWidgetResizable(True)
+        form_scroll.setWidget(form_widget)
+        root = QHBoxLayout(self)
+        root.addWidget(form_scroll, 3)
+        if self.preview_template is not None and self.preview_session is not None:
+            preview_panel = QGroupBox(
+                {
+                    AppLanguage.RU: "Живой предпросмотр",
+                    AppLanguage.KK: "Тікелей алдын ала қарау",
+                    AppLanguage.EN: "Live preview",
+                }[language]
+            )
+            preview_layout = QVBoxLayout(preview_panel)
+            preview_hint = QLabel(
+                {
+                    AppLanguage.RU: "Любое изменение поля сразу отображается здесь до сохранения.",
+                    AppLanguage.KK: "Өрістің әр өзгерісі сақтауға дейін осында көрінеді.",
+                    AppLanguage.EN: "Every control change is shown here before saving.",
+                }[language]
+            )
+            preview_hint.setWordWrap(True)
+            preview_layout.addWidget(preview_hint)
+            self.live_preview = HeaderPreviewWidget(
+                self.preview_session, preview_panel, language=language
+            )
+            self.live_preview.setMinimumSize(460, 420)
+            preview_layout.addWidget(self.live_preview, 1)
+            root.addWidget(preview_panel, 4)
+            self.setMinimumSize(980, 650)
+            self.resize(1320, 780)
+            self._connect_live_preview()
+            QTimer.singleShot(0, self._refresh_live_preview)
+        else:
+            self.setMinimumSize(560, 600)
+
+    def _connect_live_preview(self) -> None:
+        controls = (
+            self.type_input,
+            *self.inputs,
+            self.text_input,
+            self.field_input,
+            self.text_color_input,
+            self.font_size_input,
+            self.bold_input,
+            self.alignment_input,
+            self.text_orientation_input,
+            self.text_position_input,
+            self.frame_input,
+            self.background_input,
+            self.image_input,
+            self.image_mode_input,
+            self.image_rotation_input,
+            self.image_opacity_input,
+            self.line_color_input,
+            self.line_width_input,
+            self.legend_scope_input,
+            self.legend_columns_input,
+            self.legend_code_input,
+            self.lithotype_input,
+            self.lithotype_label_mode_input,
+        )
+        for control in controls:
+            if isinstance(control, QLineEdit):
+                control.textChanged.connect(self._refresh_live_preview)
+            elif isinstance(control, QComboBox):
+                control.currentIndexChanged.connect(self._refresh_live_preview)
+            elif isinstance(control, (QDoubleSpinBox, QSpinBox)):
+                control.valueChanged.connect(self._refresh_live_preview)
+            elif isinstance(control, QCheckBox):
+                control.toggled.connect(self._refresh_live_preview)
+        self.legend_manual_input.itemSelectionChanged.connect(self._refresh_live_preview)
+
+    def _refresh_live_preview(self, *_args) -> None:
+        if (
+            self.live_preview is None
+            or self.preview_template is None
+            or self.preview_session is None
+        ):
+            return
+        try:
+            kind, x, y, width, height, properties = self.values()
+        except (ValueError, json.JSONDecodeError):
+            return
+        template = deepcopy(self.preview_template)
+        element_id = self.preview_element_id or "__live_preview_element__"
+        candidate = MasterlogHeaderElement(
+            element_id, kind, x, y, width, height, properties
+        )
+        for index, item in enumerate(template.header_elements):
+            if item.element_id == element_id:
+                template.header_elements[index] = candidate
+                break
+        else:
+            template.header_elements.append(candidate)
+        template.header_height_mm = max(
+            template.header_height_mm, y + height + 2.0
+        )
+        self.live_preview.set_template(template)
 
     def _update_property_inputs(self, element_type: str) -> None:
         self.text_input.setVisible(element_type == "text")
@@ -972,8 +1083,8 @@ class MasterlogHeaderDialog(QDialog):
         self._selected_element_id: str | None = None
         self._fit_on_refresh = True
         self.setWindowTitle(self.localizer.text("masterlog_header.title"))
-        self.setMinimumSize(720, 480)
-        self.resize(1120, 700)
+        self.setMinimumSize(900, 600)
+        self.resize(1500, 900)
 
         self.list = QListWidget()
         self.list.setMinimumWidth(260)
@@ -1003,14 +1114,6 @@ class MasterlogHeaderDialog(QDialog):
         self.snap_input.setDecimals(1)
         self.snap_input.setValue(1.0)
 
-        settings = QHBoxLayout()
-        settings.addWidget(QLabel(_TEXT[language]["height"]))
-        settings.addWidget(self.height_input)
-        settings.addSpacing(16)
-        settings.addWidget(self.snap_checkbox)
-        settings.addWidget(QLabel(_TEXT[language]["grid"]))
-        settings.addWidget(self.snap_input)
-        settings.addStretch(1)
         hint = QLabel(_TEXT[language]["drag_hint"])
         hint.setWordWrap(True)
         self.page_info_label = QLabel()
@@ -1054,15 +1157,18 @@ class MasterlogHeaderDialog(QDialog):
         )
         self.fit_page_button.clicked.connect(self._fit_header_to_page)
 
-        left_buttons = QHBoxLayout()
-        left_buttons.addWidget(self.data_button)
-        left_buttons.addWidget(self.catalog_button)
-        left_buttons.addWidget(self.save_catalog_button)
-        left_buttons.addWidget(self.preset_button)
-        left_buttons.addWidget(self.edit_zoom_button)
-        left_buttons.addWidget(self.fit_button)
+        self.toolbar = AdaptiveActionToolBar(parent=self)
+        for button in (
+            self.data_button,
+            self.catalog_button,
+            self.save_catalog_button,
+            self.preset_button,
+            self.edit_zoom_button,
+            self.fit_button,
+        ):
+            self.toolbar.addWidget(button)
 
-        element_buttons = QHBoxLayout()
+        self.element_toolbar = AdaptiveActionToolBar(parent=self)
         for text, callback in (
             ("+", self._add),
             ({AppLanguage.RU: "Изменить", AppLanguage.KK: "Өзгерту", AppLanguage.EN: "Edit"}[language], self._edit),
@@ -1073,24 +1179,36 @@ class MasterlogHeaderDialog(QDialog):
         ):
             button = QPushButton(text)
             button.clicked.connect(callback)
-            element_buttons.addWidget(button)
+            self.element_toolbar.addWidget(button)
 
         left = QWidget()
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.addLayout(left_buttons)
+        left_layout.addWidget(self.element_toolbar)
         left_layout.addWidget(self.list, 1)
-        left_layout.addLayout(element_buttons)
 
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.addWidget(hint)
         right_layout.addWidget(self.page_info_label)
-        right_layout.addWidget(QLabel({AppLanguage.RU: "Обзор всей шапки (всегда видна целиком)", AppLanguage.KK: "Тақырыптың толық шолуы", AppLanguage.EN: "Whole-header overview"}[language]))
-        right_layout.addWidget(self.overview, 1)
-        right_layout.addWidget(QLabel({AppLanguage.RU: "Рабочий холст: перетаскивание, прокрутка и точная правка", AppLanguage.KK: "Жұмыс кенебі: жылжыту, айналдыру және дәл өңдеу", AppLanguage.EN: "Editing canvas: drag, scroll and precise adjustment"}[language]))
-        right_layout.addWidget(self.preview, 2)
+        overview_group = QGroupBox(
+            {AppLanguage.RU: "Обзор всей шапки", AppLanguage.KK: "Тақырыптың толық шолуы", AppLanguage.EN: "Whole-header overview"}[language]
+        )
+        overview_layout = QVBoxLayout(overview_group)
+        overview_layout.addWidget(self.overview)
+        workspace_group = QGroupBox(
+            {AppLanguage.RU: "Рабочий холст", AppLanguage.KK: "Жұмыс кенебі", AppLanguage.EN: "Editing canvas"}[language]
+        )
+        workspace_layout = QVBoxLayout(workspace_group)
+        workspace_layout.addWidget(self.preview)
+        self.preview_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.preview_splitter.setChildrenCollapsible(False)
+        self.preview_splitter.addWidget(overview_group)
+        self.preview_splitter.addWidget(workspace_group)
+        self.preview_splitter.setStretchFactor(0, 0)
+        self.preview_splitter.setStretchFactor(1, 1)
+        right_layout.addWidget(self.preview_splitter, 1)
 
         inspector = QGroupBox({AppLanguage.RU: "Выбранный элемент", AppLanguage.KK: "Таңдалған элемент", AppLanguage.EN: "Selected element"}[language])
         inspector_layout = QVBoxLayout(inspector)
@@ -1098,6 +1216,9 @@ class MasterlogHeaderDialog(QDialog):
         self.inspector_title.setWordWrap(True)
         inspector_layout.addWidget(self.inspector_title)
         inspector_form = QFormLayout()
+        inspector_form.addRow(_TEXT[language]["height"], self.height_input)
+        inspector_form.addRow(_TEXT[language]["snap"], self.snap_checkbox)
+        inspector_form.addRow(_TEXT[language]["grid"], self.snap_input)
         self.geometry_inputs = [QDoubleSpinBox() for _ in range(4)]
         for label, control in zip(("X, мм", "Y, мм", "Ширина, мм", "Высота, мм"), self.geometry_inputs, strict=True):
             control.setRange(0.0, 5000.0)
@@ -1117,24 +1238,52 @@ class MasterlogHeaderDialog(QDialog):
         autosave.setWordWrap(True)
         inspector_layout.addWidget(autosave)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(left)
-        splitter.addWidget(right)
-        splitter.addWidget(inspector)
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setStretchFactor(2, 0)
-        splitter.setSizes([300, 850, 300])
+        inspector_scroll = QScrollArea()
+        inspector_scroll.setWidgetResizable(True)
+        inspector_scroll.setWidget(inspector)
+        inspector_scroll.setMinimumWidth(250)
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.main_splitter.setChildrenCollapsible(False)
+        self.main_splitter.addWidget(left)
+        self.main_splitter.addWidget(right)
+        self.main_splitter.addWidget(inspector_scroll)
+        self.main_splitter.setStretchFactor(0, 0)
+        self.main_splitter.setStretchFactor(1, 1)
+        self.main_splitter.setStretchFactor(2, 0)
+        settings_store = QSettings()
+        main_state = settings_store.value("ui/masterlog_header/main_splitter")
+        preview_state = settings_store.value("ui/masterlog_header/preview_splitter")
+        if main_state is not None:
+            self.main_splitter.restoreState(main_state)
+        else:
+            self.main_splitter.setSizes([300, 900, 300])
+        if preview_state is not None:
+            self.preview_splitter.restoreState(preview_state)
+        else:
+            self.preview_splitter.setSizes([260, 520])
 
         close_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         close_buttons.rejected.connect(self.reject)
         close_buttons.button(QDialogButtonBox.StandardButton.Close).clicked.connect(self.accept)
 
         layout = QVBoxLayout(self)
-        layout.addLayout(settings)
-        layout.addWidget(splitter, 1)
+        layout.addWidget(self.toolbar)
+        layout.addWidget(self.main_splitter, 1)
         layout.addWidget(close_buttons)
         self.refresh()
+
+    def _save_ui_state(self) -> None:
+        settings = QSettings()
+        settings.setValue("ui/masterlog_header/main_splitter", self.main_splitter.saveState())
+        settings.setValue("ui/masterlog_header/preview_splitter", self.preview_splitter.saveState())
+
+    def accept(self) -> None:
+        self._save_ui_state()
+        super().accept()
+
+    def reject(self) -> None:
+        self._save_ui_state()
+        super().reject()
 
     @property
     def template(self):
@@ -1756,6 +1905,9 @@ class MasterlogHeaderDialog(QDialog):
             image_assets=self.controller.session.image_assets,
             lithotypes=self._available_lithotypes(),
             logo_catalog_controller=LogoCatalogController(self.controller.session),
+            preview_template=self.template,
+            preview_session=self.controller.session,
+            preview_element_id=None,
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._apply(dialog, None)
@@ -1839,6 +1991,9 @@ class MasterlogHeaderDialog(QDialog):
                 image_assets=self.controller.session.image_assets,
                 lithotypes=self._available_lithotypes(),
                 logo_catalog_controller=LogoCatalogController(self.controller.session),
+                preview_template=self.template,
+                preview_session=self.controller.session,
+                preview_element_id=element.element_id,
             )
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self._apply(dialog, element.element_id)
