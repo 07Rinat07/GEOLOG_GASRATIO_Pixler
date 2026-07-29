@@ -24,14 +24,17 @@ jobs:
         with:
           python-version: "3.11"
       - name: Apply fullscreen header workspace changes
-        run: python scripts/apply_fullscreen_header_workspace.py
+        run: |
+          python scripts/apply_fullscreen_header_workspace.py
+          python scripts/fix_fullscreen_generated_syntax.py
       - name: Compile Python sources
         run: python -m compileall -q src/geoworkbench scripts
-      - name: Restore trusted workflow and remove applicator
+      - name: Restore trusted workflow and remove applicators
         run: |
           git fetch origin main
           git checkout origin/main -- .github/workflows/release-gate.yml
           rm -f scripts/apply_fullscreen_header_workspace.py
+          rm -f scripts/fix_fullscreen_generated_syntax.py
       - name: Commit product changes
         run: |
           git config user.name "github-actions[bot]"
