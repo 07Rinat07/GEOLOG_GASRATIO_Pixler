@@ -5,13 +5,15 @@ from pathlib import Path
 
 import fitz
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QTabWidget
 
 from geoworkbench.ui.file_workspace_expert import FileWorkspaceWidget
 
 
 def _arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Capture Files workspace acceptance screenshots")
+    parser = argparse.ArgumentParser(
+        description="Capture Files workspace acceptance screenshots"
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
 
@@ -42,9 +44,15 @@ def _sample_pdf(path: Path) -> Path:
     try:
         for index in range(3):
             page = document.new_page(width=595, height=842)
-            page.insert_text((55, 62), "GEOLOG GASRATIO · FILES WORKSPACE", fontsize=17)
-            page.insert_text((55, 96), f"Acceptance document · page {index + 1}", fontsize=11)
-            page.draw_rect(fitz.Rect(55, 130, 540, 320), color=(0.2, 0.45, 0.8), width=2)
+            page.insert_text(
+                (55, 62), "GEOLOG GASRATIO · FILES WORKSPACE", fontsize=17
+            )
+            page.insert_text(
+                (55, 96), f"Acceptance document · page {index + 1}", fontsize=11
+            )
+            page.draw_rect(
+                fitz.Rect(55, 130, 540, 320), color=(0.2, 0.45, 0.8), width=2
+            )
             page.insert_textbox(
                 fitz.Rect(78, 160, 510, 290),
                 "PDF editing area\nSelect a rectangle and use the contextual command bar.\n"
@@ -54,15 +62,23 @@ def _sample_pdf(path: Path) -> Path:
             )
             for row in range(8):
                 y = 380 + row * 42
-                page.draw_line((70, y), (525, y), color=(0.55, 0.6, 0.68), width=0.7)
-                page.insert_text((78, y - 9), f"Engineering record {row + 1}", fontsize=10)
+                page.draw_line(
+                    (70, y), (525, y), color=(0.55, 0.6, 0.68), width=0.7
+                )
+                page.insert_text(
+                    (78, y - 9), f"Engineering record {row + 1}", fontsize=10
+                )
         document.save(path)
     finally:
         document.close()
     return path
 
 
-def _save(widget: FileWorkspaceWidget, path: Path, application: QApplication) -> None:
+def _save(
+    widget: FileWorkspaceWidget,
+    path: Path,
+    application: QApplication,
+) -> None:
     application.processEvents()
     pixmap = widget.grab()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -111,7 +127,7 @@ def main() -> int:
     widget._calculate_expression_live()
     _save(widget, output / "files-engineering-tools.png", application)
 
-    petroleum_tabs = widget.findChild(type(widget.sections), "petroleumCalculatorTabs")
+    petroleum_tabs = widget.findChild(QTabWidget, "petroleumCalculatorTabs")
     if petroleum_tabs is not None:
         petroleum_tabs.setCurrentIndex(0)
     _save(widget, output / "files-petroleum-calculators.png", application)
