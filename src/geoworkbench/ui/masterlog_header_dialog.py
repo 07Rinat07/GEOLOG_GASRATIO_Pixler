@@ -72,6 +72,7 @@ from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithoty
 from geoworkbench.ui.logo_catalog_dialog import LogoCatalogDialog
 from geoworkbench.ui.header_preview_widget import HeaderPreviewWidget
 from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
+from geoworkbench.ui.header_visual_assistant import HeaderVisualAssistant
 
 
 _TEXT = {
@@ -1012,11 +1013,13 @@ class _MovableHeaderRect(QGraphicsRectItem):
         element: MasterlogHeaderElement,
         moved: Callable[[str, float, float], None],
         activated: Callable[[str], None],
+        edited: Callable[[], None],
     ) -> None:
         super().__init__(QRectF(0.0, 0.0, element.width_mm, element.height_mm))
         self.element_id = element.element_id
         self._moved = moved
         self._activated = activated
+        self._edited = edited
         self.setPos(element.x_mm, element.y_mm)
         self.setFlags(
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable
@@ -1030,6 +1033,7 @@ class _MovableHeaderRect(QGraphicsRectItem):
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt API
         self._activated(self.element_id)
+        self._edited()
         super().mouseDoubleClickEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt API
@@ -1043,11 +1047,13 @@ class _MovableHeaderLine(QGraphicsLineItem):
         element: MasterlogHeaderElement,
         moved: Callable[[str, float, float], None],
         activated: Callable[[str], None],
+        edited: Callable[[], None],
     ) -> None:
         super().__init__(0.0, 0.0, element.width_mm, element.height_mm)
         self.element_id = element.element_id
         self._moved = moved
         self._activated = activated
+        self._edited = edited
         self.setPos(element.x_mm, element.y_mm)
         self.setFlags(
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable
@@ -1061,6 +1067,7 @@ class _MovableHeaderLine(QGraphicsLineItem):
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt API
         self._activated(self.element_id)
+        self._edited()
         super().mouseDoubleClickEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt API
@@ -1156,6 +1163,23 @@ class MasterlogHeaderDialog(QDialog):
             {AppLanguage.RU: "Подогнать шапку к странице", AppLanguage.KK: "Тақырыпты бетке сыйғызу", AppLanguage.EN: "Fit header to page"}[language]
         )
         self.fit_page_button.clicked.connect(self._fit_header_to_page)
+        self.fullscreen_button = QPushButton(
+            {
+                AppLanguage.RU: "Полный экран",
+                AppLanguage.KK: "Толық экран",
+                AppLanguage.EN: "Full screen",
+            }[language]
+        )
+        self.fullscreen_button.clicked.connect(self._toggle_fullscreen)
+        self.dual_view_button = QPushButton(
+            {
+                AppLanguage.RU: "Два вида рядом",
+                AppLanguage.KK: "Екі көрініс қатар",
+                AppLanguage.EN: "Views side by side",
+            }[language]
+        )
+        self.dual_view_button.setCheckable(True)
+        self.dual_view_button.clicked.connect(self._toggle_dual_view)
 
         self.toolbar = AdaptiveActionToolBar(parent=self)
         for button in (
@@ -1165,6 +1189,8 @@ class MasterlogHeaderDialog(QDialog):
             self.preset_button,
             self.edit_zoom_button,
             self.fit_button,
+            self.dual_view_button,
+            self.fullscreen_button,
         ):
             self.toolbar.addWidget(button)
 
@@ -1229,6 +1255,17 @@ class MasterlogHeaderDialog(QDialog):
         self.inspector_bounds = QLabel()
         self.inspector_bounds.setWordWrap(True)
         inspector_layout.addWidget(self.inspector_bounds)
+        self.visual_assistant = HeaderVisualAssistant(
+            inspector,
+            language=language,
+        )
+        self.visual_assistant.text_requested.connect(self._assistant_set_text)
+        self.visual_assistant.field_requested.connect(self._assistant_set_field)
+        self.visual_assistant.line_orientation_requested.connect(
+            self._assistant_set_line_orientation
+        )
+        self.visual_assistant.properties_requested.connect(self._edit)
+        inspector_layout.addWidget(self.visual_assistant)
         inspector_edit_button = QPushButton({AppLanguage.RU: "Содержимое и стиль...", AppLanguage.KK: "Мазмұны мен стилі...", AppLanguage.EN: "Content and style..."}[language])
         inspector_edit_button.clicked.connect(self._edit)
         inspector_layout.addWidget(inspector_edit_button)
@@ -1261,6 +1298,14 @@ class MasterlogHeaderDialog(QDialog):
             self.preview_splitter.restoreState(preview_state)
         else:
             self.preview_splitter.setSizes([260, 520])
+        preview_orientation = str(
+            settings_store.value("ui/masterlog_header/preview_orientation", "vertical")
+        )
+        side_by_side = preview_orientation == "horizontal"
+        self.dual_view_button.setChecked(side_by_side)
+        self.preview_splitter.setOrientation(
+            Qt.Orientation.Horizontal if side_by_side else Qt.Orientation.Vertical
+        )
 
         close_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         close_buttons.rejected.connect(self.reject)
@@ -1276,6 +1321,12 @@ class MasterlogHeaderDialog(QDialog):
         settings = QSettings()
         settings.setValue("ui/masterlog_header/main_splitter", self.main_splitter.saveState())
         settings.setValue("ui/masterlog_header/preview_splitter", self.preview_splitter.saveState())
+        settings.setValue(
+            "ui/masterlog_header/preview_orientation",
+            "horizontal"
+            if self.preview_splitter.orientation() == Qt.Orientation.Horizontal
+            else "vertical",
+        )
 
     def accept(self) -> None:
         self._save_ui_state()
@@ -1373,9 +1424,10 @@ class MasterlogHeaderDialog(QDialog):
                     element,
                     self._move_preview_element,
                     self._activate_preview_element,
+                    self._edit,
                 )
                 line_graphic.setPen(self._line_pen(element))
-                line_graphic.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+                line_graphic.setToolTip(self._element_tooltip(element))
                 line_graphic.setSelected(element.element_id == selected)
                 self.preview_scene.addItem(line_graphic)
                 continue
@@ -1384,6 +1436,7 @@ class MasterlogHeaderDialog(QDialog):
                 element,
                 self._move_preview_element,
                 self._activate_preview_element,
+                self._edit,
             )
             rect_graphic.setPen(QPen(QColor("#475569"), 0.35))
             background = element.properties.get("background")
@@ -1391,7 +1444,7 @@ class MasterlogHeaderDialog(QDialog):
             if not fill.isValid():
                 fill = colors[element.element_type]
             rect_graphic.setBrush(QBrush(fill))
-            rect_graphic.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+            rect_graphic.setToolTip(self._element_tooltip(element))
             rect_graphic.setSelected(element.element_id == selected)
             self.preview_scene.addItem(rect_graphic)
             if element.element_type == "image" and self._add_image_preview(
@@ -1512,22 +1565,140 @@ class MasterlogHeaderDialog(QDialog):
         enabled = element is not None
         for control in self.geometry_inputs:
             control.setEnabled(enabled)
+        page_width, _page_height = self._page_size_mm()
         if element is None:
             self.inspector_title.setText("—")
             self.inspector_bounds.clear()
+            self.visual_assistant.set_element(
+                None,
+                page_width_mm=page_width,
+                header_height_mm=self.template.header_height_mm,
+            )
             return
         self.inspector_title.setText(f"<b>{self._preview_text(element)}</b><br>{element.element_type}")
         for control, value in zip(self.geometry_inputs, (element.x_mm, element.y_mm, element.width_mm, element.height_mm), strict=True):
             control.blockSignals(True)
             control.setValue(value)
             control.blockSignals(False)
-        page_width, _page_height = self._page_size_mm()
         right = element.x_mm + element.width_mm
         bottom = element.y_mm + element.height_mm
         outside = right > page_width + 1e-6 or bottom > self.template.header_height_mm + 1e-6
         self.inspector_bounds.setText(
             f"Правая граница: {right:g} / {page_width:g} мм<br>Нижняя граница: {bottom:g} / {self.template.header_height_mm:g} мм"
             + ("<br><b style='color:#b91c1c'>Элемент выходит за границы шапки</b>" if outside else "")
+        )
+        self.visual_assistant.set_element(
+            element,
+            page_width_mm=page_width,
+            header_height_mm=self.template.header_height_mm,
+        )
+
+    def _toggle_fullscreen(self) -> None:
+        if self.isMaximized():
+            self.showNormal()
+        else:
+            self.showMaximized()
+
+    def _toggle_dual_view(self, checked: bool) -> None:
+        self.preview_splitter.setOrientation(
+            Qt.Orientation.Horizontal if checked else Qt.Orientation.Vertical
+        )
+        if checked:
+            self.preview_splitter.setSizes([700, 900])
+        else:
+            self.preview_splitter.setSizes([280, 620])
+
+    def _assistant_set_text(self, value: str) -> None:
+        element = self._selected()
+        if element is None or element.element_type != "text":
+            return
+        properties = dict(element.properties)
+        properties["text"] = value
+        self._assistant_update_element(element, properties=properties)
+
+    def _assistant_set_field(self, field_name: str) -> None:
+        element = self._selected()
+        if element is None or element.element_type != "field" or not field_name:
+            return
+        properties = dict(element.properties)
+        properties["field"] = field_name
+        self._assistant_update_element(element, properties=properties)
+
+    def _assistant_set_line_orientation(self, orientation: str) -> None:
+        element = self._selected()
+        if element is None or element.element_type != "line":
+            return
+        if orientation == "horizontal":
+            width = max(10.0, element.width_mm, element.height_mm)
+            height = 0.1
+        else:
+            width = 0.1
+            height = max(10.0, element.height_mm, element.width_mm)
+        properties = dict(element.properties)
+        properties["source_shape_kind"] = orientation
+        self._assistant_update_element(
+            element,
+            width_mm=width,
+            height_mm=height,
+            properties=properties,
+        )
+
+    def _assistant_update_element(
+        self,
+        element: MasterlogHeaderElement,
+        *,
+        width_mm: float | None = None,
+        height_mm: float | None = None,
+        properties: dict[str, object] | None = None,
+    ) -> None:
+        try:
+            self.controller.update_header_element(
+                self.template_id,
+                element.element_id,
+                element_type=element.element_type,
+                x_mm=element.x_mm,
+                y_mm=element.y_mm,
+                width_mm=element.width_mm if width_mm is None else width_mm,
+                height_mm=element.height_mm if height_mm is None else height_mm,
+                properties=element.properties if properties is None else properties,
+            )
+        except ValueError as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self._selected_element_id = element.element_id
+        self.refresh()
+
+    def _element_tooltip(self, element: MasterlogHeaderElement) -> str:
+        type_name = {
+            "text": "Текст",
+            "field": "Автоматическое поле",
+            "image": "Изображение / логотип",
+            "line": "Линия",
+            "lithotype_swatch": "Образец литотипа",
+            "lithology_legend": "Литологическая легенда",
+            "lba_legend": "Легенда ЛБА",
+        }.get(element.element_type, element.element_type)
+        newline = chr(10)
+        content = self._preview_text(element).replace(newline, " ")
+        source = element.properties.get("source_component")
+        source_text = (
+            f"{newline}Источник SKF: {source}"
+            if isinstance(source, str) and source
+            else ""
+        )
+        print_warning = ""
+        if (
+            element.element_type == "line"
+            and element.width_mm > 0.5
+            and element.height_mm > 0.5
+        ):
+            print_warning = f"{newline}Внимание: диагональ будет напечатана как видна."
+        return (
+            f"{type_name}{newline}Содержимое: {content}{newline}"
+            f"X={element.x_mm:g}, Y={element.y_mm:g}, "
+            f"размер={element.width_mm:g}×{element.height_mm:g} мм"
+            f"{source_text}{print_warning}{newline}"
+            "Двойной щелчок — все свойства."
         )
 
     def _apply_inspector_geometry(self) -> None:

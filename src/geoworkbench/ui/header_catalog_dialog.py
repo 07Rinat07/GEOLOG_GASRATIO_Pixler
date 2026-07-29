@@ -283,7 +283,11 @@ class HeaderCatalogDialog(QDialog):
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
         HeaderPreviewDialog(
-            template, self.controller.session, self, language=self.language
+            template,
+            self.controller.session,
+            self,
+            language=self.language,
+            edit_callback=self._edit,
         ).exec()
 
     def _edit(self) -> None:

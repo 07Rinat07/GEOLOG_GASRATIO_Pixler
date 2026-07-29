@@ -84,6 +84,11 @@ class TabletTrackEditorDialog(QDialog):
             self._remove,
             icon=QStyle.StandardPixmap.SP_TrashIcon,
         )
+        self.toolbar.add_standard_action(
+            self._text("Полный экран", "Толық экран", "Full screen"),
+            self._toggle_fullscreen,
+            icon=QStyle.StandardPixmap.SP_TitleBarMaxButton,
+        )
         self.toolbar.add_stretch()
         root.addWidget(self.toolbar)
 
@@ -319,6 +324,12 @@ class TabletTrackEditorDialog(QDialog):
         )
         preview_hint.setWordWrap(True)
         preview_layout.addWidget(preview_hint)
+        self.preview_assistant = QLabel()
+        self.preview_assistant.setWordWrap(True)
+        self.preview_assistant.setStyleSheet(
+            "background:#eff6ff; border:1px solid #bfdbfe; padding:6px; color:#1e3a8a;"
+        )
+        preview_layout.addWidget(self.preview_assistant)
         self.preview = TabletTrackPreviewWidget(self.track, preview_group)
         preview_layout.addWidget(self.preview, 1)
 
@@ -345,6 +356,12 @@ class TabletTrackEditorDialog(QDialog):
         self._connect_preview_signals()
         self._reload()
         self._refresh_preview()
+
+    def _toggle_fullscreen(self) -> None:
+        if self.isMaximized():
+            self.showNormal()
+        else:
+            self.showMaximized()
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
@@ -553,7 +570,32 @@ class TabletTrackEditorDialog(QDialog):
     def _refresh_preview(self, *_args) -> None:
         if self._loading:
             return
-        self.preview.set_track(self._track_from_controls())
+        candidate = self._track_from_controls()
+        self.preview.set_track(candidate)
+        selected_row = self._selected_row()
+        selected_curve = (
+            candidate.curve_mnemonics[selected_row]
+            if 0 <= selected_row < len(candidate.curve_mnemonics)
+            else ""
+        )
+        assistant_text = self._text(
+            (
+                f"Сейчас редактируется дорожка «{candidate.title}». "
+                + (f"Выбран параметр {selected_curve}. " if selected_curve else "")
+                + "Название, ширина, сетка, шкала и стиль кривой уже показаны справа так, как будут выглядеть при печати."
+            ),
+            (
+                f"Қазір «{candidate.title}» жолы өңделуде. "
+                + (f"Таңдалған параметр: {selected_curve}. " if selected_curve else "")
+                + "Атау, ені, торы, шкаласы және қисық стилі оң жақта баспа түрінде көрсетілген."
+            ),
+            (
+                f"Editing track ‘{candidate.title}’. "
+                + (f"Selected parameter: {selected_curve}. " if selected_curve else "")
+                + "The title, width, grid, scale and curve style are already shown as they will print."
+            ),
+        )
+        self.preview_assistant.setText(assistant_text)
 
     def _apply_row(self) -> None:
         row = self._selected_row()

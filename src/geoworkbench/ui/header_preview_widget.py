@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from copy import deepcopy
 
 from PySide6.QtCore import QRectF, QSize, Qt
@@ -11,9 +12,11 @@ from PySide6.QtWidgets import (
     QGraphicsPixmapItem,
     QGraphicsScene,
     QGraphicsView,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
@@ -275,22 +278,98 @@ class HeaderPreviewDialog(QDialog):
         parent: QWidget | None = None,
         *,
         language: AppLanguage = AppLanguage.RU,
+        edit_callback: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent)
+        self._edit_callback = edit_callback
         self.setWindowTitle(
             {
-                AppLanguage.RU: f"Предпросмотр шапки — {template.name}",
-                AppLanguage.KK: f"Тақырыпты алдын ала қарау — {template.name}",
-                AppLanguage.EN: f"Header preview — {template.name}",
+                AppLanguage.RU: f"Предпросмотр и проверка шапки — {template.name}",
+                AppLanguage.KK: f"Тақырыпты алдын ала қарау және тексеру — {template.name}",
+                AppLanguage.EN: f"Header preview and inspection — {template.name}",
             }[language]
         )
-        self.setMinimumSize(900, 560)
-        self.resize(1400, 850)
-        preview = HeaderPreviewWidget(session, self, language=language)
-        preview.set_template(template)
+        self.setMinimumSize(1100, 680)
+        self.resize(1700, 980)
+
+        hint = QLabel(
+            {
+                AppLanguage.RU: (
+                    "Слева шапка показана крупно для проверки текста и блоков; справа — её реальный "
+                    "размер на печатном листе. Масштаб каждого вида настраивается независимо."
+                ),
+                AppLanguage.KK: (
+                    "Сол жақта мәтін мен блоктарды тексеру үшін тақырып ірі көрсетіледі; оң жақта "
+                    "баспа бетіндегі нақты орналасуы көрсетіледі."
+                ),
+                AppLanguage.EN: (
+                    "The left pane shows a close-up for checking text and blocks; the right pane "
+                    "shows the real placement on the printed page. Each view has independent zoom."
+                ),
+            }[language]
+        )
+        hint.setWordWrap(True)
+
+        close_up_group = QGroupBox(
+            {AppLanguage.RU: "Шапка крупно", AppLanguage.KK: "Тақырып ірі", AppLanguage.EN: "Header close-up"}[language]
+        )
+        close_up_layout = QVBoxLayout(close_up_group)
+        self.close_up_preview = HeaderPreviewWidget(session, close_up_group, language=language)
+        self.close_up_preview.mode.setCurrentIndex(
+            max(0, self.close_up_preview.mode.findData("header"))
+        )
+        self.close_up_preview.set_template(template)
+        close_up_layout.addWidget(self.close_up_preview)
+
+        page_group = QGroupBox(
+            {AppLanguage.RU: "Лист целиком", AppLanguage.KK: "Толық бет", AppLanguage.EN: "Whole page"}[language]
+        )
+        page_layout = QVBoxLayout(page_group)
+        self.page_preview = HeaderPreviewWidget(session, page_group, language=language)
+        self.page_preview.mode.setCurrentIndex(
+            max(0, self.page_preview.mode.findData("page"))
+        )
+        self.page_preview.set_template(template)
+        page_layout.addWidget(self.page_preview)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(close_up_group)
+        splitter.addWidget(page_group)
+        splitter.setSizes([1050, 650])
+
+        fullscreen_button = QPushButton(
+            {AppLanguage.RU: "Полный экран", AppLanguage.KK: "Толық экран", AppLanguage.EN: "Full screen"}[language]
+        )
+        fullscreen_button.clicked.connect(self._toggle_fullscreen)
+        edit_button = QPushButton(
+            {AppLanguage.RU: "Редактировать шапку…", AppLanguage.KK: "Тақырыпты өңдеу…", AppLanguage.EN: "Edit header…"}[language]
+        )
+        edit_button.setEnabled(edit_callback is not None)
+        edit_button.clicked.connect(self._open_editor)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
         buttons.button(QDialogButtonBox.StandardButton.Close).clicked.connect(self.accept)
+        footer = QHBoxLayout()
+        footer.addWidget(fullscreen_button)
+        footer.addWidget(edit_button)
+        footer.addStretch(1)
+        footer.addWidget(buttons)
+
         layout = QVBoxLayout(self)
-        layout.addWidget(preview, 1)
-        layout.addWidget(buttons)
+        layout.addWidget(hint)
+        layout.addWidget(splitter, 1)
+        layout.addLayout(footer)
+
+    def _toggle_fullscreen(self) -> None:
+        if self.isMaximized():
+            self.showNormal()
+        else:
+            self.showMaximized()
+
+    def _open_editor(self) -> None:
+        callback = self._edit_callback
+        if callback is None:
+            return
+        self.accept()
+        callback()

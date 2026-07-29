@@ -496,17 +496,48 @@ def _header_element(
             {"asset_ref": image.asset_id, "mode": "fit", "source_component": component.name},
         )
     if _is_shape(component):
+        shape_kind = _shape_kind(component)
+        resolved_kind, shape_width, shape_height = _normalize_shape_geometry(
+            width, height, shape_kind
+        )
+        if resolved_kind == "frame":
+            return MasterlogHeaderElement(
+                str(uuid4()),
+                "text",
+                x,
+                y,
+                width,
+                height,
+                {
+                    "text": "",
+                    "frame": True,
+                    "color": _color(component),
+                    "font_size_mm": 1.5,
+                    "source_component": component.name,
+                    "source_shape_kind": shape_kind,
+                },
+            )
+        line_x = x
+        line_y = y
+        if resolved_kind == "horizontal":
+            line_y += max(0.0, (height - shape_height) / 2.0)
+        elif resolved_kind == "vertical":
+            line_x += max(0.0, (width - shape_width) / 2.0)
         return MasterlogHeaderElement(
             str(uuid4()),
             "line",
-            x,
-            y,
-            width,
-            height,
+            line_x,
+            line_y,
+            shape_width,
+            shape_height,
             {
                 "color": _color(component),
-                "line_width": max(0.2, _float_property(component, "Pen.Width", "LineWidth", default=1.0)),
+                "width": max(
+                    0.2,
+                    _float_property(component, "Pen.Width", "LineWidth", default=1.0),
+                ),
                 "source_component": component.name,
+                "source_shape_kind": resolved_kind,
             },
         )
     text = _display_text(component)
@@ -830,6 +861,56 @@ def _combined_range(bindings: list[ParameterBinding]) -> tuple[float | None, flo
         return None, None
     return min(item[0] for item in ranges), max(item[1] for item in ranges)
 
+
+
+def _shape_kind(component: DelphiComponent) -> str:
+    raw = str(
+        get_property(
+            component,
+            "Shape",
+            "ShapeType",
+            "Kind",
+            "LineType",
+            "Orientation",
+            "Style",
+            default="",
+        )
+    ).casefold()
+    token = f"{component.class_name} {component.name} {raw}".casefold()
+    if any(value in token for value in ("rectangle", "rect", "box", "frame", "border")):
+        return "frame"
+    if any(value in token for value in ("horizontal", "horiz", "topline", "bottomline")):
+        return "horizontal"
+    if any(value in token for value in ("vertical", "vert", "leftline", "rightline")):
+        return "vertical"
+    if any(value in token for value in ("diagonal", "diag", "slash")):
+        return "diagonal"
+    return "unknown"
+
+
+def _normalize_shape_geometry(
+    width_mm: float,
+    height_mm: float,
+    shape_kind: str,
+) -> tuple[str, float, float]:
+    width = max(0.0, float(width_mm))
+    height = max(0.0, float(height_mm))
+    if shape_kind == "frame":
+        return "frame", width, height
+    if shape_kind == "horizontal":
+        return "horizontal", max(width, height, 1.0), 0.1
+    if shape_kind == "vertical":
+        return "vertical", 0.1, max(width, height, 1.0)
+    if shape_kind == "diagonal":
+        return "diagonal", width, height
+
+    shorter = min(width, height)
+    longer = max(width, height)
+    if shorter <= 1.2 or (shorter > 0.0 and longer / shorter >= 4.0):
+        if width >= height:
+            return "horizontal", max(width, 1.0), 0.1
+        return "vertical", 0.1, max(height, 1.0)
+    return "frame", width, height
 
 
 def _is_shape(component: DelphiComponent) -> bool:
