@@ -14,6 +14,9 @@ PAYLOAD_SCRIPT = ROOT / "scripts" / "apply_file_workspace.py"
 MAX_MEMBER_BYTES = 20 * 1024 * 1024
 MAX_TOTAL_BYTES = 150 * 1024 * 1024
 MAX_MEMBERS = 2_000
+BASE64_ALPHABET = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+)
 
 
 def _safe_relative_path(name: str) -> Path:
@@ -27,7 +30,7 @@ def _safe_relative_path(name: str) -> Path:
 
 
 def _load_payload(path: Path) -> str:
-    """Read the PAYLOAD literal without parsing or executing the broken script."""
+    """Read PAYLOAD without importing or parsing the damaged applicator."""
 
     source = path.read_text(encoding="utf-8")
     marker = "PAYLOAD ="
@@ -39,30 +42,40 @@ def _load_payload(path: Path) -> str:
     while literal_start < len(source) and source[literal_start].isspace():
         literal_start += 1
     if literal_start >= len(source) or source[literal_start] not in {'\"', "'"}:
-        raise RuntimeError("PAYLOAD must be a literal string")
+        raise RuntimeError("PAYLOAD must start as a string literal")
 
     quote = source[literal_start]
     escaped = False
-    literal_end = literal_start + 1
-    while literal_end < len(source):
-        character = source[literal_end]
+    literal_end: int | None = None
+    position = literal_start + 1
+    while position < len(source):
+        character = source[position]
         if escaped:
             escaped = False
         elif character == "\\":
             escaped = True
         elif character == quote:
+            literal_end = position
             break
-        literal_end += 1
-    else:
-        raise RuntimeError("PAYLOAD string is not terminated")
+        position += 1
 
-    literal = source[literal_start : literal_end + 1]
-    try:
-        value = ast.literal_eval(literal)
-    except (ValueError, TypeError, SyntaxError) as exc:
-        raise RuntimeError("PAYLOAD must be a literal string") from exc
+    if literal_end is None:
+        # The generated applicator was uploaded without the final quote and
+        # executable footer. The base64 body itself is still recoverable.
+        value = source[literal_start + 1 :].strip()
+    else:
+        literal = source[literal_start : literal_end + 1]
+        try:
+            value = ast.literal_eval(literal)
+        except (ValueError, TypeError, SyntaxError) as exc:
+            raise RuntimeError("PAYLOAD must be a literal string") from exc
+
     if not isinstance(value, str) or not value:
         raise RuntimeError("PAYLOAD must be a non-empty string")
+    invalid = sorted(set(value) - BASE64_ALPHABET)
+    if invalid:
+        preview = "".join(invalid[:8])
+        raise RuntimeError(f"PAYLOAD contains non-base64 characters: {preview!r}")
     return value
 
 
