@@ -33,7 +33,6 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSpinBox,
     QSplitter,
-    QStyle,
     QTextEdit,
     QVBoxLayout,
     QWidget,

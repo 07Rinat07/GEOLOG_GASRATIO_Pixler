@@ -43,7 +43,6 @@ from geoworkbench.ui.masterlog_preview_dialog import MasterlogPreviewDialog
 from geoworkbench.ui.masterlog_symbols_dialog import MasterlogSymbolsDialog
 from geoworkbench.project.masterlog_symbol_controller import MasterlogSymbolController
 from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_FORM_PRESETS
-from geoworkbench.ui.collapsible_section import CollapsibleSection
 from geoworkbench.ui.header_preview_widget import HeaderPreviewWidget
 from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
 
