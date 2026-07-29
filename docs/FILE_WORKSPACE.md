@@ -83,3 +83,26 @@ reference chain for datum, GL, wellhead, DF, RT and KB/RKB elevations.
 Парольные PDF не изменяются. Экспорт DOCX сохраняет текст, но не пытается полностью повторить
 графическое расположение PDF. RAR-создание требует WinRAR/RAR, поскольку свободного встроенного
 кодировщика RAR в приложение не включено.
+
+## Запуск после обновления / Жаңартудан кейін іске қосу / Startup after update
+
+`git pull` не обновляет содержимое существующего виртуального окружения. После получения версии с
+вкладкой «Файлы» выполните из корня проекта в активном `.venv`:
+
+```powershell
+python -m pip install -e ".[dev]"
+python -c "import fitz, PIL; print('Files workspace dependencies: OK')"
+python -m geoworkbench.app.main
+```
+
+PyMuPDF устанавливается пакетом `PyMuPDF`, но импортируется в Python как `fitz`. Если зависимость
+отсутствует, основное приложение не должно завершаться аварийно: вкладка «Файлы» остаётся видимой
+и показывает команду обновления окружения. После установки зависимостей перезапустите приложение.
+
+Қолданыстағы `.venv` каталогын `git pull` жаңартпайды. Жобаны алғаннан кейін жоғарыдағы орнату
+командасын орындаңыз. `fitz` табылмаса, бағдарлама енді жабылмайды: «Файлдар» қойындысында ортаны
+жаңарту нұсқауы көрсетіледі.
+
+An existing `.venv` is not updated by `git pull`. Run the installation command above after pulling
+changes. When `fitz` is missing, the application now remains operational and the Files tab displays
+a recovery instruction instead of terminating during startup.

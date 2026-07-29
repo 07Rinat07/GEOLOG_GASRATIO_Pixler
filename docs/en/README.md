@@ -636,3 +636,11 @@ space is available for the graph. The shared renderer applies this automatically
 ready, and user form. Forms do not need to be resaved or migrated; saved ranges, units, colours,
 widths, and bindings remain unchanged. When a track contains more than six parameters, internal
 scrolling still advances by complete rows and never clips the bottom block.
+
+## Files tab and dependency updates
+
+The **Files** tab is visible in the main workspace and can also be opened through **File → Files**
+or `Ctrl+Alt+F`. After `git pull`, update the active environment with
+`python -m pip install -e ".[dev]"`. PyMuPDF is imported as `fitz`; when it is missing, the
+application now starts in a safe fallback mode and displays recovery instructions in the tab.
+
