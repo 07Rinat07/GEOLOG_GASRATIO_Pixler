@@ -153,7 +153,33 @@ from geoworkbench.project.witsml_import_controller import WitsmlProjectImportCon
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.header_catalog import catalog_items, resolve_catalog_header
 from geoworkbench.ui.header_preview_widget import render_header_preview_pixmap
-from geoworkbench.ui.file_workspace_widget import FileWorkspaceWidget
+try:
+    from geoworkbench.ui.file_workspace_widget import FileWorkspaceWidget
+except ModuleNotFoundError as file_workspace_import_error:
+    class FileWorkspaceWidget(QWidget):
+        """Visible fallback when optional document dependencies are missing locally."""
+
+        def __init__(self, parent: QWidget | None = None, *, language: str = "ru") -> None:
+            super().__init__(parent)
+            layout = QVBoxLayout(self)
+            title = QLabel("Модуль «Файлы» требует обновления зависимостей")
+            title.setWordWrap(True)
+            command = QLabel(
+                "После обновления проекта выполните в активном .venv:\n"
+                "python -m pip install -e \".[dev]\"\n\n"
+                f"Недостающий модуль: {file_workspace_import_error.name or file_workspace_import_error}"
+            )
+            command.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            command.setWordWrap(True)
+            layout.addWidget(title)
+            layout.addWidget(command)
+            layout.addStretch(1)
+
+        @staticmethod
+        def tab_title(language: str) -> str:
+            return {"ru": "Файлы", "kk": "Файлдар", "en": "Files"}.get(
+                language, "Файлы"
+            )
 from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
 from geoworkbench.storage.project_codec import ProjectFormatError
