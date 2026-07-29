@@ -51,10 +51,10 @@ replace_required(
     "    def _font(size: int) -> ImageFont.ImageFont:\n",
     "    def _font(size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:\n",
 )
-for line_number in (452, 656):
-    path = Path("src/geoworkbench/ui/file_workspace_widget.py")
-    content = path.read_text(encoding="utf-8")
-    old = 'loadFromData(payload, "PNG")'
-    if old not in content:
-        raise RuntimeError(f"Expected QPixmap loadFromData call not found before replacement {line_number}")
-    path.write_text(content.replace(old, 'loadFromData(payload, b"PNG")', 1), encoding="utf-8")
+widget = Path("src/geoworkbench/ui/file_workspace_widget.py")
+widget_content = widget.read_text(encoding="utf-8")
+old_png = ', "PNG")'
+count = widget_content.count(old_png)
+if count != 2:
+    raise RuntimeError(f"Expected two QPixmap PNG format arguments, found {count}")
+widget.write_text(widget_content.replace(old_png, ', b"PNG")'), encoding="utf-8")
