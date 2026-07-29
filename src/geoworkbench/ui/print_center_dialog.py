@@ -40,6 +40,7 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 PreviewCallback = Callable[[PrintJobSettings], None]
+HeaderCatalogCallback = Callable[[], tuple[tuple[str, str], ...]]
 
 
 class PrintCenterDialog(QDialog):
@@ -57,6 +58,9 @@ class PrintCenterDialog(QDialog):
         full_vertical_range: tuple[float, float] | None = None,
         selected_vertical_range: tuple[float, float] | None = None,
         vertical_unit: str = "",
+        header_choices: tuple[tuple[str, str], ...] = (),
+        initial_header_template_id: str | None = None,
+        manage_headers_callback: HeaderCatalogCallback | None = None,
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
@@ -66,6 +70,8 @@ class PrintCenterDialog(QDialog):
         self.full_vertical_range = full_vertical_range
         self.selected_vertical_range = selected_vertical_range
         self.vertical_unit = vertical_unit.strip()
+        self.header_choices = tuple(header_choices)
+        self.manage_headers_callback = manage_headers_callback
         page = initial_page or PrintPageSettings()
         preferences = initial_preferences or PrintExportPreferences()
         self.source_name = _safe_file_stem(source_name)
@@ -76,6 +82,30 @@ class PrintCenterDialog(QDialog):
         source_label = QLabel(self._t("print_center.source", name=source_name))
         source_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         root.addWidget(source_label)
+
+        header_group = QGroupBox(
+            {
+                AppLanguage.RU: "Печатная шапка",
+                AppLanguage.KK: "Баспа тақырыбы",
+                AppLanguage.EN: "Print header",
+            }[language]
+        )
+        header_layout = QHBoxLayout(header_group)
+        self.header_combo = QComboBox()
+        self.header_combo.setObjectName("print-header-template-combo")
+        self.manage_headers_button = QPushButton(
+            {
+                AppLanguage.RU: "Каталог шапок...",
+                AppLanguage.KK: "Тақырыптар каталогы...",
+                AppLanguage.EN: "Header catalog...",
+            }[language]
+        )
+        self.manage_headers_button.clicked.connect(self._manage_headers)
+        self.manage_headers_button.setEnabled(manage_headers_callback is not None)
+        header_layout.addWidget(self.header_combo, 1)
+        header_layout.addWidget(self.manage_headers_button)
+        root.addWidget(header_group)
+        self._set_header_choices(self.header_choices, initial_header_template_id)
 
         output_group = QGroupBox(self._t("print_center.output_group"))
         output_layout = QFormLayout(output_group)
@@ -344,6 +374,52 @@ class PrintCenterDialog(QDialog):
             target=target,
             pagination=self.pagination_settings(),
             strict_unicode=True,
+            header_template_id=(
+                str(self.header_combo.currentData())
+                if isinstance(self.header_combo.currentData(), str)
+                and str(self.header_combo.currentData()).strip()
+                else None
+            ),
+        )
+
+    def _set_header_choices(
+        self,
+        choices: tuple[tuple[str, str], ...],
+        selected_id: str | None = None,
+    ) -> None:
+        current = selected_id
+        if current is None:
+            data = self.header_combo.currentData() if hasattr(self, "header_combo") else None
+            current = str(data) if isinstance(data, str) else None
+        self.header_combo.blockSignals(True)
+        self.header_combo.clear()
+        self.header_combo.addItem(
+            {
+                AppLanguage.RU: "Без печатной шапки",
+                AppLanguage.KK: "Баспа тақырыбынсыз",
+                AppLanguage.EN: "No print header",
+            }[self.localizer.language],
+            None,
+        )
+        for catalog_id, label in choices:
+            self.header_combo.addItem(label, catalog_id)
+        index = self.header_combo.findData(current) if current else 0
+        self.header_combo.setCurrentIndex(max(0, index))
+        self.header_combo.blockSignals(False)
+
+    def _manage_headers(self) -> None:
+        if self.manage_headers_callback is None:
+            return
+        current = self.header_combo.currentData()
+        try:
+            choices = self.manage_headers_callback()
+        except (KeyError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self.header_choices = tuple(choices)
+        self._set_header_choices(
+            self.header_choices,
+            str(current) if isinstance(current, str) else None,
         )
 
     def _dpi(self) -> int:

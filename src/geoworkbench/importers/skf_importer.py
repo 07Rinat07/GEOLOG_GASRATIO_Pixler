@@ -85,12 +85,13 @@ class _ImportContext:
     source_name: str
     root: DelphiComponent
     dpi: float = 96.0
+    coordinate_to_mm: float | None = None
     warnings: list[str] = field(default_factory=list)
     image_assets: dict[str, ImageAsset] = field(default_factory=dict)
 
     @property
-    def px_to_mm(self) -> float:
-        return 25.4 / self.dpi
+    def unit_to_mm(self) -> float:
+        return self.coordinate_to_mm or (25.4 / self.dpi)
 
 
 def import_skf_file(source: str | Path) -> SkfImportResult:
@@ -216,12 +217,15 @@ def _build_form(context: _ImportContext) -> FormDocument:
 
 
 def _build_masterlog_template(context: _ImportContext, form: FormDocument) -> MasterlogTemplate:
-    root_geometry = _geometry(context.root) or _Geometry(0, 0, 1200, 900)
-    page_width_mm = max(210.0, root_geometry.width * context.px_to_mm)
-    header_nodes, header_bottom_px = _header_components(context.root, root_geometry)
+    root_geometry = _document_geometry(context.root)
+    context.coordinate_to_mm = _coordinate_unit_to_mm(root_geometry.width)
+    page_width_mm = max(210.0, root_geometry.width * context.unit_to_mm)
+    header_nodes, header_bottom_units = _header_components(context.root, root_geometry)
     header_elements: list[MasterlogHeaderElement] = []
-    for component in header_nodes:
-        element = _header_element(component, context, root_geometry)
+    for component, absolute_geometry in header_nodes:
+        element = _header_element(
+            component, context, root_geometry, absolute_geometry=absolute_geometry
+        )
         if element is not None:
             header_elements.append(element)
     if not header_elements:
@@ -237,7 +241,7 @@ def _build_masterlog_template(context: _ImportContext, form: FormDocument) -> Ma
             )
         )
         context.warnings.append("Элементы шапки SKF не распознаны; создан заголовок-заполнитель")
-        header_bottom_px = 50.0
+        header_bottom_units = 50.0
     total_px = sum(max(column.width, 1) for column in form.columns)
     printable_width_mm = max(120.0, page_width_mm - 10.0)
     columns: list[MasterlogColumnTemplate] = []
@@ -279,7 +283,7 @@ def _build_masterlog_template(context: _ImportContext, form: FormDocument) -> Ma
                 grid_alpha=track.grid_alpha,
             )
         )
-    header_height_mm = max(20.0, min(500.0, header_bottom_px * context.px_to_mm + 3.0))
+    header_height_mm = max(20.0, min(500.0, header_bottom_units * context.unit_to_mm + 3.0))
     return MasterlogTemplate(
         template_id=str(uuid4()),
         name=f"{form.name} — SKF header"[:200],
@@ -293,7 +297,7 @@ def _build_masterlog_template(context: _ImportContext, form: FormDocument) -> Ma
             "source_file": context.source_name,
             "orientation": "landscape" if root_geometry.width >= root_geometry.height else "portrait",
             "custom_width_mm": page_width_mm,
-            "custom_height_mm": max(297.0, root_geometry.height * context.px_to_mm),
+            "custom_height_mm": max(297.0, root_geometry.height * context.unit_to_mm),
             "linked_form_id": form.form_id,
         },
     )
@@ -362,39 +366,124 @@ def _is_column_candidate(component: DelphiComponent) -> bool:
     return keyword or has_curve_child or (panel_like and len(component.children) >= 2)
 
 
+def _document_geometry(root: DelphiComponent) -> _Geometry:
+    explicit = _geometry(root)
+    if explicit is not None:
+        return explicit
+    top_level = [geometry for child in root.children if (geometry := _geometry(child)) is not None]
+    if not top_level:
+        return _Geometry(0.0, 0.0, 1200.0, 900.0)
+    left = min(item.left for item in top_level)
+    top = min(item.top for item in top_level)
+    right = max(item.right for item in top_level)
+    bottom = max(item.bottom for item in top_level)
+    return _Geometry(left, top, max(1.0, right - left), max(1.0, bottom - top))
+
+
+def _coordinate_unit_to_mm(document_width: float) -> float:
+    # Native GeoSketch print documents use page coordinates close to millimetres
+    # (typically 210/297/420 wide). Synthetic/legacy component streams often use
+    # screen pixels around 800-1600 wide. Preserve both representations.
+    return 1.0 if 80.0 <= document_width <= 500.0 else 25.4 / 96.0
+
+
+def _absolute_component_geometries(
+    root: DelphiComponent,
+) -> list[tuple[DelphiComponent, _Geometry]]:
+    result: list[tuple[DelphiComponent, _Geometry]] = []
+
+    def visit(node: DelphiComponent, parent_left: float, parent_top: float) -> None:
+        geometry = _geometry(node)
+        left = parent_left
+        top = parent_top
+        if geometry is not None:
+            left += geometry.left
+            top += geometry.top
+            absolute = _Geometry(left, top, geometry.width, geometry.height)
+            if node is not root:
+                result.append((node, absolute))
+        for child in node.children:
+            visit(child, left, top)
+
+    visit(root, 0.0, 0.0)
+    return result
+
+
+def _contains_print_series(component: DelphiComponent) -> bool:
+    return any(
+        "series" in node.class_name.casefold()
+        for node in component.walk()
+    )
+
+
 def _header_components(
     root: DelphiComponent, root_geometry: _Geometry
-) -> tuple[list[DelphiComponent], float]:
-    body_groups = _candidate_column_groups(root)
-    body_top = root_geometry.height * 0.35
-    if body_groups:
-        tops = [geometry.top for node in body_groups[0] if (geometry := _geometry(node)) is not None]
-        if tops:
-            body_top = max(20.0, min(tops))
-    elements: list[DelphiComponent] = []
-    bottom = 0.0
-    for component in root.walk()[1:]:
-        geometry = _geometry(component)
-        if geometry is None or geometry.top >= body_top or geometry.width <= 1 or geometry.height <= 1:
-            continue
-        if _display_text(component) or _binary_properties(component) or _is_shape(component):
-            elements.append(component)
-            bottom = max(bottom, geometry.bottom)
-    return elements[:1000], bottom
+) -> tuple[list[tuple[DelphiComponent, _Geometry]], float]:
+    absolute = _absolute_component_geometries(root)
+    geometry_by_identity = {id(component): geometry for component, geometry in absolute}
+
+    body_roots = [
+        component
+        for component in root.children
+        if (geometry := geometry_by_identity.get(id(component))) is not None
+        and (
+            _contains_print_series(component)
+            or (
+                component.class_name.casefold().endswith("printfield")
+                and geometry.height >= max(80.0, root_geometry.height * 0.30)
+            )
+        )
+    ]
+    body_root_ids = {id(component) for component in body_roots}
+    body_top = min(
+        (geometry_by_identity[id(component)].top for component in body_roots),
+        default=root_geometry.top + root_geometry.height * 0.35,
+    )
+    body_top = max(root_geometry.top + 20.0, body_top)
+
+    elements: list[tuple[DelphiComponent, _Geometry]] = []
+    bottom = root_geometry.top
+
+    def visit(node: DelphiComponent, inside_body: bool = False) -> None:
+        nonlocal bottom
+        if node is root:
+            for child in node.children:
+                visit(child, False)
+            return
+        now_inside_body = inside_body or id(node) in body_root_ids
+        if now_inside_body:
+            return
+        geometry = geometry_by_identity.get(id(node))
+        if geometry is not None and geometry.top < body_top:
+            if (
+                geometry.width > 1.0
+                and geometry.height > 1.0
+                and (_display_text(node) or _binary_properties(node) or _is_shape(node))
+            ):
+                elements.append((node, geometry))
+                bottom = max(bottom, min(geometry.bottom, body_top))
+            for child in node.children:
+                visit(child, False)
+
+    visit(root)
+    normalized_bottom = max(0.0, bottom - root_geometry.top)
+    return elements[:1000], normalized_bottom
 
 
 def _header_element(
     component: DelphiComponent,
     context: _ImportContext,
     root_geometry: _Geometry,
+    *,
+    absolute_geometry: _Geometry | None = None,
 ) -> MasterlogHeaderElement | None:
-    geometry = _geometry(component)
+    geometry = absolute_geometry or _geometry(component)
     if geometry is None:
         return None
-    x = max(0.0, (geometry.left - root_geometry.left) * context.px_to_mm)
-    y = max(0.0, (geometry.top - root_geometry.top) * context.px_to_mm)
-    width = max(1.0, geometry.width * context.px_to_mm)
-    height = max(1.0, geometry.height * context.px_to_mm)
+    x = max(0.0, (geometry.left - root_geometry.left) * context.unit_to_mm)
+    y = max(0.0, (geometry.top - root_geometry.top) * context.unit_to_mm)
+    width = max(1.0, geometry.width * context.unit_to_mm)
+    height = max(1.0, geometry.height * context.unit_to_mm)
     image = _extract_image(component, context)
     if image is not None:
         return MasterlogHeaderElement(

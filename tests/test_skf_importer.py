@@ -160,3 +160,60 @@ def test_imported_form_is_user_editable_and_source_is_traced(tmp_path: Path) -> 
     assert result.form.read_only is False
     assert result.header_template.properties["source_file"] == "example.skf"
     assert result.header_template.properties["source_format"] == "skf-delphi-component-stream"
+
+
+def _print_style_stream() -> bytes:
+    nested_label = _component(
+        "TPrintLabel",
+        "",
+        {"Left": 4, "Top": 7, "Width": 30, "Height": 4, "Caption": "Исполнитель"},
+    )
+    header_shape = _component(
+        "TPrintShape",
+        "",
+        {"Left": 10, "Top": 11, "Width": 139, "Height": 18},
+        [nested_label],
+    )
+    title = _component(
+        "TPrintLabel",
+        "",
+        {
+            "Left": 124,
+            "Top": 0,
+            "Width": 56,
+            "Height": 5,
+            "Caption": "ТЕХНОЛОГИЧЕСКИЙ КОНТРОЛЬ",
+        },
+    )
+    series = _component("TPrintLineSeries", "", {"Caption": "Вес на крюке"})
+    body = _component(
+        "TPrintField",
+        "",
+        {"Left": 21, "Top": 47, "Width": 128, "Height": 440, "Caption": "Время"},
+        [series],
+    )
+    root = _component(
+        "TSketchDocument",
+        "",
+        {"FormName": "Суточная диаграмма", "AsSheet": True},
+        [title, header_shape, body],
+    )
+    return b"\xff\x0a\x00TSKETCHDOCUMENT\x00" + b"TPF0" + root
+
+
+def test_skf_header_only_uses_absolute_nested_geometry_and_excludes_body_fields() -> None:
+    result = import_skf_payload(_print_style_stream(), source_name="daily.skf")
+    header = result.header_template
+
+    assert 20.0 <= header.header_height_mm <= 50.0
+    texts = [str(element.properties.get("text", "")) for element in header.header_elements]
+    assert "ТЕХНОЛОГИЧЕСКИЙ КОНТРОЛЬ" in texts
+    assert "Исполнитель" in texts
+    assert "Время" not in texts
+    nested = next(
+        element
+        for element in header.header_elements
+        if element.properties.get("text") == "Исполнитель"
+    )
+    assert nested.x_mm == 4.0
+    assert nested.y_mm == 18.0

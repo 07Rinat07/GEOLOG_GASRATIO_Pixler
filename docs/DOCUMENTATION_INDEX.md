@@ -37,6 +37,7 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [EN](en/PARADOX_IMPORT.md)
 - Отчёты: [RU](ru/REPORT_EXPORT.md) · [KK](kk/REPORT_EXPORT.md) ·
   [EN](en/REPORT_EXPORT.md)
+- Печатные шапки и логотипы: [PRINT_HEADER_AND_LOGO_CATALOGS.md](PRINT_HEADER_AND_LOGO_CATALOGS.md)
 - WITS0: [RU](ru/WITS0_CAPTURE.md) · [KK](kk/WITS0_CAPTURE.md) ·
   [EN](en/WITS0_CAPTURE.md)
 - WITSML SOAP: [RU](ru/WITSML_1411_SOAP.md) · [KK](kk/WITSML_1411_SOAP.md) ·

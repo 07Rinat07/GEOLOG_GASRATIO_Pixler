@@ -390,6 +390,138 @@ KAZGEOLOGY_REFERENCE_HEADER = MasterlogHeaderPreset(
 )
 
 
+DAILY_TECHNOLOGY_HEADER = MasterlogHeaderPreset(
+    "daily_technology_control",
+    _texts(
+        "Суточная диаграмма — технологический контроль",
+        "Тәуліктік диаграмма — технологиялық бақылау",
+        "Daily diagram — technology control",
+    ),
+    _texts(
+        "Готовая оперативная шапка по образцам GeoSketch: два логотипа, интервал, скважина, заказчик, исполнитель и сменный персонал.",
+        "GeoSketch үлгілері бойынша дайын жедел тақырып: екі логотип, аралық, ұңғыма, тапсырыс беруші, орындаушы және ауысым персоналы.",
+        "Print-ready operational header based on GeoSketch samples with two logos, interval, well, customer, contractor and shift personnel.",
+    ),
+    50.0,
+    (
+        _element(
+            "daily_logo_contractor", "image", 5, 2, 42, 11,
+            optional=True, logo_role="contractor", mode="fit", frame=True,
+            placeholder_text_ru="Логотип исполнителя",
+            placeholder_text_kk="Орындаушы логотипі",
+            placeholder_text_en="Contractor logo",
+        ),
+        _element(
+            "daily_title", "text", 70, 2, 145, 8,
+            text="ТЕХНОЛОГИЧЕСКИЙ КОНТРОЛЬ", font_size_mm=5.2,
+            bold=True, alignment="center", frame=True,
+        ),
+        _element(
+            "daily_logo_customer", "image", 238, 2, 42, 11,
+            optional=True, logo_role="customer", mode="fit", frame=True,
+            placeholder_text_ru="Логотип заказчика",
+            placeholder_text_kk="Тапсырыс беруші логотипі",
+            placeholder_text_en="Customer logo",
+        ),
+        _element("daily_country_label", "text", 5, 15, 24, 5, text="СТРАНА", font_size_mm=2.0, bold=True, frame=True),
+        _element("daily_country", "field", 29, 15, 48, 5, field="header.country", font_size_mm=2.5, frame=True),
+        _element("daily_field_label", "text", 5, 21, 24, 5, text="МЕСТОРОЖДЕНИЕ", font_size_mm=1.7, bold=True, frame=True),
+        _element("daily_field", "field", 29, 21, 48, 5, field="header.field", font_size_mm=2.4, frame=True),
+        _element("daily_well_label", "text", 5, 27, 24, 6, text="СКВАЖИНА", font_size_mm=2.0, bold=True, frame=True),
+        _element("daily_well", "field", 29, 27, 48, 6, field="header.well_number", font_size_mm=2.8, bold=True, frame=True),
+        _element("daily_customer_label", "text", 80, 15, 27, 5, text="ЗАКАЗЧИК", font_size_mm=1.9, bold=True, frame=True),
+        _element("daily_customer", "field", 107, 15, 69, 5, field="header.customer", font_size_mm=2.4, frame=True),
+        _element("daily_contractor_label", "text", 80, 21, 27, 5, text="ИСПОЛНИТЕЛЬ", font_size_mm=1.8, bold=True, frame=True),
+        _element("daily_contractor", "field", 107, 21, 69, 5, field="header.contractor", font_size_mm=2.4, frame=True),
+        _element("daily_station_label", "text", 80, 27, 27, 6, text="СТАНЦИЯ / ПАРТИЯ", font_size_mm=1.7, bold=True, frame=True),
+        _element("daily_station", "field", 107, 27, 69, 6, field="header.rig", font_size_mm=2.4, frame=True),
+        _element("daily_interval_label", "text", 179, 15, 31, 5, text="ИНТЕРВАЛ", font_size_mm=1.9, bold=True, frame=True),
+        _element("daily_interval", "field", 210, 15, 70, 5, field="header.interval", font_size_mm=2.4, frame=True, alignment="center"),
+        _element("daily_start_label", "text", 179, 21, 31, 5, text="НАЧАЛО", font_size_mm=1.9, bold=True, frame=True),
+        _element("daily_start", "field", 210, 21, 70, 5, field="header.start_date", font_size_mm=2.3, frame=True, alignment="center"),
+        _element("daily_shift_label", "text", 179, 27, 31, 6, text="СМЕНА", font_size_mm=1.9, bold=True, frame=True),
+        _element("daily_shift", "field", 210, 27, 70, 12, field="header.shift_personnel", font_size_mm=2.1, frame=True, text_position="top"),
+        _element("daily_engineers_label", "text", 5, 36, 47, 6, text="ИНЖЕНЕРЫ / ГЕОЛОГИ", font_size_mm=1.8, bold=True, frame=True),
+        _element("daily_engineers", "field", 52, 36, 124, 6, field="header.engineers", font_size_mm=2.2, frame=True),
+        _element("daily_notes", "field", 179, 40, 101, 6, field="header.notes", font_size_mm=2.0, frame=True),
+    ),
+)
+
+
+TECHNOLOGY_RESEARCH_HEADER = MasterlogHeaderPreset(
+    "technology_research",
+    _texts(
+        "Технологические исследования",
+        "Технологиялық зерттеулер",
+        "Technology research",
+    ),
+    _texts(
+        "Расширенная альбомная шапка для глубинных и временных технологических форм с литологической легендой и конструкцией скважины.",
+        "Литологиялық шартты белгілер мен ұңғыма конструкциясы бар тереңдік және уақыт технологиялық нысандарына арналған кеңейтілген альбомдық тақырып.",
+        "Extended landscape header for depth and time technology forms with lithology legend and well construction.",
+    ),
+    105.0,
+    tuple(deepcopy(DAILY_TECHNOLOGY_HEADER.elements))
+    + (
+        _element("technology_separator", "line", 5, 48, 275, 0.1, color="#334155", width=0.5),
+        _element(
+            "technology_lithology", "lithology_legend", 5, 51, 135, 49,
+            scope="used_manual", columns=4, show_code=True,
+            font_size_mm=1.9, frame=True,
+        ),
+        _element(
+            "technology_symbols", "text", 143, 51, 55, 49,
+            text="УСЛОВНЫЕ ОБОЗНАЧЕНИЯ\n● Фоновый газ\n◆ Газ пластовый\n▲ Газ СПО\n■ Газ-тест\n○ Нефтепроявление",
+            font_size_mm=1.9, bold=True, frame=True, text_position="top",
+        ),
+        _element(
+            "technology_construction", "field", 201, 51, 79, 49,
+            field="header.well_construction", font_size_mm=1.9,
+            frame=True, text_position="top",
+        ),
+    ),
+)
+
+
+EMERGENCY_CONTROL_HEADER = MasterlogHeaderPreset(
+    "emergency_control",
+    _texts(
+        "Аварийная диаграмма — компактная",
+        "Апаттық диаграмма — ықшам",
+        "Emergency diagram — compact",
+    ),
+    _texts(
+        "Компактная оперативная шапка для аварийных и коротких временных распечаток.",
+        "Апаттық және қысқа уақыттық басылымдарға арналған ықшам жедел тақырып.",
+        "Compact operational header for emergency and short time-print jobs.",
+    ),
+    32.0,
+    (
+        _element(
+            "emergency_logo", "image", 5, 2, 39, 9,
+            optional=True, logo_role="contractor", mode="fit", frame=True,
+            placeholder_text_ru="Логотип",
+            placeholder_text_kk="Логотип",
+            placeholder_text_en="Logo",
+        ),
+        _element(
+            "emergency_title", "text", 65, 2, 145, 8,
+            text="ТЕХНОЛОГИЧЕСКИЙ КОНТРОЛЬ", font_size_mm=4.8,
+            bold=True, alignment="center", frame=True,
+        ),
+        _element("emergency_interval_label", "text", 65, 11, 38, 5, text="ИНТЕРВАЛ", font_size_mm=1.9, bold=True, frame=True),
+        _element("emergency_interval", "field", 103, 11, 107, 5, field="header.interval", font_size_mm=2.4, frame=True, alignment="center"),
+        _element("emergency_country", "field", 5, 18, 50, 5, field="header.country", font_size_mm=2.2, frame=True),
+        _element("emergency_field", "field", 56, 18, 64, 5, field="header.field", font_size_mm=2.2, frame=True),
+        _element("emergency_well", "field", 121, 18, 39, 5, field="header.well_number", font_size_mm=2.5, bold=True, frame=True),
+        _element("emergency_contractor", "field", 161, 18, 70, 5, field="header.contractor", font_size_mm=2.2, frame=True),
+        _element("emergency_rig", "field", 232, 18, 48, 5, field="header.rig", font_size_mm=2.2, frame=True),
+        _element("emergency_engineers", "field", 5, 24, 155, 5, field="header.engineers", font_size_mm=2.1, frame=True),
+        _element("emergency_notes", "field", 161, 24, 119, 5, field="header.notes", font_size_mm=2.0, frame=True),
+    ),
+)
+
+
 COMPACT_HEADER = MasterlogHeaderPreset(
     "compact",
     _texts("Компактная", "Ықшам", "Compact"),
@@ -445,6 +577,9 @@ BUILTIN_MASTERLOG_HEADER_PRESETS = (
     LITHOLOGY_HEADER,
     GEOLOGICAL_GEOCHEMICAL_HEADER,
     KAZGEOLOGY_REFERENCE_HEADER,
+    DAILY_TECHNOLOGY_HEADER,
+    TECHNOLOGY_RESEARCH_HEADER,
+    EMERGENCY_CONTROL_HEADER,
     COMPACT_HEADER,
 )
 

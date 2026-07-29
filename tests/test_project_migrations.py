@@ -35,13 +35,18 @@ def test_default_registry_migrates_v1_payload_to_v2() -> None:
 
 def test_current_format_payload_skips_redundant_deep_copy() -> None:
     payload = {
-        "format_version": 21,
-        "project": {"project_id": "p", "name": "Project", "wells": {}},
+        "format_version": 22,
+        "project": {
+            "project_id": "p",
+            "name": "Project",
+            "wells": {},
+            "logo_catalog": {},
+        },
         "tablet_layouts": {},
         "tablet_presets": {},
     }
 
-    migrated = migrate_project_payload(payload, 21)
+    migrated = migrate_project_payload(payload, 22)
 
     assert migrated is payload
 

@@ -105,7 +105,7 @@ interpretation. Qt-обработчик дерева не присваивает
 
 ## Хранение и совместимость
 
-- текущий JSON-формат проекта — 21;
+- текущий JSON-формат проекта — 22;
 - текущая schema формы — 11;
 - текущий формат layout планшета — 21;
 - миграции выполняются последовательно и не должны удалять неизвестные данные молча;
@@ -164,6 +164,8 @@ Renderer пишет в staging, transaction журналирует backup/instal
 output и sidecar, повторно проверяет fingerprints и только затем фиксирует `committed`. Состояния
 до commit откатываются, committed-состояние после сбоя завершает только cleanup.
 
+
+`printing/header_catalog.py` объединяет read-only заводские пресеты и отдельные пользовательские `MasterlogTemplate` с `catalog_kind=print_header`. `project/logo_catalog_controller.py` управляет метаданными переиспользуемых логотипов отдельно от content-addressed image assets. Центр печати передаёт выбранную шапку через `PrintJobSettings.header_template_id`; `document_renderer` рисует её векторным Masterlog header renderer над любой экранной формой, не меняя layout планшета. SKF adapter вычисляет абсолютную геометрию вложенных Delphi-компонентов и отделяет header от body по началу `TPrint*Series`/высоких полей графика.
 
 `printing/print_layout.py` является Qt-независимым источником истины для media schema v1:
 A4/A3/custom/roll, Fit/100%, physical 96-DPI mapping и overlap. `PrintDocumentPlan` строит
@@ -283,7 +285,7 @@ Qt-слой выбирает путь и формат. `DatasetExportController`
 `domain/operational_events.py` определяет immutable schema v1: discriminator kind, typed payload,
 depth/time anchors, canonical UTC timestamps, source, revision, calibration и QC flags.
 `Well.operational_events` — сериализуемый объект `event_id → event`, введённый в project format
-v17 и сохраняемый в текущем v21.
+v17 и сохраняемый в текущем v22.
 
 Изменение коллекции разрешено только через `OperationalEventController`. Он проверяет well
 identity и expected revision, затем пересчитывает QC полной коллекции. UI/import code не должен
@@ -301,7 +303,7 @@ Depth, relative-time и datetime indexes используют только со�
 
 `domain/acquisition.py` определяет acquisition schema v1: immutable dataset schema, contiguous
 records, checkpoints и controlled-close metadata. `Well.acquisition_sessions` введён в
-project format v18 и сохраняется в текущем v21; миграция `v17 → v18` добавляет пустую
+project format v18 и сохраняется в текущем v22; миграция `v17 → v18` добавляет пустую
 collection без изменения datasets/events.
 
 `AcquisitionController` является единственной mutation boundary. Он использует bounded pending

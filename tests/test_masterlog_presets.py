@@ -171,3 +171,27 @@ def test_kazgeology_reference_blank_has_uploadable_logo_slots_and_expected_colum
 def test_every_builtin_masterlog_column_is_linear_by_default() -> None:
     for preset in BUILTIN_MASTERLOG_FORM_PRESETS:
         assert all(column.x_scale == "linear" for column in preset.template.columns)
+
+
+def test_operational_header_catalog_contains_daily_technology_and_emergency_templates() -> None:
+    by_id = {item.preset_id: item for item in BUILTIN_MASTERLOG_HEADER_PRESETS}
+    assert {
+        "daily_technology_control",
+        "technology_research",
+        "emergency_control",
+    } <= set(by_id)
+    daily = by_id["daily_technology_control"]
+    assert daily.height_mm == 50.0
+    assert sum(element.element_type == "image" for element in daily.elements) == 2
+    assert any(
+        element.properties.get("field") == "header.shift_personnel"
+        for element in daily.elements
+    )
+    technology = by_id["technology_research"]
+    assert any(element.element_type == "lithology_legend" for element in technology.elements)
+    emergency = by_id["emergency_control"]
+    assert emergency.height_mm == 32.0
+    assert any(
+        element.properties.get("field") == "header.interval"
+        for element in emergency.elements
+    )

@@ -17,6 +17,8 @@ from geoworkbench.printing.document_renderer import (
     build_document_plan,
     printable_content_dimensions,
 )
+from geoworkbench.domain.models import MasterlogTemplate
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.printer_gate import (
     PhysicalPrinterGate,
@@ -107,6 +109,8 @@ class PrintJobExecutor:
         language: AppLanguage,
         passport: ReportPassport | None = None,
         require_physical_gate: bool = False,
+        header_template: MasterlogTemplate | None = None,
+        session: ProjectSession | None = None,
     ) -> PrintJobResult:
         gate = None
         if require_physical_gate:
@@ -117,7 +121,9 @@ class PrintJobExecutor:
                     _localized_gate_issue(localizer, issue.code) for issue in gate.errors
                 )
                 raise PhysicalPrintGateError(details or "Physical printer gate failed")
-        context = PrintDocumentContext(source_name, language)
+        context = PrintDocumentContext(
+            source_name, language, header_template=header_template, session=session
+        )
         page_count = render_document_to_printer(widget, printer, job, context=context)
         if require_physical_gate and _printer_state_name(printer).casefold() in {
             "error",
@@ -142,13 +148,17 @@ class PrintJobExecutor:
         language: AppLanguage,
         overwrite: bool = False,
         passport: ReportPassport | None = None,
+        header_template: MasterlogTemplate | None = None,
+        session: ProjectSession | None = None,
     ) -> PrintJobResult:
         if job.output_format is PrintOutputFormat.PRINTER:
             raise ValueError("Физический принтер требует отдельного printer job")
         target = job.normalized_target()
         if target is None:
             raise ValueError("Для файлового экспорта необходимо выбрать путь")
-        context = PrintDocumentContext(source_name, language)
+        context = PrintDocumentContext(
+            source_name, language, header_template=header_template, session=session
+        )
         if passport is None:
             if job.output_format is PrintOutputFormat.PDF:
                 result = export_document_pdf(
@@ -207,6 +217,11 @@ def report_render_settings(job: PrintJobSettings) -> ReportRenderSettings:
         show_page_numbers=pagination.show_page_numbers,
         show_page_range=pagination.show_page_range,
         strict_unicode=job.strict_unicode,
+        options=(
+            (("header_template_id", job.header_template_id),)
+            if job.header_template_id is not None
+            else ()
+        ),
     )
 
 

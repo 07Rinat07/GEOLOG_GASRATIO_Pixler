@@ -283,6 +283,64 @@ def paint_masterlog(
     painter.restore()
 
 
+def masterlog_header_size_mm(template: MasterlogTemplate) -> QSizeF:
+    element_right = max(
+        (element.x_mm + element.width_mm for element in template.header_elements),
+        default=0.0,
+    )
+    if template.page_format.casefold() == "roll":
+        page_width = 0.0
+    else:
+        page_width = _fixed_page_size_mm(template).width()
+    return QSizeF(
+        max(25.0, float(element_right), float(page_width)),
+        max(5.0, float(template.header_height_mm)),
+    )
+
+
+def paint_masterlog_header(
+    painter: QPainter,
+    target: QRectF,
+    template: MasterlogTemplate,
+    session: ProjectSession,
+    *,
+    language: AppLanguage = AppLanguage.RU,
+) -> None:
+    """Paint only the reusable print-header layer into an arbitrary page band."""
+
+    if target.width() <= 0 or target.height() <= 0:
+        raise MasterlogRenderError("Область печатной шапки имеет неверный размер")
+    size = masterlog_header_size_mm(template)
+    scale = min(target.width() / size.width(), target.height() / size.height())
+    lithotype_catalog = {
+        item.lithotype_id: item for item in LithotypeCatalogController(session).available()
+    }
+    painter.save()
+    try:
+        painter.translate(
+            target.left() + (target.width() - size.width() * scale) / 2.0,
+            target.top() + (target.height() - size.height() * scale) / 2.0,
+        )
+        painter.scale(scale, scale)
+        canvas = QRectF(0.0, 0.0, size.width(), size.height())
+        painter.fillRect(canvas, Qt.GlobalColor.white)
+        painter.setPen(QPen(QColor("#111827"), 0.25))
+        painter.drawRect(canvas)
+        depth_range = masterlog_depth_range(session)
+        for element in template.header_elements:
+            _paint_header_element(
+                painter,
+                element,
+                session,
+                template,
+                depth_range,
+                language,
+                lithotype_catalog,
+            )
+    finally:
+        painter.restore()
+
+
 def export_masterlog_pdf(
     template: MasterlogTemplate,
     session: ProjectSession,

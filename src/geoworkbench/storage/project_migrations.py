@@ -420,6 +420,16 @@ def _migrate_v20_to_v21(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v21_to_v22(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 21 не содержит объекта 'project'")
+    project.setdefault("logo_catalog", {})
+    migrated["format_version"] = 22
+    return migrated
+
+
 def _migrate_scale_payload_to_linear(payload: dict[str, Any]) -> bool:
     """Convert a legacy logarithmic payload and report whether it changed."""
 
@@ -468,6 +478,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(17, _migrate_v17_to_v18)
 DEFAULT_PROJECT_MIGRATIONS.register(18, _migrate_v18_to_v19)
 DEFAULT_PROJECT_MIGRATIONS.register(19, _migrate_v19_to_v20)
 DEFAULT_PROJECT_MIGRATIONS.register(20, _migrate_v20_to_v21)
+DEFAULT_PROJECT_MIGRATIONS.register(21, _migrate_v21_to_v22)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

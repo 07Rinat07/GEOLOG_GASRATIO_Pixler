@@ -93,6 +93,7 @@ class PrintJobSettings:
     target: Path | None = None
     pagination: PrintPaginationSettings = field(default_factory=PrintPaginationSettings)
     strict_unicode: bool = True
+    header_template_id: str | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.dpi, bool) or not isinstance(self.dpi, int) or not 72 <= self.dpi <= 600:
@@ -105,6 +106,9 @@ class PrintJobSettings:
             raise ValueError("Качество изображения должно быть от 1 до 100")
         if not isinstance(self.strict_unicode, bool):
             raise ValueError("Unicode-проверка должна быть логическим значением")
+        if self.header_template_id is not None:
+            if not isinstance(self.header_template_id, str) or not self.header_template_id.strip():
+                raise ValueError("ID печатной шапки должен быть непустой строкой")
         if self.output_format.is_file and self.target is None:
             raise ValueError("Для файлового экспорта необходимо выбрать путь")
         if not self.output_format.is_file and self.target is not None:

@@ -135,6 +135,8 @@ python scripts/run_tests.py -p no:cacheprovider
 
 ## Документация
 
+- [Каталоги печатных шапок и логотипов](docs/PRINT_HEADER_AND_LOGO_CATALOGS.md)
+
 - [Каталог документации](docs/DOCUMENTATION_INDEX.md)
 - [Архитектура](docs/ARCHITECTURE.md)
 - [Единый актуальный план проекта](docs/PROJECT_PLAN.md)
