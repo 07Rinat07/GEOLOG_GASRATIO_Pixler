@@ -24,14 +24,17 @@ jobs:
         with:
           python-version: "3.11"
       - name: Apply interaction refinements
-        run: python scripts/refine_header_workspace.py
+        run: |
+          python scripts/fix_refine_applicator.py
+          python scripts/refine_header_workspace.py
       - name: Compile Python sources
         run: python -m compileall -q src/geoworkbench scripts
-      - name: Restore trusted workflow and remove applicator
+      - name: Restore trusted workflow and remove applicators
         run: |
           git fetch origin main
           git checkout origin/main -- .github/workflows/release-gate.yml
           rm -f scripts/refine_header_workspace.py
+          rm -f scripts/fix_refine_applicator.py
       - name: Commit product refinements
         run: |
           git config user.name "github-actions[bot]"
