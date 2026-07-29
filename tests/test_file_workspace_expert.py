@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QApplication, QFrame, QLabel, QTabWidget, QToolButton
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QTabWidget,
+    QToolButton,
+    QWidget,
+)
 
 from geoworkbench.ui.file_workspace_expert import FileWorkspaceWidget
 
@@ -46,3 +57,29 @@ def test_datum_fields_have_full_names_and_units() -> None:
     assert all(control.suffix() == " м" for control in widget.datum_inputs)
 
     widget.deleteLater()
+
+
+def test_workspace_installs_discoverable_main_toolbar_entry() -> None:
+    _application()
+    window = QMainWindow()
+    row = QWidget(window)
+    window.main_toolbar_row = row
+    window.main_toolbar_layout = QHBoxLayout(row)
+    window.file_workspace_action = QAction(window)
+    window._main_toolbar_separator_files = QFrame(row)
+    window.main_toolbar_layout.addWidget(window._main_toolbar_separator_files)
+    window.main_toolbar_overflow_menu = QMenu(row)
+    window._main_toolbar_compact_buttons = ()
+    window._main_toolbar_overflow_candidates = ()
+
+    widget = FileWorkspaceWidget(window, language="ru")
+    window.setCentralWidget(widget)
+    widget._install_main_toolbar_entry()
+
+    button = window.findChild(QToolButton, "filesWorkspaceToolbarButton")
+    assert button is not None
+    assert window.file_workspace_action.text() == "Файлы и расчёты"
+    assert window.file_workspace_action in window.main_toolbar_overflow_menu.actions()
+    assert button in window._main_toolbar_compact_buttons
+
+    window.deleteLater()
