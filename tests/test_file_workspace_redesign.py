@@ -5,7 +5,7 @@ from pathlib import Path
 import fitz
 from PySide6.QtWidgets import QApplication, QFrame, QTabWidget
 
-from geoworkbench.ui.file_workspace_modern_widget import FileWorkspaceWidget
+from geoworkbench.ui.file_workspace_shell import FileWorkspaceWidget
 
 
 def _application() -> QApplication:
