@@ -3,8 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import fitz
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QFrame
+from PySide6.QtWidgets import QApplication, QFrame, QTabWidget
 
 from geoworkbench.ui.file_workspace_modern_widget import FileWorkspaceWidget
 
@@ -39,7 +38,7 @@ def test_modern_workspace_is_discoverable_and_has_command_bar() -> None:
 
     assert widget.objectName() == "modernFileWorkspace"
     assert widget.tab_title("ru") == "Файлы / PDF / Калькулятор"
-    assert widget.sections.tabPosition() == widget.sections.TabPosition.West
+    assert widget.sections.tabPosition() == QTabWidget.TabPosition.West
     assert widget.findChild(QFrame, "filesHeader") is not None
     assert widget.findChild(QFrame, "commandBar") is not None
     assert widget.findChild(QFrame, "contextBar") is not None
@@ -71,7 +70,7 @@ def test_calculator_and_converter_update_live_without_stale_result() -> None:
     _select_data(widget.converter_target, "ml")
     application.processEvents()
     widget._convert_units_live()
-    assert widget.converter_result.text() == "7500000" or widget.converter_result.text() == "7500"
+    assert widget.converter_result.text() == "7500"
 
     widget.deleteLater()
 
