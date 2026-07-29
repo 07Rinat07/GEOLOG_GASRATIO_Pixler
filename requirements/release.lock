@@ -38,9 +38,15 @@ numpy==2.3.4 \
 openpyxl==3.1.5 \
     --hash=sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2
     # via geolog-gasratio-pixler
+pillow==12.3.0 \
+    --hash=sha256:8e95e1385e4998ae9694eeaa4730ba5457ff61185b3a55e2e7bea0880aef452a
+    # via geolog-gasratio-pixler
 pydantic==1.10.26 \
     --hash=sha256:ac1089f723e2106ebde434377d31239e00870a7563245072968e5af5cc4d33df
     # via etptypes
+pymupdf==1.28.0 \
+    --hash=sha256:e01e90fd86abfeb37ceb921eddb951f988a11d45ff6ce6b7664f2039849068ec
+    # via geolog-gasratio-pixler
 pyqtgraph==0.14.0 \
     --hash=sha256:7abb7c3e17362add64f8711b474dffac5e7b0e9245abdf992e9a44119b7aa4f5
     # via geolog-gasratio-pixler

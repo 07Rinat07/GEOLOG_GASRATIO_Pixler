@@ -153,6 +153,7 @@ from geoworkbench.project.witsml_import_controller import WitsmlProjectImportCon
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.header_catalog import catalog_items, resolve_catalog_header
 from geoworkbench.ui.header_preview_widget import render_header_preview_pixmap
+from geoworkbench.ui.file_workspace_widget import FileWorkspaceWidget
 from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
 from geoworkbench.storage.project_codec import ProjectFormatError
@@ -641,6 +642,9 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(640, 480)
 
         self.tabs = QTabWidget()
+        self.file_workspace = FileWorkspaceWidget(
+            language=self.language.value
+        )
         self.curve_view = CurveView(self.dataset_selection, language=self.language)
         self.curve_view.edit_requested.connect(self._apply_curve_draw_edit)
         self.curve_view.interval_analysis_requested.connect(
@@ -759,6 +763,10 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.curve_view, self._t("tab.curves"))
         self.tabs.addTab(self.las_table_editor, self._t("tab.table"))
         self.tabs.addTab(self.tablet_view, self._t("tab.tablet"))
+        self.tabs.addTab(
+            self.file_workspace,
+            FileWorkspaceWidget.tab_title(self.language.value),
+        )
 
         self._create_project_explorer()
         self._create_curve_browser()
@@ -1270,6 +1278,18 @@ class MainWindow(QMainWindow):
         self.workspace_action.triggered.connect(lambda: self._show_workspace())
         self.workspace_action.setEnabled(False)
         view_menu.addAction(self.workspace_action)
+
+        self.file_workspace_action = QAction(
+            FileWorkspaceWidget.tab_title(self.language.value), self
+        )
+        self.file_workspace_action.setObjectName("fileWorkspaceAction")
+        self.file_workspace_action.setShortcut("Ctrl+Alt+F")
+        self.file_workspace_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView)
+        )
+        self.file_workspace_action.triggered.connect(self.show_file_workspace)
+        file_menu.addAction(self.file_workspace_action)
+        view_menu.addAction(self.file_workspace_action)
         view_menu.addSeparator()
 
         self.las_editor_action = self._localized_action("las_editor.action")
@@ -2150,6 +2170,13 @@ class MainWindow(QMainWindow):
     def _show_workspace(self, widget: QWidget | None = None) -> None:
         self._workspace_controller.show_workspace(widget)
 
+    def show_file_workspace(self) -> None:
+        self.tabs.setCurrentWidget(self.file_workspace)
+        self.central_stack.setCurrentWidget(self.tabs)
+        self.statusBar().showMessage(
+            FileWorkspaceWidget.tab_title(self.language.value)
+        )
+
     def _create_toolbar(self) -> None:
         self.main_toolbar = _ResponsiveCommandBar(self, margins=(8, 6, 8, 6))
         self.main_toolbar.setObjectName("mainToolbar")
@@ -2898,6 +2925,12 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(0, self._t("tab.curves"))
         self.tabs.setTabText(1, self._t("tab.table"))
         self.tabs.setTabText(2, self._t("tab.tablet"))
+        self.tabs.setTabText(
+            3, FileWorkspaceWidget.tab_title(self.language.value)
+        )
+        self.file_workspace_action.setText(
+            FileWorkspaceWidget.tab_title(self.language.value)
+        )
 
         self.project_dock.setWindowTitle(self._t("dock.project"))
         self.curve_browser_dock.setWindowTitle(self._t("curve_browser.title"))
