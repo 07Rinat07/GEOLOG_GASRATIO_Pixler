@@ -1,4 +1,4 @@
-"""Document, archive and engineering utility services."""
+"""Public document, archive, logo and engineering services for the Files workspace."""
 
 from geoworkbench.files.archive_service import (
     ArchiveCapability,
