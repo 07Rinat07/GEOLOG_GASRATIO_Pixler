@@ -7,7 +7,7 @@ import fitz
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
-from geoworkbench.ui.file_workspace_shell import FileWorkspaceWidget
+from geoworkbench.ui.file_workspace_production import FileWorkspaceWidget
 
 
 def _arguments() -> argparse.Namespace:
