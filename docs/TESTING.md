@@ -232,7 +232,25 @@ python tools/windows_release_matrix.py `
 записать physical-printer status `passed`. Полученный checklist хранится как release artifact,
 а не в Git.
 
-## 10. Регрессия GeoScape2/GS2 временного планшета
+## 10. PERF-01: acquisition batch/buffer/hash-chain contract
+
+`tests/test_acquisition.py` проверяет default batch 64, отсутствие full projection digest во время
+`append_many`, геометрический рост capacity, logical rollback mixed batch и детерминированное
+восстановление incremental chain после replay. WITS0 и ETP runtime передают собственный
+`drain_batch_size` в единый controller boundary.
+
+Минимальный запуск:
+
+```bash
+python -m pytest -q tests/test_acquisition.py tests/test_wits0_acquisition.py \
+  tests/test_etp12_acquisition.py tests/test_acquisition_codec.py
+python benchmarks/benchmark_acquisition.py 50000 100000
+```
+
+Benchmark является диагностическим для PERF-01; обязательные scaling/p95/RSS thresholds остаются
+отдельной незакрытой задачей PERF-03.
+
+## 11. Регрессия GeoScape2/GS2 временного планшета
 
 `tests/test_gs2_time_tablet_rendering.py` проверяет единый расчёт фактической ширины DATETIME-колонки, canvas и групповых заголовков, а также один transactional render при смене dataset. Qt-сценарий в `tests/test_tablet_view.py` подтверждает, что статическое обновление не сжимает временную ось и не нарушает выравнивание треков.
 
@@ -242,7 +260,7 @@ python tools/windows_release_matrix.py `
 python -m pytest -q tests/test_gs2_time_tablet_rendering.py tests/test_gs2_form_axis_hotfix_0789.py tests/test_tablet_view.py
 ```
 
-## 11. Правило обновления тестов и документации
+## 12. Правило обновления тестов и документации
 
 Любое изменение запуска, импорта, формы, миграции, формата проекта или пользовательского
 поведения должно в одном изменении обновлять:

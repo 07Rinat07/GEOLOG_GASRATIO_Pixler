@@ -20,3 +20,13 @@
 Project format v18 session-дарды енгізді; ағымдағы v20 оларды `well.acquisition_sessions` ішінде сақтайды. `v17 → v18`
 migration бос collection қосып, бар деректерді өзгертпейді. Нұсқаланатын lag/depth correction
 0.7.44 ішінде бөлек derived projection ретінде іске асырылды және append-only source-ты өзгертпейді.
+
+## Пакеттік materialization
+
+Live mutation 64 record-тан тұратын атомарлық batch арқылы орындалады. Index және curve массивтері
+геометриялық capacity арқылы өсіп, тек logical slice жариялайды; failed mixed data/event batch толық
+проекцияны көшірмей logical row count, curve versions, events және incremental
+record/dataset/events hash chains күйін қайтарады. Streaming кезінде `AcquisitionApplyResult`
+`digest_mode=incremental_chain` қолданады. Үйлесімді толық dataset/events fingerprints тек checkpoint
+және `current_result()` шекараларында есептеледі. Replay сол batch boundary-ді қолданып, әр persisted
+checkpoint алдында batch-ті аяқтайды.

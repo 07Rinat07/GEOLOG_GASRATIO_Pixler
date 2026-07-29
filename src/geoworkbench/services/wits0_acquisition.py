@@ -756,7 +756,9 @@ class Wits0AcquisitionRuntime:
 
     def drain(self, *, limit: int | None = None) -> tuple[AcquisitionApplyResult, ...]:
         self._require_not_closed()
-        results = self.controller.drain(limit=limit)
+        results = self.controller.drain(
+            limit=limit, batch_size=self.config.drain_batch_size
+        )
         self._records_applied += len(results)
         if self.controller.pending_count == 0:
             self._create_checkpoint_if_due()
@@ -792,7 +794,9 @@ class Wits0AcquisitionRuntime:
         self.state = Wits0AcquisitionState.CLOSING
         timestamp = closed_at or _utc_now()
         try:
-            self.controller.drain(limit=None)
+            self.controller.drain(
+                limit=None, batch_size=self.config.drain_batch_size
+            )
             # drain() above intentionally bypasses runtime counters only during close;
             # update from the authoritative session sequence delta.
             self._records_applied = self.session.last_sequence

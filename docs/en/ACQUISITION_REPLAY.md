@@ -20,3 +20,12 @@ events, QC flags, and report data.
 Project format v18 introduced sessions; current v20 stores them in `well.acquisition_sessions`. Migration `v17 → v18` adds an
 empty collection without changing existing project data. Versioned lag/depth correction is
 implemented in 0.7.44 as a separate derived projection that leaves the append-only source unchanged.
+
+## Batched materialization
+
+Live mutation is applied in atomic batches of 64 records. Index and curve arrays use geometric
+capacity growth and expose only their logical slice; a failed mixed data/event batch restores the
+logical row count, curve versions, events and incremental record/dataset/events hash chains without
+copying the full projection. `AcquisitionApplyResult` uses `digest_mode=incremental_chain` during
+streaming. Full compatible dataset/events fingerprints remain checkpoint and `current_result()`
+operations. Replay uses the same batch boundary and ends batches at persisted checkpoints.
