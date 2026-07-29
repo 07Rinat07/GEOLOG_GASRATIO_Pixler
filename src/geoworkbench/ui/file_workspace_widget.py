@@ -32,7 +32,7 @@ class FileWorkspaceWidget(QWidget):
         language: str = "ru",
     ) -> FileWorkspaceWidget:
         try:
-            from geoworkbench.ui.file_workspace_shell import (
+            from geoworkbench.ui.file_workspace_production import (
                 FileWorkspaceWidget as ModernFileWorkspaceWidget,
             )
         except ModuleNotFoundError as error:
