@@ -1013,11 +1013,13 @@ class _MovableHeaderRect(QGraphicsRectItem):
         element: MasterlogHeaderElement,
         moved: Callable[[str, float, float], None],
         activated: Callable[[str], None],
+        edited: Callable[[], None],
     ) -> None:
         super().__init__(QRectF(0.0, 0.0, element.width_mm, element.height_mm))
         self.element_id = element.element_id
         self._moved = moved
         self._activated = activated
+        self._edited = edited
         self.setPos(element.x_mm, element.y_mm)
         self.setFlags(
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable
@@ -1031,6 +1033,7 @@ class _MovableHeaderRect(QGraphicsRectItem):
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt API
         self._activated(self.element_id)
+        self._edited()
         super().mouseDoubleClickEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt API
@@ -1044,11 +1047,13 @@ class _MovableHeaderLine(QGraphicsLineItem):
         element: MasterlogHeaderElement,
         moved: Callable[[str, float, float], None],
         activated: Callable[[str], None],
+        edited: Callable[[], None],
     ) -> None:
         super().__init__(0.0, 0.0, element.width_mm, element.height_mm)
         self.element_id = element.element_id
         self._moved = moved
         self._activated = activated
+        self._edited = edited
         self.setPos(element.x_mm, element.y_mm)
         self.setFlags(
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable
@@ -1062,6 +1067,7 @@ class _MovableHeaderLine(QGraphicsLineItem):
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt API
         self._activated(self.element_id)
+        self._edited()
         super().mouseDoubleClickEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt API
@@ -1418,6 +1424,7 @@ class MasterlogHeaderDialog(QDialog):
                     element,
                     self._move_preview_element,
                     self._activate_preview_element,
+                    self._edit,
                 )
                 line_graphic.setPen(self._line_pen(element))
                 line_graphic.setToolTip(self._element_tooltip(element))
@@ -1429,6 +1436,7 @@ class MasterlogHeaderDialog(QDialog):
                 element,
                 self._move_preview_element,
                 self._activate_preview_element,
+                self._edit,
             )
             rect_graphic.setPen(QPen(QColor("#475569"), 0.35))
             background = element.properties.get("background")
@@ -1622,9 +1630,9 @@ class MasterlogHeaderDialog(QDialog):
             return
         if orientation == "horizontal":
             width = max(10.0, element.width_mm, element.height_mm)
-            height = 0.0
+            height = 0.1
         else:
-            width = 0.0
+            width = 0.1
             height = max(10.0, element.height_mm, element.width_mm)
         properties = dict(element.properties)
         properties["source_shape_kind"] = orientation

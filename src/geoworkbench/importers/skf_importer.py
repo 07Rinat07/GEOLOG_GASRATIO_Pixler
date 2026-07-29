@@ -517,11 +517,17 @@ def _header_element(
                     "source_shape_kind": shape_kind,
                 },
             )
+        line_x = x
+        line_y = y
+        if resolved_kind == "horizontal":
+            line_y += max(0.0, (height - shape_height) / 2.0)
+        elif resolved_kind == "vertical":
+            line_x += max(0.0, (width - shape_width) / 2.0)
         return MasterlogHeaderElement(
             str(uuid4()),
             "line",
-            x,
-            y,
+            line_x,
+            line_y,
             shape_width,
             shape_height,
             {
@@ -892,9 +898,9 @@ def _normalize_shape_geometry(
     if shape_kind == "frame":
         return "frame", width, height
     if shape_kind == "horizontal":
-        return "horizontal", max(width, height, 1.0), 0.0
+        return "horizontal", max(width, height, 1.0), 0.1
     if shape_kind == "vertical":
-        return "vertical", 0.0, max(width, height, 1.0)
+        return "vertical", 0.1, max(width, height, 1.0)
     if shape_kind == "diagonal":
         return "diagonal", width, height
 
@@ -902,8 +908,8 @@ def _normalize_shape_geometry(
     longer = max(width, height)
     if shorter <= 1.2 or (shorter > 0.0 and longer / shorter >= 4.0):
         if width >= height:
-            return "horizontal", max(width, 1.0), 0.0
-        return "vertical", 0.0, max(height, 1.0)
+            return "horizontal", max(width, 1.0), 0.1
+        return "vertical", 0.1, max(height, 1.0)
     return "frame", width, height
 
 
