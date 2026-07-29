@@ -27,32 +27,43 @@ def _safe_relative_path(name: str) -> Path:
 
 
 def _load_payload(path: Path) -> str:
+    """Read the PAYLOAD literal without parsing or executing the broken script."""
+
     source = path.read_text(encoding="utf-8")
-    module = ast.parse(source, filename=str(path))
-    for node in module.body:
-        value_node: ast.expr | None = None
-        if isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id == "PAYLOAD"
-            for target in node.targets
-        ):
-            value_node = node.value
-        elif (
-            isinstance(node, ast.AnnAssign)
-            and isinstance(node.target, ast.Name)
-            and node.target.id == "PAYLOAD"
-            and node.value is not None
-        ):
-            value_node = node.value
-        if value_node is None:
-            continue
-        try:
-            value = ast.literal_eval(value_node)
-        except (ValueError, TypeError, SyntaxError) as exc:
-            raise RuntimeError("PAYLOAD must be a literal string") from exc
-        if isinstance(value, str) and value:
-            return value
+    marker = "PAYLOAD ="
+    marker_position = source.find(marker)
+    if marker_position < 0:
+        raise RuntimeError("PAYLOAD is missing")
+
+    literal_start = marker_position + len(marker)
+    while literal_start < len(source) and source[literal_start].isspace():
+        literal_start += 1
+    if literal_start >= len(source) or source[literal_start] not in {'\"', "'"}:
+        raise RuntimeError("PAYLOAD must be a literal string")
+
+    quote = source[literal_start]
+    escaped = False
+    literal_end = literal_start + 1
+    while literal_end < len(source):
+        character = source[literal_end]
+        if escaped:
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character == quote:
+            break
+        literal_end += 1
+    else:
+        raise RuntimeError("PAYLOAD string is not terminated")
+
+    literal = source[literal_start : literal_end + 1]
+    try:
+        value = ast.literal_eval(literal)
+    except (ValueError, TypeError, SyntaxError) as exc:
+        raise RuntimeError("PAYLOAD must be a literal string") from exc
+    if not isinstance(value, str) or not value:
         raise RuntimeError("PAYLOAD must be a non-empty string")
-    raise RuntimeError("PAYLOAD is missing")
+    return value
 
 
 def main() -> int:
@@ -91,13 +102,13 @@ def main() -> int:
             if member.isdir():
                 target.mkdir(parents=True, exist_ok=True)
                 continue
-            source = archive.extractfile(member)
-            if source is None:
+            source_file = archive.extractfile(member)
+            if source_file is None:
                 raise RuntimeError(f"Cannot read payload member: {member.name}")
             target.parent.mkdir(parents=True, exist_ok=True)
             temporary = target.with_name(f".{target.name}.payload-tmp")
-            with source, temporary.open("wb") as destination:
-                shutil.copyfileobj(source, destination, length=1024 * 1024)
+            with source_file, temporary.open("wb") as destination:
+                shutil.copyfileobj(source_file, destination, length=1024 * 1024)
             temporary.replace(target)
 
     print(f"Applied {len(validated)} payload members ({total} bytes)")
