@@ -13,6 +13,7 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [Қазақша](kk/SECURITY.md) · [English](en/SECURITY.md)
 - Диагностика: [Русский](ru/APPLICATION_DIAGNOSTICS.md) ·
   [Қазақша](kk/APPLICATION_DIAGNOSTICS.md) · [English](en/APPLICATION_DIAGNOSTICS.md)
+- Запуск вкладки «Файлы» после обновления: [FILE_WORKSPACE_STARTUP.md](FILE_WORKSPACE_STARTUP.md)
 
 ## Управление проектом
 
