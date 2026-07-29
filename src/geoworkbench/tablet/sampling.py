@@ -63,6 +63,7 @@ def select_visible_samples(
     max_points: int = MAX_RENDERED_POINTS,
     positive_values_only: bool = False,
     include_viewport_context: bool = True,
+    bridge_sparse_updates: bool = False,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Prepare one curve for screen rendering without inventing continuity.
 
@@ -79,6 +80,12 @@ def select_visible_samples(
     independently.  A real numeric ``0`` remains a valid point on a linear scale.
     On a logarithmic scale non-positive values are represented as gaps because
     logarithm of zero or a negative value is undefined.
+
+    GeoScape time tables may encode unchanged channels as sparse updates: the
+    timestamp row exists, but a channel is populated only when a new value was
+    recorded.  ``bridge_sparse_updates`` removes only those null update rows from
+    the screen geometry.  It does not mutate the imported Dataset and still
+    inserts a separator across a real timestamp hole.
     """
     depth = np.asarray(depth, dtype=np.float64)
     values = np.asarray(values, dtype=np.float64)
@@ -99,6 +106,13 @@ def select_visible_samples(
     ordered_values = np.asarray(values[finite_axis], dtype=np.float64).copy()
     if ordered_depth.size == 0:
         return ordered_values, ordered_depth
+
+    if bridge_sparse_updates:
+        update_rows = np.isfinite(ordered_values)
+        ordered_depth = ordered_depth[update_rows]
+        ordered_values = ordered_values[update_rows]
+        if ordered_depth.size == 0:
+            return ordered_values, ordered_depth
 
     # LAS/acquisition indexes are normally monotonic. Avoid allocating and
     # sorting an N-element permutation for every viewport update in that common

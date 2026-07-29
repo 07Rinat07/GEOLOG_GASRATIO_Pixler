@@ -5,6 +5,7 @@
 
 ## Unreleased
 
+- Исправлены обрывы кривых на временных формах GeoScape2/GS2 и GeoScape/Paradox: разреженные обновления каналов соединяются только в экранной геометрии, исходные NaN не изменяются, а реальные большие разрывы времени сохраняются.
 - Закрыт PERF-01: acquisition применяет `append_many()` атомарными batch по 64 records, хранит растущие index/curve arrays в геометрических buffers, откатывает failed batch изменением logical length и ведёт incremental record/dataset/events hash chains; полный projection digest рассчитывается только для checkpoint/current result.
 - Исправлен временной планшет после импорта GeoScape2/GS2: ширина DATETIME-оси теперь учитывается в общем canvas и групповых заголовках, статическое обновление не сжимает колонку времени, а dataset, форма и геологические слои устанавливаются одним render pass без остаточных Qt-виджетов.
 - Закрыт SEC-04: WITS0 retention работает только в каталоге с проверенным path-bound application marker; непустой каталог требует явного принятия оператором. Non-loopback TCP server bind требует подтверждённого предупреждения, non-global IPv4 CIDR allowlist, отдельного разрешения для `0.0.0.0` и отклоняет peers вне политики.
