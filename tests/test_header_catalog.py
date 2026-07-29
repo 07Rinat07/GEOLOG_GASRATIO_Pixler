@@ -58,3 +58,28 @@ def test_any_masterlog_can_receive_independent_header_copy() -> None:
     )
     assert resolved.header_elements
     assert target.header_elements == []
+
+
+def test_fit_header_to_page_scales_geometry_and_expands_height() -> None:
+    controller = _controller()
+    template = controller.create_header_template("Wide header")
+    template.header_elements = []
+    first = controller.add_header_element(
+        template.template_id, element_type="text", x_mm=100.0, y_mm=5.0,
+        width_mm=300.0, height_mm=20.0,
+        properties={"text": "Wide", "font_size_mm": 6.0},
+    )
+    second = controller.add_header_element(
+        template.template_id, element_type="field", x_mm=420.0, y_mm=35.0,
+        width_mm=160.0, height_mm=30.0,
+        properties={"field": "well.name", "font_size_mm": 4.0},
+    )
+    scale = controller.fit_header_to_page(template.template_id, 210.0)
+    assert 0.0 < scale < 1.0
+    assert min(item.x_mm for item in template.header_elements) == 2.0
+    assert max(item.x_mm + item.width_mm for item in template.header_elements) <= 208.0
+    assert template.header_height_mm >= max(item.y_mm + item.height_mm for item in template.header_elements)
+    fitted_first = next(item for item in template.header_elements if item.element_id == first.element_id)
+    fitted_second = next(item for item in template.header_elements if item.element_id == second.element_id)
+    assert fitted_first.properties["font_size_mm"] < 6.0
+    assert fitted_second.properties["font_size_mm"] < 4.0

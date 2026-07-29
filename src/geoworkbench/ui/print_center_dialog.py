@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -41,6 +42,8 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 
 PreviewCallback = Callable[[PrintJobSettings], None]
 HeaderCatalogCallback = Callable[[], tuple[tuple[str, str], ...]]
+HeaderPreviewCallback = Callable[[str], QPixmap | None]
+HeaderEditCallback = Callable[[str], None]
 
 
 class PrintCenterDialog(QDialog):
@@ -61,6 +64,8 @@ class PrintCenterDialog(QDialog):
         header_choices: tuple[tuple[str, str], ...] = (),
         initial_header_template_id: str | None = None,
         manage_headers_callback: HeaderCatalogCallback | None = None,
+        header_preview_callback: HeaderPreviewCallback | None = None,
+        edit_header_callback: HeaderEditCallback | None = None,
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
@@ -72,6 +77,8 @@ class PrintCenterDialog(QDialog):
         self.vertical_unit = vertical_unit.strip()
         self.header_choices = tuple(header_choices)
         self.manage_headers_callback = manage_headers_callback
+        self.header_preview_callback = header_preview_callback
+        self.edit_header_callback = edit_header_callback
         page = initial_page or PrintPageSettings()
         preferences = initial_preferences or PrintExportPreferences()
         self.source_name = _safe_file_stem(source_name)
@@ -90,9 +97,11 @@ class PrintCenterDialog(QDialog):
                 AppLanguage.EN: "Print header",
             }[language]
         )
-        header_layout = QHBoxLayout(header_group)
+        header_layout = QVBoxLayout(header_group)
+        header_controls = QHBoxLayout()
         self.header_combo = QComboBox()
         self.header_combo.setObjectName("print-header-template-combo")
+        self.header_combo.currentIndexChanged.connect(self._refresh_header_preview)
         self.manage_headers_button = QPushButton(
             {
                 AppLanguage.RU: "Каталог шапок...",
@@ -102,10 +111,30 @@ class PrintCenterDialog(QDialog):
         )
         self.manage_headers_button.clicked.connect(self._manage_headers)
         self.manage_headers_button.setEnabled(manage_headers_callback is not None)
-        header_layout.addWidget(self.header_combo, 1)
-        header_layout.addWidget(self.manage_headers_button)
+        self.edit_header_button = QPushButton(
+            {
+                AppLanguage.RU: "Развернуть / редактировать...",
+                AppLanguage.KK: "Ашу / өңдеу...",
+                AppLanguage.EN: "Open / edit...",
+            }[language]
+        )
+        self.edit_header_button.clicked.connect(self._open_header_editor)
+        self.edit_header_button.setEnabled(False)
+        header_controls.addWidget(self.header_combo, 1)
+        header_controls.addWidget(self.manage_headers_button)
+        header_controls.addWidget(self.edit_header_button)
+        header_layout.addLayout(header_controls)
+        self.header_preview = QLabel()
+        self.header_preview.setObjectName("print-center-header-preview")
+        self.header_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.header_preview.setMinimumHeight(190)
+        self.header_preview.setStyleSheet(
+            "QLabel { background: #e5e7eb; border: 1px solid #94a3b8; }"
+        )
+        header_layout.addWidget(self.header_preview)
         root.addWidget(header_group)
         self._set_header_choices(self.header_choices, initial_header_template_id)
+        self._refresh_header_preview()
 
         output_group = QGroupBox(self._t("print_center.output_group"))
         output_layout = QFormLayout(output_group)
@@ -421,6 +450,52 @@ class PrintCenterDialog(QDialog):
             self.header_choices,
             str(current) if isinstance(current, str) else None,
         )
+        self._refresh_header_preview()
+
+    def _refresh_header_preview(self, _index: int | None = None) -> None:
+        raw = self.header_combo.currentData()
+        catalog_id = str(raw) if isinstance(raw, str) and raw.strip() else None
+        self.edit_header_button.setEnabled(
+            catalog_id is not None and self.edit_header_callback is not None
+        )
+        if catalog_id is None or self.header_preview_callback is None:
+            self.header_preview.clear()
+            self.header_preview.setText(
+                {
+                    AppLanguage.RU: "Шапка не выбрана",
+                    AppLanguage.KK: "Тақырып таңдалмады",
+                    AppLanguage.EN: "No header selected",
+                }[self.localizer.language]
+            )
+            return
+        try:
+            pixmap = self.header_preview_callback(catalog_id)
+        except (KeyError, RuntimeError, ValueError):
+            pixmap = None
+        if pixmap is None or pixmap.isNull():
+            self.header_preview.setText(
+                {
+                    AppLanguage.RU: "Предпросмотр недоступен",
+                    AppLanguage.KK: "Алдын ала қарау қолжетімсіз",
+                    AppLanguage.EN: "Preview unavailable",
+                }[self.localizer.language]
+            )
+            return
+        target = QSize(max(600, self.header_preview.width() - 8), 180)
+        self.header_preview.setPixmap(
+            pixmap.scaled(
+                target,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+
+    def _open_header_editor(self) -> None:
+        raw = self.header_combo.currentData()
+        if not isinstance(raw, str) or not raw.strip() or self.edit_header_callback is None:
+            return
+        self.edit_header_callback(raw)
+        self._refresh_header_preview()
 
     def _dpi(self) -> int:
         data = self.dpi_combo.currentData()

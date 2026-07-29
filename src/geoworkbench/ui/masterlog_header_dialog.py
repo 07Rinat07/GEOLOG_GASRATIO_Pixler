@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QGraphicsScene,
     QGraphicsTextItem,
     QGraphicsView,
+    QGroupBox,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -67,6 +68,7 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 from geoworkbench.ui.logo_catalog_dialog import LogoCatalogDialog
+from geoworkbench.ui.header_preview_widget import HeaderPreviewWidget
 
 
 _TEXT = {
@@ -985,6 +987,9 @@ class MasterlogHeaderDialog(QDialog):
         self.preview.setRenderHints(self.preview.renderHints())
         self.preview.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.preview.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.overview = HeaderPreviewWidget(controller.session, self, language=language)
+        self.overview.setObjectName("masterlog-header-overview")
+        self.overview.setMinimumHeight(230)
 
         self.height_input = QDoubleSpinBox()
         self.height_input.setRange(10.0, 500.0)
@@ -1040,12 +1045,21 @@ class MasterlogHeaderDialog(QDialog):
         self.data_button.clicked.connect(self._edit_header_data)
         self.fit_button = QPushButton(_TEXT[language]["fit"])
         self.fit_button.clicked.connect(self._fit_preview)
+        self.edit_zoom_button = QPushButton(
+            {AppLanguage.RU: "Увеличить для правки", AppLanguage.KK: "Өңдеу үшін үлкейту", AppLanguage.EN: "Editing zoom"}[language]
+        )
+        self.edit_zoom_button.clicked.connect(self._fit_editing_preview)
+        self.fit_page_button = QPushButton(
+            {AppLanguage.RU: "Подогнать шапку к странице", AppLanguage.KK: "Тақырыпты бетке сыйғызу", AppLanguage.EN: "Fit header to page"}[language]
+        )
+        self.fit_page_button.clicked.connect(self._fit_header_to_page)
 
         left_buttons = QHBoxLayout()
         left_buttons.addWidget(self.data_button)
         left_buttons.addWidget(self.catalog_button)
         left_buttons.addWidget(self.save_catalog_button)
         left_buttons.addWidget(self.preset_button)
+        left_buttons.addWidget(self.edit_zoom_button)
         left_buttons.addWidget(self.fit_button)
 
         element_buttons = QHBoxLayout()
@@ -1073,14 +1087,44 @@ class MasterlogHeaderDialog(QDialog):
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.addWidget(hint)
         right_layout.addWidget(self.page_info_label)
-        right_layout.addWidget(self.preview, 1)
+        right_layout.addWidget(QLabel({AppLanguage.RU: "Обзор всей шапки (всегда видна целиком)", AppLanguage.KK: "Тақырыптың толық шолуы", AppLanguage.EN: "Whole-header overview"}[language]))
+        right_layout.addWidget(self.overview, 1)
+        right_layout.addWidget(QLabel({AppLanguage.RU: "Рабочий холст: перетаскивание, прокрутка и точная правка", AppLanguage.KK: "Жұмыс кенебі: жылжыту, айналдыру және дәл өңдеу", AppLanguage.EN: "Editing canvas: drag, scroll and precise adjustment"}[language]))
+        right_layout.addWidget(self.preview, 2)
+
+        inspector = QGroupBox({AppLanguage.RU: "Выбранный элемент", AppLanguage.KK: "Таңдалған элемент", AppLanguage.EN: "Selected element"}[language])
+        inspector_layout = QVBoxLayout(inspector)
+        self.inspector_title = QLabel("—")
+        self.inspector_title.setWordWrap(True)
+        inspector_layout.addWidget(self.inspector_title)
+        inspector_form = QFormLayout()
+        self.geometry_inputs = [QDoubleSpinBox() for _ in range(4)]
+        for label, control in zip(("X, мм", "Y, мм", "Ширина, мм", "Высота, мм"), self.geometry_inputs, strict=True):
+            control.setRange(0.0, 5000.0)
+            control.setDecimals(2)
+            control.editingFinished.connect(self._apply_inspector_geometry)
+            inspector_form.addRow(label, control)
+        inspector_layout.addLayout(inspector_form)
+        self.inspector_bounds = QLabel()
+        self.inspector_bounds.setWordWrap(True)
+        inspector_layout.addWidget(self.inspector_bounds)
+        inspector_edit_button = QPushButton({AppLanguage.RU: "Содержимое и стиль...", AppLanguage.KK: "Мазмұны мен стилі...", AppLanguage.EN: "Content and style..."}[language])
+        inspector_edit_button.clicked.connect(self._edit)
+        inspector_layout.addWidget(inspector_edit_button)
+        inspector_layout.addWidget(self.fit_page_button)
+        inspector_layout.addStretch(1)
+        autosave = QLabel({AppLanguage.RU: "Изменения сразу сохраняются в проект. «Сохранить в каталог» создаёт отдельную повторно используемую шапку.", AppLanguage.KK: "Өзгерістер жобаға бірден сақталады. «Каталогқа сақтау» бөлек қайта қолданылатын тақырып жасайды.", AppLanguage.EN: "Changes are saved to the project immediately. Save to catalog creates a separate reusable header."}[language])
+        autosave.setWordWrap(True)
+        inspector_layout.addWidget(autosave)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(left)
         splitter.addWidget(right)
+        splitter.addWidget(inspector)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([340, 760])
+        splitter.setStretchFactor(2, 0)
+        splitter.setSizes([300, 850, 300])
 
         close_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         close_buttons.rejected.connect(self.reject)
@@ -1101,6 +1145,7 @@ class MasterlogHeaderDialog(QDialog):
         self.list.blockSignals(True)
         self.list.clear()
         self.preview_scene.clear()
+        self.overview.set_template(self.template)
         page_width, page_height = self._page_size_mm()
         element_right = max(
             (item.x_mm + item.width_mm for item in self.template.header_elements),
@@ -1182,6 +1227,7 @@ class MasterlogHeaderDialog(QDialog):
                 )
                 line_graphic.setPen(self._line_pen(element))
                 line_graphic.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+                line_graphic.setSelected(element.element_id == selected)
                 self.preview_scene.addItem(line_graphic)
                 continue
 
@@ -1197,6 +1243,7 @@ class MasterlogHeaderDialog(QDialog):
                 fill = colors[element.element_type]
             rect_graphic.setBrush(QBrush(fill))
             rect_graphic.setToolTip(json.dumps(element.properties, ensure_ascii=False))
+            rect_graphic.setSelected(element.element_id == selected)
             self.preview_scene.addItem(rect_graphic)
             if element.element_type == "image" and self._add_image_preview(
                 element, rect_graphic
@@ -1248,8 +1295,9 @@ class MasterlogHeaderDialog(QDialog):
         if selected_row >= 0:
             self.list.setCurrentRow(selected_row)
         self.preview_scene.setSceneRect(QRectF(-2.0, -2.0, header_width + 4.0, header_height + 4.0))
+        self._refresh_inspector()
         if self._fit_on_refresh:
-            self._fit_preview()
+            self._fit_editing_preview()
             self._fit_on_refresh = False
 
 
@@ -1298,6 +1346,73 @@ class MasterlogHeaderDialog(QDialog):
     def _fit_preview(self) -> None:
         self.preview.resetTransform()
         self.preview.fitInView(self.preview_scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+
+    def _fit_editing_preview(self) -> None:
+        scene = self.preview_scene.sceneRect()
+        if scene.isEmpty():
+            return
+        self.preview.resetTransform()
+        viewport_height = max(220.0, float(self.preview.viewport().height()) * 0.72)
+        scale = min(14.0, max(1.0, viewport_height / max(1.0, scene.height())))
+        self.preview.scale(scale, scale)
+        self.preview.centerOn(scene.left(), scene.center().y())
+        self.preview.horizontalScrollBar().setValue(self.preview.horizontalScrollBar().minimum())
+
+    def _refresh_inspector(self) -> None:
+        element = self._selected()
+        enabled = element is not None
+        for control in self.geometry_inputs:
+            control.setEnabled(enabled)
+        if element is None:
+            self.inspector_title.setText("—")
+            self.inspector_bounds.clear()
+            return
+        self.inspector_title.setText(f"<b>{self._preview_text(element)}</b><br>{element.element_type}")
+        for control, value in zip(self.geometry_inputs, (element.x_mm, element.y_mm, element.width_mm, element.height_mm), strict=True):
+            control.blockSignals(True)
+            control.setValue(value)
+            control.blockSignals(False)
+        page_width, _page_height = self._page_size_mm()
+        right = element.x_mm + element.width_mm
+        bottom = element.y_mm + element.height_mm
+        outside = right > page_width + 1e-6 or bottom > self.template.header_height_mm + 1e-6
+        self.inspector_bounds.setText(
+            f"Правая граница: {right:g} / {page_width:g} мм<br>Нижняя граница: {bottom:g} / {self.template.header_height_mm:g} мм"
+            + ("<br><b style='color:#b91c1c'>Элемент выходит за границы шапки</b>" if outside else "")
+        )
+
+    def _apply_inspector_geometry(self) -> None:
+        element = self._selected()
+        if element is None:
+            return
+        x, y, width, height = (control.value() for control in self.geometry_inputs)
+        try:
+            self.controller.update_header_element(
+                self.template_id, element.element_id, element_type=element.element_type,
+                x_mm=x, y_mm=y, width_mm=width, height_mm=height, properties=element.properties
+            )
+            lower = y + height
+            if lower > self.template.header_height_mm:
+                self.controller.update_header_height(self.template_id, min(500.0, lower + 2.0))
+        except ValueError as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            self._refresh_inspector()
+            return
+        self._selected_element_id = element.element_id
+        self.refresh()
+
+    def _fit_header_to_page(self) -> None:
+        page_width, _page_height = self._page_size_mm()
+        question = {AppLanguage.RU: "Пропорционально подогнать все элементы шапки в ширину текущей страницы?", AppLanguage.KK: "Тақырыптың барлық элементтерін ағымдағы бет еніне пропорционалды сыйғызу керек пе?", AppLanguage.EN: "Proportionally fit all header elements to the current page width?"}[self.localizer.language]
+        if QMessageBox.question(self, self.windowTitle(), question) != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.controller.fit_header_to_page(self.template_id, page_width)
+        except ValueError as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self._fit_on_refresh = True
+        self.refresh()
 
     def _apply_height(self) -> None:
         try:
@@ -1598,6 +1713,7 @@ class MasterlogHeaderDialog(QDialog):
     def _list_selection_changed(self, current, _previous) -> None:
         if current is not None:
             self._selected_element_id = str(current.data(Qt.ItemDataRole.UserRole))
+        self._refresh_inspector()
 
     def _move_preview_element(self, element_id: str, x: float, y: float) -> None:
         element = next((item for item in self.template.header_elements if item.element_id == element_id), None)
@@ -1624,6 +1740,12 @@ class MasterlogHeaderDialog(QDialog):
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             self.refresh()
             return
+        lower = y + element.height_mm
+        if lower > self.template.header_height_mm:
+            try:
+                self.controller.update_header_height(self.template_id, min(500.0, lower + 2.0))
+            except ValueError:
+                pass
         self._selected_element_id = element_id
         self.refresh()
 

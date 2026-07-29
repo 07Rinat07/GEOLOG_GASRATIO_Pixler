@@ -152,6 +152,7 @@ from geoworkbench.project.time_to_depth_controller import TimeToDepthController
 from geoworkbench.project.witsml_import_controller import WitsmlProjectImportController
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.header_catalog import catalog_items, resolve_catalog_header
+from geoworkbench.ui.header_preview_widget import render_header_preview_pixmap
 from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
 from geoworkbench.storage.project_codec import ProjectFormatError
@@ -4335,6 +4336,8 @@ class MainWindow(QMainWindow):
                 else None
             ),
             manage_headers_callback=self._manage_print_headers,
+            header_preview_callback=self._print_header_preview_pixmap,
+            edit_header_callback=self._open_print_header_from_center,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -4879,6 +4882,26 @@ class MainWindow(QMainWindow):
     def _manage_print_headers(self) -> tuple[tuple[str, str], ...]:
         self.show_header_catalog()
         return self._print_header_choices()
+
+    def _print_header_preview_pixmap(self, catalog_id: str) -> QPixmap | None:
+        try:
+            template = resolve_catalog_header(
+                self.session.project.masterlog_templates, catalog_id
+            )
+        except KeyError:
+            return None
+        return render_header_preview_pixmap(
+            template, self.session, QSize(1200, 320),
+            language=self.language, mode="header"
+        )
+
+    def _open_print_header_from_center(self, catalog_id: str) -> None:
+        dialog = HeaderCatalogDialog(
+            self.masterlog_template_controller, self, language=self.language
+        )
+        dialog.refresh(catalog_id)
+        dialog.exec()
+        self._update_title()
 
     def _resolve_print_header(self, job: PrintJobSettings):
         catalog_id = job.header_template_id

@@ -20,8 +20,15 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.importers.skf_importer import import_skf_file
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
-from geoworkbench.printing.header_catalog import HeaderCatalogItem
+from geoworkbench.printing.header_catalog import (
+    HeaderCatalogItem,
+    resolve_catalog_header,
+)
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.header_preview_widget import (
+    HeaderPreviewDialog,
+    HeaderPreviewWidget,
+)
 
 
 class HeaderCatalogDialog(QDialog):
@@ -54,6 +61,9 @@ class HeaderCatalogDialog(QDialog):
         self.list.setObjectName("header-catalog-list")
         self.list.currentItemChanged.connect(lambda *_: self._refresh_details())
         self.list.itemDoubleClicked.connect(lambda _item: self._use_or_edit())
+        self.preview = HeaderPreviewWidget(controller.session, self, language=language)
+        self.preview.setObjectName("header-catalog-visual-preview")
+        self.preview.setMinimumSize(620, 390)
         self.details = QLabel()
         self.details.setWordWrap(True)
         self.orientation = QComboBox()
@@ -74,6 +84,8 @@ class HeaderCatalogDialog(QDialog):
         self.rename_button.clicked.connect(self._rename)
         self.delete_button = QPushButton("Удалить")
         self.delete_button.clicked.connect(self._delete)
+        self.preview_button = QPushButton("Развернуть предпросмотр...")
+        self.preview_button.clicked.connect(self._open_preview)
         self.use_button = QPushButton("Использовать шапку")
         self.use_button.clicked.connect(self._use)
         close_button = QPushButton("Закрыть")
@@ -91,11 +103,12 @@ class HeaderCatalogDialog(QDialog):
             buttons.addWidget(button)
 
         right = QVBoxLayout()
+        right.addWidget(self.preview, 1)
         right.addWidget(self.details)
         form = QFormLayout()
         form.addRow("Рекомендуемая ориентация", self.orientation)
         right.addLayout(form)
-        right.addStretch(1)
+        right.addWidget(self.preview_button)
         if selection_mode:
             right.addWidget(self.use_button)
         right.addWidget(close_button)
@@ -105,9 +118,10 @@ class HeaderCatalogDialog(QDialog):
         left.addLayout(buttons)
 
         root = QHBoxLayout(self)
-        root.addLayout(left, 2)
-        root.addLayout(right, 1)
-        self.resize(1050, 560)
+        root.addLayout(left, 1)
+        root.addLayout(right, 2)
+        self.setMinimumSize(1050, 650)
+        self.resize(1500, 900)
         self.refresh()
 
     def refresh(self, selected_id: str | None = None) -> None:
@@ -150,7 +164,17 @@ class HeaderCatalogDialog(QDialog):
         item = self._selected_item()
         if item is None:
             self.details.clear()
+            self.preview.set_template(None)
+            self.preview_button.setEnabled(False)
             return
+        try:
+            template = resolve_catalog_header(
+                self.controller.session.project.masterlog_templates, item.catalog_id
+            )
+        except KeyError:
+            template = None
+        self.preview.set_template(template)
+        self.preview_button.setEnabled(template is not None)
         orientation_names = {
             "both": "книжная и альбомная",
             "portrait": "книжная",
@@ -246,6 +270,21 @@ class HeaderCatalogDialog(QDialog):
             f"Элементов: {len(template.header_elements)}\n"
             f"Изображений: {len(result.image_assets)}{warning}",
         )
+
+    def _open_preview(self) -> None:
+        item = self._selected_item()
+        if item is None:
+            return
+        try:
+            template = resolve_catalog_header(
+                self.controller.session.project.masterlog_templates, item.catalog_id
+            )
+        except KeyError as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        HeaderPreviewDialog(
+            template, self.controller.session, self, language=self.language
+        ).exec()
 
     def _edit(self) -> None:
         item = self._selected_item()
