@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import ast
 import base64
+import binascii
 import io
 from pathlib import Path, PurePosixPath
-import runpy
 import shutil
 import tarfile
 
@@ -25,15 +26,40 @@ def _safe_relative_path(name: str) -> Path:
     return Path(*pure.parts)
 
 
-def main() -> int:
-    namespace = runpy.run_path(str(PAYLOAD_SCRIPT))
-    encoded = namespace.get("PAYLOAD")
-    if not isinstance(encoded, str) or not encoded:
-        raise RuntimeError("PAYLOAD is missing")
+def _load_payload(path: Path) -> str:
+    source = path.read_text(encoding="utf-8")
+    module = ast.parse(source, filename=str(path))
+    for node in module.body:
+        value_node: ast.expr | None = None
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "PAYLOAD"
+            for target in node.targets
+        ):
+            value_node = node.value
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "PAYLOAD"
+            and node.value is not None
+        ):
+            value_node = node.value
+        if value_node is None:
+            continue
+        try:
+            value = ast.literal_eval(value_node)
+        except (ValueError, TypeError, SyntaxError) as exc:
+            raise RuntimeError("PAYLOAD must be a literal string") from exc
+        if isinstance(value, str) and value:
+            return value
+        raise RuntimeError("PAYLOAD must be a non-empty string")
+    raise RuntimeError("PAYLOAD is missing")
 
+
+def main() -> int:
+    encoded = _load_payload(PAYLOAD_SCRIPT)
     try:
         compressed = base64.b64decode(encoded, validate=True)
-    except ValueError as exc:
+    except (ValueError, binascii.Error) as exc:
         raise RuntimeError("PAYLOAD is not valid base64") from exc
 
     total = 0
