@@ -24,7 +24,9 @@ jobs:
         with:
           python-version: "3.11"
       - name: Apply adaptive visual editor changes
-        run: python scripts/apply_adaptive_visual_editors.py
+        run: |
+          python scripts/apply_adaptive_visual_editors.py
+          python scripts/fix_adaptive_constructor.py
       - name: Compile Python sources
         run: python -m compileall -q src/geoworkbench scripts
       - name: Restore trusted workflow and remove one-shot files
@@ -33,6 +35,7 @@ jobs:
           git checkout origin/main -- .github/workflows/release-gate.yml
           rm -f .github/workflows/apply-adaptive-visual-editors.yml
           rm -f scripts/apply_adaptive_visual_editors.py
+          rm -f scripts/fix_adaptive_constructor.py
       - name: Commit product changes
         run: |
           git config user.name "github-actions[bot]"
