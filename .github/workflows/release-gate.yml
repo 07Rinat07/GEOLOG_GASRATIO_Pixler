@@ -20,151 +20,22 @@ jobs:
         with:
           ref: feature-file-workspace-engineering-tools
           fetch-depth: 0
+          persist-credentials: true
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Apply verified mypy fixes
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          def replace_once(path: str, old: str, new: str) -> None:
-              target = Path(path)
-              content = target.read_text(encoding="utf-8")
-              count = content.count(old)
-              if count != 1:
-                  raise SystemExit(f"{path}: expected one anchor, found {count}: {old!r}")
-              target.write_text(content.replace(old, new, 1), encoding="utf-8", newline="\n")
-
-          engineering = "src/geoworkbench/files/engineering.py"
-          replace_once(
-              engineering,
-              """        if isinstance(node, ast.BinOp):
-              operation = _ALLOWED_BINOPS.get(type(node.op))
-              if operation is None:
-                  raise EngineeringExpressionError("Операция не поддерживается")
-              left = self._evaluate_node(node.left, depth=depth + 1)
-              right = self._evaluate_node(node.right, depth=depth + 1)
-              if isinstance(node.op, ast.Pow) and abs(right) > 1000:
-                  raise EngineeringExpressionError("Слишком большая степень")
-              try:
-                  return float(operation(left, right))
-          """,
-              """        if isinstance(node, ast.BinOp):
-              binary_operation = _ALLOWED_BINOPS.get(type(node.op))
-              if binary_operation is None:
-                  raise EngineeringExpressionError("Операция не поддерживается")
-              left = self._evaluate_node(node.left, depth=depth + 1)
-              right = self._evaluate_node(node.right, depth=depth + 1)
-              if isinstance(node.op, ast.Pow) and abs(right) > 1000:
-                  raise EngineeringExpressionError("Слишком большая степень")
-              try:
-                  return float(binary_operation(left, right))
-          """,
-          )
-          replace_once(
-              engineering,
-              """        if isinstance(node, ast.UnaryOp):
-              operation = _ALLOWED_UNARYOPS.get(type(node.op))
-              if operation is None:
-                  raise EngineeringExpressionError("Унарная операция не поддерживается")
-              return float(operation(self._evaluate_node(node.operand, depth=depth + 1)))
-          """,
-              """        if isinstance(node, ast.UnaryOp):
-              unary_operation = _ALLOWED_UNARYOPS.get(type(node.op))
-              if unary_operation is None:
-                  raise EngineeringExpressionError("Унарная операция не поддерживается")
-              return float(
-                  unary_operation(self._evaluate_node(node.operand, depth=depth + 1))
-              )
-          """,
-          )
-          replace_once(
-              engineering,
-              """def _linear(key: str, label: str, factor: float) -> UnitDefinition:
-              return UnitDefinition(
-                  key,
-                  label,
-                  lambda value, scale=factor: value * scale,
-                  lambda value, scale=factor: value / scale,
-              )
-          """,
-              """def _linear(key: str, label: str, factor: float) -> UnitDefinition:
-              def to_base(value: float) -> float:
-                  return value * factor
-
-              def from_base(value: float) -> float:
-                  return value / factor
-
-              return UnitDefinition(key, label, to_base, from_base)
-          """,
-          )
-
-          archive = "src/geoworkbench/files/archive_service.py"
-          replace_once(
-              archive,
-              "from typing import Any, Iterable, Iterator\n",
-              "from typing import Any, Iterable, Iterator, Literal\n",
-          )
-          replace_once(
-              archive,
-              """        modes = {
-                  ArchiveFormat.TAR: "w",
-                  ArchiveFormat.TAR_GZ: "w:gz",
-                  ArchiveFormat.TAR_BZ2: "w:bz2",
-                  ArchiveFormat.TAR_XZ: "w:xz",
-              }
-          """,
-              """        modes: dict[
-                  ArchiveFormat, Literal["w", "w:gz", "w:bz2", "w:xz"]
-              ] = {
-                  ArchiveFormat.TAR: "w",
-                  ArchiveFormat.TAR_GZ: "w:gz",
-                  ArchiveFormat.TAR_BZ2: "w:bz2",
-                  ArchiveFormat.TAR_XZ: "w:xz",
-              }
-          """,
-          )
-          replace_once(
-              archive,
-              '                    information = getattr(archive, "list", lambda: [])()\n',
-              '                    information: list[Any] = getattr(archive, "list", lambda: [])()\n',
-          )
-
-          logo = "src/geoworkbench/files/logo_service.py"
-          replace_once(
-              logo,
-              "    def _fit_font(self, text: str, design: LogoDesign, painter: ImageDraw.ImageDraw) -> ImageFont.ImageFont:\n",
-              "    def _fit_font(\n        self, text: str, design: LogoDesign, painter: ImageDraw.ImageDraw\n    ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:\n",
-          )
-          replace_once(
-              logo,
-              "    def _font(size: int) -> ImageFont.ImageFont:\n",
-              "    def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:\n",
-          )
-
-          widget = Path("src/geoworkbench/ui/file_workspace_widget.py")
-          widget_content = widget.read_text(encoding="utf-8")
-          old_png = ', "PNG")'
-          if widget_content.count(old_png) != 2:
-              raise SystemExit(
-                  f"file_workspace_widget.py: expected two PNG format anchors, "
-                  f"found {widget_content.count(old_png)}"
-              )
-          widget.write_text(
-              widget_content.replace(old_png, ', b"PNG")'),
-              encoding="utf-8",
-              newline="\n",
-          )
-          PY
+        run: python tools/fix_pr16_mypy.py
       - name: Compile changed sources
         run: python -m compileall -q src/geoworkbench/files src/geoworkbench/ui/file_workspace_widget.py
-      - name: Restore trusted workflow and commit fixes
-        shell: bash
+      - name: Restore trusted workflow and remove temporary files
         run: |
           git fetch origin main
           git checkout origin/main -- .github/workflows/release-gate.yml
+          git rm tools/fix_pr16_mypy.py
+          git rm .github/workflows/fix-pr16-mypy.yml
+      - name: Commit and push fixes
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
