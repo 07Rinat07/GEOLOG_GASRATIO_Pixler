@@ -228,7 +228,8 @@ class ArchiveService:
             ArchiveFormat.TAR_BZ2: "w:bz2",
             ArchiveFormat.TAR_XZ: "w:xz",
         }
-        with tarfile.open(output, modes[archive_format]) as archive:
+        mode: Any = modes[archive_format]
+        with tarfile.open(output, mode) as archive:
             for source in sources:
                 archive.add(source, arcname=source.name, recursive=True, filter=self._tar_filter)
 
@@ -311,7 +312,7 @@ class ArchiveService:
         if backend is not None:
             try:
                 with backend.SevenZipFile(source, "r") as archive:
-                    information = getattr(archive, "list", lambda: [])()
+                    information: list[Any] = getattr(archive, "list", lambda: [])()
                     if information:
                         return tuple(
                             ArchiveEntry(

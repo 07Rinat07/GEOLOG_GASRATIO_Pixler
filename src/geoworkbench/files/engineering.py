@@ -135,22 +135,22 @@ class EngineeringCalculator:
             except KeyError as exc:
                 raise EngineeringExpressionError(f"Неизвестная константа: {node.id}") from exc
         if isinstance(node, ast.BinOp):
-            operation = _ALLOWED_BINOPS.get(type(node.op))
-            if operation is None:
+            binary_operation = _ALLOWED_BINOPS.get(type(node.op))
+            if binary_operation is None:
                 raise EngineeringExpressionError("Операция не поддерживается")
             left = self._evaluate_node(node.left, depth=depth + 1)
             right = self._evaluate_node(node.right, depth=depth + 1)
             if isinstance(node.op, ast.Pow) and abs(right) > 1000:
                 raise EngineeringExpressionError("Слишком большая степень")
             try:
-                return float(operation(left, right))
+                return float(binary_operation(left, right))
             except (ArithmeticError, OverflowError, ValueError) as exc:
                 raise EngineeringExpressionError(str(exc)) from exc
         if isinstance(node, ast.UnaryOp):
-            operation = _ALLOWED_UNARYOPS.get(type(node.op))
-            if operation is None:
+            unary_operation = _ALLOWED_UNARYOPS.get(type(node.op))
+            if unary_operation is None:
                 raise EngineeringExpressionError("Унарная операция не поддерживается")
-            return float(operation(self._evaluate_node(node.operand, depth=depth + 1)))
+            return float(unary_operation(self._evaluate_node(node.operand, depth=depth + 1)))
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             function = _ALLOWED_FUNCTIONS.get(node.func.id)
             if function is None:
@@ -176,12 +176,13 @@ class UnitDefinition:
 
 
 def _linear(key: str, label: str, factor: float) -> UnitDefinition:
-    return UnitDefinition(
-        key,
-        label,
-        lambda value, scale=factor: value * scale,
-        lambda value, scale=factor: value / scale,
-    )
+    def to_base(value: float) -> float:
+        return value * factor
+
+    def from_base(value: float) -> float:
+        return value / factor
+
+    return UnitDefinition(key, label, to_base, from_base)
 
 
 _UNIT_CATEGORIES: dict[str, tuple[str, tuple[UnitDefinition, ...]]] = {

@@ -121,7 +121,7 @@ class LogoService:
         return best
 
     @staticmethod
-    def _font(size: int) -> ImageFont.ImageFont:
+    def _font(size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
         candidates = (
             Path("C:/Windows/Fonts/arial.ttf"),
             Path("C:/Windows/Fonts/segoeui.ttf"),

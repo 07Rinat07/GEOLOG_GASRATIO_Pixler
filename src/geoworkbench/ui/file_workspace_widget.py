@@ -449,7 +449,7 @@ class FileWorkspaceWidget(QWidget):
             self._show_error("Предпросмотр", exc)
             return
         pixmap = QPixmap()
-        if not pixmap.loadFromData(rendered.payload, "PNG"):
+        if not pixmap.loadFromData(rendered.payload, b"PNG"):
             self._show_error("Предпросмотр", "Не удалось декодировать изображение страницы")
             return
         self.document_canvas.setPixmap(pixmap)
@@ -653,7 +653,7 @@ class FileWorkspaceWidget(QWidget):
             buffer = BytesIO()
             image.save(buffer, format="PNG")
             pixmap = QPixmap()
-            if not pixmap.loadFromData(buffer.getvalue(), "PNG"):
+            if not pixmap.loadFromData(buffer.getvalue(), b"PNG"):
                 raise LogoDesignError("Не удалось создать предпросмотр")
             preview = pixmap.scaled(
                 self.logo_preview.size(),
