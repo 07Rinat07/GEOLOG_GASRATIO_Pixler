@@ -259,6 +259,74 @@ class MasterlogTemplateController:
         self._touch(template)
         return template.header_height_mm
 
+    def fit_header_to_page(
+        self,
+        template_id: str,
+        page_width_mm: float,
+        *,
+        padding_mm: float = 2.0,
+    ) -> float:
+        """Fit every header element into the printable page width as one composition.
+
+        Imported SKF headers often retain a wider vendor canvas than the selected A3/A4
+        page. The operation preserves relative geometry, scales text/line metrics and
+        expands the declared header height to the actual lower element boundary.
+        """
+
+        template = self._require(template_id)
+        values = (page_width_mm, padding_mm)
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not isfinite(value)
+            for value in values
+        ):
+            raise ValueError("Размер страницы и поля должны быть конечными числами")
+        page_width = float(page_width_mm)
+        padding = float(padding_mm)
+        if not 25.0 <= page_width <= 5000.0:
+            raise ValueError("Ширина страницы должна быть от 25 до 5000 мм")
+        if not 0.0 <= padding <= min(50.0, page_width / 4.0):
+            raise ValueError("Поле подгонки выходит за допустимые границы")
+        if not template.header_elements:
+            return 1.0
+
+        source_left = min(element.x_mm for element in template.header_elements)
+        source_right = max(
+            element.x_mm + element.width_mm for element in template.header_elements
+        )
+        source_width = max(1.0, source_right - source_left)
+        available_width = max(1.0, page_width - padding * 2.0)
+        scale = min(1.0, available_width / source_width)
+
+        metric_keys = ("font_size_mm", "placeholder_font_size_mm", "width")
+        fitted: list[MasterlogHeaderElement] = []
+        for element in template.header_elements:
+            properties = deepcopy(element.properties)
+            for key in metric_keys:
+                value = properties.get(key)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    properties[key] = max(0.1, float(value) * scale)
+            fitted.append(
+                self._validated_header_element(
+                    element.element_id,
+                    element.element_type,
+                    padding + (element.x_mm - source_left) * scale,
+                    max(0.0, element.y_mm * scale),
+                    max(0.1, element.width_mm * scale),
+                    max(0.1, element.height_mm * scale),
+                    properties,
+                )
+            )
+
+        template.header_elements = fitted
+        lower_boundary = max(
+            element.y_mm + element.height_mm for element in template.header_elements
+        )
+        template.header_height_mm = min(500.0, max(10.0, lower_boundary + padding))
+        self._touch(template)
+        return scale
+
     def duplicate_header_element(
         self, template_id: str, element_id: str
     ) -> MasterlogHeaderElement:
