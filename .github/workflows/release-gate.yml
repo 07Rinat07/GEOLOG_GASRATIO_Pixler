@@ -16,26 +16,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: feature-file-workspace-engineering-tools
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Apply file workspace payload
-        run: python scripts/apply_file_workspace.py
+      - name: Apply file workspace payload safely
+        run: python scripts/run_file_workspace_payload.py
       - name: Compile Python sources
-        run: python -m compileall -q src/geoworkbench tests
-      - name: Restore trusted workflow and remove applicator
+        run: python -m compileall -q src/geoworkbench tests tools scripts
+      - name: Restore trusted workflow and remove applicator artifacts
         run: |
           git fetch origin main
           git checkout origin/main -- .github/workflows/release-gate.yml
           rm -f scripts/apply_file_workspace.py
+          rm -f scripts/run_file_workspace_payload.py
+          rm -f docs/.file_workspace_pr_trigger.md
       - name: Commit product changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
+          if git diff --cached --quiet; then
+            echo "No product changes were produced"
+            exit 1
+          fi
           git commit -m "Implement file workspace and engineering tools"
           git push origin HEAD:feature-file-workspace-engineering-tools
