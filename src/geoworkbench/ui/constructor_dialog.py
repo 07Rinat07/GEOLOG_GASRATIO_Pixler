@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSplitter,
+    QStyle,
     QStackedWidget,
     QTextEdit,
     QVBoxLayout,
@@ -43,6 +44,8 @@ from geoworkbench.ui.masterlog_symbols_dialog import MasterlogSymbolsDialog
 from geoworkbench.project.masterlog_symbol_controller import MasterlogSymbolController
 from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_FORM_PRESETS
 from geoworkbench.ui.collapsible_section import CollapsibleSection
+from geoworkbench.ui.header_preview_widget import HeaderPreviewWidget
+from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
 
 
 _TEXT = {
@@ -396,56 +399,40 @@ class UniversalConstructorDialog(QDialog):
 
         right_widget = QWidget()
         right = QVBoxLayout(right_widget)
+        preview_title = QLabel(
+            {
+                AppLanguage.RU: "Визуальный контроль выбранной формы",
+                AppLanguage.KK: "Таңдалған пішінді визуалды бақылау",
+                AppLanguage.EN: "Visual control of the selected form",
+            }[self.language]
+        )
+        preview_title.setStyleSheet("font-weight:700; color:#0f172a;")
+        right.addWidget(preview_title)
+        self.constructor_preview = HeaderPreviewWidget(
+            self.controller.session, right_widget, language=self.language
+        )
+        self.constructor_preview.setMinimumHeight(360)
+        right.addWidget(self.constructor_preview, 2)
         self.template_summary = QTextEdit()
         self.template_summary.setReadOnly(True)
+        self.template_summary.setMaximumHeight(150)
         self.template_summary.setToolTip(
             _TEXT[self.language]["select_template"]
         )
-        right.addWidget(self.template_summary, 1)
+        right.addWidget(self.template_summary)
 
-        primary_widget = QWidget()
-        primary = QHBoxLayout(primary_widget)
-        primary.setContentsMargins(6, 4, 6, 4)
-        for caption, callback, tooltip in (
-            (_TEXT[self.language]["header"], self._edit_header, _TEXT[self.language]["header"]),
-            (_TEXT[self.language]["preview"], self._preview, _TEXT[self.language]["preview"]),
+        self.print_toolbar = AdaptiveActionToolBar(parent=right_widget)
+        for caption, callback, icon in (
+            (_TEXT[self.language]["header"], self._edit_header, QStyle.StandardPixmap.SP_FileDialogDetailedView),
+            (_TEXT[self.language]["preview"], self._preview, QStyle.StandardPixmap.SP_FileDialogContentsView),
+            (_TEXT[self.language]["columns"], self._edit_columns, QStyle.StandardPixmap.SP_FileDialogListView),
+            (_TEXT[self.language]["mapping"], self._edit_mapping, QStyle.StandardPixmap.SP_BrowserReload),
+            (_TEXT[self.language]["page"], self._edit_page, QStyle.StandardPixmap.SP_FileDialogInfoView),
+            (_TEXT[self.language]["symbols"], self._edit_symbols, QStyle.StandardPixmap.SP_DirIcon),
+            (_TEXT[self.language]["project_images"], self._edit_project_assets, QStyle.StandardPixmap.SP_FileIcon),
         ):
-            button = QPushButton(caption)
-            button.setObjectName("constructor-primary")
-            button.setToolTip(tooltip)
-            button.clicked.connect(callback)
-            primary.addWidget(button)
-        right.addWidget(
-            CollapsibleSection(
-                _TEXT[self.language]["primary_actions"],
-                primary_widget,
-                expanded=True,
-                tooltip=_TEXT[self.language]["primary_actions"],
-            )
-        )
-
-        advanced_widget = QWidget()
-        advanced = QVBoxLayout(advanced_widget)
-        advanced.setContentsMargins(6, 4, 6, 4)
-        for caption, callback in (
-            (_TEXT[self.language]["columns"], self._edit_columns),
-            (_TEXT[self.language]["mapping"], self._edit_mapping),
-            (_TEXT[self.language]["page"], self._edit_page),
-            (_TEXT[self.language]["symbols"], self._edit_symbols),
-            (_TEXT[self.language]["project_images"], self._edit_project_assets),
-        ):
-            button = QPushButton(caption)
-            button.setToolTip(caption)
-            button.clicked.connect(callback)
-            advanced.addWidget(button)
-        right.addWidget(
-            CollapsibleSection(
-                _TEXT[self.language]["advanced_actions"],
-                advanced_widget,
-                expanded=False,
-                tooltip=_TEXT[self.language]["advanced_actions"],
-            )
-        )
+            self.print_toolbar.add_standard_action(caption, callback, icon=icon)
+        right.addWidget(self.print_toolbar)
 
         manager_button = QPushButton(self.localizer.text("masterlog_templates.action"))
         manager_button.setToolTip(self.localizer.text("masterlog_templates.action"))
@@ -548,6 +535,7 @@ class UniversalConstructorDialog(QDialog):
             self.template_list.setCurrentRow(-1)
             self.template_list.blockSignals(False)
         template = preset.template
+        self.constructor_preview.set_template(template)
         width = sum(column.width_mm for column in template.columns)
         self.template_summary.setPlainText(
             f"{preset.name(self.language)}\n\n"
@@ -639,7 +627,9 @@ class UniversalConstructorDialog(QDialog):
             self.preset_list.blockSignals(False)
         if template is None:
             self.template_summary.setPlainText(_TEXT[self.language]["no_template"])
+            self.constructor_preview.set_template(None)
             return
+        self.constructor_preview.set_template(template)
         orientation = str(template.properties.get("orientation", "portrait"))
         width = sum(column.width_mm for column in template.columns)
         self.template_summary.setPlainText(
