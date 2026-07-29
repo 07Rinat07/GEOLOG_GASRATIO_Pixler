@@ -4,10 +4,12 @@ import argparse
 from pathlib import Path
 
 import fitz
+from PySide6.QtCore import QPoint
 from PySide6.QtGui import QColor, QPalette
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QTabWidget
 
-from geoworkbench.ui.file_workspace_v2 import FileWorkspaceWidget
+from geoworkbench.ui.file_workspace_v3 import FileWorkspaceWidget
 
 
 def _arguments() -> argparse.Namespace:
@@ -99,6 +101,9 @@ def _capture_language(
     widget._refresh_document()
     widget._fit_page()
     widget.eraser_button.setChecked(True)
+    application.processEvents()
+    overlay = widget._eraser_overlay
+    QTest.mouseMove(overlay, QPoint(max(20, overlay.width() // 2), max(20, overlay.height() // 3)))
     application.processEvents()
     _save(widget, output / f"{language}-files-pdf-eraser.png", application)
     widget.eraser_button.setChecked(False)
