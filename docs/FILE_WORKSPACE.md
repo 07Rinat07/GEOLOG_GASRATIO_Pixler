@@ -14,6 +14,8 @@
 До сохранения изменения можно отменять и повторять. Для изображений доступны изменение размера,
 обрезка по выделенной мышью области, яркость, контраст, насыщенность, резкость, оттенки серого и
 автоконтраст. Команды «Сохранить» и «Сохранить как» записывают результат отдельно от проекта.
+Предпросмотр автоматически распознаёт PNG по сигнатуре данных без платформозависимого указания
+формата, поэтому одинаково работает в Windows release-среде и при локальном запуске.
 
 ### PDF-инструменты
 
@@ -50,18 +52,20 @@ ZIP и TAR, TAR.GZ, TAR.BZ2, TAR.XZ создаются и распаковыва
 «Файлдар» қойындысы LAS жобасын ашпай-ақ PDF пен кескіндерді қарауға және өңдеуге мүмкіндік
 береді. PDF үшін мәтін, белгілеу, ескертпе, аннотацияларды жою, аймақты жабу, беттерді біріктіру
 және бөлу, сондай-ақ мәтінді DOCX форматына шығару бар. JPEG, PNG, TIFF және BMP үшін өлшем,
-қиып алу және түс түзету қолданылады. Логотип құрастырғышы мәтін, өлшем, түс, жиек пен мөлдір
-фонды сақтайды. ZIP және TAR пішімдері әрқашан қолжетімді; 7Z/RAR тиісті backend табылғанда ғана
-қосылады. Архив жолдары мен көлемдері шығарудан бұрын тексеріледі. Инженерлік бөлім қауіпсіз
-калькуляторды, бөлшек дюймдерді, өлшем бірліктерін және datum, GL, wellhead, DF, RT, KB/RKB
-белгілерін есептеуді қамтиды.
+қиып алу және түс түзету қолданылады. PNG алдын ала қарауы деректер сигнатурасы арқылы автоматты
+түрде танылады және Windows ортасында бөлек формат параметрін қажет етпейді. Логотип
+құрастырғышы мәтін, өлшем, түс, жиек пен мөлдір фонды сақтайды. ZIP және TAR пішімдері әрқашан
+қолжетімді; 7Z/RAR тиісті backend табылғанда ғана қосылады. Архив жолдары мен көлемдері шығарудан
+бұрын тексеріледі. Инженерлік бөлім қауіпсіз калькуляторды, бөлшек дюймдерді, өлшем бірліктерін
+және datum, GL, wellhead, DF, RT, KB/RKB белгілерін есептеуді қамтиды.
 
 ## English
 
 The Files tab works independently of an open LAS project. It displays and edits PDF, JPEG, PNG,
 TIFF and BMP documents, including PDF text, highlights, notes, annotation deletion and area
-redaction, plus image resize, crop and colour correction. Separate PDF tools merge documents,
-split pages and export selectable text to a dependency-free DOCX file; OCR is intentionally not
+redaction, plus image resize, crop and colour correction. PNG previews are detected from the data
+signature without a platform-specific format argument. Separate PDF tools merge documents, split
+pages and export selectable text to a dependency-free DOCX file; OCR is intentionally not
 performed. The logo builder saves text-based raster logos with configurable dimensions, colours,
 borders and transparency. ZIP and TAR-family archives are always available, while 7Z and RAR are
 enabled only when a compatible backend is detected. Extraction rejects traversal paths, links and
