@@ -1,4 +1,7 @@
-"""Public document, archive, logo and engineering services for the Files workspace."""
+"""Public services used by the Files workspace.
+
+The package exposes document, archive, logo, datum and engineering operations.
+"""
 
 from geoworkbench.files.archive_service import (
     ArchiveCapability,
