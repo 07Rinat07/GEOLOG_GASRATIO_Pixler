@@ -1,0 +1,41 @@
+name: Apply visual header editor
+
+on:
+  push:
+    branches:
+      - fix-visual-header-editor-preview
+    paths:
+      - .github/visual-header/apply_visual_header_editor.py
+      - .github/workflows/apply-visual-header-editor.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Apply product changes
+        run: python .github/visual-header/apply_visual_header_editor.py
+      - name: Compile changed Python
+        run: python -m compileall -q src tests
+      - name: Remove one-time applicator
+        run: |
+          rm -f .github/visual-header/apply_visual_header_editor.py
+          rmdir .github/visual-header 2>/dev/null || true
+          rm -f .github/workflows/apply-visual-header-editor.yml
+      - name: Commit applied changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement expanded visual header editor"
+          git push origin HEAD:fix-visual-header-editor-preview
