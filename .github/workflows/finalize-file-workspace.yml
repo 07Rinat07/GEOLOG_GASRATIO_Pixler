@@ -1,0 +1,66 @@
+name: Finalize Files workspace
+
+on:
+  push:
+    branches:
+      - feature-file-workspace-engineering-tools
+    paths:
+      - .github/workflows/finalize-file-workspace.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature-file-workspace-engineering-tools
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Apply final integration
+        shell: pwsh
+        run: python scripts/finalize_file_workspace.py
+
+      - name: Remove one-time scaffolding
+        shell: pwsh
+        run: |
+          $paths = @(
+            "scripts/apply_file_workspace.py",
+            "scripts/run_file_workspace_payload.py",
+            "scripts/finalize_file_workspace.py",
+            "docs/.file_workspace_pr_trigger.md",
+            ".github/workflows/apply-file-workspace.yml",
+            ".github/workflows/apply-file-workspace-trigger.yml",
+            ".github/workflows/finalize-file-workspace.yml"
+          )
+          foreach ($path in $paths) {
+            if (Test-Path $path) {
+              Remove-Item $path -Force
+            }
+          }
+
+      - name: Compile Python sources
+        shell: pwsh
+        run: python -m compileall -q src tests scripts
+
+      - name: Commit finalized change
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if (git diff --cached --quiet) {
+            Write-Host "No finalization changes"
+            exit 0
+          }
+          git commit -m "Finalize Files workspace integration"
+          git push origin HEAD:feature-file-workspace-engineering-tools
