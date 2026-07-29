@@ -1,19 +1,18 @@
 name: Release gate
 
 on:
-  push:
-    branches:
-      - improve-adaptive-visual-editors
+  pull_request:
 
 permissions:
   contents: write
 
 concurrency:
-  group: adaptive-visual-editor-applicator
+  group: adaptive-visual-editor-applicator-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 jobs:
   apply:
+    if: github.event.pull_request.head.ref == 'improve-adaptive-visual-editors'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
