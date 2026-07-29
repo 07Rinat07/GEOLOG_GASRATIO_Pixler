@@ -7,11 +7,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: file-workspace-applicator-${{ github.event.pull_request.number }}
+  group: file-workspace-finalizer-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 jobs:
-  apply:
+  finalize:
     if: github.event.pull_request.head.ref == 'feature-file-workspace-engineering-tools'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -23,16 +23,17 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Apply file workspace payload safely
-        run: python scripts/run_file_workspace_payload.py
+      - name: Finalize normal product files
+        run: python scripts/finalize_file_workspace.py
       - name: Compile Python sources
         run: python -m compileall -q src/geoworkbench tests tools scripts
-      - name: Restore trusted workflow and remove applicator artifacts
+      - name: Restore trusted workflow and remove temporary artifacts
         run: |
           git fetch origin main
           git checkout origin/main -- .github/workflows/release-gate.yml
           rm -f scripts/apply_file_workspace.py
           rm -f scripts/run_file_workspace_payload.py
+          rm -f scripts/finalize_file_workspace.py
           rm -f docs/.file_workspace_pr_trigger.md
       - name: Commit product changes
         run: |
@@ -43,5 +44,5 @@ jobs:
             echo "No product changes were produced"
             exit 1
           fi
-          git commit -m "Implement file workspace and engineering tools"
+          git commit -m "Finalize file workspace integration"
           git push origin HEAD:feature-file-workspace-engineering-tools
