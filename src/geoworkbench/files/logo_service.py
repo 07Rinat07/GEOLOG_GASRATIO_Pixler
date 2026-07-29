@@ -101,7 +101,9 @@ class LogoService:
             raise LogoDesignError(f"Логотип не сохранён: {exc}") from exc
         return destination
 
-    def _fit_font(self, text: str, design: LogoDesign, painter: ImageDraw.ImageDraw) -> ImageFont.ImageFont:
+    def _fit_font(
+        self, text: str, design: LogoDesign, painter: ImageDraw.ImageDraw
+    ) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
         available_width = max(1, design.width - 2 * design.padding)
         available_height = max(1, design.height - 2 * design.padding)
         low = 6
