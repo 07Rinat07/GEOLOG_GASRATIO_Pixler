@@ -33,12 +33,11 @@ class AdaptiveActionToolBar(QToolBar):
         tooltip: str | None = None,
         checkable: bool = False,
     ) -> QAction:
-        action = QAction(
-            self.style().standardIcon(icon) if icon is not None else text,
-            text if icon is not None else self,
+        action = (
+            QAction(self.style().standardIcon(icon), text, self)
+            if icon is not None
+            else QAction(text, self)
         )
-        if icon is None:
-            action = QAction(text, self)
         action.setToolTip(tooltip or text)
         action.setStatusTip(tooltip or text)
         action.setCheckable(checkable)
