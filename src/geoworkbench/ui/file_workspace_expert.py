@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QComboBox,
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
@@ -123,12 +122,20 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
             "Введите безопасное математическое выражение. Примеры: 7 1/2 * 25.4; "
             "sqrt(144); sin(pi/2). Десятичный разделитель может быть точкой или запятой."
         )
-        self.converter_category.setToolTip("Сначала выберите физическую величину: длина, объём, давление и т. д.")
-        self.converter_value.setToolTip("Введите число, дробь 7 1/2, запись 7½ или выражение.")
+        self.converter_category.setToolTip(
+            "Сначала выберите физическую величину: длина, объём, давление и т. д."
+        )
+        self.converter_value.setToolTip(
+            "Введите число, дробь 7 1/2, запись 7½ или выражение."
+        )
         self.converter_source.setToolTip("Единица исходного значения.")
         self.converter_target.setToolTip("Единица результата.")
-        self.converter_result.setToolTip("Автоматически рассчитанное значение в выбранной единице.")
-        self.zoom_spin.setToolTip("Масштаб просмотра страницы от 10 до 800 процентов.")
+        self.converter_result.setToolTip(
+            "Автоматически рассчитанное значение в выбранной единице."
+        )
+        self.zoom_spin.setToolTip(
+            "Масштаб просмотра страницы от 10 до 800 процентов."
+        )
 
         button_tips = {
             "Открыть": "Открыть PDF, JPEG, PNG, TIFF или BMP.",
@@ -146,7 +153,10 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
             "Показать состав архива...": "Прочитать список файлов без распаковки архива.",
             "Распаковать архив...": "Безопасно извлечь содержимое архива в выбранную папку.",
         }
-        for button in self.findChildren((QPushButton, QToolButton)):
+        buttons: list[QPushButton | QToolButton] = []
+        buttons.extend(self.findChildren(QPushButton))
+        buttons.extend(self.findChildren(QToolButton))
+        for button in buttons:
             tip = button_tips.get(button.text().replace("&", ""))
             if tip:
                 button.setToolTip(tip)
@@ -177,7 +187,9 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
             "RT (Rotary Table) — отдельное оборудование в центре drill floor. Укажите 0, если в документации отметки DF и RT совпадают.",
             "KB/RKB — верх ведущей втулки над RT; эта точка часто служит нулём измеряемой глубины.",
         )
-        for row, (text, tip, control) in enumerate(zip(labels, tips, self.datum_inputs, strict=True)):
+        for row, (text, tip, control) in enumerate(
+            zip(labels, tips, self.datum_inputs, strict=True)
+        ):
             item = layout.itemAtPosition(row, 0)
             label = item.widget() if item is not None else None
             if isinstance(label, QLabel):
@@ -245,7 +257,8 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
                     raise
             self._refresh_document()
             self.document_status.setText(
-                "Область удалена" + (" и заменена новым текстом" if replacement.strip() else "")
+                "Область удалена"
+                + (" и заменена новым текстом" if replacement.strip() else "")
                 + ". Сохраните отдельную копию PDF."
             )
         except Exception as error:
@@ -255,6 +268,8 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
         page = self.sections.widget(1)
         layout = page.layout() if page is not None else None
         if not isinstance(layout, QVBoxLayout):
+            return
+        if page is None:
             return
         for button in page.findChildren(QPushButton):
             if button.text().startswith("Экспорт PDF в DOCX"):
@@ -286,7 +301,9 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
         layout.insertWidget(2, card)
 
     def _export_pdf_pages_docx(self) -> None:
-        source, _ = QFileDialog.getOpenFileName(self, "PDF для переноса страниц", "", "PDF (*.pdf)")
+        source, _ = QFileDialog.getOpenFileName(
+            self, "PDF для переноса страниц", "", "PDF (*.pdf)"
+        )
         if not source:
             return
         target, _ = QFileDialog.getSaveFileName(
@@ -310,6 +327,8 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
         page = self.sections.widget(4)
         layout = page.layout() if page is not None else None
         if not isinstance(layout, QVBoxLayout):
+            return
+        if page is None:
             return
         group = QGroupBox("Нефтегазовые, буровые и геологические расчёты", page)
         group_layout = QVBoxLayout(group)
@@ -368,10 +387,31 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
         layout.addRow(help_label)
         self.pipe_od_in = QLineEdit("7 1/2", page)
         self.pipe_od_in.setPlaceholderText("Например: 7 1/2")
-        self.pipe_od_in.setToolTip("Фактический наружный диаметр трубы в дюймах, а не условный DN.")
-        self.pipe_wall_mm = self._spin(9.5, 0.0, 500.0, " мм", "Радиальная толщина одной стенки трубы.")
-        self.pipe_length_m = self._spin(12.0, 0.0, 1_000_000.0, " м", "Длина одной трубы или всей колонны.")
-        self.pipe_density = self._spin(7_850.0, 1.0, 30_000.0, " кг/м³", "Плотность материала; для стали обычно около 7850 кг/м³.", 1)
+        self.pipe_od_in.setToolTip(
+            "Фактический наружный диаметр трубы в дюймах, а не условный DN."
+        )
+        self.pipe_wall_mm = self._spin(
+            9.5,
+            0.0,
+            500.0,
+            " мм",
+            "Радиальная толщина одной стенки трубы.",
+        )
+        self.pipe_length_m = self._spin(
+            12.0,
+            0.0,
+            1_000_000.0,
+            " м",
+            "Длина одной трубы или всей колонны.",
+        )
+        self.pipe_density = self._spin(
+            7_850.0,
+            1.0,
+            30_000.0,
+            " кг/м³",
+            "Плотность материала; для стали обычно около 7850 кг/м³.",
+            1,
+        )
         self.pipe_result = self._result_label(page)
         layout.addRow("Наружный диаметр, дюймы:", self.pipe_od_in)
         layout.addRow("Толщина стенки:", self.pipe_wall_mm)
@@ -379,7 +419,11 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
         layout.addRow("Плотность материала:", self.pipe_density)
         layout.addRow("Результат:", self.pipe_result)
         self.pipe_od_in.textChanged.connect(self._update_pipe_calculator)
-        for control in (self.pipe_wall_mm, self.pipe_length_m, self.pipe_density):
+        for control in (
+            self.pipe_wall_mm,
+            self.pipe_length_m,
+            self.pipe_density,
+        ):
             control.valueChanged.connect(self._update_pipe_calculator)
         self._update_pipe_calculator()
         return page
@@ -413,12 +457,54 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
         help_label.setWordWrap(True)
         help_label.setObjectName("hint")
         layout.addWidget(help_label, 0, 0, 1, 4)
-        self.drill_mud_density = self._spin(1_200.0, 1.0, 5_000.0, " кг/м³", "Текущая плотность бурового раствора.", 1)
-        self.drill_tvd = self._spin(2_500.0, 0.0, 20_000.0, " м", "TVD — истинная вертикальная глубина от принятой точки отсчёта.", 1)
-        self.drill_hole_d = self._spin(215.9, 0.1, 5_000.0, " мм", "Фактический диаметр ствола или внутренний диаметр обсадной колонны.", 2)
-        self.drill_pipe_d = self._spin(127.0, 0.0, 5_000.0, " мм", "Наружный диаметр трубы внутри рассматриваемого интервала.", 2)
-        self.drill_interval = self._spin(1_000.0, 0.0, 50_000.0, " м", "Длина интервала для расчёта кольцевого объёма.", 1)
-        self.drill_flow = self._spin(30.0, 0.001, 10_000.0, " л/с", "Фактическая подача насосов.", 2)
+        self.drill_mud_density = self._spin(
+            1_200.0,
+            1.0,
+            5_000.0,
+            " кг/м³",
+            "Текущая плотность бурового раствора.",
+            1,
+        )
+        self.drill_tvd = self._spin(
+            2_500.0,
+            0.0,
+            20_000.0,
+            " м",
+            "TVD — истинная вертикальная глубина от принятой точки отсчёта.",
+            1,
+        )
+        self.drill_hole_d = self._spin(
+            215.9,
+            0.1,
+            5_000.0,
+            " мм",
+            "Фактический диаметр ствола или внутренний диаметр обсадной колонны.",
+            2,
+        )
+        self.drill_pipe_d = self._spin(
+            127.0,
+            0.0,
+            5_000.0,
+            " мм",
+            "Наружный диаметр трубы внутри рассматриваемого интервала.",
+            2,
+        )
+        self.drill_interval = self._spin(
+            1_000.0,
+            0.0,
+            50_000.0,
+            " м",
+            "Длина интервала для расчёта кольцевого объёма.",
+            1,
+        )
+        self.drill_flow = self._spin(
+            30.0,
+            0.001,
+            10_000.0,
+            " л/с",
+            "Фактическая подача насосов.",
+            2,
+        )
         self.drill_result = self._result_label(page)
         fields = (
             ("Плотность раствора", self.drill_mud_density),
@@ -439,13 +525,17 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
 
     def _update_drilling_calculator(self, *_args: object) -> None:
         try:
-            pressure = hydrostatic_pressure(self.drill_mud_density.value(), self.drill_tvd.value())
+            pressure = hydrostatic_pressure(
+                self.drill_mud_density.value(), self.drill_tvd.value()
+            )
             annulus = annular_volume(
                 self.drill_hole_d.value(),
                 self.drill_pipe_d.value(),
                 self.drill_interval.value(),
             )
-            minutes = circulation_time_minutes(annulus.volume_m3, self.drill_flow.value())
+            minutes = circulation_time_minutes(
+                annulus.volume_m3, self.drill_flow.value()
+            )
             self.drill_result.setText(
                 f"Гидростатическое давление: <b>{pressure.pressure_mpa:.3f} МПа</b> "
                 f"({pressure.pressure_psi:.1f} psi)<br>"
@@ -468,13 +558,52 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
         help_label.setWordWrap(True)
         help_label.setObjectName("hint")
         layout.addWidget(help_label, 0, 0, 1, 4)
-        self.mud_density = self._spin(1_200.0, 1.0, 5_000.0, " кг/м³", "Статическая плотность раствора.", 1)
-        self.mud_annular_loss = self._spin(2.5, 0.0, 200.0, " МПа", "Суммарные потери давления в кольцевом пространстве до выбранной глубины.", 3)
-        self.mud_tvd = self._spin(2_500.0, 0.001, 20_000.0, " м", "TVD точки, для которой рассчитывается ECD.", 1)
-        self.mix_v1 = self._spin(10.0, 0.0, 1_000_000.0, " м³", "Объём первого раствора.", 2)
-        self.mix_rho1 = self._spin(1_200.0, 0.0, 5_000.0, " кг/м³", "Плотность первого раствора.", 1)
-        self.mix_v2 = self._spin(5.0, 0.0, 1_000_000.0, " м³", "Объём добавляемой жидкости.", 2)
-        self.mix_rho2 = self._spin(1_000.0, 0.0, 5_000.0, " кг/м³", "Плотность добавляемой жидкости.", 1)
+        self.mud_density = self._spin(
+            1_200.0,
+            1.0,
+            5_000.0,
+            " кг/м³",
+            "Статическая плотность раствора.",
+            1,
+        )
+        self.mud_annular_loss = self._spin(
+            2.5,
+            0.0,
+            200.0,
+            " МПа",
+            "Суммарные потери давления в кольцевом пространстве до выбранной глубины.",
+            3,
+        )
+        self.mud_tvd = self._spin(
+            2_500.0,
+            0.001,
+            20_000.0,
+            " м",
+            "TVD точки, для которой рассчитывается ECD.",
+            1,
+        )
+        self.mix_v1 = self._spin(
+            10.0, 0.0, 1_000_000.0, " м³", "Объём первого раствора.", 2
+        )
+        self.mix_rho1 = self._spin(
+            1_200.0,
+            0.0,
+            5_000.0,
+            " кг/м³",
+            "Плотность первого раствора.",
+            1,
+        )
+        self.mix_v2 = self._spin(
+            5.0, 0.0, 1_000_000.0, " м³", "Объём добавляемой жидкости.", 2
+        )
+        self.mix_rho2 = self._spin(
+            1_000.0,
+            0.0,
+            5_000.0,
+            " кг/м³",
+            "Плотность добавляемой жидкости.",
+            1,
+        )
         self.mud_result = self._result_label(page)
         fields = (
             ("Плотность раствора", self.mud_density),
@@ -526,15 +655,40 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
         help_label.setWordWrap(True)
         help_label.setObjectName("hint")
         layout.addRow(help_label)
-        self.geo_reference = self._spin(135.0, -20_000.0, 20_000.0, " м", "Абсолютная отметка принятой точки отсчёта глубины.", 3)
-        self.geo_top_tvd = self._spin(2_200.0, 0.0, 30_000.0, " м", "TVD кровли пласта от выбранного datum.", 3)
-        self.geo_bottom_tvd = self._spin(2_250.0, 0.0, 30_000.0, " м", "TVD подошвы пласта от того же datum.", 3)
+        self.geo_reference = self._spin(
+            135.0,
+            -20_000.0,
+            20_000.0,
+            " м",
+            "Абсолютная отметка принятой точки отсчёта глубины.",
+            3,
+        )
+        self.geo_top_tvd = self._spin(
+            2_200.0,
+            0.0,
+            30_000.0,
+            " м",
+            "TVD кровли пласта от выбранного datum.",
+            3,
+        )
+        self.geo_bottom_tvd = self._spin(
+            2_250.0,
+            0.0,
+            30_000.0,
+            " м",
+            "TVD подошвы пласта от того же datum.",
+            3,
+        )
         self.geo_result = self._result_label(page)
         layout.addRow("Абсолютная отметка datum:", self.geo_reference)
         layout.addRow("TVD кровли:", self.geo_top_tvd)
         layout.addRow("TVD подошвы:", self.geo_bottom_tvd)
         layout.addRow("Результат:", self.geo_result)
-        for control in (self.geo_reference, self.geo_top_tvd, self.geo_bottom_tvd):
+        for control in (
+            self.geo_reference,
+            self.geo_top_tvd,
+            self.geo_bottom_tvd,
+        ):
             control.valueChanged.connect(self._update_geology_calculator)
         self._update_geology_calculator()
         return page
@@ -564,7 +718,9 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
         archive_button.clicked.connect(lambda: self.show_section(3))
         layout.addWidget(archive_button)
         engineering_button = QPushButton("Нефтегазовые расчёты", header)
-        engineering_button.setToolTip("Открыть расчёты труб, бурения, раствора и геологии.")
+        engineering_button.setToolTip(
+            "Открыть расчёты труб, бурения, раствора и геологии."
+        )
         engineering_button.clicked.connect(lambda: self.show_section(4))
         layout.addWidget(engineering_button)
 
@@ -602,4 +758,6 @@ class FileWorkspaceWidget(_ProductionFileWorkspaceWidget):
         compact = getattr(window, "_main_toolbar_compact_buttons", ())
         window._main_toolbar_compact_buttons = tuple(compact) + (button,)
         candidates = getattr(window, "_main_toolbar_overflow_candidates", ())
-        window._main_toolbar_overflow_candidates = tuple(candidates) + (("files_workspace", button),)
+        window._main_toolbar_overflow_candidates = tuple(candidates) + (
+            ("files_workspace", button),
+        )
