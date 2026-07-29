@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QApplication, QFrame, QToolButton
 
 from geoworkbench.files.enhanced_document_service import EnhancedDocumentService
 from geoworkbench.ui.file_workspace_i18n import catalogs_have_same_keys
-from geoworkbench.ui.file_workspace_v2 import FileWorkspaceWidget
+from geoworkbench.ui.file_workspace_v3 import FileWorkspaceWidget
 
 
 def _application() -> QApplication:
@@ -86,13 +86,45 @@ def test_brush_eraser_removes_pdf_content_in_one_undo_step(tmp_path: Path) -> No
     assert "DELETE THIS TEXT" in service._pdf_page().get_text()
 
 
-def test_styled_text_can_be_inserted(tmp_path: Path) -> None:
-    source = _sample_pdf(tmp_path / "styled.pdf")
+def test_brush_eraser_result_persists_after_save(tmp_path: Path) -> None:
+    source = _sample_pdf(tmp_path / "eraser-source.pdf")
+    target = tmp_path / "eraser-result.pdf"
+    service = EnhancedDocumentService()
+    service.open(source)
+    service.erase_pdf_rects([(20, 40, 250, 90)])
+    service.save_as(target)
+
+    with fitz.open(target) as saved:
+        assert "DELETE THIS TEXT" not in saved[0].get_text()
+
+
+def test_visible_brush_coordinates_match_pdf_at_non_default_zoom(tmp_path: Path) -> None:
+    _application()
+    source = _sample_pdf(tmp_path / "zoomed-brush.pdf")
+    widget = FileWorkspaceWidget(language="ru")
+    widget.document_service.open(source)
+    widget._render_zoom = 2.0
+    widget._refresh_document()
+
+    points = [QPointF(float(x), 140.0) for x in range(60, 461, 30)]
+    widget._apply_eraser_stroke(points, 70)
+
+    assert "DELETE THIS TEXT" not in widget.document_service._pdf_page().get_text()
+    assert widget.document_service.can_undo
+    widget.document_service.undo()
+    assert "DELETE THIS TEXT" in widget.document_service._pdf_page().get_text()
+    widget.deleteLater()
+
+
+def test_styled_unicode_text_persists_after_save(tmp_path: Path) -> None:
+    source = _sample_pdf(tmp_path / "styled-source.pdf")
+    target = tmp_path / "styled-result.pdf"
+    inserted = "Русский Қазақша ӘҒҚҢӨҰҮҺІ"
     service = EnhancedDocumentService()
     service.open(source)
     service.add_styled_pdf_text(
-        (20, 100, 280, 160),
-        "Formatted replacement",
+        (20, 100, 280, 175),
+        inserted,
         fontname="hebi",
         font_size=14,
         color=(0.1, 0.2, 0.7),
@@ -100,7 +132,11 @@ def test_styled_text_can_be_inserted(tmp_path: Path) -> None:
         background=(0.9, 0.9, 0.5),
         replace=False,
     )
-    assert "Formatted replacement" in service._pdf_page().get_text()
+    service.save_as(target)
+
+    with fitz.open(target) as saved:
+        assert inserted in saved[0].get_text()
+        assert any(font[3].startswith("Helvetica") for font in saved.get_page_fonts(0))
 
 
 def test_overlay_accepts_visible_brush_points() -> None:
