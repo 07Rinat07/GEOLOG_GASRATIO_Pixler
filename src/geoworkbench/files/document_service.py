@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from io import BytesIO
 from pathlib import Path
-from typing import Any
 
 import fitz
 from PIL import Image, ImageEnhance, ImageOps

@@ -357,7 +357,7 @@ class ArchiveService:
         if backend is not None:
             try:
                 with backend.SevenZipFile(source, "r") as archive:
-                    archive.extractall(path=staging)
+                    archive.extractall(path=staging)  # nosec B202 - 7Z paths were validated by _validate_entries
                 return
             except Exception as exc:
                 raise ArchiveError(f"7Z не распакован: {exc}") from exc
