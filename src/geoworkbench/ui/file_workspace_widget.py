@@ -23,6 +23,8 @@ class FileWorkspaceWidget(QWidget):
     PyMuPDF or Pillow is absent.
     """
 
+    _missing_dependency: str = "неизвестный модуль"
+
     def __new__(
         cls,
         parent: QWidget | None = None,
