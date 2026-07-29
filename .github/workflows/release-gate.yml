@@ -139,6 +139,10 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
+          .\.venv\Scripts\python.exe tools/capture_file_workspace.py `
+            --output-dir build/ci-artifacts/windows-acceptance/files-workspace
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Upload Windows acceptance artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
