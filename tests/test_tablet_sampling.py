@@ -160,6 +160,32 @@ def test_select_visible_samples_does_not_bridge_real_gap_when_viewport_is_inside
     assert 2.0 < selected_axis[gap_positions[0]] < 100.0
 
 
+def test_sparse_time_updates_connect_but_real_timestamp_hole_still_breaks() -> None:
+    axis = np.concatenate(
+        (
+            np.arange(0.0, 11.0, 1.0),
+            np.arange(100.0, 106.0, 1.0),
+        )
+    )
+    values = np.full(axis.shape, np.nan, dtype=np.float64)
+    for timestamp, value in ((0.0, 1.0), (5.0, 2.0), (10.0, 3.0), (100.0, 4.0), (105.0, 5.0)):
+        values[np.flatnonzero(axis == timestamp)[0]] = value
+
+    selected_values, selected_axis = select_visible_samples(
+        axis,
+        values,
+        0.0,
+        105.0,
+        bridge_sparse_updates=True,
+    )
+
+    finite_values = selected_values[np.isfinite(selected_values)]
+    np.testing.assert_allclose(finite_values, [1.0, 2.0, 3.0, 4.0, 5.0])
+    gap_positions = np.flatnonzero(np.isnan(selected_values))
+    assert gap_positions.size == 1
+    assert 10.0 < selected_axis[gap_positions[0]] < 100.0
+
+
 def test_empty_time_viewport_snaps_to_nearest_recorded_window() -> None:
     axis = np.array([0.0, 1.0, 2.0, 100.0, 101.0, 102.0])
 

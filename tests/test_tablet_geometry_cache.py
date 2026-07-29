@@ -72,3 +72,38 @@ def test_geometry_cache_is_lru_bounded_and_invalidatable() -> None:
     assert cache.stats().evictions == 1
     assert cache.invalidate_curve("B") == 1
     assert cache.stats().entries == 1
+
+
+def test_geometry_cache_bridges_sparse_geoscape_datetime_updates_only() -> None:
+    axis = np.arange(0.0, 21.0, 1.0)
+    values = np.full(axis.shape, np.nan, dtype=np.float64)
+    values[::5] = np.arange(5, dtype=np.float64)
+    cache = CurveGeometryCache(max_entries=4)
+
+    time_key = CurveGeometryKey(
+        curve_id="ROP",
+        axis_id="dataset:paradox-datetime",
+        values_revision=("ROP", values.size),
+        axis_revision=("datetime", axis.size),
+        top=0.0,
+        bottom=20.0,
+        max_points=100,
+        positive_values_only=False,
+    )
+    depth_key = CurveGeometryKey(
+        curve_id="ROP-depth",
+        axis_id="md",
+        values_revision=("ROP-depth", values.size),
+        axis_revision=("md", axis.size),
+        top=0.0,
+        bottom=20.0,
+        max_points=100,
+        positive_values_only=False,
+    )
+
+    time_values, time_axis = cache.get_or_build(time_key, axis, values)
+    depth_values, _ = cache.get_or_build(depth_key, axis, values)
+
+    np.testing.assert_allclose(time_axis, [0.0, 5.0, 10.0, 15.0, 20.0])
+    np.testing.assert_allclose(time_values, [0.0, 1.0, 2.0, 3.0, 4.0])
+    assert np.count_nonzero(np.isnan(depth_values)) > 0

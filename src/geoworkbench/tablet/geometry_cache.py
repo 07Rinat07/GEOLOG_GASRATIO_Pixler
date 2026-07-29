@@ -10,6 +10,25 @@ from numpy.typing import NDArray
 from geoworkbench.tablet.sampling import select_visible_samples
 
 
+_PARADOX_SPARSE_TIME_AXIS_SUFFIXES = (
+    ":paradox-datetime",
+    ":paradox-elapsed",
+)
+
+
+def _bridges_sparse_time_updates(axis_id: Hashable) -> bool:
+    """Return whether a GeoScape/Paradox time axis uses sparse channel updates.
+
+    GeoScape writes a common time row while individual channels can remain NULL
+    until their next update.  Those NULL rows are not an acquisition outage and
+    must not fragment every curve on a time-based form.  The importer owns these
+    stable index-id suffixes, so depth/LAS axes retain the normal NULL-gap policy.
+    """
+
+    normalized = str(axis_id).strip().casefold()
+    return normalized.endswith(_PARADOX_SPARSE_TIME_AXIS_SUFFIXES)
+
+
 @dataclass(frozen=True, slots=True)
 class CurveGeometryKey:
     """Identity of one sampled curve geometry for a vertical viewport."""
@@ -79,6 +98,7 @@ class CurveGeometryCache:
             max_points=key.max_points,
             positive_values_only=key.positive_values_only,
             include_viewport_context=False,
+            bridge_sparse_updates=_bridges_sparse_time_updates(key.axis_id),
         )
         # Prevent accidental mutation of cached geometry by callers.
         sampled_values.setflags(write=False)
