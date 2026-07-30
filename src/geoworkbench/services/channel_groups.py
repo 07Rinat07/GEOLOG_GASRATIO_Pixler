@@ -38,6 +38,7 @@ NORMALIZED_GAS_MNEMONIC_ORDER = (
     "TOTAL_GAS_NORM",
     "NORM_TG",
     "TGNORM",
+    "TG_NORM_CALC",
     "C1_NORM",
     "C1_NORM_REF",
     "C2_NORM",
