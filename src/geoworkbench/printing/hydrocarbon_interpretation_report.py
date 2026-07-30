@@ -8,8 +8,8 @@ from PySide6.QtCore import QMarginsF
 from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter, QTextDocument
 
 from geoworkbench.domain.models import Dataset
-from geoworkbench.printing.hydrocarbon_interpretation_chart import (
-    hydrocarbon_interpretation_html_with_chart,
+from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
+    hydrocarbon_interpretation_html_with_front_chart,
 )
 from geoworkbench.printing.unicode_support import preflight_texts, print_font
 from geoworkbench.services.hydrocarbon_interpretation import (
@@ -57,7 +57,7 @@ def export_hydrocarbon_interpretation_pdf(
         writer.setTitle("Mud-gas interpretation report")
         writer.setCreator("GEOLOG GASRATIO@Pixler")
         html = (
-            hydrocarbon_interpretation_html_with_chart(report, dataset, language)
+            hydrocarbon_interpretation_html_with_front_chart(report, dataset, language)
             if include_chart and dataset is not None
             else hydrocarbon_interpretation_html(report, language)
         )
