@@ -220,7 +220,7 @@ class DrillingCalculationDialog(QDialog):
         combo = QComboBox()
         combo.setMinimumWidth(330)
         combo.addItem(self._text("Автоматически", "Автоматты", "Automatic"), "auto")
-        candidate_keys = (canonical,)
+        candidate_keys: tuple[str, ...] = (canonical,)
         if canonical == "FLOW_IN":
             candidate_keys = ("FLOW_IN", "FLOW_OUT")
         elif canonical == "MW_IN":
