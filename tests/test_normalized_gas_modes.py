@@ -128,7 +128,51 @@ def test_server_mode_does_not_create_or_update_local_normalized_curves() -> None
     assert dataset.curve_by_mnemonic("TG_NORM_CALC") is None
     assert "C1_NORM" in result.skipped
     assert "TG_NORM_CALC" not in result.changed
-    assert "NORMALIZED_TOTAL_GAS" in result.track_curves["normalized_gas"]
+    assert result.track_curves["normalized_gas"] == ("NORMALIZED_TOTAL_GAS",)
+
+
+def test_dedicated_normalized_gas_calculation_creates_only_normalized_curves() -> None:
+    session = _calculation_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    controller = InterpretationCalculationController(session)
+
+    result = controller.calculate_normalized_gas(
+        normalized_gas_mode=NormalizedGasCalculationMode.COMPARE
+    )
+
+    assert "TG_NORM_CALC" in result.changed
+    assert result.track_curves["gas_ratio_pixler"] == ()
+    assert result.track_curves["dexp"] == ()
+    assert dataset.curve_by_mnemonic("WH") is None
+    assert dataset.curve_by_mnemonic("DEXP") is None
+    assert result.track_curves["normalized_gas"][:2] == (
+        "NORMALIZED_TOTAL_GAS",
+        "TG_NORM_CALC",
+    )
+
+
+def test_existing_normalized_curves_can_be_shown_by_selected_mode() -> None:
+    session = _calculation_session()
+    controller = InterpretationCalculationController(session)
+    controller.calculate_normalized_gas(
+        normalized_gas_mode=NormalizedGasCalculationMode.COMPARE
+    )
+
+    server = controller.normalized_gas_track_result(
+        NormalizedGasCalculationMode.SERVER
+    )
+    local = controller.normalized_gas_track_result(NormalizedGasCalculationMode.LOCAL)
+    compare = controller.normalized_gas_track_result(
+        NormalizedGasCalculationMode.COMPARE
+    )
+
+    assert server.track_curves["normalized_gas"] == ("NORMALIZED_TOTAL_GAS",)
+    assert "TG_NORM_CALC" in local.track_curves["normalized_gas"]
+    assert compare.track_curves["normalized_gas"][:2] == (
+        "NORMALIZED_TOTAL_GAS",
+        "TG_NORM_CALC",
+    )
 
 
 def _comparison_session() -> ProjectSession:
