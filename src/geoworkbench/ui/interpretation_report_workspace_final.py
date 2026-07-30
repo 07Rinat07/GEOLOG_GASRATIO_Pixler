@@ -17,6 +17,13 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 "Calculate local normalized gas",
             )
         )
+        self.show_normalized_gas_button.setText(
+            self._text(
+                "Показать кривые нормализованного газа на планшете",
+                "Нормаланған газ қисықтарын планшетте көрсету",
+                "Show normalized-gas curves on tablet",
+            )
+        )
 
 
 __all__ = ["InterpretationReportWorkspace"]
