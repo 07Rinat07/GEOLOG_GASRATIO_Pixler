@@ -86,6 +86,14 @@ def test_standard_interpretation_suite_converts_field_units_and_creates_curves()
         "C1_C4",
         "C1_C5",
         "C1_NORM",
+        "C1_NORM_REF",
+        "C2_NORM",
+        "C3_NORM",
+        "IC4_NORM",
+        "NC4_NORM",
+        "IC5_NORM",
+        "NC5_NORM",
+        "TG_NORM",
         "DEXP",
         "DEXPC",
     }
@@ -101,6 +109,16 @@ def test_standard_interpretation_suite_converts_field_units_and_creates_curves()
         rtol=1e-7,
     )
     np.testing.assert_allclose(
+        dataset.curve_by_mnemonic("TG_NORM").values,
+        100.0 * 50.0 / 60.0,
+        rtol=1e-7,
+    )
+    np.testing.assert_allclose(
+        dataset.curve_by_mnemonic("C2_NORM").values,
+        10.0 * 50.0 / 60.0,
+        rtol=1e-7,
+    )
+    np.testing.assert_allclose(
         dataset.curve_by_mnemonic("DEXP").values,
         1.6368638103758524,
         rtol=1e-6,
@@ -111,7 +129,17 @@ def test_standard_interpretation_suite_converts_field_units_and_creates_curves()
         rtol=1e-6,
     )
     assert result.track_curves["gas_ratio_pixler"][:3] == ("WH", "BH", "CH")
-    assert result.track_curves["normalized_gas"] == ("C1_NORM",)
+    assert result.track_curves["normalized_gas"] == (
+        "TG_NORM",
+        "C1_NORM",
+        "C1_NORM_REF",
+        "C2_NORM",
+        "C3_NORM",
+        "IC4_NORM",
+        "NC4_NORM",
+        "IC5_NORM",
+        "NC5_NORM",
+    )
     assert result.track_curves["dexp"][:2] == ("DEXP", "DEXPC")
     assert session.dirty is True
 
@@ -128,3 +156,30 @@ def test_standard_interpretation_suite_does_not_overwrite_source_curve() -> None
     np.testing.assert_array_equal(dataset.curve_by_mnemonic("WH").values, original)
     assert "WH" in result.skipped
     assert any(issue.code == "source-protected" for issue in result.issues)
+
+
+def test_standard_suite_preserves_server_normalized_total_gas_alias() -> None:
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    server_values = np.full(dataset.depth.shape, 321.0)
+    _add_curve(
+        dataset,
+        "NORMALIZED_TOTAL_GAS",
+        server_values,
+        "normalized gas units",
+        provenance="source:server",
+    )
+
+    result = InterpretationCalculationController(session).calculate_standard_curves()
+
+    np.testing.assert_array_equal(
+        dataset.curve_by_mnemonic("NORMALIZED_TOTAL_GAS").values,
+        server_values,
+    )
+    assert dataset.curve_by_mnemonic("TG_NORM") is None
+    assert "TG_NORM" in result.skipped
+    assert any(
+        issue.code == "source-protected" and "NORMALIZED_TOTAL_GAS" in issue.message
+        for issue in result.issues
+    )

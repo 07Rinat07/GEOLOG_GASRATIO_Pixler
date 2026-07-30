@@ -28,6 +28,10 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
+from geoworkbench.services.lba_standard import (
+    LBA_STANDARD_GROUPS,
+    all_lba_color_labels,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 from geoworkbench.ui.rich_interval_text_editor import RichIntervalTextEditor
@@ -177,12 +181,13 @@ _TEXT = {
     },
 }
 
-_LBA_TYPES = (
-    ("ЛБ", "#22d3ee", "type_lb"),
-    ("МБ", "#facc15", "type_mb"),
-    ("МСБ", "#fb923c", "type_msb"),
-    ("СБ", "#be123c", "type_sb"),
-    ("САБ", "#92400e", "type_sab"),
+_LBA_TYPES = tuple(
+    (group.code, group.display_color, label_key)
+    for group, label_key in zip(
+        LBA_STANDARD_GROUPS,
+        ("type_lb", "type_mb", "type_msb", "type_sb", "type_sab"),
+        strict=True,
+    )
 )
 
 
@@ -460,7 +465,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self.lba_color_input = QComboBox()
         self.lba_color_input.setObjectName("lba-fluorescence-color")
         self.lba_color_input.setEditable(True)
-        self.lba_color_input.addItems(["", "БГ", "БЖ", "СЖ", "ГЖ", "Ж", "ОЖ", "О", "К", "ТК", "Ч"])
+        self.lba_color_input.addItems(["", *all_lba_color_labels(self._language)])
         self.lba_details_input = QLineEdit()
         self.lba_details_input.setObjectName("lba-description")
         details.addRow(self._text["lba_color"], self.lba_color_input)
@@ -477,7 +482,10 @@ class UnifiedCuttingsSampleDialog(QDialog):
             type_codes = {
                 code: index for index, (code, _color, _label) in enumerate(_LBA_TYPES, start=1)
             }
-            type_button = self.type_group.button(type_codes.get(sample.lba_type_id or "", -1))
+            type_index = type_codes.get(sample.lba_type_id or "")
+            if type_index is None and isinstance(sample.lba_group, int):
+                type_index = sample.lba_group
+            type_button = self.type_group.button(type_index or -1)
             if type_button is not None:
                 type_button.setChecked(True)
             intensity = (
@@ -546,8 +554,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
             else None,
             "lba_type_id": lba_type,
             "lba_intensity": normalized_intensity,
-            # Kept for compatibility with older projects where 1–5 was stored in lba_group.
-            "lba_group": normalized_intensity,
+            "lba_group": type_id if type_id > 0 else None,
             "lba_color": self.lba_color_input.currentText().strip() or None,
             "lba_description": self.lba_details_input.text().strip() or None,
             "analysis_interpretation": self.interpretation_input.toPlainText().strip() or None,

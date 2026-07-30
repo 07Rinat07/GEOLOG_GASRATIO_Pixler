@@ -11,7 +11,6 @@ import numpy as np
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QMarginsF, QRectF, Qt
 from PySide6.QtGui import (
     QColor,
-    QFont,
     QImage,
     QPageLayout,
     QPageSize,
@@ -23,11 +22,13 @@ from PySide6.QtGui import (
 
 from geoworkbench.domain.models import IndexRole
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.gas_ratio_interpretation import classify_gas_ratio
 from geoworkbench.services.las_parameter_resolver import (
     ParameterResolutionError,
     resolve_gas_ratio_inputs,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.printing.unicode_support import preflight_texts, print_font
 
 
 class GasMixtureRampReportError(RuntimeError):
@@ -253,7 +254,7 @@ def gas_mixture_ramp_html(
     cell_padding = "3px 5px" if include_chart else "4px 6px"
     return f"""
     <html><head><meta charset="utf-8"><style>
-    body {{ font-family: Arial, sans-serif; color:#172033; font-size:{base_font_size}; }}
+    body {{ color:#172033; font-size:{base_font_size}; }}
     h1 {{ font-size:18pt; margin:0 0 8px 0; }}
     h2 {{ font-size:13pt; margin:10px 0 5px 0; }}
     table {{ border-collapse:collapse; width:100%; margin:6px 0 10px 0; }}
@@ -319,14 +320,17 @@ def export_gas_mixture_ramp_pdf(
         writer.setResolution(300)
         writer.setTitle("Gas mixture ramp report")
         writer.setCreator("GEOLOG GASRATIO@Pixler")
-        document = QTextDocument()
-        document.setHtml(
-            gas_mixture_ramp_html(
-                report,
-                language,
-                include_chart=include_chart,
-            )
+        html = gas_mixture_ramp_html(
+            report,
+            language,
+            include_chart=include_chart,
         )
+        unicode_report = preflight_texts([html])
+        if not unicode_report.ok:
+            raise GasMixtureRampReportError(unicode_report.error_message())
+        document = QTextDocument()
+        document.setDefaultFont(print_font(9.0 if include_chart else 10.0, text=html))
+        document.setHtml(html)
         document.print_(writer)
         del writer
         if temporary.stat().st_size <= 0:
@@ -367,15 +371,25 @@ def _classify_mixture(representative: np.ndarray) -> tuple[str, str]:
     if not np.isfinite(total) or total <= np.finfo(np.float64).eps:
         return "background_or_no_hydrocarbons", "low"
     wetness = 100.0 * float(np.sum(representative[1:])) / total
+    balance_denominator = float(np.sum(representative[2:]))
+    balance = (
+        float((representative[0] + representative[1]) / balance_denominator)
+        if balance_denominator > np.finfo(np.float64).eps
+        else None
+    )
+    character = (
+        float((representative[3] + representative[4]) / representative[2])
+        if representative[2] > np.finfo(np.float64).eps
+        else None
+    )
     available_heavy = int(np.count_nonzero(representative[1:] > 0.0))
     confidence = "high" if available_heavy >= 3 else "medium" if available_heavy >= 1 else "low"
-    if wetness < 0.5:
-        return "probable_dry_gas", confidence
-    if wetness < 17.5:
-        return "probable_gas_or_condensate", confidence
-    if wetness <= 40.0:
-        return "probable_liquid_hydrocarbons", confidence
-    return "heavy_or_residual_hydrocarbons", confidence
+    assessment = classify_gas_ratio(
+        wetness=wetness,
+        balance=balance,
+        character=character,
+    )
+    return assessment.code, confidence
 
 
 def _summed_component(
@@ -407,7 +421,7 @@ def _chart_data_uri(
     painter = QPainter(image)
     try:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        title_font = QFont("Arial", 16)
+        title_font = print_font(16.0, text=_labels(language)["chart"])
         title_font.setBold(True)
         painter.setFont(title_font)
         painter.setPen(QColor("#172033"))
@@ -416,7 +430,7 @@ def _chart_data_uri(
             Qt.AlignmentFlag.AlignCenter,
             _labels(language)["chart"],
         )
-        painter.setFont(QFont("Arial", 9))
+        painter.setFont(print_font(9.0, text=_labels(language)["chart_scale"]))
         painter.drawText(
             QRectF(90, 48, 440, 20),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
@@ -440,7 +454,7 @@ def _chart_data_uri(
         y_max = float(np.max(np.log10(1.0 + finite_values))) if finite_values.size else 1.0
         y_max = max(1.0, y_max)
         grid_pen = QPen(QColor("#cbd5e1"), 1)
-        label_font = QFont("Arial", 9)
+        label_font = print_font(9.0, text=report.time_label)
         painter.setFont(label_font)
         for tick in range(6):
             fraction = tick / 5.0
@@ -496,8 +510,10 @@ def _chart_data_uri(
     payload = QByteArray()
     buffer = QBuffer(payload)
     buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-    image.save(buffer, "PNG")
-    return "data:image/png;base64," + bytes(payload.toBase64()).decode("ascii")
+    # PySide 6.11 accepts the documented string format at runtime while its
+    # bundled type stub still declares only a bytes-like format.
+    image.save(buffer, "PNG")  # type: ignore[call-overload]
+    return "data:image/png;base64," + bytes(payload.toBase64().data()).decode("ascii")
 
 
 def _labels(language: AppLanguage) -> dict[str, str]:
@@ -521,6 +537,24 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "probable_liquid_hydrocarbons": "вероятные жидкие УВ (нефть/конденсат)",
             "heavy_or_residual_hydrocarbons": "тяжёлые/остаточные жидкие УВ или загрязнённая проба",
             "background_or_no_hydrocarbons": "фоновый сигнал или недостаточно УВ-компонентов",
+            "very_light_dry_gas": "очень лёгкий сухой газ; возможно непродуктивный",
+            "light_dry_gas": "возможный лёгкий сухой газ",
+            "productive_gas_increasing_wetness": (
+                "газ с увеличением содержания тяжёлых УВ"
+            ),
+            "gas_increasing_wetness": "газ с увеличением содержания тяжёлых УВ",
+            "wet_gas_or_gas_condensate": "влажный газ или газоконденсат",
+            "light_oil_high_gor": "лёгкая нефть с высоким газовым фактором",
+            "gas_condensate_or_high_api_oil": (
+                "газоконденсат или лёгкая нефть с высоким API/GOR"
+            ),
+            "productive_oil_decreasing_gravity": (
+                "нефть с увеличением плотности"
+            ),
+            "poor_low_gravity_oil": (
+                "бедная тяжёлая нефть с низким газосодержанием"
+            ),
+            "heavy_or_residual_oil": "тяжёлая или остаточная нефть",
             "low": "низкая",
             "medium": "средняя",
             "high": "высокая",
@@ -544,6 +578,22 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "probable_liquid_hydrocarbons": "ықтимал сұйық көмірсутектер",
             "heavy_or_residual_hydrocarbons": "ауыр/қалдық сұйық көмірсутектер немесе ластанған сынама",
             "background_or_no_hydrocarbons": "фондық сигнал немесе көмірсутек компоненттері жеткіліксіз",
+            "very_light_dry_gas": "өте жеңіл құрғақ газ; өнімсіз болуы мүмкін",
+            "light_dry_gas": "ықтимал жеңіл құрғақ газ",
+            "productive_gas_increasing_wetness": (
+                "ауыр көмірсутектер мөлшері артатын газ"
+            ),
+            "gas_increasing_wetness": "ауыр көмірсутектер мөлшері артатын газ",
+            "wet_gas_or_gas_condensate": "ылғалды газ немесе газ конденсаты",
+            "light_oil_high_gor": "газ факторы жоғары жеңіл мұнай",
+            "gas_condensate_or_high_api_oil": (
+                "газ конденсаты немесе API/GOR жоғары жеңіл мұнай"
+            ),
+            "productive_oil_decreasing_gravity": (
+                "тығыздығы артатын мұнай"
+            ),
+            "poor_low_gravity_oil": "газ мөлшері аз ауыр мұнай",
+            "heavy_or_residual_oil": "ауыр немесе қалдық мұнай",
             "low": "төмен",
             "medium": "орташа",
             "high": "жоғары",
@@ -567,6 +617,26 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "probable_liquid_hydrocarbons": "probable liquid hydrocarbons (oil/condensate)",
             "heavy_or_residual_hydrocarbons": "heavy/residual liquid hydrocarbons or contaminated sample",
             "background_or_no_hydrocarbons": "background response or insufficient hydrocarbon components",
+            "very_light_dry_gas": (
+                "very light dry gas; possibly non-productive"
+            ),
+            "light_dry_gas": "possible light dry gas",
+            "productive_gas_increasing_wetness": (
+                "gas with increasing heavy-hydrocarbon content"
+            ),
+            "gas_increasing_wetness": (
+                "gas with increasing heavy-hydrocarbon content"
+            ),
+            "wet_gas_or_gas_condensate": "wet gas or gas condensate",
+            "light_oil_high_gor": "light oil with high GOR",
+            "gas_condensate_or_high_api_oil": (
+                "gas condensate or high-API/high-GOR light oil"
+            ),
+            "productive_oil_decreasing_gravity": (
+                "oil with increasing density"
+            ),
+            "poor_low_gravity_oil": "poor low-gravity oil with low gas content",
+            "heavy_or_residual_oil": "heavy or residual oil",
             "low": "low",
             "medium": "medium",
             "high": "high",

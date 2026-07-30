@@ -37,6 +37,34 @@ class InterpretationCalculationIssue:
 
 
 @dataclass(frozen=True, slots=True)
+class NormalizedGasReference:
+    """Explicit field reference used by the C1-C5 normalization profiles."""
+
+    rop_ref_fph: float = 50.0
+    bit_ref_in: float = 10.0
+    flow_ref_gpm: float = 500.0
+    gas_system_efficiency: float = 1.0
+
+    def parameters(self) -> dict[str, float]:
+        values = {
+            "ROP_REF_FPH": float(self.rop_ref_fph),
+            "BIT_REF_IN": float(self.bit_ref_in),
+            "FLOW_REF_GPM": float(self.flow_ref_gpm),
+            "GAS_SYSTEM_EFFICIENCY": float(self.gas_system_efficiency),
+        }
+        if not all(np.isfinite(value) and value > 0.0 for value in values.values()):
+            raise ValueError(
+                "Эталонные ROP, диаметр долота, расход и эффективность должны быть больше нуля"
+            )
+        if self.gas_system_efficiency > 1.0:
+            raise ValueError("Эффективность газовой системы должна быть не больше 1")
+        return values
+
+
+DEFAULT_NORMALIZED_GAS_REFERENCE = NormalizedGasReference()
+
+
+@dataclass(frozen=True, slots=True)
 class InterpretationCalculationResult:
     created: tuple[str, ...]
     updated: tuple[str, ...]
@@ -62,12 +90,19 @@ class InterpretationCalculationController:
         self,
         *,
         normal_mud_density_ppg: float | None = None,
+        normalized_gas_reference: NormalizedGasReference
+        | None = DEFAULT_NORMALIZED_GAS_REFERENCE,
     ) -> InterpretationCalculationResult:
         dataset = self._require_dataset()
         if normal_mud_density_ppg is not None and (
             not np.isfinite(normal_mud_density_ppg) or normal_mud_density_ppg <= 0.0
         ):
             raise ValueError("Нормальная плотность раствора должна быть больше нуля")
+        normalized_parameters = (
+            normalized_gas_reference.parameters()
+            if normalized_gas_reference is not None
+            else None
+        )
 
         created: list[str] = []
         updated: list[str] = []
@@ -106,6 +141,19 @@ class InterpretationCalculationController:
                 skipped=skipped,
                 issues=issues,
             )
+            if normalized_parameters is not None:
+                self._calculate_reference_normalized_gas(
+                    dataset,
+                    gas_inputs,
+                    rop=rop,
+                    bit=bit,
+                    flow=flow,
+                    parameters=normalized_parameters,
+                    created=created,
+                    updated=updated,
+                    skipped=skipped,
+                    issues=issues,
+                )
         else:
             missing = self._missing_names(
                 (("C1", gas_inputs.get("C1") if gas_inputs else None), ("ROP", rop), ("BIT", bit), ("FLOW", flow))
@@ -258,6 +306,75 @@ class InterpretationCalculationController:
             )
         return gas_inputs
 
+    def _calculate_reference_normalized_gas(
+        self,
+        dataset: Dataset,
+        gas_inputs: dict[str, Array],
+        *,
+        rop: Array,
+        bit: Array,
+        flow: Array,
+        parameters: dict[str, float],
+        created: list[str],
+        updated: list[str],
+        skipped: list[str],
+        issues: list[InterpretationCalculationIssue],
+    ) -> None:
+        expanded = self._expanded_gas_inputs(gas_inputs)
+        common_inputs = {
+            "FLOW_GPM": flow,
+            "ROP_FPH": rop,
+            "BIT_IN": bit,
+        }
+        profile_components = (
+            ("C1", "gas.normalized_c1_reference_us20150060054"),
+            ("C2", "gas.normalized_c2_reference_us20150060054"),
+            ("C3", "gas.normalized_c3_reference_us20150060054"),
+            ("IC4", "gas.normalized_ic4_reference_us20150060054"),
+            ("NC4", "gas.normalized_nc4_reference_us20150060054"),
+            ("IC5", "gas.normalized_ic5_reference_us20150060054"),
+            ("NC5", "gas.normalized_nc5_reference_us20150060054"),
+        )
+        for component, profile_id in profile_components:
+            # Do not expose a fabricated zero isomer when the source LAS only
+            # contains a summed C4 or C5 channel. The summed value still enters TG_NORM.
+            if component not in gas_inputs and component not in {"C1", "C2", "C3"}:
+                continue
+            self._calculate_profile(
+                dataset,
+                profile_id,
+                {
+                    component: expanded[component],
+                    **common_inputs,
+                },
+                parameters=parameters,
+                created=created,
+                updated=updated,
+                skipped=skipped,
+                issues=issues,
+            )
+
+        total_passport = self.registry.passport(
+            "gas.normalized_total_reference_us20150060054"
+        )
+        self._calculate_profile(
+            dataset,
+            total_passport.profile_id,
+            {
+                name: (
+                    common_inputs[name]
+                    if name in common_inputs
+                    else expanded[name]
+                )
+                for name in total_passport.required_inputs
+            },
+            parameters=parameters,
+            created=created,
+            updated=updated,
+            skipped=skipped,
+            issues=issues,
+        )
+
     @staticmethod
     def _expanded_gas_inputs(inputs: dict[str, Array]) -> dict[str, Array]:
         expanded = dict(inputs)
@@ -279,6 +396,7 @@ class InterpretationCalculationController:
         profile_id: str,
         inputs: dict[str, Array | None],
         *,
+        parameters: dict[str, float] | None = None,
         created: list[str],
         updated: list[str],
         skipped: list[str],
@@ -289,6 +407,7 @@ class InterpretationCalculationController:
             values = self.registry.calculate(
                 profile_id,
                 {name: np.asarray(value, dtype=np.float64) for name, value in inputs.items()},
+                parameters,
             )
         except (KeyError, ValueError, FloatingPointError) as exc:
             skipped.append(passport.output_mnemonic)
@@ -299,21 +418,27 @@ class InterpretationCalculationController:
                 )
             )
             return
+        provenance = f"calculation:{profile_id}:{passport.version}"
+        if parameters:
+            parameter_text = ",".join(
+                f"{name}={value:.8g}" for name, value in sorted(parameters.items())
+            )
+            provenance += f";{parameter_text}"
         self._install_curve(
             dataset,
             passport.output_mnemonic,
             values,
             unit=passport.output_unit,
             description=passport.display_name,
-            provenance=f"calculation:{profile_id}:{passport.version}",
+            provenance=provenance,
             created=created,
             updated=updated,
             skipped=skipped,
             issues=issues,
         )
 
-    @staticmethod
     def _install_curve(
+        self,
         dataset: Dataset,
         mnemonic: str,
         values: Array,
@@ -327,12 +452,18 @@ class InterpretationCalculationController:
         issues: list[InterpretationCalculationIssue],
     ) -> None:
         existing = dataset.curve_by_mnemonic(mnemonic)
+        if existing is None:
+            semantic = self.resolver.resolve_dataset(dataset, targets=(mnemonic,))
+            match = semantic.get(mnemonic)
+            if match is not None:
+                existing = match.curve
         if existing is not None and not existing.metadata.provenance.startswith("calculation:"):
             skipped.append(mnemonic)
             issues.append(
                 InterpretationCalculationIssue(
                     "source-protected",
-                    f"{mnemonic}: исходная кривая сохранена без перезаписи.",
+                    f"{mnemonic}: готовая кривая {existing.metadata.original_mnemonic} "
+                    "из файла/сервера сохранена без перезаписи.",
                 )
             )
             return

@@ -13,6 +13,7 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
+    CuttingsSample,
     Dataset,
     DatasetKind,
     DepthDomain,
@@ -112,7 +113,7 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert candidate.bottom_depth >= 1_042.0
     assert candidate.sample_count == 3
     assert candidate.anomaly_strength == "high"
-    assert candidate.fluid_hypothesis == "probable_liquid_hydrocarbons"
+    assert candidate.fluid_hypothesis == "heavy_or_residual_oil"
     assert candidate.wetness_robust_z is not None
     assert candidate.wetness_robust_z > 2.0
     assert ("WH", 12.0) in candidate.metrics
@@ -126,7 +127,7 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert "td { background: #ffffff; }" in html
     assert "Well &lt;A&gt;" in html
     assert "Кандидатные интервалы" in html
-    assert "вероятные жидкие УВ" in html
+    assert "тяжёлая или остаточная нефть" in html
     assert "Check DST" in html
 
 
@@ -158,8 +159,11 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         assert workbook["Candidate intervals"].max_row == 2
         assert (
             workbook["Candidate intervals"]["I2"].value
-            == "probable_liquid_hydrocarbons"
+            == "heavy_or_residual_oil"
         )
+        assert workbook["Candidate intervals"]["M1"].value == "interval_balance_bh"
+        assert workbook["Candidate intervals"]["N1"].value == "interval_character_ch"
+        assert workbook["Candidate intervals"]["T1"].value == "gas_lba_correlation"
         assert workbook["Whole well"].max_row == dataset.depth.size + 1
     finally:
         workbook.close()
@@ -167,7 +171,8 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         assert package.testzip() is None
         document = package.read("word/document.xml").decode("utf-8")
         assert "Кандидатные интервалы" in document
-        assert "жидкие УВ" in document
+        assert "тяжёлая или остаточная нефть" in document
+        assert "Точек выше порога" in document
         assert "Check DST" in document
 
 
@@ -197,6 +202,35 @@ def test_report_falls_back_from_sparse_normalized_gas_to_total_gas() -> None:
     assert len(report.candidates) == 1
 
 
+def test_report_uses_server_normalized_gas_alias_and_discloses_its_origin() -> None:
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    server_values = np.ones(dataset.depth.shape)
+    server_values[65:68] = (75.0, 115.0, 85.0)
+    dataset.curves["server-tg-norm"] = CurveData(
+        CurveMetadata(
+            "server-tg-norm",
+            "NORMALIZED_TOTAL_GAS",
+            "NORMALIZED_TOTAL_GAS",
+            "normalized gas units",
+            "Operator normalized total gas",
+            dataset.dataset_id,
+            "source:server",
+        ),
+        server_values,
+    )
+
+    report = build_hydrocarbon_interpretation_report(session)
+
+    assert report.primary_mnemonic == "NORMALIZED_TOTAL_GAS"
+    assert any(
+        "NORMALIZED_TOTAL_GAS" in warning and "из файла/сервера" in warning
+        for warning in report.warnings
+    )
+    assert len(report.candidates) == 1
+
+
 def test_report_can_interpret_probable_gas_without_claiming_final_fluid_type() -> None:
     session = _session()
     dataset = session.current_dataset
@@ -207,10 +241,54 @@ def test_report_can_interpret_probable_gas_without_claiming_final_fluid_type() -
 
     report = build_hydrocarbon_interpretation_report(session)
 
-    assert report.candidates[0].fluid_hypothesis == "probable_gas"
+    assert report.candidates[0].fluid_hypothesis == "very_light_dry_gas"
     html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
-    assert "вероятный газ" in html
+    assert "очень лёгкий сухой газ" in html
     assert "Категория «вода» по mud-gas не назначается" in html
+
+
+def test_sparse_heavy_components_use_integrated_interval_composition() -> None:
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    for mnemonic in ("C2", "C3", "IC4", "NC4", "IC5", "NC5"):
+        values = dataset.curve_by_mnemonic(mnemonic).values
+        values[40:43] = (0.0, 0.0, 0.001)
+
+    report = build_hydrocarbon_interpretation_report(session)
+
+    candidate = report.candidates[0]
+    assert candidate.interval_wetness is not None
+    assert candidate.interval_wetness > 0.0
+    html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+    assert f"{candidate.interval_wetness:.5f}%" in html
+    assert "Точек выше порога" in html
+
+
+def test_report_correlates_gas_interpretation_with_overlapping_lba() -> None:
+    session = _session()
+    well = session.current_well
+    assert well is not None
+    well.cuttings.append(
+        CuttingsSample(
+            "lba-overlap",
+            1_039.5,
+            1_043.5,
+            lba_group=4,
+            lba_type_id="СБ",
+            lba_intensity=4,
+            lba_color="ОК — оранжево-коричневый",
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session)
+
+    candidate = report.candidates[0]
+    assert candidate.gas_lba_correlation == "concordant"
+    assert candidate.lba_assessments[0].standard.code == "СБ"
+    html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+    assert "ЛБА: группа 4" in html
+    assert "признаки согласуются" in html
 
 
 def test_xlsx_export_rejects_mismatched_curve_lengths(tmp_path) -> None:

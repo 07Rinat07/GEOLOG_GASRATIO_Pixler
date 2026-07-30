@@ -226,8 +226,11 @@ def test_factory_templates_include_specialized_gas_ratio_pixler_workflows() -> N
     }
     assert {
         "ROP",
-        "TOTAL_GAS",
-        "NORMALIZED_TOTAL_GAS",
+        "TG_CALC",
+        "TG_NORM",
+        "C1_NORM_REF",
+        "C2_NORM",
+        "C3_NORM",
         "C1",
         "C2",
         "C3",
@@ -251,6 +254,38 @@ def test_factory_templates_include_specialized_gas_ratio_pixler_workflows() -> N
     assert depth_form.print_header_for_orientation("landscape") == (
         "factory-header:a4_gas_interpretation_landscape"
     )
+
+
+def test_factory_normalized_gas_templates_use_real_calculation_outputs() -> None:
+    templates = factory_templates()
+    normalized_ids = {
+        "factory-gas-ratio",
+        "factory-gas-ratio-pixler-depth",
+        "factory-gas-ratio-pixler-time",
+        "factory-normalized-gas-qc",
+    }
+    canonical = {
+        binding.canonical_parameter_id
+        for template in templates.values()
+        if template.form_id in normalized_ids
+        for column in template.columns
+        for track in column.tracks
+        for binding in track.bindings
+    }
+
+    assert {
+        "TG_CALC",
+        "TG_NORM",
+        "C1_NORM_REF",
+        "C2_NORM",
+        "C3_NORM",
+    }.issubset(canonical)
+    assert {
+        "NORMALIZED_TOTAL_GAS",
+        "HC_SUM_NORM",
+        "K_NORM",
+        "NORM_VALID",
+    }.isdisjoint(canonical)
 
 
 def test_form_codec_preserves_orientation_specific_print_headers() -> None:

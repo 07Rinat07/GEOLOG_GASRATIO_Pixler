@@ -223,7 +223,7 @@ def report_render_settings(job: PrintJobSettings) -> ReportRenderSettings:
                 ),
                 (
                     "repeat_column_header_at_bottom",
-                    job.repeat_column_header_at_bottom,
+                    str(job.repeat_column_header_at_bottom).lower(),
                 ),
             )
             if item is not None

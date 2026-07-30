@@ -17,6 +17,11 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.domain.models import CuttingsSample
+from geoworkbench.services.lba_standard import (
+    LBA_STANDARD_GROUPS,
+    all_lba_color_labels,
+    lba_intensity_name,
+)
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -89,31 +94,6 @@ _TEXT = {
     ),
 }
 
-_INTENSITY_ITEMS = {
-    AppLanguage.RU: (
-        "1 — одиночные точки",
-        "2 — прерывистое кольцо",
-        "3 — тонкое кольцо",
-        "4 — толстое кольцо",
-        "5 — сплошное пятно",
-    ),
-    AppLanguage.KK: (
-        "1 — жеке нүктелер",
-        "2 — үзік сақина",
-        "3 — жұқа сақина",
-        "4 — қалың сақина",
-        "5 — тұтас дақ",
-    ),
-    AppLanguage.EN: (
-        "1 — single points",
-        "2 — broken ring",
-        "3 — thin ring",
-        "4 — thick ring",
-        "5 — solid spot",
-    ),
-}
-
-
 def _editable_combo(items: list[str]) -> QComboBox:
     control = QComboBox()
     control.setEditable(True)
@@ -149,35 +129,24 @@ class SampleAnalysisDialog(QDialog):
 
         self.lba_group_input = QComboBox()
         self.lba_group_input.addItem("—", None)
-        for group in range(1, 6):
-            self.lba_group_input.addItem(str(group), group)
-        self.lba_type_input = _editable_combo(["ЛБ", "МБ", "МСБ", "СБ", "САБ"])
+        for standard in LBA_STANDARD_GROUPS:
+            self.lba_group_input.addItem(
+                f"{standard.group} — {standard.code}: "
+                f"{standard.localized_type_name(language)}",
+                standard.group,
+            )
+        self.lba_type_input = _editable_combo(
+            [standard.code for standard in LBA_STANDARD_GROUPS]
+        )
+        self.lba_group_input.currentIndexChanged.connect(self._on_lba_group_changed)
         self.lba_intensity_input = QComboBox()
         self.lba_intensity_input.addItem("—", None)
-        for intensity, label in enumerate(_INTENSITY_ITEMS[language], start=1):
-            self.lba_intensity_input.addItem(label, intensity)
-        self.lba_color_input = _editable_combo(
-            [
-                "БГ — беловато-голубой",
-                "Б — белый",
-                "БЖ",
-                "СЖ",
-                "ГЖ",
-                "ЗЖ",
-                "Ж",
-                "ОЖ",
-                "О",
-                "СК",
-                "ОК",
-                "К",
-                "ТК",
-                "ЗК",
-                "ЧЗ",
-                "КК",
-                "ЧК",
-                "Ч",
-            ]
-        )
+        for intensity in range(1, 6):
+            self.lba_intensity_input.addItem(
+                f"{intensity} — {lba_intensity_name(intensity, language)}",
+                intensity,
+            )
+        self.lba_color_input = _editable_combo(list(all_lba_color_labels(language)))
         self.lba_distribution_input = _editable_combo(["Pinpoint", "Spotty", "Patchy", "Even"])
         self.lba_cut_input = _editable_combo(
             ["Flash", "Blooming", "Streaming", "Cloudy", "Diffuse"]
@@ -236,6 +205,15 @@ class SampleAnalysisDialog(QDialog):
         self.resize(620, 650)
         if sample is not None:
             self._load_sample(sample)
+
+    def _on_lba_group_changed(self) -> None:
+        group = self.lba_group_input.currentData()
+        standard = next(
+            (item for item in LBA_STANDARD_GROUPS if item.group == group),
+            None,
+        )
+        if standard is not None:
+            self.lba_type_input.setCurrentText(standard.code)
 
     def _load_sample(self, sample: CuttingsSample) -> None:
         if sample.calcite_percent is not None:

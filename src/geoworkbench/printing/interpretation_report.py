@@ -11,11 +11,17 @@ from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter, QTextDocument
 
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.lba_standard import (
+    LbaStandardAssessment,
+    assess_lba_standard,
+    describe_lba_assessment,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.report_passport import ReportPassport
 from geoworkbench.services.report_output_transaction import (
     execute_report_output_transaction,
 )
+from geoworkbench.printing.unicode_support import preflight_texts, print_font
 
 
 class InterpretationReportError(RuntimeError):
@@ -48,6 +54,7 @@ class AnalysisInterpretationEntry:
     dolomite_percent: float | None
     insoluble_residue_percent: float | None
     lba_observations: tuple[tuple[str, str], ...]
+    lba_standard_assessment: LbaStandardAssessment | None
     interpretation: str | None
 
     @property
@@ -107,6 +114,12 @@ def _entry_from_sample(sample: CuttingsSample) -> AnalysisInterpretationEntry | 
     interpretation = (
         sample.analysis_interpretation.strip() if sample.analysis_interpretation else None
     )
+    lba_standard_assessment = assess_lba_standard(
+        group=sample.lba_group,
+        type_id=sample.lba_type_id,
+        color=sample.lba_color,
+        intensity=sample.lba_intensity,
+    )
     if not has_calcimetry and not observations and not interpretation:
         return None
     return AnalysisInterpretationEntry(
@@ -117,6 +130,7 @@ def _entry_from_sample(sample: CuttingsSample) -> AnalysisInterpretationEntry | 
         sample.dolomite_percent,
         sample.insoluble_residue_percent,
         observations,
+        lba_standard_assessment,
         interpretation,
     )
 
@@ -134,6 +148,7 @@ _LABELS = {
         "lba": "ЛБА",
         "interpretation": "Интерпретация геолога",
         "insoluble": "Нерастворимый остаток",
+        "lba_standard": "Оценка по стандарту ЛБА",
         "empty": "Результаты кальциметрии, ЛБА и интерпретации пока не заполнены.",
         "notice": (
             "Исходные наблюдения и экспертное заключение приведены раздельно. "
@@ -152,6 +167,7 @@ _LABELS = {
         "lba": "ЛБА",
         "interpretation": "Геолог интерпретациясы",
         "insoluble": "Ерімейтін қалдық",
+        "lba_standard": "ЛБА стандарты бойынша бағалау",
         "empty": "Кальциметрия, ЛБА және интерпретация нәтижелері әлі толтырылмаған.",
         "notice": (
             "Бастапқы бақылаулар мен сараптамалық қорытынды бөлек берілген. "
@@ -170,6 +186,7 @@ _LABELS = {
         "lba": "LBA",
         "interpretation": "Geologist interpretation",
         "insoluble": "Insoluble residue",
+        "lba_standard": "Standard LBA assessment",
         "empty": "No calcimetry, LBA, or interpretation results have been entered yet.",
         "notice": (
             "Source observations and the expert interpretation are shown separately. "
@@ -236,14 +253,17 @@ def interpretation_report_html(
         lba=report.lba_count,
         interpreted=report.interpreted_count,
     )
-    rows = "".join(_entry_html(entry, labels, _LBA_LABELS[language]) for entry in report.entries)
+    rows = "".join(
+        _entry_html(entry, labels, _LBA_LABELS[language], language)
+        for entry in report.entries
+    )
     if not rows:
         rows = f'<tr><td colspan="4">{escape(labels["empty"])}</td></tr>'
     dataset = report.dataset_name or "—"
     return f"""
 <!doctype html>
 <html><head><meta charset="utf-8"><style>
-body {{ font-family: sans-serif; color: #172033; font-size: 10pt; }}
+body {{ color: #172033; font-size: 10pt; }}
 h1 {{ font-size: 17pt; margin-bottom: 10px; }}
 .meta {{ margin-bottom: 10px; }}
 .notice {{ margin-top: 12px; padding: 7px; background: #fff7d6; }}
@@ -268,6 +288,7 @@ def _entry_html(
     entry: AnalysisInterpretationEntry,
     labels: dict[str, str],
     lba_labels: dict[str, str],
+    language: AppLanguage,
 ) -> str:
     calcimetry = "—"
     if entry.has_calcimetry:
@@ -281,12 +302,16 @@ def _entry_html(
             for name, value in values
             if value is not None
         )
-    lba = (
-        "<br>".join(
-            f"{escape(lba_labels[key])}: {escape(value)}" for key, value in entry.lba_observations
+    lba_parts = [
+        f"{escape(lba_labels[key])}: {escape(value)}"
+        for key, value in entry.lba_observations
+    ]
+    if entry.lba_standard_assessment is not None:
+        lba_parts.append(
+            f"<b>{escape(labels['lba_standard'])}:</b> "
+            f"{escape(describe_lba_assessment(entry.lba_standard_assessment, language))}"
         )
-        or "—"
-    )
+    lba = "<br>".join(lba_parts) or "—"
     interpretation = escape(entry.interpretation or "—").replace("\n", "<br>")
     return (
         f"<tr><td>{entry.top_depth:g}–{entry.bottom_depth:g}</td>"
@@ -345,8 +370,13 @@ def export_interpretation_report_pdf(
         writer.setResolution(300)
         writer.setTitle(_LABELS[language]["title"])
         writer.setCreator("GEOLOG GASRATIO@Pixler")
+        html = interpretation_report_html(report, language)
+        unicode_report = preflight_texts([html])
+        if not unicode_report.ok:
+            raise InterpretationReportError(unicode_report.error_message())
         document = QTextDocument()
-        document.setHtml(interpretation_report_html(report, language))
+        document.setDefaultFont(print_font(10.0, text=html))
+        document.setHtml(html)
         document.print_(writer)
         del writer
         if not temporary.exists() or temporary.stat().st_size == 0:

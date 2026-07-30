@@ -180,6 +180,65 @@ _PARAMETER_ALIASES: dict[str, tuple[str, ...]] = {
         "ОБЩИЙ ГАЗ",
         "ЖАЛПЫ ГАЗ",
     ),
+    "TG_NORM": (
+        "TG_NORM",
+        "TGNORM",
+        "TG NORM",
+        "NORM_TG",
+        "TG_N",
+        "NORMALIZED_TG",
+        "NORMALIZED TOTAL GAS",
+        "NORMALIZED_TOTAL_GAS",
+        "TOTAL GAS NORM",
+        "TOTAL_GAS_NORM",
+        "НОРМАЛИЗОВАННЫЙ ГАЗ",
+        "НОРМАЛИЗОВАННЫЙ СУММАРНЫЙ ГАЗ",
+    ),
+    "C1_NORM": (
+        "C1_NORM",
+        "C1NORM",
+        "C1 NORM",
+        "NORM_C1",
+        "C1_N",
+        "NORMALIZED_C1",
+    ),
+    "C1_NORM_REF": (
+        "C1_NORM_REF",
+        "C1NORMREF",
+        "C1 NORM REF",
+        "C1_REFERENCE_NORM",
+        "REFERENCE_NORMALIZED_C1",
+    ),
+    "C2_NORM": ("C2_NORM", "C2NORM", "C2 NORM", "NORM_C2", "C2_N", "NORMALIZED_C2"),
+    "C3_NORM": ("C3_NORM", "C3NORM", "C3 NORM", "NORM_C3", "C3_N", "NORMALIZED_C3"),
+    "IC4_NORM": (
+        "IC4_NORM",
+        "IC4NORM",
+        "IC4 NORM",
+        "NORM_IC4",
+        "NORMALIZED_IC4",
+    ),
+    "NC4_NORM": (
+        "NC4_NORM",
+        "NC4NORM",
+        "NC4 NORM",
+        "NORM_NC4",
+        "NORMALIZED_NC4",
+    ),
+    "IC5_NORM": (
+        "IC5_NORM",
+        "IC5NORM",
+        "IC5 NORM",
+        "NORM_IC5",
+        "NORMALIZED_IC5",
+    ),
+    "NC5_NORM": (
+        "NC5_NORM",
+        "NC5NORM",
+        "NC5 NORM",
+        "NORM_NC5",
+        "NORMALIZED_NC5",
+    ),
     "CO2": ("CO2", "CARBON DIOXIDE", "УГЛЕКИСЛЫЙ ГАЗ", "ДИОКСИД УГЛЕРОДА"),
     "H2S": ("H2S", "HYDROGEN SULFIDE", "СЕРОВОДОРОД", "КҮКІРТТІ СУТЕК"),
     "N2": ("N2", "NITROGEN", "АЗОТ"),
@@ -489,6 +548,11 @@ class LasParameterResolver:
                     continue
                 if alias_key in key or key in alias_key:
                     for canonical in canonicals:
+                        if "_NORM" in canonical and not any(
+                            marker in key
+                            for marker in ("NORM", "NORMALIZ", "НОРМАЛИЗ", "НОРМАЛ")
+                        ):
+                            continue
                         self._add_candidate(
                             candidates,
                             ParameterMatch(

@@ -72,6 +72,34 @@ def test_resolver_understands_cyrillic_homoglyphs_and_chemical_formulas() -> Non
     assert resolution.require("C3").canonical_mnemonic == "C3"
 
 
+def test_resolver_recognizes_server_normalized_gas_aliases() -> None:
+    dataset = _dataset(
+        (
+            "NORMALIZED_TOTAL_GAS",
+            "Operator normalized total gas",
+            "normalized gas units",
+            [12.0, 14.0],
+        ),
+        ("NORM_C2", "Normalized ethane", "normalized gas units", [1.2, 1.4]),
+    )
+
+    resolution = LasParameterResolver().resolve_dataset(
+        dataset,
+        targets=("TG_NORM", "C2_NORM"),
+    )
+
+    assert resolution.require("TG_NORM").source_mnemonic == "NORMALIZED_TOTAL_GAS"
+    assert resolution.require("C2_NORM").source_mnemonic == "NORM_C2"
+
+
+def test_plain_total_gas_is_not_mistaken_for_normalized_total_gas() -> None:
+    dataset = _dataset(("TGAS", "TOTAL_GAS", "%", [12.0, 14.0]))
+
+    resolution = LasParameterResolver().resolve_dataset(dataset, targets=("TG_NORM",))
+
+    assert resolution.get("TG_NORM") is None
+
+
 def test_gas_inputs_are_converted_to_common_percent_scale() -> None:
     dataset = _dataset(
         ("CH4", "Methane", "ppm", [10_000.0, 20_000.0]),

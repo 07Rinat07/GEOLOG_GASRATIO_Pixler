@@ -296,12 +296,15 @@ lithology, drilling conditions, sensor quality, and other pressure-evaluation me
 ## Mud-gas interpretation reports
 
 The dedicated **Interpretation reports** tab calculates `WH/BH/CH`, Pixler ratios,
-`C1_NORM`, `DEXP`, and optional `DEXPC`, creates separate tracks, and scans the whole
+`C1_NORM`, reference-normalized C1–C5, `TG_NORM`, `DEXP`, and optional `DEXPC`,
+creates separate tracks, and scans the whole
 current well for relative gas anomalies. Its output is a candidate interval that still
 requires a geologist's confirmation. The tab exports a whole-well XLSX, DOCX, PDF, and
 supports system printing. It also provides **Gas mixture ramp**: a C1–C5 sample response
 versus time, baseline-corrected composition, Wh/Bh/Ch, Pixler ratios, and a preliminary
 gas/condensate/liquid-or-heavy-hydrocarbon result. A separate compact mode omits the chart.
+Depth candidates are correlated with overlapping LBA samples while the geologist's
+source conclusion remains separate.
 See [Mud-gas interpretation](MUD_GAS_INTERPRETATION.md) for
 the workflow, formulas, and limitations.
 
@@ -382,7 +385,8 @@ fractions from 0 to 100%; their sum cannot exceed 100%. Once both are entered, i
 is calculated as `100 − Ca − Dol` and shown as the third part of the percentage bar. A blank field
 means not measured, while an entered zero is a measured result.
 
-On the LBA tab, record bitumoid group/type, intensity from 1 to 5, and fluorescence color/form.
+On the LBA tab, record the bitumoid group/type and, separately, intensity from 1 to 5
+plus fluorescence colour/form.
 When available, add solvent-cut type, speed and color, residue type/color, odour, stain and a
 free-text description. On the Interpretation tab, the geologist records an interval conclusion;
 it is stored separately from source observations. Lists remain editable for project-specific
@@ -395,8 +399,9 @@ does not replace instrument calibration or infer hydrocarbon saturation from flu
 See [`docs/CALCIMETRY_LBA.md`](../CALCIMETRY_LBA.md) for method notes and sources.
 
 “Print → Calcimetry and LBA interpretation...” opens the active-well summary and exports a
-separate PDF report. It includes intervals, Ca/Dol/insoluble residue, every LBA field, and the
-manual geologist interpretation in the current interface language.
+separate PDF report. It includes intervals, Ca/Dol/insoluble residue, every LBA field,
+the built-in five-group standard assessment, and the manual geologist interpretation
+in the current interface language.
 
 ### Stratigraphic intervals
 

@@ -15,9 +15,11 @@ from geoworkbench.data.spreadsheet_safety import protect_spreadsheet_row
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
+    candidate_evidence_summary,
     fluid_hypothesis_basis,
     fluid_hypothesis_label,
 )
+from geoworkbench.services.lba_standard import describe_lba_assessment
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -56,8 +58,8 @@ def export_hydrocarbon_interpretation_xlsx(
         ("Geologist-confirmed intervals", len(report.manual_intervals)),
         ("Status", "Candidates require geologist confirmation"),
     )
-    for row in summary_rows:
-        summary.append(protect_spreadsheet_row(row))
+    for summary_row in summary_rows:
+        summary.append(protect_spreadsheet_row(summary_row))
     summary.column_dimensions["A"].width = 34
     summary.column_dimensions["B"].width = 80
     summary["A1"].font = Font(bold=True)
@@ -76,36 +78,91 @@ def export_hydrocarbon_interpretation_xlsx(
         "interval_wetness_pct",
         "background_wetness_pct",
         "wetness_relative_robust_z",
+        "interval_balance_bh",
+        "interval_character_ch",
+        "pixler_interpretation",
+        "pixler_c1_c2",
+        "pixler_profile_shape",
+        "pixler_possible_water_association",
+        "lba_standard_assessments",
+        "gas_lba_correlation",
         "context_medians",
         "evidence",
         "review_status",
     )
     candidates.append(protect_spreadsheet_row(candidate_headers))
-    for item in report.candidates:
+    for candidate in report.candidates:
         candidates.append(
             protect_spreadsheet_row(
                 (
-                    item.top_depth,
-                    item.bottom_depth,
+                    candidate.top_depth,
+                    candidate.bottom_depth,
                     report.depth_unit,
-                    item.anomaly_strength,
-                    item.sample_count,
-                    item.primary_mnemonic,
-                    item.max_robust_z,
-                    item.max_primary_value,
-                    item.fluid_hypothesis,
-                    item.interval_wetness,
-                    item.background_wetness,
-                    item.wetness_robust_z,
-                    "; ".join(f"{name}={value:.6g}" for name, value in item.metrics),
-                    "; ".join(item.evidence),
+                    candidate.anomaly_strength,
+                    candidate.sample_count,
+                    candidate.primary_mnemonic,
+                    candidate.max_robust_z,
+                    candidate.max_primary_value,
+                    candidate.fluid_hypothesis,
+                    candidate.interval_wetness,
+                    candidate.background_wetness,
+                    candidate.wetness_robust_z,
+                    candidate.interval_balance,
+                    candidate.interval_character,
+                    candidate.pixler_assessment.code
+                    if candidate.pixler_assessment is not None
+                    else "",
+                    candidate.pixler_assessment.c1_c2
+                    if candidate.pixler_assessment is not None
+                    else None,
+                    candidate.pixler_assessment.profile_shape
+                    if candidate.pixler_assessment is not None
+                    else "",
+                    (
+                        "yes"
+                        if candidate.pixler_assessment.water_association_possible
+                        else "no"
+                    )
+                    if candidate.pixler_assessment is not None
+                    else "",
+                    "; ".join(
+                        describe_lba_assessment(assessment, AppLanguage.RU)
+                        for assessment in candidate.lba_assessments
+                    ),
+                    candidate.gas_lba_correlation,
+                    "; ".join(f"{name}={value:.6g}" for name, value in candidate.metrics),
+                    "; ".join(candidate.evidence),
                     "candidate — geologist confirmation required",
                 )
             )
         )
     _format_table_sheet(
         candidates,
-        widths=(14, 14, 12, 20, 16, 18, 16, 18, 38, 20, 20, 24, 48, 72, 38),
+        widths=(
+            14,
+            14,
+            12,
+            20,
+            16,
+            18,
+            16,
+            18,
+            38,
+            20,
+            20,
+            24,
+            18,
+            18,
+            38,
+            18,
+            18,
+            24,
+            70,
+            24,
+            48,
+            72,
+            38,
+        ),
     )
 
     manual = workbook.create_sheet("Manual intervals")
@@ -119,17 +176,17 @@ def export_hydrocarbon_interpretation_xlsx(
         "comment",
     )
     manual.append(protect_spreadsheet_row(manual_headers))
-    for item in report.manual_intervals:
+    for manual_interval in report.manual_intervals:
         manual.append(
             protect_spreadsheet_row(
                 (
-                    item.interpretation_name,
-                    item.top_depth,
-                    item.bottom_depth,
+                    manual_interval.interpretation_name,
+                    manual_interval.top_depth,
+                    manual_interval.bottom_depth,
                     report.depth_unit,
-                    item.interval_type,
-                    item.label,
-                    item.comment,
+                    manual_interval.interval_type,
+                    manual_interval.label,
+                    manual_interval.comment,
                 )
             )
         )
@@ -175,9 +232,9 @@ def export_hydrocarbon_interpretation_xlsx(
     whole_well.append(protect_spreadsheet_row((index_header, *curve_headers)))
     index_values = np.asarray(dataset.active_index.values)
     for row_index in range(index_values.size):
-        row: list[object] = [_excel_value(index_values[row_index])]
-        row.extend(_excel_value(curve.values[row_index]) for curve in curves)
-        whole_well.append(protect_spreadsheet_row(row))
+        whole_row: list[object] = [_excel_value(index_values[row_index])]
+        whole_row.extend(_excel_value(curve.values[row_index]) for curve in curves)
+        whole_well.append(protect_spreadsheet_row(whole_row))
     _format_table_sheet(
         whole_well,
         widths=(18, *(14 for _curve in curves)),
@@ -267,6 +324,7 @@ def _write_docx(path: Path, report: HydrocarbonInterpretationReport) -> None:
                 )
                 for method in report.methods
             ),
+            widths=(4_600, 3_000, 7_500),
         ),
         _paragraph("Кандидатные интервалы УВ-проявлений", style="Heading1"),
     ]
@@ -277,7 +335,7 @@ def _write_docx(path: Path, report: HydrocarbonInterpretationReport) -> None:
                     "Интервал",
                     "Сила аномалии",
                     "Предварительная интерпретация",
-                    "Отсчётов",
+                    "Точек выше порога",
                     "Основание",
                 ),
                 tuple(
@@ -288,16 +346,27 @@ def _write_docx(path: Path, report: HydrocarbonInterpretationReport) -> None:
                             "medium": "средняя",
                             "high": "высокая",
                         }[item.anomaly_strength],
-                        fluid_hypothesis_label(item, AppLanguage.RU)
-                        + ". "
-                        + fluid_hypothesis_basis(item, AppLanguage.RU),
+                        fluid_hypothesis_label(item, AppLanguage.RU),
                         str(item.sample_count),
-                        "; ".join(item.evidence),
+                        candidate_evidence_summary(item),
                     )
                     for item in report.candidates
                 ),
+                widths=(2_200, 2_000, 3_700, 1_800, 5_400),
             )
         )
+    else:
+        body.append(_paragraph("Кандидатные интервалы по выбранному порогу не найдены."))
+    body.append(_paragraph("Сопоставление методов по интервалам", style="Heading1"))
+    if report.candidates:
+        for item in report.candidates:
+            body.append(
+                _paragraph(
+                    f"{item.top_depth:.2f}–{item.bottom_depth:.2f} {report.depth_unit}: "
+                    f"{fluid_hypothesis_label(item, AppLanguage.RU)}. "
+                    f"{fluid_hypothesis_basis(item, AppLanguage.RU)}"
+                )
+            )
     else:
         body.append(_paragraph("Кандидатные интервалы по выбранному порогу не найдены."))
     body.append(_paragraph("Интервалы, подтверждённые геологом", style="Heading1"))
@@ -315,6 +384,7 @@ def _write_docx(path: Path, report: HydrocarbonInterpretationReport) -> None:
                     )
                     for item in report.manual_intervals
                 ),
+                widths=(2_600, 2_200, 2_200, 4_000, 4_100),
             )
         )
     else:
@@ -326,7 +396,7 @@ def _write_docx(path: Path, report: HydrocarbonInterpretationReport) -> None:
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
         "<w:body>"
         + "".join(body)
-        + '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>'
+        + '<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>'
         '<w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="850" '
         'w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>'
         "</w:body></w:document>"
@@ -366,27 +436,61 @@ def _paragraph(text: str, *, style: str | None = None) -> str:
     return f"<w:p>{style_xml}<w:r><w:t xml:space=\"preserve\">{_xml_text(text)}</w:t></w:r></w:p>"
 
 
-def _table(headers: tuple[str, ...], rows: tuple[tuple[str, ...], ...]) -> str:
-    grid = "".join('<w:gridCol w:w="2400"/>' for _item in headers)
-    header = _table_row(headers, header=True)
-    body = "".join(_table_row(row) for row in rows)
+def _table(
+    headers: tuple[str, ...],
+    rows: tuple[tuple[str, ...], ...],
+    *,
+    widths: tuple[int, ...],
+) -> str:
+    if len(widths) != len(headers) or any(len(row) != len(headers) for row in rows):
+        raise ValueError("Геометрия таблицы отчёта не соответствует числу колонок")
+    grid = "".join(f'<w:gridCol w:w="{width}"/>' for width in widths)
+    header = _table_row(headers, widths, header=True)
+    body = "".join(_table_row(row, widths) for row in rows)
     return (
-        '<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/>'
-        '<w:tblW w:w="0" w:type="auto"/></w:tblPr>'
+        '<w:tbl><w:tblPr><w:tblW w:w="15100" w:type="dxa"/>'
+        '<w:tblLayout w:type="fixed"/><w:tblCellMar>'
+        '<w:top w:w="90" w:type="dxa"/><w:left w:w="90" w:type="dxa"/>'
+        '<w:bottom w:w="90" w:type="dxa"/><w:right w:w="90" w:type="dxa"/>'
+        '</w:tblCellMar><w:tblBorders>'
+        '<w:top w:val="single" w:sz="6" w:color="8290A3"/>'
+        '<w:left w:val="single" w:sz="6" w:color="8290A3"/>'
+        '<w:bottom w:val="single" w:sz="6" w:color="8290A3"/>'
+        '<w:right w:val="single" w:sz="6" w:color="8290A3"/>'
+        '<w:insideH w:val="single" w:sz="4" w:color="8290A3"/>'
+        '<w:insideV w:val="single" w:sz="4" w:color="8290A3"/>'
+        "</w:tblBorders></w:tblPr>"
         f"<w:tblGrid>{grid}</w:tblGrid>{header}{body}</w:tbl>"
     )
 
 
-def _table_row(values: tuple[str, ...], *, header: bool = False) -> str:
+def _table_row(
+    values: tuple[str, ...],
+    widths: tuple[int, ...],
+    *,
+    header: bool = False,
+) -> str:
     cells = []
-    for value in values:
-        run_properties = "<w:rPr><w:b/></w:rPr>" if header else ""
+    for value, width in zip(values, widths, strict=True):
+        run_properties = (
+            "<w:rPr><w:b/><w:sz w:val=\"18\"/></w:rPr>"
+            if header
+            else '<w:rPr><w:sz w:val="18"/></w:rPr>'
+        )
+        shading = '<w:shd w:val="clear" w:fill="DCE8F4"/>' if header else ""
         cells.append(
-            '<w:tc><w:tcPr><w:tcW w:w="2400" w:type="dxa"/></w:tcPr>'
-            f'<w:p><w:r>{run_properties}<w:t xml:space="preserve">'
+            f'<w:tc><w:tcPr><w:tcW w:w="{width}" w:type="dxa"/>'
+            f'<w:vAlign w:val="center"/>{shading}</w:tcPr>'
+            '<w:p><w:pPr><w:spacing w:after="0"/></w:pPr>'
+            f'<w:r>{run_properties}<w:t xml:space="preserve">'
             f"{_xml_text(value)}</w:t></w:r></w:p></w:tc>"
         )
-    return "<w:tr>" + "".join(cells) + "</w:tr>"
+    row_properties = (
+        "<w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>"
+        if header
+        else "<w:trPr><w:cantSplit/></w:trPr>"
+    )
+    return f"<w:tr>{row_properties}" + "".join(cells) + "</w:tr>"
 
 
 def _xml_text(value: object) -> str:

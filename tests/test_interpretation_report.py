@@ -49,6 +49,8 @@ def test_interpretation_report_uses_source_results_and_manual_conclusion() -> No
     first = report.entries[0]
     assert first.insoluble_residue_percent == 20.0
     assert ("intensity", "4") in first.lba_observations
+    assert first.lba_standard_assessment is not None
+    assert first.lba_standard_assessment.standard.code == "МСБ"
     assert first.interpretation == "Manual conclusion\nRequires correlation"
 
 
@@ -63,6 +65,8 @@ def test_interpretation_report_html_is_localized_and_escapes_project_data() -> N
     assert "Интенсивность: 4" in html
     assert "Field &lt;Alpha&gt;" in html
     assert "bright &lt;direct&gt; fluorescence" in html
+    assert "Оценка по стандарту ЛБА" in html
+    assert "МСБ — маслянисто-смолистый битумоид" in html
     assert "This report is not an automatic conclusion" in english
 
 

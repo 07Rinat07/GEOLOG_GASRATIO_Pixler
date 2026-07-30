@@ -34,7 +34,8 @@ def test_form_apply_builds_layout_and_reports_missing_bindings() -> None:
     assert total_gas_track.curve_display_settings("TGAS").display_name == "Суммарный газ"
     assert result.resolved_count == 3
     assert {item.canonical_parameter_id for item in result.missing} == {
-        "NORMALIZED_TOTAL_GAS",
+        "TG_CALC",
+        "TG_NORM",
         "BALANCE",
         "CHARACTER",
     }
@@ -80,3 +81,27 @@ def test_specialized_depth_form_keeps_non_curve_tracks_and_resolves_available_da
     assert any("TGAS" in track.curve_mnemonics for track in result.layout.tracks)
     assert any("ROP_AVG" in track.curve_mnemonics for track in result.layout.tracks)
     assert result.layout.vertical_index_id == "data:primary-index"
+
+
+def test_factory_form_draws_server_normalized_total_gas_alias() -> None:
+    dataset = _dataset()
+    metadata = CurveMetadata(
+        curve_id="curve-server-normalized-gas",
+        original_mnemonic="NORMALIZED_TOTAL_GAS",
+        canonical_mnemonic="NORMALIZED_TOTAL_GAS",
+        unit="normalized gas units",
+        description="Operator normalized total gas",
+        source_dataset_id=dataset.dataset_id,
+        provenance="source:server",
+    )
+    dataset.curves[metadata.curve_id] = CurveData(metadata, np.array([12.0, 14.0]))
+
+    result = FormApplyEngine().build_layout(
+        factory_templates()["factory-normalized-gas-qc"],
+        dataset,
+    )
+
+    assert any(
+        "NORMALIZED_TOTAL_GAS" in track.curve_mnemonics
+        for track in result.layout.tracks
+    )

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import re
 
+from geoworkbench.services.lba_standard import (
+    LBA_STANDARD_GROUPS,
+    lba_intensity_name as standard_lba_intensity_name,
+    normalize_lba_key,
+)
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -24,62 +28,22 @@ class LbaTypeStyle:
         return self.name_ru
 
 
-LBA_TYPE_STYLES: tuple[LbaTypeStyle, ...] = (
+LBA_TYPE_STYLES: tuple[LbaTypeStyle, ...] = tuple(
     LbaTypeStyle(
-        "light",
-        "ЛБ",
-        "лёгкий битумоид",
-        "жеңіл битумоид",
-        "light bitumen",
-        "#22d3d6",
-        ("LB", "LIGHT", "ЛЕГКИЙ", "ЛЁГКИЙ"),
-    ),
-    LbaTypeStyle(
-        "oily",
-        "МБ",
-        "маслянистый битумоид",
-        "майлы битумоид",
-        "low-oil bitumen",
-        "#facc15",
-        ("LOB", "OILY", "LOWOIL", "МАСЛЯНИСТЫЙ"),
-    ),
-    LbaTypeStyle(
-        "oily_resinous",
-        "МСБ",
-        "маслянисто-смолистый битумоид",
-        "майлы-шайырлы битумоид",
-        "middle-oil bitumen",
-        "#fb923c",
-        ("MOB", "OILYRESINOUS", "MIDDLEOIL", "МАСЛЯНИСТОСМОЛИСТЫЙ"),
-    ),
-    LbaTypeStyle(
-        "resinous",
-        "СБ",
-        "смолистый битумоид",
-        "шайырлы битумоид",
-        "high-oil bitumen",
-        "#be3144",
-        ("HOB", "RESINOUS", "HIGHOIL", "СМОЛИСТЫЙ"),
-    ),
-    LbaTypeStyle(
-        "resin_asphaltene",
-        "САБ",
-        "смолисто-асфальтеновый битумоид",
-        "шайырлы-асфальтенді битумоид",
-        "very-high-oil bitumen",
-        "#8b5757",
-        ("VHO", "RESINASPHALTENE", "VERYHIGHOIL", "СМОЛИСТОАСФАЛЬТЕНОВЫЙ"),
-    ),
+        group.type_id,
+        group.code,
+        group.type_name_ru,
+        group.type_name_kk,
+        group.type_name_en,
+        group.display_color,
+        group.aliases,
+    )
+    for group in LBA_STANDARD_GROUPS
 )
 
 
-_NORMALIZE_RE = re.compile(r"[^0-9A-ZА-ЯЁӘҒҚҢӨҰҮҺІ]+")
-
-
 def normalize_lba_type_key(value: str | None) -> str:
-    if not value:
-        return ""
-    return _NORMALIZE_RE.sub("", value.strip().upper().replace("Ё", "Е"))
+    return normalize_lba_key(value)
 
 
 _STYLE_BY_KEY: dict[str, LbaTypeStyle] = {}
@@ -109,27 +73,4 @@ def normalized_lba_intensity(value: int | None) -> int | None:
 
 
 def lba_intensity_name(intensity: int, language: AppLanguage) -> str:
-    names = {
-        AppLanguage.RU: {
-            1: "единичные точки",
-            2: "фрагментарное кольцо",
-            3: "тонкое сплошное кольцо",
-            4: "толстое кольцо",
-            5: "сплошное пятно",
-        },
-        AppLanguage.KK: {
-            1: "жекелеген нүктелер",
-            2: "үзік сақина",
-            3: "жұқа тұтас сақина",
-            4: "қалың сақина",
-            5: "тұтас дақ",
-        },
-        AppLanguage.EN: {
-            1: "isolated points",
-            2: "fragmentary ring",
-            3: "thin continuous ring",
-            4: "thick ring",
-            5: "continuous spot",
-        },
-    }
-    return names[language][intensity]
+    return standard_lba_intensity_name(intensity, language)

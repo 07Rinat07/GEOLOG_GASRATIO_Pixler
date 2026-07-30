@@ -32,7 +32,21 @@ GAS_RATIO_PIXLER_MNEMONIC_ORDER = (
     "C1_C2C3",
     "C2_C3",
 )
-NORMALIZED_GAS_MNEMONIC_ORDER = ("C1_NORM", "TG_NORM")
+NORMALIZED_GAS_MNEMONIC_ORDER = (
+    "TG_NORM",
+    "NORMALIZED_TOTAL_GAS",
+    "TOTAL_GAS_NORM",
+    "NORM_TG",
+    "TGNORM",
+    "C1_NORM",
+    "C1_NORM_REF",
+    "C2_NORM",
+    "C3_NORM",
+    "IC4_NORM",
+    "NC4_NORM",
+    "IC5_NORM",
+    "NC5_NORM",
+)
 
 
 def available_mnemonics(dataset: Dataset, order: tuple[str, ...]) -> list[str]:

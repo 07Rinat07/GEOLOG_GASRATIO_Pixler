@@ -58,7 +58,7 @@ def test_gas_mixture_ramp_uses_time_response_and_classifies_sample() -> None:
     report = build_gas_mixture_ramp_report(_session())
 
     assert report.time_label == "TIME, ms"
-    assert report.interpretation_code == "probable_gas_or_condensate"
+    assert report.interpretation_code == "productive_gas_increasing_wetness"
     assert report.confidence == "high"
     assert report.wetness is not None
     assert 9.0 < report.wetness < 12.0
@@ -97,7 +97,7 @@ def test_gas_mixture_report_supports_chart_and_text_only_modes(qapp) -> None:
     assert "data:image/png;base64," in chart
     assert "Временная диаграмма" in chart
     assert "data:image/png;base64," not in text_only
-    assert "вероятный газ/газоконденсат" in text_only
+    assert "газ с увеличением содержания тяжёлых УВ" in text_only
     assert "ISO 6974-1:2012" in text_only
 
 

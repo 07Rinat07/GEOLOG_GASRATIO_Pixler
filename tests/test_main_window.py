@@ -90,6 +90,14 @@ def test_window_exposes_interpretation_report_workspace(qapp) -> None:
         "mixture_text",
     ]
     assert "Gas mixture ramp" in report_mode.itemText(1)
+    assert window.interpretation_report_workspace.rop_reference.value() == 50.0
+    assert window.interpretation_report_workspace.bit_reference.value() == 10.0
+    assert window.interpretation_report_workspace.flow_reference.value() == 500.0
+    assert window.interpretation_report_workspace.gas_efficiency.value() == 1.0
+    assert "actual ROP" in window.interpretation_report_workspace.calculation_inputs_help.text()
+    assert "not the current diameter" in (
+        window.interpretation_report_workspace.bit_reference.toolTip()
+    )
     window.close()
 
 

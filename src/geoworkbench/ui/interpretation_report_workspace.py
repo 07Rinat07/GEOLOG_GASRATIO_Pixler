@@ -38,6 +38,7 @@ from geoworkbench.printing.gas_mixture_ramp_report import (
 )
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
+    NormalizedGasReference,
 )
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -72,6 +73,13 @@ class InterpretationReportWorkspace(QWidget):
             QWidget#interpretation-report-workspace QLabel {
                 color: #172033;
                 background: transparent;
+            }
+            QLabel#calculation-input-help {
+                padding: 8px 10px;
+                color: #22364d;
+                background: #e8f0f8;
+                border: 1px solid #b8c8d8;
+                border-radius: 6px;
             }
             QWidget#interpretation-report-workspace QDoubleSpinBox,
             QWidget#interpretation-report-workspace QComboBox {
@@ -128,6 +136,10 @@ class InterpretationReportWorkspace(QWidget):
         )
         self.explanation.setWordWrap(True)
         root.addWidget(self.explanation)
+        self.calculation_inputs_help = QLabel()
+        self.calculation_inputs_help.setObjectName("calculation-input-help")
+        self.calculation_inputs_help.setWordWrap(True)
+        root.addWidget(self.calculation_inputs_help)
 
         form = QFormLayout()
         self.report_mode = QComboBox()
@@ -149,6 +161,47 @@ class InterpretationReportWorkspace(QWidget):
         )
         self.normal_density_label = QLabel()
         form.addRow(self.normal_density_label, self.normal_density)
+        self.normalized_gas_reference_note = QLabel(
+            self._text(
+                "Эталонные условия для кривых C1–C5_NORM и TG_NORM:",
+                "C1–C5_NORM және TG_NORM қисықтарының эталондық шарттары:",
+                "Reference conditions for C1–C5_NORM and TG_NORM curves:",
+            )
+        )
+        self.normalized_gas_reference_note.setWordWrap(True)
+        form.addRow(self.normalized_gas_reference_note)
+
+        self.rop_reference = QDoubleSpinBox()
+        self.rop_reference.setRange(0.01, 10_000.0)
+        self.rop_reference.setDecimals(2)
+        self.rop_reference.setValue(50.0)
+        self.rop_reference.setSuffix(" ft/h")
+        self.rop_reference_label = QLabel()
+        form.addRow(self.rop_reference_label, self.rop_reference)
+
+        self.bit_reference = QDoubleSpinBox()
+        self.bit_reference.setRange(0.01, 100.0)
+        self.bit_reference.setDecimals(2)
+        self.bit_reference.setValue(10.0)
+        self.bit_reference.setSuffix(" in")
+        self.bit_reference_label = QLabel()
+        form.addRow(self.bit_reference_label, self.bit_reference)
+
+        self.flow_reference = QDoubleSpinBox()
+        self.flow_reference.setRange(0.01, 100_000.0)
+        self.flow_reference.setDecimals(2)
+        self.flow_reference.setValue(500.0)
+        self.flow_reference.setSuffix(" gpm")
+        self.flow_reference_label = QLabel()
+        form.addRow(self.flow_reference_label, self.flow_reference)
+
+        self.gas_efficiency = QDoubleSpinBox()
+        self.gas_efficiency.setRange(0.01, 1.0)
+        self.gas_efficiency.setDecimals(3)
+        self.gas_efficiency.setSingleStep(0.05)
+        self.gas_efficiency.setValue(1.0)
+        self.gas_efficiency_label = QLabel()
+        form.addRow(self.gas_efficiency_label, self.gas_efficiency)
         self.threshold = QDoubleSpinBox()
         self.threshold.setRange(2.0, 10.0)
         self.threshold.setDecimals(1)
@@ -223,6 +276,12 @@ class InterpretationReportWorkspace(QWidget):
         has_dataset = self.controller.session.current_dataset is not None
         self.calculate_button.setEnabled(has_dataset and not mixture_mode)
         self.normal_density.setEnabled(not mixture_mode)
+        self.calculation_inputs_help.setEnabled(not mixture_mode)
+        self.normalized_gas_reference_note.setEnabled(not mixture_mode)
+        self.rop_reference.setEnabled(not mixture_mode)
+        self.bit_reference.setEnabled(not mixture_mode)
+        self.flow_reference.setEnabled(not mixture_mode)
+        self.gas_efficiency.setEnabled(not mixture_mode)
         self.threshold.setEnabled(not mixture_mode)
         self.gas_mixture_report = None
         if mixture_mode:
@@ -297,7 +356,13 @@ class InterpretationReportWorkspace(QWidget):
         density = self.normal_density.value()
         try:
             result = self.controller.calculate_standard_curves(
-                normal_mud_density_ppg=density if density > 0.0 else None
+                normal_mud_density_ppg=density if density > 0.0 else None,
+                normalized_gas_reference=NormalizedGasReference(
+                    rop_ref_fph=self.rop_reference.value(),
+                    bit_ref_in=self.bit_reference.value(),
+                    flow_ref_gpm=self.flow_reference.value(),
+                    gas_system_efficiency=self.gas_efficiency.value(),
+                ),
             )
         except (RuntimeError, ValueError, KeyError) as exc:
             QMessageBox.critical(
@@ -539,6 +604,28 @@ class InterpretationReportWorkspace(QWidget):
                 "Candidates do not replace the geologist's interpretation.",
             )
         )
+        self.calculation_inputs_help.setText(
+            self._text(
+                "Что нужно для расчётов: C1–C5 и фактические кривые ROP, BIT/BS "
+                "(диаметр долота) и FLOW_IN/FLOW_OUT. Программа берёт их из открытого "
+                "LAS/GS2 и приводит совместимые единицы автоматически. Если BIT отсутствует: "
+                "откройте «Инспектор данных → Кривые», добавьте кривую BIT с единицей in, "
+                "затем в таблице заполните её значением по соответствующему интервалу. "
+                "Поля *_REF ниже — эталонные условия нормализации, а не фактические кривые.",
+                "Есептеу үшін C1–C5 және нақты ROP, BIT/BS (қашау диаметрі), "
+                "FLOW_IN/FLOW_OUT қисықтары қажет. Бағдарлама оларды ашық LAS/GS2 "
+                "деректерінен алып, үйлесімді бірліктерді автоматты түрлендіреді. BIT жоқ "
+                "болса, «Деректер инспекторы → Қисықтар» арқылы in бірлігіндегі BIT "
+                "қисығын қосып, кестеде тиісті аралықтарды толтырыңыз. Төмендегі *_REF "
+                "өрістері нақты қисықтар емес, нормалаудың эталондық шарттары.",
+                "Required inputs: C1–C5 plus actual ROP, BIT/BS (bit diameter), and "
+                "FLOW_IN/FLOW_OUT curves. They are read from the open LAS/GS2 dataset and "
+                "compatible units are converted automatically. If BIT is missing, use "
+                "Data Inspector → Curves to add BIT in inches, then fill its values over "
+                "the relevant intervals in the table. The *_REF fields below are reference "
+                "normalization conditions, not the actual curves.",
+            )
+        )
         self.normal_density_label.setText(
             self._text(
                 "Нормальная плотность раствора:",
@@ -552,6 +639,87 @@ class InterpretationReportWorkspace(QWidget):
                 "Нужна только для DEXPC. Значение 0 не подставляет скрытое допущение.",
                 "Тек DEXPC үшін қажет. 0 мәні жасырын болжам қоспайды.",
                 "Used only for DEXPC. Zero does not inject a hidden assumption.",
+            )
+        )
+        self.normalized_gas_reference_note.setText(
+            self._text(
+                "Эталонные условия для C1–C5_NORM и TG_NORM — проверьте по методике "
+                "заказчика или принятому опорному режиму:",
+                "C1–C5_NORM және TG_NORM үшін эталондық шарттар — тапсырыс беруші "
+                "әдістемесі немесе қабылданған тірек режимі бойынша тексеріңіз:",
+                "Reference conditions for C1–C5_NORM and TG_NORM — verify against the "
+                "client method or the accepted reference drilling regime:",
+            )
+        )
+        self.rop_reference_label.setText(
+            self._text(
+                "Эталонная ROP_REF:",
+                "Эталондық ROP_REF:",
+                "Reference ROP_REF:",
+            )
+        )
+        self.rop_reference.setToolTip(
+            self._text(
+                "Скорость проходки эталонного режима, ft/h. Фактическая ROP берётся из "
+                "кривой LAS. Значение по умолчанию 50 ft/h нужно подтвердить для проекта.",
+                "Эталондық өту жылдамдығы, ft/h. Нақты ROP LAS қисығынан алынады. "
+                "Әдепкі 50 ft/h мәнін жоба үшін растаңыз.",
+                "Reference-regime rate of penetration in ft/h. Actual ROP comes from the "
+                "LAS curve. Confirm the default 50 ft/h for the project.",
+            )
+        )
+        self.bit_reference_label.setText(
+            self._text(
+                "Эталонный диаметр BIT_REF:",
+                "Эталондық BIT_REF диаметрі:",
+                "Reference bit diameter BIT_REF:",
+            )
+        )
+        self.bit_reference.setToolTip(
+            self._text(
+                "Эталонный диаметр долота, in. Это не текущий диаметр: фактический "
+                "BIT/BS должен быть кривой по глубине в LAS/GS2.",
+                "Эталондық қашау диаметрі, in. Бұл ағымдағы диаметр емес: нақты BIT/BS "
+                "LAS/GS2 ішінде тереңдік бойынша қисық болуы керек.",
+                "Reference bit diameter in inches. This is not the current diameter: "
+                "actual BIT/BS must be a depth curve in LAS/GS2.",
+            )
+        )
+        self.flow_reference_label.setText(
+            self._text(
+                "Эталонный расход FLOW_REF:",
+                "Эталондық FLOW_REF шығыны:",
+                "Reference flow FLOW_REF:",
+            )
+        )
+        self.flow_reference.setToolTip(
+            self._text(
+                "Расход эталонного режима, gpm. Фактический расход берётся из "
+                "FLOW_IN или FLOW_OUT открытого набора.",
+                "Эталондық режим шығыны, gpm. Нақты шығын ашық деректердегі "
+                "FLOW_IN немесе FLOW_OUT қисығынан алынады.",
+                "Reference-regime flow in gpm. Actual flow comes from FLOW_IN or "
+                "FLOW_OUT in the open dataset.",
+            )
+        )
+        self.gas_efficiency_label.setText(
+            self._text(
+                "Эффективность газовой системы E:",
+                "Газ жүйесінің тиімділігі E:",
+                "Gas-system efficiency E:",
+            )
+        )
+        self.gas_efficiency.setToolTip(
+            self._text(
+                "Коэффициент 0–1 для эффективности дегазатора и газоаналитической "
+                "системы. Если калибровки нет, 1.000 означает отсутствие поправки; "
+                "это допущение укажите в отчёте.",
+                "Дегазатор мен газ талдау жүйесінің тиімділігі үшін 0–1 коэффициенті. "
+                "Калибрлеу болмаса, 1.000 түзету жоқ екенін білдіреді; бұл болжамды "
+                "есепте көрсетіңіз.",
+                "Efficiency coefficient from 0 to 1 for the degasser and gas-analysis "
+                "system. If no calibration is available, 1.000 means no correction; "
+                "record that assumption in the report.",
             )
         )
         self.threshold_label.setText(

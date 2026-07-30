@@ -2361,7 +2361,7 @@ def _kazgeology_reference_columns() -> list[MasterlogColumnTemplate]:
     ]
 
 
-BUILTIN_MASTERLOG_FORM_PRESETS = (
+BUILTIN_MASTERLOG_FORM_PRESETS: tuple[MasterlogFormPreset, ...] = (
     MasterlogFormPreset(
         "kazgeology_reference_blank",
         _texts(
@@ -2729,7 +2729,16 @@ _A4_FORM_PROFILE_COLUMNS: dict[str, list[MasterlogColumnTemplate]] = {
             "TG / normalized gas",
             "curves",
             42,
-            ["TG", "C1_NORM", "NORMALIZED_TOTAL_GAS", "HC_SUM_NORM"],
+            [
+                "TG",
+                "TOTAL_GAS",
+                "TG_CALC",
+                "TG_NORM",
+                "C1_NORM",
+                "C1_NORM_REF",
+                "C2_NORM",
+                "C3_NORM",
+            ],
             "linear",
             0,
             100,
@@ -2750,12 +2759,12 @@ _A4_FORM_PROFILE_COLUMNS: dict[str, list[MasterlogColumnTemplate]] = {
             "Pixler C1/C2-C5",
             "curves",
             44,
-            ["PIXLER_C1_C2", "PIXLER_C1_C3", "PIXLER_C1_C4", "PIXLER_C1_C5"],
+            ["C1_C2", "C1_C3", "C1_C4", "C1_C5"],
             "linear",
             0,
             100,
         ),
-        ("dexp", "DEXP / corrected DEXP", "curves", 36, ["DEXP", "D_EXP_CORR"], "linear", 0, 5),
+        ("dexp", "DEXP / corrected DEXP", "curves", 36, ["DEXP", "DEXPC"], "linear", 0, 5),
         (
             "interpretation",
             "Interpretation",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 import re
 import unicodedata
 
@@ -315,6 +316,25 @@ def _installed_font_families() -> tuple[str, ...]:
     # QFontDatabase can legitimately be empty before QApplication has finished
     # initialising.  Never cache that transient result: doing so makes every
     # later print preflight fail for the lifetime of the process.
+    installed = tuple(QFontDatabase.families())
+    if installed:
+        return installed
+    # The Windows offscreen Qt backend used for automated PDF creation may not
+    # enumerate system fonts even though the files are available. Register a
+    # small, known Unicode-capable set explicitly so generated PDFs embed real
+    # glyphs instead of opaque rectangles. The Linux/macOS paths are harmless
+    # fallbacks for headless packaging environments.
+    candidates = (
+        Path("C:/Windows/Fonts/arial.ttf"),
+        Path("C:/Windows/Fonts/ARIALUNI.ttf"),
+        Path("C:/Windows/Fonts/segoeui.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"),
+        Path("/System/Library/Fonts/Supplemental/Arial Unicode.ttf"),
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            QFontDatabase.addApplicationFont(str(candidate))
     return tuple(QFontDatabase.families())
 
 

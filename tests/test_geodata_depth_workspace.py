@@ -219,6 +219,7 @@ def test_unified_sample_dialog_prefills_all_shared_fields(qapp) -> None:
     assert dialog.components() == {"sandstone": 70.0, "clay": 30.0}
     values = dialog.values()
     assert values["lba_type_id"] == "ЛБ"
+    assert values["lba_group"] == 1
     assert values["lba_intensity"] == 3
     assert values["calcite_percent"] == 25.0
     assert values["dolomite_percent"] == 15.0

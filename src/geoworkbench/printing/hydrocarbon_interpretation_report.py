@@ -12,6 +12,7 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.printing.unicode_support import preflight_texts, print_font
 
 
 class HydrocarbonInterpretationPdfError(RuntimeError):
@@ -41,6 +42,7 @@ def export_hydrocarbon_interpretation_pdf(
     try:
         writer = QPdfWriter(str(temporary))
         writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+        writer.setPageOrientation(QPageLayout.Orientation.Landscape)
         writer.setPageMargins(
             QMarginsF(14.0, 14.0, 14.0, 14.0),
             QPageLayout.Unit.Millimeter,
@@ -48,8 +50,13 @@ def export_hydrocarbon_interpretation_pdf(
         writer.setResolution(300)
         writer.setTitle("Mud-gas interpretation report")
         writer.setCreator("GEOLOG GASRATIO@Pixler")
+        html = hydrocarbon_interpretation_html(report, language)
+        unicode_report = preflight_texts([html])
+        if not unicode_report.ok:
+            raise HydrocarbonInterpretationPdfError(unicode_report.error_message())
         document = QTextDocument()
-        document.setHtml(hydrocarbon_interpretation_html(report, language))
+        document.setDefaultFont(print_font(10.0, text=html))
+        document.setHtml(html)
         document.print_(writer)
         del writer
         if temporary.stat().st_size <= 0:
