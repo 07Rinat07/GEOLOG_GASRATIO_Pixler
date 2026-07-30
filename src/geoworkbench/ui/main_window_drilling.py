@@ -34,7 +34,10 @@ class MainWindow(_LegacyMainWindow):
     def _calculations_menu(self) -> QMenu | None:
         for action in self.menuBar().actions():
             menu = action.menu()
-            if menu is not None and action.property("i18n_key") == "menu.calculations":
+            if (
+                isinstance(menu, QMenu)
+                and action.property("i18n_key") == "menu.calculations"
+            ):
                 return menu
         return None
 
@@ -84,8 +87,7 @@ class MainWindow(_LegacyMainWindow):
         )
         self._after_interpretation_calculation(result)
         workspace.refresh()
-        if hasattr(workspace, "_update_drilling_input_status"):
-            workspace._update_drilling_input_status()
+        workspace._update_drilling_input_status()
         visible = tuple(
             dict.fromkeys(
                 (
