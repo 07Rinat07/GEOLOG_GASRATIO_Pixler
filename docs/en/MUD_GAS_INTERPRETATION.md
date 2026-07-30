@@ -70,11 +70,27 @@ The default `3.0` threshold is a starting point, not a universal geological cuto
 `low/medium/high` describes only relative anomaly strength and continuity; it is not
 a probability of hydrocarbon saturation.
 
+Each candidate also receives a **preliminary fluid interpretation**. The
+C2–C5 fraction inside the interval is compared with the robust background of the
+current well:
+
+- relative depletion in heavier components — “probable gas”;
+- relative enrichment — “probable liquid hydrocarbons (oil/condensate)”;
+- weak separation — “mixed/indeterminate hydrocarbon show”;
+- insufficient C1–C5 — “gas hydrocarbon show; component data are insufficient.”
+
+This is a relative fluid facies, not a universal palette. The application does
+not infer water from absent mud gas; that requires logs, petrophysics, and/or
+formation testing. A C2–C5 fraction difference is treated as material at
+`|robust z| ≥ 2.0`; this is a statistical background-comparison threshold, not
+a fluid-type boundary.
+
 ## Interpretation boundary
 
-The automatic output is a **candidate hydrocarbon-show interval**. It does not by itself
-establish commercial reservoir quality, fluid type, permeability, saturation, pore
-pressure, or a mud-weight recommendation.
+The automatic output is a **candidate hydrocarbon-show interval**, and fluid
+character is stated as a preliminary interpretation. It does not establish
+commercial reservoir quality, a definitive fluid type, permeability, saturation,
+pore pressure, or a mud-weight recommendation.
 
 Before confirmation, correlate Total Gas and C1–C5, Haworth/Pixler, lithology, cuttings,
 LBA/fluorescence, calcimetry, ROP and drilling conditions, gas lag, extractor and
@@ -102,6 +118,9 @@ and pressure context, not direct hydrocarbon evidence.
 5. Lukyanov E. E., Strelchenko V. V. (1997). *Geological and technological
    investigations while drilling*. Moscow: Neft i Gaz. ISBN `5-7246-0042-0`.
 6. Normalization profiles: US20140379265A1/EP2772775A1 and US20150060054A1.
+7. SLB (2012). *Mud Logging: Looking Beyond the Formation*. Oilfield Review:
+   C1–C5, balance/wetness, and additional components are used for preliminary
+   fluid-facies characterization.
 
 Historical palettes and thresholds from legacy working spreadsheets remain reference
 material only. They require local calibration against the region, instrumentation,

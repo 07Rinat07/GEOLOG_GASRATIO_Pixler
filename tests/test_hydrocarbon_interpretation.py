@@ -55,6 +55,38 @@ def _session() -> ProjectSession:
             ),
             values,
         )
+    variation = np.resize(np.array([-0.30, -0.15, 0.0, 0.15, 0.30]), depth.shape)
+    gas_components = {
+        "C1": np.full(depth.shape, 90.0),
+        "C2": 5.0 + variation,
+        "C3": 3.0 + variation / 2.0,
+        "IC4": np.full(depth.shape, 1.0),
+        "NC4": np.full(depth.shape, 1.0),
+        "IC5": np.full(depth.shape, 0.5),
+        "NC5": np.full(depth.shape, 0.5),
+    }
+    for values, high_value in (
+        (gas_components["C2"], 30.0),
+        (gas_components["C3"], 20.0),
+        (gas_components["IC4"], 5.0),
+        (gas_components["NC4"], 5.0),
+        (gas_components["IC5"], 2.5),
+        (gas_components["NC5"], 2.5),
+    ):
+        values[40:43] = high_value
+    for mnemonic, values in gas_components.items():
+        dataset.curves[mnemonic] = CurveData(
+            CurveMetadata(
+                mnemonic,
+                mnemonic,
+                mnemonic,
+                "%",
+                mnemonic,
+                dataset.dataset_id,
+                "source:test",
+            ),
+            values,
+        )
     session = ProjectSession()
     session.project.name = "=Project formula"
     session.add_dataset(dataset, "Well <A>")
@@ -80,6 +112,9 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert candidate.bottom_depth >= 1_042.0
     assert candidate.sample_count == 3
     assert candidate.anomaly_strength == "high"
+    assert candidate.fluid_hypothesis == "probable_liquid_hydrocarbons"
+    assert candidate.wetness_robust_z is not None
+    assert candidate.wetness_robust_z > 2.0
     assert ("WH", 12.0) in candidate.metrics
     assert any("context medians: WH=12" in evidence for evidence in candidate.evidence)
     assert len(report.manual_intervals) == 1
@@ -87,8 +122,11 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert any("не заключение" in warning for warning in report.warnings)
 
     html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+    assert "background: #ffffff" in html
+    assert "td { background: #ffffff; }" in html
     assert "Well &lt;A&gt;" in html
     assert "Кандидатные интервалы" in html
+    assert "вероятные жидкие УВ" in html
     assert "Check DST" in html
 
 
@@ -118,6 +156,10 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         ]
         assert workbook["Summary"]["B1"].value == "'=Project formula"
         assert workbook["Candidate intervals"].max_row == 2
+        assert (
+            workbook["Candidate intervals"]["I2"].value
+            == "probable_liquid_hydrocarbons"
+        )
         assert workbook["Whole well"].max_row == dataset.depth.size + 1
     finally:
         workbook.close()
@@ -125,6 +167,7 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         assert package.testzip() is None
         document = package.read("word/document.xml").decode("utf-8")
         assert "Кандидатные интервалы" in document
+        assert "жидкие УВ" in document
         assert "Check DST" in document
 
 
@@ -152,6 +195,22 @@ def test_report_falls_back_from_sparse_normalized_gas_to_total_gas() -> None:
 
     assert report.primary_mnemonic == "TG"
     assert len(report.candidates) == 1
+
+
+def test_report_can_interpret_probable_gas_without_claiming_final_fluid_type() -> None:
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.curves["C1"].values[40:43] = 300.0
+    for mnemonic in ("C2", "C3", "IC4", "NC4", "IC5", "NC5"):
+        dataset.curves[mnemonic].values[40:43] = 0.1
+
+    report = build_hydrocarbon_interpretation_report(session)
+
+    assert report.candidates[0].fluid_hypothesis == "probable_gas"
+    html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+    assert "вероятный газ" in html
+    assert "Категория «вода» по mud-gas не назначается" in html
 
 
 def test_xlsx_export_rejects_mismatched_curve_lengths(tmp_path) -> None:

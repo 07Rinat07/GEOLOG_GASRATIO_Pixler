@@ -54,6 +54,56 @@ class InterpretationReportWorkspace(QWidget):
         self.language = language
         self.report: HydrocarbonInterpretationReport | None = None
         self.setObjectName("interpretation-report-workspace")
+        self.setStyleSheet(
+            """
+            QWidget#interpretation-report-workspace {
+                background: #f4f7fb;
+                color: #172033;
+            }
+            QWidget#interpretation-report-workspace QLabel {
+                color: #172033;
+                background: transparent;
+            }
+            QWidget#interpretation-report-workspace QDoubleSpinBox {
+                min-height: 28px;
+                padding: 2px 8px;
+                color: #172033;
+                background: #ffffff;
+                border: 1px solid #aeb8c6;
+                border-radius: 5px;
+                selection-color: #ffffff;
+                selection-background-color: #315a7d;
+            }
+            QWidget#interpretation-report-workspace QPushButton {
+                min-height: 30px;
+                padding: 3px 12px;
+                color: #172033;
+                background: #ffffff;
+                border: 1px solid #aeb8c6;
+                border-radius: 5px;
+            }
+            QWidget#interpretation-report-workspace QPushButton:hover {
+                background: #e8f0f8;
+                border-color: #547a9f;
+            }
+            QWidget#interpretation-report-workspace QPushButton:pressed {
+                background: #d8e6f3;
+            }
+            QWidget#interpretation-report-workspace QPushButton:disabled {
+                color: #7a8492;
+                background: #e9edf2;
+                border-color: #c9d0d9;
+            }
+            QTextBrowser#hydrocarbon-interpretation-preview {
+                color: #172033;
+                background: #ffffff;
+                border: 1px solid #b7c1ce;
+                border-radius: 6px;
+                selection-color: #ffffff;
+                selection-background-color: #315a7d;
+            }
+            """
+        )
 
         root = QVBoxLayout(self)
         self.explanation = QLabel(

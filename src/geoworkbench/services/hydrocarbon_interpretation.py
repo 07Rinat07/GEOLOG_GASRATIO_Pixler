@@ -8,6 +8,10 @@ import numpy as np
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.las_parameter_resolver import (
+    ParameterResolutionError,
+    resolve_gas_ratio_inputs,
+)
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -32,6 +36,10 @@ class HydrocarbonCandidateInterval:
     primary_mnemonic: str
     max_robust_z: float
     max_primary_value: float
+    fluid_hypothesis: str
+    interval_wetness: float | None
+    background_wetness: float | None
+    wetness_robust_z: float | None
     metrics: tuple[tuple[str, float], ...]
     evidence: tuple[str, ...]
 
@@ -100,6 +108,7 @@ _CONTEXT_CURVES = (
     "DEXPC",
     "DEXPC_NCT",
 )
+_FLUID_CHARACTER_Z_THRESHOLD = 2.0
 
 
 def build_hydrocarbon_interpretation_report(
@@ -150,6 +159,12 @@ def build_hydrocarbon_interpretation_report(
         (
             "Автоматически отмечаются только кандидаты по относительной газовой аномалии. "
             "Это не заключение о насыщении, типе флюида или промышленной продуктивности."
+        ),
+        (
+            "Предварительная интерпретация флюида сравнивает долю C2–C5 с фоном "
+            "текущей скважины и выдаёт «вероятный газ», «вероятные жидкие УВ» "
+            "либо «смешанный/неопределённый тип». Категория «вода» по mud-gas "
+            "не назначается."
         ),
         (
             "Перед принятием интервалов проверьте газовый лаг, режим дегазатора, единицы, "
@@ -242,15 +257,8 @@ def _detect_candidates(
     transformed = np.full(values.shape, np.nan, dtype=np.float64)
     transformed[valid] = np.log1p(values[valid])
     finite_values = transformed[valid]
-    median = float(np.median(finite_values))
-    mad = float(np.median(np.abs(finite_values - median)))
-    scale = 1.4826 * mad
-    if not np.isfinite(scale) or scale <= np.finfo(np.float64).eps:
-        q25, q75 = np.percentile(finite_values, [25.0, 75.0])
-        scale = float((q75 - q25) / 1.349)
-    if not np.isfinite(scale) or scale <= np.finfo(np.float64).eps:
-        scale = float(np.std(finite_values))
-    if not np.isfinite(scale) or scale <= np.finfo(np.float64).eps:
+    median, scale = _robust_center_scale(finite_values)
+    if scale is None:
         return (), median, None, "Газовая кривая не имеет достаточного разброса для поиска аномалий."
 
     robust_z = np.full(values.shape, np.nan, dtype=np.float64)
@@ -266,6 +274,10 @@ def _detect_candidates(
     max_gap = max(step * 2.5, np.finfo(np.float64).eps)
     flagged_indices = np.flatnonzero(flagged)
     flagged_indices = flagged_indices[np.argsort(depth[flagged_indices], kind="stable")]
+    fluid_context = _build_fluid_interpretation_context(
+        dataset,
+        valid & ~flagged,
+    )
     groups: list[list[int]] = []
     for row_index in flagged_indices:
         if not groups or depth[row_index] - depth[groups[-1][-1]] > max_gap:
@@ -286,6 +298,15 @@ def _detect_candidates(
         maximum_primary = float(np.nanmax(values[group_indices]))
         context_mask = np.isfinite(depth) & (depth >= top) & (depth <= bottom)
         metrics = _interval_metrics(dataset, context_mask)
+        (
+            fluid_hypothesis,
+            interval_wetness,
+            background_wetness,
+            wetness_robust_z,
+        ) = _preliminary_fluid_hypothesis(
+            context_mask,
+            fluid_context,
+        )
         anomaly_strength = (
             "high"
             if maximum_z >= 6.0 and group_indices.size >= 2
@@ -312,11 +333,95 @@ def _detect_candidates(
                 primary_mnemonic,
                 maximum_z,
                 maximum_primary,
+                fluid_hypothesis,
+                interval_wetness,
+                background_wetness,
+                wetness_robust_z,
                 metrics,
                 tuple(evidence_parts),
             )
         )
     return tuple(candidates), median, scale, None
+
+
+def _robust_center_scale(values: np.ndarray) -> tuple[float, float | None]:
+    median = float(np.median(values))
+    mad = float(np.median(np.abs(values - median)))
+    scale = 1.4826 * mad
+    if not np.isfinite(scale) or scale <= np.finfo(np.float64).eps:
+        q25, q75 = np.percentile(values, [25.0, 75.0])
+        scale = float((q75 - q25) / 1.349)
+    if not np.isfinite(scale) or scale <= np.finfo(np.float64).eps:
+        scale = float(np.std(values))
+    if not np.isfinite(scale) or scale <= np.finfo(np.float64).eps:
+        return median, None
+    return median, scale
+
+
+def _build_fluid_interpretation_context(
+    dataset: Dataset,
+    background_mask: np.ndarray,
+) -> tuple[np.ndarray | None, float | None, float | None]:
+    try:
+        gases = resolve_gas_ratio_inputs(dataset)
+    except (ParameterResolutionError, ValueError):
+        return None, None, None
+    c1 = gases["C1"]
+    arrays = tuple(gases.values())
+    if any(values.shape != c1.shape for values in arrays) or c1.shape != background_mask.shape:
+        return None, None, None
+
+    c4 = _summed_component(gases, "C4", "IC4", "NC4", c1)
+    c5 = _summed_component(gases, "C5", "IC5", "NC5", c1)
+    heavier = gases["C2"] + gases["C3"] + c4 + c5
+    total = c1 + heavier
+    wetness = np.full(c1.shape, np.nan, dtype=np.float64)
+    valid = np.isfinite(c1) & np.isfinite(heavier) & np.isfinite(total) & (total > 0.0)
+    wetness[valid] = 100.0 * heavier[valid] / total[valid]
+
+    background_values = wetness[background_mask & valid]
+    if background_values.size < 20:
+        return wetness, None, None
+    background_median, background_scale = _robust_center_scale(background_values)
+    return wetness, background_median, background_scale
+
+
+def _preliminary_fluid_hypothesis(
+    interval_mask: np.ndarray,
+    context: tuple[np.ndarray | None, float | None, float | None],
+) -> tuple[str, float | None, float | None, float | None]:
+    wetness, background_median, background_scale = context
+    if wetness is None or background_median is None:
+        return "insufficient_data", None, None, None
+    interval_values = wetness[interval_mask & np.isfinite(wetness)]
+    if interval_values.size == 0:
+        return "insufficient_data", None, None, None
+    interval_median = float(np.median(interval_values))
+    if background_scale is None:
+        return "indeterminate", interval_median, background_median, None
+    relative_z = (interval_median - background_median) / background_scale
+    if relative_z >= _FLUID_CHARACTER_Z_THRESHOLD:
+        hypothesis = "probable_liquid_hydrocarbons"
+    elif relative_z <= -_FLUID_CHARACTER_Z_THRESHOLD:
+        hypothesis = "probable_gas"
+    else:
+        hypothesis = "indeterminate"
+    return hypothesis, interval_median, background_median, float(relative_z)
+
+
+def _summed_component(
+    gases: dict[str, np.ndarray],
+    total_name: str,
+    iso_name: str,
+    normal_name: str,
+    template: np.ndarray,
+) -> np.ndarray:
+    if iso_name in gases or normal_name in gases:
+        return gases.get(iso_name, np.zeros_like(template)) + gases.get(
+            normal_name,
+            np.zeros_like(template),
+        )
+    return gases.get(total_name, np.zeros_like(template))
 
 
 def _valid_gas_sample_count(dataset: Dataset, values: np.ndarray) -> int:
@@ -360,6 +465,7 @@ _HTML_LABELS = {
         "strength": "Относительная сила аномалии",
         "samples": "Отсчётов",
         "evidence": "Основание",
+        "hypothesis": "Предварительная интерпретация",
         "manual": "Интервалы, подтверждённые геологом",
         "interpretation": "Интерпретация",
         "type": "Тип",
@@ -368,6 +474,25 @@ _HTML_LABELS = {
         "warnings": "Ограничения методики",
         "empty": "Кандидатные интервалы по выбранному порогу не найдены.",
         "no_manual": "Подтверждённые геологом интервалы пока не заполнены.",
+        "hypothesis_probable_gas": "вероятный газ",
+        "hypothesis_probable_liquid_hydrocarbons": (
+            "вероятные жидкие УВ (нефть/конденсат)"
+        ),
+        "hypothesis_indeterminate": "УВ-проявление смешанного/неопределённого типа",
+        "hypothesis_insufficient_data": (
+            "газовое УВ-проявление; C1–C5 недостаточно для определения типа"
+        ),
+        "wetness_basis": (
+            "Относительная доля C2–C5: интервал {interval:.2f}%, "
+            "фон {background:.2f}%, robust z={robust_z:.2f}."
+        ),
+        "wetness_no_scale": (
+            "Относительная доля C2–C5: интервал {interval:.2f}%, "
+            "фон {background:.2f}%; фон не имеет устойчивого разброса."
+        ),
+        "wetness_insufficient": (
+            "Для интерпретации нужны согласованные C1–C5 и не менее 20 фоновых отсчётов."
+        ),
         "low": "низкая",
         "medium": "средняя",
         "high": "высокая",
@@ -391,6 +516,7 @@ _HTML_LABELS = {
         "strength": "Аномалияның салыстырмалы күші",
         "samples": "Есептер",
         "evidence": "Негіз",
+        "hypothesis": "Алдын ала интерпретация",
         "manual": "Геолог растаған аралықтар",
         "interpretation": "Интерпретация",
         "type": "Түр",
@@ -399,6 +525,25 @@ _HTML_LABELS = {
         "warnings": "Әдістеме шектеулері",
         "empty": "Таңдалған шек бойынша кандидат аралықтар табылмады.",
         "no_manual": "Геолог растаған аралықтар әлі толтырылмаған.",
+        "hypothesis_probable_gas": "ықтимал газ",
+        "hypothesis_probable_liquid_hydrocarbons": (
+            "ықтимал сұйық көмірсутектер (мұнай/конденсат)"
+        ),
+        "hypothesis_indeterminate": "аралас/анықталмаған түрдегі көмірсутек көрінісі",
+        "hypothesis_insufficient_data": (
+            "газдық көмірсутек көрінісі; түрін анықтау үшін C1–C5 жеткіліксіз"
+        ),
+        "wetness_basis": (
+            "C2–C5 салыстырмалы үлесі: аралық {interval:.2f}%, "
+            "фон {background:.2f}%, robust z={robust_z:.2f}."
+        ),
+        "wetness_no_scale": (
+            "C2–C5 салыстырмалы үлесі: аралық {interval:.2f}%, "
+            "фон {background:.2f}%; фонның тұрақты шашырауы жоқ."
+        ),
+        "wetness_insufficient": (
+            "Интерпретация үшін үйлесімді C1–C5 және кемінде 20 фондық есеп қажет."
+        ),
         "low": "төмен",
         "medium": "орташа",
         "high": "жоғары",
@@ -422,6 +567,7 @@ _HTML_LABELS = {
         "strength": "Relative anomaly strength",
         "samples": "Samples",
         "evidence": "Evidence",
+        "hypothesis": "Preliminary interpretation",
         "manual": "Geologist-confirmed intervals",
         "interpretation": "Interpretation",
         "type": "Type",
@@ -430,6 +576,25 @@ _HTML_LABELS = {
         "warnings": "Method limitations",
         "empty": "No candidate intervals were found at the selected threshold.",
         "no_manual": "No geologist-confirmed intervals have been entered.",
+        "hypothesis_probable_gas": "probable gas",
+        "hypothesis_probable_liquid_hydrocarbons": (
+            "probable liquid hydrocarbons (oil/condensate)"
+        ),
+        "hypothesis_indeterminate": "mixed/indeterminate hydrocarbon show",
+        "hypothesis_insufficient_data": (
+            "gas hydrocarbon show; insufficient C1–C5 to determine fluid type"
+        ),
+        "wetness_basis": (
+            "Relative C2–C5 fraction: interval {interval:.2f}%, "
+            "background {background:.2f}%, robust z={robust_z:.2f}."
+        ),
+        "wetness_no_scale": (
+            "Relative C2–C5 fraction: interval {interval:.2f}%, "
+            "background {background:.2f}%; background has no robust spread."
+        ),
+        "wetness_insufficient": (
+            "Interpretation requires consistent C1–C5 and at least 20 background samples."
+        ),
         "low": "low",
         "medium": "medium",
         "high": "high",
@@ -457,13 +622,15 @@ def hydrocarbon_interpretation_html(
         f"<td>{candidate.top_depth:.2f}–{candidate.bottom_depth:.2f} "
         f"{escape(report.depth_unit)}</td>"
         f"<td>{escape(labels[candidate.anomaly_strength])}</td>"
+        f"<td>{escape(fluid_hypothesis_label(candidate, language))}<br>"
+        f"<small>{escape(fluid_hypothesis_basis(candidate, language))}</small></td>"
         f"<td>{candidate.sample_count}</td>"
         f"<td>{escape('; '.join(candidate.evidence))}</td>"
         "</tr>"
         for candidate in report.candidates
     )
     if not candidate_rows:
-        candidate_rows = f"<tr><td colspan='4'>{escape(labels['empty'])}</td></tr>"
+        candidate_rows = f"<tr><td colspan='5'>{escape(labels['empty'])}</td></tr>"
     manual_rows = "".join(
         "<tr>"
         f"<td>{escape(interval.interpretation_name)}</td>"
@@ -480,12 +647,17 @@ def hydrocarbon_interpretation_html(
     warnings = "".join(f"<li>{escape(item)}</li>" for item in report.warnings)
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><style>
-body {{ font-family: Arial, sans-serif; color: #172033; font-size: 10pt; }}
+html, body {{ background: #ffffff; color: #172033; }}
+body {{ font-family: Arial, sans-serif; font-size: 10pt; }}
 h1 {{ font-size: 18pt; }} h2 {{ margin-top: 18px; font-size: 13pt; }}
 table {{ width: 100%; border-collapse: collapse; }}
-th, td {{ border: 1px solid #6b7280; padding: 5px; vertical-align: top; }}
-th {{ background: #e8eef7; }}
-.notice {{ background: #fff7d6; border-left: 4px solid #d59b00; padding: 8px 12px; }}
+th, td {{ border: 1px solid #8290a3; padding: 5px; vertical-align: top;
+          color: #172033; }}
+th {{ background: #dce8f4; color: #10243a; }}
+td {{ background: #ffffff; }}
+small {{ color: #44566c; }}
+.notice {{ color: #3d3300; background: #fff7d6;
+           border-left: 4px solid #d59b00; padding: 8px 12px; }}
 </style></head><body>
 <h1>{escape(labels['title'])}</h1>
 <p><b>{escape(labels['project'])}:</b> {escape(report.project_name)}<br>
@@ -499,7 +671,8 @@ th {{ background: #e8eef7; }}
 <th>{escape(labels['source'])}</th></tr></thead><tbody>{method_rows}</tbody></table>
 <h2>{escape(labels['candidates'])}</h2>
 <table><thead><tr><th>{escape(labels['interval'])}</th><th>{escape(labels['strength'])}</th>
-<th>{escape(labels['samples'])}</th><th>{escape(labels['evidence'])}</th></tr></thead>
+<th>{escape(labels['hypothesis'])}</th><th>{escape(labels['samples'])}</th>
+<th>{escape(labels['evidence'])}</th></tr></thead>
 <tbody>{candidate_rows}</tbody></table>
 <h2>{escape(labels['manual'])}</h2>
 <table><thead><tr><th>{escape(labels['interpretation'])}</th>
@@ -508,3 +681,33 @@ th {{ background: #e8eef7; }}
 <tbody>{manual_rows}</tbody></table>
 <div class="notice"><h2>{escape(labels['warnings'])}</h2><ul>{warnings}</ul></div>
 </body></html>"""
+
+
+def fluid_hypothesis_label(
+    candidate: HydrocarbonCandidateInterval,
+    language: AppLanguage = AppLanguage.RU,
+) -> str:
+    labels = _HTML_LABELS[language]
+    return labels[f"hypothesis_{candidate.fluid_hypothesis}"]
+
+
+def fluid_hypothesis_basis(
+    candidate: HydrocarbonCandidateInterval,
+    language: AppLanguage = AppLanguage.RU,
+) -> str:
+    labels = _HTML_LABELS[language]
+    if (
+        candidate.interval_wetness is None
+        or candidate.background_wetness is None
+    ):
+        return labels["wetness_insufficient"]
+    if candidate.wetness_robust_z is None:
+        return labels["wetness_no_scale"].format(
+            interval=candidate.interval_wetness,
+            background=candidate.background_wetness,
+        )
+    return labels["wetness_basis"].format(
+        interval=candidate.interval_wetness,
+        background=candidate.background_wetness,
+        robust_z=candidate.wetness_robust_z,
+    )

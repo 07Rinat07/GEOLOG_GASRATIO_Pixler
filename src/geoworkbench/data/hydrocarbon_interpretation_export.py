@@ -15,7 +15,10 @@ from geoworkbench.data.spreadsheet_safety import protect_spreadsheet_row
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
+    fluid_hypothesis_basis,
+    fluid_hypothesis_label,
 )
+from geoworkbench.services.localization import AppLanguage
 
 
 class HydrocarbonInterpretationExportError(RuntimeError):
@@ -69,6 +72,10 @@ def export_hydrocarbon_interpretation_xlsx(
         "primary_curve",
         "max_robust_z",
         "max_primary_value",
+        "preliminary_fluid_interpretation",
+        "interval_wetness_pct",
+        "background_wetness_pct",
+        "wetness_relative_robust_z",
         "context_medians",
         "evidence",
         "review_status",
@@ -86,13 +93,20 @@ def export_hydrocarbon_interpretation_xlsx(
                     item.primary_mnemonic,
                     item.max_robust_z,
                     item.max_primary_value,
+                    item.fluid_hypothesis,
+                    item.interval_wetness,
+                    item.background_wetness,
+                    item.wetness_robust_z,
                     "; ".join(f"{name}={value:.6g}" for name, value in item.metrics),
                     "; ".join(item.evidence),
                     "candidate — geologist confirmation required",
                 )
             )
         )
-    _format_table_sheet(candidates, widths=(14, 14, 12, 20, 16, 18, 16, 18, 48, 72, 38))
+    _format_table_sheet(
+        candidates,
+        widths=(14, 14, 12, 20, 16, 18, 16, 18, 38, 20, 20, 24, 48, 72, 38),
+    )
 
     manual = workbook.create_sheet("Manual intervals")
     manual_headers = (
@@ -259,7 +273,13 @@ def _write_docx(path: Path, report: HydrocarbonInterpretationReport) -> None:
     if report.candidates:
         body.append(
             _table(
-                ("Интервал", "Сила аномалии", "Отсчётов", "Основание"),
+                (
+                    "Интервал",
+                    "Сила аномалии",
+                    "Предварительная интерпретация",
+                    "Отсчётов",
+                    "Основание",
+                ),
                 tuple(
                     (
                         f"{item.top_depth:.2f}–{item.bottom_depth:.2f} {report.depth_unit}",
@@ -268,6 +288,9 @@ def _write_docx(path: Path, report: HydrocarbonInterpretationReport) -> None:
                             "medium": "средняя",
                             "high": "высокая",
                         }[item.anomaly_strength],
+                        fluid_hypothesis_label(item, AppLanguage.RU)
+                        + ". "
+                        + fluid_hypothesis_basis(item, AppLanguage.RU),
                         str(item.sample_count),
                         "; ".join(item.evidence),
                     )

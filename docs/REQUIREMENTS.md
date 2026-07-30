@@ -229,7 +229,7 @@ JSON-файл проекта не считается универсальным 
 | EXPORT-013 | Единая coverage-модель | готово: observed value/zero, missing sample и unavailable channel различаются в resolved report, CSV/XLSX/JSON/Parquet, интервальной статистике, Curve Catalog и Report Passport schema v4 |
 | EXPORT-014 | Восстанавливаемая запись output + Report Passport и fingerprint готового файла | готово: staging, journal schema v1, backup/install/rollback/recovery, transactional continuation cleanup и Passport schema v4 artifacts |
 | EXPORT-015 | Self-contained HTML из общей Report Model | готово: один UTF-8 файл с inline CSS, без scripts/network resources, из точных row indices и Coverage; transaction + Passport v4 fingerprint |
-| EXPORT-016 | Отдельный отчёт по интерпретации бурового газа для всей скважины с кандидатами и ручными интервалами | готово: preview, XLSX с `Whole well`, deterministic DOCX, PDF и системная печать; кандидат не выдаётся за заключение геолога |
+| EXPORT-016 | Отдельный отчёт по интерпретации бурового газа для всей скважины с кандидатами и ручными интервалами | готово: preview, предварительная интерпретация «вероятный газ/жидкие УВ/смешанный тип», XLSX с `Whole well`, deterministic DOCX, PDF и системная печать; кандидат не выдаётся за заключение геолога |
 
 Печатный рендер должен работать в миллиметрах и не должен быть скриншотом экранного
 `TabletView`.

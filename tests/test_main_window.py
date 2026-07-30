@@ -80,6 +80,9 @@ def test_window_exposes_interpretation_report_workspace(qapp) -> None:
     assert tab_index >= 0
     assert window.tabs.tabText(tab_index) == "Interpretation reports"
     assert "interpretation_calculation" in window._session_bindings.binding_names
+    workspace_style = window.interpretation_report_workspace.styleSheet()
+    assert "background: #f4f7fb" in workspace_style
+    assert "QTextBrowser#hydrocarbon-interpretation-preview" in workspace_style
     window.close()
 
 

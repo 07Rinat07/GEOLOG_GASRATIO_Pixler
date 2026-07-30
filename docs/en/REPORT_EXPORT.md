@@ -54,8 +54,10 @@ geologist-confirmed intervals, and exports XLSX, DOCX, PDF, or system print. The
 contains a summary, candidates, manual intervals, methods/sources, and the complete
 `Whole well` depth table.
 
-This specialized report does not automatically assign fluid type or productivity.
-See [Mud-gas interpretation](MUD_GAS_INTERPRETATION.md).
+This specialized report adds a preliminary interpretation: probable gas,
+probable liquid hydrocarbons, or mixed/indeterminate. It does not assign
+a definitive fluid type or productivity and does not infer water from absent
+mud gas. See [Mud-gas interpretation](MUD_GAS_INTERPRETATION.md).
 
 ## Extensible report designer
 
