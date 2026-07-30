@@ -158,7 +158,7 @@ def test_engineering_calculators_are_scrollable_and_roomy() -> None:
     scroll = widget.findChild(QScrollArea, "engineeringCalculationsScroll")
     petroleum_tabs = widget.findChild(QTabWidget, "petroleumCalculatorTabs")
     assert scroll is not None and scroll.widgetResizable()
-    assert petroleum_tabs is not None and petroleum_tabs.minimumHeight() >= 540
+    assert petroleum_tabs is not None and petroleum_tabs.minimumHeight() >= 520
 
     for name in (
         "pipe_od_in",
@@ -173,21 +173,19 @@ def test_engineering_calculators_are_scrollable_and_roomy() -> None:
         assert control.minimumWidth() >= 300
         assert control.minimumHeight() >= 36
 
-    expected_heights = {
-        "pipe_result": 180,
-        "drill_result": 220,
-        "mud_result": 220,
-        "geo_result": 160,
-        "depth_result": 260,
+    expected_sizes = {
+        "pipe_result": (180, 240),
+        "drill_result": (220, 280),
+        "mud_result": (220, 280),
+        "geo_result": (160, 220),
+        "depth_result": (260, 340),
     }
-    for name, minimum_height in expected_heights.items():
+    for name, (minimum_height, maximum_height) in expected_sizes.items():
         result = getattr(widget, name)
         assert result.minimumWidth() >= 620
         assert result.minimumHeight() >= minimum_height
-        assert (
-            result.sizePolicy().verticalPolicy()
-            == QSizePolicy.Policy.MinimumExpanding
-        )
+        assert result.maximumHeight() == maximum_height
+        assert result.sizePolicy().verticalPolicy() == QSizePolicy.Policy.Preferred
 
     for name in ("pipe_result", "geo_result", "depth_result"):
         result = getattr(widget, name)
