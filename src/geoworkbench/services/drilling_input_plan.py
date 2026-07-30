@@ -163,8 +163,7 @@ class DrillingInputResolver(LasParameterResolver):
             source = self.plan.source_for(canonical)
             if source.mode is InputSourceMode.AUTO:
                 continue
-            match = self._planned_match(dataset, canonical, source)
-            matches[canonical] = match
+            matches[canonical] = self._planned_match(dataset, canonical, source)
             ambiguities.pop(canonical, None)
 
         return DatasetParameterResolution(
@@ -213,7 +212,10 @@ class DrillingInputResolver(LasParameterResolver):
             )
 
         if source.mode is InputSourceMode.CONSTANT:
-            values = np.full(dataset.depth.shape, float(source.value), dtype=np.float64)
+            constant = source.value
+            if constant is None:
+                raise ValueError(f"Постоянное значение {canonical} не задано")
+            values = np.full(dataset.depth.shape, constant, dtype=np.float64)
             return _synthetic_match(
                 dataset,
                 canonical,
@@ -261,9 +263,8 @@ def build_section_values(
     result = np.full(axis.shape, np.nan, dtype=np.float64)
     hit_count = np.zeros(axis.shape, dtype=np.int16)
     for index, row in enumerate(rows):
-        upper_inclusive = index == len(rows) - 1
         mask = finite_depth & (axis >= row.top_md)
-        mask &= axis <= row.bottom_md if upper_inclusive else axis < row.bottom_md
+        mask &= axis <= row.bottom_md if index == len(rows) - 1 else axis < row.bottom_md
         conversion = dictionary.conversion(row.unit, target_unit)
         if conversion is None:
             raise ValueError(
@@ -301,7 +302,8 @@ def candidate_curves(
             (
                 item
                 for item in service.infer_curve(curve)
-                if item.canonical_mnemonic == canonical and item.confidence >= minimum_confidence
+                if item.canonical_mnemonic == canonical
+                and item.confidence >= minimum_confidence
             ),
             None,
         )
@@ -339,10 +341,7 @@ def _collapse_equivalent_duplicates(
             return None
         finite = np.isfinite(values) & np.isfinite(reference_values)
         if np.any(finite) and not np.allclose(
-            values[finite],
-            reference_values[finite],
-            rtol=1.0e-9,
-            atol=1.0e-12,
+            values[finite], reference_values[finite], rtol=1.0e-9, atol=1.0e-12
         ):
             return None
 
