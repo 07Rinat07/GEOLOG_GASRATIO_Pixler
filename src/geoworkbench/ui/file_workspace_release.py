@@ -2,20 +2,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from PySide6.QtCore import QPointF
 from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QFrame,
-    QGroupBox,
+    QGridLayout,
     QLabel,
-    QLayout,
-    QLineEdit,
     QSpinBox,
     QWidget,
 )
 
-from geoworkbench.files.document_service import DocumentKind
+from geoworkbench.files.document_service import DocumentError, DocumentKind
+from geoworkbench.ui.file_workspace_geometry import eraser_stroke_rectangles
 from geoworkbench.ui.file_workspace_v3 import FileWorkspaceWidget as _LocalizedWorkspace
 
 
@@ -172,9 +172,24 @@ _DATUM_TEXT: dict[str, dict[str, object]] = {
 }
 
 _PAGE_TEXT: dict[str, tuple[str, str, str, str]] = {
-    "ru": ("Страница —", "Страница {current} / {count}", "изменён", "Откройте PDF или изображение"),
-    "kk": ("Бет —", "{current} / {count} бет", "өзгертілді", "PDF немесе кескінді ашыңыз"),
-    "en": ("Page —", "Page {current} / {count}", "modified", "Open a PDF or image"),
+    "ru": (
+        "Страница —",
+        "Страница {current} / {count}",
+        "изменён",
+        "Откройте PDF или изображение",
+    ),
+    "kk": (
+        "Бет —",
+        "{current} / {count} бет",
+        "өзгертілді",
+        "PDF немесе кескінді ашыңыз",
+    ),
+    "en": (
+        "Page —",
+        "Page {current} / {count}",
+        "modified",
+        "Open a PDF or image",
+    ),
 }
 
 
@@ -201,7 +216,6 @@ class FileWorkspaceWidget(_LocalizedWorkspace):
             return
         page_layout.removeWidget(card)
         card.setParent(controls)
-        card.setSizePolicy(controls.sizePolicy())
         form.insertRow(0, card)
 
     def _localize_datum_details(self) -> None:
@@ -225,9 +239,9 @@ class FileWorkspaceWidget(_LocalizedWorkspace):
         if hints:
             hints[-1].setText(str(values["hint"]))
         layout = group.layout()
-        if isinstance(layout, QLayout):
+        if isinstance(layout, QGridLayout):
             for index, tip in enumerate(tips):
-                item = layout.itemAtPosition(index, 0) if hasattr(layout, "itemAtPosition") else None
+                item = layout.itemAtPosition(index, 0)
                 label = item.widget() if item is not None else None
                 if isinstance(label, QLabel):
                     label.setToolTip(str(tip))
@@ -285,6 +299,15 @@ class FileWorkspaceWidget(_LocalizedWorkspace):
         if self.language in {"kk", "en"}:
             self._relabel_combo_units(self.converter_source)
             self._relabel_combo_units(self.converter_target)
+
+    def _apply_eraser_stroke(self, points: list[QPointF], brush_size: int) -> None:
+        rects = eraser_stroke_rectangles(points, brush_size, self._render_zoom)
+        try:
+            self._enhanced_service().erase_pdf_rects(rects)
+            self._refresh_document()
+            self.document_status.setText(self._t("eraser_done"))
+        except DocumentError as error:
+            self._show_error(self._t("tool_eraser"), error)
 
     def _refresh_document(self) -> None:
         super()._refresh_document()
