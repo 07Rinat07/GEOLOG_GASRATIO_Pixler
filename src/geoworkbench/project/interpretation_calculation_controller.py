@@ -25,6 +25,9 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
     """Preserve source normalized gas and store the local result independently."""
 
     normalized_gas_mode: NormalizedGasCalculationMode = NormalizedGasCalculationMode.COMPARE
+    _active_normalized_gas_mode: NormalizedGasCalculationMode = (
+        NormalizedGasCalculationMode.COMPARE
+    )
 
     def calculate_standard_curves(
         self,
@@ -40,10 +43,15 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
             if mode is NormalizedGasCalculationMode.SERVER
             else normalized_gas_reference
         )
-        return super().calculate_standard_curves(
-            normal_mud_density_ppg=normal_mud_density_ppg,
-            normalized_gas_reference=reference,
-        )
+        previous = self._active_normalized_gas_mode
+        self._active_normalized_gas_mode = mode
+        try:
+            return super().calculate_standard_curves(
+                normal_mud_density_ppg=normal_mud_density_ppg,
+                normalized_gas_reference=reference,
+            )
+        finally:
+            self._active_normalized_gas_mode = previous
 
     def _normalized_gas_mode(
         self,
@@ -54,6 +62,35 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
             return NormalizedGasCalculationMode(str(value))
         except ValueError as exc:
             raise ValueError(f"Неизвестный режим нормализованного газа: {value}") from exc
+
+    def _calculate_profile(
+        self,
+        dataset: Dataset,
+        profile_id: str,
+        inputs: dict[str, Array | None],
+        *,
+        parameters: dict[str, float] | None = None,
+        created: list[str],
+        updated: list[str],
+        skipped: list[str],
+        issues: list[InterpretationCalculationIssue],
+    ) -> None:
+        if (
+            self._active_normalized_gas_mode is NormalizedGasCalculationMode.SERVER
+            and profile_id.startswith("gas.normalized_")
+        ):
+            skipped.append(self.registry.passport(profile_id).output_mnemonic)
+            return
+        super()._calculate_profile(
+            dataset,
+            profile_id,
+            inputs,
+            parameters=parameters,
+            created=created,
+            updated=updated,
+            skipped=skipped,
+            issues=issues,
+        )
 
     def _install_curve(
         self,
