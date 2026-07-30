@@ -31,7 +31,7 @@ class NormalizedGasCalculationMode(StrEnum):
     LOCAL = "local"
 
 
-@dataclass(slots=True)
+@dataclass
 class InterpretationCalculationController(_LegacyInterpretationCalculationController):
     """Preserve source curves and use one explicit drilling-input plan for all methods."""
 
@@ -67,7 +67,8 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
         previous = self._active_normalized_gas_mode
         self._active_normalized_gas_mode = mode
         try:
-            result = super().calculate_standard_curves(
+            result = _LegacyInterpretationCalculationController.calculate_standard_curves(
+                self,
                 normal_mud_density_ppg=normal_mud_density_ppg,
                 normalized_gas_reference=reference,
             )
@@ -250,7 +251,8 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
         ):
             skipped.append(self.registry.passport(profile_id).output_mnemonic)
             return
-        super()._calculate_profile(
+        _LegacyInterpretationCalculationController._calculate_profile(
+            self,
             dataset,
             profile_id,
             inputs,
@@ -280,7 +282,8 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
         if mnemonic == "TG_NORM" and provenance.startswith("calculation:"):
             target_mnemonic = "TG_NORM_CALC"
             target_description = f"{description} — local program calculation"
-        super()._install_curve(
+        _LegacyInterpretationCalculationController._install_curve(
+            self,
             dataset,
             target_mnemonic,
             values,
