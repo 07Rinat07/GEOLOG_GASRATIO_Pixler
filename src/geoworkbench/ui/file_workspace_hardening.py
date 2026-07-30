@@ -159,7 +159,7 @@ class FileWorkspaceWidget(_DepthWorkspace):
         tabs = self.findChild(QTabWidget, "petroleumCalculatorTabs")
         if tabs is None:
             return
-        tabs.setMinimumHeight(540)
+        tabs.setMinimumHeight(520)
         tabs.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
         )
@@ -167,7 +167,7 @@ class FileWorkspaceWidget(_DepthWorkspace):
 
         group = tabs.parentWidget()
         if isinstance(group, QGroupBox):
-            group.setMinimumHeight(620)
+            group.setMinimumHeight(600)
             group.setSizePolicy(
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
             )
@@ -203,9 +203,17 @@ class FileWorkspaceWidget(_DepthWorkspace):
                 calculator_layout.setColumnStretch(3, 1)
                 calculator_layout.setHorizontalSpacing(14)
                 calculator_layout.setVerticalSpacing(9)
+                calculator_layout.setRowStretch(calculator_layout.rowCount(), 1)
 
             for label in calculator_page.findChildren(QLabel):
                 label.setWordWrap(True)
+                if label.objectName() == "hint":
+                    label.setSizePolicy(
+                        QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum
+                    )
+                    label.setAlignment(
+                        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+                    )
 
         wide_controls = (
             "pipe_od_in",
@@ -243,21 +251,22 @@ class FileWorkspaceWidget(_DepthWorkspace):
                     QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
                 )
 
-        result_heights = {
-            "pipe_result": 180,
-            "drill_result": 220,
-            "mud_result": 220,
-            "geo_result": 160,
-            "depth_result": 260,
+        result_sizes = {
+            "pipe_result": (180, 240),
+            "drill_result": (220, 280),
+            "mud_result": (220, 280),
+            "geo_result": (160, 220),
+            "depth_result": (260, 340),
         }
-        for name, minimum_height in result_heights.items():
+        for name, (minimum_height, maximum_height) in result_sizes.items():
             result: Any = getattr(self, name, None)
             if not isinstance(result, QLabel):
                 continue
             result.setMinimumWidth(max(result.minimumWidth(), 620))
             result.setMinimumHeight(max(result.minimumHeight(), minimum_height))
+            result.setMaximumHeight(maximum_height)
             result.setSizePolicy(
-                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
             )
             result.setAlignment(
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
