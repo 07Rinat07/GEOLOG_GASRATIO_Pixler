@@ -123,6 +123,7 @@ class InterpretationReportWorkspace(_LegacyInterpretationReportWorkspace):
         self.setStyleSheet(
             """
             QWidget#interpretation-report-workspace {
+                background: #f4f7fb;
                 background-color: palette(window);
                 color: palette(window-text);
             }
