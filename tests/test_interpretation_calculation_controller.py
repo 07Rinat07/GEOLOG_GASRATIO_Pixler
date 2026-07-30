@@ -93,7 +93,7 @@ def test_standard_interpretation_suite_converts_field_units_and_creates_curves()
         "NC4_NORM",
         "IC5_NORM",
         "NC5_NORM",
-        "TG_NORM",
+        "TG_NORM_CALC",
         "DEXP",
         "DEXPC",
     }
@@ -109,7 +109,7 @@ def test_standard_interpretation_suite_converts_field_units_and_creates_curves()
         rtol=1e-7,
     )
     np.testing.assert_allclose(
-        dataset.curve_by_mnemonic("TG_NORM").values,
+        dataset.curve_by_mnemonic("TG_NORM_CALC").values,
         100.0 * 50.0 / 60.0,
         rtol=1e-7,
     )
@@ -130,7 +130,7 @@ def test_standard_interpretation_suite_converts_field_units_and_creates_curves()
     )
     assert result.track_curves["gas_ratio_pixler"][:3] == ("WH", "BH", "CH")
     assert result.track_curves["normalized_gas"] == (
-        "TG_NORM",
+        "TG_NORM_CALC",
         "C1_NORM",
         "C1_NORM_REF",
         "C2_NORM",
@@ -177,9 +177,13 @@ def test_standard_suite_preserves_server_normalized_total_gas_alias() -> None:
         dataset.curve_by_mnemonic("NORMALIZED_TOTAL_GAS").values,
         server_values,
     )
-    assert dataset.curve_by_mnemonic("TG_NORM") is None
-    assert "TG_NORM" in result.skipped
-    assert any(
+    local = dataset.curve_by_mnemonic("TG_NORM_CALC")
+    assert local is not None
+    assert local.metadata.provenance.startswith("calculation:")
+    assert "TG_NORM_CALC" in result.changed
+    assert "NORMALIZED_TOTAL_GAS" in result.track_curves["normalized_gas"]
+    assert "TG_NORM_CALC" in result.track_curves["normalized_gas"]
+    assert not any(
         issue.code == "source-protected" and "NORMALIZED_TOTAL_GAS" in issue.message
         for issue in result.issues
     )
