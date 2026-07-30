@@ -57,18 +57,27 @@ Choose Русский, Қазақша, or English on first launch. You can later
 
 ## Saving the project and user changes
 
-Changes to tables, forms, intervals, annotations, and inserted symbols first exist in the current
-session. Press **Ctrl+S** or choose **File → Save** to write them to disk. Individual objects do
-not need separate save buttons. When a modified project is closed, the application should offer
-to save it; closing without saving discards changes made after the last save. LAS/PDF/CSV/Excel/
-DOCX/HTML export creates a separate file and does not replace project saving. See the complete
-[Features and instructions](FEATURES.md) map.
+The primary working document is the `*.geolog.json` well project. It stores curves, the tablet
+form, cuttings, LBA, calcimetry, descriptions, intervals, and symbols. Source LAS/GS2/DB files
+remain immutable inputs, while LAS/PDF/CSV/Excel/DOCX/HTML export creates a separate output.
+
+Changes first exist in the current session. Press **Ctrl+S** or choose **File → Save** to write
+them to disk; individual objects do not need separate save buttons. The current release does not
+provide dependable autosave and must not be used on the assumption that closing will always
+prompt: save explicitly after import, daily growth, and manual entry. If a
+`<project>.geolog.json.assets` directory is created, move it together with the JSON file. See
+[Well project workflow](PROJECT_WORKFLOW.md) for the first-day and daily process and
+[Features and instructions](FEATURES.md) for the feature map.
 
 ## Import
 
 Use “File → Import data...” (`Ctrl+I`) and select LAS, CSV/TXT, Excel, or GeoScape/Paradox DB. Paradox also has “File → Import → GeoScape / Paradox DB” and `.db` drag-and-drop. The application validates the binary format, discovers same-name `.PX/.TV/.FAM` files, presents channels and depth/time candidates, and never applies an ambiguous index without confirmation. Source files are opened read-only. A dataset is committed to the project only after successful reading, policy evaluation, and any required user confirmation; cancelled or rejected files cannot create a partial well. See [PARADOX_IMPORT.md](PARADOX_IMPORT.md).
 
 Legacy Delphi SKF forms can be imported from “Forms → Form Library → Import and export → Import SKF” or “Constructor → Tablet forms”. See [SKF_IMPORT.md](SKF_IMPORT.md).
+
+To continue the same well on the following day, open the saved project first and then use
+**File → Daily LAS growth…**. Ordinary LAS import creates another Dataset/working well and is not
+a continuation of yesterday's manual work.
 
 Version 0.7.57 continuously reports whether the current form width fits portrait or landscape A4 in both Form Library and the structure editor. While columns are resized it shows physical/logical width, expected reduction, and concrete advice: shrink widths, hide secondary tracks, use landscape A4, A3/roll media, or split the form. The same state is visible in the tablet status bar. Interval statistics opens as a screen-constrained overlay over the tablet right edge, does not consume form width, and is cleared with the old interval selection when forms change. Logs and diagnostics ZIP remain available from Help.
 
@@ -158,7 +167,9 @@ transfer the JSON files for these forms. See [Form Engine](FORM_ENGINE.md).
 ## LAS export
 
 The export dialog configures LAS 1.2/2.0, WRAP, NULL, precision, and custom-section
-preservation. Settings, warnings, and overwrite confirmation use the selected language.
+preservation. Settings, warnings, and overwrite confirmation use the selected language. Export
+writes numeric curves from the current Dataset, but it does not replace project saving and cannot
+carry the project form, symbols, cuttings, LBA, or formatted descriptions in standard LAS.
 
 ## Calculation formulas
 
@@ -643,4 +654,3 @@ The **Files** tab is visible in the main workspace and can also be opened throug
 or `Ctrl+Alt+F`. After `git pull`, update the active environment with
 `python -m pip install -e ".[dev]"`. PyMuPDF is imported as `fitz`; when it is missing, the
 application now starts in a safe fallback mode and displays recovery instructions in the tab.
-

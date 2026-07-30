@@ -29,7 +29,7 @@ The target plot reasserts the custom pencil cursor on every mouse event. A float
 
 ## Connected-point pencil and acknowledged edits — 0.7.11
 
-Choose Freehand stroke or Connect points. In point mode, click anchors and press Connect, Enter, or double-click the final point. Dependants recalculate immediately in memory; the project is written only after Save. Failed edits keep the orange preview.
+Choose Freehand stroke or Connect points. In point mode, click anchors and press Connect, Enter, or double-click the final point. Dependants recalculate immediately in memory; the project is written only after Save. Failed edits keep the orange preview. Save writes the `*.geolog.json` project, not the source LAS.
 
 # Interface workspace 0.7.7
 
@@ -44,6 +44,8 @@ The main toolbar now keeps only frequent actions:
 - curve pencil and cursor line.
 
 Specialist commands remain in their thematic menus. Every action has a tooltip and status tip.
+The toolbar Save action writes the complete working project; LAS is created by a separate export.
+See the [project workflow](PROJECT_WORKFLOW.md) for the first and following days.
 
 ## Form editing mode
 
@@ -106,7 +108,7 @@ A persistent **Curve pencil** row is shown above the tablet. Choose a track and 
 
 ## Parameter captions and pencil saving — 0.7.10
 
-Graph headers use a readable name from the LAS description or Sensors.DB. Technical codes such as `S300`, `S720`, `S800`, `S900` and `S50` remain in tooltips/editors instead of replacing the caption. Pencil activation prefers the selected curve and marks the target track with an orange header and `✎`. Dependants recalculate immediately after a stroke, the UI reports “Not saved”, and disk writing occurs only through Save.
+Graph headers use a readable name from the LAS description or Sensors.DB. Technical codes such as `S300`, `S720`, `S800`, `S900` and `S50` remain in tooltips/editors instead of replacing the caption. Pencil activation prefers the selected curve and marks the target track with an orange header and `✎`. Dependants recalculate immediately after a stroke, the UI reports “Not saved”, and Save writes the complete project rather than the source LAS.
 
 ## Selected interval analysis
 

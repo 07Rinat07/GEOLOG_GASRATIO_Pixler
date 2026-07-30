@@ -26,6 +26,8 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 
 ## Основные пользовательские процессы
 
+- Рабочий проект и ежедневное наращивание: [RU](ru/PROJECT_WORKFLOW.md) ·
+  [KK](kk/PROJECT_WORKFLOW.md) · [EN](en/PROJECT_WORKFLOW.md)
 - Import Review: [RU](ru/IMPORT_REVIEW.md) · [KK](kk/IMPORT_REVIEW.md) ·
   [EN](en/IMPORT_REVIEW.md)
 - LAS Editor: [RU](ru/LAS_EDITOR.md) · [KK](kk/LAS_EDITOR.md) · [EN](en/LAS_EDITOR.md)

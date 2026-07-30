@@ -36,6 +36,14 @@ Checks cover empty rows/channels, NaN/Infinity, outliers, duplicate/reverse/nega
 and chronology. Duplicates are retained by default; first/last/mean/median require an explicit
 choice. Every correction and row count is recorded in provenance.
 
+## What happens after import
+
+**Open in editor** registers the `Dataset` in the current unsaved project; it does not create a
+LAS file. When a `.db` is selected directly, **Save LAS** opens the export dialog. In the current
+release the same action inside the GeoScape2/GS2 route is not forwarded: finish the import, select
+the created dataset, and run **File → Export LAS** separately. **Ctrl+S** saves the project, not
+LAS. See the [project workflow](PROJECT_WORKFLOW.md) for continued work.
+
 ## Actual step and resampling
 
 The nominal GeoScape 0.2 m grid is displayed separately from the source's actual step. The LAS

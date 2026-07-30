@@ -129,7 +129,8 @@ widths remain editable and persistent.
 
 The diskette action and `Ctrl+S` save the project. Saved state includes lithology intervals, shared
 cuttings samples, LBA, calcimetry, rich descriptions, the selected form, and its screen layout. The
-factory template is not modified.
+factory template is not modified. The diskette does not overwrite LAS; the current release has no
+dependable autosave, so save the project after each work stage. For daily continuation, see the
+[well project workflow](PROJECT_WORKFLOW.md).
 - The LBA track now follows the three-subcolumn GeoData working layout: score, fluorescence color and bitumoid type. Ring/spot size reflects intensity 1–5, while the colored interval cell shows LB/MB/MSB/SB/SAB class.
 - Technology parameter names are fully localized per language, including torque, hook load and inlet mud density.
-

@@ -58,9 +58,11 @@ Control check:
 4. verify position, size, depth, track, parameter, and background mode;
 5. open preview or PDF when the symbol must be printed.
 
-If the project is closed and saving is declined, the insertion and every edit made after the last
-save are lost. PDF, a screenshot, and physical printing do not replace project saving. The
-external BMP/PNG is not required after a successful save because the project owns an internal copy.
+The current release does not guarantee a close-time save prompt: without an explicit **Ctrl+S**,
+the insertion and later edits may be lost. PDF, a screenshot, and printing do not replace project
+saving. The external BMP/PNG is not required after a successful save because the project owns a
+copy; move the `.assets` directory together with the project JSON. See the
+[well project workflow](PROJECT_WORKFLOW.md).
 
 ### Precise editing and safe reversal
 

@@ -9,6 +9,11 @@
 [Қазақша нұсқаулық](docs/kk/README.md) ·
 [English guide](docs/en/README.md)
 
+Рабочая модель приложения проектная: исходные LAS/GS2/DB остаются неизменяемыми источниками,
+вся продолжаемая работа сохраняется в проекте скважины, а LAS создаётся отдельным экспортом.
+Подробный ежедневный процесс: [RU](docs/ru/PROJECT_WORKFLOW.md) ·
+[KK](docs/kk/PROJECT_WORKFLOW.md) · [EN](docs/en/PROJECT_WORKFLOW.md).
+
 ## Основные возможности
 
 - **Импорт и проверка данных.** LAS 1.2/2.0, CSV/TXT, Excel, GeoScape2/GS2, Paradox и SKF с

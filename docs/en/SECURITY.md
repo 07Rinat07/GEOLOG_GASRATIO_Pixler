@@ -26,6 +26,8 @@ their source has been confirmed.
 A successful parser does not prove that the data is correct. Compare critical channels and
 intervals with the source report. Export creates a separate file and does not replace **Ctrl+S**
 for the project.
+When making a backup, copy `*.geolog.json` together with its matching `.assets` directory. See the
+[project workflow](PROJECT_WORKFLOW.md) for the complete save and daily-continuation procedure.
 
 ## Early LAS/XML limits
 

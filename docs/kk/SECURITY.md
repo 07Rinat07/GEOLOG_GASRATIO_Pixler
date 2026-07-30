@@ -28,6 +28,9 @@ LAS, GS2/Paradox, WITSML XML/ZIP/EPC, projects, forms, SVG және images кө�
 Parser сәтті аяқталуы деректің дұрыстығын дәлелдемейді. Critical channels және intervals-ті source
 report-пен салыстырыңыз. Export бөлек файл жасайды және project үшін **Ctrl+S** әрекетін
 алмастырмайды.
+Резервтік көшірме жасағанда `*.geolog.json` файлын оған сәйкес `.assets` каталогымен бірге
+көшіріңіз. Сақтау және күнделікті жалғастырудың толық реті:
+[жобамен жұмыс процесі](PROJECT_WORKFLOW.md).
 
 ## LAS/XML ерте лимиттері
 

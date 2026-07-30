@@ -7,24 +7,27 @@ details remain in Git.
 
 ## General working rules
 
-- Changes to data, forms, intervals, and annotations first exist in the open project session.
-- Use **Ctrl+S** or **File → Save** to write those changes to disk.
-- When a modified project is closed, the application should offer to save it. Closing without
-  saving discards everything changed after the last successful save.
+- The primary working document is the `*.geolog.json` project; source LAS/GS2/DB files remain
+  immutable inputs.
+- Changes to data, forms, intervals, and annotations first exist in the open session. Use
+  **Ctrl+S** or **File → Save** to write them to the project on disk.
+- The current release has no dependable autosave or guaranteed close prompt. Save explicitly
+  after import, daily growth, and manual entry.
 - **Undo/Redo** reverses or reapplies supported operations only in the current session.
 - LAS, CSV, Excel, PDF, DOCX, or HTML export creates a separate file and does not replace saving
   the project itself.
-- After important changes, save the project, close it, and reopen it for a control check.
+- After important changes, save the project, close it, and reopen it for a control check. See the
+  complete [project workflow](PROJECT_WORKFLOW.md).
 
 ## User feature map
 
 | Area | Main capabilities | Detailed instructions |
 |---|---|---|
-| Projects and language | startup, create/open project, RU/KK/EN, safe saving | [User guide](README.md) |
+| Projects and language | startup, create/open project, RU/KK/EN, safe saving | [Project workflow](PROJECT_WORKFLOW.md), [User guide](README.md) |
 | WITS0 data | TCP server/client, raw capture, frames, reconnect, replay-ready files | [WITS0 capture](WITS0_CAPTURE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
 | Data import | LAS, CSV, Excel, TXT, GeoScape/Paradox, SKF, preview and mapping review | [Import Review](IMPORT_REVIEW.md), [LAS Editor](LAS_EDITOR.md), [Paradox](PARADOX_IMPORT.md), [SKF](SKF_IMPORT.md) |
 | Import diagnostics | NULL, duplicates, depth/time, units, gaps, error log | [Import Review](IMPORT_REVIEW.md), [Application diagnostics](APPLICATION_DIAGNOSTICS.md) |
-| Datasets | multiple wells and datasets, merge, daily append, replay | [Workspace](UI_WORKSPACE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
+| Datasets | multiple wells and datasets, merge, daily append, replay | [Project workflow](PROJECT_WORKFLOW.md), [Workspace](UI_WORKSPACE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
 | LAS table editor | inspect and edit curves, ranges, new LAS, export | [LAS Editor](LAS_EDITOR.md), [LAS Editor 2](LAS_EDITOR_2.md) |
 | Tablet | curve selection, tracks, scales, ranges, grids, forms, scrolling and cursor | [Workspace](UI_WORKSPACE.md), [Tablet Engine](TABLET_ENGINE_2.md) |
 | Graph editing | pencil, point correction, Undo/Redo, safe rebuild | [Interaction architecture](TABLET_INTERACTION_ARCHITECTURE.md) |

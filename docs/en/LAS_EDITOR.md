@@ -31,6 +31,14 @@ does not reopen the source path.
 - **Splice LAS files** — combine depth sections with an explicit overlap policy.
 - **Save current as new LAS** — export the working copy to a separate file.
 
+## Continuing the same well each day
+
+Do not import the new daily LAS as another well. Open yesterday's `*.geolog.json`, choose
+**File → Daily LAS growth…**, review well identity, index, units, and overlap, and then confirm the
+append. New rows are added to the same dataset while cuttings, symbols, LBA, calcimetry, and other
+manual well layers are preserved. Press **Ctrl+S** after the operation. See the full
+[well project workflow](PROJECT_WORKFLOW.md).
+
 ## Vendor and legacy LAS cases
 
 Descending depth, negative `STEP`, UTF-8, Windows-1251 and CP866, duplicate mnemonics, and
@@ -72,6 +80,7 @@ in the created result.
 
 - **Ctrl+S** saves the working model inside the project.
 - **LAS export** creates a separate portable file.
-- Closing the project without saving discards table edits made after the last `Ctrl+S`.
+- The current release has no dependable autosave or guaranteed close prompt: the diskette saves
+  the project, not the source LAS.
 - After important edits, save the project, export a LAS copy, and reopen both results to verify row
   count, index, and critical curves.
