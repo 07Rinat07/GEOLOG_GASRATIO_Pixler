@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -11,7 +10,6 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QGridLayout,
-    QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -55,7 +53,7 @@ class _SourceRow:
 
 
 class DrillingCalculationDialog(QDialog):
-    """Configure the actual drilling inputs used by normalized gas and DEXP."""
+    """Configure shared drilling inputs for normalized gas, DEXP, and DEXPC."""
 
     _PARAMETERS = (
         ("ROP", "rop", ("m/h", "ft/h"), "m/h"),
@@ -75,13 +73,22 @@ class DrillingCalculationDialog(QDialog):
         normal_mud_density_ppg: float | None = None,
     ) -> None:
         super().__init__(parent)
+        dataset = controller.session.current_dataset
+        if dataset is None:
+            raise RuntimeError(
+                self._language_text(
+                    language,
+                    "Сначала выберите набор данных",
+                    "Алдымен деректер жинағын таңдаңыз",
+                    "Select a dataset first",
+                )
+            )
         self.controller = controller
+        self.dataset = dataset
         self.language = language
-        self.dataset = controller.session.current_dataset
-        if self.dataset is None:
-            raise RuntimeError(self._text("Сначала выберите набор данных", "Алдымен деректер жинағын таңдаңыз", "Select a dataset first"))
         self._request: DrillingCalculationRequest | None = None
         self._source_rows: dict[str, _SourceRow] = {}
+
         self.setObjectName("drillingCalculationDialog")
         self.setWindowTitle(
             self._text(
@@ -93,33 +100,42 @@ class DrillingCalculationDialog(QDialog):
         self.resize(1_050, 760)
 
         root = QVBoxLayout(self)
-        introduction = QLabel(
+        intro = QLabel(
             self._text(
                 "Фактические буровые параметры берутся из выбранных кривых или из явно "
-                "заданных значений. BIT задаётся по секциям глубины, когда диаметр менялся.",
+                "заданных значений. При смене диаметра BIT задаётся секциями по MD.",
                 "Нақты бұрғылау параметрлері таңдалған қисықтардан немесе анық енгізілген "
-                "мәндерден алынады. Диаметр өзгерсе, BIT тереңдік секцияларымен беріледі.",
+                "мәндерден алынады. Диаметр өзгерсе, BIT MD секцияларымен беріледі.",
                 "Actual drilling parameters come from selected curves or explicit values. "
-                "When hole size changes, BIT must be entered by depth sections.",
+                "When hole size changes, define BIT by MD sections.",
             )
         )
-        introduction.setWordWrap(True)
-        root.addWidget(introduction)
+        intro.setWordWrap(True)
+        root.addWidget(intro)
 
         tabs = QTabWidget()
-        tabs.addTab(self._build_sources_tab(), self._text("Буровые параметры", "Бұрғылау параметрлері", "Drilling inputs"))
-        tabs.addTab(self._build_bit_tab(), self._text("Секции BIT", "BIT секциялары", "BIT sections"))
-        tabs.addTab(self._build_reference_tab(normalized_reference, normal_mud_density_ppg), self._text("Эталон и DEXPC", "Эталон және DEXPC", "Reference and DEXPC"))
+        tabs.addTab(
+            self._build_sources_tab(),
+            self._text("Буровые параметры", "Бұрғылау параметрлері", "Drilling inputs"),
+        )
+        tabs.addTab(
+            self._build_bit_tab(),
+            self._text("Секции BIT", "BIT секциялары", "BIT sections"),
+        )
+        tabs.addTab(
+            self._build_reference_tab(normalized_reference, normal_mud_density_ppg),
+            self._text("Эталон и DEXPC", "Эталон және DEXPC", "Reference and DEXPC"),
+        )
         root.addWidget(tabs, 1)
 
         note = QLabel(
             self._text(
-                "Одно постоянное значение допустимо только для интервала, реально пробуренного "
-                "одним долотом и при постоянном режиме. Для нескольких секций используйте таблицу.",
-                "Бір тұрақты мән тек бір қашаумен және тұрақты режимде бұрғыланған аралыққа жарайды. "
+                "Одно постоянное значение допустимо только когда весь расчётный интервал "
+                "пробурен одним долотом. Для нескольких секций используйте таблицу.",
+                "Бір тұрақты мән тек есептік аралықтың барлығы бір қашаумен бұрғыланса жарайды. "
                 "Бірнеше секция үшін кестені пайдаланыңыз.",
-                "A single constant is valid only for an interval drilled with one bit under a "
-                "constant regime. Use the section table for multiple hole sections.",
+                "A single constant is valid only when the full calculation interval was drilled "
+                "with one bit. Use the table for multiple sections.",
             )
         )
         note.setWordWrap(True)
@@ -129,7 +145,10 @@ class DrillingCalculationDialog(QDialog):
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
-        ok_button.setText(self._text("Применить и рассчитать", "Қолданып есептеу", "Apply and calculate"))
+        if ok_button is not None:
+            ok_button.setText(
+                self._text("Применить и рассчитать", "Қолданып есептеу", "Apply and calculate")
+            )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
@@ -139,54 +158,35 @@ class DrillingCalculationDialog(QDialog):
         layout = QVBoxLayout(page)
         help_label = QLabel(
             self._text(
-                "Автоматический режим объединяет только численно идентичные дубли. Если два "
-                "канала отличаются, выберите нужный вручную.",
-                "Автоматты режим тек сандық мәндері бірдей дубльдерді біріктіреді. Екі арна "
-                "айырмашылық жасаса, қажеттісін қолмен таңдаңыз.",
-                "Automatic mode merges only numerically identical duplicates. If two channels "
-                "differ, select the correct one explicitly.",
+                "Автовыбор объединяет только численно идентичные дубли. Если два канала "
+                "отличаются, выберите нужный явно.",
+                "Автовыбор тек сандық мәндері бірдей дубльдерді біріктіреді. Екі арна "
+                "айырмашылық жасаса, қажеттісін нақты таңдаңыз.",
+                "Automatic selection merges only numerically identical duplicates. Select a "
+                "specific curve when candidates differ.",
             )
         )
         help_label.setWordWrap(True)
         layout.addWidget(help_label)
 
         grid = QGridLayout()
-        headers = (
-            self._text("Параметр", "Параметр", "Parameter"),
-            self._text("Источник", "Дереккөз", "Source"),
-            self._text("Ручное значение", "Қолмен енгізу", "Manual value"),
-            self._text("Единица", "Бірлік", "Unit"),
-            self._text("Состояние", "Күй", "Status"),
-        )
-        for column, text in enumerate(headers):
-            label = QLabel(f"<b>{text}</b>")
-            grid.addWidget(label, 0, column)
+        for column, text in enumerate(
+            (
+                self._text("Параметр", "Параметр", "Parameter"),
+                self._text("Источник", "Дереккөз", "Source"),
+                self._text("Ручное значение", "Қолмен енгізу", "Manual value"),
+                self._text("Единица", "Бірлік", "Unit"),
+                self._text("Состояние", "Күй", "Status"),
+            )
+        ):
+            grid.addWidget(QLabel(f"<b>{text}</b>"), 0, column)
 
         plan = self.controller.drilling_input_plan
         for row_index, (canonical, attribute, units, default_unit) in enumerate(
-            self._PARAMETERS,
-            start=1,
+            self._PARAMETERS, start=1
         ):
             grid.addWidget(QLabel(self._parameter_label(canonical)), row_index, 0)
-            combo = QComboBox()
-            combo.setMinimumWidth(330)
-            combo.addItem(self._text("Автоматически", "Автоматты", "Automatic"), "auto")
-            candidate_names: set[str] = set()
-            candidate_keys = (canonical, "FLOW_OUT") if canonical == "FLOW_IN" else (
-                (canonical, "MW_OUT") if canonical == "MW_IN" else (canonical,)
-            )
-            for key in candidate_keys:
-                for match in candidate_curves(self.dataset, key):
-                    if match.curve_id in candidate_names:
-                        continue
-                    candidate_names.add(match.curve_id)
-                    coverage = self._coverage(match.curve.values)
-                    combo.addItem(
-                        f"{match.source_mnemonic} [{match.unit or '—'}] · {coverage:.1f}%",
-                        f"curve:{match.curve_id}",
-                    )
-            combo.addItem(self._text("Постоянное значение", "Тұрақты мән", "Constant value"), "constant")
-
+            combo = self._source_combo(canonical)
             value = QDoubleSpinBox()
             value.setDecimals(4)
             value.setRange(0.0, 1.0e9)
@@ -201,10 +201,10 @@ class DrillingCalculationDialog(QDialog):
             grid.addWidget(value, row_index, 2)
             grid.addWidget(unit, row_index, 3)
             grid.addWidget(status, row_index, 4)
+
             source = getattr(plan, attribute)
             self._restore_source(combo, value, unit, source)
-            source_row = _SourceRow(combo, value, unit, status)
-            self._source_rows[attribute] = source_row
+            self._source_rows[attribute] = _SourceRow(combo, value, unit, status)
             combo.currentIndexChanged.connect(
                 lambda _index, name=attribute: self._update_source_row(name)
             )
@@ -216,26 +216,76 @@ class DrillingCalculationDialog(QDialog):
         layout.addStretch(1)
         return page
 
+    def _source_combo(self, canonical: str) -> QComboBox:
+        combo = QComboBox()
+        combo.setMinimumWidth(330)
+        combo.addItem(self._text("Автоматически", "Автоматты", "Automatic"), "auto")
+        candidate_keys = (canonical,)
+        if canonical == "FLOW_IN":
+            candidate_keys = ("FLOW_IN", "FLOW_OUT")
+        elif canonical == "MW_IN":
+            candidate_keys = ("MW_IN", "MW_OUT")
+        seen_ids: set[str] = set()
+        for key in candidate_keys:
+            for match in candidate_curves(self.dataset, key):
+                if match.curve_id in seen_ids:
+                    continue
+                seen_ids.add(match.curve_id)
+                combo.addItem(
+                    f"{match.source_mnemonic} [{match.unit or '—'}] · "
+                    f"{self._coverage(match.curve.values):.1f}%",
+                    f"curve:{match.curve_id}",
+                )
+        combo.addItem(
+            self._text("Постоянное значение", "Тұрақты мән", "Constant value"),
+            "constant",
+        )
+        return combo
+
     def _build_bit_tab(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        mode_form = QFormLayout()
+        form = QFormLayout()
         self.bit_mode = QComboBox()
-        self.bit_mode.addItem(self._text("Автоматически из BIT/BS/HOLE_SIZE", "BIT/BS/HOLE_SIZE қисығынан автоматты", "Automatic from BIT/BS/HOLE_SIZE"), InputSourceMode.AUTO.value)
-        self.bit_mode.addItem(self._text("Таблица секций по MD", "MD бойынша секциялар кестесі", "MD section table"), InputSourceMode.SECTIONS.value)
-        self.bit_mode.addItem(self._text("Одно постоянное значение", "Бір тұрақты мән", "One constant value"), InputSourceMode.CONSTANT.value)
-        mode_form.addRow(self._text("Источник фактического BIT:", "Нақты BIT дереккөзі:", "Actual BIT source:"), self.bit_mode)
-        constant_row = QHBoxLayout()
+        self.bit_mode.addItem(
+            self._text(
+                "Автоматически из BIT/BS/HOLE_SIZE",
+                "BIT/BS/HOLE_SIZE қисығынан автоматты",
+                "Automatic from BIT/BS/HOLE_SIZE",
+            ),
+            InputSourceMode.AUTO.value,
+        )
+        self.bit_mode.addItem(
+            self._text("Таблица секций по MD", "MD бойынша секциялар кестесі", "MD section table"),
+            InputSourceMode.SECTIONS.value,
+        )
+        self.bit_mode.addItem(
+            self._text("Одно постоянное значение", "Бір тұрақты мән", "One constant value"),
+            InputSourceMode.CONSTANT.value,
+        )
+        form.addRow(
+            self._text("Источник фактического BIT:", "Нақты BIT дереккөзі:", "Actual BIT source:"),
+            self.bit_mode,
+        )
+
+        constant_widget = QWidget()
+        constant_layout = QHBoxLayout(constant_widget)
+        constant_layout.setContentsMargins(0, 0, 0, 0)
         self.bit_constant = QDoubleSpinBox()
         self.bit_constant.setDecimals(3)
         self.bit_constant.setRange(0.0, 10_000.0)
-        self.bit_constant.setSpecialValueText(self._text("не задано", "берілмеген", "not set"))
+        self.bit_constant.setSpecialValueText(
+            self._text("не задано", "берілмеген", "not set")
+        )
         self.bit_constant_unit = QComboBox()
         self.bit_constant_unit.addItems(["mm", "in"])
-        constant_row.addWidget(self.bit_constant)
-        constant_row.addWidget(self.bit_constant_unit)
-        mode_form.addRow(self._text("Постоянный диаметр:", "Тұрақты диаметр:", "Constant diameter:"), constant_row)
-        layout.addLayout(mode_form)
+        constant_layout.addWidget(self.bit_constant)
+        constant_layout.addWidget(self.bit_constant_unit)
+        form.addRow(
+            self._text("Постоянный диаметр:", "Тұрақты диаметр:", "Constant diameter:"),
+            constant_widget,
+        )
+        layout.addLayout(form)
 
         self.bit_table = QTableWidget(0, 5)
         self.bit_table.setObjectName("bitSectionTable")
@@ -249,22 +299,22 @@ class DrillingCalculationDialog(QDialog):
             ]
         )
         header = self.bit_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        for column in range(4):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.bit_table, 1)
 
-        row_actions = QHBoxLayout()
+        actions = QHBoxLayout()
         add_button = QPushButton(self._text("Добавить секцию", "Секция қосу", "Add section"))
-        remove_button = QPushButton(self._text("Удалить выбранные", "Таңдалғанды жою", "Remove selected"))
+        remove_button = QPushButton(
+            self._text("Удалить выбранные", "Таңдалғанды жою", "Remove selected")
+        )
         add_button.clicked.connect(self._add_bit_section)
         remove_button.clicked.connect(self._remove_bit_sections)
-        row_actions.addWidget(add_button)
-        row_actions.addWidget(remove_button)
-        row_actions.addStretch(1)
-        layout.addLayout(row_actions)
+        actions.addWidget(add_button)
+        actions.addWidget(remove_button)
+        actions.addStretch(1)
+        layout.addLayout(actions)
 
         plan = self.controller.drilling_input_plan
         self.bit_mode.setCurrentIndex(max(0, self.bit_mode.findData(plan.bit.mode.value)))
@@ -280,7 +330,9 @@ class DrillingCalculationDialog(QDialog):
             finite = depth[np.isfinite(depth)]
             if finite.size:
                 self._append_bit_section(
-                    DepthValueSection(float(np.min(finite)), float(np.max(finite)), 0.0, "mm")
+                    DepthValueSection(
+                        float(np.min(finite)), float(np.max(finite)), 0.0, "mm"
+                    )
                 )
         self.bit_mode.currentIndexChanged.connect(self._update_bit_controls)
         self._update_bit_controls()
@@ -297,15 +349,34 @@ class DrillingCalculationDialog(QDialog):
         self.rop_reference = self._spin(0.01, 10_000.0, current.rop_ref_fph, " ft/h")
         self.bit_reference = self._spin(0.01, 100.0, current.bit_ref_in, " in")
         self.flow_reference = self._spin(0.01, 100_000.0, current.flow_ref_gpm, " gpm")
-        self.gas_efficiency = self._spin(0.01, 1.0, current.gas_system_efficiency, "")
-        self.gas_efficiency.setDecimals(3)
-        self.normal_density = self._spin(0.0, 30.0, normal_mud_density_ppg or 0.0, " ppg")
-        self.normal_density.setSpecialValueText(self._text("DEXPC не считать", "DEXPC есептемеу", "Do not calculate DEXPC"))
+        self.gas_efficiency = self._spin(
+            0.01, 1.0, current.gas_system_efficiency, ""
+        )
+        self.normal_density = self._spin(
+            0.0, 30.0, normal_mud_density_ppg or 0.0, " ppg"
+        )
+        self.normal_density.setSpecialValueText(
+            self._text("DEXPC не считать", "DEXPC есептемеу", "Do not calculate DEXPC")
+        )
         form.addRow("ROP_REF:", self.rop_reference)
         form.addRow("BIT_REF:", self.bit_reference)
         form.addRow("FLOW_REF:", self.flow_reference)
-        form.addRow(self._text("Эффективность газовой системы:", "Газ жүйесінің тиімділігі:", "Gas-system efficiency:"), self.gas_efficiency)
-        form.addRow(self._text("Нормальная плотность для DEXPC:", "DEXPC үшін қалыпты тығыздық:", "Normal mud density for DEXPC:"), self.normal_density)
+        form.addRow(
+            self._text(
+                "Эффективность газовой системы:",
+                "Газ жүйесінің тиімділігі:",
+                "Gas-system efficiency:",
+            ),
+            self.gas_efficiency,
+        )
+        form.addRow(
+            self._text(
+                "Нормальная плотность для DEXPC:",
+                "DEXPC үшін қалыпты тығыздық:",
+                "Normal mud density for DEXPC:",
+            ),
+            self.normal_density,
+        )
         explanation = QLabel(
             self._text(
                 "BIT_REF — эталон нормализации, а не фактический диаметр. Фактический BIT "
@@ -341,9 +412,7 @@ class DrillingCalculationDialog(QDialog):
             reference.parameters()
             density = self.normal_density.value()
             self._request = DrillingCalculationRequest(
-                plan,
-                reference,
-                density if density > 0.0 else None,
+                plan, reference, density if density > 0.0 else None
             )
         except (ValueError, RuntimeError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
@@ -352,22 +421,22 @@ class DrillingCalculationDialog(QDialog):
 
     def _build_plan(self) -> DrillingInputPlan:
         sources = {
-            name: self._source_from_row(row)
-            for name, row in self._source_rows.items()
+            name: self._source_from_row(row) for name, row in self._source_rows.items()
         }
-        bit_mode = InputSourceMode(str(self.bit_mode.currentData()))
-        sections: tuple[DepthValueSection, ...] = ()
-        if bit_mode is InputSourceMode.SECTIONS:
-            sections = self._read_bit_sections()
+        mode = InputSourceMode(str(self.bit_mode.currentData()))
+        if mode is InputSourceMode.SECTIONS:
             bit = ParameterSource(InputSourceMode.SECTIONS)
-        elif bit_mode is InputSourceMode.CONSTANT:
+            sections = self._read_bit_sections()
+        elif mode is InputSourceMode.CONSTANT:
             bit = ParameterSource(
                 InputSourceMode.CONSTANT,
                 value=self.bit_constant.value(),
                 unit=self.bit_constant_unit.currentText(),
             )
+            sections = ()
         else:
             bit = ParameterSource()
+            sections = ()
         return DrillingInputPlan(
             rop=sources["rop"],
             flow=sources["flow"],
@@ -378,7 +447,8 @@ class DrillingCalculationDialog(QDialog):
             bit_sections=sections,
         )
 
-    def _source_from_row(self, row: _SourceRow) -> ParameterSource:
+    @staticmethod
+    def _source_from_row(row: _SourceRow) -> ParameterSource:
         data = str(row.combo.currentData())
         if data == "auto":
             return ParameterSource()
@@ -389,35 +459,37 @@ class DrillingCalculationDialog(QDialog):
                 unit=row.unit.currentText(),
             )
         if data.startswith("curve:"):
-            return ParameterSource(InputSourceMode.CURVE, curve_id=data.split(":", 1)[1])
+            return ParameterSource(
+                InputSourceMode.CURVE, curve_id=data.split(":", 1)[1]
+            )
         raise ValueError(f"Неизвестный источник: {data}")
 
     def _read_bit_sections(self) -> tuple[DepthValueSection, ...]:
-        sections: list[DepthValueSection] = []
+        result: list[DepthValueSection] = []
         for row in range(self.bit_table.rowCount()):
-            top = self._table_float(row, 0)
-            bottom = self._table_float(row, 1)
-            diameter = self._table_float(row, 2)
             unit_widget = self.bit_table.cellWidget(row, 3)
             unit = unit_widget.currentText() if isinstance(unit_widget, QComboBox) else "mm"
             comment_item = self.bit_table.item(row, 4)
-            sections.append(
+            result.append(
                 DepthValueSection(
-                    top,
-                    bottom,
-                    diameter,
+                    self._table_float(row, 0),
+                    self._table_float(row, 1),
+                    self._table_float(row, 2),
                     unit,
                     comment_item.text().strip() if comment_item is not None else "",
                 )
             )
-        return tuple(sections)
+        return tuple(result)
 
     def _add_bit_section(self) -> None:
-        if self.bit_table.rowCount():
-            previous_bottom = self._table_float(self.bit_table.rowCount() - 1, 1, default=0.0)
-        else:
-            previous_bottom = 0.0
-        self._append_bit_section(DepthValueSection(previous_bottom, previous_bottom, 0.0, "mm"))
+        previous_bottom = (
+            self._table_float(self.bit_table.rowCount() - 1, 1, default=0.0)
+            if self.bit_table.rowCount()
+            else 0.0
+        )
+        self._append_bit_section(
+            DepthValueSection(previous_bottom, previous_bottom, 0.0, "mm")
+        )
 
     def _append_bit_section(self, section: DepthValueSection) -> None:
         row = self.bit_table.rowCount()
@@ -431,17 +503,17 @@ class DrillingCalculationDialog(QDialog):
         self.bit_table.setItem(row, 4, QTableWidgetItem(section.comment))
 
     def _remove_bit_sections(self) -> None:
-        rows = sorted({index.row() for index in self.bit_table.selectedIndexes()}, reverse=True)
+        rows = sorted(
+            {index.row() for index in self.bit_table.selectedIndexes()}, reverse=True
+        )
         for row in rows:
             self.bit_table.removeRow(row)
 
     def _update_bit_controls(self) -> None:
         mode = InputSourceMode(str(self.bit_mode.currentData()))
-        constant = mode is InputSourceMode.CONSTANT
-        sections = mode is InputSourceMode.SECTIONS
-        self.bit_constant.setEnabled(constant)
-        self.bit_constant_unit.setEnabled(constant)
-        self.bit_table.setEnabled(sections)
+        self.bit_constant.setEnabled(mode is InputSourceMode.CONSTANT)
+        self.bit_constant_unit.setEnabled(mode is InputSourceMode.CONSTANT)
+        self.bit_table.setEnabled(mode is InputSourceMode.SECTIONS)
 
     def _update_source_row(self, name: str) -> None:
         row = self._source_rows[name]
@@ -450,11 +522,24 @@ class DrillingCalculationDialog(QDialog):
         row.value.setEnabled(manual)
         row.unit.setEnabled(manual)
         if data == "auto":
-            row.status.setText(self._text("Автовыбор с проверкой дублей", "Дубльдерді тексеретін автовыбор", "Automatic selection with duplicate check"))
+            text = self._text(
+                "Автовыбор с проверкой дублей",
+                "Дубльдерді тексеретін автовыбор",
+                "Automatic selection with duplicate check",
+            )
         elif manual:
-            row.status.setText(self._text("Постоянно на всей глубинной оси", "Барлық тереңдік осінде тұрақты", "Constant over the full depth axis"))
+            text = self._text(
+                "Постоянно на всей глубинной оси",
+                "Барлық тереңдік осінде тұрақты",
+                "Constant over the full depth axis",
+            )
         else:
-            row.status.setText(self._text("Явно выбранная кривая", "Нақты таңдалған қисық", "Explicitly selected curve"))
+            text = self._text(
+                "Явно выбранная кривая",
+                "Нақты таңдалған қисық",
+                "Explicitly selected curve",
+            )
+        row.status.setText(text)
 
     @staticmethod
     def _restore_source(
@@ -463,18 +548,21 @@ class DrillingCalculationDialog(QDialog):
         unit: QComboBox,
         source: ParameterSource,
     ) -> None:
-        data = source.mode.value
-        if source.mode is InputSourceMode.CURVE:
-            data = f"curve:{source.curve_id}"
-        index = combo.findData(data)
-        combo.setCurrentIndex(max(0, index))
+        data = (
+            f"curve:{source.curve_id}"
+            if source.mode is InputSourceMode.CURVE
+            else source.mode.value
+        )
+        combo.setCurrentIndex(max(0, combo.findData(data)))
         if source.value is not None:
             value.setValue(source.value)
         if source.unit:
             unit.setCurrentText(source.unit)
 
     @staticmethod
-    def _spin(minimum: float, maximum: float, value: float, suffix: str) -> QDoubleSpinBox:
+    def _spin(
+        minimum: float, maximum: float, value: float, suffix: str
+    ) -> QDoubleSpinBox:
         spin = QDoubleSpinBox()
         spin.setDecimals(3)
         spin.setRange(minimum, maximum)
@@ -489,7 +577,9 @@ class DrillingCalculationDialog(QDialog):
             return 0.0
         return 100.0 * float(np.count_nonzero(np.isfinite(array))) / float(array.size)
 
-    def _table_float(self, row: int, column: int, *, default: float | None = None) -> float:
+    def _table_float(
+        self, row: int, column: int, *, default: float | None = None
+    ) -> float:
         item = self.bit_table.item(row, column)
         text = item.text().strip().replace(",", ".") if item is not None else ""
         if not text and default is not None:
@@ -511,11 +601,17 @@ class DrillingCalculationDialog(QDialog):
             "FLOW_IN": "FLOW",
             "RPM": "RPM",
             "WOB": "WOB",
-            "MW_IN": self._text("Плотность раствора", "Ерітінді тығыздығы", "Mud density"),
+            "MW_IN": self._text(
+                "Плотность раствора", "Ерітінді тығыздығы", "Mud density"
+            ),
         }[canonical]
 
     def _text(self, ru: str, kk: str, en: str) -> str:
-        return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}[self.language]
+        return self._language_text(self.language, ru, kk, en)
+
+    @staticmethod
+    def _language_text(language: AppLanguage, ru: str, kk: str, en: str) -> str:
+        return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}[language]
 
 
 __all__ = ["DrillingCalculationDialog", "DrillingCalculationRequest"]
