@@ -14,7 +14,7 @@ def _is_optional_dependency_error(error: ModuleNotFoundError) -> bool:
 
 
 class FileWorkspaceWidget(QWidget):
-    """Load the guided Files workspace without making it a startup dependency."""
+    """Load the localized Files workspace without making it a startup dependency."""
 
     _missing_dependency: str = "неизвестный модуль"
 
@@ -25,16 +25,21 @@ class FileWorkspaceWidget(QWidget):
         language: str = "ru",
     ) -> FileWorkspaceWidget:
         try:
-            from geoworkbench.ui.file_workspace_expert import (
-                FileWorkspaceWidget as ExpertFileWorkspaceWidget,
+            from geoworkbench.ui.file_workspace_depth import (
+                FileWorkspaceWidget as DependencyProbe,
             )
+            from geoworkbench.ui.file_workspace_hardening import (
+                FileWorkspaceWidget as LocalizedFileWorkspaceWidget,
+            )
+
+            del DependencyProbe
         except ModuleNotFoundError as error:
             if not _is_optional_dependency_error(error):
                 raise
             instance = super().__new__(cls)
             instance._missing_dependency = error.name or "неизвестный модуль"
             return instance
-        return cast(FileWorkspaceWidget, ExpertFileWorkspaceWidget(parent, language=language))
+        return cast(FileWorkspaceWidget, LocalizedFileWorkspaceWidget(parent, language=language))
 
     def __init__(
         self,

@@ -39,7 +39,9 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 - Отчёты: [RU](ru/REPORT_EXPORT.md) · [KK](kk/REPORT_EXPORT.md) ·
   [EN](en/REPORT_EXPORT.md)
 - Печатные шапки и логотипы: [PRINT_HEADER_AND_LOGO_CATALOGS.md](PRINT_HEADER_AND_LOGO_CATALOGS.md)
-- Файлы, PDF, изображения, архивы и расчёты: [FILE_WORKSPACE.md](FILE_WORKSPACE.md)
+- Файлы, PDF, изображения, архивы и расчёты: [RU](ru/FILES_WORKSPACE.md) ·
+  [KK](kk/FILES_WORKSPACE.md) · [EN](en/FILES_WORKSPACE.md) ·
+  [сводная памятка](FILES_WORKSPACE_GUIDE.md) · [инженерное описание](FILE_WORKSPACE.md)
 - WITS0: [RU](ru/WITS0_CAPTURE.md) · [KK](kk/WITS0_CAPTURE.md) ·
   [EN](en/WITS0_CAPTURE.md)
 - WITSML SOAP: [RU](ru/WITSML_1411_SOAP.md) · [KK](kk/WITSML_1411_SOAP.md) ·

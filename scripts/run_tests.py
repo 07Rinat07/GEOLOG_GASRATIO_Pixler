@@ -40,7 +40,8 @@ def main() -> int:
     return int(
         pytest.main(
             [
-                "-q",
+                "-vv",
+                "--tb=short",
                 "-p",
                 "pytest_asyncio.plugin",
                 *sys.argv[1:],

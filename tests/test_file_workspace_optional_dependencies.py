@@ -31,13 +31,13 @@ def test_files_workspace_falls_back_without_pdf_dependency(monkeypatch) -> None:
     _application()
     monkeypatch.delitem(
         sys.modules,
-        "geoworkbench.ui.file_workspace_expert",
+        "geoworkbench.ui.file_workspace_depth",
         raising=False,
     )
     original_import = builtins.__import__
 
     def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "geoworkbench.ui.file_workspace_expert":
+        if name == "geoworkbench.ui.file_workspace_depth":
             raise ModuleNotFoundError("No module named 'fitz'", name="fitz")
         return original_import(name, globals, locals, fromlist, level)
 
@@ -48,6 +48,6 @@ def test_files_workspace_falls_back_without_pdf_dependency(monkeypatch) -> None:
     assert widget.objectName() == "fileWorkspaceDependencyFallback"
     assert FileWorkspaceWidget.tab_title("ru") == "Файлы / PDF / Калькулятор"
     labels = [label.text() for label in widget.findChildren(QLabel)]
-    assert any("Основное приложение продолжает работать" in text for text in labels)
-    assert any("PyMuPDF" in text and "Pillow" in text for text in labels)
+    assert any("Основное приложение продолжает работать" in item for item in labels)
+    assert any("PyMuPDF" in item and "Pillow" in item for item in labels)
     widget.deleteLater()
