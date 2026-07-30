@@ -237,9 +237,17 @@ class FileWorkspaceWidget(_RuntimeWorkspace):
         control.setMinimumWidth(220)
         return control
 
+    def _current_reference_kind(self) -> DepthReferenceKind:
+        value = self.depth_reference_kind.currentData()
+        if isinstance(value, DepthReferenceKind):
+            return value
+        try:
+            return DepthReferenceKind(str(value))
+        except ValueError:
+            return DepthReferenceKind.CUSTOM
+
     def _reference_kind_changed(self, *_args: object) -> None:
-        kind = self.depth_reference_kind.currentData()
-        is_ground = kind is DepthReferenceKind.GL
+        is_ground = self._current_reference_kind() == DepthReferenceKind.GL
         self.depth_datum_height.setEnabled(not is_ground)
         if is_ground and self.depth_datum_height.value() != 0.0:
             self.depth_datum_height.setValue(0.0)
@@ -260,13 +268,11 @@ class FileWorkspaceWidget(_RuntimeWorkspace):
 
     def _update_well_depth_calculator(self, *_args: object) -> None:
         try:
-            kind = self.depth_reference_kind.currentData()
-            if not isinstance(kind, DepthReferenceKind):
-                kind = DepthReferenceKind.CUSTOM
+            kind = self._current_reference_kind()
             result = calculate_well_depth_position(
                 ground_elevation_msl_m=self.depth_ground_elevation.value(),
                 datum_height_above_ground_m=(
-                    0.0 if kind is DepthReferenceKind.GL else self.depth_datum_height.value()
+                    0.0 if kind == DepthReferenceKind.GL else self.depth_datum_height.value()
                 ),
                 measured_depth_m=self.depth_measured_depth.value(),
                 true_vertical_depth_m=self.depth_true_vertical_depth.value(),
