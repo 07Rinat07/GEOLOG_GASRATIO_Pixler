@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+import html
 
 import fitz
 
@@ -21,6 +22,24 @@ _FONT_ALIASES: dict[str, str] = {
     "coit": "GWCourierItalic",
     "cobi": "GWCourierBoldItalic",
 }
+
+_FONT_FAMILIES: dict[str, str] = {
+    "helv": "sans-serif",
+    "hebo": "sans-serif",
+    "heit": "sans-serif",
+    "hebi": "sans-serif",
+    "tiro": "serif",
+    "tibo": "serif",
+    "tiit": "serif",
+    "tibi": "serif",
+    "cour": "monospace",
+    "cobo": "monospace",
+    "coit": "monospace",
+    "cobi": "monospace",
+}
+
+_BOLD_FONTS = {"hebo", "hebi", "tibo", "tibi", "cobo", "cobi"}
+_ITALIC_FONTS = {"heit", "hebi", "tiit", "tibi", "coit", "cobi"}
 
 
 class EnhancedDocumentService(DocumentService):
@@ -74,16 +93,56 @@ class EnhancedDocumentService(DocumentService):
         return len(prepared)
 
     @staticmethod
-    def _install_unicode_font(page: fitz.Page, fontname: str) -> str:
+    def _install_unicode_font(page: fitz.Page, fontname: str) -> str | None:
         alias = _FONT_ALIASES.get(fontname)
         if alias is None:
             raise DocumentError(f"Неподдерживаемый PDF-шрифт: {fontname}")
         try:
-            font = fitz.Font(fontname)
-            page.insert_font(fontname=alias, fontbuffer=font.buffer)
-        except Exception as exc:
-            raise DocumentError(f"Не удалось встроить PDF-шрифт: {exc}") from exc
+            font = fitz.Font(fontname=fontname)
+            buffer = font.buffer
+            if not buffer:
+                return None
+            page.insert_font(fontname=alias, fontbuffer=buffer)
+        except Exception:
+            return None
         return alias
+
+    @staticmethod
+    def _insert_html_text(
+        page: fitz.Page,
+        target: fitz.Rect,
+        text: str,
+        *,
+        fontname: str,
+        font_size: float,
+        color: tuple[float, float, float],
+        alignment: int,
+    ) -> float:
+        family = _FONT_FAMILIES.get(fontname)
+        if family is None:
+            raise DocumentError(f"Неподдерживаемый PDF-шрифт: {fontname}")
+        red, green, blue = (
+            round(max(0.0, min(1.0, component)) * 255) for component in color
+        )
+        align = ("left", "center", "right")[max(0, min(2, alignment))]
+        weight = "bold" if fontname in _BOLD_FONTS else "normal"
+        style = "italic" if fontname in _ITALIC_FONTS else "normal"
+        size = max(4.0, min(144.0, font_size))
+        css = (
+            f"* {{ font-family: {family}; font-size: {size:.3f}pt; "
+            f"font-weight: {weight}; font-style: {style}; "
+            f"color: rgb({red}, {green}, {blue}); text-align: {align}; "
+            "white-space: pre-wrap; }}"
+        )
+        payload = html.escape(text).replace("\n", "<br>")
+        remaining, _scale = page.insert_htmlbox(
+            target,
+            f"<div>{payload}</div>",
+            css=css,
+            scale_low=1,
+            overlay=True,
+        )
+        return float(remaining)
 
     def add_styled_pdf_text(
         self,
@@ -112,15 +171,26 @@ class EnhancedDocumentService(DocumentService):
                 page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)
             if background is not None:
                 page.draw_rect(target, color=None, fill=background, overlay=True)
-            remaining = page.insert_textbox(
-                target,
-                text,
-                fontsize=max(4.0, min(144.0, font_size)),
-                color=color,
-                fontname=embedded_font,
-                align=max(0, min(2, alignment)),
-                overlay=True,
-            )
+            if embedded_font is None:
+                remaining = self._insert_html_text(
+                    page,
+                    target,
+                    text,
+                    fontname=fontname,
+                    font_size=font_size,
+                    color=color,
+                    alignment=alignment,
+                )
+            else:
+                remaining = page.insert_textbox(
+                    target,
+                    text,
+                    fontsize=max(4.0, min(144.0, font_size)),
+                    color=color,
+                    fontname=embedded_font,
+                    align=max(0, min(2, alignment)),
+                    overlay=True,
+                )
             if remaining < 0:
                 raise DocumentError(
                     "Текст не помещается: увеличьте область или уменьшите размер шрифта"
