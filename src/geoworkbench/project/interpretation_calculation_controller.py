@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 
 from geoworkbench.domain.models import Dataset
@@ -13,6 +13,10 @@ from geoworkbench.project.interpretation_calculation_controller_legacy import (
     NormalizedGasReference,
 )
 from geoworkbench.services.channel_groups import NORMALIZED_GAS_MNEMONIC_ORDER
+from geoworkbench.services.drilling_input_plan import (
+    DrillingInputPlan,
+    DrillingInputResolver,
+)
 from geoworkbench.services.las_parameter_resolver import (
     ParameterResolutionError,
     resolve_gas_ratio_inputs,
@@ -27,13 +31,24 @@ class NormalizedGasCalculationMode(StrEnum):
     LOCAL = "local"
 
 
+@dataclass(slots=True)
 class InterpretationCalculationController(_LegacyInterpretationCalculationController):
-    """Preserve source normalized gas and store the local result independently."""
+    """Preserve source curves and use one explicit drilling-input plan for all methods."""
 
+    resolver: DrillingInputResolver = field(default_factory=DrillingInputResolver)
     normalized_gas_mode: NormalizedGasCalculationMode = NormalizedGasCalculationMode.COMPARE
-    _active_normalized_gas_mode: NormalizedGasCalculationMode = (
-        NormalizedGasCalculationMode.COMPARE
+    _active_normalized_gas_mode: NormalizedGasCalculationMode = field(
+        default=NormalizedGasCalculationMode.COMPARE,
+        init=False,
+        repr=False,
     )
+
+    @property
+    def drilling_input_plan(self) -> DrillingInputPlan:
+        return self.resolver.plan
+
+    def set_drilling_input_plan(self, plan: DrillingInputPlan) -> None:
+        self.resolver.set_plan(plan)
 
     def calculate_standard_curves(
         self,
