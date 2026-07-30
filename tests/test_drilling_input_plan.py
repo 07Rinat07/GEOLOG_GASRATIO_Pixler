@@ -59,10 +59,10 @@ def _add_curve(
 
 def test_identical_technology_duplicate_is_collapsed() -> None:
     dataset = _dataset()
-    _add_curve(dataset, "S106", "Rate of penetration", "m/h", [12.0, 13.0])
+    _add_curve(dataset, "VENDOR_ROP", "Rate of penetration", "m/h", [12.0, 13.0])
     _add_curve(
         dataset,
-        "S106_TEHNOLOGIYA",
+        "VENDOR_ROP_TEHNOLOGIYA",
         "Rate of penetration",
         "m/h",
         [12.0, 13.0],
@@ -70,17 +70,17 @@ def test_identical_technology_duplicate_is_collapsed() -> None:
 
     match = DrillingInputResolver().resolve_dataset(dataset, targets=("ROP",)).require("ROP")
 
-    assert match.source_mnemonic == "S106"
+    assert match.source_mnemonic == "VENDOR_ROP"
     assert match.matched_by == "equivalent_duplicate"
-    assert "S106_TEHNOLOGIYA" in " ".join(match.evidence)
+    assert "VENDOR_ROP_TEHNOLOGIYA" in " ".join(match.evidence)
 
 
 def test_different_duplicate_channels_remain_ambiguous() -> None:
     dataset = _dataset()
-    _add_curve(dataset, "S106", "Rate of penetration", "m/h", [12.0, 13.0])
+    _add_curve(dataset, "VENDOR_ROP", "Rate of penetration", "m/h", [12.0, 13.0])
     _add_curve(
         dataset,
-        "S106_TEHNOLOGIYA",
+        "VENDOR_ROP_TEHNOLOGIYA",
         "Rate of penetration",
         "m/h",
         [12.0, 18.0],
