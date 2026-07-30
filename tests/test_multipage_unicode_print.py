@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtPdf import QPdfDocument
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.printing.document_export import export_document_pages, export_document_pdf
@@ -14,7 +15,11 @@ from geoworkbench.printing.pagination import (
     build_page_slices,
 )
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
-from geoworkbench.printing.unicode_support import UnicodePrintError, preflight_texts
+from geoworkbench.printing.unicode_support import (
+    UnicodePrintError,
+    collect_widget_text,
+    preflight_texts,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 from geoworkbench.tablet.tablet_view import TabletView
@@ -65,6 +70,24 @@ def test_unicode_preflight_rejects_typical_cyrillic_mojibake(qapp) -> None:
 
     assert not report.ok
     assert "ошибочной перекодировки" in report.error_message()
+
+
+def test_widget_preflight_strips_screen_only_decorative_prefixes(qapp) -> None:
+    widget = QWidget()
+    layout = QVBoxLayout(widget)
+    layout.addWidget(QLabel("↶ Отменить"))
+    layout.addWidget(QLabel("↷ Повторить"))
+    layout.addWidget(QLabel("✎ C1: изменения не сохранены"))
+    widget.show()
+    qapp.processEvents()
+
+    texts = collect_widget_text(widget)
+
+    assert "Отменить" in texts
+    assert "Повторить" in texts
+    assert "C1: изменения не сохранены" in texts
+    assert all(not text.startswith(("↶", "↷", "✎")) for text in texts)
+    widget.close()
 
 
 def test_full_depth_pdf_contains_multiple_pages_and_restores_view(qapp, tmp_path) -> None:
@@ -128,8 +151,6 @@ def test_full_depth_png_export_creates_numbered_pages(qapp, tmp_path) -> None:
 
 
 def test_strict_export_blocks_corrupted_text(qapp, tmp_path) -> None:
-    from PySide6.QtWidgets import QLabel
-
     widget = QLabel("Broken: \ufffd")
     widget.resize(400, 200)
     widget.show()
