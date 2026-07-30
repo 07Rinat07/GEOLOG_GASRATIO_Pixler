@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QApplication, QTabWidget
+from PySide6.QtWidgets import QApplication, QTabWidget, QWidget
 
 from geoworkbench.files.well_depth_reference import (
     DepthReferenceKind,
@@ -67,7 +67,7 @@ def test_depth_calculator_replaces_legacy_altitude_form_in_all_languages() -> No
         tabs = widget.findChild(QTabWidget, "petroleumCalculatorTabs")
         assert tabs is not None
         assert tabs.tabText(3) == expected_tab
-        assert widget.findChild(type(widget), "wellDepthCalculator") is None
+        assert widget.findChild(QWidget, "wellDepthCalculator") is not None
         legacy_group = widget.datum_inputs[0].parentWidget()
         assert legacy_group is not None and legacy_group.isHidden()
         widget.deleteLater()
