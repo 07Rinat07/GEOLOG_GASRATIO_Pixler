@@ -293,6 +293,15 @@ compacted shale calibration interval, creates `NCT` and `DEXPC_NCT`, and display
 curves. A negative deviation supports an overpressure hypothesis but must be checked against
 lithology, drilling conditions, sensor quality, and other pressure-evaluation methods.
 
+## Mud-gas interpretation reports
+
+The dedicated **Interpretation reports** tab calculates `WH/BH/CH`, Pixler ratios,
+`C1_NORM`, `DEXP`, and optional `DEXPC`, creates separate tracks, and scans the whole
+current well for relative gas anomalies. Its output is a candidate interval that still
+requires a geologist's confirmation. The tab exports a whole-well XLSX, DOCX, PDF, and
+supports system printing. See [Mud-gas interpretation](MUD_GAS_INTERPRETATION.md) for
+the workflow, formulas, and limitations.
+
 ## Custom formulas
 
 “Calculations → Custom formulas” creates and stores project formulas using curve mnemonics, for

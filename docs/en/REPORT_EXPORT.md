@@ -46,9 +46,20 @@ Numeric channels support real-point count, coverage, minimum, maximum, mean, med
 depths, with optional percentiles. Gaps and `NULL/NaN` values must not be bridged without an
 explicit interpolation policy. A measured zero remains distinct from a missing measurement.
 
-## Report designer
+## Implemented mud-gas interpretation report
 
-The Constructor receives a dedicated Reports tab for report profile, sections, well, depth range,
+The main workspace now includes a dedicated **Interpretation reports** tab. It produces
+a whole-well report, keeps automatic relative gas-anomaly candidates separate from
+geologist-confirmed intervals, and exports XLSX, DOCX, PDF, or system print. The XLSX
+contains a summary, candidates, manual intervals, methods/sources, and the complete
+`Whole well` depth table.
+
+This specialized report does not automatically assign fluid type or productivity.
+See [Mud-gas interpretation](MUD_GAS_INTERPRETATION.md).
+
+## Extensible report designer
+
+The future Constructor extension may add a profile-based Reports editor for sections, well, depth range,
 interval policy, parameters, statistics, RU/KK/EN language, units, number formats, page profile,
 orientation, header, plots, legends, images, Masterlog appendices, preview and preflight.
 

@@ -73,6 +73,16 @@ def test_window_starts_on_clear_home_page(qapp) -> None:
     window.close()
 
 
+def test_window_exposes_interpretation_report_workspace(qapp) -> None:
+    window = MainWindow(language=AppLanguage.EN)
+
+    tab_index = window.tabs.indexOf(window.interpretation_report_workspace)
+    assert tab_index >= 0
+    assert window.tabs.tabText(tab_index) == "Interpretation reports"
+    assert "interpretation_calculation" in window._session_bindings.binding_names
+    window.close()
+
+
 def test_home_and_workspace_navigation_is_explicit(qapp) -> None:
     window = MainWindow(language=AppLanguage.EN)
     session, _ = make_session()

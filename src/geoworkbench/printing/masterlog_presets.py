@@ -937,7 +937,7 @@ BUILTIN_MASTERLOG_FORM_PRESETS = (
                     "Wetness / Balance / Character / Pixler",
                     "curves",
                     55,
-                    ["WETNESS", "BALANCE", "CHARACTER", "PIXLER"],
+                    ["WH", "BH", "CH", "C1_C2", "C1_C3", "C1_C4", "C1_C5"],
                     "linear",
                     0,
                     100,

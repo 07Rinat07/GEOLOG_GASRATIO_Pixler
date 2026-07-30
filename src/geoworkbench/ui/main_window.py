@@ -132,6 +132,10 @@ from geoworkbench.project.annotation_schema import (
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.interpretation_controller import InterpretationController
+from geoworkbench.project.interpretation_calculation_controller import (
+    InterpretationCalculationController,
+    InterpretationCalculationResult,
+)
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.stratigraphy_controller import StratigraphyController
 from geoworkbench.project.stratigraphy_catalog_controller import StratigraphyCatalogController
@@ -256,6 +260,9 @@ from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
 from geoworkbench.ui.interval_statistics_panel import IntervalStatisticsPanel
 from geoworkbench.ui.interval_statistics_overlay import IntervalStatisticsOverlay
 from geoworkbench.ui.interpretation_report_dialog import InterpretationReportDialog
+from geoworkbench.ui.interpretation_report_workspace import (
+    InterpretationReportWorkspace,
+)
 from geoworkbench.ui.interpretation_intervals_dialog import InterpretationIntervalsDialog
 from geoworkbench.ui.interpretation_properties import InterpretationPropertiesPanel
 from geoworkbench.ui.lithology_dialog import LithologyDialog
@@ -606,6 +613,9 @@ class MainWindow(QMainWindow):
         self.lithology_controller = LithologyController(self.session)
         self.cuttings_controller = CuttingsController(self.session)
         self.interpretation_controller = InterpretationController(self.session)
+        self.interpretation_calculation_controller = InterpretationCalculationController(
+            self.session
+        )
         self.stratigraphy_controller = StratigraphyController(self.session)
         self.stratigraphy_catalog_controller = StratigraphyCatalogController(self.session)
         self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
@@ -760,12 +770,23 @@ class MainWindow(QMainWindow):
         self.las_table_editor.edit_failed.connect(
             lambda message: QMessageBox.warning(self, "LAS Editor", message)
         )
+        self.interpretation_report_workspace = InterpretationReportWorkspace(
+            self.interpretation_calculation_controller,
+            language=self.language,
+        )
+        self.interpretation_report_workspace.calculation_completed.connect(
+            self._after_interpretation_calculation
+        )
         self.tabs.addTab(self.curve_view, self._t("tab.curves"))
         self.tabs.addTab(self.las_table_editor, self._t("tab.table"))
         self.tabs.addTab(self.tablet_view, self._t("tab.tablet"))
         self.tabs.addTab(
             self.file_workspace,
             FileWorkspaceWidget.tab_title(self.language.value),
+        )
+        self.tabs.addTab(
+            self.interpretation_report_workspace,
+            InterpretationReportWorkspace.tab_title(self.language),
         )
 
         self._create_project_explorer()
@@ -2928,6 +2949,9 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(
             3, FileWorkspaceWidget.tab_title(self.language.value)
         )
+        self.tabs.setTabText(
+            4, InterpretationReportWorkspace.tab_title(self.language)
+        )
         self.file_workspace_action.setText(
             FileWorkspaceWidget.tab_title(self.language.value)
         )
@@ -2966,6 +2990,7 @@ class MainWindow(QMainWindow):
             self.inspector,
             self.interpretation_properties,
             self.interval_statistics_panel,
+            self.interpretation_report_workspace,
         ):
             setter = getattr(widget, "set_language", None)
             if callable(setter):
@@ -3878,6 +3903,7 @@ class MainWindow(QMainWindow):
             self.interpretation_properties.clear()
             self.interpretation_properties_dock.hide()
             self._workspace_controller.set_dataset(None)
+            self.interpretation_report_workspace.refresh()
             return
         self._workspace_controller.set_dataset(dataset.name)
         self.curve_view.show_dataset(dataset)
@@ -3921,6 +3947,7 @@ class MainWindow(QMainWindow):
         else:
             self._clear_interpretation_interval_selection()
         self._refresh_annotation_layer()
+        self.interpretation_report_workspace.refresh()
         self._show_workspace(self.tablet_view)
 
     def show_las_editor(self) -> None:
@@ -5191,6 +5218,10 @@ class MainWindow(QMainWindow):
             self.interpretation_controller,
             reset_hooks=(self.interpretation_controller.reset_state,),
             name="interpretation",
+        )
+        bindings.register(
+            self.interpretation_calculation_controller,
+            name="interpretation_calculation",
         )
         bindings.register(self.stratigraphy_controller, name="stratigraphy")
         bindings.register(
@@ -6528,6 +6559,82 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
         self.statusBar().showMessage(self._t("ratio.completed"))
+
+    def _after_interpretation_calculation(
+        self,
+        result: InterpretationCalculationResult,
+    ) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None:
+            return
+        layout = self.session.current_tablet_layout
+        if layout is None:
+            layout = self.tablet_controller.build_default_layout()
+
+        track_specs = (
+            (
+                "gas_ratio_pixler",
+                "Gas Ratio / Pixler",
+                TrackKind.CURVE,
+            ),
+            (
+                "normalized_gas",
+                "Normalized gas",
+                TrackKind.CURVE,
+            ),
+            (
+                "dexp",
+                "DEXP / NCT",
+                TrackKind.DEXP,
+            ),
+        )
+        for group_name, title, kind in track_specs:
+            mnemonics = list(result.track_curves.get(group_name, ()))
+            if not mnemonics:
+                continue
+            track = next(
+                (
+                    item
+                    for item in layout.tracks
+                    if item.kind in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
+                    and item.title.casefold() == title.casefold()
+                ),
+                None,
+            )
+            if track is not None:
+                self.tablet_controller.replace_track_curves(track.track_id, mnemonics)
+                continue
+            # A user may have renamed a previously created track. If its curve
+            # composition already intersects this method, keep that custom track
+            # and avoid silently adding a duplicate.
+            if any(
+                item.kind in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
+                and set(item.curve_mnemonics).intersection(mnemonics)
+                for item in layout.tracks
+            ):
+                continue
+            track = self.tablet_controller.add_track(kind, mnemonics)
+            self.tablet_controller.rename_track(track.track_id, title)
+
+        visible = list(
+            dict.fromkeys(
+                (
+                    *result.track_curves.get("gas_ratio_pixler", ()),
+                    *result.track_curves.get("normalized_gas", ()),
+                    *result.track_curves.get("dexp", ()),
+                )
+            )
+        )
+        self.curve_view.show_dataset(dataset, visible or None)
+        self.las_table_editor.set_dataset(dataset)
+        self.tablet_view.set_layout_and_dataset(layout, dataset)
+        self._refresh_tree()
+        self._update_title()
+        changed = ", ".join(result.changed) or "—"
+        self._log(f"Интерпретационные кривые рассчитаны: {changed}")
+        self.statusBar().showMessage(
+            f"Интерпретационные кривые созданы/обновлены: {changed}"
+        )
 
     def show_formula_profiles(self) -> None:
         dataset = self.session.current_dataset

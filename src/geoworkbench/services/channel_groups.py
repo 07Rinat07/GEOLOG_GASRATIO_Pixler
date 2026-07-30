@@ -21,6 +21,18 @@ GAS_MNEMONIC_ORDER = (
 )
 
 DEXP_MNEMONIC_ORDER = ("DEXP", "DEXPC", "NCT", "DEXPC_NCT")
+GAS_RATIO_PIXLER_MNEMONIC_ORDER = (
+    "WH",
+    "BH",
+    "CH",
+    "C1_C2",
+    "C1_C3",
+    "C1_C4",
+    "C1_C5",
+    "C1_C2C3",
+    "C2_C3",
+)
+NORMALIZED_GAS_MNEMONIC_ORDER = ("C1_NORM", "TG_NORM")
 
 
 def available_mnemonics(dataset: Dataset, order: tuple[str, ...]) -> list[str]:

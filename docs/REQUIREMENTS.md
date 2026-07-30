@@ -153,8 +153,8 @@ JSON-файл проекта не считается универсальным 
 |---|---|---|
 | CALC-001 | Базовые Gas Ratio и сумма доступных C1–C5 | готово |
 | CALC-002 | Реестр формул, источники, единицы, версии и контрольные примеры | готова основа |
-| CALC-003 | DEXP, скорректированная DEXP и NCT | частично |
-| CALC-004 | Pixler, Wetness, Balance, Character и флюидные коэффициенты | только после подтверждения источника |
+| CALC-003 | DEXP, скорректированная DEXP и NCT | готово: sourced-профили, явная нормальная плотность, безопасные единицы, NCT по выбранному интервалу и отдельная дорожка |
+| CALC-004 | Pixler, Wetness, Balance, Character и флюидные коэффициенты | готово: профили Haworth/Pixler с первичными источниками, всеми C4/C5-изомерами, контрольными примерами и `NaN` для недопустимого знаменателя |
 | CALC-005 | Граф зависимостей и состояния current/stale/error | готова основа |
 | CALC-006 | «Показать расчёт» с входами, формулой и provenance | готово: typed passports пользовательских и встроенных профилей, actual mapping/parameters/result provenance и RU/KK/EN viewers |
 | CALC-007 | TIME↔DEPTH mapping с first/last/min/max/mean и повторными проходами | готово: nearest mapping, явные политики, versioned profiles, RU/KK/EN UI и ядро интервальной агрегации в derived dataset с preview/stale guard/Undo/Redo; UI интервалов может быть расширен позже |
@@ -163,6 +163,7 @@ JSON-файл проекта не считается универсальным 
 | CALC-010 | Сохраняемые пользовательские формулы для исходных и расчётных LAS-кривых | готово ядро и UI, включая транзитивное инвалидирование результатов |
 | CALC-011 | Безопасный парсер без eval, версия формулы, provenance и принудительный пересчёт | готово, паспорт существующей выходной кривой обновляется при пересчёте |
 | CALC-012 | Массовый пересчёт сохранённых формул по графу зависимостей с preview | готово для пользовательских формул: topological plan, статистический preview, stale-plan guard и conflict-safe Undo/Redo |
+| CALC-013 | Один стандартный расчёт Gas Ratio/Haworth/Pixler/C1_NORM/DEXP с безопасным semantic/UOM-разрешением и выводом на планшет | готово: отдельная вкладка, source-curve protection, расчётные дорожки и подробные issues без скрытых допущений |
 
 ### Пользовательские профили
 
@@ -228,6 +229,7 @@ JSON-файл проекта не считается универсальным 
 | EXPORT-013 | Единая coverage-модель | готово: observed value/zero, missing sample и unavailable channel различаются в resolved report, CSV/XLSX/JSON/Parquet, интервальной статистике, Curve Catalog и Report Passport schema v4 |
 | EXPORT-014 | Восстанавливаемая запись output + Report Passport и fingerprint готового файла | готово: staging, journal schema v1, backup/install/rollback/recovery, transactional continuation cleanup и Passport schema v4 artifacts |
 | EXPORT-015 | Self-contained HTML из общей Report Model | готово: один UTF-8 файл с inline CSS, без scripts/network resources, из точных row indices и Coverage; transaction + Passport v4 fingerprint |
+| EXPORT-016 | Отдельный отчёт по интерпретации бурового газа для всей скважины с кандидатами и ручными интервалами | готово: preview, XLSX с `Whole well`, deterministic DOCX, PDF и системная печать; кандидат не выдаётся за заключение геолога |
 
 Печатный рендер должен работать в миллиметрах и не должен быть скриншотом экранного
 `TabletView`.

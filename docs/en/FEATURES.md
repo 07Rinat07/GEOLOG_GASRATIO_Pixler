@@ -36,11 +36,11 @@ details remain in Git.
 | Lithology and intervals | lithotypes, descriptions, stratigraphy, samples, calcimetry and LBA | [User guide](README.md), [Forms and stratigraphy](FORM_CAPTIONS_AND_STRATIGRAPHY.md) |
 | Operational events | drilling, gas, shows, samples, casing, formation tops, QC | [Operational events](OPERATIONAL_EVENTS.md) |
 | Channels and Sensors | semantic kinds, units, bindings, sensor catalog | [Semantic dictionary](SEMANTIC_CHANNEL_DICTIONARY.md) |
-| Calculations | Gas Ratio, normalized gas, DEXP/NCT, custom formulas | [User guide](README.md) |
+| Calculations | Gas Ratio/Haworth/Pixler, normalized gas, DEXP/NCT, candidate-show detection | [Mud-gas interpretation](MUD_GAS_INTERPRETATION.md), [User guide](README.md) |
 | Lag/depth | correction revisions, preview, derived dataset, rollback | [Lag/depth correction](LAG_DEPTH_CORRECTION.md) |
 | Masterlog forms | library, independent headers, tracks, symbols | [Constructor](CONSTRUCTOR.md), [Form Engine](FORM_ENGINE.md) |
 | Constructor | text, shapes, images, lithotypes, asset import, templates | [Constructor](CONSTRUCTOR.md) |
-| Reports | ReportDefinition, passport, coverage, intervals, reproducibility | [Report definition](REPORT_DEFINITION.md), [Passport](REPORT_PASSPORT.md), [Coverage](COVERAGE_MODEL.md) |
+| Reports | interpretation workspace, XLSX/DOCX/PDF/print, shared-report definition and passport | [Mud-gas interpretation](MUD_GAS_INTERPRETATION.md), [Report definition](REPORT_DEFINITION.md), [Passport](REPORT_PASSPORT.md) |
 | Printing and export | preview, A4/A3/roll, Fit/100%, PDF, physical printer | [Print Center](UNIVERSAL_PRINT_CENTER.md), [Report export](REPORT_EXPORT.md) |
 | DOCX and HTML | document adapters through the shared report contract | [DOCX/HTML](DOCX_HTML_EXPORT.md) |
 | Diagnostics | logs, system report, support ZIP without project/LAS copies | [Application diagnostics](APPLICATION_DIAGNOSTICS.md) |
