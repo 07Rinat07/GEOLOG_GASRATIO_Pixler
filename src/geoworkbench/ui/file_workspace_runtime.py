@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QTableWidgetItem,
     QTreeWidgetItem,
-    QWidget,
 )
 
 from geoworkbench.files.archive_service import ArchiveError, ArchiveFormat
