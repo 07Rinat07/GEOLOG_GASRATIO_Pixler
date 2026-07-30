@@ -25,14 +25,14 @@ class FileWorkspaceWidget(QWidget):
         language: str = "ru",
     ) -> FileWorkspaceWidget:
         try:
-            from geoworkbench.ui.file_workspace_runtime import (
-                runtime_catalogs_have_same_keys,
+            from geoworkbench.ui.file_workspace_depth import (
+                FileWorkspaceWidget as DependencyProbe,
             )
             from geoworkbench.ui.file_workspace_hardening import (
                 FileWorkspaceWidget as LocalizedFileWorkspaceWidget,
             )
 
-            runtime_catalogs_have_same_keys()
+            del DependencyProbe
         except ModuleNotFoundError as error:
             if not _is_optional_dependency_error(error):
                 raise
