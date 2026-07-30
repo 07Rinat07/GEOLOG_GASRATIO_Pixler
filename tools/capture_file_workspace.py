@@ -7,9 +7,9 @@ import fitz
 from PySide6.QtCore import QPoint
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QTabWidget
+from PySide6.QtWidgets import QApplication, QScrollArea, QTabWidget
 
-from geoworkbench.ui.file_workspace_depth import FileWorkspaceWidget
+from geoworkbench.ui.file_workspace_hardening import FileWorkspaceWidget
 
 
 def _arguments() -> argparse.Namespace:
@@ -86,6 +86,18 @@ def _save(
         raise RuntimeError(f"Failed to capture workspace screenshot: {path}")
 
 
+def _scroll_engineering_to_bottom(
+    widget: FileWorkspaceWidget, application: QApplication
+) -> None:
+    scroll = widget.findChild(QScrollArea, "engineeringCalculationsScroll")
+    if scroll is None:
+        raise RuntimeError("Engineering calculations scroll area is missing")
+    application.processEvents()
+    bar = scroll.verticalScrollBar()
+    bar.setValue(bar.maximum())
+    application.processEvents()
+
+
 def _capture_language(
     language: str,
     source: Path,
@@ -130,17 +142,26 @@ def _capture_language(
     _save(widget, output / f"{language}-files-engineering-tools.png", application)
 
     petroleum_tabs = widget.findChild(QTabWidget, "petroleumCalculatorTabs")
-    if petroleum_tabs is not None:
-        petroleum_tabs.setCurrentIndex(0)
-    _save(widget, output / f"{language}-files-petroleum-calculators.png", application)
+    if petroleum_tabs is None:
+        raise RuntimeError("Petroleum calculator tabs are missing")
 
-    if petroleum_tabs is not None:
-        petroleum_tabs.setCurrentIndex(3)
-        widget.depth_ground_elevation.setValue(150.0)
-        widget.depth_datum_height.setValue(7.5)
-        widget.depth_measured_depth.setValue(3_000.0)
-        widget.depth_vertical_well.setChecked(False)
-        widget.depth_true_vertical_depth.setValue(2_500.0)
+    _scroll_engineering_to_bottom(widget, application)
+    petroleum_tabs.setCurrentIndex(0)
+    _save(widget, output / f"{language}-files-pipe-calculator.png", application)
+
+    petroleum_tabs.setCurrentIndex(1)
+    _save(widget, output / f"{language}-files-drilling-calculator.png", application)
+
+    petroleum_tabs.setCurrentIndex(2)
+    _save(widget, output / f"{language}-files-mud-calculator.png", application)
+
+    petroleum_tabs.setCurrentIndex(3)
+    widget.depth_ground_elevation.setValue(150.0)
+    widget.depth_datum_height.setValue(7.5)
+    widget.depth_measured_depth.setValue(3_000.0)
+    widget.depth_vertical_well.setChecked(False)
+    widget.depth_true_vertical_depth.setValue(2_500.0)
+    _scroll_engineering_to_bottom(widget, application)
     _save(widget, output / f"{language}-files-depth-reference.png", application)
 
     widget.sections.setCurrentIndex(2)
