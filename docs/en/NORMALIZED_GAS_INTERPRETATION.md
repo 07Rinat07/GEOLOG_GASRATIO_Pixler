@@ -4,9 +4,23 @@
 
 The Interpretation Reports workspace keeps ready normalized gas received from a server or file separate from normalized gas calculated by the program. Local calculation never overwrites the server data.
 
+## Where the buttons and curves are
+
+The top opaque **“Normalized gas — source, calculation, and curves”** card contains:
+
+- the three-option **“Report mode”** field;
+- the status of the server/file curve actually detected;
+- the status of the local calculated curves;
+- the **“Calculate local normalized gas”** button;
+- the **“Show curves on tablet”** button.
+
+The dedicated calculation button creates only normalized-gas curves. It does not run Haworth, Pixler, or DEXP. The **“Calculate other methods”** button is reserved for the other interpretation calculations.
+
+After calculation, the curves are sent automatically to the **Normalized gas** track. The show button recreates or updates that track and switches the program to the **Tablet** tab. When a curve is unavailable, the card and status line display the specific reason.
+
 ## Modes
 
-The **Normalized-gas mode** field provides three options:
+The **Report mode** field provides three options:
 
 1. **Server + local calculation — compare both**. The ready server/file curve remains unchanged, the program calculates a separate `TG_NORM_CALC` curve, and the report analyses both series.
 2. **Server/file curve only**. Only the supplier's ready curve is used to detect gas anomalies. Local `TG_NORM_CALC` is not recalculated.
@@ -59,6 +73,8 @@ Every selected gas series is analysed independently:
 6. the gas hypothesis and LBA evidence are classified as concordant, partly concordant, divergent, mixed, or insufficient.
 
 In comparison mode, the server and local series are not arithmetically merged or forced onto an artificial common scale. Each uses its own robust baseline. The report retains the source of every candidate and states the number of matching, server-only, and local-only intervals.
+
+Server total normalized gas is not compared with local `C1_NORM`, because they are different measurements. Comparing the two sources requires local total `TG_NORM_CALC` or a compatible calculated legacy `TG_NORM`.
 
 ## Limitations
 
