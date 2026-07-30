@@ -132,9 +132,7 @@ class UserProfileSettings:
                 margin_right_mm=float(payload.get("margin_right_mm", 10.0)),
                 margin_bottom_mm=float(payload.get("margin_bottom_mm", 10.0)),
                 scale_mode=PrintScaleMode(str(payload.get("scale_mode", "fit"))),
-                continuation_overlap_mm=float(
-                    payload.get("continuation_overlap_mm", 5.0)
-                ),
+                continuation_overlap_mm=float(payload.get("continuation_overlap_mm", 5.0)),
             )
         except (json.JSONDecodeError, TypeError, ValueError):
             return PrintPageSettings()
@@ -181,6 +179,9 @@ class UserProfileSettings:
                 custom_end=float(custom_end) if custom_end is not None else None,
                 show_page_numbers=bool(payload.get("show_page_numbers", True)),
                 show_page_range=bool(payload.get("show_page_range", True)),
+                repeat_column_header_at_bottom=bool(
+                    payload.get("repeat_column_header_at_bottom", False)
+                ),
             )
         except (json.JSONDecodeError, TypeError, ValueError):
             return PrintExportPreferences()
@@ -202,6 +203,7 @@ class UserProfileSettings:
                     "custom_end": value.custom_end,
                     "show_page_numbers": value.show_page_numbers,
                     "show_page_range": value.show_page_range,
+                    "repeat_column_header_at_bottom": (value.repeat_column_header_at_bottom),
                 },
                 ensure_ascii=False,
             ),

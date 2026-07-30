@@ -299,7 +299,10 @@ The dedicated **Interpretation reports** tab calculates `WH/BH/CH`, Pixler ratio
 `C1_NORM`, `DEXP`, and optional `DEXPC`, creates separate tracks, and scans the whole
 current well for relative gas anomalies. Its output is a candidate interval that still
 requires a geologist's confirmation. The tab exports a whole-well XLSX, DOCX, PDF, and
-supports system printing. See [Mud-gas interpretation](MUD_GAS_INTERPRETATION.md) for
+supports system printing. It also provides **Gas mixture ramp**: a C1–C5 sample response
+versus time, baseline-corrected composition, Wh/Bh/Ch, Pixler ratios, and a preliminary
+gas/condensate/liquid-or-heavy-hydrocarbon result. A separate compact mode omits the chart.
+See [Mud-gas interpretation](MUD_GAS_INTERPRETATION.md) for
 the workflow, formulas, and limitations.
 
 ## Custom formulas

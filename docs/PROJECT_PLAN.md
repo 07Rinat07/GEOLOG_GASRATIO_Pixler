@@ -1,6 +1,6 @@
 # Единый план проекта
 
-<!-- runtime-contract: package=0.7.93; project=v22; form=v11; layout=v21 -->
+<!-- runtime-contract: package=0.7.93; project=v22; form=v12; layout=v21 -->
 
 Актуально на 30 июля 2026 года. Это единственный план проекта. Завершённая работа фиксируется
 только в [CHANGELOG.md](CHANGELOG.md); инструкции и технические контракты не содержат отдельных

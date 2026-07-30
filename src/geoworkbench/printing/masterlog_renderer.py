@@ -649,6 +649,7 @@ def _paint_header_element(
         orientation=str(element.properties.get("text_orientation", "horizontal")),
         position=str(element.properties.get("text_position", "center")),
         horizontal_alignment=horizontal,
+        word_wrap=element.properties.get("word_wrap") is not False,
         padding_x=0.5,
         padding_y=0.1,
     )
@@ -2449,7 +2450,11 @@ def _header_text(
     field = element.properties.get("field")
     if not isinstance(field, str):
         return "{field}"
-    return resolve_header_field(session, field, template) or "{" + field + "}"
+    resolved = resolve_header_field(session, field, template)
+    if resolved:
+        return resolved
+    missing_text = element.properties.get("missing_text")
+    return str(missing_text) if isinstance(missing_text, str) else "{" + field + "}"
 
 
 def _color(value: object, fallback: str) -> QColor:

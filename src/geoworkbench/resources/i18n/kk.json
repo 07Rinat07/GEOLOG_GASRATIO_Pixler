@@ -1474,6 +1474,8 @@
   "print_center.scale_mode": "Баспа масштабы",
   "print_center.show_page_numbers": "Бет нөмірлерін көрсету",
   "print_center.show_page_range": "Әр беттің тереңдігін/уақытын көрсету",
+  "print_center.repeat_column_header_bottom": "Баған тақырыбын беттің төменгі жағында қайталау",
+  "print_center.repeat_column_header_bottom_tooltip": "Тапсырыс берушіге жылдам оқу үшін графиктен кейін жол атауларын, параметрлерді, түстерді және шкалаларды қайталау.",
   "print_center.source": "Дереккөз: {name}",
   "print_center.tablet_source": "Планшет",
   "print_center.title": "Басып шығару және экспорт орталығы",

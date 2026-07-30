@@ -29,6 +29,7 @@ class TabletPrintSnapshot:
     pixmaps: tuple[QPixmap, ...]
     layout: AdaptiveColumnLayout
     content_height: int
+    header_height: int
     raster_scale: float = 1.0
 
     def __post_init__(self) -> None:
@@ -36,6 +37,8 @@ class TabletPrintSnapshot:
             raise ValueError("Некорректный снимок печатной формы")
         if self.content_height <= 0:
             raise ValueError("Высота печатной формы должна быть положительной")
+        if not 0 < self.header_height < self.content_height:
+            raise ValueError("Высота повторяемой шапки колонок некорректна")
         if not 1.0 <= self.raster_scale <= 8.0:
             raise ValueError("Некорректный масштаб печатного снимка")
 
@@ -86,6 +89,10 @@ def capture_tablet_print_snapshot(
         for item, width in zip(rendered, layout.widths, strict=True):
             item.widget.set_track_width(width)
         QApplication.processEvents()
+        header_height = max(
+            item.widget.title.height() + item.widget.curve_header_scroll.height()
+            for item in rendered
+        )
         for item, logical_width in zip(rendered, layout.widths, strict=True):
             logical_height = max(1, item.widget.height())
             pixel_size = QSize(
@@ -116,7 +123,13 @@ def capture_tablet_print_snapshot(
             item.widget.set_track_width(width)
         QApplication.processEvents()
 
-    return TabletPrintSnapshot(tuple(pixmaps), layout, content_height, float(raster_scale))
+    return TabletPrintSnapshot(
+        tuple(pixmaps),
+        layout,
+        content_height,
+        header_height,
+        float(raster_scale),
+    )
 
 
 def paint_tablet_snapshot(
@@ -126,34 +139,33 @@ def paint_tablet_snapshot(
     *,
     scale_mode: PrintScaleMode = PrintScaleMode.FIT,
     continuation: PrintContinuationSlice | None = None,
+    fill_height: bool = False,
 ) -> None:
     if page.width() <= 0 or page.height() <= 0:
         raise TabletPrintError("Устройство печати не предоставило допустимую область страницы")
 
     if scale_mode is PrintScaleMode.FIT:
-        scale = min(
-            page.width() / snapshot.layout.total_width,
-            page.height() / snapshot.content_height,
-        )
-        rendered_width = snapshot.layout.total_width * scale
-        rendered_height = snapshot.content_height * scale
+        horizontal_scale = page.width() / snapshot.layout.total_width
+        vertical_scale = page.height() / snapshot.content_height
+        if not fill_height:
+            horizontal_scale = vertical_scale = min(horizontal_scale, vertical_scale)
+        rendered_width = snapshot.layout.total_width * horizontal_scale
+        rendered_height = snapshot.content_height * vertical_scale
         x = page.left() + (page.width() - rendered_width) / 2.0
         y = page.top() + (page.height() - rendered_height) / 2.0
 
         painter.save()
         try:
             painter.fillRect(page, Qt.GlobalColor.white)
-            for pixmap, logical_width in zip(
-                snapshot.pixmaps, snapshot.layout.widths, strict=True
-            ):
+            for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
                 target = QRectF(
                     x,
                     y,
-                    logical_width * scale,
-                    (pixmap.height() / snapshot.raster_scale) * scale,
+                    logical_width * horizontal_scale,
+                    (pixmap.height() / snapshot.raster_scale) * vertical_scale,
                 )
                 painter.drawPixmap(target, pixmap, QRectF(pixmap.rect()))
-                x += (logical_width + snapshot.layout.spacing) * scale
+                x += (logical_width + snapshot.layout.spacing) * horizontal_scale
         finally:
             painter.restore()
         return
@@ -175,9 +187,7 @@ def paint_tablet_snapshot(
         painter.fillRect(page, Qt.GlobalColor.white)
         painter.setClipRect(page)
         source_x = 0.0
-        for pixmap, logical_width in zip(
-            snapshot.pixmaps, snapshot.layout.widths, strict=True
-        ):
+        for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
             track_left = source_x
             track_right = track_left + logical_width
             visible_left = max(left, track_left)
@@ -202,3 +212,81 @@ def paint_tablet_snapshot(
     finally:
         painter.restore()
 
+
+def paint_tablet_header_repeat(
+    painter: QPainter,
+    page: QRectF,
+    snapshot: TabletPrintSnapshot,
+    *,
+    scale_mode: PrintScaleMode = PrintScaleMode.FIT,
+    continuation: PrintContinuationSlice | None = None,
+) -> None:
+    """Repeat the captured track/curve header without duplicating graph data."""
+
+    if page.width() <= 0 or page.height() <= 0:
+        raise TabletPrintError("Область нижней шапки колонок имеет неверный размер")
+
+    painter.save()
+    try:
+        painter.fillRect(page, Qt.GlobalColor.white)
+        painter.setClipRect(page)
+        if scale_mode is PrintScaleMode.FIT:
+            scale = min(
+                page.width() / snapshot.layout.total_width,
+                page.height() / snapshot.header_height,
+            )
+            rendered_width = snapshot.layout.total_width * scale
+            rendered_height = snapshot.header_height * scale
+            x = page.left() + (page.width() - rendered_width) / 2.0
+            y = page.top() + (page.height() - rendered_height) / 2.0
+            for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
+                source = QRectF(
+                    0.0,
+                    0.0,
+                    float(pixmap.width()),
+                    snapshot.header_height * snapshot.raster_scale,
+                )
+                target = QRectF(
+                    x,
+                    y,
+                    logical_width * scale,
+                    rendered_height,
+                )
+                painter.drawPixmap(target, pixmap, source)
+                x += (logical_width + snapshot.layout.spacing) * scale
+            painter.drawLine(page.topLeft(), page.topRight())
+            return
+
+        device = painter.device()
+        dpi = max(1, device.logicalDpiX()) if device is not None else REFERENCE_PRINT_DPI
+        horizontal_scale = dpi / REFERENCE_PRINT_DPI
+        left = continuation.source_left_px if continuation is not None else 0.0
+        right = (
+            continuation.source_right_px
+            if continuation is not None
+            else float(snapshot.layout.total_width)
+        )
+        source_x = 0.0
+        for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
+            track_left = source_x
+            track_right = track_left + logical_width
+            visible_left = max(left, track_left)
+            visible_right = min(right, track_right)
+            if visible_right > visible_left:
+                source = QRectF(
+                    (visible_left - track_left) * snapshot.raster_scale,
+                    0.0,
+                    (visible_right - visible_left) * snapshot.raster_scale,
+                    snapshot.header_height * snapshot.raster_scale,
+                )
+                target = QRectF(
+                    page.left() + (visible_left - left) * horizontal_scale,
+                    page.top(),
+                    (visible_right - visible_left) * horizontal_scale,
+                    page.height(),
+                )
+                painter.drawPixmap(target, pixmap, source)
+            source_x = track_right + snapshot.layout.spacing
+        painter.drawLine(page.topLeft(), page.topRight())
+    finally:
+        painter.restore()

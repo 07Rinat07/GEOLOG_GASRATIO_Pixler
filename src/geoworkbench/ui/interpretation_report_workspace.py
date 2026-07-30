@@ -3,10 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QTextDocument
+from PySide6.QtGui import QPageLayout, QTextDocument
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QDialog,
+    QComboBox,
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
@@ -27,6 +28,13 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     HydrocarbonInterpretationPdfError,
     export_hydrocarbon_interpretation_pdf,
+)
+from geoworkbench.printing.gas_mixture_ramp_report import (
+    GasMixtureRampReport,
+    GasMixtureRampReportError,
+    build_gas_mixture_ramp_report,
+    export_gas_mixture_ramp_pdf,
+    gas_mixture_ramp_html,
 )
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
@@ -53,6 +61,7 @@ class InterpretationReportWorkspace(QWidget):
         self.controller = controller
         self.language = language
         self.report: HydrocarbonInterpretationReport | None = None
+        self.gas_mixture_report: GasMixtureRampReport | None = None
         self.setObjectName("interpretation-report-workspace")
         self.setStyleSheet(
             """
@@ -64,7 +73,8 @@ class InterpretationReportWorkspace(QWidget):
                 color: #172033;
                 background: transparent;
             }
-            QWidget#interpretation-report-workspace QDoubleSpinBox {
+            QWidget#interpretation-report-workspace QDoubleSpinBox,
+            QWidget#interpretation-report-workspace QComboBox {
                 min-height: 28px;
                 padding: 2px 8px;
                 color: #172033;
@@ -120,13 +130,15 @@ class InterpretationReportWorkspace(QWidget):
         root.addWidget(self.explanation)
 
         form = QFormLayout()
+        self.report_mode = QComboBox()
+        self.report_mode.currentIndexChanged.connect(self.refresh)
+        self.report_mode_label = QLabel()
+        form.addRow(self.report_mode_label, self.report_mode)
         self.normal_density = QDoubleSpinBox()
         self.normal_density.setRange(0.0, 30.0)
         self.normal_density.setDecimals(2)
         self.normal_density.setSingleStep(0.1)
-        self.normal_density.setSpecialValueText(
-            self._text("не задана", "берілмеген", "not set")
-        )
+        self.normal_density.setSpecialValueText(self._text("не задана", "берілмеген", "not set"))
         self.normal_density.setSuffix(" ppg")
         self.normal_density.setToolTip(
             self._text(
@@ -155,7 +167,11 @@ class InterpretationReportWorkspace(QWidget):
 
         actions = QHBoxLayout()
         self.calculate_button = QPushButton(
-            self._text("Рассчитать стандартные методы", "Стандартты әдістерді есептеу", "Calculate standard methods")
+            self._text(
+                "Рассчитать стандартные методы",
+                "Стандартты әдістерді есептеу",
+                "Calculate standard methods",
+            )
         )
         self.calculate_button.clicked.connect(self.calculate_standard_methods)
         actions.addWidget(self.calculate_button)
@@ -203,7 +219,48 @@ class InterpretationReportWorkspace(QWidget):
         }[language]
 
     def refresh(self) -> None:
-        self.calculate_button.setEnabled(self.controller.session.current_dataset is not None)
+        mixture_mode = self._is_mixture_mode()
+        has_dataset = self.controller.session.current_dataset is not None
+        self.calculate_button.setEnabled(has_dataset and not mixture_mode)
+        self.normal_density.setEnabled(not mixture_mode)
+        self.threshold.setEnabled(not mixture_mode)
+        self.gas_mixture_report = None
+        if mixture_mode:
+            try:
+                self.gas_mixture_report = build_gas_mixture_ramp_report(self.controller.session)
+            except (RuntimeError, GasMixtureRampReportError):
+                self.report = None
+                self.preview.setHtml(
+                    "<p>"
+                    + self._text(
+                        "Для разгонки откройте временной набор с согласованными C1–C5.",
+                        "Айдау үшін C1–C5 келісілген уақыттық деректер жинағын ашыңыз.",
+                        "Open a time dataset with consistent C1–C5 curves for ramp analysis.",
+                    )
+                    + "</p>"
+                )
+                self.status.clear()
+                self._set_exports_enabled(False)
+                return
+            self.report = None
+            include_chart = self._report_mode() == "mixture_chart"
+            self.preview.setHtml(
+                gas_mixture_ramp_html(
+                    self.gas_mixture_report,
+                    self.language,
+                    include_chart=include_chart,
+                )
+            )
+            self.status.setText(
+                self._text(
+                    "Разгонка рассчитана по временному отклику C1–C5.",
+                    "Айдау C1–C5 уақыттық жауабы бойынша есептелді.",
+                    "Ramp analysis was calculated from the C1–C5 time response.",
+                )
+            )
+            self._set_exports_enabled(True)
+            return
+
         try:
             self.report = build_hydrocarbon_interpretation_report(
                 self.controller.session,
@@ -303,49 +360,78 @@ class InterpretationReportWorkspace(QWidget):
         self._show_export_success(exported)
 
     def _export_pdf(self) -> None:
-        report = self._require_report()
+        report = self._require_any_report()
         if report is None:
             return
         target = self._choose_target(".pdf", "PDF (*.pdf)")
         if target is None:
             return
         try:
-            exported = export_hydrocarbon_interpretation_pdf(
-                report,
-                target,
-                language=self.language,
-                overwrite=target.exists(),
-            )
-        except (OSError, FileExistsError, HydrocarbonInterpretationPdfError) as exc:
+            if isinstance(report, GasMixtureRampReport):
+                exported = export_gas_mixture_ramp_pdf(
+                    report,
+                    target,
+                    language=self.language,
+                    include_chart=self._report_mode() == "mixture_chart",
+                    overwrite=target.exists(),
+                )
+            else:
+                exported = export_hydrocarbon_interpretation_pdf(
+                    report,
+                    target,
+                    language=self.language,
+                    overwrite=target.exists(),
+                )
+        except (
+            OSError,
+            FileExistsError,
+            GasMixtureRampReportError,
+            HydrocarbonInterpretationPdfError,
+        ) as exc:
             self._show_export_error(exc)
             return
         self._show_export_success(exported)
 
     def _print_report(self) -> None:
-        report = self._require_report()
+        report = self._require_any_report()
         if report is None:
             return
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        if isinstance(report, GasMixtureRampReport) and self._report_mode() == "mixture_chart":
+            printer.setPageOrientation(QPageLayout.Orientation.Landscape)
         dialog = QPrintDialog(printer, self)
         dialog.setWindowTitle(self.tab_title(self.language))
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         document = QTextDocument()
-        document.setHtml(hydrocarbon_interpretation_html(report, self.language))
+        document.setHtml(
+            gas_mixture_ramp_html(
+                report,
+                self.language,
+                include_chart=self._report_mode() == "mixture_chart",
+            )
+            if isinstance(report, GasMixtureRampReport)
+            else hydrocarbon_interpretation_html(report, self.language)
+        )
         document.print_(printer)
 
     def _choose_target(self, suffix: str, file_filter: str) -> Path | None:
-        report = self._require_report()
+        report = self._require_any_report()
         if report is None:
             return None
         safe_well = "".join(
             character if character.isalnum() or character in "-_" else "_"
             for character in report.well_name
         ).strip("_")
+        report_stem = (
+            "gas-mixture-ramp"
+            if isinstance(report, GasMixtureRampReport)
+            else "mud-gas-interpretation"
+        )
         filename, _ = QFileDialog.getSaveFileName(
             self,
             self.tab_title(self.language),
-            str(Path.cwd() / f"{safe_well or 'well'}-mud-gas-interpretation{suffix}"),
+            str(Path.cwd() / f"{safe_well or 'well'}-{report_stem}{suffix}"),
             file_filter,
         )
         if not filename:
@@ -383,8 +469,11 @@ class InterpretationReportWorkspace(QWidget):
         return self.report
 
     def _set_exports_enabled(self, enabled: bool) -> None:
-        for button in (self.xlsx_button, self.docx_button, self.pdf_button, self.print_button):
-            button.setEnabled(enabled)
+        tabular = enabled and self.report is not None
+        self.xlsx_button.setEnabled(tabular)
+        self.docx_button.setEnabled(tabular)
+        self.pdf_button.setEnabled(enabled)
+        self.print_button.setEnabled(enabled)
 
     def _show_export_error(self, error: Exception) -> None:
         QMessageBox.critical(self, self.tab_title(self.language), str(error))
@@ -409,6 +498,37 @@ class InterpretationReportWorkspace(QWidget):
         self.refresh()
 
     def _retranslate(self) -> None:
+        current_mode = self._report_mode()
+        self.report_mode.blockSignals(True)
+        self.report_mode.clear()
+        self.report_mode.addItem(
+            self._text(
+                "Интерпретация скважины — без графика",
+                "Ұңғыманы интерпретациялау — графиксіз",
+                "Well interpretation — no chart",
+            ),
+            "well_text",
+        )
+        self.report_mode.addItem(
+            self._text(
+                "Разгонка газовой смеси — временной график",
+                "Газ қоспасын айдау — уақыт графигі",
+                "Gas mixture ramp — time chart",
+            ),
+            "mixture_chart",
+        )
+        self.report_mode.addItem(
+            self._text(
+                "Разгонка газовой смеси — только интерпретация",
+                "Газ қоспасын айдау — тек интерпретация",
+                "Gas mixture ramp — interpretation only",
+            ),
+            "mixture_text",
+        )
+        index = self.report_mode.findData(current_mode)
+        self.report_mode.setCurrentIndex(max(0, index))
+        self.report_mode.blockSignals(False)
+        self.report_mode_label.setText(self._text("Вид отчёта:", "Есеп түрі:", "Report type:"))
         self.explanation.setText(
             self._text(
                 "Расчёт стандартных кривых, поиск относительных газовых аномалий и выпуск "
@@ -426,9 +546,7 @@ class InterpretationReportWorkspace(QWidget):
                 "Normal mud density:",
             )
         )
-        self.normal_density.setSpecialValueText(
-            self._text("не задана", "берілмеген", "not set")
-        )
+        self.normal_density.setSpecialValueText(self._text("не задана", "берілмеген", "not set"))
         self.normal_density.setToolTip(
             self._text(
                 "Нужна только для DEXPC. Значение 0 не подставляет скрытое допущение.",
@@ -460,6 +578,27 @@ class InterpretationReportWorkspace(QWidget):
         self.refresh_button.setText(
             self._text("Обновить анализ", "Талдауды жаңарту", "Refresh analysis")
         )
-        self.print_button.setText(
-            self._text("Печать…", "Басып шығару…", "Print…")
-        )
+        self.print_button.setText(self._text("Печать…", "Басып шығару…", "Print…"))
+
+    def _report_mode(self) -> str:
+        value = self.report_mode.currentData()
+        return str(value) if isinstance(value, str) and value else "well_text"
+
+    def _is_mixture_mode(self) -> bool:
+        return self._report_mode().startswith("mixture_")
+
+    def _require_any_report(
+        self,
+    ) -> HydrocarbonInterpretationReport | GasMixtureRampReport | None:
+        report = self.gas_mixture_report if self._is_mixture_mode() else self.report
+        if report is None:
+            QMessageBox.information(
+                self,
+                self.tab_title(self.language),
+                self._text(
+                    "Сначала откройте подходящий набор данных.",
+                    "Алдымен қолайлы деректер жинағын ашыңыз.",
+                    "Open a suitable dataset first.",
+                ),
+            )
+        return report

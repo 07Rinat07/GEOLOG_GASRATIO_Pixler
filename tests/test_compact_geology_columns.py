@@ -77,17 +77,13 @@ def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None
                 "column_id": "depth-column",
                 "title": "Depth",
                 "width": 120,
-                "tracks": [
-                    {"track_id": "depth-track", "title": "Depth", "kind": "depth"}
-                ],
+                "tracks": [{"track_id": "depth-track", "title": "Depth", "kind": "depth"}],
             },
             {
                 "column_id": "curve-column",
                 "title": "Curve",
                 "width": 300,
-                "tracks": [
-                    {"track_id": "curve-track", "title": "Curve", "kind": "curve"}
-                ],
+                "tracks": [{"track_id": "curve-track", "title": "Curve", "kind": "curve"}],
             },
         ],
     }
@@ -100,7 +96,7 @@ def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None
     assert restored.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
     assert restored.columns[1].width == 300
     assert restored.columns[1].tracks[0].title_orientation == "horizontal"
-    assert encoded["schema_version"] == 11
+    assert encoded["schema_version"] == 12
     assert restored_again.columns[0].width == 60
 
 
@@ -162,6 +158,10 @@ def test_ready_forms_are_built_in_with_compact_geology_columns() -> None:
 
     assert tuple(forms) == (
         "factory-geodata-depth-workspace",
+        "factory-drilling-technology",
+        "factory-gas-ratio-pixler-depth",
+        "factory-lithology-cuttings",
+        "factory-gas-ratio-pixler-time",
         "factory-engineering-control-time",
     )
     assert forms["factory-geodata-depth-workspace"].name == (
@@ -217,16 +217,11 @@ def test_layout_v17_migration_compacts_every_requested_kind() -> None:
         }
         for kind in sorted(COMPACT_KINDS, key=lambda item: item.value)
     ]
-    tracks.append(
-        {"track_id": "text", "title": "Text", "kind": "text", "width": 200}
-    )
+    tracks.append({"track_id": "text", "title": "Text", "kind": "text", "width": 200})
 
     restored = layout_from_dict({"version": 17, "tracks": tracks})
 
-    expected = {
-        kind: 100
-        for kind in COMPACT_KINDS
-    }
+    expected = {kind: 100 for kind in COMPACT_KINDS}
     for kind, width in expected.items():
         assert restored.track_by_id(kind.value).width == width
     assert restored.track_by_id("text").width == 200
@@ -244,9 +239,7 @@ def test_lba_defaults_to_horizontal_while_long_compact_titles_stay_vertical() ->
 
     assert any(track.kind is TrackKind.LBA for track in compact_tracks)
     for track in compact_tracks:
-        expected = (
-            "horizontal" if track.kind is TrackKind.LBA else "vertical_bottom_to_top"
-        )
+        expected = "horizontal" if track.kind is TrackKind.LBA else "vertical_bottom_to_top"
         assert track.title_orientation == expected
 
 
@@ -306,13 +299,12 @@ def test_v10_form_migration_restores_lba_horizontal_default() -> None:
 
     assert restored.columns[0].title_orientation == "horizontal"
     assert restored.columns[0].tracks[0].title_orientation == "horizontal"
-    assert form_to_dict(restored)["schema_version"] == 11
+    assert form_to_dict(restored)["schema_version"] == 12
 
 
 def test_rotated_title_renderer_fits_long_single_word_captions() -> None:
     source = (
-        Path(__file__).resolve().parents[1]
-        / "src/geoworkbench/ui/oriented_text_label.py"
+        Path(__file__).resolve().parents[1] / "src/geoworkbench/ui/oriented_text_label.py"
     ).read_text(encoding="utf-8")
 
     assert "QFontMetricsF" in source
@@ -325,14 +317,26 @@ def test_ready_form_names_are_localized_and_polished() -> None:
     expected = {
         "ru": {
             "factory-geodata-depth-workspace": "Комплексная ГТИ-форма — геология, технология и газ",
+            "factory-drilling-technology": "Технологические параметры бурения",
+            "factory-gas-ratio-pixler-depth": "Gas Ratio & Pixler — глубинная интерпретация",
+            "factory-lithology-cuttings": "Геология, шлам, ЛБА и кальциметрия",
+            "factory-gas-ratio-pixler-time": "Gas Ratio & Pixler — временной мониторинг",
             "factory-engineering-control-time": "Инженерно-технологический мониторинг — временная форма",
         },
         "kk": {
             "factory-geodata-depth-workspace": "Кешенді ГТИ пішіні — геология, технология және газ",
+            "factory-drilling-technology": "Бұрғылаудың технологиялық параметрлері",
+            "factory-gas-ratio-pixler-depth": "Gas Ratio & Pixler — тереңдік интерпретациясы",
+            "factory-lithology-cuttings": "Геология, шлам, ЛБА және кальциметрия",
+            "factory-gas-ratio-pixler-time": "Gas Ratio & Pixler — уақыттық мониторинг",
             "factory-engineering-control-time": "Инженерлік-технологиялық мониторинг — уақыттық пішін",
         },
         "en": {
             "factory-geodata-depth-workspace": "Integrated mud logging form — geology, drilling and gas",
+            "factory-drilling-technology": "Drilling technology parameters",
+            "factory-gas-ratio-pixler-depth": "Gas Ratio & Pixler — depth interpretation",
+            "factory-lithology-cuttings": "Geology, cuttings, LBA and calcimetry",
+            "factory-gas-ratio-pixler-time": "Gas Ratio & Pixler — time monitoring",
             "factory-engineering-control-time": "Engineering and drilling monitoring — time form",
         },
     }

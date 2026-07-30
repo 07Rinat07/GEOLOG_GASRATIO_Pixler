@@ -65,9 +65,7 @@ class PrintJobExecutor:
         printer.setFromTo(1, plan.page_count)
         return printer
 
-    def configure_printer(
-        self, printer: QPrinter, widget: QWidget, job: PrintJobSettings
-    ) -> None:
+    def configure_printer(self, printer: QPrinter, widget: QWidget, job: PrintJobSettings) -> None:
         content_width, content_height = printable_content_dimensions(widget, job)
         printer.setResolution(job.dpi)
         printer.setPageSize(job.page.page_size_for_content(content_width, content_height))
@@ -82,9 +80,7 @@ class PrintJobExecutor:
         content_width, content_height = printable_content_dimensions(widget, job)
         page_size = job.page.oriented_page_size_mm(content_width, content_height)
         capabilities = _printer_capabilities(printer)
-        page_count = selected_page_count(
-            plan.page_count, printer.fromPage(), printer.toPage()
-        )
+        page_count = selected_page_count(plan.page_count, printer.fromPage(), printer.toPage())
         gate = evaluate_physical_printer_gate(
             PrinterGateRequest(
                 page_format=job.page.page_format.value,
@@ -217,10 +213,20 @@ def report_render_settings(job: PrintJobSettings) -> ReportRenderSettings:
         show_page_numbers=pagination.show_page_numbers,
         show_page_range=pagination.show_page_range,
         strict_unicode=job.strict_unicode,
-        options=(
-            (("header_template_id", job.header_template_id),)
-            if job.header_template_id is not None
-            else ()
+        options=tuple(
+            item
+            for item in (
+                (
+                    ("header_template_id", job.header_template_id)
+                    if job.header_template_id is not None
+                    else None
+                ),
+                (
+                    "repeat_column_header_at_bottom",
+                    job.repeat_column_header_at_bottom,
+                ),
+            )
+            if item is not None
         ),
     )
 
@@ -228,9 +234,7 @@ def report_render_settings(job: PrintJobSettings) -> ReportRenderSettings:
 def _printer_capabilities(printer: QPrinter) -> PrinterCapabilities:
     info = QPrinterInfo(printer)
     supported_sizes = tuple(
-        _page_size_mm(page_size)
-        for page_size in info.supportedPageSizes()
-        if page_size.isValid()
+        _page_size_mm(page_size) for page_size in info.supportedPageSizes() if page_size.isValid()
     )
     minimum_size = _optional_page_size_mm(_call_optional(info, "minimumPhysicalPageSize"))
     maximum_size = _optional_page_size_mm(_call_optional(info, "maximumPhysicalPageSize"))

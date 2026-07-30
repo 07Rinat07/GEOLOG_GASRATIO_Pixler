@@ -87,10 +87,7 @@ def printable_content_dimensions(widget: QWidget, job: PrintJobSettings) -> tupl
         else:
             width = max(
                 width,
-                sum(
-                    max(minimum_track_width(item.kind), int(item.width))
-                    for item in definitions
-                ),
+                sum(max(minimum_track_width(item.kind), int(item.width)) for item in definitions),
             )
         height = max(1, max(item.widget.height() for item in widget.printable_tracks()))
     return width, height
@@ -129,9 +126,7 @@ def build_document_plan(widget: QWidget, job: PrintJobSettings) -> PrintDocument
         for continuation in continuations:
             pages.append(PrintDocumentPage(vertical, continuation, index, total))
             index += 1
-    return PrintDocumentPlan(
-        tuple(pages), axis_label, axis_unit, source_width, source_height
-    )
+    return PrintDocumentPlan(tuple(pages), axis_label, axis_unit, source_width, source_height)
 
 
 def paint_document_pages(
@@ -192,9 +187,7 @@ def paint_document_page(
     localizer = Localizer.create(context.language)
     simple_header_height, footer_height = _band_heights(painter, page_rect)
     header_height = (
-        _print_header_band_height(
-            painter, page_rect, context.header_template
-        )
+        _print_header_band_height(painter, page_rect, context.header_template)
         if context.header_template is not None and context.session is not None
         else simple_header_height
     )
@@ -242,6 +235,7 @@ def paint_document_page(
             scale_mode=job.page.scale_mode,
             continuation=page.continuation,
             high_quality=high_quality,
+            repeat_column_header_at_bottom=(job.repeat_column_header_at_bottom),
         )
         _paint_footer(
             painter,

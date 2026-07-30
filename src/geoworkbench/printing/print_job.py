@@ -94,6 +94,7 @@ class PrintJobSettings:
     pagination: PrintPaginationSettings = field(default_factory=PrintPaginationSettings)
     strict_unicode: bool = True
     header_template_id: str | None = None
+    repeat_column_header_at_bottom: bool = False
 
     def __post_init__(self) -> None:
         if isinstance(self.dpi, bool) or not isinstance(self.dpi, int) or not 72 <= self.dpi <= 600:
@@ -109,6 +110,8 @@ class PrintJobSettings:
         if self.header_template_id is not None:
             if not isinstance(self.header_template_id, str) or not self.header_template_id.strip():
                 raise ValueError("ID печатной шапки должен быть непустой строкой")
+        if not isinstance(self.repeat_column_header_at_bottom, bool):
+            raise ValueError("Повтор шапки колонок должен быть логическим значением")
         if self.output_format.is_file and self.target is None:
             raise ValueError("Для файлового экспорта необходимо выбрать путь")
         if not self.output_format.is_file and self.target is not None:
@@ -134,6 +137,7 @@ class PrintExportPreferences:
     custom_end: float | None = None
     show_page_numbers: bool = True
     show_page_range: bool = True
+    repeat_column_header_at_bottom: bool = False
 
     def __post_init__(self) -> None:
         if self.output_format is PrintOutputFormat.PRINTER:
@@ -148,6 +152,8 @@ class PrintExportPreferences:
             or not 1 <= self.image_quality <= 100
         ):
             raise ValueError("Качество изображения должно быть от 1 до 100")
+        if not isinstance(self.repeat_column_header_at_bottom, bool):
+            raise ValueError("Повтор шапки колонок должен быть логическим значением")
         PrintPaginationSettings(
             range_mode=self.range_mode,
             units_per_page=self.units_per_page,

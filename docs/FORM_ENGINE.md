@@ -6,7 +6,7 @@ curves in the currently opened dataset.
 
 ## Implemented first slice
 
-- versioned form schema v1;
+- versioned form schema v12 with migrations from earlier versions;
 - form, column, track and parameter-binding models;
 - depth and time form types;
 - validation of identifiers, widths, ranges and duplicate links;
@@ -75,9 +75,11 @@ All factory and user forms use one page renderer. Form Manager can send the sele
 
 ## GeoData depth workspace — current form slice
 
-The user-visible factory library is curated to three working forms: Integrated mud logging form — geology, drilling and gas,
-MASTERLOG — geological and geochemical form, and Engineering and drilling monitoring — time form. Legacy factory IDs remain
-decodable for old projects but are not listed as duplicate templates. `FormColumn.group_title` is
+The user-visible factory library is curated to six working forms: integrated geology/technology/gas,
+drilling technology, depth Gas Ratio/Pixler, geology/cuttings/LBA/calcimetry, time
+Gas Ratio/Pixler, and time engineering control. Every form is paired with matching A4 portrait
+and landscape headers. Legacy factory IDs remain decodable for old projects but are not listed
+as duplicate templates. `FormColumn.group_title` is
 persisted and propagated to layout v10 so adjacent columns render under merged Geology,
 Technology, and Gas Data section captions.
 

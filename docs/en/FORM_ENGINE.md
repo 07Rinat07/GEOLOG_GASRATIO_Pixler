@@ -6,7 +6,7 @@ the active dataset.
 
 ## Current model
 
-- versioned form schema, currently v11;
+- versioned form schema, currently v12;
 - form, column, track and parameter-binding models;
 - depth and time form types;
 - identifier, width, range and duplicate-link validation;
@@ -91,6 +91,11 @@ screen track cannot consume the full sheet, and horizontally scrolled off-screen
 printed as well. Print preview and PDF export restore the original screen widths and do not alter
 the project layout. Disabling auto-fit preserves the form's original proportions.
 
+Every current factory form is paired with two matching headers, one portrait and one landscape.
+Changing orientation in the Print and Export Center switches the paired header automatically,
+while manual override remains available. **Repeat column header at bottom** prints a compact
+copy of track names, scales, and units at the end of each sheet.
+
 
 ## Universal Print and Export Center
 
@@ -98,31 +103,19 @@ All factory and user forms use one page renderer. Form Manager can send the sele
 
 ## Factory and ready-form library
 
-The manager keeps two user-visible factory working templates:
+The concise factory catalog contains six non-duplicating working templates:
 
 1. **Integrated mud logging form — geology, drilling and gas**;
-2. **Engineering and drilling monitoring — time form**.
+2. **Drilling technology parameters**;
+3. **Gas Ratio & Pixler — depth interpretation**;
+4. **Geology, cuttings, LBA and calcimetry**;
+5. **Gas Ratio & Pixler — time monitoring**;
+6. **Engineering and drilling monitoring — time form**.
 
-A separate factory MASTERLOG entry is not added to the curated list. Its legacy identifier remains
-readable only for project compatibility.
-
-On the first run, the form repository checks the existing application-profile library. Four
-confirmed legacy names are atomically promoted to **Ready forms**, polished, and protected from
-accidental overwrite:
-
-- `GEO_TECH_GAS_A4_albom` → **Геология, технология и газ — A4, альбомная**;
-- `Geo_Tech_Gas_Logging_form A4 albom` → **Геолого-технологический газовый каротаж — A4, альбомная**;
-- `Геология_plus_под A4 книжная` → **Геология Plus — A4, книжная**;
-- `Форма Мастерлога под A4 книга` → **Мастерлог — A4, книжная**.
-
-A form name is stored once in its JSON, so these exact polished names are shown in RU, KK, and EN interfaces; only the surrounding library labels are localized.
-
-The migration moves the actual columns, tracks, parameters, scales, styles, and widths from the
-existing JSON rather than creating empty placeholders. Files are stored under `forms/ready`; old
-copies are removed only after a successful atomic write. All other user forms and names remain
-untouched. A ready form is opened as a protected template and edited through an independent user
-copy. On a new computer without the old profile, these four local forms appear after their JSON
-files are transferred or imported.
+The first four are depth forms and the last two are time forms. Every form has matching A4
+portrait and landscape headers. Legacy factory identifiers and user JSON remain readable for
+project compatibility, but duplicate entries are hidden from the main catalog. Editing a factory
+or ready form always starts from an independent user copy.
 
 `FormColumn.group_title` stores a section caption. Applying the form transfers it to
 `TrackDefinition.group_title`, persists it in the layout, and renders one shared header above

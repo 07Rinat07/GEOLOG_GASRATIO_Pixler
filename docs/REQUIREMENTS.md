@@ -164,6 +164,7 @@ JSON-файл проекта не считается универсальным 
 | CALC-011 | Безопасный парсер без eval, версия формулы, provenance и принудительный пересчёт | готово, паспорт существующей выходной кривой обновляется при пересчёте |
 | CALC-012 | Массовый пересчёт сохранённых формул по графу зависимостей с preview | готово для пользовательских формул: topological plan, статистический preview, stale-plan guard и conflict-safe Undo/Redo |
 | CALC-013 | Один стандартный расчёт Gas Ratio/Haworth/Pixler/C1_NORM/DEXP с безопасным semantic/UOM-разрешением и выводом на планшет | готово: отдельная вкладка, source-curve protection, расчётные дорожки и подробные issues без скрытых допущений |
+| CALC-014 | Временная разгонка принесённой газовой пробы C1–C5 | готово: оценка фона, состав в зоне пика, Wh/Bh/Ch, Pixler и явная предварительная категория газа/газоконденсата/жидких или тяжёлых УВ |
 
 ### Пользовательские профили
 
@@ -203,7 +204,7 @@ JSON-файл проекта не считается универсальным 
 | PRINT-009 | Значки, подписи и изображения с привязкой к глубине, времени, параметру, интервалу, треку, странице или свободной позиции | частично: готовы depth/interval/parameter/time CRUD, Undo/Redo, preflight и печать SVG/PNG; время разрешается только через однозначную пару TIME/DEPTH и nearest-row policy; страница и свободная позиция запланированы |
 | PRINT-010 | Библиотека условных обозначений и импорт пользовательских SVG/PNG как проектных assets | готов расширяемый JSON-каталог с визуальным выбором, безопасный SVG-профиль, PNG/SVG import, SHA-256-дедупликация, хранение, preview/печать, переносимые пакеты, garbage collection и независимое сжатие до `0,01` логического пикселя с отдельной рамкой выбора |
 | PRINT-011 | Выбор сохранённой формы, интервала и языка RU/KK/EN перед печатью | готово для preview, PDF и системного Print Preview; full/current/custom/selection разрешаются одной `ReportDefinition` |
-| PRINT-012 | Повторяемая шапка, разрывы колонок и контроль продолжения на листах/рулоне | готово: vertical pages × horizontal continuations, глобальная нумерация, repeated headers и page range |
+| PRINT-012 | Повторяемая шапка, разрывы колонок и контроль продолжения на листах/рулоне | готово: vertical pages × horizontal continuations, глобальная нумерация, repeated headers, page range и опциональный дубль заголовков/шкал колонок внизу листа |
 | PRINT-013 | Интервальные lithology/description колонки Masterlog | готово: project lithotypes, цвет/штриховка, код и безопасный word-wrap описания с clipping по depth/page range |
 | PRINT-014 | Автолегенда литотипов, symbols/shows и peak callouts | частично: готовы динамическая легенда системных/project литотипов по всему справочнику или печатному интервалу и ручные callouts; автоматический поиск пиков и разнесение подписей запланированы |
 | CORR-001 | Многоскважинный correlation canvas с независимыми depth ranges, markers/horizons/ties и PDF | запланировано после performance/RSS gate; `PROJECT_PLAN.md`, EXT-03 |
@@ -230,6 +231,7 @@ JSON-файл проекта не считается универсальным 
 | EXPORT-014 | Восстанавливаемая запись output + Report Passport и fingerprint готового файла | готово: staging, journal schema v1, backup/install/rollback/recovery, transactional continuation cleanup и Passport schema v4 artifacts |
 | EXPORT-015 | Self-contained HTML из общей Report Model | готово: один UTF-8 файл с inline CSS, без scripts/network resources, из точных row indices и Coverage; transaction + Passport v4 fingerprint |
 | EXPORT-016 | Отдельный отчёт по интерпретации бурового газа для всей скважины с кандидатами и ручными интервалами | готово: preview, предварительная интерпретация «вероятный газ/жидкие УВ/смешанный тип», XLSX с `Whole well`, deterministic DOCX, PDF и системная печать; кандидат не выдаётся за заключение геолога |
+| EXPORT-017 | Отчёт по разгонке газовой смеси с временным графиком и отдельный режим только интерпретации | готово: контрастный preview, A4 landscape PDF/печать с графиком и компактный PDF/печать без графика |
 
 Печатный рендер должен работать в миллиметрах и не должен быть скриншотом экранного
 `TabletView`.

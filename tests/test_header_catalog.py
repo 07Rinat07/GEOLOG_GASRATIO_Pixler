@@ -21,12 +21,14 @@ def test_factory_and_user_headers_are_separate_catalog_entries() -> None:
     factory_items = catalog_items(
         controller.session.project.masterlog_templates, AppLanguage.RU
     )
-    assert any(item.catalog_id == "factory-header:geological_geochemical" for item in factory_items)
+    curated_id = "factory-header:a4_geology_technology_gas_portrait"
+    assert any(item.catalog_id == curated_id for item in factory_items)
+    assert all("geological_geochemical" not in item.catalog_id for item in factory_items)
     assert all(item.read_only for item in factory_items)
 
     user = controller.create_header_template(
         "Шапка заказчика",
-        preset_catalog_id="factory-header:geological_geochemical",
+        preset_catalog_id=curated_id,
         preferred_orientation="landscape",
     )
     assert user.columns == []
@@ -42,14 +44,13 @@ def test_any_masterlog_can_receive_independent_header_copy() -> None:
     controller = _controller()
     target = MasterlogTemplate(new_id(), "Target", header_elements=[])
     controller.session.project.masterlog_templates[target.template_id] = target
+    curated_id = "factory-header:a4_geology_technology_gas_portrait"
 
     controller.apply_header_catalog_item(
-        target.template_id, "factory-header:geological_geochemical"
+        target.template_id, curated_id
     )
     assert target.header_elements
-    assert target.properties["header_catalog_origin"] == (
-        "factory-header:geological_geochemical"
-    )
+    assert target.properties["header_catalog_origin"] == curated_id
 
     saved = controller.save_header_to_catalog(target.template_id, "Сохранённая шапка")
     target.header_elements.clear()

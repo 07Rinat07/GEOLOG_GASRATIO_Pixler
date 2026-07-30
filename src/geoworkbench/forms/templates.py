@@ -159,9 +159,9 @@ _TEXT: dict[str, dict[str, str]] = {
         "en": "Drilling technology parameters",
     },
     "geology_cuttings_form": {
-        "ru": "Литология и шламограмма",
-        "kk": "Литология және шламограмма",
-        "en": "Lithology and cuttings log",
+        "ru": "Геология, шлам, ЛБА и кальциметрия",
+        "kk": "Геология, шлам, ЛБА және кальциметрия",
+        "en": "Geology, cuttings, LBA and calcimetry",
     },
     "calcimetry_form": {"ru": "Кальциметрия", "kk": "Кальциметрия", "en": "Calcimetry"},
     "lba_form": {
@@ -339,6 +339,10 @@ def factory_templates(language: str = "ru") -> dict[str, FormDocument]:
 
 CURATED_FACTORY_TEMPLATE_IDS: tuple[str, ...] = (
     "factory-geodata-depth-workspace",
+    "factory-drilling-technology",
+    "factory-gas-ratio-pixler-depth",
+    "factory-lithology-cuttings",
+    "factory-gas-ratio-pixler-time",
     "factory-engineering-control-time",
 )
 
@@ -364,6 +368,18 @@ def _apply_compact_geology_widths(form: FormDocument) -> None:
         column.width = compact_track_width(kinds[0], column.width)
         column.__post_init__()
     form.validate()
+
+
+def _with_a4_print_headers(form: FormDocument, profile_id: str) -> FormDocument:
+    """Pair one logical form with its two orientation-specific A4 headers."""
+
+    form.print_header_template_ids = {
+        orientation: f"factory-header:a4_{profile_id}_{orientation}"
+        for orientation in ("portrait", "landscape")
+    }
+    form.print_header_template_id = form.print_header_template_ids["portrait"]
+    form.validate()
+    return form
 
 
 def _factory(
@@ -633,124 +649,143 @@ def _interpretation(language: TemplateLanguage) -> FormDocument:
 
 
 def _gas_ratio_pixler_depth(language: TemplateLanguage) -> FormDocument:
-    return _factory(
-        "factory-gas-ratio-pixler-depth",
-        _t("gas_ratio_pixler_depth", language),
-        FormAxisKind.DEPTH,
-        [
-            _axis_column(FormAxisKind.DEPTH, language),
-            _curve_column(
-                "column-drilling",
-                _t("drilling", language),
-                [
-                    _binding("ROP", _t("rop", language), "m/h", "#dc2626", width=1.8),
-                    _binding("WOB", _t("wob", language), "t", "#2563eb"),
-                    _binding("RPM", _t("rpm", language), "rpm", "#16a34a"),
-                ],
-                300,
-            ),
-            _curve_column(
-                "column-mud",
-                _t("mud", language),
-                [
-                    _binding("FLOW_IN", _t("flow_in", language), "L/s", "#0891b2"),
-                    _binding("FLOW_OUT", _t("flow_out", language), "L/s", "#0f766e"),
-                    _binding("SPP", _t("spp", language), "atm", "#dc2626"),
-                    _binding("MUD_DENSITY", _t("mud_density", language), "g/cm³", "#7c3aed"),
-                ],
-                300,
-            ),
-            _curve_column(
-                "column-raw-normalized-gas",
-                _t("raw_norm_gas", language),
-                [
-                    _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626", width=2.0),
-                    _binding(
-                        "NORMALIZED_TOTAL_GAS",
-                        _t("normalized_total_gas", language),
-                        "%",
-                        "#7c3aed",
-                        width=2.0,
-                    ),
-                    _binding("HC_SUM_RAW", _t("hc_sum_raw", language), "%", "#ea580c"),
-                    _binding("HC_SUM_NORM", _t("hc_sum_norm", language), "%", "#0369a1"),
-                ],
-                340,
-            ),
-            _curve_column(
-                "column-components",
-                _t("gas_c1_c5", language),
-                _gas_component_bindings(language),
-                420,
-            ),
-            _curve_column(
-                "column-ratios", _t("gas_ratio", language), _ratio_bindings(language), 360
-            ),
-            _curve_column("column-pixler-ratios", _t("pixler", language), _pixler_bindings(), 360),
-            _special_column(
-                "column-lithology", _t("lithology", language), TrackKind.LITHOLOGY, 220
-            ),
-            _special_column(
-                "column-interpretation",
-                _t("interpretation", language),
-                TrackKind.INTERPRETATION,
-                320,
-            ),
-        ],
-        language,
+    return _with_a4_print_headers(
+        _factory(
+            "factory-gas-ratio-pixler-depth",
+            _t("gas_ratio_pixler_depth", language),
+            FormAxisKind.DEPTH,
+            [
+                _axis_column(FormAxisKind.DEPTH, language),
+                _curve_column(
+                    "column-drilling",
+                    _t("drilling", language),
+                    [
+                        _binding("ROP", _t("rop", language), "m/h", "#dc2626", width=1.8),
+                        _binding("WOB", _t("wob", language), "t", "#2563eb"),
+                        _binding("RPM", _t("rpm", language), "rpm", "#16a34a"),
+                    ],
+                    300,
+                ),
+                _curve_column(
+                    "column-mud",
+                    _t("mud", language),
+                    [
+                        _binding("FLOW_IN", _t("flow_in", language), "L/s", "#0891b2"),
+                        _binding("FLOW_OUT", _t("flow_out", language), "L/s", "#0f766e"),
+                        _binding("SPP", _t("spp", language), "atm", "#dc2626"),
+                        _binding("MUD_DENSITY", _t("mud_density", language), "g/cm³", "#7c3aed"),
+                    ],
+                    300,
+                ),
+                _curve_column(
+                    "column-raw-normalized-gas",
+                    _t("raw_norm_gas", language),
+                    [
+                        _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626", width=2.0),
+                        _binding(
+                            "NORMALIZED_TOTAL_GAS",
+                            _t("normalized_total_gas", language),
+                            "%",
+                            "#7c3aed",
+                            width=2.0,
+                        ),
+                        _binding("HC_SUM_RAW", _t("hc_sum_raw", language), "%", "#ea580c"),
+                        _binding("HC_SUM_NORM", _t("hc_sum_norm", language), "%", "#0369a1"),
+                    ],
+                    340,
+                ),
+                _curve_column(
+                    "column-components",
+                    _t("gas_c1_c5", language),
+                    _gas_component_bindings(language),
+                    420,
+                ),
+                _curve_column(
+                    "column-ratios", _t("gas_ratio", language), _ratio_bindings(language), 360
+                ),
+                _curve_column(
+                    "column-pixler-ratios", _t("pixler", language), _pixler_bindings(), 360
+                ),
+                _special_column(
+                    "column-lithology", _t("lithology", language), TrackKind.LITHOLOGY, 220
+                ),
+                _special_column(
+                    "column-interpretation",
+                    _t("interpretation", language),
+                    TrackKind.INTERPRETATION,
+                    320,
+                ),
+            ],
+            language,
+        ),
+        "gas_interpretation",
     )
 
 
 def _gas_ratio_pixler_time(language: TemplateLanguage) -> FormDocument:
-    return _factory(
-        "factory-gas-ratio-pixler-time",
-        _t("gas_ratio_pixler_time", language),
-        FormAxisKind.TIME,
-        [
-            _axis_column(FormAxisKind.TIME, language),
-            _curve_column(
-                "column-time-drilling",
-                _t("drilling", language),
-                [
-                    _binding("ROP", _t("rop", language), "m/h", "#dc2626", width=1.8),
-                    _binding("RPM", _t("rpm", language), "rpm", "#16a34a"),
-                    _binding("SPP", _t("spp", language), "atm", "#2563eb"),
-                ],
-                300,
-            ),
-            _curve_column(
-                "column-time-gas",
-                _t("raw_norm_gas", language),
-                [
-                    _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626", width=2.0),
-                    _binding(
-                        "NORMALIZED_TOTAL_GAS",
-                        _t("normalized_total_gas", language),
-                        "%",
-                        "#7c3aed",
-                        width=2.0,
-                    ),
-                ],
-                320,
-            ),
-            _curve_column(
-                "column-time-components",
-                _t("gas_c1_c5", language),
-                _gas_component_bindings(language),
-                420,
-            ),
-            _curve_column(
-                "column-time-ratios", _t("gas_ratio", language), _ratio_bindings(language), 360
-            ),
-            _curve_column("column-time-pixler", _t("pixler", language), _pixler_bindings(), 360),
-            _special_column(
-                "column-time-interpretation",
-                _t("interpretation", language),
-                TrackKind.INTERPRETATION,
-                320,
-            ),
-        ],
-        language,
+    return _with_a4_print_headers(
+        _factory(
+            "factory-gas-ratio-pixler-time",
+            _t("gas_ratio_pixler_time", language),
+            FormAxisKind.TIME,
+            [
+                _axis_column(FormAxisKind.TIME, language),
+                _curve_column(
+                    "column-time-drilling",
+                    _t("drilling", language),
+                    [
+                        _binding("ROP", _t("rop", language), "m/h", "#dc2626", width=1.8),
+                        _binding("RPM", _t("rpm", language), "rpm", "#16a34a"),
+                        _binding("SPP", _t("spp", language), "atm", "#2563eb"),
+                    ],
+                    300,
+                ),
+                _curve_column(
+                    "column-time-gas",
+                    _t("raw_norm_gas", language),
+                    [
+                        _binding(
+                            "TOTAL_GAS",
+                            _t("total_gas", language),
+                            "%",
+                            "#dc2626",
+                            width=2.0,
+                        ),
+                        _binding(
+                            "NORMALIZED_TOTAL_GAS",
+                            _t("normalized_total_gas", language),
+                            "%",
+                            "#7c3aed",
+                            width=2.0,
+                        ),
+                    ],
+                    320,
+                ),
+                _curve_column(
+                    "column-time-components",
+                    _t("gas_c1_c5", language),
+                    _gas_component_bindings(language),
+                    420,
+                ),
+                _curve_column(
+                    "column-time-ratios",
+                    _t("gas_ratio", language),
+                    _ratio_bindings(language),
+                    360,
+                ),
+                _curve_column(
+                    "column-time-pixler", _t("pixler", language), _pixler_bindings(), 360
+                ),
+                _special_column(
+                    "column-time-interpretation",
+                    _t("interpretation", language),
+                    TrackKind.INTERPRETATION,
+                    320,
+                ),
+            ],
+            language,
+        ),
+        "gas_interpretation",
     )
 
 
@@ -881,68 +916,101 @@ def _d_exponent(language: TemplateLanguage) -> FormDocument:
 
 
 def _drilling_technology(language: TemplateLanguage) -> FormDocument:
-    return _factory(
-        "factory-drilling-technology",
-        _t("technology_form", language),
-        FormAxisKind.DEPTH,
-        [
-            _axis_column(FormAxisKind.DEPTH, language),
-            _curve_column(
-                "column-tech-mechanics",
-                _t("technology", language),
-                [
-                    _binding("ROP", _t("rop", language), "m/h", "#dc2626"),
-                    _binding("WOB", _t("wob", language), "t", "#2563eb"),
-                    _binding("RPM", _t("rpm", language), "rpm", "#16a34a"),
-                    _binding("TQ", "Torque", "", "#9333ea"),
-                    _binding("HKLD", "Hook load", "", "#475569"),
-                ],
-                380,
-            ),
-            _curve_column(
-                "column-tech-hydraulics",
-                _t("mud", language),
-                [
-                    _binding("SPP", _t("spp", language), "atm", "#dc2626"),
-                    _binding("FLOW_IN", _t("flow_in", language), "L/s", "#0891b2"),
-                    _binding("FLOW_OUT", _t("flow_out", language), "L/s", "#0f766e"),
-                    _binding("MUD_DENSITY", _t("mud_density", language), "g/cm³", "#7c3aed"),
-                ],
-                360,
-            ),
-            _special_column(
-                "column-tech-events", _t("intervals_comments", language), TrackKind.TEXT, 300
-            ),
-        ],
-        language,
+    return _with_a4_print_headers(
+        _factory(
+            "factory-drilling-technology",
+            _t("technology_form", language),
+            FormAxisKind.DEPTH,
+            [
+                _axis_column(FormAxisKind.DEPTH, language),
+                _curve_column(
+                    "column-tech-mechanics",
+                    _t("technology", language),
+                    [
+                        _binding("ROP", _t("rop", language), "m/h", "#dc2626"),
+                        _binding("WOB", _t("wob", language), "t", "#2563eb"),
+                        _binding("RPM", _t("rpm", language), "rpm", "#16a34a"),
+                        _binding("TQ", "Torque", "", "#9333ea"),
+                        _binding("HKLD", "Hook load", "", "#475569"),
+                    ],
+                    380,
+                ),
+                _curve_column(
+                    "column-tech-hydraulics",
+                    _t("mud", language),
+                    [
+                        _binding("SPP", _t("spp", language), "atm", "#dc2626"),
+                        _binding("FLOW_IN", _t("flow_in", language), "L/s", "#0891b2"),
+                        _binding("FLOW_OUT", _t("flow_out", language), "L/s", "#0f766e"),
+                        _binding("MUD_DENSITY", _t("mud_density", language), "g/cm³", "#7c3aed"),
+                    ],
+                    360,
+                ),
+                _special_column(
+                    "column-tech-events", _t("intervals_comments", language), TrackKind.TEXT, 300
+                ),
+            ],
+            language,
+        ),
+        "technology",
     )
 
 
 def _lithology_cuttings(language: TemplateLanguage) -> FormDocument:
-    return _factory(
-        "factory-lithology-cuttings",
-        _t("geology_cuttings_form", language),
-        FormAxisKind.DEPTH,
-        [
-            _axis_column(FormAxisKind.DEPTH, language),
-            _special_column(
-                "column-stratigraphy", _t("stratigraphy", language), TrackKind.STRATIGRAPHY, 180
-            ),
-            _special_column(
-                "column-lithology", _t("lithology", language), TrackKind.LITHOLOGY, 220
-            ),
-            _special_column("column-cuttings", _t("cuttings", language), TrackKind.CUTTINGS, 260),
-            _special_column(
-                "column-rock-description", _t("rock_description", language), TrackKind.TEXT, 360
-            ),
-            _curve_column(
-                "column-geology-gas",
-                _t("total_gas", language),
-                [_binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626")],
-                240,
-            ),
-        ],
-        language,
+    return _with_a4_print_headers(
+        _factory(
+            "factory-lithology-cuttings",
+            _t("geology_cuttings_form", language),
+            FormAxisKind.DEPTH,
+            [
+                _axis_column(FormAxisKind.DEPTH, language),
+                _special_column(
+                    "column-stratigraphy", _t("stratigraphy", language), TrackKind.STRATIGRAPHY, 180
+                ),
+                _special_column(
+                    "column-lithology", _t("lithology", language), TrackKind.LITHOLOGY, 220
+                ),
+                _special_column(
+                    "column-cuttings", _t("cuttings", language), TrackKind.CUTTINGS, 260
+                ),
+                _special_column(
+                    "column-rock-description", _t("rock_description", language), TrackKind.TEXT, 360
+                ),
+                _special_column("column-geology-lba", _t("lba", language), TrackKind.LBA, 180),
+                _special_column(
+                    "column-geology-calcimetry",
+                    _t("calcimetry", language),
+                    TrackKind.CALCIMETRY,
+                    220,
+                    [
+                        _binding(
+                            "CACO3",
+                            _t("calcite", language),
+                            "%",
+                            "#06b6d4",
+                            x_min=0,
+                            x_max=100,
+                        ),
+                        _binding(
+                            "CAMG_CO3_2",
+                            _t("dolomite", language),
+                            "%",
+                            "#8b5cf6",
+                            x_min=0,
+                            x_max=100,
+                        ),
+                    ],
+                ),
+                _curve_column(
+                    "column-geology-gas",
+                    _t("total_gas", language),
+                    [_binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626")],
+                    240,
+                ),
+            ],
+            language,
+        ),
+        "geology_lab",
     )
 
 
@@ -1152,7 +1220,14 @@ def _geodata_depth_workspace(language: TemplateLanguage) -> FormDocument:
                 "column-geodata-technology-secondary",
                 _t("mud", language),
                 [
-                    _binding("MW_IN", _t("mud_density_in", language), "g/cm³", "#2563eb", x_min=0.8, x_max=2.5),
+                    _binding(
+                        "MW_IN",
+                        _t("mud_density_in", language),
+                        "g/cm³",
+                        "#2563eb",
+                        x_min=0.8,
+                        x_max=2.5,
+                    ),
                     _binding("HKLD", _t("hook_load", language), "t", "#d946ef", x_min=0, x_max=250),
                     _binding("RPM", _t("rpm", language), "min-1", "#ef4444", x_min=0, x_max=250),
                     _binding(
@@ -1179,8 +1254,7 @@ def _geodata_depth_workspace(language: TemplateLanguage) -> FormDocument:
         ],
         language,
     )
-    form.print_header_template_id = "geological_geochemical"
-    return form
+    return _with_a4_print_headers(form, "geology_technology_gas")
 
 
 def _masterlog_geological_geochemical(language: TemplateLanguage) -> FormDocument:
@@ -1190,13 +1264,9 @@ def _masterlog_geological_geochemical(language: TemplateLanguage) -> FormDocumen
         _binding("C2", _t("ethane", language), "%", "#84cc16", x_min=0.0, x_max=100),
         _binding("C3", _t("propane", language), "%", "#22d3ee", x_min=0.0, x_max=100),
         _binding("C4", _t("butane", language), "%", "#fb923c", x_min=0.0, x_max=100),
-        _binding(
-            "IC4", _t("isobutane", language), "%", "#a16207", x_min=0.0, x_max=100
-        ),
+        _binding("IC4", _t("isobutane", language), "%", "#a16207", x_min=0.0, x_max=100),
         _binding("C5", _t("pentane", language), "%", "#9333ea", x_min=0.0, x_max=100),
-        _binding(
-            "IC5", _t("isopentane", language), "%", "#d946ef", x_min=0.0, x_max=100
-        ),
+        _binding("IC5", _t("isopentane", language), "%", "#d946ef", x_min=0.0, x_max=100),
         _binding(
             "TG",
             _t("total_gas", language),
@@ -1285,69 +1355,72 @@ def _masterlog_geological_geochemical(language: TemplateLanguage) -> FormDocumen
 
 
 def _engineering_control_time(language: TemplateLanguage) -> FormDocument:
-    return _factory(
-        "factory-engineering-control-time",
-        _t("engineering_control_time", language),
-        FormAxisKind.TIME,
-        [
-            _axis_column(FormAxisKind.TIME, language),
-            _curve_column(
-                "column-time-drilling-control",
-                _t("drilling", language),
-                [
-                    _binding("WOB", _t("wob", language), "t", "#2563eb"),
-                    _binding("HKLD", "Hook load", "t", "#0f766e"),
-                    _binding("ROP", _t("rop", language), "m/h", "#dc2626"),
-                    _binding("RPM", _t("rpm", language), "rpm", "#16a34a"),
-                    _binding("TQ", "Torque", "kN·m", "#9333ea"),
-                ],
-                360,
-            ),
-            _curve_column(
-                "column-time-pumps-flow",
-                _t("pumps", language),
-                [
-                    _binding("SPP", _t("spp", language), "atm", "#dc2626"),
-                    _binding("SPM1", "Pump 1 SPM", "min⁻¹", "#2563eb"),
-                    _binding("SPM2", "Pump 2 SPM", "min⁻¹", "#9333ea"),
-                    _binding("FLOW_IN", _t("flow_in", language), "L/s", "#0891b2"),
-                    _binding("FLOW_OUT", _t("flow_out", language), "L/s", "#0f766e"),
-                ],
-                360,
-            ),
-            _curve_column(
-                "column-time-mud-gas",
-                _t("mud_gas_monitoring", language),
-                [
-                    _binding("HOLE_DEPTH", "Hole depth", "m", "#2563eb"),
-                    _binding("BIT_DEPTH", "Bit depth", "m", "#111827"),
-                    _binding("TEMP_IN", "Mud temperature in", "°C", "#16a34a"),
-                    _binding("TEMP_OUT", "Mud temperature out", "°C", "#d946ef"),
-                    _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626"),
-                    _binding("C1", _t("methane", language), "%", "#2563eb"),
-                ],
-                380,
-            ),
-            _curve_column(
-                "column-time-pit-volumes",
-                _t("pit_volumes", language),
-                [
-                    _binding("PIT_VOL", "Total pit volume", "m³", "#111827"),
-                    _binding("PIT1", "Pit 1", "m³", "#fb923c"),
-                    _binding("PIT2", "Pit 2", "m³", "#facc15"),
-                    _binding("PIT3", "Pit 3", "m³", "#84cc16"),
-                    _binding("PIT4", "Pit 4", "m³", "#38bdf8"),
-                    _binding("MW_IN", "Mud density in", "g/cm³", "#16a34a"),
-                    _binding("MW_OUT", "Mud density out", "g/cm³", "#dc2626"),
-                ],
-                380,
-            ),
-            _special_column(
-                "column-time-technology-comments",
-                _t("intervals_comments", language),
-                TrackKind.TEXT,
-                320,
-            ),
-        ],
-        language,
+    return _with_a4_print_headers(
+        _factory(
+            "factory-engineering-control-time",
+            _t("engineering_control_time", language),
+            FormAxisKind.TIME,
+            [
+                _axis_column(FormAxisKind.TIME, language),
+                _curve_column(
+                    "column-time-drilling-control",
+                    _t("drilling", language),
+                    [
+                        _binding("WOB", _t("wob", language), "t", "#2563eb"),
+                        _binding("HKLD", "Hook load", "t", "#0f766e"),
+                        _binding("ROP", _t("rop", language), "m/h", "#dc2626"),
+                        _binding("RPM", _t("rpm", language), "rpm", "#16a34a"),
+                        _binding("TQ", "Torque", "kN·m", "#9333ea"),
+                    ],
+                    360,
+                ),
+                _curve_column(
+                    "column-time-pumps-flow",
+                    _t("pumps", language),
+                    [
+                        _binding("SPP", _t("spp", language), "atm", "#dc2626"),
+                        _binding("SPM1", "Pump 1 SPM", "min⁻¹", "#2563eb"),
+                        _binding("SPM2", "Pump 2 SPM", "min⁻¹", "#9333ea"),
+                        _binding("FLOW_IN", _t("flow_in", language), "L/s", "#0891b2"),
+                        _binding("FLOW_OUT", _t("flow_out", language), "L/s", "#0f766e"),
+                    ],
+                    360,
+                ),
+                _curve_column(
+                    "column-time-mud-gas",
+                    _t("mud_gas_monitoring", language),
+                    [
+                        _binding("HOLE_DEPTH", "Hole depth", "m", "#2563eb"),
+                        _binding("BIT_DEPTH", "Bit depth", "m", "#111827"),
+                        _binding("TEMP_IN", "Mud temperature in", "°C", "#16a34a"),
+                        _binding("TEMP_OUT", "Mud temperature out", "°C", "#d946ef"),
+                        _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626"),
+                        _binding("C1", _t("methane", language), "%", "#2563eb"),
+                    ],
+                    380,
+                ),
+                _curve_column(
+                    "column-time-pit-volumes",
+                    _t("pit_volumes", language),
+                    [
+                        _binding("PIT_VOL", "Total pit volume", "m³", "#111827"),
+                        _binding("PIT1", "Pit 1", "m³", "#fb923c"),
+                        _binding("PIT2", "Pit 2", "m³", "#facc15"),
+                        _binding("PIT3", "Pit 3", "m³", "#84cc16"),
+                        _binding("PIT4", "Pit 4", "m³", "#38bdf8"),
+                        _binding("MW_IN", "Mud density in", "g/cm³", "#16a34a"),
+                        _binding("MW_OUT", "Mud density out", "g/cm³", "#dc2626"),
+                    ],
+                    380,
+                ),
+                _special_column(
+                    "column-time-technology-comments",
+                    _t("intervals_comments", language),
+                    TrackKind.TEXT,
+                    320,
+                ),
+            ],
+            language,
+        ),
+        "operational_control",
     )

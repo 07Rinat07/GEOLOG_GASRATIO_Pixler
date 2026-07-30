@@ -1,8 +1,12 @@
+import pytest
+
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.masterlog_presets import (
     BUILTIN_MASTERLOG_FORM_PRESETS,
     BUILTIN_MASTERLOG_HEADER_PRESETS,
+    CURATED_MASTERLOG_FORM_PRESETS,
+    CURATED_MASTERLOG_HEADER_PRESETS,
 )
 
 
@@ -115,8 +119,7 @@ def test_geological_geochemical_reference_preset_matches_working_masterlog_struc
     ]
     assert preset.template.header_height_mm == 110.0
     assert any(
-        element.element_type == "lithology_legend"
-        for element in preset.template.header_elements
+        element.element_type == "lithology_legend" for element in preset.template.header_elements
     )
     assert any(element.element_type == "lba_legend" for element in preset.template.header_elements)
     drilling = preset.template.columns[1]
@@ -141,9 +144,7 @@ def test_kazgeology_reference_blank_has_uploadable_logo_slots_and_expected_colum
     assert preset.template.properties["orientation"] == "landscape"
     assert preset.template.header_height_mm == 104.0
     logo_slots = [
-        element
-        for element in preset.template.header_elements
-        if element.element_type == "image"
+        element for element in preset.template.header_elements if element.element_type == "image"
     ]
     assert [element.element_id for element in logo_slots] == ["kz_logo_left", "kz_logo_right"]
     assert all(element.properties["optional"] is True for element in logo_slots)
@@ -173,6 +174,32 @@ def test_every_builtin_masterlog_column_is_linear_by_default() -> None:
         assert all(column.x_scale == "linear" for column in preset.template.columns)
 
 
+def test_curated_a4_forms_and_headers_are_paired_and_fit_both_orientations() -> None:
+    assert len(CURATED_MASTERLOG_FORM_PRESETS) == 10
+    assert len(CURATED_MASTERLOG_HEADER_PRESETS) == 10
+    headers = {item.preset_id: item for item in CURATED_MASTERLOG_HEADER_PRESETS}
+
+    for preset in CURATED_MASTERLOG_FORM_PRESETS:
+        template = preset.template
+        orientation = template.properties["orientation"]
+        expected_width = 210.0 if orientation == "portrait" else 297.0
+        printable_width = 200.0 if orientation == "portrait" else 287.0
+        header_id = template.properties["paired_header_preset_id"]
+        header = headers[header_id]
+
+        assert template.page_format == "A4"
+        assert header.preferred_orientation == orientation
+        assert template.header_height_mm == header.height_mm == 34.0
+        assert sum(column.width_mm for column in template.columns) == pytest.approx(printable_width)
+        assert all(
+            element.x_mm >= 0.0
+            and element.y_mm >= 0.0
+            and element.x_mm + element.width_mm <= expected_width
+            and element.y_mm + element.height_mm <= header.height_mm
+            for element in header.elements
+        )
+
+
 def test_operational_header_catalog_contains_daily_technology_and_emergency_templates() -> None:
     by_id = {item.preset_id: item for item in BUILTIN_MASTERLOG_HEADER_PRESETS}
     assert {
@@ -184,14 +211,12 @@ def test_operational_header_catalog_contains_daily_technology_and_emergency_temp
     assert daily.height_mm == 50.0
     assert sum(element.element_type == "image" for element in daily.elements) == 2
     assert any(
-        element.properties.get("field") == "header.shift_personnel"
-        for element in daily.elements
+        element.properties.get("field") == "header.shift_personnel" for element in daily.elements
     )
     technology = by_id["technology_research"]
     assert any(element.element_type == "lithology_legend" for element in technology.elements)
     emergency = by_id["emergency_control"]
     assert emergency.height_mm == 32.0
     assert any(
-        element.properties.get("field") == "header.interval"
-        for element in emergency.elements
+        element.properties.get("field") == "header.interval" for element in emergency.elements
     )

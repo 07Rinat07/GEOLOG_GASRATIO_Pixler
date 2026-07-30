@@ -206,9 +206,7 @@ class FormColumn:
             raise ValueError("width должен быть целым числом")
         minimum = minimum_width_for_track_kinds(track.kind for track in self.tracks)
         if not minimum <= self.width <= MAX_TRACK_WIDTH:
-            raise ValueError(
-                f"Ширина колонки должна быть от {minimum} до {MAX_TRACK_WIDTH} px"
-            )
+            raise ValueError(f"Ширина колонки должна быть от {minimum} до {MAX_TRACK_WIDTH} px")
         if not isinstance(self.visible, bool) or not isinstance(self.locked, bool):
             raise ValueError("visible и locked должны быть логическими")
         _ensure_unique([track.track_id for track in self.tracks], "track_id")
@@ -264,6 +262,7 @@ class FormDocument:
     read_only: bool = False
     style_id: str = "default-screen"
     print_header_template_id: str | None = None
+    print_header_template_ids: dict[str, str] = field(default_factory=dict)
     source_dataset_id: str | None = None
     source_index_id: str | None = None
     visible_axis_top: float | None = None
@@ -277,11 +276,23 @@ class FormDocument:
         _require_id(self.style_id, "style_id")
         if self.print_header_template_id is not None:
             _require_id(self.print_header_template_id, "print_header_template_id")
+        if not isinstance(self.print_header_template_ids, dict):
+            raise ValueError("print_header_template_ids должен быть словарём")
+        for orientation, template_id in self.print_header_template_ids.items():
+            if orientation not in {"portrait", "landscape"}:
+                raise ValueError(
+                    "print_header_template_ids поддерживает только portrait и landscape"
+                )
+            _require_id(template_id, f"print_header_template_ids[{orientation}]")
         if self.source_dataset_id is not None:
             _require_id(self.source_dataset_id, "source_dataset_id")
         if self.source_index_id is not None:
             _require_id(self.source_index_id, "source_index_id")
-        if isinstance(self.revision, bool) or not isinstance(self.revision, int) or self.revision < 1:
+        if (
+            isinstance(self.revision, bool)
+            or not isinstance(self.revision, int)
+            or self.revision < 1
+        ):
             raise ValueError("revision должен быть положительным целым числом")
         _validate_optional_interval(self.visible_axis_top, self.visible_axis_bottom)
         if not isinstance(self.axis_kind, FormAxisKind):
@@ -364,6 +375,12 @@ class FormDocument:
         clone.read_only = False
         clone.revision = 1
         return clone
+
+    def print_header_for_orientation(self, orientation: str) -> str | None:
+        """Return the paired print header without losing legacy fallback."""
+
+        normalized = str(getattr(orientation, "value", orientation)).strip().casefold()
+        return self.print_header_template_ids.get(normalized, self.print_header_template_id)
 
 
 def _require_id(value: str, name: str) -> None:

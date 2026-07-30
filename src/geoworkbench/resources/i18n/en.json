@@ -1474,6 +1474,8 @@
   "print_center.scale_mode": "Print scale",
   "print_center.show_page_numbers": "Show page numbers",
   "print_center.show_page_range": "Show depth/time range on each page",
+  "print_center.repeat_column_header_bottom": "Repeat the column header at the bottom",
+  "print_center.repeat_column_header_bottom_tooltip": "Repeat track names, parameters, colors and scales after the plot so the client can read the page quickly.",
   "print_center.source": "Source: {name}",
   "print_center.tablet_source": "Tablet",
   "print_center.title": "Print and export center",

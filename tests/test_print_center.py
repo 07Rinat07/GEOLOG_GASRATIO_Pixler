@@ -72,6 +72,41 @@ def test_print_center_switches_to_physical_printer_without_file(qapp) -> None:
     dialog.close()
 
 
+def test_print_center_switches_paired_header_with_a4_orientation(qapp) -> None:
+    portrait = "factory-header:a4_technology_portrait"
+    landscape = "factory-header:a4_technology_landscape"
+    dialog = PrintCenterDialog(
+        language=AppLanguage.RU,
+        header_choices=((portrait, "Portrait"), (landscape, "Landscape")),
+        paired_header_template_ids={
+            "portrait": portrait,
+            "landscape": landscape,
+        },
+    )
+
+    assert dialog.header_combo.currentData() == portrait
+    dialog.orientation_combo.setCurrentIndex(
+        dialog.orientation_combo.findData(PrintOrientation.LANDSCAPE.value)
+    )
+
+    assert dialog.header_combo.currentData() == landscape
+    dialog.close()
+
+
+def test_print_center_can_repeat_column_header_at_bottom(qapp, tmp_path) -> None:
+    dialog = PrintCenterDialog(
+        initial_preferences=PrintExportPreferences(repeat_column_header_at_bottom=True)
+    )
+    dialog.path_input.setText(str(tmp_path / "repeat.pdf"))
+
+    job = dialog.job_settings()
+    preferences = dialog.preferences()
+
+    assert job.repeat_column_header_at_bottom is True
+    assert preferences.repeat_column_header_at_bottom is True
+    dialog.close()
+
+
 def test_page_raster_export_writes_a4_png_and_jpeg(qapp, tmp_path) -> None:
     widget = QLabel("Universal print center")
     widget.resize(640, 360)

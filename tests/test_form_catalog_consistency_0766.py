@@ -14,17 +14,20 @@ from geoworkbench.forms.repository import FormRepository
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_visible_factory_catalog_is_complete_and_hides_only_duplicate_masterlog() -> None:
+def test_visible_factory_catalog_contains_only_curated_workflows() -> None:
     forms = visible_factory_forms(None, "ru")
     ids = {form.form_id for form in forms}
 
-    assert len(forms) == 18
+    assert len(forms) == 6
     assert ids.isdisjoint(HIDDEN_FACTORY_TEMPLATE_IDS)
     assert "factory-geodata-depth-workspace" in ids
     assert "factory-engineering-control-time" in ids
     assert "factory-lithology-cuttings" in ids
-    assert "factory-calcimetry" in ids
-    assert "factory-lba" in ids
+    assert "factory-drilling-technology" in ids
+    assert "factory-gas-ratio-pixler-depth" in ids
+    assert "factory-gas-ratio-pixler-time" in ids
+    assert "factory-calcimetry" not in ids
+    assert "factory-lba" not in ids
 
 
 def test_complete_catalog_combines_same_factory_set_with_repository_forms(
@@ -37,9 +40,7 @@ def test_complete_catalog_combines_same_factory_set_with_repository_forms(
     factory = visible_factory_forms(None, "ru")
     complete = complete_form_catalog(repository, None, "ru")
 
-    assert [form.form_id for form in complete[: len(factory)]] == [
-        form.form_id for form in factory
-    ]
+    assert [form.form_id for form in complete[: len(factory)]] == [form.form_id for form in factory]
     assert complete[-1].form_id == user_form.form_id
 
 
@@ -47,9 +48,7 @@ def test_browse_and_save_workflows_use_authoritative_catalog_source() -> None:
     manager_source = (ROOT / "src/geoworkbench/ui/form_manager_dialog.py").read_text(
         encoding="utf-8"
     )
-    main_source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(
-        encoding="utf-8"
-    )
+    main_source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
 
     assert "return list(visible_factory_forms(self.dataset, self.language))" in manager_source
     assert "complete_form_catalog(self.repository, self.dataset, self.language)" in manager_source

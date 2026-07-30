@@ -61,6 +61,10 @@ def _controller() -> CuttingsController:
 def test_curated_form_manager_library_contains_only_working_reference_forms() -> None:
     assert CURATED_FACTORY_TEMPLATE_IDS == (
         "factory-geodata-depth-workspace",
+        "factory-drilling-technology",
+        "factory-gas-ratio-pixler-depth",
+        "factory-lithology-cuttings",
+        "factory-gas-ratio-pixler-time",
         "factory-engineering-control-time",
     )
     assert tuple(curated_factory_templates()) == CURATED_FACTORY_TEMPLATE_IDS
@@ -330,7 +334,9 @@ def test_geodata_ru_technology_bindings_use_localized_human_names() -> None:
         column for column in form.columns if column.column_id == "column-geodata-technology-primary"
     )
     mud = next(
-        column for column in form.columns if column.column_id == "column-geodata-technology-secondary"
+        column
+        for column in form.columns
+        if column.column_id == "column-geodata-technology-secondary"
     )
 
     assert [binding.display_name for binding in technology.tracks[0].bindings] == [

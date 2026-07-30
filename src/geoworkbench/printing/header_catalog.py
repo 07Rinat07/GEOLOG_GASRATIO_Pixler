@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.printing.masterlog_presets import (
     BUILTIN_MASTERLOG_HEADER_PRESETS,
+    CURATED_MASTERLOG_HEADER_PRESETS,
     MasterlogHeaderPreset,
 )
 from geoworkbench.services.localization import AppLanguage
@@ -50,7 +51,14 @@ def header_template_from_preset(
     catalog_id: str | None = None,
     name: str | None = None,
 ) -> MasterlogTemplate:
-    orientation = "landscape" if preset.height_mm >= 60.0 else "both"
+    orientation = preset.preferred_orientation
+    properties: dict[str, object] = {
+        "catalog_kind": HEADER_CATALOG_KIND,
+        "factory_preset_id": preset.preset_id,
+        "preferred_orientation": orientation,
+    }
+    if orientation in {"portrait", "landscape"}:
+        properties["orientation"] = orientation
     return MasterlogTemplate(
         template_id=catalog_id or factory_header_catalog_id(preset.preset_id),
         name=name or preset.name(AppLanguage.RU),
@@ -58,11 +66,7 @@ def header_template_from_preset(
         header_height_mm=preset.height_mm,
         header_elements=list(deepcopy(preset.elements)),
         columns=[],
-        properties={
-            "catalog_kind": HEADER_CATALOG_KIND,
-            "factory_preset_id": preset.preset_id,
-            "preferred_orientation": orientation,
-        },
+        properties=properties,
     )
 
 
@@ -83,9 +87,9 @@ def catalog_items(
             factory=True,
             header_height_mm=preset.height_mm,
             element_count=len(preset.elements),
-            preferred_orientation=("landscape" if preset.height_mm >= 60.0 else "both"),
+            preferred_orientation=preset.preferred_orientation,
         )
-        for preset in BUILTIN_MASTERLOG_HEADER_PRESETS
+        for preset in CURATED_MASTERLOG_HEADER_PRESETS
     )
     user = tuple(
         HeaderCatalogItem(
@@ -96,9 +100,7 @@ def catalog_items(
             factory=False,
             header_height_mm=template.header_height_mm,
             element_count=len(template.header_elements),
-            preferred_orientation=str(
-                template.properties.get("preferred_orientation", "both")
-            ),
+            preferred_orientation=str(template.properties.get("preferred_orientation", "both")),
         )
         for template in sorted(
             (item for item in templates.values() if is_user_header_template(item)),

@@ -85,6 +85,29 @@ formation testing. A C2–C5 fraction difference is treated as material at
 `|robust z| ≥ 2.0`; this is a statistical background-comparison threshold, not
 a fluid-type boundary.
 
+## Gas mixture ramp report
+
+The **Report type** selector provides two modes for a delivered sample:
+
+- **Gas mixture ramp — time chart**: raw C1–C5 detector response versus time,
+  composition table, Wh/Bh/Ch, Pixler ratios, and a preliminary result;
+- **Gas mixture ramp — interpretation only**: the same calculations and result
+  without the chart for compact printing.
+
+The input must be a time dataset with consistent C1, C2, C3, C4, and C5 curves;
+split i/n-C4 and i/n-C5 are summed automatically. A component baseline is estimated
+from the lower part of its time response. Composition uses the median baseline-corrected
+values where total response is at least 50% of its peak. A constant signal with no rise
+above baseline is reported as **background response or insufficient hydrocarbons**.
+
+The screening result is explicit: probable dry gas, probable gas/gas condensate,
+probable liquid hydrocarbons (oil/condensate), or heavy/residual liquid hydrocarbons
+or a contaminated sample. The working Wh bands are `<0.5%`, `0.5–17.5%`, `17.5–40%`,
+and `>40%`. The report always labels this as preliminary interpretation, not a
+quantitative chromatographic certificate. Mole fractions require calibration,
+reference gas, zero checks, and uncertainty assessment under ISO 6974-1. Water is
+not inferred from C1–C5.
+
 ## Interpretation boundary
 
 The automatic output is a **candidate hydrocarbon-show interval**, and fluid
@@ -102,7 +125,8 @@ and pressure context, not direct hydrocarbon evidence.
 - **XLSX**: summary, candidate intervals, manual intervals, methods/sources, and a
   whole-well data sheet. Text is neutralized against spreadsheet formula injection.
 - **DOCX**: editable methods, candidates, manual confirmations, and limitations.
-- **PDF/print**: the current preview rendered for distribution.
+- **PDF/print**: the current preview rendered for distribution; a ramp report can
+  include its time chart or use the separate compact interpretation-only mode.
 
 ## References
 

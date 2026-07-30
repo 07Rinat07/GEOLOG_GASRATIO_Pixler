@@ -652,9 +652,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(640, 480)
 
         self.tabs = QTabWidget()
-        self.file_workspace = FileWorkspaceWidget(
-            language=self.language.value
-        )
+        self.file_workspace = FileWorkspaceWidget(language=self.language.value)
         self.curve_view = CurveView(self.dataset_selection, language=self.language)
         self.curve_view.edit_requested.connect(self._apply_curve_draw_edit)
         self.curve_view.interval_analysis_requested.connect(
@@ -686,18 +684,12 @@ class MainWindow(QMainWindow):
         self.tablet_view.track_curve_settings_requested.connect(
             self._show_curve_settings_from_context
         )
-        self.tablet_view.track_curve_range_requested.connect(
-            self._set_curve_range_from_header
-        )
+        self.tablet_view.track_curve_range_requested.connect(self._set_curve_range_from_header)
         self.tablet_view.track_curve_auto_range_requested.connect(
             self._set_curve_auto_range_from_header
         )
-        self.tablet_view.track_curve_unit_requested.connect(
-            self._set_curve_unit_from_header
-        )
-        self.tablet_view.track_curve_scale_requested.connect(
-            self._set_curve_scale_from_header
-        )
+        self.tablet_view.track_curve_unit_requested.connect(self._set_curve_unit_from_header)
+        self.tablet_view.track_curve_scale_requested.connect(self._set_curve_scale_from_header)
         self.tablet_view.save_layout_requested.connect(self.save_tablet_preset)
         self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
         self.tablet_view.track_order_change_requested.connect(self._track_order_changed_from_drag)
@@ -729,36 +721,22 @@ class MainWindow(QMainWindow):
         self.tablet_view.stratigraphy_interval_edit_requested.connect(
             self._edit_stratigraphy_interval_from_tablet
         )
-        self.tablet_view.annotation_add_requested.connect(
-            self._create_annotation_from_tablet
-        )
-        self.tablet_view.annotation_edit_requested.connect(
-            self._edit_annotation_from_tablet
-        )
-        self.tablet_view.annotation_delete_requested.connect(
-            self._delete_annotation_from_tablet
-        )
+        self.tablet_view.annotation_add_requested.connect(self._create_annotation_from_tablet)
+        self.tablet_view.annotation_edit_requested.connect(self._edit_annotation_from_tablet)
+        self.tablet_view.annotation_delete_requested.connect(self._delete_annotation_from_tablet)
         self.tablet_view.annotation_duplicate_requested.connect(
             self._duplicate_annotation_from_tablet
         )
         self.tablet_view.annotation_geometry_changed.connect(
             self._update_annotation_geometry_from_tablet
         )
-        self.tablet_view.annotation_selection_changed.connect(
-            self._annotation_selection_changed
-        )
-        self.tablet_view.annotation_tool_changed.connect(
-            self._sync_annotation_tool_actions
-        )
-        self.tablet_view.curve_value_save_requested.connect(
-            self._save_curve_value_annotation
-        )
+        self.tablet_view.annotation_selection_changed.connect(self._annotation_selection_changed)
+        self.tablet_view.annotation_tool_changed.connect(self._sync_annotation_tool_actions)
+        self.tablet_view.curve_value_save_requested.connect(self._save_curve_value_annotation)
         self.tablet_view.interval_analysis_requested.connect(
             self._show_interval_analysis_from_gesture
         )
-        self.tablet_view.interval_analysis_cleared.connect(
-            self._clear_interval_statistics_panel
-        )
+        self.tablet_view.interval_analysis_cleared.connect(self._clear_interval_statistics_panel)
         self.las_table_editor = LasTableEditor(
             self.las_range_editing_controller,
             language=self.language,
@@ -812,9 +790,7 @@ class MainWindow(QMainWindow):
         )
         self._session_bindings.register(self._workspace_commands, name="workspace_commands")
         self._import_job_controller = ImportJobController(_MainWindowImportJobPort(self))
-        self._dataset_import_jobs = DatasetImportJobExecutor(
-            _MainWindowDatasetImportPort(self)
-        )
+        self._dataset_import_jobs = DatasetImportJobExecutor(_MainWindowDatasetImportPort(self))
         self._print_jobs = PrintJobExecutor()
         self._workspace_controller.set_dataset(None)
         self._set_tablet_edit_mode(False)
@@ -846,10 +822,7 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if hasattr(self, "main_toolbar"):
             self._schedule_toolbar_adaptation()
-        if (
-            hasattr(self, "interval_statistics_dock")
-            and self.interval_statistics_dock.isVisible()
-        ):
+        if hasattr(self, "interval_statistics_dock") and self.interval_statistics_dock.isVisible():
             QTimer.singleShot(0, self, self._adapt_interval_statistics_dock)
 
     def changeEvent(self, event) -> None:  # noqa: N802 - Qt API
@@ -889,7 +862,9 @@ class MainWindow(QMainWindow):
         if self._initial_geometry_checked or self.isMaximized() or self.isFullScreen():
             return
         self._initial_geometry_checked = True
-        screen = self.screen() or QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
+        screen = (
+            self.screen() or QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
+        )
         if screen is not None:
             self.setGeometry(
                 constrain_window_geometry(self.geometry(), screen.availableGeometry(), margin=12)
@@ -1038,12 +1013,8 @@ class MainWindow(QMainWindow):
 
     def _create_interval_statistics_panel(self) -> None:
         self.interval_statistics_panel = IntervalStatisticsPanel(language=self.language)
-        self.interval_statistics_panel.export_requested.connect(
-            self._export_interval_statistics
-        )
-        self.interval_statistics_panel.clear_requested.connect(
-            self._clear_interval_analysis
-        )
+        self.interval_statistics_panel.export_requested.connect(self._export_interval_statistics)
+        self.interval_statistics_panel.clear_requested.connect(self._clear_interval_analysis)
         # Keep statistics inside the tab workspace.  A child overlay may cover
         # the right edge of a wide form, but it cannot enlarge the QMainWindow,
         # cross a monitor boundary, or snap back after the user drags it.
@@ -1052,9 +1023,7 @@ class MainWindow(QMainWindow):
             self.interval_statistics_panel,
             self.tablet_view,
         )
-        self.interval_statistics_dock.closeRequested.connect(
-            self._clear_interval_analysis
-        )
+        self.interval_statistics_dock.closeRequested.connect(self._clear_interval_analysis)
         self.interval_statistics_dock.movedByUser.connect(
             lambda: log_event(
                 "statistics.overlay.moved",
@@ -1282,9 +1251,7 @@ class MainWindow(QMainWindow):
         help_menu = self._add_localized_menu("menu.help")
 
         self.home_action = self._localized_action("home.action")
-        self.home_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon)
-        )
+        self.home_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon))
         self.home_action.setShortcut("Ctrl+Home")
         self._set_action_help(self.home_action, "home.action_tooltip")
         self.home_action.triggered.connect(self._show_home)
@@ -1334,9 +1301,7 @@ class MainWindow(QMainWindow):
 
         self.new_las_action = self._localized_action("new_las.action")
         self.new_las_action.setShortcut("Ctrl+N")
-        self.new_las_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
-        )
+        self.new_las_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon))
         self._set_action_help(self.new_las_action, "home.new_las_description")
         self.new_las_action.triggered.connect(self.create_new_las)
         file_menu.addAction(self.new_las_action)
@@ -1383,15 +1348,11 @@ class MainWindow(QMainWindow):
         file_menu.addAction(self.open_gs2_action)
 
         self.inspect_witsml_action = self._localized_action("shell.inspect_witsml")
-        self.inspect_witsml_action.triggered.connect(
-            lambda: self.open_witsml_inventory()
-        )
+        self.inspect_witsml_action.triggered.connect(lambda: self.open_witsml_inventory())
         file_menu.addAction(self.inspect_witsml_action)
 
         self.import_witsml_data_action = self._localized_action("shell.import_witsml_data")
-        self.import_witsml_data_action.triggered.connect(
-            lambda: self.open_witsml_data_import()
-        )
+        self.import_witsml_data_action.triggered.connect(lambda: self.open_witsml_data_import())
         file_menu.addAction(self.import_witsml_data_action)
 
         self.open_witsml1411_action = self._localized_action("shell.open_witsml1411")
@@ -1598,15 +1559,11 @@ class MainWindow(QMainWindow):
         self.annotation_manager_toolbar_action = self._localized_action(
             "annotations.toolbar_manage"
         )
-        self._set_action_help(
-            self.annotation_manager_toolbar_action, "annotations.action"
-        )
+        self._set_action_help(self.annotation_manager_toolbar_action, "annotations.action")
         self.annotation_manager_toolbar_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
         )
-        self.annotation_manager_toolbar_action.triggered.connect(
-            self.show_depth_annotations
-        )
+        self.annotation_manager_toolbar_action.triggered.connect(self.show_depth_annotations)
         self.annotation_edit_selected_action = self._localized_action(
             "annotations.toolbar_edit_selected"
         )
@@ -1617,9 +1574,7 @@ class MainWindow(QMainWindow):
             self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView)
         )
         self.annotation_edit_selected_action.setEnabled(False)
-        self.annotation_edit_selected_action.triggered.connect(
-            self._edit_selected_annotation
-        )
+        self.annotation_edit_selected_action.triggered.connect(self._edit_selected_annotation)
         self.annotation_delete_selected_action = self._localized_action(
             "annotations.toolbar_delete_selected"
         )
@@ -1630,15 +1585,9 @@ class MainWindow(QMainWindow):
             self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
         )
         self.annotation_delete_selected_action.setEnabled(False)
-        self.annotation_delete_selected_action.triggered.connect(
-            self._delete_selected_annotation
-        )
-        self.annotation_callout_action = self._localized_action(
-            "annotations.toolbar_callout"
-        )
-        self._set_action_help(
-            self.annotation_callout_action, "annotations.tool_callout_hint"
-        )
+        self.annotation_delete_selected_action.triggered.connect(self._delete_selected_annotation)
+        self.annotation_callout_action = self._localized_action("annotations.toolbar_callout")
+        self._set_action_help(self.annotation_callout_action, "annotations.tool_callout_hint")
         self.annotation_callout_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation)
         )
@@ -1648,12 +1597,8 @@ class MainWindow(QMainWindow):
             lambda checked: self._toggle_annotation_tool(AnnotationKind.CALLOUT, checked)
         )
         edit_menu.addAction(self.annotation_callout_action)
-        self.annotation_comment_action = self._localized_action(
-            "annotations.toolbar_comment"
-        )
-        self._set_action_help(
-            self.annotation_comment_action, "annotations.tool_comment_hint"
-        )
+        self.annotation_comment_action = self._localized_action("annotations.toolbar_comment")
+        self._set_action_help(self.annotation_comment_action, "annotations.tool_comment_hint")
         self.annotation_comment_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView)
         )
@@ -1663,12 +1608,8 @@ class MainWindow(QMainWindow):
             lambda checked: self._toggle_annotation_tool(AnnotationKind.COMMENT, checked)
         )
         edit_menu.addAction(self.annotation_comment_action)
-        self.annotation_image_action = self._localized_action(
-            "annotations.toolbar_image"
-        )
-        self._set_action_help(
-            self.annotation_image_action, "annotations.tool_image_hint"
-        )
+        self.annotation_image_action = self._localized_action("annotations.toolbar_image")
+        self._set_action_help(self.annotation_image_action, "annotations.tool_image_hint")
         self.annotation_image_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
         )
@@ -1678,12 +1619,8 @@ class MainWindow(QMainWindow):
             lambda checked: self._toggle_annotation_tool(AnnotationKind.IMAGE, checked)
         )
         edit_menu.addAction(self.annotation_image_action)
-        self.annotation_symbol_action = self._localized_action(
-            "annotations.toolbar_symbol"
-        )
-        self._set_action_help(
-            self.annotation_symbol_action, "annotations.tool_symbol_hint"
-        )
+        self.annotation_symbol_action = self._localized_action("annotations.toolbar_symbol")
+        self._set_action_help(self.annotation_symbol_action, "annotations.tool_symbol_hint")
         self.annotation_symbol_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)
         )
@@ -2073,32 +2010,22 @@ class MainWindow(QMainWindow):
         self.open_logs_action.triggered.connect(self.open_log_folder)
         help_menu.addAction(self.open_logs_action)
 
-        self.copy_log_path_action = self._localized_action(
-            "diagnostics.copy_log_path"
-        )
+        self.copy_log_path_action = self._localized_action("diagnostics.copy_log_path")
         self.copy_log_path_action.triggered.connect(self.copy_current_log_path)
         help_menu.addAction(self.copy_log_path_action)
 
-        self.build_diagnostics_action = self._localized_action(
-            "diagnostics.build_bundle"
-        )
+        self.build_diagnostics_action = self._localized_action("diagnostics.build_bundle")
         self.build_diagnostics_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
         )
-        self.build_diagnostics_action.triggered.connect(
-            self.build_diagnostic_bundle
-        )
+        self.build_diagnostics_action.triggered.connect(self.build_diagnostic_bundle)
         help_menu.addAction(self.build_diagnostics_action)
 
-        self.clear_diagnostics_action = self._localized_action(
-            "diagnostics.clear_data"
-        )
+        self.clear_diagnostics_action = self._localized_action("diagnostics.clear_data")
         self.clear_diagnostics_action.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
         )
-        self.clear_diagnostics_action.triggered.connect(
-            self.clear_diagnostic_data
-        )
+        self.clear_diagnostics_action.triggered.connect(self.clear_diagnostic_data)
         help_menu.addAction(self.clear_diagnostics_action)
         help_menu.addSeparator()
 
@@ -2134,9 +2061,7 @@ class MainWindow(QMainWindow):
         separator.setFrameShape(QFrame.Shape.VLine)
         separator.setFrameShadow(QFrame.Shadow.Sunken)
         separator.setFixedWidth(8)
-        separator.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
-        )
+        separator.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         return separator
 
     def _create_home_page(self) -> None:
@@ -2194,9 +2119,7 @@ class MainWindow(QMainWindow):
     def show_file_workspace(self) -> None:
         self.tabs.setCurrentWidget(self.file_workspace)
         self.central_stack.setCurrentWidget(self.tabs)
-        self.statusBar().showMessage(
-            FileWorkspaceWidget.tab_title(self.language.value)
-        )
+        self.statusBar().showMessage(FileWorkspaceWidget.tab_title(self.language.value))
 
     def _create_toolbar(self) -> None:
         self.main_toolbar = _ResponsiveCommandBar(self, margins=(8, 6, 8, 6))
@@ -2227,12 +2150,8 @@ class MainWindow(QMainWindow):
         self.main_toolbar_layout.setContentsMargins(0, 0, 0, 0)
         self.main_toolbar_layout.setSpacing(6)
 
-        self.home_button = self._toolbar_button(
-            self.main_toolbar_row, self.home_action
-        )
-        self.las_editor_button = self._toolbar_button(
-            self.main_toolbar_row, self.las_editor_action
-        )
+        self.home_button = self._toolbar_button(self.main_toolbar_row, self.home_action)
+        self.las_editor_button = self._toolbar_button(self.main_toolbar_row, self.las_editor_action)
         self.form_manager_button = self._toolbar_button(
             self.main_toolbar_row, self.form_manager_action
         )
@@ -2242,28 +2161,16 @@ class MainWindow(QMainWindow):
         self.open_project_button = self._toolbar_button(
             self.main_toolbar_row, self.open_project_action
         )
-        self.open_data_button = self._toolbar_button(
-            self.main_toolbar_row, self.open_data_action
-        )
-        self.save_button = self._toolbar_button(
-            self.main_toolbar_row, self.save_action
-        )
-        self.pencil_button = self._toolbar_button(
-            self.main_toolbar_row, self.pencil_action
-        )
+        self.open_data_button = self._toolbar_button(self.main_toolbar_row, self.open_data_action)
+        self.save_button = self._toolbar_button(self.main_toolbar_row, self.save_action)
+        self.pencil_button = self._toolbar_button(self.main_toolbar_row, self.pencil_action)
         self.cursor_line_button = self._toolbar_button(
             self.main_toolbar_row, self.cursor_line_action
         )
 
-        self._main_toolbar_separator_home = self._toolbar_separator_widget(
-            self.main_toolbar_row
-        )
-        self._main_toolbar_separator_files = self._toolbar_separator_widget(
-            self.main_toolbar_row
-        )
-        self._main_toolbar_separator_tools = self._toolbar_separator_widget(
-            self.main_toolbar_row
-        )
+        self._main_toolbar_separator_home = self._toolbar_separator_widget(self.main_toolbar_row)
+        self._main_toolbar_separator_files = self._toolbar_separator_widget(self.main_toolbar_row)
+        self._main_toolbar_separator_tools = self._toolbar_separator_widget(self.main_toolbar_row)
 
         self.main_toolbar_layout.addWidget(self.home_button)
         self.main_toolbar_layout.addWidget(self._main_toolbar_separator_home)
@@ -2296,9 +2203,7 @@ class MainWindow(QMainWindow):
         self.main_toolbar_overflow_button.setText("⋯")
         self.main_toolbar_overflow_button.setToolTip(self._t("toolbar.more_actions"))
         self.main_toolbar_overflow_button.setMenu(self.main_toolbar_overflow_menu)
-        self.main_toolbar_overflow_button.setPopupMode(
-            QToolButton.ToolButtonPopupMode.InstantPopup
-        )
+        self.main_toolbar_overflow_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.main_toolbar_overflow_button.setAutoRaise(False)
         self.main_toolbar_overflow_button.setFixedWidth(38)
         self.main_toolbar_layout.addWidget(self.main_toolbar_overflow_button)
@@ -2315,9 +2220,7 @@ class MainWindow(QMainWindow):
         )
         self.edit_mode_button.setObjectName("tabletEditModeToolbarButton")
         self.edit_mode_button.setMinimumWidth(34)
-        self.edit_mode_button.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred
-        )
+        self.edit_mode_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.main_toolbar_layout.addWidget(self.edit_mode_button)
 
         self.main_toolbar.set_content_widget(self.main_toolbar_row)
@@ -2334,16 +2237,12 @@ class MainWindow(QMainWindow):
         self.form_edit_row = _ResponsiveToolbarRow(self.form_edit_toolbar)
         self.form_edit_row.setObjectName("formEditToolbarRow")
         self.form_edit_row.setMinimumWidth(0)
-        self.form_edit_row.setSizePolicy(
-            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
-        )
+        self.form_edit_row.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.form_edit_layout = QHBoxLayout(self.form_edit_row)
         self.form_edit_layout.setContentsMargins(0, 0, 0, 0)
         self.form_edit_layout.setSpacing(4)
 
-        self.form_edit_caption = QLabel(
-            self._t("ui.form_edit_toolbar"), self.form_edit_row
-        )
+        self.form_edit_caption = QLabel(self._t("ui.form_edit_toolbar"), self.form_edit_row)
         self.form_edit_caption.setStyleSheet(
             "background:transparent; font-weight:700; color:#1e3a8a; padding-right:8px;"
         )
@@ -2377,13 +2276,9 @@ class MainWindow(QMainWindow):
         self.form_edit_layout.addWidget(self._form_toolbar_separator_annotations)
         for action in form_actions[7:12]:
             self.form_edit_layout.addWidget(self._form_toolbar_buttons[action])
-        self._form_toolbar_separator_tracks = self._toolbar_separator_widget(
-            self.form_edit_row
-        )
+        self._form_toolbar_separator_tracks = self._toolbar_separator_widget(self.form_edit_row)
         self.form_edit_layout.addWidget(self._form_toolbar_separator_tracks)
-        self.form_edit_layout.addWidget(
-            self._form_toolbar_buttons[self.save_user_form_action]
-        )
+        self.form_edit_layout.addWidget(self._form_toolbar_buttons[self.save_user_form_action])
 
         self.form_edit_overflow_menu = QMenu(self.form_edit_row)
         for action in form_actions:
@@ -2393,9 +2288,7 @@ class MainWindow(QMainWindow):
         self.form_edit_overflow_button.setText("⋯")
         self.form_edit_overflow_button.setToolTip(self._t("toolbar.more_actions"))
         self.form_edit_overflow_button.setMenu(self.form_edit_overflow_menu)
-        self.form_edit_overflow_button.setPopupMode(
-            QToolButton.ToolButtonPopupMode.InstantPopup
-        )
+        self.form_edit_overflow_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.form_edit_overflow_button.setAutoRaise(False)
         self.form_edit_overflow_button.setFixedWidth(34)
         self.form_edit_layout.addWidget(self.form_edit_overflow_button)
@@ -2414,9 +2307,7 @@ class MainWindow(QMainWindow):
         self.toolbar_host = _ResponsiveToolbarHost(self)
         self.toolbar_host.setObjectName("responsiveToolbarHost")
         self.toolbar_host.setMinimumWidth(0)
-        self.toolbar_host.setSizePolicy(
-            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
-        )
+        self.toolbar_host.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.toolbar_host_layout = QVBoxLayout(self.toolbar_host)
         self.toolbar_host_layout.setContentsMargins(0, 0, 0, 0)
         self.toolbar_host_layout.setSpacing(0)
@@ -2426,9 +2317,7 @@ class MainWindow(QMainWindow):
         self.workspace_shell = QWidget(self)
         self.workspace_shell.setObjectName("workspaceShell")
         self.workspace_shell.setMinimumWidth(0)
-        self.workspace_shell.setSizePolicy(
-            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding
-        )
+        self.workspace_shell.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self.workspace_shell_layout = QVBoxLayout(self.workspace_shell)
         self.workspace_shell_layout.setContentsMargins(0, 0, 0, 0)
         self.workspace_shell_layout.setSpacing(0)
@@ -2442,12 +2331,8 @@ class MainWindow(QMainWindow):
         # the application menus.
         self.main_toolbar.setMinimumWidth(0)
         self.form_edit_toolbar.setMinimumWidth(0)
-        self.main_toolbar.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
-        self.form_edit_toolbar.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self.main_toolbar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.form_edit_toolbar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._main_toolbar_compact_buttons = (
             self.home_button,
             self.las_editor_button,
@@ -2537,9 +2422,7 @@ class MainWindow(QMainWindow):
         if isinstance(button, QToolButton):
             button.setToolButtonStyle(style)
 
-    def _set_main_toolbar_visual_mode(
-        self, compact: bool, ultra_compact: bool
-    ) -> None:
+    def _set_main_toolbar_visual_mode(self, compact: bool, ultra_compact: bool) -> None:
         style = (
             Qt.ToolButtonStyle.ToolButtonIconOnly
             if compact
@@ -2555,9 +2438,7 @@ class MainWindow(QMainWindow):
             else Qt.ToolButtonStyle.ToolButtonTextBesideIcon
         )
 
-    def _set_form_toolbar_visual_mode(
-        self, compact: bool, ultra_compact: bool
-    ) -> None:
+    def _set_form_toolbar_visual_mode(self, compact: bool, ultra_compact: bool) -> None:
         style = (
             Qt.ToolButtonStyle.ToolButtonIconOnly
             if compact
@@ -2565,9 +2446,7 @@ class MainWindow(QMainWindow):
         )
         for button in self._form_toolbar_buttons.values():
             button.setToolButtonStyle(style)
-        self.form_edit_caption.setText(
-            "F4" if ultra_compact else self._t("ui.form_edit_toolbar")
-        )
+        self.form_edit_caption.setText("F4" if ultra_compact else self._t("ui.form_edit_toolbar"))
         self.form_edit_caption.setMinimumWidth(0)
         self.form_edit_caption.setMaximumWidth(32 if ultra_compact else 240)
 
@@ -2608,14 +2487,8 @@ class MainWindow(QMainWindow):
                 )
             )
         margins = layout.contentsMargins()
-        chrome = (
-            max(0, int(chrome_width))
-            + margins.left()
-            + margins.right()
-        )
-        return required_toolbar_width(
-            widths, spacing=max(0, layout.spacing()), chrome_width=chrome
-        )
+        chrome = max(0, int(chrome_width)) + margins.left() + margins.right()
+        return required_toolbar_width(widths, spacing=max(0, layout.spacing()), chrome_width=chrome)
 
     def _toolbar_required_width(
         self, toolbar: QWidget, *, expanding_widget: QWidget | None = None
@@ -2657,17 +2530,13 @@ class MainWindow(QMainWindow):
 
         return max(1, toolbar.sizeHint().width())
 
-    def _measure_main_toolbar_mode(
-        self, compact: bool, ultra_compact: bool
-    ) -> int:
+    def _measure_main_toolbar_mode(self, compact: bool, ultra_compact: bool) -> int:
         self._set_main_toolbar_visual_mode(compact, ultra_compact)
         return self._toolbar_required_width(
             self.main_toolbar, expanding_widget=self.main_toolbar_spacer
         )
 
-    def _measure_form_toolbar_mode(
-        self, compact: bool, ultra_compact: bool
-    ) -> int:
+    def _measure_form_toolbar_mode(self, compact: bool, ultra_compact: bool) -> int:
         self._set_form_toolbar_visual_mode(compact, ultra_compact)
         return self._toolbar_required_width(self.form_edit_toolbar)
 
@@ -2728,14 +2597,10 @@ class MainWindow(QMainWindow):
             available,
             required,
             candidate_widths,
-            overflow_button_width=max(
-                38, self.main_toolbar_overflow_button.sizeHint().width()
-            ),
+            overflow_button_width=max(38, self.main_toolbar_overflow_button.sizeHint().width()),
             safety_margin=28,
         )
-        hidden = [
-            key for key, _widget in self._main_toolbar_overflow_candidates[:count]
-        ]
+        hidden = [key for key, _widget in self._main_toolbar_overflow_candidates[:count]]
         self._set_main_toolbar_overflow(tuple(hidden))
         for key, _widget in self._main_toolbar_overflow_candidates[count:]:
             required = self._toolbar_required_width(
@@ -2756,14 +2621,10 @@ class MainWindow(QMainWindow):
             available,
             required,
             candidate_widths,
-            overflow_button_width=max(
-                34, self.form_edit_overflow_button.sizeHint().width()
-            ),
+            overflow_button_width=max(34, self.form_edit_overflow_button.sizeHint().width()),
             safety_margin=24,
         )
-        hidden = [
-            key for key, _widget in self._form_toolbar_overflow_candidates[:count]
-        ]
+        hidden = [key for key, _widget in self._form_toolbar_overflow_candidates[:count]]
         self._set_form_toolbar_overflow(tuple(hidden))
         for key, _widget in self._form_toolbar_overflow_candidates[count:]:
             required = self._toolbar_required_width(self.form_edit_toolbar)
@@ -2851,13 +2712,9 @@ class MainWindow(QMainWindow):
                 currently_ultra_compact=self._form_toolbar_is_ultra_compact,
             )
 
-            self._apply_main_toolbar_mode(
-                main_mode.compact, main_mode.ultra_compact
-            )
+            self._apply_main_toolbar_mode(main_mode.compact, main_mode.ultra_compact)
             self._fit_main_toolbar_overflow(available)
-            self._apply_form_toolbar_mode(
-                form_mode.compact, form_mode.ultra_compact
-            )
+            self._apply_form_toolbar_mode(form_mode.compact, form_mode.ultra_compact)
             self._fit_form_toolbar_overflow(available)
         finally:
             self._toolbar_adaptation_in_progress = False
@@ -2946,15 +2803,9 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(0, self._t("tab.curves"))
         self.tabs.setTabText(1, self._t("tab.table"))
         self.tabs.setTabText(2, self._t("tab.tablet"))
-        self.tabs.setTabText(
-            3, FileWorkspaceWidget.tab_title(self.language.value)
-        )
-        self.tabs.setTabText(
-            4, InterpretationReportWorkspace.tab_title(self.language)
-        )
-        self.file_workspace_action.setText(
-            FileWorkspaceWidget.tab_title(self.language.value)
-        )
+        self.tabs.setTabText(3, FileWorkspaceWidget.tab_title(self.language.value))
+        self.tabs.setTabText(4, InterpretationReportWorkspace.tab_title(self.language))
+        self.file_workspace_action.setText(FileWorkspaceWidget.tab_title(self.language.value))
 
         self.project_dock.setWindowTitle(self._t("dock.project"))
         self.curve_browser_dock.setWindowTitle(self._t("curve_browser.title"))
@@ -2973,9 +2824,7 @@ class MainWindow(QMainWindow):
         self.form_edit_caption.setText(self._t("ui.form_edit_toolbar"))
         self.form_edit_caption.setToolTip(self._t("ui.help.tablet_edit_mode"))
         if hasattr(self, "main_toolbar_overflow_button"):
-            self.main_toolbar_overflow_button.setToolTip(
-                self._t("toolbar.more_actions")
-            )
+            self.main_toolbar_overflow_button.setToolTip(self._t("toolbar.more_actions"))
         self.home_page.retranslate(self.language)
 
         self._retranslate_registered_actions()
@@ -3139,9 +2988,7 @@ class MainWindow(QMainWindow):
         errors = [f"{item.source.name}: {item.error}" for item in outcome.failed]
         if last is None or last.result is None or last.well_name is None:
             if outcome.skipped and not errors:
-                self.statusBar().showMessage(
-                    self._t("import_review.batch_cancelled_status")
-                )
+                self.statusBar().showMessage(self._t("import_review.batch_cancelled_status"))
                 return
             QMessageBox.critical(
                 self,
@@ -3151,15 +2998,11 @@ class MainWindow(QMainWindow):
             diagnostics = outcome.diagnostic_report
             if diagnostics.has_items:
                 self._persist_import_diagnostics(diagnostics)
-                ImportDiagnosticsDialog(
-                    diagnostics, self, language=self.language
-                ).exec()
+                ImportDiagnosticsDialog(diagnostics, self, language=self.language).exec()
             return
 
         last_dataset = last.result.dataset
-        presentation_items = self._present_imported_dataset_safely(
-            last_dataset, last.source
-        )
+        presentation_items = self._present_imported_dataset_safely(last_dataset, last.source)
         self.inspector.setPlainText(
             f"{self._t('inspector.well')}: {last.well_name}\n"
             f"{self._t('inspector.dataset')}: {last_dataset.name}\n"
@@ -3174,9 +3017,7 @@ class MainWindow(QMainWindow):
 
         if diagnostics.error_count:
             self._persist_import_diagnostics(diagnostics)
-            ImportDiagnosticsDialog(
-                diagnostics, self, language=self.language
-            ).exec()
+            ImportDiagnosticsDialog(diagnostics, self, language=self.language).exec()
 
         import_warnings = [
             f"{item.source.name}:\n  " + "\n  ".join(item.warning_messages)
@@ -3204,21 +3045,14 @@ class MainWindow(QMainWindow):
             )
         self._refresh_tree()
         self._update_title()
-        self._show_workspace(
-            self.las_table_editor if presentation_items else self.tablet_view
-        )
-        self.statusBar().showMessage(
-            f"Загружено LAS-файлов: {len(outcome.successful)}"
-        )
+        self._show_workspace(self.las_table_editor if presentation_items else self.tablet_view)
+        self.statusBar().showMessage(f"Загружено LAS-файлов: {len(outcome.successful)}")
 
-    def _persist_import_diagnostics(
-        self, report: ImportDiagnosticReport
-    ) -> Path | None:
-        root = Path(
-            QStandardPaths.writableLocation(
-                QStandardPaths.StandardLocation.AppDataLocation
-            )
-        ) / "diagnostics"
+    def _persist_import_diagnostics(self, report: ImportDiagnosticReport) -> Path | None:
+        root = (
+            Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation))
+            / "diagnostics"
+        )
         try:
             target = persist_import_diagnostic_report(report, root, prefix="las_import")
         except OSError as exc:
@@ -3251,9 +3085,7 @@ class MainWindow(QMainWindow):
                 f"ОШИБКА ОТОБРАЖЕНИЯ: {source.name}: "
                 f"{diagnostic.exception_type}: {diagnostic.details}"
             )
-            recovery_diagnostics = self._show_import_recovery_workspace(
-                dataset, source
-            )
+            recovery_diagnostics = self._show_import_recovery_workspace(dataset, source)
             return (diagnostic, *recovery_diagnostics)
 
     def _show_import_recovery_workspace(
@@ -3268,9 +3100,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:  # noqa: BLE001 - secondary UI fallback
             self._log(f"ОШИБКА ТАБЛИЦЫ LAS: {type(exc).__name__}: {exc}")
             diagnostics.append(
-                self._recovery_component_diagnostic(
-                    source, dataset, exc, component="las_table"
-                )
+                self._recovery_component_diagnostic(source, dataset, exc, component="las_table")
             )
         try:
             self.curve_browser.set_dataset(dataset)
@@ -3278,9 +3108,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:  # noqa: BLE001 - secondary UI fallback
             self._log(f"ОШИБКА СПИСКА КРИВЫХ: {type(exc).__name__}: {exc}")
             diagnostics.append(
-                self._recovery_component_diagnostic(
-                    source, dataset, exc, component="curve_browser"
-                )
+                self._recovery_component_diagnostic(source, dataset, exc, component="curve_browser")
             )
         try:
             self.tablet_view.set_layout_model(TabletLayout())
@@ -3288,9 +3116,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:  # noqa: BLE001 - broken tablet must stay isolated
             self._log(f"ОШИБКА СБРОСА ПЛАНШЕТА: {type(exc).__name__}: {exc}")
             diagnostics.append(
-                self._recovery_component_diagnostic(
-                    source, dataset, exc, component="tablet_reset"
-                )
+                self._recovery_component_diagnostic(source, dataset, exc, component="tablet_reset")
             )
         self._show_workspace(self.las_table_editor)
         self.statusBar().showMessage(
@@ -3493,10 +3319,7 @@ class MainWindow(QMainWindow):
                         language=self.language,
                         channel_dictionary=channel_dictionary,
                     )
-                    if (
-                        dialog.exec() != QDialog.DialogCode.Accepted
-                        or dialog.import_result is None
-                    ):
+                    if dialog.exec() != QDialog.DialogCode.Accepted or dialog.import_result is None:
                         return
                     result = dialog.import_result
             except Gs2ContainerError as exc:
@@ -3514,10 +3337,7 @@ class MainWindow(QMainWindow):
                 ),
                 channel_dictionary=channel_dictionary,
             )
-            if (
-                dialog.exec() != QDialog.DialogCode.Accepted
-                or dialog.import_result is None
-            ):
+            if dialog.exec() != QDialog.DialogCode.Accepted or dialog.import_result is None:
                 return
             result = dialog.import_result
             table_label = f"{Path(member_names[0]).stem} ({len(member_names)} parts)"
@@ -3773,10 +3593,7 @@ class MainWindow(QMainWindow):
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
         supported_suffixes = {".db", ".gs2", ".xml", ".witsml", ".epc", ".zip"}
-        if any(
-            Path(url.toLocalFile()).suffix.casefold() in supported_suffixes
-            for url in urls
-        ):
+        if any(Path(url.toLocalFile()).suffix.casefold() in supported_suffixes for url in urls):
             event.acceptProposedAction()
             return
         super().dragEnterEvent(event)
@@ -3856,8 +3673,7 @@ class MainWindow(QMainWindow):
         annotation_scope_migration_required = bool(
             well is not None
             and any(
-                is_annotation_object(item)
-                and annotation_from_canvas(item).scope_id is None
+                is_annotation_object(item) and annotation_from_canvas(item).scope_id is None
                 for item in well.canvas_objects
             )
         ) or bool(
@@ -3870,9 +3686,7 @@ class MainWindow(QMainWindow):
         self._show_current_dataset()
         # A legacy annotation-scope migration must be saved. Normal project
         # opening remains clean when no migration was necessary.
-        self.project_controller.mark_open_migration_required(
-            annotation_scope_migration_required
-        )
+        self.project_controller.mark_open_migration_required(annotation_scope_migration_required)
         self._update_title()
         self._log(f"Проект открыт: {source}")
         self.statusBar().showMessage(f"Проект открыт: {source.name}")
@@ -3921,9 +3735,7 @@ class MainWindow(QMainWindow):
             self.lithotype_catalog_controller.available(),
             refresh=False,
         )
-        self.tablet_view.set_cuttings(
-            well.cuttings if well is not None else [], refresh=False
-        )
+        self.tablet_view.set_cuttings(well.cuttings if well is not None else [], refresh=False)
         self.tablet_view.set_stratigraphy(
             well.stratigraphy if well is not None else [], refresh=False
         )
@@ -4205,15 +4017,14 @@ class MainWindow(QMainWindow):
         target = Path(filename)
         if target.suffix.casefold() != suffix:
             target = target.with_suffix(suffix)
-        overwrite = self._confirm_export_overwrite(
-            target, include_report_passport=True
-        )
+        overwrite = self._confirm_export_overwrite(target, include_report_passport=True)
         if overwrite is None:
             return
         try:
             passport = self._build_tabular_report_passport(
                 resolved_report, output_format=export_format
             )
+
             def produce(staged_target: Path) -> Path:
                 if export_format == "xlsx":
                     return self.dataset_export_controller.export_resolved_report_excel(
@@ -4277,8 +4088,7 @@ class MainWindow(QMainWindow):
         if dataset is None:
             raise ReportDefinitionError("Сначала выберите dataset")
         curve_mnemonics = report.requested_channel_mnemonics or tuple(
-            dataset.curves[curve_id].metadata.original_mnemonic
-            for curve_id in report.curve_ids
+            dataset.curves[curve_id].metadata.original_mnemonic for curve_id in report.curve_ids
         )
         definition = report.definition
         request = ReportPassportRequest(
@@ -4351,20 +4161,15 @@ class MainWindow(QMainWindow):
             else self._t("print_center.curves_source")
         )
         paged_tablet = current if isinstance(current, TabletView) else None
-        current_range = (
-            paged_tablet.visible_depth_range if paged_tablet is not None else None
-        )
-        full_range = (
-            paged_tablet.printable_vertical_range() if paged_tablet is not None else None
-        )
+        current_range = paged_tablet.visible_depth_range if paged_tablet is not None else None
+        full_range = paged_tablet.printable_vertical_range() if paged_tablet is not None else None
         selected_range = (
             self.dataset_selection.interval
             if self.session.current_dataset is not None
             and self.dataset_selection.dataset_id == self.session.current_dataset.dataset_id
             and (
                 paged_tablet is None
-                or paged_tablet.vertical_index_id
-                == self.session.current_dataset.active_index_id
+                or paged_tablet.vertical_index_id == self.session.current_dataset.active_index_id
             )
             else None
         )
@@ -4395,9 +4200,14 @@ class MainWindow(QMainWindow):
             ),
             header_choices=self._print_header_choices(),
             initial_header_template_id=(
-                getattr(report_form, "print_header_template_id", None)
+                report_form.print_header_for_orientation(self.print_page_settings.orientation.value)
+                if report_form is not None and hasattr(report_form, "print_header_for_orientation")
+                else getattr(report_form, "print_header_template_id", None)
+            ),
+            paired_header_template_ids=(
+                dict(getattr(report_form, "print_header_template_ids", {}))
                 if report_form is not None
-                else None
+                else {}
             ),
             manage_headers_callback=self._manage_print_headers,
             header_preview_callback=self._print_header_preview_pixmap,
@@ -4473,9 +4283,7 @@ class MainWindow(QMainWindow):
                 report_context=report_context,
                 report_form=report_form,
             )
-            passport = self._build_print_passport(
-                report, normalized_job, source_name
-            )
+            passport = self._build_print_passport(report, normalized_job, source_name)
             header_template = self._resolve_print_header(normalized_job)
             if normalized_job.output_format is PrintOutputFormat.PRINTER:
                 printer = self._print_jobs.create_printer(widget, normalized_job)
@@ -4494,9 +4302,7 @@ class MainWindow(QMainWindow):
                     header_template=header_template,
                     session=self.session,
                 )
-                message = self._t(
-                    "print_center.print_success_pages", count=result.page_count
-                )
+                message = self._t("print_center.print_success_pages", count=result.page_count)
                 if result.passport_sha256:
                     message += " · " + self._t(
                         "report_passport.id", digest=result.passport_sha256[:12]
@@ -4593,8 +4399,7 @@ class MainWindow(QMainWindow):
         )
         definition = ReportDefinition(
             definition_id=(
-                f"view:{dataset.dataset_id}:{underlying_form.form_kind}:"
-                f"{underlying_form.form_id}"
+                f"view:{dataset.dataset_id}:{underlying_form.form_kind}:{underlying_form.form_id}"
             ),
             name=source_name,
             profile=ReportProfile.VIEW,
@@ -4609,9 +4414,7 @@ class MainWindow(QMainWindow):
             form_id=underlying_form.form_id,
             form_revision=underlying_form.revision,
         )
-        resolved = self.dataset_export_controller.resolve_report(
-            definition, context=report_context
-        )
+        resolved = self.dataset_export_controller.resolve_report(definition, context=report_context)
         try:
             start = float(resolved.interval.start)
             end = float(resolved.interval.end)
@@ -4643,9 +4446,7 @@ class MainWindow(QMainWindow):
                     return tuple(dict.fromkeys(resolved))
         return tuple(sorted(dataset.curves))
 
-    def _print_report_channel_mnemonics(
-        self, widget, dataset: Dataset
-    ) -> tuple[str, ...]:
+    def _print_report_channel_mnemonics(self, widget, dataset: Dataset) -> tuple[str, ...]:
         if isinstance(widget, TabletView):
             layout = self.session.current_tablet_layout
             if layout is not None:
@@ -4672,8 +4473,7 @@ class MainWindow(QMainWindow):
         if dataset is None:
             raise ReportDefinitionError("Сначала выберите dataset")
         curve_mnemonics = report.requested_channel_mnemonics or tuple(
-            dataset.curves[curve_id].metadata.original_mnemonic
-            for curve_id in report.curve_ids
+            dataset.curves[curve_id].metadata.original_mnemonic for curve_id in report.curve_ids
         )
         definition = report.definition
         request = ReportPassportRequest(
@@ -4746,15 +4546,12 @@ class MainWindow(QMainWindow):
         target = Path(filename)
         if target.suffix.casefold() != suffix:
             target = target.with_suffix(suffix)
-        overwrite = self._confirm_export_overwrite(
-            target, include_report_passport=True
-        )
+        overwrite = self._confirm_export_overwrite(target, include_report_passport=True)
         if overwrite is None:
             return
         try:
-            passport = self._build_visualization_passport(
-                current, export_format, view_name
-            )
+            passport = self._build_visualization_passport(current, export_format, view_name)
+
             def produce(staged_target: Path) -> Path:
                 if export_format == "pdf":
                     return export_widget_pdf(
@@ -4767,9 +4564,7 @@ class MainWindow(QMainWindow):
                     return export_widget_png(current, staged_target, overwrite=False)
                 if export_format == "svg":
                     return export_widget_svg(current, staged_target, overwrite=False)
-                raise ValueError(
-                    f"Неподдерживаемый формат визуализации: {export_format}"
-                )
+                raise ValueError(f"Неподдерживаемый формат визуализации: {export_format}")
 
             transaction = execute_report_output_transaction(
                 target, produce, passport, overwrite=overwrite
@@ -4792,9 +4587,7 @@ class MainWindow(QMainWindow):
         self._log(message)
         self.statusBar().showMessage(message)
 
-    def _build_visualization_passport(
-        self, widget, export_format: str, view_name: str
-    ):
+    def _build_visualization_passport(self, widget, export_format: str, view_name: str):
         interval = None
         curve_mnemonics = None
         range_mode = "full"
@@ -4819,9 +4612,7 @@ class MainWindow(QMainWindow):
             dpi=300 if is_pdf else 96,
             fit_form_columns=page.effective_fit_form_columns if is_pdf else False,
             scale_mode=page.scale_mode.value if is_pdf else None,
-            continuation_overlap_mm=(
-                page.continuation_overlap_mm if is_pdf else None
-            ),
+            continuation_overlap_mm=(page.continuation_overlap_mm if is_pdf else None),
             margins_mm=(
                 page.margin_left_mm,
                 page.margin_top_mm,
@@ -4867,9 +4658,7 @@ class MainWindow(QMainWindow):
             self.tabs.tabText(self.tabs.currentIndex()),
             report_context=ReportIntervalContext(
                 current_range=(
-                    current.visible_depth_range
-                    if isinstance(current, TabletView)
-                    else None
+                    current.visible_depth_range if isinstance(current, TabletView) else None
                 )
             ),
         )
@@ -4926,9 +4715,7 @@ class MainWindow(QMainWindow):
     def _print_header_choices(self) -> tuple[tuple[str, str], ...]:
         choices: list[tuple[str, str]] = []
         known: set[str] = set()
-        for item in catalog_items(
-            self.session.project.masterlog_templates, self.language
-        ):
+        for item in catalog_items(self.session.project.masterlog_templates, self.language):
             label = item.name
             if item.factory:
                 label += " — заводская"
@@ -4949,14 +4736,11 @@ class MainWindow(QMainWindow):
 
     def _print_header_preview_pixmap(self, catalog_id: str) -> QPixmap | None:
         try:
-            template = resolve_catalog_header(
-                self.session.project.masterlog_templates, catalog_id
-            )
+            template = resolve_catalog_header(self.session.project.masterlog_templates, catalog_id)
         except KeyError:
             return None
         return render_header_preview_pixmap(
-            template, self.session, QSize(1200, 320),
-            language=self.language, mode="header"
+            template, self.session, QSize(1200, 320), language=self.language, mode="header"
         )
 
     def _open_print_header_from_center(self, catalog_id: str) -> None:
@@ -4972,9 +4756,7 @@ class MainWindow(QMainWindow):
         if catalog_id is None:
             return None
         try:
-            return resolve_catalog_header(
-                self.session.project.masterlog_templates, catalog_id
-            )
+            return resolve_catalog_header(self.session.project.masterlog_templates, catalog_id)
         except KeyError as exc:
             raise ValueError(f"Печатная шапка не найдена: {catalog_id}") from exc
 
@@ -5224,13 +5006,9 @@ class MainWindow(QMainWindow):
             name="interpretation_calculation",
         )
         bindings.register(self.stratigraphy_controller, name="stratigraphy")
-        bindings.register(
-            self.stratigraphy_catalog_controller, name="stratigraphy_catalog"
-        )
+        bindings.register(self.stratigraphy_catalog_controller, name="stratigraphy_catalog")
         bindings.register(self.lithotype_catalog_controller, name="lithotype_catalog")
-        bindings.register(
-            self.description_template_controller, name="description_template"
-        )
+        bindings.register(self.description_template_controller, name="description_template")
         bindings.register(
             self.depth_axis_controller,
             reset_hooks=(self.depth_axis_controller.clear_history,),
@@ -5649,8 +5427,7 @@ class MainWindow(QMainWindow):
         def preview(form) -> None:
             nonlocal preview_applied
             preview_applied = (
-                self.apply_form_to_tablet(form, mark_dirty=False, notify=False)
-                or preview_applied
+                self.apply_form_to_tablet(form, mark_dirty=False, notify=False) or preview_applied
             )
 
         dialog = FormManagerDialog(
@@ -5713,9 +5490,7 @@ class MainWindow(QMainWindow):
         if options.exec() != QDialog.DialogCode.Accepted:
             return False
         try:
-            _form, summary = self._import_skf_form_and_header(
-                Path(filename), mode=options.mode
-            )
+            _form, summary = self._import_skf_form_and_header(Path(filename), mode=options.mode)
         except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, title, str(exc))
             return False
@@ -5775,9 +5550,7 @@ class MainWindow(QMainWindow):
 
         warning_text = ""
         if result.report.warnings:
-            warning_text = "\n\nПредупреждения:\n- " + "\n- ".join(
-                result.report.warnings
-            )
+            warning_text = "\n\nПредупреждения:\n- " + "\n- ".join(result.report.warnings)
         lines = [
             f"SKF импортирован: {result.report.source_name}",
             f"Компонентов Delphi: {result.report.component_count}",
@@ -5790,9 +5563,7 @@ class MainWindow(QMainWindow):
         if template is not None:
             lines.append(f"Шаблон Masterlog сохранён: {template.name}")
         if header_template is not None:
-            lines.append(
-                f"Печатная шапка сохранена в каталог: {header_template.name}"
-            )
+            lines.append(f"Печатная шапка сохранена в каталог: {header_template.name}")
         summary = "\n".join(lines) + warning_text
         return form, summary
 
@@ -5816,9 +5587,7 @@ class MainWindow(QMainWindow):
             selected_track_id=self._selected_track_id,
         )
 
-    def _restore_tablet_form_snapshot(
-        self, snapshot: _TabletFormSnapshot
-    ) -> None:
+    def _restore_tablet_form_snapshot(self, snapshot: _TabletFormSnapshot) -> None:
         dataset = self.session.current_dataset
         if dataset is None:
             raise RuntimeError(self._t("forms.rollback_dataset_missing"))
@@ -5834,12 +5603,8 @@ class MainWindow(QMainWindow):
             selected_track=snapshot.selected_track_id or "",
         )
         try:
-            self.tablet_controller.restore_layout(
-                restored, dirty=snapshot.session_dirty
-            )
-            self.tablet_view.set_layout_and_dataset(
-                restored, dataset, preserve_current_range=False
-            )
+            self.tablet_controller.restore_layout(restored, dirty=snapshot.session_dirty)
+            self.tablet_view.set_layout_and_dataset(restored, dataset, preserve_current_range=False)
             self._selected_track_id = snapshot.selected_track_id
             self._refresh_annotation_layer()
             self._refresh_tree()
@@ -5913,9 +5678,7 @@ class MainWindow(QMainWindow):
                 tracks=len(layout.tracks),
                 form_id=getattr(form, "form_id", ""),
             )
-            self.tablet_view.set_layout_and_dataset(
-                layout, dataset, preserve_current_range=True
-            )
+            self.tablet_view.set_layout_and_dataset(layout, dataset, preserve_current_range=True)
             log_event(
                 "forms.apply.render_finished",
                 tracks=len(layout.tracks),
@@ -5950,13 +5713,9 @@ class MainWindow(QMainWindow):
                     exc.rollback_error,
                     form_id=getattr(form, "form_id", ""),
                 )
-            message = self._t(
-                "forms.apply_failed_restored", error=str(exc.operation_error)
-            )
+            message = self._t("forms.apply_failed_restored", error=str(exc.operation_error))
             if exc.rollback_error is not None:
-                message += "\n" + self._t(
-                    "forms.rollback_failed", error=str(exc.rollback_error)
-                )
+                message += "\n" + self._t("forms.rollback_failed", error=str(exc.rollback_error))
             if notify:
                 QMessageBox.warning(self, self._t("forms.title"), message)
             else:
@@ -5981,9 +5740,7 @@ class MainWindow(QMainWindow):
         if notify:
             self.statusBar().showMessage(message)
             self._log(message)
-        width_audit = audit_form_width(
-            track.width for track in result.layout.visible_tracks()
-        )
+        width_audit = audit_form_width(track.width for track in result.layout.visible_tracks())
         log_event(
             "forms.apply.completed",
             form_id=getattr(form, "form_id", ""),
@@ -6056,9 +5813,7 @@ class MainWindow(QMainWindow):
             else "ui.axis_depth"
         )
         suggested = f"{dataset.name} — {axis_word}"
-        catalog = complete_form_catalog(
-            self.form_repository, dataset, str(self.language)
-        )
+        catalog = complete_form_catalog(self.form_repository, dataset, str(self.language))
         dialog = FormCreateDialog(
             catalog,
             self,
@@ -6088,6 +5843,7 @@ class MainWindow(QMainWindow):
                 form.form_id = existing.form_id
                 form.style_id = existing.style_id
                 form.print_header_template_id = existing.print_header_template_id
+                form.print_header_template_ids = dict(existing.print_header_template_ids)
                 form.revision = existing.revision + 1
                 form.validate()
             target = self.form_repository.save(form)
@@ -6632,9 +6388,7 @@ class MainWindow(QMainWindow):
         self._update_title()
         changed = ", ".join(result.changed) or "—"
         self._log(f"Интерпретационные кривые рассчитаны: {changed}")
-        self.statusBar().showMessage(
-            f"Интерпретационные кривые созданы/обновлены: {changed}"
-        )
+        self.statusBar().showMessage(f"Интерпретационные кривые созданы/обновлены: {changed}")
 
     def show_formula_profiles(self) -> None:
         dataset = self.session.current_dataset
@@ -6840,11 +6594,11 @@ class MainWindow(QMainWindow):
             except (TypeError, ValueError):
                 return
         raw_mnemonics = payload.get("mnemonics", ())
-        mnemonics = tuple(
-            str(value)
-            for value in raw_mnemonics
-            if isinstance(value, str) and value.strip()
-        ) if isinstance(raw_mnemonics, (tuple, list)) else ()
+        mnemonics = (
+            tuple(str(value) for value in raw_mnemonics if isinstance(value, str) and value.strip())
+            if isinstance(raw_mnemonics, (tuple, list))
+            else ()
+        )
         try:
             statistics = calculate_interval_statistics(
                 dataset,
@@ -6880,9 +6634,7 @@ class MainWindow(QMainWindow):
                     None,
                 )
                 if matching_mnemonic is not None:
-                    configured = definition.curve_display_settings(
-                        matching_mnemonic
-                    ).display_name
+                    configured = definition.curve_display_settings(matching_mnemonic).display_name
                     break
             display_names[item.mnemonic] = localized_curve_name(
                 curve.metadata.original_mnemonic,
@@ -6962,9 +6714,7 @@ class MainWindow(QMainWindow):
         except OSError as exc:
             QMessageBox.critical(self, self._t("statistics.title"), str(exc))
             return
-        self.statusBar().showMessage(
-            self._t("statistics.export_success", name=exported.name), 5000
-        )
+        self.statusBar().showMessage(self._t("statistics.export_success", name=exported.name), 5000)
 
     def _clear_interval_statistics_panel(self) -> None:
         self.interval_statistics_panel.clear_report()
@@ -7129,12 +6879,8 @@ class MainWindow(QMainWindow):
             self.depth_annotation_controller.adopt_unscoped_annotations()
             visible_objects = self.depth_annotation_controller.canvas_objects_for_current_scope()
         self.tablet_view.set_canvas_objects(visible_objects)
-        if (
-            self._selected_annotation_id is not None
-            and all(
-                item.object_id != self._selected_annotation_id
-                for item in visible_objects
-            )
+        if self._selected_annotation_id is not None and all(
+            item.object_id != self._selected_annotation_id for item in visible_objects
         ):
             self._selected_annotation_id = None
             self.tablet_view.select_annotation(None)
@@ -7311,9 +7057,7 @@ class MainWindow(QMainWindow):
                 unit=str(payload.get("unit", "")),
                 x_fraction=float(payload.get("x_fraction", 0.5)),
                 display_text=(
-                    str(payload.get("display_value"))
-                    if payload.get("display_value")
-                    else None
+                    str(payload.get("display_value")) if payload.get("display_value") else None
                 ),
             )
         except (KeyError, RuntimeError, TypeError, ValueError) as exc:
@@ -8661,10 +8405,7 @@ class MainWindow(QMainWindow):
         )
         self._update_title()
 
-
-    def _set_curve_unit_from_header(
-        self, track_id: str, mnemonic: str, unit: str
-    ) -> None:
+    def _set_curve_unit_from_header(self, track_id: str, mnemonic: str, unit: str) -> None:
         if self._form_layout_transaction_active or self.tablet_view.is_rebuilding_layout:
             return
         try:
@@ -8681,9 +8422,7 @@ class MainWindow(QMainWindow):
         )
         self._update_title()
 
-    def _set_curve_scale_from_header(
-        self, track_id: str, mnemonic: str, scale_value: str
-    ) -> None:
+    def _set_curve_scale_from_header(self, track_id: str, mnemonic: str, scale_value: str) -> None:
         if self._form_layout_transaction_active or self.tablet_view.is_rebuilding_layout:
             return
         try:
@@ -8936,9 +8675,7 @@ class MainWindow(QMainWindow):
         except (KeyError, TypeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("inspector.title"), str(exc))
             return
-        self.tablet_view.refresh_track(
-            track_id, DirtyReason.STATIC | DirtyReason.STYLE
-        )
+        self.tablet_view.refresh_track(track_id, DirtyReason.STATIC | DirtyReason.STYLE)
         self._refresh_tree()
         self._update_title()
         self._log(self._t("inspector.grid_updated"))
@@ -8979,9 +8716,7 @@ class MainWindow(QMainWindow):
             return
         audit = audit_form_width(track.width for track in visible)
         if audit.level is FormWidthLevel.FITS_PORTRAIT:
-            caption = self._t(
-                "forms.width_portrait", percent=f"{audit.portrait_scale_percent:.0f}"
-            )
+            caption = self._t("forms.width_portrait", percent=f"{audit.portrait_scale_percent:.0f}")
             color, background = "#166534", "#dcfce7"
         elif audit.level is FormWidthLevel.FITS_LANDSCAPE:
             caption = self._t(
@@ -8989,14 +8724,10 @@ class MainWindow(QMainWindow):
             )
             color, background = "#92400e", "#fef3c7"
         elif audit.level is FormWidthLevel.NEEDS_FIT:
-            caption = self._t(
-                "forms.width_fit", percent=f"{audit.landscape_scale_percent:.0f}"
-            )
+            caption = self._t("forms.width_fit", percent=f"{audit.landscape_scale_percent:.0f}")
             color, background = "#9a3412", "#ffedd5"
         else:
-            caption = self._t(
-                "forms.width_split", pages=audit.portrait_pages_at_actual_size
-            )
+            caption = self._t("forms.width_split", pages=audit.portrait_pages_at_actual_size)
             color, background = "#991b1b", "#fee2e2"
         indicator.setText(caption)
         indicator.setStyleSheet(
@@ -9034,9 +8765,7 @@ class MainWindow(QMainWindow):
             "dataset_id": dataset.dataset_id if dataset is not None else "",
             "dataset_name": dataset.name if dataset is not None else "",
             "tablet_track_count": len(self.tablet_view.layout_model.tracks),
-            "tablet_visible_track_count": len(
-                self.tablet_view.layout_model.visible_tracks()
-            ),
+            "tablet_visible_track_count": len(self.tablet_view.layout_model.visible_tracks()),
             "tablet_form_width_px": width_audit.total_width_px,
             "tablet_a4_portrait_percent": round(width_audit.portrait_scale_percent, 1),
             "tablet_a4_landscape_percent": round(width_audit.landscape_scale_percent, 1),
@@ -9056,9 +8785,7 @@ class MainWindow(QMainWindow):
             )
             return
         manager.flush()
-        opened = QDesktopServices.openUrl(
-            QUrl.fromLocalFile(str(manager.log_directory))
-        )
+        opened = QDesktopServices.openUrl(QUrl.fromLocalFile(str(manager.log_directory)))
         log_event(
             "diagnostics.log_folder.opened",
             path=manager.log_directory,
@@ -9097,9 +8824,7 @@ class MainWindow(QMainWindow):
             return
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         default_directory = Path(
-            QStandardPaths.writableLocation(
-                QStandardPaths.StandardLocation.DesktopLocation
-            )
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
         )
         default_path = default_directory / f"GEOLOG_diagnostics_{timestamp}.zip"
         filename, _ = QFileDialog.getSaveFileName(
@@ -9152,9 +8877,7 @@ class MainWindow(QMainWindow):
         if answer != QMessageBox.StandardButton.Yes:
             return
         app_data_root = Path(
-            QStandardPaths.writableLocation(
-                QStandardPaths.StandardLocation.AppDataLocation
-            )
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
         )
         try:
             result = manager.clear_diagnostic_data(
@@ -9252,9 +8975,7 @@ class MainWindow(QMainWindow):
             label_palette = label.palette()
             label_palette.setColor(QPalette.ColorRole.WindowText, color)
             label.setPalette(label_palette)
-            label.setStyleSheet(
-                f"color: {color.name()}; background: transparent; border: none;"
-            )
+            label.setStyleSheet(f"color: {color.name()}; background: transparent; border: none;")
 
         title_label = QLabel("GEOLOG GASRATIO@Pixler", info_panel)
         title_label.setWordWrap(True)

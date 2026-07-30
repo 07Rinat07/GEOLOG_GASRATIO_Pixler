@@ -83,6 +83,13 @@ def test_window_exposes_interpretation_report_workspace(qapp) -> None:
     workspace_style = window.interpretation_report_workspace.styleSheet()
     assert "background: #f4f7fb" in workspace_style
     assert "QTextBrowser#hydrocarbon-interpretation-preview" in workspace_style
+    report_mode = window.interpretation_report_workspace.report_mode
+    assert [report_mode.itemData(index) for index in range(report_mode.count())] == [
+        "well_text",
+        "mixture_chart",
+        "mixture_text",
+    ]
+    assert "Gas mixture ramp" in report_mode.itemText(1)
     window.close()
 
 
@@ -202,8 +209,7 @@ def test_window_builds_interval_statistics_panel_from_tablet_gesture(qapp) -> No
     assert statistics[0].maximum == 2.0
     assert statistics[0].mean == 1.5
     assert (
-        window.interval_statistics_panel.table.item(0, 0).text()
-        == "Rate of Penetration\nROP · m/h"
+        window.interval_statistics_panel.table.item(0, 0).text() == "Rate of Penetration\nROP · m/h"
     )
     assert window.interval_statistics_panel.table.item(0, 1).text() == "1"
     assert window.interval_statistics_panel.table.item(0, 2).text() == "1.5"
@@ -691,9 +697,7 @@ def test_window_inserts_curves_and_updates_transfer_history_actions(qapp, monkey
     window.close()
 
 
-def test_window_merges_datasets_and_updates_history_actions(
-    qapp, monkeypatch, tmp_path
-) -> None:
+def test_window_merges_datasets_and_updates_history_actions(qapp, monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     window = MainWindow(language=AppLanguage.EN)
     session, _ = make_session()

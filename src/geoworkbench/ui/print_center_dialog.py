@@ -63,6 +63,7 @@ class PrintCenterDialog(QDialog):
         vertical_unit: str = "",
         header_choices: tuple[tuple[str, str], ...] = (),
         initial_header_template_id: str | None = None,
+        paired_header_template_ids: dict[str, str] | None = None,
         manage_headers_callback: HeaderCatalogCallback | None = None,
         header_preview_callback: HeaderPreviewCallback | None = None,
         edit_header_callback: HeaderEditCallback | None = None,
@@ -76,6 +77,12 @@ class PrintCenterDialog(QDialog):
         self.selected_vertical_range = selected_vertical_range
         self.vertical_unit = vertical_unit.strip()
         self.header_choices = tuple(header_choices)
+        self.paired_header_template_ids = {
+            str(orientation).strip().casefold(): str(template_id).strip()
+            for orientation, template_id in (paired_header_template_ids or {}).items()
+            if str(orientation).strip().casefold() in {"portrait", "landscape"}
+            and str(template_id).strip()
+        }
         self.manage_headers_callback = manage_headers_callback
         self.header_preview_callback = header_preview_callback
         self.edit_header_callback = edit_header_callback
@@ -133,7 +140,10 @@ class PrintCenterDialog(QDialog):
         )
         header_layout.addWidget(self.header_preview)
         root.addWidget(header_group)
-        self._set_header_choices(self.header_choices, initial_header_template_id)
+        paired_initial = self.paired_header_template_ids.get(
+            page.orientation.value, initial_header_template_id
+        )
+        self._set_header_choices(self.header_choices, paired_initial)
         self._refresh_header_preview()
 
         output_group = QGroupBox(self._t("print_center.output_group"))
@@ -188,6 +198,7 @@ class PrintCenterDialog(QDialog):
         self.orientation_combo.setCurrentIndex(
             self.orientation_combo.findData(page.orientation.value)
         )
+        self.orientation_combo.currentIndexChanged.connect(self._sync_paired_header_to_orientation)
         paper_layout.addRow(self._t("print.orientation"), self.orientation_combo)
 
         dimensions = QHBoxLayout()
@@ -214,9 +225,16 @@ class PrintCenterDialog(QDialog):
         self.fit_columns_check.setToolTip(self._t("print.fit_form_columns_tooltip"))
         paper_layout.addRow(self.fit_columns_check)
 
-        self.continuation_overlap_input = self._continuation_input(
-            page.continuation_overlap_mm
+        self.repeat_column_header_check = QCheckBox(
+            self._t("print_center.repeat_column_header_bottom")
         )
+        self.repeat_column_header_check.setChecked(preferences.repeat_column_header_at_bottom)
+        self.repeat_column_header_check.setToolTip(
+            self._t("print_center.repeat_column_header_bottom_tooltip")
+        )
+        paper_layout.addRow(self.repeat_column_header_check)
+
+        self.continuation_overlap_input = self._continuation_input(page.continuation_overlap_mm)
         self.continuation_overlap_input.setToolTip(
             self._t("print_center.continuation_overlap_tooltip")
         )
@@ -240,10 +258,7 @@ class PrintCenterDialog(QDialog):
             )
         self.range_combo.addItem(self._t("print_center.range_custom"), PrintRangeMode.CUSTOM.value)
         requested_range = preferences.range_mode if supports_pagination else PrintRangeMode.CURRENT
-        if (
-            requested_range is PrintRangeMode.SELECTION
-            and selected_vertical_range is None
-        ):
+        if requested_range is PrintRangeMode.SELECTION and selected_vertical_range is None:
             requested_range = PrintRangeMode.CURRENT
         range_index = self.range_combo.findData(requested_range.value)
         self.range_combo.setCurrentIndex(max(0, range_index))
@@ -380,6 +395,7 @@ class PrintCenterDialog(QDialog):
             custom_end=pagination.custom_end,
             show_page_numbers=pagination.show_page_numbers,
             show_page_range=pagination.show_page_range,
+            repeat_column_header_at_bottom=(self.repeat_column_header_check.isChecked()),
         )
 
     def job_settings(self, *, allow_missing_target: bool = False) -> PrintJobSettings:
@@ -409,6 +425,7 @@ class PrintCenterDialog(QDialog):
                 and str(self.header_combo.currentData()).strip()
                 else None
             ),
+            repeat_column_header_at_bottom=(self.repeat_column_header_check.isChecked()),
         )
 
     def _set_header_choices(
@@ -435,6 +452,15 @@ class PrintCenterDialog(QDialog):
         index = self.header_combo.findData(current) if current else 0
         self.header_combo.setCurrentIndex(max(0, index))
         self.header_combo.blockSignals(False)
+
+    def _sync_paired_header_to_orientation(self, _index: int = -1) -> None:
+        orientation = str(self.orientation_combo.currentData()).strip().casefold()
+        paired_id = self.paired_header_template_ids.get(orientation)
+        if paired_id is None:
+            return
+        index = self.header_combo.findData(paired_id)
+        if index >= 0:
+            self.header_combo.setCurrentIndex(index)
 
     def _manage_headers(self) -> None:
         if self.manage_headers_callback is None:
@@ -534,9 +560,7 @@ class PrintCenterDialog(QDialog):
         self.height_input.setEnabled(selected is PrintPageFormat.CUSTOM)
         self.orientation_combo.setEnabled(selected is not PrintPageFormat.ROLL)
         self.fit_columns_check.setEnabled(scale_mode is PrintScaleMode.FIT)
-        self.continuation_overlap_input.setEnabled(
-            scale_mode is PrintScaleMode.ACTUAL_SIZE
-        )
+        self.continuation_overlap_input.setEnabled(scale_mode is PrintScaleMode.ACTUAL_SIZE)
 
     def _update_pagination_enabled(self, _index: int | None = None) -> None:
         mode = PrintRangeMode(str(self.range_combo.currentData()))

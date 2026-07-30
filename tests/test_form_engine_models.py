@@ -119,7 +119,7 @@ def test_repository_saves_utf8_atomically(tmp_path) -> None:
     assert target.exists()
     assert restored.name == "Глубинная форма"
     raw = json.loads(target.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 11
+    assert raw["schema_version"] == 12
 
 
 def test_repository_lists_and_deletes(tmp_path) -> None:
@@ -187,9 +187,7 @@ def test_unknown_schema_is_rejected() -> None:
 @pytest.mark.parametrize("field", ["grid_major_divisions", "grid_minor_divisions"])
 def test_form_grid_divisions_reject_fractional_values(field: str) -> None:
     form = FormDocument.create("Grid", FormAxisKind.DEPTH)
-    form.add_column(
-        FormColumn.create("Curve", tracks=[FormTrack.create("Curve", TrackKind.CURVE)])
-    )
+    form.add_column(FormColumn.create("Curve", tracks=[FormTrack.create("Curve", TrackKind.CURVE)]))
     payload = form_to_dict(form)
     payload["columns"][0]["tracks"][0][field] = 2.5
 
@@ -247,6 +245,26 @@ def test_factory_templates_include_specialized_gas_ratio_pixler_workflows() -> N
         "PIXLER_C1_C4",
         "PIXLER_C1_C5",
     }.issubset(canonical)
+    assert depth_form.print_header_for_orientation("portrait") == (
+        "factory-header:a4_gas_interpretation_portrait"
+    )
+    assert depth_form.print_header_for_orientation("landscape") == (
+        "factory-header:a4_gas_interpretation_landscape"
+    )
+
+
+def test_form_codec_preserves_orientation_specific_print_headers() -> None:
+    form = FormDocument.create("Paired", FormAxisKind.DEPTH)
+    form.print_header_template_id = "legacy-header"
+    form.print_header_template_ids = {
+        "portrait": "factory-header:a4_technology_portrait",
+        "landscape": "factory-header:a4_technology_landscape",
+    }
+
+    restored = form_from_dict(form_to_dict(form))
+
+    assert restored.print_header_template_ids == form.print_header_template_ids
+    assert restored.print_header_for_orientation("landscape").endswith("technology_landscape")
 
 
 def test_factory_templates_are_localized_without_changing_stable_ids() -> None:
@@ -362,9 +380,9 @@ def test_engineering_form_library_is_localized_with_stable_ids() -> None:
     en = factory_templates("en")
     form_id = "factory-lithology-cuttings"
     assert ru[form_id].form_id == kk[form_id].form_id == en[form_id].form_id
-    assert ru[form_id].name == "Литология и шламограмма"
-    assert kk[form_id].name == "Литология және шламограмма"
-    assert en[form_id].name == "Lithology and cuttings log"
+    assert ru[form_id].name == "Геология, шлам, ЛБА и кальциметрия"
+    assert kk[form_id].name == "Геология, шлам, ЛБА және кальциметрия"
+    assert en[form_id].name == "Geology, cuttings, LBA and calcimetry"
 
 
 def test_masterlog_screen_form_matches_reference_column_order() -> None:
@@ -451,7 +469,7 @@ def test_v8_form_migrates_logarithmic_bindings_to_linear_defaults() -> None:
     assert binding.x_scale.value == "linear"
     assert binding.x_min == 0.0
     assert binding.x_max == 100.0
-    assert form_to_dict(restored)["schema_version"] == 11
+    assert form_to_dict(restored)["schema_version"] == 12
 
 
 def test_every_factory_form_binding_is_linear_by_default() -> None:

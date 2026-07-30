@@ -11,7 +11,9 @@ from geoworkbench.printing.print_layout import (
 )
 from geoworkbench.printing.tablet_print import (
     TabletPrintError,
+    TabletPrintSnapshot,
     capture_tablet_print_snapshot,
+    paint_tablet_header_repeat,
     paint_tablet_snapshot,
 )
 from geoworkbench.tablet.tablet_view import TabletView
@@ -30,6 +32,7 @@ def paint_widget_page(
     scale_mode: PrintScaleMode = PrintScaleMode.FIT,
     continuation: PrintContinuationSlice | None = None,
     high_quality: bool = True,
+    repeat_column_header_at_bottom: bool = False,
 ) -> None:
     """Render a chart/tablet into one deterministic paper continuation."""
 
@@ -50,18 +53,25 @@ def paint_widget_page(
                 snapshot = capture_tablet_print_snapshot(
                     widget,
                     page_aspect_ratio=content_rect.width() / content_rect.height(),
-                    fit_columns=(
-                        fit_form_columns if scale_mode is PrintScaleMode.FIT else False
-                    ),
+                    fit_columns=(fit_form_columns if scale_mode is PrintScaleMode.FIT else False),
                     raster_scale=raster_scale,
                 )
-                paint_tablet_snapshot(
-                    painter,
-                    content_rect,
-                    snapshot,
-                    scale_mode=scale_mode,
-                    continuation=continuation,
-                )
+                if repeat_column_header_at_bottom:
+                    _paint_tablet_with_repeated_header(
+                        painter,
+                        content_rect,
+                        snapshot,
+                        scale_mode=scale_mode,
+                        continuation=continuation,
+                    )
+                else:
+                    paint_tablet_snapshot(
+                        painter,
+                        content_rect,
+                        snapshot,
+                        scale_mode=scale_mode,
+                        continuation=continuation,
+                    )
             except TabletPrintError as exc:
                 raise PageRenderError(str(exc)) from exc
             return
@@ -92,3 +102,69 @@ def paint_widget_page(
         raise PageRenderError("Не удалось отрисовать визуализацию") from exc
     finally:
         painter.restore()
+
+
+def _paint_tablet_with_repeated_header(
+    painter: QPainter,
+    content_rect: QRectF,
+    snapshot: TabletPrintSnapshot,
+    *,
+    scale_mode: PrintScaleMode,
+    continuation: PrintContinuationSlice | None,
+) -> None:
+    gap = max(1.0, content_rect.height() * 0.006)
+    if scale_mode is PrintScaleMode.FIT:
+        horizontal_scale = content_rect.width() / snapshot.layout.total_width
+        header_height = min(
+            content_rect.height() * 0.24,
+            snapshot.header_height * horizontal_scale,
+        )
+        rendered_width = snapshot.layout.total_width * horizontal_scale
+        x = content_rect.left() + (content_rect.width() - rendered_width) / 2.0
+        body = QRectF(
+            x,
+            content_rect.top(),
+            rendered_width,
+            max(1.0, content_rect.height() - gap - header_height),
+        )
+        repeated_header = QRectF(
+            x,
+            body.bottom() + gap,
+            rendered_width,
+            header_height,
+        )
+    else:
+        device = painter.device()
+        dpi = max(1, device.logicalDpiX()) if device is not None else REFERENCE_PRINT_DPI
+        header_height = min(
+            content_rect.height() * 0.24,
+            snapshot.header_height * dpi / REFERENCE_PRINT_DPI,
+        )
+        body = QRectF(
+            content_rect.left(),
+            content_rect.top(),
+            content_rect.width(),
+            max(1.0, content_rect.height() - gap - header_height),
+        )
+        repeated_header = QRectF(
+            content_rect.left(),
+            body.bottom() + gap,
+            content_rect.width(),
+            header_height,
+        )
+
+    paint_tablet_snapshot(
+        painter,
+        body,
+        snapshot,
+        scale_mode=scale_mode,
+        continuation=continuation,
+        fill_height=scale_mode is PrintScaleMode.FIT,
+    )
+    paint_tablet_header_repeat(
+        painter,
+        repeated_header,
+        snapshot,
+        scale_mode=scale_mode,
+        continuation=continuation,
+    )

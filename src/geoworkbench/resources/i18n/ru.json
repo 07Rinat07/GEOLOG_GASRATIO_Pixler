@@ -1474,6 +1474,8 @@
   "print_center.scale_mode": "Масштаб печати",
   "print_center.show_page_numbers": "Показывать номера страниц",
   "print_center.show_page_range": "Показывать глубину/время каждой страницы",
+  "print_center.repeat_column_header_bottom": "Повторить шапку колонок внизу страницы",
+  "print_center.repeat_column_header_bottom_tooltip": "Добавить после графика повтор названий дорожек, параметров, цветов и шкал для быстрого чтения заказчиком.",
   "print_center.source": "Источник: {name}",
   "print_center.tablet_source": "Планшет",
   "print_center.title": "Центр печати и экспорта",

@@ -63,7 +63,7 @@ from geoworkbench.printing.masterlog_package import (
     export_masterlog_package,
     load_masterlog_package,
 )
-from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_FORM_PRESETS
+from geoworkbench.printing.masterlog_presets import CURATED_MASTERLOG_FORM_PRESETS
 from geoworkbench.ui.masterlog_output_dialog import MasterlogOutputDialog
 from geoworkbench.ui.masterlog_page_dialog import MasterlogPageDialog
 from geoworkbench.ui.masterlog_symbols_dialog import MasterlogSymbolsDialog
@@ -197,7 +197,7 @@ class MasterlogTemplatesDialog(QDialog):
             self._run(lambda: self.controller.create(name))
 
     def _create_from_preset(self) -> None:
-        presets = BUILTIN_MASTERLOG_FORM_PRESETS
+        presets = CURATED_MASTERLOG_FORM_PRESETS
         labels = [
             f"{item.name(self.localizer.language)} — {item.description(self.localizer.language)}"
             for item in presets
@@ -402,9 +402,7 @@ class MasterlogTemplatesDialog(QDialog):
             QMessageBox.critical(self, self.windowTitle(), str(exc))
             return
         message = self._t("masterlog_preview.exported", name=target.name)
-        message += "\n" + self._t(
-            "report_passport.saved", name=passport_sidecar_path(target).name
-        )
+        message += "\n" + self._t("report_passport.saved", name=passport_sidecar_path(target).name)
         QMessageBox.information(self, self.windowTitle(), message)
 
     def _build_report_passport(
@@ -414,9 +412,7 @@ class MasterlogTemplatesDialog(QDialog):
         report: ResolvedReportDefinition,
     ):
         curve_mnemonics = tuple(
-            mnemonic
-            for column in template.columns
-            for mnemonic in column.curve_mnemonics
+            mnemonic for column in template.columns for mnemonic in column.curve_mnemonics
         )
         render = ReportRenderSettings(
             renderer="masterlog-renderer:1",
@@ -492,9 +488,7 @@ class MasterlogTemplatesDialog(QDialog):
             raise ReportDefinitionError("Сначала выберите dataset")
         requested_mnemonics = tuple(
             dict.fromkeys(
-                mnemonic
-                for column in template.columns
-                for mnemonic in column.curve_mnemonics
+                mnemonic for column in template.columns for mnemonic in column.curve_mnemonics
             )
         )
         curve_ids: list[str] = []
@@ -530,9 +524,7 @@ class MasterlogTemplatesDialog(QDialog):
                 settings.language,
             )
         except (TypeError, ValueError) as exc:
-            raise ReportDefinitionError(
-                "Masterlog требует числовой глубинный интервал"
-            ) from exc
+            raise ReportDefinitionError("Masterlog требует числовой глубинный интервал") from exc
         return resolved, normalized
 
     def _ask_output_settings(self) -> MasterlogOutputSettings | None:

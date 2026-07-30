@@ -24,7 +24,7 @@ from geoworkbench.tablet.models import (
 )
 
 
-FORM_SCHEMA_VERSION = 11
+FORM_SCHEMA_VERSION = 12
 
 
 class FormFormatError(ValueError):
@@ -43,6 +43,7 @@ def form_to_dict(form: FormDocument) -> dict[str, Any]:
         "read_only": form.read_only,
         "style_id": form.style_id,
         "print_header_template_id": form.print_header_template_id,
+        "print_header_template_ids": dict(form.print_header_template_ids),
         "source_dataset_id": form.source_dataset_id,
         "source_index_id": form.source_index_id,
         "visible_axis_top": form.visible_axis_top,
@@ -102,6 +103,7 @@ def form_from_dict(data: object) -> FormDocument:
             read_only=_boolean(migrated, "read_only", default=False),
             style_id=_string(migrated, "style_id", default="default-screen"),
             print_header_template_id=_optional_string(migrated, "print_header_template_id"),
+            print_header_template_ids=_string_mapping(migrated, "print_header_template_ids"),
             source_dataset_id=_optional_string(migrated, "source_dataset_id"),
             source_index_id=_optional_string(migrated, "source_index_id"),
             visible_axis_top=_optional_number(migrated, "visible_axis_top"),
@@ -161,9 +163,7 @@ def _binding_from_dict(data: object) -> ParameterBinding:
         x_scale=x_scale,
         x_min=x_min,
         x_max=x_max,
-        header_text_color=_string(
-            data, "header_text_color", default="#0f172a"
-        ),
+        header_text_color=_string(data, "header_text_color", default="#0f172a"),
         header_line_color=_optional_string(data, "header_line_color"),
     )
 
@@ -234,7 +234,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -341,14 +341,16 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                 desired_positions.append(position)
             if desired_orientations and len(set(desired_orientations)) == 1:
                 desired = desired_orientations[0]
-                if desired == "horizontal" or str(
-                    column.get("title_orientation", "horizontal")
-                ) == "horizontal":
+                if (
+                    desired == "horizontal"
+                    or str(column.get("title_orientation", "horizontal")) == "horizontal"
+                ):
                     column["title_orientation"] = desired
                 column.setdefault("title_position", desired_positions[0])
 
     migrated.setdefault("source_dataset_id", None)
     migrated.setdefault("source_index_id", None)
+    migrated.setdefault("print_header_template_ids", {})
     migrated.setdefault("visible_axis_top", None)
     migrated.setdefault("visible_axis_bottom", None)
     migrated.setdefault("revision", 1)
@@ -383,6 +385,19 @@ def _string(
     if not isinstance(value, str) or (not allow_empty and not value.strip()):
         raise TypeError(f"{key} должен быть строкой")
     return value
+
+
+def _string_mapping(data: dict[str, Any], key: str) -> dict[str, str]:
+    value = data.get(key, {})
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"{key} должен быть объектом")
+    return {
+        str(item_key): str(item_value)
+        for item_key, item_value in value.items()
+        if isinstance(item_key, str) and isinstance(item_value, str)
+    }
 
 
 def _optional_string(data: dict[str, Any], key: str) -> str | None:
