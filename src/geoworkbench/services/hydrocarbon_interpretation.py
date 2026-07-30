@@ -6,6 +6,7 @@ from geoworkbench.project.interpretation_calculation_controller import (
     NormalizedGasCalculationMode,
 )
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services import hydrocarbon_interpretation_legacy as _legacy
 from geoworkbench.services import hydrocarbon_interpretation_modes as _modes
 from geoworkbench.services.hydrocarbon_interpretation_modes import (
     HydrocarbonCandidateInterval,
@@ -16,8 +17,20 @@ from geoworkbench.services.hydrocarbon_interpretation_modes import (
     fluid_hypothesis_basis,
     fluid_hypothesis_label,
     hydrocarbon_interpretation_html,
-    set_normalized_gas_report_mode,
 )
+
+
+_EXPLICIT_MODE_SESSIONS: set[int] = set()
+
+
+def set_normalized_gas_report_mode(
+    session: ProjectSession,
+    mode: NormalizedGasCalculationMode | str,
+) -> None:
+    """Persist the UI-selected report mode for the active session."""
+
+    _EXPLICIT_MODE_SESSIONS.add(id(session))
+    _modes.set_normalized_gas_report_mode(session, mode)
 
 
 def build_hydrocarbon_interpretation_report(
@@ -26,8 +39,13 @@ def build_hydrocarbon_interpretation_report(
     threshold: float = 3.0,
     normalized_gas_mode: NormalizedGasCalculationMode | str | None = None,
 ) -> HydrocarbonInterpretationReport:
-    """Build a dual-source report with clean curve names in user-facing output."""
+    """Build a report while preserving the legacy API when no mode was selected."""
 
+    if normalized_gas_mode is None and id(session) not in _EXPLICIT_MODE_SESSIONS:
+        return _legacy.build_hydrocarbon_interpretation_report(
+            session,
+            threshold=threshold,
+        )
     report = _modes.build_hydrocarbon_interpretation_report(
         session,
         threshold=threshold,
