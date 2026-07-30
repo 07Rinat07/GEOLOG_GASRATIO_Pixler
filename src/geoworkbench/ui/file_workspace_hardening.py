@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.files.document_service import DocumentError, DocumentKind
-from geoworkbench.files.enhanced_document_service import EnhancedDocumentService
 from geoworkbench.ui.file_workspace_depth import FileWorkspaceWidget as _DepthWorkspace
 from geoworkbench.ui.file_workspace_geometry import eraser_stroke_rectangles
 from geoworkbench.ui.file_workspace_i18n import normalize_language
