@@ -9,7 +9,7 @@ from PySide6.QtGui import QColor, QPalette
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QTabWidget
 
-from geoworkbench.ui.file_workspace_runtime import FileWorkspaceWidget
+from geoworkbench.ui.file_workspace_depth import FileWorkspaceWidget
 
 
 def _arguments() -> argparse.Namespace:
@@ -133,6 +133,15 @@ def _capture_language(
     if petroleum_tabs is not None:
         petroleum_tabs.setCurrentIndex(0)
     _save(widget, output / f"{language}-files-petroleum-calculators.png", application)
+
+    if petroleum_tabs is not None:
+        petroleum_tabs.setCurrentIndex(3)
+        widget.depth_ground_elevation.setValue(150.0)
+        widget.depth_datum_height.setValue(7.5)
+        widget.depth_measured_depth.setValue(3_000.0)
+        widget.depth_vertical_well.setChecked(False)
+        widget.depth_true_vertical_depth.setValue(2_500.0)
+    _save(widget, output / f"{language}-files-depth-reference.png", application)
 
     widget.sections.setCurrentIndex(2)
     widget.logo_text.setPlainText("BPServices\nGEOLOG")
