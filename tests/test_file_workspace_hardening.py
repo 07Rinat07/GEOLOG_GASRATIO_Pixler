@@ -62,7 +62,7 @@ def test_interpolated_eraser_has_no_gaps_larger_than_half_brush() -> None:
 
     distances = [
         overlay._distance(left, right)
-        for left, right in zip(overlay._points, overlay._points[1:], strict=True)
+        for left, right in zip(overlay._points, overlay._points[1:])
     ]
     assert distances
     assert max(distances) <= 10.01
