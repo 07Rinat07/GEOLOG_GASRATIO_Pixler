@@ -11,7 +11,9 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.printing.hydrocarbon_interpretation_chart import (
     hydrocarbon_interpretation_chart_data_uri,
-    hydrocarbon_interpretation_html_with_chart,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
+    hydrocarbon_interpretation_html_with_front_chart,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     export_hydrocarbon_interpretation_pdf,
@@ -62,18 +64,24 @@ def _session_with_report_curves() -> ProjectSession:
     return session
 
 
-def test_whole_well_report_chart_is_embedded_in_html(qapp) -> None:
+def test_whole_well_report_chart_is_embedded_before_tables(qapp) -> None:
     session = _session_with_report_curves()
     dataset = session.current_dataset
     assert dataset is not None
     report = build_hydrocarbon_interpretation_report(session)
 
     uri = hydrocarbon_interpretation_chart_data_uri(report, dataset, AppLanguage.RU)
-    html = hydrocarbon_interpretation_html_with_chart(report, dataset, AppLanguage.RU)
+    html = hydrocarbon_interpretation_html_with_front_chart(
+        report,
+        dataset,
+        AppLanguage.RU,
+    )
 
     assert uri.startswith("data:image/png;base64,")
     assert len(uri) > 10_000
-    assert "Графики интерпретационных кривых по глубине" in html
+    chart_position = html.index("Графики интерпретационных кривых по глубине")
+    methods_position = html.index("Методы и доступность")
+    assert chart_position < methods_position
     assert "data:image/png;base64," in html
 
 
