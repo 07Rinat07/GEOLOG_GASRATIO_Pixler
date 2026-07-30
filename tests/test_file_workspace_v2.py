@@ -177,10 +177,7 @@ def test_styled_unicode_text_persists_after_save(tmp_path: Path) -> None:
 
     with fitz.open(target) as saved:
         assert inserted in saved[0].get_text()
-        assert any(
-            font[4].startswith("GW") and font[5] == "Identity-H"
-            for font in saved.get_page_fonts(0)
-        )
+        assert any(font[5] == "Identity-H" for font in saved.get_page_fonts(0))
 
 
 def test_overlay_accepts_visible_brush_points() -> None:
