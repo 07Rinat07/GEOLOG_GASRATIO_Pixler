@@ -9,10 +9,18 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
+    QFormLayout,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QLabel,
     QLineEdit,
+    QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QTabWidget,
     QTextEdit,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -84,6 +92,7 @@ class FileWorkspaceWidget(_DepthWorkspace):
         self._language_sync_attempts = 0
         self._language_actions_connected = False
         self._replace_eraser_overlay()
+        self._expand_calculator_panels()
         self._sync_document_state()
         QTimer.singleShot(0, self._install_language_sync)
 
@@ -110,6 +119,169 @@ class FileWorkspaceWidget(_DepthWorkspace):
         )
         overlay.raise_()
         self._eraser_overlay = overlay
+
+    def _expand_calculator_panels(self) -> None:
+        engineering_page = self.sections.widget(4)
+        page_layout = engineering_page.layout() if engineering_page is not None else None
+        if isinstance(page_layout, QVBoxLayout) and engineering_page is not None:
+            existing_scroll = engineering_page.findChild(
+                QScrollArea, "engineeringCalculationsScroll"
+            )
+            if existing_scroll is None:
+                content = QWidget(engineering_page)
+                content.setObjectName("engineeringCalculationsContent")
+                content_layout = QVBoxLayout(content)
+                content_layout.setContentsMargins(8, 8, 8, 12)
+                content_layout.setSpacing(max(10, page_layout.spacing()))
+                while page_layout.count():
+                    item = page_layout.takeAt(0)
+                    widget = item.widget()
+                    nested_layout = item.layout()
+                    if widget is not None:
+                        content_layout.addWidget(widget)
+                    elif nested_layout is not None:
+                        content_layout.addLayout(nested_layout)
+                    else:
+                        content_layout.addItem(item)
+
+                scroll = QScrollArea(engineering_page)
+                scroll.setObjectName("engineeringCalculationsScroll")
+                scroll.setWidgetResizable(True)
+                scroll.setFrameShape(QFrame.Shape.NoFrame)
+                scroll.setHorizontalScrollBarPolicy(
+                    Qt.ScrollBarPolicy.ScrollBarAsNeeded
+                )
+                scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+                scroll.setWidget(content)
+                page_layout.setContentsMargins(0, 0, 0, 0)
+                page_layout.addWidget(scroll)
+
+        tabs = self.findChild(QTabWidget, "petroleumCalculatorTabs")
+        if tabs is None:
+            return
+        tabs.setMinimumHeight(540)
+        tabs.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
+        )
+        tabs.setUsesScrollButtons(True)
+
+        group = tabs.parentWidget()
+        if isinstance(group, QGroupBox):
+            group.setMinimumHeight(620)
+            group.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
+            )
+            group_layout = group.layout()
+            if isinstance(group_layout, QVBoxLayout):
+                group_layout.setStretchFactor(tabs, 1)
+
+        for index in range(tabs.count()):
+            calculator_page = tabs.widget(index)
+            if calculator_page is None:
+                continue
+            calculator_page.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
+            )
+            calculator_layout = calculator_page.layout()
+            if isinstance(calculator_layout, QFormLayout):
+                calculator_layout.setFieldGrowthPolicy(
+                    QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
+                )
+                calculator_layout.setRowWrapPolicy(
+                    QFormLayout.RowWrapPolicy.WrapLongRows
+                )
+                calculator_layout.setLabelAlignment(
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+                )
+                calculator_layout.setHorizontalSpacing(18)
+                calculator_layout.setVerticalSpacing(10)
+            elif isinstance(calculator_layout, QGridLayout):
+                calculator_layout.setColumnMinimumWidth(1, 300)
+                calculator_layout.setColumnStretch(0, 0)
+                calculator_layout.setColumnStretch(1, 0)
+                calculator_layout.setColumnStretch(2, 1)
+                calculator_layout.setColumnStretch(3, 1)
+                calculator_layout.setHorizontalSpacing(14)
+                calculator_layout.setVerticalSpacing(9)
+
+            for label in calculator_page.findChildren(QLabel):
+                label.setWordWrap(True)
+
+        wide_controls = (
+            "pipe_od_in",
+            "pipe_wall_mm",
+            "pipe_length_m",
+            "pipe_density",
+            "drill_mud_density",
+            "drill_tvd",
+            "drill_hole_d",
+            "drill_pipe_d",
+            "drill_interval",
+            "drill_flow",
+            "mud_density",
+            "mud_annular_loss",
+            "mud_tvd",
+            "mix_v1",
+            "mix_rho1",
+            "mix_v2",
+            "mix_rho2",
+            "geo_reference",
+            "geo_top_tvd",
+            "geo_bottom_tvd",
+            "depth_ground_elevation",
+            "depth_reference_kind",
+            "depth_datum_height",
+            "depth_measured_depth",
+            "depth_true_vertical_depth",
+        )
+        for name in wide_controls:
+            control: Any = getattr(self, name, None)
+            if isinstance(control, (QDoubleSpinBox, QSpinBox, QLineEdit, QComboBox)):
+                control.setMinimumWidth(max(control.minimumWidth(), 300))
+                control.setMinimumHeight(max(control.minimumHeight(), 36))
+                control.setSizePolicy(
+                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+                )
+
+        result_heights = {
+            "pipe_result": 180,
+            "drill_result": 220,
+            "mud_result": 220,
+            "geo_result": 160,
+            "depth_result": 260,
+        }
+        for name, minimum_height in result_heights.items():
+            result: Any = getattr(self, name, None)
+            if not isinstance(result, QLabel):
+                continue
+            result.setMinimumWidth(max(result.minimumWidth(), 620))
+            result.setMinimumHeight(max(result.minimumHeight(), minimum_height))
+            result.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
+            )
+            result.setAlignment(
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+            )
+            result.setMargin(12)
+            result.setWordWrap(True)
+            result_layout = result.parentWidget().layout()
+            if isinstance(result_layout, QFormLayout):
+                self._make_form_result_full_width(result_layout, result)
+
+    @staticmethod
+    def _make_form_result_full_width(layout: QFormLayout, result: QLabel) -> None:
+        row, role = layout.getWidgetPosition(result)
+        if row < 0 or role == QFormLayout.ItemRole.SpanningRole:
+            return
+        title = layout.labelForField(result)
+        layout.removeWidget(result)
+        if title is not None:
+            layout.removeWidget(title)
+            if isinstance(title, QLabel):
+                title.setStyleSheet("font-weight: 700;")
+                title.setWordWrap(True)
+            layout.addRow(title)
+        layout.addRow(result)
 
     def _apply_eraser_stroke(self, points: list[QPointF], brush_size: int) -> None:
         rects = eraser_stroke_rectangles(points, brush_size, self._render_zoom)
