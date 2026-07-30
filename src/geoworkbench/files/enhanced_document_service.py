@@ -8,21 +8,6 @@ import fitz
 from geoworkbench.files.document_service import DocumentError, DocumentService, _Snapshot
 
 
-_FONT_ALIASES: dict[str, str] = {
-    "helv": "GWHelveticaRegular",
-    "hebo": "GWHelveticaBold",
-    "heit": "GWHelveticaItalic",
-    "hebi": "GWHelveticaBoldItalic",
-    "tiro": "GWTimesRegular",
-    "tibo": "GWTimesBold",
-    "tiit": "GWTimesItalic",
-    "tibi": "GWTimesBoldItalic",
-    "cour": "GWCourierRegular",
-    "cobo": "GWCourierBold",
-    "coit": "GWCourierItalic",
-    "cobi": "GWCourierBoldItalic",
-}
-
 _FONT_FAMILIES: dict[str, str] = {
     "helv": "sans-serif",
     "hebo": "sans-serif",
@@ -93,21 +78,6 @@ class EnhancedDocumentService(DocumentService):
         return len(prepared)
 
     @staticmethod
-    def _install_unicode_font(page: fitz.Page, fontname: str) -> str | None:
-        alias = _FONT_ALIASES.get(fontname)
-        if alias is None:
-            raise DocumentError(f"Неподдерживаемый PDF-шрифт: {fontname}")
-        try:
-            font = fitz.Font(fontname=fontname)
-            buffer = font.buffer
-            if not buffer:
-                return None
-            page.insert_font(fontname=alias, fontbuffer=buffer)
-        except Exception:
-            return None
-        return alias
-
-    @staticmethod
     def _insert_html_text(
         page: fitz.Page,
         target: fitz.Rect,
@@ -165,32 +135,20 @@ class EnhancedDocumentService(DocumentService):
 
         before, dirty_before, undo_before, redo_before = self._transaction_state()
         try:
-            embedded_font = self._install_unicode_font(page, fontname)
             if replace:
                 page.add_redact_annot(target, fill=(1.0, 1.0, 1.0), cross_out=False)
                 page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)
             if background is not None:
                 page.draw_rect(target, color=None, fill=background, overlay=True)
-            if embedded_font is None:
-                remaining = self._insert_html_text(
-                    page,
-                    target,
-                    text,
-                    fontname=fontname,
-                    font_size=font_size,
-                    color=color,
-                    alignment=alignment,
-                )
-            else:
-                remaining = page.insert_textbox(
-                    target,
-                    text,
-                    fontsize=max(4.0, min(144.0, font_size)),
-                    color=color,
-                    fontname=embedded_font,
-                    align=max(0, min(2, alignment)),
-                    overlay=True,
-                )
+            remaining = self._insert_html_text(
+                page,
+                target,
+                text,
+                fontname=fontname,
+                font_size=font_size,
+                color=color,
+                alignment=alignment,
+            )
             if remaining < 0:
                 raise DocumentError(
                     "Текст не помещается: увеличьте область или уменьшите размер шрифта"
