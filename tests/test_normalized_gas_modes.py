@@ -107,6 +107,30 @@ def test_server_curve_is_preserved_and_local_total_is_stored_separately() -> Non
     assert "TG_NORM_CALC" in result.track_curves["normalized_gas"]
 
 
+def test_server_mode_does_not_create_or_update_local_normalized_curves() -> None:
+    session = _calculation_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    existing = np.full(dataset.depth.shape, 777.0)
+    _add_curve(
+        dataset,
+        "C1_NORM",
+        existing,
+        "normalized gas units",
+        "calculation:previous-local-run",
+    )
+
+    result = InterpretationCalculationController(session).calculate_standard_curves(
+        normalized_gas_mode=NormalizedGasCalculationMode.SERVER
+    )
+
+    np.testing.assert_array_equal(dataset.curve_by_mnemonic("C1_NORM").values, existing)
+    assert dataset.curve_by_mnemonic("TG_NORM_CALC") is None
+    assert "C1_NORM" in result.skipped
+    assert "TG_NORM_CALC" not in result.changed
+    assert "NORMALIZED_TOTAL_GAS" in result.track_curves["normalized_gas"]
+
+
 def _comparison_session() -> ProjectSession:
     depth = np.arange(1_000.0, 1_080.0)
     dataset = Dataset(
