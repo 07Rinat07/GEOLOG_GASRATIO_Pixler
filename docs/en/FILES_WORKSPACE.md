@@ -47,16 +47,71 @@ Additional calculators cover:
 - pipe geometry and mass;
 - hydrostatic pressure, annular volume and circulation time;
 - ECD and drilling-fluid mixing;
-- absolute elevations of geological boundaries;
-- rig elevation references.
+- the elevation of a selected depth datum and the bit position.
 
-### DF, RT and KB/RKB
+## Datum elevation and bit position
 
-- **DF — Drill Floor**: the rig working platform.
-- **RT — Rotary Table**: separate equipment located on the drill floor.
-- **KB/RKB**: the top of the kelly bushing above RT, often used as a depth datum.
+The former sequential GL, Wellhead, DF, RT and KB form is hidden because it could combine different reference points. The new **Elevations and bit** tab requires one documented depth datum and uses that same datum for every depth input.
 
-Enter `0` for RT above DF when the documentation defines the DF and RT elevations as equal. Use values from the rig documentation, elevation diagram or log header.
+### Inputs
+
+- **Ground elevation GL relative to MSL** is the absolute ground-level elevation at the well location relative to mean sea level.
+- **Depth reference datum** is the RKB/KB, RT, DF, GL or other point explicitly stated in the drilling report, directional survey or log heading.
+- **Datum height above GL** is the vertical offset of the selected point above ground level. Obtain it from controlled rig documentation, an elevation diagram or the approved well header.
+- **MD to bit** is measured depth along the well path from the selected datum to the actual bit position.
+- **TVD to bit** is true vertical depth from the same datum. For a deviated well, obtain it from the directional survey or trajectory model.
+
+**The full derrick or mast height is not part of this calculation.** Only the selected datum height above GL is used.
+
+### Formulas and sign convention
+
+The application uses one vertical coordinate system:
+
+```text
+E_datum = E_GL + H_datum_above_GL
+E_bit = E_datum - TVD
+TVDSS = TVD - E_datum
+Bit_below_GL = TVD - H_datum_above_GL
+```
+
+Where:
+
+- `E_GL` is ground elevation relative to MSL, positive upward;
+- `E_datum` is the absolute elevation of the selected RKB/KB, RT, DF, GL or other datum;
+- `TVD` is vertical depth from the selected datum to the bit, positive downward;
+- `E_bit` is absolute bit elevation relative to MSL;
+- `TVDSS` is depth below mean sea level, positive downward.
+
+Enable **Vertical well: use TVD = MD** only for a genuinely vertical well or when the source data formally defines TVD as equal to MD. In a deviated well, MD is normally greater than TVD, so the application rejects TVD greater than MD when both use the same datum.
+
+### Example
+
+Ground level is `150 m` above MSL. RT is `7.5 m` above GL. MD to the bit is `3000 m`, while directional-survey TVD is `2500 m`.
+
+```text
+RT elevation = 150 + 7.5 = 157.5 m
+Bit elevation = 157.5 − 2500 = −2342.5 m
+TVDSS = 2500 − 157.5 = 2342.5 m below MSL
+MD − TVD = 500 m
+```
+
+### Terms
+
+- **DF — Drill Floor** is the rig working platform.
+- **RT — Rotary Table** is the rotary table; its elevation equals DF only when the documentation explicitly defines them as equal.
+- **RKB/KB — Rotary/Kelly Bushing** is the top of the kelly bushing, commonly used as the zero point for depth.
+- **GL — Ground Level** is the ground surface at the well location.
+
+Do not copy an RT, RKB or DF height from another rig, and do not combine a depth measured from one datum with the elevation of another datum.
+
+### Industry sources
+
+- Energistics WITSML, WellElevationCoord: https://docs.energistics.org/WITSML/WITSML_TOPICS/WITSML-500-298-0-R-sv2000.html
+- Energistics WITSML, WellDatum: https://docs.energistics.org/WITSML/WITSML_TOPICS/WITSML-500-296-0-R-sv2000.html
+- Energistics WITSML, MeasuredDepthCoord: https://docs.energistics.org/WITSML/WITSML_TOPICS/WITSML-500-449-0-R-sv2000.html
+- SLB Energy Glossary, true vertical depth: https://glossary.slb.com/Terms/t/true_vertical_depth.aspx
+- SLB Energy Glossary, depth reference: https://glossary.slb.com/en/terms/d/depth_reference
+- IADC Lexicon, RKB: https://iadclexicon.org/rkb/
 
 ## Languages
 
