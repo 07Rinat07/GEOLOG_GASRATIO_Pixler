@@ -25,7 +25,7 @@ class FileWorkspaceWidget(QWidget):
         language: str = "ru",
     ) -> FileWorkspaceWidget:
         try:
-            from geoworkbench.ui.file_workspace_depth import (
+            from geoworkbench.ui.file_workspace_hardening import (
                 FileWorkspaceWidget as LocalizedFileWorkspaceWidget,
             )
         except ModuleNotFoundError as error:
