@@ -1,4 +1,4 @@
-from geoworkbench.ui.interpretation_report_workspace_final import (
+from geoworkbench.ui.interpretation_report_workspace_drilling import (
     InterpretationReportWorkspace,
 )
 
