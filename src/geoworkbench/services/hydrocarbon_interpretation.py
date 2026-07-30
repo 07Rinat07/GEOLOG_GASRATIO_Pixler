@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import numpy as np
+
+from geoworkbench.domain.models import Dataset
 from geoworkbench.project.interpretation_calculation_controller import (
     NormalizedGasCalculationMode,
 )
@@ -20,7 +23,15 @@ from geoworkbench.services.hydrocarbon_interpretation_modes import (
 )
 
 
-_EXPLICIT_MODE_SESSIONS: set[int] = set()
+_SERVER_TOTAL_NAMES = (
+    "TG_NORM",
+    "NORMALIZED_TOTAL_GAS",
+    "TOTAL_GAS_NORM",
+    "NORM_TG",
+    "TGNORM",
+)
+_LOCAL_TOTAL_NAMES = ("TG_NORM_CALC", "TG_NORM")
+_SELECTED_MODES: dict[int, NormalizedGasCalculationMode] = {}
 
 
 def set_normalized_gas_report_mode(
@@ -29,8 +40,9 @@ def set_normalized_gas_report_mode(
 ) -> None:
     """Persist the UI-selected report mode for the active session."""
 
-    _EXPLICIT_MODE_SESSIONS.add(id(session))
-    _modes.set_normalized_gas_report_mode(session, mode)
+    normalized = _coerce_mode(mode)
+    _SELECTED_MODES[id(session)] = normalized
+    _modes.set_normalized_gas_report_mode(session, normalized)
 
 
 def build_hydrocarbon_interpretation_report(
@@ -41,22 +53,88 @@ def build_hydrocarbon_interpretation_report(
 ) -> HydrocarbonInterpretationReport:
     """Build a report while preserving the legacy API when no mode was selected."""
 
-    if normalized_gas_mode is None and id(session) not in _EXPLICIT_MODE_SESSIONS:
+    session_id = id(session)
+    if normalized_gas_mode is None and session_id not in _SELECTED_MODES:
         return _legacy.build_hydrocarbon_interpretation_report(
             session,
             threshold=threshold,
         )
+
+    requested_mode = _coerce_mode(
+        normalized_gas_mode
+        if normalized_gas_mode is not None
+        else _SELECTED_MODES[session_id]
+    )
+    effective_mode = requested_mode
+    waiting_for_local_total = False
+    dataset = session.current_dataset
+    if (
+        requested_mode is NormalizedGasCalculationMode.COMPARE
+        and dataset is not None
+        and _has_valid_normalized_curve(dataset, _SERVER_TOTAL_NAMES, local=False)
+        and not _has_valid_normalized_curve(dataset, _LOCAL_TOTAL_NAMES, local=True)
+    ):
+        # Never compare a server total-gas curve with C1_NORM. Until the local
+        # total exists, show the server analysis only and explain what is missing.
+        effective_mode = NormalizedGasCalculationMode.SERVER
+        waiting_for_local_total = True
+
     report = _modes.build_hydrocarbon_interpretation_report(
         session,
         threshold=threshold,
-        normalized_gas_mode=normalized_gas_mode,
+        normalized_gas_mode=effective_mode,
     )
+    if waiting_for_local_total:
+        report = replace(
+            report,
+            warnings=tuple(
+                dict.fromkeys(
+                    (
+                        *report.warnings,
+                        "Режим сравнения ожидает локальный итог TG_NORM_CALC. "
+                        "C1_NORM не сопоставляется с серверным total normalized gas, "
+                        "поскольку это другой показатель. Выполните локальный расчёт.",
+                    )
+                )
+            ),
+        )
+
     primary = report.primary_mnemonic
     if not primary:
         return report
     names = tuple(_strip_source_prefix(part) for part in primary.split(" | "))
     cleaned = " | ".join(dict.fromkeys(name for name in names if name))
     return report if cleaned == primary else replace(report, primary_mnemonic=cleaned)
+
+
+def _coerce_mode(
+    mode: NormalizedGasCalculationMode | str,
+) -> NormalizedGasCalculationMode:
+    try:
+        return NormalizedGasCalculationMode(str(mode))
+    except ValueError as exc:
+        raise ValueError(f"Неизвестный режим нормализованного газа: {mode}") from exc
+
+
+def _has_valid_normalized_curve(
+    dataset: Dataset,
+    names: tuple[str, ...],
+    *,
+    local: bool,
+) -> bool:
+    seen: set[str] = set()
+    for mnemonic in names:
+        curve = dataset.curve_by_mnemonic(mnemonic)
+        if curve is None or curve.metadata.curve_id in seen:
+            continue
+        seen.add(curve.metadata.curve_id)
+        is_local = curve.metadata.provenance.startswith("calculation:")
+        if is_local is not local:
+            continue
+        values = np.asarray(curve.values, dtype=np.float64)
+        if values.shape == dataset.depth.shape and np.count_nonzero(np.isfinite(values)) >= 20:
+            return True
+    return False
 
 
 def _strip_source_prefix(value: str) -> str:
