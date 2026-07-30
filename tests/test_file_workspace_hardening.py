@@ -8,7 +8,16 @@ from PIL import Image
 import pytest
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QTabWidget, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QFormLayout,
+    QLabel,
+    QMainWindow,
+    QScrollArea,
+    QSizePolicy,
+    QTabWidget,
+    QWidget,
+)
 
 from geoworkbench.files.document_service import DocumentError
 from geoworkbench.files.enhanced_document_service import EnhancedDocumentService
@@ -140,6 +149,56 @@ def test_text_overflow_error_is_localized() -> None:
 
     english.deleteLater()
     kazakh.deleteLater()
+
+
+def test_engineering_calculators_are_scrollable_and_roomy() -> None:
+    _application()
+    widget = FileWorkspaceWidget(language="ru")
+
+    scroll = widget.findChild(QScrollArea, "engineeringCalculationsScroll")
+    petroleum_tabs = widget.findChild(QTabWidget, "petroleumCalculatorTabs")
+    assert scroll is not None and scroll.widgetResizable()
+    assert petroleum_tabs is not None and petroleum_tabs.minimumHeight() >= 540
+
+    for name in (
+        "pipe_od_in",
+        "pipe_wall_mm",
+        "drill_mud_density",
+        "mud_annular_loss",
+        "geo_reference",
+        "depth_ground_elevation",
+        "depth_reference_kind",
+    ):
+        control = getattr(widget, name)
+        assert control.minimumWidth() >= 300
+        assert control.minimumHeight() >= 36
+
+    expected_heights = {
+        "pipe_result": 180,
+        "drill_result": 220,
+        "mud_result": 220,
+        "geo_result": 160,
+        "depth_result": 260,
+    }
+    for name, minimum_height in expected_heights.items():
+        result = getattr(widget, name)
+        assert result.minimumWidth() >= 620
+        assert result.minimumHeight() >= minimum_height
+        assert (
+            result.sizePolicy().verticalPolicy()
+            == QSizePolicy.Policy.MinimumExpanding
+        )
+
+    for name in ("pipe_result", "geo_result", "depth_result"):
+        result = getattr(widget, name)
+        layout = result.parentWidget().layout()
+        assert isinstance(layout, QFormLayout)
+        row, role = layout.getWidgetPosition(result)
+        assert row >= 0
+        assert role == QFormLayout.ItemRole.SpanningRole
+
+    widget.close()
+    widget.deleteLater()
 
 
 def test_language_action_rebuilds_workspace_and_preserves_state(tmp_path: Path) -> None:
