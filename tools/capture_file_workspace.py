@@ -9,7 +9,7 @@ from PySide6.QtGui import QColor, QPalette
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QTabWidget
 
-from geoworkbench.ui.file_workspace_release import FileWorkspaceWidget
+from geoworkbench.ui.file_workspace_runtime import FileWorkspaceWidget
 
 
 def _arguments() -> argparse.Namespace:
