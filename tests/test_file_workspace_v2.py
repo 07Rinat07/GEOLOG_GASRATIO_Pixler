@@ -4,11 +4,12 @@ from pathlib import Path
 
 import fitz
 from PySide6.QtCore import QPointF, Qt
-from PySide6.QtWidgets import QApplication, QFrame, QToolButton
+from PySide6.QtWidgets import QApplication, QFrame, QLabel, QToolButton
 
 from geoworkbench.files.enhanced_document_service import EnhancedDocumentService
+from geoworkbench.ui.file_workspace_geometry import eraser_stroke_rectangles
 from geoworkbench.ui.file_workspace_i18n import catalogs_have_same_keys
-from geoworkbench.ui.file_workspace_v3 import FileWorkspaceWidget
+from geoworkbench.ui.file_workspace_release import FileWorkspaceWidget
 
 
 def _application() -> QApplication:
@@ -16,6 +17,12 @@ def _application() -> QApplication:
     if application is None:
         application = QApplication([])
     return application
+
+
+def _dispose(widget: FileWorkspaceWidget) -> None:
+    widget.close()
+    widget.deleteLater()
+    _application().processEvents()
 
 
 def _sample_pdf(path: Path) -> Path:
@@ -45,7 +52,7 @@ def test_workspace_is_localized_in_all_three_languages() -> None:
         assert button is not None
         assert button.text() == eraser
         assert len(widget.findChildren(QFrame, "expertHelpCard")) == 5
-        widget.deleteLater()
+        _dispose(widget)
 
 
 def test_eraser_is_separate_visible_checkable_tool() -> None:
@@ -60,7 +67,7 @@ def test_eraser_is_separate_visible_checkable_tool() -> None:
     assert "замен" not in eraser.text().casefold()
     assert widget.eraser_size.minimum() <= 12
     assert widget.eraser_size.maximum() >= 120
-    widget.deleteLater()
+    _dispose(widget)
 
 
 def test_calculator_fields_are_wide_and_have_help() -> None:
@@ -72,7 +79,44 @@ def test_calculator_fields_are_wide_and_have_help() -> None:
     assert widget.converter_result.minimumWidth() >= 300
     assert widget.expression_input.placeholderText()
     assert widget.eraser_button.toolTip()
-    widget.deleteLater()
+    _dispose(widget)
+
+
+def test_logo_help_card_is_inside_controls_not_a_side_column() -> None:
+    _application()
+    widget = FileWorkspaceWidget(language="en")
+    page = widget.sections.widget(2)
+    card = page.findChild(QFrame, "expertHelpCard") if page is not None else None
+    assert card is not None
+    assert card.parentWidget() is widget.logo_text.parentWidget()
+    _dispose(widget)
+
+
+def test_english_page_label_datum_hint_and_units_are_localized(tmp_path: Path) -> None:
+    _application()
+    source = _sample_pdf(tmp_path / "english-ui.pdf")
+    widget = FileWorkspaceWidget(language="en")
+    widget.document_service.open(source)
+    widget._refresh_document()
+    assert widget.page_label.text() == "Page 1 / 1"
+
+    datum_group = widget.datum_inputs[0].parentWidget()
+    datum_hints = [
+        label.text()
+        for label in datum_group.findChildren(QLabel)
+        if label.objectName() == "hint"
+    ] if datum_group is not None else []
+    assert any(text.startswith("Chain:") for text in datum_hints)
+    assert all("Цепочка" not in text for text in datum_hints)
+
+    volume_index = widget.converter_category.findData("volume")
+    widget.converter_category.setCurrentIndex(volume_index)
+    assert widget.converter_category.currentText() == "Volume"
+    assert widget.converter_source.itemText(widget.converter_source.findData("ml")) == "mL"
+    assert widget.converter_target.itemText(widget.converter_target.findData("l")) == "L"
+    assert widget.pipe_wall_mm.suffix() == " mm"
+    assert widget.drill_flow.suffix() == " L/s"
+    _dispose(widget)
 
 
 def test_brush_eraser_removes_pdf_content_in_one_undo_step(tmp_path: Path) -> None:
@@ -99,21 +143,18 @@ def test_brush_eraser_result_persists_after_save(tmp_path: Path) -> None:
 
 
 def test_visible_brush_coordinates_match_pdf_at_non_default_zoom(tmp_path: Path) -> None:
-    _application()
     source = _sample_pdf(tmp_path / "zoomed-brush.pdf")
-    widget = FileWorkspaceWidget(language="ru")
-    widget.document_service.open(source)
-    widget._render_zoom = 2.0
-    widget._refresh_document()
-
     points = [QPointF(float(x), 140.0) for x in range(60, 461, 30)]
-    widget._apply_eraser_stroke(points, 70)
+    rects = eraser_stroke_rectangles(points, brush_size_px=70, render_scale=2.0)
+    assert rects[0] == (12.5, 52.5, 47.5, 87.5)
 
-    assert "DELETE THIS TEXT" not in widget.document_service._pdf_page().get_text()
-    assert widget.document_service.can_undo
-    widget.document_service.undo()
-    assert "DELETE THIS TEXT" in widget.document_service._pdf_page().get_text()
-    widget.deleteLater()
+    service = EnhancedDocumentService()
+    service.open(source)
+    service.erase_pdf_rects(rects)
+    assert "DELETE THIS TEXT" not in service._pdf_page().get_text()
+    assert service.can_undo
+    service.undo()
+    assert "DELETE THIS TEXT" in service._pdf_page().get_text()
 
 
 def test_styled_unicode_text_persists_after_save(tmp_path: Path) -> None:
@@ -136,7 +177,10 @@ def test_styled_unicode_text_persists_after_save(tmp_path: Path) -> None:
 
     with fitz.open(target) as saved:
         assert inserted in saved[0].get_text()
-        assert any(font[3].startswith("Helvetica") for font in saved.get_page_fonts(0))
+        assert any(
+            font[4].startswith("GW") and font[5] == "Identity-H"
+            for font in saved.get_page_fonts(0)
+        )
 
 
 def test_overlay_accepts_visible_brush_points() -> None:
@@ -147,4 +191,4 @@ def test_overlay_accepts_visible_brush_points() -> None:
     overlay.set_brush_size(48)
     assert not overlay.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
     assert overlay._distance(QPointF(0, 0), QPointF(3, 4)) == 5
-    widget.deleteLater()
+    _dispose(widget)
