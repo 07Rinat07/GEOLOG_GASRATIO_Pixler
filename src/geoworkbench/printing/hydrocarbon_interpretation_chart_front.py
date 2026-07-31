@@ -70,14 +70,14 @@ def _chart_block(
         )
 
     return (
-        f"<section class='interpretation-curves' style='{section_style}'>"
+        f"<div class='interpretation-curves' style='{section_style}'>"
         f"<h2 style='{heading_style}'>{escape(labels['title'])}</h2>"
         f"<p style='{note_style}'><small>{escape(labels['note'])}</small></p>"
         f"<div style='{wrapper_style}'>"
         f'<img alt="{escape(labels["title"])}" style="{image_style}" '
         f'src="{uri}" />'
         "</div>"
-        "</section>"
+        "</div>"
     )
 
 
