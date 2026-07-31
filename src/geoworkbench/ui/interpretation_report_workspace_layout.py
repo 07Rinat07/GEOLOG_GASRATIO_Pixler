@@ -48,6 +48,13 @@ class InterpretationReportWorkspace(_ResponsiveInterpretationReportWorkspace):
                 "Recalculate all available curves and open tablet",
             )
         )
+        self.refresh_chart_report_button.setText(
+            self._text(
+                "Обновить отчёт с графиками",
+                "Графиктері бар есепті жаңарту",
+                "Refresh report with charts",
+            )
+        )
 
 
 __all__ = ["InterpretationReportWorkspace"]
