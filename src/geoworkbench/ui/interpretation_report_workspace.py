@@ -1,4 +1,4 @@
-from geoworkbench.ui.interpretation_report_workspace_polish import (
+from geoworkbench.ui.interpretation_report_workspace_compat import (
     InterpretationReportWorkspace,
 )
 
