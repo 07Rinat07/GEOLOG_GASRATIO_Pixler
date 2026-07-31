@@ -1,11 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-from openpyxl import load_workbook  # type: ignore[import-untyped]
 
-from geoworkbench.data.hydrocarbon_interpretation_export_readable import (
-    export_readable_hydrocarbon_interpretation_xlsx,
-)
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
@@ -82,19 +78,30 @@ def _session_with_zero_heavy_components() -> ProjectSession:
     return session
 
 
-def test_html_replaces_ambiguous_zero_wetness_with_explicit_gas_readings() -> None:
+def test_pdf_html_replaces_ambiguous_zero_wetness_with_explicit_gas_readings() -> None:
+    from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
+        inject_interval_gas_statistics_html,
+    )
+
     session = _session_with_zero_heavy_components()
+    dataset = session.current_dataset
+    assert dataset is not None
     report = build_hydrocarbon_interpretation_report(
         session,
         threshold=3.0,
         normalized_gas_mode=NormalizedGasCalculationMode.LOCAL,
     )
 
-    html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+    html = inject_interval_gas_statistics_html(
+        hydrocarbon_interpretation_html(report, AppLanguage.RU),
+        report,
+        dataset,
+        AppLanguage.RU,
+    )
 
     assert report.candidates
-    assert "Показания газа по интервалам" in html
     assert "Исходный общий газ" in html
+    assert "Нормализованный газ" in html
     assert "C2-C5 в интервале и на фоне не зарегистрированы выше нуля" in html
     assert "Относительная доля C2–C5: интервал 0.00000%" not in html
 
@@ -102,6 +109,12 @@ def test_html_replaces_ambiguous_zero_wetness_with_explicit_gas_readings() -> No
 def test_readable_xlsx_keeps_interpretation_and_gas_statistics_on_main_sheet(
     tmp_path,
 ) -> None:
+    from openpyxl import load_workbook  # type: ignore[import-untyped]
+
+    from geoworkbench.data.hydrocarbon_interpretation_export_readable import (
+        export_readable_hydrocarbon_interpretation_xlsx,
+    )
+
     session = _session_with_zero_heavy_components()
     dataset = session.current_dataset
     assert dataset is not None
