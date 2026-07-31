@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 from PySide6.QtCore import QObject, QTimer, Qt
 from PySide6.QtGui import QAction
@@ -62,7 +63,7 @@ class NavigationOrganizationController(QObject):
 
     def __init__(self, window: QMainWindow) -> None:
         super().__init__(window)
-        self.window = window
+        self.window: Any = window
         self.file_dialog: _WorkspaceDialog | None = None
         self.interpretation_dialog: _WorkspaceDialog | None = None
         self.help_dialog: HelpCenterDialog | None = None
@@ -225,7 +226,7 @@ def schedule_navigation_organization(widget: QWidget) -> None:
         controller = getattr(window, "_navigation_organization_controller", None)
         if controller is None:
             controller = NavigationOrganizationController(window)
-            window._navigation_organization_controller = controller
+            setattr(window, "_navigation_organization_controller", controller)
         if not controller.install() and remaining > 0:
             QTimer.singleShot(10, lambda: attempt(remaining - 1))
 
