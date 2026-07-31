@@ -73,10 +73,13 @@ def _run_single_pytest(args: Sequence[str]) -> int:
 
 def _explicit_test_selection(args: Sequence[str]) -> bool:
     return any(
-        "::" in value
-        or value.endswith(".py")
-        or value.startswith("tests/")
-        or value.startswith("tests\\")
+        not value.startswith("-")
+        and (
+            "::" in value
+            or value.endswith(".py")
+            or value.startswith("tests/")
+            or value.startswith("tests\\")
+        )
         for value in args
     )
 
