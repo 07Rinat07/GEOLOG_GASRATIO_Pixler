@@ -19,7 +19,7 @@ def _grid_position(workspace, widget) -> tuple[int, int, int, int]:
     raise AssertionError(f"Widget {widget.objectName()} is absent from configuration grid")
 
 
-def test_interpretation_workspace_separates_controls_preview_and_log(qapp) -> None:
+def test_interpretation_workspace_uses_collapsible_left_preview_sidebar(qapp) -> None:
     workspace = InterpretationReportWorkspace(
         InterpretationCalculationController(ProjectSession()),
         language=AppLanguage.RU,
@@ -29,10 +29,15 @@ def test_interpretation_workspace_separates_controls_preview_and_log(qapp) -> No
     qapp.processEvents()
 
     assert workspace.page_header.isVisible()
-    assert workspace.main_splitter.orientation() == Qt.Orientation.Vertical
+    assert workspace.main_splitter.orientation() == Qt.Orientation.Horizontal
     assert workspace.main_splitter.widget(0) is workspace.configuration_scroll
     assert workspace.main_splitter.widget(1) is workspace.report_panel
-    assert workspace.configuration_scroll.widgetResizable()
+    assert workspace.preview_sidebar.isAncestorOf(workspace.preview_toggle)
+    assert workspace.preview_toggle.text() == "Предпросмотр отчёта"
+    assert "Показывает или скрывает" in workspace.preview_toggle.toolTip()
+    assert not workspace.preview_toggle.isChecked()
+    assert workspace.configuration_scroll.isVisible()
+    assert not workspace.report_panel.isVisible()
     assert workspace.report_panel.isAncestorOf(workspace.preview)
     assert workspace.log_panel.isAncestorOf(workspace.status)
     assert workspace.log_scroll.maximumHeight() <= 150
@@ -44,6 +49,18 @@ def test_interpretation_workspace_separates_controls_preview_and_log(qapp) -> No
     assert _grid_position(workspace, workspace.settings_panel) == (0, 1, 1, 1)
     assert _grid_position(workspace, workspace.dexp_quality_panel) == (1, 1, 1, 1)
 
+    workspace.preview_toggle.setChecked(True)
+    qapp.processEvents()
+    assert workspace.report_panel.isVisible()
+    assert workspace.configuration_scroll.isVisible()
+    assert workspace.preview_toggle.arrowType() == Qt.ArrowType.LeftArrow
+
+    workspace.preview_toggle.setChecked(False)
+    qapp.processEvents()
+    assert not workspace.report_panel.isVisible()
+    assert workspace.configuration_scroll.isVisible()
+    assert workspace.preview_toggle.arrowType() == Qt.ArrowType.RightArrow
+
     workspace.methodology_toggle.setChecked(True)
     qapp.processEvents()
     assert workspace.methodology_panel.isVisible()
@@ -51,7 +68,7 @@ def test_interpretation_workspace_separates_controls_preview_and_log(qapp) -> No
     workspace.close()
 
 
-def test_interpretation_workspace_switches_to_one_column_on_narrow_window(qapp) -> None:
+def test_interpretation_workspace_replaces_controls_with_preview_on_narrow_window(qapp) -> None:
     workspace = InterpretationReportWorkspace(
         InterpretationCalculationController(ProjectSession()),
         language=AppLanguage.EN,
@@ -67,4 +84,17 @@ def test_interpretation_workspace_switches_to_one_column_on_narrow_window(qapp) 
     assert workspace.configuration_content.maximumWidth() == 940
     assert workspace.page_title.text() == "Gas logging interpretation"
     assert workspace.report_title.text() == "Report preview"
+    assert workspace.preview_toggle.text() == "Report preview"
+    assert not workspace.report_panel.isVisible()
+    assert workspace.configuration_scroll.isVisible()
+
+    workspace.preview_toggle.setChecked(True)
+    qapp.processEvents()
+    assert workspace.report_panel.isVisible()
+    assert not workspace.configuration_scroll.isVisible()
+
+    workspace.preview_toggle.setChecked(False)
+    qapp.processEvents()
+    assert not workspace.report_panel.isVisible()
+    assert workspace.configuration_scroll.isVisible()
     workspace.close()

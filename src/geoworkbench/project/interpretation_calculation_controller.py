@@ -13,6 +13,7 @@ from geoworkbench.project.interpretation_calculation_controller_legacy import (
     NormalizedGasReference,
 )
 from geoworkbench.services.channel_groups import NORMALIZED_GAS_MNEMONIC_ORDER
+from geoworkbench.services.dexp_gap_repair import repair_dexp_short_gaps
 from geoworkbench.services.drilling_input_plan import (
     DrillingInputPlan,
     DrillingInputResolver,
@@ -279,6 +280,29 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
     ) -> None:
         target_mnemonic = mnemonic
         target_description = description
+        installed_values = values
+        installed_provenance = provenance
+
+        if (
+            mnemonic in {"DEXP", "DEXPC"}
+            and provenance.startswith("calculation:")
+        ):
+            repair = repair_dexp_short_gaps(
+                dataset.depth,
+                values,
+                depth_unit=dataset.active_index.unit or "",
+            )
+            installed_values = repair.values
+            if repair.repaired_points:
+                installed_provenance = (
+                    f"{provenance};gap_repair=linear-short-internal;"
+                    f"points={repair.repaired_points};gaps={repair.repaired_gaps}"
+                )
+                target_description = (
+                    f"{description} — короткие внутренние разрывы восстановлены "
+                    "линейной интерполяцией"
+                )
+
         if mnemonic == "TG_NORM" and provenance.startswith("calculation:"):
             target_mnemonic = "TG_NORM_CALC"
             target_description = f"{description} — local program calculation"
@@ -286,10 +310,10 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
             self,
             dataset,
             target_mnemonic,
-            values,
+            installed_values,
             unit=unit,
             description=target_description,
-            provenance=provenance,
+            provenance=installed_provenance,
             created=created,
             updated=updated,
             skipped=skipped,
