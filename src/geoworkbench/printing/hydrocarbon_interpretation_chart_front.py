@@ -17,6 +17,8 @@ def hydrocarbon_interpretation_html_with_front_chart(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
     language: AppLanguage = AppLanguage.RU,
+    *,
+    print_layout: bool = False,
 ) -> str:
     """Insert the whole-well chart before the first tabular report section."""
 
@@ -30,21 +32,53 @@ def hydrocarbon_interpretation_html_with_front_chart(
     if not uri:
         return base
     labels = _labels(language)
-    block = (
-        "<section class='interpretation-curves'>"
-        f"<h2>{escape(labels['title'])}</h2>"
-        f"<p><small>{escape(labels['note'])}</small></p>"
-        "<div style='width:100%; text-align:center;'>"
-        f'<img alt="{escape(labels["title"])}" '
-        "style='display:block; width:100%; max-width:1050px; height:auto; margin:0 auto;' "
-        f'src="{uri}" />'
-        "</div>"
-        "</section>"
-    )
+    block = _chart_block(uri, labels, print_layout=print_layout)
     marker = "<h2>"
     if marker in base:
         return base.replace(marker, block + marker, 1)
     return base.replace("</body>", block + "</body>")
+
+
+def _chart_block(
+    uri: str,
+    labels: dict[str, str],
+    *,
+    print_layout: bool,
+) -> str:
+    if print_layout:
+        section_style = (
+            "page-break-before: always; page-break-after: always; "
+            "page-break-inside: avoid; margin: 0;"
+        )
+        heading_style = "margin: 0 0 6px 0;"
+        note_style = "margin: 0 0 8px 0;"
+        wrapper_style = (
+            "width: 100%; text-align: center; page-break-inside: avoid;"
+        )
+        image_style = (
+            "display: block; width: 86%; max-width: 880px; height: auto; "
+            "margin: 0 auto; page-break-inside: avoid;"
+        )
+    else:
+        section_style = ""
+        heading_style = ""
+        note_style = ""
+        wrapper_style = "width: 100%; text-align: center;"
+        image_style = (
+            "display:block; width:100%; max-width:1050px; height:auto; "
+            "margin:0 auto;"
+        )
+
+    return (
+        f"<div class='interpretation-curves' style='{section_style}'>"
+        f"<h2 style='{heading_style}'>{escape(labels['title'])}</h2>"
+        f"<p style='{note_style}'><small>{escape(labels['note'])}</small></p>"
+        f"<div style='{wrapper_style}'>"
+        f'<img alt="{escape(labels["title"])}" style="{image_style}" '
+        f'src="{uri}" />'
+        "</div>"
+        "</div>"
+    )
 
 
 def _labels(language: AppLanguage) -> dict[str, str]:

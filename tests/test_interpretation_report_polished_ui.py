@@ -76,6 +76,10 @@ def test_polished_workspace_groups_controls_and_marks_primary_action(qapp) -> No
     assert workspace.workflow_help_button is not None
     assert workspace.workflow_help_button.text() == "Настройка и печать"
     assert "пошаговая" in workspace.workflow_help_button.toolTip().casefold()
+    assert not workspace.workflow_help_button.icon().isNull()
+    assert workspace.workflow_help_button.iconSize().width() == 34
+    assert workspace.workflow_help_button.minimumHeight() >= 58
+    assert workspace.workflow_help_button.property("toolTipPlacement") == "above"
     guide = workspace._workflow_help_html()
     assert "перспективные интервалы" in guide.casefold()
     assert "печать" in guide.casefold()

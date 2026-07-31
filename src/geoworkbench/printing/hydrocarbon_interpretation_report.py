@@ -57,7 +57,12 @@ def export_hydrocarbon_interpretation_pdf(
         writer.setTitle("Mud-gas interpretation report")
         writer.setCreator("GEOLOG GASRATIO@Pixler")
         html = (
-            hydrocarbon_interpretation_html_with_front_chart(report, dataset, language)
+            hydrocarbon_interpretation_html_with_front_chart(
+                report,
+                dataset,
+                language,
+                print_layout=True,
+            )
             if include_chart and dataset is not None
             else hydrocarbon_interpretation_html(report, language)
         )
@@ -77,6 +82,7 @@ def export_hydrocarbon_interpretation_pdf(
             raise HydrocarbonInterpretationPdfError(unicode_report.error_message())
         document = QTextDocument()
         document.setDefaultFont(print_font(9.0 if include_chart else 10.0, text=html))
+        document.setPageSize(writer.pageLayout().paintRectPoints().size())
         document.setHtml(html)
         document.print_(writer)
         del writer
