@@ -5,6 +5,8 @@ from typing import cast
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from geoworkbench.ui.navigation_organization import schedule_navigation_organization
+
 _INSTALL_COMMAND = 'python -m pip install --upgrade "PyMuPDF>=1.28,<2" "Pillow>=12.3,<13"'
 
 
@@ -39,7 +41,12 @@ class FileWorkspaceWidget(QWidget):
             instance = super().__new__(cls)
             instance._missing_dependency = error.name or "неизвестный модуль"
             return instance
-        return cast(FileWorkspaceWidget, LocalizedFileWorkspaceWidget(parent, language=language))
+        instance = cast(
+            FileWorkspaceWidget,
+            LocalizedFileWorkspaceWidget(parent, language=language),
+        )
+        schedule_navigation_organization(instance)
+        return instance
 
     def __init__(
         self,
@@ -84,6 +91,7 @@ class FileWorkspaceWidget(QWidget):
         note.setWordWrap(True)
         layout.addWidget(note)
         layout.addStretch(1)
+        schedule_navigation_organization(self)
 
     @staticmethod
     def tab_title(language: str) -> str:
@@ -103,7 +111,7 @@ class FileWorkspaceWidget(QWidget):
             "ru": {
                 "title": "Компоненты PDF и изображений не установлены",
                 "message": (
-                    "Основное приложение продолжает работать. Для вкладки «Файлы / PDF / "
+                    "Основное приложение продолжает работать. Для окна «Файлы / PDF / "
                     "Калькулятор» отсутствует модуль {module}. Выполните команду в активном "
                     "виртуальном окружении:"
                 ),
@@ -114,7 +122,7 @@ class FileWorkspaceWidget(QWidget):
                 "title": "PDF және кескін компоненттері орнатылмаған",
                 "message": (
                     "Негізгі қолданба жұмысын жалғастырады. «Файлдар / PDF / Калькулятор» "
-                    "қойындысына {module} модулі жетіспейді. Белсенді виртуалды ортада пәрменді "
+                    "терезесіне {module} модулі жетіспейді. Белсенді виртуалды ортада пәрменді "
                     "орындаңыз:"
                 ),
                 "copy": "Пәрменді көшіру",
@@ -123,8 +131,9 @@ class FileWorkspaceWidget(QWidget):
             "en": {
                 "title": "PDF and image components are not installed",
                 "message": (
-                    "The main application remains available. The Files / PDF / Calculator tab is "
-                    "missing module {module}. Run this command in the active virtual environment:"
+                    "The main application remains available. The Files / PDF / Calculator "
+                    "window is missing module {module}. Run this command in the active virtual "
+                    "environment:"
                 ),
                 "copy": "Copy command",
                 "note": "Restart the application after installation.",

@@ -7,6 +7,9 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 ## Начало работы
 
 - Руководство: [Русский](ru/README.md) · [Қазақша](kk/README.md) · [English](en/README.md)
+- Порядок разделов интерфейса и пользовательские процессы:
+  [Русский](USER_GUIDE_RU.md) · [Қазақша](USER_GUIDE_KK.md) ·
+  [English](USER_GUIDE_EN.md) · [индекс руководств](README.md)
 - Карта функций: [Русский](ru/FEATURES.md) · [Қазақша](kk/FEATURES.md) ·
   [English](en/FEATURES.md)
 - Безопасность: [политика](../SECURITY.md) · [Русский](ru/SECURITY.md) ·
