@@ -72,7 +72,30 @@ jobs:
           Invoke-Logged "compileall" { .\.venv\Scripts\python.exe -m compileall -q src tests tools scripts }
           Invoke-Logged "ruff" { .\.venv\Scripts\python.exe -m ruff check src tests tools scripts }
           Invoke-Logged "mypy" { .\.venv\Scripts\python.exe -m mypy src }
-          Invoke-Logged "pytest" { .\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider }
+          Invoke-Logged "pytest" {
+            $IsolatedQtTests = @(
+              "tests/test_hydrocarbon_interpretation_ui.py",
+              "tests/test_hydrocarbon_interpretation_workspace.py",
+              "tests/test_hydrocarbon_interpretation_workspace_ui.py",
+              "tests/test_interpretation_export_workflow.py"
+            )
+
+            .\.venv\Scripts\python.exe scripts/run_tests.py `
+              -p no:cacheprovider `
+              "--ignore-glob=**/test_hydrocarbon_interpretation_ui.py*" `
+              "--ignore-glob=**/test_hydrocarbon_interpretation_workspace.py*" `
+              "--ignore-glob=**/test_hydrocarbon_interpretation_workspace_ui.py*" `
+              "--ignore-glob=**/test_interpretation_export_workflow.py*"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            foreach ($TestFile in $IsolatedQtTests) {
+              Write-Host "`n=== pytest dedicated Qt process: $TestFile ==="
+              .\.venv\Scripts\python.exe scripts/run_tests.py `
+                -p no:cacheprovider `
+                $TestFile
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+          }
 
       - name: Upload quality artifacts
         if: always()
