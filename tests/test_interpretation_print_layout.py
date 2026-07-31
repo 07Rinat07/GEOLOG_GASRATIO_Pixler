@@ -29,8 +29,9 @@ def test_preview_chart_remains_responsive_without_forced_page_break() -> None:
         _LABELS,
         print_layout=False,
     )
+    compact_html = "".join(html.split())
 
-    assert "page-break-before: always" not in html
-    assert "page-break-after: always" not in html
-    assert "width: 100%" in html
-    assert "max-width: 1050px" in html
+    assert "page-break-before:always" not in compact_html
+    assert "page-break-after:always" not in compact_html
+    assert "width:100%" in compact_html
+    assert "max-width:1050px" in compact_html
