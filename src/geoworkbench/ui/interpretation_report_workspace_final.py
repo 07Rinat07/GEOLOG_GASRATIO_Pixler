@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QMarginsF
+from PySide6.QtGui import QPageLayout, QPageSize, QTextDocument
+from PySide6.QtPrintSupport import QPrintDialog, QPrinter
+from PySide6.QtWidgets import QDialog
+
 from geoworkbench.data.hydrocarbon_interpretation_export import (
     HydrocarbonInterpretationExportError,
 )
+from geoworkbench.printing.gas_mixture_ramp_report import GasMixtureRampReport
 from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
     hydrocarbon_interpretation_html_with_front_chart,
 )
+from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.ui.interpretation_report_workspace_expert import (
     InterpretationReportWorkspace as _ExpertInterpretationReportWorkspace,
 )
@@ -62,6 +69,41 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 self.language,
             )
         )
+
+    def _print_report(self) -> None:
+        report = self._require_any_report()
+        if report is None:
+            return
+        if isinstance(report, GasMixtureRampReport):
+            super()._print_report()
+            return
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return
+
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+        printer.setPageOrientation(QPageLayout.Orientation.Landscape)
+        printer.setPageMargins(
+            QMarginsF(14.0, 14.0, 14.0, 14.0),
+            QPageLayout.Unit.Millimeter,
+        )
+        dialog = QPrintDialog(printer, self)
+        dialog.setWindowTitle(self.tab_title(self.language))
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        html = hydrocarbon_interpretation_html_with_front_chart(
+            report,
+            dataset,
+            self.language,
+            print_layout=True,
+        )
+        document = QTextDocument()
+        document.setDefaultFont(print_font(9.0, text=html))
+        document.setPageSize(printer.pageLayout().paintRectPoints().size())
+        document.setHtml(html)
+        document.print_(printer)
 
     def _export_xlsx(self) -> None:
         report = self._require_report()
