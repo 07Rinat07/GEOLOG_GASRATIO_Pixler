@@ -28,6 +28,20 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Pack temporary source snapshot
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          Compress-Archive -Path .github, docs, requirements, scripts, src, tests, tools, README.md, pyproject.toml -DestinationPath build/source-snapshot.zip -Force
+
+      - name: Upload temporary source snapshot
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: temporary-source-${{ github.run_id }}
+          path: build/source-snapshot.zip
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
