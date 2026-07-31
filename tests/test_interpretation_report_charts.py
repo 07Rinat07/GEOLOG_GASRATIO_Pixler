@@ -83,6 +83,9 @@ def test_whole_well_report_chart_is_embedded_before_tables(qapp) -> None:
     methods_position = html.index("Методы и доступность")
     assert chart_position < methods_position
     assert "data:image/png;base64," in html
+    assert "max-width:1050px" in html
+    assert "margin:0 auto" in html
+    assert 'width="1050"' not in html
 
 
 def test_whole_well_pdf_contains_chart_image(qapp, tmp_path) -> None:

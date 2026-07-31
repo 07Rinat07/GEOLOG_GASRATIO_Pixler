@@ -117,7 +117,7 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert candidate.wetness_robust_z is not None
     assert candidate.wetness_robust_z > 2.0
     assert ("WH", 12.0) in candidate.metrics
-    assert any("context medians: WH=12" in evidence for evidence in candidate.evidence)
+    assert any("context means: WH=12" in evidence for evidence in candidate.evidence)
     assert len(report.manual_intervals) == 1
     assert report.manual_intervals[0].label == "+Confirmed"
     assert any("не заключение" in warning for warning in report.warnings)
@@ -144,27 +144,27 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
     docx_path = export_hydrocarbon_interpretation_docx(
         report,
         tmp_path / "interpretation.docx",
+        dataset=dataset,
     )
 
     workbook = load_workbook(xlsx_path, read_only=True, data_only=False)
     try:
         assert workbook.sheetnames == [
-            "Summary",
-            "Candidate intervals",
-            "Manual intervals",
-            "Methods",
-            "Whole well",
+            "Интерпретация УВ",
+            "Методика",
+            "Данные по глубине",
         ]
-        assert workbook["Summary"]["B1"].value == "'=Project formula"
-        assert workbook["Candidate intervals"].max_row == 2
-        assert (
-            workbook["Candidate intervals"]["I2"].value
-            == "heavy_or_residual_oil"
-        )
-        assert workbook["Candidate intervals"]["M1"].value == "interval_balance_bh"
-        assert workbook["Candidate intervals"]["N1"].value == "interval_character_ch"
-        assert workbook["Candidate intervals"]["T1"].value == "gas_lba_correlation"
-        assert workbook["Whole well"].max_row == dataset.depth.size + 1
+        main = workbook["Интерпретация УВ"]
+        assert main["B2"].value == "'=Project formula"
+        headers = [main.cell(9, column).value for column in range(1, 24)]
+        assert "Абсолютный газ по компонентам: мин / среднее / макс" in headers
+        assert "Точек выше порога" not in headers
+        assert not any("Медиана" in str(value) for value in headers)
+        assert not any("Фон" in str(value) for value in headers)
+        assert "C1" in str(main["R10"].value)
+        assert "IC4" in str(main["R10"].value)
+        assert "NC5" in str(main["R10"].value)
+        assert workbook["Данные по глубине"].max_row == dataset.depth.size + 1
     finally:
         workbook.close()
     with zipfile.ZipFile(docx_path) as package:
@@ -172,7 +172,11 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         document = package.read("word/document.xml").decode("utf-8")
         assert "Кандидатные интервалы" in document
         assert "тяжёлая или остаточная нефть" in document
-        assert "Точек выше порога" in document
+        assert "Абсолютный газ: мин / среднее / макс" in document
+        assert "Точек выше порога" not in document
+        assert "Медиана" not in document
+        assert "Фон" not in document
+        assert "IC4" in document and "NC5" in document
         assert "Check DST" in document
 
 
@@ -262,7 +266,9 @@ def test_sparse_heavy_components_use_integrated_interval_composition() -> None:
     assert candidate.interval_wetness > 0.0
     html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
     assert f"{candidate.interval_wetness:.5f}%" in html
-    assert "Точек выше порога" in html
+    assert "Точек выше порога" not in html
+    assert "Абсолютный газ: мин / среднее / макс" in html
+    assert "фон 0.00000" not in html
 
 
 def test_report_correlates_gas_interpretation_with_overlapping_lba() -> None:

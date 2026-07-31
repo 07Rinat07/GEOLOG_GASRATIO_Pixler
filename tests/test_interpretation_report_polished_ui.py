@@ -94,3 +94,23 @@ def test_polished_workspace_updates_dexp_gap_summary(qapp) -> None:
     assert workspace.dexp_details_button.isEnabled()
     assert workspace.dexp_details_button.text() == "Gap details"
     workspace.close()
+
+
+def test_report_export_progress_is_visible_and_blocks_repeat_actions(qapp) -> None:
+    workspace = InterpretationReportWorkspace(_controller(), language=AppLanguage.RU)
+    workspace.show()
+    qapp.processEvents()
+
+    assert workspace.export_progress.objectName() == "interpretation-report-export-progress"
+    assert not workspace.export_progress.isVisible()
+    with workspace._report_export_progress("Формируется Excel-отчёт…"):
+        qapp.processEvents()
+        assert workspace.export_progress.isVisible()
+        assert workspace.export_progress.format() == "Формируется Excel-отчёт…"
+        assert not workspace.xlsx_button.isEnabled()
+        assert not workspace.docx_button.isEnabled()
+        assert "Формируется Excel" in workspace.status.text()
+
+    assert not workspace.export_progress.isVisible()
+    assert workspace.xlsx_button.isEnabled()
+    workspace.close()

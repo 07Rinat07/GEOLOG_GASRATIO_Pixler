@@ -416,11 +416,10 @@ def _detect_candidates(
         evidence_parts = [
             f"{primary_mnemonic}: max robust z = {maximum_z:.2f} (threshold {threshold:.2f})",
             f"{primary_mnemonic}: max = {maximum_primary:.6g}",
-            f"flagged samples = {group_indices.size}",
         ]
         if metrics:
             evidence_parts.append(
-                "context medians: "
+                "context means: "
                 + ", ".join(f"{name}={value:.6g}" for name, value in metrics)
             )
         for assessment in lba_assessments:
@@ -791,7 +790,7 @@ def _interval_metrics(dataset: Dataset, mask: np.ndarray) -> tuple[tuple[str, fl
             continue
         finite = mask & np.isfinite(values)
         if np.any(finite):
-            metrics.append((mnemonic, float(np.median(values[finite]))))
+            metrics.append((mnemonic, float(np.mean(values[finite]))))
     return tuple(metrics)
 
 
@@ -806,15 +805,15 @@ _HTML_LABELS = {
         "threshold": "Порог robust z",
         "methods": "Методы и доступность",
         "method": "Метод",
-        "curves": "Доступные кривые",
+        "curves": "Использованные данные",
         "source": "Источник",
         "candidates": "Кандидатные интервалы УВ-проявлений",
         "interval": "Интервал",
         "strength": "Относительная сила аномалии",
-        "samples": "Точек выше порога",
+        "absolute_gas": "Абсолютный газ: мин / среднее / макс",
         "evidence": "Основание",
         "hypothesis": "Предварительная интерпретация",
-        "details": "Сопоставление методов по интервалам",
+        "details": "Интерпретация по интервалам",
         "manual": "Интервалы, подтверждённые геологом",
         "interpretation": "Интерпретация",
         "type": "Тип",
@@ -860,15 +859,15 @@ _HTML_LABELS = {
             "тяжёлая или остаточная нефть; возможна непродуктивная зона"
         ),
         "wetness_basis": (
-            "Относительная доля C2–C5: интервал {interval:.5f}%, "
-            "фон {background:.5f}%, robust z={robust_z:.5f}."
+            "Средняя относительная доля C2–C5 в интервале {interval:.5f}%; "
+            "относительное отклонение robust z={robust_z:.5f}."
         ),
         "wetness_no_scale": (
-            "Относительная доля C2–C5: интервал {interval:.5f}%, "
-            "фон {background:.5f}%; фон не имеет устойчивого разброса."
+            "Средняя относительная доля C2–C5 в интервале {interval:.5f}%; "
+            "устойчивость сравнения вне интервала недостаточна."
         ),
         "wetness_insufficient": (
-            "Для интерпретации нужны согласованные C1–C5 и не менее 20 фоновых отсчётов."
+            "Для интерпретации нужны согласованные C1–C5 и достаточное число корректных отсчётов вне интервала."
         ),
         "ratio_basis": "Палетка Haworth/DATALOG: Wh={wh}, Bh={bh}, Ch={ch}.",
         "phase_productive_gas_phase": "Ch подтверждает продуктивную газовую фазу.",
@@ -931,15 +930,15 @@ _HTML_LABELS = {
         "threshold": "Robust z шегі",
         "methods": "Әдістер және қолжетімділік",
         "method": "Әдіс",
-        "curves": "Қолжетімді қисықтар",
+        "curves": "Пайдаланылған деректер",
         "source": "Дереккөз",
         "candidates": "Көмірсутек көріністерінің кандидат аралықтары",
         "interval": "Аралық",
         "strength": "Аномалияның салыстырмалы күші",
-        "samples": "Шектен асқан нүктелер",
+        "absolute_gas": "Абсолюттік газ: ең аз / орташа / ең көп",
         "evidence": "Негіз",
         "hypothesis": "Алдын ала интерпретация",
-        "details": "Аралықтар бойынша әдістерді салыстыру",
+        "details": "Аралықтар бойынша интерпретация",
         "manual": "Геолог растаған аралықтар",
         "interpretation": "Интерпретация",
         "type": "Түр",
@@ -983,15 +982,15 @@ _HTML_LABELS = {
             "ауыр немесе қалдық мұнай; өнімсіз аймақ болуы мүмкін"
         ),
         "wetness_basis": (
-            "C2–C5 салыстырмалы үлесі: аралық {interval:.5f}%, "
-            "фон {background:.5f}%, robust z={robust_z:.5f}."
+            "Аралықтағы C2–C5 орташа салыстырмалы үлесі {interval:.5f}%; "
+            "салыстырмалы ауытқу robust z={robust_z:.5f}."
         ),
         "wetness_no_scale": (
-            "C2–C5 салыстырмалы үлесі: аралық {interval:.5f}%, "
-            "фон {background:.5f}%; фонның тұрақты шашырауы жоқ."
+            "Аралықтағы C2–C5 орташа салыстырмалы үлесі {interval:.5f}%; "
+            "аралықтан тыс салыстыру тұрақтылығы жеткіліксіз."
         ),
         "wetness_insufficient": (
-            "Интерпретация үшін үйлесімді C1–C5 және кемінде 20 фондық есеп қажет."
+            "Интерпретация үшін үйлесімді C1–C5 және аралықтан тыс жеткілікті дұрыс есеп қажет."
         ),
         "ratio_basis": "Haworth/DATALOG палеткасы: Wh={wh}, Bh={bh}, Ch={ch}.",
         "phase_productive_gas_phase": "Ch өнімді газ фазасын растайды.",
@@ -1050,15 +1049,15 @@ _HTML_LABELS = {
         "threshold": "Robust z threshold",
         "methods": "Methods and availability",
         "method": "Method",
-        "curves": "Available curves",
+        "curves": "Data used",
         "source": "Source",
         "candidates": "Candidate hydrocarbon-show intervals",
         "interval": "Interval",
         "strength": "Relative anomaly strength",
-        "samples": "Points above threshold",
+        "absolute_gas": "Absolute gas: min / mean / max",
         "evidence": "Evidence",
         "hypothesis": "Preliminary interpretation",
-        "details": "Method correlation by interval",
+        "details": "Interpretation by interval",
         "manual": "Geologist-confirmed intervals",
         "interpretation": "Interpretation",
         "type": "Type",
@@ -1102,15 +1101,15 @@ _HTML_LABELS = {
             "heavy or residual oil; possibly non-productive"
         ),
         "wetness_basis": (
-            "Relative C2–C5 fraction: interval {interval:.5f}%, "
-            "background {background:.5f}%, robust z={robust_z:.5f}."
+            "Mean relative C2–C5 share in the interval is {interval:.5f}%; "
+            "relative deviation robust z={robust_z:.5f}."
         ),
         "wetness_no_scale": (
-            "Relative C2–C5 fraction: interval {interval:.5f}%, "
-            "background {background:.5f}%; background has no robust spread."
+            "Mean relative C2–C5 share in the interval is {interval:.5f}%; "
+            "comparison outside the interval is not robust enough."
         ),
         "wetness_insufficient": (
-            "Interpretation requires consistent C1–C5 and at least 20 background samples."
+            "Interpretation requires consistent C1–C5 and enough valid samples outside the interval."
         ),
         "ratio_basis": "Haworth/DATALOG palette: Wh={wh}, Bh={bh}, Ch={ch}.",
         "phase_productive_gas_phase": "Ch supports a productive gas phase.",
@@ -1181,10 +1180,10 @@ def hydrocarbon_interpretation_html(
         f"{escape(report.depth_unit)}</td>"
         f"<td>{escape(labels[candidate.anomaly_strength])}</td>"
         f"<td>{escape(fluid_hypothesis_label(candidate, language))}</td>"
-        f"<td>{candidate.sample_count}</td>"
+        f"<td data-absolute-gas='{index}'>—</td>"
         f"<td>{escape(candidate_evidence_summary(candidate))}</td>"
         "</tr>"
-        for candidate in report.candidates
+        for index, candidate in enumerate(report.candidates)
     )
     if not candidate_rows:
         candidate_rows = f"<tr><td colspan='5'>{escape(labels['empty'])}</td></tr>"
@@ -1229,6 +1228,8 @@ small {{ color: #44566c; }}
 .candidate-detail p {{ color: #44566c; margin: 4px 0 0 0; }}
 .notice {{ color: #3d3300; background: #fff7d6;
            border-left: 4px solid #d59b00; padding: 8px 12px; }}
+.interpretation-curves {{ width: 100%; text-align: center; margin: 0 auto 14px auto; }}
+.interpretation-curves img {{ display: block; max-width: 100%; height: auto; margin: 0 auto; }}
 </style></head><body>
 <h1>{escape(labels['title'])}</h1>
 <p><b>{escape(labels['project'])}:</b> {escape(report.project_name)}<br>
@@ -1244,7 +1245,7 @@ small {{ color: #44566c; }}
 <table><colgroup><col style="width:14%"><col style="width:13%">
 <col style="width:36%"><col style="width:10%"><col style="width:27%"></colgroup>
 <thead><tr><th>{escape(labels['interval'])}</th><th>{escape(labels['strength'])}</th>
-<th>{escape(labels['hypothesis'])}</th><th>{escape(labels['samples'])}</th>
+<th>{escape(labels['hypothesis'])}</th><th>{escape(labels['absolute_gas'])}</th>
 <th>{escape(labels['evidence'])}</th></tr></thead>
 <tbody>{candidate_rows}</tbody></table>
 <h2>{escape(labels['details'])}</h2>
@@ -1284,14 +1285,12 @@ def fluid_hypothesis_basis(
         parts.append(
             labels["wetness_no_scale"].format(
                 interval=candidate.interval_wetness,
-                background=candidate.background_wetness,
             )
         )
     else:
         parts.append(
             labels["wetness_basis"].format(
                 interval=candidate.interval_wetness,
-                background=candidate.background_wetness,
                 robust_z=candidate.wetness_robust_z,
             )
         )
@@ -1341,7 +1340,9 @@ def candidate_evidence_summary(candidate: HydrocarbonCandidateInterval) -> str:
     return "; ".join(
         item
         for item in candidate.evidence
-        if not item.startswith(("LBA standard:", "Pixler standard:", "gas/LBA correlation"))
+        if not item.startswith(
+            ("LBA standard:", "Pixler standard:", "gas/LBA correlation", "flagged samples =")
+        )
     )
 
 

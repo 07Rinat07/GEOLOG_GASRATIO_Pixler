@@ -501,7 +501,7 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
 
     def _retranslate_polish_controls(self) -> None:
         self.normalized_source_heading.setText(
-            self._text("Доступные кривые", "Қолжетімді қисықтар", "Available curves")
+            self._text("Доступные данные", "Қолжетімді деректер", "Available data")
         )
         self.drilling_inputs_heading.setText(
             self._text("Входные данные бурения", "Бұрғылау кірістері", "Drilling inputs")

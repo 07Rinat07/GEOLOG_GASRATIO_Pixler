@@ -39,15 +39,15 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         )
         self.xlsx_button.setToolTip(
             self._text(
-                "Создаёт один основной лист с УВ-интервалами, интерпретацией, фоном, "
-                "минимумом, средним, медианой и максимумом газа. Исходные данные "
-                "сохраняются на отдельном скрытом листе для проверки.",
-                "Көмірсутек аралықтары, интерпретация және газдың фондық, ең аз, орташа, "
-                "медианалық және ең көп мәндері бар бір негізгі парақ жасайды. Бастапқы "
-                "деректер тексеру үшін бөлек жасырын парақта сақталады.",
-                "Creates one main sheet with hydrocarbon intervals, interpretation, and gas "
-                "background/minimum/mean/median/maximum. Source data are retained on a "
-                "separate hidden audit sheet.",
+                "Создаёт один основной лист с УВ-интервалами и абсолютными компонентами "
+                "газа C1, C2, C3, iC4, nC4, iC5, nC5. Для каждой кривой приводятся "
+                "минимум, среднее и максимум. Исходные данные сохраняются на скрытом листе.",
+                "Көмірсутек аралықтары және C1, C2, C3, iC4, nC4, iC5, nC5 абсолюттік газ "
+                "компоненттері бар негізгі парақ жасайды. Әр қисық үшін ең аз, орташа және "
+                "ең көп мән беріледі. Бастапқы деректер жасырын парақта сақталады.",
+                "Creates one main sheet with hydrocarbon intervals and absolute C1, C2, C3, "
+                "iC4, nC4, iC5, and nC5 gas components. Each curve includes minimum, mean, "
+                "and maximum values. Source data remain on a hidden audit sheet.",
             )
         )
 
@@ -78,12 +78,20 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 export_readable_hydrocarbon_interpretation_xlsx,
             )
 
-            exported = export_readable_hydrocarbon_interpretation_xlsx(
-                report,
-                dataset,
-                target,
-                overwrite=target.exists(),
-            )
+            with self._report_export_progress(
+                self._text(
+                    "Формируется Excel-отчёт…",
+                    "Excel есебі құрылуда…",
+                    "Building Excel report…",
+                )
+            ):
+                exported = export_readable_hydrocarbon_interpretation_xlsx(
+                    report,
+                    dataset,
+                    target,
+                    overwrite=target.exists(),
+                    progress=self._update_report_export_progress,
+                )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)
             return
