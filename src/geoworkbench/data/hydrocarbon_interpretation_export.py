@@ -7,7 +7,6 @@ import tempfile
 import zipfile
 from xml.sax.saxutils import escape as xml_escape
 
-import numpy as np
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
