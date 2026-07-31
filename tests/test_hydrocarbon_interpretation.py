@@ -164,7 +164,8 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         assert "Точек выше порога" not in headers
         assert not any("Медиана" in str(value) for value in headers)
         assert not any("Фон" in str(value) for value in headers)
-        assert "Перспективный УВ-интервал" in str(main["F10"].value)
+        assert main["F10"].value == "Подтвержден геологом"
+        assert "Кандидат" not in str(main["F10"].value)
         assert "C1" in str(main["R10"].value)
         assert "IC4" in str(main["R10"].value)
         assert "NC5" in str(main["R10"].value)
