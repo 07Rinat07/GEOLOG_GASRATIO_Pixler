@@ -39,5 +39,15 @@ class InterpretationReportWorkspace(_ResponsiveInterpretationReportWorkspace):
         content_layout.addWidget(self.dexp_quality_reasons)
         panel.addWidget(content)
 
+    def _retranslate_responsive_controls(self) -> None:
+        super()._retranslate_responsive_controls()
+        self.recalculate_all_button.setText(
+            self._text(
+                "Пересчитать все доступные кривые и открыть планшет",
+                "Барлық қолжетімді қисықтарды қайта есептеп, планшетті ашу",
+                "Recalculate all available curves and open tablet",
+            )
+        )
+
 
 __all__ = ["InterpretationReportWorkspace"]
