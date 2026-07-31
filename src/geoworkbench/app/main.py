@@ -138,7 +138,7 @@ def main() -> int:
             configure_application_unicode_fonts,
         )
         from geoworkbench.ui.branding import application_icon
-        from geoworkbench.ui.main_window import MainWindow
+        from geoworkbench.ui.main_window_drilling import MainWindow
         from geoworkbench.ui.startup_splash import StartupSplash
     except BaseException as exc:
         log_manager.exception("application.module_import.failed", exc)

@@ -51,6 +51,12 @@ _SUSPICIOUS_MOJIBAKE_MARKERS = (
 # corruption signal while a single legitimate Latin letter Ð/Ñ is not.
 _CYRILLIC_MOJIBAKE_PATTERN = re.compile(r"(?:[ÐÑ].){2,}")
 
+# These prefixes are screen affordances, not printable document content. They
+# decorate tablet undo/redo controls and the active curve-pencil status. The
+# custom print renderer never paints them, so they must not make PDF/PNG export
+# depend on a symbol font while the meaningful text remains strictly checked.
+_SCREEN_ONLY_DECORATIVE_PREFIXES = frozenset({"↶", "↷", "✎"})
+
 
 @dataclass(frozen=True, slots=True)
 class UnicodeFontProfile:
@@ -230,7 +236,7 @@ def preflight_texts(texts: tuple[str, ...] | list[str]) -> UnicodePreflightRepor
 
 
 def collect_widget_text(widget: QWidget) -> tuple[str, ...]:
-    """Collect visible UI strings without serialising binary or plot data."""
+    """Collect print-relevant visible strings without plot or UI-icon data."""
 
     values: list[str] = []
     objects = (widget, *widget.findChildren(QWidget))
@@ -245,14 +251,30 @@ def collect_widget_text(widget: QWidget) -> tuple[str, ...]:
                 value = method()
             except (RuntimeError, TypeError):
                 continue
-            if isinstance(value, str) and value.strip():
-                values.append(value)
+            normalized = _print_relevant_text(value)
+            if normalized:
+                values.append(normalized)
         if isinstance(item, QComboBox):
-            values.extend(item.itemText(index) for index in range(item.count()))
+            for index in range(item.count()):
+                normalized = _print_relevant_text(item.itemText(index))
+                if normalized:
+                    values.append(normalized)
         if isinstance(item, QTabWidget):
-            values.extend(item.tabText(index) for index in range(item.count()))
+            for index in range(item.count()):
+                normalized = _print_relevant_text(item.tabText(index))
+                if normalized:
+                    values.append(normalized)
 
-    return tuple(dict.fromkeys(value for value in values if value))
+    return tuple(dict.fromkeys(values))
+
+
+def _print_relevant_text(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    normalized = value.strip()
+    while normalized and normalized[0] in _SCREEN_ONLY_DECORATIVE_PREFIXES:
+        normalized = normalized[1:].lstrip()
+    return normalized
 
 
 def print_font(

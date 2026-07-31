@@ -43,6 +43,10 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 - Интерпретация бурового газа и отчёт по всей скважине:
   [RU](ru/MUD_GAS_INTERPRETATION.md) · [KK](kk/MUD_GAS_INTERPRETATION.md) ·
   [EN](en/MUD_GAS_INTERPRETATION.md)
+- Режимы нормализованного газа и сопоставление с ЛБА:
+  [RU](ru/NORMALIZED_GAS_INTERPRETATION.md) ·
+  [KK](kk/NORMALIZED_GAS_INTERPRETATION.md) ·
+  [EN](en/NORMALIZED_GAS_INTERPRETATION.md)
 - Печатные шапки и логотипы: [PRINT_HEADER_AND_LOGO_CATALOGS.md](PRINT_HEADER_AND_LOGO_CATALOGS.md)
 - Файлы, PDF, изображения, архивы и расчёты: [RU](ru/FILES_WORKSPACE.md) ·
   [KK](kk/FILES_WORKSPACE.md) · [EN](en/FILES_WORKSPACE.md) ·
