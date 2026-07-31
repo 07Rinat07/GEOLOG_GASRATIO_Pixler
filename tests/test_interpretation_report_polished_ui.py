@@ -73,6 +73,13 @@ def test_polished_workspace_groups_controls_and_marks_primary_action(qapp) -> No
         workspace.recalculate_all_button.text()
         == "Пересчитать все доступные кривые и открыть планшет"
     )
+    assert workspace.workflow_help_button is not None
+    assert workspace.workflow_help_button.text() == "Настройка и печать"
+    assert "пошаговая" in workspace.workflow_help_button.toolTip().casefold()
+    guide = workspace._workflow_help_html()
+    assert "Перспективные интервалы" in guide
+    assert "Печать" in guide
+    assert "Перспективных интервалов:" in workspace.status.text()
     workspace.close()
 
 
