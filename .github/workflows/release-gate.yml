@@ -72,20 +72,7 @@ jobs:
           Invoke-Logged "compileall" { .\.venv\Scripts\python.exe -m compileall -q src tests tools scripts }
           Invoke-Logged "ruff" { .\.venv\Scripts\python.exe -m ruff check src tests tools scripts }
           Invoke-Logged "mypy" { .\.venv\Scripts\python.exe -m mypy src }
-          Invoke-Logged "pytest" {
-            $TargetedQtTest = "tests/test_main_window.py::test_window_applies_track_settings_from_inspector"
-
-            Write-Host "`n=== pytest targeted Windows Qt process: $TargetedQtTest ==="
-            .\.venv\Scripts\python.exe scripts/run_tests.py `
-              -p no:cacheprovider `
-              $TargetedQtTest
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-            .\.venv\Scripts\python.exe scripts/run_tests.py `
-              -p no:cacheprovider `
-              "--deselect=$TargetedQtTest"
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
+          Invoke-Logged "pytest" { .\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider }
 
       - name: Upload quality artifacts
         if: always()
