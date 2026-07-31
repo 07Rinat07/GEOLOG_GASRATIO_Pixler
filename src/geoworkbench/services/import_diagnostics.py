@@ -6,6 +6,7 @@ from enum import StrEnum
 from pathlib import Path
 from traceback import format_exception
 from typing import Mapping
+from uuid import uuid4
 
 
 class ImportDiagnosticSeverity(StrEnum):
@@ -278,12 +279,16 @@ def persist_import_diagnostic_report(
     become stale application-data clutter. The newest ``max_retained`` reports
     for the same prefix are kept. A non-positive value disables pruning for
     callers that explicitly need a complete archive.
+
+    The random suffix is deliberate: on Windows, consecutive ``datetime.now``
+    calls may return the same timestamp even with ``%f`` formatting. A unique
+    target prevents one diagnostic report from silently replacing another.
     """
 
     root = Path(directory)
     root.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S_%fZ")
-    target = root / f"{prefix}_{stamp}.txt"
+    target = root / f"{prefix}_{stamp}_{uuid4().hex}.txt"
     temporary = target.with_suffix(target.suffix + ".tmp")
     temporary.write_text(report.to_text(include_technical=True), encoding="utf-8")
     temporary.replace(target)
@@ -296,4 +301,3 @@ def persist_import_diagnostic_report(
         for obsolete in reports[max_retained:]:
             obsolete.unlink(missing_ok=True)
     return target
-
