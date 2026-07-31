@@ -19,8 +19,9 @@ from geoworkbench.services.hydrocarbon_interpretation_modes import (
     candidate_evidence_summary,
     fluid_hypothesis_basis,
     fluid_hypothesis_label,
-    hydrocarbon_interpretation_html,
+    hydrocarbon_interpretation_html as _base_hydrocarbon_interpretation_html,
 )
+from geoworkbench.services.localization import AppLanguage
 
 
 _SERVER_TOTAL_NAMES = (
@@ -32,6 +33,61 @@ _SERVER_TOTAL_NAMES = (
 )
 _LOCAL_TOTAL_NAMES = ("TG_NORM_CALC", "TG_NORM")
 _SELECTED_MODES: dict[int, NormalizedGasCalculationMode] = {}
+
+
+_REPORT_TERMINOLOGY_REPLACEMENTS: dict[
+    AppLanguage,
+    tuple[tuple[str, str], ...],
+] = {
+    AppLanguage.RU: (
+        (
+            "Кандидатные интервалы УВ-проявлений",
+            "Перспективные интервалы УВ-проявлений",
+        ),
+        (
+            "Кандидатные интервалы по выбранному порогу не найдены.",
+            "Перспективные интервалы по выбранному порогу не найдены.",
+        ),
+        (
+            "Автоматически отмечаются только кандидаты по относительной газовой аномалии.",
+            "Автоматически выделяются только перспективные интервалы по относительной газовой аномалии.",
+        ),
+    ),
+    AppLanguage.KK: (
+        (
+            "Көмірсутек көріністерінің кандидат аралықтары",
+            "Көмірсутек көріністерінің перспективалы аралықтары",
+        ),
+        (
+            "Таңдалған шек бойынша кандидат аралықтар табылмады.",
+            "Таңдалған шек бойынша перспективалы аралықтар табылмады.",
+        ),
+        (
+            "Автоматически отмечаются только кандидаты по относительной газовой аномалии.",
+            "Автоматически выделяются только перспективные интервалы по относительной газовой аномалии.",
+        ),
+    ),
+    AppLanguage.EN: (
+        (
+            "Candidate hydrocarbon-show intervals",
+            "Prospective hydrocarbon-show intervals",
+        ),
+        (
+            "No candidate intervals were found at the selected threshold.",
+            "No prospective intervals were found at the selected threshold.",
+        ),
+        (
+            "Автоматически отмечаются только кандидаты по относительной газовой аномалии.",
+            "Автоматически выделяются только перспективные интервалы по относительной газовой аномалии.",
+        ),
+    ),
+}
+
+_PROSPECTIVE_INTERVAL_HEADINGS = {
+    AppLanguage.RU: "Перспективные интервалы УВ-проявлений",
+    AppLanguage.KK: "Көмірсутек көріністерінің перспективалы аралықтары",
+    AppLanguage.EN: "Prospective hydrocarbon-show intervals",
+}
 
 
 def set_normalized_gas_report_mode(
@@ -105,6 +161,32 @@ def build_hydrocarbon_interpretation_report(
     names = tuple(_strip_source_prefix(part) for part in primary.split(" | "))
     cleaned = " | ".join(dict.fromkeys(name for name in names if name))
     return report if cleaned == primary else replace(report, primary_mnemonic=cleaned)
+
+
+def hydrocarbon_interpretation_html(
+    report: HydrocarbonInterpretationReport,
+    language: AppLanguage = AppLanguage.RU,
+) -> str:
+    """Render the report with user-facing prospective-interval terminology."""
+
+    html = _base_hydrocarbon_interpretation_html(report, language)
+    for old, new in _REPORT_TERMINOLOGY_REPLACEMENTS[language]:
+        html = html.replace(old, new)
+
+    heading = _PROSPECTIVE_INTERVAL_HEADINGS[language]
+    html = html.replace(
+        f"<h2>{heading}</h2>",
+        f"<h2 class='prospective-intervals-heading'>{heading}</h2>",
+        1,
+    )
+    pagination_css = """
+.prospective-intervals-heading {
+    page-break-before: always;
+    break-before: page;
+    margin-top: 0;
+}
+"""
+    return html.replace("</style>", pagination_css + "</style>", 1)
 
 
 def _coerce_mode(
