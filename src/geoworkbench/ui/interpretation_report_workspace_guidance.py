@@ -2,24 +2,17 @@ from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPalette, QPen, QPixmap
-from PySide6.QtWidgets import (
-    QDialog,
-    QDialogButtonBox,
-    QSizePolicy,
-    QTextBrowser,
-    QToolButton,
-    QToolTip,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QSizePolicy, QToolButton, QToolTip, QVBoxLayout, QWidget
 
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.help_content import interpretation_guide_html
 from geoworkbench.ui.interpretation_report_workspace_layout import (
     InterpretationReportWorkspace as _LayoutWorkspace,
 )
+from geoworkbench.ui.navigation_organization import open_help_for_widget
 
 
 class _TopToolTipButton(QToolButton):
@@ -69,7 +62,7 @@ def _printer_icon(palette: QPalette) -> QIcon:
 
 
 class InterpretationReportWorkspace(_LayoutWorkspace):
-    """Interpretation workspace with a visible setup and printing guide."""
+    """Interpretation workspace linked to the central three-language help centre."""
 
     def __init__(
         self,
@@ -142,12 +135,9 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
             )
         )
         tooltip = self._text(
-            "Пошаговая инструкция: входные данные, расчёт, проверка DEXP, "
-            "предпросмотр, сохранение и печать отчёта.",
-            "Кіріс деректері, есептеу, DEXP тексеру, алдын ала қарау, сақтау "
-            "және басып шығару бойынша нұсқаулық.",
-            "Step-by-step guide for inputs, calculation, DEXP review, preview, "
-            "saving, and printing.",
+            "Пошаговая инструкция находится в разделе «Справка → Документация и инструкции».",
+            "Қадамдық нұсқаулық «Анықтама → Құжаттама және нұсқаулықтар» бөлімінде.",
+            "The step-by-step guide is in Help → Documentation and instructions.",
         )
         button.setToolTip(tooltip)
         button.setStatusTip(tooltip)
@@ -155,35 +145,12 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
         button.setAccessibleDescription(tooltip)
 
     def _show_workflow_help(self) -> None:
-        dialog = QDialog(self)
-        dialog.setWindowTitle(
-            self._text(
-                "Как настроить и напечатать отчёт",
-                "Есепті баптау және басып шығару",
-                "How to set up and print the report",
-            )
-        )
-        dialog.setModal(True)
-        dialog.resize(760, 640)
-        layout = QVBoxLayout(dialog)
-        guide = QTextBrowser(dialog)
-        guide.setObjectName("interpretation-workflow-help-text")
-        guide.setHtml(self._workflow_help_html())
-        layout.addWidget(guide, 1)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        close_button = buttons.button(QDialogButtonBox.StandardButton.Close)
-        if close_button is not None:
-            close_button.setText(self._text("Закрыть", "Жабу", "Close"))
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-        dialog.exec()
+        open_help_for_widget(self, "interpretation")
 
     def _workflow_help_html(self) -> str:
-        if self.language is AppLanguage.EN:
-            return _english_guide()
-        if self.language is AppLanguage.KK:
-            return _kazakh_guide()
-        return _russian_guide()
+        """Compatibility accessor backed by the same content as the Help menu."""
+
+        return interpretation_guide_html(self.language)
 
     def _apply_prospective_ui_terms(self) -> None:
         replacements = {
@@ -205,68 +172,3 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
             for old, new in replacements:
                 text = text.replace(old, new)
             widget.setText(text)
-
-
-def _russian_guide() -> str:
-    return """
-    <h2>Порядок подготовки отчёта</h2>
-    <ol>
-      <li><b>Выберите скважину и набор данных.</b> Проверьте C1–C5, ROP,
-          RPM, WOB, BIT/BS и FLOW. Для SLIDE желательно иметь забойный RPM.</li>
-      <li><b>Выберите источник нормализованного газа:</b> сервер, локальный
-          расчёт или сопоставление обеих кривых.</li>
-      <li><b>Откройте «Настроить BIT и входные данные».</b> Заполните интервалы
-          диаметров долота, проверьте единицы и отсутствие пропусков.</li>
-      <li><b>Проверьте ROP_REF, BIT_REF, FLOW_REF и эффективность газовой
-          системы.</b> Значения должны соответствовать методике заказчика.</li>
-      <li><b>Нажмите «Пересчитать все доступные кривые»</b> и дождитесь
-          завершения расчёта.</li>
-      <li><b>Проверьте качество DEXP.</b> Откройте причины разрывов. SLIDE без
-          забойного RPM оставляет обоснованный разрыв.</li>
-      <li><b>Нажмите «Обновить отчёт с графиками»</b>, затем откройте слева
-          «Предпросмотр отчёта».</li>
-      <li><b>Проверьте графики, шкалы, единицы, абсолютные C1–C5 и
-          перспективные интервалы.</b> Подтверждённые геологом интервалы
-          заполняются вручную.</li>
-      <li><b>Выберите Excel, Word или PDF.</b> Укажите папку и имя файла и не
-          прерывайте операцию, пока индикатор подготовки не завершится.</li>
-      <li><b>Для печати нажмите «Печать…»</b> либо откройте готовый PDF.
-          Проверьте принтер, бумагу, ориентацию, поля и масштаб.</li>
-    </ol>
-    <p><b>Важно:</b> перспективные интервалы не заменяют заключение геолога.</p>
-    """
-
-
-def _kazakh_guide() -> str:
-    return """
-    <h2>Есепті дайындау тәртібі</h2>
-    <ol>
-      <li>Ұңғыманы таңдап, C1–C5, ROP, RPM, WOB, BIT/BS және FLOW тексеріңіз.</li>
-      <li>Нормаланған газ көзін таңдаңыз және BIT/DEXP кірістерін баптаңыз.</li>
-      <li>Эталондық мәндерді тексеріп, барлық қисықтарды қайта есептеңіз.</li>
-      <li>DEXP сапасы мен SLIDE аралықтарындағы түптік RPM-ді тексеріңіз.</li>
-      <li>Графиктері бар есепті жаңартып, алдын ала көріністі ашыңыз.</li>
-      <li>Excel, Word немесе PDF сақтап, индикатор аяқталғанша күтіңіз.</li>
-      <li>«Басып шығару…» түймесін немесе дайын PDF файлын пайдаланыңыз.</li>
-    </ol>
-    <p><b>Маңызды:</b> перспективалы аралықтар геолог қорытындысын алмастырмайды.</p>
-    """
-
-
-def _english_guide() -> str:
-    return """
-    <h2>Report preparation workflow</h2>
-    <ol>
-      <li>Select the well and check C1–C5, ROP, RPM, WOB, BIT/BS, and FLOW.</li>
-      <li>Select the normalized-gas source and configure BIT/DEXP inputs.</li>
-      <li>Verify reference values and recalculate all available curves.</li>
-      <li>Review DEXP quality and downhole RPM availability during SLIDE.</li>
-      <li>Refresh the report with charts and open the report preview.</li>
-      <li>Save Excel, Word, or PDF and wait for the progress indicator.</li>
-      <li>Use Print or open the completed PDF and verify print settings.</li>
-    </ol>
-    <p><b>Important:</b> prospective intervals do not replace a geologist's conclusion.</p>
-    """
-
-
-__all__ = ["InterpretationReportWorkspace"]
