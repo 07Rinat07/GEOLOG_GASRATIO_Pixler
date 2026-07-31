@@ -66,6 +66,8 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         root.takeAt(3)
         explanation_item = root.takeAt(0)
         help_item = root.takeAt(0)
+        if explanation_item is None or help_item is None:
+            raise RuntimeError("Не найдены вводные элементы страницы интерпретации")
         explanation = explanation_item.widget()
         help_label = help_item.widget()
         if explanation is None or help_label is None:
@@ -637,16 +639,32 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         )
 
         self.xlsx_button.setToolTip(
-            self._text("Экспортировать таблицы в Excel.", "Excel-ге экспорттау.", "Export tables to Excel.")
+            self._text(
+                "Экспортировать таблицы в Excel.",
+                "Excel-ге экспорттау.",
+                "Export tables to Excel.",
+            )
         )
         self.docx_button.setToolTip(
-            self._text("Экспортировать отчёт в Word.", "Word-қа экспорттау.", "Export the report to Word.")
+            self._text(
+                "Экспортировать отчёт в Word.",
+                "Word-қа экспорттау.",
+                "Export the report to Word.",
+            )
         )
         self.pdf_button.setToolTip(
-            self._text("Экспортировать отчёт и графики в PDF.", "PDF-ке экспорттау.", "Export the report and charts to PDF.")
+            self._text(
+                "Экспортировать отчёт и графики в PDF.",
+                "PDF-ке экспорттау.",
+                "Export the report and charts to PDF.",
+            )
         )
         self.print_button.setToolTip(
-            self._text("Открыть системный диалог печати.", "Басып шығару терезесін ашу.", "Open the system print dialog.")
+            self._text(
+                "Открыть системный диалог печати.",
+                "Басып шығару терезесін ашу.",
+                "Open the system print dialog.",
+            )
         )
 
     def _update_dexp_diagnostics(self) -> None:
@@ -662,7 +680,11 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
                 )
             )
             self.dexp_quality_reasons.setText(
-                self._text("Диагностика пока недоступна.", "Диагностика әзірге қолжетімсіз.", "Diagnostics are not available yet.")
+                self._text(
+                    "Диагностика пока недоступна.",
+                    "Диагностика әзірге қолжетімсіз.",
+                    "Diagnostics are not available yet.",
+                )
             )
             self.dexp_details_button.setEnabled(False)
             self._set_coverage_level("poor")
@@ -671,9 +693,13 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         percent = diagnostic.coverage_percent
         self.dexp_quality_progress.setValue(int(round(percent * 10.0)))
         source = {
-            "calculation": self._text("локальный расчёт", "жергілікті есеп", "local calculation"),
+            "calculation": self._text(
+                "локальный расчёт", "жергілікті есеп", "local calculation"
+            ),
             "source": self._text("готовая кривая", "дайын қисық", "source curve"),
-            "potential": self._text("оценка по входам", "кірістер бойынша бағалау", "input-based estimate"),
+            "potential": self._text(
+                "оценка по входам", "кірістер бойынша бағалау", "input-based estimate"
+            ),
             "missing": self._text("не определён", "анықталмаған", "not defined"),
         }.get(diagnostic.curve_source, diagnostic.curve_source)
         percent_text = f"{percent:.1f}"
@@ -699,8 +725,7 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         else:
             top_reasons = diagnostic.reason_counts[:3]
             details = ", ".join(
-                f"{self._reason_text(code)} — {count}"
-                for code, count in top_reasons
+                f"{self._reason_text(code)} — {count}" for code, count in top_reasons
             )
             if not details:
                 details = self._text(
@@ -732,7 +757,11 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
             return
         dialog = QDialog(self)
         dialog.setWindowTitle(
-            self._text("Диагностика разрывов DEXP", "DEXP үзілістерін талдау", "DEXP gap diagnostics")
+            self._text(
+                "Диагностика разрывов DEXP",
+                "DEXP үзілістерін талдау",
+                "DEXP gap diagnostics",
+            )
         )
         dialog.resize(820, 520)
         layout = QVBoxLayout(dialog)
