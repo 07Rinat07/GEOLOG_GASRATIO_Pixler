@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 from numpy.typing import NDArray
 
+from geoworkbench.domain.models import Dataset
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
     InterpretationCalculationIssue,
@@ -192,7 +193,7 @@ def diagnose_dexp_coverage(
 
 def _resolve_modes(
     controller: InterpretationCalculationController,
-    dataset: object,
+    dataset: Dataset,
     arrays: dict[str, Array | None],
     flow: Array | None,
     issues: list[InterpretationCalculationIssue],
@@ -203,9 +204,7 @@ def _resolve_modes(
     if rop is None or surface_rpm is None or wob is None:
         return None
 
-    # ``dataset`` is kept generic in this helper only to make the required
-    # runtime contract explicit without introducing another import cycle.
-    bit_rpm, bit_rpm_mnemonic = resolve_bit_rpm_curve(  # type: ignore[arg-type]
+    bit_rpm, bit_rpm_mnemonic = resolve_bit_rpm_curve(
         dataset,
         uom=controller.uom,
     )
@@ -216,17 +215,7 @@ def _resolve_modes(
         flow=flow,
         bit_rpm=bit_rpm,
     )
-    modes = DrillingModeResolution(
-        mode_codes=modes.mode_codes,
-        effective_rpm=modes.effective_rpm,
-        rotary_mask=modes.rotary_mask,
-        slide_mask=modes.slide_mask,
-        slide_missing_bit_rpm_mask=modes.slide_missing_bit_rpm_mask,
-        not_drilling_mask=modes.not_drilling_mask,
-        unknown_mask=modes.unknown_mask,
-        repairable_mask=modes.repairable_mask,
-        bit_rpm_mnemonic=bit_rpm_mnemonic,
-    )
+    modes = replace(modes, bit_rpm_mnemonic=bit_rpm_mnemonic)
     low_surface = (
         np.isfinite(rop)
         & (rop > 0.0)
@@ -344,9 +333,7 @@ def _gap_intervals(
         if group.size == 0:
             continue
         reasons = tuple(
-            code
-            for code, mask in reason_masks.items()
-            if np.any(mask[group])
+            code for code, mask in reason_masks.items() if np.any(mask[group])
         )
         if not reasons:
             reasons = ("output_nonfinite",)
