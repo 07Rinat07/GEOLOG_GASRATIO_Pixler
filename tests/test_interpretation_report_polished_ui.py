@@ -69,9 +69,7 @@ def test_polished_workspace_groups_controls_and_marks_primary_action(qapp) -> No
     assert workspace.configure_drilling_inputs_button.property("role") == "ghost"
     assert workspace.dexp_quality_progress.value() == 1_000
     assert "100,0%" in workspace.dexp_quality_summary.text()
-    assert "Пересчитать все доступные кривые" in (
-        workspace.recalculate_all_button.text()
-    )
+    assert "Пересчитать всё" in workspace.recalculate_all_button.text()
     workspace.close()
 
 
