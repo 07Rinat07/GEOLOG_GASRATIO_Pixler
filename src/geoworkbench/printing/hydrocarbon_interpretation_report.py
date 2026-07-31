@@ -61,6 +61,17 @@ def export_hydrocarbon_interpretation_pdf(
             if include_chart and dataset is not None
             else hydrocarbon_interpretation_html(report, language)
         )
+        if dataset is not None:
+            from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
+                inject_interval_gas_statistics_html,
+            )
+
+            html = inject_interval_gas_statistics_html(
+                html,
+                report,
+                dataset,
+                language,
+            )
         unicode_report = preflight_texts([html])
         if not unicode_report.ok:
             raise HydrocarbonInterpretationPdfError(unicode_report.error_message())
