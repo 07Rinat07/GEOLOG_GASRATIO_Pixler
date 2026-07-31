@@ -74,12 +74,6 @@ jobs:
           Invoke-Logged "mypy" { .\.venv\Scripts\python.exe -m mypy src }
           Invoke-Logged "pytest" {
             $TargetedQtTest = "tests/test_main_window.py::test_window_applies_track_settings_from_inspector"
-            $IsolatedQtTests = @(
-              "tests/test_hydrocarbon_interpretation_ui.py",
-              "tests/test_hydrocarbon_interpretation_workspace.py",
-              "tests/test_hydrocarbon_interpretation_workspace_ui.py",
-              "tests/test_interpretation_export_workflow.py"
-            )
 
             Write-Host "`n=== pytest targeted Windows Qt process: $TargetedQtTest ==="
             .\.venv\Scripts\python.exe scripts/run_tests.py `
@@ -89,20 +83,8 @@ jobs:
 
             .\.venv\Scripts\python.exe scripts/run_tests.py `
               -p no:cacheprovider `
-              "--deselect=$TargetedQtTest" `
-              "--ignore-glob=**/test_hydrocarbon_interpretation_ui.py*" `
-              "--ignore-glob=**/test_hydrocarbon_interpretation_workspace.py*" `
-              "--ignore-glob=**/test_hydrocarbon_interpretation_workspace_ui.py*" `
-              "--ignore-glob=**/test_interpretation_export_workflow.py*"
+              "--deselect=$TargetedQtTest"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-            foreach ($TestFile in $IsolatedQtTests) {
-              Write-Host "`n=== pytest dedicated Qt process: $TestFile ==="
-              .\.venv\Scripts\python.exe scripts/run_tests.py `
-                -p no:cacheprovider `
-                $TestFile
-              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            }
           }
 
       - name: Upload quality artifacts
