@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from PySide6.QtGui import QPalette
 
-from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.interpretation_report_workspace_polish import (
     InterpretationReportWorkspace as _PolishedInterpretationReportWorkspace,
 )
