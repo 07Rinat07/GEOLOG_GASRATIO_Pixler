@@ -23,6 +23,7 @@ from geoworkbench.services.hydrocarbon_interpretation_modes import (
     fluid_hypothesis_label,
 )
 from geoworkbench.services.interval_gas_statistics import (
+    CandidateIntervalGasStatistics,
     build_candidate_interval_statistics,
     enhanced_fluid_hypothesis_basis,
     interval_gas_table_html,
@@ -40,8 +41,11 @@ _SERVER_TOTAL_NAMES = (
 )
 _LOCAL_TOTAL_NAMES = ("TG_NORM_CALC", "TG_NORM")
 _SELECTED_MODES: dict[int, NormalizedGasCalculationMode] = {}
-_REPORT_DATASETS: OrderedDict[tuple[str, str, str | None], Dataset] = OrderedDict()
-_REPORT_DATASET_CACHE_LIMIT = 64
+_REPORT_STATISTICS: OrderedDict[
+    tuple[str, str, str | None],
+    tuple[CandidateIntervalGasStatistics, ...],
+] = OrderedDict()
+_REPORT_STATISTICS_CACHE_LIMIT = 64
 
 
 def set_normalized_gas_report_mode(
@@ -61,7 +65,7 @@ def build_hydrocarbon_interpretation_report(
     threshold: float = 3.0,
     normalized_gas_mode: NormalizedGasCalculationMode | str | None = None,
 ) -> HydrocarbonInterpretationReport:
-    """Build the report and retain its dataset for readable interval statistics."""
+    """Build the report and retain compact interval statistics for rendering."""
 
     session_id = id(session)
     dataset = session.current_dataset
@@ -70,7 +74,7 @@ def build_hydrocarbon_interpretation_report(
             session,
             threshold=threshold,
         )
-        return _remember_report_dataset(report, dataset)
+        return _remember_report_statistics(report, dataset)
 
     requested_mode = _coerce_mode(
         normalized_gas_mode
@@ -116,7 +120,7 @@ def build_hydrocarbon_interpretation_report(
         cleaned = " | ".join(dict.fromkeys(name for name in names if name))
         if cleaned != primary:
             report = replace(report, primary_mnemonic=cleaned)
-    return _remember_report_dataset(report, dataset)
+    return _remember_report_statistics(report, dataset)
 
 
 def hydrocarbon_interpretation_html(
@@ -126,14 +130,10 @@ def hydrocarbon_interpretation_html(
     """Render the standard report with explicit gas readings for every interval."""
 
     html = _modes.hydrocarbon_interpretation_html(report, language)
-    dataset = _REPORT_DATASETS.get(_report_cache_key(report))
-    if dataset is None or not report.candidates:
+    statistics = _REPORT_STATISTICS.get(_report_cache_key(report))
+    if statistics is None or not report.candidates:
         return html
 
-    statistics = tuple(
-        build_candidate_interval_statistics(dataset, candidate)
-        for candidate in report.candidates
-    )
     for candidate, item in zip(report.candidates, statistics, strict=False):
         old_basis = fluid_hypothesis_basis(candidate, language)
         new_basis = enhanced_fluid_hypothesis_basis(
@@ -158,17 +158,21 @@ def hydrocarbon_interpretation_html(
     return html
 
 
-def _remember_report_dataset(
+def _remember_report_statistics(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset | None,
 ) -> HydrocarbonInterpretationReport:
-    if dataset is None:
+    if dataset is None or not report.candidates:
         return report
+    statistics = tuple(
+        build_candidate_interval_statistics(dataset, candidate)
+        for candidate in report.candidates
+    )
     key = _report_cache_key(report)
-    _REPORT_DATASETS[key] = dataset
-    _REPORT_DATASETS.move_to_end(key)
-    while len(_REPORT_DATASETS) > _REPORT_DATASET_CACHE_LIMIT:
-        _REPORT_DATASETS.popitem(last=False)
+    _REPORT_STATISTICS[key] = statistics
+    _REPORT_STATISTICS.move_to_end(key)
+    while len(_REPORT_STATISTICS) > _REPORT_STATISTICS_CACHE_LIMIT:
+        _REPORT_STATISTICS.popitem(last=False)
     return report
 
 
