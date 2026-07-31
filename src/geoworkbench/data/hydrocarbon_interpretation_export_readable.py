@@ -19,6 +19,7 @@ from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
+    ManualInterpretationInterval,
     candidate_evidence_summary,
     fluid_hypothesis_basis,
     fluid_hypothesis_label,
@@ -143,11 +144,11 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
             len(report.manual_intervals),
         ),
     )
-    for row_index, row in enumerate(metadata, start=2):
-        sheet.cell(row_index, 1, row[0])
-        sheet.cell(row_index, 2, row[1])
-        sheet.cell(row_index, 5, row[2])
-        sheet.cell(row_index, 6, row[3])
+    for row_index, metadata_row in enumerate(metadata, start=2):
+        sheet.cell(row_index, 1, metadata_row[0])
+        sheet.cell(row_index, 2, metadata_row[1])
+        sheet.cell(row_index, 5, metadata_row[2])
+        sheet.cell(row_index, 6, metadata_row[3])
         for column in (1, 5):
             sheet.cell(row_index, column).font = Font(bold=True, color="17365D")
         sheet.merge_cells(start_row=row_index, start_column=2, end_row=row_index, end_column=4)
@@ -241,8 +242,8 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
         )
 
     start_row = 10
-    for row in rows:
-        sheet.append(protect_spreadsheet_row(row))
+    for data_row in rows:
+        sheet.append(protect_spreadsheet_row(data_row))
     last_row = start_row + len(rows) - 1
 
     table = Table(displayName="HydrocarbonIntervals", ref=f"A9:AA{last_row}")
@@ -332,7 +333,7 @@ def _candidate_row(
     report: HydrocarbonInterpretationReport,
     candidate: HydrocarbonCandidateInterval,
     statistics: CandidateIntervalGasStatistics,
-    manual_intervals: tuple[object, ...],
+    manual_intervals: tuple[ManualInterpretationInterval, ...],
 ) -> tuple[object, ...]:
     raw = statistics.raw_total
     normalized = statistics.primary
@@ -498,7 +499,11 @@ def _format_auxiliary_sheet(
             cell.alignment = Alignment(vertical="top", wrap_text=True)
 
 
-def _matching_manual_intervals(report, top: float, bottom: float) -> tuple[object, ...]:
+def _matching_manual_intervals(
+    report: HydrocarbonInterpretationReport,
+    top: float,
+    bottom: float,
+) -> tuple[ManualInterpretationInterval, ...]:
     return tuple(
         item
         for item in report.manual_intervals
