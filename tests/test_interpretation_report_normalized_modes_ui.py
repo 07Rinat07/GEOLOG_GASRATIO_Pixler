@@ -31,7 +31,7 @@ def test_normalized_gas_panel_is_visible_opaque_and_controls_local_inputs(qapp) 
     combo = workspace.normalized_gas_mode
     assert combo.objectName() == "normalizedGasMode"
     assert combo.count() == 3
-    assert combo.minimumWidth() >= 520
+    assert combo.minimumWidth() == 0
     assert combo.currentData() == NormalizedGasCalculationMode.COMPARE.value
     assert "сопоставить оба" in combo.currentText()
     assert workspace.rop_reference.isEnabled()
