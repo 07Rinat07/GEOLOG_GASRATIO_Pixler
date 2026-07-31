@@ -21,8 +21,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git apply --check .github/report-lint-fix.patch
-          git apply .github/report-lint-fix.patch
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/geoworkbench/data/hydrocarbon_interpretation_export.py')
+          text = path.read_text(encoding='utf-8')
+          needle = '\nimport numpy as np\n'
+          if text.count(needle) != 1:
+              raise SystemExit('Expected exactly one unused numpy import')
+          path.write_text(text.replace(needle, '\n'), encoding='utf-8')
+          PY
           rm -f .github/report-lint-fix.patch .github/workflows/apply-report-lint-fix.yml
           git diff --check
           git config user.name "github-actions[bot]"
