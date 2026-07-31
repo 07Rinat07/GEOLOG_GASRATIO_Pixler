@@ -21,6 +21,7 @@ from geoworkbench.project.interpretation_calculation_controller import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.drilling_calculation_dialog import DrillingCalculationDialog
 from geoworkbench.ui.interpretation_report_workspace import InterpretationReportWorkspace
 
 
@@ -94,6 +95,9 @@ def _session() -> ProjectSession:
         "ROP": (60.0, "ft/h"),
         "BIT": (10.0, "in"),
         "FLOW": (500.0, "gpm"),
+        "RPM": (120.0, "1/min"),
+        "WOB": (10.0, "t"),
+        "MW_IN": (1.2, "g/cm3"),
     }
     for mnemonic, (value, unit) in constants.items():
         _add_curve(
@@ -128,6 +132,17 @@ def _session() -> ProjectSession:
     return session
 
 
+def _save_widget(widget, target: Path, application: QApplication) -> None:
+    widget.show()
+    application.processEvents()
+    pixmap = widget.grab()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if pixmap.isNull() or not pixmap.save(str(target), "PNG"):
+        raise RuntimeError(f"Failed to capture screenshot: {target}")
+    widget.close()
+    application.processEvents()
+
+
 def _capture(
     language: AppLanguage,
     output: Path,
@@ -139,18 +154,20 @@ def _capture(
     )
     widget = InterpretationReportWorkspace(controller, language=language)
     widget.resize(1680, 980)
-    widget.show()
-    application.processEvents()
     widget.refresh()
-    application.processEvents()
+    _save_widget(
+        widget,
+        output / f"{language.value}-normalized-gas-interpretation.png",
+        application,
+    )
 
-    pixmap = widget.grab()
-    target = output / f"{language.value}-normalized-gas-interpretation.png"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if pixmap.isNull() or not pixmap.save(str(target), "PNG"):
-        raise RuntimeError(f"Failed to capture interpretation screenshot: {target}")
-    widget.close()
-    application.processEvents()
+    dialog = DrillingCalculationDialog(controller, language=language)
+    dialog.resize(1280, 820)
+    _save_widget(
+        dialog,
+        output / f"{language.value}-normalized-gas-dexp-inputs.png",
+        application,
+    )
 
 
 def main() -> int:
