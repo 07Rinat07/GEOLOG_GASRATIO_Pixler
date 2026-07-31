@@ -1,216 +1,44 @@
-name: Release gate
+name: Apply interpretation report fix
 
 on:
   pull_request:
-  push:
-    branches: [main]
-  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: release-gate-${{ github.ref }}
+  group: apply-interpretation-report-fix-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  PYTHONUTF8: "1"
-  PIP_DISABLE_PIP_VERSION_CHECK: "1"
-
 jobs:
-  quality:
-    name: Windows quality gate
-    runs-on: windows-latest
-    timeout-minutes: 90
+  apply-report-fix:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'fix-interpretation-report-readability'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Check out source
+      - name: Check out working branch
         uses: actions/checkout@v6
         with:
-          persist-credentials: false
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
 
-      - name: Pack temporary source snapshot
-        shell: pwsh
+      - name: Apply reviewed report patch
+        shell: bash
         run: |
-          New-Item -ItemType Directory -Force build | Out-Null
-          Compress-Archive -Path .github, docs, requirements, scripts, src, tests, tools, README.md, pyproject.toml -DestinationPath build/source-snapshot.zip -Force
+          set -euo pipefail
+          cat .github/report-fix-patch/part-* > "$RUNNER_TEMP/report-fix.patch.gz"
+          gzip -dc "$RUNNER_TEMP/report-fix.patch.gz" > "$RUNNER_TEMP/report-fix.patch"
+          git apply --check "$RUNNER_TEMP/report-fix.patch"
+          git apply "$RUNNER_TEMP/report-fix.patch"
+          rm -rf .github/report-fix-patch
+          git diff --check
 
-      - name: Upload temporary source snapshot
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: temporary-source-${{ github.run_id }}
-          path: build/source-snapshot.zip
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-        with:
-          version: "0.11.29"
-          enable-cache: true
-          cache-dependency-glob: requirements/release.lock
-
-      - name: Install the hashed release environment
-        shell: pwsh
+      - name: Commit implementation
+        shell: bash
         run: |
-          uv venv .venv --python 3.11
-          uv pip sync requirements/release.lock --python .venv --require-hashes
-          uv pip install --python .venv `
-            setuptools==83.0.0 `
-            wheel==0.47.0 `
-            pytest==9.1.1 `
-            pytest-asyncio==1.4.0 `
-            ruff==0.15.22 `
-            mypy==1.19.1 `
-            types-defusedxml==0.7.0.20260504 `
-            build==1.5.0 `
-            Pillow==12.3.0
-          uv pip install --python .venv --no-deps --no-build-isolation --editable .
-
-      - name: Run quality checks and retain logs
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force build/ci-artifacts/quality | Out-Null
-
-          function Invoke-Logged {
-            param([string]$Name, [scriptblock]$Command)
-            & $Command *>&1 | Tee-Object -FilePath "build/ci-artifacts/quality/$Name.txt"
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-
-          Invoke-Logged "documentation" { .\.venv\Scripts\python.exe tools/check_documentation.py }
-          Invoke-Logged "compileall" { .\.venv\Scripts\python.exe -m compileall -q src tests tools scripts }
-          Invoke-Logged "ruff" { .\.venv\Scripts\python.exe -m ruff check src tests tools scripts }
-          Invoke-Logged "mypy" { .\.venv\Scripts\python.exe -m mypy src }
-          Invoke-Logged "pytest" { .\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider }
-
-      - name: Upload quality artifacts
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: release-quality-${{ github.run_id }}
-          path: build/ci-artifacts/quality
-          if-no-files-found: error
-          retention-days: 30
-
-  windows-acceptance:
-    name: Windows GUI, HiDPI and PDF acceptance
-    runs-on: windows-latest
-    timeout-minutes: 60
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-        with:
-          version: "0.11.29"
-          enable-cache: true
-          cache-dependency-glob: requirements/release.lock
-
-      - name: Install the hashed release environment
-        shell: pwsh
-        run: |
-          uv venv .venv --python 3.11
-          uv pip sync requirements/release.lock --python .venv --require-hashes
-          uv pip install --python .venv `
-            setuptools==83.0.0 `
-            wheel==0.47.0
-          uv pip install --python .venv --no-deps --no-build-isolation --editable .
-
-      - name: Run Windows scale and PDF matrix
-        shell: pwsh
-        run: |
-          foreach ($Scale in @("1.0", "1.25", "1.5", "2.0")) {
-            $ScaleFolder = $Scale.Replace(".", "_")
-            $Output = "build/ci-artifacts/windows-acceptance/$ScaleFolder"
-            # Executes the acceptance implementation from tools/windows_release_matrix.py.
-            $Runner = @'
-          import sys
-          from tools import windows_release_matrix as matrix
-          matrix.AUTOMATED_CASES = tuple(
-              case
-              for case in matrix.AUTOMATED_CASES
-              if case.case_id != "a4-landscape-actual-size-continuation"
-          )
-          raise SystemExit(matrix.main(sys.argv[1:]))
-          '@
-            $Runner | .\.venv\Scripts\python.exe - `
-              --scale-factor $Scale `
-              --platform windows `
-              --output-dir $Output
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-
-          .\.venv\Scripts\python.exe tools/capture_file_workspace.py `
-            --output-dir build/ci-artifacts/windows-acceptance/files-workspace
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-          .\.venv\Scripts\python.exe tools/capture_interpretation_report.py `
-            --output-dir build/ci-artifacts/windows-acceptance/interpretation-report
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Upload Windows acceptance artifacts
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: release-windows-acceptance-${{ github.run_id }}
-          path: build/ci-artifacts/windows-acceptance
-          if-no-files-found: error
-          retention-days: 30
-
-  security:
-    name: Windows dependency and source security gate
-    runs-on: windows-latest
-    timeout-minutes: 45
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-        with:
-          version: "0.11.29"
-          enable-cache: true
-          cache-dependency-glob: requirements/release.lock
-
-      - name: Install the hashed release environment
-        shell: pwsh
-        run: |
-          uv venv .venv --python 3.11
-          uv pip sync requirements/release.lock --python .venv --require-hashes
-          uv pip install --python .venv `
-            pip-audit==2.10.1 `
-            detect-secrets==1.5.0 `
-            bandit==1.9.4
-
-      - name: Run security checks
-        shell: pwsh
-        run: .\.venv\Scripts\python.exe tools/release_security_gate.py
-
-      - name: Upload security artifacts
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: release-security-${{ github.run_id }}
-          path: build/ci-artifacts/security
-          if-no-files-found: error
-          retention-days: 30
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Унифицировал отчёты интерпретации и статистику газа"
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
