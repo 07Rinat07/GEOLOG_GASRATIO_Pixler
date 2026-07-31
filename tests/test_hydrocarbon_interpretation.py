@@ -126,7 +126,9 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert "background: #ffffff" in html
     assert "td { background: #ffffff; }" in html
     assert "Well &lt;A&gt;" in html
-    assert "Кандидатные интервалы" in html
+    assert "Перспективные интервалы" in html
+    assert "Кандидатные интервалы" not in html
+    assert "page-break-before: always" in html
     assert "тяжёлая или остаточная нефть" in html
     assert "Check DST" in html
 
@@ -156,11 +158,14 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         ]
         main = workbook["Интерпретация УВ"]
         assert main["B2"].value == "'=Project formula"
+        assert main["A5"].value == "Перспективных УВ-интервалов"
         headers = [main.cell(9, column).value for column in range(1, 24)]
         assert "Абсолютный газ по компонентам: мин / среднее / макс" in headers
         assert "Точек выше порога" not in headers
         assert not any("Медиана" in str(value) for value in headers)
         assert not any("Фон" in str(value) for value in headers)
+        assert main["F10"].value == "Подтвержден геологом"
+        assert "Кандидат" not in str(main["F10"].value)
         assert "C1" in str(main["R10"].value)
         assert "IC4" in str(main["R10"].value)
         assert "NC5" in str(main["R10"].value)
@@ -170,7 +175,8 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
     with zipfile.ZipFile(docx_path) as package:
         assert package.testzip() is None
         document = package.read("word/document.xml").decode("utf-8")
-        assert "Кандидатные интервалы" in document
+        assert "Перспективные интервалы" in document
+        assert "Кандидатные интервалы" not in document
         assert "тяжёлая или остаточная нефть" in document
         assert "Абсолютный газ: мин / среднее / макс" in document
         assert "Точек выше порога" not in document

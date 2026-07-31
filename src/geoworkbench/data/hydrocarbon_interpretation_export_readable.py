@@ -154,7 +154,7 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
             report.threshold,
         ),
         (
-            "Кандидатных УВ-интервалов",
+            "Перспективных УВ-интервалов",
             len(report.candidates),
             "Подтверждено геологом",
             len(report.manual_intervals),
@@ -238,7 +238,7 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
                 None,
                 None,
                 report.depth_unit,
-                "Кандидатные УВ-интервалы не найдены",
+                "Перспективные УВ-интервалы не найдены",
                 "Проверьте порог robust z и доступность газовых данных",
                 None,
                 *(None for _ in range(len(_HEADERS) - 8)),
@@ -306,7 +306,7 @@ def _candidate_row(
 ) -> tuple[object, ...]:
     raw = statistics.raw_total
     normalized = statistics.primary
-    status = "Кандидат УВ-пласта"
+    status = "Перспективный УВ-интервал"
     geologist = "Требуется подтверждение геологом"
     if manual_intervals:
         status = "Подтвержден геологом"

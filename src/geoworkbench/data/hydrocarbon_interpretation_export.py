@@ -106,7 +106,7 @@ def _write_docx(
             ),
             widths=(3_800, 1_500, 3_500, 6_300),
         ),
-        _paragraph("Кандидатные интервалы УВ-проявлений", style="Heading1"),
+        _paragraph("Перспективные интервалы УВ-проявлений", style="Heading1"),
     ]
     if report.candidates:
         body.append(
@@ -137,7 +137,7 @@ def _write_docx(
             )
         )
     else:
-        body.append(_paragraph("Кандидатные интервалы по выбранному порогу не найдены."))
+        body.append(_paragraph("Перспективные интервалы по выбранному порогу не найдены."))
 
     body.append(_paragraph("Интерпретация по интервалам", style="Heading1"))
     if report.candidates:
@@ -158,7 +158,7 @@ def _write_docx(
                 )
             )
     else:
-        body.append(_paragraph("Кандидатные интервалы по выбранному порогу не найдены."))
+        body.append(_paragraph("Перспективные интервалы по выбранному порогу не найдены."))
 
     body.append(_paragraph("Интервалы, подтверждённые геологом", style="Heading1"))
     if report.manual_intervals:

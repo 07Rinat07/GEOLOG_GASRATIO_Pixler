@@ -94,7 +94,8 @@ def hydrocarbon_interpretation_html_with_chart(
         f"<p><small>{escape(labels['note'])}</small></p>"
         "<div style='width:100%; text-align:center;'>"
         f'<img alt="{escape(labels["title"])}" '
-        "style='display:block; width:100%; max-width:1050px; height:auto; margin:0 auto;' "
+        "style='display:block; width:100%; max-width:1050px; height:auto; "
+        "margin:0 auto;' "
         f'src="{uri}" />'
         "</div></section>"
     )
@@ -118,18 +119,18 @@ def hydrocarbon_interpretation_chart_data_uri(
     if not panels:
         return ""
 
-    image = QImage(1800, 1120, QImage.Format.Format_ARGB32_Premultiplied)
+    image = QImage(2_000, 1_280, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(Qt.GlobalColor.white)
     painter = QPainter(image)
     try:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         labels = _labels(language)
-        title_font = print_font(16.0, text=labels["title"])
+        title_font = print_font(17.0, text=labels["title"])
         title_font.setBold(True)
         painter.setFont(title_font)
         painter.setPen(QColor("#172033"))
         painter.drawText(
-            QRectF(80.0, 18.0, 1640.0, 42.0),
+            QRectF(90.0, 18.0, 1_820.0, 45.0),
             Qt.AlignmentFlag.AlignCenter,
             labels["title"],
         )
@@ -139,42 +140,55 @@ def hydrocarbon_interpretation_chart_data_uri(
         if depth_max <= depth_min:
             depth_max = depth_min + 1.0
 
-        plot_top = 95.0
-        plot_bottom = 960.0
+        plot_top = 130.0
+        plot_bottom = 1_015.0
         plot_height = plot_bottom - plot_top
-        depth_left = 24.0
-        depth_width = 132.0
-        panel_left = depth_left + depth_width
-        panel_gap = 18.0
-        usable_width = 1740.0 - panel_left
-        panel_width = (usable_width - panel_gap * (len(panels) - 1)) / len(panels)
+        outer_margin = 35.0
+        depth_width = 128.0
+        axis_gap = 16.0
+        left_depth_rect = QRectF(
+            outer_margin,
+            plot_top,
+            depth_width,
+            plot_height,
+        )
+        right_depth_rect = QRectF(
+            image.width() - outer_margin - depth_width,
+            plot_top,
+            depth_width,
+            plot_height,
+        )
+        panel_left = left_depth_rect.right() + axis_gap
+        panel_right = right_depth_rect.left() - axis_gap
+        panel_gap = 20.0
+        panel_area_width = panel_right - panel_left
+        panel_width = (
+            panel_area_width - panel_gap * (len(panels) - 1)
+        ) / len(panels)
 
         _draw_depth_axis(
             painter,
-            QRectF(depth_left, plot_top, depth_width, plot_height),
+            left_depth_rect,
             depth_min,
             depth_max,
             report.depth_unit,
+            side="left",
+            language=language,
+        )
+        _draw_depth_axis(
+            painter,
+            right_depth_rect,
+            depth_min,
+            depth_max,
+            report.depth_unit,
+            side="right",
+            language=language,
         )
 
-        for candidate in report.candidates:
-            top = _depth_y(candidate.top_depth, depth_min, depth_max, plot_top, plot_height)
-            bottom = _depth_y(
-                candidate.bottom_depth,
-                depth_min,
-                depth_max,
-                plot_top,
-                plot_height,
-            )
-            band_top = min(top, bottom)
-            band_height = max(2.0, abs(bottom - top))
-            color = QColor("#f59e0b")
-            color.setAlpha(34)
-            painter.fillRect(
-                QRectF(panel_left, band_top, usable_width, band_height),
-                color,
-            )
-
+        intervals = tuple(
+            (candidate.top_depth, candidate.bottom_depth)
+            for candidate in report.candidates
+        )
         for panel_index, (panel_name, curves) in enumerate(panels):
             left = panel_left + panel_index * (panel_width + panel_gap)
             rect = QRectF(left, plot_top, panel_width, plot_height)
@@ -187,13 +201,14 @@ def hydrocarbon_interpretation_chart_data_uri(
                 depth_max,
                 panel_name,
                 curves,
+                intervals,
                 language,
             )
 
         painter.setFont(print_font(9.0, text=labels["footer"]))
         painter.setPen(QColor("#475569"))
         painter.drawText(
-            QRectF(80.0, 995.0, 1640.0, 90.0),
+            QRectF(90.0, 1_170.0, 1_820.0, 84.0),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
             labels["footer"],
         )
@@ -204,7 +219,9 @@ def hydrocarbon_interpretation_chart_data_uri(
     buffer = QBuffer(payload)
     buffer.open(QIODevice.OpenModeFlag.WriteOnly)
     image.save(buffer, "PNG")  # type: ignore[call-overload]
-    return "data:image/png;base64," + bytes(payload.toBase64().data()).decode("ascii")
+    return "data:image/png;base64," + bytes(payload.toBase64().data()).decode(
+        "ascii"
+    )
 
 
 def _panel_curves(
@@ -213,7 +230,11 @@ def _panel_curves(
 ) -> tuple[tuple[str, tuple[CurveData, ...]], ...]:
     preferred: list[str] = []
     if report.primary_mnemonic:
-        preferred.extend(part.strip() for part in report.primary_mnemonic.split("|") if part.strip())
+        preferred.extend(
+            part.strip()
+            for part in report.primary_mnemonic.split("|")
+            if part.strip()
+        )
     for method in report.methods:
         preferred.extend(method.available_mnemonics)
 
@@ -230,7 +251,10 @@ def _panel_curves(
             if canonical not in fallback_order:
                 continue
             values = np.asarray(curve.values, dtype=np.float64)
-            if values.shape != dataset.depth.shape or np.count_nonzero(np.isfinite(values)) < 2:
+            if (
+                values.shape != dataset.depth.shape
+                or np.count_nonzero(np.isfinite(values)) < 2
+            ):
                 continue
             curves.append(curve)
             seen.add(curve.metadata.curve_id)
@@ -246,28 +270,69 @@ def _draw_depth_axis(
     depth_min: float,
     depth_max: float,
     unit: str,
+    *,
+    side: str,
+    language: AppLanguage,
 ) -> None:
-    painter.setPen(QPen(QColor("#334155"), 2))
+    labels = _labels(language)
+    painter.fillRect(rect, QColor("#f8fafc"))
+    painter.setPen(QPen(QColor("#334155"), 2.4))
     painter.drawRect(rect)
-    painter.setFont(print_font(9.0, text=unit or "Depth"))
-    for tick in range(11):
-        fraction = tick / 10.0
-        y = rect.top() + fraction * rect.height()
-        depth = depth_min + fraction * (depth_max - depth_min)
-        painter.setPen(QPen(QColor("#cbd5e1"), 1))
-        painter.drawLine(QLineF(rect.right() - 8.0, y, rect.right(), y))
-        painter.setPen(QColor("#334155"))
-        painter.drawText(
-            QRectF(rect.left() + 2.0, y - 10.0, rect.width() - 14.0, 20.0),
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-            f"{depth:.1f}",
-        )
-    label = "Depth" + (f", {unit}" if unit else "")
+
+    title = labels["depth"] + (f", {unit}" if unit else "")
+    title_font = print_font(10.0, text=title)
+    title_font.setBold(True)
+    painter.setFont(title_font)
+    painter.setPen(QColor("#172033"))
     painter.drawText(
-        QRectF(rect.left(), rect.bottom() + 4.0, rect.width(), 24.0),
+        QRectF(rect.left() - 4.0, rect.top() - 38.0, rect.width() + 8.0, 28.0),
         Qt.AlignmentFlag.AlignCenter,
-        label,
+        title,
     )
+
+    painter.setFont(print_font(9.0, text=f"{depth_max:.1f}"))
+    for major in range(11):
+        fraction = major / 10.0
+        y = rect.top() + fraction * rect.height()
+        depth_value = depth_min + fraction * (depth_max - depth_min)
+        painter.setPen(QPen(QColor("#64748b"), 1.2))
+        if side == "left":
+            painter.drawLine(QLineF(rect.right() - 12.0, y, rect.right(), y))
+            text_rect = QRectF(
+                rect.left() + 3.0,
+                y - 10.0,
+                rect.width() - 19.0,
+                20.0,
+            )
+            alignment = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        else:
+            painter.drawLine(QLineF(rect.left(), y, rect.left() + 12.0, y))
+            text_rect = QRectF(
+                rect.left() + 17.0,
+                y - 10.0,
+                rect.width() - 20.0,
+                20.0,
+            )
+            alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        painter.setPen(QColor("#334155"))
+        painter.drawText(text_rect, alignment, f"{depth_value:.1f}")
+
+        if major == 10:
+            continue
+        for minor in range(1, 5):
+            minor_y = y + minor / 5.0 * rect.height() / 10.0
+            painter.setPen(QPen(QColor("#94a3b8"), 0.8))
+            if side == "left":
+                painter.drawLine(
+                    QLineF(rect.right() - 6.0, minor_y, rect.right(), minor_y)
+                )
+            else:
+                painter.drawLine(
+                    QLineF(rect.left(), minor_y, rect.left() + 6.0, minor_y)
+                )
+
+    painter.setPen(QPen(QColor("#334155"), 2.4))
+    painter.drawRect(rect)
 
 
 def _draw_panel(
@@ -279,37 +344,70 @@ def _draw_panel(
     depth_max: float,
     panel_name: str,
     curves: tuple[CurveData, ...],
+    intervals: tuple[tuple[float, float], ...],
     language: AppLanguage,
 ) -> None:
     labels = _labels(language)
-    painter.setPen(QPen(QColor("#334155"), 2))
-    painter.drawRect(rect)
+    painter.fillRect(rect, QColor("#ffffff"))
+
+    for major in range(11):
+        y = rect.top() + major / 10.0 * rect.height()
+        painter.setPen(QPen(QColor("#cbd5e1"), 1.0))
+        painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
+        if major == 10:
+            continue
+        for minor in range(1, 5):
+            minor_y = y + minor / 5.0 * rect.height() / 10.0
+            painter.setPen(QPen(QColor("#eef2f7"), 0.7))
+            painter.drawLine(
+                QLineF(rect.left(), minor_y, rect.right(), minor_y)
+            )
+
+    for tick in range(5):
+        x = rect.left() + tick / 4.0 * rect.width()
+        painter.setPen(QPen(QColor("#dbe3ec"), 0.9))
+        painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
+        painter.setFont(print_font(7.5, text="100"))
+        painter.setPen(QColor("#64748b"))
+        painter.drawText(
+            QRectF(x - 22.0, rect.top() - 24.0, 44.0, 18.0),
+            Qt.AlignmentFlag.AlignCenter,
+            str(tick * 25),
+        )
+
+    for top_depth, bottom_depth in intervals:
+        top = _depth_y(top_depth, depth_min, depth_max, rect.top(), rect.height())
+        bottom = _depth_y(
+            bottom_depth,
+            depth_min,
+            depth_max,
+            rect.top(),
+            rect.height(),
+        )
+        band_top = min(top, bottom)
+        band_height = max(2.0, abs(bottom - top))
+        color = QColor("#f59e0b")
+        color.setAlpha(34)
+        painter.fillRect(
+            QRectF(rect.left(), band_top, rect.width(), band_height),
+            color,
+        )
+
     title_font = print_font(11.0, text=labels[panel_name])
     title_font.setBold(True)
     painter.setFont(title_font)
+    painter.setPen(QColor("#172033"))
     painter.drawText(
-        QRectF(rect.left(), rect.top() - 31.0, rect.width(), 26.0),
+        QRectF(rect.left(), rect.top() - 58.0, rect.width(), 27.0),
         Qt.AlignmentFlag.AlignCenter,
         labels[panel_name],
     )
 
-    for tick in range(11):
-        y = rect.top() + tick / 10.0 * rect.height()
-        painter.setPen(QPen(QColor("#e2e8f0"), 1))
-        painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
-    for tick in range(5):
-        x = rect.left() + tick / 4.0 * rect.width()
-        painter.setPen(QPen(QColor("#e2e8f0"), 1))
-        painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
-
-    legend_height = 23.0 * len(curves)
-    curve_rect = QRectF(
-        rect.left() + 7.0,
-        rect.top() + 7.0,
-        rect.width() - 14.0,
-        max(40.0, rect.height() - legend_height - 16.0),
-    )
-    sampled = _sample_indices(depth.size, limit=1400)
+    sampled = _sample_indices(depth.size, limit=1_800)
+    curve_rect = rect.adjusted(7.0, 1.0, -7.0, -1.0)
+    painter.save()
+    painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
+    legend_rows: list[tuple[QColor, str]] = []
     for curve_index, curve in enumerate(curves):
         values = np.asarray(curve.values, dtype=np.float64)
         usable = finite_depth & np.isfinite(values)
@@ -323,34 +421,59 @@ def _draw_panel(
         if high <= low:
             high = low + max(1.0, abs(low) * 0.01)
         color = QColor(_COLORS[curve_index % len(_COLORS)])
-        painter.setPen(QPen(color, 2))
+        painter.setPen(QPen(color, 2.2))
         previous: tuple[float, float] | None = None
         for index in sampled:
             if not usable[index]:
                 previous = None
                 continue
-            normalized = float(np.clip((values[index] - low) / (high - low), 0.0, 1.0))
+            normalized = float(
+                np.clip((values[index] - low) / (high - low), 0.0, 1.0)
+            )
             x = curve_rect.left() + normalized * curve_rect.width()
-            y = _depth_y(depth[index], depth_min, depth_max, curve_rect.top(), curve_rect.height())
+            y = _depth_y(
+                depth[index],
+                depth_min,
+                depth_max,
+                curve_rect.top(),
+                curve_rect.height(),
+            )
             current = (float(x), float(y))
             if previous is not None:
-                painter.drawLine(QLineF(previous[0], previous[1], current[0], current[1]))
+                painter.drawLine(
+                    QLineF(previous[0], previous[1], current[0], current[1])
+                )
             previous = current
 
-        legend_y = rect.bottom() - legend_height + curve_index * 23.0
-        painter.setPen(QPen(color, 4))
-        painter.drawLine(QLineF(rect.left() + 10.0, legend_y + 9.0, rect.left() + 38.0, legend_y + 9.0))
-        painter.setPen(QColor("#172033"))
         legend = curve.metadata.original_mnemonic
         if curve.metadata.unit:
             legend += f" [{curve.metadata.unit}]"
         legend += f"  p1={low:.4g}; p99={high:.4g}"
-        painter.setFont(print_font(8.0, text=legend))
+        legend_rows.append((color, legend))
+    painter.restore()
+
+    legend_top = rect.bottom() + 12.0
+    for row_index, (color, legend) in enumerate(legend_rows):
+        legend_y = legend_top + row_index * 21.0
+        painter.setPen(QPen(color, 3.5))
+        painter.drawLine(
+            QLineF(
+                rect.left() + 8.0,
+                legend_y + 8.0,
+                rect.left() + 34.0,
+                legend_y + 8.0,
+            )
+        )
+        painter.setPen(QColor("#172033"))
+        painter.setFont(print_font(7.6, text=legend))
         painter.drawText(
-            QRectF(rect.left() + 45.0, legend_y, rect.width() - 50.0, 20.0),
+            QRectF(rect.left() + 40.0, legend_y, rect.width() - 46.0, 18.0),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             legend,
         )
+
+    painter.setPen(QPen(QColor("#334155"), 2.6))
+    painter.drawRect(rect)
 
 
 def _depth_y(
@@ -382,46 +505,56 @@ def _labels(language: AppLanguage) -> dict[str, str]:
         AppLanguage.RU: {
             "title": "Графики интерпретационных кривых по глубине",
             "note": (
-                "Каждая кривая масштабирована внутри своей дорожки по диапазону p1–p99; "
-                "масштаб служит для сопоставления формы, а не абсолютных значений разных методов."
+                "Каждая кривая масштабирована внутри своей дорожки по диапазону "
+                "p1–p99; масштаб служит для сопоставления формы, а не абсолютных "
+                "значений разных методов."
             ),
-            "total": "Total gas / нормализованный газ",
+            "depth": "Глубина",
+            "total": "Общий и нормализованный газ",
             "ratios": "Haworth и Pixler",
-            "drilling": "Буровой контекст / DEXP",
+            "drilling": "Буровой контекст и DEXP",
             "footer": (
-                "Оранжевые полосы показывают кандидатные интервалы выше выбранного robust-z порога. "
-                "Отсутствующая дорожка означает, что соответствующие кривые не найдены или имеют "
-                "недостаточно корректных отсчётов."
+                "Оранжевые полосы показывают перспективные интервалы выше выбранного "
+                "порога robust z. Шкалы глубины продублированы слева и справа; числа "
+                "0–100 над дорожками показывают положение внутри диапазона p1–p99. "
+                "Отсутствующая дорожка означает, что соответствующие кривые не найдены "
+                "или имеют недостаточно корректных отсчётов."
             ),
         },
         AppLanguage.KK: {
             "title": "Тереңдік бойынша интерпретациялық қисықтар графиктері",
             "note": (
-                "Әр қисық өз жолында p1–p99 ауқымы бойынша масштабталған; масштаб әртүрлі "
-                "әдістердің абсолют мәндерін емес, пішінін салыстыруға арналған."
+                "Әр қисық өз жолында p1–p99 ауқымы бойынша масштабталған; масштаб "
+                "әртүрлі әдістердің абсолют мәндерін емес, пішінін салыстыруға арналған."
             ),
-            "total": "Total gas / нормаланған газ",
+            "depth": "Тереңдік",
+            "total": "Жалпы және нормаланған газ",
             "ratios": "Haworth және Pixler",
-            "drilling": "Бұрғылау контексті / DEXP",
+            "drilling": "Бұрғылау контексті және DEXP",
             "footer": (
-                "Қызғылт сары жолақтар таңдалған robust-z шегінен жоғары кандидат аралықтарды "
-                "көрсетеді. Жолдың болмауы тиісті қисықтар табылмағанын немесе дұрыс есептер саны "
-                "жеткіліксіз екенін білдіреді."
+                "Қызғылт сары жолақтар таңдалған robust z шегінен жоғары "
+                "перспективалы аралықтарды көрсетеді. Тереңдік шкаласы сол және оң "
+                "жақта қайталанады; жолдардың үстіндегі 0–100 мәндері p1–p99 "
+                "ауқымындағы орынды көрсетеді."
             ),
         },
         AppLanguage.EN: {
             "title": "Depth plots of interpretation curves",
             "note": (
-                "Each curve is scaled within its track to the p1–p99 range; this scale compares "
-                "shape and does not imply that absolute values from different methods are equivalent."
+                "Each curve is scaled within its track to the p1–p99 range; this "
+                "scale compares shape and does not imply that absolute values from "
+                "different methods are equivalent."
             ),
-            "total": "Total gas / normalized gas",
+            "depth": "Depth",
+            "total": "Total and normalized gas",
             "ratios": "Haworth and Pixler",
-            "drilling": "Drilling context / DEXP",
+            "drilling": "Drilling context and DEXP",
             "footer": (
-                "Orange bands mark candidate intervals above the selected robust-z threshold. "
-                "A missing track means that the corresponding curves were not found or do not "
-                "contain enough valid samples."
+                "Orange bands mark prospective intervals above the selected robust-z "
+                "threshold. Depth scales are shown on both sides; the 0–100 labels "
+                "above each track indicate position within its p1–p99 range. A missing "
+                "track means that the curves are unavailable or contain too few valid "
+                "samples."
             ),
         },
     }[language]
