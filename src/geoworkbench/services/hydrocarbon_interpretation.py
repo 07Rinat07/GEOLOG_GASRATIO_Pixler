@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import replace
+from html import escape
 
 import numpy as np
 
@@ -19,8 +21,14 @@ from geoworkbench.services.hydrocarbon_interpretation_modes import (
     candidate_evidence_summary,
     fluid_hypothesis_basis,
     fluid_hypothesis_label,
-    hydrocarbon_interpretation_html,
 )
+from geoworkbench.services.interval_gas_statistics import (
+    build_candidate_interval_statistics,
+    enhanced_fluid_hypothesis_basis,
+    interval_gas_table_html,
+    manual_section_heading,
+)
+from geoworkbench.services.localization import AppLanguage
 
 
 _SERVER_TOTAL_NAMES = (
@@ -32,6 +40,8 @@ _SERVER_TOTAL_NAMES = (
 )
 _LOCAL_TOTAL_NAMES = ("TG_NORM_CALC", "TG_NORM")
 _SELECTED_MODES: dict[int, NormalizedGasCalculationMode] = {}
+_REPORT_DATASETS: OrderedDict[tuple[str, str, str | None], Dataset] = OrderedDict()
+_REPORT_DATASET_CACHE_LIMIT = 64
 
 
 def set_normalized_gas_report_mode(
@@ -51,14 +61,16 @@ def build_hydrocarbon_interpretation_report(
     threshold: float = 3.0,
     normalized_gas_mode: NormalizedGasCalculationMode | str | None = None,
 ) -> HydrocarbonInterpretationReport:
-    """Build a report while preserving the legacy API when no mode was selected."""
+    """Build the report and retain its dataset for readable interval statistics."""
 
     session_id = id(session)
+    dataset = session.current_dataset
     if normalized_gas_mode is None and session_id not in _SELECTED_MODES:
-        return _legacy.build_hydrocarbon_interpretation_report(
+        report = _legacy.build_hydrocarbon_interpretation_report(
             session,
             threshold=threshold,
         )
+        return _remember_report_dataset(report, dataset)
 
     requested_mode = _coerce_mode(
         normalized_gas_mode
@@ -67,7 +79,6 @@ def build_hydrocarbon_interpretation_report(
     )
     effective_mode = requested_mode
     waiting_for_local_total = False
-    dataset = session.current_dataset
     if (
         requested_mode is NormalizedGasCalculationMode.COMPARE
         and dataset is not None
@@ -100,11 +111,71 @@ def build_hydrocarbon_interpretation_report(
         )
 
     primary = report.primary_mnemonic
-    if not primary:
+    if primary:
+        names = tuple(_strip_source_prefix(part) for part in primary.split(" | "))
+        cleaned = " | ".join(dict.fromkeys(name for name in names if name))
+        if cleaned != primary:
+            report = replace(report, primary_mnemonic=cleaned)
+    return _remember_report_dataset(report, dataset)
+
+
+def hydrocarbon_interpretation_html(
+    report: HydrocarbonInterpretationReport,
+    language: AppLanguage = AppLanguage.RU,
+) -> str:
+    """Render the standard report with explicit gas readings for every interval."""
+
+    html = _modes.hydrocarbon_interpretation_html(report, language)
+    dataset = _REPORT_DATASETS.get(_report_cache_key(report))
+    if dataset is None or not report.candidates:
+        return html
+
+    statistics = tuple(
+        build_candidate_interval_statistics(dataset, candidate)
+        for candidate in report.candidates
+    )
+    for candidate, item in zip(report.candidates, statistics, strict=False):
+        old_basis = fluid_hypothesis_basis(candidate, language)
+        new_basis = enhanced_fluid_hypothesis_basis(
+            old_basis,
+            candidate,
+            item,
+            language,
+        )
+        html = html.replace(
+            f"<p>{escape(old_basis)}</p>",
+            f"<p>{escape(new_basis)}</p>",
+            1,
+        )
+
+    gas_table = interval_gas_table_html(report, statistics, language)
+    if gas_table:
+        manual_marker = f"<h2>{escape(manual_section_heading(language))}</h2>"
+        if manual_marker in html:
+            html = html.replace(manual_marker, gas_table + manual_marker, 1)
+        else:
+            html = html.replace("</body>", gas_table + "</body>")
+    return html
+
+
+def _remember_report_dataset(
+    report: HydrocarbonInterpretationReport,
+    dataset: Dataset | None,
+) -> HydrocarbonInterpretationReport:
+    if dataset is None:
         return report
-    names = tuple(_strip_source_prefix(part) for part in primary.split(" | "))
-    cleaned = " | ".join(dict.fromkeys(name for name in names if name))
-    return report if cleaned == primary else replace(report, primary_mnemonic=cleaned)
+    key = _report_cache_key(report)
+    _REPORT_DATASETS[key] = dataset
+    _REPORT_DATASETS.move_to_end(key)
+    while len(_REPORT_DATASETS) > _REPORT_DATASET_CACHE_LIMIT:
+        _REPORT_DATASETS.popitem(last=False)
+    return report
+
+
+def _report_cache_key(
+    report: HydrocarbonInterpretationReport,
+) -> tuple[str, str, str | None]:
+    return report.dataset_id, report.generated_at, report.primary_mnemonic
 
 
 def _coerce_mode(
