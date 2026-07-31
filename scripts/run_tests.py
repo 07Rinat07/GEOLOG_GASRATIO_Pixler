@@ -6,8 +6,8 @@ tracing or async plugins from the host environment can own native threads during
 Qt teardown. The project-owned pytest-asyncio plugin is loaded explicitly so ETP
 coroutine tests remain part of the isolated suite.
 
-The complete suite is split into contiguous file shards on Windows. Every test
-is still executed, but each shard receives a fresh QApplication and fresh native
+The complete suite is split into small contiguous file shards on Windows. Every
+test is still executed, but each shard receives a fresh QApplication and fresh native
 Qt resources. This prevents long release runs from being replaced by an
 unrelated offscreen-backend abort after hundreds of GUI windows were already
 created and disposed.
@@ -23,7 +23,7 @@ from collections.abc import Sequence
 
 
 _CHILD_FLAG = "--geolog-single-shard"
-_DEFAULT_WINDOWS_SHARDS = 4
+_DEFAULT_WINDOWS_SHARDS = 8
 
 
 def _exit_immediately(result: int) -> None:
