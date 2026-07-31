@@ -159,10 +159,25 @@ class NavigationOrganizationController(QObject):
             action.triggered.connect(
                 lambda _checked=False: QTimer.singleShot(0, self.refresh_language)
             )
+        self._install_direct_language_refresh()
 
         self._installed = True
         self.refresh_language()
         return True
+
+    def _install_direct_language_refresh(self) -> None:
+        if getattr(self.window, "_navigation_language_wrapper_installed", False):
+            return
+        original_change_language = getattr(self.window, "change_language", None)
+        if not callable(original_change_language):
+            return
+
+        def change_language_with_navigation(language: AppLanguage) -> None:
+            original_change_language(language)
+            self.refresh_language()
+
+        self.window.change_language = change_language_with_navigation
+        self.window._navigation_language_wrapper_installed = True
 
     def refresh_language(self) -> None:
         language = normalized_language(getattr(self.window, "language", AppLanguage.RU))
