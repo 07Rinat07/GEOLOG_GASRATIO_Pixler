@@ -27,7 +27,7 @@ import sys
 _CHILD_FLAG = "--geolog-single-shard"
 _DEFAULT_WINDOWS_SHARDS = 8
 _NATIVE_HEAVY_TEST_THRESHOLD = 24
-_NATIVE_TEST_BATCH_SIZE = 8
+_NATIVE_TEST_BATCH_SIZE = 4
 
 
 def _exit_immediately(result: int) -> None:
