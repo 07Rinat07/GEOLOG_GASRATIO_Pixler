@@ -1,0 +1,11 @@
+diff --git a/src/geoworkbench/data/hydrocarbon_interpretation_export.py b/src/geoworkbench/data/hydrocarbon_interpretation_export.py
+--- a/src/geoworkbench/data/hydrocarbon_interpretation_export.py
++++ b/src/geoworkbench/data/hydrocarbon_interpretation_export.py
+@@ -7,8 +7,6 @@ import tempfile
+ import zipfile
+ from xml.sax.saxutils import escape as xml_escape
+ 
+-import numpy as np
+-
+ from geoworkbench.domain.models import Dataset
+ from geoworkbench.services.hydrocarbon_interpretation import (
