@@ -145,7 +145,7 @@ def test_readable_xlsx_keeps_interpretation_and_gas_statistics_on_main_sheet(
         assert "Точек выше порога" not in headers
         assert not any("Медиана" in str(value) for value in headers)
         assert not any("Фон" in str(value) for value in headers)
-        assert sheet["F10"].value == "Кандидат УВ-пласта"
+        assert sheet["F10"].value == "Перспективный УВ-интервал"
         assert isinstance(sheet["G10"].value, str) and sheet["G10"].value
         assert sheet["I10"].value == "TG_CALC [%abs]"
         assert sheet["J10"].value == 3.0
