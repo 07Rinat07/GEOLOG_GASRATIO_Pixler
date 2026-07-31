@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from geoworkbench.services.import_diagnostics import (
@@ -50,23 +51,51 @@ def test_presentation_diagnostic_states_that_imported_data_is_retained(tmp_path:
     assert "table" in diagnostic.suggested_action.casefold()
 
 
-def test_diagnostic_report_is_persisted_atomically(tmp_path: Path) -> None:
-    from geoworkbench.services.import_diagnostics import (
-        persist_import_diagnostic_report,
-    )
-
+def _report(tmp_path: Path) -> ImportDiagnosticReport:
     diagnostic = diagnostic_from_exception(
         tmp_path / "broken.las",
         ImportDiagnosticStage.READ_SOURCE,
         ValueError("bad row"),
     )
-    target = persist_import_diagnostic_report(
-        ImportDiagnosticReport((diagnostic,)), tmp_path / "diagnostics"
+    return ImportDiagnosticReport((diagnostic,))
+
+
+def test_diagnostic_report_is_persisted_atomically(tmp_path: Path) -> None:
+    from geoworkbench.services.import_diagnostics import (
+        persist_import_diagnostic_report,
     )
+
+    target = persist_import_diagnostic_report(_report(tmp_path), tmp_path / "diagnostics")
 
     assert target.exists()
     assert "bad row" in target.read_text(encoding="utf-8")
     assert list(target.parent.glob("*.tmp")) == []
+
+
+def test_diagnostic_report_names_remain_unique_for_identical_timestamps(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from geoworkbench.services import import_diagnostics
+
+    class FrozenDateTime:
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 8, 1, 1, 30, tzinfo=tz or UTC)
+
+    monkeypatch.setattr(import_diagnostics, "datetime", FrozenDateTime)
+    root = tmp_path / "diagnostics"
+
+    first = import_diagnostics.persist_import_diagnostic_report(
+        _report(tmp_path), root, prefix="las_import"
+    )
+    second = import_diagnostics.persist_import_diagnostic_report(
+        _report(tmp_path), root, prefix="las_import"
+    )
+
+    assert first != second
+    assert first.exists()
+    assert second.exists()
 
 
 def test_persisted_diagnostic_reports_are_pruned_to_retention_limit(
@@ -76,12 +105,7 @@ def test_persisted_diagnostic_reports_are_pruned_to_retention_limit(
         persist_import_diagnostic_report,
     )
 
-    diagnostic = diagnostic_from_exception(
-        tmp_path / "broken.las",
-        ImportDiagnosticStage.READ_SOURCE,
-        ValueError("bad row"),
-    )
-    report = ImportDiagnosticReport((diagnostic,))
+    report = _report(tmp_path)
     root = tmp_path / "diagnostics"
 
     for _ in range(5):
