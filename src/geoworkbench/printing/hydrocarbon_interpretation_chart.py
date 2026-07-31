@@ -79,15 +79,24 @@ def hydrocarbon_interpretation_html_with_chart(
     """Return the standard report HTML with a whole-well curve chart appended."""
 
     base = hydrocarbon_interpretation_html(report, language)
+    from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
+        inject_interval_gas_statistics_html,
+    )
+
+    base = inject_interval_gas_statistics_html(base, report, dataset, language)
     uri = hydrocarbon_interpretation_chart_data_uri(report, dataset, language)
     if not uri:
         return base
     labels = _labels(language)
     block = (
+        "<section class='interpretation-curves'>"
         f"<h2>{escape(labels['title'])}</h2>"
         f"<p><small>{escape(labels['note'])}</small></p>"
-        f'<img alt="{escape(labels["title"])}" width="1050" height="650" '
+        "<div style='width:100%; text-align:center;'>"
+        f'<img alt="{escape(labels["title"])}" '
+        "style='display:block; width:100%; max-width:1050px; height:auto; margin:0 auto;' "
         f'src="{uri}" />'
+        "</div></section>"
     )
     return base.replace("</body>", block + "</body>")
 

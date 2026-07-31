@@ -2,16 +2,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from collections.abc import Callable
 import tempfile
 import zipfile
 from xml.sax.saxutils import escape as xml_escape
 
-import numpy as np
-from openpyxl import Workbook  # type: ignore[import-untyped]
-from openpyxl.styles import Alignment, Font, PatternFill  # type: ignore[import-untyped]
-from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
 
-from geoworkbench.data.spreadsheet_safety import protect_spreadsheet_row
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -19,15 +15,17 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     fluid_hypothesis_basis,
     fluid_hypothesis_label,
 )
-from geoworkbench.services.lba_standard import describe_lba_assessment
+from geoworkbench.services.interval_gas_statistics import (
+    CandidateIntervalGasStatistics,
+    absolute_gas_components_summary,
+    build_candidate_interval_statistics,
+    enhanced_fluid_hypothesis_basis,
+)
 from geoworkbench.services.localization import AppLanguage
 
 
 class HydrocarbonInterpretationExportError(RuntimeError):
     pass
-
-
-_EXCEL_MAX_ROWS = 1_048_576
 
 
 def export_hydrocarbon_interpretation_xlsx(
@@ -36,237 +34,36 @@ def export_hydrocarbon_interpretation_xlsx(
     target: str | Path,
     *,
     overwrite: bool = False,
+    progress: Callable[[str, int, int], None] | None = None,
 ) -> Path:
-    _validate_dataset(report, dataset)
-    destination = _prepare_target(target, ".xlsx", overwrite=overwrite)
-    if dataset.depth.size + 1 > _EXCEL_MAX_ROWS:
-        raise HydrocarbonInterpretationExportError(
-            f"В наборе {dataset.depth.size} строк; лимит листа Excel — {_EXCEL_MAX_ROWS - 1}."
-        )
+    """Export the single readable workbook used by every interpretation workflow."""
 
-    workbook = Workbook()
-    summary = workbook.active
-    summary.title = "Summary"
-    summary_rows = (
-        ("Project", report.project_name),
-        ("Well", report.well_name),
-        ("Dataset", report.dataset_name),
-        ("Generated", report.generated_at),
-        ("Primary gas curve", report.primary_mnemonic or ""),
-        ("Robust z threshold", report.threshold),
-        ("Candidate intervals", len(report.candidates)),
-        ("Geologist-confirmed intervals", len(report.manual_intervals)),
-        ("Status", "Candidates require geologist confirmation"),
-    )
-    for summary_row in summary_rows:
-        summary.append(protect_spreadsheet_row(summary_row))
-    summary.column_dimensions["A"].width = 34
-    summary.column_dimensions["B"].width = 80
-    summary["A1"].font = Font(bold=True)
-
-    candidates = workbook.create_sheet("Candidate intervals")
-    candidate_headers = (
-        "top_depth",
-        "bottom_depth",
-        "depth_unit",
-        "relative_anomaly_strength",
-        "flagged_samples",
-        "primary_curve",
-        "max_robust_z",
-        "max_primary_value",
-        "preliminary_fluid_interpretation",
-        "interval_wetness_pct",
-        "background_wetness_pct",
-        "wetness_relative_robust_z",
-        "interval_balance_bh",
-        "interval_character_ch",
-        "pixler_interpretation",
-        "pixler_c1_c2",
-        "pixler_profile_shape",
-        "pixler_possible_water_association",
-        "lba_standard_assessments",
-        "gas_lba_correlation",
-        "context_medians",
-        "evidence",
-        "review_status",
-    )
-    candidates.append(protect_spreadsheet_row(candidate_headers))
-    for candidate in report.candidates:
-        candidates.append(
-            protect_spreadsheet_row(
-                (
-                    candidate.top_depth,
-                    candidate.bottom_depth,
-                    report.depth_unit,
-                    candidate.anomaly_strength,
-                    candidate.sample_count,
-                    candidate.primary_mnemonic,
-                    candidate.max_robust_z,
-                    candidate.max_primary_value,
-                    candidate.fluid_hypothesis,
-                    candidate.interval_wetness,
-                    candidate.background_wetness,
-                    candidate.wetness_robust_z,
-                    candidate.interval_balance,
-                    candidate.interval_character,
-                    candidate.pixler_assessment.code
-                    if candidate.pixler_assessment is not None
-                    else "",
-                    candidate.pixler_assessment.c1_c2
-                    if candidate.pixler_assessment is not None
-                    else None,
-                    candidate.pixler_assessment.profile_shape
-                    if candidate.pixler_assessment is not None
-                    else "",
-                    (
-                        "yes"
-                        if candidate.pixler_assessment.water_association_possible
-                        else "no"
-                    )
-                    if candidate.pixler_assessment is not None
-                    else "",
-                    "; ".join(
-                        describe_lba_assessment(assessment, AppLanguage.RU)
-                        for assessment in candidate.lba_assessments
-                    ),
-                    candidate.gas_lba_correlation,
-                    "; ".join(f"{name}={value:.6g}" for name, value in candidate.metrics),
-                    "; ".join(candidate.evidence),
-                    "candidate — geologist confirmation required",
-                )
-            )
-        )
-    _format_table_sheet(
-        candidates,
-        widths=(
-            14,
-            14,
-            12,
-            20,
-            16,
-            18,
-            16,
-            18,
-            38,
-            20,
-            20,
-            24,
-            18,
-            18,
-            38,
-            18,
-            18,
-            24,
-            70,
-            24,
-            48,
-            72,
-            38,
-        ),
+    from geoworkbench.data.hydrocarbon_interpretation_export_readable import (
+        export_readable_hydrocarbon_interpretation_xlsx,
     )
 
-    manual = workbook.create_sheet("Manual intervals")
-    manual_headers = (
-        "interpretation",
-        "top_depth",
-        "bottom_depth",
-        "depth_unit",
-        "interval_type",
-        "label",
-        "comment",
+    return export_readable_hydrocarbon_interpretation_xlsx(
+        report,
+        dataset,
+        target,
+        overwrite=overwrite,
+        progress=progress,
     )
-    manual.append(protect_spreadsheet_row(manual_headers))
-    for manual_interval in report.manual_intervals:
-        manual.append(
-            protect_spreadsheet_row(
-                (
-                    manual_interval.interpretation_name,
-                    manual_interval.top_depth,
-                    manual_interval.bottom_depth,
-                    report.depth_unit,
-                    manual_interval.interval_type,
-                    manual_interval.label,
-                    manual_interval.comment,
-                )
-            )
-        )
-    _format_table_sheet(manual, widths=(28, 14, 14, 12, 22, 38, 70))
-
-    methods = workbook.create_sheet("Methods")
-    methods.append(
-        protect_spreadsheet_row(
-            ("method", "expected_curves", "available_curves", "available", "source")
-        )
-    )
-    for method in report.methods:
-        methods.append(
-            protect_spreadsheet_row(
-                (
-                    method.method,
-                    ", ".join(method.curve_mnemonics),
-                    ", ".join(method.available_mnemonics),
-                    "yes" if method.available else "no",
-                    method.source,
-                )
-            )
-        )
-    methods.append(())
-    methods.append(protect_spreadsheet_row(("Method limitations",)))
-    for warning in report.warnings:
-        methods.append(protect_spreadsheet_row((warning,)))
-    _format_table_sheet(methods, widths=(38, 42, 42, 14, 90))
-
-    whole_well = workbook.create_sheet("Whole well")
-    curves = tuple(dataset.curves.values())
-    index_header = (
-        f"{dataset.active_index.mnemonic} [{dataset.active_index.unit}]"
-        if dataset.active_index.unit
-        else dataset.active_index.mnemonic
-    )
-    curve_headers = tuple(
-        f"{curve.metadata.original_mnemonic} [{curve.metadata.unit}]"
-        if curve.metadata.unit
-        else curve.metadata.original_mnemonic
-        for curve in curves
-    )
-    whole_well.append(protect_spreadsheet_row((index_header, *curve_headers)))
-    index_values = np.asarray(dataset.active_index.values)
-    for row_index in range(index_values.size):
-        whole_row: list[object] = [_excel_value(index_values[row_index])]
-        whole_row.extend(_excel_value(curve.values[row_index]) for curve in curves)
-        whole_well.append(protect_spreadsheet_row(whole_row))
-    _format_table_sheet(
-        whole_well,
-        widths=(18, *(14 for _curve in curves)),
-        wrap_header=True,
-    )
-
-    temporary = _temporary_path(destination)
-    try:
-        workbook.save(temporary)
-        os.replace(temporary, destination)
-    except Exception as exc:
-        temporary.unlink(missing_ok=True)
-        if isinstance(exc, (FileExistsError, HydrocarbonInterpretationExportError)):
-            raise
-        raise HydrocarbonInterpretationExportError(
-            f"Не удалось экспортировать Excel: {destination}"
-        ) from exc
-    finally:
-        workbook.close()
-    return destination
 
 
 def export_hydrocarbon_interpretation_docx(
     report: HydrocarbonInterpretationReport,
     target: str | Path,
     *,
+    dataset: Dataset | None = None,
     overwrite: bool = False,
 ) -> Path:
+    if dataset is not None:
+        _validate_dataset(report, dataset)
     destination = _prepare_target(target, ".docx", overwrite=overwrite)
     temporary = _temporary_path(destination)
     try:
-        _write_docx(temporary, report)
+        _write_docx(temporary, report, dataset)
         os.replace(temporary, destination)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
@@ -278,33 +75,15 @@ def export_hydrocarbon_interpretation_docx(
     return destination
 
 
-def _format_table_sheet(sheet, *, widths: tuple[int, ...], wrap_header: bool = False) -> None:
-    sheet.freeze_panes = "A2"
-    if sheet.max_row >= 1 and sheet.max_column >= 1:
-        sheet.auto_filter.ref = sheet.dimensions
-        for cell in sheet[1]:
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill("solid", fgColor="315A7D")
-            cell.alignment = Alignment(
-                horizontal="center",
-                vertical="center",
-                wrap_text=wrap_header,
-            )
-    for index, width in enumerate(widths, start=1):
-        sheet.column_dimensions[get_column_letter(index)].width = width
-
-
-def _excel_value(value: object) -> object:
-    if isinstance(value, np.datetime64):
-        return str(value)
-    if isinstance(value, np.generic):
-        value = value.item()
-    if isinstance(value, float) and not np.isfinite(value):
-        return None
-    return value
-
-
-def _write_docx(path: Path, report: HydrocarbonInterpretationReport) -> None:
+def _write_docx(
+    path: Path,
+    report: HydrocarbonInterpretationReport,
+    dataset: Dataset | None,
+) -> None:
+    statistics: tuple[CandidateIntervalGasStatistics | None, ...] = tuple(
+        build_candidate_interval_statistics(dataset, candidate) if dataset is not None else None
+        for candidate in report.candidates
+    )
     body: list[str] = [
         _paragraph("Отчёт по интерпретации газового каротажа", style="Title"),
         _paragraph(f"Проект: {report.project_name}"),
@@ -315,16 +94,17 @@ def _write_docx(path: Path, report: HydrocarbonInterpretationReport) -> None:
         _paragraph(f"Порог robust z: {report.threshold:.2f}"),
         _paragraph("Методы и доступность", style="Heading1"),
         _table(
-            ("Метод", "Доступные кривые", "Источник"),
+            ("Метод", "Статус", "Использованные данные", "Источник"),
             tuple(
                 (
                     method.method,
-                    ", ".join(method.available_mnemonics) or "нет",
+                    "доступен" if method.available else "нет данных",
+                    ", ".join(method.available_mnemonics) or "нет данных",
                     method.source,
                 )
                 for method in report.methods
             ),
-            widths=(4_600, 3_000, 7_500),
+            widths=(3_800, 1_500, 3_500, 6_300),
         ),
         _paragraph("Кандидатные интервалы УВ-проявлений", style="Heading1"),
     ]
@@ -335,40 +115,51 @@ def _write_docx(path: Path, report: HydrocarbonInterpretationReport) -> None:
                     "Интервал",
                     "Сила аномалии",
                     "Предварительная интерпретация",
-                    "Точек выше порога",
+                    "Абсолютный газ: мин / среднее / макс",
                     "Основание",
                 ),
                 tuple(
                     (
-                        f"{item.top_depth:.2f}–{item.bottom_depth:.2f} {report.depth_unit}",
-                        {
-                            "low": "низкая",
-                            "medium": "средняя",
-                            "high": "высокая",
-                        }[item.anomaly_strength],
-                        fluid_hypothesis_label(item, AppLanguage.RU),
-                        str(item.sample_count),
-                        candidate_evidence_summary(item),
+                        f"{candidate.top_depth:.2f}–{candidate.bottom_depth:.2f} {report.depth_unit}",
+                        {"low": "низкая", "medium": "средняя", "high": "высокая"}.get(
+                            candidate.anomaly_strength,
+                            candidate.anomaly_strength,
+                        ),
+                        fluid_hypothesis_label(candidate, AppLanguage.RU),
+                        absolute_gas_components_summary(item.components, AppLanguage.RU)
+                        if item is not None
+                        else "нет данных",
+                        candidate_evidence_summary(candidate),
                     )
-                    for item in report.candidates
+                    for candidate, item in zip(report.candidates, statistics, strict=True)
                 ),
-                widths=(2_200, 2_000, 3_700, 1_800, 5_400),
+                widths=(2_100, 1_600, 3_000, 5_000, 3_400),
             )
         )
     else:
         body.append(_paragraph("Кандидатные интервалы по выбранному порогу не найдены."))
-    body.append(_paragraph("Сопоставление методов по интервалам", style="Heading1"))
+
+    body.append(_paragraph("Интерпретация по интервалам", style="Heading1"))
     if report.candidates:
-        for item in report.candidates:
+        for candidate, item in zip(report.candidates, statistics, strict=True):
+            basis = fluid_hypothesis_basis(candidate, AppLanguage.RU)
+            if item is not None:
+                basis = enhanced_fluid_hypothesis_basis(
+                    basis,
+                    candidate,
+                    item,
+                    AppLanguage.RU,
+                )
             body.append(
                 _paragraph(
-                    f"{item.top_depth:.2f}–{item.bottom_depth:.2f} {report.depth_unit}: "
-                    f"{fluid_hypothesis_label(item, AppLanguage.RU)}. "
-                    f"{fluid_hypothesis_basis(item, AppLanguage.RU)}"
+                    f"{candidate.top_depth:.2f}–{candidate.bottom_depth:.2f} "
+                    f"{report.depth_unit}: "
+                    f"{fluid_hypothesis_label(candidate, AppLanguage.RU)}. {basis}"
                 )
             )
     else:
         body.append(_paragraph("Кандидатные интервалы по выбранному порогу не найдены."))
+
     body.append(_paragraph("Интервалы, подтверждённые геологом", style="Heading1"))
     if report.manual_intervals:
         body.append(
@@ -433,7 +224,7 @@ def _write_docx(path: Path, report: HydrocarbonInterpretationReport) -> None:
 
 def _paragraph(text: str, *, style: str | None = None) -> str:
     style_xml = f'<w:pPr><w:pStyle w:val="{style}"/></w:pPr>' if style else ""
-    return f"<w:p>{style_xml}<w:r><w:t xml:space=\"preserve\">{_xml_text(text)}</w:t></w:r></w:p>"
+    return f'<w:p>{style_xml}<w:r><w:t xml:space="preserve">{_xml_text(text)}</w:t></w:r></w:p>'
 
 
 def _table(
@@ -473,7 +264,7 @@ def _table_row(
     cells = []
     for value, width in zip(values, widths, strict=True):
         run_properties = (
-            "<w:rPr><w:b/><w:sz w:val=\"18\"/></w:rPr>"
+            '<w:rPr><w:b/><w:sz w:val="18"/></w:rPr>'
             if header
             else '<w:rPr><w:sz w:val="18"/></w:rPr>'
         )
@@ -561,3 +352,10 @@ def _temporary_path(destination: Path) -> Path:
     )
     os.close(descriptor)
     return Path(name)
+
+
+__all__ = [
+    "HydrocarbonInterpretationExportError",
+    "export_hydrocarbon_interpretation_docx",
+    "export_hydrocarbon_interpretation_xlsx",
+]

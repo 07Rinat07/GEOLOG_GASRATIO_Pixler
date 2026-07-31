@@ -389,14 +389,21 @@ class InterpretationReportWorkspace(_LegacyInterpretationReportWorkspace):
         if target is None:
             return
         try:
-            exported = export_hydrocarbon_interpretation_pdf(
-                report,
-                target,
-                language=self.language,
-                dataset=dataset,
-                include_chart=True,
-                overwrite=target.exists(),
-            )
+            with self._report_export_progress(
+                self._text(
+                    "Формируется PDF-отчёт с графиками…",
+                    "Графиктері бар PDF есебі құрылуда…",
+                    "Building PDF report with charts…",
+                )
+            ):
+                exported = export_hydrocarbon_interpretation_pdf(
+                    report,
+                    target,
+                    language=self.language,
+                    dataset=dataset,
+                    include_chart=True,
+                    overwrite=target.exists(),
+                )
         except (OSError, FileExistsError, HydrocarbonInterpretationPdfError) as exc:
             self._show_export_error(exc)
             return
@@ -615,9 +622,9 @@ class InterpretationReportWorkspace(_LegacyInterpretationReportWorkspace):
             ) + ", ".join(changed)
         elif curves:
             message = self._text(
-                "Доступные кривые: ",
-                "Қолжетімді қисықтар: ",
-                "Available curves: ",
+                "Доступные данные: ",
+                "Қолжетімді деректер: ",
+                "Available data: ",
             ) + ", ".join(curves)
         else:
             message = self._text(

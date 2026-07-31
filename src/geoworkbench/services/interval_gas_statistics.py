@@ -90,12 +90,14 @@ def build_interval_statistics(
     raw_total = _curve_stats(raw_curve, depth, mask, gas=True)
 
     components: list[IntervalCurveStatistics] = []
-    for name in ("C1", "C2", "C3"):
+    for name in ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5"):
         item = _curve_stats(_find_curve(dataset, (name,)), depth, mask, gas=False)
         if item is not None:
             components.append(item)
     for total, iso, normal in (("C4", "IC4", "NC4"), ("C5", "IC5", "NC5")):
-        item = _component_stats(dataset, depth, mask, total, iso, normal)
+        if any(_component_name(item.mnemonic) in {iso, normal} for item in components):
+            continue
+        item = _curve_stats(_find_curve(dataset, (total,)), depth, mask, gas=False)
         if item is not None:
             components.append(item)
 
@@ -111,17 +113,7 @@ def enhanced_fluid_hypothesis_basis(
 ) -> str:
     labels = _labels(language)
     cleaned = base_text.strip()
-    interval_zero = candidate.interval_wetness is not None and abs(candidate.interval_wetness) <= _EPS
-    background_zero = (
-        candidate.background_wetness is not None
-        and abs(candidate.background_wetness) <= _EPS
-    )
-    if interval_zero and background_zero:
-        cleaned = _drop_sentence(cleaned)
-        if candidate.interval_balance is None and candidate.interval_character is None:
-            cleaned = _drop_sentence(cleaned)
-        cleaned = f"{labels['wetness_zero']} {cleaned}".strip()
-    elif interval_zero:
+    if candidate.interval_wetness is not None and abs(candidate.interval_wetness) <= _EPS:
         cleaned = f"{labels['interval_zero']} {cleaned}".strip()
     summary = interval_gas_summary(statistics, language)
     return " ".join(part for part in (summary, cleaned) if part)
@@ -137,21 +129,25 @@ def interval_gas_summary(
         parts.append(_curve_summary(statistics.raw_total, labels["raw"], labels))
     if statistics.primary is not None:
         parts.append(_curve_summary(statistics.primary, labels["normalized"], labels))
-    components = {_family(item.mnemonic): item for item in statistics.components}
-    if (c1 := components.get("C1")) is not None:
-        parts.append(f"C1: {_range(c1)} {c1.unit}".strip())
-    heavier = [components[name] for name in ("C2", "C3", "C4", "C5") if name in components]
-    if heavier and all(item.is_zero_only for item in heavier):
-        parts.append(labels["heavy_zero"])
-    elif heavier:
-        parts.append("C2-C5: " + "; ".join(f"{_family(x.mnemonic)} {_range(x)}" for x in heavier))
-    if statistics.dexp is not None and statistics.dexp.has_values:
-        item = statistics.dexp
+    if statistics.components:
         parts.append(
-            f"{item.mnemonic}: min {_number(item.minimum)}, "
-            f"{labels['median']} {_number(item.median)}, max {_number(item.maximum)}"
+            f"{labels['absolute']}: "
+            + absolute_gas_components_summary(statistics.components, language)
         )
+    if statistics.dexp is not None and statistics.dexp.has_values:
+        parts.append(_stat_triplet(statistics.dexp, labels))
     return ". ".join(parts) + ("." if parts else "")
+
+
+def absolute_gas_components_summary(
+    items: tuple[IntervalCurveStatistics, ...],
+    language: AppLanguage = AppLanguage.RU,
+) -> str:
+    labels = _labels(language)
+    if not items:
+        return labels["no_data"]
+    ordered = sorted(items, key=lambda item: _component_sort_key(_component_name(item.mnemonic)))
+    return "; ".join(_stat_triplet(item, labels) for item in ordered)
 
 
 def interval_gas_table_html(
@@ -167,7 +163,7 @@ def interval_gas_table_html(
         f"<td>{candidate.top_depth:.2f}-{candidate.bottom_depth:.2f} {escape(report.depth_unit)}</td>"
         f"<td>{_curve_html(item.raw_total, labels)}</td>"
         f"<td>{_curve_html(item.primary, labels)}</td>"
-        f"<td>{escape(_components_text(item.components, labels))}</td>"
+        f"<td>{escape(absolute_gas_components_summary(item.components, language))}</td>"
         f"<td>{escape(_dexp_text(item.dexp, labels))}</td>"
         "</tr>"
         for candidate, item in zip(report.candidates, statistics, strict=False)
@@ -177,10 +173,9 @@ def interval_gas_table_html(
         f"<p><small>{escape(labels['zero_note'])}</small></p>"
         "<table><thead><tr>"
         f"<th>{escape(labels['interval'])}</th><th>{escape(labels['raw'])}</th>"
-        f"<th>{escape(labels['normalized'])}</th><th>C1-C5</th><th>DEXP</th>"
+        f"<th>{escape(labels['normalized'])}</th><th>{escape(labels['absolute'])}</th><th>DEXP</th>"
         f"</tr></thead><tbody>{rows}</tbody></table>"
     )
-
 
 def manual_section_heading(language: AppLanguage) -> str:
     return _labels(language)["manual"]
@@ -202,39 +197,6 @@ def _curve_stats(
         depth,
         mask,
         gas=gas,
-    )
-
-
-def _component_stats(
-    dataset: Dataset,
-    depth: np.ndarray,
-    mask: np.ndarray,
-    total: str,
-    iso: str,
-    normal: str,
-) -> IntervalCurveStatistics | None:
-    if curve := _find_curve(dataset, (total,)):
-        return _curve_stats(curve, depth, mask, gas=False)
-    curves = tuple(curve for name in (iso, normal) if (curve := _find_curve(dataset, (name,))))
-    if not curves:
-        return None
-    values = np.zeros(depth.shape, dtype=np.float64)
-    valid = np.zeros(depth.shape, dtype=bool)
-    for curve in curves:
-        source = np.asarray(curve.values, dtype=np.float64)
-        if source.shape != depth.shape:
-            continue
-        finite = np.isfinite(source)
-        values[finite] += source[finite]
-        valid |= finite
-    values[~valid] = np.nan
-    return _stats_from_values(
-        f"{iso}+{normal}",
-        next((curve.metadata.unit or "" for curve in curves), ""),
-        values,
-        depth,
-        mask,
-        gas=False,
     )
 
 
@@ -301,11 +263,7 @@ def _curve_summary(
     unit = f" [{item.unit}]" if item.unit else ""
     if not item.has_values:
         return f"{label} {item.mnemonic}{unit}: {labels['no_data']}"
-    return (
-        f"{label} {item.mnemonic}{unit}: {labels['background']} {_number(item.background)}, "
-        f"min {_number(item.minimum)}, {labels['mean']} {_number(item.mean)}, "
-        f"{labels['median']} {_number(item.median)}, max {_number(item.maximum)}"
-    )
+    return f"{label} {item.mnemonic}{unit}: {_statistics_text(item, labels)}"
 
 
 def _curve_html(item: IntervalCurveStatistics | None, labels: dict[str, str]) -> str:
@@ -314,9 +272,7 @@ def _curve_html(item: IntervalCurveStatistics | None, labels: dict[str, str]) ->
     unit = f" {escape(item.unit)}" if item.unit else ""
     return (
         f"<b>{escape(item.mnemonic)}</b>{unit}<br>"
-        f"{escape(labels['background'])} {_number(item.background)}; min {_number(item.minimum)}; "
-        f"{escape(labels['mean'])} {_number(item.mean)}; "
-        f"{escape(labels['median'])} {_number(item.median)}; max {_number(item.maximum)}"
+        f"{escape(_statistics_text(item, labels))}"
     )
 
 
@@ -326,21 +282,40 @@ def _components_text(
 ) -> str:
     if not items:
         return labels["no_data"]
-    values = {_family(item.mnemonic): item for item in items}
-    parts = [f"C1: {_range(values['C1'])} {values['C1'].unit}".strip()] if "C1" in values else []
-    heavier = [values[name] for name in ("C2", "C3", "C4", "C5") if name in values]
-    if heavier and all(item.is_zero_only for item in heavier):
-        parts.append(labels["heavy_zero"])
-    else:
-        parts.extend(f"{_family(item.mnemonic)}: {_range(item)} {item.unit}".strip() for item in heavier)
-    return "; ".join(parts)
+    ordered = sorted(items, key=lambda item: _component_sort_key(_component_name(item.mnemonic)))
+    return "; ".join(_stat_triplet(item, labels) for item in ordered)
 
 
 def _dexp_text(item: IntervalCurveStatistics | None, labels: dict[str, str]) -> str:
     if item is None or not item.has_values:
         return labels["no_data"]
-    return f"min {_number(item.minimum)}; {labels['median']} {_number(item.median)}; max {_number(item.maximum)}"
+    return _statistics_text(item, labels)
 
+
+def _statistics_text(item: IntervalCurveStatistics, labels: dict[str, str]) -> str:
+    return (
+        f"{labels['minimum']} {_number(item.minimum)}; "
+        f"{labels['mean']} {_number(item.mean)}; "
+        f"{labels['maximum']} {_number(item.maximum)}"
+    )
+
+
+def _stat_triplet(item: IntervalCurveStatistics, labels: dict[str, str]) -> str:
+    unit = f" [{item.unit}]" if item.unit else ""
+    return f"{_component_name(item.mnemonic)}{unit}: {_statistics_text(item, labels)}"
+
+
+def _component_name(mnemonic: str) -> str:
+    normalized = _normalize(mnemonic)
+    for name in ("IC4", "NC4", "IC5", "NC5", "C1", "C2", "C3", "C4", "C5"):
+        if name in normalized:
+            return name
+    return mnemonic
+
+
+def _component_sort_key(name: str) -> tuple[int, str]:
+    order = {"C1": 0, "C2": 1, "C3": 2, "IC4": 3, "NC4": 4, "C4": 5, "IC5": 6, "NC5": 7, "C5": 8}
+    return order.get(name, 99), name
 
 def _normalize(value: str) -> str:
     return re.sub(r"[^0-9A-ZА-ЯЁ]+", "", value.upper())
@@ -365,77 +340,58 @@ def _drop_sentence(text: str) -> str:
 
 
 def _labels(language: AppLanguage) -> dict[str, str]:
-    common = {"median": "median", "mean": "mean", "background": "background", "no_data": "no data"}
     if language is AppLanguage.RU:
         return {
-            **common,
             "raw": "Исходный общий газ",
             "normalized": "Нормализованный газ",
-            "median": "медиана",
+            "absolute": "Абсолютный газ",
+            "minimum": "мин",
             "mean": "среднее",
-            "background": "фон",
+            "maximum": "макс",
             "no_data": "нет данных",
-            "heavy_zero": "C2-C5: выше нуля не зарегистрированы",
-            "wetness_zero": (
-                "C2-C5 в интервале и на фоне не зарегистрированы выше нуля; нулевая доля "
-                "не используется как самостоятельное доказательство сухого газа."
-            ),
             "interval_zero": (
-                "В интервале C2-C5 не зарегистрированы выше нуля; 0 без общего газа и "
-                "контроля качества не доказывает отсутствие углеводородов."
+                "В интервале C2-C5 не зарегистрированы выше нуля; это не доказывает "
+                "отсутствие углеводородов без проверки общего газа и качества данных."
             ),
-            "title": "Показания газа по интервалам",
+            "title": "Газ по интервалам: минимум, среднее и максимум",
             "zero_note": (
-                "0 — реальное нулевое измерение; '-' — нет подходящей кривой или отсчётов. "
-                "Фон указан в единицах соответствующей газовой кривой."
+                "0 — реальное нулевое измерение; '-' — нет подходящей кривой или отсчётов."
             ),
             "interval": "Интервал",
             "manual": "Интервалы, подтверждённые геологом",
         }
     if language is AppLanguage.KK:
         return {
-            **common,
             "raw": "Бастапқы жалпы газ",
             "normalized": "Нормаланған газ",
-            "median": "медиана",
+            "absolute": "Абсолюттік газ",
+            "minimum": "ең аз",
             "mean": "орташа",
-            "background": "фон",
+            "maximum": "ең көп",
             "no_data": "дерек жоқ",
-            "heavy_zero": "C2-C5: нөлден жоғары мәндер тіркелмеген",
-            "wetness_zero": (
-                "Аралықта және фонда C2-C5 нөлден жоғары тіркелмеген; нөлдік үлес құрғақ "
-                "газдың жеке дәлелі ретінде қолданылмайды."
-            ),
             "interval_zero": (
-                "Аралықта C2-C5 нөлден жоғары тіркелмеген; жалпы газ бен сапа бақылауынсыз "
-                "0 көмірсутектер жоқ екенін дәлелдемейді."
+                "Аралықта C2-C5 нөлден жоғары тіркелмеген; жалпы газ бен дерек сапасын "
+                "тексермей, бұл көмірсутектердің жоқ екенін дәлелдемейді."
             ),
-            "title": "Аралықтар бойынша газ көрсеткіштері",
-            "zero_note": (
-                "0 — нақты нөлдік өлшем; '-' — сәйкес қисық немесе есеп жоқ. Фон газ "
-                "қисығының бірліктерімен берілген."
-            ),
+            "title": "Аралықтар бойынша газ: ең аз, орташа және ең көп",
+            "zero_note": "0 — нақты нөлдік өлшем; '-' — сәйкес қисық немесе есеп жоқ.",
             "interval": "Аралық",
             "manual": "Геолог растаған аралықтар",
         }
     return {
-        **common,
         "raw": "Raw total gas",
         "normalized": "Normalized gas",
-        "heavy_zero": "C2-C5: no values above zero were recorded",
-        "wetness_zero": (
-            "C2-C5 were not recorded above zero in the interval or background; a zero share "
-            "is not standalone evidence of dry gas."
-        ),
+        "absolute": "Absolute gas",
+        "minimum": "min",
+        "mean": "mean",
+        "maximum": "max",
+        "no_data": "no data",
         "interval_zero": (
-            "C2-C5 were not recorded above zero; zero does not prove hydrocarbon absence "
-            "without total-gas and quality context."
+            "C2-C5 were not recorded above zero in the interval; this does not prove "
+            "hydrocarbon absence without total-gas and data-quality review."
         ),
-        "title": "Gas readings by interval",
-        "zero_note": (
-            "0 is an actual zero measurement; '-' means no suitable curve or samples. "
-            "Background is reported in the gas curve's units."
-        ),
+        "title": "Gas by interval: minimum, mean, and maximum",
+        "zero_note": "0 is an actual zero measurement; '-' means no suitable curve or samples.",
         "interval": "Interval",
         "manual": "Geologist-confirmed intervals",
     }
@@ -446,6 +402,7 @@ __all__ = [
     "IntervalCurveStatistics",
     "build_candidate_interval_statistics",
     "build_interval_statistics",
+    "absolute_gas_components_summary",
     "enhanced_fluid_hypothesis_basis",
     "interval_gas_summary",
     "interval_gas_table_html",

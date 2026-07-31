@@ -3,10 +3,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import tempfile
+from collections.abc import Callable
 
 import numpy as np
 from openpyxl import Workbook  # type: ignore[import-untyped]
-from openpyxl.comments import Comment  # type: ignore[import-untyped]
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side  # type: ignore[import-untyped]
 from openpyxl.worksheet.table import Table, TableStyleInfo  # type: ignore[import-untyped]
 from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
@@ -14,7 +14,10 @@ from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
 from geoworkbench.data.hydrocarbon_interpretation_export import (
     HydrocarbonInterpretationExportError,
 )
-from geoworkbench.data.spreadsheet_safety import protect_spreadsheet_row
+from geoworkbench.data.spreadsheet_safety import (
+    protect_spreadsheet_row,
+    protect_spreadsheet_value,
+)
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonCandidateInterval,
@@ -27,6 +30,7 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 from geoworkbench.services.interval_gas_statistics import (
     CandidateIntervalGasStatistics,
     IntervalCurveStatistics,
+    absolute_gas_components_summary,
     build_candidate_interval_statistics,
     build_interval_statistics,
     enhanced_fluid_hypothesis_basis,
@@ -46,21 +50,17 @@ _HEADERS = (
     "Предварительная интерпретация",
     "Сила аномалии",
     "Исходный общий газ / единица",
-    "Фон исходного газа",
     "Мин исходного газа",
     "Среднее исходного газа",
-    "Медиана исходного газа",
     "Макс исходного газа",
     "Нормализованный газ / единица",
-    "Фон нормализованного газа",
     "Мин нормализованного газа",
-    "Медиана нормализованного газа",
+    "Среднее нормализованного газа",
     "Макс нормализованного газа",
     "Max robust z",
-    "Точек выше порога",
-    "C1-C5 в интервале",
+    "Абсолютный газ по компонентам: мин / среднее / макс",
     "Haworth / Pixler",
-    "DEXP",
+    "DEXP: мин / среднее / макс",
     "ЛБА и сопоставление",
     "Решение геолога / комментарий",
     "Основание",
@@ -73,10 +73,22 @@ def export_readable_hydrocarbon_interpretation_xlsx(
     target: str | Path,
     *,
     overwrite: bool = False,
+    progress: Callable[[str, int, int], None] | None = None,
 ) -> Path:
     if dataset.dataset_id != report.dataset_id:
         raise HydrocarbonInterpretationExportError(
             "Набор данных не соответствует сформированному отчёту интерпретации."
+        )
+    invalid_curves = tuple(
+        curve.metadata.original_mnemonic
+        for curve in dataset.curves.values()
+        if curve.values.size != dataset.active_index.values.size
+    )
+    if invalid_curves:
+        names = ", ".join(invalid_curves[:5])
+        suffix = "…" if len(invalid_curves) > 5 else ""
+        raise HydrocarbonInterpretationExportError(
+            f"Кривые с неверным числом отсчётов: {names}{suffix}"
         )
     if dataset.depth.size + 1 > _EXCEL_MAX_ROWS:
         raise HydrocarbonInterpretationExportError(
@@ -89,13 +101,16 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
+    _notify(progress, "Подготовка структуры Excel", 0, 100)
     workbook = Workbook()
     try:
         main = workbook.active
         main.title = "Интерпретация УВ"
         _write_main_sheet(main, report, dataset)
+        _notify(progress, "Интервалы и статистика готовы", 15, 100)
         _write_methods_sheet(workbook, report)
-        _write_whole_well_sheet(workbook, dataset)
+        _write_whole_well_sheet(workbook, dataset, progress=progress)
+        _notify(progress, "Сохранение Excel-файла", 95, 100)
 
         descriptor, temporary_name = tempfile.mkstemp(
             prefix=f".{destination.stem}-",
@@ -107,6 +122,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         try:
             workbook.save(temporary)
             os.replace(temporary, destination)
+            _notify(progress, "Excel-отчёт готов", 100, 100)
         except Exception as exc:
             temporary.unlink(missing_ok=True)
             if isinstance(exc, (FileExistsError, HydrocarbonInterpretationExportError)):
@@ -121,7 +137,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
 
 def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: Dataset) -> None:
     sheet.sheet_view.showGridLines = False
-    sheet.merge_cells("A1:AA1")
+    sheet.merge_cells("A1:W1")
     sheet["A1"] = "Сводная интерпретация газового каротажа и УВ-интервалов"
     sheet["A1"].font = Font(size=16, bold=True, color="FFFFFF")
     sheet["A1"].fill = PatternFill("solid", fgColor="17365D")
@@ -146,19 +162,19 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
     )
     for row_index, metadata_row in enumerate(metadata, start=2):
         sheet.cell(row_index, 1, metadata_row[0])
-        sheet.cell(row_index, 2, metadata_row[1])
+        sheet.cell(row_index, 2, protect_spreadsheet_value(metadata_row[1]))
         sheet.cell(row_index, 5, metadata_row[2])
-        sheet.cell(row_index, 6, metadata_row[3])
+        sheet.cell(row_index, 6, protect_spreadsheet_value(metadata_row[3]))
         for column in (1, 5):
             sheet.cell(row_index, column).font = Font(bold=True, color="17365D")
         sheet.merge_cells(start_row=row_index, start_column=2, end_row=row_index, end_column=4)
         sheet.merge_cells(start_row=row_index, start_column=6, end_row=row_index, end_column=9)
 
-    sheet.merge_cells("A7:AA7")
+    sheet.merge_cells("A7:W7")
     sheet["A7"] = (
-        "Примечание: 0 — реальное нулевое измерение. Пустая ячейка означает, что кривая "
-        "или корректные отсчёты отсутствуют. Фон указан в единицах соответствующей газовой "
-        "кривой."
+        "Примечание: 0 — реальное нулевое измерение. Пустая ячейка означает, что "
+        "подходящая кривая или корректные отсчёты отсутствуют. Для каждого интервала "
+        "приведены минимум, среднее и максимум."
     )
     sheet["A7"].fill = PatternFill("solid", fgColor="FFF2CC")
     sheet["A7"].font = Font(italic=True, color="7F6000")
@@ -167,45 +183,33 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
 
     group_specs = (
         ("A8:H8", "Интервал и интерпретация", "D9EAF7"),
-        ("I8:N8", "Исходный общий газ", "E2F0D9"),
-        ("O8:S8", "Нормализованный газ", "FCE4D6"),
-        ("T8:U8", "Параметры аномалии", "E4DFEC"),
-        ("V8:AA8", "Контекст и геологический контроль", "DDEBF7"),
+        ("I8:L8", "Исходный общий газ", "E2F0D9"),
+        ("M8:P8", "Нормализованный газ", "FCE4D6"),
+        ("Q8:Q8", "Аномалия", "E4DFEC"),
+        ("R8:W8", "Абсолютный газ и геологический контроль", "DDEBF7"),
     )
     for range_name, title, color in group_specs:
-        sheet.merge_cells(range_name)
+        if ":" in range_name and range_name.split(":", 1)[0] != range_name.split(":", 1)[1]:
+            sheet.merge_cells(range_name)
         cell = sheet[range_name.split(":", 1)[0]]
         cell.value = title
         cell.fill = PatternFill("solid", fgColor=color)
         cell.font = Font(bold=True, color="17365D")
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    sheet.append([])
     for column, value in enumerate(_HEADERS, start=1):
         cell = sheet.cell(9, column, value)
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="315A7D")
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    sheet.row_dimensions[9].height = 48
+    sheet.row_dimensions[9].height = 58
 
     rows: list[tuple[object, ...]] = []
     candidate_ranges: list[tuple[float, float]] = []
     for index, candidate in enumerate(report.candidates, start=1):
         statistics = build_candidate_interval_statistics(dataset, candidate)
-        matching_manual = _matching_manual_intervals(
-            report,
-            candidate.top_depth,
-            candidate.bottom_depth,
-        )
-        rows.append(
-            _candidate_row(
-                index,
-                report,
-                candidate,
-                statistics,
-                matching_manual,
-            )
-        )
+        matching_manual = _matching_manual_intervals(report, candidate.top_depth, candidate.bottom_depth)
+        rows.append(_candidate_row(index, report, candidate, statistics, matching_manual))
         candidate_ranges.append((candidate.top_depth, candidate.bottom_depth))
 
     manual_only = [
@@ -235,18 +239,17 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
                 None,
                 report.depth_unit,
                 "Кандидатные УВ-интервалы не найдены",
-                "Проверьте порог robust z и доступность газовых кривых",
+                "Проверьте порог robust z и доступность газовых данных",
                 None,
                 *(None for _ in range(len(_HEADERS) - 8)),
             )
         )
 
-    start_row = 10
     for data_row in rows:
         sheet.append(protect_spreadsheet_row(data_row))
-    last_row = start_row + len(rows) - 1
+    last_row = 9 + len(rows)
 
-    table = Table(displayName="HydrocarbonIntervals", ref=f"A9:AA{last_row}")
+    table = Table(displayName="HydrocarbonIntervals", ref=f"A9:W{last_row}")
     table.tableStyleInfo = TableStyleInfo(
         name="TableStyleMedium2",
         showFirstColumn=False,
@@ -256,15 +259,15 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
     )
     sheet.add_table(table)
     sheet.freeze_panes = "I10"
-    sheet.auto_filter.ref = f"A9:AA{last_row}"
+    sheet.auto_filter.ref = f"A9:W{last_row}"
 
     thin = Side(style="thin", color="B7C9D6")
-    for row in sheet.iter_rows(min_row=10, max_row=last_row, min_col=1, max_col=27):
+    for row in sheet.iter_rows(min_row=10, max_row=last_row, min_col=1, max_col=23):
         for cell in row:
             cell.alignment = Alignment(vertical="top", wrap_text=True)
             cell.border = Border(bottom=thin)
     for row_index in range(10, last_row + 1):
-        sheet.row_dimensions[row_index].height = 58
+        sheet.row_dimensions[row_index].height = 72
         strength = sheet.cell(row_index, 8).value
         if strength == "высокая":
             sheet.cell(row_index, 8).fill = PatternFill("solid", fgColor="F4CCCC")
@@ -275,52 +278,18 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
         if "Подтвержден" in str(sheet.cell(row_index, 6).value or ""):
             sheet.cell(row_index, 6).fill = PatternFill("solid", fgColor="D9EAD3")
 
-    numeric_columns = (2, 3, 4, 10, 11, 12, 13, 14, 16, 17, 18, 19, 20)
-    for column in numeric_columns:
+    for column in (2, 3, 4, 10, 11, 12, 14, 15, 16, 17):
         for row_index in range(10, last_row + 1):
             sheet.cell(row_index, column).number_format = "0.######"
-    sheet["J9"].comment = Comment(
-        "Фон — robust-медиана log1p-преобразованной газовой кривой, возвращённая в "
-        "исходные единицы.",
-        "GEOLOG GASRATIO@Pixler",
-    )
-    sheet["P9"].comment = Comment(
-        "Фон рассчитан отдельно для выбранной нормализованной газовой кривой.",
-        "GEOLOG GASRATIO@Pixler",
-    )
 
     widths = (
-        6,
-        12,
-        12,
-        11,
-        8,
-        24,
-        38,
-        15,
-        24,
-        15,
-        15,
-        17,
-        17,
-        15,
-        26,
-        16,
-        16,
-        17,
-        16,
-        14,
-        15,
-        38,
-        36,
-        24,
-        42,
-        42,
-        56,
+        6, 12, 12, 11, 8, 24, 38, 15,
+        24, 15, 17, 15,
+        26, 16, 18, 16,
+        14, 60, 38, 30, 42, 42, 58,
     )
     for index, width in enumerate(widths, start=1):
         sheet.column_dimensions[get_column_letter(index)].width = width
-    sheet.auto_filter.ref = f"A9:AA{last_row}"
     sheet.print_title_rows = "1:9"
     sheet.page_setup.orientation = "landscape"
     sheet.page_setup.fitToWidth = 1
@@ -342,13 +311,11 @@ def _candidate_row(
     if manual_intervals:
         status = "Подтвержден геологом"
         geologist = " | ".join(
-            f"{item.interpretation_name}: {item.label or item.interval_type}; "
-            f"{item.comment}".strip("; ")
+            f"{item.interpretation_name}: {item.label or item.interval_type}; {item.comment}".strip("; ")
             for item in manual_intervals
         )
-    base = fluid_hypothesis_basis(candidate, AppLanguage.RU)
     readable_basis = enhanced_fluid_hypothesis_basis(
-        base,
+        fluid_hypothesis_basis(candidate, AppLanguage.RU),
         candidate,
         statistics,
         AppLanguage.RU,
@@ -366,19 +333,15 @@ def _candidate_row(
             candidate.anomaly_strength,
         ),
         _curve_identity(raw),
-        _stat(raw, "background"),
         _stat(raw, "minimum"),
         _stat(raw, "mean"),
-        _stat(raw, "median"),
         _stat(raw, "maximum"),
         _curve_identity(normalized),
-        _stat(normalized, "background"),
         _stat(normalized, "minimum"),
-        _stat(normalized, "median"),
+        _stat(normalized, "mean"),
         _stat(normalized, "maximum"),
         candidate.max_robust_z,
-        candidate.sample_count,
-        _components_text(statistics.components),
+        absolute_gas_components_summary(statistics.components, AppLanguage.RU),
         _haworth_pixler_text(candidate),
         _dexp_text(statistics.dexp),
         _lba_text(candidate),
@@ -387,7 +350,12 @@ def _candidate_row(
     )
 
 
-def _manual_row(index: int, report, item, statistics) -> tuple[object, ...]:
+def _manual_row(
+    index: int,
+    report: HydrocarbonInterpretationReport,
+    item: ManualInterpretationInterval,
+    statistics: CandidateIntervalGasStatistics,
+) -> tuple[object, ...]:
     raw = statistics.raw_total
     normalized = statistics.primary
     return (
@@ -400,19 +368,15 @@ def _manual_row(index: int, report, item, statistics) -> tuple[object, ...]:
         item.interpretation_name,
         None,
         _curve_identity(raw),
-        _stat(raw, "background"),
         _stat(raw, "minimum"),
         _stat(raw, "mean"),
-        _stat(raw, "median"),
         _stat(raw, "maximum"),
         _curve_identity(normalized),
-        _stat(normalized, "background"),
         _stat(normalized, "minimum"),
-        _stat(normalized, "median"),
+        _stat(normalized, "mean"),
         _stat(normalized, "maximum"),
         None,
-        None,
-        _components_text(statistics.components),
+        absolute_gas_components_summary(statistics.components, AppLanguage.RU),
         None,
         _dexp_text(statistics.dexp),
         None,
@@ -424,19 +388,14 @@ def _manual_row(index: int, report, item, statistics) -> tuple[object, ...]:
 def _write_methods_sheet(workbook: Workbook, report: HydrocarbonInterpretationReport) -> None:
     sheet = workbook.create_sheet("Методика")
     sheet.sheet_view.showGridLines = False
-    sheet.append(
-        protect_spreadsheet_row(
-            ("Метод", "Ожидаемые кривые", "Доступные кривые", "Статус", "Источник")
-        )
-    )
+    sheet.append(protect_spreadsheet_row(("Метод", "Статус", "Использованные данные", "Источник")))
     for method in report.methods:
         sheet.append(
             protect_spreadsheet_row(
                 (
                     method.method,
-                    ", ".join(method.curve_mnemonics),
-                    ", ".join(method.available_mnemonics),
                     "доступен" if method.available else "нет данных",
+                    ", ".join(method.available_mnemonics) or "нет данных",
                     method.source,
                 )
             )
@@ -445,10 +404,15 @@ def _write_methods_sheet(workbook: Workbook, report: HydrocarbonInterpretationRe
     sheet.append(protect_spreadsheet_row(("Ограничения методики",)))
     for warning in report.warnings:
         sheet.append(protect_spreadsheet_row((warning,)))
-    _format_auxiliary_sheet(sheet, widths=(38, 46, 46, 16, 90))
+    _format_auxiliary_sheet(sheet, widths=(42, 16, 48, 90))
 
 
-def _write_whole_well_sheet(workbook: Workbook, dataset: Dataset) -> None:
+def _write_whole_well_sheet(
+    workbook: Workbook,
+    dataset: Dataset,
+    *,
+    progress: Callable[[str, int, int], None] | None = None,
+) -> None:
     sheet = workbook.create_sheet("Данные по глубине")
     curves = tuple(dataset.curves.values())
     index_header = (
@@ -464,34 +428,31 @@ def _write_whole_well_sheet(workbook: Workbook, dataset: Dataset) -> None:
     )
     sheet.append(protect_spreadsheet_row((index_header, *curve_headers)))
     index_values = np.asarray(dataset.active_index.values)
-    for row_index in range(index_values.size):
+    row_count = int(index_values.size)
+    progress_step = max(1, row_count // 100)
+    for row_index in range(row_count):
         row: list[object] = [_excel_value(index_values[row_index])]
         row.extend(_excel_value(curve.values[row_index]) for curve in curves)
         sheet.append(protect_spreadsheet_row(row))
-    _format_auxiliary_sheet(
-        sheet,
-        widths=(18, *(14 for _curve in curves)),
-        wrap_header=True,
-    )
+        if row_index % progress_step == 0 or row_index + 1 == row_count:
+            completed = 20 + int(70 * (row_index + 1) / max(1, row_count))
+            _notify(
+                progress,
+                f"Запись данных по глубине: {row_index + 1} из {row_count}",
+                completed,
+                100,
+            )
+    _format_auxiliary_sheet(sheet, widths=(18, *(14 for _curve in curves)), wrap_header=True)
     sheet.sheet_state = "hidden"
 
 
-def _format_auxiliary_sheet(
-    sheet,
-    *,
-    widths: tuple[int, ...],
-    wrap_header: bool = False,
-) -> None:
+def _format_auxiliary_sheet(sheet, *, widths: tuple[int, ...], wrap_header: bool = False) -> None:
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
     for cell in sheet[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="315A7D")
-        cell.alignment = Alignment(
-            horizontal="center",
-            vertical="center",
-            wrap_text=wrap_header,
-        )
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=wrap_header)
     for index, width in enumerate(widths, start=1):
         sheet.column_dimensions[get_column_letter(index)].width = width
     for row in sheet.iter_rows():
@@ -511,12 +472,7 @@ def _matching_manual_intervals(
     )
 
 
-def _overlaps(
-    left_top: float,
-    left_bottom: float,
-    right_top: float,
-    right_bottom: float,
-) -> bool:
+def _overlaps(left_top: float, left_bottom: float, right_top: float, right_bottom: float) -> bool:
     return max(left_top, right_top) < min(left_bottom, right_bottom)
 
 
@@ -529,45 +485,8 @@ def _curve_identity(item: IntervalCurveStatistics | None) -> str | None:
 def _stat(item: IntervalCurveStatistics | None, field: str) -> float | None:
     if item is None or not item.has_values:
         return None
-    return getattr(item, field)
-
-
-def _components_text(components: tuple[IntervalCurveStatistics, ...]) -> str:
-    if not components:
-        return "нет данных"
-    families = {_component_family(item.mnemonic): item for item in components}
-    heavier = [families.get(name) for name in ("C2", "C3", "C4", "C5")]
-    heavier_present = [item for item in heavier if item is not None]
-    parts: list[str] = []
-    c1 = families.get("C1")
-    if c1 is not None:
-        parts.append(f"C1: {_range(c1)} {c1.unit}".strip())
-    if heavier_present and all(item.is_zero_only for item in heavier_present):
-        parts.append("C2-C5: выше нуля не зарегистрированы")
-    else:
-        parts.extend(
-            f"{name}: {_range(item)} {item.unit}".strip()
-            for name, item in (
-                (name, families.get(name))
-                for name in ("C2", "C3", "C4", "C5")
-            )
-            if item is not None
-        )
-    return "; ".join(parts)
-
-
-def _component_family(mnemonic: str) -> str:
-    upper = mnemonic.upper()
-    for name in ("C1", "C2", "C3", "C4", "C5"):
-        if name in upper:
-            return name
-    return mnemonic
-
-
-def _range(item: IntervalCurveStatistics) -> str:
-    if item.minimum is None or item.maximum is None:
-        return "нет данных"
-    return f"{item.minimum:.6g}-{item.maximum:.6g}"
+    value = getattr(item, field)
+    return float(value) if value is not None else None
 
 
 def _haworth_pixler_text(candidate: HydrocarbonCandidateInterval) -> str:
@@ -589,16 +508,13 @@ def _dexp_text(item: IntervalCurveStatistics | None) -> str | None:
     if item is None or not item.has_values:
         return None
     return (
-        f"{item.mnemonic}: min {_optional(item.minimum)}; "
-        f"медиана {_optional(item.median)}; max {_optional(item.maximum)}"
+        f"{item.mnemonic}: мин {_optional(item.minimum)}; "
+        f"среднее {_optional(item.mean)}; макс {_optional(item.maximum)}"
     )
 
 
 def _lba_text(candidate: HydrocarbonCandidateInterval) -> str:
-    descriptions = [
-        describe_lba_assessment(item, AppLanguage.RU)
-        for item in candidate.lba_assessments
-    ]
+    descriptions = [describe_lba_assessment(item, AppLanguage.RU) for item in candidate.lba_assessments]
     correlation = {
         "gas_only": "только газовые данные",
         "concordant": "признаки согласуются",
@@ -624,6 +540,16 @@ def _first_primary_name(primary: str | None) -> str | None:
         if name.startswith(prefix):
             return name[len(prefix) :].strip()
     return name
+
+
+def _notify(
+    progress: Callable[[str, int, int], None] | None,
+    stage: str,
+    current: int,
+    total: int,
+) -> None:
+    if progress is not None:
+        progress(stage, current, total)
 
 
 def _excel_value(value: object) -> object:

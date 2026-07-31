@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
-from PySide6.QtCore import Signal
-from PySide6.QtGui import QPageLayout, QTextDocument
+from PySide6.QtCore import QUrl, Qt, Signal
+from PySide6.QtGui import QDesktopServices, QPageLayout, QTextDocument
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QComboBox,
     QDoubleSpinBox,
@@ -14,6 +17,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QTextBrowser,
     QVBoxLayout,
@@ -63,6 +67,7 @@ class InterpretationReportWorkspace(QWidget):
         self.language = language
         self.report: HydrocarbonInterpretationReport | None = None
         self.gas_mixture_report: GasMixtureRampReport | None = None
+        self._export_in_progress = False
         self.setObjectName("interpretation-report-workspace")
         self.setStyleSheet(
             """
@@ -119,6 +124,18 @@ class InterpretationReportWorkspace(QWidget):
                 border-radius: 6px;
                 selection-color: #ffffff;
                 selection-background-color: #315a7d;
+            }
+            QProgressBar#interpretation-report-export-progress {
+                min-height: 22px;
+                color: #172033;
+                background: #ffffff;
+                border: 1px solid #9fb2c5;
+                border-radius: 5px;
+                text-align: center;
+            }
+            QProgressBar#interpretation-report-export-progress::chunk {
+                background: #4f7da8;
+                border-radius: 4px;
             }
             """
         )
@@ -259,6 +276,13 @@ class InterpretationReportWorkspace(QWidget):
         export_row.addWidget(self.print_button)
         export_row.addStretch(1)
         root.addLayout(export_row)
+
+        self.export_progress = QProgressBar()
+        self.export_progress.setObjectName("interpretation-report-export-progress")
+        self.export_progress.setRange(0, 0)
+        self.export_progress.setTextVisible(True)
+        self.export_progress.hide()
+        root.addWidget(self.export_progress)
         self._retranslate()
         self._set_exports_enabled(False)
         self.refresh()
@@ -395,12 +419,20 @@ class InterpretationReportWorkspace(QWidget):
         if target is None:
             return
         try:
-            exported = export_hydrocarbon_interpretation_xlsx(
-                report,
-                dataset,
-                target,
-                overwrite=target.exists(),
-            )
+            with self._report_export_progress(
+                self._text(
+                    "Формируется Excel-отчёт…",
+                    "Excel есебі құрылуда…",
+                    "Building Excel report…",
+                )
+            ):
+                exported = export_hydrocarbon_interpretation_xlsx(
+                    report,
+                    dataset,
+                    target,
+                    overwrite=target.exists(),
+                    progress=self._update_report_export_progress,
+                )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)
             return
@@ -410,15 +442,26 @@ class InterpretationReportWorkspace(QWidget):
         report = self._require_report()
         if report is None:
             return
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return
         target = self._choose_target(".docx", "Word (*.docx)")
         if target is None:
             return
         try:
-            exported = export_hydrocarbon_interpretation_docx(
-                report,
-                target,
-                overwrite=target.exists(),
-            )
+            with self._report_export_progress(
+                self._text(
+                    "Формируется Word-отчёт…",
+                    "Word есебі құрылуда…",
+                    "Building Word report…",
+                )
+            ):
+                exported = export_hydrocarbon_interpretation_docx(
+                    report,
+                    target,
+                    dataset=dataset,
+                    overwrite=target.exists(),
+                )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)
             return
@@ -432,21 +475,29 @@ class InterpretationReportWorkspace(QWidget):
         if target is None:
             return
         try:
-            if isinstance(report, GasMixtureRampReport):
-                exported = export_gas_mixture_ramp_pdf(
-                    report,
-                    target,
-                    language=self.language,
-                    include_chart=self._report_mode() == "mixture_chart",
-                    overwrite=target.exists(),
+            with self._report_export_progress(
+                self._text(
+                    "Формируется PDF-отчёт…",
+                    "PDF есебі құрылуда…",
+                    "Building PDF report…",
                 )
-            else:
-                exported = export_hydrocarbon_interpretation_pdf(
-                    report,
-                    target,
-                    language=self.language,
-                    overwrite=target.exists(),
-                )
+            ):
+                if isinstance(report, GasMixtureRampReport):
+                    exported = export_gas_mixture_ramp_pdf(
+                        report,
+                        target,
+                        language=self.language,
+                        include_chart=self._report_mode() == "mixture_chart",
+                        overwrite=target.exists(),
+                    )
+                else:
+                    exported = export_hydrocarbon_interpretation_pdf(
+                        report,
+                        target,
+                        language=self.language,
+                        dataset=self.controller.session.current_dataset,
+                        overwrite=target.exists(),
+                    )
         except (
             OSError,
             FileExistsError,
@@ -476,7 +527,7 @@ class InterpretationReportWorkspace(QWidget):
                 include_chart=self._report_mode() == "mixture_chart",
             )
             if isinstance(report, GasMixtureRampReport)
-            else hydrocarbon_interpretation_html(report, self.language)
+            else self._hydrocarbon_print_html(report)
         )
         document.print_(printer)
 
@@ -495,7 +546,11 @@ class InterpretationReportWorkspace(QWidget):
         )
         filename, _ = QFileDialog.getSaveFileName(
             self,
-            self.tab_title(self.language),
+            self._text(
+                "Сохранить готовый отчёт",
+                "Дайын есепті сақтау",
+                "Save completed report",
+            ),
             str(Path.cwd() / f"{safe_well or 'well'}-{report_stem}{suffix}"),
             file_filter,
         )
@@ -520,6 +575,57 @@ class InterpretationReportWorkspace(QWidget):
                 return None
         return target
 
+    def _hydrocarbon_print_html(
+        self,
+        report: HydrocarbonInterpretationReport,
+    ) -> str:
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return hydrocarbon_interpretation_html(report, self.language)
+        from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
+            hydrocarbon_interpretation_html_with_front_chart,
+        )
+
+        return hydrocarbon_interpretation_html_with_front_chart(
+            report,
+            dataset,
+            self.language,
+        )
+
+    @contextmanager
+    def _report_export_progress(self, message: str) -> Iterator[None]:
+        self._export_in_progress = True
+        self.export_progress.setRange(0, 0)
+        self.export_progress.setFormat(message)
+        self.export_progress.show()
+        self.status.setText(message)
+        self._set_exports_enabled(False)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        QApplication.processEvents()
+        try:
+            yield
+        finally:
+            QApplication.restoreOverrideCursor()
+            self.export_progress.hide()
+            self.export_progress.setRange(0, 0)
+            self._export_in_progress = False
+            self._set_exports_enabled((self.gas_mixture_report if self._is_mixture_mode() else self.report) is not None)
+            QApplication.processEvents()
+
+    def _update_report_export_progress(
+        self,
+        stage: str,
+        current: int,
+        total: int,
+    ) -> None:
+        safe_total = max(1, int(total))
+        safe_current = min(safe_total, max(0, int(current)))
+        self.export_progress.setRange(0, safe_total)
+        self.export_progress.setValue(safe_current)
+        self.export_progress.setFormat(f"{stage} — %p%")
+        self.status.setText(stage)
+        QApplication.processEvents()
+
     def _require_report(self) -> HydrocarbonInterpretationReport | None:
         if self.report is None:
             QMessageBox.information(
@@ -534,6 +640,8 @@ class InterpretationReportWorkspace(QWidget):
         return self.report
 
     def _set_exports_enabled(self, enabled: bool) -> None:
+        if self._export_in_progress:
+            enabled = False
         tabular = enabled and self.report is not None
         self.xlsx_button.setEnabled(tabular)
         self.docx_button.setEnabled(tabular)
@@ -541,18 +649,46 @@ class InterpretationReportWorkspace(QWidget):
         self.print_button.setEnabled(enabled)
 
     def _show_export_error(self, error: Exception) -> None:
+        self.status.setText(
+            self._text(
+                f"Ошибка формирования отчёта: {error}",
+                f"Есепті құру қатесі: {error}",
+                f"Report generation failed: {error}",
+            )
+        )
         QMessageBox.critical(self, self.tab_title(self.language), str(error))
 
     def _show_export_success(self, path: Path) -> None:
-        QMessageBox.information(
+        self.status.setText(
+            self._text(
+                f"Отчёт готов: {path}",
+                f"Есеп дайын: {path}",
+                f"Report ready: {path}",
+            )
+        )
+        answer = QMessageBox.question(
             self,
             self.tab_title(self.language),
             self._text(
-                f"Отчёт сохранён: {path.name}",
-                f"Есеп сақталды: {path.name}",
-                f"Report saved: {path.name}",
+                f"Отчёт готов и сохранён:\n{path}\n\nОткрыть сейчас?",
+                f"Есеп дайын және сақталды:\n{path}\n\nҚазір ашу керек пе?",
+                f"The report is ready and saved:\n{path}\n\nOpen it now?",
             ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
         )
+        if answer == QMessageBox.StandardButton.Yes:
+            opened = QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.resolve())))
+            if not opened:
+                QMessageBox.warning(
+                    self,
+                    self.tab_title(self.language),
+                    self._text(
+                        "Не удалось открыть файл автоматически.",
+                        "Файлды автоматты түрде ашу мүмкін болмады.",
+                        "The file could not be opened automatically.",
+                    ),
+                )
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}[self.language]

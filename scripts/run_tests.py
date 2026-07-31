@@ -6,24 +6,28 @@ tracing or async plugins from the host environment can own native threads during
 Qt teardown. The project-owned pytest-asyncio plugin is loaded explicitly so ETP
 coroutine tests remain part of the isolated suite.
 
-The complete suite is split into contiguous file shards on Windows. Every test
-is still executed, but each shard receives a fresh QApplication and fresh native
-Qt resources. This prevents long release runs from being replaced by an
-unrelated offscreen-backend abort after hundreds of GUI windows were already
-created and disposed.
+On Windows the complete suite is split into small contiguous file shards. Test
+files with many Qt scenarios are additionally split into batches of test
+functions. Every test is still executed, while each batch receives a fresh
+QApplication and fresh native Qt resources. This prevents an unrelated
+Windows offscreen-backend access violation after hundreds of GUI objects have
+already been created and disposed.
 """
 
 from __future__ import annotations
 
+import ast
+from collections.abc import Sequence
 import os
 from pathlib import Path
 import subprocess
 import sys
-from collections.abc import Sequence
 
 
 _CHILD_FLAG = "--geolog-single-shard"
-_DEFAULT_WINDOWS_SHARDS = 4
+_DEFAULT_WINDOWS_SHARDS = 8
+_NATIVE_HEAVY_TEST_THRESHOLD = 24
+_NATIVE_TEST_BATCH_SIZE = 4
 
 
 def _exit_immediately(result: int) -> None:
@@ -77,21 +81,67 @@ def _explicit_test_selection(args: Sequence[str]) -> bool:
     )
 
 
-def _test_file_shards(shard_count: int) -> tuple[tuple[str, ...], ...]:
-    files = sorted(
-        (path for path in Path("tests").rglob("test*.py") if path.is_file()),
-        key=lambda path: path.as_posix().casefold(),
+def _all_test_files() -> tuple[Path, ...]:
+    return tuple(
+        sorted(
+            (path for path in Path("tests").rglob("test*.py") if path.is_file()),
+            key=lambda path: path.as_posix().casefold(),
+        )
     )
-    if not files:
+
+
+def _top_level_test_nodes(path: Path) -> tuple[str, ...]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    prefix = path.as_posix()
+    nodes: list[str] = []
+    for item in tree.body:
+        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if item.name.startswith("test_"):
+                nodes.append(f"{prefix}::{item.name}")
+            continue
+        if not isinstance(item, ast.ClassDef) or not item.name.startswith("Test"):
+            continue
+        for child in item.body:
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if child.name.startswith("test_"):
+                    nodes.append(f"{prefix}::{item.name}::{child.name}")
+    return tuple(nodes)
+
+
+def _heavy_test_batches(
+    files: Sequence[Path],
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    batches: list[tuple[str, tuple[str, ...]]] = []
+    for path in files:
+        nodes = _top_level_test_nodes(path)
+        if len(nodes) < _NATIVE_HEAVY_TEST_THRESHOLD:
+            continue
+        for offset in range(0, len(nodes), _NATIVE_TEST_BATCH_SIZE):
+            batch = nodes[offset : offset + _NATIVE_TEST_BATCH_SIZE]
+            batches.append((path.as_posix(), batch))
+    return tuple(batches)
+
+
+def _test_file_shards(
+    shard_count: int,
+    files: Sequence[Path] | None = None,
+) -> tuple[tuple[str, ...], ...]:
+    selected = tuple(files) if files is not None else _all_test_files()
+    regular_files = tuple(
+        path
+        for path in selected
+        if len(_top_level_test_nodes(path)) < _NATIVE_HEAVY_TEST_THRESHOLD
+    )
+    if not regular_files:
         return ()
-    shard_count = max(1, min(shard_count, len(files)))
-    total_weight = sum(max(1, path.stat().st_size) for path in files)
+    shard_count = max(1, min(shard_count, len(regular_files)))
+    total_weight = sum(max(1, path.stat().st_size) for path in regular_files)
     target_weight = max(1, total_weight // shard_count)
 
     shards: list[list[str]] = [[]]
     current_weight = 0
-    for path in files:
-        remaining_files = len(files) - sum(len(shard) for shard in shards)
+    for path in regular_files:
+        remaining_files = len(regular_files) - sum(len(shard) for shard in shards)
         remaining_shards = shard_count - len(shards)
         weight = max(1, path.stat().st_size)
         should_split = (
@@ -109,6 +159,19 @@ def _test_file_shards(shard_count: int) -> tuple[tuple[str, ...], ...]:
     return tuple(tuple(shard) for shard in shards if shard)
 
 
+def _run_child(
+    args: Sequence[str],
+    selectors: Sequence[str],
+    environment: dict[str, str],
+) -> int:
+    completed = subprocess.run(
+        [sys.executable, __file__, _CHILD_FLAG, *args, *selectors],
+        env=environment,
+        check=False,
+    )
+    return int(completed.returncode)
+
+
 def _run_isolated_shards(args: Sequence[str]) -> int:
     requested = os.environ.get("GEOLOG_TEST_SHARDS", str(_DEFAULT_WINDOWS_SHARDS))
     try:
@@ -120,27 +183,33 @@ def _run_isolated_shards(args: Sequence[str]) -> int:
         print("GEOLOG_TEST_SHARDS must be at least 1", file=sys.stderr)
         return 2
 
-    shards = _test_file_shards(shard_count)
-    if not shards:
+    files = _all_test_files()
+    shards = _test_file_shards(shard_count, files)
+    heavy_batches = _heavy_test_batches(files)
+    if not shards and not heavy_batches:
         print("No test files found under tests/", file=sys.stderr)
         return 5
 
     environment = os.environ.copy()
     _configure_environment()
     environment.update(os.environ)
-    for index, files in enumerate(shards, start=1):
+    for index, selectors in enumerate(shards, start=1):
         print(
             f"\n=== pytest isolated shard {index}/{len(shards)}: "
-            f"{len(files)} files ===",
+            f"{len(selectors)} files ===",
             flush=True,
         )
-        completed = subprocess.run(
-            [sys.executable, __file__, _CHILD_FLAG, *args, *files],
-            env=environment,
-            check=False,
+        if result := _run_child(args, selectors, environment):
+            return result
+
+    for index, (path, selectors) in enumerate(heavy_batches, start=1):
+        print(
+            f"\n=== pytest native-heavy batch {index}/{len(heavy_batches)}: "
+            f"{path}, {len(selectors)} test functions ===",
+            flush=True,
         )
-        if completed.returncode != 0:
-            return int(completed.returncode)
+        if result := _run_child(args, selectors, environment):
+            return result
     return 0
 
 
