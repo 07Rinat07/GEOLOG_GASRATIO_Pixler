@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt
+from PySide6.QtGui import QColor, QIcon, QPainter, QPalette, QPen, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QSizePolicy,
-    QStyle,
     QTextBrowser,
     QToolButton,
+    QToolTip,
     QVBoxLayout,
     QWidget,
 )
@@ -19,6 +20,52 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.interpretation_report_workspace_layout import (
     InterpretationReportWorkspace as _LayoutWorkspace,
 )
+
+
+class _TopToolTipButton(QToolButton):
+    """Tool button whose delayed tooltip is anchored above the control."""
+
+    def event(self, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.ToolTip and self.toolTip():
+            anchor = self.mapToGlobal(QPoint(0, -84))
+            QToolTip.showText(anchor, self.toolTip(), self, self.rect(), 12_000)
+            event.accept()
+            return True
+        return super().event(event)
+
+
+def _printer_icon(palette: QPalette) -> QIcon:
+    pixmap = QPixmap(48, 48)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    try:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        ink = palette.color(QPalette.ColorRole.ButtonText)
+        paper = palette.color(QPalette.ColorRole.Base)
+        accent = palette.color(QPalette.ColorRole.Highlight)
+        muted = palette.color(QPalette.ColorRole.Mid)
+
+        painter.setPen(QPen(ink, 2.2))
+        painter.setBrush(paper)
+        painter.drawRoundedRect(QRectF(12.0, 2.0, 24.0, 21.0), 2.0, 2.0)
+
+        painter.setBrush(ink)
+        painter.drawRoundedRect(QRectF(5.0, 15.0, 38.0, 24.0), 4.0, 4.0)
+
+        painter.setPen(QPen(ink, 2.0))
+        painter.setBrush(paper)
+        painter.drawRoundedRect(QRectF(10.0, 26.0, 28.0, 18.0), 2.0, 2.0)
+        painter.setPen(QPen(muted, 1.4))
+        painter.drawLine(15, 32, 33, 32)
+        painter.drawLine(15, 36, 30, 36)
+        painter.drawLine(15, 40, 27, 40)
+
+        painter.setPen(QPen(accent, 1.0))
+        painter.setBrush(QColor(accent))
+        painter.drawEllipse(QRectF(33.0, 20.0, 4.5, 4.5))
+    finally:
+        painter.end()
+    return QIcon(pixmap)
 
 
 class InterpretationReportWorkspace(_LayoutWorkspace):
@@ -45,15 +92,15 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
         sidebar_layout = self.preview_sidebar.layout()
         if not isinstance(sidebar_layout, QVBoxLayout):
             raise RuntimeError("Не найден layout боковой панели предпросмотра")
-        button = QToolButton()
+        button = _TopToolTipButton()
         button.setObjectName("interpretation-workflow-help")
         button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        button.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogHelpButton)
-        )
+        button.setIcon(_printer_icon(button.palette()))
+        button.setIconSize(QSize(34, 34))
         button.setCursor(Qt.CursorShape.PointingHandCursor)
         button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        button.setMinimumHeight(44)
+        button.setMinimumHeight(58)
+        button.setProperty("toolTipPlacement", "above")
         button.clicked.connect(self._show_workflow_help)
         sidebar_layout.insertWidget(1, button)
         self.workflow_help_button = button
@@ -64,7 +111,7 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
                 border: 1px solid palette(mid);
                 border-left: 4px solid palette(highlight);
                 border-radius: 6px;
-                padding: 8px 10px;
+                padding: 7px 10px;
                 color: palette(button-text);
                 background: palette(button);
                 font-weight: 600;
