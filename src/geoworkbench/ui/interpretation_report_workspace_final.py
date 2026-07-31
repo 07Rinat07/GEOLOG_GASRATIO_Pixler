@@ -3,9 +3,6 @@ from __future__ import annotations
 from geoworkbench.data.hydrocarbon_interpretation_export import (
     HydrocarbonInterpretationExportError,
 )
-from geoworkbench.data.hydrocarbon_interpretation_export_readable import (
-    export_readable_hydrocarbon_interpretation_xlsx,
-)
 from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
     hydrocarbon_interpretation_html_with_front_chart,
 )
@@ -77,6 +74,10 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if target is None:
             return
         try:
+            from geoworkbench.data.hydrocarbon_interpretation_export_readable import (
+                export_readable_hydrocarbon_interpretation_xlsx,
+            )
+
             exported = export_readable_hydrocarbon_interpretation_xlsx(
                 report,
                 dataset,
