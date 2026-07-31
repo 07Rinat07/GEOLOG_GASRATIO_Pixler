@@ -35,11 +35,28 @@ class InterpretationReportWorkspace(_PolishedInterpretationReportWorkspace):
                 "Recalculate all available curves and open tablet",
             )
         )
+        self.refresh_chart_report_button.setText(
+            self._text(
+                "Обновить отчёт с графиками",
+                "Есепті графиктермен жаңарту",
+                "Refresh report with charts",
+            )
+        )
         self.configure_drilling_inputs_button.setText(
             self._text(
                 "Настроить BIT и входные данные…",
                 "BIT және кіріс деректерін баптау…",
                 "Configure BIT and inputs…",
+            )
+        )
+        self.bit_reference.setToolTip(
+            self._text(
+                "Эталонный диаметр для нормализации газа; это не текущий диаметр. "
+                "Фактический BIT настраивается отдельно.",
+                "Газды нормалауға арналған эталондық диаметр; бұл ағымдағы диаметр емес. "
+                "Нақты BIT бөлек бапталады.",
+                "Reference diameter for gas normalization; this is not the current diameter. "
+                "Configure actual BIT separately.",
             )
         )
 
