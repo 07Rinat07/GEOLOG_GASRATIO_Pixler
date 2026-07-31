@@ -28,6 +28,7 @@ _CHILD_FLAG = "--geolog-single-shard"
 _DEFAULT_WINDOWS_SHARDS = 8
 _NATIVE_HEAVY_TEST_THRESHOLD = 24
 _NATIVE_TEST_BATCH_SIZE = 4
+_SINGLE_TEST_PROCESS_FILES = frozenset({"tests/test_main_window.py"})
 
 
 def _exit_immediately(result: int) -> None:
@@ -119,9 +120,13 @@ def _heavy_test_batches(
         nodes = _top_level_test_nodes(path)
         if len(nodes) < _NATIVE_HEAVY_TEST_THRESHOLD:
             continue
-        for offset in range(0, len(nodes), _NATIVE_TEST_BATCH_SIZE):
-            batch = nodes[offset : offset + _NATIVE_TEST_BATCH_SIZE]
-            batches.append((path.as_posix(), batch))
+        path_name = path.as_posix()
+        batch_size = (
+            1 if path_name in _SINGLE_TEST_PROCESS_FILES else _NATIVE_TEST_BATCH_SIZE
+        )
+        for offset in range(0, len(nodes), batch_size):
+            batch = nodes[offset : offset + batch_size]
+            batches.append((path_name, batch))
     return tuple(batches)
 
 
