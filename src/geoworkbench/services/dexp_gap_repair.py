@@ -8,6 +8,7 @@ from numpy.typing import NDArray
 
 Array = NDArray[np.float64]
 BoolArray = NDArray[np.bool_]
+LabelArray = NDArray[np.integer]
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,14 +34,17 @@ def repair_dexp_short_gaps(
     depth_unit: str = "",
     max_gap_samples: int = _DEFAULT_MAX_GAP_SAMPLES,
     max_gap_span: float | None = None,
+    segment_labels: LabelArray | None = None,
+    repairable_mask: BoolArray | None = None,
 ) -> DexpGapRepairResult:
     """Interpolate only short internal gaps bounded by valid DEXP samples.
 
     The source arrays are never modified in place. Leading, trailing and long
     gaps remain missing so that the application does not invent a curve across
-    an interval with insufficient drilling data. The span limit is six metres
-    (or twenty feet) when the depth unit is known; otherwise it is derived from
-    the median sampling step.
+    an interval with insufficient drilling data. When drilling-mode labels are
+    supplied, both anchors and every missing sample must belong to the same
+    mode. ``repairable_mask`` additionally prevents interpolation through slide
+    intervals where downhole/bit RPM is unavailable.
     """
 
     axis = np.asarray(depth, dtype=np.float64)
@@ -52,6 +56,8 @@ def repair_dexp_short_gaps(
     if max_gap_samples < 1:
         raise ValueError("Максимальный размер разрыва должен быть не меньше одной точки")
 
+    labels = _optional_labels(segment_labels, source.shape)
+    allowed = _optional_mask(repairable_mask, source.shape)
     repaired = source.copy()
     repaired_mask = np.zeros(source.shape, dtype=bool)
     finite_depth = np.isfinite(axis)
@@ -86,6 +92,12 @@ def repair_dexp_short_gaps(
             and np.isfinite(source[right])
         ):
             continue
+        if allowed is not None and not np.all(allowed[np.r_[left, group, right]]):
+            continue
+        if labels is not None:
+            section = labels[np.r_[left, group, right]]
+            if section.size == 0 or section[0] <= 0 or not np.all(section == section[0]):
+                continue
         # DEXP is physically meaningful only for positive anchor values. A gap
         # next to an invalid output remains visible and is explained by QC.
         if source[left] <= 0.0 or source[right] <= 0.0:
@@ -114,6 +126,30 @@ def repair_dexp_short_gaps(
         repaired_gaps,
         int(np.count_nonzero(remaining)),
     )
+
+
+def _optional_labels(
+    value: LabelArray | None,
+    shape: tuple[int, ...],
+) -> NDArray[np.int64] | None:
+    if value is None:
+        return None
+    result = np.asarray(value, dtype=np.int64)
+    if result.ndim != 1 or result.shape != shape:
+        raise ValueError("Метки режима должны совпадать по форме с DEXP")
+    return result
+
+
+def _optional_mask(
+    value: BoolArray | None,
+    shape: tuple[int, ...],
+) -> BoolArray | None:
+    if value is None:
+        return None
+    result = np.asarray(value, dtype=bool)
+    if result.ndim != 1 or result.shape != shape:
+        raise ValueError("Маска восстановления должна совпадать по форме с DEXP")
+    return result
 
 
 def _recommended_gap_span(

@@ -72,9 +72,7 @@ class InterpretationReportWorkspace(_ResponsiveInterpretationReportWorkspace):
 
     def _apply_responsive_theme(self) -> None:
         super()._apply_responsive_theme()
-        dark = (
-            self.palette().color(QPalette.ColorRole.Window).lightness() < 128
-        )
+        dark = self.palette().color(QPalette.ColorRole.Window).lightness() < 128
         sidebar_background = "#111923" if dark else "#f3f6fa"
         sidebar_border = "#334155" if dark else "#cbd5e1"
         button_background = "#1e293b" if dark else "#ffffff"
@@ -177,6 +175,67 @@ class InterpretationReportWorkspace(_ResponsiveInterpretationReportWorkspace):
         content_layout.addWidget(self.dexp_quality_reasons)
         panel.addWidget(content)
 
+    def _update_dexp_diagnostics(self) -> None:
+        super()._update_dexp_diagnostics()
+        diagnostic = self._last_dexp_diagnostic
+        if diagnostic is None or diagnostic.total_points <= 0:
+            return
+
+        bit_rpm = diagnostic.bit_rpm_mnemonic or self._text(
+            "не найден",
+            "табылмады",
+            "not found",
+        )
+        mode_line = self._text(
+            (
+                f"Режимы: ROTARY — {diagnostic.rotary_points}; "
+                f"SLIDE — {diagnostic.slide_points}, из них с забойным RPM — "
+                f"{diagnostic.slide_points_with_bit_rpm}, без забойного RPM — "
+                f"{diagnostic.slide_points_without_bit_rpm}; не бурение — "
+                f"{diagnostic.not_drilling_points}; не определён — "
+                f"{diagnostic.unknown_mode_points}. Источник RPM долота: {bit_rpm}."
+            ),
+            (
+                f"Режимдер: ROTARY — {diagnostic.rotary_points}; "
+                f"SLIDE — {diagnostic.slide_points}, оның ішінде түптік RPM бар — "
+                f"{diagnostic.slide_points_with_bit_rpm}, түптік RPM жоқ — "
+                f"{diagnostic.slide_points_without_bit_rpm}; бұрғылау жоқ — "
+                f"{diagnostic.not_drilling_points}; анықталмаған — "
+                f"{diagnostic.unknown_mode_points}. Қашау RPM көзі: {bit_rpm}."
+            ),
+            (
+                f"Modes: ROTARY — {diagnostic.rotary_points}; "
+                f"SLIDE — {diagnostic.slide_points}, with downhole RPM — "
+                f"{diagnostic.slide_points_with_bit_rpm}, without downhole RPM — "
+                f"{diagnostic.slide_points_without_bit_rpm}; not drilling — "
+                f"{diagnostic.not_drilling_points}; unknown — "
+                f"{diagnostic.unknown_mode_points}. Bit RPM source: {bit_rpm}."
+            ),
+        )
+        self.dexp_quality_summary.setText(
+            f"{self.dexp_quality_summary.text()}\n{mode_line}"
+        )
+
+    def _reason_text(self, code: str) -> str:
+        mode_reasons = {
+            "slide_bit_rpm_missing": self._text(
+                "слайдирование без забойного RPM",
+                "түптік RPM жоқ слайдтау",
+                "slide drilling without downhole RPM",
+            ),
+            "not_drilling": self._text(
+                "бурение не выполняется",
+                "бұрғылау орындалмайды",
+                "not drilling",
+            ),
+            "drilling_mode_unknown": self._text(
+                "режим бурения не определён",
+                "бұрғылау режимі анықталмаған",
+                "drilling mode is unknown",
+            ),
+        }
+        return mode_reasons.get(code, super()._reason_text(code))
+
     def _retranslate_responsive_controls(self) -> None:
         super()._retranslate_responsive_controls()
         self.recalculate_all_button.setText(
@@ -191,6 +250,16 @@ class InterpretationReportWorkspace(_ResponsiveInterpretationReportWorkspace):
                 "Обновить отчёт с графиками",
                 "Графиктері бар есепті жаңарту",
                 "Refresh report with charts",
+            )
+        )
+        self.dexp_details_button.setToolTip(
+            self._text(
+                "Показывает интервалы разрывов DEXP, режим ROTARY/SLIDE и сообщает, "
+                "где при слайдировании отсутствуют реальные обороты долота.",
+                "DEXP үзіліс аралықтарын, ROTARY/SLIDE режимін және слайдтау кезінде "
+                "нақты қашау айналымдары жоқ жерлерді көрсетеді.",
+                "Shows DEXP gap intervals, ROTARY/SLIDE mode, and slide intervals "
+                "where real bit RPM is unavailable.",
             )
         )
         if not hasattr(self, "preview_toggle"):
