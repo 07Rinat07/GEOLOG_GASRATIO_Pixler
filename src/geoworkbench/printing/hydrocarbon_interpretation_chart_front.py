@@ -65,8 +65,8 @@ def _chart_block(
         note_style = ""
         wrapper_style = "width: 100%; text-align: center;"
         image_style = (
-            "display: block; width: 100%; max-width: 1050px; height: auto; "
-            "margin: 0 auto;"
+            "display:block; width:100%; max-width:1050px; height:auto; "
+            "margin:0 auto;"
         )
 
     return (
