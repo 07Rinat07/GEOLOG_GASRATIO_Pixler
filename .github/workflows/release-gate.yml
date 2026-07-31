@@ -73,6 +73,7 @@ jobs:
           Invoke-Logged "ruff" { .\.venv\Scripts\python.exe -m ruff check src tests tools scripts }
           Invoke-Logged "mypy" { .\.venv\Scripts\python.exe -m mypy src }
           Invoke-Logged "pytest" {
+            $TargetedQtTest = "tests/test_main_window.py::test_window_applies_track_settings_from_inspector"
             $IsolatedQtTests = @(
               "tests/test_hydrocarbon_interpretation_ui.py",
               "tests/test_hydrocarbon_interpretation_workspace.py",
@@ -80,8 +81,15 @@ jobs:
               "tests/test_interpretation_export_workflow.py"
             )
 
+            Write-Host "`n=== pytest targeted Windows Qt process: $TargetedQtTest ==="
             .\.venv\Scripts\python.exe scripts/run_tests.py `
               -p no:cacheprovider `
+              $TargetedQtTest
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            .\.venv\Scripts\python.exe scripts/run_tests.py `
+              -p no:cacheprovider `
+              "--deselect=$TargetedQtTest" `
               "--ignore-glob=**/test_hydrocarbon_interpretation_ui.py*" `
               "--ignore-glob=**/test_hydrocarbon_interpretation_workspace.py*" `
               "--ignore-glob=**/test_hydrocarbon_interpretation_workspace_ui.py*" `
