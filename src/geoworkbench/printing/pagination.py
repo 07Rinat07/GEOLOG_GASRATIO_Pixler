@@ -16,6 +16,7 @@ class PrintRangeMode(StrEnum):
 class PrintPaginationSettings:
     range_mode: PrintRangeMode = PrintRangeMode.CURRENT
     units_per_page: float = 50.0
+    auto_units_per_page: bool = False
     overlap: float = 0.0
     custom_start: float | None = None
     custom_end: float | None = None
@@ -23,6 +24,8 @@ class PrintPaginationSettings:
     show_page_range: bool = True
 
     def __post_init__(self) -> None:
+        if not isinstance(self.auto_units_per_page, bool):
+            raise ValueError("Автоподбор интервала страницы должен быть логическим")
         for name, value in (
             ("интервал на страницу", self.units_per_page),
             ("перекрытие страниц", self.overlap),

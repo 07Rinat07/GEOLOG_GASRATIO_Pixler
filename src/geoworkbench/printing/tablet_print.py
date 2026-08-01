@@ -6,6 +6,7 @@ from math import isfinite
 
 from PySide6.QtCore import QPoint, QRectF, QSize, Qt
 from PySide6.QtGui import QPainter, QPixmap
+from PySide6.QtWidgets import QWidget
 from geoworkbench.printing.form_column_layout import (
     AdaptiveColumnLayout,
     adaptive_column_layout,
@@ -21,6 +22,19 @@ from geoworkbench.tablet.tablet_view import TabletView
 
 
 _HEADER_GAP_FRACTION = 0.006
+
+
+def _activate_layout_tree(widget: QWidget) -> None:
+    """Synchronously settle a hidden print clone after an off-screen resize."""
+
+    widgets = (widget, *widget.findChildren(QWidget))
+    for current in widgets:
+        layout = current.layout()
+        if layout is None:
+            continue
+        layout.invalidate()
+        layout.activate()
+
 
 
 class TabletPrintError(RuntimeError):
@@ -89,6 +103,7 @@ def capture_tablet_print_snapshot(
     grid_print_overrides: Mapping[str, bool] | None = None,
     show_column_header: bool = True,
     repeat_column_header_at_bottom: bool = False,
+    target_content_height: int | None = None,
 ) -> TabletPrintSnapshot:
     """Capture every visible form column, including off-screen columns.
 
@@ -104,6 +119,12 @@ def capture_tablet_print_snapshot(
         or not 1.0 <= raster_scale <= 8.0
     ):
         raise TabletPrintError("Масштаб печатного renderer должен быть от 1 до 8")
+    if target_content_height is not None and (
+        isinstance(target_content_height, bool)
+        or not isinstance(target_content_height, int)
+        or target_content_height <= 0
+    ):
+        raise TabletPrintError("Автоматическая высота печатной формы должна быть положительной")
 
     rendered = tablet.printable_tracks()
     if included_track_ids is not None:
@@ -116,26 +137,47 @@ def capture_tablet_print_snapshot(
         raise TabletPrintError("Печатная форма не имеет допустимой высоты")
 
     definitions = [item.definition for item in rendered]
+    original_widths = [item.widget.width() for item in rendered]
+    original_tablet_size = tablet.size()
     header_height = max(
         item.widget.title.height() + item.widget.curve_header_scroll.height()
         for item in rendered
     )
 
-    def build_layout(_measured_header_height: int) -> AdaptiveColumnLayout:
+    if target_content_height is not None:
+        minimum_height = header_height + 240
+        desired_height = max(minimum_height, int(target_content_height))
+        for _attempt in range(3):
+            current_height = max(item.widget.height() for item in rendered)
+            delta = desired_height - current_height
+            if abs(delta) <= 1:
+                break
+            tablet.resize(
+                max(1, tablet.width()),
+                max(1, tablet.height() + delta),
+            )
+            _activate_layout_tree(tablet)
+        content_height = max(item.widget.height() for item in rendered)
+        header_height = max(
+            item.widget.title.height() + item.widget.curve_header_scroll.height()
+            for item in rendered
+        )
+
+    def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
         if not fit_columns:
             return original_column_layout(definitions)
-        # Use one canonical source height for every vertical page.  The top
-        # header is present only on the first page and the optional repeated
-        # header only on the last one, but those presentation bands must never
-        # change column widths or the horizontal scale of the plotted curves.
+        layout_height = (
+            max(1, content_height - measured_header_height)
+            if target_content_height is not None
+            else content_height
+        )
         return adaptive_column_layout(
             definitions,
             page_aspect_ratio=page_aspect_ratio,
-            content_height=content_height,
+            content_height=layout_height,
         )
 
     layout = build_layout(header_height)
-    original_widths = [item.widget.width() for item in rendered]
     pixmaps: list[QPixmap] = []
     grid_states: list[tuple[TabletGridOverlay, bool, bool]] = []
     tablet.set_annotation_print_mode(True)
@@ -204,6 +246,9 @@ def capture_tablet_print_snapshot(
         for item, width in zip(rendered, original_widths, strict=True):
             item.widget.set_print_mode(False)
             item.widget.set_track_width(width)
+        if tablet.size() != original_tablet_size:
+            tablet.resize(original_tablet_size)
+            _activate_layout_tree(tablet)
 
     return TabletPrintSnapshot(
         tuple(pixmaps),

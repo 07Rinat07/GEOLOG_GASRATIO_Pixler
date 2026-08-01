@@ -32,29 +32,39 @@ def qapp():
 
 @pytest.fixture(autouse=True)
 def close_qt_windows_after_test():
-    """Dispose application windows without deleting Qt-owned popups separately."""
+    """Dispose Qt windows without invoking application ``closeEvent`` hooks.
+
+    The suite contains windows whose close handlers own optional services.  One
+    partially constructed window can therefore raise during ``widget.close()``
+    and remain in QApplication, poisoning every later non-GUI test at teardown.
+    Test cases that need close semantics call ``close()`` explicitly; the global
+    safety net only hides valid top-level roots until the isolated shard exits.
+    """
 
     yield
     if "PySide6.QtWidgets" not in sys.modules:
         return
-    from PySide6.QtCore import QCoreApplication, QEvent
     from PySide6.QtWidgets import QApplication, QWidget
     from shiboken6 import isValid
 
     app = QApplication.instance()
     if app is None:
         return
-    application_roots: list[QWidget] = []
+
+    # Tests run in isolated subprocess shards.  Hiding leftover top-level windows
+    # is enough to prevent them from affecting the next test while keeping the
+    # native Qt object graph intact until the shard exits.  Do not call close(),
+    # deleteLater(), sendPostedEvents() or processEvents() here: close handlers may
+    # reference optional services on partially constructed windows, and forcing
+    # DeferredDelete delivery can enter TabletView.event after one of its native
+    # children has already been destroyed on the Windows offscreen backend.
     for widget in tuple(app.topLevelWidgets()):
-        if isinstance(widget, QWidget) and isValid(widget):
-            widget.close()
-            if type(widget).__module__.startswith("geoworkbench."):
-                application_roots.append(widget)
-    app.processEvents()
-    for widget in application_roots:
-        if isValid(widget):
-            widget.deleteLater()
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        if not isinstance(widget, QWidget) or not isValid(widget):
+            continue
+        try:
+            widget.hide()
+        except RuntimeError:
+            pass
 
 
 @pytest.fixture

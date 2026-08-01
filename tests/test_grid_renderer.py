@@ -149,7 +149,7 @@ def test_print_mode_keeps_minor_lines_and_uses_configured_alpha(qapp) -> None:
     plot.show()
     qapp.processEvents()
     overlay = TabletGridOverlay(plot)
-    overlay.apply(GridSettings(True, True, 10, 10, 0.4))
+    overlay.apply(GridSettings(True, True, 10, 10, 0.8))
     overlay.set_horizontal_base_step(5.0)
     plot.setYRange(47.0, 97.0, padding=0.0)
     qapp.processEvents()
@@ -164,13 +164,13 @@ def test_print_mode_keeps_minor_lines_and_uses_configured_alpha(qapp) -> None:
     assert all(line.isVisible() for line, _major in overlay._horizontal)
     major_pen = next(line.pen for line, major in overlay._vertical if major)
     minor_pen = next(line.pen for line, major in overlay._vertical if not major)
-    assert major_pen.color().alphaF() == pytest.approx(0.4, abs=0.005)
-    assert minor_pen.color().alphaF() == pytest.approx(0.4 * 0.45, abs=0.005)
+    assert major_pen.color().alphaF() == pytest.approx(0.8, abs=0.005)
+    assert minor_pen.color().alphaF() == pytest.approx(0.8 * 0.45, abs=0.005)
 
     overlay.set_print_mode(False)
     assert overlay.print_mode is False
     screen_major_pen = next(line.pen for line, major in overlay._vertical if major)
-    assert screen_major_pen.color().alphaF() == pytest.approx(0.4 * 0.72, abs=0.005)
+    assert screen_major_pen.color().alphaF() == pytest.approx(0.8 * 0.72, abs=0.005)
     plot.close()
 
 
