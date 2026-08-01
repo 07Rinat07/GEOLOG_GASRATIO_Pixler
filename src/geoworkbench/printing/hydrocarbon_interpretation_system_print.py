@@ -5,7 +5,7 @@ from pathlib import Path
 
 import fitz
 from PySide6.QtCore import QMarginsF, QRectF
-from PySide6.QtGui import QImage, QPageLayout, QPageSize, QPainter
+from PySide6.QtGui import QColor, QImage, QPageLayout, QPageSize, QPainter
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrinter
 
 
@@ -40,7 +40,7 @@ def selected_report_pages(
 
     if total_pages < 1:
         return ()
-    if print_range is QAbstractPrintDialog.PrintRange.PageRange:
+    if print_range == QAbstractPrintDialog.PrintRange.PageRange:
         start = max(1, min(total_pages, int(from_page or 1)))
         end = max(1, min(total_pages, int(to_page or total_pages)))
         if start > end:
@@ -108,8 +108,13 @@ def print_pdf_page_selection(
                     float(image.height()),
                 )
                 painter.fillRect(
-                    QRectF(0.0, 0.0, float(paint_rect.width()), float(paint_rect.height())),
-                    0xFFFFFFFF,
+                    QRectF(
+                        0.0,
+                        0.0,
+                        float(paint_rect.width()),
+                        float(paint_rect.height()),
+                    ),
+                    QColor("#ffffff"),
                 )
                 painter.drawImage(target, image)
                 if progress is not None:
