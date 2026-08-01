@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF, Qt
+from PySide6.QtCore import QLineF, QRectF, Qt
 from PySide6.QtGui import QColor, QPen
 
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
@@ -95,8 +95,8 @@ def render_report_cover(
             labels["brand"],
         )
 
-        title_top = rect.top() + (68.0 if compact else 58.0)
-        title_height = 78.0 if compact else 68.0
+        title_top = rect.top() + (68.0 if compact else 52.0)
+        title_height = 78.0 if compact else 62.0
         title_font = print_font(23.0 if compact else 25.0, text=labels["title"])
         title_font.setBold(True)
         painter.setFont(title_font)
@@ -112,7 +112,7 @@ def render_report_cover(
             labels["title"],
         )
 
-        subtitle_top = title_top + title_height + 5.0
+        subtitle_top = title_top + title_height + 4.0
         painter.setFont(print_font(10.0, text=labels["subtitle"]))
         painter.setPen(muted)
         painter.drawText(
@@ -122,9 +122,9 @@ def render_report_cover(
         )
 
         card_width = min(rect.width() * (0.88 if compact else 0.72), 640.0)
-        card_height = 270.0 if compact else 222.0
+        card_height = 270.0 if compact else 242.0
         card_left = rect.center().x() - card_width / 2.0
-        card_top = subtitle_top + 43.0
+        card_top = subtitle_top + (43.0 if compact else 32.0)
         card = QRectF(card_left, card_top, card_width, card_height)
         painter.setBrush(card_fill)
         painter.setPen(QPen(card_border, 1.0))
@@ -150,10 +150,7 @@ def render_report_cover(
             if index:
                 painter.setPen(QPen(QColor("#d6e0ea"), 0.8))
                 painter.drawLine(
-                    row_left,
-                    row_top,
-                    row_left + row_width,
-                    row_top,
+                    QLineF(row_left, row_top, row_left + row_width, row_top)
                 )
             painter.setFont(label_font)
             painter.setPen(text_color)
@@ -180,7 +177,7 @@ def render_report_cover(
 
         footer_rect = QRectF(
             rect.left() + 35.0,
-            max(card.bottom() + 28.0, rect.bottom() - 68.0),
+            max(card.bottom() + 22.0, rect.bottom() - 68.0),
             rect.width() - 70.0,
             38.0,
         )
