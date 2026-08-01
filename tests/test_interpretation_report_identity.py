@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import fitz
+import pytest
 from PySide6.QtGui import QPageLayout
 
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart_enhanced import (
@@ -125,6 +126,42 @@ def test_pdf_cover_uses_manual_identity_instead_of_loaded_file_names(qapp, tmp_p
     assert "ТОО Сервис ГТИ" in cover_text
     assert "Инженер ГТИ И.И." in cover_text
     assert "Техническое_имя_загруженного_файла.las" not in cover_text
+
+
+@pytest.mark.parametrize(
+    "orientation",
+    (
+        QPageLayout.Orientation.Portrait,
+        QPageLayout.Orientation.Landscape,
+    ),
+)
+def test_manual_cover_stays_inside_page_in_both_orientations(
+    qapp,
+    tmp_path,
+    orientation: QPageLayout.Orientation,
+) -> None:
+    target = tmp_path / f"cover-{orientation.name}.pdf"
+    export_hydrocarbon_interpretation_pdf(
+        _report(),
+        target,
+        language=AppLanguage.RU,
+        include_chart=False,
+        orientation=orientation,
+        identity=_manual_identity(),
+    )
+
+    with fitz.open(target) as document:
+        page = document[0]
+        assert (page.rect.width < page.rect.height) == (
+            orientation is QPageLayout.Orientation.Portrait
+        )
+        safe_page = page.rect + (-1.5, -1.5, 1.5, 1.5)
+        for block in page.get_text("dict")["blocks"]:
+            for line in block.get("lines", ()):
+                for span in line.get("spans", ()):
+                    assert safe_page.contains(fitz.Rect(span["bbox"]))
+        for drawing in page.get_drawings():
+            assert safe_page.contains(fitz.Rect(drawing["rect"]))
 
 
 def test_depth_scale_has_labelled_major_and_visible_minor_divisions() -> None:
