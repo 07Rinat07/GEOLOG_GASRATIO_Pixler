@@ -34,31 +34,24 @@ class InterpretationPrintLayoutDialog(QDialog):
         parent: QWidget | None = None,
         *,
         language: AppLanguage = AppLanguage.RU,
+        include_order: bool = True,
     ) -> None:
         super().__init__(parent)
         self.language = language
+        self.include_order = include_order
         self.setModal(True)
         self.setMinimumWidth(480)
         self.setWindowTitle(
             self._text(
-                "Макет печати отчёта",
-                "Есепті басып шығару макеті",
-                "Report print layout",
+                "Макет печати отчёта" if include_order else "Макет PDF-отчёта",
+                "Есепті басып шығару макеті" if include_order else "PDF есеп макеті",
+                "Report print layout" if include_order else "PDF report layout",
             )
         )
 
         root = QVBoxLayout(self)
         description = QLabel(
-            self._text(
-                "Сначала выберите макет отчёта. Диапазон страниц, принтер, "
-                "число копий и свойства Epson будут доступны в следующем "
-                "системном окне Windows.",
-                "Алдымен есеп макетін таңдаңыз. Бет ауқымы, принтер, көшірме "
-                "саны және Epson қасиеттері келесі Windows жүйелік терезесінде "
-                "қолжетімді болады.",
-                "Choose the report layout first. Page range, printer, copy count, "
-                "and Epson properties remain available in the next Windows dialog.",
-            )
+            self._description_text()
         )
         description.setWordWrap(True)
         root.addWidget(description)
@@ -98,27 +91,19 @@ class InterpretationPrintLayoutDialog(QDialog):
             ),
             InterpretationPrintOrder.LAST_TO_FIRST,
         )
-        form.addRow(
-            self._text("Ориентация:", "Бағдар:", "Orientation:"),
-            self.orientation_combo,
+        self.orientation_label = QLabel(
+            self._text("Ориентация:", "Бағдар:", "Orientation:")
         )
-        form.addRow(
-            self._text("Порядок:", "Реті:", "Order:"),
-            self.order_combo,
+        self.order_label = QLabel(
+            self._text("Порядок:", "Реті:", "Order:")
         )
+        form.addRow(self.orientation_label, self.orientation_combo)
+        form.addRow(self.order_label, self.order_combo)
+        self.order_label.setVisible(include_order)
+        self.order_combo.setVisible(include_order)
         root.addLayout(form)
 
-        note = QLabel(
-            self._text(
-                "По умолчанию используется книжная ориентация и печать с "
-                "первой страницы. Выбор диапазона 1–2 будет отправлять Epson "
-                "только две выбранные страницы.",
-                "Әдепкіде кітапша бағыты және бірінші беттен басып шығару "
-                "қолданылады. 1–2 ауқымы Epson принтеріне тек екі бетті жібереді.",
-                "Portrait and first-to-last are the defaults. Selecting pages "
-                "1–2 sends only those two pages to Epson.",
-            )
-        )
+        note = QLabel(self._note_text())
         note.setWordWrap(True)
         root.addWidget(note)
 
@@ -135,9 +120,50 @@ class InterpretationPrintLayoutDialog(QDialog):
         order = self.order_combo.currentData()
         if not isinstance(orientation, QPageLayout.Orientation):
             orientation = QPageLayout.Orientation.Portrait
-        if not isinstance(order, InterpretationPrintOrder):
+        if not self.include_order or not isinstance(order, InterpretationPrintOrder):
             order = InterpretationPrintOrder.FIRST_TO_LAST
         return InterpretationPrintLayout(orientation, order)
+
+    def _description_text(self) -> str:
+        if not self.include_order:
+            return self._text(
+                "Выберите ориентацию PDF. Титульный лист, графики, таблицы и "
+                "страницы продолжения будут перестроены под выбранный формат.",
+                "PDF бағдарын таңдаңыз. Титулдық бет, графиктер, кестелер және "
+                "жалғастыру беттері таңдалған пішімге қайта құрылады.",
+                "Choose the PDF orientation. The cover, charts, tables, and "
+                "continuation pages will be rebuilt for the selected format.",
+            )
+        return self._text(
+            "Сначала выберите макет отчёта. Диапазон страниц, принтер, "
+            "число копий и свойства Epson будут доступны в следующем "
+            "системном окне Windows.",
+            "Алдымен есеп макетін таңдаңыз. Бет ауқымы, принтер, көшірме "
+            "саны және Epson қасиеттері келесі Windows жүйелік терезесінде "
+            "қолжетімді болады.",
+            "Choose the report layout first. Page range, printer, copy count, "
+            "and Epson properties remain available in the next Windows dialog.",
+        )
+
+    def _note_text(self) -> str:
+        if not self.include_order:
+            return self._text(
+                "Книжная ориентация удобнее для последовательного чтения; "
+                "альбомная оставляет больше ширины для графиков и таблиц.",
+                "Кітапша бағдары ретімен оқуға ыңғайлы; альбомдық бағдар "
+                "графиктер мен кестелерге көбірек ен қалдырады.",
+                "Portrait is easier for sequential reading; landscape leaves "
+                "more width for charts and tables.",
+            )
+        return self._text(
+            "По умолчанию используется книжная ориентация и печать с "
+            "первой страницы. Выбор диапазона 1–2 будет отправлять Epson "
+            "только две выбранные страницы.",
+            "Әдепкіде кітапша бағыты және бірінші беттен басып шығару "
+            "қолданылады. 1–2 ауқымы Epson принтеріне тек екі бетті жібереді.",
+            "Portrait and first-to-last are the defaults. Selecting pages "
+            "1–2 sends only those two pages to Epson.",
+        )
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         if self.language is AppLanguage.KK:
