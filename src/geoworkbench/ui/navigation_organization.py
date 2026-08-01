@@ -3,9 +3,18 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from PySide6.QtCore import QObject, QTimer, Qt
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QDialog, QMainWindow, QMenu, QVBoxLayout, QWidget
+from PySide6.QtCore import QObject, QPointF, QRectF, QSize, QTimer, Qt
+from PySide6.QtGui import QAction, QIcon, QPainter, QPalette, QPen, QPixmap
+from PySide6.QtWidgets import (
+    QDialog,
+    QHBoxLayout,
+    QMainWindow,
+    QMenu,
+    QSizePolicy,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.help_center_dialog import HelpCenterDialog
@@ -19,6 +28,11 @@ _TEXTS = {
         "reports_menu": "Отчёты по интерпретации",
         "gas_report": "Интерпретация газового каротажа...",
         "gas_window": "Отчёты по интерпретации газового каротажа",
+        "wits_accessible": "Центр WITS",
+        "wits_tooltip": "WITS, WITSML и ETP: файлы, подключения и потоковые данные",
+        "wits_files": "Файлы WITSML 2.x",
+        "wits_connections": "Сетевые подключения",
+        "wits_stream": "Поток WITS Level 0",
     },
     AppLanguage.KK: {
         "files": "Файлдар / PDF / Калькулятор",
@@ -26,6 +40,11 @@ _TEXTS = {
         "reports_menu": "Интерпретация есептері",
         "gas_report": "Газ каротажын интерпретациялау...",
         "gas_window": "Газ каротажын интерпретациялау есептері",
+        "wits_accessible": "WITS орталығы",
+        "wits_tooltip": "WITS, WITSML және ETP: файлдар, қосылымдар және ағындық деректер",
+        "wits_files": "WITSML 2.x файлдары",
+        "wits_connections": "Желілік қосылымдар",
+        "wits_stream": "WITS Level 0 ағыны",
     },
     AppLanguage.EN: {
         "files": "Files / PDF / Calculator",
@@ -33,8 +52,21 @@ _TEXTS = {
         "reports_menu": "Interpretation reports",
         "gas_report": "Mud-gas interpretation...",
         "gas_window": "Mud-gas interpretation reports",
+        "wits_accessible": "WITS centre",
+        "wits_tooltip": "WITS, WITSML, and ETP: files, connections, and streaming data",
+        "wits_files": "WITSML 2.x files",
+        "wits_connections": "Network connections",
+        "wits_stream": "WITS Level 0 stream",
     },
 }
+
+_WITS_ACTION_NAMES = (
+    "inspect_witsml_action",
+    "import_witsml_data_action",
+    "open_witsml1411_action",
+    "open_etp12_action",
+    "capture_wits0_action",
+)
 
 
 class _WorkspaceDialog(QDialog):
@@ -73,6 +105,75 @@ class _WorkspaceDialog(QDialog):
             layout.activate()
 
 
+class _WitsMenuButton(QToolButton):
+    """Distinct menu-bar entry point for all WITS/WITSML/ETP commands."""
+
+    def __init__(self, menu: QMenu, parent: QWidget) -> None:
+        super().__init__(parent)
+        self.setObjectName("witsProtocolButton")
+        self.setText("WITS")
+        self.setMenu(menu)
+        self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.setIcon(_wits_icon(self.palette()))
+        self.setIconSize(QSize(22, 22))
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAutoRaise(False)
+        self.setMinimumSize(96, 30)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.setStyleSheet(
+            """
+            QToolButton#witsProtocolButton {
+                border: 1px solid palette(highlight);
+                border-left: 4px solid palette(highlight);
+                border-radius: 6px;
+                padding: 3px 18px 3px 7px;
+                margin: 1px 6px 1px 4px;
+                background: palette(button);
+                color: palette(button-text);
+                font-weight: 700;
+            }
+            QToolButton#witsProtocolButton:hover {
+                background: palette(alternate-base);
+            }
+            QToolButton#witsProtocolButton:pressed {
+                background: palette(highlight);
+                color: palette(highlighted-text);
+            }
+            QToolButton#witsProtocolButton::menu-indicator {
+                subcontrol-origin: padding;
+                subcontrol-position: right center;
+                right: 5px;
+            }
+            """
+        )
+
+
+def _wits_icon(palette: QPalette) -> QIcon:
+    pixmap = QPixmap(28, 28)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    try:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        accent = palette.color(QPalette.ColorRole.Highlight)
+        ink = palette.color(QPalette.ColorRole.ButtonText)
+        painter.setPen(QPen(accent, 2.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.drawLine(QPointF(7.0, 7.0), QPointF(20.0, 14.0))
+        painter.drawLine(QPointF(7.0, 21.0), QPointF(20.0, 14.0))
+        painter.setBrush(accent)
+        painter.drawEllipse(QRectF(3.5, 3.5, 7.0, 7.0))
+        painter.drawEllipse(QRectF(3.5, 17.5, 7.0, 7.0))
+        painter.setBrush(palette.color(QPalette.ColorRole.Button))
+        painter.drawEllipse(QRectF(16.0, 10.0, 8.0, 8.0))
+        painter.setPen(QPen(ink, 1.5))
+        painter.drawLine(QPointF(18.5, 13.0), QPointF(21.5, 15.0))
+        painter.drawLine(QPointF(18.5, 15.0), QPointF(21.5, 13.0))
+    finally:
+        painter.end()
+    return QIcon(pixmap)
+
+
 class NavigationOrganizationController(QObject):
     """Move utility workspaces to purpose-specific menus without changing their logic."""
 
@@ -85,6 +186,13 @@ class NavigationOrganizationController(QObject):
         self.interpretation_reports_menu: QMenu | None = None
         self.gas_interpretation_action: QAction | None = None
         self.help_center_action: QAction | None = None
+        self.wits_menu: QMenu | None = None
+        self.wits_button: _WitsMenuButton | None = None
+        self.wits_files_section: QAction | None = None
+        self.wits_connections_section: QAction | None = None
+        self.wits_stream_section: QAction | None = None
+        self.wits_actions: tuple[QAction, ...] = ()
+        self._wits_corner_host: QWidget | None = None
         self._installed = False
 
     def install(self) -> bool:
@@ -96,6 +204,7 @@ class NavigationOrganizationController(QObject):
             "interpretation_report_workspace",
             "file_workspace_action",
             "interpretation_report_action",
+            *_WITS_ACTION_NAMES,
         )
         if any(not hasattr(self.window, name) for name in required):
             return False
@@ -105,7 +214,7 @@ class NavigationOrganizationController(QObject):
         help_menu = _menu_by_key(self.window, "menu.help")
         file_menu = _menu_by_key(self.window, "menu.file")
         view_menu = _menu_by_key(self.window, "menu.view")
-        if tools_menu is None or print_menu is None or help_menu is None:
+        if tools_menu is None or print_menu is None or help_menu is None or file_menu is None:
             return False
 
         tabs = self.window.tabs
@@ -154,6 +263,8 @@ class NavigationOrganizationController(QObject):
         self.window.gas_interpretation_report_action = self.gas_interpretation_action
         self.window.interpretation_reports_menu = self.interpretation_reports_menu
 
+        self._install_wits_button(file_menu)
+
         self.help_center_action = QAction(self.window)
         self.help_center_action.setObjectName("helpCenterAction")
         self.help_center_action.setShortcut("F1")
@@ -179,6 +290,45 @@ class NavigationOrganizationController(QObject):
         self._installed = True
         self.refresh_language()
         return True
+
+    def _install_wits_button(self, file_menu: QMenu) -> None:
+        actions = tuple(getattr(self.window, name) for name in _WITS_ACTION_NAMES)
+        if not all(isinstance(action, QAction) for action in actions):
+            raise RuntimeError("WITS actions were not initialized")
+        self.wits_actions = actions
+        for action in actions:
+            file_menu.removeAction(action)
+
+        self.wits_menu = QMenu(self.window)
+        self.wits_menu.setObjectName("witsProtocolMenu")
+        self.wits_menu.setToolTipsVisible(True)
+        self.wits_files_section = self.wits_menu.addSection("")
+        self.wits_menu.addAction(actions[0])
+        self.wits_menu.addAction(actions[1])
+        self.wits_menu.addSeparator()
+        self.wits_connections_section = self.wits_menu.addSection("")
+        self.wits_menu.addAction(actions[2])
+        self.wits_menu.addAction(actions[3])
+        self.wits_menu.addSeparator()
+        self.wits_stream_section = self.wits_menu.addSection("")
+        self.wits_menu.addAction(actions[4])
+
+        standard_icons = (
+            self.window.style().standardIcon(self.window.style().StandardPixmap.SP_FileDialogDetailedView),
+            self.window.style().standardIcon(self.window.style().StandardPixmap.SP_DialogOpenButton),
+            self.window.style().standardIcon(self.window.style().StandardPixmap.SP_DriveNetIcon),
+            self.window.style().standardIcon(self.window.style().StandardPixmap.SP_DriveNetIcon),
+            self.window.style().standardIcon(self.window.style().StandardPixmap.SP_MediaPlay),
+        )
+        for action, icon in zip(actions, standard_icons, strict=True):
+            if action.icon().isNull():
+                action.setIcon(icon)
+
+        self.wits_button = _WitsMenuButton(self.wits_menu, self.window.menuBar())
+        self._wits_corner_host = _place_menu_bar_button(self.window, self.wits_button)
+        self.window.wits_protocol_menu = self.wits_menu
+        self.window.wits_protocol_button = self.wits_button
+        self.window.wits_protocol_actions = self.wits_actions
 
     def _install_direct_language_refresh(self) -> None:
         if getattr(self.window, "_navigation_language_wrapper_installed", False):
@@ -211,6 +361,19 @@ class NavigationOrganizationController(QObject):
             self.help_center_action.setText(help_action_text(language))
         if self.help_dialog is not None:
             self.help_dialog.set_language(language)
+        if self.wits_menu is not None:
+            self.wits_menu.setTitle(texts["wits_accessible"])
+        if self.wits_button is not None:
+            self.wits_button.setToolTip(texts["wits_tooltip"])
+            self.wits_button.setStatusTip(texts["wits_tooltip"])
+            self.wits_button.setAccessibleName(texts["wits_accessible"])
+            self.wits_button.setAccessibleDescription(texts["wits_tooltip"])
+        if self.wits_files_section is not None:
+            self.wits_files_section.setText(texts["wits_files"])
+        if self.wits_connections_section is not None:
+            self.wits_connections_section.setText(texts["wits_connections"])
+        if self.wits_stream_section is not None:
+            self.wits_stream_section.setText(texts["wits_stream"])
 
     def open_file_workspace(self) -> None:
         self.refresh_language()
@@ -304,6 +467,26 @@ def _replace_trigger(action: QAction, callback: Callable[[], None]) -> None:
     except (RuntimeError, TypeError):
         pass
     action.triggered.connect(lambda _checked=False: callback())
+
+
+def _place_menu_bar_button(window: QMainWindow, button: QToolButton) -> QWidget:
+    menu_bar = window.menuBar()
+    corner = Qt.Corner.TopRightCorner
+    existing = menu_bar.cornerWidget(corner)
+    if existing is None:
+        menu_bar.setCornerWidget(button, corner)
+        return button
+
+    host = QWidget(menu_bar)
+    host.setObjectName("menuBarCornerActions")
+    layout = QHBoxLayout(host)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(2)
+    existing.setParent(host)
+    layout.addWidget(existing)
+    layout.addWidget(button)
+    menu_bar.setCornerWidget(host, corner)
+    return host
 
 
 def _show_dialog(dialog: QDialog) -> None:
