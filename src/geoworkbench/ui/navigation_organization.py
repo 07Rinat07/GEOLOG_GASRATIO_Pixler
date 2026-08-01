@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from PySide6.QtCore import QObject, QPointF, QRectF, QSize, QTimer, Qt
 from PySide6.QtGui import QAction, QIcon, QPainter, QPalette, QPen, QPixmap
@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QSizePolicy,
+    QStyle,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -292,9 +293,9 @@ class NavigationOrganizationController(QObject):
         return True
 
     def _install_wits_button(self, file_menu: QMenu) -> None:
-        actions = tuple(getattr(self.window, name) for name in _WITS_ACTION_NAMES)
-        if not all(isinstance(action, QAction) for action in actions):
-            raise RuntimeError("WITS actions were not initialized")
+        actions = tuple(
+            cast(QAction, getattr(self.window, name)) for name in _WITS_ACTION_NAMES
+        )
         self.wits_actions = actions
         for action in actions:
             file_menu.removeAction(action)
@@ -313,16 +314,16 @@ class NavigationOrganizationController(QObject):
         self.wits_stream_section = self.wits_menu.addSection("")
         self.wits_menu.addAction(actions[4])
 
-        standard_icons = (
-            self.window.style().standardIcon(self.window.style().StandardPixmap.SP_FileDialogDetailedView),
-            self.window.style().standardIcon(self.window.style().StandardPixmap.SP_DialogOpenButton),
-            self.window.style().standardIcon(self.window.style().StandardPixmap.SP_DriveNetIcon),
-            self.window.style().standardIcon(self.window.style().StandardPixmap.SP_DriveNetIcon),
-            self.window.style().standardIcon(self.window.style().StandardPixmap.SP_MediaPlay),
+        standard_pixmaps = (
+            QStyle.StandardPixmap.SP_FileDialogDetailedView,
+            QStyle.StandardPixmap.SP_DialogOpenButton,
+            QStyle.StandardPixmap.SP_DriveNetIcon,
+            QStyle.StandardPixmap.SP_DriveNetIcon,
+            QStyle.StandardPixmap.SP_MediaPlay,
         )
-        for action, icon in zip(actions, standard_icons, strict=True):
+        for action, pixmap in zip(actions, standard_pixmaps, strict=True):
             if action.icon().isNull():
-                action.setIcon(icon)
+                action.setIcon(self.window.style().standardIcon(pixmap))
 
         self.wits_button = _WitsMenuButton(self.wits_menu, self.window.menuBar())
         self._wits_corner_host = _place_menu_bar_button(self.window, self.wits_button)
