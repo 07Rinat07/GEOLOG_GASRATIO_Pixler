@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import zipfile
+from xml.etree import ElementTree as ET
+
 import fitz
 import pytest
 from PySide6.QtGui import QPageLayout
 
+from geoworkbench.data.hydrocarbon_interpretation_export_docx_polished import (
+    export_polished_hydrocarbon_interpretation_docx,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart_enhanced import (
     major_depth_ticks,
     minor_depth_ticks,
@@ -23,6 +29,10 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.interpretation_report_details_dialog import (
     InterpretationReportDetailsDialog,
 )
+
+
+_W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+_W = {"w": _W_NS}
 
 
 def _report() -> HydrocarbonInterpretationReport:
@@ -67,6 +77,10 @@ def _manual_identity() -> InterpretationReportIdentity:
         confidentiality="Для служебного использования",
         remarks="Реквизиты введены вручную перед печатью.",
     )
+
+
+def _word_text(element: ET.Element) -> str:
+    return "".join(node.text or "" for node in element.findall(".//w:t", _W))
 
 
 def test_default_identity_uses_loaded_values_only_as_initial_suggestion() -> None:
@@ -126,6 +140,70 @@ def test_pdf_cover_uses_manual_identity_instead_of_loaded_file_names(qapp, tmp_p
     assert "ТОО Сервис ГТИ" in cover_text
     assert "Инженер ГТИ И.И." in cover_text
     assert "Техническое_имя_загруженного_файла.las" not in cover_text
+
+
+def test_word_cover_is_separate_and_not_bunched_at_top(tmp_path) -> None:
+    target = tmp_path / "manual-cover.docx"
+    export_polished_hydrocarbon_interpretation_docx(
+        _report(),
+        target,
+        identity=_manual_identity(),
+    )
+
+    with zipfile.ZipFile(target) as package:
+        document_xml = package.read("word/document.xml")
+    root = ET.fromstring(document_xml)
+    body = root.find("w:body", _W)
+    assert body is not None
+    document_text = _word_text(root)
+
+    assert "Отчёт ГТИ по скважине Северная-12" in document_text
+    assert "Проект Северный купол" in document_text
+    assert "GAS-INT-012" in document_text
+    assert "АО Заказчик" in document_text
+    assert "ТОО Сервис ГТИ" in document_text
+    assert "Инженер ГТИ И.И." in document_text
+    assert "Техническое_имя_загруженного_файла.las" not in document_text
+
+    children = list(body)
+    section_index = next(
+        index
+        for index, child in enumerate(children)
+        if child.find("w:pPr/w:sectPr", _W) is not None
+    )
+    heading_index = next(
+        index
+        for index, child in enumerate(children)
+        if "Методы и доступность" in _word_text(child)
+    )
+    assert section_index < heading_index
+
+    sections = root.findall(".//w:sectPr", _W)
+    assert len(sections) >= 2
+    cover_type = sections[0].find("w:type", _W)
+    cover_size = sections[0].find("w:pgSz", _W)
+    body_size = sections[-1].find("w:pgSz", _W)
+    assert cover_type is not None
+    assert cover_type.get(f"{{{_W_NS}}}val") == "nextPage"
+    assert cover_size is not None
+    assert body_size is not None
+    assert int(cover_size.get(f"{{{_W_NS}}}w", "0")) < int(
+        cover_size.get(f"{{{_W_NS}}}h", "0")
+    )
+    assert body_size.get(f"{{{_W_NS}}}orient") == "landscape"
+    assert int(body_size.get(f"{{{_W_NS}}}w", "0")) > int(
+        body_size.get(f"{{{_W_NS}}}h", "0")
+    )
+
+    title_paragraph = next(
+        paragraph
+        for paragraph in body.findall("w:p", _W)
+        if "Отчёт ГТИ по скважине Северная-12" in _word_text(paragraph)
+    )
+    title_spacing = title_paragraph.find("w:pPr/w:spacing", _W)
+    assert title_spacing is not None
+    assert int(title_spacing.get(f"{{{_W_NS}}}before", "0")) >= 720
+    assert len(children[:section_index]) >= 8
 
 
 @pytest.mark.parametrize(
