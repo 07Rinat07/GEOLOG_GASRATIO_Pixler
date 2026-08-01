@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
+    QGroupBox,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -54,6 +55,8 @@ class TrackInspector(QWidget):
         self._summary.setWordWrap(True)
         editor_layout.addWidget(self._summary)
 
+        self.track_group = QGroupBox(self._t("inspector.track_group"))
+        track_group_layout = QVBoxLayout(self.track_group)
         form = QFormLayout()
         self._main_form = form
         self.width_input = QSpinBox()
@@ -73,8 +76,14 @@ class TrackInspector(QWidget):
         self.maximum_input = self._range_spin_box()
         form.addRow(self._t("inspector.x_minimum"), self.minimum_input)
         form.addRow(self._t("inspector.x_maximum"), self.maximum_input)
-        editor_layout.addLayout(form)
+        track_group_layout.addLayout(form)
+        self.apply_button = QPushButton(self._t("common.apply"))
+        self.apply_button.clicked.connect(self._emit_settings)
+        track_group_layout.addWidget(self.apply_button)
+        editor_layout.addWidget(self.track_group)
 
+        self.curve_group = QGroupBox(self._t("inspector.curve_group"))
+        curve_group_layout = QVBoxLayout(self.curve_group)
         style_form = QFormLayout()
         self._style_form = style_form
         self.curve_input = QComboBox()
@@ -93,11 +102,14 @@ class TrackInspector(QWidget):
                 self._t(f"inspector.line_style.{style.value}"), style.value
             )
         style_form.addRow(self._t("inspector.line_style"), self.line_style_input)
-        editor_layout.addLayout(style_form)
+        curve_group_layout.addLayout(style_form)
         self.style_button = QPushButton(self._t("inspector.apply_style"))
         self.style_button.clicked.connect(self._emit_curve_style)
-        editor_layout.addWidget(self.style_button)
+        curve_group_layout.addWidget(self.style_button)
+        editor_layout.addWidget(self.curve_group)
 
+        self.grid_group = QGroupBox(self._t("inspector.grid_group"))
+        grid_group_layout = QVBoxLayout(self.grid_group)
         grid_form = QFormLayout()
         self._grid_form = grid_form
         self.grid_x_input = QCheckBox(self._t("inspector.grid_x"))
@@ -117,24 +129,24 @@ class TrackInspector(QWidget):
         grid_form.addRow(self._t("inspector.grid_alpha"), self.grid_alpha_input)
         self.grid_print_input = QCheckBox(self._t("inspector.grid_print"))
         grid_form.addRow(self.grid_print_input)
-        editor_layout.addLayout(grid_form)
+        grid_group_layout.addLayout(grid_form)
         self.grid_button = QPushButton(self._t("inspector.apply_grid"))
         self.grid_button.clicked.connect(self._emit_grid)
-        editor_layout.addWidget(self.grid_button)
+        grid_group_layout.addWidget(self.grid_button)
+        editor_layout.addWidget(self.grid_group)
 
+        self.axis_group = QGroupBox(self._t("inspector.axis_group"))
+        axis_group_layout = QVBoxLayout(self.axis_group)
         axis_form = QFormLayout()
         self._axis_form = axis_form
         self.x_axis_label_input = QLineEdit()
         self.x_axis_label_input.setMaxLength(100)
         axis_form.addRow(self._t("inspector.x_axis_label"), self.x_axis_label_input)
-        editor_layout.addLayout(axis_form)
+        axis_group_layout.addLayout(axis_form)
         self.axis_label_button = QPushButton(self._t("inspector.apply_axis_label"))
         self.axis_label_button.clicked.connect(self._emit_x_axis_label)
-        editor_layout.addWidget(self.axis_label_button)
-
-        self.apply_button = QPushButton(self._t("common.apply"))
-        self.apply_button.clicked.connect(self._emit_settings)
-        editor_layout.addWidget(self.apply_button)
+        axis_group_layout.addWidget(self.axis_label_button)
+        editor_layout.addWidget(self.axis_group)
         editor_layout.addStretch(1)
         self._stack.addWidget(editor)
 
@@ -151,6 +163,10 @@ class TrackInspector(QWidget):
         previous_localizer = self.localizer
         self.localizer = Localizer.create(language)
         self.collapse_button.setText(self._t("panel.hide_all"))
+        self.track_group.setTitle(self._t("inspector.track_group"))
+        self.curve_group.setTitle(self._t("inspector.curve_group"))
+        self.grid_group.setTitle(self._t("inspector.grid_group"))
+        self.axis_group.setTitle(self._t("inspector.axis_group"))
 
         main_fields: tuple[tuple[QWidget, str], ...] = (
             (self.width_input, "inspector.width"),

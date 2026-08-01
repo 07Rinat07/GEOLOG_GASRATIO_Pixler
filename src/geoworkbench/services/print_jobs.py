@@ -93,6 +93,10 @@ class PrintJobExecutor:
 
     def configure_printer(self, printer: QPrinter, widget: QWidget, job: PrintJobSettings) -> None:
         content_width, content_height = printable_content_dimensions(widget, job)
+        # Qt positions the painter at the printable area's origin when fullPage
+        # is disabled. The renderer therefore uses a zero-based page rectangle
+        # and the configured margins are applied exactly once.
+        printer.setFullPage(False)
         printer.setResolution(job.dpi)
         printer.setPageSize(job.page.page_size_for_content(content_width, content_height))
         printer.setPageOrientation(job.page.qt_orientation)

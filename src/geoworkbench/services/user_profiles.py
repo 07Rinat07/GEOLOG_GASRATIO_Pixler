@@ -22,6 +22,10 @@ from geoworkbench.printing.print_job import (
 )
 
 
+_PRINT_LAYOUT_DEFAULTS_VERSION = 2
+_PRINT_EXPORT_DEFAULTS_VERSION = 2
+
+
 @dataclass(frozen=True, slots=True)
 class EngineerProfile:
     profile_id: str
@@ -122,17 +126,27 @@ class UserProfileSettings:
             fit_form_columns = payload.get("fit_form_columns", True)
             if not isinstance(fit_form_columns, bool):
                 return PrintPageSettings()
+            defaults_version = int(payload.get("defaults_version", 1))
+            scale_mode = (
+                PrintScaleMode.FIT
+                if defaults_version < _PRINT_LAYOUT_DEFAULTS_VERSION
+                else PrintScaleMode(str(payload.get("scale_mode", "fit")))
+            )
             return PrintPageSettings(
                 page_format=PrintPageFormat(page_format),
                 orientation=PrintOrientation(orientation),
                 custom_width_mm=float(payload.get("custom_width_mm", 210.0)),
                 custom_height_mm=float(payload.get("custom_height_mm", 297.0)),
-                fit_form_columns=fit_form_columns,
+                fit_form_columns=(
+                    True
+                    if defaults_version < _PRINT_LAYOUT_DEFAULTS_VERSION
+                    else fit_form_columns
+                ),
                 margin_left_mm=float(payload.get("margin_left_mm", 10.0)),
                 margin_top_mm=float(payload.get("margin_top_mm", 10.0)),
                 margin_right_mm=float(payload.get("margin_right_mm", 10.0)),
                 margin_bottom_mm=float(payload.get("margin_bottom_mm", 10.0)),
-                scale_mode=PrintScaleMode(str(payload.get("scale_mode", "fit"))),
+                scale_mode=scale_mode,
                 continuation_overlap_mm=float(payload.get("continuation_overlap_mm", 5.0)),
             )
         except (json.JSONDecodeError, TypeError, ValueError):
@@ -145,6 +159,7 @@ class UserProfileSettings:
             self._print_settings_key(),
             json.dumps(
                 {
+                    "defaults_version": _PRINT_LAYOUT_DEFAULTS_VERSION,
                     "page_format": value.page_format.value,
                     "orientation": value.orientation.value,
                     "custom_width_mm": value.custom_width_mm,
@@ -173,6 +188,14 @@ class UserProfileSettings:
             printer_name = (
                 str(raw_printer_name).strip() if raw_printer_name is not None else None
             )
+            defaults_version = int(payload.get("defaults_version", 1))
+            header_placement = (
+                PrintHeaderPlacement.FIRST_PAGE
+                if defaults_version < _PRINT_EXPORT_DEFAULTS_VERSION
+                else PrintHeaderPlacement(
+                    str(payload.get("header_placement", "first_page"))
+                )
+            )
             return PrintExportPreferences(
                 output_format=PrintOutputFormat(str(payload.get("output_format", "printer"))),
                 dpi=int(payload.get("dpi", 300)),
@@ -184,11 +207,9 @@ class UserProfileSettings:
                 custom_end=float(custom_end) if custom_end is not None else None,
                 show_page_numbers=bool(payload.get("show_page_numbers", True)),
                 show_page_range=bool(payload.get("show_page_range", True)),
-                header_placement=PrintHeaderPlacement(
-                    str(payload.get("header_placement", "every_page"))
-                ),
+                header_placement=header_placement,
                 repeat_column_header_at_bottom=bool(
-                    payload.get("repeat_column_header_at_bottom", False)
+                    payload.get("repeat_column_header_at_bottom", True)
                 ),
                 printer_name=printer_name or None,
                 copy_count=int(payload.get("copy_count", 1)),
@@ -203,6 +224,7 @@ class UserProfileSettings:
             self._print_export_preferences_key(),
             json.dumps(
                 {
+                    "defaults_version": _PRINT_EXPORT_DEFAULTS_VERSION,
                     "output_format": value.output_format.value,
                     "dpi": value.dpi,
                     "image_quality": value.image_quality,

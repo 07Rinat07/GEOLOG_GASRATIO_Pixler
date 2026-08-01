@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import pyqtgraph as pg
+
 from geoworkbench.tablet.grid_renderer import (
     GridSettings,
+    TabletGridOverlay,
     engineering_tick_levels,
     normalized_grid_lines,
 )
@@ -42,3 +45,21 @@ def test_screen_settings_preserve_saved_track_configuration() -> None:
     )
 
     assert GridSettings.from_track(track) == GridSettings(False, True, 4, 10, 0.35)
+
+
+def test_print_suppression_hides_and_restores_one_track_grid(qapp) -> None:
+    plot = pg.PlotWidget()
+    plot.resize(400, 300)
+    plot.show()
+    qapp.processEvents()
+    overlay = TabletGridOverlay(plot)
+    overlay.apply(GridSettings(True, True, 5, 5, 0.3))
+
+    overlay.set_print_suppressed(True)
+    assert all(not line.isVisible() for line, _major in overlay._vertical)
+    assert all(not line.isVisible() for line, _major in overlay._horizontal)
+
+    overlay.set_print_suppressed(False)
+    assert any(line.isVisible() for line, major in overlay._vertical if major)
+    assert any(line.isVisible() for line, major in overlay._horizontal if major)
+    plot.close()

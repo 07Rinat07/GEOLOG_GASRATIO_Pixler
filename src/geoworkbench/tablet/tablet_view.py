@@ -1390,6 +1390,7 @@ class TabletTrackWidget(QFrame):
                 autoExpandTextSpace=False,
                 tickTextWidth=max(30, min(int(width) - 12, 88)),
                 tickLength=-6,
+                hideOverlappingLabels=True,
             )
             axis.setWidth(axis_width)
 
@@ -7692,6 +7693,7 @@ class TabletView(QWidget):
                 autoExpandTextSpace=False,
                 tickTextWidth=max(30, min(track.width() - 12, 88)),
                 tickLength=-6,
+                hideOverlappingLabels=True,
             )
             axis.setWidth(max(36, min(track.width() - 8, 92)))
             track.plot.hideAxis("bottom")

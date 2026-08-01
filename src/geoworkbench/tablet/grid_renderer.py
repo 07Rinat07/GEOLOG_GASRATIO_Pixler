@@ -89,6 +89,7 @@ class TabletGridOverlay:
     def __init__(self, plot: pg.PlotWidget) -> None:
         self.plot = plot
         self.settings = GridSettings(True, True, 5, 5, 0.2)
+        self._print_suppressed = False
         self._vertical: list[tuple[pg.InfiniteLine, bool]] = []
         self._horizontal: list[tuple[pg.InfiniteLine, bool]] = []
         self.plot.getViewBox().sigRangeChanged.connect(self._range_changed)
@@ -106,6 +107,12 @@ class TabletGridOverlay:
         self._ensure_lines()
         self._refresh()
 
+    def set_print_suppressed(self, suppressed: bool) -> None:
+        """Temporarily hide this column's grid while capturing a print page."""
+
+        self._print_suppressed = bool(suppressed)
+        self._refresh()
+
     def _ensure_lines(self) -> None:
         divisions = normalized_grid_lines(
             self.settings.major_divisions,
@@ -119,7 +126,12 @@ class TabletGridOverlay:
                 collection[index] = (line, major)
                 line.setPen(self._pen(major))
                 line.setVisible(
-                    self.settings.show_x if collection is self._vertical else self.settings.show_y
+                    not self._print_suppressed
+                    and (
+                        self.settings.show_x
+                        if collection is self._vertical
+                        else self.settings.show_y
+                    )
                 )
 
     def _resize(
@@ -179,11 +191,19 @@ class TabletGridOverlay:
             if index < len(self._vertical):
                 line, major = self._vertical[index]
                 line.setPos(x_min + (x_max - x_min) * grid_line.fraction)
-                line.setVisible(self.settings.show_x and (major or show_minor_x))
+                line.setVisible(
+                    not self._print_suppressed
+                    and self.settings.show_x
+                    and (major or show_minor_x)
+                )
             if index < len(self._horizontal):
                 line, major = self._horizontal[index]
                 line.setPos(y_min + (y_max - y_min) * grid_line.fraction)
-                line.setVisible(self.settings.show_y and (major or show_minor_y))
+                line.setVisible(
+                    not self._print_suppressed
+                    and self.settings.show_y
+                    and (major or show_minor_y)
+                )
 
 
 class TabletGridRenderer:

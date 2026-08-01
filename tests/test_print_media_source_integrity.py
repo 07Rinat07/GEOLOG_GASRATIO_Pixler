@@ -72,3 +72,25 @@ def test_system_print_dialog_receives_full_continuation_range() -> None:
     assert "printer.setFromTo(1, plan.page_count)" in jobs
     assert "selected_page_count(" in jobs
     assert "return selected_page_count(plan.page_count, first, last)" in export
+
+
+def test_document_printing_does_not_pump_live_ui_events_between_pages() -> None:
+    for relative in (
+        "src/geoworkbench/printing/document_renderer.py",
+        "src/geoworkbench/printing/document_export.py",
+        "src/geoworkbench/printing/tablet_print.py",
+    ):
+        source = (ROOT / relative).read_text(encoding="utf-8")
+        assert "QApplication.processEvents()" not in source
+
+
+def test_qprinter_renderer_uses_zero_based_printable_area() -> None:
+    export = (ROOT / "src/geoworkbench/printing/document_export.py").read_text(
+        encoding="utf-8"
+    )
+    jobs = (ROOT / "src/geoworkbench/services/print_jobs.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "QRectF(0.0, 0.0, page.width(), page.height())" in export
+    assert "printer.setFullPage(False)" in jobs

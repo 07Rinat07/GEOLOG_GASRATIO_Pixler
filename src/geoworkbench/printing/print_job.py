@@ -99,8 +99,8 @@ class PrintJobSettings:
     pagination: PrintPaginationSettings = field(default_factory=PrintPaginationSettings)
     strict_unicode: bool = True
     header_template_id: str | None = None
-    header_placement: PrintHeaderPlacement = PrintHeaderPlacement.EVERY_PAGE
-    repeat_column_header_at_bottom: bool = False
+    header_placement: PrintHeaderPlacement = PrintHeaderPlacement.FIRST_PAGE
+    repeat_column_header_at_bottom: bool = True
     printer_name: str | None = None
     copy_count: int = 1
 
@@ -156,8 +156,8 @@ class PrintExportPreferences:
     custom_end: float | None = None
     show_page_numbers: bool = True
     show_page_range: bool = True
-    header_placement: PrintHeaderPlacement = PrintHeaderPlacement.EVERY_PAGE
-    repeat_column_header_at_bottom: bool = False
+    header_placement: PrintHeaderPlacement = PrintHeaderPlacement.FIRST_PAGE
+    repeat_column_header_at_bottom: bool = True
     printer_name: str | None = None
     copy_count: int = 1
 

@@ -71,7 +71,7 @@ def render_document_to_printer(
             widget,
             painter,
             printer,
-            QRectF(page),
+            QRectF(0.0, 0.0, page.width(), page.height()),
             job=job,
             context=context,
             high_quality=True,
@@ -174,9 +174,6 @@ def export_document_pages(
         for page, path in zip(plan.pages, paths, strict=True):
             if page.has_vertical_range and hasattr(widget, "set_visible_depth"):
                 widget.set_visible_depth(page.start, page.end)
-                from PySide6.QtWidgets import QApplication
-
-                QApplication.processEvents()
             if job.output_format is PrintOutputFormat.SVG:
                 _write_svg_page(widget, path, job, context, page, plan)
             else:
@@ -193,9 +190,6 @@ def export_document_pages(
             and hasattr(widget, "set_visible_depth")
         ):
             widget.set_visible_depth(*original)
-            from PySide6.QtWidgets import QApplication
-
-            QApplication.processEvents()
     return PrintDocumentResult(tuple(produced), plan.page_count)
 
 

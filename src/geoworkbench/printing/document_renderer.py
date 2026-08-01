@@ -6,7 +6,7 @@ from typing import Iterator
 
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QPainter
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import QWidget
 
 from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
@@ -160,7 +160,6 @@ def paint_document_pages(
             if output_index > 0 and not page_device.newPage():
                 raise RuntimeError("Принтер/PDF не смог создать следующую страницу")
             _apply_page_range(widget, page)
-            QApplication.processEvents()
             paint_document_page(
                 widget,
                 painter,
@@ -240,6 +239,7 @@ def paint_document_page(
             scale_mode=job.page.scale_mode,
             continuation=page.continuation,
             high_quality=high_quality,
+            show_column_header=_should_paint_column_header_at_top(job),
             repeat_column_header_at_bottom=_should_paint_column_header_at_bottom(
                 job, page
             ),
@@ -272,7 +272,11 @@ def _should_paint_column_header_at_bottom(
     job: PrintJobSettings,
     page: PrintDocumentPage,
 ) -> bool:
-    return job.repeat_column_header_at_bottom and page.is_last_vertical_page
+    return job.repeat_column_header_at_bottom and page.index == page.total
+
+
+def _should_paint_column_header_at_top(job: PrintJobSettings) -> bool:
+    return not job.repeat_column_header_at_bottom
 
 
 def _paint_header(painter: QPainter, rect: QRectF, *, title: str, range_text: str) -> None:
@@ -401,4 +405,3 @@ def _preserve_tablet_range(widget: QWidget) -> Iterator[None]:
     finally:
         if original is not None:
             widget.set_visible_depth(*original)
-        QApplication.processEvents()

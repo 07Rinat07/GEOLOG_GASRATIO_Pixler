@@ -32,6 +32,7 @@ def paint_widget_page(
     scale_mode: PrintScaleMode = PrintScaleMode.FIT,
     continuation: PrintContinuationSlice | None = None,
     high_quality: bool = True,
+    show_column_header: bool = True,
     repeat_column_header_at_bottom: bool = False,
 ) -> None:
     """Render a chart/tablet into one deterministic paper continuation."""
@@ -71,6 +72,7 @@ def paint_widget_page(
                         snapshot,
                         scale_mode=scale_mode,
                         continuation=continuation,
+                        show_column_header=show_column_header,
                     )
             except TabletPrintError as exc:
                 raise PageRenderError(str(exc)) from exc
@@ -160,6 +162,7 @@ def _paint_tablet_with_repeated_header(
         scale_mode=scale_mode,
         continuation=continuation,
         fill_height=scale_mode is PrintScaleMode.FIT,
+        show_column_header=False,
     )
     paint_tablet_header_repeat(
         painter,

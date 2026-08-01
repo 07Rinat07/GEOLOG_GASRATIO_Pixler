@@ -103,6 +103,23 @@ def test_corrupt_print_page_settings_fall_back_to_defaults() -> None:
     assert UserProfileSettings(storage).print_page_settings() == PrintPageSettings()
 
 
+def test_legacy_print_page_settings_migrate_to_adaptive_fit() -> None:
+    storage = MemorySettings()
+    storage.values["users/print_page/default"] = json.dumps(
+        {
+            "page_format": "a4",
+            "orientation": "landscape",
+            "fit_form_columns": False,
+            "scale_mode": "actual_size",
+        }
+    )
+
+    restored = UserProfileSettings(storage).print_page_settings()
+
+    assert restored.scale_mode.value == "fit"
+    assert restored.fit_form_columns is True
+
+
 def test_cursor_line_settings_persist_per_active_profile() -> None:
     storage = MemorySettings()
     settings = UserProfileSettings(storage)
@@ -178,6 +195,23 @@ def test_print_export_preferences_roundtrip() -> None:
     settings.save_print_export_preferences(expected)
 
     assert settings.print_export_preferences() == expected
+
+
+def test_legacy_print_preferences_migrate_to_one_document_header() -> None:
+    from geoworkbench.printing.print_job import PrintHeaderPlacement
+
+    storage = MemorySettings()
+    storage.values["users/print_export/default"] = json.dumps(
+        {
+            "header_placement": "every_page",
+            "repeat_column_header_at_bottom": True,
+        }
+    )
+
+    restored = UserProfileSettings(storage).print_export_preferences()
+
+    assert restored.header_placement is PrintHeaderPlacement.FIRST_PAGE
+    assert restored.repeat_column_header_at_bottom is True
 
 
 def test_physical_printer_preference_is_persisted() -> None:
