@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import os
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
-from PySide6.QtCore import QEvent, QObject, QTimer, Qt
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtCore import QEvent, QObject, QTimer, Qt, QUrl
+from PySide6.QtGui import QCloseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -20,6 +21,8 @@ from PySide6.QtWidgets import (
 from geoworkbench.data.las_adapter import LasExportError
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.help_content import normalized_language
+
+_PROMPT_DISABLED_ENV = "GEOLOG_DISABLE_UNSAVED_PROMPT"
 
 
 class CloseChoice(StrEnum):
@@ -66,6 +69,8 @@ _TEXTS = {
             "Формы, оформление и остальные данные проекта в LAS не входят. "
             "Закрыть программу без сохранения проекта?"
         ),
+        "saved_location_title": "Файл сохранён",
+        "saved_location": "Файл сохранён по адресу:\n{path}\n\nОткрыть папку с файлом?",
     },
     AppLanguage.KK: {
         "project": "Жоба",
@@ -103,6 +108,8 @@ _TEXTS = {
             "Пішіндер, безендіру және жобаның басқа деректері LAS құрамына кірмейді. "
             "Жобаны сақтамай бағдарламаны жабу керек пе?"
         ),
+        "saved_location_title": "Файл сақталды",
+        "saved_location": "Файл мына жерде сақталды:\n{path}\n\nФайл орналасқан қалтаны ашу керек пе?",
     },
     AppLanguage.EN: {
         "project": "Project",
@@ -140,6 +147,8 @@ _TEXTS = {
             "Forms, presentation, and other project data are not stored in LAS. "
             "Close without saving the project?"
         ),
+        "saved_location_title": "File saved",
+        "saved_location": "The file was saved to:\n{path}\n\nOpen its folder?",
     },
 }
 
@@ -157,6 +166,15 @@ def _safe_las_stem(value: object) -> str:
     normalized = "".join("_" if character in forbidden else character for character in text)
     normalized = normalized.strip(" .")
     return normalized or "dataset"
+
+
+def _prompts_disabled() -> bool:
+    return os.environ.get(_PROMPT_DISABLED_ENV, "").strip().casefold() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 class SessionInfoPanel(QFrame):
@@ -274,10 +292,15 @@ class SessionSafetyController(QObject):
     def __init__(self, window: QMainWindow) -> None:
         super().__init__(window)
         self.window: Any = window
+        self.prompt_enabled = not _prompts_disabled()
+        self._closing = False
+        self._pending_project_notification = False
+        self._previous_dirty = bool(getattr(self._session(), "dirty", False))
         self.panel = SessionInfoPanel(window)
         self.window.statusBar().addPermanentWidget(self.panel, 1)
         self.window.session_info_panel = self.panel
         self.window.installEventFilter(self)
+        self._install_export_notification()
         self._timer = QTimer(self)
         self._timer.setInterval(self.REFRESH_INTERVAL_MS)
         self._timer.timeout.connect(self.refresh)
@@ -285,6 +308,21 @@ class SessionSafetyController(QObject):
         self.refresh()
 
     def refresh(self) -> None:
+        session = self._session()
+        dirty = bool(getattr(session, "dirty", False))
+        controller = getattr(self.window, "project_controller", None)
+        project_path = getattr(controller, "project_path", None)
+        if (
+            self.prompt_enabled
+            and not self._closing
+            and self._previous_dirty
+            and not dirty
+            and project_path is not None
+            and not self._pending_project_notification
+        ):
+            self._pending_project_notification = True
+            QTimer.singleShot(0, lambda path=Path(project_path): self._notify_project_save(path))
+        self._previous_dirty = dirty
         self.panel.render(self.window)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
@@ -298,6 +336,8 @@ class SessionSafetyController(QObject):
         session = self._session()
         if session is None or not bool(getattr(session, "dirty", False)):
             return True
+        if not self.prompt_enabled:
+            return True
         choice = self._ask_close_choice()
         if choice is CloseChoice.CANCEL:
             return False
@@ -307,9 +347,18 @@ class SessionSafetyController(QObject):
             save = getattr(self.window, "save_project", None)
             if not callable(save):
                 return False
+            self._closing = True
             save()
             self.refresh()
-            return not bool(getattr(self._session(), "dirty", True))
+            saved = not bool(getattr(self._session(), "dirty", True))
+            if not saved:
+                self._closing = False
+                return False
+            controller = getattr(self.window, "project_controller", None)
+            path = getattr(controller, "project_path", None)
+            if path is not None:
+                self._notify_saved_path(Path(path))
+            return True
         if choice is CloseChoice.EXPORT_LAS:
             return self._export_las_before_close()
         return False
@@ -326,18 +375,10 @@ class SessionSafetyController(QObject):
         message.setWindowTitle(texts["close_title"])
         message.setText(texts["close_text"])
         message.setInformativeText(texts["close_info"])
-        save_button = message.addButton(
-            texts["save_project"], QMessageBox.ButtonRole.AcceptRole
-        )
-        export_button = message.addButton(
-            texts["export_las"], QMessageBox.ButtonRole.ActionRole
-        )
-        discard_button = message.addButton(
-            texts["discard"], QMessageBox.ButtonRole.DestructiveRole
-        )
-        cancel_button = message.addButton(
-            texts["cancel"], QMessageBox.ButtonRole.RejectRole
-        )
+        save_button = message.addButton(texts["save_project"], QMessageBox.ButtonRole.AcceptRole)
+        export_button = message.addButton(texts["export_las"], QMessageBox.ButtonRole.ActionRole)
+        discard_button = message.addButton(texts["discard"], QMessageBox.ButtonRole.DestructiveRole)
+        cancel_button = message.addButton(texts["cancel"], QMessageBox.ButtonRole.RejectRole)
         dataset = getattr(self._session(), "current_dataset", None)
         export_button.setEnabled(dataset is not None)
         message.setDefaultButton(save_button)
@@ -351,6 +392,21 @@ class SessionSafetyController(QObject):
         if clicked is discard_button:
             return CloseChoice.DISCARD
         return CloseChoice.CANCEL
+
+    def _install_export_notification(self) -> None:
+        if getattr(self.window, "_session_export_notification_installed", False):
+            return
+        original = getattr(self.window, "_export_current_dataset_to_path", None)
+        if not callable(original):
+            return
+
+        def export_with_location(target: Path) -> object:
+            exported = original(target)
+            self._notify_saved_path(Path(exported))
+            return exported
+
+        self.window._export_current_dataset_to_path = export_with_location
+        self.window._session_export_notification_installed = True
 
     def _export_las_before_close(self) -> bool:
         session = self._session()
@@ -386,7 +442,9 @@ class SessionSafetyController(QObject):
             )
             if answer is not QMessageBox.StandardButton.Yes:
                 return False
-        exporter = getattr(self.window, "_export_current_dataset_to_path", None)
+        exporter: Callable[[Path], object] | None = getattr(
+            self.window, "_export_current_dataset_to_path", None
+        )
         if not callable(exporter):
             return False
         try:
@@ -406,6 +464,27 @@ class SessionSafetyController(QObject):
             QMessageBox.StandardButton.No,
         )
         return answer is QMessageBox.StandardButton.Yes
+
+    def _notify_project_save(self, path: Path) -> None:
+        self._pending_project_notification = False
+        if self._closing:
+            return
+        self._notify_saved_path(path)
+
+    def _notify_saved_path(self, path: Path) -> None:
+        if not self.prompt_enabled:
+            return
+        language = normalized_language(getattr(self.window, "language", AppLanguage.RU))
+        texts = _TEXTS[language]
+        answer = QMessageBox.question(
+            self.window,
+            texts["saved_location_title"],
+            texts["saved_location"].format(path=path),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if answer is QMessageBox.StandardButton.Yes:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.parent.resolve())))
 
 
 def install_session_safety(window: QMainWindow) -> SessionSafetyController:
