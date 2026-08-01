@@ -57,6 +57,18 @@ Available reports:
 9. Save Excel or Word for table review.
 10. Generate a PDF and inspect it from the first page to the last.
 
+### Multi-page chart in PDF
+
+PDF export and system printing use the same controlled multi-page renderer.
+
+- the vertical scale is selected automatically from a standard series and printed on every chart sheet;
+- a short well is printed on one chart sheet without artificial vertical stretching;
+- a long well is divided into continuous, sequential depth ranges;
+- every chart sheet repeats the left and right depth scales, outer borders, track headings, legend, and sheet range;
+- curves remain vector graphics and are clipped only at the inner track boundaries;
+- tables continue only between rows, and the table header repeats on continuation pages;
+- the page number, title, legend, and note must remain inside the printable area.
+
 Prospective intervals do not replace the geologist's conclusion.
 
 ## 5. Help and diagnostics
