@@ -25,9 +25,9 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 from geoworkbench.services.localization import AppLanguage
 
 
+_COVER_TITLE = "Отчёт по интерпретации газового каротажа"
 _COVER_MARKERS = (
     "GEOLOG GASRATIO@Pixler",
-    "Отчёт по интерпретации газового каротажа",
     "Автоматизированный аналитический отчёт",
     "Проект:",
     "Скважина:",
@@ -79,17 +79,24 @@ def _verify_portrait_report(
 
         cover = document[0]
         cover_text = cover.get_text()
+        normalized_cover_text = " ".join(cover_text.split())
         missing = [marker for marker in _COVER_MARKERS if marker not in cover_text]
         if missing:
             raise RuntimeError(f"{label}: cover fields are missing: {missing}")
+        if _COVER_TITLE not in normalized_cover_text:
+            raise RuntimeError(f"{label}: cover title is not visible")
+
         title_spans = [
             span
             for span in _text_spans(cover)
-            if "Отчёт по интерпретации газового каротажа" in span["text"]
+            if float(span["size"]) >= 20.0
+            and float(span["bbox"][1]) < cover.rect.height * 0.35
         ]
         if not title_spans:
-            raise RuntimeError(f"{label}: cover title is not visible")
+            raise RuntimeError(f"{label}: cover title geometry is missing")
         title_box = fitz.Rect(title_spans[0]["bbox"])
+        for span in title_spans[1:]:
+            title_box.include_rect(fitz.Rect(span["bbox"]))
         if abs(title_box.x0 + title_box.x1 - cover.rect.width) > cover.rect.width * 0.16:
             raise RuntimeError(f"{label}: cover title is not centered")
         if title_box.y0 > cover.rect.height * 0.28:
