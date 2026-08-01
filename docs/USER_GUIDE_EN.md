@@ -61,6 +61,7 @@ Available reports:
 
 PDF export and system printing use the same controlled multi-page renderer.
 
+- the first page has a dedicated layout, so the title and report details are not mixed with the report body;
 - the vertical scale is selected automatically from a standard series and printed on every chart sheet;
 - a short well is printed on one chart sheet without artificial vertical stretching;
 - a long well is divided into continuous, sequential depth ranges;
@@ -68,6 +69,16 @@ PDF export and system printing use the same controlled multi-page renderer.
 - curves remain vector graphics and are clipped only at the inner track boundaries;
 - tables continue only between rows, and the table header repeats on continuation pages;
 - the page number, title, legend, and note must remain inside the printable area.
+
+### Printing to a physical Windows printer
+
+1. Start report printing and select **portrait** or **landscape** orientation.
+2. Select **first page to last page** or **last page to first page**. First-to-last is the default.
+3. In the native Windows dialog, select the Epson printer, page range, copy count, and driver properties.
+4. Selecting a range of **1–2** sends only pages 1 and 2 in the selected order.
+5. A progress dialog is shown while pages are prepared. **Stop** prevents pages that have not yet been sent from being transferred.
+6. Pages already placed in the Windows spooler or printer buffer may still need to be cancelled from the system print queue.
+7. After starting the job, check the application message showing how many pages were sent to the queue.
 
 Prospective intervals do not replace the geologist's conclusion.
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from PySide6.QtGui import QPainter
@@ -8,6 +9,9 @@ from geoworkbench.domain.models import Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
     render_chart_pages,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_cover import (
+    render_report_cover,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     ChartGeometry,
@@ -28,6 +32,12 @@ from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
 from geoworkbench.services.localization import AppLanguage
 
 
+_FRONT_MATTER_PATTERN = re.compile(
+    r"(<body\b[^>]*>)\s*<h1\b[^>]*>.*?</h1>\s*<p\b[^>]*>.*?</p>",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
 def render_hydrocarbon_interpretation_report(
     device: Any,
     report: HydrocarbonInterpretationReport,
@@ -41,6 +51,7 @@ def render_hydrocarbon_interpretation_report(
     html = hydrocarbon_interpretation_html(report, language)
     if dataset is not None:
         html = inject_interval_gas_statistics_html(html, report, dataset, language)
+    body_html = _FRONT_MATTER_PATTERN.sub(r"\1", html, count=1)
 
     painter = QPainter(device)
     if not painter.isActive():
@@ -54,16 +65,15 @@ def render_hydrocarbon_interpretation_report(
     canvas = PageCanvas(device, painter, language)
     try:
         canvas.new_page()
+        render_report_cover(canvas, report, language)
 
-        def render_charts() -> None:
-            if include_chart and dataset is not None:
-                render_chart_pages(canvas, report, dataset, language)
+        if include_chart and dataset is not None:
+            render_chart_pages(canvas, report, dataset, language)
 
         render_report_html(
             canvas,
-            html,
-            leading_block_count=2,
-            after_leading_blocks=render_charts,
+            body_html,
+            leading_block_count=0,
         )
     finally:
         painter.end()
