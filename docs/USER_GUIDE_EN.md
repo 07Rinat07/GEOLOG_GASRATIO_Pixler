@@ -55,14 +55,34 @@ Available reports:
 7. Refresh the report with charts.
 8. Check scales, units, absolute C1–C5 values, and prospective intervals.
 9. Save Excel or Word for table review.
-10. Generate a PDF and inspect it from the first page to the last.
+10. Complete the cover-page details before PDF export or physical printing.
+11. Generate a PDF and inspect it from the first page to the last.
+
+### Editable cover-page details
+
+A separate form opens before PDF export and physical printing. It allows manual editing of:
+
+- report title and subtitle;
+- project and well;
+- field or area and location;
+- operator/client and service company;
+- rig or unit;
+- dataset label and report interval;
+- document number, revision, status, and date;
+- Prepared by, Checked by, and Approved by fields;
+- classification and cover note.
+
+Application values are used only as initial suggestions. Manual values affect the PDF and printing but do not rename the project, well, or loaded files inside the application. Use **Restore application values** to restore the original suggestions. Values entered for the current dataset remain available until the application is closed or a different dataset is selected.
 
 ### Multi-page chart in PDF
 
 PDF export and system printing use the same controlled multi-page renderer.
 
-- the first page has a dedicated layout, so the title and report details are not mixed with the report body;
+- the first page is an independent industry-style cover with document-control and sign-off blocks;
 - the vertical scale is selected automatically from a standard series and printed on every chart sheet;
+- major depth ticks use stronger lines and numeric labels on both the left and right axes;
+- shorter intermediate ticks and a supporting horizontal grid are printed between major ticks;
+- numeric-label spacing becomes finer for short intervals and coarser for long intervals so numbers do not overlap;
 - a short well is printed on one chart sheet without artificial vertical stretching;
 - a long well is divided into continuous, sequential depth ranges;
 - every chart sheet repeats the left and right depth scales, outer borders, track headings, legend, and sheet range;
@@ -72,13 +92,14 @@ PDF export and system printing use the same controlled multi-page renderer.
 
 ### Printing to a physical Windows printer
 
-1. Start report printing and select **portrait** or **landscape** orientation.
-2. Select **first page to last page** or **last page to first page**. First-to-last is the default.
-3. In the native Windows dialog, select the Epson printer, page range, copy count, and driver properties.
-4. Selecting a range of **1–2** sends only pages 1 and 2 in the selected order.
-5. A progress dialog is shown while pages are prepared. **Stop** prevents pages that have not yet been sent from being transferred.
-6. Pages already placed in the Windows spooler or printer buffer may still need to be cancelled from the system print queue.
-7. After starting the job, check the application message showing how many pages were sent to the queue.
+1. Start report printing and complete or edit the cover-page details.
+2. Select **portrait** or **landscape** orientation.
+3. Select **first page to last page** or **last page to first page**. First-to-last is the default.
+4. In the native Windows dialog, select the Epson printer, page range, copy count, and driver properties.
+5. Selecting a range of **1–2** sends only pages 1 and 2 in the selected order.
+6. A progress dialog is shown while pages are prepared. **Stop** prevents pages that have not yet been sent from being transferred.
+7. Pages already placed in the Windows spooler or printer buffer may still need to be cancelled from the system print queue.
+8. After starting the job, check the application message showing how many pages were sent to the queue.
 
 Prospective intervals do not replace the geologist's conclusion.
 
