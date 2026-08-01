@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import logging
 from pathlib import Path
 import tempfile
 
 import fitz
+import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrintDialog, QPrinter
 from PySide6.QtWidgets import QApplication, QDialog, QProgressDialog
@@ -20,14 +22,24 @@ from geoworkbench.printing.hydrocarbon_interpretation_report import (
     HydrocarbonInterpretationPdfError,
     export_hydrocarbon_interpretation_pdf,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+    InterpretationReportIdentity,
+    default_interpretation_report_identity,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_system_print import (
     configure_interpretation_printer,
     print_pdf_page_selection,
     selected_report_pages,
 )
+from geoworkbench.services.hydrocarbon_interpretation import (
+    HydrocarbonInterpretationReport,
+)
 from geoworkbench.ui.interpretation_print_layout_dialog import (
     InterpretationPrintLayoutDialog,
     InterpretationPrintOrder,
+)
+from geoworkbench.ui.interpretation_report_details_dialog import (
+    InterpretationReportDetailsDialog,
 )
 from geoworkbench.ui.interpretation_report_workspace_expert import (
     InterpretationReportWorkspace as _ExpertInterpretationReportWorkspace,
@@ -89,6 +101,54 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             )
         )
 
+    def _export_pdf(self) -> None:
+        report = self._require_any_report()
+        if report is None:
+            return
+        if isinstance(report, GasMixtureRampReport):
+            super()._export_pdf()
+            return
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return
+
+        identity = self._select_report_identity(report)
+        if identity is None:
+            return
+        layout_dialog = InterpretationPrintLayoutDialog(
+            self,
+            language=self.language,
+            include_order=False,
+        )
+        if layout_dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        layout = layout_dialog.selected_layout()
+        target = self._choose_target(".pdf", "PDF (*.pdf)")
+        if target is None:
+            return
+        try:
+            with self._report_export_progress(
+                self._text(
+                    "Формируется PDF-отчёт с графиками…",
+                    "Графиктері бар PDF есебі құрылуда…",
+                    "Building PDF report with charts…",
+                )
+            ):
+                exported = export_hydrocarbon_interpretation_pdf(
+                    report,
+                    target,
+                    language=self.language,
+                    dataset=dataset,
+                    include_chart=True,
+                    orientation=layout.orientation,
+                    identity=identity,
+                    overwrite=target.exists(),
+                )
+        except (OSError, FileExistsError, HydrocarbonInterpretationPdfError) as exc:
+            self._show_export_error(exc)
+            return
+        self._show_export_success(exported)
+
     def _print_report(self) -> None:
         report = self._require_any_report()
         if report is None:
@@ -100,6 +160,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if dataset is None:
             return
 
+        identity = self._select_report_identity(report)
+        if identity is None:
+            return
         layout_dialog = InterpretationPrintLayoutDialog(
             self,
             language=self.language,
@@ -118,6 +181,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     dataset=dataset,
                     include_chart=True,
                     orientation=layout.orientation,
+                    identity=identity,
                     overwrite=True,
                 )
                 with fitz.open(prepared_pdf) as document:
@@ -131,9 +195,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
 
             printer = QPrinter(QPrinter.PrinterMode.HighResolution)
             configure_interpretation_printer(printer, layout.orientation)
-            printer.setDocName(self.tab_title(self.language))
+            printer.setDocName(identity.report_title)
             dialog = QPrintDialog(printer, self)
-            dialog.setWindowTitle(self.tab_title(self.language))
+            dialog.setWindowTitle(identity.report_title)
             dialog.setOption(
                 QAbstractPrintDialog.PrintDialogOption.PrintPageRange,
                 True,
@@ -180,7 +244,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             configure_interpretation_printer(printer, layout.orientation)
             LOGGER.info(
                 "interpretation print start printer=%r orientation=%s range=%s-%s "
-                "pages=%s order=%s copies=%s",
+                "pages=%s order=%s copies=%s document=%r revision=%r well=%r",
                 printer.printerName(),
                 layout.orientation.name,
                 page_numbers[0],
@@ -188,6 +252,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 len(page_numbers),
                 layout.order.value,
                 printer.copyCount(),
+                identity.document_number,
+                identity.revision,
+                identity.well_name,
             )
 
             progress = QProgressDialog(
@@ -201,7 +268,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 len(page_numbers),
                 self,
             )
-            progress.setWindowTitle(self.tab_title(self.language))
+            progress.setWindowTitle(identity.report_title)
             progress.setWindowModality(Qt.WindowModality.WindowModal)
             progress.setMinimumDuration(0)
             progress.setValue(0)
@@ -267,6 +334,54 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     f"Pages sent to the print queue: {len(page_numbers)}.",
                 )
             )
+
+    def _select_report_identity(
+        self,
+        report: HydrocarbonInterpretationReport,
+    ) -> InterpretationReportIdentity | None:
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return None
+        defaults = default_interpretation_report_identity(
+            report,
+            self.language,
+            interval=self._report_interval(report),
+        )
+        key = (report.project_name, report.well_name, report.dataset_id)
+        initial = defaults
+        if getattr(self, "_report_identity_key", None) == key:
+            cached = getattr(self, "_report_identity", None)
+            if isinstance(cached, InterpretationReportIdentity):
+                initial = cached
+
+        dialog = InterpretationReportDetailsDialog(
+            defaults,
+            self,
+            language=self.language,
+            initial=initial,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        selected = dialog.selected_identity()
+        if not selected.report_title:
+            selected = replace(selected, report_title=defaults.report_title)
+        self._report_identity_key = key
+        self._report_identity = selected
+        return selected
+
+    def _report_interval(self, report: HydrocarbonInterpretationReport) -> str:
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return ""
+        depth = np.asarray(dataset.depth, dtype=np.float64)
+        finite = depth[np.isfinite(depth)]
+        if finite.size < 1:
+            return ""
+        low = float(np.nanmin(finite))
+        high = float(np.nanmax(finite))
+        unit = report.depth_unit.strip()
+        suffix = f" {unit}" if unit else ""
+        return f"{low:.2f}–{high:.2f}{suffix}"
 
     def _export_xlsx(self) -> None:
         report = self._require_report()

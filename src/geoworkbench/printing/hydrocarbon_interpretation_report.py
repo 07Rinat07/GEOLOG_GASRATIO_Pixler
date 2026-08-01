@@ -11,6 +11,10 @@ from geoworkbench.domain.models import Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
     render_hydrocarbon_interpretation_report,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+    InterpretationReportIdentity,
+    default_interpretation_report_identity,
+)
 from geoworkbench.printing.unicode_support import preflight_texts
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -31,6 +35,7 @@ def export_hydrocarbon_interpretation_pdf(
     dataset: Dataset | None = None,
     include_chart: bool = False,
     orientation: QPageLayout.Orientation = QPageLayout.Orientation.Landscape,
+    identity: InterpretationReportIdentity | None = None,
     overwrite: bool = False,
 ) -> Path:
     destination = Path(target)
@@ -46,6 +51,10 @@ def export_hydrocarbon_interpretation_pdf(
     )
     os.close(descriptor)
     temporary = Path(temporary_name)
+    details = (
+        identity
+        or default_interpretation_report_identity(report, language)
+    ).cleaned()
     try:
         writer = QPdfWriter(str(temporary))
         writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
@@ -58,7 +67,7 @@ def export_hydrocarbon_interpretation_pdf(
         # painter unit is exactly one point, so fonts and chart geometry share
         # the same physical scale without an additional DPI transform.
         writer.setResolution(72)
-        writer.setTitle("Mud-gas interpretation report")
+        writer.setTitle(details.report_title)
         writer.setCreator("GEOLOG GASRATIO@Pixler")
 
         html = hydrocarbon_interpretation_html(report, language)
@@ -73,7 +82,29 @@ def export_hydrocarbon_interpretation_pdf(
                 dataset,
                 language,
             )
-        unicode_report = preflight_texts([html])
+        identity_texts = (
+            details.report_title,
+            details.report_subtitle,
+            details.project_name,
+            details.well_name,
+            details.field_name,
+            details.location,
+            details.operator_name,
+            details.contractor_name,
+            details.rig_name,
+            details.dataset_name,
+            details.interval,
+            details.document_number,
+            details.revision,
+            details.document_status,
+            details.report_date,
+            details.prepared_by,
+            details.checked_by,
+            details.approved_by,
+            details.confidentiality,
+            details.remarks,
+        )
+        unicode_report = preflight_texts([html, *identity_texts])
         if not unicode_report.ok:
             raise HydrocarbonInterpretationPdfError(unicode_report.error_message())
 
@@ -83,6 +114,7 @@ def export_hydrocarbon_interpretation_pdf(
             language=language,
             dataset=dataset,
             include_chart=include_chart,
+            identity=details,
         )
         del writer
         if temporary.stat().st_size <= 0:

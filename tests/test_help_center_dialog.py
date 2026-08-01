@@ -19,6 +19,9 @@ from geoworkbench.ui.help_pdf_layout_content import pdf_layout_help_html
         "pdf_layout_text",
         "physical_print_text",
         "page_range_text",
+        "details_text",
+        "restore_text",
+        "scale_text",
     ),
     (
         (
@@ -30,6 +33,9 @@ from geoworkbench.ui.help_pdf_layout_content import pdf_layout_help_html
             "Постраничный график газового каротажа",
             "Печать на физическом принтере Windows",
             "Диапазон 1–2",
+            "форма реквизитов отчёта",
+            "Подставить данные из программы",
+            "промежуточные деления",
         ),
         (
             AppLanguage.KK,
@@ -40,6 +46,9 @@ from geoworkbench.ui.help_pdf_layout_content import pdf_layout_help_html
             "Газ каротажының көпбетті графигі",
             "Windows жүйесіндегі физикалық принтерге басып шығару",
             "1–2 ауқымы",
+            "есеп деректемелерінің пішіні",
+            "Бағдарлама деректерін қою",
+            "аралық бөліктер",
         ),
         (
             AppLanguage.EN,
@@ -50,6 +59,9 @@ from geoworkbench.ui.help_pdf_layout_content import pdf_layout_help_html
             "Multi-page mud-gas chart",
             "Printing to a physical Windows printer",
             "range of 1–2",
+            "report-details form",
+            "Restore application values",
+            "intermediate ticks",
         ),
     ),
 )
@@ -62,6 +74,9 @@ def test_help_content_is_complete_in_each_language(
     pdf_layout_text: str,
     physical_print_text: str,
     page_range_text: str,
+    details_text: str,
+    restore_text: str,
+    scale_text: str,
 ) -> None:
     sections = help_sections(language)
     pdf_help = pdf_layout_help_html(language)
@@ -79,27 +94,33 @@ def test_help_content_is_complete_in_each_language(
     assert pdf_layout_text in pdf_help
     assert physical_print_text in pdf_help
     assert page_range_text in pdf_help
+    assert details_text in pdf_help
+    assert restore_text in pdf_help
+    assert scale_text in pdf_help
     assert all(section.html.strip() for section in sections)
     assert title
 
 
 @pytest.mark.parametrize(
-    ("language", "pdf_layout_text", "physical_print_text"),
+    ("language", "pdf_layout_text", "physical_print_text", "details_text"),
     (
         (
             AppLanguage.RU,
             "Постраничный график газового каротажа",
             "Печать на физическом принтере Windows",
+            "форма реквизитов отчёта",
         ),
         (
             AppLanguage.KK,
             "Газ каротажының көпбетті графигі",
             "Windows жүйесіндегі физикалық принтерге басып шығару",
+            "есеп деректемелерінің пішіні",
         ),
         (
             AppLanguage.EN,
             "Multi-page mud-gas chart",
             "Printing to a physical Windows printer",
+            "report-details form",
         ),
     ),
 )
@@ -108,6 +129,7 @@ def test_help_dialog_builds_all_sections(
     language: AppLanguage,
     pdf_layout_text: str,
     physical_print_text: str,
+    details_text: str,
 ) -> None:
     dialog = HelpCenterDialog(language=language, section="interpretation")
     dialog.show()
@@ -122,5 +144,6 @@ def test_help_dialog_builds_all_sections(
     help_text = browser.toPlainText()
     assert pdf_layout_text in help_text
     assert physical_print_text in help_text
+    assert details_text in help_text
 
     dialog.close()
