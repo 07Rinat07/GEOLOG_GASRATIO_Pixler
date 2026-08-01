@@ -293,15 +293,27 @@ def _capture_selected_windows_pages(
             )
         if any(page.rect.width >= page.rect.height for page in document):
             raise RuntimeError("Windows page-range simulation is not portrait")
-        first_text = document[0].get_text()
-        if _COVER_TITLE not in " ".join(first_text.split()):
-            raise RuntimeError("Windows page-range simulation lost manual cover details")
-        left_labels, right_labels = _axis_numeric_labels(document[1])
-        if len(left_labels) < 3 or left_labels != right_labels:
-            raise RuntimeError(
-                "Windows page-range simulation lost numeric depth labels: "
-                f"left={left_labels}, right={right_labels}"
+        for page_number, page in enumerate(document, start=1):
+            images = page.get_images(full=True)
+            if not images:
+                raise RuntimeError(
+                    f"Windows page-range simulation page {page_number} is not rasterized"
+                )
+            image_rectangles = page.get_image_rects(images[0][0])
+            largest_area = max(
+                (rectangle.get_area() for rectangle in image_rectangles),
+                default=0.0,
             )
+            if largest_area < page.rect.get_area() * 0.70:
+                raise RuntimeError(
+                    f"Windows page-range simulation page {page_number} is clipped"
+                )
+            pixmap = page.get_pixmap(matrix=fitz.Matrix(0.35, 0.35), alpha=False)
+            dark_channels = sum(value < 245 for value in pixmap.samples)
+            if dark_channels < len(pixmap.samples) * 0.02:
+                raise RuntimeError(
+                    f"Windows page-range simulation page {page_number} is blank"
+                )
         _render_page(document[0], output / "windows-print-page-001.png", zoom=1.3)
         _render_page(document[1], output / "windows-print-page-002.png", zoom=1.4)
     return target, sent_pages
