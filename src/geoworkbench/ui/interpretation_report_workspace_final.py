@@ -95,6 +95,10 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
 
+        # Keep the renderer's logical coordinate system in PostScript points.
+        # The print engine still rasterizes vector commands at the physical
+        # printer resolution selected by the driver.
+        printer.setResolution(72)
         render_hydrocarbon_interpretation_report(
             printer,
             report,
