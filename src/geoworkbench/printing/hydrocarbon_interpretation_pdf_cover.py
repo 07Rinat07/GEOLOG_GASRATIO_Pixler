@@ -97,7 +97,7 @@ def render_report_cover(
 
         title_top = rect.top() + (68.0 if compact else 52.0)
         title_height = 78.0 if compact else 62.0
-        title_font = print_font(23.0 if compact else 25.0, text=labels["title"])
+        title_font = print_font(23.0 if compact else 23.5, text=labels["title"])
         title_font.setBold(True)
         painter.setFont(title_font)
         painter.setPen(text_color)
