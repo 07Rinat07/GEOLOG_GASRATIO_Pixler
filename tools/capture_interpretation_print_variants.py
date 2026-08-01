@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
+import re
 
 import fitz
 from PySide6.QtGui import QPageLayout
@@ -11,6 +13,9 @@ from PySide6.QtWidgets import QApplication
 from capture_interpretation_report import _render_page, _session, _text_spans
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     export_hydrocarbon_interpretation_pdf,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+    InterpretationReportIdentity,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_system_print import (
     configure_interpretation_printer,
@@ -25,17 +30,45 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 from geoworkbench.services.localization import AppLanguage
 
 
-_COVER_TITLE = "Отчёт по интерпретации газового каротажа"
+_COVER_TITLE = "Отчёт ГТИ по скважине Северная-12"
 _COVER_MARKERS = (
     "GEOLOG GASRATIO@Pixler",
-    "Автоматизированный аналитический отчёт",
-    "Проект:",
-    "Скважина:",
-    "Набор данных:",
-    "Сформирован:",
-    "Основная кривая:",
-    "Порог robust z:",
+    "Интерпретация газового каротажа",
+    "Проект Северный купол",
+    "Северная-12",
+    "Месторождение Северное",
+    "АО Заказчик",
+    "ТОО Сервис ГТИ",
+    "Буровая ZJ-70",
+    "GAS-INT-012",
+    "Финальный",
+    "Инженер ГТИ И.И.",
+    "Ведущий геолог П.П.",
+    "Руководитель проекта С.С.",
 )
+_MANUAL_IDENTITY = InterpretationReportIdentity(
+    report_title=_COVER_TITLE,
+    report_subtitle="Интерпретация газового каротажа",
+    project_name="Проект Северный купол",
+    well_name="Северная-12",
+    field_name="Месторождение Северное",
+    location="Блок 4, Казахстан",
+    operator_name="АО Заказчик",
+    contractor_name="ТОО Сервис ГТИ",
+    rig_name="Буровая ZJ-70",
+    dataset_name="Основной комплект газового каротажа",
+    interval="",
+    document_number="GAS-INT-012",
+    revision="02",
+    document_status="Финальный",
+    report_date="01.08.2026",
+    prepared_by="Инженер ГТИ И.И.",
+    checked_by="Ведущий геолог П.П.",
+    approved_by="Руководитель проекта С.С.",
+    confidentiality="Для служебного использования",
+    remarks="Контрольный отчёт с вручную заданными реквизитами.",
+)
+_NUMERIC_LABEL = re.compile(r"^-?\d+(?:[.,]\d+)?$")
 
 
 def _arguments() -> argparse.Namespace:
@@ -63,6 +96,23 @@ def _verify_inside_pages(document: fitz.Document, label: str) -> None:
                 )
 
 
+def _axis_numeric_labels(page: fitz.Page) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    left: list[str] = []
+    right: list[str] = []
+    for span in _text_spans(page):
+        text = str(span["text"]).strip().replace(" ", "")
+        if not _NUMERIC_LABEL.fullmatch(text):
+            continue
+        box = fitz.Rect(span["bbox"])
+        if box.y0 < page.rect.height * 0.17 or box.y1 > page.rect.height * 0.82:
+            continue
+        if box.x1 < page.rect.width * 0.18:
+            left.append(text)
+        elif box.x0 > page.rect.width * 0.82:
+            right.append(text)
+    return tuple(left), tuple(right)
+
+
 def _verify_portrait_report(
     pdf_path: Path,
     artifact_dir: Path,
@@ -85,6 +135,8 @@ def _verify_portrait_report(
             raise RuntimeError(f"{label}: cover fields are missing: {missing}")
         if _COVER_TITLE not in normalized_cover_text:
             raise RuntimeError(f"{label}: cover title is not visible")
+        if "Новый проект" in cover_text or "acceptance-dataset" in cover_text:
+            raise RuntimeError(f"{label}: technical source names leaked into the cover")
 
         title_spans = [
             span
@@ -99,7 +151,7 @@ def _verify_portrait_report(
             title_box.include_rect(fitz.Rect(span["bbox"]))
         if abs(title_box.x0 + title_box.x1 - cover.rect.width) > cover.rect.width * 0.16:
             raise RuntimeError(f"{label}: cover title is not centered")
-        if title_box.y0 > cover.rect.height * 0.28:
+        if title_box.y0 > cover.rect.height * 0.30:
             raise RuntimeError(f"{label}: cover title is too low")
 
         chart_pages = tuple(
@@ -112,9 +164,21 @@ def _verify_portrait_report(
         if expect_multiple_charts and len(chart_pages) < 2:
             raise RuntimeError(f"{label}: long well needs multiple chart pages")
         for page_index in chart_pages:
-            text = document[page_index].get_text()
+            page = document[page_index]
+            text = page.get_text()
             if text.count("Глубина") < 2:
                 raise RuntimeError(f"{label}: both depth scales are not visible")
+            left_labels, right_labels = _axis_numeric_labels(page)
+            if len(left_labels) < 3 or len(right_labels) < 3:
+                raise RuntimeError(
+                    f"{label}: numeric depth labels are too sparse on page "
+                    f"{page_index + 1}: left={left_labels}, right={right_labels}"
+                )
+            if left_labels != right_labels:
+                raise RuntimeError(
+                    f"{label}: left and right numeric depth scales differ on page "
+                    f"{page_index + 1}: left={left_labels}, right={right_labels}"
+                )
             for marker in (
                 "Общий и нормализованный газ",
                 "Haworth и Pixler",
@@ -140,12 +204,12 @@ def _verify_portrait_report(
         _render_page(
             document[chart_pages[0]],
             artifact_dir / f"{label}-chart-first.png",
-            zoom=1.2,
+            zoom=1.4,
         )
         _render_page(
             document[chart_pages[-1]],
             artifact_dir / f"{label}-chart-last.png",
-            zoom=1.2,
+            zoom=1.4,
         )
         _render_page(
             document[-1],
@@ -175,6 +239,10 @@ def _build_portrait_report(
         session,
         normalized_gas_mode=NormalizedGasCalculationMode.SERVER,
     )
+    identity = replace(
+        _MANUAL_IDENTITY,
+        interval=f"{float(dataset.depth.min()):.2f}–{float(dataset.depth.max()):.2f} {report.depth_unit}",
+    )
     target = output / f"{label}.pdf"
     export_hydrocarbon_interpretation_pdf(
         report,
@@ -183,6 +251,7 @@ def _build_portrait_report(
         dataset=dataset,
         include_chart=True,
         orientation=QPageLayout.Orientation.Portrait,
+        identity=identity,
     )
     page_count, chart_pages = _verify_portrait_report(
         target,
@@ -224,8 +293,17 @@ def _capture_selected_windows_pages(
             )
         if any(page.rect.width >= page.rect.height for page in document):
             raise RuntimeError("Windows page-range simulation is not portrait")
+        first_text = document[0].get_text()
+        if _COVER_TITLE not in " ".join(first_text.split()):
+            raise RuntimeError("Windows page-range simulation lost manual cover details")
+        left_labels, right_labels = _axis_numeric_labels(document[1])
+        if len(left_labels) < 3 or left_labels != right_labels:
+            raise RuntimeError(
+                "Windows page-range simulation lost numeric depth labels: "
+                f"left={left_labels}, right={right_labels}"
+            )
         _render_page(document[0], output / "windows-print-page-001.png", zoom=1.3)
-        _render_page(document[1], output / "windows-print-page-002.png", zoom=1.3)
+        _render_page(document[1], output / "windows-print-page-002.png", zoom=1.4)
     return target, sent_pages
 
 
@@ -256,6 +334,7 @@ def main() -> int:
                 f"short={short_pdf.name}; pages={short_pages}; charts={len(short_charts)}",
                 f"long={long_pdf.name}; pages={long_pages}; charts={len(long_charts)}",
                 f"selection={selected_pdf.name}; sent={sent_pages}",
+                "cover=manual-details; depth-scale=labelled-major-plus-minor",
             )
         )
         + "\n",
