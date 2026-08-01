@@ -27,8 +27,8 @@ from geoworkbench.tablet.screen_style import minor_grid_is_readable, screen_grid
 
 
 _LOGGER = logging.getLogger(__name__)
-_PRINT_MAJOR_ALPHA_FLOOR = 0.38
-_PRINT_MINOR_ALPHA_FLOOR = 0.18
+_PRINT_MAJOR_ALPHA_FLOOR = 0.62
+_PRINT_MINOR_ALPHA_FLOOR = 0.32
 
 
 __all__ = [
@@ -221,7 +221,7 @@ class TabletGridOverlay:
 
     def _pen(self, major: bool):
         if self._print_mode:
-            color = pg.mkColor("#475569" if major else "#64748b")
+            color = pg.mkColor("#334155" if major else "#64748b")
             configured_alpha = max(0.0, min(1.0, self.settings.alpha))
             if configured_alpha <= 0.0:
                 alpha = 0.0
@@ -233,7 +233,7 @@ class TabletGridOverlay:
                     _PRINT_MINOR_ALPHA_FLOOR,
                 )
             color.setAlphaF(alpha)
-            return pg.mkPen(color, width=0.85 if major else 0.45)
+            return pg.mkPen(color, width=1.0 if major else 0.55)
 
         color = pg.mkColor("#64748b" if major else "#94a3b8")
         color.setAlphaF(screen_grid_alpha(self.settings.alpha, major=major))

@@ -25,6 +25,25 @@ class PageRenderError(RuntimeError):
     pass
 
 
+def _print_page_aspect_ratio(painter: QPainter, content_rect: QRectF) -> float:
+    """Return a page-stable aspect ratio for adaptive tablet column widths.
+
+    ``content_rect`` is shorter on the first page because the full report header
+    is present there, and taller on continuation pages.  Deriving column widths
+    from that changing rectangle makes every page use a different horizontal
+    scale.  The paint device represents the same physical sheet for all pages,
+    so its aspect ratio is the stable layout contract.
+    """
+
+    device = painter.device()
+    if device is not None:
+        width = float(device.width())
+        height = float(device.height())
+        if width > 0.0 and height > 0.0:
+            return width / height
+    return content_rect.width() / content_rect.height()
+
+
 def paint_widget_page(
     widget: QWidget,
     painter: QPainter,
@@ -57,7 +76,7 @@ def paint_widget_page(
             try:
                 snapshot = capture_tablet_print_snapshot(
                     widget,
-                    page_aspect_ratio=content_rect.width() / content_rect.height(),
+                    page_aspect_ratio=_print_page_aspect_ratio(painter, content_rect),
                     fit_columns=(fit_form_columns if scale_mode is PrintScaleMode.FIT else False),
                     raster_scale=raster_scale,
                     included_track_ids=included_track_ids,
@@ -81,9 +100,10 @@ def paint_widget_page(
                         snapshot,
                         scale_mode=scale_mode,
                         continuation=continuation,
-                        fill_height=(
-                            scale_mode is PrintScaleMode.FIT and not show_column_header
-                        ),
+                        # Middle pages must keep the same bounded uniform scale
+                        # as the first and last pages.  Height-only filling clips
+                        # the depth column on wide forms.
+                        fill_height=False,
                         show_column_header=show_column_header,
                     )
             except TabletPrintError as exc:

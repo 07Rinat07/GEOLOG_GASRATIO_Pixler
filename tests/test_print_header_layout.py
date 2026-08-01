@@ -1,3 +1,4 @@
+import pytest
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
 
@@ -133,18 +134,19 @@ def test_repeated_header_preserves_source_aspect_ratio(qapp) -> None:
     assert canvas.pixelColor(398, 20) == QColor("white")
 
 
-def test_tablet_body_can_hide_the_captured_column_header_without_font_stretch(qapp) -> None:
-    track = QPixmap(100, 100)
-    track.fill(QColor("#3b82f6"))
+def test_body_only_page_never_crops_wide_form_edges(qapp) -> None:
+    track = QPixmap(200, 100)
+    track.fill(QColor("white"))
     track_painter = QPainter(track)
     try:
-        track_painter.fillRect(QRectF(0.0, 0.0, 100.0, 30.0), QColor("#ef4444"))
-        track_painter.fillRect(QRectF(40.0, 50.0, 20.0, 20.0), QColor("#22c55e"))
+        track_painter.fillRect(QRectF(0.0, 0.0, 200.0, 30.0), QColor("#111827"))
+        track_painter.fillRect(QRectF(0.0, 30.0, 100.0, 70.0), QColor("#ef4444"))
+        track_painter.fillRect(QRectF(100.0, 30.0, 100.0, 70.0), QColor("#3b82f6"))
     finally:
         track_painter.end()
     snapshot = TabletPrintSnapshot(
         (track,),
-        AdaptiveColumnLayout((100,), spacing=0),
+        AdaptiveColumnLayout((200,), spacing=0),
         content_height=100,
         header_height=30,
     )
@@ -162,19 +164,11 @@ def test_tablet_body_can_hide_the_captured_column_header_without_font_stretch(qa
     finally:
         painter.end()
 
-    assert canvas.pixelColor(50, 1) == QColor("#3b82f6")
-    assert canvas.pixelColor(50, 98) == QColor("#3b82f6")
-    green = QColor("#22c55e")
-    green_pixels = [
-        (x, y)
-        for y in range(canvas.height())
-        for x in range(canvas.width())
-        if canvas.pixelColor(x, y) == green
-    ]
-    assert green_pixels
-    green_width = max(x for x, _y in green_pixels) - min(x for x, _y in green_pixels) + 1
-    green_height = max(y for _x, y in green_pixels) - min(y for _x, y in green_pixels) + 1
-    assert abs(green_width - green_height) <= 1
+    # The old height-only scale made this 200 px source about 286 px wide and
+    # clipped both outer edges.  A bounded uniform fit keeps both halves visible.
+    assert canvas.pixelColor(1, 50) == QColor("#ef4444")
+    assert canvas.pixelColor(98, 50) == QColor("#3b82f6")
+    assert canvas.pixelColor(50, 10) == QColor("white")
 
 
 def test_body_only_layout_excludes_hidden_header_height() -> None:
@@ -223,7 +217,7 @@ def test_hidden_top_header_makes_adaptive_tablet_fill_the_page(qapp, monkeypatch
         page_renderer.paint_widget_page(
             tablet,
             painter,
-            QRectF(0.0, 0.0, 400.0, 600.0),
+            QRectF(10.0, 20.0, 300.0, 500.0),
             scale_mode=PrintScaleMode.FIT,
             show_column_header=False,
             included_track_ids=("gas",),
@@ -233,11 +227,12 @@ def test_hidden_top_header_makes_adaptive_tablet_fill_the_page(qapp, monkeypatch
         painter.end()
         tablet.close()
 
-    assert received["fill_height"] is True
+    assert received["fill_height"] is False
     assert captured_snapshot_options["included_track_ids"] == ("gas",)
     assert captured_snapshot_options["grid_print_overrides"] == {"gas": False}
     assert captured_snapshot_options["show_column_header"] is False
     assert captured_snapshot_options["repeat_column_header_at_bottom"] is False
+    assert captured_snapshot_options["page_aspect_ratio"] == pytest.approx(400 / 600)
 
 
 def test_repeated_header_composition_uses_one_uniform_scale(qapp, monkeypatch) -> None:

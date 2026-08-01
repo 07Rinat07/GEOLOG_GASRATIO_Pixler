@@ -121,19 +121,17 @@ def capture_tablet_print_snapshot(
         for item in rendered
     )
 
-    def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
+    def build_layout(_measured_header_height: int) -> AdaptiveColumnLayout:
         if not fit_columns:
             return original_column_layout(definitions)
-        layout_height = tablet_print_layout_height(
-            content_height,
-            measured_header_height,
-            show_column_header=show_column_header,
-            repeat_column_header_at_bottom=repeat_column_header_at_bottom,
-        )
+        # Use one canonical source height for every vertical page.  The top
+        # header is present only on the first page and the optional repeated
+        # header only on the last one, but those presentation bands must never
+        # change column widths or the horizontal scale of the plotted curves.
         return adaptive_column_layout(
             definitions,
             page_aspect_ratio=page_aspect_ratio,
-            content_height=layout_height,
+            content_height=content_height,
         )
 
     layout = build_layout(header_height)
@@ -235,11 +233,13 @@ def paint_tablet_snapshot(
     if scale_mode is PrintScaleMode.FIT:
         horizontal_scale = page.width() / snapshot.layout.total_width
         vertical_scale = page.height() / logical_content_height
-        # Body-only pages are captured against their visible source height. A
-        # vertical fill can therefore use one uniform scale without stretching
-        # text, depth ticks or curve geometry. Synthetic callers with a wider
-        # source may be clipped horizontally, but never distorted.
-        scale = vertical_scale if fill_height else min(horizontal_scale, vertical_scale)
+        # Never let a body-only continuation choose its scale from height alone.
+        # Wide masterlog forms then overflow the page horizontally: the depth
+        # labels are clipped from the left and only part of the curves survives.
+        # One bounded uniform scale preserves the same geometry on first, middle
+        # and last pages.  ``fill_height`` remains an API compatibility flag, but
+        # cannot override the horizontal fit constraint.
+        scale = min(horizontal_scale, vertical_scale)
         rendered_width = snapshot.layout.total_width * scale
         rendered_height = logical_content_height * scale
         x = page.left() + (page.width() - rendered_width) / 2.0

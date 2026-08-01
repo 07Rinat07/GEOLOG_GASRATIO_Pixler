@@ -186,10 +186,10 @@ def test_default_print_grid_has_a_legible_alpha_and_line_width_floor(qapp) -> No
 
     major_pen = next(line.pen for line, major in overlay._vertical if major)
     minor_pen = next(line.pen for line, major in overlay._vertical if not major)
-    assert major_pen.color().alphaF() == pytest.approx(0.38, abs=0.005)
-    assert minor_pen.color().alphaF() == pytest.approx(0.18, abs=0.005)
-    assert major_pen.widthF() == pytest.approx(0.85)
-    assert minor_pen.widthF() == pytest.approx(0.45)
+    assert major_pen.color().alphaF() == pytest.approx(0.62, abs=0.005)
+    assert minor_pen.color().alphaF() == pytest.approx(0.32, abs=0.005)
+    assert major_pen.widthF() == pytest.approx(1.0)
+    assert minor_pen.widthF() == pytest.approx(0.55)
     plot.close()
 
 
