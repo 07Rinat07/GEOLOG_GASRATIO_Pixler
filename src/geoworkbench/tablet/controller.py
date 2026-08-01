@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from geoworkbench.services.lba_standard import lba_color_code
 from copy import deepcopy
 from dataclasses import dataclass
 
@@ -279,13 +280,13 @@ class TabletController:
                         item.lba_type_id,
                         item.lba_group,
                         item.lba_intensity,
-                        item.lba_color,
+                        lba_color_code(item.lba_color),
                         item.lba_distribution,
                         item.lba_cut,
                         item.lba_cut_speed,
-                        item.lba_cut_color,
+                        lba_color_code(item.lba_cut_color),
                         item.lba_residue_type,
-                        item.lba_residue_color,
+                        lba_color_code(item.lba_residue_color),
                         item.lba_odour,
                         item.lba_stain,
                         item.lba_description,

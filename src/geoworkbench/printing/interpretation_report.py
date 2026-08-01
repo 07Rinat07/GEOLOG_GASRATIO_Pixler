@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from geoworkbench.services.lba_standard import lba_color_code
 from dataclasses import dataclass
 from html import escape
 import os
@@ -117,7 +118,7 @@ def _entry_from_sample(sample: CuttingsSample) -> AnalysisInterpretationEntry | 
     lba_standard_assessment = assess_lba_standard(
         group=sample.lba_group,
         type_id=sample.lba_type_id,
-        color=sample.lba_color,
+        color=lba_color_code(sample.lba_color),
         intensity=sample.lba_intensity,
     )
     if not has_calcimetry and not observations and not interpretation:

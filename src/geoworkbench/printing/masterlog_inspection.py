@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from geoworkbench.services.lba_standard import lba_color_code
 from dataclasses import dataclass
 from math import log10
 
@@ -343,13 +344,13 @@ def _inspect_sample_analysis(
                 f"{labels[2]}: {sample.lba_intensity}"
                 if sample.lba_intensity is not None
                 else None,
-                sample.lba_color,
+                lba_color_code(sample.lba_color),
                 sample.lba_distribution,
                 sample.lba_cut,
                 sample.lba_cut_speed,
-                sample.lba_cut_color,
+                lba_color_code(sample.lba_cut_color),
                 sample.lba_residue_type,
-                sample.lba_residue_color,
+                lba_color_code(sample.lba_residue_color),
                 sample.lba_odour,
                 sample.lba_stain,
                 sample.lba_description,
