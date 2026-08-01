@@ -32,6 +32,43 @@ from geoworkbench.ui.drilling_calculation_dialog import DrillingCalculationDialo
 from geoworkbench.ui.interpretation_report_workspace import InterpretationReportWorkspace
 
 
+_COVER_FIELDS = (
+    "Отчёт по интерпретации газового каротажа",
+    "Проект:",
+    "Скважина:",
+    "Набор данных:",
+    "Сформирован:",
+    "Основная кривая:",
+    "Порог robust z:",
+)
+_SECTION_MARKERS = {
+    "methods": "Методы и доступность",
+    "candidates": "Кандидатные интервалы УВ-проявлений",
+    "details": "Интерпретация по интервалам",
+    "manual": "Интервалы, подтверждённые геологом",
+    "warnings": "Ограничения методики",
+}
+_CANDIDATE_TABLE_HEADERS = (
+    "Интервал",
+    "Относительная сила аномалии",
+    "Предварительная интерпретация",
+    "Абсолютный газ",
+    "Основание",
+)
+_METHOD_TABLE_HEADERS = (
+    "Метод",
+    "Использованные данные",
+    "Источник",
+)
+_MANUAL_TABLE_HEADERS = (
+    "Интерпретация",
+    "Интервал",
+    "Тип",
+    "Подпись",
+    "Комментарий",
+)
+
+
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Capture normalized-gas interpretation workspace screenshots"
@@ -202,9 +239,24 @@ def _capture(
     )
 
 
-def _render_page(page: fitz.Page, target: Path) -> None:
-    pixmap = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
+def _render_page(page: fitz.Page, target: Path, *, zoom: float = 1.5) -> None:
+    pixmap = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
     pixmap.save(str(target))
+
+
+def _render_all_pages(
+    document: fitz.Document,
+    artifact_dir: Path,
+    label: str,
+) -> None:
+    pages_dir = artifact_dir / f"{label}-all-pages"
+    pages_dir.mkdir(parents=True, exist_ok=True)
+    for page_index, page in enumerate(document, start=1):
+        _render_page(
+            page,
+            pages_dir / f"page-{page_index:03d}.png",
+            zoom=1.2,
+        )
 
 
 def _text_spans(page: fitz.Page) -> list[dict]:
@@ -215,63 +267,166 @@ def _text_spans(page: fitz.Page) -> list[dict]:
     return spans
 
 
+def _page_indexes(document: fitz.Document, marker: str) -> list[int]:
+    return [
+        page_index
+        for page_index, page in enumerate(document)
+        if marker in page.get_text()
+    ]
+
+
+def _require_text(text: str, markers: tuple[str, ...], label: str) -> None:
+    missing = [marker for marker in markers if marker not in text]
+    if missing:
+        raise RuntimeError(f"{label}: missing printed fields: {missing}")
+
+
+def _verify_page_geometry(document: fitz.Document, label: str) -> float:
+    maximum_font_size = 0.0
+    for page_index, page in enumerate(document):
+        page_rect = page.rect
+        safe_page = page_rect + (-1.5, -1.5, 1.5, 1.5)
+        for span in _text_spans(page):
+            maximum_font_size = max(maximum_font_size, float(span["size"]))
+            box = fitz.Rect(span["bbox"])
+            if not safe_page.contains(box):
+                raise RuntimeError(
+                    f"{label}: text leaves page {page_index + 1}: {span['text']!r}"
+                )
+        for drawing in page.get_drawings():
+            box = fitz.Rect(drawing["rect"])
+            if not safe_page.contains(box):
+                raise RuntimeError(
+                    f"{label}: vector frame leaves page {page_index + 1}: {box}"
+                )
+    if maximum_font_size > 24.0:
+        raise RuntimeError(
+            f"{label}: font was scaled twice; maximum size={maximum_font_size:.2f} pt"
+        )
+    return maximum_font_size
+
+
+def _verify_cover(document: fitz.Document, label: str) -> None:
+    cover_text = document[0].get_text()
+    _require_text(cover_text, _COVER_FIELDS, f"{label} cover")
+    title_spans = [
+        span
+        for span in _text_spans(document[0])
+        if "Отчёт по интерпретации газового каротажа" in span["text"]
+    ]
+    if not title_spans:
+        raise RuntimeError(f"{label}: report title is not visible")
+    title_box = fitz.Rect(title_spans[0]["bbox"])
+    if title_box.y0 < 10.0 or title_box.y1 > document[0].rect.height * 0.35:
+        raise RuntimeError(f"{label}: report title is outside the header area")
+
+
+def _verify_forms(
+    document: fitz.Document,
+    artifact_dir: Path,
+    label: str,
+) -> dict[str, list[int]]:
+    all_text = "\n".join(page.get_text() for page in document)
+    _require_text(all_text, tuple(_SECTION_MARKERS.values()), f"{label} forms")
+    _require_text(all_text, _METHOD_TABLE_HEADERS, f"{label} methods form")
+    _require_text(all_text, _MANUAL_TABLE_HEADERS, f"{label} manual form")
+
+    section_pages: dict[str, list[int]] = {}
+    for section, marker in _SECTION_MARKERS.items():
+        pages = _page_indexes(document, marker)
+        if not pages:
+            raise RuntimeError(f"{label}: section {section!r} was not printed")
+        section_pages[section] = pages
+        _render_page(
+            document[pages[0]],
+            artifact_dir / f"{label}-form-{section}.png",
+        )
+
+    candidate_pages = _page_indexes(document, "Относительная сила аномалии")
+    if not candidate_pages:
+        raise RuntimeError(f"{label}: candidate table header is missing")
+    for page_index in candidate_pages:
+        _require_text(
+            document[page_index].get_text(),
+            _CANDIDATE_TABLE_HEADERS,
+            f"{label} candidate form page {page_index + 1}",
+        )
+    if label == "long" and len(candidate_pages) < 2:
+        raise RuntimeError(
+            "long: candidate table did not create a continuation page for validation"
+        )
+    _render_page(
+        document[candidate_pages[-1]],
+        artifact_dir / f"{label}-candidate-table-continuation.png",
+    )
+    section_pages["candidate_table_headers"] = candidate_pages
+    return section_pages
+
+
+def _verify_chart_pages(
+    document: fitz.Document,
+    artifact_dir: Path,
+    label: str,
+) -> list[int]:
+    chart_pages = _page_indexes(document, "Лист графика")
+    if not chart_pages:
+        raise RuntimeError(f"{label}: chart pages were not found")
+    if label == "short" and len(chart_pages) != 1:
+        raise RuntimeError(f"{label}: short well must use one chart page")
+    if label == "long" and len(chart_pages) < 2:
+        raise RuntimeError(f"{label}: long well must use multiple chart pages")
+
+    for chart_index in chart_pages:
+        text = document[chart_index].get_text()
+        if text.count("Глубина") < 2:
+            raise RuntimeError(
+                f"{label}: both left and right depth scales are not visible"
+            )
+        if "вертикальный масштаб 1:" not in text:
+            raise RuntimeError(f"{label}: physical depth scale is missing")
+        _require_text(
+            text,
+            (
+                "Общий и нормализованный газ",
+                "Haworth и Pixler",
+                "Буровой контекст и DEXP",
+            ),
+            f"{label} chart page {chart_index + 1}",
+        )
+
+    _render_page(
+        document[chart_pages[0]],
+        artifact_dir / f"{label}-chart-first.png",
+    )
+    _render_page(
+        document[chart_pages[-1]],
+        artifact_dir / f"{label}-chart-last.png",
+    )
+    return chart_pages
+
+
 def _verify_pdf(pdf_path: Path, artifact_dir: Path, label: str) -> str:
     with fitz.open(pdf_path) as document:
         if document.page_count < 3:
             raise RuntimeError(f"{label}: expected at least three report pages")
-        chart_pages = [
-            index
-            for index, page in enumerate(document)
-            if "Лист графика" in page.get_text()
-        ]
-        if not chart_pages:
-            raise RuntimeError(f"{label}: chart pages were not found")
-        if label == "short" and len(chart_pages) != 1:
-            raise RuntimeError(f"{label}: short well must use one chart page")
-        if label == "long" and len(chart_pages) < 2:
-            raise RuntimeError(f"{label}: long well must use multiple chart pages")
 
-        maximum_font_size = 0.0
-        for page_index, page in enumerate(document):
-            page_rect = page.rect
-            for span in _text_spans(page):
-                maximum_font_size = max(maximum_font_size, float(span["size"]))
-                box = fitz.Rect(span["bbox"])
-                if not page_rect.contains(box + (-1.0, -1.0, 1.0, 1.0)):
-                    raise RuntimeError(
-                        f"{label}: text leaves page {page_index + 1}: {span['text']!r}"
-                    )
-        if maximum_font_size > 24.0:
-            raise RuntimeError(
-                f"{label}: font was scaled twice; maximum size={maximum_font_size:.2f} pt"
-            )
-
-        for chart_index in chart_pages:
-            text = document[chart_index].get_text()
-            if text.count("Глубина") < 2:
-                raise RuntimeError(
-                    f"{label}: both left and right depth scales are not visible"
-                )
-            if "вертикальный масштаб 1:" not in text:
-                raise RuntimeError(f"{label}: physical depth scale is missing")
+        maximum_font_size = _verify_page_geometry(document, label)
+        _verify_cover(document, label)
+        chart_pages = _verify_chart_pages(document, artifact_dir, label)
+        section_pages = _verify_forms(document, artifact_dir, label)
 
         artifact_dir.mkdir(parents=True, exist_ok=True)
+        _render_all_pages(document, artifact_dir, label)
         _render_page(document[0], artifact_dir / f"{label}-cover.png")
-        _render_page(
-            document[chart_pages[0]],
-            artifact_dir / f"{label}-chart-first.png",
-        )
-        _render_page(
-            document[chart_pages[-1]],
-            artifact_dir / f"{label}-chart-last.png",
-        )
-        _render_page(
-            document[-1],
-            artifact_dir / f"{label}-final.png",
+        _render_page(document[-1], artifact_dir / f"{label}-final.png")
+
+        section_summary = "; ".join(
+            f"{name}={','.join(str(index + 1) for index in pages)}"
+            for name, pages in section_pages.items()
         )
         return (
             f"{label}: pages={document.page_count}; chart_pages={len(chart_pages)}; "
-            f"max_font={maximum_font_size:.2f}pt"
+            f"max_font={maximum_font_size:.2f}pt; {section_summary}"
         )
 
 
@@ -307,7 +462,10 @@ def _capture_pdf_acceptance(output: Path) -> None:
             include_chart=True,
         )
         results.append(_verify_pdf(target, target_dir, label))
-    (target_dir / "metrics.txt").write_text("\n".join(results) + "\n", encoding="utf-8")
+    (target_dir / "metrics.txt").write_text(
+        "\n".join(results) + "\n",
+        encoding="utf-8",
+    )
 
 
 def main() -> int:
