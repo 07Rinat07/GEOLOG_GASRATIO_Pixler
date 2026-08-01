@@ -30,6 +30,7 @@ def export_hydrocarbon_interpretation_pdf(
     language: AppLanguage = AppLanguage.RU,
     dataset: Dataset | None = None,
     include_chart: bool = False,
+    orientation: QPageLayout.Orientation = QPageLayout.Orientation.Landscape,
     overwrite: bool = False,
 ) -> Path:
     destination = Path(target)
@@ -48,7 +49,7 @@ def export_hydrocarbon_interpretation_pdf(
     try:
         writer = QPdfWriter(str(temporary))
         writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
-        writer.setPageOrientation(QPageLayout.Orientation.Landscape)
+        writer.setPageOrientation(orientation)
         writer.setPageMargins(
             QMarginsF(14.0, 14.0, 14.0, 14.0),
             QPageLayout.Unit.Millimeter,
