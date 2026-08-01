@@ -259,7 +259,7 @@ class GridSettingsWidget(QWidget):
         alpha: float,
         print_grid: bool,
     ) -> None:
-        values = (
+        values: tuple[tuple[QWidget, bool | int | float], ...] = (
             (self.grid_x_input, bool(grid_x)),
             (self.grid_y_input, bool(grid_y)),
             (self.grid_major_input, int(major_divisions)),
@@ -267,16 +267,24 @@ class GridSettingsWidget(QWidget):
             (self.grid_alpha_input, float(alpha)),
             (self.grid_print_input, bool(print_grid)),
         )
-        previous = [control.blockSignals(True) for control, _value in values]
+        previous = [
+            input_widget.blockSignals(True) for input_widget, _value in values
+        ]
         try:
-            for control, value in values:
-                if isinstance(control, QCheckBox):
-                    control.setChecked(bool(value))
+            for input_widget, value in values:
+                if isinstance(input_widget, QCheckBox):
+                    input_widget.setChecked(bool(value))
+                elif isinstance(input_widget, QSpinBox):
+                    input_widget.setValue(int(value))
+                elif isinstance(input_widget, QDoubleSpinBox):
+                    input_widget.setValue(float(value))
                 else:
-                    control.setValue(value)
+                    raise TypeError("Неподдерживаемый элемент настройки сетки")
         finally:
-            for (control, _value), was_blocked in zip(values, previous, strict=True):
-                control.blockSignals(was_blocked)
+            for (input_widget, _value), was_blocked in zip(
+                values, previous, strict=True
+            ):
+                input_widget.blockSignals(was_blocked)
         self._update_dependent_states()
 
     def values(self) -> tuple[bool, bool, int, int, float, bool]:

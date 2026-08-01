@@ -20,6 +20,9 @@ from geoworkbench.tablet.grid_renderer import TabletGridOverlay, TabletGridRende
 from geoworkbench.tablet.tablet_view import TabletView
 
 
+_HEADER_GAP_FRACTION = 0.006
+
+
 class TabletPrintError(RuntimeError):
     pass
 
@@ -43,6 +46,39 @@ class TabletPrintSnapshot:
             raise ValueError("Некорректный масштаб печатного снимка")
 
 
+def tablet_header_gap_height(content_height: int) -> int:
+    """Return the logical gap used around an optional repeated track header."""
+
+    return max(1, round(max(1, int(content_height)) * _HEADER_GAP_FRACTION))
+
+
+def tablet_print_layout_height(
+    content_height: int,
+    header_height: int,
+    *,
+    show_column_header: bool,
+    repeat_column_header_at_bottom: bool,
+) -> int:
+    """Return source height represented by one complete printed page.
+
+    Adaptive column widths must be derived from the exact source composition
+    painted on the page. Otherwise a body-only continuation is laid out using
+    the hidden header height and later stretched vertically, which distorts
+    depth labels and every glyph in the graph.
+    """
+
+    body_height = max(1, int(content_height) - int(header_height))
+    header_count = int(bool(show_column_header)) + int(
+        bool(repeat_column_header_at_bottom)
+    )
+    gap_count = header_count if repeat_column_header_at_bottom else 0
+    return (
+        body_height
+        + header_count * int(header_height)
+        + gap_count * tablet_header_gap_height(content_height)
+    )
+
+
 def capture_tablet_print_snapshot(
     tablet: TabletView,
     *,
@@ -51,11 +87,13 @@ def capture_tablet_print_snapshot(
     raster_scale: float = 1.0,
     included_track_ids: tuple[str, ...] | None = None,
     grid_print_overrides: Mapping[str, bool] | None = None,
+    show_column_header: bool = True,
+    repeat_column_header_at_bottom: bool = False,
 ) -> TabletPrintSnapshot:
     """Capture every visible form column, including off-screen columns.
 
     ``raster_scale`` lets PDF and image exports render the Qt widgets into a
-    larger intermediate surface.  This avoids enlarging a low-resolution screen
+    larger intermediate surface. This avoids enlarging a low-resolution screen
     screenshot when the destination is an A4 page at 300 or 600 DPI.
     """
 
@@ -78,23 +116,34 @@ def capture_tablet_print_snapshot(
         raise TabletPrintError("Печатная форма не имеет допустимой высоты")
 
     definitions = [item.definition for item in rendered]
-    layout = (
-        adaptive_column_layout(
+    header_height = max(
+        item.widget.title.height() + item.widget.curve_header_scroll.height()
+        for item in rendered
+    )
+
+    def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
+        if not fit_columns:
+            return original_column_layout(definitions)
+        layout_height = tablet_print_layout_height(
+            content_height,
+            measured_header_height,
+            show_column_header=show_column_header,
+            repeat_column_header_at_bottom=repeat_column_header_at_bottom,
+        )
+        return adaptive_column_layout(
             definitions,
             page_aspect_ratio=page_aspect_ratio,
-            content_height=content_height,
+            content_height=layout_height,
         )
-        if fit_columns
-        else original_column_layout(definitions)
-    )
+
+    layout = build_layout(header_height)
     original_widths = [item.widget.width() for item in rendered]
     pixmaps: list[QPixmap] = []
     grid_states: list[tuple[TabletGridOverlay, bool, bool]] = []
     tablet.set_annotation_print_mode(True)
     try:
-        for item, width in zip(rendered, layout.widths, strict=True):
+        for item in rendered:
             item.widget.set_print_mode(True)
-            item.widget.set_track_width(width)
             overlay = TabletGridRenderer.overlay_for(item.widget.plot)
             if overlay is not None:
                 grid_states.append((overlay, overlay.print_mode, overlay.print_suppressed))
@@ -108,10 +157,23 @@ def capture_tablet_print_snapshot(
                     else item.definition.grid_print
                 )
                 overlay.set_print_suppressed(not print_grid)
-        header_height = max(
-            item.widget.title.height() + item.widget.curve_header_scroll.height()
-            for item in rendered
-        )
+
+        # Header widgets can change height after responsive column widths are
+        # applied. Iterate to a stable layout so the source and target aspect
+        # ratios remain identical on body-only and repeated-header pages.
+        for _attempt in range(3):
+            for item, width in zip(rendered, layout.widths, strict=True):
+                item.widget.set_track_width(width)
+            measured_header_height = max(
+                item.widget.title.height() + item.widget.curve_header_scroll.height()
+                for item in rendered
+            )
+            next_layout = build_layout(measured_header_height)
+            header_height = measured_header_height
+            if next_layout == layout:
+                break
+            layout = next_layout
+
         for item, logical_width in zip(rendered, layout.widths, strict=True):
             logical_height = max(1, item.widget.height())
             pixel_size = QSize(
@@ -173,16 +235,20 @@ def paint_tablet_snapshot(
     if scale_mode is PrintScaleMode.FIT:
         horizontal_scale = page.width() / snapshot.layout.total_width
         vertical_scale = page.height() / logical_content_height
-        if not fill_height:
-            horizontal_scale = vertical_scale = min(horizontal_scale, vertical_scale)
-        rendered_width = snapshot.layout.total_width * horizontal_scale
-        rendered_height = logical_content_height * vertical_scale
+        # Body-only pages are captured against their visible source height. A
+        # vertical fill can therefore use one uniform scale without stretching
+        # text, depth ticks or curve geometry. Synthetic callers with a wider
+        # source may be clipped horizontally, but never distorted.
+        scale = vertical_scale if fill_height else min(horizontal_scale, vertical_scale)
+        rendered_width = snapshot.layout.total_width * scale
+        rendered_height = logical_content_height * scale
         x = page.left() + (page.width() - rendered_width) / 2.0
         y = page.top() + (page.height() - rendered_height) / 2.0
 
         painter.save()
         try:
             painter.fillRect(page, Qt.GlobalColor.white)
+            painter.setClipRect(page)
             for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
                 source_height = max(
                     1.0,
@@ -191,8 +257,8 @@ def paint_tablet_snapshot(
                 target = QRectF(
                     x,
                     y,
-                    logical_width * horizontal_scale,
-                    (source_height / snapshot.raster_scale) * vertical_scale,
+                    logical_width * scale,
+                    (source_height / snapshot.raster_scale) * scale,
                 )
                 source = QRectF(
                     0.0,
@@ -201,14 +267,14 @@ def paint_tablet_snapshot(
                     source_height,
                 )
                 painter.drawPixmap(target, pixmap, source)
-                x += (logical_width + snapshot.layout.spacing) * horizontal_scale
+                x += (logical_width + snapshot.layout.spacing) * scale
         finally:
             painter.restore()
         return
 
     device = painter.device()
     dpi = max(1, device.logicalDpiX()) if device is not None else REFERENCE_PRINT_DPI
-    horizontal_scale = dpi / REFERENCE_PRINT_DPI
+    scale = dpi / REFERENCE_PRINT_DPI
     left = continuation.source_left_px if continuation is not None else 0.0
     right = (
         continuation.source_right_px
@@ -217,6 +283,8 @@ def paint_tablet_snapshot(
     )
     if right <= left:
         raise TabletPrintError("Некорректная страница продолжения")
+    rendered_height = logical_content_height * scale
+    target_top = page.top() + (page.height() - rendered_height) / 2.0
 
     painter.save()
     try:
@@ -236,10 +304,10 @@ def paint_tablet_snapshot(
                     pixmap.height() - source_top * snapshot.raster_scale,
                 )
                 target = QRectF(
-                    page.left() + (visible_left - left) * horizontal_scale,
-                    page.top(),
-                    (visible_right - visible_left) * horizontal_scale,
-                    page.height(),
+                    page.left() + (visible_left - left) * scale,
+                    target_top,
+                    (visible_right - visible_left) * scale,
+                    (source_height / snapshot.raster_scale) * scale,
                 )
                 source = QRectF(
                     source_left,
@@ -271,13 +339,14 @@ def paint_tablet_header_repeat(
         painter.fillRect(page, Qt.GlobalColor.white)
         painter.setClipRect(page)
         if scale_mode is PrintScaleMode.FIT:
-            # The repeated header must follow the selected paper orientation.
-            # Its band is intentionally shorter than the live Qt header, so a
-            # single uniform scale would shrink a landscape header back toward
-            # portrait width. Scale width and height independently instead.
-            horizontal_scale = page.width() / snapshot.layout.total_width
-            rendered_width = snapshot.layout.total_width * horizontal_scale
+            scale = min(
+                page.width() / snapshot.layout.total_width,
+                page.height() / snapshot.header_height,
+            )
+            rendered_width = snapshot.layout.total_width * scale
+            rendered_height = snapshot.header_height * scale
             x = page.left() + (page.width() - rendered_width) / 2.0
+            y = page.top() + (page.height() - rendered_height) / 2.0
             for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
                 source = QRectF(
                     0.0,
@@ -287,24 +356,29 @@ def paint_tablet_header_repeat(
                 )
                 target = QRectF(
                     x,
-                    page.top(),
-                    logical_width * horizontal_scale,
-                    page.height(),
+                    y,
+                    logical_width * scale,
+                    rendered_height,
                 )
                 painter.drawPixmap(target, pixmap, source)
-                x += (logical_width + snapshot.layout.spacing) * horizontal_scale
-            painter.drawLine(page.topLeft(), page.topRight())
+                x += (logical_width + snapshot.layout.spacing) * scale
+            painter.drawLine(
+                QPoint(round(page.left()), round(y)),
+                QPoint(round(page.right()), round(y)),
+            )
             return
 
         device = painter.device()
         dpi = max(1, device.logicalDpiX()) if device is not None else REFERENCE_PRINT_DPI
-        horizontal_scale = dpi / REFERENCE_PRINT_DPI
+        scale = dpi / REFERENCE_PRINT_DPI
         left = continuation.source_left_px if continuation is not None else 0.0
         right = (
             continuation.source_right_px
             if continuation is not None
             else float(snapshot.layout.total_width)
         )
+        rendered_height = snapshot.header_height * scale
+        target_top = page.top() + (page.height() - rendered_height) / 2.0
         source_x = 0.0
         for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
             track_left = source_x
@@ -319,13 +393,16 @@ def paint_tablet_header_repeat(
                     snapshot.header_height * snapshot.raster_scale,
                 )
                 target = QRectF(
-                    page.left() + (visible_left - left) * horizontal_scale,
-                    page.top(),
-                    (visible_right - visible_left) * horizontal_scale,
-                    page.height(),
+                    page.left() + (visible_left - left) * scale,
+                    target_top,
+                    (visible_right - visible_left) * scale,
+                    rendered_height,
                 )
                 painter.drawPixmap(target, pixmap, source)
             source_x = track_right + snapshot.layout.spacing
-        painter.drawLine(page.topLeft(), page.topRight())
+        painter.drawLine(
+            QPoint(round(page.left()), round(target_top)),
+            QPoint(round(page.right()), round(target_top)),
+        )
     finally:
         painter.restore()
