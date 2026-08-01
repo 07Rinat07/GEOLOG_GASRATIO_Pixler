@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from PySide6.QtCore import QEvent, QObject, QTimer, Qt, QUrl
 from PySide6.QtGui import QCloseEvent, QDesktopServices
@@ -60,8 +60,6 @@ _TEXTS = {
         "discard": "Не сохранять",
         "cancel": "Отмена",
         "export_title": "Сохранить изменённые данные в LAS",
-        "overwrite_title": "Подтверждение перезаписи",
-        "overwrite_text": "Файл «{name}» уже существует. Перезаписать его?",
         "export_failed": "Не удалось сохранить LAS-копию:\n{error}",
         "export_done_title": "LAS-копия сохранена",
         "export_done": (
@@ -99,8 +97,6 @@ _TEXTS = {
         "discard": "Сақтамау",
         "cancel": "Болдырмау",
         "export_title": "Өзгертілген деректерді LAS түрінде сақтау",
-        "overwrite_title": "Қайта жазуды растау",
-        "overwrite_text": "«{name}» файлы бар. Оны қайта жазу керек пе?",
         "export_failed": "LAS көшірмесін сақтау мүмкін болмады:\n{error}",
         "export_done_title": "LAS көшірмесі сақталды",
         "export_done": (
@@ -138,8 +134,6 @@ _TEXTS = {
         "discard": "Don't save",
         "cancel": "Cancel",
         "export_title": "Save edited data as LAS",
-        "overwrite_title": "Confirm overwrite",
-        "overwrite_text": "The file “{name}” already exists. Overwrite it?",
         "export_failed": "Could not save the LAS copy:\n{error}",
         "export_done_title": "LAS copy saved",
         "export_done": (
@@ -223,7 +217,7 @@ class SessionInfoPanel(QFrame):
         layout.addWidget(label)
         return label
 
-    def render(self, window: QMainWindow) -> None:
+    def update_from_window(self, window: QMainWindow) -> None:
         language = normalized_language(getattr(window, "language", AppLanguage.RU))
         texts = _TEXTS[language]
         controller = getattr(window, "project_controller", None)
@@ -298,7 +292,7 @@ class SessionSafetyController(QObject):
         self._previous_dirty = bool(getattr(self._session(), "dirty", False))
         self.panel = SessionInfoPanel(window)
         self.window.statusBar().addPermanentWidget(self.panel, 1)
-        self.window.session_info_panel = self.panel
+        setattr(self.window, "session_info_panel", self.panel)
         self.window.installEventFilter(self)
         self._install_export_notification()
         self._timer = QTimer(self)
@@ -321,9 +315,10 @@ class SessionSafetyController(QObject):
             and not self._pending_project_notification
         ):
             self._pending_project_notification = True
-            QTimer.singleShot(0, lambda path=Path(project_path): self._notify_project_save(path))
+            path = Path(cast(str | Path, project_path))
+            QTimer.singleShot(0, lambda saved_path=path: self._notify_project_save(saved_path))
         self._previous_dirty = dirty
-        self.panel.render(self.window)
+        self.panel.update_from_window(self.window)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
         if watched is self.window and event.type() == QEvent.Type.Close:
@@ -357,7 +352,7 @@ class SessionSafetyController(QObject):
             controller = getattr(self.window, "project_controller", None)
             path = getattr(controller, "project_path", None)
             if path is not None:
-                self._notify_saved_path(Path(path))
+                self._notify_saved_path(Path(cast(str | Path, path)))
             return True
         if choice is CloseChoice.EXPORT_LAS:
             return self._export_las_before_close()
@@ -402,7 +397,8 @@ class SessionSafetyController(QObject):
 
         def export_with_location(target: Path) -> object:
             exported = original(target)
-            self._notify_saved_path(Path(exported))
+            exported_path = Path(cast(str | Path, exported))
+            self._notify_saved_path(exported_path)
             return exported
 
         self.window._export_current_dataset_to_path = export_with_location
@@ -432,23 +428,13 @@ class SessionSafetyController(QObject):
         target = Path(filename)
         if target.suffix.casefold() != ".las":
             target = target.with_suffix(".las")
-        if target.exists():
-            answer = QMessageBox.question(
-                self.window,
-                texts["overwrite_title"],
-                texts["overwrite_text"].format(name=target.name),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if answer is not QMessageBox.StandardButton.Yes:
-                return False
         exporter: Callable[[Path], object] | None = getattr(
             self.window, "_export_current_dataset_to_path", None
         )
         if not callable(exporter):
             return False
         try:
-            exported = Path(exporter(target))
+            exported = Path(cast(str | Path, exporter(target)))
         except (LasExportError, OSError, RuntimeError, TypeError, ValueError) as exc:
             QMessageBox.critical(
                 self.window,
