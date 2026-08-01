@@ -15,6 +15,7 @@ from geoworkbench.ui.help_content import (
     help_sections,
     normalized_language,
 )
+from geoworkbench.ui.help_pdf_layout_content import append_pdf_layout_help
 
 
 class HelpCenterDialog(QDialog):
@@ -89,7 +90,10 @@ class HelpCenterDialog(QDialog):
             browser.setObjectName(f"help-section-{section.key}")
             browser.setProperty("helpSectionKey", section.key)
             browser.setOpenExternalLinks(True)
-            browser.setHtml(section.html)
+            html = section.html
+            if section.key in {"printing", "interpretation"}:
+                html = append_pdf_layout_help(html, self.language)
+            browser.setHtml(html)
             self.sections.addTab(browser, section.title)
             if section.key == self._requested_section:
                 requested_index = index

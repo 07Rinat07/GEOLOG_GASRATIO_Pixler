@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import numpy as np
 
 from geoworkbench.domain.models import (
@@ -29,8 +31,15 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.interpretation_report_workspace import InterpretationReportWorkspace
 
 
-def _session_with_report_curves() -> ProjectSession:
-    depth = np.linspace(1_300.0, 1_420.0, 241)
+def _session_with_report_curves(
+    *,
+    depth_start: float = 1_300.0,
+    depth_span: float = 120.0,
+    samples: int = 241,
+) -> ProjectSession:
+    depth = np.linspace(depth_start, depth_start + depth_span, samples)
+    center = depth_start + depth_span * 0.55
+    width = max(1.0, depth_span * 0.06)
     dataset = Dataset(
         "dataset",
         "Geology and technology",
@@ -39,10 +48,10 @@ def _session_with_report_curves() -> ProjectSession:
         depth,
     )
     series = {
-        "TG_CALC": 0.02 + 0.08 * np.exp(-((depth - 1_365.0) / 7.0) ** 2),
-        "WH": 5.0 + 20.0 * np.exp(-((depth - 1_365.0) / 9.0) ** 2),
-        "BH": 2.0 + 8.0 * np.exp(-((depth - 1_370.0) / 10.0) ** 2),
-        "CH": 0.5 + 2.0 * np.exp(-((depth - 1_372.0) / 8.0) ** 2),
+        "TG_CALC": 0.02 + 0.08 * np.exp(-((depth - center) / width) ** 2),
+        "WH": 5.0 + 20.0 * np.exp(-((depth - center) / (width * 1.3)) ** 2),
+        "BH": 2.0 + 8.0 * np.exp(-((depth - center) / (width * 1.5)) ** 2),
+        "CH": 0.5 + 2.0 * np.exp(-((depth - center) / (width * 1.2)) ** 2),
         "C1_C2": 4.0 + 2.0 * np.sin(depth / 9.0),
         "C1_C3": 12.0 + 5.0 * np.cos(depth / 11.0),
         "DEXP": 1.1 + 0.2 * np.sin(depth / 13.0),
@@ -62,6 +71,10 @@ def _session_with_report_curves() -> ProjectSession:
     session = ProjectSession()
     session.add_dataset(dataset, "Well 494")
     return session
+
+
+def _pdf_page_count(payload: bytes) -> int:
+    return len(re.findall(rb"/Type\s*/Page\b", payload))
 
 
 def test_whole_well_report_chart_is_embedded_before_tables(qapp) -> None:
@@ -103,9 +116,43 @@ def test_whole_well_pdf_contains_chart_image(qapp, tmp_path) -> None:
         include_chart=True,
     )
 
+    payload = target.read_bytes()
     assert exported == target
-    assert target.read_bytes().startswith(b"%PDF")
+    assert payload.startswith(b"%PDF")
     assert target.stat().st_size > 20_000
+    assert _pdf_page_count(payload) >= 3
+
+
+def test_long_well_pdf_uses_more_chart_pages_than_short_well(qapp, tmp_path) -> None:
+    short_session = _session_with_report_curves(depth_span=40.0, samples=161)
+    long_session = _session_with_report_curves(depth_span=3_000.0, samples=1_501)
+    short_dataset = short_session.current_dataset
+    long_dataset = long_session.current_dataset
+    assert short_dataset is not None
+    assert long_dataset is not None
+    short_target = tmp_path / "short-well.pdf"
+    long_target = tmp_path / "long-well.pdf"
+
+    export_hydrocarbon_interpretation_pdf(
+        build_hydrocarbon_interpretation_report(short_session),
+        short_target,
+        language=AppLanguage.RU,
+        dataset=short_dataset,
+        include_chart=True,
+    )
+    export_hydrocarbon_interpretation_pdf(
+        build_hydrocarbon_interpretation_report(long_session),
+        long_target,
+        language=AppLanguage.RU,
+        dataset=long_dataset,
+        include_chart=True,
+    )
+
+    short_pages = _pdf_page_count(short_target.read_bytes())
+    long_pages = _pdf_page_count(long_target.read_bytes())
+    assert short_pages >= 3
+    assert long_pages > short_pages
+    assert long_pages <= short_pages + 12
 
 
 def test_workspace_exposes_primary_recalculation_and_chart_actions(qapp) -> None:
