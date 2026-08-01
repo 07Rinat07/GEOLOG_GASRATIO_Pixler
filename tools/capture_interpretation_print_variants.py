@@ -8,6 +8,7 @@ from PySide6.QtGui import QPageLayout
 from PySide6.QtPrintSupport import QPrinter
 from PySide6.QtWidgets import QApplication
 
+from capture_interpretation_report import _render_page, _session, _text_spans
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     export_hydrocarbon_interpretation_pdf,
 )
@@ -22,7 +23,6 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     build_hydrocarbon_interpretation_report,
 )
 from geoworkbench.services.localization import AppLanguage
-from tools.capture_interpretation_report import _render_page, _session, _text_spans
 
 
 _COVER_MARKERS = (
