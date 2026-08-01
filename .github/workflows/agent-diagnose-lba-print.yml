@@ -1,0 +1,35 @@
+name: Agent diagnose LBA and print
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate LBA colour flow
+        shell: bash
+        run: |
+          set -o pipefail
+          echo '=== LBA colour references ==='
+          grep -RInE --include='*.py' 'fluorescence|lba.{0,30}color|color.{0,30}lba|Цвет свечения|цвет свечения' src tests || true
+          echo '=== LBA display/paint references ==='
+          grep -RInE --include='*.py' 'describe_lba|assessment\.color|_display_color_code|lba_standard' src tests || true
+      - name: Locate print page geometry
+        shell: bash
+        run: |
+          set -o pipefail
+          echo '=== print geometry ==='
+          grep -RInE --include='*.py' 'repeat_column_header|show_column_header|target_content_height|page_aspect_ratio|fill_height|adaptive_column_layout' src/geoworkbench/printing tests | head -n 500 || true
+      - name: Check conflict markers
+        shell: bash
+        run: |
+          if grep -RInE --include='*.py' '^(<<<<<<<|=======|>>>>>>>)' src tests; then
+            echo 'Unresolved conflict markers remain'
+            exit 1
+          fi
