@@ -1,3 +1,4 @@
+from PySide6.QtCore import QPoint
 from PySide6.QtGui import QImageReader
 from PySide6.QtWidgets import QLabel
 
@@ -69,6 +70,26 @@ def test_print_center_switches_to_physical_printer_without_file(qapp) -> None:
     assert job.target is None
     assert not dialog.path_input.isEnabled()
     assert dialog.ok_button.text() == "Печатать"
+    dialog.close()
+
+
+def test_print_center_keeps_primary_action_visible_in_short_window(qapp) -> None:
+    dialog = PrintCenterDialog(language=AppLanguage.RU, source_name="Планшет")
+    dialog.resize(640, 480)
+    dialog.show()
+    qapp.processEvents()
+
+    button_bottom = dialog.ok_button.mapTo(
+        dialog, QPoint(0, dialog.ok_button.height())
+    ).y()
+
+    assert dialog.settings_scroll.verticalScrollBar().maximum() > 0
+    assert dialog.ok_button.isVisibleTo(dialog)
+    assert button_bottom <= dialog.contentsRect().bottom() + 1
+    assert dialog.settings_scroll.geometry().bottom() < dialog.action_bar.geometry().top()
+    assert dialog.ok_button.objectName() == "print-center-primary-action"
+    assert "PDF" in dialog.action_summary.text()
+    assert dialog.header_preview.maximumHeight() == 68
     dialog.close()
 
 

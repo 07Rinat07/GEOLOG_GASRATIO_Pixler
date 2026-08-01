@@ -6,6 +6,7 @@ from typing import Callable
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -13,6 +14,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -20,8 +22,11 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
 from geoworkbench.printing.page_settings import (
@@ -90,12 +95,23 @@ class PrintCenterDialog(QDialog):
         preferences = initial_preferences or PrintExportPreferences()
         self.source_name = _safe_file_stem(source_name)
         self.setWindowTitle(self._t("print_center.title"))
-        self.resize(700, 900)
+        self.setMinimumSize(600, 480)
 
         root = QVBoxLayout(self)
+        root.setContentsMargins(12, 12, 12, 12)
+        root.setSpacing(8)
         source_label = QLabel(self._t("print_center.source", name=source_name))
+        source_label.setObjectName("print-center-source")
+        source_label.setStyleSheet("font-weight: 600;")
         source_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         root.addWidget(source_label)
+
+        content = QWidget()
+        content.setObjectName("print-center-settings")
+        content.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(4, 4, 4, 4)
+        content_layout.setSpacing(10)
 
         header_group = QGroupBox(
             {
@@ -134,12 +150,12 @@ class PrintCenterDialog(QDialog):
         self.header_preview = QLabel()
         self.header_preview.setObjectName("print-center-header-preview")
         self.header_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.header_preview.setMinimumHeight(190)
+        self.header_preview.setMinimumHeight(68)
+        self.header_preview.setMaximumHeight(180)
         self.header_preview.setStyleSheet(
             "QLabel { background: #e5e7eb; border: 1px solid #94a3b8; }"
         )
         header_layout.addWidget(self.header_preview)
-        root.addWidget(header_group)
         paired_initial = self.paired_header_template_ids.get(
             page.orientation.value, initial_header_template_id
         )
@@ -179,7 +195,7 @@ class PrintCenterDialog(QDialog):
         self.quality_input.setSuffix(" %")
         self.quality_input.setValue(preferences.image_quality)
         output_layout.addRow(self._t("print_center.image_quality"), self.quality_input)
-        root.addWidget(output_group)
+        content_layout.addWidget(output_group)
 
         paper_group = QGroupBox(self._t("print_center.paper_group"))
         paper_layout = QFormLayout(paper_group)
@@ -242,7 +258,7 @@ class PrintCenterDialog(QDialog):
             self._t("print_center.continuation_overlap"),
             self.continuation_overlap_input,
         )
-        root.addWidget(paper_group)
+        content_layout.addWidget(paper_group)
 
         pagination_group = QGroupBox(self._t("print_center.pagination_group"))
         pagination_layout = QFormLayout(pagination_group)
@@ -297,7 +313,7 @@ class PrintCenterDialog(QDialog):
         self.page_range_check = QCheckBox(self._t("print_center.show_page_range"))
         self.page_range_check.setChecked(preferences.show_page_range)
         pagination_layout.addRow(self.page_range_check)
-        root.addWidget(pagination_group)
+        content_layout.addWidget(pagination_group)
 
         margins_group = QGroupBox(self._t("print_center.margins_group"))
         margins_layout = QGridLayout(margins_group)
@@ -314,15 +330,37 @@ class PrintCenterDialog(QDialog):
         for label, control, row, column in margin_controls:
             margins_layout.addWidget(QLabel(label), row, column)
             margins_layout.addWidget(control, row, column + 1)
-        root.addWidget(margins_group)
+        content_layout.addWidget(margins_group)
+
+        # Header selection is secondary to the output and page settings.  Keeping
+        # it below those controls makes the destination immediately discoverable,
+        # while the empty preview no longer consumes most of a short screen.
+        content_layout.addWidget(header_group)
 
         self.unicode_status = QLabel(self._t("print_center.unicode_preflight_hint"))
         self.unicode_status.setWordWrap(True)
-        root.addWidget(self.unicode_status)
+        self.unicode_status.setObjectName("print-center-unicode-status")
+        content_layout.addWidget(self.unicode_status)
 
         hint = QLabel(self._t("print_center.hint"))
         hint.setWordWrap(True)
-        root.addWidget(hint)
+        hint.setObjectName("print-center-hint")
+        content_layout.addWidget(hint)
+
+        self.settings_scroll = QScrollArea()
+        self.settings_scroll.setObjectName("print-center-settings-scroll")
+        self.settings_scroll.setWidgetResizable(True)
+        self.settings_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.settings_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.settings_scroll.setWidget(content)
+        root.addWidget(self.settings_scroll, 1)
+
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        root.addWidget(separator)
 
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -331,16 +369,46 @@ class PrintCenterDialog(QDialog):
             self._t("print_center.preview"), QDialogButtonBox.ButtonRole.ActionRole
         )
         self.preview_button.clicked.connect(self._preview)
+        self.preview_button.setEnabled(preview_callback is not None)
         self.buttons.accepted.connect(self._accept_checked)
         self.buttons.rejected.connect(self.reject)
         self.ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
         self.cancel_button = self.buttons.button(QDialogButtonBox.StandardButton.Cancel)
         self.cancel_button.setText(self._t("common.cancel"))
-        root.addWidget(self.buttons)
+
+        for button in (self.preview_button, self.ok_button, self.cancel_button):
+            button.setMinimumHeight(36)
+        self.ok_button.setObjectName("print-center-primary-action")
+        self.ok_button.setMinimumWidth(160)
+        self.ok_button.setDefault(True)
+        self.ok_button.setStyleSheet(
+            "QPushButton#print-center-primary-action {"
+            "background:#155e75; color:#ffffff; border:1px solid #22d3ee; "
+            "border-radius:5px; padding:7px 18px; font-weight:700;}"
+            "QPushButton#print-center-primary-action:hover {background:#0e7490;}"
+            "QPushButton#print-center-primary-action:pressed {background:#164e63;}"
+            "QPushButton#print-center-primary-action:disabled {"
+            "background:#475569; color:#cbd5e1; border-color:#64748b;}"
+        )
+
+        self.action_summary = QLabel()
+        self.action_summary.setObjectName("print-center-action-summary")
+        self.action_summary.setStyleSheet("font-weight: 600;")
+        self.action_summary.setWordWrap(True)
+
+        self.action_bar = QFrame()
+        self.action_bar.setObjectName("print-center-action-bar")
+        action_layout = QHBoxLayout(self.action_bar)
+        action_layout.setContentsMargins(0, 0, 0, 0)
+        action_layout.setSpacing(12)
+        action_layout.addWidget(self.action_summary, 1)
+        action_layout.addWidget(self.buttons)
+        root.addWidget(self.action_bar)
 
         self._output_changed()
         self._update_enabled()
         self._update_pagination_enabled()
+        self._apply_adaptive_size()
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
@@ -485,6 +553,7 @@ class PrintCenterDialog(QDialog):
             catalog_id is not None and self.edit_header_callback is not None
         )
         if catalog_id is None or self.header_preview_callback is None:
+            self._set_header_preview_expanded(False)
             self.header_preview.clear()
             self.header_preview.setText(
                 {
@@ -499,6 +568,8 @@ class PrintCenterDialog(QDialog):
         except (KeyError, RuntimeError, ValueError):
             pixmap = None
         if pixmap is None or pixmap.isNull():
+            self._set_header_preview_expanded(False)
+            self.header_preview.clear()
             self.header_preview.setText(
                 {
                     AppLanguage.RU: "Предпросмотр недоступен",
@@ -507,7 +578,8 @@ class PrintCenterDialog(QDialog):
                 }[self.localizer.language]
             )
             return
-        target = QSize(max(600, self.header_preview.width() - 8), 180)
+        self._set_header_preview_expanded(True)
+        target = QSize(max(240, self.header_preview.width() - 12), 152)
         self.header_preview.setPixmap(
             pixmap.scaled(
                 target,
@@ -515,6 +587,12 @@ class PrintCenterDialog(QDialog):
                 Qt.TransformationMode.SmoothTransformation,
             )
         )
+
+    def _set_header_preview_expanded(self, expanded: bool) -> None:
+        minimum = 132 if expanded else 68
+        maximum = 180 if expanded else 68
+        self.header_preview.setMinimumHeight(minimum)
+        self.header_preview.setMaximumHeight(maximum)
 
     def _open_header_editor(self) -> None:
         raw = self.header_combo.currentData()
@@ -545,6 +623,9 @@ class PrintCenterDialog(QDialog):
             if output is PrintOutputFormat.PRINTER
             else self._t("print_center.export")
         )
+        self.action_summary.setText(
+            f"{self._t('print_center.output')}: {self._output_name(output)}"
+        )
         if file_enabled:
             current = Path(self.path_input.text()) if self.path_input.text().strip() else None
             if current is None:
@@ -552,6 +633,17 @@ class PrintCenterDialog(QDialog):
             elif current.suffix.casefold() not in output.accepted_suffixes:
                 current = current.with_suffix(output.suffix)
             self.path_input.setText(str(current))
+
+    def _apply_adaptive_size(self) -> None:
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            self.resize(900, 760)
+            return
+        available = screen.availableGeometry()
+        self.resize(
+            min(960, max(600, int(available.width() * 0.72))),
+            min(860, max(480, int(available.height() * 0.82))),
+        )
 
     def _update_enabled(self, _index: int | None = None) -> None:
         selected = PrintPageFormat(str(self.format_combo.currentData()))
