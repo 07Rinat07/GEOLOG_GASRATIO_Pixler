@@ -174,6 +174,25 @@ def test_print_mode_keeps_minor_lines_and_uses_configured_alpha(qapp) -> None:
     plot.close()
 
 
+def test_default_print_grid_has_a_legible_alpha_and_line_width_floor(qapp) -> None:
+    plot = pg.PlotWidget()
+    plot.resize(400, 300)
+    plot.show()
+    qapp.processEvents()
+    overlay = TabletGridOverlay(plot)
+    overlay.apply(GridSettings(True, True, 5, 5, 0.2))
+
+    overlay.set_print_mode(True)
+
+    major_pen = next(line.pen for line, major in overlay._vertical if major)
+    minor_pen = next(line.pen for line, major in overlay._vertical if not major)
+    assert major_pen.color().alphaF() == pytest.approx(0.38, abs=0.005)
+    assert minor_pen.color().alphaF() == pytest.approx(0.18, abs=0.005)
+    assert major_pen.widthF() == pytest.approx(0.85)
+    assert minor_pen.widthF() == pytest.approx(0.45)
+    plot.close()
+
+
 def test_zero_alpha_hides_grid_in_screen_and_print_modes(qapp) -> None:
     plot = pg.PlotWidget()
     plot.resize(400, 300)
