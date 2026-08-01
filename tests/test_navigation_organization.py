@@ -19,6 +19,17 @@ def _finish_deferred_navigation(qapp) -> None:
         qapp.processEvents()
 
 
+def _assert_workspace_is_renderable(workspace, dialog) -> None:
+    assert dialog.isVisible()
+    assert workspace.parentWidget() is dialog
+    assert dialog.layout() is not None
+    assert dialog.layout().indexOf(workspace) >= 0
+    assert workspace.isVisible()
+    assert not workspace.isHidden()
+    assert workspace.width() > 0
+    assert workspace.height() > 0
+
+
 def test_utility_workspaces_are_opened_from_purpose_specific_menus(qapp) -> None:
     window = MainWindow(language=AppLanguage.RU)
     window.show()
@@ -55,10 +66,32 @@ def test_utility_workspaces_are_opened_from_purpose_specific_menus(qapp) -> None
     window.help_center_action.trigger()
     _finish_deferred_navigation(qapp)
 
-    assert window.file_workspace_dialog.isVisible()
-    assert window.interpretation_report_dialog.isVisible()
+    _assert_workspace_is_renderable(
+        window.file_workspace,
+        window.file_workspace_dialog,
+    )
+    _assert_workspace_is_renderable(
+        window.interpretation_report_workspace,
+        window.interpretation_report_dialog,
+    )
     assert window.help_center_dialog.isVisible()
     assert window.help_center_dialog.current_section() == "overview"
+
+    window.file_workspace_dialog.close()
+    window.interpretation_report_dialog.close()
+    _finish_deferred_navigation(qapp)
+    window.file_workspace_action.trigger()
+    window.gas_interpretation_report_action.trigger()
+    _finish_deferred_navigation(qapp)
+
+    _assert_workspace_is_renderable(
+        window.file_workspace,
+        window.file_workspace_dialog,
+    )
+    _assert_workspace_is_renderable(
+        window.interpretation_report_workspace,
+        window.interpretation_report_dialog,
+    )
 
     window.change_language(AppLanguage.EN)
     _finish_deferred_navigation(qapp)
