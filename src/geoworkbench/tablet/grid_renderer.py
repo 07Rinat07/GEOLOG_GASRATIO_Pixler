@@ -27,6 +27,8 @@ from geoworkbench.tablet.screen_style import minor_grid_is_readable, screen_grid
 
 
 _LOGGER = logging.getLogger(__name__)
+_PRINT_MAJOR_ALPHA_FLOOR = 0.38
+_PRINT_MINOR_ALPHA_FLOOR = 0.18
 
 
 __all__ = [
@@ -96,9 +98,9 @@ class TabletGridOverlay:
     """Grid lines that stay visible even when tablet axes are intentionally hidden.
 
     Tablet curve columns use normalized horizontal geometry because every curve may
-    have an independent engineering range.  Their bottom and left ``AxisItem``
+    have an independent engineering range. Their bottom and left ``AxisItem``
     instances are therefore hidden in the workspace, which also disables
-    ``PlotItem.showGrid`` in pyqtgraph.  This overlay projects the same normalized
+    ``PlotItem.showGrid`` in pyqtgraph. This overlay projects the same normalized
     major/minor contract used by print rendering directly into the current ViewBox.
     It does not intercept input and is refreshed whenever the visible range changes.
     """
@@ -210,7 +212,7 @@ class TabletGridOverlay:
                 pen=self._pen(False),
             )
             line.setZValue(-1_000.0)
-            # PySide6 6.11 rejects a bare integer here.  The invalid value
+            # PySide6 6.11 rejects a bare integer here. The invalid value
             # caused the first tablet render after LAS import to abort and left
             # the workspace black even though the dataset had already loaded.
             line.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
@@ -218,12 +220,23 @@ class TabletGridOverlay:
             collection.append((line, False))
 
     def _pen(self, major: bool):
-        color = pg.mkColor("#64748b" if major else "#94a3b8")
         if self._print_mode:
-            alpha = max(0.0, min(1.0, self.settings.alpha))
-            color.setAlphaF(alpha if major else alpha * 0.45)
-        else:
-            color.setAlphaF(screen_grid_alpha(self.settings.alpha, major=major))
+            color = pg.mkColor("#475569" if major else "#64748b")
+            configured_alpha = max(0.0, min(1.0, self.settings.alpha))
+            if configured_alpha <= 0.0:
+                alpha = 0.0
+            elif major:
+                alpha = max(configured_alpha, _PRINT_MAJOR_ALPHA_FLOOR)
+            else:
+                alpha = max(
+                    configured_alpha * 0.45,
+                    _PRINT_MINOR_ALPHA_FLOOR,
+                )
+            color.setAlphaF(alpha)
+            return pg.mkPen(color, width=0.85 if major else 0.45)
+
+        color = pg.mkColor("#64748b" if major else "#94a3b8")
+        color.setAlphaF(screen_grid_alpha(self.settings.alpha, major=major))
         return pg.mkPen(color, width=0.75 if major else 0.35)
 
     def _range_changed(self, *_args: object) -> None:
@@ -325,7 +338,7 @@ class TabletGridRenderer:
             overlay.apply(settings)
         except Exception:  # noqa: BLE001 - presentation-only safety boundary
             # Grid rendering is presentation-only and must never prevent a LAS
-            # dataset from opening.  Keep the legacy axis grid as a safe fallback
+            # dataset from opening. Keep the legacy axis grid as a safe fallback
             # and record the platform-specific failure in the application log.
             _LOGGER.exception("Tablet grid overlay failed; using axis-grid fallback")
             plot.showGrid(
