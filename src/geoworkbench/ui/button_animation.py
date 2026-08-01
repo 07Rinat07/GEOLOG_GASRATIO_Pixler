@@ -153,8 +153,11 @@ class ButtonAnimationController(QObject):
 
 
 def install_button_animations(window: QMainWindow) -> ButtonAnimationController:
-    """Install or return the shared animation controller for ``window``."""
+    """Install the shared animation and session-safety controllers for ``window``."""
 
+    from geoworkbench.ui.session_safety import install_session_safety
+
+    install_session_safety(window)
     existing = getattr(window, "_button_animation_controller", None)
     if isinstance(existing, ButtonAnimationController):
         return existing
