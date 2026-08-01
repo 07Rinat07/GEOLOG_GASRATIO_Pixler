@@ -1,3 +1,4 @@
+# One-shot branch patcher; it removes itself after a successful commit.
 name: Apply temporary mypy fix
 
 on:
