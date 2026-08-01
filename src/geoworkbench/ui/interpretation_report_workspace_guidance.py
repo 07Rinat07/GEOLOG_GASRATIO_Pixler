@@ -9,6 +9,7 @@ from geoworkbench.project.interpretation_calculation_controller import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.help_content import interpretation_guide_html
+from geoworkbench.ui.help_pdf_layout_content import append_pdf_layout_help
 from geoworkbench.ui.interpretation_report_workspace_layout import (
     InterpretationReportWorkspace as _LayoutWorkspace,
 )
@@ -150,7 +151,10 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
     def _workflow_help_html(self) -> str:
         """Compatibility accessor backed by the same content as the Help menu."""
 
-        return interpretation_guide_html(self.language)
+        return append_pdf_layout_help(
+            interpretation_guide_html(self.language),
+            self.language,
+        )
 
     def _apply_prospective_ui_terms(self) -> None:
         replacements = {
