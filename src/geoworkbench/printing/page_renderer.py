@@ -57,6 +57,8 @@ def paint_widget_page(
     repeat_column_header_at_bottom: bool = False,
     included_track_ids: tuple[str, ...] | None = None,
     grid_print_overrides: tuple[tuple[str, bool], ...] = (),
+    target_content_height: int | None = None,
+    page_aspect_ratio: float | None = None,
 ) -> None:
     """Render a chart/tablet into one deterministic paper continuation."""
 
@@ -71,18 +73,24 @@ def paint_widget_page(
     try:
         painter.fillRect(content_rect, Qt.GlobalColor.white)
         if isinstance(widget, TabletView) and widget.printable_tracks():
-            requested_scale = content_rect.height() / max(1, height)
+            effective_height = target_content_height or height
+            requested_scale = content_rect.height() / max(1, effective_height)
             raster_scale = min(4.0, max(1.0, requested_scale)) if high_quality else 1.0
             try:
                 snapshot = capture_tablet_print_snapshot(
                     widget,
-                    page_aspect_ratio=_print_page_aspect_ratio(painter, content_rect),
+                    page_aspect_ratio=(
+                        page_aspect_ratio
+                        if page_aspect_ratio is not None
+                        else _print_page_aspect_ratio(painter, content_rect)
+                    ),
                     fit_columns=(fit_form_columns if scale_mode is PrintScaleMode.FIT else False),
                     raster_scale=raster_scale,
                     included_track_ids=included_track_ids,
                     grid_print_overrides=dict(grid_print_overrides),
                     show_column_header=show_column_header,
                     repeat_column_header_at_bottom=repeat_column_header_at_bottom,
+                    target_content_height=target_content_height,
                 )
                 if repeat_column_header_at_bottom:
                     _paint_tablet_with_repeated_header(

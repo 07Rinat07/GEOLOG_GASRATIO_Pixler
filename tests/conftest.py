@@ -32,7 +32,14 @@ def qapp():
 
 @pytest.fixture(autouse=True)
 def close_qt_windows_after_test():
-    """Dispose application windows without deleting Qt-owned popups separately."""
+    """Dispose Qt windows without invoking application ``closeEvent`` hooks.
+
+    The suite contains windows whose close handlers own optional services.  One
+    partially constructed window can therefore raise during ``widget.close()``
+    and remain in QApplication, poisoning every later non-GUI test at teardown.
+    Test cases that need close semantics call ``close()`` explicitly; the global
+    safety net only hides and schedules valid top-level roots for deletion.
+    """
 
     yield
     if "PySide6.QtWidgets" not in sys.modules:
@@ -44,17 +51,34 @@ def close_qt_windows_after_test():
     app = QApplication.instance()
     if app is None:
         return
-    application_roots: list[QWidget] = []
-    for widget in tuple(app.topLevelWidgets()):
-        if isinstance(widget, QWidget) and isValid(widget):
-            widget.close()
-            if type(widget).__module__.startswith("geoworkbench."):
-                application_roots.append(widget)
-    app.processEvents()
-    for widget in application_roots:
-        if isValid(widget):
+
+    widgets = tuple(
+        widget
+        for widget in tuple(app.topLevelWidgets())
+        if isinstance(widget, QWidget) and isValid(widget)
+    )
+    for widget in widgets:
+        try:
+            widget.hide()
+        except RuntimeError:
+            pass
+
+    for widget in widgets:
+        if not isValid(widget):
+            continue
+        try:
+            parent = widget.parentWidget()
+        except RuntimeError:
+            parent = None
+        if parent is not None and isValid(parent):
+            continue
+        try:
             widget.deleteLater()
+        except RuntimeError:
+            pass
+
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()
 
 
 @pytest.fixture

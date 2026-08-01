@@ -258,6 +258,10 @@ def report_render_settings(job: PrintJobSettings) -> ReportRenderSettings:
                     str(job.repeat_column_header_at_bottom).lower(),
                 ),
                 (
+                    "auto_units_per_page",
+                    str(pagination.auto_units_per_page).lower(),
+                ),
+                (
                     (
                         "included_track_ids",
                         json.dumps(

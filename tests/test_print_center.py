@@ -356,3 +356,31 @@ def test_every_available_raster_format_can_be_written(qapp, tmp_path) -> None:
         assert reader.canRead(), f"{output.value}: {reader.errorString()}"
         assert reader.size() == settings.page_pixel_size(widget.width(), widget.height(), 72)
     widget.close()
+
+
+def test_print_center_auto_interval_disables_manual_span_and_overlap(qapp) -> None:
+    from geoworkbench.printing.pagination import PrintRangeMode
+
+    dialog = PrintCenterDialog(
+        initial_page=PrintPageSettings(orientation=PrintOrientation.LANDSCAPE),
+        initial_preferences=PrintExportPreferences(
+            range_mode=PrintRangeMode.FULL,
+            units_per_page=50.0,
+            auto_units_per_page=True,
+            overlap=5.0,
+        ),
+        supports_pagination=True,
+        current_vertical_range=(0.0, 50.0),
+        full_vertical_range=(0.0, 2000.0),
+        vertical_unit="m",
+    )
+
+    assert dialog.auto_units_per_page_check.isChecked()
+    assert not dialog.units_per_page_input.isEnabled()
+    assert not dialog.overlap_input.isEnabled()
+    pagination = dialog.pagination_settings()
+    assert pagination.auto_units_per_page is True
+    assert pagination.units_per_page == 50.0
+    assert pagination.overlap == 0.0
+    assert dialog.preferences().auto_units_per_page is True
+    dialog.close()

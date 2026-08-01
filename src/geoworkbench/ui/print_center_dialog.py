@@ -433,8 +433,17 @@ class PrintCenterDialog(QDialog):
             default_span = abs(current_vertical_range[1] - current_vertical_range[0])
         self.units_per_page_input = self._axis_value_input(max(default_span, 1e-6))
         self.units_per_page_input.setSuffix(f" {self.vertical_unit}" if self.vertical_unit else "")
+        self.auto_units_per_page_check = QCheckBox(self._t("common.auto"))
+        self.auto_units_per_page_check.setChecked(preferences.auto_units_per_page)
+        self.auto_units_per_page_check.toggled.connect(self._update_pagination_enabled)
+        self.units_per_page_widget = QWidget()
+        units_row = QHBoxLayout(self.units_per_page_widget)
+        units_row.setContentsMargins(0, 0, 0, 0)
+        units_row.setSpacing(10)
+        units_row.addWidget(self.units_per_page_input, 1)
+        units_row.addWidget(self.auto_units_per_page_check)
         self.pagination_layout.addRow(
-            self._t("print_center.units_per_page"), self.units_per_page_input
+            self._t("print_center.units_per_page"), self.units_per_page_widget
         )
 
         self.overlap_input = self._axis_value_input(preferences.overlap, allow_zero=True)
@@ -659,10 +668,16 @@ class PrintCenterDialog(QDialog):
         mode = PrintRangeMode(str(self.range_combo.currentData()))
         if not self.supports_pagination:
             mode = PrintRangeMode.CURRENT
+        automatic = (
+            self.auto_units_per_page_check.isChecked()
+            and mode is not PrintRangeMode.CURRENT
+            and PrintScaleMode(str(self.scale_combo.currentData())) is PrintScaleMode.FIT
+        )
         return PrintPaginationSettings(
             range_mode=mode,
             units_per_page=self.units_per_page_input.value(),
-            overlap=self.overlap_input.value(),
+            auto_units_per_page=automatic,
+            overlap=0.0 if automatic else self.overlap_input.value(),
             custom_start=self.custom_start_input.value() if mode is PrintRangeMode.CUSTOM else None,
             custom_end=self.custom_end_input.value() if mode is PrintRangeMode.CUSTOM else None,
             show_page_numbers=self.page_numbers_check.isChecked(),
@@ -678,6 +693,7 @@ class PrintCenterDialog(QDialog):
             image_quality=self.quality_input.value(),
             range_mode=pagination.range_mode,
             units_per_page=pagination.units_per_page,
+            auto_units_per_page=pagination.auto_units_per_page,
             overlap=pagination.overlap,
             custom_start=pagination.custom_start,
             custom_end=pagination.custom_end,
@@ -1149,17 +1165,28 @@ class PrintCenterDialog(QDialog):
             self.continuation_overlap_input,
             scale_mode is PrintScaleMode.ACTUAL_SIZE,
         )
+        if hasattr(self, "range_combo"):
+            self._update_pagination_enabled()
 
     def _update_pagination_enabled(self, _index: int | None = None) -> None:
         mode = PrintRangeMode(str(self.range_combo.currentData()))
         multipage = self.supports_pagination and mode is not PrintRangeMode.CURRENT
         custom = self.supports_pagination and mode is PrintRangeMode.CUSTOM
-        self.units_per_page_input.setEnabled(multipage)
-        self.overlap_input.setEnabled(multipage)
+        scale_mode = PrintScaleMode(str(self.scale_combo.currentData()))
+        page_format = PrintPageFormat(str(self.format_combo.currentData()))
+        auto_available = (
+            multipage
+            and scale_mode is PrintScaleMode.FIT
+            and page_format is not PrintPageFormat.ROLL
+        )
+        automatic = auto_available and self.auto_units_per_page_check.isChecked()
+        self.auto_units_per_page_check.setEnabled(auto_available)
+        self.units_per_page_input.setEnabled(multipage and not automatic)
+        self.overlap_input.setEnabled(multipage and not automatic)
         self.custom_start_input.setEnabled(custom)
         self.custom_end_input.setEnabled(custom)
         self.page_range_check.setEnabled(self.supports_pagination)
-        self.pagination_layout.setRowVisible(self.units_per_page_input, multipage)
+        self.pagination_layout.setRowVisible(self.units_per_page_widget, multipage)
         self.pagination_layout.setRowVisible(self.custom_range_widget, custom)
 
     def _toggle_advanced(self, expanded: bool) -> None:
