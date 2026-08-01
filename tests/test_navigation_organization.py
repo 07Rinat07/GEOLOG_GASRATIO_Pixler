@@ -151,7 +151,9 @@ def test_wits_commands_are_collected_in_distinct_menu_bar_button(qapp) -> None:
     assert window.wits_protocol_button.minimumHeight() >= 30
     assert window.wits_protocol_button.accessibleName() == "Центр WITS"
     assert "потоковые данные" in window.wits_protocol_button.toolTip()
-    assert window.wits_protocol_button.isVisible()
+    assert not window.wits_protocol_button.isHidden()
+    assert window.wits_protocol_button.sizeHint().width() >= 96
+    assert window.wits_protocol_button.sizeHint().height() >= 30
 
     corner = window.menuBar().cornerWidget(Qt.Corner.TopRightCorner)
     assert corner is window.wits_protocol_button or corner.isAncestorOf(
