@@ -152,10 +152,10 @@ def test_short_depth_interval_uses_more_frequent_numeric_labels() -> None:
 
     short_step = min(
         right - left
-        for left, right in zip(short_major, short_major[1:], strict=True)
+        for left, right in zip(short_major, short_major[1:], strict=False)
     )
     long_step = min(
         right - left
-        for left, right in zip(long_major, long_major[1:], strict=True)
+        for left, right in zip(long_major, long_major[1:], strict=False)
     )
     assert short_step < long_step
