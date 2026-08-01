@@ -70,6 +70,7 @@ _COLORS = (
     "#0891b2",
     "#64748b",
 )
+_MIN_AXIS_LABEL_GAP_POINTS = 14.0
 
 
 def render_chart_pages(
@@ -247,7 +248,7 @@ def _draw_depth_axis(
     )
 
     step = _nice_tick_step(page.span, target_ticks=8)
-    ticks = _depth_ticks(page, step)
+    ticks = _readable_depth_ticks(page, step, rect.height())
     painter.setFont(print_font(6.7, text=f"{page.bottom_depth:.1f}"))
     for value in ticks:
         y = _depth_y(value, page, rect)
@@ -524,6 +525,32 @@ def _depth_ticks(page: DepthPage, step: float) -> tuple[float, ...]:
         if not any(abs(endpoint - tick) <= tolerance for tick in ticks):
             ticks.append(endpoint)
     return tuple(sorted(ticks))
+
+
+def _readable_depth_ticks(
+    page: DepthPage,
+    step: float,
+    plot_height_points: float,
+) -> tuple[float, ...]:
+    """Keep exact page limits while removing neighbouring labels that overlap."""
+
+    ticks = _depth_ticks(page, step)
+    tolerance = step * 1e-7
+    minimum_depth_gap = (
+        page.span
+        * _MIN_AXIS_LABEL_GAP_POINTS
+        / max(float(plot_height_points), 1.0)
+    )
+    endpoints = (page.top_depth, page.bottom_depth)
+    readable: list[float] = []
+    for tick in ticks:
+        is_endpoint = any(abs(tick - endpoint) <= tolerance for endpoint in endpoints)
+        if is_endpoint or all(
+            abs(tick - endpoint) >= minimum_depth_gap
+            for endpoint in endpoints
+        ):
+            readable.append(tick)
+    return tuple(readable)
 
 
 def _depth_y(depth: float, page: DepthPage, rect: QRectF) -> float:
