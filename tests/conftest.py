@@ -32,9 +32,15 @@ def qapp():
 
 @pytest.fixture(autouse=True)
 def close_qt_windows_after_test():
+<<<<<<< HEAD
     """Dispose Qt windows without invoking application ``closeEvent`` hooks.
 
     The suite contains windows whose close handlers own optional services.  One
+=======
+    """Isolate Qt tests without running fragile window destruction hooks.
+
+    The suite contains windows whose close handlers own optional services. One
+>>>>>>> c4c640fd9ae54cf98cf65ca1e7300e4dca69d9d4
     partially constructed window can therefore raise during ``widget.close()``
     and remain in QApplication, poisoning every later non-GUI test at teardown.
     Test cases that need close semantics call ``close()`` explicitly; the global
@@ -51,9 +57,15 @@ def close_qt_windows_after_test():
     if app is None:
         return
 
+<<<<<<< HEAD
     # Tests run in isolated subprocess shards.  Hiding leftover top-level windows
     # is enough to prevent them from affecting the next test while keeping the
     # native Qt object graph intact until the shard exits.  Do not call close(),
+=======
+    # Tests run in isolated subprocess shards. Hiding leftover top-level windows
+    # is enough to prevent them from affecting the next test while keeping the
+    # native Qt object graph intact until the shard exits. Do not call close(),
+>>>>>>> c4c640fd9ae54cf98cf65ca1e7300e4dca69d9d4
     # deleteLater(), sendPostedEvents() or processEvents() here: close handlers may
     # reference optional services on partially constructed windows, and forcing
     # DeferredDelete delivery can enter TabletView.event after one of its native
