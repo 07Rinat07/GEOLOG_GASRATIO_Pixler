@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 
 import fitz
+from PySide6.QtCore import Qt
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrintDialog, QPrinter
 from PySide6.QtWidgets import QApplication, QDialog, QProgressDialog
 
@@ -152,8 +153,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 return
 
             range_selected = (
-                dialog.printRange() is QAbstractPrintDialog.PrintRange.PageRange
-                or printer.printRange() is QPrinter.PrintRange.PageRange
+                dialog.printRange() == QAbstractPrintDialog.PrintRange.PageRange
+                or printer.printRange() == QPrinter.PrintRange.PageRange
             )
             print_range = (
                 QAbstractPrintDialog.PrintRange.PageRange
@@ -162,7 +163,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             )
             from_page = dialog.fromPage() or printer.fromPage()
             to_page = dialog.toPage() or printer.toPage()
-            reverse = layout.order is InterpretationPrintOrder.LAST_TO_FIRST
+            reverse = layout.order == InterpretationPrintOrder.LAST_TO_FIRST
             page_numbers = selected_report_pages(
                 total_pages,
                 print_range,
@@ -201,7 +202,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 self,
             )
             progress.setWindowTitle(self.tab_title(self.language))
-            progress.setWindowModality(progress.windowModality().WindowModal)
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
             progress.setMinimumDuration(0)
             progress.setValue(0)
 
