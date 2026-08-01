@@ -5,13 +5,13 @@ from pathlib import Path
 import tempfile
 
 from PySide6.QtCore import QMarginsF
-from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter, QTextDocument
+from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
 
 from geoworkbench.domain.models import Dataset
-from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
-    hydrocarbon_interpretation_html_with_front_chart,
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
+    render_hydrocarbon_interpretation_report,
 )
-from geoworkbench.printing.unicode_support import preflight_texts, print_font
+from geoworkbench.printing.unicode_support import preflight_texts
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
     hydrocarbon_interpretation_html,
@@ -56,16 +56,8 @@ def export_hydrocarbon_interpretation_pdf(
         writer.setResolution(300)
         writer.setTitle("Mud-gas interpretation report")
         writer.setCreator("GEOLOG GASRATIO@Pixler")
-        html = (
-            hydrocarbon_interpretation_html_with_front_chart(
-                report,
-                dataset,
-                language,
-                print_layout=True,
-            )
-            if include_chart and dataset is not None
-            else hydrocarbon_interpretation_html(report, language)
-        )
+
+        html = hydrocarbon_interpretation_html(report, language)
         if dataset is not None:
             from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
                 inject_interval_gas_statistics_html,
@@ -80,11 +72,14 @@ def export_hydrocarbon_interpretation_pdf(
         unicode_report = preflight_texts([html])
         if not unicode_report.ok:
             raise HydrocarbonInterpretationPdfError(unicode_report.error_message())
-        document = QTextDocument()
-        document.setDefaultFont(print_font(9.0 if include_chart else 10.0, text=html))
-        document.setPageSize(writer.pageLayout().paintRectPoints().size())
-        document.setHtml(html)
-        document.print_(writer)
+
+        render_hydrocarbon_interpretation_report(
+            writer,
+            report,
+            language=language,
+            dataset=dataset,
+            include_chart=include_chart,
+        )
         del writer
         if temporary.stat().st_size <= 0:
             raise HydrocarbonInterpretationPdfError("Не удалось сформировать PDF-отчёт")
