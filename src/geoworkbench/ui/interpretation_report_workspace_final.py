@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QMarginsF
-from PySide6.QtGui import QPageLayout, QPageSize, QTextDocument
+from PySide6.QtGui import QPageLayout, QPageSize
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import QDialog
 
@@ -12,7 +12,9 @@ from geoworkbench.printing.gas_mixture_ramp_report import GasMixtureRampReport
 from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
     hydrocarbon_interpretation_html_with_front_chart,
 )
-from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
+    render_hydrocarbon_interpretation_report,
+)
 from geoworkbench.ui.interpretation_report_workspace_expert import (
     InterpretationReportWorkspace as _ExpertInterpretationReportWorkspace,
 )
@@ -93,17 +95,13 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
 
-        html = hydrocarbon_interpretation_html_with_front_chart(
+        render_hydrocarbon_interpretation_report(
+            printer,
             report,
-            dataset,
-            self.language,
-            print_layout=True,
+            language=self.language,
+            dataset=dataset,
+            include_chart=True,
         )
-        document = QTextDocument()
-        document.setDefaultFont(print_font(9.0, text=html))
-        document.setPageSize(printer.pageLayout().paintRectPoints().size())
-        document.setHtml(html)
-        document.print_(printer)
 
     def _export_xlsx(self) -> None:
         report = self._require_report()
