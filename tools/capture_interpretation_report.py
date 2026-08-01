@@ -43,12 +43,12 @@ _COVER_FIELDS = (
 )
 _SECTION_MARKERS = {
     "methods": "Методы и доступность",
-    "candidates": "Кандидатные интервалы УВ-проявлений",
+    "prospective_intervals": "Перспективные интервалы УВ-проявлений",
     "details": "Интерпретация по интервалам",
     "manual": "Интервалы, подтверждённые геологом",
     "warnings": "Ограничения методики",
 }
-_CANDIDATE_TABLE_HEADERS = (
+_PROSPECTIVE_TABLE_HEADERS = (
     "Интервал",
     "Относительная сила аномалии",
     "Предварительная интерпретация",
@@ -342,24 +342,24 @@ def _verify_forms(
             artifact_dir / f"{label}-form-{section}.png",
         )
 
-    candidate_pages = _page_indexes(document, "Относительная сила аномалии")
-    if not candidate_pages:
-        raise RuntimeError(f"{label}: candidate table header is missing")
-    for page_index in candidate_pages:
+    prospective_pages = _page_indexes(document, "Относительная сила аномалии")
+    if not prospective_pages:
+        raise RuntimeError(f"{label}: prospective-interval table header is missing")
+    for page_index in prospective_pages:
         _require_text(
             document[page_index].get_text(),
-            _CANDIDATE_TABLE_HEADERS,
-            f"{label} candidate form page {page_index + 1}",
+            _PROSPECTIVE_TABLE_HEADERS,
+            f"{label} prospective form page {page_index + 1}",
         )
-    if label == "long" and len(candidate_pages) < 2:
+    if label == "long" and len(prospective_pages) < 2:
         raise RuntimeError(
-            "long: candidate table did not create a continuation page for validation"
+            "long: prospective-interval table did not create a continuation page"
         )
     _render_page(
-        document[candidate_pages[-1]],
-        artifact_dir / f"{label}-candidate-table-continuation.png",
+        document[prospective_pages[-1]],
+        artifact_dir / f"{label}-prospective-table-continuation.png",
     )
-    section_pages["candidate_table_headers"] = candidate_pages
+    section_pages["prospective_table_headers"] = prospective_pages
     return section_pages
 
 
