@@ -32,19 +32,18 @@ def qapp():
 
 @pytest.fixture(autouse=True)
 def close_qt_windows_after_test():
-    """Dispose Qt windows without invoking application ``closeEvent`` hooks.
+    """Isolate Qt tests without running fragile window destruction hooks.
 
-    The suite contains windows whose close handlers own optional services.  One
+    The suite contains windows whose close handlers own optional services. One
     partially constructed window can therefore raise during ``widget.close()``
     and remain in QApplication, poisoning every later non-GUI test at teardown.
     Test cases that need close semantics call ``close()`` explicitly; the global
-    safety net only hides and schedules valid top-level roots for deletion.
+    safety net only hides valid top-level roots until the isolated shard exits.
     """
 
     yield
     if "PySide6.QtWidgets" not in sys.modules:
         return
-    from PySide6.QtCore import QCoreApplication, QEvent
     from PySide6.QtWidgets import QApplication, QWidget
     from shiboken6 import isValid
 
@@ -52,33 +51,20 @@ def close_qt_windows_after_test():
     if app is None:
         return
 
-    widgets = tuple(
-        widget
-        for widget in tuple(app.topLevelWidgets())
-        if isinstance(widget, QWidget) and isValid(widget)
-    )
-    for widget in widgets:
+    # Tests run in isolated subprocess shards. Hiding leftover top-level windows
+    # is enough to prevent them from affecting the next test while keeping the
+    # native Qt object graph intact until the shard exits. Do not call close(),
+    # deleteLater(), sendPostedEvents() or processEvents() here: close handlers may
+    # reference optional services on partially constructed windows, and forcing
+    # DeferredDelete delivery can enter TabletView.event after one of its native
+    # children has already been destroyed on the Windows offscreen backend.
+    for widget in tuple(app.topLevelWidgets()):
+        if not isinstance(widget, QWidget) or not isValid(widget):
+            continue
         try:
             widget.hide()
         except RuntimeError:
             pass
-
-    for widget in widgets:
-        if not isValid(widget):
-            continue
-        try:
-            parent = widget.parentWidget()
-        except RuntimeError:
-            parent = None
-        if parent is not None and isValid(parent):
-            continue
-        try:
-            widget.deleteLater()
-        except RuntimeError:
-            pass
-
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    app.processEvents()
 
 
 @pytest.fixture
