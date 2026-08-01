@@ -61,7 +61,6 @@ _PANEL_METHOD_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
 )
-
 _COLORS = (
     "#1d4ed8",
     "#dc2626",
@@ -91,7 +90,7 @@ def render_chart_pages(
     if not panels:
         return
 
-    available_plot_height = (
+    available_height = (
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
         - CHART_TRACK_HEADER_HEIGHT
@@ -101,25 +100,21 @@ def render_chart_pages(
     pages = plan_depth_pages(
         float(np.nanmin(depth[finite_depth])),
         float(np.nanmax(depth[finite_depth])),
-        available_plot_height,
+        available_height,
     )
-    if not pages:
-        return
-
-    curve_ranges = _curve_ranges(panels, dataset)
+    ranges = _curve_ranges(panels, dataset)
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
-        geometry = chart_geometry(canvas.content_rect, page, len(panels))
         _draw_chart_page(
             canvas.painter,
-            geometry,
+            chart_geometry(canvas.content_rect, page, len(panels)),
             page,
             page_index,
             len(pages),
             report,
             dataset,
             panels,
-            curve_ranges,
+            ranges,
             language,
         )
         canvas.y = canvas.content_rect.bottom()
@@ -134,12 +129,11 @@ def _draw_chart_page(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
     panels: tuple[tuple[str, tuple[CurveData, ...]], ...],
-    curve_ranges: dict[str, tuple[float, float]],
+    ranges: dict[str, tuple[float, float]],
     language: AppLanguage,
 ) -> None:
-    labels = _chart_labels(language)
-    title = labels["title"]
-    title_font = print_font(15.0, text=title)
+    labels = _labels(language)
+    title_font = print_font(15.0, text=labels["title"])
     title_font.setBold(True)
     painter.setFont(title_font)
     painter.setPen(QColor("#172033"))
@@ -151,7 +145,7 @@ def _draw_chart_page(
             25.0,
         ),
         Qt.AlignmentFlag.AlignCenter,
-        title,
+        labels["title"],
     )
     subtitle = labels["page"].format(
         current=page_index,
@@ -190,7 +184,6 @@ def _draw_chart_page(
         side="right",
         language=language,
     )
-
     intervals = tuple(
         (candidate.top_depth, candidate.bottom_depth)
         for candidate in report.candidates
@@ -205,17 +198,17 @@ def _draw_chart_page(
             dataset,
             panel_name,
             curves,
-            curve_ranges,
+            ranges,
             intervals,
             language,
         )
-        _draw_panel_legend(
+        _draw_legend(
             painter,
             geometry.legend_rect,
             panel_index,
             len(panels),
             curves,
-            curve_ranges,
+            ranges,
         )
 
     painter.setPen(QColor("#475569"))
@@ -238,14 +231,14 @@ def _draw_depth_axis(
     side: str,
     language: AppLanguage,
 ) -> None:
-    labels = _chart_labels(language)
+    labels = _labels(language)
     painter.fillRect(rect, QColor("#f8fafc"))
     painter.setPen(QPen(QColor("#334155"), 0.9))
     painter.drawRect(rect)
     title = labels["depth"] + (f", {unit}" if unit else "")
-    font = print_font(7.0, text=title)
-    font.setBold(True)
-    painter.setFont(font)
+    title_font = print_font(7.0, text=title)
+    title_font.setBold(True)
+    painter.setFont(title_font)
     painter.setPen(QColor("#172033"))
     painter.drawText(
         QRectF(rect.left() - 2.0, rect.top() - 28.0, rect.width() + 4.0, 18.0),
@@ -254,19 +247,7 @@ def _draw_depth_axis(
     )
 
     step = _nice_tick_step(page.span, target_ticks=8)
-    start = floor(page.top_depth / step) * step
-    ticks: list[float] = []
-    value = start
-    tolerance = step * 1e-7
-    while value <= page.bottom_depth + tolerance:
-        if value >= page.top_depth - tolerance:
-            ticks.append(float(value))
-        value += step
-    for endpoint in (page.top_depth, page.bottom_depth):
-        if not any(abs(endpoint - tick) <= tolerance for tick in ticks):
-            ticks.append(endpoint)
-    ticks.sort()
-
+    ticks = _depth_ticks(page, step)
     painter.setFont(print_font(6.7, text=f"{page.bottom_depth:.1f}"))
     for value in ticks:
         y = _depth_y(value, page, rect)
@@ -291,7 +272,6 @@ def _draw_depth_axis(
             alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         painter.setPen(QColor("#334155"))
         painter.drawText(text_rect, alignment, _depth_label(value, step))
-
     painter.setPen(QPen(QColor("#334155"), 0.9))
     painter.drawRect(rect)
 
@@ -303,20 +283,16 @@ def _draw_panel(
     dataset: Dataset,
     panel_name: str,
     curves: tuple[CurveData, ...],
-    curve_ranges: dict[str, tuple[float, float]],
+    ranges: dict[str, tuple[float, float]],
     intervals: tuple[tuple[float, float], ...],
     language: AppLanguage,
 ) -> None:
-    labels = _chart_labels(language)
     painter.fillRect(rect, QColor("#ffffff"))
-    tick_step = _nice_tick_step(page.span, target_ticks=8)
-    tick = floor(page.top_depth / tick_step) * tick_step
-    while tick <= page.bottom_depth + tick_step * 1e-7:
-        if tick >= page.top_depth - tick_step * 1e-7:
-            y = _depth_y(tick, page, rect)
-            painter.setPen(QPen(QColor("#d8e0e8"), 0.45))
-            painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
-        tick += tick_step
+    step = _nice_tick_step(page.span, target_ticks=8)
+    for tick in _depth_ticks(page, step):
+        y = _depth_y(tick, page, rect)
+        painter.setPen(QPen(QColor("#d8e0e8"), 0.45))
+        painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
     for index in range(5):
         x = rect.left() + index / 4.0 * rect.width()
         painter.setPen(QPen(QColor("#e4e9ef"), 0.4))
@@ -329,6 +305,28 @@ def _draw_panel(
             str(index * 25),
         )
 
+    _draw_interval_bands(painter, rect, page, intervals)
+    heading = _labels(language)[panel_name]
+    heading_font = print_font(7.5, text=heading)
+    heading_font.setBold(True)
+    painter.setFont(heading_font)
+    painter.setPen(QColor("#172033"))
+    painter.drawText(
+        QRectF(rect.left(), rect.top() - 32.0, rect.width(), 15.0),
+        Qt.AlignmentFlag.AlignCenter,
+        heading,
+    )
+    _draw_curves(painter, rect, page, dataset, curves, ranges)
+    painter.setPen(QPen(QColor("#334155"), 1.0))
+    painter.drawRect(rect)
+
+
+def _draw_interval_bands(
+    painter: QPainter,
+    rect: QRectF,
+    page: DepthPage,
+    intervals: tuple[tuple[float, float], ...],
+) -> None:
     for top_depth, bottom_depth in intervals:
         overlap_top = max(page.top_depth, min(top_depth, bottom_depth))
         overlap_bottom = min(page.bottom_depth, max(top_depth, bottom_depth))
@@ -348,84 +346,73 @@ def _draw_panel(
             color,
         )
 
-    heading = labels[panel_name]
-    heading_font = print_font(7.5, text=heading)
-    heading_font.setBold(True)
-    painter.setFont(heading_font)
-    painter.setPen(QColor("#172033"))
-    painter.drawText(
-        QRectF(rect.left(), rect.top() - 32.0, rect.width(), 15.0),
-        Qt.AlignmentFlag.AlignCenter,
-        heading,
-    )
 
+def _draw_curves(
+    painter: QPainter,
+    rect: QRectF,
+    page: DepthPage,
+    dataset: Dataset,
+    curves: tuple[CurveData, ...],
+    ranges: dict[str, tuple[float, float]],
+) -> None:
     depth = np.asarray(dataset.depth, dtype=np.float64)
-    page_indices = np.flatnonzero(
+    indices = np.flatnonzero(
         np.isfinite(depth)
         & (depth >= page.top_depth)
         & (depth <= page.bottom_depth)
     )
-    page_indices = page_indices[np.argsort(depth[page_indices], kind="stable")]
-    if page_indices.size > 2_500:
-        sample_positions = np.linspace(
-            0,
-            page_indices.size - 1,
-            2_500,
-            dtype=np.int64,
-        )
-        page_indices = page_indices[sample_positions]
+    indices = indices[np.argsort(depth[indices], kind="stable")]
+    if indices.size > 2_500:
+        positions = np.linspace(0, indices.size - 1, 2_500, dtype=np.int64)
+        indices = indices[positions]
 
     painter.save()
     painter.setClipRect(rect.adjusted(0.8, 0.8, -0.8, -0.8))
     curve_rect = rect.adjusted(3.0, 0.0, -3.0, 0.0)
     for curve_index, curve in enumerate(curves):
         values = np.asarray(curve.values, dtype=np.float64)
-        value_range = curve_ranges.get(curve.metadata.curve_id)
+        value_range = ranges.get(curve.metadata.curve_id)
         if values.shape != depth.shape or value_range is None:
             continue
         low, high = value_range
         painter.setPen(QPen(QColor(_COLORS[curve_index % len(_COLORS)]), 0.8))
         previous: tuple[float, float] | None = None
-        for row_index in page_indices:
+        for row_index in indices:
             value = values[row_index]
             if not np.isfinite(value):
                 previous = None
                 continue
             normalized = float(np.clip((value - low) / (high - low), 0.0, 1.0))
-            point = (
+            current = (
                 curve_rect.left() + normalized * curve_rect.width(),
                 _depth_y(float(depth[row_index]), page, curve_rect),
             )
             if previous is not None:
                 painter.drawLine(
-                    QLineF(previous[0], previous[1], point[0], point[1])
+                    QLineF(previous[0], previous[1], current[0], current[1])
                 )
-            previous = point
+            previous = current
     painter.restore()
-    painter.setPen(QPen(QColor("#334155"), 1.0))
-    painter.drawRect(rect)
 
 
-def _draw_panel_legend(
+def _draw_legend(
     painter: QPainter,
     legend_rect: QRectF,
     panel_index: int,
     panel_count: int,
     curves: tuple[CurveData, ...],
-    curve_ranges: dict[str, tuple[float, float]],
+    ranges: dict[str, tuple[float, float]],
 ) -> None:
-    column_gap = 8.0
-    column_width = (
-        legend_rect.width() - column_gap * (panel_count - 1)
-    ) / panel_count
+    gap = 8.0
+    width = (legend_rect.width() - gap * (panel_count - 1)) / panel_count
     column = QRectF(
-        legend_rect.left() + panel_index * (column_width + column_gap),
+        legend_rect.left() + panel_index * (width + gap),
         legend_rect.top(),
-        column_width,
+        width,
         legend_rect.height(),
     )
     for row_index, curve in enumerate(curves[:5]):
-        value_range = curve_ranges.get(curve.metadata.curve_id)
+        value_range = ranges.get(curve.metadata.curve_id)
         if value_range is None:
             continue
         low, high = value_range
@@ -510,7 +497,8 @@ def _panel_curves(
 
 
 def _nice_tick_step(span: float, *, target_ticks: int) -> float:
-    raw = max(float(span) / max(1, target_ticks), np.finfo(np.float64).eps)
+    epsilon = float(np.finfo(np.float64).eps)
+    raw = max(float(span) / max(1, target_ticks), epsilon)
     magnitude = 10.0 ** floor(log10(raw))
     normalized = raw / magnitude
     if normalized <= 1.0:
@@ -522,6 +510,20 @@ def _nice_tick_step(span: float, *, target_ticks: int) -> float:
     else:
         factor = 10.0
     return factor * magnitude
+
+
+def _depth_ticks(page: DepthPage, step: float) -> tuple[float, ...]:
+    tolerance = step * 1e-7
+    value = floor(page.top_depth / step) * step
+    ticks: list[float] = []
+    while value <= page.bottom_depth + tolerance:
+        if value >= page.top_depth - tolerance:
+            ticks.append(float(value))
+        value += step
+    for endpoint in (page.top_depth, page.bottom_depth):
+        if not any(abs(endpoint - tick) <= tolerance for tick in ticks):
+            ticks.append(endpoint)
+    return tuple(sorted(ticks))
 
 
 def _depth_y(depth: float, page: DepthPage, rect: QRectF) -> float:
@@ -543,7 +545,7 @@ def _strip_source_prefix(value: str) -> str:
     return stripped
 
 
-def _chart_labels(language: AppLanguage) -> dict[str, str]:
+def _labels(language: AppLanguage) -> dict[str, str]:
     return {
         AppLanguage.RU: {
             "title": "Графики интерпретационных кривых по глубине",
