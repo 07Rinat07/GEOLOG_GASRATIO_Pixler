@@ -53,7 +53,10 @@ def export_hydrocarbon_interpretation_pdf(
             QMarginsF(14.0, 14.0, 14.0, 14.0),
             QPageLayout.Unit.Millimeter,
         )
-        writer.setResolution(300)
+        # The renderer works in PostScript points. At 72 DPI one logical
+        # painter unit is exactly one point, so fonts and chart geometry share
+        # the same physical scale without an additional DPI transform.
+        writer.setResolution(72)
         writer.setTitle("Mud-gas interpretation report")
         writer.setCreator("GEOLOG GASRATIO@Pixler")
 
