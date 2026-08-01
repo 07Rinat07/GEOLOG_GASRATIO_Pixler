@@ -7,7 +7,7 @@ from PySide6.QtGui import QPainter
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
-from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart_enhanced import (
     render_chart_pages,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_cover import (
