@@ -120,6 +120,7 @@ def render_report_cover(
     painter = canvas.painter
     rect = canvas.content_rect
     compact = rect.width() < 620.0
+    short_page = rect.height() < 600.0
     accent = QColor("#174f78")
     accent_dark = QColor("#113b59")
     text_color = QColor("#172033")
@@ -137,9 +138,9 @@ def render_report_cover(
             accent,
         )
 
-        brand_top = rect.top() + 17.0
+        brand_top = rect.top() + (15.0 if short_page else 17.0)
         brand_width = rect.width() * (0.38 if compact else 0.34)
-        brand_font = print_font(9.0, text=labels["brand"])
+        brand_font = print_font(8.6 if short_page else 9.0, text=labels["brand"])
         brand_font.setBold(True)
         painter.setFont(brand_font)
         painter.setPen(accent)
@@ -149,9 +150,13 @@ def render_report_cover(
             labels["brand"],
         )
 
-        control_top = rect.top() + (42.0 if compact else 16.0)
-        control_width = rect.width() - 12.0 if compact else min(360.0, rect.width() * 0.52)
-        control_height = 58.0
+        control_top = rect.top() + (42.0 if compact else 14.0)
+        control_width = (
+            rect.width() - 12.0
+            if compact
+            else min(360.0, rect.width() * 0.52)
+        )
+        control_height = 52.0 if short_page else 58.0
         control_left = (
             rect.left() + 6.0
             if compact
@@ -178,29 +183,49 @@ def render_report_cover(
             )
             if index:
                 painter.setPen(QPen(card_border, 0.7))
-                painter.drawLine(QLineF(cell.left(), cell.top(), cell.left(), cell.bottom()))
-            label_font = print_font(6.8 if compact else 7.2, text=label)
+                painter.drawLine(
+                    QLineF(cell.left(), cell.top(), cell.left(), cell.bottom())
+                )
+            label_font = print_font(
+                6.4 if short_page else (6.8 if compact else 7.2),
+                text=label,
+            )
             label_font.setBold(True)
             painter.setFont(label_font)
             painter.setPen(muted)
             painter.drawText(
-                QRectF(cell.left() + 5.0, cell.top() + 5.0, cell.width() - 10.0, 16.0),
+                QRectF(
+                    cell.left() + 5.0,
+                    cell.top() + 4.0,
+                    cell.width() - 10.0,
+                    15.0,
+                ),
                 Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
                 label,
             )
-            value_font = print_font(7.6 if compact else 8.0, text=value)
+            value_font = print_font(
+                7.3 if short_page else (7.6 if compact else 8.0),
+                text=value,
+            )
             value_font.setBold(True)
             painter.setFont(value_font)
             painter.setPen(text_color)
             painter.drawText(
-                QRectF(cell.left() + 5.0, cell.top() + 23.0, cell.width() - 10.0, 29.0),
+                QRectF(
+                    cell.left() + 5.0,
+                    cell.top() + 20.0,
+                    cell.width() - 10.0,
+                    control.height() - 23.0,
+                ),
                 Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
                 value,
             )
 
-        title_top = control.bottom() + (15.0 if compact else 20.0)
-        title_height = 66.0 if compact else 54.0
-        title_font = print_font(22.0 if compact else 23.5, text=details.report_title)
+        title_gap = 8.0 if short_page else (15.0 if compact else 20.0)
+        title_top = control.bottom() + title_gap
+        title_height = 42.0 if short_page else (66.0 if compact else 54.0)
+        title_size = 20.5 if short_page else (22.0 if compact else 23.5)
+        title_font = print_font(title_size, text=details.report_title)
         title_font.setBold(True)
         painter.setFont(title_font)
         painter.setPen(text_color)
@@ -216,10 +241,18 @@ def render_report_cover(
         )
 
         subtitle_top = title_top + title_height + 2.0
-        painter.setFont(print_font(9.5, text=details.report_subtitle))
+        subtitle_height = 18.0 if short_page else 24.0
+        painter.setFont(
+            print_font(8.5 if short_page else 9.5, text=details.report_subtitle)
+        )
         painter.setPen(muted)
         painter.drawText(
-            QRectF(rect.left() + 24.0, subtitle_top, rect.width() - 48.0, 24.0),
+            QRectF(
+                rect.left() + 24.0,
+                subtitle_top,
+                rect.width() - 48.0,
+                subtitle_height,
+            ),
             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
             _value(details.report_subtitle),
         )
@@ -238,10 +271,10 @@ def render_report_cover(
             (labels["primary"], report.primary_mnemonic or "—"),
             (labels["threshold"], f"{report.threshold:.2f}"),
         )
-        card_top = subtitle_top + 34.0
+        card_top = subtitle_top + subtitle_height + (16.0 if short_page else 10.0)
         card_width = rect.width() * (0.94 if compact else 0.90)
         card_left = rect.center().x() - card_width / 2.0
-        card_height = 326.0 if compact else 224.0
+        card_height = 178.0 if short_page else (326.0 if compact else 224.0)
         card = QRectF(card_left, card_top, card_width, card_height)
         painter.setBrush(card_fill)
         painter.setPen(QPen(card_border, 1.0))
@@ -255,6 +288,7 @@ def render_report_cover(
                 text_color=text_color,
                 value_color=value_color,
                 line_color=line_color,
+                font_size=7.8,
             )
         else:
             _draw_wide_rows(
@@ -265,10 +299,11 @@ def render_report_cover(
                 value_color=value_color,
                 line_color=line_color,
                 card_border=card_border,
+                font_size=7.1 if short_page else 7.8,
             )
 
-        approval_top = card.bottom() + 14.0
-        approval_height = 83.0 if compact else 72.0
+        approval_top = card.bottom() + (9.0 if short_page else 14.0)
+        approval_height = 60.0 if short_page else (83.0 if compact else 72.0)
         approval = QRectF(card.left(), approval_top, card.width(), approval_height)
         painter.setBrush(QColor("#ffffff"))
         painter.setPen(QPen(card_border, 1.0))
@@ -288,52 +323,87 @@ def render_report_cover(
             )
             if index:
                 painter.setPen(QPen(card_border, 0.8))
-                painter.drawLine(QLineF(cell.left(), cell.top(), cell.left(), cell.bottom()))
-            label_font = print_font(8.0, text=label)
+                painter.drawLine(
+                    QLineF(cell.left(), cell.top(), cell.left(), cell.bottom())
+                )
+            label_font = print_font(7.1 if short_page else 8.0, text=label)
             label_font.setBold(True)
             painter.setFont(label_font)
             painter.setPen(accent_dark)
             painter.drawText(
-                QRectF(cell.left() + 7.0, cell.top() + 7.0, cell.width() - 14.0, 17.0),
+                QRectF(
+                    cell.left() + 7.0,
+                    cell.top() + (5.0 if short_page else 7.0),
+                    cell.width() - 14.0,
+                    15.0 if short_page else 17.0,
+                ),
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                 label,
             )
-            painter.setFont(print_font(8.2, text=value))
+            painter.setFont(
+                print_font(7.3 if short_page else 8.2, text=value)
+            )
             painter.setPen(value_color)
             painter.drawText(
-                QRectF(cell.left() + 7.0, cell.top() + 26.0, cell.width() - 14.0, 24.0),
+                QRectF(
+                    cell.left() + 7.0,
+                    cell.top() + (20.0 if short_page else 26.0),
+                    cell.width() - 14.0,
+                    18.0 if short_page else 24.0,
+                ),
                 Qt.AlignmentFlag.AlignLeft
                 | Qt.AlignmentFlag.AlignVCenter
                 | Qt.TextFlag.TextWordWrap,
                 _value(value),
             )
             painter.setPen(QPen(line_color, 0.8))
-            signature_y = cell.bottom() - 19.0
+            signature_y = cell.bottom() - (16.0 if short_page else 19.0)
             painter.drawLine(
-                QLineF(cell.left() + 7.0, signature_y, cell.right() - 7.0, signature_y)
+                QLineF(
+                    cell.left() + 7.0,
+                    signature_y,
+                    cell.right() - 7.0,
+                    signature_y,
+                )
             )
-            painter.setFont(print_font(6.7, text=labels["signature"]))
+            painter.setFont(
+                print_font(6.1 if short_page else 6.7, text=labels["signature"])
+            )
             painter.setPen(muted)
             painter.drawText(
-                QRectF(cell.left() + 7.0, signature_y + 2.0, cell.width() - 14.0, 13.0),
+                QRectF(
+                    cell.left() + 7.0,
+                    signature_y + 1.0,
+                    cell.width() - 14.0,
+                    12.0,
+                ),
                 Qt.AlignmentFlag.AlignCenter,
                 labels["signature"],
             )
 
-        footer_top = approval.bottom() + 11.0
-        footer_height = max(30.0, rect.bottom() - footer_top - 4.0)
+        footer_top = approval.bottom() + (7.0 if short_page else 11.0)
+        footer_height = max(24.0, rect.bottom() - footer_top - 4.0)
         footer = QRectF(
             rect.left() + 24.0,
             footer_top,
             rect.width() - 48.0,
             footer_height,
         )
-        footer_parts = [part for part in (
-            details.confidentiality,
-            details.remarks,
-            labels["footer"],
-        ) if part.strip()]
-        painter.setFont(print_font(7.6 if compact else 8.0, text=" ".join(footer_parts)))
+        footer_parts = [
+            part
+            for part in (
+                details.confidentiality,
+                details.remarks,
+                labels["footer"],
+            )
+            if part.strip()
+        ]
+        painter.setFont(
+            print_font(
+                7.1 if short_page else (7.6 if compact else 8.0),
+                text=" ".join(footer_parts),
+            )
+        )
         painter.setPen(muted)
         painter.drawText(
             footer,
@@ -354,19 +424,25 @@ def _draw_compact_rows(
     text_color: QColor,
     value_color: QColor,
     line_color: QColor,
+    font_size: float,
 ) -> None:
     label_width = min(142.0, card.width() * 0.34)
     row_left = card.left() + 14.0
     row_width = card.width() - 28.0
     row_height = (card.height() - 18.0) / len(rows)
-    label_font = print_font(7.8, text=" ".join(label for label, _ in rows))
+    label_font = print_font(font_size, text=" ".join(label for label, _ in rows))
     label_font.setBold(True)
-    value_font = print_font(7.8, text=" ".join(_value(value) for _, value in rows))
+    value_font = print_font(
+        font_size,
+        text=" ".join(_value(value) for _, value in rows),
+    )
     row_top = card.top() + 9.0
     for index, (label, value) in enumerate(rows):
         if index:
             painter.setPen(QPen(line_color, 0.7))
-            painter.drawLine(QLineF(row_left, row_top, row_left + row_width, row_top))
+            painter.drawLine(
+                QLineF(row_left, row_top, row_left + row_width, row_top)
+            )
         painter.setFont(label_font)
         painter.setPen(text_color)
         painter.drawText(
@@ -400,16 +476,32 @@ def _draw_wide_rows(
     value_color: QColor,
     line_color: QColor,
     card_border: QColor,
+    font_size: float,
 ) -> None:
     pair_count = len(rows) // 2
     pair_height = (card.height() - 16.0) / pair_count
-    inner = QRectF(card.left() + 12.0, card.top() + 8.0, card.width() - 24.0, card.height() - 16.0)
+    inner = QRectF(
+        card.left() + 12.0,
+        card.top() + 8.0,
+        card.width() - 24.0,
+        card.height() - 16.0,
+    )
     column_width = inner.width() / 2.0
     painter.setPen(QPen(card_border, 0.8))
-    painter.drawLine(QLineF(inner.center().x(), inner.top(), inner.center().x(), inner.bottom()))
-    label_font = print_font(7.8, text=" ".join(label for label, _ in rows))
+    painter.drawLine(
+        QLineF(
+            inner.center().x(),
+            inner.top(),
+            inner.center().x(),
+            inner.bottom(),
+        )
+    )
+    label_font = print_font(font_size, text=" ".join(label for label, _ in rows))
     label_font.setBold(True)
-    value_font = print_font(7.8, text=" ".join(_value(value) for _, value in rows))
+    value_font = print_font(
+        font_size,
+        text=" ".join(_value(value) for _, value in rows),
+    )
     for pair_index in range(pair_count):
         row_top = inner.top() + pair_index * pair_height
         if pair_index:
@@ -422,7 +514,12 @@ def _draw_wide_rows(
             painter.setFont(label_font)
             painter.setPen(text_color)
             painter.drawText(
-                QRectF(cell_left + 7.0, row_top + 3.0, label_width - 9.0, pair_height - 6.0),
+                QRectF(
+                    cell_left + 7.0,
+                    row_top + 3.0,
+                    label_width - 9.0,
+                    pair_height - 6.0,
+                ),
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                 f"{label}:",
             )
