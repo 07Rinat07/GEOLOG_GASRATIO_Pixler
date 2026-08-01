@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMenu, QToolButton
+from PySide6.QtWidgets import QMenu
 
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.main_window import MainWindow
@@ -126,12 +125,13 @@ def test_utility_workspaces_are_opened_from_purpose_specific_menus(qapp) -> None
     window.close()
 
 
-def test_wits_commands_are_collected_in_distinct_menu_bar_button(qapp) -> None:
+def test_wits_commands_are_collected_in_top_level_menu_after_tools(qapp) -> None:
     window = MainWindow(language=AppLanguage.RU)
     window.show()
     _finish_deferred_navigation(qapp)
 
     file_menu = _menu(window, "menu.file")
+    tools_menu = _menu(window, "menu.tools")
     expected_actions = (
         window.inspect_witsml_action,
         window.import_witsml_data_action,
@@ -140,26 +140,18 @@ def test_wits_commands_are_collected_in_distinct_menu_bar_button(qapp) -> None:
         window.capture_wits0_action,
     )
 
-    assert isinstance(window.wits_protocol_button, QToolButton)
-    assert window.wits_protocol_button.objectName() == "witsProtocolButton"
-    assert window.wits_protocol_button.text() == "WITS"
-    assert window.wits_protocol_button.menu() is window.wits_protocol_menu
-    assert window.wits_protocol_button.popupMode() is QToolButton.ToolButtonPopupMode.InstantPopup
-    assert window.wits_protocol_button.focusPolicy() is Qt.FocusPolicy.StrongFocus
-    assert not window.wits_protocol_button.icon().isNull()
-    assert window.wits_protocol_button.minimumWidth() >= 96
-    assert window.wits_protocol_button.minimumHeight() >= 30
-    assert window.wits_protocol_button.accessibleName() == "Центр WITS"
-    assert "потоковые данные" in window.wits_protocol_button.toolTip()
-    assert not window.wits_protocol_button.isHidden()
-    assert window.wits_protocol_button.sizeHint().width() >= 96
-    assert window.wits_protocol_button.sizeHint().height() >= 30
-
-    corner = window.menuBar().cornerWidget(Qt.Corner.TopRightCorner)
-    assert corner is window.wits_protocol_button or corner.isAncestorOf(
-        window.wits_protocol_button
-    )
     assert window.wits_protocol_menu.objectName() == "witsProtocolMenu"
+    assert window.wits_protocol_action is window.wits_protocol_menu.menuAction()
+    assert window.wits_protocol_action.objectName() == "witsProtocolMenuAction"
+    assert window.wits_protocol_action.text() == "WITS"
+    assert window.wits_protocol_menu.accessibleName() == "Центр WITS"
+    assert "потоковые данные" in window.wits_protocol_action.toolTip()
+    assert not hasattr(window, "wits_protocol_button")
+
+    menu_bar_actions = window.menuBar().actions()
+    tools_index = menu_bar_actions.index(tools_menu.menuAction())
+    assert menu_bar_actions[tools_index + 1] is window.wits_protocol_action
+
     assert _wits_command_actions(window) == expected_actions
     assert _wits_section_titles(window) == (
         "Файлы WITSML 2.x",
@@ -172,7 +164,7 @@ def test_wits_commands_are_collected_in_distinct_menu_bar_button(qapp) -> None:
     window.close()
 
 
-def test_wits_button_preserves_all_existing_command_handlers(qapp, monkeypatch) -> None:
+def test_wits_menu_preserves_all_existing_command_handlers(qapp, monkeypatch) -> None:
     called: list[str] = []
     monkeypatch.setattr(
         MainWindow,
@@ -211,7 +203,7 @@ def test_wits_button_preserves_all_existing_command_handlers(qapp, monkeypatch) 
     window.close()
 
 
-def test_wits_button_retranslates_without_recreating_commands(qapp) -> None:
+def test_wits_menu_retranslates_without_recreating_commands(qapp) -> None:
     window = MainWindow(language=AppLanguage.RU)
     window.show()
     _finish_deferred_navigation(qapp)
@@ -220,8 +212,9 @@ def test_wits_button_retranslates_without_recreating_commands(qapp) -> None:
     window.change_language(AppLanguage.KK)
     _finish_deferred_navigation(qapp)
 
-    assert window.wits_protocol_button.accessibleName() == "WITS орталығы"
-    assert "ағындық деректер" in window.wits_protocol_button.toolTip()
+    assert window.wits_protocol_action.text() == "WITS"
+    assert window.wits_protocol_menu.accessibleName() == "WITS орталығы"
+    assert "ағындық деректер" in window.wits_protocol_action.toolTip()
     assert _wits_section_titles(window) == (
         "WITSML 2.x файлдары",
         "Желілік қосылымдар",
@@ -232,8 +225,9 @@ def test_wits_button_retranslates_without_recreating_commands(qapp) -> None:
     window.change_language(AppLanguage.EN)
     _finish_deferred_navigation(qapp)
 
-    assert window.wits_protocol_button.accessibleName() == "WITS centre"
-    assert "streaming data" in window.wits_protocol_button.toolTip()
+    assert window.wits_protocol_action.text() == "WITS"
+    assert window.wits_protocol_menu.accessibleName() == "WITS centre"
+    assert "streaming data" in window.wits_protocol_action.toolTip()
     assert _wits_section_titles(window) == (
         "WITSML 2.x files",
         "Network connections",

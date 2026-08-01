@@ -3,21 +3,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, cast
 
-from PySide6.QtCore import QObject, QPointF, QRectF, QSize, QTimer, Qt
-from PySide6.QtGui import QAction, QIcon, QPainter, QPalette, QPen, QPixmap
-from PySide6.QtWidgets import (
-    QDialog,
-    QHBoxLayout,
-    QMainWindow,
-    QMenu,
-    QSizePolicy,
-    QStyle,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtCore import QObject, QTimer, Qt
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QDialog, QMainWindow, QMenu, QStyle, QVBoxLayout, QWidget
 
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.button_animation import install_button_animations
 from geoworkbench.ui.help_center_dialog import HelpCenterDialog
 from geoworkbench.ui.help_content import help_action_text, normalized_language
 
@@ -106,75 +97,6 @@ class _WorkspaceDialog(QDialog):
             layout.activate()
 
 
-class _WitsMenuButton(QToolButton):
-    """Distinct menu-bar entry point for all WITS/WITSML/ETP commands."""
-
-    def __init__(self, menu: QMenu, parent: QWidget) -> None:
-        super().__init__(parent)
-        self.setObjectName("witsProtocolButton")
-        self.setText("WITS")
-        self.setMenu(menu)
-        self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.setIcon(_wits_icon(self.palette()))
-        self.setIconSize(QSize(22, 22))
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setAutoRaise(False)
-        self.setMinimumSize(96, 30)
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.setStyleSheet(
-            """
-            QToolButton#witsProtocolButton {
-                border: 1px solid palette(highlight);
-                border-left: 4px solid palette(highlight);
-                border-radius: 6px;
-                padding: 3px 18px 3px 7px;
-                margin: 1px 6px 1px 4px;
-                background: palette(button);
-                color: palette(button-text);
-                font-weight: 700;
-            }
-            QToolButton#witsProtocolButton:hover {
-                background: palette(alternate-base);
-            }
-            QToolButton#witsProtocolButton:pressed {
-                background: palette(highlight);
-                color: palette(highlighted-text);
-            }
-            QToolButton#witsProtocolButton::menu-indicator {
-                subcontrol-origin: padding;
-                subcontrol-position: right center;
-                right: 5px;
-            }
-            """
-        )
-
-
-def _wits_icon(palette: QPalette) -> QIcon:
-    pixmap = QPixmap(28, 28)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    try:
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        accent = palette.color(QPalette.ColorRole.Highlight)
-        ink = palette.color(QPalette.ColorRole.ButtonText)
-        painter.setPen(QPen(accent, 2.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-        painter.drawLine(QPointF(7.0, 7.0), QPointF(20.0, 14.0))
-        painter.drawLine(QPointF(7.0, 21.0), QPointF(20.0, 14.0))
-        painter.setBrush(accent)
-        painter.drawEllipse(QRectF(3.5, 3.5, 7.0, 7.0))
-        painter.drawEllipse(QRectF(3.5, 17.5, 7.0, 7.0))
-        painter.setBrush(palette.color(QPalette.ColorRole.Button))
-        painter.drawEllipse(QRectF(16.0, 10.0, 8.0, 8.0))
-        painter.setPen(QPen(ink, 1.5))
-        painter.drawLine(QPointF(18.5, 13.0), QPointF(21.5, 15.0))
-        painter.drawLine(QPointF(18.5, 15.0), QPointF(21.5, 13.0))
-    finally:
-        painter.end()
-    return QIcon(pixmap)
-
-
 class NavigationOrganizationController(QObject):
     """Move utility workspaces to purpose-specific menus without changing their logic."""
 
@@ -188,12 +110,10 @@ class NavigationOrganizationController(QObject):
         self.gas_interpretation_action: QAction | None = None
         self.help_center_action: QAction | None = None
         self.wits_menu: QMenu | None = None
-        self.wits_button: _WitsMenuButton | None = None
         self.wits_files_section: QAction | None = None
         self.wits_connections_section: QAction | None = None
         self.wits_stream_section: QAction | None = None
         self.wits_actions: tuple[QAction, ...] = ()
-        self._wits_corner_host: QWidget | None = None
         self._installed = False
 
     def install(self) -> bool:
@@ -264,7 +184,7 @@ class NavigationOrganizationController(QObject):
         self.window.gas_interpretation_report_action = self.gas_interpretation_action
         self.window.interpretation_reports_menu = self.interpretation_reports_menu
 
-        self._install_wits_button(file_menu)
+        self._install_wits_menu(file_menu, tools_menu)
 
         self.help_center_action = QAction(self.window)
         self.help_center_action.setObjectName("helpCenterAction")
@@ -287,12 +207,13 @@ class NavigationOrganizationController(QObject):
                 lambda _checked=False: QTimer.singleShot(0, self.refresh_language)
             )
         self._install_direct_language_refresh()
+        install_button_animations(self.window)
 
         self._installed = True
         self.refresh_language()
         return True
 
-    def _install_wits_button(self, file_menu: QMenu) -> None:
+    def _install_wits_menu(self, file_menu: QMenu, tools_menu: QMenu) -> None:
         actions = tuple(
             cast(QAction, getattr(self.window, name)) for name in _WITS_ACTION_NAMES
         )
@@ -300,8 +221,9 @@ class NavigationOrganizationController(QObject):
         for action in actions:
             file_menu.removeAction(action)
 
-        self.wits_menu = QMenu(self.window)
+        self.wits_menu = QMenu("WITS", self.window)
         self.wits_menu.setObjectName("witsProtocolMenu")
+        self.wits_menu.menuAction().setObjectName("witsProtocolMenuAction")
         self.wits_menu.setToolTipsVisible(True)
         self.wits_files_section = self.wits_menu.addSection("")
         self.wits_menu.addAction(actions[0])
@@ -325,10 +247,9 @@ class NavigationOrganizationController(QObject):
             if action.icon().isNull():
                 action.setIcon(self.window.style().standardIcon(pixmap))
 
-        self.wits_button = _WitsMenuButton(self.wits_menu, self.window.menuBar())
-        self._wits_corner_host = _place_menu_bar_button(self.window, self.wits_button)
+        _insert_top_level_menu_after(self.window, tools_menu, self.wits_menu)
         self.window.wits_protocol_menu = self.wits_menu
-        self.window.wits_protocol_button = self.wits_button
+        self.window.wits_protocol_action = self.wits_menu.menuAction()
         self.window.wits_protocol_actions = self.wits_actions
 
     def _install_direct_language_refresh(self) -> None:
@@ -363,12 +284,11 @@ class NavigationOrganizationController(QObject):
         if self.help_dialog is not None:
             self.help_dialog.set_language(language)
         if self.wits_menu is not None:
-            self.wits_menu.setTitle(texts["wits_accessible"])
-        if self.wits_button is not None:
-            self.wits_button.setToolTip(texts["wits_tooltip"])
-            self.wits_button.setStatusTip(texts["wits_tooltip"])
-            self.wits_button.setAccessibleName(texts["wits_accessible"])
-            self.wits_button.setAccessibleDescription(texts["wits_tooltip"])
+            self.wits_menu.setTitle("WITS")
+            self.wits_menu.setAccessibleName(texts["wits_accessible"])
+            self.wits_menu.setAccessibleDescription(texts["wits_tooltip"])
+            self.wits_menu.menuAction().setToolTip(texts["wits_tooltip"])
+            self.wits_menu.menuAction().setStatusTip(texts["wits_tooltip"])
         if self.wits_files_section is not None:
             self.wits_files_section.setText(texts["wits_files"])
         if self.wits_connections_section is not None:
@@ -470,29 +390,24 @@ def _replace_trigger(action: QAction, callback: Callable[[], None]) -> None:
     action.triggered.connect(lambda _checked=False: callback())
 
 
-def _place_menu_bar_button(window: QMainWindow, button: QToolButton) -> QWidget:
+def _insert_top_level_menu_after(
+    window: QMainWindow,
+    anchor_menu: QMenu,
+    inserted_menu: QMenu,
+) -> None:
     menu_bar = window.menuBar()
-    corner = Qt.Corner.TopRightCorner
-    existing = menu_bar.cornerWidget(corner)
-    if existing is None:
-        menu_bar.setCornerWidget(button, corner)
-        button.show()
-        menu_bar.updateGeometry()
-        return button
-
-    host = QWidget(menu_bar)
-    host.setObjectName("menuBarCornerActions")
-    layout = QHBoxLayout(host)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(2)
-    existing.setParent(host)
-    layout.addWidget(existing)
-    layout.addWidget(button)
-    menu_bar.setCornerWidget(host, corner)
-    host.show()
-    button.show()
-    menu_bar.updateGeometry()
-    return host
+    actions = menu_bar.actions()
+    anchor_action = anchor_menu.menuAction()
+    try:
+        anchor_index = actions.index(anchor_action)
+    except ValueError:
+        menu_bar.addMenu(inserted_menu)
+        return
+    before_action = actions[anchor_index + 1] if anchor_index + 1 < len(actions) else None
+    if before_action is None:
+        menu_bar.addMenu(inserted_menu)
+    else:
+        menu_bar.insertMenu(before_action, inserted_menu)
 
 
 def _show_dialog(dialog: QDialog) -> None:
