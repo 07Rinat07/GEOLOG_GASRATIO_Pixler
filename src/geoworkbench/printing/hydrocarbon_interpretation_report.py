@@ -68,7 +68,6 @@ def export_hydrocarbon_interpretation_pdf(
         # the same physical scale without an additional DPI transform.
         writer.setResolution(72)
         writer.setTitle(details.report_title)
-        writer.setSubject(details.report_subtitle)
         writer.setCreator("GEOLOG GASRATIO@Pixler")
 
         html = hydrocarbon_interpretation_html(report, language)
