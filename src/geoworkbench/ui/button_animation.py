@@ -138,11 +138,11 @@ class ButtonAnimationController(QObject):
         animation = getattr(button, _ANIMATION_ATTRIBUTE, None)
         if isinstance(animation, QPropertyAnimation):
             animation.stop()
-            animation.setTargetObject(None)
+            animation.setTargetObject(None)  # type: ignore[arg-type]
 
         effect = getattr(button, _EFFECT_ATTRIBUTE, None)
         if isinstance(effect, QGraphicsOpacityEffect) and button.graphicsEffect() is effect:
-            button.setGraphicsEffect(None)
+            button.setGraphicsEffect(None)  # type: ignore[arg-type]
 
         for attribute in (_ANIMATION_ATTRIBUTE, _EFFECT_ATTRIBUTE):
             try:
