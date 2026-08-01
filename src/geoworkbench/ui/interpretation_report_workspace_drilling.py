@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from geoworkbench.data.hydrocarbon_interpretation_export import (
+    HydrocarbonInterpretationExportError,
+)
+from geoworkbench.data.hydrocarbon_interpretation_export_docx_polished import (
+    export_polished_hydrocarbon_interpretation_docx,
+)
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
 )
@@ -94,6 +100,39 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
             self._retranslate_drilling_controls()
             self._update_drilling_input_status()
 
+    def _export_docx(self) -> None:
+        report = self._require_report()
+        if report is None:
+            return
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return
+        identity = self._select_report_identity(report)
+        if identity is None:
+            return
+        target = self._choose_target(".docx", "Word (*.docx)")
+        if target is None:
+            return
+        try:
+            with self._report_export_progress(
+                self._text(
+                    "Формируется Word-отчёт с отдельным титульным листом…",
+                    "Жеке титулдық беті бар Word есебі құрылуда…",
+                    "Building Word report with a separate cover page…",
+                )
+            ):
+                exported = export_polished_hydrocarbon_interpretation_docx(
+                    report,
+                    target,
+                    dataset=dataset,
+                    identity=identity,
+                    overwrite=target.exists(),
+                )
+        except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
+            self._show_export_error(exc)
+            return
+        self._show_export_success(exported)
+
     def _retranslate_drilling_controls(self) -> None:
         self.configure_drilling_inputs_button.setText(
             self._text(
@@ -110,6 +149,18 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                 "жалпы есептеуді орындау.",
                 "Select ROP/FLOW/RPM/WOB curves, define actual hole size by section, and "
                 "run the shared calculation.",
+            )
+        )
+        self.docx_button.setToolTip(
+            self._text(
+                "Перед сохранением позволяет изменить реквизиты. Титульный лист Word "
+                "создаётся отдельной книжной страницей, а таблицы начинаются со "
+                "следующей альбомной страницы.",
+                "Сақтау алдында деректемелерді өзгертуге болады. Word титулдық беті "
+                "жеке кітапша бет ретінде жасалады, ал кестелер келесі альбомдық "
+                "беттен басталады.",
+                "Lets you edit report details before saving. Word uses a separate "
+                "portrait cover page, and tables start on the next landscape page.",
             )
         )
 
