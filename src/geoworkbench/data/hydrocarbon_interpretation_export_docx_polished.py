@@ -6,6 +6,8 @@ import tempfile
 import zipfile
 from xml.etree import ElementTree as ET
 
+from defusedxml.ElementTree import fromstring
+
 from geoworkbench.data.hydrocarbon_interpretation_export import (
     export_hydrocarbon_interpretation_docx,
 )
@@ -95,7 +97,7 @@ def _document_with_polished_cover(
     report: HydrocarbonInterpretationReport,
     identity: InterpretationReportIdentity,
 ) -> bytes:
-    root = ET.fromstring(xml)
+    root = fromstring(xml)
     body = root.find(_q("body"))
     if body is None:
         raise RuntimeError("Word-отчёт не содержит основного раздела документа")
