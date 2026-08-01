@@ -945,9 +945,10 @@ class PrintCenterDialog(QDialog):
         self.edit_header_button.setEnabled(
             has_header and self.edit_header_callback is not None
         )
-        preview_available = has_header and self.header_preview_callback is not None
+        preview_callback = self.header_preview_callback
+        preview_available = catalog_id is not None and preview_callback is not None
         self.header_preview_toggle.setEnabled(preview_available)
-        if not preview_available:
+        if catalog_id is None or preview_callback is None:
             self.header_preview_toggle.blockSignals(True)
             self.header_preview_toggle.setChecked(False)
             self.header_preview_toggle.blockSignals(False)
@@ -970,7 +971,7 @@ class PrintCenterDialog(QDialog):
             return
         self.header_preview.setVisible(True)
         try:
-            pixmap = self.header_preview_callback(catalog_id)
+            pixmap = preview_callback(catalog_id)
         except (KeyError, RuntimeError, ValueError):
             pixmap = None
         if pixmap is None or pixmap.isNull():
