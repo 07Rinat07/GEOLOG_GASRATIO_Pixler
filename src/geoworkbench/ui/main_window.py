@@ -4717,6 +4717,12 @@ class MainWindow(QMainWindow):
         known: set[str] = set()
         for item in catalog_items(self.session.project.masterlog_templates, self.language):
             label = item.name
+            orientation_label = {
+                "portrait": self._t("print.portrait"),
+                "landscape": self._t("print.landscape"),
+            }.get(item.preferred_orientation)
+            if orientation_label:
+                label += f" · {orientation_label}"
             if item.factory:
                 label += " — заводская"
             choices.append((item.catalog_id, label))

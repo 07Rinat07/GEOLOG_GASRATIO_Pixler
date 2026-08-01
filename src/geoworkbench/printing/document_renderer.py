@@ -20,7 +20,7 @@ from geoworkbench.printing.pagination import (
     PrintPageSlice,
     build_page_slices,
 )
-from geoworkbench.printing.print_job import PrintJobSettings
+from geoworkbench.printing.print_job import PrintHeaderPlacement, PrintJobSettings
 from geoworkbench.printing.print_layout import (
     PrintContinuationSlice,
     PrintScaleMode,
@@ -58,6 +58,10 @@ class PrintDocumentPage:
     @property
     def has_vertical_range(self) -> bool:
         return self.vertical.has_vertical_range
+
+    @property
+    def is_last_vertical_page(self) -> bool:
+        return self.vertical.index == self.vertical.total
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,9 +190,10 @@ def paint_document_page(
 
     localizer = Localizer.create(context.language)
     simple_header_height, footer_height = _band_heights(painter, page_rect)
+    paint_full_header = _should_paint_full_header(job, page, context)
     header_height = (
         _print_header_band_height(painter, page_rect, context.header_template)
-        if context.header_template is not None and context.session is not None
+        if paint_full_header and context.header_template is not None
         else simple_header_height
     )
     header = QRectF(page_rect.left(), page_rect.top(), page_rect.width(), header_height)
@@ -212,7 +217,7 @@ def paint_document_page(
     painter.save()
     try:
         painter.fillRect(page_rect, Qt.GlobalColor.white)
-        if context.header_template is not None and context.session is not None:
+        if paint_full_header and context.header_template is not None and context.session is not None:
             paint_masterlog_header(
                 painter,
                 header,
@@ -235,7 +240,9 @@ def paint_document_page(
             scale_mode=job.page.scale_mode,
             continuation=page.continuation,
             high_quality=high_quality,
-            repeat_column_header_at_bottom=(job.repeat_column_header_at_bottom),
+            repeat_column_header_at_bottom=_should_paint_column_header_at_bottom(
+                job, page
+            ),
         )
         _paint_footer(
             painter,
@@ -246,6 +253,26 @@ def paint_document_page(
         )
     finally:
         painter.restore()
+
+
+def _should_paint_full_header(
+    job: PrintJobSettings,
+    page: PrintDocumentPage,
+    context: PrintDocumentContext,
+) -> bool:
+    if context.header_template is None or context.session is None:
+        return False
+    return (
+        job.header_placement is PrintHeaderPlacement.EVERY_PAGE
+        or page.index == 1
+    )
+
+
+def _should_paint_column_header_at_bottom(
+    job: PrintJobSettings,
+    page: PrintDocumentPage,
+) -> bool:
+    return job.repeat_column_header_at_bottom and page.is_last_vertical_page
 
 
 def _paint_header(painter: QPainter, rect: QRectF, *, title: str, range_text: str) -> None:

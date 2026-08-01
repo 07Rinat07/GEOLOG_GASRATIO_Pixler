@@ -84,6 +84,11 @@ class PrintOutputFormat(StrEnum):
         }[self]
 
 
+class PrintHeaderPlacement(StrEnum):
+    FIRST_PAGE = "first_page"
+    EVERY_PAGE = "every_page"
+
+
 @dataclass(frozen=True, slots=True)
 class PrintJobSettings:
     output_format: PrintOutputFormat = PrintOutputFormat.PDF
@@ -94,6 +99,7 @@ class PrintJobSettings:
     pagination: PrintPaginationSettings = field(default_factory=PrintPaginationSettings)
     strict_unicode: bool = True
     header_template_id: str | None = None
+    header_placement: PrintHeaderPlacement = PrintHeaderPlacement.EVERY_PAGE
     repeat_column_header_at_bottom: bool = False
 
     def __post_init__(self) -> None:
@@ -110,6 +116,8 @@ class PrintJobSettings:
         if self.header_template_id is not None:
             if not isinstance(self.header_template_id, str) or not self.header_template_id.strip():
                 raise ValueError("ID печатной шапки должен быть непустой строкой")
+        if not isinstance(self.header_placement, PrintHeaderPlacement):
+            raise ValueError("Размещение печатной шапки задано некорректно")
         if not isinstance(self.repeat_column_header_at_bottom, bool):
             raise ValueError("Повтор шапки колонок должен быть логическим значением")
         if self.output_format.is_file and self.target is None:
@@ -127,7 +135,7 @@ class PrintJobSettings:
 
 @dataclass(frozen=True, slots=True)
 class PrintExportPreferences:
-    output_format: PrintOutputFormat = PrintOutputFormat.PDF
+    output_format: PrintOutputFormat = PrintOutputFormat.PRINTER
     dpi: int = 300
     image_quality: int = 92
     range_mode: PrintRangeMode = PrintRangeMode.CURRENT
@@ -137,13 +145,10 @@ class PrintExportPreferences:
     custom_end: float | None = None
     show_page_numbers: bool = True
     show_page_range: bool = True
+    header_placement: PrintHeaderPlacement = PrintHeaderPlacement.EVERY_PAGE
     repeat_column_header_at_bottom: bool = False
 
     def __post_init__(self) -> None:
-        if self.output_format is PrintOutputFormat.PRINTER:
-            # The physical printer can still be selected in the dialog, but a
-            # file format is a safer persistent default across computers.
-            object.__setattr__(self, "output_format", PrintOutputFormat.PDF)
         if isinstance(self.dpi, bool) or not isinstance(self.dpi, int) or not 72 <= self.dpi <= 600:
             raise ValueError("Разрешение должно быть от 72 до 600 DPI")
         if (
@@ -154,6 +159,8 @@ class PrintExportPreferences:
             raise ValueError("Качество изображения должно быть от 1 до 100")
         if not isinstance(self.repeat_column_header_at_bottom, bool):
             raise ValueError("Повтор шапки колонок должен быть логическим значением")
+        if not isinstance(self.header_placement, PrintHeaderPlacement):
+            raise ValueError("Размещение печатной шапки задано некорректно")
         PrintPaginationSettings(
             range_mode=self.range_mode,
             units_per_page=self.units_per_page,

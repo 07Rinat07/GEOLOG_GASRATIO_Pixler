@@ -231,14 +231,13 @@ def paint_tablet_header_repeat(
         painter.fillRect(page, Qt.GlobalColor.white)
         painter.setClipRect(page)
         if scale_mode is PrintScaleMode.FIT:
-            scale = min(
-                page.width() / snapshot.layout.total_width,
-                page.height() / snapshot.header_height,
-            )
-            rendered_width = snapshot.layout.total_width * scale
-            rendered_height = snapshot.header_height * scale
+            # The repeated header must follow the selected paper orientation.
+            # Its band is intentionally shorter than the live Qt header, so a
+            # single uniform scale would shrink a landscape header back toward
+            # portrait width. Scale width and height independently instead.
+            horizontal_scale = page.width() / snapshot.layout.total_width
+            rendered_width = snapshot.layout.total_width * horizontal_scale
             x = page.left() + (page.width() - rendered_width) / 2.0
-            y = page.top() + (page.height() - rendered_height) / 2.0
             for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
                 source = QRectF(
                     0.0,
@@ -248,12 +247,12 @@ def paint_tablet_header_repeat(
                 )
                 target = QRectF(
                     x,
-                    y,
-                    logical_width * scale,
-                    rendered_height,
+                    page.top(),
+                    logical_width * horizontal_scale,
+                    page.height(),
                 )
                 painter.drawPixmap(target, pixmap, source)
-                x += (logical_width + snapshot.layout.spacing) * scale
+                x += (logical_width + snapshot.layout.spacing) * horizontal_scale
             painter.drawLine(page.topLeft(), page.topRight())
             return
 

@@ -17,6 +17,7 @@ from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.printing.print_layout import PrintScaleMode
 from geoworkbench.printing.print_job import (
     PrintExportPreferences,
+    PrintHeaderPlacement,
     PrintOutputFormat,
 )
 
@@ -169,7 +170,7 @@ class UserProfileSettings:
             custom_start = payload.get("custom_start")
             custom_end = payload.get("custom_end")
             return PrintExportPreferences(
-                output_format=PrintOutputFormat(str(payload.get("output_format", "pdf"))),
+                output_format=PrintOutputFormat(str(payload.get("output_format", "printer"))),
                 dpi=int(payload.get("dpi", 300)),
                 image_quality=int(payload.get("image_quality", 92)),
                 range_mode=PrintRangeMode(str(payload.get("range_mode", "current"))),
@@ -179,6 +180,9 @@ class UserProfileSettings:
                 custom_end=float(custom_end) if custom_end is not None else None,
                 show_page_numbers=bool(payload.get("show_page_numbers", True)),
                 show_page_range=bool(payload.get("show_page_range", True)),
+                header_placement=PrintHeaderPlacement(
+                    str(payload.get("header_placement", "every_page"))
+                ),
                 repeat_column_header_at_bottom=bool(
                     payload.get("repeat_column_header_at_bottom", False)
                 ),
@@ -203,6 +207,7 @@ class UserProfileSettings:
                     "custom_end": value.custom_end,
                     "show_page_numbers": value.show_page_numbers,
                     "show_page_range": value.show_page_range,
+                    "header_placement": value.header_placement.value,
                     "repeat_column_header_at_bottom": (value.repeat_column_header_at_bottom),
                 },
                 ensure_ascii=False,

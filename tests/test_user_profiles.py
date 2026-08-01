@@ -158,7 +158,11 @@ def test_corrupt_table_number_formats_are_ignored() -> None:
 
 
 def test_print_export_preferences_roundtrip() -> None:
-    from geoworkbench.printing.print_job import PrintExportPreferences, PrintOutputFormat
+    from geoworkbench.printing.print_job import (
+        PrintExportPreferences,
+        PrintHeaderPlacement,
+        PrintOutputFormat,
+    )
 
     storage = MemorySettings()
     settings = UserProfileSettings(storage)
@@ -166,7 +170,20 @@ def test_print_export_preferences_roundtrip() -> None:
         output_format=PrintOutputFormat.JPEG,
         dpi=600,
         image_quality=84,
+        header_placement=PrintHeaderPlacement.FIRST_PAGE,
     )
+
+    settings.save_print_export_preferences(expected)
+
+    assert settings.print_export_preferences() == expected
+
+
+def test_physical_printer_preference_is_persisted() -> None:
+    from geoworkbench.printing.print_job import PrintExportPreferences, PrintOutputFormat
+
+    storage = MemorySettings()
+    settings = UserProfileSettings(storage)
+    expected = PrintExportPreferences(output_format=PrintOutputFormat.PRINTER)
 
     settings.save_print_export_preferences(expected)
 

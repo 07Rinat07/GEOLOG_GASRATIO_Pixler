@@ -221,6 +221,7 @@ def report_render_settings(job: PrintJobSettings) -> ReportRenderSettings:
                     if job.header_template_id is not None
                     else None
                 ),
+                ("header_placement", job.header_placement.value),
                 (
                     "repeat_column_header_at_bottom",
                     str(job.repeat_column_header_at_bottom).lower(),

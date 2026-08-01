@@ -6,6 +6,7 @@ from geoworkbench.data.visualization_export import export_widget_page_image
 from geoworkbench.printing.page_settings import PrintOrientation, PrintPageSettings
 from geoworkbench.printing.print_job import (
     PrintExportPreferences,
+    PrintHeaderPlacement,
     PrintJobSettings,
     PrintOutputFormat,
     available_output_formats,
@@ -60,16 +61,29 @@ def test_print_center_builds_a4_landscape_jpeg_job(qapp, tmp_path) -> None:
 
 def test_print_center_switches_to_physical_printer_without_file(qapp) -> None:
     dialog = PrintCenterDialog(language=AppLanguage.RU)
-    dialog.output_combo.setCurrentIndex(
-        dialog.output_combo.findData(PrintOutputFormat.PRINTER.value)
-    )
+    dialog.destination_tabs.setCurrentIndex(0)
 
     job = dialog.job_settings()
+    preferences = dialog.preferences()
 
     assert job.output_format is PrintOutputFormat.PRINTER
     assert job.target is None
     assert not dialog.path_input.isEnabled()
     assert dialog.ok_button.text() == "Печатать"
+    assert preferences.output_format is PrintOutputFormat.PRINTER
+    dialog.close()
+
+
+def test_print_center_separates_printer_and_file_destinations(qapp) -> None:
+    dialog = PrintCenterDialog(language=AppLanguage.RU)
+
+    assert dialog.destination_tabs.currentIndex() == 0
+    assert dialog.selected_output() is PrintOutputFormat.PRINTER
+    dialog.destination_tabs.setCurrentIndex(1)
+
+    assert dialog.selected_output() is PrintOutputFormat.PDF
+    assert dialog.path_input.isEnabled()
+    assert dialog.ok_button.text() == "Экспортировать"
     dialog.close()
 
 
@@ -88,7 +102,8 @@ def test_print_center_keeps_primary_action_visible_in_short_window(qapp) -> None
     assert button_bottom <= dialog.contentsRect().bottom() + 1
     assert dialog.settings_scroll.geometry().bottom() < dialog.action_bar.geometry().top()
     assert dialog.ok_button.objectName() == "print-center-primary-action"
-    assert "PDF" in dialog.action_summary.text()
+    assert "принтера" in dialog.action_summary.text()
+    assert dialog.ok_button.text() == "Печатать"
     assert dialog.header_preview.maximumHeight() == 68
     dialog.close()
 
@@ -111,6 +126,11 @@ def test_print_center_switches_paired_header_with_a4_orientation(qapp) -> None:
     )
 
     assert dialog.header_combo.currentData() == landscape
+    dialog.header_placement_combo.setCurrentIndex(
+        dialog.header_placement_combo.findData(PrintHeaderPlacement.FIRST_PAGE.value)
+    )
+
+    assert dialog.job_settings().header_placement is PrintHeaderPlacement.FIRST_PAGE
     dialog.close()
 
 
