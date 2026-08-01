@@ -58,6 +58,7 @@ def paint_widget_page(
     included_track_ids: tuple[str, ...] | None = None,
     grid_print_overrides: tuple[tuple[str, bool], ...] = (),
     target_content_height: int | None = None,
+    layout_content_height: int | None = None,
     page_aspect_ratio: float | None = None,
 ) -> None:
     """Render a chart/tablet into one deterministic paper continuation."""
@@ -91,6 +92,7 @@ def paint_widget_page(
                     show_column_header=show_column_header,
                     repeat_column_header_at_bottom=repeat_column_header_at_bottom,
                     target_content_height=target_content_height,
+                    layout_content_height=layout_content_height,
                 )
                 if repeat_column_header_at_bottom:
                     _paint_tablet_with_repeated_header(
