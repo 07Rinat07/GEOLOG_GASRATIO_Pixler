@@ -3,6 +3,9 @@ from PySide6.QtCore import QRectF
 from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
     _chart_block,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
+    _readable_depth_ticks,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
     chart_geometry,
     plan_depth_pages,
@@ -73,6 +76,21 @@ def test_large_well_uses_coarser_scale_than_small_well() -> None:
     long = plan_depth_pages(1_000.0, 4_000.0, 330.0)
 
     assert short[0].scale_denominator < long[0].scale_denominator
+
+
+def test_axis_keeps_exact_page_limits_without_overlapping_nearby_round_labels() -> None:
+    first_page = plan_depth_pages(1_000.0, 4_000.0, 330.0)[0]
+    last_page = plan_depth_pages(1_000.0, 4_000.0, 330.0)[-1]
+
+    first_ticks = _readable_depth_ticks(first_page, 50.0, 330.0)
+    last_ticks = _readable_depth_ticks(last_page, 50.0, 330.0)
+
+    assert first_ticks[0] == first_page.top_depth
+    assert first_ticks[-1] == first_page.bottom_depth
+    assert 1_250.0 not in first_ticks
+    assert last_ticks[0] == last_page.top_depth
+    assert last_ticks[-1] == last_page.bottom_depth
+    assert 3_800.0 not in last_ticks
 
 
 def test_chart_geometry_keeps_both_depth_scales_and_tracks_inside_page() -> None:
