@@ -4,6 +4,10 @@ from PySide6.QtCore import QLineF, QRectF, Qt
 from PySide6.QtGui import QColor, QPen
 
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+    InterpretationReportIdentity,
+    default_interpretation_report_identity,
+)
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -14,14 +18,26 @@ from geoworkbench.services.localization import AppLanguage
 _LABELS = {
     AppLanguage.RU: {
         "brand": "GEOLOG GASRATIO@Pixler",
-        "title": "Отчёт по интерпретации газового каротажа",
-        "subtitle": "Автоматизированный аналитический отчёт",
         "project": "Проект",
         "well": "Скважина",
+        "field": "Месторождение / площадь",
+        "location": "Местоположение",
+        "operator": "Оператор / заказчик",
+        "contractor": "Сервисная компания",
+        "rig": "Буровая / установка",
         "dataset": "Набор данных",
+        "interval": "Интервал отчёта",
         "created": "Сформирован",
         "primary": "Основная кривая",
         "threshold": "Порог robust z",
+        "document": "Документ",
+        "revision": "Ревизия",
+        "status": "Статус",
+        "date": "Дата отчёта",
+        "prepared": "Подготовил",
+        "checked": "Проверил",
+        "approved": "Утвердил",
+        "signature": "Подпись / дата",
         "footer": (
             "Графики, методы, перспективные интервалы и ограничения методики "
             "приведены на следующих страницах."
@@ -29,14 +45,26 @@ _LABELS = {
     },
     AppLanguage.KK: {
         "brand": "GEOLOG GASRATIO@Pixler",
-        "title": "Газ каротажын интерпретациялау есебі",
-        "subtitle": "Автоматтандырылған талдамалық есеп",
         "project": "Жоба",
         "well": "Ұңғыма",
+        "field": "Кен орны / алаң",
+        "location": "Орналасуы",
+        "operator": "Оператор / тапсырыс беруші",
+        "contractor": "Сервистік компания",
+        "rig": "Бұрғылау қондырғысы",
         "dataset": "Деректер жинағы",
+        "interval": "Есеп аралығы",
         "created": "Құрылған",
         "primary": "Негізгі қисық",
         "threshold": "Robust z шегі",
+        "document": "Құжат",
+        "revision": "Ревизия",
+        "status": "Күйі",
+        "date": "Есеп күні",
+        "prepared": "Дайындаған",
+        "checked": "Тексерген",
+        "approved": "Бекіткен",
+        "signature": "Қолы / күні",
         "footer": (
             "Графиктер, әдістер, перспективалы аралықтар және әдістеме "
             "шектеулері келесі беттерде берілген."
@@ -44,14 +72,26 @@ _LABELS = {
     },
     AppLanguage.EN: {
         "brand": "GEOLOG GASRATIO@Pixler",
-        "title": "Mud-gas interpretation report",
-        "subtitle": "Automated analytical report",
         "project": "Project",
         "well": "Well",
+        "field": "Field / area",
+        "location": "Location",
+        "operator": "Operator / client",
+        "contractor": "Service company",
+        "rig": "Rig / unit",
         "dataset": "Dataset",
+        "interval": "Report interval",
         "created": "Generated",
         "primary": "Primary curve",
         "threshold": "Robust z threshold",
+        "document": "Document",
+        "revision": "Revision",
+        "status": "Status",
+        "date": "Report date",
+        "prepared": "Prepared by",
+        "checked": "Checked by",
+        "approved": "Approved by",
+        "signature": "Signature / date",
         "footer": (
             "Charts, methods, prospective intervals, and methodology limitations "
             "are presented on the following pages."
@@ -60,22 +100,34 @@ _LABELS = {
 }
 
 
+def _value(text: str) -> str:
+    return text.strip() or "—"
+
+
 def render_report_cover(
     canvas: PageCanvas,
     report: HydrocarbonInterpretationReport,
     language: AppLanguage,
+    identity: InterpretationReportIdentity | None = None,
 ) -> None:
-    """Draw a balanced title page that works in portrait and landscape."""
+    """Draw an industry-style document cover in portrait or landscape."""
 
     labels = _LABELS[language]
+    details = (
+        identity
+        or default_interpretation_report_identity(report, language)
+    ).cleaned()
     painter = canvas.painter
     rect = canvas.content_rect
     compact = rect.width() < 620.0
     accent = QColor("#174f78")
+    accent_dark = QColor("#113b59")
     text_color = QColor("#172033")
+    value_color = QColor("#24384c")
     muted = QColor("#526579")
     card_fill = QColor("#f4f8fc")
     card_border = QColor("#9db1c5")
+    line_color = QColor("#d6e0ea")
 
     painter.save()
     try:
@@ -85,113 +137,309 @@ def render_report_cover(
             accent,
         )
 
-        painter.setPen(accent)
+        brand_top = rect.top() + 17.0
+        brand_width = rect.width() * (0.38 if compact else 0.34)
         brand_font = print_font(9.0, text=labels["brand"])
         brand_font.setBold(True)
         painter.setFont(brand_font)
+        painter.setPen(accent)
         painter.drawText(
-            QRectF(rect.left() + 6.0, rect.top() + 21.0, rect.width() - 12.0, 20.0),
+            QRectF(rect.left() + 6.0, brand_top, brand_width, 22.0),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             labels["brand"],
         )
 
-        title_top = rect.top() + (68.0 if compact else 52.0)
-        title_height = 78.0 if compact else 62.0
-        title_font = print_font(23.0 if compact else 23.5, text=labels["title"])
+        control_top = rect.top() + (42.0 if compact else 16.0)
+        control_width = rect.width() - 12.0 if compact else min(360.0, rect.width() * 0.52)
+        control_height = 58.0
+        control_left = (
+            rect.left() + 6.0
+            if compact
+            else rect.right() - control_width - 6.0
+        )
+        control = QRectF(control_left, control_top, control_width, control_height)
+        painter.setBrush(card_fill)
+        painter.setPen(QPen(card_border, 0.9))
+        painter.drawRoundedRect(control, 5.0, 5.0)
+
+        control_items = (
+            (labels["document"], _value(details.document_number)),
+            (labels["revision"], _value(details.revision)),
+            (labels["status"], _value(details.document_status)),
+            (labels["date"], _value(details.report_date)),
+        )
+        column_width = control.width() / 4.0
+        for index, (label, value) in enumerate(control_items):
+            cell = QRectF(
+                control.left() + index * column_width,
+                control.top(),
+                column_width,
+                control.height(),
+            )
+            if index:
+                painter.setPen(QPen(card_border, 0.7))
+                painter.drawLine(QLineF(cell.left(), cell.top(), cell.left(), cell.bottom()))
+            label_font = print_font(6.8 if compact else 7.2, text=label)
+            label_font.setBold(True)
+            painter.setFont(label_font)
+            painter.setPen(muted)
+            painter.drawText(
+                QRectF(cell.left() + 5.0, cell.top() + 5.0, cell.width() - 10.0, 16.0),
+                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+                label,
+            )
+            value_font = print_font(7.6 if compact else 8.0, text=value)
+            value_font.setBold(True)
+            painter.setFont(value_font)
+            painter.setPen(text_color)
+            painter.drawText(
+                QRectF(cell.left() + 5.0, cell.top() + 23.0, cell.width() - 10.0, 29.0),
+                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+                value,
+            )
+
+        title_top = control.bottom() + (15.0 if compact else 20.0)
+        title_height = 66.0 if compact else 54.0
+        title_font = print_font(22.0 if compact else 23.5, text=details.report_title)
         title_font.setBold(True)
         painter.setFont(title_font)
         painter.setPen(text_color)
         painter.drawText(
             QRectF(
-                rect.left() + 28.0,
+                rect.left() + 24.0,
                 title_top,
-                rect.width() - 56.0,
+                rect.width() - 48.0,
                 title_height,
             ),
             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
-            labels["title"],
+            _value(details.report_title),
         )
 
-        subtitle_top = title_top + title_height + 4.0
-        painter.setFont(print_font(10.0, text=labels["subtitle"]))
+        subtitle_top = title_top + title_height + 2.0
+        painter.setFont(print_font(9.5, text=details.report_subtitle))
         painter.setPen(muted)
         painter.drawText(
-            QRectF(rect.left(), subtitle_top, rect.width(), 22.0),
-            Qt.AlignmentFlag.AlignCenter,
-            labels["subtitle"],
+            QRectF(rect.left() + 24.0, subtitle_top, rect.width() - 48.0, 24.0),
+            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+            _value(details.report_subtitle),
         )
 
-        card_width = min(rect.width() * (0.88 if compact else 0.72), 640.0)
-        card_height = 270.0 if compact else 242.0
+        rows = (
+            (labels["project"], details.project_name),
+            (labels["well"], details.well_name),
+            (labels["field"], details.field_name),
+            (labels["location"], details.location),
+            (labels["operator"], details.operator_name),
+            (labels["contractor"], details.contractor_name),
+            (labels["rig"], details.rig_name),
+            (labels["dataset"], details.dataset_name),
+            (labels["interval"], details.interval),
+            (labels["created"], report.generated_at),
+            (labels["primary"], report.primary_mnemonic or "—"),
+            (labels["threshold"], f"{report.threshold:.2f}"),
+        )
+        card_top = subtitle_top + 34.0
+        card_width = rect.width() * (0.94 if compact else 0.90)
         card_left = rect.center().x() - card_width / 2.0
-        card_top = subtitle_top + (43.0 if compact else 32.0)
+        card_height = 326.0 if compact else 224.0
         card = QRectF(card_left, card_top, card_width, card_height)
         painter.setBrush(card_fill)
         painter.setPen(QPen(card_border, 1.0))
-        painter.drawRoundedRect(card, 8.0, 8.0)
+        painter.drawRoundedRect(card, 7.0, 7.0)
 
-        rows = (
-            (labels["project"], report.project_name, 34.0),
-            (labels["well"], report.well_name, 34.0),
-            (labels["dataset"], report.dataset_name, 58.0 if compact else 42.0),
-            (labels["created"], report.generated_at, 34.0),
-            (labels["primary"], report.primary_mnemonic or "—", 34.0),
-            (labels["threshold"], f"{report.threshold:.2f}", 34.0),
-        )
-        label_width = 138.0 if compact else 155.0
-        row_left = card.left() + 20.0
-        row_width = card.width() - 40.0
-        row_top = card.top() + 13.0
-        label_font = print_font(9.0, text=" ".join(label for label, _, _ in rows))
-        label_font.setBold(True)
-        value_font = print_font(9.0, text=" ".join(value for _, value, _ in rows))
-
-        for index, (label, value, row_height) in enumerate(rows):
-            if index:
-                painter.setPen(QPen(QColor("#d6e0ea"), 0.8))
-                painter.drawLine(
-                    QLineF(row_left, row_top, row_left + row_width, row_top)
-                )
-            painter.setFont(label_font)
-            painter.setPen(text_color)
-            painter.drawText(
-                QRectF(row_left, row_top + 4.0, label_width, row_height - 8.0),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                f"{label}:",
+        if compact:
+            _draw_compact_rows(
+                painter,
+                card,
+                rows,
+                text_color=text_color,
+                value_color=value_color,
+                line_color=line_color,
             )
-            painter.setFont(value_font)
-            painter.setPen(QColor("#24384c"))
+        else:
+            _draw_wide_rows(
+                painter,
+                card,
+                rows,
+                text_color=text_color,
+                value_color=value_color,
+                line_color=line_color,
+                card_border=card_border,
+            )
+
+        approval_top = card.bottom() + 14.0
+        approval_height = 83.0 if compact else 72.0
+        approval = QRectF(card.left(), approval_top, card.width(), approval_height)
+        painter.setBrush(QColor("#ffffff"))
+        painter.setPen(QPen(card_border, 1.0))
+        painter.drawRoundedRect(approval, 5.0, 5.0)
+        approval_items = (
+            (labels["prepared"], details.prepared_by),
+            (labels["checked"], details.checked_by),
+            (labels["approved"], details.approved_by),
+        )
+        approval_column = approval.width() / 3.0
+        for index, (label, value) in enumerate(approval_items):
+            cell = QRectF(
+                approval.left() + index * approval_column,
+                approval.top(),
+                approval_column,
+                approval.height(),
+            )
+            if index:
+                painter.setPen(QPen(card_border, 0.8))
+                painter.drawLine(QLineF(cell.left(), cell.top(), cell.left(), cell.bottom()))
+            label_font = print_font(8.0, text=label)
+            label_font.setBold(True)
+            painter.setFont(label_font)
+            painter.setPen(accent_dark)
             painter.drawText(
-                QRectF(
-                    row_left + label_width,
-                    row_top + 4.0,
-                    row_width - label_width,
-                    row_height - 8.0,
-                ),
+                QRectF(cell.left() + 7.0, cell.top() + 7.0, cell.width() - 14.0, 17.0),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                label,
+            )
+            painter.setFont(print_font(8.2, text=value))
+            painter.setPen(value_color)
+            painter.drawText(
+                QRectF(cell.left() + 7.0, cell.top() + 26.0, cell.width() - 14.0, 24.0),
                 Qt.AlignmentFlag.AlignLeft
                 | Qt.AlignmentFlag.AlignVCenter
                 | Qt.TextFlag.TextWordWrap,
-                value,
+                _value(value),
             )
-            row_top += row_height
+            painter.setPen(QPen(line_color, 0.8))
+            signature_y = cell.bottom() - 19.0
+            painter.drawLine(
+                QLineF(cell.left() + 7.0, signature_y, cell.right() - 7.0, signature_y)
+            )
+            painter.setFont(print_font(6.7, text=labels["signature"]))
+            painter.setPen(muted)
+            painter.drawText(
+                QRectF(cell.left() + 7.0, signature_y + 2.0, cell.width() - 14.0, 13.0),
+                Qt.AlignmentFlag.AlignCenter,
+                labels["signature"],
+            )
 
-        footer_rect = QRectF(
-            rect.left() + 35.0,
-            max(card.bottom() + 22.0, rect.bottom() - 68.0),
-            rect.width() - 70.0,
-            38.0,
+        footer_top = approval.bottom() + 11.0
+        footer_height = max(30.0, rect.bottom() - footer_top - 4.0)
+        footer = QRectF(
+            rect.left() + 24.0,
+            footer_top,
+            rect.width() - 48.0,
+            footer_height,
         )
-        painter.setFont(print_font(8.5, text=labels["footer"]))
+        footer_parts = [part for part in (
+            details.confidentiality,
+            details.remarks,
+            labels["footer"],
+        ) if part.strip()]
+        painter.setFont(print_font(7.6 if compact else 8.0, text=" ".join(footer_parts)))
         painter.setPen(muted)
         painter.drawText(
-            footer_rect,
+            footer,
             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
-            labels["footer"],
+            "\n".join(footer_parts),
         )
     finally:
         painter.restore()
 
     canvas.y = canvas.content_rect.bottom()
+
+
+def _draw_compact_rows(
+    painter,
+    card: QRectF,
+    rows: tuple[tuple[str, str], ...],
+    *,
+    text_color: QColor,
+    value_color: QColor,
+    line_color: QColor,
+) -> None:
+    label_width = min(142.0, card.width() * 0.34)
+    row_left = card.left() + 14.0
+    row_width = card.width() - 28.0
+    row_height = (card.height() - 18.0) / len(rows)
+    label_font = print_font(7.8, text=" ".join(label for label, _ in rows))
+    label_font.setBold(True)
+    value_font = print_font(7.8, text=" ".join(_value(value) for _, value in rows))
+    row_top = card.top() + 9.0
+    for index, (label, value) in enumerate(rows):
+        if index:
+            painter.setPen(QPen(line_color, 0.7))
+            painter.drawLine(QLineF(row_left, row_top, row_left + row_width, row_top))
+        painter.setFont(label_font)
+        painter.setPen(text_color)
+        painter.drawText(
+            QRectF(row_left, row_top + 2.0, label_width, row_height - 4.0),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            f"{label}:",
+        )
+        painter.setFont(value_font)
+        painter.setPen(value_color)
+        painter.drawText(
+            QRectF(
+                row_left + label_width,
+                row_top + 2.0,
+                row_width - label_width,
+                row_height - 4.0,
+            ),
+            Qt.AlignmentFlag.AlignLeft
+            | Qt.AlignmentFlag.AlignVCenter
+            | Qt.TextFlag.TextWordWrap,
+            _value(value),
+        )
+        row_top += row_height
+
+
+def _draw_wide_rows(
+    painter,
+    card: QRectF,
+    rows: tuple[tuple[str, str], ...],
+    *,
+    text_color: QColor,
+    value_color: QColor,
+    line_color: QColor,
+    card_border: QColor,
+) -> None:
+    pair_count = len(rows) // 2
+    pair_height = (card.height() - 16.0) / pair_count
+    inner = QRectF(card.left() + 12.0, card.top() + 8.0, card.width() - 24.0, card.height() - 16.0)
+    column_width = inner.width() / 2.0
+    painter.setPen(QPen(card_border, 0.8))
+    painter.drawLine(QLineF(inner.center().x(), inner.top(), inner.center().x(), inner.bottom()))
+    label_font = print_font(7.8, text=" ".join(label for label, _ in rows))
+    label_font.setBold(True)
+    value_font = print_font(7.8, text=" ".join(_value(value) for _, value in rows))
+    for pair_index in range(pair_count):
+        row_top = inner.top() + pair_index * pair_height
+        if pair_index:
+            painter.setPen(QPen(line_color, 0.7))
+            painter.drawLine(QLineF(inner.left(), row_top, inner.right(), row_top))
+        for column_index in range(2):
+            label, value = rows[pair_index * 2 + column_index]
+            cell_left = inner.left() + column_index * column_width
+            label_width = column_width * 0.37
+            painter.setFont(label_font)
+            painter.setPen(text_color)
+            painter.drawText(
+                QRectF(cell_left + 7.0, row_top + 3.0, label_width - 9.0, pair_height - 6.0),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                f"{label}:",
+            )
+            painter.setFont(value_font)
+            painter.setPen(value_color)
+            painter.drawText(
+                QRectF(
+                    cell_left + label_width,
+                    row_top + 3.0,
+                    column_width - label_width - 7.0,
+                    pair_height - 6.0,
+                ),
+                Qt.AlignmentFlag.AlignLeft
+                | Qt.AlignmentFlag.AlignVCenter
+                | Qt.TextFlag.TextWordWrap,
+                _value(value),
+            )
 
 
 __all__ = ["render_report_cover"]
