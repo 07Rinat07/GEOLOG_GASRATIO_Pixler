@@ -20,7 +20,7 @@ _LABELS = {
         "well": "Скважина",
         "dataset": "Набор данных",
         "created": "Сформирован",
-        "primary": "Основная газовая кривая",
+        "primary": "Основная кривая",
         "threshold": "Порог robust z",
         "footer": (
             "Графики, методы, перспективные интервалы и ограничения методики "
@@ -35,7 +35,7 @@ _LABELS = {
         "well": "Ұңғыма",
         "dataset": "Деректер жинағы",
         "created": "Құрылған",
-        "primary": "Негізгі газ қисығы",
+        "primary": "Негізгі қисық",
         "threshold": "Robust z шегі",
         "footer": (
             "Графиктер, әдістер, перспективалы аралықтар және әдістеме "
@@ -50,7 +50,7 @@ _LABELS = {
         "well": "Well",
         "dataset": "Dataset",
         "created": "Generated",
-        "primary": "Primary gas curve",
+        "primary": "Primary curve",
         "threshold": "Robust z threshold",
         "footer": (
             "Charts, methods, prospective intervals, and methodology limitations "
