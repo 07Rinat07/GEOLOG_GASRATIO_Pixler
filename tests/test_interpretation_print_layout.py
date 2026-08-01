@@ -7,6 +7,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
     _readable_depth_ticks,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
+    DepthPage,
     chart_geometry,
     plan_depth_pages,
 )
@@ -79,11 +80,11 @@ def test_large_well_uses_coarser_scale_than_small_well() -> None:
 
 
 def test_axis_keeps_exact_page_limits_without_overlapping_nearby_round_labels() -> None:
-    first_page = plan_depth_pages(1_000.0, 4_000.0, 330.0)[0]
-    last_page = plan_depth_pages(1_000.0, 4_000.0, 330.0)[-1]
+    first_page = DepthPage(1_000.0, 1_253.7, 2_000, 330.0)
+    last_page = DepthPage(3_790.3, 4_000.0, 2_000, 273.0)
 
     first_ticks = _readable_depth_ticks(first_page, 50.0, 330.0)
-    last_ticks = _readable_depth_ticks(last_page, 50.0, 330.0)
+    last_ticks = _readable_depth_ticks(last_page, 50.0, 273.0)
 
     assert first_ticks[0] == first_page.top_depth
     assert first_ticks[-1] == first_page.bottom_depth
