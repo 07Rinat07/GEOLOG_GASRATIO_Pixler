@@ -14,6 +14,8 @@ def test_print_preview_and_file_export_share_resolved_report_definition() -> Non
 
     assert "self._resolve_print_report(" in preview
     assert "self._resolve_print_report(" in execute
+    assert "QPrintDialog" not in execute
+    assert "self._print_jobs.create_printer(widget, normalized_job)" in execute
     assert "range_mode=PrintRangeMode.CUSTOM" in resolver
     assert "widget.vertical_index_id" in resolver
     assert "index_id=index_id or """ in resolver

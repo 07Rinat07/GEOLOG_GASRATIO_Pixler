@@ -169,6 +169,10 @@ class UserProfileSettings:
                 return PrintExportPreferences()
             custom_start = payload.get("custom_start")
             custom_end = payload.get("custom_end")
+            raw_printer_name = payload.get("printer_name")
+            printer_name = (
+                str(raw_printer_name).strip() if raw_printer_name is not None else None
+            )
             return PrintExportPreferences(
                 output_format=PrintOutputFormat(str(payload.get("output_format", "printer"))),
                 dpi=int(payload.get("dpi", 300)),
@@ -186,6 +190,8 @@ class UserProfileSettings:
                 repeat_column_header_at_bottom=bool(
                     payload.get("repeat_column_header_at_bottom", False)
                 ),
+                printer_name=printer_name or None,
+                copy_count=int(payload.get("copy_count", 1)),
             )
         except (json.JSONDecodeError, TypeError, ValueError):
             return PrintExportPreferences()
@@ -209,6 +215,8 @@ class UserProfileSettings:
                     "show_page_range": value.show_page_range,
                     "header_placement": value.header_placement.value,
                     "repeat_column_header_at_bottom": (value.repeat_column_header_at_bottom),
+                    "printer_name": value.printer_name,
+                    "copy_count": value.copy_count,
                 },
                 ensure_ascii=False,
             ),

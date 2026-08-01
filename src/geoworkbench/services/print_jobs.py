@@ -58,8 +58,34 @@ class PrintJobResult:
 class PrintJobExecutor:
     """Execute configured print/export jobs independently from window dialogs."""
 
+    def available_printers(self) -> tuple[tuple[str, bool], ...]:
+        try:
+            available = QPrinterInfo.availablePrinters()
+        except (OSError, RuntimeError):
+            return ()
+        printers = {
+            info.printerName().strip(): bool(info.isDefault())
+            for info in available
+            if info.printerName().strip()
+        }
+        return tuple(
+            sorted(
+                printers.items(),
+                key=lambda item: (not item[1], item[0].casefold()),
+            )
+        )
+
     def create_printer(self, widget: QWidget, job: PrintJobSettings) -> QPrinter:
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        if job.printer_name is not None:
+            printer_info = QPrinterInfo.printerInfo(job.printer_name)
+            if printer_info.isNull():
+                raise ValueError(
+                    f"Выбранный принтер недоступен: {job.printer_name}"
+                )
+            printer = QPrinter(printer_info, QPrinter.PrinterMode.HighResolution)
+        else:
+            printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer.setCopyCount(job.copy_count)
         self.configure_printer(printer, widget, job)
         plan = build_document_plan(widget, job)
         printer.setFromTo(1, plan.page_count)

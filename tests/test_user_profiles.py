@@ -171,6 +171,8 @@ def test_print_export_preferences_roundtrip() -> None:
         dpi=600,
         image_quality=84,
         header_placement=PrintHeaderPlacement.FIRST_PAGE,
+        printer_name="Engineering Plotter",
+        copy_count=4,
     )
 
     settings.save_print_export_preferences(expected)
@@ -183,7 +185,11 @@ def test_physical_printer_preference_is_persisted() -> None:
 
     storage = MemorySettings()
     settings = UserProfileSettings(storage)
-    expected = PrintExportPreferences(output_format=PrintOutputFormat.PRINTER)
+    expected = PrintExportPreferences(
+        output_format=PrintOutputFormat.PRINTER,
+        printer_name="Engineering Plotter",
+        copy_count=2,
+    )
 
     settings.save_print_export_preferences(expected)
 

@@ -52,6 +52,8 @@ PreviewCallback = Callable[[PrintJobSettings], None]
 HeaderCatalogCallback = Callable[[], tuple[tuple[str, str], ...]]
 HeaderPreviewCallback = Callable[[str], QPixmap | None]
 HeaderEditCallback = Callable[[str], None]
+PrinterCatalogCallback = Callable[[], tuple[tuple[str, bool], ...]]
+PrinterValidationCallback = Callable[[PrintJobSettings], None]
 
 
 class PrintCenterDialog(QDialog):
@@ -75,6 +77,9 @@ class PrintCenterDialog(QDialog):
         manage_headers_callback: HeaderCatalogCallback | None = None,
         header_preview_callback: HeaderPreviewCallback | None = None,
         edit_header_callback: HeaderEditCallback | None = None,
+        printer_choices: tuple[tuple[str, bool], ...] | None = None,
+        refresh_printers_callback: PrinterCatalogCallback | None = None,
+        validate_printer_callback: PrinterValidationCallback | None = None,
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
@@ -94,6 +99,8 @@ class PrintCenterDialog(QDialog):
         self.manage_headers_callback = manage_headers_callback
         self.header_preview_callback = header_preview_callback
         self.edit_header_callback = edit_header_callback
+        self.refresh_printers_callback = refresh_printers_callback
+        self.validate_printer_callback = validate_printer_callback
         page = initial_page or PrintPageSettings()
         preferences = initial_preferences or PrintExportPreferences()
         self.source_name = _safe_file_stem(source_name)
@@ -222,12 +229,49 @@ class PrintCenterDialog(QDialog):
         )
 
         printer_tab = QWidget()
-        printer_layout = QVBoxLayout(printer_tab)
+        printer_layout = QFormLayout(printer_tab)
         printer_layout.setContentsMargins(10, 10, 10, 10)
+
+        printer_selector = QWidget()
+        printer_selector_layout = QHBoxLayout(printer_selector)
+        printer_selector_layout.setContentsMargins(0, 0, 0, 0)
+        self.printer_combo = QComboBox()
+        self.printer_combo.setObjectName("print-center-printer-combo")
+        self.refresh_printers_button = QPushButton(
+            self._t("print_center.refresh_printers")
+        )
+        self.refresh_printers_button.clicked.connect(self._refresh_printers)
+        self.refresh_printers_button.setEnabled(refresh_printers_callback is not None)
+        printer_selector_layout.addWidget(self.printer_combo, 1)
+        printer_selector_layout.addWidget(self.refresh_printers_button)
+        printer_layout.addRow(
+            self._t("print_center.printer_label"), printer_selector
+        )
+
+        self.copy_count_input = QSpinBox()
+        self.copy_count_input.setRange(1, 999)
+        self.copy_count_input.setValue(preferences.copy_count)
+        printer_layout.addRow(
+            self._t("print_center.copy_count"), self.copy_count_input
+        )
+
+        self.printer_status = QLabel()
+        self.printer_status.setObjectName("print-center-printer-status")
+        self.printer_status.setWordWrap(True)
+        printer_layout.addRow(self.printer_status)
+
         printer_hint = QLabel(self._t("print_center.printer_hint"))
         printer_hint.setObjectName("print-center-printer-hint")
         printer_hint.setWordWrap(True)
-        printer_layout.addWidget(printer_hint)
+        printer_layout.addRow(printer_hint)
+
+        self._set_printer_choices(
+            printer_choices or (),
+            preferences.printer_name,
+            use_default_placeholder=printer_choices is None,
+        )
+        self.printer_combo.currentIndexChanged.connect(self._printer_changed)
+        self.copy_count_input.valueChanged.connect(self._printer_changed)
 
         file_tab = QWidget()
         self.file_output_layout = QFormLayout(file_tab)
@@ -299,6 +343,7 @@ class PrintCenterDialog(QDialog):
         self.format_combo.addItem(self._t("print.roll"), PrintPageFormat.ROLL.value)
         self.format_combo.setCurrentIndex(self.format_combo.findData(page.page_format.value))
         self.format_combo.currentIndexChanged.connect(self._update_enabled)
+        self.format_combo.currentIndexChanged.connect(self._refresh_action_summary)
         self.paper_layout.addRow(self._t("print.page_format"), self.format_combo)
 
         self.orientation_combo = QComboBox()
@@ -308,6 +353,7 @@ class PrintCenterDialog(QDialog):
             self.orientation_combo.findData(page.orientation.value)
         )
         self.orientation_combo.currentIndexChanged.connect(self._sync_paired_header_to_orientation)
+        self.orientation_combo.currentIndexChanged.connect(self._refresh_action_summary)
         self.paper_layout.addRow(self._t("print.orientation"), self.orientation_combo)
 
         self.dimensions_widget = QWidget()
@@ -587,6 +633,8 @@ class PrintCenterDialog(QDialog):
                 str(self.header_placement_combo.currentData())
             ),
             repeat_column_header_at_bottom=(self.repeat_column_header_check.isChecked()),
+            printer_name=self.selected_printer_name(),
+            copy_count=self.copy_count_input.value(),
         )
 
     def job_settings(self, *, allow_missing_target: bool = False) -> PrintJobSettings:
@@ -620,7 +668,59 @@ class PrintCenterDialog(QDialog):
                 str(self.header_placement_combo.currentData())
             ),
             repeat_column_header_at_bottom=(self.repeat_column_header_check.isChecked()),
+            printer_name=self.selected_printer_name(),
+            copy_count=self.copy_count_input.value(),
         )
+
+    def selected_printer_name(self) -> str | None:
+        raw = self.printer_combo.currentData()
+        if not isinstance(raw, str) or not raw.strip():
+            return None
+        return raw.strip()
+
+    def _set_printer_choices(
+        self,
+        choices: tuple[tuple[str, bool], ...],
+        selected_name: str | None = None,
+        *,
+        use_default_placeholder: bool = False,
+    ) -> None:
+        current = selected_name or self.selected_printer_name()
+        normalized = tuple(
+            (str(name).strip(), bool(is_default))
+            for name, is_default in choices
+            if str(name).strip()
+        )
+        self.printer_combo.blockSignals(True)
+        self.printer_combo.clear()
+        if not normalized and use_default_placeholder:
+            self.printer_combo.addItem(
+                self._t("print_center.system_default_printer"), ""
+            )
+        elif not normalized:
+            self.printer_combo.addItem(self._t("print_center.no_printers"), None)
+        else:
+            for name, is_default in normalized:
+                label = (
+                    self._t("print_center.default_printer", name=name)
+                    if is_default
+                    else name
+                )
+                self.printer_combo.addItem(label, name)
+        selected_index = self.printer_combo.findData(current) if current else -1
+        if selected_index < 0 and normalized:
+            selected_index = next(
+                (
+                    index
+                    for index, (_name, is_default) in enumerate(normalized)
+                    if is_default
+                ),
+                0,
+            )
+        self.printer_combo.setCurrentIndex(max(0, selected_index))
+        self.printer_combo.setEnabled(bool(normalized) or use_default_placeholder)
+        self.printer_combo.blockSignals(False)
+        self._printer_changed()
 
     def _set_header_choices(
         self,
@@ -764,6 +864,48 @@ class PrintCenterDialog(QDialog):
         except ValueError as exc:
             raise ValueError(self._t("print_center.dpi_error")) from exc
 
+    def _refresh_printers(self) -> None:
+        if self.refresh_printers_callback is None:
+            return
+        current = self.selected_printer_name()
+        try:
+            choices = self.refresh_printers_callback()
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self._set_printer_choices(tuple(choices), current)
+
+    def _printer_changed(self, _value: int | None = None) -> None:
+        if self.printer_combo.isEnabled():
+            self.printer_status.setText(
+                self._t("print_center.printer_ready")
+            )
+        else:
+            self.printer_status.setText(self._t("print_center.no_printers_hint"))
+        self._refresh_action_summary()
+
+    def _refresh_action_summary(self, _value: int | None = None) -> None:
+        if not hasattr(self, "action_summary"):
+            return
+        output = self.selected_output()
+        if output is PrintOutputFormat.PRINTER:
+            printer = self.printer_combo.currentText().strip()
+            page_format = str(self.format_combo.currentText()).strip()
+            orientation = str(self.orientation_combo.currentText()).strip()
+            self.action_summary.setText(
+                self._t(
+                    "print_center.printer_action_summary",
+                    printer=printer,
+                    copies=self.copy_count_input.value(),
+                    format=page_format,
+                    orientation=orientation,
+                )
+            )
+            return
+        self.action_summary.setText(
+            f"{self._t('print_center.output')}: {self._output_name(output)}"
+        )
+
     def _output_changed(self, _index: int | None = None) -> None:
         output = self.selected_output()
         file_enabled = output.is_file
@@ -784,12 +926,8 @@ class PrintCenterDialog(QDialog):
             if output is PrintOutputFormat.PRINTER
             else self._t("print_center.export")
         )
-        if output is PrintOutputFormat.PRINTER:
-            self.action_summary.setText(self._t("print_center.printer_action_summary"))
-        else:
-            self.action_summary.setText(
-                f"{self._t('print_center.output')}: {self._output_name(output)}"
-            )
+        self.ok_button.setEnabled(file_enabled or self.printer_combo.isEnabled())
+        self._refresh_action_summary()
         if file_enabled:
             current = Path(self.path_input.text()) if self.path_input.text().strip() else None
             if current is None:
@@ -868,8 +1006,18 @@ class PrintCenterDialog(QDialog):
 
     def _accept_checked(self) -> None:
         try:
-            self.job_settings()
-        except ValueError as exc:
+            if (
+                self.selected_output() is PrintOutputFormat.PRINTER
+                and not self.printer_combo.isEnabled()
+            ):
+                raise ValueError(self._t("print_center.no_printers_error"))
+            job = self.job_settings()
+            if (
+                job.output_format is PrintOutputFormat.PRINTER
+                and self.validate_printer_callback is not None
+            ):
+                self.validate_printer_callback(job)
+        except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
         self.accept()

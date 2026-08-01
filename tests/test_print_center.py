@@ -1,6 +1,6 @@
 from PySide6.QtCore import QPoint
 from PySide6.QtGui import QImageReader
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QDialog, QLabel
 
 from geoworkbench.data.visualization_export import export_widget_page_image
 from geoworkbench.printing.page_settings import PrintOrientation, PrintPageSettings
@@ -60,7 +60,17 @@ def test_print_center_builds_a4_landscape_jpeg_job(qapp, tmp_path) -> None:
 
 
 def test_print_center_switches_to_physical_printer_without_file(qapp) -> None:
-    dialog = PrintCenterDialog(language=AppLanguage.RU)
+    dialog = PrintCenterDialog(
+        language=AppLanguage.RU,
+        initial_preferences=PrintExportPreferences(
+            printer_name="Engineering Plotter",
+            copy_count=3,
+        ),
+        printer_choices=(
+            ("Office Printer", False),
+            ("Engineering Plotter", True),
+        ),
+    )
     dialog.destination_tabs.setCurrentIndex(0)
 
     job = dialog.job_settings()
@@ -68,9 +78,58 @@ def test_print_center_switches_to_physical_printer_without_file(qapp) -> None:
 
     assert job.output_format is PrintOutputFormat.PRINTER
     assert job.target is None
+    assert job.printer_name == "Engineering Plotter"
+    assert job.copy_count == 3
     assert not dialog.path_input.isEnabled()
     assert dialog.ok_button.text() == "Печатать"
     assert preferences.output_format is PrintOutputFormat.PRINTER
+    assert preferences.printer_name == "Engineering Plotter"
+    assert preferences.copy_count == 3
+    assert "Engineering Plotter" in dialog.action_summary.text()
+    assert "3 экз." in dialog.action_summary.text()
+    dialog.close()
+
+
+def test_print_center_disables_direct_print_when_no_printer_is_available(qapp) -> None:
+    dialog = PrintCenterDialog(
+        language=AppLanguage.RU,
+        printer_choices=(),
+    )
+
+    assert not dialog.printer_combo.isEnabled()
+    assert not dialog.ok_button.isEnabled()
+    assert "драйвер" in dialog.printer_status.text()
+    dialog.close()
+
+
+def test_print_center_refreshes_printer_list_and_keeps_direct_flow(qapp) -> None:
+    dialog = PrintCenterDialog(
+        language=AppLanguage.RU,
+        printer_choices=(("Old Printer", True),),
+        refresh_printers_callback=lambda: (("Engineering Plotter", True),),
+    )
+
+    dialog.refresh_printers_button.click()
+
+    assert dialog.selected_printer_name() == "Engineering Plotter"
+    assert dialog.ok_button.isEnabled()
+    assert "Engineering Plotter" in dialog.action_summary.text()
+    dialog.close()
+
+
+def test_print_center_validates_selected_printer_before_accepting(qapp) -> None:
+    captured: list[PrintJobSettings] = []
+    dialog = PrintCenterDialog(
+        language=AppLanguage.RU,
+        printer_choices=(("Engineering Plotter", True),),
+        validate_printer_callback=captured.append,
+    )
+
+    dialog._accept_checked()
+
+    assert dialog.result() == QDialog.DialogCode.Accepted
+    assert len(captured) == 1
+    assert captured[0].printer_name == "Engineering Plotter"
     dialog.close()
 
 
@@ -102,7 +161,8 @@ def test_print_center_keeps_primary_action_visible_in_short_window(qapp) -> None
     assert button_bottom <= dialog.contentsRect().bottom() + 1
     assert dialog.settings_scroll.geometry().bottom() < dialog.action_bar.geometry().top()
     assert dialog.ok_button.objectName() == "print-center-primary-action"
-    assert "принтера" in dialog.action_summary.text()
+    assert "Системный принтер" in dialog.action_summary.text()
+    assert "1 экз." in dialog.action_summary.text()
     assert dialog.ok_button.text() == "Печатать"
     assert dialog.header_preview.maximumHeight() == 68
     dialog.close()

@@ -26,7 +26,7 @@ from PySide6.QtGui import (
     QPixmap,
     QShowEvent,
 )
-from PySide6.QtPrintSupport import QPrintDialog, QPrintPreviewDialog
+from PySide6.QtPrintSupport import QPrintPreviewDialog
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -4212,6 +4212,11 @@ class MainWindow(QMainWindow):
             manage_headers_callback=self._manage_print_headers,
             header_preview_callback=self._print_header_preview_pixmap,
             edit_header_callback=self._open_print_header_from_center,
+            printer_choices=self._print_jobs.available_printers(),
+            refresh_printers_callback=self._print_jobs.available_printers,
+            validate_printer_callback=lambda job: self._validate_print_center_printer(
+                current, job
+            ),
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -4227,6 +4232,21 @@ class MainWindow(QMainWindow):
             report_form=report_form,
             report_context=report_context,
         )
+
+    def _validate_print_center_printer(
+        self,
+        widget,
+        job: PrintJobSettings,
+    ) -> None:
+        printer = self._print_jobs.create_printer(widget, job)
+        gate = self._print_jobs.physical_printer_gate(printer, widget, job)
+        if gate.ok:
+            return
+        details = "\n".join(
+            self._t("print_center.gate_" + issue.code.replace("-", "_"))
+            for issue in gate.errors
+        )
+        raise ValueError(details)
 
     def _preview_print_job(
         self,
@@ -4287,10 +4307,6 @@ class MainWindow(QMainWindow):
             header_template = self._resolve_print_header(normalized_job)
             if normalized_job.output_format is PrintOutputFormat.PRINTER:
                 printer = self._print_jobs.create_printer(widget, normalized_job)
-                dialog = QPrintDialog(printer, self)
-                dialog.setWindowTitle(self._t("print_center.physical_printer"))
-                if dialog.exec() != QDialog.DialogCode.Accepted:
-                    return
                 result = self._print_jobs.render_to_printer(
                     widget,
                     printer,
@@ -4654,6 +4670,8 @@ class MainWindow(QMainWindow):
                 page=self.print_page_settings,
                 dpi=self.print_export_preferences.dpi,
                 image_quality=self.print_export_preferences.image_quality,
+                printer_name=self.print_export_preferences.printer_name,
+                copy_count=self.print_export_preferences.copy_count,
             ),
             self.tabs.tabText(self.tabs.currentIndex()),
             report_context=ReportIntervalContext(

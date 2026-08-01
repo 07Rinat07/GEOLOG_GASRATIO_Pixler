@@ -10,6 +10,36 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.print_jobs import PrintJobExecutor
 
 
+def test_available_printers_are_default_first(monkeypatch) -> None:
+    class FakePrinterInfo:
+        def __init__(self, name: str, default: bool) -> None:
+            self._name = name
+            self._default = default
+
+        def printerName(self) -> str:
+            return self._name
+
+        def isDefault(self) -> bool:
+            return self._default
+
+    class FakePrinterCatalog:
+        @staticmethod
+        def availablePrinters():
+            return [
+                FakePrinterInfo("Office Printer", False),
+                FakePrinterInfo("Engineering Plotter", True),
+            ]
+
+    monkeypatch.setattr(
+        "geoworkbench.services.print_jobs.QPrinterInfo", FakePrinterCatalog
+    )
+
+    assert PrintJobExecutor().available_printers() == (
+        ("Engineering Plotter", True),
+        ("Office Printer", False),
+    )
+
+
 def test_file_executor_routes_pdf_and_normalizes_target(monkeypatch, qapp, tmp_path) -> None:
     widget = QLabel("Print job")
     widget.resize(640, 360)
@@ -81,9 +111,14 @@ def test_file_executor_routes_page_formats(monkeypatch, qapp, tmp_path) -> None:
 
 def test_printer_executor_uses_supplied_printer(monkeypatch, qapp) -> None:
     widget = QLabel("Printer")
-    job = PrintJobSettings(output_format=PrintOutputFormat.PRINTER, dpi=96)
+    job = PrintJobSettings(
+        output_format=PrintOutputFormat.PRINTER,
+        dpi=96,
+        copy_count=3,
+    )
     executor = PrintJobExecutor()
     printer = executor.create_printer(widget, job)
+    assert printer.copyCount() == 3
     captured: dict[str, object] = {}
 
     def fake_render(widget_arg, printer_arg, job_arg, *, context):

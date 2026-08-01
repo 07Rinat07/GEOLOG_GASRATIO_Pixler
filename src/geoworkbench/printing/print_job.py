@@ -101,6 +101,8 @@ class PrintJobSettings:
     header_template_id: str | None = None
     header_placement: PrintHeaderPlacement = PrintHeaderPlacement.EVERY_PAGE
     repeat_column_header_at_bottom: bool = False
+    printer_name: str | None = None
+    copy_count: int = 1
 
     def __post_init__(self) -> None:
         if isinstance(self.dpi, bool) or not isinstance(self.dpi, int) or not 72 <= self.dpi <= 600:
@@ -120,6 +122,15 @@ class PrintJobSettings:
             raise ValueError("Размещение печатной шапки задано некорректно")
         if not isinstance(self.repeat_column_header_at_bottom, bool):
             raise ValueError("Повтор шапки колонок должен быть логическим значением")
+        if self.printer_name is not None:
+            if not isinstance(self.printer_name, str) or not self.printer_name.strip():
+                raise ValueError("Имя принтера должно быть непустой строкой")
+        if (
+            isinstance(self.copy_count, bool)
+            or not isinstance(self.copy_count, int)
+            or not 1 <= self.copy_count <= 999
+        ):
+            raise ValueError("Количество копий должно быть от 1 до 999")
         if self.output_format.is_file and self.target is None:
             raise ValueError("Для файлового экспорта необходимо выбрать путь")
         if not self.output_format.is_file and self.target is not None:
@@ -147,6 +158,8 @@ class PrintExportPreferences:
     show_page_range: bool = True
     header_placement: PrintHeaderPlacement = PrintHeaderPlacement.EVERY_PAGE
     repeat_column_header_at_bottom: bool = False
+    printer_name: str | None = None
+    copy_count: int = 1
 
     def __post_init__(self) -> None:
         if isinstance(self.dpi, bool) or not isinstance(self.dpi, int) or not 72 <= self.dpi <= 600:
@@ -161,6 +174,15 @@ class PrintExportPreferences:
             raise ValueError("Повтор шапки колонок должен быть логическим значением")
         if not isinstance(self.header_placement, PrintHeaderPlacement):
             raise ValueError("Размещение печатной шапки задано некорректно")
+        if self.printer_name is not None:
+            if not isinstance(self.printer_name, str) or not self.printer_name.strip():
+                raise ValueError("Имя принтера должно быть непустой строкой")
+        if (
+            isinstance(self.copy_count, bool)
+            or not isinstance(self.copy_count, int)
+            or not 1 <= self.copy_count <= 999
+        ):
+            raise ValueError("Количество копий должно быть от 1 до 999")
         PrintPaginationSettings(
             range_mode=self.range_mode,
             units_per_page=self.units_per_page,
