@@ -49,13 +49,28 @@ class _WorkspaceDialog(QDialog):
         minimum_size: tuple[int, int],
     ) -> None:
         super().__init__(parent)
+        self.workspace = workspace
         self.setObjectName(object_name)
         self.setModal(False)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
         self.resize(*minimum_size)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        workspace.setParent(self)
         layout.addWidget(workspace, 1)
+
+    def ensure_workspace_visible(self) -> None:
+        """Restore visibility lost when QTabWidget removes an inactive page."""
+
+        if self.workspace.parentWidget() is not self:
+            self.workspace.setParent(self)
+            layout = self.layout()
+            if layout is not None and layout.indexOf(self.workspace) < 0:
+                layout.addWidget(self.workspace)
+        self.workspace.setVisible(True)
+        layout = self.layout()
+        if layout is not None:
+            layout.activate()
 
 
 class NavigationOrganizationController(QObject):
@@ -296,5 +311,7 @@ def _show_dialog(dialog: QDialog) -> None:
         dialog.showNormal()
     else:
         dialog.show()
+    if isinstance(dialog, _WorkspaceDialog):
+        dialog.ensure_workspace_visible()
     dialog.raise_()
     dialog.activateWindow()
