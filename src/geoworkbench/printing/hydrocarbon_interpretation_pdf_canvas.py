@@ -17,9 +17,12 @@ class PageCanvas:
         self.device = device
         self.painter = painter
         self.language = language
-        self.page_rect = QRectF(
-            device.pageLayout().paintRect(QPageLayout.Unit.Point)
-        )
+        paint_rect = device.pageLayout().paintRect(QPageLayout.Unit.Point)
+        # QPdfWriter and QPrinter already place the painter origin at the
+        # printable area's top-left corner when full-page mode is disabled.
+        # Reusing paint_rect.x()/y() would apply the margins a second time and
+        # move the right and bottom edges outside the physical page.
+        self.page_rect = QRectF(0.0, 0.0, paint_rect.width(), paint_rect.height())
         self.content_rect = self.page_rect.adjusted(
             0.0,
             0.0,
@@ -65,7 +68,7 @@ class PageCanvas:
         footer = QRectF(
             self.page_rect.left(),
             self.content_rect.bottom() + 2.0,
-            self.page_rect.width(),
+            self.page_rect.width() - 2.0,
             PAGE_FOOTER_HEIGHT - 2.0,
         )
         self.painter.setPen(QColor("#64748b"))
