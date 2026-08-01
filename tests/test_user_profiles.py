@@ -187,6 +187,7 @@ def test_print_export_preferences_roundtrip() -> None:
         output_format=PrintOutputFormat.JPEG,
         dpi=600,
         image_quality=84,
+        auto_units_per_page=True,
         header_placement=PrintHeaderPlacement.FIRST_PAGE,
         printer_name="Engineering Plotter",
         copy_count=4,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterator
 
 from PySide6.QtCore import QRectF, Qt
@@ -9,6 +9,7 @@ from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QWidget
 
 from geoworkbench.domain.models import MasterlogTemplate
+from geoworkbench.printing.auto_pagination import automatic_tablet_page_geometry
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.form_column_layout import original_column_layout
 from geoworkbench.printing.page_renderer import paint_widget_page
@@ -18,6 +19,7 @@ from geoworkbench.printing.masterlog_renderer import (
 )
 from geoworkbench.printing.pagination import (
     PrintPageSlice,
+    PrintRangeMode,
     build_page_slices,
 )
 from geoworkbench.printing.print_job import PrintHeaderPlacement, PrintJobSettings
@@ -71,6 +73,9 @@ class PrintDocumentPlan:
     axis_unit: str = ""
     source_width_px: int = 1
     source_height_px: int = 1
+    target_content_height_px: int | None = None
+    tablet_page_aspect_ratio: float | None = None
+    resolved_units_per_page: float | None = None
 
     @property
     def page_count(self) -> int:
@@ -116,11 +121,55 @@ def _selected_tablet_tracks(widget: TabletView, job: PrintJobSettings):
 
 
 def build_document_plan(widget: QWidget, job: PrintJobSettings) -> PrintDocumentPlan:
+    source_width, source_height = printable_content_dimensions(widget, job)
+    target_content_height: int | None = None
+    tablet_page_aspect_ratio: float | None = None
+    resolved_units_per_page: float | None = None
+    pagination = job.pagination
+
     if isinstance(widget, TabletView):
+        full_range = widget.printable_vertical_range()
+        if (
+            pagination.auto_units_per_page
+            and pagination.range_mode is not PrintRangeMode.CURRENT
+            and job.page.scale_mode is PrintScaleMode.FIT
+            and full_range is not None
+        ):
+            printable_tracks = _selected_tablet_tracks(widget, job)
+            selected_definitions = [item.definition for item in printable_tracks]
+            auto_source_width = original_column_layout(selected_definitions).total_width
+            header_height = max(
+                item.widget.title.height() + item.widget.curve_header_scroll.height()
+                for item in printable_tracks
+            )
+            current_range = widget.visible_depth_range or full_range
+            current_span = abs(float(current_range[1]) - float(current_range[0]))
+            media = job.page.media_dimensions(source_width, source_height)
+            auto_geometry = automatic_tablet_page_geometry(
+                # Selected columns determine the automatic density. The live
+                # TabletView width can still include columns excluded from this job.
+                source_width_px=auto_source_width,
+                source_content_height_px=source_height,
+                header_height_px=header_height,
+                current_span=current_span,
+                content_width_mm=media.content_width_mm,
+                content_height_mm=media.content_height_mm,
+            )
+            domain_span = abs(float(full_range[1]) - float(full_range[0]))
+            resolved_units_per_page = min(auto_geometry.units_per_page, domain_span)
+            target_content_height = auto_geometry.target_content_height_px
+            tablet_page_aspect_ratio = auto_geometry.page_aspect_ratio
+            pagination = replace(
+                pagination,
+                units_per_page=max(resolved_units_per_page, 1e-9),
+                auto_units_per_page=False,
+                overlap=0.0,
+            )
+
         vertical_pages = build_page_slices(
-            pagination=job.pagination,
+            pagination=pagination,
             current_range=widget.visible_depth_range,
-            full_range=widget.printable_vertical_range(),
+            full_range=full_range,
         )
         axis_label = widget.printable_vertical_label
         axis_unit = widget.printable_vertical_unit
@@ -129,8 +178,10 @@ def build_document_plan(widget: QWidget, job: PrintJobSettings) -> PrintDocument
         axis_label = ""
         axis_unit = ""
 
-    source_width, source_height = printable_content_dimensions(widget, job)
-    media = job.page.media_dimensions(source_width, source_height)
+    media = job.page.media_dimensions(
+        source_width,
+        target_content_height or source_height,
+    )
     continuations = build_horizontal_continuations(
         source_width_px=float(source_width),
         available_width_mm=media.content_width_mm,
@@ -148,7 +199,16 @@ def build_document_plan(widget: QWidget, job: PrintJobSettings) -> PrintDocument
         for continuation in continuations:
             pages.append(PrintDocumentPage(vertical, continuation, index, total))
             index += 1
-    return PrintDocumentPlan(tuple(pages), axis_label, axis_unit, source_width, source_height)
+    return PrintDocumentPlan(
+        tuple(pages),
+        axis_label,
+        axis_unit,
+        source_width,
+        source_height,
+        target_content_height,
+        tablet_page_aspect_ratio,
+        resolved_units_per_page,
+    )
 
 
 def paint_document_pages(
@@ -263,6 +323,8 @@ def paint_document_page(
             ),
             included_track_ids=job.included_track_ids,
             grid_print_overrides=job.grid_print_overrides,
+            target_content_height=plan.target_content_height_px,
+            page_aspect_ratio=plan.tablet_page_aspect_ratio,
         )
         _paint_footer(
             painter,

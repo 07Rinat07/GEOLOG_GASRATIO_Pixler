@@ -198,6 +198,7 @@ class PrintExportPreferences:
     image_quality: int = 92
     range_mode: PrintRangeMode = PrintRangeMode.CURRENT
     units_per_page: float = 50.0
+    auto_units_per_page: bool = False
     overlap: float = 0.0
     custom_start: float | None = None
     custom_end: float | None = None
@@ -233,6 +234,7 @@ class PrintExportPreferences:
         PrintPaginationSettings(
             range_mode=self.range_mode,
             units_per_page=self.units_per_page,
+            auto_units_per_page=self.auto_units_per_page,
             overlap=self.overlap,
             custom_start=self.custom_start,
             custom_end=self.custom_end,

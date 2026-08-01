@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QLabel
 
 from geoworkbench.printing.document_export import PrintDocumentResult
+from geoworkbench.printing.pagination import PrintPaginationSettings
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.print_jobs import PrintJobExecutor, report_render_settings
@@ -150,6 +151,7 @@ def test_report_render_settings_preserve_tablet_print_composition(tmp_path) -> N
         target=tmp_path / "tablet.pdf",
         included_track_ids=("depth", "gas"),
         grid_print_overrides=(("depth", True), ("gas", False)),
+        pagination=PrintPaginationSettings(auto_units_per_page=True),
     )
 
     options = dict(report_render_settings(job).options)
@@ -159,3 +161,4 @@ def test_report_render_settings_preserve_tablet_print_composition(tmp_path) -> N
         ["depth", True],
         ["gas", False],
     ]
+    assert options["auto_units_per_page"] == "true"
