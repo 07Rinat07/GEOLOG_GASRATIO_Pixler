@@ -1,0 +1,113 @@
+name: Apply temporary mypy fix
+
+on:
+  push:
+    branches:
+      - fix/failing-tests-f2a94b6
+    paths:
+      - .github/workflows/agent-fix-mypy.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out fix branch
+        uses: actions/checkout@v6
+        with:
+          ref: fix/failing-tests-f2a94b6
+
+      - name: Apply type-safe fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          grid_path = Path("src/geoworkbench/ui/grid_settings_widget.py")
+          grid_text = grid_path.read_text(encoding="utf-8")
+          old_grid = '''        values = (
+              (self.grid_x_input, bool(grid_x)),
+              (self.grid_y_input, bool(grid_y)),
+              (self.grid_major_input, int(major_divisions)),
+              (self.grid_minor_input, int(minor_divisions)),
+              (self.grid_alpha_input, float(alpha)),
+              (self.grid_print_input, bool(print_grid)),
+          )
+          previous = [control.blockSignals(True) for control, _value in values]
+          try:
+              for control, value in values:
+                  if isinstance(control, QCheckBox):
+                      control.setChecked(bool(value))
+                  else:
+                      control.setValue(value)
+          finally:
+              for (control, _value), was_blocked in zip(values, previous, strict=True):
+                  control.blockSignals(was_blocked)
+'''
+          new_grid = '''        values: tuple[tuple[QWidget, bool | int | float], ...] = (
+              (self.grid_x_input, bool(grid_x)),
+              (self.grid_y_input, bool(grid_y)),
+              (self.grid_major_input, int(major_divisions)),
+              (self.grid_minor_input, int(minor_divisions)),
+              (self.grid_alpha_input, float(alpha)),
+              (self.grid_print_input, bool(print_grid)),
+          )
+          previous = [
+              input_widget.blockSignals(True) for input_widget, _value in values
+          ]
+          try:
+              for input_widget, value in values:
+                  if isinstance(input_widget, QCheckBox):
+                      input_widget.setChecked(bool(value))
+                  elif isinstance(input_widget, QSpinBox):
+                      input_widget.setValue(int(value))
+                  elif isinstance(input_widget, QDoubleSpinBox):
+                      input_widget.setValue(float(value))
+                  else:
+                      raise TypeError("Неподдерживаемый элемент настройки сетки")
+          finally:
+              for (input_widget, _value), was_blocked in zip(
+                  values, previous, strict=True
+              ):
+                  input_widget.blockSignals(was_blocked)
+'''
+          if old_grid not in grid_text:
+              raise SystemExit("grid_settings_widget.py target block was not found")
+          grid_path.write_text(grid_text.replace(old_grid, new_grid, 1), encoding="utf-8")
+
+          preview_path = Path("src/geoworkbench/ui/print_center_dialog.py")
+          preview_text = preview_path.read_text(encoding="utf-8")
+          old_preview = '''        preview_available = has_header and self.header_preview_callback is not None
+          self.header_preview_toggle.setEnabled(preview_available)
+          if not preview_available:
+'''
+          new_preview = '''        preview_callback = self.header_preview_callback
+          preview_available = catalog_id is not None and preview_callback is not None
+          self.header_preview_toggle.setEnabled(preview_available)
+          if catalog_id is None or preview_callback is None:
+'''
+          if old_preview not in preview_text:
+              raise SystemExit("print_center_dialog.py availability block was not found")
+          preview_text = preview_text.replace(old_preview, new_preview, 1)
+          old_call = "            pixmap = self.header_preview_callback(catalog_id)\n"
+          new_call = "            pixmap = preview_callback(catalog_id)\n"
+          if old_call not in preview_text:
+              raise SystemExit("print_center_dialog.py callback call was not found")
+          preview_path.write_text(
+              preview_text.replace(old_call, new_call, 1), encoding="utf-8"
+          )
+
+          Path(".ci-trigger-f2a94b6").unlink(missing_ok=True)
+          Path(".github/workflows/agent-fix-mypy.yml").unlink()
+          PY
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: resolve print UI mypy errors"
+          git push origin HEAD:fix/failing-tests-f2a94b6
