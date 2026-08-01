@@ -10,6 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QT_OPENGL", "software")
 os.environ.setdefault("QT_QUICK_BACKEND", "software")
 os.environ.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
+os.environ.setdefault("GEOLOG_DISABLE_UNSAVED_PROMPT", "1")
 
 _SESSION_QAPP: object | None = None
 
