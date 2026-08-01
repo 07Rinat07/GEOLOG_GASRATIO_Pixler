@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from geoworkbench.forms.models import FormColumn, FormDocument, FormTrack
 from geoworkbench.tablet.models import (
@@ -77,6 +77,17 @@ class FormStructureEditor:
             raise ValueError("Название колонки не должно быть пустым")
         column.title = title
         column.__post_init__()
+        self.form.validate()
+        self.dirty = True
+
+    def set_column_visible(self, column_id: str, visible: bool) -> None:
+        column = self.column(column_id)
+        if column.locked:
+            raise PermissionError("Колонка заблокирована")
+        if not isinstance(visible, bool):
+            raise ValueError("visible должен быть логическим")
+        validated = replace(column, visible=visible)
+        column.visible = validated.visible
         self.form.validate()
         self.dirty = True
 
@@ -178,6 +189,49 @@ class FormStructureEditor:
             raise ValueError("Название дорожки не должно быть пустым")
         track.title = title
         track.__post_init__()
+        self.form.validate()
+        self.dirty = True
+
+    def set_track_visible(self, track_id: str, visible: bool) -> None:
+        column, track = self.track(track_id)
+        if track.locked or column.locked:
+            raise PermissionError("Дорожка заблокирована")
+        if not isinstance(visible, bool):
+            raise ValueError("visible должен быть логическим")
+        validated = replace(track, visible=visible)
+        track.visible = validated.visible
+        self.form.validate()
+        self.dirty = True
+
+    def set_track_grid(
+        self,
+        track_id: str,
+        *,
+        grid_x: bool,
+        grid_y: bool,
+        grid_major_divisions: int,
+        grid_minor_divisions: int,
+        grid_alpha: float,
+        grid_print: bool,
+    ) -> None:
+        column, track = self.track(track_id)
+        if track.locked or column.locked:
+            raise PermissionError("Дорожка заблокирована")
+        validated = replace(
+            track,
+            grid_x=grid_x,
+            grid_y=grid_y,
+            grid_major_divisions=grid_major_divisions,
+            grid_minor_divisions=grid_minor_divisions,
+            grid_alpha=grid_alpha,
+            grid_print=grid_print,
+        )
+        track.grid_x = validated.grid_x
+        track.grid_y = validated.grid_y
+        track.grid_major_divisions = validated.grid_major_divisions
+        track.grid_minor_divisions = validated.grid_minor_divisions
+        track.grid_alpha = validated.grid_alpha
+        track.grid_print = validated.grid_print
         self.form.validate()
         self.dirty = True
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from copy import deepcopy
 from typing import cast
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -77,4 +78,71 @@ def test_tablet_track_preview_renders_header_grid_and_curve_offscreen() -> None:
     assert not pixmap.isNull()
     assert pixmap.width() == 440
     assert pixmap.height() == 720
+    preview.close()
+
+
+def test_tablet_track_preview_uses_print_grid_visibility_and_depth_geometry(
+    monkeypatch,
+) -> None:
+    application = _application()
+    from geoworkbench.ui import tablet_track_preview_widget as preview_module
+
+    calls: list[tuple[float, float, float, int]] = []
+    original_lines = preview_module.aligned_engineering_grid_lines
+
+    def record_lines(
+        minimum: float,
+        maximum: float,
+        major_step: float,
+        minor_divisions: int,
+        **kwargs,
+    ):
+        calls.append((minimum, maximum, major_step, minor_divisions))
+        return original_lines(
+            minimum,
+            maximum,
+            major_step,
+            minor_divisions,
+            **kwargs,
+        )
+
+    monkeypatch.setattr(
+        preview_module,
+        "aligned_engineering_grid_lines",
+        record_lines,
+    )
+    enabled = TrackDefinition(
+        track_id="print-preview-grid",
+        title="Сетка печати",
+        kind=TrackKind.CURVE,
+        width=260,
+        grid_x=True,
+        grid_y=True,
+        grid_major_divisions=5,
+        grid_minor_divisions=5,
+        grid_alpha=0.8,
+        grid_print=True,
+    )
+    preview = TabletTrackPreviewWidget(enabled)
+    preview.resize(440, 720)
+    preview.show()
+    application.processEvents()
+    enabled_image = preview.grab().toImage()
+
+    hidden = deepcopy(enabled)
+    hidden.grid_print = False
+    preview.set_track(hidden)
+    application.processEvents()
+    hidden_image = preview.grab().toImage()
+
+    transparent = deepcopy(enabled)
+    transparent.grid_alpha = 0.0
+    preview.set_track(transparent)
+    application.processEvents()
+    transparent_image = preview.grab().toImage()
+
+    assert calls
+    assert calls[0] == (0.0, 50.0, 5.0, 5)
+    assert enabled_image != hidden_image
+    assert hidden_image == transparent_image
     preview.close()

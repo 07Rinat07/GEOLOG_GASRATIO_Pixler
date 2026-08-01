@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 
 from PySide6.QtGui import QPageLayout, QPageSize
@@ -255,6 +256,30 @@ def report_render_settings(job: PrintJobSettings) -> ReportRenderSettings:
                 (
                     "repeat_column_header_at_bottom",
                     str(job.repeat_column_header_at_bottom).lower(),
+                ),
+                (
+                    (
+                        "included_track_ids",
+                        json.dumps(
+                            job.included_track_ids,
+                            ensure_ascii=False,
+                            separators=(",", ":"),
+                        ),
+                    )
+                    if job.included_track_ids is not None
+                    else None
+                ),
+                (
+                    (
+                        "grid_print_overrides",
+                        json.dumps(
+                            job.grid_print_overrides,
+                            ensure_ascii=False,
+                            separators=(",", ":"),
+                        ),
+                    )
+                    if job.grid_print_overrides
+                    else None
                 ),
             )
             if item is not None

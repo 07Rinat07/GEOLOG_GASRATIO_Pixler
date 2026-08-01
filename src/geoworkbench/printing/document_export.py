@@ -21,6 +21,7 @@ from geoworkbench.printing.document_renderer import (
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.unicode_support import (
     UnicodePrintError,
+    collect_widget_text,
     ensure_widget_printable_unicode,
     preflight_texts,
 )
@@ -50,6 +51,18 @@ def render_document_to_printer(
     *,
     context: PrintDocumentContext,
 ) -> int:
+    detached = _detached_tablet_source(widget)
+    if detached is not None:
+        try:
+            return render_document_to_printer(
+                detached,
+                printer,
+                job,
+                context=context,
+            )
+        finally:
+            detached.close()
+            detached.deleteLater()
     _unicode_preflight(widget, context, job)
     # Qt exposes font embedding on QPrinter. Enabling it before QPainter starts
     # prevents the spool/PDF backend from substituting Kazakh Cyrillic or
@@ -100,6 +113,19 @@ def export_document_pdf(
     context: PrintDocumentContext,
     overwrite: bool = False,
 ) -> PrintDocumentResult:
+    detached = _detached_tablet_source(widget)
+    if detached is not None:
+        try:
+            return export_document_pdf(
+                detached,
+                target,
+                job,
+                context=context,
+                overwrite=overwrite,
+            )
+        finally:
+            detached.close()
+            detached.deleteLater()
     destination = Path(target)
     _validate_destination(destination, (".pdf",), overwrite)
     _unicode_preflight(widget, context, job)
@@ -149,6 +175,19 @@ def export_document_pages(
     context: PrintDocumentContext,
     overwrite: bool = False,
 ) -> PrintDocumentResult:
+    detached = _detached_tablet_source(widget)
+    if detached is not None:
+        try:
+            return export_document_pages(
+                detached,
+                target,
+                job,
+                context=context,
+                overwrite=overwrite,
+            )
+        finally:
+            detached.close()
+            detached.deleteLater()
     if job.output_format not in {
         PrintOutputFormat.PNG,
         PrintOutputFormat.JPEG,
@@ -299,10 +338,33 @@ def _unicode_preflight(
 ) -> None:
     if not job.strict_unicode:
         return
-    ensure_widget_printable_unicode(widget)
+    if job.included_track_ids is None or not hasattr(widget, "printable_tracks"):
+        ensure_widget_printable_unicode(widget)
+    else:
+        included = frozenset(job.included_track_ids)
+        selected_texts: list[str] = []
+        printable_tracks = getattr(widget, "printable_tracks")
+        for rendered in printable_tracks():
+            if rendered.definition.track_id in included:
+                selected_texts.extend(collect_widget_text(rendered.widget))
+        selected_report = preflight_texts(selected_texts)
+        if not selected_report.ok:
+            raise UnicodePrintError(selected_report.error_message())
     metadata = preflight_texts([context.title, "GEOLOG GASRATIO@Pixler"])
     if not metadata.ok:
         raise UnicodePrintError(metadata.error_message())
+
+
+def _detached_tablet_source(widget: QWidget) -> QWidget | None:
+    """Return a hidden print clone so page rendering never mutates the live UI."""
+
+    from geoworkbench.tablet.tablet_view import TabletView
+
+    if not isinstance(widget, TabletView):
+        return None
+    if bool(widget.property("geoworkbench-print-clone")):
+        return None
+    return widget.create_print_clone()
 
 
 def _page_paths(destination: Path, count: int) -> tuple[Path, ...]:

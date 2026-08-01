@@ -37,6 +37,7 @@ from geoworkbench.tablet.models import (
 from geoworkbench.tablet.screen_style import muted_screen_curve_color
 from geoworkbench.tablet.tablet_view import (
     CURVE_HEADER_EDITOR_HEIGHT,
+    CurveHeaderEditor,
     TabletTrackWidget,
     TabletView,
     curve_legend_label,
@@ -92,6 +93,45 @@ def test_dense_form_track_receives_active_localizer_and_renders_overflow_hint(qa
     widget = view._rendered["dense"].widget
     assert widget._localizer.language is AppLanguage.EN
     assert "Scroll the header" in widget.curve_header_scroll.toolTip()
+    view.close()
+
+
+def test_track_print_mode_hides_header_editor_actions_and_scrollbar(qapp) -> None:
+    dataset = Dataset(
+        "dataset-clean-print-header",
+        "Clean print header",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    curve = make_curve(dataset.dataset_id, "C1", "%")
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView(language=AppLanguage.EN)
+    view.set_layout_model(
+        TabletLayout(
+            [TrackDefinition("gas", "Gas", TrackKind.CURVE, curve_mnemonics=["C1"])]
+        )
+    )
+    view.set_dataset(dataset)
+    widget = view._rendered["gas"].widget
+    editor = widget._curve_header_labels["C1"]
+    assert isinstance(editor, CurveHeaderEditor)
+
+    widget.set_print_mode(True)
+
+    assert editor.action_strip.isHidden()
+    assert (
+        widget.curve_header_scroll.verticalScrollBarPolicy()
+        is Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    )
+
+    widget.set_print_mode(False)
+
+    assert not editor.action_strip.isHidden()
+    assert (
+        widget.curve_header_scroll.verticalScrollBarPolicy()
+        is Qt.ScrollBarPolicy.ScrollBarAsNeeded
+    )
     view.close()
 
 def test_curve_legend_label_includes_unit_only_when_present() -> None:
@@ -482,6 +522,9 @@ def test_depth_track_keeps_saved_grid_settings(qapp) -> None:
 
     assert view._rendered["depth"].plot.getAxis("bottom").grid is False
     assert view._rendered["depth"].plot.getAxis("left").grid is False
+    assert view._rendered["depth"].plot.getAxis("left").tickSpacing(
+        47.0, 97.0, 600.0
+    ) == [(5.0, 0.0)]
     view.close()
 
 

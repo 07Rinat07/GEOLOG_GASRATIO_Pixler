@@ -100,6 +100,7 @@ def test_masterlog_template_controller_manages_column_lifecycle() -> None:
         grid_major_divisions=4,
         grid_minor_divisions=5,
         grid_alpha=0.3,
+        grid_print=False,
     )
 
     assert second.curve_mnemonics == ["C1", "C2"]
@@ -115,6 +116,7 @@ def test_masterlog_template_controller_manages_column_lifecycle() -> None:
     assert second.grid_major_divisions == 4
     assert second.grid_minor_divisions == 5
     assert second.grid_alpha == 0.3
+    assert second.grid_print is False
     assert controller.move_column(template.template_id, second.column_id, -1) is True
     updated = controller.update_column(
         template.template_id,
@@ -148,6 +150,7 @@ def test_masterlog_column_update_preserves_grid_when_omitted() -> None:
         grid_major_divisions=4,
         grid_minor_divisions=8,
         grid_alpha=0.4,
+        grid_print=False,
     )
 
     updated = controller.update_column(
@@ -164,6 +167,7 @@ def test_masterlog_column_update_preserves_grid_when_omitted() -> None:
     assert updated.grid_major_divisions == 4
     assert updated.grid_minor_divisions == 8
     assert updated.grid_alpha == 0.4
+    assert updated.grid_print is False
 
 
 def test_masterlog_column_rejects_unsafe_width() -> None:
@@ -215,10 +219,11 @@ def test_masterlog_column_rejects_invalid_line_style() -> None:
         ({"grid_major_divisions": 0}, "от 1 до 20"),
         ({"grid_minor_divisions": 21}, "от 1 до 20"),
         ({"grid_alpha": 1.1}, "от 0 до 1"),
+        ({"grid_print": "yes"}, "логической"),
     ],
 )
 def test_masterlog_column_rejects_invalid_grid_settings(
-    grid_settings: dict[str, int | float], message: str
+    grid_settings: dict[str, object], message: str
 ) -> None:
     controller = MasterlogTemplateController(ProjectSession())
     template = controller.create("Standard")
@@ -427,6 +432,22 @@ def test_masterlog_template_controller_configures_page_geometry() -> None:
             custom_width_mm=250.0,
             custom_height_mm=500.0,
         )
+
+
+def test_masterlog_template_controller_normalizes_roll_orientation() -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Standard")
+
+    updated = controller.configure_page(
+        template.template_id,
+        page_format="roll",
+        depth_scale=500,
+        header_height_mm=35.0,
+        orientation="landscape",
+    )
+
+    assert updated.page_format == "roll"
+    assert updated.properties["orientation"] == "portrait"
 
 
 @pytest.mark.parametrize(

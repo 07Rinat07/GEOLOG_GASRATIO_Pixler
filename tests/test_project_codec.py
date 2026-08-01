@@ -314,6 +314,7 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
                 grid_major_divisions=4,
                 grid_minor_divisions=8,
                 grid_alpha=0.35,
+                grid_print=False,
             )
         ],
         version=3,
@@ -356,6 +357,7 @@ def test_project_round_trip_preserves_masterlog_template_and_anchors(tmp_path) -
     assert template.columns[0].grid_major_divisions == 4
     assert template.columns[0].grid_minor_divisions == 8
     assert template.columns[0].grid_alpha == 0.35
+    assert template.columns[0].grid_print is False
     assert template.header_elements[0].properties["asset_ref"] == "sha256:logo"
     assert template.header_elements[1].element_type == "lithology_legend"
     assert template.header_elements[1].properties["columns"] == 5

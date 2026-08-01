@@ -1,4 +1,4 @@
-from PySide6.QtCore import QPoint
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QImageReader
 from PySide6.QtWidgets import QDialog, QLabel
 
@@ -9,6 +9,7 @@ from geoworkbench.printing.print_job import (
     PrintHeaderPlacement,
     PrintJobSettings,
     PrintOutputFormat,
+    PrintTrackOption,
     available_output_formats,
 )
 from geoworkbench.services.localization import AppLanguage
@@ -194,6 +195,28 @@ def test_print_center_switches_paired_header_with_a4_orientation(qapp) -> None:
     dialog.close()
 
 
+def test_print_center_infers_factory_header_orientation_and_preserves_no_header(
+    qapp,
+) -> None:
+    portrait = "factory-header:a4_technology_portrait"
+    landscape = "factory-header:a4_technology_landscape"
+    dialog = PrintCenterDialog(
+        language=AppLanguage.RU,
+        initial_page=PrintPageSettings(orientation=PrintOrientation.LANDSCAPE),
+        header_choices=((portrait, "Portrait"), (landscape, "Landscape")),
+        initial_header_template_id=portrait,
+    )
+
+    assert dialog.header_combo.currentData() == landscape
+    dialog.header_combo.setCurrentIndex(0)
+    dialog.orientation_combo.setCurrentIndex(
+        dialog.orientation_combo.findData(PrintOrientation.PORTRAIT.value)
+    )
+
+    assert dialog.header_combo.currentData() is None
+    dialog.close()
+
+
 def test_print_center_can_repeat_column_header_at_bottom(qapp, tmp_path) -> None:
     dialog = PrintCenterDialog(
         initial_preferences=PrintExportPreferences(repeat_column_header_at_bottom=True)
@@ -205,6 +228,55 @@ def test_print_center_can_repeat_column_header_at_bottom(qapp, tmp_path) -> None
 
     assert job.repeat_column_header_at_bottom is True
     assert preferences.repeat_column_header_at_bottom is True
+    dialog.close()
+
+
+def test_print_center_controls_tablet_columns_and_print_grids(qapp, tmp_path) -> None:
+    dialog = PrintCenterDialog(
+        language=AppLanguage.RU,
+        track_print_options=(
+            PrintTrackOption("depth", "Глубина", grid_print=False, grid_x=False),
+            PrintTrackOption("gas", "Газ", grid_print=True),
+        ),
+    )
+    dialog.destination_tabs.setCurrentIndex(1)
+    dialog.path_input.setText(str(tmp_path / "tablet.pdf"))
+
+    depth_item = dialog.track_print_tree.topLevelItem(0)
+    gas_item = dialog.track_print_tree.topLevelItem(1)
+    assert depth_item is not None
+    assert gas_item is not None
+    depth_item.setCheckState(1, Qt.CheckState.Unchecked)
+    gas_item.setCheckState(2, Qt.CheckState.Unchecked)
+
+    job = dialog.job_settings()
+
+    assert job.included_track_ids == ("gas",)
+    assert job.grid_print_overrides == (("depth", False), ("gas", False))
+    assert "колонок: 1" in dialog.action_summary.text()
+    assert "сеток: 0" in dialog.action_summary.text()
+    dialog.show()
+    qapp.processEvents()
+    assert dialog.composition_group.isVisibleTo(dialog) is True
+    dialog.close()
+
+
+def test_print_center_requires_one_tablet_column(qapp, tmp_path) -> None:
+    dialog = PrintCenterDialog(
+        track_print_options=(PrintTrackOption("gas", "Gas"),),
+    )
+    dialog.destination_tabs.setCurrentIndex(1)
+    dialog.path_input.setText(str(tmp_path / "tablet.pdf"))
+    item = dialog.track_print_tree.topLevelItem(0)
+    assert item is not None
+    item.setCheckState(1, Qt.CheckState.Unchecked)
+
+    try:
+        dialog.job_settings()
+    except ValueError as exc:
+        assert "at least one" in str(exc).casefold() or "хотя бы" in str(exc).casefold()
+    else:
+        raise AssertionError("Empty tablet print composition must be rejected")
     dialog.close()
 
 

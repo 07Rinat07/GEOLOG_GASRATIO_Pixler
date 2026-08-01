@@ -8,7 +8,18 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QWidget
 
 from geoworkbench.domain.text_presentation import text_angle
+from geoworkbench.tablet.grid_geometry import (
+    DEFAULT_DEPTH_GRID_MAJOR_STEP,
+    DEFAULT_GRID_MINOR_DIVISIONS,
+    adaptive_aligned_step,
+    aligned_engineering_grid_lines,
+    normalized_grid_lines,
+)
 from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackDefinition
+
+
+_PREVIEW_DEPTH_MINIMUM = 0.0
+_PREVIEW_DEPTH_MAXIMUM = 50.0
 
 
 class TabletTrackPreviewWidget(QWidget):
@@ -48,7 +59,9 @@ class TabletTrackPreviewWidget(QWidget):
         group_height = 28.0 if self._track.group_title else 0.0
         title_height = 58.0
         curve_count = max(1, len(self._track.curve_mnemonics))
-        curve_row_height = max(18.0, min(32.0, (header_height - group_height - title_height) / curve_count))
+        curve_row_height = max(
+            18.0, min(32.0, (header_height - group_height - title_height) / curve_count)
+        )
 
         y = page.top()
         if self._track.group_title:
@@ -58,7 +71,11 @@ class TabletTrackPreviewWidget(QWidget):
             font = QFont(painter.font())
             font.setBold(True)
             painter.setFont(font)
-            painter.drawText(group_rect.adjusted(6, 0, -6, 0), Qt.AlignmentFlag.AlignCenter, self._track.group_title)
+            painter.drawText(
+                group_rect.adjusted(6, 0, -6, 0),
+                Qt.AlignmentFlag.AlignCenter,
+                self._track.group_title,
+            )
             painter.setPen(QPen(QColor("#94a3b8"), 0.8))
             painter.drawRect(group_rect)
             y += group_height
@@ -72,11 +89,7 @@ class TabletTrackPreviewWidget(QWidget):
 
         for mnemonic in self._track.curve_mnemonics or [""]:
             display = self._track.curve_display_settings(mnemonic) if mnemonic else None
-            style = (
-                self._track.curve_style(mnemonic) or CurveStyle()
-                if mnemonic
-                else CurveStyle()
-            )
+            style = self._track.curve_style(mnemonic) or CurveStyle() if mnemonic else CurveStyle()
             row = QRectF(page.left(), y, page.width(), curve_row_height)
             painter.fillRect(row, QColor("#ffffff"))
             painter.setPen(QPen(QColor("#cbd5e1"), 0.7))
@@ -84,14 +97,16 @@ class TabletTrackPreviewWidget(QWidget):
             if display is not None:
                 caption = display.display_name or mnemonic
                 value_range = (
-                    "AUTO"
-                    if display.automatic_range
-                    else f"{display.x_min:g} … {display.x_max:g}"
+                    "AUTO" if display.automatic_range else f"{display.x_min:g} … {display.x_max:g}"
                 )
                 painter.setPen(QColor(display.header_text_color))
                 painter.drawText(row.adjusted(6, 0, -74, 0), Qt.AlignmentFlag.AlignVCenter, caption)
                 painter.setPen(QColor("#475569"))
-                painter.drawText(row.adjusted(row.width() - 110, 0, -6, 0), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, value_range)
+                painter.drawText(
+                    row.adjusted(row.width() - 110, 0, -6, 0),
+                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                    value_range,
+                )
                 underline = display.header_line_color or style.color
                 painter.setPen(self._curve_pen(style, underline, 1.0))
                 painter.drawLine(
@@ -132,28 +147,56 @@ class TabletTrackPreviewWidget(QWidget):
         painter.restore()
 
     def _draw_grid(self, painter: QPainter, body: QRectF) -> None:
-        if not (self._track.grid_x or self._track.grid_y):
+        alpha = max(0.0, min(1.0, self._track.grid_alpha))
+        if (
+            not self._track.grid_print
+            or alpha <= 0.0
+            or not (self._track.grid_x or self._track.grid_y)
+        ):
             return
-        alpha = int(max(0.0, min(1.0, self._track.grid_alpha)) * 255)
-        major = QColor(100, 116, 139, alpha)
-        minor = QColor(148, 163, 184, max(30, alpha // 2))
+        major = QColor("#64748b")
+        major.setAlphaF(alpha)
+        minor = QColor("#94a3b8")
+        minor.setAlphaF(alpha * 0.45)
         if self._track.grid_x:
-            divisions = max(1, self._track.grid_major_divisions)
-            for index in range(1, divisions):
-                x = body.left() + body.width() * index / divisions
-                painter.setPen(QPen(major, 0.8))
-                painter.drawLine(QLineF(x, body.top(), x, body.bottom()))
-            minor_divisions = max(divisions, divisions * max(1, self._track.grid_minor_divisions))
-            for index in range(1, minor_divisions):
-                if index % max(1, self._track.grid_minor_divisions) == 0:
+            for x_grid_line in normalized_grid_lines(
+                self._track.grid_major_divisions,
+                self._track.grid_minor_divisions,
+            ):
+                if not 0.0 < x_grid_line.fraction < 1.0:
                     continue
-                x = body.left() + body.width() * index / minor_divisions
-                painter.setPen(QPen(minor, 0.45))
+                x = body.left() + body.width() * x_grid_line.fraction
+                painter.setPen(
+                    QPen(
+                        major if x_grid_line.major else minor,
+                        0.8 if x_grid_line.major else 0.45,
+                    )
+                )
                 painter.drawLine(QLineF(x, body.top(), x, body.bottom()))
         if self._track.grid_y:
-            for index in range(1, 10):
-                y = body.top() + body.height() * index / 10.0
-                painter.setPen(QPen(major if index % 5 == 0 else minor, 0.7))
+            major_step = adaptive_aligned_step(
+                _PREVIEW_DEPTH_MINIMUM,
+                _PREVIEW_DEPTH_MAXIMUM,
+                DEFAULT_DEPTH_GRID_MAJOR_STEP,
+            )
+            for depth_grid_line in aligned_engineering_grid_lines(
+                _PREVIEW_DEPTH_MINIMUM,
+                _PREVIEW_DEPTH_MAXIMUM,
+                major_step,
+                DEFAULT_GRID_MINOR_DIVISIONS,
+            ):
+                fraction = (depth_grid_line.value - _PREVIEW_DEPTH_MINIMUM) / (
+                    _PREVIEW_DEPTH_MAXIMUM - _PREVIEW_DEPTH_MINIMUM
+                )
+                if not 0.0 < fraction < 1.0:
+                    continue
+                y = body.top() + body.height() * fraction
+                painter.setPen(
+                    QPen(
+                        major if depth_grid_line.major else minor,
+                        0.7 if depth_grid_line.major else 0.4,
+                    )
+                )
                 painter.drawLine(QLineF(body.left(), y, body.right(), y))
 
     def _draw_curves(self, painter: QPainter, body: QRectF) -> None:

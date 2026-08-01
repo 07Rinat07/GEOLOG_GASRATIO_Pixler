@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from math import ceil, isfinite
 from typing import cast
 
 import pyqtgraph as pg
@@ -9,7 +10,15 @@ from PySide6.QtCore import Qt
 
 
 from geoworkbench.tablet.grid_geometry import (
+    AlignedGridLine,
+    DEFAULT_DEPTH_GRID_MAJOR_STEP,
+    DEFAULT_GRID_ALPHA,
+    DEFAULT_GRID_MAJOR_DIVISIONS,
+    DEFAULT_GRID_MINOR_DIVISIONS,
     GridLine,
+    adaptive_aligned_step,
+    aligned_engineering_grid_lines,
+    aligned_grid_values,
     engineering_tick_levels,
     normalized_grid_lines,
 )
@@ -22,10 +31,18 @@ _LOGGER = logging.getLogger(__name__)
 
 __all__ = [
     "EngineeringGridAxisItem",
+    "AlignedGridLine",
+    "DEFAULT_DEPTH_GRID_MAJOR_STEP",
+    "DEFAULT_GRID_ALPHA",
+    "DEFAULT_GRID_MAJOR_DIVISIONS",
+    "DEFAULT_GRID_MINOR_DIVISIONS",
     "GridLine",
     "GridSettings",
     "TabletGridOverlay",
     "TabletGridRenderer",
+    "adaptive_aligned_step",
+    "aligned_engineering_grid_lines",
+    "aligned_grid_values",
     "engineering_tick_levels",
     "normalized_grid_lines",
 ]
@@ -55,8 +72,8 @@ class EngineeringGridAxisItem(pg.AxisItem):
 
     def __init__(self, orientation: str) -> None:
         super().__init__(orientation=orientation)
-        self._major_divisions = 5
-        self._minor_divisions = 5
+        self._major_divisions = DEFAULT_GRID_MAJOR_DIVISIONS
+        self._minor_divisions = DEFAULT_GRID_MINOR_DIVISIONS
 
     def set_engineering_divisions(self, major: int, minor: int) -> None:
         self._major_divisions = max(1, int(major))
@@ -88,8 +105,16 @@ class TabletGridOverlay:
 
     def __init__(self, plot: pg.PlotWidget) -> None:
         self.plot = plot
-        self.settings = GridSettings(True, True, 5, 5, 0.2)
+        self.settings = GridSettings(
+            True,
+            True,
+            DEFAULT_GRID_MAJOR_DIVISIONS,
+            DEFAULT_GRID_MINOR_DIVISIONS,
+            DEFAULT_GRID_ALPHA,
+        )
         self._print_suppressed = False
+        self._print_mode = False
+        self._horizontal_base_step: float | None = None
         self._vertical: list[tuple[pg.InfiniteLine, bool]] = []
         self._horizontal: list[tuple[pg.InfiniteLine, bool]] = []
         self.plot.getViewBox().sigRangeChanged.connect(self._range_changed)
@@ -102,6 +127,14 @@ class TabletGridOverlay:
     def horizontal_line_count(self) -> int:
         return len(self._horizontal)
 
+    @property
+    def print_mode(self) -> bool:
+        return self._print_mode
+
+    @property
+    def print_suppressed(self) -> bool:
+        return self._print_suppressed
+
     def apply(self, settings: GridSettings) -> None:
         self.settings = settings
         self._ensure_lines()
@@ -113,20 +146,46 @@ class TabletGridOverlay:
         self._print_suppressed = bool(suppressed)
         self._refresh()
 
+    def set_print_mode(self, enabled: bool) -> None:
+        """Use deterministic print styling without screen-density culling."""
+
+        normalized = bool(enabled)
+        if self._print_mode == normalized:
+            return
+        self._print_mode = normalized
+        self._ensure_lines()
+        self._refresh()
+
+    def set_horizontal_base_step(self, step: float | None) -> None:
+        """Align horizontal depth lines to a physical engineering interval."""
+
+        normalized = None if step is None else float(step)
+        if normalized is not None and (not isfinite(normalized) or normalized <= 0.0):
+            raise ValueError("Horizontal grid step must be finite and positive")
+        if self._horizontal_base_step == normalized:
+            return
+        self._horizontal_base_step = normalized
+        self._ensure_lines()
+        self._refresh()
+
     def _ensure_lines(self) -> None:
         divisions = normalized_grid_lines(
             self.settings.major_divisions,
             self.settings.minor_divisions,
         )
         self._resize(self._vertical, len(divisions), angle=90)
-        self._resize(self._horizontal, len(divisions), angle=0)
-        for collection in (self._vertical, self._horizontal):
+        collections = [self._vertical]
+        if self._horizontal_base_step is None:
+            self._resize(self._horizontal, len(divisions), angle=0)
+            collections.append(self._horizontal)
+        for collection in collections:
             for index, (line, _major) in enumerate(collection):
                 major = divisions[index].major
                 collection[index] = (line, major)
                 line.setPen(self._pen(major))
                 line.setVisible(
                     not self._print_suppressed
+                    and self.settings.alpha > 0.0
                     and (
                         self.settings.show_x
                         if collection is self._vertical
@@ -160,7 +219,11 @@ class TabletGridOverlay:
 
     def _pen(self, major: bool):
         color = pg.mkColor("#64748b" if major else "#94a3b8")
-        color.setAlphaF(screen_grid_alpha(self.settings.alpha, major=major))
+        if self._print_mode:
+            alpha = max(0.0, min(1.0, self.settings.alpha))
+            color.setAlphaF(alpha if major else alpha * 0.45)
+        else:
+            color.setAlphaF(screen_grid_alpha(self.settings.alpha, major=major))
         return pg.mkPen(color, width=0.75 if major else 0.35)
 
     def _range_changed(self, *_args: object) -> None:
@@ -177,13 +240,8 @@ class TabletGridOverlay:
             self.settings.minor_divisions,
         )
         viewport = self.plot.viewport()
-        show_minor_x = minor_grid_is_readable(
+        show_minor_x = self._print_mode or minor_grid_is_readable(
             viewport.width(),
-            self.settings.major_divisions,
-            self.settings.minor_divisions,
-        )
-        show_minor_y = minor_grid_is_readable(
-            viewport.height(),
             self.settings.major_divisions,
             self.settings.minor_divisions,
         )
@@ -193,17 +251,52 @@ class TabletGridOverlay:
                 line.setPos(x_min + (x_max - x_min) * grid_line.fraction)
                 line.setVisible(
                     not self._print_suppressed
+                    and self.settings.alpha > 0.0
                     and self.settings.show_x
                     and (major or show_minor_x)
                 )
-            if index < len(self._horizontal):
-                line, major = self._horizontal[index]
-                line.setPos(y_min + (y_max - y_min) * grid_line.fraction)
-                line.setVisible(
-                    not self._print_suppressed
-                    and self.settings.show_y
-                    and (major or show_minor_y)
+        if self._horizontal_base_step is None:
+            horizontal_values = tuple(
+                (y_min + (y_max - y_min) * grid_line.fraction, grid_line.major)
+                for grid_line in divisions
+            )
+            horizontal_major_intervals = self.settings.major_divisions
+        else:
+            horizontal_step = adaptive_aligned_step(
+                y_min,
+                y_max,
+                self._horizontal_base_step,
+            )
+            horizontal_values = tuple(
+                (grid_line.value, grid_line.major)
+                for grid_line in aligned_engineering_grid_lines(
+                    y_min,
+                    y_max,
+                    horizontal_step,
+                    DEFAULT_GRID_MINOR_DIVISIONS,
                 )
+            )
+            horizontal_major_intervals = max(
+                1,
+                ceil(abs(y_max - y_min) / horizontal_step),
+            )
+        show_minor_y = self._print_mode or minor_grid_is_readable(
+            viewport.height(),
+            horizontal_major_intervals,
+            DEFAULT_GRID_MINOR_DIVISIONS,
+        )
+        self._resize(self._horizontal, len(horizontal_values), angle=0)
+        for index, (position, major) in enumerate(horizontal_values):
+            line, _previous_major = self._horizontal[index]
+            self._horizontal[index] = (line, major)
+            line.setPen(self._pen(major))
+            line.setPos(position)
+            line.setVisible(
+                not self._print_suppressed
+                and self.settings.alpha > 0.0
+                and self.settings.show_y
+                and (major or show_minor_y)
+            )
 
 
 class TabletGridRenderer:
@@ -240,6 +333,12 @@ class TabletGridRenderer:
                 y=settings.show_y,
                 alpha=settings.alpha,
             )
+
+    @classmethod
+    def set_horizontal_base_step(cls, plot: pg.PlotWidget, step: float | None) -> None:
+        overlay = cls.overlay_for(plot)
+        if overlay is not None:
+            overlay.set_horizontal_base_step(step)
 
     @classmethod
     def overlay_for(cls, plot: pg.PlotWidget) -> TabletGridOverlay | None:

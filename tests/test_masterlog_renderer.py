@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
+from unittest.mock import MagicMock
 from PySide6.QtCore import QRectF
-from PySide6.QtGui import QImage, QPainter
+from PySide6.QtGui import QImage, QPageLayout, QPainter
 from PySide6.QtPrintSupport import QPrinter
 
 from geoworkbench.domain.models import (
@@ -35,8 +36,11 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_size_mm,
     paint_masterlog,
     render_masterlog_to_printer,
+    _aligned_depth_grid_values,
+    _page_orientation,
     _paint_annotations,
     _paint_column_grid,
+    _paint_depth_axis,
     _parameter_symbol_x,
     visible_lithology_intervals,
     masterlog_curve_bindings,
@@ -108,6 +112,15 @@ def test_masterlog_depth_scale_controls_roll_height() -> None:
     assert masterlog_size_mm(template, session).height() == 252.0
 
 
+def test_masterlog_roll_size_uses_actual_vertical_column_heading_height() -> None:
+    session = make_session_with_curves()
+    template = make_template()
+    template.depth_scale = 500
+    template.columns[0].properties["title_orientation"] = "vertical_bottom_to_top"
+
+    assert masterlog_size_mm(template, session).height() == 264.0
+
+
 def test_masterlog_curve_range_supports_auto_linear_and_logarithmic() -> None:
     dataset = make_session_with_curves().current_dataset
     assert dataset is not None
@@ -173,11 +186,122 @@ def test_masterlog_column_grid_draws_configured_major_and_minor_lines(qapp) -> N
     )
     painter = QPainter(image)
 
-    _paint_column_grid(painter, QRectF(10.0, 10.0, 80.0, 80.0), column)
+    _paint_column_grid(
+        painter,
+        QRectF(10.0, 10.0, 80.0, 80.0),
+        column,
+        (50.0, 100.0),
+    )
     painter.end()
 
     assert image.pixelColor(50, 25).name() != "#ffffff"
     assert image.pixelColor(25, 50).name() != "#ffffff"
+
+
+def test_masterlog_depth_grid_uses_round_five_metre_major_values() -> None:
+    values = _aligned_depth_grid_values((47.0, 97.0), 1)
+
+    assert values == tuple(
+        (float(depth), True)
+        for depth in range(50, 100, 5)
+    )
+
+
+def test_masterlog_depth_grid_adds_minor_subdivisions_between_major_values() -> None:
+    values = _aligned_depth_grid_values((47.0, 57.0), 5)
+
+    assert (50.0, True) in values
+    assert (51.0, False) in values
+    assert (55.0, True) in values
+    assert (56.0, False) in values
+
+
+def test_masterlog_depth_grid_keeps_five_metre_major_step_for_page_orientations() -> None:
+    portrait = _aligned_depth_grid_values((100.0, 222.5), 1)
+    landscape = _aligned_depth_grid_values((100.0, 179.0), 1)
+
+    assert [value for value, major in portrait if major][:4] == [100.0, 105.0, 110.0, 115.0]
+    assert [value for value, major in landscape if major][:4] == [
+        100.0,
+        105.0,
+        110.0,
+        115.0,
+    ]
+
+
+def test_masterlog_depth_minor_grid_does_not_follow_x_subdivision_setting() -> None:
+    def horizontal_positions(minor_divisions: int) -> tuple[float, ...]:
+        painter = MagicMock()
+        column = MasterlogColumnTemplate(
+            "depth-grid",
+            "Depth grid",
+            "curves",
+            40.0,
+            grid_x=False,
+            grid_y=True,
+            grid_minor_divisions=minor_divisions,
+            grid_alpha=1.0,
+        )
+        _paint_column_grid(
+            painter,
+            QRectF(10.0, 10.0, 80.0, 80.0),
+            column,
+            (50.0, 100.0),
+        )
+        return tuple(round(call.args[0].y1(), 6) for call in painter.drawLine.call_args_list)
+
+    assert horizontal_positions(2) == horizontal_positions(10)
+
+
+def test_masterlog_column_grid_respects_print_visibility(qapp) -> None:
+    image = QImage(100, 100, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill("white")
+    column = MasterlogColumnTemplate(
+        "gas",
+        "Gas",
+        "curves",
+        40.0,
+        grid_x=True,
+        grid_y=True,
+        grid_alpha=1.0,
+        grid_print=False,
+    )
+    painter = QPainter(image)
+
+    _paint_column_grid(
+        painter,
+        QRectF(10.0, 10.0, 80.0, 80.0),
+        column,
+        (47.0, 97.0),
+    )
+    painter.end()
+
+    assert image.pixelColor(50, 50).name() == "#ffffff"
+
+
+@pytest.mark.parametrize(
+    ("grid_y", "grid_print"),
+    [(False, True), (True, False)],
+)
+def test_masterlog_depth_labels_do_not_bypass_horizontal_grid_visibility(
+    grid_y: bool,
+    grid_print: bool,
+) -> None:
+    painter = MagicMock()
+    column = MasterlogColumnTemplate(
+        "depth",
+        "Depth",
+        "depth",
+        20.0,
+        grid_y=grid_y,
+        grid_print=grid_print,
+    )
+
+    _paint_column_grid(painter, QRectF(0.0, 0.0, 20.0, 100.0), column, (50.0, 100.0))
+    _paint_depth_axis(painter, QRectF(0.0, 0.0, 20.0, 100.0), (50.0, 100.0))
+
+    painter.drawLine.assert_not_called()
+    assert painter.drawText.call_count == 11
 
 
 def test_parameter_symbol_x_follows_linear_and_log_column_scale() -> None:
@@ -458,6 +582,33 @@ def test_masterlog_a4_page_ranges_follow_depth_scale() -> None:
     ranges = masterlog_page_ranges(template, session)
 
     assert ranges == ((100.0, 222.5), (222.5, 345.0), (345.0, 400.0))
+
+
+def test_masterlog_page_ranges_use_actual_vertical_column_heading_height() -> None:
+    dataset = Dataset(
+        "dataset-vertical-heading",
+        "Long log",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 400.0]),
+    )
+    session = ProjectSession()
+    session.add_dataset(dataset, "Well")
+    template = make_template()
+    template.page_format = "A4"
+    template.depth_scale = 500
+    template.columns[0].properties["title_orientation"] = "vertical_bottom_to_top"
+
+    assert masterlog_page_ranges(template, session)[0] == (100.0, 216.5)
+    template.properties["orientation"] = "landscape"
+    assert masterlog_page_ranges(template, session)[0] == (100.0, 173.0)
+
+
+def test_roll_renderer_always_uses_portrait_page_orientation() -> None:
+    template = make_template()
+    template.properties["orientation"] = "landscape"
+
+    assert _page_orientation(template) is QPageLayout.Orientation.Portrait
 
 
 def test_masterlog_a4_pdf_contains_multiple_pages(qapp, tmp_path) -> None:

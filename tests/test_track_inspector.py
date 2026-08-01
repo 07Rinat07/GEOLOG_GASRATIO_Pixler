@@ -157,3 +157,62 @@ def test_inspector_edits_x_axis_label(qapp) -> None:
 
     assert emitted == [("curve", "Rate")]
     inspector.close()
+
+
+def test_inspector_editor_scrolls_vertically_and_keeps_grid_control_api(qapp) -> None:
+    inspector = TrackInspector(language=AppLanguage.RU)
+    inspector.show_track(
+        TrackDefinition(
+            "curve",
+            "Раствор и газ",
+            TrackKind.CURVE,
+            curve_mnemonics=["TGAS", "MWIN"],
+        )
+    )
+    inspector.resize(360, 480)
+    inspector.show()
+    qapp.processEvents()
+
+    assert inspector.height() == 480
+    assert inspector.minimumSizeHint().height() < 480
+    assert inspector._editor_scroll.verticalScrollBar().maximum() > 0
+    assert (
+        inspector._editor_scroll.horizontalScrollBarPolicy()
+        == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    )
+    assert inspector._editor_scroll.horizontalScrollBar().maximum() == 0
+    assert inspector.grid_x_input is inspector.grid_editor.grid_x_input
+    assert inspector.grid_y_input is inspector.grid_editor.grid_y_input
+    assert inspector.grid_major_input is inspector.grid_editor.grid_major_input
+    assert inspector.grid_minor_input is inspector.grid_editor.grid_minor_input
+    assert inspector.grid_alpha_input is inspector.grid_editor.grid_alpha_input
+    assert inspector.grid_print_input is inspector.grid_editor.grid_print_input
+    inspector.close()
+
+
+def test_inspector_standard_preset_explains_that_apply_is_still_required(qapp) -> None:
+    inspector = TrackInspector(language=AppLanguage.EN)
+    inspector.show_track(
+        TrackDefinition(
+            "curve",
+            "Curve",
+            TrackKind.CURVE,
+            grid_x=False,
+            grid_y=False,
+            grid_print=False,
+        )
+    )
+    emitted: list[tuple[object, ...]] = []
+    inspector.grid_requested.connect(lambda *args: emitted.append(args))
+
+    QTest.mouseClick(inspector.grid_editor.standard_button, Qt.MouseButton.LeftButton)
+    qapp.processEvents()
+
+    assert emitted == []
+    assert "Apply grid" in inspector.grid_editor.standard_button.toolTip()
+    QTest.mouseClick(inspector.grid_button, Qt.MouseButton.LeftButton)
+    assert emitted == [("curve", True, True, 0.2, 5, 5, True)]
+
+    inspector.set_language(AppLanguage.RU)
+    assert "Применить сетку" in inspector.grid_editor.standard_button.toolTip()
+    inspector.close()

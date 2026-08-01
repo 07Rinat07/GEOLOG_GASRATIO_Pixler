@@ -154,9 +154,14 @@ from geoworkbench.project.lag_correction_controller import LagCorrectionProjectC
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
 from geoworkbench.project.time_to_depth_controller import TimeToDepthController
 from geoworkbench.project.witsml_import_controller import WitsmlProjectImportController
-from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
+from geoworkbench.printing.print_job import (
+    PrintJobSettings,
+    PrintOutputFormat,
+    PrintTrackOption,
+)
 from geoworkbench.printing.header_catalog import catalog_items, resolve_catalog_header
 from geoworkbench.ui.header_preview_widget import render_header_preview_pixmap
+from geoworkbench.ui.print_job_status_dialog import PrintJobStatusDialog
 from geoworkbench.ui.file_workspace_widget import FileWorkspaceWidget
 from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
@@ -635,6 +640,7 @@ class MainWindow(QMainWindow):
         self._interpretation_dialog: InterpretationIntervalsDialog | None = None
         self.print_page_settings = self.user_profile_settings.print_page_settings()
         self.print_export_preferences = self.user_profile_settings.print_export_preferences()
+        self._active_print_status_dialog: PrintJobStatusDialog | None = None
         self.cursor_line_settings = self.user_profile_settings.cursor_line_settings()
         self.setWindowIcon(application_icon())
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
@@ -4217,6 +4223,20 @@ class MainWindow(QMainWindow):
             validate_printer_callback=lambda job: self._validate_print_center_printer(
                 current, job
             ),
+            track_print_options=(
+                tuple(
+                    PrintTrackOption(
+                        item.definition.track_id,
+                        item.definition.title,
+                        grid_print=item.definition.grid_print,
+                        grid_x=item.definition.grid_x,
+                        grid_y=item.definition.grid_y,
+                    )
+                    for item in paged_tablet.printable_tracks()
+                )
+                if paged_tablet is not None
+                else ()
+            ),
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -4295,6 +4315,7 @@ class MainWindow(QMainWindow):
         report_form=None,
         report_context: ReportIntervalContext,
     ) -> None:
+        status_dialog: PrintJobStatusDialog | None = None
         try:
             report, normalized_job = self._resolve_print_report(
                 widget,
@@ -4305,7 +4326,33 @@ class MainWindow(QMainWindow):
             )
             passport = self._build_print_passport(report, normalized_job, source_name)
             header_template = self._resolve_print_header(normalized_job)
+            target = normalized_job.normalized_target()
+            overwrite = False
+            if normalized_job.output_format is not PrintOutputFormat.PRINTER:
+                if target is None:
+                    raise ValueError(self._t("print_center.choose_file_error"))
+                overwrite_choice = self._confirm_print_overwrite(target)
+                if overwrite_choice is None:
+                    return
+                overwrite = overwrite_choice
+
+            status_dialog = PrintJobStatusDialog(
+                self,
+                language=self.language,
+                output_format=normalized_job.output_format,
+                target=target,
+            )
+            self._active_print_status_dialog = status_dialog
+            status_dialog.finished.connect(
+                lambda _result, dialog=status_dialog: self._release_print_status_dialog(
+                    dialog
+                )
+            )
+            status_dialog.open()
+            QApplication.processEvents()
             if normalized_job.output_format is PrintOutputFormat.PRINTER:
+                status_dialog.show_sending()
+                QApplication.processEvents()
                 printer = self._print_jobs.create_printer(widget, normalized_job)
                 result = self._print_jobs.render_to_printer(
                     widget,
@@ -4331,12 +4378,9 @@ class MainWindow(QMainWindow):
                     for issue in result.printer_gate.warnings:
                         self._log(self._t("print_center.gate_" + issue.code.replace("-", "_")))
             else:
-                target = normalized_job.normalized_target()
-                if target is None:
-                    raise ValueError(self._t("print_center.choose_file_error"))
-                overwrite = self._confirm_print_overwrite(target)
-                if overwrite is None:
-                    return
+                assert target is not None
+                status_dialog.show_rendering()
+                QApplication.processEvents()
                 result = self._print_jobs.execute_file(
                     widget,
                     normalized_job,
@@ -4366,11 +4410,20 @@ class MainWindow(QMainWindow):
             RuntimeError,
             ValueError,
         ) as exc:
-            QMessageBox.critical(self, self._t("print_center.title"), str(exc))
+            if status_dialog is None:
+                QMessageBox.critical(self, self._t("print_center.title"), str(exc))
+            else:
+                status_dialog.mark_failed(str(exc))
             self._log(self._t("print_center.failed", error=str(exc)))
             return
+        status_dialog.mark_ready(page_count=result.page_count, paths=result.paths)
         self._log(message)
         self.statusBar().showMessage(message)
+
+    def _release_print_status_dialog(self, dialog: PrintJobStatusDialog) -> None:
+        if self._active_print_status_dialog is dialog:
+            self._active_print_status_dialog = None
+        dialog.deleteLater()
 
     def _resolve_print_report(
         self,
@@ -4398,7 +4451,7 @@ class MainWindow(QMainWindow):
         else:
             interval = ReportIntervalSelection(ReportIntervalMode.CURRENT)
 
-        curve_ids = self._print_report_curve_ids(widget, dataset)
+        curve_ids = self._print_report_curve_ids(widget, dataset, job)
         underlying_form = (
             form_document_snapshot(report_form)
             if report_form is not None
@@ -4424,7 +4477,9 @@ class MainWindow(QMainWindow):
             interval=interval,
             language=self.language.value,
             curve_ids=curve_ids,
-            channel_mnemonics=self._print_report_channel_mnemonics(widget, dataset),
+            channel_mnemonics=self._print_report_channel_mnemonics(
+                widget, dataset, job
+            ),
             sections=(ReportSectionDefinition(ReportSectionKind.CURVES),),
             form_kind=underlying_form.form_kind,
             form_id=underlying_form.form_id,
@@ -4446,34 +4501,55 @@ class MainWindow(QMainWindow):
         )
         return resolved, replace(job, pagination=normalized_pagination)
 
-    def _print_report_curve_ids(self, widget, dataset: Dataset) -> tuple[str, ...]:
+    def _print_report_curve_ids(
+        self,
+        widget,
+        dataset: Dataset,
+        job: PrintJobSettings,
+    ) -> tuple[str, ...]:
         if isinstance(widget, TabletView):
             layout = self.session.current_tablet_layout
-            if layout is not None:
-                resolved: list[str] = []
-                for track in layout.tracks:
-                    if not track.visible:
-                        continue
-                    for mnemonic in track.curve_mnemonics:
-                        curve = dataset.curve_by_mnemonic(mnemonic)
-                        if curve is not None:
-                            resolved.append(curve.metadata.curve_id)
-                if resolved:
-                    return tuple(dict.fromkeys(resolved))
+            included = (
+                None
+                if job.included_track_ids is None
+                else frozenset(job.included_track_ids)
+            )
+            resolved: list[str] = []
+            tracks = layout.tracks if layout is not None else ()
+            for track in tracks:
+                if not track.visible:
+                    continue
+                if included is not None and track.track_id not in included:
+                    continue
+                for mnemonic in track.curve_mnemonics:
+                    curve = dataset.curve_by_mnemonic(mnemonic)
+                    if curve is not None:
+                        resolved.append(curve.metadata.curve_id)
+            if resolved or included is not None:
+                return tuple(dict.fromkeys(resolved))
         return tuple(sorted(dataset.curves))
 
-    def _print_report_channel_mnemonics(self, widget, dataset: Dataset) -> tuple[str, ...]:
+    def _print_report_channel_mnemonics(
+        self,
+        widget,
+        dataset: Dataset,
+        job: PrintJobSettings,
+    ) -> tuple[str, ...]:
         if isinstance(widget, TabletView):
             layout = self.session.current_tablet_layout
-            if layout is not None:
-                values = [
-                    mnemonic
-                    for track in layout.tracks
-                    if track.visible
-                    for mnemonic in track.curve_mnemonics
-                ]
-                if values:
-                    return tuple(dict.fromkeys(values))
+            included = (
+                None
+                if job.included_track_ids is None
+                else frozenset(job.included_track_ids)
+            )
+            values = [
+                mnemonic
+                for track in (layout.tracks if layout is not None else ())
+                if track.visible and (included is None or track.track_id in included)
+                for mnemonic in track.curve_mnemonics
+            ]
+            if values or included is not None:
+                return tuple(dict.fromkeys(values))
         return tuple(
             dataset.curves[curve_id].metadata.original_mnemonic
             for curve_id in sorted(dataset.curves)

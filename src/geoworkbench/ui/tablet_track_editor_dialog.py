@@ -42,6 +42,7 @@ from geoworkbench.tablet.models import (
     minimum_track_width,
 )
 from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
+from geoworkbench.ui.grid_settings_widget import GridSettingsWidget
 from geoworkbench.ui.tablet_track_preview_widget import TabletTrackPreviewWidget
 
 
@@ -171,44 +172,25 @@ class TabletTrackEditorDialog(QDialog):
         editor_layout.addWidget(track_group)
 
         grid_group = QGroupBox(self._text("Сетка", "Тор", "Grid"))
-        grid_form = QFormLayout(grid_group)
-        self.grid_x_input = QCheckBox(
-            self._text("Вертикальные линии", "Тік сызықтар", "Vertical lines")
+        grid_layout = QVBoxLayout(grid_group)
+        self.grid_editor = GridSettingsWidget(language=self.language)
+        self.grid_editor.set_values(
+            self.track.grid_x,
+            self.track.grid_y,
+            self.track.grid_major_divisions,
+            self.track.grid_minor_divisions,
+            self.track.grid_alpha,
+            self.track.grid_print,
         )
-        self.grid_x_input.setChecked(self.track.grid_x)
-        self.grid_y_input = QCheckBox(
-            self._text("Горизонтальные линии", "Көлденең сызықтар", "Horizontal lines")
-        )
-        self.grid_y_input.setChecked(self.track.grid_y)
-        visibility = QHBoxLayout()
-        visibility.addWidget(self.grid_x_input)
-        visibility.addWidget(self.grid_y_input)
-        visibility.addStretch(1)
-        self.grid_major_input = QSpinBox()
-        self.grid_major_input.setRange(1, 20)
-        self.grid_major_input.setValue(self.track.grid_major_divisions)
-        self.grid_minor_input = QSpinBox()
-        self.grid_minor_input.setRange(1, 20)
-        self.grid_minor_input.setValue(self.track.grid_minor_divisions)
-        divisions = QHBoxLayout()
-        divisions.addWidget(self.grid_major_input)
-        divisions.addWidget(QLabel(self._text("основных", "негізгі", "major")))
-        divisions.addWidget(self.grid_minor_input)
-        divisions.addWidget(QLabel(self._text("малых", "ұсақ", "minor")))
-        divisions.addStretch(1)
-        self.grid_alpha_input = QDoubleSpinBox()
-        self.grid_alpha_input.setRange(0.0, 1.0)
-        self.grid_alpha_input.setSingleStep(0.05)
-        self.grid_alpha_input.setDecimals(2)
-        self.grid_alpha_input.setValue(self.track.grid_alpha)
-        self.grid_print_input = QCheckBox(
-            self._text("Печатать сетку", "Торды басып шығару", "Print grid")
-        )
-        self.grid_print_input.setChecked(self.track.grid_print)
-        grid_form.addRow(self._text("Линии", "Сызықтар", "Lines"), visibility)
-        grid_form.addRow(self._text("Деления", "Бөліністер", "Divisions"), divisions)
-        grid_form.addRow(self._text("Прозрачность", "Мөлдірлік", "Opacity"), self.grid_alpha_input)
-        grid_form.addRow("", self.grid_print_input)
+        # Keep the public attributes stable for integrations that already
+        # automate this dialog.
+        self.grid_x_input = self.grid_editor.grid_x_input
+        self.grid_y_input = self.grid_editor.grid_y_input
+        self.grid_major_input = self.grid_editor.grid_major_input
+        self.grid_minor_input = self.grid_editor.grid_minor_input
+        self.grid_alpha_input = self.grid_editor.grid_alpha_input
+        self.grid_print_input = self.grid_editor.grid_print_input
+        grid_layout.addWidget(self.grid_editor)
         editor_layout.addWidget(grid_group)
 
         curves_group = QGroupBox(
@@ -403,9 +385,6 @@ class TabletTrackEditorDialog(QDialog):
             combo_box.currentIndexChanged.connect(self._refresh_preview)
         for spin_box in (
             self.width_input,
-            self.grid_major_input,
-            self.grid_minor_input,
-            self.grid_alpha_input,
             self.line_width_input,
             self.min_input,
             self.max_input,
@@ -413,11 +392,9 @@ class TabletTrackEditorDialog(QDialog):
             spin_box.valueChanged.connect(self._refresh_preview)
         for check_box in (
             self.show_interval_labels_input,
-            self.grid_x_input,
-            self.grid_y_input,
-            self.grid_print_input,
         ):
             check_box.toggled.connect(self._refresh_preview)
+        self.grid_editor.settings_changed.connect(self._refresh_preview)
 
     def _reload(self, selected: int | None = None) -> None:
         self._loading = True

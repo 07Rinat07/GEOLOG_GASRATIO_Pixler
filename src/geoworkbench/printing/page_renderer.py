@@ -34,6 +34,8 @@ def paint_widget_page(
     high_quality: bool = True,
     show_column_header: bool = True,
     repeat_column_header_at_bottom: bool = False,
+    included_track_ids: tuple[str, ...] | None = None,
+    grid_print_overrides: tuple[tuple[str, bool], ...] = (),
 ) -> None:
     """Render a chart/tablet into one deterministic paper continuation."""
 
@@ -56,6 +58,8 @@ def paint_widget_page(
                     page_aspect_ratio=content_rect.width() / content_rect.height(),
                     fit_columns=(fit_form_columns if scale_mode is PrintScaleMode.FIT else False),
                     raster_scale=raster_scale,
+                    included_track_ids=included_track_ids,
+                    grid_print_overrides=dict(grid_print_overrides),
                 )
                 if repeat_column_header_at_bottom:
                     _paint_tablet_with_repeated_header(
@@ -64,6 +68,7 @@ def paint_widget_page(
                         snapshot,
                         scale_mode=scale_mode,
                         continuation=continuation,
+                        show_column_header=show_column_header,
                     )
                 else:
                     paint_tablet_snapshot(
@@ -72,6 +77,9 @@ def paint_widget_page(
                         snapshot,
                         scale_mode=scale_mode,
                         continuation=continuation,
+                        fill_height=(
+                            scale_mode is PrintScaleMode.FIT and not show_column_header
+                        ),
                         show_column_header=show_column_header,
                     )
             except TabletPrintError as exc:
@@ -113,21 +121,35 @@ def _paint_tablet_with_repeated_header(
     *,
     scale_mode: PrintScaleMode,
     continuation: PrintContinuationSlice | None,
+    show_column_header: bool,
 ) -> None:
     gap = max(1.0, content_rect.height() * 0.006)
     if scale_mode is PrintScaleMode.FIT:
         horizontal_scale = content_rect.width() / snapshot.layout.total_width
         header_height = min(
-            content_rect.height() * 0.24,
+            content_rect.height() * (0.20 if show_column_header else 0.24),
             snapshot.header_height * horizontal_scale,
         )
         rendered_width = snapshot.layout.total_width * horizontal_scale
         x = content_rect.left() + (content_rect.width() - rendered_width) / 2.0
+        top_header = (
+            QRectF(x, content_rect.top(), rendered_width, header_height)
+            if show_column_header
+            else None
+        )
+        body_top = (
+            top_header.bottom() + gap
+            if top_header is not None
+            else content_rect.top()
+        )
         body = QRectF(
             x,
-            content_rect.top(),
+            body_top,
             rendered_width,
-            max(1.0, content_rect.height() - gap - header_height),
+            max(
+                1.0,
+                content_rect.bottom() - body_top - gap - header_height,
+            ),
         )
         repeated_header = QRectF(
             x,
@@ -139,14 +161,32 @@ def _paint_tablet_with_repeated_header(
         device = painter.device()
         dpi = max(1, device.logicalDpiX()) if device is not None else REFERENCE_PRINT_DPI
         header_height = min(
-            content_rect.height() * 0.24,
+            content_rect.height() * (0.20 if show_column_header else 0.24),
             snapshot.header_height * dpi / REFERENCE_PRINT_DPI,
+        )
+        top_header = (
+            QRectF(
+                content_rect.left(),
+                content_rect.top(),
+                content_rect.width(),
+                header_height,
+            )
+            if show_column_header
+            else None
+        )
+        body_top = (
+            top_header.bottom() + gap
+            if top_header is not None
+            else content_rect.top()
         )
         body = QRectF(
             content_rect.left(),
-            content_rect.top(),
+            body_top,
             content_rect.width(),
-            max(1.0, content_rect.height() - gap - header_height),
+            max(
+                1.0,
+                content_rect.bottom() - body_top - gap - header_height,
+            ),
         )
         repeated_header = QRectF(
             content_rect.left(),
@@ -155,6 +195,14 @@ def _paint_tablet_with_repeated_header(
             header_height,
         )
 
+    if top_header is not None:
+        paint_tablet_header_repeat(
+            painter,
+            top_header,
+            snapshot,
+            scale_mode=scale_mode,
+            continuation=continuation,
+        )
     paint_tablet_snapshot(
         painter,
         body,

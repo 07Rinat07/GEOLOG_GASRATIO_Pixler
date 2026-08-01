@@ -85,7 +85,8 @@ def printable_content_dimensions(widget: QWidget, job: PrintJobSettings) -> tupl
     width = max(1, int(widget.width()))
     height = max(1, int(widget.height()))
     if isinstance(widget, TabletView) and widget.printable_tracks():
-        definitions = [item.definition for item in widget.printable_tracks()]
+        printable_tracks = _selected_tablet_tracks(widget, job)
+        definitions = [item.definition for item in printable_tracks]
         if job.page.scale_mode is PrintScaleMode.ACTUAL_SIZE:
             width = original_column_layout(definitions).total_width
         else:
@@ -93,8 +94,25 @@ def printable_content_dimensions(widget: QWidget, job: PrintJobSettings) -> tupl
                 width,
                 sum(max(minimum_track_width(item.kind), int(item.width)) for item in definitions),
             )
-        height = max(1, max(item.widget.height() for item in widget.printable_tracks()))
+        height = max(1, max(item.widget.height() for item in printable_tracks))
     return width, height
+
+
+def _selected_tablet_tracks(widget: TabletView, job: PrintJobSettings):
+    rendered = widget.printable_tracks()
+    if job.included_track_ids is None:
+        return rendered
+    selected_ids = set(job.included_track_ids)
+    selected = tuple(
+        item for item in rendered if item.definition.track_id in selected_ids
+    )
+    if len(selected) != len(selected_ids):
+        missing = selected_ids.difference(item.definition.track_id for item in selected)
+        raise ValueError(
+            "Выбранные для печати колонки больше не доступны: "
+            + ", ".join(sorted(missing))
+        )
+    return selected
 
 
 def build_document_plan(widget: QWidget, job: PrintJobSettings) -> PrintDocumentPlan:
@@ -239,10 +257,12 @@ def paint_document_page(
             scale_mode=job.page.scale_mode,
             continuation=page.continuation,
             high_quality=high_quality,
-            show_column_header=_should_paint_column_header_at_top(job),
+            show_column_header=_should_paint_column_header_at_top(page),
             repeat_column_header_at_bottom=_should_paint_column_header_at_bottom(
                 job, page
             ),
+            included_track_ids=job.included_track_ids,
+            grid_print_overrides=job.grid_print_overrides,
         )
         _paint_footer(
             painter,
@@ -272,11 +292,14 @@ def _should_paint_column_header_at_bottom(
     job: PrintJobSettings,
     page: PrintDocumentPage,
 ) -> bool:
-    return job.repeat_column_header_at_bottom and page.index == page.total
+    return job.repeat_column_header_at_bottom and page.is_last_vertical_page
 
 
-def _should_paint_column_header_at_top(job: PrintJobSettings) -> bool:
-    return not job.repeat_column_header_at_bottom
+def _should_paint_column_header_at_top(page: PrintDocumentPage) -> bool:
+    # The form header is the legend for the plotted curves.  It always belongs
+    # at the start of the document; the optional bottom copy supplements it at
+    # the end of the well and must never replace it.
+    return page.index == 1
 
 
 def _paint_header(painter: QPainter, rect: QRectF, *, title: str, range_text: str) -> None:

@@ -58,6 +58,7 @@ def make_template_and_session() -> tuple[MasterlogTemplate, ProjectSession]:
                 grid_major_divisions=4,
                 grid_minor_divisions=8,
                 grid_alpha=0.35,
+                grid_print=False,
             ),
         ],
         properties={"orientation": "landscape"},
@@ -94,6 +95,7 @@ def test_masterlog_package_round_trip_and_independent_install(tmp_path) -> None:
     assert imported.columns[1].grid_major_divisions == 4
     assert imported.columns[1].grid_minor_divisions == 8
     assert imported.columns[1].grid_alpha == 0.35
+    assert imported.columns[1].grid_print is False
     assert imported.header_elements[1].element_type == "lithology_legend"
     assert imported.header_elements[1].properties["scope"] == "used"
     assert destination.image_assets == package.image_assets
@@ -144,5 +146,9 @@ def test_masterlog_package_round_trips_safe_svg_and_reads_v1_png(tmp_path) -> No
     export_masterlog_package(legacy_template, legacy_session, legacy)
     payload = json.loads(legacy.read_text(encoding="utf-8"))
     payload["package_version"] = 1
+    for column in payload["template"]["columns"]:
+        column.pop("grid_print", None)
     legacy.write_text(json.dumps(payload), encoding="utf-8")
-    assert load_masterlog_package(legacy).template.name == "Portable"
+    restored = load_masterlog_package(legacy).template
+    assert restored.name == "Portable"
+    assert all(column.grid_print for column in restored.columns)

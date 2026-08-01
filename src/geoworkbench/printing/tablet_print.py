@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from math import isfinite
 
@@ -48,6 +49,8 @@ def capture_tablet_print_snapshot(
     page_aspect_ratio: float,
     fit_columns: bool = True,
     raster_scale: float = 1.0,
+    included_track_ids: tuple[str, ...] | None = None,
+    grid_print_overrides: Mapping[str, bool] | None = None,
 ) -> TabletPrintSnapshot:
     """Capture every visible form column, including off-screen columns.
 
@@ -65,6 +68,9 @@ def capture_tablet_print_snapshot(
         raise TabletPrintError("Масштаб печатного renderer должен быть от 1 до 8")
 
     rendered = tablet.printable_tracks()
+    if included_track_ids is not None:
+        included = frozenset(included_track_ids)
+        rendered = tuple(item for item in rendered if item.definition.track_id in included)
     if not rendered:
         raise TabletPrintError("На планшете нет видимых колонок для печати")
     content_height = max(item.widget.height() for item in rendered)
@@ -83,15 +89,25 @@ def capture_tablet_print_snapshot(
     )
     original_widths = [item.widget.width() for item in rendered]
     pixmaps: list[QPixmap] = []
-    suppressed_grids: list[TabletGridOverlay] = []
+    grid_states: list[tuple[TabletGridOverlay, bool, bool]] = []
     tablet.set_annotation_print_mode(True)
     try:
         for item, width in zip(rendered, layout.widths, strict=True):
+            item.widget.set_print_mode(True)
             item.widget.set_track_width(width)
             overlay = TabletGridRenderer.overlay_for(item.widget.plot)
-            if overlay is not None and not item.definition.grid_print:
-                overlay.set_print_suppressed(True)
-                suppressed_grids.append(overlay)
+            if overlay is not None:
+                grid_states.append((overlay, overlay.print_mode, overlay.print_suppressed))
+                overlay.set_print_mode(True)
+                print_grid = (
+                    grid_print_overrides.get(
+                        item.definition.track_id,
+                        item.definition.grid_print,
+                    )
+                    if grid_print_overrides is not None
+                    else item.definition.grid_print
+                )
+                overlay.set_print_suppressed(not print_grid)
         header_height = max(
             item.widget.title.height() + item.widget.curve_header_scroll.height()
             for item in rendered
@@ -121,10 +137,12 @@ def capture_tablet_print_snapshot(
                 )
             pixmaps.append(pixmap)
     finally:
-        for overlay in suppressed_grids:
-            overlay.set_print_suppressed(False)
+        for overlay, print_mode, print_suppressed in reversed(grid_states):
+            overlay.set_print_mode(print_mode)
+            overlay.set_print_suppressed(print_suppressed)
         tablet.set_annotation_print_mode(False)
         for item, width in zip(rendered, original_widths, strict=True):
+            item.widget.set_print_mode(False)
             item.widget.set_track_width(width)
 
     return TabletPrintSnapshot(

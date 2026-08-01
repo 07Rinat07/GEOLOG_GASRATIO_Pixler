@@ -36,6 +36,7 @@ from geoworkbench.services.acquisition_live_view import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.acquisition.wits0_reliability import Wits0WorkspaceState
+from geoworkbench.tablet.grid_geometry import DEFAULT_GRID_ALPHA
 
 if TYPE_CHECKING:
     from geoworkbench.services.wits0_acquisition import Wits0AcquisitionRuntime
@@ -224,7 +225,7 @@ class Wits0LiveViewWidget(QWidget):
 
         self.axis_item = _LiveAxisItem()
         self.plot = pg.PlotWidget(axisItems={"bottom": self.axis_item}, parent=panel)
-        self.plot.showGrid(x=True, y=True, alpha=0.25)
+        self.plot.showGrid(x=True, y=True, alpha=DEFAULT_GRID_ALPHA)
         self.plot.setLabel("left", self._t("wits0_live.measured_value"))
         self.plot.setLabel("bottom", self._t("wits0_live.index"))
         self.legend = self.plot.addLegend(offset=(8, 8))

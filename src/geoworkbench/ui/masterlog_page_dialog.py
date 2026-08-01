@@ -79,6 +79,10 @@ class MasterlogPageDialog(QDialog):
 
     def _update_custom_visibility(self) -> None:
         selected = self.format_input.currentData()
+        if selected == "roll":
+            portrait_index = self.orientation_input.findData("portrait")
+            if portrait_index >= 0:
+                self.orientation_input.setCurrentIndex(portrait_index)
         self.width_label.setVisible(selected in {"custom", "roll"})
         self.width_input.setVisible(selected in {"custom", "roll"})
         self.height_label.setVisible(selected == "custom")

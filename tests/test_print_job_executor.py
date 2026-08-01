@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QLabel
 from geoworkbench.printing.document_export import PrintDocumentResult
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.print_jobs import PrintJobExecutor
+from geoworkbench.services.print_jobs import PrintJobExecutor, report_render_settings
 
 
 def test_available_printers_are_default_first(monkeypatch) -> None:
@@ -140,3 +140,22 @@ def test_printer_executor_uses_supplied_printer(monkeypatch, qapp) -> None:
     assert result.output_format is PrintOutputFormat.PRINTER
     assert result.page_count == 4
     assert result.paths == ()
+
+
+def test_report_render_settings_preserve_tablet_print_composition(tmp_path) -> None:
+    import json
+
+    job = PrintJobSettings(
+        output_format=PrintOutputFormat.PDF,
+        target=tmp_path / "tablet.pdf",
+        included_track_ids=("depth", "gas"),
+        grid_print_overrides=(("depth", True), ("gas", False)),
+    )
+
+    options = dict(report_render_settings(job).options)
+
+    assert json.loads(options["included_track_ids"]) == ["depth", "gas"]
+    assert json.loads(options["grid_print_overrides"]) == [
+        ["depth", True],
+        ["gas", False],
+    ]

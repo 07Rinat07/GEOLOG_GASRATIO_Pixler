@@ -69,7 +69,13 @@ from geoworkbench.services.report_output_transaction import (
 )
 from geoworkbench.services.las_parameter_resolver import LasParameterResolver
 from geoworkbench.tablet.annotation_layout import LayoutRect, layout_annotation
-from geoworkbench.tablet.grid_geometry import normalized_grid_lines
+from geoworkbench.tablet.grid_geometry import (
+    DEFAULT_DEPTH_GRID_MAJOR_STEP,
+    DEFAULT_GRID_MAJOR_DIVISIONS,
+    DEFAULT_GRID_MINOR_DIVISIONS,
+    aligned_engineering_grid_lines,
+    normalized_grid_lines,
+)
 from geoworkbench.tablet.lithology_legend import (
     LithologyLegendEntry,
     build_lithology_legend_from_ids,
@@ -111,6 +117,12 @@ class PagedPaintDevice(Protocol):
     def newPage(self) -> bool: ...
 
 
+def _masterlog_column_heading_height(template: MasterlogTemplate) -> float:
+    """Return one heading height shared by pagination and every column group."""
+
+    return column_heading_height(template.columns)
+
+
 def masterlog_size_mm(
     template: MasterlogTemplate,
     session: ProjectSession | None = None,
@@ -126,7 +138,10 @@ def masterlog_size_mm(
         depth_range = masterlog_depth_range(session)
     if depth_range is not None:
         depth_scale = _depth_scale(template)
-        body_height = 12.0 + (depth_range[1] - depth_range[0]) * 1000.0 / depth_scale
+        body_height = (
+            _masterlog_column_heading_height(template)
+            + (depth_range[1] - depth_range[0]) * 1000.0 / depth_scale
+        )
     else:
         body_height = template.properties.get("body_height_mm", 200.0)
         if not isinstance(body_height, (int, float)) or isinstance(body_height, bool):
@@ -155,7 +170,11 @@ def masterlog_page_ranges(
         return (depth_range,)
     page_size = _fixed_page_size_mm(template)
     depth_scale = _depth_scale(template)
-    plot_height_mm = page_size.height() - template.header_height_mm - 12.0
+    plot_height_mm = (
+        page_size.height()
+        - template.header_height_mm
+        - _masterlog_column_heading_height(template)
+    )
     if plot_height_mm <= 0:
         raise MasterlogRenderError("Высота шапки не оставляет места для глубинных колонок")
     capacity = plot_height_mm * depth_scale / 1000.0
@@ -540,6 +559,8 @@ def _custom_page_size_mm(template: MasterlogTemplate) -> QSizeF:
 
 
 def _page_orientation(template: MasterlogTemplate) -> QPageLayout.Orientation:
+    if template.page_format.casefold() == "roll":
+        return QPageLayout.Orientation.Portrait
     return (
         QPageLayout.Orientation.Landscape
         if template.properties.get("orientation") == "landscape"
@@ -1129,7 +1150,9 @@ def _paint_columns(
 ) -> None:
     x = 0.0
     top = template.header_height_mm
-    header_height = column_heading_height(columns)
+    # Pagination is shared by all horizontal column groups, so every group must
+    # reserve the same (maximum) heading band to keep the physical depth scale exact.
+    header_height = _masterlog_column_heading_height(template)
     dataset = session.current_dataset
     bindings = masterlog_curve_bindings(template, dataset) if dataset is not None else {}
     annotation_columns: list[tuple[MasterlogColumnTemplate, QRectF]] = []
@@ -1152,7 +1175,7 @@ def _paint_columns(
             max(0.1, size.height() - top - header_height),
         )
         if depth_range is not None and dataset is not None:
-            _paint_column_grid(painter, plot_rect, column)
+            _paint_column_grid(painter, plot_rect, column, depth_range)
             if column.column_type == "depth":
                 _paint_depth_axis(painter, plot_rect, depth_range)
             elif column.column_type == "stratigraphy":
@@ -1203,43 +1226,91 @@ def _paint_column_grid(
     painter: QPainter,
     rect: QRectF,
     column: MasterlogColumnTemplate,
+    depth_range: tuple[float, float] | None = None,
 ) -> None:
-    if not column.grid_x and not column.grid_y:
+    if not column.grid_print or (not column.grid_x and not column.grid_y):
         return
     major_color = QColor("#64748b")
     major_color.setAlphaF(column.grid_alpha)
     minor_color = QColor("#94a3b8")
     minor_color.setAlphaF(column.grid_alpha * 0.45)
-    lines = normalized_grid_lines(
+    normalized_lines = normalized_grid_lines(
         column.grid_major_divisions,
         column.grid_minor_divisions,
     )
     painter.save()
     painter.setClipRect(rect)
 
-    def draw_axis(vertical: bool) -> None:
-        for line in lines:
-            position = (
-                rect.left() + rect.width() * line.fraction
-                if vertical
-                else rect.top() + rect.height() * line.fraction
-            )
+    if column.grid_x:
+        for line in normalized_lines:
+            position = rect.left() + rect.width() * line.fraction
             painter.setPen(
                 QPen(
                     major_color if line.major else minor_color,
                     0.2 if line.major else 0.1,
                 )
             )
-            if vertical:
-                painter.drawLine(QLineF(position, rect.top(), position, rect.bottom()))
-            else:
-                painter.drawLine(QLineF(rect.left(), position, rect.right(), position))
-
-    if column.grid_x:
-        draw_axis(True)
+            painter.drawLine(QLineF(position, rect.top(), position, rect.bottom()))
     if column.grid_y:
-        draw_axis(False)
+        if depth_range is None:
+            y_lines = normalized_grid_lines(
+                DEFAULT_GRID_MAJOR_DIVISIONS,
+                DEFAULT_GRID_MINOR_DIVISIONS,
+            )
+            horizontal_lines = tuple(
+                (rect.top() + rect.height() * line.fraction, line.major)
+                for line in y_lines
+            )
+        else:
+            horizontal_lines = tuple(
+                (
+                    _depth_value_to_y(rect, depth_range, value),
+                    major,
+                )
+                for value, major in _aligned_depth_grid_values(
+                    depth_range,
+                    DEFAULT_GRID_MINOR_DIVISIONS,
+                )
+            )
+        for position, major in horizontal_lines:
+            painter.setPen(
+                QPen(
+                    major_color if major else minor_color,
+                    0.2 if major else 0.1,
+                )
+            )
+            painter.drawLine(QLineF(rect.left(), position, rect.right(), position))
     painter.restore()
+
+
+def _aligned_depth_grid_values(
+    depth_range: tuple[float, float],
+    minor_divisions: int,
+) -> tuple[tuple[float, bool], ...]:
+    """Return zero-aligned 5 m depth lines with optional minor subdivisions."""
+
+    top, bottom = depth_range
+    return tuple(
+        (line.value, line.major)
+        for line in aligned_engineering_grid_lines(
+            top,
+            bottom,
+            DEFAULT_DEPTH_GRID_MAJOR_STEP,
+            minor_divisions,
+        )
+    )
+
+
+def _depth_value_to_y(
+    rect: QRectF,
+    depth_range: tuple[float, float],
+    value: float,
+) -> float:
+    top, bottom = depth_range
+    span = float(bottom) - float(top)
+    if not isfinite(span) or span == 0.0:
+        return rect.top()
+    return rect.top() + rect.height() * ((float(value) - float(top)) / span)
 
 
 def _paint_column_heading(
@@ -2178,23 +2249,21 @@ def _paint_depth_symbols(
 
 
 def _paint_depth_axis(painter: QPainter, rect: QRectF, depth_range: tuple[float, float]) -> None:
-    top, bottom = depth_range
+    """Paint depth labels; horizontal grid lines are owned by ``_paint_column_grid``."""
+
+    painter.save()
     font = QFont()
     _set_scaled_font_points(painter, font, 6.5)
     painter.setFont(font)
-    painter.setPen(QPen(QColor("#64748b"), 0.15))
-    for index in range(6):
-        fraction = index / 5.0
-        y = rect.top() + rect.height() * fraction
-        depth = top + (bottom - top) * fraction
-        painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
-        painter.setPen(QColor("#0f172a"))
+    painter.setPen(QColor("#0f172a"))
+    for depth, _major in _aligned_depth_grid_values(depth_range, 1):
+        y = _depth_value_to_y(rect, depth_range, depth)
         painter.drawText(
             QRectF(rect.left() + 0.5, y - 2.0, rect.width() - 1.0, 4.0),
             Qt.AlignmentFlag.AlignCenter,
             f"{depth:g}",
         )
-        painter.setPen(QPen(QColor("#64748b"), 0.15))
+    painter.restore()
 
 
 def masterlog_curve_bindings(template: MasterlogTemplate, dataset: Dataset) -> dict[str, str]:

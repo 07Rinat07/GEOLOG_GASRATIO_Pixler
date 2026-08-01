@@ -16,6 +16,7 @@ from geoworkbench.domain.models import (
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.report_passport import passport_sidecar_path
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
@@ -55,6 +56,48 @@ def make_session() -> tuple[ProjectSession, TabletLayout]:
 def bind_session(window: MainWindow, session: ProjectSession) -> None:
     window.project_controller.session = session
     window._bind_project_session()
+
+
+def test_print_report_channels_follow_selected_tablet_columns(qapp) -> None:
+    session, _layout = make_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    layout = session.current_tablet_layout
+    assert layout is not None
+    dataset.curves["curve-temp"] = CurveData(
+        CurveMetadata(
+            "curve-temp",
+            "MUD_TEMP",
+            "MUD_TEMP",
+            "degC",
+            None,
+            dataset.dataset_id,
+        ),
+        np.array([20.0, 21.0]),
+    )
+    layout.tracks[1].curve_mnemonics = ["ROP"]
+    layout.tracks.append(
+        TrackDefinition(
+            "temperature",
+            "Temperature",
+            TrackKind.CURVE,
+            curve_mnemonics=["MUD_TEMP"],
+        )
+    )
+    window = MainWindow()
+    bind_session(window, session)
+    job = PrintJobSettings(
+        output_format=PrintOutputFormat.PRINTER,
+        included_track_ids=("temperature",),
+    )
+
+    assert window._print_report_curve_ids(window.tablet_view, dataset, job) == (
+        "curve-temp",
+    )
+    assert window._print_report_channel_mnemonics(
+        window.tablet_view, dataset, job
+    ) == ("MUD_TEMP",)
+    window.close()
 
 
 def test_window_starts_on_clear_home_page(qapp) -> None:

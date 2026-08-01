@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html import escape
@@ -119,7 +120,12 @@ from geoworkbench.tablet.grid_renderer import (
     GridSettings,
     TabletGridRenderer,
 )
-from geoworkbench.tablet.grid_geometry import GridLine, normalized_grid_lines
+from geoworkbench.tablet.grid_geometry import (
+    DEFAULT_DEPTH_GRID_MAJOR_STEP,
+    GridLine,
+    adaptive_aligned_step,
+    normalized_grid_lines,
+)
 from geoworkbench.tablet.header_geometry import (
     CURVE_HEADER_BOTTOM_CLEARANCE,
     CURVE_HEADER_MAX_VISIBLE_ROWS,
@@ -414,6 +420,20 @@ class TabletVerticalAxisItem(EngineeringGridAxisItem):
     def __init__(self, descriptor: VerticalAxisDescriptor) -> None:
         super().__init__("left")
         self.descriptor = descriptor
+
+    def tickSpacing(self, minVal, maxVal, size):  # type: ignore[override]
+        if self.descriptor.role is IndexRole.DEPTH:
+            return [
+                (
+                    adaptive_aligned_step(
+                        float(minVal),
+                        float(maxVal),
+                        DEFAULT_DEPTH_GRID_MAJOR_STEP,
+                    ),
+                    0.0,
+                )
+            ]
+        return super().tickSpacing(minVal, maxVal, size)
 
     def tickStrings(self, values, scale, spacing):  # type: ignore[override]
         if self.descriptor.is_datetime:
@@ -787,10 +807,10 @@ class CurveHeaderEditor(QFrame):
         )
         ruler_row.addWidget(self.ruler, 1)
 
-        action_strip = QWidget()
-        action_strip.setFixedSize(14, 28)
-        action_strip.setStyleSheet("background:#ffffff;")
-        action_layout = QVBoxLayout(action_strip)
+        self.action_strip = QWidget()
+        self.action_strip.setFixedSize(14, 28)
+        self.action_strip.setStyleSheet("background:#ffffff;")
+        action_layout = QVBoxLayout(self.action_strip)
         action_layout.setContentsMargins(0, 0, 0, 0)
         action_layout.setSpacing(0)
 
@@ -814,7 +834,7 @@ class CurveHeaderEditor(QFrame):
             lambda: self.double_clicked.emit(self.mnemonic)
         )
         action_layout.addWidget(self.settings_button)
-        ruler_row.addWidget(action_strip)
+        ruler_row.addWidget(self.action_strip)
         root.addLayout(ruler_row)
 
         # Range changes are debounced.  This lets the user edit both boundaries
@@ -835,6 +855,11 @@ class CurveHeaderEditor(QFrame):
         self.unit.editingFinished.connect(self._commit_unit)
         self._loading = False
         self.set_selected(False)
+
+    def set_print_mode(self, enabled: bool) -> None:
+        """Remove editor-only actions from the paper header."""
+
+        self.action_strip.setVisible(not bool(enabled))
 
     def dispose(self) -> None:
         """Stop deferred editor work before Qt destroys the header widget.
@@ -1166,6 +1191,12 @@ class TabletTrackWidget(QFrame):
             axis.setPen(pg.mkPen("#475569"))
             axis.setTextPen(pg.mkPen("#334155"))
         TabletGridRenderer.apply(self.plot, GridSettings.from_track(definition))
+        TabletGridRenderer.set_horizontal_base_step(
+            self.plot,
+            DEFAULT_DEPTH_GRID_MAJOR_STEP
+            if vertical_axis is not None and vertical_axis.role is IndexRole.DEPTH
+            else None,
+        )
         self.plot.setLabel("bottom", definition.x_axis_label)
         self.plot.getAxis("left").enableAutoSIPrefix(False)
         self.plot.hideAxis("left")
@@ -1344,6 +1375,18 @@ class TabletTrackWidget(QFrame):
         self.curve_header_scroll.setMinimumHeight(normalized)
         self.curve_header_scroll.setMaximumHeight(normalized)
         self.curve_header_scroll.setFixedHeight(normalized)
+
+    def set_print_mode(self, enabled: bool) -> None:
+        """Render a clean curve legend without scrollbars or action buttons."""
+
+        self.curve_header_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            if enabled
+            else Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        for label in self._curve_header_labels.values():
+            if isinstance(label, CurveHeaderEditor):
+                label.set_print_mode(enabled)
 
     def update_curve_header_range(
         self, mnemonic: str, minimum: float, maximum: float, scale: XScale, unit: str
@@ -4549,6 +4592,46 @@ class TabletView(QWidget):
             for item in (rendered.annotation_items or {}).values():
                 item.set_print_mode(self._annotation_print_mode)
         self._annotation_overlay.set_print_mode(self._annotation_print_mode)
+
+    def create_print_clone(self) -> TabletView:
+        """Create an off-screen copy used by preview, PDF and printer rendering.
+
+        Printing changes the visible vertical range and temporarily resizes
+        columns for each page.  Those operations must never run against the
+        operator's live tablet because they produce visible scrolling and
+        flashing during long jobs.
+        """
+
+        clone = TabletView(language=self._localizer.language)
+        clone.setProperty("geoworkbench-print-clone", True)
+        clone.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+        clone.resize(max(1, self.width()), max(1, self.height()))
+        clone.set_image_assets(dict(self._image_assets))
+        clone.set_canvas_objects(list(self._canvas_objects))
+        clone.set_lithology(
+            list(self._lithology),
+            tuple(self._lithotype_catalog.values()),
+            refresh=False,
+        )
+        clone.set_cuttings(list(self._cuttings), refresh=False)
+        clone.set_stratigraphy(list(self._stratigraphy), refresh=False)
+        clone.set_interpretations(
+            list(self._interpretations),
+            self._selected_interpretation_id,
+            refresh=False,
+        )
+        clone._selected_interval_id = self._selected_interval_id
+        clone.set_layout_and_dataset(
+            deepcopy(self._layout_model),
+            self._dataset,
+            preserve_current_range=False,
+        )
+        visible_range = self.visible_depth_range
+        if visible_range is not None:
+            clone.set_visible_depth(*visible_range)
+        clone.show()
+        QApplication.processEvents()
+        return clone
 
     def annotation_request_at_view_center(
         self,

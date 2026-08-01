@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QTabWidget,
     QToolButton,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -43,6 +45,7 @@ from geoworkbench.printing.print_job import (
     PrintHeaderPlacement,
     PrintJobSettings,
     PrintOutputFormat,
+    PrintTrackOption,
     available_output_formats,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -80,6 +83,7 @@ class PrintCenterDialog(QDialog):
         printer_choices: tuple[tuple[str, bool], ...] | None = None,
         refresh_printers_callback: PrinterCatalogCallback | None = None,
         validate_printer_callback: PrinterValidationCallback | None = None,
+        track_print_options: tuple[PrintTrackOption, ...] = (),
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
@@ -101,6 +105,7 @@ class PrintCenterDialog(QDialog):
         self.edit_header_callback = edit_header_callback
         self.refresh_printers_callback = refresh_printers_callback
         self.validate_printer_callback = validate_printer_callback
+        self.track_print_options = tuple(track_print_options)
         page = initial_page or PrintPageSettings()
         preferences = initial_preferences or PrintExportPreferences()
         self.source_name = _safe_file_stem(source_name)
@@ -211,9 +216,12 @@ class PrintCenterDialog(QDialog):
         )
         self.header_preview.setVisible(False)
         header_layout.addWidget(self.header_preview)
-        paired_initial = self.paired_header_template_ids.get(
-            page.orientation.value, initial_header_template_id
-        )
+        paired_initial = self.paired_header_template_ids.get(page.orientation.value)
+        if paired_initial is None:
+            paired_initial = self._orientation_header_candidate(
+                initial_header_template_id,
+                page.orientation.value,
+            )
         self._set_header_choices(self.header_choices, paired_initial)
         self._refresh_header_preview()
 
@@ -458,6 +466,52 @@ class PrintCenterDialog(QDialog):
         content_layout.addWidget(paper_group)
         content_layout.addWidget(header_group)
 
+        self.composition_group = QGroupBox(
+            self._t("print_center.composition_group")
+        )
+        composition_layout = QVBoxLayout(self.composition_group)
+        composition_hint = QLabel(self._t("print_center.composition_hint"))
+        composition_hint.setWordWrap(True)
+        composition_layout.addWidget(composition_hint)
+        self.track_print_tree = QTreeWidget()
+        self.track_print_tree.setObjectName("print-center-track-composition")
+        self.track_print_tree.setHeaderLabels(
+            [
+                self._t("print_center.composition_column"),
+                self._t("print_center.composition_include"),
+                self._t("print_center.composition_grid"),
+                self._t("print_center.composition_screen"),
+            ]
+        )
+        self.track_print_tree.setRootIsDecorated(False)
+        self.track_print_tree.setAlternatingRowColors(True)
+        self.track_print_tree.setMinimumHeight(116)
+        self.track_print_tree.setAccessibleName(
+            self._t("print_center.composition_group")
+        )
+        self.track_print_tree.itemChanged.connect(self._track_composition_changed)
+        composition_layout.addWidget(self.track_print_tree)
+        composition_actions = QHBoxLayout()
+        self.include_all_tracks_button = QPushButton(
+            self._t("print_center.composition_all")
+        )
+        self.include_all_tracks_button.clicked.connect(self._include_all_tracks)
+        self.disable_all_grids_button = QPushButton(
+            self._t("print_center.composition_no_grids")
+        )
+        self.disable_all_grids_button.clicked.connect(self._disable_all_grids)
+        composition_actions.addWidget(self.include_all_tracks_button)
+        composition_actions.addWidget(self.disable_all_grids_button)
+        composition_actions.addStretch(1)
+        composition_layout.addLayout(composition_actions)
+        depth_standard = QLabel(self._t("print_center.composition_depth_standard"))
+        depth_standard.setWordWrap(True)
+        depth_standard.setStyleSheet("color:#64748b;")
+        composition_layout.addWidget(depth_standard)
+        self._populate_track_composition()
+        self.composition_group.setVisible(bool(self.track_print_options))
+        content_layout.addWidget(self.composition_group)
+
         margins_group = QGroupBox(self._t("print_center.margins_group"))
         margins_layout = QGridLayout(margins_group)
         self.margin_left_input = self._margin_input(page.margin_left_mm)
@@ -670,7 +724,91 @@ class PrintCenterDialog(QDialog):
             repeat_column_header_at_bottom=(self.repeat_column_header_check.isChecked()),
             printer_name=self.selected_printer_name(),
             copy_count=self.copy_count_input.value(),
+            included_track_ids=self._included_track_ids(),
+            grid_print_overrides=self._grid_print_overrides(),
         )
+
+    def _populate_track_composition(self) -> None:
+        self.track_print_tree.blockSignals(True)
+        try:
+            self.track_print_tree.clear()
+            for option in self.track_print_options:
+                axes = " + ".join(
+                    axis
+                    for axis, enabled in (("X", option.grid_x), ("Y", option.grid_y))
+                    if enabled
+                ) or "—"
+                item = QTreeWidgetItem([option.title, "", "", axes])
+                item.setData(0, Qt.ItemDataRole.UserRole, option.track_id)
+                item.setCheckState(
+                    1,
+                    Qt.CheckState.Checked if option.include else Qt.CheckState.Unchecked,
+                )
+                item.setCheckState(
+                    2,
+                    Qt.CheckState.Checked
+                    if option.grid_print and (option.grid_x or option.grid_y)
+                    else Qt.CheckState.Unchecked,
+                )
+                item.setToolTip(0, option.title)
+                item.setToolTip(2, self._t("print_center.composition_grid_tooltip"))
+                self.track_print_tree.addTopLevelItem(item)
+            for column in range(self.track_print_tree.columnCount()):
+                self.track_print_tree.resizeColumnToContents(column)
+        finally:
+            self.track_print_tree.blockSignals(False)
+
+    def _included_track_ids(self) -> tuple[str, ...] | None:
+        if not self.track_print_options:
+            return None
+        included = tuple(
+            str(item.data(0, Qt.ItemDataRole.UserRole))
+            for row in range(self.track_print_tree.topLevelItemCount())
+            if (item := self.track_print_tree.topLevelItem(row)) is not None
+            and item.checkState(1) == Qt.CheckState.Checked
+        )
+        if not included:
+            raise ValueError(self._t("print_center.composition_empty_error"))
+        return included
+
+    def _grid_print_overrides(self) -> tuple[tuple[str, bool], ...]:
+        if not self.track_print_options:
+            return ()
+        return tuple(
+            (
+                str(item.data(0, Qt.ItemDataRole.UserRole)),
+                item.checkState(2) == Qt.CheckState.Checked,
+            )
+            for row in range(self.track_print_tree.topLevelItemCount())
+            if (item := self.track_print_tree.topLevelItem(row)) is not None
+        )
+
+    def _track_composition_changed(
+        self, _item: QTreeWidgetItem, _column: int
+    ) -> None:
+        self._refresh_action_summary()
+
+    def _include_all_tracks(self) -> None:
+        self.track_print_tree.blockSignals(True)
+        try:
+            for row in range(self.track_print_tree.topLevelItemCount()):
+                item = self.track_print_tree.topLevelItem(row)
+                if item is not None:
+                    item.setCheckState(1, Qt.CheckState.Checked)
+        finally:
+            self.track_print_tree.blockSignals(False)
+        self._refresh_action_summary()
+
+    def _disable_all_grids(self) -> None:
+        self.track_print_tree.blockSignals(True)
+        try:
+            for row in range(self.track_print_tree.topLevelItemCount()):
+                item = self.track_print_tree.topLevelItem(row)
+                if item is not None:
+                    item.setCheckState(2, Qt.CheckState.Unchecked)
+        finally:
+            self.track_print_tree.blockSignals(False)
+        self._refresh_action_summary()
 
     def selected_printer_name(self) -> str | None:
         raw = self.printer_combo.currentData()
@@ -749,12 +887,39 @@ class PrintCenterDialog(QDialog):
 
     def _sync_paired_header_to_orientation(self, _index: int = -1) -> None:
         orientation = str(self.orientation_combo.currentData()).strip().casefold()
+        current = self.header_combo.currentData()
+        if not isinstance(current, str) or not current.strip():
+            return
         paired_id = self.paired_header_template_ids.get(orientation)
+        if paired_id is None:
+            paired_id = self._orientation_header_candidate(current, orientation)
         if paired_id is None:
             return
         index = self.header_combo.findData(paired_id)
         if index >= 0:
             self.header_combo.setCurrentIndex(index)
+
+    def _orientation_header_candidate(
+        self,
+        selected_id: str | None,
+        orientation: str,
+    ) -> str | None:
+        if not isinstance(selected_id, str) or not selected_id.strip():
+            return selected_id
+        normalized_orientation = str(orientation).strip().casefold()
+        if normalized_orientation not in {"portrait", "landscape"}:
+            return selected_id
+        normalized_id = selected_id.strip()
+        desired_suffix = f"_{normalized_orientation}"
+        opposite = "landscape" if normalized_orientation == "portrait" else "portrait"
+        opposite_suffix = f"_{opposite}"
+        if normalized_id.casefold().endswith(desired_suffix):
+            return normalized_id
+        if not normalized_id.casefold().endswith(opposite_suffix):
+            return normalized_id
+        candidate = normalized_id[: -len(opposite_suffix)] + desired_suffix
+        available_ids = {catalog_id for catalog_id, _label in self.header_choices}
+        return candidate if candidate in available_ids else normalized_id
 
     def _manage_headers(self) -> None:
         if self.manage_headers_callback is None:
@@ -892,18 +1057,40 @@ class PrintCenterDialog(QDialog):
             printer = self.printer_combo.currentText().strip()
             page_format = str(self.format_combo.currentText()).strip()
             orientation = str(self.orientation_combo.currentText()).strip()
-            self.action_summary.setText(
-                self._t(
+            summary = self._t(
                     "print_center.printer_action_summary",
                     printer=printer,
                     copies=self.copy_count_input.value(),
                     format=page_format,
                     orientation=orientation,
                 )
+            composition = self._composition_summary()
+            self.action_summary.setText(
+                " · ".join(part for part in (summary, composition) if part)
             )
             return
+        summary = f"{self._t('print_center.output')}: {self._output_name(output)}"
+        composition = self._composition_summary()
         self.action_summary.setText(
-            f"{self._t('print_center.output')}: {self._output_name(output)}"
+            " · ".join(part for part in (summary, composition) if part)
+        )
+
+    def _composition_summary(self) -> str:
+        if not self.track_print_options:
+            return ""
+        included = 0
+        grids = 0
+        for row in range(self.track_print_tree.topLevelItemCount()):
+            item = self.track_print_tree.topLevelItem(row)
+            if item is None or item.checkState(1) != Qt.CheckState.Checked:
+                continue
+            included += 1
+            if item.checkState(2) == Qt.CheckState.Checked:
+                grids += 1
+        return self._t(
+            "print_center.composition_summary",
+            columns=included,
+            grids=grids,
         )
 
     def _output_changed(self, _index: int | None = None) -> None:

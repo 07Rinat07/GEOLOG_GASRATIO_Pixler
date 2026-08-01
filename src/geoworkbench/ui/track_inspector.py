@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
+    QFrame,
     QFormLayout,
     QGroupBox,
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QStackedWidget,
     QTextEdit,
@@ -26,6 +28,7 @@ from geoworkbench.tablet.models import (
     minimum_track_width,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.grid_settings_widget import GridSettingsWidget
 
 
 class TrackInspector(QWidget):
@@ -110,29 +113,20 @@ class TrackInspector(QWidget):
 
         self.grid_group = QGroupBox(self._t("inspector.grid_group"))
         grid_group_layout = QVBoxLayout(self.grid_group)
-        grid_form = QFormLayout()
-        self._grid_form = grid_form
-        self.grid_x_input = QCheckBox(self._t("inspector.grid_x"))
-        self.grid_y_input = QCheckBox(self._t("inspector.grid_y"))
-        self.grid_major_input = QSpinBox()
-        self.grid_major_input.setRange(1, 20)
-        self.grid_minor_input = QSpinBox()
-        self.grid_minor_input.setRange(1, 20)
-        self.grid_alpha_input = QDoubleSpinBox()
-        self.grid_alpha_input.setRange(0.0, 1.0)
-        self.grid_alpha_input.setSingleStep(0.05)
-        self.grid_alpha_input.setDecimals(2)
-        grid_form.addRow(self.grid_x_input)
-        grid_form.addRow(self.grid_y_input)
-        grid_form.addRow(self._t("inspector.grid_major_divisions"), self.grid_major_input)
-        grid_form.addRow(self._t("inspector.grid_minor_divisions"), self.grid_minor_input)
-        grid_form.addRow(self._t("inspector.grid_alpha"), self.grid_alpha_input)
-        self.grid_print_input = QCheckBox(self._t("inspector.grid_print"))
-        grid_form.addRow(self.grid_print_input)
-        grid_group_layout.addLayout(grid_form)
+        self.grid_editor = GridSettingsWidget(language=self.localizer.language)
+        # Preserve the established public control API used by the main window
+        # and UI tests while keeping the controls in one reusable editor.
+        self.grid_x_input = self.grid_editor.grid_x_input
+        self.grid_y_input = self.grid_editor.grid_y_input
+        self.grid_major_input = self.grid_editor.grid_major_input
+        self.grid_minor_input = self.grid_editor.grid_minor_input
+        self.grid_alpha_input = self.grid_editor.grid_alpha_input
+        self.grid_print_input = self.grid_editor.grid_print_input
+        grid_group_layout.addWidget(self.grid_editor)
         self.grid_button = QPushButton(self._t("inspector.apply_grid"))
         self.grid_button.clicked.connect(self._emit_grid)
         grid_group_layout.addWidget(self.grid_button)
+        self._update_grid_action_help()
         editor_layout.addWidget(self.grid_group)
 
         self.axis_group = QGroupBox(self._t("inspector.axis_group"))
@@ -148,7 +142,19 @@ class TrackInspector(QWidget):
         axis_group_layout.addWidget(self.axis_label_button)
         editor_layout.addWidget(self.axis_group)
         editor_layout.addStretch(1)
-        self._stack.addWidget(editor)
+        self._editor_scroll = QScrollArea()
+        self._editor_scroll.setObjectName("track-inspector-scroll")
+        self._editor_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._editor_scroll.setWidgetResizable(True)
+        self._editor_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self._editor_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self._editor_scroll.setWidget(editor)
+        self._sync_editor_scroll_minimum_width()
+        self._stack.addWidget(self._editor_scroll)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(4, 4, 4, 4)
@@ -166,6 +172,7 @@ class TrackInspector(QWidget):
         self.track_group.setTitle(self._t("inspector.track_group"))
         self.curve_group.setTitle(self._t("inspector.curve_group"))
         self.grid_group.setTitle(self._t("inspector.grid_group"))
+        self.grid_editor.set_language(language)
         self.axis_group.setTitle(self._t("inspector.axis_group"))
 
         main_fields: tuple[tuple[QWidget, str], ...] = (
@@ -208,20 +215,6 @@ class TrackInspector(QWidget):
                     self._t(f"inspector.line_style.{style.value}"),
                 )
 
-        self.grid_x_input.setText(self._t("inspector.grid_x"))
-        self.grid_y_input.setText(self._t("inspector.grid_y"))
-        self.grid_print_input.setText(self._t("inspector.grid_print"))
-        grid_fields: tuple[tuple[QWidget, str], ...] = (
-            (self.grid_major_input, "inspector.grid_major_divisions"),
-            (self.grid_minor_input, "inspector.grid_minor_divisions"),
-        )
-        for field, key in grid_fields:
-            label = self._grid_form.labelForField(field)
-            if isinstance(label, QLabel):
-                label.setText(self._t(key))
-        grid_alpha_label = self._grid_form.labelForField(self.grid_alpha_input)
-        if isinstance(grid_alpha_label, QLabel):
-            grid_alpha_label.setText(self._t("inspector.grid_alpha"))
         axis_label = self._axis_form.labelForField(self.x_axis_label_input)
         if isinstance(axis_label, QLabel):
             axis_label.setText(self._t("inspector.x_axis_label"))
@@ -230,6 +223,8 @@ class TrackInspector(QWidget):
         self.grid_button.setText(self._t("inspector.apply_grid"))
         self.axis_label_button.setText(self._t("inspector.apply_axis_label"))
         self.apply_button.setText(self._t("common.apply"))
+        self._update_grid_action_help()
+        self._sync_editor_scroll_minimum_width()
 
         if self._current_track is not None:
             self.show_track(self._current_track)
@@ -241,6 +236,41 @@ class TrackInspector(QWidget):
         self._current_track = None
         self._text.setPlainText(text)
         self._stack.setCurrentIndex(0)
+
+    def _update_grid_action_help(self) -> None:
+        language = self.localizer.language
+        preset_help = {
+            AppLanguage.RU: (
+                "Заполняет поля стандартными значениями. Чтобы сохранить их для "
+                "колонки, затем нажмите «Применить сетку»."
+            ),
+            AppLanguage.KK: (
+                "Өрістерді стандартты мәндермен толтырады. Оларды баған үшін сақтау "
+                "үшін кейін «Торды қолдану» түймесін басыңыз."
+            ),
+            AppLanguage.EN: (
+                "Fills the standard values. To save them for this column, then click "
+                "Apply grid."
+            ),
+        }[language]
+        apply_help = {
+            AppLanguage.RU: "Сохраняет показанные настройки сетки для выбранной колонки.",
+            AppLanguage.KK: "Көрсетілген тор параметрлерін таңдалған баған үшін сақтайды.",
+            AppLanguage.EN: "Saves the displayed grid settings for the selected column.",
+        }[language]
+        self.grid_editor.standard_button.setToolTip(preset_help)
+        self.grid_editor.standard_button.setAccessibleDescription(preset_help)
+        self.grid_button.setToolTip(apply_help)
+        self.grid_button.setAccessibleDescription(apply_help)
+
+    def _sync_editor_scroll_minimum_width(self) -> None:
+        content = self._editor_scroll.widget()
+        if content is None:
+            return
+        scrollbar_width = self._editor_scroll.verticalScrollBar().sizeHint().width()
+        self._editor_scroll.setMinimumWidth(
+            content.minimumSizeHint().width() + scrollbar_width
+        )
 
     def show_track(
         self,
@@ -290,12 +320,14 @@ class TrackInspector(QWidget):
         self.curve_input.blockSignals(False)
         self._load_curve_style(self.curve_input.currentIndex())
         self.style_button.setEnabled(bool(track.curve_mnemonics))
-        self.grid_x_input.setChecked(track.grid_x)
-        self.grid_y_input.setChecked(track.grid_y)
-        self.grid_major_input.setValue(track.grid_major_divisions)
-        self.grid_minor_input.setValue(track.grid_minor_divisions)
-        self.grid_alpha_input.setValue(track.grid_alpha)
-        self.grid_print_input.setChecked(track.grid_print)
+        self.grid_editor.set_values(
+            track.grid_x,
+            track.grid_y,
+            track.grid_major_divisions,
+            track.grid_minor_divisions,
+            track.grid_alpha,
+            track.grid_print,
+        )
         self.x_axis_label_input.setText(track.x_axis_label)
         self._stack.setCurrentIndex(1)
 

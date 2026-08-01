@@ -16,8 +16,9 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
-    QSpinBox,
+    QTabWidget,
     QVBoxLayout,
+    QWidget,
 )
 
 from geoworkbench.domain.text_presentation import (
@@ -32,6 +33,12 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.tablet.grid_geometry import (
+    DEFAULT_GRID_ALPHA,
+    DEFAULT_GRID_MAJOR_DIVISIONS,
+    DEFAULT_GRID_MINOR_DIVISIONS,
+)
+from geoworkbench.ui.grid_settings_widget import GridSettingsWidget
 
 
 class ColumnPropertiesDialog(QDialog):
@@ -170,70 +177,74 @@ class ColumnPropertiesDialog(QDialog):
         self.line_style_input.setCurrentIndex(
             self.line_style_input.findData(column.line_style if column else "solid")
         )
-        self.grid_x_input = QCheckBox(
-            {
-                AppLanguage.RU: "Вертикальная сетка",
-                AppLanguage.KK: "Тік тор",
-                AppLanguage.EN: "Vertical grid",
-            }[language]
+        self.grid_editor = GridSettingsWidget(language=language)
+        self.grid_editor.set_values(
+            column.grid_x if column else True,
+            column.grid_y if column else True,
+            column.grid_major_divisions
+            if column
+            else DEFAULT_GRID_MAJOR_DIVISIONS,
+            column.grid_minor_divisions
+            if column
+            else DEFAULT_GRID_MINOR_DIVISIONS,
+            column.grid_alpha if column else DEFAULT_GRID_ALPHA,
+            column.grid_print if column else True,
         )
-        self.grid_y_input = QCheckBox(
-            {
-                AppLanguage.RU: "Горизонтальная сетка",
-                AppLanguage.KK: "Көлденең тор",
-                AppLanguage.EN: "Horizontal grid",
-            }[language]
-        )
-        self.grid_x_input.setChecked(column.grid_x if column else True)
-        self.grid_y_input.setChecked(column.grid_y if column else True)
-        self.grid_major_input = QSpinBox()
-        self.grid_minor_input = QSpinBox()
-        for grid_control in (self.grid_major_input, self.grid_minor_input):
-            grid_control.setRange(1, 20)
-        self.grid_major_input.setValue(column.grid_major_divisions if column else 5)
-        self.grid_minor_input.setValue(column.grid_minor_divisions if column else 5)
-        self.grid_alpha_input = QDoubleSpinBox()
-        self.grid_alpha_input.setRange(0.0, 1.0)
-        self.grid_alpha_input.setSingleStep(0.05)
-        self.grid_alpha_input.setDecimals(2)
-        self.grid_alpha_input.setValue(column.grid_alpha if column else 0.25)
+        self.grid_x_input = self.grid_editor.grid_x_input
+        self.grid_y_input = self.grid_editor.grid_y_input
+        self.grid_major_input = self.grid_editor.grid_major_input
+        self.grid_minor_input = self.grid_editor.grid_minor_input
+        self.grid_alpha_input = self.grid_editor.grid_alpha_input
+        self.grid_print_input = self.grid_editor.grid_print_input
         self.auto_range_input.toggled.connect(self._update_range_enabled)
-        layout = QFormLayout(self)
-        layout.addRow(localizer.text("masterlog_columns.name"), self.title_input)
-        layout.addRow(localizer.text("inspector.type"), self.type_input)
-        layout.addRow(localizer.text("inspector.width"), self.width_input)
+        self.setMinimumSize(640, 560)
+        root = QVBoxLayout(self)
+        self.settings_tabs = QTabWidget()
+        root.addWidget(self.settings_tabs, 1)
+
+        column_tab = QWidget()
+        column_layout = QFormLayout(column_tab)
+        column_layout.addRow(localizer.text("masterlog_columns.name"), self.title_input)
+        column_layout.addRow(localizer.text("inspector.type"), self.type_input)
+        column_layout.addRow(localizer.text("inspector.width"), self.width_input)
         presentation_labels = {
             AppLanguage.RU: ("Направление заголовка", "Положение заголовка"),
             AppLanguage.KK: ("Тақырып бағыты", "Тақырып орны"),
             AppLanguage.EN: ("Title direction", "Title position"),
         }[language]
-        layout.addRow(presentation_labels[0], self.title_orientation_input)
-        layout.addRow(presentation_labels[1], self.title_position_input)
-        layout.addRow(localizer.text("inspector.curves"), curves_row)
-        layout.addRow(localizer.text("inspector.x_scale"), self.scale_input)
-        layout.addRow(self.auto_range_input)
-        layout.addRow(localizer.text("inspector.x_minimum"), self.minimum_input)
-        layout.addRow(localizer.text("inspector.x_maximum"), self.maximum_input)
-        layout.addRow(self.legend_input)
-        layout.addRow(localizer.text("inspector.color"), self.color_input)
-        layout.addRow(localizer.text("inspector.line_width"), self.line_width_input)
-        layout.addRow(localizer.text("inspector.line_style"), self.line_style_input)
-        layout.addRow(self.grid_x_input)
-        layout.addRow(self.grid_y_input)
-        grid_labels = {
-            AppLanguage.RU: ("Крупные деления", "Мелкие деления", "Прозрачность сетки"),
-            AppLanguage.KK: ("Негізгі бөліністер", "Ұсақ бөліністер", "Тор мөлдірлігі"),
-            AppLanguage.EN: ("Major divisions", "Minor divisions", "Grid opacity"),
+        column_layout.addRow(presentation_labels[0], self.title_orientation_input)
+        column_layout.addRow(presentation_labels[1], self.title_position_input)
+        column_layout.addRow(localizer.text("inspector.curves"), curves_row)
+
+        curve_tab = QWidget()
+        curve_layout = QFormLayout(curve_tab)
+        curve_layout.addRow(localizer.text("inspector.x_scale"), self.scale_input)
+        curve_layout.addRow(self.auto_range_input)
+        curve_layout.addRow(localizer.text("inspector.x_minimum"), self.minimum_input)
+        curve_layout.addRow(localizer.text("inspector.x_maximum"), self.maximum_input)
+        curve_layout.addRow(self.legend_input)
+        curve_layout.addRow(localizer.text("inspector.color"), self.color_input)
+        curve_layout.addRow(localizer.text("inspector.line_width"), self.line_width_input)
+        curve_layout.addRow(localizer.text("inspector.line_style"), self.line_style_input)
+
+        grid_tab = QWidget()
+        grid_layout = QVBoxLayout(grid_tab)
+        grid_layout.addWidget(self.grid_editor)
+        grid_layout.addStretch(1)
+        tab_labels = {
+            AppLanguage.RU: ("Колонка", "Кривые", "Сетка и печать"),
+            AppLanguage.KK: ("Баған", "Қисықтар", "Тор және баспа"),
+            AppLanguage.EN: ("Column", "Curves", "Grid and print"),
         }[language]
-        layout.addRow(grid_labels[0], self.grid_major_input)
-        layout.addRow(grid_labels[1], self.grid_minor_input)
-        layout.addRow(grid_labels[2], self.grid_alpha_input)
+        self.settings_tabs.addTab(column_tab, tab_labels[0])
+        self.settings_tabs.addTab(curve_tab, tab_labels[1])
+        self.settings_tabs.addTab(grid_tab, tab_labels[2])
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        layout.addRow(buttons)
+        root.addWidget(buttons)
         self._update_range_enabled(self.auto_range_input.isChecked())
         self._update_curve_styles_enabled()
 
@@ -298,14 +309,8 @@ class ColumnPropertiesDialog(QDialog):
             if mnemonic in selected
         }
 
-    def grid_settings(self) -> tuple[bool, bool, int, int, float]:
-        return (
-            self.grid_x_input.isChecked(),
-            self.grid_y_input.isChecked(),
-            self.grid_major_input.value(),
-            self.grid_minor_input.value(),
-            self.grid_alpha_input.value(),
-        )
+    def grid_settings(self) -> tuple[bool, bool, int, int, float, bool]:
+        return self.grid_editor.values()
 
     def _edit_curve_styles(self, language: AppLanguage) -> None:
         mnemonics = [
@@ -638,7 +643,9 @@ class MasterlogColumnsDialog(QDialog):
             line_width,
             line_style,
         ) = dialog.values()
-        grid_x, grid_y, grid_major, grid_minor, grid_alpha = dialog.grid_settings()
+        grid_x, grid_y, grid_major, grid_minor, grid_alpha, grid_print = (
+            dialog.grid_settings()
+        )
         title_orientation, title_position = dialog.title_presentation()
         self._run(
             lambda: self.controller.add_column(
@@ -660,6 +667,7 @@ class MasterlogColumnsDialog(QDialog):
                 grid_major_divisions=grid_major,
                 grid_minor_divisions=grid_minor,
                 grid_alpha=grid_alpha,
+                grid_print=grid_print,
                 title_orientation=title_orientation,
                 title_position=title_position,
             )
@@ -729,7 +737,7 @@ def edit_masterlog_column(
         line_width,
         line_style,
     ) = dialog.values()
-    grid_x, grid_y, grid_major, grid_minor, grid_alpha = dialog.grid_settings()
+    grid_x, grid_y, grid_major, grid_minor, grid_alpha, grid_print = dialog.grid_settings()
     title_orientation, title_position = dialog.title_presentation()
     controller.update_column(
         template_id,
@@ -751,6 +759,7 @@ def edit_masterlog_column(
         grid_major_divisions=grid_major,
         grid_minor_divisions=grid_minor,
         grid_alpha=grid_alpha,
+        grid_print=grid_print,
         title_orientation=title_orientation,
         title_position=title_position,
     )

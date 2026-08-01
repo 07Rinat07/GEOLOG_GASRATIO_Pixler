@@ -90,6 +90,27 @@ class PrintHeaderPlacement(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class PrintTrackOption:
+    """One visible tablet column offered in the print composition chooser."""
+
+    track_id: str
+    title: str
+    include: bool = True
+    grid_print: bool = True
+    grid_x: bool = True
+    grid_y: bool = True
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.track_id, str) or not self.track_id.strip():
+            raise ValueError("ID печатной колонки должен быть непустой строкой")
+        if not isinstance(self.title, str) or not self.title.strip():
+            raise ValueError("Название печатной колонки должно быть непустой строкой")
+        for value in (self.include, self.grid_print, self.grid_x, self.grid_y):
+            if not isinstance(value, bool):
+                raise ValueError("Настройки печатной колонки должны быть логическими")
+
+
+@dataclass(frozen=True, slots=True)
 class PrintJobSettings:
     output_format: PrintOutputFormat = PrintOutputFormat.PDF
     page: PrintPageSettings = field(default_factory=PrintPageSettings)
@@ -103,6 +124,8 @@ class PrintJobSettings:
     repeat_column_header_at_bottom: bool = True
     printer_name: str | None = None
     copy_count: int = 1
+    included_track_ids: tuple[str, ...] | None = None
+    grid_print_overrides: tuple[tuple[str, bool], ...] = ()
 
     def __post_init__(self) -> None:
         if isinstance(self.dpi, bool) or not isinstance(self.dpi, int) or not 72 <= self.dpi <= 600:
@@ -131,6 +154,30 @@ class PrintJobSettings:
             or not 1 <= self.copy_count <= 999
         ):
             raise ValueError("Количество копий должно быть от 1 до 999")
+        if self.included_track_ids is not None:
+            if not isinstance(self.included_track_ids, tuple):
+                raise ValueError("Список печатных колонок должен быть кортежем")
+            if not self.included_track_ids:
+                raise ValueError("Для печати должна быть выбрана хотя бы одна колонка")
+            if any(
+                not isinstance(track_id, str) or not track_id.strip()
+                for track_id in self.included_track_ids
+            ):
+                raise ValueError("ID печатной колонки должен быть непустой строкой")
+            if len(set(self.included_track_ids)) != len(self.included_track_ids):
+                raise ValueError("Печатные колонки не должны повторяться")
+        seen_overrides: set[str] = set()
+        for override in self.grid_print_overrides:
+            if not isinstance(override, tuple) or len(override) != 2:
+                raise ValueError("Настройка печати сетки задана некорректно")
+            track_id, enabled = override
+            if not isinstance(track_id, str) or not track_id.strip():
+                raise ValueError("ID сетки печатной колонки должен быть непустой строкой")
+            if not isinstance(enabled, bool):
+                raise ValueError("Флаг печати сетки должен быть логическим")
+            if track_id in seen_overrides:
+                raise ValueError("Настройки печати сетки не должны повторяться")
+            seen_overrides.add(track_id)
         if self.output_format.is_file and self.target is None:
             raise ValueError("Для файлового экспорта необходимо выбрать путь")
         if not self.output_format.is_file and self.target is not None:

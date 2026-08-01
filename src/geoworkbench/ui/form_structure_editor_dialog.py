@@ -7,11 +7,14 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QFormLayout,
+    QGroupBox,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QSplitter,
     QTreeWidget,
@@ -23,7 +26,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.forms.draft import DraftFormController
 from geoworkbench.forms.editor import FormStructureEditor
 from geoworkbench.forms.preview import FormPreviewController, PreviewCallback
-from geoworkbench.forms.models import FormDocument
+from geoworkbench.forms.models import FormDocument, FormTrack
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.domain.models import Dataset
 from geoworkbench.domain.text_presentation import (
@@ -32,7 +35,9 @@ from geoworkbench.domain.text_presentation import (
 )
 from geoworkbench.printing.text_rendering import draw_oriented_text
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
+from geoworkbench.tablet.grid_geometry import normalized_grid_lines
 from geoworkbench.tablet.models import TrackKind, minimum_width_for_track_kinds
+from geoworkbench.ui.grid_settings_widget import GridSettingsWidget
 from geoworkbench.ui.track_content_editor_dialog import TrackContentEditorDialog
 
 _ITEM_KIND_ROLE = Qt.ItemDataRole.UserRole
@@ -86,10 +91,14 @@ class _FormPreview(QWidget):
                 padding_x=1.0,
                 padding_y=1.0,
             )
-            if column.tracks:
-                track_height = max(24, (rect.height() - column_header_height - 7) // len(column.tracks))
+            visible_tracks = [track for track in column.tracks if track.visible]
+            if visible_tracks:
+                track_height = max(
+                    24,
+                    (rect.height() - column_header_height - 7) // len(visible_tracks),
+                )
                 top = rect.top() + column_header_height + 3
-                for track in column.tracks:
+                for track in visible_tracks:
                     track_rect = rect.adjusted(
                         4, top - rect.top(), -4, top + track_height - rect.bottom()
                     )
@@ -97,6 +106,7 @@ class _FormPreview(QWidget):
                     painter.fillRect(
                         track_rect, QColor("#fef3c7") if track_selected else QColor("#f3f4f6")
                     )
+                    self._draw_track_grid(painter, track_rect, track)
                     painter.setPen(
                         QPen(
                             QColor("#d97706") if track_selected else QColor("#c4cad3"),
@@ -130,6 +140,49 @@ class _FormPreview(QWidget):
             painter.drawLine(boundary_x, margin, boundary_x, self.height() - margin)
             painter.setPen(color)
             painter.drawText(boundary_x + 3, margin + 12, caption)
+
+    @staticmethod
+    def _draw_track_grid(painter: QPainter, rect, track: FormTrack) -> None:
+        """Draw a compact preview of the track's effective grid settings."""
+
+        if not (track.grid_x or track.grid_y) or track.grid_alpha <= 0.0:
+            return
+        painter.save()
+        try:
+            base_alpha = max(0, min(255, round(track.grid_alpha * 255)))
+            major_color = QColor("#64748b")
+            major_color.setAlpha(base_alpha)
+            minor_color = QColor("#94a3b8")
+            minor_color.setAlpha(round(base_alpha * 0.55))
+
+            if track.grid_x:
+                divisions = normalized_grid_lines(
+                    track.grid_major_divisions,
+                    track.grid_minor_divisions,
+                )
+                minor_spacing = rect.width() / max(
+                    1,
+                    track.grid_major_divisions * track.grid_minor_divisions,
+                )
+                for line in divisions:
+                    if line.fraction <= 0.0 or line.fraction >= 1.0:
+                        continue
+                    if not line.major and minor_spacing < 3.0:
+                        continue
+                    painter.setPen(QPen(major_color if line.major else minor_color, 1))
+                    x = rect.left() + round(rect.width() * line.fraction)
+                    painter.drawLine(x, rect.top() + 1, x, rect.bottom() - 1)
+
+            if track.grid_y:
+                # The real axis is aligned globally at a five-unit step.  This
+                # miniature has no data range, so five equal bands communicate
+                # that standard without inventing depth labels.
+                painter.setPen(QPen(major_color, 1))
+                for index in range(1, 5):
+                    y = rect.top() + round(rect.height() * index / 5)
+                    painter.drawLine(rect.left() + 1, y, rect.right() - 1, y)
+        finally:
+            painter.restore()
 
 
 class FormStructureEditorDialog(QDialog):
@@ -178,8 +231,19 @@ class FormStructureEditorDialog(QDialog):
                 self._text("Структура", "Құрылым", "Structure"),
                 self._text("Тип", "Түрі", "Type"),
                 self._text("Ширина", "Ені", "Width"),
+                self._text("Состояние", "Күйі", "Status"),
             ]
         )
+        tree_header = self.tree.header()
+        tree_header.setStretchLastSection(False)
+        tree_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for column_index in (1, 2):
+            tree_header.setSectionResizeMode(
+                column_index,
+                QHeaderView.ResizeMode.ResizeToContents,
+            )
+        tree_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
+        tree_header.resizeSection(3, 160)
         self.tree.currentItemChanged.connect(self._selection_changed)
         left_layout.addWidget(self.tree, 1)
 
@@ -219,10 +283,33 @@ class FormStructureEditorDialog(QDialog):
         self.width_advice.setTextFormat(Qt.TextFormat.RichText)
         right_layout.addWidget(self.width_advice)
 
+        settings_widget = QWidget()
+        settings_layout = QVBoxLayout(settings_widget)
+        settings_layout.setContentsMargins(0, 0, 0, 0)
         properties = QFormLayout()
         self.title_edit = QLineEdit()
         self.title_edit.editingFinished.connect(self._apply_title)
         properties.addRow(self._text("Заголовок", "Тақырып", "Title"), self.title_edit)
+
+        self.visible_check = QCheckBox()
+        self.visible_check.setAccessibleName(
+            self._text(
+                "Видимость выбранной колонки или дорожки",
+                "Таңдалған бағанның немесе жолдың көрінуі",
+                "Selected column or track visibility",
+            )
+        )
+        self.visible_check.setToolTip(
+            self._text(
+                "Скрытый элемент не показывается в форме и не выводится на печать.",
+                "Жасырын элемент пішінде көрсетілмейді және басып шығарылмайды.",
+                "A hidden item is omitted from the form and from print.",
+            )
+        )
+        self.visible_check.toggled.connect(self._apply_visibility)
+        properties.addRow(
+            self._text("Видимость", "Көрінуі", "Visibility"), self.visible_check
+        )
 
         self.title_orientation_combo = QComboBox()
         orientation_labels = {
@@ -305,8 +392,27 @@ class FormStructureEditorDialog(QDialog):
             self._text("Подписи интервалов", "Интервал жазулары", "Interval labels"),
             self.show_interval_labels_check,
         )
-        right_layout.addLayout(properties)
-        right_layout.addStretch(1)
+        settings_layout.addLayout(properties)
+
+        self.grid_group = QGroupBox(
+            self._text(
+                "Сетка выбранной дорожки",
+                "Таңдалған жолдың торы",
+                "Selected track grid",
+            )
+        )
+        grid_layout = QVBoxLayout(self.grid_group)
+        self.grid_editor = GridSettingsWidget(language=self.language)
+        self.grid_settings = self.grid_editor
+        self.grid_editor.settings_changed.connect(self._apply_track_grid)
+        grid_layout.addWidget(self.grid_editor)
+        self.grid_group.setVisible(False)
+        settings_layout.addWidget(self.grid_group)
+        settings_layout.addStretch(1)
+        settings_scroll = QScrollArea()
+        settings_scroll.setWidgetResizable(True)
+        settings_scroll.setWidget(settings_widget)
+        right_layout.addWidget(settings_scroll, 1)
         splitter.addWidget(right)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
@@ -358,6 +464,40 @@ class FormStructureEditorDialog(QDialog):
             TrackKind.TEXT: self._text("Текст", "Мәтін", "Text"),
         }
         return names[kind]
+
+    def _tree_status(
+        self,
+        *,
+        visible: bool,
+        locked: bool = False,
+        grid_x: bool | None = None,
+        grid_y: bool | None = None,
+        grid_print: bool | None = None,
+    ) -> str:
+        statuses: list[str] = []
+        statuses.append(
+            self._text("видна", "көрінеді", "visible")
+            if visible
+            else self._text("скрыта", "жасырын", "hidden")
+        )
+        if locked:
+            statuses.append(self._text("заблокирована", "бұғатталған", "locked"))
+        if grid_x is not None and grid_y is not None:
+            axes = "/".join(
+                axis for axis, enabled in (("X", grid_x), ("Y", grid_y)) if enabled
+            )
+            statuses.append(
+                self._text("сетка выкл.", "тор өшірілген", "grid off")
+                if not axes
+                else self._text(f"сетка {axes}", f"тор {axes}", f"grid {axes}")
+            )
+            if axes:
+                statuses.append(
+                    self._text("печать", "баспа", "print")
+                    if grid_print
+                    else self._text("только экран", "тек экран", "screen only")
+                )
+        return " · ".join(statuses)
 
     def _button(self, layout: QHBoxLayout, caption: str, callback) -> QPushButton:
         button = QPushButton(caption)
@@ -481,7 +621,15 @@ class FormStructureEditorDialog(QDialog):
         selected_item: QTreeWidgetItem | None = None
         for column in self.editor.form.columns:
             column_item = QTreeWidgetItem(
-                [column.title, self._text("Колонка", "Баған", "Column"), f"{column.width} px"]
+                [
+                    column.title,
+                    self._text("Колонка", "Баған", "Column"),
+                    f"{column.width} px",
+                    self._tree_status(
+                        visible=column.visible,
+                        locked=column.locked,
+                    ),
+                ]
             )
             column_item.setData(0, _ITEM_KIND_ROLE, "column")
             column_item.setData(0, _ITEM_ID_ROLE, column.column_id)
@@ -489,7 +637,20 @@ class FormStructureEditorDialog(QDialog):
             if selected_id == column.column_id:
                 selected_item = column_item
             for track in column.tracks:
-                track_item = QTreeWidgetItem([track.title, self._track_kind_name(track.kind), ""])
+                track_item = QTreeWidgetItem(
+                    [
+                        track.title,
+                        self._track_kind_name(track.kind),
+                        "",
+                        self._tree_status(
+                            visible=track.visible,
+                            locked=track.locked,
+                            grid_x=track.grid_x,
+                            grid_y=track.grid_y,
+                            grid_print=track.grid_print,
+                        ),
+                    ]
+                )
                 track_item.setData(0, _ITEM_KIND_ROLE, "track")
                 track_item.setData(0, _ITEM_ID_ROLE, track.track_id)
                 column_item.addChild(track_item)
@@ -501,6 +662,7 @@ class FormStructureEditorDialog(QDialog):
                             binding.display_name,
                             self._text("Параметр", "Параметр", "Parameter"),
                             "",
+                            self._tree_status(visible=binding.visible),
                         ]
                     )
                     binding_item.setData(0, _ITEM_KIND_ROLE, "binding")
@@ -526,6 +688,11 @@ class FormStructureEditorDialog(QDialog):
             if ref is None:
                 self.title_edit.clear()
                 self.title_edit.setEnabled(False)
+                self.visible_check.setText(
+                    self._text("Показывать элемент", "Элементті көрсету", "Show item")
+                )
+                self.visible_check.setChecked(False)
+                self.visible_check.setEnabled(False)
                 self.title_orientation_combo.setEnabled(False)
                 self.title_position_combo.setEnabled(False)
                 self.group_edit.clear()
@@ -536,18 +703,27 @@ class FormStructureEditorDialog(QDialog):
                 self.axis_label_edit.setEnabled(False)
                 self.show_interval_labels_check.setChecked(False)
                 self.show_interval_labels_check.setEnabled(False)
+                self.grid_group.setVisible(False)
                 return
             kind, object_id = ref
             self.title_edit.setEnabled(True)
+            self.visible_check.setEnabled(False)
+            self.visible_check.setChecked(False)
             self.title_orientation_combo.setEnabled(kind in {"column", "track"})
             self.title_position_combo.setEnabled(kind in {"column", "track"})
             self.axis_label_edit.setEnabled(False)
             self.axis_label_edit.clear()
             self.show_interval_labels_check.setEnabled(False)
             self.show_interval_labels_check.setChecked(False)
+            self.grid_group.setVisible(False)
             if kind == "column":
                 column = self.editor.column(object_id)
                 self.title_edit.setText(column.title)
+                self.visible_check.setText(
+                    self._text("Показывать колонку", "Бағанды көрсету", "Show column")
+                )
+                self.visible_check.setChecked(column.visible)
+                self.visible_check.setEnabled(not column.locked)
                 self.group_edit.setEnabled(True)
                 self.group_edit.setText(column.group_title)
                 self.width_spin.setEnabled(True)
@@ -561,8 +737,14 @@ class FormStructureEditorDialog(QDialog):
                 )
                 self._select_combo_data(self.title_position_combo, column.title_position)
             elif kind == "track":
-                _column, track = self.editor.track(object_id)
+                column, track = self.editor.track(object_id)
                 self.title_edit.setText(track.title)
+                self.visible_check.setText(
+                    self._text("Показывать дорожку", "Жолды көрсету", "Show track")
+                )
+                self.visible_check.setChecked(track.visible)
+                editable = not (column.locked or track.locked)
+                self.visible_check.setEnabled(editable)
                 self.group_edit.clear()
                 self.group_edit.setEnabled(False)
                 self.width_spin.setEnabled(False)
@@ -580,10 +762,27 @@ class FormStructureEditorDialog(QDialog):
                 index = self.kind_combo.findData(track.kind)
                 if index >= 0:
                     self.kind_combo.setCurrentIndex(index)
+                self.grid_editor.set_values(
+                    track.grid_x,
+                    track.grid_y,
+                    track.grid_major_divisions,
+                    track.grid_minor_divisions,
+                    track.grid_alpha,
+                    track.grid_print,
+                )
+                self.grid_group.setEnabled(editable)
+                self.grid_group.setVisible(True)
             else:
                 track_id, binding_id = object_id.split("::", 1)
                 binding = self.editor.binding(track_id, binding_id)
                 self.title_edit.setText(binding.display_name)
+                self.visible_check.setText(
+                    self._text(
+                        "Видимость задаётся для дорожки",
+                        "Көріну жол үшін орнатылады",
+                        "Visibility is set on the track",
+                    )
+                )
                 self.group_edit.clear()
                 self.group_edit.setEnabled(False)
                 self.width_spin.setEnabled(False)
@@ -636,6 +835,46 @@ class FormStructureEditorDialog(QDialog):
             self.preview.set_form(self.editor.form, ref[1])
         except (KeyError, PermissionError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
+
+    def _apply_visibility(self, visible: bool) -> None:
+        if self._updating_properties:
+            return
+        ref = self._selected_ref()
+        if ref is None or ref[0] not in {"column", "track"}:
+            return
+        try:
+            if ref[0] == "column":
+                self.editor.set_column_visible(ref[1], visible)
+            else:
+                self.editor.set_track_visible(ref[1], visible)
+            self._reload_tree(ref[1])
+            self._form_changed()
+        except (KeyError, PermissionError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            self._selection_changed(None, None)
+
+    def _apply_track_grid(self) -> None:
+        if self._updating_properties:
+            return
+        ref = self._selected_ref()
+        if ref is None or ref[0] != "track":
+            return
+        grid_x, grid_y, major, minor, alpha, print_grid = self.grid_editor.values()
+        try:
+            self.editor.set_track_grid(
+                ref[1],
+                grid_x=grid_x,
+                grid_y=grid_y,
+                grid_major_divisions=major,
+                grid_minor_divisions=minor,
+                grid_alpha=alpha,
+                grid_print=print_grid,
+            )
+            self.preview.set_form(self.editor.form, ref[1])
+            self._form_changed()
+        except (KeyError, PermissionError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            self._selection_changed(None, None)
 
     def _apply_title(self) -> None:
         if self._updating_properties:

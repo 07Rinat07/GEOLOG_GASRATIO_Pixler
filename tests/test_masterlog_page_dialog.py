@@ -17,3 +17,19 @@ def test_masterlog_page_dialog_edits_custom_geometry(qapp) -> None:
     assert dialog.values() == ("custom", "landscape", 250, 30.0, 250.0, 500.0)
     assert not dialog.width_input.isHidden()
     dialog.close()
+
+
+def test_masterlog_page_dialog_resets_landscape_when_switching_to_roll(qapp) -> None:
+    template = MasterlogTemplate(
+        "standard",
+        "Standard",
+        page_format="A4",
+        properties={"orientation": "landscape"},
+    )
+    dialog = MasterlogPageDialog(template, language=AppLanguage.EN)
+
+    dialog.format_input.setCurrentIndex(dialog.format_input.findData("roll"))
+
+    assert dialog.values()[:2] == ("roll", "portrait")
+    assert not dialog.orientation_input.isEnabled()
+    dialog.close()

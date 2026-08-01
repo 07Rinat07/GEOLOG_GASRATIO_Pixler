@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 from PySide6.QtGui import QFontDatabase
@@ -8,6 +10,7 @@ from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.printing.document_export import export_document_pages, export_document_pdf
+import geoworkbench.printing.document_export as document_export
 from geoworkbench.printing.document_renderer import PrintDocumentContext
 from geoworkbench.printing.pagination import (
     PrintPaginationSettings,
@@ -90,10 +93,71 @@ def test_widget_preflight_strips_screen_only_decorative_prefixes(qapp) -> None:
     widget.close()
 
 
+def test_tablet_unicode_preflight_ignores_excluded_print_columns(
+    qapp, monkeypatch
+) -> None:
+    class PrintableWidget(QWidget):
+        def __init__(self) -> None:
+            super().__init__()
+            self.good = QLabel("GOOD", self)
+            self.bad = QLabel("BAD-EXCLUDED", self)
+
+        def printable_tracks(self):
+            return (
+                SimpleNamespace(
+                    definition=SimpleNamespace(track_id="good"),
+                    widget=self.good,
+                ),
+                SimpleNamespace(
+                    definition=SimpleNamespace(track_id="bad"),
+                    widget=self.bad,
+                ),
+            )
+
+    captured: list[tuple[str, ...]] = []
+
+    class PassingReport:
+        ok = True
+
+        @staticmethod
+        def error_message() -> str:
+            return ""
+
+    monkeypatch.setattr(
+        document_export,
+        "preflight_texts",
+        lambda texts: captured.append(tuple(texts)) or PassingReport(),
+    )
+    monkeypatch.setattr(
+        document_export,
+        "ensure_widget_printable_unicode",
+        lambda _widget: pytest.fail("Full tablet preflight must not run"),
+    )
+    widget = PrintableWidget()
+    job = PrintJobSettings(
+        output_format=PrintOutputFormat.PRINTER,
+        included_track_ids=("good",),
+    )
+
+    document_export._unicode_preflight(
+        widget,
+        PrintDocumentContext("Selected tracks"),
+        job,
+    )
+
+    assert "GOOD" in captured[0]
+    assert "BAD-EXCLUDED" not in captured[0]
+    widget.close()
+
+
 def test_full_depth_pdf_contains_multiple_pages_and_restores_view(qapp, tmp_path) -> None:
     _require_system_fonts()
     view = _paged_tablet(qapp)
     original = view.visible_depth_range
+    live_range_changes: list[tuple[float, float]] = []
+    view.visible_depth_changed.connect(
+        lambda start, end: live_range_changes.append((start, end))
+    )
     target = tmp_path / "толық_ұңғыма.pdf"
     job = PrintJobSettings(
         output_format=PrintOutputFormat.PDF,
@@ -117,6 +181,7 @@ def test_full_depth_pdf_contains_multiple_pages_and_restores_view(qapp, tmp_path
     assert document.pageCount() == 4
     assert result.page_count == 4
     assert view.visible_depth_range == pytest.approx(original)
+    assert live_range_changes == []
     view.close()
 
 

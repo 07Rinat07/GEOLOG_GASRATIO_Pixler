@@ -493,7 +493,8 @@ class MasterlogColumnTemplate:
     grid_y: bool = False
     grid_major_divisions: int = 5
     grid_minor_divisions: int = 5
-    grid_alpha: float = 0.25
+    grid_alpha: float = 0.2
+    grid_print: bool = True
 
     def __post_init__(self) -> None:
         if self.x_scale not in {"linear", "logarithmic"}:
@@ -530,6 +531,8 @@ class MasterlogColumnTemplate:
             raise ValueError("Логарифмический диапазон кривой Masterlog должен быть положительным")
         if not isinstance(self.grid_x, bool) or not isinstance(self.grid_y, bool):
             raise ValueError("Видимость сетки Masterlog должна быть логической")
+        if not isinstance(self.grid_print, bool):
+            raise ValueError("Печать сетки Masterlog должна быть логической")
         for value in (self.grid_major_divisions, self.grid_minor_divisions):
             if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 20:
                 raise ValueError("Деления сетки Masterlog должны быть от 1 до 20")

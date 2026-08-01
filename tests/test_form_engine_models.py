@@ -74,11 +74,12 @@ def test_form_grid_settings_control_linked_masterlog_print_grid() -> None:
     report = build_masterlog_from_form(form, template_id="print-grid")
     column = report.template.columns[0]
 
-    assert column.grid_x is False
-    assert column.grid_y is False
+    assert column.grid_x is True
+    assert column.grid_y is True
     assert column.grid_major_divisions == 4
     assert column.grid_minor_divisions == 10
     assert column.grid_alpha == 0.35
+    assert column.grid_print is False
 
 
 def test_factory_templates_are_read_only_and_copy_is_editable() -> None:

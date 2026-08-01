@@ -420,6 +420,8 @@ class MasterlogTemplateController:
         normalized_orientation = orientation.strip().casefold()
         if normalized_orientation not in {"portrait", "landscape"}:
             raise ValueError("Ориентация masterlog должна быть portrait или landscape")
+        if normalized_format == "roll":
+            normalized_orientation = "portrait"
         dimensions_mm: dict[str, tuple[float, float]] = {
             "A0": (841.0, 1189.0), "A1": (594.0, 841.0),
             "A2": (420.0, 594.0), "A3": (297.0, 420.0),
@@ -537,7 +539,8 @@ class MasterlogTemplateController:
         grid_y: bool = False,
         grid_major_divisions: int = 5,
         grid_minor_divisions: int = 5,
-        grid_alpha: float = 0.25,
+        grid_alpha: float = 0.2,
+        grid_print: bool = True,
         title_orientation: str = "horizontal",
         title_position: str = "center",
     ) -> MasterlogColumnTemplate:
@@ -561,6 +564,7 @@ class MasterlogTemplateController:
             grid_major_divisions,
             grid_minor_divisions,
             grid_alpha,
+            grid_print,
             title_orientation,
             title_position,
         )
@@ -590,6 +594,7 @@ class MasterlogTemplateController:
         grid_major_divisions: int | None = None,
         grid_minor_divisions: int | None = None,
         grid_alpha: float | None = None,
+        grid_print: bool | None = None,
         title_orientation: str | None = None,
         title_position: str | None = None,
     ) -> MasterlogColumnTemplate:
@@ -614,6 +619,7 @@ class MasterlogTemplateController:
             existing.grid_major_divisions if grid_major_divisions is None else grid_major_divisions,
             existing.grid_minor_divisions if grid_minor_divisions is None else grid_minor_divisions,
             existing.grid_alpha if grid_alpha is None else grid_alpha,
+            existing.grid_print if grid_print is None else grid_print,
             str(existing.properties.get("title_orientation", "horizontal"))
             if title_orientation is None
             else title_orientation,
@@ -885,6 +891,7 @@ class MasterlogTemplateController:
         grid_major_divisions: int,
         grid_minor_divisions: int,
         grid_alpha: float,
+        grid_print: bool,
         title_orientation: str,
         title_position: str,
     ) -> MasterlogColumnTemplate:
@@ -927,6 +934,7 @@ class MasterlogTemplateController:
             grid_major_divisions=grid_major_divisions,
             grid_minor_divisions=grid_minor_divisions,
             grid_alpha=grid_alpha,
+            grid_print=grid_print,
         )
         column.properties["title_orientation"] = normalize_text_orientation(
             title_orientation
