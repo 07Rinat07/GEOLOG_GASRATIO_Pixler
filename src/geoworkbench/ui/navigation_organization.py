@@ -476,6 +476,8 @@ def _place_menu_bar_button(window: QMainWindow, button: QToolButton) -> QWidget:
     existing = menu_bar.cornerWidget(corner)
     if existing is None:
         menu_bar.setCornerWidget(button, corner)
+        button.show()
+        menu_bar.updateGeometry()
         return button
 
     host = QWidget(menu_bar)
@@ -487,6 +489,9 @@ def _place_menu_bar_button(window: QMainWindow, button: QToolButton) -> QWidget:
     layout.addWidget(existing)
     layout.addWidget(button)
     menu_bar.setCornerWidget(host, corner)
+    host.show()
+    button.show()
+    menu_bar.updateGeometry()
     return host
 
 
