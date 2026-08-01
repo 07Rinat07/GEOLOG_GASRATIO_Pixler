@@ -58,7 +58,6 @@ class _WorkspaceDialog(QDialog):
         layout.setContentsMargins(0, 0, 0, 0)
         workspace.setParent(self)
         layout.addWidget(workspace, 1)
-        self.ensure_workspace_visible()
 
     def ensure_workspace_visible(self) -> None:
         """Restore visibility lost when QTabWidget removes an inactive page."""
@@ -308,8 +307,6 @@ def _replace_trigger(action: QAction, callback: Callable[[], None]) -> None:
 
 
 def _show_dialog(dialog: QDialog) -> None:
-    if isinstance(dialog, _WorkspaceDialog):
-        dialog.ensure_workspace_visible()
     if dialog.isMinimized():
         dialog.showNormal()
     else:
