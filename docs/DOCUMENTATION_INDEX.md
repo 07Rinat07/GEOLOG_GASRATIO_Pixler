@@ -92,6 +92,7 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 - Расчёты и события: [DEXP_FORMULAS.md](DEXP_FORMULAS.md),
   [MUD_GAS_FORMULAS.md](MUD_GAS_FORMULAS.md),
   [NORMALIZED_GAS.md](NORMALIZED_GAS.md),
+  [COMPLEX_GAS_FORM.md](COMPLEX_GAS_FORM.md),
   [OPERATIONAL_EVENTS.md](OPERATIONAL_EVENTS.md),
   [SENSOR_CATALOG.md](SENSOR_CATALOG.md).
 - Формы и планшет: [CONSTRUCTOR_ARCHITECTURE.md](CONSTRUCTOR_ARCHITECTURE.md),
