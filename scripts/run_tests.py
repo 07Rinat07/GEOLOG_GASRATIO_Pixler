@@ -28,7 +28,13 @@ _CHILD_FLAG = "--geolog-single-shard"
 _DEFAULT_WINDOWS_SHARDS = 8
 _NATIVE_HEAVY_TEST_THRESHOLD = 24
 _NATIVE_TEST_BATCH_SIZE = 4
-_SINGLE_TEST_PROCESS_FILES = frozenset({"tests/test_main_window.py"})
+_FORCED_NATIVE_BATCH_FILES = frozenset({"tests/test_curve_view_editing.py"})
+_SINGLE_TEST_PROCESS_FILES = frozenset(
+    {
+        "tests/test_main_window.py",
+        *_FORCED_NATIVE_BATCH_FILES,
+    }
+)
 
 
 def _exit_immediately(result: int) -> None:
@@ -112,13 +118,20 @@ def _top_level_test_nodes(path: Path) -> tuple[str, ...]:
     return tuple(nodes)
 
 
+def _requires_native_batch(path: Path, nodes: Sequence[str]) -> bool:
+    return (
+        path.as_posix() in _FORCED_NATIVE_BATCH_FILES
+        or len(nodes) >= _NATIVE_HEAVY_TEST_THRESHOLD
+    )
+
+
 def _heavy_test_batches(
     files: Sequence[Path],
 ) -> tuple[tuple[str, tuple[str, ...]], ...]:
     batches: list[tuple[str, tuple[str, ...]]] = []
     for path in files:
         nodes = _top_level_test_nodes(path)
-        if len(nodes) < _NATIVE_HEAVY_TEST_THRESHOLD:
+        if not _requires_native_batch(path, nodes):
             continue
         path_name = path.as_posix()
         batch_size = (
@@ -135,11 +148,11 @@ def _test_file_shards(
     files: Sequence[Path] | None = None,
 ) -> tuple[tuple[str, ...], ...]:
     selected = tuple(files) if files is not None else _all_test_files()
-    regular_files = tuple(
-        path
-        for path in selected
-        if len(_top_level_test_nodes(path)) < _NATIVE_HEAVY_TEST_THRESHOLD
-    )
+    regular_files: list[Path] = []
+    for path in selected:
+        nodes = _top_level_test_nodes(path)
+        if not _requires_native_batch(path, nodes):
+            regular_files.append(path)
     if not regular_files:
         return ()
     shard_count = max(1, min(shard_count, len(regular_files)))
