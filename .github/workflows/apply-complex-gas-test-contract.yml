@@ -1,0 +1,99 @@
+name: Apply complex gas test contract
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/complex-gas-form
+          fetch-depth: 0
+
+      - name: Update curated form expectations
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("tests/test_compact_geology_columns.py")
+          text = path.read_text(encoding="utf-8")
+
+          def replace_once(source: str, old: str, new: str, label: str) -> str:
+              count = source.count(old)
+              if count != 1:
+                  raise RuntimeError(f"{label}: expected one anchor, found {count}")
+              return source.replace(old, new, 1)
+
+          text = replace_once(
+              text,
+              '        "factory-gas-ratio-pixler-depth",\n'
+              '        "factory-lithology-cuttings",\n',
+              '        "factory-gas-ratio-pixler-depth",\n'
+              '        "factory-complex-gas-analysis",\n'
+              '        "factory-lithology-cuttings",\n',
+              "curated form order",
+          )
+          text = replace_once(
+              text,
+              '            "factory-gas-ratio-pixler-depth": '
+              '"Gas Ratio & Pixler — глубинная интерпретация",\n',
+              '            "factory-gas-ratio-pixler-depth": '
+              '"Gas Ratio & Pixler — глубинная интерпретация",\n'
+              '            "factory-complex-gas-analysis": "Комплексная газовая форма",\n',
+              "Russian ready-form name",
+          )
+          text = replace_once(
+              text,
+              '            "factory-gas-ratio-pixler-depth": '
+              '"Gas Ratio & Pixler — тереңдік интерпретациясы",\n',
+              '            "factory-gas-ratio-pixler-depth": '
+              '"Gas Ratio & Pixler — тереңдік интерпретациясы",\n'
+              '            "factory-complex-gas-analysis": "Кешенді газдық пішін",\n',
+              "Kazakh ready-form name",
+          )
+          text = replace_once(
+              text,
+              '            "factory-gas-ratio-pixler-depth": '
+              '"Gas Ratio & Pixler — depth interpretation",\n',
+              '            "factory-gas-ratio-pixler-depth": '
+              '"Gas Ratio & Pixler — depth interpretation",\n'
+              '            "factory-complex-gas-analysis": "Integrated gas analysis",\n',
+              "English ready-form name",
+          )
+          path.write_text(text, encoding="utf-8")
+          Path(".github/workflows/apply-complex-gas-test-contract.yml").unlink()
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and test tools
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run affected tests
+        run: |
+          python -m ruff check tests/test_compact_geology_columns.py tests/test_complex_gas_form.py
+          python -m pytest -q tests/test_compact_geology_columns.py tests/test_complex_gas_form.py
+
+      - name: Commit verified test contract
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            tests/test_compact_geology_columns.py \
+            .github/workflows/apply-complex-gas-test-contract.yml
+          git commit -m "test: register complex gas ready form [complex-gas-tests]"
+          git push origin HEAD:feature/complex-gas-form
