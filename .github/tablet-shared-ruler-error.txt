@@ -1,17 +1,17 @@
-phase=ruff
+phase=pytest
 --- tablet-shared-ruler-output.txt ---
 Using CPython 3.11.9 interpreter at: C:\hostedtoolcache\windows\Python\3.11.9\x64\python3.exe
 Creating virtual environment at: .venv
 Activate with: .venv\Scripts\activate
-Resolved 21 packages in 129ms
-Downloading pillow (6.9MiB)
+Resolved 21 packages in 102ms
 Downloading pydantic (2.0MiB)
+Downloading numpy (12.5MiB)
 Downloading shiboken6 (1.2MiB)
+Downloading pymupdf (18.9MiB)
+Downloading pillow (6.9MiB)
+Downloading pyside6-addons (161.0MiB)
 Downloading pyqtgraph (1.8MiB)
 Downloading pyside6-essentials (74.0MiB)
-Downloading numpy (12.5MiB)
-Downloading pymupdf (18.9MiB)
-Downloading pyside6-addons (161.0MiB)
  Downloaded shiboken6
  Downloaded pydantic
  Downloaded pillow
@@ -20,8 +20,8 @@ Downloading pyside6-addons (161.0MiB)
  Downloaded numpy
  Downloaded pyside6-addons
  Downloaded pyside6-essentials
-Prepared 21 packages in 3.69s
-Installed 21 packages in 644ms
+Prepared 21 packages in 4.03s
+Installed 21 packages in 714ms
  + colorama==0.4.6
  + defusedxml==0.7.1
  + et-xmlfile==2.0.0
@@ -43,15 +43,15 @@ Installed 21 packages in 644ms
  + typingx==0.6.0
  + tzdata==2026.3
  + websockets==16.1.1
-Resolved 13 packages in 300ms
+Resolved 13 packages in 161ms
 Downloading pygments (1.2MiB)
 Downloading ruff (11.4MiB)
 Downloading mypy (9.6MiB)
  Downloaded ruff
  Downloaded pygments
  Downloaded mypy
-Prepared 11 packages in 807ms
-Installed 11 packages in 272ms
+Prepared 11 packages in 855ms
+Installed 11 packages in 202ms
  + iniconfig==2.3.0
  + librt==0.13.0
  + mypy==1.19.1
@@ -64,29 +64,182 @@ Installed 11 packages in 272ms
  + ruff==0.15.22
  + types-defusedxml==0.7.0.20260504
 Documentation audit passed: 50 localized files per language, 2295 i18n keys.
-F401 [*] `geoworkbench.services.time_display.format_datetime_axis_tick` imported but unused
-  --> src\geoworkbench\tablet\tablet_view.py:93:5
-   |
-91 |     elapsed_to_seconds,
-92 |     format_datetime_at_row,
-93 |     format_datetime_axis_tick,
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
-94 |     format_duration_compact,
-95 |     format_elapsed_time,
-   |
-help: Remove unused import: `geoworkbench.services.time_display.format_datetime_axis_tick`
+All checks passed!
+Success: no issues found in 2 source files
+.......................F.FF..                                            [100%]
+================================== FAILURES ===================================
+___ test_depth_and_graphical_tracks_share_one_layout_object_and_tick_values ___
 
-F401 [*] `geoworkbench.tablet.grid_geometry.adaptive_aligned_step` imported but unused
-   --> src\geoworkbench\tablet\tablet_view.py:136:5
-    |
-134 |     DEFAULT_DEPTH_GRID_MAJOR_STEP,
-135 |     GridLine,
-136 |     adaptive_aligned_step,
-    |     ^^^^^^^^^^^^^^^^^^^^^
-137 |     normalized_grid_lines,
-138 | )
-    |
-help: Remove unused import: `geoworkbench.tablet.grid_geometry.adaptive_aligned_step`
+qapp = <PySide6.QtWidgets.QApplication(0x1bf4783c210) at 0x000001BF49A31F80>
 
-Found 2 errors.
-[*] 2 fixable with the `--fix` option.
+    def test_depth_and_graphical_tracks_share_one_layout_object_and_tick_values(qapp) -> None:
+        view = TabletView()
+        view.set_layout_model(
+            TabletLayout(
+                tracks=[
+                    TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120),
+                    TrackDefinition(
+                        "curve",
+                        "Curve",
+                        TrackKind.CURVE,
+                        width=220,
+                        curve_mnemonics=["C1"],
+                    ),
+                    TrackDefinition(
+                        "gas",
+                        "Gas",
+                        TrackKind.GAS,
+                        width=180,
+                        curve_mnemonics=["C1"],
+                    ),
+                ],
+                vertical_ruler_scale=VerticalRulerScaleSettings(
+                    major_step=5.0,
+                    minor_divisions=5,
+                ),
+            )
+        )
+        view.set_dataset(_dataset())
+        qapp.processEvents()
+    
+        shared = view.shared_vertical_ruler_layout
+        assert shared is not None
+        axes = [
+            view._rendered[track_id].plot.getAxis("left")
+            for track_id in ("depth", "curve", "gas")
+        ]
+        assert all(isinstance(axis, TabletVerticalAxisItem) for axis in axes)
+        typed_axes = [axis for axis in axes if isinstance(axis, TabletVerticalAxisItem)]
+        assert all(axis.shared_layout is shared for axis in typed_axes)
+        assert all(axis.isVisible() for axis in typed_axes)
+>       assert _axis_values(typed_axes[0]) == _axis_values(typed_axes[1])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_tablet_shared_vertical_ruler.py:108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_tablet_shared_vertical_ruler.py:49: in _axis_values
+    return tuple(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+.0 = <list_iterator object at 0x000001BF40B30910>
+
+    return tuple(
+        float(value)
+        for _spacing, ticks in levels
+>       for value, _label in ticks
+            ^^^^^^^^^^^^^
+    )
+E   TypeError: cannot unpack non-iterable float object
+
+tests\test_tablet_shared_vertical_ruler.py:52: TypeError
+_________ test_track_frequency_filters_only_values_from_shared_layout _________
+
+qapp = <PySide6.QtWidgets.QApplication(0x1bf4783c210) at 0x000001BF49A31F80>
+
+    def test_track_frequency_filters_only_values_from_shared_layout(qapp) -> None:
+        settings = VerticalRulerTrackSettings(
+            mode=VerticalRulerMode.LABELS_AND_TICKS,
+            label_every_major=2,
+            major_tick_every=2,
+            minor_tick_every=3,
+        )
+        view = TabletView()
+        view.set_layout_model(
+            TabletLayout(
+                tracks=[
+                    TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120),
+                    TrackDefinition(
+                        "gas",
+                        "Gas",
+                        TrackKind.GAS,
+                        width=180,
+                        curve_mnemonics=["C1"],
+                        vertical_ruler=settings,
+                    ),
+                ],
+                vertical_ruler_scale=VerticalRulerScaleSettings(
+                    major_step=5.0,
+                    minor_divisions=5,
+                ),
+            )
+        )
+        view.set_dataset(_dataset())
+    
+        shared = view.shared_vertical_ruler_layout
+        gas_axis = view._rendered["gas"].plot.getAxis("left")
+        assert shared is not None
+        assert isinstance(gas_axis, TabletVerticalAxisItem)
+        shared_values = {tick.value for tick in shared.ticks}
+>       rendered_values = _axis_values(gas_axis)
+                          ^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_tablet_shared_vertical_ruler.py:182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_tablet_shared_vertical_ruler.py:49: in _axis_values
+    return tuple(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+.0 = <list_iterator object at 0x000001BF4AF106D0>
+
+    return tuple(
+        float(value)
+        for _spacing, ticks in levels
+>       for value, _label in ticks
+            ^^^^^^^^^^^^^
+    )
+E   TypeError: cannot unpack non-iterable float object
+
+tests\test_tablet_shared_vertical_ruler.py:52: TypeError
+_____ test_automatic_narrow_track_hides_labels_but_not_shared_tick_values _____
+
+qapp = <PySide6.QtWidgets.QApplication(0x1bf4783c210) at 0x000001BF49A31F80>
+
+    def test_automatic_narrow_track_hides_labels_but_not_shared_tick_values(qapp) -> None:
+        view = TabletView()
+        view.set_layout_model(
+            TabletLayout(
+                tracks=[
+                    TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120),
+                    TrackDefinition(
+                        "curve",
+                        "Curve",
+                        TrackKind.CURVE,
+                        width=80,
+                        curve_mnemonics=["C1"],
+                    ),
+                ],
+                vertical_ruler_scale=VerticalRulerScaleSettings(major_step=5.0),
+            )
+        )
+        view.set_dataset(_dataset())
+    
+        depth_axis = view._rendered["depth"].plot.getAxis("left")
+        curve_axis = view._rendered["curve"].plot.getAxis("left")
+        assert isinstance(depth_axis, TabletVerticalAxisItem)
+        assert isinstance(curve_axis, TabletVerticalAxisItem)
+        assert curve_axis.isVisible()
+>       assert _axis_values(curve_axis) == _axis_values(depth_axis)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_tablet_shared_vertical_ruler.py:214: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_tablet_shared_vertical_ruler.py:49: in _axis_values
+    return tuple(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+.0 = <list_iterator object at 0x000001BF4997D660>
+
+    return tuple(
+        float(value)
+        for _spacing, ticks in levels
+>       for value, _label in ticks
+            ^^^^^^^^^^^^^
+    )
+E   TypeError: cannot unpack non-iterable float object
+
+tests\test_tablet_shared_vertical_ruler.py:52: TypeError
+=========================== short test summary info ===========================
+FAILED tests/test_tablet_shared_vertical_ruler.py::test_depth_and_graphical_tracks_share_one_layout_object_and_tick_values - TypeError: cannot unpack non-iterable float object
+FAILED tests/test_tablet_shared_vertical_ruler.py::test_track_frequency_filters_only_values_from_shared_layout - TypeError: cannot unpack non-iterable float object
+FAILED tests/test_tablet_shared_vertical_ruler.py::test_automatic_narrow_track_hides_labels_but_not_shared_tick_values - TypeError: cannot unpack non-iterable float object
+3 failed, 26 passed in 4.74s
