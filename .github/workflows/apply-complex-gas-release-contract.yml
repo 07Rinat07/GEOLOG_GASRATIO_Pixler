@@ -118,7 +118,7 @@ jobs:
       - name: Install package and test tools
         run: python -m pip install -e ".[dev]"
 
-      - name: Run affected tests
+      - name: Run non-GUI affected tests and lint every patched test
         run: |
           python -m ruff check \
             tests/test_form_catalog_consistency_0766.py \
@@ -129,8 +129,6 @@ jobs:
           python -m pytest -q \
             tests/test_form_catalog_consistency_0766.py \
             tests/test_form_engine_models.py \
-            tests/test_form_library_visibility_078.py \
-            tests/test_geodata_depth_workspace.py \
             tests/test_complex_gas_form.py
 
       - name: Commit verified release contract
