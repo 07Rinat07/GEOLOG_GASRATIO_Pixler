@@ -1,0 +1,266 @@
+diff --git a/src/geoworkbench/printing/tablet_print.py b/src/geoworkbench/printing/tablet_print.py
+index cabac4a..bdda3af 100644
+--- a/src/geoworkbench/printing/tablet_print.py
++++ b/src/geoworkbench/printing/tablet_print.py
+@@ -170,20 +170,22 @@ def capture_tablet_print_snapshot(
+             for item in rendered
+         )
+ 
+-    canonical_layout_height = max(
+-        1, int(layout_content_height or content_height)
+-    )
++    canonical_layout_height = max(1, int(layout_content_height or content_height))
+ 
+-    def build_layout(_measured_header_height: int) -> AdaptiveColumnLayout:
++    def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
+         if not fit_columns:
+             return original_column_layout(definitions)
+-        # Every vertical page uses the same canonical column widths. The final
+-        # partial interval may have a shorter viewport, but it must never cause
+-        # the graph and depth labels to be re-scaled horizontally.
++        # The paper ratio describes the printable graph body, not the body plus
++        # the visible curve header. Including the header makes the layout too
++        # wide and leaves large blank bands above and below continuation pages.
++        canonical_body_height = max(
++            1,
++            canonical_layout_height - measured_header_height,
++        )
+         return adaptive_column_layout(
+             definitions,
+             page_aspect_ratio=page_aspect_ratio,
+-            content_height=canonical_layout_height,
++            content_height=canonical_body_height,
+         )
+ 
+     layout = build_layout(header_height)
+diff --git a/src/geoworkbench/printing/document_export.py b/src/geoworkbench/printing/document_export.py
+index de0b044..f9879c0 100644
+--- a/src/geoworkbench/printing/document_export.py
++++ b/src/geoworkbench/printing/document_export.py
+@@ -200,7 +200,7 @@ def export_document_pages(
+     destination = Path(target)
+     _validate_destination(destination, job.output_format.accepted_suffixes, overwrite)
+     _unicode_preflight(widget, context, job)
+-    plan = build_document_plan(widget, job)
++    plan = build_document_plan(widget, job, context=context)
+     paths = _page_paths(destination, plan.page_count)
+     for path in paths:
+         if path.exists() and not overwrite:
+diff --git a/src/geoworkbench/services/print_jobs.py b/src/geoworkbench/services/print_jobs.py
+index 76270b7..0eddaf6 100644
+--- a/src/geoworkbench/services/print_jobs.py
++++ b/src/geoworkbench/services/print_jobs.py
+@@ -88,8 +88,9 @@ class PrintJobExecutor:
+             printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+         printer.setCopyCount(job.copy_count)
+         self.configure_printer(printer, widget, job)
+-        plan = build_document_plan(widget, job)
+-        printer.setFromTo(1, plan.page_count)
++        # Keep Qt's default open page range (0..0). The final automatic page
++        # count depends on the selected full report header and is resolved only
++        # when the context-aware renderer starts.
+         return printer
+ 
+     def configure_printer(self, printer: QPrinter, widget: QWidget, job: PrintJobSettings) -> None:
+@@ -104,10 +105,15 @@ class PrintJobExecutor:
+         printer.setPageMargins(job.page.qt_margins, QPageLayout.Unit.Millimeter)
+ 
+     def physical_printer_gate(
+-        self, printer: QPrinter, widget: QWidget, job: PrintJobSettings
++        self,
++        printer: QPrinter,
++        widget: QWidget,
++        job: PrintJobSettings,
++        *,
++        context: PrintDocumentContext | None = None,
+     ) -> PhysicalPrinterGate:
+         self.configure_printer(printer, widget, job)
+-        plan = build_document_plan(widget, job)
++        plan = build_document_plan(widget, job, context=context)
+         content_width, content_height = printable_content_dimensions(widget, job)
+         page_size = job.page.oriented_page_size_mm(content_width, content_height)
+         capabilities = _printer_capabilities(printer)
+@@ -139,18 +145,23 @@ class PrintJobExecutor:
+         header_template: MasterlogTemplate | None = None,
+         session: ProjectSession | None = None,
+     ) -> PrintJobResult:
++        context = PrintDocumentContext(
++            source_name, language, header_template=header_template, session=session
++        )
+         gate = None
+         if require_physical_gate:
+-            gate = self.physical_printer_gate(printer, widget, job)
++            gate = self.physical_printer_gate(
++                printer,
++                widget,
++                job,
++                context=context,
++            )
+             if not gate.ok:
+                 localizer = Localizer.create(language)
+                 details = "; ".join(
+                     _localized_gate_issue(localizer, issue.code) for issue in gate.errors
+                 )
+                 raise PhysicalPrintGateError(details or "Physical printer gate failed")
+-        context = PrintDocumentContext(
+-            source_name, language, header_template=header_template, session=session
+-        )
+         page_count = render_document_to_printer(widget, printer, job, context=context)
+         if require_physical_gate and _printer_state_name(printer).casefold() in {
+             "error",
+diff --git a/tests/test_auto_pagination.py b/tests/test_auto_pagination.py
+index d72142f..cc69888 100644
+--- a/tests/test_auto_pagination.py
++++ b/tests/test_auto_pagination.py
+@@ -2,7 +2,11 @@ from __future__ import annotations
+ 
+ import pytest
+ 
+-from geoworkbench.printing.auto_pagination import automatic_tablet_page_geometry
++from geoworkbench.printing.auto_pagination import (
++    automatic_tablet_first_page_geometry,
++    automatic_tablet_page_geometry,
++    printable_tablet_body_height_mm,
++)
+ 
+ 
+ def test_auto_interval_expands_wide_landscape_form_to_printable_height() -> None:
+@@ -64,3 +68,37 @@ def test_auto_interval_rejects_invalid_geometry(overrides: dict[str, float | int
+ 
+     with pytest.raises(ValueError):
+         automatic_tablet_page_geometry(**values)  # type: ignore[arg-type]
++
++
++def test_first_page_reduces_interval_for_visible_column_header() -> None:
++    geometry = automatic_tablet_first_page_geometry(
++        canonical_content_height_px=1000,
++        column_header_height_px=200,
++        regular_units_per_page=100.0,
++        regular_body_height_mm=175.0,
++        first_body_height_mm=175.0,
++    )
++
++    assert geometry.target_content_height_px == 800
++    assert geometry.units_per_page == pytest.approx(75.0)
++
++
++def test_full_report_header_reduces_first_page_interval_further() -> None:
++    geometry = automatic_tablet_first_page_geometry(
++        canonical_content_height_px=1000,
++        column_header_height_px=200,
++        regular_units_per_page=100.0,
++        regular_body_height_mm=175.0,
++        first_body_height_mm=140.0,
++    )
++
++    assert geometry.target_content_height_px == 640
++    assert geometry.units_per_page == pytest.approx(55.0)
++
++
++def test_printable_body_height_accounts_for_selected_header_band() -> None:
++    assert printable_tablet_body_height_mm(190.0) == pytest.approx(175.0)
++    assert printable_tablet_body_height_mm(
++        190.0,
++        header_band_mm=32.0,
++    ) == pytest.approx(150.0)
+diff --git a/tests/test_print_header_layout.py b/tests/test_print_header_layout.py
+index 1b11270..d2129ec 100644
+--- a/tests/test_print_header_layout.py
++++ b/tests/test_print_header_layout.py
+@@ -1,3 +1,5 @@
++from pathlib import Path
++
+ import pytest
+ from PySide6.QtCore import QRectF
+ from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
+@@ -6,12 +8,19 @@ import geoworkbench.printing.page_renderer as page_renderer
+ from geoworkbench.printing.document_renderer import (
+     PrintDocumentContext,
+     PrintDocumentPage,
++    PrintDocumentPlan,
++    _build_automatic_page_slices,
++    _page_target_content_height,
+     _should_paint_column_header_at_bottom,
+     _should_paint_column_header_at_top,
+     _should_paint_full_header,
+ )
+ from geoworkbench.printing.form_column_layout import AdaptiveColumnLayout
+-from geoworkbench.printing.pagination import PrintPageSlice
++from geoworkbench.printing.pagination import (
++    PrintPageSlice,
++    PrintPaginationSettings,
++    PrintRangeMode,
++)
+ from geoworkbench.printing.print_job import (
+     PrintHeaderPlacement,
+     PrintJobSettings,
+@@ -331,3 +340,56 @@ def test_end_header_supplements_instead_of_replacing_the_start_header(
+     assert header_rects[1].top() > body_rects[0].bottom()
+     assert header_rects[1].bottom() <= 600.0
+     assert header_rects[0].height() == header_rects[1].height()
++
++
++def test_auto_pagination_uses_a_smaller_first_page_capacity() -> None:
++    pages = _build_automatic_page_slices(
++        pagination=PrintPaginationSettings(range_mode=PrintRangeMode.FULL),
++        current_range=(0.0, 50.0),
++        full_range=(0.0, 250.0),
++        first_units_per_page=60.0,
++        regular_units_per_page=100.0,
++    )
++
++    assert [(page.start, page.end) for page in pages] == [
++        (0.0, 60.0),
++        (60.0, 160.0),
++        (160.0, 250.0),
++    ]
++    assert [page.index for page in pages] == [1, 2, 3]
++    assert all(page.total == 3 for page in pages)
++
++
++def test_page_target_height_preserves_header_and_scales_only_body() -> None:
++    continuation = PrintContinuationSlice(0.0, 100.0, 1, 1, 1.0)
++    first = PrintDocumentPage(
++        PrintPageSlice(0.0, 60.0, 1, 3),
++        continuation,
++        1,
++        3,
++    )
++    partial = PrintDocumentPage(
++        PrintPageSlice(160.0, 210.0, 3, 3),
++        continuation,
++        3,
++        3,
++    )
++    plan = PrintDocumentPlan(
++        pages=(first, partial),
++        target_content_height_px=1000,
++        resolved_units_per_page=100.0,
++        tablet_header_height_px=200,
++        first_page_target_content_height_px=700,
++        first_page_units_per_page=60.0,
++    )
++
++    assert _page_target_content_height(plan, first) == 700
++    assert _page_target_content_height(plan, partial) == 600
++
++
++def test_adaptive_layout_uses_canonical_graph_body_height() -> None:
++    source = Path(
++        "src/geoworkbench/printing/tablet_print.py"
++    ).read_text(encoding="utf-8")
++
++    assert "canonical_layout_height - measured_header_height" in source
+diff --git a/tests/test_print_media_source_integrity.py b/tests/test_print_media_source_integrity.py
+index 7c00237..f90654f 100644
+--- a/tests/test_print_media_source_integrity.py
++++ b/tests/test_print_media_source_integrity.py
+@@ -69,7 +69,8 @@ def test_system_print_dialog_receives_full_continuation_range() -> None:
+         encoding="utf-8"
+     )
+ 
+-    assert "printer.setFromTo(1, plan.page_count)" in jobs
++    assert "printer.setFromTo(1, plan.page_count)" not in jobs
++    assert "default open page range" in jobs
+     assert "selected_page_count(" in jobs
+     assert "return selected_page_count(plan.page_count, first, last)" in export
