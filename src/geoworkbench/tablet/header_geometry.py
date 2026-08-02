@@ -7,7 +7,7 @@ from __future__ import annotations
 CURVE_HEADER_ROW_HEIGHT = 44
 # Print uses a larger logical row so text remains legible after the complete
 # wide tablet is uniformly fitted to an A4 page. Screen geometry stays compact.
-CURVE_HEADER_PRINT_ROW_HEIGHT = 76
+CURVE_HEADER_PRINT_ROW_HEIGHT = 52
 CURVE_HEADER_MAX_VISIBLE_ROWS = 6
 CURVE_HEADER_BOTTOM_CLEARANCE = 2
 

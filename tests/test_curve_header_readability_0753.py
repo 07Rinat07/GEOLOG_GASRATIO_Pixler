@@ -5,10 +5,10 @@ def test_engineering_ruler_has_visible_caption_and_safe_pixel_fonts() -> None:
     source = Path("src/geoworkbench/tablet/tablet_view.py").read_text(encoding="utf-8")
 
     assert 'caption += f" · {self._unit}"' in source
-    assert "caption_font.setPixelSize(16 if self._print_mode else 8)" in source
-    assert "value_font.setPixelSize(14 if self._print_mode else 8)" in source
+    assert "caption_font.setPixelSize(10 if self._print_mode else 8)" in source
+    assert "value_font.setPixelSize(9 if self._print_mode else 8)" in source
     assert 'QPen(QColor("#334155"), 3.0)' in source
-    assert "self.setFixedHeight(48 if self._print_mode else 28)" in source
+    assert "self.setFixedHeight(30 if self._print_mode else 28)" in source
     assert "self.scale = QComboBox()" not in source
 
 

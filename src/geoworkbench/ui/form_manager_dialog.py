@@ -761,7 +761,11 @@ class FormManagerDialog(QDialog):
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        form = FormDocument.create(dialog.form_name, dialog.axis_kind)
+        form = FormDocument.create(
+            dialog.form_name,
+            dialog.axis_kind,
+            preferred_page_orientation=dialog.page_orientation,
+        )
         self.repository.save(form)
         self.reload(form.form_id)
 

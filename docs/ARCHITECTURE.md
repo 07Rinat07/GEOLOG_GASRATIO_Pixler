@@ -1,6 +1,6 @@
+<!-- runtime-contract: package=0.7.93; project=v22; form=v13; layout=v21 -->
 # Архитектура
 
-<!-- runtime-contract: package=0.7.93; project=v22; form=v12; layout=v21 -->
 
 Актуально на 28 июля 2026 года.
 

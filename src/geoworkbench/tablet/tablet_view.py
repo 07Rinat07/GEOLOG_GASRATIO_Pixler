@@ -586,7 +586,7 @@ class CurveScaleRuler(QWidget):
 
     def set_print_mode(self, enabled: bool) -> None:
         self._print_mode = bool(enabled)
-        self.setFixedHeight(48 if self._print_mode else 28)
+        self.setFixedHeight(30 if self._print_mode else 28)
         self.update()
 
     def set_values(
@@ -622,7 +622,7 @@ class CurveScaleRuler(QWidget):
         painter.drawRect(rect)
 
         caption_font = painter.font()
-        caption_font.setPixelSize(16 if self._print_mode else 8)
+        caption_font.setPixelSize(10 if self._print_mode else 8)
         caption_font.setBold(True)
         painter.setFont(caption_font)
         painter.setPen(QPen(QColor("#0f172a"), 1.0))
@@ -638,12 +638,12 @@ class CurveScaleRuler(QWidget):
             rect.left() + 2,
             rect.top(),
             max(1, rect.width() - 4),
-            18 if self._print_mode else 9,
+            11 if self._print_mode else 9,
             Qt.AlignmentFlag.AlignCenter,
             caption,
         )
 
-        baseline = rect.top() + (18 if self._print_mode else 9)
+        baseline = rect.top() + (11 if self._print_mode else 9)
         # A dark under-stroke guarantees visibility; the configured curve hue
         # remains visible as the thinner foreground stroke.
         painter.setPen(QPen(QColor("#334155"), 3.0))
@@ -652,7 +652,7 @@ class CurveScaleRuler(QWidget):
         painter.drawLine(rect.left() + 1, baseline, rect.right() - 1, baseline)
 
         value_font = painter.font()
-        value_font.setPixelSize(14 if self._print_mode else 8)
+        value_font.setPixelSize(9 if self._print_mode else 8)
         value_font.setBold(True)
         painter.setFont(value_font)
         metrics = painter.fontMetrics()
@@ -664,7 +664,7 @@ class CurveScaleRuler(QWidget):
         for line in lines:
             x = rect.left() + round(rect.width() * line.fraction)
             tick = (
-                10 if line.major else 5
+                7 if line.major else 4
             ) if self._print_mode else (6 if line.major else 3)
             painter.setPen(tick_pen)
             painter.drawLine(x, baseline, x, baseline + tick)
@@ -715,9 +715,9 @@ class CurveScaleRuler(QWidget):
             painter.setPen(text_pen)
             painter.drawText(
                 left,
-                baseline + (11 if self._print_mode else 7),
+                baseline + (7 if self._print_mode else 7),
                 width,
-                max(1, rect.bottom() - baseline - (10 if self._print_mode else 6)),
+                max(1, rect.bottom() - baseline - (6 if self._print_mode else 6)),
                 Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
                 label,
             )
@@ -895,13 +895,13 @@ class CurveHeaderEditor(QFrame):
             if self._print_mode
             else CURVE_HEADER_EDITOR_HEIGHT
         )
-        control_height = 24 if self._print_mode else 14
-        font_size = 14 if self._print_mode else 8
+        control_height = 18 if self._print_mode else 14
+        font_size = 10 if self._print_mode else 8
         self.setFixedHeight(row_height)
         self.minimum.setFixedHeight(control_height)
         self.maximum.setFixedHeight(control_height)
         self.unit.setFixedHeight(control_height)
-        self.separator.setFixedWidth(10 if self._print_mode else 6)
+        self.separator.setFixedWidth(6 if self._print_mode else 6)
         self.separator.setStyleSheet(
             f"background:transparent; color:{self._line_color}; "
             f"font-size:{font_size}px; font-weight:600;"
@@ -919,7 +919,7 @@ class CurveHeaderEditor(QFrame):
         self.ruler.set_print_mode(self._print_mode)
 
     def _apply_spin_style(self, invalid: bool) -> None:
-        font_size = 14 if self._print_mode else 8
+        font_size = 10 if self._print_mode else 8
         if invalid:
             background, color, border = "#fee2e2", "#991b1b", "#dc2626"
         else:

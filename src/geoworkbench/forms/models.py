@@ -29,6 +29,11 @@ class FormTemplateOrigin(StrEnum):
     USER = "user"
 
 
+class FormPageOrientation(StrEnum):
+    PORTRAIT = "portrait"
+    LANDSCAPE = "landscape"
+
+
 @dataclass(frozen=True, slots=True)
 class ParameterBinding:
     binding_id: str
@@ -263,6 +268,7 @@ class FormDocument:
     style_id: str = "default-screen"
     print_header_template_id: str | None = None
     print_header_template_ids: dict[str, str] = field(default_factory=dict)
+    preferred_page_orientation: FormPageOrientation = FormPageOrientation.PORTRAIT
     source_dataset_id: str | None = None
     source_index_id: str | None = None
     visible_axis_top: float | None = None
@@ -276,6 +282,14 @@ class FormDocument:
         _require_id(self.style_id, "style_id")
         if self.print_header_template_id is not None:
             _require_id(self.print_header_template_id, "print_header_template_id")
+        try:
+            self.preferred_page_orientation = FormPageOrientation(
+                str(getattr(self.preferred_page_orientation, "value", self.preferred_page_orientation))
+            )
+        except ValueError as exc:
+            raise ValueError(
+                "preferred_page_orientation поддерживает только portrait и landscape"
+            ) from exc
         if not isinstance(self.print_header_template_ids, dict):
             raise ValueError("print_header_template_ids должен быть словарём")
         for orientation, template_id in self.print_header_template_ids.items():
@@ -311,12 +325,14 @@ class FormDocument:
         axis_kind: FormAxisKind,
         *,
         description: str = "",
+        preferred_page_orientation: FormPageOrientation = FormPageOrientation.PORTRAIT,
     ) -> FormDocument:
         return cls(
             form_id=str(uuid4()),
             name=name,
             axis_kind=axis_kind,
             description=description,
+            preferred_page_orientation=preferred_page_orientation,
         )
 
     def validate(self) -> None:

@@ -14,21 +14,22 @@ from geoworkbench.forms.repository import FormRepository
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_visible_factory_catalog_contains_only_curated_workflows() -> None:
+def test_visible_factory_catalog_contains_only_a4_workflows() -> None:
     forms = visible_factory_forms(None, "ru")
     ids = {form.form_id for form in forms}
 
-    assert len(forms) == 7
+    assert len(forms) == 8
     assert ids.isdisjoint(HIDDEN_FACTORY_TEMPLATE_IDS)
-    assert "factory-geodata-depth-workspace" in ids
-    assert "factory-engineering-control-time" in ids
-    assert "factory-lithology-cuttings" in ids
-    assert "factory-drilling-technology" in ids
-    assert "factory-gas-ratio-pixler-depth" in ids
-    assert "factory-complex-gas-analysis" in ids
-    assert "factory-gas-ratio-pixler-time" in ids
-    assert "factory-calcimetry" not in ids
-    assert "factory-lba" not in ids
+    assert ids == {
+        "factory-masterlog-a4-portrait",
+        "factory-masterlog-a4-landscape",
+        "factory-technology-a4-portrait",
+        "factory-technology-a4-landscape",
+        "factory-daily-a4-portrait",
+        "factory-daily-a4-landscape",
+        "factory-complex-gas-a4-portrait",
+        "factory-complex-gas-a4-landscape",
+    }
 
 
 def test_complete_catalog_combines_same_factory_set_with_repository_forms(

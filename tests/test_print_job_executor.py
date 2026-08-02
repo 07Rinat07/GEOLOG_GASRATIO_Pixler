@@ -110,7 +110,7 @@ def test_file_executor_routes_page_formats(monkeypatch, qapp, tmp_path) -> None:
     assert result.page_count == 2
 
 
-def test_printer_executor_uses_supplied_printer(monkeypatch, qapp) -> None:
+def test_printer_executor_uses_supplied_printer(monkeypatch, qapp, tmp_path) -> None:
     widget = QLabel("Printer")
     job = PrintJobSettings(
         output_format=PrintOutputFormat.PRINTER,
@@ -128,6 +128,26 @@ def test_printer_executor_uses_supplied_printer(monkeypatch, qapp) -> None:
 
     monkeypatch.setattr("geoworkbench.services.print_jobs.render_document_to_printer", fake_render)
 
+    print_copy = tmp_path / "Curves_print_copy.pdf"
+
+    def fake_export(widget_arg, target, job_arg, *, context, overwrite=False):
+        assert widget_arg is widget
+        assert target == print_copy
+        assert job_arg.output_format is PrintOutputFormat.PDF
+        assert context.title
+        assert overwrite is False
+        print_copy.write_bytes(b"%PDF-1.7\n")
+        return PrintDocumentResult((print_copy,), 4)
+
+    monkeypatch.setattr(
+        "geoworkbench.services.print_jobs._physical_print_copy_path",
+        lambda _source_name: print_copy,
+    )
+    monkeypatch.setattr(
+        "geoworkbench.services.print_jobs.export_document_pdf",
+        fake_export,
+    )
+
     result = executor.render_to_printer(
         widget,
         printer,
@@ -140,7 +160,8 @@ def test_printer_executor_uses_supplied_printer(monkeypatch, qapp) -> None:
     assert captured["printer"] is printer
     assert result.output_format is PrintOutputFormat.PRINTER
     assert result.page_count == 4
-    assert result.paths == ()
+    assert result.paths == (print_copy,)
+    assert result.primary_path == print_copy
 
 
 def test_report_render_settings_preserve_tablet_print_composition(tmp_path) -> None:

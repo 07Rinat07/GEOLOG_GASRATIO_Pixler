@@ -62,7 +62,7 @@ def test_removed_scale_caption_key_is_absent_from_every_catalog() -> None:
 
 
 def test_print_parameter_rows_are_large_enough_for_a4_fit() -> None:
-    assert CURVE_HEADER_PRINT_ROW_HEIGHT >= CURVE_HEADER_ROW_HEIGHT * 1.5
+    assert CURVE_HEADER_ROW_HEIGHT <= CURVE_HEADER_PRINT_ROW_HEIGHT <= 52
     assert curve_header_viewport_height(6, row_height=CURVE_HEADER_PRINT_ROW_HEIGHT) == (
         6 * CURVE_HEADER_PRINT_ROW_HEIGHT
     )
@@ -71,9 +71,9 @@ def test_print_parameter_rows_are_large_enough_for_a4_fit() -> None:
 def test_print_ruler_uses_enlarged_typography_without_changing_screen_defaults() -> None:
     source = TABLET_VIEW.read_text(encoding="utf-8")
 
-    assert "caption_font.setPixelSize(16 if self._print_mode else 8)" in source
-    assert "value_font.setPixelSize(14 if self._print_mode else 8)" in source
-    assert "self.setFixedHeight(48 if self._print_mode else 28)" in source
+    assert "caption_font.setPixelSize(10 if self._print_mode else 8)" in source
+    assert "value_font.setPixelSize(9 if self._print_mode else 8)" in source
+    assert "self.setFixedHeight(30 if self._print_mode else 28)" in source
     assert "item.widget.print_curve_header_height" in (
         ROOT / "src/geoworkbench/printing/document_renderer.py"
     ).read_text(encoding="utf-8")

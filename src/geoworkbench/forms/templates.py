@@ -13,7 +13,6 @@ from geoworkbench.forms.models import (
     FormTrack,
     ParameterBinding,
 )
-from geoworkbench.forms.complex_gas import complex_gas_form
 from geoworkbench.tablet.models import (
     COMPACT_TRACK_KINDS,
     CurveLineStyle,
@@ -321,7 +320,6 @@ def factory_templates(language: str = "ru") -> dict[str, FormDocument]:
         "factory-pixler": _pixler(lang),
         "factory-interpretation": _interpretation(lang),
         "factory-gas-ratio-pixler-depth": _gas_ratio_pixler_depth(lang),
-        "factory-complex-gas-analysis": complex_gas_form(lang),
         "factory-gas-ratio-pixler-time": _gas_ratio_pixler_time(lang),
         "factory-normalized-gas-qc": _normalized_gas_qc(lang),
         "factory-c1-c5-detailed": _c1_c5_detailed(lang),
@@ -344,7 +342,6 @@ CURATED_FACTORY_TEMPLATE_IDS: tuple[str, ...] = (
     "factory-geodata-depth-workspace",
     "factory-drilling-technology",
     "factory-gas-ratio-pixler-depth",
-    "factory-complex-gas-analysis",
     "factory-lithology-cuttings",
     "factory-gas-ratio-pixler-time",
     "factory-engineering-control-time",
