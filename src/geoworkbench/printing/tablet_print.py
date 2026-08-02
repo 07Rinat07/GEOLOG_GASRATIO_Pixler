@@ -325,11 +325,23 @@ def paint_tablet_snapshot(
         # One bounded uniform scale preserves the same geometry on first, middle
         # and last pages.  ``fill_height`` remains an API compatibility flag, but
         # cannot override the horizontal fit constraint.
-        scale = min(horizontal_scale, vertical_scale)
+        # FIT uses one document-wide horizontal scale.  The pagination planner
+        # varies the depth interval on the first/last pages so their logical
+        # body heights fit the available bands; choosing a second scale from
+        # page height would make the grid pitch differ between page 1 and the
+        # continuation pages.
+        scale = horizontal_scale
         rendered_width = snapshot.layout.total_width * scale
         rendered_height = logical_content_height * scale
+        if rendered_height > page.height() + 2.0:
+            raise TabletPrintError(
+                "Печатная форма выше рассчитанной области страницы; "
+                "автоматическая пагинация нарушила единый масштаб"
+            )
         x = page.left() + (page.width() - rendered_width) / 2.0
-        y = page.top() + (page.height() - rendered_height) / 2.0
+        # Top alignment preserves the canonical pixels-per-unit density and
+        # leaves unused space only below a partial final page.
+        y = page.top()
 
         painter.save()
         try:

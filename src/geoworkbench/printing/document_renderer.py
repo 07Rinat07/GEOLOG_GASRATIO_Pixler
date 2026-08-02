@@ -43,7 +43,7 @@ from geoworkbench.tablet.models import minimum_track_width
 from geoworkbench.tablet.tablet_view import TabletView
 
 
-_DOCUMENT_HEADER_FONT_SCALE = 1.28
+_DOCUMENT_HEADER_FONT_SCALE = 1.60
 
 
 @dataclass(frozen=True, slots=True)
