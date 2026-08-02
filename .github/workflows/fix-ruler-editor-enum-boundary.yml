@@ -1,0 +1,155 @@
+name: Fix ruler editor enum boundary
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/fix-ruler-editor-enum-boundary.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-ruler-editor-enum-boundary
+  cancel-in-progress: false
+
+jobs:
+  fix-and-verify:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Apply guarded Qt boundary fix
+        shell: pwsh
+        run: |
+          $patch = @'
+          from pathlib import Path
+
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(
+                      f"{path}: expected one replacement, found {count}: {old!r}"
+                  )
+              target.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+          dialog = "src/geoworkbench/ui/tablet_track_editor_dialog.py"
+          for member in (
+              "AUTOMATIC",
+              "LABELS_AND_TICKS",
+              "TICKS_ONLY",
+              "OFF",
+          ):
+              replace_once(
+                  dialog,
+                  f"            VerticalRulerMode.{member},\n",
+                  f"            VerticalRulerMode.{member}.value,\n",
+              )
+          replace_once(
+              dialog,
+              "                    self.track.vertical_ruler.mode\n",
+              "                    self.track.vertical_ruler.mode.value\n",
+          )
+          replace_once(
+              dialog,
+              "    def _vertical_ruler_state(self, *_args) -> None:\n"
+              "        mode = self.vertical_ruler_mode_input.currentData()\n",
+              "    def _selected_vertical_ruler_mode(self) -> VerticalRulerMode:\n"
+              "        raw_mode = self.vertical_ruler_mode_input.currentData()\n"
+              "        try:\n"
+              "            return VerticalRulerMode(str(raw_mode))\n"
+              "        except ValueError:\n"
+              "            return VerticalRulerMode.AUTOMATIC\n\n"
+              "    def _vertical_ruler_state(self, *_args) -> None:\n"
+              "        mode = self._selected_vertical_ruler_mode()\n",
+          )
+          replace_once(
+              dialog,
+              "        ruler_mode = self.vertical_ruler_mode_input.currentData()\n"
+              "        if not isinstance(ruler_mode, VerticalRulerMode):\n"
+              "            ruler_mode = VerticalRulerMode.AUTOMATIC\n",
+              "        ruler_mode = self._selected_vertical_ruler_mode()\n",
+          )
+
+          tests = "tests/test_vertical_ruler_track_editor.py"
+          target = Path(tests)
+          text = target.read_text(encoding="utf-8")
+          text = text.replace(
+              "assert dialog.vertical_ruler_mode_input.currentData() is source.mode",
+              "assert dialog.vertical_ruler_mode_input.currentData() == source.mode.value",
+          )
+          text = text.replace(
+              "dialog.vertical_ruler_mode_input.findData(\n                    VerticalRulerMode.LABELS_AND_TICKS\n                )",
+              "dialog.vertical_ruler_mode_input.findData(\n                    VerticalRulerMode.LABELS_AND_TICKS.value\n                )",
+          )
+          text = text.replace(
+              "dialog.vertical_ruler_mode_input.findData(VerticalRulerMode.OFF)",
+              "dialog.vertical_ruler_mode_input.findData(VerticalRulerMode.OFF.value)",
+          )
+          text = text.replace(
+              "dialog.vertical_ruler_mode_input.findData(\n                    VerticalRulerMode.TICKS_ONLY\n                )",
+              "dialog.vertical_ruler_mode_input.findData(\n                    VerticalRulerMode.TICKS_ONLY.value\n                )",
+          )
+          text = text.replace(
+              "dialog.vertical_ruler_mode_input.findData(\n                VerticalRulerMode.LABELS_AND_TICKS\n            )",
+              "dialog.vertical_ruler_mode_input.findData(\n                VerticalRulerMode.LABELS_AND_TICKS.value\n            )",
+          )
+          text = text.replace(
+              "dialog.vertical_ruler_mode_input.findData(\n                VerticalRulerMode.OFF\n            )",
+              "dialog.vertical_ruler_mode_input.findData(\n                VerticalRulerMode.OFF.value\n            )",
+          )
+          target.write_text(text, encoding="utf-8")
+
+          Path(".github/workflows/fix-ruler-editor-enum-boundary.yml").unlink()
+          '@
+          $patch | python -
+          exit $LASTEXITCODE
+
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          version: "0.11.29"
+          enable-cache: true
+          cache-dependency-glob: requirements/release.lock
+
+      - name: Verify fixed editor
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PYTHONUTF8: "1"
+          PYTHONPATH: src
+        run: |
+          uv venv .venv --python 3.11
+          uv pip sync requirements/release.lock --python .venv --require-hashes
+          uv pip install --python .venv pytest==9.1.1 ruff==0.15.22
+          .\.venv\Scripts\python.exe tools/check_documentation.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m compileall -q src/geoworkbench/ui/tablet_track_editor_dialog.py tests/test_vertical_ruler_track_editor.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m ruff check src/geoworkbench/ui/tablet_track_editor_dialog.py tests/test_vertical_ruler_track_editor.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider tests/test_vertical_ruler_settings.py tests/test_vertical_ruler_persistence.py tests/test_vertical_ruler_track_editor.py
+          exit $LASTEXITCODE
+
+      - name: Commit verified fix
+        shell: pwsh
+        run: |
+          Remove-Item .github/ruler-editor-integration-error.txt -ErrorAction SilentlyContinue
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git commit -m "fix: normalize ruler modes at the Qt combo boundary"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git push origin HEAD:main
