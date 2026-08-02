@@ -189,3 +189,18 @@ def test_failed_system_open_is_visible_to_user(qapp, tmp_path, monkeypatch) -> N
     assert warnings
     assert str(target) in warnings[0]
     dialog.close()
+
+
+def test_windows_show_in_folder_opens_existing_directory(
+    qapp, tmp_path, monkeypatch
+) -> None:
+    launches: list[tuple[str, list[str]]] = []
+    monkeypatch.setattr(status_dialog_module.sys, "platform", "win32")
+    monkeypatch.setattr(
+        status_dialog_module,
+        "_start_detached",
+        lambda program, arguments: not launches.append((program, arguments)),
+    )
+
+    assert PrintJobStatusDialog._reveal_path(tmp_path) is True
+    assert launches == [("explorer.exe", [str(tmp_path.resolve())])]

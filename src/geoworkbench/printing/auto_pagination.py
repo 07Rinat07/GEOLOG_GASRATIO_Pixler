@@ -3,10 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-_AUTO_SIMPLE_HEADER_MM = 7.0
-_AUTO_FOOTER_MM = 6.0
-_AUTO_VERTICAL_GAP_MM = 2.0
-_MIN_AUTO_BODY_HEIGHT_PX = 240
+PRINT_SIMPLE_HEADER_MM = 7.0
+PRINT_FOOTER_MM = 6.0
+PRINT_VERTICAL_GAP_MM = 2.0
 _MAX_AUTO_CONTENT_HEIGHT_PX = 6000
 
 
@@ -30,7 +29,7 @@ class TabletAutoFirstPageGeometry:
 def printable_tablet_body_height_mm(
     content_height_mm: float,
     *,
-    header_band_mm: float = _AUTO_SIMPLE_HEADER_MM,
+    header_band_mm: float = PRINT_SIMPLE_HEADER_MM,
 ) -> float:
     """Return the physical page height available to the tablet rendering."""
 
@@ -40,8 +39,8 @@ def printable_tablet_body_height_mm(
         1.0,
         float(content_height_mm)
         - float(header_band_mm)
-        - _AUTO_FOOTER_MM
-        - _AUTO_VERTICAL_GAP_MM,
+        - PRINT_FOOTER_MM
+        - PRINT_VERTICAL_GAP_MM,
     )
 
 
@@ -53,7 +52,7 @@ def automatic_tablet_page_geometry(
     current_span: float,
     content_width_mm: float,
     content_height_mm: float,
-    header_band_mm: float = _AUTO_SIMPLE_HEADER_MM,
+    header_band_mm: float = PRINT_SIMPLE_HEADER_MM,
 ) -> TabletAutoPageGeometry:
     """Resolve a depth interval and off-screen viewport that fill one sheet.
 
@@ -106,12 +105,12 @@ def automatic_tablet_first_page_geometry(
     regular_body_height_mm: float,
     first_body_height_mm: float,
 ) -> TabletAutoFirstPageGeometry:
-    """Fit the first page at the same horizontal scale as continuations.
+    """Fit the first page at the same vertical density as continuations.
 
     Continuation pages hide the column/curve header, while the first page must
-    include it. The first depth interval is therefore reduced so the complete
-    tablet (column header plus curves) still occupies the full A4 width instead
-    of being uniformly shrunk and becoming narrower than the document header.
+    include it together with the document passport. The first depth interval is
+    therefore reduced, but the logical pixels per depth/time unit remain exactly
+    the same as on every continuation page.
     """
 
     if canonical_content_height_px <= 0:
@@ -125,11 +124,15 @@ def automatic_tablet_first_page_geometry(
 
     canonical_body_height = canonical_content_height_px - column_header_height_px
     physical_ratio = min(1.0, first_body_height_mm / regular_body_height_mm)
+    # At the regular page scale, this is the total logical height that fits in
+    # the first page's physical tablet band. The visible column header consumes
+    # part of it; only the remaining body contributes depth/time capacity.
     first_total_height = round(canonical_body_height * physical_ratio)
-    first_body_height = max(
-        _MIN_AUTO_BODY_HEIGHT_PX,
-        first_total_height - column_header_height_px,
-    )
+    first_body_height = first_total_height - column_header_height_px
+    if first_body_height <= 0:
+        raise ValueError(
+            "Печатные шапки не оставляют места для графика на первой странице"
+        )
     first_body_height = min(canonical_body_height, first_body_height)
     first_units = (
         float(regular_units_per_page)

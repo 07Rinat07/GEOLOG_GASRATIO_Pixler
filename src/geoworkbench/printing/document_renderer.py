@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass, replace
 from typing import Iterator
 
@@ -10,6 +11,9 @@ from PySide6.QtWidgets import QWidget
 
 from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.printing.auto_pagination import (
+    PRINT_FOOTER_MM,
+    PRINT_SIMPLE_HEADER_MM,
+    PRINT_VERTICAL_GAP_MM,
     automatic_tablet_first_page_geometry,
     automatic_tablet_page_geometry,
     printable_tablet_body_height_mm,
@@ -37,6 +41,9 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.models import minimum_track_width
 from geoworkbench.tablet.tablet_view import TabletView
+
+
+_DOCUMENT_HEADER_FONT_SCALE = 1.60
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,9 +180,9 @@ def build_document_plan(
                 full_header_band_mm
                 if full_header_band_mm is not None
                 and job.header_placement is PrintHeaderPlacement.EVERY_PAGE
-                else 7.0
+                else PRINT_SIMPLE_HEADER_MM
             )
-            first_header_band_mm = full_header_band_mm or 7.0
+            first_header_band_mm = full_header_band_mm or PRINT_SIMPLE_HEADER_MM
             auto_geometry = automatic_tablet_page_geometry(
                 # Selected columns determine the automatic density. The live
                 # TabletView width can still include columns excluded from this job.
@@ -439,6 +446,7 @@ def paint_document_page(
 
     localizer = Localizer.create(context.language)
     simple_header_height, footer_height = _band_heights(painter, page_rect)
+    vertical_gap = _vertical_gap_height(painter)
     paint_full_header = _should_paint_full_header(job, page, context)
     header_height = (
         _print_header_band_height(painter, page_rect, context.header_template)
@@ -454,9 +462,9 @@ def paint_document_page(
     )
     body = QRectF(
         page_rect.left(),
-        header.bottom() + 2.0,
+        header.bottom() + vertical_gap / 2.0,
         page_rect.width(),
-        max(1.0, footer.top() - header.bottom() - 4.0),
+        max(1.0, footer.top() - header.bottom() - vertical_gap),
     )
 
     range_text = _page_range_text(widget, page, plan, job, localizer)
@@ -474,7 +482,7 @@ def paint_document_page(
             paint_masterlog_header(
                 painter,
                 header,
-                context.header_template,
+                _print_header_template(context.header_template),
                 context.session,
                 language=context.language,
             )
@@ -512,6 +520,21 @@ def paint_document_page(
         )
     finally:
         painter.restore()
+
+
+def _print_header_template(template: MasterlogTemplate) -> MasterlogTemplate:
+    """Return a print-only copy with more readable passport/header text."""
+
+    prepared = deepcopy(template)
+    for element in prepared.header_elements:
+        raw_size = element.properties.get("font_size_mm", 3.5)
+        if not isinstance(raw_size, (int, float)) or isinstance(raw_size, bool):
+            raw_size = 3.5
+        element.properties["font_size_mm"] = min(
+            50.0,
+            max(1.0, float(raw_size) * _DOCUMENT_HEADER_FONT_SCALE),
+        )
+    return prepared
 
 
 def _should_paint_full_header(
@@ -642,11 +665,18 @@ def _print_header_band_height(
     return max(minimum, min(proportional, page_rect.height() * 0.46))
 
 
+def _vertical_gap_height(painter: QPainter) -> float:
+    """Return the same physical inter-band gap used by pagination planning."""
+
+    dpi = max(72, painter.device().logicalDpiY()) if painter.device() is not None else 96
+    return PRINT_VERTICAL_GAP_MM * dpi / 25.4
+
+
 def _band_heights(painter: QPainter, page_rect: QRectF) -> tuple[float, float]:
     dpi = max(72, painter.device().logicalDpiY()) if painter.device() is not None else 96
     millimeter = dpi / 25.4
-    header = max(7.0 * millimeter, page_rect.height() * 0.025)
-    footer = max(6.0 * millimeter, page_rect.height() * 0.020)
+    header = max(PRINT_SIMPLE_HEADER_MM * millimeter, page_rect.height() * 0.025)
+    footer = max(PRINT_FOOTER_MM * millimeter, page_rect.height() * 0.020)
     return min(header, page_rect.height() * 0.12), min(footer, page_rect.height() * 0.10)
 
 
