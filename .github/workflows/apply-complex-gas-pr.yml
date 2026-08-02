@@ -22,7 +22,9 @@ jobs:
           git fetch origin feature/complex-gas-form
           git checkout origin/feature/complex-gas-form -- src/geoworkbench/forms/complex_gas.py src/geoworkbench/calculations/gas_ratio.py docs/COMPLEX_GAS_FORM.md
       - name: Apply patch
-        run: python tools/apply_complex_gas_a4_patch.py
+        run: |
+          python tools/apply_complex_gas_a4_patch.py
+          sed -i '/    _pixler_bindings,/d; /    _ratio_bindings,/d' src/geoworkbench/forms/a4_factory_templates.py
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
