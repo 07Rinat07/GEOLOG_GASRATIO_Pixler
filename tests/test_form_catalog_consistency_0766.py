@@ -18,13 +18,14 @@ def test_visible_factory_catalog_contains_only_curated_workflows() -> None:
     forms = visible_factory_forms(None, "ru")
     ids = {form.form_id for form in forms}
 
-    assert len(forms) == 6
+    assert len(forms) == 7
     assert ids.isdisjoint(HIDDEN_FACTORY_TEMPLATE_IDS)
     assert "factory-geodata-depth-workspace" in ids
     assert "factory-engineering-control-time" in ids
     assert "factory-lithology-cuttings" in ids
     assert "factory-drilling-technology" in ids
     assert "factory-gas-ratio-pixler-depth" in ids
+    assert "factory-complex-gas-analysis" in ids
     assert "factory-gas-ratio-pixler-time" in ids
     assert "factory-calcimetry" not in ids
     assert "factory-lba" not in ids

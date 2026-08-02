@@ -97,7 +97,7 @@ def test_factory_templates_are_read_only_and_copy_is_editable() -> None:
 
 def test_factory_templates_have_unique_ids() -> None:
     templates = factory_templates()
-    assert len(templates) == 19
+    assert len(templates) == 20
     assert len({item.form_id for item in templates.values()}) == len(templates)
     for form in templates.values():
         form.validate()
@@ -508,8 +508,23 @@ def test_v8_form_migrates_logarithmic_bindings_to_linear_defaults() -> None:
     assert form_to_dict(restored)["schema_version"] == 12
 
 
-def test_every_factory_form_binding_is_linear_by_default() -> None:
-    for form in factory_templates().values():
-        for column in form.columns:
-            for track in column.tracks:
-                assert all(binding.x_scale.value == "linear" for binding in track.bindings)
+def test_factory_form_non_linear_scales_are_limited_to_complex_gas_ratios() -> None:
+    non_linear = {
+        (form.form_id, binding.canonical_parameter_id)
+        for form in factory_templates().values()
+        for column in form.columns
+        for track in column.tracks
+        for binding in track.bindings
+        if binding.x_scale.value != "linear"
+    }
+
+    assert non_linear == {
+        ("factory-complex-gas-analysis", "BALANCE"),
+        ("factory-complex-gas-analysis", "CHARACTER"),
+        ("factory-complex-gas-analysis", "IC4_NC4"),
+        ("factory-complex-gas-analysis", "IC5_NC5"),
+        ("factory-complex-gas-analysis", "PIXLER_C1_C2"),
+        ("factory-complex-gas-analysis", "PIXLER_C1_C3"),
+        ("factory-complex-gas-analysis", "PIXLER_C1_C4"),
+        ("factory-complex-gas-analysis", "PIXLER_C1_C5"),
+    }
