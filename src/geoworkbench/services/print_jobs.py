@@ -88,8 +88,9 @@ class PrintJobExecutor:
             printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         printer.setCopyCount(job.copy_count)
         self.configure_printer(printer, widget, job)
-        plan = build_document_plan(widget, job)
-        printer.setFromTo(1, plan.page_count)
+        # Keep Qt's default open page range (0..0). The final automatic page
+        # count depends on the selected full report header and is resolved only
+        # when the context-aware renderer starts.
         return printer
 
     def configure_printer(self, printer: QPrinter, widget: QWidget, job: PrintJobSettings) -> None:
@@ -104,10 +105,15 @@ class PrintJobExecutor:
         printer.setPageMargins(job.page.qt_margins, QPageLayout.Unit.Millimeter)
 
     def physical_printer_gate(
-        self, printer: QPrinter, widget: QWidget, job: PrintJobSettings
+        self,
+        printer: QPrinter,
+        widget: QWidget,
+        job: PrintJobSettings,
+        *,
+        context: PrintDocumentContext | None = None,
     ) -> PhysicalPrinterGate:
         self.configure_printer(printer, widget, job)
-        plan = build_document_plan(widget, job)
+        plan = build_document_plan(widget, job, context=context)
         content_width, content_height = printable_content_dimensions(widget, job)
         page_size = job.page.oriented_page_size_mm(content_width, content_height)
         capabilities = _printer_capabilities(printer)
@@ -139,18 +145,23 @@ class PrintJobExecutor:
         header_template: MasterlogTemplate | None = None,
         session: ProjectSession | None = None,
     ) -> PrintJobResult:
+        context = PrintDocumentContext(
+            source_name, language, header_template=header_template, session=session
+        )
         gate = None
         if require_physical_gate:
-            gate = self.physical_printer_gate(printer, widget, job)
+            gate = self.physical_printer_gate(
+                printer,
+                widget,
+                job,
+                context=context,
+            )
             if not gate.ok:
                 localizer = Localizer.create(language)
                 details = "; ".join(
                     _localized_gate_issue(localizer, issue.code) for issue in gate.errors
                 )
                 raise PhysicalPrintGateError(details or "Physical printer gate failed")
-        context = PrintDocumentContext(
-            source_name, language, header_template=header_template, session=session
-        )
         page_count = render_document_to_printer(widget, printer, job, context=context)
         if require_physical_gate and _printer_state_name(printer).casefold() in {
             "error",

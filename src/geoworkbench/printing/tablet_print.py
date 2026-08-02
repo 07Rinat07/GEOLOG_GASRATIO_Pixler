@@ -170,20 +170,22 @@ def capture_tablet_print_snapshot(
             for item in rendered
         )
 
-    canonical_layout_height = max(
-        1, int(layout_content_height or content_height)
-    )
+    canonical_layout_height = max(1, int(layout_content_height or content_height))
 
-    def build_layout(_measured_header_height: int) -> AdaptiveColumnLayout:
+    def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
         if not fit_columns:
             return original_column_layout(definitions)
-        # Every vertical page uses the same canonical column widths. The final
-        # partial interval may have a shorter viewport, but it must never cause
-        # the graph and depth labels to be re-scaled horizontally.
+        # The paper ratio describes the printable graph body, not the body plus
+        # the visible curve header. Including the header makes the layout too
+        # wide and leaves large blank bands above and below continuation pages.
+        canonical_body_height = max(
+            1,
+            canonical_layout_height - measured_header_height,
+        )
         return adaptive_column_layout(
             definitions,
             page_aspect_ratio=page_aspect_ratio,
-            content_height=canonical_layout_height,
+            content_height=canonical_body_height,
         )
 
     layout = build_layout(header_height)
