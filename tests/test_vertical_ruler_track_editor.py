@@ -31,7 +31,7 @@ def test_editor_loads_and_returns_per_track_ruler_settings(qapp) -> None:
     )
     dialog = TabletTrackEditorDialog(_gas_track(source), language="ru")
 
-    assert dialog.vertical_ruler_mode_input.currentData() is source.mode
+    assert dialog.vertical_ruler_mode_input.currentData() == source.mode.value
     assert dialog.vertical_ruler_label_every_input.value() == 2
     assert dialog.vertical_ruler_major_tick_every_input.value() == 3
     assert dialog.vertical_ruler_minor_tick_every_input.value() == 4
@@ -59,7 +59,7 @@ def test_off_and_ticks_only_modes_disable_only_irrelevant_controls(qapp) -> None
     dialog = TabletTrackEditorDialog(_gas_track(), language="en")
 
     dialog.vertical_ruler_mode_input.setCurrentIndex(
-        dialog.vertical_ruler_mode_input.findData(VerticalRulerMode.OFF)
+        dialog.vertical_ruler_mode_input.findData(VerticalRulerMode.OFF.value)
     )
     assert not dialog.vertical_ruler_label_every_input.isEnabled()
     assert not dialog.vertical_ruler_major_tick_every_input.isEnabled()

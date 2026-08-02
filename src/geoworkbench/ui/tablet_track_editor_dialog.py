@@ -195,7 +195,7 @@ class TabletTrackEditorDialog(QDialog):
         self.vertical_ruler_mode_input = QComboBox()
         self.vertical_ruler_mode_input.addItem(
             self._text("Автоматически", "Автоматты", "Automatic"),
-            VerticalRulerMode.AUTOMATIC,
+            VerticalRulerMode.AUTOMATIC.value,
         )
         self.vertical_ruler_mode_input.addItem(
             self._text(
@@ -203,21 +203,21 @@ class TabletTrackEditorDialog(QDialog):
                 "Сандар мен белгілер",
                 "Labels and ticks",
             ),
-            VerticalRulerMode.LABELS_AND_TICKS,
+            VerticalRulerMode.LABELS_AND_TICKS.value,
         )
         self.vertical_ruler_mode_input.addItem(
             self._text("Только риски", "Тек белгілер", "Ticks only"),
-            VerticalRulerMode.TICKS_ONLY,
+            VerticalRulerMode.TICKS_ONLY.value,
         )
         self.vertical_ruler_mode_input.addItem(
             self._text("Выключено", "Өшірулі", "Off"),
-            VerticalRulerMode.OFF,
+            VerticalRulerMode.OFF.value,
         )
         self.vertical_ruler_mode_input.setCurrentIndex(
             max(
                 0,
                 self.vertical_ruler_mode_input.findData(
-                    self.track.vertical_ruler.mode
+                    self.track.vertical_ruler.mode.value
                 ),
             )
         )
@@ -467,8 +467,15 @@ class TabletTrackEditorDialog(QDialog):
             CurveLineStyle.DASH_DOT: self._text("Штрих-точка", "Үзік-нүкте", "Dash-dot"),
         }[style]
 
+    def _selected_vertical_ruler_mode(self) -> VerticalRulerMode:
+        raw_mode = self.vertical_ruler_mode_input.currentData()
+        try:
+            return VerticalRulerMode(str(raw_mode))
+        except ValueError:
+            return VerticalRulerMode.AUTOMATIC
+
     def _vertical_ruler_state(self, *_args) -> None:
-        mode = self.vertical_ruler_mode_input.currentData()
+        mode = self._selected_vertical_ruler_mode()
         enabled = self.vertical_ruler_group.isEnabled()
         self.vertical_ruler_label_every_input.setEnabled(
             enabled
@@ -660,9 +667,7 @@ class TabletTrackEditorDialog(QDialog):
         candidate.width = self.width_input.value()
         candidate.x_axis_label = self.axis_input.text().strip()
         candidate.show_interval_labels = self.show_interval_labels_input.isChecked()
-        ruler_mode = self.vertical_ruler_mode_input.currentData()
-        if not isinstance(ruler_mode, VerticalRulerMode):
-            ruler_mode = VerticalRulerMode.AUTOMATIC
+        ruler_mode = self._selected_vertical_ruler_mode()
         candidate.vertical_ruler = VerticalRulerTrackSettings(
             mode=ruler_mode,
             label_every_major=self.vertical_ruler_label_every_input.value(),
