@@ -71,17 +71,30 @@ def _validate_depth(depth: Array) -> tuple[Array, float, bool]:
         raise ValueError("Шкала глубины не должна содержать NaN или бесконечность")
 
     steps = np.diff(axis)
-    increasing = bool(np.all(steps > 0.0))
-    decreasing = bool(np.all(steps < 0.0))
+    increasing = bool(np.all(steps >= 0.0) and np.any(steps > 0.0))
+    decreasing = bool(np.all(steps <= 0.0) and np.any(steps < 0.0))
     if not increasing and not decreasing:
-        raise ValueError("Шкала глубины должна быть строго монотонной без дубликатов")
+        raise ValueError(
+            "Шкала глубины должна быть монотонной; повторяющиеся отметки разрешены"
+        )
 
-    absolute_steps = np.sort(np.abs(steps))
+    absolute_steps = np.sort(np.abs(steps[steps != 0.0]))
     dense_half = absolute_steps[: max(1, (absolute_steps.size + 1) // 2)]
     nominal_step = float(np.median(dense_half))
     if not np.isfinite(nominal_step) or nominal_step <= 0.0:
         raise ValueError("Не удалось определить положительный шаг глубины")
     return axis.copy(), nominal_step, decreasing
+
+
+def _collapse_duplicate_axis(axis: Array, values: Array) -> tuple[Array, Array, NDArray[np.int64]]:
+    unique_axis, inverse = np.unique(axis, return_inverse=True)
+    collapsed = np.full(unique_axis.shape, np.nan, dtype=np.float64)
+    for index in range(unique_axis.size):
+        group = values[inverse == index]
+        finite = group[np.isfinite(group)]
+        if finite.size:
+            collapsed[index] = float(np.mean(finite))
+    return unique_axis, collapsed, inverse.astype(np.int64, copy=False)
 
 
 def _component_gap_limit(
@@ -91,11 +104,12 @@ def _component_gap_limit(
     nominal_depth_step: float,
     policy: GasConditioningPolicy,
 ) -> float | None:
-    finite_positions = np.flatnonzero(np.isfinite(values))
+    unique_depth, collapsed_values, _ = _collapse_duplicate_axis(depth, values)
+    finite_positions = np.flatnonzero(np.isfinite(collapsed_values))
     if finite_positions.size < policy.minimum_finite_samples:
         return None
 
-    observed_steps = np.diff(depth[finite_positions])
+    observed_steps = np.diff(unique_depth[finite_positions])
     observed_steps = observed_steps[
         np.isfinite(observed_steps) & (observed_steps > 0.0)
     ]
@@ -114,7 +128,7 @@ def _component_gap_limit(
     return limit if np.isfinite(limit) and limit > 0.0 else None
 
 
-def _interpolate_increasing_axis(
+def _interpolate_unique_axis(
     axis: Array,
     source: Array,
     *,
@@ -138,9 +152,8 @@ def _interpolate_increasing_axis(
         missing = ~np.isfinite(output[interior])
         if not np.any(missing):
             continue
-        interior_axis = axis[interior]
         interpolated_values = np.interp(
-            interior_axis,
+            axis[interior],
             (axis[left_index], axis[right_index]),
             (output[left_index], output[right_index]),
         )
@@ -162,9 +175,9 @@ def interpolate_bounded_gaps(
 ) -> tuple[Array, BoolArray]:
     """Interpolate short bounded ``NaN`` runs and return a provenance mask.
 
-    Increasing and decreasing monotonic axes are supported. Only rows between
-    two finite measurements are eligible. Long acquisition outages,
-    leading/trailing holes and explicit finite zero values are kept.
+    Increasing/decreasing axes and repeated depth rows are supported. Finite
+    source measurements are never overwritten. Only missing rows between two
+    finite measurements are eligible; long outages and edge holes remain gaps.
     """
 
     axis, _, decreasing = _validate_depth(depth)
@@ -176,11 +189,24 @@ def interpolate_bounded_gaps(
 
     working_axis = axis[::-1] if decreasing else axis
     working_source = source[::-1] if decreasing else source
-    output, interpolated = _interpolate_increasing_axis(
-        working_axis,
-        working_source,
+    unique_axis, collapsed_source, inverse = _collapse_duplicate_axis(
+        working_axis, working_source
+    )
+    conditioned_unique, _ = _interpolate_unique_axis(
+        unique_axis,
+        collapsed_source,
         max_gap=max_gap,
     )
+
+    output = working_source.copy()
+    output[~np.isfinite(output)] = np.nan
+    interpolated = np.zeros(output.shape, dtype=np.bool_)
+    missing = ~np.isfinite(output)
+    replacement = conditioned_unique[inverse]
+    fillable = missing & np.isfinite(replacement)
+    output[fillable] = replacement[fillable]
+    interpolated[fillable] = True
+
     if decreasing:
         return output[::-1].copy(), interpolated[::-1].copy()
     return output, interpolated
