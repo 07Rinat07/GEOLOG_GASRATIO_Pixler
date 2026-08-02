@@ -1,0 +1,557 @@
+name: Integrate vertical ruler persistence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/integrate-vertical-ruler-persistence.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: integrate-vertical-ruler-persistence
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Apply guarded persistence patch
+        shell: pwsh
+        run: |
+          $patch = @'
+          from __future__ import annotations
+
+          from pathlib import Path
+
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(
+                      f"{path}: expected one replacement, found {count}: {old[:100]!r}"
+                  )
+              target.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+          models = "src/geoworkbench/tablet/models.py"
+          replace_once(
+              models,
+              "from geoworkbench.domain.text_presentation import (\n"
+              "    normalize_text_orientation,\n"
+              "    normalize_text_vertical_position,\n"
+              ")\n",
+              "from geoworkbench.domain.text_presentation import (\n"
+              "    normalize_text_orientation,\n"
+              "    normalize_text_vertical_position,\n"
+              ")\n"
+              "from geoworkbench.tablet.vertical_ruler import (\n"
+              "    VerticalRulerScaleSettings,\n"
+              "    VerticalRulerTrackSettings,\n"
+              ")\n",
+          )
+          replace_once(
+              models,
+              "    show_interval_labels: bool = False\n\n"
+              "    def __post_init__(self) -> None:\n",
+              "    show_interval_labels: bool = False\n"
+              "    vertical_ruler: VerticalRulerTrackSettings = field(\n"
+              "        default_factory=VerticalRulerTrackSettings\n"
+              "    )\n\n"
+              "    def __post_init__(self) -> None:\n",
+          )
+          replace_once(
+              models,
+              "        if not isinstance(self.show_interval_labels, bool):\n"
+              "            raise ValueError(\"show_interval_labels должен быть логическим\")\n"
+              "        minimum = minimum_track_width(self.kind)\n",
+              "        if not isinstance(self.show_interval_labels, bool):\n"
+              "            raise ValueError(\"show_interval_labels должен быть логическим\")\n"
+              "        if not isinstance(self.vertical_ruler, VerticalRulerTrackSettings):\n"
+              "            raise ValueError(\n"
+              "                \"Настройки внутренней вертикальной шкалы имеют неверный тип\"\n"
+              "            )\n"
+              "        minimum = minimum_track_width(self.kind)\n",
+          )
+          replace_once(
+              models,
+              "    localize_factory_labels: bool = False\n\n"
+              "    def __post_init__(self) -> None:\n",
+              "    localize_factory_labels: bool = False\n"
+              "    vertical_ruler_scale: VerticalRulerScaleSettings = field(\n"
+              "        default_factory=VerticalRulerScaleSettings\n"
+              "    )\n\n"
+              "    def __post_init__(self) -> None:\n",
+          )
+          replace_once(
+              models,
+              "        if not isinstance(self.localize_factory_labels, bool):\n"
+              "            raise ValueError(\"localize_factory_labels должен быть логическим\")\n\n"
+              "    def add_track(self, track: TrackDefinition, index: int | None = None) -> None:\n",
+              "        if not isinstance(self.localize_factory_labels, bool):\n"
+              "            raise ValueError(\"localize_factory_labels должен быть логическим\")\n"
+              "        if not isinstance(self.vertical_ruler_scale, VerticalRulerScaleSettings):\n"
+              "            raise ValueError(\n"
+              "                \"Настройки общей вертикальной шкалы имеют неверный тип\"\n"
+              "            )\n\n"
+              "    def add_track(self, track: TrackDefinition, index: int | None = None) -> None:\n",
+          )
+          replace_once(
+              models,
+              "    @staticmethod\n"
+              "    def _validate_visible_depth(top: float | None, bottom: float | None) -> None:\n",
+              "    def set_track_vertical_ruler(\n"
+              "        self, track_id: str, settings: VerticalRulerTrackSettings\n"
+              "    ) -> bool:\n"
+              "        if not isinstance(settings, VerticalRulerTrackSettings):\n"
+              "            raise ValueError(\n"
+              "                \"Настройки внутренней вертикальной шкалы имеют неверный тип\"\n"
+              "            )\n"
+              "        track = self.track_by_id(track_id)\n"
+              "        if track.vertical_ruler == settings:\n"
+              "            return False\n"
+              "        track.vertical_ruler = settings\n"
+              "        return True\n\n"
+              "    def set_vertical_ruler_scale(\n"
+              "        self, settings: VerticalRulerScaleSettings\n"
+              "    ) -> bool:\n"
+              "        if not isinstance(settings, VerticalRulerScaleSettings):\n"
+              "            raise ValueError(\n"
+              "                \"Настройки общей вертикальной шкалы имеют неверный тип\"\n"
+              "            )\n"
+              "        if self.vertical_ruler_scale == settings:\n"
+              "            return False\n"
+              "        self.vertical_ruler_scale = settings\n"
+              "        return True\n\n"
+              "    @staticmethod\n"
+              "    def _validate_visible_depth(top: float | None, bottom: float | None) -> None:\n",
+          )
+
+          codec = "src/geoworkbench/tablet/layout_codec.py"
+          replace_once(
+              codec,
+              "    compact_track_width,\n"
+              ")\n\n\n"
+              "LAYOUT_FORMAT_VERSION = 21\n",
+              "    compact_track_width,\n"
+              ")\n"
+              "from geoworkbench.tablet.vertical_ruler import (\n"
+              "    VerticalRulerMode,\n"
+              "    VerticalRulerScaleSettings,\n"
+              "    VerticalRulerTrackSettings,\n"
+              ")\n\n\n"
+              "LAYOUT_FORMAT_VERSION = 22\n",
+          )
+          replace_once(
+              codec,
+              "        \"localize_factory_labels\": layout.localize_factory_labels,\n"
+              "        \"tracks\": [\n",
+              "        \"localize_factory_labels\": layout.localize_factory_labels,\n"
+              "        \"vertical_ruler_scale\": {\n"
+              "            \"major_step\": layout.vertical_ruler_scale.major_step,\n"
+              "            \"minor_divisions\": layout.vertical_ruler_scale.minor_divisions,\n"
+              "        },\n"
+              "        \"tracks\": [\n",
+          )
+          replace_once(
+              codec,
+              "                \"show_interval_labels\": track.show_interval_labels,\n"
+              "                \"kind\": track.kind.value,\n",
+              "                \"show_interval_labels\": track.show_interval_labels,\n"
+              "                \"vertical_ruler\": {\n"
+              "                    \"mode\": track.vertical_ruler.mode.value,\n"
+              "                    \"label_every_major\": (\n"
+              "                        track.vertical_ruler.label_every_major\n"
+              "                    ),\n"
+              "                    \"major_tick_every\": (\n"
+              "                        track.vertical_ruler.major_tick_every\n"
+              "                    ),\n"
+              "                    \"minor_tick_every\": (\n"
+              "                        track.vertical_ruler.minor_tick_every\n"
+              "                    ),\n"
+              "                },\n"
+              "                \"kind\": track.kind.value,\n",
+          )
+          replace_once(
+              codec,
+              "    raw_localize_factory_labels = data.get(\"localize_factory_labels\", True)\n"
+              "    if raw_vertical_index_id is not None and (\n",
+              "    raw_localize_factory_labels = data.get(\"localize_factory_labels\", True)\n"
+              "    raw_vertical_ruler_scale = data.get(\"vertical_ruler_scale\", {})\n"
+              "    if not isinstance(raw_vertical_ruler_scale, dict):\n"
+              "        raise TabletLayoutFormatError(\n"
+              "            \"vertical_ruler_scale должен быть JSON-объектом\"\n"
+              "        )\n"
+              "    raw_ruler_major_step = raw_vertical_ruler_scale.get(\"major_step\")\n"
+              "    raw_ruler_minor_divisions = raw_vertical_ruler_scale.get(\n"
+              "        \"minor_divisions\", 5\n"
+              "    )\n"
+              "    if raw_ruler_major_step is not None and (\n"
+              "        not isinstance(raw_ruler_major_step, (int, float))\n"
+              "        or isinstance(raw_ruler_major_step, bool)\n"
+              "    ):\n"
+              "        raise TabletLayoutFormatError(\n"
+              "            \"vertical_ruler_scale.major_step должен быть числом или null\"\n"
+              "        )\n"
+              "    if (\n"
+              "        not isinstance(raw_ruler_minor_divisions, int)\n"
+              "        or isinstance(raw_ruler_minor_divisions, bool)\n"
+              "    ):\n"
+              "        raise TabletLayoutFormatError(\n"
+              "            \"vertical_ruler_scale.minor_divisions должен быть целым числом\"\n"
+              "        )\n"
+              "    try:\n"
+              "        vertical_ruler_scale = VerticalRulerScaleSettings(\n"
+              "            major_step=(\n"
+              "                float(raw_ruler_major_step)\n"
+              "                if raw_ruler_major_step is not None\n"
+              "                else None\n"
+              "            ),\n"
+              "            minor_divisions=raw_ruler_minor_divisions,\n"
+              "        )\n"
+              "    except ValueError as exc:\n"
+              "        raise TabletLayoutFormatError(\n"
+              "            \"Некорректные настройки общей вертикальной шкалы\"\n"
+              "        ) from exc\n"
+              "    if raw_vertical_index_id is not None and (\n",
+          )
+          replace_once(
+              codec,
+              "            localize_factory_labels=raw_localize_factory_labels,\n"
+              "        )\n",
+              "            localize_factory_labels=raw_localize_factory_labels,\n"
+              "            vertical_ruler_scale=vertical_ruler_scale,\n"
+              "        )\n",
+          )
+          replace_once(
+              codec,
+              "    show_interval_labels = data.get(\"show_interval_labels\", False)\n"
+              "    raw_mnemonics = data.get(\"curve_mnemonics\", [])\n",
+              "    show_interval_labels = data.get(\"show_interval_labels\", False)\n"
+              "    raw_vertical_ruler = data.get(\"vertical_ruler\", {})\n"
+              "    raw_mnemonics = data.get(\"curve_mnemonics\", [])\n",
+          )
+          replace_once(
+              codec,
+              "    if not isinstance(show_interval_labels, bool):\n"
+              "        raise TypeError(\"show_interval_labels должен быть логическим\")\n"
+              "    if not isinstance(raw_mnemonics, list) or not all(\n",
+              "    if not isinstance(show_interval_labels, bool):\n"
+              "        raise TypeError(\"show_interval_labels должен быть логическим\")\n"
+              "    if not isinstance(raw_vertical_ruler, dict):\n"
+              "        raise TypeError(\"vertical_ruler должен быть JSON-объектом\")\n"
+              "    vertical_ruler = VerticalRulerTrackSettings(\n"
+              "        mode=VerticalRulerMode(\n"
+              "            raw_vertical_ruler.get(\n"
+              "                \"mode\", VerticalRulerMode.AUTOMATIC.value\n"
+              "            )\n"
+              "        ),\n"
+              "        label_every_major=raw_vertical_ruler.get(\n"
+              "            \"label_every_major\", 1\n"
+              "        ),\n"
+              "        major_tick_every=raw_vertical_ruler.get(\n"
+              "            \"major_tick_every\", 1\n"
+              "        ),\n"
+              "        minor_tick_every=raw_vertical_ruler.get(\n"
+              "            \"minor_tick_every\", 1\n"
+              "        ),\n"
+              "    )\n"
+              "    if not isinstance(raw_mnemonics, list) or not all(\n",
+          )
+          replace_once(
+              codec,
+              "        show_interval_labels=show_interval_labels,\n"
+              "        curve_mnemonics=list(raw_mnemonics),\n",
+              "        show_interval_labels=show_interval_labels,\n"
+              "        vertical_ruler=vertical_ruler,\n"
+              "        curve_mnemonics=list(raw_mnemonics),\n",
+          )
+          replace_once(
+              codec,
+              "        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20\n"
+              "    ):\n",
+              "        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21\n"
+              "    ):\n",
+          )
+          replace_once(
+              codec,
+              "    migrated[\"version\"] = LAYOUT_FORMAT_VERSION\n"
+              "    return migrated\n",
+              "    migrated[\"version\"] = 22\n"
+              "    migrated.setdefault(\n"
+              "        \"vertical_ruler_scale\",\n"
+              "        {\"major_step\": None, \"minor_divisions\": 5},\n"
+              "    )\n"
+              "    if isinstance(tracks, list):\n"
+              "        for track in tracks:\n"
+              "            if isinstance(track, dict):\n"
+              "                track.setdefault(\n"
+              "                    \"vertical_ruler\",\n"
+              "                    {\n"
+              "                        \"mode\": VerticalRulerMode.AUTOMATIC.value,\n"
+              "                        \"label_every_major\": 1,\n"
+              "                        \"major_tick_every\": 1,\n"
+              "                        \"minor_tick_every\": 1,\n"
+              "                    },\n"
+              "                )\n"
+              "    migrated[\"version\"] = LAYOUT_FORMAT_VERSION\n"
+              "    return migrated\n",
+          )
+
+          init_file = "src/geoworkbench/tablet/__init__.py"
+          replace_once(
+              init_file,
+              "from geoworkbench.tablet.resize import TrackResizeGesture\n",
+              "from geoworkbench.tablet.resize import TrackResizeGesture\n"
+              "from geoworkbench.tablet.vertical_ruler import (\n"
+              "    VerticalRulerMode,\n"
+              "    VerticalRulerScaleSettings,\n"
+              "    VerticalRulerTrackSettings,\n"
+              ")\n",
+          )
+          replace_once(
+              init_file,
+              "    \"TrackResizeGesture\",\n"
+              "    \"CommandStack\",\n",
+              "    \"TrackResizeGesture\",\n"
+              "    \"VerticalRulerMode\",\n"
+              "    \"VerticalRulerScaleSettings\",\n"
+              "    \"VerticalRulerTrackSettings\",\n"
+              "    \"CommandStack\",\n",
+          )
+
+          Path("tests/test_vertical_ruler_persistence.py").write_text(
+              '''from __future__ import annotations
+
+          import pytest
+
+          from geoworkbench.tablet.layout_codec import (
+              LAYOUT_FORMAT_VERSION,
+              TabletLayoutFormatError,
+              layout_from_dict,
+              layout_to_dict,
+          )
+          from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+          from geoworkbench.tablet.vertical_ruler import (
+              VerticalRulerMode,
+              VerticalRulerScaleSettings,
+              VerticalRulerTrackSettings,
+          )
+
+
+          def test_vertical_ruler_settings_round_trip_with_layout_v22() -> None:
+              track = TrackDefinition(
+                  track_id="gas",
+                  title="Газы",
+                  kind=TrackKind.GAS,
+                  vertical_ruler=VerticalRulerTrackSettings(
+                      mode=VerticalRulerMode.TICKS_ONLY,
+                      label_every_major=2,
+                      major_tick_every=2,
+                      minor_tick_every=3,
+                  ),
+              )
+              layout = TabletLayout(
+                  tracks=[track],
+                  vertical_ruler_scale=VerticalRulerScaleSettings(
+                      major_step=10.0,
+                      minor_divisions=5,
+                  ),
+              )
+
+              payload = layout_to_dict(layout)
+              restored = layout_from_dict(payload)
+
+              assert payload["version"] == LAYOUT_FORMAT_VERSION == 22
+              assert payload["vertical_ruler_scale"] == {
+                  "major_step": 10.0,
+                  "minor_divisions": 5,
+              }
+              assert restored.vertical_ruler_scale == layout.vertical_ruler_scale
+              assert restored.tracks[0].vertical_ruler == track.vertical_ruler
+
+
+          def test_layout_v21_migrates_to_safe_shared_ruler_defaults() -> None:
+              restored = layout_from_dict(
+                  {
+                      "version": 21,
+                      "tracks": [
+                          {
+                              "track_id": "curve",
+                              "title": "Кривые",
+                              "kind": "curve",
+                          }
+                      ],
+                  }
+              )
+
+              assert restored.vertical_ruler_scale == VerticalRulerScaleSettings()
+              assert restored.tracks[0].vertical_ruler == VerticalRulerTrackSettings()
+              migrated = layout_to_dict(restored)
+              assert migrated["version"] == 22
+
+
+          def test_layout_rejects_invalid_global_ruler_frequency() -> None:
+              payload = layout_to_dict(TabletLayout())
+              payload["vertical_ruler_scale"]["major_step"] = 0.0
+
+              with pytest.raises(TabletLayoutFormatError):
+                  layout_from_dict(payload)
+
+
+          def test_layout_rejects_invalid_per_track_ruler_mode() -> None:
+              payload = layout_to_dict(
+                  TabletLayout(
+                      tracks=[
+                          TrackDefinition(
+                              track_id="gas",
+                              title="Газы",
+                              kind=TrackKind.GAS,
+                          )
+                      ]
+                  )
+              )
+              payload["tracks"][0]["vertical_ruler"]["mode"] = "broken"
+
+              with pytest.raises(TabletLayoutFormatError):
+                  layout_from_dict(payload)
+
+
+          def test_layout_setters_report_only_material_changes() -> None:
+              layout = TabletLayout(
+                  tracks=[
+                      TrackDefinition(
+                          track_id="gas",
+                          title="Газы",
+                          kind=TrackKind.GAS,
+                      )
+                  ]
+              )
+              track_settings = VerticalRulerTrackSettings(
+                  mode=VerticalRulerMode.OFF
+              )
+              scale_settings = VerticalRulerScaleSettings(
+                  major_step=5.0,
+                  minor_divisions=5,
+              )
+
+              assert layout.set_track_vertical_ruler("gas", track_settings)
+              assert not layout.set_track_vertical_ruler("gas", track_settings)
+              assert layout.set_vertical_ruler_scale(scale_settings)
+              assert not layout.set_vertical_ruler_scale(scale_settings)
+          ''',
+              encoding="utf-8",
+          )
+
+          plan = Path("docs/PROJECT_PLAN.md")
+          plan_text = plan.read_text(encoding="utf-8")
+          plan_text = plan_text.replace("layout=v21", "layout=v22")
+          plan_text = plan_text.replace("tablet layout `v21`", "tablet layout `v22`")
+          anchor = "## P1 — поддерживаемая архитектура\n\n"
+          addition = (
+              "## P1 — поддерживаемая архитектура\n\n"
+              "- [x] **RULER-01:** единый Qt-независимый контракт глубинных/временных отметок, "
+              "общей частоты и индивидуальной видимости колонок сериализуется в tablet layout v22; "
+              "layouts v1–v21 получают безопасную миграцию.\n"
+              "- [ ] **RULER-02:** подключить настройки к свойствам колонки и общему планшету на "
+              "RU/KK/EN, сохраняя один набор значений и Y-координат.\n"
+              "- [ ] **RULER-03:** использовать тот же resolved ruler в screen, preview, PDF и "
+              "printer; добавить HiDPI/page-boundary regression tests.\n"
+              "- [ ] **RULER-04:** после стабилизации шкал завершить единый gas continuity/segment "
+              "mask для C1–C5, relative gas, Haworth и Pixler.\n\n"
+          )
+          if anchor not in plan_text:
+              raise RuntimeError("PROJECT_PLAN.md: architecture anchor not found")
+          plan.write_text(plan_text.replace(anchor, addition, 1), encoding="utf-8")
+
+          architecture = Path("docs/ARCHITECTURE.md")
+          architecture_text = architecture.read_text(encoding="utf-8")
+          architecture_text = architecture_text.replace("layout=v21", "layout=v22")
+          architecture_text = architecture_text.replace(
+              "- tablet layout `v21`;",
+              "- tablet layout `v22`;",
+          )
+          architecture_anchor = "## Планшет и rendering\n\n"
+          architecture_addition = (
+              "## Планшет и rendering\n\n"
+              "`VerticalRulerLayout` является единственным источником глубинных/временных "
+              "отметок для всего viewport или печатной страницы. `VerticalRulerScaleSettings` "
+              "задаёт общую частоту, а `VerticalRulerTrackSettings` может только скрывать ось, "
+              "подписи или часть общего набора рисок. Колонка не рассчитывает собственный шаг, "
+              "значения или Y-координаты. Контракт сохраняется в tablet layout v22; старые "
+              "layouts мигрируют к automatic/visible defaults.\n\n"
+          )
+          if architecture_anchor not in architecture_text:
+              raise RuntimeError("ARCHITECTURE.md: tablet anchor not found")
+          architecture.write_text(
+              architecture_text.replace(
+                  architecture_anchor,
+                  architecture_addition,
+                  1,
+              ),
+              encoding="utf-8",
+          )
+
+          workflow = Path(".github/workflows/integrate-vertical-ruler-persistence.yml")
+          workflow.unlink()
+          '@
+          $patch | python -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install focused test tools
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check numpy pytest==9.1.1 ruff==0.15.22
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify persistence contract
+        shell: pwsh
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m compileall -q `
+            src/geoworkbench/tablet/models.py `
+            src/geoworkbench/tablet/layout_codec.py `
+            src/geoworkbench/tablet/vertical_ruler.py `
+            tests/test_vertical_ruler_settings.py `
+            tests/test_vertical_ruler_persistence.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          python -m ruff check `
+            src/geoworkbench/tablet/models.py `
+            src/geoworkbench/tablet/layout_codec.py `
+            src/geoworkbench/tablet/vertical_ruler.py `
+            tests/test_vertical_ruler_settings.py `
+            tests/test_vertical_ruler_persistence.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          python -m pytest -q -p no:cacheprovider `
+            tests/test_vertical_ruler_settings.py `
+            tests/test_vertical_ruler_persistence.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Commit verified changes
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git commit -m "feat: persist configurable shared vertical rulers"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git push origin HEAD:main
