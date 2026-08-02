@@ -39,6 +39,7 @@ from geoworkbench.tablet.tablet_view import (
     CURVE_HEADER_EDITOR_HEIGHT,
     CurveHeaderEditor,
     TabletTrackWidget,
+    TabletVerticalAxisItem,
     TabletView,
     curve_legend_label,
 )
@@ -226,7 +227,7 @@ def test_tablet_view_exposes_rendered_legend_labels(qapp) -> None:
     view.close()
 
 
-def test_tablet_uses_single_unscaled_depth_axis(qapp) -> None:
+def test_tablet_uses_one_shared_unscaled_depth_axis_in_graphical_tracks(qapp) -> None:
     dataset = Dataset(
         "dataset-1",
         "Dataset",
@@ -246,14 +247,20 @@ def test_tablet_uses_single_unscaled_depth_axis(qapp) -> None:
 
     view.set_dataset(dataset)
 
+    shared = view.shared_vertical_ruler_layout
     depth_axis = view._rendered["depth"].plot.getAxis("left")
     curve_axis = view._rendered["curve"].plot.getAxis("left")
+    assert shared is not None
+    assert isinstance(depth_axis, TabletVerticalAxisItem)
+    assert isinstance(curve_axis, TabletVerticalAxisItem)
     assert depth_axis.isVisible()
+    assert curve_axis.isVisible()
     assert depth_axis.autoSIPrefix is False
-    assert not curve_axis.isVisible()
+    assert curve_axis.autoSIPrefix is False
+    assert depth_axis.shared_layout is shared
+    assert curve_axis.shared_layout is shared
     assert view._rendered["depth"].plot.toolTip().startswith("Колесо — прокрутка")
     view.close()
-
 
 def test_tablet_cursor_line_is_synchronized_and_reports_all_curve_values(qapp) -> None:
     dataset = Dataset(

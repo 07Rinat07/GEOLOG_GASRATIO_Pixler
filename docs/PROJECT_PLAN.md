@@ -118,7 +118,7 @@ release plan и временные планы в `docs` не создаются.
 
 - [x] **RULER-01:** единый Qt-независимый контракт глубинных/временных отметок, общей частоты и индивидуальной видимости колонок сериализуется в tablet layout v22; layouts v1–v21 получают безопасную миграцию.
 - [x] **RULER-02:** настройки видимости и частоты внутренней шкалы подключены к существующему редактору графической колонки на RU/KK/EN и сохраняются в layout v22.
-- [ ] **RULER-03:** использовать тот же resolved ruler в screen, preview, PDF и printer; добавить HiDPI/page-boundary regression tests.
+- [ ] **RULER-03:** экранный `TabletView` использует один resolved ruler и передаёт его точный набор значений/Y-координат всем глубинным и графическим колонкам; остаётся подключить тот же контракт к preview/PDF/printer и закрыть HiDPI/page-boundary tests.
 - [ ] **RULER-04:** после стабилизации шкал завершить единый gas continuity/segment mask для C1–C5, relative gas, Haworth и Pixler.
 
 - [ ] **ARCH-01:** `ApplicationContext`/composition root для storage, semantic, import, report,

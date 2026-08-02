@@ -90,7 +90,6 @@ from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.services.time_display import (
     elapsed_to_seconds,
     format_datetime_at_row,
-    format_datetime_axis_tick,
     format_duration_compact,
     format_elapsed_time,
     format_time_curve_at_row,
@@ -121,10 +120,19 @@ from geoworkbench.tablet.grid_renderer import (
     GridSettings,
     TabletGridRenderer,
 )
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerKind,
+    VerticalRulerLayout,
+    VerticalRulerMode,
+    VerticalRulerTick,
+    VerticalRulerTrackSettings,
+    build_vertical_ruler_layout,
+    vertical_ruler_presentation,
+    visible_vertical_ruler_ticks,
+)
 from geoworkbench.tablet.grid_geometry import (
     DEFAULT_DEPTH_GRID_MAJOR_STEP,
     GridLine,
-    adaptive_aligned_step,
     normalized_grid_lines,
 )
 from geoworkbench.tablet.header_geometry import (
@@ -417,41 +425,75 @@ class VerticalAxisDescriptor:
 
 
 class TabletVerticalAxisItem(EngineeringGridAxisItem):
-    """Readable vertical labels for depth, relative time and absolute timestamps."""
+    """PyQtGraph adapter for one tablet-wide vertical-ruler layout.
+
+    Tick values are never calculated by an individual axis. ``TabletView``
+    resolves one immutable layout for the current depth/time window and every
+    track receives either that full sequence or a configured subset of it.
+    """
 
     def __init__(self, descriptor: VerticalAxisDescriptor) -> None:
         super().__init__("left")
         self.descriptor = descriptor
+        self._shared_layout: VerticalRulerLayout | None = None
+        self._resolved_ticks: tuple[VerticalRulerTick, ...] = ()
 
-    def tickSpacing(self, minVal, maxVal, size):  # type: ignore[override]
-        if self.descriptor.role is IndexRole.DEPTH:
-            return [
-                (
-                    adaptive_aligned_step(
-                        float(minVal),
-                        float(maxVal),
-                        DEFAULT_DEPTH_GRID_MAJOR_STEP,
-                    ),
-                    0.0,
-                )
-            ]
-        return super().tickSpacing(minVal, maxVal, size)
+    @property
+    def shared_layout(self) -> VerticalRulerLayout | None:
+        return self._shared_layout
 
-    def tickStrings(self, values, scale, spacing):  # type: ignore[override]
-        if self.descriptor.is_datetime:
-            return [self._format_datetime(float(value), float(spacing)) for value in values]
-        if self.descriptor.is_time:
-            return [self._format_relative_time(float(value)) for value in values]
-        return [f"{float(value):g}" for value in values]
+    @property
+    def resolved_ticks(self) -> tuple[VerticalRulerTick, ...]:
+        return self._resolved_ticks
 
-    @staticmethod
-    def _format_datetime(value: float, spacing: float) -> str:
-        return format_datetime_axis_tick(value, spacing)
+    def clear_shared_layout(self) -> None:
+        self._shared_layout = None
+        self._resolved_ticks = ()
+        self.setTicks(None)
 
-    def _format_relative_time(self, value: float) -> str:
-        rendered = format_elapsed_time(value, self.descriptor.unit)
-        return "" if rendered == "—" else rendered
-
+    def apply_shared_layout(
+        self,
+        layout: VerticalRulerLayout,
+        settings: VerticalRulerTrackSettings,
+        *,
+        show_labels: bool,
+        axis_width: int,
+        tick_length: int,
+    ) -> None:
+        self._shared_layout = layout
+        visible_ticks = visible_vertical_ruler_ticks(layout, settings)
+        self._resolved_ticks = tuple(
+            VerticalRulerTick(
+                value=tick.value,
+                major=tick.major,
+                label=tick.label if show_labels else "",
+                major_index=tick.major_index,
+                minor_index=tick.minor_index,
+            )
+            for tick in visible_ticks
+        )
+        major_ticks = [
+            (tick.value, tick.label)
+            for tick in self._resolved_ticks
+            if tick.major
+        ]
+        minor_ticks = [
+            (tick.value, "")
+            for tick in self._resolved_ticks
+            if not tick.major
+        ]
+        levels: list[list[tuple[float, str]]] = [major_ticks]
+        if minor_ticks:
+            levels.append(minor_ticks)
+        self.setTicks(levels)
+        self.setStyle(
+            autoExpandTextSpace=False,
+            tickTextWidth=max(1, int(axis_width) - 6),
+            tickLength=int(tick_length),
+            hideOverlappingLabels=True,
+            maxTickLevel=1,
+        )
+        self.setWidth(max(1, int(axis_width)))
 
 class CurveHeaderLabel(QLabel):
     clicked = Signal(str)
@@ -1163,6 +1205,7 @@ class TabletTrackWidget(QFrame):
         self._curve_header_labels: dict[str, CurveHeaderLabel | CurveHeaderEditor] = {}
         self._natural_curve_header_height = 0
         self._curve_header_row_height = CURVE_HEADER_EDITOR_HEIGHT
+        self._shared_vertical_ruler_layout: VerticalRulerLayout | None = None
         self.setObjectName(f"track-{definition.track_id}")
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setStyleSheet(
@@ -1506,6 +1549,61 @@ class TabletTrackWidget(QFrame):
                 "border-bottom:1px solid #cbd5e1;"
             )
 
+    @staticmethod
+    def _supports_inner_vertical_ruler(kind: TrackKind) -> bool:
+        return kind in {
+            TrackKind.CURVE,
+            TrackKind.GAS,
+            TrackKind.DEXP,
+            TrackKind.CALCIMETRY,
+        }
+
+    def _vertical_ruler_settings(self) -> VerticalRulerTrackSettings:
+        if self.definition.kind is TrackKind.DEPTH:
+            return VerticalRulerTrackSettings(
+                mode=VerticalRulerMode.LABELS_AND_TICKS
+            )
+        if self._supports_inner_vertical_ruler(self.definition.kind):
+            return self.definition.vertical_ruler
+        return VerticalRulerTrackSettings(mode=VerticalRulerMode.OFF)
+
+    def set_shared_vertical_ruler_layout(
+        self, layout: VerticalRulerLayout | None
+    ) -> None:
+        self._shared_vertical_ruler_layout = layout
+        self._configure_vertical_ruler()
+
+    def _configure_vertical_ruler(self) -> None:
+        axis = self.plot.getAxis("left")
+        if not isinstance(axis, TabletVerticalAxisItem):
+            self.plot.hideAxis("left")
+            return
+        layout = self._shared_vertical_ruler_layout
+        if layout is None:
+            axis.clear_shared_layout()
+            self.plot.hideAxis("left")
+            return
+        settings = self._vertical_ruler_settings()
+        presentation = vertical_ruler_presentation(
+            layout,
+            track_kind=self.definition.kind.value,
+            track_width=self._display_width,
+            settings=settings,
+            force_labels=self.definition.kind is TrackKind.DEPTH,
+        )
+        if not presentation.show_axis:
+            axis.clear_shared_layout()
+            self.plot.hideAxis("left")
+            return
+        axis.apply_shared_layout(
+            layout,
+            settings,
+            show_labels=presentation.show_labels,
+            axis_width=presentation.axis_width,
+            tick_length=presentation.tick_length,
+        )
+        self.plot.showAxis("left")
+
     @property
     def display_width(self) -> int:
         return self._display_width
@@ -1513,16 +1611,7 @@ class TabletTrackWidget(QFrame):
     def set_track_width(self, width: int) -> None:
         self._display_width = max(1, int(width))
         self.setFixedWidth(self._display_width)
-        if self.definition.kind is TrackKind.DEPTH:
-            axis = self.plot.getAxis("left")
-            axis_width = max(36, min(int(width) - 8, 92))
-            axis.setStyle(
-                autoExpandTextSpace=False,
-                tickTextWidth=max(30, min(int(width) - 12, 88)),
-                tickLength=-6,
-                hideOverlappingLabels=True,
-            )
-            axis.setWidth(axis_width)
+        self._configure_vertical_ruler()
 
     def mousePressEvent(self, event) -> None:  # type: ignore[override]
         if self._handle_resize_event(event):
@@ -1791,6 +1880,7 @@ class TabletView(QWidget):
         self._layout_rebuild_active = False
         self._sync_guard = False
         self._depth_range_guard = False
+        self._shared_vertical_ruler_layout: VerticalRulerLayout | None = None
         self._cursor_enabled = False
         self._selected_track_id: str | None = None
         self._curve_pencil_enabled = False
@@ -5360,6 +5450,7 @@ class TabletView(QWidget):
             ),
         )
         self._rendered.clear()
+        self._shared_vertical_ruler_layout = None
         self._overlay_layers.clear()
         self._tooltip_items.clear()
         self._rubber_band_items.clear()
@@ -5474,6 +5565,7 @@ class TabletView(QWidget):
         self._synchronize_track_heights()
         if master_plot is not None and visible_top is not None and visible_bottom is not None:
             self._synchronize_depth_ranges(visible_top, visible_bottom)
+            self._synchronize_vertical_rulers(visible_top, visible_bottom)
             self._update_lithology_text_visibility(visible_top, visible_bottom)
             self._update_stratigraphy_text_visibility(visible_top, visible_bottom)
             self._apply_interpretation_selection_style()
@@ -5742,6 +5834,7 @@ class TabletView(QWidget):
         if current is None:
             return
         self._synchronize_depth_ranges(*current)
+        self._synchronize_vertical_rulers(*current)
         self._update_navigation_controls()
         self._refresh_annotation_overlay()
 
@@ -7351,6 +7444,54 @@ class TabletView(QWidget):
         top, bottom = self._navigation.pan(bounds, current, float(delta))
         return self._apply_visible_depth(top, bottom, emit_change=True)
 
+    @property
+    def shared_vertical_ruler_layout(self) -> VerticalRulerLayout | None:
+        return self._shared_vertical_ruler_layout
+
+    def _vertical_ruler_kind(self) -> VerticalRulerKind | None:
+        descriptor = self._axis_descriptor()
+        if descriptor is None:
+            return None
+        if descriptor.is_datetime:
+            return VerticalRulerKind.DATETIME
+        if descriptor.is_time:
+            return VerticalRulerKind.RELATIVE_TIME
+        return VerticalRulerKind.DEPTH
+
+    def _synchronize_vertical_rulers(self, top: float, bottom: float) -> None:
+        descriptor = self._axis_descriptor()
+        kind = self._vertical_ruler_kind()
+        live_entries = tuple(
+            entry
+            for entry in self._rendered.values()
+            if entry.plot is not None and _qt_object_is_alive(entry.plot)
+        )
+        if descriptor is None or kind is None or not live_entries:
+            self._shared_vertical_ruler_layout = None
+            for rendered in self._rendered.values():
+                rendered.widget.set_shared_vertical_ruler_layout(None)
+            return
+        viewport_height = max(
+            (
+                entry.plot.viewport().height()
+                for entry in live_entries
+                if entry.plot is not None
+            ),
+            default=max(240, self.height()),
+        )
+        shared = build_vertical_ruler_layout(
+            top,
+            bottom,
+            pixel_height=float(max(1, viewport_height)),
+            kind=kind,
+            unit=descriptor.unit,
+            print_mode=self._annotation_print_mode,
+            settings=self._layout_model.vertical_ruler_scale,
+        )
+        self._shared_vertical_ruler_layout = shared
+        for rendered in live_entries:
+            rendered.widget.set_shared_vertical_ruler_layout(shared)
+
     def _apply_visible_depth(self, top: float, bottom: float, *, emit_change: bool) -> bool:
         live_entries = tuple(
             entry
@@ -7390,6 +7531,7 @@ class TabletView(QWidget):
                         exc,
                         track_id=rendered.definition.track_id,
                     )
+            self._synchronize_vertical_rulers(normalized_top, normalized_bottom)
             self._update_visible_curve_data(normalized_top, normalized_bottom)
             self._update_lithology_text_visibility(normalized_top, normalized_bottom)
             self._update_stratigraphy_text_visibility(normalized_top, normalized_bottom)
