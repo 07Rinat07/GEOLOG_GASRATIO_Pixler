@@ -171,7 +171,9 @@ class PrintJobStatusDialog(QDialog):
             self._t("print_center.status_failed_detail", error=message)
         )
         self.open_button.setEnabled(False)
-        self.folder_button.setEnabled(False)
+        self.folder_button.setEnabled(
+            self.target is not None and self.target.parent.is_dir()
+        )
         self.close_button.setEnabled(True)
 
     def reject(self) -> None:
@@ -206,6 +208,9 @@ class PrintJobStatusDialog(QDialog):
             # Pass the completed file itself. Windows Explorer can then select
             # it instead of merely opening a folder with no visual indication.
             self._invoke_open_action(self._open_folder_callback, self._primary_path)
+            return
+        if self.target is not None and self.target.parent.is_dir():
+            self._invoke_open_action(self._open_folder_callback, self.target.parent)
 
     def _invoke_open_action(self, callback: OpenPathCallback, path: Path) -> None:
         try:
@@ -240,13 +245,18 @@ class PrintJobStatusDialog(QDialog):
     def _reveal_path(path: Path) -> bool:
         resolved = path.resolve()
         if sys.platform == "win32":
-            return _start_detached(
-                "explorer.exe",
-                ["/select,", str(resolved)],
-            )
+            if resolved.is_file():
+                return _start_detached(
+                    "explorer.exe",
+                    ["/select,", str(resolved)],
+                )
+            return _start_detached("explorer.exe", [str(resolved)])
         if sys.platform == "darwin":
-            return _start_detached("open", ["-R", str(resolved)])
-        return QDesktopServices.openUrl(QUrl.fromLocalFile(str(resolved.parent)))
+            if resolved.is_file():
+                return _start_detached("open", ["-R", str(resolved)])
+            return _start_detached("open", [str(resolved)])
+        folder = resolved.parent if resolved.is_file() else resolved
+        return QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
