@@ -3,15 +3,15 @@ phase=ruff
 Using CPython 3.11.9 interpreter at: C:\hostedtoolcache\windows\Python\3.11.9\x64\python3.exe
 Creating virtual environment at: .venv
 Activate with: .venv\Scripts\activate
-Resolved 21 packages in 98ms
-Downloading pillow (6.9MiB)
+Resolved 21 packages in 139ms
 Downloading pyqtgraph (1.8MiB)
-Downloading shiboken6 (1.2MiB)
-Downloading pymupdf (18.9MiB)
-Downloading pydantic (2.0MiB)
 Downloading pyside6-essentials (74.0MiB)
+Downloading pillow (6.9MiB)
 Downloading pyside6-addons (161.0MiB)
+Downloading pydantic (2.0MiB)
 Downloading numpy (12.5MiB)
+Downloading pymupdf (18.9MiB)
+Downloading shiboken6 (1.2MiB)
  Downloaded shiboken6
  Downloaded pydantic
  Downloaded pillow
@@ -20,8 +20,8 @@ Downloading numpy (12.5MiB)
  Downloaded numpy
  Downloaded pyside6-addons
  Downloaded pyside6-essentials
-Prepared 21 packages in 3.79s
-Installed 21 packages in 732ms
+Prepared 21 packages in 4.19s
+Installed 21 packages in 673ms
  + colorama==0.4.6
  + defusedxml==0.7.1
  + et-xmlfile==2.0.0
@@ -43,15 +43,15 @@ Installed 21 packages in 732ms
  + typingx==0.6.0
  + tzdata==2026.3
  + websockets==16.1.1
-Resolved 13 packages in 209ms
+Resolved 13 packages in 353ms
 Downloading pygments (1.2MiB)
-Downloading ruff (11.4MiB)
 Downloading mypy (9.6MiB)
+Downloading ruff (11.4MiB)
  Downloaded ruff
  Downloaded pygments
  Downloaded mypy
-Prepared 11 packages in 863ms
-Installed 11 packages in 260ms
+Prepared 11 packages in 890ms
+Installed 11 packages in 176ms
  + iniconfig==2.3.0
  + librt==0.13.0
  + mypy==1.19.1
