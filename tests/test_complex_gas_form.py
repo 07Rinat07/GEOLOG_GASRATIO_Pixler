@@ -26,6 +26,11 @@ def test_complex_gas_form_contains_all_requested_tracks_and_internal_depth_scale
     assert form.name == "Комплексная газовая форма"
     assert "factory-complex-gas-analysis" in curated_factory_templates("ru")
     assert len(form.columns) == 14
+    assert all(
+        form.columns[index].tracks[0].kind is TrackKind.DEPTH
+        and form.columns[index + 1].tracks[0].kind is TrackKind.CURVE
+        for index in range(0, len(form.columns), 2)
+    )
 
     depth_columns = [
         column
