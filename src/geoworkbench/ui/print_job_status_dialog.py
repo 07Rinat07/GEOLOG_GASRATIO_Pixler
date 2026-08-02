@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QUrl, Qt
+from PySide6.QtCore import QProcess, QUrl, Qt
 from PySide6.QtGui import QCloseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QVBoxLayout,
@@ -19,6 +22,15 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 OpenPathCallback = Callable[[Path], bool]
+
+
+def _start_detached(program: str, arguments: list[str]) -> bool:
+    """Normalize the PySide6 startDetached return value across Qt versions."""
+
+    result = QProcess.startDetached(program, arguments)
+    if isinstance(result, tuple):
+        return bool(result[0])
+    return bool(result)
 
 
 class PrintJobStatusDialog(QDialog):
@@ -41,8 +53,8 @@ class PrintJobStatusDialog(QDialog):
         self._working = True
         self._ready = False
         self._primary_path: Path | None = None
-        self._open_path_callback = open_path_callback or self._open_path
-        self._open_folder_callback = open_folder_callback or self._open_path
+        self._open_path_callback = open_path_callback or self._open_document_path
+        self._open_folder_callback = open_folder_callback or self._reveal_path
 
         self.setWindowTitle(self._t("print_center.status_title"))
         self.setWindowModality(Qt.WindowModality.WindowModal)
@@ -187,15 +199,54 @@ class PrintJobStatusDialog(QDialog):
 
     def _open_result(self) -> None:
         if self._primary_path is not None and self._primary_path.is_file():
-            self._open_path_callback(self._primary_path)
+            self._invoke_open_action(self._open_path_callback, self._primary_path)
 
     def _open_folder(self) -> None:
         if self._primary_path is not None and self._primary_path.is_file():
-            self._open_folder_callback(self._primary_path.parent)
+            # Pass the completed file itself. Windows Explorer can then select
+            # it instead of merely opening a folder with no visual indication.
+            self._invoke_open_action(self._open_folder_callback, self._primary_path)
+
+    def _invoke_open_action(self, callback: OpenPathCallback, path: Path) -> None:
+        try:
+            opened = bool(callback(path))
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            self._show_open_failure(path, exc)
+            return
+        if not opened:
+            self._show_open_failure(path)
+
+    def _show_open_failure(self, path: Path, error: Exception | None = None) -> None:
+        message = f"{self.open_button.text()} / {self.folder_button.text()}\n{path}"
+        if error is not None and str(error).strip():
+            message += f"\n\n{error}"
+        QMessageBox.warning(
+            self,
+            self._t("print_center.status_title"),
+            message,
+        )
 
     @staticmethod
-    def _open_path(path: Path) -> bool:
-        return QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+    def _open_document_path(path: Path) -> bool:
+        resolved = path.resolve()
+        if sys.platform == "win32":
+            startfile = getattr(os, "startfile", None)
+            if callable(startfile):
+                startfile(str(resolved))
+                return True
+        return QDesktopServices.openUrl(QUrl.fromLocalFile(str(resolved)))
+
+    @staticmethod
+    def _reveal_path(path: Path) -> bool:
+        resolved = path.resolve()
+        if sys.platform == "win32":
+            return _start_detached(
+                "explorer.exe",
+                ["/select,", str(resolved)],
+            )
+        if sys.platform == "darwin":
+            return _start_detached("open", ["-R", str(resolved)])
+        return QDesktopServices.openUrl(QUrl.fromLocalFile(str(resolved.parent)))
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
