@@ -77,3 +77,17 @@ def test_print_ruler_uses_enlarged_typography_without_changing_screen_defaults()
     assert "item.widget.print_curve_header_height" in (
         ROOT / "src/geoworkbench/printing/document_renderer.py"
     ).read_text(encoding="utf-8")
+
+
+def test_print_typography_is_enabled_before_snapshot_geometry_is_measured() -> None:
+    source = (
+        ROOT / "src/geoworkbench/printing/tablet_print.py"
+    ).read_text(encoding="utf-8")
+
+    enable_position = source.index("item.widget.set_print_mode(True)")
+    measure_position = source.index(
+        "content_height = max(item.widget.height() for item in rendered)",
+        enable_position,
+    )
+    assert enable_position < measure_position
+    assert "item.widget.set_synchronized_header_height(print_header_band)" in source
