@@ -1,0 +1,88 @@
+name: Apply complex gas form
+
+on:
+  push:
+    branches:
+      - feature/complex-gas-form
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    if: ${{ !contains(github.event.head_commit.message, '[complex-gas-applied]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/complex-gas-form
+          fetch-depth: 0
+
+      - name: Register the complex form in the factory library
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("src/geoworkbench/forms/templates.py")
+          text = path.read_text(encoding="utf-8")
+
+          def replace_once(source: str, old: str, new: str, label: str) -> str:
+              count = source.count(old)
+              if count != 1:
+                  raise RuntimeError(f"{label}: expected one anchor, found {count}")
+              return source.replace(old, new, 1)
+
+          text = replace_once(
+              text,
+              "    ParameterBinding,\n)\nfrom geoworkbench.tablet.models import (",
+              "    ParameterBinding,\n)\n"
+              "from geoworkbench.forms.complex_gas import complex_gas_form\n"
+              "from geoworkbench.tablet.models import (",
+              "complex form import",
+          )
+          text = replace_once(
+              text,
+              '        "factory-gas-ratio-pixler-depth": _gas_ratio_pixler_depth(lang),\n',
+              '        "factory-gas-ratio-pixler-depth": _gas_ratio_pixler_depth(lang),\n'
+              '        "factory-complex-gas-analysis": complex_gas_form(lang),\n',
+              "factory template registration",
+          )
+          text = replace_once(
+              text,
+              '    "factory-gas-ratio-pixler-depth",\n',
+              '    "factory-gas-ratio-pixler-depth",\n'
+              '    "factory-complex-gas-analysis",\n',
+              "curated template registration",
+          )
+          path.write_text(text, encoding="utf-8")
+          Path(".github/workflows/apply-complex-gas-form.yml").unlink()
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and test tools
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run focused quality checks
+        run: |
+          python -m ruff check \
+            src/geoworkbench/forms/complex_gas.py \
+            src/geoworkbench/forms/templates.py \
+            src/geoworkbench/calculations/gas_ratio.py \
+            tests/test_complex_gas_form.py
+          python -m pytest -q tests/test_complex_gas_form.py
+
+      - name: Commit verified registration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/geoworkbench/forms/templates.py \
+            .github/workflows/apply-complex-gas-form.yml
+          git commit -m "feat: register complex gas form [complex-gas-applied]"
+          git push origin HEAD:feature/complex-gas-form
