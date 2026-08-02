@@ -1,0 +1,564 @@
+name: Finalize shared vertical rulers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/finalize-shared-vertical-rulers.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalize-shared-vertical-rulers
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Apply guarded integration patch
+        shell: pwsh
+        run: |
+          @'
+          from __future__ import annotations
+
+          import re
+          from pathlib import Path
+
+
+          PATH = Path("src/geoworkbench/tablet/tablet_view.py")
+          text = PATH.read_text(encoding="utf-8")
+
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(
+                      f"expected one replacement, found {count}: {old[:120]!r}"
+                  )
+              text = text.replace(old, new, 1)
+
+
+          replace_once(
+              "from geoworkbench.tablet.relative_gas import (\n"
+              "    build_relative_gas_stack,\n"
+              "    is_relative_gas_track,\n"
+              ")\n",
+              "from geoworkbench.tablet.relative_gas import (\n"
+              "    build_relative_gas_stack,\n"
+              "    is_relative_gas_track,\n"
+              ")\n"
+              "from geoworkbench.tablet.vertical_ruler import (\n"
+              "    VerticalRulerKind,\n"
+              "    VerticalRulerLayout,\n"
+              "    VerticalRulerMode,\n"
+              "    build_vertical_ruler_layout,\n"
+              "    vertical_ruler_presentation,\n"
+              ")\n",
+          )
+
+          axis_class = '''class TabletVerticalAxisItem(EngineeringGridAxisItem):
+              """Adapter for one shared vertical ruler calculated by TabletView."""
+
+              def __init__(self, descriptor: VerticalAxisDescriptor) -> None:
+                  super().__init__("left")
+                  self.descriptor = descriptor
+                  self._shared_layout: VerticalRulerLayout | None = None
+                  self._show_labels = False
+
+              @property
+              def shared_layout(self) -> VerticalRulerLayout | None:
+                  return self._shared_layout
+
+              def apply_shared_layout(
+                  self,
+                  layout: VerticalRulerLayout,
+                  *,
+                  show_labels: bool,
+                  axis_width: int,
+                  tick_length: int,
+              ) -> None:
+                  self._shared_layout = layout
+                  self._show_labels = bool(show_labels)
+                  self.setStyle(
+                      autoExpandTextSpace=False,
+                      tickTextWidth=max(1, int(axis_width) - 6),
+                      tickLength=int(tick_length),
+                      hideOverlappingLabels=True,
+                      maxTickLevel=1,
+                  )
+                  self.setWidth(max(1, int(axis_width)))
+                  self.picture = None
+                  self.update()
+
+              def tickSpacing(self, minVal, maxVal, size):  # type: ignore[override]
+                  del minVal, maxVal, size
+                  layout = self._shared_layout
+                  if layout is None:
+                      return super().tickSpacing(0.0, 1.0, 100.0)
+                  return [
+                      (layout.major_step, 0.0),
+                      (layout.minor_step, 0.0),
+                  ]
+
+              def tickStrings(self, values, scale, spacing):  # type: ignore[override]
+                  del scale
+                  layout = self._shared_layout
+                  if (
+                      layout is None
+                      or not self._show_labels
+                      or float(spacing) < layout.major_step * 0.999999
+                  ):
+                      return ["" for _value in values]
+                  tolerance = max(layout.major_step * 1e-8, 1e-9)
+                  labels = {
+                      tick.value: tick.label
+                      for tick in layout.ticks
+                      if tick.major and tick.label
+                  }
+                  return [
+                      next(
+                          (
+                              label
+                              for tick_value, label in labels.items()
+                              if abs(float(value) - tick_value) <= tolerance
+                          ),
+                          "",
+                      )
+                      for value in values
+                  ]
+          '''
+          pattern = (
+              r"class TabletVerticalAxisItem\(EngineeringGridAxisItem\):.*?"
+              r"\n\nclass CurveHeaderLabel"
+          )
+          text, count = re.subn(
+              pattern,
+              axis_class + "\n\nclass CurveHeaderLabel",
+              text,
+              count=1,
+              flags=re.DOTALL,
+          )
+          if count != 1:
+              raise RuntimeError(f"vertical axis class replacement count: {count}")
+
+          replace_once(
+              "        self._natural_curve_header_height = 0\n"
+              "        self._curve_header_row_height = CURVE_HEADER_EDITOR_HEIGHT\n",
+              "        self._natural_curve_header_height = 0\n"
+              "        self._curve_header_row_height = CURVE_HEADER_EDITOR_HEIGHT\n"
+              "        self._print_mode = False\n"
+              "        self._shared_vertical_ruler_layout: VerticalRulerLayout | None = None\n",
+          )
+          replace_once(
+              "        self.plot.getAxis(\"left\").enableAutoSIPrefix(False)\n"
+              "        self.plot.hideAxis(\"left\")\n"
+              "        self.plot.getViewBox().invertY(True)\n",
+              "        self.plot.getAxis(\"left\").enableAutoSIPrefix(False)\n"
+              "        self._configure_vertical_ruler()\n"
+              "        self.plot.getViewBox().invertY(True)\n",
+          )
+
+          methods = '''    def _vertical_ruler_mode(self) -> VerticalRulerMode:
+              if self.definition.kind is TrackKind.DEPTH:
+                  return VerticalRulerMode.LABELS_AND_TICKS
+              if self.definition.kind in {
+                  TrackKind.CURVE,
+                  TrackKind.GAS,
+                  TrackKind.DEXP,
+                  TrackKind.CALCIMETRY,
+              }:
+                  return VerticalRulerMode.AUTOMATIC
+              return VerticalRulerMode.OFF
+
+              def set_shared_vertical_ruler_layout(
+                  self, layout: VerticalRulerLayout | None
+              ) -> None:
+                  self._shared_vertical_ruler_layout = layout
+                  self._configure_vertical_ruler()
+
+              def _configure_vertical_ruler(self) -> None:
+                  axis = self.plot.getAxis("left")
+                  if not isinstance(axis, TabletVerticalAxisItem):
+                      self.plot.hideAxis("left")
+                      return
+                  layout = self._shared_vertical_ruler_layout
+                  mode = self._vertical_ruler_mode()
+                  if layout is None or mode is VerticalRulerMode.OFF:
+                      self.plot.hideAxis("left")
+                      return
+                  presentation = vertical_ruler_presentation(
+                      layout,
+                      track_kind=self.definition.kind.value,
+                      track_width=self._display_width,
+                      mode=mode,
+                      force_labels=self.definition.kind is TrackKind.DEPTH,
+                  )
+                  axis.apply_shared_layout(
+                      layout,
+                      show_labels=presentation.show_labels,
+                      axis_width=presentation.axis_width,
+                      tick_length=presentation.tick_length,
+                  )
+                  if presentation.show_axis:
+                      self.plot.showAxis("left")
+                  else:
+                      self.plot.hideAxis("left")
+
+          '''
+          methods = methods.replace("\n              def set_shared", "\n    def set_shared")
+          methods = methods.replace("\n              def _configure", "\n    def _configure")
+          replace_once(
+              "    @property\n    def display_width(self) -> int:\n",
+              methods + "    @property\n    def display_width(self) -> int:\n",
+          )
+
+          old_set_width = '''    def set_track_width(self, width: int) -> None:
+              self._display_width = max(1, int(width))
+              self.setFixedWidth(self._display_width)
+              if self.definition.kind is TrackKind.DEPTH:
+                  axis = self.plot.getAxis("left")
+                  axis_width = max(36, min(int(width) - 8, 92))
+                  axis.setStyle(
+                      autoExpandTextSpace=False,
+                      tickTextWidth=max(30, min(int(width) - 12, 88)),
+                      tickLength=-6,
+                      hideOverlappingLabels=True,
+                  )
+                  axis.setWidth(axis_width)
+          '''
+          new_set_width = '''    def set_track_width(self, width: int) -> None:
+              self._display_width = max(1, int(width))
+              self.setFixedWidth(self._display_width)
+              self._configure_vertical_ruler()
+          '''
+          replace_once(old_set_width, new_set_width)
+
+          replace_once(
+              "        enabled = bool(enabled)\n"
+              "        self._curve_header_row_height = (\n",
+              "        enabled = bool(enabled)\n"
+              "        self._print_mode = enabled\n"
+              "        self._curve_header_row_height = (\n",
+          )
+          replace_once(
+              "        self.curve_header.setFixedHeight(content_height)\n"
+              "        self.set_synchronized_header_height(self._natural_curve_header_height)\n\n"
+              "    def update_curve_header_range(\n",
+              "        self.curve_header.setFixedHeight(content_height)\n"
+              "        self.set_synchronized_header_height(self._natural_curve_header_height)\n"
+              "        self._configure_vertical_ruler()\n\n"
+              "    def update_curve_header_range(\n",
+          )
+
+          replace_once(
+              "        self._depth_range_guard = False\n"
+              "        self._cursor_enabled = False\n",
+              "        self._depth_range_guard = False\n"
+              "        self._shared_vertical_ruler_layout: VerticalRulerLayout | None = None\n"
+              "        self._cursor_enabled = False\n",
+          )
+
+          shared_methods = '''    def _vertical_ruler_kind(self) -> VerticalRulerKind | None:
+              descriptor = self._axis_descriptor()
+              if descriptor is None:
+                  return None
+              if descriptor.is_datetime:
+                  return VerticalRulerKind.DATETIME
+              if descriptor.is_time:
+                  return VerticalRulerKind.RELATIVE_TIME
+              return VerticalRulerKind.DEPTH
+
+              def _synchronize_vertical_rulers(self, top: float, bottom: float) -> None:
+                  kind = self._vertical_ruler_kind()
+                  descriptor = self._axis_descriptor()
+                  if kind is None or descriptor is None or not self._rendered:
+                      self._shared_vertical_ruler_layout = None
+                      return
+                  heights = [
+                      entry.plot.viewport().height()
+                      for entry in self._rendered.values()
+                      if entry.plot is not None and _qt_object_is_alive(entry.plot)
+                  ]
+                  pixel_height = float(max(heights, default=max(240, self.height())))
+                  shared = build_vertical_ruler_layout(
+                      top,
+                      bottom,
+                      pixel_height=pixel_height,
+                      kind=kind,
+                      unit=descriptor.unit,
+                      print_mode=self._annotation_print_mode,
+                  )
+                  self._shared_vertical_ruler_layout = shared
+                  for rendered in self._rendered.values():
+                      rendered.widget.set_shared_vertical_ruler_layout(shared)
+
+          '''
+          shared_methods = shared_methods.replace("\n              def _synchronize", "\n    def _synchronize")
+          replace_once(
+              "    def _apply_visible_depth(self, top: float, bottom: float, *, emit_change: bool) -> bool:\n",
+              shared_methods
+              + "    def _apply_visible_depth(self, top: float, bottom: float, *, emit_change: bool) -> bool:\n",
+          )
+          replace_once(
+              "            self._update_visible_curve_data(normalized_top, normalized_bottom)\n",
+              "            self._synchronize_vertical_rulers(normalized_top, normalized_bottom)\n"
+              "            self._update_visible_curve_data(normalized_top, normalized_bottom)\n",
+          )
+          replace_once(
+              "        self._synchronize_track_heights()\n"
+              "        current = self.visible_depth_range\n",
+              "        self._synchronize_track_heights()\n"
+              "        current = self.visible_depth_range\n",
+          )
+          replace_once(
+              "        if current is None:\n"
+              "            return\n"
+              "        self._synchronize_depth_ranges(*current)\n"
+              "        self._update_navigation_controls()\n",
+              "        if current is None:\n"
+              "            return\n"
+              "        self._synchronize_depth_ranges(*current)\n"
+              "        self._synchronize_vertical_rulers(*current)\n"
+              "        self._update_navigation_controls()\n",
+          )
+          replace_once(
+              "        self._rendered.clear()\n"
+              "        self._overlay_layers.clear()\n",
+              "        self._rendered.clear()\n"
+              "        self._shared_vertical_ruler_layout = None\n"
+              "        self._overlay_layers.clear()\n",
+          )
+
+          PATH.write_text(text, encoding="utf-8")
+
+          Path("tests/test_vertical_ruler.py").write_text(
+              '''from __future__ import annotations
+
+          from geoworkbench.tablet.vertical_ruler import (
+              VerticalRulerKind,
+              VerticalRulerMode,
+              build_vertical_ruler_layout,
+              vertical_ruler_presentation,
+          )
+
+
+          def test_shared_depth_layout_uses_five_metre_major_and_one_metre_minor_ticks() -> None:
+              layout = build_vertical_ruler_layout(
+                  1703.28,
+                  1753.28,
+                  pixel_height=900,
+                  kind=VerticalRulerKind.DEPTH,
+                  unit="м",
+              )
+
+              assert layout.major_step == 5.0
+              assert layout.minor_step == 1.0
+              labels = {tick.value: tick.label for tick in layout.ticks if tick.label}
+              assert labels[1705.0] == "1705"
+              assert labels[1750.0] == "1750"
+
+
+          def test_track_presentation_never_changes_shared_tick_values() -> None:
+              layout = build_vertical_ruler_layout(
+                  1000.0,
+                  1050.0,
+                  pixel_height=600,
+                  kind=VerticalRulerKind.DEPTH,
+              )
+              wide = vertical_ruler_presentation(
+                  layout,
+                  track_kind="gas",
+                  track_width=120,
+              )
+              narrow = vertical_ruler_presentation(
+                  layout,
+                  track_kind="gas",
+                  track_width=60,
+              )
+
+              assert wide.show_labels
+              assert not narrow.show_labels
+              assert layout.major_step == 5.0
+              assert tuple(tick.value for tick in layout.ticks) == tuple(
+                  tick.value for tick in layout.ticks
+              )
+
+
+          def test_non_graphical_track_hides_inner_axis_without_changing_layout() -> None:
+              layout = build_vertical_ruler_layout(
+                  0.0,
+                  50.0,
+                  pixel_height=600,
+                  kind=VerticalRulerKind.DEPTH,
+              )
+              presentation = vertical_ruler_presentation(
+                  layout,
+                  track_kind="lithology",
+                  track_width=100,
+                  mode=VerticalRulerMode.AUTOMATIC,
+              )
+
+              assert not presentation.show_axis
+              assert layout.major_step == 5.0
+          ''',
+              encoding="utf-8",
+          )
+
+          Path("tests/test_tablet_vertical_ruler.py").write_text(
+              '''from __future__ import annotations
+
+          from geoworkbench.domain.models import IndexRole, IndexType
+          from geoworkbench.tablet.models import TrackDefinition, TrackKind
+          from geoworkbench.tablet.tablet_view import (
+              TabletTrackWidget,
+              TabletVerticalAxisItem,
+              VerticalAxisDescriptor,
+          )
+          from geoworkbench.tablet.vertical_ruler import (
+              VerticalRulerKind,
+              build_vertical_ruler_layout,
+          )
+
+
+          def _descriptor() -> VerticalAxisDescriptor:
+              return VerticalAxisDescriptor(
+                  "depth-index",
+                  "Глубина",
+                  "м",
+                  IndexRole.DEPTH,
+                  IndexType.MD,
+              )
+
+
+          def test_depth_and_gas_tracks_share_exact_same_ruler_object(qapp) -> None:
+              shared = build_vertical_ruler_layout(
+                  1703.28,
+                  1753.28,
+                  pixel_height=900,
+                  kind=VerticalRulerKind.DEPTH,
+                  unit="м",
+              )
+              depth = TabletTrackWidget(
+                  TrackDefinition("depth", "Глубина", TrackKind.DEPTH, width=80),
+                  vertical_axis=_descriptor(),
+              )
+              gas = TabletTrackWidget(
+                  TrackDefinition("gas", "Газы", TrackKind.GAS, width=120),
+                  vertical_axis=_descriptor(),
+              )
+
+              depth.set_shared_vertical_ruler_layout(shared)
+              gas.set_shared_vertical_ruler_layout(shared)
+              depth_axis = depth.plot.getAxis("left")
+              gas_axis = gas.plot.getAxis("left")
+
+              assert isinstance(depth_axis, TabletVerticalAxisItem)
+              assert isinstance(gas_axis, TabletVerticalAxisItem)
+              assert depth_axis.shared_layout is shared
+              assert gas_axis.shared_layout is shared
+              assert depth_axis.tickSpacing(0.0, 1.0, 10) == gas_axis.tickSpacing(
+                  0.0, 1.0, 10
+              )
+              values = [1705.0, 1710.0, 1715.0]
+              assert depth_axis.tickStrings(values, 1.0, 5.0) == gas_axis.tickStrings(
+                  values, 1.0, 5.0
+              )
+              depth.close()
+              gas.close()
+
+
+          def test_narrow_gas_column_keeps_same_ticks_but_hides_only_labels(qapp) -> None:
+              shared = build_vertical_ruler_layout(
+                  1000.0,
+                  1050.0,
+                  pixel_height=600,
+                  kind=VerticalRulerKind.DEPTH,
+              )
+              gas = TabletTrackWidget(
+                  TrackDefinition("gas", "Газы", TrackKind.GAS, width=60),
+                  vertical_axis=_descriptor(),
+              )
+              gas.set_shared_vertical_ruler_layout(shared)
+              axis = gas.plot.getAxis("left")
+
+              assert isinstance(axis, TabletVerticalAxisItem)
+              assert axis.shared_layout is shared
+              assert axis.tickSpacing(0.0, 1.0, 10) == [(5.0, 0.0), (1.0, 0.0)]
+              assert axis.tickStrings([1000.0, 1005.0], 1.0, 5.0) == ["", ""]
+              gas.close()
+          ''',
+              encoding="utf-8",
+          )
+
+          workflow = Path(".github/workflows/finalize-shared-vertical-rulers.yml")
+          workflow.unlink()
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          version: "0.11.29"
+          enable-cache: true
+          cache-dependency-glob: requirements/release.lock
+
+      - name: Verify shared ruler integration
+        shell: pwsh
+        run: |
+          uv venv .venv --python 3.11
+          uv pip sync requirements/release.lock --python .venv --require-hashes
+          uv pip install --python .venv pytest==9.1.1 ruff==0.15.22 mypy==1.19.1
+          uv pip install --python .venv --no-deps --no-build-isolation --editable .
+
+          .\.venv\Scripts\python.exe -m compileall -q `
+            src/geoworkbench/tablet/vertical_ruler.py `
+            src/geoworkbench/tablet/tablet_view.py `
+            tests/test_vertical_ruler.py `
+            tests/test_tablet_vertical_ruler.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          .\.venv\Scripts\python.exe -m ruff check `
+            src/geoworkbench/tablet/vertical_ruler.py `
+            src/geoworkbench/tablet/tablet_view.py `
+            tests/test_vertical_ruler.py `
+            tests/test_tablet_vertical_ruler.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          .\.venv\Scripts\python.exe -m mypy `
+            src/geoworkbench/tablet/vertical_ruler.py `
+            src/geoworkbench/tablet/tablet_view.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider `
+            tests/test_vertical_ruler.py `
+            tests/test_tablet_vertical_ruler.py `
+            tests/test_grid_geometry.py `
+            tests/test_grid_renderer.py `
+            tests/test_tablet_view.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Commit verified implementation
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git commit -m "feat: synchronize inner vertical rulers across tablet tracks"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git push origin HEAD:main
