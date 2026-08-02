@@ -19,94 +19,135 @@ jobs:
       - name: Apply adaptive print geometry changes
         shell: bash
         run: |
-          python - <<'PY'
+          cat > /tmp/apply_fix.py <<'PY'
           from pathlib import Path
           import re
+          from textwrap import dedent
+
+
+          def replace_once(source: str, old: str, new: str, label: str) -> str:
+              if old not in source:
+                  raise SystemExit(f"{label}: source fragment not found")
+              return source.replace(old, new, 1)
+
 
           tablet_path = Path("src/geoworkbench/printing/tablet_print.py")
           tablet = tablet_path.read_text(encoding="utf-8")
-          old = '''    canonical_layout_height = max(
-              1, int(layout_content_height or content_height)
+          tablet = replace_once(
+              tablet,
+              dedent("""
+                  canonical_layout_height = max(
+                      1, int(layout_content_height or content_height)
+                  )
+
+                  def build_layout(_measured_header_height: int) -> AdaptiveColumnLayout:
+                      if not fit_columns:
+                          return original_column_layout(definitions)
+                      # Every vertical page uses the same canonical column widths. The final
+                      # partial interval may have a shorter viewport, but it must never cause
+                      # the graph and depth labels to be re-scaled horizontally.
+                      return adaptive_column_layout(
+                          definitions,
+                          page_aspect_ratio=page_aspect_ratio,
+                          content_height=canonical_layout_height,
+                      )
+              """),
+              dedent("""
+                  canonical_layout_height = max(1, int(layout_content_height or content_height))
+
+                  def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
+                      if not fit_columns:
+                          return original_column_layout(definitions)
+                      # The paper ratio describes the graph body, not the body plus
+                      # the visible curve header. Including the header here makes
+                      # the layout too wide and leaves blank horizontal bands.
+                      canonical_body_height = max(
+                          1,
+                          canonical_layout_height - measured_header_height,
+                      )
+                      return adaptive_column_layout(
+                          definitions,
+                          page_aspect_ratio=page_aspect_ratio,
+                          content_height=canonical_body_height,
+                      )
+              """),
+              "tablet canonical body layout",
           )
-
-          def build_layout(_measured_header_height: int) -> AdaptiveColumnLayout:
-              if not fit_columns:
-                  return original_column_layout(definitions)
-              # Every vertical page uses the same canonical column widths. The final
-              # partial interval may have a shorter viewport, but it must never cause
-              # the graph and depth labels to be re-scaled horizontally.
-              return adaptive_column_layout(
-                  definitions,
-                  page_aspect_ratio=page_aspect_ratio,
-                  content_height=canonical_layout_height,
-              )
-          '''
-          new = '''    canonical_layout_height = max(1, int(layout_content_height or content_height))
-
-          def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
-              if not fit_columns:
-                  return original_column_layout(definitions)
-              # ``page_aspect_ratio`` describes the printable graph body on pages
-              # where the column header is hidden. Using the total widget height here
-              # (body + header) makes the layout too wide, so width fitting leaves a
-              # shallow strip with large blank bands above and below. Keep one stable
-              # canonical BODY height across every page instead.
-              canonical_body_height = max(
-                  1,
-                  canonical_layout_height - measured_header_height,
-              )
-              return adaptive_column_layout(
-                  definitions,
-                  page_aspect_ratio=page_aspect_ratio,
-                  content_height=canonical_body_height,
-              )
-          '''
-          if old not in tablet:
-              raise SystemExit("tablet_print canonical layout block not found")
-          tablet_path.write_text(tablet.replace(old, new, 1), encoding="utf-8")
+          tablet_path.write_text(tablet, encoding="utf-8")
 
           document_path = Path("src/geoworkbench/printing/document_renderer.py")
           source = document_path.read_text(encoding="utf-8")
-          source = source.replace(
+          source = replace_once(
+              source,
               "from geoworkbench.printing.auto_pagination import automatic_tablet_page_geometry\n",
-              "from geoworkbench.printing.auto_pagination import (\n"
-              "    automatic_tablet_first_page_geometry,\n"
-              "    automatic_tablet_page_geometry,\n"
-              "    printable_tablet_body_height_mm,\n"
-              ")\n",
-              1,
+              dedent("""
+                  from geoworkbench.printing.auto_pagination import (
+                      automatic_tablet_first_page_geometry,
+                      automatic_tablet_page_geometry,
+                      printable_tablet_body_height_mm,
+                  )
+              """),
+              "auto pagination imports",
           )
-          source = source.replace(
-              "    PrintPageSlice,\n    PrintRangeMode,\n    build_page_slices,\n",
-              "    PrintPageSlice,\n    PrintPaginationSettings,\n    PrintRangeMode,\n    build_page_slices,\n",
-              1,
+          source = replace_once(
+              source,
+              dedent("""
+                  from geoworkbench.printing.pagination import (
+                      PrintPageSlice,
+                      PrintRangeMode,
+                      build_page_slices,
+                  )
+              """),
+              dedent("""
+                  from geoworkbench.printing.pagination import (
+                      PrintPageSlice,
+                      PrintPaginationSettings,
+                      PrintRangeMode,
+                      build_page_slices,
+                  )
+              """),
+              "pagination imports",
           )
-          source = source.replace(
-              "    resolved_units_per_page: float | None = None\n",
-              "    resolved_units_per_page: float | None = None\n"
-              "    tablet_header_height_px: int | None = None\n"
-              "    first_page_target_content_height_px: int | None = None\n"
-              "    first_page_units_per_page: float | None = None\n",
-              1,
+          source = replace_once(
+              source,
+              "    resolved_units_per_page: float | None = None\n\n    @property\n",
+              dedent("""
+                      resolved_units_per_page: float | None = None
+                      tablet_header_height_px: int | None = None
+                      first_page_target_content_height_px: int | None = None
+                      first_page_units_per_page: float | None = None
+
+                      @property
+              """),
+              "plan fields",
           )
-          source = source.replace(
+          source = replace_once(
+              source,
               "def build_document_plan(widget: QWidget, job: PrintJobSettings) -> PrintDocumentPlan:\n",
-              "def build_document_plan(\n"
-              "    widget: QWidget,\n"
-              "    job: PrintJobSettings,\n"
-              "    *,\n"
-              "    context: PrintDocumentContext | None = None,\n"
-              ") -> PrintDocumentPlan:\n",
-              1,
+              dedent("""
+                  def build_document_plan(
+                      widget: QWidget,
+                      job: PrintJobSettings,
+                      *,
+                      context: PrintDocumentContext | None = None,
+                  ) -> PrintDocumentPlan:
+              """),
+              "plan signature",
           )
-          source = source.replace(
-              "    resolved_units_per_page: float | None = None\n    pagination = job.pagination\n",
-              "    resolved_units_per_page: float | None = None\n"
-              "    tablet_header_height_px: int | None = None\n"
-              "    first_page_target_content_height_px: int | None = None\n"
-              "    first_page_units_per_page: float | None = None\n"
-              "    pagination = job.pagination\n",
-              1,
+          source = replace_once(
+              source,
+              dedent("""
+                      resolved_units_per_page: float | None = None
+                      pagination = job.pagination
+              """),
+              dedent("""
+                      resolved_units_per_page: float | None = None
+                      tablet_header_height_px: int | None = None
+                      first_page_target_content_height_px: int | None = None
+                      first_page_units_per_page: float | None = None
+                      pagination = job.pagination
+              """),
+              "plan locals",
           )
 
           auto_pattern = re.compile(
@@ -120,252 +161,253 @@ jobs:
               r"            \)\n",
               re.S,
           )
-          auto_replacement = '''            media = job.page.media_dimensions(source_width, source_height)
-              full_header_band_mm = _planned_full_header_band_height_mm(
-                  context,
-                  content_width_mm=media.content_width_mm,
-                  content_height_mm=media.content_height_mm,
-              )
-              regular_header_band_mm = (
-                  full_header_band_mm
-                  if full_header_band_mm is not None
-                  and job.header_placement is PrintHeaderPlacement.EVERY_PAGE
-                  else 7.0
-              )
-              first_header_band_mm = full_header_band_mm or 7.0
-              auto_geometry = automatic_tablet_page_geometry(
-                  # Selected columns determine the automatic density. The live
-                  # TabletView width can still include columns excluded from this job.
-                  source_width_px=auto_source_width,
-                  source_content_height_px=source_height,
-                  header_height_px=header_height,
-                  current_span=current_span,
-                  content_width_mm=media.content_width_mm,
-                  content_height_mm=media.content_height_mm,
-                  header_band_mm=regular_header_band_mm,
-              )
-              domain_span = abs(float(full_range[1]) - float(full_range[0]))
-              resolved_units_per_page = auto_geometry.units_per_page
-              target_content_height = auto_geometry.target_content_height_px
-              tablet_page_aspect_ratio = auto_geometry.page_aspect_ratio
-              tablet_header_height_px = header_height
-              regular_body_height_mm = printable_tablet_body_height_mm(
-                  media.content_height_mm,
-                  header_band_mm=regular_header_band_mm,
-              )
-              first_body_height_mm = printable_tablet_body_height_mm(
-                  media.content_height_mm,
-                  header_band_mm=first_header_band_mm,
-              )
-              first_geometry = automatic_tablet_first_page_geometry(
-                  canonical_content_height_px=target_content_height,
-                  column_header_height_px=header_height,
-                  regular_units_per_page=resolved_units_per_page,
-                  regular_body_height_mm=regular_body_height_mm,
-                  first_body_height_mm=first_body_height_mm,
-              )
-              first_page_units_per_page = first_geometry.units_per_page
-              first_page_target_content_height_px = first_geometry.target_content_height_px
-              pagination = replace(
-                  pagination,
-                  units_per_page=max(min(resolved_units_per_page, domain_span), 1e-9),
-                  auto_units_per_page=False,
-                  overlap=0.0,
-              )
-          '''
+          auto_replacement = dedent("""
+                          media = job.page.media_dimensions(source_width, source_height)
+                          full_header_band_mm = _planned_full_header_band_height_mm(
+                              context,
+                              content_width_mm=media.content_width_mm,
+                              content_height_mm=media.content_height_mm,
+                          )
+                          regular_header_band_mm = (
+                              full_header_band_mm
+                              if full_header_band_mm is not None
+                              and job.header_placement is PrintHeaderPlacement.EVERY_PAGE
+                              else 7.0
+                          )
+                          first_header_band_mm = full_header_band_mm or 7.0
+                          auto_geometry = automatic_tablet_page_geometry(
+                              source_width_px=auto_source_width,
+                              source_content_height_px=source_height,
+                              header_height_px=header_height,
+                              current_span=current_span,
+                              content_width_mm=media.content_width_mm,
+                              content_height_mm=media.content_height_mm,
+                              header_band_mm=regular_header_band_mm,
+                          )
+                          domain_span = abs(float(full_range[1]) - float(full_range[0]))
+                          resolved_units_per_page = auto_geometry.units_per_page
+                          target_content_height = auto_geometry.target_content_height_px
+                          tablet_page_aspect_ratio = auto_geometry.page_aspect_ratio
+                          tablet_header_height_px = header_height
+                          regular_body_height_mm = printable_tablet_body_height_mm(
+                              media.content_height_mm,
+                              header_band_mm=regular_header_band_mm,
+                          )
+                          first_body_height_mm = printable_tablet_body_height_mm(
+                              media.content_height_mm,
+                              header_band_mm=first_header_band_mm,
+                          )
+                          first_geometry = automatic_tablet_first_page_geometry(
+                              canonical_content_height_px=target_content_height,
+                              column_header_height_px=header_height,
+                              regular_units_per_page=resolved_units_per_page,
+                              regular_body_height_mm=regular_body_height_mm,
+                              first_body_height_mm=first_body_height_mm,
+                          )
+                          first_page_units_per_page = first_geometry.units_per_page
+                          first_page_target_content_height_px = first_geometry.target_content_height_px
+                          pagination = replace(
+                              pagination,
+                              units_per_page=max(min(resolved_units_per_page, domain_span), 1e-9),
+                              auto_units_per_page=False,
+                              overlap=0.0,
+                          )
+          """)
           source, count = auto_pattern.subn(auto_replacement, source, count=1)
           if count != 1:
-              raise SystemExit(f"document_renderer auto block replacements: {count}")
+              raise SystemExit(f"automatic geometry block replacements: {count}")
 
-          vertical_old = '''        vertical_pages = build_page_slices(
-              pagination=pagination,
-              current_range=widget.visible_depth_range,
-              full_range=full_range,
+          source = replace_once(
+              source,
+              dedent("""
+                      vertical_pages = build_page_slices(
+                          pagination=pagination,
+                          current_range=widget.visible_depth_range,
+                          full_range=full_range,
+                      )
+              """),
+              dedent("""
+                      if (
+                          first_page_units_per_page is not None
+                          and resolved_units_per_page is not None
+                      ):
+                          vertical_pages = _build_automatic_page_slices(
+                              pagination=pagination,
+                              current_range=widget.visible_depth_range,
+                              full_range=full_range,
+                              first_units_per_page=first_page_units_per_page,
+                              regular_units_per_page=resolved_units_per_page,
+                          )
+                      else:
+                          vertical_pages = build_page_slices(
+                              pagination=pagination,
+                              current_range=widget.visible_depth_range,
+                              full_range=full_range,
+                          )
+              """),
+              "variable vertical pages",
           )
-          '''
-          vertical_new = '''        if (
-              first_page_units_per_page is not None
-              and resolved_units_per_page is not None
-          ):
-              vertical_pages = _build_automatic_page_slices(
-                  pagination=pagination,
-                  current_range=widget.visible_depth_range,
-                  full_range=full_range,
-                  first_units_per_page=first_page_units_per_page,
-                  regular_units_per_page=resolved_units_per_page,
-              )
-          else:
-              vertical_pages = build_page_slices(
-                  pagination=pagination,
-                  current_range=widget.visible_depth_range,
-                  full_range=full_range,
-              )
-          '''
-          if vertical_old not in source:
-              raise SystemExit("document_renderer vertical page block not found")
-          source = source.replace(vertical_old, vertical_new, 1)
 
-          return_pattern = re.compile(
-              r"    return PrintDocumentPlan\(\n"
-              r"        tuple\(pages\),\n"
-              r"        axis_label,\n"
-              r"        axis_unit,\n"
-              r"        source_width,\n"
-              r"        source_height,\n"
-              r"        target_content_height,\n"
-              r"        tablet_page_aspect_ratio,\n"
-              r"        resolved_units_per_page,\n"
-              r"    \)\n",
+          source = replace_once(
+              source,
+              dedent("""
+                      return PrintDocumentPlan(
+                          tuple(pages),
+                          axis_label,
+                          axis_unit,
+                          source_width,
+                          source_height,
+                          target_content_height,
+                          tablet_page_aspect_ratio,
+                          resolved_units_per_page,
+                      )
+              """),
+              dedent("""
+                      return PrintDocumentPlan(
+                          pages=tuple(pages),
+                          axis_label=axis_label,
+                          axis_unit=axis_unit,
+                          source_width_px=source_width,
+                          source_height_px=source_height,
+                          target_content_height_px=target_content_height,
+                          tablet_page_aspect_ratio=tablet_page_aspect_ratio,
+                          resolved_units_per_page=resolved_units_per_page,
+                          tablet_header_height_px=tablet_header_height_px,
+                          first_page_target_content_height_px=first_page_target_content_height_px,
+                          first_page_units_per_page=first_page_units_per_page,
+                      )
+              """),
+              "plan return",
           )
-          return_replacement = '''    return PrintDocumentPlan(
-              pages=tuple(pages),
-              axis_label=axis_label,
-              axis_unit=axis_unit,
-              source_width_px=source_width,
-              source_height_px=source_height,
-              target_content_height_px=target_content_height,
-              tablet_page_aspect_ratio=tablet_page_aspect_ratio,
-              resolved_units_per_page=resolved_units_per_page,
-              tablet_header_height_px=tablet_header_height_px,
-              first_page_target_content_height_px=first_page_target_content_height_px,
-              first_page_units_per_page=first_page_units_per_page,
-          )
-          '''
-          source, count = return_pattern.subn(return_replacement, source, count=1)
-          if count != 1:
-              raise SystemExit(f"document_renderer return block replacements: {count}")
-
-          source = source.replace(
+          source = replace_once(
+              source,
               "    plan = build_document_plan(widget, job)\n",
               "    plan = build_document_plan(widget, job, context=context)\n",
-              1,
+              "context-aware plan",
           )
 
-          insertion_marker = "\ndef paint_document_pages(\n"
-          helpers = '''
+          helpers = dedent("""
 
-          def _planned_full_header_band_height_mm(
-              context: PrintDocumentContext | None,
-              *,
-              content_width_mm: float,
-              content_height_mm: float,
-          ) -> float | None:
-              if (
-                  context is None
-                  or context.header_template is None
-                  or context.session is None
-              ):
-                  return None
-              size = masterlog_header_size_mm(context.header_template)
-              if size.width() <= 0.0 or size.height() <= 0.0:
-                  return None
-              proportional = content_width_mm * size.height() / size.width()
-              minimum = min(content_height_mm * 0.08, 15.0)
-              return max(minimum, min(proportional, content_height_mm * 0.46))
+              def _planned_full_header_band_height_mm(
+                  context: PrintDocumentContext | None,
+                  *,
+                  content_width_mm: float,
+                  content_height_mm: float,
+              ) -> float | None:
+                  if (
+                      context is None
+                      or context.header_template is None
+                      or context.session is None
+                  ):
+                      return None
+                  size = masterlog_header_size_mm(context.header_template)
+                  if size.width() <= 0.0 or size.height() <= 0.0:
+                      return None
+                  proportional = content_width_mm * size.height() / size.width()
+                  minimum = min(content_height_mm * 0.08, 15.0)
+                  return max(minimum, min(proportional, content_height_mm * 0.46))
 
 
-          def _build_automatic_page_slices(
-              *,
-              pagination: PrintPaginationSettings,
-              current_range: tuple[float, float] | None,
-              full_range: tuple[float, float] | None,
-              first_units_per_page: float,
-              regular_units_per_page: float,
-          ) -> tuple[PrintPageSlice, ...]:
-              if full_range is None:
-                  return (PrintPageSlice(None, None, 1, 1),)
-              domain_span = abs(float(full_range[1]) - float(full_range[0]))
-              selector = replace(
-                  pagination,
-                  units_per_page=max(
-                      domain_span,
-                      first_units_per_page,
-                      regular_units_per_page,
-                      1e-9,
-                  ),
-                  auto_units_per_page=False,
-                  overlap=0.0,
-              )
-              selected = build_page_slices(
-                  pagination=selector,
-                  current_range=current_range,
-                  full_range=full_range,
-              )
-              if not selected or not selected[0].has_vertical_range:
-                  return selected
-              assert selected[0].start is not None and selected[0].end is not None
-              start = float(selected[0].start)
-              end = float(selected[0].end)
-              if end <= start:
-                  return (PrintPageSlice(start, end, 1, 1),)
-
-              raw: list[tuple[float, float]] = []
-              page_start = start
-              while page_start < end - 1e-9:
-                  capacity = (
-                      first_units_per_page
-                      if not raw
-                      else regular_units_per_page
+              def _build_automatic_page_slices(
+                  *,
+                  pagination: PrintPaginationSettings,
+                  current_range: tuple[float, float] | None,
+                  full_range: tuple[float, float] | None,
+                  first_units_per_page: float,
+                  regular_units_per_page: float,
+              ) -> tuple[PrintPageSlice, ...]:
+                  if full_range is None:
+                      return (PrintPageSlice(None, None, 1, 1),)
+                  domain_span = abs(float(full_range[1]) - float(full_range[0]))
+                  selector = replace(
+                      pagination,
+                      units_per_page=max(
+                          domain_span,
+                          first_units_per_page,
+                          regular_units_per_page,
+                          1e-9,
+                      ),
+                      auto_units_per_page=False,
+                      overlap=0.0,
                   )
-                  page_end = min(end, page_start + max(capacity, 1e-9))
-                  raw.append((page_start, page_end))
-                  if page_end >= end - 1e-9:
-                      break
-                  page_start = page_end
-              total = len(raw)
-              return tuple(
-                  PrintPageSlice(page_start, page_end, index + 1, total)
-                  for index, (page_start, page_end) in enumerate(raw)
-              )
-          '''
-          if insertion_marker not in source:
-              raise SystemExit("paint_document_pages marker not found")
-          source = source.replace(insertion_marker, helpers + insertion_marker, 1)
+                  selected = build_page_slices(
+                      pagination=selector,
+                      current_range=current_range,
+                      full_range=full_range,
+                  )
+                  if not selected or not selected[0].has_vertical_range:
+                      return selected
+                  assert selected[0].start is not None and selected[0].end is not None
+                  start = float(selected[0].start)
+                  end = float(selected[0].end)
+                  if end <= start:
+                      return (PrintPageSlice(start, end, 1, 1),)
+
+                  raw: list[tuple[float, float]] = []
+                  page_start = start
+                  while page_start < end - 1e-9:
+                      capacity = first_units_per_page if not raw else regular_units_per_page
+                      page_end = min(end, page_start + max(capacity, 1e-9))
+                      raw.append((page_start, page_end))
+                      if page_end >= end - 1e-9:
+                          break
+                      page_start = page_end
+                  total = len(raw)
+                  return tuple(
+                      PrintPageSlice(page_start, page_end, index + 1, total)
+                      for index, (page_start, page_end) in enumerate(raw)
+                  )
+          """)
+          source = replace_once(
+              source,
+              "\ndef paint_document_pages(\n",
+              helpers + "\ndef paint_document_pages(\n",
+              "plan helpers insertion",
+          )
 
           page_target_pattern = re.compile(
               r"def _page_target_content_height\(\n.*?\n\ndef paint_document_page\(",
               re.S,
           )
-          page_target_replacement = '''def _page_target_content_height(
-              plan: PrintDocumentPlan,
-              page: PrintDocumentPage,
-          ) -> int | None:
-              """Return a page-specific hidden viewport without changing widths."""
+          page_target_replacement = dedent("""
+              def _page_target_content_height(
+                  plan: PrintDocumentPlan,
+                  page: PrintDocumentPage,
+              ) -> int | None:
+                  """Return a page-specific hidden viewport without changing widths."""
 
-              target = plan.target_content_height_px
-              regular_units = plan.resolved_units_per_page
-              if (
-                  target is None
-                  or regular_units is None
-                  or regular_units <= 0.0
-                  or not page.has_vertical_range
-              ):
-                  return target
+                  target = plan.target_content_height_px
+                  regular_units = plan.resolved_units_per_page
+                  if (
+                      target is None
+                      or regular_units is None
+                      or regular_units <= 0.0
+                      or not page.has_vertical_range
+                  ):
+                      return target
 
-              header_height = max(0, int(plan.tablet_header_height_px or 0))
-              capacity = regular_units
-              page_target = target
-              if (
-                  page.vertical.index == 1
-                  and plan.first_page_target_content_height_px is not None
-                  and plan.first_page_units_per_page is not None
-              ):
-                  page_target = plan.first_page_target_content_height_px
-                  capacity = plan.first_page_units_per_page
+                  header_height = max(0, int(plan.tablet_header_height_px or 0))
+                  capacity = regular_units
+                  page_target = target
+                  if (
+                      page.vertical.index == 1
+                      and plan.first_page_target_content_height_px is not None
+                      and plan.first_page_units_per_page is not None
+                  ):
+                      page_target = plan.first_page_target_content_height_px
+                      capacity = plan.first_page_units_per_page
 
-              assert page.start is not None and page.end is not None
-              page_span = abs(float(page.end) - float(page.start))
-              if page_span <= 0.0 or page_span >= capacity * 0.999:
-                  return page_target
-              body_height = max(1, int(page_target) - header_height)
-              partial_body_height = max(
-                  1,
-                  round(body_height * page_span / capacity),
-              )
-              return header_height + partial_body_height
+                  assert page.start is not None and page.end is not None
+                  page_span = abs(float(page.end) - float(page.start))
+                  if page_span <= 0.0 or page_span >= capacity * 0.999:
+                      return page_target
+                  body_height = max(1, int(page_target) - header_height)
+                  partial_body_height = max(1, round(body_height * page_span / capacity))
+                  return header_height + partial_body_height
 
 
-          def paint_document_page('''
+              def paint_document_page(
+          """)
           source, count = page_target_pattern.subn(page_target_replacement, source, count=1)
           if count != 1:
               raise SystemExit(f"page target function replacements: {count}")
@@ -373,6 +415,7 @@ jobs:
           document_path.write_text(source, encoding="utf-8")
           Path(".github/workflows/agent-a4-adaptive-print-fix.yml").unlink()
           PY
+          python /tmp/apply_fix.py
           python -m compileall -q src tests
           git diff --check
       - name: Commit adaptive print fix
