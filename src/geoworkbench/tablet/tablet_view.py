@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from geoworkbench.services.lba_standard import lba_color_code
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -80,6 +79,7 @@ from geoworkbench.project.annotation_schema import (
 )
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.application_logging import log_event, log_exception
+from geoworkbench.services.lba_standard import lba_color_code
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.geology_labels import (
     localized_lithotype_name,
@@ -5027,13 +5027,13 @@ class TabletView(QWidget):
                 f"G={sample.lba_group}" if sample.lba_group is not None else None,
                 sample.lba_type_id,
                 f"I={sample.lba_intensity}" if sample.lba_intensity is not None else None,
-                lba_color_code(sample.lba_color),
+                sample.lba_color,
                 sample.lba_distribution,
                 sample.lba_cut,
                 sample.lba_cut_speed,
-                lba_color_code(sample.lba_cut_color),
+                sample.lba_cut_color,
                 sample.lba_residue_type,
-                lba_color_code(sample.lba_residue_color),
+                sample.lba_residue_color,
                 sample.lba_odour,
                 sample.lba_stain,
                 sample.lba_description,
@@ -9028,8 +9028,8 @@ class TabletView(QWidget):
                     f"{self._localizer.text('tablet.lba_intensity')}: {sample.lba_intensity}"
                     if sample.lba_intensity is not None
                     else None,
-                    f"{self._localizer.text('lba_color_code(tablet.lba_color)')}: {lba_color_code(sample.lba_color)}"
-                    if lba_color_code(sample.lba_color)
+                    f"{self._localizer.text('tablet.lba_color')}: {sample.lba_color}"
+                    if sample.lba_color
                     else None,
                     f"{self._localizer.text('tablet.lba_distribution')}: {sample.lba_distribution}"
                     if sample.lba_distribution
@@ -9040,14 +9040,14 @@ class TabletView(QWidget):
                     f"{self._localizer.text('tablet.lba_cut_speed')}: {sample.lba_cut_speed}"
                     if sample.lba_cut_speed
                     else None,
-                    f"{self._localizer.text('lba_color_code(tablet.lba_cut_color)')}: {lba_color_code(sample.lba_cut_color)}"
-                    if lba_color_code(sample.lba_cut_color)
+                    f"{self._localizer.text('tablet.lba_cut_color')}: {sample.lba_cut_color}"
+                    if sample.lba_cut_color
                     else None,
                     f"{self._localizer.text('tablet.lba_residue_type')}: {sample.lba_residue_type}"
                     if sample.lba_residue_type
                     else None,
-                    f"{self._localizer.text('lba_color_code(tablet.lba_residue_color)')}: {lba_color_code(sample.lba_residue_color)}"
-                    if lba_color_code(sample.lba_residue_color)
+                    f"{self._localizer.text('tablet.lba_residue_color')}: {sample.lba_residue_color}"
+                    if sample.lba_residue_color
                     else None,
                     f"{self._localizer.text('tablet.lba_odour')}: {sample.lba_odour}"
                     if sample.lba_odour
