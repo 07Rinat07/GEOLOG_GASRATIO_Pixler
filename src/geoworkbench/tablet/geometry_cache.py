@@ -7,6 +7,7 @@ from typing import Hashable
 import numpy as np
 from numpy.typing import NDArray
 
+from geoworkbench.tablet.derived_gas_sampling import select_derived_gas_samples
 from geoworkbench.tablet.sampling import select_visible_samples
 
 
@@ -63,13 +64,7 @@ def _normalized_curve_token(curve_id: Hashable) -> str:
 
 
 def is_derived_gas_curve_id(curve_id: Hashable) -> bool:
-    """Return whether a curve is calculated from sparse gas updates.
-
-    Ratio, Haworth and Pixler channels are event-like derived series. Their
-    intermediate NULL rows are not acquisition outages and must not fragment a
-    normal finite sequence into isolated points. Real long axis outages remain
-    explicit breaks after sparse-update sampling.
-    """
+    """Return whether a curve is calculated from sparse gas updates."""
 
     token = _normalized_curve_token(curve_id)
     return (
@@ -89,13 +84,7 @@ def is_gas_curve_id(curve_id: Hashable) -> bool:
 
 
 def _bridges_sparse_time_updates(axis_id: Hashable) -> bool:
-    """Return whether a GeoScape/Paradox time axis uses sparse channel updates.
-
-    GeoScape writes a common time row while individual channels can remain NULL
-    until their next update. Those NULL rows are not an acquisition outage and
-    must not fragment every curve on a time-based form. The importer owns these
-    stable index-id suffixes, so depth/LAS axes retain the normal NULL-gap policy.
-    """
+    """Return whether a GeoScape/Paradox time axis uses sparse channel updates."""
 
     normalized = str(axis_id).strip().casefold()
     return normalized.endswith(_PARADOX_SPARSE_TIME_AXIS_SUFFIXES)
@@ -132,11 +121,7 @@ class GeometryCacheStats:
 
 
 class CurveGeometryCache:
-    """Small LRU cache for peak-preserving viewport geometry.
-
-    The cache stores already filtered/downsampled arrays. It intentionally does not
-    own source LAS data and can therefore be cleared safely on dataset or axis change.
-    """
+    """Small LRU cache for peak-preserving viewport geometry."""
 
     def __init__(self, *, max_entries: int = 256) -> None:
         if max_entries < 1:
@@ -162,21 +147,29 @@ class CurveGeometryCache:
             return cached
 
         self._misses += 1
-        gas_curve = is_gas_curve_id(key.curve_id)
         derived_gas_curve = is_derived_gas_curve_id(key.curve_id)
-        sparse_time_axis = _bridges_sparse_time_updates(key.axis_id)
-        sampled_values, sampled_axis = select_visible_samples(
-            axis,
-            values,
-            key.top,
-            key.bottom,
-            max_points=key.max_points,
-            positive_values_only=key.positive_values_only,
-            include_viewport_context=gas_curve,
-            bridge_sparse_updates=sparse_time_axis or derived_gas_curve,
-            bridge_short_gaps=gas_curve and not derived_gas_curve,
-        )
-        # Prevent accidental mutation of cached geometry by callers.
+        gas_curve = derived_gas_curve or is_gas_curve_id(key.curve_id)
+        if derived_gas_curve:
+            sampled_values, sampled_axis = select_derived_gas_samples(
+                axis,
+                values,
+                key.top,
+                key.bottom,
+                max_points=key.max_points,
+                positive_values_only=key.positive_values_only,
+            )
+        else:
+            sampled_values, sampled_axis = select_visible_samples(
+                axis,
+                values,
+                key.top,
+                key.bottom,
+                max_points=key.max_points,
+                positive_values_only=key.positive_values_only,
+                include_viewport_context=gas_curve,
+                bridge_sparse_updates=_bridges_sparse_time_updates(key.axis_id),
+                bridge_short_gaps=gas_curve,
+            )
         sampled_values.setflags(write=False)
         sampled_axis.setflags(write=False)
         geometry = (sampled_values, sampled_axis)

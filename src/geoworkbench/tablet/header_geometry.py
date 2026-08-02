@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-# One parameter block now contains only the editable range row and the
-# engineering ruler.  The curve name is rendered directly inside the ruler,
-# so the former dedicated title row and the redundant ``Scale`` caption no
-# longer consume vertical space.
+
 CURVE_HEADER_ROW_HEIGHT = 44
-# Print uses a larger logical row so text remains legible after the complete
-# wide tablet is uniformly fitted to an A4 page. Screen geometry stays compact.
-CURVE_HEADER_PRINT_ROW_HEIGHT = 52
+CURVE_HEADER_PRINT_ROW_HEIGHT = 54
 CURVE_HEADER_MAX_VISIBLE_ROWS = 6
-CURVE_HEADER_BOTTOM_CLEARANCE = 2
+# The last ruler paints labels and a bottom border very close to the row edge.
+# A real trailing band prevents QScrollArea and PDF clipping from cutting those
+# glyphs at the graph boundary.
+CURVE_HEADER_BOTTOM_CLEARANCE = 8
 
 
 def curve_header_content_height(
@@ -18,12 +16,7 @@ def curve_header_content_height(
     row_height: int = CURVE_HEADER_ROW_HEIGHT,
     bottom_clearance: int = CURVE_HEADER_BOTTOM_CLEARANCE,
 ) -> int:
-    """Return exact content height for whole curve-header rows.
-
-    The bottom clearance keeps the last row border above the graph body when the
-    scroll area is at its maximum position.  Negative counts are treated as an
-    empty header so malformed external layouts cannot produce negative geometry.
-    """
+    """Return exact content height for complete parameter rows and clearance."""
 
     rows = max(0, int(row_count))
     height = max(1, int(row_height))
@@ -36,32 +29,39 @@ def curve_header_viewport_height(
     *,
     row_height: int = CURVE_HEADER_ROW_HEIGHT,
     max_visible_rows: int = CURVE_HEADER_MAX_VISIBLE_ROWS,
+    bottom_clearance: int = CURVE_HEADER_BOTTOM_CLEARANCE,
 ) -> int:
-    """Return a viewport height containing only complete parameter rows."""
+    """Return a viewport containing whole rows plus the trailing safety band."""
 
     rows = max(0, int(row_count))
     height = max(1, int(row_height))
     visible_rows = min(rows, max(1, int(max_visible_rows)))
-    return visible_rows * height
+    clearance = max(0, int(bottom_clearance))
+    return visible_rows * height + (clearance if visible_rows else 0)
 
 
 def align_curve_header_band_height(
     requested_height: int,
     *,
     row_height: int = CURVE_HEADER_ROW_HEIGHT,
+    bottom_clearance: int = CURVE_HEADER_BOTTOM_CLEARANCE,
 ) -> int:
-    """Snap a synchronized band down to a whole number of header rows.
+    """Round a synchronized band upward without losing the trailing clearance.
 
-    A non-integral row height is the direct cause of the bottom parameter being
-    shown only partially.  The common band remains aligned between tracks, while
-    dense tracks expose additional rows through their internal scrollbar.
+    The former implementation rounded downward and removed the last pixels of
+    the final parameter row. Every track then clipped its bottom ruler at the
+    same graph boundary. Rounding upward is the only safe synchronization rule:
+    columns may receive a few empty pixels, but no parameter row is partial.
     """
 
     requested = max(0, int(requested_height))
     if requested == 0:
         return 0
     height = max(1, int(row_height))
-    return max(height, requested // height * height)
+    clearance = max(0, int(bottom_clearance))
+    payload = max(1, requested - min(clearance, requested))
+    rows = max(1, (payload + height - 1) // height)
+    return rows * height + clearance
 
 
 def curve_header_overflows(

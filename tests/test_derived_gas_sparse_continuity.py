@@ -34,39 +34,63 @@ def test_raw_component_is_not_misclassified_as_derived() -> None:
     assert not is_derived_gas_curve_id("C1")
 
 
-def test_pixler_sparse_updates_form_lines_but_keep_long_outage() -> None:
-    depth = np.arange(1703.0, 1753.5, 0.5, dtype=np.float64)
-    values = np.full(depth.shape, np.nan, dtype=np.float64)
-    for sample_depth, sample_value in (
-        (1705.0, 3.0),
-        (1710.0, 3.5),
-        (1715.0, 4.0),
-        (1745.0, 5.0),
-        (1750.0, 5.5),
-    ):
-        values[np.flatnonzero(np.isclose(depth, sample_depth))[0]] = sample_value
-
-    key = CurveGeometryKey(
+def _key(*, positive_values_only: bool = False) -> CurveGeometryKey:
+    return CurveGeometryKey(
         curve_id="PIXLER_C1_C2",
         axis_id="depth",
         values_revision="values-1",
         axis_revision="axis-1",
-        top=1703.28,
-        bottom=1753.28,
+        top=0.0,
+        bottom=40.0,
         max_points=5000,
-        positive_values_only=False,
+        positive_values_only=positive_values_only,
     )
+
+
+def test_derived_null_rows_do_not_fragment_a_continuous_source_axis() -> None:
+    depth = np.arange(0.0, 31.0, dtype=np.float64)
+    values = np.full(depth.shape, np.nan, dtype=np.float64)
+    values[[0, 3, 30]] = (10.0, 13.0, 20.0)
+
     sampled_values, sampled_depth = CurveGeometryCache().get_or_build(
-        key, depth, values
+        _key(), depth, values
     )
     connect = build_segment_connect_mask(sampled_depth, sampled_values)
 
-    finite_depth = sampled_depth[np.isfinite(sampled_values)]
-    assert np.allclose(
-        finite_depth,
-        np.asarray([1705.0, 1710.0, 1715.0, 1745.0, 1750.0]),
+    assert np.allclose(sampled_depth, np.asarray([0.0, 3.0, 30.0]))
+    assert np.allclose(sampled_values, np.asarray([10.0, 13.0, 20.0]))
+    assert np.array_equal(connect, np.asarray([True, True, False]))
+
+
+def test_logarithmic_derived_curve_omits_nonpositive_rows_without_point_islands() -> None:
+    depth = np.arange(0.0, 7.0, dtype=np.float64)
+    values = np.asarray([1.0, 0.0, np.nan, -1.0, 10.0, 0.0, 100.0])
+
+    sampled_values, sampled_depth = CurveGeometryCache().get_or_build(
+        _key(positive_values_only=True), depth, values
     )
-    assert np.count_nonzero(connect) == 3
+    connect = build_segment_connect_mask(sampled_depth, sampled_values)
+
+    assert np.allclose(sampled_depth, np.asarray([0.0, 4.0, 6.0]))
+    assert np.allclose(sampled_values, np.asarray([1.0, 10.0, 100.0]))
+    assert np.array_equal(connect, np.asarray([True, True, False]))
+
+
+def test_real_source_axis_outage_remains_a_hard_break() -> None:
+    depth = np.concatenate(
+        (
+            np.arange(0.0, 4.0, dtype=np.float64),
+            np.arange(30.0, 34.0, dtype=np.float64),
+        )
+    )
+    values = np.arange(depth.size, dtype=np.float64) + 1.0
+
+    sampled_values, sampled_depth = CurveGeometryCache().get_or_build(
+        _key(), depth, values
+    )
+    connect = build_segment_connect_mask(sampled_depth, sampled_values)
+
     separator = np.flatnonzero(~np.isfinite(sampled_values))
     assert separator.size == 1
-    assert 1715.0 < sampled_depth[separator[0]] < 1745.0
+    assert 3.0 < sampled_depth[separator[0]] < 30.0
+    assert np.count_nonzero(connect) == 6

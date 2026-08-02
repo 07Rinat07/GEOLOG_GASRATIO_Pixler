@@ -67,3 +67,35 @@ def test_print_snapshot_uses_configured_pen_and_restores_screen_pen() -> None:
     restored_pen = QPen(item.opts["pen"])
     assert restored_pen.color().name().lower() == "#123456"
     assert restored_pen.widthF() == 0.9
+
+
+def test_legacy_curve_without_persisted_style_keeps_live_colour_and_dash() -> None:
+    _application = QApplication.instance() or QApplication([])
+    mnemonic = "C1_C2"
+    definition = TrackDefinition(
+        "ratio",
+        "Gas Ratio",
+        TrackKind.GAS,
+        curve_mnemonics=[mnemonic],
+    )
+    item = pg.PlotDataItem(
+        [0.0, 1.0],
+        [0.0, 1.0],
+        pen=pg.mkPen("#00aa66", width=0.8, style=Qt.PenStyle.DotLine),
+    )
+    rendered = SimpleNamespace(
+        definition=definition,
+        curve_items={mnemonic: item},
+    )
+
+    states = _activate_print_curve_styles((rendered,))  # type: ignore[arg-type]
+    print_pen = QPen(item.opts["pen"])
+    assert print_pen.color().name().lower() == "#00aa66"
+    assert print_pen.style() is Qt.PenStyle.DotLine
+    assert print_pen.widthF() >= 1.55
+
+    _restore_print_curve_styles(states)
+    restored_pen = QPen(item.opts["pen"])
+    assert restored_pen.color().name().lower() == "#00aa66"
+    assert restored_pen.style() is Qt.PenStyle.DotLine
+    assert restored_pen.widthF() == 0.8

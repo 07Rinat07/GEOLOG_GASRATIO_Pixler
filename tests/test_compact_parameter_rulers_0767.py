@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from geoworkbench.tablet.header_geometry import (
+    CURVE_HEADER_BOTTOM_CLEARANCE,
     CURVE_HEADER_PRINT_ROW_HEIGHT,
     CURVE_HEADER_ROW_HEIGHT,
     align_curve_header_band_height,
@@ -16,14 +17,13 @@ ROOT = Path(__file__).resolve().parents[1]
 TABLET_VIEW = ROOT / "src/geoworkbench/tablet/tablet_view.py"
 
 
-def test_parameter_header_saves_fourteen_pixels_per_complete_row() -> None:
-    """The 0.7.67 block is 14 px shorter than the former 58 px layout."""
-
+def test_parameter_header_keeps_complete_rows_and_bottom_clearance() -> None:
     assert CURVE_HEADER_ROW_HEIGHT == 44
-    assert 58 - CURVE_HEADER_ROW_HEIGHT == 14
-    assert curve_header_content_height(6) == 6 * 44 + 2
-    assert curve_header_viewport_height(9) == 6 * 44
-    assert align_curve_header_band_height(6 * 44 + 43) == 6 * 44
+    assert CURVE_HEADER_BOTTOM_CLEARANCE == 8
+    assert curve_header_content_height(6) == 6 * 44 + 8
+    assert curve_header_viewport_height(9) == 6 * 44 + 8
+    # A partial seventh row is rounded upward instead of clipping it away.
+    assert align_curve_header_band_height(6 * 44 + 43) == 7 * 44 + 8
 
 
 def test_ruler_uses_parameter_identity_and_keeps_both_actions() -> None:
@@ -41,8 +41,6 @@ def test_ruler_uses_parameter_identity_and_keeps_both_actions() -> None:
 
 
 def test_every_form_path_reuses_the_same_curve_header_editor() -> None:
-    """Factory, ready, and user forms all render through TabletTrackWidget."""
-
     source = TABLET_VIEW.read_text(encoding="utf-8")
     assert "class TabletTrackWidget(QFrame):" in source
     assert "label = CurveHeaderEditor(" in source
@@ -57,20 +55,19 @@ def test_removed_scale_caption_key_is_absent_from_every_catalog() -> None:
         path = ROOT / f"src/geoworkbench/resources/i18n/{language}.json"
         payload = json.loads(path.read_text(encoding="utf-8"))
         assert "curve_settings.header_scale_caption" not in payload
-        tooltip = payload["curve_settings.header_scale_tooltip"]
-        assert tooltip.strip()
+        assert payload["curve_settings.header_scale_tooltip"].strip()
 
 
-def test_print_parameter_rows_are_large_enough_for_a4_fit() -> None:
-    assert CURVE_HEADER_ROW_HEIGHT <= CURVE_HEADER_PRINT_ROW_HEIGHT <= 52
-    assert curve_header_viewport_height(6, row_height=CURVE_HEADER_PRINT_ROW_HEIGHT) == (
-        6 * CURVE_HEADER_PRINT_ROW_HEIGHT
-    )
+def test_print_parameter_rows_have_real_internal_and_trailing_space() -> None:
+    assert CURVE_HEADER_ROW_HEIGHT < CURVE_HEADER_PRINT_ROW_HEIGHT == 54
+    assert curve_header_viewport_height(
+        6,
+        row_height=CURVE_HEADER_PRINT_ROW_HEIGHT,
+    ) == 6 * CURVE_HEADER_PRINT_ROW_HEIGHT + CURVE_HEADER_BOTTOM_CLEARANCE
 
 
 def test_print_ruler_uses_enlarged_typography_without_changing_screen_defaults() -> None:
     source = TABLET_VIEW.read_text(encoding="utf-8")
-
     assert "caption_font.setPixelSize(10 if self._print_mode else 8)" in source
     assert "value_font.setPixelSize(9 if self._print_mode else 8)" in source
     assert "self.setFixedHeight(30 if self._print_mode else 28)" in source
@@ -83,7 +80,6 @@ def test_print_typography_is_enabled_before_snapshot_geometry_is_measured() -> N
     source = (
         ROOT / "src/geoworkbench/printing/tablet_print.py"
     ).read_text(encoding="utf-8")
-
     enable_position = source.index("item.widget.set_print_mode(True)")
     measure_position = source.index(
         "content_height = max(item.widget.height() for item in rendered)",

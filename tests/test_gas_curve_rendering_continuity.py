@@ -100,13 +100,13 @@ def test_gas_geometry_bridges_short_sparse_updates_but_keeps_long_outage() -> No
     assert np.isnan(_value_at(sampled_axis, sampled_values, 10.0))
 
 
-def test_logarithmic_gas_keeps_explicit_zero_as_a_break() -> None:
+def test_logarithmic_raw_gas_keeps_explicit_zero_as_a_break() -> None:
     axis = np.arange(0.0, 5.0)
     values = np.array([1.0, np.nan, 0.0, np.nan, 100.0])
     cache = CurveGeometryCache()
 
     sampled_values, sampled_axis = cache.get_or_build(
-        _geometry_key("PIXLER_C1_C2", 0.0, 4.0, positive_values_only=True),
+        _geometry_key("C1", 0.0, 4.0, positive_values_only=True),
         axis,
         values,
     )

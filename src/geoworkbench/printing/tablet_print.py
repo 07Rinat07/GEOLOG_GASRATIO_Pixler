@@ -73,6 +73,16 @@ def _activate_print_curve_styles(
             saved_pen = QPen(pg.mkPen(item.opts.get("pen")))
             states.append(_CurvePrintState(item, saved_pen))
             style = track.definition.curve_style(mnemonic)
+            if style is None:
+                # Legacy/imported tracks may rely on the live PlotDataItem pen
+                # instead of a persisted CurveStyle. Preserve its exact colour
+                # and dash pattern while increasing only the paper line weight.
+                print_pen = QPen(saved_pen)
+                print_pen.setWidthF(
+                    _print_curve_width(print_pen.widthF(), curve_count)
+                )
+                item.setPen(print_pen)
+                continue
             item.setPen(
                 pg.mkPen(
                     style.color,
