@@ -1,0 +1,45 @@
+name: Apply complete gas form on PR
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/complex-gas-form-a4
+          fetch-depth: 0
+      - name: Copy source modules
+        run: |
+          git fetch origin feature/complex-gas-form
+          git checkout origin/feature/complex-gas-form -- src/geoworkbench/forms/complex_gas.py src/geoworkbench/calculations/gas_ratio.py docs/COMPLEX_GAS_FORM.md
+      - name: Apply patch
+        run: python tools/apply_complex_gas_a4_patch.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Verify
+        run: |
+          python -m ruff check src/geoworkbench/forms/complex_gas.py src/geoworkbench/forms/a4_factory_templates.py src/geoworkbench/forms/__init__.py src/geoworkbench/calculations/gas_ratio.py tests/test_complex_gas_form.py tests/test_a4_factory_templates.py
+          python -m mypy src/geoworkbench/forms/complex_gas.py src/geoworkbench/forms/a4_factory_templates.py src/geoworkbench/calculations/gas_ratio.py
+          python -m pytest -q tests/test_complex_gas_form.py tests/test_a4_factory_templates.py
+          git diff --check
+      - name: Commit
+        run: |
+          rm -f .github/workflows/apply-complex-gas-pr.yml docs/.complex-gas-trigger docs/.complex-gas-trigger-2
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: complete A4 gas form C1-C5 [complex-gas-applied]'
+          git push origin HEAD:feature/complex-gas-form-a4
