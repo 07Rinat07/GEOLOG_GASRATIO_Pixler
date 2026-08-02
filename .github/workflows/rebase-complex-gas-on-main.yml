@@ -1,4 +1,4 @@
-name: Rebase complex gas on current main
+name: Inspect final print integration points
 
 on:
   push:
@@ -9,295 +9,39 @@ permissions:
   contents: write
 
 jobs:
-  merge-resolve-verify:
-    if: ${{ !contains(github.event.head_commit.message, '[complex-gas-rebased]') }}
+  inspect:
+    if: ${{ !contains(github.event.head_commit.message, '[print-diagnostic]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
-      - name: Check out feature branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: feature/complex-gas-form
           fetch-depth: 0
-
-      - name: Merge current main and keep its A4 catalog contracts
+      - name: Collect integration points
+        shell: bash
         run: |
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git merge origin/main --no-commit --no-ff || true
-          git checkout origin/main -- \
-            tests/test_compact_geology_columns.py \
-            tests/test_form_catalog_consistency_0766.py \
-            tests/test_form_engine_models.py \
-            tests/test_form_library_visibility_078.py \
-            tests/test_geodata_depth_workspace.py
-          unresolved="$(git diff --name-only --diff-filter=U)"
-          if [ -n "$unresolved" ]; then
-            echo "Unresolved merge paths:"
-            echo "$unresolved"
-            exit 1
-          fi
-
-      - name: Integrate the detailed gas layout into both A4 variants
-        shell: python
+          mkdir -p tmp
+          {
+            echo '=== PrintJobStatusDialog references ==='
+            grep -R -n --exclude-dir='__pycache__' 'PrintJobStatusDialog' src tests || true
+            echo
+            echo '=== mark_ready references ==='
+            grep -R -n --exclude-dir='__pycache__' '\.mark_ready' src tests || true
+            echo
+            echo '=== render_to_printer references ==='
+            grep -R -n --exclude-dir='__pycache__' 'render_to_printer' src tests || true
+            echo
+            echo '=== PrintJobExecutor references ==='
+            grep -R -n --exclude-dir='__pycache__' 'PrintJobExecutor' src tests || true
+            echo
+            echo '=== branch head ==='
+            git log -5 --oneline --decorate
+          } > tmp/final_print_diagnostic.txt
+      - name: Commit diagnostic
+        shell: bash
         run: |
-          from pathlib import Path
-
-          a4_path = Path("src/geoworkbench/forms/a4_factory_templates.py")
-          a4_text = a4_path.read_text(encoding="utf-8")
-          import_anchor = "from geoworkbench.forms.models import FormAxisKind, FormDocument, ParameterBinding\n"
-          import_line = "from geoworkbench.forms.complex_gas import complex_gas_form\n"
-          if import_line not in a4_text:
-              if import_anchor not in a4_text:
-                  raise RuntimeError("A4 complex-gas import anchor is missing")
-              a4_text = a4_text.replace(import_anchor, import_line + import_anchor, 1)
-
-          start = a4_text.index("def _complex_gas(language: TemplateLanguage, orientation: str) -> FormDocument:\n")
-          end = a4_text.index("\ndef a4_factory_templates(language: str = \"ru\")", start)
-          replacement = '''def _complex_gas(language: TemplateLanguage, orientation: str) -> FormDocument:
-              """Build the complete seven-component gas form for the selected A4 profile."""
-
-              landscape = orientation == "landscape"
-              form = complex_gas_form(language)
-              form.form_id = f"factory-complex-gas-a4-{orientation}"
-              form.name = _name("complex_gas", language, orientation)
-
-              depth_width = 55 if landscape else 48
-              graph_widths = (
-                  (250, 180, 190, 260, 260, 220, 220)
-                  if landscape
-                  else (180, 135, 145, 190, 190, 170, 170)
-              )
-              graph_index = 0
-              for column in form.columns:
-                  if column.tracks and column.tracks[0].kind is TrackKind.DEPTH:
-                      column.width = depth_width
-                  else:
-                      column.width = graph_widths[graph_index]
-                      graph_index += 1
-
-              if graph_index != len(graph_widths):
-                  raise RuntimeError("Unexpected complex-gas column structure")
-              return _finalize(form, "gas_interpretation", orientation)
-
-'''
-          a4_path.write_text(a4_text[:start] + replacement + a4_text[end + 1 :], encoding="utf-8")
-
-          templates_path = Path("src/geoworkbench/forms/templates.py")
-          templates = templates_path.read_text(encoding="utf-8")
-          templates = templates.replace(
-              "from geoworkbench.forms.complex_gas import complex_gas_form\n", ""
-          )
-          templates = templates.replace(
-              '        "factory-complex-gas-analysis": complex_gas_form(lang),\n', ""
-          )
-          templates = templates.replace(
-              '    "factory-complex-gas-analysis",\n', ""
-          )
-          if "factory-complex-gas-analysis" in templates:
-              raise RuntimeError("Legacy complex-gas factory registration remains")
-          templates_path.write_text(templates, encoding="utf-8")
-
-          docs_path = Path("docs/COMPLEX_GAS_FORM.md")
-          docs = docs_path.read_text(encoding="utf-8")
-          docs = docs.replace(
-              "Заводская форма `factory-complex-gas-analysis` предназначена",
-              "Заводские формы `factory-complex-gas-a4-portrait` и "
-              "`factory-complex-gas-a4-landscape` предназначены",
-          )
-          docs_path.write_text(docs, encoding="utf-8")
-
-          tests_path = Path("tests/test_complex_gas_form.py")
-          tests_path.write_text(
-              '''from __future__ import annotations
-
-import numpy as np
-
-from geoworkbench.calculations.gas_ratio import calculate_basic_ratios
-from geoworkbench.forms.a4_factory_templates import a4_factory_templates
-from geoworkbench.forms.complex_gas import complex_gas_form
-from geoworkbench.tablet.models import TrackKind, XScale
-
-
-SEVEN_COMPONENTS = ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5")
-
-
-def _track(form, track_id: str):
-    return next(
-        track
-        for column in form.columns
-        for track in column.tracks
-        if track.track_id == track_id
-    )
-
-
-def _assert_complete_layout(form, expected_depth_width: int) -> None:
-    assert len(form.columns) == 14
-    assert all(
-        form.columns[index].tracks[0].kind is TrackKind.DEPTH
-        and form.columns[index + 1].tracks[0].kind is TrackKind.CURVE
-        for index in range(0, len(form.columns), 2)
-    )
-    depth_columns = form.columns[::2]
-    assert len({column.column_id for column in depth_columns}) == 7
-    assert len({column.tracks[0].track_id for column in depth_columns}) == 7
-    assert all(column.width == expected_depth_width for column in depth_columns)
-    assert all(column.tracks[0].show_interval_labels for column in depth_columns)
-
-
-def test_complex_gas_builder_contains_all_requested_tracks() -> None:
-    form = complex_gas_form("ru")
-    assert form.name == "Комплексная газовая форма"
-    _assert_complete_layout(form, 96)
-
-    absolute = _track(form, "track-column-complex-absolute")
-    assert tuple(binding.canonical_parameter_id for binding in absolute.bindings) == SEVEN_COMPONENTS
-    assert all(binding.unit == "% abs" for binding in absolute.bindings)
-    assert all((binding.x_min, binding.x_max) == (0.0, 100.0) for binding in absolute.bindings)
-
-    relative = _track(form, "track-column-complex-relative")
-    assert tuple(binding.canonical_parameter_id for binding in relative.bindings) == tuple(
-        f"{component}_REL" for component in SEVEN_COMPONENTS
-    )
-    assert all(binding.unit == "% of ΣC1–C5" for binding in relative.bindings)
-
-    normalized = _track(form, "track-column-complex-normalized-components")
-    assert tuple(binding.canonical_parameter_id for binding in normalized.bindings) == (
-        "C1_NORM_REF",
-        "C2_NORM",
-        "C3_NORM",
-        "IC4_NORM",
-        "NC4_NORM",
-        "IC5_NORM",
-        "NC5_NORM",
-    )
-
-    ratios = _track(form, "track-column-complex-ratios")
-    assert tuple(binding.canonical_parameter_id for binding in ratios.bindings) == (
-        "WETNESS",
-        "BALANCE",
-        "CHARACTER",
-        "IC4_NC4",
-        "IC5_NC5",
-    )
-    assert ratios.bindings[0].x_scale is XScale.LINEAR
-    assert all(binding.x_scale is XScale.LOGARITHMIC for binding in ratios.bindings[1:])
-
-    pixler = _track(form, "track-column-complex-pixler")
-    assert tuple(binding.canonical_parameter_id for binding in pixler.bindings) == (
-        "PIXLER_C1_C2",
-        "PIXLER_C1_C3",
-        "PIXLER_C1_C4",
-        "PIXLER_C1_C5",
-    )
-    assert all(binding.x_scale is XScale.LOGARITHMIC for binding in pixler.bindings)
-
-    all_bindings = [
-        binding
-        for column in form.columns
-        for track in column.tracks
-        for binding in track.bindings
-    ]
-    assert all(binding.header_text_color == binding.style.color for binding in all_bindings)
-    assert all(binding.header_line_color == binding.style.color for binding in all_bindings)
-
-
-def test_both_a4_complex_gas_forms_use_the_complete_internal_depth_layout() -> None:
-    forms = a4_factory_templates("ru")
-    portrait = forms["factory-complex-gas-a4-portrait"]
-    landscape = forms["factory-complex-gas-a4-landscape"]
-
-    assert portrait.name == "Комплексная газовая форма — A4 книжная"
-    assert landscape.name == "Комплексная газовая форма — A4 альбомная"
-    _assert_complete_layout(portrait, 48)
-    _assert_complete_layout(landscape, 55)
-    assert portrait.print_header_template_id.endswith("portrait")
-    assert landscape.print_header_template_id.endswith("landscape")
-
-
-def test_seven_component_calculation_does_not_double_count_aggregate_c4_c5() -> None:
-    results = calculate_basic_ratios(
-        {
-            "C1": np.array([80.0]),
-            "C2": np.array([10.0]),
-            "C3": np.array([5.0]),
-            "IC4": np.array([1.0]),
-            "NC4": np.array([2.0]),
-            "IC5": np.array([1.0]),
-            "NC5": np.array([1.0]),
-            "C4": np.array([999.0]),
-            "C5": np.array([999.0]),
-        }
-    )
-
-    np.testing.assert_allclose(results["TG_CALC"].values, [100.0])
-    relative_sum = sum(results[f"{component}_REL"].values for component in SEVEN_COMPONENTS)
-    np.testing.assert_allclose(relative_sum, [100.0])
-    np.testing.assert_allclose(results["C4_REL"].values, [3.0])
-    np.testing.assert_allclose(results["C5_REL"].values, [2.0])
-    np.testing.assert_allclose(results["WETNESS"].values, [20.0])
-    np.testing.assert_allclose(results["BALANCE"].values, [9.0])
-    np.testing.assert_allclose(results["CHARACTER"].values, [1.0])
-    np.testing.assert_allclose(results["IC4_NC4"].values, [0.5])
-    np.testing.assert_allclose(results["IC5_NC5"].values, [1.0])
-    np.testing.assert_allclose(results["PIXLER_C1_C2"].values, [8.0])
-    np.testing.assert_allclose(results["PIXLER_C1_C3"].values, [16.0])
-    np.testing.assert_allclose(results["PIXLER_C1_C4"].values, [80.0 / 3.0])
-    np.testing.assert_allclose(results["PIXLER_C1_C5"].values, [40.0])
-
-
-def test_aggregate_c4_c5_remain_supported_as_fallback() -> None:
-    results = calculate_basic_ratios(
-        {
-            "C1": np.array([80.0]),
-            "C2": np.array([10.0]),
-            "C3": np.array([5.0]),
-            "C4": np.array([3.0]),
-            "C5": np.array([2.0]),
-        }
-    )
-
-    np.testing.assert_allclose(results["TG_CALC"].values, [100.0])
-    np.testing.assert_allclose(results["C4_REL"].values, [3.0])
-    np.testing.assert_allclose(results["C5_REL"].values, [2.0])
-    np.testing.assert_allclose(results["PIXLER_C1_C4"].values, [80.0 / 3.0])
-    np.testing.assert_allclose(results["PIXLER_C1_C5"].values, [40.0])
-''',
-              encoding="utf-8",
-          )
-
-          Path(".github/workflows/rebase-complex-gas-on-main.yml").unlink()
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install package and test tools
-        run: python -m pip install -e ".[dev]"
-
-      - name: Verify the merged implementation
-        run: |
-          python -m ruff check \
-            src/geoworkbench/forms/complex_gas.py \
-            src/geoworkbench/forms/a4_factory_templates.py \
-            src/geoworkbench/forms/templates.py \
-            src/geoworkbench/calculations/gas_ratio.py \
-            tests/test_complex_gas_form.py
-          python -m mypy \
-            src/geoworkbench/forms/complex_gas.py \
-            src/geoworkbench/forms/a4_factory_templates.py \
-            src/geoworkbench/calculations/gas_ratio.py
-          python -m pytest -q \
-            tests/test_complex_gas_form.py \
-            tests/test_gas_ratio_calculations.py \
-            tests/test_a4_factory_templates.py
-          git diff --check
-
-      - name: Commit and push the resolved merge
-        run: |
-          git add -A
-          git commit -m "Merge current A4 forms into complex gas work [complex-gas-rebased]"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp/final_print_diagnostic.txt
+          git commit -m 'ci: record final print integration points [print-diagnostic]'
           git push origin HEAD:feature/complex-gas-form
