@@ -1,0 +1,169 @@
+diff --git a/src/geoworkbench/printing/tablet_print.py b/src/geoworkbench/printing/tablet_print.py
+index bdda3af..ab553f1 100644
+--- a/src/geoworkbench/printing/tablet_print.py
++++ b/src/geoworkbench/printing/tablet_print.py
+@@ -139,65 +139,84 @@ def capture_tablet_print_snapshot(
+         rendered = tuple(item for item in rendered if item.definition.track_id in included)
+     if not rendered:
+         raise TabletPrintError("На планшете нет видимых колонок для печати")
+-    content_height = max(item.widget.height() for item in rendered)
+-    if content_height <= 0:
+-        raise TabletPrintError("Печатная форма не имеет допустимой высоты")
+ 
+     definitions = [item.definition for item in rendered]
+     original_widths = [item.widget.width() for item in rendered]
+     original_tablet_size = tablet.size()
+-    header_height = max(
+-        item.widget.title.height() + item.widget.curve_header_scroll.height()
+-        for item in rendered
+-    )
++    pixmaps: list[QPixmap] = []
++    grid_states: list[tuple[TabletGridOverlay, bool, bool]] = []
++    layout: AdaptiveColumnLayout | None = None
++    content_height = 1
++    header_height = 0
++    annotation_print_enabled = False
++
++    try:
++        # Enable paper typography before measuring geometry. The print header
++        # uses larger logical fonts and rows so it remains readable after a wide
++        # tablet is uniformly fitted to A4. Every track uses one common band.
++        tablet.set_annotation_print_mode(True)
++        annotation_print_enabled = True
++        for item in rendered:
++            item.widget.set_print_mode(True)
++        print_header_band = max(
++            item.widget.natural_curve_header_height for item in rendered
++        )
++        for item in rendered:
++            item.widget.set_synchronized_header_height(print_header_band)
++        _activate_layout_tree(tablet)
+ 
+-    if target_content_height is not None:
+-        minimum_height = header_height + 240
+-        desired_height = max(minimum_height, int(target_content_height))
+-        for _attempt in range(3):
+-            current_height = max(item.widget.height() for item in rendered)
+-            delta = desired_height - current_height
+-            if abs(delta) <= 1:
+-                break
+-            tablet.resize(
+-                max(1, tablet.width()),
+-                max(1, tablet.height() + delta),
+-            )
+-            _activate_layout_tree(tablet)
+         content_height = max(item.widget.height() for item in rendered)
++        if content_height <= 0:
++            raise TabletPrintError("Печатная форма не имеет допустимой высоты")
+         header_height = max(
+             item.widget.title.height() + item.widget.curve_header_scroll.height()
+             for item in rendered
+         )
+ 
+-    canonical_layout_height = max(1, int(layout_content_height or content_height))
+-
+-    def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
+-        if not fit_columns:
+-            return original_column_layout(definitions)
+-        # The paper ratio describes the printable graph body, not the body plus
+-        # the visible curve header. Including the header makes the layout too
+-        # wide and leaves large blank bands above and below continuation pages.
+-        canonical_body_height = max(
+-            1,
+-            canonical_layout_height - measured_header_height,
+-        )
+-        return adaptive_column_layout(
+-            definitions,
+-            page_aspect_ratio=page_aspect_ratio,
+-            content_height=canonical_body_height,
+-        )
++        if target_content_height is not None:
++            minimum_height = header_height + 240
++            desired_height = max(minimum_height, int(target_content_height))
++            for _attempt in range(3):
++                current_height = max(item.widget.height() for item in rendered)
++                delta = desired_height - current_height
++                if abs(delta) <= 1:
++                    break
++                tablet.resize(
++                    max(1, tablet.width()),
++                    max(1, tablet.height() + delta),
++                )
++                _activate_layout_tree(tablet)
++            content_height = max(item.widget.height() for item in rendered)
++            header_height = max(
++                item.widget.title.height() + item.widget.curve_header_scroll.height()
++                for item in rendered
++            )
+ 
+-    layout = build_layout(header_height)
+-    pixmaps: list[QPixmap] = []
+-    grid_states: list[tuple[TabletGridOverlay, bool, bool]] = []
+-    tablet.set_annotation_print_mode(True)
+-    try:
++        canonical_layout_height = max(1, int(layout_content_height or content_height))
++
++        def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
++            if not fit_columns:
++                return original_column_layout(definitions)
++            # The paper ratio describes the printable graph body, not the body
++            # plus the visible curve header. Including the header makes the
++            # layout too wide and leaves blank bands on continuation pages.
++            canonical_body_height = max(
++                1,
++                canonical_layout_height - measured_header_height,
++            )
++            return adaptive_column_layout(
++                definitions,
++                page_aspect_ratio=page_aspect_ratio,
++                content_height=canonical_body_height,
++            )
++
++        layout = build_layout(header_height)
+         for item in rendered:
+-            item.widget.set_print_mode(True)
+             overlay = TabletGridRenderer.overlay_for(item.widget.plot)
+             if overlay is not None:
+-                grid_states.append((overlay, overlay.print_mode, overlay.print_suppressed))
++                grid_states.append(
++                    (overlay, overlay.print_mode, overlay.print_suppressed)
++                )
+                 overlay.set_print_mode(True)
+                 print_grid = (
+                     grid_print_overrides.get(
+@@ -210,8 +229,8 @@ def capture_tablet_print_snapshot(
+                 overlay.set_print_suppressed(not print_grid)
+ 
+         # Header widgets can change height after responsive column widths are
+-        # applied. Iterate to a stable layout so the source and target aspect
+-        # ratios remain identical on body-only and repeated-header pages.
++        # applied. Iterate to a stable layout so source and target aspect ratios
++        # remain identical on first, continuation and repeated-header pages.
+         for _attempt in range(3):
+             for item, width in zip(rendered, layout.widths, strict=True):
+                 item.widget.set_track_width(width)
+@@ -253,14 +272,22 @@ def capture_tablet_print_snapshot(
+         for overlay, print_mode, print_suppressed in reversed(grid_states):
+             overlay.set_print_mode(print_mode)
+             overlay.set_print_suppressed(print_suppressed)
+-        tablet.set_annotation_print_mode(False)
++        if annotation_print_enabled:
++            tablet.set_annotation_print_mode(False)
+         for item, width in zip(rendered, original_widths, strict=True):
+             item.widget.set_print_mode(False)
+             item.widget.set_track_width(width)
++        screen_header_band = max(
++            item.widget.natural_curve_header_height for item in rendered
++        )
++        for item in rendered:
++            item.widget.set_synchronized_header_height(screen_header_band)
+         if tablet.size() != original_tablet_size:
+             tablet.resize(original_tablet_size)
+-            _activate_layout_tree(tablet)
++        _activate_layout_tree(tablet)
+ 
++    if layout is None:
++        raise TabletPrintError("Не удалось рассчитать компоновку печатной формы")
+     return TabletPrintSnapshot(
+         tuple(pixmaps),
+         layout,
