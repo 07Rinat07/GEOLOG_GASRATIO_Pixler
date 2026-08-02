@@ -1,0 +1,67 @@
+from __future__ import annotations
+
+from pathlib import Path
+import subprocess
+
+
+SOURCE_COMMIT = "88e2b1a50ce73708f2b6115c1120b60d46388e4d"
+SOURCE_PATH = "tools/_integrate_gas_continuity_policy.py"
+
+
+def replace_source_once(source: str, old: str, new: str) -> str:
+    count = source.count(old)
+    if count != 1:
+        raise RuntimeError(
+            f"Integration source expected one replacement, found {count}: {old!r}"
+        )
+    return source.replace(old, new, 1)
+
+
+def main() -> None:
+    result = subprocess.run(
+        ["git", "show", f"{SOURCE_COMMIT}:{SOURCE_PATH}"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "Could not load continuity source")
+
+    source = result.stdout
+    source = replace_source_once(
+        source,
+        'anchor = "## 13. Финальный критерий передачи\\n"',
+        'anchor = "## 13. Правило обновления тестов и документации\\n"',
+    )
+    source = replace_source_once(
+        source,
+        '"## 14. Финальный критерий передачи\\n"',
+        '"## 14. Правило обновления тестов и документации\\n"',
+    )
+    source = replace_source_once(
+        source,
+        '        "    interpolate_bounded_gaps,\\n"\n',
+        '        "    interpolate_bounded_gaps as interpolate_bounded_gaps,\\n"\n',
+    )
+    source = replace_source_once(
+        source,
+        '        "            connect: str | NDArray[np.bool_] = \\\"finite\\\"\\n"\n',
+        '        "            connect: object = \\\"finite\\\"\\n"\n',
+    )
+
+    namespace = {"__name__": "__main__", "__file__": SOURCE_PATH}
+    exec(compile(source, SOURCE_PATH, "exec"), namespace)
+
+    testing = Path("docs/TESTING.md")
+    text = testing.read_text(encoding="utf-8")
+    old = "## 14. Каталоги печатных шапок и логотипов\n"
+    if text.count(old) != 1:
+        raise RuntimeError("TESTING.md print catalog heading not found exactly once")
+    testing.write_text(
+        text.replace(old, "## 15. Каталоги печатных шапок и логотипов\n", 1),
+        encoding="utf-8",
+    )
+
+
+if __name__ == "__main__":
+    main()
