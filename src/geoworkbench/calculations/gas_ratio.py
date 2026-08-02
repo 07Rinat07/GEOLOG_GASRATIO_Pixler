@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
+
+from geoworkbench.calculations.gas_conditioning import (
+    ConditionedGasComponents,
+    GasConditioningPolicy,
+    condition_gas_components,
+)
 
 
 Array = NDArray[np.float64]
@@ -15,6 +22,14 @@ class GasRatioResult:
     values: Array
     unit: str
     description: str
+
+
+@dataclass(frozen=True, slots=True)
+class ConditionedGasRatioResult:
+    """Derived gas curves together with conditioning provenance."""
+
+    conditioned_components: ConditionedGasComponents
+    curves: dict[str, GasRatioResult]
 
 
 def safe_ratio(numerator: Array, denominator: Array) -> Array:
@@ -29,7 +44,7 @@ def safe_ratio(numerator: Array, denominator: Array) -> Array:
     return result
 
 
-def sum_components(components: dict[str, Array]) -> Array:
+def sum_components(components: Mapping[str, Array]) -> Array:
     """Sum available components without turning an all-NULL row into a real zero.
 
     LAS NULL values are represented as NaN. ``numpy.nansum`` alone returns ``0``
@@ -98,12 +113,16 @@ def _family_total(
     return sum_components(family) if family else None
 
 
-def calculate_basic_ratios(curves: dict[str, Array]) -> dict[str, GasRatioResult]:
+def calculate_basic_ratios(curves: Mapping[str, Array]) -> dict[str, GasRatioResult]:
     """Calculate auditable C1-C5 sums, composition, Haworth and Pixler aliases.
 
     The function accepts either aggregate C4/C5 curves or split iC4/nC4 and
     iC5/nC5 curves. When both representations exist, split isomers are preferred
     so the total and relative composition never double-count hydrocarbons.
+
+    This low-level function deliberately does not interpolate values. Production
+    workflows with a physical depth axis should call ``calculate_conditioned_ratios``
+    so C1-C5 are conditioned before any total or coefficient is derived.
     """
 
     normalized = {
@@ -220,3 +239,23 @@ def calculate_basic_ratios(curves: dict[str, Array]) -> dict[str, GasRatioResult
             results[alias] = GasRatioResult(alias, values, unit, description)
 
     return results
+
+
+def calculate_conditioned_ratios(
+    depth: Array,
+    curves: Mapping[str, Array],
+    *,
+    policy: GasConditioningPolicy | None = None,
+) -> ConditionedGasRatioResult:
+    """Condition source gas channels before deriving totals and ratios.
+
+    The returned provenance identifies every interpolated source row. Consumers
+    may therefore display a QC marker or exclude conditioned rows from a strict
+    audit without changing the derived-curve implementation.
+    """
+
+    conditioned = condition_gas_components(depth, curves, policy=policy)
+    return ConditionedGasRatioResult(
+        conditioned_components=conditioned,
+        curves=calculate_basic_ratios(conditioned.components),
+    )
