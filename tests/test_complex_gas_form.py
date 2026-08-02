@@ -34,6 +34,38 @@ def _assert_complete_layout(form, expected_depth_width: int) -> None:
     assert all(column.tracks[0].show_interval_labels for column in depth_columns)
 
 
+def _assert_a4_layout(
+    form,
+    expected_depth_width: int,
+    expected_graph_widths: tuple[int, ...],
+) -> None:
+    _assert_complete_layout(form, expected_depth_width)
+    depth_columns = form.columns[::2]
+    graph_columns = form.columns[1::2]
+
+    assert [column.visible for column in depth_columns] == [
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+    ]
+    assert all(column.visible for column in graph_columns)
+    assert tuple(column.width for column in graph_columns) == expected_graph_widths
+    assert [column.tracks[0].kind for column in form.columns if column.visible] == [
+        TrackKind.DEPTH,
+        TrackKind.CURVE,
+        TrackKind.CURVE,
+        TrackKind.CURVE,
+        TrackKind.CURVE,
+        TrackKind.CURVE,
+        TrackKind.CURVE,
+        TrackKind.CURVE,
+    ]
+
+
 def test_complex_gas_builder_contains_all_requested_tracks() -> None:
     form = complex_gas_form("ru")
     assert form.name == "Комплексная газовая форма"
@@ -79,14 +111,14 @@ def test_complex_gas_builder_contains_all_requested_tracks() -> None:
     )
 
 
-def test_both_a4_complex_gas_forms_use_complete_internal_depth_layout() -> None:
+def test_both_a4_complex_gas_forms_keep_all_graphs_with_one_shared_depth() -> None:
     forms = a4_factory_templates("ru")
     portrait = forms["factory-complex-gas-a4-portrait"]
     landscape = forms["factory-complex-gas-a4-landscape"]
     assert portrait.name == "Комплексная газовая форма — A4 книжная"
     assert landscape.name == "Комплексная газовая форма — A4 альбомная"
-    _assert_complete_layout(portrait, 48)
-    _assert_complete_layout(landscape, 55)
+    _assert_a4_layout(portrait, 48, (110, 80, 80, 110, 100, 90, 86))
+    _assert_a4_layout(landscape, 55, (160, 100, 110, 160, 150, 140, 130))
 
 
 def test_seven_component_calculation_does_not_double_count_aggregate_c4_c5() -> None:
