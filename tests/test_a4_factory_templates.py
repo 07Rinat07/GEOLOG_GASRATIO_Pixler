@@ -47,7 +47,7 @@ def test_every_a4_factory_fits_its_named_orientation_without_hidden_scaling() ->
 
 def test_complex_gas_factory_contains_all_requested_gas_groups() -> None:
     form = a4_factory_templates("ru")["factory-complex-gas-a4-landscape"]
-    titles = [column.title for column in form.columns]
+    graph_columns = form.columns[1::2]
     canonical_ids = {
         binding.canonical_parameter_id
         for column in form.columns
@@ -55,22 +55,53 @@ def test_complex_gas_factory_contains_all_requested_gas_groups() -> None:
         for binding in track.bindings
     }
 
-    assert titles[:5] == [
-        "Глубина",
-        "Абсолютные газы C1–C5",
-        "Нормализованный газ",
-        "Относительные коэффициенты",
+    assert len(form.columns) == 10
+    assert all(
+        form.columns[index].tracks[0].kind.value == "depth"
+        and form.columns[index + 1].tracks[0].kind.value == "curve"
+        for index in range(0, len(form.columns), 2)
+    )
+    assert [column.title for column in graph_columns] == [
+        "Абсолютные компоненты",
+        "Нормализованные компоненты",
+        "Относительный газ",
+        "Wetness, Balance, Character и изомеры",
         "Коэффициенты Pixler",
     ]
-    assert {"TOTAL_GAS", "C1", "C2", "C3", "TG_NORM", "C1_NORM"} <= canonical_ids
     assert {
+        "TG_CALC",
+        "C1",
+        "C2",
+        "C3",
+        "IC4",
+        "NC4",
+        "IC5",
+        "NC5",
+        "TG_NORM",
+        "C1_NORM_REF",
+        "C2_NORM",
+        "C3_NORM",
+        "IC4_NORM",
+        "NC4_NORM",
+        "IC5_NORM",
+        "NC5_NORM",
+        "C1_REL",
+        "C2_REL",
+        "C3_REL",
+        "IC4_REL",
+        "NC4_REL",
+        "IC5_REL",
+        "NC5_REL",
         "WETNESS",
         "BALANCE",
         "CHARACTER",
+        "IC4_NC4",
+        "IC5_NC5",
         "PIXLER_C1_C2",
+        "PIXLER_C1_C3",
+        "PIXLER_C1_C4",
         "PIXLER_C1_C5",
     } <= canonical_ids
-
 
 def test_legacy_forms_remain_resolvable_but_are_hidden() -> None:
     all_templates = factory_templates("ru")

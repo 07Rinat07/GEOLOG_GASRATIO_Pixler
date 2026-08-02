@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Literal
 
+from geoworkbench.forms.complex_gas import complex_gas_form
 from geoworkbench.forms.models import FormAxisKind, FormDocument, ParameterBinding
 from geoworkbench.forms.templates import (
     _axis_column,
@@ -10,8 +11,6 @@ from geoworkbench.forms.templates import (
     _curve_column,
     _factory,
     _gas_component_bindings,
-    _pixler_bindings,
-    _ratio_bindings,
     _special_column,
     _with_a4_print_headers,
 )
@@ -361,55 +360,30 @@ def _daily(language: TemplateLanguage, orientation: str) -> FormDocument:
 
 
 def _complex_gas(language: TemplateLanguage, orientation: str) -> FormDocument:
-    landscape = orientation == "landscape"
-    columns = [
-        _axis(FormAxisKind.DEPTH, language, 55 if landscape else 48),
-        _curve_column(
-            f"column-complex-gas-{orientation}-absolute",
-            _t("gas", language),
-            _absolute_gas(language),
-            220 if landscape else 160,
-        ),
-        _curve_column(
-            f"column-complex-gas-{orientation}-normalized",
-            _t("normalized", language),
-            _normalized_gas(),
-            220 if landscape else 170,
-        ),
-        _curve_column(
-            f"column-complex-gas-{orientation}-relative",
-            _t("relative", language),
-            _ratio_bindings(language),
-            200 if landscape else 160,
-        ),
-        _curve_column(
-            f"column-complex-gas-{orientation}-pixler",
-            _t("pixler", language),
-            _pixler_bindings(),
-            200 if landscape else 160,
-        ),
-    ]
-    if landscape:
-        columns.append(
-            _special_column(
-                "column-complex-gas-landscape-interpretation",
-                _t("interpretation", language),
-                TrackKind.INTERPRETATION,
-                85,
-            )
-        )
-    return _finalize(
-        _factory(
-            f"factory-complex-gas-a4-{orientation}",
-            _name("complex_gas", language, orientation),
-            FormAxisKind.DEPTH,
-            columns,
-            language,
-        ),
-        "gas_interpretation",
-        orientation,
-    )
+    """Build the complete C1-C5 form with an internal depth scale per graph."""
 
+    landscape = orientation == "landscape"
+    form = complex_gas_form(language)
+    form.form_id = f"factory-complex-gas-a4-{orientation}"
+    form.name = _name("complex_gas", language, orientation)
+
+    depth_width = 55 if landscape else 48
+    graph_widths = (
+        (150, 140, 145, 140, 140)
+        if landscape
+        else (96, 90, 90, 82, 82)
+    )
+    graph_index = 0
+    for column in form.columns:
+        if column.tracks and column.tracks[0].kind is TrackKind.DEPTH:
+            column.width = depth_width
+        else:
+            column.width = graph_widths[graph_index]
+            graph_index += 1
+
+    if graph_index != len(graph_widths):
+        raise RuntimeError("Unexpected complex-gas column structure")
+    return _finalize(form, "gas_interpretation", orientation)
 
 def a4_factory_templates(language: str = "ru") -> dict[str, FormDocument]:
     lang = _language(language)
