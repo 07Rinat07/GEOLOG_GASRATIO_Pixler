@@ -319,35 +319,30 @@ def paint_tablet_snapshot(
     if scale_mode is PrintScaleMode.FIT:
         horizontal_scale = page.width() / snapshot.layout.total_width
         vertical_scale = page.height() / logical_content_height
-        # Never let a body-only continuation choose its scale from height alone.
-        # Wide masterlog forms then overflow the page horizontally: the depth
-        # labels are clipped from the left and only part of the curves survives.
-        # One bounded uniform scale preserves the same geometry on first, middle
-        # and last pages.  ``fill_height`` remains an API compatibility flag, but
-        # cannot override the horizontal fit constraint.
-        # FIT uses one document-wide horizontal scale.  The pagination planner
-        # varies the depth interval on the first/last pages so their logical
-        # body heights fit the available bands; choosing a second scale from
-        # page height would make the grid pitch differ between page 1 and the
-        # continuation pages.
+        # Width is the canonical scale for the complete document. Real user
+        # forms can nevertheless gain a few logical pixels after Qt resolves
+        # wrapped titles and enlarged print headers. In that case the renderer
+        # must not abort the whole PDF: use a bounded uniform fallback so all
+        # columns remain visible and a valid document is still produced.
         scale = horizontal_scale
         rendered_width = snapshot.layout.total_width * scale
         rendered_height = logical_content_height * scale
         if rendered_height > page.height() + 2.0:
-            raise TabletPrintError(
-                "Печатная форма выше рассчитанной области страницы; "
-                "автоматическая пагинация нарушила единый масштаб"
-            )
+            scale = min(horizontal_scale, vertical_scale)
+            rendered_width = snapshot.layout.total_width * scale
+            rendered_height = logical_content_height * scale
         x = page.left() + (page.width() - rendered_width) / 2.0
-        # Top alignment preserves the canonical pixels-per-unit density and
-        # leaves unused space only below a partial final page.
+        # Top alignment preserves the canonical density whenever the planned
+        # geometry fits and leaves unused space only below a partial last page.
         y = page.top()
 
         painter.save()
         try:
             painter.fillRect(page, Qt.GlobalColor.white)
             painter.setClipRect(page)
-            for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
+            for pixmap, logical_width in zip(
+                snapshot.pixmaps, snapshot.layout.widths, strict=True
+            ):
                 source_height = max(
                     1.0,
                     pixmap.height() - source_top * snapshot.raster_scale,
@@ -389,7 +384,9 @@ def paint_tablet_snapshot(
         painter.fillRect(page, Qt.GlobalColor.white)
         painter.setClipRect(page)
         source_x = 0.0
-        for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
+        for pixmap, logical_width in zip(
+            snapshot.pixmaps, snapshot.layout.widths, strict=True
+        ):
             track_left = source_x
             track_right = track_left + logical_width
             visible_left = max(left, track_left)
@@ -445,7 +442,9 @@ def paint_tablet_header_repeat(
             rendered_height = snapshot.header_height * scale
             x = page.left() + (page.width() - rendered_width) / 2.0
             y = page.top() + (page.height() - rendered_height) / 2.0
-            for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
+            for pixmap, logical_width in zip(
+                snapshot.pixmaps, snapshot.layout.widths, strict=True
+            ):
                 source = QRectF(
                     0.0,
                     0.0,
@@ -478,7 +477,9 @@ def paint_tablet_header_repeat(
         rendered_height = snapshot.header_height * scale
         target_top = page.top() + (page.height() - rendered_height) / 2.0
         source_x = 0.0
-        for pixmap, logical_width in zip(snapshot.pixmaps, snapshot.layout.widths, strict=True):
+        for pixmap, logical_width in zip(
+            snapshot.pixmaps, snapshot.layout.widths, strict=True
+        ):
             track_left = source_x
             track_right = track_left + logical_width
             visible_left = max(left, track_left)
