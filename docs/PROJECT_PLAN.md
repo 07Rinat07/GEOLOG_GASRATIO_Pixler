@@ -81,9 +81,7 @@ release plan и временные планы в `docs` не создаются.
   изменяются; производные кривые имеют provenance `conditioned-gas-ratio:2.0`.
 - [x] **GAS-04:** экранная геометрия применяет gas-only short-gap policy, сохраняет контекстные
   точки на границах viewport/страниц и не распространяет интерполяцию на GR/ROP/DEXP.
-- [ ] **GAS-05:** устранить дублирование правил между calculation conditioning и render sampling:
-  вынести единый Qt-независимый continuity policy и единый segment mask для экрана, PDF,
-  preview и принтера.
+- [x] **GAS-05:** calculation conditioning и render sampling используют единый Qt-независимый `CurveContinuityPolicy`; gas-only viewport geometry кондиционируется до обрезки, а экран/PDF/preview/printer получают явный segment mask.
 - [ ] **GAS-06:** сохранять структурированный QC provenance conditioning в проекте и показывать
   оператору количество/диапазоны восстановленных точек без изменения исходного LAS.
 - [ ] **GAS-07:** добавить обезличенный golden dataset для интервала `1703.28–1753.28 м` и
@@ -119,7 +117,7 @@ release plan и временные планы в `docs` не создаются.
 - [x] **RULER-01:** единый Qt-независимый контракт глубинных/временных отметок, общей частоты и индивидуальной видимости колонок сериализуется в tablet layout v22; layouts v1–v21 получают безопасную миграцию.
 - [x] **RULER-02:** настройки видимости и частоты внутренней шкалы подключены к существующему редактору графической колонки на RU/KK/EN и сохраняются в layout v22.
 - [x] **RULER-03:** screen, preview, PDF и printer используют один resolved ruler; печатный snapshot сохраняет общий layout и фактические ticks колонок, а regression tests проверяют общий page-boundary и восстановление экранного состояния.
-- [ ] **RULER-04:** после стабилизации шкал завершить единый gas continuity/segment mask для C1–C5, relative gas, Haworth и Pixler.
+- [x] **RULER-04:** после стабилизации шкал внедрён единый gas continuity/segment mask для C1–C5, relative gas, Haworth и Pixler с сохранением длинных остановок и реальных нулей.
 
 - [ ] **ARCH-01:** `ApplicationContext`/composition root для storage, semantic, import, report,
   credentials и audit services.

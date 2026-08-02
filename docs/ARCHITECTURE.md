@@ -112,12 +112,9 @@ screen / preview / PDF / printer
 9. Derived arrays имеют ту же длину и порядок строк, что и Dataset.
 10. Recalculation обновляет существующую derived curve, а не создаёт дубликат.
 
-### Следующая граница
+### Единая граница непрерывности
 
-Правило определения короткого gap пока представлено в calculation conditioning и в старом
-render sampling. Следующий безопасный рефакторинг вынесет общий immutable continuity policy и
-segment mask в Qt-независимый нижний слой. До этого calculation pipeline является источником
-истины для derived curves, а render policy не имеет права изменять Dataset.
+`calculations/curve_continuity.py` является единственным источником правил cadence, bounded gap interpolation и segment connectivity. Calculation conditioning применяет его к immutable рабочим копиям C1–C5 до формул, а viewport sampling — к полному массиву до обрезки и downsampling. Renderer получает явный boolean connect mask; длинные остановки, края без данных и логарифмические нули остаются разрывами. Dataset и исходный LAS не изменяются.
 
 ## Семантическое разрешение
 

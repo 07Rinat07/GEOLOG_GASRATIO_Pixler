@@ -5,6 +5,9 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from geoworkbench.calculations.curve_continuity import (
+    build_segment_connect_mask,
+)
 from geoworkbench.tablet.sampling import (
     interpolate_short_nan_gaps,
     select_visible_samples,
@@ -30,6 +33,7 @@ class RelativeGasStack:
     depth: FloatArray
     baseline: FloatArray
     bands: tuple[RelativeGasBand, ...]
+    connect: NDArray[np.bool_]
 
 
 def is_relative_gas_mnemonic(mnemonic: str) -> bool:
@@ -64,6 +68,7 @@ def build_relative_gas_stack(
             depth=np.array([], dtype=np.float64),
             baseline=np.array([], dtype=np.float64),
             bands=(),
+            connect=np.array([], dtype=np.bool_),
         )
     names = tuple(components)
     arrays = [np.asarray(components[name], dtype=np.float64) for name in names]
@@ -115,6 +120,7 @@ def build_relative_gas_stack(
                 )
                 for name in names
             ),
+            connect=np.array([], dtype=np.bool_),
         )
 
     selected_components = np.full((len(names), selected_depth.size), np.nan, dtype=np.float64)
@@ -151,7 +157,8 @@ def build_relative_gas_stack(
             np.where(selected_valid, 100.0, np.nan),
         )
 
-    return RelativeGasStack(selected_depth, baseline, tuple(bands))
+    connect = build_segment_connect_mask(selected_depth, baseline)
+    return RelativeGasStack(selected_depth, baseline, tuple(bands), connect)
 
 
 def _collapse_duplicate_depth(axis: FloatArray, matrix: FloatArray) -> tuple[FloatArray, FloatArray]:

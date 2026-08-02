@@ -114,6 +114,10 @@ from geoworkbench.tablet.geometry_cache import (
     CurveGeometryCache,
     CurveGeometryKey,
     GeometryCacheStats,
+    is_gas_curve_id,
+)
+from geoworkbench.calculations.curve_continuity import (
+    build_segment_connect_mask,
 )
 from geoworkbench.tablet.grid_renderer import (
     EngineeringGridAxisItem,
@@ -7936,7 +7940,10 @@ class TabletView(QWidget):
                 normalized = self._normalize_curve_values(
                     values, settings.x_scale, minimum, maximum
                 )
-            item.setData(normalized, visible_depth, connect="finite")
+            connect: object = "finite"
+            if is_gas_curve_id(mnemonic):
+                connect = build_segment_connect_mask(visible_depth, normalized)
+            item.setData(normalized, visible_depth, connect=connect)
             if render_keys is not None:
                 render_keys[mnemonic] = render_key
 
@@ -7969,14 +7976,16 @@ class TabletView(QWidget):
             ),
         )
         if rendered.relative_baseline_item is not None:
-            rendered.relative_baseline_item.setData(stack.baseline, stack.depth, connect="finite")
+            rendered.relative_baseline_item.setData(
+                stack.baseline, stack.depth, connect=stack.connect
+            )
         bands = {band.mnemonic: band for band in stack.bands}
         for mnemonic, item in (rendered.curve_items or {}).items():
             band = bands.get(mnemonic)
             if band is None:
                 item.setData([], [])
             else:
-                item.setData(band.upper, stack.depth, connect="finite")
+                item.setData(band.upper, stack.depth, connect=stack.connect)
         if rendered.curve_render_keys is not None:
             rendered.curve_render_keys.clear()
 

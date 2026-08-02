@@ -6,37 +6,20 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from geoworkbench.calculations.curve_continuity import (
+    CurveContinuityPolicy,
+    estimate_short_gap_limit,
+    interpolate_bounded_gaps as interpolate_bounded_gaps,
+    interpolate_monotonic_unique,
+)
+
 
 Array = NDArray[np.float64]
 BoolArray = NDArray[np.bool_]
 IntArray = NDArray[np.int64]
 
 
-@dataclass(frozen=True, slots=True)
-class GasConditioningPolicy:
-    """Conservative policy for conditioning sparse gas measurements.
-
-    The policy fills only bounded holes whose physical depth span is compatible
-    with the normal acquisition cadence. Long outages remain explicit ``NaN``
-    gaps and measured zero values are never overwritten.
-    """
-
-    max_gap_steps: float = 4.0
-    cadence_factor: float = 2.5
-    minimum_finite_samples: int = 2
-    absolute_max_gap: float | None = None
-
-    def __post_init__(self) -> None:
-        if not np.isfinite(self.max_gap_steps) or self.max_gap_steps <= 0.0:
-            raise ValueError("max_gap_steps должен быть положительным конечным числом")
-        if not np.isfinite(self.cadence_factor) or self.cadence_factor <= 0.0:
-            raise ValueError("cadence_factor должен быть положительным конечным числом")
-        if self.minimum_finite_samples < 2:
-            raise ValueError("minimum_finite_samples должен быть не меньше 2")
-        if self.absolute_max_gap is not None and (
-            not np.isfinite(self.absolute_max_gap) or self.absolute_max_gap <= 0.0
-        ):
-            raise ValueError("absolute_max_gap должен быть положительным конечным числом")
+GasConditioningPolicy = CurveContinuityPolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,70 +127,6 @@ def _collapse_values(values: Array, inverse: IntArray, unique_size: int) -> Arra
     return collapsed
 
 
-def _component_gap_limit(
-    unique_depth: Array,
-    collapsed_values: Array,
-    *,
-    nominal_depth_step: float,
-    policy: GasConditioningPolicy,
-) -> float | None:
-    finite_positions = np.flatnonzero(np.isfinite(collapsed_values))
-    if finite_positions.size < policy.minimum_finite_samples:
-        return None
-
-    observed_steps = np.diff(unique_depth[finite_positions])
-    observed_steps = observed_steps[
-        np.isfinite(observed_steps) & (observed_steps > 0.0)
-    ]
-    if observed_steps.size == 0:
-        return None
-
-    ordered_steps = np.sort(observed_steps)
-    dense_half = ordered_steps[: max(1, (ordered_steps.size + 1) // 2)]
-    normal_component_step = float(np.median(dense_half))
-    limit = max(
-        nominal_depth_step * policy.max_gap_steps,
-        normal_component_step * policy.cadence_factor,
-    )
-    if policy.absolute_max_gap is not None:
-        limit = min(limit, policy.absolute_max_gap)
-    return limit if np.isfinite(limit) and limit > 0.0 else None
-
-
-def _interpolate_unique_axis(
-    axis: Array,
-    source: Array,
-    *,
-    max_gap: float,
-) -> Array:
-    output = source.copy()
-    finite_positions = np.flatnonzero(np.isfinite(output))
-
-    for left, right in zip(finite_positions[:-1], finite_positions[1:], strict=True):
-        left_index = int(left)
-        right_index = int(right)
-        if right_index - left_index <= 1:
-            continue
-        distance = float(axis[right_index] - axis[left_index])
-        if not np.isfinite(distance) or distance <= 0.0 or distance > max_gap:
-            continue
-
-        interior = slice(left_index + 1, right_index)
-        missing = ~np.isfinite(output[interior])
-        if not np.any(missing):
-            continue
-        interpolated_values = np.interp(
-            axis[interior],
-            (axis[left_index], axis[right_index]),
-            (output[left_index], output[right_index]),
-        )
-        interior_values = output[interior]
-        interior_values[missing] = interpolated_values[missing]
-        output[interior] = interior_values
-
-    return output
-
-
 def _expand_conditioned_values(
     source: Array,
     conditioned_unique: Array,
@@ -219,49 +138,6 @@ def _expand_conditioned_values(
     fillable = ~np.isfinite(output) & np.isfinite(replacement)
     output[fillable] = replacement[fillable]
     return output, fillable.astype(np.bool_, copy=False)
-
-
-def interpolate_bounded_gaps(
-    depth: Array,
-    values: Array,
-    *,
-    max_gap: float,
-) -> tuple[Array, BoolArray]:
-    """Interpolate short bounded ``NaN`` runs and return a provenance mask.
-
-    Increasing/decreasing axes and repeated depth rows are supported. Finite
-    source measurements are never overwritten. Only missing rows between two
-    finite measurements are eligible; long outages and edge holes remain gaps.
-    """
-
-    prepared = _prepare_axis(depth)
-    source = _as_1d_float_array(values, name="Газовый компонент")
-    if prepared.source.shape != source.shape:
-        raise ValueError("Глубина и газовый компонент должны иметь одинаковую длину")
-    if not np.isfinite(max_gap) or max_gap <= 0.0:
-        raise ValueError("max_gap должен быть положительным конечным числом")
-
-    working_source = source[::-1] if prepared.decreasing else source
-    normalized_source = working_source.astype(np.float64, copy=True)
-    normalized_source[~np.isfinite(normalized_source)] = np.nan
-    collapsed = _collapse_values(
-        normalized_source,
-        prepared.inverse,
-        prepared.unique.size,
-    )
-    conditioned_unique = _interpolate_unique_axis(
-        prepared.unique,
-        collapsed,
-        max_gap=max_gap,
-    )
-    output, interpolated = _expand_conditioned_values(
-        normalized_source,
-        conditioned_unique,
-        prepared.inverse,
-    )
-    if prepared.decreasing:
-        return output[::-1].copy(), interpolated[::-1].copy()
-    return output, interpolated
 
 
 def condition_gas_components(
@@ -313,10 +189,10 @@ def condition_gas_components(
             prepared.inverse,
             prepared.unique.size,
         )
-        limit = _component_gap_limit(
+        limit = estimate_short_gap_limit(
             prepared.unique,
             collapsed,
-            nominal_depth_step=prepared.nominal_step,
+            nominal_step=prepared.nominal_step,
             policy=resolved_policy,
         )
         limits[mnemonic] = limit
@@ -325,7 +201,7 @@ def condition_gas_components(
             masks[mnemonic] = np.zeros(source_values.shape, dtype=np.bool_)
             continue
 
-        conditioned_unique = _interpolate_unique_axis(
+        conditioned_unique = interpolate_monotonic_unique(
             prepared.unique,
             collapsed,
             max_gap=limit,

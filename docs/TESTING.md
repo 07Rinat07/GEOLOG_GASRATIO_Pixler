@@ -317,7 +317,15 @@ Benchmark измеряет conditioning семи компонентов и по�
 scaling/RSS thresholds закрепляются после стабильного Windows baseline в задаче GAS-08; случайный
 wall-clock assertion не добавляется в обычный unit suite.
 
-## 13. Правило обновления тестов и документации
+## 13. GAS-05: единый continuity policy и segment mask
+
+`tests/test_curve_continuity_policy.py`, `tests/test_gas_conditioning.py`, `tests/test_gas_curve_rendering_continuity.py` и `tests/test_tablet_gas_segment_mask.py` проверяют общий cadence policy, короткие и длинные пропуски, реальные нули, viewport/page context и явный PyQtGraph connect mask. Relative gas, Haworth, Pixler и source C1–C5 используют тот же экранный/печатный geometry path.
+
+```powershell
+python -m pytest -q tests/test_curve_continuity_policy.py tests/test_gas_conditioning.py tests/test_gas_curve_rendering_continuity.py tests/test_tablet_gas_segment_mask.py
+```
+
+## 14. Правило обновления тестов и документации
 
 Любое изменение запуска, импорта, формы, миграции, расчётного профиля, формата проекта или
 пользовательского поведения должно в одном инкременте обновлять:
@@ -335,7 +343,7 @@ wall-clock assertion не добавляется в обычный unit suite.
 показывать реально выполненные проверки. После интеграции удаляются временные ветки, patch
 workflow, trigger-файлы и artifacts.
 
-## 14. Каталоги печатных шапок и логотипов
+## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
 
