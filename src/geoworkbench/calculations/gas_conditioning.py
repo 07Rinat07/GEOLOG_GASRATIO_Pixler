@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 
 Array = NDArray[np.float64]
 BoolArray = NDArray[np.bool_]
+IntArray = NDArray[np.int64]
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +57,16 @@ class ConditionedGasComponents:
             raise KeyError(f"Газовый компонент не найден: {mnemonic}") from exc
 
 
+@dataclass(frozen=True, slots=True)
+class _PreparedAxis:
+    source: Array
+    working: Array
+    unique: Array
+    inverse: IntArray
+    nominal_step: float
+    decreasing: bool
+
+
 def _as_1d_float_array(values: Array, *, name: str) -> Array:
     array = np.asarray(values, dtype=np.float64)
     if array.ndim != 1:
@@ -63,7 +74,7 @@ def _as_1d_float_array(values: Array, *, name: str) -> Array:
     return array
 
 
-def _validate_depth(depth: Array) -> tuple[Array, float, bool]:
+def _prepare_axis(depth: Array) -> _PreparedAxis:
     axis = _as_1d_float_array(depth, name="Глубина")
     if axis.size < 2:
         raise ValueError("Для кондиционирования нужны минимум две отметки глубины")
@@ -78,33 +89,68 @@ def _validate_depth(depth: Array) -> tuple[Array, float, bool]:
             "Шкала глубины должна быть монотонной; повторяющиеся отметки разрешены"
         )
 
-    absolute_steps = np.sort(np.abs(steps[steps != 0.0]))
-    dense_half = absolute_steps[: max(1, (absolute_steps.size + 1) // 2)]
+    working = axis[::-1].copy() if decreasing else axis.copy()
+    group_starts = np.concatenate(
+        (
+            np.array([0], dtype=np.int64),
+            np.flatnonzero(working[1:] != working[:-1]).astype(np.int64) + 1,
+        )
+    )
+    unique = working[group_starts]
+    group_ends = np.concatenate(
+        (group_starts[1:], np.array([working.size], dtype=np.int64))
+    )
+    group_counts = group_ends - group_starts
+    inverse = np.repeat(
+        np.arange(unique.size, dtype=np.int64),
+        group_counts,
+    )
+
+    unique_steps = np.diff(unique)
+    positive_steps = np.sort(unique_steps[unique_steps > 0.0])
+    if positive_steps.size == 0:
+        raise ValueError("Не удалось определить положительный шаг глубины")
+    dense_half = positive_steps[: max(1, (positive_steps.size + 1) // 2)]
     nominal_step = float(np.median(dense_half))
     if not np.isfinite(nominal_step) or nominal_step <= 0.0:
         raise ValueError("Не удалось определить положительный шаг глубины")
-    return axis.copy(), nominal_step, decreasing
+
+    return _PreparedAxis(
+        source=axis.copy(),
+        working=working,
+        unique=unique,
+        inverse=inverse,
+        nominal_step=nominal_step,
+        decreasing=decreasing,
+    )
 
 
-def _collapse_duplicate_axis(axis: Array, values: Array) -> tuple[Array, Array, NDArray[np.int64]]:
-    unique_axis, inverse = np.unique(axis, return_inverse=True)
-    collapsed = np.full(unique_axis.shape, np.nan, dtype=np.float64)
-    for index in range(unique_axis.size):
-        group = values[inverse == index]
-        finite = group[np.isfinite(group)]
-        if finite.size:
-            collapsed[index] = float(np.mean(finite))
-    return unique_axis, collapsed, inverse.astype(np.int64, copy=False)
+def _collapse_values(values: Array, inverse: IntArray, unique_size: int) -> Array:
+    finite = np.isfinite(values)
+    collapsed = np.full(unique_size, np.nan, dtype=np.float64)
+    if not np.any(finite):
+        return collapsed
+
+    sums = np.bincount(
+        inverse[finite],
+        weights=values[finite],
+        minlength=unique_size,
+    ).astype(np.float64, copy=False)
+    counts = np.bincount(
+        inverse[finite],
+        minlength=unique_size,
+    ).astype(np.int64, copy=False)
+    np.divide(sums, counts, out=collapsed, where=counts > 0)
+    return collapsed
 
 
 def _component_gap_limit(
-    depth: Array,
-    values: Array,
+    unique_depth: Array,
+    collapsed_values: Array,
     *,
     nominal_depth_step: float,
     policy: GasConditioningPolicy,
 ) -> float | None:
-    unique_depth, collapsed_values, _ = _collapse_duplicate_axis(depth, values)
     finite_positions = np.flatnonzero(np.isfinite(collapsed_values))
     if finite_positions.size < policy.minimum_finite_samples:
         return None
@@ -133,10 +179,8 @@ def _interpolate_unique_axis(
     source: Array,
     *,
     max_gap: float,
-) -> tuple[Array, BoolArray]:
+) -> Array:
     output = source.copy()
-    output[~np.isfinite(output)] = np.nan
-    interpolated = np.zeros(output.shape, dtype=np.bool_)
     finite_positions = np.flatnonzero(np.isfinite(output))
 
     for left, right in zip(finite_positions[:-1], finite_positions[1:], strict=True):
@@ -160,11 +204,21 @@ def _interpolate_unique_axis(
         interior_values = output[interior]
         interior_values[missing] = interpolated_values[missing]
         output[interior] = interior_values
-        mask_values = interpolated[interior]
-        mask_values[missing] = True
-        interpolated[interior] = mask_values
 
-    return output, interpolated
+    return output
+
+
+def _expand_conditioned_values(
+    source: Array,
+    conditioned_unique: Array,
+    inverse: IntArray,
+) -> tuple[Array, BoolArray]:
+    output = source.copy()
+    output[~np.isfinite(output)] = np.nan
+    replacement = conditioned_unique[inverse]
+    fillable = ~np.isfinite(output) & np.isfinite(replacement)
+    output[fillable] = replacement[fillable]
+    return output, fillable.astype(np.bool_, copy=False)
 
 
 def interpolate_bounded_gaps(
@@ -180,34 +234,32 @@ def interpolate_bounded_gaps(
     finite measurements are eligible; long outages and edge holes remain gaps.
     """
 
-    axis, _, decreasing = _validate_depth(depth)
+    prepared = _prepare_axis(depth)
     source = _as_1d_float_array(values, name="Газовый компонент")
-    if axis.shape != source.shape:
+    if prepared.source.shape != source.shape:
         raise ValueError("Глубина и газовый компонент должны иметь одинаковую длину")
     if not np.isfinite(max_gap) or max_gap <= 0.0:
         raise ValueError("max_gap должен быть положительным конечным числом")
 
-    working_axis = axis[::-1] if decreasing else axis
-    working_source = source[::-1] if decreasing else source
-    unique_axis, collapsed_source, inverse = _collapse_duplicate_axis(
-        working_axis, working_source
+    working_source = source[::-1] if prepared.decreasing else source
+    normalized_source = working_source.astype(np.float64, copy=True)
+    normalized_source[~np.isfinite(normalized_source)] = np.nan
+    collapsed = _collapse_values(
+        normalized_source,
+        prepared.inverse,
+        prepared.unique.size,
     )
-    conditioned_unique, _ = _interpolate_unique_axis(
-        unique_axis,
-        collapsed_source,
+    conditioned_unique = _interpolate_unique_axis(
+        prepared.unique,
+        collapsed,
         max_gap=max_gap,
     )
-
-    output = working_source.copy()
-    output[~np.isfinite(output)] = np.nan
-    interpolated = np.zeros(output.shape, dtype=np.bool_)
-    missing = ~np.isfinite(output)
-    replacement = conditioned_unique[inverse]
-    fillable = missing & np.isfinite(replacement)
-    output[fillable] = replacement[fillable]
-    interpolated[fillable] = True
-
-    if decreasing:
+    output, interpolated = _expand_conditioned_values(
+        normalized_source,
+        conditioned_unique,
+        prepared.inverse,
+    )
+    if prepared.decreasing:
         return output[::-1].copy(), interpolated[::-1].copy()
     return output, interpolated
 
@@ -220,15 +272,15 @@ def condition_gas_components(
 ) -> ConditionedGasComponents:
     """Condition C1–C5 style channels on one immutable common depth basis.
 
-    Source arrays are never mutated. Mnemonics are normalized to upper case and
-    case-insensitive duplicates are rejected to keep the result auditable.
+    Complexity is O(N × C), where C is the small number of gas components.
+    Axis grouping is prepared once and reused for all components. Source arrays
+    are never mutated; case-insensitive duplicate mnemonics are rejected.
     """
 
     if not components:
         raise ValueError("Не переданы газовые компоненты")
     resolved_policy = policy or GasConditioningPolicy()
-    axis, nominal_depth_step, decreasing = _validate_depth(depth)
-    working_axis = axis[::-1] if decreasing else axis
+    prepared = _prepare_axis(depth)
 
     normalized: dict[str, Array] = {}
     for mnemonic, values in components.items():
@@ -238,42 +290,62 @@ def condition_gas_components(
         if key in normalized:
             raise ValueError(f"Дублирующаяся мнемоника газового компонента: {key}")
         array = _as_1d_float_array(values, name=f"Компонент {key}")
-        if array.shape != axis.shape:
+        if array.shape != prepared.source.shape:
             raise ValueError(
-                f"Компонент {key} имеет длину {array.size}, ожидалась {axis.size}"
+                f"Компонент {key} имеет длину {array.size}, "
+                f"ожидалась {prepared.source.size}"
             )
-        copied = array.copy()
+        copied = array.astype(np.float64, copy=True)
         copied[~np.isfinite(copied)] = np.nan
         normalized[key] = copied
 
     conditioned: dict[str, Array] = {}
     masks: dict[str, BoolArray] = {}
     limits: dict[str, float | None] = {}
-    for mnemonic, values in normalized.items():
-        working_values = values[::-1] if decreasing else values
-        limit = _component_gap_limit(
-            working_axis,
+    for mnemonic, source_values in normalized.items():
+        working_values = (
+            source_values[::-1]
+            if prepared.decreasing
+            else source_values
+        )
+        collapsed = _collapse_values(
             working_values,
-            nominal_depth_step=nominal_depth_step,
+            prepared.inverse,
+            prepared.unique.size,
+        )
+        limit = _component_gap_limit(
+            prepared.unique,
+            collapsed,
+            nominal_depth_step=prepared.nominal_step,
             policy=resolved_policy,
         )
         limits[mnemonic] = limit
         if limit is None:
-            conditioned[mnemonic] = values.copy()
-            masks[mnemonic] = np.zeros(values.shape, dtype=np.bool_)
+            conditioned[mnemonic] = source_values.copy()
+            masks[mnemonic] = np.zeros(source_values.shape, dtype=np.bool_)
             continue
-        conditioned_values, interpolation_mask = interpolate_bounded_gaps(
-            axis,
-            values,
+
+        conditioned_unique = _interpolate_unique_axis(
+            prepared.unique,
+            collapsed,
             max_gap=limit,
         )
-        conditioned[mnemonic] = conditioned_values
-        masks[mnemonic] = interpolation_mask
+        working_output, working_mask = _expand_conditioned_values(
+            working_values,
+            conditioned_unique,
+            prepared.inverse,
+        )
+        if prepared.decreasing:
+            conditioned[mnemonic] = working_output[::-1].copy()
+            masks[mnemonic] = working_mask[::-1].copy()
+        else:
+            conditioned[mnemonic] = working_output
+            masks[mnemonic] = working_mask
 
     return ConditionedGasComponents(
-        depth=axis,
+        depth=prepared.source,
         components=conditioned,
         interpolated_masks=masks,
         max_gap_by_component=limits,
-        nominal_depth_step=nominal_depth_step,
+        nominal_depth_step=prepared.nominal_step,
     )
