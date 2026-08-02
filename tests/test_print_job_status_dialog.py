@@ -77,6 +77,24 @@ def test_failed_status_never_marks_document_ready(qapp, tmp_path) -> None:
     assert "Недостаточно места" in dialog.detail_label.text()
     assert dialog.close_button.isEnabled()
     assert not dialog.open_button.isEnabled()
+    assert dialog.folder_button.isEnabled()
+    dialog.close()
+
+
+def test_failed_file_status_can_open_destination_folder(qapp, tmp_path) -> None:
+    target = tmp_path / "failed.pdf"
+    shown_folders: list[Path] = []
+    dialog = PrintJobStatusDialog(
+        language=AppLanguage.RU,
+        output_format=PrintOutputFormat.PDF,
+        target=target,
+        open_folder_callback=lambda path: not shown_folders.append(path),
+    )
+
+    dialog.mark_failed("Ошибка рендера")
+    dialog.folder_button.click()
+
+    assert shown_folders == [tmp_path]
     dialog.close()
 
 
@@ -94,6 +112,7 @@ def test_missing_export_file_is_not_reported_as_ready(qapp, tmp_path) -> None:
     assert "не готов" in dialog.status_label.text()
     assert "не найден" in dialog.detail_label.text()
     assert not dialog.open_button.isEnabled()
+    assert dialog.folder_button.isEnabled()
     dialog.close()
 
 
@@ -126,6 +145,19 @@ def test_windows_show_in_folder_selects_completed_file(qapp, tmp_path, monkeypat
 
     assert PrintJobStatusDialog._reveal_path(target) is True
     assert launches == [("explorer.exe", ["/select,", str(target.resolve())])]
+
+
+def test_windows_show_in_folder_opens_existing_directory(qapp, tmp_path, monkeypatch) -> None:
+    launches: list[tuple[str, list[str]]] = []
+    monkeypatch.setattr(status_dialog_module.sys, "platform", "win32")
+    monkeypatch.setattr(
+        status_dialog_module,
+        "_start_detached",
+        lambda program, arguments: not launches.append((program, arguments)),
+    )
+
+    assert PrintJobStatusDialog._reveal_path(tmp_path) is True
+    assert launches == [("explorer.exe", [str(tmp_path.resolve())])]
 
 
 def test_failed_system_open_is_visible_to_user(qapp, tmp_path, monkeypatch) -> None:
