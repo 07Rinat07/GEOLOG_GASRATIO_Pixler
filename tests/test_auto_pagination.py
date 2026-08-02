@@ -53,6 +53,7 @@ def test_auto_interval_keeps_tall_forms_at_the_current_density() -> None:
         {"current_span": 0.0},
         {"content_width_mm": 0.0},
         {"content_height_mm": 0.0},
+        {"header_band_mm": -1.0},
     ],
 )
 def test_auto_interval_rejects_invalid_geometry(overrides: dict[str, float | int]) -> None:
