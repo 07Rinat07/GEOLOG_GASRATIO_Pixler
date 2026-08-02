@@ -1,0 +1,57 @@
+diff --git a/tests/test_compact_geology_columns.py b/tests/test_compact_geology_columns.py
+index f6bca97..e7fbb4a 100644
+--- a/tests/test_compact_geology_columns.py
++++ b/tests/test_compact_geology_columns.py
+@@ -96,7 +96,7 @@ def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None
+     assert restored.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
+     assert restored.columns[1].width == 300
+     assert restored.columns[1].tracks[0].title_orientation == "horizontal"
+-    assert encoded["schema_version"] == 12
++    assert encoded["schema_version"] == 13
+     assert restored_again.columns[0].width == 60
+ 
+ 
+@@ -299,7 +299,7 @@ def test_v10_form_migration_restores_lba_horizontal_default() -> None:
+ 
+     assert restored.columns[0].title_orientation == "horizontal"
+     assert restored.columns[0].tracks[0].title_orientation == "horizontal"
+-    assert form_to_dict(restored)["schema_version"] == 12
++    assert form_to_dict(restored)["schema_version"] == 13
+ 
+ 
+ def test_rotated_title_renderer_fits_long_single_word_captions() -> None:
+diff --git a/tests/test_form_engine_models.py b/tests/test_form_engine_models.py
+index 2563c23..869b08a 100644
+--- a/tests/test_form_engine_models.py
++++ b/tests/test_form_engine_models.py
+@@ -120,7 +120,7 @@ def test_repository_saves_utf8_atomically(tmp_path) -> None:
+     assert target.exists()
+     assert restored.name == "Глубинная форма"
+     raw = json.loads(target.read_text(encoding="utf-8"))
+-    assert raw["schema_version"] == 12
++    assert raw["schema_version"] == 13
+ 
+ 
+ def test_repository_lists_and_deletes(tmp_path) -> None:
+@@ -505,7 +505,7 @@ def test_v8_form_migrates_logarithmic_bindings_to_linear_defaults() -> None:
+     assert binding.x_scale.value == "linear"
+     assert binding.x_min == 0.0
+     assert binding.x_max == 100.0
+-    assert form_to_dict(restored)["schema_version"] == 12
++    assert form_to_dict(restored)["schema_version"] == 13
+ 
+ 
+ def test_every_factory_form_binding_is_linear_by_default() -> None:
+diff --git a/tests/test_ready_form_migration_0765.py b/tests/test_ready_form_migration_0765.py
+index 647932b..b1b5c03 100644
+--- a/tests/test_ready_form_migration_0765.py
++++ b/tests/test_ready_form_migration_0765.py
+@@ -88,7 +88,7 @@ def test_confirmed_local_forms_are_promoted_and_renamed_atomically(
+     assert ready_path.exists()
+     assert not legacy_path.exists()
+     payload = json.loads(ready_path.read_text(encoding="utf-8"))
+-    assert payload["schema_version"] == 12
++    assert payload["schema_version"] == 13
+     assert payload["name"] == polished_name
+     assert payload["read_only"] is True
+     assert payload["origin"] == "factory"
