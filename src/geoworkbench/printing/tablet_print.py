@@ -36,7 +36,6 @@ def _activate_layout_tree(widget: QWidget) -> None:
         layout.activate()
 
 
-
 class TabletPrintError(RuntimeError):
     pass
 
@@ -174,7 +173,11 @@ def capture_tablet_print_snapshot(
         )
 
         if target_content_height is not None:
-            minimum_height = header_height + 240
+            # The planner already resolved an exact hidden viewport that keeps
+            # logical pixels per depth/time unit identical on every page. A
+            # former 240 px minimum enlarged the first page beyond its physical
+            # A4 band and forced QPainter to choose a different vertical scale.
+            minimum_height = header_height + 1
             desired_height = max(minimum_height, int(target_content_height))
             for _attempt in range(3):
                 current_height = max(item.widget.height() for item in rendered)
