@@ -89,7 +89,7 @@ def build_relative_gas_stack(
     # Gas channels commonly update less often than the common depth
     # index. Interpolate only short, bounded holes in each normalized
     # component. Long acquisition outages remain explicit NaN gaps.
-    for row in range(normalized.shape[0]):
+    for row in range(len(normalized)):
         normalized[row] = interpolate_short_nan_gaps(
             unique_axis, normalized[row]
         )
