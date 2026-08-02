@@ -47,7 +47,7 @@ def test_every_a4_factory_fits_its_named_orientation_without_hidden_scaling() ->
 
 def test_complex_gas_factory_contains_all_requested_gas_groups() -> None:
     form = a4_factory_templates("ru")["factory-complex-gas-a4-landscape"]
-    titles = [column.title for column in form.columns]
+    titles = [column.title for column in form.columns if column.visible]
     canonical_ids = {
         binding.canonical_parameter_id
         for column in form.columns
@@ -55,14 +55,28 @@ def test_complex_gas_factory_contains_all_requested_gas_groups() -> None:
         for binding in track.bindings
     }
 
-    assert titles[:5] == [
+    assert titles == [
         "Глубина",
-        "Абсолютные газы C1–C5",
-        "Нормализованный газ",
-        "Относительные коэффициенты",
+        "Абсолютные компоненты",
+        "Сумма абсолютных газов",
+        "Нормализованный суммарный газ",
+        "Нормализованные компоненты",
+        "Относительный газ",
+        "Wetness, Balance, Character и изомеры",
         "Коэффициенты Pixler",
     ]
-    assert {"TOTAL_GAS", "C1", "C2", "C3", "TG_NORM", "C1_NORM"} <= canonical_ids
+    assert {
+        "TG_CALC",
+        "C1",
+        "C2",
+        "C3",
+        "IC4",
+        "NC4",
+        "IC5",
+        "NC5",
+        "TG_NORM",
+        "C1_NORM_REF",
+    } <= canonical_ids
     assert {
         "WETNESS",
         "BALANCE",
