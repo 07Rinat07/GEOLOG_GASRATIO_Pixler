@@ -1,0 +1,333 @@
+name: Apply uniform depth scale and document header typography fix
+
+on:
+  push:
+    branches:
+      - fix/a4-header-body-adaptive-fit
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply focused print geometry fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: Path, old: str, new: str) -> None:
+              source = path.read_text(encoding="utf-8")
+              if old not in source:
+                  raise SystemExit(f"Expected fragment not found in {path}: {old[:120]!r}")
+              path.write_text(source.replace(old, new, 1), encoding="utf-8")
+
+          auto = Path("src/geoworkbench/printing/auto_pagination.py")
+          source = auto.read_text(encoding="utf-8")
+          source = source.replace(
+              "_AUTO_SIMPLE_HEADER_MM = 7.0\n_AUTO_FOOTER_MM = 6.0\n_AUTO_VERTICAL_GAP_MM = 2.0\n_MIN_AUTO_BODY_HEIGHT_PX = 240\n",
+              "PRINT_SIMPLE_HEADER_MM = 7.0\nPRINT_FOOTER_MM = 6.0\nPRINT_VERTICAL_GAP_MM = 2.0\n",
+              1,
+          )
+          source = source.replace(
+              "header_band_mm: float = _AUTO_SIMPLE_HEADER_MM",
+              "header_band_mm: float = PRINT_SIMPLE_HEADER_MM",
+          )
+          source = source.replace("- _AUTO_FOOTER_MM", "- PRINT_FOOTER_MM")
+          source = source.replace("- _AUTO_VERTICAL_GAP_MM", "- PRINT_VERTICAL_GAP_MM")
+          old_first = '''    canonical_body_height = canonical_content_height_px - column_header_height_px
+    physical_ratio = min(1.0, first_body_height_mm / regular_body_height_mm)
+    first_total_height = round(canonical_body_height * physical_ratio)
+    first_body_height = max(
+        _MIN_AUTO_BODY_HEIGHT_PX,
+        first_total_height - column_header_height_px,
+    )
+    first_body_height = min(canonical_body_height, first_body_height)
+    first_units = (
+        float(regular_units_per_page)
+        * first_body_height
+        / canonical_body_height
+    )
+'''
+          new_first = '''    canonical_body_height = canonical_content_height_px - column_header_height_px
+    physical_ratio = min(1.0, first_body_height_mm / regular_body_height_mm)
+    # Preserve one exact logical-pixel-per-unit ratio across every page.  The
+    # first page has less physical height because it contains the passport and
+    # curve headers, so only its depth interval may shrink.  A former 240 px
+    # minimum enlarged the first body beyond the available paper band and made
+    # QPainter choose a smaller vertical scale than on continuation pages.
+    first_total_height = round(canonical_body_height * physical_ratio)
+    first_body_height = first_total_height - column_header_height_px
+    if first_body_height <= 0:
+        raise ValueError(
+            "Печатные шапки не оставляют места для графика на первой странице"
+        )
+    first_body_height = min(canonical_body_height, first_body_height)
+    first_units = (
+        float(regular_units_per_page)
+        * first_body_height
+        / canonical_body_height
+    )
+'''
+          if old_first not in source:
+              raise SystemExit("Expected first-page geometry block not found")
+          source = source.replace(old_first, new_first, 1)
+          auto.write_text(source, encoding="utf-8")
+
+          tablet = Path("src/geoworkbench/printing/tablet_print.py")
+          replace_once(
+              tablet,
+              '''            minimum_height = header_height + 240
+            desired_height = max(minimum_height, int(target_content_height))
+''',
+              '''            # The planner already resolved the exact hidden viewport that
+            # preserves pixels-per-unit.  Do not impose a 240 px body minimum:
+            # it makes the first page taller than its physical A4 band and
+            # forces a different vertical scale from continuation pages.
+            minimum_height = header_height + 1
+            desired_height = max(minimum_height, int(target_content_height))
+''',
+          )
+
+          renderer = Path("src/geoworkbench/printing/document_renderer.py")
+          source = renderer.read_text(encoding="utf-8")
+          source = source.replace(
+              '''from geoworkbench.printing.auto_pagination import (
+    automatic_tablet_first_page_geometry,
+    automatic_tablet_page_geometry,
+    printable_tablet_body_height_mm,
+)
+''',
+              '''from geoworkbench.printing.auto_pagination import (
+    PRINT_FOOTER_MM,
+    PRINT_SIMPLE_HEADER_MM,
+    PRINT_VERTICAL_GAP_MM,
+    automatic_tablet_first_page_geometry,
+    automatic_tablet_page_geometry,
+    printable_tablet_body_height_mm,
+)
+''',
+              1,
+          )
+          source = source.replace(
+              '''                else 7.0
+            )
+            first_header_band_mm = full_header_band_mm or 7.0
+''',
+              '''                else PRINT_SIMPLE_HEADER_MM
+            )
+            first_header_band_mm = full_header_band_mm or PRINT_SIMPLE_HEADER_MM
+''',
+              1,
+          )
+          source = source.replace(
+              '''    simple_header_height, footer_height = _band_heights(painter, page_rect)
+    paint_full_header = _should_paint_full_header(job, page, context)
+''',
+              '''    simple_header_height, footer_height = _band_heights(painter, page_rect)
+    vertical_gap = _vertical_gap_height(painter)
+    paint_full_header = _should_paint_full_header(job, page, context)
+''',
+              1,
+          )
+          source = source.replace(
+              '''    body = QRectF(
+        page_rect.left(),
+        header.bottom() + 2.0,
+        page_rect.width(),
+        max(1.0, footer.top() - header.bottom() - 4.0),
+    )
+''',
+              '''    body = QRectF(
+        page_rect.left(),
+        header.bottom() + vertical_gap / 2.0,
+        page_rect.width(),
+        max(1.0, footer.top() - header.bottom() - vertical_gap),
+    )
+''',
+              1,
+          )
+          marker = '''def _band_heights(painter: QPainter, page_rect: QRectF) -> tuple[float, float]:
+'''
+          helper = '''def _vertical_gap_height(painter: QPainter) -> float:
+    """Return the same physical inter-band gap used by pagination planning."""
+
+    dpi = max(72, painter.device().logicalDpiY()) if painter.device() is not None else 96
+    return PRINT_VERTICAL_GAP_MM * dpi / 25.4
+
+
+'''
+          if marker not in source:
+              raise SystemExit("Band-height marker not found")
+          source = source.replace(marker, helper + marker, 1)
+          source = source.replace(
+              '''    header = max(7.0 * millimeter, page_rect.height() * 0.025)
+    footer = max(6.0 * millimeter, page_rect.height() * 0.020)
+''',
+              '''    header = max(PRINT_SIMPLE_HEADER_MM * millimeter, page_rect.height() * 0.025)
+    footer = max(PRINT_FOOTER_MM * millimeter, page_rect.height() * 0.020)
+''',
+              1,
+          )
+          renderer.write_text(source, encoding="utf-8")
+
+          masterlog = Path("src/geoworkbench/printing/masterlog_renderer.py")
+          source = masterlog.read_text(encoding="utf-8")
+          anchor = '''def _set_scaled_font_points(painter: QPainter, font: QFont, size_points: float) -> None:
+    """Set a conventional final point size on the scaled Masterlog canvas."""
+    _set_scaled_font_mm(painter, font, float(size_points) * 25.4 / 72.0)
+
+
+'''
+          replacement = anchor + '''_PRINT_HEADER_FONT_SCALE = 1.28
+
+
+'''
+          if anchor not in source:
+              raise SystemExit("Font helper anchor not found")
+          source = source.replace(anchor, replacement, 1)
+          source = source.replace(
+              '''    lithotype_catalog: dict[str, CatalogLithotype],
+) -> None:
+''',
+              '''    lithotype_catalog: dict[str, CatalogLithotype],
+    *,
+    font_scale: float = 1.0,
+) -> None:
+''',
+              1,
+          )
+          source = source.replace(
+              '''    font = QFont()
+    font.setBold(element.properties.get("bold") is True)
+    _set_scaled_font_mm(painter, font, max(1.0, min(font_size, 50.0)))
+''',
+              '''    font = QFont()
+    font.setBold(element.properties.get("bold") is True)
+    effective_scale = (
+        float(font_scale)
+        if isinstance(font_scale, (int, float))
+        and not isinstance(font_scale, bool)
+        and isfinite(float(font_scale))
+        and float(font_scale) > 0.0
+        else 1.0
+    )
+    scaled_font_size = max(
+        1.0,
+        min(font_size * effective_scale, max(1.0, rect.height() * 0.82), 50.0),
+    )
+    _set_scaled_font_mm(painter, font, scaled_font_size)
+''',
+              1,
+          )
+          header_start = source.index("def paint_masterlog_header(")
+          header_end = source.index("\n\ndef export_masterlog_pdf", header_start)
+          prefix, header_block, suffix = (
+              source[:header_start],
+              source[header_start:header_end],
+              source[header_end:],
+          )
+          old_call = '''                language,
+                lithotype_catalog,
+            )
+'''
+          new_call = '''                language,
+                lithotype_catalog,
+                font_scale=_PRINT_HEADER_FONT_SCALE,
+            )
+'''
+          if old_call not in header_block:
+              raise SystemExit("Header element call not found in paint_masterlog_header")
+          header_block = header_block.replace(old_call, new_call, 1)
+          masterlog.write_text(prefix + header_block + suffix, encoding="utf-8")
+
+          tests = Path("tests/test_auto_pagination.py")
+          test_source = tests.read_text(encoding="utf-8")
+          addition = '''
+
+def test_first_page_preserves_exact_vertical_density_without_minimum_body_clamp() -> None:
+    geometry = automatic_tablet_first_page_geometry(
+        canonical_content_height_px=1000,
+        column_header_height_px=300,
+        regular_units_per_page=200.0,
+        regular_body_height_mm=175.0,
+        first_body_height_mm=87.5,
+    )
+
+    canonical_body = 700
+    first_body = geometry.target_content_height_px - 300
+    assert geometry.target_content_height_px == 350
+    assert geometry.units_per_page == pytest.approx(200.0 * 50.0 / canonical_body)
+    assert first_body / geometry.units_per_page == pytest.approx(
+        canonical_body / 200.0
+    )
+
+
+def test_first_page_rejects_headers_that_leave_no_graph_body() -> None:
+    with pytest.raises(ValueError, match="не оставляют места"):
+        automatic_tablet_first_page_geometry(
+            canonical_content_height_px=1000,
+            column_header_height_px=400,
+            regular_units_per_page=200.0,
+            regular_body_height_mm=175.0,
+            first_body_height_mm=50.0,
+        )
+'''
+          if "test_first_page_preserves_exact_vertical_density_without_minimum_body_clamp" not in test_source:
+              tests.write_text(test_source + addition, encoding="utf-8")
+
+          source_test = Path("tests/test_uniform_print_density_source.py")
+          source_test.write_text(
+              '''from pathlib import Path
+
+
+def test_renderer_uses_shared_physical_gap_contract() -> None:
+    source = Path("src/geoworkbench/printing/document_renderer.py").read_text(
+        encoding="utf-8"
+    )
+    assert "vertical_gap = _vertical_gap_height(painter)" in source
+    assert "header.bottom() + vertical_gap / 2.0" in source
+    assert "footer.top() - header.bottom() - vertical_gap" in source
+    assert "header.bottom() + 2.0" not in source
+
+
+def test_hidden_print_viewport_does_not_force_240_pixel_body() -> None:
+    source = Path("src/geoworkbench/printing/tablet_print.py").read_text(
+        encoding="utf-8"
+    )
+    assert "minimum_height = header_height + 1" in source
+    assert "minimum_height = header_height + 240" not in source
+
+
+def test_reusable_document_header_uses_print_only_font_scale() -> None:
+    source = Path("src/geoworkbench/printing/masterlog_renderer.py").read_text(
+        encoding="utf-8"
+    )
+    assert "_PRINT_HEADER_FONT_SCALE = 1.28" in source
+    assert "font_scale=_PRINT_HEADER_FONT_SCALE" in source
+    assert "font_size * effective_scale" in source
+''',
+              encoding="utf-8",
+          )
+
+          Path(".github/workflows/agent-uniform-depth-header.yml").unlink()
+          PY
+
+          python -m compileall -q src tests tools scripts
+          git diff --check
+
+      - name: Commit focused fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: preserve one depth scale and enlarge document header text"
+          git push origin HEAD:fix/a4-header-body-adaptive-fit
