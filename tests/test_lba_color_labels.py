@@ -41,3 +41,20 @@ def test_masterlog_inspection_preserves_human_readable_colour_text() -> None:
     assert '(sample.lba_color or "").strip()' in source
     assert '(sample.lba_cut_color or "").strip()' in source
     assert '(sample.lba_residue_color or "").strip()' in source
+
+
+def test_tablet_keeps_readable_lba_text_outside_compact_colour_cell() -> None:
+    root = Path(__file__).resolve().parents[1]
+    source = (
+        root / "src/geoworkbench/tablet/tablet_view.py"
+    ).read_text(encoding="utf-8")
+
+    # Only the narrow graphics cell may normalize a full colour label to its
+    # compact code. Cursor summaries and detailed tooltips preserve user text.
+    assert source.count("lba_color_code(sample.lba_color)") == 1
+    assert "lba_color_code(sample.lba_cut_color)" not in source
+    assert "lba_color_code(sample.lba_residue_color)" not in source
+    assert "lba_color_code(tablet." not in source
+    assert "self._localizer.text('tablet.lba_color')" in source
+    assert "self._localizer.text('tablet.lba_cut_color')" in source
+    assert "self._localizer.text('tablet.lba_residue_color')" in source
