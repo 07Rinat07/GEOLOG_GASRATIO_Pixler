@@ -1,0 +1,57 @@
+name: Apply uniform print density and header typography fix
+
+on:
+  push:
+    branches:
+      - fix/a4-header-body-adaptive-fit
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply focused print fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          tablet = Path("src/geoworkbench/printing/tablet_print.py")
+          source = tablet.read_text(encoding="utf-8")
+          old = '''        scale = min(horizontal_scale, vertical_scale)\n        rendered_width = snapshot.layout.total_width * scale\n        rendered_height = logical_content_height * scale\n        x = page.left() + (page.width() - rendered_width) / 2.0\n        y = page.top() + (page.height() - rendered_height) / 2.0\n'''
+          new = '''        # FIT uses one document-wide horizontal scale.  The pagination planner\n        # varies the depth interval on the first/last pages so their logical\n        # body heights fit the available bands; choosing a second scale from\n        # page height would make the grid pitch differ between page 1 and the\n        # continuation pages.\n        scale = horizontal_scale\n        rendered_width = snapshot.layout.total_width * scale\n        rendered_height = logical_content_height * scale\n        if rendered_height > page.height() + 2.0:\n            raise TabletPrintError(\n                "Печатная форма выше рассчитанной области страницы; "\n                "автоматическая пагинация нарушила единый масштаб"\n            )\n        x = page.left() + (page.width() - rendered_width) / 2.0\n        # Top alignment preserves the canonical pixels-per-unit density and\n        # leaves unused space only below a partial final page.\n        y = page.top()\n'''
+          if old not in source:
+              raise SystemExit("tablet_print FIT scale block not found")
+          tablet.write_text(source.replace(old, new, 1), encoding="utf-8")
+
+          renderer = Path("src/geoworkbench/printing/document_renderer.py")
+          source = renderer.read_text(encoding="utf-8")
+          old = "_DOCUMENT_HEADER_FONT_SCALE = 1.28\n"
+          new = "_DOCUMENT_HEADER_FONT_SCALE = 1.60\n"
+          if old not in source:
+              raise SystemExit("document header font scale constant not found")
+          renderer.write_text(source.replace(old, new, 1), encoding="utf-8")
+
+          test = Path("tests/test_uniform_page_density_and_header_font.py")
+          test.write_text('''from pathlib import Path\n\n\ndef test_fit_print_uses_one_horizontal_scale_on_every_page() -> None:\n    source = Path("src/geoworkbench/printing/tablet_print.py").read_text(encoding="utf-8")\n\n    assert "scale = horizontal_scale" in source\n    assert "scale = min(horizontal_scale, vertical_scale)" not in source\n    assert "y = page.top()" in source\n    assert "автоматическая пагинация нарушила единый масштаб" in source\n\n\ndef test_document_passport_uses_larger_print_only_typography() -> None:\n    source = Path("src/geoworkbench/printing/document_renderer.py").read_text(encoding="utf-8")\n\n    assert "_DOCUMENT_HEADER_FONT_SCALE = 1.60" in source\n    assert "prepared = deepcopy(template)" in source\n    assert 'element.properties["font_size_mm"]' in source\n''', encoding="utf-8")
+
+          Path(".github/workflows/agent-uniform-density-header-font.yml").unlink()
+          PY
+          python -m compileall -q src tests tools
+          git diff --check
+
+      - name: Commit focused fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: keep uniform print density and enlarge passport header"
+          git push origin HEAD:fix/a4-header-body-adaptive-fit
