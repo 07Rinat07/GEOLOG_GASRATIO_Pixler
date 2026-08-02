@@ -5,13 +5,20 @@ import numpy as np
 from geoworkbench.tablet.geometry_cache import (
     CurveGeometryCache,
     CurveGeometryKey,
+    is_gas_curve_id,
 )
 from geoworkbench.tablet.relative_gas import build_relative_gas_stack
 from geoworkbench.tablet.sampling import select_visible_samples
 from geoworkbench.tablet.tablet_view import CurveHeaderLabel
 
 
-def _geometry_key(curve_id: str, top: float, bottom: float) -> CurveGeometryKey:
+def _geometry_key(
+    curve_id: str,
+    top: float,
+    bottom: float,
+    *,
+    positive_values_only: bool = False,
+) -> CurveGeometryKey:
     return CurveGeometryKey(
         curve_id=curve_id,
         axis_id="depth",
@@ -20,7 +27,7 @@ def _geometry_key(curve_id: str, top: float, bottom: float) -> CurveGeometryKey:
         top=top,
         bottom=bottom,
         max_points=256,
-        positive_values_only=False,
+        positive_values_only=positive_values_only,
     )
 
 
@@ -30,6 +37,25 @@ def _value_at(
     matches = np.flatnonzero(np.isclose(sampled_axis, axis_value))
     assert matches.size == 1
     return float(sampled_values[int(matches[0])])
+
+
+def test_sparse_continuity_policy_is_limited_to_gas_curves() -> None:
+    gas_ids = (
+        "C1",
+        "IC4",
+        "TOTAL_GAS",
+        "TG_CALC",
+        "C1_REL",
+        "C1_NORM_REF",
+        "WETNESS",
+        "IC4_NC4",
+        "PIXLER_C1_C2",
+    )
+
+    assert all(is_gas_curve_id(curve_id) for curve_id in gas_ids)
+    assert not is_gas_curve_id("ROP")
+    assert not is_gas_curve_id("GR")
+    assert not is_gas_curve_id("DEXP")
 
 
 def test_relative_gas_print_header_uses_same_compact_font_as_rulers(qapp) -> None:
@@ -72,6 +98,22 @@ def test_gas_geometry_bridges_short_sparse_updates_but_keeps_long_outage() -> No
     assert _value_at(sampled_axis, sampled_values, 1.0) == 11.0
     assert _value_at(sampled_axis, sampled_values, 2.0) == 12.0
     assert np.isnan(_value_at(sampled_axis, sampled_values, 10.0))
+
+
+def test_logarithmic_gas_keeps_explicit_zero_as_a_break() -> None:
+    axis = np.arange(0.0, 5.0)
+    values = np.array([1.0, np.nan, 0.0, np.nan, 100.0])
+    cache = CurveGeometryCache()
+
+    sampled_values, sampled_axis = cache.get_or_build(
+        _geometry_key("PIXLER_C1_C2", 0.0, 4.0, positive_values_only=True),
+        axis,
+        values,
+    )
+
+    assert np.isnan(_value_at(sampled_axis, sampled_values, 2.0))
+    assert np.isfinite(_value_at(sampled_axis, sampled_values, 1.0))
+    assert np.isfinite(_value_at(sampled_axis, sampled_values, 3.0))
 
 
 def test_non_gas_geometry_keeps_the_original_gap_policy() -> None:
