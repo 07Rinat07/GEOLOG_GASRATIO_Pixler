@@ -16,9 +16,14 @@ from geoworkbench.tablet.models import (
     compact_track_title_position,
     compact_track_width,
 )
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerMode,
+    VerticalRulerScaleSettings,
+    VerticalRulerTrackSettings,
+)
 
 
-LAYOUT_FORMAT_VERSION = 21
+LAYOUT_FORMAT_VERSION = 22
 
 
 class TabletLayoutFormatError(ValueError):
@@ -34,6 +39,10 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
         "vertical_index_id": layout.vertical_index_id,
         "annotation_scope_id": layout.annotation_scope_id,
         "localize_factory_labels": layout.localize_factory_labels,
+        "vertical_ruler_scale": {
+            "major_step": layout.vertical_ruler_scale.major_step,
+            "minor_divisions": layout.vertical_ruler_scale.minor_divisions,
+        },
         "tracks": [
             {
                 "track_id": track.track_id,
@@ -42,6 +51,18 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                 "title_orientation": track.title_orientation,
                 "title_position": track.title_position,
                 "show_interval_labels": track.show_interval_labels,
+                "vertical_ruler": {
+                    "mode": track.vertical_ruler.mode.value,
+                    "label_every_major": (
+                        track.vertical_ruler.label_every_major
+                    ),
+                    "major_tick_every": (
+                        track.vertical_ruler.major_tick_every
+                    ),
+                    "minor_tick_every": (
+                        track.vertical_ruler.minor_tick_every
+                    ),
+                },
                 "kind": track.kind.value,
                 "curve_mnemonics": list(track.curve_mnemonics),
                 "width": track.width,
@@ -102,6 +123,42 @@ def layout_from_dict(data: object) -> TabletLayout:
     # payloads as localizable to preserve the runtime behavior introduced in
     # 0.7.93; newly created layouts always persist their explicit choice.
     raw_localize_factory_labels = data.get("localize_factory_labels", True)
+    raw_vertical_ruler_scale = data.get("vertical_ruler_scale", {})
+    if not isinstance(raw_vertical_ruler_scale, dict):
+        raise TabletLayoutFormatError(
+            "vertical_ruler_scale должен быть JSON-объектом"
+        )
+    raw_ruler_major_step = raw_vertical_ruler_scale.get("major_step")
+    raw_ruler_minor_divisions = raw_vertical_ruler_scale.get(
+        "minor_divisions", 5
+    )
+    if raw_ruler_major_step is not None and (
+        not isinstance(raw_ruler_major_step, (int, float))
+        or isinstance(raw_ruler_major_step, bool)
+    ):
+        raise TabletLayoutFormatError(
+            "vertical_ruler_scale.major_step должен быть числом или null"
+        )
+    if (
+        not isinstance(raw_ruler_minor_divisions, int)
+        or isinstance(raw_ruler_minor_divisions, bool)
+    ):
+        raise TabletLayoutFormatError(
+            "vertical_ruler_scale.minor_divisions должен быть целым числом"
+        )
+    try:
+        vertical_ruler_scale = VerticalRulerScaleSettings(
+            major_step=(
+                float(raw_ruler_major_step)
+                if raw_ruler_major_step is not None
+                else None
+            ),
+            minor_divisions=raw_ruler_minor_divisions,
+        )
+    except ValueError as exc:
+        raise TabletLayoutFormatError(
+            "Некорректные настройки общей вертикальной шкалы"
+        ) from exc
     if raw_vertical_index_id is not None and (
         not isinstance(raw_vertical_index_id, str) or not raw_vertical_index_id.strip()
     ):
@@ -131,6 +188,7 @@ def layout_from_dict(data: object) -> TabletLayout:
             vertical_index_id=raw_vertical_index_id,
             annotation_scope_id=raw_annotation_scope_id,
             localize_factory_labels=raw_localize_factory_labels,
+            vertical_ruler_scale=vertical_ruler_scale,
         )
     except ValueError as exc:
         raise TabletLayoutFormatError("Некорректный видимый интервал глубины") from exc
@@ -153,6 +211,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
     title_orientation = data.get("title_orientation", "horizontal")
     title_position = data.get("title_position", "center")
     show_interval_labels = data.get("show_interval_labels", False)
+    raw_vertical_ruler = data.get("vertical_ruler", {})
     raw_mnemonics = data.get("curve_mnemonics", [])
     width = data.get("width", 260)
     visible = data.get("visible", True)
@@ -178,6 +237,24 @@ def _track_from_dict(data: object) -> TrackDefinition:
         raise TypeError("Настройки заголовка трека должны быть строками")
     if not isinstance(show_interval_labels, bool):
         raise TypeError("show_interval_labels должен быть логическим")
+    if not isinstance(raw_vertical_ruler, dict):
+        raise TypeError("vertical_ruler должен быть JSON-объектом")
+    vertical_ruler = VerticalRulerTrackSettings(
+        mode=VerticalRulerMode(
+            raw_vertical_ruler.get(
+                "mode", VerticalRulerMode.AUTOMATIC.value
+            )
+        ),
+        label_every_major=raw_vertical_ruler.get(
+            "label_every_major", 1
+        ),
+        major_tick_every=raw_vertical_ruler.get(
+            "major_tick_every", 1
+        ),
+        minor_tick_every=raw_vertical_ruler.get(
+            "minor_tick_every", 1
+        ),
+    )
     if not isinstance(raw_mnemonics, list) or not all(
         isinstance(item, str) for item in raw_mnemonics
     ):
@@ -248,6 +325,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         title_orientation=title_orientation,
         title_position=title_position,
         show_interval_labels=show_interval_labels,
+        vertical_ruler=vertical_ruler,
         curve_mnemonics=list(raw_mnemonics),
         width=width,
         visible=visible,
@@ -272,7 +350,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     if version == LAYOUT_FORMAT_VERSION:
         return data
     if version not in (
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
     ):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
@@ -407,6 +485,23 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
             elif str(track.get("title_orientation", "horizontal")) == "horizontal":
                 track["title_orientation"] = orientation
             track.setdefault("title_position", compact_track_title_position(kind))
+    migrated["version"] = 22
+    migrated.setdefault(
+        "vertical_ruler_scale",
+        {"major_step": None, "minor_divisions": 5},
+    )
+    if isinstance(tracks, list):
+        for track in tracks:
+            if isinstance(track, dict):
+                track.setdefault(
+                    "vertical_ruler",
+                    {
+                        "mode": VerticalRulerMode.AUTOMATIC.value,
+                        "label_every_major": 1,
+                        "major_tick_every": 1,
+                        "minor_tick_every": 1,
+                    },
+                )
     migrated["version"] = LAYOUT_FORMAT_VERSION
     return migrated
 

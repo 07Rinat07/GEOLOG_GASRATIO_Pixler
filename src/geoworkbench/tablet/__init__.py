@@ -13,6 +13,11 @@ from geoworkbench.tablet.models import (
 )
 from geoworkbench.tablet.overlay_layers import OverlayLayerKind, OverlayLayerManager
 from geoworkbench.tablet.resize import TrackResizeGesture
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerMode,
+    VerticalRulerScaleSettings,
+    VerticalRulerTrackSettings,
+)
 from geoworkbench.tablet.selection_interaction import (
     CommandStack,
     HitResult,
@@ -33,6 +38,9 @@ __all__ = [
     "TrackDefinition",
     "TrackKind",
     "TrackResizeGesture",
+    "VerticalRulerMode",
+    "VerticalRulerScaleSettings",
+    "VerticalRulerTrackSettings",
     "CommandStack",
     "HitResult",
     "SelectableKind",

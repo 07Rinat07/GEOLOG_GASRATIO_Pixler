@@ -10,6 +10,10 @@ from geoworkbench.domain.text_presentation import (
     normalize_text_orientation,
     normalize_text_vertical_position,
 )
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerScaleSettings,
+    VerticalRulerTrackSettings,
+)
 
 
 class TrackKind(StrEnum):
@@ -179,6 +183,9 @@ class TrackDefinition:
     title_orientation: str = "horizontal"
     title_position: str = "center"
     show_interval_labels: bool = False
+    vertical_ruler: VerticalRulerTrackSettings = field(
+        default_factory=VerticalRulerTrackSettings
+    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.group_title, str) or len(self.group_title.strip()) > 120:
@@ -187,6 +194,10 @@ class TrackDefinition:
         self.title_position = normalize_text_vertical_position(self.title_position)
         if not isinstance(self.show_interval_labels, bool):
             raise ValueError("show_interval_labels должен быть логическим")
+        if not isinstance(self.vertical_ruler, VerticalRulerTrackSettings):
+            raise ValueError(
+                "Настройки внутренней вертикальной шкалы имеют неверный тип"
+            )
         minimum = minimum_track_width(self.kind)
         if not minimum <= self.width <= MAX_TRACK_WIDTH:
             raise ValueError(
@@ -355,6 +366,9 @@ class TabletLayout:
     vertical_index_id: str | None = None
     annotation_scope_id: str | None = None
     localize_factory_labels: bool = False
+    vertical_ruler_scale: VerticalRulerScaleSettings = field(
+        default_factory=VerticalRulerScaleSettings
+    )
 
     def __post_init__(self) -> None:
         self._validate_visible_depth(self.visible_depth_top, self.visible_depth_bottom)
@@ -372,6 +386,10 @@ class TabletLayout:
             raise ValueError("annotation_scope_id должен быть непустой строкой до 300 символов или null")
         if not isinstance(self.localize_factory_labels, bool):
             raise ValueError("localize_factory_labels должен быть логическим")
+        if not isinstance(self.vertical_ruler_scale, VerticalRulerScaleSettings):
+            raise ValueError(
+                "Настройки общей вертикальной шкалы имеют неверный тип"
+            )
 
     def add_track(self, track: TrackDefinition, index: int | None = None) -> None:
         if any(existing.track_id == track.track_id for existing in self.tracks):
@@ -468,6 +486,31 @@ class TabletLayout:
             x_min=x_min,
             x_max=x_max,
         )
+
+    def set_track_vertical_ruler(
+        self, track_id: str, settings: VerticalRulerTrackSettings
+    ) -> bool:
+        if not isinstance(settings, VerticalRulerTrackSettings):
+            raise ValueError(
+                "Настройки внутренней вертикальной шкалы имеют неверный тип"
+            )
+        track = self.track_by_id(track_id)
+        if track.vertical_ruler == settings:
+            return False
+        track.vertical_ruler = settings
+        return True
+
+    def set_vertical_ruler_scale(
+        self, settings: VerticalRulerScaleSettings
+    ) -> bool:
+        if not isinstance(settings, VerticalRulerScaleSettings):
+            raise ValueError(
+                "Настройки общей вертикальной шкалы имеют неверный тип"
+            )
+        if self.vertical_ruler_scale == settings:
+            return False
+        self.vertical_ruler_scale = settings
+        return True
 
     @staticmethod
     def _validate_visible_depth(top: float | None, bottom: float | None) -> None:

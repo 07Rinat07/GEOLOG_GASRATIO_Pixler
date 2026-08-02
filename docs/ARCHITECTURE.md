@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.93; project=v22; form=v13; layout=v21 -->
+<!-- runtime-contract: package=0.7.93; project=v22; form=v13; layout=v22 -->
 # Архитектура
 
 Актуально на 2 августа 2026 года.
@@ -159,6 +159,8 @@ LAS/XML/adapters обязаны ограничивать bytes, elements, nestin
 
 ## Планшет и rendering
 
+`VerticalRulerLayout` является единственным источником глубинных/временных отметок для всего viewport или печатной страницы. `VerticalRulerScaleSettings` задаёт общую частоту, а `VerticalRulerTrackSettings` может только скрывать ось, подписи или часть общего набора рисок. Колонка не рассчитывает собственный шаг, значения или Y-координаты. Контракт сохраняется в tablet layout v22; старые layouts мигрируют к automatic/visible defaults.
+
 `TabletLayout` — декларативная сериализуемая модель треков, bindings, шкал, сеток и видимости.
 Общая вертикальная ось синхронизирует треки; X независим. Экран виртуализирует viewport, а
 geometry cache хранит только производную геометрию, не source arrays.
@@ -194,7 +196,7 @@ recoverable transaction staging → verify → install → commit/rollback.
 
 - project format `v22`;
 - form schema `v13`;
-- tablet layout `v21`;
+- tablet layout `v22`;
 - текущий проект — JSON плюс content-addressed `.assets`;
 - запись JSON атомарная, migration последовательная;
 - неизвестные данные не удаляются молча;

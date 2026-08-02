@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.93; project=v22; form=v13; layout=v21 -->
+<!-- runtime-contract: package=0.7.93; project=v22; form=v13; layout=v22 -->
 # Единый план проекта
 
 Актуально на 2 августа 2026 года. Это единственный канонический план проекта. Завершённые
@@ -25,7 +25,7 @@ release plan и временные планы в `docs` не создаются.
 
 ## Текущая база
 
-- пакет `0.7.93`; project `v22`; form `v13`; tablet layout `v21`;
+- пакет `0.7.93`; project `v22`; form `v13`; tablet layout `v22`;
 - desktop-модульный монолит: Python 3.11, PySide6, PyQtGraph, NumPy;
 - WITS0, WITSML 1.4.1.1, WITSML 2.x/ETP foundation, GS2/Paradox, LAS, планшет, формы,
   расчёты и отчёты реализованы;
@@ -115,6 +115,11 @@ release plan и временные планы в `docs` не создаются.
   crash recovery вместо монолитного JSON для больших проектов.
 
 ## P1 — поддерживаемая архитектура
+
+- [x] **RULER-01:** единый Qt-независимый контракт глубинных/временных отметок, общей частоты и индивидуальной видимости колонок сериализуется в tablet layout v22; layouts v1–v21 получают безопасную миграцию.
+- [ ] **RULER-02:** подключить настройки к свойствам колонки и общему планшету на RU/KK/EN, сохраняя один набор значений и Y-координат.
+- [ ] **RULER-03:** использовать тот же resolved ruler в screen, preview, PDF и printer; добавить HiDPI/page-boundary regression tests.
+- [ ] **RULER-04:** после стабилизации шкал завершить единый gas continuity/segment mask для C1–C5, relative gas, Haworth и Pixler.
 
 - [ ] **ARCH-01:** `ApplicationContext`/composition root для storage, semantic, import, report,
   credentials и audit services.
