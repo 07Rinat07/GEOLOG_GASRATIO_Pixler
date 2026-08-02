@@ -34,7 +34,7 @@ def test_form_library_text_remains_visible_with_dark_application_palette(qapp, t
         assert [group.text(0) for group in groups] == [
             "Готовые формы — глубина  (0)",
             "Готовые формы — время  (0)",
-            "Заводские формы — глубина  (4)",
+            "Заводские формы — глубина  (6)",
             "Заводские формы — время  (2)",
             "Пользовательские формы — глубина  (1)",
             "Пользовательские формы — время  (1)",
@@ -42,8 +42,8 @@ def test_form_library_text_remains_visible_with_dark_application_palette(qapp, t
         assert all(group.foreground(0).color() == QColor(Qt.GlobalColor.black) for group in groups)
 
         factory_names = [groups[2].child(index).text(0) for index in range(groups[2].childCount())]
-        assert any("Комплексная ГТИ-форма" in name for name in factory_names)
-        assert any("Gas Ratio & Pixler" in name for name in factory_names)
+        assert any("MASTERLOG" in name for name in factory_names)
+        assert any("Комплексная газовая форма" in name for name in factory_names)
         assert groups[4].child(0).text(0) == "Моя глубинная форма"
         assert groups[5].child(0).text(0) == "Моя временная форма"
         assert groups[2].child(0).foreground(0).color() == QColor(Qt.GlobalColor.black)
